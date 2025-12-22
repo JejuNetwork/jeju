@@ -41,7 +41,6 @@ const sessionMessages = new Map<
 >()
 const sessionCreatedAt = new Map<string, number>()
 
-// Cleanup expired sessions periodically
 setInterval(
   () => {
     const now = Date.now()
@@ -53,11 +52,7 @@ setInterval(
     }
   },
   60 * 60 * 1000,
-) // Run every hour
-
-// ============================================================================
-// Session helpers
-// ============================================================================
+)
 
 function createChatSession(walletAddress?: Address): {
   sessionId: string
@@ -78,7 +73,6 @@ function createChatSession(walletAddress?: Address): {
     }
   }
 
-  // Use the state manager's createSession method
   const session = stateManager.createSession(walletAddress)
   const messages: Array<{
     id: string
@@ -138,10 +132,6 @@ function getOrCreateSession(
   }
 }
 
-// ============================================================================
-// Auth helpers
-// ============================================================================
-
 function generateAuthMessage(address: Address): {
   message: string
   nonce: string
@@ -181,10 +171,6 @@ async function verifyAndConnectWallet(
   return { success: true }
 }
 
-// ============================================================================
-// Validation helpers
-// ============================================================================
-
 function validateAddress(address: string): Address {
   if (!isAddress(address)) {
     throw new Error(`Invalid address: ${address}`)
@@ -200,12 +186,6 @@ function validateSessionId(sessionId: string): string {
   return result.data
 }
 
-// ============================================================================
-// API Routes
-// ============================================================================
-
-// CORS Configuration - inherits from parent server configuration
-// In production, set OTTO_ALLOWED_ORIGINS to restrict cross-origin access
 const chatAllowedOrigins = process.env.OTTO_ALLOWED_ORIGINS?.split(',') ?? []
 
 export const chatApi = new Elysia({ prefix: '/api/chat' })
@@ -228,7 +208,6 @@ export const chatApi = new Elysia({ prefix: '/api/chat' })
     }),
   )
 
-  // Create session
   .post('/session', ({ body }) => {
     const rawBody = body ?? {}
     const SessionCreateSchema = z.object({
@@ -251,7 +230,6 @@ export const chatApi = new Elysia({ prefix: '/api/chat' })
     return { sessionId, messages }
   })
 
-  // Get session
   .get('/session/:id', ({ params, set }) => {
     const sessionIdParam = params.id
     const sessionId = validateSessionId(sessionIdParam)
@@ -272,7 +250,6 @@ export const chatApi = new Elysia({ prefix: '/api/chat' })
     }
   })
 
-  // Send message
   .post('/chat', async ({ body, request }) => {
     const rawBody = body
     const parsedBody = expectValid(ChatRequestSchema, rawBody, 'chat request')
@@ -344,7 +321,6 @@ export const chatApi = new Elysia({ prefix: '/api/chat' })
     return expectValid(ChatResponseSchema, response, 'chat response')
   })
 
-  // Auth message for signing
   .get('/auth/message', ({ query, set }) => {
     const addressParam = query.address
     if (!addressParam) {
@@ -363,7 +339,6 @@ export const chatApi = new Elysia({ prefix: '/api/chat' })
     )
   })
 
-  // Verify signature
   .post('/auth/verify', async ({ body, set }) => {
     const rawBody = body
     const parsedBody = expectValid(

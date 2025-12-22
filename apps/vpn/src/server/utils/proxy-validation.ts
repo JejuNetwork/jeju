@@ -60,7 +60,6 @@ function isPrivateIPv4(ip: string): boolean {
  * Normalize IPv6 address for comparison
  */
 function normalizeIPv6(ip: string): string {
-  // Remove brackets if present
   let normalized = ip.startsWith('[') ? ip.slice(1, -1) : ip
   normalized = normalized.toLowerCase()
 

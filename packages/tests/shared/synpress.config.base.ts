@@ -78,9 +78,7 @@ export const GLOBAL_SETUP_PATH = join(__dirname, 'global-setup.ts')
 /** Global teardown path */
 export const GLOBAL_TEARDOWN_PATH = join(__dirname, 'global-teardown.ts')
 
-// ============================================================================
 // CONFIG OPTIONS
-// ============================================================================
 
 export interface SynpressConfigOptions {
   appName: string
@@ -103,9 +101,7 @@ export interface SmokeTestConfigOptions {
   timeout?: number
 }
 
-// ============================================================================
 // CONFIG FACTORIES
-// ============================================================================
 
 /**
  * Create Synpress-compatible Playwright config for wallet E2E tests
@@ -200,9 +196,7 @@ export function createSmokeTestConfig(
   })
 }
 
-// ============================================================================
 // WALLET SETUP
-// ============================================================================
 
 export interface WalletSetupOptions {
   seedPhrase?: string
@@ -262,8 +256,6 @@ export function createWalletSetup(
   }
 }
 
-// ============================================================================
 // EXPORTS
-// ============================================================================
 
 export default createSynpressConfig

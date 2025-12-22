@@ -14,10 +14,10 @@ import { z } from 'zod'
 // Schema for address extraction from request body
 const AddressBodySchema = z
   .object({
-    address: z.string().optional(),
-    from: z.string().optional(),
-    sender: z.string().optional(),
-    agentOwner: z.string().optional(),
+    address: z.string().nullable(),
+    from: z.string().nullable(),
+    sender: z.string().nullable(),
+    agentOwner: z.string().nullable(),
   })
   .passthrough() // Allow other fields but only validate address-related ones
 
@@ -92,7 +92,7 @@ export function banCheckMiddleware() {
       const contentType = request.headers.get('content-type') ?? ''
       if (contentType.includes('application/json')) {
         const clonedRequest = request.clone()
-        const rawBody = await clonedRequest.json().catch(() => null)
+        const rawBody = await clonedRequest.json()
         if (rawBody !== null) {
           const parsed = AddressBodySchema.safeParse(rawBody)
           if (parsed.success) {

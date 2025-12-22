@@ -75,7 +75,14 @@ const TemplateManifestSchema = z
       })
       .passthrough()
       .optional(),
-    template: z.unknown().optional(),
+    template: z
+      .object({
+        source: z.string().optional(),
+        branch: z.string().optional(),
+        excludeFiles: z.array(z.string()).optional(),
+      })
+      .passthrough()
+      .optional(),
   })
   .passthrough()
 

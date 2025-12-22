@@ -10,9 +10,10 @@ import {
 } from '@jejunetwork/ui'
 import type { Address } from 'viem'
 
-// TODO: Get from bazaar config when available
-const PAYMASTER_FACTORY_ADDRESS =
-  '0x0000000000000000000000000000000000000000' as Address
+// Paymaster factory address from env: PUBLIC_PAYMASTER_FACTORY_ADDRESS
+const PAYMASTER_FACTORY_ADDRESS = (process.env
+  .PUBLIC_PAYMASTER_FACTORY_ADDRESS ??
+  '0x0000000000000000000000000000000000000000') as Address
 
 export type { PaymasterDeployment }
 

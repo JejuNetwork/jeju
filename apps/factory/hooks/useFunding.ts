@@ -39,8 +39,6 @@ const DEEP_FUNDING_DISTRIBUTOR_ABI = parseAbi([
   'function defaultConfig() external view returns (tuple(uint256 treasuryBps, uint256 contributorPoolBps, uint256 dependencyPoolBps, uint256 jejuBps, uint256 burnBps, uint256 reserveBps))',
 ])
 
-// ============ Config ============
-
 import { addresses } from '../config/contracts'
 
 function getAddress(): Address {
@@ -371,8 +369,6 @@ export function useDefaultFundingConfig() {
 
   return { config, isLoading, error }
 }
-
-// ============ Write Hooks ============
 
 export function useDepositFees() {
   const { writeContract, data: hash, isPending, error } = useWriteContract()

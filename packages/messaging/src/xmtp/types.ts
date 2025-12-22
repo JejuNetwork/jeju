@@ -6,8 +6,6 @@
 
 import type { Address } from 'viem'
 
-// ============ Identity Types ============
-
 export interface XMTPIdentity {
   /** Ethereum address */
   address: Address
@@ -29,8 +27,6 @@ export interface XMTPKeyBundle {
   /** Signature of the pre-key */
   preKeySignature: Uint8Array
 }
-
-// ============ Message Types ============
 
 export interface XMTPEnvelope {
   /** Version identifier */
@@ -78,8 +74,6 @@ export interface ContentType {
   versionMinor: number
 }
 
-// ============ Conversation Types ============
-
 export interface XMTPConversation {
   /** Unique conversation ID */
   id: string
@@ -101,8 +95,6 @@ export interface ConversationContext {
   /** Metadata key-value pairs */
   metadata: Record<string, string>
 }
-
-// ============ Group Types ============
 
 export interface XMTPGroup {
   /** Group ID */
@@ -134,8 +126,6 @@ export interface GroupMemberUpdate {
   timestamp: number
 }
 
-// ============ Consent Types ============
-
 export type ConsentState = 'allowed' | 'denied' | 'unknown'
 
 export interface ConsentEntry {
@@ -148,8 +138,6 @@ export interface ConsentEntry {
   /** Updated timestamp */
   updatedAt: number
 }
-
-// ============ Node Types ============
 
 export interface XMTPNodeConfig {
   /** Unique node ID */
@@ -185,8 +173,6 @@ export interface XMTPNodeStats {
   storageUsedBytes: number
 }
 
-// ============ Router Types ============
-
 export interface RouteConfig {
   /** Enable multi-region routing */
   multiRegion: boolean
@@ -212,8 +198,6 @@ export interface RouteResult {
   /** Delivery time ms */
   deliveryTimeMs?: number
 }
-
-// ============ Sync Types ============
 
 export interface SyncState {
   /** Last synced block */

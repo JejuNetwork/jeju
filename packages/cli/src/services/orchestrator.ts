@@ -41,8 +41,10 @@ import { DEFAULT_PORTS } from '../types'
 import { createInferenceServer, type LocalInferenceServer } from './inference'
 
 // Schema for contract addresses from deployment files
-// Accept any object structure - we handle the extraction in code
-const ContractAddressesSchema = z.record(z.string(), z.unknown())
+// Contract values can be either a direct address string or a nested object with address strings
+const ContractAddressValueSchema: z.ZodType<string | Record<string, string>> =
+  z.lazy(() => z.union([z.string(), z.record(z.string(), z.string())]))
+const ContractAddressesSchema = z.record(z.string(), ContractAddressValueSchema)
 
 export interface ServiceConfig {
   inference: boolean
@@ -1633,14 +1635,14 @@ class ServicesOrchestrator {
     if (git?.url) {
       // Git is part of DWS, but expose both URLs for compatibility
       env.JEJUGIT_URL = git.url
-      env.NEXT_PUBLIC_JEJUGIT_URL = git.url
+      env.PUBLIC_JEJUGIT_URL = git.url
     }
 
     const pkg = this.services.get('pkg')
     if (pkg?.url) {
       // Pkg registry is part of DWS, but expose both URLs for compatibility
       env.JEJUPKG_URL = pkg.url
-      env.NEXT_PUBLIC_JEJUPKG_URL = pkg.url
+      env.PUBLIC_JEJUPKG_URL = pkg.url
       // For npm CLI configuration (backwards compatibility)
       env.npm_config_registry = pkg.url
     }

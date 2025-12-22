@@ -1,8 +1,3 @@
-/**
- * Shared DEX utilities
- * Common calculations and helpers used across DEX adapters
- */
-
 import {
   type Connection,
   type PublicKey,

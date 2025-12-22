@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query'
 import {
   Building2,
   ExternalLink,
@@ -9,7 +10,7 @@ import {
   Settings,
   Users,
 } from 'lucide-react'
-import { type ComponentType, useCallback, useEffect, useState } from 'react'
+import { type ComponentType, useState } from 'react'
 
 // Fix for Lucide React 19 type compatibility
 const SearchIcon = Search as ComponentType<LucideProps>
@@ -42,122 +43,96 @@ interface OrganizationMember {
   joinedAt: string
 }
 
+interface GitOrg {
+  name: string
+  displayName?: string
+  description?: string
+  avatarUrl?: string
+  website?: string
+  memberCount: number
+  repoCount: number
+  createdAt: string
+  verified?: boolean
+}
+
+const GIT_SERVER_URL =
+  process.env.PUBLIC_GIT_SERVER_URL || 'http://localhost:4600'
+const NPM_REGISTRY_URL =
+  process.env.PUBLIC_NPM_REGISTRY_URL || 'http://localhost:4700'
+
+async function fetchOrganizations(): Promise<Organization[]> {
+  const gitResponse = await fetch(`${GIT_SERVER_URL}/api/organizations`, {
+    headers: { Accept: 'application/json' },
+  })
+
+  if (!gitResponse.ok) {
+    return []
+  }
+
+  const rawOrgs = await gitResponse.json()
+  const gitOrgs: GitOrg[] = Array.isArray(rawOrgs) ? rawOrgs : []
+
+  return Promise.all(
+    gitOrgs.map(async (org) => {
+      let packageCount = 0
+      const pkgResponse = await fetch(
+        `${NPM_REGISTRY_URL}/-/org/${org.name}/package`,
+      ).catch(() => null)
+
+      if (pkgResponse?.ok) {
+        const packages = await pkgResponse.json()
+        packageCount = Array.isArray(packages) ? packages.length : 0
+      }
+
+      return {
+        id: org.name,
+        name: org.name,
+        displayName: org.displayName || org.name,
+        description: org.description,
+        avatarUrl: org.avatarUrl,
+        website: org.website,
+        members: org.memberCount,
+        repositories: org.repoCount,
+        packages: packageCount,
+        createdAt: org.createdAt,
+        verified: org.verified || false,
+        reputationScore: org.verified ? 90 : 50,
+      }
+    }),
+  )
+}
+
+async function fetchOrgMembers(orgName: string): Promise<OrganizationMember[]> {
+  const response = await fetch(
+    `${GIT_SERVER_URL}/api/organizations/${orgName}/members`,
+    { headers: { Accept: 'application/json' } },
+  )
+
+  if (!response.ok) {
+    return []
+  }
+
+  const rawMembers = await response.json()
+  return Array.isArray(rawMembers) ? rawMembers : []
+}
+
 export default function OrganizationsPage() {
-  const [organizations, setOrganizations] = useState<Organization[]>([])
-  const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null)
-  const [members, setMembers] = useState<OrganizationMember[]>([])
 
-  const fetchOrganizations = useCallback(async () => {
-    setLoading(true)
+  const { data: organizations = [], isLoading: loading } = useQuery({
+    queryKey: ['organizations'],
+    queryFn: fetchOrganizations,
+  })
 
-    try {
-      // Fetch from DWS git server API
-      const gitServerUrl =
-        process.env.NEXT_PUBLIC_GIT_SERVER_URL || 'http://localhost:4600'
-      const npmRegistryUrl =
-        process.env.NEXT_PUBLIC_NPM_REGISTRY_URL || 'http://localhost:4700'
-
-      // Get organizations from git server
-      const gitResponse = await fetch(`${gitServerUrl}/api/organizations`, {
-        headers: { Accept: 'application/json' },
-      })
-
-      let orgs: Organization[] = []
-
-      if (gitResponse.ok) {
-        const rawOrgs = await gitResponse.json()
-        const gitOrgs: Array<{
-          name: string
-          displayName?: string
-          description?: string
-          avatarUrl?: string
-          website?: string
-          memberCount: number
-          repoCount: number
-          createdAt: string
-          verified?: boolean
-        }> = Array.isArray(rawOrgs) ? rawOrgs : []
-
-        // Enrich with package counts from pkg registry
-        orgs = await Promise.all(
-          gitOrgs.map(async (org) => {
-            let packageCount = 0
-            try {
-              const pkgResponse = await fetch(
-                `${npmRegistryUrl}/-/org/${org.name}/package`,
-              )
-              if (pkgResponse.ok) {
-                const packages = await pkgResponse.json()
-                packageCount = Array.isArray(packages) ? packages.length : 0
-              }
-            } catch {
-              // Continue without package count
-            }
-
-            return {
-              id: org.name,
-              name: org.name,
-              displayName: org.displayName || org.name,
-              description: org.description,
-              avatarUrl: org.avatarUrl,
-              website: org.website,
-              members: org.memberCount,
-              repositories: org.repoCount,
-              packages: packageCount,
-              createdAt: org.createdAt,
-              verified: org.verified || false,
-              reputationScore: org.verified ? 90 : 50, // Default scores based on verification
-            }
-          }),
-        )
-      }
-
-      setOrganizations(orgs)
-    } catch (error) {
-      console.error('Failed to fetch organizations:', error)
-      setOrganizations([])
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    fetchOrganizations()
-  }, [fetchOrganizations])
-
-  async function fetchOrgMembers(orgName: string) {
-    try {
-      const gitServerUrl =
-        process.env.NEXT_PUBLIC_GIT_SERVER_URL || 'http://localhost:4600'
-      const response = await fetch(
-        `${gitServerUrl}/api/organizations/${orgName}/members`,
-        {
-          headers: { Accept: 'application/json' },
-        },
-      )
-
-      if (response.ok) {
-        const rawMembers = await response.json()
-        const memberData: Array<{
-          username: string
-          role: 'owner' | 'admin' | 'member'
-          joinedAt: string
-        }> = Array.isArray(rawMembers) ? rawMembers : []
-        setMembers(memberData)
-      } else {
-        setMembers([])
-      }
-    } catch (error) {
-      console.error('Failed to fetch organization members:', error)
-      setMembers([])
-    }
-  }
+  const { data: members = [] } = useQuery({
+    queryKey: ['org-members', selectedOrg?.name],
+    queryFn: () => fetchOrgMembers(selectedOrg?.name ?? ''),
+    enabled: !!selectedOrg?.name,
+  })
 
   function selectOrg(org: Organization) {
     setSelectedOrg(org)
-    fetchOrgMembers(org.name)
   }
 
   const filteredOrgs = organizations.filter(

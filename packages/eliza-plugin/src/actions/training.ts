@@ -5,12 +5,15 @@
  * Connects Eliza agent conversations to RLAIF training infrastructure.
  */
 
-import type { Action, IAgentRuntime, Memory, State } from '@elizaos/core'
+import type {
+  Action,
+  HandlerCallback,
+  IAgentRuntime,
+  Memory,
+  State,
+} from '@elizaos/core'
 import { getDWSComputeUrl } from '@jejunetwork/config'
-
-// ============================================================================
-// Types
-// ============================================================================
+import { getOptionalMessageText } from '../validation'
 
 interface TrainingJobResponse {
   jobId: string
@@ -38,10 +41,6 @@ interface TrajectorySubmission {
   metadata?: Record<string, string | number>
 }
 
-// ============================================================================
-// Helpers
-// ============================================================================
-
 function getDWSUrl(): string {
   return process.env.DWS_URL ?? getDWSComputeUrl()
 }
@@ -51,7 +50,6 @@ async function submitTrajectoryToDWS(
 ): Promise<{ success: boolean; error?: string }> {
   const url = getDWSUrl()
 
-  // Convert to Atropos format
   const tokens = trajectory.prompt.split(' ').map((_, i) => i + 1)
 
   const response = await fetch(`${url}/training/atropos/scored_data`, {
@@ -81,13 +79,6 @@ async function submitTrajectoryToDWS(
   return { success: true }
 }
 
-// ============================================================================
-// Actions
-// ============================================================================
-
-/**
- * Submit conversation trajectory for training
- */
 export const submitTrajectory: Action = {
   name: 'SUBMIT_TRAINING_TRAJECTORY',
   description:
@@ -101,16 +92,15 @@ export const submitTrajectory: Action = {
   examples: [
     [
       {
-        user: '{{user1}}',
+        name: 'user',
         content: {
           text: 'Submit this conversation for training with reward 0.8',
         },
       },
       {
-        user: '{{agentName}}',
+        name: 'agent',
         content: {
           text: 'I have submitted this conversation to the training network with a reward score of 0.8. This will help improve model capabilities.',
-          action: 'SUBMIT_TRAINING_TRAJECTORY',
         },
       },
     ],
@@ -120,7 +110,7 @@ export const submitTrajectory: Action = {
     _runtime: IAgentRuntime,
     message: Memory,
   ): Promise<boolean> => {
-    const text = message.content?.text?.toLowerCase() ?? ''
+    const text = getOptionalMessageText(message).toLowerCase()
     return (
       text.includes('submit') &&
       (text.includes('training') || text.includes('trajectory'))
@@ -130,25 +120,18 @@ export const submitTrajectory: Action = {
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
-    state?: State,
-  ): Promise<boolean> => {
-    const text = message.content?.text ?? ''
+    _state: State | undefined,
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
+  ): Promise<void> => {
+    const text = getOptionalMessageText(message)
 
-    // Extract reward from message (e.g., "reward 0.8")
     const rewardMatch = text.match(/reward\s*([\d.]+)/i)
     const reward = rewardMatch ? parseFloat(rewardMatch[1]) : 0.5
 
-    // Get recent conversation context
-    const recentMessages = state?.recentMessages ?? []
-    const prompt = recentMessages
-      .filter((m: Memory) => m.userId !== runtime.agentId)
-      .map((m: Memory) => m.content?.text ?? '')
-      .join('\n')
-
-    const response = recentMessages
-      .filter((m: Memory) => m.userId === runtime.agentId)
-      .map((m: Memory) => m.content?.text ?? '')
-      .join('\n')
+    // Use current message as prompt for training submission
+    const prompt = text
+    const response = 'Agent response pending'
 
     const result = await submitTrajectoryToDWS({
       agentId: runtime.agentId,
@@ -162,33 +145,18 @@ export const submitTrajectory: Action = {
     })
 
     if (!result.success) {
-      await runtime.messageManager.createMemory({
-        userId: runtime.agentId,
-        agentId: runtime.agentId,
-        roomId: message.roomId,
-        content: {
-          text: `Failed to submit trajectory: ${result.error}`,
-        },
+      callback?.({
+        text: `Failed to submit trajectory: ${result.error}`,
       })
-      return false
+      return
     }
 
-    await runtime.messageManager.createMemory({
-      userId: runtime.agentId,
-      agentId: runtime.agentId,
-      roomId: message.roomId,
-      content: {
-        text: `Successfully submitted conversation trajectory with reward ${reward}. This will contribute to distributed model training.`,
-      },
+    callback?.({
+      text: `Successfully submitted conversation trajectory with reward ${reward}. This will contribute to distributed model training.`,
     })
-
-    return true
   },
 }
 
-/**
- * Check training job status
- */
 export const checkTrainingStatus: Action = {
   name: 'CHECK_TRAINING_STATUS',
   description: 'Check the status of active training jobs on the DWS network',
@@ -201,14 +169,13 @@ export const checkTrainingStatus: Action = {
   examples: [
     [
       {
-        user: '{{user1}}',
+        name: 'user',
         content: { text: 'What is the training status?' },
       },
       {
-        user: '{{agentName}}',
+        name: 'agent',
         content: {
           text: 'Let me check the training status on the DWS network.',
-          action: 'CHECK_TRAINING_STATUS',
         },
       },
     ],
@@ -218,27 +185,25 @@ export const checkTrainingStatus: Action = {
     _runtime: IAgentRuntime,
     message: Memory,
   ): Promise<boolean> => {
-    const text = message.content?.text?.toLowerCase() ?? ''
+    const text = getOptionalMessageText(message).toLowerCase()
     return text.includes('training') && text.includes('status')
   },
 
   handler: async (
-    runtime: IAgentRuntime,
-    message: Memory,
-  ): Promise<boolean> => {
+    _runtime: IAgentRuntime,
+    _message: Memory,
+    _state: State | undefined,
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
+  ): Promise<void> => {
     const url = getDWSUrl()
 
     const response = await fetch(`${url}/training/jobs`)
     if (!response.ok) {
-      await runtime.messageManager.createMemory({
-        userId: runtime.agentId,
-        agentId: runtime.agentId,
-        roomId: message.roomId,
-        content: {
-          text: 'Unable to connect to DWS training network. Please ensure the network is running.',
-        },
+      callback?.({
+        text: 'Unable to connect to DWS training network. Please ensure the network is running.',
       })
-      return false
+      return
     }
 
     const data = (await response.json()) as TrainingStatusResponse
@@ -265,20 +230,10 @@ export const checkTrainingStatus: Action = {
       statusText = `Active training jobs:\n${jobDetails}`
     }
 
-    await runtime.messageManager.createMemory({
-      userId: runtime.agentId,
-      agentId: runtime.agentId,
-      roomId: message.roomId,
-      content: { text: statusText },
-    })
-
-    return true
+    callback?.({ text: statusText })
   },
 }
 
-/**
- * Start a new training job
- */
 export const startTrainingJob: Action = {
   name: 'START_TRAINING_JOB',
   description: 'Start a new distributed training job on the DWS/Psyche network',
@@ -291,14 +246,13 @@ export const startTrainingJob: Action = {
   examples: [
     [
       {
-        user: '{{user1}}',
+        name: 'user',
         content: { text: 'Start a training job for tic-tac-toe' },
       },
       {
-        user: '{{agentName}}',
+        name: 'agent',
         content: {
           text: 'I am starting a new training job on the DWS network for tic-tac-toe.',
-          action: 'START_TRAINING_JOB',
         },
       },
     ],
@@ -308,7 +262,7 @@ export const startTrainingJob: Action = {
     _runtime: IAgentRuntime,
     message: Memory,
   ): Promise<boolean> => {
-    const text = message.content?.text?.toLowerCase() ?? ''
+    const text = getOptionalMessageText(message).toLowerCase()
     return (
       (text.includes('start') ||
         text.includes('begin') ||
@@ -320,11 +274,13 @@ export const startTrainingJob: Action = {
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
-  ): Promise<boolean> => {
+    _state: State | undefined,
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback,
+  ): Promise<void> => {
     const url = getDWSUrl()
 
-    // Extract environment from message
-    const text = message.content?.text?.toLowerCase() ?? ''
+    const text = getOptionalMessageText(message).toLowerCase()
     let environment = 'tic-tac-toe'
     if (text.includes('prediction')) environment = 'fundamental-prediction'
     if (text.includes('game')) environment = 'tic-tac-toe'
@@ -342,35 +298,19 @@ export const startTrainingJob: Action = {
     })
 
     if (!response.ok) {
-      await runtime.messageManager.createMemory({
-        userId: runtime.agentId,
-        agentId: runtime.agentId,
-        roomId: message.roomId,
-        content: {
-          text: 'Failed to start training job. The DWS network may be unavailable.',
-        },
+      callback?.({
+        text: 'Failed to start training job. The DWS network may be unavailable.',
       })
-      return false
+      return
     }
 
     const job = (await response.json()) as TrainingJobResponse
 
-    await runtime.messageManager.createMemory({
-      userId: runtime.agentId,
-      agentId: runtime.agentId,
-      roomId: message.roomId,
-      content: {
-        text: `Started training job ${job.jobId} for ${environment} environment using ${job.modelName}. The job is now ${job.status}.`,
-      },
+    callback?.({
+      text: `Started training job ${job.jobId} for ${environment} environment using ${job.modelName}. The job is now ${job.status}.`,
     })
-
-    return true
   },
 }
-
-// ============================================================================
-// Export
-// ============================================================================
 
 export const trainingActions = [
   submitTrajectory,

@@ -16,9 +16,7 @@ import { Cluster } from 'ioredis'
 import { Counter, Gauge, Histogram, Registry } from 'prom-client'
 import { z } from 'zod'
 
-// ============================================================================
 // Configuration Schema
-// ============================================================================
 
 const RedisNodeSchema = z.object({
   host: z.string(),
@@ -41,9 +39,7 @@ const RedisClusterConfigSchema = z.object({
 
 export type RedisClusterConfig = z.infer<typeof RedisClusterConfigSchema>
 
-// ============================================================================
 // Prometheus Metrics
-// ============================================================================
 
 const metricsRegistry = new Registry()
 
@@ -81,9 +77,7 @@ const redisCacheMisses = new Counter({
   registers: [metricsRegistry],
 })
 
-// ============================================================================
 // Circuit Breaker
-// ============================================================================
 
 interface CircuitBreakerState {
   failures: number
@@ -142,9 +136,7 @@ class CircuitBreaker {
   }
 }
 
-// ============================================================================
 // Redis Cluster Client
-// ============================================================================
 
 export class RedisClusterClient {
   private cluster: Cluster
@@ -748,9 +740,7 @@ const CRC16_TABLE = new Uint16Array(256)
   }
 })()
 
-// ============================================================================
 // Factory with Singleton
-// ============================================================================
 
 let instance: RedisClusterClient | null = null
 

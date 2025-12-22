@@ -1,7 +1,3 @@
-/**
- * Jupiter Aggregator Integration
- */
-
 import { expectValid } from '@jejunetwork/types'
 import {
   type Connection,

@@ -24,10 +24,6 @@ import {
 } from '../src/relayer/service.js'
 import { ChainId } from '../src/types/index.js'
 
-// =============================================================================
-// CONFIGURATION
-// =============================================================================
-
 interface OrchestratorConfig {
   mode: 'local' | 'testnet' | 'mainnet'
   components: {
@@ -161,10 +157,6 @@ const CONFIGS: Record<string, OrchestratorConfig> = {
     },
   },
 }
-
-// =============================================================================
-// ORCHESTRATOR
-// =============================================================================
 
 class Orchestrator {
   private config: OrchestratorConfig
@@ -410,10 +402,6 @@ class Orchestrator {
     )
   }
 }
-
-// =============================================================================
-// CLI
-// =============================================================================
 
 async function main(): Promise<void> {
   const { values } = parseArgs({

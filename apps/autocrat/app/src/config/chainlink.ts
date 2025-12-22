@@ -1,6 +1,6 @@
 import { type Address, parseAbi } from 'viem'
 
-const NETWORK = process.env.NEXT_PUBLIC_NETWORK || 'testnet'
+const NETWORK = process.env.PUBLIC_NETWORK || 'testnet'
 
 interface ChainlinkAddresses {
   vrfCoordinator: Address
@@ -11,21 +11,19 @@ interface ChainlinkAddresses {
 
 const ADDRESSES: Record<string, ChainlinkAddresses> = {
   testnet: {
-    vrfCoordinator: (process.env.NEXT_PUBLIC_VRF_COORDINATOR ||
+    vrfCoordinator: (process.env.PUBLIC_VRF_COORDINATOR || '0x0') as Address,
+    automationRegistry: (process.env.PUBLIC_AUTOMATION_REGISTRY ||
       '0x0') as Address,
-    automationRegistry: (process.env.NEXT_PUBLIC_AUTOMATION_REGISTRY ||
-      '0x0') as Address,
-    oracleRouter: (process.env.NEXT_PUBLIC_ORACLE_ROUTER || '0x0') as Address,
-    chainlinkGovernance: (process.env.NEXT_PUBLIC_CHAINLINK_GOVERNANCE ||
+    oracleRouter: (process.env.PUBLIC_ORACLE_ROUTER || '0x0') as Address,
+    chainlinkGovernance: (process.env.PUBLIC_CHAINLINK_GOVERNANCE ||
       '0x0') as Address,
   },
   mainnet: {
-    vrfCoordinator: (process.env.NEXT_PUBLIC_VRF_COORDINATOR ||
+    vrfCoordinator: (process.env.PUBLIC_VRF_COORDINATOR || '0x0') as Address,
+    automationRegistry: (process.env.PUBLIC_AUTOMATION_REGISTRY ||
       '0x0') as Address,
-    automationRegistry: (process.env.NEXT_PUBLIC_AUTOMATION_REGISTRY ||
-      '0x0') as Address,
-    oracleRouter: (process.env.NEXT_PUBLIC_ORACLE_ROUTER || '0x0') as Address,
-    chainlinkGovernance: (process.env.NEXT_PUBLIC_CHAINLINK_GOVERNANCE ||
+    oracleRouter: (process.env.PUBLIC_ORACLE_ROUTER || '0x0') as Address,
+    chainlinkGovernance: (process.env.PUBLIC_CHAINLINK_GOVERNANCE ||
       '0x0') as Address,
   },
 }

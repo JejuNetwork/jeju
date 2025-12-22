@@ -8,18 +8,10 @@
 import { isAddress } from 'viem'
 import { z } from 'zod'
 
-// =============================================================================
-// Address Validation
-// =============================================================================
-
 const AddressSchema = z
   .string()
   .refine(isAddress, { error: 'Invalid Ethereum address' })
   .transform((val) => val as `0x${string}`)
-
-// =============================================================================
-// JSON Value Schemas (for truly polymorphic external data)
-// =============================================================================
 
 /** Schema for JSON primitive values */
 const JsonPrimitiveSchema = z.union([
@@ -42,10 +34,6 @@ export const JsonValueSchema: z.ZodType<import('./types').JsonValue> = z.lazy(
 /** Schema for JSON objects */
 export const JsonObjectSchema = z.record(z.string(), JsonValueSchema)
 
-// =============================================================================
-// Trading Bot Schemas
-// =============================================================================
-
 export const TradingBotStrategyTypeSchema = z.enum([
   'DEX_ARBITRAGE',
   'CROSS_CHAIN_ARBITRAGE',
@@ -62,7 +50,7 @@ export const TradingBotStrategySchema = z
     minProfitBps: z.number().int().min(0).max(10000),
     maxGasGwei: z.number().int().min(1).max(10000),
     maxSlippageBps: z.number().int().min(0).max(10000),
-    cooldownMs: z.number().int().min(0).optional(),
+    cooldownMs: z.number().int().min(0).nullish(),
   })
   .strict()
 
@@ -71,91 +59,79 @@ export const TradingBotChainSchema = z
     chainId: z.number().int().min(1),
     name: z.string().min(1),
     rpcUrl: z.string().url(),
-    wsUrl: z.string().url().optional(),
+    wsUrl: z.string().url().nullish(),
     blockTime: z.number().int().min(1).max(60000),
     isL2: z.boolean(),
     nativeSymbol: z.string().min(1),
-    explorerUrl: z.string().url().optional(),
+    explorerUrl: z.string().url().nullish(),
   })
   .strict()
-
-// =============================================================================
-// Action Types Schemas
-// =============================================================================
 
 /** Schema for action parameters */
 export const ActionParamsSchema = z
   .object({
-    content: z.string().optional(),
-    target: z.string().optional(),
-    amount: z.string().optional(),
+    content: z.string().nullable(),
+    target: z.string().nullable(),
+    amount: z.string().nullable(),
   })
   .catchall(JsonValueSchema)
 
 /** Schema for action result - union of possible result types */
 export const ActionResultSchema = z.union([
   z.string(), // Transaction hash
-  z.object({ txHash: z.string(), success: z.boolean().optional() }).strict(),
-  z.object({ success: z.boolean(), error: z.string().optional() }).strict(),
+  z.object({ txHash: z.string(), success: z.boolean().nullable() }).strict(),
+  z.object({ success: z.boolean(), error: z.string().nullable() }).strict(),
   JsonObjectSchema, // Complex structured result
 ])
-
-// =============================================================================
-// State Update Schemas
-// =============================================================================
 
 // Forward declare AgentActionSchema for use in StateUpdatesSchema
 const AgentActionSchemaForStateUpdates = z
   .object({
     type: z.string(),
-    target: z.string().optional(),
-    params: ActionParamsSchema.optional(),
-    result: ActionResultSchema.optional(),
+    target: z.string().nullable(),
+    params: ActionParamsSchema.nullable(),
+    result: ActionResultSchema.nullable(),
     success: z.boolean(),
   })
   .strict()
 
 export const StateUpdatesSchema = z
   .object({
-    lastResponse: z.string().optional(),
-    lastActions: z.array(AgentActionSchemaForStateUpdates).optional(),
-    actionSuccessRate: z.number().min(0).max(1).optional(),
+    lastResponse: z.string().nullable(),
+    lastActions: z.array(AgentActionSchemaForStateUpdates).nullable(),
+    actionSuccessRate: z.number().min(0).max(1).nullable(),
   })
   .strict()
-
-// =============================================================================
-// Context and Metadata Schemas
-// =============================================================================
 
 export const LastExecutionInfoSchema = z
   .object({
     executionId: z.string(),
     timestamp: z.number(),
-    triggerId: z.string().optional(),
+    triggerId: z.string().nullish(),
   })
   .strict()
 
 /** Agent context schema - allows lastExecution plus arbitrary JSON values */
 export const AgentContextSchema = z
   .object({
-    lastExecution: LastExecutionInfoSchema.optional(),
+    lastExecution: LastExecutionInfoSchema.nullish(),
   })
   .catchall(JsonValueSchema)
 
 /** Room state metadata schema */
 export const RoomStateMetadataSchema = z
   .object({
-    topic: z.string().optional(),
-    rules: z.array(z.string()).optional(),
+    topic: z.string().nullish(),
+    rules: z.array(z.string()).nullish(),
   })
   .catchall(JsonValueSchema)
 
 /** Message metadata schema */
 export const MessageMetadataSchema = z
   .object({
-    source: z.string().optional(),
-    replyTo: z.string().optional(),
-    attachments: z.array(z.string()).optional(),
+    source: z.string().nullish(),
+    replyTo: z.string().nullish(),
+    attachments: z.array(z.string()).nullish(),
   })
   .catchall(JsonValueSchema)
 
@@ -189,11 +165,11 @@ export const AgentCharacterSchema = z
       .object({
         small: z.string(),
         large: z.string(),
-        embedding: z.string().optional(),
+        embedding: z.string().nullish(),
       })
-      .optional(),
-    mcpServers: z.array(z.string()).optional(),
-    a2aCapabilities: z.array(z.string()).optional(),
+      .nullish(),
+    mcpServers: z.array(z.string()).nullish(),
+    a2aCapabilities: z.array(z.string()).nullish(),
   })
   .strict()
 
@@ -203,7 +179,7 @@ export const RegisterAgentRequestSchema = z
     initialFunding: z
       .string()
       .regex(/^\d+$/, 'Initial funding must be a valid number string')
-      .optional(),
+      .nullable(),
   })
   .strict()
 
@@ -222,15 +198,11 @@ export const FundAgentRequestSchema = z
 export const AddMemoryRequestSchema = z
   .object({
     content: z.string().min(1, 'Memory content is required'),
-    importance: z.number().min(0).max(1).optional(),
-    roomId: z.string().optional(),
-    userId: z.string().optional(),
+    importance: z.number().min(0).max(1).nullable(),
+    roomId: z.string().nullable(),
+    userId: z.string().nullable(),
   })
   .strict()
-
-// =============================================================================
-// Room Schemas
-// =============================================================================
 
 export const RoomTypeSchema = z.enum([
   'collaboration',
@@ -268,12 +240,12 @@ export const CreateRoomRequestSchema = z
     roomType: RoomTypeSchema,
     config: z
       .object({
-        maxMembers: z.number().int().min(1).max(100).optional(),
-        turnBased: z.boolean().optional(),
-        turnTimeout: z.number().int().min(1).max(3600).optional(),
+        maxMembers: z.number().int().min(1).max(100).nullable(),
+        turnBased: z.boolean().nullable(),
+        turnTimeout: z.number().int().min(1).max(3600).nullable(),
       })
       .strict()
-      .optional(),
+      .nullable(),
   })
   .strict()
 
@@ -303,7 +275,7 @@ export const PostMessageRequestSchema = z
       .string()
       .min(1, 'Message content is required')
       .max(10000, 'Message too long'),
-    action: z.string().optional(),
+    action: z.string().nullable(),
   })
   .strict()
 
@@ -319,59 +291,51 @@ export const SetPhaseRequestSchema = z
 
 export const ExecutionInputSchema = z
   .object({
-    message: z.string().optional(),
-    roomId: z.string().optional(),
-    userId: z.string().optional(),
-    context: JsonObjectSchema.optional(),
+    message: z.string().nullish(),
+    roomId: z.string().nullish(),
+    userId: z.string().nullish(),
+    context: JsonObjectSchema.nullish(),
   })
   .strict()
 
 export const ExecutionOptionsSchema = z
   .object({
-    maxTokens: z.number().int().min(1).max(100000).optional(),
-    temperature: z.number().min(0).max(2).optional(),
-    requireTee: z.boolean().optional(),
+    maxTokens: z.number().int().min(1).max(100000).nullish(),
+    temperature: z.number().min(0).max(2).nullish(),
+    requireTee: z.boolean().nullish(),
     maxCost: z
       .string()
       .regex(/^\d+$/, 'Max cost must be a valid number string')
-      .optional(),
-    timeout: z.number().int().min(1).max(300).optional(),
+      .nullish(),
+    timeout: z.number().int().min(1).max(300).nullish(),
   })
   .strict()
 
 export const ExecuteRequestSchema = z
   .object({
     agentId: z.string().regex(/^\d+$/, 'Agent ID must be a valid number'),
-    triggerId: z.string().optional(),
+    triggerId: z.string().nullable(),
     input: ExecutionInputSchema,
-    options: ExecutionOptionsSchema.optional(),
+    options: ExecutionOptionsSchema.nullable(),
   })
   .strict()
 
-// =============================================================================
-// Search Schemas
-// =============================================================================
-
 export const AgentSearchQuerySchema = z
   .object({
-    name: z.string().optional(),
-    owner: AddressSchema.optional(),
+    name: z.string().nullable(),
+    owner: AddressSchema.nullable(),
     active: z
       .string()
-      .optional()
+      .nullable()
       .transform((val) => val === 'true'),
     limit: z
       .string()
       .regex(/^\d+$/, 'Limit must be a valid number')
       .transform(Number)
       .pipe(z.number().int().min(1).max(100))
-      .optional(),
+      .nullable(),
   })
   .strict()
-
-// =============================================================================
-// Bot Management Schemas
-// =============================================================================
 
 export const BotIdParamSchema = z
   .object({
@@ -395,14 +359,14 @@ export const A2ARequestSchema = z
             parts: z.array(
               z.object({
                 kind: z.string(),
-                text: z.string().optional(),
-                data: JsonObjectSchema.optional(),
+                text: z.string().nullable(),
+                data: JsonObjectSchema.nullable(),
               }),
             ),
           })
-          .optional(),
+          .nullable(),
       })
-      .optional(),
+      .nullable(),
     id: z.union([z.number(), z.string()]),
   })
   .strict()
@@ -418,13 +382,9 @@ export const MCPResourceReadRequestSchema = z
 export const MCPToolCallRequestSchema = z
   .object({
     name: z.string().min(1, 'Tool name is required'),
-    arguments: JsonObjectSchema.optional(),
+    arguments: JsonObjectSchema.nullable(),
   })
   .strict()
-
-// =============================================================================
-// Bot API Schemas
-// =============================================================================
 
 export const AddLiquidityRequestSchema = z
   .object({
@@ -477,7 +437,7 @@ export const QuotesParamsSchema = z
  * Use for fail-fast validation of external API responses
  */
 export function parseOrThrow<T>(
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   data: unknown,
   context?: string,
 ): T {
@@ -497,7 +457,7 @@ export function parseOrThrow<T>(
  * Safely parse JSON and validate with schema, returning null on failure
  * Use for external/streaming data that might be malformed
  */
-export function safeParse<T>(schema: z.ZodSchema<T>, data: unknown): T | null {
+export function safeParse<T>(schema: z.ZodType<T>, data: unknown): T | null {
   const result = schema.safeParse(data)
   return result.success ? result.data : null
 }
@@ -521,10 +481,6 @@ export function expectCondition(condition: boolean, message: string): void {
   }
 }
 
-// =============================================================================
-// Response Schemas (for external API responses)
-// =============================================================================
-
 export const StorageUploadResponseSchema = z
   .object({
     cid: z.string().min(1, 'CID is required'),
@@ -539,13 +495,8 @@ export const ModelsResponseSchema = z
           id: z.string(),
           name: z.string(),
           provider: z.string(),
-          // Accept both string and number for backward compatibility
-          pricePerInputToken: z
-            .union([z.string(), z.number()])
-            .transform((val) => BigInt(val)),
-          pricePerOutputToken: z
-            .union([z.string(), z.number()])
-            .transform((val) => BigInt(val)),
+          pricePerInputToken: z.string().transform((val) => BigInt(val)),
+          pricePerOutputToken: z.string().transform((val) => BigInt(val)),
           maxContextLength: z.number(),
           capabilities: z.array(z.string()),
         })
@@ -579,12 +530,12 @@ export const AgentSearchItemSchema = z.object({
   agentId: z.union([z.string(), z.number()]).transform((val) => BigInt(val)),
   owner: AddressSchema,
   name: z.string(),
-  characterCid: z.string().optional(),
+  characterCid: z.string().nullable(),
   stateCid: z.string(),
   vaultAddress: AddressSchema,
   botType: z
     .enum(['ai_agent', 'trading_bot', 'org_tool'])
-    .optional()
+    .nullable()
     .default('ai_agent'),
   active: z.boolean(),
   registeredAt: z.number(),
@@ -615,11 +566,11 @@ export const AgentStateSchema = z
         .object({
           id: z.string(),
           content: z.string(),
-          embedding: z.array(z.number()).optional(),
+          embedding: z.array(z.number()).nullish(),
           importance: z.number().min(0).max(1),
           createdAt: z.number(),
-          roomId: z.string().optional(),
-          userId: z.string().optional(),
+          roomId: z.string().nullish(),
+          userId: z.string().nullish(),
         })
         .strict(),
     ),
@@ -640,13 +591,13 @@ export const RoomStateSchema = z
           agentId: z.string(),
           content: z.string(),
           timestamp: z.number(),
-          action: z.string().optional(),
-          metadata: MessageMetadataSchema.optional(),
+          action: z.string().nullish(),
+          metadata: MessageMetadataSchema.nullish(),
         })
         .strict(),
     ),
     scores: z.record(z.string(), z.number()),
-    currentTurn: z.string().optional(),
+    currentTurn: z.string().nullish(),
     phase: z.enum(['setup', 'active', 'paused', 'completed', 'archived']),
     metadata: RoomStateMetadataSchema,
     updatedAt: z.number(),
@@ -659,24 +610,20 @@ export const AgentDefinitionSchema = z
     owner: AddressSchema,
     name: z.string(),
     botType: z.enum(['ai_agent', 'trading_bot', 'org_tool']),
-    characterCid: z.string().optional(),
+    characterCid: z.string().nullable(),
     stateCid: z.string(),
     vaultAddress: AddressSchema,
     active: z.boolean(),
     registeredAt: z.number(),
     lastExecutedAt: z.number(),
     executionCount: z.number(),
-    strategies: z.array(TradingBotStrategySchema).optional(),
-    chains: z.array(TradingBotChainSchema).optional(),
-    treasuryAddress: AddressSchema.optional(),
-    orgId: z.string().optional(),
-    capabilities: z.array(z.string()).optional(),
+    strategies: z.array(TradingBotStrategySchema).nullable(),
+    chains: z.array(TradingBotChainSchema).nullable(),
+    treasuryAddress: AddressSchema.nullable(),
+    orgId: z.string().nullable(),
+    capabilities: z.array(z.string()).nullable(),
   })
   .strict()
-
-// =============================================================================
-// Org Schemas
-// =============================================================================
 
 // OrgState schema matches org/types.ts OrgState (used by org/services/storage.ts)
 export const OrgStateSchema = z
@@ -688,17 +635,17 @@ export const OrgStateSchema = z
         .object({
           id: z.string(),
           title: z.string(),
-          description: z.string().optional(),
+          description: z.string().nullable(),
           priority: z.enum(['low', 'medium', 'high', 'urgent']),
           status: z.string(), // TodoStatus from @jejunetwork/types
-          dueDate: z.number().optional(),
-          assigneeAgentId: z.string().optional(),
-          assigneeName: z.string().optional(),
+          dueDate: z.number().nullable(),
+          assigneeAgentId: z.string().nullable(),
+          assigneeName: z.string().nullable(),
           tags: z.array(z.string()),
           createdBy: z.string(),
           createdAt: z.number(),
           updatedAt: z.number(),
-          completedAt: z.number().optional(),
+          completedAt: z.number().nullable(),
         })
         .strict(),
     ),
@@ -737,9 +684,9 @@ export const OrgStateSchema = z
           id: z.string(),
           scheduleId: z.string(),
           responderAgentId: z.string(),
-          responderName: z.string().optional(),
+          responderName: z.string().nullable(),
           answers: z.record(z.string(), z.string()),
-          blockers: z.array(z.string()).optional(),
+          blockers: z.array(z.string()).nullable(),
           submittedAt: z.number(),
         })
         .strict(),
@@ -750,7 +697,7 @@ export const OrgStateSchema = z
           id: z.string(),
           agentId: z.string(),
           displayName: z.string(),
-          role: z.string().optional(),
+          role: z.string().nullable(),
           isAdmin: z.boolean(),
           joinedAt: z.number(),
           lastActiveAt: z.number(),
@@ -781,12 +728,12 @@ export const OrgToolStateSchema = z
           id: z.string(),
           orgId: z.string(),
           title: z.string(),
-          description: z.string().optional(),
+          description: z.string().nullable(),
           priority: z.enum(['low', 'medium', 'high']),
           status: z.enum(['pending', 'in_progress', 'completed', 'cancelled']),
-          assigneeAgentId: z.string().optional(),
+          assigneeAgentId: z.string().nullable(),
           createdBy: z.string(),
-          dueDate: z.number().optional(),
+          dueDate: z.number().nullable(),
           tags: z.array(z.string()),
           createdAt: z.number(),
           updatedAt: z.number(),
@@ -798,7 +745,7 @@ export const OrgToolStateSchema = z
         .object({
           id: z.string(),
           orgId: z.string(),
-          roomId: z.string().optional(),
+          roomId: z.string().nullable(),
           name: z.string(),
           checkinType: z.enum(['standup', 'retrospective', 'checkin']),
           frequency: z.enum(['daily', 'weekdays', 'weekly', 'monthly']),
@@ -843,10 +790,6 @@ export const OrgToolStateSchema = z
   })
   .strict()
 
-// =============================================================================
-// JSON Array Schemas (for JSON.parse validation)
-// =============================================================================
-
 export const TradingBotStrategyArraySchema = z.array(TradingBotStrategySchema)
 export const TradingBotChainArraySchema = z.array(TradingBotChainSchema)
 export const StringArraySchema = z.array(z.string())
@@ -862,7 +805,7 @@ export const RoomMemberSchema = z
     ]),
     joinedAt: z.number(),
     lastActiveAt: z.number(),
-    score: z.number().optional(),
+    score: z.number().nullable(),
   })
   .strict()
 
@@ -872,16 +815,16 @@ export const RoomConfigSchema = z
   .object({
     maxMembers: z.number().int().min(1).max(100),
     turnBased: z.boolean(),
-    turnTimeout: z.number().int().min(1).max(3600).optional(),
+    turnTimeout: z.number().int().min(1).max(3600).nullable(),
     scoringRules: z
       .object({
         actionPoints: z.number(),
         winBonus: z.number(),
         violationPenalty: z.number(),
-        custom: z.record(z.string(), z.number()).optional(),
+        custom: z.record(z.string(), z.number()).nullable(),
       })
       .strict()
-      .optional(),
+      .nullable(),
     visibility: z.enum(['public', 'private', 'members_only']),
   })
   .strict()
@@ -904,9 +847,9 @@ export const RoomSchema = z
 export const AgentActionSchema = z
   .object({
     type: z.string(),
-    target: z.string().optional(),
-    params: ActionParamsSchema.optional(),
-    result: ActionResultSchema.optional(),
+    target: z.string().nullable(),
+    params: ActionParamsSchema.nullable(),
+    result: ActionResultSchema.nullable(),
     success: z.boolean(),
   })
   .strict()
@@ -917,17 +860,17 @@ export const RoomMessageSchema = z
     agentId: z.string(),
     content: z.string(),
     timestamp: z.number(),
-    action: z.string().optional(),
-    metadata: MessageMetadataSchema.optional(),
+    action: z.string().nullish(),
+    metadata: MessageMetadataSchema.nullish(),
   })
   .strict()
 
 export const ExecutionOutputSchema = z
   .object({
-    response: z.string().optional(),
-    actions: z.array(AgentActionSchema).optional(),
-    stateUpdates: StateUpdatesSchema.optional(),
-    roomMessages: z.array(RoomMessageSchema).optional(),
+    response: z.string().nullable(),
+    actions: z.array(AgentActionSchema).nullable(),
+    stateUpdates: StateUpdatesSchema.nullable(),
+    roomMessages: z.array(RoomMessageSchema).nullable(),
   })
   .strict()
 
@@ -946,7 +889,7 @@ export const ExecutionCostSchema = z
       .union([z.string().transform((val) => BigInt(val)), z.bigint()])
       .transform((val) => (typeof val === 'bigint' ? val : BigInt(val))),
     currency: z.string(),
-    txHash: z.string().optional(),
+    txHash: z.string().nullable(),
   })
   .strict()
 
@@ -955,16 +898,16 @@ export const ExecutionMetadataSchema = z
     startedAt: z.number(),
     completedAt: z.number(),
     latencyMs: z.number(),
-    model: z.string().optional(),
+    model: z.string().nullable(),
     tokensUsed: z
       .object({
         input: z.number(),
         output: z.number(),
       })
       .strict()
-      .optional(),
+      .nullable(),
     executor: AddressSchema,
-    attestationHash: z.string().optional(),
+    attestationHash: z.string().nullable(),
   })
   .strict()
 
@@ -975,8 +918,8 @@ export const ExecutionResultSchema = z
       .union([z.string().transform((val) => BigInt(val)), z.bigint()])
       .transform((val) => (typeof val === 'bigint' ? val : BigInt(val))),
     status: z.string(), // ExecutionStatus from @jejunetwork/types
-    output: ExecutionOutputSchema.optional(),
-    newStateCid: z.string().optional(),
+    output: ExecutionOutputSchema.nullable(),
+    newStateCid: z.string().nullable(),
     cost: ExecutionCostSchema,
     metadata: ExecutionMetadataSchema,
   })
@@ -1013,8 +956,8 @@ export const JupiterQuoteResponseSchema = z.object({
 /** Jupiter swap response (full format for DEX adapters) */
 export const JupiterSwapResponseSchema = z.object({
   swapTransaction: z.string(),
-  lastValidBlockHeight: z.number().optional(),
-  prioritizationFeeLamports: z.number().optional(),
+  lastValidBlockHeight: z.number().nullable(),
+  prioritizationFeeLamports: z.number().nullable(),
 })
 
 export const JupiterPriceResponseSchema = z
@@ -1136,7 +1079,7 @@ export const RaydiumPositionsResponseSchema = z
           amountA: z.string(),
           amountB: z.string(),
           valueUsd: z.number(),
-          positionId: z.string().optional(),
+          positionId: z.string().nullable(),
         })
         .strict(),
     ),
@@ -1302,15 +1245,11 @@ export const MeteoraPositionsResponseSchema = z.array(
     .strict(),
 )
 
-// =============================================================================
-// DEX Aggregator (EVM) Schemas
-// =============================================================================
-
 export const OneInchQuoteResponseSchema = z
   .object({
     dstAmount: z.string(),
-    gas: z.number().optional(),
-    estimatedGas: z.number().optional(),
+    gas: z.number().nullable(),
+    estimatedGas: z.number().nullable(),
   })
   .strict()
 
@@ -1320,13 +1259,13 @@ export const ParaswapQuoteResponseSchema = z
       .object({
         destAmount: z.string(),
         gasCost: z.string(),
-        gasCostUSD: z.string().optional(),
-        srcUSD: z.string().optional(),
-        destUSD: z.string().optional(),
+        gasCostUSD: z.string().nullable(),
+        srcUSD: z.string().nullable(),
+        destUSD: z.string().nullable(),
       })
       .strict()
-      .optional(),
-    error: z.string().optional(),
+      .nullable(),
+    error: z.string().nullable(),
   })
   .strict()
 
@@ -1338,8 +1277,8 @@ export const ParaswapQuoteResponseSchema = z
 export const ChatRequestSchema = z
   .object({
     text: z.string().min(1, 'Text is required'),
-    userId: z.string().optional(),
-    roomId: z.string().optional(),
+    userId: z.string().nullable(),
+    roomId: z.string().nullable(),
   })
   .strict()
 
@@ -1347,14 +1286,10 @@ export const ChatRequestSchema = z
 export const AgentStartRequestSchema = z
   .object({
     characterId: z.string().min(1, 'Character ID is required'),
-    tickIntervalMs: z.number().int().min(1000).max(3600000).optional(),
-    capabilities: z.record(z.string(), z.boolean()).optional(),
+    tickIntervalMs: z.number().int().min(1000).max(3600000).nullable(),
+    capabilities: z.record(z.string(), z.boolean()).nullable(),
   })
   .strict()
-
-// =============================================================================
-// WebSocket Message Schemas (External Data Validation)
-// =============================================================================
 
 /** Schema for Alchemy pending transaction data */
 const AlchemyPendingTxSchema = z.object({
@@ -1362,9 +1297,18 @@ const AlchemyPendingTxSchema = z.object({
   from: z.string(),
   to: z.string(),
   value: z.string(),
-  gasPrice: z.string().optional(),
-  maxFeePerGas: z.string().optional(),
-  maxPriorityFeePerGas: z.string().optional(),
+  gasPrice: z
+    .string()
+    .nullish()
+    .transform((v) => v ?? undefined),
+  maxFeePerGas: z
+    .string()
+    .nullish()
+    .transform((v) => v ?? undefined),
+  maxPriorityFeePerGas: z
+    .string()
+    .nullish()
+    .transform((v) => v ?? undefined),
   gas: z.string(),
   input: z.string(),
   nonce: z.string(),
@@ -1372,31 +1316,31 @@ const AlchemyPendingTxSchema = z.object({
 
 /** Schema for Alchemy subscription message */
 export const AlchemySubscriptionMessageSchema = z.object({
-  method: z.literal('eth_subscription').optional(),
+  method: z.literal('eth_subscription').nullable(),
   params: z
     .object({
-      result: AlchemyPendingTxSchema.optional(),
+      result: AlchemyPendingTxSchema.nullable(),
     })
-    .optional(),
+    .nullable(),
 })
 
 /** Schema for WebSocket eth_subscription message (hash only) */
 export const WebSocketEthSubscriptionMessageSchema = z.object({
-  method: z.literal('eth_subscription').optional(),
+  method: z.literal('eth_subscription').nullable(),
   params: z
     .object({
-      result: z.string().optional(),
+      result: z.string().nullable(),
     })
-    .optional(),
+    .nullable(),
 })
 
 /** Schema for Bot API A2A request (simplified JSON-RPC style) */
 export const BotA2ARequestSchema = z
   .object({
-    jsonrpc: z.literal('2.0').optional(),
+    jsonrpc: z.literal('2.0').nullable(),
     method: z.string().min(1, 'Method is required'),
-    params: JsonObjectSchema.optional(),
-    id: z.union([z.number(), z.string()]).optional(),
+    params: JsonObjectSchema.nullable(),
+    id: z.union([z.number(), z.string()]).nullable(),
   })
   .strict()
 
@@ -1420,7 +1364,7 @@ export const HyperliquidAssetCtxSchema = z.object({
   openInterest: z.string(),
   prevDayPx: z.string(),
   dayNtlVlm: z.string(),
-  premium: z.string().optional(),
+  premium: z.string().nullable(),
   oraclePx: z.string(),
   markPx: z.string(),
 })
@@ -1467,26 +1411,22 @@ export const HyperliquidOrderResultSchema = z.object({
         .object({
           statuses: z.array(
             z.object({
-              resting: z.object({ oid: z.number() }).optional(),
+              resting: z.object({ oid: z.number() }).nullable(),
             }),
           ),
         })
-        .optional(),
+        .nullable(),
     })
-    .optional(),
+    .nullable(),
 })
-
-// =============================================================================
-// DWS (Decentralized Workstation Service) Response Schemas
-// =============================================================================
 
 /** DWS node stats response */
 export const DWSNodeStatsSchema = z.object({
   inference: z
     .object({
-      activeNodes: z.number().optional(),
+      activeNodes: z.number().nullable(),
     })
-    .optional(),
+    .nullable(),
 })
 
 /** DWS chat completion response */
@@ -1497,13 +1437,13 @@ export const DWSChatResponseSchema = z.object({
         role: z.string(),
         content: z.string(),
       }),
-      finish_reason: z.string().optional(),
+      finish_reason: z.string().nullable(),
     }),
   ),
-  node: z.string().optional(),
-  provider: z.string().optional(),
-  error: z.string().optional(),
-  message: z.string().optional(),
+  node: z.string().nullable(),
+  provider: z.string().nullable(),
+  error: z.string().nullable(),
+  message: z.string().nullable(),
 })
 
 /** DWS inference response (alternate format) */
@@ -1511,28 +1451,28 @@ export const DWSInferenceAltSchema = z.object({
   choices: z
     .array(
       z.object({
-        message: z.object({ content: z.string() }).optional(),
+        message: z.object({ content: z.string() }).nullable(),
       }),
     )
-    .optional(),
-  content: z.string().optional(),
+    .nullable(),
+  content: z.string().nullable(),
 })
 
 /** DWS OpenAI-compatible response format */
 export const DWSOpenAICompatSchema = z.object({
   choices: z.array(
     z.object({
-      message: z.object({ content: z.string() }).optional(),
+      message: z.object({ content: z.string() }).nullable(),
     }),
   ),
-  model: z.string().optional(),
+  model: z.string().nullable(),
   usage: z
     .object({
-      prompt_tokens: z.number().optional(),
-      completion_tokens: z.number().optional(),
+      prompt_tokens: z.number().nullable(),
+      completion_tokens: z.number().nullable(),
     })
-    .optional(),
-  cost: z.union([z.string(), z.number()]).optional(),
+    .nullable(),
+  cost: z.union([z.string(), z.number()]).nullable(),
 })
 
 // =============================================================================
@@ -1543,10 +1483,10 @@ export const DWSOpenAICompatSchema = z.object({
 export const FlashbotsBundleResponseSchema = z.object({
   result: z
     .object({
-      bundleHash: z.string().optional(),
+      bundleHash: z.string().nullable(),
     })
-    .optional(),
-  error: z.object({ message: z.string() }).optional(),
+    .nullable(),
+  error: z.object({ message: z.string() }).nullable(),
 })
 
 /** Flashbots simulation response */
@@ -1558,50 +1498,46 @@ export const FlashbotsSimulationResponseSchema = z.object({
           z.object({
             txHash: z.string(),
             gasUsed: z.string(),
-            revert: z.string().optional(),
+            revert: z.string().nullable(),
           }),
         )
-        .optional(),
-      totalGasUsed: z.string().optional(),
-      coinbaseDiff: z.string().optional(),
+        .nullable(),
+      totalGasUsed: z.string().nullable(),
+      coinbaseDiff: z.string().nullable(),
     })
-    .optional(),
-  error: z.object({ message: z.string() }).optional(),
+    .nullable(),
+  error: z.object({ message: z.string() }).nullable(),
 })
 
 /** Flashbots bundle stats response */
 export const FlashbotsBundleStatsSchema = z.object({
   result: z
     .object({
-      isSimulated: z.boolean().optional(),
-      isIncluded: z.boolean().optional(),
-      blockNumber: z.string().optional(),
+      isSimulated: z.boolean().nullable(),
+      isIncluded: z.boolean().nullable(),
+      blockNumber: z.string().nullable(),
     })
-    .optional(),
+    .nullable(),
 })
 
 /** L2 raw transaction response */
 export const L2RawTxResponseSchema = z.object({
-  result: z.string().optional(),
-  error: z.object({ message: z.string() }).optional(),
+  result: z.string().nullable(),
+  error: z.object({ message: z.string() }).nullable(),
 })
 
 /** MEV-Share private transaction response */
 export const MevSharePrivateTxResponseSchema = z.object({
   result: z
-    .union([z.string(), z.object({ txHash: z.string().optional() })])
-    .optional(),
-  error: z.object({ message: z.string() }).optional(),
+    .union([z.string(), z.object({ txHash: z.string().nullable() })])
+    .nullable(),
+  error: z.object({ message: z.string() }).nullable(),
 })
 
 /** MEV-Share cancel response */
 export const MevShareCancelResponseSchema = z.object({
-  result: z.boolean().optional(),
+  result: z.boolean().nullable(),
 })
-
-// =============================================================================
-// Redstone Finance Response Schemas
-// =============================================================================
 
 /** Redstone price response */
 export const RedstonePriceResponseSchema = z.record(
@@ -1618,27 +1554,27 @@ export const RedstonePriceResponseSchema = z.record(
 
 /** Jupiter quote response */
 export const JupiterQuoteApiResponseSchema = z.object({
-  inputMint: z.string().optional(),
-  outputMint: z.string().optional(),
-  inAmount: z.string().optional(),
+  inputMint: z.string().nullable(),
+  outputMint: z.string().nullable(),
+  inAmount: z.string().nullable(),
   outAmount: z.string(),
-  priceImpactPct: z.string().optional(),
+  priceImpactPct: z.string().nullable(),
   routePlan: z
     .array(
       z.object({
         swapInfo: z.object({
-          ammKey: z.string().optional(),
+          ammKey: z.string().nullable(),
           label: z.string(),
         }),
       }),
     )
-    .optional(),
+    .nullable(),
 })
 
 /** Jupiter swap response */
 export const JupiterSwapApiResponseSchema = z.object({
   swapTransaction: z.string(),
-  lastValidBlockHeight: z.number().optional(),
+  lastValidBlockHeight: z.number().nullable(),
 })
 
 /** Jito bundle status response */
@@ -1651,18 +1587,14 @@ export const JitoBundleStatusSchema = z.object({
         }),
       ),
     })
-    .optional(),
+    .nullable(),
 })
 
 /** Jito bundle submission response */
 export const JitoBundleSubmitSchema = z.object({
-  result: z.string().optional(),
-  error: z.object({ message: z.string() }).optional(),
+  result: z.string().nullable(),
+  error: z.object({ message: z.string() }).nullable(),
 })
-
-// =============================================================================
-// Solana DEX Pool API Response Schemas
-// =============================================================================
 
 /** Generic pool data from Solana DEX APIs */
 export const SolanaDexPoolSchema = z.object({
@@ -1672,10 +1604,10 @@ export const SolanaDexPoolSchema = z.object({
   volume24h: z.number(),
   apr: z
     .object({
-      trading: z.number().optional(),
-      rewards: z.number().optional(),
+      trading: z.number().nullable(),
+      rewards: z.number().nullable(),
     })
-    .optional(),
+    .nullable(),
   tokenA: z.object({
     symbol: z.string(),
     mint: z.string(),
@@ -1686,12 +1618,12 @@ export const SolanaDexPoolSchema = z.object({
     mint: z.string(),
     decimals: z.number(),
   }),
-  fee: z.number().optional(),
+  fee: z.number().nullable(),
 })
 
 /** Solana DEX pools response */
 export const SolanaDexPoolsResponseSchema = z.object({
-  data: z.array(SolanaDexPoolSchema).optional(),
+  data: z.array(SolanaDexPoolSchema).nullable(),
 })
 
 /** Solana lending market data */
@@ -1707,7 +1639,7 @@ export const SolanaLendingMarketSchema = z.object({
 
 /** Solana lending markets response */
 export const SolanaLendingMarketsResponseSchema = z.object({
-  markets: z.array(SolanaLendingMarketSchema).optional(),
+  markets: z.array(SolanaLendingMarketSchema).nullable(),
 })
 
 // =============================================================================
@@ -1722,20 +1654,16 @@ export const EthGetTransactionResponseSchema = z.object({
       from: z.string(),
       to: z.string(),
       value: z.string(),
-      gasPrice: z.string().optional(),
-      maxFeePerGas: z.string().optional(),
-      maxPriorityFeePerGas: z.string().optional(),
+      gasPrice: z.string().nullable(),
+      maxFeePerGas: z.string().nullable(),
+      maxPriorityFeePerGas: z.string().nullable(),
       gas: z.string(),
       input: z.string(),
       nonce: z.string(),
     })
     .nullable()
-    .optional(),
+    .nullable(),
 })
-
-// =============================================================================
-// Chat/Agent API Response Schemas
-// =============================================================================
 
 /** Chat API response */
 export const ChatApiResponseSchema = z.object({

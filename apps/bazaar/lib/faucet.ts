@@ -24,10 +24,6 @@ import {
 } from '../config'
 import { expectAddress } from './validation'
 
-// =============================================================================
-// Configuration
-// =============================================================================
-
 const FAUCET_CONFIG = {
   cooldownMs: 12 * 60 * 60 * 1000, // 12 hours
   amountPerClaim: parseEther('100'),
@@ -43,10 +39,6 @@ const chain = {
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: { default: { http: [RPC_URL] } },
 }
-
-// =============================================================================
-// Schemas
-// =============================================================================
 
 export const FaucetStatusSchema = z.object({
   eligible: z.boolean(),
@@ -86,10 +78,6 @@ export type FaucetStatus = z.infer<typeof FaucetStatusSchema>
 export type FaucetClaimResult = z.infer<typeof FaucetClaimResultSchema>
 export type FaucetInfo = z.infer<typeof FaucetInfoSchema>
 
-// =============================================================================
-// Typed JSON Parsing Utilities
-// =============================================================================
-
 type ParseResult<T> =
   | { success: true; data: T }
   | { success: false; error: z.ZodError }
@@ -100,17 +88,13 @@ type ParseResult<T> =
  */
 export async function parseJsonResponse<T>(
   response: Response,
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
 ): Promise<ParseResult<T>> {
   const result = schema.safeParse(await response.json())
   return result.success
     ? { success: true, data: result.data }
     : { success: false, error: result.error }
 }
-
-// =============================================================================
-// State Management (In-memory for local development)
-// =============================================================================
 
 interface FaucetClaim {
   lastClaim: number
@@ -183,10 +167,6 @@ export const faucetState = {
   },
 }
 
-// =============================================================================
-// Clients
-// =============================================================================
-
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as const
 
 const publicClient = createPublicClient({
@@ -206,10 +186,6 @@ function getWalletClient() {
     transport: http(RPC_URL),
   })
 }
-
-// =============================================================================
-// Identity Registry Check
-// =============================================================================
 
 const IDENTITY_REGISTRY_ABI = [
   {
@@ -245,19 +221,11 @@ async function isRegisteredAgent(address: Address): Promise<boolean> {
   return balance > 0n
 }
 
-// =============================================================================
-// Cooldown Management
-// =============================================================================
-
 function getCooldownRemaining(address: string): number {
   const lastClaim = faucetState.getLastClaim(address)
   if (!lastClaim) return 0
   return Math.max(0, FAUCET_CONFIG.cooldownMs - (Date.now() - lastClaim))
 }
-
-// =============================================================================
-// Faucet Balance
-// =============================================================================
 
 async function getFaucetBalance(): Promise<bigint> {
   // No token configured
@@ -282,13 +250,6 @@ async function getFaucetBalance(): Promise<bigint> {
   })
 }
 
-// =============================================================================
-// Public API
-// =============================================================================
-
-/**
- * Check if faucet is properly configured for use
- */
 export function isFaucetConfigured(): boolean {
   return Boolean(
     FAUCET_CONFIG.faucetPrivateKey &&
@@ -296,9 +257,6 @@ export function isFaucetConfigured(): boolean {
   )
 }
 
-/**
- * Get faucet status for an address
- */
 export async function getFaucetStatus(address: Address): Promise<FaucetStatus> {
   const validated = expectAddress(address, 'getFaucetStatus address')
 
@@ -326,9 +284,6 @@ export async function getFaucetStatus(address: Address): Promise<FaucetStatus> {
   }
 }
 
-/**
- * Claim tokens from the faucet
- */
 export async function claimFromFaucet(
   address: Address,
 ): Promise<FaucetClaimResult> {
@@ -401,9 +356,6 @@ export async function claimFromFaucet(
   }
 }
 
-/**
- * Get faucet information
- */
 export function getFaucetInfo(): FaucetInfo {
   return {
     name: `${NETWORK_NAME} Faucet`,
@@ -423,9 +375,6 @@ export function getFaucetInfo(): FaucetInfo {
   }
 }
 
-/**
- * Format time in milliseconds to human readable string
- */
 export function formatCooldownTime(ms: number): string {
   const hours = Math.floor(ms / 3600000)
   const minutes = Math.floor((ms % 3600000) / 60000)

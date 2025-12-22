@@ -1,10 +1,3 @@
-/**
- * Admin Module
- *
- * Framework-agnostic admin role validation with Elysia adapter.
- */
-
-// Core
 export {
   createAdminConfig,
   createAdminConfigFromEnv,
@@ -14,7 +7,6 @@ export {
   requireRole,
   validateAdmin,
 } from './core.js'
-// Elysia adapter
 export {
   type AdminContext,
   type AdminPluginConfig,
@@ -24,7 +16,6 @@ export {
   withAdmin,
   withRole,
 } from './elysia.js'
-// Types
 export {
   type AdminConfig,
   AdminRole,

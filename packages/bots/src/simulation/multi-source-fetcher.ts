@@ -6,7 +6,7 @@
  * - Helius (Solana transactions, prices)
  * - Alchemy (EVM transaction history, gas)
  * - Codex (Indexed blockchain data)
- * - CoinGecko (Price fallback)
+ * - CoinGecko (Additional price source)
  *
  * Features:
  * - Cross-chain MEV opportunity detection
@@ -186,9 +186,16 @@ export const STRESS_SCENARIOS: StressTestScenario[] = [
 
 // ============ Multi-Source Fetcher ============
 
+// Cache entry type - stores arbitrary serializable data with expiration
+interface CacheEntry<T = Map<number, number> | number | object> {
+  data: T
+  expiry: number
+}
+
 export class MultiSourceFetcher {
   private config: DataSourceConfig
-  private cache: Map<string, { data: unknown; expiry: number }> = new Map()
+  // Generic cache for API responses - uses type assertion on retrieval
+  private cache: Map<string, CacheEntry> = new Map()
   private rateLimits: Map<string, { remaining: number; reset: number }> =
     new Map()
 
@@ -439,8 +446,9 @@ export class MultiSourceFetcher {
     sampleInterval: number = 100,
   ): Promise<GasDataPoint[]> {
     if (!this.config.alchemyApiKey) {
-      console.warn('Alchemy API key not configured, using estimated gas data')
-      return this.generateEstimatedGasData(chainId, startBlock, endBlock)
+      throw new Error(
+        'ALCHEMY_API_KEY environment variable is required for gas history',
+      )
     }
 
     const chainName = this.getAlchemyChainName(chainId)
@@ -824,29 +832,6 @@ export class MultiSourceFetcher {
     return 120 // 2 min for L2-L2
   }
 
-  private generateEstimatedGasData(
-    chainId: number,
-    startBlock: bigint,
-    endBlock: bigint,
-  ): GasDataPoint[] {
-    // Generate estimated gas data when Alchemy is not available
-    const data: GasDataPoint[] = []
-    const blockTime = chainId === 1 ? 12000 : 2000 // ms per block
-
-    for (let block = startBlock; block <= endBlock; block += 1000n) {
-      data.push({
-        timestamp: Date.now() - Number(endBlock - block) * blockTime,
-        chainId,
-        baseFee: BigInt(30e9), // 30 gwei default
-        priorityFee: BigInt(2e9),
-        blockUtilization: 0.5,
-        blockNumber: block,
-      })
-    }
-
-    return data
-  }
-
   private async fetchWithRateLimit(
     source: string,
     url: string,
@@ -874,16 +859,20 @@ export class MultiSourceFetcher {
     return response
   }
 
-  private getCached<T>(key: string): T | null {
+  private getCached<T>(key: string): T | undefined {
     const entry = this.cache.get(key)
     if (!entry || Date.now() > entry.expiry) {
       this.cache.delete(key)
-      return null
+      return undefined
     }
     return entry.data as T
   }
 
-  private setCache(key: string, data: unknown, ttlMs: number): void {
+  private setCache<T extends Map<number, number> | number | object>(
+    key: string,
+    data: T,
+    ttlMs: number,
+  ): void {
     // Limit cache size
     if (this.cache.size > 500) {
       const oldestKey = this.cache.keys().next().value

@@ -17,7 +17,6 @@ import {
   ExternalChainMevEngine,
   FLASHBOTS_ENDPOINTS,
   type FlashbotsBundle,
-  FlashbotsProvider,
   L2_BUILDERS,
   MempoolMonitor,
   MevBoostProvider,
@@ -182,12 +181,6 @@ describe('MevBoostProvider', () => {
   it('should initialize with auth header', async () => {
     await provider.initialize()
     expect(true).toBe(true) // No throw = success
-  })
-})
-
-describe('FlashbotsProvider Alias', () => {
-  it('should be same as MevBoostProvider', () => {
-    expect(FlashbotsProvider).toBe(MevBoostProvider)
   })
 })
 

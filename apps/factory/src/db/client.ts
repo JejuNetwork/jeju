@@ -11,10 +11,6 @@ import {
 import type { Address } from 'viem'
 import { ALL_SCHEMAS } from './schema'
 
-// ============================================================================
-// Configuration
-// ============================================================================
-
 export interface FactoryDBConfig {
   /** CovenantSQL node endpoints */
   nodes: string[]
@@ -27,10 +23,6 @@ export interface FactoryDBConfig {
   /** Enable query logging */
   logging: boolean
 }
-
-// ============================================================================
-// Factory Database Client
-// ============================================================================
 
 let dbClient: CovenantSQLClient | null = null
 let initialized = false
@@ -79,14 +71,11 @@ export async function initializeFactoryDB(): Promise<void> {
   const db = getFactoryDB()
   await db.initialize()
 
-  console.log('[Factory DB] Creating tables...')
   for (const schema of ALL_SCHEMAS) {
     await db.createTable(schema)
-    console.log(`[Factory DB] Created table: ${schema.name}`)
   }
 
   initialized = true
-  console.log('[Factory DB] Initialization complete')
 }
 
 /**

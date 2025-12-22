@@ -72,14 +72,13 @@ export class SecretVault {
 
   constructor(config: Partial<VaultConfig> = {}) {
     this.config = { auditLogging: true, ...config }
-    const secret =
-      process.env.VAULT_ENCRYPTION_SECRET ?? process.env.KMS_FALLBACK_SECRET
-    if (secret) {
-      this.encryptionKey = deriveKeyFromSecret(secret)
-    } else {
-      this.encryptionKey = crypto.getRandomValues(new Uint8Array(32))
-      log.warn('No VAULT_ENCRYPTION_SECRET set, using ephemeral key')
+    const secret = process.env.VAULT_ENCRYPTION_SECRET
+    if (!secret) {
+      throw new Error(
+        'VAULT_ENCRYPTION_SECRET environment variable is required for SecretVault',
+      )
     }
+    this.encryptionKey = deriveKeyFromSecret(secret)
   }
 
   async initialize(): Promise<void> {
@@ -463,7 +462,7 @@ export class SecretVault {
   }
 }
 
-let vaultInstance: SecretVault | null = null
+let vaultInstance: SecretVault | undefined
 
 export function getSecretVault(config?: Partial<VaultConfig>): SecretVault {
   if (!vaultInstance) {
@@ -477,5 +476,5 @@ export function getSecretVault(config?: Partial<VaultConfig>): SecretVault {
 }
 
 export function resetSecretVault(): void {
-  vaultInstance = null
+  vaultInstance = undefined
 }

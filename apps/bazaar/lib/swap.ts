@@ -12,11 +12,6 @@ import type {
   SwapValidationResult,
 } from '../schemas/swap'
 
-// ============ Constants ============
-
-/**
- * Default tokens available for swap
- */
 export const SWAP_TOKENS: SwapToken[] = [
   {
     symbol: 'ETH',
@@ -41,9 +36,6 @@ export const SWAP_TOKENS: SwapToken[] = [
   },
 ]
 
-/**
- * Mock price pairs (in production, fetched from oracle)
- */
 export const PRICE_PAIRS: PricePair[] = [
   { baseToken: 'ETH', quoteToken: 'USDC', rate: 3000 },
   { baseToken: 'USDC', quoteToken: 'ETH', rate: 1 / 3000 },
@@ -53,31 +45,11 @@ export const PRICE_PAIRS: PricePair[] = [
   { baseToken: 'JEJU', quoteToken: 'USDC', rate: 3000 / 10000 },
 ]
 
-/**
- * Default fee in basis points (0.3%)
- */
 export const DEFAULT_FEE_BPS = 30n
-
-/**
- * Base network fee for same-chain swaps
- */
 export const BASE_NETWORK_FEE = parseEther('0.001')
-
-/**
- * Additional fee for cross-chain swaps
- */
 export const CROSS_CHAIN_PREMIUM = parseEther('0.0005')
-
-/**
- * XLP fee rate (0.05%)
- */
 export const XLP_FEE_BPS = 5n
 
-// ============ Token Utilities ============
-
-/**
- * Find token by symbol
- */
 export function getTokenBySymbol(
   symbol: string,
   tokens: SwapToken[] = SWAP_TOKENS,
@@ -95,9 +67,6 @@ export function getTokenByAddress(
   return tokens.find((t) => t.address.toLowerCase() === address.toLowerCase())
 }
 
-/**
- * Get price rate between two tokens
- */
 export function getExchangeRate(
   fromSymbol: string,
   toSymbol: string,
@@ -134,11 +103,6 @@ export function formatRate(
   return `1 ${toSymbol} = ${inverse.toLocaleString(undefined, { maximumFractionDigits: 4 })} ${fromSymbol}`
 }
 
-// ============ Fee Calculation ============
-
-/**
- * Check if swap is cross-chain
- */
 export function isCrossChain(
   sourceChainId: number,
   destChainId: number,
@@ -174,9 +138,6 @@ export function calculateSwapFees(
   }
 }
 
-/**
- * Calculate output amount after fees
- */
 export function calculateOutputAmount(
   inputAmount: bigint,
   inputSymbol: string,
@@ -240,11 +201,6 @@ export function generateSwapQuote(
   }
 }
 
-// ============ Validation ============
-
-/**
- * Validate swap parameters before execution
- */
 export function validateSwap(
   isConnected: boolean,
   inputAmount: string,
@@ -293,9 +249,6 @@ export function parseSwapAmount(input: string): bigint {
   return parseEther(input)
 }
 
-/**
- * Format output amount for display
- */
 export function formatSwapAmount(amount: bigint): string {
   if (amount <= 0n) return ''
   return formatEther(amount)
@@ -322,9 +275,6 @@ export function getSwapButtonText(
   return 'Swap'
 }
 
-/**
- * Determine if swap button should be disabled
- */
 export function isSwapButtonDisabled(
   isConnected: boolean,
   isSwapping: boolean,

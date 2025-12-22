@@ -17,8 +17,6 @@ import {
   WebSocketSubscribeSchema,
 } from '../schemas'
 
-// ============ Types ============
-
 interface StoredMessage {
   envelope: MessageEnvelope
   cid: string
@@ -46,8 +44,6 @@ interface WebSocketNotification {
   details?: { message: string; path?: (string | number)[] }[]
 }
 
-// ============ In-Memory Storage ============
-
 // Message storage (in production, use LevelDB or similar)
 const messages = new Map<string, StoredMessage>()
 
@@ -60,8 +56,6 @@ const subscribers = new Map<string, Subscriber>()
 // Stats
 let totalMessagesRelayed = 0
 let totalBytesRelayed = 0
-
-// ============ Helper Functions ============
 
 function generateCID(content: string): string {
   const hash = sha256(new TextEncoder().encode(content))
@@ -108,8 +102,6 @@ function notifySubscriber(
   return false
 }
 
-// ============ IPFS Integration (Optional) ============
-
 /**
  * Store content on IPFS. Returns CID on success, null if IPFS is not configured.
  * Throws if IPFS is configured but storage fails.
@@ -129,8 +121,6 @@ async function storeOnIPFS(content: string, ipfsUrl: string): Promise<string> {
   const result = IPFSAddResponseSchema.parse(await response.json())
   return result.Hash
 }
-
-// ============ Rate Limiting ============
 
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
 const RATE_LIMIT_WINDOW_MS = 60000 // 1 minute
@@ -190,13 +180,9 @@ const MAX_MESSAGE_AGE_MS = 5 * 60 * 1000
 // Max clock skew allowed (future messages, 30 seconds)
 const MAX_CLOCK_SKEW_MS = 30 * 1000
 
-// ============ Request Header Type ============
-
 interface RequestHeaders {
   get(name: string): string | null
 }
-
-// ============ Create Server ============
 
 export function createRelayServer(config: NodeConfig) {
   // Start periodic rate limit cleanup
@@ -215,8 +201,6 @@ export function createRelayServer(config: NodeConfig) {
       }),
     )
 
-    // ============ Health Check ============
-
     .get('/health', () => ({
       status: 'healthy',
       nodeId: config.nodeId,
@@ -229,8 +213,6 @@ export function createRelayServer(config: NodeConfig) {
       },
       timestamp: Date.now(),
     }))
-
-    // ============ Send Message ============
 
     .post('/send', ({ body, request, set }) => {
       // Rate limiting by IP or address
@@ -342,8 +324,6 @@ export function createRelayServer(config: NodeConfig) {
       }
     })
 
-    // ============ Get Pending Messages ============
-
     .get('/messages/:address', ({ params, request, set }) => {
       // Rate limiting
       const headers = request.headers as RequestHeaders
@@ -378,8 +358,6 @@ export function createRelayServer(config: NodeConfig) {
       }
     })
 
-    // ============ Get Message by ID ============
-
     .get('/message/:id', ({ params, set }) => {
       const { id } = params
 
@@ -407,8 +385,6 @@ export function createRelayServer(config: NodeConfig) {
         deliveredAt: message.deliveredAt,
       }
     })
-
-    // ============ Mark Message as Read ============
 
     .post('/read/:id', ({ params, set }) => {
       const { id } = params
@@ -439,8 +415,6 @@ export function createRelayServer(config: NodeConfig) {
       return { success: true }
     })
 
-    // ============ Stats ============
-
     .get('/stats', () => ({
       nodeId: config.nodeId,
       totalMessagesRelayed,
@@ -452,8 +426,6 @@ export function createRelayServer(config: NodeConfig) {
 
   return app
 }
-
-// ============ WebSocket Handler ============
 
 interface WebSocketLike {
   send: (data: string) => void
@@ -572,8 +544,6 @@ export function handleWebSocket(ws: WebSocket, _request: Request): void {
 // Track Bun websocket instances separately for the close handler
 const bunWsToAddress = new WeakMap<object, string>()
 
-// ============ Start Server ============
-
 export function startRelayServer(config: NodeConfig): void {
   const app = createRelayServer(config)
 
@@ -620,8 +590,6 @@ export function startRelayServer(config: NodeConfig): void {
     },
   })
 }
-
-// ============ CLI Entry Point ============
 
 if (import.meta.main) {
   const portEnv = process.env.PORT

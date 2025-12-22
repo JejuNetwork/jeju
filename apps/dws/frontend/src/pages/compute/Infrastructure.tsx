@@ -13,64 +13,39 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import { useAccount } from 'wagmi'
-import { useDWSApi } from '../../hooks'
-
-interface K3sCluster {
-  name: string
-  provider: 'k3d' | 'k3s' | 'minikube'
-  status: 'creating' | 'running' | 'stopped' | 'error'
-  apiEndpoint: string
-  nodes: number
-  createdAt: number
-}
-
-interface HelmDeployment {
-  id: string
-  name: string
-  namespace: string
-  status: 'pending' | 'deploying' | 'running' | 'failed'
-  workers: number
-  services: number
-  createdAt: number
-}
-
-interface WorkerdWorker {
-  id: string
-  name: string
-  status: 'active' | 'deploying' | 'error' | 'stopped'
-  runtime: string
-  memoryMb: number
-  invocations: number
-}
-
-interface MeshService {
-  name: string
-  namespace: string
-  endpoints: number
-  healthy: boolean
-}
+import {
+  useApplyHelmManifests,
+  useCreateK3sCluster,
+  useDeployWorkerdWorker,
+  useHelmDeployments,
+  useK3sClusters,
+  useMeshHealth,
+  useWorkerdWorkers,
+} from '../../hooks'
+import type {
+  HelmDeployment,
+  K3sCluster,
+  MeshService,
+  WorkerdWorker,
+} from '../../types'
 
 type TabType = 'clusters' | 'helm' | 'workerd' | 'mesh'
 
 export default function InfrastructurePage() {
-  const { isConnected, address } = useAccount()
+  const { isConnected } = useAccount()
   const [activeTab, setActiveTab] = useState<TabType>('clusters')
   const [showCreateModal, setShowCreateModal] = useState(false)
 
   // API hooks
-  const clustersQuery = useDWSApi<{ clusters: K3sCluster[] }>('/k3s/clusters')
-  const helmQuery = useDWSApi<{ deployments: HelmDeployment[] }>(
-    '/helm/deployments',
-  )
-  const workerdQuery = useDWSApi<{ workers: WorkerdWorker[] }>('/workerd')
-  const meshQuery = useDWSApi<{ status: string; services: MeshService[] }>(
-    '/mesh/health',
-  )
+  const clustersQuery = useK3sClusters()
+  const helmQuery = useHelmDeployments()
+  const workerdQuery = useWorkerdWorkers()
+  const meshQuery = useMeshHealth()
 
-  const clusters = clustersQuery.data?.clusters ?? []
-  const deployments = helmQuery.data?.deployments ?? []
-  const workers = workerdQuery.data?.workers ?? []
-  const meshServices = meshQuery.data?.services ?? []
+  const clusters = clustersQuery.data?.clusters ?? ([] as K3sCluster[])
+  const deployments = helmQuery.data?.deployments ?? ([] as HelmDeployment[])
+  const workers = workerdQuery.data?.workers ?? ([] as WorkerdWorker[])
+  const meshServices = meshQuery.data?.services ?? ([] as MeshService[])
 
   const refetchAll = () => {
     clustersQuery.refetch()
@@ -203,22 +178,13 @@ export default function InfrastructurePage() {
           <ClustersTab
             clusters={clusters}
             isLoading={clustersQuery.isLoading}
-            address={address}
           />
         )}
         {activeTab === 'helm' && (
-          <HelmTab
-            deployments={deployments}
-            isLoading={helmQuery.isLoading}
-            address={address}
-          />
+          <HelmTab deployments={deployments} isLoading={helmQuery.isLoading} />
         )}
         {activeTab === 'workerd' && (
-          <WorkerdTab
-            workers={workers}
-            isLoading={workerdQuery.isLoading}
-            address={address}
-          />
+          <WorkerdTab workers={workers} isLoading={workerdQuery.isLoading} />
         )}
         {activeTab === 'mesh' && (
           <MeshTab
@@ -235,7 +201,6 @@ export default function InfrastructurePage() {
           activeTab={activeTab}
           onClose={() => setShowCreateModal(false)}
           onCreated={refetchAll}
-          address={address}
         />
       )}
     </div>
@@ -245,11 +210,9 @@ export default function InfrastructurePage() {
 function ClustersTab({
   clusters,
   isLoading,
-  address,
 }: {
   clusters: K3sCluster[]
   isLoading: boolean
-  address: string | undefined
 }) {
   if (isLoading) {
     return (
@@ -331,11 +294,9 @@ function ClustersTab({
 function HelmTab({
   deployments,
   isLoading,
-  address,
 }: {
   deployments: HelmDeployment[]
   isLoading: boolean
-  address: string | undefined
 }) {
   if (isLoading) {
     return (
@@ -413,11 +374,9 @@ function HelmTab({
 function WorkerdTab({
   workers,
   isLoading,
-  address,
 }: {
   workers: WorkerdWorker[]
   isLoading: boolean
-  address: string | undefined
 }) {
   if (isLoading) {
     return (
@@ -579,12 +538,10 @@ function CreateResourceModal({
   activeTab,
   onClose,
   onCreated,
-  address,
 }: {
   activeTab: TabType
   onClose: () => void
   onCreated: () => void
-  address: string | undefined
 }) {
   const [formData, setFormData] = useState({
     name: '',
@@ -597,56 +554,45 @@ function CreateResourceModal({
   }
 };`,
   })
-  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const createCluster = useCreateK3sCluster()
+  const applyHelm = useApplyHelmManifests()
+  const deployWorkerd = useDeployWorkerdWorker()
+
+  const isSubmitting =
+    createCluster.isPending || applyHelm.isPending || deployWorkerd.isPending
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsSubmitting(true)
 
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
+    const handleSuccess = () => {
+      onCreated()
+      onClose()
     }
-    if (address) {
-      headers['x-jeju-address'] = address
-    }
-
-    let endpoint = ''
-    let body: Record<string, unknown> = {}
 
     if (activeTab === 'clusters') {
-      endpoint = '/k3s/clusters'
-      body = {
-        name: formData.name,
-        provider: formData.provider,
-        nodes: parseInt(formData.nodes, 10),
-      }
+      createCluster.mutate(
+        {
+          name: formData.name,
+          provider: formData.provider,
+          nodes: parseInt(formData.nodes, 10),
+        },
+        { onSuccess: handleSuccess },
+      )
     } else if (activeTab === 'helm') {
-      endpoint = '/helm/apply'
-      body = {
-        release: formData.name,
-        namespace: formData.namespace,
-        manifests: [],
-      }
+      applyHelm.mutate(
+        {
+          release: formData.name,
+          namespace: formData.namespace,
+          manifests: [],
+        },
+        { onSuccess: handleSuccess },
+      )
     } else if (activeTab === 'workerd') {
-      endpoint = '/workerd'
-      body = {
-        name: formData.name,
-        code: btoa(formData.code),
-      }
-    }
-
-    try {
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(body),
-      })
-      if (res.ok) {
-        onCreated()
-        onClose()
-      }
-    } finally {
-      setIsSubmitting(false)
+      deployWorkerd.mutate(
+        { name: formData.name, code: formData.code },
+        { onSuccess: handleSuccess },
+      )
     }
   }
 

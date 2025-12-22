@@ -640,8 +640,6 @@ export class NFTBridgeService extends EventEmitter {
     return { mint, name, symbol, uri, sellerFeeBasisPoints }
   }
 
-  // ============ Private Methods ============
-
   private async checkApproval(
     chainId: number,
     nftContract: Address,

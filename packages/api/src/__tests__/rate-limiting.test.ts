@@ -1,7 +1,3 @@
-/**
- * Rate Limiting Module Tests
- */
-
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import {
   createRateLimitHeaders,

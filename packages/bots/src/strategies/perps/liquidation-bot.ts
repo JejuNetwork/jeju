@@ -160,7 +160,7 @@ export class LiquidationBot {
         positionId: p.positionId as `0x${string}`,
         trader: p.trader as Address,
         marketId: p.marketId,
-        side: p.side === '0' ? 'long' : 'short',
+        side: p.side === '0' ? 'long' : 'short', // '0' = long, '1' = short
         size: BigInt(p.size),
         margin: BigInt(p.margin),
         entryPrice: BigInt(p.entryPrice),
@@ -237,22 +237,18 @@ export class LiquidationBot {
 
     const [account] = await this.walletClient.getAddresses()
 
-    // Estimate gas dynamically with a buffer
     let estimatedGas: bigint
     try {
       estimatedGas = await this.publicClient.estimateGas({
         account,
         to: this.config.perpMarketAddress,
-        data: '0x' as `0x${string}`, // The actual call data would go here
+        data: '0x' as `0x${string}`,
       })
-      // Add 30% buffer for safety
       estimatedGas = (estimatedGas * 130n) / 100n
     } catch {
-      // Fallback to default if estimation fails
       estimatedGas = 400000n
     }
 
-    // Cap at reasonable maximum
     const gasLimit = estimatedGas < 600000n ? estimatedGas : 600000n
 
     const hash = await this.walletClient.writeContract({

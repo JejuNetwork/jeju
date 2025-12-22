@@ -32,7 +32,7 @@ function getStatusForError(
   }
 }
 
-export function createS3Router(backend: BackendManager): Elysia {
+export function createS3Router(backend: BackendManager) {
   const s3 = new S3Backend(backend)
 
   const router = new Elysia({ name: 's3', prefix: '/s3' })
@@ -482,11 +482,12 @@ export function createS3Router(backend: BackendManager): Elysia {
     .post(
       '/presign',
       async ({ body }) => {
+        const operation = body.operation === 'GET' ? 'getObject' : 'putObject'
         const result = s3.generatePresignedUrl({
           bucket: body.bucket,
           key: body.key,
-          operation: body.operation,
-          expiresIn: body.expiresIn,
+          operation,
+          expiresIn: body.expiresIn ?? 3600,
           contentType: body.contentType,
         })
 

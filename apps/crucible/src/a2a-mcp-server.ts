@@ -1,14 +1,11 @@
 /**
  * Crucible A2A & MCP Server
- *
- * Agent-to-agent and Model Context Protocol interfaces for
- * the Crucible compute orchestration system.
  */
 
+import { cors } from '@elysiajs/cors'
 import { getCliBranding } from '@jejunetwork/config'
 import { createAgentCard, getServiceName } from '@jejunetwork/shared'
-import { Hono } from 'hono'
-import { cors } from 'hono/cors'
+import { Elysia } from 'elysia'
 import {
   A2ARequestSchema,
   expect,
@@ -18,16 +15,7 @@ import {
 } from './schemas'
 import type { JsonObject } from './types'
 
-// ============================================================================
-// Types
-// ============================================================================
-
-// ============================================================================
-// Configuration
-// ============================================================================
-
 const CRUCIBLE_SKILLS = [
-  // Compute Skills
   {
     id: 'list-providers',
     name: 'List Providers',
@@ -58,8 +46,6 @@ const CRUCIBLE_SKILLS = [
     description: 'Cancel a running job',
     tags: ['action', 'job'],
   },
-
-  // TEE Skills
   {
     id: 'list-tee-nodes',
     name: 'List TEE Nodes',
@@ -78,8 +64,6 @@ const CRUCIBLE_SKILLS = [
     description: 'Deploy workload to TEE',
     tags: ['action', 'tee'],
   },
-
-  // Inference Skills
   {
     id: 'list-models',
     name: 'List Models',
@@ -98,8 +82,6 @@ const CRUCIBLE_SKILLS = [
     description: 'Get pricing for inference',
     tags: ['query', 'pricing'],
   },
-
-  // Storage Skills
   {
     id: 'upload-to-storage',
     name: 'Upload to Storage',
@@ -224,72 +206,11 @@ const MCP_TOOLS = [
     description: 'Get status of a compute job',
     inputSchema: {
       type: 'object',
-      properties: {
-        jobId: { type: 'string', description: 'Job ID' },
-      },
+      properties: { jobId: { type: 'string', description: 'Job ID' } },
       required: ['jobId'],
     },
   },
 ]
-
-// ============================================================================
-// A2A Server
-// ============================================================================
-
-export function createCrucibleA2AServer(): Hono {
-  const app = new Hono()
-  // SECURITY: Configure CORS based on environment
-  const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',').filter(Boolean)
-  const isProduction = process.env.NODE_ENV === 'production'
-  app.use(
-    '/*',
-    cors({
-      origin: isProduction && CORS_ORIGINS?.length ? CORS_ORIGINS : '*',
-      credentials: true,
-    }),
-  )
-
-  app.get('/.well-known/agent-card.json', (c) => c.json(AGENT_CARD))
-
-  app.post('/', async (c) => {
-    const rawBody = await c.req.json()
-    const body = parseOrThrow(A2ARequestSchema, rawBody, 'A2A request')
-
-    if (body.method !== 'message/send') {
-      return c.json({
-        jsonrpc: '2.0',
-        id: body.id,
-        error: { code: -32601, message: 'Method not found' },
-      })
-    }
-
-    const message = body.params?.message
-    const validMessage = expect(message, 'Message is required')
-    const dataPart = validMessage.parts.find((p) => p.kind === 'data')
-    const validDataPart = expect(dataPart, 'Data part is required')
-    const validData = expect(validDataPart.data, 'Data part data is required')
-    expect(typeof validData.skillId === 'string', 'Skill ID must be a string')
-
-    const skillId = validData.skillId as string
-    const result = await executeA2ASkill(skillId, validData)
-
-    return c.json({
-      jsonrpc: '2.0',
-      id: body.id,
-      result: {
-        role: 'agent',
-        parts: [
-          { kind: 'text', text: result.message },
-          { kind: 'data', data: result.data },
-        ],
-        messageId: validMessage.messageId,
-        kind: 'message',
-      },
-    })
-  })
-
-  return app
-}
 
 async function executeA2ASkill(
   skillId: string,
@@ -320,171 +241,199 @@ async function executeA2ASkill(
   }
 }
 
-// ============================================================================
-// MCP Server
-// ============================================================================
-
-export function createCrucibleMCPServer(): Hono {
-  const app = new Hono()
-  // SECURITY: Configure CORS based on environment
+export function createCrucibleA2AServer() {
   const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',').filter(Boolean)
   const isProduction = process.env.NODE_ENV === 'production'
-  app.use(
-    '/*',
-    cors({
-      origin: isProduction && CORS_ORIGINS?.length ? CORS_ORIGINS : '*',
-      credentials: true,
-    }),
-  )
 
-  app.post('/initialize', (c) =>
-    c.json({
+  return new Elysia({ prefix: '/a2a' })
+    .use(
+      cors({
+        origin: isProduction && CORS_ORIGINS?.length ? CORS_ORIGINS : true,
+        credentials: true,
+      }),
+    )
+    .get('/.well-known/agent-card.json', () => AGENT_CARD)
+    .post('/', async ({ body }) => {
+      const parsed = parseOrThrow(A2ARequestSchema, body, 'A2A request')
+
+      if (parsed.method !== 'message/send') {
+        return {
+          jsonrpc: '2.0',
+          id: parsed.id,
+          error: { code: -32601, message: 'Method not found' },
+        }
+      }
+
+      const message = parsed.params?.message
+      const validMessage = expect(message, 'Message is required')
+      const dataPart = validMessage.parts.find((p) => p.kind === 'data')
+      const validDataPart = expect(dataPart, 'Data part is required')
+      const validData = expect(validDataPart.data, 'Data part data is required')
+      expect(typeof validData.skillId === 'string', 'Skill ID must be a string')
+
+      const skillId = validData.skillId as string
+      const result = await executeA2ASkill(skillId, validData)
+
+      return {
+        jsonrpc: '2.0',
+        id: parsed.id,
+        result: {
+          role: 'agent',
+          parts: [
+            { kind: 'text', text: result.message },
+            { kind: 'data', data: result.data },
+          ],
+          messageId: validMessage.messageId,
+          kind: 'message',
+        },
+      }
+    })
+}
+
+export function createCrucibleMCPServer() {
+  const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',').filter(Boolean)
+  const isProduction = process.env.NODE_ENV === 'production'
+
+  return new Elysia({ prefix: '/mcp' })
+    .use(
+      cors({
+        origin: isProduction && CORS_ORIGINS?.length ? CORS_ORIGINS : true,
+        credentials: true,
+      }),
+    )
+    .post('/initialize', () => ({
       protocolVersion: '2024-11-05',
       serverInfo: MCP_SERVER_INFO,
       capabilities: MCP_SERVER_INFO.capabilities,
-    }),
-  )
+    }))
+    .post('/resources/list', () => ({ resources: MCP_RESOURCES }))
+    .post('/resources/read', async ({ body, set }) => {
+      const parsed = parseOrThrow(
+        MCPResourceReadRequestSchema,
+        body,
+        'MCP resource read request',
+      )
 
-  app.post('/resources/list', (c) => c.json({ resources: MCP_RESOURCES }))
+      type ResourceContent =
+        | { providers: string[] }
+        | { nodes: string[] }
+        | { models: string[] }
+        | { jobs: string[] }
+        | { cpu: number; gpu: number; memory: number }
 
-  app.post('/resources/read', async (c) => {
-    const rawBody = await c.req.json()
-    const body = parseOrThrow(
-      MCPResourceReadRequestSchema,
-      rawBody,
-      'MCP resource read request',
-    )
+      let contents: ResourceContent
 
-    type ResourceContent =
-      | { providers: string[] }
-      | { nodes: string[] }
-      | { models: string[] }
-      | { jobs: string[] }
-      | { cpu: number; gpu: number; memory: number }
-
-    let contents: ResourceContent
-
-    switch (body.uri) {
-      case 'crucible://providers':
-        contents = { providers: [] }
-        break
-      case 'crucible://tee-nodes':
-        contents = { nodes: [] }
-        break
-      case 'crucible://models':
-        contents = { models: [] }
-        break
-      case 'crucible://jobs/active':
-        contents = { jobs: [] }
-        break
-      case 'crucible://pricing':
-        contents = { cpu: 0.01, gpu: 0.1, memory: 0.005 }
-        break
-      default:
-        return c.json({ error: 'Resource not found' }, 404)
-    }
-
-    return c.json({
-      contents: [
-        {
-          uri: body.uri,
-          mimeType: 'application/json',
-          text: JSON.stringify(contents),
-        },
-      ],
-    })
-  })
-
-  app.post('/tools/list', (c) => c.json({ tools: MCP_TOOLS }))
-
-  app.post('/tools/call', async (c) => {
-    const rawBody = await c.req.json()
-    const body = parseOrThrow(
-      MCPToolCallRequestSchema,
-      rawBody,
-      'MCP tool call request',
-    )
-
-    type ToolResult =
-      | { jobId: string; status: string; estimatedCost: number }
-      | { requestId: string; model: string; status: string }
-      | { deploymentId: string; status: string }
-      | { jobId: string; status: string; progress: number }
-
-    let result: ToolResult
-
-    switch (body.name) {
-      case 'request_compute':
-        result = {
-          jobId: crypto.randomUUID(),
-          status: 'pending',
-          estimatedCost: 1.5,
-        }
-        break
-      case 'run_inference': {
-        const args = expect(
-          body.arguments,
-          'Arguments are required for run_inference',
-        )
-        expect(
-          typeof args.model === 'string',
-          'Model is required for run_inference',
-        )
-        result = {
-          requestId: crypto.randomUUID(),
-          model: args.model as string,
-          status: 'queued',
-        }
-        break
+      switch (parsed.uri) {
+        case 'crucible://providers':
+          contents = { providers: [] }
+          break
+        case 'crucible://tee-nodes':
+          contents = { nodes: [] }
+          break
+        case 'crucible://models':
+          contents = { models: [] }
+          break
+        case 'crucible://jobs/active':
+          contents = { jobs: [] }
+          break
+        case 'crucible://pricing':
+          contents = { cpu: 0.01, gpu: 0.1, memory: 0.005 }
+          break
+        default:
+          set.status = 404
+          return { error: 'Resource not found' }
       }
-      case 'deploy_to_tee':
-        result = { deploymentId: crypto.randomUUID(), status: 'deploying' }
-        break
-      case 'get_job_status': {
-        const args = expect(
-          body.arguments,
-          'Arguments are required for get_job_status',
-        )
-        expect(args.jobId, 'Job ID is required for get_job_status')
-        result = {
-          jobId: args.jobId as string,
-          status: 'running',
-          progress: 50,
-        }
-        break
+
+      return {
+        contents: [
+          {
+            uri: parsed.uri,
+            mimeType: 'application/json',
+            text: JSON.stringify(contents),
+          },
+        ],
       }
-      default:
-        return c.json({
-          content: [{ type: 'text', text: 'Tool not found' }],
-          isError: true,
-        })
-    }
-
-    return c.json({
-      content: [{ type: 'text', text: JSON.stringify(result) }],
-      isError: false,
     })
-  })
+    .post('/tools/list', () => ({ tools: MCP_TOOLS }))
+    .post('/tools/call', async ({ body }) => {
+      const parsed = parseOrThrow(
+        MCPToolCallRequestSchema,
+        body,
+        'MCP tool call request',
+      )
 
-  app.get('/', (c) =>
-    c.json({ ...MCP_SERVER_INFO, resources: MCP_RESOURCES, tools: MCP_TOOLS }),
-  )
+      type ToolResult =
+        | { jobId: string; status: string; estimatedCost: number }
+        | { requestId: string; model: string; status: string }
+        | { deploymentId: string; status: string }
+        | { jobId: string; status: string; progress: number }
 
-  return app
+      let result: ToolResult
+
+      switch (parsed.name) {
+        case 'request_compute':
+          result = {
+            jobId: crypto.randomUUID(),
+            status: 'pending',
+            estimatedCost: 1.5,
+          }
+          break
+        case 'run_inference': {
+          const args = expect(
+            parsed.arguments,
+            'Arguments are required for run_inference',
+          )
+          expect(
+            typeof args.model === 'string',
+            'Model is required for run_inference',
+          )
+          result = {
+            requestId: crypto.randomUUID(),
+            model: args.model as string,
+            status: 'queued',
+          }
+          break
+        }
+        case 'deploy_to_tee':
+          result = { deploymentId: crypto.randomUUID(), status: 'deploying' }
+          break
+        case 'get_job_status': {
+          const args = expect(
+            parsed.arguments,
+            'Arguments are required for get_job_status',
+          )
+          expect(args.jobId, 'Job ID is required for get_job_status')
+          result = {
+            jobId: args.jobId as string,
+            status: 'running',
+            progress: 50,
+          }
+          break
+        }
+        default:
+          return {
+            content: [{ type: 'text', text: 'Tool not found' }],
+            isError: true,
+          }
+      }
+
+      return {
+        content: [{ type: 'text', text: JSON.stringify(result) }],
+        isError: false,
+      }
+    })
+    .get('/', () => ({
+      ...MCP_SERVER_INFO,
+      resources: MCP_RESOURCES,
+      tools: MCP_TOOLS,
+    }))
 }
 
-// ============================================================================
-// Combined Server
-// ============================================================================
-
-export function createCrucibleServer(): Hono {
-  const app = new Hono()
-
-  app.route('/a2a', createCrucibleA2AServer())
-  app.route('/mcp', createCrucibleMCPServer())
-
-  app.get('/', (c) =>
-    c.json({
+export function createCrucibleServer() {
+  return new Elysia()
+    .use(createCrucibleA2AServer())
+    .use(createCrucibleMCPServer())
+    .get('/', () => ({
       name: getServiceName('Crucible'),
       version: '1.0.0',
       endpoints: {
@@ -492,8 +441,5 @@ export function createCrucibleServer(): Hono {
         mcp: '/mcp',
         agentCard: '/a2a/.well-known/agent-card.json',
       },
-    }),
-  )
-
-  return app
+    }))
 }

@@ -34,16 +34,12 @@ import type {
   TEEPlatform,
 } from './types'
 
-// ============================================================================
-// Validation Schemas
-// ============================================================================
-
 const NodeSpecsSchema = z.object({
   cpuCores: z.number().int().positive(),
   memoryMb: z.number().int().positive(),
   storageMb: z.number().int().nonnegative(),
   bandwidthMbps: z.number().int().nonnegative(),
-  teePlatform: z.enum(['sgx', 'sev', 'tdx', 'nitro', 'none']),
+  teePlatform: z.enum(['intel_sgx', 'intel_tdx', 'amd_sev', 'none']),
 })
 
 const NodePricingSchema = z.object({
@@ -59,10 +55,6 @@ const NodeAttestationSchema = z.object({
   verifiedAt: z.number(),
   expiresAt: z.number(),
 })
-
-// ============================================================================
-// Chain Configuration
-// ============================================================================
 
 function getChainFromConfig(config: NetworkConfig): Chain {
   // Use known chains for testnet/mainnet

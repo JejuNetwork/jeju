@@ -9,9 +9,7 @@ import { describe, expect, it } from 'bun:test'
 import * as crypto from 'node:crypto'
 import { z } from 'zod'
 
-// ============================================================================
 // Query Classification Tests
-// ============================================================================
 
 describe('Query Classification', () => {
   const WRITE_PATTERNS = [
@@ -99,9 +97,7 @@ describe('Query Classification', () => {
   })
 })
 
-// ============================================================================
 // Configuration Schema Tests
-// ============================================================================
 
 describe('Configuration Schemas', () => {
   describe('Redis Config', () => {
@@ -216,9 +212,7 @@ describe('Configuration Schemas', () => {
   })
 })
 
-// ============================================================================
 // Content Hash Verification Tests
-// ============================================================================
 
 describe('Content Hash Verification', () => {
   function verifyContentHash(data: Buffer, expectedHash: string): boolean {
@@ -295,9 +289,7 @@ describe('Content Hash Verification', () => {
   })
 })
 
-// ============================================================================
 // Circuit Breaker Logic Tests
-// ============================================================================
 
 describe('Circuit Breaker', () => {
   class CircuitBreaker {
@@ -368,13 +360,11 @@ describe('Circuit Breaker', () => {
     const breaker = new CircuitBreaker(5, 1000)
 
     for (let i = 0; i < 3; i++) {
-      try {
-        await breaker.execute(async () => {
+      await breaker
+        .execute(async () => {
           throw new Error('fail')
         })
-      } catch {
-        // Expected
-      }
+        .catch(() => {})
     }
 
     expect(breaker.getFailures()).toBe(3)
@@ -385,13 +375,11 @@ describe('Circuit Breaker', () => {
     const breaker = new CircuitBreaker(3, 1000)
 
     for (let i = 0; i < 3; i++) {
-      try {
-        await breaker.execute(async () => {
+      await breaker
+        .execute(async () => {
           throw new Error('fail')
         })
-      } catch {
-        // Expected
-      }
+        .catch(() => {})
     }
 
     expect(breaker.getState()).toBe('open')
@@ -402,13 +390,11 @@ describe('Circuit Breaker', () => {
 
     // Trip the breaker
     for (let i = 0; i < 2; i++) {
-      try {
-        await breaker.execute(async () => {
+      await breaker
+        .execute(async () => {
           throw new Error('fail')
         })
-      } catch {
-        // Expected
-      }
+        .catch(() => {})
     }
 
     // Should immediately reject
@@ -422,13 +408,11 @@ describe('Circuit Breaker', () => {
 
     // Accumulate some failures
     for (let i = 0; i < 3; i++) {
-      try {
-        await breaker.execute(async () => {
+      await breaker
+        .execute(async () => {
           throw new Error('fail')
         })
-      } catch {
-        // Expected
-      }
+        .catch(() => {})
     }
 
     expect(breaker.getFailures()).toBe(3)
@@ -441,9 +425,7 @@ describe('Circuit Breaker', () => {
   })
 })
 
-// ============================================================================
 // LRU Cache Slot Calculation Tests
-// ============================================================================
 
 describe('Redis Cluster Slot Calculation', () => {
   // CRC16 implementation for Redis cluster
@@ -518,9 +500,7 @@ describe('Redis Cluster Slot Calculation', () => {
   })
 })
 
-// ============================================================================
 // Gossip Fanout Selection Tests
-// ============================================================================
 
 describe('Gossip Protocol', () => {
   function getRandomPeers<T>(peers: T[], count: number): T[] {
@@ -573,9 +553,7 @@ describe('Gossip Protocol', () => {
   })
 })
 
-// ============================================================================
 // Retry Logic Tests
-// ============================================================================
 
 describe('Retry with Exponential Backoff', () => {
   async function withRetry<T>(

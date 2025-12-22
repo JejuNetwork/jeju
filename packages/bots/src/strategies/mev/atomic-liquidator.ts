@@ -13,11 +13,10 @@
 
 import { EventEmitter } from 'node:events'
 import {
-  type PublicClient,
-  type WalletClient,
   type Address,
+  type PublicClient,
   parseAbi,
-  encodeFunctionData,
+  type WalletClient,
 } from 'viem'
 
 export interface LiquidatorConfig {
@@ -63,19 +62,18 @@ const COMPOUND_COMPTROLLER_ABI = parseAbi([
   'function getAccountLiquidity(address account) view returns (uint256 error, uint256 liquidity, uint256 shortfall)',
 ])
 
-const COMPOUND_CTOKEN_ABI = parseAbi([
+const _COMPOUND_CTOKEN_ABI = parseAbi([
   'function liquidateBorrow(address borrower, uint256 repayAmount, address cTokenCollateral) returns (uint256)',
   'function borrowBalanceCurrent(address account) returns (uint256)',
 ])
 
-const FLASHLOAN_ABI = parseAbi([
+const _FLASHLOAN_ABI = parseAbi([
   'function flashLoan(address receiver, address[] tokens, uint256[] amounts, uint256[] modes, address onBehalfOf, bytes callData, uint16 referralCode)',
 ])
 
 export class AtomicLiquidator extends EventEmitter {
   private config: LiquidatorConfig
   private client: PublicClient
-  private wallet: WalletClient
   private running = false
   private watchedPositions: Map<string, LiquidatablePosition> = new Map()
   private lastCheck = 0
@@ -83,19 +81,20 @@ export class AtomicLiquidator extends EventEmitter {
   constructor(
     config: LiquidatorConfig,
     client: PublicClient,
-    wallet: WalletClient
+    _wallet: WalletClient,
   ) {
     super()
     this.config = config
     this.client = client
-    this.wallet = wallet
   }
 
   async start(): Promise<void> {
     if (this.running) return
     this.running = true
 
-    console.log(`⚡ Atomic Liquidator: monitoring ${this.config.protocols.length} protocols`)
+    console.log(
+      `⚡ Atomic Liquidator: monitoring ${this.config.protocols.length} protocols`,
+    )
 
     // Start monitoring loop
     this.monitorLoop()
@@ -135,7 +134,9 @@ export class AtomicLiquidator extends EventEmitter {
     }
   }
 
-  private async getAtRiskPositions(protocol: LiquidationProtocol): Promise<LiquidatablePosition[]> {
+  private async getAtRiskPositions(
+    _protocol: LiquidationProtocol,
+  ): Promise<LiquidatablePosition[]> {
     // In production, would query an indexer or maintain a list of at-risk positions
     // For now, simplified implementation
 
@@ -150,7 +151,10 @@ export class AtomicLiquidator extends EventEmitter {
   /**
    * Check a specific position's health
    */
-  async checkPosition(protocol: LiquidationProtocol, user: Address): Promise<LiquidatablePosition | null> {
+  async checkPosition(
+    protocol: LiquidationProtocol,
+    user: Address,
+  ): Promise<LiquidatablePosition | null> {
     if (protocol.type === 'aave') {
       const data = await this.client.readContract({
         address: protocol.poolAddress,
@@ -174,12 +178,12 @@ export class AtomicLiquidator extends EventEmitter {
         }
       }
     } else if (protocol.type === 'compound') {
-      const result = await this.client.readContract({
+      const result = (await this.client.readContract({
         address: protocol.poolAddress,
         abi: COMPOUND_COMPTROLLER_ABI,
         functionName: 'getAccountLiquidity',
         args: [user],
-      }) as readonly [bigint, bigint, bigint]
+      })) as readonly [bigint, bigint, bigint]
       const shortfall = result[2]
 
       if (shortfall > 0n) {
@@ -199,12 +203,17 @@ export class AtomicLiquidator extends EventEmitter {
     return null
   }
 
-  private async createBundle(position: LiquidatablePosition): Promise<LiquidationBundle | null> {
+  private async createBundle(
+    position: LiquidatablePosition,
+  ): Promise<LiquidationBundle | null> {
     // Calculate flash loan amount (50% of debt to liquidate)
     const liquidationAmount = position.debtAmount / 2n
 
     // Calculate expected collateral received
-    const expectedCollateral = liquidationAmount * BigInt(Math.floor((1 + position.liquidationBonus) * 10000)) / 10000n
+    const expectedCollateral =
+      (liquidationAmount *
+        BigInt(Math.floor((1 + position.liquidationBonus) * 10000))) /
+      10000n
 
     // Estimate profit
     const expectedProfit = expectedCollateral - liquidationAmount
@@ -213,7 +222,7 @@ export class AtomicLiquidator extends EventEmitter {
     const gasCost = this.config.maxGasPrice * 500000n // Estimated gas
     const profitAfterGas = expectedProfit - gasCost
 
-    if (Number(profitAfterGas) / 1e18 * 3500 < this.config.minProfitUsd) {
+    if ((Number(profitAfterGas) / 1e18) * 3500 < this.config.minProfitUsd) {
       return null
     }
 
@@ -230,8 +239,8 @@ export class AtomicLiquidator extends EventEmitter {
   }
 
   private buildLiquidationCallData(
-    position: LiquidatablePosition,
-    amount: bigint
+    _position: LiquidatablePosition,
+    _amount: bigint,
   ): `0x${string}` {
     // This would be the encoded call to our liquidator contract
     // The contract would:
@@ -247,7 +256,9 @@ export class AtomicLiquidator extends EventEmitter {
   private async executeLiquidation(bundle: LiquidationBundle): Promise<void> {
     console.log(`⚡ Executing liquidation: ${bundle.position.user}`)
     console.log(`   Protocol: ${bundle.position.protocol}`)
-    console.log(`   Expected profit: ${Number(bundle.expectedProfit) / 1e18} ETH`)
+    console.log(
+      `   Expected profit: ${Number(bundle.expectedProfit) / 1e18} ETH`,
+    )
 
     // In production, would submit via Flashbots for atomicity
 
@@ -261,4 +272,3 @@ export class AtomicLiquidator extends EventEmitter {
     }
   }
 }
-

@@ -2,6 +2,10 @@
  * Otto Wallet Service
  * Handles user wallet binding, account abstraction, and session keys
  * Uses StateManager for persistence
+ *
+ * API Strategy:
+ * - OAuth3 API: Uses typed fetch client (OAuth3 Elysia server pending implementation)
+ * - When OAuth3 server is implemented with Elysia, convert to Eden Treaty client
  */
 
 import { expectValid } from '@jejunetwork/types'
@@ -19,16 +23,96 @@ import type { OttoUser, Platform, UserSettings } from '../types'
 import { getRequiredEnv } from '../utils/validation'
 import { getStateManager } from './state'
 
-function getOAuth3Api(): string {
-  return getRequiredEnv('OAUTH3_API_URL', 'http://localhost:4025')
+// OAuth3 API - typed fetch client until Elysia server is implemented
+const getOAuth3BaseUrl = () =>
+  getRequiredEnv('OAUTH3_API_URL', 'http://localhost:4025')
+
+/**
+ * Typed OAuth3 API client
+ * When OAuth3 Elysia server is implemented, replace with Eden Treaty client
+ */
+const oauth3Api = {
+  account: {
+    async create(body: { owner: Address; userId: string }) {
+      const response = await fetch(`${getOAuth3BaseUrl()}/api/account/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (!response.ok) throw new Error('Failed to create smart account')
+      return expectValid(
+        ExternalSmartAccountResponseSchema,
+        await response.json(),
+        'smart account response',
+      )
+    },
+  },
+  sessionKey: {
+    async create(body: {
+      smartAccount: Address
+      permissions: {
+        allowedContracts?: Address[]
+        maxSpendPerTx?: string
+        maxTotalSpend?: string
+        allowedFunctions?: string[]
+      }
+      validUntil: number
+    }) {
+      const response = await fetch(
+        `${getOAuth3BaseUrl()}/api/session-key/create`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        },
+      )
+      if (!response.ok) throw new Error('Failed to create session key')
+      return expectValid(
+        ExternalSessionKeyResponseSchema,
+        await response.json(),
+        'session key response',
+      )
+    },
+    async revoke(body: { smartAccount: Address; sessionKey: Address }) {
+      const response = await fetch(
+        `${getOAuth3BaseUrl()}/api/session-key/revoke`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        },
+      )
+      return response.ok
+    },
+  },
+  resolve: {
+    async byName(name: string) {
+      const response = await fetch(
+        `${getOAuth3BaseUrl()}/api/resolve/${encodeURIComponent(name)}`,
+      )
+      if (!response.ok) return null
+      return expectValid(
+        ExternalResolveResponseSchema,
+        await response.json(),
+        'resolve response',
+      )
+    },
+    async byAddress(address: Address) {
+      const response = await fetch(
+        `${getOAuth3BaseUrl()}/api/reverse/${address}`,
+      )
+      if (!response.ok) return null
+      return expectValid(
+        ExternalReverseResolveResponseSchema,
+        await response.json(),
+        'reverse resolve response',
+      )
+    },
+  },
 }
 
 export class WalletService {
   private stateManager = getStateManager()
-
-  // ============================================================================
-  // User Management
-  // ============================================================================
 
   getOrCreateUser(platform: Platform, platformId: string): OttoUser | null {
     return this.stateManager.getUserByPlatform(platform, platformId)
@@ -41,10 +125,6 @@ export class WalletService {
   getUserByPlatform(platform: Platform, platformId: string): OttoUser | null {
     return this.stateManager.getUserByPlatform(platform, platformId)
   }
-
-  // ============================================================================
-  // Wallet Connection
-  // ============================================================================
 
   async generateConnectUrl(
     platform: Platform,
@@ -62,10 +142,9 @@ export class WalletService {
       requestId,
     })
 
-    return `${getOAuth3Api()}/connect/wallet?${params}`
+    return `${getOAuth3BaseUrl()}/connect/wallet?${params}`
   }
 
-  // Sync version for use in handlers that can't be async
   getConnectUrl(
     platform: string,
     platformId: string,
@@ -82,7 +161,7 @@ export class WalletService {
       requestId,
     })
 
-    return `${getOAuth3Api()}/connect/wallet?${params}`
+    return `${getOAuth3BaseUrl()}/connect/wallet?${params}`
   }
 
   async verifyAndConnect(
@@ -93,7 +172,6 @@ export class WalletService {
     signature: Hex,
     nonce: string,
   ): Promise<OttoUser> {
-    // Validate inputs
     if (
       !platform ||
       !platformId ||
@@ -124,11 +202,9 @@ export class WalletService {
       throw new Error('Invalid signature')
     }
 
-    // Check if user already exists with this wallet
     let user = this.findUserByWallet(walletAddress)
 
     if (user) {
-      // Add platform link if not already linked
       const hasLink = user.platforms.some(
         (p) => p.platform === platform && p.platformId === platformId,
       )
@@ -143,7 +219,6 @@ export class WalletService {
         this.stateManager.setUser(user)
       }
     } else {
-      // Create new user
       const userId = `user_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
       const newUser = {
         id: userId,
@@ -189,30 +264,15 @@ export class WalletService {
     return true
   }
 
-  // ============================================================================
-  // Account Abstraction & Session Keys
-  // ============================================================================
-
   async createSmartAccount(user: OttoUser): Promise<Address> {
-    const response = await fetch(`${getOAuth3Api()}/api/account/create`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        owner: user.primaryWallet,
-        userId: user.id,
-      }),
-    })
-
-    if (!response.ok) {
-      throw new Error('Failed to create smart account')
+    if (!user.primaryWallet) {
+      throw new Error('User must have a primary wallet')
     }
 
-    const rawData = await response.json()
-    const data = expectValid(
-      ExternalSmartAccountResponseSchema,
-      rawData,
-      'smart account response',
-    )
+    const data = await oauth3Api.account.create({
+      owner: user.primaryWallet,
+      userId: user.id,
+    })
 
     user.smartAccountAddress = data.address
     this.stateManager.setUser(user)
@@ -230,31 +290,16 @@ export class WalletService {
     const expiresAt =
       Date.now() + (permissions.validForMs ?? 24 * 60 * 60 * 1000)
 
-    const response = await fetch(`${getOAuth3Api()}/api/session-key/create`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        smartAccount: user.smartAccountAddress,
-        permissions: {
-          allowedContracts: permissions.allowedContracts,
-          maxSpendPerTx: permissions.maxSpendPerTx?.toString(),
-          maxTotalSpend: permissions.maxTotalSpend?.toString(),
-          allowedFunctions: permissions.allowedFunctions,
-        },
-        validUntil: Math.floor(expiresAt / 1000),
-      }),
+    const data = await oauth3Api.sessionKey.create({
+      smartAccount: user.smartAccountAddress as Address,
+      permissions: {
+        allowedContracts: permissions.allowedContracts,
+        maxSpendPerTx: permissions.maxSpendPerTx?.toString(),
+        maxTotalSpend: permissions.maxTotalSpend?.toString(),
+        allowedFunctions: permissions.allowedFunctions,
+      },
+      validUntil: Math.floor(expiresAt / 1000),
     })
-
-    if (!response.ok) {
-      throw new Error('Failed to create session key')
-    }
-
-    const rawData = await response.json()
-    const data = expectValid(
-      ExternalSessionKeyResponseSchema,
-      rawData,
-      'session key response',
-    )
 
     user.sessionKeyAddress = data.sessionKeyAddress
     user.sessionKeyExpiry = expiresAt
@@ -268,16 +313,12 @@ export class WalletService {
       return false
     }
 
-    const response = await fetch(`${getOAuth3Api()}/api/session-key/revoke`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        smartAccount: user.smartAccountAddress,
-        sessionKey: user.sessionKeyAddress,
-      }),
+    const success = await oauth3Api.sessionKey.revoke({
+      smartAccount: user.smartAccountAddress,
+      sessionKey: user.sessionKeyAddress,
     })
 
-    if (!response.ok) {
+    if (!success) {
       return false
     }
 
@@ -295,10 +336,6 @@ export class WalletService {
       user.sessionKeyExpiry > Date.now()
     )
   }
-
-  // ============================================================================
-  // Settings
-  // ============================================================================
 
   updateSettings(userId: string, settings: Partial<UserSettings>): boolean {
     if (!userId) {
@@ -333,10 +370,6 @@ export class WalletService {
     return user.settings
   }
 
-  // ============================================================================
-  // Helpers
-  // ============================================================================
-
   private createSignMessage(
     platform: Platform,
     platformId: string,
@@ -353,10 +386,6 @@ export class WalletService {
     }
   }
 
-  // ============================================================================
-  // Address Resolution (ENS/JNS)
-  // ============================================================================
-
   async resolveAddress(nameOrAddress: string): Promise<Address | null> {
     if (!nameOrAddress || typeof nameOrAddress !== 'string') {
       throw new Error('Name or address must be a non-empty string')
@@ -370,47 +399,21 @@ export class WalletService {
       return address
     }
 
-    const response = await fetch(
-      `${getOAuth3Api()}/api/resolve/${encodeURIComponent(nameOrAddress)}`,
-    )
-
-    if (!response.ok) {
+    const data = await oauth3Api.resolve.byName(nameOrAddress)
+    if (!data?.address) {
       return null
     }
 
-    const rawData = await response.json()
-    const data = expectValid(
-      ExternalResolveResponseSchema,
-      rawData,
-      'resolve response',
-    )
-    const address = data.address
-
-    if (!address) {
-      return null
-    }
-
-    if (!isAddress(address)) {
+    if (!isAddress(data.address)) {
       throw new Error('Resolved address is invalid')
     }
 
-    return address
+    return data.address
   }
 
   async getDisplayName(address: Address): Promise<string> {
-    const response = await fetch(`${getOAuth3Api()}/api/reverse/${address}`)
-
-    if (!response.ok) {
-      return `${address.slice(0, 6)}...${address.slice(-4)}`
-    }
-
-    const rawData = await response.json()
-    const data = expectValid(
-      ExternalReverseResolveResponseSchema,
-      rawData,
-      'reverse resolve response',
-    )
-    return data.name ?? `${address.slice(0, 6)}...${address.slice(-4)}`
+    const data = await oauth3Api.resolve.byAddress(address)
+    return data?.name ?? `${address.slice(0, 6)}...${address.slice(-4)}`
   }
 }
 

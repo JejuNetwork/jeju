@@ -13,9 +13,7 @@ import type { Address } from 'viem'
 import { z } from 'zod'
 import { getChain, type NodeClient } from '../contracts'
 
-// ============================================================================
 // WireGuard Protocol Constants
-// ============================================================================
 
 const WG_CONSTRUCTION = 'Noise_IKpsk2_25519_ChaChaPoly_BLAKE2s'
 const WG_IDENTIFIER = 'WireGuard v1 zx2c4 Jason@zx2c4.com'
@@ -37,9 +35,7 @@ const DOS_THRESHOLD_PACKETS_PER_SECOND = 100
 const DOS_THRESHOLD_HANDSHAKES_PER_SECOND = 10
 const COOKIE_REFRESH_INTERVAL = 120000 // 2 minutes
 
-// ============================================================================
 // IP/TCP/UDP Checksum Functions
-// ============================================================================
 
 /**
  * Calculate IP header checksum (RFC 1071)
@@ -213,9 +209,7 @@ function natReverseModifyPacket(
   return modified
 }
 
-// ============================================================================
 // Configuration Schema
-// ============================================================================
 
 const VPNExitConfigSchema = z.object({
   listenPort: z.number().min(1024).max(65535).default(51820),
@@ -245,9 +239,7 @@ const VPNExitConfigSchema = z.object({
 
 export type VPNExitConfig = z.infer<typeof VPNExitConfigSchema>
 
-// ============================================================================
 // Types
-// ============================================================================
 
 export interface VPNExitState {
   isRegistered: boolean
@@ -325,9 +317,7 @@ interface DoSState {
   lastCookieRotation: number
 }
 
-// ============================================================================
 // Token Bucket Rate Limiter
-// ============================================================================
 
 class TokenBucketRateLimiter {
   private tokens: number
@@ -380,9 +370,7 @@ class TokenBucketRateLimiter {
   }
 }
 
-// ============================================================================
 // NAT Table
-// ============================================================================
 
 class NATTable {
   private entries = new Map<string, NATEntry>()
@@ -568,9 +556,7 @@ class NATTable {
   }
 }
 
-// ============================================================================
 // TUN Device Manager
-// ============================================================================
 
 class TUNDevice extends EventEmitter {
   private readProcess: ChildProcess | null = null
@@ -594,106 +580,87 @@ class TUNDevice extends EventEmitter {
     this.serverIP = baseIP.replace(/\.0$/, '.1')
 
     // Create TUN interface using ip command (requires root)
-    try {
-      // First try to delete any existing interface
-      await this.execCommand('ip', [
-        'link',
-        'delete',
-        this.interfaceName,
-      ]).catch(() => {})
+    // First try to delete any existing interface (ignore errors)
+    await this.execCommand('ip', ['link', 'delete', this.interfaceName]).catch(
+      () => {},
+    )
 
-      // Create the TUN interface
-      await this.execCommand('ip', [
-        'tuntap',
-        'add',
-        'dev',
-        this.interfaceName,
-        'mode',
-        'tun',
-      ])
-      await this.execCommand('ip', [
-        'addr',
-        'add',
-        `${this.serverIP}/${mask}`,
-        'dev',
-        this.interfaceName,
-      ])
-      await this.execCommand('ip', [
-        'link',
-        'set',
-        'dev',
-        this.interfaceName,
-        'mtu',
-        this.mtu.toString(),
-      ])
-      await this.execCommand('ip', [
-        'link',
-        'set',
-        'dev',
-        this.interfaceName,
-        'up',
-      ])
+    // Create the TUN interface
+    await this.execCommand('ip', [
+      'tuntap',
+      'add',
+      'dev',
+      this.interfaceName,
+      'mode',
+      'tun',
+    ])
+    await this.execCommand('ip', [
+      'addr',
+      'add',
+      `${this.serverIP}/${mask}`,
+      'dev',
+      this.interfaceName,
+    ])
+    await this.execCommand('ip', [
+      'link',
+      'set',
+      'dev',
+      this.interfaceName,
+      'mtu',
+      this.mtu.toString(),
+    ])
+    await this.execCommand('ip', [
+      'link',
+      'set',
+      'dev',
+      this.interfaceName,
+      'up',
+    ])
 
-      // Enable IP forwarding
-      await this.execCommand('sysctl', ['-w', 'net.ipv4.ip_forward=1'])
+    // Enable IP forwarding
+    await this.execCommand('sysctl', ['-w', 'net.ipv4.ip_forward=1'])
 
-      // Setup NAT with iptables
-      await this.execCommand('iptables', [
-        '-t',
-        'nat',
-        '-A',
-        'POSTROUTING',
-        '-s',
-        this.subnet,
-        '-o',
-        'eth0',
-        '-j',
-        'MASQUERADE',
-      ]).catch(() => {
-        // Try without specifying output interface
-        return this.execCommand('iptables', [
-          '-t',
-          'nat',
-          '-A',
-          'POSTROUTING',
-          '-s',
-          this.subnet,
-          '-j',
-          'MASQUERADE',
-        ])
-      })
-      await this.execCommand('iptables', [
-        '-A',
-        'FORWARD',
-        '-i',
-        this.interfaceName,
-        '-j',
-        'ACCEPT',
-      ])
-      await this.execCommand('iptables', [
-        '-A',
-        'FORWARD',
-        '-o',
-        this.interfaceName,
-        '-m',
-        'state',
-        '--state',
-        'RELATED,ESTABLISHED',
-        '-j',
-        'ACCEPT',
-      ])
+    // Setup NAT with iptables
+    await this.execCommand('iptables', [
+      '-t',
+      'nat',
+      '-A',
+      'POSTROUTING',
+      '-s',
+      this.subnet,
+      '-o',
+      'eth0',
+      '-j',
+      'MASQUERADE',
+    ])
+    await this.execCommand('iptables', [
+      '-A',
+      'FORWARD',
+      '-i',
+      this.interfaceName,
+      '-j',
+      'ACCEPT',
+    ])
+    await this.execCommand('iptables', [
+      '-A',
+      'FORWARD',
+      '-o',
+      this.interfaceName,
+      '-m',
+      'state',
+      '--state',
+      'RELATED,ESTABLISHED',
+      '-j',
+      'ACCEPT',
+    ])
 
-      this.running = true
-      console.log(
-        `[TUN] Interface ${this.interfaceName} created with IP ${this.serverIP}/${mask}`,
-      )
+    this.running = true
+    console.log(
+      `[TUN] Interface ${this.interfaceName} created with IP ${this.serverIP}/${mask}`,
+    )
 
-      // Open TUN device for reading/writing
-      await this.openTunDevice()
-    } catch (error) {
-      console.error('[TUN] Failed to create interface:', error)
-      throw error
-    }
+    // Open TUN device for reading/writing
+    await this.openTunDevice()
   }
 
   private async openTunDevice(): Promise<void> {
@@ -886,7 +853,7 @@ class TUNDevice extends EventEmitter {
 
   private forwardICMP(packet: Uint8Array): void {
     // ICMP requires raw sockets which need CAP_NET_RAW
-    // Use ping command as fallback for echo requests
+    // Use ping command for echo requests (requires CAP_NET_RAW)
     const dstIP = `${packet[16]}.${packet[17]}.${packet[18]}.${packet[19]}`
     const icmpType = packet[20]
 
@@ -917,9 +884,7 @@ class TUNDevice extends EventEmitter {
   }
 }
 
-// ============================================================================
 // VPN Registry ABI
-// ============================================================================
 
 const VPN_REGISTRY_ABI = [
   'function register(bytes2 countryCode, bytes32 regionHash, string endpoint, string wireguardPubKey, tuple(bool supportsWireGuard, bool supportsSOCKS5, bool supportsHTTPConnect, bool servesCDN, bool isVPNExit) capabilities) external payable',
@@ -931,9 +896,7 @@ const VPN_REGISTRY_ABI = [
   'function blockedCountries(bytes2 countryCode) external view returns (bool)',
 ] as const
 
-// ============================================================================
 // Prometheus Metrics
-// ============================================================================
 
 const metricsRegistry = new Registry()
 
@@ -1003,9 +966,7 @@ const vpnCookieRepliesTotal = new Counter({
   registers: [metricsRegistry],
 })
 
-// ============================================================================
 // Cryptographic Primitives (X25519, ChaCha20-Poly1305, BLAKE2s)
-// ============================================================================
 
 // X25519 implementation - module-private constants and functions
 const X25519_BASE_POINT = Buffer.from([
@@ -1286,9 +1247,7 @@ const ChaCha20Poly1305 = {
   },
 }
 
-// ============================================================================
 // Noise Protocol Implementation (IKpsk2)
-// ============================================================================
 
 class NoiseIKpsk2 {
   private chainingKey: Uint8Array
@@ -1418,9 +1377,7 @@ class NoiseIKpsk2 {
   }
 }
 
-// ============================================================================
 // VPN Exit Service
-// ============================================================================
 
 export class VPNExitService {
   private client: NodeClient
@@ -2253,7 +2210,7 @@ export class VPNExitService {
       return process.env.EXTERNAL_IP
     }
 
-    // Use the tunnel subnet gateway as fallback
+    // Use the tunnel subnet gateway as default
     const [baseIP] = this.config.tunnelSubnet.split('/')
     return baseIP.replace(/\.0$/, '.1')
   }
@@ -2485,18 +2442,14 @@ export class VPNExitService {
     )
       return
 
-    try {
-      await this.client.walletClient.writeContract({
-        chain: getChain(this.client.chainId),
-        account: this.client.walletClient.account,
-        address: this.client.addresses.vpnRegistry,
-        abi: VPN_REGISTRY_ABI,
-        functionName: 'heartbeat',
-        args: [],
-      })
-    } catch (error) {
-      console.error('[VPNExit] Heartbeat failed:', error)
-    }
+    await this.client.walletClient.writeContract({
+      chain: getChain(this.client.chainId),
+      account: this.client.walletClient.account,
+      address: this.client.addresses.vpnRegistry,
+      abi: VPN_REGISTRY_ABI,
+      functionName: 'heartbeat',
+      args: [],
+    })
   }
 
   private updateMetrics(): void {
@@ -2508,9 +2461,7 @@ export class VPNExitService {
   }
 }
 
-// ============================================================================
 // Factory
-// ============================================================================
 
 export function createVPNExitService(
   client: NodeClient,

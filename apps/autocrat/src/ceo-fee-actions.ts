@@ -186,7 +186,9 @@ function ensureReadOnly(): {
   public: ReturnType<typeof createPublicClient>
 } {
   if (!feeConfigAddress || !publicClient) {
-    throw new Error('Fee actions not initialized. Call initializeFeeActions first.')
+    throw new Error(
+      'Fee actions not initialized. Call initializeFeeActions first.',
+    )
   }
   return { address: feeConfigAddress, public: publicClient }
 }
@@ -197,9 +199,15 @@ function ensureWrite(): {
   wallet: ReturnType<typeof createWalletClient>
 } {
   if (!feeConfigAddress || !publicClient || !walletClient) {
-    throw new Error('Fee actions not initialized with wallet client. Write operations unavailable.')
+    throw new Error(
+      'Fee actions not initialized with wallet client. Write operations unavailable.',
+    )
   }
-  return { address: feeConfigAddress, public: publicClient, wallet: walletClient }
+  return {
+    address: feeConfigAddress,
+    public: publicClient,
+    wallet: walletClient,
+  }
 }
 
 // ============ View Functions ============
@@ -220,16 +228,56 @@ export async function getFeeConfigState(): Promise<FeeConfigState> {
     council,
     ceo,
   ] = await Promise.all([
-    client.readContract({ address, abi: FEE_CONFIG_ABI, functionName: 'getDistributionFees' }),
-    client.readContract({ address, abi: FEE_CONFIG_ABI, functionName: 'getComputeFees' }),
-    client.readContract({ address, abi: FEE_CONFIG_ABI, functionName: 'getStorageFees' }),
-    client.readContract({ address, abi: FEE_CONFIG_ABI, functionName: 'getDeFiFees' }),
-    client.readContract({ address, abi: FEE_CONFIG_ABI, functionName: 'getInfrastructureFees' }),
-    client.readContract({ address, abi: FEE_CONFIG_ABI, functionName: 'getMarketplaceFees' }),
-    client.readContract({ address, abi: FEE_CONFIG_ABI, functionName: 'getNamesFees' }),
-    client.readContract({ address, abi: FEE_CONFIG_ABI, functionName: 'getTokenFees' }),
-    client.readContract({ address, abi: FEE_CONFIG_ABI, functionName: 'getTreasury' }),
-    client.readContract({ address, abi: FEE_CONFIG_ABI, functionName: 'council' }),
+    client.readContract({
+      address,
+      abi: FEE_CONFIG_ABI,
+      functionName: 'getDistributionFees',
+    }),
+    client.readContract({
+      address,
+      abi: FEE_CONFIG_ABI,
+      functionName: 'getComputeFees',
+    }),
+    client.readContract({
+      address,
+      abi: FEE_CONFIG_ABI,
+      functionName: 'getStorageFees',
+    }),
+    client.readContract({
+      address,
+      abi: FEE_CONFIG_ABI,
+      functionName: 'getDeFiFees',
+    }),
+    client.readContract({
+      address,
+      abi: FEE_CONFIG_ABI,
+      functionName: 'getInfrastructureFees',
+    }),
+    client.readContract({
+      address,
+      abi: FEE_CONFIG_ABI,
+      functionName: 'getMarketplaceFees',
+    }),
+    client.readContract({
+      address,
+      abi: FEE_CONFIG_ABI,
+      functionName: 'getNamesFees',
+    }),
+    client.readContract({
+      address,
+      abi: FEE_CONFIG_ABI,
+      functionName: 'getTokenFees',
+    }),
+    client.readContract({
+      address,
+      abi: FEE_CONFIG_ABI,
+      functionName: 'getTreasury',
+    }),
+    client.readContract({
+      address,
+      abi: FEE_CONFIG_ABI,
+      functionName: 'council',
+    }),
     client.readContract({ address, abi: FEE_CONFIG_ABI, functionName: 'ceo' }),
   ])
 
@@ -291,7 +339,9 @@ export async function ceoCancelFeeChange(changeId: Hex): Promise<Hash> {
 
 // ============ Direct Fee Setters (when CEO is owner) ============
 
-export async function ceoSetDistributionFees(fees: DistributionFees): Promise<Hash> {
+export async function ceoSetDistributionFees(
+  fees: DistributionFees,
+): Promise<Hash> {
   const { address, wallet } = ensureWrite()
 
   const hash = await wallet.writeContract({
@@ -309,7 +359,9 @@ export async function ceoSetDistributionFees(fees: DistributionFees): Promise<Ha
     ],
   })
 
-  console.log(`[CEO] Updated distribution fees: app=${fees.appShareBps}, lp=${fees.lpShareBps}, contrib=${fees.contributorShareBps}`)
+  console.log(
+    `[CEO] Updated distribution fees: app=${fees.appShareBps}, lp=${fees.lpShareBps}, contrib=${fees.contributorShareBps}`,
+  )
   return hash
 }
 
@@ -322,10 +374,16 @@ export async function ceoSetComputeFees(fees: ComputeFees): Promise<Hash> {
     address,
     abi: FEE_CONFIG_ABI,
     functionName: 'setComputeFees',
-    args: [fees.inferencePlatformFeeBps, fees.rentalPlatformFeeBps, fees.triggerPlatformFeeBps],
+    args: [
+      fees.inferencePlatformFeeBps,
+      fees.rentalPlatformFeeBps,
+      fees.triggerPlatformFeeBps,
+    ],
   })
 
-  console.log(`[CEO] Updated compute fees: inference=${fees.inferencePlatformFeeBps}, rental=${fees.rentalPlatformFeeBps}`)
+  console.log(
+    `[CEO] Updated compute fees: inference=${fees.inferencePlatformFeeBps}, rental=${fees.rentalPlatformFeeBps}`,
+  )
   return hash
 }
 
@@ -341,7 +399,9 @@ export async function ceoSetStorageFees(fees: StorageFees): Promise<Hash> {
     args: [fees.uploadFeeBps, fees.retrievalFeeBps, fees.pinningFeeBps],
   })
 
-  console.log(`[CEO] Updated storage fees: upload=${fees.uploadFeeBps}, retrieval=${fees.retrievalFeeBps}`)
+  console.log(
+    `[CEO] Updated storage fees: upload=${fees.uploadFeeBps}, retrieval=${fees.retrievalFeeBps}`,
+  )
   return hash
 }
 
@@ -354,14 +414,22 @@ export async function ceoSetDeFiFees(fees: DeFiFees): Promise<Hash> {
     address,
     abi: FEE_CONFIG_ABI,
     functionName: 'setDeFiFees',
-    args: [fees.swapProtocolFeeBps, fees.bridgeFeeBps, fees.crossChainMarginBps],
+    args: [
+      fees.swapProtocolFeeBps,
+      fees.bridgeFeeBps,
+      fees.crossChainMarginBps,
+    ],
   })
 
-  console.log(`[CEO] Updated DeFi fees: swap=${fees.swapProtocolFeeBps}, bridge=${fees.bridgeFeeBps}`)
+  console.log(
+    `[CEO] Updated DeFi fees: swap=${fees.swapProtocolFeeBps}, bridge=${fees.bridgeFeeBps}`,
+  )
   return hash
 }
 
-export async function ceoSetInfrastructureFees(fees: InfrastructureFees): Promise<Hash> {
+export async function ceoSetInfrastructureFees(
+  fees: InfrastructureFees,
+): Promise<Hash> {
   const { address, wallet } = ensureWrite()
 
   const hash = await wallet.writeContract({
@@ -378,11 +446,15 @@ export async function ceoSetInfrastructureFees(fees: InfrastructureFees): Promis
     ],
   })
 
-  console.log(`[CEO] Updated infrastructure fees: sequencer=${fees.sequencerRevenueShareBps}, oracle=${fees.oracleTreasuryShareBps}`)
+  console.log(
+    `[CEO] Updated infrastructure fees: sequencer=${fees.sequencerRevenueShareBps}, oracle=${fees.oracleTreasuryShareBps}`,
+  )
   return hash
 }
 
-export async function ceoSetMarketplaceFees(fees: MarketplaceFees): Promise<Hash> {
+export async function ceoSetMarketplaceFees(
+  fees: MarketplaceFees,
+): Promise<Hash> {
   const { address, wallet } = ensureWrite()
 
   const hash = await wallet.writeContract({
@@ -399,7 +471,9 @@ export async function ceoSetMarketplaceFees(fees: MarketplaceFees): Promise<Hash
     ],
   })
 
-  console.log(`[CEO] Updated marketplace fees: bazaar=${fees.bazaarPlatformFeeBps}, x402=${fees.x402ProtocolFeeBps}`)
+  console.log(
+    `[CEO] Updated marketplace fees: bazaar=${fees.bazaarPlatformFeeBps}, x402=${fees.x402ProtocolFeeBps}`,
+  )
   return hash
 }
 
@@ -412,10 +486,16 @@ export async function ceoSetNamesFees(fees: NamesFees): Promise<Hash> {
     address,
     abi: FEE_CONFIG_ABI,
     functionName: 'setNamesFees',
-    args: [fees.baseRegistrationPrice, fees.agentDiscountBps, fees.renewalDiscountBps],
+    args: [
+      fees.baseRegistrationPrice,
+      fees.agentDiscountBps,
+      fees.renewalDiscountBps,
+    ],
   })
 
-  console.log(`[CEO] Updated names fees: base=${fees.baseRegistrationPrice}, discount=${fees.agentDiscountBps}`)
+  console.log(
+    `[CEO] Updated names fees: base=${fees.baseRegistrationPrice}, discount=${fees.agentDiscountBps}`,
+  )
   return hash
 }
 
@@ -440,7 +520,9 @@ export async function ceoSetTokenFees(fees: TokenFees): Promise<Hash> {
     ],
   })
 
-  console.log(`[CEO] Updated token fees: xlp=${fees.xlpRewardShareBps}, protocol=${fees.protocolShareBps}, burn=${fees.burnShareBps}`)
+  console.log(
+    `[CEO] Updated token fees: xlp=${fees.xlpRewardShareBps}, protocol=${fees.protocolShareBps}, burn=${fees.burnShareBps}`,
+  )
   return hash
 }
 
@@ -469,7 +551,9 @@ export async function ceoSetTokenOverride(
     ],
   })
 
-  console.log(`[CEO] Set token override for ${token}: xlp=${fees.xlpRewardShareBps}`)
+  console.log(
+    `[CEO] Set token override for ${token}: xlp=${fees.xlpRewardShareBps}`,
+  )
   return hash
 }
 
@@ -624,12 +708,19 @@ export const ceoFeeSkills = [
 export async function executeCEOFeeSkill(
   skillId: string,
   params: Record<string, unknown>,
-): Promise<{ success: boolean; result: Record<string, unknown> | null; error?: string }> {
+): Promise<{
+  success: boolean
+  result: Record<string, unknown> | null
+  error?: string
+}> {
   try {
     switch (skillId) {
       case 'get-fees': {
         const state = await getFeeConfigState()
-        return { success: true, result: state as unknown as Record<string, unknown> }
+        return {
+          success: true,
+          result: state as unknown as Record<string, unknown>,
+        }
       }
 
       case 'set-distribution-fees': {
@@ -738,11 +829,14 @@ export async function executeCEOFeeSkill(
       }
 
       default:
-        return { success: false, result: null, error: `Unknown skill: ${skillId}` }
+        return {
+          success: false,
+          result: null,
+          error: `Unknown skill: ${skillId}`,
+        }
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
     return { success: false, result: null, error: message }
   }
 }
-

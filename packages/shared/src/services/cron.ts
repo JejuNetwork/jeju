@@ -1,7 +1,8 @@
 /**
  * Cron Service - Scheduled Tasks Integration using croner library
  *
- * Provides decentralized cron triggers via the compute network.
+ * Provides scheduled task management via the compute network.
+ * Local execution uses croner for timing, remote service for coordination.
  */
 
 import { Cron } from 'croner'
@@ -43,7 +44,7 @@ export interface CronJob {
   expression?: string
   webhook: string
   enabled: boolean
-  lastRun: number | null
+  lastRun?: number
   nextRun: number
   executionCount: number
   metadata?: Record<string, unknown>
@@ -59,7 +60,6 @@ const MAX_LOCAL_JOBS = 10000
 
 class CronServiceImpl implements CronService {
   private endpoint: string
-  private available = true
   private localJobs = new Map<string, LocalCronJob>()
 
   constructor(config: CronConfig) {
@@ -121,23 +121,19 @@ class CronServiceImpl implements CronService {
       expression: job.expression,
       webhook: job.webhook,
       enabled: true,
-      lastRun: null,
+      lastRun: undefined,
       nextRun: this.calculateNextRun(job),
       executionCount: 0,
       metadata: job.metadata,
     }
 
-    if (this.available) {
-      await this.remoteRegister(cronJob).catch((err: Error) => {
-        console.error('[Cron] Remote registration failed:', err.message)
-        this.available = false
-      })
-    }
+    // Register with remote service
+    await this.remoteRegister(cronJob)
 
     // Set up local execution
     this.setupLocalExecution(cronJob, job)
 
-    // Store locally for fallback
+    // Store locally for execution management
     this.localJobs.set(id, cronJob)
 
     return this.toPublicJob(cronJob)
@@ -194,11 +190,8 @@ class CronServiceImpl implements CronService {
   }
 
   async cancel(jobId: string): Promise<boolean> {
-    if (this.available) {
-      await this.remoteCancel(jobId).catch((err: Error) => {
-        console.debug('[Cron] Remote cancel failed:', err.message)
-      })
-    }
+    // Cancel on remote service
+    await this.remoteCancel(jobId)
 
     const job = this.localJobs.get(jobId)
     if (job) {
@@ -217,22 +210,15 @@ class CronServiceImpl implements CronService {
   }
 
   async list(owner?: Address): Promise<CronJob[]> {
-    if (this.available) {
-      const jobs = await this.remoteList(owner)
-      if (jobs) return jobs
+    const jobs = await this.remoteList(owner)
+    if (!jobs) {
+      throw new Error('Failed to list jobs from cron service')
     }
-
-    return Array.from(this.localJobs.values()).map(this.toPublicJob)
+    return jobs
   }
 
   async get(jobId: string): Promise<CronJob | null> {
-    if (this.available) {
-      const job = await this.remoteGet(jobId)
-      if (job) return job
-    }
-
-    const local = this.localJobs.get(jobId)
-    return local ? this.toPublicJob(local) : null
+    return this.remoteGet(jobId)
   }
 
   async trigger(jobId: string): Promise<void> {
@@ -252,10 +238,7 @@ class CronServiceImpl implements CronService {
   }
 
   async isHealthy(): Promise<boolean> {
-    if (!this.available) {
-      this.available = await this.checkHealth()
-    }
-    return this.available
+    return this.checkHealth()
   }
 
   private toPublicJob(job: LocalCronJob): CronJob {
@@ -325,14 +308,13 @@ class CronServiceImpl implements CronService {
     })
 
     if (!response.ok) {
-      console.error(`[Cron] remoteList failed: ${response.status}`)
-      return null
+      throw new Error(`Cron list failed: ${response.status}`)
     }
-    // Use safeParse for external cron service responses
     const parseResult = CronListResponseSchema.safeParse(await response.json())
     if (!parseResult.success) {
-      console.error('[Cron] Invalid list response:', parseResult.error.message)
-      return null
+      throw new Error(
+        `Invalid cron list response: ${parseResult.error.message}`,
+      )
     }
     return parseResult.data.jobs
   }
@@ -342,15 +324,15 @@ class CronServiceImpl implements CronService {
       signal: AbortSignal.timeout(5000),
     })
 
-    if (!response.ok) {
-      console.error(`[Cron] remoteGet failed: ${response.status}`)
+    if (response.status === 404) {
       return null
     }
-    // Use safeParse for external cron service responses
+    if (!response.ok) {
+      throw new Error(`Cron get failed: ${response.status}`)
+    }
     const parseResult = CronJobSchema.safeParse(await response.json())
     if (!parseResult.success) {
-      console.error('[Cron] Invalid job response:', parseResult.error.message)
-      return null
+      throw new Error(`Invalid cron job response: ${parseResult.error.message}`)
     }
     return parseResult.data
   }
@@ -358,8 +340,8 @@ class CronServiceImpl implements CronService {
   private async checkHealth(): Promise<boolean> {
     const response = await fetch(`${this.endpoint}/health`, {
       signal: AbortSignal.timeout(2000),
-    }).catch(() => null)
-    return response?.ok ?? false
+    })
+    return response.ok
   }
 }
 

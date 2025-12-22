@@ -21,7 +21,6 @@ export {
   FLASHBOTS_ENDPOINTS,
   type FlashbotsBundle,
   type FlashbotsConfig,
-  FlashbotsProvider, // Backwards compatibility alias
   FlashbotsStrategyEngine,
   L2_BUILDERS,
   MevBoostProvider,
@@ -49,5 +48,4 @@ export {
   ExternalChainMevEngine,
   type ExternalMevConfig,
   type MevStats,
-  MevStrategyEngine, // Backwards compatibility alias
 } from './strategy'

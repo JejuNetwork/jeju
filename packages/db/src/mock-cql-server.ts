@@ -39,9 +39,11 @@ const CQLRequestSchema = z
   })
 
 // Create database schema
-const CreateDbSchema = z.object({
-  database_id: z.string().min(1),
-})
+const CreateDbSchema = z
+  .object({
+    database_id: z.string().min(1).max(256),
+  })
+  .strict()
 
 // Ensure data directory exists
 await Bun.write(`${DATA_DIR}/.gitkeep`, '')

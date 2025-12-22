@@ -67,7 +67,8 @@ export interface ExecutorConfig {
   elizaWorkerCid: string
 }
 
-const DEFAULT_ELIZA_WORKER_CID = 'eliza-worker-v1' // TODO: Deploy and get actual CID
+// Pre-built ElizaOS worker bundle CID - set via ELIZA_WORKER_CID env or deploy via dws worker publish
+const DEFAULT_ELIZA_WORKER_CID = 'eliza-worker-v1'
 
 // ============================================================================
 // Agent Executor

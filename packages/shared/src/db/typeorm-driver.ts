@@ -12,9 +12,7 @@ import type {
   QueryResult,
 } from './covenant-sql'
 
-// ============================================================================
 // Types
-// ============================================================================
 
 export interface TypeORMDriverConfig {
   client: CovenantSQLClient
@@ -46,9 +44,7 @@ export interface RelationMetadata {
   joinColumn?: string
 }
 
-// ============================================================================
 // Query Builder (TypeORM-compatible API)
-// ============================================================================
 
 export class CovenantQueryBuilder<T = Record<string, SqlParam>> {
   private client: CovenantSQLClient
@@ -233,9 +229,7 @@ export class CovenantQueryBuilder<T = Record<string, SqlParam>> {
   }
 }
 
-// ============================================================================
 // Repository (TypeORM-compatible API)
-// ============================================================================
 
 export class CovenantRepository<T extends Record<string, SqlParam>> {
   private client: CovenantSQLClient
@@ -423,9 +417,7 @@ export class CovenantRepository<T extends Record<string, SqlParam>> {
   }
 }
 
-// ============================================================================
 // Entity Manager (TypeORM-compatible API)
-// ============================================================================
 
 export class CovenantEntityManager {
   private client: CovenantSQLClient
@@ -486,9 +478,7 @@ export class CovenantEntityManager {
   }
 }
 
-// ============================================================================
 // DataSource (TypeORM-compatible API)
-// ============================================================================
 
 export interface CovenantDataSourceOptions {
   client: CovenantSQLClient
@@ -549,9 +539,7 @@ export class CovenantDataSource {
   }
 }
 
-// ============================================================================
 // Query Runner (TypeORM-compatible API)
-// ============================================================================
 
 export class CovenantQueryRunner {
   private client: CovenantSQLClient
@@ -597,9 +585,7 @@ export class CovenantQueryRunner {
   }
 }
 
-// ============================================================================
 // Factory Functions
-// ============================================================================
 
 /**
  * Create a TypeORM-compatible data source backed by CovenantSQL

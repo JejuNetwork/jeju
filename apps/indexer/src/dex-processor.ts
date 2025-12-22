@@ -34,8 +34,6 @@ import {
 } from './model'
 import type { ProcessorContext } from './processor'
 
-// ============ Event Signatures (pre-computed keccak256 hashes) ============
-
 // Uniswap V2 style events
 // keccak256('PairCreated(address,address,address,uint256)')
 const PAIR_CREATED_V2 =
@@ -159,8 +157,6 @@ const WETH: Record<number, string> = {
   10: '0x4200000000000000000000000000000000000006',
 }
 
-// ============ Helper Functions ============
-
 function isStablecoin(chainId: number, address: string): boolean {
   return STABLECOINS[chainId]?.has(address.toLowerCase()) ?? false
 }
@@ -217,13 +213,9 @@ function getPeriodStart(timestamp: Date, interval: CandleInterval): Date {
   return new Date(Math.floor(ts / periodMs) * periodMs)
 }
 
-// ============ Check if event is DEX-related ============
-
 export function isDEXEvent(topic0: string): boolean {
   return DEX_EVENT_SIGNATURES.has(topic0)
 }
-
-// ============ Main Processor ============
 
 export async function processDEXEvents(
   ctx: ProcessorContext<Store>,
@@ -321,8 +313,6 @@ export async function processDEXEvents(
     ctx.log.info(`Processed ${swaps.size} DEX swaps, ${pools.size} pools`)
   }
 }
-
-// ============ Event Processors ============
 
 async function processPairCreatedV2(
   ctx: ProcessorContext<Store>,
@@ -848,8 +838,6 @@ async function processSyncV2(
   pools.set(poolId, pool)
 }
 
-// ============ Helper: Get or create token ============
-
 async function getOrCreateToken(
   ctx: ProcessorContext<Store>,
   tokens: Map<string, Token>,
@@ -894,8 +882,6 @@ async function getOrCreateToken(
   tokens.set(tokenId, token)
   return token
 }
-
-// ============ Helper: Update candles ============
 
 async function updateCandles(
   candles: Map<string, TokenCandle>,

@@ -2,13 +2,6 @@ import { getCoreAppUrl } from '@jejunetwork/config/ports'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, extractDataSafe } from '../lib/client'
 
-function getFactoryApiUrl(): string {
-  if (typeof window !== 'undefined') return ''
-  return process.env.FACTORY_API_URL || getCoreAppUrl('FACTORY')
-}
-
-// ============ Types ============
-
 export type ContainerStatus = 'running' | 'stopped' | 'building' | 'failed'
 
 export interface ContainerImage {
@@ -45,51 +38,44 @@ export interface ContainerStats {
   totalStorage: string
 }
 
-// ============ Fetchers using Eden Treaty ============
-
 interface ApiContainerImage {
   id: string
   name: string
   tag: string
   digest: string
-  size: number | string
+  size: number
   platform?: string
-  downloads?: number
+  downloads: number
   createdAt: number
   updatedAt?: number
   description?: string
 }
 
-async function fetchImages(query?: {
-  search?: string
-}): Promise<ContainerImage[]> {
-  const response = await api.api.containers.get({
-    query: {
-      q: query?.search,
-    },
+interface ContainersResponse {
+  containers: ApiContainerImage[]
+  total: number
+}
+
+interface InstancesResponse {
+  instances: ContainerInstance[]
+  total: number
+}
+
+const API_BASE =
+  typeof window !== 'undefined'
+    ? ''
+    : process.env.FACTORY_API_URL || getCoreAppUrl('FACTORY')
+
+async function fetchApi<T>(
+  path: string,
+  options?: RequestInit,
+): Promise<T | null> {
+  const response = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
   })
-
-  const data = extractDataSafe(response)
-  if (!data) return []
-
-  // API returns { containers, total }
-  const result = data as { containers?: ApiContainerImage[]; total?: number }
-
-  // Transform API response to expected format
-  return (result.containers || []).map((c) => ({
-    id: c.id,
-    name: c.name,
-    tag: c.tag,
-    size:
-      typeof c.size === 'number'
-        ? formatBytes(c.size as number)
-        : String(c.size),
-    digest: c.digest,
-    createdAt: c.createdAt,
-    pulls: c.downloads || 0,
-    isPublic: true,
-    description: c.description,
-  }))
+  if (!response.ok) return null
+  return response.json()
 }
 
 function formatBytes(bytes: number): string {
@@ -98,27 +84,6 @@ function formatBytes(bytes: number): string {
   const sizes = ['B', 'KB', 'MB', 'GB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
   return `${Number.parseFloat((bytes / k ** i).toFixed(1))} ${sizes[i]}`
-}
-
-async function fetchInstances(): Promise<ContainerInstance[]> {
-  // Instances endpoint may not be in the typed API
-  const baseUrl = getFactoryApiUrl()
-  const res = await fetch(`${baseUrl}/api/containers/instances`)
-  if (!res.ok) return []
-  const data = await res.json()
-  return data.instances || []
-}
-
-async function fetchContainerStats(): Promise<ContainerStats> {
-  // Calculate stats from images list
-  const images = await fetchImages()
-  const totalBytes = images.reduce((sum, img) => sum + parseSize(img.size), 0)
-  return {
-    totalImages: images.length,
-    runningContainers: 0,
-    totalPulls: images.reduce((sum, img) => sum + img.pulls, 0),
-    totalStorage: formatBytes(totalBytes),
-  }
 }
 
 function parseSize(sizeStr: string): number {
@@ -135,40 +100,68 @@ function parseSize(sizeStr: string): number {
   return num * (multipliers[unit] || 1)
 }
 
+async function fetchImages(query?: {
+  search?: string
+}): Promise<ContainerImage[]> {
+  const response = await api.api.containers.get({ query: { q: query?.search } })
+  const data = extractDataSafe(response) as ContainersResponse | null
+  if (!data?.containers) return []
+  return data.containers.map((c) => ({
+    id: c.id,
+    name: c.name,
+    tag: c.tag,
+    size: formatBytes(c.size),
+    digest: c.digest,
+    createdAt: c.createdAt,
+    pulls: c.downloads || 0,
+    isPublic: true,
+    description: c.description,
+  }))
+}
+
+async function fetchInstances(): Promise<ContainerInstance[]> {
+  const data = await fetchApi<InstancesResponse>('/api/containers/instances')
+  return data?.instances || []
+}
+
+async function fetchContainerStats(): Promise<ContainerStats> {
+  const [images, instances] = await Promise.all([
+    fetchImages(),
+    fetchInstances(),
+  ])
+  const totalBytes = images.reduce((sum, img) => sum + parseSize(img.size), 0)
+  return {
+    totalImages: images.length,
+    runningContainers: instances.filter((i) => i.status === 'running').length,
+    totalPulls: images.reduce((sum, img) => sum + img.pulls, 0),
+    totalStorage: formatBytes(totalBytes),
+  }
+}
+
 async function startContainer(
   imageId: string,
   config: { name: string; cpu: string; memory: string; gpu?: string },
 ): Promise<ContainerInstance | null> {
-  const baseUrl = getFactoryApiUrl()
-  const res = await fetch(`${baseUrl}/api/containers/instances`, {
+  return fetchApi<ContainerInstance>('/api/containers/instances', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ imageId, ...config }),
   })
-  if (!res.ok) return null
-  return res.json()
 }
 
 async function stopContainer(instanceId: string): Promise<boolean> {
-  const baseUrl = getFactoryApiUrl()
-  const res = await fetch(
-    `${baseUrl}/api/containers/instances/${instanceId}/stop`,
-    {
-      method: 'POST',
-    },
+  const response = await fetchApi(
+    `/api/containers/instances/${instanceId}/stop`,
+    { method: 'POST' },
   )
-  return res.ok
+  return response !== null
 }
 
 async function deleteContainer(instanceId: string): Promise<boolean> {
-  const baseUrl = getFactoryApiUrl()
-  const res = await fetch(`${baseUrl}/api/containers/instances/${instanceId}`, {
+  const response = await fetchApi(`/api/containers/instances/${instanceId}`, {
     method: 'DELETE',
   })
-  return res.ok
+  return response !== null
 }
-
-// ============ Hooks ============
 
 export function useContainerImages(query?: { search?: string }) {
   const {
@@ -181,13 +174,7 @@ export function useContainerImages(query?: { search?: string }) {
     queryFn: () => fetchImages(query),
     staleTime: 60000,
   })
-
-  return {
-    images: images || [],
-    isLoading,
-    error,
-    refetch,
-  }
+  return { images: images || [], isLoading, error, refetch }
 }
 
 export function useContainerInstances() {
@@ -202,13 +189,7 @@ export function useContainerInstances() {
     staleTime: 10000,
     refetchInterval: 30000,
   })
-
-  return {
-    instances: instances || [],
-    isLoading,
-    error,
-    refetch,
-  }
+  return { instances: instances || [], isLoading, error, refetch }
 }
 
 export function useContainerStats() {
@@ -221,7 +202,6 @@ export function useContainerStats() {
     queryFn: fetchContainerStats,
     staleTime: 60000,
   })
-
   return {
     stats: stats || {
       totalImages: 0,
@@ -236,7 +216,6 @@ export function useContainerStats() {
 
 export function useStartContainer() {
   const queryClient = useQueryClient()
-
   return useMutation({
     mutationFn: ({
       imageId,
@@ -254,7 +233,6 @@ export function useStartContainer() {
 
 export function useStopContainer() {
   const queryClient = useQueryClient()
-
   return useMutation({
     mutationFn: (instanceId: string) => stopContainer(instanceId),
     onSuccess: () => {
@@ -265,7 +243,6 @@ export function useStopContainer() {
 
 export function useDeleteContainer() {
   const queryClient = useQueryClient()
-
   return useMutation({
     mutationFn: (instanceId: string) => deleteContainer(instanceId),
     onSuccess: () => {

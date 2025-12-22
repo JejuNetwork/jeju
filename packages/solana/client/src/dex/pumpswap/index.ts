@@ -1,7 +1,3 @@
-/**
- * PumpSwap / Pump.fun Style Bonding Curve Integration
- */
-
 import {
   type Connection,
   Keypair,

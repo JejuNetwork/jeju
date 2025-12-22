@@ -1010,11 +1010,3 @@ export class FlashbotsStrategyEngine extends EventEmitter {
     console.log('═'.repeat(60))
   }
 }
-
-// ============================================================================
-// EXPORTS
-// ============================================================================
-
-export {
-  MevBoostProvider as FlashbotsProvider, // Backwards compatibility
-}

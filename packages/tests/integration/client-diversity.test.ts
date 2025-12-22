@@ -14,9 +14,7 @@ import {
 } from 'viem'
 import { inferChainFromRpcUrl } from '../../../packages/deployment/scripts/shared/chain-utils'
 
-// ============================================================================
 // Test Configuration
-// ============================================================================
 
 interface ClientEndpoint {
   name: string
@@ -71,9 +69,7 @@ const L2_CLIENTS: ClientEndpoint[] = [
 // Timeout for connectivity tests
 const _CONNECT_TIMEOUT = 5000
 
-// ============================================================================
 // Utility Functions
-// ============================================================================
 
 async function createProvider(endpoint: ClientEndpoint): Promise<PublicClient> {
   const chain = inferChainFromRpcUrl(endpoint.http)
@@ -139,9 +135,7 @@ async function getClientVersion(endpoint: ClientEndpoint): Promise<string> {
   }
 }
 
-// ============================================================================
 // L1 Client Diversity Tests
-// ============================================================================
 
 describe('L1 Client Diversity', () => {
   const availableClients: ClientEndpoint[] = []
@@ -225,9 +219,7 @@ describe('L1 Client Diversity', () => {
   })
 })
 
-// ============================================================================
 // L2 Sequencer Client Diversity Tests
-// ============================================================================
 
 describe('L2 Sequencer Client Diversity', () => {
   const availableSequencers: ClientEndpoint[] = []
@@ -292,9 +284,7 @@ describe('L2 Sequencer Client Diversity', () => {
   })
 })
 
-// ============================================================================
 // State Consistency Tests
-// ============================================================================
 
 describe('Cross-Client State Consistency', () => {
   it('should return same account balance across L1 clients', async () => {
@@ -358,9 +348,7 @@ describe('Cross-Client State Consistency', () => {
   })
 })
 
-// ============================================================================
 // Sequencer Registration Tests
-// ============================================================================
 
 describe('Sequencer Registration Validation', () => {
   const SEQUENCER_REGISTRY_ADDRESS = process.env.SEQUENCER_REGISTRY_ADDRESS
@@ -407,9 +395,7 @@ describe('Sequencer Registration Validation', () => {
   })
 })
 
-// ============================================================================
 // Summary Report
-// ============================================================================
 
 describe('Client Diversity Summary', () => {
   it('should generate diversity report', async () => {

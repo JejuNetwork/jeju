@@ -36,7 +36,7 @@ export interface DeploymentStep {
 export interface DeploymentProgress {
   totalSteps: number
   completedSteps: number
-  currentStep: DeploymentStep | null
+  currentStep?: DeploymentStep
   steps: DeploymentStep[]
 }
 
@@ -47,7 +47,7 @@ export class MultiChainLauncher {
   private progress: DeploymentProgress = {
     totalSteps: 0,
     completedSteps: 0,
-    currentStep: null,
+    currentStep: undefined,
     steps: [],
   }
   private eventHandler?: DeploymentEventHandler

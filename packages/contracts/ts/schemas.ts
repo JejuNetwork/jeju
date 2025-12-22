@@ -6,15 +6,19 @@
 import { AddressSchema as TypesAddressSchema } from '@jejunetwork/types'
 import { z } from 'zod'
 
-// Use shared AddressSchema from types package
 export const AddressSchema = TypesAddressSchema
+export const OptionalAddressSchema = AddressSchema.optional()
 
-// Optional address that can be null/undefined/empty
-export const OptionalAddressSchema = AddressSchema.optional().nullable()
+export const NetworkNameSchema = z.enum(['localnet', 'testnet', 'mainnet'])
+export type NetworkNameFromSchema = z.infer<typeof NetworkNameSchema>
 
-// ============================================================================
-// Uniswap V4 Deployment Schema
-// ============================================================================
+export const TimestampSchema = z.union([
+  z
+    .string()
+    .datetime()
+    .or(z.string().regex(/^\d{4}-\d{2}-\d{2}/)),
+  z.number().int().positive(),
+])
 
 export const UniswapV4DeploymentSchema = z.object({
   poolManager: AddressSchema.optional(),
@@ -23,10 +27,10 @@ export const UniswapV4DeploymentSchema = z.object({
   positionManager: AddressSchema.optional(),
   quoterV4: AddressSchema.optional(),
   stateView: AddressSchema.optional(),
-  timestamp: z.union([z.string(), z.number()]).optional(),
+  timestamp: TimestampSchema.optional(),
   deployer: AddressSchema.optional(),
-  chainId: z.number().optional(),
-  network: z.string().optional(),
+  chainId: z.number().int().positive().optional(),
+  network: NetworkNameSchema.optional(),
   deployedAt: z.string().optional(),
   version: z.string().optional(),
   features: z
@@ -41,10 +45,6 @@ export const UniswapV4DeploymentSchema = z.object({
 })
 export type UniswapV4Deployment = z.infer<typeof UniswapV4DeploymentSchema>
 
-// ============================================================================
-// Bazaar Marketplace Deployment Schema
-// ============================================================================
-
 export const BazaarMarketplaceDeploymentSchema = z.object({
   at: AddressSchema.optional(),
   marketplace: AddressSchema.optional(),
@@ -57,10 +57,6 @@ export type BazaarMarketplaceDeployment = z.infer<
   typeof BazaarMarketplaceDeploymentSchema
 >
 
-// ============================================================================
-// ERC20 Factory Deployment Schema
-// ============================================================================
-
 export const ERC20FactoryDeploymentSchema = z.object({
   at: AddressSchema.optional(),
   factory: AddressSchema.optional(),
@@ -68,10 +64,6 @@ export const ERC20FactoryDeploymentSchema = z.object({
 export type ERC20FactoryDeployment = z.infer<
   typeof ERC20FactoryDeploymentSchema
 >
-
-// ============================================================================
-// Identity System Deployment Schema
-// ============================================================================
 
 export const IdentitySystemDeploymentSchema = z.object({
   Deployer: AddressSchema.optional(),
@@ -89,16 +81,12 @@ export type IdentitySystemDeployment = z.infer<
   typeof IdentitySystemDeploymentSchema
 >
 
-// ============================================================================
-// Paymaster System Deployment Schema
-// ============================================================================
-
 export const PaymasterExampleDeploymentSchema = z.object({
   token: AddressSchema,
-  symbol: z.string(),
-  paymaster: z.string(),
-  vault: z.string(),
-  distributor: z.string(),
+  symbol: z.string().min(1).max(10),
+  paymaster: AddressSchema,
+  vault: AddressSchema,
+  distributor: AddressSchema,
 })
 
 export const PaymasterSystemDeploymentSchema = z.object({
@@ -113,10 +101,6 @@ export type PaymasterSystemDeployment = z.infer<
   typeof PaymasterSystemDeploymentSchema
 >
 
-// ============================================================================
-// Multi-Token System Deployment Schema
-// ============================================================================
-
 export const MultiTokenSystemDeploymentSchema = z
   .object({
     tokenRegistry: AddressSchema.optional(),
@@ -124,14 +108,10 @@ export const MultiTokenSystemDeploymentSchema = z
     weth: AddressSchema.optional(),
     elizaOS: AddressSchema.optional(),
   })
-  .passthrough() // Allow additional token addresses
+  .passthrough()
 export type MultiTokenSystemDeployment = z.infer<
   typeof MultiTokenSystemDeploymentSchema
 >
-
-// ============================================================================
-// EIL Deployment Schema
-// ============================================================================
 
 export const EILDeploymentSchema = z.object({
   identityRegistry: AddressSchema.optional(),
@@ -140,13 +120,9 @@ export const EILDeploymentSchema = z.object({
   serviceRegistry: AddressSchema.optional(),
   creditManager: AddressSchema.optional(),
   deployer: AddressSchema.optional(),
-  timestamp: z.string().optional(),
+  timestamp: z.string().datetime().or(z.string()).optional(),
 })
 export type EILDeployment = z.infer<typeof EILDeploymentSchema>
-
-// ============================================================================
-// Liquidity System Deployment Schema
-// ============================================================================
 
 export const LiquiditySystemDeploymentSchema = z.object({
   liquidityVault: AddressSchema.optional(),
@@ -158,10 +134,6 @@ export type LiquiditySystemDeployment = z.infer<
   typeof LiquiditySystemDeploymentSchema
 >
 
-// ============================================================================
-// XLP Deployment Schema
-// ============================================================================
-
 export const XLPDeploymentSchema = z.object({
   v2Factory: AddressSchema.optional(),
   v3Factory: AddressSchema.optional(),
@@ -171,13 +143,9 @@ export const XLPDeploymentSchema = z.object({
   routerRegistry: AddressSchema.optional(),
   weth: AddressSchema.optional(),
   deployedAt: z.string().optional(),
-  chainId: z.number().optional(),
+  chainId: z.number().int().positive().optional(),
 })
 export type XLPDeployment = z.infer<typeof XLPDeploymentSchema>
-
-// ============================================================================
-// L1 Deployment Schema
-// ============================================================================
 
 export const L1DeploymentSchema = z.object({
   portal: AddressSchema.optional(),
@@ -190,10 +158,6 @@ export const L1DeploymentSchema = z.object({
 })
 export type L1Deployment = z.infer<typeof L1DeploymentSchema>
 
-// ============================================================================
-// Moderation System Deployment Schema
-// ============================================================================
-
 export const ModerationSystemDeploymentSchema = z.object({
   banManager: AddressSchema.optional(),
   moderationMarketplace: AddressSchema.optional(),
@@ -203,15 +167,11 @@ export const ModerationSystemDeploymentSchema = z.object({
   registryGovernance: AddressSchema.optional(),
   treasury: AddressSchema.optional(),
   deployedAt: z.string().optional(),
-  chainId: z.number().optional(),
+  chainId: z.number().int().positive().optional(),
 })
 export type ModerationSystemDeployment = z.infer<
   typeof ModerationSystemDeploymentSchema
 >
-
-// ============================================================================
-// Launchpad Deployment Schema
-// ============================================================================
 
 export const LaunchpadDeploymentSchema = z.object({
   tokenLaunchpad: AddressSchema.optional(),
@@ -220,89 +180,58 @@ export const LaunchpadDeploymentSchema = z.object({
   xlpV2Factory: AddressSchema.optional(),
   weth: AddressSchema.optional(),
   deployedAt: z.string().optional(),
-  chainId: z.number().optional(),
+  chainId: z.number().int().positive().optional(),
 })
 export type LaunchpadDeployment = z.infer<typeof LaunchpadDeploymentSchema>
 
-// ============================================================================
-// Game System Deployment Schema
-// ============================================================================
-
 export const GameSystemDeploymentSchema = z.object({
-  goldToken: AddressSchema.nullable().optional(),
-  itemsNFT: AddressSchema.nullable().optional(),
-  gameIntegration: AddressSchema.nullable().optional(),
-  playerTradeEscrow: AddressSchema.nullable().optional(),
-  gameAgentId: z.string().nullable().optional(),
-  gameSigner: AddressSchema.nullable().optional(),
-  mudWorld: AddressSchema.nullable().optional(),
-  jejuIntegrationSystem: AddressSchema.nullable().optional(),
-  appId: z.string().nullable().optional(),
-  gameName: z.string().nullable().optional(),
-  baseURI: z.string().nullable().optional(),
-  deployedAt: z.string().nullable().optional(),
-  chainId: z.number().optional(),
+  goldToken: AddressSchema.optional(),
+  itemsNFT: AddressSchema.optional(),
+  gameIntegration: AddressSchema.optional(),
+  playerTradeEscrow: AddressSchema.optional(),
+  gameAgentId: z.string().min(1).optional(),
+  gameSigner: AddressSchema.optional(),
+  mudWorld: AddressSchema.optional(),
+  jejuIntegrationSystem: AddressSchema.optional(),
+  appId: z.string().min(1).optional(),
+  gameName: z.string().min(1).optional(),
+  baseURI: z.string().url().optional(),
+  deployedAt: z.string().optional(),
+  chainId: z.number().int().positive().optional(),
 })
 export type GameSystemDeployment = z.infer<typeof GameSystemDeploymentSchema>
 
-// ============================================================================
-// Contract Addresses Schema
-// ============================================================================
-
 export const ContractAddressesSchema = z.object({
-  // Identity & Registry
   identityRegistry: AddressSchema.optional(),
   reputationRegistry: AddressSchema.optional(),
   validationRegistry: AddressSchema.optional(),
   serviceRegistry: AddressSchema.optional(),
-
-  // Moderation
   banManager: AddressSchema.optional(),
   moderationMarketplace: AddressSchema.optional(),
   reportingSystem: AddressSchema.optional(),
   reputationLabelManager: AddressSchema.optional(),
-
-  // DeFi
   poolManager: AddressSchema.optional(),
   swapRouter: AddressSchema.optional(),
   positionManager: AddressSchema.optional(),
   quoterV4: AddressSchema.optional(),
   stateView: AddressSchema.optional(),
   weth: AddressSchema.optional(),
-
-  // Marketplace
   marketplace: AddressSchema.optional(),
   predimarket: AddressSchema.optional(),
-
-  // Token Factory
   erc20Factory: AddressSchema.optional(),
-
-  // Paymaster / AA
   entryPoint: AddressSchema.optional(),
   paymasterFactory: AddressSchema.optional(),
   tokenRegistry: AddressSchema.optional(),
   priceOracle: AddressSchema.optional(),
-
-  // Tokens
   usdc: AddressSchema.optional(),
   elizaOS: AddressSchema.optional(),
   goldToken: AddressSchema.optional(),
   jeju: AddressSchema.optional(),
-
-  // Launchpad
   tokenLaunchpad: AddressSchema.optional(),
   lpLockerTemplate: AddressSchema.optional(),
 })
 export type ContractAddresses = z.infer<typeof ContractAddressesSchema>
 
-// ============================================================================
-// Validation Helper Functions
-// ============================================================================
-
-/**
- * Validate and parse a deployment JSON file
- * @throws ZodError if validation fails
- */
 export function parseUniswapV4Deployment(data: unknown): UniswapV4Deployment {
   return UniswapV4DeploymentSchema.parse(data)
 }
@@ -343,9 +272,6 @@ export function parseLaunchpadDeployment(data: unknown): LaunchpadDeployment {
   return LaunchpadDeploymentSchema.parse(data)
 }
 
-/**
- * Safe version that returns undefined instead of throwing
- */
 export function safeParseUniswapV4Deployment(
   data: unknown,
 ): UniswapV4Deployment | undefined {

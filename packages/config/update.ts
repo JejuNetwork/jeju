@@ -46,7 +46,7 @@ function safeReadFile(path: string): string {
 
 import {
   ChainConfigSchema,
-  type ContractCategoryExtended,
+  type ContractCategory,
   ContractsConfigSchema,
   EILConfigSchema,
   type ExternalChainContractsDynamic,
@@ -71,26 +71,34 @@ const AddressSchema = z
   .string()
   .regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid address format')
 
+/** Transaction hash - 64 hex characters prefixed with 0x */
+const TxHashSchema = z
+  .string()
+  .regex(/^0x[a-fA-F0-9]{64}$/, 'Invalid transaction hash')
+
 const DeploymentArtifactSchema = z.object({
   network: z.enum(['localnet', 'testnet', 'mainnet']),
-  timestamp: z.string(),
+  timestamp: z.string().datetime(),
   deployer: AddressSchema,
   contracts: z.record(
-    z.string(),
+    z.string().min(1),
     z.object({
       address: AddressSchema,
-      txHash: z.string().optional(),
-      blockNumber: z.number().optional(),
+      txHash: TxHashSchema.optional(),
+      blockNumber: z.number().int().nonnegative().optional(),
     }),
   ),
-  services: z.record(z.string(), z.string()).optional(),
+  services: z.record(z.string().min(1), z.string().url()).optional(),
 })
 
 const TerraformOutputsSchema = z.record(
-  z.string(),
+  z.string().min(1),
   z.object({
-    value: z.union([z.string(), z.record(z.string(), z.string())]),
-    type: z.string().optional(),
+    value: z.union([
+      z.string().min(1),
+      z.record(z.string().min(1), z.string().min(1)),
+    ]),
+    type: z.string().min(1).optional(),
   }),
 )
 
@@ -99,7 +107,7 @@ const TerraformOutputsSchema = z.record(
 // ============================================================================
 
 /** Contract category keys - uses unified type from schemas.ts */
-export type ContractCategoryKey = ContractCategoryExtended
+export type ContractCategoryKey = ContractCategory
 
 export type DeploymentArtifact = z.infer<typeof DeploymentArtifactSchema>
 export type TerraformOutputs = z.infer<typeof TerraformOutputsSchema>

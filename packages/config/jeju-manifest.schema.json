@@ -170,7 +170,7 @@
         "backend": {
           "type": "object",
           "properties": {
-            "type": { "type": "string", "enum": ["elysia", "hono", "express", "custom"] },
+            "type": { "type": "string", "enum": ["elysia", "custom"] },
             "entrypoint": { "type": "string" },
             "outputDir": { "type": "string" }
           }

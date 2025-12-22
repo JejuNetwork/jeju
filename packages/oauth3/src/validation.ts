@@ -2,7 +2,7 @@
  * OAuth3 Validation Utilities
  *
  * Provides validation schemas and helper functions for fail-fast validation.
- * Use these at entry points instead of defensive fallbacks.
+ * Use these at entry points for early error detection.
  */
 
 import type { Hex } from 'viem'
@@ -31,8 +31,6 @@ export const Bytes32Schema = z
   .string()
   .regex(/^0x[a-fA-F0-9]{64}$/, 'Invalid bytes32') as z.ZodType<Hex>
 
-// ============ OAuth3 Config Validation ============
-
 export const OAuth3ConfigSchema = z.object({
   appId: z.union([HexSchema, z.string().min(1, 'appId is required')]),
   redirectUri: z.string().url('redirectUri must be a valid URL'),
@@ -48,8 +46,6 @@ export const OAuth3ConfigSchema = z.object({
 })
 
 export type ValidatedOAuth3Config = z.infer<typeof OAuth3ConfigSchema>
-
-// ============ Core Type Schemas ============
 
 export const TEEAttestationSchema = z.object({
   quote: HexSchema,
@@ -103,8 +99,6 @@ export const VerifiableCredentialSchema = z.object({
   proof: CredentialProofSchema,
 })
 
-// ============ API Response Validators ============
-
 export const ErrorResponseSchema = z.object({
   error: z.string().optional(),
   message: z.string().optional(),
@@ -120,7 +114,7 @@ export const TOTPSetupResponseSchema = z.object({
 export const MFAStatusSchema = z.object({
   enabled: z.boolean(),
   methods: z.array(z.enum(['passkey', 'totp', 'sms', 'backup_code'])),
-  preferredMethod: z.enum(['passkey', 'totp', 'sms', 'backup_code']).nullable(),
+  preferredMethod: z.enum(['passkey', 'totp', 'sms', 'backup_code']).optional(),
   totpEnabled: z.boolean(),
   passkeyCount: z.number().int().nonnegative(),
   backupCodesRemaining: z.number().int().nonnegative(),
@@ -155,8 +149,6 @@ export const AuthCallbackDataSchema = z.object({
   state: z.string().optional(),
   error: z.string().optional(),
 })
-
-// ============ External API Response Validators ============
 
 export const NeynarUserSchema = z.object({
   fid: z.number().int().positive(),
@@ -316,9 +308,6 @@ export const IPFSAddResponseSchema = z.object({
   Size: z.string(),
 })
 
-// ============ Infrastructure Response Schemas ============
-
-// TEE Provider Discovery Response
 export const ProvidersListResponseSchema = z.object({
   providers: z.array(z.string()).optional(),
 })
@@ -359,13 +348,133 @@ export const BackupCodesResponseSchema = z.object({
   codes: z.array(z.string()),
 })
 
+// WebAuthn Types for Passkey Options
+// These are the JSON-serialized versions of WebAuthn types returned by the server
+
+const AuthenticatorTransportSchema = z.enum([
+  'usb',
+  'nfc',
+  'ble',
+  'internal',
+  'hybrid',
+])
+
+const PublicKeyCredentialDescriptorSchema = z.object({
+  type: z.literal('public-key'),
+  id: z.string(), // Base64url-encoded
+  transports: z.array(AuthenticatorTransportSchema).optional(),
+})
+
+const AuthenticatorSelectionSchema = z.object({
+  authenticatorAttachment: z.enum(['platform', 'cross-platform']).optional(),
+  residentKey: z.enum(['discouraged', 'preferred', 'required']).optional(),
+  userVerification: z.enum(['required', 'preferred', 'discouraged']).optional(),
+})
+
+const PublicKeyCredentialCreationOptionsSchema = z.object({
+  rp: z.object({
+    name: z.string(),
+    id: z.string().optional(),
+  }),
+  user: z.object({
+    id: z.string(), // Base64url-encoded
+    name: z.string(),
+    displayName: z.string(),
+  }),
+  challenge: z.string(), // Base64url-encoded
+  pubKeyCredParams: z.array(
+    z.object({
+      type: z.literal('public-key'),
+      alg: z.number().int(),
+    }),
+  ),
+  timeout: z.number().int().optional(),
+  excludeCredentials: z.array(PublicKeyCredentialDescriptorSchema).optional(),
+  authenticatorSelection: AuthenticatorSelectionSchema.optional(),
+  attestation: z.enum(['none', 'indirect', 'direct', 'enterprise']).optional(),
+})
+
+const PublicKeyCredentialRequestOptionsSchema = z.object({
+  challenge: z.string(), // Base64url-encoded
+  timeout: z.number().int().optional(),
+  rpId: z.string().optional(),
+  allowCredentials: z.array(PublicKeyCredentialDescriptorSchema).optional(),
+  userVerification: z.enum(['required', 'preferred', 'discouraged']).optional(),
+})
+
 // Passkey Registration Options Response
 export const PasskeyOptionsResponseSchema = z.object({
   challengeId: z.string().min(1),
-  publicKey: z.record(z.string(), z.unknown()),
+  publicKey: z.union([
+    PublicKeyCredentialCreationOptionsSchema,
+    PublicKeyCredentialRequestOptionsSchema,
+  ]),
 })
 
-// ============ Storage Index Schemas ============
+export type PasskeyPublicKeyOptions = z.infer<
+  typeof PasskeyOptionsResponseSchema
+>['publicKey']
+
+/**
+ * Convert base64url string to ArrayBuffer
+ * Used for WebAuthn type conversion
+ */
+export function base64urlToArrayBuffer(base64url: string): ArrayBuffer {
+  const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/')
+  const padLen = (4 - (base64.length % 4)) % 4
+  const padded = base64 + '='.repeat(padLen)
+  const binary = atob(padded)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i)
+  }
+  return bytes.buffer
+}
+
+/**
+ * Convert JSON-serialized passkey creation options to WebAuthn PublicKeyCredentialCreationOptions
+ */
+export function toWebAuthnCreationOptions(
+  options: z.infer<typeof PublicKeyCredentialCreationOptionsSchema>,
+): PublicKeyCredentialCreationOptions {
+  return {
+    rp: options.rp,
+    user: {
+      id: base64urlToArrayBuffer(options.user.id),
+      name: options.user.name,
+      displayName: options.user.displayName,
+    },
+    challenge: base64urlToArrayBuffer(options.challenge),
+    pubKeyCredParams: options.pubKeyCredParams,
+    timeout: options.timeout,
+    excludeCredentials: options.excludeCredentials?.map((cred) => ({
+      type: cred.type,
+      id: base64urlToArrayBuffer(cred.id),
+      transports: cred.transports as AuthenticatorTransport[],
+    })),
+    authenticatorSelection: options.authenticatorSelection,
+    attestation: options.attestation,
+  }
+}
+
+/**
+ * Convert JSON-serialized passkey request options to WebAuthn PublicKeyCredentialRequestOptions
+ */
+export function toWebAuthnRequestOptions(
+  options: z.infer<typeof PublicKeyCredentialRequestOptionsSchema>,
+): PublicKeyCredentialRequestOptions {
+  return {
+    challenge: base64urlToArrayBuffer(options.challenge),
+    timeout: options.timeout,
+    rpId: options.rpId,
+    allowCredentials: options.allowCredentials?.map((cred) => ({
+      type: cred.type,
+      id: base64urlToArrayBuffer(cred.id),
+      transports: cred.transports as AuthenticatorTransport[],
+    })),
+    userVerification: options.userVerification,
+  }
+}
 
 // Session Index Schema (for IPFS storage)
 export const SessionIndexSchema = z.object({
@@ -391,9 +500,6 @@ export const CredentialIndexSchema = z.object({
   lastUpdated: z.number().optional(),
 })
 
-// ============ Farcaster SIWF Schemas ============
-
-// Sign In With Farcaster result schema
 export const SIWFResultSchema = z.object({
   result: z
     .object({
@@ -415,8 +521,6 @@ export const DstackQuoteResponseSchema = z.object({
 
 export type DstackQuoteResponse = z.infer<typeof DstackQuoteResponseSchema>
 
-// ============ Helper Functions ============
-
 /**
  * Validates that a node endpoint is available.
  * Use this in React hooks instead of ?? 'http://localhost:4200'
@@ -433,30 +537,6 @@ export function expectEndpoint(
     throw new Error('TEE node has no endpoint configured.')
   }
   return node.endpoint
-}
-
-/**
- * Gets endpoint with localhost fallback only in development.
- * Use this for hooks where localhost fallback is acceptable in dev.
- */
-export function getEndpointWithDevFallback(
-  node: { endpoint: string } | null | undefined,
-): string {
-  if (node?.endpoint) {
-    return node.endpoint
-  }
-
-  const isDev =
-    typeof process !== 'undefined' &&
-    (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test')
-
-  if (isDev) {
-    return 'http://localhost:4200'
-  }
-
-  throw new Error(
-    'TEE node not initialized. In production, call client.initialize() first.',
-  )
 }
 
 /**

@@ -6,13 +6,6 @@
 import type { Address } from 'viem'
 import { z } from 'zod'
 
-// ============================================================================
-// Validation Utilities
-// ============================================================================
-
-/**
- * Ethereum address schema with checksum validation
- */
 export const AddressSchema = z.custom<Address>(
   (val): val is Address => {
     if (typeof val !== 'string') return false
@@ -25,7 +18,7 @@ export const AddressSchema = z.custom<Address>(
  * Validate and return typed result, throwing on failure
  */
 export function expectValid<T>(
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   data: unknown,
   message?: string,
 ): T {
@@ -38,11 +31,8 @@ export function expectValid<T>(
   return result.data
 }
 
-/**
- * Parse JSON and validate against schema
- */
 export function expectJson<T>(
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   json: string,
   message?: string,
 ): T {
@@ -58,10 +48,6 @@ export const PaginationQuerySchema = z.object({
   page: z.string().optional(),
   limit: z.string().optional(),
 })
-
-// ============================================================================
-// Repository JSON Field Schemas (for JSON.parse validation)
-// ============================================================================
 
 export const SkillsSchema = z.array(z.string().min(1).max(100))
 
@@ -96,17 +82,17 @@ export const AgentTypeSchema = z.enum(['ai_agent', 'trading_bot', 'org_tool'])
 export const CreateAgentBodySchema = z.object({
   name: z.string().min(1).max(100),
   type: AgentTypeSchema,
-  config: z.record(z.string(), z.unknown()),
+  config: z.record(z.string(), z.unknown()).optional(),
   modelId: z.string().optional(),
+  description: z.string().optional(),
+  capabilities: z.array(z.string()).optional(),
+  a2aEndpoint: z.string().url().optional(),
+  mcpEndpoint: z.string().url().optional(),
 })
 
 export const AgentIdParamSchema = z.object({
   agentId: z.string(),
 })
-
-// ============================================================================
-// Bounties Schemas
-// ============================================================================
 
 export const BountiesQuerySchema = PaginationQuerySchema.extend({
   status: z.string().optional(),
@@ -136,10 +122,6 @@ export const CreateBountyBodySchema = z.object({
 export const BountyIdParamSchema = z.object({
   id: z.string(),
 })
-
-// ============================================================================
-// Jobs Schemas
-// ============================================================================
 
 export const JobsQuerySchema = PaginationQuerySchema.extend({
   type: z.string().optional(),
@@ -219,10 +201,6 @@ export const ModelParamsSchema = z.object({
   name: z.string(),
 })
 
-// ============================================================================
-// Packages Schemas
-// ============================================================================
-
 export const PackagesQuerySchema = z.object({
   q: z.string().optional(),
 })
@@ -275,10 +253,6 @@ export const RepoContentsQuerySchema = z.object({
   ref: z.string().optional(),
 })
 
-// ============================================================================
-// CI Schemas
-// ============================================================================
-
 export const CIQuerySchema = PaginationQuerySchema.extend({
   repo: z.string().optional(),
   status: z.string().optional(),
@@ -296,10 +270,6 @@ export const CIRunParamsSchema = z.object({
   runId: z.string(),
 })
 
-// ============================================================================
-// Containers Schemas
-// ============================================================================
-
 export const ContainersQuerySchema = z.object({
   org: z.string().optional(),
   q: z.string().optional(),
@@ -313,10 +283,6 @@ export const CreateContainerBodySchema = z.object({
   platform: z.string().min(1),
   labels: z.record(z.string(), z.string()).optional(),
 })
-
-// ============================================================================
-// Issues Schemas
-// ============================================================================
 
 export const IssuesQuerySchema = PaginationQuerySchema.extend({
   repo: z.string().optional(),
@@ -333,10 +299,6 @@ export const CreateIssueBodySchema = z.object({
   assignees: z.array(z.string()).optional(),
 })
 
-// ============================================================================
-// Pull Requests Schemas
-// ============================================================================
-
 export const PullsQuerySchema = PaginationQuerySchema.extend({
   repo: z.string().optional(),
   status: z.string().optional(),
@@ -351,10 +313,6 @@ export const CreatePullBodySchema = z.object({
   targetBranch: z.string().min(1),
   isDraft: z.boolean().optional(),
 })
-
-// ============================================================================
-// Feed Schemas
-// ============================================================================
 
 export const FeedQuerySchema = z.object({
   channel: z.string().optional(),
@@ -385,10 +343,6 @@ export const CreateProjectBodySchema = z.object({
   description: z.string().min(10),
   visibility: ProjectVisibilitySchema,
 })
-
-// ============================================================================
-// Datasets Schemas
-// ============================================================================
 
 export const DatasetsQuerySchema = z.object({
   type: z.string().optional(),
@@ -421,10 +375,6 @@ export const CreateDatasetBodySchema = z.object({
   type: DatasetTypeSchema,
   license: z.string().min(1),
 })
-
-// ============================================================================
-// A2A Schemas
-// ============================================================================
 
 export const A2ARequestBodySchema = z.object({
   jsonrpc: z.literal('2.0'),
@@ -464,4 +414,94 @@ export const MCPToolCallBodySchema = z.object({
 export const MCPPromptGetBodySchema = z.object({
   name: z.string().min(1),
   arguments: z.record(z.string(), z.string()),
+})
+
+export const DiscussionsQuerySchema = PaginationQuerySchema.extend({
+  category: z.string().optional(),
+})
+
+export const DiscussionCategorySchema = z.enum([
+  'general',
+  'questions',
+  'announcements',
+  'show',
+  'ideas',
+])
+
+export const CreateDiscussionBodySchema = z.object({
+  title: z.string().min(1).max(200),
+  content: z.string().min(10),
+  category: DiscussionCategorySchema,
+  tags: z.array(z.string()).optional(),
+})
+
+export const DiscussionIdParamSchema = z.object({
+  discussionId: z.string(),
+})
+
+export const CreateDiscussionReplyBodySchema = z.object({
+  content: z.string().min(1),
+})
+
+// ============================================================================
+// Package Settings Schemas
+// ============================================================================
+
+export const PackageSettingsParamsSchema = z.object({
+  scope: z.string(),
+  name: z.string(),
+})
+
+export const UpdatePackageSettingsBodySchema = z.object({
+  description: z.string().optional(),
+  visibility: z.enum(['public', 'private']).optional(),
+  publishEnabled: z.boolean().optional(),
+})
+
+export const AddMaintainerBodySchema = z.object({
+  login: z.string().min(1),
+  role: z.enum(['owner', 'maintainer']),
+})
+
+export const CreateAccessTokenBodySchema = z.object({
+  name: z.string().min(1),
+  permissions: z.array(z.enum(['read', 'write', 'delete'])),
+  expiresIn: z.number().optional(),
+})
+
+export const DeprecatePackageBodySchema = z.object({
+  message: z.string().min(1),
+})
+
+export const RepoSettingsParamsSchema = z.object({
+  owner: z.string(),
+  repo: z.string(),
+})
+
+export const UpdateRepoSettingsBodySchema = z.object({
+  description: z.string().optional(),
+  visibility: z.enum(['public', 'private']).optional(),
+  defaultBranch: z.string().optional(),
+  hasIssues: z.boolean().optional(),
+  hasWiki: z.boolean().optional(),
+  hasDiscussions: z.boolean().optional(),
+  allowMergeCommit: z.boolean().optional(),
+  allowSquashMerge: z.boolean().optional(),
+  allowRebaseMerge: z.boolean().optional(),
+  deleteBranchOnMerge: z.boolean().optional(),
+  archived: z.boolean().optional(),
+})
+
+export const AddCollaboratorBodySchema = z.object({
+  login: z.string().min(1),
+  permission: z.enum(['read', 'write', 'admin']),
+})
+
+export const AddWebhookBodySchema = z.object({
+  url: z.string().url(),
+  events: z.array(z.string()),
+})
+
+export const TransferRepoBodySchema = z.object({
+  newOwner: z.string().min(1),
 })

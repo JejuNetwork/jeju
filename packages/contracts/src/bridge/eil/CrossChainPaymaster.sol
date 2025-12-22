@@ -1019,15 +1019,10 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
 
     /**
      * @notice Validate UserOp with multi-token gas payment support
-     * @dev Supports two modes:
-     *      1. Cross-chain voucher mode (legacy): User pays via voucher
-     *      2. Token payment mode (new): User pays gas with any supported token
+     * @dev User pays gas with any supported token
      *
-     * paymasterAndData format for token payment:
+     * paymasterAndData format:
      * [paymaster(20)][verificationGas(16)][postOpGas(16)][mode(1)][token(20)][appAddress(20)]
-     *
-     * paymasterAndData format for voucher mode (legacy):
-     * [paymaster(20)][verificationGas(16)][postOpGas(16)][voucherId(32)][xlp(20)]
      */
     function _validatePaymasterUserOp(PackedUserOperation calldata userOp, bytes32, /*userOpHash*/ uint256 maxCost)
         internal
@@ -1043,18 +1038,13 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
             return ("", 1); // Invalid
         }
 
-        // Parse mode byte (position 52)
+        // Parse mode byte (position 52) - must be 0 for token payment
         uint8 mode = uint8(userOp.paymasterAndData[52]);
-
-        if (mode == 0) {
-            // Token payment mode: [mode(1)][token(20)][appAddress(20)]
-            return _validateTokenPayment(userOp, maxCost);
-        } else if (mode == 1) {
-            // Legacy voucher mode: [mode(1)][voucherId(32)][xlp(20)]
-            return _validateVoucherPayment(userOp, maxCost);
+        if (mode != 0) {
+            return ("", 1); // Invalid mode
         }
 
-        return ("", 1); // Invalid mode
+        return _validateTokenPayment(userOp, maxCost);
     }
 
     /**
@@ -1120,52 +1110,12 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
     }
 
     /**
-     * @notice Validate legacy voucher-based payment
-     * @dev For cross-chain transfer operations
-     */
-    function _validateVoucherPayment(PackedUserOperation calldata userOp, uint256 maxCost)
-        internal
-        view
-        returns (bytes memory context, uint256 validationData)
-    {
-        // Format: [mode(1)][voucherId(32)][xlp(20)] starting at position 52
-        if (userOp.paymasterAndData.length < 105) {
-            return ("", 1);
-        }
-
-        bytes32 voucherId = bytes32(userOp.paymasterAndData[53:85]);
-        address xlp = address(bytes20(userOp.paymasterAndData[85:105]));
-
-        // Verify XLP has enough ETH to cover gas
-        if (xlpETHDeposits[xlp] < maxCost) {
-            return ("", 1);
-        }
-
-        // Legacy context format
-        context = abi.encode(voucherId, xlp, maxCost, uint8(1)); // mode=1 for voucher
-        return (context, 0);
-    }
-
-    /**
      * @notice Post-operation callback - collect tokens and distribute fees
-     * @dev Handles both token payment and voucher modes
      */
     function _postOp(PostOpMode mode, bytes calldata context, uint256 actualGasCost, uint256 /*actualUserOpFeePerGas*/ )
         internal
         override
     {
-        // Check if this is legacy voucher mode (shorter context)
-        if (context.length <= 128) {
-            // Try legacy decode
-            (bytes32 voucherId, address xlp, /* unused maxCost */, uint8 paymentMode) =
-                abi.decode(context, (bytes32, address, uint256, uint8));
-
-            if (paymentMode == 1) {
-                _handleVoucherPostOp(mode, voucherId, xlp, actualGasCost);
-                return;
-            }
-        }
-
         // Token payment mode
         GasPaymentContext memory ctx = abi.decode(context, (GasPaymentContext));
         _handleTokenPaymentPostOp(mode, ctx, actualGasCost);
@@ -1199,22 +1149,6 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
             }
 
             emit GasSponsored(ctx.user, ctx.paymentToken, actualGasCost, actualTokenCost, ctx.appAddress);
-        }
-    }
-
-    /**
-     * @notice Handle post-op for legacy voucher mode
-     */
-    function _handleVoucherPostOp(PostOpMode mode, bytes32 voucherId, address xlp, uint256 actualGasCost) internal {
-        // Always deduct gas cost from XLP (they pay for gas even on revert)
-        if (xlpETHDeposits[xlp] >= actualGasCost) {
-            xlpETHDeposits[xlp] -= actualGasCost;
-            totalETHLiquidity -= actualGasCost;
-        }
-
-        // Only mark as fulfilled if operation succeeded
-        if (mode == PostOpMode.opSucceeded && voucherId != bytes32(0)) {
-            vouchers[voucherId].fulfilled = true;
         }
     }
 

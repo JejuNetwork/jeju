@@ -67,7 +67,7 @@ export interface SimulationResult {
   results?: {
     txHash: string
     gasUsed: bigint
-    revert?: string
+    revert: string | null
   }[]
   totalGasUsed?: bigint
   coinbaseDiff?: bigint

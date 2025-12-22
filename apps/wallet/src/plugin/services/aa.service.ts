@@ -6,7 +6,6 @@
  */
 
 import type { IAgentRuntime } from '@elizaos/core'
-import { expectValid } from '@jejunetwork/types'
 import {
   type Address,
   concat,
@@ -19,10 +18,7 @@ import {
   toHex,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import {
-  BundlerReceiptResponseSchema,
-  BundlerSendUserOpResponseSchema,
-} from '../../schemas/api-responses'
+import { API_URLS, jsonRpcRequest } from '../../lib/eden'
 import type {
   AAServiceConfig,
   SessionKey,
@@ -131,7 +127,7 @@ export class AccountAbstractionService {
     this.config = {
       entryPointAddress: DEFAULT_ENTRY_POINT,
       accountFactoryAddress: DEFAULT_ACCOUNT_FACTORY,
-      bundlerUrl: 'http://localhost:4010/bundler',
+      bundlerUrl: API_URLS.bundler,
       supportedChains: [8453, 1, 42161, 10, 137],
     }
   }
@@ -355,47 +351,27 @@ export class AccountAbstractionService {
   ): Promise<Hex> {
     this.runtime?.logger.info(`[AAService] Submitting UserOp to bundler`)
 
-    const response = await fetch(`${this.config.bundlerUrl}/${chainId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'eth_sendUserOperation',
-        params: [
-          {
-            sender: userOp.sender,
-            nonce: toHex(userOp.nonce),
-            initCode: userOp.initCode,
-            callData: userOp.callData,
-            callGasLimit: toHex(userOp.callGasLimit),
-            verificationGasLimit: toHex(userOp.verificationGasLimit),
-            preVerificationGas: toHex(userOp.preVerificationGas),
-            maxFeePerGas: toHex(userOp.maxFeePerGas),
-            maxPriorityFeePerGas: toHex(userOp.maxPriorityFeePerGas),
-            paymasterAndData: userOp.paymasterAndData,
-            signature: userOp.signature,
-          },
-          this.config.entryPointAddress,
-        ],
-      }),
-    })
+    const userOpData = {
+      sender: userOp.sender,
+      nonce: toHex(userOp.nonce),
+      initCode: userOp.initCode,
+      callData: userOp.callData,
+      callGasLimit: toHex(userOp.callGasLimit),
+      verificationGasLimit: toHex(userOp.verificationGasLimit),
+      preVerificationGas: toHex(userOp.preVerificationGas),
+      maxFeePerGas: toHex(userOp.maxFeePerGas),
+      maxPriorityFeePerGas: toHex(userOp.maxPriorityFeePerGas),
+      paymasterAndData: userOp.paymasterAndData,
+      signature: userOp.signature,
+    }
 
-    const result = expectValid(
-      BundlerSendUserOpResponseSchema,
-      await response.json(),
-      'submitUserOperation bundler response',
+    const result = await jsonRpcRequest<Hex>(
+      `${this.config.bundlerUrl}/${chainId}`,
+      'eth_sendUserOperation',
+      [userOpData, this.config.entryPointAddress],
     )
 
-    if (result.error) {
-      throw new Error(`Bundler error: ${result.error.message}`)
-    }
-
-    if (!result.result) {
-      throw new Error('No result in submitUserOperation response')
-    }
-
-    return result.result
+    return result
   }
 
   /**
@@ -409,28 +385,24 @@ export class AccountAbstractionService {
     const startTime = Date.now()
 
     while (Date.now() - startTime < timeout) {
-      const response = await fetch(`${this.config.bundlerUrl}/${chainId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          id: 1,
-          method: 'eth_getUserOperationReceipt',
-          params: [userOpHash],
-        }),
-      })
+      try {
+        const result = await jsonRpcRequest<{
+          receipt: { transactionHash: Hex }
+          success: boolean
+        } | null>(
+          `${this.config.bundlerUrl}/${chainId}`,
+          'eth_getUserOperationReceipt',
+          [userOpHash],
+        )
 
-      const result = expectValid(
-        BundlerReceiptResponseSchema,
-        await response.json(),
-        'waitForUserOperation receipt',
-      )
-
-      if (result.result) {
-        return {
-          txHash: result.result.receipt.transactionHash,
-          success: result.result.success,
+        if (result) {
+          return {
+            txHash: result.receipt.transactionHash,
+            success: result.success,
+          }
         }
+      } catch {
+        // Receipt not ready yet, continue polling
       }
 
       await new Promise((resolve) => setTimeout(resolve, 2000))

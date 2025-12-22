@@ -130,7 +130,6 @@ class RLAIFService {
     }
 
     this.runs.set(runId, run)
-    console.log(`[RLAIF] Created run ${runId} for ${request.environment.id}`)
 
     return run
   }
@@ -179,7 +178,6 @@ class RLAIFService {
     if (!run) return null
 
     if (run.status !== RunStatus.PENDING && run.status !== RunStatus.QUEUED) {
-      console.warn(`[RLAIF] Cannot start run ${runId} in status ${run.status}`)
       return run
     }
 
@@ -263,10 +261,6 @@ class RLAIFService {
     const combined = [...existing, ...newTrajectories]
     this.trajectories.set(key, combined)
 
-    console.log(
-      `[RLAIF] Added ${trajectories.length} trajectories for ${environment}:${archetype} (total: ${combined.length})`,
-    )
-
     return {
       count: trajectories.length,
       totalForArchetype: combined.length,
@@ -289,7 +283,6 @@ class RLAIFService {
     run.updatedAt = Date.now()
     this.runs.set(runId, run)
 
-    console.log(`[RLAIF] Added ${trajectories.length} rollouts to run ${runId}`)
     return { count: trajectories.length }
   }
 

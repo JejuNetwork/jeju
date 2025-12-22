@@ -21,10 +21,6 @@ import {
 } from './schemas'
 import type { VPNServiceContext } from './types'
 
-// ============================================================================
-// Types
-// ============================================================================
-
 export interface X402PaymentPayload {
   scheme: 'exact' | 'upto'
   network: string
@@ -66,25 +62,18 @@ const NONCE_WARNING_THRESHOLD = 80000
 // Cleanup expired nonces
 function cleanupExpiredNonces(): void {
   const now = Math.floor(Date.now() / 1000)
-  let cleanedCount = 0
+  let _cleanedCount = 0
 
   for (const [nonce, expiration] of usedNonces.entries()) {
     if (now > expiration) {
       usedNonces.delete(nonce)
-      cleanedCount++
+      _cleanedCount++
     }
   }
 
-  if (cleanedCount > 0) {
-    console.log(
-      `Cleaned up ${cleanedCount} expired nonces. Remaining: ${usedNonces.size}`,
-    )
-  }
-
-  // SECURITY: Log warning when approaching capacity (potential attack indicator)
   if (usedNonces.size > NONCE_WARNING_THRESHOLD) {
-    console.warn(
-      `SECURITY WARNING: Nonce storage at ${usedNonces.size}/${MAX_NONCES} - possible replay attack in progress`,
+    console.error(
+      `SECURITY: Nonce storage at ${usedNonces.size}/${MAX_NONCES} - possible replay attack`,
     )
   }
 }
@@ -92,19 +81,15 @@ function cleanupExpiredNonces(): void {
 // Start periodic cleanup
 setInterval(cleanupExpiredNonces, NONCE_CLEANUP_INTERVAL_MS)
 
-// Check if nonce is used and mark it as used with expiration
 function checkAndUseNonce(nonce: string): boolean {
   // SECURITY: Force aggressive cleanup if approaching capacity
   if (usedNonces.size >= MAX_NONCES * 0.9) {
     cleanupExpiredNonces()
   }
 
-  // SECURITY: Reject if still at capacity after cleanup (under attack)
   if (usedNonces.size >= MAX_NONCES) {
-    console.error(
-      'SECURITY: Nonce storage full after cleanup - rejecting request',
-    )
-    return true // Treat as already used to reject the request
+    console.error('SECURITY: Nonce storage full - rejecting request')
+    return true
   }
 
   // Check if nonce already exists and is not expired
@@ -135,9 +120,6 @@ export function createX402Middleware(ctx: VPNServiceContext) {
       return { error: message }
     })
 
-    /**
-     * GET /pricing - Get payment pricing for VPN services
-     */
     .get('/pricing', () => {
       return {
         services: [
@@ -203,9 +185,6 @@ export function createX402Middleware(ctx: VPNServiceContext) {
       }
     })
 
-    /**
-     * POST /create-header - Create a payment header for client use
-     */
     .post('/create-header', async ({ body }) => {
       const validatedBody = expectValid(
         X402CreateHeaderRequestSchema,
@@ -247,10 +226,6 @@ export function createX402Middleware(ctx: VPNServiceContext) {
   return router
 }
 
-// ============================================================================
-// Verification
-// ============================================================================
-
 export async function verifyX402Payment(
   paymentHeader: string,
   expectedAmount: bigint,
@@ -264,15 +239,13 @@ export async function verifyX402Payment(
   // Parse header
   let payload: X402PaymentPayload
   try {
-    const encoded = paymentHeader.slice(5) // Remove "x402 " prefix
+    const encoded = paymentHeader.slice(5)
     if (encoded.length === 0) {
       throw new Error('Payment header payload is empty')
     }
 
     const decoded = Buffer.from(encoded, 'base64').toString('utf-8')
     const parsed = JSON.parse(decoded)
-    // X402PaymentPayloadSchema validates and transforms to correct types
-    // AddressSchema returns Address, HexSchema returns Hex
     payload = expectValid(
       X402PaymentPayloadSchema,
       parsed,
@@ -365,9 +338,6 @@ export async function verifyX402Payment(
     }
   }
 
-  // Nonce is already marked as used in checkAndUseNonce above
-
-  // Create receipt with the actual payer address
   const receipt: X402Receipt = {
     paymentId: `pay-${payload.nonce}`,
     amount: paymentAmount,

@@ -12,12 +12,12 @@
 
 import { EventEmitter } from 'node:events'
 import {
-  type PublicClient,
-  type WalletClient,
   type Address,
-  type Hash,
-  parseAbi,
   encodeFunctionData,
+  type Hash,
+  type PublicClient,
+  parseAbi,
+  type WalletClient,
 } from 'viem'
 
 export interface JITConfig {
@@ -61,7 +61,8 @@ const NFT_POSITION_MANAGER_ABI = parseAbi([
   'function collect((uint256 tokenId, address recipient, uint128 amount0Max, uint128 amount1Max)) returns (uint256 amount0, uint256 amount1)',
 ])
 
-const NFT_POSITION_MANAGER: Address = '0xC36442b4a4522E871399CD717aBDD847Ab11FE88'
+const _NFT_POSITION_MANAGER: Address =
+  '0xC36442b4a4522E871399CD717aBDD847Ab11FE88'
 
 export class JITLiquidityStrategy extends EventEmitter {
   private config: JITConfig
@@ -71,11 +72,7 @@ export class JITLiquidityStrategy extends EventEmitter {
   private positions: Map<Address, JITPosition> = new Map()
   private pendingSwaps: Map<Hash, PendingSwap> = new Map()
 
-  constructor(
-    config: JITConfig,
-    client: PublicClient,
-    wallet: WalletClient
-  ) {
+  constructor(config: JITConfig, client: PublicClient, wallet: WalletClient) {
     super()
     this.config = config
     this.client = client
@@ -85,7 +82,9 @@ export class JITLiquidityStrategy extends EventEmitter {
   async start(): Promise<void> {
     if (this.running) return
     this.running = true
-    console.log(`🎯 JIT Liquidity: monitoring for swaps > $${this.config.minSwapSizeUsd}`)
+    console.log(
+      `🎯 JIT Liquidity: monitoring for swaps > $${this.config.minSwapSizeUsd}`,
+    )
   }
 
   stop(): void {
@@ -104,7 +103,9 @@ export class JITLiquidityStrategy extends EventEmitter {
       return
     }
 
-    console.log(`JIT opportunity: ${opportunity.expectedProfitBps}bps on ${swap.hash}`)
+    console.log(
+      `JIT opportunity: ${opportunity.expectedProfitBps}bps on ${swap.hash}`,
+    )
 
     // Execute JIT: add liquidity -> swap executes -> remove liquidity
     await this.executeJIT(swap, opportunity)
@@ -128,18 +129,22 @@ export class JITLiquidityStrategy extends EventEmitter {
 
     // Calculate tick range around current price
     const tickSpacing = this.config.tickSpacing
-    const tickLower = Math.floor(currentTick / tickSpacing) * tickSpacing - tickSpacing
-    const tickUpper = Math.ceil(currentTick / tickSpacing) * tickSpacing + tickSpacing
+    const tickLower =
+      Math.floor(currentTick / tickSpacing) * tickSpacing - tickSpacing
+    const tickUpper =
+      Math.ceil(currentTick / tickSpacing) * tickSpacing + tickSpacing
 
     // Estimate fee revenue from swap
-    const swapSizeUsd = Number(swap.amountIn) / 1e18 * 3500 // Simplified
+    const swapSizeUsd = (Number(swap.amountIn) / 1e18) * 3500 // Simplified
     const feeRevenue = swapSizeUsd * (this.config.poolFee / 1e6)
 
     // Estimate gas cost
-    const gasCostUsd = Number(swap.gasPrice) * Number(this.config.gasLimit) / 1e18 * 3500
+    const gasCostUsd =
+      ((Number(swap.gasPrice) * Number(this.config.gasLimit)) / 1e18) * 3500
 
     // Calculate profit
-    const expectedProfitBps = ((feeRevenue - gasCostUsd * 2) / swapSizeUsd) * 10000
+    const expectedProfitBps =
+      ((feeRevenue - gasCostUsd * 2) / swapSizeUsd) * 10000
 
     return {
       profitable: expectedProfitBps > this.config.minProfitBps,
@@ -152,28 +157,30 @@ export class JITLiquidityStrategy extends EventEmitter {
 
   private async executeJIT(
     swap: PendingSwap,
-    opportunity: { tickLower: number; tickUpper: number; liquidity: bigint }
+    opportunity: { tickLower: number; tickUpper: number; liquidity: bigint },
   ): Promise<void> {
     const [account] = await this.wallet.getAddresses()
     const deadline = BigInt(Math.floor(Date.now() / 1000) + 60)
 
     // 1. Add liquidity (must be included BEFORE the swap)
-    const mintData = encodeFunctionData({
+    const _mintData = encodeFunctionData({
       abi: NFT_POSITION_MANAGER_ABI,
       functionName: 'mint',
-      args: [{
-        token0: swap.tokenIn < swap.tokenOut ? swap.tokenIn : swap.tokenOut,
-        token1: swap.tokenIn < swap.tokenOut ? swap.tokenOut : swap.tokenIn,
-        fee: this.config.poolFee,
-        tickLower: opportunity.tickLower,
-        tickUpper: opportunity.tickUpper,
-        amount0Desired: opportunity.liquidity,
-        amount1Desired: opportunity.liquidity,
-        amount0Min: 0n,
-        amount1Min: 0n,
-        recipient: account,
-        deadline,
-      }],
+      args: [
+        {
+          token0: swap.tokenIn < swap.tokenOut ? swap.tokenIn : swap.tokenOut,
+          token1: swap.tokenIn < swap.tokenOut ? swap.tokenOut : swap.tokenIn,
+          fee: this.config.poolFee,
+          tickLower: opportunity.tickLower,
+          tickUpper: opportunity.tickUpper,
+          amount0Desired: opportunity.liquidity,
+          amount1Desired: opportunity.liquidity,
+          amount0Min: 0n,
+          amount1Min: 0n,
+          recipient: account,
+          deadline,
+        },
+      ],
     })
 
     // Submit as bundle with higher priority than the swap
@@ -192,4 +199,3 @@ export class JITLiquidityStrategy extends EventEmitter {
     }
   }
 }
-

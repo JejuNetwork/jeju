@@ -18,8 +18,6 @@ import type {
   XMTPMessage,
 } from './types'
 
-// ============ Types ============
-
 export interface SyncEvent {
   type: 'message' | 'conversation' | 'identity' | 'group'
   id: string
@@ -50,8 +48,6 @@ export interface SyncServiceConfig {
 // Maximum event buffer size to prevent memory exhaustion
 const DEFAULT_MAX_BUFFER_SIZE = 50000
 
-// ============ Sync Service Class ============
-
 /**
  * Manages sync state across XMTP nodes
  */
@@ -79,8 +75,6 @@ export class XMTPSyncService {
       isSyncing: false,
     }
   }
-
-  // ============ Lifecycle ============
 
   /**
    * Start the sync service
@@ -120,8 +114,6 @@ export class XMTPSyncService {
 
     console.log('[XMTP Sync] Sync service stopped')
   }
-
-  // ============ Sync Operations ============
 
   /**
    * Run a sync cycle
@@ -257,8 +249,6 @@ export class XMTPSyncService {
     }
   }
 
-  // ============ Peer Management ============
-
   /**
    * Add a sync peer
    */
@@ -284,8 +274,6 @@ export class XMTPSyncService {
   getPeers(): SyncPeer[] {
     return Array.from(this.peers.values())
   }
-
-  // ============ Event Submission ============
 
   /**
    * Submit an event to be synced
@@ -326,8 +314,6 @@ export class XMTPSyncService {
 
     await Promise.allSettled(broadcasts)
   }
-
-  // ============ State Persistence ============
 
   /**
    * Load persisted state with validation
@@ -378,8 +364,6 @@ export class XMTPSyncService {
       ),
     )
   }
-
-  // ============ IPFS Backup ============
 
   /**
    * Backup state to IPFS
@@ -440,8 +424,6 @@ export class XMTPSyncService {
     }
   }
 
-  // ============ Stats ============
-
   /**
    * Get sync state
    */
@@ -456,14 +438,10 @@ export class XMTPSyncService {
     return this.eventBuffer.length
   }
 
-  // ============ Utility ============
-
   private delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms))
   }
 }
-
-// ============ Factory Function ============
 
 /**
  * Create and start a sync service

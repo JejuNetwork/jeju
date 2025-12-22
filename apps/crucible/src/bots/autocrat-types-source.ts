@@ -11,8 +11,6 @@
 import { ChainIdSchema } from '@jejunetwork/types'
 import { z } from 'zod'
 
-// ============ Chain Configuration ============
-
 export { ChainIdSchema }
 export type ChainId = z.infer<typeof ChainIdSchema>
 
@@ -20,11 +18,11 @@ export const ChainConfigSchema = z.object({
   chainId: ChainIdSchema,
   name: z.string(),
   rpcUrl: z.string(),
-  wsUrl: z.string().optional(),
+  wsUrl: z.string().nullable(),
   blockTime: z.number(), // Average block time in ms
   isL2: z.boolean(),
   nativeSymbol: z.string(),
-  explorerUrl: z.string().optional(),
+  explorerUrl: z.string().nullable(),
 })
 export type ChainConfig = z.infer<typeof ChainConfigSchema>
 
@@ -53,17 +51,15 @@ export const PoolSchema = z.object({
   token0: TokenSchema,
   token1: TokenSchema,
   chainId: ChainIdSchema,
-  fee: z.number().optional(), // Fee in basis points (V3)
-  tickSpacing: z.number().optional(), // V3 tick spacing
-  reserve0: z.string().optional(),
-  reserve1: z.string().optional(),
-  sqrtPriceX96: z.string().optional(), // V3 price
-  liquidity: z.string().optional(),
-  lastUpdate: z.number().optional(),
+  fee: z.number().nullable(), // Fee in basis points (V3)
+  tickSpacing: z.number().nullable(), // V3 tick spacing
+  reserve0: z.string().nullable(),
+  reserve1: z.string().nullable(),
+  sqrtPriceX96: z.string().nullable(), // V3 price
+  liquidity: z.string().nullable(),
+  lastUpdate: z.number().nullable(),
 })
 export type Pool = z.infer<typeof PoolSchema>
-
-// ============ Strategy Types ============
 
 export const StrategyTypeSchema = z.enum([
   'DEX_ARBITRAGE',
@@ -84,11 +80,9 @@ export const StrategyConfigSchema = z.object({
   minProfitBps: z.number(), // Minimum profit in basis points
   maxGasGwei: z.number(), // Max gas price
   maxSlippageBps: z.number(), // Max slippage tolerance
-  cooldownMs: z.number().optional(), // Cooldown between executions
+  cooldownMs: z.number().nullish(), // Cooldown between executions
 })
 export type StrategyConfig = z.infer<typeof StrategyConfigSchema>
-
-// ============ Opportunity Types ============
 
 export const OpportunityStatusSchema = z.enum([
   'DETECTED',
@@ -201,16 +195,14 @@ export type Opportunity =
   | SandwichOpportunity
   | LiquidationOpportunity
 
-// ============ Execution Types ============
-
 export const OpportunityExecutionResultSchema = z.object({
   opportunityId: z.string(),
   success: z.boolean(),
-  txHash: z.string().optional(),
-  blockNumber: z.number().optional(),
-  gasUsed: z.string().optional(),
-  actualProfit: z.string().optional(),
-  error: z.string().optional(),
+  txHash: z.string().nullable(),
+  blockNumber: z.number().nullable(),
+  gasUsed: z.string().nullable(),
+  actualProfit: z.string().nullable(),
+  error: z.string().nullable(),
   executedAt: z.number(),
   durationMs: z.number(),
 })
@@ -256,8 +248,6 @@ export const TreasuryStatsSchema = z.object({
 })
 export type TreasuryStats = z.infer<typeof TreasuryStatsSchema>
 
-// ============ Block Builder Types ============
-
 export const AccessTierSchema = z.enum([
   'NONE',
   'BRONZE',
@@ -296,8 +286,6 @@ export const BundleSubmissionSchema = z.object({
 })
 export type BundleSubmission = z.infer<typeof BundleSubmissionSchema>
 
-// ============ Autocrat Configuration ============
-
 export const AutocratConfigSchema = z.object({
   // Chain configuration
   chains: z.array(ChainConfigSchema),
@@ -324,8 +312,6 @@ export const AutocratConfigSchema = z.object({
   logLevel: z.enum(['debug', 'info', 'warn', 'error']),
 })
 export type AutocratConfig = z.infer<typeof AutocratConfigSchema>
-
-// ============ Metrics Types ============
 
 export const MetricsSchema = z.object({
   opportunitiesDetected: z.number(),

@@ -6,7 +6,12 @@
  * - Make proxied requests
  * - Query VPN status
  *
- * Uses fail-fast validation patterns
+ * Uses fail-fast validation patterns.
+ *
+ * Proxy Strategy:
+ * - proxy_request tool: Proxies AI agent requests to external URLs (keep fetch)
+ *   Uses raw fetch to proxy user-submitted requests to external services.
+ *   Cannot use Eden as target URLs are user-provided and external.
  */
 
 import { Elysia } from 'elysia'
@@ -44,10 +49,6 @@ import {
   verifySessionOwnership,
 } from './utils/sessions'
 import { verifyX402Payment } from './x402'
-
-// ============================================================================
-// Types
-// ============================================================================
 
 export interface MCPServerInfo {
   name: string
@@ -181,10 +182,6 @@ type MCPToolResult =
   | ProxyRequestResult
   | ContributionStatusResult
   | ToolErrorResult
-
-// ============================================================================
-// Server Info
-// ============================================================================
 
 const MCP_SERVER_INFO: MCPServerInfo = {
   name: 'jeju-vpn-mcp',
@@ -360,9 +357,6 @@ export function createMCPRouter(ctx: VPNServiceContext) {
       return { error: message }
     })
 
-    /**
-     * POST /initialize - Initialize MCP session
-     */
     .post('/initialize', () => {
       return {
         protocolVersion: '2024-11-05',
@@ -378,9 +372,6 @@ export function createMCPRouter(ctx: VPNServiceContext) {
       return { resources: MCP_RESOURCES }
     })
 
-    /**
-     * POST /resources/read - Read a resource
-     */
     .post('/resources/read', async ({ request, body }) => {
       const auth = await verifyAuth(request)
       // auth.address is already validated as Address by verifyAuth when valid
@@ -416,9 +407,6 @@ export function createMCPRouter(ctx: VPNServiceContext) {
       return { tools: MCP_TOOLS }
     })
 
-    /**
-     * POST /tools/call - Call a tool
-     */
     .post('/tools/call', async ({ request, body }) => {
       const auth = await verifyAuth(request)
       // auth.address is already validated as Address by verifyAuth when valid
@@ -456,9 +444,6 @@ export function createMCPRouter(ctx: VPNServiceContext) {
       return { prompts: MCP_PROMPTS }
     })
 
-    /**
-     * POST /prompts/get - Get a prompt
-     */
     .post('/prompts/get', async ({ body }) => {
       const validatedBody = expectValid(
         MCPPromptGetSchema,
@@ -480,10 +465,6 @@ export function createMCPRouter(ctx: VPNServiceContext) {
 
   return router
 }
-
-// ============================================================================
-// Resource Reader
-// ============================================================================
 
 async function readResource(
   ctx: VPNServiceContext,
@@ -723,10 +704,6 @@ async function callTool(
       return { result: { error: 'Unknown tool' }, isError: true }
   }
 }
-
-// ============================================================================
-// Prompt Generator
-// ============================================================================
 
 async function getPrompt(
   _ctx: VPNServiceContext,

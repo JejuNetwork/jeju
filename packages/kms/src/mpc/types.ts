@@ -183,3 +183,9 @@ export function getMPCConfig(
 }
 
 export const DEFAULT_MPC_CONFIG: MPCCoordinatorConfig = getMPCConfig('localnet')
+
+/** Maximum sessions to store before forced cleanup */
+export const MAX_MPC_SESSIONS = 1000
+
+/** Session expiry time in milliseconds (5 minutes) */
+export const SESSION_EXPIRY_MS = 5 * 60 * 1000

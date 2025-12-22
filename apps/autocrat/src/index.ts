@@ -1131,12 +1131,9 @@ async function start() {
     triggerMode = 'compute'
   }
 
-  console.log(`
-[Council] Started on port ${port}
-  TEE: ${getTEEMode()}
-  Trigger: ${triggerMode}
-  Endpoints: /a2a, /mcp, /api/v1
-`)
+  console.log(
+    `[Council] port=${port} tee=${getTEEMode()} trigger=${triggerMode}`,
+  )
 
   if (autoStart && blockchain.councilDeployed) {
     const orchestratorConfig: import('./orchestrator').AutocratConfig = {

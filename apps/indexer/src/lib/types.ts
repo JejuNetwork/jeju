@@ -4,9 +4,7 @@
  * Contains types and error classes used across REST, A2A, and MCP servers.
  */
 
-// ============================================================================
 // Search Result Types
-// ============================================================================
 
 export interface AgentSearchResult {
   agentId: string
@@ -56,9 +54,7 @@ export interface SearchResult {
   took: number
 }
 
-// ============================================================================
 // Error Types
-// ============================================================================
 
 export class ValidationError extends Error {
   constructor(

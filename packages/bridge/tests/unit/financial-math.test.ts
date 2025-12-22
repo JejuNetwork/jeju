@@ -13,8 +13,6 @@
 
 import { describe, expect, it } from 'bun:test'
 
-// ============ Helper Functions ============
-
 /**
  * Generate random bigint in range [min, max]
  */
@@ -44,8 +42,6 @@ function forAll<T>(
     property(value)
   }
 }
-
-// ============ Financial Math Functions ============
 
 /**
  * Calculate fee in token units from bps
@@ -128,8 +124,6 @@ function splitRevenue(
 
   return result
 }
-
-// ============ Property Tests ============
 
 describe('Financial Math Properties', () => {
   describe('Fee Calculation Properties', () => {

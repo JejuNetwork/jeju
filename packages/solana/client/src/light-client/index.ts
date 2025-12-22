@@ -1,10 +1,3 @@
-/**
- * EVM Light Client SDK
- *
- * TypeScript client for the EVM Light Client on Solana.
- * Enables verification of Ethereum consensus and state proofs.
- */
-
 import {
   type Connection,
   PublicKey,
@@ -164,10 +157,6 @@ export class EVMLightClientClient {
     ]
   }
 
-  /**
-   * Serialize proof nodes into the format expected by the program
-   * Format: [num_nodes: u16][node1_len: u16][node1_data][node2_len: u16][node2_data]...
-   */
   serializeProofNodes(nodes: Uint8Array[]): Uint8Array {
     let totalSize = 2 // num_nodes
     for (const node of nodes) {

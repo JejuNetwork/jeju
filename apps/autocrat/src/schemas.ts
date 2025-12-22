@@ -14,13 +14,9 @@ import {
 } from '@jejunetwork/types'
 import { z } from 'zod'
 
-// ============ Base Schemas ============
-
 export const HexStringSchema = HexSchema
 export const ProposalIdSchema = HashSchema // 0x + 64 hex chars (32-byte hash)
 export const Bytes32Schema = HashSchema
-
-// ============ Enum Schemas ============
 
 export const DAOStatusSchema = z.nativeEnum({
   PENDING: 0,
@@ -146,8 +142,6 @@ export const ExecutionStepStatusSchema = z.enum([
   'failed',
 ])
 
-// ============ Bug Bounty Schemas ============
-
 export const BountySeveritySchema = z.nativeEnum({
   LOW: 0,
   MEDIUM: 1,
@@ -184,8 +178,6 @@ export const ValidationResultSchema = z.nativeEnum({
   INVALID: 1,
   NEEDS_REVIEW: 2,
 })
-
-// ============ Core Type Schemas ============
 
 export const CEOPersonaSchema = z.object({
   name: z.string().min(1).max(100),
@@ -285,8 +277,6 @@ export const DAOFullSchema = z.object({
   linkedPackages: z.array(z.string().min(1)),
   linkedRepos: z.array(z.string().min(1)),
 })
-
-// ============ Proposal Schemas ============
 
 export const ProposalDraftSchema = z.object({
   daoId: z.string().min(1).max(100),
@@ -432,8 +422,6 @@ export const AIAssessmentSchema = z.object({
   overallFeedback: z.string().min(10).max(2000),
 })
 
-// ============ Bug Bounty Type Schemas ============
-
 export const BountySubmissionDraftSchema = z.object({
   title: z.string().min(10).max(200),
   summary: z.string().min(50).max(500),
@@ -482,8 +470,6 @@ export const BountySubmissionSchema = BountySubmissionDraftSchema.extend({
 
 /** Schema for string arrays (affectedComponents, stepsToReproduce) */
 export const StringArraySchema = z.array(z.string())
-
-// ============ API Request Schemas ============
 
 export const AssessProposalRequestSchema = ProposalDraftSchema
 
@@ -619,8 +605,6 @@ export const BugBountyCompleteValidationRequestSchema = z.object({
   notes: z.string().min(1).max(5000),
 })
 
-// ============ A2A Request Schemas ============
-
 export const A2AMessageSchema = z.object({
   jsonrpc: z.literal('2.0'),
   id: z.number().int().positive(),
@@ -710,8 +694,6 @@ export const A2AAddCommentaryParamsSchema = z.object({
   sentiment: SentimentSchema.optional(),
 })
 
-// ============ MCP Request Schemas ============
-
 export const MCPResourceReadRequestSchema = z.object({
   uri: z.string().min(1),
 })
@@ -720,8 +702,6 @@ export const MCPToolCallRequestSchema = z.object({
   name: z.string().min(1),
   arguments: z.record(z.string(), z.string()).optional(),
 })
-
-// ============ Query Parameter Schemas ============
 
 export const PaginationQuerySchema = z.object({
   limit: z
@@ -774,8 +754,6 @@ export const BugBountyListQuerySchema = PaginationQuerySchema.extend({
   limit?: number
   offset?: number
 }>
-
-// ============ External API Response Schemas ============
 
 // --- GitHub API Responses ---
 
@@ -833,6 +811,91 @@ export const A2AJsonRpcResponseSchema = z.object({
 })
 
 export type A2AJsonRpcResponse = z.infer<typeof A2AJsonRpcResponseSchema>
+
+// --- A2A Skill Response Data Schemas ---
+
+export const GovernanceStatsDataSchema = z.object({
+  totalProposals: z.number().int().nonnegative(),
+  approvedCount: z.number().int().nonnegative(),
+  rejectedCount: z.number().int().nonnegative(),
+  pendingCount: z.number().int().nonnegative(),
+  avgQualityScore: z.number().nonnegative(),
+})
+export type GovernanceStatsData = z.infer<typeof GovernanceStatsDataSchema>
+
+export const CEOStatusDataSchema = z.object({
+  currentModel: z.object({
+    name: z.string(),
+    modelId: z.string(),
+  }),
+  decisionsThisPeriod: z.number().int().nonnegative(),
+  approvalRate: z.number().nonnegative(),
+  lastDecision: z
+    .object({
+      proposalId: ProposalIdSchema,
+      approved: z.boolean(),
+    })
+    .optional(),
+})
+export type CEOStatusData = z.infer<typeof CEOStatusDataSchema>
+
+export const AutocratStatusDataSchema = z.object({
+  roles: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      role: z.string(),
+    }),
+  ),
+  totalMembers: z.number().int().nonnegative(),
+})
+export type AutocratStatusData = z.infer<typeof AutocratStatusDataSchema>
+
+export const ProposalDataSchema = z.object({
+  id: ProposalIdSchema,
+  status: z.string(),
+  proposer: AddressSchema,
+  proposalType: z.number().int().nonnegative(),
+  qualityScore: z.number().int().min(0).max(100),
+  autocratVoteEnd: z.number().int().nonnegative(),
+  gracePeriodEnd: z.number().int().nonnegative(),
+  hasResearch: z.boolean(),
+  researchHash: z.string().optional(),
+  contentHash: z.string(),
+})
+export type ProposalData = z.infer<typeof ProposalDataSchema>
+
+export const ProposalListDataSchema = z.object({
+  proposals: z.array(ProposalDataSchema),
+  total: z.number().int().nonnegative(),
+})
+export type ProposalListData = z.infer<typeof ProposalListDataSchema>
+
+export const AutocratVoteDataSchema = z.object({
+  role: z.string(),
+  vote: z.enum(['APPROVE', 'REJECT', 'ABSTAIN']),
+  reasoning: z.string(),
+  confidence: z.number().int().min(0).max(100),
+  timestamp: z.number().int().nonnegative().optional(),
+})
+export type AutocratVoteData = z.infer<typeof AutocratVoteDataSchema>
+
+export const AutocratVotesDataSchema = z.object({
+  votes: z.array(AutocratVoteDataSchema),
+})
+export type AutocratVotesData = z.infer<typeof AutocratVotesDataSchema>
+
+export const ResearchDataSchema = z.object({
+  report: z.string().optional(),
+  status: z.string(),
+  completedAt: z.number().int().nonnegative().optional(),
+})
+export type ResearchData = z.infer<typeof ResearchDataSchema>
+
+export const SubmitVoteResultSchema = z.object({
+  success: z.boolean(),
+})
+export type SubmitVoteResult = z.infer<typeof SubmitVoteResultSchema>
 
 // --- LLM/Compute API Response Schemas ---
 
@@ -1074,15 +1137,13 @@ export const AgentCardSchema = z.object({
     .optional(),
 })
 
-// ============ Helper Functions for Validated JSON Parsing ============
-
 /**
  * Safely parse response.json() and validate against schema
  * Throws on validation failure for fail-fast behavior
  */
 export async function expectValidResponse<T>(
   response: Response,
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   context: string,
 ): Promise<T> {
   if (!response.ok) {

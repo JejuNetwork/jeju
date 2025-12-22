@@ -276,6 +276,7 @@ export class EILClient {
       ],
       value: txValue,
       account: this.account,
+      chain: null, // Use wallet client's chain
     })
 
     const receipt = await waitForTransactionReceipt(this.l2Client, { hash })

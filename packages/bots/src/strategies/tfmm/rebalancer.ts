@@ -1,13 +1,4 @@
-/**
- * TFMM Rebalancer
- *
- * Orchestrates weight updates for TFMM pools:
- * - Monitors pool state
- * - Fetches oracle prices
- * - Runs strategy calculations
- * - Submits weight update transactions
- * - Handles gas optimization
- */
+/** TFMM pool rebalancer. */
 
 import { EventEmitter } from 'node:events'
 import type { EVMChainId } from '@jejunetwork/types'

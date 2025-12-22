@@ -42,21 +42,29 @@ const AddressSchema = z.custom<Address>(
   { message: 'Invalid address' },
 )
 
-// Zod schemas for API response validation
-const QueryResponseSchema = z.object({
-  rows: z.array(z.object({}).passthrough()),
-  rowCount: z.number(),
-  columns: z.array(z.string()),
-  blockHeight: z.number(),
-})
+const QueryResponseSchema = z
+  .object({
+    rows: z.array(
+      z.record(
+        z.string(),
+        z.union([z.string(), z.number(), z.boolean(), z.null()]),
+      ),
+    ),
+    rowCount: z.number().int().nonnegative(),
+    columns: z.array(z.string()),
+    blockHeight: z.number().int().nonnegative(),
+  })
+  .strict()
 
-const ExecResponseSchema = z.object({
-  rowsAffected: z.number(),
-  lastInsertId: z.string().optional(),
-  txHash: z.string(),
-  blockHeight: z.number(),
-  gasUsed: z.string(),
-})
+const ExecResponseSchema = z
+  .object({
+    rowsAffected: z.number().int().nonnegative(),
+    lastInsertId: z.string().optional(),
+    txHash: z.string().min(1),
+    blockHeight: z.number().int().nonnegative(),
+    gasUsed: z.string().min(1),
+  })
+  .strict()
 
 const DatabaseStatusSchema = z.enum([
   'creating',
@@ -66,21 +74,25 @@ const DatabaseStatusSchema = z.enum([
   'error',
 ])
 
-const DatabaseInfoSchema = z.object({
-  id: z.string(),
-  createdAt: z.number(),
-  owner: AddressSchema,
-  nodeCount: z.number(),
-  consistencyMode: z.enum(['eventual', 'strong']),
-  status: DatabaseStatusSchema,
-  blockHeight: z.number(),
-  sizeBytes: z.number(),
-  monthlyCost: z.union([z.bigint(), z.string()]).transform((v) => BigInt(v)),
-})
+const DatabaseInfoSchema = z
+  .object({
+    id: z.string().min(1),
+    createdAt: z.number().int().nonnegative(),
+    owner: AddressSchema,
+    nodeCount: z.number().int().positive(),
+    consistencyMode: z.enum(['eventual', 'strong']),
+    status: DatabaseStatusSchema,
+    blockHeight: z.number().int().nonnegative(),
+    sizeBytes: z.number().int().nonnegative(),
+    monthlyCost: z.union([z.bigint(), z.string()]).transform((v) => BigInt(v)),
+  })
+  .strict()
 
-const DatabaseListResponseSchema = z.object({
-  databases: z.array(DatabaseInfoSchema),
-})
+const DatabaseListResponseSchema = z
+  .object({
+    databases: z.array(DatabaseInfoSchema),
+  })
+  .strict()
 
 const ACLPermissionSchema = z.enum([
   'SELECT',
@@ -98,9 +110,11 @@ const ACLRuleSchema = z.object({
   condition: z.string().optional(),
 })
 
-const ACLListResponseSchema = z.object({
-  rules: z.array(ACLRuleSchema),
-})
+const ACLListResponseSchema = z
+  .object({
+    rules: z.array(ACLRuleSchema),
+  })
+  .strict()
 
 const RentalPlanSchema = z.object({
   id: z.string(),
@@ -114,41 +128,47 @@ const RentalPlanSchema = z.object({
   paymentToken: AddressSchema,
 })
 
-const RentalPlanListResponseSchema = z.object({
-  plans: z.array(RentalPlanSchema),
-})
+const RentalPlanListResponseSchema = z
+  .object({
+    plans: z.array(RentalPlanSchema),
+  })
+  .strict()
 
-const RentalInfoSchema = z.object({
-  id: z.string(),
-  databaseId: z.string(),
-  renter: AddressSchema,
-  planId: z.string(),
-  startedAt: z.number(),
-  expiresAt: z.number(),
-  autoRenew: z.boolean(),
-  paymentStatus: z.enum(['current', 'overdue', 'cancelled']),
-})
+const RentalInfoSchema = z
+  .object({
+    id: z.string().min(1),
+    databaseId: z.string().min(1),
+    renter: AddressSchema,
+    planId: z.string().min(1),
+    startedAt: z.number().int().nonnegative(),
+    expiresAt: z.number().int().nonnegative(),
+    autoRenew: z.boolean(),
+    paymentStatus: z.enum(['current', 'overdue', 'cancelled']),
+  })
+  .strict()
 
-const BlockProducerInfoSchema = z.object({
-  address: AddressSchema,
-  endpoint: z.string(),
-  blockHeight: z.number(),
-  databases: z.number(),
-  stake: z.union([z.bigint(), z.string()]).transform((v) => BigInt(v)),
-  status: z.enum(['active', 'syncing', 'offline']),
-})
+const BlockProducerInfoSchema = z
+  .object({
+    address: AddressSchema,
+    endpoint: z.string().url(),
+    blockHeight: z.number().int().nonnegative(),
+    databases: z.number().int().nonnegative(),
+    stake: z.union([z.bigint(), z.string()]).transform((v) => BigInt(v)),
+    status: z.enum(['active', 'syncing', 'offline']),
+  })
+  .strict()
 
-// Zod schema for CQL config validation
-const CQLConfigSchema = z.object({
-  blockProducerEndpoint: z.string().url(),
-  minerEndpoint: z.string().url().optional(),
-  privateKey: HexSchema.optional(),
-  databaseId: z.string().min(1).optional(),
-  timeout: z.number().int().positive().optional(),
-  debug: z.boolean().optional(),
-})
+const CQLConfigSchema = z
+  .object({
+    blockProducerEndpoint: z.string().url(),
+    minerEndpoint: z.string().url().optional(),
+    privateKey: HexSchema.optional(),
+    databaseId: z.string().min(1).optional(),
+    timeout: z.number().int().positive().max(600000).optional(),
+    debug: z.boolean().optional(),
+  })
+  .strict()
 
-// Structured logger using pino
 const log = pino({
   name: 'cql',
   level: process.env.LOG_LEVEL ?? 'info',
@@ -158,7 +178,6 @@ const log = pino({
       : undefined,
 })
 
-// Circuit breaker using opossum
 const circuitBreakerOptions = {
   timeout: 30000,
   errorThresholdPercentage: 50,
@@ -166,7 +185,6 @@ const circuitBreakerOptions = {
   volumeThreshold: 5,
 }
 
-// Typed circuit breaker that wraps async functions
 type CircuitBreakerAction<T> = () => Promise<T>
 const circuitBreaker = new CircuitBreakerLib<
   [CircuitBreakerAction<Response>],
@@ -183,7 +201,7 @@ circuitBreaker.on('close', () =>
 
 async function request<T>(
   url: string,
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   options?: RequestInit,
 ): Promise<T> {
   const response = await circuitBreaker.fire(async () => {
@@ -267,16 +285,14 @@ class CQLConnectionImpl implements CQLConnection {
     })
 
     if (!response.ok) {
-      // Log full error for debugging, but don't expose to callers to prevent info leak
       const errorText = await response.text()
       if (this.debug)
         console.error(`[CQL] ${type} error: ${response.status} - ${errorText}`)
       throw new Error(`CQL ${type} failed: ${response.status}`)
     }
 
-    const rawResult = await response.json()
+    const rawResult: unknown = await response.json()
     const executionTime = Date.now() - startTime
-    // Log query type and timing without exposing potentially sensitive SQL content
     if (this.debug)
       console.log(
         `[CQL] ${type}: query executed (${executionTime}ms, params: ${params?.length ?? 0})`,
@@ -447,7 +463,6 @@ export class CQLClient {
     }
   }
 
-  // Database Management
   async createDatabase(config: DatabaseConfig): Promise<DatabaseInfo> {
     return request(`${this.endpoint}/api/v1/databases`, DatabaseInfoSchema, {
       method: 'POST',
@@ -484,7 +499,6 @@ export class CQLClient {
     })
   }
 
-  // Access Control
   async grant(dbId: string, req: GrantRequest): Promise<void> {
     return requestVoid(`${this.endpoint}/api/v1/databases/${dbId}/acl/grant`, {
       method: 'POST',
@@ -509,7 +523,6 @@ export class CQLClient {
     return response.rules
   }
 
-  // Rental Management
   async listPlans(): Promise<RentalPlan[]> {
     const response = await request(
       `${this.endpoint}/api/v1/plans`,
@@ -548,7 +561,6 @@ export class CQLClient {
     })
   }
 
-  // Status
   async getBlockProducerInfo(): Promise<BlockProducerInfo> {
     return request(`${this.endpoint}/api/v1/status`, BlockProducerInfoSchema)
   }
@@ -616,7 +628,6 @@ export function getCQL(config?: Partial<CQLConfig>): CQLClient {
       debug: config?.debug ?? process.env.CQL_DEBUG === 'true',
     }
 
-    // Validate the resolved config
     const validated = CQLConfigSchema.parse(resolvedConfig)
 
     cqlClient = new CQLClient(validated as CQLConfig)

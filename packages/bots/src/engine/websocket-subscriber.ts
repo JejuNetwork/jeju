@@ -6,9 +6,16 @@
  */
 
 import { EventEmitter } from 'node:events'
-import WebSocket from 'ws'
-import { createPublicClient, webSocket, http, type PublicClient, type Block, type Chain } from 'viem'
-import { mainnet, base, arbitrum, optimism, bsc } from 'viem/chains'
+import {
+  type Block,
+  type Chain,
+  createPublicClient,
+  http,
+  type PublicClient,
+  webSocket,
+} from 'viem'
+import { arbitrum, base, bsc, mainnet, optimism } from 'viem/chains'
+import type WebSocket from 'ws'
 
 // ============ Types ============
 
@@ -84,7 +91,9 @@ export class WebSocketBlockSubscriber extends EventEmitter {
 
     console.log('🔌 Starting WebSocket block subscriptions...')
 
-    const startPromises = this.config.chains.map(chainId => this.startChain(chainId))
+    const startPromises = this.config.chains.map((chainId) =>
+      this.startChain(chainId),
+    )
     await Promise.all(startPromises)
 
     console.log(`✓ Subscribed to ${this.subscriptions.size} chains`)
@@ -116,8 +125,14 @@ export class WebSocketBlockSubscriber extends EventEmitter {
   /**
    * Get subscription status
    */
-  getStatus(): Record<number, { connected: boolean; lastBlock: bigint; latency: number }> {
-    const status: Record<number, { connected: boolean; lastBlock: bigint; latency: number }> = {}
+  getStatus(): Record<
+    number,
+    { connected: boolean; lastBlock: bigint; latency: number }
+  > {
+    const status: Record<
+      number,
+      { connected: boolean; lastBlock: bigint; latency: number }
+    > = {}
 
     for (const [chainId, sub] of this.subscriptions) {
       status[chainId] = {
@@ -199,9 +214,10 @@ export class WebSocketBlockSubscriber extends EventEmitter {
       const unwatch = client.watchBlocks({
         onBlock: (block: Block) => {
           const now = Date.now()
-          const latencyMs = subscription.lastBlockTime > 0
-            ? now - subscription.lastBlockTime
-            : 0
+          const latencyMs =
+            subscription.lastBlockTime > 0
+              ? now - subscription.lastBlockTime
+              : 0
 
           subscription.lastBlockNumber = block.number ?? 0n
           subscription.lastBlockTime = now
@@ -237,8 +253,10 @@ export class WebSocketBlockSubscriber extends EventEmitter {
       subscription.isConnected = true
 
       console.log(`  ✓ Chain ${chainId}: WebSocket connected`)
-    } catch (error) {
-      console.warn(`  ✗ Chain ${chainId}: WebSocket failed, falling back to polling`)
+    } catch (_error) {
+      console.warn(
+        `  ✗ Chain ${chainId}: WebSocket failed, falling back to polling`,
+      )
 
       // Fall back to polling
       this.startPolling(subscription)
@@ -260,9 +278,10 @@ export class WebSocketBlockSubscriber extends EventEmitter {
         const now = Date.now()
 
         if (block.number !== subscription.lastBlockNumber) {
-          const latencyMs = subscription.lastBlockTime > 0
-            ? now - subscription.lastBlockTime
-            : pollInterval
+          const latencyMs =
+            subscription.lastBlockTime > 0
+              ? now - subscription.lastBlockTime
+              : pollInterval
 
           subscription.lastBlockNumber = block.number ?? 0n
           subscription.lastBlockTime = now
@@ -300,16 +319,24 @@ export class WebSocketBlockSubscriber extends EventEmitter {
   private handleReconnect(subscription: BlockSubscription): void {
     if (!this.running) return
     if (subscription.reconnectAttempts >= this.config.maxReconnectAttempts) {
-      console.error(`Chain ${subscription.chainId}: Max reconnect attempts reached, falling back to polling`)
+      console.error(
+        `Chain ${subscription.chainId}: Max reconnect attempts reached, falling back to polling`,
+      )
       this.startPolling(subscription)
       return
     }
 
     subscription.reconnectAttempts++
-    const delay = this.config.reconnectDelayMs * Math.pow(2, subscription.reconnectAttempts - 1)
+    const delay =
+      this.config.reconnectDelayMs * 2 ** (subscription.reconnectAttempts - 1)
 
-    this.config.onReconnect?.(subscription.chainId, subscription.reconnectAttempts)
-    console.log(`Chain ${subscription.chainId}: Reconnecting in ${delay}ms (attempt ${subscription.reconnectAttempts})`)
+    this.config.onReconnect?.(
+      subscription.chainId,
+      subscription.reconnectAttempts,
+    )
+    console.log(
+      `Chain ${subscription.chainId}: Reconnecting in ${delay}ms (attempt ${subscription.reconnectAttempts})`,
+    )
 
     setTimeout(() => {
       this.watchBlocks(subscription)
@@ -319,7 +346,9 @@ export class WebSocketBlockSubscriber extends EventEmitter {
 
 // ============ Factory Function ============
 
-export function createBlockSubscriber(config: Partial<SubscriberConfig> & { onBlock: (event: BlockEvent) => void }): WebSocketBlockSubscriber {
+export function createBlockSubscriber(
+  config: Partial<SubscriberConfig> & { onBlock: (event: BlockEvent) => void },
+): WebSocketBlockSubscriber {
   return new WebSocketBlockSubscriber({
     chains: config.chains ?? [1, 8453, 42161, 10, 56],
     rpcUrls: config.rpcUrls ?? {},
@@ -332,4 +361,3 @@ export function createBlockSubscriber(config: Partial<SubscriberConfig> & { onBl
 }
 
 export type { BlockEvent, SubscriberConfig }
-

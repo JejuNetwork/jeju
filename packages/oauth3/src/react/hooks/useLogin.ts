@@ -7,8 +7,8 @@
 import { useCallback, useState } from 'react'
 import type { AuthProvider, OAuth3Session } from '../../index.js'
 import {
+  expectEndpoint,
   extractError,
-  getEndpointWithDevFallback,
   OAuth3SessionSchema,
   validateResponse,
 } from '../../validation.js'
@@ -59,7 +59,7 @@ export function useLogin(options: UseLoginOptions = {}): UseLoginReturn {
       setError(null)
 
       const node = client.getCurrentNode()
-      const url = getEndpointWithDevFallback(node)
+      const url = expectEndpoint(node)
       const response = await fetch(`${url}/auth/email/init`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -85,7 +85,7 @@ export function useLogin(options: UseLoginOptions = {}): UseLoginReturn {
       setError(null)
 
       const node = client.getCurrentNode()
-      const url = getEndpointWithDevFallback(node)
+      const url = expectEndpoint(node)
       const response = await fetch(`${url}/auth/phone/init`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -111,7 +111,7 @@ export function useLogin(options: UseLoginOptions = {}): UseLoginReturn {
       setError(null)
 
       const node = client.getCurrentNode()
-      const url = getEndpointWithDevFallback(node)
+      const url = expectEndpoint(node)
       const response = await fetch(`${url}/auth/email/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -145,7 +145,7 @@ export function useLogin(options: UseLoginOptions = {}): UseLoginReturn {
       setError(null)
 
       const node = client.getCurrentNode()
-      const url = getEndpointWithDevFallback(node)
+      const url = expectEndpoint(node)
       const response = await fetch(`${url}/auth/phone/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

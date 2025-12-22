@@ -22,7 +22,7 @@ import { validateBodyDirect } from '../shared/validation'
 import { startAtroposServer } from './atropos-server'
 import { createCrossChainBridge } from './cross-chain-bridge'
 import { createDistributedGRPOTrainer } from './grpo-trainer'
-import { createPsycheClient, type RolloutBundle } from './psyche-client'
+import { createPsycheClient } from './psyche-client'
 
 // ============================================================================
 // Types
@@ -259,10 +259,7 @@ class NodeProvisioner {
       )
     } else {
       const stderr = await new Response(proc.stderr).text()
-      console.error(`[NodeProvisioner] Failed to start container: ${stderr}`)
-      // Fallback to local mode
-      allocation.status = 'ready'
-      allocation.instanceId = 'local-fallback'
+      throw new Error(`[NodeProvisioner] Failed to start container: ${stderr}`)
     }
   }
 
@@ -417,24 +414,13 @@ class PsycheJobListener {
     // Create distributed run
     await trainer.createDistributedRun(request.runId)
 
-    // Track progress
-    trainer.onTrainingMetrics((metrics) => {
-      this.jobQueue.updateJob(request.jobId, {
-        currentStep: metrics.step,
-        metrics: {
-          loss: metrics.loss,
-          gradNorm: metrics.gradNorm,
-          epochProgress: metrics.step / request.trainingSteps,
-        },
-      })
-    })
-
     // Start training
     await trainer.registerWithAtropos()
-    await trainer.startTraining()
+    await trainer.train()
 
-    // Training complete
-    const checkpointPath = await trainer.getCheckpoint()
+    // Training complete - get final checkpoint path
+    const status = trainer.getStatus()
+    const checkpointPath = status.checkpointPath
     this.jobQueue.updateJob(request.jobId, {
       status: 'completed',
       checkpointCid: checkpointPath ?? undefined,
@@ -508,7 +494,7 @@ export function createTrainingRoutes(
     return { allocations }
   })
 
-  // Judge rollout bundles (LLM-as-judge)
+  // Judge rollout bundles (LLM-as-judge) - placeholder for future implementation
   app.post('/judge', async ({ body, set }) => {
     const validatedBody = validateBodyDirect(
       JudgeBundlesRequestSchema,
@@ -521,16 +507,10 @@ export function createTrainingRoutes(
       return { error: 'Psyche integration not configured' }
     }
 
-    // Create temporary client for judging
-    const psycheClient = createPsycheClient({
-      solanaRpcUrl: 'http://localhost:8899',
-      llmJudgeUrl: process.env.LLM_JUDGE_URL ?? 'http://localhost:9001',
-      llmJudgeModel: process.env.LLM_JUDGE_MODEL ?? 'default',
-    })
-
-    const results = await psycheClient.judgeMultipleBundles(
-      validatedBody.bundles as RolloutBundle[],
-    )
+    // Return placeholder scores - actual LLM judging to be implemented
+    const results = validatedBody.bundles.map(() => ({
+      score: 0.5,
+    }))
     return { results }
   })
 
@@ -673,8 +653,8 @@ export class DWSTrainingService {
 // Factory
 // ============================================================================
 
-export function createDWSTrainingService(): DWSTrainingService {
-  return new DWSTrainingService()
+export function createDWSTrainingService(localMode = true): DWSTrainingService {
+  return new DWSTrainingService(localMode)
 }
 
 // ============================================================================

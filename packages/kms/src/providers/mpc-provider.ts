@@ -58,16 +58,13 @@ export class MPCProvider implements KMSProvider {
       threshold: config.threshold,
       totalParties: config.totalParties,
     })
-    const secret =
-      process.env.MPC_ENCRYPTION_SECRET ?? process.env.KMS_FALLBACK_SECRET
-    if (secret) {
-      this.encryptionKey = deriveKeyFromSecret(secret)
-    } else {
-      this.encryptionKey = crypto.getRandomValues(new Uint8Array(32))
-      log.warn(
-        'No MPC_ENCRYPTION_SECRET set, using ephemeral key - keys will be lost on restart',
+    const secret = process.env.MPC_ENCRYPTION_SECRET
+    if (!secret) {
+      throw new Error(
+        'MPC_ENCRYPTION_SECRET environment variable is required for MPC provider',
       )
     }
+    this.encryptionKey = deriveKeyFromSecret(secret)
   }
 
   async isAvailable(): Promise<boolean> {
@@ -157,8 +154,8 @@ export class MPCProvider implements KMSProvider {
     return { metadata, publicKey: mpcResult.publicKey }
   }
 
-  getKey(keyId: string): KeyMetadata | null {
-    return this.keys.get(keyId)?.metadata ?? null
+  getKey(keyId: string): KeyMetadata | undefined {
+    return this.keys.get(keyId)?.metadata
   }
 
   getKeyVersions(keyId: string): KeyVersion[] {
@@ -332,9 +329,9 @@ export class MPCProvider implements KMSProvider {
 
   async getSigningSession(
     sessionId: string,
-  ): Promise<MPCSigningSession | null> {
+  ): Promise<MPCSigningSession | undefined> {
     const session = this.coordinator.getSession(sessionId)
-    if (!session) return null
+    if (!session) return undefined
 
     const activeParties = this.coordinator.getActiveParties()
     const participantAddresses: Address[] = []
@@ -411,7 +408,7 @@ export class MPCProvider implements KMSProvider {
   }
 }
 
-let mpcProvider: MPCProvider | null = null
+let mpcProvider: MPCProvider | undefined
 
 export function getMPCProvider(config?: Partial<MPCConfig>): MPCProvider {
   if (!mpcProvider) {
@@ -448,6 +445,6 @@ export function resetMPCProvider(): void {
       .catch((e: Error) =>
         log.warn('MPC provider disconnect failed', { error: e.message }),
       )
-    mpcProvider = null
+    mpcProvider = undefined
   }
 }

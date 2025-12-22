@@ -31,10 +31,8 @@
  * ```
  */
 
-import { Hono } from 'hono'
+import { Elysia, t } from 'elysia'
 import type { Address } from 'viem'
-import { z } from 'zod'
-import { validateBody, validateParams } from '../shared/validation'
 
 // ============================================================================
 // Terraform Provider Protocol Types
@@ -77,10 +75,6 @@ interface BlockTypeSchema {
   min_items?: number
   max_items?: number
 }
-
-// ============================================================================
-// DWS Resource Schemas
-// ============================================================================
 
 const DWS_PROVIDER_SCHEMA: ProviderSchema = {
   version: 1,
@@ -206,331 +200,297 @@ const DWS_NODE_SCHEMA: ResourceSchema = {
 }
 
 // ============================================================================
-// Request Validation Schemas
+// Request Validation Schemas (Elysia t.Object)
 // ============================================================================
 
-const providerConfigSchema = z.object({
-  endpoint: z.string().optional(),
-  private_key: z.string(),
-  network: z.enum(['localnet', 'testnet', 'mainnet']).optional(),
+const ProviderConfigBody = t.Object({
+  endpoint: t.Optional(t.String()),
+  private_key: t.String(),
+  network: t.Optional(
+    t.Union([
+      t.Literal('localnet'),
+      t.Literal('testnet'),
+      t.Literal('mainnet'),
+    ]),
+  ),
 })
 
-const workerResourceSchema = z.object({
-  name: z.string().min(1),
-  code_cid: z.string().min(1),
-  code_hash: z.string().optional(),
-  entrypoint: z.string().optional(),
-  runtime: z.enum(['workerd', 'bun', 'docker']).optional(),
-  memory_mb: z.number().optional(),
-  timeout_ms: z.number().optional(),
-  min_instances: z.number().optional(),
-  max_instances: z.number().optional(),
-  scale_to_zero: z.boolean().optional(),
-  tee_required: z.boolean().optional(),
-  tee_platform: z.string().optional(),
-  env: z.record(z.string(), z.string()).optional(),
+const WorkerResourceBody = t.Object({
+  name: t.String({ minLength: 1 }),
+  code_cid: t.String({ minLength: 1 }),
+  code_hash: t.Optional(t.String()),
+  entrypoint: t.Optional(t.String()),
+  runtime: t.Optional(
+    t.Union([t.Literal('workerd'), t.Literal('bun'), t.Literal('docker')]),
+  ),
+  memory_mb: t.Optional(t.Number()),
+  timeout_ms: t.Optional(t.Number()),
+  min_instances: t.Optional(t.Number()),
+  max_instances: t.Optional(t.Number()),
+  scale_to_zero: t.Optional(t.Boolean()),
+  tee_required: t.Optional(t.Boolean()),
+  tee_platform: t.Optional(t.String()),
+  env: t.Optional(t.Record(t.String(), t.String())),
 })
 
-const containerResourceSchema = z.object({
-  name: z.string().min(1),
-  image: z.string().min(1),
-  cpu_cores: z.number().optional(),
-  memory_mb: z.number().optional(),
-  gpu_type: z.string().optional(),
-  gpu_count: z.number().optional(),
-  command: z.array(z.string()).optional(),
-  args: z.array(z.string()).optional(),
-  env: z.record(z.string(), z.string()).optional(),
-  ports: z.array(z.number()).optional(),
-  tee_required: z.boolean().optional(),
+const ContainerResourceBody = t.Object({
+  name: t.String({ minLength: 1 }),
+  image: t.String({ minLength: 1 }),
+  cpu_cores: t.Optional(t.Number()),
+  memory_mb: t.Optional(t.Number()),
+  gpu_type: t.Optional(t.String()),
+  gpu_count: t.Optional(t.Number()),
+  command: t.Optional(t.Array(t.String())),
+  args: t.Optional(t.Array(t.String())),
+  env: t.Optional(t.Record(t.String(), t.String())),
+  ports: t.Optional(t.Array(t.Number())),
+  tee_required: t.Optional(t.Boolean()),
 })
 
-const storageResourceSchema = z.object({
-  name: z.string().min(1),
-  size_gb: z.number().min(1),
-  type: z.enum(['ipfs', 'arweave', 's3']).optional(),
-  replication: z.number().optional(),
+const StorageResourceBody = t.Object({
+  name: t.String({ minLength: 1 }),
+  size_gb: t.Number({ minimum: 1 }),
+  type: t.Optional(
+    t.Union([t.Literal('ipfs'), t.Literal('arweave'), t.Literal('s3')]),
+  ),
+  replication: t.Optional(t.Number()),
 })
 
-const domainResourceSchema = z.object({
-  name: z.string().min(1),
-  content_hash: z.string().optional(),
-  content_cid: z.string().optional(),
-  ttl: z.number().optional(),
+const DomainResourceBody = t.Object({
+  name: t.String({ minLength: 1 }),
+  content_hash: t.Optional(t.String()),
+  content_cid: t.Optional(t.String()),
+  ttl: t.Optional(t.Number()),
 })
 
-const nodeResourceSchema = z.object({
-  endpoint: z.string().url(),
-  capabilities: z.array(z.string()),
-  cpu_cores: z.number().min(1),
-  memory_mb: z.number().min(512),
-  storage_mb: z.number().min(1024),
-  gpu_type: z.string().optional(),
-  gpu_count: z.number().optional(),
-  tee_platform: z.string().optional(),
-  price_per_hour_wei: z.string().optional(),
-  price_per_gb_wei: z.string().optional(),
-  price_per_request_wei: z.string().optional(),
-  stake_wei: z.string().optional(),
-  region: z.string().optional(),
+const NodeResourceBody = t.Object({
+  endpoint: t.String({ format: 'uri' }),
+  capabilities: t.Array(t.String()),
+  cpu_cores: t.Number({ minimum: 1 }),
+  memory_mb: t.Number({ minimum: 512 }),
+  storage_mb: t.Number({ minimum: 1024 }),
+  gpu_type: t.Optional(t.String()),
+  gpu_count: t.Optional(t.Number()),
+  tee_platform: t.Optional(t.String()),
+  price_per_hour_wei: t.Optional(t.String()),
+  price_per_gb_wei: t.Optional(t.String()),
+  price_per_request_wei: t.Optional(t.String()),
+  stake_wei: t.Optional(t.String()),
+  region: t.Optional(t.String()),
 })
 
-// ============================================================================
-// Terraform Provider Router
-// ============================================================================
+const IdParams = t.Object({ id: t.String() })
 
-export function createTerraformProviderRouter(): Hono {
-  const router = new Hono()
-
-  // Provider schema endpoint (for terraform init)
-  router.get('/v1/schema', (c) => {
-    const schema: TerraformSchema = {
-      version: 1,
-      provider: DWS_PROVIDER_SCHEMA,
-      resource_schemas: {
-        dws_worker: DWS_WORKER_SCHEMA,
-        dws_container: DWS_CONTAINER_SCHEMA,
-        dws_storage: DWS_STORAGE_SCHEMA,
-        dws_domain: DWS_DOMAIN_SCHEMA,
-        dws_node: DWS_NODE_SCHEMA,
-      },
-      data_source_schemas: {
-        dws_worker: DWS_WORKER_SCHEMA,
-        dws_nodes: DWS_NODE_SCHEMA,
-      },
-    }
-    return c.json(schema)
-  })
-
-  // Configure provider
-  router.post('/v1/configure', async (c) => {
-    const config = await validateBody(providerConfigSchema, c)
-
-    // Store config in context for subsequent requests
-    // In production, this would validate the private key and set up the client
-    return c.json({
-      success: true,
-      network: config.network ?? 'mainnet',
-      endpoint: config.endpoint ?? 'https://dws.jejunetwork.org',
-    })
-  })
-
-  // ============================================================================
-  // Worker Resources
-  // ============================================================================
-
-  router.post('/v1/resources/dws_worker', async (c) => {
-    const body = await validateBody(workerResourceSchema, c)
-    const _owner = c.req.header('x-jeju-address') as Address
-
-    // Create worker via DWS API
-    const workerId = `tf-worker-${Date.now()}`
-
-    return c.json(
-      {
-        id: workerId,
-        name: body.name,
-        code_cid: body.code_cid,
-        code_hash: body.code_hash ?? '',
-        entrypoint: body.entrypoint ?? 'index.js',
-        runtime: body.runtime ?? 'workerd',
-        memory_mb: body.memory_mb ?? 128,
-        timeout_ms: body.timeout_ms ?? 30000,
-        min_instances: body.min_instances ?? 0,
-        max_instances: body.max_instances ?? 10,
-        scale_to_zero: body.scale_to_zero ?? true,
-        tee_required: body.tee_required ?? false,
-        tee_platform: body.tee_platform ?? 'none',
-        status: 'deploying',
-        endpoints: [],
-        env: body.env ?? {},
-      },
-      201,
-    )
-  })
-
-  router.get('/v1/resources/dws_worker/:id', async (c) => {
-    const { id } = validateParams(z.object({ id: z.string() }), c)
-
-    // Look up worker
-    // In production, this would query the actual state
-    return c.json({
-      id,
-      status: 'active',
-      endpoints: [`https://${id}.workers.dws.jejunetwork.org`],
-    })
-  })
-
-  router.put('/v1/resources/dws_worker/:id', async (c) => {
-    const { id } = validateParams(z.object({ id: z.string() }), c)
-    const body = await validateBody(workerResourceSchema, c)
-
-    // Update worker
-    return c.json({
-      id,
-      ...body,
-      status: 'updating',
-    })
-  })
-
-  router.delete('/v1/resources/dws_worker/:id', async (c) => {
-    const { id } = validateParams(z.object({ id: z.string() }), c)
-
-    // Delete worker
-    return c.json({ success: true, id })
-  })
-
-  // ============================================================================
-  // Container Resources
-  // ============================================================================
-
-  router.post('/v1/resources/dws_container', async (c) => {
-    const body = await validateBody(containerResourceSchema, c)
-
-    const containerId = `tf-container-${Date.now()}`
-
-    return c.json(
-      {
-        id: containerId,
-        ...body,
-        status: 'starting',
-        endpoint: '',
-      },
-      201,
-    )
-  })
-
-  router.get('/v1/resources/dws_container/:id', async (c) => {
-    const { id } = validateParams(z.object({ id: z.string() }), c)
-
-    return c.json({
-      id,
-      status: 'running',
-      endpoint: `https://${id}.containers.dws.jejunetwork.org`,
-    })
-  })
-
-  router.delete('/v1/resources/dws_container/:id', async (c) => {
-    const { id } = validateParams(z.object({ id: z.string() }), c)
-    return c.json({ success: true, id })
-  })
-
-  // ============================================================================
-  // Storage Resources
-  // ============================================================================
-
-  router.post('/v1/resources/dws_storage', async (c) => {
-    const body = await validateBody(storageResourceSchema, c)
-
-    const storageId = `tf-storage-${Date.now()}`
-
-    return c.json({
-      id: storageId,
-      ...body,
-      cid: '', // Will be assigned when content is uploaded
-      endpoint: `https://storage.dws.jejunetwork.org/v1/${storageId}`,
-    })
-  })
-
-  router.get('/v1/resources/dws_storage/:id', async (c) => {
-    const { id } = validateParams(z.object({ id: z.string() }), c)
-
-    return c.json({
-      id,
-      cid: `Qm${id.slice(0, 44)}`,
-      endpoint: `https://storage.dws.jejunetwork.org/v1/${id}`,
-    })
-  })
-
-  router.delete('/v1/resources/dws_storage/:id', async (c) => {
-    const { id } = validateParams(z.object({ id: z.string() }), c)
-    return c.json({ success: true, id })
-  })
-
-  // ============================================================================
-  // Domain Resources
-  // ============================================================================
-
-  router.post('/v1/resources/dws_domain', async (c) => {
-    const body = await validateBody(domainResourceSchema, c)
-
-    const domainId = `tf-domain-${Date.now()}`
-    const fullName = body.name.endsWith('.jns') ? body.name : `${body.name}.jns`
-
-    return c.json({
-      id: domainId,
-      name: fullName,
-      content_hash: body.content_hash ?? '',
-      content_cid: body.content_cid ?? '',
-      ttl: body.ttl ?? 300,
-      resolver: '0x0000000000000000000000000000000000000000',
-    })
-  })
-
-  router.get('/v1/resources/dws_domain/:id', async (c) => {
-    const { id } = validateParams(z.object({ id: z.string() }), c)
-
-    return c.json({
-      id,
-      resolver: '0x0000000000000000000000000000000000000000',
-    })
-  })
-
-  router.delete('/v1/resources/dws_domain/:id', async (c) => {
-    const { id } = validateParams(z.object({ id: z.string() }), c)
-    return c.json({ success: true, id })
-  })
-
-  // ============================================================================
-  // Node Resources
-  // ============================================================================
-
-  router.post('/v1/resources/dws_node', async (c) => {
-    const body = await validateBody(nodeResourceSchema, c)
-
-    const nodeId = `tf-node-${Date.now()}`
-
-    return c.json({
-      id: nodeId,
-      agent_id: '0', // Will be assigned by on-chain registration
-      ...body,
-      status: 'registering',
-    })
-  })
-
-  router.get('/v1/resources/dws_node/:id', async (c) => {
-    const { id } = validateParams(z.object({ id: z.string() }), c)
-
-    return c.json({
-      id,
-      agent_id: '12345',
-      status: 'online',
-    })
-  })
-
-  router.delete('/v1/resources/dws_node/:id', async (c) => {
-    const { id } = validateParams(z.object({ id: z.string() }), c)
-    return c.json({ success: true, id })
-  })
-
-  // ============================================================================
-  // Data Sources
-  // ============================================================================
-
-  router.get('/v1/data/dws_nodes', async (c) => {
-    // List available nodes
-    return c.json({
-      nodes: [
-        {
-          id: 'node-1',
-          agent_id: '12345',
-          endpoint: 'https://node1.dws.jejunetwork.org',
-          capabilities: ['compute', 'storage'],
-          status: 'online',
+export function createTerraformProviderRouter() {
+  return (
+    new Elysia({ prefix: '' })
+      .get('/v1/schema', () => {
+        const schema: TerraformSchema = {
+          version: 1,
+          provider: DWS_PROVIDER_SCHEMA,
+          resource_schemas: {
+            dws_worker: DWS_WORKER_SCHEMA,
+            dws_container: DWS_CONTAINER_SCHEMA,
+            dws_storage: DWS_STORAGE_SCHEMA,
+            dws_domain: DWS_DOMAIN_SCHEMA,
+            dws_node: DWS_NODE_SCHEMA,
+          },
+          data_source_schemas: {
+            dws_worker: DWS_WORKER_SCHEMA,
+            dws_nodes: DWS_NODE_SCHEMA,
+          },
+        }
+        return schema
+      })
+      .post(
+        '/v1/configure',
+        ({ body }) => ({
+          success: true,
+          network: body.network ?? 'mainnet',
+          endpoint: body.endpoint ?? 'https://dws.jejunetwork.org',
+        }),
+        { body: ProviderConfigBody },
+      )
+      // Worker Resources
+      .post(
+        '/v1/resources/dws_worker',
+        ({ body, headers, set }) => {
+          // Owner from x-jeju-address header - reserved for future use
+          void (headers['x-jeju-address'] as Address)
+          const workerId = `tf-worker-${Date.now()}`
+          set.status = 201
+          return {
+            id: workerId,
+            name: body.name,
+            code_cid: body.code_cid,
+            code_hash: body.code_hash ?? '',
+            entrypoint: body.entrypoint ?? 'index.js',
+            runtime: body.runtime ?? 'workerd',
+            memory_mb: body.memory_mb ?? 128,
+            timeout_ms: body.timeout_ms ?? 30000,
+            min_instances: body.min_instances ?? 0,
+            max_instances: body.max_instances ?? 10,
+            scale_to_zero: body.scale_to_zero ?? true,
+            tee_required: body.tee_required ?? false,
+            tee_platform: body.tee_platform ?? 'none',
+            status: 'deploying',
+            endpoints: [],
+            env: body.env ?? {},
+          }
         },
-      ],
-    })
-  })
-
-  return router
+        { body: WorkerResourceBody },
+      )
+      .get(
+        '/v1/resources/dws_worker/:id',
+        ({ params }) => ({
+          id: params.id,
+          status: 'active',
+          endpoints: [`https://${params.id}.workers.dws.jejunetwork.org`],
+        }),
+        { params: IdParams },
+      )
+      .put(
+        '/v1/resources/dws_worker/:id',
+        ({ params, body }) => ({
+          id: params.id,
+          ...body,
+          status: 'updating',
+        }),
+        { params: IdParams, body: WorkerResourceBody },
+      )
+      .delete(
+        '/v1/resources/dws_worker/:id',
+        ({ params }) => ({ success: true, id: params.id }),
+        { params: IdParams },
+      )
+      // Container Resources
+      .post(
+        '/v1/resources/dws_container',
+        ({ body, set }) => {
+          const containerId = `tf-container-${Date.now()}`
+          set.status = 201
+          return {
+            id: containerId,
+            ...body,
+            status: 'starting',
+            endpoint: '',
+          }
+        },
+        { body: ContainerResourceBody },
+      )
+      .get(
+        '/v1/resources/dws_container/:id',
+        ({ params }) => ({
+          id: params.id,
+          status: 'running',
+          endpoint: `https://${params.id}.containers.dws.jejunetwork.org`,
+        }),
+        { params: IdParams },
+      )
+      .delete(
+        '/v1/resources/dws_container/:id',
+        ({ params }) => ({ success: true, id: params.id }),
+        { params: IdParams },
+      )
+      // Storage Resources
+      .post(
+        '/v1/resources/dws_storage',
+        ({ body }) => {
+          const storageId = `tf-storage-${Date.now()}`
+          return {
+            id: storageId,
+            ...body,
+            cid: '',
+            endpoint: `https://storage.dws.jejunetwork.org/v1/${storageId}`,
+          }
+        },
+        { body: StorageResourceBody },
+      )
+      .get(
+        '/v1/resources/dws_storage/:id',
+        ({ params }) => ({
+          id: params.id,
+          cid: `Qm${params.id.slice(0, 44)}`,
+          endpoint: `https://storage.dws.jejunetwork.org/v1/${params.id}`,
+        }),
+        { params: IdParams },
+      )
+      .delete(
+        '/v1/resources/dws_storage/:id',
+        ({ params }) => ({ success: true, id: params.id }),
+        { params: IdParams },
+      )
+      // Domain Resources
+      .post(
+        '/v1/resources/dws_domain',
+        ({ body }) => {
+          const domainId = `tf-domain-${Date.now()}`
+          const fullName = body.name.endsWith('.jns')
+            ? body.name
+            : `${body.name}.jns`
+          return {
+            id: domainId,
+            name: fullName,
+            content_hash: body.content_hash ?? '',
+            content_cid: body.content_cid ?? '',
+            ttl: body.ttl ?? 300,
+            resolver: '0x0000000000000000000000000000000000000000',
+          }
+        },
+        { body: DomainResourceBody },
+      )
+      .get(
+        '/v1/resources/dws_domain/:id',
+        ({ params }) => ({
+          id: params.id,
+          resolver: '0x0000000000000000000000000000000000000000',
+        }),
+        { params: IdParams },
+      )
+      .delete(
+        '/v1/resources/dws_domain/:id',
+        ({ params }) => ({ success: true, id: params.id }),
+        { params: IdParams },
+      )
+      // Node Resources
+      .post(
+        '/v1/resources/dws_node',
+        ({ body }) => {
+          const nodeId = `tf-node-${Date.now()}`
+          return {
+            id: nodeId,
+            agent_id: '0',
+            ...body,
+            status: 'registering',
+          }
+        },
+        { body: NodeResourceBody },
+      )
+      .get(
+        '/v1/resources/dws_node/:id',
+        ({ params }) => ({
+          id: params.id,
+          agent_id: '12345',
+          status: 'online',
+        }),
+        { params: IdParams },
+      )
+      .delete(
+        '/v1/resources/dws_node/:id',
+        ({ params }) => ({ success: true, id: params.id }),
+        { params: IdParams },
+      )
+      // Data Sources
+      .get('/v1/data/dws_nodes', () => ({
+        nodes: [
+          {
+            id: 'node-1',
+            agent_id: '12345',
+            endpoint: 'https://node1.dws.jejunetwork.org',
+            capabilities: ['compute', 'storage'],
+            status: 'online',
+          },
+        ],
+      }))
+  )
 }

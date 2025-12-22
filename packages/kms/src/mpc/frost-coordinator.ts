@@ -13,6 +13,7 @@ import { type Hex, keccak256, toBytes } from 'viem'
 import {
   getMPCConfig,
   type KeyVersion,
+  MAX_MPC_SESSIONS,
   type MPCCoordinatorConfig,
   type MPCKeyGenParams,
   type MPCKeyGenResult,
@@ -20,13 +21,8 @@ import {
   type MPCSignatureResult,
   type MPCSignRequest,
   type MPCSignSession,
+  SESSION_EXPIRY_MS,
 } from './types.js'
-
-/** Maximum concurrent signing sessions to prevent resource exhaustion */
-const MAX_SESSIONS = 1000
-
-/** Session expiry time in milliseconds (5 minutes) */
-const SESSION_EXPIRY_MS = 5 * 60 * 1000
 
 export class FROSTMPCCoordinator {
   private config: MPCCoordinatorConfig
@@ -149,9 +145,9 @@ export class FROSTMPCCoordinator {
     const { keyId, messageHash, requester } = request
 
     // Force cleanup if sessions exceed maximum to prevent DoS
-    if (this.sessions.size >= MAX_SESSIONS) {
+    if (this.sessions.size >= MAX_MPC_SESSIONS) {
       this.cleanupExpiredSessions()
-      if (this.sessions.size >= MAX_SESSIONS) {
+      if (this.sessions.size >= MAX_MPC_SESSIONS) {
         throw new Error('Session storage limit reached')
       }
     }
@@ -305,7 +301,7 @@ export class FROSTMPCCoordinator {
   }
 }
 
-let frostCoordinator: FROSTMPCCoordinator | null = null
+let frostCoordinator: FROSTMPCCoordinator | undefined
 
 export function getFROSTCoordinator(
   config?: Partial<MPCCoordinatorConfig>,
@@ -317,5 +313,5 @@ export function getFROSTCoordinator(
 }
 
 export function resetFROSTCoordinator(): void {
-  frostCoordinator = null
+  frostCoordinator = undefined
 }

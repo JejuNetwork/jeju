@@ -33,10 +33,6 @@ import {
   toHash32,
 } from '../../src/index.js'
 
-// =============================================================================
-// TEST CONFIGURATION
-// =============================================================================
-
 // Set test timeout for all tests in this file
 setDefaultTimeout(120000)
 
@@ -52,10 +48,6 @@ const EVM_PRIVATE_KEY =
 // Chain availability flags
 let evmAvailable = false
 let solanaAvailable = false
-
-// =============================================================================
-// E2E TESTS
-// =============================================================================
 
 describe('End-to-End Bridge Flow', () => {
   let anvilProcess: Subprocess | null = null
@@ -491,10 +483,6 @@ describe('End-to-End Bridge Flow', () => {
     })
   })
 })
-
-// =============================================================================
-// HELPER FUNCTIONS
-// =============================================================================
 
 function createMockTransfer(nonce: number): CrossChainTransfer {
   return {

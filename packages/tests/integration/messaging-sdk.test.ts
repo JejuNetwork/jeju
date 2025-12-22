@@ -17,8 +17,6 @@ import {
   test,
 } from 'bun:test'
 
-// ============ Mock Server Implementations ============
-
 const RELAY_PORT = 3302
 const MOCK_HUB_PORT = 3311
 
@@ -41,8 +39,6 @@ const messageStore: Map<
 // Mock relay server
 let relayServer: ReturnType<typeof Bun.serve>
 let hubServer: ReturnType<typeof Bun.serve>
-
-// ============ Test Setup ============
 
 beforeAll(async () => {
   console.log('\n=== Starting Messaging SDK Tests ===\n')
@@ -208,8 +204,6 @@ beforeEach(() => {
   messageStore.clear()
 })
 
-// ============ Crypto Helpers (matching SDK implementation) ============
-
 function generateKeyPair(): { publicKey: Uint8Array; privateKey: Uint8Array } {
   return {
     publicKey: crypto.getRandomValues(new Uint8Array(32)),
@@ -264,8 +258,6 @@ function serializeEncryptedMessage(encrypted: {
     ),
   }
 }
-
-// ============ Messaging SDK Tests ============
 
 describe('Messaging SDK', () => {
   describe('Crypto Module', () => {
@@ -511,8 +503,6 @@ describe('Messaging SDK', () => {
   })
 })
 
-// ============ Farcaster SDK Tests ============
-
 describe('Farcaster SDK', () => {
   describe('Hub Client', () => {
     test('fetches hub info', async () => {
@@ -654,8 +644,6 @@ describe('Farcaster SDK', () => {
   })
 })
 
-// ============ MLS Group Tests ============
-
 describe('MLS Groups', () => {
   test('creates a group with members', () => {
     const group = {
@@ -724,8 +712,6 @@ describe('MLS Groups', () => {
     )
   })
 })
-
-// ============ Combined Flow Tests ============
 
 describe('Combined Messaging Flow', () => {
   test('Farcaster cast followed by XMTP DM', async () => {
@@ -847,8 +833,6 @@ describe('Combined Messaging Flow', () => {
     expect(result.count).toBeGreaterThan(0)
   })
 })
-
-// ============ Error Handling Tests ============
 
 describe('Error Handling', () => {
   test('handles invalid message gracefully', async () => {

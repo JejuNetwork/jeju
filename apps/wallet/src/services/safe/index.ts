@@ -162,39 +162,24 @@ class SafeService {
           abi: SAFE_ABI,
           functionName: 'nonce',
         }),
-        client
-          .readContract({
-            address: safeAddress,
-            abi: SAFE_ABI,
-            functionName: 'VERSION',
-          })
-          .catch(() => 'unknown'),
-        client
-          .readContract({
-            address: safeAddress,
-            abi: SAFE_ABI,
-            functionName: 'getModulesPaginated',
-            args: [
-              '0x0000000000000000000000000000000000000001' as Address,
-              10n,
-            ],
-          })
-          .catch(() => [[], '0x0000000000000000000000000000000000000001']),
+        client.readContract({
+          address: safeAddress,
+          abi: SAFE_ABI,
+          functionName: 'VERSION',
+        }),
+        client.readContract({
+          address: safeAddress,
+          abi: SAFE_ABI,
+          functionName: 'getModulesPaginated',
+          args: ['0x0000000000000000000000000000000000000001' as Address, 10n],
+        }),
       ])
 
-    let guard: Address | undefined
-    try {
-      guard = (await client.readContract({
-        address: safeAddress,
-        abi: SAFE_ABI,
-        functionName: 'getGuard',
-      })) as Address
-      if (guard === '0x0000000000000000000000000000000000000000') {
-        guard = undefined
-      }
-    } catch {
-      // Guard not supported in older versions
-    }
+    const guardAddress = (await client.readContract({
+      address: safeAddress,
+      abi: SAFE_ABI,
+      functionName: 'getGuard',
+    })) as Address
 
     return {
       address: safeAddress,
@@ -204,7 +189,10 @@ class SafeService {
       nonce: Number(nonce),
       version: version as string,
       modules: (modulesResult as [Address[], Address])[0],
-      guard,
+      guard:
+        guardAddress === '0x0000000000000000000000000000000000000000'
+          ? undefined
+          : guardAddress,
     }
   }
 
@@ -212,12 +200,8 @@ class SafeService {
    * Check if an address is a Safe
    */
   async isSafe(chainId: SupportedChainId, address: Address): Promise<boolean> {
-    try {
-      await this.getSafeInfo(chainId, address)
-      return true
-    } catch {
-      return false
-    }
+    await this.getSafeInfo(chainId, address)
+    return true
   }
 
   /**

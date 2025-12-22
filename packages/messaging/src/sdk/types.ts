@@ -18,8 +18,6 @@ export type {
 
 import type { MessagingClientConfigBase } from '../schemas'
 
-// ============ Core Types ============
-
 export interface Message {
   id: string
   chatId: string
@@ -57,8 +55,6 @@ export interface Reaction {
   timestamp: number
 }
 
-// ============ Chat Types ============
-
 export interface Chat {
   id: string
   type: ChatType
@@ -78,8 +74,6 @@ export interface ChatMetadata {
   admins?: string[]
 }
 
-// ============ User Types ============
-
 export interface User {
   address: string
   publicKey?: string // Hex-encoded X25519 public key
@@ -87,8 +81,6 @@ export interface User {
   avatar?: string
   lastSeen?: number
 }
-
-// ============ Node Types ============
 
 export interface RelayNode {
   nodeId: string
@@ -115,8 +107,6 @@ export interface NodePerformance {
   avgLatencyMs: number
 }
 
-// ============ Envelope Types ============
-
 // MessageEnvelope is imported from schemas.ts (canonical definition)
 
 export interface DeliveryReceipt {
@@ -125,8 +115,6 @@ export interface DeliveryReceipt {
   deliveredAt: number
   signature: string
 }
-
-// ============ API Types ============
 
 // SendMessageRequest is imported from schemas.ts (canonical definition)
 
@@ -151,8 +139,6 @@ export interface GetMessagesResponse {
   cursor?: string
 }
 
-// ============ Event Types ============
-
 export type MessageEvent =
   | { type: 'message:new'; data: Message }
   | { type: 'message:delivered'; data: DeliveryReceipt }
@@ -163,8 +149,6 @@ export type MessageEvent =
   | { type: 'error'; data: { code: string; message: string } }
 
 export type MessageEventHandler = (event: MessageEvent) => void
-
-// ============ Client Config ============
 
 /**
  * Full client configuration.
@@ -181,16 +165,12 @@ export interface MessagingClientConfig extends MessagingClientConfigBase {
   }
 }
 
-// ============ Contract Addresses ============
-
 export interface ContractAddresses {
   nodeRegistry: string
   keyRegistry: string
   messageLedger?: string
   stakingToken?: string
 }
-
-// ============ Contract Response Types ============
 
 /** Response from KeyRegistry.getKeyBundle() */
 export interface KeyBundleResponse {
@@ -220,8 +200,6 @@ export interface NodeRegistryResponse {
 
 // WebSocketIncomingMessage, DeliveryReceiptData, ReadReceiptData
 // are imported from schemas.ts (canonical definitions)
-
-// ============ Error Types ============
 
 export interface MessagingErrorDetails {
   messageId?: string

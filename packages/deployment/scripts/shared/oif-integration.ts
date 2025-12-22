@@ -14,8 +14,6 @@ import { getCoreAppUrl } from '@jejunetwork/config/ports'
 import type { Address } from 'viem'
 import type { TokenBalance } from './multi-chain-discovery'
 
-// ============ Types ============
-
 export interface CrossChainQuote {
   quoteId: string
   sourceChain: number
@@ -67,7 +65,35 @@ export interface OIFConfig {
   maxRetries?: number
 }
 
-// ============ OIF Client ============
+interface OIFQuoteResponse {
+  quoteId: string
+  sourceChainId: number
+  destinationChainId: number
+  sourceToken: string
+  destinationToken: string
+  inputAmount: string
+  outputAmount: string
+  fee: string
+  feePercent: number
+  estimatedFillTimeSeconds: number
+  solver: string
+  solverReputation: number
+  validUntil: number
+}
+
+interface OIFIntentResponse {
+  intentId: string
+  user: string
+  sourceChainId: number
+  destinationChainId: number
+  inputs: Array<{ token: string; amount: string }>
+  outputs: Array<{ token: string; amount: string }>
+  status: 'pending' | 'open' | 'filled' | 'cancelled' | 'expired'
+  solver?: string
+  fillTxHash?: string
+  createdAt: number
+  filledAt?: number
+}
 
 export class OIFClient {
   private config: Required<OIFConfig>
@@ -104,9 +130,9 @@ export class OIFClient {
     }
 
     // OIF API returns array directly, not wrapped in { quotes: [...] }
-    const data = await response.json()
+    const data = (await response.json()) as OIFQuoteResponse[]
     const quotes = Array.isArray(data) ? data : []
-    return quotes.map((q: Record<string, unknown>) => this.parseQuote(q))
+    return quotes.map((q) => this.parseQuote(q))
   }
 
   /**
@@ -148,7 +174,7 @@ export class OIFClient {
       throw new Error(`Failed to create intent: ${response.statusText}`)
     }
 
-    const data = await response.json()
+    const data = (await response.json()) as OIFIntentResponse
     return this.parseIntent(data)
   }
 
@@ -164,7 +190,7 @@ export class OIFClient {
       throw new Error(`Failed to get intent: ${response.statusText}`)
     }
 
-    const data = await response.json()
+    const data = (await response.json()) as OIFIntentResponse
     return this.parseIntent(data)
   }
 
@@ -180,9 +206,9 @@ export class OIFClient {
     }
 
     // OIF API returns array directly
-    const data = await response.json()
+    const data = (await response.json()) as OIFIntentResponse[]
     const intents = Array.isArray(data) ? data : []
-    return intents.map((i: Record<string, unknown>) => this.parseIntent(i))
+    return intents.map((i) => this.parseIntent(i))
   }
 
   /**
@@ -265,53 +291,44 @@ export class OIFClient {
     throw lastError || new Error('Request failed')
   }
 
-  private parseQuote(data: Record<string, unknown>): CrossChainQuote {
+  private parseQuote(data: OIFQuoteResponse): CrossChainQuote {
     return {
-      quoteId: data.quoteId as string,
-      sourceChain: data.sourceChainId as number,
-      destinationChain: data.destinationChainId as number,
+      quoteId: data.quoteId,
+      sourceChain: data.sourceChainId,
+      destinationChain: data.destinationChainId,
       sourceToken: data.sourceToken as Address,
       destinationToken: data.destinationToken as Address,
-      inputAmount: BigInt(data.inputAmount as string),
-      outputAmount: BigInt(data.outputAmount as string),
-      fee: BigInt(data.fee as string),
-      feePercent: data.feePercent as number,
-      estimatedTime: data.estimatedFillTimeSeconds as number,
+      inputAmount: BigInt(data.inputAmount),
+      outputAmount: BigInt(data.outputAmount),
+      fee: BigInt(data.fee),
+      feePercent: data.feePercent,
+      estimatedTime: data.estimatedFillTimeSeconds,
       solver: data.solver as Address,
-      solverReputation: data.solverReputation as number,
-      validUntil: data.validUntil as number,
+      solverReputation: data.solverReputation,
+      validUntil: data.validUntil,
       route: `${data.sourceChainId} → ${data.destinationChainId}`,
     }
   }
 
-  private parseIntent(data: Record<string, unknown>): Intent {
+  private parseIntent(data: OIFIntentResponse): Intent {
+    const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address
     return {
-      intentId: data.intentId as string,
+      intentId: data.intentId,
       user: data.user as Address,
-      sourceChain: data.sourceChainId as number,
-      destinationChain: data.destinationChainId as number,
-      inputToken:
-        (data.inputs as { token: Address }[])[0]?.token ||
-        '0x0000000000000000000000000000000000000000',
-      inputAmount: BigInt(
-        (data.inputs as { amount: string }[])[0]?.amount || '0',
-      ),
-      outputToken:
-        (data.outputs as { token: Address }[])[0]?.token ||
-        '0x0000000000000000000000000000000000000000',
-      outputAmount: BigInt(
-        (data.outputs as { amount: string }[])[0]?.amount || '0',
-      ),
-      status: data.status as Intent['status'],
+      sourceChain: data.sourceChainId,
+      destinationChain: data.destinationChainId,
+      inputToken: (data.inputs[0]?.token as Address) || ZERO_ADDRESS,
+      inputAmount: BigInt(data.inputs[0]?.amount || '0'),
+      outputToken: (data.outputs[0]?.token as Address) || ZERO_ADDRESS,
+      outputAmount: BigInt(data.outputs[0]?.amount || '0'),
+      status: data.status,
       solver: data.solver as Address | undefined,
-      fillTxHash: data.fillTxHash as string | undefined,
-      createdAt: data.createdAt as number,
-      filledAt: data.filledAt as number | undefined,
+      fillTxHash: data.fillTxHash,
+      createdAt: data.createdAt,
+      filledAt: data.filledAt,
     }
   }
 }
-
-// ============ Cross-Chain Payment Helper ============
 
 export interface CrossChainPaymentOption {
   type: 'local' | 'cross-chain'

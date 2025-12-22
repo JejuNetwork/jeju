@@ -10,7 +10,6 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
  * @title FileStorageManager
  * @author Jeju Network
  * @notice Simple on-chain tracking and payment for IPFS file storage
- * @dev Legacy contract - use StorageMarket + StorageProviderRegistry for full marketplace
  *
  * Features:
  * - Multi-token payment support (USDC, elizaOS, ETH)

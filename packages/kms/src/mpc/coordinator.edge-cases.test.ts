@@ -406,9 +406,9 @@ describe('MPC Coordinator Edge Cases', () => {
       expect(retrieved?.keyId).toBe('session-key')
     })
 
-    it('should return null for non-existent session', () => {
+    it('should return undefined for non-existent session', () => {
       const session = coordinator.getSession('non-existent')
-      expect(session).toBeNull()
+      expect(session).toBeUndefined()
     })
 
     it('should cleanup expired sessions', async () => {

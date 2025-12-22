@@ -310,16 +310,12 @@ describe('withTestLock - Wrapper Function', () => {
   test('should release lock on function error', async () => {
     const lockPath = join(TEST_LOCK_DIR, '.jeju', '.jeju-e2e-test.lock')
 
-    try {
-      await withTestLock(
-        async () => {
-          throw new Error('Test error')
-        },
-        { lockDir: TEST_LOCK_DIR },
-      )
-    } catch (_e) {
-      // Expected
-    }
+    await withTestLock(
+      async () => {
+        throw new Error('Test error')
+      },
+      { lockDir: TEST_LOCK_DIR },
+    ).catch(() => {})
 
     expect(existsSync(lockPath)).toBe(false)
   })

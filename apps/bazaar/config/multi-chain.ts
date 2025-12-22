@@ -66,7 +66,7 @@ export const jejuLocalnet = defineChain({
   rpcUrls: {
     default: {
       http: [
-        process.env.NEXT_PUBLIC_JEJU_RPC_URL ||
+        process.env.PUBLIC_JEJU_RPC_URL ||
           getL2RpcUrl() ||
           `http://localhost:${INFRA_PORTS.L2_RPC.DEFAULT}`,
       ],
@@ -76,7 +76,7 @@ export const jejuLocalnet = defineChain({
     default: {
       name: `${networkName} Explorer`,
       url:
-        process.env.NEXT_PUBLIC_EXPLORER_URL ||
+        process.env.PUBLIC_EXPLORER_URL ||
         getExplorerUrl() ||
         `http://localhost:${CORE_PORTS.EXPLORER.DEFAULT}`,
     },
@@ -97,24 +97,24 @@ export const CHAINID_TO_VIEM_CHAIN: Record<EvmChainIds, Chain> = {
 export const EVM_RPC_URLS: Record<EvmChainIds, string[]> = {
   [EvmChainIds.EthereumMainnet]: [
     'https://eth.llamarpc.com',
-    ...(process.env.NEXT_PUBLIC_ALCHEMY_API_KEY
+    ...(process.env.PUBLIC_ALCHEMY_API_KEY
       ? [
-          `https://eth-mainnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`,
+          `https://eth-mainnet.g.alchemy.com/v2/${process.env.PUBLIC_ALCHEMY_API_KEY}`,
         ]
       : []),
   ],
   [EvmChainIds.EthereumSepolia]: [
     'https://ethereum-sepolia-rpc.publicnode.com',
-    ...(process.env.NEXT_PUBLIC_ALCHEMY_API_KEY
+    ...(process.env.PUBLIC_ALCHEMY_API_KEY
       ? [
-          `https://eth-sepolia.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`,
+          `https://eth-sepolia.g.alchemy.com/v2/${process.env.PUBLIC_ALCHEMY_API_KEY}`,
         ]
       : []),
   ],
   [EvmChainIds.mainnetChain]: ['https://rpc.jejunetwork.org'],
   [EvmChainIds.testnetChain]: ['https://testnet-rpc.jejunetwork.org'],
   [EvmChainIds.localnetChain]: [
-    process.env.NEXT_PUBLIC_JEJU_RPC_URL ||
+    process.env.PUBLIC_JEJU_RPC_URL ||
       getL2RpcUrl() ||
       `http://localhost:${INFRA_PORTS.L2_RPC.DEFAULT}`,
   ],
@@ -123,16 +123,16 @@ export const EVM_RPC_URLS: Record<EvmChainIds, string[]> = {
 // Solana RPC URLs
 export const SOLANA_RPC_URLS: Record<SolanaNetworkIds, string[]> = {
   [SolanaNetworkIds.Mainnet]: [
-    ...(process.env.NEXT_PUBLIC_HELIUS_API_KEY
+    ...(process.env.PUBLIC_HELIUS_API_KEY
       ? [
-          `https://mainnet.helius-rpc.com/?api-key=${process.env.NEXT_PUBLIC_HELIUS_API_KEY}`,
+          `https://mainnet.helius-rpc.com/?api-key=${process.env.PUBLIC_HELIUS_API_KEY}`,
         ]
       : []),
   ],
   [SolanaNetworkIds.Devnet]: [
-    ...(process.env.NEXT_PUBLIC_HELIUS_API_KEY
+    ...(process.env.PUBLIC_HELIUS_API_KEY
       ? [
-          `https://devnet.helius-rpc.com/?api-key=${process.env.NEXT_PUBLIC_HELIUS_API_KEY}`,
+          `https://devnet.helius-rpc.com/?api-key=${process.env.PUBLIC_HELIUS_API_KEY}`,
         ]
       : []),
   ],
@@ -154,7 +154,7 @@ export const CHAIN_BLOCK_EXPLORER: Record<EvmChainIds, string> = {
   [EvmChainIds.mainnetChain]: 'https://explorer.jejunetwork.org',
   [EvmChainIds.testnetChain]: 'https://testnet-explorer.jejunetwork.org',
   [EvmChainIds.localnetChain]:
-    process.env.NEXT_PUBLIC_EXPLORER_URL ||
+    process.env.PUBLIC_EXPLORER_URL ||
     getExplorerUrl() ||
     `http://localhost:${CORE_PORTS.EXPLORER.DEFAULT}`,
 }
@@ -199,6 +199,6 @@ export function getAvailableChains(): Chain[] {
 
 // Detect if running in localnet mode
 export function isLocalnetMode(): boolean {
-  const jejuRpc = process.env.NEXT_PUBLIC_JEJU_RPC_URL || ''
+  const jejuRpc = process.env.PUBLIC_JEJU_RPC_URL || ''
   return jejuRpc.includes('localhost') || jejuRpc.includes('127.0.0.1')
 }

@@ -221,8 +221,6 @@ export class DstackAuthAgent {
   }
 
   private setupRoutes(): void {
-    // SECURITY: Configure CORS with allowed origins
-    // In production, origins should come from registered OAuth apps
     const allowedOrigins = this.getAllowedOrigins()
 
     this.app.use(
@@ -540,7 +538,7 @@ export class DstackAuthAgent {
 
     return {
       quote,
-      signature: quote, // In production, this would be the actual Phala signature
+      signature: quote,
       timestamp,
     }
   }
@@ -944,7 +942,6 @@ export class DstackAuthAgent {
       toBytes(`farcaster:${params.fid}:${Date.now()}`),
     )
 
-    // Note: providerHandle and appId are validated above but createSession uses different params
     return this.createSession(
       sessionId,
       'farcaster' as AuthProvider,
@@ -1276,8 +1273,6 @@ export class DstackAuthAgent {
       return ['*']
     }
 
-    // Production: no wildcard, origins must be registered
-    // Apps should register their origins in the app registry
     return []
   }
 

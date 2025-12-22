@@ -50,8 +50,6 @@ import {
   type SendMessageResponse,
 } from './types'
 
-// ============ Client Implementation ============
-
 // Maximum messages to cache in memory to prevent unbounded growth
 const MAX_MESSAGE_CACHE_SIZE = 1000
 
@@ -82,8 +80,6 @@ export class MessagingClient {
       this.keyPair = config.keyPair
     }
   }
-
-  // ============ Initialization ============
 
   /**
    * Initialize the client: derive keys, register on-chain, connect to relay
@@ -177,8 +173,6 @@ export class MessagingClient {
       args: [identityKey, signedPreKey, preKeySignature],
     })
   }
-
-  // ============ Node Discovery ============
 
   /**
    * Discover relay nodes from on-chain registry
@@ -338,8 +332,6 @@ export class MessagingClient {
 
     return response.ok
   }
-
-  // ============ Relay Connection ============
 
   /**
    * Connect to relay node via WebSocket
@@ -539,8 +531,6 @@ export class MessagingClient {
     }, delay)
   }
 
-  // ============ Messaging ============
-
   /**
    * Send a message to a recipient
    */
@@ -653,8 +643,6 @@ export class MessagingClient {
     return result as SendMessageResponse
   }
 
-  // ============ Event Handling ============
-
   /**
    * Subscribe to message events
    */
@@ -668,8 +656,6 @@ export class MessagingClient {
       handler(event)
     }
   }
-
-  // ============ Cache Management ============
 
   /**
    * Add message to cache with LRU eviction to prevent memory leaks
@@ -697,8 +683,6 @@ export class MessagingClient {
     this.messageCache.set(message.id, message)
     this.messageCacheOrder.push(message.id)
   }
-
-  // ============ Utility Methods ============
 
   /**
    * Generate deterministic chat ID for DM
@@ -764,8 +748,6 @@ export class MessagingClient {
     })
   }
 }
-
-// ============ Factory Function ============
 
 /**
  * Create a new messaging client

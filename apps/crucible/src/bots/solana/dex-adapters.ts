@@ -43,8 +43,6 @@ import {
   RaydiumSwapResponseSchema,
 } from '../../schemas'
 
-// ============ Types ============
-
 export interface SolanaToken {
   mint: string
   symbol: string
@@ -132,8 +130,6 @@ export interface DexAdapter {
   ): Promise<string>
   getPositions(owner: string): Promise<LiquidityPosition[]>
 }
-
-// ============ Jupiter Adapter ============
 
 const JUPITER_API = 'https://quote-api.jup.ag/v6'
 const JUPITER_PRICE_API = 'https://price.jup.ag/v6'
@@ -264,8 +260,6 @@ export class JupiterAdapter implements DexAdapter {
     return mintData.price
   }
 }
-
-// ============ Raydium Adapter ============
 
 const RAYDIUM_API = 'https://api-v3.raydium.io'
 
@@ -513,8 +507,6 @@ export class RaydiumAdapter implements DexAdapter {
   }
 }
 
-// ============ Orca Adapter ============
-
 const ORCA_API = 'https://api.mainnet.orca.so'
 
 export class OrcaAdapter implements DexAdapter {
@@ -757,8 +749,6 @@ export class OrcaAdapter implements DexAdapter {
     }))
   }
 }
-
-// ============ Meteora Adapter ============
 
 const METEORA_API = 'https://dlmm-api.meteora.ag'
 
@@ -1030,8 +1020,6 @@ export class MeteoraAdapter implements DexAdapter {
     }))
   }
 }
-
-// ============ Unified DEX Aggregator ============
 
 export class SolanaDexAggregator {
   private adapters: Map<DexSource, DexAdapter> = new Map()

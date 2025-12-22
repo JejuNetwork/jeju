@@ -9,8 +9,6 @@ import { type AutocratBlockchain, getBlockchain } from './blockchain'
 import { type AutocratOrchestrator, createOrchestrator } from './orchestrator'
 import type { CouncilConfig } from './types'
 
-// ============ Configuration ============
-
 const ZERO_ADDR = '0x0000000000000000000000000000000000000000' as `0x${string}`
 
 const addr = (key: string) => (process.env[key] ?? ZERO_ADDR) as `0x${string}`
@@ -91,8 +89,6 @@ export function getConfig(): CouncilConfig {
   }
 }
 
-// ============ Shared State ============
-
 export const config = getConfig()
 export const blockchain: AutocratBlockchain = getBlockchain(config)
 
@@ -139,8 +135,6 @@ export function getOrchestrator(): AutocratOrchestrator | null {
 
 // Metrics for Prometheus
 export const metricsData = { requests: 0, errors: 0, startTime: Date.now() }
-
-// ============ Orchestrator Cycle ============
 
 export async function runOrchestratorCycle() {
   const start = Date.now()

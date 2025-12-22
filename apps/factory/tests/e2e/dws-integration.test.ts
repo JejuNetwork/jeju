@@ -112,7 +112,7 @@ const OpenAPIResponseSchema = z.object({
 /** Safely parse JSON response and validate against schema */
 async function expectResponse<T>(
   response: Response,
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
 ): Promise<T> {
   const json: unknown = await response.json()
   const result = schema.safeParse(json)

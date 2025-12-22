@@ -6,26 +6,26 @@ use tokio::sync::RwLock;
 use crate::bandwidth::AdaptiveBandwidthManager;
 use crate::config::VPNConfig;
 use crate::contribution::ContributionManager;
-use crate::dws::{DWSManager, DWSConfig};
+use crate::dws::{DWSConfig, DWSManager};
 use crate::vpn::VPNManager;
 
 /// Main application state
 pub struct AppState {
     /// VPN manager handles connections
     pub vpn: Arc<RwLock<VPNManager>>,
-    
+
     /// Contribution manager handles fair sharing
     pub contribution: Arc<RwLock<ContributionManager>>,
-    
+
     /// Adaptive bandwidth manager
     pub bandwidth: Arc<RwLock<AdaptiveBandwidthManager>>,
-    
+
     /// DWS integration manager
     pub dws: Arc<RwLock<DWSManager>>,
-    
+
     /// Configuration
     pub config: Arc<RwLock<VPNConfig>>,
-    
+
     /// Current session (if authenticated)
     pub session: Arc<RwLock<Option<UserSession>>>,
 }
@@ -56,4 +56,3 @@ impl Default for AppState {
         Self::new()
     }
 }
-

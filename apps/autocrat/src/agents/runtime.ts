@@ -38,8 +38,6 @@ type AgentRuntimeConstructor = new (opts: {
   plugins?: Plugin[]
 }) => AutocratAgentRuntime
 
-// ============ Types ============
-
 export interface AgentVote {
   role: string
   agentId: string
@@ -93,8 +91,6 @@ interface CEOPersonaConfig {
   decisionStyle: string
 }
 
-// ============ DWS Compute - Network aware ============
-
 // DWS URL is automatically resolved from network config, but env var overrides
 function getDWSEndpoint(): string {
   return process.env.DWS_URL ?? getDWSComputeUrl()
@@ -104,8 +100,8 @@ export async function checkDWSCompute(): Promise<boolean> {
   const endpoint = getDWSEndpoint()
   const r = await fetch(`${endpoint}/health`, {
     signal: AbortSignal.timeout(2000),
-  }).catch(() => null)
-  return r?.ok ?? false
+  })
+  return r.ok
 }
 
 export async function dwsGenerate(
@@ -141,8 +137,6 @@ export async function dwsGenerate(
   }
   return data.choices?.[0]?.message?.content ?? data.content ?? ''
 }
-
-// ============ CEO Persona System Prompts ============
 
 function buildCEOSystemPrompt(persona: CEOPersona): string {
   const basePrompt = `You are ${persona.name}, the AI CEO of a decentralized autonomous organization.
@@ -230,8 +224,6 @@ function buildPersonaDecisionPrompt(
   }
 }
 
-// ============ Runtime Manager ============
-
 export class AutocratAgentRuntimeManager {
   private static instance: AutocratAgentRuntimeManager
   private runtimes = new Map<string, AutocratAgentRuntime>()
@@ -254,11 +246,7 @@ export class AutocratAgentRuntimeManager {
   async initialize(): Promise<void> {
     if (this.initialized) return
 
-    console.log('[AgentRuntime] Initializing governance agents...')
     this.dwsAvailable = await checkDWSCompute()
-    console.log(
-      `[AgentRuntime] DWS Compute: ${this.dwsAvailable ? 'available' : 'NOT AVAILABLE'}`,
-    )
     if (!this.dwsAvailable) {
       throw new Error(
         'DWS compute is required for Autocrat agents. ' +
@@ -275,12 +263,9 @@ export class AutocratAgentRuntimeManager {
     // Initialize default CEO
     const ceoRuntime = await this.createRuntime(ceoAgent)
     this.runtimes.set('ceo', ceoRuntime)
-    console.log(`[AgentRuntime] ${this.runtimes.size} agents ready`)
 
     this.initialized = true
   }
-
-  // ============ DAO-specific Agent Management ============
 
   async registerDAOAgents(daoId: string, persona: CEOPersona): Promise<void> {
     // Create DAO-specific CEO persona config
@@ -326,9 +311,6 @@ export class AutocratAgentRuntimeManager {
       daoAgents.set('ceo', ceoRuntime)
 
       this.daoRuntimes.set(daoId, daoAgents)
-      console.log(
-        `[AgentRuntime] Registered agents for DAO ${daoId} (CEO: ${persona.name})`,
-      )
     }
   }
 
@@ -375,8 +357,6 @@ export class AutocratAgentRuntimeManager {
   getRuntime(id: string): AutocratAgentRuntime | undefined {
     return this.runtimes.get(id)
   }
-
-  // ============ Deliberation ============
 
   async deliberate(
     agentId: string,
@@ -441,8 +421,6 @@ Include a confidence score (0-100) for your assessment.`
     }
     return votes
   }
-
-  // ============ CEO Decision ============
 
   async ceoDecision(request: CEODecisionRequest): Promise<CEODecision> {
     if (this.dwsAvailable === null) {
@@ -565,8 +543,6 @@ Keep it concise (2-4 sentences) but impactful.`
     return decision
   }
 
-  // ============ Helpers ============
-
   private getDefaultPersona(): CEOPersona {
     return {
       name: 'Autocrat CEO',
@@ -616,8 +592,6 @@ Keep it concise (2-4 sentences) but impactful.`
       timestamp: Date.now(),
     }
   }
-
-  // ============ Lifecycle ============
 
   async shutdown(): Promise<void> {
     this.runtimes.clear()

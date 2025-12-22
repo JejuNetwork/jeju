@@ -259,9 +259,6 @@ export async function executeInSandbox(
   }
 
   activeJobs.set(jobId, job)
-  console.log(
-    `[Sandbox] Starting job ${jobId} for submission ${submissionId.slice(0, 12)}...`,
-  )
 
   // Execute via DWS compute (decentralized container execution)
   const dwsEndpoint = getDWSEndpoint()
@@ -302,7 +299,7 @@ export async function executeInSandbox(
   }
 
   if (!response.ok) {
-    const errorBody = await response.text().catch(() => 'unknown error')
+    const errorBody = await response.text()
     job.status = 'failed'
     job.completedAt = Date.now()
     job.result = {
@@ -336,10 +333,6 @@ export async function executeInSandbox(
     const executionTimeMs = result.metrics?.executionTimeMs
     const memoryUsedMb = result.metrics?.memoryUsedMb
     const cpuUsagePercent = result.metrics?.cpuUsagePercent
-
-    if (executionTimeMs === undefined) {
-      console.warn(`[Sandbox] Job ${jobId}: Missing executionTimeMs in metrics`)
-    }
 
     job.status = 'completed'
     job.result = {
@@ -395,10 +388,6 @@ export async function executeInSandbox(
   activeJobs.delete(jobId)
   evictOldestCompleted()
   completedJobs.set(jobId, job)
-
-  console.log(
-    `[Sandbox] Job ${jobId} completed: ${job.status}, exploit: ${job.result?.exploitTriggered}`,
-  )
 
   return job
 }

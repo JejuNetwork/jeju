@@ -1,10 +1,3 @@
-/**
- * Solana DEX Aggregator
- *
- * Unified interface for Jupiter, Raydium, Meteora, Orca, and PumpSwap.
- * Automatically finds the best route across all DEXs.
- */
-
 import { type Connection, type Keypair, PublicKey } from '@solana/web3.js'
 import { createJupiterAdapter, type JupiterAdapter } from '../jupiter'
 import { createMeteoraAdapter, type MeteoraAdapter } from '../meteora'

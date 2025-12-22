@@ -230,7 +230,6 @@ export interface KMSConfig {
   defaultProvider: KMSProviderType
   defaultChain: string
   registryAddress?: Address
-  fallbackEnabled?: boolean
 }
 
 // Provider status types for getStatus() return values
@@ -243,7 +242,7 @@ export interface EncryptionProviderStatus {
 export interface TEEProviderStatus {
   connected: boolean
   mode: 'remote' | 'local'
-  attestation: TEEAttestation | null
+  attestation?: TEEAttestation
 }
 
 export interface MPCProviderStatus {

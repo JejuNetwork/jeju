@@ -4,10 +4,6 @@
 
 import type { Address, Hex } from 'viem'
 
-// ============================================================================
-// Wallet Types
-// ============================================================================
-
 export interface WalletAccount {
   address: Address
   type: 'hd' | 'private-key' | 'smart-account' | 'hardware' | 'watch'
@@ -81,10 +77,6 @@ export interface PortfolioSummary {
   balancesByChain: Map<number, TokenBalance[]>
   topTokens: TokenBalance[]
 }
-
-// ============================================================================
-// Transaction Types
-// ============================================================================
 
 export interface Transaction {
   hash: Hex
@@ -174,10 +166,6 @@ export interface AAServiceConfig {
   supportedChains: number[]
 }
 
-// ============================================================================
-// EIL (Ethereum Interop Layer) Types
-// ============================================================================
-
 export interface VoucherRequest {
   id: Hex
   user: Address
@@ -243,10 +231,6 @@ export interface OIFServiceConfig {
   outputSettlerAddresses: Map<number, Address>
   supportedChains: number[]
 }
-
-// ============================================================================
-// Gas Types
-// ============================================================================
 
 export interface GasEstimate {
   gasPrice: bigint

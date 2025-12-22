@@ -354,21 +354,21 @@ export async function verifyToken(
 /**
  * Extract claims from token without verification (use with caution)
  *
- * Returns null for invalid tokens - this is intentional as this function
+ * Returns undefined for invalid tokens - this is intentional as this function
  * is used for quick token inspection without throwing.
  */
-export function decodeToken(token: string): TokenClaims | null {
+export function decodeToken(token: string): TokenClaims | undefined {
   const parts = token.split('.')
-  if (parts.length !== 3) return null
+  if (parts.length !== 3) return undefined
 
   try {
     const payloadJson = base64urlDecode(parts[1])
     const parsed: ReturnType<typeof JSON.parse> = JSON.parse(payloadJson)
     const result = tokenClaimsSchema.safeParse(parsed)
-    if (!result.success) return null
+    if (!result.success) return undefined
     return result.data
   } catch {
-    return null
+    return undefined
   }
 }
 
@@ -377,7 +377,7 @@ export function decodeToken(token: string): TokenClaims | null {
  */
 export function isTokenExpired(token: string): boolean {
   const claims = decodeToken(token)
-  if (!claims) return true // Invalid token is considered expired
+  if (claims === undefined) return true // Invalid token is considered expired
   if (claims.exp === undefined) return false // No expiration means not expired
   return claims.exp < Math.floor(Date.now() / 1000)
 }
@@ -391,9 +391,9 @@ export async function refreshToken(
     keyId?: string
     expiresInSeconds?: number
   },
-): Promise<SignedToken | null> {
+): Promise<SignedToken | undefined> {
   const result = await verifyToken(token, { allowExpired: true })
-  if (!result.valid || !result.claims) return null
+  if (!result.valid || !result.claims) return undefined
 
   const { iat: _iat, jti: _jti, exp: _exp, ...claims } = result.claims
   return issueToken(claims as Omit<TokenClaims, 'iat' | 'jti'>, options)

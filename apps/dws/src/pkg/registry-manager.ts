@@ -21,7 +21,7 @@ import { privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
 import { PackageManifestSchema } from '../shared/schemas/internal-storage'
 import type { BackendManager } from '../storage/backends'
-import { decodeBytes32ToCidKey, encodeCidToBytes32 } from './cid-utils'
+import { encodeCidToBytes32 } from './cid-utils'
 import type {
   Package,
   PackageManifest,
@@ -729,42 +729,21 @@ export class PkgRegistryManager {
       )
     }
 
-    const versionId = decoded.args.versionId
+    // Type assertion for decoded args from VersionPublished event
+    const args = decoded.args as { versionId: Hex } | undefined
+    if (!args || !args.versionId) {
+      throw new Error('VersionPublished event missing versionId')
+    }
 
-    return { packageId: pkg.packageId, versionId }
+    return { packageId: pkg.packageId, versionId: args.versionId }
   }
 
   /**
    * Get manifest from storage
    */
   async getManifest(manifestCid: Hex): Promise<PackageManifest | null> {
-    // Look up original CID from bytes32 hash
     const cidString = this.cidMap.get(manifestCid)
     if (!cidString) {
-      // Fallback: try using the hex directly (for backwards compatibility)
-      void decodeBytes32ToCidKey(manifestCid) // For potential future use
-      // Try to find CID by iterating through known CIDs
-      for (const [hash, cid] of this.cidMap) {
-        if (hash === manifestCid) {
-          const result = await this.backend
-            .download(cid)
-            .catch((err: Error) => {
-              console.error(
-                `[Pkg Registry] Failed to download manifest ${cid}: ${err.message}`,
-              )
-              return null
-            })
-          if (result) {
-            const manifest = expectJson(
-              result.content.toString(),
-              PackageManifestSchema,
-              'package manifest',
-            )
-            this.manifestCache.set(cid, manifest)
-            return manifest
-          }
-        }
-      }
       console.error(`[Pkg Registry] CID not found for bytes32: ${manifestCid}`)
       return null
     }
@@ -772,16 +751,7 @@ export class PkgRegistryManager {
     const cached = this.manifestCache.get(cidString)
     if (cached) return cached
 
-    const result = await this.backend
-      .download(cidString)
-      .catch((err: Error) => {
-        console.error(
-          `[Pkg Registry] Failed to download manifest ${cidString}: ${err.message}`,
-        )
-        return null
-      })
-    if (!result) return null
-
+    const result = await this.backend.download(cidString)
     const manifest = expectJson(
       result.content.toString(),
       PackageManifestSchema,
@@ -813,15 +783,8 @@ export class PkgRegistryManager {
       return null
     }
 
-    const result = await this.backend
-      .download(cidString)
-      .catch((err: Error) => {
-        console.error(
-          `[Pkg Registry] Failed to download tarball ${cidString}: ${err.message}`,
-        )
-        return null
-      })
-    return result?.content || null
+    const result = await this.backend.download(cidString)
+    return result.content
   }
 
   /**
@@ -951,7 +914,3 @@ export class PkgRegistryManager {
     }
   }
 }
-
-// Export type alias for backwards compatibility
-export type { PkgRegistryManagerConfig as NpmRegistryManagerConfig }
-export { PkgRegistryManager as NpmRegistryManager }

@@ -205,7 +205,7 @@ contract BondingCurve is ReentrancyGuard {
     }
 
     /**
-     * @notice Legacy graduate function - now queues instead of immediate execution
+     * @notice Queue graduation when target is reached
      */
     function graduate() external {
         require(msg.sender == launchpad, "Only launchpad");

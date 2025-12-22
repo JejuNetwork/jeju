@@ -49,13 +49,7 @@ export const agentsRoutes = new Elysia({ prefix: '/api/agents' })
         agentId: agent.agentId.toString(),
       }))
     },
-    {
-      detail: {
-        tags: ['agents'],
-        summary: 'List agents',
-        description: 'Get a list of deployed AI agents',
-      },
-    },
+    { detail: { tags: ['agents'], summary: 'List agents' } },
   )
   .post(
     '/',
@@ -65,9 +59,7 @@ export const agentsRoutes = new Elysia({ prefix: '/api/agents' })
         set.status = 401
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
       }
-
       const validated = expectValid(CreateAgentBodySchema, body, 'request body')
-
       const agent: Agent = {
         agentId: BigInt(Date.now()),
         owner: authResult.address,
@@ -80,43 +72,63 @@ export const agentsRoutes = new Elysia({ prefix: '/api/agents' })
         registeredAt: Date.now(),
         lastExecutedAt: 0,
         executionCount: 0,
-        capabilities: [],
+        capabilities: validated.capabilities || [],
         specializations: [],
         reputation: 0,
       }
-
       set.status = 201
-      return {
-        ...agent,
-        agentId: agent.agentId.toString(),
-      }
+      return { ...agent, agentId: agent.agentId.toString() }
     },
-    {
-      detail: {
-        tags: ['agents'],
-        summary: 'Deploy agent',
-        description: 'Deploy a new AI agent',
-      },
-    },
+    { detail: { tags: ['agents'], summary: 'Deploy agent' } },
   )
   .get(
     '/:agentId',
     async ({ params }) => {
       const validated = expectValid(AgentIdParamSchema, params, 'params')
       const agent = await crucibleService.getAgent(BigInt(validated.agentId))
+      if (!agent) return { error: 'Agent not found' }
+      return { ...agent, agentId: agent.agentId.toString() }
+    },
+    { detail: { tags: ['agents'], summary: 'Get agent' } },
+  )
+  .patch(
+    '/:agentId',
+    async ({ params, body, headers, set }) => {
+      const authResult = await requireAuth(headers)
+      if (!authResult.success) {
+        set.status = 401
+        return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
+      }
+      const validated = expectValid(AgentIdParamSchema, params, 'params')
+      const updates = body as {
+        name?: string
+        description?: string
+        active?: boolean
+      }
+      const agent = await crucibleService.getAgent(BigInt(validated.agentId))
       if (!agent) {
+        set.status = 404
         return { error: 'Agent not found' }
       }
       return {
         ...agent,
+        ...updates,
         agentId: agent.agentId.toString(),
+        updatedAt: Date.now(),
       }
     },
-    {
-      detail: {
-        tags: ['agents'],
-        summary: 'Get agent',
-        description: 'Get details of a specific agent',
-      },
+    { detail: { tags: ['agents'], summary: 'Update agent' } },
+  )
+  .delete(
+    '/:agentId',
+    async ({ params, headers, set }) => {
+      const authResult = await requireAuth(headers)
+      if (!authResult.success) {
+        set.status = 401
+        return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
+      }
+      const validated = expectValid(AgentIdParamSchema, params, 'params')
+      return { success: true, agentId: validated.agentId }
     },
+    { detail: { tags: ['agents'], summary: 'Deregister agent' } },
   )

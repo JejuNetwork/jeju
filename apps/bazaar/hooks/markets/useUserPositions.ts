@@ -36,7 +36,7 @@ function transformPosition(raw: RawMarketPosition): Position {
       sessionId: raw.market.sessionId,
       question: raw.market.question,
       resolved: raw.market.resolved,
-      outcome: raw.market.outcome ?? undefined,
+      outcome: raw.market.outcome ?? null,
     },
     yesShares: BigInt(raw.yesShares),
     noShares: BigInt(raw.noShares),

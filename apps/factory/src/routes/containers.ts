@@ -23,12 +23,25 @@ interface ContainerImage {
   updatedAt: number
 }
 
+interface ContainerInstance {
+  id: string
+  name: string
+  image: string
+  status: 'running' | 'stopped' | 'building' | 'failed'
+  cpu: string
+  memory: string
+  gpu?: string
+  port?: number
+  endpoint?: string
+  createdAt: number
+  startedAt?: number
+}
+
 export const containersRoutes = new Elysia({ prefix: '/api/containers' })
   .get(
     '/',
     async ({ query }) => {
       expectValid(ContainersQuerySchema, query, 'query params')
-
       const containers: ContainerImage[] = [
         {
           id: '1',
@@ -42,29 +55,10 @@ export const containersRoutes = new Elysia({ prefix: '/api/containers' })
           createdAt: Date.now() - 7 * 24 * 60 * 60 * 1000,
           updatedAt: Date.now() - 7 * 24 * 60 * 60 * 1000,
         },
-        {
-          id: '2',
-          name: 'jeju/gateway',
-          tag: 'v1.2.0',
-          digest:
-            'sha256:def456abc1237890123456789012345678901234567890123456789012345678',
-          size: 89000000,
-          platform: 'linux/arm64',
-          downloads: 3210,
-          createdAt: Date.now() - 3 * 24 * 60 * 60 * 1000,
-          updatedAt: Date.now() - 3 * 24 * 60 * 60 * 1000,
-        },
       ]
-
       return { containers, total: containers.length }
     },
-    {
-      detail: {
-        tags: ['containers'],
-        summary: 'List containers',
-        description: 'Get a list of container images',
-      },
-    },
+    { detail: { tags: ['containers'], summary: 'List containers' } },
   )
   .post(
     '/',
@@ -74,15 +68,13 @@ export const containersRoutes = new Elysia({ prefix: '/api/containers' })
         set.status = 401
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
       }
-
       const validated = expectValid(
         CreateContainerBodySchema,
         body,
         'request body',
       )
-
       const container: ContainerImage = {
-        id: `container-${Date.now()}`,
+        id: `container-\${Date.now()}`,
         name: validated.name,
         tag: validated.tag,
         digest: validated.digest,
@@ -93,15 +85,73 @@ export const containersRoutes = new Elysia({ prefix: '/api/containers' })
         createdAt: Date.now(),
         updatedAt: Date.now(),
       }
-
       set.status = 201
       return container
     },
-    {
-      detail: {
-        tags: ['containers'],
-        summary: 'Push container',
-        description: 'Push a new container image to the registry',
-      },
+    { detail: { tags: ['containers'], summary: 'Push container' } },
+  )
+  .get(
+    '/instances',
+    async () => {
+      const instances: ContainerInstance[] = []
+      return { instances, total: 0 }
     },
+    { detail: { tags: ['containers'], summary: 'List running instances' } },
+  )
+  .post(
+    '/instances',
+    async ({ body, headers, set }) => {
+      const authResult = await requireAuth(headers)
+      if (!authResult.success) {
+        set.status = 401
+        return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
+      }
+      const { imageId, name, cpu, memory, gpu } = body as {
+        imageId: string
+        name: string
+        cpu: string
+        memory: string
+        gpu?: string
+      }
+      const instance: ContainerInstance = {
+        id: `instance-\${Date.now()}`,
+        name,
+        image: imageId,
+        status: 'running',
+        cpu,
+        memory,
+        gpu,
+        port: 8080,
+        endpoint: `https://\${name}.containers.jeju.local`,
+        createdAt: Date.now(),
+        startedAt: Date.now(),
+      }
+      set.status = 201
+      return instance
+    },
+    { detail: { tags: ['containers'], summary: 'Start container instance' } },
+  )
+  .post(
+    '/instances/:instanceId/stop',
+    async ({ params, headers, set }) => {
+      const authResult = await requireAuth(headers)
+      if (!authResult.success) {
+        set.status = 401
+        return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
+      }
+      return { success: true, instanceId: params.instanceId, status: 'stopped' }
+    },
+    { detail: { tags: ['containers'], summary: 'Stop container instance' } },
+  )
+  .delete(
+    '/instances/:instanceId',
+    async ({ params, headers, set }) => {
+      const authResult = await requireAuth(headers)
+      if (!authResult.success) {
+        set.status = 401
+        return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
+      }
+      return { success: true, instanceId: params.instanceId }
+    },
+    { detail: { tags: ['containers'], summary: 'Delete container instance' } },
   )

@@ -372,6 +372,8 @@ export function createFundingVerifierRouter() {
       abi: CONTRIBUTOR_REGISTRY_ABI,
       functionName: 'verifySocialLink',
       args: [contributorId as Hex, platformHash, proofHash],
+      chain: walletClient.chain ?? null,
+      account: walletClient.account ?? null,
     })
 
     return { verified: true, proofHash, txHash: hash }
@@ -427,6 +429,8 @@ export function createFundingVerifierRouter() {
       abi: CONTRIBUTOR_REGISTRY_ABI,
       functionName: 'verifyRepository',
       args: [claimId as Hex, result.proofHash],
+      chain: walletClient.chain ?? null,
+      account: walletClient.account ?? null,
     })
 
     return { verified: true, proofHash: result.proofHash, txHash: hash }
@@ -497,6 +501,8 @@ export function createFundingVerifierRouter() {
       abi: CONTRIBUTOR_REGISTRY_ABI,
       functionName: 'verifyDependency',
       args: [claimId as Hex, proofHash],
+      chain: walletClient.chain ?? null,
+      account: walletClient.account ?? null,
     })
 
     return { verified: true, proofHash, txHash: hash }

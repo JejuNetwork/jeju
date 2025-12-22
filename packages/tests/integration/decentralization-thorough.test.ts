@@ -33,9 +33,7 @@ import {
 } from '@jejunetwork/storage-pinning-api/src/database/cql-adapter'
 import { keccak256, toBytes, verifyMessage } from 'viem'
 
-// =============================================================================
 // CovenantSQL Client Tests
-// =============================================================================
 
 describe('CovenantSQL Client - Boundary Conditions', () => {
   beforeEach(() => {
@@ -216,10 +214,8 @@ describe('CovenantSQL Client - SQL Operations', () => {
   })
 })
 
-// =============================================================================
 // MPC Custody Manager Tests (Threshold Signature with Real Crypto)
 // Uses real cryptographic operations, no mocking
-// =============================================================================
 
 describe('MPC Custody - Configuration Validation', () => {
   beforeEach(() => {
@@ -823,9 +819,7 @@ describe('MPC Custody - Rate Limiting', () => {
   })
 })
 
-// =============================================================================
 // HSM Client Tests (local-dev uses real crypto, not mocking)
-// =============================================================================
 
 describe('HSM Client - Connection States', () => {
   beforeEach(() => {
@@ -1214,9 +1208,7 @@ describe('HSM Client - Key Lifecycle', () => {
   })
 })
 
-// =============================================================================
 // CQL Database Adapter Tests
-// =============================================================================
 
 describe('CQL Adapter - In-Memory Mode', () => {
   beforeEach(() => {
@@ -1551,9 +1543,7 @@ describe('CQL Adapter - In-Memory Mode', () => {
   })
 })
 
-// =============================================================================
 // Concurrent Operations Tests
-// =============================================================================
 
 describe('Concurrent Operations', () => {
   it('should handle concurrent MPC key generation', async () => {
@@ -1658,9 +1648,7 @@ describe('Concurrent Operations', () => {
   })
 })
 
-// =============================================================================
 // Integration Verification Tests
-// =============================================================================
 
 describe('Module Export Verification', () => {
   it('should export all CovenantSQL components', async () => {

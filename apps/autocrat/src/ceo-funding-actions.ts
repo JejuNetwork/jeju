@@ -166,10 +166,6 @@ export async function ceoHire(
     }
   }
 
-  console.log(
-    `[CEO] Created work agreement for ${request.contributorAddress}: ${request.title}`,
-  )
-
   return { agreementHash: hash, agreementId }
 }
 
@@ -235,13 +231,6 @@ export async function ceoOneOffPayment(
       request.amount,
       request.reason,
     )
-    console.log(
-      `[CEO] Auto-approved payment of ${request.amount} for ${request.title}`,
-    )
-  } else {
-    console.log(
-      `[CEO] Payment request created, awaiting council review: ${request.title}`,
-    )
   }
 
   return { requestHash: hash, requestId }
@@ -274,10 +263,6 @@ export async function ceoCreateBounty(
     ],
   })
 
-  console.log(
-    `[CEO] Created bounty: ${request.title} (${request.rewardAmount} reward)`,
-  )
-
   return hash
 }
 
@@ -294,10 +279,6 @@ export async function ceoAdjustFundingWeight(
     adjustment.daoId,
     adjustment.contributorId,
     adjustment.newWeight,
-  )
-
-  console.log(
-    `[CEO] Adjusted weight for ${adjustment.contributorId.slice(0, 10)} to ${adjustment.newWeight}: ${adjustment.reason}`,
   )
 
   return hash

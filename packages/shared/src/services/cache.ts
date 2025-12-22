@@ -7,6 +7,15 @@
 
 import { z } from 'zod'
 
+/** JSON-compatible value type for cache storage */
+type CacheJsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | CacheJsonValue[]
+  | { [key: string]: CacheJsonValue }
+
 const CacheConfigSchema = z.object({
   endpoint: z.string().url(),
   defaultTTL: z.number().positive().default(300000), // 5 minutes
@@ -68,19 +77,24 @@ class CacheServiceImpl implements CacheService {
     })
 
     if (!response.ok) {
-      console.error(`[Cache] remoteGet failed: ${response.status}`)
-      return null
+      throw new Error(`Cache get failed: ${response.status}`)
     }
-    // Cache values are generic - use safeParse with a loose schema
-    // The value is already serialized by our cache service, so we trust it
-    const CacheResponseSchema = z.object({ value: z.unknown().nullable() })
+    // Cache values can be any JSON-serializable value
+    // Using a recursive schema for JSON values
+    const CacheValueSchema: z.ZodType<CacheJsonValue> = z.lazy(() =>
+      z.union([
+        z.string(),
+        z.number(),
+        z.boolean(),
+        z.null(),
+        z.array(CacheValueSchema),
+        z.record(z.string(), CacheValueSchema),
+      ]),
+    )
+    const CacheResponseSchema = z.object({ value: CacheValueSchema.nullable() })
     const parseResult = CacheResponseSchema.safeParse(await response.json())
     if (!parseResult.success) {
-      console.error(
-        '[Cache] Invalid cache response:',
-        parseResult.error.message,
-      )
-      return null
+      throw new Error(`Invalid cache response: ${parseResult.error.message}`)
     }
     return parseResult.data.value as T | null
   }

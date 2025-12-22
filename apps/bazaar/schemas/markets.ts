@@ -25,7 +25,7 @@ export const MarketSchema = z.object({
   totalVolume: BigIntSchema,
   createdAt: DateSchema,
   resolved: z.boolean(),
-  outcome: z.boolean().optional(),
+  outcome: z.boolean().nullable(), // null when market is unresolved
 })
 
 export type Market = z.infer<typeof MarketSchema>
@@ -34,7 +34,7 @@ export const MarketInfoSchema = z.object({
   sessionId: NonEmptyStringSchema,
   question: NonEmptyStringSchema,
   resolved: z.boolean(),
-  outcome: z.boolean().optional(),
+  outcome: z.boolean().nullable(), // null when market is unresolved
 })
 
 export const PositionSchema = z.object({
@@ -89,8 +89,6 @@ export const UserStatsSchema = z.object({
 })
 
 export type UserStats = z.infer<typeof UserStatsSchema>
-
-// ============ GraphQL Response Schemas ============
 
 export const RawMarketPositionSchema = z.object({
   id: z.string(),

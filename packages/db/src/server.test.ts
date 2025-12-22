@@ -142,7 +142,7 @@ describe('CQL Server', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           address,
-          permissions: ['read', 'write'],
+          permissions: ['SELECT', 'INSERT'],
         }),
       },
     )

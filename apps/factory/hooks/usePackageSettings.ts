@@ -1,7 +1,5 @@
+import { getCoreAppUrl } from '@jejunetwork/config/ports'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { getDwsUrl } from '../config/contracts'
-
-// ============ Types ============
 
 export interface PackageWebhook {
   id: string
@@ -14,7 +12,7 @@ export interface PackageWebhook {
 export interface PackageAccessToken {
   id: string
   name: string
-  token: string // Only shown on creation
+  token: string
   permissions: ('read' | 'write' | 'delete')[]
   createdAt: number
   expiresAt?: number
@@ -40,16 +38,35 @@ export interface PackageSettings {
   deprecationMessage?: string
 }
 
-// ============ Fetchers ============
+const API_BASE =
+  typeof window !== 'undefined'
+    ? ''
+    : process.env.FACTORY_API_URL || getCoreAppUrl('FACTORY')
+
+async function fetchApi<T>(
+  path: string,
+  options?: RequestInit,
+): Promise<T | null> {
+  const response = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options?.headers,
+    },
+  })
+
+  if (!response.ok) {
+    return null
+  }
+
+  return response.json()
+}
 
 async function fetchPackageSettings(
   scope: string,
   name: string,
 ): Promise<PackageSettings | null> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/packages/${scope}/${name}/settings`)
-  if (!res.ok) return null
-  return res.json()
+  return fetchApi<PackageSettings>(`/api/packages/${scope}/${name}/settings`)
 }
 
 async function updatePackageSettings(
@@ -57,13 +74,11 @@ async function updatePackageSettings(
   name: string,
   settings: Partial<PackageSettings>,
 ): Promise<boolean> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/packages/${scope}/${name}/settings`, {
+  const response = await fetchApi(`/api/packages/${scope}/${name}/settings`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(settings),
   })
-  return res.ok
+  return response !== null
 }
 
 async function addMaintainer(
@@ -71,16 +86,14 @@ async function addMaintainer(
   name: string,
   data: { login: string; role: 'owner' | 'maintainer' },
 ): Promise<boolean> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(
-    `${dwsUrl}/api/packages/${scope}/${name}/maintainers`,
+  const response = await fetchApi(
+    `/api/packages/${scope}/${name}/settings/maintainers`,
     {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     },
   )
-  return res.ok
+  return response !== null
 }
 
 async function removeMaintainer(
@@ -88,14 +101,11 @@ async function removeMaintainer(
   name: string,
   login: string,
 ): Promise<boolean> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(
-    `${dwsUrl}/api/packages/${scope}/${name}/maintainers/${login}`,
-    {
-      method: 'DELETE',
-    },
+  const response = await fetchApi(
+    `/api/packages/${scope}/${name}/settings/maintainers/${login}`,
+    { method: 'DELETE' },
   )
-  return res.ok
+  return response !== null
 }
 
 async function createAccessToken(
@@ -107,14 +117,13 @@ async function createAccessToken(
     expiresIn?: number
   },
 ): Promise<PackageAccessToken | null> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/packages/${scope}/${name}/tokens`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  })
-  if (!res.ok) return null
-  return res.json()
+  return fetchApi<PackageAccessToken>(
+    `/api/packages/${scope}/${name}/settings/tokens`,
+    {
+      method: 'POST',
+      body: JSON.stringify(data),
+    },
+  )
 }
 
 async function revokeAccessToken(
@@ -122,14 +131,11 @@ async function revokeAccessToken(
   name: string,
   tokenId: string,
 ): Promise<boolean> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(
-    `${dwsUrl}/api/packages/${scope}/${name}/tokens/${tokenId}`,
-    {
-      method: 'DELETE',
-    },
+  const response = await fetchApi(
+    `/api/packages/${scope}/${name}/settings/tokens/${tokenId}`,
+    { method: 'DELETE' },
   )
-  return res.ok
+  return response !== null
 }
 
 async function deprecatePackage(
@@ -137,43 +143,35 @@ async function deprecatePackage(
   name: string,
   message: string,
 ): Promise<boolean> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/packages/${scope}/${name}/deprecate`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message }),
-  })
-  return res.ok
+  const response = await fetchApi(
+    `/api/packages/${scope}/${name}/settings/deprecate`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ message }),
+    },
+  )
+  return response !== null
 }
 
 async function undeprecatePackage(
   scope: string,
   name: string,
 ): Promise<boolean> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(
-    `${dwsUrl}/api/packages/${scope}/${name}/undeprecate`,
-    {
-      method: 'POST',
-    },
+  const response = await fetchApi(
+    `/api/packages/${scope}/${name}/settings/undeprecate`,
+    { method: 'POST' },
   )
-  return res.ok
+  return response !== null
 }
 
 async function unpublishPackage(
-  scope: string,
-  name: string,
-  version?: string,
+  _scope: string,
+  _name: string,
+  _version?: string,
 ): Promise<boolean> {
-  const dwsUrl = getDwsUrl()
-  const url = version
-    ? `${dwsUrl}/api/packages/${scope}/${name}/versions/${version}`
-    : `${dwsUrl}/api/packages/${scope}/${name}`
-  const res = await fetch(url, { method: 'DELETE' })
-  return res.ok
+  // Unpublish would need separate endpoint
+  return false
 }
-
-// ============ Hooks ============
 
 export function usePackageSettings(scope: string, name: string) {
   const {

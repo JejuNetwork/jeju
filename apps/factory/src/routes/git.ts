@@ -138,3 +138,88 @@ export const gitRoutes = new Elysia({ prefix: '/api/git' })
       },
     },
   )
+  .get(
+    '/:owner/:repo/commits',
+    async ({ params, query }) => {
+      const validated = expectValid(RepoParamsSchema, params, 'params')
+      const ref = (query as { ref?: string }).ref || 'main'
+      const commits = await dwsClient.getRepoCommits(
+        validated.owner,
+        validated.repo,
+        ref,
+      )
+      return commits
+    },
+    {
+      detail: {
+        tags: ['git'],
+        summary: 'Get commits',
+        description: 'Get commits for a repository',
+      },
+    },
+  )
+  .get(
+    '/:owner/:repo/branches',
+    async ({ params }) => {
+      const validated = expectValid(RepoParamsSchema, params, 'params')
+      const branches = await dwsClient.getRepoBranches(
+        validated.owner,
+        validated.repo,
+      )
+      return branches
+    },
+    {
+      detail: {
+        tags: ['git'],
+        summary: 'Get branches',
+        description: 'Get branches for a repository',
+      },
+    },
+  )
+  .post(
+    '/:owner/:repo/star',
+    async ({ params, headers, set }) => {
+      const authResult = await requireAuth(headers)
+      if (!authResult.success) {
+        set.status = 401
+        return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
+      }
+
+      const validated = expectValid(RepoParamsSchema, params, 'params')
+      await dwsClient.starRepository(validated.owner, validated.repo)
+      return { success: true }
+    },
+    {
+      detail: {
+        tags: ['git'],
+        summary: 'Star repository',
+        description: 'Star a repository',
+      },
+    },
+  )
+  .post(
+    '/:owner/:repo/fork',
+    async ({ params, headers, set }) => {
+      const authResult = await requireAuth(headers)
+      if (!authResult.success) {
+        set.status = 401
+        return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
+      }
+
+      const validated = expectValid(RepoParamsSchema, params, 'params')
+      const forked = await dwsClient.forkRepository(
+        validated.owner,
+        validated.repo,
+        authResult.address,
+      )
+      set.status = 201
+      return forked
+    },
+    {
+      detail: {
+        tags: ['git'],
+        summary: 'Fork repository',
+        description: 'Fork a repository',
+      },
+    },
+  )

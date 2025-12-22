@@ -6,8 +6,6 @@
 import type { Address } from 'viem'
 import { expect, expectTrue } from './validation'
 
-// ============ Types ============
-
 export interface CrossChainQuote {
   quoteId: string
   sourceChainId: number
@@ -59,8 +57,6 @@ export interface IntentResult {
 }
 
 import { OIF_AGGREGATOR_URL } from '../config'
-
-// ============ Constants ============
 
 const AGGREGATOR_URL = OIF_AGGREGATOR_URL
 
@@ -130,9 +126,6 @@ export async function getCrossChainQuotes(
   return response.json()
 }
 
-/**
- * Get best quote for a cross-chain swap
- */
 export async function getBestQuote(
   params: CreateIntentParams,
 ): Promise<CrossChainQuote | null> {
@@ -174,9 +167,6 @@ export async function getRoutes(
   return response.json()
 }
 
-/**
- * Check if a route exists between two chains
- */
 export async function hasRoute(
   sourceChainId: number,
   destChainId: number,
@@ -204,9 +194,6 @@ export async function getIntentStatus(intentId: string): Promise<IntentResult> {
   return response.json()
 }
 
-/**
- * Create a cross-chain swap intent via A2A
- */
 export async function createIntent(
   params: CreateIntentParams,
 ): Promise<{ intentId: string }> {
@@ -248,9 +235,6 @@ export function getChainInfo(chainId: number) {
   return SUPPORTED_CHAINS.find((c) => c.chainId === chainId)
 }
 
-/**
- * Get token address on a specific chain
- */
 export function getTokenAddress(
   chainId: number,
   symbol: string,
@@ -270,9 +254,6 @@ export function isTokenSupported(
   return Object.values(tokens).includes(tokenAddress)
 }
 
-/**
- * Format amount for display
- */
 export function formatCrossChainAmount(
   amount: string,
   decimals: number = 18,
@@ -296,10 +277,6 @@ export function calculateMinOutput(
   return ((output * slippageMultiplier) / 10000n).toString()
 }
 
-/**
- * Estimate gas for cross-chain intent on source chain
- */
 export function estimateIntentGas(): bigint {
-  // Approximate gas for InputSettler.open()
   return 150000n
 }

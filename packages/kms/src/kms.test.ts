@@ -1,7 +1,7 @@
 /**
  * KMS Package Tests
  *
- * Tests FALLBACK MODE (local AES-256-GCM encryption).
+ * Tests encryption provider with AES-256-GCM encryption.
  * TEE/MPC providers are stubs for unit testing.
  *
  * SECURITY NOTE: The test secret below is intentionally weak and should NEVER
@@ -10,7 +10,7 @@
 
 // Set required env before imports
 // SECURITY: Test-only secret - do not use in production
-process.env.KMS_FALLBACK_SECRET = 'test-secret-for-kms-unit-tests'
+process.env.KMS_ENCRYPTION_SECRET = 'test-secret-for-kms-unit-tests'
 
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import type { Address } from 'viem'
@@ -34,7 +34,6 @@ describe('KMS Service', () => {
       providers: { encryption: {} },
       defaultProvider: KMSProviderType.ENCRYPTION,
       defaultChain: 'base-sepolia',
-      fallbackEnabled: true,
     })
     await kms.initialize()
   })
@@ -69,7 +68,6 @@ describe('KMS Service', () => {
       resetKMS()
       const kms = getKMS({
         providers: { encryption: {} },
-        fallbackEnabled: true,
       })
       // Not calling initialize() explicitly
       const policy: AccessControlPolicy = {
@@ -497,10 +495,10 @@ describe('KMS Service', () => {
       expect(retrieved?.id).toBe(generated.metadata.id)
     })
 
-    it('should return null for non-existent key', () => {
+    it('should return undefined for non-existent key', () => {
       const kms = getKMS()
       const key = kms.getKey('non-existent-key-id')
-      expect(key).toBeNull()
+      expect(key).toBeUndefined()
     })
 
     it('should revoke key successfully', async () => {
@@ -522,7 +520,7 @@ describe('KMS Service', () => {
       await kms.revokeKey(key.metadata.id)
 
       const retrieved = kms.getKey(key.metadata.id)
-      expect(retrieved).toBeNull()
+      expect(retrieved).toBeUndefined()
     })
 
     it('should throw when revoking non-existent key', async () => {
@@ -621,7 +619,6 @@ describe('SDK Functions', () => {
     resetKMS()
     await getKMS({
       providers: { encryption: {} },
-      fallbackEnabled: true,
     }).initialize()
   })
 
@@ -702,7 +699,6 @@ describe('Edge Cases', () => {
     resetKMS()
     await getKMS({
       providers: { encryption: {} },
-      fallbackEnabled: true,
     }).initialize()
   })
 

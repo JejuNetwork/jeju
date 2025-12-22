@@ -38,8 +38,6 @@ const XMTPEnvelopeSchema = z.object({
   signature: z.string().min(1), // base64 encoded
 })
 
-// ============ Types ============
-
 export interface NodeConnectionState {
   isConnected: boolean
   connectedAt?: number
@@ -48,8 +46,6 @@ export interface NodeConnectionState {
 }
 
 export type MessageHandler = (envelope: XMTPEnvelope) => Promise<void>
-
-// ============ XMTP Node Class ============
 
 /**
  * JejuXMTPNode wraps XMTP functionality with Jeju relay infrastructure.
@@ -81,8 +77,6 @@ export class JejuXMTPNode {
       isSyncing: false,
     }
   }
-
-  // ============ Lifecycle ============
 
   /**
    * Start the XMTP node
@@ -134,8 +128,6 @@ export class JejuXMTPNode {
     console.log(`[XMTP Node ${this.config.nodeId}] Stopped`)
   }
 
-  // ============ Connection Management ============
-
   /**
    * Connect to Jeju relay network
    */
@@ -173,8 +165,6 @@ export class JejuXMTPNode {
     // Route to connected clients
     await this.routeToClients(envelope)
   }
-
-  // ============ Message Handling ============
 
   /**
    * Process and forward an XMTP envelope
@@ -225,8 +215,6 @@ export class JejuXMTPNode {
     }
   }
 
-  // ============ Identity Management ============
-
   /**
    * Register an XMTP identity
    */
@@ -275,8 +263,6 @@ export class JejuXMTPNode {
     return result
   }
 
-  // ============ MLS Operations ============
-
   /**
    * Initialize MLS state
    */
@@ -285,8 +271,6 @@ export class JejuXMTPNode {
     // MLS initialization would go here
     // Using XMTP's @xmtp/mls-client in production
   }
-
-  // ============ Sync Operations ============
 
   /**
    * Start background sync
@@ -308,8 +292,6 @@ export class JejuXMTPNode {
   getSyncState(): SyncState {
     return { ...this.syncState }
   }
-
-  // ============ IPFS Persistence ============
 
   /**
    * Persist envelope to IPFS
@@ -335,8 +317,6 @@ export class JejuXMTPNode {
     return result.Hash
   }
 
-  // ============ Message Handlers ============
-
   /**
    * Register a message handler
    */
@@ -354,8 +334,6 @@ export class JejuXMTPNode {
   offMessage(handler: MessageHandler): void {
     this.messageHandlers.delete(handler)
   }
-
-  // ============ Client Connections ============
 
   /**
    * Register a client connection
@@ -381,8 +359,6 @@ export class JejuXMTPNode {
     this.connections.delete(address.toLowerCase())
   }
 
-  // ============ Stats ============
-
   /**
    * Get node statistics
    */
@@ -406,8 +382,6 @@ export class JejuXMTPNode {
   isHealthy(): boolean {
     return this.isRunning
   }
-
-  // ============ Utility Methods ============
 
   /**
    * Encode envelope to bytes
@@ -501,8 +475,6 @@ export class JejuXMTPNode {
     return randomBytes(16).toString('hex')
   }
 }
-
-// ============ Factory Function ============
 
 /**
  * Create and start an XMTP node

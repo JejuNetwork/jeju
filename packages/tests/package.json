@@ -7,74 +7,14 @@
   "main": "./shared/index.ts",
   "types": "./shared/index.ts",
   "exports": {
-    ".": "./shared/index.ts",
-    "./playwright-only": "./shared/playwright-only.ts",
-    "./fixtures": "./shared/fixtures/index.ts",
-    "./fixtures/wallet": "./shared/fixtures/wallet.ts",
-    "./fixtures/synpress-wallet": "./shared/fixtures/synpress-wallet.ts",
-    "./helpers": "./shared/helpers/index.ts",
-    "./helpers/contracts": "./shared/helpers/contracts.ts",
-    "./helpers/screenshots": "./shared/helpers/screenshots.ts",
-    "./helpers/navigation": "./shared/helpers/navigation.ts",
-    "./helpers/error-detection": "./shared/helpers/error-detection.ts",
-    "./helpers/on-chain": "./shared/helpers/on-chain.ts",
-    "./constants": "./shared/constants.ts",
-    "./playwright.config.base": "./shared/playwright.config.base.ts",
-    "./synpress.config.base": "./shared/synpress.config.base.ts",
-    "./wallet-setup": "./shared/wallet-setup/jeju.setup.ts",
-    "./lock-manager": "./shared/lock-manager.ts",
-    "./preflight": "./shared/preflight.ts",
-    "./warmup": "./shared/warmup.ts",
-    "./global-setup": "./shared/global-setup.ts",
-    "./bun-global-setup": "./shared/bun-global-setup.ts",
-    "./dev-startup": "./shared/dev-startup.ts",
-    "./load": "./load/index.ts",
-    "./load/simulator": "./load/simulator.ts",
-    "./load/analyzer": "./load/analyzer.ts",
-    "./load/configs": "./load/configs/index.ts",
-    "./load/types": "./load/types.ts"
+    ".": "./shared/index.ts"
   },
-  "files": [
-    "shared",
-    "smoke",
-    "load"
-  ],
+  "files": ["shared", "smoke", "load"],
   "scripts": {
     "test": "bun test",
-    "test:unit": "bun test shared/",
-    "test:integration": "bun test integration/",
-    "test:cross-chain": "bun test cross-chain/",
-    "test:e2e": "bunx playwright test",
-    "synpress:cache": "bun run synpress:cache:build",
-    "synpress:cache:build": "npx synpress --force",
-    "synpress:cache:clear": "rm -rf ../../.jeju/.synpress-cache",
     "smoke": "bunx playwright test --config smoke/playwright.config.ts",
-    "smoke:wallet": "bunx playwright test --config smoke/synpress.config.ts",
-    "smoke:chain": "bunx playwright test smoke/chain-preflight.spec.ts --config smoke/playwright.config.ts",
-    "preflight": "bun run smoke:chain",
-    "load": "bun run load/runner.ts",
-    "load:all": "bun run load/runner.ts --all --scenario=light",
-    "load:smoke": "bun run load/runner.ts --all --scenario=smoke",
-    "load:normal": "bun run load/runner.ts --all --scenario=normal",
-    "load:heavy": "bun run load/runner.ts --all --scenario=heavy",
-    "load:stress": "bun run load/runner.ts --all --scenario=stress",
-    "load:testnet": "bun run load/runner.ts --all --scenario=normal --network=testnet",
-    "load:continuous": "bun run load/continuous.ts",
-    "load:watch": "bun run load/continuous.ts --watch --json"
+    "load": "bun run load/runner.ts"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/elizaos/jeju.git",
-    "directory": "packages/tests"
-  },
-  "keywords": [
-    "jeju",
-    "tests",
-    "playwright",
-    "synpress",
-    "e2e",
-    "wallet"
-  ],
   "dependencies": {
     "@jejunetwork/config": "workspace:*",
     "@jejunetwork/kms": "workspace:*",
@@ -82,7 +22,7 @@
     "@jejunetwork/types": "workspace:*",
     "@tenkeylabs/dappwright": "2.11.3",
     "pg": "8.16.0",
-    "viem": "2.43.2",
+    "viem": "2.43.3",
     "zod": "4.2.1"
   },
   "peerDependencies": {

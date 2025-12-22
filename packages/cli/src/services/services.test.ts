@@ -3,7 +3,6 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
-import { JNSRegistrationResponseSchema, validate } from '../schemas'
 import { createInferenceServer, type LocalInferenceServer } from './inference'
 import { createOrchestrator, type ServicesOrchestrator } from './orchestrator'
 
@@ -86,6 +85,8 @@ describe('LocalInferenceServer', () => {
 describe('ServicesOrchestrator', () => {
   let orchestrator: ServicesOrchestrator
   let servicesStarted = false
+  let oracleHealthy = false
+  let jnsHealthy = false
 
   beforeAll(async () => {
     orchestrator = createOrchestrator(process.cwd())
@@ -106,6 +107,23 @@ describe('ServicesOrchestrator', () => {
     servicesStarted = orchestrator.getRunningServices().size > 0
     // Wait for services to fully initialize
     await new Promise((r) => setTimeout(r, 2000))
+
+    // Check health of services
+    const oracleUrl = orchestrator.getServiceUrl('oracle')
+    oracleHealthy = oracleUrl
+      ? await fetch(`${oracleUrl}/health`, {
+          signal: AbortSignal.timeout(1000),
+        })
+          .then((r) => r.ok)
+          .catch(() => false)
+      : false
+
+    const jnsUrl = orchestrator.getServiceUrl('jns')
+    jnsHealthy = jnsUrl
+      ? await fetch(`${jnsUrl}/health`, { signal: AbortSignal.timeout(1000) })
+          .then((r) => r.ok)
+          .catch(() => false)
+      : false
   }, 45000)
 
   afterAll(async () => {
@@ -134,7 +152,7 @@ describe('ServicesOrchestrator', () => {
 
   describe('Oracle Service', () => {
     it('should respond to health check', async () => {
-      if (!servicesStarted) return // Skip if services not available
+      if (!oracleHealthy) return // Skip if Oracle not available
       const url = orchestrator.getServiceUrl('oracle')
       expect(url).toBeDefined()
 
@@ -167,7 +185,7 @@ describe('ServicesOrchestrator', () => {
 
   describe('JNS Service', () => {
     it('should respond to health check', async () => {
-      if (!servicesStarted) return // Skip if services not available
+      if (!jnsHealthy) return // Skip if JNS not available
       const url = orchestrator.getServiceUrl('jns')
       expect(url).toBeDefined()
 
@@ -176,6 +194,59 @@ describe('ServicesOrchestrator', () => {
       const data = await response.json()
       // Service is healthy and provides JNS functionality
       expect(data).toBeDefined()
+    })
+
+    it('should resolve core names', async () => {
+      if (!jnsHealthy) return // Skip if JNS not available
+      const url = orchestrator.getServiceUrl('jns')
+      const response = await fetch(`${url}/api/v1/resolve?name=wallet.jeju`)
+      expect(response.ok).toBe(true)
+      const data = await response.json()
+      expect(data.name).toBe('wallet.jeju')
+      expect(data.owner).toBeDefined()
+      expect(data.node).toBeDefined() // namehash
+    })
+
+    it('should return 404 for unknown names with availability info', async () => {
+      if (!jnsHealthy) return // Skip if JNS not available
+      const url = orchestrator.getServiceUrl('jns')
+      const response = await fetch(
+        `${url}/api/v1/resolve?name=nonexistent.jeju`,
+      )
+      expect(response.status).toBe(404)
+      const data = await response.json()
+      expect(data.isAvailable).toBe(true)
+    })
+
+    it('should return name pricing with length-based calculation', async () => {
+      if (!jnsHealthy) return // Skip if JNS not available
+      const url = orchestrator.getServiceUrl('jns')
+
+      // 3-char name should be expensive
+      const response1 = await fetch(`${url}/api/v1/price?name=abc.jeju&years=2`)
+      const data1 = await response1.json()
+      expect(data1.pricePerYear).toBe(100)
+      expect(data1.total).toBe(200)
+
+      // 8+ char name should be cheap
+      const response2 = await fetch(
+        `${url}/api/v1/price?name=longname.jeju&years=1`,
+      )
+      const data2 = await response2.json()
+      expect(data2.pricePerYear).toBe(10)
+    })
+
+    it('should list names for owner', async () => {
+      if (!jnsHealthy) return // Skip if JNS not available
+      const url = orchestrator.getServiceUrl('jns')
+      const response = await fetch(
+        `${url}/api/v1/names?owner=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266`,
+      )
+      expect(response.ok).toBe(true)
+      const data = await response.json()
+      expect(Array.isArray(data.names)).toBe(true)
+      expect(data.names.length).toBeGreaterThan(0)
+      expect(data.total).toBeGreaterThan(0)
     })
 
     it('should handle name resolution requests', async () => {
@@ -188,7 +259,7 @@ describe('ServicesOrchestrator', () => {
     })
 
     it('should check name availability', async () => {
-      if (!servicesStarted) return // Skip if services not available
+      if (!jnsHealthy) return // Skip if JNS not available
       const url = orchestrator.getServiceUrl('jns')
       // Random name should be available (not registered)
       const response = await fetch(

@@ -105,7 +105,7 @@ export async function searchRegistry(
   if (params.offset) searchParams.set('offset', String(params.offset))
 
   const response = await fetch(
-    `${INDEXER_REST_URL}/search?${searchParams.toString()}`,
+    `${INDEXER_REST_URL}/api/search?${searchParams.toString()}`,
   )
 
   if (!response.ok) {
@@ -121,7 +121,7 @@ export async function searchRegistry(
 export async function getAgentById(
   agentId: string,
 ): Promise<AgentSearchResult | null> {
-  const response = await fetch(`${INDEXER_REST_URL}/agents/${agentId}`)
+  const response = await fetch(`${INDEXER_REST_URL}/api/agents/${agentId}`)
 
   if (response.status === 404) {
     return null
@@ -140,7 +140,7 @@ export async function getAgentById(
 export async function getPopularTags(): Promise<
   Array<{ tag: string; count: number }>
 > {
-  const response = await fetch(`${INDEXER_REST_URL}/tags`)
+  const response = await fetch(`${INDEXER_REST_URL}/api/tags`)
 
   if (!response.ok) {
     throw new Error(`Failed to fetch tags: ${response.statusText}`)
@@ -158,7 +158,7 @@ export async function getAgentsByTag(
   limit = 50,
 ): Promise<AgentSearchResult[]> {
   const response = await fetch(
-    `${INDEXER_REST_URL}/agents/tag/${encodeURIComponent(tag)}?limit=${limit}`,
+    `${INDEXER_REST_URL}/api/agents/tag/${encodeURIComponent(tag)}?limit=${limit}`,
   )
 
   if (!response.ok) {
@@ -173,7 +173,7 @@ export async function getAgentsByTag(
  * Get indexer stats
  */
 export async function getIndexerStats(): Promise<IndexerStats> {
-  const response = await fetch(`${INDEXER_REST_URL}/stats`)
+  const response = await fetch(`${INDEXER_REST_URL}/api/stats`)
 
   if (!response.ok) {
     throw new Error(`Failed to fetch stats: ${response.statusText}`)
@@ -189,7 +189,7 @@ export async function getRateLimitInfo(): Promise<{
   tiers: Record<string, number>
   thresholds: Record<string, { minUsd: number; limit: number | string }>
 }> {
-  const response = await fetch(`${INDEXER_REST_URL}/rate-limits`)
+  const response = await fetch(`${INDEXER_REST_URL}/api/rate-limits`)
 
   if (!response.ok) {
     throw new Error(`Failed to fetch rate limits: ${response.statusText}`)

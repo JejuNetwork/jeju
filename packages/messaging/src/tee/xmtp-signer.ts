@@ -15,8 +15,6 @@ import type {
   TEEPreKey,
 } from './types'
 
-// ============ Types ============
-
 /**
  * Signed public key bundle for XMTP registration
  */
@@ -42,8 +40,6 @@ export interface XMTPSigner {
   getAddress(): Promise<string>
   signMessage(message: string | Uint8Array): Promise<Uint8Array>
 }
-
-// ============ TEE XMTP Signer Class ============
 
 /**
  * XMTP Signer implementation backed by TEE
@@ -163,8 +159,6 @@ export class TEEXMTPSigner implements XMTPSigner {
   }
 }
 
-// ============ TEE XMTP Client Factory ============
-
 /**
  * Create XMTP signer with TEE backing
  */
@@ -216,8 +210,6 @@ export async function importTEEXMTPSigner(
 
   return new TEEXMTPSigner(keyManager, identityKey)
 }
-
-// ============ Utility Functions ============
 
 /**
  * Convert hex string to bytes

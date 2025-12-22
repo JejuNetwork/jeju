@@ -14,8 +14,6 @@ import type { AutocratVote, StoredObject } from './types.js'
 
 const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? 'autocrat'
 
-// ============ Schemas for JSON parsing ============
-
 const ProposalStatusSchema = z.enum([
   'draft',
   'review',
@@ -41,13 +39,8 @@ const ProposalSchema = z.object({
   updatedAt: z.number(),
 })
 
-// ============ Types ============
-
 export type ProposalStatus = z.infer<typeof ProposalStatusSchema>
 export type ModerationTargetType = 'proposal' | 'user' | 'research'
-
-// ============ Database Row Types ============
-// These represent the exact shape of rows returned from CQL queries
 
 interface ProposalRow {
   id: string
@@ -256,8 +249,6 @@ async function ensureTablesExist(): Promise<void> {
   for (const idx of indexes) {
     await client.exec(idx, [], CQL_DATABASE_ID)
   }
-
-  console.log('[Council] CovenantSQL tables ensured')
 }
 
 // Proposal operations
@@ -288,7 +279,7 @@ export const proposalState = {
   async get(id: string): Promise<Proposal | null> {
     // Check cache first
     const cache = getCache()
-    const cached = await cache.get(`proposal:${id}`).catch(() => null)
+    const cached = await cache.get(`proposal:${id}`)
     if (cached) {
       const parsed = JSON.parse(cached)
       return ProposalSchema.parse(parsed)
@@ -722,7 +713,7 @@ export const storageState = {
   async retrieve(hash: string): Promise<StoredObject | null> {
     // Check cache first
     const cache = getCache()
-    const cached = await cache.get(`storage:${hash}`).catch(() => null)
+    const cached = await cache.get(`storage:${hash}`)
     if (cached) {
       return StoredObjectSchema.parse(JSON.parse(cached))
     }
@@ -748,7 +739,6 @@ export async function initializeState(): Promise<void> {
   if (initialized) return
   await getCQLClient()
   initialized = true
-  console.log('[Council] Decentralized state initialized')
 }
 
 // Get state mode - always "covenantql" in production

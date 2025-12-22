@@ -6,6 +6,7 @@
  */
 
 import {
+  type EILChainConfig,
   getConfig,
   getEILChains,
   type NetworkType,
@@ -35,7 +36,7 @@ function buildChainMaps() {
   // Add EIL chains
   for (const network of ['testnet', 'mainnet'] as NetworkType[]) {
     try {
-      const chains = getEILChains(network)
+      const chains: Record<string, EILChainConfig> = getEILChains(network)
       for (const chain of Object.values(chains)) {
         rpcs[chain.chainId] = chain.rpcUrl
         names[chain.chainId] = chain.name
@@ -58,71 +59,31 @@ function buildChainMaps() {
 // Build maps on module load
 const { rpcs, names, testnetIds, mainnetIds } = buildChainMaps()
 
-// Fallback values for when config isn't available
-const FALLBACK_RPCS: Record<number, string> = {
-  // Testnets
-  11155111: 'https://ethereum-sepolia-rpc.publicnode.com',
-  84532: 'https://sepolia.base.org',
-  421614: 'https://sepolia-rollup.arbitrum.io/rpc',
-  11155420: 'https://sepolia.optimism.io',
-  420690: 'https://testnet-rpc.jejunetwork.org',
-  97: 'https://data-seed-prebsc-1-s1.bnbchain.org:8545',
-  // Mainnets
-  1: 'https://eth.llamarpc.com',
-  8453: 'https://mainnet.base.org',
-  42161: 'https://arb1.arbitrum.io/rpc',
-  10: 'https://mainnet.optimism.io',
-  420691: 'https://rpc.jejunetwork.org',
-  56: 'https://bsc-dataseed.bnbchain.org',
-}
-
-const FALLBACK_NAMES: Record<number, string> = {
-  11155111: 'Sepolia',
-  84532: 'Base Sepolia',
-  421614: 'Arbitrum Sepolia',
-  11155420: 'Optimism Sepolia',
-  420690: 'Jeju Testnet',
-  97: 'BSC Testnet',
-  1: 'Ethereum',
-  8453: 'Base',
-  42161: 'Arbitrum One',
-  10: 'OP Mainnet',
-  420691: 'Jeju Mainnet',
-  56: 'BNB Chain',
-}
-
 /**
  * Public RPC URLs by chain ID
  * Prefer using getRpcUrl() which also checks env overrides
  */
-export const PUBLIC_RPCS: Record<number, string> = { ...FALLBACK_RPCS, ...rpcs }
+export const PUBLIC_RPCS: Record<number, string> = rpcs
 
 /**
  * Chain names by chain ID
  */
-export const CHAIN_NAMES: Record<number, string> = {
-  ...FALLBACK_NAMES,
-  ...names,
-}
+export const CHAIN_NAMES: Record<number, string> = names
 
 /**
  * Testnet chain IDs
  */
-export const TESTNET_CHAIN_IDS =
-  testnetIds.length > 0
-    ? testnetIds
-    : [11155111, 84532, 421614, 11155420, 420690, 97]
+export const TESTNET_CHAIN_IDS = testnetIds
 
 /**
  * Mainnet chain IDs
  */
-export const MAINNET_CHAIN_IDS =
-  mainnetIds.length > 0 ? mainnetIds : [1, 8453, 42161, 10, 420691, 56]
+export const MAINNET_CHAIN_IDS = mainnetIds
 
 /**
- * Get chain IDs for a network type
+ * Get chain IDs for a network type (testnet or mainnet only)
  */
-export function getChainIds(network: 'testnet' | 'mainnet'): number[] {
+export function getNetworkChainIds(network: 'testnet' | 'mainnet'): number[] {
   return network === 'testnet' ? TESTNET_CHAIN_IDS : MAINNET_CHAIN_IDS
 }
 
@@ -164,9 +125,12 @@ export function rpcUrl(chainId: number): string {
     return specificValue
   }
 
-  // Use config/fallback
   const url = PUBLIC_RPCS[chainId]
-  if (!url) throw new Error(`No RPC URL for chain ${chainId}`)
+  if (!url) {
+    throw new Error(
+      `No RPC URL configured for chain ${chainId}. Set CHAIN_${chainId}_RPC_URL or configure it in packages/config.`,
+    )
+  }
   return url
 }
 

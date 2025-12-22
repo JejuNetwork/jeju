@@ -36,7 +36,9 @@ import {
 // Schema for compute job responses
 const ComputeJobResultSchema = z.object({
   jobId: z.string(),
-  status: z.enum(['pending', 'running', 'completed', 'failed']).optional(),
+  status: z
+    .enum(['pending', 'running', 'completed', 'failed'])
+    .default('pending'),
   outputCID: z.string().optional(),
   metrics: z.record(z.string(), z.number()).optional(),
   error: z.string().optional(),

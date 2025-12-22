@@ -262,14 +262,14 @@ export function saveKeys(
   return filepath
 }
 
-export function loadKeys(network: NetworkType): KeySet | null {
+export function loadKeys(network: NetworkType): KeySet | undefined {
   // Validate network to prevent path traversal
   const validNetwork = validateNetwork(network)
   const keysDir = getKeysDir()
   const keyFile = safePath(keysDir, validNetwork, 'operators.json')
 
   if (!existsSync(keyFile)) {
-    return null
+    return undefined
   }
 
   const rawData = JSON.parse(readFileSync(keyFile, 'utf-8'))
@@ -294,7 +294,7 @@ export function hasKeys(network: NetworkType): boolean {
   )
 }
 
-export function loadPrivateKey(name: string): string | null {
+export function loadPrivateKey(name: string): string | undefined {
   // Validate key name to prevent path traversal
   const validName = validateKeyName(name)
   const keysDir = getKeysDir()
@@ -320,7 +320,7 @@ export function loadPrivateKey(name: string): string | null {
     return WELL_KNOWN_KEYS.dev[0].privateKey
   }
 
-  return null
+  return undefined
 }
 
 export function showKeyInfo(key: KeyConfig): void {

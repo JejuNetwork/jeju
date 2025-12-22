@@ -30,8 +30,8 @@ const IntentSchema = z.object({
   signature: z.string(),
   status: z.string(),
   createdAt: z.number(),
-  filledAt: z.number().optional(),
-  solver: z.string().optional(),
+  filledAt: z.number().nullable(),
+  solver: z.string().nullable(),
 })
 
 const IntentQuoteSchema = z.object({
@@ -58,38 +58,38 @@ const IntentRouteSchema = z.object({
   isActive: z.boolean(),
   totalVolume: z.string(),
   totalIntents: z.number(),
-  avgFillTimeSeconds: z.number().optional(),
-  successRate: z.number().optional(),
-  oracle: z.string().optional(),
-  activeSolvers: z.number().optional(),
-  avgFeePercent: z.number().optional(),
+  avgFillTimeSeconds: z.number().nullable(),
+  successRate: z.number().nullable(),
+  oracle: z.string().nullable(),
+  activeSolvers: z.number().nullable(),
+  avgFeePercent: z.number().nullable(),
 })
 
 const SolverSchema = z.object({
   address: z.string(),
-  name: z.string().optional(),
+  name: z.string().nullable(),
   stakedAmount: z.string(),
   totalFills: z.number(),
   successfulFills: z.number(),
   supportedChains: z.array(z.number()),
   isActive: z.boolean(),
   reputation: z.number(),
-  avgFillTimeMs: z.number().optional(),
-  successRate: z.number().optional(),
-  totalVolumeUsd: z.string().optional(),
+  avgFillTimeMs: z.number().nullable(),
+  successRate: z.number().nullable(),
+  totalVolumeUsd: z.string().nullable(),
 })
 
 const SolverLeaderboardEntrySchema = z.object({
   address: z.string(),
-  solver: z.string().optional(),
-  rank: z.number().optional(),
-  name: z.string().optional(),
+  solver: z.string().nullable(),
+  rank: z.number().nullable(),
+  name: z.string().nullable(),
   totalVolume: z.string(),
   totalFills: z.number(),
   successRate: z.number(),
   reputation: z.number(),
-  avgFillTimeMs: z.number().optional(),
-  totalFeesEarned: z.string().optional(),
+  avgFillTimeMs: z.number().nullable(),
+  totalFeesEarned: z.string().nullable(),
 })
 
 const ChainStatsSchema = z.object({
@@ -109,17 +109,17 @@ const SupportedTokenSchema = z.object({
 const OIFStatsSchema = z.object({
   totalIntents: z.number(),
   totalVolume: z.string(),
-  totalVolumeUsd: z.string().optional(),
+  totalVolumeUsd: z.string().nullable(),
   totalSolvers: z.number(),
-  activeSolvers: z.number().optional(),
+  activeSolvers: z.number().nullable(),
   totalRoutes: z.number(),
-  activeRoutes: z.number().optional(),
+  activeRoutes: z.number().nullable(),
   last24hIntents: z.number(),
   last24hVolume: z.string(),
-  successRate: z.number().optional(),
-  totalFeesUsd: z.string().optional(),
-  avgFillTimeSeconds: z.number().optional(),
-  totalSolverStake: z.string().optional(),
+  successRate: z.number().nullable(),
+  totalFeesUsd: z.string().nullable(),
+  avgFillTimeSeconds: z.number().nullable(),
+  totalSolverStake: z.string().nullable(),
 })
 
 // Infer types from schemas
@@ -133,7 +133,7 @@ export type SolverLeaderboardEntry = z.infer<
 export type ChainStats = z.infer<typeof ChainStatsSchema>
 export type OIFStats = z.infer<typeof OIFStatsSchema>
 
-async function fetchJSON<T>(path: string, schema?: z.ZodSchema<T>): Promise<T> {
+async function fetchJSON<T>(path: string, schema?: z.ZodType<T>): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`)
   if (!res.ok)
     throw new Error(`Failed to fetch ${path}: ${res.status} ${res.statusText}`)

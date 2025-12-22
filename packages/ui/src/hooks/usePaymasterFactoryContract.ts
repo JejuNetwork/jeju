@@ -11,6 +11,9 @@ import {
 } from 'wagmi'
 import { PAYMASTER_FACTORY_ABI } from '../contracts'
 
+/** Type for getDeployment return value: [paymaster, vault, oracle] */
+type DeploymentTuple = readonly [Address, Address, Address]
+
 export interface PaymasterDeployment {
   paymaster: Address
   vault: Address
@@ -67,6 +70,8 @@ export function usePaymasterFactory(
     [factoryAddress, writeContract],
   )
 
+  // Type assertion required: wagmi's useReadContract returns a generic type
+  // based on ABI inference. The ABI specifies address[] return type.
   return {
     allDeployments: allDeployments ? (allDeployments as Address[]) : [],
     deployPaymaster,
@@ -87,13 +92,16 @@ export function usePaymasterDeployment(
     args: tokenAddress ? [tokenAddress] : undefined,
   })
 
-  const parsedDeployment: PaymasterDeployment | null = deployment
-    ? {
-        paymaster: (deployment as readonly [Address, Address, Address])[0],
-        vault: (deployment as readonly [Address, Address, Address])[1],
-        oracle: (deployment as readonly [Address, Address, Address])[2],
-      }
-    : null
+  // Parse deployment tuple into structured object
+  const parsedDeployment: PaymasterDeployment | null = (() => {
+    if (!deployment) return null
+    const tuple = deployment as DeploymentTuple
+    return {
+      paymaster: tuple[0],
+      vault: tuple[1],
+      oracle: tuple[2],
+    }
+  })()
 
   return {
     deployment: parsedDeployment,

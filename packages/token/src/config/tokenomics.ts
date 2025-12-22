@@ -232,6 +232,7 @@ export function validateTokenEconomicsConfig(
       result.error.issues,
     )
   }
+  // Safe to cast: we validated the input config which already has the correct TokenEconomics type
   return result.data as TokenEconomics
 }
 

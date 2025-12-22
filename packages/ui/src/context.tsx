@@ -32,13 +32,15 @@ const NetworkContext = createContext<NetworkContextValue>({
   error: null,
 })
 
-const NetworkProviderPropsSchema = z.object({
-  network: NetworkSchema.default('testnet'),
-  privateKey: HexSchema.optional(),
-  mnemonic: z.string().min(1).optional(),
-  smartAccount: z.boolean().default(true),
-  rpcUrl: z.string().url().optional(),
-})
+const NetworkProviderPropsSchema = z
+  .object({
+    network: NetworkSchema.default('testnet'),
+    privateKey: HexSchema.optional(),
+    mnemonic: z.string().min(1).optional(),
+    smartAccount: z.boolean().default(true),
+    rpcUrl: z.string().url().optional(),
+  })
+  .strict()
 
 export interface NetworkProviderProps {
   children: ReactNode

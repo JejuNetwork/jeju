@@ -25,8 +25,6 @@ import { createLogger } from '../utils/logger.js'
 
 const log = createLogger('ccip')
 
-// ============ CCIP Chain Selectors ============
-
 export const CCIP_CHAIN_SELECTORS: Record<number, bigint> = {
   1: 5009297550715157269n, // Ethereum
   42161: 4949039107694359620n, // Arbitrum One
@@ -38,8 +36,6 @@ export const CCIP_CHAIN_SELECTORS: Record<number, bigint> = {
   998: 0n, // Hyperliquid (custom - needs deployment)
   592: 0n, // Astar (custom - needs deployment)
 }
-
-// ============ CCIP Contract Addresses ============
 
 export const CCIP_ROUTERS: Record<number, Address> = {
   1: '0x80226fc0Ee2b096224EeAc085Bb9a8cba1146f7D', // Ethereum
@@ -61,8 +57,6 @@ export const CCIP_LINK_TOKEN: Record<number, Address> = {
   56: '0x404460C6A5EdE2D891e8297795264fDe62ADBB75',
 }
 
-// ============ Contract ABIs ============
-
 const CCIP_ROUTER_ABI = parseAbi([
   // Token transfer with data
   'function ccipSend(uint64 destinationChainSelector, (bytes receiver, bytes data, (address token, uint256 amount)[] tokenAmounts, address feeToken, bytes extraArgs) message) external payable returns (bytes32 messageId)',
@@ -73,8 +67,6 @@ const CCIP_ROUTER_ABI = parseAbi([
   // Get supported tokens
   'function getSupportedTokens(uint64 chainSelector) external view returns (address[])',
 ])
-
-// ============ Types ============
 
 export interface CCIPMessage {
   receiver: Hex
@@ -108,8 +100,6 @@ export interface CCIPTokenPool {
   type: 'lock_release' | 'burn_mint'
   supportedChains: number[]
 }
-
-// ============ CCIP Adapter ============
 
 export class CCIPAdapter {
   private publicClients: Map<number, PublicClient> = new Map()
@@ -466,8 +456,6 @@ export class CCIPAdapter {
     return poolAddress
   }
 
-  // ============ Private Methods ============
-
   private encodeExtraArgs(gasLimit: bigint): Hex {
     // CCIP extraArgs format: version (2 bytes) + encoded args
     // EVMExtraArgsV1: gasLimit only
@@ -492,13 +480,9 @@ export class CCIPAdapter {
   }
 }
 
-// ============ Factory ============
-
 export function createCCIPAdapter(): CCIPAdapter {
   return new CCIPAdapter()
 }
-
-// ============ CCIP Revenue Opportunities ============
 
 /**
  * Revenue strategies using CCIP:

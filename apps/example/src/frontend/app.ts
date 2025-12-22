@@ -1,4 +1,15 @@
-// Ethereum provider types for wallet interaction
+/**
+ * Decentralized Todo Frontend
+ *
+ * Uses typed fetch wrapper for API calls.
+ * The backend is Elysia-based, but for browser compatibility we use
+ * a typed HTTP client pattern.
+ */
+
+// ============================================================================
+// Types
+// ============================================================================
+
 type EthereumRequestMethod =
   | 'eth_requestAccounts'
   | 'personal_sign'
@@ -9,20 +20,19 @@ interface EthereumRequestArgs {
   params?: (string | number)[]
 }
 
-declare global {
-  interface Window {
-    ethereum?: {
-      request: (args: EthereumRequestArgs) => Promise<string | string[]>
-      on: (
-        event: 'accountsChanged',
-        handler: (accounts: string[]) => void,
-      ) => void
-      removeListener: (
-        event: 'accountsChanged',
-        handler: (accounts: string[]) => void,
-      ) => void
-    }
-  }
+// Extend Window interface for ethereum provider
+interface EthereumProvider {
+  request: (args: EthereumRequestArgs) => Promise<string | string[]>
+  on: (event: 'accountsChanged', handler: (accounts: string[]) => void) => void
+  removeListener: (
+    event: 'accountsChanged',
+    handler: (accounts: string[]) => void,
+  ) => void
+}
+
+// Access ethereum via explicit property to avoid type conflicts
+function getEthereumProvider(): EthereumProvider | undefined {
+  return (window as unknown as { ethereum?: EthereumProvider }).ethereum
 }
 
 interface Todo {
@@ -47,7 +57,33 @@ interface AppState {
   filter: 'all' | 'pending' | 'completed'
 }
 
-const API_URL = import.meta.env?.VITE_API_URL || 'http://localhost:4500/api/v1'
+// ============================================================================
+// API Client Types
+// ============================================================================
+
+interface TodoListResponse {
+  todos: Todo[]
+  count: number
+}
+
+interface TodoResponse {
+  todo: Todo
+}
+
+interface ApiErrorResponse {
+  error: string
+  code?: string
+}
+
+// ============================================================================
+// Configuration
+// ============================================================================
+
+const API_URL = 'http://localhost:4500'
+
+// ============================================================================
+// State
+// ============================================================================
 
 const state: AppState = {
   address: null,
@@ -57,74 +93,112 @@ const state: AppState = {
   filter: 'all',
 }
 
+// ============================================================================
+// Typed API Client
+// ============================================================================
+
+class ApiClient {
+  private baseUrl: string
+  private headers: Record<string, string>
+
+  constructor(baseUrl: string, headers: Record<string, string> = {}) {
+    this.baseUrl = baseUrl.replace(/\/$/, '')
+    this.headers = headers
+  }
+
+  private async fetch<T>(path: string, init?: RequestInit): Promise<T> {
+    const response = await fetch(`${this.baseUrl}${path}`, {
+      ...init,
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.headers,
+        ...init?.headers,
+      },
+    })
+
+    if (!response.ok) {
+      const errorBody = (await response.json().catch(() => ({
+        error: response.statusText,
+      }))) as ApiErrorResponse
+      throw new Error(errorBody.error || `Request failed: ${response.status}`)
+    }
+
+    return response.json() as Promise<T>
+  }
+
+  async listTodos(filter?: { completed?: boolean }): Promise<TodoListResponse> {
+    const params =
+      filter?.completed !== undefined ? `?completed=${filter.completed}` : ''
+    return this.fetch<TodoListResponse>(`/api/v1/todos${params}`)
+  }
+
+  async createTodo(input: {
+    title: string
+    priority: 'low' | 'medium' | 'high'
+    description?: string
+  }): Promise<TodoResponse> {
+    return this.fetch<TodoResponse>('/api/v1/todos', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    })
+  }
+
+  async updateTodo(
+    id: string,
+    input: { completed?: boolean; title?: string },
+  ): Promise<TodoResponse> {
+    return this.fetch<TodoResponse>(`/api/v1/todos/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    })
+  }
+
+  async deleteTodo(id: string): Promise<{ success: boolean }> {
+    return this.fetch<{ success: boolean }>(`/api/v1/todos/${id}`, {
+      method: 'DELETE',
+    })
+  }
+
+  async encryptTodo(id: string): Promise<TodoResponse> {
+    return this.fetch<TodoResponse>(`/api/v1/todos/${id}/encrypt`, {
+      method: 'POST',
+    })
+  }
+}
+
+// ============================================================================
+// Auth Header Generation
+// ============================================================================
+
 async function getAuthHeaders(): Promise<Record<string, string>> {
-  if (!state.address || !window.ethereum) {
+  const ethereum = getEthereumProvider()
+  if (!state.address || !ethereum) {
     throw new Error('Wallet not connected')
   }
 
   const timestamp = Date.now().toString()
   const message = `jeju-dapp:${timestamp}`
 
-  const signature = (await window.ethereum.request({
+  const signature = (await ethereum.request({
     method: 'personal_sign',
     params: [message, state.address],
   })) as string
 
   return {
-    'Content-Type': 'application/json',
     'x-jeju-address': state.address,
     'x-jeju-timestamp': timestamp,
     'x-jeju-signature': signature,
   }
 }
 
-function validateTodo(data: Record<string, unknown>): Todo {
-  if (typeof data.id !== 'string' || !data.id)
-    throw new Error('Todo ID is required')
-  if (typeof data.title !== 'string' || !data.title)
-    throw new Error('Todo title is required')
-  if (typeof data.description !== 'string')
-    throw new Error('Todo description must be string')
-  if (typeof data.completed !== 'boolean')
-    throw new Error('Todo completed must be boolean')
-  if (!['low', 'medium', 'high'].includes(data.priority as string)) {
-    throw new Error('Todo priority must be low, medium, or high')
-  }
-  if (
-    data.dueDate !== null &&
-    (typeof data.dueDate !== 'number' || data.dueDate <= 0)
-  ) {
-    throw new Error('Todo dueDate must be null or positive number')
-  }
-  if (typeof data.createdAt !== 'number' || data.createdAt <= 0) {
-    throw new Error('Todo createdAt must be positive number')
-  }
-  if (typeof data.updatedAt !== 'number' || data.updatedAt <= 0) {
-    throw new Error('Todo updatedAt must be positive number')
-  }
-  if (typeof data.owner !== 'string' || !data.owner)
-    throw new Error('Todo owner is required')
-  if (data.encryptedData !== null && typeof data.encryptedData !== 'string') {
-    throw new Error('Todo encryptedData must be null or string')
-  }
-  if (data.attachmentCid !== null && typeof data.attachmentCid !== 'string') {
-    throw new Error('Todo attachmentCid must be null or string')
-  }
-
-  return {
-    id: data.id,
-    title: data.title,
-    description: data.description as string,
-    completed: data.completed,
-    priority: data.priority as 'low' | 'medium' | 'high',
-    dueDate: data.dueDate as number | null,
-    createdAt: data.createdAt,
-    updatedAt: data.updatedAt,
-    owner: data.owner,
-    encryptedData: data.encryptedData as string | null,
-    attachmentCid: data.attachmentCid as string | null,
-  }
+async function getAuthenticatedClient(): Promise<ApiClient> {
+  const headers = await getAuthHeaders()
+  return new ApiClient(API_URL, headers)
 }
+
+// ============================================================================
+// API Functions
+// ============================================================================
 
 function validateTitle(title: string): string {
   if (!title || typeof title !== 'string' || title.trim().length === 0) {
@@ -148,22 +222,15 @@ async function fetchTodos(): Promise<void> {
   state.error = null
   render()
 
-  const headers = await getAuthHeaders()
-  const params =
-    state.filter !== 'all' ? `?completed=${state.filter === 'completed'}` : ''
+  const client = await getAuthenticatedClient()
+  const completed =
+    state.filter === 'all' ? undefined : state.filter === 'completed'
 
-  const response = await fetch(`${API_URL}/todos${params}`, { headers })
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`Failed to fetch todos: ${response.status} ${errorText}`)
-  }
+  const response = await client.listTodos(
+    completed !== undefined ? { completed } : undefined,
+  )
 
-  const data = (await response.json()) as { todos: Record<string, unknown>[] }
-  if (!data.todos || !Array.isArray(data.todos)) {
-    throw new Error('Invalid response: todos must be an array')
-  }
-
-  state.todos = data.todos.map((todo) => validateTodo(todo))
+  state.todos = response.todos
   state.loading = false
   render()
 }
@@ -175,21 +242,11 @@ async function createTodo(
   const validatedTitle = validateTitle(title)
   const validatedPriority = validatePriority(priority)
 
-  const headers = await getAuthHeaders()
-
-  const response = await fetch(`${API_URL}/todos`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({
-      title: validatedTitle,
-      priority: validatedPriority,
-    }),
+  const client = await getAuthenticatedClient()
+  await client.createTodo({
+    title: validatedTitle,
+    priority: validatedPriority,
   })
-
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`Failed to create todo: ${response.status} ${errorText}`)
-  }
 
   await fetchTodos()
 }
@@ -202,19 +259,8 @@ async function toggleTodo(id: string, completed: boolean): Promise<void> {
     throw new Error('Completed must be a boolean')
   }
 
-  const headers = await getAuthHeaders()
-
-  const response = await fetch(`${API_URL}/todos/${id}`, {
-    method: 'PATCH',
-    headers,
-    body: JSON.stringify({ completed }),
-  })
-
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`Failed to toggle todo: ${response.status} ${errorText}`)
-  }
-
+  const client = await getAuthenticatedClient()
+  await client.updateTodo(id, { completed })
   await fetchTodos()
 }
 
@@ -223,18 +269,8 @@ async function deleteTodo(id: string): Promise<void> {
     throw new Error('Todo ID is required')
   }
 
-  const headers = await getAuthHeaders()
-
-  const response = await fetch(`${API_URL}/todos/${id}`, {
-    method: 'DELETE',
-    headers,
-  })
-
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`Failed to delete todo: ${response.status} ${errorText}`)
-  }
-
+  const client = await getAuthenticatedClient()
+  await client.deleteTodo(id)
   await fetchTodos()
 }
 
@@ -243,29 +279,20 @@ async function encryptTodo(id: string): Promise<void> {
     throw new Error('Todo ID is required')
   }
 
-  const headers = await getAuthHeaders()
-
-  const response = await fetch(`${API_URL}/todos/${id}/encrypt`, {
-    method: 'POST',
-    headers,
-  })
-
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`Failed to encrypt todo: ${response.status} ${errorText}`)
-  }
-
+  const client = await getAuthenticatedClient()
+  await client.encryptTodo(id)
   await fetchTodos()
 }
 
 async function connectWallet(): Promise<void> {
-  if (!window.ethereum) {
+  const ethereum = getEthereumProvider()
+  if (!ethereum) {
     state.error = 'Please install MetaMask or another Web3 wallet'
     render()
     return
   }
 
-  const accounts = (await window.ethereum.request({
+  const accounts = (await ethereum.request({
     method: 'eth_requestAccounts',
   })) as string[]
 
@@ -287,6 +314,10 @@ function disconnectWallet(): void {
   state.todos = []
   render()
 }
+
+// ============================================================================
+// Rendering
+// ============================================================================
 
 function render(): void {
   const app = document.getElementById('app')
@@ -435,7 +466,7 @@ function renderTodoList(): string {
   if (state.todos.length === 0) {
     return `
       <div class="text-center py-8">
-        <p class="text-gray-600 dark:text-gray-400">No todos yet. Create one above!</p>
+        <p class="text-gray-600 dark:text-gray-400">No todos yet. Create one above.</p>
       </div>
     `
   }
@@ -498,6 +529,10 @@ function escapeHtml(text: string): string {
   return div.innerHTML
 }
 
+// ============================================================================
+// Event Listeners
+// ============================================================================
+
 function attachEventListeners(): void {
   // Connect button
   document.getElementById('connect')?.addEventListener('click', connectWallet)
@@ -523,24 +558,18 @@ function attachEventListeners(): void {
         return
       }
 
-      try {
-        const title = input.value.trim()
-        const priority = select.value
+      const title = input.value.trim()
+      const priority = select.value
 
-        if (!title) {
-          state.error = 'Title is required'
-          render()
-          return
-        }
-
-        await createTodo(title, validatePriority(priority))
-        input.value = ''
-        state.error = null
-      } catch (error) {
-        state.error =
-          error instanceof Error ? error.message : 'Failed to create todo'
+      if (!title) {
+        state.error = 'Title is required'
         render()
+        return
       }
+
+      await createTodo(title, validatePriority(priority))
+      input.value = ''
+      state.error = null
     })
 
   // Filter buttons
@@ -584,8 +613,13 @@ function attachEventListeners(): void {
   })
 }
 
-if (window.ethereum) {
-  window.ethereum.on('accountsChanged', (accounts: string[]) => {
+// ============================================================================
+// Account Change Listener
+// ============================================================================
+
+const ethereumProvider = getEthereumProvider()
+if (ethereumProvider) {
+  ethereumProvider.on('accountsChanged', (accounts: string[]) => {
     if (accounts.length > 0) {
       state.address = accounts[0]
       fetchTodos()
@@ -594,5 +628,9 @@ if (window.ethereum) {
     }
   })
 }
+
+// ============================================================================
+// Initialize
+// ============================================================================
 
 render()

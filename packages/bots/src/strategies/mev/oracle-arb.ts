@@ -11,11 +11,11 @@
 
 import { EventEmitter } from 'node:events'
 import {
-  type PublicClient,
-  type WalletClient,
   type Address,
   type Hash,
   type Hex,
+  type PublicClient,
+  type WalletClient,
   parseAbi,
   encodeFunctionData,
   parseEther,
@@ -76,7 +76,7 @@ const UNISWAP_ROUTER_ABI = parseAbi([
   'function getAmountsOut(uint256 amountIn, address[] path) view returns (uint256[])',
 ])
 
-const ERC20_ABI = parseAbi([
+const _ERC20_ABI = parseAbi([
   'function approve(address spender, uint256 amount) returns (bool)',
   'function balanceOf(address) view returns (uint256)',
 ])
@@ -99,8 +99,8 @@ const TOKENS: Record<number, Record<string, Address>> = {
   },
 }
 
-// Chainlink price feeds
-const CHAINLINK_FEEDS: Record<number, Record<string, Address>> = {
+// Major Chainlink price feeds
+const _CHAINLINK_FEEDS: Record<number, Record<string, Address>> = {
   1: {
     'ETH/USD': '0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419',
     'BTC/USD': '0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c',
@@ -126,7 +126,7 @@ export class OracleArbStrategy extends EventEmitter {
   constructor(
     config: OracleArbConfig,
     client: PublicClient,
-    wallet: WalletClient
+    wallet: WalletClient,
   ) {
     super()
     this.config = config
@@ -138,7 +138,9 @@ export class OracleArbStrategy extends EventEmitter {
     if (this.running) return
     this.running = true
 
-    console.log(`📊 Oracle Arb: monitoring ${this.config.oracleAddresses.length} Chainlink feeds`)
+    console.log(
+      `📊 Oracle Arb: monitoring ${this.config.oracleAddresses.length} Chainlink feeds`,
+    )
 
     await this.initializePrices()
     this.watchOracles()
@@ -188,7 +190,11 @@ export class OracleArbStrategy extends EventEmitter {
 
   private async onOracleUpdate(
     oracle: Address,
-    log: { args: Record<string, bigint>; transactionHash: Hash; blockNumber: bigint }
+    log: {
+      args: Record<string, bigint>
+      transactionHash: Hash
+      blockNumber: bigint
+    },
   ): Promise<void> {
     if (!this.running) return
 
@@ -240,7 +246,7 @@ export class OracleArbStrategy extends EventEmitter {
 
   private async findOpportunity(
     update: OracleUpdate,
-    priceDelta: number
+    priceDelta: number,
   ): Promise<OracleArbOpportunity | null> {
     const direction = priceDelta > 0 ? 'long' : 'short'
     const tokens = TOKENS[this.config.chainId]
@@ -317,6 +323,9 @@ export class OracleArbStrategy extends EventEmitter {
 
   private async execute(opportunity: OracleArbOpportunity): Promise<ExecutionResult> {
     this.executionStats.attempts++
+    console.log(
+      `📊 Oracle arb: ${opportunity.direction} ${opportunity.asset}, ${opportunity.expectedProfitUsd.toFixed(2)} USD expected`,
+    )
 
     const [account] = await this.wallet.getAddresses()
     const deadline = BigInt(Math.floor(Date.now() / 1000) + 120)

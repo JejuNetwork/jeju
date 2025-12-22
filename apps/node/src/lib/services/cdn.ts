@@ -4,9 +4,7 @@ import { z } from 'zod'
 import { CDN_REGISTRY_ABI } from '../abis'
 import { getChain, type NodeClient } from '../contracts'
 
-// ============================================================================
 // Types & Validation
-// ============================================================================
 
 // Use the actual CDNRegion type from @jejunetwork/types
 const CDNRegionSchema = z.string() // Will validate against actual CDNRegion values
@@ -108,9 +106,7 @@ export function validateCDNEarnings(data: unknown): CDNEarnings {
   return CDNEarningsSchema.parse(data)
 }
 
-// ============================================================================
 // CDN Service
-// ============================================================================
 
 export class CDNService {
   private client: NodeClient
@@ -487,17 +483,13 @@ export class CDNService {
   }
 }
 
-// ============================================================================
 // Types for subprocess
-// ============================================================================
 
 interface ChildProcess {
   kill(): void
 }
 
-// ============================================================================
 // Factory
-// ============================================================================
 
 export function createCDNService(client: NodeClient): CDNService {
   return new CDNService(client)

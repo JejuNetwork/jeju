@@ -28,7 +28,7 @@ export type MFAMethod = (typeof MFAMethod)[keyof typeof MFAMethod]
 export interface MFAStatus {
   enabled: boolean
   methods: MFAMethod[]
-  preferredMethod: MFAMethod | null
+  preferredMethod?: MFAMethod
   passkeyCount: number
   totpEnabled: boolean
   backupCodesRemaining: number

@@ -34,9 +34,7 @@ import {
   OracleAttestationSchema,
 } from '../../validation'
 
-// ============================================================================
 // Configuration Schema
-// ============================================================================
 
 const TorrentConfigSchema = z.object({
   trackers: z.array(z.string()).min(1),
@@ -59,9 +57,7 @@ const TorrentConfigSchema = z.object({
 
 export type HybridTorrentConfig = z.infer<typeof TorrentConfigSchema>
 
-// ============================================================================
 // Types
-// ============================================================================
 
 export interface TorrentStats {
   infohash: string
@@ -90,9 +86,7 @@ interface TorrentRecord {
 
 // OracleAttestation type imported from validation.ts via schema
 
-// ============================================================================
 // Prometheus Metrics
-// ============================================================================
 
 const metricsRegistry = new Registry()
 
@@ -133,9 +127,7 @@ const torrentOracleAttestations = new Counter({
   registers: [metricsRegistry],
 })
 
-// ============================================================================
 // Content Verification
-// ============================================================================
 
 function verifyContentHash(data: Buffer, expectedHash: string): boolean {
   // Support multiple hash formats
@@ -208,9 +200,7 @@ function base58Encode(buffer: Buffer): string {
   return result
 }
 
-// ============================================================================
 // Hybrid Torrent Service
-// ============================================================================
 
 export class HybridTorrentService {
   private config: HybridTorrentConfig
@@ -925,9 +915,7 @@ export class HybridTorrentService {
   }
 }
 
-// ============================================================================
 // Factory
-// ============================================================================
 
 let instance: HybridTorrentService | null = null
 

@@ -6,7 +6,7 @@
  */
 
 import { EventEmitter } from 'node:events'
-import { type PublicClient, type Address, parseAbi, formatUnits } from 'viem'
+import { type Address, type PublicClient, parseAbi } from 'viem'
 
 export interface RateArbConfig {
   chainId: number
@@ -48,13 +48,33 @@ interface RateOpportunity {
 // Protocol addresses by chain
 const PROTOCOLS: Record<number, RateProtocol[]> = {
   1: [
-    { name: 'Aave V3', poolAddress: '0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2', type: 'aave' },
-    { name: 'Compound V3 USDC', poolAddress: '0xc3d688B66703497DAA19211EEdff47f25384cdc3', type: 'compound' },
-    { name: 'Spark', poolAddress: '0xC13e21B648A5Ee794902342038FF3aDAB66BE987', type: 'spark' },
+    {
+      name: 'Aave V3',
+      poolAddress: '0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2',
+      type: 'aave',
+    },
+    {
+      name: 'Compound V3 USDC',
+      poolAddress: '0xc3d688B66703497DAA19211EEdff47f25384cdc3',
+      type: 'compound',
+    },
+    {
+      name: 'Spark',
+      poolAddress: '0xC13e21B648A5Ee794902342038FF3aDAB66BE987',
+      type: 'spark',
+    },
   ],
   8453: [
-    { name: 'Aave V3', poolAddress: '0xA238Dd80C259a72e81d7e4664a9801593F98d1c5', type: 'aave' },
-    { name: 'Compound V3 USDC', poolAddress: '0xb125E6687d4313864e53df431d5425969c15Eb2F', type: 'compound' },
+    {
+      name: 'Aave V3',
+      poolAddress: '0xA238Dd80C259a72e81d7e4664a9801593F98d1c5',
+      type: 'aave',
+    },
+    {
+      name: 'Compound V3 USDC',
+      poolAddress: '0xb125E6687d4313864e53df431d5425969c15Eb2F',
+      type: 'compound',
+    },
   ],
 }
 
@@ -114,7 +134,9 @@ export class RateArbitrage extends EventEmitter {
   async start(): Promise<void> {
     if (this.running) return
     this.running = true
-    console.log(`📈 Rate Arb: monitoring ${this.protocols.length} protocols on chain ${this.config.chainId}`)
+    console.log(
+      `📈 Rate Arb: monitoring ${this.protocols.length} protocols on chain ${this.config.chainId}`,
+    )
     this.monitorLoop()
   }
 
@@ -127,7 +149,9 @@ export class RateArbitrage extends EventEmitter {
       this.opportunities = await this.findOpportunities()
 
       for (const opp of this.opportunities) {
-        console.log(`📈 Rate arb: Borrow ${opp.symbol} from ${opp.borrowFrom} (${(opp.borrowRate * 100).toFixed(2)}%) -> Supply to ${opp.supplyTo} (${(opp.supplyRate * 100).toFixed(2)}%) = ${opp.spreadBps}bps spread`)
+        console.log(
+          `📈 Rate arb: Borrow ${opp.symbol} from ${opp.borrowFrom} (${(opp.borrowRate * 100).toFixed(2)}%) -> Supply to ${opp.supplyTo} (${(opp.supplyRate * 100).toFixed(2)}%) = ${opp.spreadBps}bps spread`,
+        )
         this.emit('opportunity', opp)
       }
 
@@ -137,9 +161,10 @@ export class RateArbitrage extends EventEmitter {
 
   private async findOpportunities(): Promise<RateOpportunity[]> {
     const opportunities: RateOpportunity[] = []
-    const assets = this.config.assets.length > 0
-      ? this.config.assets
-      : Object.values(ASSETS[this.config.chainId] ?? {})
+    const assets =
+      this.config.assets.length > 0
+        ? this.config.assets
+        : Object.values(ASSETS[this.config.chainId] ?? {})
 
     for (const asset of assets) {
       const assetRates = await this.getAssetRates(asset)
@@ -148,8 +173,12 @@ export class RateArbitrage extends EventEmitter {
       this.lastRates.set(asset, assetRates)
 
       // Find best supply and best borrow rates
-      const sortedBySupply = [...assetRates.rates].sort((a, b) => b.supplyApy - a.supplyApy)
-      const sortedByBorrow = [...assetRates.rates].sort((a, b) => a.borrowApy - b.borrowApy)
+      const sortedBySupply = [...assetRates.rates].sort(
+        (a, b) => b.supplyApy - a.supplyApy,
+      )
+      const sortedByBorrow = [...assetRates.rates].sort(
+        (a, b) => a.borrowApy - b.borrowApy,
+      )
 
       const bestSupply = sortedBySupply[0]
       const cheapestBorrow = sortedByBorrow[0]
@@ -163,9 +192,10 @@ export class RateArbitrage extends EventEmitter {
 
       if (spreadBps > this.config.minSpreadBps) {
         // Calculate max size based on available liquidity
-        const maxSize = bestSupply.liquidity < cheapestBorrow.liquidity
-          ? bestSupply.liquidity
-          : cheapestBorrow.liquidity
+        const maxSize =
+          bestSupply.liquidity < cheapestBorrow.liquidity
+            ? bestSupply.liquidity
+            : cheapestBorrow.liquidity
 
         opportunities.push({
           asset,
@@ -176,7 +206,7 @@ export class RateArbitrage extends EventEmitter {
           supplyRate: bestSupply.supplyApy,
           spreadBps,
           maxSize,
-          estimatedProfit: Number(maxSize) / 1e6 * spread, // Assuming 6 decimals
+          estimatedProfit: (Number(maxSize) / 1e6) * spread, // Assuming 6 decimals
         })
       }
     }
@@ -204,10 +234,7 @@ export class RateArbitrage extends EventEmitter {
         if (rate) {
           rates.push({ protocol: protocol.name, ...rate })
         }
-      } catch {
-        // Protocol might not support this asset
-        continue
-      }
+      } catch {}
     }
 
     if (rates.length === 0) return null
@@ -217,8 +244,13 @@ export class RateArbitrage extends EventEmitter {
 
   private async getProtocolRate(
     protocol: RateProtocol,
-    asset: Address
-  ): Promise<{ supplyApy: number; borrowApy: number; utilization: number; liquidity: bigint } | null> {
+    asset: Address,
+  ): Promise<{
+    supplyApy: number
+    borrowApy: number
+    utilization: number
+    liquidity: bigint
+  } | null> {
     if (protocol.type === 'aave' || protocol.type === 'spark') {
       return this.getAaveRate(protocol.poolAddress, asset)
     } else if (protocol.type === 'compound') {
@@ -229,8 +261,13 @@ export class RateArbitrage extends EventEmitter {
 
   private async getAaveRate(
     poolAddress: Address,
-    asset: Address
-  ): Promise<{ supplyApy: number; borrowApy: number; utilization: number; liquidity: bigint } | null> {
+    asset: Address,
+  ): Promise<{
+    supplyApy: number
+    borrowApy: number
+    utilization: number
+    liquidity: bigint
+  } | null> {
     try {
       const data = await this.client.readContract({
         address: poolAddress,
@@ -266,9 +303,12 @@ export class RateArbitrage extends EventEmitter {
     }
   }
 
-  private async getCompoundRate(
-    cometAddress: Address
-  ): Promise<{ supplyApy: number; borrowApy: number; utilization: number; liquidity: bigint } | null> {
+  private async getCompoundRate(cometAddress: Address): Promise<{
+    supplyApy: number
+    borrowApy: number
+    utilization: number
+    liquidity: bigint
+  } | null> {
     try {
       const [utilization, totalSupply, totalBorrow] = await Promise.all([
         this.client.readContract({
@@ -305,8 +345,8 @@ export class RateArbitrage extends EventEmitter {
 
       // Compound rates are per-second, convert to APY
       // Rate is in 1e18 precision
-      const supplyApy = Number(supplyRate) * Number(SECONDS_PER_YEAR) / 1e18
-      const borrowApy = Number(borrowRate) * Number(SECONDS_PER_YEAR) / 1e18
+      const supplyApy = (Number(supplyRate) * Number(SECONDS_PER_YEAR)) / 1e18
+      const borrowApy = (Number(borrowRate) * Number(SECONDS_PER_YEAR)) / 1e18
 
       return {
         supplyApy,
@@ -319,7 +359,11 @@ export class RateArbitrage extends EventEmitter {
     }
   }
 
-  getStats(): { protocols: number; opportunities: number; lastRates: Map<string, AssetRates> } {
+  getStats(): {
+    protocols: number
+    opportunities: number
+    lastRates: Map<string, AssetRates>
+  } {
     return {
       protocols: this.protocols.length,
       opportunities: this.opportunities.length,

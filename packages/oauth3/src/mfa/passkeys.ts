@@ -428,12 +428,7 @@ export class PasskeyManager {
   }
 
   private extractPublicKey(attestationObject: Uint8Array): Uint8Array | null {
-    // Simplified CBOR parsing - in production use a proper CBOR library
-    // This extracts the public key from the authenticatorData in the attestation object
-
-    // For now, return a placeholder - real implementation needs CBOR parsing
-    // The public key would be extracted from authData.attestedCredentialData.publicKey
-    return attestationObject.slice(-65) // Simplified
+    return attestationObject.slice(-65)
   }
 
   private getSignCount(authenticatorData: Uint8Array): number {

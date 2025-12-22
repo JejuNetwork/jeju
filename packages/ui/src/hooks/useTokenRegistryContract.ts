@@ -34,15 +34,20 @@ export interface TokenConfig {
   metadataHash: `0x${string}`
 }
 
-// Known tokens for fallback
-const KNOWN_TOKENS: Record<string, TokenInfo> = {
-  '0x0000000000000000000000000000000000000000': {
-    address: '0x0000000000000000000000000000000000000000',
-    symbol: 'ETH',
-    name: 'Ethereum',
-    decimals: 18,
-  },
-}
+// Built-in token definitions - using lowercase addresses for consistent lookup
+const ETH_ADDRESS =
+  '0x0000000000000000000000000000000000000000' as const satisfies Address
+const KNOWN_TOKENS: ReadonlyMap<Lowercase<Address>, TokenInfo> = new Map([
+  [
+    ETH_ADDRESS.toLowerCase() as Lowercase<Address>,
+    {
+      address: ETH_ADDRESS,
+      symbol: 'ETH',
+      name: 'Ethereum',
+      decimals: 18,
+    },
+  ],
+])
 
 export interface UseTokenRegistryResult {
   allTokens: Address[]
@@ -56,7 +61,7 @@ export interface UseTokenRegistryResult {
   isPending: boolean
   isSuccess: boolean
   refetchTokens: () => void
-  getTokenInfo: (address: string) => TokenInfo | undefined
+  getTokenInfo: (address: Address) => TokenInfo | undefined
   tokens: TokenInfo[]
 }
 
@@ -112,13 +117,18 @@ export function useTokenRegistry(
   )
 
   // Local token lookup for known tokens
-  const getTokenInfo = useCallback((address: string): TokenInfo | undefined => {
-    const normalizedAddress = address.toLowerCase()
-    return KNOWN_TOKENS[normalizedAddress]
-  }, [])
+  const getTokenInfo = useCallback(
+    (address: Address): TokenInfo | undefined => {
+      const normalizedAddress = address.toLowerCase() as Lowercase<Address>
+      return KNOWN_TOKENS.get(normalizedAddress)
+    },
+    [],
+  )
 
-  const tokens = useMemo(() => Object.values(KNOWN_TOKENS), [])
+  const tokens = useMemo(() => Array.from(KNOWN_TOKENS.values()), [])
 
+  // Type assertion required: wagmi's useReadContract returns a generic type
+  // based on ABI inference. The ABI specifies address[] return type.
   return {
     allTokens: allTokens ? (allTokens as Address[]) : [],
     registrationFee,

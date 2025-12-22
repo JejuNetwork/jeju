@@ -175,8 +175,8 @@ class ChallengerService {
       }
 
       this.lastCheckedOutputIndex = latest
-    } catch {
-      // Ignore polling errors - will retry
+    } catch (error) {
+      console.debug('[Challenger] Polling error (will retry):', error)
     }
   }
 

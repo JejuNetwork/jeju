@@ -63,7 +63,7 @@ spec:
             - containerPort: 3000
               name: http
           env:
-            - name: NEXT_PUBLIC_API_HOST
+            - name: PUBLIC_API_HOST
               value: "http://{{ include "blockscout.fullname" . }}-backend:4000"
           resources:
             {{- toYaml .Values.frontend.resources | nindent 12 }}

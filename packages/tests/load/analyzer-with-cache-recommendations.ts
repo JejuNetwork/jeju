@@ -19,7 +19,12 @@ interface CacheRecommendation {
   issue: string
   severity: 'critical' | 'high' | 'medium' | 'low'
   latencyImpact: string
-  cacheStrategy: 'lru' | 'ttl' | 'stale-while-revalidate' | 'compute-memoization' | 'none'
+  cacheStrategy:
+    | 'lru'
+    | 'ttl'
+    | 'stale-while-revalidate'
+    | 'compute-memoization'
+    | 'none'
   suggestedTTL: number
   dwsIntegration: string
   codeExample: string
@@ -67,7 +72,8 @@ function analyzeEndpoint(metrics: EndpointMetrics): CacheRecommendation | null {
     cacheStrategy = 'lru'
     suggestedTTL = 60000 // 1 minute
     issue = 'Search queries are expensive - repeated searches can be cached'
-    dwsIntegration = 'Use DWS EdgeCache with query-based keys for search result caching'
+    dwsIntegration =
+      'Use DWS EdgeCache with query-based keys for search result caching'
     codeExample = `
 // packages/shared/src/cache/search-cache.ts
 import { LRUCache } from 'lru-cache'
@@ -90,8 +96,10 @@ export async function cachedSearch(query: string): Promise<SearchResult> {
   } else if (path.includes('/items') || path.includes('/list')) {
     cacheStrategy = 'stale-while-revalidate'
     suggestedTTL = 120000 // 2 minutes
-    issue = 'List queries hit database frequently - cache with SWR for freshness'
-    dwsIntegration = 'Use DWS EdgeCache with stale-while-revalidate for list data'
+    issue =
+      'List queries hit database frequently - cache with SWR for freshness'
+    dwsIntegration =
+      'Use DWS EdgeCache with stale-while-revalidate for list data'
     codeExample = `
 // packages/shared/src/cache/list-cache.ts
 import { getEdgeCache } from '@jejunetwork/dws/cache'
@@ -121,7 +129,8 @@ export async function cachedListItems(page: number): Promise<ListResult> {
     cacheStrategy = 'ttl'
     suggestedTTL = 15000 // 15 seconds - real-time data
     issue = 'Stats are computed frequently but change slowly - short TTL cache'
-    dwsIntegration = 'Use DWS with short TTL for real-time data that updates periodically'
+    dwsIntegration =
+      'Use DWS with short TTL for real-time data that updates periodically'
     codeExample = `
 // packages/shared/src/cache/stats-cache.ts
 interface CachedStats {
@@ -217,7 +226,7 @@ export async function cachedHandler(key: string): Promise<ResponseData> {
     endpoint: path,
     issue,
     severity,
-    latencyImpact: `${avgLatency.toFixed(1)}ms avg → <1ms with cache (${((1 - 1/avgLatency) * 100).toFixed(0)}% improvement)`,
+    latencyImpact: `${avgLatency.toFixed(1)}ms avg → <1ms with cache (${((1 - 1 / avgLatency) * 100).toFixed(0)}% improvement)`,
     cacheStrategy,
     suggestedTTL,
     dwsIntegration,
@@ -231,7 +240,7 @@ async function analyzeServer(baseUrl: string): Promise<CacheRecommendation[]> {
     throw new Error(`Failed to fetch metrics from ${baseUrl}`)
   }
 
-  const metrics = await response.json() as {
+  const metrics = (await response.json()) as {
     slowest: EndpointMetrics[]
     allEndpoints: EndpointMetrics[]
   }
@@ -240,8 +249,14 @@ async function analyzeServer(baseUrl: string): Promise<CacheRecommendation[]> {
 
   for (const endpoint of metrics.allEndpoints) {
     // Parse numeric fields which may come as strings from JSON
-    const avgLatency = typeof endpoint.avgLatency === 'string' ? parseFloat(endpoint.avgLatency) : endpoint.avgLatency
-    const maxLatency = typeof endpoint.maxLatency === 'string' ? parseFloat(endpoint.maxLatency) : endpoint.maxLatency
+    const avgLatency =
+      typeof endpoint.avgLatency === 'string'
+        ? parseFloat(endpoint.avgLatency)
+        : endpoint.avgLatency
+    const maxLatency =
+      typeof endpoint.maxLatency === 'string'
+        ? parseFloat(endpoint.maxLatency)
+        : endpoint.maxLatency
     const cacheHitRate = endpoint.cacheHitRate
       ? typeof endpoint.cacheHitRate === 'string'
         ? parseFloat(endpoint.cacheHitRate)
@@ -262,7 +277,9 @@ async function analyzeServer(baseUrl: string): Promise<CacheRecommendation[]> {
 
   // Sort by severity
   const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 }
-  return recommendations.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity])
+  return recommendations.sort(
+    (a, b) => severityOrder[a.severity] - severityOrder[b.severity],
+  )
 }
 
 async function main() {
@@ -280,7 +297,9 @@ async function main() {
   const recommendations = await analyzeServer(serverUrl)
 
   if (recommendations.length === 0) {
-    console.log('✅ All endpoints performing well - no caching recommendations needed.')
+    console.log(
+      '✅ All endpoints performing well - no caching recommendations needed.',
+    )
     return
   }
 
@@ -313,10 +332,12 @@ ${rec.codeExample}
   }
 
   // Summary
-  const critical = recommendations.filter(r => r.severity === 'critical').length
-  const high = recommendations.filter(r => r.severity === 'high').length
-  const medium = recommendations.filter(r => r.severity === 'medium').length
-  const low = recommendations.filter(r => r.severity === 'low').length
+  const critical = recommendations.filter(
+    (r) => r.severity === 'critical',
+  ).length
+  const high = recommendations.filter((r) => r.severity === 'high').length
+  const medium = recommendations.filter((r) => r.severity === 'medium').length
+  const low = recommendations.filter((r) => r.severity === 'low').length
 
   console.log(`
 ══════════════════════════════════════════════════════════════════════════════════
@@ -347,4 +368,3 @@ ${rec.codeExample}
 }
 
 main().catch(console.error)
-

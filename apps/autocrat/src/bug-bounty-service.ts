@@ -22,7 +22,6 @@ import {
   type Address,
   createPublicClient,
   createWalletClient,
-  formatEther,
   type Hex,
   http,
   keccak256,
@@ -43,7 +42,6 @@ import {
   type BountyGuardianVote,
   type BountyPoolStats,
   BountySeverity,
-  BountySeverityName,
   type BountySubmission,
   type BountySubmissionDraft,
   BountySubmissionStatus,
@@ -223,8 +221,6 @@ async function ensureTablesExist(): Promise<void> {
     [],
     CQL_DATABASE_ID,
   )
-
-  console.log('[BugBounty] CQL tables ensured')
 }
 
 // ============ Smart Contract Client ============
@@ -628,7 +624,6 @@ export async function submitBounty(
     })
 
     await publicClient.waitForTransactionReceipt({ hash })
-    console.log(`[BugBounty] On-chain submission: ${hash}`)
   } catch (err) {
     // Contract not deployed or failed - continue with off-chain only
     console.log(
@@ -642,10 +637,6 @@ export async function submitBounty(
   // Invalidate cache
   await getCache().delete(`submission:${submissionId}`)
 
-  console.log(
-    `[BugBounty] Submission created: ${submissionId} (severity: ${BountySeverityName[submission.severity]})`,
-  )
-
   return submission
 }
 
@@ -654,7 +645,7 @@ export async function getSubmission(
 ): Promise<BountySubmission | null> {
   // Check cache
   const cache = getCache()
-  const cached = await cache.get(`submission:${submissionId}`).catch(() => null)
+  const cached = await cache.get(`submission:${submissionId}`)
   if (cached) {
     // Validate schema then cast - enum values are validated by schema
     const validated = expectValid(
@@ -1036,10 +1027,6 @@ export async function payReward(
 
   await getCache().delete(`submission:${submissionId}`)
 
-  console.log(
-    `[BugBounty] Reward paid: ${submissionId} - ${formatEther(submission.rewardAmount)} ETH (tx: ${txHash})`,
-  )
-
   return { txHash, amount: submission.rewardAmount }
 }
 
@@ -1316,5 +1303,4 @@ export async function initializeBugBounty(): Promise<void> {
   if (initialized) return
   await getCQLClient()
   initialized = true
-  console.log(`[BugBounty] Initialized (network: ${getCurrentNetwork()})`)
 }

@@ -18,7 +18,11 @@ import {
   SOLANA_MAINNET_GENESIS,
 } from './chains'
 
-// Account identification (CAIP-10)
+export { PublicKey } from '@solana/web3.js'
+export {
+  getAddress as checksumEvmAddress,
+  isAddress as isEvmAddress,
+} from 'viem'
 export {
   type AccountId,
   areAddressesEqual,
@@ -38,7 +42,6 @@ export {
   solanaAddressToCAIP10,
   type UniversalAddress,
 } from './addresses'
-// Asset identification (CAIP-19)
 export {
   type AssetInfo,
   type AssetNamespace,
@@ -60,7 +63,6 @@ export {
   SLIP44,
   splTokenToCAIP19,
 } from './assets'
-// Chain identification (CAIP-2)
 export {
   CHAINS,
   type ChainId,
@@ -83,23 +85,6 @@ export {
   solanaClusterToCAIP2,
 } from './chains'
 
-// ============================================================================
-// Convenience Re-exports
-// ============================================================================
-
-export { PublicKey } from '@solana/web3.js'
-export {
-  getAddress as checksumEvmAddress,
-  isAddress as isEvmAddress,
-} from 'viem'
-
-// ============================================================================
-// Unified Types
-// ============================================================================
-
-/**
- * Universal identifier that can represent any chain, account, or asset
- */
 export interface UniversalId {
   type: 'chain' | 'account' | 'asset'
   raw: string
@@ -111,16 +96,11 @@ export interface UniversalId {
   tokenId?: string
 }
 
-/**
- * Parse any CAIP identifier (CAIP-2, CAIP-10, or CAIP-19)
- * @throws Error if the CAIP identifier is empty or invalid
- */
 export function parseUniversalId(caip: string): UniversalId {
   if (!caip || typeof caip !== 'string') {
     throw new Error('CAIP identifier must be a non-empty string')
   }
 
-  // CAIP-19 contains '/'
   if (caip.includes('/')) {
     const { chainId, assetNamespace, assetReference, tokenId } =
       parseAssetType(caip)
@@ -135,7 +115,6 @@ export function parseUniversalId(caip: string): UniversalId {
     }
   }
 
-  // Count colons to distinguish CAIP-2 from CAIP-10
   const colonCount = (caip.match(/:/g) ?? []).length
 
   if (colonCount === 0) {
@@ -145,7 +124,6 @@ export function parseUniversalId(caip: string): UniversalId {
   }
 
   if (colonCount === 1) {
-    // CAIP-2: namespace:reference
     const chainId = parseChainId(caip)
     return {
       type: 'chain',
@@ -155,7 +133,6 @@ export function parseUniversalId(caip: string): UniversalId {
     }
   }
 
-  // CAIP-10: namespace:reference:address
   const accountId = parseAccountId(caip)
   return {
     type: 'account',
@@ -166,9 +143,6 @@ export function parseUniversalId(caip: string): UniversalId {
   }
 }
 
-/**
- * Check if identifier is valid CAIP format
- */
 export function isValidCAIP(caip: string): boolean {
   try {
     parseUniversalId(caip)
@@ -178,42 +152,26 @@ export function isValidCAIP(caip: string): boolean {
   }
 }
 
-/**
- * Get the type of CAIP identifier
- */
 export function getCAIPType(
   caip: string,
-): 'chain' | 'account' | 'asset' | null {
+): 'chain' | 'account' | 'asset' | undefined {
   try {
     return parseUniversalId(caip).type
   } catch {
-    return null
+    return undefined
   }
 }
 
-// ============================================================================
-// Builder Utilities
-// ============================================================================
-
-/**
- * Builder for creating CAIP identifiers
- */
 export class CAIPBuilder {
   private namespace: string = 'eip155'
   private chainReference: string = '1'
 
-  /**
-   * Set chain using EVM chain ID
-   */
   evmChain(chainId: number): this {
     this.namespace = 'eip155'
     this.chainReference = chainId.toString()
     return this
   }
 
-  /**
-   * Set chain to Solana
-   */
   solanaChain(
     cluster: 'mainnet-beta' | 'devnet' | 'testnet' = 'mainnet-beta',
   ): this {
@@ -227,23 +185,14 @@ export class CAIPBuilder {
     return this
   }
 
-  /**
-   * Build CAIP-2 chain identifier
-   */
   chainId(): string {
     return `${this.namespace}:${this.chainReference}`
   }
 
-  /**
-   * Build CAIP-10 account identifier
-   */
   accountId(address: string): string {
     return `${this.namespace}:${this.chainReference}:${address}`
   }
 
-  /**
-   * Build CAIP-19 asset identifier for native currency
-   */
   nativeAsset(): string {
     if (this.namespace === 'eip155') {
       return `${this.namespace}:${this.chainReference}/slip44:60`
@@ -251,9 +200,6 @@ export class CAIPBuilder {
     return `${this.namespace}:${this.chainReference}/native:SOL`
   }
 
-  /**
-   * Build CAIP-19 asset identifier for token
-   */
   tokenAsset(tokenAddress: string): string {
     if (this.namespace === 'eip155') {
       return `${this.namespace}:${this.chainReference}/erc20:${tokenAddress}`
@@ -261,9 +207,6 @@ export class CAIPBuilder {
     return `${this.namespace}:${this.chainReference}/spl:${tokenAddress}`
   }
 
-  /**
-   * Build CAIP-19 asset identifier for NFT
-   */
   nftAsset(contractAddress: string, tokenId: string | number): string {
     if (this.namespace === 'eip155') {
       return `${this.namespace}:${this.chainReference}/erc721:${contractAddress}:${tokenId}`
@@ -272,9 +215,6 @@ export class CAIPBuilder {
   }
 }
 
-/**
- * Create a new CAIP builder
- */
 export function caip(): CAIPBuilder {
   return new CAIPBuilder()
 }

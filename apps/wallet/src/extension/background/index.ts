@@ -22,10 +22,6 @@ import type {
   SubmitIntentData,
 } from '../types'
 
-// ============================================================================
-// Validation Schemas
-// ============================================================================
-
 const MessageTypeSchema = z.enum([
   'connect',
   'disconnect',
@@ -168,10 +164,6 @@ const SubmitIntentSchema = z.object({
   maxFee: z.string().optional(),
   deadline: z.number().int().positive().optional(),
 })
-
-// ============================================================================
-// Types
-// ============================================================================
 
 type Message = z.infer<typeof MessageSchema>
 type WalletState = z.infer<typeof WalletStateSchema>

@@ -1,46 +1,24 @@
+/**
+ * E2E Tests
+ *
+ * Uses typed API client for testing.
+ */
+
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
+
+// ============================================================================
+// Setup
+// ============================================================================
 
 const API_URL = process.env.API_URL || 'http://localhost:4500'
 const TEST_WALLET = privateKeyToAccount(generatePrivateKey())
 
 let serverRunning = false
 
-async function checkServer(): Promise<boolean> {
-  const response = await fetch(`${API_URL}/health`, {
-    signal: AbortSignal.timeout(2000),
-  }).catch(() => null)
-  return response?.ok ?? false
-}
-
-async function getAuthHeaders(): Promise<Record<string, string>> {
-  const timestamp = Date.now().toString()
-  const message = `jeju-dapp:${timestamp}`
-  const signature = await TEST_WALLET.signMessage({ message })
-
-  return {
-    'Content-Type': 'application/json',
-    'x-jeju-address': TEST_WALLET.address,
-    'x-jeju-timestamp': timestamp,
-    'x-jeju-signature': signature,
-  }
-}
-
-function skipIfNoServer(): boolean {
-  if (!serverRunning) {
-    console.log('  [SKIP] Server not running')
-    return true
-  }
-  return false
-}
-
-beforeAll(async () => {
-  serverRunning = await checkServer()
-  if (!serverRunning) {
-    console.log('\n⚠️  Server not running - E2E tests will be skipped')
-    console.log('   Start the server with: bun run dev\n')
-  }
-})
+// ============================================================================
+// Types
+// ============================================================================
 
 interface HealthResponse {
   status: string
@@ -57,7 +35,12 @@ interface TodoResponse {
 }
 
 interface TodoListResponse {
-  todos: Array<{ id: string }>
+  todos: Array<{
+    id: string
+    title: string
+    priority: string
+    completed: boolean
+  }>
   count: number
 }
 
@@ -80,43 +63,161 @@ interface X402InfoResponse {
   enabled: boolean
 }
 
+// ============================================================================
+// API Client
+// ============================================================================
+
+class TestApiClient {
+  private baseUrl: string
+  private headers: Record<string, string>
+
+  constructor(baseUrl: string, headers: Record<string, string> = {}) {
+    this.baseUrl = baseUrl.replace(/\/$/, '')
+    this.headers = {
+      'Content-Type': 'application/json',
+      ...headers,
+    }
+  }
+
+  async fetch<T>(
+    path: string,
+    init?: RequestInit,
+  ): Promise<{ data: T | null; status: number }> {
+    const response = await fetch(`${this.baseUrl}${path}`, {
+      ...init,
+      headers: { ...this.headers, ...init?.headers },
+    })
+
+    if (!response.ok) {
+      return { data: null, status: response.status }
+    }
+
+    const data = (await response.json()) as T
+    return { data, status: response.status }
+  }
+
+  async get<T>(path: string): Promise<{ data: T | null; status: number }> {
+    return this.fetch<T>(path)
+  }
+
+  async post<T>(
+    path: string,
+    body?: Record<string, unknown>,
+  ): Promise<{ data: T | null; status: number }> {
+    return this.fetch<T>(path, {
+      method: 'POST',
+      body: body ? JSON.stringify(body) : undefined,
+    })
+  }
+
+  async patch<T>(
+    path: string,
+    body: Record<string, unknown>,
+  ): Promise<{ data: T | null; status: number }> {
+    return this.fetch<T>(path, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    })
+  }
+
+  async delete<T>(path: string): Promise<{ data: T | null; status: number }> {
+    return this.fetch<T>(path, { method: 'DELETE' })
+  }
+}
+
+// ============================================================================
+// Auth Header Generation
+// ============================================================================
+
+async function getAuthHeaders(): Promise<Record<string, string>> {
+  const timestamp = Date.now().toString()
+  const message = `jeju-dapp:${timestamp}`
+  const signature = await TEST_WALLET.signMessage({ message })
+
+  return {
+    'Content-Type': 'application/json',
+    'x-jeju-address': TEST_WALLET.address,
+    'x-jeju-timestamp': timestamp,
+    'x-jeju-signature': signature,
+  }
+}
+
+async function getAuthClient(): Promise<TestApiClient> {
+  const headers = await getAuthHeaders()
+  return new TestApiClient(API_URL, headers)
+}
+
+const baseClient = new TestApiClient(API_URL)
+
+// ============================================================================
+// Server Check
+// ============================================================================
+
+async function checkServer(): Promise<boolean> {
+  const { status } = await baseClient.get('/health')
+  return status === 200
+}
+
+function skipIfNoServer(): boolean {
+  if (!serverRunning) {
+    console.log('  [SKIP] Server not running')
+    return true
+  }
+  return false
+}
+
+beforeAll(async () => {
+  serverRunning = await checkServer()
+  if (!serverRunning) {
+    console.log('\n⚠️  Server not running - E2E tests will be skipped')
+    console.log('   Start the server with: bun run dev\n')
+  }
+})
+
+// ============================================================================
+// Health Check Tests
+// ============================================================================
+
 describe('Health Check', () => {
   test('should return healthy status', async () => {
     if (skipIfNoServer()) return
 
-    const response = await fetch(`${API_URL}/health`)
-    expect(response.ok).toBe(true)
-
-    const data = (await response.json()) as HealthResponse
-    expect(data.status).toBeDefined()
-    expect(data.services).toBeInstanceOf(Array)
-    expect(data.services.length).toBeGreaterThan(0)
+    const { data, status } = await baseClient.get<HealthResponse>('/health')
+    expect(status).toBe(200)
+    expect(data).toBeDefined()
+    expect(data?.status).toBeDefined()
+    expect(data?.services).toBeInstanceOf(Array)
+    expect(data?.services.length).toBeGreaterThan(0)
   })
 
   test('should include all required services', async () => {
     if (skipIfNoServer()) return
 
-    const response = await fetch(`${API_URL}/health`)
-    const data = (await response.json()) as HealthResponse
-
-    const serviceNames = data.services.map((s) => s.name)
+    const { data } = await baseClient.get<HealthResponse>('/health')
+    const serviceNames = data?.services.map((s) => s.name) ?? []
     expect(serviceNames.some((n) => n.includes('database'))).toBe(true)
     expect(serviceNames.some((n) => n.includes('cache'))).toBe(true)
   })
 })
 
+// ============================================================================
+// Root Endpoint Tests
+// ============================================================================
+
 describe('Root Endpoint', () => {
   test('should return app info', async () => {
     if (skipIfNoServer()) return
 
-    const response = await fetch(`${API_URL}/`)
-    expect(response.ok).toBe(true)
-
-    const data = (await response.json()) as AppInfoResponse
-    expect(data.name).toBeDefined()
-    expect(data.endpoints).toBeDefined()
+    const { data, status } = await baseClient.get<AppInfoResponse>('/')
+    expect(status).toBe(200)
+    expect(data?.name).toBeDefined()
+    expect(data?.endpoints).toBeDefined()
   })
 })
+
+// ============================================================================
+// REST API Tests
+// ============================================================================
 
 describe('REST API', () => {
   let createdTodoId: string
@@ -124,316 +225,282 @@ describe('REST API', () => {
   test('should reject unauthenticated requests', async () => {
     if (skipIfNoServer()) return
 
-    const response = await fetch(`${API_URL}/api/v1/todos`)
-    expect(response.status).toBe(401)
+    const { status } = await baseClient.get('/api/v1/todos')
+    expect(status).toBe(401)
   })
 
   test('should create a todo', async () => {
     if (skipIfNoServer()) return
 
-    const headers = await getAuthHeaders()
+    const client = await getAuthClient()
 
-    const response = await fetch(`${API_URL}/api/v1/todos`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        title: 'E2E Test Todo',
-        description: 'Test description',
-        priority: 'high',
-      }),
+    const { data, status } = await client.post<TodoResponse>('/api/v1/todos', {
+      title: 'E2E Test Todo',
+      description: 'Test description',
+      priority: 'high',
     })
 
-    expect(response.ok).toBe(true)
-    const data = (await response.json()) as TodoResponse
-    expect(data.todo).toBeDefined()
-    expect(data.todo.title).toBe('E2E Test Todo')
-    expect(data.todo.priority).toBe('high')
-    createdTodoId = data.todo.id
+    expect(status).toBe(200)
+    expect(data?.todo).toBeDefined()
+    expect(data?.todo.title).toBe('E2E Test Todo')
+    expect(data?.todo.priority).toBe('high')
+    createdTodoId = data?.todo.id ?? ''
   })
 
   test('should list todos', async () => {
     if (skipIfNoServer()) return
 
-    const headers = await getAuthHeaders()
+    const client = await getAuthClient()
 
-    const response = await fetch(`${API_URL}/api/v1/todos`, { headers })
-    expect(response.ok).toBe(true)
-
-    const data = (await response.json()) as TodoListResponse
-    expect(data.todos).toBeInstanceOf(Array)
+    const { data, status } = await client.get<TodoListResponse>('/api/v1/todos')
+    expect(status).toBe(200)
+    expect(data?.todos).toBeInstanceOf(Array)
   })
 
   test('should get a specific todo', async () => {
     if (skipIfNoServer() || !createdTodoId) return
 
-    const headers = await getAuthHeaders()
+    const client = await getAuthClient()
 
-    const response = await fetch(`${API_URL}/api/v1/todos/${createdTodoId}`, {
-      headers,
-    })
-    expect(response.ok).toBe(true)
-
-    const data = (await response.json()) as TodoResponse
-    expect(data.todo.id).toBe(createdTodoId)
+    const { data, status } = await client.get<TodoResponse>(
+      `/api/v1/todos/${createdTodoId}`,
+    )
+    expect(status).toBe(200)
+    expect(data?.todo.id).toBe(createdTodoId)
   })
 
   test('should update a todo', async () => {
     if (skipIfNoServer() || !createdTodoId) return
 
-    const headers = await getAuthHeaders()
+    const client = await getAuthClient()
 
-    const response = await fetch(`${API_URL}/api/v1/todos/${createdTodoId}`, {
-      method: 'PATCH',
-      headers,
-      body: JSON.stringify({ completed: true }),
-    })
+    const { data, status } = await client.patch<TodoResponse>(
+      `/api/v1/todos/${createdTodoId}`,
+      { completed: true },
+    )
 
-    expect(response.ok).toBe(true)
-    const data = (await response.json()) as TodoResponse
-    expect(data.todo.completed).toBe(true)
+    expect(status).toBe(200)
+    expect(data?.todo.completed).toBe(true)
   })
 
   test('should get stats', async () => {
     if (skipIfNoServer()) return
 
-    const headers = await getAuthHeaders()
+    const client = await getAuthClient()
 
-    const response = await fetch(`${API_URL}/api/v1/stats`, { headers })
-    expect(response.ok).toBe(true)
+    const { status } = await client.get('/api/v1/stats')
+    expect(status).toBe(200)
   })
 
   test('should delete a todo', async () => {
     if (skipIfNoServer() || !createdTodoId) return
 
-    const headers = await getAuthHeaders()
+    const client = await getAuthClient()
 
-    const response = await fetch(`${API_URL}/api/v1/todos/${createdTodoId}`, {
-      method: 'DELETE',
-      headers,
-    })
-
-    expect(response.ok).toBe(true)
+    const { status } = await client.delete(`/api/v1/todos/${createdTodoId}`)
+    expect(status).toBe(200)
   })
 
   test('should return 404 for non-existent todo', async () => {
     if (skipIfNoServer()) return
 
-    const headers = await getAuthHeaders()
+    const client = await getAuthClient()
 
-    const response = await fetch(`${API_URL}/api/v1/todos/nonexistent-id`, {
-      headers,
-    })
-    expect(response.status).toBe(404)
+    const { status } = await client.get('/api/v1/todos/nonexistent-id')
+    expect(status).toBe(404)
   })
 })
+
+// ============================================================================
+// A2A Protocol Tests
+// ============================================================================
 
 describe('A2A Protocol', () => {
   test('should return agent card', async () => {
     if (skipIfNoServer()) return
 
-    const response = await fetch(`${API_URL}/a2a/.well-known/agent-card.json`)
-    expect(response.ok).toBe(true)
-
-    const card = (await response.json()) as A2AAgentCard
-    expect(card.protocolVersion).toBeDefined()
-    expect(card.name).toBeDefined()
-    expect(card.skills).toBeInstanceOf(Array)
+    const { data, status } = await baseClient.get<A2AAgentCard>(
+      '/a2a/.well-known/agent-card.json',
+    )
+    expect(status).toBe(200)
+    expect(data?.protocolVersion).toBeDefined()
+    expect(data?.name).toBeDefined()
+    expect(data?.skills).toBeInstanceOf(Array)
   })
 
   test('should execute list-todos skill', async () => {
     if (skipIfNoServer()) return
 
-    const headers = await getAuthHeaders()
+    const client = await getAuthClient()
 
-    const response = await fetch(`${API_URL}/a2a`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'message/send',
-        params: {
-          message: {
-            messageId: 'e2e-1',
-            parts: [{ kind: 'data', data: { skillId: 'list-todos' } }],
-          },
+    const { status } = await client.post('/a2a', {
+      jsonrpc: '2.0',
+      method: 'message/send',
+      params: {
+        message: {
+          messageId: 'e2e-1',
+          parts: [{ kind: 'data', data: { skillId: 'list-todos' } }],
         },
-        id: 1,
-      }),
+      },
+      id: 1,
     })
 
-    expect(response.ok).toBe(true)
+    expect(status).toBe(200)
   })
 
   test('should execute create-todo skill', async () => {
     if (skipIfNoServer()) return
 
-    const headers = await getAuthHeaders()
+    const client = await getAuthClient()
 
-    const response = await fetch(`${API_URL}/a2a`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'message/send',
-        params: {
-          message: {
-            messageId: 'e2e-2',
-            parts: [
-              {
-                kind: 'data',
-                data: {
-                  skillId: 'create-todo',
-                  title: 'A2A E2E Test',
-                  priority: 'medium',
-                },
+    const { status } = await client.post('/a2a', {
+      jsonrpc: '2.0',
+      method: 'message/send',
+      params: {
+        message: {
+          messageId: 'e2e-2',
+          parts: [
+            {
+              kind: 'data',
+              data: {
+                skillId: 'create-todo',
+                title: 'A2A E2E Test',
+                priority: 'medium',
               },
-            ],
-          },
+            },
+          ],
         },
-        id: 2,
-      }),
+      },
+      id: 2,
     })
 
-    expect(response.ok).toBe(true)
+    expect(status).toBe(200)
   })
 
   test('should execute get-summary skill', async () => {
     if (skipIfNoServer()) return
 
-    const headers = await getAuthHeaders()
+    const client = await getAuthClient()
 
-    const response = await fetch(`${API_URL}/a2a`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'message/send',
-        params: {
-          message: {
-            messageId: 'e2e-3',
-            parts: [{ kind: 'data', data: { skillId: 'get-summary' } }],
-          },
+    const { status } = await client.post('/a2a', {
+      jsonrpc: '2.0',
+      method: 'message/send',
+      params: {
+        message: {
+          messageId: 'e2e-3',
+          parts: [{ kind: 'data', data: { skillId: 'get-summary' } }],
         },
-        id: 3,
-      }),
+      },
+      id: 3,
     })
 
-    expect(response.ok).toBe(true)
+    expect(status).toBe(200)
   })
 })
+
+// ============================================================================
+// MCP Protocol Tests
+// ============================================================================
 
 describe('MCP Protocol', () => {
   test('should return MCP info', async () => {
     if (skipIfNoServer()) return
 
-    const response = await fetch(`${API_URL}/mcp`)
-    expect(response.ok).toBe(true)
-
-    const info = (await response.json()) as MCPInfoResponse
-    expect(info.name).toBeDefined()
+    const { data, status } = await baseClient.get<MCPInfoResponse>('/mcp')
+    expect(status).toBe(200)
+    expect(data?.name).toBeDefined()
   })
 
   test('should initialize MCP session', async () => {
     if (skipIfNoServer()) return
 
-    const response = await fetch(`${API_URL}/mcp/initialize`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-    })
-
-    expect(response.ok).toBe(true)
+    const { status } = await baseClient.post('/mcp/initialize')
+    expect(status).toBe(200)
   })
 
   test('should list MCP tools', async () => {
     if (skipIfNoServer()) return
 
-    const response = await fetch(`${API_URL}/mcp/tools/list`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-    })
-
-    expect(response.ok).toBe(true)
-    const data = (await response.json()) as MCPToolsResponse
-    expect(data.tools).toBeInstanceOf(Array)
+    const { data, status } =
+      await baseClient.post<MCPToolsResponse>('/mcp/tools/list')
+    expect(status).toBe(200)
+    expect(data?.tools).toBeInstanceOf(Array)
   })
 
   test('should call create_todo tool', async () => {
     if (skipIfNoServer()) return
 
-    const headers = await getAuthHeaders()
+    const client = await getAuthClient()
 
-    const response = await fetch(`${API_URL}/mcp/tools/call`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        name: 'create_todo',
-        arguments: {
-          title: 'MCP E2E Test',
-          priority: 'low',
-        },
-      }),
+    const { status } = await client.post('/mcp/tools/call', {
+      name: 'create_todo',
+      arguments: {
+        title: 'MCP E2E Test',
+        priority: 'low',
+      },
     })
 
-    expect(response.ok).toBe(true)
+    expect(status).toBe(200)
   })
 
   test('should list MCP resources', async () => {
     if (skipIfNoServer()) return
 
-    const response = await fetch(`${API_URL}/mcp/resources/list`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-    })
-
-    expect(response.ok).toBe(true)
+    const { status } = await baseClient.post('/mcp/resources/list')
+    expect(status).toBe(200)
   })
 
   test('should read stats resource', async () => {
     if (skipIfNoServer()) return
 
-    const headers = await getAuthHeaders()
+    const client = await getAuthClient()
 
-    const response = await fetch(`${API_URL}/mcp/resources/read`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ uri: 'todo://stats' }),
+    const { status } = await client.post('/mcp/resources/read', {
+      uri: 'todo://stats',
     })
 
-    expect(response.ok).toBe(true)
+    expect(status).toBe(200)
   })
 })
+
+// ============================================================================
+// x402 Payment Protocol Tests
+// ============================================================================
 
 describe('x402 Payment Protocol', () => {
   test('should return x402 info', async () => {
     if (skipIfNoServer()) return
 
-    const response = await fetch(`${API_URL}/x402/info`)
-    expect(response.ok).toBe(true)
-
-    const info = (await response.json()) as X402InfoResponse
-    expect(typeof info.enabled).toBe('boolean')
+    const { data, status } =
+      await baseClient.get<X402InfoResponse>('/x402/info')
+    expect(status).toBe(200)
+    expect(typeof data?.enabled).toBe('boolean')
   })
 })
+
+// ============================================================================
+// Authentication Tests
+// ============================================================================
 
 describe('Authentication', () => {
   test('should reject requests without auth headers', async () => {
     if (skipIfNoServer()) return
 
-    const response = await fetch(`${API_URL}/api/v1/todos`)
-    expect(response.status).toBe(401)
+    const { status } = await baseClient.get('/api/v1/todos')
+    expect(status).toBe(401)
   })
 
   test('should reject requests with invalid signature', async () => {
     if (skipIfNoServer()) return
 
-    const response = await fetch(`${API_URL}/api/v1/todos`, {
-      headers: {
-        'x-jeju-address': TEST_WALLET.address,
-        'x-jeju-timestamp': Date.now().toString(),
-        'x-jeju-signature': '0xinvalid',
-      },
+    const client = new TestApiClient(API_URL, {
+      'x-jeju-address': TEST_WALLET.address,
+      'x-jeju-timestamp': Date.now().toString(),
+      'x-jeju-signature': '0xinvalid',
     })
-    expect(response.status).toBe(401)
+
+    const { status } = await client.get('/api/v1/todos')
+    expect(status).toBe(401)
   })
 
   test('should reject requests with expired timestamp', async () => {
@@ -443,16 +510,20 @@ describe('Authentication', () => {
     const message = `jeju-dapp:${oldTimestamp}`
     const signature = await TEST_WALLET.signMessage({ message })
 
-    const response = await fetch(`${API_URL}/api/v1/todos`, {
-      headers: {
-        'x-jeju-address': TEST_WALLET.address,
-        'x-jeju-timestamp': oldTimestamp,
-        'x-jeju-signature': signature,
-      },
+    const client = new TestApiClient(API_URL, {
+      'x-jeju-address': TEST_WALLET.address,
+      'x-jeju-timestamp': oldTimestamp,
+      'x-jeju-signature': signature,
     })
-    expect(response.status).toBe(401)
+
+    const { status } = await client.get('/api/v1/todos')
+    expect(status).toBe(401)
   })
 })
+
+// ============================================================================
+// Bulk Operations Tests
+// ============================================================================
 
 describe('Bulk Operations', () => {
   const todoIds: string[] = []
@@ -460,16 +531,14 @@ describe('Bulk Operations', () => {
   beforeAll(async () => {
     if (!serverRunning) return
 
-    const headers = await getAuthHeaders()
+    const client = await getAuthClient()
 
     for (let i = 0; i < 3; i++) {
-      const response = await fetch(`${API_URL}/api/v1/todos`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ title: `Bulk test ${i}`, priority: 'medium' }),
+      const { data } = await client.post<TodoResponse>('/api/v1/todos', {
+        title: `Bulk test ${i}`,
+        priority: 'medium',
       })
-      const data = (await response.json()) as TodoResponse
-      if (data.todo) {
+      if (data?.todo) {
         todoIds.push(data.todo.id)
       }
     }
@@ -478,45 +547,41 @@ describe('Bulk Operations', () => {
   test('should bulk complete todos', async () => {
     if (skipIfNoServer() || todoIds.length === 0) return
 
-    const headers = await getAuthHeaders()
+    const client = await getAuthClient()
 
-    const response = await fetch(`${API_URL}/api/v1/todos/bulk/complete`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ ids: todoIds }),
+    const { status } = await client.post('/api/v1/todos/bulk/complete', {
+      ids: todoIds,
     })
 
-    expect(response.ok).toBe(true)
+    expect(status).toBe(200)
   })
 
   test('should bulk delete todos', async () => {
     if (skipIfNoServer() || todoIds.length === 0) return
 
-    const headers = await getAuthHeaders()
+    const client = await getAuthClient()
 
-    const response = await fetch(`${API_URL}/api/v1/todos/bulk/delete`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ ids: todoIds }),
+    const { status } = await client.post('/api/v1/todos/bulk/delete', {
+      ids: todoIds,
     })
 
-    expect(response.ok).toBe(true)
+    expect(status).toBe(200)
   })
 })
+
+// ============================================================================
+// Cleanup
+// ============================================================================
 
 afterAll(async () => {
   if (!serverRunning) return
 
-  const headers = await getAuthHeaders()
-  const response = await fetch(`${API_URL}/api/v1/todos`, { headers })
-  const data = (await response.json()) as TodoListResponse
+  const client = await getAuthClient()
+  const { data } = await client.get<TodoListResponse>('/api/v1/todos')
 
-  if (data.todos) {
+  if (data?.todos) {
     for (const todo of data.todos) {
-      await fetch(`${API_URL}/api/v1/todos/${todo.id}`, {
-        method: 'DELETE',
-        headers,
-      })
+      await client.delete(`/api/v1/todos/${todo.id}`)
     }
   }
 })

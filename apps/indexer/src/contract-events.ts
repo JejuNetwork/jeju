@@ -14,8 +14,6 @@ export function eventSig(signature: string): string {
   return keccak256(stringToHex(signature))
 }
 
-// ============ ERC Token Standards ============
-
 export const ERC20_TRANSFER = eventSig('Transfer(address,address,uint256)')
 export const ERC20_APPROVAL = eventSig('Approval(address,address,uint256)')
 export const ERC721_TRANSFER = eventSig('Transfer(address,address,uint256)')
@@ -28,8 +26,6 @@ export const ERC1155_TRANSFER_SINGLE = eventSig(
 export const ERC1155_TRANSFER_BATCH = eventSig(
   'TransferBatch(address,address,address,uint256[],uint256[])',
 )
-
-// ============ Paymaster & Liquidity System ============
 
 export const TRANSACTION_SPONSORED = eventSig(
   'TransactionSponsored(address,address,uint256,uint256)',
@@ -46,8 +42,6 @@ export const ELIZA_REMOVED = eventSig('ElizaRemoved(address,uint256,uint256)')
 export const FEES_CLAIMED = eventSig('FeesClaimed(address,uint256)')
 export const ENTRY_POINT_FUNDED = eventSig('EntryPointFunded(uint256)')
 
-// ============ Cloud Service System ============
-
 export const SERVICE_REGISTERED = eventSig(
   'ServiceRegistered(string,uint256,uint256,uint256)',
 )
@@ -63,11 +57,6 @@ export const CREDIT_DEDUCTED = eventSig(
 export const CREDITS_PURCHASED = eventSig(
   'CreditsPurchased(address,address,address,uint256,uint256,uint256,uint256)',
 )
-
-// ============ Game Events (Generic) ============
-// NOTE: Game-specific events like Hyperscape are legacy.
-// New games should use generic GameIntegration events.
-// These are retained for backwards compatibility.
 
 export const PLAYER_REGISTERED = eventSig('PlayerRegistered(address,string)')
 export const PLAYER_MOVED = eventSig('PlayerMoved(address,int32,int32,int32)')
@@ -99,8 +88,6 @@ export const NFT_PROVENANCE = eventSig(
   'NFTProvenance(address,uint256,bytes32,uint256)',
 )
 
-// ============ Marketplace Events (Bazaar.sol) ============
-
 export const LISTING_CREATED = eventSig(
   'ListingCreated(uint256,address,address,uint256,uint8,uint256)',
 )
@@ -111,8 +98,6 @@ export const LISTING_CANCELLED = eventSig('ListingCancelled(uint256,address)')
 export const TRADE_CREATED = eventSig('TradeCreated(uint256,address,address)')
 export const TRADE_EXECUTED = eventSig('TradeExecuted(uint256)')
 export const TRADE_CANCELLED = eventSig('TradeCancelled(uint256,address)')
-
-// ============ Prediction Market Events (Predimarket.sol) ============
 
 export const MARKET_CREATED = eventSig(
   'MarketCreated(bytes32,string,uint256,uint8,address)',
@@ -131,8 +116,6 @@ export const GAME_COMMITTED = eventSig(
 export const GAME_REVEALED = eventSig(
   'GameRevealed(bytes32,bool,uint256,bytes,uint256)',
 )
-
-// ============ Oracle Events ============
 
 export const FEED_POST_PUBLISHED = eventSig(
   'FeedPostPublished(bytes32,bytes32,address,string,uint8,uint256)',
@@ -159,8 +142,6 @@ export const PREDICTION_RESOLVED = eventSig(
   'PredictionResolved(bytes32,bool,uint256)',
 )
 export const PRICES_UPDATED = eventSig('PricesUpdated(uint256,uint256,uint256)')
-
-// ============ ERC-8004 Agent Registry Events ============
 
 // IdentityRegistry events
 export const AGENT_REGISTERED = eventSig(
@@ -204,8 +185,6 @@ export const VALIDATION_RESPONSE = eventSig(
   'ValidationResponse(address,uint256,bytes32,uint8,string,bytes32,bytes32)',
 )
 
-// ============ BanManager Events ============
-
 export const NETWORK_BAN_APPLIED = eventSig(
   'NetworkBanApplied(uint256,string,bytes32,uint256)',
 )
@@ -218,8 +197,6 @@ export const NETWORK_BAN_REMOVED = eventSig(
 export const APP_BAN_REMOVED = eventSig(
   'AppBanRemoved(uint256,bytes32,uint256)',
 )
-
-// ============ ReportingSystem Events ============
 
 export const REPORT_CREATED = eventSig(
   'ReportCreated(uint256,uint256,uint8,uint8,address,bytes32,bytes32)',
@@ -238,8 +215,6 @@ export const CRITICAL_TEMP_BAN = eventSig(
   'CriticalTempBan(uint256,uint256,bytes32)',
 )
 
-// ============ Node Staking Events (NodeStakingManager.sol) ============
-
 export const NODE_REGISTERED = eventSig(
   'NodeRegistered(bytes32,address,address,address,uint256,uint256)',
 )
@@ -256,8 +231,6 @@ export const NODE_SLASHED = eventSig(
 export const PAYMASTER_FEE_DISTRIBUTED = eventSig(
   'PaymasterFeeDistributed(address,uint256,string)',
 )
-
-// ============ Compute Registry Events (ComputeRegistry.sol) ============
 
 export const PROVIDER_REGISTERED = eventSig(
   'ProviderRegistered(address,string,string,bytes32,uint256,uint256)',
@@ -277,8 +250,6 @@ export const CAPABILITY_ADDED = eventSig(
 export const CAPABILITY_UPDATED = eventSig(
   'CapabilityUpdated(address,uint256,bool)',
 )
-
-// ============ Compute Rental Events (ComputeRental.sol) ============
 
 export const RENTAL_CREATED = eventSig(
   'RentalCreated(bytes32,address,address,uint256,uint256)',
@@ -306,8 +277,6 @@ export const USER_BANNED = eventSig('UserBanned(address,string,uint256)')
 export const USER_UNBANNED = eventSig('UserUnbanned(address)')
 export const PROVIDER_BANNED = eventSig('ProviderBanned(address,string)')
 
-// ============ Inference Serving Events (InferenceServing.sol) ============
-
 export const SERVICE_REGISTERED_INFERENCE = eventSig(
   'ServiceRegistered(address,uint256,string,string,uint256,uint256)',
 )
@@ -321,15 +290,11 @@ export const AGENT_SETTLED = eventSig(
   'AgentSettled(uint256,address,uint256,uint256,uint256)',
 )
 
-// ============ Compute Staking Events (ComputeStaking.sol) ============
-
 export const STAKED_AS_USER = eventSig('StakedAsUser(address,uint256)')
 export const STAKED_AS_PROVIDER = eventSig('StakedAsProvider(address,uint256)')
 export const STAKED_AS_GUARDIAN = eventSig('StakedAsGuardian(address,uint256)')
 export const UNSTAKED = eventSig('Unstaked(address,uint256)')
 export const SLASHED = eventSig('Slashed(address,uint256,string)')
-
-// ============ OIF (Open Intents Framework) Events ============
 
 // InputSettler.sol events
 export const ORDER_CREATED = eventSig(
@@ -371,8 +336,6 @@ export const ATTESTATION_SUBMITTED = eventSig(
   'AttestationSubmitted(bytes32,address,uint256)',
 )
 export const ATTESTER_UPDATED = eventSig('AttesterUpdated(address,bool)')
-
-// ============ EIL (Ethereum Interop Layer) Events ============
 
 // EILVault.sol events
 export const VOUCHER_REQUESTED = eventSig(
@@ -424,8 +387,6 @@ export const AUTHORIZED_SLASHER_UPDATED = eventSig(
 export const CHAIN_REGISTERED = eventSig('ChainRegistered(address,uint256)')
 export const CHAIN_UNREGISTERED = eventSig('ChainUnregistered(address,uint256)')
 
-// ============ OTC Events (OTC.sol) ============
-
 export const OTC_LISTING_CREATED = eventSig(
   'ListingCreated(uint256,address,address,address,uint256,uint256,uint256)',
 )
@@ -440,8 +401,6 @@ export const OTC_SWAP_EXECUTED = eventSig(
   'SwapExecuted(uint256,address,address,uint256,uint256)',
 )
 
-// ============ JEJU Token Events (NetworkToken.sol) ============
-
 export const BAN_ENFORCEMENT_TOGGLED = eventSig('BanEnforcementToggled(bool)')
 export const BAN_MANAGER_UPDATED = eventSig(
   'BanManagerUpdated(address,address)',
@@ -449,13 +408,9 @@ export const BAN_MANAGER_UPDATED = eventSig(
 export const FAUCET_CLAIMED = eventSig('FaucetClaimed(address,uint256)')
 export const FAUCET_TOGGLED = eventSig('FaucetToggled(bool)')
 
-// ============ Token Factory Events (SimpleERC20Factory.sol) ============
-
 export const TOKEN_CREATED = eventSig(
   'TokenCreated(address,string,string,uint256,uint8)',
 )
-
-// ============ Paymaster Factory Events ============
 
 export const PAYMASTER_DEPLOYED = eventSig(
   'PaymasterDeployed(address,address,address,address,address,uint256,uint256)',
@@ -465,8 +420,6 @@ export const TOKEN_REGISTERED = eventSig(
 )
 export const TOKEN_ACTIVATED = eventSig('TokenActivated(address,address)')
 export const TOKEN_DEACTIVATED = eventSig('TokenDeactivated(address,address)')
-
-// ============ Event Category Mapping ============
 
 export interface EventCategory {
   signature: string
@@ -1123,8 +1076,6 @@ export const EVENT_REGISTRY: Record<string, EventCategory> = {
   },
 }
 
-// ============ Contract Type Detection ============
-
 export function getEventCategory(topic0: string): EventCategory | null {
   return EVENT_REGISTRY[topic0] || null
 }
@@ -1132,8 +1083,6 @@ export function getEventCategory(topic0: string): EventCategory | null {
 export function isKnownEvent(topic0: string): boolean {
   return topic0 in EVENT_REGISTRY
 }
-
-// ============ Event Signature Lists by Category ============
 
 export const PAYMASTER_EVENTS = [
   TRANSACTION_SPONSORED,
@@ -1326,8 +1275,6 @@ export const JEJU_TOKEN_EVENTS = [
   FAUCET_TOGGLED,
 ]
 
-// ============ All Known Events ============
-
 export const ALL_KNOWN_EVENTS = [
   ...PAYMASTER_EVENTS,
   ...GAME_EVENTS,
@@ -1345,8 +1292,6 @@ export const ALL_KNOWN_EVENTS = [
   ...ORACLE_EVENTS,
   ...JEJU_TOKEN_EVENTS,
 ]
-
-// ============ Contract Address Mapping (filled at runtime) ============
 
 export interface ContractInfo {
   address: string
@@ -1378,8 +1323,6 @@ export function registerContract(info: ContractInfo) {
 export function getContractInfo(address: string): ContractInfo | undefined {
   return CONTRACT_REGISTRY.get(address.toLowerCase())
 }
-
-// ============ Event Name Mapping ============
 
 export function getEventName(topic0: string): string {
   const category = EVENT_REGISTRY[topic0]

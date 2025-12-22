@@ -155,12 +155,107 @@ export interface GetMessagesParams {
 
 // ============ WebSocket Types ============
 
-export interface DCWebSocketMessage {
-  type: 'auth' | 'send' | 'typing' | 'read' | 'subscribe'
-  payload: Record<string, unknown>
+export interface DCAuthMessage {
+  type: 'auth'
+  payload: {
+    fid: number
+    signature: Hex
+    timestamp: number
+  }
 }
 
-export interface DCWebSocketResponse {
-  type: 'auth_success' | 'auth_failed' | 'message' | 'notification' | 'error'
-  payload: Record<string, unknown>
+export interface DCSendMessage {
+  type: 'send'
+  payload: {
+    recipientFid: number
+    ciphertext: Hex
+    nonce: Hex
+    ephemeralPublicKey: Hex
+  }
 }
+
+export interface DCTypingMessage {
+  type: 'typing'
+  payload: {
+    conversationId: string
+    isTyping: boolean
+  }
+}
+
+export interface DCReadMessage {
+  type: 'read'
+  payload: {
+    conversationId: string
+    messageId: string
+  }
+}
+
+export interface DCSubscribeMessage {
+  type: 'subscribe'
+  payload: {
+    conversationIds: string[]
+  }
+}
+
+export type DCWebSocketMessage =
+  | DCAuthMessage
+  | DCSendMessage
+  | DCTypingMessage
+  | DCReadMessage
+  | DCSubscribeMessage
+
+export interface DCAuthSuccessResponse {
+  type: 'auth_success'
+  payload: {
+    fid: number
+    sessionId: string
+  }
+}
+
+export interface DCAuthFailedResponse {
+  type: 'auth_failed'
+  payload: {
+    error: string
+  }
+}
+
+export interface DCMessageResponse {
+  type: 'message'
+  payload: {
+    id: string
+    conversationId: string
+    senderFid: number
+    recipientFid: number
+    ciphertext: Hex
+    nonce: Hex
+    ephemeralPublicKey: Hex
+    timestamp: number
+    signature: Hex
+  }
+}
+
+export interface DCNotificationResponse {
+  type: 'notification'
+  payload: {
+    notificationType: DCNotificationType
+    conversationId: string
+    senderFid: number
+    timestamp: number
+    messageId?: string
+  }
+}
+
+export interface DCErrorResponse {
+  type: 'error'
+  payload: {
+    error: string
+    code?: string
+  }
+}
+
+export type DCWebSocketResponse =
+  | DCAuthSuccessResponse
+  | DCAuthFailedResponse
+  | DCMessageResponse
+  | DCNotificationResponse
+  | DCErrorResponse

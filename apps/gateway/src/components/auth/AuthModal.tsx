@@ -18,6 +18,7 @@ import {
   formatSIWEMessage,
 } from '@jejunetwork/shared/auth/siwe'
 import { useConnectModal } from '@rainbow-me/rainbowkit'
+import { useMutation } from '@tanstack/react-query'
 import {
   Chrome,
   Fingerprint,
@@ -35,6 +36,68 @@ import {
 import { type ComponentType, useCallback, useEffect, useState } from 'react'
 import { useAccount, useDisconnect, useSignMessage } from 'wagmi'
 import { CHAIN_ID, OAUTH3_AGENT_URL } from '../../config'
+
+// Auth API functions
+async function initSocialAuth(
+  provider: string,
+  redirectUri: string,
+): Promise<{ authUrl: string; state: string }> {
+  const response = await fetch(`${OAUTH3_AGENT_URL}/auth/init`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      provider,
+      appId: 'gateway.apps.jeju',
+      redirectUri,
+    }),
+  })
+  if (!response.ok) throw new Error(`Failed to initialize ${provider} auth`)
+  return response.json()
+}
+
+async function sendEmailCode(email: string): Promise<void> {
+  const response = await fetch(`${OAUTH3_AGENT_URL}/auth/email/send`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, appId: 'gateway.apps.jeju' }),
+  })
+  if (!response.ok) throw new Error('Failed to send verification code')
+}
+
+async function verifyEmailCode(
+  email: string,
+  code: string,
+): Promise<{ smartAccount?: string }> {
+  const response = await fetch(`${OAUTH3_AGENT_URL}/auth/email/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, code, appId: 'gateway.apps.jeju' }),
+  })
+  if (!response.ok) throw new Error('Invalid verification code')
+  return response.json()
+}
+
+async function sendPhoneCode(phone: string): Promise<void> {
+  const response = await fetch(`${OAUTH3_AGENT_URL}/auth/phone/send`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone, appId: 'gateway.apps.jeju' }),
+  })
+  if (!response.ok) throw new Error('Failed to send verification code')
+}
+
+async function verifyPhoneCode(
+  phone: string,
+  code: string,
+): Promise<{ smartAccount?: string }> {
+  const response = await fetch(`${OAUTH3_AGENT_URL}/auth/phone/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone, code, appId: 'gateway.apps.jeju' }),
+  })
+  if (!response.ok) throw new Error('Invalid verification code')
+  return response.json()
+}
 
 // Fix for Lucide React 19 type compatibility
 const XIcon = X as ComponentType<LucideProps>
@@ -75,13 +138,14 @@ const SESSION_KEY = 'gateway_auth_session'
 
 export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
   const [step, setStep] = useState<AuthStep>('choose')
-  const [error, setError] = useState<string | null>(null)
   const [hasPasskeys, setHasPasskeys] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
   const [emailInput, setEmailInput] = useState('')
   const [phoneInput, setPhoneInput] = useState('')
   const [codeInput, setCodeInput] = useState('')
   const [codeSent, setCodeSent] = useState(false)
+  const [siweError, setSiweError] = useState<string | null>(null)
+  const [farcasterLoading, setFarcasterLoading] = useState(false)
+  const [farcasterError, setFarcasterError] = useState<string | null>(null)
 
   const { address, isConnected } = useAccount()
   const { signMessageAsync } = useSignMessage()
@@ -95,40 +159,120 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
     isPlatformAuthenticatorAvailable().then(setHasPasskeys)
   }, [])
 
+  // Auth mutations
+  const socialAuthMutation = useMutation({
+    mutationFn: ({
+      provider,
+      redirectUri,
+    }: {
+      provider: string
+      redirectUri: string
+    }) => initSocialAuth(provider, redirectUri),
+    onSuccess: ({ authUrl, state }, { provider }) => {
+      sessionStorage.setItem('oauth3_state', state)
+      sessionStorage.setItem('oauth3_provider', provider)
+      window.location.href = authUrl
+    },
+  })
+
+  const sendEmailMutation = useMutation({
+    mutationFn: (email: string) => sendEmailCode(email),
+    onSuccess: () => setCodeSent(true),
+  })
+
+  const verifyEmailMutation = useMutation({
+    mutationFn: ({ email, code }: { email: string; code: string }) =>
+      verifyEmailCode(email, code),
+    onSuccess: (data, { email }) => {
+      const session: AuthSession = {
+        address: data.smartAccount || `email:${email}`,
+        method: 'social',
+        expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+        provider: 'email',
+      }
+      localStorage.setItem(SESSION_KEY, JSON.stringify(session))
+      setStep('success')
+      onSuccess?.(session)
+      setTimeout(() => onClose(), 1500)
+    },
+  })
+
+  const sendPhoneMutation = useMutation({
+    mutationFn: (phone: string) => sendPhoneCode(phone),
+    onSuccess: () => setCodeSent(true),
+  })
+
+  const verifyPhoneMutation = useMutation({
+    mutationFn: ({ phone, code }: { phone: string; code: string }) =>
+      verifyPhoneCode(phone, code),
+    onSuccess: (data, { phone }) => {
+      const session: AuthSession = {
+        address: data.smartAccount || `phone:${phone}`,
+        method: 'social',
+        expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+        provider: 'phone',
+      }
+      localStorage.setItem(SESSION_KEY, JSON.stringify(session))
+      setStep('success')
+      onSuccess?.(session)
+      setTimeout(() => onClose(), 1500)
+    },
+  })
+
+  // Aggregate loading/error states (passkeyMutation added after its definition)
+  const isLoading =
+    socialAuthMutation.isPending ||
+    sendEmailMutation.isPending ||
+    verifyEmailMutation.isPending ||
+    sendPhoneMutation.isPending ||
+    verifyPhoneMutation.isPending
+
+  // Error state aggregated from all mutations (passkeyMutation error added after its definition)
+  const mutationError =
+    socialAuthMutation.error?.message ??
+    sendEmailMutation.error?.message ??
+    verifyEmailMutation.error?.message ??
+    sendPhoneMutation.error?.message ??
+    verifyPhoneMutation.error?.message ??
+    null
+
   const handleSIWE = useCallback(async () => {
     if (!address) return
 
     setStep('signing')
-    setError(null)
+    setSiweError(null)
 
-    try {
-      const message = createSIWEMessage({
-        domain: window.location.host,
-        address,
-        uri: window.location.origin,
-        chainId: CHAIN_ID,
-        statement: 'Sign in to Gateway Portal',
-        expirationMinutes: 60 * 24,
-      })
+    const message = createSIWEMessage({
+      domain: window.location.host,
+      address,
+      uri: window.location.origin,
+      chainId: CHAIN_ID,
+      statement: 'Sign in to Gateway Portal',
+      expirationMinutes: 60 * 24,
+    })
 
-      const messageString = formatSIWEMessage(message)
-      await signMessageAsync({ message: messageString })
+    const messageString = formatSIWEMessage(message)
+    const result = await signMessageAsync({ message: messageString }).catch(
+      (err: Error) => {
+        setSiweError(err.message)
+        setStep('error')
+        return null
+      },
+    )
 
-      const session: AuthSession = {
-        address,
-        method: 'siwe',
-        expiresAt: Date.now() + 24 * 60 * 60 * 1000,
-      }
+    if (!result) return
 
-      localStorage.setItem(SESSION_KEY, JSON.stringify(session))
-      setStep('success')
-      onSuccess?.(session)
-
-      setTimeout(() => onClose(), 1500)
-    } catch (err) {
-      setError((err as Error).message)
-      setStep('error')
+    const session: AuthSession = {
+      address,
+      method: 'siwe',
+      expiresAt: Date.now() + 24 * 60 * 60 * 1000,
     }
+
+    localStorage.setItem(SESSION_KEY, JSON.stringify(session))
+    setStep('success')
+    onSuccess?.(session)
+
+    setTimeout(() => onClose(), 1500)
   }, [address, signMessageAsync, onSuccess, onClose])
 
   // Handle SIWE after wallet connects
@@ -146,101 +290,71 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
   }
 
   const handleFarcaster = async () => {
-    setIsLoading(true)
-    setError(null)
+    setFarcasterLoading(true)
+    setFarcasterError(null)
 
-    try {
-      // Use OAuth3 SDK if available
-      if (oauth3Context?.login) {
-        await oauth3Context.login(AuthProvider.FARCASTER)
-        const session: AuthSession = {
-          address: 'oauth3-farcaster',
-          method: 'siwf',
-          expiresAt: Date.now() + 24 * 60 * 60 * 1000,
-          provider: 'farcaster',
-        }
-        localStorage.setItem(SESSION_KEY, JSON.stringify(session))
-        setStep('success')
-        onSuccess?.(session)
-        setTimeout(() => onClose(), 1500)
-        return
+    // Use OAuth3 SDK if available
+    if (oauth3Context?.login) {
+      await oauth3Context.login(AuthProvider.FARCASTER)
+      const session: AuthSession = {
+        address: 'oauth3-farcaster',
+        method: 'siwf',
+        expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+        provider: 'farcaster',
       }
-
-      // Fallback to direct API call
-      const redirectUri = `${window.location.origin}/auth/callback`
-      const response = await fetch(`${OAUTH3_AGENT_URL}/auth/init`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          provider: 'farcaster',
-          appId: 'gateway.apps.jeju',
-          redirectUri,
-        }),
-      })
-
-      if (!response.ok) throw new Error('Failed to initialize Farcaster auth')
-
-      const { authUrl, state } = await response.json()
-      sessionStorage.setItem('oauth3_state', state)
-      sessionStorage.setItem('oauth3_provider', 'farcaster')
-      window.location.href = authUrl
-    } catch (err) {
-      setError((err as Error).message)
-      setIsLoading(false)
+      localStorage.setItem(SESSION_KEY, JSON.stringify(session))
+      setStep('success')
+      onSuccess?.(session)
+      setFarcasterLoading(false)
+      setTimeout(() => onClose(), 1500)
+      return
     }
+
+    // Fallback to direct API call
+    const redirectUri = `${window.location.origin}/auth/callback`
+    const result = await initSocialAuth('farcaster', redirectUri).catch(
+      (err: Error) => {
+        setFarcasterError(err.message)
+        setFarcasterLoading(false)
+        return null
+      },
+    )
+
+    if (!result) return
+
+    sessionStorage.setItem('oauth3_state', result.state)
+    sessionStorage.setItem('oauth3_provider', 'farcaster')
+    window.location.href = result.authUrl
   }
 
   const handleSocial = async (
     provider: 'google' | 'github' | 'twitter' | 'discord',
   ) => {
-    setIsLoading(true)
-    setError(null)
-
-    try {
-      // Use OAuth3 SDK if available
-      if (oauth3Context?.login) {
-        const providerMap: Record<string, AuthProvider> = {
-          google: AuthProvider.GOOGLE,
-          github: AuthProvider.GITHUB,
-          twitter: AuthProvider.TWITTER,
-          discord: AuthProvider.DISCORD,
-        }
-        await oauth3Context.login(providerMap[provider])
-        const session: AuthSession = {
-          address: `oauth3-${provider}`,
-          method: 'social',
-          expiresAt: Date.now() + 24 * 60 * 60 * 1000,
-          provider,
-        }
-        localStorage.setItem(SESSION_KEY, JSON.stringify(session))
-        setStep('success')
-        onSuccess?.(session)
-        setTimeout(() => onClose(), 1500)
-        return
+    // Use OAuth3 SDK if available
+    if (oauth3Context?.login) {
+      const providerMap: Record<string, AuthProvider> = {
+        google: AuthProvider.GOOGLE,
+        github: AuthProvider.GITHUB,
+        twitter: AuthProvider.TWITTER,
+        discord: AuthProvider.DISCORD,
       }
-
-      // Fallback to direct API call
-      const redirectUri = `${window.location.origin}/auth/callback`
-      const response = await fetch(`${OAUTH3_AGENT_URL}/auth/init`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          provider,
-          appId: 'gateway.apps.jeju',
-          redirectUri,
-        }),
-      })
-
-      if (!response.ok) throw new Error(`Failed to initialize ${provider} auth`)
-
-      const { authUrl, state } = await response.json()
-      sessionStorage.setItem('oauth3_state', state)
-      sessionStorage.setItem('oauth3_provider', provider)
-      window.location.href = authUrl
-    } catch (err) {
-      setError((err as Error).message)
-      setIsLoading(false)
+      await oauth3Context.login(providerMap[provider])
+      const session: AuthSession = {
+        address: `oauth3-${provider}`,
+        method: 'social',
+        expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+        provider,
+      }
+      localStorage.setItem(SESSION_KEY, JSON.stringify(session))
+      setStep('success')
+      onSuccess?.(session)
+      setTimeout(() => onClose(), 1500)
+      return
     }
+
+    // Fallback to direct API call via mutation
+    const redirectUri = `${window.location.origin}/auth/callback`
+    socialAuthMutation.mutate({ provider, redirectUri })
   }
 
   const handleEmail = () => {
@@ -255,121 +369,25 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
     setCodeInput('')
   }
 
-  const handleSendEmailCode = async () => {
-    setIsLoading(true)
-    setError(null)
-
-    try {
-      const response = await fetch(`${OAUTH3_AGENT_URL}/auth/email/send`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: emailInput, appId: 'gateway.apps.jeju' }),
-      })
-
-      if (!response.ok) throw new Error('Failed to send verification code')
-      setCodeSent(true)
-    } catch (err) {
-      setError((err as Error).message)
-    } finally {
-      setIsLoading(false)
-    }
+  const handleSendEmailCode = () => {
+    sendEmailMutation.mutate(emailInput)
   }
 
-  const handleVerifyEmailCode = async () => {
-    setIsLoading(true)
-    setError(null)
-
-    try {
-      const response = await fetch(`${OAUTH3_AGENT_URL}/auth/email/verify`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: emailInput,
-          code: codeInput,
-          appId: 'gateway.apps.jeju',
-        }),
-      })
-
-      if (!response.ok) throw new Error('Invalid verification code')
-
-      const data = await response.json()
-      const session: AuthSession = {
-        address: data.smartAccount || `email:${emailInput}`,
-        method: 'social',
-        expiresAt: Date.now() + 24 * 60 * 60 * 1000,
-        provider: 'email',
-      }
-      localStorage.setItem(SESSION_KEY, JSON.stringify(session))
-      setStep('success')
-      onSuccess?.(session)
-      setTimeout(() => onClose(), 1500)
-    } catch (err) {
-      setError((err as Error).message)
-    } finally {
-      setIsLoading(false)
-    }
+  const handleVerifyEmailCode = () => {
+    verifyEmailMutation.mutate({ email: emailInput, code: codeInput })
   }
 
-  const handleSendPhoneCode = async () => {
-    setIsLoading(true)
-    setError(null)
-
-    try {
-      const response = await fetch(`${OAUTH3_AGENT_URL}/auth/phone/send`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: phoneInput, appId: 'gateway.apps.jeju' }),
-      })
-
-      if (!response.ok) throw new Error('Failed to send verification code')
-      setCodeSent(true)
-    } catch (err) {
-      setError((err as Error).message)
-    } finally {
-      setIsLoading(false)
-    }
+  const handleSendPhoneCode = () => {
+    sendPhoneMutation.mutate(phoneInput)
   }
 
-  const handleVerifyPhoneCode = async () => {
-    setIsLoading(true)
-    setError(null)
-
-    try {
-      const response = await fetch(`${OAUTH3_AGENT_URL}/auth/phone/verify`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          phone: phoneInput,
-          code: codeInput,
-          appId: 'gateway.apps.jeju',
-        }),
-      })
-
-      if (!response.ok) throw new Error('Invalid verification code')
-
-      const data = await response.json()
-      const session: AuthSession = {
-        address: data.smartAccount || `phone:${phoneInput}`,
-        method: 'social',
-        expiresAt: Date.now() + 24 * 60 * 60 * 1000,
-        provider: 'phone',
-      }
-      localStorage.setItem(SESSION_KEY, JSON.stringify(session))
-      setStep('success')
-      onSuccess?.(session)
-      setTimeout(() => onClose(), 1500)
-    } catch (err) {
-      setError((err as Error).message)
-    } finally {
-      setIsLoading(false)
-    }
+  const handleVerifyPhoneCode = () => {
+    verifyPhoneMutation.mutate({ phone: phoneInput, code: codeInput })
   }
 
-  const handlePasskey = async () => {
-    setIsLoading(true)
-    setError(null)
-
-    try {
+  // Passkey mutation
+  const passkeyMutation = useMutation({
+    mutationFn: async () => {
       const credential = await navigator.credentials.get({
         publicKey: {
           challenge: crypto.getRandomValues(new Uint8Array(32)),
@@ -378,24 +396,34 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
           timeout: 60000,
         },
       })
-
       if (!credential) throw new Error('Passkey authentication cancelled')
-
+      return credential
+    },
+    onSuccess: (credential) => {
       const session: AuthSession = {
         address: `passkey:${credential.id.slice(0, 20)}`,
         method: 'passkey',
         expiresAt: Date.now() + 24 * 60 * 60 * 1000,
       }
-
       localStorage.setItem(SESSION_KEY, JSON.stringify(session))
       onSuccess?.(session)
       onClose()
-    } catch (err) {
-      setError((err as Error).message)
-    } finally {
-      setIsLoading(false)
-    }
+    },
+  })
+
+  const handlePasskey = () => {
+    passkeyMutation.mutate()
   }
+
+  // Include passkey, farcaster, SIWE in loading/error states
+  const isLoadingAny =
+    isLoading || passkeyMutation.isPending || farcasterLoading
+  const error =
+    mutationError ??
+    passkeyMutation.error?.message ??
+    siweError ??
+    farcasterError ??
+    null
 
   if (!isOpen) return null
 
@@ -476,7 +504,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
                 <button
                   type="button"
                   onClick={handleFarcaster}
-                  disabled={isLoading}
+                  disabled={isLoadingAny}
                   className="w-full flex items-center gap-4 p-4 rounded-xl bg-secondary/50 border border-border hover:bg-purple-500/10 hover:border-purple-500/30 transition-all"
                 >
                   <div className="w-10 h-10 rounded-xl bg-purple-600 flex items-center justify-center">
@@ -488,7 +516,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
                       Sign in with Warpcast
                     </p>
                   </div>
-                  {isLoading && (
+                  {isLoadingAny && (
                     <Loader2Icon className="w-5 h-5 animate-spin" />
                   )}
                 </button>
@@ -503,7 +531,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
                   <button
                     type="button"
                     onClick={() => handleSocial('google')}
-                    disabled={isLoading}
+                    disabled={isLoadingAny}
                     className="flex items-center justify-center p-3 rounded-xl bg-secondary/50 border border-border hover:bg-red-500/10 hover:border-red-500/30 transition-all"
                     title="Google"
                   >
@@ -512,7 +540,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
                   <button
                     type="button"
                     onClick={() => handleSocial('github')}
-                    disabled={isLoading}
+                    disabled={isLoadingAny}
                     className="flex items-center justify-center p-3 rounded-xl bg-secondary/50 border border-border hover:bg-gray-500/10 hover:border-gray-500/30 transition-all"
                     title="GitHub"
                   >
@@ -521,7 +549,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
                   <button
                     type="button"
                     onClick={() => handleSocial('twitter')}
-                    disabled={isLoading}
+                    disabled={isLoadingAny}
                     className="flex items-center justify-center p-3 rounded-xl bg-secondary/50 border border-border hover:bg-blue-500/10 hover:border-blue-500/30 transition-all"
                     title="Twitter"
                   >
@@ -530,7 +558,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
                   <button
                     type="button"
                     onClick={() => handleSocial('discord')}
-                    disabled={isLoading}
+                    disabled={isLoadingAny}
                     className="flex items-center justify-center p-3 rounded-xl bg-secondary/50 border border-border hover:bg-indigo-500/10 hover:border-indigo-500/30 transition-all"
                     title="Discord"
                   >
@@ -548,7 +576,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
                   <button
                     type="button"
                     onClick={handleEmail}
-                    disabled={isLoading}
+                    disabled={isLoadingAny}
                     className="flex items-center justify-center gap-2 p-3 rounded-xl bg-secondary/50 border border-border hover:bg-blue-500/10 hover:border-blue-500/30 transition-all"
                   >
                     <MailIcon className="w-5 h-5" />
@@ -557,7 +585,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
                   <button
                     type="button"
                     onClick={handlePhone}
-                    disabled={isLoading}
+                    disabled={isLoadingAny}
                     className="flex items-center justify-center gap-2 p-3 rounded-xl bg-secondary/50 border border-border hover:bg-green-500/10 hover:border-green-500/30 transition-all"
                   >
                     <PhoneIcon className="w-5 h-5" />
@@ -575,7 +603,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
                   <button
                     type="button"
                     onClick={handlePasskey}
-                    disabled={isLoading}
+                    disabled={isLoadingAny}
                     className="w-full flex items-center gap-4 p-4 rounded-xl bg-secondary/50 border border-border hover:bg-emerald-500/10 hover:border-emerald-500/30 transition-all"
                   >
                     <div className="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center">
@@ -587,7 +615,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
                         Touch ID, Face ID, or security key
                       </p>
                     </div>
-                    {isLoading && (
+                    {isLoadingAny && (
                       <Loader2Icon className="w-5 h-5 animate-spin" />
                     )}
                   </button>
@@ -628,10 +656,10 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
                 <button
                   type="button"
                   onClick={handleSendEmailCode}
-                  disabled={isLoading || !emailInput}
+                  disabled={isLoadingAny || !emailInput}
                   className="w-full p-3 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-medium transition-colors disabled:opacity-50"
                 >
-                  {isLoading ? (
+                  {isLoadingAny ? (
                     <Loader2Icon className="w-5 h-5 animate-spin mx-auto" />
                   ) : (
                     'Send Code'
@@ -659,10 +687,10 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
                   <button
                     type="button"
                     onClick={handleVerifyEmailCode}
-                    disabled={isLoading || codeInput.length < 6}
+                    disabled={isLoadingAny || codeInput.length < 6}
                     className="w-full p-3 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-medium transition-colors disabled:opacity-50"
                   >
-                    {isLoading ? (
+                    {isLoadingAny ? (
                       <Loader2Icon className="w-5 h-5 animate-spin mx-auto" />
                     ) : (
                       'Verify'
@@ -705,10 +733,10 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
                 <button
                   type="button"
                   onClick={handleSendPhoneCode}
-                  disabled={isLoading || !phoneInput}
+                  disabled={isLoadingAny || !phoneInput}
                   className="w-full p-3 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-medium transition-colors disabled:opacity-50"
                 >
-                  {isLoading ? (
+                  {isLoadingAny ? (
                     <Loader2Icon className="w-5 h-5 animate-spin mx-auto" />
                   ) : (
                     'Send Code'
@@ -736,10 +764,10 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
                   <button
                     type="button"
                     onClick={handleVerifyPhoneCode}
-                    disabled={isLoading || codeInput.length < 6}
+                    disabled={isLoadingAny || codeInput.length < 6}
                     className="w-full p-3 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-medium transition-colors disabled:opacity-50"
                   >
-                    {isLoading ? (
+                    {isLoadingAny ? (
                       <Loader2Icon className="w-5 h-5 animate-spin mx-auto" />
                     ) : (
                       'Verify'
@@ -794,7 +822,8 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
                 type="button"
                 onClick={() => {
                   setStep('choose')
-                  setError(null)
+                  setSiweError(null)
+                  setFarcasterError(null)
                 }}
                 className="mt-4 px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-700 text-white transition-colors"
               >

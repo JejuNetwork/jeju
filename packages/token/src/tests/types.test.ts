@@ -83,13 +83,19 @@ describe('ChainConfig', () => {
   test('should get EVM chains only', () => {
     const evmChains = getEVMChains()
     expect(evmChains.length).toBeGreaterThan(0)
-    expect(evmChains.every((c) => c.chainType === 'evm')).toBe(true)
+    expect(
+      evmChains.every((c: { chainType: string }) => c.chainType === 'evm'),
+    ).toBe(true)
   })
 
   test('should get Solana chains only', () => {
     const solanaChains = getSolanaChains()
     expect(solanaChains.length).toBeGreaterThan(0)
-    expect(solanaChains.every((c) => c.chainType === 'solana')).toBe(true)
+    expect(
+      solanaChains.every(
+        (c: { chainType: string }) => c.chainType === 'solana',
+      ),
+    ).toBe(true)
   })
 
   test('should validate chain config', () => {

@@ -424,7 +424,7 @@ describe('LedgerKeyring', () => {
       expect(mockSignEIP712HashedMessage).not.toHaveBeenCalled()
     })
 
-    it('should fallback to hashed signing for older firmware', async () => {
+    it('should throw when firmware does not support native EIP-712', async () => {
       const notSupportedError = new Error('INS_NOT_SUPPORTED')
       ;(notSupportedError as Error & { statusText: string }).statusText =
         'INS_NOT_SUPPORTED'
@@ -432,24 +432,10 @@ describe('LedgerKeyring', () => {
       mockSignEIP712Message.mockImplementation(() =>
         Promise.reject(notSupportedError),
       )
-      mockSignEIP712HashedMessage.mockImplementation(() =>
-        Promise.resolve({
-          v: 27,
-          r: '0000000000000000000000000000000000000000000000000000000000000001',
-          s: '0000000000000000000000000000000000000000000000000000000000000002',
-        }),
-      )
 
-      const signature = await keyring.signTypedData(
-        testAddress,
-        domain,
-        types,
-        message,
-        'Person',
-      )
-
-      expect(signature).toMatch(/^0x[a-fA-F0-9]{130}$/)
-      expect(mockSignEIP712HashedMessage).toHaveBeenCalled()
+      await expect(
+        keyring.signTypedData(testAddress, domain, types, message, 'Person'),
+      ).rejects.toThrow('INS_NOT_SUPPORTED')
     })
   })
 

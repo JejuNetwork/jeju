@@ -8,77 +8,41 @@
 import type { Address } from 'viem'
 import { api } from './client'
 
-// =============================================================================
-// Health Check
-// =============================================================================
+// Re-export for convenience
+export { ApiError, queryKeys } from './client'
 
-/**
- * Check API health status
- */
 export async function getHealth() {
   return api.health.get()
 }
 
-// =============================================================================
-// Faucet API
-// =============================================================================
-
-/**
- * Get faucet info (amount per claim, cooldown, etc.)
- */
 export async function getFaucetInfo() {
   return api.faucet.getInfo()
 }
 
-/**
- * Get faucet status for an address (eligibility, cooldown remaining)
- */
 export async function getFaucetStatus(address: Address) {
   return api.faucet.getStatus(address)
 }
 
-/**
- * Claim tokens from the faucet
- */
 export async function claimFaucet(address: Address) {
   return api.faucet.claim(address)
 }
 
-// =============================================================================
-// TFMM API
-// =============================================================================
-
-/**
- * Get all TFMM pools with stats
- */
 export async function getTFMMPools() {
   return api.tfmm.getPools()
 }
 
-/**
- * Get a specific TFMM pool by address
- */
 export async function getTFMMPool(poolAddress: Address) {
   return api.tfmm.getPool(poolAddress)
 }
 
-/**
- * Get available TFMM strategies
- */
 export async function getTFMMStrategies() {
   return api.tfmm.getStrategies()
 }
 
-/**
- * Get TFMM oracle status
- */
 export async function getTFMMOracles() {
   return api.tfmm.getOracles()
 }
 
-/**
- * Create a new TFMM pool
- */
 export async function createTFMMPool(params: {
   tokens: Address[]
   initialWeights: number[]
@@ -87,9 +51,6 @@ export async function createTFMMPool(params: {
   return api.tfmm.createPool(params)
 }
 
-/**
- * Update a TFMM pool's strategy
- */
 export async function updateTFMMStrategy(params: {
   poolAddress: Address
   newStrategy: string
@@ -97,38 +58,18 @@ export async function updateTFMMStrategy(params: {
   return api.tfmm.updateStrategy(params)
 }
 
-/**
- * Trigger rebalance for a TFMM pool
- */
 export async function triggerTFMMRebalance(params: { poolAddress: Address }) {
   return api.tfmm.triggerRebalance(params)
 }
 
-// =============================================================================
-// A2A API
-// =============================================================================
-
-/**
- * Get A2A service info
- */
 export async function getA2AInfo() {
   return api.a2a.getInfo()
 }
 
-/**
- * Get agent card
- */
 export async function getAgentCard() {
   return api.a2a.getAgentCard()
 }
 
-// =============================================================================
-// MCP API
-// =============================================================================
-
-/**
- * Get MCP server info
- */
 export async function getMCPInfo() {
   return api.mcp.getInfo()
 }

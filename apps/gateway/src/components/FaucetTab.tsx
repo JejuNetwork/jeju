@@ -1,3 +1,4 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   AlertCircle,
   CheckCircle2,
@@ -9,7 +10,7 @@ import {
   type LucideProps,
   RefreshCw,
 } from 'lucide-react'
-import { type ComponentType, useCallback, useEffect, useState } from 'react'
+import { type ComponentType, useState } from 'react'
 import { useAccount } from 'wagmi'
 import { z } from 'zod'
 import { EXPLORER_URL } from '../config'
@@ -31,10 +32,10 @@ const FaucetStatusSchema = z.object({
 
 const FaucetClaimResultSchema = z.object({
   success: z.boolean(),
-  txHash: z.string().optional(),
-  amount: z.string().optional(),
-  error: z.string().optional(),
-  cooldownRemaining: z.number().optional(),
+  txHash: z.string().nullable(),
+  amount: z.string().nullable(),
+  error: z.string().nullable(),
+  cooldownRemaining: z.number().nullable(),
 })
 
 const FaucetInfoSchema = z.object({
@@ -66,89 +67,87 @@ function formatTime(ms: number): string {
   return `${minutes}m`
 }
 
+async function fetchFaucetStatus(address: string): Promise<FaucetStatus> {
+  const response = await fetch(`/api/faucet/status/${address}`)
+  if (!response.ok) {
+    throw new Error('Failed to fetch faucet status')
+  }
+  const data = await response.json()
+  const result = FaucetStatusSchema.safeParse(data)
+  if (!result.success) {
+    throw new Error('Invalid faucet status response')
+  }
+  return result.data
+}
+
+async function fetchFaucetInfo(): Promise<FaucetInfo> {
+  const response = await fetch('/api/faucet/info')
+  if (!response.ok) {
+    throw new Error('Failed to fetch faucet info')
+  }
+  const data = await response.json()
+  const result = FaucetInfoSchema.safeParse(data)
+  if (!result.success) {
+    throw new Error('Invalid faucet info response')
+  }
+  return result.data
+}
+
+async function claimFromFaucet(address: string): Promise<FaucetClaimResult> {
+  const response = await fetch('/api/faucet/claim', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ address }),
+  })
+  const data = await response.json()
+  const result = FaucetClaimResultSchema.safeParse(data)
+  if (!result.success) {
+    return { success: false, error: 'Invalid claim response' }
+  }
+  return result.data
+}
+
 function useFaucet() {
   const { address } = useAccount()
-  const [status, setStatus] = useState<FaucetStatus | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [claiming, setClaiming] = useState(false)
-  const [claimResult, setClaimResult] = useState<FaucetClaimResult | null>(null)
-  const [info, setInfo] = useState<FaucetInfo | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const queryClient = useQueryClient()
 
-  const fetchStatus = useCallback(async () => {
-    if (!address) return
-    setLoading(true)
-    setError(null)
+  const {
+    data: status = null,
+    isLoading: loading,
+    error: statusError,
+    refetch: refetchStatus,
+  } = useQuery({
+    queryKey: ['faucet-status', address],
+    queryFn: () => fetchFaucetStatus(address ?? ''),
+    enabled: !!address,
+  })
 
-    const response = await fetch(`/api/faucet/status/${address}`)
-    if (!response.ok) {
-      setError('Failed to fetch faucet status')
-      setLoading(false)
-      return
-    }
-    const data = await response.json()
-    const result = FaucetStatusSchema.safeParse(data)
-    if (!result.success) {
-      setError('Invalid faucet status response')
-      setLoading(false)
-      return
-    }
-    setStatus(result.data)
-    setLoading(false)
-  }, [address])
+  const { data: info = null } = useQuery({
+    queryKey: ['faucet-info'],
+    queryFn: fetchFaucetInfo,
+    staleTime: 60000,
+  })
 
-  const fetchInfo = useCallback(async () => {
-    const response = await fetch('/api/faucet/info')
-    if (!response.ok) return
-    const data = await response.json()
-    const result = FaucetInfoSchema.safeParse(data)
-    if (!result.success) {
-      console.error('Invalid faucet info response:', result.error)
-      return
-    }
-    setInfo(result.data)
-  }, [])
-
-  const claim = useCallback(async () => {
-    if (!address) return
-    setClaiming(true)
-    setClaimResult(null)
-
-    const response = await fetch('/api/faucet/claim', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ address }),
-    })
-    const data = await response.json()
-    const result = FaucetClaimResultSchema.safeParse(data)
-    if (!result.success) {
-      setClaimResult({ success: false, error: 'Invalid claim response' })
-      setClaiming(false)
-      return
-    }
-    setClaimResult(result.data)
-    setClaiming(false)
-    if (result.data.success) {
-      await fetchStatus()
-    }
-  }, [address, fetchStatus])
-
-  useEffect(() => {
-    fetchInfo()
-    if (address) {
-      fetchStatus()
-    }
-  }, [address, fetchInfo, fetchStatus])
+  const claimMutation = useMutation({
+    mutationFn: () => claimFromFaucet(address ?? ''),
+    onSuccess: (result) => {
+      if (result.success) {
+        queryClient.invalidateQueries({ queryKey: ['faucet-status', address] })
+      }
+    },
+  })
 
   return {
     status,
     loading,
-    claiming,
-    claimResult,
+    claiming: claimMutation.isPending,
+    claimResult: claimMutation.data ?? null,
     info,
-    claim,
-    refresh: fetchStatus,
-    error,
+    claim: () => claimMutation.mutate(),
+    refresh: () => {
+      refetchStatus()
+    },
+    error: statusError?.message ?? null,
   }
 }
 

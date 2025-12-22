@@ -8,8 +8,6 @@
 import type { Hex } from 'viem'
 import { z } from 'zod'
 
-// ============ Common Schemas ============
-
 // Limit hex string length to prevent ReDoS and memory exhaustion
 // 1MB of hex = 2 million chars, which is more than sufficient for any message
 const MAX_HEX_LENGTH = 2 * 1024 * 1024
@@ -19,20 +17,18 @@ export const HexStringSchema = z
   .max(MAX_HEX_LENGTH, 'Hex string too long')
   .regex(/^[a-fA-F0-9]+$/, 'Invalid hex string')
 
-// ============ Serialized Encrypted Message Schema ============
-
-export const SerializedEncryptedMessageSchema = z.object({
-  ciphertext: HexStringSchema,
-  nonce: HexStringSchema,
-  ephemeralPublicKey: HexStringSchema,
-})
+export const SerializedEncryptedMessageSchema = z
+  .object({
+    ciphertext: HexStringSchema,
+    nonce: HexStringSchema,
+    ephemeralPublicKey: HexStringSchema,
+  })
+  .strict()
 
 /** Serialized encrypted message for wire transfer */
 export type SerializedEncryptedMessage = z.infer<
   typeof SerializedEncryptedMessageSchema
 >
-
-// ============ Message Envelope Schema ============
 
 export const MessageEnvelopeSchema = z.object({
   id: z.string().uuid(),
@@ -47,8 +43,6 @@ export const MessageEnvelopeSchema = z.object({
 /** Message envelope for wire transfer */
 export type MessageEnvelope = z.infer<typeof MessageEnvelopeSchema>
 
-// ============ Node Config Schema ============
-
 export const NodeConfigSchema = z.object({
   port: z.number().int().positive().max(65535),
   nodeId: z.string().min(1, 'nodeId is required'),
@@ -59,8 +53,6 @@ export const NodeConfigSchema = z.object({
 
 /** Relay node configuration */
 export type NodeConfig = z.infer<typeof NodeConfigSchema>
-
-// ============ Client Config Schema (Validatable portion) ============
 
 export const MessagingClientConfigBaseSchema = z.object({
   rpcUrl: z.string().url('rpcUrl must be a valid URL'),
@@ -77,34 +69,34 @@ export type MessagingClientConfigBase = z.infer<
   typeof MessagingClientConfigBaseSchema
 >
 
-// ============ WebSocket Message Schemas ============
-
-export const WebSocketSubscribeSchema = z.object({
-  type: z.literal('subscribe'),
-  address: z.string().min(1, 'address is required'),
-})
+export const WebSocketSubscribeSchema = z
+  .object({
+    type: z.literal('subscribe'),
+    address: z.string().min(1, 'address is required').max(256),
+  })
+  .strict()
 
 /** WebSocket subscription message */
 export type WebSocketSubscribe = z.infer<typeof WebSocketSubscribeSchema>
 
-// ============ Receipt Data Schemas ============
-
-export const DeliveryReceiptDataSchema = z.object({
-  messageId: z.string().uuid(),
-})
+export const DeliveryReceiptDataSchema = z
+  .object({
+    messageId: z.string().uuid(),
+  })
+  .strict()
 
 /** Delivery receipt data */
 export type DeliveryReceiptData = z.infer<typeof DeliveryReceiptDataSchema>
 
-export const ReadReceiptDataSchema = z.object({
-  messageId: z.string().uuid(),
-  readAt: z.number().int().positive(),
-})
+export const ReadReceiptDataSchema = z
+  .object({
+    messageId: z.string().uuid(),
+    readAt: z.number().int().positive(),
+  })
+  .strict()
 
 /** Read receipt data */
 export type ReadReceiptData = z.infer<typeof ReadReceiptDataSchema>
-
-// ============ WebSocket Incoming Message Schemas (Client) ============
 
 export const WebSocketIncomingMessageSchema = z.object({
   type: z.enum(['message', 'delivery_receipt', 'read_receipt']),
@@ -120,8 +112,6 @@ export type WebSocketIncomingMessage = z.infer<
   typeof WebSocketIncomingMessageSchema
 >
 
-// ============ IPFS Response Schema ============
-
 export const IPFSAddResponseSchema = z.object({
   Hash: z.string().min(1, 'IPFS hash required'),
 })
@@ -129,19 +119,17 @@ export const IPFSAddResponseSchema = z.object({
 /** IPFS add response */
 export type IPFSAddResponse = z.infer<typeof IPFSAddResponseSchema>
 
-// ============ Send Message Request Schema ============
-
-export const SendMessageRequestSchema = z.object({
-  to: z.string().min(1, 'to address is required'),
-  content: z.string().min(1, 'content is required'),
-  chatId: z.string().optional(),
-  replyTo: z.string().optional(),
-})
+export const SendMessageRequestSchema = z
+  .object({
+    to: z.string().min(1, 'to address is required').max(256),
+    content: z.string().min(1, 'content is required').max(100000),
+    chatId: z.string().min(1).max(256).optional(),
+    replyTo: z.string().min(1).max(256).optional(),
+  })
+  .strict()
 
 /** Send message request */
 export type SendMessageRequest = z.infer<typeof SendMessageRequestSchema>
-
-// ============ Send Message Response Schema ============
 
 export const SendMessageResponseSchema = z.object({
   success: z.boolean(),
@@ -158,8 +146,6 @@ export type SendMessageResponseValidated = z.infer<
   typeof SendMessageResponseSchema
 >
 
-// ============ Sync State Schema ============
-
 export const SyncStateSchema = z.object({
   lastSyncedBlock: z.number().int().nonnegative(),
   lastSyncedAt: z.number().int().nonnegative(),
@@ -170,19 +156,17 @@ export const SyncStateSchema = z.object({
 /** Sync state for XMTP sync service */
 export type SyncStateValidated = z.infer<typeof SyncStateSchema>
 
-// ============ Sync Peer Schema ============
-
-export const SyncPeerSchema = z.object({
-  nodeId: z.string().min(1),
-  url: z.string().url(),
-  lastSyncedAt: z.number().int().nonnegative(),
-  cursor: z.string(),
-})
+export const SyncPeerSchema = z
+  .object({
+    nodeId: z.string().min(1).max(256),
+    url: z.string().url().max(2048),
+    lastSyncedAt: z.number().int().nonnegative(),
+    cursor: z.string().max(1024),
+  })
+  .strict()
 
 /** Sync peer for XMTP sync service */
 export type SyncPeerValidated = z.infer<typeof SyncPeerSchema>
-
-// ============ Sync Persistence Schema ============
 
 export const SyncPersistenceSchema = z.object({
   state: SyncStateSchema,
@@ -193,21 +177,26 @@ export const SyncPersistenceSchema = z.object({
 /** Persisted sync data */
 export type SyncPersistenceData = z.infer<typeof SyncPersistenceSchema>
 
-// ============ Sync Event Schema ============
+/** Primitive types allowed in sync event data records */
+const SyncEventDataValueSchema = z.union([
+  z.string(),
+  z.number(),
+  z.boolean(),
+  z.null(),
+  z.array(z.union([z.string(), z.number(), z.boolean(), z.null()])),
+])
 
 export const SyncEventSchema = z.object({
   type: z.enum(['message', 'conversation', 'identity', 'group']),
   id: z.string().min(1),
   timestamp: z.number().int().positive(),
-  data: z.record(z.string(), z.unknown()), // XMTP envelope/conversation/message data
+  data: z.record(z.string(), SyncEventDataValueSchema),
 })
 
 /** Sync event from peer */
 export type SyncEventValidated = z.infer<typeof SyncEventSchema>
 
 export const SyncEventsArraySchema = z.array(SyncEventSchema)
-
-// ============ Relay Response Schemas ============
 
 export const RelayHealthResponseSchema = z.object({
   status: z.string(),
@@ -252,8 +241,6 @@ export const RelayMessagesResponseSchema = z.object({
 
 /** Messages fetch response */
 export type RelayMessagesResponse = z.infer<typeof RelayMessagesResponseSchema>
-
-// ============ Encrypted Backup Schema (TEE) ============
 
 /** Hex string schema that validates and transforms to Hex type */
 const HexSchema = z

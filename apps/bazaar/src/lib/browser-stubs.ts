@@ -5,6 +5,7 @@
  * without requiring server-side packages.
  */
 
+import { useCallback, useEffect, useState } from 'react'
 import {
   type Address,
   createPublicClient,
@@ -13,7 +14,6 @@ import {
   parseAbiItem,
 } from 'viem'
 import { base, baseSepolia } from 'viem/chains'
-import { useCallback, useEffect, useState } from 'react'
 
 // ============================================================================
 // Ban Types and Status
@@ -59,15 +59,11 @@ function getNetworkConfig(): {
   return {
     chain: isMainnet ? base : baseSepolia,
     rpcUrl: isMainnet
-      ? (import.meta.env?.VITE_RPC_URL as string) ||
-        'https://mainnet.base.org'
-      : (import.meta.env?.VITE_RPC_URL as string) ||
-        'https://sepolia.base.org',
-    banManager:
-      (import.meta.env?.VITE_BAN_MANAGER_ADDRESS as Address) || null,
+      ? (import.meta.env?.VITE_RPC_URL as string) || 'https://mainnet.base.org'
+      : (import.meta.env?.VITE_RPC_URL as string) || 'https://sepolia.base.org',
+    banManager: (import.meta.env?.VITE_BAN_MANAGER_ADDRESS as Address) || null,
     moderationMarketplace:
-      (import.meta.env?.VITE_MODERATION_MARKETPLACE_ADDRESS as Address) ||
-      null,
+      (import.meta.env?.VITE_MODERATION_MARKETPLACE_ADDRESS as Address) || null,
   }
 }
 
@@ -128,79 +124,64 @@ export function useBanStatus(address: Address | undefined): BanStatus {
       transport: http(config.rpcUrl),
     })
 
-    try {
-      const [isAddressBanned, isOnNotice] = await Promise.all([
-        client
-          .readContract({
-            address: config.banManager,
-            abi: [BAN_MANAGER_FRAGMENT],
-            functionName: 'isAddressBanned',
-            args: [address],
-          })
-          .catch(() => false),
-        client
-          .readContract({
-            address: config.banManager,
-            abi: [ON_NOTICE_FRAGMENT],
-            functionName: 'isOnNotice',
-            args: [address],
-          })
-          .catch(() => false),
-      ])
+    const [isAddressBanned, isOnNotice] = await Promise.all([
+      client.readContract({
+        address: config.banManager,
+        abi: [BAN_MANAGER_FRAGMENT],
+        functionName: 'isAddressBanned',
+        args: [address],
+      }),
+      client.readContract({
+        address: config.banManager,
+        abi: [ON_NOTICE_FRAGMENT],
+        functionName: 'isOnNotice',
+        args: [address],
+      }),
+    ])
 
-      if (isAddressBanned || isOnNotice) {
-        // Fetch detailed ban info
-        const ban = await client
-          .readContract({
-            address: config.banManager,
-            abi: [GET_BAN_FRAGMENT],
-            functionName: 'getAddressBan',
-            args: [address],
-          })
-          .catch(() => null)
+    if (isAddressBanned || isOnNotice) {
+      const ban = (await client.readContract({
+        address: config.banManager,
+        abi: [GET_BAN_FRAGMENT],
+        functionName: 'getAddressBan',
+        args: [address],
+      })) as readonly [boolean, number, string, Hex]
 
-        const banInfo = ban as {
-          isBanned: boolean
-          banType: number
-          reason: string
-          caseId: Hex
-        } | null
-
-        setStatus({
-          isBanned: Boolean(isAddressBanned),
-          isOnNotice: Boolean(isOnNotice),
-          banType: (banInfo?.banType as BanType) ?? BanType.PERMANENT,
-          reason:
-            banInfo?.reason ||
-            (isOnNotice
-              ? 'Account on notice - pending review'
-              : 'Banned from network'),
-          caseId: banInfo?.caseId || null,
-          loading: false,
-          canAppeal: banInfo?.banType === BanType.PERMANENT,
-          error: null,
-        })
-        return
+      const banInfo = {
+        isBanned: ban[0],
+        banType: ban[1],
+        reason: ban[2],
+        caseId: ban[3],
       }
 
-      // User is not banned
       setStatus({
-        isBanned: false,
-        isOnNotice: false,
-        banType: BanType.NONE,
-        reason: null,
-        caseId: null,
+        isBanned: Boolean(isAddressBanned),
+        isOnNotice: Boolean(isOnNotice),
+        banType: banInfo.banType as BanType,
+        reason:
+          banInfo.reason ||
+          (isOnNotice
+            ? 'Account on notice - pending review'
+            : 'Banned from network'),
+        caseId: banInfo.caseId,
         loading: false,
-        canAppeal: false,
+        canAppeal: banInfo.banType === BanType.PERMANENT,
         error: null,
       })
-    } catch (err) {
-      setStatus((prev) => ({
-        ...prev,
-        loading: false,
-        error: err instanceof Error ? err.message : 'Failed to check ban status',
-      }))
+      return
     }
+
+    // User is not banned
+    setStatus({
+      isBanned: false,
+      isOnNotice: false,
+      banType: BanType.NONE,
+      reason: null,
+      caseId: null,
+      loading: false,
+      canAppeal: false,
+      error: null,
+    })
   }, [address])
 
   useEffect(() => {

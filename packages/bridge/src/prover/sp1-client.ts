@@ -41,10 +41,6 @@ interface Groth16DataParsed {
 
 const log = createLogger('sp1')
 
-// =============================================================================
-// TYPES
-// =============================================================================
-
 export interface SP1Config {
   /** Path to SP1 programs directory */
   programsDir: string
@@ -136,10 +132,6 @@ export interface ProofResult {
   /** Error message if failed */
   error?: string
 }
-
-// =============================================================================
-// SP1 CLIENT
-// =============================================================================
 
 export class SP1Client {
   private config: SP1Config
@@ -333,10 +325,6 @@ export class SP1Client {
 
     return false
   }
-
-  // =============================================================================
-  // PRIVATE METHODS
-  // =============================================================================
 
   private async generateRealProof(
     id: string,
@@ -685,10 +673,6 @@ export class SP1Client {
     }
   }
 }
-
-// =============================================================================
-// FACTORY
-// =============================================================================
 
 export function createSP1Client(config?: Partial<SP1Config>): SP1Client {
   const programsDir = config?.programsDir ?? join(process.cwd(), 'circuits')

@@ -4,7 +4,7 @@
  * Abstract base class for implementing MCP tool handlers
  */
 
-import type { ZodObject, ZodRawShape } from 'zod'
+import type { infer as ZodInfer, ZodObject, ZodRawShape } from 'zod'
 import type {
   AuthenticatedAgent,
   JsonValue,
@@ -62,7 +62,7 @@ export abstract class BaseToolHandler<
    * @returns Tool result
    */
   abstract execute(
-    args: Zod.infer<TSchema>,
+    args: ZodInfer<TSchema>,
     agent: AuthenticatedAgent,
   ): Promise<TResult>
 
@@ -76,21 +76,21 @@ export abstract class BaseToolHandler<
   /**
    * Get the validator function
    */
-  getValidator(): (args: unknown) => Zod.infer<TSchema> {
+  getValidator(): (args: unknown) => ZodInfer<TSchema> {
     return createValidator(this.schema)
   }
 
   /**
    * Get the handler function
    */
-  getHandler(): ToolHandler<Zod.infer<TSchema>, TResult> {
+  getHandler(): ToolHandler<ZodInfer<TSchema>, TResult> {
     return this.execute.bind(this)
   }
 
   /**
    * Get the complete tool definition with handler and validator
    */
-  getToolDefinition(): MCPToolDefinition<Zod.infer<TSchema>, TResult> {
+  getToolDefinition(): MCPToolDefinition<ZodInfer<TSchema>, TResult> {
     return {
       tool: this.getTool(),
       handler: this.getHandler(),
@@ -131,20 +131,13 @@ export function createToolHandler<
   description: string,
   schema: TSchema,
   handler: (
-    args: Zod.infer<TSchema>,
+    args: ZodInfer<TSchema>,
     agent: AuthenticatedAgent,
   ) => Promise<TResult>,
-): MCPToolDefinition<Zod.infer<TSchema>, TResult> {
+): MCPToolDefinition<ZodInfer<TSchema>, TResult> {
   return {
     tool: createToolFromSchema(name, description, schema),
-    handler: handler as ToolHandler<Zod.infer<TSchema>, TResult>,
+    handler: handler as ToolHandler<ZodInfer<TSchema>, TResult>,
     validator: createValidator(schema),
   }
-}
-
-/**
- * Namespace type for Zod inference
- */
-declare namespace Zod {
-  type infer<T extends ZodObject<ZodRawShape>> = import('zod').infer<T>
 }

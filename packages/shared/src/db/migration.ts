@@ -15,9 +15,7 @@ import type {
   TableSchema,
 } from './covenant-sql'
 
-// ============================================================================
 // Types
-// ============================================================================
 
 export interface Migration {
   version: number
@@ -41,9 +39,7 @@ export interface MigrationResult {
   error?: string
 }
 
-// ============================================================================
 // Migration Manager
-// ============================================================================
 
 export class MigrationManager {
   private client: CovenantSQLClient
@@ -234,9 +230,7 @@ export class MigrationManager {
   }
 }
 
-// ============================================================================
 // Migration Helpers
-// ============================================================================
 
 /**
  * Create a migration

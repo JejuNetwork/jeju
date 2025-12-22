@@ -68,8 +68,6 @@ interface StakeInfo {
   isStaked: boolean
 }
 
-// ============ Constants ============
-
 const MODERATION_MARKETPLACE_ADDRESS =
   CONTRACTS.moderationMarketplace || undefined
 
@@ -431,8 +429,6 @@ function CaseCard({
     </div>
   )
 }
-
-// ============ Main Component ============
 
 export default function ModerationMarketplace() {
   const { address, isConnected } = useAccount()

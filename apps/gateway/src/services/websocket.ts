@@ -33,7 +33,7 @@ const WSMessageSchema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('subscribe'),
     channel: z.string().min(1).max(50),
-    chainId: z.number().int().positive().optional(),
+    chainId: z.number().int().positive().nullable(),
   }),
   z.object({
     action: z.literal('unsubscribe'),

@@ -522,7 +522,7 @@ print(f"METRICS:{avg_loss},{pos_logp},{neg_logp},{total_logp},{grad_norm},{confi
         await this.startVllm(checkpointPath)
       }
 
-      this.currentStep = step + 1
+      this.status.currentStep = step + 1
     }
 
     // Final cleanup

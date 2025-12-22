@@ -8,10 +8,6 @@ import { AddressSchema, HexSchema } from '@jejunetwork/types'
 import type { Address } from 'viem'
 import { z } from 'zod'
 
-// ============================================================================
-// VPN Node Schemas
-// ============================================================================
-
 export const VPNNodeStatusSchema = z.enum(['online', 'busy', 'offline'])
 
 export const VPNNodeStateSchema = z
@@ -37,10 +33,6 @@ export const VPNNodeStateSchema = z
     latencyMs: z.number().int().nonnegative('Latency cannot be negative'),
   })
   .strict()
-
-// ============================================================================
-// Session Schemas
-// ============================================================================
 
 export const VPNProtocolSchema = z.enum(['wireguard', 'socks5', 'http'])
 
@@ -145,10 +137,6 @@ export const ContributionStateSchema = z
     path: ['period_end'],
   })
 
-// ============================================================================
-// Pricing Schemas
-// ============================================================================
-
 export const VPNPricingSchema = z
   .object({
     pricePerGB: z
@@ -219,10 +207,6 @@ export interface ContributionState {
   periodEnd: number
 }
 
-// ============================================================================
-// Query Parameter Schemas
-// ============================================================================
-
 export const NodesQuerySchema = z
   .object({
     country: z.string().length(2).toUpperCase().optional(),
@@ -280,11 +264,6 @@ export const ContributionSettingsRequestSchema = z
   })
   .strict()
 
-// ============================================================================
-// A2A Schemas
-// ============================================================================
-
-// A2A skill data schema for validating skill invocations
 export const A2ASkillDataSchema = z
   .object({
     skillId: z.string().min(1, 'Skill ID required'),
@@ -396,10 +375,6 @@ export const MCPPromptGetSchema = z
   })
   .strict()
 
-// ============================================================================
-// x402 Payment Schemas
-// ============================================================================
-
 export const X402PaymentPayloadSchema = z
   .object({
     scheme: z.enum(['exact', 'upto']),
@@ -444,10 +419,6 @@ export const AuthHeadersSchema = z
     'x-jeju-signature': HexSchema,
   })
   .strict()
-
-// ============================================================================
-// Helper Functions - Re-export from shared
-// ============================================================================
 
 export {
   expect,

@@ -1,10 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import type { Address } from 'viem'
-import { formatEther, parseAbi } from 'viem'
+import { parseAbi } from 'viem'
 import { useReadContract } from 'wagmi'
-import { getContractAddressSafe, getDwsUrl } from '../config/contracts'
-
-// ============ Types ============
+import { getContractAddressSafe } from '../config/contracts'
+import { api, extractDataSafe } from '../lib/client'
 
 export interface BountyReward {
   token: string
@@ -32,8 +31,6 @@ export interface BountyStats {
   avgPayout: string
 }
 
-// ============ Contract ABI ============
-
 const BOUNTY_REGISTRY_ABI = parseAbi([
   'function getBounty(bytes32 bountyId) external view returns (tuple(bytes32 id, address creator, bytes32 daoId, string title, string description, address rewardToken, uint256 rewardAmount, uint256 deadline, uint8 status, uint256 applicantCount, uint256 milestoneCount))',
   'function getAllBounties() external view returns (bytes32[])',
@@ -41,56 +38,92 @@ const BOUNTY_REGISTRY_ABI = parseAbi([
   'function getOpenBounties() external view returns (bytes32[])',
 ])
 
-// ============ Fetchers ============
+// API response types
+interface ApiBounty {
+  id: string
+  title: string
+  description: string
+  reward: string
+  currency: string
+  status: 'open' | 'in_progress' | 'review' | 'completed' | 'cancelled'
+  skills: string[]
+  creator: string
+  deadline: number
+  milestones?: Array<{
+    name: string
+    description: string
+    reward: string
+    currency: string
+    deadline: number
+  }>
+  submissions: number
+  createdAt: number
+  updatedAt: number
+}
 
-async function fetchBountiesFromAPI(): Promise<Bounty[]> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/bounties`)
-  if (!res.ok) return []
-  const data = await res.json()
+interface BountiesResponse {
+  bounties: ApiBounty[]
+  total: number
+  page: number
+  limit: number
+  hasMore: boolean
+}
 
-  return (data.bounties || []).map(
-    (b: {
-      id: string
-      title: string
-      description: string
-      creator: string
-      rewardToken: string
-      rewardAmount: string
-      skills: string[]
-      deadline: number
-      applicantCount: number
-      status: number
-      milestoneCount: number
-      daoId?: string
-    }) => ({
-      id: b.id,
-      title: b.title,
-      description: b.description || '',
-      creator: b.creator,
-      rewards: [
-        {
-          token:
-            b.rewardToken === '0x0000000000000000000000000000000000000000'
-              ? 'ETH'
-              : b.rewardToken,
-          amount: formatEther(BigInt(b.rewardAmount || '0')),
-        },
-      ],
-      skills: b.skills || [],
-      deadline: b.deadline,
-      applicants: b.applicantCount || 0,
-      status: mapBountyStatus(b.status),
-      milestones: b.milestoneCount || 1,
-      daoId: b.daoId,
-    }),
-  )
+function transformBounty(b: ApiBounty): Bounty {
+  return {
+    id: b.id,
+    title: b.title,
+    description: b.description,
+    creator: b.creator,
+    rewards: [
+      {
+        token: b.currency || 'ETH',
+        amount: b.reward,
+      },
+    ],
+    skills: b.skills || [],
+    deadline: b.deadline,
+    applicants: b.submissions || 0,
+    status: b.status,
+    milestones: b.milestones?.length || 1,
+  }
+}
+
+async function fetchBounties(filter?: {
+  status?: Bounty['status']
+  creator?: Address
+  daoId?: string
+}): Promise<Bounty[]> {
+  const response = await api.api.bounties.get({
+    query: {
+      status: filter?.status,
+    },
+  })
+
+  const data = extractDataSafe(response) as BountiesResponse | null
+  if (!data?.bounties) return []
+
+  let bounties = data.bounties.map(transformBounty)
+
+  // Apply client-side filters for fields not in API
+  if (filter?.creator) {
+    bounties = bounties.filter(
+      (b) => b.creator.toLowerCase() === filter.creator?.toLowerCase(),
+    )
+  }
+  if (filter?.daoId) {
+    bounties = bounties.filter((b) => b.daoId === filter.daoId)
+  }
+
+  return bounties
 }
 
 async function fetchBountyStats(): Promise<BountyStats> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/bounties/stats`)
-  if (!res.ok) {
+  // Stats endpoint - calculate from bounties list if no dedicated endpoint
+  const response = await api.api.bounties.get({})
+  const data = extractDataSafe(response) as BountiesResponse | null
+
+  if (!data?.bounties) {
     return {
       openBounties: 0,
       totalValue: '0 ETH',
@@ -98,21 +131,23 @@ async function fetchBountyStats(): Promise<BountyStats> {
       avgPayout: '0 ETH',
     }
   }
-  return res.json()
-}
 
-function mapBountyStatus(status: number): Bounty['status'] {
-  const statusMap: Record<number, Bounty['status']> = {
-    0: 'open',
-    1: 'in_progress',
-    2: 'review',
-    3: 'completed',
-    4: 'cancelled',
+  const bounties = data.bounties
+  const openBounties = bounties.filter((b) => b.status === 'open').length
+  const completed = bounties.filter((b) => b.status === 'completed').length
+  const totalValue = bounties.reduce(
+    (sum, b) => sum + Number.parseFloat(b.reward || '0'),
+    0,
+  )
+  const avgPayout = completed > 0 ? totalValue / completed : 0
+
+  return {
+    openBounties,
+    totalValue: `${totalValue.toFixed(2)} ETH`,
+    completed,
+    avgPayout: `${avgPayout.toFixed(2)} ETH`,
   }
-  return statusMap[status] || 'open'
 }
-
-// ============ Hooks ============
 
 export function useBounties(filter?: {
   status?: Bounty['status']
@@ -137,26 +172,12 @@ export function useBounties(filter?: {
     refetch,
   } = useQuery({
     queryKey: ['bounties', filter],
-    queryFn: fetchBountiesFromAPI,
+    queryFn: () => fetchBounties(filter),
     staleTime: 30000,
   })
 
-  // Apply filters
-  let bounties = apiBounties || []
-  if (filter?.status && filter.status !== 'open') {
-    bounties = bounties.filter((b) => b.status === filter.status)
-  }
-  if (filter?.creator) {
-    bounties = bounties.filter(
-      (b) => b.creator.toLowerCase() === filter.creator?.toLowerCase(),
-    )
-  }
-  if (filter?.daoId) {
-    bounties = bounties.filter((b) => b.daoId === filter.daoId)
-  }
-
   return {
-    bounties,
+    bounties: apiBounties || [],
     bountyIds: bountyIds as string[] | undefined,
     isLoading,
     error,
@@ -202,10 +223,10 @@ export function useBounty(bountyId: string) {
   const { data: apiBounty, isLoading: apiLoading } = useQuery({
     queryKey: ['bounty', bountyId],
     queryFn: async () => {
-      const dwsUrl = getDwsUrl()
-      const res = await fetch(`${dwsUrl}/api/bounties/${bountyId}`)
-      if (!res.ok) return null
-      return res.json()
+      const response = await api.api.bounties({ id: bountyId }).get()
+      const data = extractDataSafe(response)
+      if (!data) return null
+      return transformBounty(data as ApiBounty)
     },
     enabled: !bountyData && !!bountyId,
     staleTime: 30000,

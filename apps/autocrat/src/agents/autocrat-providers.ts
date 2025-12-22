@@ -24,16 +24,19 @@ import {
   getCoreAppUrl,
 } from '@jejunetwork/config'
 import { expectValid } from '@jejunetwork/types'
+import type { z } from 'zod'
 import {
   A2AJsonRpcResponseSchema,
   AgentCardSchema,
+  AutocratVotesDataSchema,
+  CEOStatusDataSchema,
   extractA2AData,
+  GovernanceStatsDataSchema,
   MCPToolsResponseSchema,
+  ProposalDataSchema,
+  ProposalListDataSchema,
+  ResearchDataSchema,
 } from '../schemas'
-
-// ============================================================================
-// Configuration (Network-Aware)
-// ============================================================================
 
 function getAutocratA2A(): string {
   return process.env.AUTOCRAT_A2A_URL ?? getAutocratA2AUrl()
@@ -70,15 +73,12 @@ function getServiceRegistry(): Record<
   }
 }
 
-// ============================================================================
-// A2A Client Helper
-// ============================================================================
-
-async function callA2A(
+async function callA2ATyped<T>(
   url: string,
   skillId: string,
+  schema: z.ZodType<T>,
   params: Record<string, unknown> = {},
-): Promise<Record<string, unknown>> {
+): Promise<T> {
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -104,22 +104,25 @@ async function callA2A(
     await response.json(),
     `A2A ${skillId}`,
   )
-  return extractA2AData<Record<string, unknown>>(result, `A2A ${skillId}`)
+  const data = extractA2AData<Record<string, unknown>>(result, `A2A ${skillId}`)
+  return expectValid(schema, data, `A2A ${skillId} data`)
 }
 
-async function fetchAgentCard(
-  baseUrl: string,
-): Promise<Record<string, unknown> | null> {
+interface AgentCard {
+  protocolVersion: string
+  name: string
+  description: string
+  url: string
+  skills: Array<{ id: string; name: string; description: string }>
+}
+
+async function fetchAgentCard(baseUrl: string): Promise<AgentCard | null> {
   const cardUrl = `${baseUrl.replace('/a2a', '')}/.well-known/agent-card.json`
   const response = await fetch(cardUrl)
   if (!response.ok) return null
   const result = AgentCardSchema.safeParse(await response.json())
-  return result.success ? result.data : null
+  return result.success ? (result.data as AgentCard) : null
 }
-
-// ============================================================================
-// Service Discovery Provider
-// ============================================================================
 
 /**
  * Provider: Service Discovery
@@ -192,10 +195,6 @@ export const serviceDiscoveryProvider: Provider = {
   },
 }
 
-// ============================================================================
-// Other Autocrat Votes Provider
-// ============================================================================
-
 /**
  * Provider: Other Autocrat Votes
  * Get votes from other autocrat agents on active proposals
@@ -220,20 +219,13 @@ export const otherAutocratVotesProvider: Provider = {
     }
 
     const proposalId = proposalMatch[0]
-    const data = await callA2A(getAutocratA2A(), 'get-autocrat-votes', {
-      proposalId,
-    })
-    const votes =
-      (
-        data as {
-          votes?: Array<{
-            role: string
-            vote: string
-            reasoning: string
-            confidence: number
-          }>
-        }
-      ).votes ?? []
+    const data = await callA2ATyped(
+      getAutocratA2A(),
+      'get-autocrat-votes',
+      AutocratVotesDataSchema,
+      { proposalId },
+    )
+    const votes = data.votes
 
     // Filter out own votes based on runtime's character name
     const myRole = runtime.character.name?.replace(' Agent', '').toUpperCase()
@@ -262,10 +254,6 @@ export const otherAutocratVotesProvider: Provider = {
   },
 }
 
-// ============================================================================
-// Active Proposals Provider
-// ============================================================================
-
 /**
  * Provider: Active Proposals
  * Get list of proposals awaiting deliberation
@@ -279,21 +267,14 @@ export const activeProposalsProvider: Provider = {
     _message: Memory,
     _state: State,
   ): Promise<ProviderResult> => {
-    const data = await callA2A(getAutocratA2A(), 'list-proposals', {
-      activeOnly: true,
-    })
-    const proposals =
-      (
-        data as {
-          proposals?: Array<{
-            id: string
-            status: string
-            qualityScore: number
-            proposalType: number
-          }>
-        }
-      ).proposals ?? []
-    const total = (data as { total?: number }).total ?? 0
+    const data = await callA2ATyped(
+      getAutocratA2A(),
+      'list-proposals',
+      ProposalListDataSchema,
+      { activeOnly: true },
+    )
+    const proposals = data.proposals
+    const total = data.total
 
     if (proposals.length === 0) {
       return { text: '📋 No active proposals requiring autocrat deliberation.' }
@@ -316,10 +297,6 @@ export const activeProposalsProvider: Provider = {
   },
 }
 
-// ============================================================================
-// Proposal Detail Provider
-// ============================================================================
-
 /**
  * Provider: Proposal Detail
  * Get full details of a specific proposal
@@ -341,16 +318,12 @@ export const proposalDetailProvider: Provider = {
     }
 
     const proposalId = proposalMatch[0]
-    const data = await callA2A(getAutocratA2A(), 'get-proposal', { proposalId })
-    const proposal = data as {
-      id?: string
-      status?: string
-      proposer?: string
-      proposalType?: number
-      qualityScore?: number
-      contentHash?: string
-      hasResearch?: boolean
-    }
+    const proposal = await callA2ATyped(
+      getAutocratA2A(),
+      'get-proposal',
+      ProposalDataSchema,
+      { proposalId },
+    )
 
     if (!proposal.id) {
       return { text: `Proposal ${proposalId.slice(0, 12)}... not found.` }
@@ -372,10 +345,6 @@ Use this information to inform your deliberation vote.`,
   },
 }
 
-// ============================================================================
-// CEO Status Provider
-// ============================================================================
-
 /**
  * Provider: CEO Status
  * Get current AI CEO status and recent decisions
@@ -389,20 +358,18 @@ export const ceoStatusProvider: Provider = {
     _message: Memory,
     _state: State,
   ): Promise<ProviderResult> => {
-    const data = await callA2A(getAutocratA2A(), 'get-ceo-status')
-    const ceo = data as {
-      currentModel?: { name: string }
-      decisionsThisPeriod?: number
-      approvalRate?: number
-      lastDecision?: { proposalId: string; approved: boolean }
-    }
+    const ceo = await callA2ATyped(
+      getAutocratA2A(),
+      'get-ceo-status',
+      CEOStatusDataSchema,
+    )
 
     return {
       text: `👤 CEO STATUS
 
-Model: ${ceo.currentModel?.name ?? 'Not set'}
-Decisions This Period: ${ceo.decisionsThisPeriod ?? 0}
-Approval Rate: ${ceo.approvalRate ?? 0}%
+Model: ${ceo.currentModel.name}
+Decisions This Period: ${ceo.decisionsThisPeriod}
+Approval Rate: ${ceo.approvalRate}%
 
 ${ceo.lastDecision ? `Last Decision: ${ceo.lastDecision.proposalId.slice(0, 12)}... - ${ceo.lastDecision.approved ? 'APPROVED' : 'REJECTED'}` : 'No recent decisions'}
 
@@ -410,10 +377,6 @@ ${ceo.lastDecision ? `Last Decision: ${ceo.lastDecision.proposalId.slice(0, 12)}
     }
   },
 }
-
-// ============================================================================
-// MCP Tools Provider
-// ============================================================================
 
 /**
  * Provider: Available MCP Tools
@@ -485,10 +448,6 @@ export const mcpToolsProvider: Provider = {
     return { text: result }
   },
 }
-
-// ============================================================================
-// A2A Skills Provider
-// ============================================================================
 
 /**
  * Provider: Available A2A Skills
@@ -562,10 +521,6 @@ export const a2aSkillsProvider: Provider = {
   },
 }
 
-// ============================================================================
-// Governance Stats Provider
-// ============================================================================
-
 /**
  * Provider: Governance Stats
  * Get overall governance statistics
@@ -579,18 +534,15 @@ export const governanceStatsProvider: Provider = {
     _message: Memory,
     _state: State,
   ): Promise<ProviderResult> => {
-    const data = await callA2A(getAutocratA2A(), 'get-governance-stats')
-    const stats = data as {
-      totalProposals?: number
-      approvedCount?: number
-      rejectedCount?: number
-      pendingCount?: number
-      avgQualityScore?: number
-    }
+    const stats = await callA2ATyped(
+      getAutocratA2A(),
+      'get-governance-stats',
+      GovernanceStatsDataSchema,
+    )
 
-    const total = stats.totalProposals ?? 0
-    const approved = stats.approvedCount ?? 0
-    const rejected = stats.rejectedCount ?? 0
+    const total = stats.totalProposals
+    const approved = stats.approvedCount
+    const rejected = stats.rejectedCount
     const approvalRate = total > 0 ? Math.round((approved / total) * 100) : 0
 
     return {
@@ -599,18 +551,14 @@ export const governanceStatsProvider: Provider = {
 Total Proposals: ${total}
 Approved: ${approved} (${approvalRate}%)
 Rejected: ${rejected}
-Pending: ${stats.pendingCount ?? 0}
-Avg Quality Score: ${stats.avgQualityScore ?? 0}/100
+Pending: ${stats.pendingCount}
+Avg Quality Score: ${stats.avgQualityScore}/100
 
 Use these stats to understand the DAO's governance patterns
 and calibrate your voting recommendations.`,
     }
   },
 }
-
-// ============================================================================
-// Research Reports Provider
-// ============================================================================
 
 /**
  * Provider: Research Reports
@@ -635,14 +583,18 @@ export const researchReportsProvider: Provider = {
     }
 
     const proposalId = proposalMatch[0]
-    const data = await callA2A(getAutocratA2A(), 'get-research', { proposalId })
-    const research = data as { report?: string; status?: string }
+    const research = await callA2ATyped(
+      getAutocratA2A(),
+      'get-research',
+      ResearchDataSchema,
+      { proposalId },
+    )
 
     if (!research.report) {
       return {
         text: `📚 No research report available for proposal ${proposalId.slice(0, 12)}...
 
-Status: ${research.status ?? 'Not requested'}
+Status: ${research.status}
 
 Request research via the request-research skill.`,
       }
@@ -655,10 +607,6 @@ ${research.report.slice(0, 2000)}${research.report.length > 2000 ? '...\n\n[Repo
     }
   },
 }
-
-// ============================================================================
-// Export All Providers
-// ============================================================================
 
 export const autocratProviders: Provider[] = [
   serviceDiscoveryProvider,

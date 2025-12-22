@@ -85,8 +85,6 @@ const eilConfig = {
   },
 } as EILConfig
 
-// ============ EIL Config Hook ============
-
 type EILChainConfig = {
   name: string
   crossChainPaymaster: string
@@ -165,8 +163,6 @@ export function useEILConfig() {
   }
 }
 
-// ============ Cross-Chain Swap Hook ============
-
 export function useCrossChainSwap(paymasterAddress: Address | undefined) {
   const { address: userAddress } = useAccount()
   const [swapStatus, setSwapStatus] = useState<SwapStatus>('idle')
@@ -244,8 +240,6 @@ export function useCrossChainSwap(paymasterAddress: Address | undefined) {
   }
 }
 
-// ============ Fee Estimate Hook ============
-
 export function useSwapFeeEstimate(
   sourceChainId: number,
   destinationChainId: number,
@@ -277,11 +271,6 @@ export function useSwapFeeEstimate(
   return estimate
 }
 
-// ============ App Token Preference Hooks ============
-
-/**
- * Hook for reading app token preferences
- */
 export function useAppPreference(
   preferenceAddress: Address | undefined,
   appAddress: Address | undefined,
@@ -320,9 +309,6 @@ export function useAppPreference(
   }
 }
 
-/**
- * Hook for getting the best gas payment token for an app
- */
 export function useBestGasToken(
   paymasterAddress: Address | undefined,
   appAddress: Address | undefined,
@@ -347,8 +333,6 @@ export function useBestGasToken(
     reason: result?.[2] as string | undefined,
   }
 }
-
-// ============ Token Support Hook ============
 
 export function useTokenSupport(
   paymasterAddress: Address | undefined,

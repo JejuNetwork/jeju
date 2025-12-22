@@ -44,25 +44,29 @@ export const USER_DATA_TYPE_MAP: Record<
 }
 
 // Hub Info Response
-export const HubInfoResponseSchema = z.object({
-  version: z.string(),
-  isSyncing: z.boolean(),
-  nickname: z.string(),
-  rootHash: z.string(),
-  dbStats: z.object({
-    numMessages: z.number(),
-    numFidEvents: z.number(),
-    numFnameEvents: z.number(),
-  }),
-  peerId: z.string(),
-  hubOperatorFid: z.number(),
-})
+export const HubInfoResponseSchema = z
+  .object({
+    version: z.string().min(1),
+    isSyncing: z.boolean(),
+    nickname: z.string(),
+    rootHash: z.string(),
+    dbStats: z
+      .object({
+        numMessages: z.number().int().nonnegative(),
+        numFidEvents: z.number().int().nonnegative(),
+        numFnameEvents: z.number().int().nonnegative(),
+      })
+      .strict(),
+    peerId: z.string().min(1),
+    hubOperatorFid: z.number().int().nonnegative(),
+  })
+  .strict()
 
 // User Data Message
 export const UserDataMessageSchema = z.object({
   data: z.object({
-    fid: z.number(),
-    timestamp: z.number(),
+    fid: z.number().int().positive(),
+    timestamp: z.number().int().nonnegative(),
     userDataBody: z.object({
       type: UserDataTypeRaw,
       value: z.string(),
@@ -77,12 +81,12 @@ export const UserDataResponseSchema = z.object({
 // Verification Message
 export const VerificationMessageSchema = z.object({
   data: z.object({
-    fid: z.number(),
-    timestamp: z.number(),
+    fid: z.number().int().positive(),
+    timestamp: z.number().int().nonnegative(),
     verificationAddAddressBody: z.object({
-      address: z.string(),
+      address: z.string().min(1),
       protocol: z.enum(['PROTOCOL_ETHEREUM', 'PROTOCOL_SOLANA']),
-      chainId: z.number(),
+      chainId: z.number().int().nonnegative(),
     }),
   }),
 })
@@ -93,8 +97,8 @@ export const VerificationsResponseSchema = z.object({
 
 // Cast ID
 const CastIdSchema = z.object({
-  fid: z.number(),
-  hash: z.string(),
+  fid: z.number().int().positive(),
+  hash: z.string().min(1),
 })
 
 // Embed
@@ -105,20 +109,20 @@ const EmbedSchema = z.object({
 
 // Cast Add Body (shared between CastMessage and SingleCast)
 const CastAddBodySchema = z.object({
-  text: z.string(),
+  text: z.string().max(320),
   parentCastId: CastIdSchema.optional(),
-  parentUrl: z.string().optional(),
+  parentUrl: z.string().url().optional(),
   embeds: z.array(EmbedSchema),
-  mentions: z.array(z.number()),
-  mentionsPositions: z.array(z.number()),
+  mentions: z.array(z.number().int().positive()),
+  mentionsPositions: z.array(z.number().int().nonnegative()),
 })
 
 // Cast Message
 export const CastMessageSchema = z.object({
-  hash: z.string(),
+  hash: z.string().min(1),
   data: z.object({
-    fid: z.number(),
-    timestamp: z.number(),
+    fid: z.number().int().positive(),
+    timestamp: z.number().int().nonnegative(),
     castAddBody: CastAddBodySchema,
   }),
 })
@@ -134,8 +138,8 @@ export const SingleCastResponseSchema = CastMessageSchema
 // Reaction Message
 export const ReactionMessageSchema = z.object({
   data: z.object({
-    fid: z.number(),
-    timestamp: z.number(),
+    fid: z.number().int().positive(),
+    timestamp: z.number().int().nonnegative(),
     reactionBody: z.object({
       type: z.enum(['REACTION_TYPE_LIKE', 'REACTION_TYPE_RECAST']),
       targetCastId: CastIdSchema,
@@ -151,11 +155,11 @@ export const ReactionsResponseSchema = z.object({
 // Link Message
 export const LinkMessageSchema = z.object({
   data: z.object({
-    fid: z.number(),
-    timestamp: z.number(),
+    fid: z.number().int().positive(),
+    timestamp: z.number().int().nonnegative(),
     linkBody: z.object({
-      type: z.string(),
-      targetFid: z.number(),
+      type: z.enum(['follow']),
+      targetFid: z.number().int().positive(),
     }),
   }),
 })
@@ -169,7 +173,7 @@ export const LinksResponseSchema = z.object({
 export const UsernameProofResponseSchema = z.object({
   proofs: z.array(
     z.object({
-      fid: z.number(),
+      fid: z.number().int().positive(),
     }),
   ),
 })
@@ -179,7 +183,7 @@ export const VerificationLookupResponseSchema = z.object({
   messages: z.array(
     z.object({
       data: z.object({
-        fid: z.number(),
+        fid: z.number().int().positive(),
       }),
     }),
   ),
@@ -200,16 +204,16 @@ const MergeMessageBodySchema = z.object({
     .object({
       data: z
         .object({
-          fid: z.number(),
-          timestamp: z.number(),
-          type: z.string(),
+          fid: z.number().int().positive(),
+          timestamp: z.number().int().nonnegative(),
+          type: z.string().min(1),
         })
         .passthrough(),
-      hash: z.string(),
-      hashScheme: z.string().optional(),
-      signature: z.string().optional(),
-      signatureScheme: z.string().optional(),
-      signer: z.string().optional(),
+      hash: z.string().min(1),
+      hashScheme: z.string().min(1).optional(),
+      signature: z.string().min(1).optional(),
+      signatureScheme: z.string().min(1).optional(),
+      signer: z.string().min(1).optional(),
     })
     .optional(),
 })
@@ -217,10 +221,10 @@ const MergeMessageBodySchema = z.object({
 const IdRegistryEventBodySchema = z.object({
   idRegistryEvent: z
     .object({
-      fid: z.number(),
-      to: z.string(),
-      type: z.string(),
-      blockNumber: z.number(),
+      fid: z.number().int().positive(),
+      to: z.string().min(1),
+      type: z.string().min(1),
+      blockNumber: z.number().int().nonnegative(),
     })
     .optional(),
 })
@@ -228,10 +232,10 @@ const IdRegistryEventBodySchema = z.object({
 const NameRegistryEventBodySchema = z.object({
   nameRegistryEvent: z
     .object({
-      fname: z.string(),
-      to: z.string(),
-      type: z.string(),
-      blockNumber: z.number(),
+      fname: z.string().min(1),
+      to: z.string().min(1),
+      type: z.string().min(1),
+      blockNumber: z.number().int().nonnegative(),
     })
     .optional(),
 })
@@ -244,7 +248,7 @@ const HubEventBodySchema = z.union([
 ])
 
 export const HubEventSchema = z.object({
-  id: z.number(),
+  id: z.number().int().positive(),
   type: HubEventTypeSchema,
   body: HubEventBodySchema,
 })
@@ -258,50 +262,64 @@ export type HubEventType = z.infer<typeof HubEventTypeSchema>
 export type HubEventBody = z.infer<typeof HubEventBodySchema>
 
 // Frame Action Payload
-export const FrameActionPayloadSchema = z.object({
-  untrustedData: z.object({
-    fid: z.number(),
-    url: z.string(),
-    messageHash: HexSchema,
-    timestamp: z.number(),
-    network: z.number(),
-    buttonIndex: z.number(),
-    inputText: z.string().optional(),
-    state: z.string().optional(),
-    transactionId: HexSchema.optional(),
-    address: AddressSchema.optional(),
-    castId: z.object({
-      fid: z.number(),
-      hash: HexSchema,
-    }),
-  }),
-  trustedData: z.object({
-    messageBytes: HexSchema,
-  }),
-})
+export const FrameActionPayloadSchema = z
+  .object({
+    untrustedData: z
+      .object({
+        fid: z.number().int().positive(),
+        url: z.string().url(),
+        messageHash: HexSchema,
+        timestamp: z.number().int().positive(),
+        network: z.number().int().nonnegative(),
+        buttonIndex: z.number().int().min(1).max(4),
+        inputText: z.string().max(256).optional(),
+        state: z.string().optional(),
+        transactionId: HexSchema.optional(),
+        address: AddressSchema.optional(),
+        castId: z
+          .object({
+            fid: z.number().int().positive(),
+            hash: HexSchema,
+          })
+          .strict(),
+      })
+      .strict(),
+    trustedData: z
+      .object({
+        messageBytes: HexSchema,
+      })
+      .strict(),
+  })
+  .strict()
 
 // ============================================================================
 // Hub Submitter Schemas
 // ============================================================================
 
 /** Hub info response for connectivity checks */
-export const HubInfoSchema = z.object({
-  version: z.string(),
-  isSyncing: z.boolean(),
-  nickname: z.string(),
-  rootHash: z.string(),
-  dbStats: z.object({
-    numMessages: z.number(),
-    numFids: z.number(),
-  }),
-  peerId: z.string(),
-})
+export const HubInfoSchema = z
+  .object({
+    version: z.string().min(1),
+    isSyncing: z.boolean(),
+    nickname: z.string(),
+    rootHash: z.string(),
+    dbStats: z
+      .object({
+        numMessages: z.number().int().nonnegative(),
+        numFids: z.number().int().nonnegative(),
+      })
+      .strict(),
+    peerId: z.string().min(1),
+  })
+  .strict()
 export type HubInfo = z.infer<typeof HubInfoSchema>
 
 /** Validate message response */
-export const ValidateMessageResponseSchema = z.object({
-  valid: z.boolean(),
-})
+export const ValidateMessageResponseSchema = z
+  .object({
+    valid: z.boolean(),
+  })
+  .strict()
 export type ValidateMessageResponse = z.infer<
   typeof ValidateMessageResponseSchema
 >
@@ -347,47 +365,41 @@ export type DCSignerEventsResponse = z.infer<
   typeof DCSignerEventsResponseSchema
 >
 
+/** DC message schema for persistence */
+const DCMessageSchema = z
+  .object({
+    id: z.string().min(1),
+    conversationId: z.string().min(1),
+    senderFid: z.number().int().positive(),
+    recipientFid: z.number().int().positive(),
+    text: z.string().min(1).max(2000),
+    timestamp: z.number().int().positive(),
+    signature: HexSchema,
+    isRead: z.boolean().optional(),
+  })
+  .strict()
+
+/** DC conversation schema for persistence */
+const DCConversationSchema = z
+  .object({
+    id: z.string().min(1),
+    participants: z.array(z.number().int().positive()).min(2).max(2),
+    lastMessage: DCMessageSchema.optional(),
+    unreadCount: z.number().int().nonnegative(),
+    createdAt: z.number().int().positive(),
+    updatedAt: z.number().int().positive(),
+    isMuted: z.boolean().optional(),
+    isArchived: z.boolean().optional(),
+  })
+  .strict()
+
 /** DC persistence file format */
-export const DCPersistenceDataSchema = z.object({
-  conversations: z.array(
-    z.object({
-      id: z.string(),
-      participants: z.array(z.number()),
-      lastMessage: z
-        .object({
-          id: z.string(),
-          conversationId: z.string(),
-          senderFid: z.number(),
-          recipientFid: z.number(),
-          text: z.string(),
-          timestamp: z.number(),
-          signature: HexSchema,
-          isRead: z.boolean().optional(),
-        })
-        .optional(),
-      unreadCount: z.number(),
-      createdAt: z.number(),
-      updatedAt: z.number(),
-      isMuted: z.boolean().optional(),
-      isArchived: z.boolean().optional(),
-    }),
-  ),
-  messages: z.record(
-    z.string(),
-    z.array(
-      z.object({
-        id: z.string(),
-        conversationId: z.string(),
-        senderFid: z.number(),
-        recipientFid: z.number(),
-        text: z.string(),
-        timestamp: z.number(),
-        signature: HexSchema,
-        isRead: z.boolean().optional(),
-      }),
-    ),
-  ),
-})
+export const DCPersistenceDataSchema = z
+  .object({
+    conversations: z.array(DCConversationSchema),
+    messages: z.record(z.string(), z.array(DCMessageSchema)),
+  })
+  .strict()
 export type DCPersistenceData = z.infer<typeof DCPersistenceDataSchema>
 
 // Export type helpers (only types used by client or external consumers)

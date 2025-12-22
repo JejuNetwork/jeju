@@ -14,7 +14,7 @@ const NETWORK_RPC = import.meta.env.VITE_NETWORK_RPC_URL || urls.rpc.mainnet
 
 // Chain definitions from shared config
 const networkLocalnet = getLocalnetChain()
-const networkTestnet = getTestnetChain()
+const jejuTestnet = getTestnetChain()
 
 // Supported chains (popular EVM + network chains)
 const chains = [
@@ -24,7 +24,7 @@ const chains = [
   optimism,
   bsc,
   networkLocalnet,
-  networkTestnet,
+  jejuTestnet,
 ] as const
 
 // Wagmi config - fully permissionless, no external dependencies
@@ -44,7 +44,7 @@ const config = createConfig({
     [optimism.id]: http(`${NETWORK_RPC}/optimism`),
     [bsc.id]: http(`${NETWORK_RPC}/bsc`),
     [networkLocalnet.id]: http('http://localhost:6546'),
-    [networkTestnet.id]: http(urls.rpc.testnet),
+    [jejuTestnet.id]: http(urls.rpc.testnet),
   },
 })
 

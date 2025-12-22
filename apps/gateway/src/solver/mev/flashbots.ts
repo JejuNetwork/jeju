@@ -31,10 +31,6 @@ import {
   MevShareEventDataSchema,
 } from '../../lib/validation'
 
-// ============================================================================
-// FLASHBOTS ENDPOINTS
-// ============================================================================
-
 export const FLASHBOTS_ENDPOINTS = {
   // MEV-Boost Relays
   relay: {
@@ -93,10 +89,6 @@ export const L2_BUILDERS = {
     sequencer: 'https://arb1-sequencer.arbitrum.io/rpc',
   },
 } as const
-
-// ============================================================================
-// TYPES
-// ============================================================================
 
 export type MevShareHint =
   | 'calldata'
@@ -205,10 +197,6 @@ export interface FlashbotsConfig {
   jejuContracts?: Address[] // Contracts to protect from MEV
 }
 
-// ============================================================================
-// MEV-BOOST PROVIDER
-// ============================================================================
-
 export class MevBoostProvider extends EventEmitter {
   private config: Required<FlashbotsConfig>
   private signingKey: ReturnType<typeof privateKeyToAccount>
@@ -238,25 +226,8 @@ export class MevBoostProvider extends EventEmitter {
     const message = keccak256(toHex(Date.now().toString()))
     const signature = await this.signingKey.signMessage({ message })
     this.authHeader = `${this.signingKey.address}:${signature}`
-
-    console.log('MEV-Boost Provider initialized')
-    console.log(`   Address: ${this.signingKey.address}`)
-    console.log(`   MEV-Boost: ${this.config.enableMevBoost}`)
-    console.log(`   BuilderNet: ${this.config.enableBuilderNet}`)
-    console.log(`   Rollup-Boost: ${this.config.enableRollupBoost}`)
-    console.log(`   Protect RPC: ${this.config.enableProtect}`)
-    console.log(`   MEV-Share: ${this.config.enableMevShare}`)
-    console.log(`   SUAVE: ${this.config.enableSuave}`)
   }
 
-  // ==========================================================================
-  // PROTECT RPC - Shield Jeju users from MEV
-  // ==========================================================================
-
-  /**
-   * Submit transaction via Protect RPC (private mempool)
-   * Use for Jeju user transactions to prevent frontrunning/sandwiching
-   */
   async submitProtected(
     signedTx: Hex,
     options?: {
@@ -308,9 +279,6 @@ export class MevBoostProvider extends EventEmitter {
     return { hash: result.result as Hash, status: 'pending' }
   }
 
-  /**
-   * Cancel a pending protected transaction
-   */
   async cancelProtected(txHash: Hash): Promise<boolean> {
     const response = await fetch(FLASHBOTS_ENDPOINTS.protect.default, {
       method: 'POST',
@@ -329,9 +297,6 @@ export class MevBoostProvider extends EventEmitter {
     return result.result ?? false
   }
 
-  /**
-   * Get status of protected transaction
-   */
   async getProtectedStatus(txHash: Hash): Promise<{
     status: 'pending' | 'included' | 'failed' | 'cancelled'
     includedBlock?: bigint
@@ -366,13 +331,6 @@ export class MevBoostProvider extends EventEmitter {
     }
   }
 
-  // ==========================================================================
-  // MEV-BOOST - Multi-builder bundle submission
-  // ==========================================================================
-
-  /**
-   * Submit bundle to Flashbots relay
-   */
   async submitBundle(bundle: FlashbotsBundle): Promise<{ bundleHash: Hash }> {
     const response = await fetch(FLASHBOTS_ENDPOINTS.relay.mainnet, {
       method: 'POST',
@@ -414,9 +372,6 @@ export class MevBoostProvider extends EventEmitter {
     return { bundleHash: result.result?.bundleHash as Hash }
   }
 
-  /**
-   * Submit bundle to ALL builders for maximum inclusion probability
-   */
   async submitToAllBuilders(
     bundle: FlashbotsBundle,
   ): Promise<
@@ -482,9 +437,6 @@ export class MevBoostProvider extends EventEmitter {
     return results
   }
 
-  /**
-   * Simulate bundle before submission
-   */
   async simulateBundle(bundle: FlashbotsBundle): Promise<BundleSimulation> {
     const response = await fetch(FLASHBOTS_ENDPOINTS.relay.mainnet, {
       method: 'POST',
@@ -540,9 +492,6 @@ export class MevBoostProvider extends EventEmitter {
     }
   }
 
-  /**
-   * Get bundle stats
-   */
   async getBundleStats(
     bundleHash: Hash,
     blockNumber: bigint,
@@ -588,14 +537,6 @@ export class MevBoostProvider extends EventEmitter {
     }
   }
 
-  // ==========================================================================
-  // MEV-SHARE - Extract MEV while sharing value
-  // ==========================================================================
-
-  /**
-   * Subscribe to MEV-Share event stream
-   * Returns pending transactions that opted into MEV-Share
-   */
   async subscribeMevShareEvents(
     callback: (event: MevShareEvent) => void,
   ): Promise<() => void> {
@@ -638,9 +579,6 @@ export class MevBoostProvider extends EventEmitter {
     return () => eventSource.close()
   }
 
-  /**
-   * Submit MEV-Share bundle (backrun opportunity)
-   */
   async submitMevShareBundle(
     bundle: MevShareBundle,
   ): Promise<{ bundleHash: Hash }> {
@@ -671,14 +609,6 @@ export class MevBoostProvider extends EventEmitter {
     return { bundleHash: result.result?.bundleHash as Hash }
   }
 
-  // ==========================================================================
-  // BUILDERNET - Decentralized block building with TEEs
-  // ==========================================================================
-
-  /**
-   * Submit bundle to BuilderNet
-   * BuilderNet uses TEEs for verifiable, decentralized block building
-   */
   async submitToBuilderNet(
     bundle: FlashbotsBundle,
   ): Promise<{ bundleHash: Hash }> {
@@ -718,14 +648,6 @@ export class MevBoostProvider extends EventEmitter {
     return { bundleHash: result.result?.bundleHash as Hash }
   }
 
-  // ==========================================================================
-  // ROLLUP-BOOST - L2 sequencer MEV internalization
-  // ==========================================================================
-
-  /**
-   * Submit L2 block to sequencer with priority ordering
-   * For use when Jeju is acting as a rollup
-   */
   async submitL2Block(
     chain: 'base' | 'optimism' | 'arbitrum',
     block: RollupBoostBlock,
@@ -773,14 +695,6 @@ export class MevBoostProvider extends EventEmitter {
     return { blockHash: result.result?.blockHash as Hash }
   }
 
-  // ==========================================================================
-  // SUAVE - Programmable privacy MEV (Experimental)
-  // ==========================================================================
-
-  /**
-   * Submit confidential compute request to SUAVE
-   * Note: SUAVE is still in testnet (Toliman)
-   */
   async submitSuaveBundle(bundle: SuaveBundle): Promise<{ requestId: Hash }> {
     if (!this.config.enableSuave) {
       throw new Error('SUAVE not enabled')
@@ -818,13 +732,6 @@ export class MevBoostProvider extends EventEmitter {
     return { requestId: result.result?.requestId as Hash }
   }
 
-  // ==========================================================================
-  // HELPER METHODS
-  // ==========================================================================
-
-  /**
-   * Check if a transaction should be protected (Jeju user transaction)
-   */
   isJejuTransaction(tx: { to?: Address; from?: Address; data?: Hex }): boolean {
     if (
       tx.to &&
@@ -835,9 +742,6 @@ export class MevBoostProvider extends EventEmitter {
     return false
   }
 
-  /**
-   * Get current block number from relay
-   */
   async getCurrentBlock(): Promise<bigint> {
     const response = await fetch(FLASHBOTS_ENDPOINTS.relay.mainnet, {
       method: 'POST',
@@ -858,10 +762,6 @@ export class MevBoostProvider extends EventEmitter {
     return BigInt(result.result ?? '0')
   }
 }
-
-// ============================================================================
-// MEV EXTRACTION STRATEGY ENGINE
-// ============================================================================
 
 export interface MevStats {
   bundlesSubmitted: number
@@ -889,9 +789,6 @@ export class FlashbotsStrategyEngine extends EventEmitter {
   }
 
   async start(): Promise<void> {
-    console.log('Flashbots Strategy Engine started')
-
-    // Subscribe to MEV-Share events for backrun opportunities
     this.mevShareUnsubscribe = await this.provider.subscribeMevShareEvents(
       (event) => this.handleMevShareEvent(event),
     )
@@ -902,21 +799,14 @@ export class FlashbotsStrategyEngine extends EventEmitter {
       this.mevShareUnsubscribe()
       this.mevShareUnsubscribe = null
     }
-    console.log('Flashbots Strategy Engine stopped')
   }
 
-  /**
-   * Submit Jeju user transaction with protection
-   */
   async submitProtectedTransaction(signedTx: Hex): Promise<{ hash: Hash }> {
     const result = await this.provider.submitProtected(signedTx)
     this.stats.protectedTxs++
     return { hash: result.hash }
   }
 
-  /**
-   * Submit arbitrage bundle to all builders
-   */
   async submitArbitrageBundle(
     txs: Hex[],
     targetBlock: bigint,
@@ -955,61 +845,13 @@ export class FlashbotsStrategyEngine extends EventEmitter {
     return { success: false }
   }
 
-  /**
-   * Handle MEV-Share event - look for backrun opportunities
-   */
   private handleMevShareEvent(event: MevShareEvent): void {
     // Analyze the event for profitable backrun
     // This is where you'd implement backrun logic
     this.emit('mevShareOpportunity', event)
   }
 
-  /**
-   * Get current MEV stats
-   */
   getStats(): MevStats {
     return { ...this.stats }
   }
-
-  /**
-   * Print stats summary
-   */
-  printStats(): void {
-    console.log(`\n${'═'.repeat(60)}`)
-    console.log('FLASHBOTS MEV STATISTICS')
-    console.log('═'.repeat(60))
-
-    console.log(`\n📦 BUNDLES`)
-    console.log(`   Submitted:        ${this.stats.bundlesSubmitted}`)
-    console.log(`   Included:         ${this.stats.bundlesIncluded}`)
-    const inclusionRate =
-      this.stats.bundlesSubmitted > 0
-        ? (
-            (this.stats.bundlesIncluded / this.stats.bundlesSubmitted) *
-            100
-          ).toFixed(1)
-        : '0.0'
-    console.log(`   Inclusion Rate:   ${inclusionRate}%`)
-
-    console.log(`\n💰 REVENUE`)
-    console.log(
-      `   Total Extracted:  ${Number(this.stats.totalExtracted) / 1e18} ETH`,
-    )
-    console.log(
-      `   External MEV:     ${Number(this.stats.externalChainMev) / 1e18} ETH`,
-    )
-
-    console.log(`\n🛡️ PROTECTION`)
-    console.log(`   Protected Txs:    ${this.stats.protectedTxs}`)
-
-    console.log('═'.repeat(60))
-  }
-}
-
-// ============================================================================
-// EXPORTS
-// ============================================================================
-
-export {
-  MevBoostProvider as FlashbotsProvider, // Backwards compatibility
 }

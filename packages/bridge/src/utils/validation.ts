@@ -9,10 +9,6 @@ import { z } from 'zod'
 import type { Hash32 } from '../types/index.js'
 import { toHash32 } from '../types/index.js'
 
-// =============================================================================
-// ENVIRONMENT VALIDATION
-// =============================================================================
-
 /**
  * Get required environment variable or throw
  */
@@ -34,10 +30,6 @@ export function getHomeDir(): string {
   }
   return home
 }
-
-// =============================================================================
-// HASH UTILITIES (DRY - centralized hash conversion)
-// =============================================================================
 
 /**
  * Convert Hash32 to hex string
@@ -64,10 +56,6 @@ export function hexToHash32(hex: string): Hash32 {
   }
   return toHash32(bytes)
 }
-
-// =============================================================================
-// MERKLE TREE (DRY - centralized merkle computation)
-// =============================================================================
 
 /**
  * Compute Merkle root from leaf hashes using keccak256
@@ -108,10 +96,6 @@ export function computeMerkleRoot(
   return toHash32(currentLevel[0])
 }
 
-// =============================================================================
-// PROOF SCHEMAS
-// =============================================================================
-
 export const ProofDataSchema = z.object({
   proof: z.string().min(1),
   public_inputs: z.string(),
@@ -126,10 +110,6 @@ export const Groth16DataSchema = z.object({
   ]),
   c: z.tuple([z.string(), z.string()]),
 })
-
-// =============================================================================
-// TEE SCHEMAS
-// =============================================================================
 
 export const PhalaHealthResponseSchema = z.object({
   enclave_id: z.string(),
@@ -172,10 +152,6 @@ export const GCPTokenResponseSchema = z.object({
   }),
 })
 
-// =============================================================================
-// CONFIG SCHEMAS
-// =============================================================================
-
 export const SP1ConfigSchema = z.object({
   programsDir: z.string().min(1),
   useMock: z.boolean().default(false),
@@ -205,10 +181,6 @@ export const GCPConfidentialConfigSchema = z.object({
   instanceType: z.string().default('n2d-standard-4'),
 })
 
-// =============================================================================
-// CHAIN CONFIG SCHEMAS
-// =============================================================================
-
 export const EVMChainConfigSchema = z.object({
   chainId: z.number(),
   rpcUrl: z.string().url(),
@@ -230,10 +202,6 @@ export const OrchestratorConfigSchema = z.object({
     solana: SolanaConfigSchema.optional(),
   }),
 })
-
-// =============================================================================
-// API RESPONSE SCHEMAS - Re-export from canonical location
-// =============================================================================
 
 // Jupiter Quote response schema (simplified version for bridge use)
 // Note: Uses inline route plan schema since full JupiterRoutePlanSchema is defined later
@@ -301,10 +269,6 @@ export const JitoTipFloorResponseSchema = z.object({
   tip_floor: z.string(),
 })
 
-// =============================================================================
-// BEACON CHAIN API SCHEMAS
-// =============================================================================
-
 // Finality checkpoints response
 export const BeaconFinalityCheckpointsResponseSchema = z.object({
   data: z.object({
@@ -371,10 +335,6 @@ export const OrderbookResponseSchema = z.object({
   ]),
 })
 
-// =============================================================================
-// RELAYER SCHEMAS
-// =============================================================================
-
 export const RelayerEnvSchema = z.object({
   NODE_ENV: z.string().optional(),
   RELAYER_PORT: z.string().regex(/^\d+$/).default('8081'),
@@ -386,14 +346,6 @@ export const RelayerEnvSchema = z.object({
   SOLANA_KEYPAIR: z.string().optional(),
 })
 
-// =============================================================================
-// UTILITY TYPES
-// =============================================================================
-
-// =============================================================================
-// WORMHOLE API SCHEMAS
-// =============================================================================
-
 export const WormholeVAAResponseSchema = z.object({
   data: z
     .object({
@@ -401,10 +353,6 @@ export const WormholeVAAResponseSchema = z.object({
     })
     .optional(),
 })
-
-// =============================================================================
-// HYPERLIQUID API SCHEMAS
-// =============================================================================
 
 export const HyperCoreMarketSchema = z.object({
   name: z.string(),
@@ -464,10 +412,6 @@ export const HyperCoreL2BookResponseSchema = z.object({
   levels: z.array(z.array(HyperCoreOrderbookLevelSchema)),
 })
 
-// =============================================================================
-// HEALTH CHECK API SCHEMAS
-// =============================================================================
-
 export const EVMRPCResponseSchema = z.object({
   jsonrpc: z.string(),
   id: z.number(),
@@ -492,10 +436,6 @@ export const SolanaHealthResponseSchema = z.object({
     .optional(),
 })
 
-// =============================================================================
-// SUCCINCT NETWORK API SCHEMAS
-// =============================================================================
-
 export const SuccinctProveResponseSchema = z.object({
   proof: z.string(),
   groth16: z.object({
@@ -504,10 +444,6 @@ export const SuccinctProveResponseSchema = z.object({
     c: z.array(z.string()).length(2),
   }),
 })
-
-// =============================================================================
-// RELAYER REQUEST SCHEMAS
-// =============================================================================
 
 export const ValidatorVoteSchema = z.object({
   validator: z.instanceof(Uint8Array).or(z.array(z.number())),
@@ -555,10 +491,6 @@ export const TransferSubmissionSchema = CrossChainTransferSchema.extend({
   source: z.enum(['evm', 'solana']),
 })
 
-// =============================================================================
-// SP1 PROVER API SCHEMAS
-// =============================================================================
-
 // SP1 proof response from prover service (JSON format)
 export const SP1ProofResponseSchema = z.object({
   proof: z.array(z.number()).or(z.instanceof(Uint8Array)),
@@ -570,10 +502,6 @@ export const SP1ProofResponseSchema = z.object({
 export const BatchProofResponseSchema = z.object({
   proof: z.array(z.number()),
 })
-
-// =============================================================================
-// JUPITER DEX API SCHEMAS (full versions for swap/quote)
-// =============================================================================
 
 export const JupiterRoutePlanSchema = z.object({
   swapInfo: z.object({
@@ -616,10 +544,6 @@ export const JupiterTokenListItemSchema = z.object({
 })
 
 export const JupiterTokenListSchema = z.array(JupiterTokenListItemSchema)
-
-// =============================================================================
-// UTILITY TYPES
-// =============================================================================
 
 export type ProofData = z.infer<typeof ProofDataSchema>
 export type Groth16Data = z.infer<typeof Groth16DataSchema>

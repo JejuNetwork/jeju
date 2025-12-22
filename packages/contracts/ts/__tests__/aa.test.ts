@@ -287,14 +287,14 @@ describe('aa.ts - Account Abstraction Utilities', () => {
       expect(result?.toLowerCase()).toBe(PAYMASTER_ADDRESS.toLowerCase())
     })
 
-    test('returns null for empty string', () => {
+    test('returns undefined for empty string', () => {
       const result = parsePaymasterAddress('' as Hex)
-      expect(result).toBe(null)
+      expect(result).toBeUndefined()
     })
 
-    test('returns null for string too short', () => {
+    test('returns undefined for string too short', () => {
       const result = parsePaymasterAddress('0x1234' as Hex)
-      expect(result).toBe(null)
+      expect(result).toBeUndefined()
     })
 
     test('extracts address from minimum valid length', () => {

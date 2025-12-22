@@ -11,9 +11,7 @@ import prettyMs from 'pretty-ms'
 import { twMerge } from 'tailwind-merge'
 import { format as timeagoFormat } from 'timeago.js'
 
-// ============================================================================
 // Byte Formatting (pretty-bytes)
-// ============================================================================
 
 /**
  * Format bytes to human-readable string
@@ -32,9 +30,7 @@ export function formatBytesBinary(bytes: number): string {
   return prettyBytes(bytes, { binary: true })
 }
 
-// ============================================================================
 // Duration Formatting (pretty-ms)
-// ============================================================================
 
 /**
  * Format milliseconds to human-readable duration
@@ -62,9 +58,7 @@ export function formatDurationVerbose(seconds: number): string {
   return prettyMs(seconds * 1000, { verbose: true })
 }
 
-// ============================================================================
 // Time Ago Formatting (timeago.js)
-// ============================================================================
 
 /**
  * Format timestamp to relative time (e.g., "3 hours ago")
@@ -84,9 +78,7 @@ export function formatTimestamp(unixTimestamp: number): string {
   return timeagoFormat(unixTimestamp * 1000)
 }
 
-// ============================================================================
 // Number Formatting (Intl.NumberFormat)
-// ============================================================================
 
 const compactFormatter = new Intl.NumberFormat('en-US', {
   notation: 'compact',
@@ -130,9 +122,7 @@ export function formatPercent(value: number): string {
   return percentFormatter.format(value)
 }
 
-// ============================================================================
 // Address Formatting (Domain-specific)
-// ============================================================================
 
 /**
  * Shorten an Ethereum address for display
@@ -148,9 +138,7 @@ export function formatAddress(address: string, chars = 4): string {
  */
 export const shortenAddress = formatAddress
 
-// ============================================================================
 // ETH/Wei Formatting (Domain-specific)
-// ============================================================================
 
 /**
  * Format wei to ETH with specified decimals
@@ -178,9 +166,7 @@ export function formatGasPrice(gwei: number): string {
   return `${gwei.toFixed(2)} gwei`
 }
 
-// ============================================================================
 // ID Generation (nanoid)
-// ============================================================================
 
 /**
  * Generate a unique ID
@@ -199,9 +185,7 @@ export function generatePrefixedId(prefix: string, size = 16): string {
   return `${prefix}_${nanoid(size)}`
 }
 
-// ============================================================================
 // CSS Class Utilities (clsx)
-// ============================================================================
 
 /**
  * Merge CSS class names conditionally with Tailwind CSS class conflict resolution
@@ -220,9 +204,7 @@ export function classNames(...inputs: ClassValue[]): string {
   return clsx(inputs)
 }
 
-// ============================================================================
 // Utility Functions
-// ============================================================================
 
 /**
  * Delay execution for specified milliseconds

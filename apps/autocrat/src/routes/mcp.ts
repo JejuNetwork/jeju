@@ -1,7 +1,5 @@
 /**
  * MCP (Model Context Protocol) Routes
- *
- * Native Elysia implementation - no Hono wrapper needed
  */
 
 import { Elysia } from 'elysia'

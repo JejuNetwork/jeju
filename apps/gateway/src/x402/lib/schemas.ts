@@ -15,11 +15,11 @@ export const PaymentRequirementsSchema = z.object({
   payTo: AddressSchema,
   asset: AddressSchema,
   resource: z.string().min(1),
-  description: z.string().optional(),
-  mimeType: z.string().optional(),
-  outputSchema: z.string().nullable().optional(),
-  maxTimeoutSeconds: z.number().int().positive().optional(),
-  extra: z.record(z.string(), JsonValueSchema).optional(),
+  description: z.string().nullable(),
+  mimeType: z.string().nullable(),
+  outputSchema: z.string().nullable().nullable(),
+  maxTimeoutSeconds: z.number().int().positive().nullable(),
+  extra: z.record(z.string(), JsonValueSchema).nullable(),
 })
 
 export const PaymentPayloadSchema = z.object({
@@ -32,7 +32,7 @@ export const PaymentPayloadSchema = z.object({
   nonce: z.string().min(1),
   timestamp: z.number().int().positive(),
   signature: HexStringSchema,
-  payer: AddressSchema.optional(),
+  payer: AddressSchema.nullable(),
 })
 
 export const VerifyRequestSchema = z.object({
@@ -153,17 +153,17 @@ export const DecodedPaymentSchema = z.object({
 
 export const VerificationResultSchema = z.object({
   valid: z.boolean(),
-  error: z.string().optional(),
-  signer: AddressSchema.optional(),
-  decodedPayment: DecodedPaymentSchema.optional(),
+  error: z.string().nullable(),
+  signer: AddressSchema.nullable(),
+  decodedPayment: DecodedPaymentSchema.nullable(),
 })
 
 export const SettlementResultSchema = z.object({
   success: z.boolean(),
-  txHash: HexStringSchema.optional(),
-  paymentId: HexStringSchema.optional(),
-  protocolFee: z.bigint().optional(),
-  error: z.string().optional(),
+  txHash: HexStringSchema.nullable(),
+  paymentId: HexStringSchema.nullable(),
+  protocolFee: z.bigint().nullable(),
+  error: z.string().nullable(),
 })
 
 export const ChainConfigSchema = z.object({
@@ -171,7 +171,7 @@ export const ChainConfigSchema = z.object({
   name: z.string().min(1),
   network: z.string().min(1),
   rpcUrl: z.string().url(),
-  blockExplorer: z.string().url().optional(),
+  blockExplorer: z.string().url().nullable(),
   usdc: AddressSchema,
   facilitator: AddressSchema,
   nativeCurrency: z.object({

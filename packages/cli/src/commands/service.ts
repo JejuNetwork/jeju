@@ -3,7 +3,7 @@
  *
  * Services:
  * - auto-update: Automatic node updates
- * - bridge: Forced inclusion monitor (legacy)
+ * - bridge: Forced inclusion monitor
  * - dispute: Fraud proof challenger
  * - sequencer: Consensus coordinator (with options)
  * - zkbridge: ZK bridge orchestrator

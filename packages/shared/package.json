@@ -1,7 +1,7 @@
 {
   "name": "@jejunetwork/shared",
   "version": "0.1.0",
-  "description": "Shared hooks, components, APIs, services, protocols, database layer, auth, and cryptography for Jeju apps",
+  "description": "Shared hooks, components, APIs, services, protocols, database layer, auth, and cryptography",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
@@ -10,104 +10,38 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    },
-    "./auth": {
-      "types": "./dist/auth/index.d.ts",
-      "import": "./dist/auth/index.js"
-    },
-    "./auth/siwe": {
-      "types": "./dist/auth/siwe.d.ts",
-      "import": "./dist/auth/siwe.js"
-    },
-    "./auth/passkeys": {
-      "types": "./dist/auth/passkeys.d.ts",
-      "import": "./dist/auth/passkeys.js"
-    },
-    "./auth/siwf": {
-      "types": "./dist/auth/siwf.d.ts",
-      "import": "./dist/auth/siwf.js"
-    },
-    "./auth/types": {
-      "types": "./dist/auth/types.d.ts",
-      "import": "./dist/auth/types.js"
-    },
-    "./auth/hooks": {
-      "types": "./dist/auth/hooks.d.ts",
-      "import": "./dist/auth/hooks.js"
-    },
-    "./auth/provider": {
-      "types": "./dist/auth/provider.d.ts",
-      "import": "./dist/auth/provider.js"
-    },
-    "./chains": {
-      "types": "./dist/chains/index.d.ts",
-      "import": "./dist/chains/index.js"
-    },
-    "./services": {
-      "types": "./dist/services/index.d.ts",
-      "import": "./dist/services/index.js"
-    },
-    "./protocols": {
-      "types": "./dist/protocols/index.d.ts",
-      "import": "./dist/protocols/index.js"
-    },
-    "./crypto": {
-      "types": "./dist/crypto/index.d.ts",
-      "import": "./dist/crypto/index.js"
-    },
-    "./db": {
-      "types": "./dist/db/index.d.ts",
-      "import": "./dist/db/index.js"
     }
   },
-  "files": [
-    "dist",
-    "src"
-  ],
+  "files": ["dist", "src"],
   "sideEffects": false,
   "scripts": {
     "build": "tsc",
-    "dev": "tsc --watch",
     "test": "bun test",
-    "typecheck": "tsc --noEmit",
-    "clean": "rm -rf dist",
-    "prepublishOnly": "bun run build"
+    "typecheck": "tsc --noEmit"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/elizaos/jeju.git",
-    "directory": "packages/shared"
-  },
-  "keywords": [
-    "jeju",
-    "shared",
-    "auth",
-    "siwe",
-    "protocols",
-    "services"
-  ],
   "dependencies": {
+    "@elysiajs/cors": "^1.3.0",
+    "@elysiajs/eden": "^1.4.5",
+    "@jejunetwork/config": "workspace:*",
     "@jejunetwork/db": "workspace:*",
     "@jejunetwork/kms": "workspace:*",
-    "@jejunetwork/config": "workspace:*",
     "@jejunetwork/types": "workspace:*",
-    "elysia": "^1.3.0",
-    "@elysiajs/cors": "^1.3.0",
-    "viem": "2.43.2",
-    "wagmi": "2.18.1",
-    "zod": "^3.24.1",
+    "clsx": "^2.1.1",
+    "croner": "^9.0.0",
+    "elysia": "^1.4.19",
+    "ioredis": "^5.4.1",
+    "nanoid": "^5.1.5",
     "opossum": "^9.0.0",
     "p-retry": "^7.1.1",
     "pino": "^10.1.0",
-    "siwe": "^2.3.2",
-    "croner": "^9.0.0",
-    "ioredis": "^5.4.1",
     "pretty-bytes": "^6.1.1",
     "pretty-ms": "^9.2.0",
+    "siwe": "^2.3.2",
+    "tailwind-merge": "^2.0.0",
     "timeago.js": "^4.0.2",
-    "nanoid": "^5.1.5",
-    "clsx": "^2.1.1",
-    "tailwind-merge": "^2.0.0"
+    "viem": "2.43.3",
+    "wagmi": "2.18.1",
+    "zod": "4.2.1"
   },
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0"

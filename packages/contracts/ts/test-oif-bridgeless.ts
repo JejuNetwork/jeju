@@ -99,47 +99,6 @@ const SIMPLE_ORACLE_ABI = [
   },
 ] as const
 
-const _INPUT_SETTLER_ABI = [
-  {
-    name: 'createIntent',
-    type: 'function',
-    inputs: [
-      { name: 'destChainId', type: 'uint256' },
-      { name: 'inputToken', type: 'address' },
-      { name: 'outputToken', type: 'address' },
-      { name: 'inputAmount', type: 'uint256' },
-      { name: 'minOutputAmount', type: 'uint256' },
-      { name: 'recipient', type: 'address' },
-      { name: 'deadline', type: 'uint256' },
-    ],
-    outputs: [{ name: 'intentId', type: 'bytes32' }],
-    stateMutability: 'nonpayable',
-  },
-  {
-    name: 'getIntent',
-    type: 'function',
-    inputs: [{ name: 'intentId', type: 'bytes32' }],
-    outputs: [
-      {
-        name: 'intent',
-        type: 'tuple',
-        components: [
-          { name: 'creator', type: 'address' },
-          { name: 'destChainId', type: 'uint256' },
-          { name: 'inputToken', type: 'address' },
-          { name: 'outputToken', type: 'address' },
-          { name: 'inputAmount', type: 'uint256' },
-          { name: 'minOutputAmount', type: 'uint256' },
-          { name: 'recipient', type: 'address' },
-          { name: 'deadline', type: 'uint256' },
-          { name: 'status', type: 'uint8' },
-        ],
-      },
-    ],
-    stateMutability: 'view',
-  },
-] as const
-
 const ERC20_ABI = [
   {
     name: 'approve',

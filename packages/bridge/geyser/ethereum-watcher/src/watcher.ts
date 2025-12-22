@@ -12,6 +12,7 @@
 
 import { createPublicClient, type Hex, http, type PublicClient } from 'viem'
 import { mainnet } from 'viem/chains'
+import { createLogger } from '../../../src/utils/logger.js'
 import {
   BeaconBlockHeaderResponseSchema,
   BeaconFinalityCheckpointsResponseSchema,
@@ -19,9 +20,7 @@ import {
   BeaconSyncCommitteeResponseSchema,
 } from '../../../src/utils/validation.js'
 
-// =============================================================================
-// TYPES
-// =============================================================================
+const log = createLogger('beacon-watcher')
 
 export interface BeaconConfig {
   /** Beacon node RPC URL */
@@ -71,10 +70,6 @@ export interface FinalityUpdate {
   executionBlockHash: Hex
 }
 
-// =============================================================================
-// BEACON CLIENT
-// =============================================================================
-
 export class BeaconChainWatcher {
   private config: BeaconConfig
   private executionClient: PublicClient
@@ -93,7 +88,7 @@ export class BeaconChainWatcher {
    * Start watching the beacon chain
    */
   async start(): Promise<void> {
-    console.log('[BeaconWatcher] Starting...')
+    log.info('Starting beacon watcher')
     this.running = true
 
     // Initialize with current finalized state
@@ -107,7 +102,7 @@ export class BeaconChainWatcher {
    * Stop watching
    */
   stop(): void {
-    console.log('[BeaconWatcher] Stopping...')
+    log.info('Stopping beacon watcher')
     this.running = false
   }
 
@@ -117,7 +112,7 @@ export class BeaconChainWatcher {
   private async initializeState(): Promise<void> {
     const finalized = await this.getFinalizedCheckpoint()
     this.lastProcessedSlot = finalized.slot
-    console.log(`[BeaconWatcher] Initialized at slot ${finalized.slot}`)
+    log.info('Initialized at slot', { slot: finalized.slot.toString() })
   }
 
   /**
@@ -141,9 +136,10 @@ export class BeaconChainWatcher {
       return // No new finalized blocks
     }
 
-    console.log(
-      `[BeaconWatcher] New finalized slot: ${finalized.slot} (was ${this.lastProcessedSlot})`,
-    )
+    log.info('New finalized slot', {
+      slot: finalized.slot.toString(),
+      previousSlot: this.lastProcessedSlot.toString(),
+    })
 
     // Get light client update
     const update = await this.getLightClientUpdate(finalized.slot)
@@ -228,7 +224,7 @@ export class BeaconChainWatcher {
         signatureSlot: BigInt(update.signature_slot),
       }
     } catch (error) {
-      console.error('[BeaconWatcher] Failed to get light client update:', error)
+      log.warn('Failed to get light client update', { error: String(error) })
       return null
     }
   }
@@ -255,7 +251,7 @@ export class BeaconChainWatcher {
         aggregatePubkey: '0x' as Hex, // Would compute aggregate
       }
     } catch (error) {
-      console.error('[BeaconWatcher] Failed to get sync committee:', error)
+      log.warn('Failed to get sync committee', { error: String(error) })
       return null
     }
   }
@@ -330,14 +326,15 @@ export class BeaconChainWatcher {
       })
 
       if (!response.ok) {
-        console.error(
-          `[BeaconWatcher] Failed to post to ${path}: ${response.status}`,
-        )
+        log.error('Failed to post to relayer', {
+          path,
+          status: response.status,
+        })
       } else {
-        console.log(`[BeaconWatcher] Posted update to ${path}`)
+        log.debug('Posted update to relayer', { path })
       }
     } catch (error) {
-      console.error(`[BeaconWatcher] Error posting to ${path}:`, error)
+      log.error('Error posting to relayer', { path, error: String(error) })
     }
   }
 
@@ -349,17 +346,9 @@ export class BeaconChainWatcher {
   }
 }
 
-// =============================================================================
-// FACTORY
-// =============================================================================
-
 export function createBeaconWatcher(config: BeaconConfig): BeaconChainWatcher {
   return new BeaconChainWatcher(config)
 }
-
-// =============================================================================
-// CLI ENTRY POINT
-// =============================================================================
 
 if (import.meta.main) {
   const config: BeaconConfig = {

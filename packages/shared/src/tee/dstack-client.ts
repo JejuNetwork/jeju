@@ -7,7 +7,7 @@
 
 import { existsSync } from 'node:fs'
 import { expectValid } from '@jejunetwork/types'
-import type { ZodSchema } from 'zod'
+import type { z } from 'zod'
 import {
   TappdDeriveKeyResponseSchema,
   TappdInfoResponseSchema,
@@ -197,7 +197,7 @@ export class DstackClient {
    */
   private async request<T>(
     path: string,
-    schema: ZodSchema<T>,
+    schema: z.ZodType<T>,
     context: string,
     options: RequestInit = {},
   ): Promise<T> {

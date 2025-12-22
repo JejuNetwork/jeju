@@ -74,7 +74,10 @@ async function fetchWithRetry(
             delay,
           })
           await new Promise((r) => setTimeout(r, delay))
-          delay = Math.min(delay * RETRY_CONFIG.backoffMultiplier, RETRY_CONFIG.maxDelayMs)
+          delay = Math.min(
+            delay * RETRY_CONFIG.backoffMultiplier,
+            RETRY_CONFIG.maxDelayMs,
+          )
           continue
         }
       }
@@ -83,7 +86,10 @@ async function fetchWithRetry(
     } catch (error) {
       lastError = error as Error
 
-      if (!isRetryableError(error) || attempt === RETRY_CONFIG.maxAttempts - 1) {
+      if (
+        !isRetryableError(error) ||
+        attempt === RETRY_CONFIG.maxAttempts - 1
+      ) {
         throw error
       }
 
@@ -93,7 +99,10 @@ async function fetchWithRetry(
         delay,
       })
       await new Promise((r) => setTimeout(r, delay))
-      delay = Math.min(delay * RETRY_CONFIG.backoffMultiplier, RETRY_CONFIG.maxDelayMs)
+      delay = Math.min(
+        delay * RETRY_CONFIG.backoffMultiplier,
+        RETRY_CONFIG.maxDelayMs,
+      )
     }
   }
 
@@ -210,7 +219,9 @@ export class JupiterClient extends EventEmitter {
       queryParams.set('maxAccounts', params.maxAccounts.toString())
     }
 
-    const response = await fetchWithRetry(`${JUPITER_API_V6}/quote?${queryParams}`)
+    const response = await fetchWithRetry(
+      `${JUPITER_API_V6}/quote?${queryParams}`,
+    )
     if (!response.ok) {
       const error = await response.text()
       throw new Error(`Jupiter quote failed: ${error}`)
@@ -354,7 +365,9 @@ export class JupiterClient extends EventEmitter {
    * Get token price in USD
    */
   async getPrice(tokenMint: string): Promise<number> {
-    const response = await fetchWithRetry(`${JUPITER_PRICE_API}/price?ids=${tokenMint}`)
+    const response = await fetchWithRetry(
+      `${JUPITER_PRICE_API}/price?ids=${tokenMint}`,
+    )
     if (!response.ok) {
       throw new Error(`Jupiter price API failed: ${response.statusText}`)
     }

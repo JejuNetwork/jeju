@@ -102,14 +102,9 @@ function loadAddressesFromDeployment(
 }
 
 // Chain definitions from shared config
-export const networkMainnet: Chain = getMainnetChain()
-export const networkTestnet: Chain = { ...getTestnetChain(), testnet: true }
+export const jejuMainnet: Chain = getMainnetChain()
+export const jejuTestnet: Chain = { ...getTestnetChain(), testnet: true }
 export const networkLocalnet: Chain = getLocalnetChain()
-
-// Aliases for backward compatibility
-export const jejuMainnet = networkMainnet
-export const jejuTestnet = networkTestnet
-export const jejuLocalnet = networkLocalnet
 
 // Contract addresses by network
 export interface ContractAddresses {
@@ -231,8 +226,8 @@ export function getContractAddresses(chainId: number): ContractAddresses {
 }
 
 export function getChain(chainId: number): Chain {
-  const mainnet = networkMainnet
-  const testnet = networkTestnet
+  const mainnet = jejuMainnet
+  const testnet = jejuTestnet
 
   switch (chainId) {
     case mainnet.id:

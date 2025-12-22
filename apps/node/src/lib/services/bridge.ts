@@ -24,8 +24,6 @@ async function getArbitrageExecutorModule(): Promise<ArbitrageExecutorModule> {
   return arbExecutorModule
 }
 
-// ============ Types ============
-
 export interface BridgeServiceConfig {
   // Network configuration
   evmRpcUrls: Record<number, string>
@@ -160,8 +158,6 @@ export interface BridgeService {
   onArbitrage(callback: (opportunity: ArbOpportunity) => void): () => void
   onError(callback: (error: Error) => void): () => void
 }
-
-// ============ Bridge Service Implementation ============
 
 class BridgeServiceImpl implements BridgeService {
   private config: BridgeServiceConfig
@@ -895,11 +891,10 @@ class BridgeServiceImpl implements BridgeService {
     token: string,
     chainId: number,
   ): Promise<{ price: number; dex: string } | null> {
-    // Simplified - would use 1inch or Uniswap quoter in production
+    // Use Chainlink price feeds for EVM tokens
     const rpcUrl = this.config.evmRpcUrls[chainId]
     if (!rpcUrl) return null
 
-    // Use Chainlink price feeds as fallback
     const CHAINLINK_FEEDS: Record<string, Record<number, string>> = {
       WETH: {
         1: '0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419',
@@ -1073,15 +1068,11 @@ class BridgeServiceImpl implements BridgeService {
   }
 }
 
-// ============ Factory ============
-
 export function createBridgeService(
   config: BridgeServiceConfig,
 ): BridgeService {
   return new BridgeServiceImpl(config)
 }
-
-// ============ Default Configuration ============
 
 export function getDefaultBridgeConfig(
   operatorAddress: Address,

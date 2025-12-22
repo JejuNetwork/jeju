@@ -136,11 +136,7 @@ const itemsCache = new LRUCache<{ items: unknown[]; count: number }>(
 )
 
 // Cache for stats (30s TTL, 15s stale window) - frequently changing data
-const statsCache = new LRUCache<Record<string, unknown>>(
-  50,
-  30000,
-  15000,
-)
+const statsCache = new LRUCache<Record<string, unknown>>(50, 30000, 15000)
 
 // Cache for compute results (5 min TTL) - expensive computation
 const computeCache = new LRUCache<{ computed: number }>(
@@ -162,7 +158,10 @@ const randomDelay = (min: number, max: number) =>
 // Request coalescing to prevent thundering herd on cache miss
 const pendingRequests = new Map<string, Promise<unknown>>()
 
-async function coalesceRequest<T>(key: string, fn: () => Promise<T>): Promise<T> {
+async function coalesceRequest<T>(
+  key: string,
+  fn: () => Promise<T>,
+): Promise<T> {
   const pending = pendingRequests.get(key)
   if (pending) return pending as Promise<T>
 
@@ -183,7 +182,12 @@ const metrics = {
   cacheMisses: 0,
   endpoints: new Map<
     string,
-    { count: number; totalLatency: number; maxLatency: number; cacheHits: number }
+    {
+      count: number
+      totalLatency: number
+      maxLatency: number
+      cacheHits: number
+    }
   >(),
 }
 
@@ -228,7 +232,11 @@ const app = new Elysia()
     name: 'Cached Load Test Server',
     version: '1.0.0',
     description: 'Test server with DWS-style caching',
-    features: ['LRU caching', 'stale-while-revalidate', 'computation memoization'],
+    features: [
+      'LRU caching',
+      'stale-while-revalidate',
+      'computation memoization',
+    ],
     endpoints: {
       health: '/health',
       api: '/api/*',
@@ -253,7 +261,11 @@ const app = new Elysia()
     }
 
     await simulateDbQuery(randomDelay(1, 5))
-    const result = { data: 'fast response', latency: 'low', timestamp: Date.now() }
+    const result = {
+      data: 'fast response',
+      latency: 'low',
+      timestamp: Date.now(),
+    }
     statsCache.set(cacheKey, result, 30000) // 30s cache - balances freshness and speed
     trackEndpoint('/api/fast', performance.now() - start, false)
     return { ...result, cached: false }
@@ -271,7 +283,11 @@ const app = new Elysia()
     }
 
     await simulateDbQuery(randomDelay(10, 50))
-    const result = { data: 'medium response', latency: 'medium', timestamp: Date.now() }
+    const result = {
+      data: 'medium response',
+      latency: 'medium',
+      timestamp: Date.now(),
+    }
     statsCache.set(cacheKey, result)
     trackEndpoint('/api/medium', performance.now() - start, false)
     return { ...result, cached: false }
@@ -302,7 +318,11 @@ const app = new Elysia()
     // Coalesce cache miss requests to prevent thundering herd
     const result = await coalesceRequest(cacheKey, async () => {
       await simulateDbQuery(randomDelay(50, 200))
-      const data = { data: 'slow response', latency: 'high', timestamp: Date.now() }
+      const data = {
+        data: 'slow response',
+        latency: 'high',
+        timestamp: Date.now(),
+      }
       statsCache.set(cacheKey, data, 120000) // 2 min cache
       return data
     })
@@ -322,7 +342,11 @@ const app = new Elysia()
         coalesceRequest(`revalidate:${cacheKey}`, async () => {
           // Use fixed short delay for revalidation (no variance)
           await simulateDbQuery(10)
-          statsCache.set(cacheKey, { data: 'variable response', timestamp: Date.now() }, 60000)
+          statsCache.set(
+            cacheKey,
+            { data: 'variable response', timestamp: Date.now() },
+            60000,
+          )
         })
       }
       trackEndpoint('/api/variable', performance.now() - start, true)
@@ -528,9 +552,9 @@ const app = new Elysia()
       }))
       .sort((a, b) => b.count - a.count)
 
-    const slowest = [...endpointStats].sort(
-      (a, b) => parseFloat(b.avgLatency) - parseFloat(a.avgLatency),
-    ).slice(0, 5)
+    const slowest = [...endpointStats]
+      .sort((a, b) => parseFloat(b.avgLatency) - parseFloat(a.avgLatency))
+      .slice(0, 5)
 
     const hottest = endpointStats.slice(0, 5)
 
@@ -592,4 +616,3 @@ app.listen(PORT, () => {
 })
 
 export { app }
-

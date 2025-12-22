@@ -21,7 +21,7 @@ interface JsonRpcError {
   data?: string | number | boolean | null | object
 }
 
-interface JsonRpcResponse {
+export interface JsonRpcResponse {
   jsonrpc: string
   id: number | string
   result?: string | number | boolean | null | object

@@ -13,13 +13,10 @@
 import { expectValid } from '@jejunetwork/types'
 import type { Address, Hex, PublicClient, WalletClient } from 'viem'
 import { encodeAbiParameters, parseEther } from 'viem'
+import { API_URLS, postApi } from '../lib/eden'
 import { OIFQuoteResponseSchema } from '../schemas/api-responses'
 import { getChainContracts } from './chains'
 import type { Intent, IntentParams, IntentQuote, IntentStatus } from './types'
-
-// ============================================================================
-// ABI Fragments
-// ============================================================================
 
 const INPUT_SETTLER_ABI = [
   {
@@ -156,19 +153,11 @@ const SOLVER_REGISTRY_ABI = [
   },
 ] as const
 
-// ============================================================================
-// Constants
-// ============================================================================
-
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address
 const SWAP_ORDER_TYPE =
   '0x43726f7373436861696e53776170000000000000000000000000000000000000' as Hex
 const DEFAULT_OPEN_DEADLINE_BLOCKS = 50 // ~100 seconds
 const DEFAULT_FILL_DEADLINE_BLOCKS = 200 // ~400 seconds
-
-// ============================================================================
-// OIF Client
-// ============================================================================
 
 export interface OIFClientConfig {
   chainId: number
@@ -204,17 +193,10 @@ export class OIFClient {
       config.inputSettlerAddress ?? contracts.inputSettler ?? ZERO_ADDRESS
     this.solverRegistryAddress =
       config.solverRegistryAddress ?? contracts.solverRegistry ?? ZERO_ADDRESS
-    this.quoteApiUrl = config.quoteApiUrl ?? 'http://localhost:4010/oif' // Local gateway
+    this.quoteApiUrl = config.quoteApiUrl ?? `${API_URLS.gateway}/oif`
 
     // Track if contracts are actually configured
     this.isConfigured = this.inputSettlerAddress !== ZERO_ADDRESS
-
-    if (!this.isConfigured) {
-      console.warn(
-        `[OIFClient] InputSettler not configured for chain ${config.chainId}. ` +
-          `Intent creation will fail. Deploy contracts and update chainContracts.`,
-      )
-    }
   }
 
   /**
@@ -227,14 +209,28 @@ export class OIFClient {
   /**
    * Get a quote for an intent
    * Queries solver network for optimal route and pricing
+   * Falls back to local estimation if API is unavailable
    */
   async getQuote(params: IntentParams): Promise<IntentQuote> {
-    // In production, this calls the solver aggregator API
-    // For now, return a simulated quote
-    const response = await fetch(`${this.quoteApiUrl}/quote`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    try {
+      const data = await postApi<{
+        inputToken: string
+        inputAmount: string
+        outputToken: string
+        outputAmount: string
+        fee: string
+        route: Array<{
+          chainId: number
+          protocol: string
+          action: string
+          inputToken: string
+          outputToken: string
+          inputAmount: string
+          outputAmount: string
+        }>
+        estimatedTime: number
+        priceImpact: number
+      }>(this.quoteApiUrl, '/quote', {
         inputToken: params.inputToken,
         inputAmount: params.inputAmount.toString(),
         outputToken: params.outputToken,
@@ -242,25 +238,35 @@ export class OIFClient {
         sourceChainId: this.config.chainId,
         destinationChainId: params.destinationChainId,
         recipient: params.recipient,
-      }),
-    })
+      })
 
-    if (!response.ok) {
-      // Fallback to estimated quote
-      return this.estimateQuote(params)
+      return expectValid(
+        OIFQuoteResponseSchema,
+        {
+          inputToken: data.inputToken,
+          inputAmount: BigInt(data.inputAmount),
+          outputToken: data.outputToken,
+          outputAmount: BigInt(data.outputAmount),
+          fee: BigInt(data.fee),
+          route: data.route.map((r) => ({
+            ...r,
+            inputAmount: BigInt(r.inputAmount),
+            outputAmount: BigInt(r.outputAmount),
+          })),
+          estimatedTime: data.estimatedTime,
+          priceImpact: data.priceImpact,
+        },
+        'OIF quote response',
+      )
+    } catch {
+      return this._estimateQuote(params)
     }
-
-    return expectValid(
-      OIFQuoteResponseSchema,
-      await response.json(),
-      'OIF quote response',
-    )
   }
 
   /**
-   * Estimate a quote locally (fallback)
+   * @internal - For testing only
    */
-  private estimateQuote(params: IntentParams): IntentQuote {
+  _estimateQuote(params: IntentParams): IntentQuote {
     // Simple estimate: 0.3% fee, same output as input (assumes 1:1 wrapped tokens)
     const fee = (params.inputAmount * 30n) / 10000n
     const outputAmount = params.inputAmount - fee
@@ -564,10 +570,6 @@ export class OIFClient {
     }
   }
 }
-
-// ============================================================================
-// Factory Function
-// ============================================================================
 
 export function createOIFClient(config: OIFClientConfig): OIFClient {
   return new OIFClient(config)

@@ -24,10 +24,6 @@ import {
   toHash32,
 } from '../../src/index.js'
 
-// =============================================================================
-// TYPES
-// =============================================================================
-
 interface BenchmarkResult {
   name: string
   iterations: number
@@ -56,10 +52,6 @@ interface LatencyBreakdown {
   destConfirmation: number
   total: number
 }
-
-// =============================================================================
-// BENCHMARK RUNNER
-// =============================================================================
 
 class BenchmarkRunner {
   private results: BenchmarkResult[] = []
@@ -452,10 +444,6 @@ class BenchmarkRunner {
   }
 }
 
-// =============================================================================
-// LATENCY ANALYZER
-// =============================================================================
-
 class LatencyAnalyzer {
   async analyzeTransferLatency(): Promise<LatencyBreakdown> {
     console.log('\n📊 Analyzing Transfer Latency Breakdown...\n')
@@ -542,10 +530,6 @@ class LatencyAnalyzer {
     return breakdown
   }
 }
-
-// =============================================================================
-// MAIN
-// =============================================================================
 
 async function main(): Promise<void> {
   const runner = new BenchmarkRunner()

@@ -91,8 +91,6 @@ export class ThresholdEncryptionService {
     )
     const ephemeralPubKey = toHex(new Uint8Array(ephemeralPubKeyRaw))
 
-    // In production, we'd do ECDH with the cluster's public key
-    // For now, we derive a symmetric key from the ephemeral key and cluster public key
     const sharedSecret = await this.deriveSharedSecret(ephemeralKey.privateKey)
 
     // Derive encryption key from shared secret

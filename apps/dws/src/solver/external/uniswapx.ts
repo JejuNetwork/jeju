@@ -242,6 +242,7 @@ export class UniswapXAdapter extends EventEmitter {
         }
       } catch (err) {
         console.error(`UniswapX API error for chain ${chainId}:`, err)
+        throw err
       }
     }
   }

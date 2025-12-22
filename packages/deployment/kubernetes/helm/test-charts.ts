@@ -130,9 +130,8 @@ async function testTemplateRendering(chart: ChartTest): Promise<void> {
       })
 
       console.log(`   ✅ ${env}: Templates render successfully`)
-    } catch (_error) {
-      // values file might not exist
-      console.log(`   ⏭️  ${env}: No values file (optional)`)
+    } catch (error) {
+      console.log(`   ⏭️  ${env}: No values file or render failed:`, error)
     }
   }
 }
@@ -160,7 +159,8 @@ async function testRequiredValues(chart: ChartTest): Promise<void> {
       test: 'required-values',
       passed: true,
     })
-  } catch (_error) {
+  } catch (error) {
+    console.log(`   ❌ Failed to check required values:`, error)
     results.push({
       chart: chart.name,
       environment: 'all',
@@ -198,7 +198,8 @@ async function testSecurityContexts(chart: ChartTest): Promise<void> {
       test: 'security-contexts',
       passed: hasSecurityContext,
     })
-  } catch (_error) {
+  } catch (error) {
+    console.log(`   ❌ Failed to check security contexts:`, error)
     results.push({
       chart: chart.name,
       environment: 'all',
@@ -236,7 +237,8 @@ async function testResourceLimits(chart: ChartTest): Promise<void> {
       test: 'resource-limits',
       passed: hasLimits && hasRequests,
     })
-  } catch (_error) {
+  } catch (error) {
+    console.log(`   ❌ Failed to check resource limits:`, error)
     results.push({
       chart: chart.name,
       environment: 'all',

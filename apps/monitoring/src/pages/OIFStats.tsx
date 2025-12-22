@@ -17,7 +17,7 @@ import { formatVolume } from '../types'
 type Tab = 'overview' | 'solvers' | 'routes'
 
 export function OIFStats() {
-  const { stats, solvers, routes, loading, error, refetch } = useOIFStats()
+  const { stats, solvers, routes, isLoading, error, refetch } = useOIFStats()
   const [activeTab, setActiveTab] = useState<Tab>('overview')
 
   const avgSuccessRate =
@@ -39,10 +39,10 @@ export function OIFStats() {
         <button
           type="button"
           onClick={() => refetch()}
-          disabled={loading}
+          disabled={isLoading}
           className="btn-secondary flex items-center gap-2"
         >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
           Refresh
         </button>
       </div>
@@ -94,14 +94,14 @@ export function OIFStats() {
               value={stats?.totalIntents ?? '-'}
               icon={<Zap className="w-6 h-6" />}
               status="info"
-              loading={loading}
+              loading={isLoading}
             />
             <StatCard
               label="Solvers"
               value={stats?.activeSolvers ?? '-'}
               icon={<Users className="w-6 h-6" />}
               status="success"
-              loading={loading}
+              loading={isLoading}
             />
             <StatCard
               label="Volume"
@@ -112,14 +112,14 @@ export function OIFStats() {
               }
               icon={<TrendingUp className="w-6 h-6" />}
               status="success"
-              loading={loading}
+              loading={isLoading}
             />
             <StatCard
               label="Routes"
               value={routes.length}
               icon={<Route className="w-6 h-6" />}
               status="info"
-              loading={loading}
+              loading={isLoading}
             />
           </div>
 
@@ -199,7 +199,7 @@ export function OIFStats() {
       {/* Solvers */}
       {activeTab === 'solvers' && (
         <div className="space-y-4">
-          {loading ? (
+          {isLoading ? (
             <div className="space-y-4">
               <div key="skeleton-0" className="card-static p-4">
                 <div className="shimmer h-16 w-full rounded" />
@@ -232,7 +232,7 @@ export function OIFStats() {
       {/* Routes */}
       {activeTab === 'routes' && (
         <div className="space-y-4">
-          {loading ? (
+          {isLoading ? (
             <div className="space-y-4">
               <div key="skeleton-0" className="card-static p-4">
                 <div className="shimmer h-16 w-full rounded" />

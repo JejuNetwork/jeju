@@ -237,4 +237,3 @@ export async function getWalletAddress(page: Page): Promise<string> {
 
   return match[0]
 }
-

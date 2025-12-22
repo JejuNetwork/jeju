@@ -3,10 +3,6 @@
  */
 import { z } from 'zod'
 
-// ============================================================================
-// Grafana Types
-// ============================================================================
-
 export const GrafanaTargetSchema = z.object({
   expr: z.string().optional(),
   rawSql: z.string().optional(),
@@ -52,14 +48,12 @@ export type GrafanaDashboard = z.infer<typeof GrafanaDashboardSchema>
 export type GrafanaDataSource = z.infer<typeof GrafanaDataSourceSchema>
 export type GrafanaHealth = z.infer<typeof GrafanaHealthSchema>
 
-// ============================================================================
-// Prometheus Types
-// ============================================================================
-
 export const PrometheusTargetSchema = z.object({
   health: z.string(),
   labels: z.record(z.string(), z.string()),
   lastScrape: z.string().optional(),
+  lastScrapeDuration: z.number().optional(),
+  scrapeUrl: z.string().optional(),
 })
 
 export const PrometheusTargetsResponseSchema = z.object({
@@ -105,6 +99,7 @@ export const PrometheusAlertSchema = z.object({
   state: z.string(),
   labels: z.record(z.string(), z.string()),
   annotations: z.record(z.string(), z.string()),
+  activeAt: z.string().optional(),
 })
 
 export const PrometheusAlertsResponseSchema = z.object({
@@ -126,10 +121,6 @@ export type PrometheusAlert = z.infer<typeof PrometheusAlertSchema>
 export type PrometheusAlertsResponse = z.infer<
   typeof PrometheusAlertsResponseSchema
 >
-
-// ============================================================================
-// A2A Types
-// ============================================================================
 
 export const AgentCardSkillSchema = z.object({
   id: z.string(),
@@ -248,11 +239,6 @@ export type AgentCard = z.infer<typeof AgentCardSchema>
 export type A2ARequest = z.infer<typeof A2ARequestSchema>
 export type A2AResponse = z.infer<typeof A2AResponseSchema>
 
-// ============================================================================
-// MCP Types
-// ============================================================================
-
-// MCP request data - skills receive specific parameters
 const MCPRequestDataSchema = z.object({
   skillId: z.string().optional(),
   query: z.string().optional(),
@@ -319,10 +305,6 @@ export type MCPRequest = z.infer<typeof MCPRequestSchema>
 export type MCPResourceRead = z.infer<typeof MCPResourceReadSchema>
 export type MCPToolCall = z.infer<typeof MCPToolCallSchema>
 export type MCPPromptGet = z.infer<typeof MCPPromptGetSchema>
-
-// ============================================================================
-// Skill Data Types (for A2A responses)
-// ============================================================================
 
 // Specific data shapes returned by each skill
 export type QueryMetricsData = {
@@ -506,9 +488,10 @@ export type MCPResourceContent =
   | InfrastructureContent
   | DashboardContent
 
-// ============================================================================
-// OIF Types
-// ============================================================================
+export const MetricResultSchema = z.object({
+  metric: z.record(z.string(), z.string()),
+  value: z.tuple([z.number(), z.string()]),
+})
 
 export const OIFStatsResponseSchema = z.object({
   totalIntents: z.number(),
@@ -516,12 +499,18 @@ export const OIFStatsResponseSchema = z.object({
   totalVolumeUsd: z.string(),
 })
 
+// Alias for convenience
+export const OIFStatsSchema = OIFStatsResponseSchema
+
 export const OIFSolverSchema = z.object({
   address: z.string(),
   name: z.string(),
   successRate: z.number(),
   reputation: z.number(),
 })
+
+// Alias for hooks
+export const SolverSchema = OIFSolverSchema
 
 export const OIFRouteSchema = z.object({
   routeId: z.string(),
@@ -532,22 +521,23 @@ export const OIFRouteSchema = z.object({
   totalVolume: z.string(),
 })
 
+// Simplified route schema for API responses
+export const RouteSchema = z.object({
+  routeId: z.string(),
+  source: z.number(),
+  destination: z.number(),
+  successRate: z.number(),
+  avgTime: z.number(),
+})
+
 export type OIFStatsResponse = z.infer<typeof OIFStatsResponseSchema>
 export type OIFSolver = z.infer<typeof OIFSolverSchema>
 export type OIFRoute = z.infer<typeof OIFRouteSchema>
-
-// ============================================================================
-// GraphQL Types
-// ============================================================================
 
 export interface GraphQLResponse<T> {
   data?: T
   errors?: Array<{ message: string }>
 }
-
-// ============================================================================
-// RPC Types
-// ============================================================================
 
 export type JsonRpcParams = (string | number | boolean | object | null)[]
 
@@ -555,10 +545,6 @@ export interface JsonRpcResponse<T> {
   result: T
   error?: { message: string }
 }
-
-// ============================================================================
-// Validation Dashboard Types
-// ============================================================================
 
 export interface ValidationResult {
   dashboard: string
@@ -568,14 +554,7 @@ export interface ValidationResult {
   queries: { query: string; result: string }[]
 }
 
-// ============================================================================
-// Utility Functions
-// ============================================================================
-
-/**
- * Safely format large token amounts using BigInt to avoid precision loss.
- * Converts wei values to human-readable format with K/M suffixes.
- */
+/** Safely format large token amounts using BigInt to avoid precision loss. */
 export function formatVolume(amount: string): string {
   if (!/^-?\d+$/.test(amount)) {
     return '0.0000'
@@ -592,10 +571,7 @@ export function formatVolume(amount: string): string {
   return value.toFixed(4)
 }
 
-/**
- * Format a number with K/M suffixes for display.
- * Handles both string (token amounts) and number inputs.
- */
+/** Format a number with K/M suffixes for display. */
 export function formatNumber(value: string | number): string {
   if (typeof value === 'string') {
     return formatVolume(value)

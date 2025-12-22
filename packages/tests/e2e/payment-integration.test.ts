@@ -39,8 +39,6 @@ import { JEJU_LOCALNET, TEST_WALLETS } from '../shared/constants'
 
 const logger = new Logger({ prefix: 'payment-e2e' })
 
-// ============ Configuration ============
-
 const RPC_URL = JEJU_LOCALNET.rpcUrl
 
 // Test accounts (Anvil defaults)
@@ -62,8 +60,6 @@ const ADDRESSES = {
     TEST_WALLETS.deployer.address) as Address,
 }
 
-// ============ ABIs ============
-
 const CREDIT_MANAGER_ABI = [
   'function depositUSDC(uint256)',
   'function depositETH() payable',
@@ -75,8 +71,6 @@ const CREDIT_MANAGER_ABI = [
   'function usdc() view returns (address)',
   'function elizaOS() view returns (address)',
 ]
-
-// ============ Test Setup ============
 
 let publicClient: ReturnType<typeof createPublicClient>
 let deployerAccount: ReturnType<typeof privateKeyToAccount>
@@ -144,8 +138,6 @@ describe.skipIf(!localnetAvailable)('Payment Integration - Setup', () => {
     expect(stakerBalance).toBeGreaterThan(0n)
   })
 })
-
-// ============ x402 Payment Tests ============
 
 describe.skipIf(!localnetAvailable)(
   'Payment Integration - x402 Protocol',
@@ -265,8 +257,6 @@ describe.skipIf(!localnetAvailable)(
   },
 )
 
-// ============ Credit Manager Tests ============
-
 describe.skipIf(!localnetAvailable)(
   'Payment Integration - Credit Manager',
   () => {
@@ -353,8 +343,6 @@ describe.skipIf(!localnetAvailable)(
   },
 )
 
-// ============ Staking Tests ============
-
 describe.skipIf(!localnetAvailable)('Payment Integration - Staking', () => {
   test('should query pool stats', async () => {
     logger.info('Testing pool stats query...')
@@ -420,8 +408,6 @@ describe.skipIf(!localnetAvailable)('Payment Integration - Staking', () => {
     logger.success('Minimum stake query successful')
   })
 })
-
-// ============ Fee Distribution Tests ============
 
 describe.skipIf(!localnetAvailable)(
   'Payment Integration - Fee Distribution',
@@ -491,8 +477,6 @@ describe.skipIf(!localnetAvailable)(
     })
   },
 )
-
-// ============ Cross-App Integration Tests ============
 
 describe.skipIf(!localnetAvailable)(
   'Payment Integration - Cross-App Compatibility',
@@ -579,8 +563,6 @@ describe.skipIf(!localnetAvailable)(
     })
   },
 )
-
-// ============ Summary ============
 
 describe.skipIf(!localnetAvailable)('Payment Integration - Summary', () => {
   test('should print test summary', async () => {

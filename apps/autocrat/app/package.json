@@ -1,17 +1,13 @@
 {
   "name": "@jejunetwork/autocrat-app",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "PORT=3010 bun index.html",
     "build": "bun build index.html --outdir=dist --minify",
-    "start": "bun run server.ts",
-    "typecheck": "tsc --noEmit",
-    "lint": "biome check .",
-    "test": "playwright test --project=chromium",
-    "test:all": "playwright test",
-    "test:ui": "playwright test --ui"
+    "test": "playwright test",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@elysiajs/eden": "^1.4.0",
@@ -22,7 +18,7 @@
     "react-dom": "19.1.0",
     "react-router-dom": "7.1.1",
     "sonner": "1.7.2",
-    "viem": "2.43.2",
+    "viem": "2.43.3",
     "wagmi": "2.18.1"
   },
   "devDependencies": {

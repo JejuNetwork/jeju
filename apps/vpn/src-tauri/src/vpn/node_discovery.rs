@@ -141,7 +141,10 @@ impl NodeDiscovery {
                                             let mut nodes_lock = nodes.write().await;
                                             nodes_lock.retain(|n| n.node_id != node_id);
                                         }
-                                        CoordinatorResponse::PingResult { node_id, latency_ms } => {
+                                        CoordinatorResponse::PingResult {
+                                            node_id,
+                                            latency_ms,
+                                        } => {
                                             let mut nodes_lock = nodes.write().await;
                                             if let Some(node) =
                                                 nodes_lock.iter_mut().find(|n| n.node_id == node_id)

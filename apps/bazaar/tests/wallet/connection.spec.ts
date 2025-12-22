@@ -158,7 +158,7 @@ test.describe('Blockchain Health', () => {
 
 test.describe('Contract Deployment', () => {
   test('ERC20 Factory is deployed', async () => {
-    const factoryAddress = process.env.NEXT_PUBLIC_ERC20_FACTORY_ADDRESS
+    const factoryAddress = process.env.PUBLIC_ERC20_FACTORY_ADDRESS
 
     if (factoryAddress && factoryAddress !== '0x0') {
       const code = await publicClient.getCode({
@@ -172,7 +172,7 @@ test.describe('Contract Deployment', () => {
   })
 
   test('NFT Marketplace is deployed', async () => {
-    const marketplaceAddress = process.env.NEXT_PUBLIC_NFT_MARKETPLACE_ADDRESS
+    const marketplaceAddress = process.env.PUBLIC_NFT_MARKETPLACE_ADDRESS
 
     if (marketplaceAddress && marketplaceAddress !== '0x0') {
       const code = await publicClient.getCode({
@@ -186,7 +186,7 @@ test.describe('Contract Deployment', () => {
   })
 
   test('Predimarket is deployed', async () => {
-    const predimarketAddress = process.env.NEXT_PUBLIC_PREDIMARKET_ADDRESS
+    const predimarketAddress = process.env.PUBLIC_PREDIMARKET_ADDRESS
 
     if (predimarketAddress && predimarketAddress !== '0x0') {
       const code = await publicClient.getCode({
@@ -200,7 +200,7 @@ test.describe('Contract Deployment', () => {
   })
 
   test('Pool Manager is deployed', async () => {
-    const poolManagerAddress = process.env.NEXT_PUBLIC_V4_POOL_MANAGER_ADDRESS
+    const poolManagerAddress = process.env.PUBLIC_V4_POOL_MANAGER_ADDRESS
 
     if (poolManagerAddress && poolManagerAddress !== '0x0') {
       const code = await publicClient.getCode({

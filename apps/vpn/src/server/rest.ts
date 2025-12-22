@@ -1,7 +1,12 @@
 /**
  * REST API for VPN operations
  *
- * All endpoints use Zod validation and fail-fast patterns
+ * All endpoints use Zod validation and fail-fast patterns.
+ *
+ * Proxy Strategy:
+ * - /api/proxy endpoint: Proxies user requests to external URLs (keep fetch)
+ *   Uses raw fetch to proxy user-submitted requests to external services.
+ *   Cannot use Eden as target URLs are user-provided and external.
  */
 
 import { Elysia } from 'elysia'
@@ -59,11 +64,6 @@ export function createRESTRouter(ctx: VPNServiceContext) {
       return { error: message }
     })
 
-    // ========== Public Endpoints ==========
-
-    /**
-     * GET /nodes - List available VPN nodes
-     */
     .get('/nodes', ({ query }) => {
       // Convert query to plain object for Zod validation
       const queryParams: Record<string, string | undefined> = {}
@@ -110,9 +110,6 @@ export function createRESTRouter(ctx: VPNServiceContext) {
       return { node }
     })
 
-    /**
-     * GET /countries - List available countries
-     */
     .get('/countries', () => {
       const countries = getNodesByCountry(ctx)
 
@@ -124,9 +121,6 @@ export function createRESTRouter(ctx: VPNServiceContext) {
       }
     })
 
-    /**
-     * GET /pricing - Get VPN pricing
-     */
     .get('/pricing', () => {
       return {
         freeTier: {
@@ -147,12 +141,6 @@ export function createRESTRouter(ctx: VPNServiceContext) {
         },
       }
     })
-
-    // ========== Authenticated Endpoints ==========
-
-    /**
-     * POST /connect - Establish VPN connection
-     */
     .post('/connect', async ({ request, body }) => {
       const auth = await verifyAuth(request)
       expect(auth.valid, auth.error || 'Authentication required')
@@ -166,7 +154,6 @@ export function createRESTRouter(ctx: VPNServiceContext) {
         'connect request',
       )
 
-      // Find best node
       let targetNode: VPNNodeState | undefined
       if (validatedBody.nodeId) {
         targetNode = getNodeById(ctx, validatedBody.nodeId)
@@ -176,7 +163,6 @@ export function createRESTRouter(ctx: VPNServiceContext) {
 
       expect(targetNode !== undefined, 'No available nodes matching criteria')
 
-      // Create session using utility
       const session = createSession(
         ctx,
         auth.address,
@@ -184,7 +170,6 @@ export function createRESTRouter(ctx: VPNServiceContext) {
         validatedBody.protocol || 'wireguard',
       )
 
-      // Return connection details
       return {
         sessionId: session.sessionId,
         node: {
@@ -236,8 +221,6 @@ export function createRESTRouter(ctx: VPNServiceContext) {
 
       const session = getSession(ctx, validatedBody.sessionId)
       verifySessionOwnership(session, auth.address)
-
-      // End session
       deleteSession(ctx, validatedBody.sessionId)
 
       return {
@@ -248,9 +231,6 @@ export function createRESTRouter(ctx: VPNServiceContext) {
       }
     })
 
-    /**
-     * GET /session/:sessionId - Get session status
-     */
     .get('/session/:sessionId', async ({ request, params }) => {
       const auth = await verifyAuth(request)
       expect(auth.valid, auth.error || 'Authentication required')
@@ -278,9 +258,6 @@ export function createRESTRouter(ctx: VPNServiceContext) {
       }
     })
 
-    /**
-     * POST /proxy - Make a proxied HTTP request (requires x402 payment)
-     */
     .post('/proxy', async ({ request, body }) => {
       const paymentHeader = request.headers.get('x-payment')
 
@@ -322,7 +299,6 @@ export function createRESTRouter(ctx: VPNServiceContext) {
       const exitNode = findBestNode(ctx, validatedBody.countryCode)
       expect(exitNode !== undefined, 'No available nodes matching criteria')
 
-      // Make proxied request with timeout
       const startTime = Date.now()
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 30000)
@@ -384,7 +360,6 @@ export function createRESTRouter(ctx: VPNServiceContext) {
         }
       }
 
-      // Check if period expired and reset if needed
       if (isContributionPeriodExpired(contribution)) {
         resetContributionPeriod(contribution)
       }
@@ -403,9 +378,6 @@ export function createRESTRouter(ctx: VPNServiceContext) {
       }
     })
 
-    /**
-     * POST /contribution/settings - Update contribution settings
-     */
     .post('/contribution/settings', async ({ request, body }) => {
       const auth = await verifyAuth(request)
       expect(auth.valid, auth.error || 'Authentication required')

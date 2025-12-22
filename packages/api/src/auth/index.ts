@@ -1,17 +1,3 @@
-/**
- * Auth Module
- *
- * Framework-agnostic authentication with adapters for Elysia.
- *
- * @example
- * // Using core functions directly
- * import { authenticate, validateOAuth3Session } from '@jejunetwork/api/auth/core'
- *
- * // Using Elysia adapter
- * import { authPlugin, createElysiaAuth } from '@jejunetwork/api/auth/elysia'
- */
-
-// Core - framework-agnostic functions
 export {
   authenticate,
   type CombinedAuthConfig,
@@ -27,7 +13,6 @@ export {
   validateWalletSignature,
   validateWalletSignatureFromHeaders,
 } from './core.js'
-// Elysia adapter
 export {
   type AuthContext,
   type AuthPluginConfig,
@@ -42,7 +27,6 @@ export {
   walletAuthPlugin,
   withAuth,
 } from './elysia.js'
-// Types
 export {
   AdminRole,
   type AdminUser,

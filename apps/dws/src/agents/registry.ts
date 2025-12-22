@@ -33,6 +33,7 @@ export interface RegistryConfig {
 const agents = new Map<string, AgentConfig>()
 const cronTriggers = new Map<string, AgentCronTrigger[]>()
 const invocationCounts = new Map<string, number>()
+const errorCounts = new Map<string, number>()
 const latencyMetrics = new Map<string, number[]>()
 
 let registryConfig: RegistryConfig | null = null
@@ -436,10 +437,20 @@ export async function updateCronTriggerRun(triggerId: string): Promise<void> {
 // Metrics
 // ============================================================================
 
-export function recordInvocation(agentId: string, latencyMs: number): void {
+export function recordInvocation(
+  agentId: string,
+  latencyMs: number,
+  isError = false,
+): void {
   // Update count
   const count = invocationCounts.get(agentId) ?? 0
   invocationCounts.set(agentId, count + 1)
+
+  // Update error count
+  if (isError) {
+    const errors = errorCounts.get(agentId) ?? 0
+    errorCounts.set(agentId, errors + 1)
+  }
 
   // Update latency
   const latencies = latencyMetrics.get(agentId) ?? []
@@ -455,19 +466,21 @@ export function getAgentStats(agentId: string): AgentStats | null {
   if (!agent) return null
 
   const invocations = invocationCounts.get(agentId) ?? 0
+  const errors = errorCounts.get(agentId) ?? 0
   const latencies = latencyMetrics.get(agentId) ?? []
   const avgLatency =
     latencies.length > 0
       ? latencies.reduce((a, b) => a + b, 0) / latencies.length
       : 0
+  const errorRate = invocations > 0 ? errors / invocations : 0
 
   return {
     agentId,
     totalInvocations: invocations,
     avgLatencyMs: Math.round(avgLatency),
-    errorRate: 0, // TODO: track errors
-    activeInstances: 0, // Filled by executor
-    memoriesCount: 0, // TODO: query CQL
+    errorRate,
+    activeInstances: 0, // Populated by executor.getAgentInstances()
+    memoriesCount: 0, // Populated via CQL query in routes.ts
   }
 }
 
@@ -496,9 +509,9 @@ async function cqlQuery<T>(sql: string, params: SqlParam[] = []): Promise<T[]> {
 
     const data = (await response.json()) as { rows?: T[] }
     return data.rows ?? []
-  } catch {
-    // CQL not available
-    return []
+  } catch (e) {
+    console.warn('[AgentRegistry] CQL query failed:', e)
+    throw e
   }
 }
 
@@ -517,8 +530,9 @@ async function cqlExec(sql: string, params: SqlParam[] = []): Promise<void> {
       }),
       signal: AbortSignal.timeout(5000),
     })
-  } catch {
-    // CQL not available - operations will be in-memory only
+  } catch (e) {
+    console.warn('[AgentRegistry] CQL exec failed:', e)
+    throw e
   }
 }
 

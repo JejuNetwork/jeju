@@ -62,7 +62,10 @@ export const feesRoutes = new Elysia({ prefix: '/fees' })
    */
   .get('/', async () => {
     if (!ensureFeeActionsReadOnly()) {
-      return { success: false, error: 'Fee actions not initialized - check FEE_CONFIG_ADDRESS and RPC' }
+      return {
+        success: false,
+        error: 'Fee actions not initialized - check FEE_CONFIG_ADDRESS and RPC',
+      }
     }
 
     const state = await getFeeConfigState()
@@ -96,7 +99,10 @@ export const feesRoutes = new Elysia({ prefix: '/fees' })
         }
       } else {
         if (!ensureFeeActionsWrite()) {
-          return { success: false, error: 'Write access not available - wallet client required' }
+          return {
+            success: false,
+            error: 'Write access not available - wallet client required',
+          }
         }
       }
 
@@ -127,7 +133,10 @@ export const feesRoutes = new Elysia({ prefix: '/fees' })
    */
   .get('/summary', async () => {
     if (!ensureFeeActionsReadOnly()) {
-      return { success: false, error: 'Fee actions not initialized - check FEE_CONFIG_ADDRESS and RPC' }
+      return {
+        success: false,
+        error: 'Fee actions not initialized - check FEE_CONFIG_ADDRESS and RPC',
+      }
     }
 
     const state = await getFeeConfigState()
@@ -193,7 +202,10 @@ export const feesRoutes = new Elysia({ prefix: '/fees' })
     '/propose',
     async ({ body }) => {
       if (!ensureFeeActionsWrite()) {
-        return { success: false, error: 'Write access not available - wallet client required' }
+        return {
+          success: false,
+          error: 'Write access not available - wallet client required',
+        }
       }
 
       const { category, newValues, reason } = body
@@ -253,7 +265,8 @@ export const feesRoutes = new Elysia({ prefix: '/fees' })
   .get('/history', () => ({
     success: true,
     history: [],
-    message: 'Fee history query not yet implemented - query FeeConfig events on-chain',
+    message:
+      'Fee history query not yet implemented - query FeeConfig events on-chain',
   }))
 
   /**
@@ -263,5 +276,6 @@ export const feesRoutes = new Elysia({ prefix: '/fees' })
   .get('/pending', () => ({
     success: true,
     pending: [],
-    message: 'Pending changes query not yet implemented - query pendingChanges mapping on-chain',
+    message:
+      'Pending changes query not yet implemented - query pendingChanges mapping on-chain',
   }))

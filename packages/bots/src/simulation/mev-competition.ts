@@ -87,7 +87,7 @@ export interface LatencyImpact {
 // ============ Constants ============
 
 // Known top MEV searchers (anonymized/generalized profiles)
-const KNOWN_SEARCHERS: MEVSearcher[] = [
+const _KNOWN_SEARCHERS: MEVSearcher[] = [
   {
     id: 'alpha',
     name: 'Top Searcher Alpha',
@@ -216,7 +216,7 @@ export class MEVCompetitionSimulator {
 
   constructor(
     ourConfig: Partial<MEVSearcher> = {},
-    useRealCompetitors: boolean = true,
+    _useRealCompetitors: boolean = true,
   ) {
     // Configure our searcher profile
     this.ourSearcher = {
@@ -246,7 +246,6 @@ export class MEVCompetitionSimulator {
       ...ourConfig,
     }
 
-    this.competitors = useRealCompetitors ? KNOWN_SEARCHERS : []
     this.builders = BLOCK_BUILDERS
   }
 

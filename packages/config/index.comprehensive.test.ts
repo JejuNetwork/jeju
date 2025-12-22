@@ -49,8 +49,8 @@ describe('Contract Resolution', () => {
       expect(address).toBe('0x1234567890123456789012345678901234567890')
     })
 
-    it('should resolve NEXT_PUBLIC_ prefixed env vars', () => {
-      process.env.NEXT_PUBLIC_BAN_MANAGER_ADDRESS =
+    it('should resolve PUBLIC_ prefixed env vars', () => {
+      process.env.PUBLIC_BAN_MANAGER_ADDRESS =
         '0xabcdef0123456789012345678901234567890abc'
       process.env.JEJU_NETWORK = 'localnet'
 
@@ -58,10 +58,10 @@ describe('Contract Resolution', () => {
       expect(address).toBe('0xabcdef0123456789012345678901234567890abc')
     })
 
-    it('should prioritize VITE_ over NEXT_PUBLIC_', () => {
+    it('should prioritize VITE_ over PUBLIC_', () => {
       process.env.VITE_BAN_MANAGER_ADDRESS =
         '0x1111111111111111111111111111111111111111'
-      process.env.NEXT_PUBLIC_BAN_MANAGER_ADDRESS =
+      process.env.PUBLIC_BAN_MANAGER_ADDRESS =
         '0x2222222222222222222222222222222222222222'
       process.env.JEJU_NETWORK = 'localnet'
 
@@ -83,7 +83,7 @@ describe('Contract Resolution', () => {
     it('should get contract from config when no env override', () => {
       // Use WETH which is always available
       delete process.env.VITE_WETH_ADDRESS
-      delete process.env.NEXT_PUBLIC_WETH_ADDRESS
+      delete process.env.PUBLIC_WETH_ADDRESS
       delete process.env.TOKENS_WETH
 
       const address = getContract('tokens', 'weth', 'localnet')

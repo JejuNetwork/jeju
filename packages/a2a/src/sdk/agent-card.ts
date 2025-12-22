@@ -59,7 +59,7 @@ export interface AgentData {
   id: string
   name: string
   description: string
-  iconUrl?: string | null
+  iconUrl?: string
   skills?: Skill[]
   version?: string
 }

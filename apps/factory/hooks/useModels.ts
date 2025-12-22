@@ -1,13 +1,5 @@
-import { getCoreAppUrl } from '@jejunetwork/config/ports'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, extractDataSafe } from '../lib/client'
-
-function getFactoryApiUrl(): string {
-  if (typeof window !== 'undefined') return ''
-  return process.env.FACTORY_API_URL || getCoreAppUrl('FACTORY')
-}
-
-// ============ Types ============
 
 export type ModelType = 'llm' | 'vision' | 'audio' | 'embedding' | 'multimodal'
 
@@ -78,8 +70,6 @@ export interface ModelStats {
   activeInference: number
 }
 
-// ============ API Response Types ============
-
 interface ApiModel {
   id: string
   name: string
@@ -97,7 +87,10 @@ interface ApiModel {
   updatedAt: number
 }
 
-// ============ Fetchers using Eden Treaty ============
+interface ModelsResponse {
+  models: ApiModel[]
+  total: number
+}
 
 async function fetchModels(query?: {
   type?: ModelType
@@ -112,14 +105,10 @@ async function fetchModels(query?: {
     },
   })
 
-  const data = extractDataSafe(response)
-  if (!data) return []
+  const data = extractDataSafe(response) as ModelsResponse | null
+  if (!data?.models) return []
 
-  // API returns { models, total }
-  const result = data as { models?: ApiModel[]; total?: number }
-
-  // Transform API response to expected format
-  return (result.models || []).map((m) => ({
+  return data.models.map((m) => ({
     id: m.id,
     name: m.name,
     organization: m.organization,
@@ -144,7 +133,6 @@ async function fetchModel(
 }
 
 async function fetchModelStats(): Promise<ModelStats> {
-  // Stats endpoint may not exist, calculate from list
   const models = await fetchModels()
   return {
     totalModels: models.length,
@@ -156,7 +144,7 @@ async function fetchModelStats(): Promise<ModelStats> {
 
 async function fetchModelReadme(org: string, name: string): Promise<string> {
   const model = await fetchModel(org, name)
-  return (model as ModelData & { readme?: string })?.readme || ''
+  return model?.readme || ''
 }
 
 async function fetchModelVersions(
@@ -164,7 +152,7 @@ async function fetchModelVersions(
   name: string,
 ): Promise<ModelVersion[]> {
   const model = await fetchModel(org, name)
-  return (model as ModelData & { versions?: ModelVersion[] })?.versions || []
+  return model?.versions || []
 }
 
 async function runInference(
@@ -180,30 +168,31 @@ async function runInference(
   output: string
   usage: { promptTokens: number; completionTokens: number }
 }> {
-  // Inference endpoint - use direct fetch as Eden may not have this typed
-  const baseUrl = getFactoryApiUrl()
-  const res = await fetch(`${baseUrl}/api/models/${org}/${name}/inference`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(input),
-  })
-  if (!res.ok) {
-    throw new Error('Inference failed')
+  const API_BASE =
+    typeof window !== 'undefined' ? '' : process.env.FACTORY_API_URL || ''
+  const response = await fetch(
+    `${API_BASE}/api/models/${org}/${name}/inference`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    },
+  )
+  if (!response.ok) {
+    throw new Error('Inference request failed')
   }
-  return res.json()
+  return response.json()
 }
 
 async function starModel(org: string, name: string): Promise<boolean> {
-  // Star endpoint - use direct fetch as Eden may not have this typed
-  const baseUrl = getFactoryApiUrl()
-  const res = await fetch(`${baseUrl}/api/models/${org}/${name}/star`, {
+  const API_BASE =
+    typeof window !== 'undefined' ? '' : process.env.FACTORY_API_URL || ''
+  const response = await fetch(`${API_BASE}/api/models/${org}/${name}/star`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
   })
-  return res.ok
+  return response.ok
 }
-
-// ============ Hooks ============
 
 export function useModels(query?: {
   type?: ModelType

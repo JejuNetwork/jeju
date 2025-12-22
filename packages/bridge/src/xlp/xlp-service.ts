@@ -38,8 +38,6 @@ import { SOLANA_TOKENS } from './jupiter-integration.js'
 
 const log = createLogger('xlp')
 
-// ============ Configuration ============
-
 const SUPPORTED_EVM_CHAINS = {
   1: { chain: mainnet, name: 'Ethereum' },
   42161: { chain: arbitrum, name: 'Arbitrum' },
@@ -115,8 +113,6 @@ export function getEvmTokenAddress(
   return TOKENS[symbol]?.[chainId]
 }
 
-// ============ Types ============
-
 export interface XLPConfig {
   privateKey: Hex
   rpcUrls: Record<number, string>
@@ -160,8 +156,6 @@ export interface XLPStats {
   utilizationRate: number
   routeStats: RouteStats[]
 }
-
-// ============ XLP Service ============
 
 // Use PublicClient/WalletClient from viem for proper typing
 // The ReturnType approach causes issues with chain-specific types
@@ -300,8 +294,6 @@ export class XLPService extends EventEmitter {
     // SECURITY: Clean up event listeners to prevent memory leaks
     this.removeAllListeners()
   }
-
-  // ============ Core Operations ============
 
   /**
    * Deposit liquidity into XLP pool on a specific chain
@@ -604,8 +596,6 @@ export class XLPService extends EventEmitter {
     return fees
   }
 
-  // ============ Rebalancing ============
-
   /**
    * Check if rebalancing is needed and execute if so
    */
@@ -687,8 +677,6 @@ export class XLPService extends EventEmitter {
     return optimizedAllocation
   }
 
-  // ============ Monitoring ============
-
   private async monitorFillRequests(): Promise<void> {
     for (const [chainId, clients] of this.clients) {
       const poolAddress = this.config.xlpPoolAddresses[chainId]
@@ -758,8 +746,6 @@ export class XLPService extends EventEmitter {
     return total
   }
 
-  // ============ Getters ============
-
   getPositions(): LiquidityPosition[] {
     return Array.from(this.positions.values())
   }
@@ -777,8 +763,6 @@ export class XLPService extends EventEmitter {
       .slice(0, 10)
   }
 }
-
-// ============ Factory ============
 
 export function createXLPService(config: Partial<XLPConfig>): XLPService {
   // SECURITY: Private key is required - no fallbacks to invalid values

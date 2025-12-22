@@ -8,7 +8,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { AuthProvider, VerifiableCredential } from '../../index.js'
 import {
   CredentialVerifyResponseSchema,
-  getEndpointWithDevFallback,
+  expectEndpoint,
   validateResponse,
 } from '../../validation.js'
 import { useOAuth3 } from '../provider.js'
@@ -91,7 +91,7 @@ export function useCredentials(): UseCredentialsReturn {
   const verifyCredential = useCallback(
     async (credential: VerifiableCredential): Promise<boolean> => {
       const node = client.getCurrentNode()
-      const url = getEndpointWithDevFallback(node)
+      const url = expectEndpoint(node)
 
       const response = await fetch(`${url}/credential/verify`, {
         method: 'POST',

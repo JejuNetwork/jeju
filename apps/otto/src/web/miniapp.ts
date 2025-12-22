@@ -1,6 +1,11 @@
 /**
  * Otto Miniapp
  * Minimal chat interface for Telegram, Farcaster, and Web
+ *
+ * Frontend API Strategy:
+ * - Inline chat JS: Same-origin calls to /api/miniapp/* (keep fetch)
+ *   Embedded JavaScript in HTML template for session and chat API.
+ *   Uses standard browser fetch to call the local Elysia server.
  */
 
 import { Elysia } from 'elysia'

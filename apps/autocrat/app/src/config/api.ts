@@ -9,20 +9,36 @@ import { api, extractData, extractDataOrDefault } from '../lib/client'
 const API_BASE = import.meta.env.VITE_AUTOCRAT_API || ''
 
 // ============================================================================
-// A2A Protocol (JSON-RPC) - Kept for A2A-specific calls
+// A2A Protocol (JSON-RPC) - Typed A2A Client
 // ============================================================================
 
-interface A2ARequest {
-  skillId: string
-  params?: Record<string, unknown>
+interface A2APart {
+  kind: 'text' | 'data'
+  text?: string
+  data?: Record<string, unknown>
 }
 
-interface A2AResponse<T> {
+interface A2AJsonRpcResponse {
+  jsonrpc: '2.0'
+  id: number | string
+  result?: {
+    parts?: A2APart[]
+  }
+  error?: {
+    code: number
+    message: string
+  }
+}
+
+interface A2AResult<T> {
   message: string
   data: T
 }
 
-async function callA2A<T>(request: A2ARequest): Promise<A2AResponse<T>> {
+async function callA2A<T>(
+  skillId: string,
+  params: Record<string, unknown> = {},
+): Promise<A2AResult<T>> {
   const response = await fetch(`${API_BASE}/a2a`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -36,7 +52,7 @@ async function callA2A<T>(request: A2ARequest): Promise<A2AResponse<T>> {
           parts: [
             {
               kind: 'data',
-              data: { skillId: request.skillId, params: request.params || {} },
+              data: { skillId, params },
             },
           ],
         },
@@ -50,28 +66,29 @@ async function callA2A<T>(request: A2ARequest): Promise<A2AResponse<T>> {
     )
   }
 
-  const json = await response.json()
+  const json: A2AJsonRpcResponse = await response.json()
 
   if (json.error) {
-    throw new Error(json.error.message || 'A2A error')
+    throw new Error(json.error.message)
   }
 
-  const dataPart = json.result?.parts?.find(
-    (p: { kind: string }) => p.kind === 'data',
-  )
-  const textPart = json.result?.parts?.find(
-    (p: { kind: string }) => p.kind === 'text',
-  )
+  const parts = json.result?.parts
+  if (!parts || parts.length === 0) {
+    throw new Error('A2A response contains no parts')
+  }
+
+  const dataPart = parts.find((p) => p.kind === 'data')
+  const textPart = parts.find((p) => p.kind === 'text')
+
+  if (!dataPart || dataPart.kind !== 'data' || !dataPart.data) {
+    throw new Error('A2A response contains no data part')
+  }
 
   return {
-    message: textPart?.text || '',
-    data: (dataPart?.data || {}) as T,
+    message: textPart?.text ?? '',
+    data: dataPart.data as T,
   }
 }
-
-// ============================================================================
-// Types
-// ============================================================================
 
 export interface Proposal {
   proposalId: string
@@ -302,18 +319,10 @@ export interface BountySubmissionDraft {
   impact?: string
 }
 
-// ============================================================================
-// Health & Status - Eden Treaty
-// ============================================================================
-
 export async function fetchHealth() {
   const response = await api.health.get()
   return extractData(response)
 }
-
-// ============================================================================
-// Proposals - Eden Treaty
-// ============================================================================
 
 export async function fetchProposals(
   activeOnly = false,
@@ -344,11 +353,7 @@ export async function assessProposal(params: {
   description: string
   proposalType: string
 }): Promise<QualityAssessment> {
-  // This still uses A2A for backwards compatibility
-  const result = await callA2A<QualityAssessment>({
-    skillId: 'assess-proposal',
-    params,
-  })
+  const result = await callA2A<QualityAssessment>('assess-proposal', params)
   return result.data
 }
 
@@ -360,13 +365,12 @@ export async function prepareSubmitProposal(params: {
   callData?: string
   value?: string
 }) {
-  const result = await callA2A({ skillId: 'submit-proposal', params })
+  const result = await callA2A<Record<string, unknown>>(
+    'submit-proposal',
+    params,
+  )
   return result.data
 }
-
-// ============================================================================
-// Proposal Assistant - Eden Treaty
-// ============================================================================
 
 export async function assessProposalFull(
   draft: ProposalDraft,
@@ -451,13 +455,8 @@ export async function quickScore(
   return extractData(response) as QuickScoreResult
 }
 
-// ============================================================================
-// CEO - Eden Treaty
-// ============================================================================
-
 export async function fetchCEOStatus(): Promise<CEOStatus> {
-  // Still uses A2A for CEO status as it's provided by the agent skill
-  const result = await callA2A<CEOStatus>({ skillId: 'get-ceo-status' })
+  const result = await callA2A<CEOStatus>('get-ceo-status')
   return result.data
 }
 
@@ -476,22 +475,14 @@ export async function fetchRecentDecisions(limit = 10): Promise<Decision[]> {
 }
 
 export async function fetchGovernanceStats(): Promise<GovernanceStats> {
-  const result = await callA2A<GovernanceStats>({
-    skillId: 'get-governance-stats',
-  })
+  const result = await callA2A<GovernanceStats>('get-governance-stats')
   return result.data
 }
 
 export async function fetchAutocratStatus(): Promise<AutocratStatus> {
-  const result = await callA2A<AutocratStatus>({
-    skillId: 'get-autocrat-status',
-  })
+  const result = await callA2A<AutocratStatus>('get-autocrat-status')
   return result.data
 }
-
-// ============================================================================
-// Research - Eden Treaty
-// ============================================================================
 
 export async function conductResearch(request: ResearchRequest) {
   const response = await api.api.v1.research.conduct.post(request)
@@ -515,10 +506,6 @@ export async function factCheck(claim: string, context: string) {
   return extractData(response)
 }
 
-// ============================================================================
-// Orchestrator - Eden Treaty
-// ============================================================================
-
 export async function fetchOrchestratorStatus(): Promise<OrchestratorStatus> {
   const response = await api.api.v1.orchestrator.status.get()
   if (response.error || !response.data) {
@@ -540,10 +527,6 @@ export async function stopOrchestrator() {
   const response = await api.api.v1.orchestrator.stop.post()
   return extractData(response)
 }
-
-// ============================================================================
-// Bug Bounty - Eden Treaty
-// ============================================================================
 
 export async function fetchBugBountyStats(): Promise<BountyStats> {
   const response = await api.api.v1['bug-bounty'].stats.get()
@@ -598,10 +581,6 @@ export async function fetchResearcherStats(address: string) {
   return extractData(response)
 }
 
-// ============================================================================
-// DAO - Eden Treaty
-// ============================================================================
-
 export async function fetchDAOs() {
   const response = await api.api.v1.dao.list.get()
   return extractData(response)
@@ -626,10 +605,6 @@ export async function fetchDAOCouncil(daoId: string) {
   const response = await api.api.v1.dao({ daoId }).council.get()
   return extractData(response)
 }
-
-// ============================================================================
-// Moderation - Eden Treaty
-// ============================================================================
 
 export async function submitModerationFlag(params: {
   proposalId: string
@@ -682,10 +657,6 @@ export async function fetchModeratorStats(address: string) {
   const response = await api.api.v1.moderation.moderator({ address }).get()
   return extractData(response)
 }
-
-// ============================================================================
-// RLAIF - Eden Treaty
-// ============================================================================
 
 export async function createRLAIFRun(params: {
   environment: { id: string; type: string; configCID: string }

@@ -536,7 +536,6 @@ export class OAuth3Client {
       providerHandle: '',
       linkedAt: Date.now(),
       verified: true,
-      credential: null,
     }
 
     this.emit('providerLinked', { provider: options.provider })
@@ -737,8 +736,6 @@ export class OAuth3Client {
 
     return newSession
   }
-
-  // ============ Decentralized Infrastructure Access ============
 
   /**
    * Get the discovered app details

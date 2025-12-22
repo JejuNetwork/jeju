@@ -15,7 +15,7 @@ export const datasetCreationSchema = z.object({
   format: z.union([z.number().int().min(0).max(8), z.string()]).optional(),
   license: z.union([z.number().int().min(0).max(7), z.string()]).optional(),
   licenseUri: z.string().url().optional(),
-  tags: z.array(z.string()).optional(),
+  tags: z.array(z.string()).default([]),
 })
 
 /**

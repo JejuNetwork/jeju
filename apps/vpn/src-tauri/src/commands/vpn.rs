@@ -11,7 +11,7 @@ pub async fn connect(
     node_id: Option<String>,
 ) -> Result<VPNConnection, String> {
     let mut vpn = state.vpn.write().await;
-    
+
     // Find node by ID if specified
     let node = if let Some(id) = node_id {
         let nodes = vpn.get_nodes(None).await.map_err(|e| e.to_string())?;
@@ -19,7 +19,7 @@ pub async fn connect(
     } else {
         None
     };
-    
+
     vpn.connect(node).await.map_err(|e| e.to_string())
 }
 
@@ -34,7 +34,7 @@ pub async fn disconnect(state: State<'_, AppState>) -> Result<(), String> {
 #[tauri::command]
 pub async fn get_status(state: State<'_, AppState>) -> Result<VPNStatusResponse, String> {
     let vpn = state.vpn.read().await;
-    
+
     Ok(VPNStatusResponse {
         status: vpn.get_status(),
         connection: vpn.get_connection().cloned(),
@@ -61,7 +61,9 @@ pub async fn select_node(state: State<'_, AppState>, node_id: String) -> Result<
 
 /// Get connection statistics
 #[tauri::command]
-pub async fn get_connection_stats(state: State<'_, AppState>) -> Result<Option<ConnectionStats>, String> {
+pub async fn get_connection_stats(
+    state: State<'_, AppState>,
+) -> Result<Option<ConnectionStats>, String> {
     let vpn = state.vpn.read().await;
     Ok(vpn.get_stats().await)
 }
@@ -72,4 +74,3 @@ pub struct VPNStatusResponse {
     pub status: ConnectionStatus,
     pub connection: Option<VPNConnection>,
 }
-

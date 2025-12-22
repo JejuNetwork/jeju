@@ -9,10 +9,6 @@ import type { ChainConfig, SolanaConfig } from './types'
 
 const networkName = getNetworkName()
 
-// ============================================================================
-// EVM Chain Configurations
-// ============================================================================
-
 export const chains: Record<number, ChainConfig> = {
   // Ethereum Mainnet
   1: {
@@ -221,10 +217,6 @@ export const solanaConfigs: Record<string, SolanaConfig> = {
   },
 }
 
-// ============================================================================
-// Chain Utilities
-// ============================================================================
-
 export function getChain(chainId: number): ChainConfig | undefined {
   return chains[chainId]
 }
@@ -257,10 +249,6 @@ export function getNetworkRpcUrl(chainId: number): string | undefined {
   const chain = chains[chainId]
   return chain?.rpcUrls.jeju?.http[0] ?? chain?.rpcUrls.default.http[0]
 }
-
-// ============================================================================
-// Contract Addresses by Chain
-// ============================================================================
 
 export interface ChainContracts {
   // Core ERC-4337
@@ -367,10 +355,6 @@ export function getChainContracts(chainId: number): ChainContracts {
   }
   return contracts
 }
-
-// ============================================================================
-// Default Configuration
-// ============================================================================
 
 export const DEFAULT_CHAINS = [1, 8453, 42161, 10, 137] as const
 export const DEFAULT_TESTNETS = [84532, 1337] as const

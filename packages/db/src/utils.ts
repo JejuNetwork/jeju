@@ -36,7 +36,6 @@ export function validateSQLIdentifier(
     )
   }
 
-  // Check for SQL reserved words that could cause issues
   const RESERVED_WORDS = new Set([
     'SELECT',
     'INSERT',
@@ -165,7 +164,6 @@ export function validateSQLDefault(value: string): string {
 
   const trimmed = value.trim()
 
-  // Check against allowed patterns
   const isValid = SQL_DEFAULT_PATTERNS.some((pattern) => pattern.test(trimmed))
 
   if (!isValid) {
@@ -188,8 +186,6 @@ export function parsePort(
   if (!envValue) return defaultPort
 
   const parsed = parseInt(envValue, 10)
-
-  // Validate port is a valid number in valid range
   const PortSchema = z.number().int().min(1).max(65535)
   return PortSchema.parse(parsed)
 }
@@ -204,8 +200,6 @@ export function parseTimeout(
   if (!envValue) return defaultTimeout
 
   const parsed = parseInt(envValue, 10)
-
-  // Validate timeout is a positive integer
   const TimeoutSchema = z.number().int().positive()
   return TimeoutSchema.parse(parsed)
 }

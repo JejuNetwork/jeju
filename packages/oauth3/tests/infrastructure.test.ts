@@ -65,8 +65,6 @@ function isChainError(error: Error): boolean {
   )
 }
 
-// ============ Config Tests ============
-
 describe('Config Module', () => {
   describe('getNetworkType', () => {
     it('should return localnet for chain 420691', () => {
@@ -129,8 +127,6 @@ describe('Config Module', () => {
     })
   })
 })
-
-// ============ Namehash Tests ============
 
 describe('Namehash and Labelhash', () => {
   describe('namehash - boundary conditions', () => {
@@ -230,8 +226,6 @@ describe('Namehash and Labelhash', () => {
     })
   })
 })
-
-// ============ JNS Integration Tests ============
 
 describe('OAuth3 JNS Integration', () => {
   let jns: OAuth3JNSService
@@ -336,8 +330,6 @@ describe('OAuth3 JNS Integration', () => {
     })
   })
 })
-
-// ============ Storage Integration Tests ============
 
 // IPFS API port from centralized config (default 5001)
 const IPFS_PORT = process.env.IPFS_API_PORT ?? '5001'
@@ -507,8 +499,6 @@ describe('OAuth3 Decentralized Storage', () => {
   })
 })
 
-// ============ Compute Integration Tests ============
-
 describe('OAuth3 Compute Integration', () => {
   let compute: OAuth3ComputeService
 
@@ -606,8 +596,6 @@ describe('OAuth3 Compute Integration', () => {
     })
   })
 })
-
-// ============ Discovery Tests ============
 
 describe('OAuth3 Decentralized Discovery', () => {
   let discovery: OAuth3DecentralizedDiscovery
@@ -719,8 +707,6 @@ describe('OAuth3 Decentralized Discovery', () => {
   })
 })
 
-// ============ x402 Payment Tests ============
-
 describe('x402 Payment Utilities', () => {
   describe('calculateStorageFee', () => {
     it('should return 0 for 0 bytes', () => {
@@ -818,8 +804,6 @@ describe('x402 Payment Utilities', () => {
   })
 })
 
-// ============ Threshold Encryption Tests ============
-
 describe('Threshold Encryption', () => {
   describe('deriveLocalEncryptionKey', () => {
     it('should derive deterministic key from seed', () => {
@@ -916,8 +900,6 @@ describe('Threshold Encryption', () => {
   })
 })
 
-// ============ Concurrent Behavior Tests ============
-
 describe('Concurrent Operations', () => {
   beforeEach(() => {
     resetOAuth3JNSService()
@@ -976,8 +958,6 @@ describe('Concurrent Operations', () => {
   })
 })
 
-// ============ Edge Cases and Error Handling ============
-
 describe('Edge Cases and Error Handling', () => {
   describe('invalid inputs', () => {
     it('should handle invalid RPC URL gracefully', async () => {
@@ -1003,7 +983,7 @@ describe('Edge Cases and Error Handling', () => {
     })
   })
 
-  describe('environment variable fallbacks', () => {
+  describe('environment variable defaults', () => {
     it('should use DEFAULT_RPC when no rpcUrl provided', () => {
       resetOAuth3JNSService()
       // Clear env var if set
@@ -1032,8 +1012,6 @@ describe('Edge Cases and Error Handling', () => {
     })
   })
 })
-
-// ============ Previously Untested Code Paths ============
 
 describe('Storage Index Operations', () => {
   let storage: OAuth3StorageService

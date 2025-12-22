@@ -100,15 +100,7 @@ class StateManager {
     const text = file.size > 0 ? readFileSync(path, 'utf-8') : null
     if (!text) return
 
-    let parsed: unknown
-    try {
-      parsed = JSON.parse(text)
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error)
-      console.error('[State] Failed to parse state file:', errorMessage)
-      return
-    }
+    const parsed = JSON.parse(text) as unknown
 
     const data = validateOrNull(PersistedStateSchema, parsed, 'persisted state')
     if (!data) {
@@ -151,10 +143,6 @@ class StateManager {
     Bun.write(this.getStatePath(), JSON.stringify(data, null, 2))
   }
 
-  // ============================================================================
-  // User Management
-  // ============================================================================
-
   getUser(userId: string): OttoUser | null {
     return this.users.get(userId) ?? null
   }
@@ -175,10 +163,6 @@ class StateManager {
     }
     this.save()
   }
-
-  // ============================================================================
-  // Conversation State
-  // ============================================================================
 
   private getConversationKey(platform: Platform, channelId: string): string {
     return `${platform}:${channelId}`
@@ -260,10 +244,6 @@ class StateManager {
     return this.getConversation(platform, channelId).history
   }
 
-  // ============================================================================
-  // Chat Sessions
-  // ============================================================================
-
   createSession(walletAddress?: Address): ChatSession {
     // Enforce max sessions limit to prevent memory exhaustion
     if (this.sessions.size >= MAX_SESSIONS) {
@@ -297,10 +277,6 @@ class StateManager {
       Object.assign(session, update, { lastActiveAt: Date.now() })
     }
   }
-
-  // ============================================================================
-  // Limit Orders
-  // ============================================================================
 
   addLimitOrder(order: LimitOrder): void {
     const validatedOrder = expectValid(LimitOrderSchema, order, 'addLimitOrder')
@@ -372,7 +348,7 @@ class StateManager {
           this.save()
         }
       }
-    }, 30_000) // Check every 30 seconds
+    }, 30_000)
   }
 
   stopLimitOrderMonitor(): void {
@@ -382,12 +358,7 @@ class StateManager {
     }
   }
 
-  // ============================================================================
-  // Cleanup
-  // ============================================================================
-
   cleanup(): void {
-    // Clean expired conversations
     const now = Date.now()
     const maxAge = 24 * 60 * 60 * 1000 // 24 hours
 
@@ -397,7 +368,6 @@ class StateManager {
       }
     }
 
-    // Clean expired sessions
     for (const [id, session] of this.sessions) {
       if (now - session.lastActiveAt > maxAge) {
         this.sessions.delete(id)

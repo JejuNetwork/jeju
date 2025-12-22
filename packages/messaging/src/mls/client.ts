@@ -20,12 +20,8 @@ import type {
   SyncResult,
 } from './types'
 
-// ============ Limits ============
-
 const MAX_GROUPS = 1000 // Maximum groups per client
 const MAX_EVENT_HANDLERS = 100 // Maximum event handlers
-
-// ============ Types ============
 
 export interface MLSClientEvents {
   message: (event: MLSEventData) => void
@@ -35,8 +31,6 @@ export interface MLSClientEvents {
 }
 
 type EventHandler<T extends keyof MLSClientEvents> = MLSClientEvents[T]
-
-// ============ MLS Client Class ============
 
 /**
  * Jeju MLS Client for group messaging
@@ -62,8 +56,6 @@ export class JejuMLSClient {
   constructor(config: MLSClientConfig) {
     this.config = config
   }
-
-  // ============ Initialization ============
 
   /**
    * Initialize the MLS client
@@ -113,8 +105,6 @@ export class JejuMLSClient {
 
     this.emit('disconnected')
   }
-
-  // ============ Group Operations ============
 
   /**
    * Create a new group
@@ -222,8 +212,6 @@ export class JejuMLSClient {
     this.groups.delete(groupId)
   }
 
-  // ============ Direct Messages ============
-
   /**
    * Send a direct message (creates 1:1 group)
    */
@@ -258,8 +246,6 @@ export class JejuMLSClient {
     }
     return null
   }
-
-  // ============ Message Streaming ============
 
   /**
    * Stream messages from all groups
@@ -313,8 +299,6 @@ export class JejuMLSClient {
     }
   }
 
-  // ============ Sync ============
-
   /**
    * Sync all groups
    */
@@ -359,8 +343,6 @@ export class JejuMLSClient {
     }, 5000)
   }
 
-  // ============ Device Management ============
-
   /**
    * Get devices for this identity
    */
@@ -387,8 +369,6 @@ export class JejuMLSClient {
     }
     return this.installationId
   }
-
-  // ============ Key Management ============
 
   /**
    * Derive MLS keys from wallet signature
@@ -418,8 +398,6 @@ export class JejuMLSClient {
     }
   }
 
-  // ============ Relay Connection ============
-
   /**
    * Connect to Jeju relay
    */
@@ -430,8 +408,6 @@ export class JejuMLSClient {
       resolve()
     })
   }
-
-  // ============ Invite Validation ============
 
   /**
    * Validate invite code
@@ -450,8 +426,6 @@ export class JejuMLSClient {
       inviterAddress: '0x0000000000000000000000000000000000000000',
     }
   }
-
-  // ============ Event Handling ============
 
   /**
    * Subscribe to events
@@ -501,8 +475,6 @@ export class JejuMLSClient {
     }
   }
 
-  // ============ State ============
-
   /**
    * Get client state
    */
@@ -522,8 +494,6 @@ export class JejuMLSClient {
     return this.config.address
   }
 
-  // ============ Utility ============
-
   private ensureInitialized(): void {
     if (!this.isInitialized) {
       throw new Error('Client not initialized. Call initialize() first.')
@@ -534,8 +504,6 @@ export class JejuMLSClient {
     return randomBytes(16).toString('hex')
   }
 }
-
-// ============ Factory Function ============
 
 /**
  * Create an MLS client

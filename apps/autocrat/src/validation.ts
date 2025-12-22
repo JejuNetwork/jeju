@@ -18,7 +18,7 @@ import { isHex } from 'viem'
 import type { z } from 'zod'
 
 /**
- * Query string parameter type from HTTP frameworks (Elysia, Hono, Express, etc.)
+ * Query string parameter type from HTTP frameworks.
  * Allows nested objects and arrays for complex query params.
  */
 export interface QueryParams {
@@ -46,7 +46,7 @@ export type JsonValue =
  */
 export function validateBody<T>(
   body: JsonValue | Record<string, JsonValue>,
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   context = 'Request body',
 ): T {
   return expectValid(schema, body, context)
@@ -58,7 +58,7 @@ export function validateBody<T>(
  */
 export function validateQuery<T>(
   query: QueryParams,
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   context = 'Query parameters',
 ): T {
   return expectValid(schema, query, context)
@@ -71,7 +71,7 @@ export function validateQuery<T>(
 export function validateParam(
   params: PathParams,
   paramName: string,
-  schema: z.ZodSchema<string>,
+  schema: z.ZodType<string>,
   context?: string,
 ): string {
   const param = params[paramName]
@@ -88,7 +88,7 @@ export function validateParam(
  */
 export function validateParams<T>(
   params: PathParams,
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   context = 'Route parameters',
 ): T {
   return expectValid(schema, params, context)
@@ -208,6 +208,7 @@ export function expectStringLength(
 
 /**
  * Validate URL
+ * TODO(try-catch-review): This try-catch is VALID - URL constructor throws on invalid input from users
  */
 export function expectUrl(value: string | undefined, context: string): string {
   expectDefined(value, `${context}: URL is required`)
@@ -254,37 +255,14 @@ export function errorResponse(message: string, status = 400): ErrorResponse {
 }
 
 /**
- * Hono context with json response method
- */
-interface HonoResponseContext {
-  json<U>(data: U, status?: number): Response
-}
-
-/**
  * Create success response
- * For Hono: use successResponse(c, data) which calls c.json(data)
- * For Elysia: use successResponse(data) which returns data directly
+ * Returns data directly for Elysia handlers
  *
  * @example
- * // Hono usage:
- * return successResponse(c, { result: 'ok' })
- *
- * // Elysia usage (data only):
  * return successResponse({ result: 'ok' })
  */
-export function successResponse<T>(
-  context: HonoResponseContext,
-  data: T,
-): Response
-export function successResponse<T>(data: T): T
-export function successResponse<T>(
-  contextOrData: HonoResponseContext | T,
-  maybeData?: T,
-): Response | T {
-  if (maybeData !== undefined) {
-    return (contextOrData as HonoResponseContext).json(maybeData)
-  }
-  return contextOrData as T
+export function successResponse<T>(data: T): T {
+  return data
 }
 
 /**
@@ -301,113 +279,47 @@ export class ValidationError extends Error {
   }
 }
 
-// ============================================================================
-// Backward-compatible aliases for Hono migration
-// These functions work with framework contexts that have body, query, params
-// ============================================================================
-
-/**
- * Hono context interface for request handling
- */
-interface HonoContext {
-  req: {
-    json(): Promise<JsonValue | Record<string, JsonValue>>
-    query(): Record<string, string | undefined>
-    param(name: string): string | undefined
-  }
-}
-
 /**
  * Elysia context interface for request handling
  */
-interface ElysiaContext {
+export interface ElysiaContext {
   body: JsonValue | Record<string, JsonValue>
   query: QueryParams
   params: PathParams
 }
 
-/** Union type for both framework contexts */
-type FrameworkContext = HonoContext | ElysiaContext
-
-/** Type guard to check if context is Hono */
-function isHonoContext(c: FrameworkContext): c is HonoContext {
-  return 'req' in c && typeof c.req?.json === 'function'
-}
-
-/** Type guard to check if context is Elysia */
-function isElysiaContext(c: FrameworkContext): c is ElysiaContext {
-  return (
-    'body' in c &&
-    !('req' in c && typeof (c as HonoContext).req?.json === 'function')
-  )
-}
-
 /**
- * Parse and validate JSON body from request context
- * Compatible with both Hono (c.req.json()) and Elysia (c.body)
+ * Parse and validate JSON body from Elysia request context
  */
-export async function parseAndValidateBody<T>(
-  c: FrameworkContext,
-  schema: z.ZodSchema<T>,
+export function parseAndValidateBody<T>(
+  c: ElysiaContext,
+  schema: z.ZodType<T>,
   context = 'Request body',
-): Promise<T> {
-  let body: JsonValue | Record<string, JsonValue>
-
-  if (isHonoContext(c)) {
-    body = await c.req.json().catch(() => {
-      throw new Error(`${context}: Invalid JSON`)
-    })
-  } else if (isElysiaContext(c)) {
-    body = c.body
-  } else {
-    throw new Error(`${context}: No body available`)
-  }
-
-  return validateBody(body, schema, context)
+): T {
+  return validateBody(c.body, schema, context)
 }
 
 /**
- * Parse and validate query parameters from request context
- * Compatible with both Hono (c.req.query()) and Elysia (c.query)
+ * Parse and validate query parameters from Elysia request context
  */
 export function parseAndValidateQuery<T>(
-  c: FrameworkContext,
-  schema: z.ZodSchema<T>,
+  c: ElysiaContext,
+  schema: z.ZodType<T>,
   context = 'Query parameters',
 ): T {
-  let query: QueryParams
-
-  if (isHonoContext(c)) {
-    const rawQuery = c.req.query()
-    query = Object.fromEntries(
-      Object.entries(rawQuery).map(([k, v]) => [k, v ?? '']),
-    )
-  } else if (isElysiaContext(c)) {
-    query = c.query
-  } else {
-    query = {}
-  }
-
-  return validateQuery(query, schema, context)
+  return validateQuery(c.query, schema, context)
 }
 
 /**
- * Parse and validate route parameter from request context
- * Compatible with both Hono (c.req.param()) and Elysia (c.params)
+ * Parse and validate route parameter from Elysia request context
  */
 export function parseAndValidateParam(
-  c: FrameworkContext,
+  c: ElysiaContext,
   paramName: string,
-  schema: z.ZodSchema<string>,
+  schema: z.ZodType<string>,
   context?: string,
 ): string {
-  let param: string | undefined
-
-  if (isHonoContext(c)) {
-    param = c.req.param(paramName)
-  } else if (isElysiaContext(c)) {
-    param = c.params[paramName]
-  }
+  const param = c.params[paramName]
 
   expectDefined(
     param,

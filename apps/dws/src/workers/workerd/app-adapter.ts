@@ -18,12 +18,14 @@ import type { NetworkEnvironment, RegionId, TEEAttestation } from '../tee/types'
 // ============================================================================
 
 /**
+ * Binding value types for Cloudflare Workers
+ */
+export type BindingValue = string | KVNamespace | DurableObjectNamespace
+
+/**
  * Environment bindings available to workerd workers
  */
 export interface WorkerdEnv {
-  // Standard Cloudflare bindings
-  [key: string]: string | KVNamespace | DurableObjectNamespace | undefined
-
   // Jeju TEE context
   TEE_MODE: 'real' | 'simulated'
   TEE_PLATFORM: string
@@ -37,6 +39,9 @@ export interface WorkerdEnv {
   DWS_URL: string
   GATEWAY_URL: string
   INDEXER_URL: string
+
+  // Additional dynamic bindings (KV namespaces, Durable Objects, etc.)
+  bindings?: Record<string, BindingValue>
 }
 
 /**
@@ -83,7 +88,7 @@ export interface DurableObjectStub {
 /**
  * Extended environment with Jeju-specific bindings
  */
-export interface JejuEnv extends WorkerdEnv {
+export interface JejuEnv extends Omit<WorkerdEnv, keyof JejuEnvMethods> {
   // Secrets (decrypted inside TEE)
   PRIVATE_KEY?: string
   OPENAI_API_KEY?: string
@@ -94,13 +99,23 @@ export interface JejuEnv extends WorkerdEnv {
   IDENTITY_REGISTRY_ADDRESS: string
   SERVICE_REGISTRY_ADDRESS: string
   AGENT_VAULT_ADDRESS: string
+}
 
+/**
+ * Methods available on JejuEnv at runtime
+ */
+export interface JejuEnvMethods {
   // TEE attestation
   getTEEAttestation(): Promise<TEEAttestation | null>
 
   // Secret retrieval (TEE-only)
   getSecret(name: string): Promise<string | null>
 }
+
+/**
+ * Full JejuEnv with methods (for runtime use)
+ */
+export type JejuEnvWithMethods = JejuEnv & JejuEnvMethods
 
 /**
  * Request with TEE context

@@ -10,25 +10,31 @@
 import type {
   AgentCapabilities,
   GameNetworkInfo,
+  JsonPrimitive,
   JsonRpcParams,
   JsonRpcResult,
   JsonValue,
+  PaymentMetadata,
   PaymentRequest,
 } from './common'
 
 export {
   AgentCapabilitiesSchema,
   GameNetworkInfoSchema,
+  JsonPrimitiveSchema,
   JsonValueSchema,
+  PaymentMetadataSchema,
   PaymentRequestSchema,
 } from './common'
 
 export type {
   AgentCapabilities,
   GameNetworkInfo,
+  JsonPrimitive,
   JsonRpcParams,
   JsonRpcResult,
   JsonValue,
+  PaymentMetadata,
   PaymentRequest,
   PaymentVerificationParams,
   PaymentVerificationResult,

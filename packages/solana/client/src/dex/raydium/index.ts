@@ -1,7 +1,3 @@
-/**
- * Raydium DEX Integration
- */
-
 import { expectValid } from '@jejunetwork/types'
 import { type Connection, PublicKey } from '@solana/web3.js'
 import {

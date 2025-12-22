@@ -74,14 +74,13 @@ export class EncryptionProvider implements KMSProvider {
   private sessions = new Map<string, Session>()
 
   constructor(_config: EncryptionConfig) {
-    const secret =
-      process.env.KMS_FALLBACK_SECRET ?? process.env.TEE_ENCRYPTION_SECRET
-    if (secret) {
-      this.masterKey = deriveKeyFromSecret(secret)
-    } else {
-      this.masterKey = crypto.getRandomValues(new Uint8Array(32))
-      log.warn('No KMS_FALLBACK_SECRET set, using ephemeral key')
+    const secret = process.env.KMS_ENCRYPTION_SECRET
+    if (!secret) {
+      throw new Error(
+        'KMS_ENCRYPTION_SECRET environment variable is required for encryption provider',
+      )
     }
+    this.masterKey = deriveKeyFromSecret(secret)
   }
 
   async isAvailable(): Promise<boolean> {
@@ -154,8 +153,8 @@ export class EncryptionProvider implements KMSProvider {
     return { metadata, publicKey: encKey.publicKey }
   }
 
-  getKey(keyId: string): KeyMetadata | null {
-    return this.keys.get(keyId)?.metadata ?? null
+  getKey(keyId: string): KeyMetadata | undefined {
+    return this.keys.get(keyId)?.metadata
   }
 
   getKeyVersions(keyId: string): KeyVersionRecord[] {
@@ -462,7 +461,7 @@ export class EncryptionProvider implements KMSProvider {
   }
 }
 
-let encryptionProvider: EncryptionProvider | null = null
+let encryptionProvider: EncryptionProvider | undefined
 
 export function getEncryptionProvider(
   config?: Partial<EncryptionConfig>,
@@ -481,6 +480,6 @@ export function resetEncryptionProvider(): void {
       .catch((e: Error) =>
         log.warn('Encryption provider disconnect failed', { error: e.message }),
       )
-    encryptionProvider = null
+    encryptionProvider = undefined
   }
 }

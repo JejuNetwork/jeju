@@ -9,43 +9,16 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.js",
-      "default": "./dist/index.js"
-    },
-    "./adapters": {
-      "types": "./dist/adapters/index.d.ts",
-      "import": "./dist/adapters/index.js",
-      "require": "./dist/adapters/index.js"
+      "import": "./dist/index.js"
     }
   },
-  "files": [
-    "dist",
-    "src"
-  ],
+  "files": ["dist", "src"],
   "sideEffects": false,
   "scripts": {
     "build": "tsc",
-    "dev": "tsc --watch",
-    "server": "bun run src/server.ts",
-    "server:dev": "CQL_DEBUG=true bun run src/server.ts",
     "test": "bun test",
-    "clean": "rm -rf dist",
-    "prepublishOnly": "bun run build"
+    "typecheck": "tsc --noEmit"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/elizaos/jeju.git",
-    "directory": "packages/db"
-  },
-  "keywords": [
-    "jeju",
-    "covenantsql",
-    "database",
-    "decentralized",
-    "sql",
-    "db"
-  ],
   "dependencies": {
     "@elysiajs/cors": "^1.2.0",
     "@jejunetwork/config": "workspace:*",
@@ -53,8 +26,8 @@
     "generic-pool": "^3.9.0",
     "opossum": "^9.0.0",
     "pino": "^10.1.0",
-    "viem": "2.43.2",
-    "zod": "^3.24.0"
+    "viem": "2.43.3",
+    "zod": "4.2.1"
   },
   "devDependencies": {
     "@types/bun": "latest",
@@ -65,12 +38,8 @@
     "typeorm": ">=0.3.0"
   },
   "peerDependenciesMeta": {
-    "drizzle-orm": {
-      "optional": true
-    },
-    "typeorm": {
-      "optional": true
-    }
+    "drizzle-orm": { "optional": true },
+    "typeorm": { "optional": true }
   },
   "publishConfig": {
     "access": "public"

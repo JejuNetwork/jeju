@@ -9,8 +9,6 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import { secp256k1 } from '@noble/curves/secp256k1'
 import { type Hex, keccak256, toBytes, toHex } from 'viem'
 
-// ============ FROST Signing Tests ============
-
 import {
   computeBindingFactor,
   computeChallenge,
@@ -452,8 +450,6 @@ describe('FROST Threshold Signing - Signature Verification', () => {
   })
 })
 
-// ============ TOTP Tests ============
-
 import { createTOTPManager, type TOTPManager } from '../src/mfa/totp.js'
 
 describe('TOTP - Base32 Encoding', () => {
@@ -692,8 +688,6 @@ describe('TOTP - Timing Safe Comparison', () => {
   })
 })
 
-// ============ Backup Codes Tests ============
-
 import {
   type BackupCodesManager,
   createBackupCodesManager,
@@ -911,8 +905,6 @@ describe('Backup Codes - Status and Management', () => {
   })
 })
 
-// ============ Passkeys Tests ============
-
 import {
   createPasskeyManager,
   type PasskeyManager,
@@ -1077,8 +1069,6 @@ describe('Passkeys - Credential Management', () => {
     expect(result).toBe(false)
   })
 })
-
-// ============ Validation Tests ============
 
 import {
   AddressSchema,

@@ -1,3 +1,9 @@
+/**
+ * Cron Service - Eden Client
+ */
+
+import { treaty } from '@elysiajs/eden'
+import { Elysia, t } from 'elysia'
 import type { Address } from 'viem'
 import { getDatabase } from '../db/client'
 import type { CronJob } from '../types'
@@ -30,9 +36,53 @@ interface CronService {
   isHealthy(): Promise<boolean>
 }
 
+export class CronError extends Error {
+  constructor(
+    message: string,
+    public statusCode: number,
+  ) {
+    super(message)
+    this.name = 'CronError'
+  }
+}
+
+interface ReminderRow {
+  id: string
+  todo_id: string
+  owner: string
+  reminder_time: number
+  sent: number
+  created_at: number
+}
+
+const cronAppDef = new Elysia()
+  .post('/register', () => ({ success: true }), {
+    body: t.Object({
+      id: t.String(),
+      type: t.Union([t.Literal('once'), t.Literal('cron')]),
+      triggerTime: t.Optional(t.Number()),
+      expression: t.Optional(t.String()),
+      webhook: t.String(),
+      metadata: t.Optional(t.Record(t.String(), t.String())),
+    }),
+  })
+  .post('/cancel', () => ({ success: true }), {
+    body: t.Object({ id: t.String() }),
+  })
+  .get('/health', () => ({ status: 'ok' as const }))
+
+type CronApp = typeof cronAppDef
+
 class ComputeCronService implements CronService {
+  private client: ReturnType<typeof treaty<CronApp>>
   private healthLastChecked = 0
   private healthy = false
+
+  constructor() {
+    this.client = treaty<CronApp>(CRON_ENDPOINT, {
+      fetch: { signal: AbortSignal.timeout(CRON_TIMEOUT) },
+    })
+  }
 
   async scheduleReminder(
     todoId: string,
@@ -44,22 +94,13 @@ class ComputeCronService implements CronService {
 
     const db = getDatabase()
     await db.exec(
-      `INSERT INTO reminders (id, todo_id, owner, reminder_time, sent, created_at)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO reminders (id, todo_id, owner, reminder_time, sent, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
       [id, todoId, owner.toLowerCase(), reminderTime, 0, now],
     )
 
-    // Register with compute cron
     await this.registerCronTrigger(id, reminderTime)
 
-    return {
-      id,
-      todoId,
-      owner,
-      reminderTime,
-      sent: false,
-      createdAt: now,
-    }
+    return { id, todoId, owner, reminderTime, sent: false, createdAt: now }
   }
 
   async cancelReminder(reminderId: string, owner: Address): Promise<boolean> {
@@ -78,16 +119,10 @@ class ComputeCronService implements CronService {
 
   async listReminders(owner: Address): Promise<Reminder[]> {
     const db = getDatabase()
-    const result = await db.query<{
-      id: string
-      todo_id: string
-      owner: string
-      reminder_time: number
-      sent: number
-      created_at: number
-    }>('SELECT * FROM reminders WHERE owner = ? ORDER BY reminder_time ASC', [
-      owner.toLowerCase(),
-    ])
+    const result = await db.query<ReminderRow>(
+      'SELECT * FROM reminders WHERE owner = ? ORDER BY reminder_time ASC',
+      [owner.toLowerCase()],
+    )
 
     return result.rows.map((row) => ({
       id: row.id,
@@ -103,14 +138,10 @@ class ComputeCronService implements CronService {
     const db = getDatabase()
     const now = Date.now()
 
-    const result = await db.query<{
-      id: string
-      todo_id: string
-      owner: string
-      reminder_time: number
-      sent: number
-      created_at: number
-    }>('SELECT * FROM reminders WHERE reminder_time <= ? AND sent = 0', [now])
+    const result = await db.query<ReminderRow>(
+      'SELECT * FROM reminders WHERE reminder_time <= ? AND sent = 0',
+      [now],
+    )
 
     return result.rows.map((row) => ({
       id: row.id,
@@ -138,7 +169,7 @@ class ComputeCronService implements CronService {
     return {
       id: jobId,
       name: 'Data Cleanup',
-      schedule: '0 0 * * *', // Daily at midnight
+      schedule: '0 0 * * *',
       endpoint: `${WEBHOOK_BASE}/webhooks/cleanup`,
       enabled: true,
       lastRun: null,
@@ -147,22 +178,12 @@ class ComputeCronService implements CronService {
   }
 
   async isHealthy(): Promise<boolean> {
-    // Cache the health check result for 30 seconds
     if (Date.now() - this.healthLastChecked < 30000) {
       return this.healthy
     }
 
-    try {
-      const response = await fetch(`${CRON_ENDPOINT}/health`, {
-        signal: AbortSignal.timeout(5000),
-      })
-      this.healthy = response.ok
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error'
-      console.debug(`[Cron] Health check failed: ${errorMsg}`)
-      this.healthy = false
-    }
-
+    const { error } = await this.client.health.get()
+    this.healthy = !error
     this.healthLastChecked = Date.now()
     return this.healthy
   }
@@ -171,33 +192,21 @@ class ComputeCronService implements CronService {
     reminderId: string,
     triggerTime: number,
   ): Promise<void> {
-    const response = await fetch(`${CRON_ENDPOINT}/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        id: reminderId,
-        type: 'once',
-        triggerTime,
-        webhook: `${WEBHOOK_BASE}/webhooks/reminder/${reminderId}`,
-      }),
-      signal: AbortSignal.timeout(CRON_TIMEOUT),
+    const { error } = await this.client.register.post({
+      id: reminderId,
+      type: 'once',
+      triggerTime,
+      webhook: `${WEBHOOK_BASE}/webhooks/reminder/${reminderId}`,
     })
-
-    if (!response.ok) {
-      console.warn(`Failed to register cron trigger: ${response.status}`)
+    if (error) {
+      console.warn(`Failed to register cron trigger: ${error}`)
     }
   }
 
   private async cancelCronTrigger(triggerId: string): Promise<void> {
-    const response = await fetch(`${CRON_ENDPOINT}/cancel`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: triggerId }),
-      signal: AbortSignal.timeout(CRON_TIMEOUT),
-    })
-
-    if (!response.ok && response.status !== 404) {
-      console.warn(`Failed to cancel cron trigger: ${response.status}`)
+    const { error } = await this.client.cancel.post({ id: triggerId })
+    if (error && !String(error).includes('404')) {
+      console.warn(`Failed to cancel cron trigger: ${error}`)
     }
   }
 
@@ -205,21 +214,15 @@ class ComputeCronService implements CronService {
     jobId: string,
     owner: Address,
   ): Promise<void> {
-    const response = await fetch(`${CRON_ENDPOINT}/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        id: jobId,
-        type: 'cron',
-        expression: '0 0 * * *', // Daily at midnight
-        webhook: `${WEBHOOK_BASE}/webhooks/cleanup`,
-        metadata: { owner },
-      }),
-      signal: AbortSignal.timeout(CRON_TIMEOUT),
+    const { error } = await this.client.register.post({
+      id: jobId,
+      type: 'cron',
+      expression: '0 0 * * *',
+      webhook: `${WEBHOOK_BASE}/webhooks/cleanup`,
+      metadata: { owner },
     })
-
-    if (!response.ok) {
-      console.warn(`Failed to register cleanup job: ${response.status}`)
+    if (error) {
+      console.warn(`Failed to register cleanup job: ${error}`)
     }
   }
 }
@@ -233,7 +236,6 @@ export function getCronService(): CronService {
   return cronService
 }
 
-// Webhook handlers for cron callbacks
 export async function handleReminderWebhook(reminderId: string): Promise<void> {
   const cron = getCronService()
   await cron.markReminderSent(reminderId)
@@ -244,12 +246,10 @@ export async function handleCleanupWebhook(): Promise<void> {
   const db = getDatabase()
   const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000
 
-  // Delete completed todos older than 30 days
   await db.exec('DELETE FROM todos WHERE completed = 1 AND updated_at < ?', [
     thirtyDaysAgo,
   ])
 
-  // Delete sent reminders older than 7 days
   const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
   await db.exec('DELETE FROM reminders WHERE sent = 1 AND created_at < ?', [
     sevenDaysAgo,

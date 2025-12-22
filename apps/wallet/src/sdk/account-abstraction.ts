@@ -12,18 +12,10 @@
 import { expectValid } from '@jejunetwork/types'
 import type { Address, Hex, PublicClient, WalletClient } from 'viem'
 import { concat, encodeFunctionData } from 'viem'
-import {
-  GasEstimationResponseSchema,
-  PaymasterTokensResponseSchema,
-  SendUserOpResponseSchema,
-  UserOpReceiptResponseSchema,
-} from '../schemas/api-responses'
+import { API_URLS, jsonRpcRequest, postApi } from '../lib/eden'
+import { PaymasterTokensResponseSchema } from '../schemas/api-responses'
 import { getChainContracts } from './chains'
 import type { GasEstimate, GasOption, UserOperation } from './types'
-
-// ============================================================================
-// ABI Fragments
-// ============================================================================
 
 const ENTRY_POINT_ABI = [
   {
@@ -157,19 +149,11 @@ const SIMPLE_ACCOUNT_ABI = [
   },
 ] as const
 
-// ============================================================================
-// Constants
-// ============================================================================
-
 const ENTRY_POINT_V06 = '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789' as Address
 
 // Default gas limits
 const DEFAULT_VERIFICATION_GAS_LIMIT = 100000n
 const DEFAULT_PRE_VERIFICATION_GAS = 50000n
-
-// ============================================================================
-// Account Abstraction Client
-// ============================================================================
 
 export interface AAClientConfig {
   chainId: number
@@ -204,7 +188,7 @@ export class AAClient {
     const contracts = getChainContracts(config.chainId)
     this.entryPoint =
       config.entryPointAddress ?? contracts.entryPoint ?? ENTRY_POINT_V06
-    this.bundlerUrl = config.bundlerUrl ?? 'https://bundler.jejunetwork.org'
+    this.bundlerUrl = config.bundlerUrl ?? API_URLS.bundler
     this.paymasterUrl = config.paymasterUrl
   }
 
@@ -307,32 +291,20 @@ export class AAClient {
     const maxFeePerGas = feeData.maxFeePerGas ?? 0n
     const maxPriorityFeePerGas = feeData.maxPriorityFeePerGas ?? 0n
 
-    // Estimate gas via bundler
-    const response = await fetch(`${this.bundlerUrl}/estimate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'eth_estimateUserOperationGas',
-        params: [userOp, this.entryPoint],
-      }),
-    })
-
-    const data = expectValid(
-      GasEstimationResponseSchema,
-      await response.json(),
-      'gas estimation response',
-    )
-    if (data.error) {
-      throw new Error(data.error.message ?? 'Gas estimation failed')
-    }
-    if (!data.result) throw new Error('Gas estimation result is undefined')
+    // Estimate gas via bundler JSON-RPC
+    const result = await jsonRpcRequest<{
+      callGasLimit: string
+      verificationGasLimit: string
+      preVerificationGas: string
+    }>(`${this.bundlerUrl}/estimate`, 'eth_estimateUserOperationGas', [
+      userOp,
+      this.entryPoint,
+    ])
 
     const gasLimits = {
-      callGasLimit: BigInt(data.result.callGasLimit),
-      verificationGasLimit: BigInt(data.result.verificationGasLimit),
-      preVerificationGas: BigInt(data.result.preVerificationGas),
+      callGasLimit: BigInt(result.callGasLimit),
+      verificationGasLimit: BigInt(result.verificationGasLimit),
+      preVerificationGas: BigInt(result.preVerificationGas),
     }
 
     const totalGas =
@@ -345,25 +317,20 @@ export class AAClient {
     // Get token options if paymaster available
     let tokenOptions: GasOption[] = []
     if (this.paymasterUrl && paymentTokens?.length) {
-      const paymasterResponse = await fetch(`${this.paymasterUrl}/tokens`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      const paymasterData = await postApi<{ options?: GasOption[] }>(
+        this.paymasterUrl,
+        '/tokens',
+        {
           gasCostEth: totalCostEth.toString(),
           tokens: paymentTokens,
-        }),
-      })
-      if (!paymasterResponse.ok) {
-        throw new Error(
-          `Paymaster token fetch failed: ${paymasterResponse.status}`,
-        )
-      }
-      const paymasterData = expectValid(
+        },
+      )
+      const validated = expectValid(
         PaymasterTokensResponseSchema,
-        await paymasterResponse.json(),
+        paymasterData,
         'paymaster tokens response',
       )
-      tokenOptions = paymasterData.options ?? []
+      tokenOptions = validated.options ?? []
     }
 
     return {
@@ -458,32 +425,12 @@ export class AAClient {
    * Send UserOperation to bundler
    */
   async sendUserOp(userOp: UserOperation): Promise<Hex> {
-    const response = await fetch(`${this.bundlerUrl}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'eth_sendUserOperation',
-        params: [userOp, this.entryPoint],
-      }),
-    })
-
-    const data = expectValid(
-      SendUserOpResponseSchema,
-      await response.json(),
-      'sendUserOp response',
+    const result = await jsonRpcRequest<Hex>(
+      this.bundlerUrl,
+      'eth_sendUserOperation',
+      [userOp, this.entryPoint],
     )
-
-    if (data.error) {
-      throw new Error(data.error.message ?? 'Failed to send UserOp')
-    }
-
-    if (!data.result) {
-      throw new Error('No result in sendUserOp response')
-    }
-
-    return data.result
+    return result
   }
 
   /**
@@ -501,28 +448,17 @@ export class AAClient {
 
     while (Date.now() - startTime < timeout) {
       try {
-        const response = await fetch(`${this.bundlerUrl}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            jsonrpc: '2.0',
-            id: 1,
-            method: 'eth_getUserOperationReceipt',
-            params: [userOpHash],
-          }),
-        })
+        const result = await jsonRpcRequest<{
+          success: boolean
+          receipt?: { transactionHash: Hex }
+          reason?: string
+        } | null>(this.bundlerUrl, 'eth_getUserOperationReceipt', [userOpHash])
 
-        const data = expectValid(
-          UserOpReceiptResponseSchema,
-          await response.json(),
-          'getUserOperationReceipt response',
-        )
-
-        if (data.result) {
+        if (result) {
           return {
-            success: data.result.success,
-            transactionHash: data.result.receipt?.transactionHash,
-            reason: data.result.reason,
+            success: result.success,
+            transactionHash: result.receipt?.transactionHash,
+            reason: result.reason,
           }
         }
       } catch {
@@ -606,10 +542,6 @@ export class AAClient {
     return hash
   }
 }
-
-// ============================================================================
-// Factory Function
-// ============================================================================
 
 export function createAAClient(config: AAClientConfig): AAClient {
   return new AAClient(config)

@@ -1,7 +1,5 @@
+import { getCoreAppUrl } from '@jejunetwork/config/ports'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { getDwsUrl } from '../config/contracts'
-
-// ============ Types ============
 
 export interface RepoBranch {
   name: string
@@ -41,16 +39,35 @@ export interface RepoSettings {
   archived: boolean
 }
 
-// ============ Fetchers ============
+const API_BASE =
+  typeof window !== 'undefined'
+    ? ''
+    : process.env.FACTORY_API_URL || getCoreAppUrl('FACTORY')
+
+async function fetchApi<T>(
+  path: string,
+  options?: RequestInit,
+): Promise<T | null> {
+  const response = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options?.headers,
+    },
+  })
+
+  if (!response.ok) {
+    return null
+  }
+
+  return response.json()
+}
 
 async function fetchRepoSettings(
   owner: string,
   repo: string,
 ): Promise<RepoSettings | null> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/git/${owner}/${repo}/settings`)
-  if (!res.ok) return null
-  return res.json()
+  return fetchApi<RepoSettings>(`/api/git/${owner}/${repo}/settings`)
 }
 
 async function updateRepoSettings(
@@ -58,13 +75,11 @@ async function updateRepoSettings(
   repo: string,
   settings: Partial<RepoSettings>,
 ): Promise<boolean> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/git/${owner}/${repo}/settings`, {
+  const response = await fetchApi(`/api/git/${owner}/${repo}/settings`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(settings),
   })
-  return res.ok
+  return response !== null
 }
 
 async function addCollaborator(
@@ -72,13 +87,14 @@ async function addCollaborator(
   repo: string,
   data: { login: string; permission: 'read' | 'write' | 'admin' },
 ): Promise<boolean> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/git/${owner}/${repo}/collaborators`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  })
-  return res.ok
+  const response = await fetchApi(
+    `/api/git/${owner}/${repo}/settings/collaborators`,
+    {
+      method: 'POST',
+      body: JSON.stringify(data),
+    },
+  )
+  return response !== null
 }
 
 async function removeCollaborator(
@@ -86,14 +102,11 @@ async function removeCollaborator(
   repo: string,
   login: string,
 ): Promise<boolean> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(
-    `${dwsUrl}/api/git/${owner}/${repo}/collaborators/${login}`,
-    {
-      method: 'DELETE',
-    },
+  const response = await fetchApi(
+    `/api/git/${owner}/${repo}/settings/collaborators/${login}`,
+    { method: 'DELETE' },
   )
-  return res.ok
+  return response !== null
 }
 
 async function addWebhook(
@@ -101,14 +114,10 @@ async function addWebhook(
   repo: string,
   data: { url: string; events: string[] },
 ): Promise<RepoWebhook | null> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/git/${owner}/${repo}/webhooks`, {
+  return fetchApi<RepoWebhook>(`/api/git/${owner}/${repo}/settings/webhooks`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   })
-  if (!res.ok) return null
-  return res.json()
 }
 
 async function deleteWebhook(
@@ -116,14 +125,11 @@ async function deleteWebhook(
   repo: string,
   webhookId: string,
 ): Promise<boolean> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(
-    `${dwsUrl}/api/git/${owner}/${repo}/webhooks/${webhookId}`,
-    {
-      method: 'DELETE',
-    },
+  const response = await fetchApi(
+    `/api/git/${owner}/${repo}/settings/webhooks/${webhookId}`,
+    { method: 'DELETE' },
   )
-  return res.ok
+  return response !== null
 }
 
 async function transferRepo(
@@ -131,24 +137,22 @@ async function transferRepo(
   repo: string,
   newOwner: string,
 ): Promise<boolean> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/git/${owner}/${repo}/transfer`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ newOwner }),
-  })
-  return res.ok
+  const response = await fetchApi(
+    `/api/git/${owner}/${repo}/settings/transfer`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ newOwner }),
+    },
+  )
+  return response !== null
 }
 
 async function deleteRepo(owner: string, repo: string): Promise<boolean> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/git/${owner}/${repo}`, {
+  const response = await fetchApi(`/api/git/${owner}/${repo}/settings`, {
     method: 'DELETE',
   })
-  return res.ok
+  return response !== null
 }
-
-// ============ Hooks ============
 
 export function useRepoSettings(owner: string, repo: string) {
   const {

@@ -1,7 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { getDwsUrl } from '../config/contracts'
-
-// ============ Types ============
+import { api, extractDataSafe } from '../lib/client'
 
 export type DiscussionCategory =
   | 'general'
@@ -41,41 +39,52 @@ export interface Discussion {
   tags: string[]
 }
 
-// ============ Fetchers ============
+interface DiscussionsResponse {
+  discussions: Discussion[]
+  total: number
+  page: number
+}
+
+interface DiscussionDetailResponse {
+  discussion: Discussion
+  replies: DiscussionReply[]
+}
 
 async function fetchDiscussions(
-  resourceType: string,
-  resourceId: string,
+  _resourceType: string,
+  _resourceId: string,
   query?: { category?: DiscussionCategory },
 ): Promise<Discussion[]> {
-  const dwsUrl = getDwsUrl()
-  const params = new URLSearchParams()
-  if (query?.category) params.set('category', query.category)
+  const response = await api.api.discussions.get({
+    query: {
+      category: query?.category,
+    },
+  })
 
-  const res = await fetch(
-    `${dwsUrl}/api/${resourceType}/${resourceId}/discussions?${params.toString()}`,
-  )
-  if (!res.ok) return []
-  const data = await res.json()
-  return data.discussions || []
+  const data = extractDataSafe(response) as DiscussionsResponse | null
+  if (!data?.discussions) return []
+
+  return data.discussions
 }
 
 async function fetchDiscussion(
-  resourceType: string,
-  resourceId: string,
+  _resourceType: string,
+  _resourceId: string,
   discussionId: string,
 ): Promise<{ discussion: Discussion; replies: DiscussionReply[] } | null> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(
-    `${dwsUrl}/api/${resourceType}/${resourceId}/discussions/${discussionId}`,
-  )
-  if (!res.ok) return null
-  return res.json()
+  const response = await api.api.discussions({ discussionId }).get()
+  const data = extractDataSafe(response) as DiscussionDetailResponse | null
+  if (!data?.discussion) return null
+
+  return {
+    discussion: data.discussion,
+    replies: data.replies || [],
+  }
 }
 
 async function createDiscussion(
-  resourceType: string,
-  resourceId: string,
+  _resourceType: string,
+  _resourceId: string,
   data: {
     title: string
     content: string
@@ -83,39 +92,28 @@ async function createDiscussion(
     tags: string[]
   },
 ): Promise<Discussion | null> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(
-    `${dwsUrl}/api/${resourceType}/${resourceId}/discussions`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    },
-  )
-  if (!res.ok) return null
-  return res.json()
+  const response = await api.api.discussions.post({
+    title: data.title,
+    content: data.content,
+    category: data.category,
+    tags: data.tags,
+  })
+
+  return extractDataSafe(response) as Discussion | null
 }
 
 async function replyToDiscussion(
-  resourceType: string,
-  resourceId: string,
+  _resourceType: string,
+  _resourceId: string,
   discussionId: string,
   content: string,
 ): Promise<DiscussionReply | null> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(
-    `${dwsUrl}/api/${resourceType}/${resourceId}/discussions/${discussionId}/replies`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content }),
-    },
-  )
-  if (!res.ok) return null
-  return res.json()
-}
+  const response = await api.api
+    .discussions({ discussionId })
+    .replies.post({ content })
 
-// ============ Hooks ============
+  return extractDataSafe(response) as DiscussionReply | null
+}
 
 export function useDiscussions(
   resourceType: string,

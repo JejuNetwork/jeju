@@ -62,9 +62,7 @@ function recordValidation(result: ValidationResult) {
   }
 }
 
-// ============================================================
 // SETUP
-// ============================================================
 
 beforeAll(async () => {
   const chain = inferChainFromRpcUrl(TEST_CONFIG.rpcUrl)
@@ -77,9 +75,7 @@ beforeAll(async () => {
   user1Account = privateKeyToAccount(TEST_ACCOUNTS.user1.privateKey)
 })
 
-// ============================================================
 // 1. X402 PAYMENT VALIDATION
-// ============================================================
 
 describe('x402 Payment Validation', () => {
   test('payment requirement creation produces valid structure', () => {
@@ -145,9 +141,7 @@ describe('x402 Payment Validation', () => {
   })
 })
 
-// ============================================================
 // 2. GAS INTENT ROUTING VALIDATION
-// ============================================================
 
 describe('Gas Intent Routing Validation', () => {
   test('router selects optimal token based on balances', () => {
@@ -207,9 +201,7 @@ describe('Gas Intent Routing Validation', () => {
   })
 })
 
-// ============================================================
 // 3. INTENT SWAP VALIDATION
-// ============================================================
 
 describe('Intent Swap Validation', () => {
   test('swap intent creation produces valid structure', () => {
@@ -286,9 +278,7 @@ describe('Intent Swap Validation', () => {
   })
 })
 
-// ============================================================
 // 4. STAKING MECHANICS VALIDATION
-// ============================================================
 
 describe('Staking Mechanics Validation', () => {
   test('share calculation is proportional', () => {
@@ -351,9 +341,7 @@ describe('Staking Mechanics Validation', () => {
   })
 })
 
-// ============================================================
 // 5. FEE DISTRIBUTION VALIDATION
-// ============================================================
 
 describe('Fee Distribution Validation', () => {
   test('protocol fee calculation is accurate', () => {
@@ -414,9 +402,7 @@ describe('Fee Distribution Validation', () => {
   })
 })
 
-// ============================================================
 // 6. CROSS-CHAIN (EIL) VALIDATION
-// ============================================================
 
 describe('EIL Cross-Chain Validation', () => {
   test('voucher amount calculation includes fees', () => {
@@ -472,9 +458,7 @@ describe('EIL Cross-Chain Validation', () => {
   })
 })
 
-// ============================================================
 // 7. BALANCE CHANGE TRACKING
-// ============================================================
 
 describe('Balance Change Tracking', () => {
   test('can read balance from provider', async () => {
@@ -514,9 +498,7 @@ describe('Balance Change Tracking', () => {
   })
 })
 
-// ============================================================
 // SUMMARY
-// ============================================================
 
 describe('Validation Summary', () => {
   test('prints comprehensive validation report', () => {

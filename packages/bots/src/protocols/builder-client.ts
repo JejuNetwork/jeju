@@ -5,7 +5,7 @@
  */
 
 import { EventEmitter } from 'node:events'
-import { type Hash, type Hex } from 'viem'
+import type { Hash, Hex } from 'viem'
 
 export interface BuilderConfig {
   chainId: number
@@ -37,7 +37,8 @@ const DEFAULT_BUILDERS: Builder[] = [
 export class BuilderClient extends EventEmitter {
   private config: BuilderConfig
   private running = false
-  private submissionStats: Map<string, { success: number; failed: number }> = new Map()
+  private submissionStats: Map<string, { success: number; failed: number }> =
+    new Map()
 
   constructor(config: BuilderConfig) {
     super()
@@ -62,7 +63,9 @@ export class BuilderClient extends EventEmitter {
   /**
    * Submit bundle to all builders in parallel
    */
-  async submitToAll(bundle: BundleSubmission): Promise<Map<string, { success: boolean; hash?: string }>> {
+  async submitToAll(
+    bundle: BundleSubmission,
+  ): Promise<Map<string, { success: boolean; hash?: string }>> {
     const results = new Map<string, { success: boolean; hash?: string }>()
 
     const submissions = this.config.builders.map(async (builder) => {
@@ -83,7 +86,9 @@ export class BuilderClient extends EventEmitter {
   /**
    * Submit to best performing builder
    */
-  async submitToBest(bundle: BundleSubmission): Promise<{ builder: string; hash: string }> {
+  async submitToBest(
+    bundle: BundleSubmission,
+  ): Promise<{ builder: string; hash: string }> {
     const sorted = Array.from(this.submissionStats.entries())
       .map(([name, stats]) => ({
         name,
@@ -107,24 +112,32 @@ export class BuilderClient extends EventEmitter {
     throw new Error('All builders failed')
   }
 
-  private async submitToBuilder(builder: Builder, bundle: BundleSubmission): Promise<string> {
+  private async submitToBuilder(
+    builder: Builder,
+    bundle: BundleSubmission,
+  ): Promise<string> {
     const response = await fetch(builder.endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         jsonrpc: '2.0',
         method: 'eth_sendBundle',
-        params: [{
-          txs: bundle.txs,
-          blockNumber: `0x${bundle.blockNumber.toString(16)}`,
-          minTimestamp: bundle.minTimestamp,
-          maxTimestamp: bundle.maxTimestamp,
-        }],
+        params: [
+          {
+            txs: bundle.txs,
+            blockNumber: `0x${bundle.blockNumber.toString(16)}`,
+            minTimestamp: bundle.minTimestamp,
+            maxTimestamp: bundle.maxTimestamp,
+          },
+        ],
         id: 1,
       }),
     })
 
-    const result = await response.json() as { result?: { bundleHash: string }; error?: { message: string } }
+    const result = (await response.json()) as {
+      result?: { bundleHash: string }
+      error?: { message: string }
+    }
     if (result.error) throw new Error(result.error.message)
     return result.result?.bundleHash ?? ''
   }
@@ -137,8 +150,14 @@ export class BuilderClient extends EventEmitter {
     }
   }
 
-  getStats(): Record<string, { success: number; failed: number; rate: number }> {
-    const result: Record<string, { success: number; failed: number; rate: number }> = {}
+  getStats(): Record<
+    string,
+    { success: number; failed: number; rate: number }
+  > {
+    const result: Record<
+      string,
+      { success: number; failed: number; rate: number }
+    > = {}
     for (const [name, stats] of this.submissionStats) {
       result[name] = {
         ...stats,
@@ -149,11 +168,12 @@ export class BuilderClient extends EventEmitter {
   }
 }
 
-export function createBuilderClient(config?: Partial<BuilderConfig>): BuilderClient {
+export function createBuilderClient(
+  config?: Partial<BuilderConfig>,
+): BuilderClient {
   return new BuilderClient({
     chainId: config?.chainId ?? 1,
     builders: config?.builders ?? DEFAULT_BUILDERS,
     defaultTipPercent: config?.defaultTipPercent ?? 10,
   })
 }
-

@@ -115,8 +115,8 @@ describe('EILClient', () => {
   })
 
   describe('buildPaymasterData', () => {
-    it('should build mode 0 (token payment) data correctly', () => {
-      const paymasterData = client.buildPaymasterData(0, USDC_ADDRESS)
+    it('should build token payment data correctly', () => {
+      const paymasterData = client.buildPaymasterData(USDC_ADDRESS)
 
       // Format: [mode(1 byte)][token(20 bytes)][appAddress(20 bytes)]
       expect(paymasterData).toMatch(/^0x/)
@@ -137,22 +137,16 @@ describe('EILClient', () => {
     })
 
     it('should include app address when provided', () => {
-      const paymasterData = client.buildPaymasterData(0, USDC_ADDRESS, TEST_APP)
+      const paymasterData = client.buildPaymasterData(USDC_ADDRESS, TEST_APP)
 
       expect(paymasterData.slice(44).toLowerCase()).toBe(
         TEST_APP.slice(2).toLowerCase(),
       )
     })
 
-    it('should throw for unsupported mode', () => {
-      expect(() => client.buildPaymasterData(1, USDC_ADDRESS)).toThrow(
-        'Only mode 0 (token payment) is supported',
-      )
-    })
-
     it('should handle different token addresses', () => {
-      const usdcData = client.buildPaymasterData(0, USDC_ADDRESS)
-      const usdtData = client.buildPaymasterData(0, USDT_ADDRESS)
+      const usdcData = client.buildPaymasterData(USDC_ADDRESS)
+      const usdtData = client.buildPaymasterData(USDT_ADDRESS)
 
       expect(usdcData).not.toBe(usdtData)
       expect(usdcData.slice(4, 44).toLowerCase()).toBe(

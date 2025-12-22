@@ -602,8 +602,5 @@ export function createA2AFundingServer() {
 if (import.meta.main) {
   const app = createA2AFundingServer()
   const port = parseInt(process.env.A2A_PORT || '3100', 10)
-
-  console.log(`A2A Funding Agent starting on port ${port}`)
-
   app.listen(port)
 }

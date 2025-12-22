@@ -14,15 +14,27 @@ export interface RPCEndpoint {
   region?: string
 }
 
+/** Recursive schema for RPC parameter values (matches RpcParam type) */
+const RpcParamSchema: z.ZodType<RpcParam> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(RpcParamSchema),
+    z.record(z.string(), RpcParamSchema),
+  ]),
+)
+
 const RPCResponseSchema = z.object({
   jsonrpc: z.string(),
   id: z.union([z.number(), z.string()]),
-  result: z.unknown().optional(),
+  result: RpcParamSchema.optional(),
   error: z
     .object({
       code: z.number(),
       message: z.string(),
-      data: z.unknown().optional(),
+      data: RpcParamSchema.optional(),
     })
     .optional(),
 })

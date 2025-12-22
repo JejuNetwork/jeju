@@ -92,10 +92,6 @@ interface EIP1193TransactionParams {
   maxPriorityFeePerGas?: string
 }
 
-// ============================================================================
-// Types
-// ============================================================================
-
 export interface WalletCoreConfig {
   defaultChainId?: number
   useNetworkRpc?: boolean
@@ -105,10 +101,6 @@ export interface WalletCoreConfig {
 }
 
 type EventCallback = (event: WalletEvent) => void
-
-// ============================================================================
-// Wallet Core
-// ============================================================================
 
 export class WalletCore {
   private config: WalletCoreConfig
@@ -136,10 +128,6 @@ export class WalletCore {
 
     this.initializeClients()
   }
-
-  // ============================================================================
-  // Initialization
-  // ============================================================================
 
   private initializeClients(): void {
     // Create public clients for all supported chains
@@ -202,10 +190,6 @@ export class WalletCore {
       supportedChains: Array.from(this.publicClients.keys()),
     })
   }
-
-  // ============================================================================
-  // Account Management
-  // ============================================================================
 
   async unlock(password: string): Promise<boolean> {
     expectNonEmpty(password, 'password')
@@ -280,10 +264,6 @@ export class WalletCore {
     }
   }
 
-  // ============================================================================
-  // Chain Management
-  // ============================================================================
-
   getActiveChainId(): number {
     return this.state.activeChainId ?? this.config.defaultChainId ?? 1
   }
@@ -301,10 +281,6 @@ export class WalletCore {
   getSupportedChains(): number[] {
     return Object.keys(chains).map(Number)
   }
-
-  // ============================================================================
-  // Balance & Token Management
-  // ============================================================================
 
   async getBalance(address: Address, chainId?: number): Promise<bigint> {
     expectAddress(address, 'address')
@@ -373,10 +349,6 @@ export class WalletCore {
     return balances
   }
 
-  // ============================================================================
-  // Cross-Chain Operations
-  // ============================================================================
-
   getEILClient(chainId?: number): EILClient {
     if (chainId) expectChainId(chainId, 'chainId')
     const cid = chainId ?? this.getActiveChainId()
@@ -406,10 +378,6 @@ export class WalletCore {
     return this.gasService
   }
 
-  // ============================================================================
-  // Transaction Execution
-  // ============================================================================
-
   async sendTransaction(params: {
     to: Address
     value?: bigint
@@ -437,10 +405,7 @@ export class WalletCore {
       let paymasterAndData: Hex = '0x'
       if (params.gasToken) {
         const eilClient = this.getEILClient(chainId)
-        paymasterAndData = await eilClient.buildPaymasterData(
-          0,
-          params.gasToken,
-        )
+        paymasterAndData = eilClient.buildPaymasterData(params.gasToken)
       }
 
       const result = await aaClient.execute({
@@ -519,10 +484,6 @@ export class WalletCore {
     return expectHex(signature, 'signature')
   }
 
-  // ============================================================================
-  // Site Connections
-  // ============================================================================
-
   async connect(origin: string): Promise<Address[]> {
     expectNonEmpty(origin, 'origin')
     const account = this.getActiveAccount()
@@ -557,10 +518,6 @@ export class WalletCore {
     return this.state.connectedSites.some((s) => s.origin === origin)
   }
 
-  // ============================================================================
-  // Event System
-  // ============================================================================
-
   on(event: WalletEvent['type'], callback: EventCallback): () => void {
     const listeners = this.eventListeners.get(event) ?? []
     listeners.push(callback)
@@ -578,10 +535,6 @@ export class WalletCore {
       listener(event)
     }
   }
-
-  // ============================================================================
-  // Provider Interface (EIP-1193)
-  // ============================================================================
 
   async request(args: {
     method: string
@@ -645,10 +598,6 @@ export class WalletCore {
     }
   }
 }
-
-// ============================================================================
-// Factory Function
-// ============================================================================
 
 export function createWalletCore(config?: WalletCoreConfig): WalletCore {
   return new WalletCore(config)

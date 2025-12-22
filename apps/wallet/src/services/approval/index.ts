@@ -81,7 +81,6 @@ class ApprovalService {
 
         // Validate timestamp is valid
         if (Number.isNaN(timestamp)) {
-          console.warn(`Invalid timestamp for approval ${key}, skipping`)
           continue
         }
 
@@ -91,9 +90,6 @@ class ApprovalService {
           try {
             // Ensure the value is a valid numeric string
             if (typeof a.value !== 'string' || !/^\d+$/.test(a.value)) {
-              console.warn(
-                `Invalid approval value for ${key}: ${a.value}, skipping`,
-              )
               continue
             }
             allowance = BigInt(a.value)

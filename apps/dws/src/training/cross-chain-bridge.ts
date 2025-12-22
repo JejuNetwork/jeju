@@ -338,6 +338,8 @@ export class CrossChainTrainingBridge {
         modelHash,
         `0x${Buffer.from(solanaSignature).toString('hex')}` as Hex,
       ],
+      chain: this.evmWalletClient.chain ?? null,
+      account: this.evmWalletClient.account ?? null,
     })
 
     console.log(`[Bridge] Bridged progress for ${runId}: ${hash}`)
@@ -365,6 +367,8 @@ export class CrossChainTrainingBridge {
         checkpoint.epoch,
         checkpoint.merkleRoot,
       ],
+      chain: this.evmWalletClient.chain ?? null,
+      account: this.evmWalletClient.account ?? null,
     })
 
     console.log(
@@ -392,6 +396,8 @@ export class CrossChainTrainingBridge {
         registration.gpuCount,
         registration.memoryGb,
       ],
+      chain: this.evmWalletClient.chain ?? null,
+      account: this.evmWalletClient.account ?? null,
     })
 
     console.log(
@@ -423,6 +429,8 @@ export class CrossChainTrainingBridge {
       abi: BRIDGE_CONTRACT_ABI,
       functionName: 'distributeRewards',
       args: [runIdBytes, epoch, rewards, merkleProof],
+      chain: this.evmWalletClient.chain ?? null,
+      account: this.evmWalletClient.account ?? null,
     })
 
     console.log(

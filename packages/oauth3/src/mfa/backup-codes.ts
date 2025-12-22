@@ -185,7 +185,6 @@ export class BackupCodesManager {
   }
 
   private formatCode(code: string): string {
-    // Format as XXXX-XXXX for readability
     return `${code.slice(0, 4)}-${code.slice(4)}`
   }
 

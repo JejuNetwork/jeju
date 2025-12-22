@@ -1,10 +1,3 @@
-/**
- * Token Bridge SDK
- *
- * TypeScript client for the Cross-Chain Token Bridge on Solana.
- * Enables token transfers between Solana and EVM chains.
- */
-
 import {
   createAssociatedTokenAccountInstruction,
   getAssociatedTokenAddress,
@@ -419,27 +412,13 @@ export class TokenBridgeClient {
     return instructions
   }
 
-  // ============================================================================
-  // Helper Methods
-  // ============================================================================
-
-  /**
-   * Convert EVM address (20 bytes) to Uint8Array
-   */
   evmAddressToBytes(address: string): Uint8Array {
     return evmAddressToBytes(address)
   }
 
-  /**
-   * Convert bytes to EVM address string
-   */
   bytesToEvmAddress(bytes: Uint8Array): string {
     return bytesToEvmAddress(bytes)
   }
-
-  // ============================================================================
-  // Data Building
-  // ============================================================================
 
   private buildInitializeData(params: InitializeBridgeParams): Buffer {
     const data = Buffer.alloc(8 + 8)

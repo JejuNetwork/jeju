@@ -12,13 +12,13 @@ import { z } from 'zod'
 // ============================================================================
 
 export const PackageJsonSchema = z.object({
-  name: z.string().optional(),
-  version: z.string(),
-  description: z.string().optional(),
-  main: z.string().optional(),
-  scripts: z.record(z.string(), z.string()).optional(),
-  dependencies: z.record(z.string(), z.string()).optional(),
-  devDependencies: z.record(z.string(), z.string()).optional(),
+  name: z.string().min(1).max(214).optional(), // npm name limits
+  version: z.string().min(1).max(256), // semver + metadata
+  description: z.string().max(1000).optional(),
+  main: z.string().min(1).max(500).optional(),
+  scripts: z.record(z.string(), z.string().min(1)).optional(),
+  dependencies: z.record(z.string(), z.string().min(1)).optional(),
+  devDependencies: z.record(z.string(), z.string().min(1)).optional(),
 })
 export type PackageJson = z.infer<typeof PackageJsonSchema>
 
@@ -79,24 +79,27 @@ export type ServiceHealthResponse = z.infer<typeof ServiceHealthResponseSchema>
 // ============================================================================
 
 export const UploadResponseSchema = z.object({
-  cid: z.string(),
-  backend: z.string().optional(),
-  size: z.number().optional(),
+  cid: z.string().min(1).max(100), // CIDs have a max practical length
+  backend: z.string().min(1).max(50).optional(),
+  size: z.number().int().nonnegative().optional(),
 })
 export type UploadResponse = z.infer<typeof UploadResponseSchema>
 
 // Simple CID response (for uploads that just return cid)
 export const CidResponseSchema = z.object({
-  cid: z.string(),
+  cid: z.string().min(1).max(100),
 })
 export type CidResponse = z.infer<typeof CidResponseSchema>
 
 export const JNSRegistrationResponseSchema = z.object({
   success: z.boolean(),
-  name: z.string(),
-  owner: z.string(),
-  total: z.number(),
-  txHash: z.string().optional(),
+  name: z.string().min(1).max(255),
+  owner: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+  total: z.number().int().nonnegative(),
+  txHash: z
+    .string()
+    .regex(/^0x[a-fA-F0-9]{64}$/)
+    .optional(),
 })
 export type JNSRegistrationResponse = z.infer<
   typeof JNSRegistrationResponseSchema
@@ -239,17 +242,17 @@ export type CIRunListResponse = z.infer<typeof CIRunListResponseSchema>
 
 export const ChatMessageSchema = z.object({
   role: z.enum(['system', 'user', 'assistant']),
-  content: z.string(),
+  content: z.string().min(1).max(100000), // Reasonable max for chat content
 })
 export type ChatMessage = z.infer<typeof ChatMessageSchema>
 
 export const ChatRequestSchema = z.object({
-  model: z.string(),
-  messages: z.array(ChatMessageSchema),
-  temperature: z.number().optional(),
-  max_tokens: z.number().optional(),
+  model: z.string().min(1).max(200),
+  messages: z.array(ChatMessageSchema).min(1).max(100),
+  temperature: z.number().min(0).max(2).optional(),
+  max_tokens: z.number().int().positive().max(100000).optional(),
   stream: z.boolean().optional(),
-  provider: z.string().optional(),
+  provider: z.string().min(1).max(50).optional(),
 })
 export type ChatRequest = z.infer<typeof ChatRequestSchema>
 
@@ -395,8 +398,8 @@ export const ComputeHealthResponseSchema = z.object({
 export type ComputeHealthResponse = z.infer<typeof ComputeHealthResponseSchema>
 
 export const JobSubmitResponseSchema = z.object({
-  jobId: z.string(),
-  status: z.string(),
+  jobId: z.string().min(1).max(100),
+  status: z.enum(['pending', 'running', 'completed', 'failed', 'queued']),
 })
 export type JobSubmitResponse = z.infer<typeof JobSubmitResponseSchema>
 
@@ -518,7 +521,7 @@ export const OpenAIChoiceSchema = z.object({
     role: z.string().optional(),
     content: z.string(),
   }),
-  finish_reason: z.string().optional().nullable(),
+  finish_reason: z.string().optional(),
 })
 
 export const OpenAIUsageSchema = z.object({

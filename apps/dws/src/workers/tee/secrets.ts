@@ -385,7 +385,6 @@ export class TEESecretManager {
     const content = Buffer.from(JSON.stringify(data))
     const result = await this.backendManager.upload(content, {
       filename: `vault-${vault.id}.json`,
-      contentType: 'application/json',
     })
 
     return result.cid

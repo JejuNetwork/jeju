@@ -245,35 +245,24 @@ export class ContentScreeningPipeline {
 
   /**
    * Run ML classifiers on content
-   * FAIL-FAST: If AI is unavailable, content is queued for manual review
+   * FAIL-FAST: If AI is unavailable, throws error - content must be screened
    */
   private async runClassifiers(content: EmailContent): Promise<ContentScores> {
-    // Build text for classification
     const text = [
       content.subject,
       content.bodyText,
       ...(content.attachments?.map((a) => a.filename) ?? []),
     ].join('\n')
 
-    // Check if content has media attachments that MUST be reviewed
-    const hasMediaAttachments =
-      content.attachments?.some(
-        (a) =>
-          a.mimeType.startsWith('image/') || a.mimeType.startsWith('video/'),
-      ) ?? false
-
-    // Call AI endpoint for classification
-    let response: Response
-    try {
-      response = await fetch(this.config.aiModelEndpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          messages: [
-            {
-              role: 'system',
-              content: `You are a content classification system. Analyze the following email content and return JSON with scores from 0-1 for:
+    const response = await fetch(this.config.aiModelEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          {
+            role: 'system',
+            content: `You are a content classification system. Analyze the following email content and return JSON with scores from 0-1 for:
 - spam: Unsolicited bulk email, advertising
 - scam: Phishing, fraud attempts, financial scams
 - csam: Child sexual abuse material (any indication)
@@ -282,44 +271,19 @@ export class ContentScreeningPipeline {
 
 Be conservative with csam scores - even slight suspicion should result in a non-zero score.
 Return ONLY valid JSON: {"spam": 0.0, "scam": 0.0, "csam": 0.0, "malware": 0.0, "harassment": 0.0}`,
-            },
-            {
-              role: 'user',
-              content: `Classify this email content:\n\n${text.slice(0, 4000)}`,
-            },
-          ],
-          temperature: 0.1,
-          max_tokens: 200,
-        }),
-      })
-    } catch (e) {
-      // AI endpoint unreachable - FAIL SAFE for media, allow text-only
-      console.error('[ContentScreening] AI endpoint unreachable:', e)
-
-      if (hasMediaAttachments) {
-        // Media must be screened - block and queue for review
-        console.warn(
-          '[ContentScreening] Blocking media content - AI unavailable for screening',
-        )
-        return { spam: 0, scam: 0, csam: 0.5, malware: 0, harassment: 0 } // Force review
-      }
-
-      // Text-only content with AI down - use heuristics
-      return this.runFallbackHeuristics(content)
-    }
+          },
+          {
+            role: 'user',
+            content: `Classify this email content:\n\n${text.slice(0, 4000)}`,
+          },
+        ],
+        temperature: 0.1,
+        max_tokens: 200,
+      }),
+    })
 
     if (!response.ok) {
-      console.error(
-        '[ContentScreening] AI classification failed:',
-        response.status,
-      )
-
-      if (hasMediaAttachments) {
-        // Media must be screened - block and queue for review
-        return { spam: 0, scam: 0, csam: 0.5, malware: 0, harassment: 0 }
-      }
-
-      return this.runFallbackHeuristics(content)
+      throw new Error(`AI classification failed: ${response.status}`)
     }
 
     const data = (await response.json()) as {
@@ -328,80 +292,22 @@ Return ONLY valid JSON: {"spam": 0.0, "scam": 0.0, "csam": 0.0, "malware": 0.0, 
 
     const content_response = data.choices[0]?.message?.content ?? ''
 
-    // Parse JSON response
     const jsonMatch = content_response.match(/\{[\s\S]*\}/)
-    if (jsonMatch) {
-      const parseResult = ContentScoresSchema.safeParse(
-        JSON.parse(jsonMatch[0]),
-      )
-      if (parseResult.success) {
-        return {
-          spam: Math.max(0, Math.min(1, parseResult.data.spam)),
-          scam: Math.max(0, Math.min(1, parseResult.data.scam)),
-          csam: Math.max(0, Math.min(1, parseResult.data.csam)),
-          malware: Math.max(0, Math.min(1, parseResult.data.malware)),
-          harassment: Math.max(0, Math.min(1, parseResult.data.harassment)),
-        }
-      }
+    if (!jsonMatch) {
+      throw new Error('AI response did not contain valid JSON')
     }
 
-    // Failed to parse - use heuristics
-    return this.runFallbackHeuristics(content)
-  }
-
-  /**
-   * Fallback heuristics when AI is unavailable
-   * Uses keyword matching and pattern detection
-   */
-  private runFallbackHeuristics(content: EmailContent): ContentScores {
-    const text = `${content.subject} ${content.bodyText}`.toLowerCase()
-
-    // Spam indicators
-    const spamKeywords = [
-      'buy now',
-      'limited time',
-      'act fast',
-      'free money',
-      'winner',
-      'lottery',
-      'viagra',
-      'casino',
-    ]
-    const spamScore =
-      spamKeywords.filter((k) => text.includes(k)).length / spamKeywords.length
-
-    // Scam/phishing indicators
-    const scamKeywords = [
-      'verify your account',
-      'click here',
-      'password expired',
-      'urgent action',
-      'bank transfer',
-      'nigerian prince',
-      'inheritance',
-    ]
-    const scamScore =
-      scamKeywords.filter((k) => text.includes(k)).length / scamKeywords.length
-
-    // Suspicious URLs
-    const urlPattern = /https?:\/\/[^\s]+/g
-    const urls = text.match(urlPattern) ?? []
-    const suspiciousUrlScore = urls.some(
-      (u) =>
-        u.includes('bit.ly') ||
-        u.includes('goo.gl') ||
-        u.includes('t.co') ||
-        u.match(/\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/),
-    )
-      ? 0.3
-      : 0
+    const parseResult = ContentScoresSchema.safeParse(JSON.parse(jsonMatch[0]))
+    if (!parseResult.success) {
+      throw new Error('AI response did not match expected schema')
+    }
 
     return {
-      spam: Math.min(1, spamScore * 2),
-      scam: Math.min(1, scamScore * 2 + suspiciousUrlScore),
-      csam: 0, // Cannot detect without AI/hash matching
-      malware: suspiciousUrlScore,
-      harassment: 0,
+      spam: Math.max(0, Math.min(1, parseResult.data.spam)),
+      scam: Math.max(0, Math.min(1, parseResult.data.scam)),
+      csam: Math.max(0, Math.min(1, parseResult.data.csam)),
+      malware: Math.max(0, Math.min(1, parseResult.data.malware)),
+      harassment: Math.max(0, Math.min(1, parseResult.data.harassment)),
     }
   }
 

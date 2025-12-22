@@ -47,9 +47,7 @@ const X402PaymentPayloadSchema = z.object({
   signature: z.string(),
 })
 
-// ============================================================================
 // Types
-// ============================================================================
 
 export interface ERC8004Config {
   rpcUrl: string
@@ -104,9 +102,7 @@ export interface ProtocolContext {
   paymentSigner: Address | null
 }
 
-// ============================================================================
 // ABI Fragments
-// ============================================================================
 
 const IDENTITY_REGISTRY_ABI = [
   {
@@ -137,9 +133,7 @@ const IDENTITY_REGISTRY_ABI = [
   },
 ] as const
 
-// ============================================================================
 // ERC-8004 Identity Verification
-// ============================================================================
 
 let erc8004Client: ReturnType<typeof createPublicClient> | null = null
 let erc8004Config: ERC8004Config | null = null
@@ -300,9 +294,7 @@ export function erc8004Middleware(
   })
 }
 
-// ============================================================================
 // x402 Payment Verification
-// ============================================================================
 
 let x402Config: X402Config | null = null
 
@@ -565,9 +557,7 @@ export function x402Middleware(requiredAmount?: bigint) {
   })
 }
 
-// ============================================================================
 // Combined Middleware Helper
-// ============================================================================
 
 export interface ProtocolMiddlewareConfig {
   erc8004?: ERC8004Config & {
@@ -588,9 +578,7 @@ export function configureProtocolMiddleware(
   }
 }
 
-// ============================================================================
 // Skill Result Helpers
-// ============================================================================
 
 export function skillSuccess(
   message: string,

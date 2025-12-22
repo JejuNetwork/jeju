@@ -265,19 +265,19 @@ describe('Token SDK', () => {
       expect(decoded?.wallet).toBe(testAccount.address)
     })
 
-    it('should return null for invalid token', () => {
-      expect(decodeToken('invalid')).toBeNull()
-      expect(decodeToken('invalid.token')).toBeNull()
-      expect(decodeToken('a.b.c.d')).toBeNull()
+    it('should return undefined for invalid token', () => {
+      expect(decodeToken('invalid')).toBeUndefined()
+      expect(decodeToken('invalid.token')).toBeUndefined()
+      expect(decodeToken('a.b.c.d')).toBeUndefined()
     })
 
-    it('should return null for malformed payload', () => {
+    it('should return undefined for malformed payload', () => {
       // Valid base64url but invalid JSON
       const token = 'eyJhbGciOiJFUzI1NksifQ.notvalidbase64.sig'
-      expect(decodeToken(token)).toBeNull()
+      expect(decodeToken(token)).toBeUndefined()
     })
 
-    it('should return null for token with invalid claims', () => {
+    it('should return undefined for token with invalid claims', () => {
       // Create a token with missing required fields
       const header = Buffer.from(JSON.stringify({ alg: 'ES256K', typ: 'JWT' }))
         .toString('base64')
@@ -291,7 +291,7 @@ describe('Token SDK', () => {
         .replace(/=/g, '')
       const token = `${header}.${payload}.sig`
 
-      expect(decodeToken(token)).toBeNull()
+      expect(decodeToken(token)).toBeUndefined()
     })
   })
 

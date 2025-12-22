@@ -22,13 +22,11 @@ import {
   type Topic,
 } from '../lib/a2a'
 
-// A2A server port - separate from main docs site (CORE_PORTS.DOCUMENTATION)
 const PORT = CORE_PORTS.DOCUMENTATION_A2A.get()
 const MAX_FILE_SIZE_BYTES = 1024 * 1024 // 1MB max file size
 const RATE_LIMIT_WINDOW_MS = 60 * 1000 // 1 minute
 const RATE_LIMIT_MAX_REQUESTS = 100
 
-// Rate limiting state (simple in-memory implementation)
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>()
 
 function checkRateLimit(clientIp: string): boolean {
@@ -51,7 +49,6 @@ function checkRateLimit(clientIp: string): boolean {
   return true
 }
 
-// Cleanup old rate limit entries periodically
 setInterval(() => {
   const now = Date.now()
   for (const [key, entry] of rateLimitMap.entries()) {
@@ -163,13 +160,10 @@ async function validateDocPath(pagePath: string): Promise<string> {
   }
 
   const fullPath = path.resolve(DOCS_ROOT, normalizedPath)
-
-  // Check the unresolved path first
   if (!fullPath.startsWith(path.resolve(DOCS_ROOT))) {
     throw new Error('Invalid path: access denied')
   }
 
-  // Resolve symlinks and check real path is still within DOCS_ROOT
   const realPath = await realpath(fullPath)
   const realDocsRoot = await realpath(DOCS_ROOT)
 
@@ -177,7 +171,6 @@ async function validateDocPath(pagePath: string): Promise<string> {
     throw new Error('Invalid path: symlink escape not allowed')
   }
 
-  // Check file size to prevent memory exhaustion
   const fileStat = await stat(realPath)
   if (fileStat.size > MAX_FILE_SIZE_BYTES) {
     throw new Error(
@@ -233,7 +226,6 @@ const _app = new Elysia()
     cors({
       origin: (request) => {
         const origin = request.headers.get('origin')
-        // Allow requests with no origin (like curl or server-to-server)
         if (!origin) return true
         return ALLOWED_ORIGINS.includes(origin)
       },
@@ -314,9 +306,3 @@ const _app = new Elysia()
     }
   })
   .listen(PORT)
-
-console.log(`Documentation A2A server running on http://localhost:${PORT}`)
-console.log(
-  `  Agent Card: http://localhost:${PORT}/.well-known/agent-card.json`,
-)
-console.log(`  A2A Endpoint: http://localhost:${PORT}/api/a2a`)

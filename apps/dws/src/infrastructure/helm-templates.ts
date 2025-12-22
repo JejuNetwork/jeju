@@ -10,10 +10,6 @@ import { readdir, readFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
 import * as yaml from 'yaml'
 
-// ============================================================================
-// Types
-// ============================================================================
-
 export interface HelmChart {
   apiVersion: string
   name: string
@@ -63,10 +59,6 @@ export interface KubeManifest {
   stringData?: Record<string, string>
   type?: string
 }
-
-// ============================================================================
-// Template Engine
-// ============================================================================
 
 interface TemplateContextType {
   Release: {
@@ -194,10 +186,6 @@ class FilesHelper {
   }
 }
 
-// ============================================================================
-// Template Functions (Sprig-compatible subset)
-// ============================================================================
-
 const templateFuncs: Record<string, (...args: unknown[]) => unknown> = {
   // String functions
   upper: (s: unknown) => String(s).toUpperCase(),
@@ -234,8 +222,12 @@ const templateFuncs: Record<string, (...args: unknown[]) => unknown> = {
   toBool: (v: unknown) => v === true || v === 'true' || v === '1',
   toJson: (v: unknown) => JSON.stringify(v),
   toYaml: (v: unknown) => yaml.stringify(v),
-  fromJson: (s: unknown): Record<string, unknown> | unknown[] => JSON.parse(String(s)),
-  fromYaml: (s: unknown): Record<string, unknown> | unknown[] | string | number | boolean | null => yaml.parse(String(s)),
+  fromJson: (s: unknown): Record<string, unknown> | unknown[] =>
+    JSON.parse(String(s)),
+  fromYaml: (
+    s: unknown,
+  ): Record<string, unknown> | unknown[] | string | number | boolean | null =>
+    yaml.parse(String(s)),
 
   // List/Dict functions
   list: (...args: unknown[]) => args,
@@ -384,10 +376,6 @@ const templateFuncs: Record<string, (...args: unknown[]) => unknown> = {
   tpl: (template: unknown, _ctx: unknown) => String(template), // Simplified
 }
 
-// ============================================================================
-// Template Rendering
-// ============================================================================
-
 function renderTemplate(template: string, context: TemplateContext): string {
   let result = template
 
@@ -397,8 +385,7 @@ function renderTemplate(template: string, context: TemplateContext): string {
   // Extract {{- define "name" }} ... {{- end }}
   const defineRegex =
     /\{\{-?\s*define\s+"([^"]+)"\s*-?\}\}([\s\S]*?)\{\{-?\s*end\s*-?\}\}/g
-  let match
-  while ((match = defineRegex.exec(template)) !== null) {
+  for (const match of template.matchAll(defineRegex)) {
     defines.set(match[1], match[2])
   }
   result = result.replace(defineRegex, '')
@@ -738,10 +725,6 @@ function evaluateSingleExpr(expr: string, context: TemplateContext): unknown {
   return undefined
 }
 
-// ============================================================================
-// Chart Loading
-// ============================================================================
-
 export async function loadChart(chartPath: string): Promise<{
   chart: HelmChart
   templates: Map<string, string>
@@ -793,10 +776,6 @@ export async function loadChart(chartPath: string): Promise<{
 
   return { chart, templates, values, crds }
 }
-
-// ============================================================================
-// Main Render Function
-// ============================================================================
 
 export async function renderChart(
   chartPath: string,
@@ -883,10 +862,6 @@ export async function renderChart(
 
   return manifests
 }
-
-// ============================================================================
-// Utilities
-// ============================================================================
 
 function deepMerge(
   target: Record<string, unknown>,

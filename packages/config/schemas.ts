@@ -36,9 +36,9 @@ const OptionalAddressSchema = z
   })
 
 const GasTokenSchema = z.object({
-  name: z.string(),
-  symbol: z.string(),
-  decimals: z.number(),
+  name: z.string().min(1),
+  symbol: z.string().min(1).max(10),
+  decimals: z.number().int().nonnegative().max(18),
 })
 
 /** OP Stack L2 contract addresses for chain config */
@@ -65,18 +65,18 @@ const ChainL1ContractsSchema = z.object({
  * OP Stack chain configuration schema
  */
 export const ChainConfigSchema = z.object({
-  chainId: z.number(),
-  networkId: z.number(),
-  name: z.string(),
-  rpcUrl: z.string(),
-  wsUrl: z.string(),
-  explorerUrl: z.string(),
-  l1ChainId: z.number(),
-  l1RpcUrl: z.string(),
-  l1Name: z.string(),
+  chainId: z.number().int().positive(),
+  networkId: z.number().int().positive(),
+  name: z.string().min(1),
+  rpcUrl: z.string().min(1),
+  wsUrl: z.string().min(1),
+  explorerUrl: z.string().min(1),
+  l1ChainId: z.number().int().positive(),
+  l1RpcUrl: z.string().min(1),
+  l1Name: z.string().min(1),
   flashblocksEnabled: z.boolean(),
-  flashblocksSubBlockTime: z.number(),
-  blockTime: z.number(),
+  flashblocksSubBlockTime: z.number().int().nonnegative(),
+  blockTime: z.number().int().positive(),
   gasToken: GasTokenSchema,
   contracts: z.object({
     l2: ChainL2ContractsSchema,
@@ -89,7 +89,21 @@ export type ChainConfig = z.infer<typeof ChainConfigSchema>
 // Contract Schemas
 // ============================================================================
 
-const ContractCategorySchema = z.record(z.string(), z.string())
+/**
+ * Contract address - empty string or valid Ethereum address
+ * Empty strings allowed for undeployed contracts
+ */
+const ContractAddressOrEmpty = z
+  .string()
+  .refine((val) => val === '' || /^0x[a-fA-F0-9]{40}$/.test(val), {
+    message: 'Must be empty or valid Ethereum address',
+  })
+
+/** Contract category - maps contract names to addresses (can be empty if not deployed) */
+const ContractCategorySchema = z.record(
+  z.string().min(1),
+  ContractAddressOrEmpty,
+)
 
 /**
  * Contract category names - unified across all config modules
@@ -129,14 +143,8 @@ export type ContractCategory =
   | 'training'
   | 'work'
 
-/**
- * Extended contract categories - now same as ContractCategory
- * Kept for backwards compatibility
- */
-export type ContractCategoryExtended = ContractCategory
-
 const NetworkContractsSchema = z.object({
-  chainId: z.number(),
+  chainId: z.number().int().positive(),
   tokens: ContractCategorySchema,
   registry: ContractCategorySchema,
   moderation: ContractCategorySchema,
@@ -178,8 +186,8 @@ export type NetworkContractsDynamic = NetworkContracts & {
 }
 
 const ExternalChainContractsSchema = z.object({
-  chainId: z.number(),
-  rpcUrl: z.string(),
+  chainId: z.number().int().positive(),
+  rpcUrl: z.string().min(1),
   oif: ContractCategorySchema.optional(),
   eil: ContractCategorySchema.optional(),
   payments: ContractCategorySchema.optional(),
@@ -196,13 +204,13 @@ export type ExternalChainContractsDynamic = ExternalChainContracts & {
 }
 
 export const ContractsConfigSchema = z.object({
-  version: z.string(),
+  version: z.string().min(1),
   constants: z.object({
-    entryPoint: z.string(),
-    entryPointV07: z.string(),
-    l2Messenger: z.string(),
-    l2StandardBridge: z.string(),
-    weth: z.string(),
+    entryPoint: AddressSchema,
+    entryPointV07: AddressSchema,
+    l2Messenger: AddressSchema,
+    l2StandardBridge: AddressSchema,
+    weth: AddressSchema,
   }),
   localnet: NetworkContractsSchema,
   testnet: NetworkContractsSchema,
@@ -215,114 +223,117 @@ export type ContractsConfig = z.infer<typeof ContractsConfigSchema>
 // Services Schemas
 // ============================================================================
 
+/** URL string - must be non-empty */
+const UrlString = z.string().min(1)
+
 export const ServicesNetworkConfigSchema = z.object({
   rpc: z.object({
-    l1: z.string(),
-    l2: z.string(),
-    ws: z.string(),
+    l1: UrlString,
+    l2: UrlString,
+    ws: UrlString,
   }),
-  explorer: z.string(),
+  explorer: UrlString,
   indexer: z.object({
-    graphql: z.string(),
-    websocket: z.string(),
-    rest: z.string().optional(),
+    graphql: UrlString,
+    websocket: UrlString,
+    rest: UrlString.optional(),
   }),
   gateway: z.object({
-    ui: z.string(),
-    api: z.string(),
-    a2a: z.string(),
-    mcp: z.string(),
-    ws: z.string(),
+    ui: UrlString,
+    api: UrlString,
+    a2a: UrlString,
+    mcp: UrlString,
+    ws: UrlString,
   }),
-  rpcGateway: z.string(),
-  bazaar: z.string(),
+  rpcGateway: UrlString,
+  bazaar: UrlString,
   storage: z.object({
-    api: z.string(),
-    ipfsGateway: z.string(),
+    api: UrlString,
+    ipfsGateway: UrlString,
   }),
   compute: z.object({
-    marketplace: z.string(),
-    nodeApi: z.string(),
+    marketplace: UrlString,
+    nodeApi: UrlString,
   }),
   oif: z.object({
-    aggregator: z.string(),
+    aggregator: UrlString,
   }),
   leaderboard: z.object({
-    api: z.string(),
-    ui: z.string(),
+    api: UrlString,
+    ui: UrlString,
   }),
   monitoring: z.object({
-    prometheus: z.string(),
-    grafana: z.string(),
+    prometheus: UrlString,
+    grafana: UrlString,
   }),
   crucible: z.object({
-    api: z.string(),
-    executor: z.string(),
-    bots: z.string().optional(),
+    api: UrlString,
+    executor: UrlString,
+    bots: UrlString.optional(),
   }),
   cql: z.object({
-    blockProducer: z.string(),
-    miner: z.string(),
+    blockProducer: UrlString,
+    miner: UrlString,
   }),
   dws: z.object({
-    api: z.string(),
-    compute: z.string(),
-    inference: z.string().optional(),
-    gateway: z.string().optional(),
-    triggers: z.string().optional(),
+    api: UrlString,
+    compute: UrlString,
+    inference: UrlString.optional(),
+    gateway: UrlString.optional(),
+    triggers: UrlString.optional(),
   }),
   autocrat: z.object({
-    api: z.string(),
-    a2a: z.string(),
-    mcp: z.string().optional(),
-    ceo: z.string().optional(),
+    api: UrlString,
+    a2a: UrlString,
+    mcp: UrlString.optional(),
+    ceo: UrlString.optional(),
   }),
   kms: z.object({
-    api: z.string(),
-    mpc: z.string(),
-    defaultProvider: z.string().optional(),
+    api: UrlString,
+    mpc: UrlString,
+    defaultProvider: z.string().min(1).optional(),
   }),
   factory: z.object({
-    ui: z.string(),
-    api: z.string(),
-    mcp: z.string(),
+    ui: UrlString,
+    api: UrlString,
+    mcp: UrlString,
   }),
   otto: z
     .object({
-      api: z.string(),
-      webhook: z.string(),
+      api: UrlString,
+      webhook: UrlString,
     })
     .optional(),
   oauth3: z
     .object({
-      api: z.string(),
-      tee: z.string(),
+      api: UrlString,
+      tee: UrlString,
     })
     .optional(),
   oracle: z
     .object({
-      api: z.string(),
-      feeds: z.string(),
+      api: UrlString,
+      feeds: UrlString,
     })
     .optional(),
   node: z
     .object({
-      api: z.string(),
-      cdn: z.string(),
-      vpn: z.string(),
-      proxy: z.string(),
+      api: UrlString,
+      cdn: UrlString,
+      vpn: UrlString,
+      proxy: UrlString,
     })
     .optional(),
-  externalRpcs: z.record(z.string(), z.string()).optional(),
+  externalRpcs: z.record(z.string().min(1), UrlString).optional(),
   external: z
     .object({
       farcaster: z
         .object({
-          hub: z.string(),
-          api: z.string(),
+          hub: UrlString,
+          api: UrlString,
         })
         .optional(),
-      bundler: z.string().optional(),
+      bundler: UrlString.optional(),
     })
     .optional(),
 })
@@ -355,24 +366,24 @@ export type ServicesConfig = z.infer<typeof ServicesConfigSchema>
 // ============================================================================
 
 export const EILChainConfigSchema = z.object({
-  chainId: z.number(),
-  name: z.string(),
-  rpcUrl: z.string(),
-  crossChainPaymaster: z.string().optional(),
-  l1StakeManager: z.string().optional(),
+  chainId: z.number().int().positive(),
+  name: z.string().min(1),
+  rpcUrl: z.string().min(1),
+  crossChainPaymaster: OptionalAddressSchema.optional(),
+  l1StakeManager: OptionalAddressSchema.optional(),
   status: z.enum(['active', 'planned']),
-  tokens: z.record(z.string(), z.string()),
-  type: z.string().optional(),
-  programs: z.record(z.string(), z.string()).optional(),
+  tokens: z.record(z.string(), z.string().min(1)),
+  type: z.string().min(1).optional(),
+  programs: z.record(z.string(), z.string().min(1)).optional(),
 })
 export type EILChainConfig = z.infer<typeof EILChainConfigSchema>
 
 export const EILHubConfigSchema = z.object({
-  chainId: z.number(),
-  name: z.string(),
-  rpcUrl: z.string(),
-  l1StakeManager: z.string(),
-  crossChainPaymaster: z.string(),
+  chainId: z.number().int().positive(),
+  name: z.string().min(1),
+  rpcUrl: z.string().min(1),
+  l1StakeManager: OptionalAddressSchema,
+  crossChainPaymaster: OptionalAddressSchema,
   status: z.enum(['active', 'planned']),
 })
 
@@ -383,10 +394,10 @@ export const EILNetworkConfigSchema = z.object({
 export type EILNetworkConfig = z.infer<typeof EILNetworkConfigSchema>
 
 export const EILConfigSchema = z.object({
-  version: z.string(),
-  entryPoint: z.string(),
-  l2Messenger: z.string(),
-  supportedTokens: z.array(z.string()),
+  version: z.string().min(1),
+  entryPoint: AddressSchema,
+  l2Messenger: AddressSchema,
+  supportedTokens: z.array(z.string().min(1)),
   localnet: EILNetworkConfigSchema,
   testnet: EILNetworkConfigSchema,
   mainnet: EILNetworkConfigSchema,
@@ -398,31 +409,31 @@ export type EILConfig = z.infer<typeof EILConfigSchema>
 // ============================================================================
 
 export const FederationHubConfigSchema = z.object({
-  chainId: z.number(),
-  name: z.string(),
-  rpcUrl: z.string(),
-  networkRegistryAddress: z.string(),
+  chainId: z.number().int().positive(),
+  name: z.string().min(1),
+  rpcUrl: z.string().min(1),
+  networkRegistryAddress: OptionalAddressSchema,
   status: z.enum(['active', 'pending', 'planned']),
 })
 export type FederationHubConfig = z.infer<typeof FederationHubConfigSchema>
 
 export const FederationNetworkConfigSchema = z.object({
-  chainId: z.number(),
-  name: z.string(),
-  rpcUrl: z.string(),
-  explorerUrl: z.string(),
-  wsUrl: z.string(),
+  chainId: z.number().int().positive(),
+  name: z.string().min(1),
+  rpcUrl: z.string().min(1),
+  explorerUrl: z.string().min(1),
+  wsUrl: z.string().min(1),
   contracts: z.object({
-    identityRegistry: z.string(),
-    solverRegistry: z.string(),
-    inputSettler: z.string(),
-    outputSettler: z.string(),
-    liquidityVault: z.string(),
-    governance: z.string(),
-    oracle: z.string(),
-    federatedIdentity: z.string(),
-    federatedSolver: z.string(),
-    federatedLiquidity: z.string(),
+    identityRegistry: OptionalAddressSchema,
+    solverRegistry: OptionalAddressSchema,
+    inputSettler: OptionalAddressSchema,
+    outputSettler: OptionalAddressSchema,
+    liquidityVault: OptionalAddressSchema,
+    governance: OptionalAddressSchema,
+    oracle: OptionalAddressSchema,
+    federatedIdentity: OptionalAddressSchema,
+    federatedSolver: OptionalAddressSchema,
+    federatedLiquidity: OptionalAddressSchema,
   }),
   isOrigin: z.boolean(),
   status: z.enum(['active', 'pending', 'planned']),
@@ -432,35 +443,35 @@ export type FederationNetworkConfig = z.infer<
 >
 
 export const FederationFullConfigSchema = z.object({
-  version: z.string(),
+  version: z.string().min(1),
   hub: z.object({
     testnet: FederationHubConfigSchema,
     mainnet: FederationHubConfigSchema,
   }),
   networks: z.record(z.string(), FederationNetworkConfigSchema),
   trustConfig: z.object({
-    defaultTrust: z.string(),
-    trustLevels: z.record(z.string(), z.number()),
-    requiredStakeETH: z.record(z.string(), z.string()),
+    defaultTrust: z.string().min(1),
+    trustLevels: z.record(z.string(), z.number().nonnegative()),
+    requiredStakeETH: z.record(z.string(), z.string().min(1)),
   }),
   crossChain: z.object({
-    supportedOracles: z.array(z.string()),
-    defaultOracle: z.string(),
+    supportedOracles: z.array(z.string().min(1)),
+    defaultOracle: z.string().min(1),
     superchainConfig: z.object({
-      crossL2InboxAddress: z.string(),
-      l2ToL2MessengerAddress: z.string(),
+      crossL2InboxAddress: AddressSchema,
+      l2ToL2MessengerAddress: AddressSchema,
     }),
   }),
   discovery: z.object({
-    endpoints: z.array(z.string()),
-    refreshIntervalSeconds: z.number(),
+    endpoints: z.array(z.string().url()),
+    refreshIntervalSeconds: z.number().int().positive(),
     cacheEnabled: z.boolean(),
   }),
   governance: z.object({
-    networkVerificationQuorum: z.number(),
-    trustEstablishmentDelay: z.number(),
+    networkVerificationQuorum: z.number().int().positive(),
+    trustEstablishmentDelay: z.number().int().nonnegative(),
     slashingEnabled: z.boolean(),
-    slashingPercentBps: z.number(),
+    slashingPercentBps: z.number().int().nonnegative().max(10000),
   }),
 })
 export type FederationFullConfig = z.infer<typeof FederationFullConfigSchema>
@@ -470,67 +481,72 @@ export type FederationFullConfig = z.infer<typeof FederationFullConfigSchema>
 // ============================================================================
 
 export const ChainBrandingSchema = z.object({
-  name: z.string(),
-  chainId: z.number(),
-  symbol: z.string(),
-  explorerName: z.string(),
+  name: z.string().min(1),
+  chainId: z.number().int().positive(),
+  symbol: z.string().min(1).max(10),
+  explorerName: z.string().min(1),
 })
 export type ChainBranding = z.infer<typeof ChainBrandingSchema>
 
 export const TokenBrandingSchema = z.object({
-  name: z.string(),
-  symbol: z.string(),
-  decimals: z.number(),
+  name: z.string().min(1),
+  symbol: z.string().min(1).max(10),
+  decimals: z.number().int().nonnegative().max(18),
 })
 export type TokenBranding = z.infer<typeof TokenBrandingSchema>
 
 export const LogoBrandingSchema = z.object({
-  light: z.string(),
-  dark: z.string(),
-  icon: z.string(),
+  light: z.string().min(1),
+  dark: z.string().min(1),
+  icon: z.string().min(1),
 })
 
 export const UrlsBrandingSchema = z.object({
-  website: z.string(),
-  docs: z.string(),
+  website: z.string().url(),
+  docs: z.string().url(),
   explorer: z.object({
-    testnet: z.string(),
-    mainnet: z.string(),
+    testnet: z.string().url(),
+    mainnet: z.string().url(),
   }),
   rpc: z.object({
-    testnet: z.string(),
-    mainnet: z.string(),
+    testnet: z.string().url(),
+    mainnet: z.string().url(),
   }),
   api: z.object({
-    testnet: z.string(),
-    mainnet: z.string(),
+    testnet: z.string().url(),
+    mainnet: z.string().url(),
   }),
   gateway: z.object({
-    testnet: z.string(),
-    mainnet: z.string(),
+    testnet: z.string().url(),
+    mainnet: z.string().url(),
   }),
-  github: z.string(),
-  twitter: z.string(),
-  discord: z.string(),
-  telegram: z.string(),
+  github: z.string().url(),
+  twitter: z.string().url(),
+  discord: z.string().url(),
+  telegram: z.string().url(),
 })
 export type UrlsBranding = z.infer<typeof UrlsBrandingSchema>
 
+/** Hex color - matches #RGB or #RRGGBB format */
+const HexColorSchema = z
+  .string()
+  .regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/, 'Invalid hex color')
+
 export const VisualBrandingSchema = z.object({
-  primaryColor: z.string(),
-  secondaryColor: z.string(),
-  accentColor: z.string(),
-  backgroundColor: z.string(),
-  textColor: z.string(),
+  primaryColor: HexColorSchema,
+  secondaryColor: HexColorSchema,
+  accentColor: HexColorSchema,
+  backgroundColor: HexColorSchema,
+  textColor: HexColorSchema,
   logo: LogoBrandingSchema,
-  favicon: z.string(),
+  favicon: z.string().min(1),
 })
 export type VisualBranding = z.infer<typeof VisualBrandingSchema>
 
 export const FeaturesBrandingSchema = z.object({
   flashblocks: z.boolean(),
-  flashblocksSubBlockTime: z.number(),
-  blockTime: z.number(),
+  flashblocksSubBlockTime: z.number().int().nonnegative(),
+  blockTime: z.number().int().positive(),
   erc4337: z.boolean(),
   crossChain: z.boolean(),
   governance: z.boolean(),
@@ -540,35 +556,43 @@ export const FeaturesBrandingSchema = z.object({
 export type FeaturesBranding = z.infer<typeof FeaturesBrandingSchema>
 
 export const LegalBrandingSchema = z.object({
-  companyName: z.string(),
-  termsUrl: z.string(),
-  privacyUrl: z.string(),
-  copyrightYear: z.number(),
+  companyName: z.string().min(1),
+  termsUrl: z.string().url(),
+  privacyUrl: z.string().url(),
+  copyrightYear: z.number().int().min(2000).max(2100),
 })
 export type LegalBranding = z.infer<typeof LegalBrandingSchema>
 
 export const SupportBrandingSchema = z.object({
-  email: z.string(),
-  discordChannel: z.string(),
+  email: z.string().email(),
+  discordChannel: z.string().min(1),
 })
 export type SupportBranding = z.infer<typeof SupportBrandingSchema>
 
 export const CliBrandingSchema = z.object({
-  name: z.string(),
-  displayName: z.string(),
-  banner: z.array(z.string()),
+  name: z
+    .string()
+    .min(1)
+    .regex(
+      /^[a-z0-9-]+$/,
+      'CLI name must be lowercase alphanumeric with dashes',
+    ),
+  displayName: z.string().min(1),
+  banner: z.array(z.string()).min(1),
 })
 export type CliBranding = z.infer<typeof CliBrandingSchema>
 
 export const BrandingConfigSchema = z.object({
-  version: z.string(),
+  version: z
+    .string()
+    .regex(/^\d+\.\d+\.\d+$/, 'Version must be semver format (x.y.z)'),
   network: z.object({
-    name: z.string(),
-    displayName: z.string(),
-    tagline: z.string(),
-    description: z.string(),
-    shortDescription: z.string(),
-    keywords: z.array(z.string()),
+    name: z.string().min(1),
+    displayName: z.string().min(1),
+    tagline: z.string().min(1),
+    description: z.string().min(10),
+    shortDescription: z.string().min(1),
+    keywords: z.array(z.string().min(1)).min(1),
   }),
   chains: z.object({
     testnet: ChainBrandingSchema,
@@ -592,13 +616,13 @@ export type BrandingConfig = z.infer<typeof BrandingConfigSchema>
 // ============================================================================
 
 export const VendorAppConfigSchema = z.object({
-  name: z.string(),
-  url: z.string(),
-  path: z.string(),
-  description: z.string().optional(),
+  name: z.string().min(1),
+  url: z.string().url(),
+  path: z.string().min(1),
+  description: z.string().min(1).optional(),
   private: z.boolean(),
   optional: z.boolean(),
-  branch: z.string(),
+  branch: z.string().min(1),
 })
 export type VendorAppConfig = z.infer<typeof VendorAppConfigSchema>
 
@@ -634,15 +658,15 @@ export const KeyPairSchema = z.object({
 export type KeyPair = z.infer<typeof KeyPairSchema>
 
 export const TestnetKeyFileSchema = z.object({
-  mnemonic: z.string(),
-  createdAt: z.string(),
+  mnemonic: z.string().min(1),
+  createdAt: z.string().datetime(),
   keys: z.record(KeyRoleSchema, KeyPairSchema),
 })
 export type TestnetKeyFile = z.infer<typeof TestnetKeyFileSchema>
 
 export const SolanaKeyPairSchema = z.object({
-  publicKey: z.string(),
-  secretKey: z.string(),
+  publicKey: z.string().min(32).max(64),
+  secretKey: z.string().min(64).max(128),
 })
 export type SolanaKeyPair = z.infer<typeof SolanaKeyPairSchema>
 

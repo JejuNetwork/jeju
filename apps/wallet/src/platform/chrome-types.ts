@@ -4,10 +4,6 @@
 
 import type { Address, Hex } from 'viem'
 
-// ============================================================================
-// EIP-1193 Compatible Param Type
-// ============================================================================
-
 /** Valid JSON-RPC parameter types (EIP-1193 compatible) */
 export type EIP1193Param =
   | string
@@ -20,10 +16,6 @@ export type EIP1193Param =
 export interface EIP1193ParamObject {
   [key: string]: EIP1193Param
 }
-
-// ============================================================================
-// Chrome Extension Message Types
-// ============================================================================
 
 export interface ChromeMessageSender {
   id?: string
@@ -56,10 +48,6 @@ export type ChromeMessageCallback = (
   sender: ChromeMessageSender,
   sendResponse: (response: ChromeMessageResponse) => void,
 ) => boolean | undefined
-
-// ============================================================================
-// Chrome Storage Types
-// ============================================================================
 
 export interface ChromeStorageResult {
   [key: string]: EIP1193Param

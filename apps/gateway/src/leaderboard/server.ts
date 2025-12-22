@@ -105,14 +105,6 @@ const app = new Elysia()
   // Health check
   .get('/health', () => ({ status: 'ok', service: 'leaderboard' }))
 
-  // ============================================================================
-  // Attestation Endpoints
-  // ============================================================================
-
-  /**
-   * GET /api/attestation?wallet=0x...&chainId=eip155:1
-   * Returns reputation data for a wallet address (public)
-   */
   .get('/api/attestation', async ({ query: queryParams, request, set }) => {
     const clientId = getClientId(request)
     const limit = checkRateLimit(
@@ -327,14 +319,6 @@ const app = new Elysia()
     }
   })
 
-  // ============================================================================
-  // Attestation Confirm
-  // ============================================================================
-
-  /**
-   * POST /api/attestation/confirm
-   * Confirm on-chain attestation submission
-   */
   .post('/api/attestation/confirm', async ({ body, request, set }) => {
     const clientId = getClientId(request)
     const limit = checkRateLimit(
@@ -465,10 +449,6 @@ const app = new Elysia()
     }
   })
 
-  /**
-   * POST /api/wallet/verify
-   * Verify signed message and link wallet (authenticated)
-   */
   .post('/api/wallet/verify', async ({ body, request, set }) => {
     const clientId = getClientId(request)
     const limit = checkRateLimit(

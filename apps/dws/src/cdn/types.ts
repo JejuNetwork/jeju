@@ -285,6 +285,7 @@ export interface RouteRequest {
   clientGeo?: GeoLocation
   path: string
   preferredRegion?: CDNRegion
+  requireExactRegion?: boolean
 }
 
 // ============================================================================

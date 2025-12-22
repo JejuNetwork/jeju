@@ -11,10 +11,6 @@ const INDEXER_GRAPHQL_URL =
   process.env.INDEXER_GRAPHQL_URL || 'http://localhost:4350/graphql'
 const RPC_URL = process.env.RPC_URL || 'http://localhost:6546'
 
-// ============================================================================
-// Response Schemas for Test Helpers
-// ============================================================================
-
 function GraphQLResponseSchema<T extends z.ZodTypeAny>(dataSchema: T) {
   return z.object({
     data: dataSchema.optional(),
@@ -31,7 +27,7 @@ function JsonRpcResponseSchema<T extends z.ZodTypeAny>(resultSchema: T) {
 
 async function graphqlQuery<T>(
   query: string,
-  responseSchema: z.ZodSchema<T>,
+  responseSchema: z.ZodType<T>,
 ): Promise<T> {
   const response = await fetch(INDEXER_GRAPHQL_URL, {
     method: 'POST',
@@ -60,7 +56,7 @@ async function graphqlQuery<T>(
 async function rpcCall<T>(
   method: string,
   params: JsonRpcParams,
-  resultSchema: z.ZodSchema<T>,
+  resultSchema: z.ZodType<T>,
 ): Promise<T> {
   const response = await fetch(RPC_URL, {
     method: 'POST',
@@ -80,10 +76,6 @@ async function rpcCall<T>(
   }
   return parsed.data.result
 }
-
-// ============================================================================
-// Response Schemas for Test Data
-// ============================================================================
 
 const BlocksSchema = z.object({
   blocks: z.array(

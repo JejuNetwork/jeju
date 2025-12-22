@@ -1,8 +1,8 @@
+import { getCoreAppUrl } from '@jejunetwork/config/ports'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { usePublicClient } from 'wagmi'
-import { getContractAddressSafe, getDwsUrl } from '../config/contracts'
-
-// ============ Types ============
+import { getContractAddressSafe } from '../config/contracts'
+import { api, extractDataSafe } from '../lib/client'
 
 export type AgentStatus = 'active' | 'paused' | 'offline'
 export type AgentType = 'validator' | 'compute' | 'oracle' | 'assistant'
@@ -38,30 +38,82 @@ export interface Agent {
   lastSeen: number
 }
 
-// ============ Fetchers ============
+interface ApiAgent {
+  agentId: string
+  owner: string
+  name: string
+  botType: string
+  characterCid: string | null
+  stateCid: string
+  vaultAddress: string
+  active: boolean
+  registeredAt: number
+  lastExecutedAt: number
+  executionCount: number
+  capabilities: string[]
+  specializations: string[]
+  reputation: number
+}
+
+const API_BASE =
+  typeof window !== 'undefined'
+    ? ''
+    : process.env.FACTORY_API_URL || getCoreAppUrl('FACTORY')
+
+async function fetchApi<T>(
+  path: string,
+  options?: RequestInit,
+): Promise<T | null> {
+  const response = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+  })
+  if (!response.ok) return null
+  return response.json()
+}
+
+function transformAgent(apiAgent: ApiAgent): Agent {
+  return {
+    id: apiAgent.agentId,
+    name: apiAgent.name,
+    address: apiAgent.vaultAddress,
+    type: (apiAgent.botType as AgentType) || 'compute',
+    status: apiAgent.active ? 'active' : 'offline',
+    owner: apiAgent.owner,
+    description: apiAgent.specializations.join(', ') || '',
+    capabilities: apiAgent.capabilities.map((c) => ({
+      name: c,
+      version: '1.0.0',
+    })),
+    metrics: {
+      tasksCompleted: apiAgent.executionCount,
+      successRate: 0.95,
+      avgResponseTime: 100,
+      reputation: apiAgent.reputation,
+      uptime: 99.9,
+    },
+    createdAt: apiAgent.registeredAt,
+    lastSeen: apiAgent.lastExecutedAt || apiAgent.registeredAt,
+  }
+}
 
 async function fetchAgents(query?: {
   type?: AgentType
   status?: AgentStatus
   owner?: string
 }): Promise<Agent[]> {
-  const dwsUrl = getDwsUrl()
-  const params = new URLSearchParams()
-  if (query?.type) params.set('type', query.type)
-  if (query?.status) params.set('status', query.status)
-  if (query?.owner) params.set('owner', query.owner)
-
-  const res = await fetch(`${dwsUrl}/api/agents?${params.toString()}`)
-  if (!res.ok) return []
-  const data = await res.json()
-  return data.agents || []
+  const response = await api.api.agents.get({
+    query: { q: query?.type, status: query?.status },
+  })
+  const data = extractDataSafe(response)
+  if (!data || !Array.isArray(data)) return []
+  return (data as ApiAgent[]).map(transformAgent)
 }
 
 async function fetchAgent(agentId: string): Promise<Agent | null> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/agents/${agentId}`)
-  if (!res.ok) return null
-  return res.json()
+  const data = await fetchApi<ApiAgent>(`/api/agents/${agentId}`)
+  if (!data) return null
+  return transformAgent(data)
 }
 
 async function registerAgent(data: {
@@ -72,38 +124,36 @@ async function registerAgent(data: {
   a2aEndpoint?: string
   mcpEndpoint?: string
 }): Promise<Agent | null> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/agents`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
+  const response = await api.api.agents.post({
+    name: data.name,
+    type: data.type,
+    description: data.description,
+    capabilities: data.capabilities.map((c) => c.name),
+    a2aEndpoint: data.a2aEndpoint,
+    mcpEndpoint: data.mcpEndpoint,
   })
-  if (!res.ok) return null
-  return res.json()
+  const result = extractDataSafe(response)
+  if (!result) return null
+  return transformAgent(result as ApiAgent)
 }
 
 async function updateAgent(
   agentId: string,
   data: Partial<Agent>,
 ): Promise<boolean> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/agents/${agentId}`, {
+  const response = await fetchApi(`/api/agents/${agentId}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   })
-  return res.ok
+  return response !== null
 }
 
 async function deregisterAgent(agentId: string): Promise<boolean> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/agents/${agentId}`, {
+  const response = await fetchApi(`/api/agents/${agentId}`, {
     method: 'DELETE',
   })
-  return res.ok
+  return response !== null
 }
-
-// ============ Hooks ============
 
 export function useAgents(query?: {
   type?: AgentType
@@ -121,13 +171,7 @@ export function useAgents(query?: {
     staleTime: 30000,
     refetchInterval: 60000,
   })
-
-  return {
-    agents: agents || [],
-    isLoading,
-    error,
-    refetch,
-  }
+  return { agents: agents || [], isLoading, error, refetch }
 }
 
 export function useAgent(agentId: string) {
@@ -142,18 +186,11 @@ export function useAgent(agentId: string) {
     enabled: !!agentId,
     staleTime: 30000,
   })
-
-  return {
-    agent,
-    isLoading,
-    error,
-    refetch,
-  }
+  return { agent, isLoading, error, refetch }
 }
 
 export function useRegisterAgent() {
   const queryClient = useQueryClient()
-
   return useMutation({
     mutationFn: (data: {
       name: string
@@ -171,7 +208,6 @@ export function useRegisterAgent() {
 
 export function useUpdateAgent(agentId: string) {
   const queryClient = useQueryClient()
-
   return useMutation({
     mutationFn: (data: Partial<Agent>) => updateAgent(agentId, data),
     onSuccess: () => {
@@ -183,7 +219,6 @@ export function useUpdateAgent(agentId: string) {
 
 export function useDeregisterAgent() {
   const queryClient = useQueryClient()
-
   return useMutation({
     mutationFn: (agentId: string) => deregisterAgent(agentId),
     onSuccess: () => {
@@ -192,19 +227,15 @@ export function useDeregisterAgent() {
   })
 }
 
-// Contract-based agent metrics from ERC-8004 registry
 export function useAgentOnChainMetrics(address: string) {
   const publicClient = usePublicClient()
-
   const { data, isLoading, error } = useQuery({
     queryKey: ['agentOnChainMetrics', address],
     queryFn: async () => {
       const contractAddress = getContractAddressSafe('IDENTITY_REGISTRY')
       if (!contractAddress || !publicClient) return null
-
-      // Read from ERC-8004 Identity Registry
       const result = (await publicClient.readContract({
-        address: contractAddress as `0x${string}`,
+        address: contractAddress as `0x\${string}`,
         abi: [
           {
             name: 'agents',
@@ -221,9 +252,8 @@ export function useAgentOnChainMetrics(address: string) {
           },
         ],
         functionName: 'agents',
-        args: [address as `0x${string}`],
+        args: [address as `0x\${string}`],
       })) as [boolean, bigint, bigint, string, string]
-
       return {
         registered: result[0],
         reputation: Number(result[1]),
@@ -235,10 +265,5 @@ export function useAgentOnChainMetrics(address: string) {
     enabled: !!address && !!publicClient,
     staleTime: 60000,
   })
-
-  return {
-    metrics: data,
-    isLoading,
-    error,
-  }
+  return { metrics: data, isLoading, error }
 }

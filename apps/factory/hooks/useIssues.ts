@@ -1,167 +1,122 @@
+import { getCoreAppUrl } from '@jejunetwork/config/ports'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { getDwsUrl } from '../config/contracts'
-
-// ============ Types ============
-
-export type IssueState = 'open' | 'closed'
-export type IssuePriority = 'low' | 'medium' | 'high' | 'critical'
-
-export interface IssueLabel {
-  name: string
-  color: string
-}
-
-export interface IssueAuthor {
-  login: string
-  avatar: string
-}
-
-export interface IssueComment {
-  id: string
-  author: IssueAuthor
-  body: string
-  createdAt: number
-  updatedAt?: number
-}
+import { api, extractDataSafe } from '../lib/client'
 
 export interface Issue {
   id: string
   number: number
+  repo: string
   title: string
   body: string
-  state: IssueState
-  priority?: IssuePriority
-  author: IssueAuthor
-  assignees: IssueAuthor[]
-  labels: IssueLabel[]
+  status: 'open' | 'closed'
+  author: { name: string; avatar?: string }
+  labels: string[]
+  assignees: Array<{ name: string; avatar?: string }>
   comments: number
   createdAt: number
   updatedAt: number
-  closedAt?: number
-  bountyId?: string
-  bountyReward?: string
 }
 
-// ============ Fetchers ============
+export interface IssueComment {
+  id: string
+  author: { name: string; avatar?: string }
+  body: string
+  createdAt: number
+}
 
-async function fetchIssues(
-  owner: string,
-  repo: string,
-  query?: { state?: IssueState; labels?: string[] },
-): Promise<Issue[]> {
-  const dwsUrl = getDwsUrl()
-  const params = new URLSearchParams()
-  if (query?.state) params.set('state', query.state)
-  if (query?.labels?.length) params.set('labels', query.labels.join(','))
+const API_BASE =
+  typeof window !== 'undefined'
+    ? ''
+    : process.env.FACTORY_API_URL || getCoreAppUrl('FACTORY')
 
-  const res = await fetch(
-    `${dwsUrl}/api/git/${owner}/${repo}/issues?${params.toString()}`,
-  )
-  if (!res.ok) return []
-  const data = await res.json()
-  return data.issues || []
+async function fetchApi<T>(
+  path: string,
+  options?: RequestInit,
+): Promise<T | null> {
+  const response = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+  })
+  if (!response.ok) return null
+  return response.json()
+}
+
+async function fetchIssues(query?: {
+  status?: Issue['status']
+  repo?: string
+  author?: string
+}): Promise<Issue[]> {
+  const response = await api.api.issues.get({
+    query: { status: query?.status, repo: query?.repo, author: query?.author },
+  })
+  const data = extractDataSafe(response) as { issues: Issue[] } | null
+  return data?.issues || []
 }
 
 async function fetchIssue(
-  owner: string,
-  repo: string,
-  issueNumber: number,
+  issueNumber: string,
 ): Promise<{ issue: Issue; comments: IssueComment[] } | null> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(
-    `${dwsUrl}/api/git/${owner}/${repo}/issues/${issueNumber}`,
+  return fetchApi<{ issue: Issue; comments: IssueComment[] }>(
+    `/api/issues/${issueNumber}`,
   )
-  if (!res.ok) return null
-  return res.json()
 }
 
-async function createIssue(
-  owner: string,
-  repo: string,
-  data: { title: string; body: string; labels: string[]; assignees: string[] },
-): Promise<Issue | null> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/git/${owner}/${repo}/issues`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  })
-  if (!res.ok) return null
-  return res.json()
+async function createIssue(data: {
+  repo: string
+  title: string
+  body: string
+  labels?: string[]
+  assignees?: string[]
+}): Promise<Issue | null> {
+  const response = await api.api.issues.post(data)
+  return extractDataSafe(response) as Issue | null
 }
 
 async function updateIssue(
-  owner: string,
-  repo: string,
-  issueNumber: number,
-  data: Partial<Issue>,
-): Promise<boolean> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(
-    `${dwsUrl}/api/git/${owner}/${repo}/issues/${issueNumber}`,
-    {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    },
-  )
-  return res.ok
+  issueNumber: string,
+  updates: Partial<Issue>,
+): Promise<Issue | null> {
+  return fetchApi<Issue>(`/api/issues/${issueNumber}`, {
+    method: 'PATCH',
+    body: JSON.stringify(updates),
+  })
 }
 
 async function addIssueComment(
-  owner: string,
-  repo: string,
-  issueNumber: number,
-  body: string,
+  issueNumber: string,
+  content: string,
 ): Promise<IssueComment | null> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(
-    `${dwsUrl}/api/git/${owner}/${repo}/issues/${issueNumber}/comments`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ body }),
-    },
-  )
-  if (!res.ok) return null
-  return res.json()
+  return fetchApi<IssueComment>(`/api/issues/${issueNumber}/comments`, {
+    method: 'POST',
+    body: JSON.stringify({ content }),
+  })
 }
 
-// ============ Hooks ============
-
-export function useIssues(
-  owner: string,
-  repo: string,
-  query?: { state?: IssueState; labels?: string[] },
-) {
+export function useIssues(query?: {
+  status?: Issue['status']
+  repo?: string
+  author?: string
+}) {
   const {
     data: issues,
     isLoading,
     error,
     refetch,
   } = useQuery({
-    queryKey: ['issues', owner, repo, query],
-    queryFn: () => fetchIssues(owner, repo, query),
-    enabled: !!owner && !!repo,
+    queryKey: ['issues', query],
+    queryFn: () => fetchIssues(query),
     staleTime: 30000,
   })
-
-  return {
-    issues: issues || [],
-    isLoading,
-    error,
-    refetch,
-  }
+  return { issues: issues || [], isLoading, error, refetch }
 }
 
-export function useIssue(owner: string, repo: string, issueNumber: number) {
+export function useIssue(issueNumber: string) {
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['issue', owner, repo, issueNumber],
-    queryFn: () => fetchIssue(owner, repo, issueNumber),
-    enabled: !!owner && !!repo && !!issueNumber,
+    queryKey: ['issue', issueNumber],
+    queryFn: () => fetchIssue(issueNumber),
+    enabled: !!issueNumber,
     staleTime: 30000,
   })
-
   return {
     issue: data?.issue || null,
     comments: data?.comments || [],
@@ -171,56 +126,39 @@ export function useIssue(owner: string, repo: string, issueNumber: number) {
   }
 }
 
-export function useCreateIssue(owner: string, repo: string) {
+export function useCreateIssue() {
   const queryClient = useQueryClient()
-
   return useMutation({
     mutationFn: (data: {
+      repo: string
       title: string
       body: string
-      labels: string[]
-      assignees: string[]
-    }) => createIssue(owner, repo, data),
+      labels?: string[]
+      assignees?: string[]
+    }) => createIssue(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['issues', owner, repo] })
+      queryClient.invalidateQueries({ queryKey: ['issues'] })
     },
   })
 }
 
-export function useUpdateIssue(owner: string, repo: string) {
+export function useUpdateIssue(issueNumber: string) {
   const queryClient = useQueryClient()
-
   return useMutation({
-    mutationFn: ({
-      issueNumber,
-      data,
-    }: {
-      issueNumber: number
-      data: Partial<Issue>
-    }) => updateIssue(owner, repo, issueNumber, data),
-    onSuccess: (_, { issueNumber }) => {
-      queryClient.invalidateQueries({
-        queryKey: ['issue', owner, repo, issueNumber],
-      })
-      queryClient.invalidateQueries({ queryKey: ['issues', owner, repo] })
+    mutationFn: (updates: Partial<Issue>) => updateIssue(issueNumber, updates),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['issue', issueNumber] })
+      queryClient.invalidateQueries({ queryKey: ['issues'] })
     },
   })
 }
 
-export function useAddIssueComment(
-  owner: string,
-  repo: string,
-  issueNumber: number,
-) {
+export function useAddIssueComment(issueNumber: string) {
   const queryClient = useQueryClient()
-
   return useMutation({
-    mutationFn: (body: string) =>
-      addIssueComment(owner, repo, issueNumber, body),
+    mutationFn: (content: string) => addIssueComment(issueNumber, content),
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ['issue', owner, repo, issueNumber],
-      })
+      queryClient.invalidateQueries({ queryKey: ['issue', issueNumber] })
     },
   })
 }

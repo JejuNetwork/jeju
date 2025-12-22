@@ -24,23 +24,19 @@ export type JsonValue =
 /** JSON object type */
 export type JsonObject = { [key: string]: JsonValue }
 
-// =============================================================================
-// Agent Context Types
-// =============================================================================
-
 /** Last execution tracking stored in agent context */
 export interface LastExecutionInfo {
   executionId: string
   timestamp: number
-  triggerId?: string
+  triggerId?: string | null
 }
 
 /** Agent context stores execution history and user-defined data */
 export interface AgentContext {
   /** Last execution info, set by executor */
-  lastExecution?: LastExecutionInfo
+  lastExecution?: LastExecutionInfo | null
   /** Additional context data - can be any JSON-serializable value */
-  [key: string]: JsonValue | LastExecutionInfo | undefined
+  [key: string]: JsonValue | LastExecutionInfo | null | undefined
 }
 
 // =============================================================================
@@ -66,10 +62,6 @@ export type ActionResult =
   | { success: boolean; error?: string } // Simple result
   | JsonObject // Complex structured result
 
-// =============================================================================
-// State Update Types
-// =============================================================================
-
 /** State updates from agent execution */
 export interface StateUpdates {
   /** Last inference response */
@@ -87,28 +79,24 @@ export interface StateUpdates {
 /** Metadata for room state */
 export interface RoomStateMetadata {
   /** Topic or subject of the room */
-  topic?: string
+  topic?: string | null
   /** Rules for the room */
-  rules?: string[]
+  rules?: string[] | null
   /** Custom metadata */
-  [key: string]: JsonValue | undefined
+  [key: string]: JsonValue | null | undefined
 }
 
 /** Metadata for individual messages */
 export interface MessageMetadata {
   /** Source of the message (discord, api, etc) */
-  source?: string
+  source?: string | null
   /** Reference to parent message */
-  replyTo?: string
+  replyTo?: string | null
   /** Attachments */
-  attachments?: string[]
+  attachments?: string[] | null
   /** Custom metadata */
-  [key: string]: JsonValue | undefined
+  [key: string]: JsonValue | null | undefined
 }
-
-// =============================================================================
-// Bot Types
-// =============================================================================
 
 export type BotType = 'ai_agent' | 'trading_bot' | 'org_tool'
 
@@ -156,10 +144,10 @@ export interface AgentCharacter {
   modelPreferences?: {
     small: string
     large: string
-    embedding?: string
-  }
-  mcpServers?: string[]
-  a2aCapabilities?: string[]
+    embedding?: string | null
+  } | null
+  mcpServers?: string[] | null
+  a2aCapabilities?: string[] | null
 }
 
 export interface MessageExample {
@@ -185,16 +173,12 @@ export interface AgentState {
 export interface MemoryEntry {
   id: string
   content: string
-  embedding?: number[]
+  embedding?: number[] | null
   importance: number
   createdAt: number
-  roomId?: string
-  userId?: string
+  roomId?: string | null
+  userId?: string | null
 }
-
-// =============================================================================
-// Room Types (Multi-Agent Coordination)
-// =============================================================================
 
 export interface Room {
   roomId: bigint
@@ -250,7 +234,7 @@ export interface RoomState {
   version: number
   messages: RoomMessage[]
   scores: Record<string, number>
-  currentTurn?: string
+  currentTurn?: string | null
   phase: RoomPhase
   metadata: RoomStateMetadata
   updatedAt: number
@@ -261,8 +245,8 @@ export interface RoomMessage {
   agentId: string
   content: string
   timestamp: number
-  action?: string
-  metadata?: MessageMetadata
+  action?: string | null
+  metadata?: MessageMetadata | null
 }
 
 export type RoomPhase = 'setup' | 'active' | 'paused' | 'completed' | 'archived'
@@ -284,10 +268,6 @@ export interface Team {
 
 export type TeamType = 'red' | 'blue' | 'neutral' | 'mixed'
 
-// =============================================================================
-// Execution Types
-// =============================================================================
-
 export interface ExecutionRequest {
   agentId: bigint
   triggerId?: string
@@ -296,18 +276,18 @@ export interface ExecutionRequest {
 }
 
 export interface ExecutionInput {
-  message?: string
-  roomId?: string
-  userId?: string
-  context?: JsonObject
+  message?: string | null
+  roomId?: string | null
+  userId?: string | null
+  context?: JsonObject | null
 }
 
 export interface ExecutionOptions {
-  maxTokens?: number
-  temperature?: number
-  requireTee?: boolean
-  maxCost?: bigint
-  timeout?: number
+  maxTokens?: number | null
+  temperature?: number | null
+  requireTee?: boolean | null
+  maxCost?: bigint | null
+  timeout?: number | null
 }
 
 export interface ExecutionResult {
@@ -382,10 +362,6 @@ export interface TriggerConfig {
   pricePerExecution?: bigint
 }
 
-// =============================================================================
-// Vault Types
-// =============================================================================
-
 export interface AgentVault {
   address: Address
   agentId: bigint
@@ -440,10 +416,6 @@ export interface SearchResult<T> {
   hasMore: boolean
 }
 
-// =============================================================================
-// Configuration Types
-// =============================================================================
-
 export interface CrucibleConfig {
   rpcUrl: string
   privateKey?: string
@@ -484,18 +456,18 @@ export interface TradingBotStrategy {
   minProfitBps: number
   maxGasGwei: number
   maxSlippageBps: number
-  cooldownMs?: number
+  cooldownMs?: number | null
 }
 
 export interface TradingBotChain {
   chainId: number
   name: string
   rpcUrl: string
-  wsUrl?: string
+  wsUrl?: string | null
   blockTime: number
   isL2: boolean
   nativeSymbol: string
-  explorerUrl?: string
+  explorerUrl?: string | null
 }
 
 export interface TradingBotState {
@@ -545,10 +517,6 @@ export interface TradingBotConfig {
   maxConcurrentExecutions: number
   useFlashbots: boolean
 }
-
-// =============================================================================
-// Org Tool Types
-// =============================================================================
 
 export interface OrgToolState {
   orgId: string

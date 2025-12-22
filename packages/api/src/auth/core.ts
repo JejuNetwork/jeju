@@ -1,11 +1,3 @@
-/**
- * Framework-Agnostic Auth Core
- *
- * Pure functions for authentication validation.
- * These functions don't depend on any web framework - they take plain data and return results.
- * Framework adapters (Elysia, Next.js, etc.) wrap these functions.
- */
-
 import { timingSafeEqual } from 'node:crypto'
 import type { Address, Hex } from 'viem'
 import { verifyMessage } from 'viem'
@@ -25,8 +17,6 @@ import {
   type WalletSignatureValidationResult,
 } from './types.js'
 
-// ============ Validation Schemas ============
-
 const AddressSchema = z
   .string()
   .regex(
@@ -36,38 +26,35 @@ const AddressSchema = z
 
 const HexSchema = z
   .string()
+  .min(4, 'Hex string must have at least one byte')
   .regex(/^0x[a-fA-F0-9]+$/, 'Invalid hex string') as z.ZodType<Hex>
 
 const TimestampSchema = z.number().int().positive()
 
-const WalletSignatureHeadersSchema = z.object({
-  'x-jeju-address': AddressSchema,
-  'x-jeju-timestamp': z
-    .string()
-    .regex(/^\d+$/)
-    .transform(Number)
-    .pipe(TimestampSchema),
-  'x-jeju-signature': HexSchema,
-})
+const WalletSignatureHeadersSchema = z
+  .object({
+    'x-jeju-address': AddressSchema,
+    'x-jeju-timestamp': z
+      .string()
+      .regex(/^\d+$/, 'Timestamp must be a numeric string')
+      .transform(Number)
+      .pipe(TimestampSchema),
+    'x-jeju-signature': HexSchema,
+  })
+  .strict()
 
-// OAuth3 session response schema
-const OAuth3SessionResponseSchema = z.object({
-  sessionId: HexSchema,
-  identityId: HexSchema,
-  smartAccount: AddressSchema,
-  expiresAt: z.number().int().positive(),
-})
+const OAuth3SessionResponseSchema = z
+  .object({
+    sessionId: HexSchema,
+    identityId: HexSchema,
+    smartAccount: AddressSchema,
+    expiresAt: z.number().int().positive(),
+  })
+  .strict()
 
-// ============ Constants ============
-
-const DEFAULT_WALLET_VALIDITY_WINDOW_MS = 5 * 60 * 1000 // 5 minutes
+const DEFAULT_WALLET_VALIDITY_WINDOW_MS = 5 * 60 * 1000
 const DEFAULT_MESSAGE_PREFIX = 'jeju-dapp'
 
-// ============ Helper Functions ============
-
-/**
- * Constant-time string comparison to prevent timing attacks
- */
 export function constantTimeCompare(a: string, b: string): boolean {
   const aNorm = a.toLowerCase()
   const bNorm = b.toLowerCase()
@@ -82,9 +69,6 @@ export function constantTimeCompare(a: string, b: string): boolean {
   return timingSafeEqual(bufA, bufB)
 }
 
-/**
- * Extract auth headers from a generic headers object/map
- */
 export function extractAuthHeaders(
   headers: Record<string, string | undefined> | Headers,
 ): AuthHeaders {
@@ -105,17 +89,10 @@ export function extractAuthHeaders(
   }
 }
 
-// ============ OAuth3 Validation ============
-
-/**
- * Validate an OAuth3 session by checking with the TEE agent.
- * This is a pure async function - it fetches session data and validates it.
- */
 export async function validateOAuth3Session(
   sessionId: string,
   config: OAuth3Config,
 ): Promise<OAuth3ValidationResult> {
-  // Validate session ID format
   const sessionResult = HexSchema.safeParse(sessionId)
   if (!sessionResult.success) {
     return {
@@ -124,7 +101,6 @@ export async function validateOAuth3Session(
     }
   }
 
-  // Fetch session from TEE agent
   const response = await fetch(`${config.teeAgentUrl}/session/${sessionId}`, {
     headers: {
       'Content-Type': 'application/json',
@@ -156,8 +132,6 @@ export async function validateOAuth3Session(
   }
 
   const session = sessionData.data
-
-  // Check expiration
   const now = Date.now()
   const validityWindow = config.sessionValidityWindowMs ?? 0
 
@@ -194,12 +168,6 @@ export async function validateOAuth3FromHeaders(
   return validateOAuth3Session(sessionId, config)
 }
 
-// ============ Wallet Signature Validation ============
-
-/**
- * Validate a wallet signature authentication.
- * Verifies the signature is valid and within the time window.
- */
 export async function validateWalletSignature(
   address: Address,
   timestamp: number,
@@ -211,7 +179,6 @@ export async function validateWalletSignature(
     config.validityWindowMs ?? DEFAULT_WALLET_VALIDITY_WINDOW_MS
   const prefix = config.messagePrefix ?? DEFAULT_MESSAGE_PREFIX
 
-  // Check timestamp is within validity window
   if (timestamp > now) {
     return {
       valid: false,
@@ -227,7 +194,6 @@ export async function validateWalletSignature(
     }
   }
 
-  // Construct and verify the message
   const message = `${prefix}:${timestamp}`
 
   const valid = await verifyMessage({
@@ -270,7 +236,6 @@ export async function validateWalletSignatureFromHeaders(
     }
   }
 
-  // Validate header formats
   const validated = WalletSignatureHeadersSchema.safeParse({
     'x-jeju-address': addressStr,
     'x-jeju-timestamp': timestampStr,
@@ -293,20 +258,12 @@ export async function validateWalletSignatureFromHeaders(
   )
 }
 
-// ============ API Key Validation ============
-
-/**
- * Validate an API key.
- * Uses constant-time comparison to prevent timing attacks.
- */
 export function validateAPIKey(
   apiKey: string,
   config: APIKeyConfig,
 ): APIKeyValidationResult {
-  // Check each key using constant-time comparison
   for (const [key, info] of config.keys) {
     if (constantTimeCompare(apiKey, key)) {
-      // Check expiration if set
       if (info.expiresAt && info.expiresAt < Date.now()) {
         return {
           valid: false,
@@ -362,8 +319,6 @@ function extractBearerToken(header: string | undefined): string | undefined {
   return match?.[1]
 }
 
-// ============ Combined Authentication ============
-
 export interface CombinedAuthConfig {
   oauth3?: OAuth3Config
   walletSignature?: WalletSignatureConfig
@@ -372,10 +327,6 @@ export interface CombinedAuthConfig {
   priority?: AuthMethod[]
 }
 
-/**
- * Attempt authentication using multiple methods in priority order.
- * Returns the first successful authentication result.
- */
 export async function authenticate(
   headers: AuthHeaders,
   config: CombinedAuthConfig,
@@ -400,7 +351,6 @@ export async function authenticate(
             method: AuthMethod.OAUTH3,
           }
         }
-        // If OAuth3 header was provided but invalid, return the error
         if (headers['x-oauth3-session']) {
           return {
             authenticated: false,
@@ -426,7 +376,6 @@ export async function authenticate(
             method: AuthMethod.WALLET_SIGNATURE,
           }
         }
-        // If wallet headers were provided but invalid, return the error
         if (headers['x-jeju-address']) {
           return {
             authenticated: false,
@@ -450,7 +399,6 @@ export async function authenticate(
             method: AuthMethod.API_KEY,
           }
         }
-        // If API key was provided but invalid, return the error
         if (hasApiKey) {
           return {
             authenticated: false,
@@ -491,11 +439,6 @@ export async function requireAuth(
   return result.user
 }
 
-// ============ Session Helpers ============
-
-/**
- * Create a signed message for wallet authentication
- */
 export function createWalletAuthMessage(
   timestamp: number,
   prefix: string = DEFAULT_MESSAGE_PREFIX,

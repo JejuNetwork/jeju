@@ -62,13 +62,13 @@ export const VendorManifestSchema = z.object({
   dependencies: z.array(MonorepoDependencySchema).optional(),
 
   /** Whether this app is optional */
-  optional: z.boolean().optional(),
+  optional: z.boolean().default(false),
 
   /** Whether this app is enabled */
-  enabled: z.boolean().optional(),
+  enabled: z.boolean().default(true),
 
   /** Tags for categorization */
-  tags: z.array(z.string()).optional(),
+  tags: z.array(z.string()).default([]),
 
   /** Health check configuration */
   healthCheck: VendorHealthCheckSchema.optional(),

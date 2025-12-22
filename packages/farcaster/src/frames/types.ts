@@ -43,25 +43,31 @@ export interface FrameTransactionParams {
   attribution?: boolean
 }
 
-export const JejuBridgeFrameStateSchema = z.object({
-  sourceChain: z.number(),
-  targetChain: z.number(),
-  token: AddressSchema,
-  amount: z.string(),
-  recipient: AddressSchema.optional(),
-})
+export const JejuBridgeFrameStateSchema = z
+  .object({
+    sourceChain: z.number().int().positive(),
+    targetChain: z.number().int().positive(),
+    token: AddressSchema,
+    amount: z.string().min(1).regex(/^\d+$/),
+    recipient: AddressSchema.optional(),
+  })
+  .strict()
 
-export const JejuSwapFrameStateSchema = z.object({
-  tokenIn: AddressSchema,
-  tokenOut: AddressSchema,
-  amountIn: z.string(),
-  slippage: z.number(),
-})
+export const JejuSwapFrameStateSchema = z
+  .object({
+    tokenIn: AddressSchema,
+    tokenOut: AddressSchema,
+    amountIn: z.string().min(1).regex(/^\d+$/),
+    slippage: z.number().min(0).max(100),
+  })
+  .strict()
 
-export const JejuAgentFrameStateSchema = z.object({
-  agentId: AddressSchema,
-  action: z.enum(['view', 'delegate', 'hire']),
-})
+export const JejuAgentFrameStateSchema = z
+  .object({
+    agentId: AddressSchema,
+    action: z.enum(['view', 'delegate', 'hire']),
+  })
+  .strict()
 
 export type JejuBridgeFrameState = z.infer<typeof JejuBridgeFrameStateSchema>
 export type JejuSwapFrameState = z.infer<typeof JejuSwapFrameStateSchema>

@@ -1,7 +1,7 @@
 import type { Address } from 'viem'
 
 // Contract addresses from environment
-const NETWORK = process.env.NEXT_PUBLIC_NETWORK || 'testnet'
+const NETWORK = process.env.PUBLIC_NETWORK || 'testnet'
 
 interface ContractAddresses {
   banManager: Address
@@ -16,24 +16,24 @@ interface ContractAddresses {
 }
 
 const TESTNET_CONTRACTS: ContractAddresses = {
-  banManager: (process.env.NEXT_PUBLIC_BAN_MANAGER ||
+  banManager: (process.env.PUBLIC_BAN_MANAGER ||
     '0x0000000000000000000000000000000000000000') as Address,
-  moderationMarketplace: (process.env.NEXT_PUBLIC_MODERATION_MARKETPLACE ||
+  moderationMarketplace: (process.env.PUBLIC_MODERATION_MARKETPLACE ||
     '0x0000000000000000000000000000000000000000') as Address,
-  reputationLabelManager: (process.env.NEXT_PUBLIC_REPUTATION_LABEL_MANAGER ||
+  reputationLabelManager: (process.env.PUBLIC_REPUTATION_LABEL_MANAGER ||
     '0x0000000000000000000000000000000000000000') as Address,
-  reportingSystem: (process.env.NEXT_PUBLIC_REPORTING_SYSTEM ||
+  reportingSystem: (process.env.PUBLIC_REPORTING_SYSTEM ||
     '0x0000000000000000000000000000000000000000') as Address,
-  predimarket: (process.env.NEXT_PUBLIC_PREDIMARKET ||
+  predimarket: (process.env.PUBLIC_PREDIMARKET ||
     '0x0000000000000000000000000000000000000000') as Address,
-  registryGovernance: (process.env.NEXT_PUBLIC_REGISTRY_GOVERNANCE ||
+  registryGovernance: (process.env.PUBLIC_REGISTRY_GOVERNANCE ||
     '0x0000000000000000000000000000000000000000') as Address,
-  identityRegistry: (process.env.NEXT_PUBLIC_IDENTITY_REGISTRY ||
+  identityRegistry: (process.env.PUBLIC_IDENTITY_REGISTRY ||
     '0x0000000000000000000000000000000000000000') as Address,
-  evidenceRegistry: (process.env.NEXT_PUBLIC_EVIDENCE_REGISTRY ||
+  evidenceRegistry: (process.env.PUBLIC_EVIDENCE_REGISTRY ||
     '0x0000000000000000000000000000000000000000') as Address,
   reputationProviderRegistry: (process.env
-    .NEXT_PUBLIC_REPUTATION_PROVIDER_REGISTRY ||
+    .PUBLIC_REPUTATION_PROVIDER_REGISTRY ||
     '0x0000000000000000000000000000000000000000') as Address,
 }
 

@@ -877,6 +877,3 @@ export class ExternalChainMevEngine extends EventEmitter {
     console.log(`${'═'.repeat(60)}\n`)
   }
 }
-
-// Export for backwards compatibility
-export { ExternalChainMevEngine as MevStrategyEngine }

@@ -219,7 +219,7 @@ export interface A2AUserProfileResponse {
   profileImageUrl: string | null
   reputationPoints: number
   virtualBalance: number
-  walletAddress?: string | null
+  walletAddress?: string
   isAgent?: boolean
   createdAt?: string | Date
 }
@@ -309,7 +309,7 @@ export interface A2AUserSearchResult {
   id: string
   username: string | null
   displayName: string | null
-  profileImageUrl?: string | null
+  profileImageUrl?: string
   isAgent?: boolean
   reputationPoints?: number
 }

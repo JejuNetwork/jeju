@@ -160,9 +160,7 @@ async function ensureTablesExist(): Promise<void> {
   }
 
   for (const idx of indexes) {
-    await cqlClient.exec(idx, [], CQL_DATABASE_ID).catch(() => {
-      /* index may already exist */
-    })
+    await cqlClient.exec(idx, [], CQL_DATABASE_ID)
   }
 
   console.log('[Gateway State] CovenantSQL tables ensured')
@@ -325,14 +323,12 @@ export const intentState = {
       CQL_DATABASE_ID,
     )
 
-    await cache.delete(`intent:${row.intent_id}`).catch(() => {
-      // Cache delete may fail but shouldn't block state operations
-    })
+    await cache.delete(`intent:${row.intent_id}`)
   },
 
   async get(intentId: string): Promise<Intent | null> {
     const cache = getCache()
-    const cached = await cache.get(`intent:${intentId}`).catch(() => null)
+    const cached = await cache.get(`intent:${intentId}`)
     if (cached) {
       const parsed = CachedIntentSchema.safeParse(JSON.parse(cached))
       if (parsed.success) return parsed.data as Intent
@@ -432,9 +428,7 @@ export const intentState = {
       CQL_DATABASE_ID,
     )
 
-    await cache.delete(`intent:${intentId}`).catch(() => {
-      // Cache delete may fail but shouldn't block state operations
-    })
+    await cache.delete(`intent:${intentId}`)
   },
 
   async count(params?: { status?: string }): Promise<number> {
@@ -492,15 +486,13 @@ export const solverState = {
       CQL_DATABASE_ID,
     )
 
-    await cache.delete(`solver:${row.address}`).catch(() => {
-      // Cache delete may fail but shouldn't block state operations
-    })
+    await cache.delete(`solver:${row.address}`)
   },
 
   async get(address: string): Promise<Solver | null> {
     const addr = address.toLowerCase()
     const cache = getCache()
-    const cached = await cache.get(`solver:${addr}`).catch(() => null)
+    const cached = await cache.get(`solver:${addr}`)
     if (cached) {
       const parsed = CachedSolverSchema.safeParse(JSON.parse(cached))
       if (parsed.success) return parsed.data as Solver
@@ -615,7 +607,7 @@ export const x402State = {
   async getCredits(address: string): Promise<bigint> {
     const addr = address.toLowerCase()
     const cache = getCache()
-    const cached = await cache.get(`credits:${addr}`).catch(() => null)
+    const cached = await cache.get(`credits:${addr}`)
     if (cached) return BigInt(cached)
 
     const client = await getCQLClient()
@@ -643,9 +635,7 @@ export const x402State = {
       CQL_DATABASE_ID,
     )
 
-    await cache.delete(`credits:${addr}`).catch(() => {
-      // Cache delete may fail but shouldn't block state operations
-    })
+    await cache.delete(`credits:${addr}`)
   },
 
   async deductCredits(address: string, amount: bigint): Promise<boolean> {
@@ -663,9 +653,7 @@ export const x402State = {
       CQL_DATABASE_ID,
     )
 
-    await cache.delete(`credits:${addr}`).catch(() => {
-      // Cache delete may fail but shouldn't block state operations
-    })
+    await cache.delete(`credits:${addr}`)
     return true
   },
 
@@ -798,7 +786,7 @@ export const faucetState = {
   async getLastClaim(address: string): Promise<number | null> {
     const addr = address.toLowerCase()
     const cache = getCache()
-    const cached = await cache.get(`faucet:${addr}`).catch(() => null)
+    const cached = await cache.get(`faucet:${addr}`)
     if (cached) return parseInt(cached, 10)
 
     const client = await getCQLClient()

@@ -5,10 +5,6 @@
 
 import type { TableSchema } from '@jejunetwork/shared'
 
-// ============================================================================
-// Bounty Tables
-// ============================================================================
-
 export const bountiesSchema: TableSchema = {
   name: 'bounties',
   columns: [
@@ -54,10 +50,6 @@ export const bountySubmissionsSchema: TableSchema = {
     { name: 'idx_submissions_submitter', columns: ['submitter'] },
   ],
 }
-
-// ============================================================================
-// Job Tables
-// ============================================================================
 
 export const jobsSchema: TableSchema = {
   name: 'jobs',
@@ -124,10 +116,6 @@ export const projectMembersSchema: TableSchema = {
   indexes: [{ name: 'idx_members_member', columns: ['member'] }],
 }
 
-// ============================================================================
-// Git Repository Tables (metadata, actual data in DWS Git)
-// ============================================================================
-
 export const repositoriesSchema: TableSchema = {
   name: 'repositories',
   columns: [
@@ -180,10 +168,6 @@ export const packagesSchema: TableSchema = {
   ],
 }
 
-// ============================================================================
-// Container Tables (metadata, actual data in DWS Container Registry)
-// ============================================================================
-
 export const containersSchema: TableSchema = {
   name: 'containers',
   columns: [
@@ -202,10 +186,6 @@ export const containersSchema: TableSchema = {
     { name: 'idx_containers_owner', columns: ['owner'] },
   ],
 }
-
-// ============================================================================
-// Model Tables (metadata, actual data in DWS Storage)
-// ============================================================================
 
 export const modelsSchema: TableSchema = {
   name: 'models',
@@ -230,10 +210,6 @@ export const modelsSchema: TableSchema = {
     { name: 'idx_models_type', columns: ['model_type'] },
   ],
 }
-
-// ============================================================================
-// Dataset Tables
-// ============================================================================
 
 export const datasetsSchema: TableSchema = {
   name: 'datasets',
@@ -284,10 +260,6 @@ export const ciRunsSchema: TableSchema = {
   ],
 }
 
-// ============================================================================
-// Agent Tables
-// ============================================================================
-
 export const agentsSchema: TableSchema = {
   name: 'agents',
   columns: [
@@ -311,10 +283,6 @@ export const agentsSchema: TableSchema = {
     { name: 'idx_agents_active', columns: ['active'] },
   ],
 }
-
-// ============================================================================
-// Issue Tables
-// ============================================================================
 
 export const issuesSchema: TableSchema = {
   name: 'issues',
@@ -344,10 +312,6 @@ export const issuesSchema: TableSchema = {
     },
   ],
 }
-
-// ============================================================================
-// Pull Request Tables
-// ============================================================================
 
 export const pullsSchema: TableSchema = {
   name: 'pulls',
@@ -381,10 +345,6 @@ export const pullsSchema: TableSchema = {
     },
   ],
 }
-
-// ============================================================================
-// Export all schemas
-// ============================================================================
 
 export const ALL_SCHEMAS: TableSchema[] = [
   bountiesSchema,

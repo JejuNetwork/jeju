@@ -127,17 +127,7 @@ async function calculateTierFromContracts(
     }
   }
 
-  let stakeWei = 0n
-  try {
-    stakeWei = await staking.getStake(address)
-  } catch {
-    try {
-      const pos = await staking.positions(address)
-      stakeWei = pos[0]
-    } catch {
-      // Contract call failed
-    }
-  }
+  const stakeWei = await staking.getStake(address)
 
   const stakeUsd = stakeWeiToUsd(stakeWei)
   tier = getTierFromStakeUsd(stakeUsd)
@@ -283,12 +273,11 @@ describe('Contract Integration - Error Handling', () => {
     expect(tier).toBe('PRO')
   })
 
-  it('should fallback to positions when getStake fails', async () => {
-    const stakeWei = BigInt(5e17)
+  it('should throw when getStake fails', async () => {
     const contracts = createMockContracts({ shouldFail: { getStake: true } })
-    contracts.staking.positions = async () => [stakeWei, 0n, 0n]
-    const tier = await calculateTierFromContracts(testAddress, contracts)
-    expect(tier).toBe('UNLIMITED')
+    await expect(
+      calculateTierFromContracts(testAddress, contracts),
+    ).rejects.toThrow()
   })
 })
 

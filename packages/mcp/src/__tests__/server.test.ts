@@ -6,11 +6,7 @@
 
 import { beforeEach, describe, expect, it } from 'bun:test'
 import { z } from 'zod'
-import {
-  createMCPServer,
-  DEFAULT_MCP_PROTOCOL_VERSION,
-  MCPServer,
-} from '../server/mcp-server'
+import { createMCPServer, MCPServer } from '../server/mcp-server'
 import type { JsonValue, MCPToolDefinition } from '../types/mcp'
 
 describe('MCPServer', () => {
@@ -67,11 +63,10 @@ describe('MCPServer', () => {
       expect(result.instructions).toBe('Test server for unit tests')
     })
 
-    it('should fallback to default version for unsupported versions', () => {
-      const result = server.getInitializeResult(
-        'unsupported-version' as '2024-11-05',
-      )
-      expect(result.protocolVersion).toBe(DEFAULT_MCP_PROTOCOL_VERSION)
+    it('should throw for unsupported protocol versions', () => {
+      expect(() =>
+        server.getInitializeResult('unsupported-version' as '2024-11-05'),
+      ).toThrow()
     })
   })
 
@@ -388,7 +383,7 @@ describe('MCPServer with validation', () => {
           required: ['name', 'count'],
         },
       },
-      validator: (args: Record<string, unknown>) => inputSchema.parse(args),
+      validator: (args: unknown) => inputSchema.parse(args),
       handler: async (args: Record<string, JsonValue>) => ({
         greeting: `Hello ${args.name}, count: ${args.count}`,
       }),

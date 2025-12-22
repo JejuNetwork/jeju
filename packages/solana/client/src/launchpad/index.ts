@@ -1,9 +1,3 @@
-/**
- * Jeju Solana Launchpad Client
- *
- * TypeScript client for interacting with the Jeju Launchpad Anchor program.
- */
-
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   createAssociatedTokenAccountInstruction,
@@ -712,9 +706,6 @@ export class LaunchpadClient {
   }
 }
 
-/**
- * Create a Jeju Launchpad client instance
- */
 export function createLaunchpadClient(
   connection: Connection,
   programId?: PublicKey,

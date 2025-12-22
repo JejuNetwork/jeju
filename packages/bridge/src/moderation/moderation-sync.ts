@@ -555,8 +555,6 @@ export class ModerationSyncService extends EventEmitter {
     this.emit('syncCycleCompleted', { timestamp: Date.now() })
   }
 
-  // ============ Private Methods ============
-
   private async generateBanProof(
     agentId: bigint,
     reason: string,

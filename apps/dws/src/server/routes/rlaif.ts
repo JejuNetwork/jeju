@@ -41,7 +41,11 @@ export const rlaifRoutes = new Elysia({ name: 'rlaif', prefix: '/rlaif' })
       const runConfig: RLAIFRunConfig = {
         runId: body.runId ?? `run-${Date.now()}`,
         creator: '0x0000000000000000000000000000000000000000' as `0x${string}`,
-        environment: body.environment,
+        environment: {
+          id: body.environment.id,
+          type: body.environment.type,
+          configCID: body.environment.configCID ?? '',
+        },
         model: {
           baseModelCID: body.model.baseModelCID,
           referenceModelCID: body.model.referenceModelCID,
@@ -97,7 +101,7 @@ export const rlaifRoutes = new Elysia({ name: 'rlaif', prefix: '/rlaif' })
         environment: t.Object({
           id: t.String(),
           type: t.String(),
-          config: t.Optional(t.Record(t.String(), t.Unknown())),
+          configCID: t.Optional(t.String()),
         }),
         model: t.Object({
           baseModelCID: t.String(),
@@ -154,9 +158,14 @@ export const rlaifRoutes = new Elysia({ name: 'rlaif', prefix: '/rlaif' })
     '/runs/:runId/start',
     async ({ params, body }) => {
       // Start in background
-      coordinator.runContinuousTraining(params.runId, body).catch((err) => {
-        console.error(`[RLAIF] Training failed for ${params.runId}:`, err)
-      })
+      coordinator
+        .runContinuousTraining(params.runId, {
+          maxIterations: body.maxIterations,
+          stopOnFailure: body.stopOnFailure,
+        })
+        .catch((err) => {
+          console.error(`[RLAIF] Training failed for ${params.runId}:`, err)
+        })
 
       return { runId: params.runId, status: 'started' }
     },
@@ -165,8 +174,8 @@ export const rlaifRoutes = new Elysia({ name: 'rlaif', prefix: '/rlaif' })
         runId: t.String(),
       }),
       body: t.Object({
-        checkpointInterval: t.Optional(t.Number()),
-        targetScore: t.Optional(t.Number()),
+        maxIterations: t.Optional(t.Number()),
+        stopOnFailure: t.Optional(t.Boolean()),
       }),
     },
   )
@@ -227,20 +236,51 @@ export const rlaifRoutes = new Elysia({ name: 'rlaif', prefix: '/rlaif' })
         return { error: 'Run not found' }
       }
 
-      const trajectories = body.trajectories.map((tr) => ({
-        id: tr.id,
-        environmentId: run.config.environment.id,
-        agentId: 'submitted',
-        policyModelCID: run.currentPolicyCID,
-        steps: tr.steps,
-        totalReward: tr.totalReward,
-        metadata: {
+      const trajectories: Trajectory[] = body.trajectories.map((tr) => {
+        const metadata: RLTrajectoryMetadata = {
           startTime: tr.steps[0]?.timestamp ?? Date.now(),
           endTime: tr.steps[tr.steps.length - 1]?.timestamp ?? Date.now(),
           episodeLength: tr.steps.length,
-          ...tr.metadata,
-        },
-      }))
+        }
+        // Copy over any additional metadata fields
+        if (tr.metadata) {
+          for (const [key, value] of Object.entries(tr.metadata)) {
+            if (
+              key !== 'startTime' &&
+              key !== 'endTime' &&
+              key !== 'episodeLength'
+            ) {
+              metadata[key] = value as RLTrajectoryMetadata[string]
+            }
+          }
+        }
+        return {
+          id: tr.id,
+          environmentId: run.config.environment.id,
+          agentId: 'submitted',
+          policyModelCID: run.currentPolicyCID,
+          steps: tr.steps.map((step, idx) => ({
+            stepNumber: idx,
+            timestamp: step.timestamp ?? Date.now(),
+            observation: step.observation as Record<
+              string,
+              string | number | boolean | null
+            >,
+            action: {
+              type: step.action.type,
+              parameters: step.action.parameters as Record<
+                string,
+                string | number | boolean | null
+              >,
+              reasoning: step.action.reasoning,
+            },
+            reward: step.reward,
+            done: idx === tr.steps.length - 1,
+          })),
+          totalReward: tr.totalReward,
+          metadata,
+        }
+      })
 
       const manifest = await trajectoryStore.storeTrajectories(trajectories)
 
@@ -260,8 +300,12 @@ export const rlaifRoutes = new Elysia({ name: 'rlaif', prefix: '/rlaif' })
             id: t.String(),
             steps: t.Array(
               t.Object({
-                observation: t.Unknown(),
-                action: t.Unknown(),
+                observation: t.Record(t.String(), t.Unknown()),
+                action: t.Object({
+                  type: t.String(),
+                  parameters: t.Record(t.String(), t.Unknown()),
+                  reasoning: t.Optional(t.String()),
+                }),
                 reward: t.Number(),
                 timestamp: t.Optional(t.Number()),
               }),

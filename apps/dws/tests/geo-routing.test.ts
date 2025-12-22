@@ -579,7 +579,7 @@ describe('Nearby Regions', () => {
     router = getGeoRouter()
   })
 
-  it('should find nearby regions for fallback routing', () => {
+  it('should throw when no nodes available in requested region', () => {
     // Register only EU node
     router.registerNode(
       createTestNode({
@@ -588,14 +588,15 @@ describe('Nearby Regions', () => {
       }),
     )
 
-    // Request from US should fallback to EU as global
-    const result = router.route(
-      createRouteRequest({
-        clientGeo: { countryCode: 'US' },
-      }),
-    )
-
-    expect(result).not.toBeNull()
+    // Request for US region should throw when no US nodes available
+    expect(() =>
+      router.route(
+        createRouteRequest({
+          preferredRegion: 'us-east-1',
+          requireExactRegion: true,
+        }),
+      ),
+    ).toThrow()
   })
 
   it('should use global nodes as last resort', () => {

@@ -1,13 +1,12 @@
+import { getCoreAppUrl } from '@jejunetwork/config/ports'
 import { useQuery } from '@tanstack/react-query'
 import type { Address } from 'viem'
-import { getDwsUrl } from '../config/contracts'
+import { api, extractDataSafe } from '../lib/client'
 import {
   useContributorByWallet,
   useRepositoryClaims,
   useSocialLinks,
 } from './useContributor'
-
-// ============ Types ============
 
 export interface ProfileStats {
   repositories: number
@@ -63,80 +62,85 @@ export interface ProfileRepo {
   updatedAt: number
 }
 
-// ============ API Fetchers ============
+const API_BASE =
+  typeof window !== 'undefined'
+    ? ''
+    : process.env.FACTORY_API_URL || getCoreAppUrl('FACTORY')
+
+async function fetchApi<T>(path: string): Promise<T | null> {
+  const response = await fetch(`${API_BASE}${path}`, {
+    headers: { 'Content-Type': 'application/json' },
+  })
+  if (!response.ok) return null
+  return response.json()
+}
 
 async function fetchLeaderboardData(
   address: string,
 ): Promise<{ score: number; rank: number; contributions: number }> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/leaderboard/user/${address}`)
-  if (!res.ok) {
-    return { score: 0, rank: 0, contributions: 0 }
-  }
-  return res.json()
+  const data = await fetchApi<{
+    address: string
+    score: number
+    rank: number
+    contributions: number
+  }>(`/api/leaderboard/user/${address}`)
+  return data
+    ? { score: data.score, rank: data.rank, contributions: data.contributions }
+    : { score: 0, rank: 0, contributions: 0 }
 }
 
 async function fetchUserBounties(address: string): Promise<ProfileBounty[]> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/bounties?worker=${address}`)
-  if (!res.ok) return []
-  const data = await res.json()
-  return (data.bounties || []).map(
-    (b: {
+  const response = await api.api.bounties.get({ query: { creator: address } })
+  interface BountiesResponse {
+    bounties: Array<{
       id: string
       title: string
       status: string
-      rewardAmount: string
-      rewardToken: string
-      completedAt?: number
-    }) => ({
-      id: b.id,
-      title: b.title,
-      status: b.status,
-      reward: `${b.rewardAmount} ${b.rewardToken}`,
-      completedAt: b.completedAt,
-    }),
-  )
+      reward: string
+      currency: string
+    }>
+  }
+  const data = extractDataSafe(response) as BountiesResponse | null
+  if (!data?.bounties) return []
+  return data.bounties.map((b) => ({
+    id: b.id,
+    title: b.title,
+    status: b.status as ProfileBounty['status'],
+    reward: `${b.reward} ${b.currency}`,
+  }))
 }
 
 async function fetchUserRepos(owner: string): Promise<ProfileRepo[]> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/git/repos?owner=${owner}`)
-  if (!res.ok) return []
-  const data = await res.json()
-  return (data.repositories || []).map(
-    (r: {
-      name: string
-      owner: string
-      description: string
-      language: string
-      stars: number
-      forks: number
-      updatedAt: number
-    }) => ({
-      name: r.name,
-      fullName: `${r.owner}/${r.name}`,
-      description: r.description || '',
-      language: r.language || 'Unknown',
-      stars: r.stars || 0,
-      forks: r.forks || 0,
-      updatedAt: r.updatedAt || Date.now(),
-    }),
-  )
+  const response = await api.api.git.get({ query: { owner } })
+  interface ApiRepo {
+    name: string
+    owner?: string
+    description?: string
+    stars: number
+    forks: number
+    updatedAt: number
+  }
+  const data = extractDataSafe(response)
+  if (!data || !Array.isArray(data)) return []
+  return (data as ApiRepo[]).map((r) => ({
+    name: r.name,
+    fullName: r.owner ? `${r.owner}/${r.name}` : r.name,
+    description: r.description || '',
+    language: 'TypeScript',
+    stars: r.stars || 0,
+    forks: r.forks || 0,
+    updatedAt: r.updatedAt || Date.now(),
+  }))
 }
 
 async function fetchGuardianStatus(address: string): Promise<boolean> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/guardians/${address}`)
-  if (!res.ok) return false
-  const data = await res.json()
-  return data.isGuardian || false
+  const data = await fetchApi<{ isGuardian: boolean }>(
+    `/api/leaderboard/user/${address}`,
+  )
+  return data?.isGuardian ?? false
 }
 
-// ============ Hook ============
-
 export function useProfile(address: Address) {
-  // Get contributor data from contract
   const { profile: contributorProfile, isLoading: contributorLoading } =
     useContributorByWallet(address)
   const { links: socialLinks } = useSocialLinks(
@@ -146,7 +150,6 @@ export function useProfile(address: Address) {
     contributorProfile?.contributorId,
   )
 
-  // Fetch additional data from DWS API
   const { data: leaderboardData, isLoading: leaderboardLoading } = useQuery({
     queryKey: ['leaderboard', address],
     queryFn: () => fetchLeaderboardData(address),
@@ -159,7 +162,6 @@ export function useProfile(address: Address) {
     staleTime: 30000,
   })
 
-  // Try to get github username from social links
   const githubLink = socialLinks.find((l) => l.platform === 'github')
   const githubUsername = githubLink?.handle || ''
 
@@ -176,7 +178,6 @@ export function useProfile(address: Address) {
     staleTime: 120000,
   })
 
-  // Compute tier from score
   const computeTier = (
     score: number,
   ): 'bronze' | 'silver' | 'gold' | 'diamond' => {
@@ -186,7 +187,6 @@ export function useProfile(address: Address) {
     return 'bronze'
   }
 
-  // Build profile object
   const profile: ProfileData | null = address
     ? {
         address: address,

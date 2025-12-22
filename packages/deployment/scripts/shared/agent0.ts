@@ -11,6 +11,7 @@ import {
   type PublicClient,
   parseAbi,
   stringToBytes,
+  toHex,
   type WalletClient,
 } from 'viem'
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
@@ -370,6 +371,7 @@ export async function registerApp(
     functionName: 'register',
     args: [finalTokenURI],
     account,
+    chain: null, // Use wallet client's chain
   })
 
   const receipt = await waitForTransactionReceipt(client, { hash })
@@ -383,18 +385,12 @@ export async function registerApp(
       ),
   )
 
-  let agentId: string
-  if (registeredEvent?.topics[1]) {
-    agentId = BigInt(registeredEvent.topics[1]).toString()
-  } else {
-    // Fallback: get totalAgents and assume it's the latest
-    const total = await readContract(client, {
-      address: networkConfig.registries.IDENTITY as Address,
-      abi: IDENTITY_REGISTRY_ABI,
-      functionName: 'totalAgents',
-    })
-    agentId = total.toString()
+  if (!registeredEvent?.topics[1]) {
+    throw new Error(
+      `Failed to extract agentId from transaction receipt. TX: ${hash}`,
+    )
   }
+  const agentId = BigInt(registeredEvent.topics[1]).toString()
 
   const formattedAgentId = `${networkConfig.chainId}:${agentId}`
 
@@ -411,6 +407,7 @@ export async function registerApp(
       functionName: 'updateTags',
       args: [BigInt(agentId), manifest.agent.tags],
       account,
+      chain: null, // Use wallet client's chain
     })
     await waitForTransactionReceipt(client, { hash: tagHash })
   }
@@ -445,6 +442,7 @@ export async function updateAgentUri(
     functionName: 'setAgentUri',
     args: [BigInt(tokenId), newTokenURI],
     account,
+    chain: null, // Use wallet client's chain
   })
 
   await waitForTransactionReceipt(client, { hash })
@@ -472,8 +470,9 @@ export async function updateAgentMetadata(
     address: networkConfig.registries.IDENTITY as Address,
     abi: IDENTITY_REGISTRY_ABI,
     functionName: 'setMetadata',
-    args: [BigInt(tokenId), key, stringToBytes(value)],
+    args: [BigInt(tokenId), key, toHex(stringToBytes(value))],
     account,
+    chain: null, // Use wallet client's chain
   })
 
   await waitForTransactionReceipt(client, { hash })

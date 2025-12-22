@@ -123,8 +123,6 @@ export async function processRegistryEvents(
       if (!log.transaction) continue
       const txHash = log.transaction.hash
 
-      // ============ IdentityRegistry Events ============
-
       if (topic0 === AGENT_REGISTERED) {
         const { args } = decodeEventLog({
           abi: identityRegistryInterface,
@@ -429,10 +427,7 @@ export async function processRegistryEvents(
             blockNumber: block.header.height,
           }),
         )
-      }
-
-      // ============ ReputationRegistry Events ============
-      else if (topic0 === NEW_FEEDBACK) {
+      } else if (topic0 === NEW_FEEDBACK) {
         const { args } = decodeEventLog({
           abi: reputationRegistryInterface,
           topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
@@ -542,10 +537,7 @@ export async function processRegistryEvents(
             blockNumber: block.header.height,
           }),
         )
-      }
-
-      // ============ ValidationRegistry Events ============
-      else if (topic0 === VALIDATION_REQUEST) {
+      } else if (topic0 === VALIDATION_REQUEST) {
         const { args } = decodeEventLog({
           abi: validationRegistryInterface,
           topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
@@ -619,10 +611,7 @@ export async function processRegistryEvents(
 
           validations.push(existingValidation)
         }
-      }
-
-      // ============ BanManager Events ============
-      else if (topic0 === NETWORK_BAN_APPLIED) {
+      } else if (topic0 === NETWORK_BAN_APPLIED) {
         const { args } = decodeEventLog({
           abi: banManagerInterface,
           topics: log.topics as [`0x${string}`, ...`0x${string}`[]],

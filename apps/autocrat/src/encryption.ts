@@ -146,15 +146,12 @@ function getDAUrl(): string {
 }
 
 // Encryption key from environment
-// NOTE: In production, these must be set. 'council-local-dev' is ONLY for local development.
+// NOTE: In production, TEE_ENCRYPTION_SECRET must be set. 'council-local-dev' is ONLY for local development.
 const ENCRYPTION_KEY =
-  process.env.KMS_FALLBACK_SECRET ??
   process.env.TEE_ENCRYPTION_SECRET ??
   (process.env.NODE_ENV === 'production'
     ? (() => {
-        throw new Error(
-          'KMS_FALLBACK_SECRET or TEE_ENCRYPTION_SECRET required in production',
-        )
+        throw new Error('TEE_ENCRYPTION_SECRET required in production')
       })()
     : 'council-local-dev')
 
@@ -166,7 +163,6 @@ let initialized = false
 async function initEncryption(): Promise<void> {
   if (initialized) return
   initialized = true
-  console.log('[Encryption] Initialized with network KMS')
 }
 
 /**
@@ -378,7 +374,6 @@ export async function backupToDA(
 
   const rawResult = await response.json()
   const result = DAStoreResultSchema.parse(rawResult)
-  console.log('[DA] Decision backed up:', result.dataHash)
   return { keyId: result.keyId, hash: result.dataHash }
 }
 
@@ -398,7 +393,6 @@ export async function retrieveFromDA(
   })
 
   if (!searchResponse.ok) {
-    console.error('[DA] Search failed:', searchResponse.status)
     return null
   }
 
@@ -426,7 +420,6 @@ export async function retrieveFromDA(
   )
 
   if (!retrieveResponse.ok) {
-    console.error('[DA] Retrieve failed:', retrieveResponse.status)
     return null
   }
 
@@ -478,9 +471,9 @@ export async function canDecrypt(
       method: 'eth_call',
       params: [{ to: councilAddress, data: callData }, 'latest'],
     }),
-  }).catch(() => null)
+  })
 
-  if (!response?.ok) {
+  if (!response.ok) {
     return false
   }
 

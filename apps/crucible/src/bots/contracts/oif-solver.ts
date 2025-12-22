@@ -20,8 +20,6 @@ import {
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
 import type { ChainId } from '../autocrat-types-source'
 
-// ============ Contract ABIs ============
-
 export const SOLVER_REGISTRY_ABI = parseAbi([
   'function registerSolver(string name, uint256[] supportedChains) external',
   'function updateSupportedChains(uint256[] supportedChains) external',
@@ -119,8 +117,6 @@ export interface OIFSolverConfig {
   maxSlippageBps: number
 }
 
-// ============ OIF Solver ============
-
 export class OIFSolver {
   private config: OIFSolverConfig
   private account: PrivateKeyAccount
@@ -204,7 +200,6 @@ export class OIFSolver {
       })
     }
 
-    this.isRegistered = true
     return registerHash
   }
 
@@ -253,8 +248,6 @@ export class OIFSolver {
       isActive: result.isActive,
     }
   }
-
-  // ============ Intent Monitoring ============
 
   /**
    * Get all open intents on a chain
@@ -516,8 +509,6 @@ export class OIFSolver {
     console.log(`[OIF] Claim tx: ${hash}`)
     return hash
   }
-
-  // ============ Monitoring Loop ============
 
   /**
    * Start monitoring for profitable intents

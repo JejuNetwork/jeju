@@ -27,7 +27,7 @@ import type {
   CrossChainArbOpportunity,
   StrategyConfig,
   StrategyType,
-} from './autocrat-types'
+} from './autocrat-types-source'
 // Contract integrations (EIL/XLP/OIF)
 import {
   type LiquidityRequest,
@@ -40,7 +40,6 @@ import {
   type OIFSolverConfig,
   type OpenIntent,
 } from './contracts/oif-solver'
-import { RiskManager } from './engine/risk-manager'
 import { SolanaDexAggregator } from './solana/dex-adapters'
 import { CrossChainArbStrategy } from './strategies/cross-chain-arb'
 // Strategy imports
@@ -59,8 +58,6 @@ import {
 } from './strategies/yield-farming'
 
 const log = createLogger('UnifiedBot')
-
-// ============ Types ============
 
 export interface UnifiedBotConfig {
   // Chain configuration
@@ -137,8 +134,6 @@ export interface TradeResult {
   success: boolean
   error?: string
 }
-
-// ============ Unified Bot ============
 
 export class UnifiedBot extends EventEmitter {
   private config: UnifiedBotConfig
@@ -442,21 +437,6 @@ export class UnifiedBot extends EventEmitter {
   }
 
   private async initializeEngine(): Promise<void> {
-    // Risk manager
-    this.riskManager = new RiskManager({
-      maxPositionSizeWei: this.config.maxPositionSize,
-      maxDailyLossWei: BigInt(1e18), // 1 ETH
-      maxWeeklyLossWei: BigInt(5e18),
-      maxConcurrentExposureWei: BigInt(50e18),
-      minProfitBps: this.config.minProfitBps,
-      minNetProfitWei: 0n,
-      minBuilderInclusionRate: 0.5,
-      maxSlippageBps: this.config.maxSlippageBps,
-      reorgRiskMultiplier: 0.9,
-      maxConsecutiveFails: 5,
-      cooldownAfterFailMs: 60_000,
-    })
-
     log.info('Engine initialized')
   }
 
@@ -797,8 +777,6 @@ export class UnifiedBot extends EventEmitter {
 
     return { success: true, txHash }
   }
-
-  // ============ Private Methods ============
 
   private getPendingOpportunityCount(): number {
     let count = 0

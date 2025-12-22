@@ -55,24 +55,46 @@ interface DeployConfig {
   apps?: boolean
 }
 
+/** Options for deploy script execution */
+interface DeployScriptOptions {
+  network?: string
+  safe?: string
+  oracleType?: string
+  all?: boolean
+  verify?: boolean
+  deploy?: boolean
+  configure?: boolean
+  skipKeys?: boolean
+  skipL1?: boolean
+  contractsOnly?: boolean
+  evmOnly?: boolean
+  solanaOnly?: boolean
+  dryRun?: boolean
+  sp1?: boolean
+  phala?: boolean
+  name?: string
+  backup?: string
+  app?: string
+}
+
 function getConfigPath(): string {
   return join(getNetworkDir(), 'deploy-config.json')
 }
 
-function loadConfig(): DeployConfig | null {
+function loadConfig(): DeployConfig | undefined {
   const path = getConfigPath()
-  if (!existsSync(path)) return null
+  if (!existsSync(path)) return undefined
   try {
     const rawData = JSON.parse(readFileSync(path, 'utf-8'))
     // SECURITY: Validate schema to prevent insecure deserialization
     const result = DeployConfigSchema.safeParse(rawData)
     if (!result.success) {
       logger.warn(`Invalid deploy config format: ${result.error.message}`)
-      return null
+      return undefined
     }
     return result.data
   } catch {
-    return null
+    return undefined
   }
 }
 
@@ -147,7 +169,7 @@ export const deployCommand = new Command('deploy')
     }
 
     // Check keys
-    let account: ReturnType<typeof privateKeyToAccount> | null = null
+    let account: ReturnType<typeof privateKeyToAccount> | undefined
     let balance = '0'
 
     if (!hasKeys(network)) {
@@ -1312,7 +1334,7 @@ deployCommand
 async function runDeployScript(
   scriptName: string,
   network: string,
-  options: Record<string, unknown> = {},
+  options: DeployScriptOptions = {},
 ) {
   const rootDir = findMonorepoRoot()
   // Check if script is in packages/deployment/scripts/deploy/

@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query'
 import {
   Clock,
   Download,
@@ -7,7 +8,7 @@ import {
   Search,
   Shield,
 } from 'lucide-react'
-import { type ComponentType, useCallback, useEffect, useState } from 'react'
+import { type ComponentType, useState } from 'react'
 
 // Fix for Lucide React 19 type compatibility
 const SearchIcon = Search as ComponentType<LucideProps>
@@ -43,74 +44,63 @@ interface SearchResult {
   }
 }
 
+const REGISTRY_URL =
+  process.env.PUBLIC_JEJUPKG_URL ?? 'http://localhost:4030/pkg'
+
+async function searchPackages(query: string): Promise<SearchResult[]> {
+  const response = await fetch(
+    `${REGISTRY_URL}/-/v1/search?text=${encodeURIComponent(query)}&size=50`,
+  )
+  if (!response.ok) {
+    return []
+  }
+  const data = await response.json()
+  return Array.isArray(data?.objects) ? data.objects : []
+}
+
+async function fetchPackageDetails(name: string): Promise<PackageInfo | null> {
+  const response = await fetch(`${REGISTRY_URL}/${encodeURIComponent(name)}`)
+  if (!response.ok) {
+    return null
+  }
+  const data = await response.json()
+  return {
+    name: data.name,
+    scope: data.name.startsWith('@') ? data.name.split('/')[0] : undefined,
+    description: data.description,
+    latestVersion:
+      data['dist-tags']?.latest ?? Object.keys(data.versions ?? {})[0],
+    versions: Object.keys(data.versions ?? {}),
+    maintainers: data.maintainers?.map((m: { name: string }) => m.name) ?? [],
+    downloadCount: 0,
+    reputationScore: 0,
+    verified: false,
+    deprecated: false,
+    createdAt: data.time?.created ?? new Date().toISOString(),
+    updatedAt: data.time?.modified ?? new Date().toISOString(),
+  }
+}
+
 export default function PackagesPage() {
-  const [packages, setPackages] = useState<SearchResult[]>([])
-  const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedPackage, setSelectedPackage] = useState<PackageInfo | null>(
+  const [selectedPackageName, setSelectedPackageName] = useState<string | null>(
     null,
   )
 
-  const searchPackages = useCallback(async (query: string) => {
-    setLoading(true)
-    const registryUrl =
-      process.env.NEXT_PUBLIC_JEJUPKG_URL ?? 'http://localhost:4030/pkg'
+  const { data: packages = [], isLoading: loading } = useQuery({
+    queryKey: ['packages-search', searchQuery || '*'],
+    queryFn: () => searchPackages(searchQuery || '*'),
+  })
 
-    try {
-      const response = await fetch(
-        `${registryUrl}/-/v1/search?text=${encodeURIComponent(query)}&size=50`,
-      )
-      if (response.ok) {
-        const data = await response.json()
-        const objects = Array.isArray(data?.objects) ? data.objects : []
-        setPackages(objects as SearchResult[])
-      }
-    } catch (error) {
-      console.error('Failed to search packages:', error)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    searchPackages(searchQuery || '*')
-  }, [searchPackages, searchQuery])
-
-  async function fetchPackageDetails(name: string) {
-    const registryUrl =
-      process.env.NEXT_PUBLIC_JEJUPKG_URL ?? 'http://localhost:4030/pkg'
-
-    try {
-      const response = await fetch(`${registryUrl}/${encodeURIComponent(name)}`)
-      if (response.ok) {
-        const data = await response.json()
-        setSelectedPackage({
-          name: data.name,
-          scope: data.name.startsWith('@')
-            ? data.name.split('/')[0]
-            : undefined,
-          description: data.description,
-          latestVersion:
-            data['dist-tags']?.latest ?? Object.keys(data.versions ?? {})[0],
-          versions: Object.keys(data.versions ?? {}),
-          maintainers:
-            data.maintainers?.map((m: { name: string }) => m.name) ?? [],
-          downloadCount: 0,
-          reputationScore: 0,
-          verified: false,
-          deprecated: false,
-          createdAt: data.time?.created ?? new Date().toISOString(),
-          updatedAt: data.time?.modified ?? new Date().toISOString(),
-        })
-      }
-    } catch (error) {
-      console.error('Failed to fetch package details:', error)
-    }
-  }
+  const { data: selectedPackage = null } = useQuery({
+    queryKey: ['package-details', selectedPackageName],
+    queryFn: () => fetchPackageDetails(selectedPackageName ?? ''),
+    enabled: !!selectedPackageName,
+  })
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault()
-    searchPackages(searchQuery || '*')
+    // Query will automatically refetch due to searchQuery in queryKey
   }
 
   function formatDate(dateString: string): string {
@@ -165,16 +155,14 @@ export default function PackagesPage() {
               <span className="text-gray-400">npm:</span>
               <code className="ml-2 px-2 py-1 bg-gray-900 rounded text-green-400">
                 npm config set registry{' '}
-                {process.env.NEXT_PUBLIC_JEJUPKG_URL ??
-                  'http://localhost:4030/pkg'}
+                {process.env.PUBLIC_JEJUPKG_URL ?? 'http://localhost:4030/pkg'}
               </code>
             </div>
             <div>
               <span className="text-gray-400">bun:</span>
               <code className="ml-2 px-2 py-1 bg-gray-900 rounded text-green-400">
                 bun config set registry{' '}
-                {process.env.NEXT_PUBLIC_JEJUPKG_URL ??
-                  'http://localhost:4030/pkg'}
+                {process.env.PUBLIC_JEJUPKG_URL ?? 'http://localhost:4030/pkg'}
               </code>
             </div>
           </div>
@@ -201,7 +189,7 @@ export default function PackagesPage() {
                   <button
                     type="button"
                     key={result.package.name}
-                    onClick={() => fetchPackageDetails(result.package.name)}
+                    onClick={() => setSelectedPackageName(result.package.name)}
                     className="w-full text-left p-4 bg-gray-800 rounded-lg border border-gray-700 hover:border-gray-600 transition-colors"
                   >
                     <div className="flex items-start justify-between">

@@ -5,10 +5,6 @@
 
 import { z } from 'zod'
 
-// ============================================================================
-// Parameter Parsing Schemas
-// ============================================================================
-
 export const SwapParamsParseSchema = z.object({
   amount: z.string().regex(/^\d+(\.\d+)?$/),
   from: z.string().min(1).max(20),
@@ -29,10 +25,6 @@ export const LimitOrderParamsParseSchema = z.object({
   to: z.string().min(1).max(20),
   price: z.string().regex(/^\d+(\.\d+)?$/),
 })
-
-// ============================================================================
-// Parsing Functions
-// ============================================================================
 
 export interface ParsedSwapParams {
   amount?: string
@@ -55,10 +47,6 @@ export interface ParsedLimitOrderParams {
   price?: string
 }
 
-/**
- * Parse swap parameters from text
- * Pattern: "swap 1 ETH to USDC" or "exchange 100 USDC for ETH"
- */
 export function parseSwapParams(text: string): ParsedSwapParams {
   if (!text || typeof text !== 'string') {
     return {}
@@ -66,7 +54,6 @@ export function parseSwapParams(text: string): ParsedSwapParams {
 
   const result: ParsedSwapParams = {}
 
-  // Pattern: "swap 1 ETH to USDC" or "exchange 100 USDC for ETH"
   const swapMatch = text.match(
     /(\d+(?:\.\d+)?)\s*(\w+)\s+(?:to|for|into)\s+(\w+)/i,
   )
@@ -76,7 +63,6 @@ export function parseSwapParams(text: string): ParsedSwapParams {
     result.to = swapMatch[3].toUpperCase()
   }
 
-  // Chain: "on base" or "on ethereum"
   const chainMatch = text.match(/\bon\s+(\w+)/i)
   if (chainMatch?.[1]) {
     result.chain = chainMatch[1].toLowerCase()
@@ -85,10 +71,6 @@ export function parseSwapParams(text: string): ParsedSwapParams {
   return result
 }
 
-/**
- * Parse bridge parameters from text
- * Pattern: "bridge 1 ETH from ethereum to base"
- */
 export function parseBridgeParams(text: string): ParsedBridgeParams {
   if (!text || typeof text !== 'string') {
     return {}
@@ -96,7 +78,6 @@ export function parseBridgeParams(text: string): ParsedBridgeParams {
 
   const result: ParsedBridgeParams = {}
 
-  // Pattern: "bridge 1 ETH from ethereum to base"
   const bridgeMatch = text.match(
     /(\d+(?:\.\d+)?)\s*(\w+)\s+from\s+(\w+)\s+to\s+(\w+)/i,
   )
@@ -110,10 +91,6 @@ export function parseBridgeParams(text: string): ParsedBridgeParams {
   return result
 }
 
-/**
- * Parse limit order parameters from text
- * Pattern: "limit 1 ETH at 4000 USDC"
- */
 export function parseLimitOrderParams(text: string): ParsedLimitOrderParams {
   if (!text || typeof text !== 'string') {
     return {}
@@ -121,7 +98,6 @@ export function parseLimitOrderParams(text: string): ParsedLimitOrderParams {
 
   const result: ParsedLimitOrderParams = {}
 
-  // Pattern: "limit 1 ETH at 4000 USDC"
   const limitMatch = text.match(
     /(\d+(?:\.\d+)?)\s*(\w+)\s+at\s+(\d+(?:\.\d+)?)\s*(\w+)/i,
   )
@@ -135,9 +111,6 @@ export function parseLimitOrderParams(text: string): ParsedLimitOrderParams {
   return result
 }
 
-/**
- * Validate parsed swap parameters
- */
 export function validateSwapParams(params: ParsedSwapParams): {
   valid: boolean
   error?: string
@@ -160,9 +133,6 @@ export function validateSwapParams(params: ParsedSwapParams): {
   return { valid: true }
 }
 
-/**
- * Validate parsed bridge parameters
- */
 export function validateBridgeParams(params: ParsedBridgeParams): {
   valid: boolean
   error?: string
@@ -185,9 +155,6 @@ export function validateBridgeParams(params: ParsedBridgeParams): {
   return { valid: true }
 }
 
-/**
- * Validate parsed limit order parameters
- */
 export function validateLimitOrderParams(params: ParsedLimitOrderParams): {
   valid: boolean
   error?: string

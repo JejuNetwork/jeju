@@ -1,10 +1,3 @@
-/**
- * Elysia Auth Adapter
- *
- * Thin wrapper that adapts the framework-agnostic auth core to Elysia.
- * Provides Elysia plugins and derive functions.
- */
-
 import { type Context, Elysia } from 'elysia'
 import type { Address } from 'viem'
 import {
@@ -23,21 +16,13 @@ import {
   type WalletSignatureConfig,
 } from './types.js'
 
-// ============ Types for Elysia Context ============
-
-export interface AuthContext {
-  /** Authenticated user address */
+/** Context derived by auth plugin - extends Record for Elysia compatibility */
+export interface AuthContext extends Record<string, unknown> {
   address?: Address
-  /** Full auth user info */
   authUser?: AuthUser
-  /** Authentication method used */
   authMethod?: AuthMethod
-  /** OAuth3 session ID if OAuth3 auth */
   oauth3SessionId?: string
-  /** Whether the request is authenticated */
   isAuthenticated: boolean
-  /** Index signature for Elysia derive compatibility */
-  [key: string]: Address | AuthUser | AuthMethod | string | boolean | undefined
 }
 
 export interface AuthPluginConfig extends CombinedAuthConfig {
@@ -47,12 +32,6 @@ export interface AuthPluginConfig extends CombinedAuthConfig {
   requireAuth?: boolean
 }
 
-// ============ Derive Functions ============
-
-/**
- * Create an auth derive function for Elysia.
- * Adds auth context to all requests without requiring authentication.
- */
 export function createAuthDerive(config: CombinedAuthConfig) {
   return async function authDerive({ request }: Context): Promise<AuthContext> {
     const headers = extractAuthHeaders(
@@ -75,19 +54,28 @@ export function createAuthDerive(config: CombinedAuthConfig) {
   }
 }
 
-/**
- * Create a guard function that requires authentication.
- * Use in onBeforeHandle to protect routes.
- */
+interface AuthMethodInfo {
+  header?: string
+  headers?: string[]
+  message?: string
+  description: string
+}
+
+interface AuthGuardErrorResponse {
+  error: string
+  code: AuthErrorCode
+  methods: {
+    oauth3: AuthMethodInfo
+    walletSignature: AuthMethodInfo
+    apiKey: AuthMethodInfo
+  }
+}
+
 export function createAuthGuard(config: CombinedAuthConfig) {
-  return async function authGuard({ request, set }: Context): Promise<
-    | {
-        error: string
-        code: AuthErrorCode
-        methods: Record<string, unknown>
-      }
-    | undefined
-  > {
+  return async function authGuard({
+    request,
+    set,
+  }: Context): Promise<AuthGuardErrorResponse | undefined> {
     const headers = extractAuthHeaders(
       Object.fromEntries(request.headers.entries()),
     )
@@ -121,12 +109,6 @@ export function createAuthGuard(config: CombinedAuthConfig) {
   }
 }
 
-// ============ Elysia Plugins ============
-
-/**
- * Create an Elysia plugin for authentication.
- * Adds auth context and optionally enforces authentication.
- */
 export function authPlugin(config: AuthPluginConfig) {
   const skipRoutes = new Set(config.skipRoutes ?? [])
   const authDerive = createAuthDerive(config)
@@ -139,22 +121,18 @@ export function authPlugin(config: AuthPluginConfig) {
       const authCtx = ctx as Context & AuthContext
       const isAuthenticated = authCtx.isAuthenticated
 
-      // Skip auth check for specified routes
       if (skipRoutes.has(path)) {
         return undefined
       }
 
-      // Skip if requireAuth is false
       if (!config.requireAuth) {
         return undefined
       }
 
-      // If already authenticated from derive, allow through
       if (isAuthenticated) {
         return undefined
       }
 
-      // Attempt authentication
       const headers = extractAuthHeaders(
         Object.fromEntries(request.headers.entries()),
       )
@@ -172,9 +150,6 @@ export function authPlugin(config: AuthPluginConfig) {
     })
 }
 
-/**
- * Create an OAuth3-only auth plugin
- */
 export function oauth3AuthPlugin(oauth3Config: OAuth3Config) {
   return authPlugin({
     oauth3: oauth3Config,
@@ -182,9 +157,6 @@ export function oauth3AuthPlugin(oauth3Config: OAuth3Config) {
   })
 }
 
-/**
- * Create a wallet signature auth plugin
- */
 export function walletAuthPlugin(walletConfig: WalletSignatureConfig) {
   return authPlugin({
     walletSignature: walletConfig,
@@ -192,9 +164,6 @@ export function walletAuthPlugin(walletConfig: WalletSignatureConfig) {
   })
 }
 
-/**
- * Create an API key auth plugin
- */
 export function apiKeyAuthPlugin(apiKeyConfig: APIKeyConfig) {
   return authPlugin({
     apiKey: apiKeyConfig,
@@ -202,12 +171,6 @@ export function apiKeyAuthPlugin(apiKeyConfig: APIKeyConfig) {
   })
 }
 
-// ============ Route Decorators / Guards ============
-
-/**
- * Higher-order function to create a protected route handler.
- * Throws 401 if not authenticated.
- */
 export function withAuth<T>(
   handler: (
     ctx: Context & { authUser: AuthUser; address: Address },
@@ -232,10 +195,6 @@ export function withAuth<T>(
   }
 }
 
-/**
- * Create a require-auth middleware for specific routes.
- * Returns undefined if auth succeeds, or an error response if it fails.
- */
 export function requireAuthMiddleware(config: CombinedAuthConfig) {
   return async ({
     request,
@@ -267,11 +226,6 @@ export function requireAuthMiddleware(config: CombinedAuthConfig) {
   }
 }
 
-// ============ Error Handler ============
-
-/**
- * Elysia error handler for auth errors
- */
 export function authErrorHandler({
   error,
   set,
@@ -289,12 +243,6 @@ export function authErrorHandler({
   return undefined
 }
 
-// ============ Helper to Create Full Auth Plugin ============
-
-/**
- * Create a complete auth plugin with common defaults.
- * This is the recommended way to add auth to an Elysia app.
- */
 export function createElysiaAuth(options: {
   oauth3?: OAuth3Config
   walletSignature?: {

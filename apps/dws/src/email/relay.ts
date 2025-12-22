@@ -870,8 +870,6 @@ export class EmailRelayService {
           type: 'content_violation',
         },
       }),
-    }).catch((e) => {
-      console.error(`[EmailRelay] Failed to report to moderation queue: ${e}`)
     })
   }
 }

@@ -32,6 +32,27 @@ interface ValidationResult {
 const results: ValidationResult[] = []
 
 /**
+ * JSON value schema for generic JSON validation
+ */
+const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(JsonValueSchema),
+    z.record(z.string(), JsonValueSchema),
+  ]),
+)
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue }
+
+/**
  * Generic JSON validation - just checks if file is valid JSON
  */
 function validateJson(file: string, name: string): boolean {
@@ -44,7 +65,7 @@ function validateJson(file: string, name: string): boolean {
 
   const content = readFileSync(path, 'utf8')
   try {
-    expectJson(content, z.unknown(), name)
+    expectJson(content, JsonValueSchema, name)
     results.push({ name, passed: true })
     return true
   } catch (e) {

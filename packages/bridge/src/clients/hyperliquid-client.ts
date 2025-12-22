@@ -30,8 +30,6 @@ import {
   HyperCoreOrderResponseSchema,
 } from '../utils/index.js'
 
-// ============ Hyperliquid Chain Definition ============
-
 export const hyperliquidChain = {
   id: 998,
   name: 'Hyperliquid',
@@ -47,8 +45,6 @@ export const hyperliquidChain = {
   },
 } as const
 
-// ============ Contract ABIs ============
-
 const CCIP_ROUTER_ABI = parseAbi([
   'function ccipSend(uint64 destinationChainSelector, (bytes receiver, bytes data, (address token, uint256 amount)[] tokenAmounts, address feeToken, bytes extraArgs) message) payable returns (bytes32)',
   'function getFee(uint64 destinationChainSelector, (bytes receiver, bytes data, (address token, uint256 amount)[] tokenAmounts, address feeToken, bytes extraArgs) message) view returns (uint256)',
@@ -62,8 +58,6 @@ const ERC20_ABI = parseAbi([
   'function allowance(address owner, address spender) view returns (uint256)',
 ])
 
-// ============ HyperCore API Types ============
-
 interface HyperCoreOrder {
   coin: string
   isBuy: boolean
@@ -76,16 +70,12 @@ interface HyperCoreOrder {
 /** Imported from validation - re-export for local use */
 import type { HyperCoreMarket, HyperCorePosition } from '../utils/index.js'
 
-// ============ Client Configuration ============
-
 export interface HyperliquidClientConfig {
   privateKey?: Hex
   hyperEvmRpc?: string
   hyperCoreApi?: string
   ccipRouterAddress?: Address
 }
-
-// ============ Hyperliquid Client ============
 
 export class HyperliquidClient {
   private config: HyperliquidClientConfig
@@ -115,8 +105,6 @@ export class HyperliquidClient {
       })
     }
   }
-
-  // ============ HyperEVM Methods ============
 
   /**
    * Get token balance on HyperEVM
@@ -200,8 +188,6 @@ export class HyperliquidClient {
 
     return { messageId, fee }
   }
-
-  // ============ HyperCore API Methods ============
 
   /**
    * Get available markets from HyperCore
@@ -318,8 +304,6 @@ export class HyperliquidClient {
     return (bestBid + bestAsk) / 2
   }
 
-  // ============ Arbitrage Detection ============
-
   /**
    * Check for arbitrage opportunity between HyperCore and external DEX
    */
@@ -354,8 +338,6 @@ export class HyperliquidClient {
       estimatedProfit: Math.abs(priceDiff * 1000), // Example for $1000 trade
     }
   }
-
-  // ============ Private Methods ============
 
   /**
    * Sign a HyperCore action using EIP-712 typed data signing
@@ -417,8 +399,6 @@ export class HyperliquidClient {
     return { r, s, v }
   }
 }
-
-// ============ Factory ============
 
 export function createHyperliquidClient(
   config?: HyperliquidClientConfig,

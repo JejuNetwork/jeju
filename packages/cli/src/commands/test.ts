@@ -31,6 +31,38 @@ import type { CoverageReport, TestMode, TestResult } from '../types'
 
 export type { TestMode }
 
+/** Options passed to test commands */
+interface TestOptions {
+  mode?: string
+  targetApp?: string
+  package?: string
+  ci?: boolean
+  coverage?: boolean
+  deadCode?: boolean
+  watch?: boolean
+  verbose?: boolean
+  keepServices?: boolean
+  skipLock?: boolean
+  skipPreflight?: boolean
+  skipWarmup?: boolean
+  skipBootstrap?: boolean
+  infraOnly?: boolean
+  teardownOnly?: boolean
+  force?: boolean
+  forgeOpts?: string
+  headless?: boolean
+  debug?: boolean
+  buildCache?: boolean
+  clearCache?: boolean
+  smoke?: boolean
+  setupOnly?: boolean
+  skipInfra?: boolean
+  skipContracts?: boolean
+  app?: string
+  deploy?: boolean
+  docker?: boolean
+}
+
 interface ManifestTesting {
   unit?: { command?: string; timeout?: number }
   e2e?: {
@@ -47,6 +79,11 @@ interface ManifestTesting {
   }
   services?: string[]
   dependencies?: string[]
+}
+
+interface AppManifestTesting {
+  name?: string
+  testing?: ManifestTesting
 }
 
 export const testCommand = new Command('test')
@@ -515,7 +552,7 @@ testCommand
     }
 
     // Setup infrastructure (chain + contracts + browsers)
-    let cleanup: (() => Promise<void>) | null = null
+    let cleanup: (() => Promise<void>) | undefined
     if (!options.skipInfra) {
       cleanup = await setupE2EInfra(rootDir, options)
     }
@@ -546,7 +583,7 @@ testCommand
 
 async function runForgeTests(
   rootDir: string,
-  options: Record<string, unknown>,
+  options: TestOptions,
 ): Promise<TestResult> {
   const start = Date.now()
   logger.step('Running Forge tests (contracts)...')
@@ -612,7 +649,7 @@ async function runForgeTests(
 
 async function runBunTests(
   rootDir: string,
-  options: Record<string, unknown>,
+  options: TestOptions,
   env: Record<string, string>,
   type: 'unit' | 'integration',
 ): Promise<TestResult> {
@@ -654,7 +691,7 @@ async function runBunTests(
 
 async function runIntegrationTests(
   rootDir: string,
-  _options: Record<string, unknown>,
+  _options: TestOptions,
   env: Record<string, string>,
 ): Promise<TestResult> {
   const start = Date.now()
@@ -686,7 +723,7 @@ async function runIntegrationTests(
 
 async function runComputeTests(
   rootDir: string,
-  _options: Record<string, unknown>,
+  _options: TestOptions,
   env: Record<string, string>,
 ): Promise<TestResult> {
   const start = Date.now()
@@ -743,7 +780,7 @@ async function runComputeTests(
 
 async function runE2ETests(
   rootDir: string,
-  _options: Record<string, unknown>,
+  _options: TestOptions,
   env: Record<string, string>,
 ): Promise<TestResult> {
   const start = Date.now()
@@ -775,7 +812,7 @@ async function runE2ETests(
 
 async function runWalletTests(
   rootDir: string,
-  _options: Record<string, unknown>,
+  _options: TestOptions,
   env: Record<string, string>,
 ): Promise<TestResult> {
   const start = Date.now()
@@ -813,7 +850,7 @@ async function runWalletTests(
 
 async function runCrossChainTests(
   rootDir: string,
-  _options: Record<string, unknown>,
+  _options: TestOptions,
   env: Record<string, string>,
 ): Promise<TestResult> {
   const start = Date.now()
@@ -842,7 +879,7 @@ async function runCrossChainTests(
   // Run cross-chain specific tests
   const crossChainPath = join(rootDir, 'packages', 'tests', 'cross-chain')
   if (!existsSync(crossChainPath)) {
-    // Fallback: run grep for cross-chain tests in integration directory
+    // Cross-chain tests not in dedicated directory, search integration tests
     try {
       await execa('bun', ['test', '--grep', 'cross-chain|EIL|OIF|bridge'], {
         cwd: join(rootDir, 'packages', 'tests'),
@@ -882,7 +919,7 @@ async function runCrossChainTests(
 
 async function runSmokeTests(
   rootDir: string,
-  _options: Record<string, unknown>,
+  _options: TestOptions,
   env: Record<string, string>,
 ): Promise<TestResult> {
   const start = Date.now()
@@ -918,7 +955,7 @@ async function runSmokeTests(
 
 async function runInfraTests(
   rootDir: string,
-  options: Record<string, unknown>,
+  options: TestOptions,
   env: Record<string, string>,
 ): Promise<TestResult> {
   const start = Date.now()
@@ -1047,7 +1084,7 @@ async function runAppTests(
   const testing = manifest?.testing as ManifestTesting | undefined
 
   // Determine test command based on mode
-  let testCmd: string | null = null
+  let testCmd: string | undefined
   let timeout = 120000
 
   if (mode === 'unit' && testing?.unit?.command) {
@@ -1060,7 +1097,7 @@ async function runAppTests(
     testCmd = testing.integration.command
     timeout = testing.integration.timeout || timeout
   } else {
-    // Fallback to package.json test script
+    // Check package.json for test script when manifest not configured
     const pkgPath = join(appPath, 'package.json')
     if (existsSync(pkgPath)) {
       const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'))
@@ -1104,7 +1141,7 @@ async function runAppTests(
 async function runPackageTests(
   rootDir: string,
   pkgName: string,
-  options: Record<string, unknown>,
+  options: TestOptions,
 ): Promise<TestResult> {
   const start = Date.now()
   logger.step(`Testing package: ${pkgName}`)
@@ -1216,7 +1253,7 @@ async function clearSynpressCache(rootDir: string): Promise<void> {
 
 async function buildSynpressCache(
   rootDir: string,
-  options: Record<string, unknown>,
+  options: TestOptions,
 ): Promise<void> {
   logger.step('Building Synpress wallet cache...')
 
@@ -1259,7 +1296,7 @@ async function buildSynpressCache(
 
 async function setupE2EInfra(
   rootDir: string,
-  options: Record<string, unknown>,
+  options: TestOptions,
 ): Promise<() => Promise<void>> {
   logger.step('Setting up E2E infrastructure...')
 
@@ -1267,7 +1304,7 @@ async function setupE2EInfra(
   const E2E_PORT = 6546
   const E2E_CHAIN_ID = 1337
   const rpcUrl = `http://127.0.0.1:${E2E_PORT}`
-  let anvilPid: number | null = null
+  let anvilPid: number | undefined
   let chainStartedByUs = false
 
   // Standard test accounts (Anvil defaults)
@@ -1356,7 +1393,7 @@ async function setupE2EInfra(
       anvilProc.unref()
     }
 
-    anvilPid = anvilProc.pid ?? null
+    anvilPid = anvilProc.pid
     chainStartedByUs = true
 
     // Wait for chain to be ready
@@ -1442,7 +1479,7 @@ async function setupE2EInfra(
   }
 
   // 5. Start app if specified
-  let appProc: ReturnType<typeof execa> | null = null
+  let appProc: ReturnType<typeof execa> | undefined
   let appStartedByUs = false
 
   if (options.app && typeof options.app === 'string') {
@@ -1525,7 +1562,7 @@ async function setupE2EInfra(
       })
       if (ncResult.exitCode === 0) return true
 
-      // Fallback to HTTP check
+      // Secondary check via HTTP when TCP check fails
       const result = await execa(
         'curl',
         [
@@ -1593,7 +1630,7 @@ async function setupE2EInfra(
 
 async function runSynpressTests(
   rootDir: string,
-  options: Record<string, unknown>,
+  options: TestOptions,
 ): Promise<TestResult[]> {
   const results: TestResult[] = []
 
@@ -1684,7 +1721,7 @@ function discoverSynpressApps(rootDir: string): string[] {
 async function runSynpressSmokeTests(
   rootDir: string,
   env: Record<string, string>,
-  _options: Record<string, unknown>,
+  _options: TestOptions,
 ): Promise<TestResult> {
   const start = Date.now()
   const testsPath = join(rootDir, 'packages', 'tests', 'smoke')
@@ -1726,7 +1763,7 @@ async function runAppSynpressTests(
   rootDir: string,
   appName: string,
   env: Record<string, string>,
-  options: Record<string, unknown>,
+  options: TestOptions,
 ): Promise<TestResult> {
   const start = Date.now()
 
@@ -1801,13 +1838,13 @@ function findMonorepoRoot(): string {
   return process.cwd()
 }
 
-function loadManifest(appPath: string): Record<string, unknown> | null {
+function loadManifest(appPath: string): AppManifestTesting | undefined {
   const manifestPath = join(appPath, 'jeju-manifest.json')
-  if (!existsSync(manifestPath)) return null
+  if (!existsSync(manifestPath)) return undefined
   try {
-    return JSON.parse(readFileSync(manifestPath, 'utf-8'))
+    return JSON.parse(readFileSync(manifestPath, 'utf-8')) as AppManifestTesting
   } catch {
-    return null
+    return undefined
   }
 }
 

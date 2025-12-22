@@ -52,7 +52,7 @@ export default defineConfig({
     },
     // 2. Next.js Frontend (port 3010)
     {
-      command: 'NEXT_PUBLIC_AUTOCRAT_API=http://localhost:8010 bun run dev',
+      command: 'PUBLIC_AUTOCRAT_API=http://localhost:8010 bun run dev',
       url: 'http://localhost:3010',
       reuseExistingServer: true, // Reuse if already running
       timeout: 120000,

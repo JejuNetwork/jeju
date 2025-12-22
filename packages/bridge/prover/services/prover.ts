@@ -23,10 +23,6 @@ import type {
 } from '../../src/types/index.js'
 import { toHash32 } from '../../src/types/index.js'
 
-// =============================================================================
-// PROOF TYPES
-// =============================================================================
-
 export const ProofType = {
   SOLANA_CONSENSUS: 'solana_consensus',
   ETHEREUM_CONSENSUS: 'ethereum_consensus',
@@ -53,10 +49,6 @@ interface ProofResult {
   success: boolean
   error?: string
 }
-
-// =============================================================================
-// PROVER SERVICE
-// =============================================================================
 
 export class ProverService {
   private config: ProverConfig
@@ -222,10 +214,6 @@ export class ProverService {
       completed: this.results.size,
     }
   }
-
-  // =============================================================================
-  // PRIVATE METHODS
-  // =============================================================================
 
   private async verifyPrograms(): Promise<void> {
     const programs = [
@@ -463,17 +451,9 @@ export class ProverService {
   }
 }
 
-// =============================================================================
-// FACTORY
-// =============================================================================
-
 export function createProverService(config: ProverConfig): ProverService {
   return new ProverService(config)
 }
-
-// =============================================================================
-// CLI ENTRY POINT
-// =============================================================================
 
 if (import.meta.main) {
   const prover = createProverService(LOCAL_PROVER_CONFIG)

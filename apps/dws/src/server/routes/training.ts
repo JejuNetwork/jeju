@@ -8,10 +8,14 @@ import { Keypair } from '@solana/web3.js'
 import { Elysia, t } from 'elysia'
 import type { Address, Hex } from 'viem'
 import {
+  type CoordinatorConfig,
   createCrossChainBridge,
   createDWSTrainingService,
   createGRPOTrainer,
   createPsycheClient,
+  type Model,
+  type RewardDistribution,
+  type RunMetadata,
   startAtroposServer,
   type TrainingJobRequest,
 } from '../../training'
@@ -32,13 +36,20 @@ export const trainingRoutes = new Elysia({
     '/jobs',
     async ({ body, set }) => {
       const jobId = `job-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+      const runId = `run-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
       const request: TrainingJobRequest = {
-        ...body,
         jobId,
+        runId,
+        modelName: body.modelName ?? 'microsoft/phi-2',
+        trainingSteps: body.trainingSteps ?? 10,
+        batchSize: body.batchSize ?? 2,
+        learningRate: body.learningRate ?? 1e-5,
         priority: body.priority ?? 'normal',
         nodeCount: body.nodeCount ?? 1,
         gpuType: body.gpuType ?? 'NVIDIA RTX 5090',
         memoryGb: body.memoryGb ?? 16,
+        datasetCid: body.datasetCid,
+        environmentId: body.environmentId,
       }
 
       const status = trainingService.getJobQueue().addJob(request)
@@ -47,10 +58,12 @@ export const trainingRoutes = new Elysia({
     },
     {
       body: t.Object({
-        modelCid: t.String(),
-        datasetCid: t.String(),
-        outputDir: t.Optional(t.String()),
-        hyperparameters: t.Optional(t.Record(t.String(), t.Unknown())),
+        modelName: t.Optional(t.String()),
+        datasetCid: t.Optional(t.String()),
+        environmentId: t.Optional(t.String()),
+        trainingSteps: t.Optional(t.Number()),
+        batchSize: t.Optional(t.Number()),
+        learningRate: t.Optional(t.Number()),
         priority: t.Optional(
           t.Union([t.Literal('low'), t.Literal('normal'), t.Literal('high')]),
         ),
@@ -167,7 +180,7 @@ export const trainingRoutes = new Elysia({
       })
 
       // Register and start in background
-      trainer.registerWithAtropos().then(() => trainer.startTraining())
+      trainer.registerWithAtropos().then(() => trainer.train())
 
       return {
         status: 'started',
@@ -196,20 +209,44 @@ export const trainingRoutes = new Elysia({
   // ============================================================================
 
   // Score rollout bundles
+  // Note: This endpoint requires an external LLM judge service
   .post(
     '/judge',
     async ({ body }) => {
-      const psycheClient = createPsycheClient({
-        solanaRpcUrl: process.env.SOLANA_RPC_URL ?? 'http://localhost:8899',
-        llmJudgeUrl:
-          body.llmJudgeUrl ??
-          process.env.LLM_JUDGE_URL ??
-          'http://localhost:9001',
-        llmJudgeModel:
-          body.llmJudgeModel ?? process.env.LLM_JUDGE_MODEL ?? 'default',
-      })
+      const llmJudgeUrl =
+        body.llmJudgeUrl ?? process.env.LLM_JUDGE_URL ?? 'http://localhost:9001'
+      const llmJudgeModel =
+        body.llmJudgeModel ?? process.env.LLM_JUDGE_MODEL ?? 'default'
 
-      const results = await psycheClient.judgeMultipleBundles(body.bundles)
+      // Call external LLM judge service for each bundle
+      const results = await Promise.all(
+        body.bundles.map(async (bundle) => {
+          const response = await fetch(`${llmJudgeUrl}/judge`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: llmJudgeModel,
+              prompt: bundle.prompt,
+              responses: bundle.responses,
+            }),
+          })
+
+          if (!response.ok) {
+            return {
+              id: bundle.id,
+              scores: bundle.responses.map(() => 0),
+              error: `Judge service returned ${response.status}`,
+            }
+          }
+
+          const data = (await response.json()) as { scores: number[] }
+          return {
+            id: bundle.id,
+            scores: data.scores,
+          }
+        }),
+      )
+
       return { results }
     },
     {
@@ -273,11 +310,36 @@ export const trainingRoutes = new Elysia({
         solanaKeypair: keypair,
       })
 
+      const metadata: RunMetadata = {
+        name: body.name,
+        description: body.description,
+        modelHubRepo: body.modelHubRepo,
+        datasetHubRepo: body.datasetHubRepo,
+      }
+
+      const config: CoordinatorConfig = {
+        maxClients: body.maxClients ?? 32,
+        minClients: body.minClients ?? 1,
+        epochLengthMs: body.epochLengthMs ?? 60000,
+        warmupEpochs: body.warmupEpochs ?? 1,
+        checkpointIntervalEpochs: body.checkpointIntervalEpochs ?? 5,
+        learningRate: body.learningRate ?? 1e-5,
+        batchSize: body.batchSize ?? 32,
+        gradientAccumulationSteps: body.gradientAccumulationSteps ?? 4,
+        maxSeqLength: body.maxSeqLength ?? 2048,
+      }
+
+      const model: Model = {
+        hubRepo: body.modelHubRepo,
+        revision: body.modelRevision ?? 'main',
+        sha256: body.modelSha256 ?? '',
+      }
+
       const signature = await psycheClient.createRun(
         body.runId,
-        body.metadata,
-        body.config,
-        body.model,
+        metadata,
+        config,
+        model,
       )
 
       set.status = 201
@@ -286,9 +348,21 @@ export const trainingRoutes = new Elysia({
     {
       body: t.Object({
         runId: t.String(),
-        metadata: t.Record(t.String(), t.Unknown()),
-        config: t.Record(t.String(), t.Unknown()),
-        model: t.String(),
+        name: t.String(),
+        description: t.String(),
+        modelHubRepo: t.String(),
+        datasetHubRepo: t.String(),
+        modelRevision: t.Optional(t.String()),
+        modelSha256: t.Optional(t.String()),
+        maxClients: t.Optional(t.Number()),
+        minClients: t.Optional(t.Number()),
+        epochLengthMs: t.Optional(t.Number()),
+        warmupEpochs: t.Optional(t.Number()),
+        checkpointIntervalEpochs: t.Optional(t.Number()),
+        learningRate: t.Optional(t.Number()),
+        batchSize: t.Optional(t.Number()),
+        gradientAccumulationSteps: t.Optional(t.Number()),
+        maxSeqLength: t.Optional(t.Number()),
       }),
     },
   )
@@ -358,8 +432,8 @@ export const trainingRoutes = new Elysia({
           '0x0000000000000000000000000000000000000000' as Address,
       })
 
-      const rewards = body.rewards.map((r) => ({
-        client: r.client,
+      const rewards: RewardDistribution[] = body.rewards.map((r) => ({
+        client: r.client as Address,
         amount: BigInt(r.amount),
       }))
 
@@ -370,7 +444,7 @@ export const trainingRoutes = new Elysia({
       body: t.Object({
         rewards: t.Array(
           t.Object({
-            client: t.String(),
+            client: t.String({ pattern: '^0x[a-fA-F0-9]{40}$' }),
             amount: t.String(),
           }),
         ),
@@ -389,8 +463,8 @@ export const trainingRoutes = new Elysia({
           '0x0000000000000000000000000000000000000000' as Address,
       })
 
-      const rewards = body.rewards.map((r) => ({
-        client: r.client,
+      const rewards: RewardDistribution[] = body.rewards.map((r) => ({
+        client: r.client as Address,
         amount: BigInt(r.amount),
       }))
 
@@ -401,7 +475,7 @@ export const trainingRoutes = new Elysia({
       body: t.Object({
         rewards: t.Array(
           t.Object({
-            client: t.String(),
+            client: t.String({ pattern: '^0x[a-fA-F0-9]{40}$' }),
             amount: t.String(),
           }),
         ),

@@ -9,7 +9,7 @@ import { createPublicClient, http, type PublicClient } from 'viem'
 import { z } from 'zod'
 
 import type {
-  JsonValue,
+  PaymentMetadata,
   PaymentRequest,
   PaymentVerificationParams,
   PaymentVerificationResult,
@@ -130,16 +130,7 @@ export class X402Manager {
       return null
     }
 
-    const payment: PendingPayment = {
-      ...validation.data,
-      request: {
-        ...validation.data.request,
-        metadata: validation.data.request.metadata as Record<
-          string,
-          string | number | boolean | null
-        >,
-      },
-    }
+    const payment: PendingPayment = validation.data
 
     // Cache in memory
     this.inMemoryStore.set(requestId, payment)
@@ -192,7 +183,7 @@ export class X402Manager {
     to: string,
     amount: string,
     service: string,
-    metadata?: Record<string, string | number | boolean | null>,
+    metadata?: PaymentMetadata,
   ): Promise<PaymentRequest> {
     // Validate amount meets minimum
     const amountBn = BigInt(amount)
@@ -213,7 +204,7 @@ export class X402Manager {
       to,
       amount,
       service,
-      metadata: metadata as Record<string, JsonValue>,
+      metadata,
       expiresAt,
     }
 

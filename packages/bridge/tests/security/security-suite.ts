@@ -24,10 +24,6 @@ import {
   toHash32,
 } from '../../src/index.js'
 
-// =============================================================================
-// SECURITY TEST CONFIG
-// =============================================================================
-
 /**
  * SECURITY NOTE: These are well-known Anvil/Hardhat test private keys.
  * They are derived from the standard test mnemonic:
@@ -51,10 +47,6 @@ interface SecurityTestResult {
   severity: 'critical' | 'high' | 'medium' | 'low' | 'info'
   details: string
 }
-
-// =============================================================================
-// SECURITY TEST SUITE
-// =============================================================================
 
 class SecurityTestSuite {
   private results: SecurityTestResult[] = []
@@ -701,10 +693,6 @@ class SecurityTestSuite {
     }
   }
 }
-
-// =============================================================================
-// MAIN
-// =============================================================================
 
 async function main(): Promise<void> {
   const suite = new SecurityTestSuite()

@@ -6,10 +6,6 @@
 
 import type { Address, Hex } from 'viem'
 
-// ============================================================================
-// EIP-1193 Provider Types
-// ============================================================================
-
 /**
  * EIP-1193 request arguments
  */
@@ -55,10 +51,6 @@ export const EIP1193ErrorCodes = {
   CHAIN_DISCONNECTED: 4901,
 } as const
 
-// ============================================================================
-// wallet_addEthereumChain Types (EIP-3085)
-// ============================================================================
-
 /**
  * Parameters for wallet_addEthereumChain request (EIP-3085)
  */
@@ -75,10 +67,6 @@ export interface AddEthereumChainParameter {
   iconUrls?: string[]
 }
 
-// ============================================================================
-// Cross-Chain Transfer Types (Jeju-specific)
-// ============================================================================
-
 /**
  * Parameters for jeju_crossChainTransfer
  */
@@ -90,10 +78,6 @@ export interface CrossChainTransferData {
   recipient: Address
   maxFee?: string
 }
-
-// ============================================================================
-// Intent Types (Jeju-specific)
-// ============================================================================
 
 /**
  * Parameters for jeju_submitIntent
@@ -108,10 +92,6 @@ export interface SubmitIntentData {
   maxFee?: string
   deadline?: number
 }
-
-// ============================================================================
-// Extension Message Types
-// ============================================================================
 
 /**
  * Message types supported by the extension
@@ -149,10 +129,6 @@ export type ExtensionMessageResponse =
   | null
   | boolean
 
-// ============================================================================
-// Popup Communication Types
-// ============================================================================
-
 /**
  * Response from popup after user interaction
  */
@@ -173,10 +149,6 @@ export interface ConnectionResponse {
   origin: string
   approved: boolean
 }
-
-// ============================================================================
-// Page <-> Content Script Communication Types
-// ============================================================================
 
 /**
  * Request from injected script to content script
@@ -207,10 +179,6 @@ export interface PageEvent {
   data: BroadcastEventData
 }
 
-// ============================================================================
-// Broadcast Event Types
-// ============================================================================
-
 /**
  * Events broadcast to connected tabs
  */
@@ -219,10 +187,6 @@ export type BroadcastEventData =
   | { type: 'accountsChanged'; accounts: Address[] }
   | { type: 'connect'; chainId: Hex }
   | { type: 'disconnect'; code: number; message: string }
-
-// ============================================================================
-// Event Emitter Types
-// ============================================================================
 
 /**
  * Standard Ethereum provider events
@@ -252,10 +216,6 @@ export type ProviderEventCallback<
   T extends ProviderEventName = ProviderEventName,
 > = (...args: ProviderEventArgs[T]) => void
 
-// ============================================================================
-// Provider Info (EIP-6963)
-// ============================================================================
-
 /**
  * Provider info for EIP-6963 announcement
  */
@@ -265,10 +225,6 @@ export interface EIP6963ProviderInfo {
   icon: string
   rdns: string
 }
-
-// ============================================================================
-// Chrome Extension Message Types
-// ============================================================================
 
 /**
  * Message from background to content script for event broadcast

@@ -16,7 +16,6 @@ export const cleanCommand = new Command('clean')
 
     const rootDir = findMonorepoRoot()
 
-    // Step 1: Stop localnet
     logger.step('Stopping Localnet...')
     const stopResult = await $`cd ${rootDir} && bun run localnet:stop`.nothrow()
     if (stopResult.exitCode === 0) {
@@ -26,7 +25,6 @@ export const cleanCommand = new Command('clean')
     }
     logger.newline()
 
-    // Step 2: Clean build artifacts
     logger.step('Removing Build Artifacts...')
 
     const pathsToClean = [
@@ -59,7 +57,6 @@ export const cleanCommand = new Command('clean')
     logger.success(`Cleaned ${cleaned} directories`)
     logger.newline()
 
-    // Step 3: Clean node_modules (optional)
     if (options.deep) {
       logger.step('Removing node_modules...')
 
@@ -87,7 +84,6 @@ export const cleanCommand = new Command('clean')
       logger.newline()
     }
 
-    // Step 4: Clean Docker (optional)
     if (options.deep) {
       logger.step('Cleaning Docker Resources...')
       await $`docker system prune -f`.nothrow()
@@ -95,7 +91,6 @@ export const cleanCommand = new Command('clean')
       logger.newline()
     }
 
-    // Step 5: Clean logs
     logger.step('Removing Log Files...')
 
     const logPaths = ['logs']

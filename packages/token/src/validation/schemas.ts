@@ -34,6 +34,12 @@ export const solanaPublicKeySchema = z
   .string()
   .regex(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/, 'Invalid Solana public key')
 
+/** Cross-chain address validator (EVM 0x address or Solana base58 public key) */
+export const crossChainAddressSchema = z.union([
+  addressSchema,
+  solanaPublicKeySchema,
+])
+
 /** Positive bigint validator */
 export const positiveBigintSchema = z.bigint().positive()
 
@@ -69,16 +75,16 @@ export const chainConfigSchema = z
   .object({
     chainId: chainIdSchema,
     chainType: z.enum(['evm', 'solana']),
-    name: z.string().min(1),
+    name: z.string().min(1).max(100),
     rpcUrl: z.string().min(1, 'Missing RPC URL'),
     blockExplorerUrl: z.string(),
     nativeCurrency: nativeCurrencySchema,
     hyperlaneMailbox: z.string().min(1, 'Missing Hyperlane mailbox'),
     hyperlaneIgp: z.string().min(1),
     isHomeChain: z.boolean(),
-    avgBlockTime: z.number().positive(),
+    avgBlockTime: z.number().positive().max(600),
     uniswapV4PoolManager: addressSchema.optional(),
-    dexRouter: z.string().optional(),
+    dexRouter: z.string().min(1).optional(),
   })
   .superRefine((data, ctx) => {
     // Validate EVM mailbox address format
@@ -223,17 +229,21 @@ export const presaleTierSchema = z.object({
   whitelistMerkleRoot: hexSchema.optional(),
 })
 
-export const presaleConfigSchema = z.object({
-  enabled: z.boolean(),
-  startTime: z.number().int().positive(),
-  endTime: z.number().int().positive(),
-  softCapUsd: z.number().nonnegative(),
-  hardCapUsd: z.number().positive(),
-  priceUsd: z.number().positive(),
-  tiers: z.array(presaleTierSchema),
-  acceptedTokens: z.record(z.string(), z.array(addressSchema)),
-  refundIfSoftCapMissed: z.boolean(),
-})
+export const presaleConfigSchema = z
+  .object({
+    enabled: z.boolean(),
+    startTime: z.number().int().positive(),
+    endTime: z.number().int().positive(),
+    softCapUsd: z.number().nonnegative(),
+    hardCapUsd: z.number().positive(),
+    priceUsd: z.number().positive(),
+    tiers: z.array(presaleTierSchema),
+    acceptedTokens: z.record(z.string(), z.array(addressSchema)),
+    refundIfSoftCapMissed: z.boolean(),
+  })
+  .refine((data) => data.endTime > data.startTime, {
+    message: 'endTime must be after startTime',
+  })
 
 // =============================================================================
 // CCA (CONTINUOUS CLEARING AUCTION) SCHEMAS
@@ -249,18 +259,26 @@ export const ccaAuctionFeesSchema = z.object({
   referralFeeBps: bpsSchema,
 })
 
-export const ccaConfigSchema = z.object({
-  deploymentMode: ccaDeploymentModeSchema,
-  startTime: z.number().int().positive(),
-  duration: z.number().int().positive(),
-  startPriceUsd: z.number().positive(),
-  reservePriceUsd: z.number().positive(),
-  supplyReleaseCurve: z.enum(['linear', 'exponential', 'step']),
-  maxBidPercent: percentageSchema,
-  minBidUsd: z.number().nonnegative(),
-  autoMigrateLiquidity: z.boolean(),
-  auctionFees: ccaAuctionFeesSchema.optional(),
-})
+export const ccaConfigSchema = z
+  .object({
+    deploymentMode: ccaDeploymentModeSchema,
+    startTime: z.number().int().positive(),
+    duration: z
+      .number()
+      .int()
+      .positive()
+      .max(30 * 24 * 60 * 60), // Max 30 days
+    startPriceUsd: z.number().positive(),
+    reservePriceUsd: z.number().positive(),
+    supplyReleaseCurve: z.enum(['linear', 'exponential', 'step']),
+    maxBidPercent: percentageSchema,
+    minBidUsd: z.number().nonnegative(),
+    autoMigrateLiquidity: z.boolean(),
+    auctionFees: ccaAuctionFeesSchema.optional(),
+  })
+  .refine((data) => data.reservePriceUsd <= data.startPriceUsd, {
+    message: 'reservePriceUsd must be less than or equal to startPriceUsd',
+  })
 
 // =============================================================================
 // HYPERLANE SCHEMAS
@@ -277,14 +295,14 @@ export const ismTypeSchema = z.enum([
 
 export const multisigISMConfigSchema = z.object({
   type: z.literal('multisig'),
-  validators: z.array(z.string()).min(1),
+  validators: z.array(crossChainAddressSchema).min(1),
   threshold: z.number().int().positive(),
 })
 
 export const optimisticISMConfigSchema = z.object({
   type: z.literal('optimistic'),
   challengePeriod: z.number().int().positive(),
-  watchers: z.array(z.string()).min(1),
+  watchers: z.array(crossChainAddressSchema).min(1),
 })
 
 export const ismConfigSchema = z.union([
@@ -301,15 +319,15 @@ export const warpRouteTokenTypeSchema = z.enum([
 export const warpRouteConfigSchema = z.object({
   chainId: chainIdSchema,
   tokenType: warpRouteTokenTypeSchema,
-  collateralAddress: z.string().optional(),
+  collateralAddress: crossChainAddressSchema.optional(),
   ism: ismConfigSchema,
-  owner: z.string().min(1),
+  owner: crossChainAddressSchema,
   rateLimitPerDay: nonNegativeBigintSchema,
 })
 
 export const hyperlaneValidatorSchema = z.object({
-  address: z.string().min(1),
-  chains: z.array(chainIdSchema),
+  address: crossChainAddressSchema,
+  chains: z.array(chainIdSchema).min(1),
 })
 
 export const hyperlaneGasConfigSchema = z.object({
@@ -343,14 +361,19 @@ export const deploymentConfigSchema = z.object({
 // BRIDGE REQUEST SCHEMAS
 // =============================================================================
 
-export const bridgeRequestSchema = z.object({
-  sourceChain: chainIdSchema,
-  destinationChain: chainIdSchema,
-  sender: z.string().min(1),
-  recipient: z.string().min(1),
-  amount: positiveBigintSchema,
-  callData: hexSchema.optional(),
-})
+export const bridgeRequestSchema = z
+  .object({
+    sourceChain: chainIdSchema,
+    destinationChain: chainIdSchema,
+    sender: crossChainAddressSchema,
+    recipient: crossChainAddressSchema,
+    amount: positiveBigintSchema,
+    callData: hexSchema.optional(),
+  })
+  .strict()
+  .refine((data) => data.sourceChain !== data.destinationChain, {
+    message: 'Source and destination chains must be different',
+  })
 
 export const bridgeStatusSchema = z.object({
   requestId: hexSchema,
@@ -375,22 +398,24 @@ export const tokenCategorySchema = z.enum([
   'meme',
 ])
 
-export const tokenDeploymentConfigSchema = z.object({
-  name: z.string().min(1).max(64),
-  symbol: z.string().min(1).max(10),
-  decimals: z.number().int().min(0).max(18),
-  totalSupply: positiveBigintSchema,
-  category: tokenCategorySchema,
-  tags: z.array(z.string()),
-  description: z.string(),
-  website: z.string().url().optional(),
-  twitter: z.string().optional(),
-  discord: z.string().optional(),
-  homeChainId: chainIdSchema,
-  targetChainIds: z.array(chainIdSchema).min(1),
-  includeSolana: z.boolean().optional(),
-  oracleAddress: addressSchema.optional(),
-})
+export const tokenDeploymentConfigSchema = z
+  .object({
+    name: z.string().min(1).max(64),
+    symbol: z.string().min(1).max(10),
+    decimals: z.number().int().min(0).max(18),
+    totalSupply: positiveBigintSchema,
+    category: tokenCategorySchema,
+    tags: z.array(z.string().min(1).max(32)).max(10),
+    description: z.string().min(1).max(1000),
+    website: z.string().url().optional(),
+    twitter: z.string().max(15).optional(),
+    discord: z.string().url().optional(),
+    homeChainId: chainIdSchema,
+    targetChainIds: z.array(chainIdSchema).min(1),
+    includeSolana: z.boolean().optional(),
+    oracleAddress: addressSchema.optional(),
+  })
+  .strict()
 
 // =============================================================================
 // SOLANA PRIVATE KEY SCHEMAS
@@ -413,10 +438,51 @@ const foundryLinkReferenceSchema = z.object({
 })
 
 /**
+ * ABI parameter type for recursive schema
+ */
+interface AbiParameter {
+  name: string
+  type: string
+  indexed?: boolean
+  components?: AbiParameter[]
+  internalType?: string
+}
+
+/**
+ * ABI input/output parameter schema
+ */
+const abiParameterSchema: z.ZodType<AbiParameter> = z.object({
+  name: z.string(),
+  type: z.string(),
+  indexed: z.boolean().optional(),
+  components: z.lazy(() => z.array(abiParameterSchema)).optional(),
+  internalType: z.string().optional(),
+})
+
+/**
+ * ABI item schema - represents a single ABI entry (function, event, error, etc.)
+ */
+const abiItemSchema = z.object({
+  type: z.enum([
+    'function',
+    'constructor',
+    'receive',
+    'fallback',
+    'event',
+    'error',
+  ]),
+  name: z.string().optional(),
+  inputs: z.array(abiParameterSchema).optional(),
+  outputs: z.array(abiParameterSchema).optional(),
+  stateMutability: z.enum(['pure', 'view', 'nonpayable', 'payable']).optional(),
+  anonymous: z.boolean().optional(),
+})
+
+/**
  * Validates a Foundry build artifact (from forge build output)
  */
 export const foundryArtifactSchema = z.object({
-  abi: z.array(z.record(z.string(), z.unknown())),
+  abi: z.array(abiItemSchema),
   bytecode: z.object({
     object: hexSchema,
     linkReferences: z.record(

@@ -1,7 +1,7 @@
 //! Bandwidth management commands
 
-use crate::state::AppState;
 use crate::bandwidth::BandwidthState;
+use crate::state::AppState;
 use tauri::State;
 
 /// Get current bandwidth state
@@ -18,6 +18,3 @@ pub async fn set_adaptive_mode(state: State<'_, AppState>, enabled: bool) -> Res
     bandwidth.set_adaptive_enabled(enabled).await;
     Ok(())
 }
-
-
-

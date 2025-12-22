@@ -21,4 +21,3 @@ pub async fn update_settings(
     *config = settings;
     Ok(())
 }
-

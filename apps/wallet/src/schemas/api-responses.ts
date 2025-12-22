@@ -13,10 +13,6 @@ import {
 } from '@jejunetwork/types'
 import { z } from 'zod'
 
-// ============================================================================
-// JSON-RPC Response Schemas
-// ============================================================================
-
 /**
  * Generic JSON-RPC response wrapper
  */
@@ -48,10 +44,6 @@ export const RpcChainIdResponseSchema = z.object({
     })
     .optional(),
 })
-
-// ============================================================================
-// Swap Service Response Schemas
-// ============================================================================
 
 const SwapRouteSchema = z.object({
   protocol: z.string(),
@@ -145,10 +137,6 @@ export const TokenListResponseSchema = z.array(
   }),
 )
 
-// ============================================================================
-// Account Abstraction Response Schemas
-// ============================================================================
-
 export const GasEstimationResponseSchema = z.object({
   result: z.object({
     callGasLimit: z.string(),
@@ -210,10 +198,6 @@ export const UserOpReceiptResponseSchema = z.object({
     .optional(),
 })
 
-// ============================================================================
-// GraphQL Response Schemas
-// ============================================================================
-
 export const GraphQLErrorSchema = z.object({
   message: z.string(),
   path: z.array(z.string()).optional(),
@@ -232,10 +216,6 @@ export const GraphQLResponseSchema = <T extends z.ZodTypeAny>(dataSchema: T) =>
     data: dataSchema.optional(),
     errors: z.array(GraphQLErrorSchema).optional(),
   })
-
-// ============================================================================
-// Bundler Response Schemas
-// ============================================================================
 
 export const BundlerSendUserOpResponseSchema = z.object({
   result: HexSchema.optional(),
@@ -270,10 +250,6 @@ export const BundlerReceiptResponseSchema = z.object({
     .nullable()
     .optional(),
 })
-
-// ============================================================================
-// Inference Client Response Schemas
-// ============================================================================
 
 export const AvailableModelSchema = z
   .object({

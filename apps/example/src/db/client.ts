@@ -3,13 +3,8 @@ import type { Address } from 'viem'
 import type { CreateTodoInput, Todo, UpdateTodoInput } from '../schemas'
 
 const DATABASE_ID = process.env.CQL_DATABASE_ID || 'todo-experimental'
-const NETWORK = process.env.NETWORK || 'localnet'
 
 let dbClient: CQLClient | null = null
-let useFallback = false
-
-// In-memory fallback store for development/testing
-const memoryStore: Map<string, TodoRow> = new Map()
 
 export function getDatabase(): CQLClient {
   if (!dbClient) {
@@ -61,17 +56,6 @@ export class TodoRepository {
     this.db = getDatabase()
   }
 
-  private async checkFallback(): Promise<void> {
-    if (useFallback) return
-
-    // Check if CQL is available on first operation
-    const healthy = await this.db.isHealthy()
-    if (!healthy && (NETWORK === 'localnet' || NETWORK === 'Jeju')) {
-      console.log('[DB] CQL unavailable, using in-memory fallback for localnet')
-      useFallback = true
-    }
-  }
-
   // Default pagination limits to prevent DoS
   private static readonly DEFAULT_LIMIT = 100
   private static readonly MAX_LIMIT = 500
@@ -86,39 +70,12 @@ export class TodoRepository {
       offset?: number
     },
   ): Promise<Todo[]> {
-    await this.checkFallback()
-
     // Apply pagination limits (DoS prevention)
     const limit = Math.min(
       options?.limit ?? TodoRepository.DEFAULT_LIMIT,
       TodoRepository.MAX_LIMIT,
     )
     const offset = Math.max(options?.offset ?? 0, 0)
-
-    if (useFallback) {
-      const todos = Array.from(memoryStore.values())
-        .filter((row) => row.owner.toLowerCase() === owner.toLowerCase())
-        .filter((row) => {
-          if (options?.completed !== undefined) {
-            if ((row.completed === 1) !== options.completed) return false
-          }
-          if (options?.priority && row.priority !== options.priority)
-            return false
-          if (options?.search) {
-            const search = options.search.toLowerCase()
-            if (
-              !row.title.toLowerCase().includes(search) &&
-              !row.description.toLowerCase().includes(search)
-            )
-              return false
-          }
-          return true
-        })
-        .sort((a, b) => b.created_at - a.created_at)
-        .slice(offset, offset + limit) // Apply pagination
-        .map(rowToTodo)
-      return todos
-    }
 
     let sql = 'SELECT * FROM todos WHERE owner = ?'
     const params: Array<string | number> = [owner.toLowerCase()]
@@ -146,14 +103,6 @@ export class TodoRepository {
   }
 
   async getById(id: string, owner: Address): Promise<Todo | null> {
-    await this.checkFallback()
-
-    if (useFallback) {
-      const row = memoryStore.get(id)
-      if (!row || row.owner.toLowerCase() !== owner.toLowerCase()) return null
-      return rowToTodo(row)
-    }
-
     const result = await this.db.query<TodoRow>(
       'SELECT * FROM todos WHERE id = ? AND owner = ?',
       [id, owner.toLowerCase()],
@@ -164,8 +113,6 @@ export class TodoRepository {
   }
 
   async create(owner: Address, input: CreateTodoInput): Promise<Todo> {
-    await this.checkFallback()
-
     const id = `todo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
     const now = Date.now()
 
@@ -183,27 +130,23 @@ export class TodoRepository {
       attachment_cid: null,
     }
 
-    if (useFallback) {
-      memoryStore.set(id, row)
-    } else {
-      await this.db.exec(
-        `INSERT INTO todos (id, title, description, completed, priority, due_date, created_at, updated_at, owner, encrypted_data, attachment_cid)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          id,
-          input.title,
-          row.description,
-          0,
-          row.priority,
-          row.due_date,
-          now,
-          now,
-          owner.toLowerCase(),
-          null,
-          null,
-        ],
-      )
-    }
+    await this.db.exec(
+      `INSERT INTO todos (id, title, description, completed, priority, due_date, created_at, updated_at, owner, encrypted_data, attachment_cid)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        input.title,
+        row.description,
+        0,
+        row.priority,
+        row.due_date,
+        now,
+        now,
+        owner.toLowerCase(),
+        null,
+        null,
+      ],
+    )
 
     return rowToTodo(row)
   }
@@ -213,25 +156,8 @@ export class TodoRepository {
     owner: Address,
     input: UpdateTodoInput,
   ): Promise<Todo | null> {
-    await this.checkFallback()
-
     const existing = await this.getById(id, owner)
     if (!existing) return null
-
-    if (useFallback) {
-      const row = memoryStore.get(id)
-      if (!row) return null
-
-      if (input.title !== undefined) row.title = input.title
-      if (input.description !== undefined) row.description = input.description
-      if (input.completed !== undefined) row.completed = input.completed ? 1 : 0
-      if (input.priority !== undefined) row.priority = input.priority
-      if (input.dueDate !== undefined) row.due_date = input.dueDate
-      row.updated_at = Date.now()
-
-      memoryStore.set(id, row)
-      return rowToTodo(row)
-    }
 
     const updates: string[] = []
     const params: Array<string | number | null> = []
@@ -278,15 +204,6 @@ export class TodoRepository {
   }
 
   async delete(id: string, owner: Address): Promise<boolean> {
-    await this.checkFallback()
-
-    if (useFallback) {
-      const row = memoryStore.get(id)
-      if (!row || row.owner.toLowerCase() !== owner.toLowerCase()) return false
-      memoryStore.delete(id)
-      return true
-    }
-
     const result = await this.db.exec(
       'DELETE FROM todos WHERE id = ? AND owner = ?',
       [id, owner.toLowerCase()],
@@ -299,17 +216,6 @@ export class TodoRepository {
     owner: Address,
     encryptedData: string,
   ): Promise<boolean> {
-    await this.checkFallback()
-
-    if (useFallback) {
-      const row = memoryStore.get(id)
-      if (!row || row.owner.toLowerCase() !== owner.toLowerCase()) return false
-      row.encrypted_data = encryptedData
-      row.updated_at = Date.now()
-      memoryStore.set(id, row)
-      return true
-    }
-
     const result = await this.db.exec(
       'UPDATE todos SET encrypted_data = ?, updated_at = ? WHERE id = ? AND owner = ?',
       [encryptedData, Date.now(), id, owner.toLowerCase()],
@@ -322,17 +228,6 @@ export class TodoRepository {
     owner: Address,
     cid: string,
   ): Promise<boolean> {
-    await this.checkFallback()
-
-    if (useFallback) {
-      const row = memoryStore.get(id)
-      if (!row || row.owner.toLowerCase() !== owner.toLowerCase()) return false
-      row.attachment_cid = cid
-      row.updated_at = Date.now()
-      memoryStore.set(id, row)
-      return true
-    }
-
     const result = await this.db.exec(
       'UPDATE todos SET attachment_cid = ?, updated_at = ? WHERE id = ? AND owner = ?',
       [cid, Date.now(), id, owner.toLowerCase()],
@@ -365,22 +260,6 @@ export class TodoRepository {
   }
 
   async bulkComplete(ids: string[], owner: Address): Promise<Todo[]> {
-    await this.checkFallback()
-
-    if (useFallback) {
-      const completed: Todo[] = []
-      for (const id of ids) {
-        const row = memoryStore.get(id)
-        if (row && row.owner.toLowerCase() === owner.toLowerCase()) {
-          row.completed = 1
-          row.updated_at = Date.now()
-          memoryStore.set(id, row)
-          completed.push(rowToTodo(row))
-        }
-      }
-      return completed
-    }
-
     const placeholders = ids.map(() => '?').join(', ')
     const now = Date.now()
 
@@ -398,20 +277,6 @@ export class TodoRepository {
   }
 
   async bulkDelete(ids: string[], owner: Address): Promise<number> {
-    await this.checkFallback()
-
-    if (useFallback) {
-      let count = 0
-      for (const id of ids) {
-        const row = memoryStore.get(id)
-        if (row && row.owner.toLowerCase() === owner.toLowerCase()) {
-          memoryStore.delete(id)
-          count++
-        }
-      }
-      return count
-    }
-
     const placeholders = ids.map(() => '?').join(', ')
 
     const result = await this.db.exec(
@@ -432,9 +297,7 @@ export function getTodoRepository(): TodoRepository {
   return repository
 }
 
-// For testing: reset the repository and memory store
+// For testing: reset the repository
 export function resetRepository(): void {
   repository = null
-  memoryStore.clear()
-  useFallback = false
 }

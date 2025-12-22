@@ -217,21 +217,6 @@ export function ChatInterface({
     [],
   )
 
-  // Fallback when inference API is unavailable - no fake AI responses
-  const processLocally = useCallback((_input: string): string => {
-    return `**AI Service Unavailable**
-
-The inference server is not responding. To enable AI chat:
-
-1. Set an API key: OPENAI_API_KEY, ANTHROPIC_API_KEY, or GROQ_API_KEY
-2. Start the inference server: \`jeju compute start\`
-
-**You can still use the wallet directly:**
-Use the sidebar navigation to access Portfolio, Pools, Perps, Launchpad, Names, and Security features.
-
-Groq offers a free tier at https://console.groq.com/keys`
-  }, [])
-
   // Handle sending messages - tries ElizaOS first, then inference gateway
   const handleSend = useCallback(async () => {
     if (!inputValue.trim() || isTyping) return
@@ -317,17 +302,14 @@ Groq offers a free tier at https://console.groq.com/keys`
       }
     } catch (error) {
       console.error('[Chat] Inference error:', error)
-
-      // Fallback to local processing
-      const fallbackResponse = processLocally(userContent)
       setStreamingContent('')
 
       const agentMsg: Message = {
         id: `agent-${Date.now()}`,
-        content: fallbackResponse,
+        content: `Error: ${error instanceof Error ? error.message : 'Inference failed'}`,
         isAgent: true,
         timestamp: Date.now(),
-        metadata: { provider: 'local' },
+        metadata: { provider: 'error' },
       }
       setMessages((prev) => [...prev, agentMsg])
     } finally {
@@ -342,7 +324,6 @@ Groq offers a free tier at https://console.groq.com/keys`
     address,
     walletConnected,
     parseActionFromResponse,
-    processLocally,
   ])
 
   // Handle action confirmation

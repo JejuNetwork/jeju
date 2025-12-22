@@ -13,10 +13,6 @@ import {
 } from '@jejunetwork/types'
 import { z } from 'zod'
 
-// ============================================================================
-// Wallet Account Schemas
-// ============================================================================
-
 export const WalletAccountTypeSchema = z.enum([
   'hd',
   'private-key',
@@ -31,7 +27,7 @@ export const WalletAccountSchema = z.object({
   name: z.string().min(1),
   hdPath: z.string().optional(),
   createdAt: TimestampSchema,
-  isActive: z.boolean().optional(),
+  isActive: z.boolean().default(true),
 })
 
 export const GasPreferencesSchema = z.object({
@@ -66,17 +62,13 @@ export const WalletServiceConfigSchema = z.object({
   jejuRpcUrl: z.string().url().optional(),
 })
 
-// ============================================================================
-// Token & Balance Schemas
-// ============================================================================
-
 export const PluginTokenSchema = z.object({
   chainId: ChainIdSchema,
   address: AddressSchema,
   symbol: z.string().min(1),
   name: z.string().min(1),
   decimals: z.number().int().min(0).max(255),
-  isNative: z.boolean().optional(),
+  isNative: z.boolean().default(false),
   logoUri: z.string().url().optional(),
   priceUsd: z.number().nonnegative().optional(),
 })
@@ -104,10 +96,6 @@ export const PortfolioSummarySchema = z.object({
   balancesByChain: z.map(ChainIdSchema, z.array(PluginTokenBalanceSchema)),
   topTokens: z.array(PluginTokenBalanceSchema),
 })
-
-// ============================================================================
-// Transaction Schemas
-// ============================================================================
 
 export const PluginTransactionStatusSchema = z.enum([
   'pending',
@@ -166,10 +154,6 @@ export const SimulationResultSchema = z.object({
   ),
 })
 
-// ============================================================================
-// Account Abstraction Schemas
-// ============================================================================
-
 export const PluginUserOperationSchema = z.object({
   sender: AddressSchema,
   nonce: BigIntSchema,
@@ -213,10 +197,6 @@ export const AAServiceConfigSchema = z.object({
   supportedChains: z.array(ChainIdSchema),
 })
 
-// ============================================================================
-// EIL Schemas
-// ============================================================================
-
 export const PluginVoucherStatusSchema = z.enum([
   'pending',
   'voucher-issued',
@@ -253,10 +233,6 @@ export const EILServiceConfigSchema = z.object({
   crossChainPaymasterAddress: AddressSchema,
   supportedChains: z.array(ChainIdSchema),
 })
-
-// ============================================================================
-// OIF Schemas
-// ============================================================================
 
 export const PluginIntentStatusSchema = z.enum([
   'pending',
@@ -300,10 +276,6 @@ export const OIFServiceConfigSchema = z.object({
   supportedChains: z.array(ChainIdSchema),
 })
 
-// ============================================================================
-// Gas Schemas
-// ============================================================================
-
 export const GasSpeedSchema = z.enum(['slow', 'standard', 'fast'])
 
 export const PluginGasEstimateSchema = z.object({
@@ -340,10 +312,6 @@ export const GasServiceConfigSchema = z.object({
     }),
   ),
 })
-
-// ============================================================================
-// Security Schemas
-// ============================================================================
 
 export const RiskLevelSchema = z.enum(['low', 'medium', 'high', 'critical'])
 
@@ -397,10 +365,6 @@ export const SignatureRiskSchema = z.object({
   description: z.string().min(1),
   details: SignatureRiskDetailsSchema.optional(),
 })
-
-// ============================================================================
-// Service-Specific Schemas
-// ============================================================================
 
 export const ContactSchema = z.object({
   id: z.string().min(1),

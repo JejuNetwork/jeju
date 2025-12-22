@@ -33,9 +33,7 @@ import {
   TxHashSchema,
 } from './schemas'
 
-// ============================================================================
 // Address Schema Tests
-// ============================================================================
 
 describe('AddressSchema - Ethereum Address Validation', () => {
   test('should accept valid checksummed address', () => {
@@ -123,9 +121,7 @@ describe('AddressSchema - Ethereum Address Validation', () => {
   })
 })
 
-// ============================================================================
 // Hex Schema Tests
-// ============================================================================
 
 describe('HexSchema - Hex String Validation', () => {
   test('should accept valid hex string', () => {
@@ -180,9 +176,7 @@ describe('HexSchema - Hex String Validation', () => {
   })
 })
 
-// ============================================================================
 // Private Key Schema Tests
-// ============================================================================
 
 describe('PrivateKeySchema - Private Key Validation', () => {
   test('should accept valid private key', () => {
@@ -224,9 +218,7 @@ describe('PrivateKeySchema - Private Key Validation', () => {
   })
 })
 
-// ============================================================================
 // Transaction Hash Schema Tests
-// ============================================================================
 
 describe('TxHashSchema - Transaction Hash Validation', () => {
   test('should accept valid transaction hash', () => {
@@ -251,9 +243,7 @@ describe('TxHashSchema - Transaction Hash Validation', () => {
   })
 })
 
-// ============================================================================
 // JSON-RPC Schema Tests
-// ============================================================================
 
 describe('JsonRpcRequestSchema - JSON-RPC Request Validation', () => {
   test('should accept valid request with params', () => {
@@ -416,9 +406,7 @@ describe('JsonRpcErrorResponseSchema - Error Response Validation', () => {
   })
 })
 
-// ============================================================================
 // Chain Response Schema Tests
-// ============================================================================
 
 describe('ChainIdResponseSchema - Chain ID Response Validation', () => {
   test('should accept valid chain ID response', () => {
@@ -498,9 +486,7 @@ describe('GetCodeResponseSchema - Get Code Response Validation', () => {
   })
 })
 
-// ============================================================================
 // Validation Helper Tests
-// ============================================================================
 
 describe('parseChainIdResponse - Chain ID Parsing', () => {
   test('should parse chain ID 1337', () => {
@@ -809,9 +795,7 @@ describe('parseIpfsAddResponse - IPFS Add Response Parsing', () => {
   })
 })
 
-// ============================================================================
 // Complex Schema Tests
-// ============================================================================
 
 describe('LockMetadataSchema - Lock Metadata Validation', () => {
   test('should accept valid metadata', () => {
@@ -977,9 +961,7 @@ describe('NetworkConfigSchema - Network Configuration Validation', () => {
   })
 })
 
-// ============================================================================
 // Edge Cases and Boundary Conditions
-// ============================================================================
 
 describe('Schema Edge Cases', () => {
   test('should handle maximum safe integer for chain ID', () => {

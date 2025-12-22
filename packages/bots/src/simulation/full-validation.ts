@@ -13,27 +13,38 @@
  */
 
 import type { Token } from '../types'
-import { Backtester, type BacktestConfig, type BacktestResult } from './backtester'
+import {
+  type BacktestConfig,
+  Backtester,
+  type BacktestResult,
+} from './backtester'
 import { HistoricalDataFetcher } from './data-fetcher'
-import { MultiSourceFetcher, STRESS_SCENARIOS } from './multi-source-fetcher'
-import { StressTestRunner, type StressTestConfig, type StressTestResult } from './stress-tests'
-import { runMEVCompetitionSim, type CompetitionSimResult } from './mev-competition'
-import { createScanner, type ScanResult } from './multi-chain-scanner'
 import {
   createEconomicsCalculator,
-  SlippageModel,
-  MarketImpactModel,
   GasCostModel,
   ImpermanentLossCalculator,
+  MarketImpactModel,
+  SlippageModel,
   type TradeEconomics,
 } from './economics'
+import {
+  type CompetitionSimResult,
+  runMEVCompetitionSim,
+} from './mev-competition'
 import {
   createValidationSuite,
   type MonteCarloResult,
   type ValidationResult,
   type WalkForwardResult,
 } from './monte-carlo'
-import { ASCIICharts, TerminalReport, HTMLReportGenerator } from './visualizer'
+import { createScanner, type ScanResult } from './multi-chain-scanner'
+import { STRESS_SCENARIOS } from './multi-source-fetcher'
+import {
+  type StressTestConfig,
+  type StressTestResult,
+  StressTestRunner,
+} from './stress-tests'
+import { ASCIICharts, HTMLReportGenerator, TerminalReport } from './visualizer'
 
 // ============ Types ============
 
@@ -42,27 +53,27 @@ export interface FullValidationConfig {
   strategy: 'momentum' | 'mean-reversion' | 'volatility' | 'composite'
   tokens: Token[]
   initialCapitalUsd: number
-  
+
   // Economic parameters
   ethPriceUsd: number
   avgPoolTvlUsd: number
   avgDailyVolumeUsd: number
   tradeSizeUsd: number
-  
+
   // Risk parameters
   maxDrawdownPercent: number
   maxDailyLossPercent: number
   maxSlippageBps: number
   usePrivateMempool: boolean
-  
+
   // Monte Carlo
   monteCarloSimulations: number
   confidenceLevel: number
-  
+
   // Data sources
   alchemyApiKey?: string
   heliusApiKey?: string
-  
+
   // Output
   generateHtmlReport: boolean
   htmlReportPath?: string
@@ -71,7 +82,7 @@ export interface FullValidationConfig {
 export interface FullValidationResult {
   timestamp: number
   duration: number
-  
+
   // Core results
   backtest: BacktestResult
   economics: EconomicsAnalysis
@@ -81,10 +92,10 @@ export interface FullValidationResult {
   stressTests: StressTestResult[]
   mevSim: CompetitionSimResult
   scan: ScanResult
-  
+
   // Summary
   summary: ValidationSummary
-  
+
   // Generated reports
   htmlReport?: string
 }
@@ -120,7 +131,7 @@ interface EconomicsAnalysis {
 interface ValidationSummary {
   overallScore: number // 0-100
   grade: 'A' | 'B' | 'C' | 'D' | 'F'
-  
+
   profitability: {
     score: number
     status: 'pass' | 'warning' | 'fail'
@@ -141,7 +152,7 @@ interface ValidationSummary {
     status: 'pass' | 'warning' | 'fail'
     details: string
   }
-  
+
   recommendations: string[]
   warnings: string[]
   criticalIssues: string[]
@@ -162,14 +173,16 @@ export class FullValidationRunner {
   async run(): Promise<FullValidationResult> {
     const startTime = Date.now()
 
-    console.log('\n' + '█'.repeat(70))
+    console.log(`\n${'█'.repeat(70)}`)
     console.log('  COMPREHENSIVE BOT VALIDATION')
     console.log('█'.repeat(70))
     console.log(`  Strategy: ${this.config.strategy}`)
     console.log(`  Capital: $${this.config.initialCapitalUsd.toLocaleString()}`)
     console.log(`  Trade Size: $${this.config.tradeSizeUsd.toLocaleString()}`)
-    console.log(`  Monte Carlo: ${this.config.monteCarloSimulations.toLocaleString()} simulations`)
-    console.log('█'.repeat(70) + '\n')
+    console.log(
+      `  Monte Carlo: ${this.config.monteCarloSimulations.toLocaleString()} simulations`,
+    )
+    console.log(`${'█'.repeat(70)}\n`)
 
     // Phase 1: Historical Backtest
     console.log('\n📈 PHASE 1: HISTORICAL BACKTEST')
@@ -206,7 +219,11 @@ export class FullValidationRunner {
     const walkForward = validationSuite.runWalkForward(
       backtest.snapshots.map((s, i) => ({
         timestamp: s.timestamp,
-        return: i === 0 ? 0 : (s.valueUsd - backtest.snapshots[i - 1].valueUsd) / backtest.snapshots[i - 1].valueUsd,
+        return:
+          i === 0
+            ? 0
+            : (s.valueUsd - backtest.snapshots[i - 1].valueUsd) /
+              backtest.snapshots[i - 1].valueUsd,
       })),
     )
     this.printWalkForwardReport(walkForward)
@@ -276,7 +293,8 @@ export class FullValidationRunner {
       )
       result.htmlReport = html
 
-      const reportPath = this.config.htmlReportPath ?? './validation-report.html'
+      const reportPath =
+        this.config.htmlReportPath ?? './validation-report.html'
       HTMLReportGenerator.save(html, reportPath)
     }
 
@@ -300,10 +318,16 @@ export class FullValidationRunner {
       86400000, // Daily
       {
         initialPrices: Object.fromEntries(
-          this.config.tokens.map((t) => [t.symbol, this.getTypicalPrice(t.symbol)]),
+          this.config.tokens.map((t) => [
+            t.symbol,
+            this.getTypicalPrice(t.symbol),
+          ]),
         ),
         volatilities: Object.fromEntries(
-          this.config.tokens.map((t) => [t.symbol, this.getTypicalVolatility(t.symbol)]),
+          this.config.tokens.map((t) => [
+            t.symbol,
+            this.getTypicalVolatility(t.symbol),
+          ]),
         ),
         correlations: this.generateCorrelationMatrix(this.config.tokens.length),
         trend: -0.0002, // Slight bearish (current market)
@@ -313,7 +337,9 @@ export class FullValidationRunner {
     const backtestConfig: BacktestConfig = {
       strategy: this.config.strategy,
       tokens: this.config.tokens,
-      initialWeights: this.config.tokens.map(() => 1 / this.config.tokens.length),
+      initialWeights: this.config.tokens.map(
+        () => 1 / this.config.tokens.length,
+      ),
       startDate,
       endDate,
       initialCapitalUsd: this.config.initialCapitalUsd,
@@ -341,9 +367,10 @@ export class FullValidationRunner {
     })
 
     // Calculate trade economics
-    const avgSpreadBps = backtest.totalReturn > 0
-      ? (backtest.totalReturn / backtest.totalTrades) * 10000
-      : 10
+    const avgSpreadBps =
+      backtest.totalReturn > 0
+        ? (backtest.totalReturn / backtest.totalTrades) * 10000
+        : 10
 
     const tradeEconomics = calculator.calculate({
       tradeSizeUsd: this.config.tradeSizeUsd,
@@ -380,15 +407,18 @@ export class FullValidationRunner {
 
     const tradesPerMonth = 30 * 24 // Hourly trades
     const gasPerMonth = gasCost.totalCostUsd * tradesPerMonth
-    const profitPerMonth = backtest.totalReturn * this.config.initialCapitalUsd / 6
+    const profitPerMonth =
+      (backtest.totalReturn * this.config.initialCapitalUsd) / 6
 
     // Impermanent loss
     const il30 = ImpermanentLossCalculator.estimateExpectedIL(0.8, 30)
     const il90 = ImpermanentLossCalculator.estimateExpectedIL(0.8, 90)
 
     // Breakeven calculations
-    const minSpreadForProfit = (tradeEconomics.slippageCostUsd + tradeEconomics.gasCostUsd) /
-      this.config.tradeSizeUsd * 10000
+    const minSpreadForProfit =
+      ((tradeEconomics.slippageCostUsd + tradeEconomics.gasCostUsd) /
+        this.config.tradeSizeUsd) *
+      10000
 
     return {
       tradeEconomics,
@@ -405,7 +435,8 @@ export class FullValidationRunner {
       gasCosts: {
         perTrade: gasCost.totalCostUsd,
         perMonth: gasPerMonth,
-        asPercentOfProfit: profitPerMonth > 0 ? (gasPerMonth / profitPerMonth) * 100 : 100,
+        asPercentOfProfit:
+          profitPerMonth > 0 ? (gasPerMonth / profitPerMonth) * 100 : 100,
       },
       impermanentLoss: {
         expected30dBps: il30.expectedIlBps,
@@ -414,7 +445,10 @@ export class FullValidationRunner {
       breakeven: {
         minSpreadBps: minSpreadForProfit,
         minTradeSizeUsd: tradeEconomics.gasCostUsd / (avgSpreadBps / 10000),
-        maxGasGwei: (tradeEconomics.grossProfitUsd / Number(gasCost.totalGasUnits)) * 1e9 / this.config.ethPriceUsd,
+        maxGasGwei:
+          ((tradeEconomics.grossProfitUsd / Number(gasCost.totalGasUnits)) *
+            1e9) /
+          this.config.ethPriceUsd,
       },
     }
   }
@@ -450,7 +484,7 @@ export class FullValidationRunner {
       gasPriceGwei: 30,
       ethPriceUsd: this.config.ethPriceUsd,
       ourLatencyMs: 50,
-      ourSuccessRate: 0.20,
+      ourSuccessRate: 0.2,
     })
   }
 
@@ -459,7 +493,11 @@ export class FullValidationRunner {
       chains: [
         { chainId: 1, rpcUrl: 'https://eth.llamarpc.com', name: 'Ethereum' },
         { chainId: 8453, rpcUrl: 'https://mainnet.base.org', name: 'Base' },
-        { chainId: 42161, rpcUrl: 'https://arb1.arbitrum.io/rpc', name: 'Arbitrum' },
+        {
+          chainId: 42161,
+          rpcUrl: 'https://arb1.arbitrum.io/rpc',
+          name: 'Arbitrum',
+        },
       ],
       tokens: this.config.tokens.map((t) => t.symbol),
       minSpreadBps: 5,
@@ -492,13 +530,16 @@ export class FullValidationRunner {
     else if (backtest.totalReturn > 0) profitScore = 15
     else profitScore = 0
 
-    const profitStatus = profitScore >= 20 ? 'pass' : profitScore >= 15 ? 'warning' : 'fail'
+    const profitStatus =
+      profitScore >= 20 ? 'pass' : profitScore >= 15 ? 'warning' : 'fail'
 
     if (profitScore < 20) {
       recommendations.push('Improve entry/exit criteria for higher returns')
     }
     if (economics.breakeven.minSpreadBps > 50) {
-      warnings.push(`High breakeven spread required: ${economics.breakeven.minSpreadBps.toFixed(0)} bps`)
+      warnings.push(
+        `High breakeven spread required: ${economics.breakeven.minSpreadBps.toFixed(0)} bps`,
+      )
     }
 
     // Risk Score (0-25)
@@ -511,13 +552,16 @@ export class FullValidationRunner {
     if (monteCarlo.cvar95 > 0.2) riskScore -= 5
 
     riskScore = Math.max(0, riskScore)
-    const riskStatus = riskScore >= 20 ? 'pass' : riskScore >= 15 ? 'warning' : 'fail'
+    const riskStatus =
+      riskScore >= 20 ? 'pass' : riskScore >= 15 ? 'warning' : 'fail'
 
     if (backtest.maxDrawdown > 0.25) {
       criticalIssues.push('Excessive drawdown risk - add stop losses')
     }
     if (monteCarlo.probabilityOfRuin > 0.05) {
-      warnings.push(`${(monteCarlo.probabilityOfRuin * 100).toFixed(1)}% probability of >50% drawdown`)
+      warnings.push(
+        `${(monteCarlo.probabilityOfRuin * 100).toFixed(1)}% probability of >50% drawdown`,
+      )
     }
 
     // Robustness Score (0-25)
@@ -525,27 +569,38 @@ export class FullValidationRunner {
     if (validation.overfit) robustnessScore -= 15
     else if (validation.overfitScore > 0.2) robustnessScore -= 10
 
-    const stressSurvivalRate = stressTests.filter((s) => s.survivalMetrics.survived).length / stressTests.length
+    const stressSurvivalRate =
+      stressTests.filter((s) => s.survivalMetrics.survived).length /
+      stressTests.length
     if (stressSurvivalRate < 0.75) robustnessScore -= 10
     else if (stressSurvivalRate < 1) robustnessScore -= 5
 
     if (walkForward.consistency < 0.6) robustnessScore -= 5
 
     robustnessScore = Math.max(0, robustnessScore)
-    const robustnessStatus = robustnessScore >= 20 ? 'pass' : robustnessScore >= 15 ? 'warning' : 'fail'
+    const robustnessStatus =
+      robustnessScore >= 20
+        ? 'pass'
+        : robustnessScore >= 15
+          ? 'warning'
+          : 'fail'
 
     if (validation.overfit) {
       criticalIssues.push('Strategy shows overfitting - simplify parameters')
     }
     if (stressSurvivalRate < 0.75) {
-      warnings.push(`Only survived ${(stressSurvivalRate * 100).toFixed(0)}% of stress scenarios`)
+      warnings.push(
+        `Only survived ${(stressSurvivalRate * 100).toFixed(0)}% of stress scenarios`,
+      )
     }
 
     // Economics Score (0-25)
     let economicsScore = 25
     if (economics.tradeEconomics.netProfitUsd < 0) economicsScore = 0
-    else if (economics.tradeEconomics.breakEvenProbability < 0.6) economicsScore -= 15
-    else if (economics.tradeEconomics.breakEvenProbability < 0.8) economicsScore -= 10
+    else if (economics.tradeEconomics.breakEvenProbability < 0.6)
+      economicsScore -= 15
+    else if (economics.tradeEconomics.breakEvenProbability < 0.8)
+      economicsScore -= 10
 
     if (economics.gasCosts.asPercentOfProfit > 30) economicsScore -= 10
     else if (economics.gasCosts.asPercentOfProfit > 20) economicsScore -= 5
@@ -553,20 +608,26 @@ export class FullValidationRunner {
     if (mevSim.winRate < 0.02) economicsScore -= 5
 
     economicsScore = Math.max(0, economicsScore)
-    const economicsStatus = economicsScore >= 20 ? 'pass' : economicsScore >= 15 ? 'warning' : 'fail'
+    const economicsStatus =
+      economicsScore >= 20 ? 'pass' : economicsScore >= 15 ? 'warning' : 'fail'
 
     if (economics.tradeEconomics.netProfitUsd <= 0) {
       criticalIssues.push('Trades are not profitable after costs')
     }
     if (economics.gasCosts.asPercentOfProfit > 30) {
-      recommendations.push('Gas costs too high - target L2 chains or larger trades')
+      recommendations.push(
+        'Gas costs too high - target L2 chains or larger trades',
+      )
     }
     if (economics.slippageModel.expectedBps > 100) {
-      recommendations.push('High slippage - reduce trade size or target deeper pools')
+      recommendations.push(
+        'High slippage - reduce trade size or target deeper pools',
+      )
     }
 
     // Overall Score
-    const overallScore = profitScore + riskScore + robustnessScore + economicsScore
+    const overallScore =
+      profitScore + riskScore + robustnessScore + economicsScore
     let grade: ValidationSummary['grade']
     if (overallScore >= 90) grade = 'A'
     else if (overallScore >= 75) grade = 'B'
@@ -608,68 +669,116 @@ export class FullValidationRunner {
   private printEconomicsReport(economics: EconomicsAnalysis): void {
     console.log('\n📊 TRADE ECONOMICS')
     console.log('─'.repeat(40))
-    console.log(`  Gross Profit:       $${economics.tradeEconomics.grossProfitUsd.toFixed(2)}`)
-    console.log(`  Slippage Cost:      $${economics.tradeEconomics.slippageCostUsd.toFixed(2)}`)
-    console.log(`  Gas Cost:           $${economics.tradeEconomics.gasCostUsd.toFixed(2)}`)
-    console.log(`  MEV Risk Cost:      $${economics.tradeEconomics.mevRiskCostUsd.toFixed(2)}`)
-    console.log(`  Net Profit:         $${economics.tradeEconomics.netProfitUsd.toFixed(2)}`)
-    console.log(`  Return:             ${economics.tradeEconomics.returnBps.toFixed(1)} bps`)
-    console.log(`  Break-even Prob:    ${(economics.tradeEconomics.breakEvenProbability * 100).toFixed(1)}%`)
+    console.log(
+      `  Gross Profit:       $${economics.tradeEconomics.grossProfitUsd.toFixed(2)}`,
+    )
+    console.log(
+      `  Slippage Cost:      $${economics.tradeEconomics.slippageCostUsd.toFixed(2)}`,
+    )
+    console.log(
+      `  Gas Cost:           $${economics.tradeEconomics.gasCostUsd.toFixed(2)}`,
+    )
+    console.log(
+      `  MEV Risk Cost:      $${economics.tradeEconomics.mevRiskCostUsd.toFixed(2)}`,
+    )
+    console.log(
+      `  Net Profit:         $${economics.tradeEconomics.netProfitUsd.toFixed(2)}`,
+    )
+    console.log(
+      `  Return:             ${economics.tradeEconomics.returnBps.toFixed(1)} bps`,
+    )
+    console.log(
+      `  Break-even Prob:    ${(economics.tradeEconomics.breakEvenProbability * 100).toFixed(1)}%`,
+    )
 
     console.log('\n📉 SLIPPAGE & IMPACT')
     console.log('─'.repeat(40))
-    console.log(`  Expected Slippage:  ${economics.slippageModel.expectedBps.toFixed(1)} bps`)
-    console.log(`  Worst Case:         ${economics.slippageModel.worstCaseBps.toFixed(1)} bps`)
-    console.log(`  Liquidity Depth:    $${(economics.slippageModel.liquidityDepthUsd / 1000).toFixed(0)}k`)
-    console.log(`  Temp Impact:        ${economics.marketImpact.temporaryBps.toFixed(2)} bps`)
-    console.log(`  Perm Impact:        ${economics.marketImpact.permanentBps.toFixed(2)} bps`)
+    console.log(
+      `  Expected Slippage:  ${economics.slippageModel.expectedBps.toFixed(1)} bps`,
+    )
+    console.log(
+      `  Worst Case:         ${economics.slippageModel.worstCaseBps.toFixed(1)} bps`,
+    )
+    console.log(
+      `  Liquidity Depth:    $${(economics.slippageModel.liquidityDepthUsd / 1000).toFixed(0)}k`,
+    )
+    console.log(
+      `  Temp Impact:        ${economics.marketImpact.temporaryBps.toFixed(2)} bps`,
+    )
+    console.log(
+      `  Perm Impact:        ${economics.marketImpact.permanentBps.toFixed(2)} bps`,
+    )
 
     console.log('\n⛽ GAS COSTS')
     console.log('─'.repeat(40))
-    console.log(`  Per Trade:          $${economics.gasCosts.perTrade.toFixed(2)}`)
-    console.log(`  Per Month (est):    $${economics.gasCosts.perMonth.toFixed(0)}`)
-    console.log(`  % of Profit:        ${economics.gasCosts.asPercentOfProfit.toFixed(1)}%`)
+    console.log(
+      `  Per Trade:          $${economics.gasCosts.perTrade.toFixed(2)}`,
+    )
+    console.log(
+      `  Per Month (est):    $${economics.gasCosts.perMonth.toFixed(0)}`,
+    )
+    console.log(
+      `  % of Profit:        ${economics.gasCosts.asPercentOfProfit.toFixed(1)}%`,
+    )
 
     console.log('\n📊 BREAKEVEN ANALYSIS')
     console.log('─'.repeat(40))
-    console.log(`  Min Spread:         ${economics.breakeven.minSpreadBps.toFixed(1)} bps`)
-    console.log(`  Min Trade Size:     $${economics.breakeven.minTradeSizeUsd.toFixed(0)}`)
-    console.log(`  Max Gas Price:      ${economics.breakeven.maxGasGwei.toFixed(0)} gwei`)
+    console.log(
+      `  Min Spread:         ${economics.breakeven.minSpreadBps.toFixed(1)} bps`,
+    )
+    console.log(
+      `  Min Trade Size:     $${economics.breakeven.minTradeSizeUsd.toFixed(0)}`,
+    )
+    console.log(
+      `  Max Gas Price:      ${economics.breakeven.maxGasGwei.toFixed(0)} gwei`,
+    )
   }
 
   private printWalkForwardReport(result: WalkForwardResult): void {
     console.log(`  Periods:            ${result.periods.length}`)
-    console.log(`  Consistency:        ${(result.consistency * 100).toFixed(0)}%`)
-    console.log(`  Robustness:         ${(result.robustness * 100).toFixed(0)}%`)
+    console.log(
+      `  Consistency:        ${(result.consistency * 100).toFixed(0)}%`,
+    )
+    console.log(
+      `  Robustness:         ${(result.robustness * 100).toFixed(0)}%`,
+    )
 
     console.log('\n  Period-by-Period:')
-    console.log(ASCIICharts.table(
-      ['Period', 'Train Sharpe', 'Test Sharpe', 'Degradation'],
-      result.periods.map((p, i) => [
-        `${i + 1}`,
-        p.trainMetrics.sharpeRatio.toFixed(2),
-        p.testMetrics.sharpeRatio.toFixed(2),
-        `${p.trainMetrics.sharpeRatio > 0 ? ((1 - p.testMetrics.sharpeRatio / p.trainMetrics.sharpeRatio) * 100).toFixed(0) : 'N/A'}%`,
-      ]),
-    ))
+    console.log(
+      ASCIICharts.table(
+        ['Period', 'Train Sharpe', 'Test Sharpe', 'Degradation'],
+        result.periods.map((p, i) => [
+          `${i + 1}`,
+          p.trainMetrics.sharpeRatio.toFixed(2),
+          p.testMetrics.sharpeRatio.toFixed(2),
+          `${p.trainMetrics.sharpeRatio > 0 ? ((1 - p.testMetrics.sharpeRatio / p.trainMetrics.sharpeRatio) * 100).toFixed(0) : 'N/A'}%`,
+        ]),
+      ),
+    )
   }
 
   private printScanReport(result: ScanResult): void {
     console.log(`  Chains Scanned:     ${result.chainStatus.length}`)
-    console.log(`  Cross-chain Opps:   ${result.crossChainOpportunities.length}`)
+    console.log(
+      `  Cross-chain Opps:   ${result.crossChainOpportunities.length}`,
+    )
     console.log(`  Same-chain Opps:    ${result.sameChainOpportunities.length}`)
-    console.log(`  Total Value:        $${result.totalOpportunityValue.toFixed(2)}`)
+    console.log(
+      `  Total Value:        $${result.totalOpportunityValue.toFixed(2)}`,
+    )
 
     if (result.crossChainOpportunities.length > 0) {
       console.log('\n  Top Cross-Chain Opportunities:')
       for (const opp of result.crossChainOpportunities.slice(0, 3)) {
-        console.log(`    ${opp.token}: ${opp.spreadBps.toFixed(1)} bps ($${opp.netProfitUsd.toFixed(2)})`)
+        console.log(
+          `    ${opp.token}: ${opp.spreadBps.toFixed(1)} bps ($${opp.netProfitUsd.toFixed(2)})`,
+        )
       }
     }
   }
 
   private printSummary(summary: ValidationSummary): void {
-    console.log('\n' + '█'.repeat(70))
+    console.log(`\n${'█'.repeat(70)}`)
     console.log('  VALIDATION SUMMARY')
     console.log('█'.repeat(70))
 
@@ -683,7 +792,9 @@ export class FullValidationRunner {
     const reset = '\x1b[0m'
 
     console.log(`\n  Overall Score: ${summary.overallScore}/100`)
-    console.log(`  Grade: ${gradeColors[summary.grade]}${summary.grade}${reset}`)
+    console.log(
+      `  Grade: ${gradeColors[summary.grade]}${summary.grade}${reset}`,
+    )
 
     console.log('\n  Category Breakdown:')
     const categories = [
@@ -694,9 +805,12 @@ export class FullValidationRunner {
     ]
 
     for (const cat of categories) {
-      const statusIcon = cat.status === 'pass' ? '✅' : cat.status === 'warning' ? '⚠️' : '❌'
+      const statusIcon =
+        cat.status === 'pass' ? '✅' : cat.status === 'warning' ? '⚠️' : '❌'
       const bar = '█'.repeat(cat.score) + '░'.repeat(25 - cat.score)
-      console.log(`  ${statusIcon} ${cat.name.padEnd(15)} [${bar}] ${cat.score}/25`)
+      console.log(
+        `  ${statusIcon} ${cat.name.padEnd(15)} [${bar}] ${cat.score}/25`,
+      )
       console.log(`     ${cat.details}`)
     }
 
@@ -721,15 +835,17 @@ export class FullValidationRunner {
       }
     }
 
-    console.log('\n' + '█'.repeat(70))
+    console.log(`\n${'█'.repeat(70)}`)
     if (summary.grade === 'A' || summary.grade === 'B') {
       console.log('  ✅ STRATEGY VALIDATED - Ready for production testing')
     } else if (summary.grade === 'C') {
-      console.log('  ⚠️ STRATEGY NEEDS IMPROVEMENT - Address warnings before deployment')
+      console.log(
+        '  ⚠️ STRATEGY NEEDS IMPROVEMENT - Address warnings before deployment',
+      )
     } else {
       console.log('  ❌ STRATEGY NOT READY - Critical issues must be resolved')
     }
-    console.log('█'.repeat(70) + '\n')
+    console.log(`${'█'.repeat(70)}\n`)
   }
 
   // ============ Helpers ============
@@ -746,16 +862,32 @@ export class FullValidationRunner {
 
   private getTypicalPrice(symbol: string): number {
     const prices: Record<string, number> = {
-      ETH: 3500, WETH: 3500, BTC: 95000, WBTC: 95000,
-      USDC: 1, USDT: 1, DAI: 1, SOL: 200, ARB: 1.2, OP: 2.5,
+      ETH: 3500,
+      WETH: 3500,
+      BTC: 95000,
+      WBTC: 95000,
+      USDC: 1,
+      USDT: 1,
+      DAI: 1,
+      SOL: 200,
+      ARB: 1.2,
+      OP: 2.5,
     }
     return prices[symbol] ?? 1
   }
 
   private getTypicalVolatility(symbol: string): number {
     const volatilities: Record<string, number> = {
-      ETH: 0.8, WETH: 0.8, BTC: 0.6, WBTC: 0.6,
-      USDC: 0.001, USDT: 0.001, DAI: 0.002, SOL: 1.2, ARB: 1.5, OP: 1.3,
+      ETH: 0.8,
+      WETH: 0.8,
+      BTC: 0.6,
+      WBTC: 0.6,
+      USDC: 0.001,
+      USDT: 0.001,
+      DAI: 0.002,
+      SOL: 1.2,
+      ARB: 1.5,
+      OP: 1.3,
     }
     return volatilities[symbol] ?? 0.8
   }
@@ -781,8 +913,18 @@ async function main() {
   const config: FullValidationConfig = {
     strategy: 'momentum',
     tokens: [
-      { symbol: 'ETH', address: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', decimals: 18, chainId: 1 },
-      { symbol: 'USDC', address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', decimals: 6, chainId: 1 },
+      {
+        symbol: 'ETH',
+        address: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
+        decimals: 18,
+        chainId: 1,
+      },
+      {
+        symbol: 'USDC',
+        address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+        decimals: 6,
+        chainId: 1,
+      },
     ],
     initialCapitalUsd: 100000,
     ethPriceUsd: 3500,
@@ -802,7 +944,9 @@ async function main() {
   const runner = new FullValidationRunner(config)
   const result = await runner.run()
 
-  console.log(`\nValidation completed in ${(result.duration / 1000).toFixed(1)}s`)
+  console.log(
+    `\nValidation completed in ${(result.duration / 1000).toFixed(1)}s`,
+  )
   if (result.htmlReport) {
     console.log(`HTML report saved to: ${config.htmlReportPath}`)
   }
@@ -811,4 +955,3 @@ async function main() {
 if (import.meta.main) {
   main().catch(console.error)
 }
-

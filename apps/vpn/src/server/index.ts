@@ -68,7 +68,6 @@ export function createVPNServer(config: VPNServerConfig) {
     )
     // SECURITY: Apply rate limiting to all endpoints
     .onBeforeHandle(({ request, set }) => {
-      // Get identifier from request
       const forwardedFor = request.headers.get('x-forwarded-for')
       const realIp = request.headers.get('x-real-ip')
       const jejuAddress = request.headers.get('x-jeju-address')
@@ -90,8 +89,6 @@ export function createVPNServer(config: VPNServerConfig) {
       }
 
       const result = checkRateLimit(type, identifier)
-
-      // Add rate limit headers
       set.headers['X-RateLimit-Remaining'] = result.remaining.toString()
       set.headers['X-RateLimit-Reset'] = result.resetAt.toString()
 

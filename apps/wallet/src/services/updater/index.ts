@@ -5,13 +5,10 @@
  * Pulls from the Jeju package registry and DWS for decentralized updates.
  */
 
+import { API_URLS, fetchApi } from '../../lib/eden'
 import { getPlatformInfo, isDesktop } from '../../platform/detection'
 import type { PlatformType } from '../../platform/types'
 import { UpdateManifestResponseSchema } from '../../schemas/api-responses'
-
-// ============================================================================
-// Types
-// ============================================================================
 
 export interface UpdateConfig {
   enabled: boolean
@@ -66,7 +63,6 @@ export interface UpdateListener {
   onError?: (error: Error) => void
 }
 
-// Event arguments mapped by event name
 type UpdateEventArgs = {
   onCheckStart: []
   onCheckComplete: [available: boolean, info: UpdateInfo | null]
@@ -78,10 +74,6 @@ type UpdateEventArgs = {
   onError: [error: Error]
 }
 
-// ============================================================================
-// Default Config
-// ============================================================================
-
 const DEFAULT_CONFIG: UpdateConfig = {
   enabled: true,
   checkInterval: 3600000, // 1 hour
@@ -89,15 +81,11 @@ const DEFAULT_CONFIG: UpdateConfig = {
   autoInstall: false, // Require user confirmation
   preRelease: false,
   channel: 'stable',
-  dwsEndpoint: 'https://dws.jejunetwork.org',
+  dwsEndpoint: API_URLS.dws,
   pkgRegistry: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
 }
 
 const CURRENT_VERSION = '0.1.0'
-
-// ============================================================================
-// Update Service
-// ============================================================================
 
 export class UpdateService {
   private config: UpdateConfig
@@ -122,17 +110,11 @@ export class UpdateService {
     }
   }
 
-  // ============================================================================
-  // Lifecycle
-  // ============================================================================
-
   start(): void {
     if (!this.config.enabled) return
 
-    // Check immediately
     this.checkForUpdates()
 
-    // Schedule periodic checks
     this.checkInterval = setInterval(() => {
       this.checkForUpdates()
     }, this.config.checkInterval)
@@ -150,10 +132,6 @@ export class UpdateService {
     }
   }
 
-  // ============================================================================
-  // Update Check
-  // ============================================================================
-
   async checkForUpdates(): Promise<UpdateInfo | null> {
     if (this.state.checking) return null
 
@@ -162,7 +140,6 @@ export class UpdateService {
     this.notify('onCheckStart')
 
     try {
-      // Fetch update manifest from DWS
       const manifest = await this.fetchManifest()
 
       if (!manifest) {
@@ -171,7 +148,6 @@ export class UpdateService {
         return null
       }
 
-      // Find latest version for current channel
       const update = this.findLatestUpdate(manifest)
 
       if (!update) {
@@ -182,7 +158,6 @@ export class UpdateService {
         return null
       }
 
-      // Check if update is needed
       if (!this.isNewerVersion(update.version)) {
         this.state.available = false
         this.state.latestVersion = update.version
@@ -191,7 +166,6 @@ export class UpdateService {
         return null
       }
 
-      // Verify we can update from current version
       if (
         update.requiredVersion &&
         !this.meetsRequirement(update.requiredVersion)
@@ -202,7 +176,6 @@ export class UpdateService {
         return null
       }
 
-      // Update available
       this.state.available = true
       this.state.latestVersion = update.version
       this.state.updateInfo = update
@@ -210,7 +183,6 @@ export class UpdateService {
 
       this.notify('onCheckComplete', true, update)
 
-      // Auto-download if enabled
       if (this.config.autoDownload) {
         this.downloadUpdate()
       }
@@ -229,35 +201,34 @@ export class UpdateService {
 
   private async fetchManifest(): Promise<{ versions: UpdateInfo[] } | null> {
     const platform = getPlatformInfo()
-    const url = `${this.config.dwsEndpoint}/pkg/wallet/updates.json`
 
-    const response = await fetch(url, {
-      headers: {
-        'X-Platform': platform.type,
-        'X-Version': this.state.currentVersion,
-        'X-Channel': this.config.channel,
-      },
-    }).catch(() => null)
+    try {
+      const data = await fetchApi<{ versions: unknown[] }>(
+        this.config.dwsEndpoint,
+        '/pkg/wallet/updates.json',
+        {
+          headers: {
+            'X-Platform': platform.type,
+            'X-Version': this.state.currentVersion,
+            'X-Channel': this.config.channel,
+          },
+        },
+      )
 
-    if (!response?.ok) {
-      // Fallback to on-chain registry
+      const result = UpdateManifestResponseSchema.safeParse(data)
+      if (!result.success) {
+        return this.fetchFromRegistry()
+      }
+
+      return result.data
+    } catch {
       return this.fetchFromRegistry()
     }
-
-    const result = UpdateManifestResponseSchema.safeParse(await response.json())
-    if (!result.success) {
-      console.warn('Invalid update manifest format:', result.error)
-      return this.fetchFromRegistry()
-    }
-
-    return result.data
   }
 
   private async fetchFromRegistry(): Promise<{
     versions: UpdateInfo[]
   } | null> {
-    // In production, this would query the PackageRegistry contract
-    // For now, return null to indicate no updates
     return null
   }
 
@@ -267,20 +238,17 @@ export class UpdateService {
     const platform = getPlatformInfo()
 
     const applicable = manifest.versions.filter((v) => {
-      // Filter by channel
       if (!this.config.preRelease && v.channel !== 'stable') return false
       if (this.config.channel === 'stable' && v.channel !== 'stable')
         return false
       if (this.config.channel === 'beta' && v.channel === 'nightly')
         return false
 
-      // Filter by platform
       return v.assets.some((a) => a.platform === platform.type)
     })
 
     if (applicable.length === 0) return null
 
-    // Sort by version (semver)
     applicable.sort((a, b) => this.compareVersions(b.version, a.version))
 
     return applicable[0]
@@ -308,10 +276,6 @@ export class UpdateService {
     return 0
   }
 
-  // ============================================================================
-  // Download
-  // ============================================================================
-
   async downloadUpdate(): Promise<boolean> {
     if (!this.state.updateInfo) return false
     if (this.state.downloading) return false
@@ -335,7 +299,6 @@ export class UpdateService {
     try {
       this.downloadController = new AbortController()
 
-      // Try DWS first (via CID)
       let response = await fetch(
         `${this.config.dwsEndpoint}/storage/download/${asset.cid}`,
         {
@@ -343,7 +306,6 @@ export class UpdateService {
         },
       ).catch(() => null)
 
-      // Fallback to direct URL
       if (!response?.ok) {
         response = await fetch(asset.url, {
           signal: this.downloadController.signal,
@@ -387,13 +349,11 @@ export class UpdateService {
         position += chunk.length
       }
 
-      // Verify hash
       const hash = await this.computeHash(data)
       if (hash !== asset.hash) {
         throw new Error('Update verification failed')
       }
 
-      // Save to platform storage
       await this.saveUpdate(data)
 
       this.state.downloading = false
@@ -403,7 +363,6 @@ export class UpdateService {
 
       this.notify('onDownloadComplete')
 
-      // Auto-install if enabled (desktop only)
       if (this.config.autoInstall && isDesktop()) {
         this.installUpdate()
       }
@@ -446,9 +405,6 @@ export class UpdateService {
     const platform = getPlatformInfo()
 
     if (platform.category === 'desktop' && '__TAURI__' in globalThis) {
-      // Tauri v2: Use invoke to call a custom command that handles file writing
-      // BaseDirectory.AppData = 14 in Tauri v2
-      // Dynamic import: Conditional - only loaded on Tauri desktop platform
       const { invoke } = await import('@tauri-apps/api/core')
       await invoke('save_pending_update', { data: Array.from(data) })
     } else if (typeof indexedDB !== 'undefined') {
@@ -458,32 +414,24 @@ export class UpdateService {
     }
   }
 
-  // ============================================================================
-  // Install
-  // ============================================================================
-
   async installUpdate(): Promise<boolean> {
     if (!this.state.downloaded) return false
     if (this.state.installing) return false
 
     const platform = getPlatformInfo()
 
-    // Desktop: Use Tauri's updater
     if (platform.category === 'desktop' && '__TAURI__' in globalThis) {
       return this.installDesktopUpdate()
     }
 
-    // Extension: Prompt browser to update
     if (platform.category === 'extension') {
       return this.installExtensionUpdate()
     }
 
-    // Mobile: Redirect to app store
     if (platform.category === 'mobile') {
       return this.installMobileUpdate()
     }
 
-    // Web: Just refresh
     if (platform.category === 'web') {
       window.location.reload()
       return true
@@ -497,8 +445,6 @@ export class UpdateService {
     this.notify('onInstallStart')
 
     try {
-      // Tauri v2: invoke is in @tauri-apps/api/core
-      // Dynamic import: Conditional - only loaded on Tauri desktop platform
       const { invoke } = await import('@tauri-apps/api/core')
       await invoke('install_update')
 
@@ -518,14 +464,11 @@ export class UpdateService {
   }
 
   private async installExtensionUpdate(): Promise<boolean> {
-    // Extensions auto-update via browser - just notify user
     const platform = getPlatformInfo()
 
     if (platform.type === 'chrome-extension') {
-      // Chrome extension
       chrome.runtime.reload()
     } else if (platform.type === 'firefox-extension') {
-      // Firefox extension - browser global available in Firefox extension context
       const firefoxBrowser = globalThis as typeof globalThis & {
         browser: { runtime: { reload: () => void } }
       }
@@ -538,7 +481,6 @@ export class UpdateService {
   private async installMobileUpdate(): Promise<boolean> {
     const platform = getPlatformInfo()
 
-    // Open app store page
     if (platform.type === 'capacitor-ios') {
       window.open(
         'https://apps.apple.com/app/jeju-wallet/id123456789',
@@ -554,10 +496,6 @@ export class UpdateService {
     return true
   }
 
-  // ============================================================================
-  // State & Listeners
-  // ============================================================================
-
   getState(): UpdateState {
     return { ...this.state }
   }
@@ -569,7 +507,6 @@ export class UpdateService {
   updateConfig(updates: Partial<UpdateConfig>): void {
     this.config = { ...this.config, ...updates }
 
-    // Restart check interval if changed
     if (updates.checkInterval && this.checkInterval) {
       clearInterval(this.checkInterval)
       this.checkInterval = setInterval(() => {
@@ -609,10 +546,6 @@ export class UpdateService {
     })
   }
 }
-
-// ============================================================================
-// Singleton
-// ============================================================================
 
 let updateService: UpdateService | null = null
 

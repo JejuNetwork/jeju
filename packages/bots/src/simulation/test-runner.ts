@@ -1,18 +1,4 @@
-/**
- * Comprehensive Bot Testing Pipeline
- *
- * Runs full validation suite:
- * 1. Historical backtests on real data
- * 2. Stress test scenarios (crashes, depegs)
- * 3. Flash loan integration tests
- * 4. MEV competition simulation
- * 5. Multi-chain opportunity scanning
- *
- * Usage:
- *   bun run packages/bots/src/simulation/test-runner.ts
- *   bun run packages/bots/src/simulation/test-runner.ts --scenario=terra
- *   bun run packages/bots/src/simulation/test-runner.ts --full
- */
+/** Bot testing pipeline. */
 
 import type { Token } from '../types'
 import { type BacktestConfig, Backtester } from './backtester'
@@ -615,9 +601,7 @@ export class TestPipeline {
 
     const bestOpp = allOpps[0]
     const bestDesc = bestOpp
-      ? `${(bestOpp as { token?: string }).token ?? 'Unknown'} - $${
-          'netProfitUsd' in bestOpp ? bestOpp.netProfitUsd.toFixed(2) : '0'
-        }`
+      ? `${bestOpp.token} - $${bestOpp.netProfitUsd.toFixed(2)}`
       : 'None found'
 
     return {

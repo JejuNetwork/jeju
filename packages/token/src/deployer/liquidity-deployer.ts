@@ -358,7 +358,7 @@ export async function deployLiquidity(
   allocation: LiquidityAllocation,
   dexRouter: Address,
   ethAmount: bigint,
-): Promise<Hex | null> {
+): Promise<Hex | undefined> {
   const account = walletClient.account
   if (!account) throw new Error('WalletClient must have an account')
 
@@ -372,7 +372,7 @@ export async function deployLiquidity(
 
   if (tokenBalance === 0n) {
     console.log(`No tokens to add as liquidity on chain ${deployment.chainId}`)
-    return null
+    return undefined
   }
 
   // Calculate token amount based on allocation percentage

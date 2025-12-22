@@ -111,7 +111,7 @@ type A2ARequestBody = {
   }
 }
 
-new Elysia()
+const app = new Elysia()
   .use(
     cors({
       origin: isDevelopment ? true : CORS_ORIGINS,
@@ -545,6 +545,14 @@ new Elysia()
       },
     }
   })
-  .listen(9091)
 
-console.log(`📊 Monitoring A2A: http://localhost:9091`)
+// Export App type for Eden Treaty client
+export type App = typeof app
+
+// Start server if this is the main module
+if (import.meta.main) {
+  app.listen(9091)
+  console.log(`📊 Monitoring A2A: http://localhost:9091`)
+}
+
+export { app }

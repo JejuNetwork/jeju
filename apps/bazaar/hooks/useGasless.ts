@@ -32,7 +32,7 @@ import {
 // ============ Constants ============
 
 const ENTRYPOINT_V07 = '0x0000000071727De22E5E9d8BAf0edAc6f37da032' as const
-const BUNDLER_URL = process.env.NEXT_PUBLIC_BUNDLER_URL || null
+const BUNDLER_URL = process.env.PUBLIC_BUNDLER_URL || null
 
 // Client-side rate limiting to prevent abuse
 const MIN_TX_INTERVAL_MS = 3000 // Minimum 3 seconds between transactions

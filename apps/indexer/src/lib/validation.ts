@@ -11,18 +11,10 @@
 import { AddressSchema, HashSchema } from '@jejunetwork/types'
 import { z } from 'zod'
 
-// ============================================================================
-// Pagination schema (defined locally as not exported from @jejunetwork/types)
-// ============================================================================
-
 export const paginationSchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
   offset: z.coerce.number().int().min(0).default(0),
 })
-
-// ============================================================================
-// Indexer-specific Primitives
-// ============================================================================
 
 export const blockNumberSchema = z.number().int().positive()
 export const bigIntStringSchema = z
@@ -30,10 +22,6 @@ export const bigIntStringSchema = z
   .regex(/^\d+$/, 'Must be a string representation of a positive integer')
 
 export type PaginationParams = z.infer<typeof paginationSchema>
-
-// ============================================================================
-// Search
-// ============================================================================
 
 export const endpointTypeSchema = z.enum([
   'a2a',
@@ -87,10 +75,6 @@ export type SearchParams = z.infer<typeof searchParamsSchema>
 export type EndpointType = z.infer<typeof endpointTypeSchema>
 export type ServiceCategory = z.infer<typeof serviceCategorySchema>
 
-// ============================================================================
-// Agents
-// ============================================================================
-
 export const agentIdSchema = z
   .string()
   .regex(/^\d+$/, 'Agent ID must be a numeric string')
@@ -107,10 +91,6 @@ export const agentTagParamSchema = z.object({
   tag: z.string().min(1, 'Tag cannot be empty'),
 })
 
-// ============================================================================
-// Blocks
-// ============================================================================
-
 export const blockNumberOrHashParamSchema = z.object({
   numberOrHash: z.string().refine((val) => {
     if (val.startsWith('0x')) {
@@ -124,10 +104,6 @@ export const blocksQuerySchema = paginationSchema.extend({
   limit: z.coerce.number().int().min(1).max(100).default(20),
 })
 
-// ============================================================================
-// Transactions
-// ============================================================================
-
 export const transactionHashParamSchema = z.object({
   hash: HashSchema,
 })
@@ -136,17 +112,9 @@ export const transactionsQuerySchema = paginationSchema.extend({
   limit: z.coerce.number().int().min(1).max(100).default(20),
 })
 
-// ============================================================================
-// Accounts
-// ============================================================================
-
 export const accountAddressParamSchema = z.object({
   address: AddressSchema,
 })
-
-// ============================================================================
-// Contracts
-// ============================================================================
 
 export const contractTypeSchema = z.enum([
   'UNKNOWN',
@@ -168,36 +136,20 @@ export const contractsQuerySchema = paginationSchema.extend({
   limit: z.coerce.number().int().min(1).max(100).default(20),
 })
 
-// ============================================================================
-// Tokens
-// ============================================================================
-
 export const tokenTransfersQuerySchema = paginationSchema.extend({
   token: AddressSchema.optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),
 })
 
-// ============================================================================
-// Nodes
-// ============================================================================
-
 export const nodesQuerySchema = paginationSchema.extend({
   active: z.coerce.boolean().optional(),
 })
-
-// ============================================================================
-// Providers
-// ============================================================================
 
 export const providerTypeSchema = z.enum(['compute', 'storage'])
 
 export const providersQuerySchema = paginationSchema.extend({
   type: providerTypeSchema.optional(),
 })
-
-// ============================================================================
-// Containers
-// ============================================================================
 
 export const containersQuerySchema = paginationSchema.extend({
   verified: z.coerce.boolean().optional(),
@@ -208,10 +160,6 @@ export const containersQuerySchema = paginationSchema.extend({
 export const containerCidParamSchema = z.object({
   cid: z.string().min(1, 'CID cannot be empty'),
 })
-
-// ============================================================================
-// Cross-Service Requests
-// ============================================================================
 
 export const crossServiceRequestStatusSchema = z.enum([
   'PENDING',
@@ -231,10 +179,6 @@ export const crossServiceRequestsQuerySchema = paginationSchema.extend({
   type: crossServiceRequestTypeSchema.optional(),
 })
 
-// ============================================================================
-// Oracle Feeds
-// ============================================================================
-
 export const oracleFeedCategorySchema = z.enum([
   'PRICE',
   'VOLUME',
@@ -252,10 +196,6 @@ export const oracleFeedIdParamSchema = z.object({
   feedId: z.string().min(1, 'Feed ID cannot be empty'),
 })
 
-// ============================================================================
-// Oracle Operators
-// ============================================================================
-
 export const oracleOperatorsQuerySchema = paginationSchema.extend({
   active: z.coerce.boolean().optional(),
   jailed: z.coerce.boolean().optional(),
@@ -265,18 +205,10 @@ export const oracleOperatorAddressParamSchema = z.object({
   address: AddressSchema,
 })
 
-// ============================================================================
-// Oracle Reports
-// ============================================================================
-
 export const oracleReportsQuerySchema = paginationSchema.extend({
   feedId: z.string().optional(),
   disputed: z.coerce.boolean().optional(),
 })
-
-// ============================================================================
-// Oracle Disputes
-// ============================================================================
 
 export const oracleDisputeStatusSchema = z.enum([
   'OPEN',
@@ -288,10 +220,6 @@ export const oracleDisputeStatusSchema = z.enum([
 export const oracleDisputesQuerySchema = paginationSchema.extend({
   status: oracleDisputeStatusSchema.optional(),
 })
-
-// ============================================================================
-// A2A Request Validation
-// ============================================================================
 
 // A2A message part data can contain JSON-serializable values from external protocols
 // Using primitive types that JSON can represent
@@ -403,10 +331,6 @@ export const getProposalsSkillSchema = z.object({
   limit: z.number().int().min(1).max(100).optional(),
 })
 
-// ============================================================================
-// MCP Request Validation
-// ============================================================================
-
 export const mcpResourceUriSchema = z.enum([
   'indexer://blocks/latest',
   'indexer://transactions/recent',
@@ -445,22 +369,16 @@ export const mcpPromptGetSchema = z.object({
   arguments: z.record(z.string(), JsonValueSchema),
 })
 
-// ============================================================================
-// Indexer-specific Helper Functions
-// These use ZodTypeAny generics for compatibility with indexer schemas
-// ============================================================================
-
 /**
- * Query string parameter type from HTTP frameworks (Express, Hono, etc.)
- * Express's ParsedQs allows nested objects and arrays.
- * Using an interface allows proper recursive typing.
+ * Query string parameter type from HTTP frameworks.
+ * Allows nested objects and arrays for complex query params.
  */
 interface QueryParams {
   [key: string]: string | string[] | QueryParams | QueryParams[] | undefined
 }
 
 /**
- * Validates query parameters from Express/Hono request
+ * Validates query parameters from request
  */
 export function validateQuery<T extends z.ZodTypeAny>(
   schema: T,
@@ -480,13 +398,13 @@ export function validateQuery<T extends z.ZodTypeAny>(
 }
 
 /**
- * Path parameter type from HTTP frameworks (Express, Hono, etc.)
+ * Path parameter type from HTTP frameworks.
  * Path params are string values extracted from URL patterns.
  */
 type PathParams = Record<string, string>
 
 /**
- * Validates path parameters from Express/Hono request
+ * Validates path parameters from request
  */
 export function validateParams<T extends z.ZodTypeAny>(
   schema: T,
@@ -506,7 +424,7 @@ export function validateParams<T extends z.ZodTypeAny>(
 }
 
 /**
- * Validates request body from Express/Hono request.
+ * Validates request body.
  * Request body is JSON-parsed, so it contains JsonValue types.
  */
 export function validateBody<T extends z.ZodTypeAny>(

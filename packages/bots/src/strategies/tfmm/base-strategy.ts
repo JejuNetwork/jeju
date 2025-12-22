@@ -1,18 +1,10 @@
 /**
  * Base Strategy for TFMM Weight Calculation
- *
- * Provides common functionality for all TFMM strategies:
- * - Price history management
- * - Moving average calculations
- * - Weight normalization
- * - Guard rail enforcement
  */
 
 import type { OracleAggregator } from '../../oracles'
 import { BPS_PRECISION, WEIGHT_PRECISION } from '../../schemas'
 import type { OraclePrice, TFMMRiskParameters, Token } from '../../types'
-
-// ============ Types ============
 
 export interface StrategyContext {
   pool: string
@@ -39,12 +31,10 @@ export interface WeightCalculation {
 
 export interface StrategySignal {
   token: string
-  signal: number // -1 to 1, negative = bearish, positive = bullish
-  strength: number // 0 to 1, confidence in signal
+  signal: number
+  strength: number
   reason: string
 }
-
-// ============ Base Strategy Class ============
 
 export abstract class BaseTFMMStrategy {
   protected readonly name: string
@@ -58,14 +48,8 @@ export abstract class BaseTFMMStrategy {
     this.maxHistoryLength = maxHistoryLength
   }
 
-  /**
-   * Calculate new weights - must be implemented by subclasses
-   */
   abstract calculateWeights(ctx: StrategyContext): Promise<WeightCalculation>
 
-  /**
-   * Update price history
-   */
   updatePriceHistory(prices: OraclePrice[]): void {
     const entry: PriceHistory = {
       timestamp: Date.now(),
@@ -78,15 +62,11 @@ export abstract class BaseTFMMStrategy {
 
     this.priceHistory.push(entry)
 
-    // Trim history
     if (this.priceHistory.length > this.maxHistoryLength) {
       this.priceHistory = this.priceHistory.slice(-this.maxHistoryLength)
     }
   }
 
-  /**
-   * Get price history for a specific token
-   */
   getTokenPriceHistory(token: string): { timestamp: number; price: bigint }[] {
     const result: { timestamp: number; price: bigint }[] = []
     for (const h of this.priceHistory) {
@@ -109,9 +89,6 @@ export abstract class BaseTFMMStrategy {
     return sum / BigInt(period)
   }
 
-  /**
-   * Calculate exponential moving average
-   */
   protected calculateEMA(prices: bigint[], period: number): bigint {
     if (prices.length === 0) return 0n
 
@@ -127,9 +104,6 @@ export abstract class BaseTFMMStrategy {
     return ema
   }
 
-  /**
-   * Calculate standard deviation
-   */
   protected calculateStdDev(prices: bigint[]): bigint {
     if (prices.length < 2) return 0n
 
@@ -145,9 +119,6 @@ export abstract class BaseTFMMStrategy {
     return this.sqrt(variance * WEIGHT_PRECISION)
   }
 
-  /**
-   * Calculate momentum (rate of change)
-   */
   protected calculateMomentum(prices: bigint[], period: number): bigint {
     if (prices.length < period) return 0n
 
@@ -156,13 +127,9 @@ export abstract class BaseTFMMStrategy {
 
     if (past === 0n) return 0n
 
-    // Return as basis points change
     return ((current - past) * BPS_PRECISION) / past
   }
 
-  /**
-   * Calculate RSI (Relative Strength Index)
-   */
   protected calculateRSI(prices: bigint[], period: number): number {
     if (prices.length < period + 1) return 50
 
@@ -187,13 +154,9 @@ export abstract class BaseTFMMStrategy {
     return rsi
   }
 
-  /**
-   * Normalize weights to sum to WEIGHT_PRECISION
-   */
   protected normalizeWeights(weights: bigint[]): bigint[] {
     const sum = weights.reduce((a, b) => a + b, 0n)
     if (sum === 0n) {
-      // Equal weights fallback
       const equalWeight = WEIGHT_PRECISION / BigInt(weights.length)
       return weights.map(() => equalWeight)
     }
@@ -201,9 +164,6 @@ export abstract class BaseTFMMStrategy {
     return weights.map((w) => (w * WEIGHT_PRECISION) / sum)
   }
 
-  /**
-   * Apply guard rails to weight changes
-   */
   protected applyGuardRails(
     currentWeights: bigint[],
     targetWeights: bigint[],
@@ -216,11 +176,9 @@ export abstract class BaseTFMMStrategy {
       let newWeight = targetWeights[i]
       const currentWeight = currentWeights[i]
 
-      // Enforce min/max weight
       if (newWeight < params.minWeight) newWeight = params.minWeight
       if (newWeight > params.maxWeight) newWeight = params.maxWeight
 
-      // Enforce max change per update
       const change =
         newWeight > currentWeight
           ? newWeight - currentWeight
@@ -239,13 +197,9 @@ export abstract class BaseTFMMStrategy {
       result.push(newWeight)
     }
 
-    // Re-normalize after guard rails
     return this.normalizeWeights(result)
   }
 
-  /**
-   * Integer square root using Newton's method
-   */
   protected sqrt(n: bigint): bigint {
     if (n < 0n) throw new Error('Cannot sqrt negative')
     if (n < 2n) return n
@@ -261,9 +215,6 @@ export abstract class BaseTFMMStrategy {
     return x
   }
 
-  /**
-   * Get strategy name
-   */
   getName(): string {
     return this.name
   }

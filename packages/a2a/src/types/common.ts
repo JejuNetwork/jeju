@@ -19,6 +19,12 @@ export type JsonValue =
   | { [key: string]: JsonValue }
 
 /**
+ * Primitive JSON values (no nesting)
+ * Used for payment metadata where nested objects are not needed
+ */
+export type JsonPrimitive = string | number | boolean | null
+
+/**
  * Zod schema for JSON-serializable values
  * Used in validation schemas for metadata and flexible data fields
  */
@@ -83,22 +89,38 @@ export type GameNetworkInfo = z.infer<typeof GameNetworkInfoSchema>
  * Agent capabilities schema
  */
 export const AgentCapabilitiesSchema = z.object({
-  strategies: z.array(z.string()).optional().default([]),
-  markets: z.array(z.string()).optional().default([]),
-  actions: z.array(z.string()).optional().default([]),
-  version: z.string().optional().default('1.0.0'),
+  strategies: z.array(z.string().min(1)).optional().default([]),
+  markets: z.array(z.string().min(1)).optional().default([]),
+  actions: z.array(z.string().min(1)).optional().default([]),
+  version: z.string().min(1).optional().default('1.0.0'),
   x402Support: z.boolean().optional(),
-  platform: z.string().optional(),
-  userType: z.string().optional(),
+  platform: z.string().min(1).optional(),
+  userType: z.string().min(1).optional(),
   gameNetwork: GameNetworkInfoSchema.optional(),
   // OASF Taxonomy Support
-  skills: z.array(z.string()).optional().default([]),
-  domains: z.array(z.string()).optional().default([]),
+  skills: z.array(z.string().min(1)).optional().default([]),
+  domains: z.array(z.string().min(1)).optional().default([]),
   // A2A Communication Endpoints
-  a2aEndpoint: z.string().optional(),
-  mcpEndpoint: z.string().optional(),
+  a2aEndpoint: z.string().url('a2aEndpoint must be a valid URL').optional(),
+  mcpEndpoint: z.string().url('mcpEndpoint must be a valid URL').optional(),
 })
 export type AgentCapabilities = z.infer<typeof AgentCapabilitiesSchema>
+
+/**
+ * Zod schema for primitive JSON values (payment metadata)
+ */
+export const JsonPrimitiveSchema = z.union([
+  z.string(),
+  z.number(),
+  z.boolean(),
+  z.null(),
+])
+
+/**
+ * Payment metadata schema - only allows primitive values, no nested objects
+ */
+export const PaymentMetadataSchema = z.record(z.string(), JsonPrimitiveSchema)
+export type PaymentMetadata = z.infer<typeof PaymentMetadataSchema>
 
 /**
  * Payment request schema
@@ -109,7 +131,7 @@ export const PaymentRequestSchema = z.object({
   to: WalletAddressSchema.describe('Receiver wallet address'),
   amount: z.string().regex(/^\d+$/, 'Amount must be a numeric string (in wei)'),
   service: z.string().min(1, 'Service identifier is required'),
-  metadata: z.record(z.string(), JsonValueSchema).optional(),
+  metadata: PaymentMetadataSchema.optional(),
   expiresAt: z
     .number()
     .int()

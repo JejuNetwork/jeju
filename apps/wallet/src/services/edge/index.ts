@@ -7,16 +7,13 @@
  */
 
 import { expectJson } from '@jejunetwork/types'
+import { API_URLS, fetchApi } from '../../lib/eden'
 import { getPlatformInfo } from '../../platform/detection'
 import {
   CoordinatorMessageSchema,
   EdgeConfigSchema,
 } from '../../plugin/schemas'
 import { AppManifestResponseSchema } from '../../schemas/api-responses'
-
-// ============================================================================
-// WebTorrent Types (dynamic import - package may not be installed)
-// ============================================================================
 
 interface WebTorrentTorrent {
   infoHash: string
@@ -50,22 +47,18 @@ interface WebTorrentConstructor {
   }): WebTorrentInstance
 }
 
-// ============================================================================
-// Types
-// ============================================================================
-
 export interface EdgeConfig {
   enabled: boolean
-  maxCacheSizeBytes: number // Max storage for cached assets
-  maxBandwidthMbps: number // Max bandwidth to contribute
-  enableProxy: boolean // Enable residential proxy
-  enableTorrent: boolean // Enable WebTorrent seeding
-  enableCDN: boolean // Enable CDN edge caching
-  enableRPC: boolean // Enable RPC proxying
-  enableStorage: boolean // Enable storage services
-  autoStart: boolean // Start on wallet open
-  earnWhileIdle: boolean // Continue when app is backgrounded
-  preferredRegion: string // Geographic region
+  maxCacheSizeBytes: number
+  maxBandwidthMbps: number
+  enableProxy: boolean
+  enableTorrent: boolean
+  enableCDN: boolean
+  enableRPC: boolean
+  enableStorage: boolean
+  autoStart: boolean
+  earnWhileIdle: boolean
+  preferredRegion: string
 }
 
 export interface EdgeStats {
@@ -113,25 +106,19 @@ type ProxyService = {
   getMetrics: () => { activeConnections: number; bytesTransferred: number }
 }
 
-// Coordinator message types
 type CoordinatorMessage =
   | { type: 'cache_request'; cid: string; metadata?: Partial<CachedAsset> }
   | { type: 'seed_request'; magnetUri: string }
   | { type: 'stats_request' }
   | { type: 'earnings_update'; earnings: string }
 
-// ============================================================================
-// Default Configuration
-// ============================================================================
-
 function getDefaultConfig(): EdgeConfig {
   const platform = getPlatformInfo()
 
-  // Desktop: Full capabilities
   if (platform.category === 'desktop') {
     return {
       enabled: true,
-      maxCacheSizeBytes: 5 * 1024 * 1024 * 1024, // 5GB
+      maxCacheSizeBytes: 5 * 1024 * 1024 * 1024,
       maxBandwidthMbps: 50,
       enableProxy: true,
       enableTorrent: true,
@@ -144,14 +131,13 @@ function getDefaultConfig(): EdgeConfig {
     }
   }
 
-  // Extension: Medium capabilities
   if (platform.category === 'extension') {
     return {
       enabled: true,
-      maxCacheSizeBytes: 500 * 1024 * 1024, // 500MB
+      maxCacheSizeBytes: 500 * 1024 * 1024,
       maxBandwidthMbps: 10,
-      enableProxy: false, // Extensions can't do raw sockets
-      enableTorrent: true, // WebRTC only
+      enableProxy: false,
+      enableTorrent: true,
       enableCDN: true,
       enableRPC: true,
       enableStorage: false,
@@ -161,30 +147,28 @@ function getDefaultConfig(): EdgeConfig {
     }
   }
 
-  // Mobile: Lightweight
   if (platform.category === 'mobile') {
     return {
-      enabled: false, // Opt-in on mobile
-      maxCacheSizeBytes: 100 * 1024 * 1024, // 100MB
+      enabled: false,
+      maxCacheSizeBytes: 100 * 1024 * 1024,
       maxBandwidthMbps: 5,
       enableProxy: false,
-      enableTorrent: false, // Battery drain
-      enableCDN: true, // Just caching
+      enableTorrent: false,
+      enableCDN: true,
       enableRPC: false,
       enableStorage: false,
       autoStart: false,
-      earnWhileIdle: false, // iOS doesn't allow this
+      earnWhileIdle: false,
       preferredRegion: 'auto',
     }
   }
 
-  // Web: Minimal
   return {
     enabled: false,
-    maxCacheSizeBytes: 50 * 1024 * 1024, // 50MB
+    maxCacheSizeBytes: 50 * 1024 * 1024,
     maxBandwidthMbps: 5,
     enableProxy: false,
-    enableTorrent: true, // WebRTC only
+    enableTorrent: true,
     enableCDN: true,
     enableRPC: false,
     enableStorage: false,
@@ -193,10 +177,6 @@ function getDefaultConfig(): EdgeConfig {
     preferredRegion: 'auto',
   }
 }
-
-// ============================================================================
-// Wallet Edge Service
-// ============================================================================
 
 export class WalletEdgeService {
   private config: EdgeConfig
@@ -210,7 +190,7 @@ export class WalletEdgeService {
   private statsReportInterval: ReturnType<typeof setInterval> | null = null
   private cacheCleanupInterval: ReturnType<typeof setInterval> | null = null
 
-  constructor(dwsEndpoint = 'https://dws.jejunetwork.org') {
+  constructor(dwsEndpoint = API_URLS.dws) {
     this.config = getDefaultConfig()
     this.dwsEndpoint = dwsEndpoint
     this.stats = {
@@ -226,10 +206,6 @@ export class WalletEdgeService {
     }
   }
 
-  // ============================================================================
-  // Lifecycle
-  // ============================================================================
-
   async start(): Promise<void> {
     if (this.stats.status === 'running') return
     if (!this.config.enabled) {
@@ -239,7 +215,6 @@ export class WalletEdgeService {
     this.stats.status = 'starting'
     this.startTime = Date.now()
 
-    // Platform-specific initialization
     if (this.config.enableTorrent && this.canUseTorrent()) {
       await this.initTorrent()
     }
@@ -252,19 +227,16 @@ export class WalletEdgeService {
       await this.initCDNCache()
     }
 
-    // Connect to DWS coordinator
     await this.connectToCoordinator()
 
-    // Start periodic tasks
     this.statsReportInterval = setInterval(() => {
       this.reportStats()
-    }, 60000) // Every minute
+    }, 60000)
 
     this.cacheCleanupInterval = setInterval(() => {
       this.cleanupCache()
-    }, 300000) // Every 5 minutes
+    }, 300000)
 
-    // Seed Jeju static assets by default
     await this.seedDefaultAssets()
 
     this.stats.status = 'running'
@@ -297,7 +269,6 @@ export class WalletEdgeService {
       this.proxyService = null
     }
 
-    // Final stats report
     await this.reportStats()
   }
 
@@ -311,10 +282,6 @@ export class WalletEdgeService {
     }
   }
 
-  // ============================================================================
-  // Configuration
-  // ============================================================================
-
   getConfig(): EdgeConfig {
     return { ...this.config }
   }
@@ -325,14 +292,12 @@ export class WalletEdgeService {
 
     this.config = { ...this.config, ...updates }
 
-    // Handle enable/disable
     if (!wasEnabled && this.config.enabled && !wasRunning) {
       await this.start()
     } else if (wasEnabled && !this.config.enabled && wasRunning) {
       await this.stop()
     }
 
-    // Persist config
     await this.saveConfig()
   }
 
@@ -354,10 +319,6 @@ export class WalletEdgeService {
     }
   }
 
-  // ============================================================================
-  // Stats
-  // ============================================================================
-
   getStats(): EdgeStats {
     return {
       ...this.stats,
@@ -365,16 +326,11 @@ export class WalletEdgeService {
     }
   }
 
-  // ============================================================================
-  // Cache Management
-  // ============================================================================
-
   async cacheAsset(
     cid: string,
     data: Buffer | Uint8Array,
     metadata?: Partial<CachedAsset>,
   ): Promise<void> {
-    // Check cache limits
     const currentSize = this.stats.cacheUsedBytes
     if (currentSize + data.length > this.config.maxCacheSizeBytes) {
       await this.evictLeastUsed(data.length)
@@ -393,10 +349,8 @@ export class WalletEdgeService {
     this.cache.set(cid, asset)
     this.stats.cacheUsedBytes += data.length
 
-    // Store in platform storage
     await this.storeData(cid, data)
 
-    // Start seeding via torrent if enabled
     if (this.torrentClient && this.config.enableTorrent) {
       await this.torrentClient.seed(
         data instanceof Buffer ? data : Buffer.from(data),
@@ -436,7 +390,6 @@ export class WalletEdgeService {
     const assets = Array.from(this.cache.entries())
       .filter(([, a]) => a.priority !== 'high')
       .sort((a, b) => {
-        // Sort by access count, then by last accessed
         if (a[1].accessCount !== b[1].accessCount) {
           return a[1].accessCount - b[1].accessCount
         }
@@ -461,7 +414,7 @@ export class WalletEdgeService {
 
   private async cleanupCache(): Promise<void> {
     const now = Date.now()
-    const staleThreshold = 7 * 24 * 60 * 60 * 1000 // 7 days
+    const staleThreshold = 7 * 24 * 60 * 60 * 1000
 
     for (const [cid, asset] of this.cache) {
       if (asset.priority === 'high') continue
@@ -473,12 +426,7 @@ export class WalletEdgeService {
     }
   }
 
-  // ============================================================================
-  // Default Assets (Jeju Apps)
-  // ============================================================================
-
   private async seedDefaultAssets(): Promise<void> {
-    // Seed static assets for Jeju apps
     const defaultAssets = [
       { name: 'gateway', priority: 'high' as const },
       { name: 'wallet', priority: 'high' as const },
@@ -509,26 +457,29 @@ export class WalletEdgeService {
   private async fetchManifest(appName: string): Promise<{
     assets: Array<{ cid: string; name: string; mimeType: string }>
   } | null> {
-    const response = await fetch(
-      `${this.dwsEndpoint}/cdn/manifest/${appName}`,
-    ).catch(() => null)
-    if (!response?.ok) return null
-    const result = AppManifestResponseSchema.safeParse(await response.json())
-    if (!result.success) return null
-    return result.data
+    try {
+      const data = await fetchApi<{
+        assets: Array<{ cid: string; name: string; mimeType: string }>
+      }>(this.dwsEndpoint, `/cdn/manifest/${appName}`)
+      const result = AppManifestResponseSchema.safeParse(data)
+      if (!result.success) return null
+      return result.data
+    } catch {
+      return null
+    }
   }
 
   private async fetchFromDWS(cid: string): Promise<Uint8Array | null> {
-    const response = await fetch(
-      `${this.dwsEndpoint}/storage/download/${cid}`,
-    ).catch(() => null)
-    if (!response?.ok) return null
-    return new Uint8Array(await response.arrayBuffer())
+    try {
+      const response = await fetch(
+        `${this.dwsEndpoint}/storage/download/${cid}`,
+      )
+      if (!response.ok) return null
+      return new Uint8Array(await response.arrayBuffer())
+    } catch {
+      return null
+    }
   }
-
-  // ============================================================================
-  // Platform-Specific Storage
-  // ============================================================================
 
   private async storeData(
     key: string,
@@ -537,15 +488,12 @@ export class WalletEdgeService {
     const platform = getPlatformInfo()
 
     if (platform.category === 'desktop' && '__TAURI__' in globalThis) {
-      // Use Tauri invoke command for file storage
-      // Dynamic import: Conditional - only loaded on Tauri desktop platform
       const { invoke } = await import('@tauri-apps/api/core')
       await invoke('edge_cache_write', {
         key,
         data: Array.from(data instanceof Buffer ? new Uint8Array(data) : data),
       })
     } else if (typeof indexedDB !== 'undefined') {
-      // Use IndexedDB
       const db = await this.getIndexedDB()
       const tx = db.transaction('cache', 'readwrite')
       tx.objectStore('cache').put({ key, data: new Uint8Array(data) })
@@ -556,11 +504,10 @@ export class WalletEdgeService {
     const platform = getPlatformInfo()
 
     if (platform.category === 'desktop' && '__TAURI__' in globalThis) {
-      // Dynamic import: Conditional - only loaded on Tauri desktop platform
       const { invoke } = await import('@tauri-apps/api/core')
       const data = await invoke<number[] | null>('edge_cache_read', {
         key,
-      }).catch(() => null)
+      })
       return data ? new Uint8Array(data) : null
     } else if (typeof indexedDB !== 'undefined') {
       const db = await this.getIndexedDB()
@@ -585,11 +532,8 @@ export class WalletEdgeService {
     const platform = getPlatformInfo()
 
     if (platform.category === 'desktop' && '__TAURI__' in globalThis) {
-      // Dynamic import: Conditional - only loaded on Tauri desktop platform
       const { invoke } = await import('@tauri-apps/api/core')
-      await invoke('edge_cache_delete', { key }).catch(() => {
-        /* Error handled silently */
-      })
+      await invoke('edge_cache_delete', { key })
     } else if (typeof indexedDB !== 'undefined') {
       const db = await this.getIndexedDB()
       const tx = db.transaction('cache', 'readwrite')
@@ -611,27 +555,18 @@ export class WalletEdgeService {
     })
   }
 
-  // ============================================================================
-  // Service Initialization
-  // ============================================================================
-
   private canUseTorrent(): boolean {
     const platform = getPlatformInfo()
-    // No torrent on iOS due to App Store restrictions
     if (platform.type === 'capacitor-ios') return false
     return true
   }
 
   private canUseProxy(): boolean {
     const platform = getPlatformInfo()
-    // Desktop only - requires raw socket access
     return platform.category === 'desktop'
   }
 
   private async initTorrent(): Promise<void> {
-    // Dynamically import WebTorrent for platforms that support it
-    // Dynamic import: Conditional - only loaded when torrent is enabled and platform supports it
-    // Using Function constructor to prevent TypeScript from analyzing the import path
     const importFn = new Function('specifier', 'return import(specifier)') as (
       specifier: string,
     ) => Promise<{ default: WebTorrentConstructor }>
@@ -648,9 +583,7 @@ export class WalletEdgeService {
     })
 
     this.torrentClient = {
-      start: async () => {
-        /* WebTorrent client is already started */
-      },
+      start: async () => {},
       stop: async () =>
         new Promise<void>((resolve) => client.destroy(() => resolve())),
       seed: async (data, opts) =>
@@ -682,11 +615,8 @@ export class WalletEdgeService {
   }
 
   private async initProxy(): Promise<void> {
-    // Only on desktop via Tauri
     if (!('__TAURI__' in globalThis)) return
 
-    // Proxy runs in Rust backend, we just control it
-    // Dynamic import: Conditional - only loaded on Tauri desktop platform
     const { invoke } = await import('@tauri-apps/api/core')
 
     this.proxyService = {
@@ -703,13 +633,8 @@ export class WalletEdgeService {
   }
 
   private async initCDNCache(): Promise<void> {
-    // Initialize cache from stored data
     await this.loadConfig()
   }
-
-  // ============================================================================
-  // Coordinator Connection
-  // ============================================================================
 
   private async connectToCoordinator(): Promise<void> {
     const wsUrl = this.dwsEndpoint
@@ -731,12 +656,9 @@ export class WalletEdgeService {
       this.handleCoordinatorMessage(msg)
     }
 
-    this.coordinatorWs.onerror = () => {
-      // WebSocket error handled silently
-    }
+    this.coordinatorWs.onerror = () => {}
 
     this.coordinatorWs.onclose = () => {
-      // Reconnect after 10 seconds
       if (this.stats.status === 'running') {
         setTimeout(() => this.connectToCoordinator(), 10000)
       }
@@ -768,7 +690,6 @@ export class WalletEdgeService {
   private handleCoordinatorMessage(message: CoordinatorMessage): void {
     switch (message.type) {
       case 'cache_request': {
-        // Request to cache specific content
         const { cid, metadata } = message
         this.fetchFromDWS(cid).then((data) => {
           if (data) {
@@ -779,19 +700,16 @@ export class WalletEdgeService {
       }
 
       case 'seed_request':
-        // Request to seed specific torrent
         if (this.torrentClient) {
           this.torrentClient.addTorrent(message.magnetUri)
         }
         break
 
       case 'stats_request':
-        // Report current stats
         this.reportStats()
         break
 
       case 'earnings_update':
-        // Update earnings from coordinator
         this.stats.earnings = BigInt(message.earnings)
         break
     }
@@ -817,10 +735,6 @@ export class WalletEdgeService {
     )
   }
 }
-
-// ============================================================================
-// Singleton
-// ============================================================================
 
 let edgeService: WalletEdgeService | null = null
 

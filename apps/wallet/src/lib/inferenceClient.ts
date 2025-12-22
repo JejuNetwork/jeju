@@ -15,11 +15,8 @@ import {
   ChatCompletionResponseSchema,
   ModelsListResponseSchema,
 } from '../schemas/api-responses'
+import { API_URLS, fetchApi } from './eden'
 import { expectJson } from './validation'
-
-// ============================================================================
-// Types
-// ============================================================================
 
 export interface Message {
   role: 'system' | 'user' | 'assistant'
@@ -95,16 +92,7 @@ export interface AvailableModel {
   active: boolean
 }
 
-// ============================================================================
-// Default Configuration
-// ============================================================================
-
-// Auto-detect local gateway for development
-const isLocalDev =
-  typeof window !== 'undefined' && window.location.hostname === 'localhost'
-const DEFAULT_GATEWAY =
-  import.meta.env.VITE_JEJU_GATEWAY_URL ||
-  (isLocalDev ? 'http://localhost:4100' : 'https://compute.jejunetwork.org')
+const DEFAULT_GATEWAY = API_URLS.compute
 const DEFAULT_MODEL = 'jeju/llama-3.1-70b'
 
 const SYSTEM_PROMPT = `You are Network Wallet, an advanced AI assistant for decentralized finance.
@@ -128,10 +116,6 @@ For any action involving money:
 4. Always require explicit confirmation
 
 Be helpful, clear, and security-conscious. Never execute transactions without user confirmation.`
-
-// ============================================================================
-// Inference Client
-// ============================================================================
 
 class InferenceClient {
   private config: ResolvedInferenceConfig
@@ -171,47 +155,7 @@ class InferenceClient {
   }
 
   /**
-   * Default models for fallback when gateway is unavailable
-   */
-  private static readonly DEFAULT_MODELS: AvailableModel[] = [
-    {
-      id: 'jeju/llama-3.1-70b',
-      name: 'Llama 3.1 70B',
-      description: 'High-quality open-source LLM',
-      contextWindow: 128000,
-      pricePerInputToken: '0.0001',
-      pricePerOutputToken: '0.0003',
-      provider: 'jeju-network',
-      teeType: 'none',
-      active: true,
-    },
-    {
-      id: 'jeju/llama-3.1-8b',
-      name: 'Llama 3.1 8B',
-      description: 'Fast and efficient open-source LLM',
-      contextWindow: 128000,
-      pricePerInputToken: '0.00005',
-      pricePerOutputToken: '0.0001',
-      provider: 'jeju-network',
-      teeType: 'none',
-      active: true,
-    },
-    {
-      id: 'jeju/llama-3.1-70b-tee',
-      name: 'Llama 3.1 70B (TEE)',
-      description: 'Private inference with TEE attestation',
-      contextWindow: 128000,
-      pricePerInputToken: '0.0002',
-      pricePerOutputToken: '0.0006',
-      provider: 'jeju-network',
-      teeType: 'sgx',
-      active: true,
-    },
-  ]
-
-  /**
    * Fetch available models from the compute network
-   * Falls back to default models if gateway is unavailable (non-critical UI feature)
    */
   async getModels(forceRefresh = false): Promise<AvailableModel[]> {
     const now = Date.now()
@@ -223,32 +167,19 @@ class InferenceClient {
       return this.availableModels
     }
 
-    try {
-      const response = await fetch(`${this.config.gatewayUrl}/v1/models`, {
-        headers: this.getHeaders(),
-      })
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch models: ${response.status}`)
-      }
-
-      const data = expectValid(
-        ModelsListResponseSchema,
-        await response.json(),
-        'models list response',
-      )
-      const models = data.models ?? data.data ?? []
-      this.availableModels = models
-      this.lastModelFetch = now
-      return this.availableModels
-    } catch (fetchError) {
-      // Log error and return defaults - model listing is non-critical UI feature
-      console.warn(
-        'Failed to fetch models from gateway, using defaults:',
-        fetchError,
-      )
-      return InferenceClient.DEFAULT_MODELS
-    }
+    const data = await fetchApi<{
+      models?: AvailableModel[]
+      data?: AvailableModel[]
+    }>(this.config.gatewayUrl, '/v1/models', { headers: this.getHeaders() })
+    const validated = expectValid(
+      ModelsListResponseSchema,
+      data,
+      'models list response',
+    )
+    const models = validated.models ?? validated.data ?? []
+    this.availableModels = models
+    this.lastModelFetch = now
+    return this.availableModels
   }
 
   /**
@@ -285,14 +216,16 @@ class InferenceClient {
       stream: false,
     }
 
-    for (let attempt = 0; attempt < this.config.maxRetries; attempt++) {
-      try {
-        const controller = new AbortController()
-        const timeoutId = setTimeout(
-          () => controller.abort(),
-          this.config.timeoutMs,
-        )
+    let lastError: Error | undefined
 
+    for (let attempt = 0; attempt < this.config.maxRetries; attempt++) {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(
+        () => controller.abort(),
+        this.config.timeoutMs,
+      )
+
+      try {
         const response = await fetch(
           `${this.config.gatewayUrl}/v1/chat/completions`,
           {
@@ -359,6 +292,8 @@ class InferenceClient {
           teeAttestation: data.tee_attestation,
         }
       } catch (error) {
+        clearTimeout(timeoutId)
+        lastError = error instanceof Error ? error : new Error(String(error))
         console.warn(`[Inference] Attempt ${attempt + 1} failed:`, error)
 
         if (attempt < this.config.maxRetries - 1) {
@@ -369,8 +304,7 @@ class InferenceClient {
       }
     }
 
-    // If all retries fail, use local fallback
-    return this.localFallback(userMessage.content, Date.now() - startTime)
+    throw lastError ?? new Error('Inference service unavailable')
   }
 
   /**
@@ -478,9 +412,11 @@ class InferenceClient {
       this.conversationHistory.push({ role: 'assistant', content: fullContent })
       yield { id: crypto.randomUUID(), content: '', done: true }
     } catch (error) {
-      console.error('[Inference] Stream error:', error)
-      const fallback = await this.localFallback(userMessage.content, 0)
-      yield { id: fallback.id, content: fallback.content, done: true }
+      yield {
+        id: crypto.randomUUID(),
+        content: error instanceof Error ? error.message : 'Stream failed',
+        done: true,
+      }
     }
   }
 
@@ -499,43 +435,6 @@ class InferenceClient {
   }
 
   /**
-   * Local fallback when inference network unavailable
-   * No fake AI responses - be honest about the limitation
-   */
-  private async localFallback(
-    _input: string,
-    latencyMs: number,
-  ): Promise<ChatResponse> {
-    const content = `**AI Service Unavailable**
-
-The inference service is not responding. This could mean:
-- The local inference server isn't running
-- No API key is configured (OPENAI_API_KEY, ANTHROPIC_API_KEY, or GROQ_API_KEY)
-- Network connectivity issues
-
-**You can still use the wallet:**
-Use the sidebar to access all features directly - Portfolio, Pools, Perps, Launchpad, Names, and Security.
-
-**To enable AI chat:**
-1. Get an API key from OpenAI, Anthropic, or Groq
-2. Set the environment variable
-3. Restart the inference server
-
-Groq offers a free tier and is the fastest option.`
-
-    this.conversationHistory.push({ role: 'assistant', content })
-
-    return {
-      id: `local-${Date.now()}`,
-      model: 'offline',
-      content,
-      tokensUsed: { input: 0, output: 0, total: 0 },
-      provider: 'offline',
-      latencyMs,
-    }
-  }
-
-  /**
    * Get request headers with optional auth
    */
   private getHeaders(): Record<string, string> {
@@ -550,10 +449,6 @@ Groq offers a free tier and is the fastest option.`
     return headers
   }
 }
-
-// ============================================================================
-// Singleton Export
-// ============================================================================
 
 export const inferenceClient = new InferenceClient()
 

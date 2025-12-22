@@ -9,7 +9,12 @@
 // ============ TYPES ============
 
 interface Improvement {
-  category: 'missing_strategy' | 'optimization' | 'infrastructure' | 'risk_reduction' | 'new_revenue'
+  category:
+    | 'missing_strategy'
+    | 'optimization'
+    | 'infrastructure'
+    | 'risk_reduction'
+    | 'new_revenue'
   priority: 'critical' | 'high' | 'medium' | 'low'
   title: string
   description: string
@@ -44,7 +49,8 @@ const IMPROVEMENTS: Improvement[] = [
     category: 'missing_strategy',
     priority: 'critical',
     title: 'JIT (Just-In-Time) Liquidity',
-    description: 'Provide liquidity right before large swaps to capture fees, remove after',
+    description:
+      'Provide liquidity right before large swaps to capture fees, remove after',
     estimatedImpact: '+50-100% to L2 profits',
     implementationEffort: '2-3 weeks',
     potentialProfit: '$500-2000/month on Arbitrum alone',
@@ -60,7 +66,8 @@ const IMPROVEMENTS: Improvement[] = [
     category: 'missing_strategy',
     priority: 'critical',
     title: 'Atomic Liquidation Bundles',
-    description: 'Bundle multiple liquidations + arb in single tx for efficiency',
+    description:
+      'Bundle multiple liquidations + arb in single tx for efficiency',
     estimatedImpact: '+30% liquidation profit',
     implementationEffort: '1-2 weeks',
     potentialProfit: '$200-800/month',
@@ -395,16 +402,76 @@ const IMPROVEMENTS: Improvement[] = [
 
 // Missing protocols that could be integrated
 const MISSING_PROTOCOLS: MissingProtocol[] = [
-  { name: 'Morpho', type: 'lending', chain: 'Ethereum, Base', tvl: '$2B', opportunity: 'Liquidations + rate arb' },
-  { name: 'Spark (MakerDAO)', type: 'lending', chain: 'Ethereum', tvl: '$3B', opportunity: 'DAI rate arb' },
-  { name: 'Euler V2', type: 'lending', chain: 'Ethereum', tvl: '$500M', opportunity: 'New protocol, less competition' },
-  { name: 'Fluid', type: 'lending', chain: 'Ethereum', tvl: '$500M', opportunity: 'Liquidations' },
-  { name: 'Karak', type: 'restaking', chain: 'Ethereum', tvl: '$1B', opportunity: 'New restaking protocol' },
-  { name: 'Symbiotic', type: 'restaking', chain: 'Ethereum', tvl: '$800M', opportunity: 'Restaking arb' },
-  { name: 'Vertex', type: 'perps', chain: 'Arbitrum', tvl: '$200M', opportunity: 'Funding arb' },
-  { name: 'Hyperliquid', type: 'perps', chain: 'Hyperliquid L1', tvl: '$1B', opportunity: 'Funding arb' },
-  { name: 'Maverick V2', type: 'dex', chain: 'Multiple', tvl: '$100M', opportunity: 'Dynamic LP arb' },
-  { name: 'Trader Joe V2.1', type: 'dex', chain: 'Avalanche, Arbitrum', tvl: '$200M', opportunity: 'LB arb' },
+  {
+    name: 'Morpho',
+    type: 'lending',
+    chain: 'Ethereum, Base',
+    tvl: '$2B',
+    opportunity: 'Liquidations + rate arb',
+  },
+  {
+    name: 'Spark (MakerDAO)',
+    type: 'lending',
+    chain: 'Ethereum',
+    tvl: '$3B',
+    opportunity: 'DAI rate arb',
+  },
+  {
+    name: 'Euler V2',
+    type: 'lending',
+    chain: 'Ethereum',
+    tvl: '$500M',
+    opportunity: 'New protocol, less competition',
+  },
+  {
+    name: 'Fluid',
+    type: 'lending',
+    chain: 'Ethereum',
+    tvl: '$500M',
+    opportunity: 'Liquidations',
+  },
+  {
+    name: 'Karak',
+    type: 'restaking',
+    chain: 'Ethereum',
+    tvl: '$1B',
+    opportunity: 'New restaking protocol',
+  },
+  {
+    name: 'Symbiotic',
+    type: 'restaking',
+    chain: 'Ethereum',
+    tvl: '$800M',
+    opportunity: 'Restaking arb',
+  },
+  {
+    name: 'Vertex',
+    type: 'perps',
+    chain: 'Arbitrum',
+    tvl: '$200M',
+    opportunity: 'Funding arb',
+  },
+  {
+    name: 'Hyperliquid',
+    type: 'perps',
+    chain: 'Hyperliquid L1',
+    tvl: '$1B',
+    opportunity: 'Funding arb',
+  },
+  {
+    name: 'Maverick V2',
+    type: 'dex',
+    chain: 'Multiple',
+    tvl: '$100M',
+    opportunity: 'Dynamic LP arb',
+  },
+  {
+    name: 'Trader Joe V2.1',
+    type: 'dex',
+    chain: 'Avalanche, Arbitrum',
+    tvl: '$200M',
+    opportunity: 'LB arb',
+  },
 ]
 
 // Latency optimizations
@@ -450,19 +517,31 @@ const LATENCY_OPTIMIZATIONS: LatencyOptimization[] = [
 
 async function main() {
   console.log('')
-  console.log('╔══════════════════════════════════════════════════════════════════════╗')
-  console.log('║                    IMPROVEMENT ANALYSIS                              ║')
-  console.log('║           Optimizations, Gaps, and Profit Opportunities             ║')
-  console.log('╚══════════════════════════════════════════════════════════════════════╝')
+  console.log(
+    '╔══════════════════════════════════════════════════════════════════════╗',
+  )
+  console.log(
+    '║                    IMPROVEMENT ANALYSIS                              ║',
+  )
+  console.log(
+    '║           Optimizations, Gaps, and Profit Opportunities             ║',
+  )
+  console.log(
+    '╚══════════════════════════════════════════════════════════════════════╝',
+  )
   console.log('')
 
   // ============ CRITICAL IMPROVEMENTS ============
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+  console.log(
+    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+  )
   console.log('  CRITICAL IMPROVEMENTS (implement first)')
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+  console.log(
+    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+  )
   console.log('')
 
-  const critical = IMPROVEMENTS.filter(i => i.priority === 'critical')
+  const critical = IMPROVEMENTS.filter((i) => i.priority === 'critical')
   for (const imp of critical) {
     console.log(`  ⚡ ${imp.title}`)
     console.log(`     ${imp.description}`)
@@ -473,51 +552,87 @@ async function main() {
   }
 
   // ============ HIGH PRIORITY ============
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+  console.log(
+    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+  )
   console.log('  HIGH PRIORITY IMPROVEMENTS')
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+  console.log(
+    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+  )
   console.log('')
 
-  const high = IMPROVEMENTS.filter(i => i.priority === 'high')
+  const high = IMPROVEMENTS.filter((i) => i.priority === 'high')
   for (const imp of high) {
     console.log(`  📈 ${imp.title}: ${imp.potentialProfit}`)
   }
   console.log('')
 
   // ============ MISSING PROTOCOLS ============
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+  console.log(
+    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+  )
   console.log('  MISSING PROTOCOL INTEGRATIONS')
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+  console.log(
+    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+  )
   console.log('')
-  console.log('  ┌────────────────────┬────────────┬────────────────┬─────────────────────────┐')
-  console.log('  │ Protocol           │ TVL        │ Chain          │ Opportunity             │')
-  console.log('  ├────────────────────┼────────────┼────────────────┼─────────────────────────┤')
+  console.log(
+    '  ┌────────────────────┬────────────┬────────────────┬─────────────────────────┐',
+  )
+  console.log(
+    '  │ Protocol           │ TVL        │ Chain          │ Opportunity             │',
+  )
+  console.log(
+    '  ├────────────────────┼────────────┼────────────────┼─────────────────────────┤',
+  )
 
   for (const protocol of MISSING_PROTOCOLS) {
-    console.log(`  │ ${protocol.name.padEnd(18)} │ ${protocol.tvl.padEnd(10)} │ ${protocol.chain.padEnd(14)} │ ${protocol.opportunity.padEnd(23)} │`)
+    console.log(
+      `  │ ${protocol.name.padEnd(18)} │ ${protocol.tvl.padEnd(10)} │ ${protocol.chain.padEnd(14)} │ ${protocol.opportunity.padEnd(23)} │`,
+    )
   }
-  console.log('  └────────────────────┴────────────┴────────────────┴─────────────────────────┘')
+  console.log(
+    '  └────────────────────┴────────────┴────────────────┴─────────────────────────┘',
+  )
   console.log('')
 
   // ============ LATENCY OPTIMIZATIONS ============
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+  console.log(
+    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+  )
   console.log('  LATENCY OPTIMIZATION TARGETS')
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+  console.log(
+    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+  )
   console.log('')
-  console.log('  ┌──────────────────────┬─────────────────────┬────────────────┬─────────────────────────┐')
-  console.log('  │ Component            │ Current             │ Target         │ Implementation          │')
-  console.log('  ├──────────────────────┼─────────────────────┼────────────────┼─────────────────────────┤')
+  console.log(
+    '  ┌──────────────────────┬─────────────────────┬────────────────┬─────────────────────────┐',
+  )
+  console.log(
+    '  │ Component            │ Current             │ Target         │ Implementation          │',
+  )
+  console.log(
+    '  ├──────────────────────┼─────────────────────┼────────────────┼─────────────────────────┤',
+  )
 
   for (const opt of LATENCY_OPTIMIZATIONS) {
-    console.log(`  │ ${opt.component.padEnd(20)} │ ${opt.currentLatency.padEnd(19)} │ ${opt.targetLatency.padEnd(14)} │ ${opt.improvement.padEnd(23)} │`)
+    console.log(
+      `  │ ${opt.component.padEnd(20)} │ ${opt.currentLatency.padEnd(19)} │ ${opt.targetLatency.padEnd(14)} │ ${opt.improvement.padEnd(23)} │`,
+    )
   }
-  console.log('  └──────────────────────┴─────────────────────┴────────────────┴─────────────────────────┘')
+  console.log(
+    '  └──────────────────────┴─────────────────────┴────────────────┴─────────────────────────┘',
+  )
   console.log('')
 
   // ============ PROFIT POTENTIAL SUMMARY ============
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+  console.log(
+    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+  )
   console.log('  TOTAL PROFIT POTENTIAL')
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+  console.log(
+    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+  )
   console.log('')
   console.log('  Current realistic monthly: $400-$1,000')
   console.log('')
@@ -526,7 +641,9 @@ async function main() {
   console.log('    - Backrun Strategy:            +$300-1000/month')
   console.log('    - Private Mempool:             +$150-500/month')
   console.log('    - Dynamic Gas Pricing:         +$100-400/month')
-  console.log('    - Latency Optimizations:       +$200-600/month (via win rate)')
+  console.log(
+    '    - Latency Optimizations:       +$200-600/month (via win rate)',
+  )
   console.log('    - New Protocol Integrations:   +$300-800/month')
   console.log('    - Intent Solver Expansion:     +$200-600/month')
   console.log('    ─────────────────────────────────────────────')
@@ -540,9 +657,13 @@ async function main() {
   console.log('')
 
   // ============ IMPLEMENTATION ROADMAP ============
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+  console.log(
+    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+  )
   console.log('  RECOMMENDED IMPLEMENTATION ROADMAP')
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+  console.log(
+    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+  )
   console.log('')
   console.log('  Week 1-2: Infrastructure Foundation')
   console.log('    □ Implement WebSocket block subscription')
@@ -573,9 +694,13 @@ async function main() {
   console.log('')
 
   // ============ QUICK WINS ============
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+  console.log(
+    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+  )
   console.log('  QUICK WINS (implement today)')
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+  console.log(
+    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+  )
   console.log('')
   console.log('  1. Switch to WebSocket subscriptions (1 day, -50ms latency)')
   console.log('  2. Add infinite token approvals (1 hour, save gas)')
@@ -584,15 +709,33 @@ async function main() {
   console.log('  5. Enable Flashbots Protect (30 min, avoid frontrunning)')
   console.log('')
 
-  console.log('╔══════════════════════════════════════════════════════════════════════╗')
-  console.log('║                           SUMMARY                                    ║')
-  console.log('╠══════════════════════════════════════════════════════════════════════╣')
-  console.log('║  Current state: Basic arb with competition, $400-1000/month          ║')
-  console.log('║  With optimizations: $2,000-7,000/month potential                    ║')
-  console.log('║  Key blockers: Latency, private mempool, strategy diversification   ║')
-  console.log('║                                                                      ║')
-  console.log('║  Most impactful: JIT Liquidity + Private Mempool + Low Latency      ║')
-  console.log('╚══════════════════════════════════════════════════════════════════════╝')
+  console.log(
+    '╔══════════════════════════════════════════════════════════════════════╗',
+  )
+  console.log(
+    '║                           SUMMARY                                    ║',
+  )
+  console.log(
+    '╠══════════════════════════════════════════════════════════════════════╣',
+  )
+  console.log(
+    '║  Current state: Basic arb with competition, $400-1000/month          ║',
+  )
+  console.log(
+    '║  With optimizations: $2,000-7,000/month potential                    ║',
+  )
+  console.log(
+    '║  Key blockers: Latency, private mempool, strategy diversification   ║',
+  )
+  console.log(
+    '║                                                                      ║',
+  )
+  console.log(
+    '║  Most impactful: JIT Liquidity + Private Mempool + Low Latency      ║',
+  )
+  console.log(
+    '╚══════════════════════════════════════════════════════════════════════╝',
+  )
 }
 
 if (import.meta.main) {
@@ -600,4 +743,3 @@ if (import.meta.main) {
 }
 
 export { IMPROVEMENTS, MISSING_PROTOCOLS, LATENCY_OPTIMIZATIONS }
-

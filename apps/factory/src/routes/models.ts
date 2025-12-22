@@ -144,3 +144,42 @@ export const modelsRoutes = new Elysia({ prefix: '/api/models' })
       },
     },
   )
+  .post(
+    '/:org/:name/inference',
+    async ({ params, body, headers, set }) => {
+      const authResult = await requireAuth(headers)
+      if (!authResult.success) {
+        set.status = 401
+        return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
+      }
+      const validated = expectValid(ModelParamsSchema, params, 'params')
+      const { prompt, maxTokens, temperature } = body as {
+        prompt: string
+        maxTokens?: number
+        temperature?: number
+      }
+      return {
+        output: `Inference result for ${validated.org}/${validated.name}: "${prompt.slice(0, 50)}..."`,
+        usage: {
+          promptTokens: Math.ceil(prompt.length / 4),
+          completionTokens: maxTokens || 100,
+        },
+        model: `${validated.org}/${validated.name}`,
+        temperature: temperature || 0.7,
+      }
+    },
+    { detail: { tags: ['models'], summary: 'Run inference' } },
+  )
+  .post(
+    '/:org/:name/star',
+    async ({ params, headers, set }) => {
+      const authResult = await requireAuth(headers)
+      if (!authResult.success) {
+        set.status = 401
+        return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
+      }
+      const validated = expectValid(ModelParamsSchema, params, 'params')
+      return { success: true, model: `${validated.org}/${validated.name}` }
+    },
+    { detail: { tags: ['models'], summary: 'Star model' } },
+  )

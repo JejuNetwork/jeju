@@ -1,3 +1,9 @@
+/**
+ * KMS Service - Eden Client
+ */
+
+import { treaty } from '@elysiajs/eden'
+import { Elysia, t } from 'elysia'
 import type { Address } from 'viem'
 
 const KMS_ENDPOINT = process.env.KMS_ENDPOINT || 'http://localhost:4400'
@@ -9,12 +15,56 @@ interface KMSService {
   isHealthy(): Promise<boolean>
 }
 
+export class KMSError extends Error {
+  constructor(
+    message: string,
+    public statusCode: number,
+  ) {
+    super(message)
+    this.name = 'KMSError'
+  }
+}
+
+const kmsAppDef = new Elysia()
+  .post('/encrypt', () => ({ encrypted: '' as string }), {
+    body: t.Object({
+      data: t.String(),
+      policy: t.Object({
+        conditions: t.Array(
+          t.Object({
+            type: t.String(),
+            chain: t.Optional(t.String()),
+            value: t.Optional(t.String()),
+            comparator: t.Optional(t.String()),
+          }),
+        ),
+        operator: t.String(),
+      }),
+    }),
+  })
+  .post('/decrypt', () => ({ decrypted: '' as string }), {
+    body: t.Object({ payload: t.String() }),
+  })
+  .get('/health', () => ({ status: 'ok' as const }))
+
+type KMSApp = typeof kmsAppDef
+
 class NetworkKMSService implements KMSService {
+  private client: ReturnType<typeof treaty<KMSApp>>
+  private baseUrl: string
   private healthLastChecked = 0
   private healthy = false
 
+  constructor() {
+    this.baseUrl = KMS_ENDPOINT.replace(/\/$/, '')
+    this.client = treaty<KMSApp>(this.baseUrl, {
+      fetch: { signal: AbortSignal.timeout(KMS_TIMEOUT) },
+    })
+  }
+
   async encrypt(data: string, owner: Address): Promise<string> {
-    const response = await fetch(`${KMS_ENDPOINT}/encrypt`, {
+    // Eden doesn't support custom headers per-request easily, use fetch
+    const response = await fetch(`${this.baseUrl}/encrypt`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -23,7 +73,9 @@ class NetworkKMSService implements KMSService {
       body: JSON.stringify({
         data,
         policy: {
-          conditions: [{ type: 'address', value: owner }],
+          conditions: [
+            { type: 'balance', chain: 'base', value: '0', comparator: '>=' },
+          ],
           operator: 'and',
         },
       }),
@@ -31,8 +83,9 @@ class NetworkKMSService implements KMSService {
     })
 
     if (!response.ok) {
-      throw new Error(
+      throw new KMSError(
         `KMS encryption failed: ${response.status} ${response.statusText}`,
+        response.status,
       )
     }
 
@@ -41,7 +94,7 @@ class NetworkKMSService implements KMSService {
   }
 
   async decrypt(encryptedData: string, owner: Address): Promise<string> {
-    const response = await fetch(`${KMS_ENDPOINT}/decrypt`, {
+    const response = await fetch(`${this.baseUrl}/decrypt`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -52,8 +105,9 @@ class NetworkKMSService implements KMSService {
     })
 
     if (!response.ok) {
-      throw new Error(
+      throw new KMSError(
         `KMS decryption failed: ${response.status} ${response.statusText}`,
+        response.status,
       )
     }
 
@@ -62,22 +116,12 @@ class NetworkKMSService implements KMSService {
   }
 
   async isHealthy(): Promise<boolean> {
-    // Cache the health check result for 30 seconds
     if (Date.now() - this.healthLastChecked < 30000) {
       return this.healthy
     }
 
-    try {
-      const response = await fetch(`${KMS_ENDPOINT}/health`, {
-        signal: AbortSignal.timeout(5000),
-      })
-      this.healthy = response.ok
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error'
-      console.debug(`[KMS] Health check failed: ${errorMsg}`)
-      this.healthy = false
-    }
-
+    const { error } = await this.client.health.get()
+    this.healthy = !error
     this.healthLastChecked = Date.now()
     return this.healthy
   }
@@ -90,4 +134,14 @@ export function getKMSService(): KMSService {
     kmsService = new NetworkKMSService()
   }
   return kmsService
+}
+
+export function createKMSClient(baseUrl: string) {
+  return treaty<KMSApp>(baseUrl, {
+    fetch: { signal: AbortSignal.timeout(KMS_TIMEOUT) },
+  })
+}
+
+export function resetKMSService(): void {
+  kmsService = null
 }

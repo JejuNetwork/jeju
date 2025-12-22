@@ -47,16 +47,55 @@ export interface DWSClientConfig {
   pollingIntervalMs?: number
 }
 
+/** Observation data from a training step */
+export interface RolloutObservation {
+  state: string
+  context?: string
+  validActions?: string[]
+  stepNumber?: number
+  /** Additional environment-specific fields */
+  boardState?: string
+  playerTurn?: string
+  gamePhase?: string
+  score?: number
+  position?: number
+}
+
+/** Action taken during a training step */
+export interface RolloutAction {
+  type: string
+  parameters: Record<string, string | number | boolean>
+  reasoning?: string
+}
+
+/** Single step in a rollout trajectory */
+export interface RolloutStep {
+  observation: RolloutObservation
+  action: RolloutAction
+  reward: number
+  done: boolean
+}
+
+/** Metadata associated with a rollout */
+export interface RolloutMetadata {
+  agentId?: string
+  environment?: string
+  startTime?: number
+  endTime?: number
+  /** Additional metadata fields */
+  sessionId?: string
+  runId?: string
+  episodeNumber?: number
+  totalReward?: number
+  success?: boolean
+}
+
+/** Complete rollout data for training */
 export interface RolloutData {
   trajectoryId: string
-  steps: Array<{
-    observation: Record<string, unknown>
-    action: { type: string; parameters: Record<string, unknown> }
-    reward: number
-    done: boolean
-  }>
+  steps: RolloutStep[]
   totalReward: number
-  metadata: Record<string, unknown>
+  metadata: RolloutMetadata
 }
 
 // ============================================================================
@@ -209,7 +248,7 @@ export class DWSTrainingClient {
       rollouts: [
         {
           trajectoryId: r.trajectoryId,
-          agentId: (r.metadata.agentId as string) ?? 'jeju-agent',
+          agentId: r.metadata.agentId ?? 'jeju-agent',
           steps: r.steps,
           totalReward: r.totalReward,
           environment: 'jeju-training',

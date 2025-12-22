@@ -93,10 +93,6 @@ describe('Live Agent E2E Tests', () => {
     await runtimeManager.shutdown()
   })
 
-  // ============================================================================
-  // Runtime Initialization Tests
-  // ============================================================================
-
   describe('Runtime Initialization', () => {
     test('should initialize runtime with jejuPlugin actions', async () => {
       const character = getCharacter('project-manager')
@@ -111,10 +107,6 @@ describe('Live Agent E2E Tests', () => {
       expect(runtime.hasActions()).toBe(true)
     })
   })
-
-  // ============================================================================
-  // Project Manager Agent Tests
-  // ============================================================================
 
   describe('Project Manager Agent', () => {
     test('should respond with project management advice', async () => {
@@ -151,10 +143,6 @@ describe('Live Agent E2E Tests', () => {
     }, 60000)
   })
 
-  // ============================================================================
-  // Community Manager Agent Tests
-  // ============================================================================
-
   describe('Community Manager Agent', () => {
     test('should respond with community engagement advice', async () => {
       const character = getCharacter('community-manager')
@@ -189,10 +177,6 @@ describe('Live Agent E2E Tests', () => {
       expect(verification.isReal).toBe(true)
     }, 60000)
   })
-
-  // ============================================================================
-  // Red Team Agent Tests
-  // ============================================================================
 
   describe('Red Team Agent', () => {
     test('should respond with security analysis', async () => {
@@ -233,10 +217,6 @@ describe('Live Agent E2E Tests', () => {
     }, 60000)
   })
 
-  // ============================================================================
-  // Multi-Agent Scenario Tests
-  // ============================================================================
-
   describe('Multi-Agent Scenario', () => {
     test('should handle multiple agents with different personalities', async () => {
       const agentIds = ['project-manager', 'community-manager', 'red-team']
@@ -271,10 +251,6 @@ describe('Live Agent E2E Tests', () => {
       }
     }, 180000)
   })
-
-  // ============================================================================
-  // Response Uniqueness Tests
-  // ============================================================================
 
   describe('Response Uniqueness', () => {
     test('should give different responses to same question at different times', async () => {
@@ -313,10 +289,6 @@ describe('Live Agent E2E Tests', () => {
       }
     }, 180000)
   })
-
-  // ============================================================================
-  // Crucible Server Integration
-  // ============================================================================
 
   describe('Crucible Server Integration', () => {
     test('should work via HTTP API when server is running', async () => {

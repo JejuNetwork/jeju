@@ -105,13 +105,13 @@ export class MCPServer {
     const serverInfo = this.getServerInfo()
     const capabilities = this.getServerCapabilities()
 
-    // Negotiate protocol version (use requested if supported, otherwise default)
-    const protocolVersion = MCP_PROTOCOL_VERSIONS.includes(requestedVersion)
-      ? requestedVersion
-      : DEFAULT_MCP_PROTOCOL_VERSION
+    // Validate protocol version - throw if unsupported
+    if (!MCP_PROTOCOL_VERSIONS.includes(requestedVersion)) {
+      throw new Error(`Unsupported MCP protocol version: ${requestedVersion}`)
+    }
 
     return {
-      protocolVersion,
+      protocolVersion: requestedVersion,
       capabilities,
       serverInfo,
       instructions: this.config.instructions,

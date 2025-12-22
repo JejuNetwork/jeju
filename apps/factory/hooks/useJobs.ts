@@ -1,123 +1,107 @@
+import { getCoreAppUrl } from '@jejunetwork/config/ports'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { getDwsUrl } from '../config/contracts'
+import { api, extractDataSafe } from '../lib/client'
 
-// ============ Types ============
-
-export type JobType = 'training' | 'inference' | 'validation' | 'compute'
-export type JobStatus =
-  | 'queued'
-  | 'running'
-  | 'completed'
-  | 'failed'
-  | 'cancelled'
-
-export interface JobProvider {
-  id: string
-  name: string
-  address: string
+export interface JobSalary {
+  min: number
+  max: number
+  currency: string
+  period?: 'hour' | 'day' | 'week' | 'month' | 'year'
 }
 
 export interface Job {
   id: string
-  name: string
-  type: JobType
-  status: JobStatus
-  progress: number
-  provider?: JobProvider
-  cost: string
-  duration?: number
-  startedAt?: number
-  completedAt?: number
+  title: string
+  company: string
+  companyLogo?: string
+  type: 'full-time' | 'part-time' | 'contract' | 'bounty'
+  remote: boolean
+  location: string
+  salary?: JobSalary
+  skills: string[]
+  description: string
   createdAt: number
-  logs?: string[]
-  modelId?: string
-  datasetId?: string
-  config?: Record<string, string | number | boolean>
+  updatedAt: number
+  applications: number
 }
 
 export interface JobStats {
   totalJobs: number
-  runningJobs: number
-  completedJobs: number
-  totalCost: string
+  openJobs: number
+  remoteJobs: number
+  averageSalary: number
 }
 
-// ============ Fetchers ============
+const API_BASE =
+  typeof window !== 'undefined'
+    ? ''
+    : process.env.FACTORY_API_URL || getCoreAppUrl('FACTORY')
 
-async function fetchJobs(filter?: {
-  type?: JobType
-  status?: JobStatus
+async function fetchApi<T>(
+  path: string,
+  options?: RequestInit,
+): Promise<T | null> {
+  const response = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+  })
+  if (!response.ok) return null
+  return response.json()
+}
+
+async function fetchJobs(query?: {
+  type?: Job['type']
+  remote?: boolean
+  search?: string
 }): Promise<Job[]> {
-  const dwsUrl = getDwsUrl()
   const params = new URLSearchParams()
-  if (filter?.type) params.set('type', filter.type)
-  if (filter?.status) params.set('status', filter.status)
-
-  const res = await fetch(`${dwsUrl}/api/jobs?${params.toString()}`)
-  if (!res.ok) return []
-  const data = await res.json()
-  return data.jobs || []
+  if (query?.type) params.set('type', query.type)
+  if (query?.remote !== undefined) params.set('remote', String(query.remote))
+  if (query?.search) params.set('q', query.search)
+  const response = await api.api.jobs.get({ query: Object.fromEntries(params) })
+  const data = extractDataSafe(response) as { jobs: Job[] } | null
+  return data?.jobs || []
 }
 
 async function fetchJob(jobId: string): Promise<Job | null> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/jobs/${jobId}`)
-  if (!res.ok) return null
-  return res.json()
+  return fetchApi<Job>(`/api/jobs/${jobId}`)
 }
 
 async function fetchJobStats(): Promise<JobStats> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/jobs/stats`)
-  if (!res.ok) {
-    return {
-      totalJobs: 0,
-      runningJobs: 0,
-      completedJobs: 0,
-      totalCost: '0 ETH',
-    }
-  }
-  return res.json()
+  const data = await fetchApi<JobStats>('/api/jobs/stats')
+  return data || { totalJobs: 0, openJobs: 0, remoteJobs: 0, averageSalary: 0 }
 }
 
 async function cancelJob(jobId: string): Promise<boolean> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/jobs/${jobId}/cancel`, {
+  const response = await fetchApi(`/api/jobs/${jobId}/cancel`, {
     method: 'POST',
   })
-  return res.ok
+  return response !== null
 }
 
-async function retryJob(jobId: string): Promise<Job | null> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/jobs/${jobId}/retry`, {
+async function retryJob(jobId: string): Promise<boolean> {
+  const response = await fetchApi(`/api/jobs/${jobId}/retry`, {
     method: 'POST',
   })
-  if (!res.ok) return null
-  return res.json()
+  return response !== null
 }
 
-// ============ Hooks ============
-
-export function useJobs(filter?: { type?: JobType; status?: JobStatus }) {
+export function useJobs(query?: {
+  type?: Job['type']
+  remote?: boolean
+  search?: string
+}) {
   const {
     data: jobs,
     isLoading,
     error,
     refetch,
   } = useQuery({
-    queryKey: ['jobs', filter],
-    queryFn: () => fetchJobs(filter),
-    staleTime: 10000, // Refresh more frequently for jobs
-    refetchInterval: 30000, // Auto-refresh every 30s
+    queryKey: ['jobs', query],
+    queryFn: () => fetchJobs(query),
+    staleTime: 30000,
   })
-
-  return {
-    jobs: jobs || [],
-    isLoading,
-    error,
-    refetch,
-  }
+  return { jobs: jobs || [], isLoading, error, refetch }
 }
 
 export function useJob(jobId: string) {
@@ -130,17 +114,9 @@ export function useJob(jobId: string) {
     queryKey: ['job', jobId],
     queryFn: () => fetchJob(jobId),
     enabled: !!jobId,
-    staleTime: 5000,
-    refetchInterval: (query) =>
-      query.state.data?.status === 'running' ? 5000 : false,
+    staleTime: 30000,
   })
-
-  return {
-    job,
-    isLoading,
-    error,
-    refetch,
-  }
+  return { job, isLoading, error, refetch }
 }
 
 export function useJobStats() {
@@ -151,15 +127,14 @@ export function useJobStats() {
   } = useQuery({
     queryKey: ['jobStats'],
     queryFn: fetchJobStats,
-    staleTime: 30000,
+    staleTime: 120000,
   })
-
   return {
     stats: stats || {
       totalJobs: 0,
-      runningJobs: 0,
-      completedJobs: 0,
-      totalCost: '0 ETH',
+      openJobs: 0,
+      remoteJobs: 0,
+      averageSalary: 0,
     },
     isLoading,
     error,
@@ -168,25 +143,22 @@ export function useJobStats() {
 
 export function useCancelJob() {
   const queryClient = useQueryClient()
-
   return useMutation({
     mutationFn: (jobId: string) => cancelJob(jobId),
     onSuccess: (_, jobId) => {
       queryClient.invalidateQueries({ queryKey: ['job', jobId] })
       queryClient.invalidateQueries({ queryKey: ['jobs'] })
-      queryClient.invalidateQueries({ queryKey: ['jobStats'] })
     },
   })
 }
 
 export function useRetryJob() {
   const queryClient = useQueryClient()
-
   return useMutation({
     mutationFn: (jobId: string) => retryJob(jobId),
-    onSuccess: () => {
+    onSuccess: (_, jobId) => {
+      queryClient.invalidateQueries({ queryKey: ['job', jobId] })
       queryClient.invalidateQueries({ queryKey: ['jobs'] })
-      queryClient.invalidateQueries({ queryKey: ['jobStats'] })
     },
   })
 }

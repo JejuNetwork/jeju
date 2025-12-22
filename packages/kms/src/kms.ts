@@ -96,26 +96,15 @@ export class KMSService {
   private async getAvailableProvider(
     preferred?: KMSProviderType,
   ): Promise<ConcreteProvider> {
-    const candidates = preferred
-      ? [preferred, this.config.defaultProvider]
-      : [this.config.defaultProvider]
-    if (this.config.fallbackEnabled) {
-      candidates.push(
-        KMSProviderType.TEE,
-        KMSProviderType.MPC,
-        KMSProviderType.ENCRYPTION,
-      )
+    const type = preferred ?? this.config.defaultProvider
+    const provider = this.providers.get(type) as ConcreteProvider | undefined
+    if (!provider) {
+      throw new Error(`KMS provider not configured: ${type}`)
     }
-
-    for (const type of candidates) {
-      const provider = this.providers.get(type) as ConcreteProvider | undefined
-      if (provider && (await provider.isAvailable())) {
-        if (type !== candidates[0])
-          log.warn('Using fallback provider', { type })
-        return provider
-      }
+    if (!(await provider.isAvailable())) {
+      throw new Error(`KMS provider not available: ${type}`)
     }
-    throw new Error('No KMS provider available')
+    return provider
   }
 
   async generateKey(
@@ -139,12 +128,12 @@ export class KMSService {
     return provider.generateKey(owner, keyType, curve, options.policy)
   }
 
-  getKey(keyId: string): KeyMetadata | null {
+  getKey(keyId: string): KeyMetadata | undefined {
     for (const provider of this.providers.values()) {
       const key = (provider as ConcreteProvider).getKey(keyId)
       if (key) return key
     }
-    return null
+    return undefined
   }
 
   async revokeKey(keyId: string): Promise<void> {
@@ -252,7 +241,7 @@ export class KMSService {
   }
 }
 
-let kmsService: KMSService | null = null
+let kmsService: KMSService | undefined
 
 function buildKMSConfig(config?: Partial<KMSConfig>): KMSConfig {
   const encryptionConfig = config?.providers?.encryption ?? {
@@ -291,14 +280,12 @@ function buildKMSConfig(config?: Partial<KMSConfig>): KMSConfig {
 
   const defaultChain =
     config?.defaultChain ?? process.env.KMS_DEFAULT_CHAIN ?? 'base-sepolia'
-  const fallbackEnabled = config?.fallbackEnabled ?? true
 
   return {
     providers: { encryption: encryptionConfig, tee: teeConfig, mpc: mpcConfig },
     defaultProvider,
     defaultChain,
     registryAddress: config?.registryAddress,
-    fallbackEnabled,
   }
 }
 
@@ -313,5 +300,5 @@ export function resetKMS(): void {
   kmsService
     ?.shutdown()
     .catch((e) => log.error('Shutdown failed', { error: String(e) }))
-  kmsService = null
+  kmsService = undefined
 }

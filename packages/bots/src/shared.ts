@@ -1,6 +1,4 @@
-/**
- * Shared Utilities for Jeju Bots
- */
+/** Shared utilities for Jeju bots. */
 
 import { WEIGHT_PRECISION } from './schemas'
 

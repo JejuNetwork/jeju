@@ -7,10 +7,6 @@
 
 import type { Address, Hex } from 'viem'
 
-// ============================================================================
-// EIP-1193 Types
-// ============================================================================
-
 /** Valid parameter types for EIP-1193 requests (JSON-RPC compatible) */
 type EIP1193Param =
   | string
@@ -33,10 +29,6 @@ interface ProviderRpcError extends Error {
   code: number
   data?: EIP1193Param
 }
-
-// ============================================================================
-// Event Types
-// ============================================================================
 
 /** Provider event names from EIP-1193 */
 type ProviderEventName =
@@ -242,30 +234,6 @@ class NetworkProvider {
         }
       }, REQUEST_TIMEOUT_MS)
     })
-  }
-
-  // Legacy methods for compatibility
-  async enable(): Promise<Address[]> {
-    const result = await this.request({ method: 'eth_requestAccounts' })
-    return result as Address[]
-  }
-
-  async send(method: string, params?: EIP1193Param[]): Promise<EIP1193Param> {
-    return this.request({ method, params })
-  }
-
-  async sendAsync(
-    payload: { method: string; params?: EIP1193Param[]; id?: number },
-    callback: (
-      error: Error | null,
-      response?: { result: EIP1193Param },
-    ) => void,
-  ): Promise<void> {
-    const result = await this.request({
-      method: payload.method,
-      params: payload.params,
-    })
-    callback(null, { result })
   }
 
   // Event emitter interface - EIP-1193 compliant

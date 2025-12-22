@@ -80,7 +80,7 @@ export function AuthButton({
       const walletAddress = result.accounts[0]
 
       // Create and sign SIWE message
-      const chainId = parseInt(process.env.NEXT_PUBLIC_CHAIN_ID || '420691', 10)
+      const chainId = parseInt(process.env.PUBLIC_CHAIN_ID || '420691', 10)
       const message = createSIWEMessage({
         domain: window.location.host,
         address: walletAddress as `0x${string}`,
@@ -119,7 +119,7 @@ export function AuthButton({
     try {
       // Redirect to Farcaster auth flow via OAuth3
       const oauth3Url =
-        process.env.NEXT_PUBLIC_OAUTH3_AGENT_URL || 'http://localhost:4200'
+        process.env.PUBLIC_OAUTH3_AGENT_URL || 'http://localhost:4200'
       const redirectUri = `${window.location.origin}/auth/callback`
 
       const response = await fetch(`${oauth3Url}/auth/init`, {
@@ -192,7 +192,7 @@ export function AuthButton({
 
     try {
       const oauth3Url =
-        process.env.NEXT_PUBLIC_OAUTH3_AGENT_URL || 'http://localhost:4200'
+        process.env.PUBLIC_OAUTH3_AGENT_URL || 'http://localhost:4200'
       const redirectUri = `${window.location.origin}/auth/callback`
 
       const response = await fetch(`${oauth3Url}/auth/init`, {
