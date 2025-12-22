@@ -137,10 +137,13 @@ contract PriceOracleTest is Test {
         oracle.setPrice(tokenB, 50 * 10**18, 18);
         vm.stopPrank();
         
-        // 1 tokenA at $100 = 2 tokenB at $50
+        // Formula: amountOut = amountIn * priceIn * 10^decimalsOut / (priceOut * 10^decimalsIn)
+        // = 1 * 10^8 * (100 * 10^8) * 10^18 / ((50 * 10^18) * 10^8)
+        // = 10^8 * 10^10 * 10^18 / (5 * 10^19 * 10^8)
+        // = 10^36 / (5 * 10^27)
+        // = 2 * 10^8
         uint256 converted = oracle.convertAmount(tokenA, tokenB, 1 * 10**8);
-        // Expect: 1 * 100 * 10^18 / (50 * 10^8) = 2 * 10^10
-        assertEq(converted, 2 * 10**10);
+        assertEq(converted, 2 * 10**8);
     }
     
     function test_ConvertAmount_RevertIfFromNotAvailable() public {

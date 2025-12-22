@@ -6,12 +6,19 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import "../registry/IdentityRegistry.sol";
 import "../registry/ReputationRegistry.sol";
 
 interface IFeeConfigSequencer {
     function getSequencerRevenueShare() external view returns (uint16);
     function getTreasury() external view returns (address);
+}
+
+interface IForcedInclusion {
+    function canForceInclude(bytes32 txId) external view returns (bool);
+    function INCLUSION_WINDOW_BLOCKS() external view returns (uint256);
 }
 
 /**
@@ -83,6 +90,7 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
     SlashingEvent[] public slashingEvents;
 
     IFeeConfigSequencer public feeConfig;
+    IForcedInclusion public forcedInclusion;
     uint256 public sequencerRevenueShareBps = 500;
     uint256 public currentEpoch;
     uint256 public epochStartTime;
@@ -91,6 +99,9 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
     mapping(uint256 => mapping(address => uint256)) public epochBlocksPerSequencer;
     uint256 public totalRewardsDistributed;
     uint256 public totalRevenueCollected;
+    
+    // Track block hashes per sequencer for double-sign detection
+    mapping(address => mapping(uint256 => bytes32)) public sequencerBlockHashes;
 
     event SequencerRegistered(address indexed sequencer, uint256 agentId, uint256 stake);
     event SequencerUnregistered(address indexed sequencer);
@@ -98,11 +109,16 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
     event StakeDecreased(address indexed sequencer, uint256 amount);
     event SequencerSlashed(address indexed sequencer, SlashingReason reason, uint256 amount, uint256 remainingStake);
     event BlockProposed(address indexed sequencer, uint256 blockNumber);
+    event BlockProposedWithHash(address indexed sequencer, uint256 blockNumber, bytes32 blockHash);
     event ReputationUpdated(address indexed sequencer, uint256 newScore);
     event RevenueReceived(uint256 amount, uint256 epoch);
     event EpochFinalized(uint256 indexed epoch, uint256 totalRevenue, uint256 sequencerShare, uint256 treasuryShare);
     event RewardsClaimed(address indexed sequencer, uint256 amount);
     event FeeConfigUpdated(address indexed oldConfig, address indexed newConfig);
+    event ForcedInclusionUpdated(address indexed oldAddress, address indexed newAddress);
+    event DoubleSignSlashed(address indexed sequencer, uint256 blockNumber, bytes32 blockHash1, bytes32 blockHash2);
+    event CensorshipSlashed(address indexed sequencer, bytes32 forcedTxId);
+    event DowntimeSlashed(address indexed sequencer, uint256 startBlock, uint256 endBlock, uint256 missedBlocks);
 
     error NotRegistered();
     error AlreadyRegistered();
@@ -117,6 +133,15 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
     error MaxSequencersReached();
     error InvalidSlashProof();
     error WithdrawalDelayNotMet();
+    error InvalidSignature();
+    error NotActiveSequencer();
+    error BlockAlreadyProposed();
+    error InvalidDoubleSignProof();
+    error SameBlockHash();
+    error CensorshipWindowNotExpired();
+    error TxNotOverdue();
+    error NoDowntimeViolation();
+    error ForcedInclusionNotSet();
 
     constructor(
         address _jejuToken,
@@ -217,23 +242,55 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
         emit StakeDecreased(msg.sender, _amount);
     }
 
-    function recordBlockProposed(address _sequencer, uint256 _blockNumber) external onlyOwner {
-        Sequencer storage seq = sequencers[_sequencer];
+    /**
+     * @notice Record a block proposed by a sequencer with cryptographic proof
+     * @param _blockNumber The block number being proposed
+     * @param _blockHash The hash of the proposed block
+     * @param _signature Signature from the sequencer proving they produced this block
+     */
+    function recordBlockProposed(
+        uint256 _blockNumber,
+        bytes32 _blockHash,
+        bytes calldata _signature
+    ) external {
+        // Verify signature proves msg.sender produced this block
+        bytes32 message = keccak256(abi.encodePacked(
+            "BLOCK_PROPOSED",
+            block.chainid,
+            _blockNumber,
+            _blockHash
+        ));
+        bytes32 ethSignedMessage = MessageHashUtils.toEthSignedMessageHash(message);
+        address signer = ECDSA.recover(ethSignedMessage, _signature);
+        
+        if (signer != msg.sender) revert InvalidSignature();
+        if (!isActiveSequencer[msg.sender]) revert NotActiveSequencer();
+        
+        Sequencer storage seq = sequencers[msg.sender];
         if (!seq.isActive) revert NotActive();
-
-        if (_blockSigners[_blockNumber][_sequencer]) {
-            _slash(_sequencer, SlashingReason.DOUBLE_SIGNING);
-            return;
+        
+        // Check if sequencer already proposed a different block at this height
+        bytes32 existingHash = sequencerBlockHashes[msg.sender][_blockNumber];
+        if (existingHash != bytes32(0)) {
+            if (existingHash != _blockHash) {
+                // Double-signing detected - slash immediately
+                _slash(msg.sender, SlashingReason.DOUBLE_SIGNING);
+                emit DoubleSignSlashed(msg.sender, _blockNumber, existingHash, _blockHash);
+                return;
+            }
+            // Same block, already recorded
+            revert BlockAlreadyProposed();
         }
 
         _advanceEpochIfNeeded();
 
-        _blockSigners[_blockNumber][_sequencer] = true;
+        sequencerBlockHashes[msg.sender][_blockNumber] = _blockHash;
+        _blockSigners[_blockNumber][msg.sender] = true;
         seq.lastBlockProposed = _blockNumber;
         seq.blocksProposed++;
-        epochBlocksPerSequencer[currentEpoch][_sequencer]++;
+        epochBlocksPerSequencer[currentEpoch][msg.sender]++;
 
-        emit BlockProposed(_sequencer, _blockNumber);
+        emit BlockProposedWithHash(msg.sender, _blockNumber, _blockHash);
     }
 
     function updateReputation(address _sequencer) external {
@@ -246,15 +303,115 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
         emit ReputationUpdated(_sequencer, newReputation);
     }
 
-    function slash(address _sequencer, SlashingReason _reason, bytes calldata _proof) external onlyOwner {
-        if (_reason == SlashingReason.DOUBLE_SIGNING) {
-            if (_proof.length < 130) revert InvalidSlashProof();
-        } else if (_reason == SlashingReason.CENSORSHIP) {
-            if (_proof.length < 32) revert InvalidSlashProof();
-        } else if (_reason == SlashingReason.GOVERNANCE_BAN) {
-            if (_proof.length < 32) revert InvalidSlashProof();
+    /**
+     * @notice Slash a sequencer for double-signing with cryptographic proof
+     * @dev Anyone can call this with valid proof of two different blocks at same height
+     * @param _sequencer The sequencer to slash
+     * @param _blockNumber The block number where double-signing occurred
+     * @param _blockHash1 First block hash signed
+     * @param _sig1 Signature for first block
+     * @param _blockHash2 Second block hash signed (must be different)
+     * @param _sig2 Signature for second block
+     */
+    function slashDoubleSign(
+        address _sequencer,
+        uint256 _blockNumber,
+        bytes32 _blockHash1,
+        bytes calldata _sig1,
+        bytes32 _blockHash2,
+        bytes calldata _sig2
+    ) external {
+        if (_blockHash1 == _blockHash2) revert SameBlockHash();
+        
+        // Verify first signature
+        bytes32 message1 = keccak256(abi.encodePacked(
+            "BLOCK_PROPOSED",
+            block.chainid,
+            _blockNumber,
+            _blockHash1
+        ));
+        bytes32 ethSignedMessage1 = MessageHashUtils.toEthSignedMessageHash(message1);
+        address signer1 = ECDSA.recover(ethSignedMessage1, _sig1);
+        
+        // Verify second signature
+        bytes32 message2 = keccak256(abi.encodePacked(
+            "BLOCK_PROPOSED",
+            block.chainid,
+            _blockNumber,
+            _blockHash2
+        ));
+        bytes32 ethSignedMessage2 = MessageHashUtils.toEthSignedMessageHash(message2);
+        address signer2 = ECDSA.recover(ethSignedMessage2, _sig2);
+        
+        // Both signatures must be from the same sequencer
+        if (signer1 != _sequencer || signer2 != _sequencer) revert InvalidDoubleSignProof();
+        
+        _slash(_sequencer, SlashingReason.DOUBLE_SIGNING);
+        emit DoubleSignSlashed(_sequencer, _blockNumber, _blockHash1, _blockHash2);
+    }
+    
+    /**
+     * @notice Slash a sequencer for censorship
+     * @dev Anyone can call this if a forced tx wasn't included within the window
+     * @param _sequencer The sequencer to slash (must have been active during the window)
+     * @param _forcedTxId The ID of the forced transaction that wasn't included
+     */
+    function slashCensorship(
+        address _sequencer,
+        bytes32 _forcedTxId
+    ) external {
+        if (address(forcedInclusion) == address(0)) revert ForcedInclusionNotSet();
+        
+        // Verify the forced tx can now be force-included (meaning window expired without inclusion)
+        if (!forcedInclusion.canForceInclude(_forcedTxId)) revert TxNotOverdue();
+        
+        Sequencer storage seq = sequencers[_sequencer];
+        if (!seq.isActive && !seq.isSlashed) revert NotActive();
+        
+        _slash(_sequencer, SlashingReason.CENSORSHIP);
+        emit CensorshipSlashed(_sequencer, _forcedTxId);
+    }
+    
+    /**
+     * @notice Slash a sequencer for downtime
+     * @dev Anyone can call this if sequencer missed too many blocks
+     * @param _sequencer The sequencer to slash
+     * @param _startBlock Start of the range to check
+     * @param _endBlock End of the range to check
+     */
+    function slashDowntime(
+        address _sequencer,
+        uint256 _startBlock,
+        uint256 _endBlock
+    ) external {
+        Sequencer storage seq = sequencers[_sequencer];
+        if (!seq.isActive) revert NotActive();
+        
+        // Count blocks in range where sequencer should have produced but didn't
+        uint256 blocksInRange = _endBlock - _startBlock;
+        uint256 missedBlocks = 0;
+        
+        for (uint256 i = _startBlock; i <= _endBlock; i++) {
+            if (!_blockSigners[i][_sequencer]) {
+                missedBlocks++;
+            }
         }
-        _slash(_sequencer, _reason);
+        
+        // Must have missed more than threshold
+        if (missedBlocks <= DOWNTIME_THRESHOLD) revert NoDowntimeViolation();
+        
+        seq.blocksMissed += missedBlocks;
+        _slash(_sequencer, SlashingReason.DOWNTIME);
+        emit DowntimeSlashed(_sequencer, _startBlock, _endBlock, missedBlocks);
+    }
+    
+    /**
+     * @notice Slash a sequencer via governance ban (owner only)
+     * @dev Only for governance-level bans, not operational slashing
+     * @param _sequencer The sequencer to ban
+     */
+    function slashGovernanceBan(address _sequencer) external onlyOwner {
+        _slash(_sequencer, SlashingReason.GOVERNANCE_BAN);
     }
 
     function _slash(address _sequencer, SlashingReason _reason) internal {
@@ -470,6 +627,12 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
         address oldConfig = address(feeConfig);
         feeConfig = IFeeConfigSequencer(_feeConfig);
         emit FeeConfigUpdated(oldConfig, _feeConfig);
+    }
+
+    function setForcedInclusion(address _forcedInclusion) external onlyOwner {
+        address oldAddress = address(forcedInclusion);
+        forcedInclusion = IForcedInclusion(_forcedInclusion);
+        emit ForcedInclusionUpdated(oldAddress, _forcedInclusion);
     }
 
     function setSequencerRevenueShare(uint256 newShareBps) external onlyOwner {

@@ -44,6 +44,9 @@ import { dwsCommand } from './commands/dws';
 import { validateCommand } from './commands/validate';
 import { trainingCommand } from './commands/training';
 import { proxyCommand } from './commands/proxy';
+import { decentralizeCommand } from './commands/decentralize';
+import { deployMipsCommand } from './commands/deploy-mips';
+import { verifyStage2Command } from './commands/verify-stage2';
 
 const cli = getCliBranding();
 const networkName = getNetworkName();
@@ -107,6 +110,9 @@ program.addCommand(dwsCommand);
 program.addCommand(validateCommand);
 program.addCommand(trainingCommand);
 program.addCommand(proxyCommand);
+program.addCommand(decentralizeCommand);
+program.addCommand(deployMipsCommand);
+program.addCommand(verifyStage2Command);
 
 // Default: show help
 program.action(() => {
@@ -196,6 +202,13 @@ program.action(() => {
   console.log('  ' + chalk.cyan(`${cliName} superchain check`) + '   Check Superchain compatibility');
   console.log('  ' + chalk.cyan(`${cliName} superchain status`) + '  Show integration status');
   console.log('  ' + chalk.cyan(`${cliName} superchain register`) + ' Prepare registry submission\n');
+  
+  console.log(chalk.bold('Decentralization (Stage 2):\n'));
+  console.log('  ' + chalk.cyan(`${cliName} verify-stage2`) + '          Check Stage 2 readiness');
+  console.log('  ' + chalk.cyan(`${cliName} deploy-mips`) + '            Configure MIPS for fraud proofs');
+  console.log('  ' + chalk.cyan(`${cliName} decentralize`) + '           Transfer ownership to timelock');
+  console.log('  ' + chalk.cyan(`${cliName} decentralize status`) + '    Show current ownership');
+  console.log('  ' + chalk.cyan(`${cliName} decentralize verify`) + '    Verify ownership transfer\n');
   
   console.log(chalk.bold('DWS (Decentralized Web Services):\n'));
   console.log('  ' + chalk.cyan(`${cliName} dws dev`) + '           Start DWS in dev mode (auto-infra)');

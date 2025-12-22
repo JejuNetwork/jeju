@@ -226,6 +226,9 @@ contract CDNRegistryTest is Test {
     // ============ Usage Reporting Tests ============
     
     function test_ReportUsage() public {
+        // Warp to a reasonable time so we can have valid period timestamps
+        vm.warp(10000);
+        
         vm.prank(provider1);
         bytes32 nodeId = registry.registerEdgeNode{value: 0.01 ether}(
             "edge1.jeju.network:443",

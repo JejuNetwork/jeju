@@ -5,13 +5,72 @@
  * - OP Stack compatible
  * - Arbitrum Orbit compatible
  * - Generic sequencer integration
+ * - L1 DA commitment verification
+ * - Calldata fallback support
  */
 
 import type { Address, Hex, PublicClient, WalletClient } from 'viem';
-import { createPublicClient, createWalletClient, http, toBytes, toHex, keccak256 } from 'viem';
+import { createPublicClient, createWalletClient, http, toBytes, toHex, keccak256, encodeFunctionData } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { DAClient, createDAClient, type DAClientConfig } from '../client';
 import type { BlobCommitment, AvailabilityAttestation, BlobSubmissionResult } from '../types';
+
+// L1 Contract ABIs
+const DACommitmentVerifierABI = [
+  {
+    name: 'registerCommitment',
+    type: 'function',
+    inputs: [
+      { name: 'outputRoot', type: 'bytes32' },
+      { name: 'daCommitment', type: 'tuple', components: [
+        { name: 'blobId', type: 'bytes32' },
+        { name: 'commitment', type: 'bytes32' },
+        { name: 'merkleRoot', type: 'bytes32' },
+        { name: 'submittedAt', type: 'uint256' },
+        { name: 'isCalldata', type: 'bool' }
+      ]}
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable'
+  },
+  {
+    name: 'verifyCommitment',
+    type: 'function',
+    inputs: [
+      { name: 'outputRoot', type: 'bytes32' },
+      { name: 'daCommitment', type: 'tuple', components: [
+        { name: 'blobId', type: 'bytes32' },
+        { name: 'commitment', type: 'bytes32' },
+        { name: 'merkleRoot', type: 'bytes32' },
+        { name: 'submittedAt', type: 'uint256' },
+        { name: 'isCalldata', type: 'bool' }
+      ]},
+      { name: 'proof', type: 'bytes' }
+    ],
+    outputs: [{ type: 'bool' }],
+    stateMutability: 'view'
+  }
+] as const;
+
+const CalldataFallbackABI = [
+  {
+    name: 'postCalldata',
+    type: 'function',
+    inputs: [{ name: 'data', type: 'bytes' }],
+    outputs: [{ name: 'blobId', type: 'bytes32' }],
+    stateMutability: 'payable'
+  },
+  {
+    name: 'verifyCalldata',
+    type: 'function',
+    inputs: [
+      { name: 'blobId', type: 'bytes32' },
+      { name: 'data', type: 'bytes' }
+    ],
+    outputs: [{ type: 'bool' }],
+    stateMutability: 'view'
+  }
+] as const;
 
 // ============================================================================
 // Types
@@ -27,6 +86,9 @@ export interface RollupConfig {
     operatorRegistry: Address;
     blobRegistry: Address;
     attestationManager: Address;
+    daCommitmentVerifier?: Address;
+    calldataFallback?: Address;
+    l2OutputOracleAdapter?: Address;
   };
   /** Sequencer private key */
   sequencerKey?: Hex;
@@ -36,6 +98,34 @@ export interface RollupConfig {
   batchTimeThreshold?: number;
   /** Namespace for this rollup */
   namespace?: Hex;
+  /** Enable calldata fallback when DA is unavailable */
+  enableCalldataFallback?: boolean;
+  /** Max retries before falling back to calldata */
+  maxDARetries?: number;
+}
+
+export interface DAProof {
+  /** State root from L2 */
+  stateRoot: Hex;
+  /** Message passer storage root */
+  messagePasserRoot: Hex;
+  /** Block hash */
+  blockHash: Hex;
+  /** Merkle proof for state inclusion */
+  merkleProof: Hex[];
+}
+
+export interface L1SubmissionResult {
+  /** Transaction hash on L1 */
+  txHash: Hex;
+  /** Output root submitted */
+  outputRoot: Hex;
+  /** DA commitment */
+  daCommitment: Hex;
+  /** Whether calldata fallback was used */
+  usedCalldataFallback: boolean;
+  /** Submission timestamp */
+  submittedAt: number;
 }
 
 export interface BatchData {
@@ -78,29 +168,48 @@ export interface BatchSubmissionResult {
 // ============================================================================
 
 export class RollupDAAdapter {
-  private readonly config: Required<RollupConfig>;
+  private readonly config: Required<RollupConfig> & { 
+    contracts: Required<RollupConfig['contracts']> & {
+      daCommitmentVerifier: Address;
+      calldataFallback: Address;
+      l2OutputOracleAdapter: Address;
+    };
+    enableCalldataFallback: boolean;
+    maxDARetries: number;
+  };
   private readonly daClient: DAClient;
   private readonly sequencerAddress: Address | null;
+  private l1Client: PublicClient | null = null;
+  private l1WalletClient: WalletClient | null = null;
   
   // Batching state
   private pendingBatches: BatchData[] = [];
   private pendingSize = 0;
   private lastBatchTime = Date.now();
   private batchTimer: ReturnType<typeof setTimeout> | null = null;
+  
+  // Fallback tracking
+  private daFailureCount = 0;
+  private lastDAFailure: number | null = null;
 
   constructor(config: RollupConfig) {
     this.config = {
       daGateway: config.daGateway,
       l1RpcUrl: config.l1RpcUrl ?? '',
-      contracts: config.contracts ?? {
-        operatorRegistry: '0x' as Address,
-        blobRegistry: '0x' as Address,
-        attestationManager: '0x' as Address,
+      contracts: {
+        operatorRegistry: config.contracts?.operatorRegistry ?? '0x' as Address,
+        blobRegistry: config.contracts?.blobRegistry ?? '0x' as Address,
+        attestationManager: config.contracts?.attestationManager ?? '0x' as Address,
+        daCommitmentVerifier: config.contracts?.daCommitmentVerifier ?? '0x' as Address,
+        calldataFallback: config.contracts?.calldataFallback ?? '0x' as Address,
+        l2OutputOracleAdapter: config.contracts?.l2OutputOracleAdapter ?? '0x' as Address,
       },
       sequencerKey: config.sequencerKey ?? '0x' as Hex,
       batchThreshold: config.batchThreshold ?? 128 * 1024, // 128KB
       batchTimeThreshold: config.batchTimeThreshold ?? 60000, // 1 minute
       namespace: config.namespace ?? keccak256(toBytes('default-rollup')) as Hex,
+      enableCalldataFallback: config.enableCalldataFallback ?? true,
+      maxDARetries: config.maxDARetries ?? 3,
     };
     
     this.daClient = createDAClient({
@@ -112,6 +221,17 @@ export class RollupDAAdapter {
     this.sequencerAddress = config.sequencerKey 
       ? privateKeyToAccount(config.sequencerKey).address 
       : null;
+    
+    // Initialize L1 clients if RPC URL provided
+    if (config.l1RpcUrl && config.sequencerKey) {
+      this.l1Client = createPublicClient({
+        transport: http(config.l1RpcUrl),
+      });
+      this.l1WalletClient = createWalletClient({
+        account: privateKeyToAccount(config.sequencerKey),
+        transport: http(config.l1RpcUrl),
+      });
+    }
   }
 
   /**
@@ -226,6 +346,8 @@ export class RollupDAAdapter {
     operators: number;
     pendingBatches: number;
     pendingSize: number;
+    failureCount: number;
+    lastFailure: number | null;
   }> {
     const health = await this.daClient.healthCheck().catch(() => ({ status: 'error', operators: 0 }));
     
@@ -234,7 +356,248 @@ export class RollupDAAdapter {
       operators: health.operators,
       pendingBatches: this.pendingBatches.length,
       pendingSize: this.pendingSize,
+      failureCount: this.daFailureCount,
+      lastFailure: this.lastDAFailure,
     };
+  }
+
+  // ============================================================================
+  // DA Proof Generation
+  // ============================================================================
+
+  /**
+   * Generate DA proof for L1 submission
+   * Links output root to DA commitment
+   */
+  generateDAProof(
+    daRef: DAReference,
+    stateRoot: Hex,
+    messagePasserRoot: Hex,
+    blockHash: Hex,
+    merkleProof: Hex[] = []
+  ): Hex {
+    // Encode proof: stateRoot(32) | messagePasserRoot(32) | blockHash(32) | merkleProof(...)
+    const proofParts: Hex[] = [
+      stateRoot,
+      messagePasserRoot,
+      blockHash,
+    ];
+    
+    // Concatenate merkle proof elements
+    for (const proofElement of merkleProof) {
+      proofParts.push(proofElement);
+    }
+    
+    // Combine all parts
+    const combined = proofParts.map(p => p.slice(2)).join('');
+    return `0x${combined}` as Hex;
+  }
+
+  /**
+   * Submit batch with DA commitment to L1
+   */
+  async submitToL1WithDA(
+    batch: BatchData,
+    outputRoot: Hex,
+    daProof: DAProof
+  ): Promise<L1SubmissionResult> {
+    if (!this.l1WalletClient || !this.l1Client) {
+      throw new Error('L1 clients not initialized');
+    }
+
+    let usedCalldataFallback = false;
+    let daCommitment: Hex;
+    let retryCount = 0;
+
+    // Try DA submission with retries
+    while (retryCount < this.config.maxDARetries) {
+      const result = await this.submitBatch(batch).catch((error: Error) => {
+        console.error(`DA submission attempt ${retryCount + 1} failed:`, error.message);
+        this.daFailureCount++;
+        this.lastDAFailure = Date.now();
+        return null;
+      });
+
+      if (result) {
+        daCommitment = result.daRef.blobId;
+        break;
+      }
+
+      retryCount++;
+      
+      // Wait before retry
+      if (retryCount < this.config.maxDARetries) {
+        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+      }
+    }
+
+    // Fallback to calldata if DA failed
+    if (!daCommitment!) {
+      if (!this.config.enableCalldataFallback) {
+        throw new Error('DA submission failed and calldata fallback is disabled');
+      }
+
+      console.warn('DA submission failed, using calldata fallback');
+      usedCalldataFallback = true;
+
+      // Post to calldata fallback contract
+      const encodedBatch = this.encodeBatch(batch);
+      daCommitment = await this.postToCalldataFallback(encodedBatch);
+    }
+
+    // Generate proof bytes
+    const proofBytes = this.generateDAProof(
+      { blobId: daCommitment, commitment: {} as BlobCommitment, attestation: {} as AvailabilityAttestation, submittedAt: Date.now() },
+      daProof.stateRoot,
+      daProof.messagePasserRoot,
+      daProof.blockHash,
+      daProof.merkleProof
+    );
+
+    // Submit to L2OutputOracleAdapter
+    const txHash = await this.submitOutputToL1(
+      outputRoot,
+      batch.l2BlockRange.end,
+      daCommitment,
+      proofBytes,
+      usedCalldataFallback
+    );
+
+    return {
+      txHash,
+      outputRoot,
+      daCommitment,
+      usedCalldataFallback,
+      submittedAt: Date.now(),
+    };
+  }
+
+  /**
+   * Post data to calldata fallback contract
+   */
+  private async postToCalldataFallback(data: Uint8Array): Promise<Hex> {
+    if (!this.l1WalletClient || !this.l1Client) {
+      throw new Error('L1 clients not initialized');
+    }
+
+    const calldataFallbackAddress = this.config.contracts.calldataFallback;
+    if (calldataFallbackAddress === '0x') {
+      throw new Error('Calldata fallback contract not configured');
+    }
+
+    const txHash = await this.l1WalletClient.writeContract({
+      address: calldataFallbackAddress,
+      abi: CalldataFallbackABI,
+      functionName: 'postCalldata',
+      args: [toHex(data)],
+      chain: null,
+    });
+
+    // Wait for transaction and get blob ID from logs
+    const receipt = await this.l1Client.waitForTransactionReceipt({ hash: txHash });
+    
+    // Extract blobId from CalldataPosted event
+    const calldataPostedTopic = keccak256(toBytes('CalldataPosted(bytes32,address,uint256,bytes32)'));
+    const log = receipt.logs.find(l => l.topics[0] === calldataPostedTopic);
+    
+    if (!log || !log.topics[1]) {
+      throw new Error('Failed to extract blobId from CalldataPosted event');
+    }
+
+    return log.topics[1] as Hex;
+  }
+
+  /**
+   * Submit output with DA commitment to L1
+   */
+  private async submitOutputToL1(
+    outputRoot: Hex,
+    l2BlockNumber: bigint,
+    daCommitment: Hex,
+    daProof: Hex,
+    _isCalldataFallback: boolean
+  ): Promise<Hex> {
+    if (!this.l1WalletClient) {
+      throw new Error('L1 wallet client not initialized');
+    }
+
+    const l2OutputOracleAdapter = this.config.contracts.l2OutputOracleAdapter;
+    if (l2OutputOracleAdapter === '0x') {
+      throw new Error('L2OutputOracleAdapter not configured');
+    }
+
+    // Call proposeOutput on L2OutputOracleAdapter
+    const txHash = await this.l1WalletClient.writeContract({
+      address: l2OutputOracleAdapter,
+      abi: [
+        {
+          name: 'proposeOutput',
+          type: 'function',
+          inputs: [
+            { name: '_outputRoot', type: 'bytes32' },
+            { name: '_l2BlockNumber', type: 'uint256' },
+            { name: '_daCommitment', type: 'bytes32' },
+            { name: '_daProof', type: 'bytes' }
+          ],
+          outputs: [],
+          stateMutability: 'nonpayable'
+        }
+      ],
+      functionName: 'proposeOutput',
+      args: [outputRoot, l2BlockNumber, daCommitment, daProof],
+      chain: null,
+    });
+
+    return txHash;
+  }
+
+  /**
+   * Verify DA commitment on L1
+   */
+  async verifyDACommitmentOnL1(
+    outputRoot: Hex,
+    daCommitment: {
+      blobId: Hex;
+      commitment: Hex;
+      merkleRoot: Hex;
+      submittedAt: bigint;
+      isCalldata: boolean;
+    },
+    proof: Hex
+  ): Promise<boolean> {
+    if (!this.l1Client) {
+      throw new Error('L1 client not initialized');
+    }
+
+    const verifierAddress = this.config.contracts.daCommitmentVerifier;
+    if (verifierAddress === '0x') {
+      throw new Error('DA commitment verifier not configured');
+    }
+
+    const result = await this.l1Client.readContract({
+      address: verifierAddress,
+      abi: DACommitmentVerifierABI,
+      functionName: 'verifyCommitment',
+      args: [outputRoot, daCommitment, proof],
+    });
+
+    return result;
+  }
+
+  /**
+   * Check if DA layer is healthy
+   */
+  async isDAHealthy(): Promise<boolean> {
+    const status = await this.getDAStatus();
+    return status.healthy && status.operators > 0;
+  }
+
+  /**
+   * Reset failure tracking (call after successful recovery)
+   */
+  resetFailureTracking(): void {
+    this.daFailureCount = 0;
+    this.lastDAFailure = null;
   }
 
   // ============================================================================

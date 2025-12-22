@@ -108,6 +108,9 @@ contract X402FacilitatorTest is Test {
     
     function test_SettlePayment_RevertIfExpired() public {
         uint256 amount = 100 * 10**6;
+        
+        // Move time forward so we have a valid past timestamp
+        vm.warp(1000);
         uint256 timestamp = block.timestamp - 400; // More than 5 minutes ago
         
         vm.expectRevert(X402Facilitator.PaymentExpired.selector);

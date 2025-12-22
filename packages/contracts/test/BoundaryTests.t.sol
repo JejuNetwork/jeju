@@ -71,7 +71,7 @@ contract BoundaryTests is Test {
         
         inbox = new MockBatchInbox();
         submitter = new ThresholdBatchSubmitter(address(inbox), owner, 2);
-        forceInc = new ForcedInclusion(address(inbox), address(0), owner);
+        forceInc = new ForcedInclusion(address(inbox), address(0), owner, owner);
         token = new MockToken();
         
         // Add sequencers via timelock

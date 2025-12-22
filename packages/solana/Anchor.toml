@@ -36,3 +36,7 @@ wallet = "~/.config/solana/id.json"
 
 [scripts]
 test = "bun test"
+
+[build]
+sbf_out_dir = "target/deploy"
+tools_version = "v1.52"

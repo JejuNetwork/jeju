@@ -3,44 +3,29 @@ pragma solidity ^0.8.33;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Treasury} from "./Treasury.sol";
-import {GameTreasury} from "./GameTreasury.sol";
-import {ProfitTreasury} from "./ProfitTreasury.sol";
 
 /**
  * @title TreasuryFactory
  * @author Jeju Network
  * @notice Factory for deploying treasury contracts for DAOs, games, and profit distribution
- * @dev Enables dynamic creation of treasuries without hardcoding vendor-specific contracts
- *
- * Treasury Types:
- * - BASE: Standard Treasury with rate-limited withdrawals and operator management
- * - GAME: GameTreasury with TEE operator, heartbeat monitoring, and state tracking
- * - PROFIT: ProfitTreasury with multi-recipient distribution and profit categorization
+ * @dev Creates Treasury contracts and optionally enables TEE or profit distribution features
  *
  * Usage:
- * 1. Deploy TreasuryFactory
- * 2. Call createTreasury/createGameTreasury/createProfitTreasury as needed
- * 3. Each treasury is fully independent with its own admin
+ * 1. createTreasury() - Basic treasury with rate-limited withdrawals
+ * 2. createTEETreasury() - Treasury with TEE operator, heartbeat, state tracking
+ * 3. createProfitTreasury() - Treasury with profit distribution to multiple recipients
  */
 contract TreasuryFactory is Ownable {
-    // ============ Types ============
-
-    enum TreasuryType {
-        BASE,
-        GAME,
-        PROFIT
-    }
+    // ============ State ============
 
     struct TreasuryInfo {
         address treasury;
-        TreasuryType treasuryType;
         string name;
         address admin;
         uint256 createdAt;
-        bool active;
+        bool teeEnabled;
+        bool profitDistributionEnabled;
     }
-
-    // ============ State ============
 
     /// @notice All deployed treasuries
     mapping(bytes32 => TreasuryInfo) public treasuries;
@@ -57,6 +42,10 @@ contract TreasuryFactory is Ownable {
     /// @notice Default daily withdrawal limit for new treasuries
     uint256 public defaultDailyLimit = 10 ether;
 
+    /// @notice Default TEE timeouts
+    uint256 public defaultHeartbeatTimeout = 1 hours;
+    uint256 public defaultTakeoverCooldown = 2 hours;
+
     /// @notice Creation fee (optional, can be 0)
     uint256 public creationFee;
 
@@ -68,12 +57,12 @@ contract TreasuryFactory is Ownable {
     event TreasuryCreated(
         bytes32 indexed treasuryId,
         address indexed treasury,
-        TreasuryType treasuryType,
         string name,
-        address indexed admin
+        address indexed admin,
+        bool teeEnabled,
+        bool profitDistributionEnabled
     );
 
-    event TreasuryDeactivated(bytes32 indexed treasuryId, address indexed treasury);
     event DefaultDailyLimitUpdated(uint256 oldLimit, uint256 newLimit);
     event CreationFeeUpdated(uint256 oldFee, uint256 newFee);
     event FeeRecipientUpdated(address oldRecipient, address newRecipient);
@@ -96,40 +85,55 @@ contract TreasuryFactory is Ownable {
     // ============ Treasury Creation ============
 
     /**
-     * @notice Create a standard Treasury
-     * @param name Human-readable name for the treasury
+     * @notice Create a basic Treasury
+     * @param treasuryName Human-readable name for the treasury
      * @param admin Admin address for the treasury
      * @param dailyLimit Daily withdrawal limit (0 to use default)
      * @return treasuryId Unique identifier for the treasury
      * @return treasury Address of the deployed treasury
      */
     function createTreasury(
-        string calldata name,
+        string calldata treasuryName,
         address admin,
         uint256 dailyLimit
     ) external payable returns (bytes32 treasuryId, address treasury) {
-        return _createTreasury(name, admin, dailyLimit, TreasuryType.BASE);
+        _validateCreation(treasuryName, admin);
+
+        uint256 limit = dailyLimit > 0 ? dailyLimit : defaultDailyLimit;
+
+        Treasury newTreasury = new Treasury(treasuryName, limit, admin);
+        treasury = address(newTreasury);
+
+        treasuryId = _registerTreasury(treasuryName, admin, treasury, false, false);
     }
 
     /**
-     * @notice Create a GameTreasury for TEE-operated games/agents
-     * @param name Human-readable name for the treasury
+     * @notice Create a Treasury with TEE operator mode enabled
+     * @param treasuryName Human-readable name for the treasury
      * @param admin Admin address for the treasury
      * @param dailyLimit Daily withdrawal limit (0 to use default)
      * @return treasuryId Unique identifier for the treasury
      * @return treasury Address of the deployed treasury
      */
-    function createGameTreasury(
-        string calldata name,
+    function createTEETreasury(
+        string calldata treasuryName,
         address admin,
         uint256 dailyLimit
     ) external payable returns (bytes32 treasuryId, address treasury) {
-        return _createTreasury(name, admin, dailyLimit, TreasuryType.GAME);
+        _validateCreation(treasuryName, admin);
+
+        uint256 limit = dailyLimit > 0 ? dailyLimit : defaultDailyLimit;
+
+        Treasury newTreasury = new Treasury(treasuryName, limit, admin);
+        newTreasury.enableTEEMode(defaultHeartbeatTimeout, defaultTakeoverCooldown);
+        treasury = address(newTreasury);
+
+        treasuryId = _registerTreasury(treasuryName, admin, treasury, true, false);
     }
 
     /**
-     * @notice Create a ProfitTreasury for profit distribution
-     * @param name Human-readable name for the treasury
+     * @notice Create a Treasury with profit distribution enabled
+     * @param treasuryName Human-readable name for the treasury
      * @param admin Admin address for the treasury
      * @param dailyLimit Daily withdrawal limit (0 to use default)
      * @param protocolRecipient Address to receive protocol share
@@ -139,68 +143,67 @@ contract TreasuryFactory is Ownable {
      * @return treasury Address of the deployed treasury
      */
     function createProfitTreasury(
-        string calldata name,
+        string calldata treasuryName,
         address admin,
         uint256 dailyLimit,
         address protocolRecipient,
         address stakersRecipient,
         address insuranceRecipient
     ) external payable returns (bytes32 treasuryId, address treasury) {
-        _validateCreation(name, admin);
+        _validateCreation(treasuryName, admin);
 
         uint256 limit = dailyLimit > 0 ? dailyLimit : defaultDailyLimit;
 
-        // Deploy ProfitTreasury
-        ProfitTreasury newTreasury = new ProfitTreasury(
-            limit,
-            admin,
-            protocolRecipient,
-            stakersRecipient,
-            insuranceRecipient
-        );
+        Treasury newTreasury = new Treasury(treasuryName, limit, admin);
+        newTreasury.enableProfitDistribution(protocolRecipient, stakersRecipient, insuranceRecipient);
         treasury = address(newTreasury);
 
-        treasuryId = _registerTreasury(name, admin, treasury, TreasuryType.PROFIT);
+        treasuryId = _registerTreasury(treasuryName, admin, treasury, false, true);
+    }
+
+    /**
+     * @notice Create a Treasury with both TEE and profit distribution enabled
+     * @param treasuryName Human-readable name for the treasury
+     * @param admin Admin address for the treasury
+     * @param dailyLimit Daily withdrawal limit (0 to use default)
+     * @param protocolRecipient Address to receive protocol share
+     * @param stakersRecipient Address to receive stakers share
+     * @param insuranceRecipient Address to receive insurance share
+     * @return treasuryId Unique identifier for the treasury
+     * @return treasury Address of the deployed treasury
+     */
+    function createFullTreasury(
+        string calldata treasuryName,
+        address admin,
+        uint256 dailyLimit,
+        address protocolRecipient,
+        address stakersRecipient,
+        address insuranceRecipient
+    ) external payable returns (bytes32 treasuryId, address treasury) {
+        _validateCreation(treasuryName, admin);
+
+        uint256 limit = dailyLimit > 0 ? dailyLimit : defaultDailyLimit;
+
+        Treasury newTreasury = new Treasury(treasuryName, limit, admin);
+        newTreasury.enableTEEMode(defaultHeartbeatTimeout, defaultTakeoverCooldown);
+        newTreasury.enableProfitDistribution(protocolRecipient, stakersRecipient, insuranceRecipient);
+        treasury = address(newTreasury);
+
+        treasuryId = _registerTreasury(treasuryName, admin, treasury, true, true);
     }
 
     // ============ Internal ============
 
-    function _createTreasury(
-        string calldata name,
-        address admin,
-        uint256 dailyLimit,
-        TreasuryType treasuryType
-    ) internal returns (bytes32 treasuryId, address treasury) {
-        _validateCreation(name, admin);
-
-        uint256 limit = dailyLimit > 0 ? dailyLimit : defaultDailyLimit;
-
-        // Deploy appropriate treasury type
-        if (treasuryType == TreasuryType.BASE) {
-            Treasury newTreasury = new Treasury(limit, admin);
-            treasury = address(newTreasury);
-        } else if (treasuryType == TreasuryType.GAME) {
-            GameTreasury newTreasury = new GameTreasury(limit, admin);
-            treasury = address(newTreasury);
-        } else {
-            revert("Invalid treasury type");
-        }
-
-        treasuryId = _registerTreasury(name, admin, treasury, treasuryType);
-    }
-
-    function _validateCreation(string calldata name, address admin) internal {
+    function _validateCreation(string calldata treasuryName, address admin) internal {
         if (admin == address(0)) revert InvalidAdmin();
-        if (bytes(name).length == 0) revert InvalidName();
+        if (bytes(treasuryName).length == 0) revert InvalidName();
 
-        // Handle creation fee
         if (creationFee > 0) {
             if (msg.value < creationFee) revert InsufficientFee(msg.value, creationFee);
             if (feeRecipient != address(0)) {
                 (bool success,) = feeRecipient.call{value: creationFee}("");
                 if (!success) revert TransferFailed();
             }
-            // Refund excess
             if (msg.value > creationFee) {
                 (bool refundSuccess,) = msg.sender.call{value: msg.value - creationFee}("");
                 if (!refundSuccess) revert TransferFailed();
@@ -209,72 +212,56 @@ contract TreasuryFactory is Ownable {
     }
 
     function _registerTreasury(
-        string calldata name,
+        string calldata treasuryName,
         address admin,
         address treasury,
-        TreasuryType treasuryType
+        bool teeEnabled,
+        bool profitDistributionEnabled
     ) internal returns (bytes32 treasuryId) {
-        // Generate unique ID
-        treasuryId = keccak256(abi.encodePacked(name, admin, block.timestamp, allTreasuryIds.length));
+        treasuryId = keccak256(abi.encodePacked(treasuryName, admin, block.timestamp, allTreasuryIds.length));
 
         if (treasuries[treasuryId].treasury != address(0)) {
             revert TreasuryAlreadyExists(treasuryId);
         }
 
-        // Store treasury info
         treasuries[treasuryId] = TreasuryInfo({
             treasury: treasury,
-            treasuryType: treasuryType,
-            name: name,
+            name: treasuryName,
             admin: admin,
             createdAt: block.timestamp,
-            active: true
+            teeEnabled: teeEnabled,
+            profitDistributionEnabled: profitDistributionEnabled
         });
 
         adminTreasuries[admin].push(treasuryId);
         allTreasuryIds.push(treasuryId);
         treasuryToId[treasury] = treasuryId;
 
-        emit TreasuryCreated(treasuryId, treasury, treasuryType, name, admin);
+        emit TreasuryCreated(treasuryId, treasury, treasuryName, admin, teeEnabled, profitDistributionEnabled);
     }
 
     // ============ View Functions ============
 
-    /**
-     * @notice Get treasury info by ID
-     */
     function getTreasury(bytes32 treasuryId) external view returns (TreasuryInfo memory) {
         return treasuries[treasuryId];
     }
 
-    /**
-     * @notice Get all treasuries for an admin
-     */
     function getTreasuriesByAdmin(address admin) external view returns (bytes32[] memory) {
         return adminTreasuries[admin];
     }
 
-    /**
-     * @notice Get all treasury IDs
-     */
     function getAllTreasuryIds() external view returns (bytes32[] memory) {
         return allTreasuryIds;
     }
 
-    /**
-     * @notice Get total treasury count
-     */
     function getTreasuryCount() external view returns (uint256) {
         return allTreasuryIds.length;
     }
 
-    /**
-     * @notice Get treasuries by type
-     */
-    function getTreasuriesByType(TreasuryType treasuryType) external view returns (bytes32[] memory) {
+    function getTEETreasuries() external view returns (bytes32[] memory) {
         uint256 count = 0;
         for (uint256 i = 0; i < allTreasuryIds.length; i++) {
-            if (treasuries[allTreasuryIds[i]].treasuryType == treasuryType) {
+            if (treasuries[allTreasuryIds[i]].teeEnabled) {
                 count++;
             }
         }
@@ -282,20 +269,17 @@ contract TreasuryFactory is Ownable {
         bytes32[] memory result = new bytes32[](count);
         uint256 idx = 0;
         for (uint256 i = 0; i < allTreasuryIds.length; i++) {
-            if (treasuries[allTreasuryIds[i]].treasuryType == treasuryType) {
+            if (treasuries[allTreasuryIds[i]].teeEnabled) {
                 result[idx++] = allTreasuryIds[i];
             }
         }
         return result;
     }
 
-    /**
-     * @notice Get active treasuries
-     */
-    function getActiveTreasuries() external view returns (bytes32[] memory) {
+    function getProfitTreasuries() external view returns (bytes32[] memory) {
         uint256 count = 0;
         for (uint256 i = 0; i < allTreasuryIds.length; i++) {
-            if (treasuries[allTreasuryIds[i]].active) {
+            if (treasuries[allTreasuryIds[i]].profitDistributionEnabled) {
                 count++;
             }
         }
@@ -303,7 +287,7 @@ contract TreasuryFactory is Ownable {
         bytes32[] memory result = new bytes32[](count);
         uint256 idx = 0;
         for (uint256 i = 0; i < allTreasuryIds.length; i++) {
-            if (treasuries[allTreasuryIds[i]].active) {
+            if (treasuries[allTreasuryIds[i]].profitDistributionEnabled) {
                 result[idx++] = allTreasuryIds[i];
             }
         }
@@ -312,49 +296,30 @@ contract TreasuryFactory is Ownable {
 
     // ============ Admin Functions ============
 
-    /**
-     * @notice Mark a treasury as inactive (does not affect the treasury itself)
-     * @dev Only for factory tracking purposes
-     */
-    function deactivateTreasury(bytes32 treasuryId) external onlyOwner {
-        TreasuryInfo storage info = treasuries[treasuryId];
-        if (info.treasury == address(0)) revert TreasuryNotFound(treasuryId);
-
-        info.active = false;
-        emit TreasuryDeactivated(treasuryId, info.treasury);
-    }
-
-    /**
-     * @notice Set default daily limit for new treasuries
-     */
     function setDefaultDailyLimit(uint256 newLimit) external onlyOwner {
         uint256 oldLimit = defaultDailyLimit;
         defaultDailyLimit = newLimit;
         emit DefaultDailyLimitUpdated(oldLimit, newLimit);
     }
 
-    /**
-     * @notice Set creation fee
-     */
+    function setDefaultTEETimeouts(uint256 _heartbeatTimeout, uint256 _takeoverCooldown) external onlyOwner {
+        defaultHeartbeatTimeout = _heartbeatTimeout;
+        defaultTakeoverCooldown = _takeoverCooldown;
+    }
+
     function setCreationFee(uint256 newFee) external onlyOwner {
         uint256 oldFee = creationFee;
         creationFee = newFee;
         emit CreationFeeUpdated(oldFee, newFee);
     }
 
-    /**
-     * @notice Set fee recipient
-     */
     function setFeeRecipient(address newRecipient) external onlyOwner {
         address oldRecipient = feeRecipient;
         feeRecipient = newRecipient;
         emit FeeRecipientUpdated(oldRecipient, newRecipient);
     }
 
-    /**
-     * @notice Contract version
-     */
     function version() external pure returns (string memory) {
-        return "1.0.0";
+        return "2.0.0";
     }
 }

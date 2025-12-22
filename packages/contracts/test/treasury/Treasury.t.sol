@@ -38,7 +38,7 @@ contract TreasuryTest is Test {
         vm.deal(user, 100 ether);
         
         vm.prank(admin);
-        treasury = new Treasury(DAILY_LIMIT, admin);
+        treasury = new Treasury("Test Treasury", DAILY_LIMIT, admin);
         
         vm.prank(user);
         token = new MockERC20();
@@ -310,6 +310,10 @@ contract TreasuryTest is Test {
     }
     
     function test_Version() public view {
-        assertEq(treasury.version(), "1.0.0");
+        assertEq(treasury.version(), "2.0.0");
+    }
+    
+    function test_Name() public view {
+        assertEq(treasury.name(), "Test Treasury");
     }
 }
