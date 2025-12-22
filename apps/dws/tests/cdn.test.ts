@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import { type EdgeCache, getEdgeCache, resetEdgeCache } from '../src/cdn'
 import { app } from '../src/server'
 
-// Helper for Elysia testing - converts Hono-style request to Elysia handle
+// Helper for Elysia testing
 async function request(
   path: string,
   options?: {

@@ -1,35 +1,14 @@
 {
-  "name": "bazaar",
-  "version": "2.0.0",
-  "description": "Unified DeFi + NFT Marketplace - Decentralized with Elysia backend and Bun static frontend",
+  "name": "@jejunetwork/bazaar",
+  "version": "0.1.0",
+  "description": "Unified DeFi + NFT Marketplace",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "bun run scripts/dev.ts",
-    "dev:api": "bun --watch api/worker.ts",
-    "dev:dws": "USE_DWS=true bun run scripts/dev.ts",
-    "dev:stack": "bun run scripts/local-stack.ts",
     "build": "bun run scripts/build.ts",
-    "build:worker": "bun build api/worker.ts --outdir dist/worker --target bun --minify",
-    "start": "bun run scripts/serve.ts",
-    "start:worker": "bun api/worker.ts",
-    "deploy": "bun run scripts/deploy.ts",
-    "deploy:testnet": "NETWORK=testnet bun run scripts/deploy.ts",
-    "deploy:mainnet": "NETWORK=mainnet bun run scripts/deploy.ts",
-    "lint": "biome check .",
-    "lint:fix": "biome check . --fix",
-    "typecheck": "tsc --noEmit",
-    "test": "SKIP_INDEXER_TESTS=true bun run test:unit",
-    "test:full": "SKIP_INDEXER_TESTS=true bun run test:unit && bun run test:e2e",
-    "test:unit": "SKIP_INDEXER_TESTS=true bun test lib/__tests__/*.test.ts lib/pools/__tests__/*.test.ts lib/markets/__tests__/*.test.ts hooks/**/__tests__/*.test.ts config/__tests__/*.test.ts",
-    "test:e2e": "playwright test tests/e2e --reporter=dot",
-    "test:e2e:headed": "playwright test tests/e2e --headed --reporter=dot",
-    "test:e2e:ui": "playwright test tests/e2e --ui",
-    "test:wallet": "playwright test tests/wallet --config=synpress.config.ts --reporter=list",
-    "test:wallet:build-cache": "npx synpress --force",
-    "test:integration": "bun test tests/integration/",
-    "test:coverage": "bun test --coverage lib/__tests__/*.test.ts config/__tests__/*.test.ts",
-    "test:all": "bun run test:unit && bun run test:e2e"
+    "test": "bun test lib/__tests__ hooks/**/__tests__ config/__tests__",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@babylon/shared": "workspace:vendor/babylon/packages/shared",
@@ -71,9 +50,9 @@
     "recharts": "3.6.0",
     "sonner": "1.7.2",
     "tailwind-merge": "2.6.0",
-    "viem": "2.43.2",
+    "viem": "2.43.3",
     "wagmi": "2.18.1",
-    "zod": "^4.1.13"
+    "zod": "4.2.1"
   },
   "devDependencies": {
     "@jejunetwork/tests": "workspace:*",
@@ -89,9 +68,5 @@
     "postcss": "8.5.3",
     "tailwindcss": "3.4.17",
     "typescript": "5.9.3"
-  },
-  "engines": {
-    "node": ">=18.0.0",
-    "bun": ">=1.2.0"
   }
 }

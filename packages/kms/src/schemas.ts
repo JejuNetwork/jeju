@@ -89,7 +89,7 @@ const accessControlPolicySchema = z.object({
 
 // Config schemas
 export const encryptionConfigSchema = z.object({
-  debug: z.boolean().optional(),
+  debug: z.boolean().default(false),
 })
 
 export const teeConfigSchema = z.object({
@@ -111,44 +111,56 @@ export const kmsConfigSchema = z.object({
   defaultProvider: z.enum(['encryption', 'tee', 'mpc']),
   defaultChain: z.string().min(1),
   registryAddress: addressSchema.optional(),
-  fallbackEnabled: z.boolean().optional(),
+  fallbackEnabled: z.boolean().default(true),
 })
 
 // Request schemas - using strongly typed accessControlPolicySchema
-export const generateKeyOptionsSchema = z.object({
-  type: z.enum(['encryption', 'signing', 'session']).optional(),
-  curve: z.enum(['secp256k1', 'ed25519', 'bls12-381']).optional(),
-  policy: accessControlPolicySchema,
-  provider: z.enum(['encryption', 'tee', 'mpc']).optional(),
-})
+// Use .strict() to reject extra fields and prevent type confusion
+export const generateKeyOptionsSchema = z
+  .object({
+    type: z.enum(['encryption', 'signing', 'session']).optional(),
+    curve: z.enum(['secp256k1', 'ed25519', 'bls12-381']).optional(),
+    policy: accessControlPolicySchema,
+    provider: z.enum(['encryption', 'tee', 'mpc']).optional(),
+  })
+  .strict()
 
-export const encryptRequestSchema = z.object({
-  data: z.union([z.string(), z.instanceof(Uint8Array)]),
-  policy: accessControlPolicySchema,
-  keyId: z.string().min(1).optional(),
-  metadata: z.record(z.string(), z.string()).optional(),
-})
+export const encryptRequestSchema = z
+  .object({
+    data: z.union([z.string(), z.instanceof(Uint8Array)]),
+    policy: accessControlPolicySchema,
+    keyId: z.string().min(1).optional(),
+    metadata: z.record(z.string(), z.string()).optional(),
+  })
+  .strict()
 
-export const signRequestSchema = z.object({
-  message: z.union([z.string(), z.instanceof(Uint8Array)]),
-  keyId: z.string().min(1),
-  hashAlgorithm: z.enum(['keccak256', 'sha256', 'none']).optional(),
-})
+export const signRequestSchema = z
+  .object({
+    message: z.union([z.string(), z.instanceof(Uint8Array)]),
+    keyId: z.string().min(1),
+    hashAlgorithm: z.enum(['keccak256', 'sha256', 'none']).optional(),
+  })
+  .strict()
 
-export const thresholdSignRequestSchema = z.object({
-  message: z.union([z.string(), z.instanceof(Uint8Array)]),
-  keyId: z.string().min(1),
-  threshold: z.number().int().min(2),
-  totalParties: z.number().int().min(2),
-  hashAlgorithm: z.enum(['keccak256', 'sha256']).optional(),
-})
+export const thresholdSignRequestSchema = z
+  .object({
+    message: z.union([z.string(), z.instanceof(Uint8Array)]),
+    keyId: z.string().min(1),
+    threshold: z.number().int().min(2),
+    totalParties: z.number().int().min(2),
+    hashAlgorithm: z.enum(['keccak256', 'sha256']).optional(),
+  })
+  .strict()
 
-// Token schemas
-export const tokenHeaderSchema = z.object({
-  alg: z.string().min(1),
-  typ: z.literal('JWT'),
-})
+// Token schemas - use .strict() for header and options
+export const tokenHeaderSchema = z
+  .object({
+    alg: z.string().min(1),
+    typ: z.literal('JWT'),
+  })
+  .strict()
 
+// Claims uses .catchall() for custom claims, so cannot use .strict()
 export const tokenClaimsSchema = z
   .object({
     sub: z.string().min(1),
@@ -166,54 +178,65 @@ export const tokenClaimsSchema = z
     z.union([z.string(), z.number(), z.array(z.string()), z.undefined()]),
   )
 
-export const tokenOptionsSchema = z.object({
-  keyId: z.string().min(1).optional(),
-  expiresInSeconds: z.number().int().positive().optional(),
-})
+export const tokenOptionsSchema = z
+  .object({
+    keyId: z.string().min(1).optional(),
+    expiresInSeconds: z.number().int().positive().optional(),
+  })
+  .strict()
 
-export const verifyTokenOptionsSchema = z.object({
-  issuer: z.string().min(1).optional(),
-  audience: z.string().min(1).optional(),
-  expectedSigner: addressSchema.optional(),
-  allowExpired: z.boolean().optional(),
-})
+export const verifyTokenOptionsSchema = z
+  .object({
+    issuer: z.string().min(1).optional(),
+    audience: z.string().min(1).optional(),
+    expectedSigner: addressSchema.optional(),
+    allowExpired: z.boolean().default(false),
+  })
+  .strict()
 
-// Vault schemas
-export const secretPolicySchema = z.object({
-  allowedAddresses: z.array(addressSchema).optional(),
-  allowedRoles: z.array(z.string()).optional(),
-  minStake: z.bigint().optional(),
-  expiresAt: z.number().int().optional(),
-  maxAccessCount: z.number().int().positive().optional(),
-  rotationInterval: z.number().int().positive().optional(),
-})
+// Vault schemas - use .strict() to reject extra fields
+export const secretPolicySchema = z
+  .object({
+    allowedAddresses: z.array(addressSchema).optional(),
+    allowedRoles: z.array(z.string()).optional(),
+    minStake: z.bigint().optional(),
+    expiresAt: z.number().int().optional(),
+    maxAccessCount: z.number().int().positive().optional(),
+    rotationInterval: z.number().int().positive().optional(),
+  })
+  .strict()
 
-export const vaultConfigSchema = z.object({
-  encryptionKeyId: z.string().min(1).optional(),
-  daEndpoint: z.string().url().optional(),
-  auditLogging: z.boolean().default(true),
-  autoRotateInterval: z.number().int().positive().optional(),
-})
+export const vaultConfigSchema = z
+  .object({
+    encryptionKeyId: z.string().min(1).optional(),
+    daEndpoint: z.string().url().optional(),
+    auditLogging: z.boolean().default(true),
+    autoRotateInterval: z.number().int().positive().optional(),
+  })
+  .strict()
 
-// MPC schemas
-export const mpcPartySchema = z.object({
-  id: z.string().min(1),
-  index: z.number().int().min(1),
-  endpoint: z.string().url(),
-  publicKey: hexSchema,
-  address: addressSchema,
-  enclaveId: hexSchema.optional(),
-  attestation: z
-    .object({
-      quote: hexSchema,
-      measurement: hexSchema,
-      timestamp: z.number().int(),
-      verified: z.boolean(),
-    })
-    .optional(),
-  stake: z.bigint(),
-  registeredAt: z.number().int(),
-})
+// MPC schemas - use .strict() to reject extra fields
+export const mpcPartySchema = z
+  .object({
+    id: z.string().min(1),
+    index: z.number().int().min(1),
+    endpoint: z.string().url(),
+    publicKey: hexSchema,
+    address: addressSchema,
+    enclaveId: hexSchema.optional(),
+    attestation: z
+      .object({
+        quote: hexSchema,
+        measurement: hexSchema,
+        timestamp: z.number().int(),
+        verified: z.boolean(),
+      })
+      .strict()
+      .optional(),
+    stake: z.bigint(),
+    registeredAt: z.number().int(),
+  })
+  .strict()
 
 export const mpcKeyGenParamsSchema = z
   .object({
@@ -231,8 +254,10 @@ export const mpcKeyGenParamsSchema = z
         contractAddress: addressSchema.optional(),
         contractMethod: z.string().optional(),
       })
+      .strict()
       .optional(),
   })
+  .strict()
   .refine((data) => data.threshold <= data.totalParties, {
     message: 'Threshold cannot exceed total parties',
   })
@@ -240,29 +265,34 @@ export const mpcKeyGenParamsSchema = z
     message: 'Party count must match totalParties',
   })
 
-export const mpcSignRequestSchema = z.object({
-  keyId: z.string().min(1),
-  message: hexSchema,
-  messageHash: hexSchema,
-  requester: addressSchema,
-  accessProof: z
-    .object({
-      type: z.enum(['signature', 'merkle', 'stake', 'role']),
-      proof: hexSchema,
-      timestamp: z.number().int(),
-    })
-    .optional(),
-})
+export const mpcSignRequestSchema = z
+  .object({
+    keyId: z.string().min(1),
+    message: hexSchema,
+    messageHash: hexSchema,
+    requester: addressSchema,
+    accessProof: z
+      .object({
+        type: z.enum(['signature', 'merkle', 'stake', 'role']),
+        proof: hexSchema,
+        timestamp: z.number().int(),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict()
 
-export const mpcCoordinatorConfigSchema = z.object({
-  threshold: z.number().int().min(2),
-  totalParties: z.number().int().min(2),
-  sessionTimeout: z.number().int().positive(),
-  maxConcurrentSessions: z.number().int().positive(),
-  requireAttestation: z.boolean(),
-  minPartyStake: z.bigint(),
-  network: z.enum(['localnet', 'testnet', 'mainnet']),
-})
+export const mpcCoordinatorConfigSchema = z
+  .object({
+    threshold: z.number().int().min(2),
+    totalParties: z.number().int().min(2),
+    sessionTimeout: z.number().int().positive(),
+    maxConcurrentSessions: z.number().int().positive(),
+    requireAttestation: z.boolean(),
+    minPartyStake: z.bigint(),
+    network: z.enum(['localnet', 'testnet', 'mainnet']),
+  })
+  .strict()
 
 // TEE API response schemas for external endpoint validation
 export const teeConnectResponseSchema = z.object({
@@ -317,7 +347,7 @@ export const ciphertextPayloadSchema = z.object({
 
 // Validation helpers
 export function validateOrThrow<T>(
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   data: unknown,
   errorPrefix: string,
 ): T {

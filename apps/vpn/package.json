@@ -5,16 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "tauri dev",
-    "dev:web": "PORT=1421 bun index.html",
     "build": "bun build index.html --outdir=dist --minify",
-    "build:tauri": "tauri build",
-    "preview": "PORT=1421 bun index.html",
-    "tauri": "tauri",
     "test": "bun test src",
-    "test:unit": "bun test src",
-    "test:e2e": "playwright test",
-    "test:e2e:headed": "playwright test --headed",
-    "lint": "biome check .",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -32,9 +24,8 @@
     "lucide-react": "0.562.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "viem": "2.43.2",
-    "zod": "^4.1.13",
-    "zustand": "5.0.9"
+    "viem": "2.43.3",
+    "zod": "4.2.1"
   },
   "devDependencies": {
     "@jejunetwork/tests": "workspace:*",

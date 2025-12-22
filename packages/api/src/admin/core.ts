@@ -30,7 +30,6 @@ export function validateAdmin(
     }
   }
 
-  // Check required role if specified
   if (config.requiredRole) {
     const userLevel = ROLE_HIERARCHY[role]
     const requiredLevel = ROLE_HIERARCHY[config.requiredRole]

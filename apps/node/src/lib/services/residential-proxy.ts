@@ -10,9 +10,7 @@ import { z } from 'zod'
 import { PROXY_REGISTRY_ABI } from '../abis'
 import { getChain, type NodeClient } from '../contracts'
 
-// ============================================================================
 // Configuration Schema
-// ============================================================================
 
 const ProxyConfigSchema = z.object({
   coordinatorWsUrl: z.string().url(),
@@ -51,9 +49,7 @@ const CoordinatorMessageSchema = z
   })
   .passthrough()
 
-// ============================================================================
 // Types
-// ============================================================================
 
 export interface ProxyState {
   isRegistered: boolean
@@ -65,9 +61,7 @@ export interface ProxyState {
   earnings: bigint
 }
 
-// ============================================================================
 // Prometheus Metrics
-// ============================================================================
 
 const metricsRegistry = new Registry()
 
@@ -105,9 +99,7 @@ const proxyCoordinatorConnected = new Gauge({
   registers: [metricsRegistry],
 })
 
-// ============================================================================
 // Circuit Breaker
-// ============================================================================
 
 class CircuitBreaker {
   private failures = 0
@@ -156,9 +148,7 @@ class CircuitBreaker {
   }
 }
 
-// ============================================================================
 // Residential Proxy Service
-// ============================================================================
 
 export class ResidentialProxyService {
   private client: NodeClient
@@ -434,53 +424,46 @@ export class ResidentialProxyService {
       return false
     }
 
-    try {
-      const token = AuthTokenSchema.parse(
-        JSON.parse(Buffer.from(authHeader, 'base64').toString()),
-      )
+    const tokenData = JSON.parse(Buffer.from(authHeader, 'base64').toString())
+    const token = AuthTokenSchema.parse(tokenData)
 
-      // Check token hasn't expired
-      if (Date.now() - token.timestamp > this.config.authTokenTtlMs) {
-        return false
-      }
-
-      // Check not already used (replay protection)
-      if (this.validTokens.has(token.requestId)) {
-        return false
-      }
-
-      // Verify signature from coordinator
-      const message = `${token.nodeId}:${token.requestId}:${token.timestamp}`
-      const coordinatorAddress = process.env
-        .PROXY_COORDINATOR_ADDRESS as Address
-
-      if (!coordinatorAddress) {
-        console.warn('[Proxy] No coordinator address configured')
-        return false
-      }
-
-      const isValid = await verifyMessage({
-        address: coordinatorAddress,
-        message,
-        signature: token.signature as `0x${string}`,
-      })
-
-      if (isValid) {
-        // Mark token as used
-        this.validTokens.set(
-          token.requestId,
-          Date.now() + this.config.authTokenTtlMs,
-        )
-
-        // Cleanup expired tokens
-        this.cleanupExpiredTokens()
-      }
-
-      return isValid
-    } catch (error) {
-      console.error('[Proxy] Auth token validation error:', error)
+    // Check token hasn't expired
+    if (Date.now() - token.timestamp > this.config.authTokenTtlMs) {
       return false
     }
+
+    // Check not already used (replay protection)
+    if (this.validTokens.has(token.requestId)) {
+      return false
+    }
+
+    // Verify signature from coordinator
+    const message = `${token.nodeId}:${token.requestId}:${token.timestamp}`
+    const coordinatorAddress = process.env.PROXY_COORDINATOR_ADDRESS as Address
+
+    if (!coordinatorAddress) {
+      console.warn('[Proxy] No coordinator address configured')
+      return false
+    }
+
+    const isValid = await verifyMessage({
+      address: coordinatorAddress,
+      message,
+      signature: token.signature as `0x${string}`,
+    })
+
+    if (isValid) {
+      // Mark token as used
+      this.validTokens.set(
+        token.requestId,
+        Date.now() + this.config.authTokenTtlMs,
+      )
+
+      // Cleanup expired tokens
+      this.cleanupExpiredTokens()
+    }
+
+    return isValid
   }
 
   private cleanupExpiredTokens(): void {
@@ -840,9 +823,7 @@ export class ResidentialProxyService {
   }
 }
 
-// ============================================================================
 // Factory
-// ============================================================================
 
 export function createResidentialProxyService(
   client: NodeClient,

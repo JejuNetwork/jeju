@@ -108,7 +108,7 @@ async function installKurtosis(): Promise<void> {
       }
     }
 
-    console.log('   Trying GitHub releases fallback...')
+    console.log('   Trying GitHub releases as alternative...')
     if ((await installKurtosisFromGitHub()) && (await checkKurtosis())) {
       console.log('✅ Kurtosis installed successfully\n')
       return

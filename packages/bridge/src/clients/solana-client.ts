@@ -287,10 +287,6 @@ export class SolanaClient {
     return signature
   }
 
-  // =============================================================================
-  // QUERY OPERATIONS
-  // =============================================================================
-
   /**
    * Get token balance
    * Returns 0 if account doesn't exist (user has never held this token)
@@ -364,10 +360,6 @@ export class SolanaClient {
       syncCommitteeRoot: new Uint8Array(syncCommitteeRoot),
     }
   }
-
-  // =============================================================================
-  // PRIVATE METHODS
-  // =============================================================================
 
   private generateTransferId(
     sender: PublicKey,
@@ -445,10 +437,6 @@ export class SolanaClient {
       Buffer.from(params.publicInputs),
     ])
   }
-
-  // =============================================================================
-  // UTILITIES
-  // =============================================================================
 
   /**
    * Get the configured public key

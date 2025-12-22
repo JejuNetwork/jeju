@@ -5,15 +5,11 @@
 import { AddressSchema, BigIntSchema, HashSchema } from '@jejunetwork/types'
 import { z } from 'zod'
 
-// ============ Enums ============
-
 export const PositionSideSchema = z.union([
   z.literal(0), // Long
   z.literal(1), // Short
 ])
 export type PositionSideValue = z.infer<typeof PositionSideSchema>
-
-// ============ Perps Market Schema ============
 
 export const PerpsMarketSchema = z.object({
   marketId: HashSchema,
@@ -28,8 +24,6 @@ export const PerpsMarketSchema = z.object({
   isActive: z.boolean(),
 })
 export type PerpsMarket = z.infer<typeof PerpsMarketSchema>
-
-// ============ Perps Position Schema ============
 
 export const PerpsPositionSchema = z.object({
   positionId: HashSchema,
@@ -47,8 +41,6 @@ export const PerpsPositionSchema = z.object({
 })
 export type PerpsPosition = z.infer<typeof PerpsPositionSchema>
 
-// ============ Position with PnL Schema ============
-
 export const PositionWithPnLSchema = PerpsPositionSchema.extend({
   unrealizedPnl: BigIntSchema,
   fundingPnl: BigIntSchema,
@@ -59,8 +51,6 @@ export const PositionWithPnLSchema = PerpsPositionSchema.extend({
 })
 export type PositionWithPnL = z.infer<typeof PositionWithPnLSchema>
 
-// ============ Trade Result Schema ============
-
 export const TradeResultSchema = z.object({
   positionId: HashSchema,
   executionPrice: BigIntSchema,
@@ -69,8 +59,6 @@ export const TradeResultSchema = z.object({
   fundingPaid: BigIntSchema,
 })
 export type TradeResult = z.infer<typeof TradeResultSchema>
-
-// ============ Open Position Params Schema ============
 
 export const OpenPositionParamsSchema = z.object({
   marketId: HashSchema,
@@ -82,8 +70,6 @@ export const OpenPositionParamsSchema = z.object({
 })
 export type OpenPositionParams = z.infer<typeof OpenPositionParamsSchema>
 
-// ============ Price Data Schema ============
-
 export const PriceDataSchema = z.object({
   markPrice: BigIntSchema,
   indexPrice: BigIntSchema,
@@ -91,23 +77,17 @@ export const PriceDataSchema = z.object({
 })
 export type PriceData = z.infer<typeof PriceDataSchema>
 
-// ============ Open Interest Schema ============
-
 export const OpenInterestSchema = z.object({
   longOI: BigIntSchema,
   shortOI: BigIntSchema,
 })
 export type OpenInterest = z.infer<typeof OpenInterestSchema>
 
-// ============ Formatted PnL Schema ============
-
 export const FormattedPnLSchema = z.object({
   value: z.string(),
   isProfit: z.boolean(),
 })
 export type FormattedPnL = z.infer<typeof FormattedPnLSchema>
-
-// ============ Position Validation Schema ============
 
 export const PositionValidationResultSchema = z.object({
   valid: z.boolean(),
@@ -116,8 +96,6 @@ export const PositionValidationResultSchema = z.object({
 export type PositionValidationResult = z.infer<
   typeof PositionValidationResultSchema
 >
-
-// ============ Trade Validation Schema ============
 
 export const TradeValidationSchema = z.object({
   isConnected: z.boolean(),

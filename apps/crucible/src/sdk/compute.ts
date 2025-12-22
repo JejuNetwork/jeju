@@ -4,14 +4,9 @@
  * Uses the same DWS infrastructure as Autocrat and Otto for unified AI inference.
  */
 
-import { getCurrentNetwork, getDWSComputeUrl } from '@jejunetwork/config'
-import {
-  AgentCharacterSchema,
-  DWSOpenAICompatSchema,
-  EmbeddingResponseSchema,
-  expect,
-  ModelsResponseSchema,
-} from '../schemas'
+import { getCurrentNetwork } from '@jejunetwork/config'
+import { createDWSClient, type DWSClient, getDWSEndpoint } from '../client/dws'
+import { AgentCharacterSchema, expect } from '../schemas'
 import type { AgentCharacter, ExecutionOptions } from '../types'
 import { createLogger, type Logger } from './logger'
 
@@ -20,15 +15,7 @@ export interface ComputeConfig {
   rpcUrl: string
   defaultModel?: string
   logger?: Logger
-}
-
-// Get DWS endpoint from centralized config
-function getDWSEndpoint(): string {
-  return (
-    process.env.DWS_URL ??
-    process.env.COMPUTE_MARKETPLACE_URL ??
-    getDWSComputeUrl()
-  )
+  dwsClient?: DWSClient // Optional - will create one if not provided
 }
 
 export interface InferenceRequest {
@@ -59,34 +46,35 @@ export interface ModelInfo {
 export class CrucibleCompute {
   private config: ComputeConfig
   private log: Logger
+  private client: DWSClient
 
   constructor(config: ComputeConfig) {
     this.config = config
     this.log = config.logger ?? createLogger('Compute')
-  }
 
-  private getEndpoint(): string {
-    return this.config.marketplaceUrl ?? getDWSEndpoint()
+    // Use provided client or create one
+    if (config.dwsClient) {
+      this.client = config.dwsClient
+    } else {
+      const baseUrl = config.marketplaceUrl ?? getDWSEndpoint()
+      this.client = createDWSClient({ baseUrl })
+    }
   }
 
   async getAvailableModels(): Promise<ModelInfo[]> {
     this.log.debug('Fetching available models')
-    const endpoint = this.getEndpoint()
-    const r = await fetch(`${endpoint}/api/v1/models`)
-    expect(r.ok, `Failed to fetch models: ${r.statusText}`)
-    const rawResult = await r.json()
-    const parsed = ModelsResponseSchema.parse(rawResult)
-    const models: ModelInfo[] = parsed.models.map((m) => ({
+    const models = await this.client.getModels()
+    const result: ModelInfo[] = models.map((m) => ({
       id: m.id,
       name: m.name,
       provider: m.provider,
-      pricePerInputToken: m.pricePerInputToken,
-      pricePerOutputToken: m.pricePerOutputToken,
+      pricePerInputToken: BigInt(m.pricePerInputToken),
+      pricePerOutputToken: BigInt(m.pricePerOutputToken),
       maxContextLength: m.maxContextLength,
-      capabilities: m.capabilities,
+      capabilities: [], // Models endpoint may not return capabilities
     }))
-    this.log.debug('Models fetched', { count: models.length })
-    return models
+    this.log.debug('Models fetched', { count: result.length })
+    return result
   }
 
   async getBestModel(requirements: {
@@ -134,13 +122,13 @@ export class CrucibleCompute {
     expect(userMessage, 'User message is required')
     expect(userMessage.length > 0, 'User message cannot be empty')
     expect(context, 'Context is required')
-    if (options?.maxTokens !== undefined) {
+    if (options?.maxTokens != null) {
       expect(
         options.maxTokens > 0 && options.maxTokens <= 100000,
         'Max tokens must be between 1 and 100000',
       )
     }
-    if (options?.temperature !== undefined) {
+    if (options?.temperature != null) {
       expect(
         options.temperature >= 0 && options.temperature <= 2,
         'Temperature must be between 0 and 2',
@@ -203,46 +191,39 @@ export class CrucibleCompute {
     }
 
     const start = Date.now()
-    const endpoint = this.getEndpoint()
     this.log.debug('Inference request', {
       model,
       messageCount: request.messages.length,
-      endpoint,
     })
 
-    const r = await fetch(`${endpoint}/compute/chat/completions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...request, model }),
-    })
+    const messages = request.messages.map((m) => ({
+      role: m.role as 'system' | 'user' | 'assistant',
+      content: m.content,
+    }))
 
-    if (!r.ok) {
-      const error = await r.text()
-      const network = getCurrentNetwork()
-      this.log.error('Inference failed', {
-        status: r.status,
-        error,
-        network,
-        endpoint,
+    const result = await this.client
+      .chatCompletion(messages, {
+        model,
+        temperature: request.temperature,
+        maxTokens: request.maxTokens,
       })
-      throw new Error(`DWS inference failed (network: ${network}): ${error}`)
-    }
+      .catch((err: Error) => {
+        const network = getCurrentNetwork()
+        this.log.error('Inference failed', { error: err.message, network })
+        throw new Error(
+          `DWS inference failed (network: ${network}): ${err.message}`,
+        )
+      })
 
-    const rawResult = await r.json()
-
-    // OpenAI-compatible format from DWS
-    const result = DWSOpenAICompatSchema.parse(rawResult)
     const content = result.choices[0]?.message?.content ?? ''
-    const modelUsed = result.model ?? model
     const promptTokens = result.usage?.prompt_tokens ?? 0
     const completionTokens = result.usage?.completion_tokens ?? 0
-    const cost = result.cost ? BigInt(String(result.cost)) : 0n
 
     return {
       content,
-      model: modelUsed,
+      model,
       tokensUsed: { input: promptTokens, output: completionTokens },
-      cost,
+      cost: 0n,
       latencyMs: Date.now() - start,
     }
   }
@@ -250,20 +231,8 @@ export class CrucibleCompute {
   async generateEmbedding(text: string): Promise<number[]> {
     expect(text, 'Text is required')
     expect(text.length > 0, 'Text cannot be empty')
-    const endpoint = this.getEndpoint()
-    this.log.debug('Generating embedding', {
-      textLength: text.length,
-      endpoint,
-    })
-    const r = await fetch(`${endpoint}/api/v1/embeddings`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ input: text }),
-    })
-    expect(r.ok, `Embedding failed: ${r.statusText}`)
-    const rawResult = await r.json()
-    const result = EmbeddingResponseSchema.parse(rawResult)
-    return result.embedding
+    this.log.debug('Generating embedding', { textLength: text.length })
+    return this.client.generateEmbedding(text)
   }
 
   async estimateCost(

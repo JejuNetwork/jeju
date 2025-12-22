@@ -13,8 +13,6 @@ import { type Address, createPublicClient, http } from 'viem'
 import { CONTRACTS, RPC_URL } from '../config'
 import { jeju } from '../config/chains'
 
-// ============ Types ============
-
 export { BanType }
 
 export interface BanCheckResult {
@@ -57,8 +55,6 @@ export interface ModeratorReputation {
   winRate: number
 }
 
-// ============ Config ============
-
 const config: ModerationConfig = {
   chain: jeju,
   rpcUrl: RPC_URL,
@@ -95,8 +91,6 @@ const JEJU_TOKEN_ABI = [
   },
 ] as const
 
-// ============ Cache ============
-
 interface CacheEntry {
   result: BanCheckResult
   cachedAt: number
@@ -110,12 +104,6 @@ const CACHE_TTL = 10000 // 10 seconds
 // Race condition protection: Track in-flight requests
 const inFlightRequests = new Map<string, Promise<BanCheckResult>>()
 
-// ============ Ban Check Functions ============
-
-/**
- * Check if a user is banned
- * Uses deduplication to prevent race conditions on concurrent requests
- */
 export async function checkUserBan(
   userAddress: Address,
 ): Promise<BanCheckResult> {
@@ -179,25 +167,16 @@ export async function checkUserBan(
   }
 }
 
-/**
- * Simple check if user can trade on Bazaar
- */
 export async function isTradeAllowed(userAddress: Address): Promise<boolean> {
   const result = await checkUserBan(userAddress)
   return result.allowed
 }
 
-/**
- * Check if user can report others
- */
 export async function checkCanReport(userAddress: Address): Promise<boolean> {
   const profile = await moderationAPI.getModeratorProfile(userAddress)
   return profile?.canReport ?? false
 }
 
-/**
- * Get user's stake info
- */
 export async function getUserStake(userAddress: Address): Promise<{
   amount: bigint
   stakedAt: bigint
@@ -212,9 +191,6 @@ export async function getUserStake(userAddress: Address): Promise<{
   }
 }
 
-/**
- * Get moderator reputation
- */
 export async function getModeratorReputation(
   userAddress: Address,
 ): Promise<ModeratorReputation | null> {
@@ -245,9 +221,6 @@ export async function getModeratorReputation(
   }
 }
 
-/**
- * Get required stake for a reporter
- */
 export async function getRequiredStakeForReporter(
   userAddress: Address,
 ): Promise<bigint | null> {
@@ -256,9 +229,6 @@ export async function getRequiredStakeForReporter(
   return BigInt(profile.requiredStake)
 }
 
-/**
- * Get quorum required for a reporter
- */
 export async function getQuorumRequired(
   userAddress: Address,
 ): Promise<bigint | null> {
@@ -267,42 +237,31 @@ export async function getQuorumRequired(
   return BigInt(profile.quorumRequired)
 }
 
-/**
- * Check quorum status for a target
- */
 export async function checkQuorumStatus(
   _targetAddress: Address,
 ): Promise<QuorumStatus | null> {
-  // This would need the reporting system contract
-  // Return null for now - implement if needed
   return null
 }
-
-// ============ JEJU Token Functions ============
 
 export async function checkTransferAllowed(
   userAddress: Address,
 ): Promise<boolean> {
   if (!JEJU_TOKEN_ADDRESS) return true
 
-  const enforcementEnabled = await publicClient
-    .readContract({
-      address: JEJU_TOKEN_ADDRESS,
-      abi: JEJU_TOKEN_ABI,
-      functionName: 'banEnforcementEnabled',
-    })
-    .catch(() => false)
+  const enforcementEnabled = await publicClient.readContract({
+    address: JEJU_TOKEN_ADDRESS,
+    abi: JEJU_TOKEN_ABI,
+    functionName: 'banEnforcementEnabled',
+  })
 
   if (!enforcementEnabled) return true
 
-  const isBanned = await publicClient
-    .readContract({
-      address: JEJU_TOKEN_ADDRESS,
-      abi: JEJU_TOKEN_ABI,
-      functionName: 'isBanned',
-      args: [userAddress],
-    })
-    .catch(() => false)
+  const isBanned = await publicClient.readContract({
+    address: JEJU_TOKEN_ADDRESS,
+    abi: JEJU_TOKEN_ABI,
+    functionName: 'isBanned',
+    args: [userAddress],
+  })
 
   return !isBanned
 }
@@ -324,8 +283,6 @@ export async function checkTradeAllowed(
 
   return { allowed: true }
 }
-
-// ============ Display Helpers ============
 
 export const getBanTypeLabel = sharedGetBanTypeLabel
 

@@ -53,18 +53,14 @@ export type {
   JsonRpcSuccessResponse,
 } from '@jejunetwork/types'
 
-// ============================================================================
 // Additional Address & Hash Schemas (extend shared schemas)
-// ============================================================================
 
 export const PrivateKeySchema = z
   .string()
   .regex(/^0x[a-fA-F0-9]{64}$/, 'Invalid private key')
 export const TxHashSchema = HashSchema
 
-// ============================================================================
 // Infrastructure Schemas
-// ============================================================================
 
 export const DockerServiceConfigSchema = z.object({
   port: z.number().int().positive(),
@@ -82,9 +78,7 @@ export const InfraStatusSchema = z.object({
   dwsUrl: z.string().url(),
 })
 
-// ============================================================================
 // Lock Manager Schemas
-// ============================================================================
 
 export const LockMetadataSchema = z.object({
   pid: z.number().int().positive(),
@@ -99,9 +93,7 @@ export const LockManagerOptionsSchema = z.object({
   force: z.boolean().optional(),
 })
 
-// ============================================================================
 // Preflight Schemas
-// ============================================================================
 
 export const PreflightCheckSchema = z.object({
   name: z.string(),
@@ -126,9 +118,7 @@ export const PreflightConfigSchema = z.object({
   timeout: z.number().int().positive(),
 })
 
-// ============================================================================
 // Warmup Schemas
-// ============================================================================
 
 export const AppConfigSchema = z.object({
   name: z.string(),
@@ -160,9 +150,7 @@ export const WarmupResultSchema = z.object({
   duration: z.number().int().nonnegative(),
 })
 
-// ============================================================================
 // Test Account Schemas
-// ============================================================================
 
 export const TestAccountSchema = z.object({
   address: AddressSchema,
@@ -183,9 +171,7 @@ export const TestAccountsSchema = z.object({
   operator: TestAccountSchema.optional(),
 })
 
-// ============================================================================
 // Chain Configuration Schemas
-// ============================================================================
 
 export const ChainConfigSchema = z.object({
   chainId: z.number().int().positive(),
@@ -203,9 +189,7 @@ export const NetworkConfigSchema = z.object({
   blockExplorerUrl: z.string().optional(),
 })
 
-// ============================================================================
 // App Manifest Schema
-// ============================================================================
 
 export const AppManifestSchema = z.object({
   ports: z
@@ -216,9 +200,7 @@ export const AppManifestSchema = z.object({
   warmupRoutes: z.array(z.string()).optional(),
 })
 
-// ============================================================================
 // IPFS Response Schemas
-// ============================================================================
 
 export const IpfsIdResponseSchema = z.object({
   ID: z.string(),
@@ -234,9 +216,7 @@ export const IpfsAddResponseSchema = z.object({
   Size: z.string().optional(),
 })
 
-// ============================================================================
 // Test Environment Schemas
-// ============================================================================
 
 export const TestEnvInfoSchema = z.object({
   rpcUrl: z.string().url(),
@@ -253,9 +233,7 @@ export const SetupInfoSchema = z.object({
   external: z.boolean(),
 })
 
-// ============================================================================
 // Type Exports
-// ============================================================================
 
 // Local types
 export type Address = z.infer<typeof AddressSchema>
@@ -290,9 +268,7 @@ export type IpfsAddResponse = z.infer<typeof IpfsAddResponseSchema>
 export type TestEnvInfo = z.infer<typeof TestEnvInfoSchema>
 export type SetupInfo = z.infer<typeof SetupInfoSchema>
 
-// ============================================================================
 // Validation Helpers
-// ============================================================================
 
 /**
  * Parse and validate lock file metadata

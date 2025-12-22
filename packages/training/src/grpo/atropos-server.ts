@@ -27,7 +27,7 @@ export interface EnvConfig {
   registered_id: number
   last_update: number
   connected: boolean
-  min_batch_allocation: number | null
+  min_batch_allocation?: number
   group_size: number
 }
 
@@ -111,7 +111,7 @@ function grabBatchWithMinimumAllocations(
   let totalTokens = 0
 
   for (const env of envs) {
-    if (env.min_batch_allocation !== null && env.connected) {
+    if (env.min_batch_allocation !== undefined && env.connected) {
       const minSeqs = Math.ceil(batchSize * env.min_batch_allocation)
       let envSeqs = 0
 
@@ -265,15 +265,15 @@ interface LatestExampleResponse {
   tokens: number[][]
   masks: number[][]
   scores: number[]
-  advantages?: number[][] | null
-  ref_logprobs?: number[][] | null
-  generation_params?: Record<string, number | string | boolean> | null
-  inference_logprobs?: number[][] | null
-  messages?: Message[][] | null
-  images?: string[] | null
-  overrides?: Record<string, number | string | boolean>[] | null
-  group_overrides?: Record<string, number | string | boolean> | null
-  env_id?: number | null
+  advantages?: number[][]
+  ref_logprobs?: number[][]
+  generation_params?: Record<string, number | string | boolean>
+  inference_logprobs?: number[][]
+  messages?: Message[][]
+  images?: string[]
+  overrides?: Array<Record<string, number | string | boolean>>
+  group_overrides?: Record<string, number | string | boolean>
+  env_id?: number
 }
 
 interface ScoredDataResponse {
@@ -374,7 +374,7 @@ export function createAtroposServer() {
         registered_id: registeredId,
         last_update: Date.now(),
         connected: true,
-        min_batch_allocation: registerEnv.min_batch_allocation ?? null,
+        min_batch_allocation: registerEnv.min_batch_allocation,
         group_size: registerEnv.group_size,
       })
 
@@ -429,7 +429,7 @@ export function createAtroposServer() {
 
       const newBatches: ScoredData[][] = []
       const hasMinAllocations = state.envs.some(
-        (env) => env.min_batch_allocation !== null,
+        (env) => env.min_batch_allocation !== undefined,
       )
 
       let result: [ScoredData[] | null, ScoredData[]]
@@ -484,18 +484,25 @@ export function createAtroposServer() {
     })
     .get('/latest_example', (): LatestExampleResponse => {
       if (state.latest) {
-        return state.latest
+        return {
+          tokens: state.latest.tokens,
+          masks: state.latest.masks,
+          scores: state.latest.scores,
+          advantages: state.latest.advantages,
+          ref_logprobs: state.latest.ref_logprobs,
+          generation_params: state.latest.generation_params,
+          inference_logprobs: state.latest.inference_logprobs,
+          messages: state.latest.messages,
+          images: state.latest.images,
+          overrides: state.latest.overrides,
+          group_overrides: state.latest.group_overrides,
+          env_id: state.latest.env_id,
+        }
       }
       return {
         tokens: [],
         masks: [],
         scores: [],
-        advantages: null,
-        ref_logprobs: null,
-        generation_params: null,
-        inference_logprobs: null,
-        messages: null,
-        images: null,
       }
     })
     .post('/scored_data', async ({ body }): Promise<ScoredDataResponse> => {
@@ -577,7 +584,7 @@ export function createAtroposServer() {
 
       let totalMinAllocation = 0
       for (const env of state.envs) {
-        if (env.connected && env.min_batch_allocation !== null) {
+        if (env.connected && env.min_batch_allocation !== undefined) {
           totalMinAllocation += env.min_batch_allocation
         }
       }

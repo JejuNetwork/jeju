@@ -1,7 +1,5 @@
 /**
- * TFMM (Temporal Function Market Maker) Strategies
- *
- * QuantAMM-style dynamic weight strategies for on-chain portfolio management.
+ * TFMM Strategies
  */
 
 export type {

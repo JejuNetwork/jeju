@@ -19,16 +19,9 @@ import { z } from 'zod'
 /** Minimum name length (in characters) */
 export const MIN_NAME_LENGTH = 3
 
-/** Maximum name length (in characters) */
 export const MAX_NAME_LENGTH = 63
-
-/** Allowed characters regex (alphanumeric and hyphens, no leading/trailing hyphens) */
 const NAME_PATTERN = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/
-
-/** Base registration price in ETH per year */
 export const BASE_REGISTRATION_PRICE_ETH = 0.01
-
-/** Premium multiplier for short names (3 chars = 100x, 4 chars = 10x) */
 export const SHORT_NAME_MULTIPLIERS: Record<number, number> = {
   3: 100,
   4: 10,

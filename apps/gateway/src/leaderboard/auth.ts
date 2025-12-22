@@ -116,7 +116,7 @@ export function getClientId(request: Request): string {
  *
  * Supports:
  * - Bearer <token> - JWT-like token (MPC or wallet signed)
- * - GitHub <pat> - GitHub personal access token (legacy)
+ * - GitHub <pat> - GitHub personal access token
  */
 export async function authenticateRequest(
   request: Request,

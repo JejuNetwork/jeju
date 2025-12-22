@@ -203,7 +203,7 @@ export const DEFAULT_TTL_CONFIG: CacheTTLConfig = {
 }
 
 export interface CacheRule {
-  pattern: string // glob pattern (e.g., "/_next/static/**")
+  pattern: string // glob pattern
   strategy: CacheStrategy
   ttl: number // seconds
   staleWhileRevalidate?: number // seconds
@@ -227,8 +227,7 @@ export interface CacheConfig {
 }
 
 export const DEFAULT_CACHE_RULES: CacheRule[] = [
-  // Immutable assets (Next.js, Vite, etc.)
-  { pattern: '/_next/static/**', strategy: 'immutable', ttl: 31536000 },
+  // Immutable assets (Vite, Elysia static, etc.)
   { pattern: '/assets/**', strategy: 'immutable', ttl: 31536000 },
   { pattern: '/**/*.{js,css}', strategy: 'immutable', ttl: 31536000 },
 

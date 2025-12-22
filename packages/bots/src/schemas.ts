@@ -135,15 +135,17 @@ export const CoinGeckoMarketChartSchema = z.object({
 export type CoinGeckoMarketChart = z.infer<typeof CoinGeckoMarketChartSchema>
 
 export const IndexerPositionSchema = z.object({
-  positionId: z.string(),
-  trader: z.string(),
-  marketId: z.string(),
-  side: z.string(),
-  size: z.string(),
-  margin: z.string(),
-  entryPrice: z.string(),
-  liquidationPrice: z.string(),
-  lastUpdateTime: z.number(),
+  positionId: z.string().regex(/^0x[a-fA-F0-9]{64}$/, 'Invalid position ID'),
+  trader: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid trader address'),
+  marketId: z.string().min(1),
+  side: z.enum(['0', '1']), // 0 = long, 1 = short
+  size: z.string().regex(/^\d+$/, 'Size must be numeric string'),
+  margin: z.string().regex(/^\d+$/, 'Margin must be numeric string'),
+  entryPrice: z.string().regex(/^\d+$/, 'Entry price must be numeric string'),
+  liquidationPrice: z
+    .string()
+    .regex(/^\d+$/, 'Liquidation price must be numeric string'),
+  lastUpdateTime: z.number().int().nonnegative(),
 })
 
 export const IndexerPositionsResponseSchema = z.object({

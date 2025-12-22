@@ -1,7 +1,5 @@
 /**
  * A2A (Agent-to-Agent) Protocol Routes
- *
- * Native Elysia implementation - no Hono wrapper needed
  */
 
 import { Elysia } from 'elysia'

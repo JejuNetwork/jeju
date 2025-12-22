@@ -34,13 +34,6 @@ interface RequestBody {
   from?: string
 }
 
-// ============================================================================
-// Elysia Middleware
-// ============================================================================
-
-/**
- * Elysia plugin that blocks banned users
- */
 export const banCheckPlugin = (options: { skipPaths?: string[] } = {}) => {
   const { skipPaths = ['/health', '/.well-known', '/public'] } = options
 
@@ -81,14 +74,8 @@ export const banCheckPlugin = (options: { skipPaths?: string[] } = {}) => {
     })
 }
 
-/**
- * Strict ban check that blocks on-notice users
- */
 export const strictBanCheckPlugin = () => banCheckPlugin({})
 
-/**
- * Lenient ban check that allows on-notice users through (with warning header)
- */
 export const lenientBanCheckPlugin = () => {
   return new Elysia({ name: 'lenient-ban-check' })
     .derive(({ headers, body }) => {
@@ -121,20 +108,10 @@ export const lenientBanCheckPlugin = () => {
     })
 }
 
-// ============================================================================
-// Generic Functions
-// ============================================================================
-
-/**
- * Check ban status for an address
- */
 export async function checkBan(address: Address): Promise<BanCheckResult> {
   return checker.checkBan(address)
 }
 
-/**
- * Clear ban cache
- */
 export function clearBanCache(address?: Address): void {
   checker.clearCache(address)
 }

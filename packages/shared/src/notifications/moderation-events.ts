@@ -20,8 +20,6 @@ import {
 } from 'viem'
 import { baseSepolia } from 'viem/chains'
 
-// ============ Types ============
-
 export interface ModerationEvent {
   type: EventType
   timestamp: number
@@ -76,8 +74,6 @@ export interface Subscriber {
   }
   callback: (event: ModerationEvent) => void
 }
-
-// ============ Notification Service ============
 
 export class ModerationNotificationService extends EventEmitter {
   private config: Required<NotificationConfig>
@@ -335,15 +331,11 @@ export class ModerationNotificationService extends EventEmitter {
   }
 }
 
-// ============ Factory ============
-
 export function createModerationNotifications(
   config: NotificationConfig,
 ): ModerationNotificationService {
   return new ModerationNotificationService(config)
 }
-
-// ============ High Priority Event Handlers ============
 
 /**
  * Create notification for ban events (high priority)

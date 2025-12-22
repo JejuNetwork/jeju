@@ -200,7 +200,9 @@ export class LoadTestSimulator {
 
     const endpointStats: EndpointStats[] = []
     for (const [key, results] of endpointMap) {
-      const [method, endpoint] = key.split(' ')
+      const spaceIndex = key.indexOf(' ')
+      const method = spaceIndex > 0 ? key.slice(0, spaceIndex) : key
+      const endpoint = spaceIndex > 0 ? key.slice(spaceIndex + 1) : '/'
       const latencies = results.map((r) => r.latency)
       const successes = results.filter((r) => r.success).length
 
@@ -226,7 +228,10 @@ export class LoadTestSimulator {
     const errorMap = new Map<string, { count: number; examples: string[] }>()
     for (const result of this.results) {
       if (!result.success && result.error) {
-        const existing = errorMap.get(result.error) ?? { count: 0, examples: [] }
+        const existing = errorMap.get(result.error) ?? {
+          count: 0,
+          examples: [],
+        }
         existing.count++
         if (existing.examples.length < 3) {
           existing.examples.push(`${result.method} ${result.endpoint}`)
@@ -312,7 +317,10 @@ export class LoadTestSimulator {
         p99: latencyP99,
         min: safeMin(allLatencies),
         max: safeMax(allLatencies),
-        avg: allLatencies.length > 0 ? safeSum(allLatencies) / allLatencies.length : 0,
+        avg:
+          allLatencies.length > 0
+            ? safeSum(allLatencies) / allLatencies.length
+            : 0,
       },
       endpointStats,
       thresholdsPassed: failures.length === 0,
@@ -402,4 +410,3 @@ export const SCENARIOS: Record<string, LoadTestScenario> = {
     thinkTimeMs: 0,
   },
 }
-

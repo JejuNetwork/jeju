@@ -137,8 +137,6 @@ export async function processGameTokenEvents(
       const txHash = log.transaction.hash
       const contractAddress = log.address.toLowerCase()
 
-      // ============ Gold.sol Events ============
-
       if (eventSig === GOLD_CLAIMED) {
         const { args } = decodeEventLog({
           abi: goldInterface,
@@ -240,10 +238,7 @@ export async function processGameTokenEvents(
         ctx.log.info(
           `Gold burned: ${player} burned ${formatEther(amount)} gold`,
         )
-      }
-
-      // ============ Items.sol Events ============
-      else if (eventSig === ITEM_MINTED) {
+      } else if (eventSig === ITEM_MINTED) {
         const { args } = decodeEventLog({
           abi: itemsInterface,
           topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
@@ -404,10 +399,7 @@ export async function processGameTokenEvents(
         ctx.log.info(
           `NFT Provenance: item #${itemId} originally minted by ${originalMinter} at ${mintedAt}`,
         )
-      }
-
-      // ============ ERC-1155 Transfer Events ============
-      else if (eventSig === TRANSFER_SINGLE) {
+      } else if (eventSig === TRANSFER_SINGLE) {
         const { args } = decodeEventLog({
           abi: itemsInterface,
           topics: log.topics as [`0x${string}`, ...`0x${string}`[]],

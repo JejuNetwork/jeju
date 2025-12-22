@@ -13,16 +13,91 @@ import {
   FaucetStatusSchema,
 } from './faucet'
 
-/**
- * API base URL - uses relative path for browser, configurable for server-side
- */
+// =============================================================================
+// API Base URL
+// =============================================================================
+
 export const API_BASE =
   typeof window !== 'undefined'
     ? ''
     : process.env.BAZAAR_API_URL || getCoreAppUrl('BAZAAR_API')
 
 // =============================================================================
-// Response Types (from Zod schemas)
+// Query Keys for React Query
+// =============================================================================
+
+export const queryKeys = {
+  faucet: {
+    all: ['faucet'] as const,
+    info: () => [...queryKeys.faucet.all, 'info'] as const,
+    status: (address: string) =>
+      [...queryKeys.faucet.all, 'status', address] as const,
+  },
+  tfmm: {
+    all: ['tfmm'] as const,
+    pools: () => [...queryKeys.tfmm.all, 'pools'] as const,
+    pool: (address: string) =>
+      [...queryKeys.tfmm.all, 'pool', address] as const,
+    strategies: () => [...queryKeys.tfmm.all, 'strategies'] as const,
+    oracles: () => [...queryKeys.tfmm.all, 'oracles'] as const,
+  },
+  a2a: {
+    all: ['a2a'] as const,
+    info: () => [...queryKeys.a2a.all, 'info'] as const,
+    card: () => [...queryKeys.a2a.all, 'card'] as const,
+  },
+  mcp: {
+    all: ['mcp'] as const,
+    info: () => [...queryKeys.mcp.all, 'info'] as const,
+  },
+  health: () => ['health'] as const,
+  oif: {
+    all: ['oif'] as const,
+    quote: (params: {
+      sourceChain: number
+      destChain: number
+      tokenIn: string
+      tokenOut: string
+      amount: string
+    }) => [...queryKeys.oif.all, 'quote', params] as const,
+    intents: (creator?: string) =>
+      [...queryKeys.oif.all, 'intents', creator] as const,
+    stats: () => [...queryKeys.oif.all, 'stats'] as const,
+    routes: () => [...queryKeys.oif.all, 'routes'] as const,
+    solvers: () => [...queryKeys.oif.all, 'solvers'] as const,
+    leaderboard: () => [...queryKeys.oif.all, 'leaderboard'] as const,
+  },
+  bridge: {
+    all: ['bridge'] as const,
+    history: (address: string) =>
+      [...queryKeys.bridge.all, 'history', address] as const,
+  },
+  xlp: {
+    all: ['xlp'] as const,
+    voucherHistory: (address: string) =>
+      [...queryKeys.xlp.all, 'voucher-history', address] as const,
+  },
+  prices: {
+    all: ['prices'] as const,
+    token: (chainId: number, address: string) =>
+      [...queryKeys.prices.all, 'token', chainId, address] as const,
+    eth: (chainId: number) =>
+      [...queryKeys.prices.all, 'eth', chainId] as const,
+  },
+  trending: {
+    all: ['trending'] as const,
+    tag: (tag: string, offset?: number) =>
+      [...queryKeys.trending.all, 'tag', tag, offset] as const,
+    group: (tags: string) =>
+      [...queryKeys.trending.all, 'group', tags] as const,
+  },
+  referral: {
+    code: (userId: string) => ['referral', 'code', userId] as const,
+  },
+} as const
+
+// =============================================================================
+// Response Types
 // =============================================================================
 
 export type FaucetInfo = z.infer<typeof FaucetInfoSchema>
@@ -99,7 +174,7 @@ export class ApiError extends Error {
 
 async function handleResponse<T>(
   response: Response,
-  schema?: z.ZodSchema<T>,
+  schema?: z.ZodType<T>,
 ): Promise<T> {
   if (!response.ok) {
     const errorBody = await response.json().catch(() => ({}))
@@ -133,13 +208,7 @@ async function handleResponse<T>(
 // Typed API Client
 // =============================================================================
 
-/**
- * Typed Bazaar API client
- */
 export const api = {
-  /**
-   * Health check endpoint
-   */
   health: {
     async get(): Promise<HealthResponse> {
       const response = await fetch(`${API_BASE}/health`)
@@ -148,25 +217,16 @@ export const api = {
   },
 
   faucet: {
-    /**
-     * Get faucet info (amount per claim, cooldown, etc.)
-     */
     async getInfo(): Promise<FaucetInfo> {
       const response = await fetch(`${API_BASE}/api/faucet/info`)
       return handleResponse(response, FaucetInfoSchema)
     },
 
-    /**
-     * Get faucet status for an address
-     */
     async getStatus(address: Address): Promise<FaucetStatus> {
       const response = await fetch(`${API_BASE}/api/faucet/status/${address}`)
       return handleResponse(response, FaucetStatusSchema)
     },
 
-    /**
-     * Claim tokens from the faucet
-     */
     async claim(address: Address): Promise<FaucetClaimResult> {
       const response = await fetch(`${API_BASE}/api/faucet/claim`, {
         method: 'POST',
@@ -178,41 +238,26 @@ export const api = {
   },
 
   tfmm: {
-    /**
-     * Get all TFMM pools with stats
-     */
     async getPools(): Promise<TFMMPoolsResponse> {
       const response = await fetch(`${API_BASE}/api/tfmm`)
       return handleResponse(response)
     },
 
-    /**
-     * Get a specific TFMM pool
-     */
     async getPool(poolAddress: Address): Promise<{ pool: TFMMPool }> {
       const response = await fetch(`${API_BASE}/api/tfmm?pool=${poolAddress}`)
       return handleResponse(response)
     },
 
-    /**
-     * Get available strategies
-     */
     async getStrategies(): Promise<TFMMStrategiesResponse> {
       const response = await fetch(`${API_BASE}/api/tfmm?action=strategies`)
       return handleResponse(response)
     },
 
-    /**
-     * Get oracle status
-     */
     async getOracles(): Promise<TFMMOraclesResponse> {
       const response = await fetch(`${API_BASE}/api/tfmm?action=oracles`)
       return handleResponse(response)
     },
 
-    /**
-     * Create a new TFMM pool
-     */
     async createPool(params: {
       tokens: Address[]
       initialWeights: number[]
@@ -226,9 +271,6 @@ export const api = {
       return handleResponse(response)
     },
 
-    /**
-     * Update pool strategy
-     */
     async updateStrategy(params: {
       poolAddress: Address
       newStrategy: string
@@ -241,9 +283,6 @@ export const api = {
       return handleResponse(response)
     },
 
-    /**
-     * Trigger pool rebalance
-     */
     async triggerRebalance(params: {
       poolAddress: Address
     }): Promise<TFMMActionResponse> {
@@ -257,17 +296,11 @@ export const api = {
   },
 
   a2a: {
-    /**
-     * Get A2A service info
-     */
     async getInfo(): Promise<A2AInfoResponse> {
       const response = await fetch(`${API_BASE}/api/a2a`)
       return handleResponse(response)
     },
 
-    /**
-     * Get agent card
-     */
     async getAgentCard(): Promise<Record<string, unknown>> {
       const response = await fetch(`${API_BASE}/api/a2a?card=true`)
       return handleResponse(response)
@@ -275,9 +308,6 @@ export const api = {
   },
 
   mcp: {
-    /**
-     * Get MCP server info
-     */
     async getInfo(): Promise<MCPInfoResponse> {
       const response = await fetch(`${API_BASE}/api/mcp`)
       return handleResponse(response)

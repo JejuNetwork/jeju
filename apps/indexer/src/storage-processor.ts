@@ -164,8 +164,6 @@ export async function processStorageEvents(
       const topic0 = topics[0]
       if (!isStorageEvent(topic0)) continue
 
-      // ============ Provider Registry Events ============
-
       if (topic0 === EVENT_SIGNATURES.ProviderRegistered) {
         const providerAddr = `0x${topics[1].slice(26)}`
         const { args } = decodeEventLog({
@@ -237,8 +235,6 @@ export async function processStorageEvents(
           `Storage provider ${providerAddr} linked to agent ${agentId}`,
         )
       }
-
-      // ============ Storage Market Events ============
 
       if (topic0 === EVENT_SIGNATURES.DealCreated) {
         const dealId = topics[1]
@@ -390,8 +386,6 @@ export async function processStorageEvents(
           }
         }
       }
-
-      // ============ Ledger Events ============
 
       if (topic0 === EVENT_SIGNATURES.LedgerCreated) {
         const userAddr = `0x${topics[1].slice(26)}`

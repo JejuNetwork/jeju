@@ -29,8 +29,6 @@ interface SubsquidLog {
   transactionHash: string
 }
 
-// ============ Event Signatures ============
-
 const EVENT_SIGNATURES = {
   // BanManager events
   NetworkBanApplied: 'NetworkBanApplied(uint256,string,bytes32,uint256)',
@@ -66,8 +64,6 @@ const EVENT_SIGNATURES = {
   LabelApproved: 'LabelApproved(bytes32,uint256,uint8)',
   LabelRejected: 'LabelRejected(bytes32,uint256)',
 } as const
-
-// ============ ABIs ============
 
 const BAN_MANAGER_ABI = [
   {
@@ -183,8 +179,6 @@ const REPORTING_SYSTEM_ABI = [
   },
 ] as const
 
-// ============ Contract Addresses ============
-
 interface ModerationContracts {
   banManager: Address
   moderationMarketplace: Address
@@ -198,8 +192,6 @@ let contracts: ModerationContracts | null = null
 export function initModerationContracts(config: ModerationContracts): void {
   contracts = config
 }
-
-// ============ Event Handlers ============
 
 export async function processNetworkBanApplied(
   log: SubsquidLog,
@@ -396,8 +388,6 @@ export async function processReportResolved(
   }
 }
 
-// ============ Helpers ============
-
 function mapReportType(type: number): ReportType {
   switch (type) {
     case 0:
@@ -442,8 +432,6 @@ function mapReportStatus(status: number): ReportStatus {
       return ReportStatus.PENDING
   }
 }
-
-// ============ Main Processor ============
 
 export async function processModerationEvent(
   log: SubsquidLog,

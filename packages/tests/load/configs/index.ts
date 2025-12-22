@@ -6,8 +6,8 @@
 
 import type { AppLoadTestConfig } from '../types'
 
-export { testServerConfig } from './test-server'
 export { cachedServerConfig } from './cached-server'
+export { testServerConfig } from './test-server'
 export { workerServerConfig } from './worker-server'
 
 export const autocratConfig: AppLoadTestConfig = {
@@ -617,9 +617,9 @@ export const documentationConfig: AppLoadTestConfig = {
   mainnet: { baseUrl: 'https://docs.jejunetwork.org' },
 }
 
+import { cachedServerConfig } from './cached-server'
 // Import test server configs
 import { testServerConfig } from './test-server'
-import { cachedServerConfig } from './cached-server'
 import { workerServerConfig } from './worker-server'
 
 // All configs for easy iteration

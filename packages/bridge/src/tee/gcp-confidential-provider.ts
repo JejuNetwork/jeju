@@ -32,10 +32,6 @@ import type {
 
 const log = createLogger('gcp-tee')
 
-// =============================================================================
-// GCP CONFIDENTIAL PROVIDER
-// =============================================================================
-
 export class GCPConfidentialProvider implements ITEEProvider {
   readonly provider: TEEProvider = 'gcp'
   readonly capabilities: TEECapability[] = ['attestation', 'key_gen', 'gpu']
@@ -168,10 +164,6 @@ export class GCPConfidentialProvider implements ITEEProvider {
     }
   }
 
-  // =============================================================================
-  // GPU TEE METHODS
-  // =============================================================================
-
   async hasGPUSupport(): Promise<boolean> {
     return this.hasGpuTEE
   }
@@ -187,10 +179,6 @@ export class GCPConfidentialProvider implements ITEEProvider {
     // using NVIDIA's CC attestation API
     return this.requestAttestation(request)
   }
-
-  // =============================================================================
-  // PRIVATE METHODS
-  // =============================================================================
 
   private async detectConfidentialVM(): Promise<boolean> {
     try {
@@ -273,7 +261,7 @@ export class GCPConfidentialProvider implements ITEEProvider {
         return machineType.includes('a3-')
       }
     } catch {
-      // Ignore
+      // Expected when not in GCP - metadata server not available
     }
 
     return false
@@ -442,10 +430,6 @@ export class GCPConfidentialProvider implements ITEEProvider {
     return true
   }
 }
-
-// =============================================================================
-// FACTORY
-// =============================================================================
 
 export function createGCPConfidentialProvider(
   config?: Partial<GCPConfidentialConfig>,

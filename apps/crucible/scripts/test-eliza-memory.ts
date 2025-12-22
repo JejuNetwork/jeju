@@ -10,9 +10,8 @@
  */
 
 import { getCharacter } from '../src/characters'
+import { checkDWSHealth, checkDWSInferenceAvailable } from '../src/client/dws'
 import {
-  checkDWSHealth,
-  checkDWSInferenceAvailable,
   createCrucibleRuntime,
   type RuntimeMessage,
 } from '../src/sdk/eliza-runtime'

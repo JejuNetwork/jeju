@@ -1,200 +1,135 @@
+import { getCoreAppUrl } from '@jejunetwork/config/ports'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { getDwsUrl } from '../config/contracts'
-
-// ============ Types ============
-
-export type PRState = 'open' | 'closed' | 'merged'
-export type MergeMethod = 'merge' | 'squash' | 'rebase'
-
-export interface PRAuthor {
-  login: string
-  avatar: string
-}
-
-export interface PRReview {
-  id: string
-  author: PRAuthor
-  state: 'approved' | 'changes_requested' | 'commented' | 'pending'
-  body?: string
-  submittedAt: number
-}
-
-export interface PRCommit {
-  sha: string
-  message: string
-  author: PRAuthor
-  date: number
-}
-
-export interface PRFile {
-  path: string
-  additions: number
-  deletions: number
-  status: 'added' | 'modified' | 'deleted' | 'renamed'
-  patch?: string
-}
+import { api, extractDataSafe } from '../lib/client'
 
 export interface PullRequest {
   id: string
   number: number
+  repo: string
   title: string
   body: string
-  state: PRState
-  author: PRAuthor
-  head: { ref: string; sha: string }
-  base: { ref: string; sha: string }
-  labels: { name: string; color: string }[]
-  reviewers: PRAuthor[]
-  assignees: PRAuthor[]
+  status: 'open' | 'closed' | 'merged'
+  isDraft: boolean
+  author: { name: string; avatar?: string }
+  sourceBranch: string
+  targetBranch: string
+  labels: string[]
+  reviewers: Array<{ name: string; status: string }>
+  commits: number
   additions: number
   deletions: number
   changedFiles: number
-  commits: number
-  comments: number
-  mergeable: boolean
-  draft: boolean
+  checks: { passed: number; failed: number; pending: number }
   createdAt: number
   updatedAt: number
-  mergedAt?: number
-  closedAt?: number
 }
 
-// ============ Fetchers ============
+export interface Review {
+  id: string
+  author: { name: string; avatar?: string }
+  state: 'approved' | 'changes_requested' | 'commented'
+  body: string
+  submittedAt: number
+}
 
-async function fetchPullRequests(
-  owner: string,
-  repo: string,
-  query?: { state?: PRState },
-): Promise<PullRequest[]> {
-  const dwsUrl = getDwsUrl()
-  const params = new URLSearchParams()
-  if (query?.state) params.set('state', query.state)
+const API_BASE =
+  typeof window !== 'undefined'
+    ? ''
+    : process.env.FACTORY_API_URL || getCoreAppUrl('FACTORY')
 
-  const res = await fetch(
-    `${dwsUrl}/api/git/${owner}/${repo}/pulls?${params.toString()}`,
-  )
-  if (!res.ok) return []
-  const data = await res.json()
-  return data.pullRequests || []
+async function fetchApi<T>(
+  path: string,
+  options?: RequestInit,
+): Promise<T | null> {
+  const response = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+  })
+  if (!response.ok) return null
+  return response.json()
+}
+
+async function fetchPullRequests(query?: {
+  status?: PullRequest['status']
+  repo?: string
+  author?: string
+}): Promise<PullRequest[]> {
+  const response = await api.api.pulls.get({
+    query: { status: query?.status, repo: query?.repo, author: query?.author },
+  })
+  const data = extractDataSafe(response) as { pulls: PullRequest[] } | null
+  return data?.pulls || []
 }
 
 async function fetchPullRequest(
-  owner: string,
-  repo: string,
-  prNumber: number,
-): Promise<{
-  pullRequest: PullRequest
-  commits: PRCommit[]
-  files: PRFile[]
-  reviews: PRReview[]
-} | null> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(
-    `${dwsUrl}/api/git/${owner}/${repo}/pulls/${prNumber}`,
+  prNumber: string,
+): Promise<{ pullRequest: PullRequest; reviews: Review[] } | null> {
+  return fetchApi<{ pullRequest: PullRequest; reviews: Review[] }>(
+    `/api/pulls/${prNumber}`,
   )
-  if (!res.ok) return null
-  return res.json()
 }
 
-async function createPullRequest(
-  owner: string,
-  repo: string,
-  data: {
-    title: string
-    body: string
-    head: string
-    base: string
-    draft?: boolean
-  },
-): Promise<PullRequest | null> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/git/${owner}/${repo}/pulls`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  })
-  if (!res.ok) return null
-  return res.json()
+async function createPullRequest(data: {
+  repo: string
+  title: string
+  body: string
+  sourceBranch: string
+  targetBranch: string
+  isDraft?: boolean
+}): Promise<PullRequest | null> {
+  const response = await api.api.pulls.post(data)
+  return extractDataSafe(response) as PullRequest | null
 }
 
 async function mergePullRequest(
-  owner: string,
-  repo: string,
-  prNumber: number,
-  method: MergeMethod,
+  prNumber: string,
+  method?: 'merge' | 'squash' | 'rebase',
 ): Promise<boolean> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(
-    `${dwsUrl}/api/git/${owner}/${repo}/pulls/${prNumber}/merge`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ method }),
-    },
-  )
-  return res.ok
+  const response = await fetchApi(`/api/pulls/${prNumber}/merge`, {
+    method: 'POST',
+    body: JSON.stringify({ method: method || 'merge' }),
+  })
+  return response !== null
 }
 
 async function submitReview(
-  owner: string,
-  repo: string,
-  prNumber: number,
-  data: {
-    body: string
-    event: 'approve' | 'request_changes' | 'comment'
-  },
-): Promise<boolean> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(
-    `${dwsUrl}/api/git/${owner}/${repo}/pulls/${prNumber}/reviews`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    },
-  )
-  return res.ok
+  prNumber: string,
+  event: 'approve' | 'request_changes' | 'comment',
+  body: string,
+): Promise<Review | null> {
+  return fetchApi<Review>(`/api/pulls/${prNumber}/reviews`, {
+    method: 'POST',
+    body: JSON.stringify({ event, body }),
+  })
 }
 
-// ============ Hooks ============
-
-export function usePullRequests(
-  owner: string,
-  repo: string,
-  query?: { state?: PRState },
-) {
+export function usePullRequests(query?: {
+  status?: PullRequest['status']
+  repo?: string
+  author?: string
+}) {
   const {
     data: pullRequests,
     isLoading,
     error,
     refetch,
   } = useQuery({
-    queryKey: ['pullRequests', owner, repo, query],
-    queryFn: () => fetchPullRequests(owner, repo, query),
-    enabled: !!owner && !!repo,
+    queryKey: ['pullRequests', query],
+    queryFn: () => fetchPullRequests(query),
     staleTime: 30000,
   })
-
-  return {
-    pullRequests: pullRequests || [],
-    isLoading,
-    error,
-    refetch,
-  }
+  return { pullRequests: pullRequests || [], isLoading, error, refetch }
 }
 
-export function usePullRequest(owner: string, repo: string, prNumber: number) {
+export function usePullRequest(prNumber: string) {
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['pullRequest', owner, repo, prNumber],
-    queryFn: () => fetchPullRequest(owner, repo, prNumber),
-    enabled: !!owner && !!repo && !!prNumber,
+    queryKey: ['pullRequest', prNumber],
+    queryFn: () => fetchPullRequest(prNumber),
+    enabled: !!prNumber,
     staleTime: 30000,
   })
-
   return {
     pullRequest: data?.pullRequest || null,
-    commits: data?.commits || [],
-    files: data?.files || [],
     reviews: data?.reviews || [],
     isLoading,
     error,
@@ -202,55 +137,47 @@ export function usePullRequest(owner: string, repo: string, prNumber: number) {
   }
 }
 
-export function useCreatePullRequest(owner: string, repo: string) {
+export function useCreatePullRequest() {
   const queryClient = useQueryClient()
-
   return useMutation({
     mutationFn: (data: {
+      repo: string
       title: string
       body: string
-      head: string
-      base: string
-      draft?: boolean
-    }) => createPullRequest(owner, repo, data),
+      sourceBranch: string
+      targetBranch: string
+      isDraft?: boolean
+    }) => createPullRequest(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pullRequests', owner, repo] })
+      queryClient.invalidateQueries({ queryKey: ['pullRequests'] })
     },
   })
 }
 
-export function useMergePullRequest(owner: string, repo: string) {
+export function useMergePullRequest(prNumber: string) {
   const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (method?: 'merge' | 'squash' | 'rebase') =>
+      mergePullRequest(prNumber, method),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pullRequest', prNumber] })
+      queryClient.invalidateQueries({ queryKey: ['pullRequests'] })
+    },
+  })
+}
 
+export function useSubmitReview(prNumber: string) {
+  const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({
-      prNumber,
-      method,
+      event,
+      body,
     }: {
-      prNumber: number
-      method: MergeMethod
-    }) => mergePullRequest(owner, repo, prNumber, method),
-    onSuccess: (_, { prNumber }) => {
-      queryClient.invalidateQueries({
-        queryKey: ['pullRequest', owner, repo, prNumber],
-      })
-      queryClient.invalidateQueries({ queryKey: ['pullRequests', owner, repo] })
-    },
-  })
-}
-
-export function useSubmitReview(owner: string, repo: string, prNumber: number) {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: (data: {
-      body: string
       event: 'approve' | 'request_changes' | 'comment'
-    }) => submitReview(owner, repo, prNumber, data),
+      body: string
+    }) => submitReview(prNumber, event, body),
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ['pullRequest', owner, repo, prNumber],
-      })
+      queryClient.invalidateQueries({ queryKey: ['pullRequest', prNumber] })
     },
   })
 }

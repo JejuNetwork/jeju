@@ -173,16 +173,7 @@ export function useAuth(options: UseAuthOptions = {}): UseAuthReturn {
   useEffect(() => {
     const init = async () => {
       if (decentralized) {
-        // Try to initialize discovery, fallback to configured TEE URL on failure
-        try {
-          await client.initialize()
-        } catch (initError) {
-          // Log initialization errors - client will fallback to configured TEE URL
-          console.warn(
-            'OAuth3 discovery initialization failed, using configured TEE URL:',
-            initError,
-          )
-        }
+        await client.initialize()
       }
       setIsInitialized(true)
 
@@ -329,28 +320,7 @@ export function useAuth(options: UseAuthOptions = {}): UseAuthReturn {
   const signMessage = useCallback(
     async (message: string): Promise<Hex> => {
       if (!session) throw new Error('Not authenticated')
-
-      try {
-        return await client.signMessage({ message })
-      } catch (signError) {
-        // Fall back to local key if available (for offline-first or testing)
-        const storedKey = await secureStorage.get(PRIVATE_KEY_STORAGE_KEY)
-        if (storedKey) {
-          // Validate stored key is a valid hex string
-          if (!/^0x[0-9a-fA-F]{64}$/.test(storedKey)) {
-            throw new Error('Invalid stored private key format')
-          }
-          console.warn(
-            'OAuth3 sign failed, using local key fallback:',
-            signError,
-          )
-          const account = privateKeyToAccount(storedKey as Hex)
-          return account.signMessage({ message })
-        }
-        throw new Error(
-          `Unable to sign message: ${signError instanceof Error ? signError.message : 'Unknown error'}`,
-        )
-      }
+      return client.signMessage({ message })
     },
     [client, session],
   )

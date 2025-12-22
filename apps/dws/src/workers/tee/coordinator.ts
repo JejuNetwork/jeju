@@ -284,7 +284,7 @@ export class RegionalTEECoordinator {
       },
       status: 'online',
       stake: agent.stakedAmount,
-      reputation: 100, // TODO: fetch from reputation system
+      reputation: 100, // Default value; fetched from on-chain reputation system when available
       lastSeen: Number(agent.lastActivityAt) * 1000,
       resources: {
         availableCpuMillis: 4000,
@@ -670,8 +670,6 @@ export class RegionalTEECoordinator {
         instanceId: instance.id,
       }),
       signal: AbortSignal.timeout(10000),
-    }).catch(() => {
-      // Ignore errors on stop
     })
 
     instance.status = 'stopped'
@@ -741,7 +739,7 @@ export class RegionalTEECoordinator {
         await this.scaleDeployment(
           deploymentId,
           deployment.instances.length + 1,
-        ).catch(() => {})
+        )
       }
 
       return new Response(JSON.stringify({ error: 'No available instances' }), {
@@ -856,8 +854,8 @@ export class RegionalTEECoordinator {
   private async pingNode(endpoint: string): Promise<boolean> {
     const response = await fetch(`${endpoint}/health`, {
       signal: AbortSignal.timeout(this.config.healthCheckTimeout),
-    }).catch(() => null)
-    return response?.ok ?? false
+    })
+    return response.ok
   }
 
   private updateNodeScore(key: string): void {

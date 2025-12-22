@@ -18,16 +18,20 @@ import { bountiesRoutes } from './routes/bounties'
 import { ciRoutes } from './routes/ci'
 import { containersRoutes } from './routes/containers'
 import { datasetsRoutes } from './routes/datasets'
+import { discussionsRoutes } from './routes/discussions'
 import { feedRoutes } from './routes/feed'
 import { gitRoutes } from './routes/git'
 import { healthRoutes } from './routes/health'
 import { issuesRoutes } from './routes/issues'
 import { jobsRoutes } from './routes/jobs'
+import { leaderboardRoutes } from './routes/leaderboard'
 import { mcpRoutes } from './routes/mcp'
 import { modelsRoutes } from './routes/models'
+import { packageSettingsRoutes } from './routes/package-settings'
 import { packagesRoutes } from './routes/packages'
 import { projectsRoutes } from './routes/projects'
 import { pullsRoutes } from './routes/pulls'
+import { repoSettingsRoutes } from './routes/repo-settings'
 
 const PORT = Number(process.env.PORT) || CORE_PORTS.FACTORY.get()
 const isDev = process.env.NODE_ENV !== 'production'
@@ -95,7 +99,9 @@ function createApp() {
     .use(healthRoutes)
     .use(bountiesRoutes)
     .use(gitRoutes)
+    .use(repoSettingsRoutes)
     .use(packagesRoutes)
+    .use(packageSettingsRoutes)
     .use(containersRoutes)
     .use(modelsRoutes)
     .use(datasetsRoutes)
@@ -104,9 +110,11 @@ function createApp() {
     .use(ciRoutes)
     .use(agentsRoutes)
     .use(feedRoutes)
+    .use(discussionsRoutes)
     .use(issuesRoutes)
     .use(pullsRoutes)
     .use(a2aRoutes)
+    .use(leaderboardRoutes)
     .use(mcpRoutes)
 
   return baseApp

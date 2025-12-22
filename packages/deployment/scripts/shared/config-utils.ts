@@ -16,6 +16,7 @@
 import type { Account, Hex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import {
+  type EILChainConfig,
   getConfig,
   getCurrentNetwork,
   getEILChains,
@@ -154,7 +155,7 @@ export function getRpcUrl(chainId: number, network?: NetworkType): string {
   }
 
   // Check external chains in EIL config
-  const eilChains = getEILChains(net)
+  const eilChains: Record<string, EILChainConfig> = getEILChains(net)
   for (const chain of Object.values(eilChains)) {
     if (chain.chainId === chainId) {
       return chain.rpcUrl
@@ -189,7 +190,7 @@ function chainIdToName(chainId: number): string {
  */
 export function getChainIds(network?: NetworkType): number[] {
   const net = network ?? getNetworkFromArgs()
-  const chains = getEILChains(net)
+  const chains: Record<string, EILChainConfig> = getEILChains(net)
   return Object.values(chains).map((c) => c.chainId)
 }
 

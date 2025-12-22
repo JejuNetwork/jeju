@@ -137,9 +137,6 @@ async function computeMarketplaceInference(
     await response.json(),
     'Compute marketplace inference',
   )
-  console.log(
-    `[ResearchAgent] Compute inference: ${result.tokensUsed?.input ?? 0}/${result.tokensUsed?.output ?? 0} tokens, ${result.latencyMs}ms, ${result.cost.amount} ${result.cost.currency}`,
-  )
 
   if (!result.content) {
     throw new Error('Compute marketplace returned empty content')
@@ -170,9 +167,6 @@ export class ResearchAgent {
         () => false,
       )
       if (computeAvailable) {
-        console.log(
-          '[ResearchAgent] Using compute marketplace for deep research',
-        )
         const report = await this.generateComputeMarketplaceReport(
           request,
           requestHash,
@@ -333,10 +327,6 @@ Return JSON:
     const parsed = parseJson<ParsedReport>(response)
 
     if (!parsed) {
-      console.warn(
-        '[ResearchAgent] AI response parsing failed - falling back to heuristics',
-      )
-      console.warn('[ResearchAgent] Raw response:', response.slice(0, 200))
       return this.generateHeuristicReport(request, requestHash, startedAt)
     }
 
@@ -347,18 +337,12 @@ Return JSON:
       !parsed.recommendation ||
       !['proceed', 'reject', 'modify'].includes(parsed.recommendation)
     ) {
-      console.warn(
-        `[ResearchAgent] Invalid recommendation '${parsed.recommendation}' - using heuristics`,
-      )
       return this.generateHeuristicReport(request, requestHash, startedAt)
     }
     if (
       !parsed.riskLevel ||
       !['low', 'medium', 'high', 'critical'].includes(parsed.riskLevel)
     ) {
-      console.warn(
-        `[ResearchAgent] Invalid riskLevel '${parsed.riskLevel}' - using heuristics`,
-      )
       return this.generateHeuristicReport(request, requestHash, startedAt)
     }
     if (
@@ -366,33 +350,21 @@ Return JSON:
       parsed.confidenceLevel < 0 ||
       parsed.confidenceLevel > 100
     ) {
-      console.warn(
-        `[ResearchAgent] Invalid confidenceLevel '${parsed.confidenceLevel}' - using heuristics`,
-      )
       return this.generateHeuristicReport(request, requestHash, startedAt)
     }
     if (!parsed.summary || parsed.summary.length === 0) {
-      console.warn('[ResearchAgent] Missing summary - using heuristics')
       return this.generateHeuristicReport(request, requestHash, startedAt)
     }
     if (!Array.isArray(parsed.sections)) {
-      console.warn('[ResearchAgent] Missing sections array - using heuristics')
       return this.generateHeuristicReport(request, requestHash, startedAt)
     }
     if (!Array.isArray(parsed.keyFindings)) {
-      console.warn(
-        '[ResearchAgent] Missing keyFindings array - using heuristics',
-      )
       return this.generateHeuristicReport(request, requestHash, startedAt)
     }
     if (!Array.isArray(parsed.concerns)) {
-      console.warn('[ResearchAgent] Missing concerns array - using heuristics')
       return this.generateHeuristicReport(request, requestHash, startedAt)
     }
     if (!Array.isArray(parsed.alternatives)) {
-      console.warn(
-        '[ResearchAgent] Missing alternatives array - using heuristics',
-      )
       return this.generateHeuristicReport(request, requestHash, startedAt)
     }
 

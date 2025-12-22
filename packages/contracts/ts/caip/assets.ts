@@ -20,10 +20,6 @@ import {
   SOLANA_MAINNET_GENESIS,
 } from './chains'
 
-// ============================================================================
-// Types
-// ============================================================================
-
 export type AssetNamespace =
   | 'slip44'
   | 'erc20'
@@ -36,7 +32,7 @@ export interface AssetType {
   chainId: ChainId
   assetNamespace: AssetNamespace
   assetReference: string
-  tokenId?: string // For NFTs
+  tokenId?: string
 }
 
 export interface AssetInfo {
@@ -50,11 +46,6 @@ export interface AssetInfo {
   isNFT: boolean
 }
 
-// ============================================================================
-// Constants
-// ============================================================================
-
-// SLIP44 coin types for native currencies
 export const SLIP44 = {
   ETH: 60,
   BTC: 0,
@@ -63,12 +54,10 @@ export const SLIP44 = {
   AVAX: 9000,
 } as const
 
-// Well-known tokens
 export const KNOWN_ASSETS: Record<
   string,
   { name: string; symbol: string; decimals: number }
 > = {
-  // Ethereum Mainnet
   'eip155:1/erc20:0xdAC17F958D2ee523a2206206994597C13D831ec7': {
     name: 'Tether USD',
     symbol: 'USDT',
@@ -84,8 +73,6 @@ export const KNOWN_ASSETS: Record<
     symbol: 'DAI',
     decimals: 18,
   },
-
-  // Solana Mainnet
   [`solana:${SOLANA_MAINNET_GENESIS}/spl:EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`]:
     {
       name: 'USD Coin',
@@ -100,15 +87,7 @@ export const KNOWN_ASSETS: Record<
     },
 }
 
-// ============================================================================
-// Parsing & Formatting
-// ============================================================================
-
-/**
- * Parse a CAIP-19 asset type string
- */
 export function parseAssetType(caip19: string): AssetType {
-  // Format: chain_id/asset_namespace:asset_reference[:token_id]
   const slashIndex = caip19.indexOf('/')
   if (slashIndex === -1) {
     throw new Error(`Invalid CAIP-19 asset type: ${caip19}`)
@@ -125,7 +104,6 @@ export function parseAssetType(caip19: string): AssetType {
   const assetNamespace = assetPart.slice(0, colonIndex) as AssetNamespace
   const assetReferenceAndTokenId = assetPart.slice(colonIndex + 1)
 
-  // Check for token ID (for NFTs)
   let assetReference = assetReferenceAndTokenId
   let tokenId: string | undefined
 
@@ -145,9 +123,6 @@ export function parseAssetType(caip19: string): AssetType {
   }
 }
 
-/**
- * Format an AssetType to CAIP-19 string
- */
 export function formatAssetType(asset: AssetType): string {
   let result = `${formatChainId(asset.chainId)}/${asset.assetNamespace}:${asset.assetReference}`
 
@@ -158,9 +133,6 @@ export function formatAssetType(asset: AssetType): string {
   return result
 }
 
-/**
- * Create detailed asset info from CAIP-19 string
- */
 export function getAssetInfo(caip19: string): AssetInfo {
   const asset = parseAssetType(caip19)
 
@@ -185,19 +157,11 @@ export function getAssetInfo(caip19: string): AssetInfo {
   }
 }
 
-// ============================================================================
-// Validation
-// ============================================================================
-
-/**
- * Validate a CAIP-19 asset type
- */
 export function isValidAssetType(caip19: string): boolean {
   try {
     const asset = parseAssetType(caip19)
     const chainIdStr = formatChainId(asset.chainId)
 
-    // Validate asset reference based on namespace and chain
     if (isEvmChain(chainIdStr)) {
       if (
         asset.assetNamespace === 'erc20' ||
@@ -231,16 +195,8 @@ export function isValidAssetType(caip19: string): boolean {
   }
 }
 
-// ============================================================================
-// Conversion Utilities
-// ============================================================================
-
-/**
- * Create CAIP-19 for native currency
- */
 export function nativeCurrencyToCAIP19(chainId: number | string): string {
   if (typeof chainId === 'number') {
-    // EVM chain - use SLIP44
     return `eip155:${chainId}/slip44:${SLIP44.ETH}`
   } else if (chainId.startsWith('solana:')) {
     const reference = chainId.split(':')[1]
@@ -249,9 +205,6 @@ export function nativeCurrencyToCAIP19(chainId: number | string): string {
   throw new Error(`Unsupported chain: ${chainId}`)
 }
 
-/**
- * Create CAIP-19 for ERC20 token
- */
 export function erc20ToCAIP19(chainId: number, tokenAddress: string): string {
   if (!isEvmAddress(tokenAddress)) {
     throw new Error(`Invalid ERC20 address: ${tokenAddress}`)
@@ -260,9 +213,6 @@ export function erc20ToCAIP19(chainId: number, tokenAddress: string): string {
   return `eip155:${chainId}/erc20:${checksumAddress(tokenAddress as `0x${string}`)}`
 }
 
-/**
- * Create CAIP-19 for SPL token
- */
 export function splTokenToCAIP19(
   tokenMint: string,
   cluster: 'mainnet-beta' | 'devnet' = 'mainnet-beta',
@@ -277,9 +227,6 @@ export function splTokenToCAIP19(
   return `solana:${genesisHashes[cluster]}/spl:${pubkey.toBase58()}`
 }
 
-/**
- * Create CAIP-19 for ERC721 NFT
- */
 export function erc721ToCAIP19(
   chainId: number,
   contractAddress: string,
@@ -292,9 +239,6 @@ export function erc721ToCAIP19(
   return `eip155:${chainId}/erc721:${checksumAddress(contractAddress as `0x${string}`)}:${tokenId}`
 }
 
-/**
- * Extract ERC20 address from CAIP-19
- */
 export function caip19ToErc20Address(
   caip19: string,
 ): `0x${string}` | undefined {
@@ -307,9 +251,6 @@ export function caip19ToErc20Address(
   return checksumAddress(asset.assetReference as `0x${string}`)
 }
 
-/**
- * Extract SPL mint from CAIP-19
- */
 export function caip19ToSplMint(caip19: string): PublicKey | undefined {
   const asset = parseAssetType(caip19)
 
@@ -320,20 +261,13 @@ export function caip19ToSplMint(caip19: string): PublicKey | undefined {
   return new PublicKey(asset.assetReference)
 }
 
-// ============================================================================
-// Cross-chain Asset Mapping
-// ============================================================================
-
 export interface CrossChainAsset {
   name: string
   symbol: string
   decimals: number
-  chains: Map<string, string> // CAIP-2 chain ID -> CAIP-19 asset ID
+  chains: Map<string, string>
 }
 
-/**
- * Well-known cross-chain assets (bridged tokens)
- */
 export const CROSS_CHAIN_ASSETS: Map<string, CrossChainAsset> = new Map([
   [
     'USDC',
@@ -393,9 +327,6 @@ export const CROSS_CHAIN_ASSETS: Map<string, CrossChainAsset> = new Map([
   ],
 ])
 
-/**
- * Find equivalent asset on another chain
- */
 export function findEquivalentAsset(
   caip19: string,
   targetChain: string,
@@ -410,9 +341,6 @@ export function findEquivalentAsset(
   return undefined
 }
 
-/**
- * Get all chain addresses for a cross-chain asset
- */
 export function getAssetChainMap(
   symbol: string,
 ): Map<string, string> | undefined {

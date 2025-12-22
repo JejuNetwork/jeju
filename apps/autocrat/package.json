@@ -1,16 +1,13 @@
 {
   "name": "@jejunetwork/autocrat",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "AI Council DAO - Autonomous governance with AI CEO, council agents, and reputation-weighted proposals",
   "main": "src/server.ts",
   "type": "module",
   "scripts": {
     "dev": "bun run src/server.ts",
-    "dev:ceo": "bun run src/ceo-server.ts",
     "build": "bun build src/server.ts --outdir dist --target node",
     "test": "bun test tests/",
-    "test:e2e": "bunx playwright test --config synpress.config.ts",
-    "lint": "biome check .",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -27,7 +24,7 @@
     "ai": "^5.0.52",
     "elysia": "^1.4.19",
     "viem": "2.43.3",
-    "zod": "^4.1.13"
+    "zod": "4.2.1"
   },
   "devDependencies": {
     "@jejunetwork/tests": "workspace:*",

@@ -88,12 +88,26 @@ export type DeployConfig = z.infer<typeof DeployConfigSchema>
 // ============================================================================
 
 /**
+ * op-deployer deployment entry
+ */
+export const OpDeployerDeploymentSchema = z
+  .object({
+    address: z.string().optional(),
+    bytecode: z.string().optional(),
+    tx: z.string().optional(),
+    blockNumber: z.number().optional(),
+    timestamp: z.number().optional(),
+  })
+  .passthrough()
+export type OpDeployerDeployment = z.infer<typeof OpDeployerDeploymentSchema>
+
+/**
  * op-deployer state.json output
  */
 export const OpDeployerStateSchema = z
   .object({
     addresses: z.record(z.string(), z.string()).optional(),
-    deployments: z.record(z.string(), z.unknown()).optional(),
+    deployments: z.record(z.string(), OpDeployerDeploymentSchema).optional(),
   })
   .passthrough()
 export type OpDeployerState = z.infer<typeof OpDeployerStateSchema>
@@ -145,7 +159,7 @@ export const JejuManifestSchema = z
   .object({
     name: z.string(),
     description: z.string().optional(),
-    tags: z.array(z.string()).optional(),
+    tags: z.array(z.string()).default([]),
     jns: z
       .object({
         name: z.string(),
@@ -207,6 +221,50 @@ export type GovernanceAddresses = z.infer<typeof GovernanceAddressesSchema>
 // ============================================================================
 
 /**
+ * ABI parameter schema (for function/event inputs/outputs)
+ */
+interface AbiParameterBase {
+  name: string
+  type: string
+  indexed?: boolean
+  internalType?: string
+  components?: AbiParameterBase[]
+}
+
+export const AbiParameterSchema: z.ZodType<AbiParameterBase> = z.object({
+  name: z.string(),
+  type: z.string(),
+  indexed: z.boolean().optional(),
+  internalType: z.string().optional(),
+  components: z.array(z.lazy(() => AbiParameterSchema)).optional(),
+})
+export type AbiParameter = z.infer<typeof AbiParameterSchema>
+
+/**
+ * ABI item schema (function, event, error, constructor, receive, fallback)
+ */
+export const AbiItemSchema = z
+  .object({
+    type: z.enum([
+      'function',
+      'event',
+      'error',
+      'constructor',
+      'receive',
+      'fallback',
+    ]),
+    name: z.string().optional(),
+    inputs: z.array(AbiParameterSchema).optional(),
+    outputs: z.array(AbiParameterSchema).optional(),
+    stateMutability: z
+      .enum(['pure', 'view', 'nonpayable', 'payable'])
+      .optional(),
+    anonymous: z.boolean().optional(),
+  })
+  .passthrough()
+export type AbiItem = z.infer<typeof AbiItemSchema>
+
+/**
  * Forge compiled artifact (*.json from out/)
  */
 export const ForgeArtifactSchema = z
@@ -214,7 +272,7 @@ export const ForgeArtifactSchema = z
     bytecode: z.object({
       object: z.string(),
     }),
-    abi: z.array(z.unknown()).optional(),
+    abi: z.array(AbiItemSchema).optional(),
     methodIdentifiers: z.record(z.string(), z.string()).optional(),
   })
   .passthrough()
@@ -296,13 +354,23 @@ export type ContractsConfigValidation = z.infer<
 >
 
 /**
+ * RPC config schema
+ */
+export const RpcConfigSchema = z.object({
+  l1: z.string(),
+  l2: z.string(),
+  ws: z.string().optional(),
+})
+export type RpcConfig = z.infer<typeof RpcConfigSchema>
+
+/**
  * Services config for validation
  */
 export const ServicesConfigValidationSchema = z
   .object({
-    localnet: z.object({ rpc: z.unknown() }).passthrough(),
-    testnet: z.object({ rpc: z.unknown() }).passthrough(),
-    mainnet: z.object({ rpc: z.unknown() }).passthrough(),
+    localnet: z.object({ rpc: RpcConfigSchema }).passthrough(),
+    testnet: z.object({ rpc: RpcConfigSchema }).passthrough(),
+    mainnet: z.object({ rpc: RpcConfigSchema }).passthrough(),
   })
   .passthrough()
 export type ServicesConfigValidation = z.infer<
@@ -310,12 +378,33 @@ export type ServicesConfigValidation = z.infer<
 >
 
 /**
+ * Token config entry schema
+ */
+export const TokenConfigEntrySchema = z
+  .object({
+    name: z.string(),
+    symbol: z.string(),
+    decimals: z.number().int().min(0).max(18),
+    address: z.string().optional(),
+    isNative: z.boolean().optional(),
+    isPreferred: z.boolean().optional(),
+    logoUrl: z.string().optional(),
+    priceUSD: z.number().optional(),
+    hasPaymaster: z.boolean().optional(),
+    hasBanEnforcement: z.boolean().optional(),
+    tags: z.array(z.string()).optional(),
+    addresses: z.record(z.string(), z.string()).optional(),
+  })
+  .passthrough()
+export type TokenConfigEntry = z.infer<typeof TokenConfigEntrySchema>
+
+/**
  * Tokens config for validation
  */
 export const TokensConfigValidationSchema = z
   .object({
     version: z.string(),
-    tokens: z.record(z.string(), z.unknown()).optional(),
+    tokens: z.record(z.string(), TokenConfigEntrySchema).optional(),
   })
   .passthrough()
 export type TokensConfigValidation = z.infer<
@@ -323,12 +412,32 @@ export type TokensConfigValidation = z.infer<
 >
 
 /**
+ * EIL chain config entry schema
+ */
+export const EILChainConfigEntrySchema = z
+  .object({
+    chainId: z.number().int().positive(),
+    name: z.string(),
+    rpcUrl: z.string(),
+    crossChainPaymaster: z.string().optional(),
+    l1StakeManager: z.string().optional(),
+    status: z.enum(['active', 'inactive', 'pending']).optional(),
+    tokens: z.record(z.string(), z.string()).optional(),
+  })
+  .passthrough()
+export type EILChainConfigEntry = z.infer<typeof EILChainConfigEntrySchema>
+
+/**
  * EIL config for validation
  */
 export const EILConfigValidationSchema = z
   .object({
-    testnet: z.object({ chains: z.unknown() }).passthrough(),
-    mainnet: z.object({ chains: z.unknown() }).passthrough(),
+    testnet: z
+      .object({ chains: z.record(z.string(), EILChainConfigEntrySchema) })
+      .passthrough(),
+    mainnet: z
+      .object({ chains: z.record(z.string(), EILChainConfigEntrySchema) })
+      .passthrough(),
   })
   .passthrough()
 export type EILConfigValidation = z.infer<typeof EILConfigValidationSchema>
@@ -366,7 +475,7 @@ export type SignRequest = z.infer<typeof SignRequestSchema>
  * Raw contract artifact JSON from Foundry compilation
  */
 export const RawArtifactJsonSchema = z.object({
-  abi: z.array(z.unknown()) as z.ZodType<Abi>,
+  abi: z.array(AbiItemSchema) as z.ZodType<Abi>,
   bytecode: z.object({
     object: z.string(),
     sourceMap: z.string().optional(),
@@ -460,10 +569,33 @@ export type JsonRpcBlockNumberResponse = z.infer<
 >
 
 /**
+ * JSON-compatible value schema (for polymorphic JSON-RPC results)
+ */
+const JsonValueSchema: z.ZodType<
+  string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
+> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(JsonValueSchema),
+    z.record(z.string(), JsonValueSchema),
+  ]),
+)
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue }
+
+/**
  * Generic JSON-RPC response (for any method)
  */
 export const JsonRpcResponseSchema = z.object({
-  result: z.unknown().optional(),
+  result: JsonValueSchema.optional(),
   error: z.object({ message: z.string() }).optional(),
 })
 export type JsonRpcResponse = z.infer<typeof JsonRpcResponseSchema>
@@ -767,7 +899,7 @@ export type IPFSAddResponseLine = z.infer<typeof IPFSAddResponseLineSchema>
  */
 export function expectJson<T>(
   json: string,
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   context: string,
 ): T {
   let parsed: unknown
@@ -785,7 +917,7 @@ export function expectJson<T>(
  * Validate data against schema, throwing on failure
  */
 export function expectValid<T>(
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   value: unknown,
   context: string,
 ): T {

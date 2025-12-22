@@ -22,7 +22,7 @@ function createPosition(overrides: Partial<Position> = {}): Position {
       sessionId: '0x1234',
       question: 'Test market?',
       resolved: false,
-      outcome: undefined,
+      outcome: null,
     },
     yesShares: 0n,
     noShares: 0n,
@@ -131,7 +131,7 @@ describe('calculatePositionCurrentValue', () => {
         sessionId: '0x1',
         question: 'Test?',
         resolved: false,
-        outcome: undefined,
+        outcome: null,
       },
     })
     expect(calculatePositionCurrentValue(position)).toBe(parseEther('150'))
@@ -204,7 +204,7 @@ describe('countActivePositions', () => {
           sessionId: '0x1',
           question: 'A?',
           resolved: false,
-          outcome: undefined,
+          outcome: null,
         },
       }),
       createPosition({
@@ -220,7 +220,7 @@ describe('countActivePositions', () => {
           sessionId: '0x3',
           question: 'C?',
           resolved: false,
-          outcome: undefined,
+          outcome: null,
         },
       }),
     ]
@@ -328,7 +328,7 @@ describe('filterClaimablePositions', () => {
           sessionId: '0x1',
           question: 'A?',
           resolved: false,
-          outcome: undefined,
+          outcome: null,
         },
         hasClaimed: false,
       }),
@@ -346,7 +346,7 @@ describe('filterActivePositions', () => {
           sessionId: '0x1',
           question: 'A?',
           resolved: false,
-          outcome: undefined,
+          outcome: null,
         },
       }),
       createPosition({
@@ -421,7 +421,7 @@ describe('filterWinningPositions', () => {
           sessionId: '0x1',
           question: 'A?',
           resolved: false,
-          outcome: undefined,
+          outcome: null,
         },
       }),
     ]
@@ -451,7 +451,7 @@ describe('calculatePortfolioStats', () => {
           sessionId: '0x1',
           question: 'A?',
           resolved: false,
-          outcome: undefined,
+          outcome: null,
         },
       }),
       createPosition({

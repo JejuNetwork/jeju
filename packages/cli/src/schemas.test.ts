@@ -436,11 +436,11 @@ describe('ChatMessageSchema', () => {
     expect(() => validate(data, ChatMessageSchema)).toThrow()
   })
 
-  test('allows empty content', () => {
+  test('rejects empty content', () => {
     const data = { role: 'user', content: '' }
-    const result = validate(data, ChatMessageSchema)
 
-    expect(result.content).toBe('')
+    // Content must be non-empty (min 1 character)
+    expect(() => validate(data, ChatMessageSchema)).toThrow()
   })
 })
 
@@ -476,26 +476,36 @@ describe('ChatRequestSchema', () => {
     expect(result.provider).toBe('openai')
   })
 
-  test('allows empty messages array', () => {
+  test('rejects empty messages array', () => {
     const data = {
       model: 'gpt-4',
       messages: [],
     }
 
-    const result = validate(data, ChatRequestSchema)
-    expect(result.messages).toHaveLength(0)
+    // Messages array must have at least 1 element
+    expect(() => validate(data, ChatRequestSchema)).toThrow()
   })
 
-  test('validates temperature range', () => {
+  test('rejects out-of-range temperature', () => {
     const data = {
       model: 'gpt-4',
       messages: [{ role: 'user', content: 'Hi' }],
-      temperature: 2.5, // Out of typical range but schema allows any number
+      temperature: 2.5, // Out of valid range (0-2)
     }
 
-    // Schema allows any number, validation is application-level
+    // Temperature must be between 0 and 2
+    expect(() => validate(data, ChatRequestSchema)).toThrow()
+  })
+
+  test('validates valid temperature range', () => {
+    const data = {
+      model: 'gpt-4',
+      messages: [{ role: 'user', content: 'Hi' }],
+      temperature: 1.5, // Within valid range (0-2)
+    }
+
     const result = validate(data, ChatRequestSchema)
-    expect(result.temperature).toBe(2.5)
+    expect(result.temperature).toBe(1.5)
   })
 
   test('rejects invalid message role in array', () => {

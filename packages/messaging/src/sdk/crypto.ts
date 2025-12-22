@@ -15,8 +15,6 @@ import { sha256 } from '@noble/hashes/sha256'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils'
 import type { SerializedEncryptedMessage } from '../schemas'
 
-// ============ Types ============
-
 export interface KeyPair {
   publicKey: Uint8Array
   privateKey: Uint8Array
@@ -27,8 +25,6 @@ export interface EncryptedMessage {
   nonce: Uint8Array
   ephemeralPublicKey: Uint8Array
 }
-
-// ============ Key Generation ============
 
 /**
  * Generate a new X25519 key pair for encryption
@@ -57,8 +53,6 @@ export function generateKeyPairFromSeed(seed: Uint8Array): KeyPair {
 
   return { publicKey, privateKey }
 }
-
-// ============ Encryption ============
 
 /**
  * Encrypt a message for a recipient
@@ -159,8 +153,6 @@ export function decryptMessageToString(
   return new TextDecoder().decode(plaintext)
 }
 
-// ============ Serialization ============
-
 /**
  * Serialize encrypted message to JSON-safe format
  */
@@ -215,8 +207,6 @@ export function bytes32ToPublicKey(bytes32: `0x${string}`): Uint8Array {
   return hexToBytes(bytes32.slice(2))
 }
 
-// ============ Message Envelope ============
-
 import type { MessageEnvelope } from '../schemas'
 
 /**
@@ -252,8 +242,6 @@ export function generateMessageId(): string {
   return bytesToHex(bytes)
 }
 
-// ============ Key Derivation for Wallets ============
-
 /**
  * Derive messaging key pair from wallet signature
  * This allows users to derive their messaging keys from their Ethereum wallet
@@ -278,8 +266,6 @@ export function deriveKeyPairFromWallet(
  */
 export const KEY_DERIVATION_MESSAGE =
   'Sign this message to enable Network Messaging.\n\nThis signature will be used to derive your encryption keys.\nIt does not grant access to your funds.'
-
-// ============ Utilities ============
 
 /**
  * Constant-time comparison to prevent timing attacks.

@@ -320,5 +320,7 @@ export function validateChainConfig(config: ChainConfig): ChainConfig {
       result.error.issues,
     )
   }
+  // Safe to cast: we validated the input config which already has the correct ChainConfig type
+  // Zod infers broader types but the validation ensures it matches ChainConfig
   return result.data as ChainConfig
 }

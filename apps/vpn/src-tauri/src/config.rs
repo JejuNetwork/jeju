@@ -7,37 +7,37 @@ use serde::{Deserialize, Serialize};
 pub struct VPNConfig {
     /// RPC URL for blockchain
     pub rpc_url: String,
-    
+
     /// Chain ID
     pub chain_id: u64,
-    
+
     /// VPN Registry contract address
     pub vpn_registry: String,
-    
+
     /// Coordinator WebSocket URL
     pub coordinator_url: String,
-    
+
     /// Default DNS servers
     pub dns_servers: Vec<String>,
-    
+
     /// Kill switch enabled
     pub kill_switch: bool,
-    
+
     /// Auto-connect on startup
     pub auto_connect: bool,
-    
+
     /// Start on system boot
     pub auto_start: bool,
-    
+
     /// Minimize to tray on close
     pub minimize_to_tray: bool,
-    
+
     /// Show notifications
     pub show_notifications: bool,
-    
+
     /// Adaptive bandwidth enabled
     pub adaptive_bandwidth: bool,
-    
+
     /// Contribution settings
     pub contribution: ContributionConfig,
 }
@@ -47,28 +47,28 @@ pub struct VPNConfig {
 pub struct ContributionConfig {
     /// Enable auto contribution (default true)
     pub enabled: bool,
-    
+
     /// Max bandwidth percent to share (default 10%)
     pub max_bandwidth_percent: u8,
-    
+
     /// Share CDN content (default true)
     pub share_cdn: bool,
-    
+
     /// Share VPN relay where legal (default true)
     pub share_vpn_relay: bool,
-    
+
     /// Earning mode - share more for tokens
     pub earning_mode: bool,
-    
+
     /// Earning mode bandwidth percent (default 50%)
     pub earning_bandwidth_percent: u8,
-    
+
     /// Schedule enabled
     pub schedule_enabled: bool,
-    
+
     /// Schedule start time (e.g., "22:00")
     pub schedule_start: String,
-    
+
     /// Schedule end time (e.g., "06:00")
     pub schedule_end: String,
 }
@@ -107,4 +107,3 @@ impl Default for ContributionConfig {
         }
     }
 }
-

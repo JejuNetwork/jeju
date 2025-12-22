@@ -8,9 +8,7 @@
 import type { Address, Hex } from 'viem'
 import { z } from 'zod'
 
-// ============================================================================
 // IPFS Response Schemas
-// ============================================================================
 
 /** Schema for IPFS upload response (supports both DWS and IPFS API styles) */
 export const IPFSUploadResponseSchema = z.object({
@@ -23,18 +21,14 @@ export const IPFSPinCountResponseSchema = z.object({
   count: z.number().optional(),
 })
 
-// ============================================================================
 // Storage Response Schemas
-// ============================================================================
 
 /** Schema for storage upload response */
 export const StorageUploadResponseSchema = z.object({
-  cid: z.string(),
+  cid: z.string().min(1),
 })
 
-// ============================================================================
 // JNS Response Schemas
-// ============================================================================
 
 /** Schema for JNS availability check */
 export const JNSAvailabilityResponseSchema = z.object({
@@ -79,9 +73,7 @@ export const JNSPriceResponseSchema = z.object({
   price: z.string(),
 })
 
-// ============================================================================
 // KMS Response Schemas
-// ============================================================================
 
 /** Schema for KMS encrypt response */
 export const KMSEncryptResponseSchema = z.object({
@@ -98,9 +90,7 @@ export const KMSSignResponseSchema = z.object({
   signature: z.string(),
 })
 
-// ============================================================================
 // HSM Response Schemas
-// ============================================================================
 
 /** Schema for HSM key generation response */
 export const HSMKeyGenerationResponseSchema = z.object({
@@ -133,30 +123,28 @@ export const HSMDecryptionResponseSchema = z.object({
   plaintext: z.string(),
 })
 
-// ============================================================================
 // Trigger Response Schemas
-// ============================================================================
 
 /** Schema for trigger response */
 export const TriggerResponseSchema = z.object({
-  id: z.string(),
-  name: z.string(),
+  id: z.string().min(1),
+  name: z.string().min(1),
   description: z.string(),
   type: z.enum(['cron', 'webhook', 'event']),
   cronExpression: z.string().optional(),
   webhookPath: z.string().optional(),
   eventTypes: z.array(z.string()).optional(),
-  endpoint: z.string(),
-  method: z.string(),
-  timeout: z.number(),
+  endpoint: z.string().min(1),
+  method: z.enum(['GET', 'POST', 'PUT', 'DELETE', 'PATCH']),
+  timeout: z.number().positive(),
   active: z.boolean(),
   owner: z.string().optional() as z.ZodType<Address | undefined>,
-  agentId: z.number().optional(),
+  agentId: z.number().nonnegative().optional(),
   paymentMode: z.enum(['free', 'x402', 'prepaid']),
   pricePerExecution: z.string(),
-  createdAt: z.number(),
-  lastExecutedAt: z.number().optional(),
-  executionCount: z.number(),
+  createdAt: z.number().nonnegative(),
+  lastExecutedAt: z.number().nonnegative().optional(),
+  executionCount: z.number().nonnegative(),
   onChainId: z.string().optional(),
   source: z.enum(['local', 'onchain']),
 })
@@ -179,26 +167,26 @@ export const TriggerListResponseSchema = z.object({
 /** Schema for trigger proof response */
 export const TriggerProofResponseSchema = z.object({
   proof: z.object({
-    triggerId: z.string(),
-    executionId: z.string(),
-    timestamp: z.number(),
-    inputHash: z.string(),
-    outputHash: z.string(),
+    triggerId: z.string().min(1),
+    executionId: z.string().min(1),
+    timestamp: z.number().nonnegative(),
+    inputHash: z.string().min(1),
+    outputHash: z.string().min(1),
     executorAddress: z.string() as z.ZodType<Address>,
-    executorSignature: z.string(),
-    chainId: z.number(),
+    executorSignature: z.string().min(1),
+    chainId: z.number().positive(),
     txHash: z.string().optional(),
   }),
 })
 
 /** Schema for trigger stats response */
 export const TriggerStatsResponseSchema = z.object({
-  totalExecutions: z.number(),
-  successfulExecutions: z.number(),
-  failedExecutions: z.number(),
-  lastPollAt: z.number(),
-  triggerCount: z.number(),
-  activeExecutions: z.number(),
+  totalExecutions: z.number().nonnegative(),
+  successfulExecutions: z.number().nonnegative(),
+  failedExecutions: z.number().nonnegative(),
+  lastPollAt: z.number().nonnegative(),
+  triggerCount: z.number().nonnegative(),
+  activeExecutions: z.number().nonnegative(),
 })
 
 /** Schema for trigger deposit/withdraw response */
@@ -211,21 +199,28 @@ export const TriggerBalanceResponseSchema = z.object({
   balance: z.string(),
 })
 
-// ============================================================================
 // CovenantSQL Response Schemas
-// ============================================================================
+
+/** Schema for SQL row values (matches SqlParam type) */
+const SqlValueSchema = z.union([
+  z.string(),
+  z.number(),
+  z.boolean(),
+  z.null(),
+  z.instanceof(Uint8Array),
+  z.bigint(),
+  z.date(),
+])
 
 /** Schema for CovenantSQL query response */
 export const CQLQueryResponseSchema = z.object({
-  rows: z.array(z.record(z.string(), z.unknown())),
+  rows: z.array(z.record(z.string(), SqlValueSchema)),
   rowCount: z.number(),
   affectedRows: z.number(),
   lastInsertId: z.string().optional(),
 })
 
-// ============================================================================
 // Farcaster/SIWF Response Schemas
-// ============================================================================
 
 /** Schema for Farcaster auth channel creation response */
 export const FarcasterChannelResponseSchema = z.object({
@@ -269,22 +264,47 @@ export const FarcasterUserDataResponseSchema = z.object({
     .optional(),
 })
 
-// ============================================================================
 // Cron Response Schemas
-// ============================================================================
+
+/** Recursive schema for metadata values (JSON-compatible) */
+const MetadataValueSchema: z.ZodType<
+  | string
+  | number
+  | boolean
+  | null
+  | MetadataValue[]
+  | { [key: string]: MetadataValue }
+> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(MetadataValueSchema),
+    z.record(z.string(), MetadataValueSchema),
+  ]),
+)
+
+type MetadataValue =
+  | string
+  | number
+  | boolean
+  | null
+  | MetadataValue[]
+  | { [key: string]: MetadataValue }
 
 /** Schema for cron job */
 export const CronJobSchema = z.object({
-  id: z.string(),
-  name: z.string(),
+  id: z.string().min(1),
+  name: z.string().min(1),
   type: z.enum(['cron', 'once', 'interval']),
   expression: z.string().optional(),
-  webhook: z.string(),
+  webhook: z.string().url(),
   enabled: z.boolean(),
-  lastRun: z.number().nullable(),
+  lastRun: z.number().optional(),
   nextRun: z.number(),
-  executionCount: z.number(),
-  metadata: z.record(z.string(), z.unknown()).optional(),
+  executionCount: z.number().nonnegative(),
+  metadata: z.record(z.string(), MetadataValueSchema).optional(),
 })
 
 /** Schema for cron list response */
@@ -292,19 +312,17 @@ export const CronListResponseSchema = z.object({
   jobs: z.array(CronJobSchema),
 })
 
-// ============================================================================
 // Secrets Response Schemas
-// ============================================================================
 
 /** Schema for secret metadata */
 export const SecretMetadataSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  version: z.number(),
+  id: z.string().min(1),
+  name: z.string().min(1),
+  version: z.number().nonnegative(),
   owner: z.string() as z.ZodType<Address>,
-  createdAt: z.number(),
-  updatedAt: z.number(),
-  expiresAt: z.number().optional(),
+  createdAt: z.number().nonnegative(),
+  updatedAt: z.number().nonnegative(),
+  expiresAt: z.number().nonnegative().optional(),
   tags: z.array(z.string()),
 })
 
@@ -321,9 +339,7 @@ export const ListSecretsResponseSchema = z.object({
   secrets: z.array(SecretMetadataSchema),
 })
 
-// ============================================================================
 // TEE Response Schemas (Dstack/Tappd)
-// ============================================================================
 
 /** Schema for Tappd quote response */
 export const TappdQuoteResponseSchema = z.object({
@@ -337,13 +353,37 @@ export const TappdKeyResponseSchema = z.object({
   certificate_chain: z.array(z.string()),
 })
 
+/**
+ * Schema for TCB (Trusted Computing Base) info values.
+ * TCB info structure varies by TEE provider (Intel TDX, AMD SEV, etc.)
+ * so we use a recursive JSON-compatible schema.
+ */
+const TcbInfoValueSchema: z.ZodType<TcbInfoValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(TcbInfoValueSchema),
+    z.record(z.string(), TcbInfoValueSchema),
+  ]),
+)
+
+type TcbInfoValue =
+  | string
+  | number
+  | boolean
+  | null
+  | TcbInfoValue[]
+  | { [key: string]: TcbInfoValue }
+
 /** Schema for Tappd info response */
 export const TappdInfoResponseSchema = z.object({
   app_id: z.string(),
   instance_id: z.string(),
   os_image_hash: z.string(),
   compose_hash: z.string(),
-  tcb_info: z.record(z.string(), z.unknown()),
+  tcb_info: z.record(z.string(), TcbInfoValueSchema),
 })
 
 /** Schema for Tappd derive key response (JSON representation) */

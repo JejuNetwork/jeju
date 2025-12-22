@@ -1,7 +1,3 @@
-/**
- * Admin Module Tests
- */
-
 import { describe, expect, test } from 'bun:test'
 import type { Address } from 'viem'
 import {

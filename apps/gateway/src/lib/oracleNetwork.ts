@@ -154,8 +154,6 @@ export const FEED_REGISTRY_ABI = [
   },
 ] as const
 
-// ============ Report Verifier ABI ============
-
 export const REPORT_VERIFIER_ABI = [
   {
     type: 'function',
@@ -235,8 +233,6 @@ export const REPORT_VERIFIER_ABI = [
   },
 ] as const
 
-// ============ Committee Manager ABI ============
-
 export const COMMITTEE_MANAGER_ABI = [
   {
     type: 'function',
@@ -291,8 +287,6 @@ export const COMMITTEE_MANAGER_ABI = [
     stateMutability: 'view',
   },
 ] as const
-
-// ============ Fee Router ABI ============
 
 export const FEE_ROUTER_ABI = [
   {
@@ -388,8 +382,6 @@ export const FEE_ROUTER_ABI = [
   },
 ] as const
 
-// ============ Types ============
-
 export interface FeedSpec {
   feedId: `0x${string}`
   symbol: string
@@ -466,8 +458,6 @@ export interface FeeConfig {
   delegatorShareBps: number
   disputerRewardBps: number
 }
-
-// ============ Utility Functions ============
 
 export function formatPrice(price: bigint, decimals: number): string {
   const divisor = 10n ** BigInt(decimals)

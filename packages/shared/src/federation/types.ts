@@ -1,8 +1,6 @@
 import type { Address, Hex } from 'viem'
 
-// ============================================================================
 // Raw Viem Types (match ABI output exactly)
-// ============================================================================
 
 /**
  * Raw contracts tuple as returned by viem from the ABI.
@@ -47,9 +45,7 @@ export interface RawAttestation {
   attestationHash: Hex
 }
 
-// ============================================================================
 // Application Types (JS-friendly)
-// ============================================================================
 
 export interface NetworkContracts {
   identityRegistry: Address
@@ -174,9 +170,7 @@ export interface DiscoveryConfig {
   cacheTtlMs?: number
 }
 
-// ============================================================================
 // Type Converters (Raw viem -> Application types)
-// ============================================================================
 
 /**
  * Convert raw viem NetworkInfo to application NetworkInfo.

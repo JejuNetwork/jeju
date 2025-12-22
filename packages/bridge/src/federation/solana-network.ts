@@ -369,8 +369,6 @@ export class SolanaNetworkRegistry {
     })) as bigint[]
   }
 
-  // ============ Helper Methods ============
-
   /**
    * Get Solana genesis hash
    */

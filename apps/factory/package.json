@@ -1,23 +1,14 @@
 {
   "name": "@jejunetwork/factory",
-  "version": "1.0.0",
-  "description": "Developer coordination hub - bounties, jobs, git, packages, containers, models, project management",
+  "version": "0.1.0",
+  "description": "Developer coordination hub - bounties, jobs, git, packages, containers, models",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "bun scripts/dev-local.ts",
-    "dev:api": "bun run --watch src/server.ts",
-    "dev:client": "PORT=4010 bun ./src/client/index.html",
     "build": "bun scripts/build-client.ts && bun build src/server.ts --outdir dist --target bun",
-    "build:worker": "bun build src/worker/index.ts --outdir dist/worker --target bun --minify",
-    "start": "bun dist/server.js",
-    "deploy": "bun scripts/deploy-dws.ts",
-    "db:init": "bun -e \"import('./src/db').then(m => m.initializeFactoryDB())\"",
-    "lint": "biome check .",
-    "typecheck": "tsc --noEmit",
-    "test": "bun test tests/unit",
-    "test:e2e": "bun test tests/e2e",
-    "test:wallet": "playwright test --config synpress.config.ts"
+    "test": "bun test tests/",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@elysiajs/cors": "^1.4.0",
@@ -43,9 +34,9 @@
     "react-router-dom": "7.6.1",
     "sonner": "1.7.2",
     "tailwind-merge": "2.6.0",
-    "viem": "2.43.2",
+    "viem": "2.43.3",
     "wagmi": "2.18.1",
-    "zod": "^4.0.0"
+    "zod": "4.2.1"
   },
   "devDependencies": {
     "@jejunetwork/tests": "workspace:*",
@@ -61,8 +52,5 @@
     "postcss": "8.5.3",
     "tailwindcss": "3.4.17",
     "typescript": "5.9.3"
-  },
-  "engines": {
-    "bun": ">=1.2.0"
   }
 }

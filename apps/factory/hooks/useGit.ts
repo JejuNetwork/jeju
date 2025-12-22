@@ -1,7 +1,6 @@
+import { getCoreAppUrl } from '@jejunetwork/config/ports'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { getDwsUrl } from '../config/contracts'
-
-// ============ Types ============
+import { api, extractDataSafe } from '../lib/client'
 
 export interface Repository {
   id: string
@@ -69,105 +68,151 @@ export interface GitBranch {
   isProtected: boolean
 }
 
-// ============ Fetchers ============
+interface ApiRepository {
+  id: string
+  name: string
+  owner?: string
+  description?: string
+  isPrivate: boolean
+  defaultBranch: string
+  stars: number
+  forks: number
+  openIssues?: number
+  openPRs?: number
+  cloneUrl?: string
+  sshUrl?: string
+  createdAt: number
+  updatedAt: number
+}
+
+interface ApiFile {
+  path: string
+  type: 'file' | 'dir'
+  size?: number
+  sha: string
+}
+
+const API_BASE =
+  typeof window !== 'undefined'
+    ? ''
+    : process.env.FACTORY_API_URL || getCoreAppUrl('FACTORY')
+
+async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
+  const response = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options?.headers,
+    },
+  })
+
+  if (!response.ok) {
+    throw new Error(`API request failed: ${response.statusText}`)
+  }
+
+  return response.json()
+}
+
+function transformRepository(r: ApiRepository): Repository {
+  return {
+    id: r.id,
+    name: r.name,
+    owner: r.owner || '',
+    fullName: r.owner ? `${r.owner}/${r.name}` : r.name,
+    description: r.description || '',
+    isPrivate: r.isPrivate,
+    language: 'TypeScript',
+    stars: r.stars,
+    forks: r.forks,
+    watchers: r.stars,
+    issues: r.openIssues || 0,
+    updatedAt: r.updatedAt,
+    createdAt: r.createdAt,
+    defaultBranch: r.defaultBranch,
+    topics: [],
+  }
+}
 
 async function fetchRepositories(query?: {
   owner?: string
   search?: string
 }): Promise<Repository[]> {
-  const dwsUrl = getDwsUrl()
-  const params = new URLSearchParams()
-  if (query?.owner) params.set('owner', query.owner)
-  if (query?.search) params.set('q', query.search)
+  const response = await api.api.git.get({
+    query: { owner: query?.owner },
+  })
 
-  const res = await fetch(`${dwsUrl}/api/git/repos?${params.toString()}`)
-  if (!res.ok) return []
-  const data = await res.json()
-  return (data.repositories || []).map(
-    (r: Repository & { updatedAt: number }) => ({
-      ...r,
-      fullName: `${r.owner}/${r.name}`,
-      updatedAt: r.updatedAt || Date.now(),
-    }),
-  )
+  const data = extractDataSafe(response)
+  if (!data || !Array.isArray(data)) return []
+
+  return (data as ApiRepository[]).map(transformRepository)
 }
 
 async function fetchRepository(
   owner: string,
   name: string,
 ): Promise<Repository | null> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/git/repos/${owner}/${name}`)
-  if (!res.ok) return null
-  return res.json()
+  const data = await fetchApi<ApiRepository>(`/api/git/${owner}/${name}`)
+  return transformRepository(data)
 }
 
 async function fetchRepoData(
   owner: string,
   name: string,
 ): Promise<RepoData | null> {
-  const dwsUrl = getDwsUrl()
+  const repo = await fetchRepository(owner, name)
+  if (!repo) return null
 
-  // Fetch repo details, files, commits, and branches in parallel
-  const [repoRes, filesRes, commitsRes, branchesRes] = await Promise.all([
-    fetch(`${dwsUrl}/api/git/repos/${owner}/${name}`),
-    fetch(`${dwsUrl}/api/git/repos/${owner}/${name}/files`),
-    fetch(`${dwsUrl}/api/git/repos/${owner}/${name}/commits?limit=10`),
-    fetch(`${dwsUrl}/api/git/repos/${owner}/${name}/branches`),
-  ])
-
-  if (!repoRes.ok) return null
-
-  const repo = await repoRes.json()
-  const filesData = filesRes.ok ? await filesRes.json() : { files: [] }
-  const commitsData = commitsRes.ok ? await commitsRes.json() : { commits: [] }
-  const branchesData = branchesRes.ok
-    ? await branchesRes.json()
-    : { branches: [] }
+  const files = await fetchRepoFiles(owner, name, '', repo.defaultBranch)
+  const commits = await fetchRepoCommits(owner, name, {
+    branch: repo.defaultBranch,
+    limit: 10,
+  })
 
   return {
     owner,
     name,
-    description: repo.description || '',
-    isPrivate: repo.isPrivate || false,
-    stars: repo.stars || 0,
-    forks: repo.forks || 0,
-    tags: repo.tags || 0,
-    branches: (branchesData.branches || []).map(
-      (b: { name: string }) => b.name,
-    ),
-    files: filesData.files || [],
-    commits: commitsData.commits || [],
-    readme: repo.readme,
+    description: repo.description,
+    isPrivate: repo.isPrivate,
+    stars: repo.stars,
+    forks: repo.forks,
+    tags: 0,
+    branches: [repo.defaultBranch],
+    files,
+    commits,
   }
 }
 
 async function fetchRepositoryStats(): Promise<RepositoryStats> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/git/stats`)
-  if (!res.ok) {
-    return { totalRepos: 0, publicRepos: 0, totalStars: 0, contributors: 0 }
+  const repos = await fetchRepositories()
+
+  return {
+    totalRepos: repos.length,
+    publicRepos: repos.filter((r) => !r.isPrivate).length,
+    totalStars: repos.reduce((sum, r) => sum + r.stars, 0),
+    contributors: new Set(repos.map((r) => r.owner)).size,
   }
-  return res.json()
 }
 
 async function fetchRepoFiles(
   owner: string,
   name: string,
-  path: string = '',
-  ref?: string,
+  path = '',
+  ref = 'main',
 ): Promise<GitFile[]> {
-  const dwsUrl = getDwsUrl()
-  const params = new URLSearchParams()
-  if (path) params.set('path', path)
-  if (ref) params.set('ref', ref)
-
-  const res = await fetch(
-    `${dwsUrl}/api/git/repos/${owner}/${name}/files?${params.toString()}`,
+  const encodedPath = encodeURIComponent(path)
+  const data = await fetchApi<ApiFile[]>(
+    `/api/git/${owner}/${name}/contents/${encodedPath}?ref=${ref}`,
   )
-  if (!res.ok) return []
-  const data = await res.json()
-  return data.files || []
+
+  if (!Array.isArray(data)) return []
+
+  return data.map((f) => ({
+    name: f.path.split('/').pop() || f.path,
+    path: f.path,
+    type: f.type,
+    size: f.size,
+    sha: f.sha,
+  }))
 }
 
 async function fetchRepoCommits(
@@ -175,53 +220,31 @@ async function fetchRepoCommits(
   name: string,
   options?: { branch?: string; limit?: number },
 ): Promise<GitCommit[]> {
-  const dwsUrl = getDwsUrl()
-  const params = new URLSearchParams()
-  if (options?.branch) params.set('branch', options.branch)
-  if (options?.limit) params.set('limit', options.limit.toString())
-
-  const res = await fetch(
-    `${dwsUrl}/api/git/repos/${owner}/${name}/commits?${params.toString()}`,
-  )
-  if (!res.ok) return []
-  const data = await res.json()
-  return data.commits || []
+  const ref = options?.branch || 'main'
+  return fetchApi<GitCommit[]>(`/api/git/${owner}/${name}/commits?ref=${ref}`)
 }
 
 async function fetchRepoBranches(
   owner: string,
   name: string,
 ): Promise<GitBranch[]> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/git/repos/${owner}/${name}/branches`)
-  if (!res.ok) return []
-  const data = await res.json()
-  return data.branches || []
+  return fetchApi<GitBranch[]>(`/api/git/${owner}/${name}/branches`)
 }
 
 async function starRepository(owner: string, name: string): Promise<boolean> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/git/repos/${owner}/${name}/star`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-  })
-  return res.ok
+  await fetchApi(`/api/git/${owner}/${name}/star`, { method: 'POST' })
+  return true
 }
 
 async function forkRepository(
   owner: string,
   name: string,
 ): Promise<Repository | null> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/git/repos/${owner}/${name}/fork`, {
+  const data = await fetchApi<ApiRepository>(`/api/git/${owner}/${name}/fork`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
   })
-  if (!res.ok) return null
-  return res.json()
+  return transformRepository(data)
 }
-
-// ============ Hooks ============
 
 export function useRepositories(query?: { owner?: string; search?: string }) {
   const {

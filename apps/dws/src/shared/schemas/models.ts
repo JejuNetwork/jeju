@@ -83,7 +83,7 @@ export const modelCreateRequestSchema = z.object({
   description: z.string(),
   modelType: z.union([z.number().int().min(0).max(8), z.string()]),
   license: z.union([z.number().int().min(0).max(7), z.string()]).optional(),
-  tags: z.array(z.string()).optional(),
+  tags: z.array(z.string()).default([]),
   accessLevel: z.union([z.number().int().min(0).max(2), z.string()]).optional(),
 })
 

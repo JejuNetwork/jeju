@@ -7,6 +7,7 @@
 import type { AgentCapabilities, AgentProfile } from './a2a'
 import type {
   JsonValue,
+  PaymentMetadata,
   PaymentVerificationParams,
   PaymentVerificationResult,
 } from './common'
@@ -50,7 +51,7 @@ export interface PaymentRequestResult {
   to: string
   amount: string
   service: string
-  metadata?: Record<string, JsonValue>
+  metadata?: PaymentMetadata
   expiresAt: number
 }
 
@@ -64,7 +65,7 @@ export interface IX402Manager {
     to: string,
     amount: string,
     service: string,
-    metadata?: Record<string, string | number | boolean | null>,
+    metadata?: PaymentMetadata,
   ): PaymentRequestResult
   verifyPayment(
     verificationData: PaymentVerificationParams,

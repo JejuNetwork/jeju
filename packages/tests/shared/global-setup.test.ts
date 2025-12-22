@@ -24,30 +24,21 @@ describe('setupTestEnvironment - Option Handling', () => {
     process.env.SKIP_PREFLIGHT = 'true'
     process.env.SKIP_WARMUP = 'true'
 
-    try {
-      // This will fail without a running chain, but we're testing env setup
-      await setupTestEnvironment({
-        skipLock: true,
-        skipPreflight: true,
-        skipWarmup: true,
-      })
-    } catch (_e) {
-      // Expected to fail - chain not running
-    }
+    await setupTestEnvironment({
+      skipLock: true,
+      skipPreflight: true,
+      skipWarmup: true,
+    }).catch(() => {})
 
     expect(process.env.SKIP_TEST_LOCK).toBe('true')
   })
 
   test('should set FORCE_TESTS env when force=true', async () => {
-    try {
-      await setupTestEnvironment({
-        force: true,
-        skipPreflight: true,
-        skipWarmup: true,
-      })
-    } catch (_e) {
-      // Expected
-    }
+    await setupTestEnvironment({
+      force: true,
+      skipPreflight: true,
+      skipWarmup: true,
+    }).catch(() => {})
 
     expect(process.env.FORCE_TESTS).toBe('true')
   })
@@ -55,45 +46,33 @@ describe('setupTestEnvironment - Option Handling', () => {
   test('should set RPC URL from options', async () => {
     const customRpc = 'http://custom:8545'
 
-    try {
-      await setupTestEnvironment({
-        rpcUrl: customRpc,
-        skipLock: true,
-        skipWarmup: true,
-        skipPreflight: true, // Skip preflight to avoid timeout
-      })
-    } catch (_e) {
-      // Expected
-    }
+    await setupTestEnvironment({
+      rpcUrl: customRpc,
+      skipLock: true,
+      skipWarmup: true,
+      skipPreflight: true,
+    }).catch(() => {})
 
     expect(process.env.L2_RPC_URL).toBe(customRpc)
   })
 
   test('should set chain ID from options', async () => {
-    try {
-      await setupTestEnvironment({
-        chainId: 31337,
-        skipLock: true,
-        skipWarmup: true,
-        skipPreflight: true, // Skip preflight to avoid timeout
-      })
-    } catch (_e) {
-      // Expected
-    }
+    await setupTestEnvironment({
+      chainId: 31337,
+      skipLock: true,
+      skipWarmup: true,
+      skipPreflight: true,
+    }).catch(() => {})
 
     expect(process.env.CHAIN_ID).toBe('31337')
   })
 
   test('should set warmup apps from options', async () => {
-    try {
-      await setupTestEnvironment({
-        apps: ['bazaar', 'gateway'],
-        skipLock: true,
-        skipPreflight: true,
-      })
-    } catch (_e) {
-      // Expected
-    }
+    await setupTestEnvironment({
+      apps: ['bazaar', 'gateway'],
+      skipLock: true,
+      skipPreflight: true,
+    }).catch(() => {})
 
     expect(process.env.WARMUP_APPS).toBe('bazaar,gateway')
   })
@@ -102,16 +81,12 @@ describe('setupTestEnvironment - Option Handling', () => {
     delete process.env.SKIP_TEST_LOCK
     delete process.env.FORCE_TESTS
 
-    try {
-      await setupTestEnvironment({
-        skipLock: false,
-        force: false,
-        skipPreflight: true,
-        skipWarmup: true,
-      })
-    } catch (_e) {
-      // Expected
-    }
+    await setupTestEnvironment({
+      skipLock: false,
+      force: false,
+      skipPreflight: true,
+      skipWarmup: true,
+    }).catch(() => {})
 
     expect(process.env.SKIP_TEST_LOCK).toBeUndefined()
     expect(process.env.FORCE_TESTS).toBeUndefined()
@@ -173,23 +148,31 @@ describe('Global Setup - RPC URL Resolution', () => {
     expect(rpcUrl).toBe('http://l2:8545')
   })
 
-  test('should fallback to JEJU_RPC_URL', () => {
-    delete process.env.L2_RPC_URL
-    process.env.JEJU_RPC_URL = 'http://jeju:8545'
-
-    const rpcUrl = process.env.L2_RPC_URL || process.env.JEJU_RPC_URL
-    expect(rpcUrl).toBe('http://jeju:8545')
-  })
-
-  test('should fallback to localhost when no env vars', () => {
+  test('should throw when L2_RPC_URL missing and JEJU_RPC_URL not set', () => {
     delete process.env.L2_RPC_URL
     delete process.env.JEJU_RPC_URL
 
-    const rpcUrl =
-      process.env.L2_RPC_URL ||
-      process.env.JEJU_RPC_URL ||
-      'http://localhost:6546'
-    expect(rpcUrl).toBe('http://localhost:6546')
+    const getRpcUrl = () => {
+      if (!process.env.L2_RPC_URL && !process.env.JEJU_RPC_URL) {
+        throw new Error('RPC URL not configured')
+      }
+      return process.env.L2_RPC_URL || process.env.JEJU_RPC_URL
+    }
+
+    expect(() => getRpcUrl()).toThrow('RPC URL not configured')
+  })
+
+  test('should throw when no RPC env vars are set', () => {
+    delete process.env.L2_RPC_URL
+    delete process.env.JEJU_RPC_URL
+
+    const requireRpcUrl = () => {
+      const url = process.env.L2_RPC_URL || process.env.JEJU_RPC_URL
+      if (!url) throw new Error('No RPC URL configured')
+      return url
+    }
+
+    expect(() => requireRpcUrl()).toThrow('No RPC URL configured')
   })
 })
 

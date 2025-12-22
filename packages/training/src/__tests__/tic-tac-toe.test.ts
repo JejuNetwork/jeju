@@ -177,7 +177,9 @@ describe('TicTacToeEnv', () => {
       const trajectory = env.generateRandomTrajectory('test-agent')
       const winner = trajectory.metadata.winner
       expect(winner !== null).toBe(true)
-      expect(['X', 'O', 'draw']).toContain(winner!)
+      if (winner !== null) {
+        expect(['X', 'O', 'draw']).toContain(winner)
+      }
     })
 
     it('should have valid step structure', () => {

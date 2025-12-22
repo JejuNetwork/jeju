@@ -143,7 +143,7 @@ function toEnvKey(str: string): string {
 
 /**
  * Get contract address with env override support
- * Checks: VITE_{NAME}_ADDRESS, NEXT_PUBLIC_{NAME}_ADDRESS, then config
+ * Checks: VITE_{NAME}_ADDRESS, PUBLIC_{NAME}_ADDRESS, then config
  * e.g., getContract('moderation', 'banManager') checks VITE_BAN_MANAGER_ADDRESS
  */
 export function getContract(
@@ -159,8 +159,8 @@ export function getContract(
   const viteVal = process.env[viteKey]
   if (viteVal) return viteVal
 
-  // Check NEXT_PUBLIC_ format (for Next.js apps)
-  const nextKey = `NEXT_PUBLIC_${envName}_ADDRESS`
+  // Check PUBLIC_ format (for Next.js apps)
+  const nextKey = `PUBLIC_${envName}_ADDRESS`
   const nextVal = process.env[nextKey]
   if (nextVal) return nextVal
 
@@ -322,14 +322,14 @@ export function getContractsConfig(network?: NetworkType): NetworkContracts {
 // ============================================================================
 
 /**
- * Get env var with VITE_ or NEXT_PUBLIC_ prefix support
- * Checks: process.env.{key}, VITE_{key}, NEXT_PUBLIC_{key}
+ * Get env var with VITE_ or PUBLIC_ prefix support
+ * Checks: process.env.{key}, VITE_{key}, PUBLIC_{key}
  */
 function getEnvService(key: string): string | undefined {
   return (
     process.env[key] ||
     process.env[`VITE_${key}`] ||
-    process.env[`NEXT_PUBLIC_${key}`]
+    process.env[`PUBLIC_${key}`]
   )
 }
 
@@ -647,7 +647,7 @@ export function getConfig(network?: NetworkType): NetworkConfig {
 
 /**
  * Get all contracts needed for frontend apps
- * Returns addresses with env override support for VITE_ and NEXT_PUBLIC_
+ * Returns addresses with env override support for VITE_ and PUBLIC_
  */
 export function getFrontendContracts(network?: NetworkType) {
   const net = network ?? getCurrentNetwork()

@@ -620,7 +620,6 @@ export class MCPFundingServer {
   async start(): Promise<void> {
     const transport = new StdioServerTransport()
     await this.server.connect(transport)
-    console.error('MCP Funding Server started')
   }
 }
 

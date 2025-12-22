@@ -12,6 +12,7 @@ import { join } from 'node:path'
 import type { BackendManager } from '../../storage/backends'
 import { generateWorkerConfig, wrapHandlerAsWorker } from './config-generator'
 import type {
+  IWorkerdExecutor,
   WorkerdConfig,
   WorkerdEvent,
   WorkerdEventHandler,
@@ -26,7 +27,7 @@ import type {
 } from './types'
 import { DEFAULT_WORKERD_CONFIG } from './types'
 
-export class WorkerdExecutor {
+export class WorkerdExecutor implements IWorkerdExecutor {
   private config: WorkerdConfig
   private backend: BackendManager
   private processes = new Map<string, WorkerdProcess>()
@@ -35,6 +36,8 @@ export class WorkerdExecutor {
   private workerToProcess = new Map<string, string>()
   private invocations = new Map<string, WorkerdInvocation>()
   private metrics = new Map<string, number[]>()
+  private errorMetrics = new Map<string, number>()
+  private requestTimestamps = new Map<string, number[]>()
   private eventHandlers: WorkerdEventHandler[] = []
   private usedPorts = new Set<number>()
   private initialized = false
@@ -116,17 +119,10 @@ export class WorkerdExecutor {
     }
 
     this.initialized = true
-    console.log(
-      `[WorkerdExecutor] Initialized with workerd at ${this.workerdPath}`,
-    )
 
     // Cleanup interval
     setInterval(() => this.cleanup(), 30000)
   }
-
-  // ============================================================================
-  // Worker Deployment
-  // ============================================================================
 
   async deployWorker(worker: WorkerdWorkerDefinition): Promise<void> {
     await this.initialize()
@@ -175,9 +171,6 @@ export class WorkerdExecutor {
       workerId: worker.id,
       version: worker.version,
     })
-    console.log(
-      `[WorkerdExecutor] Deployed worker ${worker.name} (${worker.id})`,
-    )
   }
 
   private async deployWithWorkerd(
@@ -195,12 +188,6 @@ export class WorkerdExecutor {
     if (!this.workerdPath) {
       throw new Error('Workerd not initialized. Call initialize() first.')
     }
-
-    console.log(
-      `[WorkerdExecutor] Starting workerd process: ${this.workerdPath} serve ${configPath}`,
-    )
-    console.log(`[WorkerdExecutor] Working directory: ${codeDir}`)
-    console.log(`[WorkerdExecutor] Port: ${port}`)
 
     const proc = Bun.spawn(
       [this.workerdPath, 'serve', configPath, '--verbose'],
@@ -283,7 +270,6 @@ export class WorkerdExecutor {
       workerdProcess.status = 'ready'
       instance.status = 'ready'
       this.emit({ type: 'process:started', processId, port })
-      console.log(`[WorkerdExecutor] Workerd process ready on port ${port}`)
     } else {
       workerdProcess.status = 'error'
       instance.status = 'error'
@@ -296,9 +282,6 @@ export class WorkerdExecutor {
 
     // Handle process exit after ready
     proc.exited.then((exitCode) => {
-      console.log(
-        `[WorkerdExecutor] Process ${processId} exited with code ${exitCode}`,
-      )
       this.handleProcessExit(processId, exitCode)
     })
   }
@@ -323,12 +306,7 @@ export class WorkerdExecutor {
     this.metrics.delete(workerId)
 
     this.emit({ type: 'worker:undeployed', workerId })
-    console.log(`[WorkerdExecutor] Undeployed worker ${workerId}`)
   }
-
-  // ============================================================================
-  // Worker Invocation
-  // ============================================================================
 
   async invoke(
     workerId: string,
@@ -382,9 +360,14 @@ export class WorkerdExecutor {
 
       const body = await response.text()
 
+      const responseHeaders: Record<string, string> = {}
+      response.headers.forEach((value, key) => {
+        responseHeaders[key] = value
+      })
+
       invocation.response = {
         status: response.status,
-        headers: Object.fromEntries(response.headers.entries()),
+        headers: responseHeaders,
         body,
       }
       invocation.status = 'success'
@@ -479,10 +462,6 @@ export class WorkerdExecutor {
     this.usedPorts.delete(port)
   }
 
-  // ============================================================================
-  // Health & Lifecycle
-  // ============================================================================
-
   private async waitForReady(
     port: number,
     timeoutMs = 30000,
@@ -490,9 +469,8 @@ export class WorkerdExecutor {
     const deadline = Date.now() + timeoutMs
 
     while (Date.now() < deadline) {
-      const healthy = await fetch(`http://localhost:${port}/health`)
-        .then((r) => r.ok || r.status === 404) // 404 is ok, means server is up
-        .catch(() => false)
+      const response = await fetch(`http://localhost:${port}/health`)
+      const healthy = response.ok || response.status === 404 // 404 is ok, means server is up
 
       if (healthy) return true
       await new Promise((r) => setTimeout(r, 200))
@@ -541,7 +519,6 @@ export class WorkerdExecutor {
         instance.activeRequests === 0 &&
         now - instance.lastUsedAt > this.config.idleTimeoutMs
       ) {
-        console.log(`[WorkerdExecutor] Stopping idle worker ${workerId}`)
         await this.undeployWorker(workerId)
       }
     }
@@ -554,10 +531,6 @@ export class WorkerdExecutor {
       }
     }
   }
-
-  // ============================================================================
-  // Helpers
-  // ============================================================================
 
   private isGzip(data: Buffer): boolean {
     return data.length >= 2 && data[0] === 0x1f && data[1] === 0x8b
@@ -573,18 +546,32 @@ export class WorkerdExecutor {
     await proc.exited
   }
 
-  private recordMetric(workerId: string, durationMs: number): void {
+  private recordMetric(
+    workerId: string,
+    durationMs: number,
+    isError = false,
+  ): void {
     const durations = this.metrics.get(workerId) || []
     durations.push(durationMs)
     if (durations.length > 1000) {
       durations.shift()
     }
     this.metrics.set(workerId, durations)
-  }
 
-  // ============================================================================
-  // Event System
-  // ============================================================================
+    // Track errors
+    if (isError) {
+      const errors = this.errorMetrics.get(workerId) ?? 0
+      this.errorMetrics.set(workerId, errors + 1)
+    }
+
+    // Track request timestamps for RPS calculation
+    const timestamps = this.requestTimestamps.get(workerId) ?? []
+    timestamps.push(Date.now())
+    // Keep timestamps from last minute only
+    const oneMinuteAgo = Date.now() - 60000
+    const recentTimestamps = timestamps.filter((t) => t > oneMinuteAgo)
+    this.requestTimestamps.set(workerId, recentTimestamps)
+  }
 
   on(handler: WorkerdEventHandler): void {
     this.eventHandlers.push(handler)
@@ -603,10 +590,6 @@ export class WorkerdExecutor {
     }
   }
 
-  // ============================================================================
-  // Query Methods
-  // ============================================================================
-
   getWorker(workerId: string): WorkerdWorkerDefinition | null {
     return this.workers.get(workerId) || null
   }
@@ -615,8 +598,16 @@ export class WorkerdExecutor {
     return Array.from(this.workers.values())
   }
 
-  getInstance(workerId: string): WorkerdInstance | null {
-    return this.instances.get(workerId) || null
+  getInstance(
+    workerId: string,
+  ): (Pick<WorkerdInstance, 'status' | 'port'> & { endpoint: string }) | null {
+    const instance = this.instances.get(workerId)
+    if (!instance) return null
+    return {
+      status: instance.status,
+      port: instance.port,
+      endpoint: `http://localhost:${instance.port}`,
+    }
   }
 
   getInvocation(invocationId: string): WorkerdInvocation | null {
@@ -627,11 +618,12 @@ export class WorkerdExecutor {
     const durations = this.metrics.get(workerId) || []
     const sorted = [...durations].sort((a, b) => a - b)
     const instance = this.instances.get(workerId)
+    const errors = this.errorMetrics.get(workerId) ?? 0
 
     return {
       workerId,
       invocations: durations.length,
-      errors: 0, // TODO: track
+      errors,
       avgDurationMs:
         durations.length > 0
           ? durations.reduce((a, b) => a + b, 0) / durations.length
@@ -652,13 +644,16 @@ export class WorkerdExecutor {
     let activeProcesses = 0
     let activeWorkers = 0
     let pendingRequests = 0
-    let _totalRequests = 0
+    let totalRequests = 0
+    let totalErrors = 0
+    let totalLatency = 0
+    let latencyCount = 0
 
     for (const proc of this.processes.values()) {
       if (proc.status === 'ready' || proc.status === 'busy') {
         activeProcesses++
       }
-      _totalRequests += proc.requestCount
+      totalRequests += proc.requestCount
     }
 
     for (const instance of this.instances.values()) {
@@ -668,15 +663,32 @@ export class WorkerdExecutor {
       pendingRequests += instance.activeRequests
     }
 
+    // Calculate RPS from recent timestamps and aggregate metrics
+    const oneMinuteAgo = Date.now() - 60000
+    let recentRequestCount = 0
+    for (const [workerId, timestamps] of this.requestTimestamps) {
+      recentRequestCount += timestamps.filter((t) => t > oneMinuteAgo).length
+      totalErrors += this.errorMetrics.get(workerId) ?? 0
+      const durations = this.metrics.get(workerId) ?? []
+      if (durations.length > 0) {
+        totalLatency += durations.reduce((a, b) => a + b, 0)
+        latencyCount += durations.length
+      }
+    }
+
+    const requestsPerSecond = recentRequestCount / 60
+    const avgLatencyMs = latencyCount > 0 ? totalLatency / latencyCount : 0
+    const errorRate = totalRequests > 0 ? totalErrors / totalRequests : 0
+
     return {
       totalProcesses: this.processes.size,
       activeProcesses,
       totalWorkers: this.workers.size,
       activeWorkers,
       pendingRequests,
-      requestsPerSecond: 0, // TODO: calculate
-      avgLatencyMs: 0,
-      errorRate: 0,
+      requestsPerSecond,
+      avgLatencyMs,
+      errorRate,
     }
   }
 

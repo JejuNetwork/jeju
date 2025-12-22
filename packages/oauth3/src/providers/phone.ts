@@ -462,8 +462,6 @@ export class PhoneProvider {
   }
 
   private async sendViaAwsSns(_phone: string, _message: string): Promise<void> {
-    // AWS SNS implementation would go here
-    // For now, throw error to indicate not implemented
     throw new Error('AWS SNS not yet implemented. Use Twilio or custom sender.')
   }
 }

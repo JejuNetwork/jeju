@@ -1,10 +1,3 @@
-/**
- * OIF Solana Client
- *
- * TypeScript client for the Open Intent Framework on Solana.
- * Enables cross-chain intent creation and settlement.
- */
-
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   createAssociatedTokenAccountInstruction,

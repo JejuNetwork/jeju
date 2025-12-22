@@ -268,3 +268,40 @@ export interface ProviderStats {
   nodes: number
   activeListings: number
 }
+
+// Infrastructure types
+
+export interface K3sCluster {
+  name: string
+  provider: 'k3d' | 'k3s' | 'minikube'
+  status: 'creating' | 'running' | 'stopped' | 'error'
+  apiEndpoint: string
+  nodes: number
+  createdAt: number
+}
+
+export interface HelmDeployment {
+  id: string
+  name: string
+  namespace: string
+  status: 'pending' | 'deploying' | 'running' | 'failed'
+  workers: number
+  services: number
+  createdAt: number
+}
+
+export interface WorkerdWorker {
+  id: string
+  name: string
+  status: 'active' | 'deploying' | 'error' | 'stopped'
+  runtime: string
+  memoryMb: number
+  invocations: number
+}
+
+export interface MeshService {
+  name: string
+  namespace: string
+  endpoints: number
+  healthy: boolean
+}

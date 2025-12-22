@@ -23,9 +23,7 @@ import { Counter, Gauge, Histogram, Registry } from 'prom-client'
 import { z } from 'zod'
 import type { SqlParam } from '../types'
 
-// ============================================================================
 // Configuration Schema
-// ============================================================================
 
 const DatabaseNodeConfigSchema = z.object({
   host: z.string(),
@@ -52,9 +50,7 @@ const ReplicaRouterConfigSchema = z.object({
 export type DatabaseNodeConfig = z.infer<typeof DatabaseNodeConfigSchema>
 export type ReplicaRouterConfig = z.infer<typeof ReplicaRouterConfigSchema>
 
-// ============================================================================
 // Types
-// ============================================================================
 
 interface NodeState {
   pool: Pool
@@ -74,9 +70,7 @@ interface QueryOptions {
   timeout?: number
 }
 
-// ============================================================================
 // Prometheus Metrics
-// ============================================================================
 
 const metricsRegistry = new Registry()
 
@@ -116,9 +110,7 @@ const dbReplicaLag = new Gauge({
   registers: [metricsRegistry],
 })
 
-// ============================================================================
 // Query Classification
-// ============================================================================
 
 const WRITE_PATTERNS = [
   /^\s*INSERT\s/i,
@@ -143,9 +135,7 @@ function isWriteQuery(sql: string): boolean {
   return WRITE_PATTERNS.some((pattern) => pattern.test(sql))
 }
 
-// ============================================================================
 // Database Replica Router
-// ============================================================================
 
 export class DatabaseReplicaRouter {
   private config: ReplicaRouterConfig
@@ -220,9 +210,7 @@ export class DatabaseReplicaRouter {
     }
   }
 
-  // ============================================================================
   // Lifecycle
-  // ============================================================================
 
   async start(): Promise<void> {
     // Initial health check
@@ -253,9 +241,7 @@ export class DatabaseReplicaRouter {
     console.log('[DB] Router stopped')
   }
 
-  // ============================================================================
   // Query Execution
-  // ============================================================================
 
   async query<T extends QueryResultRow = QueryResultRow>(
     sql: string,
@@ -320,9 +306,7 @@ export class DatabaseReplicaRouter {
     }
   }
 
-  // ============================================================================
   // Transactions
-  // ============================================================================
 
   async transaction<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {
     // Transactions always go to primary
@@ -341,9 +325,7 @@ export class DatabaseReplicaRouter {
     }
   }
 
-  // ============================================================================
   // Node Selection
-  // ============================================================================
 
   private selectNode(isWrite: boolean, options?: QueryOptions): NodeState {
     // Writes always go to primary
@@ -388,9 +370,7 @@ export class DatabaseReplicaRouter {
     }
   }
 
-  // ============================================================================
   // Health Checks
-  // ============================================================================
 
   private async checkAllHealth(): Promise<void> {
     await Promise.all([
@@ -441,9 +421,7 @@ export class DatabaseReplicaRouter {
     }
   }
 
-  // ============================================================================
   // Stats & Metrics
-  // ============================================================================
 
   getStats(): {
     primary: { host: string; healthy: boolean; latencyMs: number }
@@ -475,9 +453,7 @@ export class DatabaseReplicaRouter {
     return metricsRegistry.metrics()
   }
 
-  // ============================================================================
   // Utility Methods
-  // ============================================================================
 
   async getPrimaryClient(): Promise<PoolClient> {
     return this.primary.pool.connect()
@@ -497,9 +473,7 @@ export class DatabaseReplicaRouter {
   }
 }
 
-// ============================================================================
 // Factory
-// ============================================================================
 
 let instance: DatabaseReplicaRouter | null = null
 

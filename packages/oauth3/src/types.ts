@@ -7,9 +7,6 @@
 
 import type { Address, Hex } from 'viem'
 
-// ============ JSON Value Types ============
-// Use these instead of `unknown` when dealing with JSON data
-
 /** Represents any valid JSON value */
 export type JsonValue =
   | string
@@ -21,8 +18,6 @@ export type JsonValue =
 
 /** Represents a JSON object with string keys */
 export type JsonRecord = { [key: string]: JsonValue }
-
-// ============ Provider Types ============
 
 export const AuthProvider = {
   WALLET: 'wallet',
@@ -55,8 +50,6 @@ export const ChainId = {
 } as const
 export type ChainId = (typeof ChainId)[keyof typeof ChainId]
 
-// ============ Identity Types ============
-
 export interface OAuth3Identity {
   id: Hex
   owner: Address
@@ -74,7 +67,7 @@ export interface LinkedProvider {
   providerHandle: string
   linkedAt: number
   verified: boolean
-  credential: VerifiableCredential | null
+  credential?: VerifiableCredential
 }
 
 export interface IdentityMetadata {
@@ -82,10 +75,8 @@ export interface IdentityMetadata {
   avatar: string
   bio: string
   url: string
-  jnsName: string | null
+  jnsName?: string
 }
-
-// ============ Session Types ============
 
 /**
  * Public session data that can be safely exposed to clients.
@@ -121,8 +112,6 @@ export const SessionCapability = {
 export type SessionCapability =
   (typeof SessionCapability)[keyof typeof SessionCapability]
 
-// ============ TEE Types ============
-
 export interface TEEAttestation {
   quote: Hex
   measurement: Hex
@@ -148,8 +137,6 @@ export interface TEENodeInfo {
   stake: bigint
   active: boolean
 }
-
-// ============ MPC Types ============
 
 export interface MPCCluster {
   clusterId: string
@@ -201,8 +188,6 @@ export interface MPCSignatureResult {
   requestId: Hex
 }
 
-// ============ OAuth App Types (Multi-tenant) ============
-
 export interface OAuth3App {
   appId: Hex
   name: string
@@ -231,8 +216,6 @@ export interface OAuth3AppCredentials {
   encryptedClientSecret: Hex
 }
 
-// ============ Farcaster Types ============
-
 export interface FarcasterIdentity {
   fid: number
   username: string
@@ -250,8 +233,6 @@ export interface FarcasterSignerRequest {
   signature: Hex
   deadline: number
 }
-
-// ============ Verifiable Credentials ============
 
 export interface VerifiableCredential {
   '@context': string[]
@@ -297,8 +278,6 @@ export const CredentialType = {
 export type CredentialType =
   (typeof CredentialType)[keyof typeof CredentialType]
 
-// ============ Smart Account Types ============
-
 export interface AccountFactoryConfig {
   entryPoint: Address
   defaultValidator: Address
@@ -331,8 +310,6 @@ export interface SessionPermission {
   rateLimit: number
 }
 
-// ============ Council Integration Types ============
-
 export interface CouncilConfig {
   councilId: Hex
   name: string
@@ -349,8 +326,6 @@ export const CouncilType = {
   ELIZA: 'eliza',
 } as const
 export type CouncilType = (typeof CouncilType)[keyof typeof CouncilType]
-
-// ============ Open Intent Types ============
 
 export interface CrossChainIdentity {
   identityId: Hex
@@ -410,8 +385,6 @@ export interface IntentSolution {
   gasUsed: bigint
   timestamp: number
 }
-
-// ============ Error Types ============
 
 export interface OAuth3ErrorDetails {
   /** Provider that caused the error */

@@ -338,6 +338,8 @@ export function rateLimitMiddleware(
           retryAfter: Math.ceil((record.resetAt - now) / 1000),
         }
       }
+
+      return undefined
     },
   )
 }

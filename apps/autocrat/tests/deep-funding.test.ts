@@ -481,7 +481,7 @@ describe('Dependency Scanner', () => {
       const packageJson = {
         dependencies: {
           viem: '^2.0.0',
-          ethers: '^6.0.0',
+          wagmi: '^2.0.0',
         },
         devDependencies: {
           typescript: '^5.0.0',
@@ -545,7 +545,7 @@ tokio = { version = "1.0", features = ["full"] }
 
       // Simulate scanning multiple packages
       const packages = [
-        { deps: ['viem', 'ethers'] },
+        { deps: ['viem', 'permissionless'] },
         { deps: ['viem', 'wagmi'] },
         { deps: ['viem', 'abitype'] },
       ]
@@ -557,7 +557,7 @@ tokio = { version = "1.0", features = ["full"] }
       }
 
       expect(usageCounts.get('viem')).toBe(3)
-      expect(usageCounts.get('ethers')).toBe(1)
+      expect(usageCounts.get('wagmi')).toBe(1)
     })
   })
 })

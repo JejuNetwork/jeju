@@ -10,9 +10,7 @@ import {
   parseGetCodeResponse,
 } from './schemas'
 
-// ============================================================================
 // CANONICAL TEST CONSTANTS - Single Source of Truth
-// ============================================================================
 //
 // ⚠️  SECURITY WARNING ⚠️
 // These are Anvil/Hardhat default test accounts with PUBLICLY KNOWN private keys.
@@ -21,7 +19,6 @@ import {
 //
 // If you see these addresses on mainnet, they contain NO real funds and are
 // honey pots monitored by bots that will steal any deposited funds.
-// ============================================================================
 
 /** Standard test seed phrase (Anvil default) - DO NOT USE ON MAINNET */
 export const SEED_PHRASE =
@@ -85,15 +82,18 @@ export const JEJU_CHAIN = {
   blockExplorerUrl: '',
 } as const
 
-// ============================================================================
 // Workspace Root Finding
-// ============================================================================
+
+interface FindWorkspaceOptions {
+  throwOnNotFound?: boolean
+}
 
 /**
  * Find the Jeju monorepo root by looking for package.json with name "jeju"
  */
 export function findJejuWorkspaceRoot(
   startDir: string = process.cwd(),
+  options: FindWorkspaceOptions = {},
 ): string {
   let dir = startDir
   const maxDepth = 15
@@ -128,12 +128,14 @@ export function findJejuWorkspaceRoot(
     dir = parent
   }
 
+  if (options.throwOnNotFound) {
+    throw new Error(`Jeju workspace root not found from: ${startDir}`)
+  }
+
   return process.env.JEJU_ROOT ?? process.cwd()
 }
 
-// ============================================================================
 // RPC Health Checking
-// ============================================================================
 
 interface RpcHealthResult {
   available: boolean
@@ -249,9 +251,7 @@ export async function checkContractsDeployed(
   }
 }
 
-// ============================================================================
 // HTTP Service Checking
-// ============================================================================
 
 interface ServiceHealthResult {
   available: boolean
@@ -308,9 +308,7 @@ export async function isServiceAvailable(
   return result.available
 }
 
-// ============================================================================
 // Wait Utilities
-// ============================================================================
 
 /**
  * Wait for an RPC endpoint to become available
@@ -365,9 +363,7 @@ export async function waitForService(
   return false
 }
 
-// ============================================================================
 // Environment Utilities
-// ============================================================================
 
 /**
  * Get the effective RPC URL from environment

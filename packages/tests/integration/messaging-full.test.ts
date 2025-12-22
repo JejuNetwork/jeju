@@ -22,8 +22,6 @@ import {
 import { privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
 
-// ============ Test Configuration ============
-
 // Jeju localnet ports (from packages/config/ports.ts)
 const L2_RPC_PORT = 6546
 const _L1_RPC_PORT = 6545
@@ -98,15 +96,11 @@ const _KEY_REGISTRY_ABI = [
   },
 ] as const
 
-// ============ Global State ============
-
 let anvilProcess: Subprocess | null = null
 const _relayProcess: Subprocess | null = null
 const _mockHubProcess: Subprocess | null = null
 let _keyRegistryAddress: Address
 let _nodeRegistryAddress: Address
-
-// ============ Helpers ============
 
 async function _waitForPort(port: number, timeout = 30000): Promise<boolean> {
   const start = Date.now()
@@ -168,8 +162,6 @@ function _hexToBytes(hex: Hex): Uint8Array {
   return bytes
 }
 
-// ============ Contract Deployment ============
-
 async function deployMessagingContracts(): Promise<{
   keyRegistry: Address
   nodeRegistry: Address
@@ -196,8 +188,6 @@ async function deployMessagingContracts(): Promise<{
 
   return { keyRegistry, nodeRegistry }
 }
-
-// ============ Mock Hub Server ============
 
 async function startMockHub(): Promise<void> {
   // Create a simple mock hub for testing
@@ -275,8 +265,6 @@ async function startMockHub(): Promise<void> {
   console.log(`[Mock Hub] Running on port ${MOCK_HUB_PORT}`)
 }
 
-// ============ Mock Relay Server ============
-
 async function startMockRelay(): Promise<void> {
   const messages: Map<
     string,
@@ -353,8 +341,6 @@ async function startMockRelay(): Promise<void> {
   console.log(`[Mock Relay] Running on port ${RELAY_PORT}`)
 }
 
-// ============ Test Setup ============
-
 beforeAll(async () => {
   console.log('\n=== Starting Full Messaging Integration Tests ===\n')
 
@@ -396,8 +382,6 @@ afterAll(async () => {
 
   console.log('[Teardown] Done\n')
 })
-
-// ============ Farcaster Tests ============
 
 describe('Farcaster Integration', () => {
   describe('Hub Connectivity', () => {
@@ -582,8 +566,6 @@ describe('Farcaster Integration', () => {
   })
 })
 
-// ============ XMTP/MLS Tests ============
-
 describe('XMTP/MLS Integration', () => {
   describe('Key Management', () => {
     test('generates valid MLS key pairs', () => {
@@ -725,8 +707,6 @@ describe('XMTP/MLS Integration', () => {
   })
 })
 
-// ============ Messaging SDK Tests ============
-
 describe('Messaging SDK Integration', () => {
   describe('Relay Node', () => {
     test('health check returns node info', async () => {
@@ -848,8 +828,6 @@ describe('Messaging SDK Integration', () => {
     })
   })
 })
-
-// ============ End-to-End Tests ============
 
 describe('End-to-End Messaging Flow', () => {
   test('Farcaster public cast -> reply -> reaction flow', async () => {
@@ -1039,8 +1017,6 @@ describe('End-to-End Messaging Flow', () => {
     expect(dms.messages.some((m) => m.id === privateDm.id)).toBe(true)
   })
 })
-
-// ============ Performance Tests ============
 
 describe('Performance', () => {
   test('handles 100 messages quickly', async () => {

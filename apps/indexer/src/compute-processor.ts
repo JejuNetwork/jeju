@@ -20,8 +20,6 @@ import {
 } from './model'
 import type { ProcessorContext } from './processor'
 
-// ============ CORRECT Event Signatures from contracts/src/compute/*.sol ============
-
 // ComputeRegistry.sol events
 const PROVIDER_REGISTERED = keccak256(
   stringToHex(
@@ -202,7 +200,6 @@ export async function processComputeEvents(
       const txHash =
         log.transaction?.hash || `${header.hash}-${log.transactionIndex}`
 
-      // ============ ComputeRegistry events ============
       if (eventSig === PROVIDER_REGISTERED) {
         // ProviderRegistered(address indexed provider, string name, string endpoint, bytes32 attestationHash, uint256 stake, uint256 agentId)
         // topics[0] = event sig, topics[1] = indexed provider
@@ -331,7 +328,6 @@ export async function processComputeEvents(
         resources.set(id, resource)
       }
 
-      // ============ ComputeRental events ============
       if (eventSig === RENTAL_CREATED) {
         // RentalCreated(bytes32 indexed rentalId, address indexed user, address indexed provider, uint256 durationHours, uint256 totalCost)
         // topics[1] = rentalId, topics[2] = user, topics[3] = provider
@@ -437,7 +433,6 @@ export async function processComputeEvents(
         }
       }
 
-      // ============ InferenceServing events ============
       if (eventSig === SETTLED) {
         // Settled(address indexed user, address indexed provider, bytes32 requestHash, uint256 inputTokens, uint256 outputTokens, uint256 fee, uint256 nonce)
         // topics[1] = user, topics[2] = provider
@@ -492,7 +487,6 @@ export async function processComputeEvents(
         ctx.log.debug(`Agent settled: agentId=${log.topics[1]}`)
       }
 
-      // ============ ComputeStaking events ============
       if (eventSig === STAKED_AS_PROVIDER) {
         // StakedAsProvider(address indexed account, uint256 amount)
         const providerAddr = `0x${log.topics[1].slice(26)}`

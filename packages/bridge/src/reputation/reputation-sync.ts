@@ -594,8 +594,6 @@ export class ReputationSyncService extends EventEmitter {
     return null
   }
 
-  // ============ Private Methods ============
-
   private async generateSolanaReputationProof(
     agentId: bigint,
     score: number,

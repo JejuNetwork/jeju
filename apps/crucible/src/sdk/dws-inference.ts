@@ -7,12 +7,11 @@
  * All inference goes through DWS - fully decentralized.
  */
 
-import { getCurrentNetwork, getDWSComputeUrl } from '@jejunetwork/config'
-import { DWSInferenceAltSchema, safeParse } from '../schemas'
-
-function getDWSEndpoint(): string {
-  return process.env.DWS_URL ?? getDWSComputeUrl()
-}
+import {
+  checkDWSHealth,
+  dwsChatCompletion,
+  getSharedDWSClient,
+} from '../client/dws'
 
 /**
  * Generate text using DWS inference
@@ -22,44 +21,27 @@ export async function dwsGenerate(
   systemPrompt: string,
   options: { maxTokens?: number; temperature?: number; model?: string } = {},
 ): Promise<string> {
-  const endpoint = getDWSEndpoint()
-  const r = await fetch(`${endpoint}/compute/chat/completions`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
+  const response = await dwsChatCompletion(
+    [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: prompt },
+    ],
+    {
       model: options.model ?? 'llama-3.1-8b-instant',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: prompt },
-      ],
       temperature: options.temperature ?? 0.7,
-      max_tokens: options.maxTokens ?? 500,
-    }),
-  })
+      maxTokens: options.maxTokens ?? 500,
+    },
+  )
 
-  if (!r.ok) {
-    const network = getCurrentNetwork()
-    const errorText = await r.text()
-    throw new Error(
-      `DWS compute error (network: ${network}): ${r.status} - ${errorText}`,
-    )
-  }
-
-  const data = safeParse(DWSInferenceAltSchema, await r.json())
-  return data?.choices?.[0]?.message?.content ?? data?.content ?? ''
+  return response.choices[0]?.message?.content ?? ''
 }
 
 /**
  * Check if DWS compute is available
  */
 export async function checkDWSCompute(): Promise<boolean> {
-  const endpoint = getDWSEndpoint()
-  try {
-    const r = await fetch(`${endpoint}/health`, {
-      signal: AbortSignal.timeout(2000),
-    })
-    return r?.ok ?? false
-  } catch {
-    return false
-  }
+  return checkDWSHealth()
 }
+
+// Re-export for convenience
+export { getSharedDWSClient, checkDWSHealth, dwsChatCompletion }

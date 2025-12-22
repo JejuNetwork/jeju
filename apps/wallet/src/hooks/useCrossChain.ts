@@ -9,10 +9,6 @@ import { chains, getChainContracts } from '../sdk/chains'
 import type { CrossChainTransferParams } from '../sdk/eil'
 import { EILClient } from '../sdk/eil'
 
-// ============================================================================
-// Types
-// ============================================================================
-
 export type TransferStatus =
   | 'idle'
   | 'approving'
@@ -29,10 +25,6 @@ export interface CrossChainTransferState {
   error?: string
   currentFee?: bigint
 }
-
-// ============================================================================
-// Hook: useCrossChainTransfer
-// ============================================================================
 
 export function useCrossChainTransfer() {
   const chainId = useChainId()
@@ -166,10 +158,6 @@ export function useCrossChainTransfer() {
     isReady: !!eilClient && !!walletClient,
   }
 }
-
-// ============================================================================
-// Hook: useSwap (EIL AMM)
-// ============================================================================
 
 export function useSwap() {
   const chainId = useChainId()

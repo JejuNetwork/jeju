@@ -283,8 +283,12 @@ export class EventCollector extends EventEmitter {
           token0: { address: data.token0, symbol: '', decimals: 18, chainId },
           token1: { address: data.token1, symbol: '', decimals: 18, chainId },
           chainId,
+          fee: null,
+          tickSpacing: null,
           reserve0: data.reserves[0].toString(),
           reserve1: data.reserves[1].toString(),
+          sqrtPriceX96: null,
+          liquidity: null,
           lastUpdate: Date.now(),
         }
 

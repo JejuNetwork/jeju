@@ -27,7 +27,8 @@ export function useBalance(): UseBalanceResult {
     isMountedRef.current = true
 
     if (client) {
-      refetch().catch(() => {})
+      // Error is already handled via useAsyncState - catch prevents unhandled rejection
+      refetch().catch((): void => undefined)
     }
 
     return () => {

@@ -19,8 +19,6 @@ import {
   parseVerificationStatus,
 } from '../types/funding'
 
-// ============ Contract ABI ============
-
 const CONTRIBUTOR_REGISTRY_ABI = parseAbi([
   'function register(uint8 contributorType, string profileUri) external returns (bytes32 contributorId)',
   'function linkAgent(bytes32 contributorId, uint256 agentId) external',
@@ -58,8 +56,6 @@ function parsePlatformFromHash(hash: string): SocialPlatform {
   }
   return 'github'
 }
-
-// ============ Config ============
 
 import { addresses } from '../config/contracts'
 
@@ -294,8 +290,6 @@ export function useIsVerifiedGitHub(contributorId: string | undefined) {
 
   return { isVerified: !!data, isLoading, error }
 }
-
-// ============ Write Hooks ============
 
 export function useRegisterContributor() {
   const { writeContract, data: hash, isPending, error } = useWriteContract()

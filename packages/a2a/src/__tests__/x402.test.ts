@@ -99,7 +99,8 @@ describe('X402Manager', () => {
       const stored = mockRedis.store.get(`x402:payment:${request.requestId}`)
       expect(stored).toBeDefined()
 
-      const parsed = JSON.parse(stored!)
+      if (!stored) throw new Error('stored should be defined')
+      const parsed = JSON.parse(stored)
       expect(parsed.request.requestId).toBe(request.requestId)
       expect(parsed.verified).toBe(false)
     })
@@ -114,8 +115,9 @@ describe('X402Manager', () => {
 
       const ttl = mockRedis.ttls.get(`x402:payment:${request.requestId}`)
       expect(ttl).toBeDefined()
-      expect(ttl!).toBeGreaterThan(0)
-      expect(ttl!).toBeLessThanOrEqual(5) // 5 second timeout = max 5 second TTL
+      if (ttl === undefined) throw new Error('ttl should be defined')
+      expect(ttl).toBeGreaterThan(0)
+      expect(ttl).toBeLessThanOrEqual(5) // 5 second timeout = max 5 second TTL
     })
   })
 

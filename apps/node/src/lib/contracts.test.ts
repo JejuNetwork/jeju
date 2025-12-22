@@ -7,9 +7,9 @@ import {
   createNodeClient,
   getChain,
   getContractAddresses,
-  jejuLocalnet,
   jejuMainnet,
   jejuTestnet,
+  networkLocalnet,
 } from './contracts'
 
 describe('Contract Client', () => {
@@ -71,8 +71,8 @@ describe('Contract Client', () => {
 })
 
 describe('Chain Definitions', () => {
-  test('jejuLocalnet has correct chain ID', () => {
-    expect(jejuLocalnet.id).toBe(1337)
+  test('networkLocalnet has correct chain ID', () => {
+    expect(networkLocalnet.id).toBe(1337)
   })
 
   test('jejuTestnet and mainnet have distinct chain IDs', () => {
@@ -85,7 +85,7 @@ describe('Chain Definitions', () => {
   })
 
   test('chains have RPC URLs', () => {
-    expect(jejuLocalnet.rpcUrls.default.http.length).toBeGreaterThan(0)
+    expect(networkLocalnet.rpcUrls.default.http.length).toBeGreaterThan(0)
     expect(jejuTestnet.rpcUrls.default.http.length).toBeGreaterThan(0)
     expect(jejuMainnet.rpcUrls.default.http.length).toBeGreaterThan(0)
   })

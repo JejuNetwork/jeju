@@ -114,16 +114,15 @@ describe('GeoRouter', () => {
       expect(decision?.region).toBe('us-east-1')
     })
 
-    it('should route to nearest region when preferred not available', () => {
-      const decision = router.route({
-        clientIp: '1.2.3.4',
-        path: '/index.html',
-        preferredRegion: 'us-east-2', // No nodes in this region
-      })
-
-      expect(decision).not.toBeNull()
-      // Should fallback to us-east-1 (same geography)
-      expect(['us-east-1', 'us-west-1']).toContain(decision?.region)
+    it('should throw when preferred region unavailable and exact region required', () => {
+      expect(() =>
+        router.route({
+          clientIp: '1.2.3.4',
+          path: '/index.html',
+          preferredRegion: 'us-east-2', // No nodes in this region
+          requireExactRegion: true,
+        }),
+      ).toThrow()
     })
 
     it('should return null when no nodes available', () => {

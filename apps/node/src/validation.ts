@@ -23,18 +23,14 @@ import type {
   WalletInfo,
 } from './types'
 
-// ============================================================================
 // Helper Schemas (domain-specific)
-// ============================================================================
 
 /** Wei string schema - validates pure numeric strings representing wei values */
 const WeiStringSchema = z
   .string()
   .regex(/^\d+$/, 'Invalid wei string (must be numeric)')
 
-// ============================================================================
 // Hardware Schemas
-// ============================================================================
 
 const DockerInfoSchema = z.object({
   available: z.boolean(),
@@ -137,9 +133,7 @@ export const HardwareInfoSchema = z.object({
   docker: DockerInfoSchema,
 })
 
-// ============================================================================
 // Wallet & Agent Schemas
-// ============================================================================
 
 export const WalletInfoSchema = z.object({
   address: AddressSchema,
@@ -176,9 +170,7 @@ export const BanStatusSchema = z.object({
   appeal_status: z.string().nullable(),
 })
 
-// ============================================================================
 // Service Schemas
-// ============================================================================
 
 const ServiceRequirementsSchema = z.object({
   min_cpu_cores: PositiveIntSchema,
@@ -235,9 +227,7 @@ export const ServiceConfigSchema = z.object({
   custom_settings: z.record(z.string(), CustomSettingValueSchema),
 })
 
-// ============================================================================
 // Bot Schemas
-// ============================================================================
 
 export const BotMetadataSchema = z.object({
   id: z.string().min(1),
@@ -297,9 +287,7 @@ export const BotWithStatusSchema = z.object({
   config: BotConfigSchema,
 })
 
-// ============================================================================
 // Earnings Schemas
-// ============================================================================
 
 const ServiceEarningsSchema = z.object({
   service_id: z.string().min(1),
@@ -357,9 +345,7 @@ export const ProjectedEarningsSchema = z.object({
   assumptions: z.array(z.string()),
 })
 
-// ============================================================================
 // Staking Schemas
-// ============================================================================
 
 const ServiceStakeInfoSchema = z.object({
   service_id: z.string().min(1),
@@ -383,9 +369,7 @@ export const StakingInfoSchema = z.object({
   next_auto_claim_timestamp: z.number().int().positive().nullable(),
 })
 
-// ============================================================================
 // Config Schemas
-// ============================================================================
 
 export const NetworkConfigSchema = z.object({
   network: z.string().min(1),
@@ -427,9 +411,7 @@ export const ViewTypeSchema = z.enum([
   'wallet',
 ])
 
-// ============================================================================
 // Validation Functions (Fail-Fast)
-// ============================================================================
 
 export function validateHardwareInfo(data: unknown): HardwareInfo {
   return expectValid(HardwareInfoSchema, data, 'HardwareInfo')
@@ -497,9 +479,7 @@ export function validateViewType(data: unknown): ViewType {
   return expectValid(ViewTypeSchema, data, 'ViewType')
 }
 
-// ============================================================================
 // Request/Response Schemas for Tauri Commands
-// ============================================================================
 
 export const StartServiceRequestSchema = z.object({
   service_id: z.string().min(1),
@@ -542,9 +522,7 @@ export type UnstakeRequest = z.infer<typeof UnstakeRequestSchema>
 export type RegisterAgentRequest = z.infer<typeof RegisterAgentRequestSchema>
 export type AppealBanRequest = z.infer<typeof AppealBanRequestSchema>
 
-// ============================================================================
 // Runtime Types Schemas
-// ============================================================================
 
 export const RuntimeConfigSchema = z.object({
   network: z.enum(['mainnet', 'testnet', 'localnet']),
@@ -684,9 +662,7 @@ export function validateBotState(data: unknown): BotState {
   return expectValid(BotStateSchema, data, 'BotState')
 }
 
-// ============================================================================
 // Bridge Service Schemas
-// ============================================================================
 
 export const BridgeServiceConfigSchema = z.object({
   evmRpcUrls: z.record(z.number().int().positive(), z.string().url()),
@@ -757,9 +733,7 @@ export const TransferEventSchema = z.object({
   timestamp: z.number().int().positive(),
 })
 
-// ============================================================================
 // Arbitrage Executor Schemas
-// ============================================================================
 
 export const ExecutorConfigSchema = z.object({
   evmPrivateKey: z.string().regex(/^0x[a-fA-F0-9]{64}$/),
@@ -772,9 +746,7 @@ export const ExecutorConfigSchema = z.object({
   jitoTipLamports: z.bigint(),
 })
 
-// ============================================================================
 // Node Update Schemas
-// ============================================================================
 
 export const NodeUpdateConfigSchema = z.object({
   enabled: z.boolean(),
@@ -870,9 +842,7 @@ export function validateNodeUpdateState(data: unknown): NodeUpdateState {
   return expectValid(NodeUpdateStateSchema, data, 'NodeUpdateState')
 }
 
-// ============================================================================
 // External API Response Schemas
-// ============================================================================
 
 /** Jupiter swap response */
 export const JupiterSwapResponseSchema = z.object({

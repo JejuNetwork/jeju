@@ -2,6 +2,10 @@
  * Otto AI Runtime
  * Uses Jeju DWS for decentralized AI inference
  * Handles confirm flows and pending actions
+ *
+ * API Strategy:
+ * - DWS Compute: Uses typed fetch client (DWS SDK exists but uses fetch internally)
+ * - Alternative: Could use DWS SDK from apps/dws/src/sdk for full SDK features
  */
 
 import { expectValid } from '@jejunetwork/types'
@@ -26,7 +30,7 @@ import {
   validateSwapParams,
 } from '../utils/parsing'
 
-function getDwsUrl(): string {
+function getDwsBaseUrl(): string {
   const url = process.env.DWS_SERVER_URL
   if (url) return url
   if (process.env.NODE_ENV === 'development') {
@@ -44,9 +48,53 @@ function getAiModel(): string {
   throw new Error('AI_MODEL environment variable is required')
 }
 
-// ============================================================================
-// Action Handlers
-// ============================================================================
+// Response schema for DWS chat completions
+const ChatCompletionResponseSchema = z.object({
+  choices: z
+    .array(
+      z.object({
+        message: z.object({
+          content: z.string(),
+        }),
+      }),
+    )
+    .min(1),
+})
+
+/**
+ * Typed DWS API client for AI inference
+ * DWS server at apps/dws provides compute endpoints
+ */
+const dwsApi = {
+  chat: {
+    async completions(request: {
+      model: string
+      messages: Array<{ role: string; content: string }>
+      max_tokens?: number
+      temperature?: number
+    }) {
+      const response = await fetch(
+        `${getDwsBaseUrl()}/compute/chat/completions`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(request),
+        },
+      )
+
+      if (!response.ok) {
+        const error = await response.text()
+        throw new Error(`AI inference failed: ${error}`)
+      }
+
+      return expectValid(
+        ChatCompletionResponseSchema,
+        await response.json(),
+        'AI response',
+      )
+    },
+  },
+}
 
 async function handleSwap(
   params: { amount: string; from: string; to: string; chain?: string },
@@ -54,7 +102,6 @@ async function handleSwap(
   platform: string,
   channelId: string,
 ): Promise<CommandResult> {
-  // Validate inputs
   const validation = validateSwapParams(params)
   if (!validation.valid) {
     throw new Error(
@@ -126,7 +173,6 @@ async function handleBridge(
   platform: string,
   channelId: string,
 ): Promise<CommandResult> {
-  // Validate inputs
   const validation = validateBridgeParams(params)
   if (!validation.valid) {
     throw new Error(
@@ -169,7 +215,6 @@ async function handleBridge(
     amount,
   })
 
-  // Store pending action
   const pendingBridge: PendingBridge = {
     type: 'bridge',
     quote: quote ?? undefined,
@@ -380,7 +425,6 @@ async function handleLimitOrder(
   params: { amount: string; from: string; to: string; price: string },
   user: OttoUser,
 ): Promise<CommandResult> {
-  // Validate inputs
   const validation = validateLimitOrderParams(params)
   if (!validation.valid) {
     throw new Error(
@@ -457,10 +501,6 @@ async function handleCancelOrder(
     : { success: false, message: 'Order not found or already executed.' }
 }
 
-// ============================================================================
-// AI Integration
-// ============================================================================
-
 const SYSTEM_PROMPT = `You are Otto, a crypto trading assistant on Jeju Network. Be helpful, friendly, and concise.
 
 You can execute these trading actions by returning ONLY a JSON object (no other text):
@@ -526,36 +566,13 @@ async function callAI(
     { role: 'user', content: userMessage },
   ]
 
-  const response = await fetch(`${getDwsUrl()}/compute/chat/completions`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: getAiModel(),
-      messages,
-      max_tokens: 500,
-      temperature: 0.7,
-    }),
+  const data = await dwsApi.chat.completions({
+    model: getAiModel(),
+    messages,
+    max_tokens: 500,
+    temperature: 0.7,
   })
 
-  if (!response.ok) {
-    const error = await response.text()
-    throw new Error(`AI inference failed: ${error}`)
-  }
-
-  const rawData = await response.json()
-  const AIResponseSchema = z.object({
-    choices: z
-      .array(
-        z.object({
-          message: z.object({
-            content: z.string(),
-          }),
-        }),
-      )
-      .min(1),
-  })
-
-  const data = expectValid(AIResponseSchema, rawData, 'AI response')
   const content = data.choices[0].message.content
   if (!content) {
     throw new Error('AI returned empty response')
@@ -575,7 +592,6 @@ function parseAIResponse(content: string): AIResponse | null {
 
   try {
     const parsed = JSON.parse(jsonMatch[0])
-    // Validate with schema
     const result = AIResponseSchema.safeParse(parsed)
     if (!result.success) {
       console.warn('[Otto] Invalid AI response format:', result.error.issues)
@@ -588,10 +604,6 @@ function parseAIResponse(content: string): AIResponse | null {
     return null
   }
 }
-
-// ============================================================================
-// Main Entry Point
-// ============================================================================
 
 export async function processMessage(
   msg: PlatformMessage,
@@ -615,7 +627,6 @@ export async function processMessage(
     .getHistory(validatedMsg.platform, validatedMsg.channelId)
     .flatMap((h) => h.content)
 
-  // Store user message in history
   getStateManager().addToHistory(
     validatedMsg.platform,
     validatedMsg.channelId,
@@ -623,27 +634,13 @@ export async function processMessage(
     text,
   )
 
-  // Call AI
-  let aiContent: string
-  try {
-    aiContent = await callAI(text, history)
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    console.error('[Otto] AI error:', errorMessage)
-    return {
-      success: false,
-      message:
-        'AI service unavailable. Make sure DWS is running with GROQ_API_KEY set.',
-    }
-  }
+  const aiContent = await callAI(text, history)
 
-  // Check if AI returned an action
   const parsed = parseAIResponse(aiContent)
 
   if (parsed?.action) {
     const action = parsed.action
 
-    // Handle confirm/cancel without wallet
     if (action === 'confirm') {
       if (!user) {
         const url = await getWalletService().generateConnectUrl(
@@ -685,7 +682,6 @@ export async function processMessage(
       return result
     }
 
-    // Actions that don't require wallet
     if (action === 'connect') {
       const result = await handleConnect(validatedMsg.userId)
       getStateManager().addToHistory(
@@ -708,7 +704,6 @@ export async function processMessage(
       return result
     }
 
-    // Actions that require wallet
     if (!user) {
       const url = await getWalletService().generateConnectUrl(
         'web',
@@ -832,7 +827,6 @@ export async function processMessage(
     return result
   }
 
-  // AI returned natural language response
   getStateManager().addToHistory(
     validatedMsg.platform,
     validatedMsg.channelId,
@@ -846,10 +840,6 @@ export async function processMessage(
     'natural language result',
   )
 }
-
-// ============================================================================
-// Limit Order Monitor
-// ============================================================================
 
 export function startLimitOrderMonitor(): void {
   getStateManager().startLimitOrderMonitor(
@@ -877,7 +867,6 @@ export function stopLimitOrderMonitor(): void {
   getStateManager().stopLimitOrderMonitor()
 }
 
-// Export for tests
 export function selectAction(text: string): { name: string } | null {
   if (!text || typeof text !== 'string') {
     return null

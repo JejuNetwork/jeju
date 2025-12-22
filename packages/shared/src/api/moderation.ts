@@ -14,8 +14,6 @@ import {
 import { baseSepolia } from 'viem/chains'
 import { BAN_MANAGER_ABI } from './abis'
 
-// ============ Types ============
-
 export interface ModerationConfig {
   chain?: Chain
   rpcUrl?: string
@@ -119,8 +117,6 @@ export interface TransactionRequest {
   description: string
 }
 
-// ============ Evidence Types ============
-
 export interface EvidenceSubmission {
   evidenceId: string
   caseId: string
@@ -155,8 +151,6 @@ export interface CaseEvidenceSummary {
   totalAgainstStake: string
   resolved: boolean
 }
-
-// ============ Reputation Provider Types ============
 
 export interface ReputationProvider {
   providerContract: string
@@ -209,8 +203,6 @@ export interface AggregatedReputation {
   providerWeights: number[]
 }
 
-// ============ Staking Types ============
-
 export type StakingTier = 'FREE' | 'BUILDER' | 'PRO' | 'UNLIMITED'
 
 export interface StakingPosition {
@@ -240,8 +232,6 @@ export interface ServiceAllocation {
   used: number
   remaining: number
 }
-
-// ============ Constants ============
 
 export const BAN_TYPES = {
   NONE: 0,
@@ -368,8 +358,6 @@ function getLabelName(code: number): string {
   if (!name) throw new Error(`Unknown label code: ${code}`)
   return name
 }
-
-// ============ ABIs ============
 
 const MODERATION_MARKETPLACE_ABI = [
   {
@@ -544,8 +532,6 @@ const REPUTATION_LABEL_MANAGER_ABI = [
   },
 ] as const
 
-// ============ Contract Return Types ============
-
 type StakeData = {
   amount: bigint
   stakedAt: bigint
@@ -599,8 +585,6 @@ type ReportData = {
   votingEnds: bigint
   status: number
 }
-
-// ============ ModerationAPI Class ============
 
 // Client type that works across viem versions
 type ViemClient = {
@@ -1065,8 +1049,6 @@ export class ModerationAPI {
     }
   }
 
-  // ============ Transaction Preparation ============
-
   prepareStake(amount: string): TransactionRequest {
     if (!this.config.moderationMarketplaceAddress)
       throw new Error('Moderation marketplace not configured')
@@ -1129,15 +1111,11 @@ export class ModerationAPI {
   }
 }
 
-// ============ Factory Function ============
-
 export function createModerationAPI(
   config: ModerationConfig = {},
 ): ModerationAPI {
   return new ModerationAPI(config)
 }
-
-// ============ Evidence Registry ABI ============
 
 export const EVIDENCE_REGISTRY_ABI = [
   {
@@ -1227,8 +1205,6 @@ export const EVIDENCE_REGISTRY_ABI = [
     outputs: [{ name: '', type: 'uint256' }],
   },
 ] as const
-
-// ============ Reputation Provider Registry ABI ============
 
 export const REPUTATION_PROVIDER_REGISTRY_ABI = [
   {
@@ -1377,8 +1353,6 @@ export const REPUTATION_PROVIDER_REGISTRY_ABI = [
   },
 ] as const
 
-// ============ Staking ABI ============
-
 export const STAKING_ABI = [
   {
     name: 'stake',
@@ -1518,8 +1492,6 @@ export const STAKING_ABI = [
     outputs: [{ name: '', type: 'uint256' }],
   },
 ] as const
-
-// ============ Staking Tier Names ============
 
 export const STAKING_TIER_NAMES: Record<number, StakingTier> = {
   0: 'FREE',

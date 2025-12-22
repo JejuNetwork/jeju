@@ -36,10 +36,6 @@ describe('types.ts - Type Utilities and Constants', () => {
       expect(isValidAddress(ZERO_ADDRESS)).toBe(false)
     })
 
-    test('returns false for null', () => {
-      expect(isValidAddress(null)).toBe(false)
-    })
-
     test('returns false for undefined', () => {
       expect(isValidAddress(undefined)).toBe(false)
     })

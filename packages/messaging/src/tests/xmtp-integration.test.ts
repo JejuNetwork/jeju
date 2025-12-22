@@ -380,8 +380,8 @@ describe('XMTP Group Chat', () => {
 
     // Create group message (all members as recipients)
     const firstMember = members[0]
-    expect(firstMember).toBeDefined()
-    const groupEnvelope = createTestEnvelope(firstMember ?? '', members)
+    if (!firstMember) throw new Error('members array is empty')
+    const groupEnvelope = createTestEnvelope(firstMember, members)
 
     await node.processEnvelope(groupEnvelope)
 

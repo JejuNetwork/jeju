@@ -5,7 +5,7 @@
  * Uses the @jejunetwork/db client for CQL operations.
  */
 
-import { type CQLClient, getCQL } from '@jejunetwork/db'
+import { type CQLClient, getCQL, toQueryParam } from '@jejunetwork/db'
 import type { DataSource, EntityMetadata } from 'typeorm'
 
 // SQL parameter types - values that can be safely passed to SQL queries
@@ -31,10 +31,6 @@ interface QueryResult<T = SqlRow> {
   rowCount: number
 }
 
-// ============================================================================
-// Configuration
-// ============================================================================
-
 const CQL_ENABLED = process.env.CQL_SYNC_ENABLED === 'true'
 const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? 'indexer-sync'
 
@@ -58,10 +54,6 @@ function getBatchSize(): number {
   return batch
 }
 
-// ============================================================================
-// Sync State
-// ============================================================================
-
 interface SyncState {
   entity: string
   lastSyncedId: string | null
@@ -70,10 +62,6 @@ interface SyncState {
 }
 
 const syncStates: Map<string, SyncState> = new Map()
-
-// ============================================================================
-// CQL Sync Service
-// ============================================================================
 
 export class CQLSyncService {
   private client: CQLClient
@@ -182,7 +170,9 @@ export class CQLSyncService {
       })
     }
 
-    query.orderBy(`${tableName}.${primaryColumns[0]}`, 'ASC').take(this.batchSize)
+    query
+      .orderBy(`${tableName}.${primaryColumns[0]}`, 'ASC')
+      .take(this.batchSize)
 
     const records = await query.getMany()
 
@@ -274,7 +264,7 @@ export class CQLSyncService {
       DO UPDATE SET ${updateSet}
     `.trim()
 
-    await this.client.exec(sql, params, CQL_DATABASE_ID)
+    await this.client.exec(sql, params.map(toQueryParam), CQL_DATABASE_ID)
   }
 
   private async createCQLTables(): Promise<void> {
@@ -410,11 +400,13 @@ export class CQLSyncService {
       state.totalSynced,
     ]
 
-    await this.client.exec(sql, params, CQL_DATABASE_ID).catch((err: Error) => {
-      console.log(
-        `[CQLSync] Saving sync state for ${state.entity}: ${err.message}`,
-      )
-    })
+    await this.client
+      .exec(sql, params.map(toQueryParam), CQL_DATABASE_ID)
+      .catch((err: Error) => {
+        console.log(
+          `[CQLSync] Saving sync state for ${state.entity}: ${err.message}`,
+        )
+      })
   }
 
   async getCQLReadClient(): Promise<CQLClient> {
@@ -432,7 +424,11 @@ export class CQLSyncService {
     if (sql.includes(';') && sql.indexOf(';') !== sql.length - 1) {
       throw new Error('Multiple SQL statements not allowed')
     }
-    const result = await this.client.query<T>(sql, params, CQL_DATABASE_ID)
+    const result = await this.client.query<T>(
+      sql,
+      params?.map(toQueryParam),
+      CQL_DATABASE_ID,
+    )
     return { rows: result.rows, rowCount: result.rowCount }
   }
 
@@ -450,10 +446,6 @@ export class CQLSyncService {
     }
   }
 }
-
-// ============================================================================
-// Singleton
-// ============================================================================
 
 let cqlSyncService: CQLSyncService | null = null
 

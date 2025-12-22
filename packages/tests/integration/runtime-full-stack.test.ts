@@ -656,8 +656,6 @@ describe.skipIf(!servicesAvailable)('Runtime Full Stack Integration', () => {
   })
 })
 
-// ============ Helper Functions ============
-
 /**
  * Check if a JSON-RPC service is available
  */

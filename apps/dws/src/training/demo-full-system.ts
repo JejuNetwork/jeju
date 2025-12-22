@@ -97,8 +97,6 @@ async function main() {
     solanaKeypair: keypair,
     evmRpcUrl: CONFIG.evmRpcUrl,
     evmPrivateKey: CONFIG.evmPrivateKey,
-    llmJudgeUrl: 'http://localhost:9001',
-    llmJudgeModel: 'default',
   })
 
   console.log(

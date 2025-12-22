@@ -62,37 +62,42 @@ const readLimiter = new RateLimiter(60000, 120) // 120 reads per minute
 
 // ============ Schemas ============
 
-const SendDCSchema = z.object({
-  recipientFid: z.number().int().positive(),
-  text: z.string().min(1).max(2000),
-  embeds: z
-    .array(
-      z.object({
-        type: z.enum(['url', 'cast', 'image']),
-        url: z.string().url().optional(),
-        castId: z
-          .object({
-            fid: z.number().int().positive(),
-            hash: z.string().regex(/^0x[a-fA-F0-9]+$/),
-          })
-          .optional(),
-        alt: z.string().optional(),
-      }),
-    )
-    .max(4)
-    .optional(),
-  replyTo: z.string().optional(),
-})
+const DirectCastEmbedSchema = z
+  .object({
+    type: z.enum(['url', 'cast', 'image']),
+    url: z.string().url().optional(),
+    castId: z
+      .object({
+        fid: z.number().int().positive(),
+        hash: z.string().regex(/^0x[a-fA-F0-9]+$/),
+      })
+      .strict()
+      .optional(),
+    alt: z.string().max(500).optional(),
+  })
+  .strict()
 
-const PaginationSchema = z.object({
-  limit: z.coerce.number().int().min(1).max(100).default(50),
-  before: z.string().optional(),
-  after: z.string().optional(),
-})
+const SendDCBodySchema = z
+  .object({
+    text: z.string().min(1).max(2000),
+    embeds: z.array(DirectCastEmbedSchema).max(4).optional(),
+    replyTo: z.string().min(1).optional(),
+  })
+  .strict()
 
-const MuteRequestSchema = z.object({
-  muted: z.boolean().default(true),
-})
+const PaginationSchema = z
+  .object({
+    limit: z.coerce.number().int().min(1).max(100).default(50),
+    before: z.string().optional(),
+    after: z.string().optional(),
+  })
+  .strict()
+
+const MuteRequestSchema = z
+  .object({
+    muted: z.boolean().default(true),
+  })
+  .strict()
 
 // ============ Helper Functions ============
 
@@ -177,7 +182,7 @@ export function createDCApi(getClient: () => DirectCastClient | null): Elysia {
     const parseResult = MuteRequestSchema.safeParse(body)
     if (!parseResult.success) {
       set.status = 400
-      return { error: 'Invalid request' }
+      return { error: 'Invalid request', details: parseResult.error.issues }
     }
 
     await client.muteConversation(fid, parseResult.data.muted)
@@ -248,20 +253,18 @@ export function createDCApi(getClient: () => DirectCastClient | null): Elysia {
       return { error: 'Invalid FID' }
     }
 
-    const requestBody =
-      body && typeof body === 'object' ? (body as Record<string, unknown>) : {}
-    const parsed = SendDCSchema.safeParse({ ...requestBody, recipientFid: fid })
-
-    if (!parsed.success) {
+    // Parse body with schema
+    const bodyParsed = SendDCBodySchema.safeParse(body)
+    if (!bodyParsed.success) {
       set.status = 400
-      return { error: 'Invalid request' }
+      return { error: 'Invalid request', details: bodyParsed.error.issues }
     }
 
     const message = await client.send({
-      recipientFid: parsed.data.recipientFid,
-      text: parsed.data.text,
-      embeds: parsed.data.embeds as DirectCastEmbed[] | undefined,
-      replyTo: parsed.data.replyTo,
+      recipientFid: fid,
+      text: bodyParsed.data.text,
+      embeds: bodyParsed.data.embeds as DirectCastEmbed[] | undefined,
+      replyTo: bodyParsed.data.replyTo,
     })
 
     set.status = 201

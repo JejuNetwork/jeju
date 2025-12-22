@@ -66,9 +66,10 @@ const app = new Elysia()
       totalMemoryMb: 512,
       hits: stats.hits,
       misses: stats.misses,
-      hitRate: stats.hits + stats.misses > 0
-        ? (stats.hits / (stats.hits + stats.misses)) * 100
-        : 0,
+      hitRate:
+        stats.hits + stats.misses > 0
+          ? (stats.hits / (stats.hits + stats.misses)) * 100
+          : 0,
       totalInstances: 1,
     },
   }))
@@ -98,7 +99,12 @@ const app = new Elysia()
 
   // Set value
   .post('/cache/set', ({ body }) => {
-    const { key, value, ttl = 3600, namespace = 'default' } = body as {
+    const {
+      key,
+      value,
+      ttl = 3600,
+      namespace = 'default',
+    } = body as {
       key: string
       value: string
       ttl?: number
@@ -216,7 +222,11 @@ const app = new Elysia()
 
   // Set expiry
   .post('/cache/expire', ({ body }) => {
-    const { key, ttl, namespace = 'default' } = body as {
+    const {
+      key,
+      ttl,
+      namespace = 'default',
+    } = body as {
       key: string
       ttl: number
       namespace?: string
@@ -276,4 +286,3 @@ console.log(`
 app.listen(PORT, () => {
   console.log(`🚀 Cache service running at http://localhost:${PORT}`)
 })
-

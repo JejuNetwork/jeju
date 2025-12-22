@@ -6,7 +6,9 @@ use tauri::State;
 
 /// Get contribution status
 #[tauri::command]
-pub async fn get_contribution_status(state: State<'_, AppState>) -> Result<ContributionStatus, String> {
+pub async fn get_contribution_status(
+    state: State<'_, AppState>,
+) -> Result<ContributionStatus, String> {
     let contribution = state.contribution.read().await;
     Ok(contribution.get_status())
 }
@@ -24,8 +26,9 @@ pub async fn set_contribution_settings(
 
 /// Get contribution statistics
 #[tauri::command]
-pub async fn get_contribution_stats(state: State<'_, AppState>) -> Result<ContributionStats, String> {
+pub async fn get_contribution_stats(
+    state: State<'_, AppState>,
+) -> Result<ContributionStats, String> {
     let contribution = state.contribution.read().await;
     Ok(contribution.get_stats())
 }
-

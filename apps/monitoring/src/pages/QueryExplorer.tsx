@@ -1,6 +1,6 @@
 import { Check, Clock, Copy, Play } from 'lucide-react'
 import { useState } from 'react'
-import { useMetricsQuery } from '../hooks/useMonitoring'
+import { type MetricResult, useMetricsQuery } from '../hooks/useMonitoring'
 
 const examples = [
   { label: 'HTTP Rate', query: 'rate(http_requests_total[5m])' },
@@ -20,7 +20,7 @@ const examples = [
 export function QueryExplorer() {
   const [query, setQuery] = useState('up')
   const [executedQuery, setExecutedQuery] = useState('up')
-  const { data, loading, error } = useMetricsQuery(executedQuery)
+  const { data, isLoading, error } = useMetricsQuery(executedQuery)
   const [copied, setCopied] = useState(false)
 
   const handleExecute = () => {
@@ -72,7 +72,7 @@ export function QueryExplorer() {
           <button
             type="button"
             onClick={handleExecute}
-            disabled={loading || !query.trim()}
+            disabled={isLoading || !query.trim()}
             className="btn-primary flex items-center justify-center gap-2"
           >
             <Play className="w-4 h-4" />
@@ -111,7 +111,7 @@ export function QueryExplorer() {
           {data && <span className="badge-info">{data.length}</span>}
         </div>
 
-        {loading ? (
+        {isLoading ? (
           <div className="space-y-3">
             <div key="skeleton-0" className="shimmer h-12 rounded-lg" />
             <div key="skeleton-1" className="shimmer h-12 rounded-lg" />
@@ -126,7 +126,7 @@ export function QueryExplorer() {
               className="font-mono text-sm"
               style={{ color: 'var(--color-error)' }}
             >
-              {error}
+              {error.message}
             </p>
           </div>
         ) : !data || data.length === 0 ? (
@@ -144,11 +144,6 @@ export function QueryExplorer() {
       </div>
     </div>
   )
-}
-
-interface MetricResult {
-  metric: Record<string, string>
-  value: [number, string]
 }
 
 function ResultRow({ result }: { result: MetricResult }) {

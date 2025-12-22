@@ -28,10 +28,10 @@ const AlertCircleIcon = AlertCircle as ComponentType<LucideProps>
 const CheckIcon = Check as ComponentType<LucideProps>
 
 const SEQUENCER_REGISTRY_ADDRESS =
-  (process.env.NEXT_PUBLIC_SEQUENCER_REGISTRY as Address) ||
+  (process.env.PUBLIC_SEQUENCER_REGISTRY as Address) ||
   '0x0000000000000000000000000000000000000000'
 const FEDERATION_GOVERNANCE_ADDRESS =
-  (process.env.NEXT_PUBLIC_FEDERATION_GOVERNANCE as Address) ||
+  (process.env.PUBLIC_FEDERATION_GOVERNANCE as Address) ||
   '0x0000000000000000000000000000000000000000'
 
 const FEDERATION_GOVERNANCE_ABI = [

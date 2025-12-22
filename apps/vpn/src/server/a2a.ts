@@ -3,7 +3,12 @@
  *
  * Enables agent-to-agent VPN access following the Jeju A2A protocol.
  *
- * Uses fail-fast validation patterns
+ * Uses fail-fast validation patterns.
+ *
+ * Proxy Strategy:
+ * - proxy skill: Proxies A2A agent requests to external URLs (keep fetch)
+ *   Uses raw fetch to proxy user-submitted requests to external services.
+ *   Cannot use Eden as target URLs are user-provided and external.
  */
 
 import { Elysia } from 'elysia'
@@ -47,10 +52,6 @@ type A2ARequest = z.infer<typeof A2ARequestSchema>
 // Maximum response body size for A2A proxy (10MB)
 const A2A_MAX_RESPONSE_BODY_SIZE = 10 * 1024 * 1024
 
-// ============================================================================
-// Router
-// ============================================================================
-
 export function createA2ARouter(ctx: VPNServiceContext) {
   const router = new Elysia({ prefix: '/a2a' })
     // Error handling middleware
@@ -65,9 +66,6 @@ export function createA2ARouter(ctx: VPNServiceContext) {
       }
     })
 
-    /**
-     * POST / - A2A JSON-RPC endpoint
-     */
     .post('/', async ({ request, body }) => {
       const auth = await verifyAuth(request)
       // auth.address is already validated as Address by verifyAuth when valid
@@ -154,10 +152,6 @@ async function handleMessage(
   }
 }
 
-// ============================================================================
-// Skill Handlers
-// ============================================================================
-
 async function handleConnect(
   ctx: VPNServiceContext,
   a2aRequest: A2ARequest,
@@ -178,7 +172,6 @@ async function handleConnect(
     `Invalid protocol: ${protocol}`,
   )
 
-  // Find best node using utility
   const node = findBestNode(ctx, countryCode)
   if (!node) {
     throw new Error('No available nodes matching criteria')
@@ -328,7 +321,6 @@ async function handleProxyRequest(
   // SECURITY: Validate URL with DNS resolution to prevent SSRF and DNS rebinding attacks
   await validateProxyUrlWithDNS(proxyRequest.url)
 
-  // Add timeout to prevent hanging connections
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), 30000)
 

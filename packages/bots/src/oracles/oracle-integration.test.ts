@@ -451,27 +451,23 @@ describe('Oracle Integration - All Sources', () => {
       expect(pythPrice.source).toBe('pyth')
     })
 
-    test('should fallback to Chainlink when Pyth unavailable', () => {
-      const chainlinkPrice: OraclePrice = {
-        token: 'ETH',
-        price: 300000000000n,
-        decimals: 8,
-        timestamp: Date.now(),
-        source: 'chainlink',
+    test('should throw when Pyth unavailable', () => {
+      const getOraclePrice = (source: 'pyth' | 'chainlink'): OraclePrice => {
+        if (source === 'pyth') {
+          throw new Error('Pyth oracle unavailable')
+        }
+        throw new Error('No oracle available')
       }
 
-      expect(chainlinkPrice.source).toBe('chainlink')
+      expect(() => getOraclePrice('pyth')).toThrow('Pyth oracle unavailable')
     })
 
-    test('should use TWAP as last resort', () => {
-      // TWAP is available for any Uniswap V3 pool
-      const twapPrice = {
-        tick: 100,
-        price: BigInt(Math.floor(1.0001 ** 100 * 1e18)),
+    test('should throw when no oracle sources available', () => {
+      const getPrice = () => {
+        throw new Error('No oracle sources available')
       }
 
-      expect(twapPrice.tick).toBe(100)
-      expect(twapPrice.price).toBeGreaterThan(0n)
+      expect(() => getPrice()).toThrow('No oracle sources available')
     })
   })
 

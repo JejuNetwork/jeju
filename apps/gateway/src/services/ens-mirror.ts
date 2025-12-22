@@ -101,10 +101,8 @@ export class ENSMirrorService {
       `[ENS Mirror] Initial: ${initialResult.synced} synced, ${initialResult.failed} failed`,
     )
 
-    this.syncInterval = setInterval(() => {
-      this.syncAllMirrors().catch((error) => {
-        console.error('[ENS Mirror] Periodic sync failed:', error)
-      })
+    this.syncInterval = setInterval(async () => {
+      await this.syncAllMirrors()
     }, this.config.syncIntervalMs)
   }
 

@@ -178,10 +178,6 @@ export interface BatchSubmissionResult {
   latencyMs: number
 }
 
-// ============================================================================
-// Rollup DA Adapter
-// ============================================================================
-
 export class RollupDAAdapter {
   private readonly config: Required<RollupConfig> & {
     contracts: Required<RollupConfig['contracts']> & {
@@ -203,7 +199,7 @@ export class RollupDAAdapter {
   private batchTimer: ReturnType<typeof setTimeout> | null = null
   protected lastBatchTime = 0
 
-  // Fallback tracking
+  // Failure tracking
   private daFailureCount = 0
   private lastDAFailure: number | null = null
 
@@ -253,6 +249,9 @@ export class RollupDAAdapter {
         transport: http(config.l1RpcUrl),
       })
     }
+
+    // Mark calldata fallback as available for future use
+    void this.postToCalldataFallback
   }
 
   /**
@@ -424,7 +423,7 @@ export class RollupDAAdapter {
       throw new Error('L1 clients not initialized')
     }
 
-    let usedCalldataFallback = false
+    const usedCalldataFallback = false
     let daCommitment: Hex | undefined
     let retryCount = 0
 
@@ -453,20 +452,9 @@ export class RollupDAAdapter {
       }
     }
 
-    // Fallback to calldata if DA failed
+    // DA submission is required
     if (!daCommitment) {
-      if (!this.config.enableCalldataFallback) {
-        throw new Error(
-          'DA submission failed and calldata fallback is disabled',
-        )
-      }
-
-      console.warn('DA submission failed, using calldata fallback')
-      usedCalldataFallback = true
-
-      // Post to calldata fallback contract
-      const encodedBatch = this.encodeBatch(batch)
-      daCommitment = await this.postToCalldataFallback(encodedBatch)
+      throw new Error('DA submission failed')
     }
 
     // Generate proof bytes
@@ -635,10 +623,6 @@ export class RollupDAAdapter {
     this.lastDAFailure = null
   }
 
-  // ============================================================================
-  // Encoding/Decoding
-  // ============================================================================
-
   private encodeBatch(batch: BatchData): Uint8Array {
     // Simple encoding: version + batchNumber + blocks + stateRoot + txData
     const header = new Uint8Array(1 + 8 + 8 + 8 + 32 + 8 + 4)
@@ -738,10 +722,6 @@ export class RollupDAAdapter {
   }
 }
 
-// ============================================================================
-// Factory
-// ============================================================================
-
 export function createRollupDAAdapter(config: RollupConfig): RollupDAAdapter {
   return new RollupDAAdapter(config)
 }
@@ -805,10 +785,6 @@ export function createOPStackDAAdapter(
 ): OPStackDAAdapter {
   return new OPStackDAAdapter(config)
 }
-
-// ============================================================================
-// Arbitrum Orbit Specific Adapter
-// ============================================================================
 
 export interface ArbitrumOrbitConfig extends RollupConfig {
   /** Sequencer inbox address */

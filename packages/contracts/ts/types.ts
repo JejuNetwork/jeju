@@ -5,24 +5,17 @@
 
 import type { Abi, Address } from 'viem'
 
-// ============================================================================
-// Network Types
-// ============================================================================
-
 export type NetworkName = 'localnet' | 'testnet' | 'mainnet'
 
 export type ChainId = 1337 | 31337 | 420690 | 420691 | 11155111 | 1
 
 export const CHAIN_IDS = {
-  // Local development
   localnet: 1337,
-  anvil: 31337, // Foundry Anvil
-  // networks
-  testnet: 420690, // Network Testnet
-  testnetL2: 420691, // Network Testnet L2 (legacy)
-  // Ethereum networks
-  sepolia: 11155111, // Sepolia Testnet
-  mainnetL1: 1, // Ethereum Mainnet
+  anvil: 31337,
+  testnet: 420690,
+  testnetL2: 420691,
+  sepolia: 11155111,
+  mainnetL1: 1,
 } as const
 
 export const NETWORK_BY_CHAIN_ID: Record<ChainId, NetworkName> = {
@@ -34,18 +27,10 @@ export const NETWORK_BY_CHAIN_ID: Record<ChainId, NetworkName> = {
   1: 'mainnet',
 }
 
-// ============================================================================
-// ABI Types
-// ============================================================================
-
 export interface ContractABI {
   address?: Address
   abi: Abi
 }
-
-// ============================================================================
-// Helper Types
-// ============================================================================
 
 export type DeploymentFile =
   | 'uniswap-v4-1337'
@@ -65,11 +50,8 @@ export type DeploymentFile =
 export const ZERO_ADDRESS =
   '0x0000000000000000000000000000000000000000' as Address
 
-/**
- * Check if an address is valid (not zero address, null, or undefined)
- */
 export function isValidAddress(
-  address: Address | string | undefined | null,
+  address: Address | string | undefined,
 ): address is Address {
   return !!address && address !== ZERO_ADDRESS && address.startsWith('0x')
 }

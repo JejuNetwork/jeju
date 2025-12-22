@@ -131,12 +131,9 @@ async function start() {
   }
 
   app.listen(PORT, () => {
-    console.log(`
-[Council] Started on port ${PORT}
-  TEE: ${getTEEMode()}
-  Trigger: ${triggerMode}
-  Endpoints: /a2a, /mcp, /api/v1
-`)
+    console.log(
+      `[Council] port=${PORT} tee=${getTEEMode()} trigger=${triggerMode}`,
+    )
   })
 
   const ZERO = '0x0000000000000000000000000000000000000000' as Address
@@ -160,16 +157,10 @@ async function start() {
       .then(() => {
         setOrchestrator(orchestrator)
         if (triggerMode === 'local') startLocalCron(runOrchestratorCycle)
-        console.log('[Orchestrator] Started successfully')
       })
       .catch((err) => {
-        console.error(
-          '[Orchestrator] Failed to start - server continues without it:',
-          err.message,
-        )
+        console.error('[Orchestrator]', err.message)
       })
-  } else if (!hasDAOContracts) {
-    console.log('[Orchestrator] Skipped - DAO contracts not deployed')
   }
 }
 

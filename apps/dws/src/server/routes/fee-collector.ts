@@ -120,6 +120,8 @@ async function depositPendingFees(): Promise<number> {
           functionName: 'depositFees',
           args: [daoId as Hex, source],
           value: amount,
+          chain: walletClient.chain ?? null,
+          account: walletClient.account ?? null,
         })
 
         feeStats.totalDeposited += amount
@@ -131,6 +133,7 @@ async function depositPendingFees(): Promise<number> {
         )
       } catch (err) {
         console.error(`[FeeCollector] Deposit failed:`, err)
+        throw err
       }
     }
   }

@@ -13,8 +13,6 @@
 import type { Address } from 'viem'
 import type { RouteConfig, RouteResult, XMTPEnvelope } from './types'
 
-// ============ Types ============
-
 export interface RelayNode {
   /** Node ID */
   id: string
@@ -44,8 +42,6 @@ export interface RouterStats {
   /** Messages by region */
   messagesByRegion: Record<string, number>
 }
-
-// ============ Router Class ============
 
 // Maximum pending messages to prevent memory exhaustion
 const MAX_PENDING_MESSAGES = 10000
@@ -82,8 +78,6 @@ export class XMTPMessageRouter {
     }
   }
 
-  // ============ Lifecycle ============
-
   /**
    * Initialize the router
    */
@@ -116,8 +110,6 @@ export class XMTPMessageRouter {
 
     console.log('[XMTP Router] Shutdown complete')
   }
-
-  // ============ Node Discovery ============
 
   /**
    * Discover relay nodes from registry
@@ -195,8 +187,6 @@ export class XMTPMessageRouter {
       this.relayNodes.set(id, node)
     }
   }
-
-  // ============ Routing ============
 
   /**
    * Route an envelope to recipients
@@ -313,8 +303,6 @@ export class XMTPMessageRouter {
     return results
   }
 
-  // ============ Node Selection ============
-
   /**
    * Select the best node for routing
    */
@@ -361,8 +349,6 @@ export class XMTPMessageRouter {
     return result
   }
 
-  // ============ Message Delivery ============
-
   /**
    * Send envelope to a relay node
    */
@@ -392,8 +378,6 @@ export class XMTPMessageRouter {
       throw new Error(`Relay error: ${response.status} ${response.statusText}`)
     }
   }
-
-  // ============ Pending Messages ============
 
   /**
    * Retry pending messages
@@ -438,8 +422,6 @@ export class XMTPMessageRouter {
     await this.retryPending()
   }
 
-  // ============ Stats ============
-
   /**
    * Get router statistics
    */
@@ -473,14 +455,10 @@ export class XMTPMessageRouter {
       (this.stats.messagesByRegion[region] ?? 0) + 1
   }
 
-  // ============ Utility ============
-
   private delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms))
   }
 }
-
-// ============ Factory Function ============
 
 /**
  * Create and initialize an XMTP router

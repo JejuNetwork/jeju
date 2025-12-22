@@ -658,9 +658,7 @@ class MultiPromptDatasetBuilder:
             "samples": {},
         }
 
-        purposes_to_save: list[PromptPurpose] = (
-            [purpose] if purpose else list(self.datasets.keys())
-        )
+        purposes_to_save: list[PromptPurpose] = [purpose] if purpose else list(self.datasets.keys())
 
         for p in purposes_to_save:
             dataset = self.datasets[p]

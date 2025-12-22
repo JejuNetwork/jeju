@@ -1,9 +1,3 @@
-/**
- * Moderation API Routes
- *
- * REST API endpoints for querying and interacting with the moderation system.
- */
-
 import { Elysia } from 'elysia'
 import { type Address, createPublicClient, type Hex, http } from 'viem'
 import { baseSepolia } from 'viem/chains'
@@ -15,8 +9,6 @@ import {
 } from '../config/contracts.js'
 import { getRpcUrl } from '../config/networks.js'
 import { clearBanCache } from '../middleware/ban-check.js'
-
-// ============ ABIs ============
 
 const BAN_MANAGER_ABI = [
   {
@@ -210,8 +202,6 @@ const REPUTATION_LABEL_ABI = [
   },
 ] as const
 
-// ============ Types ============
-
 interface BanRecord {
   isBanned: boolean
   banType: number
@@ -287,14 +277,10 @@ interface CacheClearBody {
   address?: Address
 }
 
-// ============ Client ============
-
 const publicClient = createPublicClient({
   chain: baseSepolia,
   transport: http(getRpcUrl(84532)),
 })
-
-// ============ Plugin ============
 
 export const moderationPlugin = new Elysia({
   name: 'moderation',

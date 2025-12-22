@@ -170,9 +170,9 @@ describe('caip/index.ts - Universal CAIP Parsing', () => {
       expect(getCAIPType('eip155:1/slip44:60')).toBe('asset')
     })
 
-    test('returns null for invalid', () => {
-      expect(getCAIPType('')).toBe(null)
-      expect(getCAIPType('invalid')).toBe(null)
+    test('returns undefined for invalid', () => {
+      expect(getCAIPType('')).toBeUndefined()
+      expect(getCAIPType('invalid')).toBeUndefined()
     })
   })
 

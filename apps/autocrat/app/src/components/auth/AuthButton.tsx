@@ -13,10 +13,17 @@ import { useEffect, useState } from 'react'
 import { useAccount, useConnect, useDisconnect, useSignMessage } from 'wagmi'
 import { injected, walletConnect } from 'wagmi/connectors'
 
+type AuthMethod = 'siwe' | 'siwf' | 'passkey' | 'social'
+
 interface AuthSession {
   address: string
-  method: 'siwe' | 'siwf' | 'passkey' | 'social'
+  method: AuthMethod
   expiresAt: number
+}
+
+interface OAuth3InitResponse {
+  authUrl: string
+  state: string
 }
 
 interface AuthButtonProps {
@@ -114,7 +121,8 @@ export function AuthButton({ onSuccess, className = '' }: AuthButtonProps) {
 
       if (!response.ok) throw new Error('Failed to initialize Farcaster auth')
 
-      const { authUrl, state } = await response.json()
+      const data: OAuth3InitResponse = await response.json()
+      const { authUrl, state } = data
       sessionStorage.setItem('oauth3_state', state)
       window.location.href = authUrl
     } catch (err) {
@@ -144,7 +152,8 @@ export function AuthButton({ onSuccess, className = '' }: AuthButtonProps) {
 
       if (!response.ok) throw new Error(`Failed to initialize ${provider} auth`)
 
-      const { authUrl, state } = await response.json()
+      const data: OAuth3InitResponse = await response.json()
+      const { authUrl, state } = data
       sessionStorage.setItem('oauth3_state', state)
       window.location.href = authUrl
     } catch (err) {

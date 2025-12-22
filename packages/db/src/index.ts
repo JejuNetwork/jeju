@@ -27,14 +27,13 @@
  * ```
  */
 
-// Client
 export {
   CQLClient,
   CQLClient as CovenantSQLClient,
   getCQL,
   resetCQL,
 } from './client.js'
-// Migration
+
 export {
   addColumn,
   createIndex,
@@ -43,7 +42,7 @@ export {
   defineMigration,
   MigrationManager,
 } from './migration.js'
-// Query Builder Utilities
+
 export {
   buildOrderByClause,
   buildWhereClause,
@@ -52,52 +51,43 @@ export {
   type WhereClauseResult,
   type WhereInput,
 } from './query-builder.js'
-// Server (for local development)
+
 export { CQLServer, createCQLServer } from './server.js'
-// Types
+
 export type {
   ACLEventDetails,
   ACLPermission,
-  // ACL
   ACLRule,
-  // Network
   BlockProducerInfo,
   ColumnMeta,
-  // Config
   CQLConfig,
-  // Connection
   CQLConnection,
   CQLConnectionPool,
   CQLDataType,
-  // Events
   CQLEvent,
   CQLEventDetails,
   CQLQueryable,
   CQLTransaction,
   CreateRentalRequest,
-  // Database
   DatabaseConfig,
   DatabaseInfo,
   DatabaseStatus,
   ExecEventDetails,
   ExecResult,
   GrantRequest,
-  // Migration
   Migration,
   MigrationEventDetails,
   MigrationResult,
   MinerInfo,
   QueryEventDetails,
-  // Query
   QueryParam,
   QueryResult,
   RentalEventDetails,
   RentalInfo,
-  // Rental
   RentalPlan,
   RevokeRequest,
 } from './types.js'
-// Utilities
+
 export {
   parseBoolean,
   parsePort,

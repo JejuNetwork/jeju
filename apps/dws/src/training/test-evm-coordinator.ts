@@ -142,6 +142,8 @@ async function main() {
         rewardPerStep: BigInt(1e18), // 1 token per step
       },
     ],
+    chain: walletClient.chain ?? null,
+    account: walletClient.account ?? null,
   })
   await publicClient.waitForTransactionReceipt({ hash: createRunHash })
   console.log(`   Run created: ${runId.slice(0, 18)}...`)
@@ -155,6 +157,8 @@ async function main() {
     abi: COORDINATOR_ABI,
     functionName: 'registerClient',
     args: [secondAccount.address, solanaKey, 'RTX5090', 1, 16],
+    chain: secondWalletClient.chain ?? null,
+    account: secondWalletClient.account ?? null,
   })
   await publicClient.waitForTransactionReceipt({ hash: registerHash })
   console.log(`   Client registered: ${secondAccount.address}`)
@@ -166,6 +170,8 @@ async function main() {
     abi: COORDINATOR_ABI,
     functionName: 'joinRun',
     args: [runId],
+    chain: secondWalletClient.chain ?? null,
+    account: secondWalletClient.account ?? null,
   })
   await publicClient.waitForTransactionReceipt({ hash: joinHash })
   console.log('   Client joined run')
@@ -177,6 +183,8 @@ async function main() {
     abi: COORDINATOR_ABI,
     functionName: 'startRun',
     args: [runId],
+    chain: walletClient.chain ?? null,
+    account: walletClient.account ?? null,
   })
   await publicClient.waitForTransactionReceipt({ hash: startHash })
   console.log('   Run started (state: WarmingUp)')
@@ -188,6 +196,8 @@ async function main() {
     abi: COORDINATOR_ABI,
     functionName: 'authorizeBridge',
     args: [account.address, true],
+    chain: walletClient.chain ?? null,
+    account: walletClient.account ?? null,
   })
   await publicClient.waitForTransactionReceipt({ hash: authHash })
 
@@ -219,6 +229,8 @@ async function main() {
       10,
       keccak256(Buffer.from('checkpoint-merkle')) as Hex,
     ],
+    chain: walletClient.chain ?? null,
+    account: walletClient.account ?? null,
   })
   await publicClient.waitForTransactionReceipt({ hash: checkpointHash })
   console.log('   Checkpoint submitted: epoch=10')

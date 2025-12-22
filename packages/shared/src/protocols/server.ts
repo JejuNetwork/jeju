@@ -89,9 +89,7 @@ const MCPPromptGetSchema = z.object({
   arguments: z.record(z.string(), z.string()),
 })
 
-// ============================================================================
 // Types
-// ============================================================================
 
 export interface A2ASkill {
   id: string
@@ -198,9 +196,7 @@ interface MCPPromptResult {
   messages: Array<{ role: string; content: { type: string; text: string } }>
 }
 
-// ============================================================================
 // Server Factory
-// ============================================================================
 
 export function createServer(config: ServerConfig) {
   // Configure middleware if provided
@@ -270,7 +266,6 @@ export function createServer(config: ServerConfig) {
       }),
     )
 
-    // ========== A2A Protocol ==========
     .get('/.well-known/agent-card.json', () => agentCard)
     .get('/a2a/.well-known/agent-card.json', () => agentCard)
 
@@ -369,7 +364,6 @@ export function createServer(config: ServerConfig) {
       }
     })
 
-    // ========== MCP Protocol ==========
     .post('/mcp/initialize', () => ({
       protocolVersion: '2024-11-05',
       serverInfo: mcpServerInfo,
@@ -521,7 +515,6 @@ export function createServer(config: ServerConfig) {
       capabilities: mcpServerInfo.capabilities,
     }))
 
-    // ========== Health & Info ==========
     .get('/health', () => ({
       status: 'ok',
       service: config.name,
@@ -545,7 +538,6 @@ export function createServer(config: ServerConfig) {
       tools: config.tools?.map((t) => t.name),
     }))
 
-  // ========== REST API ==========
   if (config.setupREST) {
     const apiRouter = new Elysia()
     config.setupREST(apiRouter)
@@ -555,9 +547,7 @@ export function createServer(config: ServerConfig) {
   return app
 }
 
-// ============================================================================
 // Agent Card Generator
-// ============================================================================
 
 interface GeneratedAgentCard {
   protocolVersion: string
@@ -599,9 +589,7 @@ function createAgentCard(config: ServerConfig): GeneratedAgentCard {
   }
 }
 
-// ============================================================================
 // Server Starter
-// ============================================================================
 
 export interface ServerInstance {
   app: ReturnType<typeof createServer>
@@ -639,9 +627,7 @@ export async function startServer(
   }
 }
 
-// ============================================================================
 // Serverless Export Helper
-// ============================================================================
 
 export function createServerlessHandler(config: ServerConfig): {
   fetch: (request: Request) => Response | Promise<Response>

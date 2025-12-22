@@ -13,7 +13,6 @@ import {
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const SERVER_PATH = join(__dirname, '../../server/a2a-server.ts')
 
-// Check if documentation content exists
 const DOCS_EXIST =
   existsSync(DOCS_ROOT) && existsSync(join(DOCS_ROOT, 'index.mdx'))
 
@@ -49,59 +48,35 @@ describe('A2A Server Structure', () => {
 
 describe('Documentation Files Exist', () => {
   test('index.mdx exists', () => {
-    if (!DOCS_EXIST) {
-      console.log('Skipping: docs directory not set up')
-      return
-    }
+    if (!DOCS_EXIST) return
     expect(existsSync(join(DOCS_ROOT, 'index.mdx'))).toBe(true)
   })
 
   test('getting-started directory exists', () => {
-    if (!DOCS_EXIST) {
-      console.log('Skipping: docs directory not set up')
-      return
-    }
-    const path = join(DOCS_ROOT, 'getting-started')
-    if (!existsSync(path)) {
-      console.log('Skipping: getting-started directory not yet created')
-      return
-    }
-    expect(existsSync(path)).toBe(true)
+    if (!DOCS_EXIST) return
+    const dirPath = join(DOCS_ROOT, 'getting-started')
+    if (!existsSync(dirPath)) return
+    expect(existsSync(dirPath)).toBe(true)
   })
 
   test('contracts directory exists', () => {
-    if (!DOCS_EXIST) {
-      console.log('Skipping: docs directory not set up')
-      return
-    }
-    const path = join(DOCS_ROOT, 'contracts')
-    if (!existsSync(path)) {
-      console.log('Skipping: contracts directory not yet created')
-      return
-    }
-    expect(existsSync(path)).toBe(true)
+    if (!DOCS_EXIST) return
+    const dirPath = join(DOCS_ROOT, 'contracts')
+    if (!existsSync(dirPath)) return
+    expect(existsSync(dirPath)).toBe(true)
   })
 
   test('applications directory exists', () => {
-    if (!DOCS_EXIST) {
-      console.log('Skipping: docs directory not set up')
-      return
-    }
-    const path = join(DOCS_ROOT, 'applications')
-    if (!existsSync(path)) {
-      console.log('Skipping: applications directory not yet created')
-      return
-    }
-    expect(existsSync(path)).toBe(true)
+    if (!DOCS_EXIST) return
+    const dirPath = join(DOCS_ROOT, 'applications')
+    if (!existsSync(dirPath)) return
+    expect(existsSync(dirPath)).toBe(true)
   })
 })
 
 describe('Search Documentation Integration', () => {
   test('finds results for common terms', async () => {
-    if (!DOCS_EXIST) {
-      console.log('Skipping: docs directory not set up')
-      return
-    }
+    if (!DOCS_EXIST) return
     const results = await searchDocumentation('jeju')
     expect(results.length).toBeGreaterThan(0)
     expect(results[0].matches).toBeGreaterThan(0)
@@ -113,29 +88,20 @@ describe('Search Documentation Integration', () => {
   })
 
   test('is case insensitive', async () => {
-    if (!DOCS_EXIST) {
-      console.log('Skipping: docs directory not set up')
-      return
-    }
+    if (!DOCS_EXIST) return
     const lowerResults = await searchDocumentation('jeju')
     const upperResults = await searchDocumentation('JEJU')
     expect(lowerResults.length).toBe(upperResults.length)
   })
 
   test('limits results to 20', async () => {
-    if (!DOCS_EXIST) {
-      console.log('Skipping: docs directory not set up')
-      return
-    }
+    if (!DOCS_EXIST) return
     const results = await searchDocumentation('the')
     expect(results.length).toBeLessThanOrEqual(20)
   })
 
   test('sorts by match count descending', async () => {
-    if (!DOCS_EXIST) {
-      console.log('Skipping: docs directory not set up')
-      return
-    }
+    if (!DOCS_EXIST) return
     const results = await searchDocumentation('contract')
     if (results.length > 1) {
       expect(results[0].matches).toBeGreaterThanOrEqual(results[1].matches)
@@ -153,10 +119,7 @@ describe('Search Documentation Integration', () => {
   })
 
   test('excludes node_modules', async () => {
-    if (!DOCS_EXIST) {
-      console.log('Skipping: docs directory not set up')
-      return
-    }
+    if (!DOCS_EXIST) return
     const results = await searchDocumentation('express')
     const hasNodeModules = results.some((r) => r.file.includes('node_modules'))
     expect(hasNodeModules).toBe(false)
@@ -173,30 +136,21 @@ describe('List Topics Integration', () => {
   })
 
   test('includes index', async () => {
-    if (!DOCS_EXIST) {
-      console.log('Skipping: docs directory not set up')
-      return
-    }
+    if (!DOCS_EXIST) return
     const topics = await listTopics()
     const hasIndex = topics.some((t) => t.name === 'index')
     expect(hasIndex).toBe(true)
   })
 
   test('includes nested topics with paths', async () => {
-    if (!DOCS_EXIST) {
-      console.log('Skipping: docs directory not set up')
-      return
-    }
+    if (!DOCS_EXIST) return
     const topics = await listTopics()
     const nestedTopics = topics.filter((t) => t.path.includes('/'))
     expect(nestedTopics.length).toBeGreaterThan(0)
   })
 
   test('topic paths end with doc extension', async () => {
-    if (!DOCS_EXIST) {
-      console.log('Skipping: docs directory not set up')
-      return
-    }
+    if (!DOCS_EXIST) return
     const topics = await listTopics()
     const allEndWithDocExt = topics.every(
       (t) => t.path.endsWith('.md') || t.path.endsWith('.mdx'),
@@ -205,10 +159,7 @@ describe('List Topics Integration', () => {
   })
 
   test('topic names do not include extension', async () => {
-    if (!DOCS_EXIST) {
-      console.log('Skipping: docs directory not set up')
-      return
-    }
+    if (!DOCS_EXIST) return
     const topics = await listTopics()
     const noneEndWithExt = topics.every(
       (t) => !t.name.endsWith('.md') && !t.name.endsWith('.mdx'),
@@ -219,19 +170,13 @@ describe('List Topics Integration', () => {
 
 describe('Get Page Integration', () => {
   test('reads index.mdx successfully', async () => {
-    if (!DOCS_EXIST) {
-      console.log('Skipping: docs directory not set up')
-      return
-    }
+    if (!DOCS_EXIST) return
     const content = await readFile(join(DOCS_ROOT, 'index.mdx'), 'utf-8')
     expect(content.length).toBeGreaterThan(0)
   })
 
   test('reads nested page successfully', async () => {
-    if (!DOCS_EXIST) {
-      console.log('Skipping: docs directory not set up')
-      return
-    }
+    if (!DOCS_EXIST) return
     const content = await readFile(
       join(DOCS_ROOT, 'getting-started/quick-start.mdx'),
       'utf-8',
@@ -285,9 +230,9 @@ describe('Error Handling', () => {
 })
 
 describe('Configuration', () => {
-  test('uses environment variable for port', async () => {
+  test('uses CORE_PORTS for port configuration', async () => {
     const serverCode = await Bun.file(SERVER_PATH).text()
-    expect(serverCode).toContain('DOCUMENTATION_A2A_PORT')
+    expect(serverCode).toContain('CORE_PORTS.DOCUMENTATION_A2A')
   })
 
   test('has default port', async () => {
@@ -335,10 +280,7 @@ describe('Security', () => {
   })
 
   test('regex patterns are performance-safe', async () => {
-    if (!DOCS_EXIST) {
-      console.log('Skipping: docs directory not set up')
-      return
-    }
+    if (!DOCS_EXIST) return
     const patterns = ['(a+)+$', '([a-zA-Z]+)*X', '(.*a){25}']
     for (const pattern of patterns) {
       const start = performance.now()

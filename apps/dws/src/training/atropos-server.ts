@@ -337,7 +337,7 @@ export function createAtroposServer(): Elysia {
     return {
       status: 'success',
       env_id: registeredId,
-      wandb_name: realName,
+      env_name: realName,
       checkpoint_dir: state.checkpoint_dir,
       starting_step: state.status_dict.step,
       checkpoint_interval: state.save_checkpoint_interval,

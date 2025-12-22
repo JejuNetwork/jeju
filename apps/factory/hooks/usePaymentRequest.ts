@@ -41,15 +41,11 @@ const PAYMENT_REQUEST_REGISTRY_ABI = parseAbi([
   'function getDAOConfig(bytes32 daoId) external view returns (tuple(bool requiresCouncilApproval, uint256 minCouncilVotes, uint256 councilSupermajorityBps, bool ceoCanOverride, uint256 maxAutoApproveAmount, uint256 reviewPeriod, uint256 disputePeriod, address treasuryToken, bool allowRetroactive, uint256 retroactiveMaxAge))',
 ])
 
-// ============ Config ============
-
 import { addresses } from '../config/contracts'
 
 function getAddress(): Address {
   return addresses.paymentRequestRegistry
 }
-
-// ============ Parse Helpers ============
 
 type RawPaymentRequest = [
   string,
@@ -273,8 +269,6 @@ export function useDAOPaymentConfig(daoId: string | undefined) {
 
   return { config, isLoading, error }
 }
-
-// ============ Write Hooks ============
 
 export function useSubmitPaymentRequest() {
   const { writeContract, data: hash, isPending, error } = useWriteContract()

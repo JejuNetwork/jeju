@@ -7,9 +7,9 @@
 
 import { beforeAll, describe, expect, test } from 'bun:test'
 import { getCharacter, listCharacters } from '../src/characters'
+import { checkDWSHealth } from '../src/client/dws'
 import {
   CrucibleAgentRuntime,
-  checkDWSHealth,
   createCrucibleRuntime,
   type RuntimeMessage,
   runtimeManager,

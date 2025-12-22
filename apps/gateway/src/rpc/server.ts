@@ -53,11 +53,6 @@ import {
   purchaseCredits,
 } from './services/x402-payments.js'
 
-// ============================================================================
-// MCP Types for RPC Server
-// ============================================================================
-
-/** Chain info returned by MCP resources */
 interface ChainSummary {
   chainId: number
   name: string
@@ -65,38 +60,32 @@ interface ChainSummary {
   endpoint: string
 }
 
-/** Rate limit tier configuration */
 interface TierConfig {
   stake: number
   limit: number | string
 }
 
-/** Possible MCP resource contents for RPC server */
 type RpcMcpResourceContents =
   | ChainSummary[]
   | ReturnType<typeof getEndpointHealth>
   | Record<string, TierConfig>
 
-/** Result from list_chains tool */
 interface ListChainsResult {
   chains: Array<{ chainId: number; name: string; isTestnet: boolean }>
 }
 
-/** Result from create_api_key tool */
 interface CreateApiKeyResult {
   key: string
   id: string
   tier: string
 }
 
-/** Result from check_rate_limit tool */
 interface CheckRateLimitResult {
   address: string
   apiKeys: number
   tiers: typeof RATE_LIMITS
 }
 
-/** Result from get_usage tool */
 interface GetUsageResult {
   address: string
   apiKeys: number
@@ -366,7 +355,7 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
     const validated = validateBody(
       z.object({
         name: z.string().min(1),
-        arguments: JsonObjectSchema.optional().default({}),
+        arguments: JsonObjectSchema.nullable().default({}),
       }),
       body,
       'MCP tool call',

@@ -7,7 +7,21 @@
  */
 
 import { toJSONSchema, type ZodObject, type ZodRawShape, z } from 'zod'
-import type { JsonValue, MCPTool, StringRecord } from '../types/mcp'
+import type {
+  JsonValue,
+  MCPTool,
+  MCPToolInputSchemaProperty,
+  StringRecord,
+} from '../types/mcp'
+
+/**
+ * JSON Schema output from Zod's toJSONSchema
+ */
+interface ZodJSONSchemaOutput {
+  type?: string
+  properties?: StringRecord<MCPToolInputSchemaProperty>
+  required?: string[]
+}
 
 /**
  * JSON Value Schema for Zod - validates any JSON value
@@ -32,16 +46,11 @@ export const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
 export function zodSchemaToMCPSchema(
   schema: ZodObject<ZodRawShape>,
 ): MCPTool['inputSchema'] {
-  const jsonSchema = toJSONSchema(schema) as {
-    type?: string
-    properties?: StringRecord<object>
-    required?: string[]
-  }
+  const jsonSchema = toJSONSchema(schema) as ZodJSONSchemaOutput
 
   return {
     type: 'object',
-    properties: (jsonSchema.properties ||
-      {}) as MCPTool['inputSchema']['properties'],
+    properties: jsonSchema.properties ?? {},
     required: jsonSchema.required,
   }
 }

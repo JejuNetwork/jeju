@@ -131,10 +131,6 @@ export class WalletService {
     )
   }
 
-  // ============================================================================
-  // RPC Management - Network Integration
-  // ============================================================================
-
   private getNetworkRpcUrl(chainId: number): string | null {
     if (!this._config.useNetworkInfrastructure) return null
 
@@ -156,10 +152,6 @@ export class WalletService {
     expectChainId(chainId, 'chainId')
     return this._walletClients.get(chainId) || null
   }
-
-  // ============================================================================
-  // Account Management
-  // ============================================================================
 
   getState(): WalletState {
     return { ...this._state }
@@ -331,10 +323,6 @@ export class WalletService {
     return true
   }
 
-  // ============================================================================
-  // Balance & Token Management
-  // ============================================================================
-
   async getBalances(chainId?: number): Promise<TokenBalance[]> {
     const account = this._state.currentAccount
     if (!account) {
@@ -422,10 +410,6 @@ export class WalletService {
       topTokens,
     }
   }
-
-  // ============================================================================
-  // Transaction Management
-  // ============================================================================
 
   async sendTransaction(options: {
     chainId: number
@@ -533,10 +517,6 @@ export class WalletService {
     return expectHex(signature, 'signature')
   }
 
-  // ============================================================================
-  // Transaction Simulation
-  // ============================================================================
-
   async simulateTransaction(options: {
     chainId: number
     to: Address
@@ -577,10 +557,6 @@ export class WalletService {
       logs: [],
     }
   }
-
-  // ============================================================================
-  // View Mode Management
-  // ============================================================================
 
   setViewMode(mode: 'simple' | 'advanced'): void {
     this._state.viewMode = mode

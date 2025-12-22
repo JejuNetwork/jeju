@@ -1,7 +1,5 @@
 /**
  * RPC Gateway Module
- * @deprecated RPC functionality has moved to DWS. This re-exports for backwards compatibility.
- * Use @jejunetwork/dws for new code.
  */
 
 export {

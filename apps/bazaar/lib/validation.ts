@@ -24,10 +24,6 @@ export {
   validateOrThrow,
 } from '@jejunetwork/types'
 
-// ============================================================================
-// Intent API Response Schemas
-// ============================================================================
-
 export const IntentQuoteSchema = z.object({
   outputAmount: z.string(),
   feePercent: z.number(),
@@ -169,10 +165,6 @@ export const LeaderboardResponseSchema = z.object({
 })
 export type LeaderboardResponse = z.infer<typeof LeaderboardResponseSchema>
 
-// ============================================================================
-// JNS Listing Response Schemas
-// ============================================================================
-
 export const JNSListingSchema = z.object({
   id: z.string(),
   price: z.string(),
@@ -199,10 +191,6 @@ export const JNSListingsGraphQLResponseSchema = z.object({
 export type JNSListingsGraphQLResponse = z.infer<
   typeof JNSListingsGraphQLResponseSchema
 >
-
-// ============================================================================
-// GraphQL Response Schemas
-// ============================================================================
 
 export const GraphQLResponseSchema = <T extends z.ZodTypeAny>(dataSchema: T) =>
   z.object({

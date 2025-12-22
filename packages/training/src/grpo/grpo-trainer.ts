@@ -8,7 +8,16 @@
 
 import { expectValid } from '@jejunetwork/types'
 import { type Subprocess, spawn } from 'bun'
+import { z } from 'zod'
 import { BatchResponseSchema } from '../schemas'
+
+/** Schema for training step response from Python trainer */
+const TrainingStepResponseSchema = z.object({
+  loss: z.number(),
+  pos_logp: z.number(),
+  neg_logp: z.number(),
+  grad_norm: z.number(),
+})
 
 // ============================================================================
 // Types
@@ -34,10 +43,10 @@ export interface BatchData {
   tokens: number[][]
   masks: number[][]
   scores: number[]
-  advantages?: number[][] | null
-  overrides?: Array<Record<string, string | number | boolean>> | null
-  generation_params?: Record<string, string | number | boolean> | null
-  group_overrides?: Record<string, string | number | boolean> | null
+  advantages?: number[][]
+  overrides?: Array<Record<string, string | number | boolean>>
+  generation_params?: Record<string, string | number | boolean>
+  group_overrides?: Record<string, string | number | boolean>
 }
 
 export interface TrainingMetrics {
@@ -53,8 +62,8 @@ export interface TrainerStatus {
   running: boolean
   currentStep: number
   totalSteps: number
-  lastMetrics: TrainingMetrics | null
-  checkpointPath: string | null
+  lastMetrics?: TrainingMetrics
+  checkpointPath?: string
 }
 
 // ============================================================================
@@ -193,8 +202,6 @@ export class GRPOTrainer {
     running: false,
     currentStep: 0,
     totalSteps: 0,
-    lastMetrics: null,
-    checkpointPath: null,
   }
 
   constructor(config: Partial<TrainingConfig> = {}) {
@@ -374,40 +381,35 @@ export class GRPOTrainer {
           accumulation_step: i,
           total_steps: batches.tokenBatches.length,
         }),
-      }).catch(() => null)
+      })
 
-      if (response?.ok) {
-        const metrics = (await response.json()) as {
-          loss: number
-          pos_logp: number
-          neg_logp: number
-          grad_norm: number
-        }
-
-        totalLoss += metrics.loss / this.config.gradientAccumulationSteps
-        gradNorm = Math.max(gradNorm, metrics.grad_norm)
-
-        for (const adv of advantages) {
-          if (adv > 0) {
-            totalPosLogp += metrics.pos_logp
-            totalPos++
-          } else {
-            totalNegLogp += metrics.neg_logp
-            totalNeg++
-          }
-        }
-      } else {
-        // Fallback: estimate metrics from batch statistics when trainer unavailable
-        console.warn(
-          '[GRPO] Training endpoint unavailable, using batch statistics',
+      if (!response.ok) {
+        throw new Error(
+          `Training endpoint returned ${response.status}: ${response.statusText}`,
         )
-        const batchSize = advantages.length
-        totalLoss += 0.1 / this.config.gradientAccumulationSteps
-        for (const adv of advantages) {
-          if (adv > 0) totalPos++
-          else totalNeg++
+      }
+
+      const rawResponse = await response.json()
+      const parseResult = TrainingStepResponseSchema.safeParse(rawResponse)
+
+      if (!parseResult.success) {
+        throw new Error(
+          `Invalid training response format: ${parseResult.error.message}`,
+        )
+      }
+
+      const metrics = parseResult.data
+      totalLoss += metrics.loss / this.config.gradientAccumulationSteps
+      gradNorm = Math.max(gradNorm, metrics.grad_norm)
+
+      for (const adv of advantages) {
+        if (adv > 0) {
+          totalPosLogp += metrics.pos_logp
+          totalPos++
+        } else {
+          totalNegLogp += metrics.neg_logp
+          totalNeg++
         }
-        gradNorm = Math.max(gradNorm, batchSize * 0.01)
       }
     }
 

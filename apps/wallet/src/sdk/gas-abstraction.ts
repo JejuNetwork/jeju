@@ -13,10 +13,6 @@ import { AAClient } from './account-abstraction'
 import { EILClient } from './eil'
 import type { GasOption, TokenBalance } from './types'
 
-// ============================================================================
-// Types
-// ============================================================================
-
 export type GasPaymentMode = 'native' | 'token' | 'sponsored' | 'cross-chain'
 
 export interface GasConfig {
@@ -50,10 +46,6 @@ export interface GasStatus {
     fee: bigint
   }
 }
-
-// ============================================================================
-// Gas Abstraction Service
-// ============================================================================
 
 export interface GasServiceConfig {
   publicClients: Map<number, PublicClient>
@@ -262,7 +254,6 @@ export class GasAbstractionService {
     }
 
     return eilClient.buildPaymasterData(
-      0, // Token payment mode
       paymentToken,
       appAddress ?? ('0x0000000000000000000000000000000000000000' as Address),
     )
@@ -349,10 +340,6 @@ export class GasAbstractionService {
     return (tokensByChain[chainId] ?? []) as Address[]
   }
 }
-
-// ============================================================================
-// Factory Function
-// ============================================================================
 
 export function createGasService(
   config: GasServiceConfig,

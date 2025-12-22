@@ -6,8 +6,6 @@
 
 import type { Address, Hex } from 'viem'
 
-// ============ Configuration Types ============
-
 export interface TEEKeyConfig {
   /** KMS service endpoint */
   kmsEndpoint: string
@@ -18,8 +16,6 @@ export interface TEEKeyConfig {
   /** Network for on-chain operations */
   network?: 'mainnet' | 'testnet'
 }
-
-// ============ Key Types ============
 
 export interface TEEIdentityKey {
   /** Unique key ID */
@@ -64,8 +60,6 @@ export interface TEEInstallationKey {
   createdAt: number
 }
 
-// ============ Attestation Types ============
-
 export interface TEEAttestation {
   /** Attestation version */
   version: number
@@ -99,8 +93,6 @@ export interface AttestationVerificationResult {
   /** Errors encountered */
   errors: string[]
 }
-
-// ============ Operation Types ============
 
 export interface SignRequest {
   /** Key ID to sign with */
@@ -142,8 +134,6 @@ export interface EncryptedBackup {
   /** Creation timestamp */
   createdAt: number
 }
-
-// ============ KMS Types ============
 
 export type KeyType = 'ed25519' | 'x25519' | 'secp256k1'
 
@@ -206,8 +196,6 @@ export interface DeriveKeyRequest {
   /** Derivation info */
   info: string
 }
-
-// ============ Registry Types ============
 
 export interface KeyRegistration {
   /** Address owning the key */

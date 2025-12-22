@@ -211,7 +211,7 @@ describe('TOTPManager.getCurrentCode', () => {
     const code = await manager.getCurrentCode('user')
     expect(code).not.toBeNull()
     expect(code).toHaveLength(6)
-    expect(/^\d{6}$/.test(code!)).toBe(true)
+    expect(/^\d{6}$/.test(code as string)).toBe(true)
   })
 })
 

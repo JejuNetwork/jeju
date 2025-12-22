@@ -1,6 +1,11 @@
 /**
  * Twitter/X Platform Adapter
  * Uses Twitter API v2 for posting and monitoring mentions
+ *
+ * External API Strategy:
+ * - Twitter API v2: External social media API (keep fetch)
+ *   All endpoints use raw fetch with Zod validation and OAuth 1.0a signing.
+ *   Cannot use Eden as Twitter is a third-party service.
  */
 
 import { expectValid } from '@jejunetwork/types'

@@ -16,7 +16,11 @@ export {
   DWSTrainingClient,
   getDefaultDWSConfig,
   isDWSAvailable,
+  type RolloutAction,
   type RolloutData,
+  type RolloutMetadata,
+  type RolloutObservation,
+  type RolloutStep,
 } from './dws-client'
 
 export type {

@@ -10,6 +10,7 @@ import { Link } from 'react-router-dom'
 import { HealthRing } from '../components/HealthRing'
 import { StatCard } from '../components/StatCard'
 import {
+  type Alert,
   useAlerts,
   useOIFStats,
   useSystemHealth,
@@ -19,14 +20,18 @@ import { formatNumber } from '../types'
 
 export function Dashboard() {
   const systemHealth = useSystemHealth()
-  const { targets, upCount } = useTargets()
-  const { alerts } = useAlerts()
-  const { stats: oifStats, loading: oifLoading } = useOIFStats()
+  const targetsQuery = useTargets()
+  const alertsQuery = useAlerts()
+  const { stats: oifStats, isLoading: oifLoading } = useOIFStats()
+
+  const targets = targetsQuery.data?.targets ?? []
+  const upCount = targetsQuery.data?.upCount ?? 0
+  const alerts = alertsQuery.data?.alerts ?? []
 
   const healthPercentage =
     targets.length > 0 ? Math.round((upCount / targets.length) * 100) : 100
 
-  const firingAlerts = alerts.filter((a) => a.state === 'firing')
+  const firingAlerts = alerts.filter((a: Alert) => a.state === 'firing')
 
   return (
     <div className="space-y-6 md:space-y-8">
@@ -144,7 +149,7 @@ export function Dashboard() {
                 ? 'warning'
                 : 'error'
           }
-          loading={systemHealth.loading}
+          loading={systemHealth.isLoading}
         />
 
         <StatCard
@@ -154,11 +159,13 @@ export function Dashboard() {
           status={
             firingAlerts.length === 0
               ? 'success'
-              : firingAlerts.some((a) => a.labels.severity === 'critical')
+              : firingAlerts.some(
+                    (a: Alert) => a.labels.severity === 'critical',
+                  )
                 ? 'error'
                 : 'warning'
           }
-          loading={systemHealth.loading}
+          loading={systemHealth.isLoading}
         />
 
         <StatCard
@@ -240,7 +247,7 @@ export function Dashboard() {
           </div>
         ) : (
           <div className="space-y-3">
-            {firingAlerts.slice(0, 5).map((alert) => {
+            {firingAlerts.slice(0, 5).map((alert: Alert) => {
               const alertKey = `${alert.labels.alertname || 'unknown'}-${alert.labels.instance || ''}-${alert.labels.job || ''}`
               return (
                 <div

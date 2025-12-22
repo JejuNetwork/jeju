@@ -13,10 +13,6 @@ import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { Hex } from 'viem'
 
-// ============================================================================
-// Types
-// ============================================================================
-
 export type ClusterProvider = 'k3s' | 'k3d' | 'minikube'
 
 export interface K3sClusterConfig {
@@ -57,16 +53,8 @@ export interface K3sNode {
   }
 }
 
-// ============================================================================
-// Cluster Store
-// ============================================================================
-
 const clusters = new Map<string, K3sCluster>()
 const DWS_K3S_DIR = process.env.DWS_K3S_DIR || '/tmp/dws-k3s'
-
-// ============================================================================
-// Binary Detection
-// ============================================================================
 
 async function findBinary(name: string): Promise<string | null> {
   const paths = [
@@ -110,10 +98,6 @@ async function detectProvider(): Promise<{
   return null
 }
 
-// ============================================================================
-// Cluster Lifecycle
-// ============================================================================
-
 export async function createCluster(
   config: K3sClusterConfig,
 ): Promise<K3sCluster> {
@@ -124,8 +108,6 @@ export async function createCluster(
 
   const { provider, binary } = detection
   const resolvedProvider = config.provider || provider
-
-  console.log(`[K3s] Creating cluster ${config.name} with ${resolvedProvider}`)
 
   await mkdir(DWS_K3S_DIR, { recursive: true })
   const kubeconfigPath = join(DWS_K3S_DIR, `${config.name}.kubeconfig`)
@@ -155,7 +137,6 @@ export async function createCluster(
   }
 
   cluster.status = 'running'
-  console.log(`[K3s] Cluster ${config.name} is running`)
 
   return cluster
 }
@@ -190,8 +171,6 @@ async function createK3dCluster(
   if (config.clusterCidr) {
     args.push('--k3s-arg', `--cluster-cidr=${config.clusterCidr}@server:*`)
   }
-
-  console.log(`[K3s] Running: ${binary} ${args.join(' ')}`)
 
   const proc = Bun.spawn([binary, ...args], {
     stdout: 'pipe',
@@ -282,8 +261,6 @@ async function createK3sCluster(
     args.push(`--service-cidr=${config.serviceCidr}`)
   }
 
-  console.log(`[K3s] Running: ${binary} ${args.join(' ')}`)
-
   // Start k3s as background process
   const proc = Bun.spawn([binary, ...args], {
     stdout: 'pipe',
@@ -339,8 +316,6 @@ async function createMinikubeCluster(
     args.push('--memory', String(config.memoryMb))
   }
 
-  console.log(`[K3s] Running: ${binary} ${args.join(' ')}`)
-
   const proc = Bun.spawn([binary, ...args], {
     stdout: 'pipe',
     stderr: 'pipe',
@@ -387,8 +362,6 @@ export async function deleteCluster(name: string): Promise<void> {
     throw new Error(`Cluster ${name} not found`)
   }
 
-  console.log(`[K3s] Deleting cluster ${name}`)
-
   // Kill process if k3s
   if (cluster.process) {
     cluster.process.kill()
@@ -430,7 +403,6 @@ export async function deleteCluster(name: string): Promise<void> {
   }
 
   clusters.delete(name)
-  console.log(`[K3s] Cluster ${name} deleted`)
 }
 
 export function getCluster(name: string): K3sCluster | undefined {
@@ -440,10 +412,6 @@ export function getCluster(name: string): K3sCluster | undefined {
 export function listClusters(): K3sCluster[] {
   return Array.from(clusters.values())
 }
-
-// ============================================================================
-// Helm Chart Deployment to Local Cluster
-// ============================================================================
 
 export async function installHelmChart(
   clusterName: string,
@@ -504,8 +472,6 @@ export async function installHelmChart(
     args.push('--timeout', params.timeout)
   }
 
-  console.log(`[K3s] Running: ${helm} ${args.join(' ')}`)
-
   const proc = Bun.spawn([helm, ...args], {
     stdout: 'pipe',
     stderr: 'pipe',
@@ -558,10 +524,6 @@ export async function applyManifest(
 
   return { success: true, output: stdout }
 }
-
-// ============================================================================
-// DWS Node Agent Installation
-// ============================================================================
 
 export async function installDWSAgent(
   clusterName: string,
@@ -661,13 +623,7 @@ export async function installDWSAgent(
   if (!result.success) {
     throw new Error(`Failed to install DWS agent: ${result.output}`)
   }
-
-  console.log(`[K3s] DWS agent installed in cluster ${clusterName}`)
 }
-
-// ============================================================================
-// Helpers
-// ============================================================================
 
 async function waitForFile(path: string, timeoutMs: number): Promise<void> {
   const deadline = Date.now() + timeoutMs
@@ -709,176 +665,168 @@ async function waitForKubeApi(
   throw new Error('Timeout waiting for Kubernetes API')
 }
 
-// ============================================================================
-// Hono Router
-// ============================================================================
+import { Elysia, t } from 'elysia'
 
-import { Hono } from 'hono'
-import { z } from 'zod'
-import { validateBody } from '../shared/validation'
-
-const createClusterSchema = z.object({
-  name: z
-    .string()
-    .min(1)
-    .max(63)
-    .regex(/^[a-z0-9-]+$/),
-  provider: z.enum(['k3s', 'k3d', 'minikube']).optional(),
-  nodes: z.number().min(1).max(10).default(1),
-  cpuCores: z.number().min(1).max(32).optional(),
-  memoryMb: z.number().min(512).max(65536).optional(),
-  disableTraefik: z.boolean().optional(),
-  exposeApi: z.boolean().optional(),
-  apiPort: z.number().optional(),
+const CreateClusterBody = t.Object({
+  name: t.String({ minLength: 1, maxLength: 63, pattern: '^[a-z0-9-]+$' }),
+  provider: t.Optional(
+    t.Union([t.Literal('k3s'), t.Literal('k3d'), t.Literal('minikube')]),
+  ),
+  nodes: t.Optional(t.Number({ minimum: 1, maximum: 10, default: 1 })),
+  cpuCores: t.Optional(t.Number({ minimum: 1, maximum: 32 })),
+  memoryMb: t.Optional(t.Number({ minimum: 512, maximum: 65536 })),
+  disableTraefik: t.Optional(t.Boolean()),
+  exposeApi: t.Optional(t.Boolean()),
+  apiPort: t.Optional(t.Number()),
 })
 
-const installChartSchema = z.object({
-  chart: z.string().min(1),
-  release: z.string().min(1),
-  namespace: z.string().optional(),
-  values: z.record(z.string(), z.string()).optional(),
-  set: z.record(z.string(), z.string()).optional(),
-  wait: z.boolean().optional(),
-  timeout: z.string().optional(),
+const InstallChartBody = t.Object({
+  chart: t.String({ minLength: 1 }),
+  release: t.String({ minLength: 1 }),
+  namespace: t.Optional(t.String()),
+  values: t.Optional(t.Record(t.String(), t.Unknown())),
+  set: t.Optional(t.Record(t.String(), t.String())),
+  wait: t.Optional(t.Boolean()),
+  timeout: t.Optional(t.String()),
 })
 
-export function createK3sRouter(): Hono {
-  const router = new Hono()
+const DWSAgentBody = t.Object({
+  nodeEndpoint: t.String(),
+  privateKey: t.Optional(t.String()),
+  capabilities: t.Optional(t.Array(t.String())),
+})
 
-  // Health check
-  router.get('/health', (c) => {
-    return c.json({
+const ClusterNameParams = t.Object({ name: t.String() })
+
+export function createK3sRouter() {
+  return new Elysia({ prefix: '' })
+    .get('/health', () => ({
       status: 'healthy',
       clusters: clusters.size,
       supportedProviders: ['k3d', 'k3s', 'minikube'],
-    })
-  })
-
-  // List clusters
-  router.get('/clusters', (c) => {
-    const clusterList = listClusters().map((cl) => ({
-      name: cl.name,
-      provider: cl.provider,
-      status: cl.status,
-      apiEndpoint: cl.apiEndpoint,
-      nodes: cl.nodes.length,
-      createdAt: cl.createdAt,
     }))
-    return c.json({ clusters: clusterList })
-  })
-
-  // Create cluster
-  router.post('/clusters', async (c) => {
-    const body = await validateBody(createClusterSchema, c)
-
-    const cluster = await createCluster({
-      name: body.name,
-      provider: body.provider || 'k3d',
-      nodes: body.nodes,
-      cpuCores: body.cpuCores,
-      memoryMb: body.memoryMb,
-      disableTraefik: body.disableTraefik,
-      exposeApi: body.exposeApi,
-      apiPort: body.apiPort,
+    .get('/clusters', () => {
+      const clusterList = listClusters().map((cl) => ({
+        name: cl.name,
+        provider: cl.provider,
+        status: cl.status,
+        apiEndpoint: cl.apiEndpoint,
+        nodes: cl.nodes.length,
+        createdAt: cl.createdAt,
+      }))
+      return { clusters: clusterList }
     })
+    .post(
+      '/clusters',
+      async ({ body, set }) => {
+        const cluster = await createCluster({
+          name: body.name,
+          provider: body.provider || 'k3d',
+          nodes: body.nodes ?? 1,
+          cpuCores: body.cpuCores,
+          memoryMb: body.memoryMb,
+          disableTraefik: body.disableTraefik,
+          exposeApi: body.exposeApi,
+          apiPort: body.apiPort,
+        })
 
-    return c.json(
-      {
-        name: cluster.name,
-        provider: cluster.provider,
-        status: cluster.status,
-        apiEndpoint: cluster.apiEndpoint,
-        kubeconfig: cluster.kubeconfig,
-        nodes: cluster.nodes,
+        set.status = 201
+        return {
+          name: cluster.name,
+          provider: cluster.provider,
+          status: cluster.status,
+          apiEndpoint: cluster.apiEndpoint,
+          kubeconfig: cluster.kubeconfig,
+          nodes: cluster.nodes,
+        }
       },
-      201,
+      { body: CreateClusterBody },
     )
-  })
+    .get(
+      '/clusters/:name',
+      ({ params, set }) => {
+        const cluster = getCluster(params.name)
 
-  // Get cluster
-  router.get('/clusters/:name', (c) => {
-    const name = c.req.param('name')
-    const cluster = getCluster(name)
+        if (!cluster) {
+          set.status = 404
+          return { error: 'Cluster not found' }
+        }
 
-    if (!cluster) {
-      return c.json({ error: 'Cluster not found' }, 404)
-    }
+        return {
+          name: cluster.name,
+          provider: cluster.provider,
+          status: cluster.status,
+          apiEndpoint: cluster.apiEndpoint,
+          kubeconfig: cluster.kubeconfig,
+          nodes: cluster.nodes,
+          createdAt: cluster.createdAt,
+        }
+      },
+      { params: ClusterNameParams },
+    )
+    .delete(
+      '/clusters/:name',
+      async ({ params }) => {
+        await deleteCluster(params.name)
+        return { success: true }
+      },
+      { params: ClusterNameParams },
+    )
+    .post(
+      '/clusters/:name/helm',
+      async ({ params, body, set }) => {
+        const result = await installHelmChart(params.name, body)
 
-    return c.json({
-      name: cluster.name,
-      provider: cluster.provider,
-      status: cluster.status,
-      apiEndpoint: cluster.apiEndpoint,
-      kubeconfig: cluster.kubeconfig,
-      nodes: cluster.nodes,
-      createdAt: cluster.createdAt,
+        if (!result.success) {
+          set.status = 500
+          return { error: result.output }
+        }
+
+        return { success: true, output: result.output }
+      },
+      { params: ClusterNameParams, body: InstallChartBody },
+    )
+    .post(
+      '/clusters/:name/apply',
+      async ({ params, body, set }) => {
+        const result = await applyManifest(
+          params.name,
+          body as string | Record<string, unknown>,
+        )
+
+        if (!result.success) {
+          set.status = 500
+          return { error: result.output }
+        }
+
+        return { success: true, output: result.output }
+      },
+      { params: ClusterNameParams, body: t.Unknown() },
+    )
+    .post(
+      '/clusters/:name/dws-agent',
+      async ({ params, body }) => {
+        await installDWSAgent(params.name, {
+          nodeEndpoint: body.nodeEndpoint,
+          privateKey: body.privateKey as Hex | undefined,
+          capabilities: body.capabilities,
+        })
+        return { success: true }
+      },
+      { params: ClusterNameParams, body: DWSAgentBody },
+    )
+    .get('/providers', async () => {
+      const providers: Array<{
+        name: ClusterProvider
+        available: boolean
+        path?: string
+      }> = []
+
+      for (const name of ['k3d', 'k3s', 'minikube'] as ClusterProvider[]) {
+        const path = await findBinary(name)
+        providers.push({ name, available: !!path, path: path || undefined })
+      }
+
+      return { providers }
     })
-  })
-
-  // Delete cluster
-  router.delete('/clusters/:name', async (c) => {
-    const name = c.req.param('name')
-    await deleteCluster(name)
-    return c.json({ success: true })
-  })
-
-  // Install Helm chart
-  router.post('/clusters/:name/helm', async (c) => {
-    const name = c.req.param('name')
-    const body = await validateBody(installChartSchema, c)
-
-    const result = await installHelmChart(name, body)
-
-    if (!result.success) {
-      return c.json({ error: result.output }, 500)
-    }
-
-    return c.json({ success: true, output: result.output })
-  })
-
-  // Apply manifest
-  router.post('/clusters/:name/apply', async (c) => {
-    const name = c.req.param('name')
-    const manifest = await c.req.json()
-
-    const result = await applyManifest(name, manifest)
-
-    if (!result.success) {
-      return c.json({ error: result.output }, 500)
-    }
-
-    return c.json({ success: true, output: result.output })
-  })
-
-  // Install DWS agent
-  router.post('/clusters/:name/dws-agent', async (c) => {
-    const name = c.req.param('name')
-    const body = (await c.req.json()) as {
-      nodeEndpoint: string
-      privateKey?: Hex
-      capabilities?: string[]
-    }
-
-    await installDWSAgent(name, body)
-
-    return c.json({ success: true })
-  })
-
-  // Check available providers
-  router.get('/providers', async (c) => {
-    const providers: Array<{
-      name: ClusterProvider
-      available: boolean
-      path?: string
-    }> = []
-
-    for (const name of ['k3d', 'k3s', 'minikube'] as ClusterProvider[]) {
-      const path = await findBinary(name)
-      providers.push({ name, available: !!path, path: path || undefined })
-    }
-
-    return c.json({ providers })
-  })
-
-  return router
 }

@@ -40,23 +40,16 @@ const rateLimitStore = new Map<string, RateLimitEntry>()
 // Cleanup expired entries
 function cleanupExpired(): void {
   const now = Date.now()
-  let cleanedCount = 0
+  let _cleanedCount = 0
 
   for (const [key, entry] of rateLimitStore.entries()) {
-    // Get the window from the key's type
     const type = key.split(':')[0]
     const config = DEFAULT_CONFIGS[type] ?? DEFAULT_CONFIGS.default
 
     if (now - entry.windowStart > config.windowMs) {
       rateLimitStore.delete(key)
-      cleanedCount++
+      _cleanedCount++
     }
-  }
-
-  if (cleanedCount > 0) {
-    console.log(
-      `Rate limiter: cleaned ${cleanedCount} expired entries. Remaining: ${rateLimitStore.size}`,
-    )
   }
 }
 
@@ -108,7 +101,6 @@ export function checkRateLimit(
     }
   }
 
-  // Check if within limit
   if (entry.count < effectiveConfig.maxRequests) {
     entry.count++
     return {
@@ -134,7 +126,6 @@ export function createRateLimitMiddleware(
   config?: RateLimitConfig,
 ) {
   return ({ request, set }: { request: Request; set: { status: number } }) => {
-    // Get identifier from request (prefer X-Forwarded-For, then X-Real-IP, then connection)
     const forwardedFor = request.headers.get('x-forwarded-for')
     const realIp = request.headers.get('x-real-ip')
     const jejuAddress = request.headers.get('x-jeju-address')

@@ -33,11 +33,7 @@ import {
   TransferSubmissionSchema,
 } from '../utils/index.js'
 
-// ============ Logger ============
-
 const log = createLogger('relayer')
-
-// ============ Environment Validation ============
 
 // Strict check: NODE_ENV must be exactly 'production', not empty/undefined/typo
 const nodeEnv = (process.env.NODE_ENV ?? '').trim().toLowerCase()
@@ -159,10 +155,6 @@ interface RelayerStats {
   pendingTransfers: number
   pendingBatches: number
 }
-
-// =============================================================================
-// RELAYER SERVICE
-// =============================================================================
 
 export class RelayerService {
   private config: RelayerConfig
@@ -317,10 +309,6 @@ export class RelayerService {
     })
   }
 
-  // =============================================================================
-  // PARSING HELPERS - Convert Zod validated data to internal types
-  // =============================================================================
-
   private toUint8Array(data: Uint8Array | number[]): Uint8Array {
     return data instanceof Uint8Array ? data : new Uint8Array(data)
   }
@@ -404,10 +392,6 @@ export class RelayerService {
       executionBlockHash: this.toUint8Array(parsed.executionBlockHash),
     }
   }
-
-  // =============================================================================
-  // CONSENSUS HANDLERS
-  // =============================================================================
 
   private async handleSolanaConsensus(
     snapshot: ConsensusSnapshot,
@@ -1112,17 +1096,9 @@ export class RelayerService {
   }
 }
 
-// =============================================================================
-// FACTORY
-// =============================================================================
-
 export function createRelayerService(config: RelayerConfig): RelayerService {
   return new RelayerService(config)
 }
-
-// =============================================================================
-// CLI ENTRY POINT
-// =============================================================================
 
 if (import.meta.main) {
   const config: RelayerConfig = {

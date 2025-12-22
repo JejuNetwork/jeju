@@ -5,11 +5,12 @@
   "type": "module",
   "main": "client/src/index.ts",
   "types": "client/src/index.ts",
+  "exports": {
+    ".": "./client/src/index.ts"
+  },
   "scripts": {
-    "typecheck": "cd client && bun tsc --noEmit",
     "test": "bun test",
-    "build:programs": "anchor build",
-    "test:programs": "anchor test"
+    "typecheck": "cd client && bun tsc --noEmit"
   },
   "dependencies": {
     "@coral-xyz/anchor": "0.30.1",
@@ -18,7 +19,7 @@
     "@noble/hashes": "^1.5.0",
     "@solana/spl-token": "0.4.13",
     "@solana/web3.js": "1.98.4",
-    "zod": "^3.24.1"
+    "zod": "4.2.1"
   },
   "devDependencies": {
     "@types/bun": "latest",

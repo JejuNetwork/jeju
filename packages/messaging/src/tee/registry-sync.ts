@@ -21,8 +21,6 @@ import type {
   TEEAttestation,
 } from './types'
 
-// ============ Contract ABI ============
-
 const KEY_REGISTRY_ABI = [
   {
     name: 'registerKeyBundle',
@@ -85,8 +83,6 @@ const KEY_REGISTRY_ABI = [
   },
 ] as const
 
-// ============ Types ============
-
 export interface KeyRegistrySyncConfig {
   /** Key registry contract address */
   registryAddress: Address
@@ -95,8 +91,6 @@ export interface KeyRegistrySyncConfig {
   /** Network */
   network: 'mainnet' | 'testnet'
 }
-
-// ============ Key Registry Sync Class ============
 
 /**
  * Syncs TEE-managed keys with on-chain KeyRegistry
@@ -125,8 +119,6 @@ export class KeyRegistrySync {
   setWalletClient(walletClient: WalletClient): void {
     this.walletClient = walletClient
   }
-
-  // ============ Registration ============
 
   /**
    * Register TEE key in on-chain registry
@@ -239,8 +231,6 @@ export class KeyRegistrySync {
     }
   }
 
-  // ============ Pre-Key Rotation ============
-
   /**
    * Rotate pre-key on-chain
    */
@@ -286,8 +276,6 @@ export class KeyRegistrySync {
       blockNumber: Number(receipt.blockNumber),
     }
   }
-
-  // ============ Verification ============
 
   /**
    * Verify on-chain key matches TEE key
@@ -352,8 +340,6 @@ export class KeyRegistrySync {
     }
   }
 
-  // ============ Revocation ============
-
   /**
    * Revoke key on-chain
    */
@@ -389,8 +375,6 @@ export class KeyRegistrySync {
     }
   }
 
-  // ============ Lookup ============
-
   /**
    * Lookup multiple addresses
    */
@@ -412,8 +396,6 @@ export class KeyRegistrySync {
     return results
   }
 
-  // ============ Utility ============
-
   /**
    * Encode attestation for on-chain storage
    */
@@ -432,8 +414,6 @@ export class KeyRegistrySync {
     return `0x${Buffer.from(encoded).toString('hex')}` as Hex
   }
 }
-
-// ============ Factory Function ============
 
 /**
  * Create key registry sync instance

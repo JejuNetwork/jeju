@@ -40,8 +40,6 @@ import {
 } from '../../validation'
 import type { ArbOpportunity } from './bridge'
 
-// ============ Configuration ============
-
 const CHAIN_CONFIGS = {
   1: { chain: mainnet, name: 'Ethereum' },
   42161: { chain: arbitrum, name: 'Arbitrum' },
@@ -99,8 +97,6 @@ const JITO_TIP_ACCOUNTS = [
 // Hyperliquid API
 const HYPERLIQUID_API = 'https://api.hyperliquid.xyz'
 
-// ============ Types ============
-
 export interface ExecutorConfig {
   evmPrivateKey: Hex
   solanaPrivateKey?: string
@@ -132,8 +128,6 @@ interface JupiterQuote {
 }
 
 // JupiterSwapResponse type from validation.ts
-
-// ============ Arbitrage Executor ============
 
 export class ArbitrageExecutor {
   private config: ExecutorConfig
@@ -1168,8 +1162,6 @@ export class ArbitrageExecutor {
     return 30 // 0.3% estimated diff
   }
 }
-
-// ============ Factory ============
 
 /** Validates that a string is a valid EVM private key format */
 function validateEvmPrivateKey(key: string | undefined, source: string): Hex {

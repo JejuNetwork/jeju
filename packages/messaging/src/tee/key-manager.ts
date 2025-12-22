@@ -46,8 +46,6 @@ const scryptAsync = (
   })
 }
 
-// ============ Limits ============
-
 /** Max identity keys per manager to prevent memory exhaustion */
 export const MAX_IDENTITY_KEYS = 10000
 /** Max pre-keys per manager to prevent memory exhaustion */
@@ -66,15 +64,11 @@ const SCRYPT_R = 8
 const SCRYPT_P = 1
 const SCRYPT_KEYLEN = 32
 
-// ============ Types ============
-
 interface MockKeyStore {
   privateKey: Uint8Array
   publicKey: Uint8Array
   type: 'ed25519' | 'x25519'
 }
-
-// ============ TEE Key Manager Class ============
 
 /**
  * Manages XMTP keys in a Trusted Execution Environment
@@ -92,8 +86,6 @@ export class TEEXMTPKeyManager {
   constructor(config: TEEKeyConfig) {
     this.config = config
   }
-
-  // ============ Identity Key Management ============
 
   /**
    * Generate XMTP identity key inside TEE
@@ -162,8 +154,6 @@ export class TEEXMTPKeyManager {
     return this.keys.get(keyId) ?? null
   }
 
-  // ============ Pre-Key Management ============
-
   /**
    * Generate XMTP pre-key inside TEE
    */
@@ -220,8 +210,6 @@ export class TEEXMTPKeyManager {
     )
   }
 
-  // ============ Installation Key Management ============
-
   /**
    * Derive installation key from identity key
    */
@@ -272,8 +260,6 @@ export class TEEXMTPKeyManager {
     return installationKey
   }
 
-  // ============ Signing Operations ============
-
   /**
    * Sign message with identity key
    */
@@ -291,8 +277,6 @@ export class TEEXMTPKeyManager {
 
     return result.signature
   }
-
-  // ============ ECDH Operations ============
 
   /**
    * Perform ECDH key exchange inside TEE
@@ -318,8 +302,6 @@ export class TEEXMTPKeyManager {
 
     return shared
   }
-
-  // ============ Key Export/Import ============
 
   /**
    * Export encrypted backup of keys with strong KDF
@@ -437,8 +419,6 @@ export class TEEXMTPKeyManager {
     return identityKey
   }
 
-  // ============ Attestation ============
-
   /**
    * Get TEE attestation for key
    */
@@ -474,8 +454,6 @@ export class TEEXMTPKeyManager {
       errors: enclaveIdMatch ? [] : ['Enclave ID mismatch'],
     }
   }
-
-  // ============ Private TEE Operations ============
 
   /**
    * Generate key inside TEE
@@ -609,8 +587,6 @@ export class TEEXMTPKeyManager {
     }
   }
 
-  // ============ Stats ============
-
   /**
    * Get manager stats
    */
@@ -626,8 +602,6 @@ export class TEEXMTPKeyManager {
     }
   }
 }
-
-// ============ Factory Function ============
 
 /**
  * Create TEE key manager

@@ -160,6 +160,16 @@ export class GeoRouter {
   route(request: RouteRequest): RoutingDecision | null {
     const clientRegion = this.getClientRegion(request)
 
+    // If exact region is required, only check that specific region
+    if (request.requireExactRegion && request.preferredRegion) {
+      const exactRegionNodes = this.regionNodes.get(request.preferredRegion)
+      if (!exactRegionNodes || exactRegionNodes.size === 0) {
+        throw new Error(
+          `No nodes available in required region: ${request.preferredRegion}`,
+        )
+      }
+    }
+
     // Get candidate nodes
     const candidates = this.getCandidateNodes(
       clientRegion,

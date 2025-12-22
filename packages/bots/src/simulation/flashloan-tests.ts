@@ -1,15 +1,4 @@
-/**
- * Flash Loan Integration Tests
- *
- * Tests flash loan execution on forked mainnet:
- * - Aave V3 flash loan execution
- * - Balancer flash loan execution
- * - Arbitrage callback validation
- * - Gas estimation accuracy
- * - Profit calculation verification
- *
- * Requires: Anvil (Foundry) for forked mainnet testing
- */
+/** Flash loan integration tests. */
 
 import { type ChildProcess, spawn } from 'node:child_process'
 import {

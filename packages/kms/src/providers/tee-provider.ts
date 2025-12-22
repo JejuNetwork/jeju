@@ -16,12 +16,8 @@ import {
   sealWithMasterKey,
   unsealWithMasterKey,
 } from '../crypto.js'
+import { TEEClient } from '../eden-client.js'
 import { teeLogger as log } from '../logger.js'
-import {
-  teeConnectResponseSchema,
-  teeKeyGenResponseSchema,
-  teeSignResponseSchema,
-} from '../schemas.js'
 import {
   type AccessControlPolicy,
   type DecryptRequest,
@@ -53,28 +49,29 @@ export class TEEProvider implements KMSProvider {
   private remoteMode = false
   private enclaveKey: Uint8Array
   private keys = new Map<string, EnclaveKey>()
-  private attestation: TEEAttestation | null = null
+  private attestation: TEEAttestation | undefined = undefined
+  private teeClient: TEEClient | undefined = undefined
 
   constructor(config: TEEConfig) {
     this.config = config
     this.remoteMode = !!config.endpoint
 
-    const secret =
-      process.env.TEE_ENCRYPTION_SECRET ?? process.env.KMS_FALLBACK_SECRET
-    if (secret) {
-      this.enclaveKey = deriveKeyFromSecret(secret)
-    } else {
-      this.enclaveKey = crypto.getRandomValues(new Uint8Array(32))
-      log.warn('No TEE_ENCRYPTION_SECRET set - keys will be lost on restart')
+    this.teeClient = config.endpoint
+      ? new TEEClient(config.endpoint)
+      : undefined
+
+    const secret = process.env.TEE_ENCRYPTION_SECRET
+    if (!secret) {
+      throw new Error(
+        'TEE_ENCRYPTION_SECRET environment variable is required for TEE provider',
+      )
     }
+    this.enclaveKey = deriveKeyFromSecret(secret)
   }
 
   async isAvailable(): Promise<boolean> {
-    if (this.remoteMode && this.config.endpoint) {
-      const response = await fetch(`${this.config.endpoint}/health`, {
-        signal: AbortSignal.timeout(5000),
-      }).catch(() => null)
-      return response?.ok ?? false
+    if (this.remoteMode && this.teeClient) {
+      return this.teeClient.checkHealth()
     }
     return true
   }
@@ -82,36 +79,19 @@ export class TEEProvider implements KMSProvider {
   async connect(): Promise<void> {
     if (this.connected) return
 
-    if (this.remoteMode && this.config.endpoint) {
-      const response = await fetch(`${this.config.endpoint}/connect`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: AbortSignal.timeout(10000),
-      }).catch(() => null)
+    if (this.remoteMode && this.teeClient) {
+      const data = await this.teeClient.connect()
 
-      if (response?.ok) {
-        const rawData: unknown = await response.json()
-        const parseResult = teeConnectResponseSchema.safeParse(rawData)
-        if (!parseResult.success) {
-          log.warn('Invalid TEE connect response', {
-            error: parseResult.error.message,
-          })
-          this.remoteMode = false
-        } else {
-          const data = parseResult.data
-          if (data.attestation) this.attestation = data.attestation
-          if (data.enclaveKey) this.enclaveKey = toBytes(data.enclaveKey as Hex)
-          log.info('Connected to remote TEE', {
-            endpoint: this.config.endpoint,
-          })
-        }
-      } else {
-        log.warn(
-          'Remote TEE endpoint unavailable, falling back to local mode',
-          { endpoint: this.config.endpoint },
+      if (!data) {
+        throw new Error(
+          `Remote TEE endpoint unavailable: ${this.config.endpoint}`,
         )
-        this.remoteMode = false
       }
+      if (data.attestation) this.attestation = data.attestation
+      if (data.enclaveKey) this.enclaveKey = toBytes(data.enclaveKey)
+      log.info('Connected to remote TEE', {
+        endpoint: this.config.endpoint,
+      })
     } else {
       log.info('Running in local encrypted mode')
     }
@@ -124,7 +104,7 @@ export class TEEProvider implements KMSProvider {
     for (const key of this.keys.values()) key.encryptedPrivateKey.fill(0)
     this.keys.clear()
     this.connected = false
-    this.attestation = null
+    this.attestation = undefined
   }
 
   async generateKey(
@@ -136,39 +116,32 @@ export class TEEProvider implements KMSProvider {
     await this.ensureConnected()
     const keyId = generateKeyId('tee')
 
-    if (this.remoteMode && this.config.endpoint) {
-      const response = await fetch(`${this.config.endpoint}/keys/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ keyId, owner, keyType, curve, policy }),
-        signal: AbortSignal.timeout(30000),
-      }).catch(() => null)
+    if (this.remoteMode && this.teeClient) {
+      const result = await this.teeClient.generateKey({
+        keyId,
+        owner,
+        keyType,
+        curve,
+        policy,
+      })
 
-      if (response?.ok) {
-        const rawResult: unknown = await response.json()
-        const parseResult = teeKeyGenResponseSchema.safeParse(rawResult)
-        if (parseResult.success) {
-          const result = parseResult.data
-          const metadata: KeyMetadata = {
-            id: keyId,
-            type: keyType,
-            curve,
-            createdAt: Date.now(),
-            owner,
-            policy,
-            providerType: KMSProviderType.TEE,
-          }
-          this.keys.set(keyId, {
-            metadata,
-            encryptedPrivateKey: new Uint8Array(0),
-            publicKey: result.publicKey as Hex,
-            address: result.address as Address,
-          })
-          return { metadata, publicKey: result.publicKey as Hex }
+      if (result) {
+        const metadata: KeyMetadata = {
+          id: keyId,
+          type: keyType,
+          curve,
+          createdAt: Date.now(),
+          owner,
+          policy,
+          providerType: KMSProviderType.TEE,
         }
-        log.warn('Invalid TEE key generation response', {
-          error: parseResult.error.message,
+        this.keys.set(keyId, {
+          metadata,
+          encryptedPrivateKey: new Uint8Array(0),
+          publicKey: result.publicKey,
+          address: result.address,
         })
+        return { metadata, publicKey: result.publicKey }
       }
       log.warn('Remote key generation failed, using local generation')
     }
@@ -199,20 +172,18 @@ export class TEEProvider implements KMSProvider {
     return { metadata, publicKey: toHex(account.publicKey) }
   }
 
-  getKey(keyId: string): KeyMetadata | null {
-    return this.keys.get(keyId)?.metadata ?? null
+  getKey(keyId: string): KeyMetadata | undefined {
+    return this.keys.get(keyId)?.metadata
   }
 
   async revokeKey(keyId: string): Promise<void> {
     const key = this.keys.get(keyId)
     if (!key) return
-    if (this.remoteMode && this.config.endpoint) {
-      await fetch(`${this.config.endpoint}/keys/${keyId}`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-      }).catch((e: Error) =>
-        log.warn('Remote key revocation failed', { keyId, error: e.message }),
-      )
+    if (this.remoteMode && this.teeClient) {
+      const success = await this.teeClient.revokeKey(keyId)
+      if (!success) {
+        log.warn('Remote key revocation failed', { keyId })
+      }
     }
     key.encryptedPrivateKey.fill(0)
     this.keys.delete(keyId)
@@ -254,40 +225,24 @@ export class TEEProvider implements KMSProvider {
     const key = this.keys.get(request.keyId)
     if (!key) throw new Error(`Key ${request.keyId} not found`)
 
-    if (this.remoteMode && this.config.endpoint) {
-      const response = await fetch(
-        `${this.config.endpoint}/keys/${request.keyId}/sign`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: request.message,
-            hashAlgorithm: request.hashAlgorithm,
-          }),
-          signal: AbortSignal.timeout(30000),
-        },
-      ).catch(() => null)
+    if (this.remoteMode && this.teeClient) {
+      const result = await this.teeClient.sign(request.keyId, {
+        message: request.message,
+        hashAlgorithm: request.hashAlgorithm,
+      })
 
-      if (response?.ok) {
-        const rawResult: unknown = await response.json()
-        const parseResult = teeSignResponseSchema.safeParse(rawResult)
-        if (parseResult.success) {
-          const result = parseResult.data
-          return {
-            message: toHex(
-              typeof request.message === 'string'
-                ? toBytes(request.message as Hex)
-                : request.message,
-            ),
-            signature: result.signature as Hex,
-            recoveryId: parseInt(result.signature.slice(130, 132), 16) - 27,
-            keyId: request.keyId,
-            signedAt: Date.now(),
-          }
+      if (result) {
+        return {
+          message: toHex(
+            typeof request.message === 'string'
+              ? toBytes(request.message as Hex)
+              : request.message,
+          ),
+          signature: result.signature,
+          recoveryId: parseInt(result.signature.slice(130, 132), 16) - 27,
+          keyId: request.keyId,
+          signedAt: Date.now(),
         }
-        log.warn('Invalid TEE sign response', {
-          error: parseResult.error.message,
-        })
       }
       log.warn('Remote signing failed, using local signing')
     }
@@ -340,7 +295,7 @@ export class TEEProvider implements KMSProvider {
   getStatus(): {
     connected: boolean
     mode: 'remote' | 'local'
-    attestation: TEEAttestation | null
+    attestation?: TEEAttestation
   } {
     return {
       connected: this.connected,
@@ -350,7 +305,7 @@ export class TEEProvider implements KMSProvider {
   }
 }
 
-let teeProvider: TEEProvider | null = null
+let teeProvider: TEEProvider | undefined
 
 export function getTEEProvider(config?: Partial<TEEConfig>): TEEProvider {
   if (!teeProvider) {
@@ -367,6 +322,6 @@ export function resetTEEProvider(): void {
       .catch((e: Error) =>
         log.warn('TEE provider disconnect failed', { error: e.message }),
       )
-    teeProvider = null
+    teeProvider = undefined
   }
 }

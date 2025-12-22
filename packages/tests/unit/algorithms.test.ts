@@ -12,9 +12,7 @@
 import { describe, expect, test } from 'bun:test'
 import * as crypto from 'node:crypto'
 
-// ============================================================================
 // CRC16 Implementation (Redis Cluster Compatible)
-// ============================================================================
 
 const CRC16_TABLE = new Uint16Array(256)
 ;(() => {
@@ -47,9 +45,7 @@ function calculateSlot(key: string): number {
   return crc16(Buffer.from(hashKey)) % 16384
 }
 
-// ============================================================================
 // CRC16 Property-Based Tests
-// ============================================================================
 
 describe('CRC16 - Property-Based Tests', () => {
   test('slot always in valid range [0, 16384)', () => {
@@ -172,9 +168,7 @@ describe('CRC16 - Redis Compatibility Vectors', () => {
   })
 })
 
-// ============================================================================
 // Gossip Protocol Fanout Tests
-// ============================================================================
 
 function getRandomPeers<T>(peers: T[], count: number): T[] {
   const result: T[] = []
@@ -294,9 +288,7 @@ describe('Gossip Protocol - Peer Selection', () => {
   })
 })
 
-// ============================================================================
 // Circuit Breaker Tests
-// ============================================================================
 
 type CircuitState = 'closed' | 'open' | 'half-open'
 
@@ -369,13 +361,11 @@ describe('Circuit Breaker - State Machine', () => {
     expect(breaker.getState()).toBe('closed')
 
     for (let i = 0; i < 3; i++) {
-      try {
-        await breaker.execute(async () => {
+      await breaker
+        .execute(async () => {
           throw new Error('fail')
         })
-      } catch {
-        // Expected
-      }
+        .catch(() => {})
     }
 
     expect(breaker.getState()).toBe('open')
@@ -386,13 +376,11 @@ describe('Circuit Breaker - State Machine', () => {
 
     // Trip the breaker
     for (let i = 0; i < 2; i++) {
-      try {
-        await breaker.execute(async () => {
+      await breaker
+        .execute(async () => {
           throw new Error('fail')
         })
-      } catch {
-        // Expected
-      }
+        .catch(() => {})
     }
     expect(breaker.getState()).toBe('open')
 
@@ -401,7 +389,7 @@ describe('Circuit Breaker - State Machine', () => {
 
     // Next execution should transition to half-open, then close on success
     await breaker.execute(async () => 'success')
-    expect(breaker.getState()).toBe('closed') // With threshold=1, closes immediately
+    expect(breaker.getState()).toBe('closed')
   })
 
   test('transitions: half-open -> closed after successful requests', async () => {
@@ -409,13 +397,11 @@ describe('Circuit Breaker - State Machine', () => {
 
     // Trip the breaker
     for (let i = 0; i < 2; i++) {
-      try {
-        await breaker.execute(async () => {
+      await breaker
+        .execute(async () => {
           throw new Error('fail')
         })
-      } catch {
-        // Expected
-      }
+        .catch(() => {})
     }
 
     // Wait for timeout
@@ -436,13 +422,11 @@ describe('Circuit Breaker - State Machine', () => {
 
     // Trip the breaker
     for (let i = 0; i < 2; i++) {
-      try {
-        await breaker.execute(async () => {
+      await breaker
+        .execute(async () => {
           throw new Error('fail')
         })
-      } catch {
-        // Expected
-      }
+        .catch(() => {})
     }
 
     // Wait for timeout
@@ -452,13 +436,11 @@ describe('Circuit Breaker - State Machine', () => {
     await breaker.execute(async () => 'success')
 
     // Failure should immediately open
-    try {
-      await breaker.execute(async () => {
+    await breaker
+      .execute(async () => {
         throw new Error('fail')
       })
-    } catch {
-      // Expected
-    }
+      .catch(() => {})
 
     expect(breaker.getState()).toBe('open')
   })
@@ -468,13 +450,11 @@ describe('Circuit Breaker - State Machine', () => {
 
     // Accumulate some failures
     for (let i = 0; i < 3; i++) {
-      try {
-        await breaker.execute(async () => {
+      await breaker
+        .execute(async () => {
           throw new Error('fail')
         })
-      } catch {
-        // Expected
-      }
+        .catch(() => {})
     }
     expect(breaker.getFailures()).toBe(3)
 
@@ -484,22 +464,18 @@ describe('Circuit Breaker - State Machine', () => {
 
     // Can accumulate failures again
     for (let i = 0; i < 2; i++) {
-      try {
-        await breaker.execute(async () => {
+      await breaker
+        .execute(async () => {
           throw new Error('fail')
         })
-      } catch {
-        // Expected
-      }
+        .catch(() => {})
     }
     expect(breaker.getFailures()).toBe(2)
-    expect(breaker.getState()).toBe('closed') // Still under threshold
+    expect(breaker.getState()).toBe('closed')
   })
 })
 
-// ============================================================================
 // Exponential Backoff Tests
-// ============================================================================
 
 function calculateBackoff(
   attempt: number,
@@ -575,9 +551,7 @@ describe('Exponential Backoff - Calculation', () => {
   })
 })
 
-// ============================================================================
 // Content Hash Verification Tests
-// ============================================================================
 
 function verifyContentHash(data: Buffer, expectedHash: string): boolean {
   // SHA256 with 0x prefix (case insensitive)
@@ -675,9 +649,7 @@ describe('Content Hash Verification', () => {
   })
 })
 
-// ============================================================================
 // LRU Cache Eviction Tests
-// ============================================================================
 
 class LRUCache<K, V> {
   private cache = new Map<K, V>()
@@ -811,9 +783,7 @@ describe('LRU Cache - Eviction Policy', () => {
   })
 })
 
-// ============================================================================
 // Rate Limiting Token Bucket Tests
-// ============================================================================
 
 class TokenBucket {
   private tokens: number

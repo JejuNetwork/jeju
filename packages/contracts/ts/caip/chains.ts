@@ -8,10 +8,6 @@
  *   - solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp (Solana Mainnet)
  */
 
-// ============================================================================
-// Types
-// ============================================================================
-
 export type ChainNamespace =
   | 'eip155'
   | 'solana'
@@ -38,18 +34,11 @@ export interface ChainInfo {
   isTestnet: boolean
 }
 
-// ============================================================================
-// Constants
-// ============================================================================
-
-// Solana genesis hashes (used as chain reference)
 export const SOLANA_MAINNET_GENESIS = '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp'
 export const SOLANA_DEVNET_GENESIS = 'EtWTRABZaYq6iMfeYKouRu166VU2xqa1'
 export const SOLANA_TESTNET_GENESIS = '4uhcVJyU9pJkvQyS88uRDiswHXSCkY3z'
 
-// Chain registry
 export const CHAINS: Record<string, ChainInfo> = {
-  // EVM Chains
   'eip155:1': {
     id: { namespace: 'eip155', reference: '1' },
     name: 'Ethereum Mainnet',
@@ -113,8 +102,6 @@ export const CHAINS: Record<string, ChainInfo> = {
     blockExplorerUrls: ['https://sepolia.etherscan.io'],
     isTestnet: true,
   },
-
-  // Solana Chains
   [`solana:${SOLANA_MAINNET_GENESIS}`]: {
     id: { namespace: 'solana', reference: SOLANA_MAINNET_GENESIS },
     name: 'Solana Mainnet',
@@ -135,13 +122,6 @@ export const CHAINS: Record<string, ChainInfo> = {
   },
 }
 
-// ============================================================================
-// Functions
-// ============================================================================
-
-/**
- * Parse a CAIP-2 chain ID string
- */
 export function parseChainId(caip2: string): ChainId {
   const parts = caip2.split(':')
   if (parts.length !== 2) {
@@ -156,39 +136,24 @@ export function parseChainId(caip2: string): ChainId {
   return { namespace: namespace as ChainNamespace, reference }
 }
 
-/**
- * Format a ChainId to CAIP-2 string
- */
 export function formatChainId(chainId: ChainId): string {
   return `${chainId.namespace}:${chainId.reference}`
 }
 
-/**
- * Check if namespace is valid
- */
 function isValidNamespace(namespace: string): boolean {
   return ['eip155', 'solana', 'cosmos', 'polkadot', 'bip122'].includes(
     namespace,
   )
 }
 
-/**
- * Get chain info by CAIP-2 ID
- */
 export function getChainInfo(caip2: string): ChainInfo | undefined {
   return CHAINS[caip2]
 }
 
-/**
- * Convert EVM chain ID to CAIP-2
- */
 export function evmChainIdToCAIP2(chainId: number): string {
   return `eip155:${chainId}`
 }
 
-/**
- * Convert CAIP-2 to EVM chain ID (returns undefined for non-EVM chains)
- */
 export function caip2ToEvmChainId(caip2: string): number | undefined {
   const parsed = parseChainId(caip2)
   if (parsed.namespace !== 'eip155') {
@@ -197,23 +162,14 @@ export function caip2ToEvmChainId(caip2: string): number | undefined {
   return parseInt(parsed.reference, 10)
 }
 
-/**
- * Check if chain is EVM-compatible
- */
 export function isEvmChain(caip2: string): boolean {
   return caip2.startsWith('eip155:')
 }
 
-/**
- * Check if chain is Solana
- */
 export function isSolanaChain(caip2: string): boolean {
   return caip2.startsWith('solana:')
 }
 
-/**
- * Get Solana cluster from CAIP-2
- */
 export function getSolanaCluster(
   caip2: string,
 ): 'mainnet-beta' | 'devnet' | 'testnet' | undefined {
@@ -234,9 +190,6 @@ export function getSolanaCluster(
   }
 }
 
-/**
- * Get CAIP-2 from Solana cluster
- */
 export function solanaClusterToCAIP2(
   cluster: 'mainnet-beta' | 'devnet' | 'testnet',
 ): string {
@@ -249,23 +202,14 @@ export function solanaClusterToCAIP2(
   return `solana:${genesis}`
 }
 
-/**
- * Get all supported chains
- */
 export function getAllChains(): ChainInfo[] {
   return Object.values(CHAINS)
 }
 
-/**
- * Get mainnet chains only
- */
 export function getMainnetChains(): ChainInfo[] {
   return Object.values(CHAINS).filter((c) => !c.isTestnet)
 }
 
-/**
- * Get testnet chains only
- */
 export function getTestnetChains(): ChainInfo[] {
   return Object.values(CHAINS).filter((c) => c.isTestnet)
 }

@@ -88,15 +88,15 @@ fn main() {
         .setup(|app| {
             let state = state::AppState::new();
             app.manage(state);
-            
+
             // Initialize auto-start manager
             let autostart = autostart::AutoStartManager::new();
             app.manage(autostart);
-            
+
             // Initialize notification manager
             let notifications = notifications::NotificationManager::new();
             app.manage(notifications);
-            
+
             tracing::info!("Jeju VPN initialized");
             Ok(())
         })
@@ -126,4 +126,3 @@ fn main() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
-

@@ -7,18 +7,15 @@
 
 import { EventEmitter } from 'node:events'
 import {
-  type Address,
+  createWalletClient,
   type Hash,
   type Hex,
-  createWalletClient,
   http,
-  type WalletClient,
   type TransactionRequest,
-  encodeFunctionData,
-  parseEther,
+  type WalletClient,
 } from 'viem'
-import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts'
-import { mainnet, base, arbitrum, optimism } from 'viem/chains'
+import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
+import { arbitrum, base, mainnet, optimism } from 'viem/chains'
 
 // ============ Types ============
 
@@ -57,7 +54,7 @@ interface PendingBundle {
 
 // ============ Constants ============
 
-const FLASHBOTS_RPC = 'https://rpc.flashbots.net'
+const _FLASHBOTS_RPC = 'https://rpc.flashbots.net'
 const FLASHBOTS_PROTECT = 'https://protect.flashbots.net'
 const FLASHBOTS_RELAY = 'https://relay.flashbots.net'
 
@@ -100,7 +97,9 @@ export class FlashbotsProtect extends EventEmitter {
 
     const protectEndpoint = PROTECT_ENDPOINTS[config.chainId]
     if (!protectEndpoint) {
-      throw new Error(`No Flashbots Protect endpoint for chain ${config.chainId}`)
+      throw new Error(
+        `No Flashbots Protect endpoint for chain ${config.chainId}`,
+      )
     }
 
     this.walletClient = createWalletClient({
@@ -114,7 +113,7 @@ export class FlashbotsProtect extends EventEmitter {
    * Submit a single transaction via Flashbots Protect
    */
   async submitTransaction(tx: TransactionRequest): Promise<Hash> {
-    const protectEndpoint = PROTECT_ENDPOINTS[this.config.chainId]
+    const _protectEndpoint = PROTECT_ENDPOINTS[this.config.chainId]
 
     if (this.config.chainId === 1) {
       // Mainnet uses Flashbots Protect RPC
@@ -128,7 +127,9 @@ export class FlashbotsProtect extends EventEmitter {
   /**
    * Submit transaction to Flashbots Protect (mainnet)
    */
-  private async submitToFlashbotsProtect(tx: TransactionRequest): Promise<Hash> {
+  private async submitToFlashbotsProtect(
+    tx: TransactionRequest,
+  ): Promise<Hash> {
     try {
       // Sign transaction
       const signedTx = await this.walletClient.signTransaction({
@@ -155,7 +156,10 @@ export class FlashbotsProtect extends EventEmitter {
         }),
       })
 
-      const result = await response.json() as { result?: Hash; error?: { message: string } }
+      const result = (await response.json()) as {
+        result?: Hash
+        error?: { message: string }
+      }
 
       if (result.error) {
         throw new Error(result.error.message)
@@ -217,12 +221,14 @@ export class FlashbotsProtect extends EventEmitter {
       jsonrpc: '2.0',
       id: 1,
       method: 'eth_sendBundle',
-      params: [{
-        txs: bundle.transactions,
-        blockNumber: `0x${bundle.blockNumber.toString(16)}`,
-        minTimestamp: bundle.minTimestamp,
-        maxTimestamp: bundle.maxTimestamp,
-      }],
+      params: [
+        {
+          txs: bundle.transactions,
+          blockNumber: `0x${bundle.blockNumber.toString(16)}`,
+          minTimestamp: bundle.minTimestamp,
+          maxTimestamp: bundle.maxTimestamp,
+        },
+      ],
     })
 
     const authHeader = await this.createAuthHeader(bundleBody)
@@ -236,7 +242,7 @@ export class FlashbotsProtect extends EventEmitter {
       body: bundleBody,
     })
 
-    const result = await response.json() as {
+    const result = (await response.json()) as {
       result?: { bundleHash: string }
       error?: { message: string }
     }
@@ -279,16 +285,20 @@ export class FlashbotsProtect extends EventEmitter {
   /**
    * Simulate a bundle
    */
-  async simulateBundle(bundle: FlashbotsBundle): Promise<{ success: boolean; error?: string; gasUsed?: bigint }> {
+  async simulateBundle(
+    bundle: FlashbotsBundle,
+  ): Promise<{ success: boolean; error?: string; gasUsed?: bigint }> {
     const simBody = JSON.stringify({
       jsonrpc: '2.0',
       id: 1,
       method: 'eth_callBundle',
-      params: [{
-        txs: bundle.transactions,
-        blockNumber: `0x${bundle.blockNumber.toString(16)}`,
-        stateBlockNumber: 'latest',
-      }],
+      params: [
+        {
+          txs: bundle.transactions,
+          blockNumber: `0x${bundle.blockNumber.toString(16)}`,
+          stateBlockNumber: 'latest',
+        },
+      ],
     })
 
     const authHeader = await this.createAuthHeader(simBody)
@@ -302,7 +312,7 @@ export class FlashbotsProtect extends EventEmitter {
       body: simBody,
     })
 
-    const result = await response.json() as {
+    const result = (await response.json()) as {
       result?: { results: Array<{ error?: string; gasUsed: string }> }
       error?: { message: string }
     }
@@ -312,7 +322,7 @@ export class FlashbotsProtect extends EventEmitter {
     }
 
     const simResults = result.result?.results ?? []
-    const failed = simResults.find(r => r.error)
+    const failed = simResults.find((r) => r.error)
 
     if (failed) {
       return { success: false, error: failed.error }
@@ -326,7 +336,9 @@ export class FlashbotsProtect extends EventEmitter {
   /**
    * Check bundle status
    */
-  async getBundleStatus(bundleHash: string): Promise<{ status: string; blockNumber?: bigint }> {
+  async getBundleStatus(
+    bundleHash: string,
+  ): Promise<{ status: string; blockNumber?: bigint }> {
     const body = JSON.stringify({
       jsonrpc: '2.0',
       id: 1,
@@ -345,8 +357,12 @@ export class FlashbotsProtect extends EventEmitter {
       body,
     })
 
-    const result = await response.json() as {
-      result?: { isSimulated: boolean; isSentToMiners: boolean; isHighPriority: boolean }
+    const result = (await response.json()) as {
+      result?: {
+        isSimulated: boolean
+        isSentToMiners: boolean
+        isHighPriority: boolean
+      }
     }
 
     return {
@@ -394,7 +410,9 @@ export class FlashbotsProtect extends EventEmitter {
 
 // ============ Factory ============
 
-export function createFlashbotsProtect(config: Partial<ProtectConfig> & { privateKey: string }): FlashbotsProtect {
+export function createFlashbotsProtect(
+  config: Partial<ProtectConfig> & { privateKey: string },
+): FlashbotsProtect {
   return new FlashbotsProtect({
     chainId: config.chainId ?? 1,
     privateKey: config.privateKey,
@@ -405,4 +423,3 @@ export function createFlashbotsProtect(config: Partial<ProtectConfig> & { privat
 }
 
 export type { FlashbotsBundle, BundleResult, ProtectConfig }
-

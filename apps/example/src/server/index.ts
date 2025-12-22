@@ -428,25 +428,15 @@ const app = new Elysia()
     },
 
     authentication: {
-      methods: ['OAuth3 (recommended)', 'Legacy wallet signature'],
-      oauth3: {
-        sessionHeader: 'x-oauth3-session',
-        endpoints: {
-          providers: 'GET /auth/providers',
-          login: 'POST /auth/login/wallet or GET /auth/login/:provider',
-          callback: 'GET /auth/callback',
-          session: 'GET /auth/session',
-          logout: 'POST /auth/logout',
-          health: 'GET /auth/health',
-        },
-      },
-      legacy: {
-        headers: {
-          'x-jeju-address': 'Wallet address',
-          'x-jeju-timestamp': 'Unix timestamp in milliseconds',
-          'x-jeju-signature': 'Signature of "jeju-dapp:{timestamp}"',
-        },
-        validity: '5 minutes',
+      method: 'OAuth3',
+      sessionHeader: 'x-oauth3-session',
+      endpoints: {
+        providers: 'GET /auth/providers',
+        login: 'POST /auth/login/wallet or GET /auth/login/:provider',
+        callback: 'GET /auth/callback',
+        session: 'GET /auth/session',
+        logout: 'POST /auth/logout',
+        health: 'GET /auth/health',
       },
     },
   }))
@@ -497,7 +487,7 @@ const startupBanner = `
 ╠══════════════════════════════════════════════════════════════╣
 ║  Network:      ${getNetworkName().padEnd(44)}║
 ║  Version:      ${VERSION.padEnd(44)}║
-║  Auth:         OAuth3 + Legacy Wallet                          ║
+║  Auth:         OAuth3                                           ║
 ╚══════════════════════════════════════════════════════════════╝
 `
 
@@ -506,3 +496,6 @@ console.log(startupBanner)
 app.listen(PORT)
 
 export default app
+
+// Export App type for Eden client generation
+export type App = typeof app

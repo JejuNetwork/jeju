@@ -367,7 +367,7 @@ describe('MPC Coordinator', () => {
       coordinator.revokeKey('revoke-key')
 
       const key = coordinator.getKey('revoke-key')
-      expect(key).toBeNull()
+      expect(key).toBeUndefined()
 
       const versions = coordinator.getKeyVersions('revoke-key')
       expect(versions.every((v) => v.status === 'revoked')).toBe(true)

@@ -30,26 +30,6 @@ from .rubric_loader import (
 
 logger = logging.getLogger(__name__)
 
-# ============================================================================
-# Archetype Rubrics - Loaded from config/rubrics.json via rubric_loader
-# ============================================================================
-#
-# All rubrics are now defined in packages/training/config/rubrics.json
-# This is the single source of truth shared between TypeScript and Python.
-#
-# Use these functions (imported from rubric_loader):
-#   get_rubric(archetype)          - Get the rubric text for an archetype
-#   get_priority_metrics(archetype) - Get priority metrics for scoring
-#   get_available_archetypes()     - Get list of all archetypes
-#   reload_rubrics()               - Reload rubrics from JSON file
-#   DEFAULT_RUBRIC                 - Fallback rubric for unknown archetypes
-# ============================================================================
-
-
-# ============================================================================
-# Archetype Training Configuration
-# ============================================================================
-
 
 @dataclass
 class ArchetypeTrainingConfig:
@@ -89,11 +69,6 @@ class ArchetypeTrainingResult:
     final_loss: float
     checkpoint_path: str
     metrics: dict
-
-
-# ============================================================================
-# Main Archetype Trainer
-# ============================================================================
 
 
 class ArchetypeTrainer:
@@ -253,11 +228,6 @@ class ArchetypeTrainer:
             if (output_dir / f"{arch}_model").exists():
                 trained.append(arch)
         return trained
-
-
-# ============================================================================
-# CLI Entry Point
-# ============================================================================
 
 
 def main():

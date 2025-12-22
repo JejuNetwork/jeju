@@ -19,11 +19,8 @@ import {
   type DecisionData,
   type EncryptedData,
   encryptDecision,
-  getEncryptionStatus,
 } from './encryption'
 import type { TEEAttestation } from './types'
-
-// ============ Schemas ============
 
 const EncryptedCipherSchema = z.object({
   ciphertext: z.string(),
@@ -50,8 +47,6 @@ const AttestationVerifyResponseSchema = z.object({
   platform: z.string().optional(),
   measurement: z.string().optional(),
 })
-
-// ============ Types ============
 
 export interface TEEDecisionContext {
   proposalId: string
@@ -81,8 +76,6 @@ export interface TEEDecisionResult {
 
 type TEEPlatform = 'intel_tdx' | 'amd_sev' | 'simulator' | 'none'
 type TEEMode = 'dstack' | 'local'
-
-// ============ Configuration ============
 
 // dstack endpoint - defaults to DWS compute which runs dstack
 function getDStackEndpoint(): string {
@@ -115,8 +108,6 @@ function getTEEPlatform(): TEEPlatform {
 const USE_ENCRYPTION = process.env.USE_ENCRYPTION !== 'false'
 const BACKUP_TO_DA = process.env.BACKUP_TO_DA !== 'false'
 
-// ============ Encryption (for local encrypted mode) ============
-
 function getDerivedKey(): Buffer {
   const secret = process.env.TEE_ENCRYPTION_SECRET
   if (!secret) {
@@ -125,7 +116,6 @@ function getDerivedKey(): Buffer {
       throw new Error('TEE_ENCRYPTION_SECRET is required in production')
     }
     // Dev/test mode - use derived key
-    console.warn('[TEE] Using derived dev key (not for production)')
     const devSecret = `council-${network}-key`
     const hash = keccak256(stringToHex(devSecret))
     return Buffer.from(hash.slice(2, 66), 'hex')
@@ -159,8 +149,6 @@ function decrypt(ciphertext: string, iv: string, tag: string): string {
   decrypted += decipher.final('utf8')
   return decrypted
 }
-
-// ============ Vote Analysis ============
 
 function analyzeVotes(votes: TEEDecisionContext['autocratVotes']): {
   approves: number
@@ -203,15 +191,11 @@ function makeDecision(context: TEEDecisionContext): {
   }
 }
 
-// ============ dstack TEE Integration ============
-
 async function callDStack(
   context: TEEDecisionContext,
 ): Promise<TEEDecisionResult> {
   const endpoint = getDStackEndpoint()
   const platform = getTEEPlatform()
-
-  console.log(`[TEE] Calling dstack at ${endpoint} (platform: ${platform})`)
 
   const response = await fetch(`${endpoint}/tee/decide`, {
     method: 'POST',
@@ -260,8 +244,6 @@ async function callDStack(
   }
 }
 
-// ============ Local Fallback (when dstack unavailable) ============
-
 function makeLocalDecision(context: TEEDecisionContext): TEEDecisionResult {
   const { approved, reasoning, confidence, alignment, recommendations } =
     makeDecision(context)
@@ -270,7 +252,7 @@ function makeLocalDecision(context: TEEDecisionContext): TEEDecisionResult {
     context,
     decision: approved ? 'APPROVE' : 'REJECT',
     timestamp: Date.now(),
-    mode: 'local-fallback',
+    mode: 'local',
   })
   const encrypted = encrypt(internalData)
   const encryptedReasoning = JSON.stringify(encrypted)
@@ -291,8 +273,6 @@ function makeLocalDecision(context: TEEDecisionContext): TEEDecisionResult {
     },
   }
 }
-
-// ============ Public API ============
 
 export function getTEEMode(): TEEMode {
   const platform = getTEEPlatform()
@@ -317,34 +297,12 @@ export async function makeTEEDecision(
 ): Promise<TEEDecisionResult> {
   const mode = getTEEMode()
   const platform = getTEEPlatform()
-  let result: TEEDecisionResult
 
-  if (mode === 'dstack') {
-    console.log(`[TEE] Using dstack TEE (platform: ${platform})`)
-    try {
-      result = await callDStack(context)
-    } catch (err) {
-      // In local dev, fall back to local decision if dstack not running
-      const network = getCurrentNetwork()
-      if (network === 'localnet') {
-        console.warn(
-          `[TEE] dstack unavailable, using local mode: ${err instanceof Error ? err.message : 'unknown'}`,
-        )
-        result = makeLocalDecision(context)
-      } else {
-        throw err // In testnet/mainnet, don't fallback
-      }
-    }
-  } else {
-    console.log('[TEE] Using local encrypted mode (no TEE)')
-    result = makeLocalDecision(context)
-  }
+  const result: TEEDecisionResult =
+    mode === 'dstack' ? await callDStack(context) : makeLocalDecision(context)
 
   // Apply additional encryption layer via KMS
   if (USE_ENCRYPTION) {
-    const encryptionStatus = getEncryptionStatus()
-    console.log(`[TEE] KMS encryption: ${encryptionStatus.provider}`)
-
     const decisionData: DecisionData = {
       proposalId: context.proposalId,
       approved: result.approved,
@@ -358,14 +316,12 @@ export async function makeTEEDecision(
     }
 
     result.encrypted = await encryptDecision(decisionData)
-    console.log('[TEE] Decision encrypted via KMS')
   }
 
   // Backup to DA layer
   if (BACKUP_TO_DA && result.encrypted) {
     const backup = await backupToDA(context.proposalId, result.encrypted)
     result.daBackupHash = backup.hash
-    console.log('[TEE] Decision backed up to DA:', backup.hash)
   }
 
   return result

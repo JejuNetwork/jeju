@@ -6,24 +6,17 @@
 import { expectValid } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import { z } from 'zod'
+import { API_URLS, fetchApi, jsonRpcRequest } from '../../lib/eden'
 import {
-  BundlerEstimateGasResponseSchema,
-  BundlerReceiptResponseSchema,
-  BundlerSendUserOpResponseSchema,
   GraphQLResponseSchema,
   IndexerBlocksResponseSchema,
   IndexerHealthResponseSchema,
 } from '../../schemas/api-responses'
 
-// Network infrastructure URLs
-const INDEXER_URL =
-  import.meta.env.VITE_JEJU_INDEXER_URL || 'http://localhost:4352'
-const GRAPHQL_URL =
-  import.meta.env.VITE_JEJU_GRAPHQL_URL || 'http://localhost:4350/graphql'
-const BUNDLER_URL =
-  import.meta.env.VITE_JEJU_BUNDLER_URL || 'http://localhost:4337'
+const INDEXER_URL = API_URLS.indexer
+const GRAPHQL_URL = API_URLS.graphql
+const BUNDLER_URL = API_URLS.bundler
 
-// GraphQL query helper with schema validation
 async function graphql<T extends z.ZodTypeAny>(
   query: string,
   dataSchema: T,
@@ -46,20 +39,14 @@ async function graphql<T extends z.ZodTypeAny>(
   return validated.data
 }
 
-// REST API helper with schema validation
 async function api<T>(
   endpoint: string,
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   context: string,
 ): Promise<T> {
-  const response = await fetch(`${INDEXER_URL}${endpoint}`)
-  if (!response.ok) throw new Error(`API error: ${response.status}`)
-  return expectValid(schema, await response.json(), context)
+  const data = await fetchApi<T>(INDEXER_URL, endpoint)
+  return expectValid(schema, data, context)
 }
-
-// ============================================================================
-// GraphQL Response Schemas
-// ============================================================================
 
 const GraphQLTransactionResponseSchema = z.object({
   hash: z.string(),
@@ -182,10 +169,6 @@ const SolversDataSchema = z.object({
   oifSolvers: z.array(SolverSchema),
 })
 
-// ============================================================================
-// Account & Transaction History
-// ============================================================================
-
 export interface IndexedTransaction {
   hash: string
   from: string
@@ -306,10 +289,6 @@ export async function getTokenBalances(
   return data.tokenBalances
 }
 
-// ============================================================================
-// NFTs
-// ============================================================================
-
 export interface IndexedNFT {
   contractAddress: string
   tokenId: string
@@ -350,10 +329,6 @@ export async function getNFTs(address: Address): Promise<IndexedNFT[]> {
   }))
 }
 
-// ============================================================================
-// Token Approvals
-// ============================================================================
-
 export interface IndexedApproval {
   token: string
   tokenSymbol: string
@@ -366,7 +341,6 @@ export interface IndexedApproval {
 export async function getApprovals(
   address: Address,
 ): Promise<IndexedApproval[]> {
-  // Query approval events from indexer
   const data = await graphql(
     `
     query GetApprovals($address: String!) {
@@ -389,10 +363,6 @@ export async function getApprovals(
 
   return data.approvalEvents
 }
-
-// ============================================================================
-// Oracle Prices
-// ============================================================================
 
 export interface OraclePrice {
   symbol: string
@@ -464,10 +434,6 @@ export async function getGasPrice(): Promise<{
   }
 }
 
-// ============================================================================
-// OIF Intents
-// ============================================================================
-
 export interface Intent {
   id: string
   user: string
@@ -538,34 +504,17 @@ export async function getSolvers(): Promise<
   return data.oifSolvers
 }
 
-// ============================================================================
-// Bundler (ERC-4337)
-// ============================================================================
-
 export async function sendUserOperation(
   chainId: number,
   userOp: Record<string, string>,
   entryPoint: Address,
 ): Promise<Hex> {
-  const response = await fetch(`${BUNDLER_URL}/${chainId}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'eth_sendUserOperation',
-      params: [userOp, entryPoint],
-    }),
-  })
-
-  const data = expectValid(
-    BundlerSendUserOpResponseSchema,
-    await response.json(),
-    'sendUserOperation',
+  const result = await jsonRpcRequest<Hex>(
+    `${BUNDLER_URL}/${chainId}`,
+    'eth_sendUserOperation',
+    [userOp, entryPoint],
   )
-  if (data.error) throw new Error(data.error.message)
-  if (!data.result) throw new Error('No result in sendUserOperation response')
-  return data.result
+  return result
 }
 
 export async function estimateUserOperationGas(
@@ -577,28 +526,19 @@ export async function estimateUserOperationGas(
   verificationGasLimit: bigint
   preVerificationGas: bigint
 }> {
-  const response = await fetch(`${BUNDLER_URL}/${chainId}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'eth_estimateUserOperationGas',
-      params: [userOp, entryPoint],
-    }),
-  })
-
-  const data = expectValid(
-    BundlerEstimateGasResponseSchema,
-    await response.json(),
-    'estimateUserOperationGas',
-  )
-  if (data.error) throw new Error(data.error.message)
+  const result = await jsonRpcRequest<{
+    callGasLimit: string
+    verificationGasLimit: string
+    preVerificationGas: string
+  }>(`${BUNDLER_URL}/${chainId}`, 'eth_estimateUserOperationGas', [
+    userOp,
+    entryPoint,
+  ])
 
   return {
-    callGasLimit: BigInt(data.result.callGasLimit),
-    verificationGasLimit: BigInt(data.result.verificationGasLimit),
-    preVerificationGas: BigInt(data.result.preVerificationGas),
+    callGasLimit: BigInt(result.callGasLimit),
+    verificationGasLimit: BigInt(result.verificationGasLimit),
+    preVerificationGas: BigInt(result.preVerificationGas),
   }
 }
 
@@ -606,33 +546,24 @@ export async function getUserOperationReceipt(
   chainId: number,
   userOpHash: Hex,
 ): Promise<{ success: boolean; txHash: Hex } | null> {
-  const response = await fetch(`${BUNDLER_URL}/${chainId}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'eth_getUserOperationReceipt',
-      params: [userOpHash],
-    }),
-  })
+  try {
+    const result = await jsonRpcRequest<{
+      success: boolean
+      receipt: { transactionHash: Hex }
+    } | null>(`${BUNDLER_URL}/${chainId}`, 'eth_getUserOperationReceipt', [
+      userOpHash,
+    ])
 
-  const data = expectValid(
-    BundlerReceiptResponseSchema,
-    await response.json(),
-    'getUserOperationReceipt',
-  )
-  if (!data.result) return null
+    if (!result) return null
 
-  return {
-    success: data.result.success,
-    txHash: data.result.receipt.transactionHash,
+    return {
+      success: result.success,
+      txHash: result.receipt.transactionHash,
+    }
+  } catch {
+    return null
   }
 }
-
-// ============================================================================
-// Indexer Health
-// ============================================================================
 
 export async function getIndexerHealth(): Promise<{
   status: string

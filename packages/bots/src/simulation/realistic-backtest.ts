@@ -12,9 +12,6 @@
  * 7. All fees properly accounted
  */
 
-import { createPublicClient, http, formatEther } from 'viem'
-import { mainnet, base, arbitrum, optimism, bsc } from 'viem/chains'
-
 // ============ TYPES ============
 
 interface Competitor {
@@ -120,29 +117,114 @@ const CHAINS = [
 
 // Known MEV searchers with approximate performance
 const COMPETITORS: Competitor[] = [
-  { name: 'Wintermute', latencyMs: 5, successRate: 0.92, capitalUsd: 100_000_000, isActive: true },
-  { name: 'Jump Trading', latencyMs: 8, successRate: 0.88, capitalUsd: 50_000_000, isActive: true },
-  { name: 'Flashbots Searcher 1', latencyMs: 12, successRate: 0.85, capitalUsd: 10_000_000, isActive: true },
-  { name: 'MEV Bot Alpha', latencyMs: 20, successRate: 0.78, capitalUsd: 5_000_000, isActive: true },
-  { name: 'MEV Bot Beta', latencyMs: 25, successRate: 0.72, capitalUsd: 2_000_000, isActive: true },
-  { name: 'Searcher Network', latencyMs: 30, successRate: 0.68, capitalUsd: 1_000_000, isActive: true },
-  { name: 'Independent 1', latencyMs: 50, successRate: 0.55, capitalUsd: 500_000, isActive: true },
-  { name: 'Independent 2', latencyMs: 60, successRate: 0.50, capitalUsd: 200_000, isActive: true },
-  { name: 'Independent 3', latencyMs: 80, successRate: 0.45, capitalUsd: 100_000, isActive: true },
-  { name: 'Retail Bot', latencyMs: 150, successRate: 0.30, capitalUsd: 50_000, isActive: true },
+  {
+    name: 'Wintermute',
+    latencyMs: 5,
+    successRate: 0.92,
+    capitalUsd: 100_000_000,
+    isActive: true,
+  },
+  {
+    name: 'Jump Trading',
+    latencyMs: 8,
+    successRate: 0.88,
+    capitalUsd: 50_000_000,
+    isActive: true,
+  },
+  {
+    name: 'Flashbots Searcher 1',
+    latencyMs: 12,
+    successRate: 0.85,
+    capitalUsd: 10_000_000,
+    isActive: true,
+  },
+  {
+    name: 'MEV Bot Alpha',
+    latencyMs: 20,
+    successRate: 0.78,
+    capitalUsd: 5_000_000,
+    isActive: true,
+  },
+  {
+    name: 'MEV Bot Beta',
+    latencyMs: 25,
+    successRate: 0.72,
+    capitalUsd: 2_000_000,
+    isActive: true,
+  },
+  {
+    name: 'Searcher Network',
+    latencyMs: 30,
+    successRate: 0.68,
+    capitalUsd: 1_000_000,
+    isActive: true,
+  },
+  {
+    name: 'Independent 1',
+    latencyMs: 50,
+    successRate: 0.55,
+    capitalUsd: 500_000,
+    isActive: true,
+  },
+  {
+    name: 'Independent 2',
+    latencyMs: 60,
+    successRate: 0.5,
+    capitalUsd: 200_000,
+    isActive: true,
+  },
+  {
+    name: 'Independent 3',
+    latencyMs: 80,
+    successRate: 0.45,
+    capitalUsd: 100_000,
+    isActive: true,
+  },
+  {
+    name: 'Retail Bot',
+    latencyMs: 150,
+    successRate: 0.3,
+    capitalUsd: 50_000,
+    isActive: true,
+  },
 ]
 
 // Gas model parameters by chain
 const GAS_MODELS: Record<number, GasModel> = {
-  1: { baseGwei: 25, volatilityMultiplier: 3.0, competitionMultiplier: 2.5, opportunityCorrelation: 0.7 },
-  8453: { baseGwei: 0.005, volatilityMultiplier: 2.0, competitionMultiplier: 1.5, opportunityCorrelation: 0.3 },
-  42161: { baseGwei: 0.01, volatilityMultiplier: 1.5, competitionMultiplier: 1.3, opportunityCorrelation: 0.4 },
-  10: { baseGwei: 0.005, volatilityMultiplier: 1.5, competitionMultiplier: 1.3, opportunityCorrelation: 0.3 },
-  56: { baseGwei: 3, volatilityMultiplier: 2.0, competitionMultiplier: 1.8, opportunityCorrelation: 0.5 },
+  1: {
+    baseGwei: 25,
+    volatilityMultiplier: 3.0,
+    competitionMultiplier: 2.5,
+    opportunityCorrelation: 0.7,
+  },
+  8453: {
+    baseGwei: 0.005,
+    volatilityMultiplier: 2.0,
+    competitionMultiplier: 1.5,
+    opportunityCorrelation: 0.3,
+  },
+  42161: {
+    baseGwei: 0.01,
+    volatilityMultiplier: 1.5,
+    competitionMultiplier: 1.3,
+    opportunityCorrelation: 0.4,
+  },
+  10: {
+    baseGwei: 0.005,
+    volatilityMultiplier: 1.5,
+    competitionMultiplier: 1.3,
+    opportunityCorrelation: 0.3,
+  },
+  56: {
+    baseGwei: 3,
+    volatilityMultiplier: 2.0,
+    competitionMultiplier: 1.8,
+    opportunityCorrelation: 0.5,
+  },
 }
 
 // DEX fee tiers (in bps)
-const DEX_FEES = {
+const _DEX_FEES = {
   uniswapV2: 30,
   uniswapV3_005: 5,
   uniswapV3_030: 30,
@@ -162,39 +244,41 @@ const FLASH_LOAN_FEES = {
 
 // ============ GAS CORRELATION MODEL ============
 
-class GasCorrelationModel {
-  /**
-   * Calculate gas price based on opportunity value
-   * Higher value opportunities = more competition = higher gas
-   */
-  static calculateGasPrice(
-    chainId: number,
-    opportunityValueUsd: number,
-    baseVolatility: number = 1.0,
-    numCompetitors: number = 5,
-  ): { gasGwei: number; priorityFeeGwei: number } {
-    const model = GAS_MODELS[chainId] ?? GAS_MODELS[1]
+/**
+ * Calculate gas price based on opportunity value
+ * Higher value opportunities = more competition = higher gas
+ */
+function calculateGasPrice(
+  chainId: number,
+  opportunityValueUsd: number,
+  baseVolatility: number = 1.0,
+  numCompetitors: number = 5,
+): { gasGwei: number; priorityFeeGwei: number } {
+  const model = GAS_MODELS[chainId] ?? GAS_MODELS[1]
 
-    // Base gas with volatility
-    let gasGwei = model.baseGwei * (1 + (baseVolatility - 1) * model.volatilityMultiplier)
+  // Base gas with volatility
+  let gasGwei =
+    model.baseGwei * (1 + (baseVolatility - 1) * model.volatilityMultiplier)
 
-    // Opportunity correlation: bigger opportunities = higher gas
-    if (opportunityValueUsd > 100) {
-      const logValue = Math.log10(opportunityValueUsd)
-      const correlationFactor = 1 + (logValue - 2) * model.opportunityCorrelation * 0.3
-      gasGwei *= Math.max(1, correlationFactor)
-    }
-
-    // Competition multiplier
-    const competitionFactor = 1 + (numCompetitors / 10) * (model.competitionMultiplier - 1)
-    gasGwei *= competitionFactor
-
-    // Priority fee scales with opportunity
-    const basePriorityPct = 0.2 + Math.min(0.8, opportunityValueUsd / 1000 * 0.1)
-    const priorityFeeGwei = gasGwei * basePriorityPct
-
-    return { gasGwei, priorityFeeGwei }
+  // Opportunity correlation: bigger opportunities = higher gas
+  if (opportunityValueUsd > 100) {
+    const logValue = Math.log10(opportunityValueUsd)
+    const correlationFactor =
+      1 + (logValue - 2) * model.opportunityCorrelation * 0.3
+    gasGwei *= Math.max(1, correlationFactor)
   }
+
+  // Competition multiplier
+  const competitionFactor =
+    1 + (numCompetitors / 10) * (model.competitionMultiplier - 1)
+  gasGwei *= competitionFactor
+
+  // Priority fee scales with opportunity
+  const basePriorityPct =
+    0.2 + Math.min(0.8, (opportunityValueUsd / 1000) * 0.1)
+  const priorityFeeGwei = gasGwei * basePriorityPct
+
+  return { gasGwei, priorityFeeGwei }
 }
 
 // ============ COMPETITION MODEL ============
@@ -213,24 +297,24 @@ class CompetitionModel {
    * Returns who wins based on latency, capital, and randomness
    */
   compete(
-    opportunityValueUsd: number,
+    _opportunityValueUsd: number,
     chainId: number,
     requiredCapitalUsd: number,
   ): { won: boolean; winnerName: string; numCompeting: number } {
     // Filter competitors who can afford this trade
-    const eligibleCompetitors = this.competitors.filter(c =>
-      c.isActive && c.capitalUsd >= requiredCapitalUsd
+    const eligibleCompetitors = this.competitors.filter(
+      (c) => c.isActive && c.capitalUsd >= requiredCapitalUsd,
     )
 
     // Fewer competitors on L2s
     const l2Discount = chainId === 1 ? 1.0 : chainId === 42161 ? 0.6 : 0.4
-    const activeCompetitors = eligibleCompetitors.filter(() =>
-      Math.random() < l2Discount
+    const activeCompetitors = eligibleCompetitors.filter(
+      () => Math.random() < l2Discount,
     )
 
     // Add ourselves
     const allParticipants = [
-      ...activeCompetitors.map(c => ({
+      ...activeCompetitors.map((c) => ({
         name: c.name,
         latencyMs: c.latencyMs + Math.random() * 10, // Add jitter
         successRate: c.successRate,
@@ -258,7 +342,11 @@ class CompetitionModel {
     }
 
     // If everyone failed, opportunity is gone
-    return { won: false, winnerName: 'None', numCompeting: allParticipants.length }
+    return {
+      won: false,
+      winnerName: 'None',
+      numCompeting: allParticipants.length,
+    }
   }
 
   /**
@@ -266,43 +354,43 @@ class CompetitionModel {
    */
   getActiveCompetitors(chainId: number): number {
     const l2Discount = chainId === 1 ? 1.0 : chainId === 42161 ? 0.6 : 0.4
-    return Math.floor(this.competitors.filter(c => c.isActive).length * l2Discount)
+    return Math.floor(
+      this.competitors.filter((c) => c.isActive).length * l2Discount,
+    )
   }
 }
 
 // ============ SLIPPAGE MODEL ============
 
-class RealisticSlippageModel {
-  /**
-   * Calculate realistic slippage based on:
-   * - Trade size vs pool TVL
-   * - Number of competing transactions
-   * - Time since opportunity detected
-   */
-  static calculate(
-    tradeSizeUsd: number,
-    poolTvlUsd: number,
-    numCompetitors: number,
-    detectionDelayMs: number,
-    spreadBps: number,
-  ): { slippageBps: number; effectiveSpreadBps: number } {
-    // Base slippage from AMM math: size / (2 * TVL) - more conservative on L2s
-    const baseSlippageBps = (tradeSizeUsd / (4 * poolTvlUsd)) * 10000
+/**
+ * Calculate realistic slippage based on:
+ * - Trade size vs pool TVL
+ * - Number of competing transactions
+ * - Time since opportunity detected
+ */
+function calculateRealisticSlippage(
+  tradeSizeUsd: number,
+  poolTvlUsd: number,
+  numCompetitors: number,
+  detectionDelayMs: number,
+  spreadBps: number,
+): { slippageBps: number; effectiveSpreadBps: number } {
+  // Base slippage from AMM math: size / (2 * TVL) - more conservative on L2s
+  const baseSlippageBps = (tradeSizeUsd / (4 * poolTvlUsd)) * 10000
 
-    // Competition slippage: others moving the price (only 30% actually compete)
-    const competitionSlippageBps = numCompetitors * 0.3 * 1.5 // 0.5bps per active competitor
+  // Competition slippage: others moving the price (only 30% actually compete)
+  const competitionSlippageBps = numCompetitors * 0.3 * 1.5 // 0.5bps per active competitor
 
-    // Time decay: price moves during execution
-    const timeDecayBps = (detectionDelayMs / 1000) * 2 // 2bps per second
+  // Time decay: price moves during execution
+  const timeDecayBps = (detectionDelayMs / 1000) * 2 // 2bps per second
 
-    // Total slippage
-    const slippageBps = baseSlippageBps + competitionSlippageBps + timeDecayBps
+  // Total slippage
+  const slippageBps = baseSlippageBps + competitionSlippageBps + timeDecayBps
 
-    // Effective spread after slippage - keep at least 30% of detected spread
-    const effectiveSpreadBps = Math.max(spreadBps * 0.3, spreadBps - slippageBps)
+  // Effective spread after slippage - keep at least 30% of detected spread
+  const effectiveSpreadBps = Math.max(spreadBps * 0.3, spreadBps - slippageBps)
 
-    return { slippageBps, effectiveSpreadBps }
-  }
+  return { slippageBps, effectiveSpreadBps }
 }
 
 // ============ OPPORTUNITY GENERATOR (REALISTIC) ============
@@ -327,11 +415,11 @@ class RealisticOpportunityGenerator {
 
     // Base opportunities per chain (from historical analysis)
     const baseOpportunities: Record<number, number> = {
-      1: 400,      // Ethereum mainnet
-      8453: 150,   // Base
-      42161: 300,  // Arbitrum
-      10: 100,     // Optimism
-      56: 200,     // BSC
+      1: 400, // Ethereum mainnet
+      8453: 150, // Base
+      42161: 300, // Arbitrum
+      10: 100, // Optimism
+      56: 200, // BSC
     }
 
     let numOpportunities = baseOpportunities[chainId] ?? 100
@@ -362,13 +450,17 @@ class RealisticOpportunityGenerator {
       // Gas varies with time and activity
       const gasModel = GAS_MODELS[chainId] ?? GAS_MODELS[1]
       const hourOfDay = new Date(blockTimestamp).getHours()
-      const activityMultiplier = 0.6 + 0.8 * Math.sin((hourOfDay - 6) * Math.PI / 12) ** 2
-      const gasGwei = gasModel.baseGwei * activityMultiplier * (1 + Math.random() * 0.5)
+      const activityMultiplier =
+        0.6 + 0.8 * Math.sin(((hourOfDay - 6) * Math.PI) / 12) ** 2
+      const gasGwei =
+        gasModel.baseGwei * activityMultiplier * (1 + Math.random() * 0.5)
 
       // Number of competitors depends on opportunity size
       const numCompetitors = Math.min(
         10,
-        Math.floor(2 + Math.log10(Math.max(1, spreadBps * volumeUsd / 100)) * 2)
+        Math.floor(
+          2 + Math.log10(Math.max(1, (spreadBps * volumeUsd) / 100)) * 2,
+        ),
       )
 
       opportunities.push({
@@ -387,7 +479,7 @@ class RealisticOpportunityGenerator {
 
   private generatePowerLaw(min: number, max: number, alpha: number): number {
     const u = Math.random()
-    return min * Math.pow(1 - u * (1 - Math.pow(max / min, 1 - alpha)), 1 / (1 - alpha))
+    return min * (1 - u * (1 - (max / min) ** (1 - alpha))) ** (1 / (1 - alpha))
   }
 
   private generateLogNormal(median: number, sigma: number): number {
@@ -431,14 +523,14 @@ class ExecutionSimulator {
     )
 
     // Calculate gas cost with correlation
-    const { gasGwei, priorityFeeGwei } = GasCorrelationModel.calculateGasPrice(
+    const { gasGwei, priorityFeeGwei } = calculateGasPrice(
       opp.chainId,
-      opp.spreadBps * tradeSize / 10000,
+      (opp.spreadBps * tradeSize) / 10000,
       1.0,
       opp.numCompetitors,
     )
 
-    const chainConfig = CHAINS.find(c => c.chainId === opp.chainId)
+    const chainConfig = CHAINS.find((c) => c.chainId === opp.chainId)
     const gasMultiplier = chainConfig?.gasMultiplier ?? 1.0
 
     // Gas cost calculation - L2s are much cheaper
@@ -454,12 +546,12 @@ class ExecutionSimulator {
     } else {
       // L2: much lower gas + L1 data cost
       const l2GasCostEth = gasUnits * totalGasGwei * 1e-9 * gasMultiplier
-      const l1DataCostUsd = 0.10 // ~$0.10 for calldata on L2
+      const l1DataCostUsd = 0.1 // ~$0.10 for calldata on L2
       gasCostUsd = l2GasCostEth * this.ethPriceUsd + l1DataCostUsd
     }
 
     // Calculate slippage
-    const { slippageBps, effectiveSpreadBps } = RealisticSlippageModel.calculate(
+    const { slippageBps, effectiveSpreadBps } = calculateRealisticSlippage(
       tradeSize,
       opp.poolTvlUsd,
       opp.numCompetitors,
@@ -484,7 +576,12 @@ class ExecutionSimulator {
     const mevCostUsd = tradeSize * (mevExtractionBps / 10000)
 
     // Total costs
-    const totalCostUsd = gasCostUsd + slippageCostUsd + dexFeeCostUsd + flashLoanCostUsd + mevCostUsd
+    const totalCostUsd =
+      gasCostUsd +
+      slippageCostUsd +
+      dexFeeCostUsd +
+      flashLoanCostUsd +
+      mevCostUsd
     const netProfitUsd = grossProfitUsd - totalCostUsd
 
     // Check if profitable
@@ -503,7 +600,7 @@ class ExecutionSimulator {
     }
 
     // Compete for the opportunity
-    const { won, winnerName, numCompeting } = this.competition.compete(
+    const { won, winnerName } = this.competition.compete(
       netProfitUsd,
       opp.chainId,
       tradeSize,
@@ -565,13 +662,23 @@ export class RealisticBacktester {
 
   async run(): Promise<RealisticBacktestResult> {
     console.log('')
-    console.log('╔══════════════════════════════════════════════════════════════════════╗')
-    console.log('║                    REALISTIC BACKTEST                                ║')
-    console.log('║  With Competition, Latency, Gas Correlation, and Market Conditions  ║')
-    console.log('╚══════════════════════════════════════════════════════════════════════╝')
+    console.log(
+      '╔══════════════════════════════════════════════════════════════════════╗',
+    )
+    console.log(
+      '║                    REALISTIC BACKTEST                                ║',
+    )
+    console.log(
+      '║  With Competition, Latency, Gas Correlation, and Market Conditions  ║',
+    )
+    console.log(
+      '╚══════════════════════════════════════════════════════════════════════╝',
+    )
     console.log('')
     console.log(`  Config:`)
-    console.log(`    Chains: ${this.config.chains.map(c => CHAINS.find(ch => ch.chainId === c)?.name).join(', ')}`)
+    console.log(
+      `    Chains: ${this.config.chains.map((c) => CHAINS.find((ch) => ch.chainId === c)?.name).join(', ')}`,
+    )
     console.log(`    Our Latency: ${this.config.ourLatencyMs}ms`)
     console.log(`    Min Profit: $${this.config.minProfitUsd}`)
     console.log(`    Max Trade: $${this.config.maxTradeUsd}`)
@@ -625,7 +732,11 @@ export class RealisticBacktester {
           totalCompetitors += opp.numCompetitors
           totalGasGwei += opp.gasGwei
 
-          const result = simulator.execute(opp, this.config.minProfitUsd, this.config.maxTradeUsd)
+          const result = simulator.execute(
+            opp,
+            this.config.minProfitUsd,
+            this.config.maxTradeUsd,
+          )
 
           if (!result.executed) {
             continue // Skipped due to profitability
@@ -649,7 +760,8 @@ export class RealisticBacktester {
         }
       }
 
-      const dayNetProfit = dayGrossProfit - dayGasCost - daySlippageCost - dayFailedTxCost
+      const dayNetProfit =
+        dayGrossProfit - dayGasCost - daySlippageCost - dayFailedTxCost
 
       dailyStats.push({
         date: dateStr,
@@ -665,7 +777,8 @@ export class RealisticBacktester {
         netProfit: dayNetProfit,
         avgLatency: dayExecuted > 0 ? totalLatency / dayExecuted : 0,
         avgGasGwei: dayOpportunities > 0 ? totalGasGwei / dayOpportunities : 0,
-        competitionLevel: dayOpportunities > 0 ? totalCompetitors / dayOpportunities : 0,
+        competitionLevel:
+          dayOpportunities > 0 ? totalCompetitors / dayOpportunities : 0,
       })
 
       currentTime += dayMs
@@ -680,8 +793,13 @@ export class RealisticBacktester {
     return { config: this.config, dailyStats, summary }
   }
 
-  private calculateSummary(dailyStats: DailyStats[]): RealisticBacktestResult['summary'] {
-    const totalOpportunities = dailyStats.reduce((s, d) => s + d.opportunities, 0)
+  private calculateSummary(
+    dailyStats: DailyStats[],
+  ): RealisticBacktestResult['summary'] {
+    const totalOpportunities = dailyStats.reduce(
+      (s, d) => s + d.opportunities,
+      0,
+    )
     const opportunitiesExecuted = dailyStats.reduce((s, d) => s + d.executed, 0)
     const opportunitiesWon = dailyStats.reduce((s, d) => s + d.won, 0)
     const totalGrossProfit = dailyStats.reduce((s, d) => s + d.grossProfit, 0)
@@ -690,8 +808,8 @@ export class RealisticBacktester {
     const totalFailedTxCost = dailyStats.reduce((s, d) => s + d.failedTxCost, 0)
     const totalNetProfit = dailyStats.reduce((s, d) => s + d.netProfit, 0)
 
-    const profitableDays = dailyStats.filter(d => d.netProfit > 0).length
-    const unprofitableDays = dailyStats.filter(d => d.netProfit <= 0).length
+    const profitableDays = dailyStats.filter((d) => d.netProfit > 0).length
+    const unprofitableDays = dailyStats.filter((d) => d.netProfit <= 0).length
 
     // Calculate max drawdown
     let peak = 0
@@ -707,19 +825,26 @@ export class RealisticBacktester {
     // Calculate Sharpe ratio
     const avgDaily = totalNetProfit / dailyStats.length
     const stdDaily = Math.sqrt(
-      dailyStats.reduce((s, d) => s + Math.pow(d.netProfit - avgDaily, 2), 0) / dailyStats.length
+      dailyStats.reduce((s, d) => s + (d.netProfit - avgDaily) ** 2, 0) /
+        dailyStats.length,
     )
-    const sharpeRatio = stdDaily > 0 ? (avgDaily / stdDaily) * Math.sqrt(365) : 0
+    const sharpeRatio =
+      stdDaily > 0 ? (avgDaily / stdDaily) * Math.sqrt(365) : 0
 
-    const avgCompetitors = dailyStats.reduce((s, d) => s + d.competitionLevel, 0) / dailyStats.length
-    const avgLatency = dailyStats.reduce((s, d) => s + d.avgLatency, 0) / dailyStats.length
+    const avgCompetitors =
+      dailyStats.reduce((s, d) => s + d.competitionLevel, 0) / dailyStats.length
+    const avgLatency =
+      dailyStats.reduce((s, d) => s + d.avgLatency, 0) / dailyStats.length
 
     return {
       totalDays: dailyStats.length,
       totalOpportunities,
       opportunitiesExecuted,
       opportunitiesWon,
-      winRate: opportunitiesExecuted > 0 ? opportunitiesWon / opportunitiesExecuted : 0,
+      winRate:
+        opportunitiesExecuted > 0
+          ? opportunitiesWon / opportunitiesExecuted
+          : 0,
       totalGrossProfit,
       totalGasCost,
       totalSlippageCost,
@@ -735,56 +860,106 @@ export class RealisticBacktester {
     }
   }
 
-  private printResults(dailyStats: DailyStats[], summary: RealisticBacktestResult['summary']): void {
+  private printResults(
+    dailyStats: DailyStats[],
+    summary: RealisticBacktestResult['summary'],
+  ): void {
     console.log('')
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+    console.log(
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+    )
     console.log('  RESULTS')
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+    console.log(
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+    )
     console.log('')
 
     // Summary table
     console.log('  EXECUTION STATISTICS')
     console.log('  ┌────────────────────────────────┬────────────────────┐')
-    console.log(`  │ Total Opportunities            │ ${summary.totalOpportunities.toLocaleString().padStart(18)} │`)
-    console.log(`  │ Executed                       │ ${summary.opportunitiesExecuted.toLocaleString().padStart(18)} │`)
-    console.log(`  │ Won                            │ ${summary.opportunitiesWon.toLocaleString().padStart(18)} │`)
-    console.log(`  │ Win Rate                       │ ${(summary.winRate * 100).toFixed(1).padStart(17)}% │`)
-    console.log(`  │ Avg Competitors                │ ${summary.avgCompetitors.toFixed(1).padStart(18)} │`)
-    console.log(`  │ Avg Latency                    │ ${summary.avgLatency.toFixed(0).padStart(15)} ms │`)
+    console.log(
+      `  │ Total Opportunities            │ ${summary.totalOpportunities.toLocaleString().padStart(18)} │`,
+    )
+    console.log(
+      `  │ Executed                       │ ${summary.opportunitiesExecuted.toLocaleString().padStart(18)} │`,
+    )
+    console.log(
+      `  │ Won                            │ ${summary.opportunitiesWon.toLocaleString().padStart(18)} │`,
+    )
+    console.log(
+      `  │ Win Rate                       │ ${(summary.winRate * 100).toFixed(1).padStart(17)}% │`,
+    )
+    console.log(
+      `  │ Avg Competitors                │ ${summary.avgCompetitors.toFixed(1).padStart(18)} │`,
+    )
+    console.log(
+      `  │ Avg Latency                    │ ${summary.avgLatency.toFixed(0).padStart(15)} ms │`,
+    )
     console.log('  └────────────────────────────────┴────────────────────┘')
     console.log('')
 
     // Financial summary
     console.log('  FINANCIAL SUMMARY')
     console.log('  ┌────────────────────────────────┬────────────────────┐')
-    console.log(`  │ Total Gross Profit             │ $${summary.totalGrossProfit.toFixed(0).padStart(17)} │`)
-    console.log(`  │ Total Gas Cost                 │ $${summary.totalGasCost.toFixed(0).padStart(17)} │`)
-    console.log(`  │ Total Slippage Cost            │ $${summary.totalSlippageCost.toFixed(0).padStart(17)} │`)
-    console.log(`  │ Total Failed Tx Cost           │ $${summary.totalFailedTxCost.toFixed(0).padStart(17)} │`)
+    console.log(
+      `  │ Total Gross Profit             │ $${summary.totalGrossProfit.toFixed(0).padStart(17)} │`,
+    )
+    console.log(
+      `  │ Total Gas Cost                 │ $${summary.totalGasCost.toFixed(0).padStart(17)} │`,
+    )
+    console.log(
+      `  │ Total Slippage Cost            │ $${summary.totalSlippageCost.toFixed(0).padStart(17)} │`,
+    )
+    console.log(
+      `  │ Total Failed Tx Cost           │ $${summary.totalFailedTxCost.toFixed(0).padStart(17)} │`,
+    )
     console.log('  ├────────────────────────────────┼────────────────────┤')
-    console.log(`  │ Total Net Profit               │ $${summary.totalNetProfit.toFixed(0).padStart(17)} │`)
-    console.log(`  │ Avg Daily Profit               │ $${summary.avgDailyProfit.toFixed(0).padStart(17)} │`)
-    console.log(`  │ Projected Monthly              │ $${(summary.avgDailyProfit * 30).toFixed(0).padStart(17)} │`)
+    console.log(
+      `  │ Total Net Profit               │ $${summary.totalNetProfit.toFixed(0).padStart(17)} │`,
+    )
+    console.log(
+      `  │ Avg Daily Profit               │ $${summary.avgDailyProfit.toFixed(0).padStart(17)} │`,
+    )
+    console.log(
+      `  │ Projected Monthly              │ $${(summary.avgDailyProfit * 30).toFixed(0).padStart(17)} │`,
+    )
     console.log('  └────────────────────────────────┴────────────────────┘')
     console.log('')
 
     // Risk metrics
     console.log('  RISK METRICS')
     console.log('  ┌────────────────────────────────┬────────────────────┐')
-    console.log(`  │ Profitable Days                │ ${summary.profitableDays.toString().padStart(18)} │`)
-    console.log(`  │ Unprofitable Days              │ ${summary.unprofitableDays.toString().padStart(18)} │`)
-    console.log(`  │ Max Drawdown                   │ ${(summary.maxDrawdown * 100).toFixed(1).padStart(17)}% │`)
-    console.log(`  │ Sharpe Ratio                   │ ${summary.sharpeRatio.toFixed(2).padStart(18)} │`)
+    console.log(
+      `  │ Profitable Days                │ ${summary.profitableDays.toString().padStart(18)} │`,
+    )
+    console.log(
+      `  │ Unprofitable Days              │ ${summary.unprofitableDays.toString().padStart(18)} │`,
+    )
+    console.log(
+      `  │ Max Drawdown                   │ ${(summary.maxDrawdown * 100).toFixed(1).padStart(17)}% │`,
+    )
+    console.log(
+      `  │ Sharpe Ratio                   │ ${summary.sharpeRatio.toFixed(2).padStart(18)} │`,
+    )
     console.log('  └────────────────────────────────┴────────────────────┘')
     console.log('')
 
     // Cost breakdown
-    const totalCosts = summary.totalGasCost + summary.totalSlippageCost + summary.totalFailedTxCost
+    const totalCosts =
+      summary.totalGasCost +
+      summary.totalSlippageCost +
+      summary.totalFailedTxCost
     console.log('  COST BREAKDOWN')
     console.log('  ┌────────────────────────────────┬────────────────────┐')
-    console.log(`  │ Gas Costs                      │ ${(summary.totalGasCost / totalCosts * 100).toFixed(1).padStart(17)}% │`)
-    console.log(`  │ Slippage Costs                 │ ${(summary.totalSlippageCost / totalCosts * 100).toFixed(1).padStart(17)}% │`)
-    console.log(`  │ Failed Tx Costs                │ ${(summary.totalFailedTxCost / totalCosts * 100).toFixed(1).padStart(17)}% │`)
+    console.log(
+      `  │ Gas Costs                      │ ${((summary.totalGasCost / totalCosts) * 100).toFixed(1).padStart(17)}% │`,
+    )
+    console.log(
+      `  │ Slippage Costs                 │ ${((summary.totalSlippageCost / totalCosts) * 100).toFixed(1).padStart(17)}% │`,
+    )
+    console.log(
+      `  │ Failed Tx Costs                │ ${((summary.totalFailedTxCost / totalCosts) * 100).toFixed(1).padStart(17)}% │`,
+    )
     console.log('  └────────────────────────────────┴────────────────────┘')
     console.log('')
 
@@ -807,7 +982,9 @@ export class RealisticBacktester {
       const weekWinRate = weekExecuted > 0 ? weekWon / weekExecuted : 0
 
       const startDate = weekDays[0]?.date ?? 'N/A'
-      console.log(`  │ ${startDate.padEnd(15)} │ $${weekGross.toFixed(0).padStart(9)} │ $${weekNet.toFixed(0).padStart(9)} │ ${(weekWinRate * 100).toFixed(1).padStart(9)}% │`)
+      console.log(
+        `  │ ${startDate.padEnd(15)} │ $${weekGross.toFixed(0).padStart(9)} │ $${weekNet.toFixed(0).padStart(9)} │ ${(weekWinRate * 100).toFixed(1).padStart(9)}% │`,
+      )
     }
     console.log('  └─────────────────┴────────────┴────────────┴────────────┘')
     console.log('')
@@ -875,29 +1052,47 @@ async function main() {
   }
 
   // Final comparison
-  console.log('\n' + '█'.repeat(74))
+  console.log(`\n${'█'.repeat(74)}`)
   console.log('                      SCENARIO COMPARISON')
   console.log('█'.repeat(74))
   console.log('')
-  console.log('  ┌─────────────────────────────────────┬────────────┬────────────┬────────────┐')
-  console.log('  │ Scenario                            │ Win Rate   │ Monthly $  │ Sharpe     │')
-  console.log('  ├─────────────────────────────────────┼────────────┼────────────┼────────────┤')
+  console.log(
+    '  ┌─────────────────────────────────────┬────────────┬────────────┬────────────┐',
+  )
+  console.log(
+    '  │ Scenario                            │ Win Rate   │ Monthly $  │ Sharpe     │',
+  )
+  console.log(
+    '  ├─────────────────────────────────────┼────────────┼────────────┼────────────┤',
+  )
 
   for (const { name, result } of results) {
-    const shortName = name.length > 35 ? name.slice(0, 32) + '...' : name
-    console.log(`  │ ${shortName.padEnd(35)} │ ${(result.summary.winRate * 100).toFixed(1).padStart(9)}% │ $${(result.summary.avgDailyProfit * 30).toFixed(0).padStart(9)} │ ${result.summary.sharpeRatio.toFixed(2).padStart(10)} │`)
+    const shortName = name.length > 35 ? `${name.slice(0, 32)}...` : name
+    console.log(
+      `  │ ${shortName.padEnd(35)} │ ${(result.summary.winRate * 100).toFixed(1).padStart(9)}% │ $${(result.summary.avgDailyProfit * 30).toFixed(0).padStart(9)} │ ${result.summary.sharpeRatio.toFixed(2).padStart(10)} │`,
+    )
   }
-  console.log('  └─────────────────────────────────────┴────────────┴────────────┴────────────┘')
+  console.log(
+    '  └─────────────────────────────────────┴────────────┴────────────┴────────────┘',
+  )
 
   console.log('')
   console.log('█'.repeat(74))
   console.log('                      KEY INSIGHTS')
   console.log('█'.repeat(74))
   console.log('')
-  console.log('  1. Latency matters: 15ms vs 50ms = significant win rate difference')
-  console.log('  2. Private mempool: Reduces MEV extraction, increases effective profit')
-  console.log('  3. L2 focus: Lower gas costs make smaller opportunities profitable')
-  console.log('  4. Realistic win rate: 3-10% when competing with professional searchers')
+  console.log(
+    '  1. Latency matters: 15ms vs 50ms = significant win rate difference',
+  )
+  console.log(
+    '  2. Private mempool: Reduces MEV extraction, increases effective profit',
+  )
+  console.log(
+    '  3. L2 focus: Lower gas costs make smaller opportunities profitable',
+  )
+  console.log(
+    '  4. Realistic win rate: 3-10% when competing with professional searchers',
+  )
   console.log('  5. Monthly profits: $400-$2000 realistic for small operator')
   console.log('')
   console.log('  COMPARISON TO ORIGINAL BACKTEST:')
@@ -911,4 +1106,3 @@ async function main() {
 if (import.meta.main) {
   main().catch(console.error)
 }
-

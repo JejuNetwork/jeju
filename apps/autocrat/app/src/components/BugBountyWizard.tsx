@@ -23,8 +23,6 @@ import {
   submitBugBounty,
 } from '../config/api'
 
-// ============ Types ============
-
 interface BountyDraft {
   severity: number
   vulnType: number
@@ -50,8 +48,6 @@ interface WizardAssessment {
 }
 
 type WizardStep = 'type' | 'details' | 'poc' | 'review' | 'submit'
-
-// ============ Config ============
 
 const SEVERITY_OPTIONS = [
   {
@@ -150,14 +146,10 @@ const COMPONENT_OPTIONS = [
   'Other',
 ]
 
-// ============ Props ============
-
 interface BugBountyWizardProps {
   onComplete?: (submissionId: string) => void
   onCancel?: () => void
 }
-
-// ============ Helpers ============
 
 function draftToSubmission(draft: BountyDraft): BountySubmissionDraft {
   return {
@@ -202,8 +194,6 @@ function assessmentToWizard(
     readyToSubmit: assessment.readyToSubmit,
   }
 }
-
-// ============ Component ============
 
 export function BugBountyWizard({
   onComplete,

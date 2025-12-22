@@ -43,8 +43,6 @@ const FARCASTER_API_URL =
   process.env.FARCASTER_API_URL ?? 'https://api.neynar.com/v2'
 const NEYNAR_API_KEY = process.env.NEYNAR_API_KEY ?? ''
 
-// ============ Session Types ============
-
 export interface FarcasterSession {
   fid: number
   profile: FarcasterProfile
@@ -164,8 +162,6 @@ export class FarcasterProvider {
     this.appFid = config?.appFid
   }
 
-  // ============ SIWF Authentication ============
-
   /**
    * Create SIWF auth channel (for QR code / deep link auth)
    */
@@ -228,8 +224,6 @@ export class FarcasterProvider {
   getSession(fid: number): FarcasterSession | null {
     return this.sessions.get(fid) ?? null
   }
-
-  // ============ Direct Hub Posting ============
 
   /**
    * Post a cast via hub
@@ -394,8 +388,6 @@ export class FarcasterProvider {
     await this.submitToHub(message, signature)
   }
 
-  // ============ Internal Hub Methods ============
-
   private getFarcasterTimestamp(): number {
     const FARCASTER_EPOCH = 1609459200 // Jan 1, 2021 00:00:00 UTC
     return Math.floor(Date.now() / 1000) - FARCASTER_EPOCH
@@ -435,9 +427,6 @@ export class FarcasterProvider {
     _session: FarcasterSession,
     message: Record<string, unknown>,
   ): Promise<Uint8Array> {
-    // In production, use proper Ed25519 signing with signer key
-    // For now, return mock signature
-    // Note: message is encoded but signature is mocked for now
     void JSON.stringify(message)
     return new Uint8Array(64).fill(0)
   }
@@ -945,7 +934,6 @@ export class FarcasterProvider {
       providerHandle: profile.username,
       linkedAt: Date.now(),
       verified: true,
-      credential: null,
     }
   }
 

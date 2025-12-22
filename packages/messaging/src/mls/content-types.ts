@@ -17,8 +17,6 @@ import type {
   TransactionContent,
 } from './types'
 
-// ============ Content Zod Schemas ============
-
 const TextContentSchema = z.object({
   type: z.literal('text'),
   text: z.string(),
@@ -93,8 +91,6 @@ export const MessageContentSchema = z.discriminatedUnion('type', [
   AgentActionContentSchema,
 ])
 
-// ============ Content Type IDs ============
-
 export const ContentTypeIds = {
   TEXT: 'jeju.org/text:1.0',
   IMAGE: 'jeju.org/image:1.0',
@@ -104,8 +100,6 @@ export const ContentTypeIds = {
   TRANSACTION: 'jeju.org/transaction:1.0',
   AGENT_ACTION: 'jeju.org/agent_action:1.0',
 } as const
-
-// ============ Content Builders ============
 
 /**
  * Create text content
@@ -222,8 +216,6 @@ export function agentAction(params: {
   }
 }
 
-// ============ Content Serialization ============
-
 /**
  * Serialize content to string
  */
@@ -269,8 +261,6 @@ export function getContentTypeId(content: MessageContent): string {
       return ContentTypeIds.AGENT_ACTION
   }
 }
-
-// ============ Content Validation ============
 
 /**
  * Validate image content - accepts unknown for runtime validation
@@ -332,8 +322,6 @@ export function validateTransaction(
     ['pending', 'confirmed', 'failed'].includes(c.status)
   )
 }
-
-// ============ Content Display Helpers ============
 
 /**
  * Get display text for content

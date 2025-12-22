@@ -2,10 +2,17 @@ import { Loader2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
+type AuthMethod = 'siwe' | 'siwf' | 'passkey' | 'social'
+
 interface AuthSession {
   address: string
-  method: 'siwe' | 'siwf' | 'passkey' | 'social'
+  method: AuthMethod
   expiresAt: number
+}
+
+interface OAuth3CallbackResponse {
+  address: string
+  provider: string
 }
 
 export default function AuthCallbackPage() {
@@ -50,11 +57,11 @@ export default function AuthCallbackPage() {
         return
       }
 
-      const { address, provider } = await response.json()
+      const data: OAuth3CallbackResponse = await response.json()
 
       const session: AuthSession = {
-        address,
-        method: provider === 'farcaster' ? 'siwf' : 'social',
+        address: data.address,
+        method: data.provider === 'farcaster' ? 'siwf' : 'social',
         expiresAt: Date.now() + 24 * 60 * 60 * 1000,
       }
 

@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query'
 import {
   Clock,
   GitBranch,
@@ -8,7 +9,7 @@ import {
   Search,
   Star,
 } from 'lucide-react'
-import { type ComponentType, useCallback, useEffect, useState } from 'react'
+import { type ComponentType, useState } from 'react'
 
 // Fix for Lucide React 19 type compatibility
 const SearchIcon = Search as ComponentType<LucideProps>
@@ -39,38 +40,34 @@ interface Repository {
   storage_backend: string
 }
 
+const GIT_SERVER_URL =
+  process.env.PUBLIC_JEJUGIT_URL ?? 'http://localhost:4030/git'
+
+async function fetchRepositories(
+  sort: string,
+  filter: string,
+): Promise<Repository[]> {
+  const params = new URLSearchParams()
+  params.set('sort', sort)
+  if (filter !== 'all') params.set('visibility', filter)
+
+  const response = await fetch(`${GIT_SERVER_URL}/api/v1/repos?${params}`)
+  if (!response.ok) {
+    return []
+  }
+  const data = await response.json()
+  return Array.isArray(data?.items) ? data.items : []
+}
+
 export default function RepositoriesPage() {
-  const [repositories, setRepositories] = useState<Repository[]>([])
-  const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [filter, setFilter] = useState<'all' | 'public' | 'private'>('all')
   const [sort, setSort] = useState<'updated' | 'stars' | 'created'>('updated')
 
-  const fetchRepositories = useCallback(async () => {
-    setLoading(true)
-    const gitServerUrl =
-      process.env.NEXT_PUBLIC_JEJUGIT_URL ?? 'http://localhost:4030/git'
-    const params = new URLSearchParams()
-    params.set('sort', sort)
-    if (filter !== 'all') params.set('visibility', filter)
-
-    try {
-      const response = await fetch(`${gitServerUrl}/api/v1/repos?${params}`)
-      if (response.ok) {
-        const data = await response.json()
-        const items = Array.isArray(data?.items) ? data.items : []
-        setRepositories(items as Repository[])
-      }
-    } catch (error) {
-      console.error('Failed to fetch repositories:', error)
-    } finally {
-      setLoading(false)
-    }
-  }, [sort, filter])
-
-  useEffect(() => {
-    fetchRepositories()
-  }, [fetchRepositories])
+  const { data: repositories = [], isLoading: loading } = useQuery({
+    queryKey: ['repositories', sort, filter],
+    queryFn: () => fetchRepositories(sort, filter),
+  })
 
   const filteredRepos = repositories.filter(
     (repo) =>

@@ -117,7 +117,6 @@ export class RiskAnalyzer {
       }
     }
 
-    // Handle ongoing drawdown
     const lastValue = snapshots[snapshots.length - 1].valueUsd
     const currentDrawdown = (peak - lastValue) / peak
     const recoveryTime = inDrawdown ? snapshots.length - drawdownStart : 0
@@ -131,9 +130,6 @@ export class RiskAnalyzer {
     }
   }
 
-  /**
-   * Calculate rolling metrics
-   */
   calculateRollingMetrics(
     snapshots: PortfolioSnapshot[],
     windowSize: number,
@@ -157,7 +153,6 @@ export class RiskAnalyzer {
       const windowMean = mean(windowReturns)
       const std = standardDeviation(windowReturns)
 
-      // Skip if no variance in this window
       if (std === 0) {
         rollingSharpe.push(0)
         rollingVol.push(0)
@@ -179,9 +174,6 @@ export class RiskAnalyzer {
     return metrics
   }
 
-  /**
-   * Stress test the portfolio
-   */
   stressTest(
     snapshots: PortfolioSnapshot[],
     scenarios: { name: string; shock: number }[],
@@ -192,7 +184,6 @@ export class RiskAnalyzer {
     const vol = returns.length >= 2 ? standardDeviation(returns) : 0
 
     for (const scenario of scenarios) {
-      // Assume shock is in standard deviations
       const loss = lastValue * vol * scenario.shock
       const stressedValue = lastValue - loss
       results.set(scenario.name, stressedValue)
@@ -200,8 +191,6 @@ export class RiskAnalyzer {
 
     return results
   }
-
-  // ============ Private Methods ============
 
   private calculateReturns(snapshots: PortfolioSnapshot[]): number[] {
     const returns: number[] = []

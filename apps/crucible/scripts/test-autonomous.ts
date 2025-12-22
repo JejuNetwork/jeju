@@ -12,11 +12,8 @@
 import { AutonomousTick } from '../src/autonomous/tick'
 import type { AutonomousAgentConfig } from '../src/autonomous/types'
 import { getCharacter } from '../src/characters'
-import {
-  checkDWSHealth,
-  checkDWSInferenceAvailable,
-  createCrucibleRuntime,
-} from '../src/sdk/eliza-runtime'
+import { checkDWSHealth, checkDWSInferenceAvailable } from '../src/client/dws'
+import { createCrucibleRuntime } from '../src/sdk/eliza-runtime'
 
 async function main() {
   console.log('\n=== Autonomous Agent Execution Test ===\n')

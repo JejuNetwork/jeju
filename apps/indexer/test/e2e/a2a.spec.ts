@@ -116,7 +116,7 @@ test.describe('A2A Agent Card', () => {
 test.describe('A2A Message API', () => {
   test('should reject non-POST requests', async ({ request }) => {
     const response = await request.get(`${A2A_BASE_URL}/api/a2a`)
-    // Express doesn't have GET handler, should return 404
+    // No GET handler defined, should return 404
     expect(response.status()).toBe(404)
   })
 

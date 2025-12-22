@@ -34,8 +34,6 @@ import {
   parseOrThrow,
 } from '../../schemas'
 
-// ============ Configuration ============
-
 const CHAIN_CONFIGS = {
   1: { chain: mainnet, name: 'Ethereum' },
   42161: { chain: arbitrum, name: 'Arbitrum' },
@@ -182,8 +180,6 @@ function getTokenDecimals(symbol: string): number {
 // Minimum profit thresholds
 const MIN_PROFIT_BPS = 20 // 0.2% minimum
 const MIN_PROFIT_USD = 5 // $5 minimum
-
-// ============ Types ============
 
 interface AggregatorQuote {
   aggregator: string

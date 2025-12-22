@@ -1,10 +1,9 @@
-// @ts-nocheck - Elysia route chaining with reassignment pattern causes complex type inference issues
 /**
  * Git HTTP Server - Smart HTTP Protocol and Extended APIs (JejuGit)
  */
 
 import { expectValid } from '@jejunetwork/types'
-import { Elysia } from 'elysia'
+import { Elysia, t } from 'elysia'
 import type { Address, Hex } from 'viem'
 import { z } from 'zod'
 import type { FederationManager } from '../../git/federation'
@@ -80,580 +79,12 @@ interface GitContext {
   federationManager?: FederationManager
 }
 
-// Note: Using type assertion to allow route chaining with reassignment pattern
-export function createGitRouter(ctx: GitContext) {
-  const { repoManager, backend } = ctx
-
-  // Initialize managers if not provided
-  const issuesManager = ctx.issuesManager || new IssuesManager({ backend })
-  const socialManager =
-    ctx.socialManager || new SocialManager({ backend, repoManager })
-  const pullRequestsManager =
-    ctx.pullRequestsManager || new PullRequestsManager({ backend, repoManager })
-  const searchManager =
-    ctx.searchManager ||
-    new SearchManager({ repoManager, issuesManager, socialManager, backend })
-
-  let router = new Elysia({ name: 'git', prefix: '/git' })
-
-  router = router.get('/health', () => ({
-    service: 'dws-git',
-    status: 'healthy',
-  }))
-
-  // ============ Repository CRUD ============
-
-  router = router.get('/repos', async ({ query, request }) => {
-    const { offset, limit } = expectValid(
-      repoListQuerySchema,
-      query,
-      'Repo list query',
-    )
-
-    const repos = await repoManager.getAllRepositories(offset, limit)
-    const total = await repoManager.getRepositoryCount()
-
-    return {
-      repositories: repos.map((r) => ({
-        repoId: r.repoId,
-        owner: r.owner,
-        name: r.name,
-        description: r.description,
-        visibility: r.visibility === 0 ? 'public' : 'private',
-        starCount: Number(r.starCount),
-        forkCount: Number(r.forkCount),
-        createdAt: Number(r.createdAt),
-        updatedAt: Number(r.updatedAt),
-        archived: r.archived,
-        cloneUrl: `${getBaseUrl(request)}/git/${r.owner}/${r.name}`,
-      })),
-      total,
-      offset,
-      limit,
-    }
-  })
-
-  router = router.post('/repos', async ({ body, request, set }) => {
-    const validBody = expectValid(
-      createRepoRequestSchema,
-      body,
-      'Create repo request',
-    )
-    const signer = request.headers.get('x-jeju-address') as Address
-    if (!signer) throw new Error('Missing x-jeju-address header')
-
-    const result = await repoManager.createRepository(validBody, signer)
-    trackGitContribution(
-      signer,
-      result.repoId as Hex,
-      validBody.name,
-      'branch',
-      {
-        branch: 'main',
-        message: 'Repository created',
-      },
-    )
-
-    set.status = 201
-    return result
-  })
-
-  router = router.get('/repos/:owner/:name', async ({ params, request }) => {
-    const { owner, name } = expectValid(repoParamsSchema, params, 'Repo params')
-    const repo = await repoManager.getRepositoryByName(owner, name)
-    if (!repo) {
-      throw new Error('Repository not found')
-    }
-
-    const branches = await repoManager.getBranches(repo.repoId)
-    const starCount = socialManager.getStarCount(repo.repoId)
-    const forkCount = socialManager.getForkCount(repo.repoId)
-
-    return {
-      repoId: repo.repoId,
-      owner: repo.owner,
-      name: repo.name,
-      description: repo.description,
-      visibility: repo.visibility === 0 ? 'public' : 'private',
-      starCount,
-      forkCount,
-      createdAt: Number(repo.createdAt),
-      updatedAt: Number(repo.updatedAt),
-      archived: repo.archived,
-      defaultBranch: 'main',
-      branches: branches.map((b) => ({
-        name: b.name,
-        tipCommit: decodeBytes32ToOid(b.tipCommitCid),
-        lastPusher: b.lastPusher,
-        updatedAt: Number(b.updatedAt),
-        protected: b.protected,
-      })),
-      cloneUrl: `${getBaseUrl(request)}/git/${repo.owner}/${repo.name}`,
-    }
-  })
-
-  router = router.get('/users/:address/repos', async ({ params, request }) => {
-    const { address } = expectValid(
-      userReposParamsSchema,
-      params,
-      'User repos params',
-    )
-    const repos = await repoManager.getUserRepositories(address)
-    return {
-      repositories: repos.map((r) => ({
-        repoId: r.repoId,
-        owner: r.owner,
-        name: r.name,
-        description: r.description,
-        visibility: r.visibility === 0 ? 'public' : 'private',
-        starCount: Number(r.starCount),
-        createdAt: Number(r.createdAt),
-        cloneUrl: `${getBaseUrl(request)}/git/${r.owner}/${r.name}`,
-      })),
-    }
-  })
-
-  // ============ Issues API ============
-
-  router = router.get('/:owner/:name/issues', async ({ params, query }) => {
-    const { owner, name } = expectValid(repoParamsSchema, params, 'Repo params')
-    const repo = await repoManager.getRepositoryByName(owner, name)
-    if (!repo) {
-      throw new Error('Repository not found')
-    }
-
-    const issuesQuerySchema = z.object({
-      state: z.enum(['open', 'closed', 'all']).optional(),
-      page: z.coerce.number().int().positive().default(1),
-      per_page: z.coerce.number().int().positive().max(100).default(30),
-    })
-    const {
-      state,
-      page,
-      per_page: perPage,
-    } = expectValid(issuesQuerySchema, query, 'Issues query')
-
-    await issuesManager.getIssueIndex(repo.repoId, repo.metadataCid.slice(2))
-    const result = await issuesManager.listIssues(repo.repoId, {
-      state,
-      page,
-      perPage,
-    })
-
-    return result
-  })
-
-  router = router.post(
-    '/:owner/:name/issues',
-    async ({ params, body, request, set }) => {
-      const { owner, name } = expectValid(
-        repoParamsSchema,
-        params,
-        'Repo params',
-      )
-      const user = request.headers.get('x-jeju-address') as Address
-      if (!user) throw new Error('Missing x-jeju-address header')
-
-      const repo = await repoManager.getRepositoryByName(owner, name)
-      if (!repo) {
-        throw new Error('Repository not found')
-      }
-
-      const validBody = expectValid(
-        createIssueRequestSchema,
-        body,
-        'Create issue request',
-      )
-      await issuesManager.getIssueIndex(repo.repoId, repo.metadataCid.slice(2))
-      const result = await issuesManager.createIssue(
-        repo.repoId,
-        user,
-        validBody,
-      )
-
-      trackGitContribution(user, repo.repoId, name, 'issue_open', {
-        issueNumber: result.issue.number,
-      })
-
-      set.status = 201
-      return result.issue
-    },
-  )
-
-  router = router.get(
-    '/:owner/:name/issues/:issueNumber',
-    async ({ params }) => {
-      const { owner, name, issueNumber } = expectValid(
-        issueParamsSchema,
-        params,
-        'Issue params',
-      )
-
-      const repo = await repoManager.getRepositoryByName(owner, name)
-      if (!repo) {
-        throw new Error('Repository not found')
-      }
-
-      await issuesManager.getIssueIndex(repo.repoId, repo.metadataCid.slice(2))
-      const issue = await issuesManager.getIssue(repo.repoId, issueNumber)
-      if (!issue) {
-        throw new Error('Issue not found')
-      }
-
-      return issue
-    },
-  )
-
-  router = router.patch(
-    '/:owner/:name/issues/:issueNumber',
-    async ({ params, body, request }) => {
-      const { owner, name, issueNumber } = expectValid(
-        issueParamsSchema,
-        params,
-        'Issue params',
-      )
-      const user = request.headers.get('x-jeju-address') as Address
-      if (!user) throw new Error('Missing x-jeju-address header')
-
-      const repo = await repoManager.getRepositoryByName(owner, name)
-      if (!repo) {
-        throw new Error('Repository not found')
-      }
-
-      const validBody = expectValid(
-        updateIssueRequestSchema,
-        body,
-        'Update issue request',
-      )
-      await issuesManager.getIssueIndex(repo.repoId, repo.metadataCid.slice(2))
-      const result = await issuesManager.updateIssue(
-        repo.repoId,
-        issueNumber,
-        user,
-        validBody,
-      )
-
-      if (result.contributionEvent) {
-        trackGitContribution(user, repo.repoId, name, 'issue_close', {
-          issueNumber,
-        })
-      }
-
-      return result.issue
-    },
-  )
-
-  router = router.post(
-    '/:owner/:name/issues/:issueNumber/comments',
-    async ({ params, body, request, set }) => {
-      const { owner, name, issueNumber } = expectValid(
-        issueParamsSchema,
-        params,
-        'Issue params',
-      )
-      const user = request.headers.get('x-jeju-address') as Address
-      if (!user) throw new Error('Missing x-jeju-address header')
-
-      const repo = await repoManager.getRepositoryByName(owner, name)
-      if (!repo) {
-        throw new Error('Repository not found')
-      }
-
-      const { body: commentBody } = expectValid(
-        createIssueCommentRequestSchema,
-        body,
-        'Create issue comment request',
-      )
-      await issuesManager.getIssueIndex(repo.repoId, repo.metadataCid.slice(2))
-      const result = await issuesManager.addComment(
-        repo.repoId,
-        issueNumber,
-        user,
-        commentBody,
-      )
-
-      set.status = 201
-      return result.comment
-    },
-  )
-
-  // ============ Pull Requests API ============
-
-  router = router.get('/:owner/:name/pulls', async ({ params, query }) => {
-    const { owner, name } = expectValid(repoParamsSchema, params, 'Repo params')
-    const repo = await repoManager.getRepositoryByName(owner, name)
-    if (!repo) {
-      throw new Error('Repository not found')
-    }
-
-    const pullsQuerySchema = z.object({
-      state: z.enum(['open', 'closed', 'merged', 'all']).optional(),
-      page: z.coerce.number().int().positive().default(1),
-      per_page: z.coerce.number().int().positive().max(100).default(30),
-    })
-    const {
-      state,
-      page,
-      per_page: perPage,
-    } = expectValid(pullsQuerySchema, query, 'Pulls query')
-
-    await pullRequestsManager.getPRIndex(repo.repoId, repo.metadataCid.slice(2))
-    const result = await pullRequestsManager.listPRs(repo.repoId, {
-      state,
-      page,
-      perPage,
-    })
-
-    return result
-  })
-
-  router = router.post(
-    '/:owner/:name/pulls',
-    async ({ params, body, request, set }) => {
-      const { owner, name } = expectValid(
-        repoParamsSchema,
-        params,
-        'Repo params',
-      )
-      const user = request.headers.get('x-jeju-address') as Address
-      if (!user) throw new Error('Missing x-jeju-address header')
-
-      const repo = await repoManager.getRepositoryByName(owner, name)
-      if (!repo) {
-        throw new Error('Repository not found')
-      }
-
-      const validBody = expectValid(
-        createPRRequestSchema,
-        body,
-        'Create PR request',
-      )
-      await pullRequestsManager.getPRIndex(
-        repo.repoId,
-        repo.metadataCid.slice(2),
-      )
-      const result = await pullRequestsManager.createPR(
-        repo.repoId,
-        user,
-        validBody,
-      )
-
-      trackGitContribution(user, repo.repoId, name, 'pr_open', {
-        prNumber: result.pr.number,
-      })
-
-      set.status = 201
-      return result.pr
-    },
-  )
-
-  router = router.get('/:owner/:name/pulls/:prNumber', async ({ params }) => {
-    const { owner, name, prNumber } = expectValid(
-      prParamsSchema,
-      params,
-      'PR params',
-    )
-
-    const repo = await repoManager.getRepositoryByName(owner, name)
-    if (!repo) {
-      throw new Error('Repository not found')
-    }
-
-    await pullRequestsManager.getPRIndex(repo.repoId, repo.metadataCid.slice(2))
-    const pr = await pullRequestsManager.getPR(repo.repoId, prNumber)
-    if (!pr) {
-      throw new Error('Pull request not found')
-    }
-
-    return pr
-  })
-
-  router = router.post(
-    '/:owner/:name/pulls/:prNumber/merge',
-    async ({ params, request }) => {
-      const { owner, name, prNumber } = expectValid(
-        prParamsSchema,
-        params,
-        'PR params',
-      )
-      const user = request.headers.get('x-jeju-address') as Address
-      if (!user) throw new Error('Missing x-jeju-address header')
-
-      const repo = await repoManager.getRepositoryByName(owner, name)
-      if (!repo) {
-        throw new Error('Repository not found')
-      }
-
-      const hasWrite = await repoManager.hasWriteAccess(repo.repoId, user)
-      if (!hasWrite) {
-        throw new Error('Write access denied')
-      }
-
-      await pullRequestsManager.getPRIndex(
-        repo.repoId,
-        repo.metadataCid.slice(2),
-      )
-      const result = await pullRequestsManager.mergePR(
-        repo.repoId,
-        prNumber,
-        user,
-      )
-
-      trackGitContribution(user, repo.repoId, name, 'pr_merge', { prNumber })
-
-      return { merged: true, sha: result.pr.headCommit }
-    },
-  )
-
-  // ============ Stars API ============
-
-  router = router.get('/:owner/:name/stargazers', async ({ params, query }) => {
-    const { owner, name } = expectValid(repoParamsSchema, params, 'Repo params')
-    const repo = await repoManager.getRepositoryByName(owner, name)
-    if (!repo) {
-      throw new Error('Repository not found')
-    }
-
-    const { page, per_page: perPage } = expectValid(
-      paginationQuerySchema,
-      query,
-      'Pagination query',
-    )
-
-    const result = await socialManager.getStargazers(repo.repoId, {
-      page,
-      perPage,
-    })
-    return result
-  })
-
-  router = router.put('/:owner/:name/star', async ({ params, request }) => {
-    const { owner, name } = expectValid(starParamsSchema, params, 'Star params')
-    const user = request.headers.get('x-jeju-address') as Address
-    if (!user) throw new Error('Missing x-jeju-address header')
-
-    const repo = await repoManager.getRepositoryByName(owner, name)
-    if (!repo) {
-      throw new Error('Repository not found')
-    }
-
-    const result = await socialManager.starRepo(repo.repoId, user)
-    return result
-  })
-
-  router = router.delete('/:owner/:name/star', async ({ params, request }) => {
-    const { owner, name } = expectValid(starParamsSchema, params, 'Star params')
-    const user = request.headers.get('x-jeju-address') as Address
-    if (!user) throw new Error('Missing x-jeju-address header')
-
-    const repo = await repoManager.getRepositoryByName(owner, name)
-    if (!repo) {
-      throw new Error('Repository not found')
-    }
-
-    const result = await socialManager.unstarRepo(repo.repoId, user)
-    return result
-  })
-
-  // ============ Forks API ============
-
-  router = router.get('/:owner/:name/forks', async ({ params, query, set }) => {
-    const owner = params.owner as Address
-    const name = params.name
-    const repo = await repoManager.getRepositoryByName(owner, name)
-    if (!repo) {
-      set.status = 404
-      return { error: 'Repository not found' }
-    }
-
-    const { page, per_page: perPage } = expectValid(
-      paginationQuerySchema,
-      query,
-      'Pagination query',
-    )
-
-    const result = await socialManager.getForks(repo.repoId, { page, perPage })
-    return result
-  })
-
-  router = router.post(
-    '/:owner/:name/forks',
-    async ({ params, body, request, set }) => {
-      const { owner, name } = expectValid(
-        forkParamsSchema,
-        params,
-        'Fork params',
-      )
-      const user = request.headers.get('x-jeju-address') as Address
-      if (!user) throw new Error('Missing x-jeju-address header')
-
-      const repo = await repoManager.getRepositoryByName(owner, name)
-      if (!repo) throw new Error('Repository not found')
-
-      const { name: forkName } = expectValid(
-        z.object({ name: z.string().optional() }),
-        body,
-        'Fork request',
-      )
-      const result = await socialManager.forkRepo(repo.repoId, user, {
-        name: forkName,
-      })
-
-      set.status = 201
-      return {
-        repoId: result.repo.repoId,
-        cloneUrl: `${getBaseUrl(request)}/git/${user}/${result.repo.name}`,
-      }
-    },
-  )
-
-  // ============ Search API ============
-
-  router = router.get('/search/repositories', async ({ query }) => {
-    const {
-      q,
-      sort,
-      page,
-      per_page: perPage,
-    } = expectValid(
-      searchRepositoriesQuerySchema,
-      query,
-      'Search repositories query',
-    )
-    const result = await searchManager.searchRepositories(q, {
-      page,
-      perPage,
-      sort,
-    })
-    return result
-  })
-
-  router = router.get('/search/code', async ({ query }) => {
-    const {
-      q,
-      page,
-      per_page: perPage,
-    } = expectValid(searchQuerySchema, query, 'Search query')
-    const result = await searchManager.searchCode(q, { page, perPage })
-    return result
-  })
-
-  router = router.get('/search/issues', async ({ query }) => {
-    const {
-      q,
-      page,
-      per_page: perPage,
-    } = expectValid(searchQuerySchema, query, 'Search query')
-    const result = await searchManager.searchIssues(q, { page, perPage })
-    return result
-  })
-
-  // ============ Federation API (ActivityPub) ============
-
-  if (ctx.federationManager) {
-    const federation = ctx.federationManager
-
-    router = router.get('/.well-known/webfinger', ({ query, set }) => {
+function createFederationRoutes(
+  federation: FederationManager,
+  socialManager: SocialManager,
+) {
+  return new Elysia({ name: 'git-federation' })
+    .get('/.well-known/webfinger', ({ query, set }) => {
       const resource = query.resource as string | undefined
       if (!resource) {
         set.status = 400
@@ -669,16 +100,13 @@ export function createGitRouter(ctx: GitContext) {
       set.headers['Content-Type'] = 'application/jrd+json'
       return result
     })
-
-    router = router.get('/.well-known/nodeinfo', () => {
+    .get('/.well-known/nodeinfo', () => {
       return federation.getNodeInfoLinks()
     })
-
-    router = router.get('/.well-known/nodeinfo/2.1', () => {
+    .get('/.well-known/nodeinfo/2.1', () => {
       return federation.getNodeInfo()
     })
-
-    router = router.get(
+    .get(
       '/users/:username',
       async ({ params, request, set }) => {
         const { username } = expectValid(
@@ -703,9 +131,9 @@ export function createGitRouter(ctx: GitContext) {
         set.headers['Content-Type'] = 'application/activity+json'
         return actor
       },
+      { params: t.Object({ username: t.String() }) },
     )
-
-    router = router.post(
+    .post(
       '/users/:username/inbox',
       async ({ params, body, request, set }) => {
         const { username } = expectValid(
@@ -741,9 +169,9 @@ export function createGitRouter(ctx: GitContext) {
         set.status = result.accepted ? 202 : 400
         return { accepted: result.accepted }
       },
+      { params: t.Object({ username: t.String() }) },
     )
-
-    router = router.get(
+    .get(
       '/users/:username/outbox',
       async ({ params, query, request, set }) => {
         const { username } = expectValid(
@@ -764,420 +192,1128 @@ export function createGitRouter(ctx: GitContext) {
         set.headers['Content-Type'] = 'application/activity+json'
         return outbox
       },
+      { params: t.Object({ username: t.String() }) },
     )
-  }
+}
 
-  // ============ Git Smart HTTP Protocol ============
+export function createGitRouter(ctx: GitContext) {
+  const { repoManager, backend } = ctx
 
-  router = router.get(
-    '/:owner/:name/info/refs',
-    async ({ params, query, request }) => {
-      const owner = params.owner as Address
-      const name = params.name
-      const service = query.service as string | undefined
+  // Initialize managers if not provided
+  const issuesManager = ctx.issuesManager || new IssuesManager({ backend })
+  const socialManager =
+    ctx.socialManager || new SocialManager({ backend, repoManager })
+  const pullRequestsManager =
+    ctx.pullRequestsManager || new PullRequestsManager({ backend, repoManager })
+  const searchManager =
+    ctx.searchManager ||
+    new SearchManager({ repoManager, issuesManager, socialManager, backend })
 
-      if (
-        !service ||
-        (service !== 'git-upload-pack' && service !== 'git-receive-pack')
-      ) {
-        return new Response('Service required', { status: 400 })
+  const baseRouter = new Elysia({ name: 'git', prefix: '/git' })
+    // ============ Health Check ============
+    .get('/health', () => ({
+      service: 'dws-git',
+      status: 'healthy',
+    }))
+
+    // ============ Repository CRUD ============
+    .get('/repos', async ({ query, request }) => {
+      const { offset, limit } = expectValid(
+        repoListQuerySchema,
+        query,
+        'Repo list query',
+      )
+
+      const repos = await repoManager.getAllRepositories(offset, limit)
+      const total = await repoManager.getRepositoryCount()
+
+      return {
+        repositories: repos.map((r) => ({
+          repoId: r.repoId,
+          owner: r.owner,
+          name: r.name,
+          description: r.description,
+          visibility: r.visibility === 0 ? 'public' : 'private',
+          starCount: Number(r.starCount),
+          forkCount: Number(r.forkCount),
+          createdAt: Number(r.createdAt),
+          updatedAt: Number(r.updatedAt),
+          archived: r.archived,
+          cloneUrl: `${getBaseUrl(request)}/git/${r.owner}/${r.name}`,
+        })),
+        total,
+        offset,
+        limit,
       }
+    })
+    .post('/repos', async ({ body, request, set }) => {
+      const validBody = expectValid(
+        createRepoRequestSchema,
+        body,
+        'Create repo request',
+      )
+      const signer = request.headers.get('x-jeju-address') as Address
+      if (!signer) throw new Error('Missing x-jeju-address header')
 
-      const repo = await repoManager.getRepositoryByName(owner, name)
-      if (!repo) return new Response('Repository not found', { status: 404 })
-
-      const user = request.headers.get('x-jeju-address') as Address | undefined
-
-      if (service === 'git-receive-pack') {
-        if (!user)
-          return new Response('Authentication required', { status: 401 })
-        const hasWrite = await repoManager.hasWriteAccess(repo.repoId, user)
-        if (!hasWrite)
-          return new Response('Write access denied', { status: 403 })
-      } else if (repo.visibility === 1) {
-        if (!user)
-          return new Response('Authentication required', { status: 401 })
-        const hasRead = await repoManager.hasReadAccess(repo.repoId, user)
-        if (!hasRead) return new Response('Read access denied', { status: 403 })
-      }
-
-      const refs = await repoManager.getRefs(repo.repoId)
-      const body = formatInfoRefs(service, refs)
-      return new Response(
-        typeof body === 'string' ? body : new Uint8Array(body),
+      const result = await repoManager.createRepository(validBody, signer)
+      trackGitContribution(
+        signer,
+        result.repoId as Hex,
+        validBody.name,
+        'branch',
         {
-          headers: {
-            'Content-Type': `application/x-${service}-advertisement`,
-            'Cache-Control': 'no-cache',
-          },
+          branch: 'main',
+          message: 'Repository created',
         },
       )
-    },
-  )
 
-  router = router.post(
-    '/:owner/:name/git-upload-pack',
-    async ({ params, request }) => {
-      const owner = params.owner as Address
-      const name = params.name
-      const repo = await repoManager.getRepositoryByName(owner, name)
-      if (!repo) return new Response('Repository not found', { status: 404 })
-
-      if (repo.visibility === 1) {
-        const user = request.headers.get('x-jeju-address') as
-          | Address
-          | undefined
-        if (!user)
-          return new Response('Authentication required', { status: 401 })
-        const hasRead = await repoManager.hasReadAccess(repo.repoId, user)
-        if (!hasRead) return new Response('Read access denied', { status: 403 })
-      }
-
-      const body = Buffer.from(await request.arrayBuffer())
-      const lines = parsePktLines(body)
-
-      const wants: string[] = []
-      const haves: string[] = []
-
-      for (const line of lines) {
-        if (line.startsWith('want ')) wants.push(line.split(' ')[1])
-        else if (line.startsWith('have ')) haves.push(line.split(' ')[1])
-      }
-
-      if (wants.length === 0) {
-        const nakLine = createPktLine('NAK')
-        return new Response(
-          typeof nakLine === 'string' ? nakLine : new Uint8Array(nakLine),
-          {
-            headers: { 'Content-Type': 'application/x-git-upload-pack-result' },
-          },
+      set.status = 201
+      return result
+    })
+    .get(
+      '/repos/:owner/:name',
+      async ({ params, request }) => {
+        const { owner, name } = expectValid(
+          repoParamsSchema,
+          params,
+          'Repo params',
         )
-      }
-
-      const objectStore = repoManager.getObjectStore(repo.repoId)
-      const neededOids: string[] = []
-      const haveSet = new Set(haves)
-
-      for (const wantOid of wants) {
-        const reachable = await objectStore.getReachableObjects(wantOid)
-        for (const oid of reachable) {
-          if (!haveSet.has(oid)) neededOids.push(oid)
-        }
-      }
-
-      const packfile = await createPackfile(objectStore, neededOids)
-      const response = Buffer.concat([createPktLine('NAK'), packfile])
-
-      return new Response(response, {
-        headers: {
-          'Content-Type': 'application/x-git-upload-pack-result',
-          'Cache-Control': 'no-cache',
-        },
-      })
-    },
-  )
-
-  router = router.post(
-    '/:owner/:name/git-receive-pack',
-    async ({ params, request }) => {
-      const owner = params.owner as Address
-      const name = params.name
-      const user = request.headers.get('x-jeju-address') as Address
-
-      if (!user) return new Response('Authentication required', { status: 401 })
-
-      const repo = await repoManager.getRepositoryByName(owner, name)
-      if (!repo) return new Response('Repository not found', { status: 404 })
-
-      const hasWrite = await repoManager.hasWriteAccess(repo.repoId, user)
-      if (!hasWrite) return new Response('Write access denied', { status: 403 })
-
-      const body = Buffer.from(await request.arrayBuffer())
-      const packStart = body.indexOf(Buffer.from('PACK'))
-      const commandData = body.subarray(0, packStart)
-      const packData = body.subarray(packStart)
-
-      const lines = parsePktLines(commandData)
-      const updates: Array<{
-        oldOid: string
-        newOid: string
-        refName: string
-      }> = []
-
-      for (const line of lines) {
-        if (line === '' || line === '0000') continue
-        const match = line.match(/^([0-9a-f]{40}) ([0-9a-f]{40}) (.+)$/)
-        if (match) {
-          updates.push({
-            oldOid: match[1],
-            newOid: match[2],
-            refName: match[3].split('\0')[0],
-          })
-        }
-      }
-
-      const objectStore = repoManager.getObjectStore(repo.repoId)
-      await extractPackfile(objectStore, packData)
-
-      const results: Array<{ ref: string; success: boolean; error?: string }> =
-        []
-
-      for (const update of updates) {
-        if (!update.refName.startsWith('refs/heads/')) {
-          results.push({
-            ref: update.refName,
-            success: false,
-            error: 'Only branch updates supported',
-          })
-          continue
+        const repo = await repoManager.getRepositoryByName(owner, name)
+        if (!repo) {
+          throw new Error('Repository not found')
         }
 
-        const branchName = update.refName.replace('refs/heads/', '')
-        const commits = await objectStore.walkCommits(update.newOid, 100)
+        const branches = await repoManager.getBranches(repo.repoId)
+        const starCount = socialManager.getStarCount(repo.repoId)
+        const forkCount = socialManager.getForkCount(repo.repoId)
 
-        await repoManager.pushBranch(
+        return {
+          repoId: repo.repoId,
+          owner: repo.owner,
+          name: repo.name,
+          description: repo.description,
+          visibility: repo.visibility === 0 ? 'public' : 'private',
+          starCount,
+          forkCount,
+          createdAt: Number(repo.createdAt),
+          updatedAt: Number(repo.updatedAt),
+          archived: repo.archived,
+          defaultBranch: 'main',
+          branches: branches.map((b) => ({
+            name: b.name,
+            tipCommit: decodeBytes32ToOid(b.tipCommitCid),
+            lastPusher: b.lastPusher,
+            updatedAt: Number(b.updatedAt),
+            protected: b.protected,
+          })),
+          cloneUrl: `${getBaseUrl(request)}/git/${repo.owner}/${repo.name}`,
+        }
+      },
+      { params: t.Object({ owner: t.String(), name: t.String() }) },
+    )
+    .get(
+      '/users/:address/repos',
+      async ({ params, request }) => {
+        const { address } = expectValid(
+          userReposParamsSchema,
+          params,
+          'User repos params',
+        )
+        const repos = await repoManager.getUserRepositories(address)
+        return {
+          repositories: repos.map((r) => ({
+            repoId: r.repoId,
+            owner: r.owner,
+            name: r.name,
+            description: r.description,
+            visibility: r.visibility === 0 ? 'public' : 'private',
+            starCount: Number(r.starCount),
+            createdAt: Number(r.createdAt),
+            cloneUrl: `${getBaseUrl(request)}/git/${r.owner}/${r.name}`,
+          })),
+        }
+      },
+      { params: t.Object({ address: t.String() }) },
+    )
+
+    // ============ Issues API ============
+    .get(
+      '/:owner/:name/issues',
+      async ({ params, query }) => {
+        const { owner, name } = expectValid(
+          repoParamsSchema,
+          params,
+          'Repo params',
+        )
+        const repo = await repoManager.getRepositoryByName(owner, name)
+        if (!repo) {
+          throw new Error('Repository not found')
+        }
+
+        const issuesQuerySchema = z.object({
+          state: z.enum(['open', 'closed', 'all']).optional(),
+          page: z.coerce.number().int().positive().default(1),
+          per_page: z.coerce.number().int().positive().max(100).default(30),
+        })
+        const {
+          state,
+          page,
+          per_page: perPage,
+        } = expectValid(issuesQuerySchema, query, 'Issues query')
+
+        await issuesManager.getIssueIndex(
           repo.repoId,
-          branchName,
-          update.newOid,
-          update.oldOid === '0000000000000000000000000000000000000000'
-            ? null
-            : update.oldOid,
-          commits.length,
+          repo.metadataCid.slice(2),
+        )
+        const result = await issuesManager.listIssues(repo.repoId, {
+          state,
+          page,
+          perPage,
+        })
+
+        return result
+      },
+      { params: t.Object({ owner: t.String(), name: t.String() }) },
+    )
+    .post(
+      '/:owner/:name/issues',
+      async ({ params, body, request, set }) => {
+        const { owner, name } = expectValid(
+          repoParamsSchema,
+          params,
+          'Repo params',
+        )
+        const user = request.headers.get('x-jeju-address') as Address
+        if (!user) throw new Error('Missing x-jeju-address header')
+
+        const repo = await repoManager.getRepositoryByName(owner, name)
+        if (!repo) {
+          throw new Error('Repository not found')
+        }
+
+        const validBody = expectValid(
+          createIssueRequestSchema,
+          body,
+          'Create issue request',
+        )
+        await issuesManager.getIssueIndex(
+          repo.repoId,
+          repo.metadataCid.slice(2),
+        )
+        const result = await issuesManager.createIssue(
+          repo.repoId,
+          user,
+          validBody,
+        )
+
+        trackGitContribution(user, repo.repoId, name, 'issue_open', {
+          issueNumber: result.issue.number,
+        })
+
+        set.status = 201
+        return result.issue
+      },
+      { params: t.Object({ owner: t.String(), name: t.String() }) },
+    )
+    .get(
+      '/:owner/:name/issues/:issueNumber',
+      async ({ params }) => {
+        const { owner, name, issueNumber } = expectValid(
+          issueParamsSchema,
+          params,
+          'Issue params',
+        )
+
+        const repo = await repoManager.getRepositoryByName(owner, name)
+        if (!repo) {
+          throw new Error('Repository not found')
+        }
+
+        await issuesManager.getIssueIndex(
+          repo.repoId,
+          repo.metadataCid.slice(2),
+        )
+        const issue = await issuesManager.getIssue(repo.repoId, issueNumber)
+        if (!issue) {
+          throw new Error('Issue not found')
+        }
+
+        return issue
+      },
+      {
+        params: t.Object({
+          owner: t.String(),
+          name: t.String(),
+          issueNumber: t.String(),
+        }),
+      },
+    )
+    .patch(
+      '/:owner/:name/issues/:issueNumber',
+      async ({ params, body, request }) => {
+        const { owner, name, issueNumber } = expectValid(
+          issueParamsSchema,
+          params,
+          'Issue params',
+        )
+        const user = request.headers.get('x-jeju-address') as Address
+        if (!user) throw new Error('Missing x-jeju-address header')
+
+        const repo = await repoManager.getRepositoryByName(owner, name)
+        if (!repo) {
+          throw new Error('Repository not found')
+        }
+
+        const validBody = expectValid(
+          updateIssueRequestSchema,
+          body,
+          'Update issue request',
+        )
+        await issuesManager.getIssueIndex(
+          repo.repoId,
+          repo.metadataCid.slice(2),
+        )
+        const result = await issuesManager.updateIssue(
+          repo.repoId,
+          issueNumber,
+          user,
+          validBody,
+        )
+
+        if (result.contributionEvent) {
+          trackGitContribution(user, repo.repoId, name, 'issue_close', {
+            issueNumber,
+          })
+        }
+
+        return result.issue
+      },
+      {
+        params: t.Object({
+          owner: t.String(),
+          name: t.String(),
+          issueNumber: t.String(),
+        }),
+      },
+    )
+    .post(
+      '/:owner/:name/issues/:issueNumber/comments',
+      async ({ params, body, request, set }) => {
+        const { owner, name, issueNumber } = expectValid(
+          issueParamsSchema,
+          params,
+          'Issue params',
+        )
+        const user = request.headers.get('x-jeju-address') as Address
+        if (!user) throw new Error('Missing x-jeju-address header')
+
+        const repo = await repoManager.getRepositoryByName(owner, name)
+        if (!repo) {
+          throw new Error('Repository not found')
+        }
+
+        const { body: commentBody } = expectValid(
+          createIssueCommentRequestSchema,
+          body,
+          'Create issue comment request',
+        )
+        await issuesManager.getIssueIndex(
+          repo.repoId,
+          repo.metadataCid.slice(2),
+        )
+        const result = await issuesManager.addComment(
+          repo.repoId,
+          issueNumber,
+          user,
+          commentBody,
+        )
+
+        set.status = 201
+        return result.comment
+      },
+      {
+        params: t.Object({
+          owner: t.String(),
+          name: t.String(),
+          issueNumber: t.String(),
+        }),
+      },
+    )
+
+    // ============ Pull Requests API ============
+    .get(
+      '/:owner/:name/pulls',
+      async ({ params, query }) => {
+        const { owner, name } = expectValid(
+          repoParamsSchema,
+          params,
+          'Repo params',
+        )
+        const repo = await repoManager.getRepositoryByName(owner, name)
+        if (!repo) {
+          throw new Error('Repository not found')
+        }
+
+        const pullsQuerySchema = z.object({
+          state: z.enum(['open', 'closed', 'merged', 'all']).optional(),
+          page: z.coerce.number().int().positive().default(1),
+          per_page: z.coerce.number().int().positive().max(100).default(30),
+        })
+        const {
+          state,
+          page,
+          per_page: perPage,
+        } = expectValid(pullsQuerySchema, query, 'Pulls query')
+
+        await pullRequestsManager.getPRIndex(
+          repo.repoId,
+          repo.metadataCid.slice(2),
+        )
+        const result = await pullRequestsManager.listPRs(repo.repoId, {
+          state,
+          page,
+          perPage,
+        })
+
+        return result
+      },
+      { params: t.Object({ owner: t.String(), name: t.String() }) },
+    )
+    .post(
+      '/:owner/:name/pulls',
+      async ({ params, body, request, set }) => {
+        const { owner, name } = expectValid(
+          repoParamsSchema,
+          params,
+          'Repo params',
+        )
+        const user = request.headers.get('x-jeju-address') as Address
+        if (!user) throw new Error('Missing x-jeju-address header')
+
+        const repo = await repoManager.getRepositoryByName(owner, name)
+        if (!repo) {
+          throw new Error('Repository not found')
+        }
+
+        const validBody = expectValid(
+          createPRRequestSchema,
+          body,
+          'Create PR request',
+        )
+        await pullRequestsManager.getPRIndex(
+          repo.repoId,
+          repo.metadataCid.slice(2),
+        )
+        const result = await pullRequestsManager.createPR(
+          repo.repoId,
+          user,
+          validBody,
+        )
+
+        trackGitContribution(user, repo.repoId, name, 'pr_open', {
+          prNumber: result.pr.number,
+        })
+
+        set.status = 201
+        return result.pr
+      },
+      { params: t.Object({ owner: t.String(), name: t.String() }) },
+    )
+    .get(
+      '/:owner/:name/pulls/:prNumber',
+      async ({ params }) => {
+        const { owner, name, prNumber } = expectValid(
+          prParamsSchema,
+          params,
+          'PR params',
+        )
+
+        const repo = await repoManager.getRepositoryByName(owner, name)
+        if (!repo) {
+          throw new Error('Repository not found')
+        }
+
+        await pullRequestsManager.getPRIndex(
+          repo.repoId,
+          repo.metadataCid.slice(2),
+        )
+        const pr = await pullRequestsManager.getPR(repo.repoId, prNumber)
+        if (!pr) {
+          throw new Error('Pull request not found')
+        }
+
+        return pr
+      },
+      {
+        params: t.Object({
+          owner: t.String(),
+          name: t.String(),
+          prNumber: t.String(),
+        }),
+      },
+    )
+    .post(
+      '/:owner/:name/pulls/:prNumber/merge',
+      async ({ params, request }) => {
+        const { owner, name, prNumber } = expectValid(
+          prParamsSchema,
+          params,
+          'PR params',
+        )
+        const user = request.headers.get('x-jeju-address') as Address
+        if (!user) throw new Error('Missing x-jeju-address header')
+
+        const repo = await repoManager.getRepositoryByName(owner, name)
+        if (!repo) {
+          throw new Error('Repository not found')
+        }
+
+        const hasWrite = await repoManager.hasWriteAccess(repo.repoId, user)
+        if (!hasWrite) {
+          throw new Error('Write access denied')
+        }
+
+        await pullRequestsManager.getPRIndex(
+          repo.repoId,
+          repo.metadataCid.slice(2),
+        )
+        const result = await pullRequestsManager.mergePR(
+          repo.repoId,
+          prNumber,
           user,
         )
 
-        trackGitContribution(user, repo.repoId as Hex, name, 'commit', {
-          branch: branchName,
-          commitCount: commits.length,
-          message: commits[0]?.message.split('\n')[0] || 'Push',
+        trackGitContribution(user, repo.repoId, name, 'pr_merge', { prNumber })
+
+        return { merged: true, sha: result.pr.headCommit }
+      },
+      {
+        params: t.Object({
+          owner: t.String(),
+          name: t.String(),
+          prNumber: t.String(),
+        }),
+      },
+    )
+
+    // ============ Stars API ============
+    .get(
+      '/:owner/:name/stargazers',
+      async ({ params, query }) => {
+        const { owner, name } = expectValid(
+          repoParamsSchema,
+          params,
+          'Repo params',
+        )
+        const repo = await repoManager.getRepositoryByName(owner, name)
+        if (!repo) {
+          throw new Error('Repository not found')
+        }
+
+        const { page, per_page: perPage } = expectValid(
+          paginationQuerySchema,
+          query,
+          'Pagination query',
+        )
+
+        const result = await socialManager.getStargazers(repo.repoId, {
+          page,
+          perPage,
+        })
+        return result
+      },
+      { params: t.Object({ owner: t.String(), name: t.String() }) },
+    )
+    .put(
+      '/:owner/:name/star',
+      async ({ params, request }) => {
+        const { owner, name } = expectValid(
+          starParamsSchema,
+          params,
+          'Star params',
+        )
+        const user = request.headers.get('x-jeju-address') as Address
+        if (!user) throw new Error('Missing x-jeju-address header')
+
+        const repo = await repoManager.getRepositoryByName(owner, name)
+        if (!repo) {
+          throw new Error('Repository not found')
+        }
+
+        const result = await socialManager.starRepo(repo.repoId, user)
+        return result
+      },
+      { params: t.Object({ owner: t.String(), name: t.String() }) },
+    )
+    .delete(
+      '/:owner/:name/star',
+      async ({ params, request }) => {
+        const { owner, name } = expectValid(
+          starParamsSchema,
+          params,
+          'Star params',
+        )
+        const user = request.headers.get('x-jeju-address') as Address
+        if (!user) throw new Error('Missing x-jeju-address header')
+
+        const repo = await repoManager.getRepositoryByName(owner, name)
+        if (!repo) {
+          throw new Error('Repository not found')
+        }
+
+        const result = await socialManager.unstarRepo(repo.repoId, user)
+        return result
+      },
+      { params: t.Object({ owner: t.String(), name: t.String() }) },
+    )
+
+    // ============ Forks API ============
+    .get(
+      '/:owner/:name/forks',
+      async ({ params, query, set }) => {
+        const { owner, name } = params
+        const repo = await repoManager.getRepositoryByName(
+          owner as Address,
+          name,
+        )
+        if (!repo) {
+          set.status = 404
+          return { error: 'Repository not found' }
+        }
+
+        const { page, per_page: perPage } = expectValid(
+          paginationQuerySchema,
+          query,
+          'Pagination query',
+        )
+
+        const result = await socialManager.getForks(repo.repoId, {
+          page,
+          perPage,
+        })
+        return result
+      },
+      { params: t.Object({ owner: t.String(), name: t.String() }) },
+    )
+    .post(
+      '/:owner/:name/forks',
+      async ({ params, body, request, set }) => {
+        const { owner, name } = expectValid(
+          forkParamsSchema,
+          params,
+          'Fork params',
+        )
+        const user = request.headers.get('x-jeju-address') as Address
+        if (!user) throw new Error('Missing x-jeju-address header')
+
+        const repo = await repoManager.getRepositoryByName(owner, name)
+        if (!repo) throw new Error('Repository not found')
+
+        const { name: forkName } = expectValid(
+          z.object({ name: z.string().optional() }),
+          body,
+          'Fork request',
+        )
+        const result = await socialManager.forkRepo(repo.repoId, user, {
+          name: forkName,
         })
 
-        results.push({ ref: update.refName, success: true })
-      }
+        set.status = 201
+        return {
+          repoId: result.repo.repoId,
+          cloneUrl: `${getBaseUrl(request)}/git/${user}/${result.repo.name}`,
+        }
+      },
+      { params: t.Object({ owner: t.String(), name: t.String() }) },
+    )
 
-      const responseLines = [
-        'unpack ok',
-        ...results.map((r) =>
-          r.success ? `ok ${r.ref}` : `ng ${r.ref} ${r.error}`,
-        ),
-      ]
-      const pktLines = createPktLines(responseLines)
-      return new Response(
-        typeof pktLines === 'string' ? pktLines : new Uint8Array(pktLines),
-        {
+    // ============ Search API ============
+    .get('/search/repositories', async ({ query }) => {
+      const {
+        q,
+        sort,
+        page,
+        per_page: perPage,
+      } = expectValid(
+        searchRepositoriesQuerySchema,
+        query,
+        'Search repositories query',
+      )
+      const result = await searchManager.searchRepositories(q, {
+        page,
+        perPage,
+        sort,
+      })
+      return result
+    })
+    .get('/search/code', async ({ query }) => {
+      const {
+        q,
+        page,
+        per_page: perPage,
+      } = expectValid(searchQuerySchema, query, 'Search query')
+      const result = await searchManager.searchCode(q, { page, perPage })
+      return result
+    })
+    .get('/search/issues', async ({ query }) => {
+      const {
+        q,
+        page,
+        per_page: perPage,
+      } = expectValid(searchQuerySchema, query, 'Search query')
+      const result = await searchManager.searchIssues(q, { page, perPage })
+      return result
+    })
+
+    // ============ Git Smart HTTP Protocol ============
+    .get(
+      '/:owner/:name/info/refs',
+      async ({ params, query, request }) => {
+        const { owner, name } = params
+        const service = query.service as string | undefined
+
+        if (
+          !service ||
+          (service !== 'git-upload-pack' && service !== 'git-receive-pack')
+        ) {
+          return new Response('Service required', { status: 400 })
+        }
+
+        const repo = await repoManager.getRepositoryByName(
+          owner as Address,
+          name,
+        )
+        if (!repo) return new Response('Repository not found', { status: 404 })
+
+        const user = request.headers.get('x-jeju-address') as
+          | Address
+          | undefined
+
+        if (service === 'git-receive-pack') {
+          if (!user)
+            return new Response('Authentication required', { status: 401 })
+          const hasWrite = await repoManager.hasWriteAccess(repo.repoId, user)
+          if (!hasWrite)
+            return new Response('Write access denied', { status: 403 })
+        } else if (repo.visibility === 1) {
+          if (!user)
+            return new Response('Authentication required', { status: 401 })
+          const hasRead = await repoManager.hasReadAccess(repo.repoId, user)
+          if (!hasRead)
+            return new Response('Read access denied', { status: 403 })
+        }
+
+        const refs = await repoManager.getRefs(repo.repoId)
+        const body = formatInfoRefs(service, refs)
+        return new Response(
+          typeof body === 'string' ? body : new Uint8Array(body),
+          {
+            headers: {
+              'Content-Type': `application/x-${service}-advertisement`,
+              'Cache-Control': 'no-cache',
+            },
+          },
+        )
+      },
+      { params: t.Object({ owner: t.String(), name: t.String() }) },
+    )
+    .post(
+      '/:owner/:name/git-upload-pack',
+      async ({ params, request }) => {
+        const { owner, name } = params
+        const repo = await repoManager.getRepositoryByName(
+          owner as Address,
+          name,
+        )
+        if (!repo) return new Response('Repository not found', { status: 404 })
+
+        if (repo.visibility === 1) {
+          const user = request.headers.get('x-jeju-address') as
+            | Address
+            | undefined
+          if (!user)
+            return new Response('Authentication required', { status: 401 })
+          const hasRead = await repoManager.hasReadAccess(repo.repoId, user)
+          if (!hasRead)
+            return new Response('Read access denied', { status: 403 })
+        }
+
+        const body = Buffer.from(await request.arrayBuffer())
+        const lines = parsePktLines(body)
+
+        const wants: string[] = []
+        const haves: string[] = []
+
+        for (const line of lines) {
+          if (line.startsWith('want ')) wants.push(line.split(' ')[1])
+          else if (line.startsWith('have ')) haves.push(line.split(' ')[1])
+        }
+
+        if (wants.length === 0) {
+          const nakLine = createPktLine('NAK')
+          return new Response(
+            typeof nakLine === 'string' ? nakLine : new Uint8Array(nakLine),
+            {
+              headers: {
+                'Content-Type': 'application/x-git-upload-pack-result',
+              },
+            },
+          )
+        }
+
+        const objectStore = repoManager.getObjectStore(repo.repoId)
+        const neededOids: string[] = []
+        const haveSet = new Set(haves)
+
+        for (const wantOid of wants) {
+          const reachable = await objectStore.getReachableObjects(wantOid)
+          for (const oid of reachable) {
+            if (!haveSet.has(oid)) neededOids.push(oid)
+          }
+        }
+
+        const packfile = await createPackfile(objectStore, neededOids)
+        const response = Buffer.concat([createPktLine('NAK'), packfile])
+
+        return new Response(response, {
           headers: {
-            'Content-Type': 'application/x-git-receive-pack-result',
+            'Content-Type': 'application/x-git-upload-pack-result',
             'Cache-Control': 'no-cache',
           },
-        },
-      )
-    },
-  )
+        })
+      },
+      { params: t.Object({ owner: t.String(), name: t.String() }) },
+    )
+    .post(
+      '/:owner/:name/git-receive-pack',
+      async ({ params, request }) => {
+        const { owner, name } = params
+        const user = request.headers.get('x-jeju-address') as Address
 
-  // ============ Object & Contents API ============
+        if (!user)
+          return new Response('Authentication required', { status: 401 })
 
-  router = router.get('/:owner/:name/objects/:oid', async ({ params, set }) => {
-    const owner = params.owner as Address
-    const name = params.name
-    const oid = params.oid
-
-    const repo = await repoManager.getRepositoryByName(owner, name)
-    if (!repo) {
-      set.status = 404
-      return { error: 'Repository not found' }
-    }
-
-    const objectStore = repoManager.getObjectStore(repo.repoId)
-    const obj = await objectStore.getObject(oid)
-    if (!obj) {
-      set.status = 404
-      return { error: 'Object not found' }
-    }
-
-    if (obj.type === 'commit') {
-      return {
-        oid,
-        type: 'commit',
-        ...objectStore.parseCommit(obj.content),
-      }
-    } else if (obj.type === 'tree') {
-      return {
-        oid,
-        type: 'tree',
-        entries: objectStore.parseTree(obj.content),
-      }
-    } else {
-      return {
-        oid,
-        type: obj.type,
-        size: obj.size,
-        content: obj.content.toString('base64'),
-      }
-    }
-  })
-
-  router = router.get(
-    '/:owner/:name/contents/*',
-    async ({ params, query, request, set }) => {
-      const { owner, name } = expectValid(
-        repoParamsSchema,
-        params,
-        'Repo params',
-      )
-      const url = new URL(request.url)
-      const path = url.pathname.split('/contents/')[1] || ''
-      const { ref } = expectValid(contentsQuerySchema, query, 'Contents query')
-
-      const repo = await repoManager.getRepositoryByName(owner, name)
-      if (!repo) {
-        set.status = 404
-        return { error: 'Repository not found' }
-      }
-
-      const objectStore = repoManager.getObjectStore(repo.repoId)
-      const branch = await repoManager.getBranch(repo.repoId, ref)
-      if (!branch) {
-        set.status = 404
-        return { error: 'Branch not found' }
-      }
-
-      const commit = await objectStore.getCommit(
-        decodeBytes32ToOid(branch.tipCommitCid),
-      )
-      if (!commit) {
-        set.status = 404
-        return { error: 'Commit not found' }
-      }
-
-      let currentTree = await objectStore.getTree(commit.tree)
-      if (!currentTree) {
-        set.status = 404
-        return { error: 'Tree not found' }
-      }
-
-      const pathParts = path.split('/').filter(Boolean)
-
-      for (let i = 0; i < pathParts.length - 1; i++) {
-        const entry = currentTree.entries.find(
-          (e) => e.name === pathParts[i] && e.type === 'tree',
+        const repo = await repoManager.getRepositoryByName(
+          owner as Address,
+          name,
         )
-        if (!entry) {
+        if (!repo) return new Response('Repository not found', { status: 404 })
+
+        const hasWrite = await repoManager.hasWriteAccess(repo.repoId, user)
+        if (!hasWrite)
+          return new Response('Write access denied', { status: 403 })
+
+        const body = Buffer.from(await request.arrayBuffer())
+        const packStart = body.indexOf(Buffer.from('PACK'))
+        const commandData = body.subarray(0, packStart)
+        const packData = body.subarray(packStart)
+
+        const lines = parsePktLines(commandData)
+        const updates: Array<{
+          oldOid: string
+          newOid: string
+          refName: string
+        }> = []
+
+        for (const line of lines) {
+          if (line === '' || line === '0000') continue
+          const match = line.match(/^([0-9a-f]{40}) ([0-9a-f]{40}) (.+)$/)
+          if (match) {
+            updates.push({
+              oldOid: match[1],
+              newOid: match[2],
+              refName: match[3].split('\0')[0],
+            })
+          }
+        }
+
+        const objectStore = repoManager.getObjectStore(repo.repoId)
+        await extractPackfile(objectStore, packData)
+
+        const results: Array<{
+          ref: string
+          success: boolean
+          error?: string
+        }> = []
+
+        for (const update of updates) {
+          if (!update.refName.startsWith('refs/heads/')) {
+            results.push({
+              ref: update.refName,
+              success: false,
+              error: 'Only branch updates supported',
+            })
+            continue
+          }
+
+          const branchName = update.refName.replace('refs/heads/', '')
+          const commits = await objectStore.walkCommits(update.newOid, 100)
+
+          await repoManager.pushBranch(
+            repo.repoId,
+            branchName,
+            update.newOid,
+            update.oldOid === '0000000000000000000000000000000000000000'
+              ? null
+              : update.oldOid,
+            commits.length,
+            user,
+          )
+
+          trackGitContribution(user, repo.repoId as Hex, name, 'commit', {
+            branch: branchName,
+            commitCount: commits.length,
+            message: commits[0]?.message.split('\n')[0] || 'Push',
+          })
+
+          results.push({ ref: update.refName, success: true })
+        }
+
+        const responseLines = [
+          'unpack ok',
+          ...results.map((r) =>
+            r.success ? `ok ${r.ref}` : `ng ${r.ref} ${r.error}`,
+          ),
+        ]
+        const pktLines = createPktLines(responseLines)
+        return new Response(
+          typeof pktLines === 'string' ? pktLines : new Uint8Array(pktLines),
+          {
+            headers: {
+              'Content-Type': 'application/x-git-receive-pack-result',
+              'Cache-Control': 'no-cache',
+            },
+          },
+        )
+      },
+      { params: t.Object({ owner: t.String(), name: t.String() }) },
+    )
+
+    // ============ Object & Contents API ============
+    .get(
+      '/:owner/:name/objects/:oid',
+      async ({ params, set }) => {
+        const { owner, name, oid } = params
+
+        const repo = await repoManager.getRepositoryByName(
+          owner as Address,
+          name,
+        )
+        if (!repo) {
+          set.status = 404
+          return { error: 'Repository not found' }
+        }
+
+        const objectStore = repoManager.getObjectStore(repo.repoId)
+        const obj = await objectStore.getObject(oid)
+        if (!obj) {
+          set.status = 404
+          return { error: 'Object not found' }
+        }
+
+        if (obj.type === 'commit') {
+          return {
+            oid,
+            type: 'commit',
+            ...objectStore.parseCommit(obj.content),
+          }
+        } else if (obj.type === 'tree') {
+          return {
+            oid,
+            type: 'tree',
+            entries: objectStore.parseTree(obj.content),
+          }
+        } else {
+          return {
+            oid,
+            type: obj.type,
+            size: obj.size,
+            content: obj.content.toString('base64'),
+          }
+        }
+      },
+      {
+        params: t.Object({
+          owner: t.String(),
+          name: t.String(),
+          oid: t.String(),
+        }),
+      },
+    )
+    .get(
+      '/:owner/:name/contents/*',
+      async ({ params, query, request, set }) => {
+        const { owner, name } = expectValid(
+          repoParamsSchema,
+          params,
+          'Repo params',
+        )
+        const url = new URL(request.url)
+        const path = url.pathname.split('/contents/')[1] || ''
+        const { ref } = expectValid(
+          contentsQuerySchema,
+          query,
+          'Contents query',
+        )
+
+        const repo = await repoManager.getRepositoryByName(owner, name)
+        if (!repo) {
+          set.status = 404
+          return { error: 'Repository not found' }
+        }
+
+        const objectStore = repoManager.getObjectStore(repo.repoId)
+        const branch = await repoManager.getBranch(repo.repoId, ref)
+        if (!branch) {
+          set.status = 404
+          return { error: 'Branch not found' }
+        }
+
+        const commit = await objectStore.getCommit(
+          decodeBytes32ToOid(branch.tipCommitCid),
+        )
+        if (!commit) {
+          set.status = 404
+          return { error: 'Commit not found' }
+        }
+
+        let currentTree = await objectStore.getTree(commit.tree)
+        if (!currentTree) {
+          set.status = 404
+          return { error: 'Tree not found' }
+        }
+
+        const pathParts = path.split('/').filter(Boolean)
+
+        for (let i = 0; i < pathParts.length - 1; i++) {
+          const entry = currentTree.entries.find(
+            (e) => e.name === pathParts[i] && e.type === 'tree',
+          )
+          if (!entry) {
+            set.status = 404
+            return { error: 'Path not found' }
+          }
+          const nextTree = await objectStore.getTree(entry.oid)
+          if (!nextTree) {
+            set.status = 404
+            return { error: 'Tree not found' }
+          }
+          currentTree = nextTree
+        }
+
+        if (pathParts.length === 0) {
+          return {
+            type: 'dir',
+            path: '',
+            entries: currentTree.entries.map((e) => ({
+              name: e.name,
+              type: e.type === 'tree' ? 'dir' : 'file',
+              oid: e.oid,
+              mode: e.mode,
+            })),
+          }
+        }
+
+        const targetName = pathParts[pathParts.length - 1]
+        const target = currentTree.entries.find((e) => e.name === targetName)
+        if (!target) {
           set.status = 404
           return { error: 'Path not found' }
         }
-        const nextTree = await objectStore.getTree(entry.oid)
-        if (!nextTree) {
+
+        if (target.type === 'tree') {
+          const tree = await objectStore.getTree(target.oid)
+          if (!tree) {
+            set.status = 404
+            return { error: 'Tree not found' }
+          }
+          return {
+            type: 'dir',
+            path,
+            entries: tree.entries.map((e) => ({
+              name: e.name,
+              type: e.type === 'tree' ? 'dir' : 'file',
+              oid: e.oid,
+              mode: e.mode,
+            })),
+          }
+        }
+
+        const blob = await objectStore.getBlob(target.oid)
+        if (!blob) {
           set.status = 404
-          return { error: 'Tree not found' }
+          return { error: 'Blob not found' }
         }
-        currentTree = nextTree
-      }
 
-      if (pathParts.length === 0) {
+        const isText = !blob.content.includes(0)
         return {
-          type: 'dir',
-          path: '',
-          entries: currentTree.entries.map((e) => ({
-            name: e.name,
-            type: e.type === 'tree' ? 'dir' : 'file',
-            oid: e.oid,
-            mode: e.mode,
-          })),
-        }
-      }
-
-      const targetName = pathParts[pathParts.length - 1]
-      const target = currentTree.entries.find((e) => e.name === targetName)
-      if (!target) {
-        set.status = 404
-        return { error: 'Path not found' }
-      }
-
-      if (target.type === 'tree') {
-        const tree = await objectStore.getTree(target.oid)
-        if (!tree) {
-          set.status = 404
-          return { error: 'Tree not found' }
-        }
-        return {
-          type: 'dir',
+          type: 'file',
           path,
-          entries: tree.entries.map((e) => ({
-            name: e.name,
-            type: e.type === 'tree' ? 'dir' : 'file',
-            oid: e.oid,
-            mode: e.mode,
+          oid: target.oid,
+          size: blob.content.length,
+          content: isText
+            ? blob.content.toString('utf8')
+            : blob.content.toString('base64'),
+          encoding: isText ? 'utf-8' : 'base64',
+        }
+      },
+      { params: t.Object({ owner: t.String(), name: t.String() }) },
+    )
+    .get(
+      '/:owner/:name/commits',
+      async ({ params, query, set }) => {
+        const { owner, name } = expectValid(
+          repoParamsSchema,
+          params,
+          'Repo params',
+        )
+        const { ref, limit } = expectValid(
+          commitsQuerySchema,
+          query,
+          'Commits query',
+        )
+
+        const repo = await repoManager.getRepositoryByName(owner, name)
+        if (!repo) {
+          set.status = 404
+          return { error: 'Repository not found' }
+        }
+
+        const branch = await repoManager.getBranch(repo.repoId, ref)
+        if (!branch) {
+          set.status = 404
+          return { error: 'Branch not found' }
+        }
+
+        const objectStore = repoManager.getObjectStore(repo.repoId)
+        const commits = await objectStore.walkCommits(
+          decodeBytes32ToOid(branch.tipCommitCid),
+          limit,
+        )
+
+        return {
+          branch: ref,
+          commits: commits.map((commit) => ({
+            oid: commit.oid,
+            message: commit.message,
+            author: commit.author,
+            committer: commit.committer,
+            parents: commit.parents,
+            tree: commit.tree,
           })),
         }
-      }
+      },
+      { params: t.Object({ owner: t.String(), name: t.String() }) },
+    )
 
-      const blob = await objectStore.getBlob(target.oid)
-      if (!blob) {
-        set.status = 404
-        return { error: 'Blob not found' }
-      }
+  // Conditionally add federation routes
+  if (ctx.federationManager) {
+    return baseRouter.use(
+      createFederationRoutes(ctx.federationManager, socialManager),
+    )
+  }
 
-      const isText = !blob.content.includes(0)
-      return {
-        type: 'file',
-        path,
-        oid: target.oid,
-        size: blob.content.length,
-        content: isText
-          ? blob.content.toString('utf8')
-          : blob.content.toString('base64'),
-        encoding: isText ? 'utf-8' : 'base64',
-      }
-    },
-  )
-
-  router = router.get(
-    '/:owner/:name/commits',
-    async ({ params, query, set }) => {
-      const { owner, name } = expectValid(
-        repoParamsSchema,
-        params,
-        'Repo params',
-      )
-      const { ref, limit } = expectValid(
-        commitsQuerySchema,
-        query,
-        'Commits query',
-      )
-
-      const repo = await repoManager.getRepositoryByName(owner, name)
-      if (!repo) {
-        set.status = 404
-        return { error: 'Repository not found' }
-      }
-
-      const branch = await repoManager.getBranch(repo.repoId, ref)
-      if (!branch) {
-        set.status = 404
-        return { error: 'Branch not found' }
-      }
-
-      const objectStore = repoManager.getObjectStore(repo.repoId)
-      const commits = await objectStore.walkCommits(
-        decodeBytes32ToOid(branch.tipCommitCid),
-        limit,
-      )
-
-      return {
-        branch: ref,
-        commits: commits.map((commit) => ({
-          oid: commit.oid,
-          message: commit.message,
-          author: commit.author,
-          committer: commit.committer,
-          parents: commit.parents,
-          tree: commit.tree,
-        })),
-      }
-    },
-  )
-
-  return router
+  return baseRouter
 }
 
 function formatInfoRefs(service: string, refs: GitRef[]): Buffer {

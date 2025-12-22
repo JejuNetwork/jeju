@@ -49,8 +49,6 @@ export const A2AResponseSchema = z.object({
 
 export type A2AResponse = z.infer<typeof A2AResponseSchema>
 
-// ============ MCP API Schemas ============
-
 export const MCPToolCallRequestSchema = z
   .object({
     name: NonEmptyStringSchema,
@@ -67,7 +65,7 @@ export const MCPToolCallResponseSchema = z.object({
       text: z.string(),
     }),
   ),
-  isError: z.boolean().optional(),
+  isError: z.boolean().default(false),
 })
 
 export type MCPToolCallResponse = z.infer<typeof MCPToolCallResponseSchema>
@@ -135,20 +133,16 @@ export const TFMMPostRequestSchema = z
 
 export type TFMMPostRequest = z.infer<typeof TFMMPostRequestSchema>
 
-// ============ Token Creation API Schemas ============
-
 export const CreateTokenRequestSchema = z.object({
   chainType: ChainTypeSchema,
   chainId: z.union([EvmChainIdSchema, SolanaNetworkIdSchema]),
   metadata: TokenMetadataSchema,
   initialSupply: BigIntSchema.optional(),
-  bondingCurveEnabled: z.boolean().optional(),
-  aiGenerated: z.boolean().optional(),
+  bondingCurveEnabled: z.boolean().default(false),
+  aiGenerated: z.boolean().default(false),
 })
 
 export type CreateTokenRequest = z.infer<typeof CreateTokenRequestSchema>
-
-// ============ Swap API Schemas ============
 
 export const SwapQuoteRequestSchema = z.object({
   tokenIn: AddressSchema,
@@ -168,8 +162,6 @@ export const SwapQuoteResponseSchema = z.object({
 
 export type SwapQuoteResponse = z.infer<typeof SwapQuoteResponseSchema>
 
-// ============ NFT API Schemas ============
-
 export const NFTListingRequestSchema = z.object({
   tokenId: z.string(),
   collectionAddress: AddressSchema,
@@ -187,8 +179,6 @@ export const NFTBuyRequestSchema = z.object({
 
 export type NFTBuyRequest = z.infer<typeof NFTBuyRequestSchema>
 
-// ============ Market API Schemas ============
-
 export const MarketTradeRequestSchema = z.object({
   marketId: NonEmptyStringSchema,
   outcome: z.boolean(),
@@ -204,8 +194,6 @@ export const MarketClaimRequestSchema = z.object({
 })
 
 export type MarketClaimRequest = z.infer<typeof MarketClaimRequestSchema>
-
-// ============ Common API Response Schemas ============
 
 export const ErrorResponseSchema = z.object({
   error: z.object({
@@ -224,8 +212,6 @@ export const SuccessResponseSchema = z.object({
 })
 
 export type SuccessResponse = z.infer<typeof SuccessResponseSchema>
-
-// ============ MCP Resource API Schemas ============
 
 export const MCPResourceReadRequestSchema = z
   .object({
@@ -250,8 +236,6 @@ export const MCPResourceReadResponseSchema = z.object({
 export type MCPResourceReadResponse = z.infer<
   typeof MCPResourceReadResponseSchema
 >
-
-// ============ DWS API Response Schemas ============
 
 export const DWSFunctionDeployResponseSchema = z.object({
   functionId: z.string(),
@@ -294,14 +278,10 @@ export type DWSWorkerdHealthResponse = z.infer<
   typeof DWSWorkerdHealthResponseSchema
 >
 
-// ============ IPFS/Storage Response Schemas ============
-
 export const IPFSUploadResponseSchema = z.object({
   cid: z.string(),
 })
 export type IPFSUploadResponse = z.infer<typeof IPFSUploadResponseSchema>
-
-// ============ Bundler (ERC-4337) Response Schemas ============
 
 export const BundlerSendUserOpResponseSchema = z.object({
   result: z.string().optional(),
@@ -330,8 +310,6 @@ export type BundlerUserOpReceiptResponse = z.infer<
   typeof BundlerUserOpReceiptResponseSchema
 >
 
-// ============ GraphQL Response Schemas ============
-
 export const GraphQLDataResponseSchema = <T extends z.ZodTypeAny>(
   dataSchema: T,
 ) =>
@@ -346,15 +324,11 @@ export const GraphQLDataResponseSchema = <T extends z.ZodTypeAny>(
       .optional(),
   })
 
-// ============ Faucet API Response Schemas ============
-
 export const FaucetInfoResponseSchema = z.object({
   name: z.string(),
   chainId: z.number(),
 })
 export type FaucetInfoResponse = z.infer<typeof FaucetInfoResponseSchema>
-
-// ============ A2A Service Response Schemas ============
 
 export const A2AServiceInfoResponseSchema = z.object({
   service: z.string(),
@@ -362,8 +336,6 @@ export const A2AServiceInfoResponseSchema = z.object({
 export type A2AServiceInfoResponse = z.infer<
   typeof A2AServiceInfoResponseSchema
 >
-
-// ============ Agent Card Response Schema ============
 
 export const AgentCardResponseSchema = z.object({
   name: z.string(),
@@ -377,8 +349,6 @@ export const AgentCardResponseSchema = z.object({
   ),
 })
 export type AgentCardResponse = z.infer<typeof AgentCardResponseSchema>
-
-// ============ ABI-related Schemas (for validation tests) ============
 
 export const ABIFunctionSchema = z.object({
   name: z.string().optional(),

@@ -29,9 +29,9 @@ export function generateConfigFromManifest(
   appDir: string,
   manifest: AppManifest,
   type: 'playwright' | 'synpress',
-): string | null {
+): string | undefined {
   const testing = manifest.testing as AppTestConfig | undefined
-  if (!testing?.e2e) return null
+  if (!testing?.e2e) return undefined
 
   const port = manifest.ports?.main ?? manifest.ports?.frontend ?? 3000
   const testDir = type === 'synpress' ? './tests/synpress' : './tests/e2e'
@@ -132,7 +132,7 @@ export function getTestConfig(
   appDir: string,
   manifest: AppManifest,
   type: 'playwright' | 'synpress',
-): { configPath: string; generated: boolean } | null {
+): { configPath: string; generated: boolean } | undefined {
   const configFileName =
     type === 'synpress' ? 'synpress.config.ts' : 'playwright.config.ts'
   const existingConfig = join(appDir, configFileName)
@@ -153,7 +153,7 @@ export function getTestConfig(
     return { configPath: generatedPath, generated: true }
   }
 
-  return null
+  return undefined
 }
 
 export interface TestOptions {
@@ -338,7 +338,7 @@ export async function runAppTests(
     join(rootDir, 'vendor', appName),
   ]
 
-  let appDir: string | null = null
+  let appDir: string | undefined
   for (const path of appPaths) {
     if (existsSync(path)) {
       appDir = path
@@ -362,9 +362,9 @@ export async function runAppTests(
 
   // Load manifest for config generation
   const manifestPath = join(appDir, 'jeju-manifest.json')
-  const manifest: AppManifest | null = existsSync(manifestPath)
+  const manifest: AppManifest | undefined = existsSync(manifestPath)
     ? (JSON.parse(readFileSync(manifestPath, 'utf-8')) as AppManifest)
-    : null
+    : undefined
 
   // Run unit tests if available
   if (pkg.scripts?.test) {
@@ -383,7 +383,7 @@ export async function runAppTests(
     ? getTestConfig(appName, appDir, manifest, 'playwright')
     : existsSync(join(appDir, 'playwright.config.ts'))
       ? { configPath: join(appDir, 'playwright.config.ts'), generated: false }
-      : null
+      : undefined
 
   if (playwrightConfig) {
     const configArg = playwrightConfig.generated
@@ -404,7 +404,7 @@ export async function runAppTests(
     ? getTestConfig(appName, appDir, manifest, 'synpress')
     : existsSync(join(appDir, 'synpress.config.ts'))
       ? { configPath: join(appDir, 'synpress.config.ts'), generated: false }
-      : null
+      : undefined
 
   if (synpressConfig) {
     const configPath = synpressConfig.generated

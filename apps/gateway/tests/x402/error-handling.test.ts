@@ -92,7 +92,7 @@ describe('Malformed Request Body', () => {
       method: 'POST',
       body: JSON.stringify({ x402Version: 1 }),
     })
-    // Hono may still parse JSON - check response for validity
+    // Server may still parse JSON - check response for validity
     const body = await res.json()
     if (res.status >= 400) {
       expect(body.isValid).toBe(false)

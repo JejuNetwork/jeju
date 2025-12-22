@@ -22,8 +22,6 @@ import {
 import { privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
 
-// ============ Configuration ============
-
 // Jeju localnet ports (from packages/config/ports.ts)
 const L1_RPC_PORT = parseInt(process.env.L1_RPC_PORT ?? '6545', 10)
 const L2_RPC_PORT = parseInt(process.env.L2_RPC_PORT ?? '6546', 10)
@@ -64,8 +62,6 @@ const TEST_ACCOUNTS = {
   },
 }
 
-// ============ Globals ============
-
 let relayServer: ReturnType<typeof Bun.serve> | null = null
 let hubServer: ReturnType<typeof Bun.serve> | null = null
 let localnetReady = false
@@ -79,8 +75,6 @@ const messageStore: Map<
     timestamp: number
   }>
 > = new Map()
-
-// ============ Helpers ============
 
 async function waitForRpc(url: string, timeout = 30000): Promise<boolean> {
   const start = Date.now()
@@ -136,8 +130,6 @@ function decrypt(ciphertext: Uint8Array, key: Uint8Array): string {
   const bytes = ciphertext.map((b, i) => b ^ key[i % key.length])
   return new TextDecoder().decode(bytes)
 }
-
-// ============ Mock Servers ============
 
 function startRelayServer(): void {
   relayServer = Bun.serve({
@@ -306,8 +298,6 @@ function startHubServer(): void {
   console.log(`[Hub] Running on port ${HUB_PORT}`)
 }
 
-// ============ Test Setup ============
-
 beforeAll(async () => {
   console.log('\n=== Localnet Messaging Integration Tests ===\n')
   console.log(`[Config] L2 RPC: ${L2_RPC_URL}`)
@@ -341,8 +331,6 @@ afterAll(async () => {
   hubServer?.stop()
   console.log('[Teardown] Done\n')
 })
-
-// ============ Blockchain Tests ============
 
 describe('Blockchain Connection', () => {
   test('connects to L2 RPC', async () => {
@@ -399,8 +387,6 @@ describe('Blockchain Connection', () => {
   })
 })
 
-// ============ Key Management Tests ============
-
 describe('Key Management', () => {
   test('generates X25519 key pairs', () => {
     const keyPair = generateKeyPair()
@@ -449,8 +435,6 @@ describe('Key Management', () => {
     }
   })
 })
-
-// ============ Messaging Relay Tests ============
 
 describe('Messaging Relay', () => {
   test('health check returns node info', async () => {
@@ -541,8 +525,6 @@ describe('Messaging Relay', () => {
     expect(decrypted).toBe(originalMessage)
   })
 })
-
-// ============ Farcaster Hub Tests ============
 
 describe('Farcaster Hub', () => {
   test('hub is healthy', async () => {
@@ -662,8 +644,6 @@ describe('Farcaster Hub', () => {
   })
 })
 
-// ============ MLS Group Tests ============
-
 describe('MLS Groups', () => {
   test('creates group with members', () => {
     const group = {
@@ -729,8 +709,6 @@ describe('MLS Groups', () => {
     expect(invite.expiresAt).toBeGreaterThan(Date.now())
   })
 })
-
-// ============ Direct Cast Tests ============
 
 describe('Direct Casts', () => {
   test('sends encrypted DM', async () => {
@@ -798,8 +776,6 @@ describe('Direct Casts', () => {
     expect(data.count).toBe(3)
   })
 })
-
-// ============ End-to-End Flow Tests ============
 
 describe('End-to-End Flows', () => {
   test('public Farcaster cast followed by private DM', async () => {
@@ -965,8 +941,6 @@ describe('End-to-End Flows', () => {
     ).toBe(true)
   })
 })
-
-// ============ Performance Tests ============
 
 describe('Performance', () => {
   test('handles 50 concurrent messages', async () => {

@@ -7,10 +7,10 @@
  * - Multi-token support with Chainlink price oracles
  */
 
-import type { NetworkType } from "@jejunetwork/types";
-import { type Address, encodeFunctionData, type Hex } from "viem";
-import { requireContract } from "../config";
-import type { JejuWallet } from "../wallet";
+import type { NetworkType } from '@jejunetwork/types'
+import { type Address, encodeFunctionData, type Hex } from 'viem'
+import { requireContract } from '../config'
+import type { JejuWallet } from '../wallet'
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                              TYPES
@@ -19,120 +19,120 @@ import type { JejuWallet } from "../wallet";
 export const PaymentCurrency = {
   ETH: 0,
   USDC: 1,
-} as const;
+} as const
 export type PaymentCurrency =
-  (typeof PaymentCurrency)[keyof typeof PaymentCurrency];
+  (typeof PaymentCurrency)[keyof typeof PaymentCurrency]
 
 export const OfferStatus = {
-  PENDING: "pending",
-  APPROVED: "approved",
-  PAID: "paid",
-  FULFILLED: "fulfilled",
-  CANCELLED: "cancelled",
-} as const;
-export type OfferStatus = (typeof OfferStatus)[keyof typeof OfferStatus];
+  PENDING: 'pending',
+  APPROVED: 'approved',
+  PAID: 'paid',
+  FULFILLED: 'fulfilled',
+  CANCELLED: 'cancelled',
+} as const
+export type OfferStatus = (typeof OfferStatus)[keyof typeof OfferStatus]
 
 export interface RegisteredToken {
-  tokenId: Hex;
-  tokenAddress: Address;
-  decimals: number;
-  isActive: boolean;
-  priceOracle: Address;
+  tokenId: Hex
+  tokenAddress: Address
+  decimals: number
+  isActive: boolean
+  priceOracle: Address
 }
 
 export interface Consignment {
-  id: bigint;
-  tokenId: Hex;
-  consigner: Address;
-  totalAmount: bigint;
-  remainingAmount: bigint;
-  isNegotiable: boolean;
-  fixedDiscountBps: number;
-  fixedLockupDays: number;
-  minDiscountBps: number;
-  maxDiscountBps: number;
-  minLockupDays: number;
-  maxLockupDays: number;
-  minDealAmount: bigint;
-  maxDealAmount: bigint;
-  maxPriceVolatilityBps: number;
-  isActive: boolean;
-  createdAt: bigint;
+  id: bigint
+  tokenId: Hex
+  consigner: Address
+  totalAmount: bigint
+  remainingAmount: bigint
+  isNegotiable: boolean
+  fixedDiscountBps: number
+  fixedLockupDays: number
+  minDiscountBps: number
+  maxDiscountBps: number
+  minLockupDays: number
+  maxLockupDays: number
+  minDealAmount: bigint
+  maxDealAmount: bigint
+  maxPriceVolatilityBps: number
+  isActive: boolean
+  createdAt: bigint
 }
 
 export interface Offer {
-  id: bigint;
-  consignmentId: bigint;
-  tokenId: Hex;
-  beneficiary: Address;
-  tokenAmount: bigint;
-  discountBps: number;
-  createdAt: bigint;
-  unlockTime: bigint;
-  priceUsdPerToken: bigint;
-  maxPriceDeviation: bigint;
-  ethUsdPrice: bigint;
-  currency: PaymentCurrency;
-  approved: boolean;
-  paid: boolean;
-  fulfilled: boolean;
-  cancelled: boolean;
-  payer: Address;
-  amountPaid: bigint;
+  id: bigint
+  consignmentId: bigint
+  tokenId: Hex
+  beneficiary: Address
+  tokenAmount: bigint
+  discountBps: number
+  createdAt: bigint
+  unlockTime: bigint
+  priceUsdPerToken: bigint
+  maxPriceDeviation: bigint
+  ethUsdPrice: bigint
+  currency: PaymentCurrency
+  approved: boolean
+  paid: boolean
+  fulfilled: boolean
+  cancelled: boolean
+  payer: Address
+  amountPaid: bigint
 }
 
 export interface CreateConsignmentParams {
-  tokenId: Hex;
-  amount: bigint;
-  isNegotiable: boolean;
-  fixedDiscountBps?: number;
-  fixedLockupDays?: number;
-  minDiscountBps?: number;
-  maxDiscountBps?: number;
-  minLockupDays?: number;
-  maxLockupDays?: number;
-  minDealAmount?: bigint;
-  maxDealAmount?: bigint;
-  maxPriceVolatilityBps?: number;
+  tokenId: Hex
+  amount: bigint
+  isNegotiable: boolean
+  fixedDiscountBps?: number
+  fixedLockupDays?: number
+  minDiscountBps?: number
+  maxDiscountBps?: number
+  minLockupDays?: number
+  maxLockupDays?: number
+  minDealAmount?: bigint
+  maxDealAmount?: bigint
+  maxPriceVolatilityBps?: number
 }
 
 export interface CreateOfferParams {
-  consignmentId: bigint;
-  tokenAmount: bigint;
-  discountBps: number;
-  lockupDays: number;
-  currency: PaymentCurrency;
-  beneficiary?: Address;
+  consignmentId: bigint
+  tokenAmount: bigint
+  discountBps: number
+  lockupDays: number
+  currency: PaymentCurrency
+  beneficiary?: Address
 }
 
 export interface OTCModule {
   // Tokens
-  listRegisteredTokens(): Promise<RegisteredToken[]>;
-  getToken(tokenId: Hex): Promise<RegisteredToken | null>;
-  getTokenPrice(tokenId: Hex): Promise<bigint>;
+  listRegisteredTokens(): Promise<RegisteredToken[]>
+  getToken(tokenId: Hex): Promise<RegisteredToken | null>
+  getTokenPrice(tokenId: Hex): Promise<bigint>
 
   // Consignments
   createConsignment(
     params: CreateConsignmentParams,
-  ): Promise<{ consignmentId: bigint; txHash: Hex }>;
-  getConsignment(consignmentId: bigint): Promise<Consignment | null>;
-  listActiveConsignments(): Promise<Consignment[]>;
-  listMyConsignments(): Promise<Consignment[]>;
-  cancelConsignment(consignmentId: bigint): Promise<Hex>;
-  topUpConsignment(consignmentId: bigint, amount: bigint): Promise<Hex>;
+  ): Promise<{ consignmentId: bigint; txHash: Hex }>
+  getConsignment(consignmentId: bigint): Promise<Consignment | null>
+  listActiveConsignments(): Promise<Consignment[]>
+  listMyConsignments(): Promise<Consignment[]>
+  cancelConsignment(consignmentId: bigint): Promise<Hex>
+  topUpConsignment(consignmentId: bigint, amount: bigint): Promise<Hex>
 
   // Offers
   createOffer(
     params: CreateOfferParams,
-  ): Promise<{ offerId: bigint; txHash: Hex }>;
-  getOffer(offerId: bigint): Promise<Offer | null>;
-  listMyOffers(): Promise<Offer[]>;
-  listPendingOffers(): Promise<Offer[]>;
-  approveOffer(offerId: bigint): Promise<Hex>;
-  rejectOffer(offerId: bigint): Promise<Hex>;
-  payOffer(offerId: bigint, amount?: bigint): Promise<Hex>;
-  fulfillOffer(offerId: bigint): Promise<Hex>;
-  cancelOffer(offerId: bigint): Promise<Hex>;
+  ): Promise<{ offerId: bigint; txHash: Hex }>
+  getOffer(offerId: bigint): Promise<Offer | null>
+  listMyOffers(): Promise<Offer[]>
+  listPendingOffers(): Promise<Offer[]>
+  approveOffer(offerId: bigint): Promise<Hex>
+  rejectOffer(offerId: bigint): Promise<Hex>
+  payOffer(offerId: bigint, amount?: bigint): Promise<Hex>
+  fulfillOffer(offerId: bigint): Promise<Hex>
+  cancelOffer(offerId: bigint): Promise<Hex>
 
   // Quotes
   getQuote(
@@ -141,10 +141,10 @@ export interface OTCModule {
     discountBps: number,
     currency: PaymentCurrency,
   ): Promise<{
-    priceUsd: bigint;
-    paymentAmount: bigint;
-    currency: PaymentCurrency;
-  }>;
+    priceUsd: bigint
+    paymentAmount: bigint
+    currency: PaymentCurrency
+  }>
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -153,178 +153,178 @@ export interface OTCModule {
 
 const OTC_ABI = [
   {
-    name: "tokens",
-    type: "function",
-    stateMutability: "view",
-    inputs: [{ name: "tokenId", type: "bytes32" }],
+    name: 'tokens',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'tokenId', type: 'bytes32' }],
     outputs: [
-      { name: "tokenAddress", type: "address" },
-      { name: "decimals", type: "uint8" },
-      { name: "isActive", type: "bool" },
-      { name: "priceOracle", type: "address" },
+      { name: 'tokenAddress', type: 'address' },
+      { name: 'decimals', type: 'uint8' },
+      { name: 'isActive', type: 'bool' },
+      { name: 'priceOracle', type: 'address' },
     ],
   },
   {
-    name: "tokenList",
-    type: "function",
-    stateMutability: "view",
-    inputs: [{ name: "index", type: "uint256" }],
-    outputs: [{ type: "bytes32" }],
+    name: 'tokenList',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'index', type: 'uint256' }],
+    outputs: [{ type: 'bytes32' }],
   },
   {
-    name: "consignments",
-    type: "function",
-    stateMutability: "view",
-    inputs: [{ name: "consignmentId", type: "uint256" }],
+    name: 'consignments',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'consignmentId', type: 'uint256' }],
     outputs: [
-      { name: "tokenId", type: "bytes32" },
-      { name: "consigner", type: "address" },
-      { name: "totalAmount", type: "uint256" },
-      { name: "remainingAmount", type: "uint256" },
-      { name: "isNegotiable", type: "bool" },
-      { name: "fixedDiscountBps", type: "uint16" },
-      { name: "fixedLockupDays", type: "uint32" },
-      { name: "minDiscountBps", type: "uint16" },
-      { name: "maxDiscountBps", type: "uint16" },
-      { name: "minLockupDays", type: "uint32" },
-      { name: "maxLockupDays", type: "uint32" },
-      { name: "minDealAmount", type: "uint256" },
-      { name: "maxDealAmount", type: "uint256" },
-      { name: "maxPriceVolatilityBps", type: "uint16" },
-      { name: "isActive", type: "bool" },
-      { name: "createdAt", type: "uint256" },
+      { name: 'tokenId', type: 'bytes32' },
+      { name: 'consigner', type: 'address' },
+      { name: 'totalAmount', type: 'uint256' },
+      { name: 'remainingAmount', type: 'uint256' },
+      { name: 'isNegotiable', type: 'bool' },
+      { name: 'fixedDiscountBps', type: 'uint16' },
+      { name: 'fixedLockupDays', type: 'uint32' },
+      { name: 'minDiscountBps', type: 'uint16' },
+      { name: 'maxDiscountBps', type: 'uint16' },
+      { name: 'minLockupDays', type: 'uint32' },
+      { name: 'maxLockupDays', type: 'uint32' },
+      { name: 'minDealAmount', type: 'uint256' },
+      { name: 'maxDealAmount', type: 'uint256' },
+      { name: 'maxPriceVolatilityBps', type: 'uint16' },
+      { name: 'isActive', type: 'bool' },
+      { name: 'createdAt', type: 'uint256' },
     ],
   },
   {
-    name: "createConsignment",
-    type: "function",
-    stateMutability: "nonpayable",
+    name: 'createConsignment',
+    type: 'function',
+    stateMutability: 'nonpayable',
     inputs: [
-      { name: "tokenId", type: "bytes32" },
-      { name: "amount", type: "uint256" },
-      { name: "isNegotiable", type: "bool" },
-      { name: "fixedDiscountBps", type: "uint16" },
-      { name: "fixedLockupDays", type: "uint32" },
-      { name: "minDiscountBps", type: "uint16" },
-      { name: "maxDiscountBps", type: "uint16" },
-      { name: "minLockupDays", type: "uint32" },
-      { name: "maxLockupDays", type: "uint32" },
-      { name: "minDealAmount", type: "uint256" },
-      { name: "maxDealAmount", type: "uint256" },
-      { name: "maxPriceVolatilityBps", type: "uint16" },
+      { name: 'tokenId', type: 'bytes32' },
+      { name: 'amount', type: 'uint256' },
+      { name: 'isNegotiable', type: 'bool' },
+      { name: 'fixedDiscountBps', type: 'uint16' },
+      { name: 'fixedLockupDays', type: 'uint32' },
+      { name: 'minDiscountBps', type: 'uint16' },
+      { name: 'maxDiscountBps', type: 'uint16' },
+      { name: 'minLockupDays', type: 'uint32' },
+      { name: 'maxLockupDays', type: 'uint32' },
+      { name: 'minDealAmount', type: 'uint256' },
+      { name: 'maxDealAmount', type: 'uint256' },
+      { name: 'maxPriceVolatilityBps', type: 'uint16' },
     ],
-    outputs: [{ type: "uint256" }],
+    outputs: [{ type: 'uint256' }],
   },
   {
-    name: "cancelConsignment",
-    type: "function",
-    stateMutability: "nonpayable",
-    inputs: [{ name: "consignmentId", type: "uint256" }],
+    name: 'cancelConsignment',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'consignmentId', type: 'uint256' }],
     outputs: [],
   },
   {
-    name: "createOffer",
-    type: "function",
-    stateMutability: "nonpayable",
+    name: 'createOffer',
+    type: 'function',
+    stateMutability: 'nonpayable',
     inputs: [
-      { name: "consignmentId", type: "uint256" },
-      { name: "tokenAmount", type: "uint256" },
-      { name: "discountBps", type: "uint256" },
-      { name: "lockupDays", type: "uint256" },
-      { name: "currency", type: "uint8" },
-      { name: "beneficiary", type: "address" },
+      { name: 'consignmentId', type: 'uint256' },
+      { name: 'tokenAmount', type: 'uint256' },
+      { name: 'discountBps', type: 'uint256' },
+      { name: 'lockupDays', type: 'uint256' },
+      { name: 'currency', type: 'uint8' },
+      { name: 'beneficiary', type: 'address' },
     ],
-    outputs: [{ type: "uint256" }],
+    outputs: [{ type: 'uint256' }],
   },
   {
-    name: "approveOffer",
-    type: "function",
-    stateMutability: "nonpayable",
-    inputs: [{ name: "offerId", type: "uint256" }],
+    name: 'approveOffer',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'offerId', type: 'uint256' }],
     outputs: [],
   },
   {
-    name: "rejectOffer",
-    type: "function",
-    stateMutability: "nonpayable",
-    inputs: [{ name: "offerId", type: "uint256" }],
+    name: 'rejectOffer',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'offerId', type: 'uint256' }],
     outputs: [],
   },
   {
-    name: "payOfferETH",
-    type: "function",
-    stateMutability: "payable",
-    inputs: [{ name: "offerId", type: "uint256" }],
+    name: 'payOfferETH',
+    type: 'function',
+    stateMutability: 'payable',
+    inputs: [{ name: 'offerId', type: 'uint256' }],
     outputs: [],
   },
   {
-    name: "payOfferUSDC",
-    type: "function",
-    stateMutability: "nonpayable",
+    name: 'payOfferUSDC',
+    type: 'function',
+    stateMutability: 'nonpayable',
     inputs: [
-      { name: "offerId", type: "uint256" },
-      { name: "amount", type: "uint256" },
+      { name: 'offerId', type: 'uint256' },
+      { name: 'amount', type: 'uint256' },
     ],
     outputs: [],
   },
   {
-    name: "fulfillOffer",
-    type: "function",
-    stateMutability: "nonpayable",
-    inputs: [{ name: "offerId", type: "uint256" }],
+    name: 'fulfillOffer',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'offerId', type: 'uint256' }],
     outputs: [],
   },
   {
-    name: "cancelOffer",
-    type: "function",
-    stateMutability: "nonpayable",
-    inputs: [{ name: "offerId", type: "uint256" }],
+    name: 'cancelOffer',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'offerId', type: 'uint256' }],
     outputs: [],
   },
   {
-    name: "getQuote",
-    type: "function",
-    stateMutability: "view",
+    name: 'getQuote',
+    type: 'function',
+    stateMutability: 'view',
     inputs: [
-      { name: "consignmentId", type: "uint256" },
-      { name: "tokenAmount", type: "uint256" },
-      { name: "discountBps", type: "uint256" },
-      { name: "currency", type: "uint8" },
+      { name: 'consignmentId', type: 'uint256' },
+      { name: 'tokenAmount', type: 'uint256' },
+      { name: 'discountBps', type: 'uint256' },
+      { name: 'currency', type: 'uint8' },
     ],
     outputs: [
-      { name: "priceUsd", type: "uint256" },
-      { name: "paymentAmount", type: "uint256" },
+      { name: 'priceUsd', type: 'uint256' },
+      { name: 'paymentAmount', type: 'uint256' },
     ],
   },
   {
-    name: "getActiveConsignments",
-    type: "function",
-    stateMutability: "view",
+    name: 'getActiveConsignments',
+    type: 'function',
+    stateMutability: 'view',
     inputs: [],
-    outputs: [{ type: "uint256[]" }],
+    outputs: [{ type: 'uint256[]' }],
   },
   {
-    name: "getConsignerConsignments",
-    type: "function",
-    stateMutability: "view",
-    inputs: [{ name: "consigner", type: "address" }],
-    outputs: [{ type: "uint256[]" }],
+    name: 'getConsignerConsignments',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'consigner', type: 'address' }],
+    outputs: [{ type: 'uint256[]' }],
   },
   {
-    name: "getOpenOfferIds",
-    type: "function",
-    stateMutability: "view",
+    name: 'getOpenOfferIds',
+    type: 'function',
+    stateMutability: 'view',
     inputs: [],
-    outputs: [{ type: "uint256[]" }],
+    outputs: [{ type: 'uint256[]' }],
   },
   {
-    name: "getBeneficiaryOffers",
-    type: "function",
-    stateMutability: "view",
-    inputs: [{ name: "beneficiary", type: "address" }],
-    outputs: [{ type: "uint256[]" }],
+    name: 'getBeneficiaryOffers',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'beneficiary', type: 'address' }],
+    outputs: [{ type: 'uint256[]' }],
   },
-] as const;
+] as const
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                          IMPLEMENTATION
@@ -334,17 +334,17 @@ export function createOTCModule(
   wallet: JejuWallet,
   network: NetworkType,
 ): OTCModule {
-  const otcAddress = requireContract("otc", "OTC", network);
+  const otcAddress = requireContract('otc', 'OTC', network)
 
   async function readConsignment(id: bigint): Promise<Consignment | null> {
     const result = await wallet.publicClient.readContract({
       address: otcAddress,
       abi: OTC_ABI,
-      functionName: "consignments",
+      functionName: 'consignments',
       args: [id],
-    });
+    })
 
-    if (result[2] === 0n) return null;
+    if (result[2] === 0n) return null
 
     return {
       id,
@@ -364,25 +364,25 @@ export function createOTCModule(
       maxPriceVolatilityBps: Number(result[13]),
       isActive: result[14],
       createdAt: result[15],
-    };
+    }
   }
 
   return {
     async listRegisteredTokens() {
       // Would need to enumerate token list - simplified
-      return [];
+      return []
     },
 
     async getToken(tokenId) {
       const result = await wallet.publicClient.readContract({
         address: otcAddress,
         abi: OTC_ABI,
-        functionName: "tokens",
+        functionName: 'tokens',
         args: [tokenId],
-      });
+      })
 
-      if (result[0] === "0x0000000000000000000000000000000000000000")
-        return null;
+      if (result[0] === '0x0000000000000000000000000000000000000000')
+        return null
 
       return {
         tokenId,
@@ -390,18 +390,18 @@ export function createOTCModule(
         decimals: Number(result[1]),
         isActive: result[2],
         priceOracle: result[3],
-      };
+      }
     },
 
     async getTokenPrice(_tokenId) {
       // Would call the price oracle - returns USD with 8 decimals
-      return 0n;
+      return 0n
     },
 
     async createConsignment(params) {
       const data = encodeFunctionData({
         abi: OTC_ABI,
-        functionName: "createConsignment",
+        functionName: 'createConsignment',
         args: [
           params.tokenId,
           params.amount,
@@ -416,14 +416,14 @@ export function createOTCModule(
           params.maxDealAmount ?? 0n,
           params.maxPriceVolatilityBps ?? 500,
         ],
-      });
+      })
 
       const txHash = await wallet.sendTransaction({
         to: otcAddress,
         data,
-      });
+      })
 
-      return { consignmentId: 0n, txHash };
+      return { consignmentId: 0n, txHash }
     },
 
     getConsignment: readConsignment,
@@ -432,58 +432,58 @@ export function createOTCModule(
       const ids = await wallet.publicClient.readContract({
         address: otcAddress,
         abi: OTC_ABI,
-        functionName: "getActiveConsignments",
+        functionName: 'getActiveConsignments',
         args: [],
-      });
+      })
 
       // Limit to prevent DoS from large arrays
-      const MAX_CONSIGNMENTS = 100;
-      const consignments: Consignment[] = [];
-      const limitedIds = ids.slice(0, MAX_CONSIGNMENTS);
+      const MAX_CONSIGNMENTS = 100
+      const consignments: Consignment[] = []
+      const limitedIds = ids.slice(0, MAX_CONSIGNMENTS)
       for (const id of limitedIds) {
-        const c = await readConsignment(id);
-        if (c) consignments.push(c);
+        const c = await readConsignment(id)
+        if (c) consignments.push(c)
       }
-      return consignments;
+      return consignments
     },
 
     async listMyConsignments() {
       const ids = await wallet.publicClient.readContract({
         address: otcAddress,
         abi: OTC_ABI,
-        functionName: "getConsignerConsignments",
+        functionName: 'getConsignerConsignments',
         args: [wallet.address],
-      });
+      })
 
       // Limit to prevent DoS from large arrays
-      const MAX_CONSIGNMENTS = 100;
-      const consignments: Consignment[] = [];
-      const limitedIds = ids.slice(0, MAX_CONSIGNMENTS);
+      const MAX_CONSIGNMENTS = 100
+      const consignments: Consignment[] = []
+      const limitedIds = ids.slice(0, MAX_CONSIGNMENTS)
       for (const id of limitedIds) {
-        const c = await readConsignment(id);
-        if (c) consignments.push(c);
+        const c = await readConsignment(id)
+        if (c) consignments.push(c)
       }
-      return consignments;
+      return consignments
     },
 
     async cancelConsignment(consignmentId) {
       const data = encodeFunctionData({
         abi: OTC_ABI,
-        functionName: "cancelConsignment",
+        functionName: 'cancelConsignment',
         args: [consignmentId],
-      });
+      })
 
-      return wallet.sendTransaction({ to: otcAddress, data });
+      return wallet.sendTransaction({ to: otcAddress, data })
     },
 
     async topUpConsignment(_consignmentId, _amount) {
-      throw new Error("Not implemented");
+      throw new Error('Not implemented')
     },
 
     async createOffer(params) {
       const data = encodeFunctionData({
         abi: OTC_ABI,
-        functionName: "createOffer",
+        functionName: 'createOffer',
         args: [
           params.consignmentId,
           params.tokenAmount,
@@ -492,100 +492,100 @@ export function createOTCModule(
           params.currency,
           params.beneficiary ?? wallet.address,
         ],
-      });
+      })
 
       const txHash = await wallet.sendTransaction({
         to: otcAddress,
         data,
-      });
+      })
 
-      return { offerId: 0n, txHash };
+      return { offerId: 0n, txHash }
     },
 
     async getOffer(_offerId) {
       // Would read offer from contract
-      return null;
+      return null
     },
 
     async listMyOffers() {
       await wallet.publicClient.readContract({
         address: otcAddress,
         abi: OTC_ABI,
-        functionName: "getBeneficiaryOffers",
+        functionName: 'getBeneficiaryOffers',
         args: [wallet.address],
-      });
-      return [];
+      })
+      return []
     },
 
     async listPendingOffers() {
       await wallet.publicClient.readContract({
         address: otcAddress,
         abi: OTC_ABI,
-        functionName: "getOpenOfferIds",
+        functionName: 'getOpenOfferIds',
         args: [],
-      });
-      return [];
+      })
+      return []
     },
 
     async approveOffer(offerId) {
       const data = encodeFunctionData({
         abi: OTC_ABI,
-        functionName: "approveOffer",
+        functionName: 'approveOffer',
         args: [offerId],
-      });
-      return wallet.sendTransaction({ to: otcAddress, data });
+      })
+      return wallet.sendTransaction({ to: otcAddress, data })
     },
 
     async rejectOffer(offerId) {
       const data = encodeFunctionData({
         abi: OTC_ABI,
-        functionName: "rejectOffer",
+        functionName: 'rejectOffer',
         args: [offerId],
-      });
-      return wallet.sendTransaction({ to: otcAddress, data });
+      })
+      return wallet.sendTransaction({ to: otcAddress, data })
     },
 
     async payOffer(offerId, amount) {
       // Determine if ETH or USDC from offer
       const data = encodeFunctionData({
         abi: OTC_ABI,
-        functionName: "payOfferETH",
+        functionName: 'payOfferETH',
         args: [offerId],
-      });
-      return wallet.sendTransaction({ to: otcAddress, data, value: amount });
+      })
+      return wallet.sendTransaction({ to: otcAddress, data, value: amount })
     },
 
     async fulfillOffer(offerId) {
       const data = encodeFunctionData({
         abi: OTC_ABI,
-        functionName: "fulfillOffer",
+        functionName: 'fulfillOffer',
         args: [offerId],
-      });
-      return wallet.sendTransaction({ to: otcAddress, data });
+      })
+      return wallet.sendTransaction({ to: otcAddress, data })
     },
 
     async cancelOffer(offerId) {
       const data = encodeFunctionData({
         abi: OTC_ABI,
-        functionName: "cancelOffer",
+        functionName: 'cancelOffer',
         args: [offerId],
-      });
-      return wallet.sendTransaction({ to: otcAddress, data });
+      })
+      return wallet.sendTransaction({ to: otcAddress, data })
     },
 
     async getQuote(consignmentId, tokenAmount, discountBps, currency) {
       const result = await wallet.publicClient.readContract({
         address: otcAddress,
         abi: OTC_ABI,
-        functionName: "getQuote",
+        functionName: 'getQuote',
         args: [consignmentId, tokenAmount, BigInt(discountBps), currency],
-      });
+      })
 
       return {
         priceUsd: result[0],
         paymentAmount: result[1],
         currency,
-      };
+      }
     },
-  };
+  }
 }

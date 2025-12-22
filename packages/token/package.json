@@ -3,29 +3,19 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Cross-chain token deployment and Hyperlane Warp Routes for JEJU and custom tokens",
+  "description": "Cross-chain token deployment and Hyperlane Warp Routes",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "scripts": {
     "build": "tsc",
-    "build:contracts": "forge build --root contracts",
-    "test": "bun test src/tests/*.test.ts",
-    "test:contracts": "forge test --root contracts -vvv",
-    "deploy": "jeju token deploy:jeju",
-    "deploy:local": "jeju token deploy:jeju --network localnet",
-    "deploy:testnet": "jeju token deploy:testnet",
-    "deploy:testnet:dry-run": "jeju token deploy:testnet --dry-run",
-    "deploy:hyperlane:jeju": "jeju token deploy:hyperlane --network testnet",
-    "deploy:hyperlane:jeju:dry-run": "jeju token deploy:hyperlane --network testnet --dry-run",
-    "deploy:solana": "jeju token deploy:solana --network devnet",
-    "deploy:solana:dry-run": "jeju token deploy:solana --network devnet --dry-run",
-    "deploy:ecosystem": "jeju token deploy:ecosystem",
-    "deploy:verify": "jeju token verify",
-    "demo": "bun run src/cli/demo.ts",
-    "typecheck": "tsc --noEmit",
-    "lint": "biome check src/",
-    "check": "bun run typecheck && bun run lint && bun run test",
-    "clean": "rm -rf dist"
+    "test": "bun test src/tests/",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@jejunetwork/types": "workspace:*",
@@ -34,14 +24,11 @@
     "@solana/web3.js": "1.98.4",
     "bs58": "6.0.0",
     "commander": "12.1.0",
-    "viem": "2.43.2",
-    "zod": "^4.1.13"
+    "viem": "2.43.3",
+    "zod": "4.2.1"
   },
   "devDependencies": {
     "@types/bun": "latest",
     "typescript": "5.9.3"
-  },
-  "engines": {
-    "bun": ">=1.0.0"
   }
 }

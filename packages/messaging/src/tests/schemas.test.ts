@@ -135,13 +135,13 @@ describe('SerializedEncryptedMessageSchema', () => {
     expect(SerializedEncryptedMessageSchema.safeParse({}).success).toBe(false)
   })
 
-  test('allows extra fields (passthrough)', () => {
+  test('rejects extra fields (strict mode)', () => {
     const withExtra = {
       ...validMessage,
-      extraField: 'ignored',
+      extraField: 'should-be-rejected',
     }
     const result = SerializedEncryptedMessageSchema.safeParse(withExtra)
-    expect(result.success).toBe(true)
+    expect(result.success).toBe(false)
   })
 })
 

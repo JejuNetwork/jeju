@@ -275,7 +275,7 @@ export class RiskManager {
 
     record.success = result.success
     record.actualProfit = BigInt(result.actualProfit || '0')
-    record.txHash = result.txHash
+    record.txHash = result.txHash ?? undefined
 
     this.pendingTrades.delete(tradeId)
     this.trades.push(record)

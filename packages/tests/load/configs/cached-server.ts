@@ -77,4 +77,3 @@ export const cachedServerConfig: AppLoadTestConfig = {
     minRps: 500, // Expect higher RPS with caching
   },
 }
-

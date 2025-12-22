@@ -25,14 +25,16 @@ import { ceoAgent } from './agents/templates'
 import {
   A2AJsonRpcResponseSchema,
   A2AMessageSchema,
+  type AutocratVotesData,
+  AutocratVotesDataSchema,
   extractA2AData,
+  type GovernanceStatsData,
+  GovernanceStatsDataSchema,
   ProposalIdSchema,
+  type ProposalListData,
+  ProposalListDataSchema,
 } from './schemas'
 import { getTEEMode, makeTEEDecision } from './tee'
-
-// ============================================================================
-// Configuration
-// ============================================================================
 
 const CEO_PORT = parseInt(process.env.CEO_PORT ?? '8004', 10)
 const AUTOCRAT_A2A_URL =
@@ -51,10 +53,6 @@ function getModelSettings(): Record<string, string> {
     OPENAI_API_KEY: 'dws', // DWS doesn't require API key
   }
 }
-
-// ============================================================================
-// CEO Runtime
-// ============================================================================
 
 let ceoRuntime: AgentRuntime | null = null
 
@@ -101,13 +99,8 @@ async function initializeCEORuntime(): Promise<AgentRuntime> {
   }
 
   ceoRuntime = runtime
-  console.log('[CEO] Runtime initialized with ElizaOS')
   return runtime
 }
-
-// ============================================================================
-// A2A Server
-// ============================================================================
 
 const app = new Elysia().use(cors())
 
@@ -256,10 +249,6 @@ app.post(
     }),
   },
 )
-
-// ============================================================================
-// MCP Server
-// ============================================================================
 
 // MCP Discovery
 app.get('/mcp/discover', () => ({
@@ -445,11 +434,15 @@ app.post(
         await response.json(),
         'stats A2A response',
       )
-      const statsData = extractA2AData<Record<string, unknown>>(
+      const statsData = extractA2AData<GovernanceStatsData>(
         data,
         'stats A2A response',
       )
-      content = JSON.stringify(statsData, null, 2)
+      const validated = GovernanceStatsDataSchema.safeParse(statsData)
+      if (!validated.success) {
+        throw new Error('Invalid governance stats response')
+      }
+      content = JSON.stringify(validated.data, null, 2)
     } else if (uri === 'autocrat://treasury') {
       content = 'Treasury data available via get_governance_dashboard tool.'
     }
@@ -466,10 +459,6 @@ app.post(
     }),
   },
 )
-
-// ============================================================================
-// Skill Execution
-// ============================================================================
 
 async function executeSkill(
   runtime: AgentRuntime,
@@ -598,14 +587,19 @@ async function getDashboard(): Promise<{
     await response.json(),
     'dashboard A2A response',
   )
-  const dashboardData = extractA2AData<Record<string, unknown>>(
+  const dashboardData = extractA2AData<GovernanceStatsData>(
     result,
     'dashboard A2A response',
+  )
+  const validated = expectValid(
+    GovernanceStatsDataSchema,
+    dashboardData,
+    'governance stats data',
   )
 
   return {
     text: 'CEO Governance Dashboard',
-    data: dashboardData,
+    data: validated as Record<string, unknown>,
   }
 }
 
@@ -643,14 +637,19 @@ async function getActiveProposals(): Promise<{
     await response.json(),
     'active proposals A2A response',
   )
-  const proposalsData = extractA2AData<{ total?: number }>(
+  const proposalsData = extractA2AData<ProposalListData>(
     result,
     'active proposals A2A response',
   )
+  const validated = expectValid(
+    ProposalListDataSchema,
+    proposalsData,
+    'proposal list data',
+  )
 
   return {
-    text: `Active proposals: ${proposalsData.total ?? 0}`,
-    data: proposalsData,
+    text: `Active proposals: ${validated.total}`,
+    data: validated as unknown as Record<string, unknown>,
   }
 }
 
@@ -695,20 +694,21 @@ async function getAutocratVotes(
     await response.json(),
     'autocrat votes A2A response',
   )
-  const votesData = extractA2AData<Record<string, unknown>>(
+  const votesData = extractA2AData<AutocratVotesData>(
     result,
     'autocrat votes A2A response',
+  )
+  const validated = expectValid(
+    AutocratVotesDataSchema,
+    votesData,
+    'autocrat votes data',
   )
 
   return {
     text: `Autocrat votes for ${validatedProposalId.slice(0, 10)}...`,
-    data: votesData,
+    data: validated as unknown as Record<string, unknown>,
   }
 }
-
-// ============================================================================
-// MCP Tool Execution
-// ============================================================================
 
 async function executeMCPTool(
   runtime: AgentRuntime,
@@ -760,10 +760,6 @@ async function executeMCPTool(
       return `Unknown tool: ${toolName}`
   }
 }
-
-// ============================================================================
-// Chat Processing
-// ============================================================================
 
 async function processCEOMessage(
   runtime: AgentRuntime,
@@ -841,10 +837,6 @@ async function processCEOMessage(
 What would you like to do?`
 }
 
-// ============================================================================
-// Health & Info
-// ============================================================================
-
 app.get('/health', async () => {
   const runtime = ceoRuntime ? 'initialized' : 'not_initialized'
   return {
@@ -877,35 +869,8 @@ app.get('/', () => ({
   },
 }))
 
-// ============================================================================
-// Server Start
-// ============================================================================
-
 async function start() {
   await initializeCEORuntime()
-
-  const teeMode = getTEEMode()
-  const teeLabel = teeMode === 'dstack' ? 'Remote TEE' : 'Local Simulated'
-
-  console.log(`
-╔═══════════════════════════════════════════════════════════════╗
-║                     ELIZA - AI CEO                              ║
-║                                                                 ║
-║  ElizaOS-Powered Governance Agent                               ║
-║  • Runtime: ElizaOS AgentRuntime                                ║
-║  • Providers: Governance, Treasury, Council, Proposals          ║
-║  • Actions: Decision, Research, Deliberation                    ║
-║  • TEE: ${teeLabel.padEnd(49)}║
-║                                                                 ║
-║  Endpoints:                                                     ║
-║  • A2A:  http://localhost:${CEO_PORT}/a2a                              ║
-║  • MCP:  http://localhost:${CEO_PORT}/mcp                              ║
-║                                                                 ║
-║  Upstream:                                                      ║
-║  • Autocrat: ${AUTOCRAT_A2A_URL.padEnd(42)}║
-║                                                                 ║
-╚═══════════════════════════════════════════════════════════════╝
-`)
 }
 
 start()

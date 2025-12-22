@@ -6,7 +6,6 @@
  */
 
 import { cors } from '@elysiajs/cors'
-import { html } from '@elysiajs/html'
 import { AddressSchema } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import { type Address, keccak256, toBytes } from 'viem'
@@ -68,7 +67,6 @@ const DEMO_ALLOWED_ORIGINS = [
 ]
 
 const app = new Elysia()
-  .use(html())
   .use(
     cors({
       origin: (request) => {

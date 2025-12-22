@@ -19,7 +19,6 @@ import "./IMips.sol";
  *      will revert on all proof verification attempts.
  *
  * @custom:security This is the ONLY prover that provides real Stage 2 compliance.
- *      The legacy Prover.sol is signature-based and NOT suitable for production.
  */
 contract CannonProver is IProver {
     /// @notice The MIPS VM contract

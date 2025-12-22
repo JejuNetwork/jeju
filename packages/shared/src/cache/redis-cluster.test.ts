@@ -8,9 +8,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'
 
-// ============================================================================
 // Extracted testable functions from redis-cluster.ts
-// ============================================================================
 
 // CRC16 lookup table for Redis cluster slot calculation
 const CRC16_TABLE = new Uint16Array(256)
@@ -57,9 +55,7 @@ function groupKeysBySlot(keys: string[]): Map<number, string[]> {
   return groups
 }
 
-// ============================================================================
 // Circuit Breaker (extracted for testing)
-// ============================================================================
 
 interface CircuitBreakerState {
   failures: number
@@ -122,9 +118,7 @@ class CircuitBreaker {
   }
 }
 
-// ============================================================================
 // Encryption helpers (extracted for testing)
-// ============================================================================
 
 function encrypt(value: string, encryptionKey: Buffer | null): string {
   if (!encryptionKey) return value
@@ -158,9 +152,7 @@ function decrypt(value: string, encryptionKey: Buffer | null): string {
   return decrypted
 }
 
-// ============================================================================
 // CRC16 Tests
-// ============================================================================
 
 describe('CRC16 Algorithm', () => {
   test('produces consistent hash for same input', () => {
@@ -196,9 +188,7 @@ describe('CRC16 Algorithm', () => {
   })
 })
 
-// ============================================================================
 // Slot Calculation Tests
-// ============================================================================
 
 describe('calculateSlot', () => {
   test('calculates slot for simple key', () => {
@@ -293,9 +283,7 @@ describe('groupKeysBySlot', () => {
   })
 })
 
-// ============================================================================
 // Circuit Breaker Tests
-// ============================================================================
 
 describe('CircuitBreaker', () => {
   let breaker: CircuitBreaker
@@ -419,9 +407,7 @@ describe('CircuitBreaker', () => {
   })
 })
 
-// ============================================================================
 // Encryption Tests
-// ============================================================================
 
 describe('AES-256-GCM Encryption', () => {
   const validKey = Buffer.alloc(32, 'k') // 32 bytes for AES-256

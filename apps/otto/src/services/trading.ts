@@ -1,6 +1,11 @@
 /**
  * Otto Trading Service
  * Handles all trading operations: swaps, bridges, token launches, etc.
+ *
+ * API Client Strategy:
+ * - Gateway (intents/bridge): Uses Eden Treaty client for type-safe calls
+ * - Indexer (GraphQL): Uses fetch (standard for GraphQL)
+ * - Bazaar (swap/launchpad): Uses typed fetch (endpoints may be stubs)
  */
 
 import { getCoreAppUrl } from '@jejunetwork/config/ports'
@@ -45,15 +50,14 @@ import type {
   TokenLaunchResult,
 } from '../types'
 import { getRequiredEnv } from '../utils/validation'
+import { gatewayApi } from './clients'
 
+// Bazaar API (typed fetch - endpoints may be stubs awaiting implementation)
 function getBazaarApi(): string {
   return getRequiredEnv('BAZAAR_API_URL', getCoreAppUrl('BAZAAR'))
 }
 
-function getGatewayApi(): string {
-  return getRequiredEnv('GATEWAY_API_URL', getCoreAppUrl('NODE_EXPLORER_UI'))
-}
-
+// Indexer API (GraphQL - fetch is standard for GraphQL queries)
 function getIndexerApi(): string {
   return getRequiredEnv('INDEXER_API_URL', getCoreAppUrl('INDEXER_GRAPHQL'))
 }
@@ -64,10 +68,6 @@ const MAX_ORDERS_PER_USER = 100
 
 export class TradingService {
   private limitOrders = new Map<string, LimitOrder>()
-
-  // ============================================================================
-  // Token & Price Operations
-  // ============================================================================
 
   async getTokenInfo(
     addressOrSymbol: string,
@@ -188,10 +188,6 @@ export class TradingService {
     return balances
   }
 
-  // ============================================================================
-  // Swap Operations
-  // ============================================================================
-
   async getSwapQuote(params: SwapParams): Promise<SwapQuote | null> {
     const validatedParams = expectValid(SwapParamsSchema, params, 'swap params')
     const chainId = validatedParams.chainId ?? DEFAULT_CHAIN_ID
@@ -292,10 +288,6 @@ export class TradingService {
     return expectValid(SwapResultSchema, swapResult, 'swap result')
   }
 
-  // ============================================================================
-  // Bridge Operations
-  // ============================================================================
-
   async getBridgeQuote(params: BridgeParams): Promise<BridgeQuote | null> {
     const validatedParams = expectValid(
       BridgeParamsSchema,
@@ -303,25 +295,21 @@ export class TradingService {
       'bridge params',
     )
 
-    const response = await fetch(`${getGatewayApi()}/api/intents/quote`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sourceChain: validatedParams.sourceChainId,
-        destinationChain: validatedParams.destChainId,
-        sourceToken: validatedParams.sourceToken,
-        destinationToken: validatedParams.destToken,
-        amount: validatedParams.amount,
-      }),
+    const response = await gatewayApi.intents.quote({
+      sourceChain: validatedParams.sourceChainId,
+      destinationChain: validatedParams.destChainId,
+      sourceToken: validatedParams.sourceToken,
+      destinationToken: validatedParams.destToken,
+      amount: validatedParams.amount,
     })
 
-    if (!response.ok) {
+    if (response.error) {
       return null
     }
 
     const quotes = expectValid(
       ExternalBridgeQuotesResponseSchema,
-      await response.json(),
+      response.data,
       'bridge quotes response',
     )
     const bestQuote = quotes[0]
@@ -368,13 +356,8 @@ export class TradingService {
       throw new Error('User has no wallet address')
     }
 
-    const response = await fetch(`${getGatewayApi()}/api/intents`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Wallet-Address': walletAddress,
-      },
-      body: JSON.stringify({
+    const response = await gatewayApi.intents.create(
+      {
         quoteId: quote.quoteId,
         sourceChain: validatedParams.sourceChainId,
         destinationChain: validatedParams.destChainId,
@@ -383,19 +366,21 @@ export class TradingService {
         amount: validatedParams.amount,
         recipient: validatedParams.recipient ?? walletAddress,
         maxSlippageBps: validatedParams.maxSlippageBps ?? DEFAULT_SLIPPAGE_BPS,
-        sessionKey: validatedUser.sessionKeyAddress,
-      }),
-    })
+      },
+      {
+        headers: {
+          'X-Wallet-Address': walletAddress,
+        },
+      },
+    )
 
-    if (!response.ok) {
-      const error = await response.text()
-      return { success: false, status: 'failed', error }
+    if (response.error) {
+      return { success: false, status: 'failed', error: response.error }
     }
 
-    const rawResult = await response.json()
     const result = expectValid(
       ExternalBridgeExecuteResponseSchema,
-      rawResult,
+      response.data,
       'bridge execute response',
     )
 
@@ -410,9 +395,9 @@ export class TradingService {
   }
 
   async getBridgeStatus(intentId: string): Promise<BridgeResult> {
-    const response = await fetch(`${getGatewayApi()}/api/intents/${intentId}`)
+    const response = await gatewayApi.intents.getStatus(intentId)
 
-    if (!response.ok) {
+    if (response.error) {
       return {
         success: false,
         status: 'failed',
@@ -420,10 +405,9 @@ export class TradingService {
       }
     }
 
-    const rawData = await response.json()
     const data = expectValid(
       ExternalBridgeStatusResponseSchema,
-      rawData,
+      response.data,
       'bridge status response',
     )
 
@@ -442,10 +426,6 @@ export class TradingService {
 
     return expectValid(BridgeResultSchema, bridgeResult, 'bridge status result')
   }
-
-  // ============================================================================
-  // Token Launch (Clanker-style)
-  // ============================================================================
 
   async launchToken(
     user: OttoUser,
@@ -514,10 +494,6 @@ export class TradingService {
     )
   }
 
-  // ============================================================================
-  // Limit Orders
-  // ============================================================================
-
   async createLimitOrder(
     user: OttoUser,
     params: CreateLimitOrderParams,
@@ -585,9 +561,6 @@ export class TradingService {
     const validatedOrder = expectValid(LimitOrderSchema, order, 'limit order')
     this.limitOrders.set(orderId, validatedOrder)
 
-    // In production, this would be submitted to a limit order system
-    // For now, we store it locally and check periodically
-
     return validatedOrder
   }
 
@@ -619,10 +592,6 @@ export class TradingService {
     )
   }
 
-  // ============================================================================
-  // Send Operations
-  // ============================================================================
-
   async sendTokens(
     user: OttoUser,
     tokenAddress: Address,
@@ -632,7 +601,6 @@ export class TradingService {
   ): Promise<{ success: boolean; txHash?: Hex; error?: string }> {
     const validatedUser = expectValid(OttoUserSchema, user, 'user')
 
-    // Validate inputs
     if (!tokenAddress || !amount || !recipient) {
       throw new Error('Token address, amount, and recipient are required')
     }
@@ -672,10 +640,6 @@ export class TradingService {
     return { success: true, txHash: result.txHash }
   }
 
-  // ============================================================================
-  // Portfolio
-  // ============================================================================
-
   async getPortfolio(
     user: OttoUser,
     chainId?: number,
@@ -708,10 +672,6 @@ export class TradingService {
     return { totalValueUsd, balances, chains }
   }
 
-  // ============================================================================
-  // Helper Methods
-  // ============================================================================
-
   formatAmount(amount: string, decimals: number): string {
     return formatUnits(BigInt(amount), decimals)
   }
@@ -721,12 +681,10 @@ export class TradingService {
       throw new Error('Amount must be a non-empty string')
     }
 
-    // Validate amount format to prevent overflow attacks
     if (!/^\d+(\.\d+)?$/.test(amount)) {
       throw new Error('Amount must be a valid decimal number')
     }
 
-    // Limit amount length to prevent BigInt overflow (max ~77 digits for uint256)
     const maxLength = 77
     const amountWithoutDecimal = amount.replace('.', '')
     if (amountWithoutDecimal.length > maxLength) {

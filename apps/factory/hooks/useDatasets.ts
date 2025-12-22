@@ -1,7 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { getDwsUrl } from '../config/contracts'
-
-// ============ Types ============
+import { api, extractDataSafe } from '../lib/client'
 
 export interface DatasetPreview {
   columns: string[]
@@ -33,27 +31,71 @@ export interface DatasetStats {
   totalSize: string
 }
 
-// ============ Fetchers ============
+interface ApiDataset {
+  id: string
+  name: string
+  organization: string
+  description: string
+  type: 'text' | 'code' | 'image' | 'audio' | 'multimodal' | 'tabular'
+  format: string
+  size: string
+  rows: number
+  downloads: number
+  stars: number
+  license: string
+  tags: string[]
+  isVerified: boolean
+  status: string
+  createdAt: number
+  updatedAt: number
+}
+
+interface DatasetsResponse {
+  datasets: ApiDataset[]
+  total: number
+}
+
+function transformDataset(d: ApiDataset): Dataset {
+  return {
+    id: d.id,
+    name: d.name,
+    organization: d.organization,
+    description: d.description,
+    type: d.type,
+    format: d.format,
+    size: d.size,
+    rows: d.rows,
+    downloads: d.downloads,
+    stars: d.stars,
+    lastUpdated: d.updatedAt,
+    license: d.license,
+    tags: d.tags || [],
+    isVerified: d.isVerified,
+  }
+}
 
 async function fetchDatasets(query?: {
   type?: string
   search?: string
 }): Promise<Dataset[]> {
-  const dwsUrl = getDwsUrl()
-  const params = new URLSearchParams()
-  if (query?.type) params.set('type', query.type)
-  if (query?.search) params.set('q', query.search)
+  const response = await api.api.datasets.get({
+    query: {
+      q: query?.search,
+      type: query?.type,
+    },
+  })
 
-  const res = await fetch(`${dwsUrl}/api/datasets?${params.toString()}`)
-  if (!res.ok) return []
-  const data = await res.json()
-  return data.datasets || []
+  const data = extractDataSafe(response) as DatasetsResponse | null
+  if (!data?.datasets) return []
+
+  return data.datasets.map(transformDataset)
 }
 
 async function fetchDatasetStats(): Promise<DatasetStats> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/datasets/stats`)
-  if (!res.ok) {
+  const response = await api.api.datasets.get({})
+  const data = extractDataSafe(response) as DatasetsResponse | null
+
+  if (!data?.datasets) {
     return {
       totalDatasets: 0,
       totalDownloads: 0,
@@ -61,20 +103,69 @@ async function fetchDatasetStats(): Promise<DatasetStats> {
       totalSize: '0 B',
     }
   }
-  return res.json()
+
+  const datasets = data.datasets
+  const uniqueOrgs = new Set(datasets.map((d) => d.organization))
+
+  return {
+    totalDatasets: datasets.length,
+    totalDownloads: datasets.reduce((sum, d) => sum + d.downloads, 0),
+    contributors: uniqueOrgs.size,
+    totalSize:
+      datasets.reduce((acc, d) => {
+        const match = d.size.match(/^([\d.]+)\s*(B|KB|MB|GB|TB)$/i)
+        if (!match) return acc
+        const num = Number.parseFloat(match[1])
+        const unit = match[2].toUpperCase()
+        const multipliers: Record<string, number> = {
+          B: 1,
+          KB: 1024,
+          MB: 1024 ** 2,
+          GB: 1024 ** 3,
+          TB: 1024 ** 4,
+        }
+        return acc + num * (multipliers[unit] || 1)
+      }, 0) >
+      1024 ** 3
+        ? `${(
+            datasets.reduce((acc, d) => {
+              const match = d.size.match(/^([\d.]+)\s*(B|KB|MB|GB|TB)$/i)
+              if (!match) return acc
+              const num = Number.parseFloat(match[1])
+              const unit = match[2].toUpperCase()
+              const multipliers: Record<string, number> = {
+                B: 1,
+                KB: 1024,
+                MB: 1024 ** 2,
+                GB: 1024 ** 3,
+                TB: 1024 ** 4,
+              }
+              return acc + num * (multipliers[unit] || 1)
+            }, 0) /
+              1024 ** 3
+          ).toFixed(1)} GB`
+        : '0 B',
+  }
 }
 
 async function fetchDataset(
   org: string,
   name: string,
 ): Promise<Dataset | null> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/datasets/${org}/${name}`)
-  if (!res.ok) return null
-  return res.json()
-}
+  const response = await api.api.datasets.get({
+    query: { q: `${org}/${name}` },
+  })
 
-// ============ Hooks ============
+  const data = extractDataSafe(response) as DatasetsResponse | null
+  if (!data?.datasets?.length) return null
+
+  const dataset = data.datasets.find(
+    (d) =>
+      d.organization === org || d.name === name || d.name === `${org}/${name}`,
+  )
+
+  return dataset ? transformDataset(dataset) : null
+}
 
 export function useDatasets(query?: { type?: string; search?: string }) {
   const {

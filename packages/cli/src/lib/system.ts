@@ -45,15 +45,15 @@ export async function checkCommand(cmd: string): Promise<boolean> {
 export async function getCommandVersion(
   cmd: string,
   versionFlag = '--version',
-): Promise<string | null> {
+): Promise<string | undefined> {
   // Validate command against allowlist to prevent arbitrary command execution
   if (!ALLOWED_VERSION_COMMANDS.has(cmd)) {
-    return null
+    return undefined
   }
 
   // Validate version flag to prevent command injection
   if (!/^--?[a-zA-Z][a-zA-Z0-9-]*$/.test(versionFlag)) {
-    return null
+    return undefined
   }
 
   try {
@@ -63,7 +63,7 @@ export async function getCommandVersion(
     const match = output.match(/\d+\.\d+(\.\d+)?/)
     return match ? match[0] : output.split('\n')[0].trim()
   } catch {
-    return null
+    return undefined
   }
 }
 

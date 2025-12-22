@@ -33,10 +33,6 @@ import type {
 
 const log = createLogger('aws-nitro')
 
-// =============================================================================
-// NITRO ENCLAVE PROVIDER
-// =============================================================================
-
 export class AWSNitroProvider implements ITEEProvider {
   readonly provider: TEEProvider = 'aws'
   readonly capabilities: TEECapability[] = [
@@ -173,10 +169,6 @@ export class AWSNitroProvider implements ITEEProvider {
     }
   }
 
-  // =============================================================================
-  // PRIVATE METHODS
-  // =============================================================================
-
   private async detectNitroEnvironment(): Promise<boolean> {
     // Fast path: check environment variables first (no I/O)
     if (process.env.AWS_ENCLAVE_ID) {
@@ -223,23 +215,20 @@ export class AWSNitroProvider implements ITEEProvider {
   }
 
   private async getInstanceType(): Promise<string> {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 500)
     try {
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 500)
-      try {
-        const response = await fetch(
-          'http://169.254.169.254/latest/meta-data/instance-type',
-          { signal: controller.signal },
-        )
-        clearTimeout(timeoutId)
-        if (response.ok) {
-          return await response.text()
-        }
-      } finally {
-        clearTimeout(timeoutId)
+      const response = await fetch(
+        'http://169.254.169.254/latest/meta-data/instance-type',
+        { signal: controller.signal },
+      )
+      if (response.ok) {
+        return await response.text()
       }
     } catch {
-      // Ignore
+      // Expected when not in AWS - IMDS not available
+    } finally {
+      clearTimeout(timeoutId)
     }
     return 'unknown'
   }
@@ -423,10 +412,6 @@ export class AWSNitroProvider implements ITEEProvider {
     return true
   }
 }
-
-// =============================================================================
-// FACTORY
-// =============================================================================
 
 export function createAWSNitroProvider(
   config?: Partial<AWSNitroConfig>,

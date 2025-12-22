@@ -24,7 +24,7 @@ const PortsConfigSchema = z.object({
   cqlPort: z.number().int().min(0).max(65535).optional(),
   l1Rpc: z.string().url().optional(),
   l2Rpc: z.string().url().optional(),
-  cqlApi: z.string().url().nullable().optional(),
+  cqlApi: z.string().url().optional(),
   chainId: z.number().int().positive().optional(),
   timestamp: z.string().optional(),
 })
@@ -213,7 +213,7 @@ export async function startLocalnet(
     cqlPort,
     l1Rpc: `http://127.0.0.1:${l1Port}`,
     l2Rpc: `http://127.0.0.1:${l2Port}`,
-    cqlApi: cqlPort ? `http://127.0.0.1:${cqlPort}` : null,
+    cqlApi: cqlPort ? `http://127.0.0.1:${cqlPort}` : undefined,
     chainId: 1337,
     timestamp: new Date().toISOString(),
   }
@@ -305,10 +305,10 @@ export async function stopLocalnet(): Promise<void> {
 
 export function loadPortsConfig(
   rootDir: string,
-): { l1Port: number; l2Port: number } | null {
+): { l1Port: number; l2Port: number } | undefined {
   const portsFile = join(rootDir, KURTOSIS_DIR, 'ports.json')
   if (!existsSync(portsFile)) {
-    return null
+    return undefined
   }
 
   // SECURITY: Parse and validate with schema to prevent insecure deserialization

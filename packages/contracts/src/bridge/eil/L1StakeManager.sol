@@ -307,9 +307,7 @@ contract L1StakeManager is Ownable, ReentrancyGuard, Pausable {
 
         // Use the locked period from when unbonding started (prevents bypass)
         uint256 unbondingPeriod = stake.lockedUnbondingPeriod;
-        if (unbondingPeriod == 0) {
-            unbondingPeriod = DEFAULT_UNBONDING_PERIOD; // Fallback for legacy stakes
-        }
+        require(unbondingPeriod > 0, "Invalid unbonding period");
         if (block.timestamp < stake.unbondingStartTime + unbondingPeriod) {
             revert UnbondingNotComplete();
         }
@@ -497,7 +495,7 @@ contract L1StakeManager is Ownable, ReentrancyGuard, Pausable {
     }
 
     /**
-     * @notice Simple dispute (for backwards compatibility)
+     * @notice Simple dispute without evidence submission
      * @param slashId Slash ID to dispute
      */
     function disputeSlash(bytes32 slashId) external nonReentrant {

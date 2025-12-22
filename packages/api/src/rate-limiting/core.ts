@@ -1,10 +1,3 @@
-/**
- * Framework-Agnostic Rate Limiting Core
- *
- * Pure functions for rate limiting that don't depend on any web framework.
- * Uses an in-memory store by default with LRU eviction.
- */
-
 import {
   type RateLimitEntry,
   type RateLimiterConfig,
@@ -15,13 +8,8 @@ import {
   RateLimitTiers,
 } from './types.js'
 
-// ============ Default In-Memory Store ============
-
 const DEFAULT_MAX_CACHE_SIZE = 100000
 
-/**
- * In-memory rate limit store with LRU eviction
- */
 export class InMemoryRateLimitStore implements RateLimitStore {
   private store = new Map<string, RateLimitEntry>()
   private maxSize: number
@@ -35,7 +23,6 @@ export class InMemoryRateLimitStore implements RateLimitStore {
   }
 
   async set(key: string, entry: RateLimitEntry): Promise<void> {
-    // Evict old entries if at capacity
     if (this.store.size >= this.maxSize && !this.store.has(key)) {
       this.evictOldest()
     }
@@ -53,14 +40,12 @@ export class InMemoryRateLimitStore implements RateLimitStore {
   private evictOldest(): void {
     const now = Date.now()
 
-    // First, remove expired entries
     for (const [key, entry] of this.store) {
       if (entry.resetAt < now) {
         this.store.delete(key)
       }
     }
 
-    // If still at capacity, remove oldest 10%
     if (this.store.size >= this.maxSize) {
       const entries = Array.from(this.store.entries()).sort(
         (a, b) => a[1].resetAt - b[1].resetAt,
@@ -72,9 +57,6 @@ export class InMemoryRateLimitStore implements RateLimitStore {
     }
   }
 
-  /**
-   * Cleanup expired entries (call periodically)
-   */
   cleanup(): number {
     const now = Date.now()
     let removed = 0
@@ -92,11 +74,6 @@ export class InMemoryRateLimitStore implements RateLimitStore {
   }
 }
 
-// ============ Rate Limiter Class ============
-
-/**
- * Rate limiter with configurable tiers and stores
- */
 export class RateLimiter {
   private config: Required<Omit<RateLimiterConfig, 'tiers'>> & {
     tiers: Record<string, RateLimitTier>
@@ -116,7 +93,6 @@ export class RateLimiter {
 
     this.store = store ?? new InMemoryRateLimitStore(this.config.maxCacheSize)
 
-    // Start cleanup interval for in-memory store
     if (this.store instanceof InMemoryRateLimitStore) {
       this.cleanupInterval = setInterval(
         () => {
@@ -127,9 +103,6 @@ export class RateLimiter {
     }
   }
 
-  /**
-   * Check rate limit for a key
-   */
   async check(
     key: string,
     tier?: RateLimitTier | string,
@@ -140,7 +113,6 @@ export class RateLimiter {
 
     let entry = await this.store.get(storeKey)
 
-    // Create new entry if doesn't exist or window has passed
     if (!entry || entry.resetAt < now) {
       entry = {
         count: 0,
@@ -148,15 +120,12 @@ export class RateLimiter {
       }
     }
 
-    // Increment count
     entry.count++
 
-    // Check if over limit
     const allowed = entry.count <= tierConfig.maxRequests
     const remaining = Math.max(0, tierConfig.maxRequests - entry.count)
     const resetInSeconds = Math.ceil((entry.resetAt - now) / 1000)
 
-    // Store updated entry
     await this.store.set(storeKey, entry)
 
     return {
@@ -169,17 +138,11 @@ export class RateLimiter {
     }
   }
 
-  /**
-   * Reset rate limit for a key
-   */
   async reset(key: string): Promise<void> {
     const storeKey = `${this.config.keyPrefix}:${key}`
     await this.store.delete(storeKey)
   }
 
-  /**
-   * Get current rate limit status without incrementing
-   */
   async status(
     key: string,
     tier?: RateLimitTier | string,
@@ -212,9 +175,6 @@ export class RateLimiter {
     }
   }
 
-  /**
-   * Resolve tier from name or config
-   */
   private resolveTier(tier?: RateLimitTier | string): RateLimitTier {
     if (!tier) {
       return this.config.defaultTier
@@ -231,25 +191,16 @@ export class RateLimiter {
     return tier
   }
 
-  /**
-   * Check if IP should skip rate limiting
-   */
   shouldSkipIp(ip: string): boolean {
     return this.config.skipIps.includes(ip)
   }
 
-  /**
-   * Check if path should skip rate limiting
-   */
   shouldSkipPath(path: string): boolean {
     return this.config.skipPaths.some(
       (p) => path === p || path.startsWith(`${p}/`),
     )
   }
 
-  /**
-   * Stop cleanup interval
-   */
   stop(): void {
     if (this.cleanupInterval) {
       clearInterval(this.cleanupInterval)
@@ -257,11 +208,6 @@ export class RateLimiter {
   }
 }
 
-// ============ Helper Functions ============
-
-/**
- * Extract client IP from headers (handles proxies)
- */
 export function extractClientIp(
   headers: Record<string, string | undefined> | Headers,
 ): string {
@@ -272,10 +218,8 @@ export function extractClientIp(
     return headers[key] ?? headers[key.toLowerCase()]
   }
 
-  // Check proxy headers in order of trust
   const forwardedFor = get('x-forwarded-for')
   if (forwardedFor) {
-    // Take the first IP in the chain
     const ip = forwardedFor.split(',')[0]?.trim()
     if (ip) return ip
   }
@@ -289,9 +233,6 @@ export function extractClientIp(
   return 'unknown'
 }
 
-/**
- * Create rate limit headers from result
- */
 export function createRateLimitHeaders(
   result: RateLimitResult,
 ): RateLimitHeaders {
@@ -308,9 +249,6 @@ export function createRateLimitHeaders(
   return headers
 }
 
-/**
- * Create a rate limit key from IP and optional user identifier
- */
 export function createRateLimitKey(
   ip: string,
   userId?: string,
@@ -322,13 +260,8 @@ export function createRateLimitKey(
   return parts.join(':')
 }
 
-// ============ Default Singleton ============
+let defaultRateLimiter: RateLimiter | undefined
 
-let defaultRateLimiter: RateLimiter | null = null
-
-/**
- * Initialize the default rate limiter
- */
 export function initRateLimiter(config: RateLimiterConfig): RateLimiter {
   if (defaultRateLimiter) {
     defaultRateLimiter.stop()
@@ -337,9 +270,6 @@ export function initRateLimiter(config: RateLimiterConfig): RateLimiter {
   return defaultRateLimiter
 }
 
-/**
- * Get the default rate limiter (throws if not initialized)
- */
 export function getRateLimiter(): RateLimiter {
   if (!defaultRateLimiter) {
     throw new Error('Rate limiter not initialized. Call initRateLimiter first.')
@@ -347,12 +277,9 @@ export function getRateLimiter(): RateLimiter {
   return defaultRateLimiter
 }
 
-/**
- * Reset the default rate limiter
- */
 export function resetRateLimiter(): void {
   if (defaultRateLimiter) {
     defaultRateLimiter.stop()
-    defaultRateLimiter = null
+    defaultRateLimiter = undefined
   }
 }

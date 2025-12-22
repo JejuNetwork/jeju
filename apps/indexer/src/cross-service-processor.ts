@@ -101,7 +101,6 @@ export async function processCrossServiceEvents(
       const txHash =
         log.transaction?.hash || `${header.hash}-${log.transactionIndex}`
 
-      // ============ Container Stored Event ============
       // ContainerStored(string cid, address uploader, address storageProvider, uint256 sizeBytes)
       if (eventSig === EVENT_SIGNATURES.ContainerStored) {
         const decoded = decodeAbiParameters(
@@ -201,7 +200,6 @@ export async function processCrossServiceEvents(
         )
       }
 
-      // ============ Container Pulled Event ============
       // ContainerPulled(bytes32 rentalId, string cid, address computeProvider, address storageProvider)
       if (eventSig === EVENT_SIGNATURES.ContainerPulled) {
         const rentalId = log.topics[1]
@@ -295,7 +293,6 @@ export async function processCrossServiceEvents(
         )
       }
 
-      // ============ Rental With Container Event ============
       // RentalWithContainer(bytes32 rentalId, string cid, address computeProvider, address storageProvider)
       if (eventSig === EVENT_SIGNATURES.RentalWithContainer) {
         const rentalId = log.topics[1]
@@ -322,7 +319,6 @@ export async function processCrossServiceEvents(
         )
       }
 
-      // ============ Output Stored Event ============
       // OutputStored(bytes32 rentalId, string cid, address computeProvider, address storageProvider)
       if (eventSig === EVENT_SIGNATURES.OutputStored) {
         const rentalId = log.topics[1]
@@ -358,7 +354,6 @@ export async function processCrossServiceEvents(
         )
       }
 
-      // ============ Full Stack Agent Registered ============
       // FullStackAgentRegistered(uint256 agentId, address computeProvider, address storageProvider)
       if (eventSig === EVENT_SIGNATURES.FullStackAgentRegistered) {
         const agentId = BigInt(log.topics[1])

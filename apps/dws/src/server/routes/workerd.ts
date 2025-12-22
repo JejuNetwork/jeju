@@ -52,7 +52,7 @@ export interface WorkerdRouterOptions {
   enableDecentralized?: boolean
 }
 
-export function createWorkerdRouter(options: WorkerdRouterOptions): Elysia {
+export function createWorkerdRouter(options: WorkerdRouterOptions) {
   const {
     backend,
     workerdConfig = {},
@@ -78,7 +78,7 @@ export function createWorkerdRouter(options: WorkerdRouterOptions): Elysia {
     workerRouter.start()
   }
 
-  const router = new Elysia({ name: 'workerd', prefix: '/workerd' })
+  const router = new Elysia({ name: 'workerd' })
 
     // ============================================================================
     // Health & Stats
@@ -345,9 +345,9 @@ export function createWorkerdRouter(options: WorkerdRouterOptions): Elysia {
             ? {
                 port: instance.port,
                 status: instance.status,
-                activeRequests: instance.activeRequests,
-                totalRequests: instance.totalRequests,
-                memoryUsedMb: instance.memoryUsedMb,
+                endpoint: instance.endpoint,
+                totalRequests: metrics.invocations,
+                memoryUsedMb: metrics.memoryUsedMb,
               }
             : null,
           metrics,
@@ -599,7 +599,15 @@ export function createWorkerdRouter(options: WorkerdRouterOptions): Elysia {
           body,
         })
 
-        return new Response(response.body, {
+        // Convert Buffer to Uint8Array for proper BodyInit compatibility
+        let responseBody: BodyInit
+        if (Buffer.isBuffer(response.body)) {
+          responseBody = new Uint8Array(response.body)
+        } else {
+          responseBody = response.body
+        }
+
+        return new Response(responseBody, {
           status: response.status,
           headers: response.headers,
         })
@@ -805,7 +813,7 @@ const NETWORK_DEFAULTS: Record<
 // Default Export for Standalone Use
 // ============================================================================
 
-export function createDefaultWorkerdRouter(backend: BackendManager): Elysia {
+export function createDefaultWorkerdRouter(backend: BackendManager) {
   const network = getNetworkType()
   const defaults = NETWORK_DEFAULTS[network]
   const chain = getChainForNetwork(network)

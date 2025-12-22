@@ -28,44 +28,32 @@ export interface AuthUser {
 }
 
 /**
- * OAuth3 session validation result
+ * OAuth3 session validation result - discriminated union for type safety
  */
-export interface OAuth3ValidationResult {
-  valid: boolean
-  user?: AuthUser
-  error?: string
-  expired?: boolean
-}
+export type OAuth3ValidationResult =
+  | { valid: true; user: AuthUser; expired?: never; error?: never }
+  | { valid: false; error: string; expired?: boolean; user?: never }
 
 /**
- * Wallet signature validation result
+ * Wallet signature validation result - discriminated union for type safety
  */
-export interface WalletSignatureValidationResult {
-  valid: boolean
-  user?: AuthUser
-  error?: string
-  expired?: boolean
-}
+export type WalletSignatureValidationResult =
+  | { valid: true; user: AuthUser; expired?: never; error?: never }
+  | { valid: false; error: string; expired?: boolean; user?: never }
 
 /**
- * API key validation result
+ * API key validation result - discriminated union for type safety
  */
-export interface APIKeyValidationResult {
-  valid: boolean
-  user?: AuthUser
-  error?: string
-  rateLimitTier?: string
-}
+export type APIKeyValidationResult =
+  | { valid: true; user: AuthUser; rateLimitTier: string; error?: never }
+  | { valid: false; error: string; rateLimitTier?: never; user?: never }
 
 /**
  * Combined authentication result from any method
  */
-export interface AuthResult {
-  authenticated: boolean
-  user?: AuthUser
-  error?: string
-  method?: AuthMethod
-}
+export type AuthResult =
+  | { authenticated: true; user: AuthUser; method: AuthMethod; error?: never }
+  | { authenticated: false; error: string; method?: AuthMethod; user?: never }
 
 /**
  * Configuration for OAuth3 validation
@@ -163,10 +151,8 @@ export interface AdminUser extends AuthUser {
 }
 
 /**
- * Result from admin validation
+ * Result from admin validation - discriminated union for type safety
  */
-export interface AdminValidationResult {
-  valid: boolean
-  admin?: AdminUser
-  error?: string
-}
+export type AdminValidationResult =
+  | { valid: true; admin: AdminUser; error?: never }
+  | { valid: false; error: string; admin?: never }

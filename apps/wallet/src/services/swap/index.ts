@@ -5,6 +5,7 @@
 
 import { expectValid } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
+import { API_URLS, fetchApi, postApi } from '../../lib/eden'
 import {
   CrossChainSwapQuotesResponseSchema,
   CrossChainSwapResponseSchema,
@@ -16,8 +17,7 @@ import {
 import type { Token } from '../../sdk/types'
 import type { SupportedChainId } from '../rpc'
 
-const JEJU_SOLVER_URL =
-  import.meta.env.VITE_JEJU_SOLVER_URL || 'https://solver.jejunetwork.org/api'
+const JEJU_SOLVER_URL = API_URLS.solver
 
 interface SwapQuote {
   id: string
@@ -86,44 +86,32 @@ class SwapService {
   async getQuote(params: SwapParams): Promise<SwapQuote[]> {
     const { inputToken, outputToken, inputAmount, slippage } = params
 
-    try {
-      const response = await fetch(`${JEJU_SOLVER_URL}/quote`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          inputToken: {
-            chainId: inputToken.chainId,
-            address: inputToken.address,
-          },
-          outputToken: {
-            chainId: outputToken.chainId,
-            address: outputToken.address,
-          },
-          inputAmount: inputAmount.toString(),
-          slippage,
-          mevProtection: this.preferMevProtection,
-        }),
-      })
+    const response = await postApi<SwapQuote[]>(JEJU_SOLVER_URL, '/quote', {
+      inputToken: {
+        chainId: inputToken.chainId,
+        address: inputToken.address,
+      },
+      outputToken: {
+        chainId: outputToken.chainId,
+        address: outputToken.address,
+      },
+      inputAmount: inputAmount.toString(),
+      slippage,
+      mevProtection: this.preferMevProtection,
+    })
 
-      if (!response.ok) throw new Error(`Quote error: ${response.status}`)
-      const quotes = expectValid(
-        SwapQuotesResponseSchema,
-        await response.json(),
-        'swap quotes',
-      )
-      return quotes.map((q) => ({
-        ...q,
-        inputAmount: BigInt(q.inputAmount),
-        outputAmount: BigInt(q.outputAmount),
-        estimatedGas: BigInt(q.estimatedGas),
-        fee: { ...q.fee, amount: BigInt(q.fee.amount) },
-      }))
-    } catch (error) {
-      // Re-throw with context - swap quotes are critical for user transactions
-      throw new Error(
-        `Failed to get swap quote: ${error instanceof Error ? error.message : String(error)}`,
-      )
-    }
+    const quotes = expectValid(
+      SwapQuotesResponseSchema,
+      response,
+      'swap quotes',
+    )
+    return quotes.map((q) => ({
+      ...q,
+      inputAmount: BigInt(q.inputAmount),
+      outputAmount: BigInt(q.outputAmount),
+      estimatedGas: BigInt(q.estimatedGas),
+      fee: { ...q.fee, amount: BigInt(q.fee.amount) },
+    }))
   }
 
   async getCrossChainQuote(
@@ -138,46 +126,40 @@ class SwapService {
       destinationChainId,
     } = params
 
-    try {
-      const response = await fetch(`${JEJU_SOLVER_URL}/cross-chain/quote`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          inputToken: {
-            chainId: inputToken.chainId,
-            address: inputToken.address,
-          },
-          outputToken: {
-            chainId: outputToken.chainId,
-            address: outputToken.address,
-          },
-          inputAmount: inputAmount.toString(),
-          slippage,
-          sourceChainId,
-          destinationChainId,
-        }),
-      })
+    const response = await postApi<CrossChainSwapQuote[]>(
+      JEJU_SOLVER_URL,
+      '/cross-chain/quote',
+      {
+        inputToken: {
+          chainId: inputToken.chainId,
+          address: inputToken.address,
+        },
+        outputToken: {
+          chainId: outputToken.chainId,
+          address: outputToken.address,
+        },
+        inputAmount: inputAmount.toString(),
+        slippage,
+        sourceChainId,
+        destinationChainId,
+      },
+    )
 
-      if (!response.ok)
-        throw new Error(`Cross-chain quote error: ${response.status}`)
-      const validated = expectValid(
-        CrossChainSwapQuotesResponseSchema,
-        await response.json(),
-        'cross-chain swap quotes',
-      )
-      return validated.map((q) => ({
-        ...q,
-        inputAmount: BigInt(q.inputAmount),
-        outputAmount: BigInt(q.outputAmount),
-        estimatedGas: BigInt(q.estimatedGas),
-        fee: { ...q.fee, amount: BigInt(q.fee.amount) },
-        bridgeFee: BigInt(q.bridgeFee),
-        sourceChainId: q.sourceChainId as SupportedChainId,
-        destinationChainId: q.destinationChainId as SupportedChainId,
-      }))
-    } catch {
-      throw new Error('Cross-chain quotes unavailable')
-    }
+    const validated = expectValid(
+      CrossChainSwapQuotesResponseSchema,
+      response,
+      'cross-chain swap quotes',
+    )
+    return validated.map((q) => ({
+      ...q,
+      inputAmount: BigInt(q.inputAmount),
+      outputAmount: BigInt(q.outputAmount),
+      estimatedGas: BigInt(q.estimatedGas),
+      fee: { ...q.fee, amount: BigInt(q.fee.amount) },
+      bridgeFee: BigInt(q.bridgeFee),
+      sourceChainId: q.sourceChainId as SupportedChainId,
+      destinationChainId: q.destinationChainId as SupportedChainId,
+    }))
   }
 
   async executeSwap(
@@ -185,42 +167,36 @@ class SwapService {
     signer: { signTransaction: (tx: object) => Promise<Hex> },
   ): Promise<SwapResult> {
     // Get transaction data from solver
-    const txResponse = await fetch(`${JEJU_SOLVER_URL}/swap`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ quoteId: quote.id }),
-    })
+    const txData = await postApi<{
+      to: Address
+      data: Hex
+      value: string
+      gasLimit: string
+    }>(JEJU_SOLVER_URL, '/swap', { quoteId: quote.id })
 
-    if (!txResponse.ok) throw new Error(`Swap error: ${txResponse.status}`)
-    const txData = expectValid(
+    const validated = expectValid(
       SwapTxDataResponseSchema,
-      await txResponse.json(),
+      txData,
       'swap transaction data',
     )
 
     // Sign and send transaction
     const signedTx = await signer.signTransaction({
-      to: txData.to,
-      data: txData.data,
-      value: BigInt(txData.value),
-      gasLimit: BigInt(txData.gasLimit),
+      to: validated.to,
+      data: validated.data,
+      value: BigInt(validated.value),
+      gasLimit: BigInt(validated.gasLimit),
     })
 
     // Submit to the network (MEV-protected)
-    const submitResponse = await fetch(`${JEJU_SOLVER_URL}/submit`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        signedTx,
-        mevProtection: this.preferMevProtection,
-      }),
+    const result = await postApi<{ txHash: Hex }>(JEJU_SOLVER_URL, '/submit', {
+      signedTx,
+      mevProtection: this.preferMevProtection,
     })
 
-    if (!submitResponse.ok)
-      throw new Error(`Submit error: ${submitResponse.status}`)
-    const result = expectValid(
+    const submitResult = expectValid(
       SwapSubmitResponseSchema,
-      await submitResponse.json(),
+      result,
       'swap submit response',
     )
 
@@ -228,7 +204,7 @@ class SwapService {
     this.addRecentToken(quote.outputToken)
 
     return {
-      txHash: result.txHash,
+      txHash: submitResult.txHash,
       inputAmount: quote.inputAmount,
       outputAmount: quote.outputAmount,
       route: quote.route,
@@ -242,17 +218,15 @@ class SwapService {
     signer: { signTransaction: (tx: object) => Promise<Hex> },
   ): Promise<{ intentId: Hex; status: string }> {
     // Cross-chain swaps use network OIF
-    const response = await fetch(`${JEJU_SOLVER_URL}/cross-chain/swap`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ quoteId: quote.id }),
-    })
+    const response = await postApi<{ intentData: object; intentId: Hex }>(
+      JEJU_SOLVER_URL,
+      '/cross-chain/swap',
+      { quoteId: quote.id },
+    )
 
-    if (!response.ok)
-      throw new Error(`Cross-chain swap error: ${response.status}`)
     const { intentData, intentId } = expectValid(
       CrossChainSwapResponseSchema,
-      await response.json(),
+      response,
       'cross-chain swap response',
     )
 
@@ -260,50 +234,34 @@ class SwapService {
     const signedTx = await signer.signTransaction(intentData)
 
     // Submit intent
-    const submitResponse = await fetch(
-      `${JEJU_SOLVER_URL}/cross-chain/submit`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ signedTx, intentId }),
-      },
-    )
+    await postApi(JEJU_SOLVER_URL, '/cross-chain/submit', {
+      signedTx,
+      intentId,
+    })
 
-    if (!submitResponse.ok)
-      throw new Error(`Submit error: ${submitResponse.status}`)
     return { intentId, status: 'pending' }
   }
 
   // Token list management
   async getPopularTokens(chainId: SupportedChainId): Promise<Token[]> {
-    const response = await fetch(`${JEJU_SOLVER_URL}/tokens/${chainId}/popular`)
-    if (!response.ok) {
-      throw new Error(
-        `Failed to fetch popular tokens: ${response.status} ${response.statusText}`,
-      )
-    }
-    return expectValid(
-      TokenListResponseSchema,
-      await response.json(),
-      'popular tokens',
+    const response = await fetchApi<Token[]>(
+      JEJU_SOLVER_URL,
+      `/tokens/${chainId}/popular`,
     )
+    return expectValid(TokenListResponseSchema, response, 'popular tokens')
   }
 
   async searchTokens(
     chainId: SupportedChainId,
     query: string,
   ): Promise<Token[]> {
-    const response = await fetch(
-      `${JEJU_SOLVER_URL}/tokens/${chainId}/search?q=${encodeURIComponent(query)}`,
+    const response = await fetchApi<Token[]>(
+      JEJU_SOLVER_URL,
+      `/tokens/${chainId}/search?q=${encodeURIComponent(query)}`,
     )
-    if (!response.ok) {
-      throw new Error(
-        `Failed to search tokens: ${response.status} ${response.statusText}`,
-      )
-    }
     return expectValid(
       TokenListResponseSchema,
-      await response.json(),
+      response,
       'token search results',
     )
   }

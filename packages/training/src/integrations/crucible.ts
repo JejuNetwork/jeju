@@ -44,12 +44,30 @@ export interface TrainingMetrics {
   lossHistory: number[]
 }
 
+/** Metadata for agent trajectory */
+export interface TrajectoryMetadata {
+  /** Environment the trajectory was collected in */
+  environment?: string
+  /** Archetype/persona of the agent */
+  archetype?: string
+  /** Session ID for grouping trajectories */
+  sessionId?: string
+  /** Whether this trajectory was successful */
+  success?: boolean
+  /** Duration in milliseconds */
+  durationMs?: number
+  /** Start timestamp */
+  startTimestamp?: number
+  /** End timestamp */
+  endTimestamp?: number
+}
+
 export interface AgentTrajectory {
   agentId: string
   episodeId: string
   steps: TrajectoryStep[]
   totalReward: number
-  metadata: Record<string, string | number | boolean>
+  metadata: TrajectoryMetadata
 }
 
 export interface TrajectoryStep {

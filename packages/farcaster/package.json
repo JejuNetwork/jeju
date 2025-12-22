@@ -1,7 +1,7 @@
 {
   "name": "@jejunetwork/farcaster",
   "version": "0.1.0",
-  "description": "Permissionless Farcaster integration for Jeju Network - No API keys required",
+  "description": "Permissionless Farcaster integration for Jeju Network",
   "license": "MIT",
   "type": "module",
   "main": "dist/index.js",
@@ -10,43 +10,15 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    },
-    "./hub": {
-      "types": "./dist/hub/index.d.ts",
-      "import": "./dist/hub/index.js"
-    },
-    "./frames": {
-      "types": "./dist/frames/index.d.ts",
-      "import": "./dist/frames/index.js"
     }
   },
-  "files": [
-    "dist",
-    "src"
-  ],
+  "files": ["dist", "src"],
   "sideEffects": false,
   "scripts": {
     "build": "tsc",
-    "dev": "tsc --watch",
     "test": "bun test",
-    "typecheck": "tsc --noEmit",
-    "clean": "rm -rf dist",
-    "prepublishOnly": "bun run build"
+    "typecheck": "tsc --noEmit"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/elizaos/jeju.git",
-    "directory": "packages/farcaster"
-  },
-  "keywords": [
-    "farcaster",
-    "hub",
-    "social",
-    "decentralized",
-    "jeju",
-    "permissionless",
-    "frames"
-  ],
   "dependencies": {
     "@elysiajs/cors": "^1.2.0",
     "@jejunetwork/types": "workspace:*",
@@ -54,8 +26,8 @@
     "@noble/curves": "^1.8.1",
     "@noble/hashes": "^1.7.1",
     "elysia": "^1.2.12",
-    "viem": "2.43.2",
-    "zod": "^3.24.3"
+    "viem": "2.43.3",
+    "zod": "4.2.1"
   },
   "devDependencies": {
     "@types/bun": "latest",

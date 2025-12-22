@@ -45,10 +45,6 @@ import { MempoolMonitor, type SwapIntent } from './mempool'
 const JEJU_CHAIN_ID = 8453 // Update with actual Jeju chain ID
 const EXTERNAL_CHAINS = [1, 42161, 10, 8453] // Mainnet, Arbitrum, Optimism, Base
 
-// ============================================================================
-// CONFIGURATION
-// ============================================================================
-
 export interface ExternalMevConfig {
   privateKey: Hex
   jejuChainId?: number
@@ -101,10 +97,6 @@ export interface MevStats {
   // Timing
   startedAt: number
 }
-
-// ============================================================================
-// EXTERNAL CHAIN MEV ENGINE
-// ============================================================================
 
 export class ExternalChainMevEngine extends EventEmitter {
   private config: Required<ExternalMevConfig>
@@ -256,17 +248,8 @@ export class ExternalChainMevEngine extends EventEmitter {
     this.running = false
     this.mempoolMonitor.stop()
     await this.strategyEngine.stop()
-    console.log('External chain MEV engine stopped')
   }
 
-  // ==========================================================================
-  // JEJU USER PROTECTION - Route via Flashbots Protect
-  // ==========================================================================
-
-  /**
-   * Submit Jeju user transaction via Flashbots Protect
-   * This ensures our users are NEVER sandwiched
-   */
   async protectJejuTransaction(
     signedTx: Hex,
   ): Promise<{ hash: Hash; protected: boolean }> {
@@ -279,17 +262,9 @@ export class ExternalChainMevEngine extends EventEmitter {
     })
     this.stats.jejuTxsProtected++
 
-    console.log(`🛡️ Protected Jeju TX: ${result.hash}`)
     return { hash: result.hash, protected: true }
   }
 
-  // ==========================================================================
-  // EXTERNAL CHAIN MEV EXTRACTION
-  // ==========================================================================
-
-  /**
-   * Handle swap detected on external chain
-   */
   private async handleSwap(swap: SwapIntent): Promise<void> {
     // Skip if from our address
     if (swap.tx.from.toLowerCase() === this.account.address.toLowerCase()) {
@@ -867,6 +842,3 @@ export class ExternalChainMevEngine extends EventEmitter {
     console.log(`${'═'.repeat(60)}\n`)
   }
 }
-
-// Export for backwards compatibility
-export { ExternalChainMevEngine as MevStrategyEngine }

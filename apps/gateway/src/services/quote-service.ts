@@ -339,32 +339,9 @@ export async function getQuotes(params: QuoteParams): Promise<IntentQuote[]> {
   }
 
   if (quotes.length === 0) {
-    const isL2ToL2 = isL2Chain(sourceChain) && isL2Chain(destinationChain)
-    const feePercent = isL2ToL2 ? 30 : 50
-    const fee = (inputAmount * BigInt(feePercent)) / 10000n
-    const quoteId = keccak256(
-      encodePacked(
-        ['uint256', 'uint256', 'uint256'],
-        [BigInt(sourceChain), BigInt(destinationChain), BigInt(Date.now())],
-      ),
+    throw new Error(
+      `No solvers available for route: chain ${sourceChain} -> ${destinationChain}`,
     )
-
-    quotes.push({
-      quoteId,
-      sourceChainId: sourceChain as SupportedChainId,
-      destinationChainId: destinationChain as SupportedChainId,
-      sourceToken: sourceToken as `0x${string}`,
-      destinationToken: destinationToken as `0x${string}`,
-      inputAmount: amount,
-      outputAmount: (inputAmount - fee).toString(),
-      fee: fee.toString(),
-      feePercent,
-      priceImpact: 10,
-      estimatedFillTimeSeconds: isL2ToL2 ? 30 : 90,
-      validUntil: Math.floor(Date.now() / 1000) + 300,
-      solver: ZERO_ADDRESS,
-      solverReputation: 0,
-    })
   }
 
   return quotes.sort((a, b) => {

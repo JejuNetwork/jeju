@@ -61,7 +61,12 @@ const AppManifestSchema = z
         a2aEndpoint: z.string().optional(),
         mcpEndpoint: z.string().optional(),
         tags: z.array(z.string()).optional(),
-        metadata: z.record(z.string(), z.unknown()).optional(),
+        metadata: z
+          .record(
+            z.string(),
+            z.union([z.string(), z.number(), z.boolean(), z.array(z.string())]),
+          )
+          .optional(),
         trustModels: z.array(z.string()).optional(),
         x402Support: z.boolean().optional(),
         multiTokenPayments: z.boolean().optional(),

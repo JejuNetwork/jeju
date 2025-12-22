@@ -208,17 +208,9 @@ class TauriSecureStorage implements SecureStorageAdapter {
     _options?: SecureStorageOptions,
   ): Promise<string | null> {
     if (this.isTauri()) {
-      try {
-        // Dynamic import: Conditional - only loaded on Tauri desktop platform
-        const { invoke } = await import('@tauri-apps/api/core')
-        return invoke('keyring_get', { key })
-      } catch (tauriError) {
-        // Log and fall back to web secure storage - Tauri keyring may not be available
-        console.warn(
-          'Tauri keyring unavailable, using web fallback:',
-          tauriError,
-        )
-      }
+      // Dynamic import: Conditional - only loaded on Tauri desktop platform
+      const { invoke } = await import('@tauri-apps/api/core')
+      return invoke('keyring_get', { key })
     }
     return this.webFallback.get(key)
   }
@@ -229,36 +221,20 @@ class TauriSecureStorage implements SecureStorageAdapter {
     _options?: SecureStorageOptions,
   ): Promise<void> {
     if (this.isTauri()) {
-      try {
-        // Dynamic import: Conditional - only loaded on Tauri desktop platform
-        const { invoke } = await import('@tauri-apps/api/core')
-        await invoke('keyring_set', { key, value })
-        return
-      } catch (tauriError) {
-        // Log and fall back to web secure storage - Tauri keyring may not be available
-        console.warn(
-          'Tauri keyring unavailable, using web fallback:',
-          tauriError,
-        )
-      }
+      // Dynamic import: Conditional - only loaded on Tauri desktop platform
+      const { invoke } = await import('@tauri-apps/api/core')
+      await invoke('keyring_set', { key, value })
+      return
     }
     await this.webFallback.set(key, value)
   }
 
   async remove(key: string): Promise<void> {
     if (this.isTauri()) {
-      try {
-        // Dynamic import: Conditional - only loaded on Tauri desktop platform
-        const { invoke } = await import('@tauri-apps/api/core')
-        await invoke('keyring_delete', { key })
-        return
-      } catch (tauriError) {
-        // Log and fall back to web secure storage - Tauri keyring may not be available
-        console.warn(
-          'Tauri keyring unavailable, using web fallback:',
-          tauriError,
-        )
-      }
+      // Dynamic import: Conditional - only loaded on Tauri desktop platform
+      const { invoke } = await import('@tauri-apps/api/core')
+      await invoke('keyring_delete', { key })
+      return
     }
     await this.webFallback.remove(key)
   }

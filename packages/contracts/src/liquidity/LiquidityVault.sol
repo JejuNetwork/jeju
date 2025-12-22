@@ -142,7 +142,7 @@ contract LiquidityVault is ReentrancyGuard, Ownable, Pausable {
     }
 
     /**
-     * @notice Deposit reward tokens to earn a portion of LP fees (backwards compatible)
+     * @notice Deposit reward tokens to earn a portion of LP fees
      * @param amount Amount of reward tokens to deposit
      */
     function addElizaLiquidity(uint256 amount) external {

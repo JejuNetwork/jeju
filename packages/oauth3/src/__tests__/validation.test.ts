@@ -12,7 +12,6 @@ import {
   expect as expectValue,
   extractError,
   generateOTP,
-  getEndpointWithDevFallback,
   HexSchema,
   isAddress,
   isHex,
@@ -21,8 +20,6 @@ import {
   validateConfig,
   validateResponse,
 } from '../validation'
-
-// ============ Hex and Address Schema Tests ============
 
 describe('HexSchema', () => {
   test('should accept valid hex strings', () => {
@@ -67,8 +64,6 @@ describe('Bytes32Schema', () => {
   })
 })
 
-// ============ OAuth3ConfigSchema Tests ============
-
 describe('OAuth3ConfigSchema', () => {
   test('should accept minimal valid config', () => {
     const config = {
@@ -105,8 +100,6 @@ describe('OAuth3ConfigSchema', () => {
   })
 })
 
-// ============ Helper Function Tests ============
-
 describe('expect function', () => {
   test('should return value if defined', () => {
     expect(expectValue('hello', 'value')).toBe('hello')
@@ -139,18 +132,6 @@ describe('expectEndpoint', () => {
 
   test('should throw for empty endpoint', () => {
     expect(() => expectEndpoint({ endpoint: '' })).toThrow('no endpoint')
-  })
-})
-
-describe('getEndpointWithDevFallback', () => {
-  test('should return endpoint if provided', () => {
-    const node = { endpoint: 'https://tee.example.com' }
-    expect(getEndpointWithDevFallback(node)).toBe('https://tee.example.com')
-  })
-
-  test('should return localhost in dev/test', () => {
-    // We're in test environment
-    expect(getEndpointWithDevFallback(null)).toBe('http://localhost:4200')
   })
 })
 

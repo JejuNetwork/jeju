@@ -30,8 +30,6 @@ import {
 } from '../../schemas'
 import type { ChainId, StrategyConfig } from '../autocrat-types-source'
 
-// ============ Types ============
-
 export type YieldSource =
   // Real yield (sustainable)
   | 'trading_fees' // DEX trading fees
@@ -147,8 +145,6 @@ export interface YieldFarmingConfig extends StrategyConfig {
   maxChainExposure: number // Max % exposure per chain
 }
 
-// ============ Protocol ABIs ============
-
 const AAVE_POOL_ABI = parseAbi([
   'function getReserveData(address asset) view returns (uint256 configuration, uint128 liquidityIndex, uint128 currentLiquidityRate, uint128 variableBorrowIndex, uint128 currentVariableBorrowRate, uint128 currentStableBorrowRate, uint40 lastUpdateTimestamp, uint16 id, address aTokenAddress, address stableDebtTokenAddress, address variableDebtTokenAddress, address interestRateStrategyAddress, uint128 accruedToTreasury, uint128 unbacked, uint128 isolationModeTotalDebt)',
   'function getUserAccountData(address user) view returns (uint256 totalCollateralBase, uint256 totalDebtBase, uint256 availableBorrowsBase, uint256 currentLiquidationThreshold, uint256 ltv, uint256 healthFactor)',
@@ -181,8 +177,6 @@ const _UNI_V3_POOL_ABI = parseAbi([
   'function feeGrowthGlobal0X128() view returns (uint256)',
   'function feeGrowthGlobal1X128() view returns (uint256)',
 ])
-
-// ============ Protocol Configs ============
 
 interface ProtocolConfig {
   name: string
@@ -322,8 +316,6 @@ const SOLANA_PROTOCOLS: SolanaProtocolConfig[] = [
   },
 ]
 
-// ============ Yield Farming Strategy ============
-
 export class YieldFarmingStrategy extends EventEmitter {
   private config: YieldFarmingConfig
   private evmClients: Map<ChainId, PublicClient> = new Map()
@@ -400,8 +392,6 @@ export class YieldFarmingStrategy extends EventEmitter {
       this.pollInterval = null
     }
   }
-
-  // ============ Opportunity Discovery ============
 
   /**
    * Scan all protocols for opportunities
@@ -1018,8 +1008,6 @@ export class YieldFarmingStrategy extends EventEmitter {
     return opportunities
   }
 
-  // ============ Yield Optimization ============
-
   /**
    * Run optimization cycle
    */
@@ -1140,8 +1128,6 @@ export class YieldFarmingStrategy extends EventEmitter {
     return actions
   }
 
-  // ============ Verification ============
-
   /**
    * Verify APR is real and on-chain
    */
@@ -1259,8 +1245,6 @@ export class YieldFarmingStrategy extends EventEmitter {
     }
   }
 
-  // ============ Helpers ============
-
   private calculateRiskLevel(score: number): RiskLevel {
     if (score <= 20) return 'LOW'
     if (score <= 40) return 'MEDIUM'
@@ -1300,8 +1284,6 @@ export class YieldFarmingStrategy extends EventEmitter {
 
     return tokens[chainId]?.[symbol]
   }
-
-  // ============ Stats ============
 
   /**
    * Get all opportunities

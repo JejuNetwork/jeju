@@ -21,12 +21,10 @@ export async function verifyAuth(request: Request): Promise<AuthResult> {
   const timestamp = request.headers.get('x-jeju-timestamp')
   const signature = request.headers.get('x-jeju-signature')
 
-  // Check if headers are present
   if (!address || !timestamp || !signature) {
     return { valid: false, error: 'Missing authentication headers' }
   }
 
-  // Validate headers structure
   const headers = {
     'x-jeju-address': address,
     'x-jeju-timestamp': timestamp,
@@ -38,7 +36,6 @@ export async function verifyAuth(request: Request): Promise<AuthResult> {
     'auth headers',
   )
 
-  // Validate timestamp (within 5 minutes)
   const ts = parseInt(validatedHeaders['x-jeju-timestamp'], 10)
   expect(!Number.isNaN(ts), 'Timestamp must be a valid number')
 
@@ -50,10 +47,6 @@ export async function verifyAuth(request: Request): Promise<AuthResult> {
     `Timestamp expired or invalid. Time difference: ${timeDiff}ms, max: ${maxAge}ms`,
   )
 
-  // Verify signature
-  // validatedHeaders is already validated by AuthHeadersSchema which uses:
-  // - AddressSchema (returns Address type)
-  // - HexSchema (returns Hex type)
   const message = `jeju-vpn:${timestamp}`
   const validAddress = getAddress(validatedHeaders['x-jeju-address'])
 

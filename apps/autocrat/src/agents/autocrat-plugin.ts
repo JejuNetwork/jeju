@@ -20,12 +20,15 @@ import type {
   State,
 } from '@elizaos/core'
 import { getAutocratA2AUrl, getAutocratUrl } from '@jejunetwork/config'
-import { A2AJsonRpcResponseSchema, MCPToolCallResponseSchema } from '../schemas'
+import { expectValid } from '@jejunetwork/types'
+import {
+  A2AJsonRpcResponseSchema,
+  extractA2AData,
+  MCPToolCallResponseSchema,
+  type SubmitVoteResult,
+  SubmitVoteResultSchema,
+} from '../schemas'
 import { autocratProviders } from './autocrat-providers'
-
-// ============================================================================
-// Configuration (Network-Aware)
-// ============================================================================
 
 function getA2AEndpoint(): string {
   return process.env.AUTOCRAT_A2A_URL ?? getAutocratA2AUrl()
@@ -35,10 +38,10 @@ function getMCPEndpoint(): string {
   return process.env.AUTOCRAT_MCP_URL ?? `${getAutocratUrl()}/mcp`
 }
 
-async function callA2A(
+async function callA2A<T>(
   skillId: string,
   params: Record<string, unknown> = {},
-): Promise<Record<string, unknown>> {
+): Promise<T> {
   const a2aEndpoint = getA2AEndpoint()
   const response = await fetch(a2aEndpoint, {
     method: 'POST',
@@ -56,17 +59,17 @@ async function callA2A(
     }),
   })
 
-  const result = A2AJsonRpcResponseSchema.safeParse(await response.json())
-  if (!result.success) {
-    return {}
+  if (!response.ok) {
+    throw new Error(`A2A call failed: ${response.status}`)
   }
-  const dataPart = result.data.result?.parts?.find((p) => p.kind === 'data')
-  return dataPart?.kind === 'data' && dataPart.data ? dataPart.data : {}
-}
 
-// ============================================================================
-// Autocrat Actions
-// ============================================================================
+  const result = expectValid(
+    A2AJsonRpcResponseSchema,
+    await response.json(),
+    `A2A ${skillId}`,
+  )
+  return extractA2AData<T>(result, `A2A ${skillId}`)
+}
 
 /**
  * Action: Discover Services
@@ -210,13 +213,15 @@ const castVoteAction: Action = {
     const role =
       runtime.character.name?.replace(' Agent', '').toUpperCase() ?? 'UNKNOWN'
 
-    const result = await callA2A('submit-vote', {
+    const result = await callA2A<SubmitVoteResult>('submit-vote', {
       proposalId,
       role,
       vote: voteType,
       reasoning: `${role} agent cast ${voteType} vote`,
       confidence: 75,
     })
+    const validated = SubmitVoteResultSchema.safeParse(result)
+    const success = validated.success && validated.data.success
 
     if (callback) {
       await callback({
@@ -225,7 +230,7 @@ const castVoteAction: Action = {
 Proposal: ${proposalId.slice(0, 12)}...
 Vote: ${voteType}
 Role: ${role}
-Status: ${(result as { success?: boolean }).success ? 'Recorded' : 'Failed'}`,
+Status: ${success ? 'Recorded' : 'Failed'}`,
         action: 'CAST_VOTE',
       })
     }
@@ -313,7 +318,7 @@ const queryA2AAction: Action = {
     const skillMatch = content.match(/skill[:\s]+(\S+)/i)
     const skillId = skillMatch?.[1] ?? 'get-governance-stats'
 
-    const result = await callA2A(skillId, {})
+    const result = await callA2A<Record<string, unknown>>(skillId, {})
 
     if (callback) {
       await callback({
@@ -384,10 +389,6 @@ ${result.content?.[0]?.text ?? 'No content returned'}`,
     }
   },
 }
-
-// ============================================================================
-// Autocrat Plugin
-// ============================================================================
 
 /**
  * Autocrat Plugin for ElizaOS

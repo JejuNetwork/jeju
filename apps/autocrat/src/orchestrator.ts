@@ -54,7 +54,7 @@ import { autocratAgentRuntime, type DeliberationRequest } from './agents'
 import { initLocalServices, store, storeVote } from './local-services'
 import { getResearchAgent, type ResearchRequest } from './research-agent'
 import type { AutocratVoteFromContract, ProposalFromContract } from './shared'
-import { getTEEMode, makeTEEDecision } from './tee'
+import { makeTEEDecision } from './tee'
 
 // ============ ABIs ============
 
@@ -293,18 +293,12 @@ export class AutocratOrchestrator {
     // Load all active DAOs
     await this.loadDAOs()
 
-    console.log(
-      `\n[Orchestrator] Started - Mode: ${this.account ? 'Active' : 'Read-only'}, TEE: ${getTEEMode()}`,
-    )
-    console.log(`[Orchestrator] Loaded ${this.daoStates.size} DAOs`)
-
     this.running = true
     this.runLoop()
   }
 
   async stop(): Promise<void> {
     this.running = false
-    console.log('[Orchestrator] Stopping...')
   }
 
   // ============ Main Loop ============
@@ -362,9 +356,6 @@ export class AutocratOrchestrator {
         !daoFull.dao.council ||
         daoFull.dao.council === '0x0000000000000000000000000000000000000000'
       ) {
-        console.log(
-          `[Orchestrator] DAO ${daoFull.dao.name} has no council contract, skipping`,
-        )
         continue
       }
 
@@ -378,10 +369,6 @@ export class AutocratOrchestrator {
         errors: [],
         isActive: true,
       })
-
-      console.log(
-        `[Orchestrator] Loaded DAO: ${daoFull.dao.displayName} (CEO: ${daoFull.ceoPersona.name})`,
-      )
     }
 
     // Deactivate removed DAOs
@@ -393,8 +380,7 @@ export class AutocratOrchestrator {
   }
 
   private async processDAO(state: DAOState): Promise<void> {
-    const { daoFull, councilAddress } = state
-    const daoName = daoFull.dao.name
+    const { councilAddress } = state
 
     try {
       const activeIds = (await readContract(this.client, {
@@ -404,10 +390,6 @@ export class AutocratOrchestrator {
       })) as string[]
 
       if (activeIds.length === 0) return
-
-      console.log(
-        `[${daoName}] Cycle ${this.cycleCount}: ${activeIds.length} active proposals`,
-      )
 
       for (const proposalId of activeIds.slice(0, 5)) {
         const proposal = (await readContract(this.client, {
@@ -437,14 +419,8 @@ export class AutocratOrchestrator {
     proposalId: string,
     proposal: ProposalFromContract,
   ): Promise<void> {
-    const shortId = proposalId.slice(0, 10)
-    const daoName = state.daoFull.dao.name
-
     switch (proposal.status) {
       case STATUS.SUBMITTED:
-        console.log(
-          `[${daoName}:${shortId}] New proposal - starting autocrat review`,
-        )
         break
 
       case STATUS.AUTOCRAT_REVIEW:
@@ -474,8 +450,7 @@ export class AutocratOrchestrator {
     proposalId: string,
     proposal: ProposalFromContract,
   ): Promise<void> {
-    const { councilAddress, daoFull } = state
-    const daoName = daoFull.dao.name
+    const { councilAddress } = state
 
     const votes = (await readContract(this.client, {
       address: councilAddress,
@@ -495,18 +470,13 @@ export class AutocratOrchestrator {
         proposalType: String(proposal.proposalType),
         submitter: proposal.proposer,
         daoId: state.daoId,
-        daoName: daoFull.dao.displayName,
-        governanceParams: daoFull.params,
+        daoName: state.daoFull.dao.displayName,
+        governanceParams: state.daoFull.params,
       }
 
-      console.log(`[${daoName}:${shortId}] Starting deliberation...`)
       const agentVotes = await autocratAgentRuntime.deliberateAll(request)
 
       for (const vote of agentVotes) {
-        console.log(
-          `[${daoName}:${shortId}] ${vote.role}: ${vote.vote} (${vote.confidence}%)`,
-        )
-
         await storeVote(proposalId, {
           role: vote.role,
           vote: vote.vote,
@@ -543,7 +513,6 @@ export class AutocratOrchestrator {
             chain: inferChain(this.config.rpcUrl),
           })
           await waitForTransactionReceipt(this.client, { hash })
-          console.log(`[${daoName}:${shortId}] ${vote.role} vote on-chain`)
         }
       }
     }
@@ -559,7 +528,6 @@ export class AutocratOrchestrator {
         chain: inferChain(this.config.rpcUrl),
       })
       await waitForTransactionReceipt(this.client, { hash })
-      console.log(`[${daoName}:${shortId}] Autocrat vote finalized`)
     }
   }
 
@@ -569,17 +537,13 @@ export class AutocratOrchestrator {
     proposal: ProposalFromContract,
   ): Promise<void> {
     const { councilAddress, daoFull } = state
-    const daoName = daoFull.dao.name
-    const shortId = proposalId.slice(0, 10)
 
     if (proposal.hasResearch) return
-
-    console.log(`[${daoName}:${shortId}] Generating deep research...`)
 
     const researchAgent = getResearchAgent()
     const researchRequest: ResearchRequest = {
       proposalId,
-      title: `Proposal ${shortId}`,
+      title: `Proposal ${proposalId.slice(0, 10)}`,
       description: `${proposal.contentHash || 'No description'}\n\nType: ${proposal.proposalType}, Quality: ${proposal.qualityScore}`,
       proposalType: String(proposal.proposalType),
       depth: 'standard',
@@ -588,13 +552,6 @@ export class AutocratOrchestrator {
     }
 
     const report = await researchAgent.conductResearch(researchRequest)
-
-    console.log(
-      `[${daoName}:${shortId}] Research complete: ${report.recommendation} (risk: ${report.riskLevel}, confidence: ${report.confidenceLevel}%)`,
-    )
-    console.log(
-      `[${daoName}:${shortId}] Key findings: ${report.keyFindings.slice(0, 2).join('; ')}`,
-    )
 
     if (this.account) {
       const hash = await writeContract(this.walletClient, {
@@ -609,9 +566,6 @@ export class AutocratOrchestrator {
         chain: inferChain(this.config.rpcUrl),
       })
       await waitForTransactionReceipt(this.client, { hash })
-      console.log(
-        `[${daoName}:${shortId}] Research on-chain: ${report.requestHash.slice(0, 12)}...`,
-      )
     }
   }
 
@@ -620,9 +574,7 @@ export class AutocratOrchestrator {
     proposalId: string,
     proposal: ProposalFromContract,
   ): Promise<void> {
-    const { councilAddress, daoFull } = state
-    const daoName = daoFull.dao.name
-    const shortId = proposalId.slice(0, 10)
+    const { councilAddress } = state
     const now = Math.floor(Date.now() / 1000)
 
     if (now < Number(proposal.autocratVoteEnd)) return
@@ -637,7 +589,6 @@ export class AutocratOrchestrator {
         chain: inferChain(this.config.rpcUrl),
       })
       await waitForTransactionReceipt(this.client, { hash })
-      console.log(`[${daoName}:${shortId}] Advanced to CEO queue`)
     }
   }
 
@@ -646,14 +597,8 @@ export class AutocratOrchestrator {
     proposalId: string,
     proposal: ProposalFromContract,
   ): Promise<void> {
-    const { councilAddress, ceoAgentAddress, daoFull } = state
-    const daoName = daoFull.dao.name
+    const { councilAddress, daoFull } = state
     const persona = daoFull.ceoPersona
-    const shortId = proposalId.slice(0, 10)
-
-    console.log(
-      `[${daoName}:${shortId}] CEO ${persona.name} processing decision...`,
-    )
 
     const votes = (await readContract(this.client, {
       address: councilAddress,
@@ -725,18 +670,13 @@ export class AutocratOrchestrator {
       decidedAt: Date.now(),
     })
 
-    console.log(
-      `[${daoName}:${shortId}] ${persona.name}: ${teeDecision.approved ? 'APPROVED' : 'REJECTED'} (${teeDecision.confidenceScore}%)`,
-    )
-    console.log(`[${daoName}:${shortId}] "${personaResponse.slice(0, 100)}..."`)
-
     if (
       this.account &&
-      ceoAgentAddress &&
-      ceoAgentAddress !== '0x0000000000000000000000000000000000000000'
+      state.ceoAgentAddress &&
+      state.ceoAgentAddress !== '0x0000000000000000000000000000000000000000'
     ) {
       const hash = await writeContract(this.walletClient, {
-        address: ceoAgentAddress,
+        address: state.ceoAgentAddress,
         abi: CEO_WRITE_ABI,
         functionName: 'recordDecision',
         args: [
@@ -751,7 +691,6 @@ export class AutocratOrchestrator {
         chain: inferChain(this.config.rpcUrl),
       })
       await waitForTransactionReceipt(this.client, { hash })
-      console.log(`[${daoName}:${shortId}] Decision on-chain`)
     }
   }
 
@@ -760,16 +699,11 @@ export class AutocratOrchestrator {
     proposalId: string,
     proposal: ProposalFromContract,
   ): Promise<void> {
-    const { councilAddress, daoFull } = state
-    const daoName = daoFull.dao.name
-    const shortId = proposalId.slice(0, 10)
+    const { councilAddress } = state
     const now = Math.floor(Date.now() / 1000)
     const gracePeriodEnd = Number(proposal.gracePeriodEnd)
 
     if (now < gracePeriodEnd) {
-      console.log(
-        `[${daoName}:${shortId}] Grace period (${gracePeriodEnd - now}s remaining)`,
-      )
       return
     }
 
@@ -783,7 +717,6 @@ export class AutocratOrchestrator {
         chain: inferChain(this.config.rpcUrl),
       })
       await waitForTransactionReceipt(this.client, { hash })
-      console.log(`[${daoName}:${shortId}] Executed`)
     }
   }
 
@@ -806,21 +739,7 @@ export class AutocratOrchestrator {
           !epoch.finalized &&
           Date.now() / 1000 > epoch.endTime
         ) {
-          console.log(
-            `[${daoName}] Finalizing funding epoch ${epoch.epochId}...`,
-          )
-
-          // Get allocations before finalizing
-          const allocations = await this.daoService.getFundingAllocations(daoId)
-          console.log(`[${daoName}] Epoch ${epoch.epochId} allocations:`)
-          for (const alloc of allocations.slice(0, 5)) {
-            console.log(
-              `  - ${alloc.projectName}: ${alloc.allocationPercentage.toFixed(1)}%`,
-            )
-          }
-
           await this.daoService.finalizeEpoch(daoId)
-          console.log(`[${daoName}] Epoch ${epoch.epochId} finalized`)
         }
 
         // Auto-set CEO weights for new projects
@@ -834,9 +753,6 @@ export class AutocratOrchestrator {
             const weight = this.calculateProjectWeight(project, state.daoFull)
             if (weight > 0) {
               await this.daoService.setCEOWeight(project.projectId, weight)
-              console.log(
-                `[${daoName}] Set CEO weight for ${project.name}: ${weight / 100}%`,
-              )
             }
           }
         }

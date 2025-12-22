@@ -2,6 +2,7 @@
  * HTTP utilities for CLI
  *
  * Shared fetch wrappers with proper typing and fail-fast error handling.
+ * Includes typed fetch factory for type-safe API calls.
  */
 
 import type { z } from 'zod'
@@ -119,4 +120,66 @@ export async function waitForHealth(
     await new Promise((r) => setTimeout(r, interval))
   }
   return false
+}
+
+/**
+ * Create authenticated fetch function for Eden clients
+ */
+export function createAuthenticatedFetch(
+  headers: Record<string, string>,
+  timeout = 30000,
+) {
+  return async (url: string | URL, init?: RequestInit): Promise<Response> => {
+    const initHeaders = init?.headers as Record<string, string> | undefined
+    return fetch(url, {
+      ...init,
+      headers: {
+        ...initHeaders,
+        ...headers,
+      },
+      signal: AbortSignal.timeout(timeout),
+    })
+  }
+}
+
+/**
+ * Create typed fetch function for Eden-style typed HTTP clients.
+ * Use this with custom client classes instead of treaty() for CLI commands.
+ */
+export function createTypedFetch(
+  baseUrl: string,
+  options: {
+    headers?: Record<string, string>
+    timeout?: number
+  } = {},
+) {
+  const { headers = {}, timeout = 30000 } = options
+  const normalizedUrl = baseUrl.replace(/\/$/, '')
+
+  return async function typedFetch<T>(
+    path: string,
+    init?: RequestInit & { body?: JsonValue },
+  ): Promise<T> {
+    const requestHeaders: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...headers,
+      ...(init?.headers as Record<string, string> | undefined),
+    }
+
+    const response = await fetch(`${normalizedUrl}${path}`, {
+      ...init,
+      headers: requestHeaders,
+      body: init?.body ? JSON.stringify(init.body) : undefined,
+      signal: AbortSignal.timeout(timeout),
+    })
+
+    if (!response.ok) {
+      const error = await response.text().catch(() => '')
+      throw new Error(
+        `HTTP ${response.status}: ${error || response.statusText}`,
+      )
+    }
+
+    return response.json() as Promise<T>
+  }
 }

@@ -6,10 +6,6 @@
 
 import { z } from 'zod'
 
-// ============================================================================
-// VPN Node Schemas
-// ============================================================================
-
 export const VPNNodeCapabilitiesSchema = z
   .object({
     supports_wireguard: z.boolean(),
@@ -72,10 +68,6 @@ export const VPNStatusSchema = z
 
 export type VPNStatus = z.infer<typeof VPNStatusSchema>
 export type VPNConnection = z.infer<typeof VPNConnectionSchema>
-
-// ============================================================================
-// Connection Stats Schemas
-// ============================================================================
 
 export const ConnectionStatsSchema = z
   .object({
@@ -173,10 +165,6 @@ export type ContributionStats = z.infer<typeof ContributionStatsSchema>
 export type ContributionSettings = z.infer<typeof ContributionSettingsSchema>
 export type BandwidthState = z.infer<typeof BandwidthStateSchema>
 export type DWSState = z.infer<typeof DWSStateSchema>
-
-// ============================================================================
-// Helper Functions - Re-export from shared
-// ============================================================================
 
 export {
   expect,

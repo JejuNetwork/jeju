@@ -1,7 +1,3 @@
-/**
- * Documentation Playwright Configuration
- * Uses shared config from @jejunetwork/tests
- */
 import { createAppConfig } from '@jejunetwork/tests'
 
 const DOCS_PORT = parseInt(process.env.DOCUMENTATION_PORT || '4004', 10)

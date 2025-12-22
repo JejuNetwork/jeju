@@ -187,7 +187,6 @@ export function hasCombatStats(item: GameItem): boolean {
   return item.attack > 0 || item.defense > 0 || item.strength > 0
 }
 
-// Re-export formatAddress from shared package for backwards compatibility
 export { formatAddress } from '@jejunetwork/shared'
 
 /**

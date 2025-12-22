@@ -749,6 +749,11 @@ ${bindings}
       usedCpu += workload.config.resources.cpuMillis
     }
 
+    // Check for GPU availability via environment or capability detection
+    const gpuAvailable =
+      process.env.GPU_AVAILABLE === 'true' ||
+      process.env.NVIDIA_VISIBLE_DEVICES !== undefined
+
     return {
       availableCpuMillis: Math.max(0, 4000 - usedCpu),
       availableMemoryMb: Math.max(
@@ -756,7 +761,7 @@ ${bindings}
         this.config.maxWorkloads * this.config.maxMemoryPerWorkload -
           usedMemory,
       ),
-      gpuAvailable: false, // TODO: GPU detection
+      gpuAvailable,
     }
   }
 }

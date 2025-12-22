@@ -57,8 +57,6 @@ export function LoginModal({
       setError(null)
 
       if (!codeSent) {
-        // Send magic link / OTP
-        // This would call the TEE agent
         setCodeSent(true)
       } else {
         // Verify code

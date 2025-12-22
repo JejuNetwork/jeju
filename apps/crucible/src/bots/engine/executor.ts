@@ -454,6 +454,7 @@ export class TransactionExecutor {
       blockNumber: Number(receipt.blockNumber),
       gasUsed: receipt.gasUsed.toString(),
       actualProfit: actualProfit.toString(),
+      error: null,
       executedAt: Date.now(),
       durationMs: Date.now() - context.startTime,
     }
@@ -681,6 +682,7 @@ export class TransactionExecutor {
           blockNumber: Number(stats.blockNumber),
           gasUsed: totalGasUsed.toString(),
           actualProfit: actualProfit.toString(),
+          error: null,
           executedAt: Date.now(),
           durationMs: Date.now() - context.startTime,
         }
@@ -795,6 +797,7 @@ export class TransactionExecutor {
       blockNumber: Number(backrunReceipt.blockNumber),
       gasUsed: (frontrunReceipt.gasUsed + backrunReceipt.gasUsed).toString(),
       actualProfit: actualProfit.toString(),
+      error: null,
       executedAt: Date.now(),
       durationMs: Date.now() - context.startTime,
     }
@@ -885,6 +888,7 @@ export class TransactionExecutor {
       blockNumber: Number(receipt.blockNumber),
       gasUsed: receipt.gasUsed.toString(),
       actualProfit: actualProfit.toString(),
+      error: null,
       executedAt: Date.now(),
       durationMs: Date.now() - context.startTime,
     }
@@ -934,6 +938,10 @@ export class TransactionExecutor {
     return {
       opportunityId: opportunity.id,
       success: false,
+      txHash: null,
+      blockNumber: null,
+      gasUsed: null,
+      actualProfit: null,
       error,
       executedAt: Date.now(),
       durationMs: Date.now() - startTime,

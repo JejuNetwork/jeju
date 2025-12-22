@@ -49,7 +49,9 @@ const WORKERD_PATH = findWorkerd()
 const WORKERD_AVAILABLE = WORKERD_PATH !== null
 
 if (!WORKERD_AVAILABLE) {
-  console.log('[Test] workerd not found - run "bun run install:workerd" to install')
+  console.log(
+    '[Test] workerd not found - run "bun run install:workerd" to install',
+  )
   console.log('[Test] Integration tests will be skipped')
 } else {
   console.log(`[Test] workerd found at: ${WORKERD_PATH}`)
@@ -347,9 +349,12 @@ export default {
 
       // Invoke worker
       if (statusData.status === 'active') {
-        const invokeRes = await request(`/workerd/${deployData.workerId}/http/test`, {
-          method: 'GET',
-        })
+        const invokeRes = await request(
+          `/workerd/${deployData.workerId}/http/test`,
+          {
+            method: 'GET',
+          },
+        )
 
         expect(invokeRes.status).toBe(200)
         const invokeData = (await invokeRes.json()) as {

@@ -108,7 +108,6 @@ class SelectBuilder<T extends Record<string, unknown>> {
   }
 
   orderBy(column: string, direction: 'asc' | 'desc' = 'asc'): this {
-    // Validate column name to prevent SQL injection
     const safeColumn = validateSQLIdentifier(column, 'column')
     this.orderByClause = `${safeColumn} ${direction.toUpperCase()}`
     return this
@@ -169,7 +168,6 @@ class InsertBuilder<T extends Record<string, unknown>> {
   constructor(client: CQLClient, databaseId: string, table: TableRef<T>) {
     this.client = client
     this.databaseId = databaseId
-    // Validate table name to prevent SQL injection
     this.tableName = validateSQLIdentifier(table._.name, 'table')
   }
 
@@ -184,7 +182,6 @@ class InsertBuilder<T extends Record<string, unknown>> {
     }
 
     const columns = Object.keys(this.data[0])
-    // Validate column names to prevent SQL injection
     const safeColumns = validateSQLIdentifiers(columns, 'column')
     const placeholders = safeColumns.map(() => '?').join(', ')
     const allParams: SQLValue[] = []
@@ -219,7 +216,6 @@ class UpdateBuilder<T extends Record<string, unknown>> {
   constructor(client: CQLClient, databaseId: string, table: TableRef<T>) {
     this.client = client
     this.databaseId = databaseId
-    // Validate table name to prevent SQL injection
     this.tableName = validateSQLIdentifier(table._.name, 'table')
   }
 
@@ -246,7 +242,6 @@ class UpdateBuilder<T extends Record<string, unknown>> {
       throw new Error('No values to update')
     }
 
-    // Validate column names to prevent SQL injection
     const safeColumns = validateSQLIdentifiers(columns, 'column')
     const setClause = safeColumns.map((col) => `${col} = ?`).join(', ')
     const params: SQLValue[] = columns.map(
@@ -273,7 +268,6 @@ class DeleteBuilder<T extends Record<string, unknown>> {
   constructor(client: CQLClient, databaseId: string, table: TableRef<T>) {
     this.client = client
     this.databaseId = databaseId
-    // Validate table name to prevent SQL injection
     this.tableName = validateSQLIdentifier(table._.name, 'table')
   }
 

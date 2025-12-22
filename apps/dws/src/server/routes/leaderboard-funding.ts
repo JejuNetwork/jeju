@@ -1,17 +1,9 @@
 /**
  * Leaderboard → Funding Integration
- *
- * Syncs leaderboard scores to DeepFundingDistributor weights.
- * This creates the bridge between contribution tracking and funding distribution.
- *
- * Flow:
- * 1. Leaderboard tracks Git, NPM, and community contributions
- * 2. Scores are aggregated by contributor
- * 3. Contributor wallets are looked up from ContributorRegistry
- * 4. Weights are set on DeepFundingDistributor
  */
 
-import { Hono } from 'hono'
+import { cors } from '@elysiajs/cors'
+import { Elysia, t } from 'elysia'
 import {
   type Address,
   createPublicClient,
@@ -21,8 +13,6 @@ import {
   parseAbi,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-
-// ============ Types ============
 
 interface LeaderboardEntry {
   username: string
@@ -35,14 +25,6 @@ interface LeaderboardEntry {
     commitScore: number
   }
 }
-
-interface ContributorWeight {
-  contributorId: string
-  weight: number
-  source: string
-}
-
-// ============ ABIs ============
 
 const CONTRIBUTOR_REGISTRY_ABI = [
   {
@@ -87,40 +69,26 @@ const DEEP_FUNDING_DISTRIBUTOR_ABI = parseAbi([
   'function setContributorWeight(bytes32 daoId, bytes32 contributorId, uint256 weight) external',
 ])
 
-// ============ Leaderboard Fetcher ============
+const MAX_WEIGHT = 10000
 
 async function fetchLeaderboard(
   limit: number = 50,
 ): Promise<LeaderboardEntry[]> {
   const leaderboardUrl = process.env.LEADERBOARD_URL || 'http://127.0.0.1:3002'
 
-  try {
-    const response = await fetch(
-      `${leaderboardUrl}/api/leaderboard?limit=${limit}`,
-    )
-    if (!response.ok) {
-      throw new Error(`Leaderboard fetch failed: ${response.status}`)
-    }
+  const response = await fetch(
+    `${leaderboardUrl}/api/leaderboard?limit=${limit}`,
+  )
+  if (!response.ok) return []
 
-    const data = (await response.json()) as { contributors: LeaderboardEntry[] }
-    return data.contributors || []
-  } catch (err) {
-    console.error('[LeaderboardFunding] Failed to fetch leaderboard:', err)
-    return []
-  }
+  const data = (await response.json()) as { contributors: LeaderboardEntry[] }
+  return data.contributors || []
 }
-
-// ============ Score to Weight Conversion ============
-
-const MAX_WEIGHT = 10000 // Max basis points
 
 function scoreToWeight(score: number, maxScore: number): number {
   if (maxScore <= 0) return 0
-  // Normalize to basis points, cap at 1000 (10% max for any single contributor)
   return Math.min(Math.floor((score / maxScore) * MAX_WEIGHT), 1000)
 }
-
-// ============ Sync Logic ============
 
 async function syncLeaderboardToFunding(
   daoId: string,
@@ -139,15 +107,11 @@ async function syncLeaderboardToFunding(
 
   const account = privateKeyToAccount(adminKey as Hex)
   const publicClient = createPublicClient({ transport: http(rpcUrl) })
-  const walletClient = createWalletClient({
-    account,
-    transport: http(rpcUrl),
-  })
+  const walletClient = createWalletClient({ account, transport: http(rpcUrl) })
 
   const errors: string[] = []
   let synced = 0
 
-  // Fetch leaderboard
   const leaderboard = await fetchLeaderboard(limit)
   if (leaderboard.length === 0) {
     return { synced: 0, errors: ['No leaderboard data'] }
@@ -156,129 +120,111 @@ async function syncLeaderboardToFunding(
   const maxScore = Math.max(...leaderboard.map((e) => e.totalScore))
 
   for (const entry of leaderboard) {
-    try {
-      // Look up contributor by GitHub handle
-      // First, we need to find contributors with verified GitHub matching this username
-      // This is a simplified version - in production, you'd query by social link
+    if (!entry.wallet) continue
 
-      if (!entry.wallet) {
-        continue // Skip if no wallet linked
-      }
+    const contributorData = (await publicClient.readContract({
+      address: contributorRegistryAddress,
+      abi: CONTRIBUTOR_REGISTRY_ABI,
+      functionName: 'getContributorByWallet',
+      args: [entry.wallet as Address],
+    })) as [
+      Hex,
+      Address,
+      bigint,
+      number,
+      string,
+      bigint,
+      bigint,
+      bigint,
+      boolean,
+    ]
 
-      // Get contributor ID from wallet
-      const contributorData = (await publicClient.readContract({
-        address: contributorRegistryAddress,
-        abi: CONTRIBUTOR_REGISTRY_ABI,
-        functionName: 'getContributorByWallet',
-        args: [entry.wallet as Address],
-      })) as [
-        Hex,
-        Address,
-        bigint,
-        number,
-        string,
-        bigint,
-        bigint,
-        bigint,
-        boolean,
-      ]
+    const contributorId = contributorData[0]
+    if (contributorId === `0x${'0'.repeat(64)}`) continue
 
-      const contributorId = contributorData[0]
+    const weight = scoreToWeight(entry.totalScore, maxScore)
+    if (weight < 10) continue
 
-      if (contributorId === `0x${'0'.repeat(64)}`) {
-        continue // Not registered
-      }
-
-      // Calculate weight
-      const weight = scoreToWeight(entry.totalScore, maxScore)
-
-      if (weight < 10) {
-        continue // Below minimum threshold
-      }
-
-      // Set weight on distributor
-      await walletClient.writeContract({
+    await walletClient
+      .writeContract({
         address: distributorAddress,
         abi: DEEP_FUNDING_DISTRIBUTOR_ABI,
         functionName: 'setContributorWeight',
         args: [daoId as Hex, contributorId, BigInt(weight)],
+        chain: walletClient.chain ?? null,
+        account: walletClient.account ?? null,
+      })
+      .catch((err) => {
+        errors.push(
+          `${entry.username}: ${err instanceof Error ? err.message : 'Unknown error'}`,
+        )
       })
 
-      synced++
-      console.log(
-        `[LeaderboardFunding] Set weight ${weight} for ${entry.username}`,
-      )
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Unknown error'
-      errors.push(`${entry.username}: ${msg}`)
-    }
+    synced++
   }
 
   return { synced, errors }
 }
 
-// ============ Router ============
+const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',').filter(Boolean)
+const isProduction = process.env.NODE_ENV === 'production'
 
-export function createLeaderboardFundingRouter(): Hono {
-  const router = new Hono()
+export function createLeaderboardFundingRouter() {
+  return new Elysia()
+    .use(
+      cors({
+        origin: isProduction && CORS_ORIGINS?.length ? CORS_ORIGINS : true,
+        credentials: true,
+      }),
+    )
+    .post(
+      '/sync',
+      async ({ body }) => {
+        const result = await syncLeaderboardToFunding(
+          body.daoId,
+          body.limit || 50,
+        )
+        return result
+      },
+      { body: t.Object({ daoId: t.String(), limit: t.Optional(t.Number()) }) },
+    )
+    .post(
+      '/preview',
+      async ({ body }) => {
+        const leaderboard = await fetchLeaderboard(body.limit || 50)
+        if (leaderboard.length === 0) {
+          return { contributors: [], maxScore: 0 }
+        }
 
-  // Trigger sync
-  router.post('/sync', async (c) => {
-    const body = (await c.req.json()) as { daoId: string; limit?: number }
+        const maxScore = Math.max(...leaderboard.map((e) => e.totalScore))
 
-    if (!body.daoId) {
-      return c.json({ error: 'daoId required' }, 400)
-    }
+        const preview = leaderboard.map((entry) => ({
+          username: entry.username,
+          wallet: entry.wallet,
+          score: entry.totalScore,
+          suggestedWeight: scoreToWeight(entry.totalScore, maxScore),
+          hasWallet: !!entry.wallet,
+        }))
 
-    const result = await syncLeaderboardToFunding(body.daoId, body.limit || 50)
-    return c.json(result)
-  })
+        return {
+          contributors: preview,
+          maxScore,
+          totalWithWallets: preview.filter((p) => p.hasWallet).length,
+        }
+      },
+      { body: t.Object({ limit: t.Optional(t.Number()) }) },
+    )
+    .get('/health', async () => {
+      const leaderboardUrl =
+        process.env.LEADERBOARD_URL || 'http://127.0.0.1:3002'
 
-  // Preview sync (dry run)
-  router.post('/preview', async (c) => {
-    const body = (await c.req.json()) as { limit?: number }
-
-    const leaderboard = await fetchLeaderboard(body.limit || 50)
-    if (leaderboard.length === 0) {
-      return c.json({ contributors: [], maxScore: 0 })
-    }
-
-    const maxScore = Math.max(...leaderboard.map((e) => e.totalScore))
-
-    const preview = leaderboard.map((entry) => ({
-      username: entry.username,
-      wallet: entry.wallet,
-      score: entry.totalScore,
-      suggestedWeight: scoreToWeight(entry.totalScore, maxScore),
-      hasWallet: !!entry.wallet,
-    }))
-
-    return c.json({
-      contributors: preview,
-      maxScore,
-      totalWithWallets: preview.filter((p) => p.hasWallet).length,
-    })
-  })
-
-  // Health
-  router.get('/health', async (c) => {
-    const leaderboardUrl =
-      process.env.LEADERBOARD_URL || 'http://127.0.0.1:3002'
-
-    let leaderboardUp = false
-    try {
       const response = await fetch(`${leaderboardUrl}/health`)
-      leaderboardUp = response.ok
-    } catch {
-      // Leaderboard not reachable
-    }
+      const leaderboardUp = response.ok
 
-    return c.json({
-      leaderboardUrl,
-      leaderboardUp,
-      configured: !!process.env.DAO_ADMIN_PRIVATE_KEY,
+      return {
+        leaderboardUrl,
+        leaderboardUp,
+        configured: !!process.env.DAO_ADMIN_PRIVATE_KEY,
+      }
     })
-  })
-
-  return router
 }

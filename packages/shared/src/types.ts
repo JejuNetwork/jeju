@@ -4,9 +4,7 @@
  * Common types used across the shared package.
  */
 
-// ============================================================================
 // SQL Types
-// ============================================================================
 
 /**
  * Valid SQL parameter types for query binding.
@@ -39,9 +37,7 @@ export interface SoftDeletable {
   deleted_at: string | null
 }
 
-// ============================================================================
 // JSON-RPC Types
-// ============================================================================
 
 /**
  * Valid JSON-RPC request ID per spec (string, number, or null).
@@ -88,9 +84,7 @@ export interface JsonRpcResponse<T = RpcParam> {
   error?: JsonRpcError
 }
 
-// ============================================================================
 // Protocol Data Types
-// ============================================================================
 
 /**
  * Generic protocol data object.

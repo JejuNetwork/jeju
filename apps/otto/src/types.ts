@@ -4,10 +4,6 @@
 
 import type { Address, Hex } from 'viem'
 
-// ============================================================================
-// Platform Types
-// ============================================================================
-
 export type Platform =
   | 'discord'
   | 'telegram'
@@ -87,10 +83,6 @@ export interface UserSettings {
   preferredTokens?: Address[]
 }
 
-// ============================================================================
-// Trading Types
-// ============================================================================
-
 export interface TokenInfo {
   address: Address
   chainId: number
@@ -145,10 +137,6 @@ export interface SwapResult {
   toAmount: string
   error?: string
 }
-
-// ============================================================================
-// Bridge / Cross-Chain Types
-// ============================================================================
 
 export interface BridgeQuote {
   quoteId: string
@@ -212,10 +200,6 @@ export interface TokenLaunchResult {
   error?: string
 }
 
-// ============================================================================
-// Limit Order Types
-// ============================================================================
-
 export interface LimitOrder {
   orderId: string
   userId: string
@@ -240,10 +224,6 @@ export interface CreateLimitOrderParams {
   chainId?: number
   expiresIn?: number
 }
-
-// ============================================================================
-// Command Types
-// ============================================================================
 
 export type CommandName =
   | 'help'
@@ -414,10 +394,6 @@ export interface WebhookPayload {
   signature?: string
 }
 
-// ============================================================================
-// Config Types
-// ============================================================================
-
 export interface OttoConfig {
   port: number
   webhookPort: number
@@ -574,10 +550,6 @@ export interface PendingTransaction {
   updatedAt: number
   data: PendingActionData | { orderId: string }
 }
-
-// ============================================================================
-// Chat API Types
-// ============================================================================
 
 export interface ChatMessage {
   id: string

@@ -4,8 +4,6 @@
 
 import type { Address } from 'viem'
 
-// ============ Enums ============
-
 export const DAOStatus = {
   PENDING: 0,
   ACTIVE: 1,
@@ -69,8 +67,6 @@ export const FundingStatus = {
   REJECTED: 5,
 } as const
 export type FundingStatus = (typeof FundingStatus)[keyof typeof FundingStatus]
-
-// ============ DAO Types ============
 
 export interface CEOPersona {
   name: string
@@ -177,8 +173,6 @@ export interface DAOAgents {
   fundingAgent: AgentConfig
 }
 
-// ============ Funding Types ============
-
 export interface FundingConfig {
   minStake: bigint
   maxStake: bigint
@@ -235,8 +229,6 @@ export interface FundingAllocation {
   allocation: bigint
   allocationPercentage: number
 }
-
-// ============ Proposal Types ============
 
 export interface Proposal {
   id: string
@@ -347,8 +339,6 @@ export interface QualityAssessment {
   readyToSubmit: boolean
 }
 
-// ============ Council Types ============
-
 export const CouncilRole = {
   TREASURY: 0,
   CODE: 1,
@@ -405,8 +395,6 @@ export interface CouncilDeliberation {
   requiredChanges: string[]
 }
 
-// ============ CEO Types ============
-
 export interface CEODecision {
   proposalId: string
   daoId: string
@@ -448,8 +436,6 @@ export interface CEOModelCandidate {
   status: 'candidate' | 'active' | 'deprecated'
 }
 
-// ============ Reputation Types ============
-
 export interface ProposerReputation {
   address: Address
   agentId: bigint
@@ -473,8 +459,6 @@ export interface BackerInfo {
   backedAt: number
   signature: string
 }
-
-// ============ Research Types ============
 
 export interface ResearchReport {
   proposalId: string
@@ -502,8 +486,6 @@ export interface ResearchSection {
   sources: string[]
   confidence: number
 }
-
-// ============ Veto Types ============
 
 export interface VetoVote {
   proposalId: string
@@ -543,8 +525,6 @@ export interface ProposalComment {
   downvotes: number
 }
 
-// ============ Market Types ============
-
 export interface VetoMarket {
   proposalId: string
   daoId: string
@@ -557,8 +537,6 @@ export interface VetoMarket {
   resolved: boolean
   outcome: boolean | null
 }
-
-// ============ Execution Types ============
 
 export interface ExecutionPlan {
   proposalId: string
@@ -581,9 +559,6 @@ export interface ExecutionStep {
   txHash: string | null
   executedAt: number | null
 }
-
-// ============ Stored Object Types ============
-// Used by local-services.ts and state.ts for type-safe storage
 
 export interface VoteStorage {
   type: 'vote'
@@ -687,8 +662,6 @@ export type StoredObject =
   | AutocratVoteDetailStorage
   | CEODecisionDetailStorage
 
-// ============ A2A Skill Parameter Types ============
-
 export interface A2AChatParams {
   message: string
   agent?: 'ceo' | 'treasury' | 'code' | 'community' | 'security'
@@ -770,8 +743,6 @@ export type A2ASkillParams =
   | A2AListProposalsParams
   | Record<string, never> // Empty params for status endpoints
 
-// ============ A2A Skill Result Types ============
-
 export interface SkillResultData {
   [key: string]:
     | string
@@ -787,8 +758,6 @@ export interface A2ASkillResult {
   message: string
   data: SkillResultData
 }
-
-// ============ Communication Types ============
 
 export interface A2AMessage {
   messageId: string
@@ -806,8 +775,6 @@ export interface A2AResponse {
   result: A2ASkillResult | null
   error: string | null
 }
-
-// ============ Configuration Types ============
 
 export interface AutocratConfig {
   rpcUrl: string
@@ -850,8 +817,6 @@ export interface AgentConfig {
   persona?: CEOPersona
 }
 
-// ============ Package/Repo Types ============
-
 export interface PackageInfo {
   packageId: string
   name: string
@@ -880,8 +845,6 @@ export interface RepoInfo {
   updatedAt: number
 }
 
-// ============ Model Types ============
-
 export interface ModelInfo {
   modelId: string
   name: string
@@ -904,8 +867,6 @@ export interface ModelDelegation {
   amount: bigint
   delegatedAt: number
 }
-
-// ============ Event Types ============
 
 export type AutocratEventType =
   | 'ProposalSubmitted'
@@ -986,8 +947,6 @@ export interface AutocratEvent {
   transactionHash: string
 }
 
-// ============ Statistics Types ============
-
 export interface DAOStats {
   daoId: string
   totalProposals: number
@@ -1015,8 +974,6 @@ export interface FundingStats {
   totalDistributed: bigint
   uniqueStakers: number
 }
-
-// ============ Bug Bounty Types ============
 
 export const BountySeverity = {
   LOW: 0,

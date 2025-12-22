@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query'
 import {
   Bot,
   Box,
@@ -11,7 +12,7 @@ import {
   Sparkles,
   Zap,
 } from 'lucide-react'
-import { type ComponentType, useCallback, useEffect, useState } from 'react'
+import { type ComponentType, useEffect, useState } from 'react'
 import { INDEXER_URL } from '../config'
 
 // Icon aliases for React 19 compatibility
@@ -190,36 +191,45 @@ export default function RegisteredAppsList({
   const [x402Only, setX402Only] = useState(false)
   const [activeOnly, setActiveOnly] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-  const [apps, setApps] = useState<RegisteredApp[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [debouncedSearch, setDebouncedSearch] = useState('')
 
-  const fetchApps = useCallback(async () => {
-    setIsLoading(true)
-    setError(null)
-    const results = await fetchAgentsFromIndexer({
-      search: searchQuery || undefined,
-      tag: selectedTag !== 'all' ? selectedTag : undefined,
-      serviceType: selectedType !== 'all' ? selectedType : undefined,
-      category: selectedCategory !== 'all' ? selectedCategory : undefined,
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300)
+    return () => clearTimeout(timer)
+  }, [searchQuery])
+
+  const {
+    data: apps = [],
+    isLoading,
+    error: queryError,
+    refetch,
+  } = useQuery({
+    queryKey: [
+      'registered-apps',
+      debouncedSearch,
+      selectedTag,
+      selectedType,
+      selectedCategory,
       x402Only,
       activeOnly,
-    })
-    setApps(results)
-    setIsLoading(false)
-  }, [
-    searchQuery,
-    selectedTag,
-    selectedType,
-    selectedCategory,
-    x402Only,
-    activeOnly,
-  ])
+    ],
+    queryFn: () =>
+      fetchAgentsFromIndexer({
+        search: debouncedSearch || undefined,
+        tag: selectedTag !== 'all' ? selectedTag : undefined,
+        serviceType: selectedType !== 'all' ? selectedType : undefined,
+        category: selectedCategory !== 'all' ? selectedCategory : undefined,
+        x402Only,
+        activeOnly,
+      }),
+  })
 
-  useEffect(() => {
-    const debounce = setTimeout(fetchApps, 300)
-    return () => clearTimeout(debounce)
-  }, [fetchApps])
+  const fetchApps = () => {
+    refetch()
+  }
+
+  const error = queryError?.message ?? null
 
   return (
     <div>

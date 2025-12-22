@@ -26,14 +26,7 @@ import {
 import type { ChainId, NetworkName } from './types'
 import { CHAIN_IDS, isValidAddress } from './types'
 
-// ============================================================================
-// Helper Functions (Internal)
-// ============================================================================
-
-/**
- * Convert a validated address string to Address type, or undefined if invalid
- */
-function toAddress(address: string | null | undefined): Address | undefined {
+function toAddress(address: string | undefined): Address | undefined {
   return isValidAddress(address) ? address : undefined
 }
 
@@ -49,16 +42,10 @@ import localnetAddresses_raw from '../deployments/localnet-addresses.json'
 import paymasterSystemLocalnet_raw from '../deployments/paymaster-system-localnet.json'
 import predimarket1337_raw from '../deployments/predimarket-1337.json'
 import rpgTokens1337_raw from '../deployments/rpg-tokens-1337.json'
-// Import deployment JSONs
 import uniswapV4_1337_raw from '../deployments/uniswap-v4-1337.json'
 import uniswapV4_420691_raw from '../deployments/uniswap-v4-420691.json'
 import xlpAmmLocalnet_raw from '../deployments/xlp-amm-localnet.json'
 
-// ============================================================================
-// Validated Deployment Data
-// ============================================================================
-
-// Parse deployment JSONs with validation at import time
 const uniswapV4_1337 = UniswapV4DeploymentSchema.parse(uniswapV4_1337_raw)
 const uniswapV4_420691 = UniswapV4DeploymentSchema.parse(uniswapV4_420691_raw)
 const bazaarMarketplace1337 = BazaarMarketplaceDeploymentSchema.parse(
@@ -78,10 +65,6 @@ const paymasterSystemLocalnet = PaymasterSystemDeploymentSchema.parse(
 const gameSystem1337 = GameSystemDeploymentSchema.parse(gameSystem1337_raw)
 const xlpAmmLocalnet = XLPDeploymentSchema.parse(xlpAmmLocalnet_raw)
 const launchpadLocalnet = LaunchpadDeploymentSchema.parse(launchpadLocalnet_raw)
-
-// ============================================================================
-// Typed Deployment Exports
-// ============================================================================
 
 export const uniswapV4Deployments: Partial<
   Record<ChainId, UniswapV4Deployment>
@@ -137,14 +120,6 @@ export const launchpadDeployments: Partial<
   420691: launchpadLocalnet,
 }
 
-// ============================================================================
-// Helper Functions
-// ============================================================================
-
-/**
- * Get Uniswap V4 contract addresses for a chain
- * @throws Error if chain is not supported
- */
 export function getUniswapV4(chainId: ChainId): UniswapV4Deployment {
   const deployment = uniswapV4Deployments[chainId]
   if (!deployment) {
@@ -339,10 +314,6 @@ export function getContractAddressesByNetwork(
   }
   return getContractAddresses(chainId)
 }
-
-// ============================================================================
-// Raw Deployment Exports (for advanced use cases)
-// ============================================================================
 
 export const rawDeployments = {
   uniswapV4_1337: uniswapV4_1337_raw,

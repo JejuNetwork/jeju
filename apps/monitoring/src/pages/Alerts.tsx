@@ -1,18 +1,19 @@
 import { RefreshCw, Search } from 'lucide-react'
 import { useState } from 'react'
 import { StatusBadge } from '../components/StatusBadge'
-import { useAlerts } from '../hooks/useMonitoring'
+import { type Alert, useAlerts } from '../hooks/useMonitoring'
 
 type SeverityFilter = 'all' | 'critical' | 'warning' | 'info'
 
 export function Alerts() {
-  const { alerts, loading, error, refetch } = useAlerts()
+  const { data, isLoading, error, refetch } = useAlerts()
   const [searchQuery, setSearchQuery] = useState('')
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('all')
 
-  const firingAlerts = alerts.filter((a) => a.state === 'firing')
+  const alerts = data?.alerts ?? []
+  const firingAlerts = alerts.filter((a: Alert) => a.state === 'firing')
 
-  const filteredAlerts = firingAlerts.filter((alert) => {
+  const filteredAlerts = firingAlerts.filter((alert: Alert) => {
     const matchesSearch =
       searchQuery === '' ||
       alert.labels.alertname
@@ -29,13 +30,13 @@ export function Alerts() {
   })
 
   const criticalCount = firingAlerts.filter(
-    (a) => a.labels.severity === 'critical',
+    (a: Alert) => a.labels.severity === 'critical',
   ).length
   const warningCount = firingAlerts.filter(
-    (a) => a.labels.severity === 'warning',
+    (a: Alert) => a.labels.severity === 'warning',
   ).length
   const infoCount = firingAlerts.filter(
-    (a) => !a.labels.severity || a.labels.severity === 'info',
+    (a: Alert) => !a.labels.severity || a.labels.severity === 'info',
   ).length
 
   return (
@@ -46,10 +47,10 @@ export function Alerts() {
         <button
           type="button"
           onClick={() => refetch()}
-          disabled={loading}
+          disabled={isLoading}
           className="btn-secondary flex items-center gap-2"
         >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
           Refresh
         </button>
       </div>
@@ -152,12 +153,12 @@ export function Alerts() {
           className="card-static p-4 text-center"
           style={{ borderColor: 'var(--color-error)' }}
         >
-          <p style={{ color: 'var(--color-error)' }}>{error}</p>
+          <p style={{ color: 'var(--color-error)' }}>{error.message}</p>
         </div>
       )}
 
       {/* List */}
-      {loading ? (
+      {isLoading ? (
         <div className="space-y-4">
           <div key="skeleton-0" className="card-static p-4">
             <div className="shimmer h-16 w-full rounded" />
@@ -185,21 +186,14 @@ export function Alerts() {
         </div>
       ) : (
         <div className="space-y-4">
-          {filteredAlerts.map((alert) => {
-            const alertKey = `${alert.labels.alertname || 'unknown'}-${alert.labels.instance || ''}-${alert.labels.job || ''}-${alert.activeAt || ''}`
+          {filteredAlerts.map((alert: Alert) => {
+            const alertKey = `${alert.labels.alertname || 'unknown'}-${alert.labels.instance || ''}-${alert.labels.job || ''}`
             return <AlertCard key={alertKey} alert={alert} />
           })}
         </div>
       )}
     </div>
   )
-}
-
-interface Alert {
-  state: string
-  labels: Record<string, string>
-  annotations: Record<string, string>
-  activeAt?: string
 }
 
 function AlertCard({ alert }: { alert: Alert }) {

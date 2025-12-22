@@ -24,8 +24,8 @@ export { LiquidationStrategy } from './liquidation'
 export {
   LiquidityManager,
   type PoolAnalysis,
-  type Position,
   type RebalanceAction,
+  type UnifiedPosition,
 } from './liquidity-manager'
 export { OracleKeeperStrategy } from './oracle-keeper'
 export { SandwichStrategy } from './sandwich'

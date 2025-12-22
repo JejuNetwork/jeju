@@ -54,10 +54,6 @@ function getPlatform(message: Memory): Platform {
   return 'web'
 }
 
-// ============================================================================
-// Helper Functions
-// ============================================================================
-
 async function getOrCreateUser(
   _runtime: IAgentRuntime,
   message: Memory,
@@ -76,10 +72,6 @@ async function getOrCreateUser(
 
   return expectValid(OttoUserSchema, user, 'getOrCreateUser')
 }
-
-// ============================================================================
-// Actions
-// ============================================================================
 
 export const swapAction: Action = {
   name: 'OTTO_SWAP',
@@ -604,10 +596,6 @@ export const helpAction: Action = {
   ],
 }
 
-// ============================================================================
-// Provider
-// ============================================================================
-
 export const ottoWalletProvider: Provider = {
   name: 'OTTO_WALLET_PROVIDER',
   description: 'Provides Otto wallet context and user state',
@@ -634,10 +622,6 @@ Pending action: ${pending ? pending.type : 'None'}`,
     }
   },
 }
-
-// ============================================================================
-// Plugin Export
-// ============================================================================
 
 export const ottoPlugin: Plugin = {
   name: 'otto',

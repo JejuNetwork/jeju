@@ -126,8 +126,8 @@ export const CreateTokenParamsSchema = z.object({
   chainId: z.union([EvmChainIdSchema, SolanaNetworkIdSchema]),
   metadata: TokenMetadataSchema,
   initialSupply: BigIntSchema.optional(),
-  bondingCurveEnabled: z.boolean().optional(),
-  aiGenerated: z.boolean().optional(),
+  bondingCurveEnabled: z.boolean().default(false),
+  aiGenerated: z.boolean().default(false),
 })
 
 export type CreateTokenParams = z.infer<typeof CreateTokenParamsSchema>

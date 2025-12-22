@@ -14,10 +14,6 @@
 import { formatEther } from 'viem'
 import { arbitrum, base, bsc, mainnet, optimism } from 'viem/chains'
 
-// =============================================================================
-// CONFIGURATION
-// =============================================================================
-
 const CHAINS = [
   { name: 'Ethereum', chain: mainnet, avgGasPrice: 30 }, // 30 gwei
   { name: 'Base', chain: base, avgGasPrice: 0.01 }, // 0.01 gwei
@@ -28,10 +24,6 @@ const CHAINS = [
 
 const ETH_PRICE_USD = 2000
 const BNB_PRICE_USD = 300
-
-// =============================================================================
-// GAS ESTIMATES
-// =============================================================================
 
 interface GasEstimate {
   operation: string
@@ -150,10 +142,6 @@ const GAS_ESTIMATES: GasEstimate[] = [
   },
 ]
 
-// =============================================================================
-// ANALYSIS
-// =============================================================================
-
 interface ChainCostAnalysis {
   chain: string
   gasPriceGwei: number
@@ -214,10 +202,6 @@ function analyzeChain(
   }
 }
 
-// =============================================================================
-// BATCH ANALYSIS
-// =============================================================================
-
 interface BatchSizeAnalysis {
   batchSize: number
   proofCostPerTransfer: number
@@ -257,10 +241,6 @@ function analyzeBatchSizes(): BatchSizeAnalysis[] {
 
   return results
 }
-
-// =============================================================================
-// REPORT GENERATION
-// =============================================================================
 
 function generateReport(): void {
   console.log(`\n${'='.repeat(90)}`)
@@ -401,9 +381,5 @@ function generateReport(): void {
   console.log('                              ANALYSIS COMPLETE')
   console.log(`${'='.repeat(90)}\n`)
 }
-
-// =============================================================================
-// MAIN
-// =============================================================================
 
 generateReport()

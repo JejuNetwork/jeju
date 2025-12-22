@@ -34,4 +34,3 @@ export const workerServerConfig: AppLoadTestConfig = {
     minRps: 1000,
   },
 }
-

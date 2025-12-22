@@ -27,12 +27,8 @@ import {
   serializeEncryptedMessage,
 } from '../sdk'
 
-// ============ Configuration ============
-
 const RELAY_PORT = 3200
 const RELAY_URL = `http://localhost:${RELAY_PORT}`
-
-// ============ Demo Participants ============
 
 interface DemoUser {
   name: string
@@ -47,8 +43,6 @@ function createDemoUser(name: string): DemoUser {
 
   return { name, address, keyPair }
 }
-
-// ============ Demo Flow ============
 
 async function runDemo(): Promise<void> {
   console.log('🔐 Network Decentralized Messaging - E2E Demo\n')
@@ -222,8 +216,6 @@ async function runDemo(): Promise<void> {
   console.log(`\n🔄 Relay node running at ${RELAY_URL}`)
   console.log('   Press Ctrl+C to stop.')
 }
-
-// ============ Run ============
 
 runDemo().catch((error) => {
   console.error('Demo failed:', error)

@@ -52,7 +52,7 @@ export interface EVMPosition {
   nftId?: bigint
 }
 
-export interface Position {
+export interface UnifiedPosition {
   id: string
   chain: 'evm' | 'solana'
   chainId: ChainId | 'solana-mainnet' | 'solana-devnet'
@@ -110,8 +110,6 @@ export interface LiquidityManagerConfig extends StrategyConfig {
   targetAprPercent: number
 }
 
-// ============ Constants ============
-
 const UNISWAP_V3_POSITIONS_NFT: Record<number, Address> = {
   1: '0xC36442b4a4522E871399CD717aBDD847Ab11FE88',
   42161: '0xC36442b4a4522E871399CD717aBDD847Ab11FE88',
@@ -131,8 +129,6 @@ const POSITION_NFT_ABI = parseAbi([
   'function balanceOf(address owner) view returns (uint256)',
   'function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)',
 ])
-
-// ============ Liquidity Manager ============
 
 export class LiquidityManager extends EventEmitter {
   private config: LiquidityManagerConfig
@@ -232,20 +228,20 @@ export class LiquidityManager extends EventEmitter {
   }
 
   /**
-   * Get all positions
+   * Get all unified positions
    */
-  getPositions(): Position[] {
-    const positions: Position[] = []
+  getPositions(): UnifiedPosition[] {
+    const unified: UnifiedPosition[] = []
 
     for (const pos of this.evmPositions.values()) {
-      positions.push(this.toPosition(pos, 'evm'))
+      unified.push(this.toUnifiedPosition(pos, 'evm'))
     }
 
     for (const pos of this.solanaPositions.values()) {
-      positions.push(this.toPosition(pos, 'solana'))
+      unified.push(this.toUnifiedPosition(pos, 'solana'))
     }
 
-    return positions.sort((a, b) => b.valueUsd - a.valueUsd)
+    return unified.sort((a, b) => b.valueUsd - a.valueUsd)
   }
 
   /**
@@ -437,8 +433,6 @@ export class LiquidityManager extends EventEmitter {
     return { success: false, error: 'EVM removal not implemented yet' }
   }
 
-  // ============ Private Methods ============
-
   private async loadEVMPositions(walletAddress: Address): Promise<void> {
     for (const [chainId, client] of this.evmClients) {
       const nftAddress = UNISWAP_V3_POSITIONS_NFT[chainId]
@@ -583,10 +577,10 @@ export class LiquidityManager extends EventEmitter {
     return { success: false, error: 'EVM actions not yet implemented' }
   }
 
-  private toPosition(
+  private toUnifiedPosition(
     pos: EVMPosition | SolanaPosition,
     chain: 'evm' | 'solana',
-  ): Position {
+  ): UnifiedPosition {
     if (chain === 'evm') {
       const evmPos = pos as EVMPosition
       return {

@@ -57,10 +57,13 @@ describe.skipIf(!servicesAvailable)('Deep Integration E2E', () => {
     console.log('\n🚀 Setting up deep integration test...\n')
 
     // Deploy IdentityRegistryWithStaking
-    console.log('📝 Deploying IdentityRegistry...')
-    // TODO: Deploy contract via forge or viem
-    registryAddress = '0x...' as `0x${string}`
-    console.log(`✅ Registry deployed at ${registryAddress}\n`)
+    // Registry is deployed via bootstrap-localnet script or forge deploy
+    console.log(
+      '📝 Using IdentityRegistry from IDENTITY_REGISTRY_ADDRESS env...',
+    )
+    registryAddress = (process.env.IDENTITY_REGISTRY_ADDRESS ??
+      '0x0000000000000000000000000000000000000000') as `0x${string}`
+    console.log(`✅ Registry address: ${registryAddress}\n`)
   })
 
   it('should deploy registry with multi-token support', async () => {

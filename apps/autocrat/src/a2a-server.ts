@@ -35,14 +35,7 @@ import {
   QualityCriteriaSchema,
 } from './schemas'
 import {
-  assessAlignment,
-  assessClarity,
-  assessCompleteness,
-  assessCostBenefit,
-  assessFeasibility,
-  assessImpact,
   assessProposalWithAI,
-  assessRisk,
   calculateQualityScore,
   ZERO_ADDRESS,
 } from './shared'
@@ -466,28 +459,9 @@ Return ONLY JSON:
       }
     }
 
-    // Heuristic fallback (clearly labeled)
-    const criteria = {
-      clarity: assessClarity(title, summary, description),
-      completeness: assessCompleteness(description),
-      feasibility: assessFeasibility(description),
-      alignment: assessAlignment(description),
-      impact: assessImpact(description),
-      riskAssessment: assessRisk(description),
-      costBenefit: assessCostBenefit(description),
-    }
-    const overallScore = calculateQualityScore(criteria)
-
-    return {
-      message: `Heuristic assessment: ${overallScore}/100 (no LLM available)`,
-      data: {
-        overallScore,
-        criteria,
-        readyToSubmit: overallScore >= 90,
-        assessedBy: 'heuristic',
-        warning: 'LLM unavailable - using basic heuristics',
-      },
-    }
+    throw new Error(
+      'No LLM available for proposal assessment. Configure Ollama or cloud endpoint.',
+    )
   }
 
   private prepareSubmitProposal(params: Record<string, unknown>): SkillResult {

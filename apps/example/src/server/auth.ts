@@ -1,15 +1,12 @@
 import { getNetworkName } from '@jejunetwork/config'
 import { type Context, Elysia } from 'elysia'
 import type { Address } from 'viem'
-import { verifyMessage } from 'viem'
 import {
   type AuthCallbackQuery,
   authCallbackQuerySchema,
   authProviderSchema,
   type OAuth3AuthHeaders,
   oauth3AuthHeadersSchema,
-  type WalletAuthHeaders,
-  walletAuthHeadersSchema,
 } from '../schemas'
 import { AuthProvider, getOAuth3Service } from '../services/auth'
 import {
@@ -26,83 +23,45 @@ import {
 export async function oauth3AuthDerive({ request }: Context): Promise<{
   address?: Address
   oauth3SessionId?: string
-  authMethod?: 'oauth3' | 'wallet-signature'
+  authMethod?: 'oauth3'
 }> {
   const oauth3Service = getOAuth3Service()
   const sessionId = request.headers.get('x-oauth3-session')
 
-  // Try OAuth3 session authentication
-  if (sessionId) {
-    const validatedHeaders: OAuth3AuthHeaders = expectValid(
-      oauth3AuthHeadersSchema,
-      { 'x-oauth3-session': sessionId },
-      'OAuth3 auth headers',
-    )
+  if (!sessionId) {
+    return {}
+  }
 
-    const session = oauth3Service.getSession()
-    if (
-      session &&
-      session.sessionId === validatedHeaders['x-oauth3-session'] &&
-      oauth3Service.isLoggedIn()
-    ) {
-      return {
-        address: session.smartAccount as Address,
-        oauth3SessionId: session.sessionId,
-        authMethod: 'oauth3',
-      }
-    }
+  const validatedHeaders: OAuth3AuthHeaders = expectValid(
+    oauth3AuthHeadersSchema,
+    { 'x-oauth3-session': sessionId },
+    'OAuth3 auth headers',
+  )
 
-    // Session ID provided but invalid - try to refresh
-    await oauth3Service.initialize()
-    const refreshedSession = oauth3Service.getSession()
-    if (
-      refreshedSession &&
-      refreshedSession.sessionId === validatedHeaders['x-oauth3-session']
-    ) {
-      return {
-        address: refreshedSession.smartAccount as Address,
-        oauth3SessionId: refreshedSession.sessionId,
-        authMethod: 'oauth3',
-      }
+  const session = oauth3Service.getSession()
+  if (
+    session &&
+    session.sessionId === validatedHeaders['x-oauth3-session'] &&
+    oauth3Service.isLoggedIn()
+  ) {
+    return {
+      address: session.smartAccount as Address,
+      oauth3SessionId: session.sessionId,
+      authMethod: 'oauth3',
     }
   }
 
-  // Try legacy wallet signature authentication
-  const addressHeader = request.headers.get('x-jeju-address')
-  const timestampHeader = request.headers.get('x-jeju-timestamp')
-  const signatureHeader = request.headers.get('x-jeju-signature')
-
-  if (addressHeader && timestampHeader && signatureHeader) {
-    const validatedHeaders: WalletAuthHeaders = expectValid(
-      walletAuthHeadersSchema,
-      {
-        'x-jeju-address': addressHeader,
-        'x-jeju-timestamp': timestampHeader,
-        'x-jeju-signature': signatureHeader,
-      },
-      'Wallet auth headers',
-    )
-
-    const timestamp = validatedHeaders['x-jeju-timestamp']
-    const now = Date.now()
-    const fiveMinutes = 5 * 60 * 1000
-
-    // Validate timestamp is within 5 minute window
-    if (timestamp > now - fiveMinutes && timestamp <= now) {
-      const message = `jeju-dapp:${timestamp}`
-
-      const valid = await verifyMessage({
-        address: validatedHeaders['x-jeju-address'],
-        message,
-        signature: validatedHeaders['x-jeju-signature'],
-      })
-
-      if (valid) {
-        return {
-          address: validatedHeaders['x-jeju-address'] as Address,
-          authMethod: 'wallet-signature',
-        }
-      }
+  // Session ID provided but invalid - try to refresh
+  await oauth3Service.initialize()
+  const refreshedSession = oauth3Service.getSession()
+  if (
+    refreshedSession &&
+    refreshedSession.sessionId === validatedHeaders['x-oauth3-session']
+  ) {
+    return {
+      address: refreshedSession.smartAccount as Address,
+      oauth3SessionId: refreshedSession.sessionId,
+      authMethod: 'oauth3',
     }
   }
 
@@ -122,22 +81,15 @@ export function requireAuth({
   | {
       error: string
       details: string
-      methods: Record<string, unknown>
+      method: { header: string; value: string }
     }
   | undefined {
   if (!address) {
     set.status = 401
     return {
       error: 'Authentication required',
-      details:
-        'Provide x-oauth3-session header or legacy wallet signature headers',
-      methods: {
-        oauth3: { header: 'x-oauth3-session', value: 'session-id' },
-        legacy: {
-          headers: ['x-jeju-address', 'x-jeju-timestamp', 'x-jeju-signature'],
-          message: 'jeju-dapp:{timestamp}',
-        },
-      },
+      details: 'Provide x-oauth3-session header',
+      method: { header: 'x-oauth3-session', value: 'session-id' },
     }
   }
   return undefined

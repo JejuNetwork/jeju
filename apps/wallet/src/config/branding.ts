@@ -113,10 +113,6 @@ export function getBrandingRpcUrl(chainId: number): string {
   }
 }
 
-// =============================================================================
-// Chain Definitions (browser-safe)
-// =============================================================================
-
 import type { Chain } from 'viem'
 
 /**

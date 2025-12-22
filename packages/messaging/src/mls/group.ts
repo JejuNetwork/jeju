@@ -19,13 +19,9 @@ import type {
 } from './types'
 import { MLSMessageSchema } from './types'
 
-// ============ Limits ============
-
 const MAX_MESSAGES_PER_GROUP = 10000 // Maximum cached messages per group
 const MAX_MESSAGE_CONTENT_SIZE = 100000 // 100KB max message content
 const MAX_MEMBERS_PER_GROUP = 1000
-
-// ============ Types ============
 
 export interface JejuGroupConfig {
   id: string
@@ -38,8 +34,6 @@ export interface JejuGroupConfig {
   relayUrl: string
   client: JejuMLSClient
 }
-
-// ============ Group Class ============
 
 /**
  * Represents an MLS group conversation
@@ -77,8 +71,6 @@ export class JejuGroup {
       unreadCount: 0,
     }
   }
-
-  // ============ Lifecycle ============
 
   /**
    * Initialize the group (create MLS session)
@@ -125,8 +117,6 @@ export class JejuGroup {
 
     this.state.isActive = false
   }
-
-  // ============ Messaging ============
 
   /**
    * Send a message to the group
@@ -241,8 +231,6 @@ export class JejuGroup {
     this.state.unreadCount = 0
   }
 
-  // ============ Membership ============
-
   /**
    * Add members to the group
    */
@@ -356,8 +344,6 @@ export class JejuGroup {
     return [...this.state.members]
   }
 
-  // ============ Invites ============
-
   /**
    * Create an invite link
    */
@@ -389,8 +375,6 @@ export class JejuGroup {
     return `https://jeju.network/group/join?id=${invite.groupId}&code=${invite.code}`
   }
 
-  // ============ Metadata ============
-
   /**
    * Update group metadata
    */
@@ -410,8 +394,6 @@ export class JejuGroup {
     })
   }
 
-  // ============ Sync ============
-
   /**
    * Sync messages from relay
    */
@@ -422,8 +404,6 @@ export class JejuGroup {
 
     return []
   }
-
-  // ============ State ============
 
   /**
    * Get group state
@@ -450,8 +430,6 @@ export class JejuGroup {
       (m) => m.timestamp > this.lastReadAt,
     ).length
   }
-
-  // ============ Internal Helpers ============
 
   private async removeMemberInternal(
     address: Address,

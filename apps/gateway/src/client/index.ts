@@ -10,13 +10,6 @@ import type { App } from '../a2a-server.js'
 import type { LeaderboardApp } from '../leaderboard/server.js'
 import type { RpcApp } from '../rpc/server.js'
 
-// ============================================================================
-// Gateway Client (A2A Server)
-// ============================================================================
-
-/**
- * Creates a typed Eden Treaty client for the Gateway A2A API.
- */
 export function createGatewayClient(
   baseUrl: string,
   options?: { headers?: Record<string, string> },
@@ -49,11 +42,6 @@ export function createLeaderboardClient(
 }
 
 export type LeaderboardClient = ReturnType<typeof createLeaderboardClient>
-/**
- * Local leaderboard server client.
- * Uses LEADERBOARD_PORT env var, defaults to 4090 (centralized config).
- * Note: Gateway's leaderboard server defaults to 4005 - set LEADERBOARD_PORT for consistency.
- */
 export const localLeaderboardClient = createLeaderboardClient(
   getCoreAppUrl('LEADERBOARD_API'),
 )
@@ -78,10 +66,6 @@ export function createRpcClient(
 export type RpcClient = ReturnType<typeof createRpcClient>
 /** Local RPC gateway client - uses centralized RPC_GATEWAY port (4012 by default) */
 export const localRpcClient = createRpcClient(getCoreAppUrl('RPC_GATEWAY'))
-
-// ============================================================================
-// X402 Client (Hono-based)
-// ============================================================================
 
 interface X402VerifyRequest {
   x402Version: number
@@ -142,9 +126,6 @@ interface X402HealthResponse {
   timestamp: number
 }
 
-/**
- * Typed client for the X402 Facilitator API (Hono-based).
- */
 export class X402Client {
   private baseUrl: string
   private headers: Record<string, string>
@@ -208,18 +189,8 @@ export function createX402Client(
 /** Local X402 facilitator client - uses centralized FACILITATOR port (3402 by default) */
 export const localX402Client = createX402Client(getCoreAppUrl('FACILITATOR'))
 
-// ============================================================================
-// Type Re-exports
-// ============================================================================
-
 export type { App } from '../a2a-server.js'
 export type { LeaderboardApp } from '../leaderboard/server.js'
-export type { RpcApp } from '../rpc/server.js'
-
-// ============================================================================
-// Validation Schemas
-// ============================================================================
-
 export {
   type A2ARequest,
   A2ARequestSchema,
@@ -288,3 +259,4 @@ export {
   type TokenPair,
   TokenPairSchema,
 } from '../lib/validation.js'
+export type { RpcApp } from '../rpc/server.js'

@@ -69,7 +69,7 @@ export function useMarkets() {
             totalVolume: BigInt(m.totalVolume),
             createdAt: new Date(m.createdAt),
             resolved: m.resolved,
-            outcome: m.outcome ?? undefined,
+            outcome: m.outcome ?? null,
           }
         })
 

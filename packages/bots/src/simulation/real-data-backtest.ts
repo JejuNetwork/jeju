@@ -16,19 +16,16 @@
  * - Historical gas prices
  */
 
-import { createPublicClient, http, parseAbi, formatUnits } from 'viem'
-import { mainnet, base, arbitrum, optimism, bsc } from 'viem/chains'
-import { MultiSourceFetcher, type GasDataPoint } from './multi-source-fetcher'
-import { SlippageModel, GasCostModel, createEconomicsCalculator, type TradeEconomics } from './economics'
-import { ASCIICharts, TerminalReport, HTMLReportGenerator } from './visualizer'
-import { createValidationSuite, type MonteCarloResult } from './monte-carlo'
+import { type Chain, createPublicClient, http } from 'viem'
+import { arbitrum, base, bsc, mainnet, optimism } from 'viem/chains'
+import { ASCIICharts } from './visualizer'
 
 // ============ Types ============
 
 interface ChainConfig {
   chainId: number
   name: string
-  chain: typeof mainnet
+  chain: Chain
   rpcUrl: string
   dexSubgraph?: string
   gasMultiplier: number
@@ -91,7 +88,7 @@ interface ChainAnalysis {
   bestOpportunity: ArbitrageOpportunity | null
 }
 
-interface MultiChainBacktestResult {
+export interface MultiChainBacktestResult {
   timestamp: number
   duration: number
   chains: ChainAnalysis[]
@@ -166,7 +163,7 @@ const CHAINS: ChainConfig[] = [
 ]
 
 // Token addresses per chain
-const TOKENS: Record<number, Record<string, string>> = {
+const _TOKENS: Record<number, Record<string, string>> = {
   1: {
     WETH: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
     USDC: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
@@ -198,37 +195,105 @@ const TOKENS: Record<number, Record<string, string>> = {
 }
 
 // DEX configurations per chain
-const DEXES: Record<number, Array<{ name: string; router: string; factory: string; fee: number }>> = {
+const DEXES: Record<
+  number,
+  Array<{ name: string; router: string; factory: string; fee: number }>
+> = {
   1: [
-    { name: 'Uniswap V2', router: '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D', factory: '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f', fee: 30 },
-    { name: 'Uniswap V3', router: '0xE592427A0AEce92De3Edee1F18E0157C05861564', factory: '0x1F98431c8aD98523631AE4a59f267346ea31F984', fee: 30 },
-    { name: 'Sushiswap', router: '0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F', factory: '0xC0AEe478e3658e2610c5F7A4A2E1777cE9e4f2Ac', fee: 30 },
+    {
+      name: 'Uniswap V2',
+      router: '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D',
+      factory: '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f',
+      fee: 30,
+    },
+    {
+      name: 'Uniswap V3',
+      router: '0xE592427A0AEce92De3Edee1F18E0157C05861564',
+      factory: '0x1F98431c8aD98523631AE4a59f267346ea31F984',
+      fee: 30,
+    },
+    {
+      name: 'Sushiswap',
+      router: '0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F',
+      factory: '0xC0AEe478e3658e2610c5F7A4A2E1777cE9e4f2Ac',
+      fee: 30,
+    },
   ],
   8453: [
-    { name: 'Uniswap V3', router: '0x2626664c2603336E57B271c5C0b26F421741e481', factory: '0x33128a8fC17869897dcE68Ed026d694621f6FDfD', fee: 30 },
-    { name: 'Aerodrome', router: '0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43', factory: '0x420DD381b31aEf6683db6B902084cB0FFECe40Da', fee: 30 },
-    { name: 'BaseSwap', router: '0x327Df1E6de05895d2ab08513aaDD9313Fe505d86', factory: '0xFDa619b6d20975be80A10332cD39b9a4b0FAa8BB', fee: 25 },
+    {
+      name: 'Uniswap V3',
+      router: '0x2626664c2603336E57B271c5C0b26F421741e481',
+      factory: '0x33128a8fC17869897dcE68Ed026d694621f6FDfD',
+      fee: 30,
+    },
+    {
+      name: 'Aerodrome',
+      router: '0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43',
+      factory: '0x420DD381b31aEf6683db6B902084cB0FFECe40Da',
+      fee: 30,
+    },
+    {
+      name: 'BaseSwap',
+      router: '0x327Df1E6de05895d2ab08513aaDD9313Fe505d86',
+      factory: '0xFDa619b6d20975be80A10332cD39b9a4b0FAa8BB',
+      fee: 25,
+    },
   ],
   42161: [
-    { name: 'Uniswap V3', router: '0xE592427A0AEce92De3Edee1F18E0157C05861564', factory: '0x1F98431c8aD98523631AE4a59f267346ea31F984', fee: 30 },
-    { name: 'Sushiswap', router: '0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506', factory: '0xc35DADB65012eC5796536bD9864eD8773aBc74C4', fee: 30 },
-    { name: 'Camelot', router: '0xc873fEcbd354f5A56E00E710B90EF4201db2448d', factory: '0x6EcCab422D763aC031210895C81787E87B43A652', fee: 30 },
+    {
+      name: 'Uniswap V3',
+      router: '0xE592427A0AEce92De3Edee1F18E0157C05861564',
+      factory: '0x1F98431c8aD98523631AE4a59f267346ea31F984',
+      fee: 30,
+    },
+    {
+      name: 'Sushiswap',
+      router: '0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506',
+      factory: '0xc35DADB65012eC5796536bD9864eD8773aBc74C4',
+      fee: 30,
+    },
+    {
+      name: 'Camelot',
+      router: '0xc873fEcbd354f5A56E00E710B90EF4201db2448d',
+      factory: '0x6EcCab422D763aC031210895C81787E87B43A652',
+      fee: 30,
+    },
   ],
   10: [
-    { name: 'Uniswap V3', router: '0xE592427A0AEce92De3Edee1F18E0157C05861564', factory: '0x1F98431c8aD98523631AE4a59f267346ea31F984', fee: 30 },
-    { name: 'Velodrome', router: '0xa062aE8A9c5e11aaA026fc2670B0D65cCc8B2858', factory: '0x25CbdDb98b35ab1FF77413456B31EC81A6B6B746', fee: 30 },
+    {
+      name: 'Uniswap V3',
+      router: '0xE592427A0AEce92De3Edee1F18E0157C05861564',
+      factory: '0x1F98431c8aD98523631AE4a59f267346ea31F984',
+      fee: 30,
+    },
+    {
+      name: 'Velodrome',
+      router: '0xa062aE8A9c5e11aaA026fc2670B0D65cCc8B2858',
+      factory: '0x25CbdDb98b35ab1FF77413456B31EC81A6B6B746',
+      fee: 30,
+    },
   ],
   56: [
-    { name: 'PancakeSwap V2', router: '0x10ED43C718714eb63d5aA57B78B54704E256024E', factory: '0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73', fee: 25 },
-    { name: 'PancakeSwap V3', router: '0x13f4EA83D0bd40E75C8222255bc855a974568Dd4', factory: '0x0BFbCF9fa4f9C56B0F40a671Ad40E0805A091865', fee: 25 },
+    {
+      name: 'PancakeSwap V2',
+      router: '0x10ED43C718714eb63d5aA57B78B54704E256024E',
+      factory: '0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73',
+      fee: 25,
+    },
+    {
+      name: 'PancakeSwap V3',
+      router: '0x13f4EA83D0bd40E75C8222255bc855a974568Dd4',
+      factory: '0x0BFbCF9fa4f9C56B0F40a671Ad40E0805A091865',
+      fee: 25,
+    },
   ],
 }
 
 // ============ Real Data Fetcher ============
 
 class RealDataFetcher {
-  private clients: Map<number, ReturnType<typeof createPublicClient>> = new Map()
-  private priceCache: Map<string, { price: number; timestamp: number }> = new Map()
+  private clients: Map<number, ReturnType<typeof createPublicClient>> =
+    new Map()
 
   constructor() {
     for (const chain of CHAINS) {
@@ -248,27 +313,43 @@ class RealDataFetcher {
 
     try {
       // Fetch from DeFi Llama coins API
-      const ids = tokens.map(t => {
-        const chainPrefix = t.startsWith('0x') ? 'ethereum:' : ''
-        return chainPrefix + t
-      }).join(',')
+      const ids = tokens
+        .map((t) => {
+          const chainPrefix = t.startsWith('0x') ? 'ethereum:' : ''
+          return chainPrefix + t
+        })
+        .join(',')
 
-      const response = await fetch(`https://coins.llama.fi/prices/current/${ids}`)
+      const response = await fetch(
+        `https://coins.llama.fi/prices/current/${ids}`,
+      )
       if (response.ok) {
-        const data = await response.json() as { coins: Record<string, { price: number }> }
+        const data = (await response.json()) as {
+          coins: Record<string, { price: number }>
+        }
         for (const [key, value] of Object.entries(data.coins)) {
           prices[key] = value.price
         }
       }
-    } catch (error) {
+    } catch (_error) {
       console.warn('DeFi Llama price fetch failed, using defaults')
     }
 
     // Fallback prices
     const defaults: Record<string, number> = {
-      ETH: 3500, WETH: 3500, BTC: 95000, WBTC: 95000,
-      USDC: 1, USDT: 1, BUSD: 1, DAI: 1, USDbC: 1,
-      WBNB: 600, BNB: 600, ARB: 1.2, OP: 2.5,
+      ETH: 3500,
+      WETH: 3500,
+      BTC: 95000,
+      WBTC: 95000,
+      USDC: 1,
+      USDT: 1,
+      BUSD: 1,
+      DAI: 1,
+      USDbC: 1,
+      WBNB: 600,
+      BNB: 600,
+      ARB: 1.2,
+      OP: 2.5,
     }
 
     for (const [symbol, price] of Object.entries(defaults)) {
@@ -281,8 +362,11 @@ class RealDataFetcher {
   /**
    * Fetch current gas prices from all chains
    */
-  async fetchGasPrices(): Promise<Record<number, { baseFee: bigint; priorityFee: bigint }>> {
-    const gasPrices: Record<number, { baseFee: bigint; priorityFee: bigint }> = {}
+  async fetchGasPrices(): Promise<
+    Record<number, { baseFee: bigint; priorityFee: bigint }>
+  > {
+    const gasPrices: Record<number, { baseFee: bigint; priorityFee: bigint }> =
+      {}
 
     for (const chain of CHAINS) {
       const client = this.clients.get(chain.chainId)
@@ -315,7 +399,11 @@ class RealDataFetcher {
     try {
       const response = await fetch('https://api.llama.fi/protocols')
       if (response.ok) {
-        const protocols = await response.json() as Array<{ name: string; tvl: number; category: string }>
+        const protocols = (await response.json()) as Array<{
+          name: string
+          tvl: number
+          category: string
+        }>
         for (const protocol of protocols) {
           if (protocol.category === 'Dexes') {
             tvl[protocol.name.toLowerCase()] = protocol.tvl
@@ -328,15 +416,15 @@ class RealDataFetcher {
 
     // Defaults in billions USD
     const defaults: Record<string, number> = {
-      'uniswap': 5e9,
+      uniswap: 5e9,
       'uniswap v2': 2e9,
       'uniswap v3': 3e9,
-      'sushiswap': 500e6,
-      'pancakeswap': 2e9,
-      'aerodrome': 500e6,
-      'velodrome': 300e6,
-      'camelot': 100e6,
-      'baseswap': 50e6,
+      sushiswap: 500e6,
+      pancakeswap: 2e9,
+      aerodrome: 500e6,
+      velodrome: 300e6,
+      camelot: 100e6,
+      baseswap: 50e6,
     }
 
     for (const [name, defaultTvl] of Object.entries(defaults)) {
@@ -349,7 +437,10 @@ class RealDataFetcher {
   /**
    * Fetch historical MEV data
    */
-  async fetchMEVData(chainId: number, days: number = 30): Promise<MEVOpportunity[]> {
+  async fetchMEVData(
+    chainId: number,
+    days: number = 30,
+  ): Promise<MEVOpportunity[]> {
     const opportunities: MEVOpportunity[] = []
 
     // Generate realistic MEV opportunity distribution based on historical data
@@ -379,13 +470,17 @@ class RealDataFetcher {
           const timestamp = dayStart + Math.random() * dayMs
 
           // Value distribution (log-normal)
-          const logMean = type === 'liquidation' ? 6.5 : type === 'arbitrage' ? 5 : 4.5
+          const logMean =
+            type === 'liquidation' ? 6.5 : type === 'arbitrage' ? 5 : 4.5
           const logStd = 1.2
           const value = Math.exp(logMean + logStd * this.randomNormal())
 
           // Competition varies by chain
           const competitorBase = chainId === 1 ? 8 : chainId === 42161 ? 5 : 3
-          const competitors = Math.max(1, Math.floor(competitorBase + Math.random() * 4))
+          const competitors = Math.max(
+            1,
+            Math.floor(competitorBase + Math.random() * 4),
+          )
 
           // Success probability decreases with competitors
           const successProb = 1 / (1 + competitors * 0.3)
@@ -413,12 +508,15 @@ class RealDataFetcher {
   /**
    * Fetch historical arbitrage opportunities
    */
-  async fetchArbOpportunities(chainId: number, days: number = 30): Promise<ArbitrageOpportunity[]> {
+  async fetchArbOpportunities(
+    chainId: number,
+    days: number = 30,
+  ): Promise<ArbitrageOpportunity[]> {
     const opportunities: ArbitrageOpportunity[] = []
     const now = Date.now()
     const dayMs = 86400000
 
-    const chainConfig = CHAINS.find(c => c.chainId === chainId)
+    const chainConfig = CHAINS.find((c) => c.chainId === chainId)
     if (!chainConfig) return opportunities
 
     const dexes = DEXES[chainId] ?? []
@@ -457,8 +555,13 @@ class RealDataFetcher {
 
         // Calculate economics
         const grossProfit = tradeSize * (spreadBps / 10000)
-        const gasCost = chainConfig.avgGasGwei * 300000 * 1e-9 * 3500 * chainConfig.gasMultiplier
-        const slippageCost = tradeSize * (spreadBps * 0.3 / 10000) // 30% of spread lost to slippage
+        const gasCost =
+          chainConfig.avgGasGwei *
+          300000 *
+          1e-9 *
+          3500 *
+          chainConfig.gasMultiplier
+        const slippageCost = tradeSize * ((spreadBps * 0.3) / 10000) // 30% of spread lost to slippage
 
         const netProfit = grossProfit - gasCost - slippageCost
         const executed = netProfit > 1 // $1 minimum profit threshold
@@ -495,7 +598,6 @@ class RealDataFetcher {
 
 export class MultiChainBacktester {
   private fetcher: RealDataFetcher
-  private economicsCalc = createEconomicsCalculator({ ethPriceUsd: 3500 })
 
   constructor() {
     this.fetcher = new RealDataFetcher()
@@ -507,12 +609,12 @@ export class MultiChainBacktester {
   async run(days: number = 30): Promise<MultiChainBacktestResult> {
     const startTime = Date.now()
 
-    console.log('\n' + '█'.repeat(70))
+    console.log(`\n${'█'.repeat(70)}`)
     console.log('  MULTI-CHAIN REAL DATA BACKTEST')
     console.log('█'.repeat(70))
-    console.log(`  Evaluating: ${CHAINS.map(c => c.name).join(', ')}`)
+    console.log(`  Evaluating: ${CHAINS.map((c) => c.name).join(', ')}`)
     console.log(`  Period: ${days} days`)
-    console.log('█'.repeat(70) + '\n')
+    console.log(`${'█'.repeat(70)}\n`)
 
     // Fetch current market data
     console.log('📊 Fetching market data...')
@@ -522,8 +624,8 @@ export class MultiChainBacktester {
       this.fetcher.fetchDEXTVL(),
     ])
 
-    console.log(`  ETH: $${prices['ETH']?.toFixed(0) ?? 3500}`)
-    console.log(`  BTC: $${prices['BTC']?.toFixed(0) ?? 95000}`)
+    console.log(`  ETH: $${prices.ETH?.toFixed(0) ?? 3500}`)
+    console.log(`  BTC: $${prices.BTC?.toFixed(0) ?? 95000}`)
 
     // Analyze each chain
     const chainAnalyses: ChainAnalysis[] = []
@@ -531,22 +633,39 @@ export class MultiChainBacktester {
     for (const chain of CHAINS) {
       console.log(`\n🔗 Analyzing ${chain.name}...`)
 
-      const arbOpps = await this.fetcher.fetchArbOpportunities(chain.chainId, days)
+      const arbOpps = await this.fetcher.fetchArbOpportunities(
+        chain.chainId,
+        days,
+      )
       const mevOpps = await this.fetcher.fetchMEVData(chain.chainId, days)
 
       const gasPrice = gasPrices[chain.chainId]
-      const avgGasPrice = gasPrice ? Number(gasPrice.baseFee) / 1e9 : chain.avgGasGwei
+      const avgGasPrice = gasPrice
+        ? Number(gasPrice.baseFee) / 1e9
+        : chain.avgGasGwei
 
       // Calculate chain metrics
-      const profitableTrades = arbOpps.filter(o => o.executed && o.netProfitUsd > 0)
-      const unprofitableTrades = arbOpps.filter(o => o.executed && o.netProfitUsd <= 0)
-      const totalProfit = profitableTrades.reduce((s, o) => s + o.netProfitUsd, 0)
+      const profitableTrades = arbOpps.filter(
+        (o) => o.executed && o.netProfitUsd > 0,
+      )
+      const unprofitableTrades = arbOpps.filter(
+        (o) => o.executed && o.netProfitUsd <= 0,
+      )
+      const totalProfit = profitableTrades.reduce(
+        (s, o) => s + o.netProfitUsd,
+        0,
+      )
 
       const analysis: ChainAnalysis = {
         chain,
         pools: [],
         avgGasPrice,
-        avgTxCostUsd: avgGasPrice * 300000 * 1e-9 * (prices['ETH'] ?? 3500) * chain.gasMultiplier,
+        avgTxCostUsd:
+          avgGasPrice *
+          300000 *
+          1e-9 *
+          (prices.ETH ?? 3500) *
+          chain.gasMultiplier,
         opportunities: arbOpps,
         mevOpportunities: mevOpps,
         dailyVolume: arbOpps.reduce((s, o) => s + o.tradeSize, 0) / days,
@@ -554,21 +673,31 @@ export class MultiChainBacktester {
         profitableTrades: profitableTrades.length,
         unprofitableTrades: unprofitableTrades.length,
         totalProfit,
-        avgProfitPerTrade: profitableTrades.length > 0 ? totalProfit / profitableTrades.length : 0,
-        bestOpportunity: profitableTrades.sort((a, b) => b.netProfitUsd - a.netProfitUsd)[0] ?? null,
+        avgProfitPerTrade:
+          profitableTrades.length > 0
+            ? totalProfit / profitableTrades.length
+            : 0,
+        bestOpportunity:
+          profitableTrades.sort((a, b) => b.netProfitUsd - a.netProfitUsd)[0] ??
+          null,
       }
 
       chainAnalyses.push(analysis)
 
       console.log(`  Gas: ${avgGasPrice.toFixed(2)} gwei`)
       console.log(`  Arb opportunities: ${arbOpps.length}`)
-      console.log(`  Profitable: ${profitableTrades.length} ($${totalProfit.toFixed(0)})`)
+      console.log(
+        `  Profitable: ${profitableTrades.length} ($${totalProfit.toFixed(0)})`,
+      )
       console.log(`  MEV opportunities: ${mevOpps.length}`)
     }
 
     // Find cross-chain opportunities
     console.log('\n🌉 Analyzing cross-chain opportunities...')
-    const crossChainOpps = await this.findCrossChainOpportunities(chainAnalyses, days)
+    const crossChainOpps = await this.findCrossChainOpportunities(
+      chainAnalyses,
+      days,
+    )
     console.log(`  Found: ${crossChainOpps.length} opportunities`)
 
     // Generate summary
@@ -625,7 +754,7 @@ export class MultiChainBacktester {
         const grossProfit = tradeSize * (spreadBps / 10000)
         const gasCost = chain1.avgTxCostUsd + chain2.avgTxCostUsd
         const bridgeCost = 5 + tradeSize * 0.0005 // $5 + 0.05%
-        const slippageCost = tradeSize * (spreadBps * 0.4 / 10000)
+        const slippageCost = tradeSize * ((spreadBps * 0.4) / 10000)
 
         const netProfit = grossProfit - gasCost - bridgeCost - slippageCost
         const executed = netProfit > 10 // Higher threshold for cross-chain
@@ -657,18 +786,21 @@ export class MultiChainBacktester {
     days: number,
   ): BacktestSummary {
     const allOpps = [
-      ...chains.flatMap(c => c.opportunities),
+      ...chains.flatMap((c) => c.opportunities),
       ...crossChainOpps,
     ]
 
-    const profitable = allOpps.filter(o => o.executed && o.netProfitUsd > 0)
+    const profitable = allOpps.filter((o) => o.executed && o.netProfitUsd > 0)
     const totalGross = profitable.reduce((s, o) => s + o.grossProfitUsd, 0)
-    const totalCosts = profitable.reduce((s, o) => s + o.gasCostUsd + o.slippageCostUsd, 0)
+    const totalCosts = profitable.reduce(
+      (s, o) => s + o.gasCostUsd + o.slippageCostUsd,
+      0,
+    )
     const totalNet = profitable.reduce((s, o) => s + o.netProfitUsd, 0)
 
     // Find best chain
     const bestChain = chains.reduce((best, c) =>
-      c.totalProfit > best.totalProfit ? c : best
+      c.totalProfit > best.totalProfit ? c : best,
     )
 
     // Calculate daily returns for Sharpe
@@ -681,7 +813,7 @@ export class MultiChainBacktester {
       const dayEnd = dayStart + dayMs
 
       const dayProfit = profitable
-        .filter(o => o.timestamp >= dayStart && o.timestamp < dayEnd)
+        .filter((o) => o.timestamp >= dayStart && o.timestamp < dayEnd)
         .reduce((s, o) => s + o.netProfitUsd, 0)
 
       dailyReturns.push(dayProfit)
@@ -689,7 +821,7 @@ export class MultiChainBacktester {
 
     const avgDaily = dailyReturns.reduce((a, b) => a + b, 0) / days
     const stdDaily = Math.sqrt(
-      dailyReturns.reduce((s, r) => s + Math.pow(r - avgDaily, 2), 0) / days
+      dailyReturns.reduce((s, r) => s + (r - avgDaily) ** 2, 0) / days,
     )
     const sharpe = stdDaily > 0 ? (avgDaily / stdDaily) * Math.sqrt(365) : 0
 
@@ -717,7 +849,7 @@ export class MultiChainBacktester {
       projectedMonthlyProfit: avgDaily * 30,
       sharpeRatio: sharpe,
       maxDrawdown: maxDD,
-      winRate: profitable.length / allOpps.filter(o => o.executed).length,
+      winRate: profitable.length / allOpps.filter((o) => o.executed).length,
     }
   }
 
@@ -726,29 +858,40 @@ export class MultiChainBacktester {
     crossChainOpps: ArbitrageOpportunity[],
     summary: BacktestSummary,
   ): void {
-    console.log('\n' + '═'.repeat(70))
+    console.log(`\n${'═'.repeat(70)}`)
     console.log('  BACKTEST RESULTS')
     console.log('═'.repeat(70))
 
     // Chain comparison table
     console.log('\n📊 CHAIN COMPARISON')
-    console.log(ASCIICharts.table(
-      ['Chain', 'Gas Cost', 'Opportunities', 'Profitable', 'Total Profit', 'Avg Profit'],
-      chains.map(c => [
-        c.chain.name,
-        `$${c.avgTxCostUsd.toFixed(2)}`,
-        `${c.opportunities.length}`,
-        `${c.profitableTrades}`,
-        `$${c.totalProfit.toFixed(0)}`,
-        `$${c.avgProfitPerTrade.toFixed(2)}`,
-      ]),
-    ))
+    console.log(
+      ASCIICharts.table(
+        [
+          'Chain',
+          'Gas Cost',
+          'Opportunities',
+          'Profitable',
+          'Total Profit',
+          'Avg Profit',
+        ],
+        chains.map((c) => [
+          c.chain.name,
+          `$${c.avgTxCostUsd.toFixed(2)}`,
+          `${c.opportunities.length}`,
+          `${c.profitableTrades}`,
+          `$${c.totalProfit.toFixed(0)}`,
+          `$${c.avgProfitPerTrade.toFixed(2)}`,
+        ]),
+      ),
+    )
 
     // Profit by chain bar chart
     console.log('\n💰 PROFIT BY CHAIN')
-    console.log(ASCIICharts.barChart(
-      chains.map(c => ({ label: c.chain.name, value: c.totalProfit }))
-    ))
+    console.log(
+      ASCIICharts.barChart(
+        chains.map((c) => ({ label: c.chain.name, value: c.totalProfit })),
+      ),
+    )
 
     // MEV opportunity breakdown
     console.log('\n⚡ MEV OPPORTUNITIES BY CHAIN')
@@ -759,31 +902,51 @@ export class MultiChainBacktester {
       }
 
       console.log(`\n  ${chain.chain.name}:`)
-      for (const [type, value] of Object.entries(byType).sort((a, b) => b[1] - a[1])) {
+      for (const [type, value] of Object.entries(byType).sort(
+        (a, b) => b[1] - a[1],
+      )) {
         console.log(`    ${type.padEnd(12)} $${value.toFixed(0)}`)
       }
     }
 
     // Cross-chain summary
-    const profitableCrossChain = crossChainOpps.filter(o => o.executed && o.netProfitUsd > 0)
+    const profitableCrossChain = crossChainOpps.filter(
+      (o) => o.executed && o.netProfitUsd > 0,
+    )
     console.log('\n🌉 CROSS-CHAIN ARBITRAGE')
     console.log(`  Total opportunities: ${crossChainOpps.length}`)
     console.log(`  Profitable: ${profitableCrossChain.length}`)
-    console.log(`  Total profit: $${profitableCrossChain.reduce((s, o) => s + o.netProfitUsd, 0).toFixed(0)}`)
+    console.log(
+      `  Total profit: $${profitableCrossChain.reduce((s, o) => s + o.netProfitUsd, 0).toFixed(0)}`,
+    )
 
     // Summary stats
-    console.log('\n' + '─'.repeat(70))
+    console.log(`\n${'─'.repeat(70)}`)
     console.log('  SUMMARY')
     console.log('─'.repeat(70))
-    console.log(`  Total Opportunities:     ${summary.totalOpportunities.toLocaleString()}`)
-    console.log(`  Profitable:              ${summary.profitableOpportunities.toLocaleString()} (${(summary.winRate * 100).toFixed(1)}%)`)
-    console.log(`  Total Gross Profit:      $${summary.totalGrossProfit.toFixed(0)}`)
+    console.log(
+      `  Total Opportunities:     ${summary.totalOpportunities.toLocaleString()}`,
+    )
+    console.log(
+      `  Profitable:              ${summary.profitableOpportunities.toLocaleString()} (${(summary.winRate * 100).toFixed(1)}%)`,
+    )
+    console.log(
+      `  Total Gross Profit:      $${summary.totalGrossProfit.toFixed(0)}`,
+    )
     console.log(`  Total Costs:             $${summary.totalCosts.toFixed(0)}`)
-    console.log(`  Total Net Profit:        $${summary.totalNetProfit.toFixed(0)}`)
-    console.log(`  Avg Daily Profit:        $${summary.avgDailyProfit.toFixed(0)}`)
-    console.log(`  Projected Monthly:       $${summary.projectedMonthlyProfit.toFixed(0)}`)
+    console.log(
+      `  Total Net Profit:        $${summary.totalNetProfit.toFixed(0)}`,
+    )
+    console.log(
+      `  Avg Daily Profit:        $${summary.avgDailyProfit.toFixed(0)}`,
+    )
+    console.log(
+      `  Projected Monthly:       $${summary.projectedMonthlyProfit.toFixed(0)}`,
+    )
     console.log(`  Sharpe Ratio:            ${summary.sharpeRatio.toFixed(2)}`)
-    console.log(`  Max Drawdown:            ${(summary.maxDrawdown * 100).toFixed(1)}%`)
+    console.log(
+      `  Max Drawdown:            ${(summary.maxDrawdown * 100).toFixed(1)}%`,
+    )
     console.log(`  Best Chain:              ${summary.bestChain}`)
   }
 
@@ -794,18 +957,26 @@ export class MultiChainBacktester {
     const recommendations: string[] = []
 
     // Chain recommendations
-    const sortedChains = [...chains].sort((a, b) => b.totalProfit - a.totalProfit)
+    const sortedChains = [...chains].sort(
+      (a, b) => b.totalProfit - a.totalProfit,
+    )
     const bestChain = sortedChains[0]
     const worstChain = sortedChains[sortedChains.length - 1]
 
-    recommendations.push(`Focus on ${bestChain.chain.name} - highest profit at $${bestChain.totalProfit.toFixed(0)}`)
+    recommendations.push(
+      `Focus on ${bestChain.chain.name} - highest profit at $${bestChain.totalProfit.toFixed(0)}`,
+    )
 
     if (bestChain.chain.chainId !== 1) {
-      recommendations.push(`L2s outperform mainnet due to ${(chains[0].avgTxCostUsd / bestChain.avgTxCostUsd).toFixed(0)}x lower gas`)
+      recommendations.push(
+        `L2s outperform mainnet due to ${(chains[0].avgTxCostUsd / bestChain.avgTxCostUsd).toFixed(0)}x lower gas`,
+      )
     }
 
     if (worstChain.totalProfit < 0) {
-      recommendations.push(`Avoid ${worstChain.chain.name} - negative expected value`)
+      recommendations.push(
+        `Avoid ${worstChain.chain.name} - negative expected value`,
+      )
     }
 
     // Strategy recommendations
@@ -814,22 +985,36 @@ export class MultiChainBacktester {
     }
 
     if (summary.sharpeRatio < 1) {
-      recommendations.push('Consider larger position sizes to improve risk-adjusted returns')
+      recommendations.push(
+        'Consider larger position sizes to improve risk-adjusted returns',
+      )
     }
 
     // MEV recommendations
-    const totalMEV = chains.reduce((s, c) => 
-      s + c.mevOpportunities.reduce((t, o) => t + o.expectedValueUsd, 0), 0)
+    const totalMEV = chains.reduce(
+      (s, c) =>
+        s + c.mevOpportunities.reduce((t, o) => t + o.expectedValueUsd, 0),
+      0,
+    )
     if (totalMEV > summary.totalNetProfit * 2) {
-      recommendations.push(`MEV extraction potential ($${totalMEV.toFixed(0)}) exceeds current arb profits`)
+      recommendations.push(
+        `MEV extraction potential ($${totalMEV.toFixed(0)}) exceeds current arb profits`,
+      )
     }
 
     // Cross-chain recommendations
-    const crossChainProfit = chains.reduce((s, c) => 
-      s + c.opportunities.filter(o => o.type === 'cross-chain' && o.netProfitUsd > 0)
-        .reduce((t, o) => t + o.netProfitUsd, 0), 0)
+    const crossChainProfit = chains.reduce(
+      (s, c) =>
+        s +
+        c.opportunities
+          .filter((o) => o.type === 'cross-chain' && o.netProfitUsd > 0)
+          .reduce((t, o) => t + o.netProfitUsd, 0),
+      0,
+    )
     if (crossChainProfit > 0) {
-      recommendations.push(`Cross-chain arb adds $${crossChainProfit.toFixed(0)}/month - prioritize bridge integrations`)
+      recommendations.push(
+        `Cross-chain arb adds $${crossChainProfit.toFixed(0)}/month - prioritize bridge integrations`,
+      )
     }
 
     return recommendations
@@ -848,7 +1033,7 @@ async function main() {
   const backtester = new MultiChainBacktester()
   const result = await backtester.run(30) // 30 days
 
-  console.log('\n' + '█'.repeat(70))
+  console.log(`\n${'█'.repeat(70)}`)
   console.log('  RECOMMENDATIONS')
   console.log('█'.repeat(70))
   for (const rec of result.recommendations) {
@@ -862,4 +1047,3 @@ async function main() {
 if (import.meta.main) {
   main().catch(console.error)
 }
-

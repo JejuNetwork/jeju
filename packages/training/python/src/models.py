@@ -191,11 +191,6 @@ class TrainingBatchSummary(BaseModel):
     pnl_avg: float
 
 
-# =============================================================================
-# Atropos-compatible types
-# =============================================================================
-
-
 class AtroposScoredItem(BaseModel):
     """Single scored item for Atropos training"""
 

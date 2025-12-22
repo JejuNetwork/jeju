@@ -18,107 +18,137 @@ export { feeds, staking, vrf, automation, nodes }
 // Zod Schemas
 // ============================================================================
 
+/** Ethereum address - 40 hex characters prefixed with 0x */
+const AddressSchema = z
+  .string()
+  .regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid Ethereum address')
+
+/** Chain ID string key (numeric string like "1", "8453") */
+const ChainIdKeySchema = z
+  .string()
+  .regex(/^\d+$/, 'Chain ID must be numeric string')
+
 const FeedEntrySchema = z.object({
-  address: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
-  decimals: z.number().int().positive(),
-  heartbeatSeconds: z.number().int().positive(),
+  address: AddressSchema,
+  decimals: z.number().int().min(0).max(18),
+  heartbeatSeconds: z.number().int().positive().max(86400),
 })
 
 const FeedsConfigSchema = z.object({
-  linkToken: z.record(z.string(), z.string()),
-  chains: z.record(z.string(), z.record(z.string(), FeedEntrySchema)),
+  linkToken: z.record(ChainIdKeySchema, AddressSchema),
+  chains: z.record(
+    ChainIdKeySchema,
+    z.record(z.string().min(1), FeedEntrySchema),
+  ),
   relayConfig: z.object({
-    updateThresholdBps: z.number().int().positive(),
-    minSourcesForConsensus: z.number().int().positive(),
-    maxStalenessSeconds: z.number().int().positive(),
-    priorityChains: z.array(z.number()),
+    updateThresholdBps: z.number().int().positive().max(10000),
+    minSourcesForConsensus: z.number().int().positive().max(100),
+    maxStalenessSeconds: z.number().int().positive().max(86400),
+    priorityChains: z.array(z.number().int().positive()),
   }),
 })
 
+/** Bytes32 hash - 64 hex characters prefixed with 0x */
+const Bytes32Schema = z
+  .string()
+  .regex(/^0x[a-fA-F0-9]{64}$/, 'Invalid bytes32 hash')
+
 const VRFChainConfigSchema = z.object({
-  coordinator: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
-  wrapper: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
-  linkToken: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
-  linkEthFeed: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
-  keyHash: z.string().regex(/^0x[a-fA-F0-9]{64}$/),
-  callbackGasLimit: z.number().int().positive(),
-  requestConfirmations: z.number().int().positive(),
-  numWords: z.number().int().positive(),
+  coordinator: AddressSchema,
+  wrapper: AddressSchema,
+  linkToken: AddressSchema,
+  linkEthFeed: AddressSchema,
+  keyHash: Bytes32Schema,
+  callbackGasLimit: z.number().int().positive().max(10_000_000),
+  requestConfirmations: z.number().int().min(1).max(200),
+  numWords: z.number().int().min(1).max(500),
   status: z.enum(['pending_deployment', 'reference', 'active']),
 })
 
 const VRFConfigSchema = z.object({
-  chains: z.record(z.string(), VRFChainConfigSchema),
+  chains: z.record(ChainIdKeySchema, VRFChainConfigSchema),
   jejuVrfConfig: z.object({
-    description: z.string(),
+    description: z.string().min(1),
     pricing: z.object({
-      linkPremiumPpm: z.number(),
-      nativePremiumPpm: z.number(),
-      flatFeeLinkPpm: z.number(),
-      flatFeeNativePpm: z.number(),
+      linkPremiumPpm: z.number().int().nonnegative(),
+      nativePremiumPpm: z.number().int().nonnegative(),
+      flatFeeLinkPpm: z.number().int().nonnegative(),
+      flatFeeNativePpm: z.number().int().nonnegative(),
     }),
     limits: z.object({
-      maxGasLimit: z.number(),
-      maxNumWords: z.number(),
-      minRequestConfirmations: z.number(),
-      maxRequestConfirmations: z.number(),
+      maxGasLimit: z.number().int().positive(),
+      maxNumWords: z.number().int().positive(),
+      minRequestConfirmations: z.number().int().positive(),
+      maxRequestConfirmations: z.number().int().positive(),
     }),
     governance: z.object({
-      feeRecipient: z.string(),
+      feeRecipient: z.string().min(1),
       feeUpdateProposalRequired: z.boolean(),
-      maxFeeIncreaseBps: z.number(),
+      maxFeeIncreaseBps: z.number().int().nonnegative().max(10000),
     }),
   }),
 })
 
+/** ETH amount string (e.g., "0.1", "1.0") */
+const EthAmountSchema = z.string().regex(/^\d+(\.\d+)?$/, 'Invalid ETH amount')
+
 const AutomationChainConfigSchema = z.object({
-  registry: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
-  registrar: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
-  minBalance: z.string(),
-  defaultGasLimit: z.number().int().positive(),
-  maxGasLimit: z.number().int().positive(),
-  keeperRewardBps: z.number().int().nonnegative(),
-  protocolFeeBps: z.number().int().nonnegative(),
+  registry: AddressSchema,
+  registrar: AddressSchema,
+  minBalance: EthAmountSchema,
+  defaultGasLimit: z.number().int().positive().max(10_000_000),
+  maxGasLimit: z.number().int().positive().max(30_000_000),
+  keeperRewardBps: z.number().int().nonnegative().max(10000),
+  protocolFeeBps: z.number().int().nonnegative().max(10000),
   status: z.enum(['pending_deployment', 'active']),
 })
 
+/** Selection algorithm types */
+const SelectionAlgorithmSchema = z.enum([
+  'round_robin',
+  'round_robin_weighted',
+  'weighted',
+  'random',
+  'reputation',
+])
+
 const AutomationConfigSchema = z.object({
-  chains: z.record(z.string(), AutomationChainConfigSchema),
+  chains: z.record(ChainIdKeySchema, AutomationChainConfigSchema),
   jejuAutomationConfig: z.object({
-    description: z.string(),
+    description: z.string().min(1),
     keeper: z.object({
-      minStakeEth: z.string(),
-      maxKeepers: z.number(),
-      selectionAlgorithm: z.string(),
-      performanceThreshold: z.number(),
+      minStakeEth: EthAmountSchema,
+      maxKeepers: z.number().int().positive().max(1000),
+      selectionAlgorithm: SelectionAlgorithmSchema,
+      performanceThreshold: z.number().min(0).max(1),
     }),
     upkeep: z.object({
-      minBalanceEth: z.string(),
-      maxUpkeepsPerAddress: z.number(),
-      defaultCheckGasLimit: z.number(),
-      defaultPerformGasLimit: z.number(),
-      minInterval: z.number(),
-      maxInterval: z.number(),
+      minBalanceEth: EthAmountSchema,
+      maxUpkeepsPerAddress: z.number().int().positive().max(1000),
+      defaultCheckGasLimit: z.number().int().positive().max(10_000_000),
+      defaultPerformGasLimit: z.number().int().positive().max(10_000_000),
+      minInterval: z.number().int().positive(),
+      maxInterval: z.number().int().positive(),
     }),
     fees: z.object({
-      registrationFeeEth: z.string(),
-      performPremiumBps: z.number(),
-      cancellationFeeBps: z.number(),
+      registrationFeeEth: EthAmountSchema,
+      performPremiumBps: z.number().int().nonnegative().max(10000),
+      cancellationFeeBps: z.number().int().nonnegative().max(10000),
     }),
     governance: z.object({
-      feeRecipient: z.string(),
+      feeRecipient: z.string().min(1),
       keeperApprovalRequired: z.boolean(),
-      parameterUpdateDelay: z.number(),
+      parameterUpdateDelay: z.number().int().nonnegative(),
     }),
   }),
   officialChainlinkAutomation: z
     .object({
-      description: z.string(),
+      description: z.string().min(1),
     })
     .catchall(
       z.object({
-        registry: z.string(),
-        registrar: z.string(),
+        registry: z.string().min(1),
+        registrar: z.string().min(1),
       }),
     ),
 })

@@ -16,10 +16,6 @@ import type {
 } from '@elizaos/core'
 import type { Address } from 'viem'
 
-// =============================================================================
-// Providers
-// =============================================================================
-
 /**
  * Wallet state provider - provides current wallet context to the agent
  */
@@ -363,10 +359,6 @@ export const registerNameAction: Action = {
     })
   },
 }
-
-// =============================================================================
-// Plugin Definition
-// =============================================================================
 
 /**
  * Network Wallet ElizaOS Plugin

@@ -5,10 +5,6 @@
 import { beforeEach, describe, expect, it, mock } from 'bun:test'
 import { type AvailableModel, InferenceClient } from './inferenceClient'
 
-// ============================================================================
-// Mock Types
-// ============================================================================
-
 /** API response for models endpoint */
 interface ModelsApiResponse {
   models: Partial<AvailableModel>[]
@@ -93,15 +89,12 @@ describe('InferenceClient', () => {
   })
 
   describe('getModels', () => {
-    it('should return default models when gateway unavailable', async () => {
+    it('should throw when gateway unavailable', async () => {
       mockFetch.mockImplementation(() =>
         Promise.reject(new Error('Network error')),
       )
 
-      const models = await client.getModels()
-
-      expect(models).toHaveLength(3)
-      expect(models[0].id).toBe('jeju/llama-3.1-70b')
+      await expect(client.getModels()).rejects.toThrow('Network error')
     })
 
     it('should fetch models from gateway', async () => {
@@ -200,17 +193,16 @@ describe('InferenceClient', () => {
       expect(response.tokensUsed.total).toBe(18)
     })
 
-    it('should fallback to offline mode on error', async () => {
+    it('should throw on network error', async () => {
       mockFetch.mockImplementation(() =>
         Promise.reject(new Error('Network error')),
       )
 
-      const response = await client.chat({
-        messages: [{ role: 'user', content: 'help' }],
-      })
-
-      expect(response.provider).toBe('offline')
-      expect(response.content).toContain('AI Service Unavailable')
+      await expect(
+        client.chat({
+          messages: [{ role: 'user', content: 'help' }],
+        }),
+      ).rejects.toThrow('Network error')
     })
 
     it('should maintain conversation history', async () => {
@@ -255,57 +247,53 @@ describe('InferenceClient', () => {
     })
   })
 
-  describe('local fallback', () => {
-    let localClient: InferenceClient
+  describe('error handling', () => {
+    let errorClient: InferenceClient
 
     beforeEach(() => {
       mockFetch.mockImplementation(() => Promise.reject(new Error('Offline')))
-      // Use fast retries for fallback tests
-      localClient = new InferenceClient({
+      errorClient = new InferenceClient({
         gatewayUrl: 'https://offline.example.com',
         maxRetries: 1,
         retryDelayMs: 1,
       })
     })
 
-    it('should return honest offline message', async () => {
-      const response = await localClient.chat({
-        messages: [{ role: 'user', content: 'anything' }],
-      })
-
-      // Should indicate service is unavailable, not fake AI response
-      expect(response.content).toContain('AI Service Unavailable')
-      expect(response.content).toContain('API key')
+    it('should throw when service unavailable', async () => {
+      await expect(
+        errorClient.chat({
+          messages: [{ role: 'user', content: 'anything' }],
+        }),
+      ).rejects.toThrow('Offline')
     })
 
-    it('should suggest using sidebar for features', async () => {
-      const response = await localClient.chat({
-        messages: [{ role: 'user', content: 'help' }],
+    it('should throw after all retries exhausted', async () => {
+      const multiRetryClient = new InferenceClient({
+        gatewayUrl: 'https://offline.example.com',
+        maxRetries: 2,
+        retryDelayMs: 1,
       })
 
-      expect(response.content).toContain('sidebar')
+      await expect(
+        multiRetryClient.chat({
+          messages: [{ role: 'user', content: 'test' }],
+        }),
+      ).rejects.toThrow('Offline')
+
+      // Should have tried twice
+      expect(mockFetch).toHaveBeenCalledTimes(2)
     })
 
-    it('should mention API key providers', async () => {
-      const response = await localClient.chat({
-        messages: [{ role: 'user', content: 'test' }],
-      })
+    it('should propagate specific error messages', async () => {
+      mockFetch.mockImplementation(() =>
+        Promise.reject(new Error('Rate limit exceeded')),
+      )
 
-      // Should mention at least one provider
-      expect(
-        response.content.includes('OpenAI') ||
-          response.content.includes('Anthropic') ||
-          response.content.includes('Groq'),
-      ).toBe(true)
-    })
-
-    it('should return offline model identifier', async () => {
-      const response = await localClient.chat({
-        messages: [{ role: 'user', content: 'test' }],
-      })
-
-      expect(response.model).toBe('offline')
-      expect(response.provider).toBe('offline')
+      await expect(
+        errorClient.chat({
+          messages: [{ role: 'user', content: 'test' }],
+        }),
+      ).rejects.toThrow('Rate limit exceeded')
     })
   })
 })

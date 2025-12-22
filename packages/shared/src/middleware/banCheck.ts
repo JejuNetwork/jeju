@@ -18,8 +18,6 @@ import {
 import { base, baseSepolia } from 'viem/chains'
 import { BAN_MANAGER_ABI } from '../api/abis'
 
-// ============ Types ============
-
 export interface BanCheckConfig {
   banManagerAddress: Address
   moderationMarketplaceAddress?: Address
@@ -43,8 +41,6 @@ export interface BanCheckResult {
   status?: BanStatus
   error?: string
 }
-
-// ============ Cache ============
 
 interface CacheEntry {
   result: BanCheckResult
@@ -74,8 +70,6 @@ function setCacheEntry(key: string, entry: CacheEntry): void {
 
   cache.set(key, entry)
 }
-
-// ============ BanChecker Class ============
 
 export class BanChecker {
   private config: Required<BanCheckConfig>
@@ -192,8 +186,6 @@ export class BanChecker {
   }
 }
 
-// ============ Elysia Middleware ============
-
 interface RequestBody {
   address?: string
   from?: string
@@ -238,8 +230,6 @@ export function createElysiaBanPlugin(config: BanCheckConfig) {
     })
 }
 
-// ============ Generic Functions ============
-
 /**
  * Simple function to check ban status (for custom integrations)
  */
@@ -262,8 +252,6 @@ export async function getBanStatus(
   const checker = new BanChecker(config)
   return checker.checkBan(address)
 }
-
-// ============ Singleton Instance ============
 
 let defaultChecker: BanChecker | null = null
 

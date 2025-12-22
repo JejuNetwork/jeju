@@ -10,52 +10,24 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "default": "./dist/index.js"
+      "import": "./dist/index.js"
     }
   },
-  "files": [
-    "dist",
-    "src"
-  ],
+  "files": ["dist", "src"],
   "sideEffects": false,
   "scripts": {
     "build": "bun build.ts",
-    "dev": "bun --watch build.ts",
-    "test": "bun test test/*.test.ts test/e2e/*.test.ts",
-    "test:unit": "bun test test/client.test.ts",
-    "test:integration": "JEJU_NETWORK=localnet bun test test/integration",
-    "test:integration:setup": "JEJU_NETWORK=localnet bun test/run-integration-tests.ts --setup",
-    "test:integration:module": "JEJU_NETWORK=localnet bun test/run-integration-tests.ts --module",
-    "test:e2e": "bun test test/e2e",
-    "test:all": "bun test",
-    "test:live": "START_SERVICES=1 JEJU_NETWORK=localnet bun test test/integration/full-sdk.integration.test.ts",
-    "lint": "prettier --write ./src",
-    "typecheck": "tsc --noEmit",
-    "clean": "rm -rf dist",
-    "prepublishOnly": "bun run build"
+    "test": "bun test test/",
+    "typecheck": "tsc --noEmit"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/elizaos/jeju.git",
-    "directory": "packages/sdk"
-  },
-  "keywords": [
-    "jeju",
-    "sdk",
-    "ethereum",
-    "l2",
-    "defi",
-    "compute",
-    "storage",
-    "governance"
-  ],
   "dependencies": {
-    "@noble/curves": "^1.8.0",
-    "viem": "2.43.2",
-    "permissionless": "0.2.34",
+    "@elysiajs/eden": "^1.4.5",
+    "@jejunetwork/config": "workspace:*",
     "@jejunetwork/types": "workspace:*",
-    "@jejunetwork/config": "workspace:*"
+    "@noble/curves": "^1.8.0",
+    "elysia": "^1.4.19",
+    "permissionless": "0.2.34",
+    "viem": "2.43.3"
   },
   "devDependencies": {
     "@types/bun": "latest",

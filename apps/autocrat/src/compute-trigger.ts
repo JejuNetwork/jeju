@@ -116,7 +116,6 @@ export function getAutocratTriggers(): Array<
 }
 
 export async function registerAutocratTriggers(): Promise<void> {
-  console.log('[Trigger] Registering...')
   const computeEndpoint = getComputeEndpoint()
   const triggers = getAutocratTriggers()
   for (const trigger of triggers) {
@@ -124,17 +123,12 @@ export async function registerAutocratTriggers(): Promise<void> {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(trigger),
-    }).catch(() => null)
-    if (r?.ok) {
-      const data = expectValid(
+    })
+    if (r.ok) {
+      expectValid(
         TriggerRegisterResponseSchema,
         await r.json(),
         `Trigger registration ${trigger.name}`,
-      )
-      console.log(`[Trigger] Registered: ${trigger.name} (${data.id})`)
-    } else {
-      console.warn(
-        `[Trigger] Failed: ${trigger.name} (${r?.status ?? 'unreachable'})`,
       )
     }
   }
@@ -145,16 +139,8 @@ export function startLocalCron(
 ): NodeJS.Timer {
   const match = ORCHESTRATOR_CRON.match(/^\*\/(\d+)/)
   const intervalMs = match ? parseInt(match[1], 10) * 1000 : 30_000
-  console.log(`[Trigger] Local cron (${intervalMs}ms)`)
-  return setInterval(async () => {
-    try {
-      const result = await callback()
-      console.log(
-        `[Trigger] Cycle: ${result.processedProposals} proposals, ${result.duration}ms`,
-      )
-    } catch (error) {
-      console.error('[Trigger] Error:', error)
-    }
+  return setInterval(() => {
+    callback().catch((error) => console.error('[Trigger] Error:', error))
   }, intervalMs)
 }
 

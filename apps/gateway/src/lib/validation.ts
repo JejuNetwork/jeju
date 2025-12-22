@@ -19,20 +19,8 @@ import {
 import type { Address, Hex } from 'viem'
 import { z } from 'zod'
 
-// ============================================================================
-// JSON-Serializable Value Types (for dynamic API data)
-// ============================================================================
-
-/**
- * Represents any JSON-serializable primitive value.
- * Used for API boundaries where values are truly dynamic but must be JSON-safe.
- */
 export type JsonPrimitive = string | number | boolean | null
 
-/**
- * Represents any JSON-serializable value including nested objects/arrays.
- * More specific than `unknown` - guarantees JSON compatibility.
- */
 export type JsonValue =
   | JsonPrimitive
   | JsonValue[]
@@ -49,10 +37,6 @@ export const JsonPrimitiveSchema: z.ZodType<JsonPrimitive> = z.union([
   z.null(),
 ])
 
-/**
- * Recursive schema for any JSON-serializable value.
- * Validates that data can be safely JSON.stringify'd and parsed.
- */
 export const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
   z.union([
     JsonPrimitiveSchema,
@@ -68,10 +52,6 @@ export const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
 export const JsonObjectSchema = z.record(z.string(), JsonValueSchema)
 export type JsonObject = z.infer<typeof JsonObjectSchema>
 
-/**
- * RPC parameter types - the specific types allowed in JSON-RPC params.
- * More constrained than JsonValue for RPC-specific validation.
- */
 export type RpcParamValue =
   | string
   | number
@@ -107,18 +87,14 @@ export {
 export const ChainIdSchema = SupportedChainIdSchema
 export type ChainId = SupportedChainId
 
-// ============================================================================
-// Intent Schemas
-// ============================================================================
-
 export const CreateIntentRequestSchema = z.object({
   sourceChain: ChainIdSchema,
   destinationChain: ChainIdSchema,
   sourceToken: AddressSchema.transform((val) => val as `0x${string}`),
   destinationToken: AddressSchema.transform((val) => val as `0x${string}`),
   amount: PositiveNumberStringSchema,
-  recipient: AddressSchema.transform((val) => val as `0x${string}`).optional(),
-  maxFee: NonNegativeNumberStringSchema.optional(),
+  recipient: AddressSchema.transform((val) => val as `0x${string}`).nullable(),
+  maxFee: NonNegativeNumberStringSchema.nullable(),
 })
 export type CreateIntentRequest = z.infer<typeof CreateIntentRequestSchema>
 
@@ -135,12 +111,12 @@ export const IntentIdSchema = z.string().min(1)
 export type IntentId = z.infer<typeof IntentIdSchema>
 
 export const ListIntentsQuerySchema = z.object({
-  user: AddressSchema.transform((val) => val as `0x${string}`).optional(),
+  user: AddressSchema.transform((val) => val as `0x${string}`).nullable(),
   status: z
     .enum(['open', 'pending', 'filled', 'expired', 'cancelled', 'failed'])
-    .optional(),
-  sourceChain: ChainIdSchema.optional(),
-  destinationChain: ChainIdSchema.optional(),
+    .nullable(),
+  sourceChain: ChainIdSchema.nullable(),
+  destinationChain: ChainIdSchema.nullable(),
   limit: z.coerce.number().int().min(1).max(1000).default(50),
 })
 export type ListIntentsQuery = z.infer<typeof ListIntentsQuerySchema>
@@ -155,9 +131,9 @@ export type CancelIntentRequest = z.infer<typeof CancelIntentRequestSchema>
 // ============================================================================
 
 export const ListRoutesQuerySchema = z.object({
-  sourceChain: ChainIdSchema.optional(),
-  destinationChain: ChainIdSchema.optional(),
-  active: z.coerce.boolean().optional(),
+  sourceChain: ChainIdSchema.nullable(),
+  destinationChain: ChainIdSchema.nullable(),
+  active: z.coerce.boolean().nullable(),
 })
 export type ListRoutesQuery = z.infer<typeof ListRoutesQuerySchema>
 
@@ -172,20 +148,16 @@ export const GetBestRouteRequestSchema = z.object({
 export type GetBestRouteRequest = z.infer<typeof GetBestRouteRequestSchema>
 
 export const GetVolumeQuerySchema = z.object({
-  routeId: RouteIdSchema.optional(),
-  sourceChain: ChainIdSchema.optional(),
-  destinationChain: ChainIdSchema.optional(),
+  routeId: RouteIdSchema.nullable(),
+  sourceChain: ChainIdSchema.nullable(),
+  destinationChain: ChainIdSchema.nullable(),
   period: z.enum(['24h', '7d', '30d', 'all']).default('24h'),
 })
 export type GetVolumeQuery = z.infer<typeof GetVolumeQuerySchema>
 
-// ============================================================================
-// Solver Schemas
-// ============================================================================
-
 export const ListSolversQuerySchema = z.object({
-  chainId: ChainIdSchema.optional(),
-  minReputation: z.coerce.number().int().min(0).max(100).optional(),
+  chainId: ChainIdSchema.nullable(),
+  minReputation: z.coerce.number().int().min(0).max(100).nullable(),
   active: z.coerce.boolean().default(true),
 })
 export type ListSolversQuery = z.infer<typeof ListSolversQuerySchema>
@@ -221,15 +193,11 @@ export const SwapQuoteRequestSchema = z.object({
 export type SwapQuoteRequest = z.infer<typeof SwapQuoteRequestSchema>
 
 export const ListPoolsQuerySchema = z.object({
-  type: z.enum(['v2']).optional(),
-  token0: AddressSchema.optional(),
-  token1: AddressSchema.optional(),
+  type: z.enum(['v2']).nullable(),
+  token0: AddressSchema.nullable(),
+  token1: AddressSchema.nullable(),
 })
 export type ListPoolsQuery = z.infer<typeof ListPoolsQuerySchema>
-
-// ============================================================================
-// Moderation Schemas
-// ============================================================================
 
 export const CheckBanStatusRequestSchema = z.object({
   address: AddressSchema,
@@ -244,9 +212,9 @@ export type GetModeratorProfileRequest = z.infer<
 >
 
 export const GetModerationCasesQuerySchema = z.object({
-  activeOnly: z.coerce.boolean().optional(),
-  resolvedOnly: z.coerce.boolean().optional(),
-  limit: z.coerce.number().int().min(1).max(1000).optional().default(100),
+  activeOnly: z.coerce.boolean().nullable(),
+  resolvedOnly: z.coerce.boolean().nullable(),
+  limit: z.coerce.number().int().min(1).max(1000).nullable().default(100),
 })
 export type GetModerationCasesQuery = z.infer<
   typeof GetModerationCasesQuerySchema
@@ -256,8 +224,8 @@ export const CaseIdSchema = z.string().min(1)
 export type CaseId = z.infer<typeof CaseIdSchema>
 
 export const GetReportsQuerySchema = z.object({
-  limit: z.coerce.number().int().min(1).max(1000).optional().default(100),
-  pendingOnly: z.coerce.boolean().optional(),
+  limit: z.coerce.number().int().min(1).max(1000).nullable().default(100),
+  pendingOnly: z.coerce.boolean().nullable(),
 })
 export type GetReportsQuery = z.infer<typeof GetReportsQuerySchema>
 
@@ -310,15 +278,11 @@ export const FaucetClaimRequestSchema = z.object({
 })
 export type FaucetClaimRequest = z.infer<typeof FaucetClaimRequestSchema>
 
-// ============================================================================
-// RPC Schemas
-// ============================================================================
-
 export const RpcRequestSchema = z.object({
   jsonrpc: z.literal('2.0'),
   id: z.union([z.string(), z.number()]),
   method: z.string().min(1),
-  params: z.array(RpcParamValueSchema).optional(),
+  params: z.array(RpcParamValueSchema).nullable(),
 })
 export type RpcRequest = z.infer<typeof RpcRequestSchema>
 
@@ -326,7 +290,7 @@ export const RpcBatchRequestSchema = z.array(RpcRequestSchema).min(1).max(100)
 export type RpcBatchRequest = z.infer<typeof RpcBatchRequestSchema>
 
 export const CreateApiKeyRequestSchema = z.object({
-  name: z.string().max(100).optional(),
+  name: z.string().max(100).nullable(),
   address: AddressSchema,
 })
 export type CreateApiKeyRequest = z.infer<typeof CreateApiKeyRequestSchema>
@@ -356,8 +320,8 @@ export type PurchaseCreditsRequest = z.infer<
 >
 
 export const PaymentRequirementQuerySchema = z.object({
-  chainId: ChainIdSchema.optional(),
-  method: z.string().min(1).optional(),
+  chainId: ChainIdSchema.nullable(),
+  method: z.string().min(1).nullable(),
 })
 export type PaymentRequirementQuery = z.infer<
   typeof PaymentRequirementQuerySchema
@@ -371,17 +335,17 @@ export const UsernameSchema = z.string().min(1).max(100)
 export type Username = z.infer<typeof UsernameSchema>
 
 export const GetAttestationQuerySchema = z.object({
-  wallet: AddressSchema.transform((val) => val as `0x${string}`).optional(),
-  username: UsernameSchema.optional(),
-  chainId: z.string().optional(),
+  wallet: AddressSchema.transform((val) => val as `0x${string}`).nullable(),
+  username: UsernameSchema.nullable(),
+  chainId: z.string().nullable(),
 })
 export type GetAttestationQuery = z.infer<typeof GetAttestationQuerySchema>
 
 export const CreateAttestationRequestSchema = z.object({
   username: UsernameSchema,
   walletAddress: AddressSchema.transform((val) => val as `0x${string}`),
-  chainId: z.string().optional(),
-  agentId: z.coerce.number().int().nonnegative().optional(),
+  chainId: z.string().nullable(),
+  agentId: z.coerce.number().int().nonnegative().nullable(),
 })
 export type CreateAttestationRequest = z.infer<
   typeof CreateAttestationRequestSchema
@@ -394,7 +358,7 @@ export const ConfirmAttestationRequestSchema = z.object({
     .regex(/^0x[0-9a-fA-F]{64}$/, 'Invalid transaction hash')
     .transform((s) => s.toLowerCase() as `0x${string}`),
   walletAddress: AddressSchema,
-  chainId: z.string().optional(),
+  chainId: z.string().nullable(),
 })
 export type ConfirmAttestationRequest = z.infer<
   typeof ConfirmAttestationRequestSchema
@@ -402,7 +366,7 @@ export type ConfirmAttestationRequest = z.infer<
 
 export const WalletVerifyQuerySchema = z.object({
   username: UsernameSchema,
-  wallet: AddressSchema.optional(),
+  wallet: AddressSchema.nullable(),
 })
 export type WalletVerifyQuery = z.infer<typeof WalletVerifyQuerySchema>
 
@@ -412,14 +376,14 @@ export const WalletVerifyRequestSchema = z.object({
   signature: HexStringSchema,
   message: NonEmptyStringSchema,
   timestamp: z.number().int().positive(),
-  chainId: z.string().optional(),
+  chainId: z.string().nullable(),
 })
 export type WalletVerifyRequest = z.infer<typeof WalletVerifyRequestSchema>
 
 export const AgentLinkQuerySchema = z.object({
-  wallet: AddressSchema.optional(),
-  username: UsernameSchema.optional(),
-  agentId: z.coerce.number().int().positive().optional(),
+  wallet: AddressSchema.nullable(),
+  username: UsernameSchema.nullable(),
+  agentId: z.coerce.number().int().positive().nullable(),
 })
 export type AgentLinkQuery = z.infer<typeof AgentLinkQuerySchema>
 
@@ -428,8 +392,8 @@ export const CreateAgentLinkRequestSchema = z.object({
   walletAddress: AddressSchema,
   agentId: z.coerce.number().int().positive(),
   registryAddress: AddressSchema,
-  chainId: z.string().optional(),
-  txHash: HexStringSchema.optional(),
+  chainId: z.string().nullable(),
+  txHash: HexStringSchema.nullable(),
 })
 export type CreateAgentLinkRequest = z.infer<
   typeof CreateAgentLinkRequestSchema
@@ -440,17 +404,10 @@ export const LeaderboardQuerySchema = z.object({
 })
 export type LeaderboardQuery = z.infer<typeof LeaderboardQuerySchema>
 
-// ============================================================================
-// A2A Request Schemas
-// ============================================================================
-
-/**
- * A2A message part - the data field contains skill parameters as JSON.
- */
 export const A2AMessagePartSchema = z.object({
   kind: z.string(),
-  text: z.string().optional(),
-  data: JsonObjectSchema.optional(),
+  text: z.string().nullable(),
+  data: JsonObjectSchema.nullable(),
 })
 export type A2AMessagePart = z.infer<typeof A2AMessagePartSchema>
 
@@ -480,29 +437,19 @@ export type McpResourceReadRequest = z.infer<
 
 export const McpToolCallRequestSchema = z.object({
   name: z.string().min(1),
-  arguments: JsonObjectSchema.optional().default({}),
+  arguments: JsonObjectSchema.nullable().default({}),
 })
 export type McpToolCallRequest = z.infer<typeof McpToolCallRequestSchema>
 
-// ============================================================================
-// EIL Config Schemas
-// ============================================================================
-
-/**
- * Chain status in EIL config
- */
 export const EILChainStatusSchema = z.enum(['active', 'planned', 'deprecated'])
 export type EILChainStatus = z.infer<typeof EILChainStatusSchema>
 
-/**
- * Hub configuration in EIL network config
- */
 export const EILHubConfigSchema = z.object({
   chainId: z.number().int().positive(),
   name: z.string().min(1),
-  rpcUrl: z.string().optional(),
+  rpcUrl: z.string().nullable(),
   l1StakeManager: z.string(),
-  crossChainPaymaster: z.string().optional(),
+  crossChainPaymaster: z.string().nullable(),
   status: EILChainStatusSchema,
 })
 export type EILHubConfig = z.infer<typeof EILHubConfigSchema>
@@ -511,35 +458,29 @@ export type EILHubConfig = z.infer<typeof EILHubConfigSchema>
  * Individual chain configuration in EIL
  */
 export const EILChainConfigSchema = z.object({
-  chainId: z.number().int().positive().optional(),
+  chainId: z.number().int().positive().nullable(),
   name: z.string().min(1),
-  rpcUrl: z.string().optional(),
+  rpcUrl: z.string().nullable(),
   crossChainPaymaster: z.string(),
-  l1StakeManager: z.string().optional(),
+  l1StakeManager: z.string().nullable(),
   status: EILChainStatusSchema,
-  type: z.string().optional(),
-  oif: z.record(z.string(), z.string()).optional(),
-  tokens: z.record(z.string(), z.string()).optional(),
-  programs: z.record(z.string(), z.string()).optional(),
+  type: z.string().nullable(),
+  oif: z.record(z.string(), z.string()).nullable(),
+  tokens: z.record(z.string(), z.string()).nullable(),
+  programs: z.record(z.string(), z.string()).nullable(),
 })
 export type EILChainConfig = z.infer<typeof EILChainConfigSchema>
 
-/**
- * Network configuration (testnet/mainnet/localnet)
- */
 export const EILNetworkConfigSchema = z.object({
   hub: EILHubConfigSchema,
   chains: z.record(z.string(), EILChainConfigSchema),
 })
 export type EILNetworkConfig = z.infer<typeof EILNetworkConfigSchema>
 
-/**
- * Full EIL JSON config schema
- */
 export const EILJsonConfigSchema = z.object({
   version: z.string(),
   lastUpdated: z.string(),
-  description: z.string().optional(),
+  description: z.string().nullable(),
   entryPoint: z.string(),
   l2Messenger: z.string(),
   supportedTokens: z.array(z.string()),
@@ -559,13 +500,10 @@ export type EILJsonConfig = z.infer<typeof EILJsonConfigSchema>
 export const IntentTokenAmountSchema = z.object({
   token: AddressSchema,
   amount: z.string(),
-  chainId: z.number().int().positive().optional(),
+  chainId: z.number().int().positive().nullable(),
 })
 export type IntentTokenAmount = z.infer<typeof IntentTokenAmountSchema>
 
-/**
- * Cached Intent schema (for state.ts cache parsing)
- */
 export const CachedIntentSchema = z.object({
   intentId: HexSchema,
   user: AddressSchema,
@@ -584,11 +522,11 @@ export const CachedIntentSchema = z.object({
     'cancelled',
     'failed',
   ]),
-  solver: AddressSchema.optional(),
-  txHash: HexSchema.optional(),
-  createdAt: z.number().int().optional(),
-  filledAt: z.number().int().optional(),
-  cancelledAt: z.number().int().optional(),
+  solver: AddressSchema.nullable(),
+  txHash: HexSchema.nullable(),
+  createdAt: z.number().int().nullable(),
+  filledAt: z.number().int().nullable(),
+  cancelledAt: z.number().int().nullable(),
 })
 export type CachedIntent = z.infer<typeof CachedIntentSchema>
 
@@ -602,35 +540,29 @@ export const SolverLiquiditySchema = z.object({
 })
 export type SolverLiquidity = z.infer<typeof SolverLiquiditySchema>
 
-/**
- * Cached Solver schema (for state.ts cache parsing)
- */
 export const CachedSolverSchema = z.object({
   address: AddressSchema,
   name: z.string(),
-  endpoint: z.string().optional(),
+  endpoint: z.string().nullable(),
   supportedChains: z.array(z.number().int().positive()),
   supportedTokens: z.record(z.string(), z.array(AddressSchema)),
-  liquidity: z.array(SolverLiquiditySchema).optional(),
+  liquidity: z.array(SolverLiquiditySchema).nullable(),
   reputation: z.number().int(),
   totalFills: z.number().int(),
   successfulFills: z.number().int(),
   failedFills: z.number().int(),
   successRate: z.number(),
-  avgResponseMs: z.number().optional(),
-  avgFillTimeMs: z.number().optional(),
+  avgResponseMs: z.number().nullable(),
+  avgFillTimeMs: z.number().nullable(),
   totalVolumeUsd: z.string(),
   totalFeesEarnedUsd: z.string(),
   stakedAmount: z.string(),
   status: z.enum(['active', 'inactive', 'banned']),
   registeredAt: z.number().int(),
-  lastActiveAt: z.number().int().optional(),
+  lastActiveAt: z.number().int().nullable(),
 })
 export type CachedSolver = z.infer<typeof CachedSolverSchema>
 
-/**
- * JNS resolved content schema (for jns-gateway.ts cache parsing)
- */
 export const ResolvedContentSchema = z.object({
   cid: z.string().min(1),
   codec: z.enum(['ipfs', 'ipns', 'swarm', 'arweave']),
@@ -650,9 +582,6 @@ export const X402PaymentProofSchema = z.object({
 })
 export type X402PaymentProof = z.infer<typeof X402PaymentProofSchema>
 
-/**
- * RPC Chain Info schema (for rpc-client.ts)
- */
 export const RpcChainInfoSchema = z.object({
   chainId: z.number().int().positive(),
   name: z.string(),
@@ -673,16 +602,13 @@ export const RpcChainsResponseSchema = z.object({
 })
 export type RpcChainsResponse = z.infer<typeof RpcChainsResponseSchema>
 
-/**
- * Flashbots JSON-RPC response schemas
- */
 export const FlashbotsRpcResponseSchema = z.object({
   result: JsonValueSchema.optional(),
   error: z
     .object({
       message: z.string(),
     })
-    .optional(),
+    .nullable(),
 })
 export type FlashbotsRpcResponse = z.infer<typeof FlashbotsRpcResponseSchema>
 
@@ -691,24 +617,24 @@ export const FlashbotsBundleHashResponseSchema = z.object({
     .object({
       bundleHash: HexSchema,
     })
-    .optional(),
+    .nullable(),
   error: z
     .object({
       message: z.string(),
     })
-    .optional(),
+    .nullable(),
 })
 export type FlashbotsBundleHashResponse = z.infer<
   typeof FlashbotsBundleHashResponseSchema
 >
 
 export const FlashbotsProtectedTxResponseSchema = z.object({
-  result: HexSchema.optional(),
+  result: HexSchema.nullable(),
   error: z
     .object({
       message: z.string(),
     })
-    .optional(),
+    .nullable(),
 })
 export type FlashbotsProtectedTxResponse = z.infer<
   typeof FlashbotsProtectedTxResponseSchema
@@ -718,14 +644,14 @@ export const FlashbotsProtectedStatusResponseSchema = z.object({
   result: z
     .object({
       status: z.string(),
-      includedBlock: z.string().optional(),
+      includedBlock: z.string().nullable(),
     })
-    .optional(),
+    .nullable(),
   error: z
     .object({
       message: z.string(),
     })
-    .optional(),
+    .nullable(),
 })
 export type FlashbotsProtectedStatusResponse = z.infer<
   typeof FlashbotsProtectedStatusResponseSchema
@@ -735,7 +661,7 @@ export const FlashbotsSimulationResultSchema = z.object({
   txHash: z.string(),
   gasUsed: z.string(),
   value: z.string(),
-  error: z.string().optional(),
+  error: z.string().nullable(),
 })
 export type FlashbotsSimulationResult = z.infer<
   typeof FlashbotsSimulationResultSchema
@@ -749,12 +675,12 @@ export const FlashbotsSimulationResponseSchema = z.object({
       coinbaseDiff: z.string(),
       ethSentToCoinbase: z.string(),
     })
-    .optional(),
+    .nullable(),
   error: z
     .object({
       message: z.string(),
     })
-    .optional(),
+    .nullable(),
 })
 export type FlashbotsSimulationResponse = z.infer<
   typeof FlashbotsSimulationResponseSchema
@@ -766,23 +692,23 @@ export const FlashbotsBundleStatsResponseSchema = z.object({
       isHighPriority: z.boolean(),
       isSentToMiners: z.boolean(),
       isSimulated: z.boolean(),
-      simulatedAt: z.string().optional(),
-      receivedAt: z.string().optional(),
-      consideredByBuildersAt: z.array(z.string()).optional(),
+      simulatedAt: z.string().nullable(),
+      receivedAt: z.string().nullable(),
+      consideredByBuildersAt: z.array(z.string()).nullable(),
     })
-    .optional(),
+    .nullable(),
   error: z
     .object({
       message: z.string(),
     })
-    .optional(),
+    .nullable(),
 })
 export type FlashbotsBundleStatsResponse = z.infer<
   typeof FlashbotsBundleStatsResponseSchema
 >
 
 export const FlashbotsBlockNumberResponseSchema = z.object({
-  result: z.string().optional(),
+  result: z.string().nullable(),
 })
 export type FlashbotsBlockNumberResponse = z.infer<
   typeof FlashbotsBlockNumberResponseSchema
@@ -793,12 +719,12 @@ export const FlashbotsL2BlockResponseSchema = z.object({
     .object({
       blockHash: HexSchema,
     })
-    .optional(),
+    .nullable(),
   error: z
     .object({
       message: z.string(),
     })
-    .optional(),
+    .nullable(),
 })
 export type FlashbotsL2BlockResponse = z.infer<
   typeof FlashbotsL2BlockResponseSchema
@@ -809,12 +735,12 @@ export const FlashbotsSuaveResponseSchema = z.object({
     .object({
       requestId: HexSchema,
     })
-    .optional(),
+    .nullable(),
   error: z
     .object({
       message: z.string(),
     })
-    .optional(),
+    .nullable(),
 })
 export type FlashbotsSuaveResponse = z.infer<
   typeof FlashbotsSuaveResponseSchema
@@ -834,19 +760,14 @@ export const MevShareEventDataSchema = z.object({
     z.object({
       to: z.string(),
       functionSelector: z.string(),
-      callData: z.string().optional(),
+      callData: z.string().nullable(),
     }),
   ),
-  mevGasPrice: z.string().optional(),
-  gasUsed: z.string().optional(),
+  mevGasPrice: z.string().nullable(),
+  gasUsed: z.string().nullable(),
 })
 export type MevShareEventData = z.infer<typeof MevShareEventDataSchema>
 
-// ============================================================================
-// External API Response Schemas
-// ============================================================================
-
-/** WebSocket message from Alchemy pending transactions subscription */
 export const AlchemyPendingTxMessageSchema = z.object({
   params: z
     .object({
@@ -857,14 +778,14 @@ export const AlchemyPendingTxMessageSchema = z.object({
           to: z.string().nullable(),
           input: z.string(),
           value: z.string(),
-          gasPrice: z.string().optional(),
-          maxFeePerGas: z.string().optional(),
-          maxPriorityFeePerGas: z.string().optional(),
+          gasPrice: z.string().nullable(),
+          maxFeePerGas: z.string().nullable(),
+          maxPriorityFeePerGas: z.string().nullable(),
           nonce: z.string(),
         })
-        .optional(),
+        .nullable(),
     })
-    .optional(),
+    .nullable(),
 })
 export type AlchemyPendingTxMessage = z.infer<
   typeof AlchemyPendingTxMessageSchema
@@ -881,7 +802,6 @@ export const CacheGetResponseSchema = z.object({
 })
 export type CacheGetResponse = z.infer<typeof CacheGetResponseSchema>
 
-/** CoinGecko price response */
 export const CoinGeckoPriceResponseSchema = z.object({
   ethereum: z.object({
     usd: z.number(),
@@ -895,13 +815,12 @@ export type CoinGeckoPriceResponse = z.infer<
 export const GitHubUserResponseSchema = z.object({
   id: z.number(),
   login: z.string(),
-  name: z.string().nullable().optional(),
-  email: z.string().nullable().optional(),
+  name: z.string().nullable().nullable(),
+  email: z.string().nullable().nullable(),
   avatar_url: z.string(),
 })
 export type GitHubUserResponse = z.infer<typeof GitHubUserResponseSchema>
 
-/** GitHub avatar-only response */
 export const GitHubAvatarResponseSchema = z.object({
   avatar_url: z.string(),
 })
@@ -931,8 +850,8 @@ export const UniswapXOrderResponseSchema = z.object({
       ),
       decayStartTime: z.number(),
       decayEndTime: z.number(),
-      exclusiveFiller: z.string().optional(),
-      exclusivityOverrideBps: z.number().optional(),
+      exclusiveFiller: z.string().nullable(),
+      exclusivityOverrideBps: z.number().nullable(),
       nonce: z.string(),
       encodedOrder: z.string(),
       signature: z.string(),
@@ -943,7 +862,6 @@ export const UniswapXOrderResponseSchema = z.object({
 })
 export type UniswapXOrderResponse = z.infer<typeof UniswapXOrderResponseSchema>
 
-/** CoW auction history response */
 export const CowAuctionHistoryResponseSchema = z.object({
   auctionId: z.number(),
   orders: z.array(
@@ -975,7 +893,6 @@ export type CowAuctionHistoryResponse = z.infer<
   typeof CowAuctionHistoryResponseSchema
 >
 
-/** DWS LLM response */
 export const DWSChatCompletionResponseSchema = z.object({
   choices: z.array(
     z.object({
@@ -988,7 +905,7 @@ export const DWSChatCompletionResponseSchema = z.object({
     .object({
       total_tokens: z.number(),
     })
-    .optional(),
+    .nullable(),
 })
 export type DWSChatCompletionResponse = z.infer<
   typeof DWSChatCompletionResponseSchema
@@ -1022,14 +939,13 @@ export type GitRepositoriesResponse = z.infer<
   typeof GitRepositoriesResponseSchema
 >
 
-/** NPM search response */
 export const NPMSearchResponseSchema = z.object({
   objects: z.array(
     z.object({
       package: z.object({
         name: z.string(),
         version: z.string(),
-        description: z.string().optional(),
+        description: z.string().nullable(),
       }),
       score: z.object({
         final: z.number(),
@@ -1039,25 +955,23 @@ export const NPMSearchResponseSchema = z.object({
 })
 export type NPMSearchResponse = z.infer<typeof NPMSearchResponseSchema>
 
-/** Git organizations response */
 export const GitOrganizationsResponseSchema = z.array(
   z.object({
     name: z.string(),
-    displayName: z.string().optional(),
-    description: z.string().optional(),
-    avatarUrl: z.string().optional(),
-    website: z.string().optional(),
+    displayName: z.string().nullable(),
+    description: z.string().nullable(),
+    avatarUrl: z.string().nullable(),
+    website: z.string().nullable(),
     memberCount: z.number(),
     repoCount: z.number(),
     createdAt: z.string(),
-    verified: z.boolean().optional(),
+    verified: z.boolean().nullable(),
   }),
 )
 export type GitOrganizationsResponse = z.infer<
   typeof GitOrganizationsResponseSchema
 >
 
-/** Git organization members response */
 export const GitOrgMembersResponseSchema = z.array(
   z.object({
     username: z.string(),
@@ -1071,18 +985,17 @@ export type GitOrgMembersResponse = z.infer<typeof GitOrgMembersResponseSchema>
 export const JsonRpcResponseSchema = z.object({
   jsonrpc: z.string(),
   id: z.union([z.number(), z.string()]),
-  result: JsonValueSchema.optional(),
+  result: JsonValueSchema.nullable(),
   error: z
     .object({
       code: z.number(),
       message: z.string(),
-      data: JsonValueSchema.optional(),
+      data: JsonValueSchema.nullable(),
     })
-    .optional(),
+    .nullable(),
 })
 export type JsonRpcResponseType = z.infer<typeof JsonRpcResponseSchema>
 
-/** Rate limit info response */
 export const RateLimitInfoResponseSchema = z.object({
   tier: z.string(),
   limit: z.union([z.number(), z.string()]),
@@ -1098,13 +1011,9 @@ export type RateLimitInfoResponse = z.infer<typeof RateLimitInfoResponseSchema>
 export { baseExpectValid as expectValid }
 export const validateOrThrow = baseExpectValid
 
-/**
- * Validates data against a Zod schema with an optional context
- * This wrapper maintains the gateway's expected arg order: (value, schema, context)
- */
 export function expect<T>(
   value: unknown,
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   context?: string,
 ): T {
   return baseExpectValid(schema, value, context)
@@ -1113,9 +1022,6 @@ export function expect<T>(
 export const expectAddress = baseExpectAddress
 export const expectChainId = baseExpectChainId
 
-/**
- * Validates a positive number string and throws if invalid
- */
 export function expectPositiveNumber(value: unknown, context?: string): string {
   const result = PositiveNumberStringSchema.safeParse(value)
   if (!result.success) {
@@ -1128,11 +1034,8 @@ export function expectPositiveNumber(value: unknown, context?: string): string {
   return result.data
 }
 
-/**
- * Validates query parameters from Express/Hono request
- */
 export function validateQuery<T>(
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   query: Record<string, unknown>,
   context?: string,
 ): T {
@@ -1140,28 +1043,20 @@ export function validateQuery<T>(
 }
 
 /**
- * Validates request body from Express/Hono request
+ * Validates request body
  */
 export function validateBody<T>(
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   body: unknown,
   context?: string,
 ): T {
   return validateOrThrow(schema, body, context)
 }
 
-/**
- * Extracts error message from unknown error values
- */
 export function formatError(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
-/**
- * Converts a typed object to a JsonObject for JSON response data.
- * This provides type safety while allowing typed API responses to be used
- * as generic response data at API boundaries.
- */
 export function toResponseData<T extends object>(data: T): JsonObject {
   return data as JsonObject
 }

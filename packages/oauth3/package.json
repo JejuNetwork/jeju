@@ -1,7 +1,7 @@
 {
   "name": "@jejunetwork/oauth3",
-  "version": "0.2.0",
-  "description": "Decentralized OAuth3 authentication with TEE-backed key management, FROST MPC signing, MFA (Passkeys/TOTP), and W3C Verifiable Credentials",
+  "version": "0.1.0",
+  "description": "Decentralized OAuth3 authentication with TEE-backed key management",
   "license": "MIT",
   "type": "module",
   "main": "dist/index.js",
@@ -10,67 +10,14 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    },
-    "./react": {
-      "types": "./dist/react/index.d.ts",
-      "import": "./dist/react/index.js"
     }
   },
-  "files": [
-    "dist",
-    "README.md",
-    "LICENSE"
-  ],
+  "files": ["dist", "README.md", "LICENSE"],
   "sideEffects": false,
   "scripts": {
     "build": "tsc",
-    "dev": "tsc --watch",
     "test": "bun test",
-    "typecheck": "tsc --noEmit",
-    "clean": "rm -rf dist",
-    "prepublishOnly": "bun run clean && bun run build",
-    "start:agent": "bun run src/tee/dstack-agent.ts",
-    "start:demo": "bun run src/demo/server.ts",
-    "docker:local": "docker compose -f docker/dstack.compose.yaml --profile local up",
-    "docker:testnet:dstack": "docker compose -f docker/dstack.compose.yaml --profile testnet up",
-    "docker:testnet:phala": "docker compose -f docker/phala.compose.yaml --profile testnet up",
-    "docker:mainnet:phala": "docker compose -f docker/phala.compose.yaml --profile mainnet up",
-    "docker:build": "docker build -t ghcr.io/jeju-network/oauth3-agent:latest -f docker/Dockerfile .",
-    "docker:push": "docker push ghcr.io/jeju-network/oauth3-agent:latest"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/elizaos/jeju.git",
-    "directory": "packages/oauth3"
-  },
-  "bugs": {
-    "url": "https://github.com/elizaos/jeju/issues"
-  },
-  "homepage": "https://github.com/elizaos/jeju/tree/main/packages/oauth3#readme",
-  "author": "Jeju Network <team@jejunetwork.org>",
-  "keywords": [
-    "oauth3",
-    "authentication",
-    "tee",
-    "dstack",
-    "phala",
-    "mpc",
-    "frost",
-    "threshold-signatures",
-    "farcaster",
-    "siwe",
-    "sign-in-with-ethereum",
-    "verifiable-credentials",
-    "decentralized",
-    "web3",
-    "ethereum",
-    "smart-accounts",
-    "account-abstraction",
-    "jeju"
-  ],
-  "engines": {
-    "node": ">=18.0.0",
-    "bun": ">=1.0.0"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@jejunetwork/types": "workspace:*",
@@ -79,8 +26,8 @@
     "@noble/curves": "1.9.7",
     "@noble/hashes": "1.7.1",
     "elysia": "1.3.3",
-    "viem": "2.43.2",
-    "zod": "3.24.1"
+    "viem": "2.43.3",
+    "zod": "4.2.1"
   },
   "devDependencies": {
     "@types/bun": "latest",
@@ -93,15 +40,10 @@
     "react": ">=18.0.0"
   },
   "peerDependenciesMeta": {
-    "viem": {
-      "optional": false
-    },
-    "react": {
-      "optional": true
-    }
+    "viem": { "optional": false },
+    "react": { "optional": true }
   },
   "publishConfig": {
-    "access": "public",
-    "registry": "https://registry.npmjs.org/"
+    "access": "public"
   }
 }

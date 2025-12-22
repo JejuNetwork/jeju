@@ -200,9 +200,9 @@ function OperatorRegistrationForm({
       ] as const
 
       // Get contract address from environment
-      const contractAddress = process.env.NEXT_PUBLIC_ORACLE_NETWORK_CONNECTOR
+      const contractAddress = process.env.PUBLIC_ORACLE_NETWORK_CONNECTOR
       if (!contractAddress) {
-        throw new Error('NEXT_PUBLIC_ORACLE_NETWORK_CONNECTOR not configured')
+        throw new Error('PUBLIC_ORACLE_NETWORK_CONNECTOR not configured')
       }
 
       const hash = await writeContract(config, {
@@ -365,7 +365,7 @@ function PerformanceMetrics() {
     const fetchMetrics = async () => {
       try {
         const config = getConfig()
-        const contractAddress = process.env.NEXT_PUBLIC_ORACLE_NETWORK_CONNECTOR
+        const contractAddress = process.env.PUBLIC_ORACLE_NETWORK_CONNECTOR
 
         if (!contractAddress) {
           setLoading(false)

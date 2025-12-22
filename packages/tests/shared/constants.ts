@@ -17,9 +17,7 @@ import {
 // Import canonical test accounts from utils (single source of truth)
 import { SEED_PHRASE, TEST_ACCOUNTS } from './utils'
 
-// ============================================================================
 // Infrastructure Ports (re-exported for backward compatibility)
-// ============================================================================
 
 export const INFRA_PORTS = {
   l1Rpc: CONFIG_INFRA_PORTS.L1_RPC.get(),
@@ -29,9 +27,7 @@ export const INFRA_PORTS = {
   grafana: CONFIG_INFRA_PORTS.GRAFANA.get(),
 } as const
 
-// ============================================================================
 // Network Configuration
-// ============================================================================
 
 export const JEJU_LOCALNET = {
   chainId: 1337,
@@ -46,9 +42,7 @@ export const L1_LOCALNET = {
   rpcUrl: getL1RpcUrl(),
 } as const
 
-// ============================================================================
 // Test Wallets (Anvil defaults) - Using canonical values from utils
-// ============================================================================
 
 export const DEFAULT_TEST_WALLET = {
   address: TEST_ACCOUNTS.deployer.address,
@@ -62,9 +56,7 @@ export const TEST_WALLETS = {
   user2: TEST_ACCOUNTS.user2,
 } as const
 
-// ============================================================================
 // App Ports (derived from central config CORE_PORTS)
-// ============================================================================
 
 export const APP_PORTS = {
   gateway: CORE_PORTS.GATEWAY.get(),
@@ -86,9 +78,7 @@ export const APP_PORTS = {
   indexerDatabase: CORE_PORTS.INDEXER_DATABASE.get(),
 } as const
 
-// ============================================================================
 // App URLs (computed from centralized config)
-// ============================================================================
 
 const HOST = process.env.HOST || '127.0.0.1'
 
@@ -113,9 +103,7 @@ export const APP_URLS = {
   indexerMcp: `http://${HOST}:${APP_PORTS.indexerMcp}`,
 } as const
 
-// ============================================================================
 // Test Timeouts
-// ============================================================================
 
 export const TIMEOUTS = {
   transaction: 60000, // 60s for transaction confirmation
@@ -127,9 +115,7 @@ export const TIMEOUTS = {
   blockProduction: 5000, // 5s for block to be produced
 } as const
 
-// ============================================================================
 // OP-Stack Predeploy Addresses
-// ============================================================================
 
 export const OP_PREDEPLOYS = {
   L2StandardBridge: '0x4200000000000000000000000000000000000010',

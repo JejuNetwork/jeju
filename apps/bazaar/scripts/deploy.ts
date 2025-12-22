@@ -47,12 +47,14 @@ function getConfig(): DeployConfig {
     testnet: {
       dwsUrl: 'https://dws.testnet.jejunetwork.org',
       rpcUrl: 'https://sepolia.base.org',
-      workerRegistryAddress: '0x...' as Address, // TODO: Deploy registry
+      workerRegistryAddress:
+        '0x0000000000000000000000000000000000000000' as Address, // Set via WORKER_REGISTRY_ADDRESS env
     },
     mainnet: {
       dwsUrl: 'https://dws.jejunetwork.org',
       rpcUrl: 'https://mainnet.base.org',
-      workerRegistryAddress: '0x...' as Address, // TODO: Deploy registry
+      workerRegistryAddress:
+        '0x0000000000000000000000000000000000000000' as Address, // Set via WORKER_REGISTRY_ADDRESS env
     },
   }
 

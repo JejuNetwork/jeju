@@ -3,29 +3,19 @@
  * All routes are Elysia plugins with type exports for Eden
  */
 
-// ============================================================================
-// Static Elysia plugins (already instantiated)
-// ============================================================================
-
-export { type A2ARoutes, a2aRoutes } from './a2a'
-export { type CDNRoutes, cdnRoutes } from './cdn'
-export { type ComputeRoutes, computeRoutes } from './compute'
-export { type RLAIFRoutes, rlaifRoutes } from './rlaif'
-export { type RPCRoutes, rpcRoutes } from './rpc'
-export { type StorageRoutes, storageRoutes } from './storage'
-export { type TrainingRoutes, trainingRoutes } from './training'
-
-// ============================================================================
-// Elysia route factories (with type exports)
-// ============================================================================
-
+// A2A
+export { createA2ARouter } from './a2a'
 // API Marketplace
 export {
   type APIMarketplaceRoutes,
   createAPIMarketplaceRouter,
 } from './api-marketplace'
+// CDN
+export { createCDNRouter } from './cdn'
 // CI/CD
 export { type CIRoutes, createCIRouter } from './ci'
+// Compute
+export { createComputeRouter } from './compute'
 // Containers
 export { type ContainerRoutes, createContainerRouter } from './containers'
 // Data Availability
@@ -44,9 +34,11 @@ export { createFundingRouter } from './funding'
 // Git
 export { createGitRouter } from './git'
 // Key Management Service
-export { createKMSRouter, type KMSRoutes } from './kms'
+export { createKMSRouter } from './kms'
+// Leaderboard Funding
+export { createLeaderboardFundingRouter } from './leaderboard-funding'
 // MCP (Model Context Protocol)
-export { createMCPRouter, type MCPRoutes } from './mcp'
+export { createMCPRouter } from './mcp'
 // Models
 export { createModelsRouter, type ModelsRoutes } from './models'
 // Moderation
@@ -67,14 +59,21 @@ export {
   type PricesRoutes,
   type SubscribableWebSocket,
 } from './prices'
-// RPC (legacy factory export)
+// RLAIF
+export { rlaifRoutes } from './rlaif'
+// RPC
 export { createRPCRouter } from './rpc'
 // S3-compatible storage
 export { createS3Router, type S3Routes } from './s3'
 // Web Scraping
 export { createScrapingRouter, type ScrapingRoutes } from './scraping'
+// Storage
+export { createStorageRouter } from './storage'
+// Training
+export { trainingRoutes } from './training'
 // VPN/Proxy
 export { createVPNRouter, type VPNRoutes } from './vpn'
+// Workerd
 export {
   createDefaultWorkerdRouter,
   createWorkerdRouter,

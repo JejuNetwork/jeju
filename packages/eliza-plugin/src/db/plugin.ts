@@ -58,14 +58,15 @@ export const cqlDatabasePlugin: Plugin = {
     )
 
     // Check if a database adapter is already registered
-    interface RuntimeWithAdapter {
-      adapter?: unknown
+    // Runtime may have optional adapter-checking methods depending on ElizaOS version
+    interface RuntimeWithOptionalAdapter {
+      adapter?: object
       hasDatabaseAdapter?: () => boolean
-      getDatabaseAdapter?: () => unknown
-      databaseAdapter?: unknown
+      getDatabaseAdapter?: () => object | undefined
+      databaseAdapter?: object
     }
 
-    const runtimeWithAdapter = runtime as RuntimeWithAdapter
+    const runtimeWithAdapter = runtime as RuntimeWithOptionalAdapter
     const adapterRegistered =
       typeof runtimeWithAdapter.hasDatabaseAdapter === 'function'
         ? runtimeWithAdapter.hasDatabaseAdapter()

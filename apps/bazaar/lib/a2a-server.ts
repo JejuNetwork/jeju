@@ -371,12 +371,12 @@ async function executeSkill(
         data: {
           action: 'sign-and-send',
           transaction: {
-            to: process.env.NEXT_PUBLIC_LAUNCH_CONTRACT,
+            to: process.env.PUBLIC_LAUNCH_CONTRACT,
             data: `0x...`, // Would be actual calldata
             value: '0',
           },
           approvalRequired: true,
-          approvalToken: process.env.NEXT_PUBLIC_USDC_ADDRESS,
+          approvalToken: process.env.PUBLIC_USDC_ADDRESS,
           approvalAmount: amount,
         },
       }
@@ -532,7 +532,7 @@ async function executeSkill(
         data: {
           action: 'sign-and-send',
           transaction: {
-            to: process.env.NEXT_PUBLIC_MARKETPLACE_CONTRACT,
+            to: process.env.PUBLIC_MARKETPLACE_CONTRACT,
             data: `0x...`,
             value: price,
           },
@@ -576,7 +576,7 @@ async function executeSkill(
         data: {
           action: 'sign-and-send',
           transaction: {
-            to: process.env.NEXT_PUBLIC_ROUTER_CONTRACT,
+            to: process.env.PUBLIC_ROUTER_CONTRACT,
             data: `0x...`,
             value: tokenIn === 'ETH' ? amountIn : '0',
           },
@@ -917,7 +917,7 @@ async function executeSkill(
         data: {
           action: 'sign-and-send',
           transaction: {
-            to: process.env.NEXT_PUBLIC_PERP_MARKET,
+            to: process.env.PUBLIC_PERP_MARKET,
             data: '0x...',
             value: '0',
           },
@@ -935,7 +935,7 @@ async function executeSkill(
         data: {
           action: 'sign-and-send',
           transaction: {
-            to: process.env.NEXT_PUBLIC_PERP_MARKET,
+            to: process.env.PUBLIC_PERP_MARKET,
             data: '0x...',
             value: '0',
           },

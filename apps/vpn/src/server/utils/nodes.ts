@@ -89,11 +89,8 @@ export function findBestNode(
   countryCode?: string,
 ): VPNNodeState | undefined {
   let nodes = Array.from(ctx.nodes.values())
-
-  // Filter by status
   nodes = filterNodesByStatus(nodes, 'online')
 
-  // Filter by country if provided
   if (countryCode) {
     nodes = filterNodesByCountry(nodes, countryCode)
   }
@@ -102,7 +99,6 @@ export function findBestNode(
     return undefined
   }
 
-  // Sort by load and return best
   const sorted = sortNodesByLoad(nodes)
   return sorted[0]
 }

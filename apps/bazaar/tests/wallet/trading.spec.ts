@@ -313,7 +313,7 @@ test.describe('Trade Execution', () => {
     await metamask.connectToDapp()
     await expect(page.getByText(/0xf39F/i)).toBeVisible({ timeout: 15000 })
 
-    const predimarketAddress = process.env.NEXT_PUBLIC_PREDIMARKET_ADDRESS
+    const predimarketAddress = process.env.PUBLIC_PREDIMARKET_ADDRESS
     if (!predimarketAddress || predimarketAddress === '0x0') {
       console.log('Skipping: Predimarket not deployed')
       return

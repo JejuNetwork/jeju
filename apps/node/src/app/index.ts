@@ -31,9 +31,7 @@ import {
 import { createNodeServices } from '../lib/services'
 import { JsonRpcResultResponseSchema } from '../validation'
 
-// ============================================================================
 // Types & Validation
-// ============================================================================
 
 const CliAppConfigSchema = z.object({
   version: z.string().regex(/^\d+\.\d+\.\d+/, 'Version must be semver format'),
@@ -155,9 +153,7 @@ const SERVICE_REQUIREMENTS: Record<string, ServiceRequirements> = {
   },
 }
 
-// ============================================================================
 // Utilities
-// ============================================================================
 
 function getConfigDir(): string {
   return join(homedir(), '.jeju-node')
@@ -313,9 +309,7 @@ function printBanner() {
   console.log(chalk.dim('  Run infrastructure. Earn rewards.\n'))
 }
 
-// ============================================================================
 // Commands
-// ============================================================================
 
 async function cmdSetup(): Promise<void> {
   console.log(chalk.bold('\n  Quick Setup\n'))
@@ -736,9 +730,7 @@ async function cmdConfig(args: string[]): Promise<void> {
   }
 }
 
-// ============================================================================
 // Main
-// ============================================================================
 
 async function main(): Promise<void> {
   const { values, positionals } = parseArgs({

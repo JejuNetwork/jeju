@@ -352,7 +352,7 @@ export function useJNSListings() {
     try {
       // Query the indexer GraphQL API for active JNS listings
       const indexerUrl =
-        process.env.NEXT_PUBLIC_INDEXER_URL || 'http://localhost:4350/graphql'
+        process.env.PUBLIC_INDEXER_URL || 'http://localhost:4350/graphql'
 
       const query = `
         query GetActiveJNSListings {

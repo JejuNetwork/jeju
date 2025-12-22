@@ -99,19 +99,19 @@ export class ExecutorSDK {
     expect(request, 'Execution request is required')
     expect(request.agentId > 0n, 'Agent ID must be greater than 0')
     expect(request.input, 'Execution input is required')
-    if (request.options?.maxTokens !== undefined) {
+    if (request.options?.maxTokens != null) {
       expect(
         request.options.maxTokens > 0 && request.options.maxTokens <= 100000,
         'Max tokens must be between 1 and 100000',
       )
     }
-    if (request.options?.temperature !== undefined) {
+    if (request.options?.temperature != null) {
       expect(
         request.options.temperature >= 0 && request.options.temperature <= 2,
         'Temperature must be between 0 and 2',
       )
     }
-    if (request.options?.timeout !== undefined) {
+    if (request.options?.timeout != null) {
       expect(
         request.options.timeout > 0 && request.options.timeout <= 300,
         'Timeout must be between 1 and 300 seconds',
@@ -166,7 +166,9 @@ export class ExecutorSDK {
     }
 
     const balance = await this.agentSdk.getVaultBalance(request.agentId)
-    const estimatedCost = this.estimateCost(request.options?.maxTokens)
+    const estimatedCost = this.estimateCost(
+      request.options?.maxTokens ?? undefined,
+    )
     if (balance < estimatedCost) {
       this.log.error('Insufficient balance', {
         balance: balance.toString(),
@@ -199,7 +201,7 @@ export class ExecutorSDK {
     const actionResults = await this.executeActions(
       request.agentId,
       actions,
-      request.input.roomId,
+      request.input.roomId ?? undefined,
     )
 
     const stateUpdates = {

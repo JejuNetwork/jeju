@@ -212,10 +212,6 @@ export const ERC1155_ABI = [
   },
 ] as const
 
-// ============================================================================
-// Multicall ABI
-// ============================================================================
-
 export const MULTICALL3_ABI = [
   {
     name: 'aggregate3',
@@ -251,10 +247,6 @@ export const MULTICALL3_ABI = [
     stateMutability: 'view',
   },
 ] as const
-
-// ============================================================================
-// Uniswap V3 Router (for swaps)
-// ============================================================================
 
 export const UNISWAP_V3_ROUTER_ABI = [
   {
@@ -303,10 +295,6 @@ export const UNISWAP_V3_ROUTER_ABI = [
   },
 ] as const
 
-// ============================================================================
-// Common Contract Addresses
-// ============================================================================
-
 export const MULTICALL3_ADDRESS =
   '0xcA11bde05977b3631167028862bE2a173976CA11' as Address
 
@@ -334,10 +322,6 @@ export const UNISWAP_V3_ROUTER_ADDRESSES: Record<number, Address> = {
   10: '0xE592427A0AEce92De3Edee1F18E0157C05861564',
   137: '0xE592427A0AEce92De3Edee1F18E0157C05861564',
 }
-
-// ============================================================================
-// Utilities
-// ============================================================================
 
 export function getWethAddress(chainId: number): Address | undefined {
   return WETH_ADDRESSES[chainId]

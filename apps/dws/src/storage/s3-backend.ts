@@ -433,7 +433,7 @@ export class S3Backend {
     const buffers: Buffer[] = []
     for (const part of sortedParts) {
       const partKey = `${uploadId}-${part.partNumber}`
-      const result = await this.backend.download(partKey).catch(() => null)
+      const result = await this.backend.download(partKey)
       if (!result) {
         throw new S3Error('InvalidPart', `Part ${part.partNumber} not found`)
       }

@@ -84,8 +84,8 @@ async function checkDWSCompute(): Promise<boolean> {
   const endpoint = getDWSEndpoint()
   const r = await fetch(`${endpoint}/health`, {
     signal: AbortSignal.timeout(2000),
-  }).catch(() => null)
-  return r?.ok ?? false
+  })
+  return r.ok
 }
 
 interface InferenceRequest {
@@ -233,16 +233,7 @@ let initialized = false
 export async function initLocalServices(): Promise<void> {
   if (initialized) return
   await initStorage()
-  const dwsUp = await checkDWSCompute()
-  const proposalIndex = await proposalIndexState.getAll()
-  console.log(`[Services] Storage: CovenantSQL (decentralized)`)
-  console.log(`[Services] Proposal index: ${proposalIndex.size} entries`)
-  console.log(`[Services] DWS Compute: ${dwsUp ? 'ready' : 'NOT AVAILABLE'}`)
-  if (!dwsUp) {
-    console.warn(
-      '[Services] WARNING: DWS compute not available - inference will fail',
-    )
-  }
+  await checkDWSCompute()
   initialized = true
 }
 
@@ -250,16 +241,14 @@ export function isInitialized(): boolean {
   return initialized
 }
 
-// ============ Ollama Support (Local LLM) ============
-
 const OLLAMA_URL = process.env.OLLAMA_URL ?? 'http://localhost:11434'
 export const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? 'llama3.2'
 
 export async function checkOllama(): Promise<boolean> {
   const r = await fetch(`${OLLAMA_URL}/api/tags`, {
     signal: AbortSignal.timeout(2000),
-  }).catch(() => null)
-  return r?.ok ?? false
+  })
+  return r.ok
 }
 
 export async function ollamaGenerate(

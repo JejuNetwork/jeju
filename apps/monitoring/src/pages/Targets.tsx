@@ -9,23 +9,27 @@ import {
 import { useState } from 'react'
 import { HealthRing } from '../components/HealthRing'
 import { StatusBadge } from '../components/StatusBadge'
-import { useTargets } from '../hooks/useMonitoring'
+import { type Target, useTargets } from '../hooks/useMonitoring'
 
 type HealthFilter = 'all' | 'up' | 'down'
 
 export function Targets() {
-  const { targets, upCount, downCount, loading, error, refetch } = useTargets()
+  const { data, isLoading, error, refetch } = useTargets()
   const [searchQuery, setSearchQuery] = useState('')
   const [healthFilter, setHealthFilter] = useState<HealthFilter>('all')
 
-  const filteredTargets = targets.filter((target) => {
+  const targets = data?.targets ?? []
+  const upCount = data?.upCount ?? 0
+  const downCount = data?.downCount ?? 0
+
+  const filteredTargets = targets.filter((target: Target) => {
     const matchesSearch =
       searchQuery === '' ||
       target.labels.job?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       target.labels.instance
         ?.toLowerCase()
         .includes(searchQuery.toLowerCase()) ||
-      target.scrapeUrl?.toLowerCase().includes(searchQuery.toLowerCase())
+      (target.scrapeUrl ?? '').toLowerCase().includes(searchQuery.toLowerCase())
 
     const matchesHealth =
       healthFilter === 'all' || target.health === healthFilter
@@ -37,13 +41,13 @@ export function Targets() {
     targets.length > 0 ? Math.round((upCount / targets.length) * 100) : 100
 
   const targetsByJob = filteredTargets.reduce(
-    (acc, target) => {
+    (acc: Record<string, Target[]>, target: Target) => {
       const job = target.labels.job || 'unknown'
       if (!acc[job]) acc[job] = []
       acc[job].push(target)
       return acc
     },
-    {} as Record<string, typeof targets>,
+    {} as Record<string, Target[]>,
   )
 
   return (
@@ -56,10 +60,10 @@ export function Targets() {
         <button
           type="button"
           onClick={() => refetch()}
-          disabled={loading}
+          disabled={isLoading}
           className="btn-secondary flex items-center gap-2"
         >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
           Refresh
         </button>
       </div>
@@ -163,12 +167,12 @@ export function Targets() {
           className="card-static p-4 text-center"
           style={{ borderColor: 'var(--color-error)' }}
         >
-          <p style={{ color: 'var(--color-error)' }}>{error}</p>
+          <p style={{ color: 'var(--color-error)' }}>{error.message}</p>
         </div>
       )}
 
       {/* Targets */}
-      {loading ? (
+      {isLoading ? (
         <div className="space-y-4">
           <div key="skeleton-0" className="card-static p-4">
             <div className="shimmer h-20 w-full rounded" />
@@ -206,11 +210,15 @@ export function Targets() {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="badge-success">
-                    {jobTargets.filter((t) => t.health === 'up').length} up
+                    {jobTargets.filter((t: Target) => t.health === 'up').length}{' '}
+                    up
                   </span>
-                  {jobTargets.some((t) => t.health === 'down') && (
+                  {jobTargets.some((t: Target) => t.health === 'down') && (
                     <span className="badge-error">
-                      {jobTargets.filter((t) => t.health === 'down').length}{' '}
+                      {
+                        jobTargets.filter((t: Target) => t.health === 'down')
+                          .length
+                      }{' '}
                       down
                     </span>
                   )}
@@ -221,9 +229,9 @@ export function Targets() {
                 className="divide-y"
                 style={{ borderColor: 'var(--border)' }}
               >
-                {jobTargets.map((target) => (
+                {jobTargets.map((target: Target) => (
                   <TargetRow
-                    key={`${target.scrapeUrl}-${target.labels.instance || ''}`}
+                    key={`${target.scrapeUrl ?? ''}-${target.labels.instance ?? ''}`}
                     target={target}
                   />
                 ))}
@@ -234,14 +242,6 @@ export function Targets() {
       )}
     </div>
   )
-}
-
-interface Target {
-  health: string
-  labels: Record<string, string>
-  lastScrape: string
-  lastScrapeDuration: number
-  scrapeUrl: string
 }
 
 // Validate URL to prevent XSS via javascript:, data:, or other dangerous protocols
@@ -261,7 +261,8 @@ function getSafeHref(url: string): string | null {
 
 function TargetRow({ target }: { target: Target }) {
   const isUp = target.health === 'up'
-  const safeHref = getSafeHref(target.scrapeUrl)
+  const scrapeUrl = target.scrapeUrl ?? ''
+  const safeHref = scrapeUrl ? getSafeHref(scrapeUrl) : null
 
   return (
     <div className="p-4 flex flex-col sm:flex-row sm:items-center gap-4">
@@ -276,7 +277,7 @@ function TargetRow({ target }: { target: Target }) {
           className="font-medium truncate"
           style={{ color: 'var(--text-primary)' }}
         >
-          {target.labels.instance || target.scrapeUrl}
+          {target.labels.instance || scrapeUrl || 'Unknown'}
         </p>
         {safeHref ? (
           <a
@@ -286,17 +287,17 @@ function TargetRow({ target }: { target: Target }) {
             className="text-xs font-mono truncate block hover:underline flex items-center gap-1"
             style={{ color: 'var(--text-tertiary)' }}
           >
-            {target.scrapeUrl}
+            {scrapeUrl}
             <ExternalLink className="w-3 h-3 flex-shrink-0" />
           </a>
-        ) : (
+        ) : scrapeUrl ? (
           <span
             className="text-xs font-mono truncate block"
             style={{ color: 'var(--text-tertiary)' }}
           >
-            {target.scrapeUrl}
+            {scrapeUrl}
           </span>
-        )}
+        ) : null}
       </div>
 
       <div className="flex items-center gap-4 text-sm">

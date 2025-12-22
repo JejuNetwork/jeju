@@ -166,17 +166,56 @@ export interface RegistrationPrice {
 
 // ============ Event Types ============
 
-export type RegistrationEventType =
-  | 'fid_registered'
-  | 'signer_added'
-  | 'storage_purchased'
-  | 'username_registered'
-  | 'recovery_set'
-
-export interface RegistrationEvent {
-  type: RegistrationEventType
+interface BaseRegistrationEvent {
   fid: number
   txHash: Hex
   timestamp: number
-  data: Record<string, unknown>
 }
+
+export interface FIDRegisteredEvent extends BaseRegistrationEvent {
+  type: 'fid_registered'
+  data: {
+    custodyAddress: Address
+    recoveryAddress?: Address
+  }
+}
+
+export interface SignerAddedEvent extends BaseRegistrationEvent {
+  type: 'signer_added'
+  data: {
+    signerPublicKey: Hex
+    keyType: number
+  }
+}
+
+export interface StoragePurchasedEvent extends BaseRegistrationEvent {
+  type: 'storage_purchased'
+  data: {
+    units: number
+    price: bigint
+    expiresAt: number
+  }
+}
+
+export interface UsernameRegisteredEvent extends BaseRegistrationEvent {
+  type: 'username_registered'
+  data: {
+    username: string
+  }
+}
+
+export interface RecoverySetEvent extends BaseRegistrationEvent {
+  type: 'recovery_set'
+  data: {
+    recoveryAddress: Address
+  }
+}
+
+export type RegistrationEvent =
+  | FIDRegisteredEvent
+  | SignerAddedEvent
+  | StoragePurchasedEvent
+  | UsernameRegisteredEvent
+  | RecoverySetEvent
+
+export type RegistrationEventType = RegistrationEvent['type']

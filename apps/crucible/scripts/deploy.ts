@@ -68,7 +68,6 @@ async function main() {
       '--rpc-url',
       chainConfig.rpcUrl,
       '--broadcast',
-      '--legacy', // For compatibility
     ],
     {
       cwd: '/Users/shawwalters/jeju/packages/contracts',

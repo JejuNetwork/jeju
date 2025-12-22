@@ -13,10 +13,6 @@ import { formatEther, parseEther } from 'viem'
 import { z } from 'zod'
 import type { NormalizedNFT } from '../schemas/nft'
 
-// ============================================================================
-// Schemas
-// ============================================================================
-
 export const ListingParamsSchema = z.object({
   nftContract: AddressSchema,
   tokenId: BigIntSchema,
@@ -50,10 +46,6 @@ export const OfferParamsSchema = z.object({
 })
 
 export type OfferParams = z.infer<typeof OfferParamsSchema>
-
-// ============================================================================
-// Constants
-// ============================================================================
 
 export const MIN_LISTING_PRICE_ETH = 0.001
 export const MIN_BID_INCREMENT_BPS = 500 // 5%
@@ -129,13 +121,6 @@ export function normalizeNFTQueryResult(
   return [...erc721Normalized, ...erc1155Normalized]
 }
 
-// ============================================================================
-// Filtering
-// ============================================================================
-
-/**
- * Filter NFTs by owner address
- */
 export function filterNFTsByOwner(
   nfts: NormalizedNFT[],
   ownerAddress: string,
@@ -172,22 +157,14 @@ export function sortNFTs(
           parseInt(b.tokenId ?? '0', 10) - parseInt(a.tokenId ?? '0', 10),
       )
     case 'price':
-      // Price sorting would need price data - return as-is for now
       return sorted
     default:
       return sorted
   }
 }
 
-// ============================================================================
-// Grouping
-// ============================================================================
-
 export type NFTCollectionGroup = Record<string, NormalizedNFT[]>
 
-/**
- * Group NFTs by collection name
- */
 export function groupNFTsByCollection(
   nfts: NormalizedNFT[],
 ): NFTCollectionGroup {
@@ -214,10 +191,6 @@ export interface AuctionState {
   settled: boolean
 }
 
-/**
- * Calculate the minimum bid for an auction
- * Minimum is either the reserve price (if no bids) or highest bid + 5%
- */
 export function calculateMinimumBid(auction: AuctionState): bigint {
   if (auction.highestBid > 0n) {
     // 5% increment on highest bid
@@ -237,9 +210,6 @@ export function isAuctionActive(auction: AuctionState): boolean {
   return Number(auction.endTime) >= now && !auction.settled
 }
 
-/**
- * Calculate time remaining in auction
- */
 export function getAuctionTimeRemaining(auction: AuctionState): number {
   const now = Math.floor(Date.now() / 1000)
   return Math.max(0, Number(auction.endTime) - now)
@@ -259,10 +229,6 @@ export function formatTimeRemaining(seconds: number): string {
   if (hours > 0) return `${hours}h ${minutes}m`
   return `${minutes}m`
 }
-
-// ============================================================================
-// Listing Calculations
-// ============================================================================
 
 export interface ListingState {
   seller: string
@@ -284,13 +250,6 @@ export function isListingActive(listing: ListingState): boolean {
   return listing.active
 }
 
-// ============================================================================
-// Price Validation
-// ============================================================================
-
-/**
- * Validate a listing price in ETH
- */
 export function validateListingPrice(priceETH: string): {
   valid: boolean
   error?: string
@@ -340,13 +299,6 @@ export function validateBidAmount(
   return { valid: true }
 }
 
-// ============================================================================
-// Duration Conversion
-// ============================================================================
-
-/**
- * Convert days to seconds
- */
 export function daysToSeconds(days: number): bigint {
   return BigInt(days * 24 * 60 * 60)
 }
@@ -358,13 +310,6 @@ export function secondsToDays(seconds: bigint): number {
   return Number(seconds) / (24 * 60 * 60)
 }
 
-// ============================================================================
-// Address Utilities
-// ============================================================================
-
-/**
- * Check if an address owns an NFT
- */
 export function isNFTOwner(nft: NormalizedNFT, address: string): boolean {
   if (!address) return false
   const normalizedAddress = address.toLowerCase()
@@ -377,5 +322,4 @@ export function isNFTOwner(nft: NormalizedNFT, address: string): boolean {
   return Number(nft.balance) > 0
 }
 
-// Re-export formatAddress from shared package for backwards compatibility
 export { formatAddress } from '@jejunetwork/shared'

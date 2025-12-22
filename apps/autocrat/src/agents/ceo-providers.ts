@@ -20,54 +20,26 @@ import type {
 } from '@elizaos/core'
 import { getAutocratA2AUrl, getAutocratUrl } from '@jejunetwork/config'
 import { expectValid } from '@jejunetwork/types'
+import type { z } from 'zod'
 import {
   A2AJsonRpcResponseSchema,
+  AutocratStatusDataSchema,
+  AutocratVotesDataSchema,
+  CEOStatusDataSchema,
   extractA2AData,
+  GovernanceStatsDataSchema,
   MCPToolsResponseSchema,
+  ProposalDataSchema,
+  ProposalListDataSchema,
 } from '../schemas'
-import type { AutocratVote } from '../types'
-
-// ============================================================================
-// Types (local-only interfaces not in types.ts)
-// ============================================================================
-
-interface ProposalData {
-  id: string
-  status: string
-  proposer: string
-  proposalType: number
-  qualityScore: number
-  autocratVoteEnd: number
-  gracePeriodEnd: number
-  hasResearch: boolean
-  researchHash?: string
-  contentHash: string
-}
-
-interface TreasuryState {
-  balance: string
-  totalAllocated: string
-  pendingProposals: number
-}
-
-interface GovernanceStats {
-  totalProposals: number
-  approvedCount: number
-  rejectedCount: number
-  pendingCount: number
-  avgQualityScore: number
-}
-
-// ============================================================================
-// A2A Client Helper (Network-Aware)
-// ============================================================================
 
 function getAutocratA2A(): string {
   return process.env.AUTOCRAT_A2A_URL ?? getAutocratA2AUrl()
 }
 
-async function callAutocratA2A<T>(
+async function callAutocratA2ATyped<T>(
   skillId: string,
+  schema: z.ZodType<T>,
   params: Record<string, unknown> = {},
 ): Promise<T> {
   const a2aUrl = getAutocratA2A()
@@ -99,12 +71,12 @@ async function callAutocratA2A<T>(
     `Autocrat A2A ${skillId}`,
   )
 
-  return extractA2AData<T>(result, `Autocrat A2A ${skillId}`)
+  const data = extractA2AData<Record<string, unknown>>(
+    result,
+    `Autocrat A2A ${skillId}`,
+  )
+  return expectValid(schema, data, `Autocrat A2A ${skillId} data`)
 }
-
-// ============================================================================
-// Governance Dashboard Provider
-// ============================================================================
 
 /**
  * Provider: Governance Dashboard
@@ -120,20 +92,10 @@ export const governanceDashboardProvider: Provider = {
     _message: Memory,
     _state: State,
   ): Promise<ProviderResult> => {
-    interface CEOStatusResponse {
-      currentModel?: { name: string }
-      decisionsThisPeriod?: number
-    }
-
-    interface ProposalsListResponse {
-      proposals?: ProposalData[]
-      total?: number
-    }
-
     const [stats, ceo, proposals] = await Promise.all([
-      callAutocratA2A<GovernanceStats>('get-governance-stats'),
-      callAutocratA2A<CEOStatusResponse>('get-ceo-status'),
-      callAutocratA2A<ProposalsListResponse>('list-proposals', {
+      callAutocratA2ATyped('get-governance-stats', GovernanceStatsDataSchema),
+      callAutocratA2ATyped('get-ceo-status', CEOStatusDataSchema),
+      callAutocratA2ATyped('list-proposals', ProposalListDataSchema, {
         activeOnly: false,
       }),
     ])
@@ -141,20 +103,20 @@ export const governanceDashboardProvider: Provider = {
     const result = `📊 CEO GOVERNANCE DASHBOARD
 
 🏛️ DAO STATE
-Total Proposals: ${stats.totalProposals ?? 0}
-Approved: ${stats.approvedCount ?? 0}
-Rejected: ${stats.rejectedCount ?? 0}
-Pending: ${stats.pendingCount ?? 0}
-Avg Quality Score: ${stats.avgQualityScore ?? 0}/100
+Total Proposals: ${stats.totalProposals}
+Approved: ${stats.approvedCount}
+Rejected: ${stats.rejectedCount}
+Pending: ${stats.pendingCount}
+Avg Quality Score: ${stats.avgQualityScore}/100
 
 👤 CEO STATUS
-Current Model: ${ceo.currentModel?.name ?? 'Not set'}
-Decisions This Period: ${ceo.decisionsThisPeriod ?? 0}
+Current Model: ${ceo.currentModel.name}
+Decisions This Period: ${ceo.decisionsThisPeriod}
 
-📋 RECENT PROPOSALS (${proposals.total ?? 0} total)
+📋 RECENT PROPOSALS (${proposals.total} total)
 ${
   proposals.proposals
-    ?.slice(0, 5)
+    .slice(0, 5)
     .map(
       (p) =>
         `- [${p.id.slice(0, 8)}] ${p.status} (Quality: ${p.qualityScore}/100)`,
@@ -171,10 +133,6 @@ ${
   },
 }
 
-// ============================================================================
-// Active Proposals Provider
-// ============================================================================
-
 /**
  * Provider: Active Proposals
  * List of proposals requiring CEO attention
@@ -189,9 +147,12 @@ export const activeProposalsProvider: Provider = {
     _message: Memory,
     _state: State,
   ): Promise<ProviderResult> => {
-    const data = await callAutocratA2A('list-proposals', { activeOnly: true })
-    const proposalsData = data as { proposals?: ProposalData[]; total?: number }
-    const proposals = proposalsData.proposals ?? []
+    const data = await callAutocratA2ATyped(
+      'list-proposals',
+      ProposalListDataSchema,
+      { activeOnly: true },
+    )
+    const proposals = data.proposals
 
     if (proposals.length === 0) {
       return { text: '📋 No active proposals requiring attention.' }
@@ -238,10 +199,6 @@ export const activeProposalsProvider: Provider = {
   },
 }
 
-// ============================================================================
-// Proposal Detail Provider
-// ============================================================================
-
 /**
  * Provider: Proposal Details
  * Full details of a specific proposal including autocrat votes
@@ -266,18 +223,12 @@ export const proposalDetailProvider: Provider = {
 
     const proposalId = proposalIdMatch[0]
 
-    type ProposalDetailResponse = ProposalData & {
-      autocratVotes?: AutocratVote[]
-    }
-    interface VotesResponse {
-      votes?: AutocratVote[]
-    }
-
     const [proposal, votesData] = await Promise.all([
-      callAutocratA2A<ProposalDetailResponse>('get-proposal', { proposalId }),
-      callAutocratA2A<VotesResponse>('get-autocrat-votes', { proposalId }),
+      callAutocratA2ATyped('get-proposal', ProposalDataSchema, { proposalId }),
+      callAutocratA2ATyped('get-autocrat-votes', AutocratVotesDataSchema, {
+        proposalId,
+      }),
     ])
-    const votes = votesData
 
     if (!proposal.id) {
       return { text: `Proposal ${proposalId.slice(0, 10)}... not found.` }
@@ -291,11 +242,11 @@ Quality Score: ${proposal.qualityScore}/100
 Proposer: ${proposal.proposer.slice(0, 10)}...
 Type: ${proposal.proposalType}
 
-🗳️ AUTOCRAT VOTES (${votes.votes?.length ?? 0}):
+🗳️ AUTOCRAT VOTES (${votesData.votes.length}):
 `
 
-    if (votes.votes && votes.votes.length > 0) {
-      for (const vote of votes.votes) {
+    if (votesData.votes.length > 0) {
+      for (const vote of votesData.votes) {
         const emoji =
           vote.vote === 'APPROVE' ? '✅' : vote.vote === 'REJECT' ? '❌' : '⚪'
         result += `${emoji} ${vote.role}: ${vote.vote}\n`
@@ -314,10 +265,6 @@ Type: ${proposal.proposalType}
   },
 }
 
-// ============================================================================
-// Autocrat Status Provider
-// ============================================================================
-
 /**
  * Provider: Autocrat Status
  * Current state of all autocrat agents
@@ -332,16 +279,15 @@ export const autocratStatusProvider: Provider = {
     _message: Memory,
     _state: State,
   ): Promise<ProviderResult> => {
-    const data = await callAutocratA2A('get-autocrat-status')
-    const autocrat = data as {
-      roles?: Array<{ id: string; name: string; role: string }>
-      totalMembers?: number
-    }
+    const autocrat = await callAutocratA2ATyped(
+      'get-autocrat-status',
+      AutocratStatusDataSchema,
+    )
 
     const result = `🏛️ AUTOCRAT STATUS
 
-👥 AUTOCRAT MEMBERS (${autocrat.totalMembers ?? 0}):
-${autocrat.roles?.map((r) => `• ${r.name} (${r.role})`).join('\n') || 'No autocrat members'}
+👥 AUTOCRAT MEMBERS (${autocrat.totalMembers}):
+${autocrat.roles.map((r) => `• ${r.name} (${r.role})`).join('\n') || 'No autocrat members'}
 
 📊 VOTING PATTERNS
 - Treasury: Conservative, budget-focused
@@ -361,10 +307,6 @@ The autocrat typically achieves consensus when:
   },
 }
 
-// ============================================================================
-// Treasury Provider
-// ============================================================================
-
 /**
  * Provider: Treasury State
  * Current treasury balance and allocations
@@ -380,17 +322,15 @@ export const treasuryProvider: Provider = {
   ): Promise<ProviderResult> => {
     // Treasury data would come from on-chain in production
     // For now, use governance stats as proxy
-    const data = await callAutocratA2A('get-governance-stats')
-    const stats = data as {
-      treasury?: TreasuryState
-      ceo?: { treasuryBalance?: string }
-    }
+    const stats = await callAutocratA2ATyped(
+      'get-governance-stats',
+      GovernanceStatsDataSchema,
+    )
 
-    // Treasury data is optional - display what's available
-    const balance =
-      stats.treasury?.balance ?? stats.ceo?.treasuryBalance ?? 'unavailable'
-    const totalAllocated = stats.treasury?.totalAllocated ?? 'unavailable'
-    const pendingProposals = stats.treasury?.pendingProposals ?? 0
+    // Treasury data is not in governance stats - show placeholder
+    const balance = 'unavailable'
+    const totalAllocated = 'unavailable'
+    const pendingProposals = stats.pendingCount
 
     return {
       text: `💰 TREASURY STATUS
@@ -413,10 +353,6 @@ Pending Proposals: ${pendingProposals}
   },
 }
 
-// ============================================================================
-// Historical Decisions Provider
-// ============================================================================
-
 /**
  * Provider: Historical Decisions
  * Past CEO decisions for consistency and precedent
@@ -430,35 +366,24 @@ export const historicalDecisionsProvider: Provider = {
     _message: Memory,
     _state: State,
   ): Promise<ProviderResult> => {
-    const data = await callAutocratA2A('get-governance-stats')
-    const stats = data as {
-      approvedCount?: number
-      rejectedCount?: number
-      recentDecisions?: Array<{
-        proposalId: string
-        approved: boolean
-        reason: string
-        date: string
-      }>
-    }
+    const stats = await callAutocratA2ATyped(
+      'get-governance-stats',
+      GovernanceStatsDataSchema,
+    )
 
+    const totalDecisions = stats.approvedCount + stats.rejectedCount
     const approvalRate =
-      stats.approvedCount &&
-      stats.approvedCount + (stats.rejectedCount ?? 0) > 0
-        ? Math.round(
-            (stats.approvedCount /
-              (stats.approvedCount + (stats.rejectedCount ?? 0))) *
-              100,
-          )
+      totalDecisions > 0
+        ? Math.round((stats.approvedCount / totalDecisions) * 100)
         : 0
 
     return {
       text: `📜 HISTORICAL DECISIONS
 
 📊 OVERALL STATISTICS
-Total Decisions: ${(stats.approvedCount ?? 0) + (stats.rejectedCount ?? 0)}
-Approved: ${stats.approvedCount ?? 0}
-Rejected: ${stats.rejectedCount ?? 0}
+Total Decisions: ${totalDecisions}
+Approved: ${stats.approvedCount}
+Rejected: ${stats.rejectedCount}
 Approval Rate: ${approvalRate}%
 
 🎯 DECISION PRINCIPLES
@@ -476,10 +401,6 @@ Approval Rate: ${approvalRate}%
     }
   },
 }
-
-// ============================================================================
-// MCP Resources Provider
-// ============================================================================
 
 /**
  * Provider: MCP Resources

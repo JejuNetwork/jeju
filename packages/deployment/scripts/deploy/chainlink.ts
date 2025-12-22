@@ -19,10 +19,11 @@ import ChainlinkGovernanceABI from '../../packages/contracts/abis/ChainlinkGover
 import OracleRouterABI from '../../packages/contracts/abis/OracleRouter.json'
 import VRFCoordinatorABI from '../../packages/contracts/abis/VRFCoordinatorV2_5.json'
 
+// LINK token addresses per network (mainnet uses official LINK, others use mock)
 const CHAINS = {
-  mainnet: { chain: base, linkToken: '0x0' as Address }, // TODO: Deploy LINK bridge
-  testnet: { chain: baseSepolia, linkToken: '0x0' as Address },
-  localnet: { chain: foundry, linkToken: '0x0' as Address },
+  mainnet: { chain: base, linkToken: '0x0' as Address }, // Set via LINK_TOKEN_ADDRESS env after bridging
+  testnet: { chain: baseSepolia, linkToken: '0x0' as Address }, // Use testnet LINK or deploy mock
+  localnet: { chain: foundry, linkToken: '0x0' as Address }, // Deploy mock LINK via bootstrap script
 } as const
 
 type Network = keyof typeof CHAINS

@@ -10,6 +10,7 @@ import {
   type KeyRotationResult,
   type KeyShareMetadata,
   type KeyVersion,
+  MAX_MPC_SESSIONS,
   type MPCCoordinatorConfig,
   type MPCKeyGenParams,
   type MPCKeyGenResult,
@@ -86,9 +87,6 @@ function bytesToBigint(bytes: Uint8Array): bigint {
   for (const byte of bytes) result = (result << 8n) | BigInt(byte)
   return result
 }
-
-/** Maximum sessions to store before forced cleanup */
-const MAX_SESSIONS = 1000
 
 export class MPCCoordinator {
   private config: MPCCoordinatorConfig
@@ -233,8 +231,8 @@ export class MPCCoordinator {
     return result
   }
 
-  getKey(keyId: string): MPCKeyGenResult | null {
-    return this.keys.get(keyId) ?? null
+  getKey(keyId: string): MPCKeyGenResult | undefined {
+    return this.keys.get(keyId)
   }
 
   getKeyVersions(keyId: string): KeyVersion[] {
@@ -248,10 +246,10 @@ export class MPCCoordinator {
     if (!key) throw new Error(`Key ${request.keyId} not found`)
 
     // Force cleanup if sessions exceed maximum to prevent DoS
-    if (this.sessions.size >= MAX_SESSIONS) {
+    if (this.sessions.size >= MAX_MPC_SESSIONS) {
       this.cleanupExpiredSessions()
       // If still at max after cleanup, reject
-      if (this.sessions.size >= MAX_SESSIONS) {
+      if (this.sessions.size >= MAX_MPC_SESSIONS) {
         throw new Error('Session storage limit reached')
       }
     }
@@ -368,8 +366,7 @@ export class MPCCoordinator {
       message: { raw: toBytes(session.messageHash) },
     })
 
-    // Security: Zero the reconstructed key immediately after use
-    // Note: In JavaScript, bigint is immutable, but we reassign to help GC
+    // Zero reconstructed key after use (bigint is immutable, reassign helps GC)
     reconstructedKey = 0n
 
     return {
@@ -498,8 +495,8 @@ export class MPCCoordinator {
     this.keys.delete(keyId)
   }
 
-  getSession(sessionId: string): MPCSignSession | null {
-    return this.sessions.get(sessionId) ?? null
+  getSession(sessionId: string): MPCSignSession | undefined {
+    return this.sessions.get(sessionId)
   }
 
   cleanupExpiredSessions(): number {
@@ -534,7 +531,7 @@ export class MPCCoordinator {
   }
 }
 
-let globalCoordinator: MPCCoordinator | null = null
+let globalCoordinator: MPCCoordinator | undefined
 
 export function getMPCCoordinator(
   config?: Partial<MPCCoordinatorConfig>,
@@ -551,5 +548,5 @@ export function getMPCCoordinator(
 }
 
 export function resetMPCCoordinator(): void {
-  globalCoordinator = null
+  globalCoordinator = undefined
 }

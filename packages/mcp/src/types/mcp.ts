@@ -55,9 +55,15 @@ export interface JsonRpcNotification {
 }
 
 /**
- * JSON-RPC 2.0 Result
+ * JSON-RPC 2.0 Result - union of all valid MCP result types
+ * Defined as a union to avoid unsafe casts in request handlers
  */
-export type JsonRpcResult = JsonValue
+export type JsonRpcResult =
+  | JsonValue
+  | InitializeResult
+  | ToolsListResult
+  | ToolCallResult
+  | Record<string, never> // Empty object for ping
 
 /**
  * JSON-RPC 2.0 Response

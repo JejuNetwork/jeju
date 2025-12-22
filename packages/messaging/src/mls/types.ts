@@ -7,12 +7,13 @@
 import type { Address, Hex } from 'viem'
 import { z } from 'zod'
 
-// ============ Zod Schemas ============
+/** Primitive types allowed in message metadata */
+const MetadataValueSchema = z.union([z.string(), z.number(), z.boolean()])
 
 export const MLSMessageSchema = z.object({
-  id: z.string(),
-  groupId: z.string(),
-  senderId: z.string(),
+  id: z.string().min(1),
+  groupId: z.string().min(1),
+  senderId: z.string().min(1),
   senderAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
   content: z.string(),
   contentType: z.enum([
@@ -24,9 +25,9 @@ export const MLSMessageSchema = z.object({
     'transaction',
     'agent_action',
   ]),
-  timestamp: z.number(),
-  replyTo: z.string().optional(),
-  metadata: z.record(z.string(), z.unknown()).optional(),
+  timestamp: z.number().int().positive(),
+  replyTo: z.string().min(1).optional(),
+  metadata: z.record(z.string(), MetadataValueSchema).optional(),
 })
 
 export type MLSMessage = z.infer<typeof MLSMessageSchema>
@@ -55,8 +56,6 @@ export const GroupMetadataSchema = z.object({
 
 export type GroupMetadata = z.infer<typeof GroupMetadataSchema>
 
-// ============ Client Types ============
-
 export interface MLSClientConfig {
   /** Wallet address */
   address: Address
@@ -84,8 +83,6 @@ export interface MLSClientState {
   /** Last sync time */
   lastSyncAt: number
 }
-
-// ============ Group Types ============
 
 export interface GroupConfig {
   /** Group name */
@@ -130,8 +127,6 @@ export interface GroupState {
   unreadCount: number
 }
 
-// ============ Message Types ============
-
 export interface SendOptions {
   /** Content type */
   contentType?: string
@@ -153,8 +148,6 @@ export interface FetchOptions {
   /** Direction */
   direction?: 'asc' | 'desc'
 }
-
-// ============ Content Types ============
 
 export interface TextContent {
   type: 'text'
@@ -222,8 +215,6 @@ export type MessageContent =
   | TransactionContent
   | AgentActionContent
 
-// ============ Event Types ============
-
 export interface MLSEvent {
   type:
     | 'message'
@@ -252,8 +243,6 @@ export interface GroupEvent extends MLSEvent {
 }
 
 export type MLSEventData = MessageEvent | MemberEvent | GroupEvent
-
-// ============ Sync Types ============
 
 export interface SyncResult {
   /** Number of new messages */

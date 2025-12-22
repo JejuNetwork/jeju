@@ -23,8 +23,10 @@ import {
 import {
   type Address,
   createPublicClient,
+  encodeAbiParameters,
   type Hex,
   http,
+  keccak256,
   parseEther,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
@@ -186,7 +188,6 @@ async function main() {
     if (!reward) continue
 
     // Compute leaf hash (same as in bridge)
-    const { keccak256, encodeAbiParameters } = await import('viem')
     const leaf = keccak256(
       encodeAbiParameters(
         [{ type: 'address' }, { type: 'uint256' }],

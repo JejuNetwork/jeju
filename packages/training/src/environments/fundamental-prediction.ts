@@ -10,6 +10,7 @@
 
 import { HfInference } from '@huggingface/inference'
 import { expectValid } from '@jejunetwork/types'
+import { z } from 'zod'
 import { CompletionResponseSchema } from '../schemas'
 
 // ============================================================================
@@ -53,7 +54,7 @@ export interface ScoredDataGroup {
   tokens: number[][]
   masks: number[][]
   scores: number[]
-  inference_logprobs?: number[][] | null
+  inference_logprobs?: number[][]
 }
 
 export interface Completion {
@@ -90,15 +91,24 @@ ${context}`
 }
 
 // ============================================================================
-// Dataset
+// Dataset Schemas
 // ============================================================================
 
-interface DatasetItem {
-  context: string
-  answer: 'maintained' | 'raised' | 'reduced'
-  magnitude: string
-  fundamental_metric: string
-}
+/** Schema for validating dataset items */
+const DatasetItemSchema = z.object({
+  context: z.string().min(1),
+  answer: z.enum(['maintained', 'raised', 'reduced']),
+  magnitude: z.string(),
+  fundamental_metric: z.string().min(1),
+})
+
+/** Schema for validating the complete dataset response */
+const DatasetResponseSchema = z.object({
+  train: z.array(DatasetItemSchema),
+  test: z.array(DatasetItemSchema),
+})
+
+type DatasetItem = z.infer<typeof DatasetItemSchema>
 
 /**
  * Load training dataset for fundamental prediction
@@ -113,27 +123,24 @@ async function loadDataset(): Promise<{
   train: DatasetItem[]
   test: DatasetItem[]
 }> {
-  // Check for HuggingFace dataset URL
   const datasetUrl = process.env.FUNDAMENTAL_DATASET_URL
 
   if (datasetUrl) {
-    try {
-      const response = await fetch(datasetUrl)
-      if (response.ok) {
-        const data = (await response.json()) as {
-          train: DatasetItem[]
-          test: DatasetItem[]
-        }
-        console.log(
-          `[FundamentalPrediction] Loaded ${data.train.length} train, ${data.test.length} test from ${datasetUrl}`,
-        )
-        return data
-      }
-    } catch (e) {
-      console.warn(
-        `[FundamentalPrediction] Failed to load from ${datasetUrl}: ${e}`,
+    const response = await fetch(datasetUrl)
+    if (response.ok) {
+      const data = expectValid(
+        DatasetResponseSchema,
+        await response.json(),
+        'fundamental prediction dataset',
       )
+      console.log(
+        `[FundamentalPrediction] Loaded ${data.train.length} train, ${data.test.length} test from ${datasetUrl}`,
+      )
+      return data
     }
+    console.warn(
+      `[FundamentalPrediction] Failed to load from ${datasetUrl}: ${response.status}`,
+    )
   }
 
   // Development mode: Generate synthetic training data

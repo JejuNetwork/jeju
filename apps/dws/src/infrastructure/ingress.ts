@@ -10,14 +10,8 @@
  * - Geo-routing for low latency
  */
 
-import { Hono } from 'hono'
+import { Elysia, t } from 'elysia'
 import type { Address } from 'viem'
-import { z } from 'zod'
-import { validateBody, validateParams } from '../shared/validation'
-
-// ============================================================================
-// Types
-// ============================================================================
 
 export interface IngressRule {
   id: string
@@ -123,7 +117,6 @@ export class IngressController {
     hostToRuleMap.set(rule.host, id)
 
     fullRule.status = 'active'
-    console.log(`[Ingress] Created ingress ${id} for ${rule.host}`)
 
     return fullRule
   }
@@ -458,8 +451,7 @@ export class IngressController {
     }
   }
 
-  private async provisionCertificate(host: string): Promise<void> {
-    console.log(`[Ingress] Provisioning TLS certificate for ${host}`)
+  private async provisionCertificate(_host: string): Promise<void> {
     // In production, use ACME/Let's Encrypt
   }
 }
@@ -468,107 +460,133 @@ export class IngressController {
 // Ingress Router
 // ============================================================================
 
-const ingressRuleSchema = z.object({
-  name: z.string(),
-  host: z.string(),
-  paths: z.array(
-    z.object({
-      path: z.string(),
-      pathType: z.enum(['Prefix', 'Exact', 'Regex']),
-      backend: z.object({
-        type: z.enum(['worker', 'container', 'service', 'static', 'redirect']),
-        workerId: z.string().optional(),
-        containerId: z.string().optional(),
-        serviceId: z.string().optional(),
-        staticCid: z.string().optional(),
-        redirectUrl: z.string().optional(),
-        port: z.number().optional(),
-        weight: z.number().optional(),
+const IngressRuleBody = t.Object({
+  name: t.String(),
+  host: t.String(),
+  paths: t.Array(
+    t.Object({
+      path: t.String(),
+      pathType: t.Union([
+        t.Literal('Prefix'),
+        t.Literal('Exact'),
+        t.Literal('Regex'),
+      ]),
+      backend: t.Object({
+        type: t.Union([
+          t.Literal('worker'),
+          t.Literal('container'),
+          t.Literal('service'),
+          t.Literal('static'),
+          t.Literal('redirect'),
+        ]),
+        workerId: t.Optional(t.String()),
+        containerId: t.Optional(t.String()),
+        serviceId: t.Optional(t.String()),
+        staticCid: t.Optional(t.String()),
+        redirectUrl: t.Optional(t.String()),
+        port: t.Optional(t.Number()),
+        weight: t.Optional(t.Number()),
       }),
-      rewrite: z.string().optional(),
-      timeout: z.number().optional(),
+      rewrite: t.Optional(t.String()),
+      timeout: t.Optional(t.Number()),
     }),
   ),
-  tls: z
-    .object({
-      enabled: z.boolean(),
-      mode: z.enum(['auto', 'custom', 'passthrough']).optional(),
-      secretName: z.string().optional(),
-      minVersion: z.enum(['TLS1.2', 'TLS1.3']).optional(),
-    })
-    .optional(),
-  rateLimit: z
-    .object({
-      requestsPerSecond: z.number(),
-      burstSize: z.number(),
-      by: z.enum(['ip', 'header', 'path']),
-      headerName: z.string().optional(),
-    })
-    .optional(),
-  authentication: z
-    .object({
-      type: z.enum(['none', 'basic', 'bearer', 'x402', 'jwt']),
-      realm: z.string().optional(),
-      secretName: z.string().optional(),
-      jwtIssuer: z.string().optional(),
-    })
-    .optional(),
+  tls: t.Optional(
+    t.Object({
+      enabled: t.Boolean(),
+      mode: t.Optional(
+        t.Union([
+          t.Literal('auto'),
+          t.Literal('custom'),
+          t.Literal('passthrough'),
+        ]),
+      ),
+      secretName: t.Optional(t.String()),
+      minVersion: t.Optional(
+        t.Union([t.Literal('TLS1.2'), t.Literal('TLS1.3')]),
+      ),
+    }),
+  ),
+  rateLimit: t.Optional(
+    t.Object({
+      requestsPerSecond: t.Number(),
+      burstSize: t.Number(),
+      by: t.Union([t.Literal('ip'), t.Literal('header'), t.Literal('path')]),
+      headerName: t.Optional(t.String()),
+    }),
+  ),
+  authentication: t.Optional(
+    t.Object({
+      type: t.Union([
+        t.Literal('none'),
+        t.Literal('basic'),
+        t.Literal('bearer'),
+        t.Literal('x402'),
+        t.Literal('jwt'),
+      ]),
+      realm: t.Optional(t.String()),
+      secretName: t.Optional(t.String()),
+      jwtIssuer: t.Optional(t.String()),
+    }),
+  ),
 })
 
-export function createIngressRouter(controller: IngressController): Hono {
-  const router = new Hono()
-
-  // Health check
-  router.get('/health', (c) => {
-    return c.json({ status: 'healthy', rules: ingressRules.size })
-  })
-
-  // Create ingress
-  router.post('/rules', async (c) => {
-    const body = await validateBody(ingressRuleSchema, c)
-    const rule = await controller.createIngress(
-      body as Omit<IngressRule, 'id' | 'createdAt' | 'updatedAt' | 'status'>,
+export function createIngressRouter(controller: IngressController) {
+  return new Elysia({ prefix: '' })
+    .get('/health', () => ({ status: 'healthy', rules: ingressRules.size }))
+    .post(
+      '/rules',
+      async ({ body, set }) => {
+        const rule = await controller.createIngress(
+          body as Omit<
+            IngressRule,
+            'id' | 'createdAt' | 'updatedAt' | 'status'
+          >,
+        )
+        set.status = 201
+        return rule
+      },
+      { body: IngressRuleBody },
     )
-    return c.json(rule, 201)
-  })
-
-  // List ingress
-  router.get('/rules', async (c) => {
-    const rules = controller.listIngress()
-    return c.json({ rules })
-  })
-
-  // Get ingress
-  router.get('/rules/:id', async (c) => {
-    const { id } = validateParams(z.object({ id: z.string() }), c)
-    const rule = controller.getIngress(id)
-    if (!rule) {
-      return c.json({ error: 'Ingress not found' }, 404)
-    }
-    return c.json(rule)
-  })
-
-  // Update ingress
-  router.put('/rules/:id', async (c) => {
-    const { id } = validateParams(z.object({ id: z.string() }), c)
-    const body = await validateBody(ingressRuleSchema.partial(), c)
-    const rule = await controller.updateIngress(id, body)
-    return c.json(rule)
-  })
-
-  // Delete ingress
-  router.delete('/rules/:id', async (c) => {
-    const { id } = validateParams(z.object({ id: z.string() }), c)
-    await controller.deleteIngress(id)
-    return c.json({ success: true })
-  })
-
-  return router
+    .get('/rules', () => {
+      const rules = controller.listIngress()
+      return { rules }
+    })
+    .get(
+      '/rules/:id',
+      ({ params, set }) => {
+        const rule = controller.getIngress(params.id)
+        if (!rule) {
+          set.status = 404
+          return { error: 'Ingress not found' }
+        }
+        return rule
+      },
+      { params: t.Object({ id: t.String() }) },
+    )
+    .put(
+      '/rules/:id',
+      async ({ params, body }) => {
+        const rule = await controller.updateIngress(
+          params.id,
+          body as Partial<IngressRule>,
+        )
+        return rule
+      },
+      {
+        params: t.Object({ id: t.String() }),
+        body: t.Partial(IngressRuleBody),
+      },
+    )
+    .delete(
+      '/rules/:id',
+      async ({ params }) => {
+        await controller.deleteIngress(params.id)
+        return { success: true }
+      },
+      { params: t.Object({ id: t.String() }) },
+    )
 }
-
-// ============================================================================
-// Singleton
-// ============================================================================
 
 let controllerInstance: IngressController | null = null
 

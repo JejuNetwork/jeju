@@ -1,5 +1,6 @@
 import { ZERO_ADDRESS } from '@jejunetwork/ui'
-import { useCallback, useMemo, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMemo, useState } from 'react'
 import {
   useAccount,
   useReadContract,
@@ -122,16 +123,26 @@ export interface OnChainReputation {
   stakeDiscount: number
 }
 
+async function fetchLeaderboardReputationApi(
+  walletAddress: string,
+): Promise<LeaderboardReputation> {
+  const response = await fetch(
+    `${LEADERBOARD_API}/api/attestation?wallet=${walletAddress}&chainId=${LEADERBOARD_CHAIN_ID}`,
+  )
+  if (!response.ok) {
+    const errorData = await response.json()
+    throw new Error(errorData.error || 'Failed to fetch reputation')
+  }
+  return response.json()
+}
+
 export function useGitHubReputation() {
   const { address } = useAccount()
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [leaderboardData, setLeaderboardData] =
-    useState<LeaderboardReputation | null>(null)
+  const queryClient = useQueryClient()
+  const [txHash, setTxHash] = useState<`0x${string}` | undefined>()
 
   const { signMessageAsync } = useSignMessage()
   const { writeContractAsync } = useWriteContract()
-  const [txHash, setTxHash] = useState<`0x${string}` | undefined>()
   const { data: txReceipt } = useWaitForTransactionReceipt({ hash: txHash })
 
   // Query on-chain reputation (only if contract is configured)
@@ -165,335 +176,302 @@ export function useGitHubReputation() {
     query: { enabled: isOnChainEnabled && !!address },
   })
 
-  /**
-   * Fetch reputation from leaderboard API
-   */
-  const fetchLeaderboardReputation = useCallback(
-    async (walletAddress?: string) => {
-      const targetAddress = walletAddress || address
-      if (!targetAddress) {
-        setError('No wallet address')
-        return null
-      }
+  // React Query for leaderboard reputation
+  const {
+    data: leaderboardData = null,
+    isLoading: reputationLoading,
+    error: reputationError,
+    refetch: refetchLeaderboardReputation,
+  } = useQuery({
+    queryKey: ['leaderboard-reputation', address],
+    queryFn: () => fetchLeaderboardReputationApi(address ?? ''),
+    enabled: !!address,
+  })
 
-      setLoading(true)
-      setError(null)
+  const fetchLeaderboardReputation = async (walletAddress?: string) => {
+    const targetAddress = walletAddress || address
+    if (!targetAddress) return null
+    if (targetAddress === address) {
+      await refetchLeaderboardReputation()
+      return leaderboardData
+    }
+    return fetchLeaderboardReputationApi(targetAddress)
+  }
 
-      try {
-        const response = await fetch(
-          `${LEADERBOARD_API}/api/attestation?wallet=${targetAddress}&chainId=${LEADERBOARD_CHAIN_ID}`,
-        )
-
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.error || 'Failed to fetch reputation')
-        }
-
-        const data: LeaderboardReputation = await response.json()
-        setLeaderboardData(data)
-        return data
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Unknown error'
-        setError(message)
-        return null
-      } finally {
-        setLoading(false)
-      }
-    },
-    [address],
-  )
-
-  /**
-   * Verify wallet ownership by signing a message
-   * Note: Requires GitHub token for authentication
-   */
-  const verifyWallet = useCallback(
-    async (username: string, githubToken: string) => {
-      if (!address) {
-        setError('No wallet connected')
-        return false
-      }
-
-      if (!githubToken) {
-        setError('GitHub authentication required')
-        return false
-      }
-
-      setLoading(true)
-      setError(null)
+  // Mutation for wallet verification
+  const verifyWalletMutation = useMutation({
+    mutationFn: async ({
+      username,
+      githubToken,
+    }: {
+      username: string
+      githubToken: string
+    }) => {
+      if (!address) throw new Error('No wallet connected')
+      if (!githubToken) throw new Error('GitHub authentication required')
 
       const authHeaders = {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${githubToken}`,
       }
 
-      try {
-        // Get verification message with timestamp
-        const messageResponse = await fetch(
-          `${LEADERBOARD_API}/api/wallet/verify?username=${username}&wallet=${address}`,
-          { headers: authHeaders },
-        )
+      // Get verification message with timestamp
+      const messageResponse = await fetch(
+        `${LEADERBOARD_API}/api/wallet/verify?username=${username}&wallet=${address}`,
+        { headers: authHeaders },
+      )
 
-        if (!messageResponse.ok) {
-          const errorData = await messageResponse.json()
-          throw new Error(
-            errorData.error || 'Failed to get verification message',
-          )
-        }
-
-        const { message, timestamp } = await messageResponse.json()
-
-        // Sign the message
-        const signature = await signMessageAsync({ message, account: address })
-
-        // Submit verification with timestamp for replay protection
-        const verifyResponse = await fetch(
-          `${LEADERBOARD_API}/api/wallet/verify`,
-          {
-            method: 'POST',
-            headers: authHeaders,
-            body: JSON.stringify({
-              username,
-              walletAddress: address,
-              signature,
-              message,
-              timestamp,
-              chainId: LEADERBOARD_CHAIN_ID,
-            }),
-          },
-        )
-
-        if (!verifyResponse.ok) {
-          const errorData = await verifyResponse.json()
-          throw new Error(errorData.error || 'Verification failed')
-        }
-
-        return true
-      } catch (err) {
-        const errMessage =
-          err instanceof Error ? err.message : 'Verification failed'
-        setError(errMessage)
-        return false
-      } finally {
-        setLoading(false)
-      }
-    },
-    [address, signMessageAsync],
-  )
-
-  /**
-   * Request a new attestation from the leaderboard
-   * Note: Requires GitHub token for authentication
-   */
-  const requestAttestation = useCallback(
-    async (username: string, githubToken: string, agentId?: number) => {
-      if (!address) {
-        setError('No wallet connected')
-        return null
+      if (!messageResponse.ok) {
+        const errorData = await messageResponse.json()
+        throw new Error(errorData.error || 'Failed to get verification message')
       }
 
-      if (!githubToken) {
-        setError('GitHub authentication required')
-        return null
-      }
+      const { message, timestamp } = await messageResponse.json()
 
-      setLoading(true)
-      setError(null)
+      // Sign the message
+      const signature = await signMessageAsync({ message, account: address })
 
-      try {
-        const response = await fetch(`${LEADERBOARD_API}/api/attestation`, {
+      // Submit verification with timestamp for replay protection
+      const verifyResponse = await fetch(
+        `${LEADERBOARD_API}/api/wallet/verify`,
+        {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${githubToken}`,
-          },
+          headers: authHeaders,
           body: JSON.stringify({
             username,
             walletAddress: address,
+            signature,
+            message,
+            timestamp,
             chainId: LEADERBOARD_CHAIN_ID,
-            agentId,
           }),
-        })
+        },
+      )
 
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.error || 'Failed to request attestation')
-        }
-
-        const data = await response.json()
-
-        // Refresh leaderboard data
-        await fetchLeaderboardReputation()
-
-        return data
-      } catch (err) {
-        const message =
-          err instanceof Error ? err.message : 'Attestation request failed'
-        setError(message)
-        return null
-      } finally {
-        setLoading(false)
+      if (!verifyResponse.ok) {
+        const errorData = await verifyResponse.json()
+        throw new Error(errorData.error || 'Verification failed')
       }
-    },
-    [address, fetchLeaderboardReputation],
-  )
 
-  /**
-   * Submit attestation on-chain
-   * Note: Requires GitHub token for confirmation API call
-   */
-  const submitAttestationOnChain = useCallback(
-    async (
-      agentId: bigint,
-      score: number,
-      totalScore: number,
-      mergedPrs: number,
-      totalCommits: number,
-      timestamp: number,
-      oracleSignature: string,
-      attestationHash: string,
-      githubToken: string,
-    ) => {
+      return true
+    },
+  })
+
+  const verifyWallet = async (username: string, githubToken: string) => {
+    const result = await verifyWalletMutation.mutateAsync({
+      username,
+      githubToken,
+    })
+    return result
+  }
+
+  // Mutation for requesting attestation
+  const requestAttestationMutation = useMutation({
+    mutationFn: async ({
+      username,
+      githubToken,
+      agentId,
+    }: {
+      username: string
+      githubToken: string
+      agentId?: number
+    }) => {
+      if (!address) throw new Error('No wallet connected')
+      if (!githubToken) throw new Error('GitHub authentication required')
+
+      const response = await fetch(`${LEADERBOARD_API}/api/attestation`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${githubToken}`,
+        },
+        body: JSON.stringify({
+          username,
+          walletAddress: address,
+          chainId: LEADERBOARD_CHAIN_ID,
+          agentId,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to request attestation')
+      }
+
+      return response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ['leaderboard-reputation', address],
+      })
+    },
+  })
+
+  const requestAttestation = async (
+    username: string,
+    githubToken: string,
+    agentId?: number,
+  ) => {
+    return requestAttestationMutation.mutateAsync({
+      username,
+      githubToken,
+      agentId,
+    })
+  }
+
+  // Mutation for on-chain attestation submission
+  const submitAttestationMutation = useMutation({
+    mutationFn: async ({
+      agentId,
+      score,
+      totalScore,
+      mergedPrs,
+      totalCommits,
+      timestamp,
+      oracleSignature,
+      attestationHash,
+      githubToken,
+    }: {
+      agentId: bigint
+      score: number
+      totalScore: number
+      mergedPrs: number
+      totalCommits: number
+      timestamp: number
+      oracleSignature: string
+      attestationHash: string
+      githubToken: string
+    }) => {
       if (!isOnChainEnabled || !GITHUB_REPUTATION_PROVIDER_ADDRESS) {
-        setError('GitHubReputationProvider contract not configured')
-        return null
+        throw new Error('GitHubReputationProvider contract not configured')
       }
-
       if (!oracleSignature || oracleSignature === '0x') {
-        setError('Missing oracle signature - attestation not signed')
-        return null
+        throw new Error('Missing oracle signature - attestation not signed')
       }
+      if (!address) throw new Error('No wallet connected')
+      if (!githubToken) throw new Error('GitHub authentication required')
 
-      if (!address) {
-        setError('No wallet connected')
-        return null
-      }
+      const hash = await writeContractAsync({
+        address: GITHUB_REPUTATION_PROVIDER_ADDRESS,
+        abi: GITHUB_REPUTATION_PROVIDER_ABI,
+        functionName: 'submitAttestation',
+        account: address,
+        args: [
+          agentId,
+          score,
+          BigInt(totalScore),
+          BigInt(mergedPrs),
+          BigInt(totalCommits),
+          BigInt(timestamp),
+          oracleSignature as `0x${string}`,
+        ],
+      })
 
-      if (!githubToken) {
-        setError('GitHub authentication required')
-        return null
-      }
+      setTxHash(hash)
 
-      setLoading(true)
-      setError(null)
+      // Confirm submission to leaderboard API
+      await fetch(`${LEADERBOARD_API}/api/attestation/confirm`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${githubToken}`,
+        },
+        body: JSON.stringify({
+          attestationHash,
+          txHash: hash,
+          walletAddress: address,
+          chainId: LEADERBOARD_CHAIN_ID,
+        }),
+      })
 
-      try {
-        const hash = await writeContractAsync({
-          address: GITHUB_REPUTATION_PROVIDER_ADDRESS,
-          abi: GITHUB_REPUTATION_PROVIDER_ABI,
-          functionName: 'submitAttestation',
-          account: address,
-          args: [
-            agentId,
-            score,
-            BigInt(totalScore),
-            BigInt(mergedPrs),
-            BigInt(totalCommits),
-            BigInt(timestamp),
-            oracleSignature as `0x${string}`,
-          ],
-        })
-
-        setTxHash(hash)
-
-        // Confirm submission to leaderboard API (requires auth)
-        await fetch(`${LEADERBOARD_API}/api/attestation/confirm`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${githubToken}`,
-          },
-          body: JSON.stringify({
-            attestationHash,
-            txHash: hash,
-            walletAddress: address,
-            chainId: LEADERBOARD_CHAIN_ID,
-          }),
-        })
-
-        // Refresh on-chain and off-chain data
-        await Promise.all([
-          refetchAgentReputation(),
-          refetchStakeDiscount(),
-          fetchLeaderboardReputation(),
-        ])
-
-        return hash
-      } catch (err) {
-        const message =
-          err instanceof Error ? err.message : 'On-chain submission failed'
-        setError(message)
-        return null
-      } finally {
-        setLoading(false)
-      }
+      return hash
     },
-    [
-      address,
-      writeContractAsync,
-      refetchAgentReputation,
-      refetchStakeDiscount,
-      fetchLeaderboardReputation,
-    ],
-  )
-
-  /**
-   * Link agent to GitHub account
-   * Note: Requires GitHub token for authentication
-   */
-  const linkAgentToGitHub = useCallback(
-    async (
-      username: string,
-      agentId: number,
-      registryAddress: string,
-      githubToken: string,
-    ) => {
-      if (!address) {
-        setError('No wallet connected')
-        return false
-      }
-
-      if (!githubToken) {
-        setError('GitHub authentication required')
-        return false
-      }
-
-      setLoading(true)
-      setError(null)
-
-      try {
-        const response = await fetch(`${LEADERBOARD_API}/api/agent/link`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${githubToken}`,
-          },
-          body: JSON.stringify({
-            username,
-            walletAddress: address,
-            agentId,
-            registryAddress,
-            chainId: LEADERBOARD_CHAIN_ID,
-          }),
-        })
-
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.error || 'Failed to link agent')
-        }
-
-        return true
-      } catch (err) {
-        const message =
-          err instanceof Error ? err.message : 'Agent linking failed'
-        setError(message)
-        return false
-      } finally {
-        setLoading(false)
-      }
+    onSuccess: () => {
+      refetchAgentReputation()
+      refetchStakeDiscount()
+      queryClient.invalidateQueries({
+        queryKey: ['leaderboard-reputation', address],
+      })
     },
-    [address],
-  )
+  })
+
+  const submitAttestationOnChain = async (
+    agentId: bigint,
+    score: number,
+    totalScore: number,
+    mergedPrs: number,
+    totalCommits: number,
+    timestamp: number,
+    oracleSignature: string,
+    attestationHash: string,
+    githubToken: string,
+  ) => {
+    return submitAttestationMutation.mutateAsync({
+      agentId,
+      score,
+      totalScore,
+      mergedPrs,
+      totalCommits,
+      timestamp,
+      oracleSignature,
+      attestationHash,
+      githubToken,
+    })
+  }
+
+  // Mutation for linking agent to GitHub
+  const linkAgentMutation = useMutation({
+    mutationFn: async ({
+      username,
+      agentId,
+      registryAddress,
+      githubToken,
+    }: {
+      username: string
+      agentId: number
+      registryAddress: string
+      githubToken: string
+    }) => {
+      if (!address) throw new Error('No wallet connected')
+      if (!githubToken) throw new Error('GitHub authentication required')
+
+      const response = await fetch(`${LEADERBOARD_API}/api/agent/link`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${githubToken}`,
+        },
+        body: JSON.stringify({
+          username,
+          walletAddress: address,
+          agentId,
+          registryAddress,
+          chainId: LEADERBOARD_CHAIN_ID,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to link agent')
+      }
+
+      return true
+    },
+  })
+
+  const linkAgentToGitHub = async (
+    username: string,
+    agentId: number,
+    registryAddress: string,
+    githubToken: string,
+  ) => {
+    return linkAgentMutation.mutateAsync({
+      username,
+      agentId,
+      registryAddress,
+      githubToken,
+    })
+  }
 
   // Parse on-chain data - memoized to prevent recomputation
   const onChainReputation = useMemo<OnChainReputation | null>(() => {
@@ -519,6 +497,22 @@ export function useGitHubReputation() {
       isLinked: (onChainProfile as { isLinked: boolean }).isLinked,
     }
   }, [onChainProfile])
+
+  // Aggregate loading and error states from all mutations
+  const loading =
+    reputationLoading ||
+    verifyWalletMutation.isPending ||
+    requestAttestationMutation.isPending ||
+    submitAttestationMutation.isPending ||
+    linkAgentMutation.isPending
+
+  const error =
+    reputationError?.message ??
+    verifyWalletMutation.error?.message ??
+    requestAttestationMutation.error?.message ??
+    submitAttestationMutation.error?.message ??
+    linkAgentMutation.error?.message ??
+    null
 
   return {
     // State

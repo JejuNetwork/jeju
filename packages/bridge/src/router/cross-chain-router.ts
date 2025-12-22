@@ -18,8 +18,6 @@
 
 import type { Address } from 'viem'
 
-// ============ Chain Types ============
-
 export const ChainType = {
   EVM_L1: 'EVM_L1',
   EVM_L2: 'EVM_L2',
@@ -44,8 +42,6 @@ export interface ChainInfo {
     warpRoute?: Address
   }
 }
-
-// ============ Supported Chains ============
 
 export const SUPPORTED_CHAINS: Record<string, ChainInfo> = {
   // Ethereum L1
@@ -122,8 +118,6 @@ export const SUPPORTED_CHAINS: Record<string, ChainInfo> = {
   },
 }
 
-// ============ Aster Contract Addresses ============
-
 export const ASTER_CONTRACTS = {
   treasury: {
     bnb: '0x128463A60784c4D3f46c23Af3f65Ed859Ba87974' as Address,
@@ -154,8 +148,6 @@ export const ASTER_CONTRACTS = {
     minting: '0xC271fc70dD9E678ac1AB632f797894fe4BE2C345' as Address,
   },
 }
-
-// ============ Route Types ============
 
 export const BridgeMechanism = {
   ZK_SOL_BRIDGE: 'ZK_SOL_BRIDGE',
@@ -203,8 +195,6 @@ export interface RouteRequest {
   deadline?: number
 }
 
-// ============ Router Configuration ============
-
 export interface RouterConfig {
   // Contract addresses per chain
   contracts: Record<string, ChainInfo['bridgeContracts']>
@@ -219,8 +209,6 @@ export interface RouterConfig {
   enableMEV: boolean
   minArbProfitBps: number
 }
-
-// ============ Cross-Chain Router ============
 
 export class CrossChainRouter {
   private config: RouterConfig
@@ -354,8 +342,6 @@ export class CrossChainRouter {
     // This would integrate with DEX price feeds
     return { hasOpportunity: false, expectedProfit: 0n, strategy: null }
   }
-
-  // ============ Private Methods ============
 
   private canUseEIL(source: ChainInfo, dest: ChainInfo): boolean {
     return source.type === ChainType.EVM_L2 && dest.type === ChainType.EVM_L2
@@ -628,8 +614,6 @@ export class CrossChainRouter {
     }
   }
 }
-
-// ============ Factory ============
 
 export function createRouter(
   config: Partial<RouterConfig> = {},

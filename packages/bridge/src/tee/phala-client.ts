@@ -27,10 +27,6 @@ import {
 
 const log = createLogger('phala')
 
-// =============================================================================
-// TYPES
-// =============================================================================
-
 export interface PhalaConfig {
   /** Phala TEE endpoint URL */
   endpoint: string
@@ -78,10 +74,6 @@ export interface PhalaBatchAttestation {
   /** Chain of custody proof */
   chainOfCustody: Hex[]
 }
-
-// =============================================================================
-// PHALA CLIENT
-// =============================================================================
 
 export class PhalaClient {
   private config: PhalaConfig
@@ -313,10 +305,6 @@ export class PhalaClient {
     }
   }
 
-  // =============================================================================
-  // PRIVATE METHODS
-  // =============================================================================
-
   private generateMockAttestation(
     request: PhalaAttestationRequest,
   ): PhalaAttestationResponse {
@@ -350,10 +338,6 @@ export class PhalaClient {
     }
   }
 }
-
-// =============================================================================
-// FACTORY
-// =============================================================================
 
 export function createPhalaClient(config?: Partial<PhalaConfig>): PhalaClient {
   const endpoint = config?.endpoint ?? process.env.PHALA_ENDPOINT

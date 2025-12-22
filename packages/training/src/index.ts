@@ -103,7 +103,11 @@ export {
   getDefaultDWSConfig,
   isDWSAvailable,
   type JudgeResult,
+  type RolloutAction,
   type RolloutData,
+  type RolloutMetadata,
+  type RolloutObservation,
+  type RolloutStep,
   type TrainingJobRequest,
   type TrainingJobResult,
   type TrainingJobStatus,
@@ -127,6 +131,7 @@ export {
   type TrainingEnvironment,
   type TrainingProposal,
   type TrainingRun,
+  type TrajectoryMetadata,
   type TrajectoryStep,
 } from './integrations'
 

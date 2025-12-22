@@ -1,16 +1,5 @@
-/**
- * Framework-Agnostic Error Handler
- *
- * Provides standardized error handling and error types.
- */
-
 import { z } from 'zod'
 
-// ============ Error Types ============
-
-/**
- * Base API error with status code
- */
 export class APIError extends Error {
   constructor(
     message: string,
@@ -37,9 +26,6 @@ export class APIError extends Error {
   }
 }
 
-/**
- * Validation error (400)
- */
 export class ValidationError extends APIError {
   constructor(message: string, details?: Record<string, unknown>) {
     super(message, 400, 'VALIDATION_ERROR', details)
@@ -47,9 +33,6 @@ export class ValidationError extends APIError {
   }
 }
 
-/**
- * Not found error (404)
- */
 export class NotFoundError extends APIError {
   constructor(resource: string, id?: string) {
     const message = id
@@ -60,9 +43,6 @@ export class NotFoundError extends APIError {
   }
 }
 
-/**
- * Conflict error (409)
- */
 export class ConflictError extends APIError {
   constructor(message: string, details?: Record<string, unknown>) {
     super(message, 409, 'CONFLICT', details)
@@ -70,9 +50,6 @@ export class ConflictError extends APIError {
   }
 }
 
-/**
- * Service unavailable error (503)
- */
 export class ServiceUnavailableError extends APIError {
   constructor(service: string, details?: Record<string, unknown>) {
     super(`Service unavailable: ${service}`, 503, 'SERVICE_UNAVAILABLE', {
@@ -83,9 +60,6 @@ export class ServiceUnavailableError extends APIError {
   }
 }
 
-/**
- * Internal server error (500)
- */
 export class InternalError extends APIError {
   constructor(message: string = 'Internal server error') {
     super(message, 500, 'INTERNAL_ERROR')
@@ -93,21 +67,14 @@ export class InternalError extends APIError {
   }
 }
 
-// ============ Error Response Type ============
-
 export interface ErrorResponse {
   error: string
   code: string
-  statusCode?: number
+  statusCode: number
   details?: Record<string, unknown>
   stack?: string
 }
 
-// ============ Error Handlers ============
-
-/**
- * Sanitize error message for production (hide sensitive details)
- */
 export function sanitizeErrorMessage(
   error: Error,
   isDevelopment: boolean,
@@ -116,18 +83,13 @@ export function sanitizeErrorMessage(
     return error.message
   }
 
-  // In production, hide detailed error messages
   if (error instanceof APIError) {
     return error.message
   }
 
-  // Generic message for unexpected errors
   return 'An unexpected error occurred'
 }
 
-/**
- * Convert any error to an ErrorResponse
- */
 export function toErrorResponse(
   error: Error,
   isDevelopment: boolean = false,
@@ -153,7 +115,6 @@ export function toErrorResponse(
     }
   }
 
-  // Generic error
   return {
     error: sanitizeErrorMessage(error, isDevelopment),
     code: 'INTERNAL_ERROR',
@@ -162,9 +123,6 @@ export function toErrorResponse(
   }
 }
 
-/**
- * Get HTTP status code from error
- */
 export function getStatusCode(error: Error): number {
   if (error instanceof APIError) {
     return error.statusCode
@@ -175,11 +133,6 @@ export function getStatusCode(error: Error): number {
   return 500
 }
 
-// ============ Validation Helpers ============
-
-/**
- * Expect a value to be defined (fail-fast)
- */
 export function expectDefined<T>(
   value: T | null | undefined,
   message: string,
@@ -190,9 +143,6 @@ export function expectDefined<T>(
   return value
 }
 
-/**
- * Validate with Zod schema (fail-fast)
- */
 export function expectValid<T>(
   schema: z.ZodType<T>,
   data: unknown,
@@ -210,9 +160,6 @@ export function expectValid<T>(
   return result.data
 }
 
-/**
- * Assert a condition (fail-fast)
- */
 export function assert(
   condition: boolean,
   message: string,
@@ -224,11 +171,6 @@ export function assert(
   }
 }
 
-// ============ Elysia Error Handler ============
-
-/**
- * Create Elysia-compatible error handler
- */
 export function createElysiaErrorHandler(isDevelopment: boolean = false) {
   return function handleError({
     error,

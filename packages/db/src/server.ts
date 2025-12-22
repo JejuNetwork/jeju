@@ -11,18 +11,21 @@ import { join } from 'node:path'
 import { z } from 'zod'
 import { parseBoolean, parsePort, sanitizeRows } from './utils.js'
 
-// Request body schemas
-const CreateDatabaseRequestSchema = z.object({
-  nodeCount: z.number().int().positive().default(1),
-  schema: z.string().default(''),
-  owner: z
-    .string()
-    .regex(/^0x[a-fA-F0-9]{40}$/)
-    .default('0x0000000000000000000000000000000000000000'),
-  paymentToken: z.string().optional(),
-})
+const CreateDatabaseRequestSchema = z
+  .object({
+    nodeCount: z.number().int().positive().max(10).default(1),
+    schema: z.string().max(100000).default(''),
+    owner: z
+      .string()
+      .regex(/^0x[a-fA-F0-9]{40}$/)
+      .default('0x0000000000000000000000000000000000000000'),
+    paymentToken: z
+      .string()
+      .regex(/^0x[a-fA-F0-9]{40}$/)
+      .optional(),
+  })
+  .strict()
 
-// Maximum rows returned per query to prevent DoS via unbounded result sets
 const MAX_QUERY_ROWS = 10000
 
 const QueryRequestSchema = z.object({
@@ -34,21 +37,28 @@ const QueryRequestSchema = z.object({
     .optional(),
 })
 
-const ACLGrantRequestSchema = z.object({
-  address: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
-  permissions: z.array(z.string()),
-})
+const ACLGrantRequestSchema = z
+  .object({
+    address: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+    permissions: z
+      .array(z.enum(['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'ALL']))
+      .min(1),
+  })
+  .strict()
 
-const ACLRevokeRequestSchema = z.object({
-  address: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
-})
+const ACLRevokeRequestSchema = z
+  .object({
+    address: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+  })
+  .strict()
 
+/** SQLite database record matching the schema column names */
 interface DatabaseRecord {
   id: string
   owner: string
-  schema: string
-  nodeCount: number
-  createdAt: number
+  schema: string | null
+  node_count: number
+  created_at: number
   status: 'active' | 'suspended' | 'deleted'
 }
 
@@ -72,12 +82,9 @@ export class CQLServer {
       mkdirSync(config.dataDir, { recursive: true })
     }
 
-    // Initialize registry database (tracks all databases)
     const registryPath = join(config.dataDir, '_registry.sqlite')
     this.registry = new SQLiteDatabase(registryPath)
     this.initRegistry()
-
-    // Load existing databases
     this.loadDatabases()
   }
 
@@ -108,13 +115,11 @@ export class CQLServer {
       );
     `)
 
-    // Get current block height - MAX returns null if no rows
     const result = this.registry
       .query('SELECT MAX(height) as height FROM blocks')
       .get() as { height: number | null } | null
     this.blockHeight = result?.height ?? 0
 
-    // Add genesis block if needed
     if (this.blockHeight === 0) {
       this.registry.run(
         'INSERT OR IGNORE INTO blocks (height, timestamp, tx_count, hash) VALUES (?, ?, ?, ?)',
@@ -147,7 +152,6 @@ export class CQLServer {
     const hash =
       '0x' +
       Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString('hex')
-    // Use IMMEDIATE transaction to acquire exclusive lock and prevent race conditions
     this.registry.exec('BEGIN IMMEDIATE')
     const result = this.registry
       .query('SELECT COALESCE(MAX(height), -1) + 1 as next FROM blocks')
@@ -170,7 +174,6 @@ export class CQLServer {
         const url = new URL(req.url)
         const method = req.method
 
-        // Health check
         if (url.pathname === '/health') {
           return Response.json({
             status: 'ok',
@@ -181,7 +184,6 @@ export class CQLServer {
           })
         }
 
-        // Block producer status
         if (url.pathname === '/api/v1/status') {
           return Response.json({
             blockHeight: this.blockHeight,
@@ -192,17 +194,14 @@ export class CQLServer {
           })
         }
 
-        // Query/Exec endpoint
         if (url.pathname === '/api/v1/query' && method === 'POST') {
           const rawBody = await req.json()
           const body = QueryRequestSchema.parse(rawBody)
 
           const { database: dbId, type, sql, params } = body
 
-          // Get or create database
           let db = this.databases.get(dbId)
           if (!db) {
-            // Auto-create database for development convenience
             db = this.openDatabase(dbId)
             this.registry.run(
               'INSERT OR IGNORE INTO databases (id, owner, created_at) VALUES (?, ?, ?)',
@@ -215,12 +214,10 @@ export class CQLServer {
           if (type === 'query') {
             const stmt = db.query(sql)
             const rawRows = params ? stmt.all(...params) : stmt.all()
-            // Enforce row limit to prevent DoS via unbounded result sets
             const truncated = rawRows.length > MAX_QUERY_ROWS
             const limitedRows = truncated
               ? rawRows.slice(0, MAX_QUERY_ROWS)
               : rawRows
-            // Sanitize rows to prevent prototype pollution attacks
             const rows = sanitizeRows(limitedRows as Record<string, unknown>[])
             const columns =
               rows.length > 0 ? Object.keys(rows[0] as object) : []
@@ -253,7 +250,6 @@ export class CQLServer {
           }
         }
 
-        // Create database
         if (url.pathname === '/api/v1/databases' && method === 'POST') {
           const rawBody = await req.json()
           const body = CreateDatabaseRequestSchema.parse(rawBody)
@@ -267,15 +263,12 @@ export class CQLServer {
 
           const db = this.openDatabase(id)
 
-          // Execute schema if provided - only allow safe DDL statements
           if (body.schema) {
             const statements = body.schema
               .split(';')
               .filter((s: string) => s.trim())
-            // Allowed DDL patterns - only CREATE TABLE and CREATE INDEX
             const ALLOWED_DDL_PATTERN =
               /^\s*(CREATE\s+(TABLE|INDEX|UNIQUE\s+INDEX))\s+/i
-            // Dangerous patterns that should never be in schema
             const DANGEROUS_PATTERNS = [
               /\bDROP\b/i,
               /\bDELETE\b/i,
@@ -294,14 +287,12 @@ export class CQLServer {
               const trimmed = stmt.trim()
               if (!trimmed) continue
 
-              // Verify it's a safe DDL statement
               if (!ALLOWED_DDL_PATTERN.test(trimmed)) {
                 throw new Error(
                   `Schema must contain only CREATE TABLE or CREATE INDEX statements`,
                 )
               }
 
-              // Double-check for dangerous patterns that might be embedded
               for (const pattern of DANGEROUS_PATTERNS) {
                 if (pattern.test(trimmed)) {
                   throw new Error(`Schema contains prohibited SQL keyword`)
@@ -323,7 +314,6 @@ export class CQLServer {
           })
         }
 
-        // List databases
         if (url.pathname === '/api/v1/databases' && method === 'GET') {
           const owner = url.searchParams.get('owner')
           let dbs: DatabaseRecord[]
@@ -342,16 +332,15 @@ export class CQLServer {
             databases: dbs.map((d) => ({
               id: d.id,
               owner: d.owner,
-              nodeCount: d.nodeCount,
+              nodeCount: d.node_count,
               status: d.status,
-              createdAt: d.createdAt,
+              createdAt: d.created_at,
             })),
           })
         }
 
-        // Get database
         const dbMatch = url.pathname.match(/^\/api\/v1\/databases\/([^/]+)$/)
-        if (dbMatch && method === 'GET') {
+        if (dbMatch?.[1] && method === 'GET') {
           const dbId = dbMatch[1]
           const db = this.registry
             .query('SELECT * FROM databases WHERE id = ?')
@@ -367,14 +356,13 @@ export class CQLServer {
           return Response.json({
             id: db.id,
             owner: db.owner,
-            nodeCount: db.nodeCount,
+            nodeCount: db.node_count,
             status: db.status,
-            createdAt: db.createdAt,
+            createdAt: db.created_at,
           })
         }
 
-        // Delete database
-        if (dbMatch && method === 'DELETE') {
+        if (dbMatch?.[1] && method === 'DELETE') {
           const dbId = dbMatch[1]
           this.registry.run('UPDATE databases SET status = ? WHERE id = ?', [
             'deleted',
@@ -386,11 +374,10 @@ export class CQLServer {
           return new Response(null, { status: 204 })
         }
 
-        // ACL - Grant
         const aclGrantMatch = url.pathname.match(
           /^\/api\/v1\/databases\/([^/]+)\/acl\/grant$/,
         )
-        if (aclGrantMatch && method === 'POST') {
+        if (aclGrantMatch?.[1] && method === 'POST') {
           const dbId = aclGrantMatch[1]
           const rawBody = await req.json()
           const body = ACLGrantRequestSchema.parse(rawBody)
@@ -404,11 +391,10 @@ export class CQLServer {
           return Response.json({ success: true })
         }
 
-        // ACL - Revoke
         const aclRevokeMatch = url.pathname.match(
           /^\/api\/v1\/databases\/([^/]+)\/acl\/revoke$/,
         )
-        if (aclRevokeMatch && method === 'POST') {
+        if (aclRevokeMatch?.[1] && method === 'POST') {
           const dbId = aclRevokeMatch[1]
           const rawBody = await req.json()
           const body = ACLRevokeRequestSchema.parse(rawBody)
@@ -422,11 +408,10 @@ export class CQLServer {
           return Response.json({ success: true })
         }
 
-        // ACL - List
         const aclListMatch = url.pathname.match(
           /^\/api\/v1\/databases\/([^/]+)\/acl$/,
         )
-        if (aclListMatch && method === 'GET') {
+        if (aclListMatch?.[1] && method === 'GET') {
           const dbId = aclListMatch[1]
           const rules = this.registry
             .query(
@@ -447,7 +432,6 @@ export class CQLServer {
           })
         }
 
-        // Plans (for rental)
         if (url.pathname === '/api/v1/plans' && method === 'GET') {
           return Response.json({
             plans: [
@@ -476,7 +460,6 @@ export class CQLServer {
           })
         }
 
-        // Metrics endpoint
         if (url.pathname === '/metrics') {
           const metrics = [
             '# HELP cql_block_height Current block height',
@@ -516,7 +499,6 @@ export class CQLServer {
 const DEFAULT_SERVER_PORT = 4028
 const DEFAULT_DATA_DIR = '.data/cql'
 
-// Create and export server factory
 export function createCQLServer(
   config: Partial<CQLServerConfig> = {},
 ): CQLServer {
@@ -527,7 +509,6 @@ export function createCQLServer(
   })
 }
 
-// CLI entry point
 if (import.meta.main) {
   const port = parsePort(
     process.env.PORT ?? process.env.CQL_PORT,

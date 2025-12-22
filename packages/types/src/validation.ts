@@ -1,5 +1,5 @@
 import { type Address, type Hex, isAddress, isHex } from 'viem'
-import { type ZodIssue, type ZodSchema, z } from 'zod'
+import { type ZodIssue, z } from 'zod'
 
 // ============================================================================
 // Security Constants - Prevent DoS via unbounded inputs
@@ -330,7 +330,7 @@ export function expectNonNegative(
  * Security: Error messages show field paths but not actual values to prevent data leakage
  */
 export function expectValid<T>(
-  schema: ZodSchema<T>,
+  schema: z.ZodType<T>,
   value: unknown,
   context?: string,
 ): T {
@@ -354,7 +354,7 @@ export function expectValid<T>(
  * Alias for expectValid - validates data against a Zod schema
  */
 export function validateOrThrow<T>(
-  schema: ZodSchema<T>,
+  schema: z.ZodType<T>,
   data: unknown,
   context?: string,
 ): T {
@@ -366,7 +366,7 @@ export function validateOrThrow<T>(
  * Use this only when null is a valid/expected outcome (e.g., optional cache lookups)
  */
 export function validateOrNull<T>(
-  schema: ZodSchema<T>,
+  schema: z.ZodType<T>,
   value: unknown,
 ): T | null {
   const result = schema.safeParse(value)
@@ -444,7 +444,7 @@ export function expectNonEmptyString(
  */
 export function expectJson<T>(
   json: string,
-  schema: ZodSchema<T>,
+  schema: z.ZodType<T>,
   fieldName = 'json',
 ): T {
   let parsed: unknown

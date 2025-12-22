@@ -74,7 +74,7 @@ contract ContributorRegistry is Ownable, Pausable, ReentrancyGuard {
     struct DependencyClaim {
         bytes32 claimId;
         bytes32 contributorId;
-        string packageName; // e.g., "viem", "ethers"
+        string packageName; // e.g., "viem", "wagmi"
         string registryType; // "npm", "pypi", "cargo", "go"
         bytes32 proofHash; // Proof of maintainership
         VerificationStatus status;

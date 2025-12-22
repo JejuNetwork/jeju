@@ -79,7 +79,7 @@ export function useMarket(sessionId: string) {
           totalVolume: BigInt(m.totalVolume),
           createdAt: new Date(m.createdAt),
           resolved: m.resolved,
-          outcome: m.outcome ?? undefined,
+          outcome: m.outcome ?? null,
         })
         setLoading(false)
         setError(null)

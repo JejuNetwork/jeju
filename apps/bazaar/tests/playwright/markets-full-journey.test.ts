@@ -12,9 +12,9 @@
 import { expect, test } from '@playwright/test'
 
 const INFRASTRUCTURE_READY =
-  process.env.NEXT_PUBLIC_PREDIMARKET_ADDRESS &&
-  process.env.NEXT_PUBLIC_PREDIMARKET_ADDRESS !== '0x0' &&
-  process.env.NEXT_PUBLIC_INDEXER_URL
+  process.env.PUBLIC_PREDIMARKET_ADDRESS &&
+  process.env.PUBLIC_PREDIMARKET_ADDRESS !== '0x0' &&
+  process.env.PUBLIC_INDEXER_URL
 
 test.describe('Complete Trading Journey', () => {
   test.skip(!INFRASTRUCTURE_READY, 'Infrastructure not deployed')

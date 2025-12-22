@@ -13,10 +13,6 @@ import {
 
 const log = createLogger('health')
 
-// =============================================================================
-// TYPES
-// =============================================================================
-
 export interface ComponentHealth {
   name: string
   status: 'healthy' | 'degraded' | 'unhealthy'
@@ -62,10 +58,6 @@ export interface HealthCheckConfig {
   relayerEndpoint: string
   checkIntervalMs: number
 }
-
-// =============================================================================
-// HEALTH CHECKER
-// =============================================================================
 
 export class HealthChecker {
   private config: HealthCheckConfig
@@ -407,10 +399,6 @@ export class HealthChecker {
   }
 }
 
-// =============================================================================
-// PROMETHEUS FORMAT HELPERS
-// =============================================================================
-
 function formatPrometheusMetrics(
   metrics: Metrics,
   health: SystemHealth,
@@ -497,10 +485,6 @@ function formatPrometheusMetrics(
   return `${lines.join('\n')}\n`
 }
 
-// =============================================================================
-// ELYSIA PLUGIN
-// =============================================================================
-
 export function healthPlugin(checker: HealthChecker) {
   return new Elysia({ prefix: '/monitoring' })
     .get('/health', () => checker.getHealth())
@@ -531,10 +515,6 @@ export function healthPlugin(checker: HealthChecker) {
     })
     .get('/live', () => ({ live: true }))
 }
-
-// =============================================================================
-// FACTORY
-// =============================================================================
 
 export function createHealthChecker(config: HealthCheckConfig): HealthChecker {
   return new HealthChecker(config)

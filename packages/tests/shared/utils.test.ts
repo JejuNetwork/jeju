@@ -34,9 +34,7 @@ import {
   waitForService,
 } from './utils'
 
-// ============================================================================
 // Test Constants Validation
-// ============================================================================
 
 describe('Test Constants - Validity', () => {
   test('SEED_PHRASE is 12-word mnemonic', () => {
@@ -109,9 +107,7 @@ describe('TEST_ACCOUNTS - Account Validity', () => {
   })
 })
 
-// ============================================================================
 // Workspace Root Finding Tests
-// ============================================================================
 
 const TEST_DIR = '/tmp/jeju-utils-test'
 
@@ -181,14 +177,15 @@ describe('findJejuWorkspaceRoot - Fallback Detection', () => {
     expect(found).toBe(root)
   })
 
-  test('should use JEJU_ROOT env var as last fallback', () => {
-    const envRoot = '/custom/path'
-    process.env.JEJU_ROOT = envRoot
+  test('should throw when workspace root not found', () => {
+    delete process.env.JEJU_ROOT
 
     // Start from a path that won't find anything
-    const found = findJejuWorkspaceRoot('/nonexistent/path/that/does/not/exist')
-
-    expect(found).toBe(envRoot)
+    expect(() =>
+      findJejuWorkspaceRoot('/nonexistent/path/that/does/not/exist', {
+        throwOnNotFound: true,
+      }),
+    ).toThrow()
   })
 
   test('should fall back to cwd when nothing found', () => {
@@ -266,9 +263,7 @@ describe('findJejuWorkspaceRoot - Real Workspace', () => {
   })
 })
 
-// ============================================================================
 // RPC Health Check Tests
-// ============================================================================
 
 const FAKE_RPC = 'http://localhost:59999'
 const REAL_RPC = process.env.L2_RPC_URL || 'http://localhost:6546'
@@ -329,9 +324,7 @@ describe('checkContractsDeployed - Contract Check', () => {
   })
 })
 
-// ============================================================================
 // Service Health Check Tests
-// ============================================================================
 
 describe('checkServiceHealth - HTTP Service Check', () => {
   test('should return unavailable for unreachable service', async () => {
@@ -370,9 +363,7 @@ describe('isServiceAvailable - Simple Service Check', () => {
   })
 })
 
-// ============================================================================
 // Wait Functions Tests
-// ============================================================================
 
 describe('waitForRpc - Retry Logic', () => {
   test('should return false when timeout exceeded', async () => {
@@ -412,9 +403,7 @@ describe('waitForService - Service Retry', () => {
   })
 })
 
-// ============================================================================
 // Environment Utilities Tests
-// ============================================================================
 
 describe('getRpcUrl - Environment Override', () => {
   afterEach(() => {
@@ -514,9 +503,7 @@ describe('getTestEnv - Environment Config', () => {
   })
 })
 
-// ============================================================================
 // Integration Tests (require live chain)
-// ============================================================================
 
 // Auto-detect chain availability (sync check for skipIf)
 const CHAIN_AVAILABLE =

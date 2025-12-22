@@ -10,13 +10,12 @@
  */
 
 import type { Action, Plugin } from '@elizaos/core'
-import { getDWSComputeUrl } from '@jejunetwork/config'
 import {
-  DWSChatResponseSchema,
-  DWSNodeStatsSchema,
-  parseOrThrow,
-  safeParse,
-} from '../schemas'
+  checkDWSHealth,
+  checkDWSInferenceAvailable,
+  getDWSEndpoint,
+  getSharedDWSClient,
+} from '../client/dws'
 import type { AgentCharacter } from '../types'
 import { createLogger, type Logger } from './logger'
 
@@ -56,64 +55,6 @@ export interface RuntimeResponse {
   actions?: Array<{ name: string; params: Record<string, string> }>
 }
 
-// ============================================================================
-// DWS Integration (Decentralized - No Centralized Fallbacks)
-// ============================================================================
-
-/** Get DWS base URL (without /compute suffix) */
-function getDWSBaseUrl(): string {
-  // DWS_URL can be set to override, otherwise use config
-  if (process.env.DWS_URL) {
-    return process.env.DWS_URL.replace(/\/compute\/?$/, '')
-  }
-  // getDWSComputeUrl returns http://127.0.0.1:4030/compute - strip the /compute
-  return getDWSComputeUrl().replace(/\/compute\/?$/, '')
-}
-
-export async function checkDWSHealth(): Promise<boolean> {
-  const baseUrl = getDWSBaseUrl()
-  const r = await fetch(`${baseUrl}/health`, {
-    signal: AbortSignal.timeout(2000),
-  }).catch(() => null)
-  return r?.ok ?? false
-}
-
-export async function checkDWSInferenceAvailable(): Promise<{
-  available: boolean
-  nodes: number
-  error?: string
-}> {
-  const baseUrl = getDWSBaseUrl()
-  const r = await fetch(`${baseUrl}/compute/nodes/stats`, {
-    signal: AbortSignal.timeout(2000),
-  }).catch(() => null)
-  if (!r?.ok) {
-    return { available: false, nodes: 0, error: 'DWS not reachable' }
-  }
-  const stats = safeParse(DWSNodeStatsSchema, await r.json())
-  const activeNodes = stats?.inference?.activeNodes ?? 0
-  return {
-    available: activeNodes > 0,
-    nodes: activeNodes,
-    error:
-      activeNodes === 0
-        ? 'No inference nodes registered. Run: cd apps/dws && bun run inference'
-        : undefined,
-  }
-}
-
-interface DWSChatMessage {
-  role: 'system' | 'user' | 'assistant'
-  content: string
-}
-
-interface DWSChatRequest {
-  model: string
-  messages: DWSChatMessage[]
-  temperature?: number
-  max_tokens?: number
-}
-
 /**
  * Call DWS compute network for chat completions
  * Fully decentralized - routes to registered inference nodes
@@ -123,67 +64,20 @@ async function generateResponse(
   userMessage: string,
   options: { model?: string; temperature?: number } = {},
 ): Promise<string> {
-  const baseUrl = getDWSBaseUrl()
-  const model = options.model ?? 'llama-3.1-8b-instant'
-
-  const request: DWSChatRequest = {
-    model,
-    messages: [
+  const client = getSharedDWSClient()
+  const response = await client.chatCompletion(
+    [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userMessage },
     ],
-    temperature: options.temperature ?? 0.7,
-    max_tokens: 1024,
-  }
-
-  const url = `${baseUrl}/compute/chat/completions`
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(request),
-  })
-
-  if (!response.ok) {
-    const text = await response.text()
-    let errorMessage = text
-
-    // Try to parse as JSON for better error messages
-    try {
-      const data = JSON.parse(text)
-      if (data?.error === 'No inference nodes available') {
-        throw new Error(
-          `DWS has no inference nodes available. ` +
-            `For local dev, run: GROQ_API_KEY=your_key bun run inference\n` +
-            `For production, ensure inference nodes are registered with the DWS network.`,
-        )
-      }
-      // Handle provider not configured error
-      if (data?.error?.includes('No inference provider configured')) {
-        throw new Error(
-          `Inference node has no provider configured. ` +
-            `Set GROQ_API_KEY, OPENAI_API_KEY, or ANTHROPIC_API_KEY when running the inference node.`,
-        )
-      }
-      errorMessage = data?.error ?? data?.message ?? text
-    } catch (e) {
-      if (e instanceof Error && e.message.includes('DWS')) throw e
-      // Text is not JSON, use as-is
-    }
-
-    throw new Error(`DWS inference failed: ${response.status} ${errorMessage}`)
-  }
-
-  const data = parseOrThrow(
-    DWSChatResponseSchema,
-    await response.json(),
-    'DWS chat response',
+    {
+      model: options.model ?? 'llama-3.1-8b-instant',
+      temperature: options.temperature ?? 0.7,
+      maxTokens: 1024,
+    },
   )
-  return data.choices[0]?.message?.content ?? ''
+  return response.choices[0]?.message?.content ?? ''
 }
-
-// ============================================================================
-// Crucible Agent Runtime
-// ============================================================================
 
 /**
  * Crucible Agent Runtime
@@ -212,7 +106,7 @@ export class CrucibleAgentRuntime {
     const dwsOk = await checkDWSHealth()
     if (!dwsOk) {
       throw new Error(
-        `DWS not available at ${getDWSBaseUrl()}. Start DWS: cd apps/dws && bun run dev`,
+        `DWS not available at ${getDWSEndpoint()}. Start DWS: cd apps/dws && bun run dev`,
       )
     }
 
@@ -461,8 +355,6 @@ export class CrucibleAgentRuntime {
     }
   }
 
-  // ============ Lifecycle ============
-
   isInitialized(): boolean {
     return this.initialized
   }
@@ -499,10 +391,6 @@ export function createCrucibleRuntime(
 ): CrucibleAgentRuntime {
   return new CrucibleAgentRuntime(config)
 }
-
-// ============================================================================
-// Runtime Manager
-// ============================================================================
 
 /**
  * Runtime manager for multiple agents

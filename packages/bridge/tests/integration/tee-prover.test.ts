@@ -275,10 +275,6 @@ describe('TEE + Prover Integration', () => {
   })
 })
 
-// =============================================================================
-// HELPERS
-// =============================================================================
-
 function createMockTransfer(nonce: number): CrossChainTransfer {
   return {
     transferId: toHash32(new Uint8Array(32).map((_, i) => (nonce + i) % 256)),

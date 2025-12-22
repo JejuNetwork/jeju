@@ -1,112 +1,110 @@
+import { getCoreAppUrl } from '@jejunetwork/config/ports'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { getDwsUrl } from '../config/contracts'
-
-// ============ Types ============
-
-export type TaskStatus = 'backlog' | 'todo' | 'in_progress' | 'review' | 'done'
-export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent'
-
-export interface ProjectMember {
-  id: string
-  name: string
-  avatar: string
-  role: 'owner' | 'admin' | 'member'
-}
+import type { Address } from 'viem'
+import { api, extractDataSafe } from '../lib/client'
 
 export interface ProjectTask {
   id: string
   title: string
-  description: string
-  status: TaskStatus
-  priority: TaskPriority
-  assignee?: ProjectMember
-  labels: string[]
+  status: 'pending' | 'in_progress' | 'completed'
+  assignee?: string
   dueDate?: number
-  createdAt: number
-  updatedAt: number
-  bountyId?: string
-  bountyReward?: string
 }
 
 export interface Project {
   id: string
   name: string
   description: string
-  owner: string
-  members: ProjectMember[]
-  tasks: ProjectTask[]
+  status: 'active' | 'archived' | 'completed' | 'on_hold'
+  visibility: 'public' | 'private' | 'internal'
+  owner: Address
+  members: number
+  tasks: {
+    total: number
+    completed: number
+    inProgress: number
+    pending: number
+  }
+  milestones: Array<{ name: string; progress: number }>
   createdAt: number
   updatedAt: number
 }
 
-// ============ Fetchers ============
+const API_BASE =
+  typeof window !== 'undefined'
+    ? ''
+    : process.env.FACTORY_API_URL || getCoreAppUrl('FACTORY')
 
-async function fetchProjects(): Promise<Project[]> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/projects`)
-  if (!res.ok) return []
-  const data = await res.json()
-  return data.projects || []
+async function fetchApi<T>(
+  path: string,
+  options?: RequestInit,
+): Promise<T | null> {
+  const response = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+  })
+  if (!response.ok) return null
+  return response.json()
+}
+
+async function fetchProjects(query?: {
+  status?: Project['status']
+  owner?: Address
+}): Promise<Project[]> {
+  const response = await api.api.projects.get({
+    query: { status: query?.status, owner: query?.owner },
+  })
+  const data = extractDataSafe(response) as { projects: Project[] } | null
+  return data?.projects || []
 }
 
 async function fetchProject(projectId: string): Promise<Project | null> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/projects/${projectId}`)
-  if (!res.ok) return null
-  return res.json()
+  return fetchApi<Project>(`/api/projects/${projectId}`)
+}
+
+async function fetchProjectTasks(projectId: string): Promise<ProjectTask[]> {
+  const data = await fetchApi<{ tasks: ProjectTask[] }>(
+    `/api/projects/${projectId}/tasks`,
+  )
+  return data?.tasks || []
 }
 
 async function updateTask(
   projectId: string,
   taskId: string,
   updates: Partial<ProjectTask>,
-): Promise<boolean> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(
-    `${dwsUrl}/api/projects/${projectId}/tasks/${taskId}`,
-    {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates),
-    },
-  )
-  return res.ok
+): Promise<ProjectTask | null> {
+  return fetchApi<ProjectTask>(`/api/projects/${projectId}/tasks/${taskId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(updates),
+  })
 }
 
 async function createTask(
   projectId: string,
-  task: Omit<ProjectTask, 'id' | 'createdAt' | 'updatedAt'>,
+  data: { title: string; assignee?: string; dueDate?: number },
 ): Promise<ProjectTask | null> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/projects/${projectId}/tasks`, {
+  return fetchApi<ProjectTask>(`/api/projects/${projectId}/tasks`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(task),
+    body: JSON.stringify(data),
   })
-  if (!res.ok) return null
-  return res.json()
 }
 
-// ============ Hooks ============
-
-export function useProjects() {
+export function useProjects(query?: {
+  status?: Project['status']
+  owner?: Address
+}) {
   const {
     data: projects,
     isLoading,
     error,
     refetch,
   } = useQuery({
-    queryKey: ['projects'],
-    queryFn: fetchProjects,
+    queryKey: ['projects', query],
+    queryFn: () => fetchProjects(query),
     staleTime: 30000,
   })
-
-  return {
-    projects: projects || [],
-    isLoading,
-    error,
-    refetch,
-  }
+  return { projects: projects || [], isLoading, error, refetch }
 }
 
 export function useProject(projectId: string) {
@@ -121,18 +119,26 @@ export function useProject(projectId: string) {
     enabled: !!projectId,
     staleTime: 30000,
   })
+  return { project, isLoading, error, refetch }
+}
 
-  return {
-    project,
+export function useProjectTasks(projectId: string) {
+  const {
+    data: tasks,
     isLoading,
     error,
     refetch,
-  }
+  } = useQuery({
+    queryKey: ['projectTasks', projectId],
+    queryFn: () => fetchProjectTasks(projectId),
+    enabled: !!projectId,
+    staleTime: 30000,
+  })
+  return { tasks: tasks || [], isLoading, error, refetch }
 }
 
 export function useUpdateTask(projectId: string) {
   const queryClient = useQueryClient()
-
   return useMutation({
     mutationFn: ({
       taskId,
@@ -142,6 +148,7 @@ export function useUpdateTask(projectId: string) {
       updates: Partial<ProjectTask>
     }) => updateTask(projectId, taskId, updates),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projectTasks', projectId] })
       queryClient.invalidateQueries({ queryKey: ['project', projectId] })
     },
   })
@@ -149,11 +156,14 @@ export function useUpdateTask(projectId: string) {
 
 export function useCreateTask(projectId: string) {
   const queryClient = useQueryClient()
-
   return useMutation({
-    mutationFn: (task: Omit<ProjectTask, 'id' | 'createdAt' | 'updatedAt'>) =>
-      createTask(projectId, task),
+    mutationFn: (data: {
+      title: string
+      assignee?: string
+      dueDate?: number
+    }) => createTask(projectId, data),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projectTasks', projectId] })
       queryClient.invalidateQueries({ queryKey: ['project', projectId] })
     },
   })

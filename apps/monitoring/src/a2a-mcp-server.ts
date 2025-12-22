@@ -41,10 +41,6 @@ const corsConfig = {
   methods: ['GET', 'POST', 'OPTIONS'],
 }
 
-// ============================================================================
-// Configuration
-// ============================================================================
-
 const AGENT_CARD = {
   protocolVersion: '0.3.0',
   name: `${getNetworkName()} Monitoring`,
@@ -327,10 +323,6 @@ const MCP_PROMPTS = [
     ],
   },
 ]
-
-// ============================================================================
-// Server Implementation
-// ============================================================================
 
 export function createMonitoringA2AServer() {
   return new Elysia({ prefix: '/a2a' })

@@ -4,8 +4,6 @@
 
 import type { Address } from 'viem'
 
-// ============ Contributor Types ============
-
 export type ContributorType = 'individual' | 'organization' | 'agent'
 
 export type VerificationStatus = 'pending' | 'verified' | 'rejected' | 'expired'
@@ -54,8 +52,6 @@ export interface DependencyClaim {
   claimedAt: number
   verifiedAt: number
 }
-
-// ============ Funding Types ============
 
 export interface DAOPool {
   daoId: string
@@ -115,8 +111,6 @@ export interface WeightVote {
   reputation: number
   votedAt: number
 }
-
-// ============ Payment Request Types ============
 
 export type PaymentCategory =
   | 'development'
@@ -187,8 +181,6 @@ export interface DAOPaymentConfig {
   allowRetroactive: boolean
   retroactiveMaxAge: number
 }
-
-// ============ Parse Helpers ============
 
 export function parseContributorType(index: number): ContributorType {
   const types: ContributorType[] = ['individual', 'organization', 'agent']

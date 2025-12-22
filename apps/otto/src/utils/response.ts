@@ -8,10 +8,6 @@ import { z } from 'zod'
 import { CommandResultSchema } from '../schemas'
 import type { CommandResult } from '../types'
 
-// ============================================================================
-// Response Schemas
-// ============================================================================
-
 export const HealthResponseSchema = z.object({
   status: z.literal('healthy'),
   agent: z.string(),
@@ -58,10 +54,6 @@ export const SuccessResponseSchema = z.object({
   success: z.literal(true),
   address: z.string().optional(),
 })
-
-// ============================================================================
-// Response Builders
-// ============================================================================
 
 export function createHealthResponse(status: {
   enabled: string[]

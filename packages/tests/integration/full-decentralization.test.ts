@@ -19,9 +19,7 @@ import {
   resetMPCCustodyManager,
 } from '@jejunetwork/shared'
 
-// ============================================================================
 // Test Configuration
-// ============================================================================
 
 const TEST_CONFIG = {
   storageUrl: process.env.STORAGE_URL ?? 'http://localhost:3100',
@@ -30,9 +28,7 @@ const TEST_CONFIG = {
   councilUrl: process.env.COUNCIL_URL ?? 'http://localhost:3200',
 }
 
-// ============================================================================
 // CovenantSQL Tests
-// ============================================================================
 
 describe('CovenantSQL Integration', () => {
   it('should connect to CovenantSQL cluster', async () => {
@@ -104,9 +100,7 @@ describe('CovenantSQL Integration', () => {
   })
 })
 
-// ============================================================================
 // Container Registry Tests
-// ============================================================================
 
 describe('Container Registry Integration', () => {
   it('should serve OCI API at /registry/v2', async () => {
@@ -152,9 +146,7 @@ describe('Container Registry Integration', () => {
   })
 })
 
-// ============================================================================
 // MPC Key Management Tests
-// ============================================================================
 
 describe('MPC Key Management', () => {
   it('should create distributed keys', async () => {
@@ -216,9 +208,7 @@ describe('MPC Key Management', () => {
   })
 })
 
-// ============================================================================
 // HSM Integration Tests
-// ============================================================================
 
 describe('HSM Integration', () => {
   it('should connect to HSM (simulated)', async () => {
@@ -274,9 +264,7 @@ describe('HSM Integration', () => {
   })
 })
 
-// ============================================================================
 // A2A Protocol Tests
-// ============================================================================
 
 describe('A2A Protocol Integration', () => {
   it('should serve agent cards for all services', async () => {
@@ -329,9 +317,7 @@ describe('A2A Protocol Integration', () => {
   })
 })
 
-// ============================================================================
 // MCP Protocol Tests
-// ============================================================================
 
 describe('MCP Protocol Integration', () => {
   it('should initialize MCP sessions', async () => {
@@ -384,9 +370,7 @@ describe('MCP Protocol Integration', () => {
   })
 })
 
-// ============================================================================
 // Storage Backend Tests
-// ============================================================================
 
 describe('Storage Backend Integration', () => {
   it('should report available backends', async () => {
@@ -424,9 +408,7 @@ describe('Storage Backend Integration', () => {
   })
 })
 
-// ============================================================================
 // Health Check Tests
-// ============================================================================
 
 describe('Service Health Checks', () => {
   const services = [

@@ -1,9 +1,22 @@
+/**
+ * Deploy Script
+ *
+ * Deploys the example app to the Jeju network.
+ * Uses typed clients for all service interactions.
+ */
+
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Hex } from 'viem'
 import type { PrivateKeyAccount } from 'viem/accounts'
-import { privateKeyToAccount, signMessage } from 'viem/accounts'
+import { privateKeyToAccount } from 'viem/accounts'
+import { createJNSClient, type JNSRecords } from './src/services/jns'
+import { createStorageClient } from './src/services/storage'
 import type { DeployResult } from './src/types'
+
+// ============================================================================
+// Configuration
+// ============================================================================
 
 const NETWORK = process.env.NETWORK || 'localnet'
 const DWS_URL = process.env.DWS_URL || 'http://localhost:4030'
@@ -11,6 +24,82 @@ const GATEWAY_API = process.env.GATEWAY_API || `${DWS_URL}/cdn`
 const STORAGE_API = process.env.STORAGE_API || `${DWS_URL}/storage`
 const COMPUTE_API = process.env.COMPUTE_API || `${DWS_URL}/compute`
 const CQL_ENDPOINT = process.env.CQL_ENDPOINT || 'http://localhost:4300'
+const IPFS_GATEWAY = process.env.IPFS_GATEWAY || 'http://localhost:4180'
+
+// ============================================================================
+// Typed Clients
+// ============================================================================
+
+const jnsClient = createJNSClient(GATEWAY_API)
+const storageClient = createStorageClient(STORAGE_API, IPFS_GATEWAY)
+
+// ============================================================================
+// Compute Client (typed wrapper)
+// ============================================================================
+
+interface ComputeClient {
+  registerService(config: ServiceConfig): Promise<{ success: boolean }>
+  registerCron(config: CronConfig): Promise<{ triggerId: Hex }>
+  health(): Promise<boolean>
+}
+
+interface ServiceConfig {
+  name: string
+  endpoint: string
+  type: 'http' | 'grpc' | 'websocket'
+  ports: Record<string, number>
+}
+
+interface CronConfig {
+  name: string
+  type: 'cron'
+  expression: string
+  webhook: string
+}
+
+function createComputeClient(baseUrl: string): ComputeClient {
+  const url = baseUrl.replace(/\/$/, '')
+
+  return {
+    async registerService(
+      config: ServiceConfig,
+    ): Promise<{ success: boolean }> {
+      const response = await fetch(`${url}/register-service`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config),
+        signal: AbortSignal.timeout(10000),
+      })
+      return { success: response.ok }
+    },
+
+    async registerCron(config: CronConfig): Promise<{ triggerId: Hex }> {
+      const response = await fetch(`${url}/cron/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config),
+        signal: AbortSignal.timeout(10000),
+      })
+      if (!response.ok) {
+        throw new Error(`Cron registration failed: ${response.status}`)
+      }
+      return (await response.json()) as { triggerId: Hex }
+    },
+
+    async health(): Promise<boolean> {
+      const response = await fetch(`${url}/health`, {
+        signal: AbortSignal.timeout(5000),
+      })
+      return response.ok
+    },
+  }
+}
+
+const computeClient = createComputeClient(COMPUTE_API)
+
+// ============================================================================
+// Wallet Setup
+// ============================================================================
 
 async function getDeployerWallet(): Promise<PrivateKeyAccount> {
   const privateKey = process.env.DEPLOYER_PRIVATE_KEY
@@ -41,6 +130,10 @@ async function getDeployerWallet(): Promise<PrivateKeyAccount> {
   return privateKeyToAccount(privateKey as `0x${string}`)
 }
 
+// ============================================================================
+// Database Deployment
+// ============================================================================
+
 async function deployDatabase(): Promise<string> {
   console.log('📦 Deploying database schema...')
 
@@ -60,6 +153,10 @@ async function deployDatabase(): Promise<string> {
 
   return databaseId
 }
+
+// ============================================================================
+// Frontend Build & Deploy
+// ============================================================================
 
 async function buildFrontend(): Promise<string> {
   console.log('🏗️  Building frontend...')
@@ -88,81 +185,54 @@ async function deployFrontendToIPFS(
 ): Promise<string> {
   console.log('📤 Uploading frontend to IPFS...')
 
-  const timestamp = Date.now().toString()
-  const message = `jeju-storage:${timestamp}`
-  const signature = await signMessage(account, { message })
+  // Collect all files
+  const files: Array<{ name: string; content: Uint8Array }> = []
 
-  // Create directory upload
-  const formData = new FormData()
-
-  // Add all files from build directory
-  const addFilesToFormData = (dir: string, basePath = '') => {
-    const files = readdirSync(dir)
-    for (const file of files) {
-      const filePath = join(dir, file)
+  const addFilesFromDir = (dir: string, basePath = '') => {
+    const entries = readdirSync(dir)
+    for (const entry of entries) {
+      const filePath = join(dir, entry)
       const stat = statSync(filePath)
 
       if (stat.isDirectory()) {
-        addFilesToFormData(filePath, `${basePath}${file}/`)
+        addFilesFromDir(filePath, `${basePath}${entry}/`)
       } else {
         const content = readFileSync(filePath)
-        formData.append('file', new Blob([content]), `${basePath}${file}`)
+        files.push({
+          name: `${basePath}${entry}`,
+          content: new Uint8Array(content),
+        })
       }
     }
   }
 
-  // Add HTML and built JS
+  // Add HTML
   const indexHtml = readFileSync(
     join(import.meta.dir, 'src/frontend/index.html'),
   )
-  formData.append('file', new Blob([indexHtml]), 'index.html')
-  addFilesToFormData(buildDir)
+  files.push({ name: 'index.html', content: new Uint8Array(indexHtml) })
 
-  formData.append('tier', 'permanent')
-  formData.append('name', 'todo-dapp-frontend')
+  // Add built JS files
+  addFilesFromDir(buildDir)
 
-  const response = await fetch(`${STORAGE_API}/upload-directory`, {
-    method: 'POST',
-    headers: {
-      'x-jeju-address': account.address,
-      'x-jeju-timestamp': timestamp,
-      'x-jeju-signature': signature,
-    },
-    body: formData,
-  })
+  // Upload primary file (index.html with bundled JS reference)
+  const cid = await storageClient.upload(
+    files[0].content,
+    files[0].name,
+    account.address,
+    'hot',
+  )
 
-  if (!response.ok) {
-    // Fallback to single file upload
-    console.log('   Directory upload not available, using single file...')
-
-    const singleResponse = await fetch(`${STORAGE_API}/upload`, {
-      method: 'POST',
-      headers: {
-        'x-jeju-address': account.address,
-        'x-jeju-timestamp': timestamp,
-        'x-jeju-signature': signature,
-      },
-      body: formData,
-    })
-
-    if (!singleResponse.ok) {
-      throw new Error(
-        `Failed to upload frontend: ${await singleResponse.text()}`,
-      )
-    }
-
-    const data = (await singleResponse.json()) as { cid: string }
-    return data.cid
-  }
-
-  const data = (await response.json()) as { cid: string }
-  console.log(`   Frontend CID: ${data.cid}`)
-
-  return data.cid
+  console.log(`   Frontend CID: ${cid}`)
+  return cid
 }
 
+// ============================================================================
+// Backend Deployment
+// ============================================================================
+
 async function deployBackendToCompute(
-  account: PrivateKeyAccount,
+  _account: PrivateKeyAccount,
 ): Promise<string> {
   console.log('🚀 Deploying backend to compute network...')
 
@@ -171,34 +241,23 @@ async function deployBackendToCompute(
   const backendEndpoint = process.env.BACKEND_URL || 'http://localhost:4500'
 
   // Register with compute network (if available)
-  const timestamp = Date.now().toString()
-  const message = `jeju-compute:${timestamp}`
-  const signature = await signMessage(account, { message })
+  const result = await computeClient.registerService({
+    name: 'todo-dapp-backend',
+    endpoint: backendEndpoint,
+    type: 'http',
+    ports: { main: 4500 },
+  })
 
-  const response = await fetch(`${COMPUTE_API}/register-service`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-jeju-address': account.address,
-      'x-jeju-timestamp': timestamp,
-      'x-jeju-signature': signature,
-    },
-    body: JSON.stringify({
-      name: 'todo-dapp-backend',
-      endpoint: backendEndpoint,
-      type: 'http',
-      ports: { main: 4500 },
-    }),
-  }).catch(() => null)
-
-  if (response?.ok) {
+  if (result.success) {
     console.log('   Backend registered with compute network')
-  } else {
-    console.log('   Using local backend (compute registration skipped)')
   }
 
   return backendEndpoint
 }
+
+// ============================================================================
+// JNS Registration
+// ============================================================================
 
 async function registerJNS(
   account: PrivateKeyAccount,
@@ -206,45 +265,10 @@ async function registerJNS(
 ): Promise<void> {
   console.log('🌐 Registering JNS name...')
 
-  const timestamp = Date.now().toString()
-  const message = `jeju-jns:${timestamp}`
-  const signature = await signMessage(account, { message })
+  // Check availability and get existing records
+  const isAvailable = await jnsClient.isAvailable(config.name)
 
-  const headers = {
-    'Content-Type': 'application/json',
-    'x-jeju-address': account.address,
-    'x-jeju-timestamp': timestamp,
-    'x-jeju-signature': signature,
-  }
-
-  // Check availability
-  const availableResponse = await fetch(
-    `${GATEWAY_API}/jns/available/${config.name}`,
-  ).catch(() => null)
-
-  if (availableResponse?.ok) {
-    const data = (await availableResponse.json()) as { available: boolean }
-
-    if (data.available) {
-      // Register name
-      const registerResponse = await fetch(`${GATEWAY_API}/jns/register`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          name: config.name,
-          owner: account.address,
-          durationYears: 1,
-        }),
-      })
-
-      if (registerResponse.ok) {
-        console.log(`   Registered ${config.name}`)
-      }
-    }
-  }
-
-  // Set records
-  const records = {
+  const records: JNSRecords = {
     address: account.address,
     contentHash: `ipfs://${config.frontendCid}`,
     a2aEndpoint: `${config.backendUrl}/a2a`,
@@ -253,57 +277,44 @@ async function registerJNS(
     description: 'Decentralized Todo Application',
   }
 
-  const recordsResponse = await fetch(
-    `${GATEWAY_API}/jns/records/${config.name}`,
-    {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(records),
-    },
-  ).catch(() => null)
-
-  if (recordsResponse?.ok) {
-    console.log('   JNS records updated')
-  } else {
-    console.log('   JNS records update skipped (gateway not available)')
+  if (isAvailable) {
+    // Register name
+    const price = await jnsClient.getPrice(config.name, 1)
+    if (price > 0n) {
+      await jnsClient.register(config.name, account.address, 1, price)
+    }
   }
+
+  // Set records
+  await jnsClient.setRecords(config.name, records)
+
+  console.log(`   Registered ${config.name}`)
 }
 
+// ============================================================================
+// Cron Triggers
+// ============================================================================
+
 async function setupCronTriggers(
-  account: PrivateKeyAccount,
+  _account: PrivateKeyAccount,
   backendUrl: string,
 ): Promise<Hex | null> {
   console.log('⏰ Setting up cron triggers...')
 
-  const timestamp = Date.now().toString()
-  const message = `jeju-cron:${timestamp}`
-  const signature = await signMessage(account, { message })
+  const result = await computeClient.registerCron({
+    name: 'todo-cleanup',
+    type: 'cron',
+    expression: '0 0 * * *', // Daily at midnight
+    webhook: `${backendUrl}/webhooks/cleanup`,
+  })
 
-  const response = await fetch(`${COMPUTE_API}/cron/register`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-jeju-address': account.address,
-      'x-jeju-timestamp': timestamp,
-      'x-jeju-signature': signature,
-    },
-    body: JSON.stringify({
-      name: 'todo-cleanup',
-      type: 'cron',
-      expression: '0 0 * * *', // Daily at midnight
-      webhook: `${backendUrl}/webhooks/cleanup`,
-    }),
-  }).catch(() => null)
-
-  if (response?.ok) {
-    const data = (await response.json()) as { triggerId: Hex }
-    console.log(`   Trigger ID: ${data.triggerId}`)
-    return data.triggerId
-  }
-
-  console.log('   Cron triggers skipped (compute not available)')
-  return null
+  console.log(`   Trigger ID: ${result.triggerId}`)
+  return result.triggerId
 }
+
+// ============================================================================
+// OAuth3 Seeding
+// ============================================================================
 
 async function seedOAuth3Registry(): Promise<boolean> {
   console.log('🔐 Seeding OAuth3 registry...')
@@ -327,6 +338,10 @@ async function seedOAuth3Registry(): Promise<boolean> {
   console.log('   OAuth3 seeding skipped or failed')
   return false
 }
+
+// ============================================================================
+// Main Deploy Function
+// ============================================================================
 
 async function deploy(): Promise<DeployResult> {
   console.log('\n🚀 DEPLOYING DECENTRALIZED APP TEMPLATE\n')

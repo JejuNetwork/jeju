@@ -8,9 +8,9 @@ import { z } from 'zod'
 import { authenticateAgent } from '../auth/agent-auth'
 import type {
   AuthenticatedAgent,
+  InitializeResult,
   JsonRpcError,
   JsonRpcResponse,
-  JsonRpcResult,
   JsonValue,
   MCPAuthContext,
   MCPProtocolVersion,
@@ -24,12 +24,14 @@ import { MCP_PROTOCOL_VERSIONS, MCPMethod } from '../types/mcp'
 import { JsonValueSchema } from '../utils/tool-args-validation'
 
 // JSON-RPC 2.0 Request Validation Schema
-const JsonRpcRequestSchema = z.object({
-  jsonrpc: z.literal('2.0'),
-  method: z.string().min(1),
-  params: z.record(z.string(), JsonValueSchema).optional(),
-  id: z.union([z.string(), z.number()]),
-})
+const JsonRpcRequestSchema = z
+  .object({
+    jsonrpc: z.literal('2.0'),
+    method: z.string().min(1),
+    params: z.record(z.string(), JsonValueSchema).optional(),
+    id: z.union([z.string(), z.number()]),
+  })
+  .strict()
 
 type ValidatedJsonRpcRequest = z.infer<typeof JsonRpcRequestSchema>
 
@@ -40,42 +42,57 @@ const PROTOCOL_VERSIONS_TUPLE = MCP_PROTOCOL_VERSIONS as readonly [
 ]
 
 // Initialize Params Validation Schema
-const InitializeParamsSchema = z.object({
-  protocolVersion: z.enum(PROTOCOL_VERSIONS_TUPLE),
-  capabilities: z.object({
-    roots: z.object({ listChanged: z.boolean().optional() }).optional(),
-    sampling: z.record(z.string(), JsonValueSchema).optional(),
-    tools: z.object({ listChanged: z.boolean().optional() }).optional(),
-    prompts: z.object({ listChanged: z.boolean().optional() }).optional(),
-    resources: z
+const InitializeParamsSchema = z
+  .object({
+    protocolVersion: z.enum(PROTOCOL_VERSIONS_TUPLE),
+    capabilities: z
       .object({
-        subscribe: z.boolean().optional(),
-        listChanged: z.boolean().optional(),
+        roots: z
+          .object({ listChanged: z.boolean().optional() })
+          .strict()
+          .optional(),
+        sampling: z.record(z.string(), JsonValueSchema).optional(),
+        tools: z
+          .object({ listChanged: z.boolean().optional() })
+          .strict()
+          .optional(),
+        prompts: z
+          .object({ listChanged: z.boolean().optional() })
+          .strict()
+          .optional(),
+        resources: z
+          .object({
+            subscribe: z.boolean().optional(),
+            listChanged: z.boolean().optional(),
+          })
+          .strict()
+          .optional(),
       })
-      .optional(),
-  }),
-  clientInfo: z.object({
-    name: z.string(),
-    version: z.string(),
-    title: z.string().optional(),
-  }),
-})
+      .strict(),
+    clientInfo: z
+      .object({
+        name: z.string().min(1),
+        version: z.string().min(1),
+        title: z.string().optional(),
+      })
+      .strict(),
+  })
+  .strict()
 
 // Tool Call Params Validation Schema
-const ToolCallParamsSchema = z.object({
-  name: z.string().min(1),
-  arguments: z.record(z.string(), JsonValueSchema),
-})
+const ToolCallParamsSchema = z
+  .object({
+    name: z.string().min(1),
+    arguments: z.record(z.string(), JsonValueSchema),
+  })
+  .strict()
 
 /**
  * Get initialize result generator type
  */
-export type GetInitializeResultFn = (requestedVersion: MCPProtocolVersion) => {
-  protocolVersion: MCPProtocolVersion
-  capabilities: object
-  serverInfo: object
-  instructions?: string
-}
+export type GetInitializeResultFn = (
+  requestedVersion: MCPProtocolVersion,
+) => InitializeResult
 
 /**
  * MCP Request Handler
@@ -84,7 +101,7 @@ export type GetInitializeResultFn = (requestedVersion: MCPProtocolVersion) => {
  * This is a generalized handler that accepts tools as configuration.
  */
 export class MCPRequestHandler {
-  private authContext: MCPAuthContext | null = null
+  private authContext: MCPAuthContext | undefined
   private tools: Map<string, MCPToolDefinition> = new Map()
   private getInitializeResult: GetInitializeResultFn
   private requireAuth: boolean
@@ -145,21 +162,17 @@ export class MCPRequestHandler {
     authContext?: MCPAuthContext,
   ): Promise<JsonRpcResponse> {
     // Store auth context if provided
-    if (authContext) {
+    if (authContext !== undefined) {
       this.authContext = authContext
     }
 
     // Validate JSON-RPC request structure
     const parseResult = JsonRpcRequestSchema.safeParse(rawRequest)
     if (!parseResult.success) {
-      const id =
-        typeof rawRequest === 'object' &&
-        rawRequest !== null &&
-        'id' in rawRequest
-          ? (rawRequest as { id: string | number }).id
-          : null
+      // Try to extract request ID for error response (per JSON-RPC spec)
+      const requestId = this.extractRequestId(rawRequest)
       return this.createErrorResponse(
-        id,
+        requestId,
         -32600,
         `Invalid JSON-RPC request: ${parseResult.error.message}`,
       )
@@ -207,11 +220,10 @@ export class MCPRequestHandler {
       params.protocolVersion as MCPProtocolVersion,
     )
 
-    // InitializeResult is JSON-serializable and compatible with JsonRpcResult
     return {
       jsonrpc: '2.0',
       id: request.id,
-      result: result as JsonRpcResult,
+      result,
     }
   }
 
@@ -222,7 +234,7 @@ export class MCPRequestHandler {
     return {
       jsonrpc: '2.0',
       id: request.id,
-      result: {} as JsonValue,
+      result: {},
     }
   }
 
@@ -233,11 +245,10 @@ export class MCPRequestHandler {
     const tools = this.getTools()
     const result: ToolsListResult = { tools }
 
-    // ToolsListResult needs cast through unknown as types don't overlap structurally
     return {
       jsonrpc: '2.0',
       id: request.id,
-      result: result as unknown as JsonRpcResult,
+      result,
     }
   }
 
@@ -269,13 +280,15 @@ export class MCPRequestHandler {
     const params = parseResult.data
 
     // Authenticate agent if auth context is present
-    let agent: AuthenticatedAgent | null = null
+    let agent: AuthenticatedAgent | undefined
     if (this.authContext?.apiKey) {
-      agent = await authenticateAgent({
+      const authResult = await authenticateAgent({
         apiKey: this.authContext.apiKey,
       })
 
-      if (!agent && this.requireAuth) {
+      if (authResult) {
+        agent = authResult
+      } else if (this.requireAuth) {
         return this.createErrorResponse(
           request.id,
           -32001,
@@ -285,11 +298,11 @@ export class MCPRequestHandler {
     }
 
     // For non-auth mode, create a dummy agent
-    if (!agent && !this.requireAuth) {
+    if (agent === undefined && !this.requireAuth) {
       agent = { userId: 'anonymous', agentId: 'anonymous' }
     }
 
-    if (!agent) {
+    if (agent === undefined) {
       return this.createErrorResponse(
         request.id,
         -32001,
@@ -336,11 +349,10 @@ export class MCPRequestHandler {
       isError: false,
     }
 
-    // ToolCallResult needs cast through unknown as types don't overlap structurally
     return {
       jsonrpc: '2.0',
       id: request.id,
-      result: result as unknown as JsonRpcResult,
+      result,
     }
   }
 
@@ -361,8 +373,26 @@ export class MCPRequestHandler {
       return [{ type: 'text' as const, text: formatted }]
     }
 
-    // Fallback: convert to string
+    // Primitive types: convert to string representation
     return [{ type: 'text' as const, text: String(toolResult) }]
+  }
+
+  /**
+   * Extract request ID from raw request for error responses
+   * Returns null if ID cannot be extracted (per JSON-RPC spec)
+   */
+  private extractRequestId(rawRequest: unknown): string | number | null {
+    if (
+      typeof rawRequest === 'object' &&
+      rawRequest !== null &&
+      'id' in rawRequest
+    ) {
+      const idValue = (rawRequest as { id: unknown }).id
+      if (typeof idValue === 'string' || typeof idValue === 'number') {
+        return idValue
+      }
+    }
+    return null
   }
 
   /**

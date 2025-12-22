@@ -15,10 +15,6 @@ import { parseEther } from 'viem'
 import { getChainContracts } from './chains'
 import type { TokenBalance, VoucherRequest } from './types'
 
-// ============================================================================
-// ABI Fragments
-// ============================================================================
-
 const CROSS_CHAIN_PAYMASTER_ABI = [
   {
     name: 'createVoucherRequest',
@@ -166,18 +162,10 @@ const CROSS_CHAIN_PAYMASTER_ABI = [
   },
 ] as const
 
-// ============================================================================
-// Constants
-// ============================================================================
-
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address
 const DEFAULT_MAX_FEE = parseEther('0.01')
 const DEFAULT_FEE_INCREMENT = parseEther('0.0001')
 const DEFAULT_GAS_ON_DESTINATION = parseEther('0.001')
-
-// ============================================================================
-// EIL Client
-// ============================================================================
 
 export interface EILClientConfig {
   chainId: number
@@ -488,29 +476,18 @@ export class EILClient {
 
   /**
    * Build paymaster data for ERC-4337 UserOp
-   * Mode 0: Token payment
-   * Mode 1: Voucher payment (legacy)
    */
   buildPaymasterData(
-    mode: 0 | 1,
     paymentToken: Address,
     appAddress: Address = ZERO_ADDRESS,
   ): Hex {
-    if (mode === 0) {
-      // Token payment: [mode(1)][token(20)][appAddress(20)]
-      const modeHex = '00'
-      const tokenHex = paymentToken.slice(2).toLowerCase()
-      const appHex = appAddress.slice(2).toLowerCase()
-      return `0x${modeHex}${tokenHex}${appHex}` as Hex
-    }
-
-    throw new Error('Only mode 0 (token payment) is supported')
+    // Token payment: [mode(1)][token(20)][appAddress(20)]
+    const modeHex = '00'
+    const tokenHex = paymentToken.slice(2).toLowerCase()
+    const appHex = appAddress.slice(2).toLowerCase()
+    return `0x${modeHex}${tokenHex}${appHex}` as Hex
   }
 }
-
-// ============================================================================
-// Factory Function
-// ============================================================================
 
 export function createEILClient(config: EILClientConfig): EILClient {
   return new EILClient(config)

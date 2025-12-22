@@ -29,16 +29,12 @@ const SecurityValidationResponseSchema = z.object({
   notes: z.array(z.string()),
 })
 
-// ============ Configuration ============
-
 // DWS URL is automatically resolved from network config - no direct API calls
 function getDWSEndpoint(): string {
   return (
     process.env.DWS_URL ?? process.env.DWS_COMPUTE_URL ?? getDWSComputeUrl()
   )
 }
-
-// ============ Types ============
 
 interface ValidationContext {
   submissionId: string
@@ -72,8 +68,6 @@ interface SandboxResult {
   executionTime: number
   memoryUsed: number
 }
-
-// ============ DWS AI Inference (Decentralized) ============
 
 async function analyzeWithAI(
   prompt: string,
@@ -114,8 +108,6 @@ async function analyzeWithAI(
 
   return extractLLMContent(data, 'DWS security AI response')
 }
-
-// ============ Sandbox Execution (Decentralized via DWS) ============
 
 async function executePoCInSandbox(
   proofOfConcept: string,
@@ -240,26 +232,17 @@ function getSandboxConfig(vulnType: VulnerabilityType): {
   }
 }
 
-// ============ Validation Logic ============
-
 export async function validateSubmission(
   context: ValidationContext,
 ): Promise<ValidationReport> {
   const securityNotes: string[] = []
   let sandboxLogs = ''
 
-  // Step 1: Static code analysis via AI
-  console.log(
-    `[SecurityAgent] Analyzing submission: ${context.submissionId.slice(0, 12)}...`,
-  )
-
   const staticAnalysis = await performStaticAnalysis(context)
   securityNotes.push(...staticAnalysis.notes)
 
-  // Step 2: Execute PoC in sandbox if provided
   let sandboxResult: SandboxResult | null = null
   if (context.proofOfConcept && context.proofOfConcept.length > 50) {
-    console.log('[SecurityAgent] Executing PoC in sandbox...')
     sandboxResult = await executePoCInSandbox(
       context.proofOfConcept,
       context.vulnType,
@@ -501,8 +484,6 @@ Write a brief impact assessment.`
   return await analyzeWithAI(prompt, systemPrompt)
 }
 
-// ============ Agent Template ============
-
 export const securityValidationAgent = {
   id: 'security-validation',
   name: 'Security Validation Agent',
@@ -531,7 +512,5 @@ When in doubt, escalate to guardian review with your concerns.`,
     settings: {},
   },
 }
-
-// ============ Additional Exports ============
 
 export type { ValidationContext, ValidationReport, SandboxResult }

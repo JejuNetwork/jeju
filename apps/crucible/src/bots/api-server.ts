@@ -36,9 +36,7 @@ import {
   YieldVerifyParamSchema,
 } from '../schemas'
 import type { ChainId } from './autocrat-types-source'
-import { MevBot, type MevBotConfig } from './mev-bot'
-
-// ============ Security Configuration ============
+import { UnifiedBot, type UnifiedBotConfig } from './mev-bot'
 
 // Rate limiting configuration
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>()
@@ -86,13 +84,11 @@ function constantTimeCompare(a: string, b: string): boolean {
   return xor === 0
 }
 
-// ============ Types ============
-
 interface APIConfig {
   restPort: number
   a2aPort: number
   mcpPort: number
-  bot: MevBot
+  bot: UnifiedBot
 }
 
 interface AgentCard {
@@ -125,9 +121,7 @@ interface MCPResource {
   mimeType: string
 }
 
-// ============ REST API ============
-
-function createRestAPI(bot: MevBot): Elysia {
+function createRestAPI(bot: UnifiedBot): Elysia {
   const app = new Elysia()
 
   // CORS - restrict to configured origins in production
@@ -275,8 +269,6 @@ function createRestAPI(bot: MevBot): Elysia {
     return await bot.executeRebalance(action)
   })
 
-  // ============ Yield Farming Endpoints ============
-
   // Yield farming opportunities (ranked by risk-adjusted return)
   app.get('/yield', ({ query }) => {
     const limitStr = query.limit
@@ -381,9 +373,7 @@ function createRestAPI(bot: MevBot): Elysia {
   return app
 }
 
-// ============ A2A API ============
-
-function createA2AAPI(bot: MevBot, config: APIConfig): Elysia {
+function createA2AAPI(bot: UnifiedBot, config: APIConfig): Elysia {
   const app = new Elysia()
 
   // CORS - restrict to configured origins in production
@@ -492,10 +482,14 @@ function createA2AAPI(bot: MevBot, config: APIConfig): Elysia {
           ? parseOrThrow(
               z
                 .object({
-                  minTvl: z.number().min(0).optional(),
-                  minApr: z.number().min(0).max(10000).optional(),
+                  minTvl: z.number().min(0).nullish(),
+                  minApr: z.number().min(0).max(10000).nullish(),
                 })
-                .strict(),
+                .strict()
+                .transform((val) => ({
+                  minTvl: val.minTvl ?? undefined,
+                  minApr: val.minApr ?? undefined,
+                })),
               params,
               'Get pools params',
             )
@@ -565,9 +559,7 @@ function createA2AAPI(bot: MevBot, config: APIConfig): Elysia {
   return app
 }
 
-// ============ MCP API ============
-
-function createMCPAPI(bot: MevBot): Elysia {
+function createMCPAPI(bot: UnifiedBot): Elysia {
   const app = new Elysia()
 
   // CORS - restrict to configured origins in production
@@ -831,7 +823,7 @@ function createMCPAPI(bot: MevBot): Elysia {
     const { name } = params
     const rawBody = body as Record<string, unknown>
     const parsedParams = parseOrThrow(
-      JsonObjectSchema.optional().default({}),
+      JsonObjectSchema.nullable().default({}),
       rawBody,
       'MCP tool params',
     )
@@ -851,10 +843,14 @@ function createMCPAPI(bot: MevBot): Elysia {
           ? parseOrThrow(
               z
                 .object({
-                  minTvl: z.number().min(0).optional(),
-                  minApr: z.number().min(0).max(10000).optional(),
+                  minTvl: z.number().min(0).nullish(),
+                  minApr: z.number().min(0).max(10000).nullish(),
                 })
-                .strict(),
+                .strict()
+                .transform((val) => ({
+                  minTvl: val.minTvl ?? undefined,
+                  minApr: val.minApr ?? undefined,
+                })),
               parsedParams,
               'Pool recommendations params',
             )
@@ -869,14 +865,12 @@ function createMCPAPI(bot: MevBot): Elysia {
       }
 
       case 'execute_rebalance': {
-        expect(parsedParams, 'Rebalance params are required')
-        expect(parsedParams.positionId, 'Position ID is required')
+        const params = expect(parsedParams, 'Rebalance params are required')
+        expect(params.positionId, 'Position ID is required')
         const rebalanceActions = await bot.getRebalanceActions()
         const action = expect(
-          rebalanceActions.find(
-            (a) => a.positionId === parsedParams.positionId,
-          ),
-          `Action not found: ${parsedParams.positionId}`,
+          rebalanceActions.find((a) => a.positionId === params.positionId),
+          `Action not found: ${params.positionId}`,
         )
         const result = await bot.executeRebalance(action)
         return { result }
@@ -994,8 +988,6 @@ function createMCPAPI(bot: MevBot): Elysia {
   return app
 }
 
-// ============ Start Server ============
-
 export async function startBotAPIServer(config: APIConfig): Promise<void> {
   const { bot, restPort, a2aPort, mcpPort } = config
 
@@ -1025,8 +1017,6 @@ export async function startBotAPIServer(config: APIConfig): Promise<void> {
 `)
 }
 
-// ============ CLI Entry Point ============
-
 export async function main(): Promise<void> {
   const enableYieldFarming =
     (process.env.ENABLE_YIELD_FARMING ?? 'true') === 'true'
@@ -1052,7 +1042,7 @@ export async function main(): Promise<void> {
     ? process.env.YIELD_AUTO_REBALANCE === 'true'
     : undefined
 
-  const botConfig: MevBotConfig = {
+  const botConfig: UnifiedBotConfig = {
     evmChains: [1, 42161, 10, 8453] as ChainId[], // Ethereum, Arbitrum, Optimism, Base
     solanaNetwork:
       (process.env.SOLANA_NETWORK as 'mainnet-beta' | 'devnet' | 'localnet') ??
@@ -1095,7 +1085,7 @@ export async function main(): Promise<void> {
       : undefined,
   }
 
-  const bot = new MevBot(botConfig)
+  const bot = new UnifiedBot(botConfig)
   await bot.initialize()
   await bot.start()
 

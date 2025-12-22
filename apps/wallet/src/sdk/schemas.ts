@@ -14,10 +14,6 @@ import {
 } from '@jejunetwork/types'
 import { z } from 'zod'
 
-// ============================================================================
-// Base Schemas
-// ============================================================================
-
 const AccountTypeSchema = z.enum(['eoa', 'smart-account', 'multi-sig'])
 
 const SmartAccountImplementationSchema = z.enum([
@@ -60,10 +56,6 @@ const VoucherStatusSchema = z.enum([
   'expired',
   'cancelled',
 ])
-
-// ============================================================================
-// Chain Config Schemas
-// ============================================================================
 
 export const NativeCurrencySchema = z.object({
   name: z.string().min(1),
@@ -114,10 +106,6 @@ export const SolanaConfigSchema = z.object({
   wsUrl: z.string().url().optional(),
 })
 
-// ============================================================================
-// Account Schemas
-// ============================================================================
-
 export const AccountSchema = z.object({
   address: AddressSchema,
   type: AccountTypeSchema,
@@ -147,10 +135,6 @@ export const WalletAccountSchema = z.object({
   solanaAccounts: z.array(SolanaAccountSchema),
   smartAccounts: z.array(SmartAccountSchema),
 })
-
-// ============================================================================
-// Token Schemas
-// ============================================================================
 
 export const TokenSchema = z.object({
   address: AddressSchema,
@@ -185,10 +169,6 @@ export const AggregatedBalanceSchema = z.object({
   ),
 })
 
-// ============================================================================
-// Transaction Schemas
-// ============================================================================
-
 export const TransactionSchema = z.object({
   id: z.string().min(1),
   hash: HexSchema.optional(),
@@ -207,10 +187,6 @@ export const TransactionSchema = z.object({
   intentId: HexSchema.optional(),
   voucherId: HexSchema.optional(),
 })
-
-// ============================================================================
-// Intent Schemas (OIF)
-// ============================================================================
 
 export const IntentRouteSchema = z.object({
   chainId: ChainIdSchema,
@@ -264,10 +240,6 @@ export const IntentQuoteSchema = z.object({
   priceImpact: z.number().min(-100).max(100),
 })
 
-// ============================================================================
-// Voucher Schemas (EIL)
-// ============================================================================
-
 export const VoucherRequestSchema = z.object({
   id: HexSchema,
   requester: AddressSchema,
@@ -298,10 +270,6 @@ export const VoucherSchema = z.object({
   expiresBlock: z.number().int().nonnegative(),
   status: VoucherStatusSchema,
 })
-
-// ============================================================================
-// Gas Schemas
-// ============================================================================
 
 export const GasOptionSchema = z.object({
   token: TokenSchema,
@@ -334,10 +302,6 @@ export const UserOperationSchema = z.object({
   signature: HexSchema,
 })
 
-// ============================================================================
-// Wallet State Schemas
-// ============================================================================
-
 export const ConnectedSiteSchema = z.object({
   origin: z.string().min(1),
   name: z.string().optional(),
@@ -353,10 +317,6 @@ export const WalletStateSchema = z.object({
   activeChainId: ChainIdSchema.optional(),
   connectedSites: z.array(ConnectedSiteSchema),
 })
-
-// ============================================================================
-// Wallet Event Schemas
-// ============================================================================
 
 // Message payload schema for wallet events
 const WalletMessagePayloadSchema = z.discriminatedUnion('type', [

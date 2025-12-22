@@ -20,5 +20,6 @@ export {
   type TrainingEnvironment,
   type TrainingMetrics as CrucibleTrainingMetrics,
   type TrainingRun,
+  type TrajectoryMetadata,
   type TrajectoryStep,
 } from './crucible'

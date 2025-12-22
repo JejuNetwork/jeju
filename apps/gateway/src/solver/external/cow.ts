@@ -150,13 +150,13 @@ const CowApiOrderSchema = z.object({
   feeAmount: z.string(),
   kind: z.string().min(1),
   partiallyFillable: z.boolean(),
-  receiver: z.string().optional(),
+  receiver: z.string().nullable(),
   signature: z.string(),
   signingScheme: z.string(),
   status: z.string(),
   creationDate: z.string(),
-  executedSellAmount: z.string().optional().default('0'),
-  executedBuyAmount: z.string().optional().default('0'),
+  executedSellAmount: z.string().nullable().default('0'),
+  executedBuyAmount: z.string().nullable().default('0'),
 })
 
 const CowApiAuctionSchema = z.object({
@@ -199,9 +199,6 @@ export class CowProtocolSolver extends EventEmitter {
   async start(): Promise<void> {
     if (this.running) return
     this.running = true
-    console.log('🐮 Starting CoW Protocol market maker...')
-
-    // Poll for auctions and order opportunities
     await this.pollAuctions()
     this.pollInterval = setInterval(() => this.pollAuctions(), 5000)
   }
@@ -214,14 +211,6 @@ export class CowProtocolSolver extends EventEmitter {
     }
   }
 
-  // ============================================================
-  // MARKET MAKER FUNCTIONS (No registration required)
-  // ============================================================
-
-  /**
-   * Get a quote from CoW Protocol for a swap
-   * This tells us the expected output and fees
-   */
   async getQuote(
     chainId: number,
     params: {
@@ -254,13 +243,9 @@ export class CowProtocolSolver extends EventEmitter {
 
     if (!response.ok) return null
 
-    // SECURITY: Validate API response with Zod schema
     const rawData = await response.json()
     const parseResult = CowApiQuoteSchema.safeParse(rawData)
-    if (!parseResult.success) {
-      console.error('[CoW] Invalid quote response:', parseResult.error.message)
-      return null
-    }
+    if (!parseResult.success) return null
     const data = parseResult.data
 
     return {
@@ -274,10 +259,6 @@ export class CowProtocolSolver extends EventEmitter {
     }
   }
 
-  /**
-   * Create and submit an order to CoW Protocol
-   * This is how we act as a market maker - we create orders that provide liquidity
-   */
   async createOrder(
     chainId: number,
     params: CowOrderParams,
@@ -348,14 +329,9 @@ export class CowProtocolSolver extends EventEmitter {
     if (typeof uid !== 'string' || !uid.startsWith('0x')) {
       return { success: false, error: 'Invalid order UID returned from API' }
     }
-    console.log(`   ✅ CoW order created: ${uid.slice(0, 20)}...`)
-
     return { success: true, orderUid: uid as `0x${string}` }
   }
 
-  /**
-   * Cancel an order we created
-   */
   async cancelOrder(
     chainId: number,
     orderUid: `0x${string}`,
@@ -394,10 +370,6 @@ export class CowProtocolSolver extends EventEmitter {
     return { success: true }
   }
 
-  /**
-   * Create a counter-order to match a user order
-   * This is how we earn spread as a market maker
-   */
   async createCounterOrder(
     userOrder: CowOrder,
     spreadBps: number = 10,
@@ -422,10 +394,6 @@ export class CowProtocolSolver extends EventEmitter {
     return this.createOrder(userOrder.chainId, counterParams)
   }
 
-  /**
-   * Approve tokens for CoW Vault Relayer
-   * Required before creating orders
-   */
   async approveToken(
     chainId: number,
     token: Address,
@@ -468,13 +436,6 @@ export class CowProtocolSolver extends EventEmitter {
     return { success: true, txHash: hash }
   }
 
-  // ============================================================
-  // MONITORING FUNCTIONS
-  // ============================================================
-
-  /**
-   * Fetch open orders from CoW API
-   */
   async fetchOpenOrders(chainId: number, limit = 100): Promise<CowOrder[]> {
     const apiUrl = COW_API[chainId]
     if (!apiUrl) return []
@@ -489,16 +450,10 @@ export class CowProtocolSolver extends EventEmitter {
     // SECURITY: Validate API response with Zod schema
     const rawData = await response.json()
     const parseResult = z.array(CowApiOrderSchema).safeParse(rawData)
-    if (!parseResult.success) {
-      console.error('[CoW] Invalid orders response:', parseResult.error.message)
-      return []
-    }
+    if (!parseResult.success) return []
     return this.parseOrders(parseResult.data, chainId)
   }
 
-  /**
-   * Fetch orders for a specific token pair
-   */
   async fetchOrdersForPair(
     chainId: number,
     sellToken: Address,
@@ -514,27 +469,16 @@ export class CowProtocolSolver extends EventEmitter {
 
     if (!response.ok) return []
 
-    // SECURITY: Validate API response with Zod schema
     const rawData = await response.json()
     const parseResult = z.array(CowApiOrderSchema).safeParse(rawData)
-    if (!parseResult.success) {
-      console.error('[CoW] Invalid orders response:', parseResult.error.message)
-      return []
-    }
+    if (!parseResult.success) return []
     return this.parseOrders(parseResult.data, chainId)
   }
 
-  /**
-   * Get current auction
-   */
   getCurrentAuction(chainId: number): CowAuction | undefined {
     return this.currentAuctions.get(chainId)
   }
 
-  /**
-   * Find profitable opportunities in current orders
-   * Returns orders where we can provide a better price than the limit
-   */
   findProfitableOrders(
     chainId: number,
     ourPrices: Map<string, bigint>, // token -> price in wei
@@ -571,13 +515,6 @@ export class CowProtocolSolver extends EventEmitter {
     return profitable.sort((a, b) => b.profitBps - a.profitBps)
   }
 
-  // ============================================================
-  // SOLUTION BUILDING (for future solver registration)
-  // ============================================================
-
-  /**
-   * Build a solution for a set of orders using our liquidity
-   */
   buildSolution(
     auction: CowAuction,
     liquidityPools: Map<
@@ -631,9 +568,6 @@ export class CowProtocolSolver extends EventEmitter {
     }
   }
 
-  /**
-   * Evaluate potential profit from solving an auction
-   */
   evaluateAuction(
     auction: CowAuction,
     gasPrice: bigint,
@@ -682,10 +616,6 @@ export class CowProtocolSolver extends EventEmitter {
     }
   }
 
-  // ============================================================
-  // PRIVATE HELPERS
-  // ============================================================
-
   private async pollAuctions(): Promise<void> {
     for (const chainId of this.supportedChains) {
       if (!this.clients.has(chainId)) continue
@@ -696,9 +626,6 @@ export class CowProtocolSolver extends EventEmitter {
       const existing = this.currentAuctions.get(chainId)
       if (!existing || existing.id !== auction.id) {
         this.currentAuctions.set(chainId, auction)
-        console.log(
-          `🐮 CoW auction ${auction.id}: ${auction.orders.length} orders on chain ${chainId}`,
-        )
         this.emit('auction', auction)
       }
     }
@@ -716,16 +643,9 @@ export class CowProtocolSolver extends EventEmitter {
 
     if (!response.ok) return null
 
-    // SECURITY: Validate API response with Zod schema
     const rawData = await response.json()
     const parseResult = CowApiAuctionSchema.safeParse(rawData)
-    if (!parseResult.success) {
-      console.error(
-        '[CoW] Invalid auction response:',
-        parseResult.error.message,
-      )
-      return null
-    }
+    if (!parseResult.success) return null
     const data = parseResult.data
 
     const tokenSet = new Set<Address>()

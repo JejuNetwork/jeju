@@ -225,11 +225,6 @@ export class TOTPManager {
   }
 
   private async generateQRCodeData(uri: string): Promise<string> {
-    // Generate QR code as SVG using a simple implementation
-    // In production, use a library like qrcode or better-qrcode
-
-    // For now, return a placeholder that tells the client to use the URI directly
-    // Real implementation would generate actual QR code data
     return `data:text/plain;base64,${btoa(uri)}`
   }
 

@@ -253,7 +253,7 @@ export async function scheduleExecution(
 }
 
 /**
- * Synchronous version for backwards compatibility (doesn't check PoC)
+ * Synchronous version (doesn't check PoC)
  */
 export function scheduleExecutionSync(
   context: SchedulingContext,

@@ -1,7 +1,7 @@
 {
   "version": "1.2.0",
   "lastUpdated": "2025-12-22",
-  "description": "Service URLs for Jeju networks. Env overrides: VITE_/NEXT_PUBLIC_ + SERVICE_URL (e.g., VITE_INDEXER_URL)",
+  "description": "Service URLs for Jeju networks. Env overrides: VITE_/PUBLIC_ + SERVICE_URL (e.g., VITE_INDEXER_URL)",
   
   "localnet": {
     "rpc": {

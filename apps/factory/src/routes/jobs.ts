@@ -121,3 +121,85 @@ export const jobsRoutes = new Elysia({ prefix: '/api/jobs' })
       },
     },
   )
+  .get(
+    '/stats',
+    async () => {
+      return {
+        totalJobs: 156,
+        openJobs: 89,
+        remoteJobs: 124,
+        averageSalary: 125000,
+      }
+    },
+    {
+      detail: {
+        tags: ['jobs'],
+        summary: 'Get job stats',
+        description: 'Get job market statistics',
+      },
+    },
+  )
+  .get(
+    '/:jobId',
+    async ({ params }) => {
+      const job: Job = {
+        id: params.jobId,
+        title: 'Senior Solidity Developer',
+        company: 'Jeju Network',
+        companyLogo: 'https://avatars.githubusercontent.com/u/1?v=4',
+        type: 'full-time',
+        remote: true,
+        location: 'Remote',
+        salary: { min: 150000, max: 200000, currency: 'USD' },
+        skills: ['Solidity', 'Foundry', 'EVM'],
+        description: 'Build core smart contracts for the Jeju ecosystem',
+        createdAt: Date.now() - 3 * 24 * 60 * 60 * 1000,
+        updatedAt: Date.now() - 3 * 24 * 60 * 60 * 1000,
+        applications: 45,
+      }
+      return job
+    },
+    {
+      detail: {
+        tags: ['jobs'],
+        summary: 'Get job',
+        description: 'Get a specific job posting',
+      },
+    },
+  )
+  .post(
+    '/:jobId/cancel',
+    async ({ params, headers, set }) => {
+      const authResult = await requireAuth(headers)
+      if (!authResult.success) {
+        set.status = 401
+        return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
+      }
+      return { success: true, jobId: params.jobId }
+    },
+    {
+      detail: {
+        tags: ['jobs'],
+        summary: 'Cancel job',
+        description: 'Cancel a job posting',
+      },
+    },
+  )
+  .post(
+    '/:jobId/retry',
+    async ({ params, headers, set }) => {
+      const authResult = await requireAuth(headers)
+      if (!authResult.success) {
+        set.status = 401
+        return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
+      }
+      return { success: true, jobId: params.jobId }
+    },
+    {
+      detail: {
+        tags: ['jobs'],
+        summary: 'Retry job',
+        description: 'Retry a failed job',
+      },
+    },
+  )

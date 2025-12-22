@@ -283,7 +283,7 @@ export const rpcRoutes = new Elysia({ name: 'rpc', prefix: '/rpc' })
       const id = crypto.randomUUID()
       const provider: RPCProvider = {
         id,
-        operator,
+        operator: operator as `0x${string}`,
         chainId: body.chainId,
         endpoint: body.endpoint,
         wsEndpoint: body.wsEndpoint,
@@ -380,7 +380,7 @@ export const rpcRoutes = new Elysia({ name: 'rpc', prefix: '/rpc' })
 
       const session: RPCSession = {
         id: sessionId,
-        user,
+        user: user as `0x${string}`,
         chainId: 0, // All chains
         apiKey,
         tier,
@@ -617,6 +617,6 @@ export const rpcRoutes = new Elysia({ name: 'rpc', prefix: '/rpc' })
 export type RPCRoutes = typeof rpcRoutes
 
 // Backwards compatible factory function
-export function createRPCRouter(): Elysia {
+export function createRPCRouter() {
   return rpcRoutes
 }

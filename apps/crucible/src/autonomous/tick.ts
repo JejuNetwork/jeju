@@ -13,12 +13,8 @@
  */
 
 import { z } from 'zod'
-import {
-  type CrucibleAgentRuntime,
-  checkDWSHealth,
-  checkDWSInferenceAvailable,
-  type RuntimeMessage,
-} from '../sdk/eliza-runtime'
+import { checkDWSHealth, checkDWSInferenceAvailable } from '../client/dws'
+import type { CrucibleAgentRuntime, RuntimeMessage } from '../sdk/eliza-runtime'
 import { createLogger } from '../sdk/logger'
 import type {
   AgentGoal,
@@ -33,7 +29,6 @@ const log = createLogger('AutonomousTick')
 /** JSON value types for LLM parameters */
 type JsonPrimitive = string | number | boolean | null
 type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue }
-type JsonObject = { [key: string]: JsonValue }
 
 /** JSON value schema for LLM parameters */
 const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
@@ -542,7 +537,7 @@ export class AutonomousTick {
     const dwsHealthy = await checkDWSHealth()
     const inferenceStatus = await checkDWSInferenceAvailable()
 
-    // TODO: Get pending messages from room/messaging system
+    // Pending messages will be populated when A2A messaging is integrated
     const pendingMessages: PendingMessage[] = []
 
     // Get goals from agent configuration
@@ -743,8 +738,8 @@ export class AutonomousTick {
     const parsed = parseResult.data
     return {
       isFinish: Boolean(parsed.isFinish ?? parsed.is_finish ?? false),
-      action: parsed.action,
-      parameters: parsed.parameters ?? parsed.params,
+      action: parsed.action ?? undefined,
+      parameters: parsed.parameters ?? parsed.params ?? undefined,
       thought: (parsed.thought ?? parsed.reasoning ?? '') as string,
     }
   }
@@ -801,11 +796,13 @@ export class AutonomousTick {
         // Check if this is a jeju plugin action
         const availableActions = this.runtime.getAvailableActions()
         const isPluginAction = availableActions.some(
-          (name) => name.toUpperCase() === normalizedAction
+          (name) => name.toUpperCase() === normalizedAction,
         )
 
         if (isPluginAction) {
-          log.info('Routing to jeju plugin action', { action: normalizedAction })
+          log.info('Routing to jeju plugin action', {
+            action: normalizedAction,
+          })
 
           const actionMessage: RuntimeMessage = {
             id: crypto.randomUUID(),
@@ -819,7 +816,10 @@ export class AutonomousTick {
           }
 
           const response = await this.runtime.processMessage(actionMessage)
-          result.result = { response: response.text, action: response.action ?? null }
+          result.result = {
+            response: response.text,
+            action: response.action ?? null,
+          }
           result.success = true
 
           if (this.verbose) {

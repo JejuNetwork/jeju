@@ -109,10 +109,6 @@ export function useGasOptions(tokenBalances: TokenBalance[]) {
   }
 }
 
-// ============================================================================
-// Hook: useGasPreview
-// ============================================================================
-
 export function useGasPreview(
   tokenAddress: Address | undefined,
   estimatedGas: bigint,
@@ -153,10 +149,6 @@ export function useGasPreview(
   return { tokenCost, isLoading }
 }
 
-// ============================================================================
-// Hook: useGasStatus
-// ============================================================================
-
 export function useGasStatus() {
   const chainId = useChainId()
   const { address } = useAccount()
@@ -190,10 +182,6 @@ export function useGasStatus() {
   }
 }
 
-// ============================================================================
-// Hook: usePaymasterData
-// ============================================================================
-
 export function usePaymasterData() {
   const chainId = useChainId()
   const publicClient = usePublicClient()
@@ -212,7 +200,7 @@ export function usePaymasterData() {
   const buildPaymasterData = useCallback(
     (paymentToken: Address, appAddress?: Address) => {
       if (!eilClient) return '0x' as const
-      return eilClient.buildPaymasterData(0, paymentToken, appAddress)
+      return eilClient.buildPaymasterData(paymentToken, appAddress)
     },
     [eilClient],
   )

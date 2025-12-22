@@ -228,14 +228,7 @@ export class DecentralizedWorkerDeployer {
       })
 
       for (const node of nodes) {
-        try {
-          await this.requestNodeDeployment(node, worker)
-        } catch (err) {
-          console.warn(
-            `[WorkerDeployer] Failed to scale to node ${node.agentId}:`,
-            err,
-          )
-        }
+        await this.requestNodeDeployment(node, worker)
       }
     } else if (targetInstances < currentInstances) {
       // Scale down
@@ -264,18 +257,11 @@ export class DecentralizedWorkerDeployer {
     worker: DeployedWorker,
     instance: WorkerInstance,
   ): Promise<void> {
-    try {
-      await fetch(`${instance.nodeEndpoint}/workerd/${worker.id}/stop`, {
-        method: 'POST',
-        headers: { 'x-jeju-address': worker.owner },
-        signal: AbortSignal.timeout(10000),
-      })
-    } catch (err) {
-      console.warn(
-        `[WorkerDeployer] Failed to stop instance ${instance.id}:`,
-        err,
-      )
-    }
+    await fetch(`${instance.nodeEndpoint}/workerd/${worker.id}/stop`, {
+      method: 'POST',
+      headers: { 'x-jeju-address': worker.owner },
+      signal: AbortSignal.timeout(10000),
+    })
 
     instance.status = 'stopped'
   }
@@ -338,10 +324,13 @@ export class DecentralizedWorkerDeployer {
 
     // 4. Deploy to workerd
     const instanceId = `${params.workerId}-${Date.now()}`
+    const now = Date.now()
 
     await this.workerdExecutor.deployWorker({
       id: params.workerId,
       name: params.name,
+      owner: params.owner,
+      modules: [],
       mainModule: params.entrypoint,
       compatibilityDate: new Date().toISOString().split('T')[0],
       bindings: [
@@ -351,11 +340,14 @@ export class DecentralizedWorkerDeployer {
           value,
         })),
       ],
-      limits: {
-        cpuMs: params.resources.cpuMillis,
-        memoryMb: params.resources.memoryMb,
-      },
-      code: codeResult.content,
+      memoryMb: params.resources.memoryMb,
+      cpuTimeMs: params.resources.cpuMillis,
+      timeoutMs: 30000,
+      codeCid: params.codeCid,
+      version: 1,
+      status: 'pending',
+      createdAt: now,
+      updatedAt: now,
     })
 
     console.log(
@@ -373,8 +365,32 @@ export class DecentralizedWorkerDeployer {
     request: Request
     x402Header?: string
   }): Promise<Response> {
-    // Invoke via workerd executor
-    return this.workerdExecutor.invokeWorker(params.workerId, params.request)
+    const url = new URL(params.request.url)
+    const headers: Record<string, string> = {}
+    params.request.headers.forEach((value, key) => {
+      headers[key] = value
+    })
+    const body = params.request.body ? await params.request.text() : undefined
+
+    const result = await this.workerdExecutor.invokeHTTP(
+      params.workerId,
+      params.request.method,
+      url.pathname + url.search,
+      headers,
+      body,
+    )
+
+    // Convert body to proper BodyInit type for Response
+    let responseBody: BodyInit | null = null
+    if (result.body instanceof Buffer) {
+      responseBody = new Uint8Array(result.body)
+    } else if (typeof result.body === 'string') {
+      responseBody = result.body
+    }
+    return new Response(responseBody, {
+      status: result.status,
+      headers: result.headers,
+    })
   }
 
   // ============================================================================
@@ -497,7 +513,7 @@ export class DecentralizedWorkerDeployer {
 
   private emit(event: InfraEvent): void {
     for (const handler of this.eventHandlers) {
-      Promise.resolve(handler(event)).catch(console.error)
+      handler(event)
     }
   }
 }

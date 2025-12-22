@@ -332,10 +332,6 @@ export function ProposalWizard({ onComplete, onCancel }: WizardProps) {
   )
 }
 
-// ============================================================================
-// Step Components
-// ============================================================================
-
 function DraftStep({
   draft,
   setDraft,

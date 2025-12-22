@@ -179,17 +179,15 @@ describe.skipIf(!POSTGRES_AVAILABLE)('DatabaseReplicaRouter', () => {
       )
       const initial = parseInt(initialCount.rows[0].count, 10)
 
-      try {
-        await router.transaction(async (client) => {
+      await router
+        .transaction(async (client) => {
           await client.query(
             'INSERT INTO router_test (name, value) VALUES ($1, $2)',
             ['rollback-test', 'value'],
           )
           throw new Error('Intentional rollback')
         })
-      } catch (_error) {
-        // Expected
-      }
+        .catch(() => {})
 
       const afterCount = await router.query<{ count: string }>(
         "SELECT COUNT(*) as count FROM router_test WHERE name = 'rollback-test'",

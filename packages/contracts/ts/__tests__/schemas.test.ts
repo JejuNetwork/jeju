@@ -92,10 +92,6 @@ describe('schemas.ts - Zod Schema Validation', () => {
       expect(OptionalAddressSchema.parse(undefined)).toBeUndefined()
     })
 
-    test('accepts null', () => {
-      expect(OptionalAddressSchema.parse(null)).toBeNull()
-    })
-
     test('rejects invalid address', () => {
       expect(() => OptionalAddressSchema.parse('invalid')).toThrow()
     })
@@ -281,15 +277,15 @@ describe('schemas.ts - Zod Schema Validation', () => {
       expect(result.gameName).toBe('Test Game')
     })
 
-    test('allows null values for nullable fields', () => {
+    test('allows undefined values for optional fields', () => {
       const data = {
-        goldToken: null,
-        itemsNFT: null,
-        gameAgentId: null,
+        goldToken: undefined,
+        itemsNFT: undefined,
+        gameAgentId: undefined,
       }
 
       const result = GameSystemDeploymentSchema.parse(data)
-      expect(result.goldToken).toBeNull()
+      expect(result.goldToken).toBeUndefined()
     })
   })
 

@@ -1,7 +1,6 @@
+import { getCoreAppUrl } from '@jejunetwork/config/ports'
 import { useQuery } from '@tanstack/react-query'
 import { api, extractDataSafe } from '../lib/client'
-
-// ============ Types ============
 
 export interface PackageVersion {
   version: string
@@ -43,7 +42,22 @@ export interface PackageListItem {
   verified: boolean
 }
 
-// ============ Fetchers using Eden Treaty ============
+const API_BASE =
+  typeof window !== 'undefined'
+    ? ''
+    : process.env.FACTORY_API_URL || getCoreAppUrl('FACTORY')
+
+async function fetchApi<T>(path: string): Promise<T | null> {
+  const response = await fetch(`${API_BASE}${path}`, {
+    headers: { 'Content-Type': 'application/json' },
+  })
+
+  if (!response.ok) {
+    return null
+  }
+
+  return response.json()
+}
 
 async function fetchPackages(query?: {
   search?: string
@@ -72,8 +86,9 @@ async function fetchPackage(
   const cleanScope = scope.startsWith('@') ? scope.slice(1) : scope
   const packageName = cleanScope ? `${cleanScope}/${name}` : name
 
-  const response = await api.api.packages({ name: packageName }).get()
-  return extractDataSafe(response) as PackageInfo | null
+  return fetchApi<PackageInfo>(
+    `/api/packages/${encodeURIComponent(packageName)}`,
+  )
 }
 
 async function fetchPackageVersions(
@@ -93,8 +108,6 @@ async function fetchPackageReadme(
   const pkg = await fetchPackage(scope, name)
   return pkg?.readme || ''
 }
-
-// ============ Hooks ============
 
 export function usePackages(query?: { search?: string }) {
   const {

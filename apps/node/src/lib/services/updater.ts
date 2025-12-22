@@ -1,8 +1,6 @@
 import type { Address } from 'viem'
 
-// ============================================================================
 // Types
-// ============================================================================
 
 export interface NodeUpdateConfig {
   enabled: boolean
@@ -46,9 +44,7 @@ export interface NodeUpdateState {
   downloadProgress: number
 }
 
-// ============================================================================
 // Default Config
-// ============================================================================
 
 const DEFAULT_CONFIG: NodeUpdateConfig = {
   enabled: true,
@@ -61,9 +57,7 @@ const DEFAULT_CONFIG: NodeUpdateConfig = {
 
 const CURRENT_VERSION = '0.1.0'
 
-// ============================================================================
 // Node Update Service
-// ============================================================================
 
 export class NodeUpdateService {
   private config: NodeUpdateConfig
@@ -439,9 +433,7 @@ export class NodeUpdateService {
   }
 }
 
-// ============================================================================
 // Singleton
-// ============================================================================
 
 let updateService: NodeUpdateService | null = null
 
