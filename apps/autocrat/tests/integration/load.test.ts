@@ -1,22 +1,22 @@
-// Load Testing for Council API
-// These tests require the API to be running at API_URL (default: localhost:8010)
-// Run with REQUIRE_API=true to fail instead of skip when API is down
-import { describe, expect, setDefaultTimeout, test } from 'bun:test'
+/**
+ * Load Testing for Autocrat API
+ *
+ * These tests measure API performance under load.
+ * Requires the API server to be running.
+ *
+ * Run with: AUTO_START_SERVICES=true bun test tests/integration/load.test.ts
+ */
+import { beforeAll, describe, expect, setDefaultTimeout, test } from 'bun:test'
+import { requireApi } from '../setup'
 
 setDefaultTimeout(30000)
 
-const API_URL = process.env.API_URL ?? 'http://localhost:8010'
+let API_URL: string
 
-async function checkApi(): Promise<boolean> {
-  try {
-    const r = await fetch(`${API_URL}/health`, {
-      signal: AbortSignal.timeout(5000),
-    })
-    return r.ok
-  } catch {
-    return false
-  }
-}
+beforeAll(async () => {
+  API_URL = await requireApi()
+  console.log(`📊 Load testing against ${API_URL}`)
+})
 
 async function benchmark(
   name: string,
@@ -47,15 +47,6 @@ async function concurrent(fn: () => Promise<Response>, count: number) {
     failed: results.filter((r) => r.status === 'rejected').length,
     durationMs: performance.now() - start,
   }
-}
-
-// Check API availability once at module load
-const apiAvailable = await checkApi()
-
-if (!apiAvailable) {
-  throw new Error(
-    `API not running at ${API_URL}. Start the server with: bun run dev`,
-  )
 }
 
 describe('Load Tests', () => {

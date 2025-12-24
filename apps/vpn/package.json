@@ -1,12 +1,20 @@
 {
   "name": "@jejunetwork/vpn",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Jeju VPN - Free, decentralized VPN powered by the community",
   "type": "module",
+  "main": "api/index.ts",
   "scripts": {
-    "dev": "tauri dev",
+    "dev": "concurrently -n web,api -c blue,green \"bun run dev:web\" \"bun run dev:api\"",
+    "dev:web": "PORT=1421 bun index.html",
+    "dev:api": "bun --watch api/index.ts",
+    "dev:app": "cd app/src-tauri && tauri dev",
     "build": "bun build index.html --outdir=dist --minify",
-    "test": "bun test src",
+    "build:app": "cd app/src-tauri && tauri build",
+    "start": "bun api/index.ts",
+    "test": "bun test lib/ api/",
+    "test:e2e": "bunx playwright test tests/e2e/",
+    "test:synpress": "bunx synpress run --config synpress.config.ts tests/synpress/",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -30,12 +38,16 @@
   "devDependencies": {
     "@jejunetwork/tests": "workspace:*",
     "@playwright/test": "1.57.0",
+    "@synthetixio/synpress": "4.1.1",
     "@tauri-apps/api": "1.6.0",
     "@tauri-apps/cli": "1.6.0",
     "@types/bun": "latest",
     "@types/react": "19.2.3",
     "@types/react-dom": "^19.0.0",
     "bun-plugin-tailwind": "0.1.1",
+    "concurrently": "9.1.0",
+    "playwright-core": "1.57.0",
+    "tailwindcss": "3.4.17",
     "typescript": "5.9.3"
   }
 }

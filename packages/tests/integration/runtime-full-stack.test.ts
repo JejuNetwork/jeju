@@ -45,6 +45,7 @@ import {
   parseEther,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
+import { z } from 'zod'
 import {
   APP_PORTS,
   APP_URLS,
@@ -53,6 +54,12 @@ import {
   TEST_WALLETS,
   TIMEOUTS,
 } from '../shared/constants'
+
+// GraphQL response schema
+const _GraphQLResponseSchema = z.object({
+  data: z.record(z.string(), z.unknown()).optional(),
+  errors: z.array(z.object({ message: z.string() })).optional(),
+})
 
 // Quick check if L2 RPC is available before running full suite
 const l2RpcUrl = JEJU_LOCALNET.rpcUrl
@@ -748,10 +755,7 @@ async function queryGraphQL(query: string): Promise<Record<string, unknown>> {
     throw new Error(`GraphQL query failed: ${response.statusText}`)
   }
 
-  const result = (await response.json()) as {
-    data?: Record<string, unknown>
-    errors?: Array<{ message: string }>
-  }
+  const result = GraphQLResponseSchema.parse(await response.json())
 
   if (result.errors) {
     throw new Error(`GraphQL errors: ${JSON.stringify(result.errors)}`)

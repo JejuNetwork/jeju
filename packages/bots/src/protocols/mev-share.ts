@@ -4,8 +4,14 @@
  * Participate in MEV-Share to receive kickbacks from searchers.
  */
 
-import { EventEmitter } from 'node:events'
+import { EventEmitter } from '@jejunetwork/shared'
 import type { Hash, Hex } from 'viem'
+import { z } from 'zod'
+
+// MEV-Share response schema
+const MEVShareResponseSchema = z.object({
+  result: z.object({ bundleHash: z.string() }).optional(),
+})
 
 export interface MEVShareConfig {
   chainId: number
@@ -71,9 +77,7 @@ export class MEVShareClient extends EventEmitter {
         id: 1,
       }),
     })
-    const result = (await response.json()) as {
-      result?: { bundleHash: string }
-    }
+    const result = MEVShareResponseSchema.parse(await response.json())
     return result.result?.bundleHash ?? ''
   }
 

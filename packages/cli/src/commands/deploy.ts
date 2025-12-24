@@ -1,6 +1,4 @@
-/**
- * jeju deploy - Deploy to testnet/mainnet
- */
+/** Deploy to testnet/mainnet */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -21,7 +19,6 @@ import {
 import { CHAIN_CONFIG, type NetworkType } from '../types'
 import { keysCommand } from './keys'
 
-// Schema validation for deployment config files
 const DeployConfigSchema = z.object({
   network: z.enum(['localnet', 'testnet', 'mainnet']),
   lastDeployed: z.string().optional(),
@@ -34,7 +31,6 @@ const DeployConfigSchema = z.object({
   apps: z.boolean().optional(),
 })
 
-// Schema for contracts deployment file
 const ContractsDeploymentSchema = z.record(
   z.string(),
   z.string().or(
@@ -55,7 +51,6 @@ interface DeployConfig {
   apps?: boolean
 }
 
-/** Options for deploy script execution */
 interface DeployScriptOptions {
   network?: string
   safe?: string
@@ -86,7 +81,6 @@ function loadConfig(): DeployConfig | undefined {
   if (!existsSync(path)) return undefined
   try {
     const rawData = JSON.parse(readFileSync(path, 'utf-8'))
-    // SECURITY: Validate schema to prevent insecure deserialization
     const result = DeployConfigSchema.safeParse(rawData)
     if (!result.success) {
       logger.warn(`Invalid deploy config format: ${result.error.message}`)
@@ -507,7 +501,6 @@ async function runDeployApps(
   }
 }
 
-// Preflight subcommand - check everything before deploying
 deployCommand
   .command('preflight')
   .description('Pre-deployment checklist (keys, balance, dependencies)')
@@ -644,7 +637,6 @@ deployCommand
     }
   })
 
-// Status subcommand
 deployCommand
   .command('status')
   .description('Check deployment status')
@@ -700,7 +692,6 @@ deployCommand
 
     if (existsSync(deploymentsFile)) {
       const rawData = JSON.parse(readFileSync(deploymentsFile, 'utf-8'))
-      // SECURITY: Validate schema to prevent insecure deserialization
       const result = ContractsDeploymentSchema.safeParse(rawData)
       if (!result.success) {
         logger.warn('Invalid contracts deployment file format')
@@ -733,7 +724,6 @@ deployCommand
     }
   })
 
-// Check subcommand - comprehensive deployment readiness check
 deployCommand
   .command('check')
   .description(
@@ -768,7 +758,6 @@ deployCommand
     })
   })
 
-// Verify subcommand - verify OIF deployments
 deployCommand
   .command('verify')
   .description('Verify contract deployments')
@@ -799,7 +788,6 @@ deployCommand
     }
   })
 
-// Component deployment subcommands
 deployCommand
   .command('token')
   .description('Deploy NetworkToken and BanManager')
@@ -1330,7 +1318,140 @@ deployCommand
     })
   })
 
-// Helper function to run deploy scripts
+deployCommand
+  .command('crucible')
+  .description('Deploy Crucible contracts (AgentVault, RoomRegistry)')
+  .option(
+    '--network <network>',
+    'Network: localnet | testnet | mainnet',
+    'localnet',
+  )
+  .action(async (options) => {
+    const rootDir = findMonorepoRoot()
+    const scriptPath = join(rootDir, 'apps/crucible/scripts/deploy.ts')
+
+    if (!existsSync(scriptPath)) {
+      logger.error('Crucible deploy script not found')
+      return
+    }
+
+    logger.header('CRUCIBLE DEPLOYMENT')
+    logger.keyValue('Network', options.network)
+    logger.newline()
+
+    await execa('bun', ['run', scriptPath], {
+      cwd: join(rootDir, 'apps/crucible'),
+      stdio: 'inherit',
+      env: {
+        ...process.env,
+        NETWORK: options.network,
+      },
+    })
+  })
+
+deployCommand
+  .command('bazaar')
+  .description('Deploy Bazaar to DWS (frontend + worker)')
+  .option(
+    '--network <network>',
+    'Network: localnet | testnet | mainnet',
+    'localnet',
+  )
+  .option('--no-cdn', 'Skip CDN configuration')
+  .action(async (options) => {
+    const rootDir = findMonorepoRoot()
+    const scriptPath = join(rootDir, 'apps/bazaar/scripts/deploy.ts')
+
+    if (!existsSync(scriptPath)) {
+      logger.error('Bazaar deploy script not found')
+      return
+    }
+
+    logger.header('BAZAAR DEPLOYMENT')
+    logger.keyValue('Network', options.network)
+    logger.keyValue('CDN', options.cdn ? 'enabled' : 'disabled')
+    logger.newline()
+
+    await execa('bun', ['run', scriptPath], {
+      cwd: join(rootDir, 'apps/bazaar'),
+      stdio: 'inherit',
+      env: {
+        ...process.env,
+        NETWORK: options.network,
+        CDN_ENABLED: options.cdn ? 'true' : 'false',
+      },
+    })
+  })
+
+deployCommand
+  .command('factory')
+  .description('Deploy Factory to DWS')
+  .option(
+    '--network <network>',
+    'Network: localnet | testnet | mainnet',
+    'localnet',
+  )
+  .option('--cdn', 'Deploy frontend to CDN only')
+  .action(async (options) => {
+    const rootDir = findMonorepoRoot()
+
+    let scriptPath: string
+    if (options.cdn) {
+      scriptPath = join(rootDir, 'apps/factory/scripts/deploy-cdn.ts')
+    } else {
+      scriptPath = join(rootDir, 'apps/factory/scripts/deploy-dws.ts')
+    }
+
+    if (!existsSync(scriptPath)) {
+      logger.error('Factory deploy script not found')
+      return
+    }
+
+    logger.header('FACTORY DEPLOYMENT')
+    logger.keyValue('Network', options.network)
+    logger.keyValue('Mode', options.cdn ? 'CDN only' : 'Full DWS')
+    logger.newline()
+
+    await execa('bun', ['run', scriptPath], {
+      cwd: join(rootDir, 'apps/factory'),
+      stdio: 'inherit',
+      env: {
+        ...process.env,
+        NETWORK: options.network,
+      },
+    })
+  })
+
+deployCommand
+  .command('gateway-test-token')
+  .description('Deploy test ERC20 token for Gateway integration testing')
+  .option('--rpc-url <url>', 'RPC URL', 'http://localhost:6546')
+  .action(async (options) => {
+    const rootDir = findMonorepoRoot()
+    const scriptPath = join(
+      rootDir,
+      'apps/gateway/scripts/deploy-test-token.ts',
+    )
+
+    if (!existsSync(scriptPath)) {
+      logger.error('Gateway test token deploy script not found')
+      return
+    }
+
+    logger.header('GATEWAY TEST TOKEN DEPLOYMENT')
+    logger.keyValue('RPC', options.rpcUrl)
+    logger.newline()
+
+    await execa('bun', ['run', scriptPath], {
+      cwd: join(rootDir, 'apps/gateway'),
+      stdio: 'inherit',
+      env: {
+        ...process.env,
+        RPC_URL: options.rpcUrl,
+      },
+    })
+  })
+
 async function runDeployScript(
   scriptName: string,
   network: string,

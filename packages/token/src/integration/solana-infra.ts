@@ -23,9 +23,7 @@ import {
   Transaction,
 } from '@solana/web3.js'
 
-// ============================================================================
 // Types
-// ============================================================================
 
 export interface SolanaNodeConfig {
   rpcUrl: string
@@ -63,9 +61,7 @@ export interface SolanaTerraformConfig {
   network: 'mainnet' | 'devnet'
 }
 
-// ============================================================================
 // Jeju Solana RPC Configuration
-// ============================================================================
 
 const JEJU_SOLANA_NODES: Record<string, SolanaNodeConfig> = {
   'jeju-mainnet': {
@@ -88,9 +84,7 @@ const JEJU_SOLANA_NODES: Record<string, SolanaNodeConfig> = {
   },
 }
 
-// ============================================================================
 // Solana Infrastructure Manager
-// ============================================================================
 
 export class SolanaInfraManager {
   private connection: Connection
@@ -231,9 +225,7 @@ export class SolanaInfraManager {
   }
 }
 
-// ============================================================================
 // Warp Route Manager
-// ============================================================================
 
 export class SolanaWarpRouteManager {
   // Hyperlane program addresses for reference:
@@ -252,9 +244,7 @@ export class SolanaWarpRouteManager {
   }
 }
 
-// ============================================================================
 // Factory Functions
-// ============================================================================
 
 export function createSolanaInfra(
   network: 'mainnet' | 'devnet' = 'devnet',
@@ -266,9 +256,7 @@ export function createSolanaWarpRouteManager(): SolanaWarpRouteManager {
   return new SolanaWarpRouteManager()
 }
 
-// ============================================================================
 // Terraform Config Generator
-// ============================================================================
 
 export function generateSolanaTerraformConfig(
   config: SolanaTerraformConfig,

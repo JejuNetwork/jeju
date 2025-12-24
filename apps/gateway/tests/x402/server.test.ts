@@ -4,11 +4,29 @@
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { getServiceName } from '@jejunetwork/shared'
-import { resetConfig } from '../../src/x402/config'
-import { createServer } from '../../src/x402/server'
-import { clearNonceCache } from '../../src/x402/services/nonce-manager'
+import { resetConfig } from '../../api/x402/config'
+import { createServer } from '../../api/x402/server'
+import { clearNonceCache } from '../../api/x402/services/nonce-manager'
 
 const app = createServer()
+
+// Helper to make requests using Elysia's handle() method
+async function request(
+  path: string,
+  options?: {
+    method?: string
+    headers?: Record<string, string>
+    body?: string
+  },
+): Promise<Response> {
+  const url = `http://localhost${path}`
+  const req = new Request(url, {
+    method: options?.method || 'GET',
+    headers: options?.headers,
+    body: options?.body,
+  })
+  return app.handle(req)
+}
 
 describe('Health Endpoints', () => {
   beforeAll(() => {
@@ -21,7 +39,7 @@ describe('Health Endpoints', () => {
   })
 
   test('GET / returns service info', async () => {
-    const res = await app.request('/')
+    const res = await request('/')
     expect(res.status).toBe(200)
 
     const body = await res.json()
@@ -34,7 +52,7 @@ describe('Health Endpoints', () => {
   })
 
   test('GET /health returns ok', async () => {
-    const res = await app.request('/health')
+    const res = await request('/health')
     // May return 503 if RPC is not available, but should have valid JSON
     const body = await res.json()
     expect(body.status).toBeDefined()
@@ -42,7 +60,7 @@ describe('Health Endpoints', () => {
   })
 
   test('GET /ready returns readiness status', async () => {
-    const res = await app.request('/ready')
+    const res = await request('/ready')
     const body = await res.json()
     expect(body.status).toBeDefined()
     expect(body.timestamp).toBeDefined()
@@ -51,7 +69,7 @@ describe('Health Endpoints', () => {
 
 describe('Supported Schemes Endpoint', () => {
   test('GET /supported returns supported schemes', async () => {
-    const res = await app.request('/supported')
+    const res = await request('/supported')
     expect(res.status).toBe(200)
 
     const body = await res.json()
@@ -62,7 +80,7 @@ describe('Supported Schemes Endpoint', () => {
   })
 
   test('GET /supported includes jeju network with both exact and upto schemes', async () => {
-    const res = await app.request('/supported')
+    const res = await request('/supported')
     const body = await res.json()
 
     const jejuSchemes = body.kinds.filter(
@@ -82,7 +100,7 @@ describe('Supported Schemes Endpoint', () => {
   })
 
   test('GET /supported/networks returns network details', async () => {
-    const res = await app.request('/supported/networks')
+    const res = await request('/supported/networks')
     expect(res.status).toBe(200)
 
     const body = await res.json()
@@ -96,7 +114,7 @@ describe('Supported Schemes Endpoint', () => {
   })
 
   test('GET /supported/tokens/:network returns tokens', async () => {
-    const res = await app.request('/supported/tokens/jeju')
+    const res = await request('/supported/tokens/jeju')
     expect(res.status).toBe(200)
 
     const body = await res.json()
@@ -112,7 +130,7 @@ describe('Supported Schemes Endpoint', () => {
   })
 
   test('GET /supported/tokens/:network returns 400 for invalid network', async () => {
-    const res = await app.request('/supported/tokens/invalid-network')
+    const res = await request('/supported/tokens/invalid-network')
     expect(res.status).toBe(400)
 
     const body = await res.json()
@@ -122,7 +140,7 @@ describe('Supported Schemes Endpoint', () => {
 
 describe('Verify Endpoint', () => {
   test('POST /verify returns 400 for invalid JSON', async () => {
-    const res = await app.request('/verify', {
+    const res = await request('/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: 'not json',
@@ -135,7 +153,7 @@ describe('Verify Endpoint', () => {
   })
 
   test('POST /verify returns 400 for missing paymentHeader', async () => {
-    const res = await app.request('/verify', {
+    const res = await request('/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -152,7 +170,7 @@ describe('Verify Endpoint', () => {
   })
 
   test('POST /verify returns 400 for missing paymentRequirements', async () => {
-    const res = await app.request('/verify', {
+    const res = await request('/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -172,7 +190,7 @@ describe('Verify Endpoint', () => {
   })
 
   test('POST /verify returns 400 for unsupported version', async () => {
-    const res = await app.request('/verify', {
+    const res = await request('/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -192,7 +210,7 @@ describe('Verify Endpoint', () => {
 
 describe('Settle Endpoint', () => {
   test('POST /settle returns 400 for invalid JSON', async () => {
-    const res = await app.request('/settle', {
+    const res = await request('/settle', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: 'not json',
@@ -205,7 +223,7 @@ describe('Settle Endpoint', () => {
   })
 
   test('POST /settle returns 400 for missing paymentHeader', async () => {
-    const res = await app.request('/settle', {
+    const res = await request('/settle', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -222,7 +240,7 @@ describe('Settle Endpoint', () => {
   })
 
   test('POST /settle returns 400 for missing paymentRequirements', async () => {
-    const res = await app.request('/settle', {
+    const res = await request('/settle', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -244,7 +262,7 @@ describe('Settle Endpoint', () => {
 
 describe('Error Handling', () => {
   test('returns 404 for unknown routes', async () => {
-    const res = await app.request('/unknown/route')
+    const res = await request('/unknown/route')
     expect(res.status).toBe(404)
 
     const body = await res.json()
@@ -252,7 +270,7 @@ describe('Error Handling', () => {
   })
 
   test('CORS headers are set', async () => {
-    const res = await app.request('/', {
+    const res = await request('/', {
       method: 'OPTIONS',
     })
 

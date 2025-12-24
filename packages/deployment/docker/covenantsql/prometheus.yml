@@ -1,0 +1,40 @@
+# Prometheus Configuration for CQL Cluster Monitoring
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'cql-localnet'
+
+scrape_configs:
+  # Block Producer metrics
+  - job_name: 'cql-block-producer'
+    static_configs:
+      - targets: ['cql-bp:9100']
+        labels:
+          role: 'block-producer'
+          node_id: 'bp-001'
+
+  # Miner nodes metrics
+  - job_name: 'cql-miners'
+    static_configs:
+      - targets:
+          - 'cql-miner-1:9100'
+          - 'cql-miner-2:9100'
+          - 'cql-miner-3:9100'
+        labels:
+          role: 'miner'
+
+  # HAProxy metrics
+  - job_name: 'cql-haproxy'
+    static_configs:
+      - targets: ['cql-lb:8080']
+        labels:
+          role: 'load-balancer'
+    metrics_path: /stats
+    params:
+      format: ['prometheus']
+
+# Alerting rules
+rule_files:
+  - /etc/prometheus/rules/*.yml

@@ -1,13 +1,4 @@
-/**
- * fork command - Fork and deploy your own network
- *
- * Creates a complete network deployment with:
- * - Custom branding (name, tagline, colors)
- * - Chain configuration
- * - All core contracts
- * - Federation registration
- * - Cross-chain trust
- */
+/** Fork and deploy your own network */
 
 import type { Dirent } from 'node:fs'
 import {
@@ -252,7 +243,6 @@ export const forkCommand = new Command('fork')
 
     mkdirSync(outputDir, { recursive: true })
 
-    // Step 1: Generate branding config
     logger.subheader('Creating Your Network')
     console.log('')
 
@@ -272,11 +262,9 @@ export const forkCommand = new Command('fork')
       JSON.stringify(branding, null, 2),
     )
 
-    // Step 2: Generate operator keys
     console.log('🔑 Generating operator keys...')
     const keys = await generateOperatorKeys(outputDir)
 
-    // Step 3: Generate genesis
     console.log('⛓️  Generating genesis configuration...')
     const genesis = generateGenesis(config, keys)
     writeFileSync(
@@ -284,7 +272,6 @@ export const forkCommand = new Command('fork')
       JSON.stringify(genesis, null, 2),
     )
 
-    // Step 4: Generate chain config
     console.log('⚙️  Generating chain configuration...')
     const chainConfig = generateChainConfig(config, l1Config, branding)
     writeFileSync(
@@ -292,7 +279,6 @@ export const forkCommand = new Command('fork')
       JSON.stringify(chainConfig, null, 2),
     )
 
-    // Step 5: Generate federation config
     console.log('🌐 Generating federation configuration...')
     const federationConfig = generateFederationConfig(config, l1Config)
     writeFileSync(
@@ -300,19 +286,15 @@ export const forkCommand = new Command('fork')
       JSON.stringify(federationConfig, null, 2),
     )
 
-    // Step 6: Generate deploy scripts
     console.log('📜 Generating deployment scripts...')
     await generateDeployScripts(outputDir, config, branding)
 
-    // Step 7: Generate K8s manifests
     console.log('☸️  Generating Kubernetes manifests...')
     await generateK8sManifests(outputDir, config)
 
-    // Step 8: Create README
     console.log('📖 Creating setup guide...')
     generateReadme(outputDir, config, branding, keys)
 
-    // Summary
     console.log('')
     logger.header('YOUR NETWORK IS READY')
 

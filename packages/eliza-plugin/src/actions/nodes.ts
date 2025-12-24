@@ -9,6 +9,7 @@ import type {
   Memory,
   State,
 } from '@elizaos/core'
+import type { JsonRecord } from '@jejunetwork/sdk'
 import { JEJU_SERVICE_NAME, type JejuService } from '../service'
 import {
   expectArray,
@@ -123,7 +124,7 @@ export const getNodeStatsAction: Action = {
       response,
       'Node stats API returned no data',
     )
-    const stats = validateNodeStats(responseData as Record<string, unknown>)
+    const stats = validateNodeStats(responseData as JsonRecord)
 
     callback?.({
       text: `Network Node Statistics:

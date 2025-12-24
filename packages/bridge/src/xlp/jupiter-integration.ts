@@ -3,7 +3,7 @@
  * Enables instant Solana swaps as part of cross-chain liquidity operations
  */
 
-import { EventEmitter } from 'node:events'
+import { EventEmitter } from '@jejunetwork/shared'
 import { Connection, Keypair, VersionedTransaction } from '@solana/web3.js'
 import { createLogger } from '../utils/logger.js'
 import {
@@ -29,7 +29,9 @@ const RETRY_CONFIG = {
 /**
  * Check if error is retryable (network errors, 5xx, rate limits)
  */
-function isRetryableError(error: unknown): boolean {
+function isRetryableError(
+  error: Error | TypeError | string | Record<string, unknown>,
+): boolean {
   if (error instanceof TypeError) {
     return true // Network errors (fetch failed, connection refused)
   }
@@ -87,7 +89,7 @@ async function fetchWithRetry(
       lastError = error as Error
 
       if (
-        !isRetryableError(error) ||
+        !isRetryableError(lastError) ||
         attempt === RETRY_CONFIG.maxAttempts - 1
       ) {
         throw error

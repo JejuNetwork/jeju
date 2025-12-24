@@ -1,8 +1,3 @@
-/**
- * Staking E2E Tests
- * Tests staking UI elements and interactions
- */
-
 import { expect, test } from '@playwright/test'
 
 const BASE_URL = 'http://localhost:1420'

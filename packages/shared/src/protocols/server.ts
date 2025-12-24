@@ -28,7 +28,7 @@ import {
   verifyERC8004Identity,
 } from './middleware'
 
-// Re-export helpers for convenience
+// Skill result helpers
 export { configureX402, skillError, skillRequiresPayment, skillSuccess }
 
 // Default allowed origins for CORS
@@ -107,7 +107,7 @@ export interface A2ASkill {
   }
 }
 
-// Note: For AgentCard type, import from './a2a' or use the re-export from protocols/index
+// Note: For AgentCard type, import from './a2a'
 
 export interface MCPResource {
   uri: string

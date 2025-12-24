@@ -1,13 +1,8 @@
 /**
- * @module types/funding
- * @description Shared types for deep funding system
- * Used by contracts, services, and frontend
+ * Deep funding system types.
  */
 
 import type { Address } from 'viem'
-
-// ============ Contributor Types ============
-
 export type ContributorType = 'INDIVIDUAL' | 'ORGANIZATION' | 'PROJECT'
 export const CONTRIBUTOR_TYPES: ContributorType[] = [
   'INDIVIDUAL',
@@ -85,9 +80,6 @@ export interface DAOContribution {
   paymentRequestCount: number
   lastContributionAt: number
 }
-
-// ============ Payment Request Types ============
-
 export type PaymentCategory =
   | 'MARKETING'
   | 'COMMUNITY_MANAGEMENT'
@@ -267,9 +259,6 @@ export interface DAOPaymentConfig {
   allowRetroactive: boolean
   retroactiveMaxAge: number
 }
-
-// ============ Deep Funding Types ============
-
 export interface FeeDistributionConfig {
   treasuryBps: number
   contributorPoolBps: number
@@ -337,9 +326,6 @@ export interface WeightVote {
   reputation: number
   votedAt: number
 }
-
-// ============ Dependency Scanner Types ============
-
 export type RegistryType = 'npm' | 'pypi' | 'cargo' | 'go' | 'unknown'
 export const REGISTRY_TYPES: RegistryType[] = [
   'npm',
@@ -402,9 +388,6 @@ export interface ScanResult {
   unregisteredDependencies: number
   totalWeight: number
 }
-
-// ============ Funding Constants ============
-
 export const MAX_BPS = 10000
 export const DEPTH_DECAY_BPS = 2000 // 20% decay per level
 export const MAX_DELIBERATION_INFLUENCE_BPS = 1000 // 10% max influence
@@ -412,9 +395,6 @@ export const MIN_WEIGHT_FOR_DISTRIBUTION = 10
 export const DEFAULT_EPOCH_DURATION = 30 * 24 * 60 * 60 // 30 days in seconds
 export const COUNCIL_REVIEW_PERIOD = 7 * 24 * 60 * 60 // 7 days
 export const DEFAULT_SUPERMAJORITY_BPS = 6700 // 67%
-
-// ============ Utility Functions ============
-
 export function getContributorTypeIndex(type: ContributorType): number {
   return CONTRIBUTOR_TYPES.indexOf(type)
 }

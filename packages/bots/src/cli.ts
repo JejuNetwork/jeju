@@ -11,8 +11,6 @@ import { HistoricalDataFetcher } from './simulation/data-fetcher'
 import { PortfolioSimulator } from './simulation/portfolio-simulator'
 import type { Token } from './types'
 
-// ============ CLI Argument Schemas ============
-
 const BacktestArgsSchema = z.object({
   strategy: z.enum(['momentum', 'mean-reversion', 'volatility', 'composite']),
   startDate: z.string().transform((s) => {

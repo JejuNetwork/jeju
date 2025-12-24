@@ -16,6 +16,7 @@
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import type { NetworkType } from '@jejunetwork/types'
 import { $ } from 'bun'
 import {
   type Address,
@@ -36,8 +37,6 @@ import type { ConstructorArg } from '../shared/contract-types'
 
 const ROOT = join(import.meta.dir, '../..')
 const CONTRACTS_DIR = join(ROOT, 'packages/contracts')
-
-type NetworkType = 'localnet' | 'testnet' | 'mainnet'
 
 const NETWORK = (process.env.NETWORK ||
   process.argv[2] ||
@@ -99,6 +98,7 @@ async function deployContract(
   publicClient: ReturnType<typeof createPublicClient>,
   walletClient: ReturnType<typeof createWalletClient>,
   account: PrivateKeyAccount,
+  chain: Chain,
   name: string,
   args: ConstructorArg[] = [],
 ): Promise<Address> {
@@ -126,6 +126,7 @@ async function deployContract(
   })
 
   const hash = await walletClient.sendTransaction({
+    chain,
     data: deployData,
     account,
   })
@@ -216,6 +217,7 @@ async function main() {
     hubPublicClient,
     hubWalletClient,
     account,
+    hubChain,
     'NetworkRegistry',
     [account.address],
   )
@@ -226,6 +228,7 @@ async function main() {
     localPublicClient,
     localWalletClient,
     account,
+    localChain,
     'FederatedIdentity',
     [
       BigInt(config.local.chainId),
@@ -240,6 +243,7 @@ async function main() {
     localPublicClient,
     localWalletClient,
     account,
+    localChain,
     'FederatedSolver',
     [
       BigInt(config.local.chainId),
@@ -254,6 +258,7 @@ async function main() {
     localPublicClient,
     localWalletClient,
     account,
+    localChain,
     'FederatedLiquidity',
     [
       BigInt(config.local.chainId),

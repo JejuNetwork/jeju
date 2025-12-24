@@ -1,17 +1,22 @@
-/**
- * OAuth3 Registry Seeding Script
- *
- * Seeds the OAuth3 registry with:
- * - The example as an OAuth3 application
- * - A mock TEE node for local development
- *
- * Run with: bun run seed
- */
-
 import { getNetworkName } from '@jejunetwork/config'
 import { AuthProvider, TEEProvider } from '@jejunetwork/oauth3'
-import type { Address, Hex } from 'viem'
-import { getRegistryService } from '../src/services/registry'
+import { expectAddress, expectHex } from '@jejunetwork/types'
+import { getRegistryService } from '../api/services/registry'
+
+// Validated Anvil dev addresses
+const DEV_DEPLOYER = expectAddress(
+  '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+  'DEV_DEPLOYER',
+)
+const DEV_COUNCIL = expectAddress(
+  '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+  'DEV_COUNCIL',
+)
+const DEV_TEE_OPERATOR = expectAddress(
+  '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',
+  'DEV_TEE_OPERATOR',
+)
+const MOCK_HEX_ZERO = expectHex('0x00', 'MOCK_HEX_ZERO')
 
 async function seedOAuth3Registry() {
   console.log('\n🌱 Seeding OAuth3 Registry for Example App...\n')
@@ -32,22 +37,28 @@ async function seedOAuth3Registry() {
   const frontendPort = process.env.FRONTEND_PORT || '4501'
   const teeAgentPort = process.env.OAUTH3_TEE_AGENT_PORT || '8004'
 
-  // Dev wallet addresses (Anvil default accounts)
   const devWallets = {
-    deployer: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address,
-    council: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8' as Address,
-    teeOperator: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC' as Address,
+    deployer: DEV_DEPLOYER,
+    council: DEV_COUNCIL,
+    teeOperator: DEV_TEE_OPERATOR,
   }
 
-  // 1. Register the Example App as an OAuth3 App
   console.log(`📝 Registering OAuth3 App: ${appId}`)
   console.log(`   Owner: ${devWallets.deployer}`)
   console.log(
     `   Redirect URI: http://localhost:${frontendPort}/oauth3/callback`,
   )
 
+  // Convert app ID to hex if needed
+  const appIdHex = appId.startsWith('0x')
+    ? expectHex(appId, 'App ID')
+    : expectHex(
+        `0x${Buffer.from(appId).toString('hex').padEnd(64, '0')}`,
+        'App ID hex conversion',
+      )
+
   const appTx = await registry.registerApp({
-    appId: appId as Hex,
+    appId: appIdHex,
     name: 'Decentralized App Template',
     description:
       'A template for building fully decentralized applications on Jeju Network',
@@ -76,7 +87,6 @@ async function seedOAuth3Registry() {
 
   console.log(`   ✅ App registered (tx: ${appTx.slice(0, 18)}...)\n`)
 
-  // 2. Register a mock TEE Node
   const teeEndpoint = `http://localhost:${teeAgentPort}`
   console.log(`📝 Registering TEE Node`)
   console.log(`   Endpoint: ${teeEndpoint}`)
@@ -87,21 +97,20 @@ async function seedOAuth3Registry() {
     endpoint: teeEndpoint,
     provider: TEEProvider.SIMULATED,
     attestation: {
-      quote: '0x00' as Hex,
-      measurement: '0x00' as Hex,
-      reportData: '0x00' as Hex,
+      quote: MOCK_HEX_ZERO,
+      measurement: MOCK_HEX_ZERO,
+      reportData: MOCK_HEX_ZERO,
       timestamp: Date.now(),
       provider: TEEProvider.SIMULATED,
       verified: true,
     },
-    publicKey: '0x00' as Hex,
+    publicKey: MOCK_HEX_ZERO,
     stake: BigInt(1e18), // 1 ETH stake
     active: true,
   })
 
   console.log(`   ✅ TEE Node registered (tx: ${nodeTx.slice(0, 18)}...)\n`)
 
-  // 3. Verify registration
   console.log('🔍 Verifying registration...')
 
   const app = await registry.getApp(appId)
@@ -120,7 +129,6 @@ async function seedOAuth3Registry() {
     console.log('   ⚠️  TEE Node not found (may need on-chain deployment)')
   }
 
-  // Health check
   const healthy = await registry.isHealthy()
   console.log(
     `\n🏥 Registry Health: ${healthy ? '✅ Healthy' : '❌ Unhealthy'}`,
@@ -135,7 +143,6 @@ async function seedOAuth3Registry() {
   console.log(`  3. Visit: http://localhost:${frontendPort}\n`)
 }
 
-// Run seeding
 seedOAuth3Registry().catch((error) => {
   console.error('❌ Seeding failed:', error)
   process.exit(1)

@@ -11,30 +11,30 @@
 export {
   ConnectedAccount,
   type ConnectedAccountProps,
-} from './components/ConnectedAccount.js'
+} from './components/ConnectedAccount'
 // UI Components
-export { LoginButton, type LoginButtonProps } from './components/LoginButton.js'
-export { LoginModal, type LoginModalProps } from './components/LoginModal.js'
-export { MFASetup, type MFASetupProps } from './components/MFASetup.js'
+export { LoginButton, type LoginButtonProps } from './components/LoginButton'
+export { LoginModal, type LoginModalProps } from './components/LoginModal'
+export { MFASetup, type MFASetupProps } from './components/MFASetup'
 export {
   type UseCredentialsReturn,
   useCredentials,
-} from './hooks/useCredentials.js'
+} from './hooks/useCredentials'
 export {
   type UseLoginOptions,
   type UseLoginReturn,
   useLogin,
-} from './hooks/useLogin.js'
+} from './hooks/useLogin'
 export {
   type UseMFAOptions,
   type UseMFAReturn,
   useMFA,
-} from './hooks/useMFA.js'
-export { type UseSessionReturn, useSession } from './hooks/useSession.js'
+} from './hooks/useMFA'
+export { type UseSessionReturn, useSession } from './hooks/useSession'
 export {
   type OAuth3ContextValue,
   OAuth3Provider,
   type OAuth3ProviderProps,
   useOAuth3,
   useOAuth3Client,
-} from './provider.js'
+} from './provider'

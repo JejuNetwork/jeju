@@ -1,11 +1,4 @@
-/**
- * superchain command - OP Superchain integration
- *
- * Commands:
- *   jeju superchain check    - Check Superchain compatibility
- *   jeju superchain register - Register with Superchain registry
- *   jeju superchain status   - Show Superchain status
- */
+/** OP Superchain integration */
 
 import { getNetworkDisplayName } from '@jejunetwork/config'
 import chalk from 'chalk'
@@ -61,10 +54,6 @@ const SUPERCHAIN_REQUIREMENTS = {
 export const superchainCommand = new Command('superchain').description(
   'OP Superchain integration',
 )
-
-// ============================================================================
-// check - Check Superchain compatibility
-// ============================================================================
 
 superchainCommand
   .command('check')
@@ -130,10 +119,6 @@ superchainCommand
     }
   })
 
-// ============================================================================
-// register - Register with Superchain registry
-// ============================================================================
-
 superchainCommand
   .command('register')
   .description('Register with Superchain registry')
@@ -173,10 +158,6 @@ superchainCommand
     console.log('  3. Fork superchain-registry and create PR')
     console.log('  4. Wait for Optimism Foundation review')
   })
-
-// ============================================================================
-// status - Show Superchain status
-// ============================================================================
 
 superchainCommand
   .command('status')
@@ -221,10 +202,6 @@ superchainCommand
       ),
     )
   })
-
-// ============================================================================
-// Helper Functions
-// ============================================================================
 
 function checkRequirement(key: string): 'pass' | 'warn' | 'fail' {
   // In production, would actually check deployments

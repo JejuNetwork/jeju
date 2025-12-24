@@ -81,9 +81,7 @@ async function main() {
     ],
   }
 
-  // ===================================================================
   // TICK 1: First autonomous tick
-  // ===================================================================
   console.log('\n--- TICK 1: First Autonomous Tick ---')
   console.log('Goal: Monitor the network and report status')
 
@@ -110,9 +108,7 @@ async function main() {
   // Short delay between ticks
   await new Promise((r) => setTimeout(r, 1000))
 
-  // ===================================================================
   // TICK 2: Second tick - should remember previous context
-  // ===================================================================
   console.log('\n--- TICK 2: Second Autonomous Tick (Memory Check) ---')
   console.log('Verifying agent recalls previous tick results...')
 
@@ -145,9 +141,7 @@ async function main() {
     }
   }
 
-  // ===================================================================
   // Check memory between ticks
-  // ===================================================================
   console.log('\n--- Memory Verification ---')
   const memories = runtime.getMemories('autonomous-tick', 20)
   console.log(`Messages in autonomous room: ${memories.length}`)
@@ -162,9 +156,7 @@ async function main() {
     console.log('⚠️  Memory may not be persisting correctly')
   }
 
-  // ===================================================================
   // SUMMARY
-  // ===================================================================
   console.log('\n=== TEST SUMMARY ===')
   console.log(`Agent: ${character.name} (${agentId})`)
   console.log(

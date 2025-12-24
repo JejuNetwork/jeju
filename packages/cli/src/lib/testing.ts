@@ -1,6 +1,4 @@
-/**
- * Test orchestration utilities
- */
+/** Test orchestration utilities */
 
 import {
   existsSync,

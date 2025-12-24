@@ -16,9 +16,6 @@ import {
   type Message,
   MessageType,
 } from './message-builder'
-
-// ============ Types ============
-
 export interface CastOptions {
   /** Reply to this cast */
   replyTo?: { fid: number; hash: Hex }
@@ -39,9 +36,6 @@ export interface CastBuilderConfig {
   signerPrivateKey: Uint8Array
   network?: 'mainnet' | 'testnet' | 'devnet'
 }
-
-// ============ Cast Builder Class ============
-
 export class CastBuilder {
   private readonly fid: number
   private readonly signerPrivateKey: Uint8Array
@@ -211,9 +205,6 @@ export class CastBuilder {
     })
   }
 }
-
-// ============ Standalone Functions ============
-
 /**
  * Create a simple cast message (convenience function)
  */
@@ -265,9 +256,6 @@ export async function createDeleteCast(
   })
   return builder.buildDeleteCast(targetHash)
 }
-
-// ============ Text Processing Utilities ============
-
 /**
  * Parse mentions from text and return mention data
  * Format: @username becomes @fid at the byte position

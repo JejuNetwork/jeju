@@ -33,6 +33,19 @@
     },
     {
       "type": "function",
+      "name": "LOCAL_CHAIN_ID",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
       "name": "allSolverIds",
       "inputs": [
         {
@@ -347,19 +360,6 @@
     },
     {
       "type": "function",
-      "name": "localChainId",
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "",
-          "type": "uint256",
-          "internalType": "uint256"
-        }
-      ],
-      "stateMutability": "view"
-    },
-    {
-      "type": "function",
       "name": "localSolverRegistry",
       "inputs": [],
       "outputs": [
@@ -493,6 +493,32 @@
       "inputs": [
         {
           "name": "_governance",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "setLocalSolverRegistry",
+      "inputs": [
+        {
+          "name": "_registry",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "setNetworkRegistry",
+      "inputs": [
+        {
+          "name": "_networkRegistry",
           "type": "address",
           "internalType": "address"
         }
@@ -642,6 +668,63 @@
     },
     {
       "type": "event",
+      "name": "GovernanceUpdated",
+      "inputs": [
+        {
+          "name": "oldGovernance",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "newGovernance",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "NetworkRegistryUpdated",
+      "inputs": [
+        {
+          "name": "oldRegistry",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "newRegistry",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "OracleUpdated",
+      "inputs": [
+        {
+          "name": "oldOracle",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "newOracle",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
       "name": "RouteAdded",
       "inputs": [
         {
@@ -736,6 +819,11 @@
     },
     {
       "type": "error",
+      "name": "AlreadyExists",
+      "inputs": []
+    },
+    {
+      "type": "error",
       "name": "ECDSAInvalidSignature",
       "inputs": []
     },
@@ -768,7 +856,27 @@
     },
     {
       "type": "error",
+      "name": "InvalidSignature",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "NotActive",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "NotFound",
+      "inputs": []
+    },
+    {
+      "type": "error",
       "name": "NotGovernance",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "NotOracle",
       "inputs": []
     },
     {
@@ -793,7 +901,17 @@
     },
     {
       "type": "error",
+      "name": "Unauthorized",
+      "inputs": []
+    },
+    {
+      "type": "error",
       "name": "UnauthorizedReporter",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "ZeroAddress",
       "inputs": []
     }
   ]

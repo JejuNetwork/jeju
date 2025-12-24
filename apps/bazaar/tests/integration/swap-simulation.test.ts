@@ -21,9 +21,7 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 
-// =============================================================================
 // CONFIGURATION
-// =============================================================================
 
 const RPC_URL = process.env.L2_RPC_URL || 'http://localhost:6546'
 const CHAIN_ID = 420691 // network localnet chain ID
@@ -40,9 +38,7 @@ const localnet = {
   rpcUrls: { default: { http: [RPC_URL] } },
 }
 
-// =============================================================================
 // ABIS
-// =============================================================================
 
 const WETH_ABI = parseAbi([
   'function deposit() payable',
@@ -51,9 +47,7 @@ const WETH_ABI = parseAbi([
   'function approve(address spender, uint256 amount) returns (bool)',
 ])
 
-// =============================================================================
 // SETUP
-// =============================================================================
 
 let publicClient: PublicClient
 let walletClient: WalletClient
@@ -109,9 +103,7 @@ beforeAll(async () => {
   console.log(`   PositionManager: ${positionManager || 'NOT DEPLOYED'}`)
 })
 
-// =============================================================================
 // TESTS: WETH OPERATIONS
-// =============================================================================
 
 describe('WETH Operations', () => {
   test('should verify WETH contract exists', async () => {
@@ -191,9 +183,7 @@ describe('WETH Operations', () => {
   })
 })
 
-// =============================================================================
 // TESTS: SWAP EXECUTION
-// =============================================================================
 
 describe('Swap Execution', () => {
   test('should verify swap router is callable', async () => {
@@ -230,9 +220,7 @@ describe('Swap Execution', () => {
   })
 })
 
-// =============================================================================
 // TESTS: FEE VERIFICATION
-// =============================================================================
 
 describe('Fee Verification', () => {
   test('should verify 0.3% fee tier', async () => {
@@ -288,9 +276,7 @@ describe('Fee Verification', () => {
   })
 })
 
-// =============================================================================
 // TESTS: SLIPPAGE PROTECTION
-// =============================================================================
 
 describe('Slippage Protection', () => {
   test('should calculate minimum output with 0.5% slippage', async () => {
@@ -322,9 +308,7 @@ describe('Slippage Protection', () => {
   })
 })
 
-// =============================================================================
 // TESTS: PRICE IMPACT
-// =============================================================================
 
 describe('Price Impact', () => {
   test('should estimate price impact for small trade', async () => {
@@ -359,9 +343,7 @@ describe('Price Impact', () => {
   })
 })
 
-// =============================================================================
 // SUMMARY
-// =============================================================================
 
 describe('Swap Simulation Summary', () => {
   test('print summary', async () => {

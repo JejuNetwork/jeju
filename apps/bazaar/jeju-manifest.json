@@ -21,7 +21,7 @@
     }
   },
   "commands": {
-    "dev": "bun run scripts/dev.ts",
+    "dev": "bun run dev",
     "dev:api": "bun --watch api/server.ts",
     "build": "bun run scripts/build.ts",
     "build:worker": "bun run scripts/build-worker.ts",
@@ -30,6 +30,7 @@
     "deploy": "bun run scripts/deploy.ts"
   },
   "ports": {
+    "main": 4006,
     "frontend": 4006,
     "api": 4007
   },
@@ -71,7 +72,7 @@
     "worker": {
       "name": "bazaar-api",
       "entrypoint": "api/worker.ts",
-      "compatibilityDate": "2024-01-01",
+      "compatibilityDate": "2025-06-01",
       "tee": {
         "required": false,
         "preferred": true,
@@ -107,12 +108,40 @@
     }
   },
   "decentralization": {
+    "worker": {
+      "name": "bazaar-api",
+      "entrypoint": "api/worker.ts",
+      "runtime": "workerd",
+      "memory": 256,
+      "timeout": 60000,
+      "compatibilityDate": "2025-06-01",
+      "bindings": {
+        "BAZAAR_CACHE": { "type": "kv", "name": "bazaar-cache-kv" }
+      },
+      "secrets": ["DATABASE_URL", "PRIVATE_KEY", "RPC_URL"],
+      "routes": [
+        { "pattern": "/api/*" },
+        { "pattern": "/health" }
+      ],
+      "tee": {
+        "required": false,
+        "preferred": true,
+        "platforms": ["dstack", "phala"]
+      }
+    },
     "frontend": {
+      "buildDir": "dist/static",
+      "buildCommand": "bun run build",
+      "spa": true,
+      "jnsName": "bazaar.jeju",
       "ipfs": true,
       "arweave": true,
-      "jnsName": "bazaar.jeju",
-      "buildDir": "dist/static",
-      "spa": true
+      "cacheRules": [
+        { "pattern": "/assets/**", "ttl": 31536000, "immutable": true },
+        { "pattern": "/*.js", "ttl": 86400 },
+        { "pattern": "/*.css", "ttl": 86400 },
+        { "pattern": "/**/*.html", "ttl": 60, "staleWhileRevalidate": 3600 }
+      ]
     },
     "robustness": {
       "multiOrigin": true,
@@ -123,19 +152,13 @@
   },
   "testing": {
     "unit": {
-      "command": "bun run test:unit",
+      "command": "bun test tests/",
       "timeout": 120000
     },
     "e2e": {
-      "command": "bunx playwright test tests/e2e",
+      "command": "bunx playwright test tests/e2e/",
       "timeout": 300000,
       "requiresChain": true
-    },
-    "integration": {
-      "command": "bun run test:integration",
-      "timeout": 600000,
-      "requiresChain": true,
-      "requiresDWS": true
     },
     "services": ["contracts", "indexer", "dws"]
   }

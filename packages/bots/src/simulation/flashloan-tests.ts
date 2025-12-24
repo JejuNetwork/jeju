@@ -13,9 +13,6 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { arbitrum, base, mainnet } from 'viem/chains'
-
-// ============ Types ============
-
 export interface FlashLoanTestResult {
   testName: string
   chainId: number
@@ -37,9 +34,6 @@ export interface FlashLoanTestConfig {
   aavePoolAddress?: Address
   balancerVaultAddress?: Address
 }
-
-// ============ Constants ============
-
 // Aave V3 Pool addresses
 const AAVE_V3_POOLS: Record<number, Address> = {
   1: '0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2',
@@ -85,9 +79,6 @@ const _ERC20_ABI = parseAbi([
 
 // Flash loan receiver contract bytecode (minimal test receiver)
 const _TEST_RECEIVER_BYTECODE = '0x' // Would contain actual bytecode
-
-// ============ Anvil Manager ============
-
 class AnvilManager {
   private process: ChildProcess | null = null
   private port: number
@@ -149,9 +140,6 @@ class AnvilManager {
     }
   }
 }
-
-// ============ Flash Loan Tester ============
-
 export class FlashLoanTester {
   private config: FlashLoanTestConfig
   private anvil: AnvilManager | null = null
@@ -564,9 +552,6 @@ export class FlashLoanTester {
       })
     }
   }
-
-  // ============ Helpers ============
-
   private getChain(chainId: number) {
     switch (chainId) {
       case 1:
@@ -623,9 +608,6 @@ export class FlashLoanTester {
     }
   }
 }
-
-// ============ Convenience Export ============
-
 export async function runFlashLoanTests(
   config: FlashLoanTestConfig,
 ): Promise<FlashLoanTestResult[]> {

@@ -5,18 +5,12 @@
  * Provides Elysia plugins and generic functions.
  */
 
+import { banManagerAbi } from '@jejunetwork/contracts'
 import { Elysia } from 'elysia'
-import {
-  type Address,
-  type Chain,
-  createPublicClient,
-  type Hex,
-  http,
-  type PublicClient,
-  type Transport,
-} from 'viem'
+import type { Address, Chain, Hex, PublicClient, Transport } from 'viem'
+import { createPublicClient, http } from 'viem'
 import { base, baseSepolia } from 'viem/chains'
-import { BAN_MANAGER_ABI } from '../api/abis'
+import { safeReadContract } from '../viem'
 
 export interface BanCheckConfig {
   banManagerAddress: Address
@@ -24,7 +18,7 @@ export interface BanCheckConfig {
   rpcUrl?: string
   network?: 'mainnet' | 'testnet' | 'localnet'
   cacheTtlMs?: number
-  failClosed?: boolean // If true, block on errors (security-first)
+  failClosed?: boolean
 }
 
 export interface BanStatus {
@@ -47,27 +41,19 @@ interface CacheEntry {
   timestamp: number
 }
 
-// Bounded cache to prevent memory exhaustion
 const MAX_CACHE_SIZE = 10000
 const cache = new Map<string, CacheEntry>()
 
-/**
- * Add entry to cache with LRU-style eviction when full
- */
 function setCacheEntry(key: string, entry: CacheEntry): void {
-  // If cache is full, evict oldest entries
   if (cache.size >= MAX_CACHE_SIZE) {
     const entries = Array.from(cache.entries()).sort(
       (a, b) => a[1].timestamp - b[1].timestamp,
     )
-
-    // Remove oldest 10% of entries
     const toRemove = Math.ceil(entries.length * 0.1)
     for (let i = 0; i < toRemove; i++) {
       cache.delete(entries[i][0])
     }
   }
-
   cache.set(key, entry)
 }
 
@@ -90,8 +76,8 @@ export class BanChecker {
         config.moderationMarketplaceAddress || ('0x0' as Address),
       rpcUrl: config.rpcUrl || defaultRpc,
       network,
-      cacheTtlMs: config.cacheTtlMs || 10000, // 10 seconds default
-      failClosed: config.failClosed ?? true, // Security-first by default
+      cacheTtlMs: config.cacheTtlMs || 10000,
+      failClosed: config.failClosed ?? true,
     }
 
     const chain = network === 'mainnet' ? base : baseSepolia
@@ -101,48 +87,51 @@ export class BanChecker {
     }) as PublicClient<Transport, Chain>
   }
 
-  /**
-   * Check if an address is banned
-   */
   async checkBan(address: Address): Promise<BanCheckResult> {
     const cacheKey = address.toLowerCase()
 
-    // Check cache
     const cached = cache.get(cacheKey)
     if (cached && Date.now() - cached.timestamp < this.config.cacheTtlMs) {
       return cached.result
     }
 
     try {
-      // Check all ban statuses in parallel
+      // Use typed ABI - viem infers return types automatically
       const [isBanned, isOnNotice, banRecord] = await Promise.all([
-        this.publicClient.readContract({
+        safeReadContract<boolean>(this.publicClient, {
           address: this.config.banManagerAddress,
-          abi: BAN_MANAGER_ABI,
+          abi: banManagerAbi,
           functionName: 'isAddressBanned',
           args: [address],
         }),
-        this.publicClient.readContract({
+        safeReadContract<boolean>(this.publicClient, {
           address: this.config.banManagerAddress,
-          abi: BAN_MANAGER_ABI,
+          abi: banManagerAbi,
           functionName: 'isOnNotice',
           args: [address],
         }),
-        this.publicClient.readContract({
+        safeReadContract<{
+          isBanned: boolean
+          reporter: Address
+          timestamp: bigint
+          caseId: bigint
+          reason: string
+          banType: number
+        }>(this.publicClient, {
           address: this.config.banManagerAddress,
-          abi: BAN_MANAGER_ABI,
+          abi: banManagerAbi,
           functionName: 'getAddressBan',
           args: [address],
         }),
       ])
 
       const status: BanStatus = {
-        isBanned: isBanned as boolean,
-        isOnNotice: isOnNotice as boolean,
-        banType: (banRecord as { banType: number }).banType,
-        reason: (banRecord as { reason: string }).reason || '',
-        caseId: (banRecord as { caseId: Hex }).caseId || null,
-        canAppeal: (banRecord as { banType: number }).banType === 3, // PERMANENT
+        isBanned,
+        isOnNotice,
+        banType: banRecord.banType,
+        reason: banRecord.reason || '',
+        caseId: banRecord.caseId || null,
+        canAppeal: banRecord.banType === 3,
       }
 
       const result: BanCheckResult = {
@@ -150,15 +139,12 @@ export class BanChecker {
         status,
       }
 
-      // Update cache (bounded with LRU eviction)
       setCacheEntry(cacheKey, { result, timestamp: Date.now() })
-
       return result
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error'
 
-      // Fail-closed: if we can't verify, block the request
       if (this.config.failClosed) {
         return {
           allowed: false,
@@ -166,7 +152,6 @@ export class BanChecker {
         }
       }
 
-      // Fail-open: allow if we can't verify (less secure)
       return {
         allowed: true,
         error: `Ban check failed (fail-open): ${errorMessage}`,
@@ -174,9 +159,6 @@ export class BanChecker {
     }
   }
 
-  /**
-   * Clear cache for an address (call after ban/unban events)
-   */
   clearCache(address?: Address): void {
     if (address) {
       cache.delete(address.toLowerCase())
@@ -192,9 +174,6 @@ interface RequestBody {
   sender?: string
 }
 
-/**
- * Create Elysia plugin for ban checking
- */
 export function createElysiaBanPlugin(config: BanCheckConfig) {
   const checker = new BanChecker(config)
 
@@ -230,9 +209,6 @@ export function createElysiaBanPlugin(config: BanCheckConfig) {
     })
 }
 
-/**
- * Simple function to check ban status (for custom integrations)
- */
 export async function isBanned(
   address: Address,
   config: BanCheckConfig,
@@ -242,9 +218,6 @@ export async function isBanned(
   return !result.allowed
 }
 
-/**
- * Get full ban status
- */
 export async function getBanStatus(
   address: Address,
   config: BanCheckConfig,

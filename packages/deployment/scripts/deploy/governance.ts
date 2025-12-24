@@ -22,6 +22,7 @@ import {
   type Chain,
   createPublicClient,
   createWalletClient,
+  decodeEventLog,
   encodeDeployData,
   encodeFunctionData,
   formatEther,
@@ -34,12 +35,7 @@ import {
   zeroHash,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import {
-  decodeEventLog,
-  getBalance,
-  getLogs,
-  waitForTransactionReceipt,
-} from 'viem/actions'
+import { waitForTransactionReceipt } from 'viem/actions'
 import {
   expectJson,
   ForgeArtifactSchema,
@@ -166,7 +162,7 @@ async function main() {
   })
 
   console.log(`\nDeployer: ${account.address}`)
-  const balance = await getBalance(publicClient, { address: account.address })
+  const balance = await publicClient.getBalance({ address: account.address })
   console.log(`Balance: ${formatEther(balance)} ETH`)
 
   if (balance < parseEther('0.1')) {
@@ -277,7 +273,7 @@ async function main() {
       const receipt = await waitForTransactionReceipt(publicClient, { hash })
 
       // Parse ProxyCreation event
-      const logs = await getLogs(publicClient, {
+      const logs = await publicClient.getLogs({
         address: network.safeFactory as Address,
         event: SAFE_FACTORY_ABI[1],
         fromBlock: receipt.blockNumber,

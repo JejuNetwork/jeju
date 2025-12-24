@@ -1,25 +1,19 @@
-/**
- * Load Testing Types
- *
- * Comprehensive type definitions for the load testing infrastructure.
- */
-
 export interface LoadTestEndpoint {
   path: string
   method: 'GET' | 'POST' | 'PUT' | 'DELETE'
   body?: Record<string, unknown>
   headers?: Record<string, string>
-  weight: number // 0-1, determines how often this endpoint is hit
+  weight: number
   name?: string
   expectedStatus?: number[]
   timeout?: number
 }
 
 export interface LoadTestThresholds {
-  p50Latency: number // milliseconds
-  p95Latency: number // milliseconds
-  p99Latency: number // milliseconds
-  errorRate: number // 0-1 (e.g., 0.01 = 1%)
+  p50Latency: number
+  p95Latency: number
+  p99Latency: number
+  errorRate: number
   minRps: number
 }
 

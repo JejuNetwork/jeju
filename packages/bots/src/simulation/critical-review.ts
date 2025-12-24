@@ -4,9 +4,6 @@
  * This file identifies placeholder code, validates magic numbers against
  * real-world data, and provides research-backed corrections.
  */
-
-// ============ LARP AUDIT RESULTS ============
-
 export const LARP_AUDIT = {
   /**
    * Files with placeholder/stub implementations that return empty arrays or null
@@ -231,9 +228,6 @@ export const LARP_AUDIT = {
     },
   ],
 }
-
-// ============ VALIDATED CONSTANTS ============
-
 /**
  * Research-backed gas costs (verified Dec 2024)
  */
@@ -413,9 +407,6 @@ export const VALIDATED_MARKET_IMPACT = {
     balancer: 0.9, // Slightly worse
   },
 }
-
-// ============ PRINT AUDIT REPORT ============
-
 export function printAuditReport(): void {
   console.log(`\n${'='.repeat(80)}`)
   console.log('                    CRITICAL LARP AUDIT REPORT')

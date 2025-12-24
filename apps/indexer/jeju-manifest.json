@@ -1,10 +1,10 @@
 {
   "$schema": "../../packages/config/jeju-manifest.schema.json",
   "name": "indexer",
-  "displayName": "Subsquid Indexer",
+  "displayName": "Network Indexer",
   "version": "1.0.0",
   "type": "core",
-  "description": "Blockchain indexer with GraphQL API - indexes all on-chain events for apps",
+  "description": "Blockchain indexer with GraphQL API and web dashboard - indexes all on-chain events for apps",
   "commands": {
     "dev": "bun run dev",
     "build": "bun run build",
@@ -12,33 +12,37 @@
     "test": "bun run test"
   },
   "ports": {
-    "main": 4350,
-    "api": 4350,
+    "main": 4355,
+    "frontend": 4355,
+    "api": 4352,
+    "graphql": 4350,
+    "a2a": 4351,
+    "mcp": 4353,
     "database": 5432
   },
   "dependencies": ["contracts"],
   "optional": false,
   "enabled": true,
-  "autoStart": false,
-  "tags": ["indexer", "graphql", "data", "jns", "infrastructure"],
+  "autoStart": true,
+  "tags": ["indexer", "graphql", "data", "jns", "infrastructure", "explorer"],
   "jns": {
     "name": "indexer.jeju",
     "description": "Blockchain Indexer with GraphQL API",
     "url": "https://indexer.jejunetwork.org"
   },
   "healthCheck": {
-    "url": "http://localhost:4350/graphql",
+    "url": "http://localhost:4352/health",
     "interval": 30000
   },
   "agent": {
     "enabled": true,
     "a2aEndpoint": "/a2a",
     "mcpEndpoint": "/mcp",
-    "tags": ["jeju-app", "indexer", "graphql", "data"],
+    "tags": ["jeju-app", "indexer", "graphql", "data", "explorer"],
     "metadata": {
       "category": "data",
       "provider": "jeju-network",
-      "features": ["graphql", "subscriptions", "historical-data"]
+      "features": ["graphql", "subscriptions", "historical-data", "web-ui"]
     },
     "trustModels": ["open"],
     "x402Support": false,
@@ -47,8 +51,8 @@
   "dws": {
     "backend": {
       "enabled": true,
-      "runtime": "node",
-      "entrypoint": "lib/main.js",
+      "runtime": "bun",
+      "entrypoint": "api/api-server.ts",
       "memory": 1024,
       "timeout": 60000,
       "minInstances": 1,
@@ -67,7 +71,8 @@
       "regions": ["global"],
       "cacheRules": [
         { "pattern": "/assets/**", "ttl": 31536000, "immutable": true },
-        { "pattern": "/graphql", "ttl": 0 }
+        { "pattern": "/graphql", "ttl": 0 },
+        { "pattern": "/api/**", "ttl": 5 }
       ],
       "apiCaching": {
         "enabled": true,
@@ -77,19 +82,34 @@
       "serviceWorker": true
     },
     "frontend": {
+      "buildDir": "dist/web",
+      "buildCommand": "bun run build",
+      "spa": true,
+      "jnsName": "indexer.jeju",
       "ipfs": true,
       "arweave": true,
-      "jnsName": "indexer.jeju",
-      "buildDir": "public",
-      "spa": false,
-      "fallbackOrigins": ["https://indexer.jejunetwork.org"]
+      "cacheRules": [
+        { "pattern": "/assets/**", "ttl": 31536000, "immutable": true },
+        { "pattern": "/*.js", "ttl": 86400 },
+        { "pattern": "/**/*.html", "ttl": 60, "staleWhileRevalidate": 3600 }
+      ]
     },
     "robustness": {
+      "frontendStorage": "ipfs",
+      "dataStorage": "cql",
+      "nodeDiscovery": "on-chain",
+      "coordination": "p2p",
       "multiOrigin": true,
       "offlineSupport": true,
       "p2pFallback": true,
       "contentAddressed": true
     }
+  },
+  "endpoints": {
+    "graphql": "/graphql",
+    "rest": "/api/*",
+    "a2a": "/a2a/*",
+    "mcp": "/mcp/*"
   },
   "testing": {
     "unit": {

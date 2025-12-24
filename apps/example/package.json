@@ -1,12 +1,16 @@
 {
   "name": "@jejunetwork/example",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
+  "description": "Example decentralized app template - demonstrates all Jeju network services",
+  "main": "api/index.ts",
   "scripts": {
-    "dev": "bun run src/server/index.ts",
+    "dev": "concurrently \"bun --watch api/index.ts\" \"bun --watch web/dev.ts\"",
     "build": "bun run build.ts",
-    "test": "bun test",
+    "start": "bun run dist/index.js",
+    "test": "bun test tests/ && bunx playwright test --config=playwright.config.ts && bunx synpress --config=synpress.config.ts",
+    "deploy": "bun run deploy.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -14,7 +18,6 @@
     "@elysiajs/eden": "^1.2.3",
     "@jejunetwork/config": "workspace:*",
     "@jejunetwork/db": "workspace:*",
-    "@jejunetwork/kms": "workspace:*",
     "@jejunetwork/oauth3": "workspace:*",
     "@jejunetwork/sdk": "workspace:*",
     "@jejunetwork/shared": "workspace:*",
@@ -25,9 +28,11 @@
     "zod": "4.2.1"
   },
   "devDependencies": {
+    "@jejunetwork/tests": "workspace:*",
     "@synthetixio/synpress": "4.1.1",
     "@playwright/test": "1.57.0",
     "@types/bun": "latest",
+    "concurrently": "^9.1.2",
     "typescript": "5.9.3"
   }
 }

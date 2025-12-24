@@ -14,9 +14,7 @@ import vrf from './vrf.json'
 
 export { feeds, staking, vrf, automation, nodes }
 
-// ============================================================================
 // Zod Schemas
-// ============================================================================
 
 /** Ethereum address - 40 hex characters prefixed with 0x */
 const AddressSchema = z
@@ -153,9 +151,7 @@ const AutomationConfigSchema = z.object({
     ),
 })
 
-// ============================================================================
 // Types
-// ============================================================================
 
 export interface ChainlinkFeed {
   pair: string
@@ -187,9 +183,7 @@ export interface AutomationConfig {
   status: 'pending_deployment' | 'active'
 }
 
-// ============================================================================
 // Config Accessors (validated on first access)
-// ============================================================================
 
 let feedsValidated = false
 let vrfValidated = false
@@ -213,9 +207,7 @@ function validateAutomation(): void {
   automationValidated = true
 }
 
-// ============================================================================
 // Public API
-// ============================================================================
 
 export function getChainlinkFeeds(chainId: number): ChainlinkFeed[] {
   validateFeeds()

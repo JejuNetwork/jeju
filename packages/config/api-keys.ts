@@ -6,7 +6,7 @@
  *
  * @example
  * ```ts
- * import { getApiKey, hasApiKey, ApiKeyStatus } from '@jejunetwork/config/api-keys';
+ * import { getApiKey, hasApiKey, type ApiKeyStatus } from '@jejunetwork/config';
  *
  * // Get a key (returns undefined if not set)
  * const key = await getApiKey('etherscan');
@@ -21,14 +21,10 @@
  * ```
  */
 
-import { getSecret, type SecretName } from './secrets'
-
-// ============================================================================
 // Types
-// ============================================================================
 
 export interface ApiKeyConfig {
-  envName: SecretName
+  envName: string
   description: string
   usedFor: string[]
   required: false // All API keys are optional
@@ -43,9 +39,7 @@ export interface ApiKeyStatus {
   usedFor: string[]
 }
 
-// ============================================================================
 // API Key Registry
-// ============================================================================
 
 const API_KEY_REGISTRY: Record<string, ApiKeyConfig> = {
   // Block Explorer Verification
@@ -143,15 +137,11 @@ const API_KEY_REGISTRY: Record<string, ApiKeyConfig> = {
     fallback: 'Falls back to OpenRouter or local models',
   },
 
-  // Enhanced RPC
+  // RPC
   alchemy: {
     envName: 'ALCHEMY_API_KEY',
-    description: 'Alchemy API key for enhanced RPC',
-    usedFor: [
-      'Enhanced RPC endpoints',
-      'Solver operations',
-      'Reliable transactions',
-    ],
+    description: 'Alchemy API key for RPC',
+    usedFor: ['RPC endpoints', 'Solver operations', 'Reliable transactions'],
     required: false,
     docsUrl: 'https://docs.alchemy.com/docs/alchemy-quickstart-guide',
     fallback: 'Uses public RPC endpoints from config',
@@ -235,19 +225,17 @@ const API_KEY_REGISTRY: Record<string, ApiKeyConfig> = {
   },
 }
 
-// ============================================================================
 // API Key Access
-// ============================================================================
 
 export type ApiKeyName = keyof typeof API_KEY_REGISTRY
 
 /**
- * Get an API key by name
+ * Get an API key by name (reads from process.env)
  */
-export async function getApiKey(name: ApiKeyName): Promise<string | undefined> {
+export function getApiKey(name: ApiKeyName): string | undefined {
   const config = API_KEY_REGISTRY[name]
   if (!config) return undefined
-  return getSecret(config.envName)
+  return process.env[config.envName]
 }
 
 /**
@@ -278,11 +266,11 @@ export function getApiKeyConfig(name: ApiKeyName): ApiKeyConfig | undefined {
 /**
  * Get status of all API keys
  */
-export async function getApiKeyStatus(): Promise<ApiKeyStatus[]> {
+export function getApiKeyStatus(): ApiKeyStatus[] {
   const status: ApiKeyStatus[] = []
 
   for (const [name, config] of Object.entries(API_KEY_REGISTRY)) {
-    const value = await getSecret(config.envName)
+    const value = process.env[config.envName]
     status.push({
       name,
       configured: Boolean(value),
@@ -297,8 +285,8 @@ export async function getApiKeyStatus(): Promise<ApiKeyStatus[]> {
 /**
  * Print API key status to console
  */
-export async function printApiKeyStatus(): Promise<void> {
-  const status = await getApiKeyStatus()
+export function printApiKeyStatus(): void {
+  const status = getApiKeyStatus()
 
   console.log('\n📋 API Key Status\n')
   console.log('─'.repeat(80))
@@ -329,9 +317,7 @@ export async function printApiKeyStatus(): Promise<void> {
   console.log('All API keys are optional. Features degrade gracefully.\n')
 }
 
-// ============================================================================
 // Block Explorer Keys (Common Pattern)
-// ============================================================================
 
 export interface BlockExplorerKeys {
   ethereum?: string
@@ -343,21 +329,19 @@ export interface BlockExplorerKeys {
 /**
  * Get all block explorer API keys
  */
-export async function getBlockExplorerKeys(): Promise<BlockExplorerKeys> {
+export function getBlockExplorerKeys(): BlockExplorerKeys {
   return {
-    ethereum: await getApiKey('etherscan'),
-    base: await getApiKey('basescan'),
-    arbitrum: await getApiKey('arbiscan'),
-    optimism: await getApiKey('opscan'),
+    ethereum: getApiKey('etherscan'),
+    base: getApiKey('basescan'),
+    arbitrum: getApiKey('arbiscan'),
+    optimism: getApiKey('opscan'),
   }
 }
 
 /**
  * Get the explorer API key for a given chain ID
  */
-export async function getExplorerKeyForChain(
-  chainId: number,
-): Promise<string | undefined> {
+export function getExplorerKeyForChain(chainId: number): string | undefined {
   const chainToExplorer: Record<number, ApiKeyName> = {
     1: 'etherscan', // Ethereum mainnet
     11155111: 'etherscan', // Sepolia
@@ -374,9 +358,7 @@ export async function getExplorerKeyForChain(
   return getApiKey(explorerName)
 }
 
-// ============================================================================
 // AI Keys (Common Pattern)
-// ============================================================================
 
 export interface AIProviderKeys {
   openrouter?: string
@@ -387,11 +369,11 @@ export interface AIProviderKeys {
 /**
  * Get all AI provider API keys
  */
-export async function getAIProviderKeys(): Promise<AIProviderKeys> {
+export function getAIProviderKeys(): AIProviderKeys {
   return {
-    openrouter: await getApiKey('openrouter'),
-    openai: await getApiKey('openai'),
-    anthropic: await getApiKey('anthropic'),
+    openrouter: getApiKey('openrouter'),
+    openai: getApiKey('openai'),
+    anthropic: getApiKey('anthropic'),
   }
 }
 
@@ -404,9 +386,7 @@ export function hasAnyAIProvider(): boolean {
   )
 }
 
-// ============================================================================
 // Documentation Helper
-// ============================================================================
 
 /**
  * Generate documentation for all API keys
@@ -427,7 +407,7 @@ export function generateApiKeyDocs(): string {
     Storage: ['pinata'],
     Social: ['neynar'],
     'AI/ML': ['openrouter', 'openai', 'anthropic'],
-    'Enhanced RPC': ['alchemy'],
+    RPC: ['alchemy'],
     Infrastructure: ['cloudflare'],
     'ZK Proving': ['succinct'],
     TEE: ['phala'],

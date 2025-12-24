@@ -59,9 +59,10 @@ async function initDemo() {
 }
 
 // SECURITY: Define allowed callback origins for demo server
+// NOTE: Port 4060 is the OAuth3 API port per @jejunetwork/config
 const DEMO_ALLOWED_ORIGINS = [
-  'http://localhost:4300',
-  'http://127.0.0.1:4300',
+  'http://localhost:4060',
+  'http://127.0.0.1:4060',
   'http://localhost:3000',
   'http://127.0.0.1:3000',
 ]
@@ -98,8 +99,8 @@ const app = new Elysia()
           padding: 2rem;
         }
         .container { max-width: 800px; margin: 0 auto; }
-        h1 { 
-          font-size: 2.5rem; 
+        h1 {
+          font-size: 2.5rem;
           margin-bottom: 0.5rem;
           background: linear-gradient(135deg, #667eea, #764ba2);
           -webkit-background-clip: text;
@@ -132,7 +133,7 @@ const app = new Elysia()
         .button-farcaster { background: #8B5CF6; color: white; }
         .button-google { background: #4285f4; color: white; }
         .buttons { display: flex; gap: 1rem; flex-wrap: wrap; }
-        .status { 
+        .status {
           background: #2a2a4e;
           padding: 1rem;
           border-radius: 0.5rem;
@@ -164,7 +165,7 @@ const app = new Elysia()
       <div class="container">
         <h1>OAuth3 Demo</h1>
         <p class="subtitle">Decentralized authentication with TEE-backed key management</p>
-        
+
         <div class="card">
           <h2>🔐 Login Options</h2>
           <div class="buttons">
@@ -234,60 +235,60 @@ const app = new Elysia()
 
       <script>
         const API_URL = '';
-        
+
         async function loginWallet() {
           const status = document.getElementById('login-status');
           status.style.display = 'block';
           status.textContent = 'Connecting wallet...';
-          
+
           try {
             if (!window.ethereum) {
               throw new Error('No Ethereum wallet found. Please install MetaMask.');
             }
-            
+
             const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
             const address = accounts[0];
-            
+
             const nonce = crypto.randomUUID();
             const message = \`Sign in to OAuth3 Demo\\n\\nAddress: \${address}\\nNonce: \${nonce}\\nTimestamp: \${new Date().toISOString()}\`;
-            
+
             status.textContent = 'Signing message...';
             const signature = await window.ethereum.request({
               method: 'personal_sign',
               params: [message, address]
             });
-            
+
             status.textContent = 'Verifying with OAuth3...';
             const response = await fetch(API_URL + '/api/auth/wallet', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ address, signature, message })
             });
-            
+
             const result = await response.json();
             status.textContent = JSON.stringify(result, null, 2);
           } catch (error) {
             status.textContent = 'Error: ' + error.message;
           }
         }
-        
+
         async function loginFarcaster() {
           const status = document.getElementById('login-status');
           status.style.display = 'block';
           status.textContent = 'Farcaster login requires a Farcaster client.\\nIn production, this would open Warpcast or similar.';
         }
-        
+
         async function loginGoogle() {
           const status = document.getElementById('login-status');
           status.style.display = 'block';
           status.textContent = 'Google OAuth requires client credentials.\\nIn production, this would redirect to Google.';
         }
-        
+
         async function issueCredential() {
           const status = document.getElementById('credential-status');
           status.style.display = 'block';
           status.textContent = 'Issuing credential...';
-          
+
           try {
             const response = await fetch(API_URL + '/api/credential/issue', {
               method: 'POST',
@@ -299,19 +300,19 @@ const app = new Elysia()
                 walletAddress: '0x' + '1234'.repeat(10)
               })
             });
-            
+
             const result = await response.json();
             status.textContent = JSON.stringify(result, null, 2);
           } catch (error) {
             status.textContent = 'Error: ' + error.message;
           }
         }
-        
+
         async function testMpcSign() {
           const status = document.getElementById('mpc-status');
           status.style.display = 'block';
           status.textContent = 'Generating FROST signature...';
-          
+
           try {
             const response = await fetch(API_URL + '/api/mpc/sign', {
               method: 'POST',
@@ -320,7 +321,7 @@ const app = new Elysia()
                 message: 'Hello from OAuth3 Demo!'
               })
             });
-            
+
             const result = await response.json();
             status.textContent = JSON.stringify(result, null, 2);
           } catch (error) {
@@ -441,7 +442,8 @@ const app = new Elysia()
     mpcCluster: frostCoordinator.getAddress(),
   }))
 
-const PORT = parseInt(process.env.DEMO_PORT || '4300', 10)
+// Use OAuth3 API port from config (4060) - don't conflict with CQL (4661)
+const PORT = parseInt(process.env.DEMO_PORT || '4060', 10)
 
 initDemo().then(() => {
   console.log(`

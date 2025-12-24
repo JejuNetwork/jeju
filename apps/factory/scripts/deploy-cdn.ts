@@ -1,36 +1,45 @@
 #!/usr/bin/env bun
-
-/**
- * Factory CDN Deployment Script
- *
- * Deploys the Factory frontend to the decentralized CDN via DWS.
- * This ensures 100% decentralized hosting via IPFS + JNS.
- *
- * Usage:
- *   bun run scripts/deploy-cdn.ts
- *   bun run scripts/deploy-cdn.ts --domain factory.jeju --jns factory.jeju
- */
+/** Factory CDN Deployment */
 
 import { execSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
-import { getCoreAppUrl, getL2RpcUrl } from '@jejunetwork/config/ports'
+import { getCoreAppUrl, getL2RpcUrl } from '@jejunetwork/config'
 import {
   type Address,
   createPublicClient,
   createWalletClient,
+  type Hex,
   http,
+  isAddress,
+  isHex,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-
-// ============================================================================
-// Configuration
-// ============================================================================
 
 const DWS_URL = process.env.DWS_URL || getCoreAppUrl('DWS_API')
 const PRIVATE_KEY = process.env.DEPLOYER_PRIVATE_KEY
 const RPC_URL = process.env.RPC_URL || getL2RpcUrl()
+
+function requireHex(value: string | undefined, name: string): Hex {
+  if (!value) {
+    throw new Error(`${name} is required`)
+  }
+  if (!isHex(value)) {
+    throw new Error(`${name} must be a hex string starting with 0x`)
+  }
+  return value
+}
+
+function requireAddress(value: string | undefined, name: string): Address {
+  if (!value) {
+    throw new Error(`${name} is required`)
+  }
+  if (!isAddress(value)) {
+    throw new Error(`${name} must be a valid Ethereum address`)
+  }
+  return value
+}
 
 interface DeployConfig {
   domain: string
@@ -39,10 +48,6 @@ interface DeployConfig {
   warmup: boolean
   invalidate: boolean
 }
-
-// ============================================================================
-// Deploy Functions
-// ============================================================================
 
 async function build(): Promise<void> {
   console.log('[Factory Deploy] Building app with Bun...')
@@ -68,7 +73,8 @@ async function deployToCDN(config: DeployConfig): Promise<{
   }
 
   // Generate auth headers
-  const account = privateKeyToAccount(PRIVATE_KEY as `0x${string}`)
+  const privateKey = requireHex(PRIVATE_KEY, 'DEPLOYER_PRIVATE_KEY')
+  const account = privateKeyToAccount(privateKey)
   const timestamp = Date.now().toString()
   const nonce = Math.random().toString(36).slice(2)
 
@@ -113,7 +119,8 @@ async function updateJNS(jnsName: string, contentHash: string): Promise<void> {
     throw new Error('DEPLOYER_PRIVATE_KEY environment variable required')
   }
 
-  const account = privateKeyToAccount(PRIVATE_KEY as `0x${string}`)
+  const privateKey = requireHex(PRIVATE_KEY, 'DEPLOYER_PRIVATE_KEY')
+  const account = privateKeyToAccount(privateKey)
 
   // Define chain for viem clients
   const chain = {
@@ -136,7 +143,6 @@ async function updateJNS(jnsName: string, contentHash: string): Promise<void> {
     transport: http(RPC_URL),
   })
 
-  // JNS Registry ABI (minimal)
   const JNS_REGISTRY_ABI = [
     {
       name: 'setContentHash',
@@ -150,17 +156,21 @@ async function updateJNS(jnsName: string, contentHash: string): Promise<void> {
     },
   ] as const
 
-  const jnsRegistryAddress = process.env.JNS_REGISTRY_ADDRESS as Address
-  if (!jnsRegistryAddress) {
+  const jnsRegistryEnv = process.env.JNS_REGISTRY_ADDRESS
+  if (!jnsRegistryEnv) {
     console.warn(
       '[Factory Deploy] JNS_REGISTRY_ADDRESS not set, skipping JNS update',
     )
     return
   }
 
-  // Convert IPFS CID to bytes32 (simplified - real implementation would use proper encoding)
-  const contentHashBytes =
-    `0x${Buffer.from(contentHash).toString('hex').padEnd(64, '0')}` as `0x${string}`
+  const jnsRegistryAddress = requireAddress(
+    jnsRegistryEnv,
+    'JNS_REGISTRY_ADDRESS',
+  )
+
+  const contentHashHex = `0x${Buffer.from(contentHash).toString('hex').padEnd(64, '0')}`
+  const contentHashBytes = requireHex(contentHashHex, 'contentHash')
 
   const hash = await walletClient.writeContract({
     address: jnsRegistryAddress,
@@ -179,7 +189,6 @@ async function updateJNS(jnsName: string, contentHash: string): Promise<void> {
 async function verifyDeployment(cdnUrl: string): Promise<boolean> {
   console.log(`[Factory Deploy] Verifying deployment at ${cdnUrl}...`)
 
-  // Wait a bit for CDN propagation
   await new Promise((resolve) => setTimeout(resolve, 5000))
 
   const response = await fetch(cdnUrl)
@@ -198,10 +207,6 @@ async function verifyDeployment(cdnUrl: string): Promise<boolean> {
   return true
 }
 
-// ============================================================================
-// Main
-// ============================================================================
-
 async function main() {
   const { values } = parseArgs({
     args: process.argv.slice(2),
@@ -216,8 +221,8 @@ async function main() {
   })
 
   const config: DeployConfig = {
-    domain: values.domain as string,
-    jnsName: values.jns as string,
+    domain: values.domain ?? 'factory.jejunetwork.org',
+    jnsName: values.jns ?? 'factory.jeju',
     buildDir: join(process.cwd(), 'dist'), // Bun build output dir
     warmup: !values['skip-warmup'],
     invalidate: true,
@@ -231,29 +236,24 @@ async function main() {
   console.log(`║ DWS:       ${DWS_URL.padEnd(35)}║`)
   console.log('╚════════════════════════════════════════════════╝')
 
-  // Step 1: Build
   if (!values['skip-build']) {
     await build()
   }
 
-  // Verify build output exists
   if (!existsSync(config.buildDir)) {
     throw new Error('Build output not found at dist/. Run build first.')
   }
 
-  // Step 2: Deploy to CDN
   const deployment = await deployToCDN(config)
   console.log(`[Factory Deploy] Deployed!`)
   console.log(`  Site ID:      ${deployment.siteId}`)
   console.log(`  CDN URL:      ${deployment.cdnUrl}`)
   console.log(`  Content Hash: ${deployment.contentHash}`)
 
-  // Step 3: Update JNS
   if (!values['skip-jns'] && deployment.contentHash) {
     await updateJNS(config.jnsName, deployment.contentHash)
   }
 
-  // Step 4: Verify
   if (!values['skip-verify']) {
     const verified = await verifyDeployment(deployment.cdnUrl)
     if (!verified) {

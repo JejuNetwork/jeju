@@ -13,15 +13,11 @@ export {
   AddressSchema,
   expect,
   HexSchema,
+  isHex,
   type JsonValue,
 } from '@jejunetwork/types'
 
 import { AddressSchema, HexSchema } from '@jejunetwork/types'
-
-// Type guard helpers for runtime validation
-export function isHex(value: unknown): value is `0x${string}` {
-  return typeof value === 'string' && HexSchema.safeParse(value).success
-}
 
 export function isAddress(value: unknown): value is `0x${string}` {
   return typeof value === 'string' && AddressSchema.safeParse(value).success

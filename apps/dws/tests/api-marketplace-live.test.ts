@@ -34,9 +34,7 @@ beforeAll(async () => {
   deposit(TEST_USER, 100000000000000000000n) // 100 ETH
 })
 
-// ============================================================================
 // Provider Connectivity Tests
-// ============================================================================
 
 describe('Provider Connectivity', () => {
   test('should list all configured providers', () => {
@@ -67,9 +65,7 @@ describe('Provider Connectivity', () => {
   })
 })
 
-// ============================================================================
 // OpenAI Live Tests
-// ============================================================================
 
 describe('OpenAI Live', () => {
   const skip = !process.env.OPENAI_API_KEY
@@ -161,9 +157,7 @@ describe('OpenAI Live', () => {
   })
 })
 
-// ============================================================================
 // Anthropic Live Tests
-// ============================================================================
 
 describe('Anthropic Live', () => {
   const skip = !process.env.ANTHROPIC_API_KEY
@@ -215,9 +209,7 @@ describe('Anthropic Live', () => {
   })
 })
 
-// ============================================================================
 // Groq Live Tests
-// ============================================================================
 
 describe('Groq Live', () => {
   const skip = !process.env.GROQ_API_KEY
@@ -263,9 +255,7 @@ describe('Groq Live', () => {
   })
 })
 
-// ============================================================================
 // Helius Live Tests (Solana RPC)
-// ============================================================================
 
 describe('Helius Live', () => {
   const skip = !process.env.HELIUS_API_KEY
@@ -323,9 +313,7 @@ describe('Helius Live', () => {
   })
 })
 
-// ============================================================================
 // Birdeye Live Tests
-// ============================================================================
 
 describe('Birdeye Live', () => {
   const skip = !process.env.BIRDEYE_API_KEY
@@ -359,9 +347,7 @@ describe('Birdeye Live', () => {
   })
 })
 
-// ============================================================================
 // CoinGecko Live Tests
-// ============================================================================
 
 describe('CoinGecko Live', () => {
   const skip = !process.env.COINGECKO_API_KEY
@@ -394,9 +380,7 @@ describe('CoinGecko Live', () => {
   })
 })
 
-// ============================================================================
 // AWS Bedrock Live Tests
-// ============================================================================
 
 describe('AWS Bedrock Live', () => {
   const skip = !process.env.AWS_BEDROCK_ACCESS_KEY_ID
@@ -430,9 +414,7 @@ describe('AWS Bedrock Live', () => {
   })
 })
 
-// ============================================================================
 // GCP Vertex AI Live Tests
-// ============================================================================
 
 describe('GCP Vertex AI Live', () => {
   const skip = !process.env.GCP_VERTEX_API_KEY
@@ -467,9 +449,7 @@ describe('GCP Vertex AI Live', () => {
   })
 })
 
-// ============================================================================
 // Azure OpenAI Live Tests
-// ============================================================================
 
 describe('Azure OpenAI Live', () => {
   const skip = !process.env.AZURE_OPENAI_API_KEY
@@ -504,9 +484,7 @@ describe('Azure OpenAI Live', () => {
   })
 })
 
-// ============================================================================
 // Tavily Live Tests (Web Search)
-// ============================================================================
 
 describe('Tavily Live', () => {
   const skip = !process.env.TAVILY_API_KEY
@@ -538,9 +516,7 @@ describe('Tavily Live', () => {
   })
 })
 
-// ============================================================================
 // Access Control Live Tests (require CQL)
-// ============================================================================
 
 describe.skipIf(!CQL_AVAILABLE)('Access Control Enforcement', () => {
   test('should block requests to unauthorized endpoints', async () => {
@@ -622,9 +598,7 @@ describe.skipIf(!CQL_AVAILABLE)('Access Control Enforcement', () => {
   })
 })
 
-// ============================================================================
 // Payment Enforcement Tests (require CQL)
-// ============================================================================
 
 describe.skipIf(!CQL_AVAILABLE)('Payment Enforcement', () => {
   test('should reject requests with insufficient balance', async () => {
@@ -657,9 +631,7 @@ describe.skipIf(!CQL_AVAILABLE)('Payment Enforcement', () => {
   })
 })
 
-// ============================================================================
 // Summary
-// ============================================================================
 
 describe('Test Summary', () => {
   test('should report configured providers', () => {

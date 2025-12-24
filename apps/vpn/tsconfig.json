@@ -6,7 +6,7 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["api/**/*", "web/**/*", "lib/**/*"],
+  "exclude": ["node_modules", "dist", "tests/**/*"]
 }
 

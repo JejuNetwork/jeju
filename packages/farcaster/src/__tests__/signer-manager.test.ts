@@ -9,14 +9,7 @@ import { beforeEach, describe, expect, it } from 'bun:test'
 import { ed25519 } from '@noble/curves/ed25519'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils'
 import type { Hex } from 'viem'
-import {
-  FarcasterSignerManager,
-  getSignerManager,
-  resetSignerManager,
-  type SignerInfo,
-} from '../signer/manager'
-
-// ============ Test Setup ============
+import { FarcasterSignerManager, type SignerInfo } from '../signer/manager'
 
 const TEST_FID = 12345
 const TEST_APP_NAME = 'TestApp'
@@ -26,9 +19,6 @@ const KNOWN_PRIVATE_KEY = hexToBytes(
   'deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef',
 )
 const KNOWN_PUBLIC_KEY = ed25519.getPublicKey(KNOWN_PRIVATE_KEY)
-
-// ============ FarcasterSignerManager ============
-
 describe('FarcasterSignerManager', () => {
   let manager: FarcasterSignerManager
 
@@ -556,46 +546,6 @@ describe('FarcasterSignerManager', () => {
     })
   })
 })
-
-// ============ Singleton Instance ============
-
-describe('Singleton Manager', () => {
-  beforeEach(() => {
-    resetSignerManager()
-  })
-
-  it('returns same instance', () => {
-    const manager1 = getSignerManager()
-    const manager2 = getSignerManager()
-
-    expect(manager1).toBe(manager2)
-  })
-
-  it('resetSignerManager creates new instance', () => {
-    const manager1 = getSignerManager()
-    resetSignerManager()
-    const manager2 = getSignerManager()
-
-    expect(manager1).not.toBe(manager2)
-  })
-
-  it('reset clears stored signers', async () => {
-    const manager = getSignerManager()
-    await manager.createSigner({ fid: 1, appName: 'Test' })
-
-    const before = await manager.listSigners()
-    expect(before).toHaveLength(1)
-
-    resetSignerManager()
-    const newManager = getSignerManager()
-
-    const after = await newManager.listSigners()
-    expect(after).toHaveLength(0)
-  })
-})
-
-// ============ Ed25519 Signature Properties ============
-
 describe('Ed25519 Signature Properties', () => {
   let manager: FarcasterSignerManager
   let activeSigner: SignerInfo
@@ -672,9 +622,6 @@ describe('Ed25519 Signature Properties', () => {
     expect(ed25519.verify(sig, wrongMessage, publicKey)).toBe(false)
   })
 })
-
-// ============ Property-Based Tests ============
-
 describe('Property-Based Tests', () => {
   it('created signers always have valid key pairs', async () => {
     const manager = new FarcasterSignerManager({ storage: 'memory' })

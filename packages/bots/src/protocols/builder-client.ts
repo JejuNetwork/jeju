@@ -4,8 +4,15 @@
  * Direct submission to block builders for better inclusion.
  */
 
-import { EventEmitter } from 'node:events'
+import { EventEmitter } from '@jejunetwork/shared'
 import type { Hash, Hex } from 'viem'
+import { z } from 'zod'
+
+// Builder response schema
+const BuilderResponseSchema = z.object({
+  result: z.object({ bundleHash: z.string() }).optional(),
+  error: z.object({ message: z.string() }).optional(),
+})
 
 export interface BuilderConfig {
   chainId: number
@@ -134,10 +141,7 @@ export class BuilderClient extends EventEmitter {
       }),
     })
 
-    const result = (await response.json()) as {
-      result?: { bundleHash: string }
-      error?: { message: string }
-    }
+    const result = BuilderResponseSchema.parse(await response.json())
     if (result.error) throw new Error(result.error.message)
     return result.result?.bundleHash ?? ''
   }

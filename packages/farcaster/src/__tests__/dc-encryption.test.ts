@@ -13,8 +13,6 @@ import { hkdf } from '@noble/hashes/hkdf'
 import { sha256 } from '@noble/hashes/sha256'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils'
 
-// ============ Encryption Helpers (mirroring dc/client.ts logic) ============
-
 function deriveEncryptionKeys(signerPrivateKey: Uint8Array): {
   privateKey: Uint8Array
   publicKey: Uint8Array
@@ -104,9 +102,6 @@ const ALICE_ED25519_PRIVATE = hexToBytes(
 const BOB_ED25519_PRIVATE = hexToBytes(
   'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
 )
-
-// ============ Key Derivation ============
-
 describe('Key Derivation', () => {
   describe('deriveEncryptionKeys', () => {
     it('derives 32-byte X25519 keys from Ed25519 key', () => {
@@ -149,9 +144,6 @@ describe('Key Derivation', () => {
     })
   })
 })
-
-// ============ Encryption/Decryption ============
-
 describe('Encryption/Decryption', () => {
   const aliceKeys = deriveEncryptionKeys(ALICE_ED25519_PRIVATE)
   const bobKeys = deriveEncryptionKeys(BOB_ED25519_PRIVATE)
@@ -324,9 +316,6 @@ describe('Encryption/Decryption', () => {
     })
   })
 })
-
-// ============ Security Properties ============
-
 describe('Security Properties', () => {
   const bobKeys = deriveEncryptionKeys(BOB_ED25519_PRIVATE)
 
@@ -464,9 +453,6 @@ describe('Security Properties', () => {
     })
   })
 })
-
-// ============ HKDF Properties ============
-
 describe('HKDF Key Derivation', () => {
   it('produces 32-byte output for 32-byte request', () => {
     const secret = randomBytes(32)
@@ -511,9 +497,6 @@ describe('HKDF Key Derivation', () => {
     expect(bytesToHex(key1)).toBe(bytesToHex(key2))
   })
 })
-
-// ============ Property-Based Tests ============
-
 describe('Property-Based Tests', () => {
   it('encryption is always reversible', () => {
     const recipientKeys = deriveEncryptionKeys(randomBytes(32))
@@ -571,9 +554,6 @@ describe('Property-Based Tests', () => {
     }
   })
 })
-
-// ============ Edge Cases ============
-
 describe('Edge Cases', () => {
   const bobKeys = deriveEncryptionKeys(BOB_ED25519_PRIVATE)
 

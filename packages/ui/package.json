@@ -38,6 +38,11 @@
     "prettier": "3.5.3",
     "react": "19.2.3"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/elizaos/jeju.git",
+    "directory": "packages/ui"
+  },
   "publishConfig": {
     "access": "public"
   }

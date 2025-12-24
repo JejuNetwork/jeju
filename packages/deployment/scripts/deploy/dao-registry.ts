@@ -39,9 +39,6 @@ interface DAOCreateParams {
   ceoTraits: string[]
   ceoCommunicationTone: string
 }
-
-// ============ ABIs ============
-
 const DAORegistryABI = [
   {
     type: 'function',
@@ -155,9 +152,6 @@ const DAORegistryABI = [
     ],
   },
 ] as const
-
-// ============ Helpers ============
-
 function getChainConfig(network: string) {
   switch (network) {
     case 'mainnet':
@@ -228,9 +222,6 @@ Examples:
   bun run scripts/deploy/dao-registry.ts list mainnet
 `)
 }
-
-// ============ Commands ============
-
 async function deployContracts(network: string): Promise<void> {
   console.log(`\nDeploying DAO contracts to ${network}...`)
 
@@ -293,7 +284,7 @@ async function createDAO(
   const description = params.description ?? `${displayName} governance`
 
   const hash = await walletClient.writeContract({
-    address: deployment.contracts.DAORegistry,
+    address: deployment.contracts.DAORegistry as `0x${string}`,
     abi: DAORegistryABI,
     functionName: 'createDAO',
     args: [
@@ -386,7 +377,7 @@ async function listDAOs(network: string): Promise<void> {
   })
 
   const daoIds = (await publicClient.readContract({
-    address: deployment.contracts.DAORegistry,
+    address: deployment.contracts.DAORegistry as `0x${string}`,
     abi: DAORegistryABI,
     functionName: 'getAllDAOs',
   })) as readonly `0x${string}`[]
@@ -395,7 +386,7 @@ async function listDAOs(network: string): Promise<void> {
 
   for (const daoId of daoIds) {
     const dao = (await publicClient.readContract({
-      address: deployment.contracts.DAORegistry,
+      address: deployment.contracts.DAORegistry as `0x${string}`,
       abi: DAORegistryABI,
       functionName: 'getDAO',
       args: [daoId],
@@ -407,7 +398,7 @@ async function listDAOs(network: string): Promise<void> {
     }
 
     const persona = (await publicClient.readContract({
-      address: deployment.contracts.DAORegistry,
+      address: deployment.contracts.DAORegistry as `0x${string}`,
       abi: DAORegistryABI,
       functionName: 'getCEOPersona',
       args: [daoId],
@@ -438,7 +429,7 @@ async function getDAOStatus(daoId: string, network: string): Promise<void> {
   })
 
   const dao = (await publicClient.readContract({
-    address: deployment.contracts.DAORegistry,
+    address: deployment.contracts.DAORegistry as `0x${string}`,
     abi: DAORegistryABI,
     functionName: 'getDAO',
     args: [daoId as `0x${string}`],
@@ -454,7 +445,7 @@ async function getDAOStatus(daoId: string, network: string): Promise<void> {
   }
 
   const persona = (await publicClient.readContract({
-    address: deployment.contracts.DAORegistry,
+    address: deployment.contracts.DAORegistry as `0x${string}`,
     abi: DAORegistryABI,
     functionName: 'getCEOPersona',
     args: [daoId as `0x${string}`],
@@ -466,14 +457,14 @@ async function getDAOStatus(daoId: string, network: string): Promise<void> {
   }
 
   const packages = (await publicClient.readContract({
-    address: deployment.contracts.DAORegistry,
+    address: deployment.contracts.DAORegistry as `0x${string}`,
     abi: DAORegistryABI,
     functionName: 'getLinkedPackages',
     args: [daoId as `0x${string}`],
   })) as readonly `0x${string}`[]
 
   const repos = (await publicClient.readContract({
-    address: deployment.contracts.DAORegistry,
+    address: deployment.contracts.DAORegistry as `0x${string}`,
     abi: DAORegistryABI,
     functionName: 'getLinkedRepos',
     args: [daoId as `0x${string}`],
@@ -508,9 +499,6 @@ Linked Resources:
   Repos: ${repos.length}
 `)
 }
-
-// ============ Main ============
-
 async function main(): Promise<void> {
   const args = process.argv.slice(2)
   const command = args[0]

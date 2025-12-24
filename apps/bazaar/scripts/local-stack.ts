@@ -13,13 +13,11 @@
 import { existsSync } from 'node:fs'
 import { mkdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { CORE_PORTS } from '@jejunetwork/config/ports'
+import { CORE_PORTS } from '@jejunetwork/config'
 import { type Subprocess, spawn } from 'bun'
 import { DWSFunctionDeployResponseSchema } from '../schemas/api'
 
-// ============================================================================
 // Configuration
-// ============================================================================
 
 interface LocalStackConfig {
   devnetPort: number
@@ -39,9 +37,7 @@ const DEFAULT_CONFIG: LocalStackConfig = {
   skipDevnet: process.env.SKIP_DEVNET === 'true',
 }
 
-// ============================================================================
 // Process Management
-// ============================================================================
 
 interface ManagedProcess {
   name: string
@@ -148,9 +144,7 @@ async function stopAll(): Promise<void> {
   console.log('✅ All processes stopped')
 }
 
-// ============================================================================
 // Service Starters
-// ============================================================================
 
 async function startDevnet(config: LocalStackConfig): Promise<boolean> {
   if (config.skipDevnet) {
@@ -233,9 +227,7 @@ async function startDWS(config: LocalStackConfig): Promise<boolean> {
   return managed.ready
 }
 
-// ============================================================================
 // Deploy Bazaar Worker to DWS
-// ============================================================================
 
 async function deployBazaarWorker(
   config: LocalStackConfig,
@@ -340,9 +332,7 @@ async function deployBazaarWorker(
   }
 }
 
-// ============================================================================
 // Start Frontend
-// ============================================================================
 
 async function startFrontend(
   config: LocalStackConfig,
@@ -381,9 +371,7 @@ async function startFrontend(
   return managed.ready
 }
 
-// ============================================================================
 // Main
-// ============================================================================
 
 async function main(): Promise<void> {
   console.log('═'.repeat(60))

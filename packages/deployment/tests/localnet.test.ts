@@ -7,8 +7,6 @@
 import { describe, expect, it } from 'bun:test'
 import { z } from 'zod'
 
-// ============ Schemas ============
-
 const PortsConfigSchema = z.object({
   l1Rpc: z.string().url(),
   l2Rpc: z.string().url(),
@@ -17,9 +15,6 @@ const PortsConfigSchema = z.object({
 })
 
 type PortsConfig = z.infer<typeof PortsConfigSchema>
-
-// ============ Functions Under Test ============
-
 type Architecture = 'amd64' | 'arm64'
 
 /**
@@ -72,9 +67,6 @@ function getHomebrewPath(arch: string): string {
   if (arch === 'arm64') return '/opt/homebrew/bin'
   return '/usr/local/bin'
 }
-
-// ============ Tests ============
-
 describe('getArchitecture', () => {
   it('should map x64 to amd64', () => {
     expect(getArchitecture('x64')).toBe('amd64')

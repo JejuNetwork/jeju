@@ -9,9 +9,6 @@
  * - Latency impact analysis
  * - Historical MEV extraction analysis
  */
-
-// ============ Types ============
-
 export interface MEVSearcher {
   id: string
   name: string
@@ -83,9 +80,6 @@ export interface LatencyImpact {
   missedOpportunities: number
   optimalLatencyGain: number // Profit increase with 0 latency
 }
-
-// ============ Constants ============
-
 // Known top MEV searchers (anonymized/generalized profiles)
 const _KNOWN_SEARCHERS: MEVSearcher[] = [
   {
@@ -207,9 +201,6 @@ const BLOCK_BUILDERS: BlockBuilder[] = [
     minTipGwei: 2,
   },
 ]
-
-// ============ MEV Competition Simulator ============
-
 export class MEVCompetitionSimulator {
   private ourSearcher: MEVSearcher
   private builders: BlockBuilder[]
@@ -463,9 +454,6 @@ export class MEVCompetitionSimulator {
       optimalSubmissionOrder: scores.map((s) => s.builder.id),
     }
   }
-
-  // ============ Private Methods ============
-
   private generateBlockOpportunities(
     count: number,
     gasPriceGwei: number,
@@ -730,9 +718,6 @@ export class MEVCompetitionSimulator {
     )
   }
 }
-
-// ============ Exports ============
-
 export function runMEVCompetitionSim(config: {
   blocks: number
   opportunitiesPerBlock: number

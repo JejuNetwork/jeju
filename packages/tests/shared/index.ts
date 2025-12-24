@@ -1,5 +1,7 @@
 /** @jejunetwork/tests - Shared E2E test utilities */
 
+// Import expect from @playwright/test directly for Playwright tests or from bun:test for Bun tests
+export { expect } from '@playwright/test'
 // Bun test infrastructure
 export {
   getStatus as getBunStatus,
@@ -16,7 +18,6 @@ export {
   basicSetup,
   connectAndVerify,
   connectWallet,
-  expect,
   getWalletAddress,
   isAuthenticated,
   rejectTransaction,

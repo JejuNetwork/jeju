@@ -270,7 +270,9 @@ export class CrossChainRouter {
           trustOrder[a.overallTrustLevel] - trustOrder[b.overallTrustLevel]
         if (trustDiff !== 0) return trustDiff
       }
-      return Number(a.totalEstimatedFee - b.totalEstimatedFee)
+      // Use bigint comparison to avoid precision loss with large fee values
+      if (a.totalEstimatedFee === b.totalEstimatedFee) return 0
+      return a.totalEstimatedFee < b.totalEstimatedFee ? -1 : 1
     })
 
     return routes

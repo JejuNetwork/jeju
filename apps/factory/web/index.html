@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Factory | Jeju Developer Hub</title>
+    <meta name="description" content="Bounties, jobs, git, packages, containers, models - developer coordination powered by Jeju" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              factory: {
+                50: '#f7f7f8', 100: '#eeeef0', 200: '#d9d9de', 300: '#b8b8c1',
+                400: '#91919f', 500: '#747484', 600: '#5e5e6c', 700: '#4d4d58',
+                800: '#42424b', 900: '#3a3a41', 950: '#18181b'
+              },
+              accent: {
+                500: '#3b82f6', 600: '#2563eb'
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <link rel="stylesheet" href="./styles/globals.css" />
+    <script src="./main.tsx" type="module"></script>
+  </head>
+  <body class="min-h-screen bg-factory-950 text-factory-100 antialiased">
+    <div id="root"></div>
+  </body>
+</html>

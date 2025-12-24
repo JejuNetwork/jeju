@@ -7,10 +7,10 @@
  *
  * Usage in app's wallet-setup/basic.setup.ts:
  * ```typescript
- * export { default, PASSWORD, SEED_PHRASE } from '@jejunetwork/tests/wallet-setup';
+ * export { basicSetup as default, PASSWORD, SEED_PHRASE } from '@jejunetwork/tests';
  * ```
  *
- * Or re-export in app synpress.config.ts:
+ * Or import in app synpress.config.ts:
  * ```typescript
  * import { createSynpressConfig, createWalletSetup, PASSWORD, SEED_PHRASE } from '@jejunetwork/tests';
  * export default createSynpressConfig({ appName: 'myapp', port: 3000 });

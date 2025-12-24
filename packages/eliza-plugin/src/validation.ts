@@ -6,12 +6,11 @@
  */
 
 import type { IAgentRuntime, Memory } from '@elizaos/core'
+import { expect as expectDefined, isValidAddress } from '@jejunetwork/types'
 import { z } from 'zod'
 import { JEJU_SERVICE_NAME } from './service'
 
-// ============================================================================
 // Security Constants
-// ============================================================================
 
 /** Maximum message text length to prevent DoS */
 export const MAX_MESSAGE_LENGTH = 10_000
@@ -31,9 +30,7 @@ export const FETCH_TIMEOUT_MS = 30_000
 /** Maximum number of items in lists */
 export const MAX_LIST_ITEMS = 100
 
-// ============================================================================
 // Core Extraction Utilities
-// ============================================================================
 
 /**
  * Extract and validate message text content
@@ -63,9 +60,7 @@ export function validateServiceExists(runtime: IAgentRuntime): boolean {
   return !!runtime.getService(JEJU_SERVICE_NAME)
 }
 
-// ============================================================================
 // Response Validation Utilities
-// ============================================================================
 
 /**
  * Validate API response data exists
@@ -102,15 +97,10 @@ export function expectArray<T>(
  * Throws with descriptive error if missing
  */
 export function expect<T>(value: T | null | undefined, name: string): T {
-  if (value === null || value === undefined) {
-    throw new Error(`Expected ${name} to be defined`)
-  }
-  return value
+  return expectDefined(value, `Expected ${name} to be defined`)
 }
 
-// ============================================================================
 // Common Zod Schemas
-// ============================================================================
 
 /** Ethereum address */
 const addressSchema = z
@@ -142,9 +132,7 @@ const caseStatusSchema = z.enum([
 /** Evidence position */
 const evidencePositionSchema = z.enum(['for', 'against'])
 
-// ============================================================================
 // Message Content Schemas for Actions
-// ============================================================================
 
 /** Base content schema with optional text */
 const baseContentSchema = z.object({
@@ -274,9 +262,7 @@ export const guardianContentSchema = baseContentSchema.extend({
   stake: ethAmountSchema.optional(),
 })
 
-// ============================================================================
 // Type Exports from Schemas
-// ============================================================================
 
 export type EvidenceContent = z.infer<typeof evidenceContentSchema>
 export type EvidenceSupportContent = z.infer<typeof evidenceSupportSchema>
@@ -292,9 +278,7 @@ export type ProjectContent = z.infer<typeof projectContentSchema>
 export type TaskContent = z.infer<typeof taskContentSchema>
 export type GuardianContent = z.infer<typeof guardianContentSchema>
 
-// ============================================================================
 // Content Parsing Utilities
-// ============================================================================
 
 /**
  * Parse and validate message content with a schema
@@ -311,9 +295,7 @@ export function parseContent<T extends z.ZodType>(
   return result.data
 }
 
-// ============================================================================
 // Provider Validation
-// ============================================================================
 
 export interface ValidatedProvider {
   name: string
@@ -358,9 +340,7 @@ export function validateProvider(provider: {
   }
 }
 
-// ============================================================================
 // API Response Validators
-// ============================================================================
 
 export interface PoolStats {
   tvl: number
@@ -446,9 +426,7 @@ export function validateIntentInfo(data: Record<string, unknown>): IntentInfo {
   return intentInfoSchema.parse(data)
 }
 
-// ============================================================================
 // List Formatting Utilities
-// ============================================================================
 
 /**
  * Format a numbered list
@@ -464,9 +442,7 @@ export function formatNumberedList<T>(
     .join('\n')
 }
 
-// ============================================================================
 // Security Utilities
-// ============================================================================
 
 /**
  * Validates a URL is safe to fetch (prevents SSRF attacks)
@@ -688,13 +664,6 @@ export function sanitizeAgentResponse(response: string): string {
   const sanitized = sanitizeText(response)
   const truncated = truncateOutput(sanitized, 10000) // 10KB max for agent responses
   return truncated
-}
-
-/**
- * Validate Ethereum address format strictly
- */
-export function isValidAddress(address: string): boolean {
-  return /^0x[a-fA-F0-9]{40}$/.test(address)
 }
 
 /**

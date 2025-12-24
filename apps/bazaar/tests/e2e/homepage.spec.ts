@@ -7,7 +7,7 @@ import {
   assertNoPageErrors,
   captureScreenshot,
   captureUserFlow,
-} from '@jejunetwork/tests/playwright-only'
+} from '@jejunetwork/tests'
 import { expect, type Page, test } from '@playwright/test'
 
 const DESKTOP_VIEWPORT = { width: 1280, height: 800 }

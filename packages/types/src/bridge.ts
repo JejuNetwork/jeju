@@ -1,12 +1,10 @@
+/**
+ * Bridge types for cross-chain transfers.
+ */
+
 import { z } from 'zod'
 import { AddressSchema } from './validation'
 
-// ============ Transfer Status Types ============
-
-/**
- * Bridge transfer status (comprehensive)
- * Used for cross-chain bridge transfers
- */
 export const BridgeTransferStatusSchema = z.enum([
   'pending',
   'submitted',
@@ -16,9 +14,6 @@ export const BridgeTransferStatusSchema = z.enum([
 ])
 export type BridgeTransferStatus = z.infer<typeof BridgeTransferStatusSchema>
 
-/**
- * Simple transfer status (for basic transfers)
- */
 export type TransferStatus = 'pending' | 'completed' | 'failed'
 
 export const BridgeTransferSchema = z.object({

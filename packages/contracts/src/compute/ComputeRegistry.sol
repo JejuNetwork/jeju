@@ -6,9 +6,22 @@ import {IComputeRegistry} from "./interfaces/IComputeRegistry.sol";
 
 /**
  * @title ComputeRegistry
- * @notice Provider registry for decentralized AI compute marketplace
+ * @notice Provider registry for all compute services (AI, database, training, etc.)
+ *
+ * Service Types:
+ * - inference: AI model inference (LLM, vision, etc.)
+ * - database: Decentralized SQL (CQL/CovenantSQL)
+ * - training: Model training/fine-tuning
+ * - storage: Compute-adjacent storage
+ * - custom: User-defined compute services
  */
 contract ComputeRegistry is ProviderRegistryBase, IComputeRegistry {
+    /// @notice Service type constants
+    bytes32 public constant SERVICE_INFERENCE = keccak256("inference");
+    bytes32 public constant SERVICE_DATABASE = keccak256("database");
+    bytes32 public constant SERVICE_TRAINING = keccak256("training");
+    bytes32 public constant SERVICE_STORAGE = keccak256("storage");
+
     struct Provider {
         address owner;
         string name;
@@ -17,22 +30,24 @@ contract ComputeRegistry is ProviderRegistryBase, IComputeRegistry {
         uint256 stake;
         uint256 registeredAt;
         uint256 agentId; // ERC-8004 agent ID (0 if not linked)
+        bytes32 serviceType; // Primary service type
         bool active;
     }
 
     struct Capability {
-        string model;
-        uint256 pricePerInputToken;
-        uint256 pricePerOutputToken;
-        uint256 maxContextLength;
+        string model; // Model name or database type (e.g., "gpt-4", "covenantql")
+        uint256 pricePerInputToken; // For inference: per token. For database: per query
+        uint256 pricePerOutputToken; // For inference: per token. For database: per result row
+        uint256 maxContextLength; // For inference: context. For database: max result size
         bool active;
     }
 
     mapping(address => Provider) public providers;
     mapping(address => Capability[]) private _capabilities;
+    mapping(bytes32 => address[]) private _providersByService; // service type => providers
 
     event ProviderRegistered(
-        address indexed provider, string name, string endpoint, bytes32 attestationHash, uint256 stake, uint256 agentId
+        address indexed provider, string name, string endpoint, bytes32 attestationHash, uint256 stake, uint256 agentId, bytes32 serviceType
     );
     event ProviderUpdated(address indexed provider, string endpoint, bytes32 attestationHash);
     event CapabilityAdded(
@@ -43,10 +58,12 @@ contract ComputeRegistry is ProviderRegistryBase, IComputeRegistry {
         uint256 maxContextLength
     );
     event CapabilityUpdated(address indexed provider, uint256 index, bool active);
+    event ServiceTypeUpdated(address indexed provider, bytes32 oldType, bytes32 newType);
 
     error InvalidEndpoint();
     error InvalidName();
     error InvalidCapabilityIndex();
+    error InvalidServiceType();
 
     constructor(
         address _owner,
@@ -55,17 +72,34 @@ contract ComputeRegistry is ProviderRegistryBase, IComputeRegistry {
         uint256 _minProviderStake
     ) ProviderRegistryBase(_owner, _identityRegistry, _banManager, _minProviderStake) {}
 
+    /// @notice Register as an inference provider (default service type)
     function register(string calldata name, string calldata endpoint, bytes32 attestationHash)
         external
         payable
         nonReentrant
         whenNotPaused
     {
-        if (bytes(name).length == 0) revert InvalidName();
-        if (bytes(endpoint).length == 0) revert InvalidEndpoint();
+        _registerWithService(name, endpoint, attestationHash, 0, SERVICE_INFERENCE);
+    }
 
-        _registerProviderWithoutAgent(msg.sender);
-        _storeProviderData(msg.sender, name, endpoint, attestationHash, 0);
+    /// @notice Register with specific service type (database, training, etc.)
+    function registerWithService(
+        string calldata name,
+        string calldata endpoint,
+        bytes32 attestationHash,
+        bytes32 serviceType
+    ) external payable nonReentrant whenNotPaused {
+        _registerWithService(name, endpoint, attestationHash, 0, serviceType);
+    }
+
+    /// @notice Register as database provider (CQL/CovenantSQL)
+    function registerDatabaseProvider(string calldata name, string calldata endpoint, bytes32 attestationHash)
+        external
+        payable
+        nonReentrant
+        whenNotPaused
+    {
+        _registerWithService(name, endpoint, attestationHash, 0, SERVICE_DATABASE);
     }
 
     function registerWithAgent(string calldata name, string calldata endpoint, bytes32 attestationHash, uint256 agentId)
@@ -74,11 +108,48 @@ contract ComputeRegistry is ProviderRegistryBase, IComputeRegistry {
         nonReentrant
         whenNotPaused
     {
+        _registerWithAgentAndService(name, endpoint, attestationHash, agentId, SERVICE_INFERENCE);
+    }
+
+    /// @notice Register with agent and specific service type
+    function registerWithAgentAndService(
+        string calldata name,
+        string calldata endpoint,
+        bytes32 attestationHash,
+        uint256 agentId,
+        bytes32 serviceType
+    ) external payable nonReentrant whenNotPaused {
+        _registerWithAgentAndService(name, endpoint, attestationHash, agentId, serviceType);
+    }
+
+    function _registerWithService(
+        string calldata name,
+        string calldata endpoint,
+        bytes32 attestationHash,
+        uint256 agentId,
+        bytes32 serviceType
+    ) internal {
         if (bytes(name).length == 0) revert InvalidName();
         if (bytes(endpoint).length == 0) revert InvalidEndpoint();
+        if (serviceType == bytes32(0)) revert InvalidServiceType();
+
+        _registerProviderWithoutAgent(msg.sender);
+        _storeProviderData(msg.sender, name, endpoint, attestationHash, agentId, serviceType);
+    }
+
+    function _registerWithAgentAndService(
+        string calldata name,
+        string calldata endpoint,
+        bytes32 attestationHash,
+        uint256 agentId,
+        bytes32 serviceType
+    ) internal {
+        if (bytes(name).length == 0) revert InvalidName();
+        if (bytes(endpoint).length == 0) revert InvalidEndpoint();
+        if (serviceType == bytes32(0)) revert InvalidServiceType();
 
         _registerProviderWithAgent(msg.sender, agentId);
-        _storeProviderData(msg.sender, name, endpoint, attestationHash, agentId);
+        _storeProviderData(msg.sender, name, endpoint, attestationHash, agentId, serviceType);
     }
 
     function _storeProviderData(
@@ -86,7 +157,8 @@ contract ComputeRegistry is ProviderRegistryBase, IComputeRegistry {
         string calldata name,
         string calldata endpoint,
         bytes32 attestationHash,
-        uint256 agentId
+        uint256 agentId,
+        bytes32 serviceType
     ) internal {
         providers[provider] = Provider({
             owner: provider,
@@ -96,13 +168,15 @@ contract ComputeRegistry is ProviderRegistryBase, IComputeRegistry {
             stake: msg.value,
             registeredAt: block.timestamp,
             agentId: agentId,
+            serviceType: serviceType,
             active: true
         });
 
-        emit ProviderRegistered(provider, name, endpoint, attestationHash, msg.value, agentId);
+        _providersByService[serviceType].push(provider);
+        emit ProviderRegistered(provider, name, endpoint, attestationHash, msg.value, agentId, serviceType);
     }
 
-    function _onProviderRegistered(address provider, uint256 agentId, uint256 stake) internal override {
+    function _onProviderRegistered(address provider, uint256, uint256) internal view override {
         if (providers[provider].registeredAt != 0) {
             revert ProviderAlreadyRegistered();
         }
@@ -238,7 +312,71 @@ contract ComputeRegistry is ProviderRegistryBase, IComputeRegistry {
         return providers[provider].agentId;
     }
 
+    function getProviderServiceType(address provider) external view returns (bytes32) {
+        return providers[provider].serviceType;
+    }
+
+    /// @notice Get all providers of a specific service type
+    function getProvidersByService(bytes32 serviceType) external view returns (address[] memory) {
+        return _providersByService[serviceType];
+    }
+
+    /// @notice Get active providers of a specific service type
+    function getActiveProvidersByService(bytes32 serviceType) external view returns (address[] memory) {
+        address[] storage allProviders = _providersByService[serviceType];
+        uint256 activeCount = 0;
+        for (uint256 i = 0; i < allProviders.length; i++) {
+            if (providers[allProviders[i]].active) {
+                activeCount++;
+            }
+        }
+
+        address[] memory activeProviders = new address[](activeCount);
+        uint256 idx = 0;
+        for (uint256 i = 0; i < allProviders.length; i++) {
+            if (providers[allProviders[i]].active) {
+                activeProviders[idx++] = allProviders[i];
+            }
+        }
+        return activeProviders;
+    }
+
+    /// @notice Get all database providers (CQL operators)
+    function getDatabaseProviders() external view returns (address[] memory) {
+        return _providersByService[SERVICE_DATABASE];
+    }
+
+    /// @notice Get active database providers
+    function getActiveDatabaseProviders() external view returns (address[] memory) {
+        address[] storage allProviders = _providersByService[SERVICE_DATABASE];
+        uint256 activeCount = 0;
+        for (uint256 i = 0; i < allProviders.length; i++) {
+            if (providers[allProviders[i]].active) {
+                activeCount++;
+            }
+        }
+
+        address[] memory activeProviders = new address[](activeCount);
+        uint256 idx = 0;
+        for (uint256 i = 0; i < allProviders.length; i++) {
+            if (providers[allProviders[i]].active) {
+                activeProviders[idx++] = allProviders[i];
+            }
+        }
+        return activeProviders;
+    }
+
+    /// @notice Check if provider offers a specific service
+    function isServiceProvider(address provider, bytes32 serviceType) external view returns (bool) {
+        return providers[provider].serviceType == serviceType && providers[provider].active;
+    }
+
+    /// @notice Check if provider is a database provider
+    function isDatabaseProvider(address provider) external view returns (bool) {
+        return providers[provider].serviceType == SERVICE_DATABASE && providers[provider].active;
+    }
+
     function version() external pure returns (string memory) {
-        return "2.0.0-base";
+        return "3.0.0-unified";
     }
 }

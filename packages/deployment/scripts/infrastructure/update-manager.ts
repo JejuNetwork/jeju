@@ -21,9 +21,6 @@ import {
 } from '../../schemas'
 
 const execAsync = promisify(exec)
-
-// ============ Configuration ============
-
 const CONFIG = {
   CHECK_INTERVAL: parseInt(process.env.UPDATE_CHECK_INTERVAL || '3600000', 10), // 1 hour
   DOCKER_COMPOSE_PATH: process.env.DOCKER_COMPOSE_PATH || '~/.jeju',
@@ -32,9 +29,6 @@ const CONFIG = {
   NOTIFICATION_WEBHOOK: process.env.NOTIFICATION_WEBHOOK,
   BACKUP_COUNT: 3,
 }
-
-// ============ Version Management ============
-
 interface Version {
   reth: string
   opNode: string
@@ -133,9 +127,6 @@ function isNewerVersion(current: Version | null, latest: Version): boolean {
   // In production, use semver comparison
   return latest.timestamp > current.timestamp
 }
-
-// ============ Update Process ============
-
 async function sendNotification(
   message: string,
   isError: boolean = false,
@@ -399,9 +390,6 @@ async function performUpdate(latestVersion: Version): Promise<void> {
     throw error
   }
 }
-
-// ============ Update Checker ============
-
 async function checkForUpdates(): Promise<void> {
   console.log(`\n${'='.repeat(60)}`)
   console.log('🔍 Checking for updates...')
@@ -443,9 +431,6 @@ async function checkForUpdates(): Promise<void> {
     console.error('❌ Update check failed:', error)
   }
 }
-
-// ============ Main ============
-
 async function main() {
   console.log('🤖 Network Auto-Update Manager starting...')
   console.log(`   Check Interval: ${CONFIG.CHECK_INTERVAL / 1000}s`)

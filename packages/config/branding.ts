@@ -5,9 +5,8 @@
  * Fork this and edit branding.json to customize your network.
  */
 
-import { existsSync, readFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+// Direct JSON import - browser safe
+import brandingJsonRaw from './branding.json'
 import {
   type BrandingConfig,
   BrandingConfigSchema,
@@ -33,9 +32,7 @@ export type {
   CliBranding,
 }
 
-// ============================================================================
 // Default Config (for documentation/template purposes)
-// ============================================================================
 
 /** Template for branding.json - exported for reference/testing */
 export const DEFAULT_BRANDING: BrandingConfig = {
@@ -130,190 +127,136 @@ export const DEFAULT_BRANDING: BrandingConfig = {
   },
 }
 
-// ============================================================================
 // Loader
-// ============================================================================
 
-let brandingCache: BrandingConfig | null = null
-let configPath: string | null = null
-
-function findConfigDir(): string {
-  // Try multiple locations
-  const locations = [
-    // From packages/config
-    join(dirname(fileURLToPath(import.meta.url)), '.'),
-    // From workspace root
-    join(process.cwd(), 'packages', 'config'),
-    // From any package
-    join(process.cwd(), '..', '..', 'packages', 'config'),
-  ]
-
-  for (const loc of locations) {
-    const brandingPath = join(loc, 'branding.json')
-    if (existsSync(brandingPath)) {
-      return loc
-    }
-  }
-
-  // Return first location for error message in loadBrandingFile
-  // The array is always populated, so first element is guaranteed
-  const firstLocation = locations[0]
-  if (!firstLocation) {
-    throw new Error('No config locations defined')
-  }
-  return firstLocation
-}
-
-/** Safely read a file with error handling */
-function safeReadFile(path: string): string {
-  return readFileSync(path, 'utf-8')
-}
-
-function loadBrandingFile(): BrandingConfig {
-  const dir = configPath ?? findConfigDir()
-  const brandingPath = join(dir, 'branding.json')
-
-  if (!existsSync(brandingPath)) {
-    throw new Error(
-      `branding.json not found at ${brandingPath}. ` +
-        `Create it from the template or set config path with setConfigPath().`,
-    )
-  }
-
-  const content = safeReadFile(brandingPath)
-  return BrandingConfigSchema.parse(JSON.parse(content))
-}
+// Parse and cache the branding config at module load time
+const brandingConfig: BrandingConfig =
+  BrandingConfigSchema.parse(brandingJsonRaw)
 
 /**
- * Set custom config path (useful for forks)
+ * Set custom config path (no-op for compatibility - config is now bundled)
+ * @deprecated Config is now bundled via direct JSON import
  */
-export function setConfigPath(path: string): void {
-  configPath = path
-  brandingCache = null
+export function setConfigPath(_path: string): void {
+  // No-op - config is bundled, not loaded from disk
 }
 
 /**
  * Get the full branding configuration
  */
 export function getBranding(): BrandingConfig {
-  if (!brandingCache) {
-    brandingCache = loadBrandingFile()
-  }
-  return brandingCache
+  return brandingConfig
 }
 
 /**
- * Clear the branding cache (useful for testing)
+ * Clear the branding cache (no-op for compatibility)
+ * @deprecated Config is now bundled via direct JSON import
  */
 export function clearBrandingCache(): void {
-  brandingCache = null
+  // No-op - config is bundled
 }
 
-// ============================================================================
 // Convenience Accessors
-// ============================================================================
 
 /** Get network name (e.g., "Network") */
 export function getNetworkName(): string {
-  return getBranding().network.name
+  return brandingConfig.network.name
 }
 
 /** Get network display name (e.g., "the network") */
 export function getNetworkDisplayName(): string {
-  return getBranding().network.displayName
+  return brandingConfig.network.displayName
 }
 
 /** Get network tagline */
 export function getNetworkTagline(): string {
-  return getBranding().network.tagline
+  return brandingConfig.network.tagline
 }
 
 /** Get network description */
 export function getNetworkDescription(): string {
-  return getBranding().network.description
+  return brandingConfig.network.description
 }
 
 /** Get chain config for testnet or mainnet */
 export function getChainBranding(
   network: 'testnet' | 'mainnet',
 ): ChainBranding {
-  return getBranding().chains[network]
+  return brandingConfig.chains[network]
 }
 
 /** Get URL config */
 export function getUrls(): UrlsBranding {
-  return getBranding().urls
+  return brandingConfig.urls
 }
 
 /** Get visual branding (colors, logo) */
 export function getVisualBranding(): VisualBranding {
-  return getBranding().branding
+  return brandingConfig.branding
 }
 
 /** Get feature flags */
 export function getFeatures(): FeaturesBranding {
-  return getBranding().features
+  return brandingConfig.features
 }
 
 /** Get CLI branding */
 export function getCliBranding(): CliBranding {
-  return getBranding().cli
+  return brandingConfig.cli
 }
 
 /** Get legal info */
 export function getLegal(): LegalBranding {
-  return getBranding().legal
+  return brandingConfig.legal
 }
 
 /** Get support info */
 export function getSupport(): SupportBranding {
-  return getBranding().support
+  return brandingConfig.support
 }
 
 /** Get native token info */
 export function getNativeToken(): TokenBranding {
-  return getBranding().tokens.native
+  return brandingConfig.tokens.native
 }
 
 /** Get governance token info */
 export function getGovernanceToken(): TokenBranding {
-  return getBranding().tokens.governance
+  return brandingConfig.tokens.governance
 }
 
 /** Get website URL */
 export function getWebsiteUrl(): string {
-  return getBranding().urls.website
+  return brandingConfig.urls.website
 }
 
 /** Get explorer URL for a specific network */
 export function getExplorerUrl(network: 'testnet' | 'mainnet'): string {
-  return getBranding().urls.explorer[network]
+  return brandingConfig.urls.explorer[network]
 }
 
 /** Get RPC URL for a specific network */
 export function getRpcUrl(network: 'testnet' | 'mainnet'): string {
-  return getBranding().urls.rpc[network]
+  return brandingConfig.urls.rpc[network]
 }
 
 /** Get API URL for a specific network */
 export function getApiUrl(network: 'testnet' | 'mainnet'): string {
-  return getBranding().urls.api[network]
+  return brandingConfig.urls.api[network]
 }
 
 /** Get gateway URL for a specific network */
 export function getGatewayUrl(network: 'testnet' | 'mainnet'): string {
-  return getBranding().urls.gateway[network]
+  return brandingConfig.urls.gateway[network]
 }
 
-// ============================================================================
 // Template Helpers
-// ============================================================================
 
 /**
  * Replace {placeholders} in a string with branding values
  */
 export function interpolate(template: string): string {
-  const branding = getBranding()
+  const branding = brandingConfig
 
   return template
     .replace(/\{networkName\}/g, branding.network.name)

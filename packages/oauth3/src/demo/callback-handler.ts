@@ -74,20 +74,20 @@ export function generateCallbackHtml(origin: string): string {
       const state = params.get('state');
       const error = params.get('error');
       const errorDescription = params.get('error_description');
-      
+
       const origin = '${origin}';
-      
+
       function showSuccess() {
         document.querySelector('.loading').style.display = 'none';
         document.querySelector('.success').style.display = 'block';
       }
-      
+
       function showError(message) {
         document.querySelector('.loading').style.display = 'none';
         document.querySelector('.error').style.display = 'block';
         document.querySelector('.error').textContent = message;
       }
-      
+
       if (error) {
         showError(errorDescription || error);
         if (window.opener) {
@@ -95,19 +95,19 @@ export function generateCallbackHtml(origin: string): string {
         }
         return;
       }
-      
+
       if (!code || !state) {
         showError('Missing authorization code or state');
         return;
       }
-      
+
       if (window.opener) {
         window.opener.postMessage({ code, state }, origin);
         showSuccess();
         setTimeout(() => window.close(), 1500);
       } else {
         showSuccess();
-        document.querySelector('.success p').textContent = 
+        document.querySelector('.success p').textContent =
           'Authentication complete. Return to the app to continue.';
       }
     })();

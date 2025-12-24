@@ -1,7 +1,3 @@
-/**
- * Paymaster Factory Contract Hook
- */
-
 import { useCallback } from 'react'
 import type { Address } from 'viem'
 import {
@@ -11,7 +7,6 @@ import {
 } from 'wagmi'
 import { PAYMASTER_FACTORY_ABI } from '../contracts'
 
-/** Type for getDeployment return value: [paymaster, vault, oracle] */
 type DeploymentTuple = readonly [Address, Address, Address]
 
 export interface PaymasterDeployment {
@@ -70,8 +65,6 @@ export function usePaymasterFactory(
     [factoryAddress, writeContract],
   )
 
-  // Type assertion required: wagmi's useReadContract returns a generic type
-  // based on ABI inference. The ABI specifies address[] return type.
   return {
     allDeployments: allDeployments ? (allDeployments as Address[]) : [],
     deployPaymaster,
@@ -92,7 +85,6 @@ export function usePaymasterDeployment(
     args: tokenAddress ? [tokenAddress] : undefined,
   })
 
-  // Parse deployment tuple into structured object
   const parsedDeployment: PaymasterDeployment | null = (() => {
     if (!deployment) return null
     const tuple = deployment as DeploymentTuple

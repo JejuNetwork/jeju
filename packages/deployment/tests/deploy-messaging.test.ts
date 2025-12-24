@@ -7,8 +7,6 @@
 import { describe, expect, it } from 'bun:test'
 import type { Address } from 'viem'
 
-// ============ Function Under Test ============
-
 /**
  * Extract contract address from forge deployment output
  * Forge outputs "Deployed to: 0x..." when deploying contracts
@@ -20,9 +18,6 @@ function extractContractAddress(output: string): Address {
   }
   return match[1] as Address
 }
-
-// ============ Tests ============
-
 describe('extractContractAddress', () => {
   it('should extract valid address from standard forge output', () => {
     const output = `
@@ -129,7 +124,7 @@ Deployed NodeRegistry to: 0x3333333333333333333333333333333333333333
 describe('Address format validation', () => {
   it('should extract addresses that pass checksum validation', () => {
     // These are valid checksummed addresses
-    const validChecksumAddresses = [
+    const validChecksumAddresses: Address[] = [
       '0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed',
       '0xfB6916095ca1df60bB79Ce92cE3Ea74c37c5d359',
       '0xdbF03B407c01E7cD3CBea99509d93f8DDDC8C6FB',

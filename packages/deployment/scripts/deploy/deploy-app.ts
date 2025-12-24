@@ -7,7 +7,7 @@ import { join } from 'node:path'
  * App Deployment Script
  */
 import { parseArgs } from 'node:util'
-import { getIpfsApiUrl } from '@jejunetwork/config/ports'
+import { getIpfsApiUrl } from '@jejunetwork/config'
 import {
   type Address,
   createPublicClient,
@@ -18,6 +18,10 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { base, baseSepolia } from 'viem/chains'
+import type {
+  DeployPublicClient,
+  DeployWalletClient,
+} from '../shared/viem-chains'
 
 const KEEPALIVE_REGISTRY_ABI = [
   {
@@ -204,7 +208,7 @@ async function uploadToIPFS(dir: string, ipfsApiUrl: string): Promise<string> {
 
   const formData = new FormData()
   for (const file of files) {
-    formData.append('file', new Blob([file.content]), file.path)
+    formData.append('file', new Blob([new Uint8Array(file.content)]), file.path)
   }
 
   const response = await fetch(
@@ -299,8 +303,8 @@ async function registerJNS(
   name: string,
   owner: Address,
   contenthash: Hex,
-  publicClient: ReturnType<typeof createPublicClient>,
-  walletClient: ReturnType<typeof createWalletClient>,
+  publicClient: DeployPublicClient,
+  walletClient: DeployWalletClient,
   jnsRegistrar: Address,
   jnsResolver: Address,
 ): Promise<Hex> {
@@ -364,8 +368,8 @@ async function setupKeepalive(
   config: DeployConfig,
   jnsNode: Hex,
   ipfsCid: string,
-  publicClient: ReturnType<typeof createPublicClient>,
-  walletClient: ReturnType<typeof createWalletClient>,
+  publicClient: DeployPublicClient,
+  walletClient: DeployWalletClient,
   keepaliveRegistry: Address,
   owner: Address,
 ): Promise<Hex> {
@@ -464,13 +468,13 @@ async function main() {
   const publicClient = createPublicClient({
     chain,
     transport: http(rpcUrl),
-  })
+  }) as DeployPublicClient
 
   const walletClient = createWalletClient({
     account,
     chain,
     transport: http(rpcUrl),
-  })
+  }) as DeployWalletClient
 
   console.log(`📋 Configuration:`)
   console.log(`   App Name: ${config.name}`)

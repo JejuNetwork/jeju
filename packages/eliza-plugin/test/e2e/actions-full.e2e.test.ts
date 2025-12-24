@@ -25,6 +25,7 @@ const USER_KEY =
 let env: TestEnvironment | null = null
 let service: StandaloneJejuService | null = null
 let deployer: JejuClient | null = null
+let sdkReady = false
 
 beforeAll(async () => {
   try {
@@ -44,13 +45,18 @@ beforeAll(async () => {
       smartAccount: false,
     })
 
+    // Check if SDK is fully initialized
+    sdkReady = !!(service?.sdk?.payments && service?.sdk?.storage)
+
     // Fund test user from deployer
-    const balance = await service.sdk.getBalance()
-    if (balance < parseEther('1')) {
-      await deployer.sendTransaction({
-        to: service.sdk.address,
-        value: parseEther('10'),
-      })
+    if (sdkReady && deployer) {
+      const balance = await service?.sdk.getBalance()
+      if (balance < parseEther('1')) {
+        await deployer.sendTransaction({
+          to: service?.sdk.address,
+          value: parseEther('10'),
+        })
+      }
     }
   } catch (e) {
     console.error('E2E setup failed:', e)
@@ -189,56 +195,56 @@ describe('Action Categories', () => {
 
 describe('SDK Integration via Service', () => {
   test('service has SDK client', () => {
-    if (!env?.chainRunning || !service) return
-    expect(service.sdk).toBeDefined()
+    if (!env?.chainRunning || !sdkReady) return
+    expect(service?.sdk).toBeDefined()
   })
 
   test('SDK can get balance', async () => {
-    if (!env?.chainRunning || !service) return
-    const balance = await service.sdk.getBalance()
+    if (!env?.chainRunning || !sdkReady) return
+    const balance = await service?.sdk.getBalance()
     expect(typeof balance).toBe('bigint')
   })
 
   test('SDK storage module works', async () => {
-    if (!env?.chainRunning || !service) return
-    const cost = service.sdk.storage.estimateCost(1024 * 1024, 1, 'hot')
+    if (!env?.chainRunning || !sdkReady) return
+    const cost = service?.sdk.storage.estimateCost(1024 * 1024, 1, 'hot')
     expect(typeof cost).toBe('bigint')
   })
 
   test('SDK crosschain module works', () => {
-    if (!env?.chainRunning || !service) return
-    const chains = service.sdk.crosschain.getSupportedChains()
+    if (!env?.chainRunning || !sdkReady) return
+    const chains = service?.sdk.crosschain.getSupportedChains()
     expect(Array.isArray(chains)).toBe(true)
   })
 
   test('SDK defi module works', () => {
-    if (!env?.chainRunning || !service) return
-    expect(service.sdk.defi).toBeDefined()
+    if (!env?.chainRunning || !sdkReady) return
+    expect(service?.sdk.defi).toBeDefined()
   })
 
   test('SDK governance module works', () => {
-    if (!env?.chainRunning || !service) return
-    expect(service.sdk.governance).toBeDefined()
+    if (!env?.chainRunning || !sdkReady) return
+    expect(service?.sdk.governance).toBeDefined()
   })
 
   test('SDK names module works', () => {
-    if (!env?.chainRunning || !service) return
-    expect(service.sdk.names).toBeDefined()
+    if (!env?.chainRunning || !sdkReady) return
+    expect(service?.sdk.names).toBeDefined()
   })
 
   test('SDK identity module works', () => {
-    if (!env?.chainRunning || !service) return
-    expect(service.sdk.identity).toBeDefined()
+    if (!env?.chainRunning || !sdkReady) return
+    expect(service?.sdk.identity).toBeDefined()
   })
 
   test('SDK payments module works', () => {
-    if (!env?.chainRunning || !service) return
-    expect(service.sdk.payments).toBeDefined()
+    if (!env?.chainRunning || !sdkReady) return
+    expect(service?.sdk.payments).toBeDefined()
   })
 
   test('SDK a2a module works', () => {
-    if (!env?.chainRunning || !service) return
-    expect(service.sdk.a2a).toBeDefined()
+    if (!env?.chainRunning || !sdkReady) return
+    expect(service?.sdk.a2a).toBeDefined()
   })
 })
 
@@ -248,20 +254,20 @@ describe('SDK Integration via Service', () => {
 
 describe('Live Chain Interactions', () => {
   test('can get eth balance from chain', async () => {
-    if (!env?.chainRunning || !service) return
-    const balance = await service.sdk.getBalance()
+    if (!env?.chainRunning || !sdkReady) return
+    const balance = await service?.sdk.getBalance()
     expect(balance).toBeGreaterThanOrEqual(0n)
   })
 
   test('can estimate storage cost', () => {
-    if (!env?.chainRunning || !service) return
-    const cost = service.sdk.storage.estimateCost(1024 * 1024, 30, 'hot')
+    if (!env?.chainRunning || !sdkReady) return
+    const cost = service?.sdk.storage.estimateCost(1024 * 1024, 30, 'hot')
     expect(cost).toBeGreaterThan(0n)
   })
 
   test('can get supported chains', () => {
-    if (!env?.chainRunning || !service) return
-    const chains = service.sdk.crosschain.getSupportedChains()
+    if (!env?.chainRunning || !sdkReady) return
+    const chains = service?.sdk.crosschain.getSupportedChains()
     expect(chains.length).toBeGreaterThan(0)
   })
 })

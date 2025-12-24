@@ -67,7 +67,6 @@ interface HyperCoreOrder {
   cloid?: string
 }
 
-/** Imported from validation - re-export for local use */
 import type { HyperCoreMarket, HyperCorePosition } from '../utils/index.js'
 
 export interface HyperliquidClientConfig {

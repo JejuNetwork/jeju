@@ -1,3 +1,7 @@
+[install]
+# Ensure React is resolved from the root to prevent duplicate instances
+peer = false
+
 [test]
 # Preload test setup to ensure infrastructure is running
 preload = ["./tests/setup.ts"]

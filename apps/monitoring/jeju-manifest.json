@@ -6,8 +6,8 @@
   "type": "core",
   "description": "Query blockchain metrics and system health via Prometheus. Exposes PromQL queries, active alerts, and scrape target status via A2A protocol.",
   "commands": {
-    "dev": "bun run server/a2a.ts",
-    "start": "bun run server/a2a.ts",
+    "dev": "bun run dev",
+    "start": "bun run api/a2a.ts",
     "build": "bun run build"
   },
   "ports": {
@@ -47,7 +47,7 @@
     "backend": {
       "enabled": true,
       "runtime": "bun",
-      "entrypoint": "server/a2a.ts",
+      "entrypoint": "api/a2a.ts",
       "memory": 256,
       "timeout": 30000,
       "minInstances": 1,

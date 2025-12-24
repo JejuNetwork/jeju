@@ -15,9 +15,7 @@ import {
 } from 'viem'
 import type { ChainDeployment, LiquidityAllocation } from '../types'
 
-// ============================================================================
 // ABIs
-// ============================================================================
 
 // Uniswap V2 Router ABI (used by most DEXes)
 const UNISWAP_V2_ROUTER_ABI = parseAbi([
@@ -44,9 +42,7 @@ const LP_LOCKER_ABI = parseAbi([
   'function getLock(uint256 lockId) external view returns (address token, uint256 amount, uint256 unlockTime, address owner, bool withdrawn)',
 ])
 
-// ============================================================================
 // Types
-// ============================================================================
 
 export interface LiquidityDeploymentParams {
   publicClient: PublicClient
@@ -86,9 +82,7 @@ export interface LPLockParams {
   lockerContract: Address
 }
 
-// ============================================================================
 // Uniswap V2 Liquidity
-// ============================================================================
 
 /**
  * Add liquidity to a Uniswap V2-style DEX
@@ -174,9 +168,7 @@ export async function addLiquidityV2(
   }
 }
 
-// ============================================================================
 // Uniswap V3 Liquidity
-// ============================================================================
 
 /**
  * Add concentrated liquidity to Uniswap V3
@@ -272,9 +264,7 @@ export async function addLiquidityV3(
   }
 }
 
-// ============================================================================
 // LP Token Locking
-// ============================================================================
 
 /**
  * Lock LP tokens in a locker contract
@@ -344,9 +334,7 @@ export async function lockLPTokens(params: LPLockParams): Promise<{
   }
 }
 
-// ============================================================================
 // Deploy Liquidity (Legacy Interface)
-// ============================================================================
 
 /**
  * Deploy liquidity for a chain (legacy single-chain function)
@@ -396,9 +384,7 @@ export async function deployLiquidity(
   return result.txHash
 }
 
-// ============================================================================
 // Utility Functions
-// ============================================================================
 
 /**
  * Calculate price to tick for V3

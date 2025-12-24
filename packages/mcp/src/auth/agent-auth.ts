@@ -1,7 +1,5 @@
 /**
- * MCP Agent Authentication
- *
- * Handles authentication for MCP requests using API keys or other methods
+ * Agent authentication for MCP requests.
  */
 
 import type { AuthenticatedAgent, MCPAuthContext } from '../types/mcp'

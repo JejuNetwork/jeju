@@ -27,12 +27,7 @@ import type {
   SendDCParams,
 } from './types'
 
-// ============ Types ============
-
 type MessageHandler = (message: DirectCast) => void
-
-// ============ Constants ============
-
 /** Maximum messages per conversation to prevent memory exhaustion */
 const MAX_MESSAGES_PER_CONVERSATION = 1000
 /** Maximum conversations to prevent memory exhaustion */
@@ -41,9 +36,6 @@ const MAX_CONVERSATIONS = 500
 const MAX_DC_TEXT_LENGTH = 2000
 /** Default timeout for relay requests */
 const RELAY_TIMEOUT_MS = 10000
-
-// ============ Direct Cast Client ============
-
 export class DirectCastClient {
   private config: DCClientConfig
   private isInitialized: boolean = false
@@ -59,9 +51,6 @@ export class DirectCastClient {
   constructor(config: DCClientConfig) {
     this.config = config
   }
-
-  // ============ Initialization ============
-
   /**
    * Initialize DC client
    */
@@ -111,9 +100,6 @@ export class DirectCastClient {
     this.encryptionPrivateKey = derived
     this.encryptionPublicKey = x25519.getPublicKey(derived)
   }
-
-  // ============ Conversations ============
-
   /**
    * Get all conversations
    */
@@ -169,9 +155,6 @@ export class DirectCastClient {
       conv.isMuted = muted
     }
   }
-
-  // ============ Messages ============
-
   /**
    * Get messages in conversation
    */
@@ -312,9 +295,6 @@ export class DirectCastClient {
       await this.sendReadReceipt(recipientFid, id)
     }
   }
-
-  // ============ Message Streaming ============
-
   /**
    * Subscribe to new messages
    */
@@ -364,9 +344,6 @@ export class DirectCastClient {
       this.offMessage(handler)
     }
   }
-
-  // ============ Encryption ============
-
   /**
    * Encrypt message for recipient
    */
@@ -439,9 +416,6 @@ export class DirectCastClient {
 
     return new TextDecoder().decode(plaintext)
   }
-
-  // ============ Key Discovery ============
-
   /**
    * Get recipient's encryption public key
    */
@@ -491,9 +465,6 @@ export class DirectCastClient {
       `[DC Client] Publishing encryption key: 0x${bytesToHex(this.encryptionPublicKey)}`,
     )
   }
-
-  // ============ Relay Communication ============
-
   /**
    * Connect to relay server
    */
@@ -676,9 +647,6 @@ export class DirectCastClient {
       handler(dc)
     }
   }
-
-  // ============ Internal Helpers ============
-
   private getConversationId(otherFid: number): string {
     const fids = [this.config.fid, otherFid].sort((a, b) => a - b)
     return `dc:${fids[0]}-${fids[1]}`
@@ -781,9 +749,6 @@ export class DirectCastClient {
       throw new Error('DC Client not initialized. Call initialize() first.')
     }
   }
-
-  // ============ State ============
-
   /**
    * Get client state
    */
@@ -810,9 +775,6 @@ export class DirectCastClient {
     return `0x${bytesToHex(this.encryptionPublicKey)}` as Hex
   }
 }
-
-// ============ Factory Function ============
-
 /**
  * Create and initialize a DC client
  */

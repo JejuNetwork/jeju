@@ -1,22 +1,19 @@
-/**
- * Factory DWS Deployment Script
- *
- * Deploys Factory to DWS:
- * 1. Builds static frontend and uploads to IPFS
- * 2. Packages backend worker and deploys to DWS workerd
- * 3. Updates on-chain registry with deployment info
- */
+/** Factory DWS Deployment */
 
 import { rmSync } from 'node:fs'
+import { getCoreAppUrl } from '@jejunetwork/config'
 import { z } from 'zod'
-import { expectValid } from '../src/schemas'
 
-const DWS_URL = process.env.DWS_URL || 'http://localhost:4030'
+const DWS_URL = process.env.DWS_URL || getCoreAppUrl('DWS_API')
 const NETWORK = process.env.NETWORK || 'localnet'
 
-// ============================================================================
-// Response Schemas
-// ============================================================================
+function expectValid<T>(schema: z.ZodType<T>, data: unknown, name: string): T {
+  const result = schema.safeParse(data)
+  if (!result.success) {
+    throw new Error(`Invalid ${name}: ${result.error.message}`)
+  }
+  return result.data
+}
 
 const UploadResponseSchema = z.object({
   cid: z.string(),
@@ -44,7 +41,6 @@ async function main(): Promise<DeployResult> {
   console.log(`🌐 Network: ${NETWORK}`)
   console.log('')
 
-  // Step 1: Build frontend
   console.log('📦 Building frontend...')
   const buildProc = Bun.spawn(['bun', 'scripts/build-client.ts'], {
     cwd: process.cwd(),
@@ -57,11 +53,9 @@ async function main(): Promise<DeployResult> {
   }
   console.log('✅ Frontend built')
 
-  // Step 2: Upload frontend to IPFS via DWS
   console.log('📤 Uploading frontend to IPFS...')
   const frontendDir = 'dist/client'
 
-  // Create tarball of frontend
   const tarPath = '/tmp/factory-frontend.tar.gz'
   const tarProc = Bun.spawn(['tar', '-czf', tarPath, '-C', frontendDir, '.'], {
     stdout: 'pipe',
@@ -69,7 +63,6 @@ async function main(): Promise<DeployResult> {
   })
   await tarProc.exited
 
-  // Upload to DWS storage
   const tarFile = Bun.file(tarPath)
   const tarContent = await tarFile.arrayBuffer()
 
@@ -96,12 +89,10 @@ async function main(): Promise<DeployResult> {
   const frontendCid = uploadResult.cid
   console.log(`✅ Frontend uploaded: ${frontendCid}`)
 
-  // Step 3: Package and deploy backend worker
   console.log('📦 Packaging backend worker...')
 
-  // Build worker bundle
   const workerBuildResult = await Bun.build({
-    entrypoints: ['./src/worker/index.ts'],
+    entrypoints: ['./api/worker/index.ts'],
     outdir: 'dist/worker',
     target: 'bun',
     minify: true,
@@ -113,7 +104,6 @@ async function main(): Promise<DeployResult> {
     throw new Error('Worker build failed')
   }
 
-  // Upload worker to DWS storage
   const workerFile = Bun.file('dist/worker/index.js')
   const workerContent = await workerFile.arrayBuffer()
 
@@ -140,10 +130,9 @@ async function main(): Promise<DeployResult> {
   const workerCid = workerUploadResult.cid
   console.log(`✅ Worker uploaded: ${workerCid}`)
 
-  // Step 4: Deploy worker to DWS workerd
   console.log('🚀 Deploying worker to DWS workerd...')
 
-  const manifest = await Bun.file('./src/worker/manifest.json').json()
+  const manifest = await Bun.file('./api/worker/manifest.json').json()
 
   const deployResponse = await fetch(`${DWS_URL}/workerd/workers`, {
     method: 'POST',
@@ -174,7 +163,6 @@ async function main(): Promise<DeployResult> {
   )
   console.log(`✅ Worker deployed: ${deployResult.id}`)
 
-  // Step 5: Return deployment info
   const result: DeployResult = {
     frontend: {
       cid: frontendCid,
@@ -197,7 +185,6 @@ async function main(): Promise<DeployResult> {
   console.log(`  Worker ID: ${result.backend.workerId}`)
   console.log(`  URL: ${result.backend.url}`)
 
-  // Clean up
   rmSync(tarPath, { force: true })
 
   return result

@@ -1,7 +1,3 @@
-/**
- * Liquidity Vault Contract Hook
- */
-
 import { useCallback } from 'react'
 import type { Address } from 'viem'
 import { parseEther } from 'viem'
@@ -127,9 +123,6 @@ export function useLiquidityVault(
     })
   }, [vaultAddress, claimWrite])
 
-  // Type assertions required: wagmi's useReadContract returns a generic type
-  // that depends on ABI inference. Our ABIs are defined with `as const` but
-  // wagmi doesn't fully propagate the return types.
   const position = lpPosition as RawPositionTuple | undefined
   const balance = lpBalance as bigint | undefined
   const supply = totalSupply as bigint | undefined

@@ -10,7 +10,7 @@ import {
   createRLAIFService,
   RunStatus,
   type Trajectory,
-} from '../src/rlaif-service'
+} from '../api/rlaif-service'
 
 describe('RLAIF Service', () => {
   let service: ReturnType<typeof createRLAIFService>

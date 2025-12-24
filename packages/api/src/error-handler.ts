@@ -1,3 +1,4 @@
+import type { JsonValue } from '@jejunetwork/types'
 import { z } from 'zod'
 
 export class APIError extends Error {
@@ -5,7 +6,7 @@ export class APIError extends Error {
     message: string,
     public statusCode: number,
     public code: string,
-    public details?: Record<string, unknown>,
+    public details?: Record<string, JsonValue>,
   ) {
     super(message)
     this.name = 'APIError'
@@ -15,7 +16,7 @@ export class APIError extends Error {
     error: string
     code: string
     statusCode: number
-    details?: Record<string, unknown>
+    details?: Record<string, JsonValue>
   } {
     return {
       error: this.message,
@@ -27,7 +28,7 @@ export class APIError extends Error {
 }
 
 export class ValidationError extends APIError {
-  constructor(message: string, details?: Record<string, unknown>) {
+  constructor(message: string, details?: Record<string, JsonValue>) {
     super(message, 400, 'VALIDATION_ERROR', details)
     this.name = 'ValidationError'
   }
@@ -38,20 +39,20 @@ export class NotFoundError extends APIError {
     const message = id
       ? `${resource} not found: ${id}`
       : `${resource} not found`
-    super(message, 404, 'NOT_FOUND', { resource, id })
+    super(message, 404, 'NOT_FOUND', id ? { resource, id } : { resource })
     this.name = 'NotFoundError'
   }
 }
 
 export class ConflictError extends APIError {
-  constructor(message: string, details?: Record<string, unknown>) {
+  constructor(message: string, details?: Record<string, JsonValue>) {
     super(message, 409, 'CONFLICT', details)
     this.name = 'ConflictError'
   }
 }
 
 export class ServiceUnavailableError extends APIError {
-  constructor(service: string, details?: Record<string, unknown>) {
+  constructor(service: string, details?: Record<string, JsonValue>) {
     super(`Service unavailable: ${service}`, 503, 'SERVICE_UNAVAILABLE', {
       service,
       ...details,
@@ -71,7 +72,7 @@ export interface ErrorResponse {
   error: string
   code: string
   statusCode: number
-  details?: Record<string, unknown>
+  details?: Record<string, JsonValue>
   stack?: string
 }
 
@@ -105,12 +106,20 @@ export function toErrorResponse(
   }
 
   if (error instanceof z.ZodError) {
-    const issues = error.issues.map((i) => `${i.path.join('.')}: ${i.message}`)
+    const issueStrings = error.issues.map(
+      (i) => `${i.path.join('.')}: ${i.message}`,
+    )
+    // Map ZodIssues to JSON-serializable objects
+    const serializedIssues = error.issues.map((i) => ({
+      path: i.path.map(String),
+      message: i.message,
+      code: i.code,
+    }))
     return {
-      error: `Validation failed: ${issues.join(', ')}`,
+      error: `Validation failed: ${issueStrings.join(', ')}`,
       code: 'VALIDATION_ERROR',
       statusCode: 400,
-      details: { issues: error.issues },
+      details: { issues: serializedIssues },
       ...(isDevelopment && { stack: error.stack }),
     }
   }
@@ -153,8 +162,14 @@ export function expectValid<T>(
     const errors = result.error.issues
       .map((e) => `${e.path.join('.')}: ${e.message}`)
       .join(', ')
+    // Map ZodIssues to JSON-serializable objects
+    const serializedIssues = result.error.issues.map((i) => ({
+      path: i.path.map(String),
+      message: i.message,
+      code: i.code,
+    }))
     throw new ValidationError(`Invalid ${context}: ${errors}`, {
-      issues: result.error.issues,
+      issues: serializedIssues,
     })
   }
   return result.data

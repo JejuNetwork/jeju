@@ -5,14 +5,14 @@
  */
 
 import { useCallback, useState } from 'react'
-import type { AuthProvider, OAuth3Session } from '../../index.js'
+import type { AuthProvider, OAuth3Session } from '../../types'
 import {
   expectEndpoint,
   extractError,
   OAuth3SessionSchema,
   validateResponse,
-} from '../../validation.js'
-import { useOAuth3 } from '../provider.js'
+} from '../../validation'
+import { useOAuth3 } from '../provider'
 
 export interface UseLoginOptions {
   onSuccess?: (session: OAuth3Session) => void

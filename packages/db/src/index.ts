@@ -31,18 +31,33 @@ export {
   CQLClient,
   CQLClient as CovenantSQLClient,
   getCQL,
+  getCQL as getCovenantSQLClient,
+  getCQL as createCovenantSQLClient,
   resetCQL,
+  resetCQL as resetCovenantSQLClient,
 } from './client.js'
-
+// Database manager for robust connection handling
+export {
+  createDatabaseManager,
+  DatabaseManager,
+  type DatabaseManagerConfig,
+  type DatabaseManagerStats,
+  getAllManagers,
+  getManager,
+  getOrCreateManager,
+  type ManagerStatus,
+  shutdownAllManagers,
+} from './manager.js'
 export {
   addColumn,
   createIndex,
   createMigrationManager,
   createTable,
+  createTableMigration,
   defineMigration,
   MigrationManager,
+  type TableSchema,
 } from './migration.js'
-
 export {
   buildOrderByClause,
   buildWhereClause,
@@ -51,15 +66,20 @@ export {
   type WhereClauseResult,
   type WhereInput,
 } from './query-builder.js'
-
-export { CQLServer, createCQLServer } from './server.js'
-
+// Secure client for per-app database provisioning
+export {
+  createSecureCQLClient,
+  type ProvisionedDatabase,
+  SecureCQLClient,
+  type SecureCQLConfig,
+} from './secure-client.js'
 export type {
   ACLEventDetails,
   ACLPermission,
   ACLRule,
   BlockProducerInfo,
   ColumnMeta,
+  ConsistencyLevel,
   CQLConfig,
   CQLConnection,
   CQLConnectionPool,
@@ -87,7 +107,6 @@ export type {
   RentalPlan,
   RevokeRequest,
 } from './types.js'
-
 export {
   parseBoolean,
   parsePort,
@@ -98,3 +117,23 @@ export {
   validateSQLIdentifier,
   validateSQLIdentifiers,
 } from './utils.js'
+// Vector search utilities (powered by sqlite-vec)
+export {
+  cosineDistance,
+  deserializeBitVector,
+  deserializeFloat32Vector,
+  deserializeInt8Vector,
+  generateCreateVectorTableSQL,
+  generateVectorInsertSQL,
+  generateVectorSearchSQL,
+  l1Distance,
+  l2Distance,
+  normalizeVector,
+  parseVectorSearchResults,
+  serializeBitVector,
+  serializeFloat32Vector,
+  serializeInt8Vector,
+  serializeVector,
+  validateVectorDimensions,
+  validateVectorValues,
+} from './vector.js'

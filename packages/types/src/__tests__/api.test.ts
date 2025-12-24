@@ -26,9 +26,7 @@ import {
   PaginationInfoSchema,
 } from '../api'
 
-// ============================================================================
 // ErrorDetailSchema Tests
-// ============================================================================
 
 describe('ErrorDetailSchema', () => {
   test('accepts string', () => {
@@ -85,9 +83,7 @@ describe('ErrorDetailSchema', () => {
   })
 })
 
-// ============================================================================
 // PaginationInfoSchema Tests
-// ============================================================================
 
 describe('PaginationInfoSchema', () => {
   test('accepts valid pagination info', () => {
@@ -193,9 +189,7 @@ describe('PaginationInfoSchema', () => {
   })
 })
 
-// ============================================================================
 // ApiMetaSchema Tests
-// ============================================================================
 
 describe('ApiMetaSchema', () => {
   test('accepts minimal meta with just timestamp', () => {
@@ -258,9 +252,7 @@ describe('ApiMetaSchema', () => {
   })
 })
 
-// ============================================================================
 // ApiErrorSchema Tests
-// ============================================================================
 
 describe('ApiErrorSchema', () => {
   test('accepts minimal error', () => {
@@ -321,9 +313,7 @@ describe('ApiErrorSchema', () => {
   })
 })
 
-// ============================================================================
 // createApiResponseSchema Tests
-// ============================================================================
 
 describe('createApiResponseSchema', () => {
   test('creates schema for simple data type', () => {
@@ -402,9 +392,7 @@ describe('createApiResponseSchema', () => {
   })
 })
 
-// ============================================================================
 // createPaginatedResponseSchema Tests
-// ============================================================================
 
 describe('createPaginatedResponseSchema', () => {
   test('creates schema for paginated items', () => {
@@ -535,9 +523,7 @@ describe('createPaginatedResponseSchema', () => {
   })
 })
 
-// ============================================================================
 // createA2AResponseSchema Tests
-// ============================================================================
 
 describe('createA2AResponseSchema', () => {
   test('creates schema with protocol field', () => {

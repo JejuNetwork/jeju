@@ -71,9 +71,7 @@ async function main() {
     )
   }
 
-  // ===================================================================
   // TEST 1: Basic Message Processing
-  // ===================================================================
   console.log('\n--- TEST 1: Basic Message Processing ---')
   console.log('Sending: "Hello, who are you?"')
 
@@ -104,9 +102,7 @@ async function main() {
   }
   console.log('✅ Response is LLM-generated (not canned)')
 
-  // ===================================================================
   // TEST 2: Memory Recall - Set Context
-  // ===================================================================
   console.log('\n--- TEST 2: Memory Recall ---')
   console.log(
     'Setting context: "My name is Alex and I work on the Jeju SDK. Remember that."',
@@ -129,9 +125,7 @@ async function main() {
   // Short delay
   await new Promise((r) => setTimeout(r, 500))
 
-  // ===================================================================
   // TEST 3: Memory Recall - Test Recall
-  // ===================================================================
   console.log('\n--- TEST 3: Memory Recall Verification ---')
   console.log('Asking: "What is my name and what do I work on?"')
 
@@ -169,9 +163,7 @@ async function main() {
     console.log('⚠️  Memory storage may not be working')
   }
 
-  // ===================================================================
   // TEST 4: Action Awareness
-  // ===================================================================
   console.log('\n--- TEST 4: Action Awareness ---')
   console.log('Asking: "Can you help me swap tokens?"')
 
@@ -194,9 +186,7 @@ async function main() {
     )
   }
 
-  // ===================================================================
   // SUMMARY
-  // ===================================================================
   console.log('\n=== TEST SUMMARY ===')
   console.log(`Room ID: ${ROOM_ID}`)
   console.log(`Messages processed: 4`)

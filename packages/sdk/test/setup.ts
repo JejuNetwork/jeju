@@ -17,7 +17,7 @@ import {
   getL1RpcUrl,
   getL2RpcUrl,
   INFRA_PORTS,
-} from '@jejunetwork/config/ports'
+} from '@jejunetwork/config'
 import { execa, type ResultPromise } from 'execa'
 import type { Hex } from 'viem'
 import { RPCGetCodeResponseSchema } from '../src/shared/schemas'

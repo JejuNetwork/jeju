@@ -15,6 +15,7 @@ import {
   toBytes,
 } from 'viem'
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
+import { toBase64Url } from '../polyfills.js'
 import type {
   AuthProvider,
   CredentialProof,
@@ -243,10 +244,8 @@ export class VerifiableCredentialIssuer {
       iat: Math.floor(Date.now() / 1000),
     }
 
-    const headerB64 = Buffer.from(JSON.stringify(header)).toString('base64url')
-    const payloadB64 = Buffer.from(JSON.stringify(payload)).toString(
-      'base64url',
-    )
+    const headerB64 = toBase64Url(JSON.stringify(header))
+    const payloadB64 = toBase64Url(JSON.stringify(payload))
 
     return `${headerB64}.${payloadB64}.`
   }

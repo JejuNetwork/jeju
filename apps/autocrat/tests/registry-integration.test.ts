@@ -9,7 +9,7 @@ import { beforeAll, describe, expect, it } from 'bun:test'
 import {
   RegistryIntegrationClient,
   type RegistryIntegrationConfig,
-} from '../src/registry-integration'
+} from '../api/registry-integration'
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 

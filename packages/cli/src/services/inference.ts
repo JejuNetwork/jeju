@@ -1,13 +1,4 @@
-/**
- * Local Inference Service
- *
- * OpenAI-compatible proxy that routes to any provider. Users can specify
- * any model - known models get auto-routed, unknown models can specify
- * provider explicitly or get routed by pattern matching.
- *
- * Model format: "model-name" or "provider/model-name"
- * Examples: "gpt-4o", "anthropic/claude-3", "groq/llama-3.3-70b-versatile"
- */
+/** OpenAI-compatible inference proxy with multi-provider routing */
 
 import { cors } from '@elysiajs/cors'
 import { Elysia } from 'elysia'
@@ -36,11 +27,11 @@ import {
   ChatRequestSchema,
   CohereResponseSchema,
   GeminiResponseSchema,
+  type OpenAIResponse,
   OpenAIResponseSchema,
   validate,
 } from '../schemas'
 
-// Schema for InferenceProvider registration
 const InferenceProviderRegistrationSchema = z.object({
   name: z
     .string()
@@ -59,10 +50,8 @@ const InferenceProviderRegistrationSchema = z.object({
   knownModels: z.array(z.string()).optional(),
 })
 
-// DWS endpoint for decentralized inference
 const DWS_ENDPOINT = process.env.DWS_URL || 'http://localhost:4030'
 
-// Provider endpoints - only used by local inference node, not CLI directly
 const PROVIDER_ENDPOINTS: Record<string, { baseUrl: string; type: string }> = {
   dws: { baseUrl: `${DWS_ENDPOINT}/compute`, type: 'openai' }, // Primary - DWS
   openai: { baseUrl: 'https://api.openai.com/v1', type: 'openai' },
@@ -87,7 +76,6 @@ const PROVIDER_ENDPOINTS: Record<string, { baseUrl: string; type: string }> = {
   openrouter: { baseUrl: 'https://openrouter.ai/api/v1', type: 'openai' },
 }
 
-// Pattern matching for auto-routing unknown models
 const MODEL_PATTERNS: Array<{ pattern: RegExp; provider: string }> = [
   { pattern: /^gpt-|^o1-|^o3-|^chatgpt-/i, provider: 'openai' },
   { pattern: /^claude-/i, provider: 'anthropic' },
@@ -102,7 +90,6 @@ const MODEL_PATTERNS: Array<{ pattern: RegExp; provider: string }> = [
   { pattern: /^pplx-/i, provider: 'perplexity' },
 ]
 
-// API key env var names per provider
 const API_KEY_VARS: Record<string, string> = {
   openai: 'OPENAI_API_KEY',
   anthropic: 'ANTHROPIC_API_KEY',
@@ -136,15 +123,12 @@ class LocalInferenceServer {
   }
 
   private detectDefaultProvider(): string {
-    // Always try DWS first for decentralized inference
     return 'dws'
   }
 
   private getApiKey(provider: string): string | undefined {
-    // Check custom providers first
     const custom = this.customProviders.find((p) => p.name === provider)
     if (custom?.apiKey) return custom.apiKey
-    // Then check env vars
     const keyVar = API_KEY_VARS[provider]
     return keyVar ? process.env[keyVar] : undefined
   }
@@ -152,11 +136,9 @@ class LocalInferenceServer {
   private getProviderEndpoint(
     provider: string,
   ): { baseUrl: string; type: string } | null {
-    // Check custom providers first
     const custom = this.customProviders.find((p) => p.name === provider)
     if (custom)
       return { baseUrl: custom.baseUrl, type: custom.type || 'openai' }
-    // Then check known providers
     return PROVIDER_ENDPOINTS[provider] || null
   }
 
@@ -164,21 +146,17 @@ class LocalInferenceServer {
     model: string,
     explicitProvider?: string,
   ): { provider: string; model: string } {
-    // 1. Explicit provider in request
     if (explicitProvider) return { provider: explicitProvider, model }
 
-    // 2. Provider prefix in model name: "provider/model"
     if (model.includes('/') && !model.startsWith('accounts/')) {
       const [provider, ...rest] = model.split('/')
       return { provider, model: rest.join('/') }
     }
 
-    // 3. Pattern matching
     for (const { pattern, provider } of MODEL_PATTERNS) {
       if (pattern.test(model)) return { provider, model }
     }
 
-    // 4. Default provider
     return { provider: this.defaultProvider, model }
   }
 
@@ -196,7 +174,6 @@ class LocalInferenceServer {
       }
     })
 
-    // Models list - returns available providers, not a fixed model list
     this.app.get('/v1/models', () => {
       const models: Array<{
         id: string
@@ -205,7 +182,6 @@ class LocalInferenceServer {
         owned_by: string
       }> = []
 
-      // Add models from custom providers
       for (const provider of this.customProviders) {
         for (const model of provider.knownModels || []) {
           models.push({
@@ -217,7 +193,6 @@ class LocalInferenceServer {
         }
       }
 
-      // Add a marker for each configured provider (users can use any model)
       for (const [name, keyVar] of Object.entries(API_KEY_VARS)) {
         if (process.env[keyVar]) {
           models.push({
@@ -229,7 +204,6 @@ class LocalInferenceServer {
         }
       }
 
-      // Add local fallback
       models.push({
         id: 'local-fallback',
         object: 'model',
@@ -240,7 +214,6 @@ class LocalInferenceServer {
       return { object: 'list', data: models }
     })
 
-    // Chat completions - routes to any provider
     this.app.post('/v1/chat/completions', async ({ body }) => {
       const validatedBody = validate(
         body,
@@ -263,7 +236,6 @@ class LocalInferenceServer {
         return this.localFallback(validatedBody, provider)
       }
 
-      // DWS doesn't require API key - it handles auth internally
       const apiKey = provider === 'dws' ? 'dws' : this.getApiKey(provider)
       if (!apiKey) {
         logger.warn(`No API key for provider: ${provider}`)
@@ -286,13 +258,7 @@ class LocalInferenceServer {
       return response
     })
 
-    // Provider registration endpoint - let users add custom providers at runtime
     this.app.post('/v1/providers', ({ body, set }) => {
-      // SECURITY: Validate with schema - this handles:
-      // - Required fields (name, baseUrl)
-      // - Name format validation (alphanumeric, starting with letter)
-      // - URL format validation (valid HTTP/HTTPS)
-      // - Type coercion and sanitization
       const parseResult = InferenceProviderRegistrationSchema.safeParse(body)
       if (!parseResult.success) {
         const errors = parseResult.error.issues
@@ -303,7 +269,6 @@ class LocalInferenceServer {
       }
       const validatedBody = parseResult.data
 
-      // SECURITY: Additional check for prototype pollution via reserved names
       const forbiddenNames = [
         '__proto__',
         'constructor',
@@ -316,8 +281,6 @@ class LocalInferenceServer {
         return { error: 'Invalid provider name' }
       }
 
-      // SECURITY: Create a clean object with only allowed properties
-      // This prevents prototype pollution from spreading untrusted input
       const safeProvider: InferenceProvider = {
         name: validatedBody.name,
         type: validatedBody.type,
@@ -331,7 +294,6 @@ class LocalInferenceServer {
       return { success: true, provider: safeProvider.name }
     })
 
-    // List providers
     this.app.get('/v1/providers', () => {
       const providers: Array<{
         name: string
@@ -399,7 +361,6 @@ class LocalInferenceServer {
       'Content-Type': 'application/json',
     }
 
-    // Route based on provider type (API format)
     if (provider.type === 'anthropic') {
       headers['x-api-key'] = provider.apiKey || ''
       headers['anthropic-version'] = '2023-06-01'
@@ -469,7 +430,6 @@ class LocalInferenceServer {
       }
     }
 
-    // Default: OpenAI-compatible (works for openai, groq, xai, cerebras, fireworks, together, etc.)
     headers.Authorization = `Bearer ${provider.apiKey}`
     return {
       url: `${provider.baseUrl}/chat/completions`,
@@ -489,9 +449,7 @@ class LocalInferenceServer {
     provider: InferenceProvider,
     rawData: unknown,
     model: string,
-  ): object {
-    // Use safeParse for external API responses (may be malformed)
-    // Anthropic format
+  ): OpenAIResponse {
     if (provider.type === 'anthropic') {
       const result = AnthropicResponseSchema.safeParse(rawData)
       if (result.success) {
@@ -587,9 +545,8 @@ class LocalInferenceServer {
     }
     logger.warn(`OpenAI response validation failed: ${result.error.message}`)
 
-    // Last resort: return raw data if it's an object (allows for unknown provider formats)
     if (rawData && typeof rawData === 'object') {
-      return rawData as object
+      return rawData as OpenAIResponse
     }
 
     throw new Error(`Invalid provider response format`)
@@ -599,7 +556,7 @@ class LocalInferenceServer {
     _request: ChatRequest,
     provider?: string,
     error?: string,
-  ): object {
+  ): OpenAIResponse {
     const content = this.generateLocalResponse(provider, error)
 
     return {

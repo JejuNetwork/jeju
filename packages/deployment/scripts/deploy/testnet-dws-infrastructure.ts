@@ -32,9 +32,7 @@ import {
 import { privateKeyToAccount } from 'viem/accounts'
 import { baseSepolia } from 'viem/chains'
 
-// ============================================================================
 // Configuration
-// ============================================================================
 
 interface ContractDeployment {
   name: string
@@ -68,16 +66,14 @@ const ROOT_DIR = join(import.meta.dir, '../..')
 const CONTRACTS_DIR = join(ROOT_DIR, 'packages/contracts')
 const DEPLOYMENTS_DIR = join(CONTRACTS_DIR, 'deployments/testnet')
 
-// ============================================================================
 // Deployer Class
-// ============================================================================
 
 class DWSInfrastructureDeployer {
   private rpcUrl: string
   private privateKey: Hex
   private account: ReturnType<typeof privateKeyToAccount>
-  private publicClient: ReturnType<typeof createPublicClient>
-  private walletClient: ReturnType<typeof createWalletClient>
+  private publicClient
+  private walletClient
   private result: Partial<DeploymentResult>
 
   constructor() {
@@ -364,6 +360,8 @@ class DWSInfrastructureDeployer {
       abi: JNS_REGISTRY_ABI,
       functionName: 'setSubnodeOwner',
       args: [ROOT_NODE, JEJU_LABEL, registrarAddress],
+      chain: null,
+      account: null,
     })
 
     await this.publicClient.waitForTransactionReceipt({ hash })
@@ -482,9 +480,7 @@ IPFS_GATEWAY=https://ipfs.testnet.jejunetwork.org
   }
 }
 
-// ============================================================================
 // CLI Entry Point
-// ============================================================================
 
 async function main() {
   const deployer = new DWSInfrastructureDeployer()

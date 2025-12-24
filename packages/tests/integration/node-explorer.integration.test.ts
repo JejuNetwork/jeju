@@ -1,6 +1,13 @@
 import { beforeAll, describe, expect, test } from 'bun:test'
-import { getCoreAppUrl } from '@jejunetwork/config/ports'
+import { getCoreAppUrl } from '@jejunetwork/config'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
+import { z } from 'zod'
+
+// Health response schema
+const HealthResponseSchema = z.object({
+  status: z.string(),
+  timestamp: z.number(),
+})
 
 /**
  * Integration tests for Node Explorer
@@ -43,10 +50,7 @@ describe.skipIf(!apiAvailable)('Node Explorer Integration Tests', () => {
   describe('API Health', () => {
     test('should respond to health check', async () => {
       const response = await fetch(`${API_URL}/health`)
-      const data = (await response.json()) as {
-        status: string
-        timestamp: number
-      }
+      const data = HealthResponseSchema.parse(await response.json())
 
       expect(response.ok).toBe(true)
       expect(data.status).toBe('ok')

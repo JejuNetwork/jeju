@@ -1,47 +1,77 @@
-// API client and typed helpers
+/**
+ * Bazaar - Shared Library
+ *
+ * Exports shared utilities and modules used across api/ and web/.
+ * Note: Some modules export same-named functions (formatPrice, formatTimeRemaining).
+ * Use explicit imports with aliases when you need multiple versions.
+ */
 
+// Browser stubs - explicit exports to avoid ipfs.ts conflicts
 export {
-  claimFaucet,
-  createTFMMPool,
-  getA2AInfo,
-  getAgentCard,
-  getHealth,
-  getMCPInfo,
-  getTFMMOracles,
-  getTFMMPool,
-  getTFMMPools,
-  getTFMMStrategies,
-  triggerTFMMRebalance,
-  updateTFMMStrategy,
-} from './api'
-export { checkTradeAllowed } from './banCheck'
-export {
-  API_BASE,
-  ApiError,
-  api,
-  type BazaarClient,
-  type FaucetClaimResult,
-  type FaucetInfo,
-  type FaucetStatus,
-  type HealthResponse,
-  type TFMMPool,
-  type TFMMPoolsResponse,
-} from './client'
-export * from './crosschain'
+  type BanStatus,
+  BanType,
+  getBanTypeLabel,
+  type IPFSClient,
+  type OAuth3Config,
+  type OAuth3ContextValue,
+  type OAuth3Session,
+  useBanStatus,
+} from './browser-stubs'
+export * from './client'
+export * from './data-client'
 export * from './erc8004'
-export {
-  ClaimRequestSchema,
-  FaucetClaimResultSchema,
-  FaucetInfoSchema,
-  FaucetStatusSchema,
-  faucetService,
-  faucetState,
-  formatCooldownTime,
-  isFaucetConfigured,
-  parseJsonResponse,
-} from './faucet'
 export * from './games'
-export * from './indexer-client'
+export * from './ipfs'
+
+// JNS - explicit exports to avoid conflicts with nft.ts formatTimeRemaining
+export {
+  BASE_REGISTRATION_PRICE_ETH,
+  type CurrencyType,
+  CurrencyTypeSchema,
+  calculateExpiryDate,
+  calculateExpiryTimestamp,
+  calculateRegistrationPrice,
+  calculateRegistrationPriceWei,
+  computeLabelhash,
+  computeNameIdentifiers,
+  formatExpiryDate,
+  formatFullName,
+  formatListingPrice,
+  formatRegistrationPrice,
+  formatTimeRemaining as formatJNSTimeRemaining,
+  getAnnualPrice,
+  getNameLengthCategory,
+  getRemainingSeconds,
+  isExpired,
+  isValidNameFormat,
+  JNS_SUFFIX,
+  JNSNameSchema,
+  ListingDurationSchema,
+  ListingPriceSchema,
+  type ListingStatus,
+  ListingStatusSchema,
+  labelhashToTokenId,
+  listingDurationToSeconds,
+  MAX_NAME_LENGTH,
+  MIN_NAME_LENGTH,
+  type NameListingInput,
+  NameListingInputSchema,
+  type NameRegistrationInput,
+  NameRegistrationInputSchema,
+  normalizeName,
+  parseEthToWei,
+  REGISTRATION_DURATIONS,
+  RegistrationDurationSchema,
+  SECONDS_PER_DAY,
+  SECONDS_PER_YEAR,
+  SHORT_NAME_MULTIPLIERS,
+  validateListingDuration,
+  validateListingInput,
+  validateName,
+  validateRegistrationInput,
+} from './jns'
+
+// Launchpad - explicit exports to avoid conflicts with perps.ts formatPrice
 export {
   type BondingCurveConfig,
   BondingCurveConfigSchema,
@@ -82,49 +112,57 @@ export {
   validateBondingCurveLaunch,
   validateICOLaunch,
 } from './launchpad'
-export * from './markets'
-export * from './moderation-contracts'
+
+// Markets - explicit exports to avoid conflicts with formatPrice from perps
 export {
-  calculateCurrentLeverage,
-  calculateFee,
-  calculateLiquidationPrice,
-  calculateNotional,
-  calculateRequiredMargin,
-  calculateUnrealizedPnL as calculatePerpUnrealizedPnL,
-  DEFAULT_TAKER_FEE_BPS,
-  FUNDING_RATE_DECIMALS,
-  FUNDING_RATE_SCALE,
-  formatFundingRate,
-  formatLeverage,
-  formatPnL,
-  formatPrice as formatPerpPrice,
-  formatSize,
-  getBaseAsset,
-  getTradeButtonText,
-  isAtLiquidationRisk,
-  isTradeButtonDisabled,
-  LEVERAGE_DECIMALS,
-  LEVERAGE_SCALE,
-  leverageToBigInt,
-  leverageToNumber,
-  MAINTENANCE_MARGIN_FACTOR,
-  MARKET_IDS as PERP_MARKET_IDS,
-  MAX_LEVERAGE,
-  PNL_DECIMALS,
-  PNL_SCALE,
-  PositionSide,
-  PRICE_DECIMALS,
-  PRICE_SCALE,
-  priceToBigInt,
-  priceToNumber,
-  SIZE_DECIMALS,
-  SIZE_SCALE,
-  sizeToBigInt,
-  sizeToNumber,
-  validateMargin,
-  validatePositionParams,
-} from './perps'
+  calculateCost,
+  calculateExpectedShares,
+  calculateNoPrice,
+  calculateYesPrice,
+  formatPrice as formatMarketPrice,
+} from './markets/lmsrPricing'
+export * from './moderation-contracts'
+
+// NFT - explicit exports to use NFT-specific formatTimeRemaining
+export {
+  type AuctionParams,
+  AuctionParamsSchema,
+  type AuctionState,
+  type BidParams,
+  BidParamsSchema,
+  calculateMinimumBid,
+  DEFAULT_AUCTION_DURATION_SECONDS,
+  daysToSeconds,
+  type ERC721TokenInput,
+  type ERC1155BalanceInput,
+  filterNFTsByOwner,
+  formatAddress,
+  formatTimeRemaining as formatNFTTimeRemaining,
+  getAuctionTimeRemaining,
+  groupNFTsByCollection,
+  isAuctionActive,
+  isListingActive,
+  isNFTOwner,
+  ListingParamsSchema,
+  type ListingState,
+  MIN_BID_INCREMENT_BPS,
+  MIN_LISTING_PRICE_ETH,
+  type NFTCollectionGroup,
+  type NFTSortOption,
+  normalizeERC721Token,
+  normalizeERC1155Balance,
+  normalizeNFTQueryResult,
+  type OfferParams,
+  OfferParamsSchema,
+  secondsToDays,
+  sortNFTs,
+  validateBidAmount,
+  validateListingPrice,
+} from './nft'
+
+// Perps - formatPrice is the canonical one from this module
+export * from './perps'
+
 export * from './portfolio'
-export * from './randomColor'
 export * from './swap'
-export * from './x402'
+export * from './validation'

@@ -10,7 +10,7 @@
  * - Supply/borrow optimization
  */
 
-import { EventEmitter } from 'node:events'
+import { EventEmitter } from '@jejunetwork/shared'
 import {
   type Address,
   type PublicClient,

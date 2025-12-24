@@ -13,9 +13,6 @@ import {
   HubInfoSchema,
   ValidateMessageResponseSchema,
 } from './schemas'
-
-// ============ Types ============
-
 export interface HubSubmitterConfig {
   /** Hub HTTP API URL */
   hubUrl: string
@@ -37,9 +34,6 @@ export interface SubmitResult {
 
 // HubInfo type is now imported from ./schemas
 export type { HubInfo } from './schemas'
-
-// ============ Hub Submitter Class ============
-
 export class HubSubmitter {
   private readonly hubUrl: string
   private readonly timeout: number
@@ -225,9 +219,6 @@ export class HubSubmitter {
     )
     return { valid: result.valid }
   }
-
-  // ============ Private Helpers ============
-
   private async fetchWithTimeout(
     url: string,
     options?: RequestInit,
@@ -268,9 +259,6 @@ export class HubSubmitter {
     return new Promise((resolve) => setTimeout(resolve, ms))
   }
 }
-
-// ============ Hub Selection ============
-
 export interface HubEndpoint {
   url: string
   priority: number

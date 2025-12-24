@@ -290,9 +290,7 @@ describe('Types', () => {
   })
 })
 
-// =============================================================================
 // Integration Tests - require workerd to be installed
-// =============================================================================
 
 describe('Workerd Integration', () => {
   const skipIntegration = !WORKERD_AVAILABLE

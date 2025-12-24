@@ -3,6 +3,7 @@
  * Usage: bun run scripts/deploy/chainlink.ts --network [mainnet|testnet|localnet]
  */
 
+import { join } from 'node:path'
 import { parseArgs } from 'node:util'
 import {
   type Address,
@@ -14,10 +15,28 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { base, baseSepolia, foundry } from 'viem/chains'
-import AutomationRegistryABI from '../../packages/contracts/abis/AutomationRegistry.json'
-import ChainlinkGovernanceABI from '../../packages/contracts/abis/ChainlinkGovernance.json'
-import OracleRouterABI from '../../packages/contracts/abis/OracleRouter.json'
-import VRFCoordinatorABI from '../../packages/contracts/abis/VRFCoordinatorV2_5.json'
+
+// Forge artifacts contain abi and bytecode
+interface ForgeArtifact {
+  abi: readonly Record<string, unknown>[]
+  bytecode: { object: string }
+}
+
+const CONTRACTS_OUT = join(import.meta.dir, '../../../contracts/out')
+
+async function loadArtifact(
+  contractDir: string,
+  contractName: string,
+): Promise<ForgeArtifact> {
+  const path = join(CONTRACTS_OUT, contractDir, `${contractName}.json`)
+  const file = Bun.file(path)
+  if (!(await file.exists())) {
+    throw new Error(
+      `Contract artifact not found: ${path}. Run 'forge build' in packages/contracts.`,
+    )
+  }
+  return file.json() as Promise<ForgeArtifact>
+}
 
 // LINK token addresses per network (mainnet uses official LINK, others use mock)
 const CHAINS = {
@@ -38,6 +57,16 @@ async function deploy(network: Network) {
   const autocrat = (process.env.AUTOCRAT_ADDRESS ?? '0x0') as Address
   const treasury = (process.env.TREASURY_ADDRESS ?? '0x0') as Address
 
+  // Load forge artifacts
+  console.log('Loading contract artifacts...')
+  const [vrfArtifact, autoArtifact, oracleArtifact, govArtifact] =
+    await Promise.all([
+      loadArtifact('VRFCoordinatorV2_5.sol', 'VRFCoordinatorV2_5'),
+      loadArtifact('AutomationRegistry.sol', 'AutomationRegistry'),
+      loadArtifact('OracleRouter.sol', 'OracleRouter'),
+      loadArtifact('ChainlinkGovernance.sol', 'ChainlinkGovernance'),
+    ])
+
   const account = privateKeyToAccount(deployerKey)
   const publicClient = createPublicClient({ chain, transport: http(rpcUrl) })
   const walletClient = createWalletClient({
@@ -55,8 +84,8 @@ async function deploy(network: Network) {
   // Deploy VRF
   console.log('Deploying VRFCoordinatorV2_5...')
   const vrfHash = await walletClient.deployContract({
-    abi: VRFCoordinatorABI.abi,
-    bytecode: VRFCoordinatorABI.bytecode as Hex,
+    abi: vrfArtifact.abi,
+    bytecode: `0x${vrfArtifact.bytecode.object}` as Hex,
     args: [linkToken, '0x0', autocrat],
   })
   const vrfReceipt = await publicClient.waitForTransactionReceipt({
@@ -68,8 +97,8 @@ async function deploy(network: Network) {
   // Deploy Automation
   console.log('Deploying AutomationRegistry...')
   const autoHash = await walletClient.deployContract({
-    abi: AutomationRegistryABI.abi,
-    bytecode: AutomationRegistryABI.bytecode as Hex,
+    abi: autoArtifact.abi,
+    bytecode: `0x${autoArtifact.bytecode.object}` as Hex,
     args: [autocrat],
   })
   const autoReceipt = await publicClient.waitForTransactionReceipt({
@@ -81,8 +110,8 @@ async function deploy(network: Network) {
   // Deploy Oracle Router
   console.log('Deploying OracleRouter...')
   const oracleHash = await walletClient.deployContract({
-    abi: OracleRouterABI.abi,
-    bytecode: OracleRouterABI.bytecode as Hex,
+    abi: oracleArtifact.abi,
+    bytecode: `0x${oracleArtifact.bytecode.object}` as Hex,
     args: [autocrat],
   })
   const oracleReceipt = await publicClient.waitForTransactionReceipt({
@@ -94,8 +123,8 @@ async function deploy(network: Network) {
   // Deploy Governance
   console.log('Deploying ChainlinkGovernance...')
   const govHash = await walletClient.deployContract({
-    abi: ChainlinkGovernanceABI.abi,
-    bytecode: ChainlinkGovernanceABI.bytecode as Hex,
+    abi: govArtifact.abi,
+    bytecode: `0x${govArtifact.bytecode.object}` as Hex,
     args: [autocrat, vrfCoordinator, automationRegistry, oracleRouter],
   })
   const govReceipt = await publicClient.waitForTransactionReceipt({
@@ -108,37 +137,37 @@ async function deploy(network: Network) {
   console.log('\nConfiguring...')
   await walletClient.writeContract({
     address: vrfCoordinator,
-    abi: VRFCoordinatorABI.abi,
+    abi: vrfArtifact.abi,
     functionName: 'setGovernance',
     args: [governance],
   })
   await walletClient.writeContract({
     address: automationRegistry,
-    abi: AutomationRegistryABI.abi,
+    abi: autoArtifact.abi,
     functionName: 'setGovernance',
     args: [governance],
   })
   await walletClient.writeContract({
     address: oracleRouter,
-    abi: OracleRouterABI.abi,
+    abi: oracleArtifact.abi,
     functionName: 'setGovernance',
     args: [governance],
   })
   await walletClient.writeContract({
     address: vrfCoordinator,
-    abi: VRFCoordinatorABI.abi,
+    abi: vrfArtifact.abi,
     functionName: 'setFeeRecipient',
     args: [treasury],
   })
   await walletClient.writeContract({
     address: automationRegistry,
-    abi: AutomationRegistryABI.abi,
+    abi: autoArtifact.abi,
     functionName: 'setFeeRecipient',
     args: [treasury],
   })
   await walletClient.writeContract({
     address: oracleRouter,
-    abi: OracleRouterABI.abi,
+    abi: oracleArtifact.abi,
     functionName: 'setFeeRecipient',
     args: [treasury],
   })

@@ -11,7 +11,7 @@
  * Supports: Aave, Compound, Morpho
  */
 
-import { EventEmitter } from 'node:events'
+import { EventEmitter } from '@jejunetwork/shared'
 import {
   type Address,
   type PublicClient,

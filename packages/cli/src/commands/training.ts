@@ -1,8 +1,4 @@
-/**
- * jeju training - Distributed training operations (Psyche-compatible)
- *
- * Manage distributed ML training runs on Jeju DWS.
- */
+/** Distributed training operations (Psyche-compatible) */
 
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
@@ -1949,9 +1945,7 @@ async function verifyTraining(options: {
   }
 }
 
-// ============================================================================
 // Full RLAIF Pipeline
-// ============================================================================
 
 async function runFullRLAIFPipeline(options: {
   env: string
@@ -2063,9 +2057,7 @@ async function runFullRLAIFPipeline(options: {
   }
 }
 
-// ============================================================================
 // Label GRPO Bundles
-// ============================================================================
 
 async function labelBundles(
   manifestCid: string,
@@ -2158,9 +2150,7 @@ async function labelBundles(
   }
 }
 
-// ============================================================================
 // Benchmark Trained Model
-// ============================================================================
 
 async function runBenchmark(
   modelCid: string,

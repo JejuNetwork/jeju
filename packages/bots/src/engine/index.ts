@@ -2,7 +2,7 @@
  * Bot Engine - Core orchestration for running multiple strategies
  */
 
-import { EventEmitter } from 'node:events'
+import { EventEmitter } from '@jejunetwork/shared'
 import type { EVMChainId } from '@jejunetwork/types'
 import {
   type CrossChainArbConfig,
@@ -74,7 +74,7 @@ export class BotEngine extends EventEmitter {
       })
 
       this.tfmmRebalancer.on('rebalance-success', (result) => {
-        this.onTradeComplete('tfmm-rebalancer', result)
+        this.onTradeComplete('tfmm-rebalancer', result as TradeResult)
       })
     }
 
@@ -84,7 +84,10 @@ export class BotEngine extends EventEmitter {
       })
 
       this.crossChainArb.on('completed', (opp) => {
-        this.onTradeComplete('cross-chain-arbitrage', opp)
+        this.onTradeComplete(
+          'cross-chain-arbitrage',
+          opp as { netProfitUsd: string; id: string },
+        )
       })
     }
   }

@@ -1,13 +1,9 @@
 /**
- * Torrent and P2P Storage Types
- * Types for WebTorrent integration and decentralized content delivery
+ * WebTorrent and P2P storage types.
  */
 
 import { z } from 'zod'
 import { AddressSchema, HexSchema } from './validation'
-
-// ============ Content Types ============
-
 export const ContentStatus = {
   UNKNOWN: 0,
   APPROVED: 1,
@@ -67,9 +63,6 @@ export const SeederStatsSchema = z.object({
   lastReportTime: z.number(),
 })
 export type SeederStats = z.infer<typeof SeederStatsSchema>
-
-// ============ Torrent Types ============
-
 export const TorrentFileSchema = z.object({
   name: z.string(),
   path: z.string(),
@@ -110,9 +103,6 @@ export const SeedingInfoSchema = z.object({
   estimatedRewards: z.bigint(),
 })
 export type SeedingInfo = z.infer<typeof SeedingInfoSchema>
-
-// ============ Upload/Download Types ============
-
 export const TorrentUploadOptionsSchema = z.object({
   name: z.string(),
   tier: ContentTierSchema,
@@ -139,9 +129,6 @@ export interface TorrentDownloadOptions {
   timeout?: number
   progressCallback?: (stats: TorrentStats) => void
 }
-
-// ============ Swarm Types ============
-
 export const SwarmInfoSchema = z.object({
   infohash: z.string(),
   seeders: z.number().int().nonnegative(),
@@ -162,9 +149,6 @@ export const PeerInfoSchema = z.object({
   uploaded: z.number().nonnegative(),
 })
 export type PeerInfo = z.infer<typeof PeerInfoSchema>
-
-// ============ Content Routing Types ============
-
 export const DeliveryMethodSchema = z.enum(['torrent', 'ipfs', 'cdn', 'proxy'])
 export type DeliveryMethod = z.infer<typeof DeliveryMethodSchema>
 
@@ -191,9 +175,6 @@ export const ContentIdentifierSchema = z.object({
   magnetUri: z.string().optional(),
 })
 export type ContentIdentifier = z.infer<typeof ContentIdentifierSchema>
-
-// ============ Moderation Types ============
-
 export const ContentScanDetailsSchema = z.object({
   csamScore: z.number().nonnegative(),
   nsfwScore: z.number().nonnegative(),
@@ -219,9 +200,6 @@ export const ModerationReportSchema = z.object({
   caseId: HexSchema.optional(),
 })
 export type ModerationReport = z.infer<typeof ModerationReportSchema>
-
-// ============ Encrypted Storage Types ============
-
 export const EncryptedContentSchema = z.object({
   cid: z.string(),
   infohash: z.string(),
@@ -244,9 +222,6 @@ export const DecryptionRequestSchema = z.object({
   authSignature: AuthSignatureSchema,
 })
 export type DecryptionRequest = z.infer<typeof DecryptionRequestSchema>
-
-// ============ Contract ABIs ============
-
 export const CONTENT_REGISTRY_ABI = [
   // Content registration
   {

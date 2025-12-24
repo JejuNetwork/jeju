@@ -11,9 +11,6 @@ import {
   type StressTestConfig,
   StressTestRunner,
 } from './stress-tests'
-
-// ============ Types ============
-
 export interface TestPipelineConfig {
   // Data sources
   alchemyApiKey?: string
@@ -92,9 +89,6 @@ interface ScanSummary {
   totalValueUsd: number
   bestOpportunity: string
 }
-
-// ============ Test Runner ============
-
 export class TestPipeline {
   private config: TestPipelineConfig
   private results: Partial<TestPipelineResult> = {}
@@ -378,9 +372,6 @@ export class TestPipeline {
       recommendations,
     }
   }
-
-  // ============ Individual Test Runners ============
-
   private async runBacktest(): Promise<BacktestSummary> {
     const fetcher = new MultiSourceFetcher({
       alchemyApiKey: this.config.alchemyApiKey,
@@ -612,9 +603,6 @@ export class TestPipeline {
     }
   }
 }
-
-// ============ CLI Entry Point ============
-
 async function main() {
   const args = process.argv.slice(2)
 

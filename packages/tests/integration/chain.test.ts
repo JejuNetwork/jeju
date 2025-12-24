@@ -7,6 +7,10 @@
 
 import { beforeAll, describe, expect, test } from 'bun:test'
 import { createPublicClient, http, parseEther } from 'viem'
+import { z } from 'zod'
+
+// RPC response schema
+const JsonRpcResultSchema = z.object({ result: z.string() })
 
 const L1_RPC = process.env.L1_RPC_URL || 'http://127.0.0.1:6545'
 const L2_RPC = process.env.L2_RPC_URL || 'http://127.0.0.1:6546'
@@ -66,7 +70,7 @@ describe('Chain Infrastructure', () => {
       })
 
       expect(response.ok).toBe(true)
-      const data = (await response.json()) as { result: string }
+      const data = JsonRpcResultSchema.parse(await response.json())
       expect(data.result).toBeDefined()
     })
 
@@ -84,7 +88,7 @@ describe('Chain Infrastructure', () => {
         }),
       })
 
-      const data = (await response.json()) as { result: string }
+      const data = JsonRpcResultSchema.parse(await response.json())
       const blockNumber = parseInt(data.result, 16)
       expect(blockNumber).toBeGreaterThanOrEqual(0)
     })
@@ -122,7 +126,7 @@ describe('Chain Infrastructure', () => {
       })
 
       expect(response.ok).toBe(true)
-      const data = (await response.json()) as { result: string }
+      const data = JsonRpcResultSchema.parse(await response.json())
       expect(data.result).toBeDefined()
     })
 
@@ -140,7 +144,7 @@ describe('Chain Infrastructure', () => {
         }),
       })
 
-      const data = (await response.json()) as { result: string }
+      const data = JsonRpcResultSchema.parse(await response.json())
       const blockNumber = parseInt(data.result, 16)
       expect(blockNumber).toBeGreaterThanOrEqual(0)
     })

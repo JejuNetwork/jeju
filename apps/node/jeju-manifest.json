@@ -7,9 +7,10 @@
   "description": "Run infrastructure nodes (compute, storage, CDN, proxy) and earn rewards",
   "commands": {
     "dev": "bun run dev",
+    "dev:app": "bun run dev:app",
     "build": "bun run build",
-    "build:tauri": "bun run tauri build",
-    "test": "bun run test:unit"
+    "build:app": "bun run build:app",
+    "test": "bun run test"
   },
   "ports": {
     "main": 1420,

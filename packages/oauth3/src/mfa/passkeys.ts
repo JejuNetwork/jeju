@@ -7,6 +7,7 @@
  * - Device-bound credentials
  */
 
+import { getEnv } from '@jejunetwork/shared'
 import { toHex } from 'viem'
 
 export interface PasskeyCredential {
@@ -91,8 +92,8 @@ interface PublicKeyCredentialRequestOptions {
 }
 
 const CHALLENGE_EXPIRY = 5 * 60 * 1000 // 5 minutes
-const RP_NAME = process.env.OAUTH3_RP_NAME ?? 'OAuth3'
-const RP_ID = process.env.OAUTH3_RP_ID ?? 'localhost'
+const RP_NAME = getEnv('OAUTH3_RP_NAME') ?? 'OAuth3'
+const RP_ID = getEnv('OAUTH3_RP_ID') ?? 'localhost'
 
 export class PasskeyManager {
   private credentials = new Map<string, PasskeyCredential[]>()

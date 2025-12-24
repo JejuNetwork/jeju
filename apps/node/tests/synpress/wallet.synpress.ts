@@ -1,9 +1,4 @@
-/**
- * Wallet Integration Tests
- * Tests wallet connection and on-chain interactions with MetaMask
- */
-
-import basicSetup from '@jejunetwork/tests/wallet-setup'
+import { basicSetup } from '@jejunetwork/tests'
 import type { BrowserContext, Page } from '@playwright/test'
 import { testWithSynpress } from '@synthetixio/synpress'
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright'

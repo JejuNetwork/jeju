@@ -14,23 +14,18 @@
     "moduleResolution": "bundler",
     "paths": {
       "@/*": ["./*"],
-      "@/components/*": ["./components/*"],
+      "@/components/*": ["./web/components/*"],
       "@/lib/*": ["./lib/*"],
-      "@/hooks/*": ["./hooks/*"],
-      "@/config/*": ["./config/*"]
+      "@/hooks/*": ["./web/hooks/*"],
+      "@/config/*": ["./web/config/*"]
     }
   },
   "include": [
-    "src/**/*.ts",
-    "src/**/*.tsx",
     "api/**/*.ts",
-    "components/**/*.ts",
-    "components/**/*.tsx",
-    "config/**/*.ts",
-    "hooks/**/*.ts",
+    "web/**/*.ts",
+    "web/**/*.tsx",
     "lib/**/*.ts",
-    "types/**/*.ts",
-    "schemas/**/*.ts"
+    "types/**/*.ts"
   ],
-  "exclude": ["node_modules", "tests/**/*", "test/**/*", "dist"]
+  "exclude": ["node_modules", "tests/**/*", "api/__tests__/**", "**/*.test.ts", "dist", "web/lib", "web/types"]
 }

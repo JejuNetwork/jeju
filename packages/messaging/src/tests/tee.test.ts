@@ -14,8 +14,6 @@ import {
   TEEXMTPSigner,
 } from '../tee/xmtp-signer'
 
-// ============ Test Config ============
-
 const TEST_CONFIG = {
   kmsEndpoint: 'http://localhost:8080',
   enclaveId: 'jeju-tee-test',
@@ -23,9 +21,6 @@ const TEST_CONFIG = {
 }
 
 const TEST_ADDRESS = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as Address
-
-// ============ Key Manager Tests ============
-
 describe('TEE Key Manager', () => {
   let keyManager: TEEXMTPKeyManager
 
@@ -168,9 +163,6 @@ describe('TEE Key Manager', () => {
     expect(typeof stats.installationKeys).toBe('number')
   })
 })
-
-// ============ Signer Tests ============
-
 describe('TEE XMTP Signer', () => {
   let keyManager: TEEXMTPKeyManager
   let signer: TEEXMTPSigner
@@ -241,9 +233,6 @@ describe('TEE XMTP Signer', () => {
     expect(result.attestation).toBeDefined()
   })
 })
-
-// ============ Signer Import Tests ============
-
 describe('TEE Signer Import', () => {
   let keyManager: TEEXMTPKeyManager
 
@@ -277,9 +266,6 @@ describe('TEE Signer Import', () => {
     expect(importedKey.publicKey).toBe(originalKey.publicKey)
   })
 })
-
-// ============ Registry Sync Tests ============
-
 describe('Key Registry Sync', () => {
   let keyManager: TEEXMTPKeyManager
   let registrySync: KeyRegistrySync
@@ -326,9 +312,6 @@ describe('Key Registry Sync', () => {
     expect(results).toBeInstanceOf(Map)
   })
 })
-
-// ============ Integration Tests ============
-
 describe('TEE Integration Flow', () => {
   test('complete key lifecycle', async () => {
     const keyManager = createTEEKeyManager({

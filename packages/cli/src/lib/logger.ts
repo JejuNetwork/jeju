@@ -1,6 +1,4 @@
-/**
- * CLI Logger - Uses shared logger with CLI-specific formatting utilities
- */
+/** CLI logger with formatting utilities */
 
 import { createLogger } from '@jejunetwork/shared'
 import chalk from 'chalk'

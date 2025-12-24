@@ -1,5 +1,5 @@
 /**
- * Shared Utilities for Test Infrastructure
+ * Test utilities and constants.
  */
 
 import { existsSync, readFileSync } from 'node:fs'
@@ -10,40 +10,17 @@ import {
   parseGetCodeResponse,
 } from './schemas'
 
-// CANONICAL TEST CONSTANTS - Single Source of Truth
-//
-// ⚠️  SECURITY WARNING ⚠️
-// These are Anvil/Hardhat default test accounts with PUBLICLY KNOWN private keys.
-// NEVER use these accounts on mainnet or any network with real funds.
-// These credentials are ONLY for local development and testing.
-//
-// If you see these addresses on mainnet, they contain NO real funds and are
-// honey pots monitored by bots that will steal any deposited funds.
-
-/** Standard test seed phrase (Anvil default) - DO NOT USE ON MAINNET */
 export const SEED_PHRASE =
   'test test test test test test test test test test test junk'
 
-/** Standard test wallet password for MetaMask - test use only */
 export const PASSWORD = 'Tester@1234'
 
-/** Default test wallet address (account 0 from seed phrase) */
 export const TEST_WALLET_ADDRESS =
   '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as const
 
-/** Chain ID for localnet - fixed for E2E consistency */
 export const JEJU_CHAIN_ID = 1337
-
-/** RPC URL for localnet - fixed for E2E consistency */
 export const JEJU_RPC_URL = 'http://127.0.0.1:6546'
 
-/**
- * Test accounts (Anvil/Hardhat defaults) - canonical source
- *
- * ⚠️  SECURITY WARNING ⚠️
- * These private keys are PUBLICLY KNOWN and used by Anvil/Hardhat for local testing.
- * NEVER send real funds to these addresses. They are monitored by bots.
- */
 export const TEST_ACCOUNTS = {
   deployer: {
     address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as const,
@@ -72,7 +49,6 @@ export const TEST_ACCOUNTS = {
   },
 } as const
 
-/** Network Localnet chain configuration for MetaMask */
 export const JEJU_CHAIN = {
   chainId: JEJU_CHAIN_ID,
   chainIdHex: `0x${JEJU_CHAIN_ID.toString(16)}`,
@@ -173,7 +149,8 @@ export async function checkRpcHealth(
     }
 
     const chainIdData = await chainIdResponse.json()
-    const chainId = parseChainIdResponse(chainIdData)
+    const chainIdResponse2 = parseChainIdResponse(chainIdData)
+    const chainId = parseInt(chainIdResponse2.result, 16)
 
     // Check block number
     const blockResponse = await fetch(rpcUrl, {
@@ -193,7 +170,8 @@ export async function checkRpcHealth(
     }
 
     const blockData = await blockResponse.json()
-    const blockNumber = parseBlockNumberResponse(blockData)
+    const blockNumberResponse = parseBlockNumberResponse(blockData)
+    const blockNumber = parseInt(blockNumberResponse.result, 16)
 
     return { available: true, chainId, blockNumber }
   } catch (error) {
@@ -242,8 +220,8 @@ export async function checkContractsDeployed(
     if (!response.ok) return false
 
     const data = await response.json()
-    const code = parseGetCodeResponse(data)
-    return code !== '0x' && code.length > 2
+    const codeResponse = parseGetCodeResponse(data)
+    return codeResponse.result !== '0x' && codeResponse.result.length > 2
   } catch {
     return false
   } finally {

@@ -5,9 +5,9 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import type { Address } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { resetConfig } from '../../src/x402/config'
-import { createServer } from '../../src/x402/server'
-import { clearNonceCache } from '../../src/x402/services/nonce-manager'
+import { resetConfig } from '../../api/x402/config'
+import { createServer } from '../../api/x402/server'
+import { clearNonceCache } from '../../api/x402/services/nonce-manager'
 
 const app = createServer()
 
@@ -76,7 +76,7 @@ async function createSignedPayment(overrides?: {
     message,
   })
 
-  const fullPayload = { ...payload, signature }
+  const fullPayload = { ...payload, signature, payer: null }
   return Buffer.from(JSON.stringify(fullPayload)).toString('base64')
 }
 

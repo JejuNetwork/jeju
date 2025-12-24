@@ -86,7 +86,8 @@ export function parseSIWEMessage(messageString: string): SIWEMessage {
   return {
     domain: siweMessage.domain,
     address: siweMessage.address as Address,
-    statement: siweMessage.statement,
+    statement:
+      siweMessage.statement ?? 'Sign in with Ethereum to authenticate.',
     uri: siweMessage.uri,
     version: siweMessage.version,
     chainId: siweMessage.chainId,

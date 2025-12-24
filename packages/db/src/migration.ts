@@ -13,9 +13,7 @@ import {
   validateSQLIdentifiers,
 } from './utils.js'
 
-// ============================================================================
 // Migration Manager
-// ============================================================================
 
 export class MigrationManager {
   private client: CQLClient
@@ -222,9 +220,7 @@ export class MigrationManager {
   }
 }
 
-// ============================================================================
 // Migration Helpers
-// ============================================================================
 
 /**
  * Define a migration
@@ -329,9 +325,71 @@ export function createIndex(
   }
 }
 
-// ============================================================================
+// Legacy-compatible helpers
+
+/** Schema definition for createTableMigration */
+export interface TableSchema {
+  name: string
+  columns: Array<{
+    name: string
+    type: string
+    nullable?: boolean
+    default?: string | number | boolean | null
+    unique?: boolean
+    references?: { table: string; column: string }
+  }>
+  primaryKey: string[]
+  indexes?: Array<{
+    name: string
+    columns: string[]
+    unique?: boolean
+  }>
+}
+
+/**
+ * Create table migration helper (legacy compatible)
+ * Returns a full Migration object with version and name
+ */
+export function createTableMigration(
+  version: number,
+  name: string,
+  schema: TableSchema,
+): Migration {
+  const safeTableName = validateSQLIdentifier(schema.name, 'table')
+
+  const columnDefs = schema.columns.map((col) => {
+    const safeColName = validateSQLIdentifier(col.name, 'column')
+    let def = `${safeColName} ${col.type}`
+    if (!col.nullable) def += ' NOT NULL'
+    if (col.unique) def += ' UNIQUE'
+    if (col.default !== undefined) {
+      if (typeof col.default === 'string') {
+        const escapedDefault = col.default.replace(/'/g, "''")
+        def += ` DEFAULT '${escapedDefault}'`
+      } else {
+        def += ` DEFAULT ${col.default}`
+      }
+    }
+    if (col.references) {
+      const safeRefTable = validateSQLIdentifier(col.references.table, 'table')
+      const safeRefCol = validateSQLIdentifier(col.references.column, 'column')
+      def += ` REFERENCES ${safeRefTable}(${safeRefCol})`
+    }
+    return def
+  })
+
+  const pkCols = schema.primaryKey.map((pk) =>
+    validateSQLIdentifier(pk, 'column'),
+  )
+  const pk = pkCols.length > 0 ? `, PRIMARY KEY (${pkCols.join(', ')})` : ''
+
+  const up = `CREATE TABLE IF NOT EXISTS ${safeTableName} (${columnDefs.join(', ')}${pk})`
+  const down = `DROP TABLE IF EXISTS ${safeTableName}`
+
+  return { version, name, up, down }
+}
+
 // Factory
-// ============================================================================
 
 export function createMigrationManager(
   client: CQLClient,

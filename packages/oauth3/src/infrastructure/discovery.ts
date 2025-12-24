@@ -2,6 +2,7 @@
  * OAuth3 Discovery - App and TEE node discovery via on-chain registries
  */
 
+import { ZERO_ADDRESS } from '@jejunetwork/types'
 import {
   type Address,
   createPublicClient,
@@ -27,7 +28,6 @@ import {
   CHAIN_IDS,
   DEFAULT_RPC,
   getContracts,
-  ZERO_ADDRESS,
 } from './config.js'
 import {
   createOAuth3JNSService,
