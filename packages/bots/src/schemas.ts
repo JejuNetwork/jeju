@@ -233,6 +233,91 @@ export const JupiterQuoteResponseSchema = z.object({
 })
 export type JupiterQuoteResponse = z.infer<typeof JupiterQuoteResponseSchema>
 
+// Flashbots API Schemas
+export const FlashbotsRpcResponseSchema = z.object({
+  result: z.string().optional(),
+  error: z.object({ message: z.string() }).optional(),
+})
+export type FlashbotsRpcResponse = z.infer<typeof FlashbotsRpcResponseSchema>
+
+export const FlashbotsBundleResponseSchema = z.object({
+  result: z.object({ bundleHash: z.string() }).optional(),
+  error: z.object({ message: z.string() }).optional(),
+})
+export type FlashbotsBundleResponse = z.infer<
+  typeof FlashbotsBundleResponseSchema
+>
+
+export const FlashbotsSimResultSchema = z.object({
+  error: z.string().optional(),
+  gasUsed: z.string(),
+})
+
+export const FlashbotsSimResponseSchema = z.object({
+  result: z.object({ results: z.array(FlashbotsSimResultSchema) }).optional(),
+  error: z.object({ message: z.string() }).optional(),
+})
+export type FlashbotsSimResponse = z.infer<typeof FlashbotsSimResponseSchema>
+
+export const FlashbotsBundleStatsResponseSchema = z.object({
+  result: z
+    .object({
+      isSimulated: z.boolean(),
+      isSentToMiners: z.boolean(),
+      isHighPriority: z.boolean(),
+    })
+    .optional(),
+})
+export type FlashbotsBundleStatsResponse = z.infer<
+  typeof FlashbotsBundleStatsResponseSchema
+>
+
+// Cowswap API Schemas
+export const CowswapOrderSchema = z.object({
+  uid: z.string(),
+  sellToken: AddressSchema,
+  buyToken: AddressSchema,
+  sellAmount: z.string(),
+  buyAmount: z.string(),
+  validTo: z.number(),
+  appData: z.string(),
+  feeAmount: z.string(),
+  kind: z.enum(['sell', 'buy']),
+  partiallyFillable: z.boolean(),
+  receiver: AddressSchema,
+  owner: AddressSchema,
+})
+export type CowswapOrder = z.infer<typeof CowswapOrderSchema>
+
+export const CowswapOrdersResponseSchema = z.array(CowswapOrderSchema)
+
+// UniswapX API Schemas
+export const UniswapXOrderSchema = z.object({
+  orderHash: z.string(),
+  chainId: z.number(),
+  swapper: AddressSchema,
+  input: z.object({
+    token: AddressSchema,
+    amount: z.string(),
+  }),
+  outputs: z.array(
+    z.object({
+      token: AddressSchema,
+      amount: z.string(),
+      recipient: AddressSchema,
+    }),
+  ),
+  deadline: z.number(),
+})
+export type UniswapXOrder = z.infer<typeof UniswapXOrderSchema>
+
+export const UniswapXOrdersResponseSchema = z.object({
+  orders: z.array(UniswapXOrderSchema),
+})
+export type UniswapXOrdersResponse = z.infer<
+  typeof UniswapXOrdersResponseSchema
+>
+
 /** Parse and validate EVMChainId, throws if invalid */
 export function expectEVMChainId(
   value: number,

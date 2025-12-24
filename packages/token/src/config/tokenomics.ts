@@ -21,9 +21,7 @@ import {
   ValidationError,
 } from '../validation'
 
-// =============================================================================
 // COMMON CONSTANTS
-// =============================================================================
 
 /** One year in seconds */
 export const ONE_YEAR = 365 * 24 * 60 * 60
@@ -37,9 +35,7 @@ export const ONE_DAY = 24 * 60 * 60
 /** One hour in seconds */
 export const ONE_HOUR = 60 * 60
 
-// =============================================================================
 // DEFAULT FEE DISTRIBUTION
-// =============================================================================
 
 /**
  * Standard fee distribution for cross-chain tokens
@@ -71,9 +67,7 @@ export function validateFeeDistribution(
   return result.data
 }
 
-// =============================================================================
 // HELPER FUNCTIONS
-// =============================================================================
 
 /**
  * Calculate token amount from percentage of total supply

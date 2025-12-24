@@ -6,9 +6,9 @@
 
 import type React from 'react'
 import { useCallback, useState } from 'react'
-import { AuthProvider } from '../../index.js'
-import { useOAuth3 } from '../provider.js'
-import { LoginButton } from './LoginButton.js'
+import { AuthProvider } from '../../types'
+import { useOAuth3 } from '../provider'
+import { LoginButton } from './LoginButton'
 
 export interface LoginModalProps {
   isOpen: boolean

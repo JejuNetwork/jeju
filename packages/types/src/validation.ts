@@ -1,88 +1,55 @@
-import { type Address, type Hex, isAddress, isHex } from 'viem'
+/**
+ * Core validation primitives and security constants.
+ */
+
+import { type Address, type Hex, isAddress, isHex as viemIsHex } from 'viem'
+import type { NetworkType } from './chain'
+
+/**
+ * Type guard to check if a value is a valid hex string.
+ * Wraps viem's isHex with proper type narrowing.
+ */
+export function isHex(value: unknown): value is `0x${string}` {
+  return viemIsHex(value)
+}
+
 import { type ZodIssue, z } from 'zod'
 
-// ============================================================================
-// Security Constants - Prevent DoS via unbounded inputs
-// ============================================================================
-
-/** Maximum array length for most schemas (prevents memory exhaustion) */
 export const MAX_ARRAY_LENGTH = 1000
-
-/** Maximum array length for small arrays (signatures, sources) */
 export const MAX_SMALL_ARRAY_LENGTH = 100
-
-/** Maximum string length for general strings */
 export const MAX_STRING_LENGTH = 10000
-
-/** Maximum string length for short strings (names, symbols) */
 export const MAX_SHORT_STRING_LENGTH = 256
-
-/** Maximum string length for URLs */
 export const MAX_URL_LENGTH = 2048
-
-/** Maximum string length for CIDs/hashes */
 export const MAX_CID_LENGTH = 128
-
-/** Maximum keys in a z.record */
 export const MAX_RECORD_KEYS = 100
-
-/** Maximum recursion depth for nested schemas */
 export const MAX_RECURSION_DEPTH = 10
 
-// ============================================================================
-// JSON Value Types
-// ============================================================================
-
-/**
- * JSON primitive types
- */
 export type JsonPrimitive = string | number | boolean | null
 
-/**
- * JSON-serializable value type
- * Use this for any value that should be JSON-serializable (API payloads, RPC params, etc.)
- */
 export type JsonValue =
   | JsonPrimitive
   | JsonValue[]
   | { [key: string]: JsonValue }
 
-/**
- * Loggable value type - extends JsonValue with Error for logging contexts
- */
+export type JsonRecord = Record<string, JsonValue>
+
+export type JsonObject = { [key: string]: JsonValue }
+
 export type LogValue = JsonValue | Error | undefined
 
-// ============================================================================
-// Core Primitive Schemas
-// ============================================================================
-
-/**
- * Ethereum Address Schema
- * Validates 0x-prefixed 40-character hex strings
- * Infers as `Address` type from viem
- */
 export const AddressSchema = z.custom<Address>(
   (val): val is Address => typeof val === 'string' && isAddress(val),
   'Invalid Ethereum address',
 )
 
-/**
- * Hex String Schema
- * Validates 0x-prefixed hex strings
- * Infers as `Hex` type from viem
- */
 export const HexSchema = z.custom<Hex>(
-  (val): val is Hex => typeof val === 'string' && isHex(val),
+  (val): val is Hex => typeof val === 'string' && viemIsHex(val),
   'Invalid hex string',
 )
 
-/**
- * 32-byte Hash Schema (e.g. transaction hash, block hash)
- * Infers as `Hex` type from viem
- */
 export const HashSchema = z.custom<Hex>(
   (val): val is Hex =>
-    typeof val === 'string' && isHex(val) && val.length === 66, // 0x + 64 chars
+    typeof val === 'string' && viemIsHex(val) && val.length === 66,
   'Invalid 32-byte hash',
 )
 
@@ -152,9 +119,7 @@ export const EmailSchema = z.string().email('Invalid email address')
  */
 export const IsoDateSchema = z.string().datetime('Invalid ISO 8601 date')
 
-// ============================================================================
 // API & Pagination Schemas
-// ============================================================================
 
 /**
  * Standard Pagination Schema (Page-based)
@@ -166,9 +131,7 @@ export const PaginationSchema = z.object({
   sortOrder: z.enum(['asc', 'desc']).default('desc'),
 })
 
-// ============================================================================
 // String Schemas
-// ============================================================================
 
 /**
  * Validates a string that must contain at least 1 character
@@ -219,9 +182,7 @@ export const NonNegativeIntSchema = z.number().int().nonnegative()
  */
 export const PercentageSchema = z.number().min(0).max(100)
 
-// ============================================================================
 // Network Schemas
-// ============================================================================
 
 /**
  * Chain ID Schema
@@ -229,9 +190,7 @@ export const PercentageSchema = z.number().min(0).max(100)
  */
 export const ChainIdSchema = z.number().int().positive()
 
-// ============================================================================
 // Fail-Fast Validation Helpers
-// ============================================================================
 
 /**
  * Convert an unknown caught error to a proper Error instance.
@@ -389,7 +348,7 @@ export function expectAddress(value: unknown, context?: string): Address {
  * Security: Does not expose the invalid value in error messages
  */
 export function expectHex(value: unknown, context?: string): Hex {
-  if (typeof value !== 'string' || !isHex(value)) {
+  if (typeof value !== 'string' || !viemIsHex(value)) {
     throw new Error(context ? `${context}: Invalid hex` : 'Invalid hex')
   }
   return value as Hex
@@ -427,6 +386,17 @@ export function expectBigInt(
 }
 
 /**
+ * Convert unknown value to bigint.
+ * Use this when parsing contract results where the type is unknown at compile time.
+ */
+export function toBigInt(value: unknown): bigint {
+  if (typeof value === 'bigint') return value
+  if (typeof value === 'number') return BigInt(value)
+  if (typeof value === 'string') return BigInt(value)
+  throw new Error(`Cannot convert ${typeof value} to bigint`)
+}
+
+/**
  * Validate a non-empty string, throw if empty
  */
 export function expectNonEmptyString(
@@ -456,4 +426,602 @@ export function expectJson<T>(
     )
   }
   return expectValid(schema, parsed, fieldName)
+}
+
+// Type-Safe Param Extraction
+// Used for extracting typed values from untyped params objects (e.g., A2A skills, MCP tools)
+
+/**
+ * Extract a required string from a params object
+ * @throws Error if key is missing or not a string
+ */
+export function getString(
+  params: Record<string, unknown>,
+  key: string,
+): string {
+  const value = params[key]
+  if (typeof value !== 'string') {
+    throw new Error(`${key} must be a string`)
+  }
+  return value
+}
+
+/**
+ * Extract an optional string from a params object
+ * @returns undefined if key is missing, throws if present but not a string
+ */
+export function getOptionalString(
+  params: Record<string, unknown>,
+  key: string,
+): string | undefined {
+  const value = params[key]
+  if (value === undefined) return undefined
+  if (typeof value !== 'string') {
+    throw new Error(`${key} must be a string`)
+  }
+  return value
+}
+
+/**
+ * Extract a required number from a params object
+ * @throws Error if key is missing or not a number
+ */
+export function getNumber(
+  params: Record<string, unknown>,
+  key: string,
+): number {
+  const value = params[key]
+  if (typeof value !== 'number') {
+    throw new Error(`${key} must be a number`)
+  }
+  return value
+}
+
+/**
+ * Extract an optional number from a params object
+ * @returns undefined if key is missing, throws if present but not a number
+ */
+export function getOptionalNumber(
+  params: Record<string, unknown>,
+  key: string,
+): number | undefined {
+  const value = params[key]
+  if (value === undefined) return undefined
+  if (typeof value !== 'number') {
+    throw new Error(`${key} must be a number`)
+  }
+  return value
+}
+
+/**
+ * Extract a required boolean from a params object
+ * @throws Error if key is missing or not a boolean
+ */
+export function getBoolean(
+  params: Record<string, unknown>,
+  key: string,
+): boolean {
+  const value = params[key]
+  if (typeof value !== 'boolean') {
+    throw new Error(`${key} must be a boolean`)
+  }
+  return value
+}
+
+/**
+ * Extract an optional boolean from a params object
+ * @returns undefined if key is missing, throws if present but not a boolean
+ */
+export function getOptionalBoolean(
+  params: Record<string, unknown>,
+  key: string,
+): boolean | undefined {
+  const value = params[key]
+  if (value === undefined) return undefined
+  if (typeof value !== 'boolean') {
+    throw new Error(`${key} must be a boolean`)
+  }
+  return value
+}
+
+/**
+ * Extract a required Address from a params object
+ * @throws Error if key is missing or not a valid address
+ */
+export function getAddress(
+  params: Record<string, unknown>,
+  key: string,
+): Address {
+  const value = params[key]
+  if (typeof value !== 'string' || !isAddress(value)) {
+    throw new Error(`${key} must be a valid address`)
+  }
+  return value
+}
+
+/**
+ * Extract an optional Address from a params object
+ * @returns ZERO_ADDRESS if key is missing or invalid
+ */
+export function getOptionalAddress(
+  params: Record<string, unknown>,
+  key: string,
+): Address {
+  const value = params[key]
+  if (typeof value === 'string' && isAddress(value)) {
+    return value
+  }
+  return ZERO_ADDRESS
+}
+
+/**
+ * Extract a string array from a params object
+ * @returns Empty array if key is missing or not an array
+ */
+export function getStringArray(
+  params: Record<string, unknown>,
+  key: string,
+): string[] {
+  const value = params[key]
+  if (!Array.isArray(value)) return []
+  return value.filter((item): item is string => typeof item === 'string')
+}
+
+// Type Guards
+
+/**
+ * Type guard to check if a string is a hex string (starts with 0x)
+ */
+export function isHexString(value: string): value is `0x${string}` {
+  return value.startsWith('0x')
+}
+
+/**
+ * Check if value is a plain object (not null, not array)
+ */
+export function isPlainObject(
+  value: unknown,
+): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/**
+ * Alias for isPlainObject - check if value is a record/object
+ * Use this when checking API responses or unknown data structures
+ */
+export const isRecord = isPlainObject
+
+/**
+ * Check if value is a string record
+ */
+export function isStringRecord(
+  value: unknown,
+): value is Record<string, string> {
+  if (!isPlainObject(value)) return false
+  return Object.values(value).every((v) => typeof v === 'string')
+}
+
+/**
+ * Check if an object has a property that is an array
+ * Common pattern for API response validation
+ */
+export function hasArrayProperty<K extends string>(
+  data: unknown,
+  key: K,
+): data is Record<K, unknown[]> {
+  return isPlainObject(data) && Array.isArray(data[key])
+}
+
+/**
+ * Create a type guard for API responses with a specific array property
+ * @example const isBountiesResponse = createArrayResponseGuard('bounties')
+ */
+export function createArrayResponseGuard<K extends string>(key: K) {
+  return (data: unknown): data is Record<K, unknown[]> => {
+    return isPlainObject(data) && Array.isArray(data[key])
+  }
+}
+
+// Address Constants and Utilities
+
+/** Zero address constant for default values and null checks */
+export const ZERO_ADDRESS: Address =
+  '0x0000000000000000000000000000000000000000'
+
+/**
+ * Check if an address is valid (not zero and properly formatted)
+ */
+export function isValidAddress(
+  address: Address | string | undefined | null,
+): address is Address {
+  return (
+    !!address &&
+    typeof address === 'string' &&
+    address !== ZERO_ADDRESS &&
+    isAddress(address)
+  )
+}
+
+/**
+ * Parse an environment variable as an Ethereum address.
+ * Returns the default address if the env var is not set or invalid.
+ */
+export function parseEnvAddress(
+  envValue: string | undefined,
+  defaultAddress: Address = ZERO_ADDRESS,
+): Address {
+  if (!envValue) {
+    return defaultAddress
+  }
+  if (isAddress(envValue)) {
+    return envValue
+  }
+  console.warn(`Invalid address in environment variable: ${envValue}`)
+  return defaultAddress
+}
+
+/**
+ * Parse an environment variable as a hex string (e.g., private key).
+ * Returns undefined if the env var is not set or invalid.
+ */
+export function parseEnvHex(envValue: string | undefined): Hex | undefined {
+  if (!envValue) return undefined
+  if (viemIsHex(envValue)) return envValue as Hex
+  return undefined
+}
+
+/**
+ * Parse a string as an optional Address.
+ * Returns undefined if the value is empty/invalid.
+ * Use for nullable database values or optional fields.
+ */
+export function parseOptionalAddress(
+  value: string | null | undefined,
+): Address | undefined {
+  if (!value) return undefined
+  return isAddress(value) ? value : undefined
+}
+
+/**
+ * Parse a string as an optional Hex.
+ * Returns undefined if the value is empty/invalid.
+ * Use for nullable database values or optional fields.
+ */
+export function parseOptionalHex(
+  value: string | null | undefined,
+): Hex | undefined {
+  if (!value) return undefined
+  return viemIsHex(value) ? value : undefined
+}
+
+/**
+ * Check if an address is the native token (zero address).
+ * Handles various formats including null/undefined.
+ */
+export function isNativeToken(addr: string | null | undefined): boolean {
+  return addr === ZERO_ADDRESS || addr === '0x' || !addr
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FormData Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Extract a string value from FormData
+ * @returns The string value or null if not present or not a string
+ */
+export function getFormString(formData: FormData, key: string): string | null {
+  const value = formData.get(key)
+  return typeof value === 'string' ? value : null
+}
+
+/**
+ * Extract a string value from FormData with a default fallback
+ * @returns The string value or default value if not present
+ */
+export function getFormStringOr(
+  formData: FormData,
+  key: string,
+  defaultValue: string,
+): string {
+  const value = formData.get(key)
+  return typeof value === 'string' ? value : defaultValue
+}
+
+/**
+ * Extract an integer value from FormData with a default fallback
+ * @returns Parsed integer or default value
+ */
+export function getFormInt(
+  formData: FormData,
+  key: string,
+  defaultValue: number,
+): number {
+  const value = formData.get(key)
+  if (typeof value !== 'string') return defaultValue
+  const parsed = parseInt(value, 10)
+  return Number.isNaN(parsed) ? defaultValue : parsed
+}
+
+/**
+ * Extract a required string from FormData, throw if missing
+ * @throws Error if key is missing or not a string
+ */
+export function expectFormString(formData: FormData, key: string): string {
+  const value = formData.get(key)
+  if (typeof value !== 'string') {
+    throw new Error(`${key} is required`)
+  }
+  return value
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Network Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const NETWORKS = ['localnet', 'testnet', 'mainnet'] as const
+
+/** Check if a string is a valid network type */
+export function isValidNetwork(
+  value: string | undefined,
+): value is NetworkType {
+  return value !== undefined && NETWORKS.includes(value as NetworkType)
+}
+
+/** Get network from environment variable with type safety */
+export function getNetworkEnv(
+  defaultNetwork: NetworkType = 'localnet',
+): NetworkType {
+  const network = process.env.NETWORK
+  return isValidNetwork(network) ? network : defaultNetwork
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Log Level Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const LOG_LEVELS = ['debug', 'info', 'warn', 'error'] as const
+export type LogLevel = (typeof LOG_LEVELS)[number]
+
+/** Check if a string is a valid log level */
+export function isValidLogLevel(value: string | undefined): value is LogLevel {
+  return value !== undefined && LOG_LEVELS.includes(value as LogLevel)
+}
+
+/** Get log level from environment variable */
+export function getLogLevelEnv(defaultLevel: LogLevel = 'info'): LogLevel {
+  const level = process.env.LOG_LEVEL
+  return isValidLogLevel(level) ? level : defaultLevel
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// JSON Type Guards
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Check if value is a valid JSON value (recursive) */
+export function isJsonValue(value: unknown): value is JsonValue {
+  if (value === null) return true
+  if (
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  ) {
+    return true
+  }
+  if (Array.isArray(value)) {
+    return value.every(isJsonValue)
+  }
+  if (typeof value === 'object') {
+    return Object.values(value).every(isJsonValue)
+  }
+  return false
+}
+
+/** Safely parse JSON and validate with a type guard */
+export function parseJsonAs<T>(
+  json: string,
+  validator: (data: unknown) => data is T,
+): T | null {
+  try {
+    const data: unknown = JSON.parse(json)
+    return validator(data) ? data : null
+  } catch {
+    return null
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Numeric Parsing Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Parse number from string or return default */
+export function parseIntOrDefault(
+  value: string | null | undefined,
+  defaultValue: number,
+): number {
+  if (typeof value !== 'string') return defaultValue
+  const parsed = parseInt(value, 10)
+  return Number.isNaN(parsed) ? defaultValue : parsed
+}
+
+/** Parse BigInt from string or return default */
+export function parseBigIntOrDefault(
+  value: string | null | undefined,
+  defaultValue: bigint,
+): bigint {
+  if (typeof value !== 'string') return defaultValue
+  try {
+    return BigInt(value)
+  } catch {
+    return defaultValue
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Hex and Bytes Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Validate and return hex string, throws if invalid */
+export function requireHex(value: string, context: string): Hex {
+  if (!viemIsHex(value)) {
+    throw new Error(`Invalid hex string for ${context}: ${value}`)
+  }
+  return value
+}
+
+/** Pad a string to bytes32 hex format */
+export function toBytes32(value: string): Hex {
+  const hex = Buffer.from(value).toString('hex').padStart(64, '0').slice(0, 64)
+  return `0x${hex}` as Hex
+}
+
+/** Zero-padded hex of specified byte length */
+export function zeroHex(bytes: number): Hex {
+  return `0x${'0'.repeat(bytes * 2)}` as Hex
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Common Type Guards
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Type guard for checking if an object has a specific key */
+export function hasKey<K extends string>(
+  obj: unknown,
+  key: K,
+): obj is Record<K, unknown> {
+  return isPlainObject(obj) && key in obj
+}
+
+/** Type guard for checking if an object has a specific key with a string value */
+export function hasStringKey<K extends string>(
+  obj: unknown,
+  key: K,
+): obj is Record<K, string> {
+  return hasKey(obj, key) && typeof obj[key] === 'string'
+}
+
+/** Type guard for checking if an object has a specific key with a bigint value */
+export function hasBigIntKey<K extends string>(
+  obj: unknown,
+  key: K,
+): obj is Record<K, bigint> {
+  return hasKey(obj, key) && typeof obj[key] === 'bigint'
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Contract Return Type Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+// Use these when extracting typed values from viem contract read results
+
+/**
+ * Type-safe helper for extracting Address from contract read results
+ * Use when the ABI specifies an address return type
+ */
+export function asAddress(value: unknown): Address {
+  if (typeof value !== 'string' || !isAddress(value)) {
+    throw new Error(`Expected address, got: ${typeof value}`)
+  }
+  return value
+}
+
+/**
+ * Type-safe helper for extracting Hex from contract read results
+ * Use when the ABI specifies a bytes/bytes32 return type
+ */
+export function asHex(value: unknown): Hex {
+  if (typeof value !== 'string' || !viemIsHex(value)) {
+    throw new Error(`Expected hex, got: ${typeof value}`)
+  }
+  return value
+}
+
+/**
+ * Type-safe helper for extracting bigint from contract read results
+ * Use when the ABI specifies a uint256 return type
+ */
+export function asBigInt(value: unknown): bigint {
+  if (typeof value !== 'bigint') {
+    throw new Error(`Expected bigint, got: ${typeof value}`)
+  }
+  return value
+}
+
+/**
+ * Type-safe helper for extracting boolean from contract read results
+ */
+export function asBoolean(value: unknown): boolean {
+  if (typeof value !== 'boolean') {
+    throw new Error(`Expected boolean, got: ${typeof value}`)
+  }
+  return value
+}
+
+/**
+ * Type-safe helper for extracting number from contract read results
+ */
+export function asNumber(value: unknown): number {
+  if (typeof value !== 'number') {
+    throw new Error(`Expected number, got: ${typeof value}`)
+  }
+  return value
+}
+
+/**
+ * Type-safe tuple extractor for contract read results
+ * Validates array structure before returning typed values
+ */
+export function asTuple<T extends readonly unknown[]>(
+  value: unknown,
+  length: number,
+): T {
+  if (!Array.isArray(value) || value.length !== length) {
+    throw new Error(`Expected tuple of length ${length}, got: ${typeof value}`)
+  }
+  // After validation, we know value is an array of correct length
+  // The cast is safe because T extends readonly unknown[] and we validated the array constraint
+  const arr: readonly unknown[] = value
+  return arr as T
+}
+
+/**
+ * Type-safe array extractor for Address[] returns
+ */
+export function asAddressArray(value: unknown): Address[] {
+  if (!Array.isArray(value)) {
+    throw new Error(`Expected array, got: ${typeof value}`)
+  }
+  return value.map((v, i) => {
+    if (typeof v !== 'string' || !isAddress(v)) {
+      throw new Error(`Expected address at index ${i}, got: ${typeof v}`)
+    }
+    return v
+  })
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HTTP Method Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type HttpMethod =
+  | 'GET'
+  | 'POST'
+  | 'PUT'
+  | 'DELETE'
+  | 'PATCH'
+  | 'HEAD'
+  | 'OPTIONS'
+
+const HTTP_METHODS = new Set<HttpMethod>([
+  'GET',
+  'POST',
+  'PUT',
+  'DELETE',
+  'PATCH',
+  'HEAD',
+  'OPTIONS',
+])
+
+/** Check if value is a valid HTTP method */
+export function isHttpMethod(value: string): value is HttpMethod {
+  return HTTP_METHODS.has(value.toUpperCase() as HttpMethod)
 }

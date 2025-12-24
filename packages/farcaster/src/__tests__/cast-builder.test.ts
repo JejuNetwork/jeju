@@ -25,9 +25,6 @@ const TEST_PRIVATE_KEY = hexToBytes(
 )
 
 const TEST_FID = 12345
-
-// ============ Text Byte Length ============
-
 describe('getTextByteLength', () => {
   it('returns correct length for ASCII text', () => {
     expect(getTextByteLength('Hello')).toBe(5)
@@ -85,9 +82,6 @@ describe('getTextByteLength', () => {
     expect(getTextByteLength(familyEmoji)).toBeGreaterThan(10)
   })
 })
-
-// ============ Text Splitting ============
-
 describe('splitTextForThread', () => {
   it('returns single chunk for short text', () => {
     const text = 'Short text'
@@ -222,9 +216,6 @@ describe('splitTextForThread', () => {
     }
   })
 })
-
-// ============ CastBuilder Class ============
-
 describe('CastBuilder', () => {
   let builder: CastBuilder
 
@@ -509,9 +500,6 @@ describe('CastBuilder', () => {
     })
   })
 })
-
-// ============ Convenience Functions ============
-
 describe('Convenience Functions', () => {
   describe('createCast', () => {
     it('creates cast with minimal args', async () => {
@@ -572,9 +560,6 @@ describe('Convenience Functions', () => {
     })
   })
 })
-
-// ============ Edge Cases ============
-
 describe('Edge Cases', () => {
   let builder: CastBuilder
 
@@ -654,9 +639,6 @@ describe('Edge Cases', () => {
     expect(message.data.castAddBody?.text).toBe(special)
   })
 })
-
-// ============ Property-Based Tests ============
-
 describe('Property-Based Tests', () => {
   it('split text always produces valid chunks', () => {
     for (let i = 0; i < 50; i++) {

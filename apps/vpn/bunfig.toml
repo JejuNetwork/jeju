@@ -1,6 +1,4 @@
-[serve.static]
-plugins = ["bun-plugin-tailwind"]
-
 [test]
+root = ["lib/", "api/"]
 coverage = true
 coverageDir = "./test-results/coverage"

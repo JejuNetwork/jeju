@@ -1,8 +1,4 @@
-/**
- * CLI Services
- *
- * Local development services that simulate the decentralized network infrastructure.
- */
+/** CLI services exports */
 
 export { AppOrchestrator, createAppOrchestrator } from './app-orchestrator'
 export {

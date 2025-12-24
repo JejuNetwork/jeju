@@ -1,9 +1,5 @@
 /**
- * MCP Tool Arguments Validation Utilities
- *
- * Provides utilities for validating tool arguments using Zod schemas.
- * These are framework utilities - specific tool schemas should be defined
- * in the application that uses this package.
+ * Zod-based tool argument validation utilities for MCP.
  */
 
 import { toJSONSchema, type ZodObject, type ZodRawShape, z } from 'zod'

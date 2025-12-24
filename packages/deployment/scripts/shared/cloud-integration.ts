@@ -10,18 +10,25 @@ import {
   type Chain,
   createPublicClient,
   createWalletClient,
-  encodeBytes32String,
   http,
   keccak256,
   type PublicClient,
   parseAbi,
   parseEther,
   stringToBytes,
+  stringToHex,
   type WalletClient,
   zeroHash,
 } from 'viem'
+
+// Helper to encode a string as bytes32 (padded to 32 bytes)
+function encodeBytes32String(str: string): `0x${string}` {
+  const hex = stringToHex(str, { size: 32 })
+  return hex
+}
+
 import type { PrivateKeyAccount } from 'viem/accounts'
-import { readContract, waitForTransactionReceipt } from 'viem/actions'
+import { waitForTransactionReceipt } from 'viem/actions'
 import { createSignedFeedbackAuth } from './cloud-signing'
 import type { Logger } from './logger'
 
@@ -81,6 +88,20 @@ export const ViolationType = {
 } as const
 export type ViolationType = (typeof ViolationType)[keyof typeof ViolationType]
 
+const ViolationTypeNames: Record<ViolationType, string> = {
+  0: 'API_ABUSE',
+  1: 'RESOURCE_EXPLOITATION',
+  2: 'SCAMMING',
+  3: 'PHISHING',
+  4: 'HACKING',
+  5: 'UNAUTHORIZED_ACCESS',
+  6: 'DATA_THEFT',
+  7: 'ILLEGAL_CONTENT',
+  8: 'HARASSMENT',
+  9: 'SPAM',
+  10: 'TOS_VIOLATION',
+}
+
 const REPUTATION_REGISTRY_ABI = parseAbi([
   'function giveFeedback(uint256 agentId, uint8 score, bytes32 tag1, bytes32 tag2, string calldata fileuri, bytes32 filehash, bytes memory feedbackAuth) external',
   'function getSummary(uint256 agentId, address[] calldata clientAddresses, bytes32 tag1, bytes32 tag2) external view returns (uint64 count, uint8 averageScore)',
@@ -115,21 +136,22 @@ export class CloudIntegration {
   private config: CloudConfig
   private client: PublicClient
   private walletClient: WalletClient
+  private chain: Chain
 
   constructor(config: CloudConfig) {
     this.config = config
-    const chain =
+    this.chain =
       config.chain ||
       ({ id: Number(config.chainId || 31337n), name: 'local' } as Chain)
 
     this.client = createPublicClient({
-      chain,
+      chain: this.chain,
       transport: http(config.rpcUrl),
     })
 
     // Wallet client will be created per-operation with account
     this.walletClient = createWalletClient({
-      chain,
+      chain: this.chain,
       transport: http(config.rpcUrl),
     })
   }
@@ -158,6 +180,7 @@ export class CloudIntegration {
     ]
 
     const hash = await this.walletClient.writeContract({
+      chain: this.chain,
       address: this.config.cloudReputationProviderAddress,
       abi: CLOUD_REPUTATION_PROVIDER_ABI,
       functionName: 'registerCloudAgent',
@@ -196,6 +219,7 @@ export class CloudIntegration {
       this.config.logger.info(`Registering service: ${service.name}`)
 
       const hash = await this.walletClient.writeContract({
+        chain: this.chain,
         address: this.config.serviceRegistryAddress,
         abi: SERVICE_REGISTRY_ABI,
         functionName: 'registerService',
@@ -253,6 +277,7 @@ export class CloudIntegration {
     )
 
     const hash = await this.walletClient.writeContract({
+      chain: this.chain,
       address: this.config.cloudReputationProviderAddress,
       abi: CLOUD_REPUTATION_PROVIDER_ABI,
       functionName: 'setReputation',
@@ -286,10 +311,11 @@ export class CloudIntegration {
     }
 
     this.config.logger.warn(
-      `Recording violation for agent ${agentId}: ${ViolationType[violationType]} (severity: ${severityScore})`,
+      `Recording violation for agent ${agentId}: ${ViolationTypeNames[violationType]} (severity: ${severityScore})`,
     )
 
     const hash = await this.walletClient.writeContract({
+      chain: this.chain,
       address: this.config.cloudReputationProviderAddress,
       abi: CLOUD_REPUTATION_PROVIDER_ABI,
       functionName: 'recordViolation',
@@ -316,10 +342,11 @@ export class CloudIntegration {
     evidence: string,
   ): Promise<`0x${string}`> {
     this.config.logger.warn(
-      `Proposing ban for agent ${agentId}: ${ViolationType[violationType]}`,
+      `Proposing ban for agent ${agentId}: ${ViolationTypeNames[violationType]}`,
     )
 
     const hash = await this.walletClient.writeContract({
+      chain: this.chain,
       address: this.config.cloudReputationProviderAddress,
       abi: CLOUD_REPUTATION_PROVIDER_ABI,
       functionName: 'proposeBan',
@@ -357,6 +384,7 @@ export class CloudIntegration {
     this.config.logger.info(`Approving ban proposal: ${proposalId}`)
 
     const hash = await this.walletClient.writeContract({
+      chain: this.chain,
       address: this.config.cloudReputationProviderAddress,
       abi: CLOUD_REPUTATION_PROVIDER_ABI,
       functionName: 'approveBan',
@@ -377,7 +405,7 @@ export class CloudIntegration {
     tokenAddress: Address,
   ): Promise<{ sufficient: boolean; available: bigint; required: bigint }> {
     // Get service cost
-    const required = await readContract(this.client, {
+    const required = await this.client.readContract({
       address: this.config.serviceRegistryAddress,
       abi: SERVICE_REGISTRY_ABI,
       functionName: 'getServiceCost',
@@ -385,7 +413,7 @@ export class CloudIntegration {
     })
 
     // Check user balance
-    const result = await readContract(this.client, {
+    const result = await this.client.readContract({
       address: this.config.creditManagerAddress,
       abi: CREDIT_MANAGER_ABI,
       functionName: 'hasSufficientCredit',
@@ -410,7 +438,7 @@ export class CloudIntegration {
   ): Promise<{ count: bigint; averageScore: number }> {
     const tag1 = category ? encodeBytes32String(category) : zeroHash
 
-    const result = await readContract(this.client, {
+    const result = await this.client.readContract({
       address: this.config.reputationRegistryAddress,
       abi: REPUTATION_REGISTRY_ABI,
       functionName: 'getSummary',
@@ -435,7 +463,7 @@ export class CloudIntegration {
     offset: number = 0,
     limit: number = 100,
   ) {
-    return readContract(this.client, {
+    return this.client.readContract({
       address: this.config.cloudReputationProviderAddress,
       abi: CLOUD_REPUTATION_PROVIDER_ABI,
       functionName: 'getAgentViolations',
@@ -447,23 +475,23 @@ export class CloudIntegration {
    * Get total violation count for an agent
    */
   async getAgentViolationCount(agentId: bigint): Promise<bigint> {
-    return readContract(this.client, {
+    return this.client.readContract({
       address: this.config.cloudReputationProviderAddress,
       abi: CLOUD_REPUTATION_PROVIDER_ABI,
       functionName: 'getAgentViolationCount',
       args: [agentId],
-    })
+    }) as Promise<bigint>
   }
 
   /**
    * Get cloud agent ID
    */
   async getCloudAgentId(): Promise<bigint> {
-    return readContract(this.client, {
+    return this.client.readContract({
       address: this.config.cloudReputationProviderAddress,
       abi: CLOUD_REPUTATION_PROVIDER_ABI,
       functionName: 'cloudAgentId',
-    })
+    }) as Promise<bigint>
   }
 }
 

@@ -41,9 +41,7 @@ function safeParsePort(
   return parsed
 }
 
-// ============================================================================
 // Core Apps (4000-4999 range)
-// ============================================================================
 
 export const CORE_PORTS = {
   /** Block Explorer - Blockchain explorer UI */
@@ -53,14 +51,14 @@ export const CORE_PORTS = {
     get: () => safeParsePort(process.env.EXPLORER_PORT, 4000),
   },
 
-  /** Gateway Portal - Bridge tokens, deploy paymasters, earn LP rewards */
+  /** Gateway - Bridge tokens, deploy paymasters, earn LP rewards */
   GATEWAY: {
-    DEFAULT: 4001,
+    DEFAULT: 4013,
     ENV_VAR: 'GATEWAY_PORT',
     get: () =>
       safeParsePort(
         process.env.GATEWAY_PORT ?? process.env.PAYMASTER_DASHBOARD_PORT,
-        4001,
+        4013,
       ),
   },
 
@@ -343,11 +341,23 @@ export const CORE_PORTS = {
     ENV_VAR: 'MONITORING_PORT',
     get: () => safeParsePort(process.env.MONITORING_PORT, 3002),
   },
+
+  /** VPN Web Frontend - Decentralized VPN UI */
+  VPN_WEB: {
+    DEFAULT: 1421,
+    ENV_VAR: 'VPN_WEB_PORT',
+    get: () => safeParsePort(process.env.VPN_WEB_PORT, 1421),
+  },
+
+  /** VPN API - Decentralized VPN backend */
+  VPN_API: {
+    DEFAULT: 4021,
+    ENV_VAR: 'VPN_API_PORT',
+    get: () => safeParsePort(process.env.VPN_API_PORT, 4021),
+  },
 } as const
 
-// ============================================================================
 // Vendor Apps (5000-5999 range)
-// ============================================================================
 
 export const VENDOR_PORTS = {
   /**
@@ -457,11 +467,16 @@ export const VENDOR_PORTS = {
   },
 } as const
 
-// ============================================================================
 // Infrastructure Ports (6xxx range for Jeju chain, 9xxx for other infra)
-// ============================================================================
 
 export const INFRA_PORTS = {
+  /** CovenantSQL - Decentralized SQL database (block producer) */
+  CQL: {
+    DEFAULT: 4661,
+    ENV_VAR: 'CQL_PORT',
+    get: () => safeParsePort(process.env.CQL_PORT, 4661),
+  },
+
   /** L1 RPC - Jeju localnet L1. Port 6545 avoids conflicts with Anvil/Hardhat default (8545) */
   L1_RPC: {
     DEFAULT: 6545,
@@ -505,9 +520,7 @@ export const INFRA_PORTS = {
   },
 } as const
 
-// ============================================================================
 // URL Builders
-// ============================================================================
 
 /** Port configuration interface used by all port registries */
 interface PortConfig {
@@ -568,9 +581,7 @@ export function getInfraUrl(
   return buildUrl(INFRA_PORTS[serviceName], protocol)
 }
 
-// ============================================================================
 // Convenience Exports
-// ============================================================================
 
 /** Get all ports for a specific category */
 export function getAllCorePorts(): Record<string, number> {
@@ -655,9 +666,7 @@ export function checkPortConflicts(): {
   }
 }
 
-// ============================================================================
 // RPC URL Helpers - Use these instead of hardcoding ports
-// ============================================================================
 
 /**
  * Get the localnet L1 RPC URL
@@ -725,9 +734,20 @@ export function isLocalnet(rpcUrl: string): boolean {
   )
 }
 
-// ============================================================================
+/**
+ * Get the CovenantSQL block producer URL
+ * Respects environment variable overrides: CQL_BLOCK_PRODUCER_ENDPOINT, CQL_URL, then CQL_PORT
+ */
+export function getCQLBlockProducerUrl(): string {
+  if (process.env.CQL_BLOCK_PRODUCER_ENDPOINT)
+    return process.env.CQL_BLOCK_PRODUCER_ENDPOINT
+  if (process.env.CQL_URL) return process.env.CQL_URL
+  const port = INFRA_PORTS.CQL.get()
+  const host = process.env.CQL_HOST || '127.0.0.1'
+  return `http://${host}:${port}`
+}
+
 // Service URL Helpers
-// ============================================================================
 
 /**
  * Get the Indexer GraphQL URL

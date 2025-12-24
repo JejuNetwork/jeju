@@ -6,8 +6,8 @@
 
 import type React from 'react'
 import { useCallback, useEffect, useState } from 'react'
-import type { MFAMethod } from '../../mfa/index.js'
-import { useMFA } from '../hooks/useMFA.js'
+import type { MFAMethod } from '../../mfa/index'
+import { useMFA } from '../hooks/useMFA'
 
 export interface MFASetupProps {
   onComplete?: (method: MFAMethod) => void

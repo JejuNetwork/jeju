@@ -12,9 +12,12 @@
     "declaration": true,
     "declarationMap": true,
     "outDir": "./dist",
-    "rootDir": "./src",
-    "noEmit": true
+    "rootDir": ".",
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "noUnusedLocals": false,
+    "types": ["bun", "react", "react-dom"]
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "src/**/*.test.ts", "src/**/__tests__/**"]
+  "include": ["api/**/*", "web/**/*", "lib/**/*"],
+  "exclude": ["node_modules", "dist", "api/**/*.test.ts", "api/**/*-test.ts", "api/**/__tests__/**", "tests/**/*"]
 }

@@ -12,9 +12,7 @@
 import { formatEther, keccak256, toBytes } from 'viem'
 import { z } from 'zod'
 
-// =============================================================================
 // CONSTANTS
-// =============================================================================
 
 /** Minimum name length (in characters) */
 export const MIN_NAME_LENGTH = 3
@@ -40,9 +38,7 @@ export const SECONDS_PER_DAY = 86400
 /** Seconds per year for calculations */
 export const SECONDS_PER_YEAR = 365 * SECONDS_PER_DAY
 
-// =============================================================================
 // SCHEMAS
-// =============================================================================
 
 /**
  * Schema for validating JNS name format (without .jeju suffix)
@@ -116,9 +112,7 @@ export const NameListingInputSchema = z.object({
 })
 export type NameListingInput = z.infer<typeof NameListingInputSchema>
 
-// =============================================================================
 // NAME VALIDATION
-// =============================================================================
 
 /**
  * Validates a JNS name format
@@ -162,9 +156,7 @@ export function getNameLengthCategory(
   return 'standard'
 }
 
-// =============================================================================
 // NAME NORMALIZATION
-// =============================================================================
 
 /**
  * Normalizes a JNS name by:
@@ -196,9 +188,7 @@ export function formatFullName(name: string): string {
   return `${normalized}${JNS_SUFFIX}`
 }
 
-// =============================================================================
 // LABELHASH COMPUTATION
-// =============================================================================
 
 /**
  * Computes the labelhash (keccak256) of a name
@@ -237,9 +227,7 @@ export function computeNameIdentifiers(name: string): {
   }
 }
 
-// =============================================================================
 // PRICE CALCULATIONS
-// =============================================================================
 
 /**
  * Calculates the registration price for a name
@@ -302,9 +290,7 @@ export function formatRegistrationPrice(priceWei: bigint): string {
   return `${formatEther(priceWei)} ETH`
 }
 
-// =============================================================================
 // EXPIRY CALCULATIONS
-// =============================================================================
 
 /**
  * Calculates expiry timestamp from duration
@@ -395,9 +381,7 @@ export function formatExpiryDate(expiresAt: number): string {
   })
 }
 
-// =============================================================================
 // LISTING PRICE FORMATTING
-// =============================================================================
 
 /**
  * Formats a listing price in wei for display
@@ -418,9 +402,7 @@ export function parseEthToWei(ethAmount: string): bigint {
   return BigInt(Math.floor(parsed * 1e18))
 }
 
-// =============================================================================
 // LISTING DURATION
-// =============================================================================
 
 /**
  * Converts listing duration in days to seconds
@@ -446,9 +428,7 @@ export function validateListingDuration(
   return { valid: false, error: result.error.issues[0].message }
 }
 
-// =============================================================================
 // VALIDATION HELPERS
-// =============================================================================
 
 /**
  * Validates a complete name registration input

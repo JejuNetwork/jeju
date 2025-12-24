@@ -297,9 +297,6 @@ export class PortfolioSimulator {
     }
     return total
   }
-
-  // ============ Private Methods ============
-
   private calculateInitialLp(balances: bigint[], weights: bigint[]): bigint {
     // Geometric mean weighted by weights
     let product = WEIGHT_PRECISION

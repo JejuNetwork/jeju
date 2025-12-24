@@ -5,7 +5,7 @@
  * Implements actual rate fetching from on-chain contracts.
  */
 
-import { EventEmitter } from 'node:events'
+import { EventEmitter } from '@jejunetwork/shared'
 import { type Address, type PublicClient, parseAbi } from 'viem'
 
 export interface RateArbConfig {
@@ -229,12 +229,10 @@ export class RateArbitrage extends EventEmitter {
     const rates: AssetRates['rates'] = []
 
     for (const protocol of this.protocols) {
-      try {
-        const rate = await this.getProtocolRate(protocol, asset)
-        if (rate) {
-          rates.push({ protocol: protocol.name, ...rate })
-        }
-      } catch {}
+      const rate = await this.getProtocolRate(protocol, asset).catch(() => null)
+      if (rate) {
+        rates.push({ protocol: protocol.name, ...rate })
+      }
     }
 
     if (rates.length === 0) return null

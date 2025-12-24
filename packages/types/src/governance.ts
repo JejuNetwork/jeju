@@ -1,16 +1,9 @@
 /**
- * @fileoverview Shared Governance Types for AI DAO
- *
- * Used across all apps for consistent governance integration.
- * Includes Zod schemas for runtime validation.
+ * AI DAO governance types.
  */
 
 import { z } from 'zod'
 import { AddressSchema, HashSchema } from './validation'
-
-// ============================================================================
-// Proposal Type Schemas
-// ============================================================================
 
 export const ProposalTypeSchema = z.enum([
   'PARAMETER_CHANGE',
@@ -26,7 +19,6 @@ export const ProposalTypeSchema = z.enum([
 ])
 export type ProposalType = z.infer<typeof ProposalTypeSchema>
 
-/** Numeric enum for contract compatibility */
 export const ProposalTypeValue = {
   PARAMETER_CHANGE: 0,
   TREASURY_ALLOCATION: 1,
@@ -59,7 +51,6 @@ export const ProposalStatusSchema = z.enum([
 ])
 export type ProposalStatus = z.infer<typeof ProposalStatusSchema>
 
-/** Numeric enum for contract compatibility */
 export const ProposalStatusValue = {
   SUBMITTED: 0,
   COUNCIL_REVIEW: 1,
@@ -132,9 +123,7 @@ export const VetoCategoryValue = {
   OTHER: 6,
 } as const
 
-// ============================================================================
 // Agent & Reputation Schemas
-// ============================================================================
 
 export const StakeTierSchema = z.enum(['NONE', 'SMALL', 'MEDIUM', 'HIGH'])
 export type StakeTier = z.infer<typeof StakeTierSchema>
@@ -178,9 +167,7 @@ export const ProviderReputationSchema = z.object({
 })
 export type ProviderReputation = z.infer<typeof ProviderReputationSchema>
 
-// ============================================================================
 // Voting Schemas
-// ============================================================================
 
 export const VotingPowerSchema = z.object({
   baseVotes: z.string(),
@@ -204,9 +191,7 @@ export const EligibilitySchema = z.object({
 })
 export type Eligibility = z.infer<typeof EligibilitySchema>
 
-// ============================================================================
 // Proposal Schemas
-// ============================================================================
 
 export const ProposalSchema = z.object({
   proposalId: z.string(),
@@ -263,9 +248,7 @@ export const VetoVoteSchema = z.object({
 })
 export type VetoVote = z.infer<typeof VetoVoteSchema>
 
-// ============================================================================
 // Delegation Schemas
-// ============================================================================
 
 export const DelegateSchema = z.object({
   delegate: AddressSchema,
@@ -299,9 +282,7 @@ export const SecurityCouncilMemberSchema = z.object({
 })
 export type SecurityCouncilMember = z.infer<typeof SecurityCouncilMemberSchema>
 
-// ============================================================================
 // Moderation Schemas (Governance-specific)
-// ============================================================================
 
 export const FlagTypeSchema = z.enum([
   'spam',
@@ -371,9 +352,7 @@ export const ModerationScoreSchema = z.object({
 })
 export type ModerationScore = z.infer<typeof ModerationScoreSchema>
 
-// ============================================================================
 // API Schemas
-// ============================================================================
 
 export const CouncilHealthSchema = z.object({
   status: z.string(),
@@ -428,9 +407,7 @@ export const QualityAssessmentSchema = z.object({
 })
 export type QualityAssessment = z.infer<typeof QualityAssessmentSchema>
 
-// ============================================================================
 // Event Schemas
-// ============================================================================
 
 export const GovernanceEventTypeSchema = z.enum([
   'proposal_submitted',

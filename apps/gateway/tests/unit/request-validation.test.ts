@@ -9,7 +9,7 @@ import type { Address, Hex } from 'viem'
 import {
   validateSettleRequest,
   validateVerifyRequest,
-} from '../../src/x402/lib/request-validation'
+} from '../../api/x402/lib/request-validation'
 
 const validAddress: Address = '0x1234567890123456789012345678901234567890'
 const validHex: Hex =

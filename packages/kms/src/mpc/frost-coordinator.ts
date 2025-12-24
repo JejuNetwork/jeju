@@ -1,11 +1,6 @@
 /**
- * FROST Coordinator - True Threshold ECDSA
- *
- * Integrates with @jejunetwork/oauth3 FROST implementation for true threshold
- * signing where the private key is NEVER reconstructed.
- *
- * This is a wrapper around the OAuth3 FROST implementation that provides
- * the same interface as the existing MPCCoordinator.
+ * FROST Coordinator - True threshold ECDSA where the private key is never reconstructed.
+ * Wraps @jejunetwork/oauth3 FROST with MPCCoordinator interface.
  */
 
 import { FROSTCoordinator } from '@jejunetwork/oauth3'

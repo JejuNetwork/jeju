@@ -28,9 +28,6 @@ import { privateKeyToAccount } from 'viem/accounts'
 import { Logger } from '../shared/logger'
 
 const logger = new Logger({ prefix: 'deploy-commerce' })
-
-// ============ Types ============
-
 interface ChainConfig {
   chainId: number
   name: string
@@ -47,9 +44,6 @@ interface DeploymentResult {
   deployedAt: string
   txHash: Hash
 }
-
-// ============ Chain Configurations ============
-
 const TESTNET_CHAINS: ChainConfig[] = [
   {
     chainId: 420690,
@@ -92,9 +86,6 @@ const MAINNET_CHAINS: ChainConfig[] = [
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   },
 ]
-
-// ============ Deployment ============
-
 async function deployToChain(
   chain: ChainConfig,
   verify: boolean,
@@ -271,9 +262,6 @@ function updateContractsJson(chainId: number, escrowAddress: Address): void {
     )
   }
 }
-
-// ============ CLI ============
-
 async function main(): Promise<void> {
   const args = process.argv.slice(2)
 

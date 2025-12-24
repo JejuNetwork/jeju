@@ -21,10 +21,31 @@ import {
   type Address,
   createPublicClient,
   createWalletClient,
+  type Hex,
   http,
+  isAddress,
+  isHex,
   parseAbi,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
+
+function parseAddress(
+  value: string | undefined,
+  context: string,
+): Address | undefined {
+  if (!value) return undefined
+  if (!isAddress(value)) {
+    throw new Error(`${context}: Invalid address format: ${value}`)
+  }
+  return value
+}
+
+function parseHex(value: string, context: string): Hex {
+  if (!isHex(value)) {
+    throw new Error(`${context}: Invalid hex format`)
+  }
+  return value
+}
 
 const CONTRACTS_DIR = path.join(import.meta.dirname, '../../packages/contracts')
 const DEPLOYMENTS_DIR = path.join(CONTRACTS_DIR, 'deployments')
@@ -155,11 +176,12 @@ async function verifyBlockRegistryIntegration(
     return { integrated: false, currentRegistry: null, error: result.error }
   }
 
-  const currentRegistry = (await client.readContract({
+  const currentRegistryResult = await client.readContract({
     address: contract.address,
     abi: contract.abi,
     functionName: 'blocking',
-  })) as Address
+  })
+  const currentRegistry = currentRegistryResult as Address
 
   const integrated =
     currentRegistry.toLowerCase() === expectedRegistry.toLowerCase()
@@ -186,7 +208,8 @@ async function runIntegrationTests(
     throw new Error('DEPLOYER_PRIVATE_KEY required for integration tests')
   }
 
-  const account = privateKeyToAccount(privateKey as `0x${string}`)
+  const privateKeyHex = parseHex(privateKey, 'DEPLOYER_PRIVATE_KEY')
+  const account = privateKeyToAccount(privateKeyHex)
   const publicClient = createPublicClient({
     transport: http(chain.rpcUrl),
   })
@@ -206,13 +229,14 @@ async function runIntegrationTests(
 
   // Test 1: Block an address
   console.log('  Test 1: Block an address...')
-  const testAddress = '0x1234567890123456789012345678901234567890' as Address
+  const testAddress: Address = '0x1234567890123456789012345678901234567890'
 
   const hash1 = await walletClient.writeContract({
     address: blockRegistry,
     abi: USER_BLOCK_REGISTRY_ABI,
     functionName: 'blockAddress',
     args: [testAddress],
+    chain: null,
   })
   await publicClient.waitForTransactionReceipt({ hash: hash1 })
 
@@ -267,6 +291,7 @@ async function runIntegrationTests(
     abi: USER_BLOCK_REGISTRY_ABI,
     functionName: 'unblockAddress',
     args: [testAddress],
+    chain: null,
   })
   await publicClient.waitForTransactionReceipt({ hash: hash2 })
 
@@ -356,29 +381,48 @@ function loadDeployment(network: string): DeployedContracts | null {
   // Check environment variables for contract addresses
   const fromEnv: DeployedContracts = {}
 
-  if (process.env.USER_BLOCK_REGISTRY_ADDRESS) {
-    fromEnv.userBlockRegistry = process.env
-      .USER_BLOCK_REGISTRY_ADDRESS as Address
+  const userBlockRegistryAddr = parseAddress(
+    process.env.USER_BLOCK_REGISTRY_ADDRESS,
+    'USER_BLOCK_REGISTRY_ADDRESS',
+  )
+  if (userBlockRegistryAddr) {
+    fromEnv.userBlockRegistry = userBlockRegistryAddr
   }
-  if (process.env.TOKEN_ADDRESS) {
-    fromEnv.token = process.env.TOKEN_ADDRESS as Address
+  const tokenAddr = parseAddress(process.env.TOKEN_ADDRESS, 'TOKEN_ADDRESS')
+  if (tokenAddr) {
+    fromEnv.token = tokenAddr
   }
-  if (process.env.OTC_ADDRESS) {
-    fromEnv.otc = process.env.OTC_ADDRESS as Address
+  const otcAddr = parseAddress(process.env.OTC_ADDRESS, 'OTC_ADDRESS')
+  if (otcAddr) {
+    fromEnv.otc = otcAddr
   }
-  if (process.env.MESSAGING_KEY_REGISTRY_ADDRESS) {
-    fromEnv.messagingKeyRegistry = process.env
-      .MESSAGING_KEY_REGISTRY_ADDRESS as Address
+  const messagingKeyRegistryAddr = parseAddress(
+    process.env.MESSAGING_KEY_REGISTRY_ADDRESS,
+    'MESSAGING_KEY_REGISTRY_ADDRESS',
+  )
+  if (messagingKeyRegistryAddr) {
+    fromEnv.messagingKeyRegistry = messagingKeyRegistryAddr
   }
-  if (process.env.MARKETPLACE_ADDRESS) {
-    fromEnv.marketplace = process.env.MARKETPLACE_ADDRESS as Address
+  const marketplaceAddr = parseAddress(
+    process.env.MARKETPLACE_ADDRESS,
+    'MARKETPLACE_ADDRESS',
+  )
+  if (marketplaceAddr) {
+    fromEnv.marketplace = marketplaceAddr
   }
-  if (process.env.X402_FACILITATOR_ADDRESS) {
-    fromEnv.x402Facilitator = process.env.X402_FACILITATOR_ADDRESS as Address
+  const x402FacilitatorAddr = parseAddress(
+    process.env.X402_FACILITATOR_ADDRESS,
+    'X402_FACILITATOR_ADDRESS',
+  )
+  if (x402FacilitatorAddr) {
+    fromEnv.x402Facilitator = x402FacilitatorAddr
   }
-  if (process.env.PLAYER_TRADE_ESCROW_ADDRESS) {
-    fromEnv.playerTradeEscrow = process.env
-      .PLAYER_TRADE_ESCROW_ADDRESS as Address
+  const playerTradeEscrowAddr = parseAddress(
+    process.env.PLAYER_TRADE_ESCROW_ADDRESS,
+    'PLAYER_TRADE_ESCROW_ADDRESS',
+  )
+  if (playerTradeEscrowAddr) {
+    fromEnv.playerTradeEscrow = playerTradeEscrowAddr
   }
 
   if (Object.keys(fromEnv).length > 0) {

@@ -18,14 +18,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@coral-xyz/anchor": "0.30.1",
     "@elysiajs/cors": "1.3.1",
+    "@jejunetwork/sdk": "workspace:*",
     "@jejunetwork/shared": "workspace:*",
-    "@noble/curves": "2.0.1",
     "@noble/hashes": "1.7.1",
-    "@solana/spl-token": "0.4.13",
     "@solana/web3.js": "1.98.4",
-    "commander": "12.1.0",
     "elysia": "1.3.9",
     "viem": "2.43.3",
     "zod": "4.2.1",

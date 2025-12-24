@@ -1,29 +1,34 @@
 {
   "name": "@jejunetwork/autocrat",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "AI Council DAO - Autonomous governance with AI CEO, council agents, and reputation-weighted proposals",
-  "main": "src/server.ts",
+  "main": "api/server.ts",
   "type": "module",
   "scripts": {
-    "dev": "bun run src/server.ts",
-    "build": "bun build src/server.ts --outdir dist --target node",
-    "test": "bun test tests/",
+    "dev": "concurrently \"bun index.html\" \"bun run api/server.ts\"",
+    "build": "bun build index.html --outdir dist --minify && bun build api/server.ts --outdir dist/api --target bun",
+    "start": "bun dist/api/server.js",
+    "test": "bun test tests/ && bunx playwright test tests/e2e/ --config playwright.config.ts && bunx playwright test tests/synpress/ --config synpress.config.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@elizaos/core": "^1.6.4",
-    "@anthropic-ai/sdk": "^0.30.0",
     "@elysiajs/cors": "^1.4.0",
-    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@elysiajs/eden": "^1.4.0",
     "@jejunetwork/config": "workspace:*",
+    "@jejunetwork/contracts": "workspace:*",
     "@jejunetwork/db": "workspace:*",
-    "@jejunetwork/shared": "workspace:*",
     "@jejunetwork/sdk": "workspace:*",
+    "@jejunetwork/shared": "workspace:*",
     "@jejunetwork/types": "workspace:*",
-    "@jejunetwork/eliza-plugin": "workspace:*",
-    "ai": "^5.0.52",
+    "@tanstack/react-query": "^5.79.0",
     "elysia": "^1.4.19",
+    "lucide-react": "^0.513.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-router-dom": "^7.11.0",
     "viem": "2.43.3",
+    "wagmi": "^2.17.4",
     "zod": "4.2.1"
   },
   "devDependencies": {
@@ -31,6 +36,12 @@
     "@playwright/test": "1.57.0",
     "@synthetixio/synpress": "4.1.1",
     "@types/bun": "latest",
+    "@types/react": "^19.1.6",
+    "@types/react-dom": "^19.1.6",
+    "autoprefixer": "^10.4.21",
+    "concurrently": "^9.2.1",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.17",
     "typescript": "5.9.3"
   }
 }

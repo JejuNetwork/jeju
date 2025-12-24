@@ -1,14 +1,18 @@
-/**
- * jeju decentralize - Transfer contract ownership to GovernanceTimelock
- *
- * CRITICAL: This is an IRREVERSIBLE mainnet operation.
- */
+/** Transfer contract ownership to GovernanceTimelock (IRREVERSIBLE) */
 
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import * as readline from 'node:readline'
 import { Command } from 'commander'
-import { createPublicClient, createWalletClient, http } from 'viem'
+import {
+  type Address,
+  createPublicClient,
+  createWalletClient,
+  type Hex,
+  http,
+  isAddress,
+  isHex,
+} from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { z } from 'zod'
 import { logger } from '../lib/logger'
@@ -16,7 +20,31 @@ import { findMonorepoRoot } from '../lib/system'
 import { validate } from '../schemas'
 import { CHAIN_CONFIG, type NetworkType } from '../types'
 
-// Schema for deployment data validation
+const VALID_NETWORKS = ['mainnet', 'testnet', 'localnet'] as const
+
+function parseNetworkType(value: string): NetworkType {
+  if (!VALID_NETWORKS.includes(value as NetworkType)) {
+    throw new Error(
+      `Invalid network: ${value}. Must be: ${VALID_NETWORKS.join(', ')}`,
+    )
+  }
+  return value as NetworkType
+}
+
+function parseAddress(value: string, context: string): Address {
+  if (!isAddress(value)) {
+    throw new Error(`${context}: Invalid address format`)
+  }
+  return value
+}
+
+function parseHex(value: string, context: string): Hex {
+  if (!isHex(value)) {
+    throw new Error(`${context}: Invalid hex format`)
+  }
+  return value
+}
+
 const DeploymentDataSchema = z.object({
   network: z.string(),
   chainId: z.number(),
@@ -36,7 +64,7 @@ type TransferableContract = (typeof CONTRACTS_TO_TRANSFER)[number]
 
 interface TransferOptions {
   network: NetworkType
-  timelock: string
+  timelock: Address
   contract?: string
   dryRun?: boolean
 }
@@ -87,15 +115,15 @@ function prompt(question: string): Promise<string> {
 
 async function verifyOwnership(
   rpcUrl: string,
-  contractAddress: string,
-  expectedOwner: string,
+  contractAddress: Address,
+  expectedOwner: Address,
 ): Promise<boolean> {
   const client = createPublicClient({
     transport: http(rpcUrl),
   })
 
   const owner = await client.readContract({
-    address: contractAddress as `0x${string}`,
+    address: contractAddress,
     abi: [
       {
         name: 'owner',
@@ -108,7 +136,8 @@ async function verifyOwnership(
     functionName: 'owner',
   })
 
-  return (owner as string).toLowerCase() === expectedOwner.toLowerCase()
+  const ownerAddress = owner as Address
+  return ownerAddress.toLowerCase() === expectedOwner.toLowerCase()
 }
 
 async function transferOwnership(options: TransferOptions): Promise<void> {
@@ -184,8 +213,9 @@ async function transferOwnership(options: TransferOptions): Promise<void> {
         transport: http(rpcUrl),
       })
 
+      const addressChecked = parseAddress(address, `Contract ${name}`)
       const currentOwner = await client.readContract({
-        address: address as `0x${string}`,
+        address: addressChecked,
         abi: [
           {
             name: 'owner',
@@ -212,7 +242,8 @@ async function transferOwnership(options: TransferOptions): Promise<void> {
     throw new Error('DEPLOYER_PRIVATE_KEY environment variable required')
   }
 
-  const account = privateKeyToAccount(privateKey as `0x${string}`)
+  const privateKeyHex = parseHex(privateKey, 'DEPLOYER_PRIVATE_KEY')
+  const account = privateKeyToAccount(privateKeyHex)
   const rpcUrl = getRpcUrl(options.network)
 
   const publicClient = createPublicClient({
@@ -233,12 +264,15 @@ async function transferOwnership(options: TransferOptions): Promise<void> {
 
   const results: Array<{ name: string; hash: string; success: boolean }> = []
 
+  const timelockAddress = parseAddress(options.timelock, 'timelock')
+
   for (const name of contracts) {
     const address = deployment[name]
+    const contractAddress = parseAddress(address, `Contract ${name}`)
     console.log(`\n🔄 Transferring ${name}...`)
 
     const hash = await walletClient.writeContract({
-      address: address as `0x${string}`,
+      address: contractAddress,
       abi: [
         {
           name: 'transferOwnership',
@@ -249,7 +283,7 @@ async function transferOwnership(options: TransferOptions): Promise<void> {
         },
       ],
       functionName: 'transferOwnership',
-      args: [options.timelock as `0x${string}`],
+      args: [timelockAddress],
       chain,
     })
 
@@ -310,14 +344,18 @@ export const decentralizeCommand = new Command('decentralize')
   )
   .option('--dry-run', 'Simulate without executing')
   .action(async (options) => {
-    const network = options.network as NetworkType
-
-    if (!['mainnet', 'testnet', 'localnet'].includes(network)) {
+    let network: NetworkType
+    try {
+      network = parseNetworkType(options.network)
+    } catch {
       logger.error('Invalid network. Must be: mainnet, testnet, or localnet')
       process.exit(1)
     }
 
-    if (!options.timelock.startsWith('0x') || options.timelock.length !== 42) {
+    let timelockAddress: Address
+    try {
+      timelockAddress = parseAddress(options.timelock, 'timelock')
+    } catch {
       logger.error('Invalid timelock address format')
       process.exit(1)
     }
@@ -334,20 +372,20 @@ export const decentralizeCommand = new Command('decentralize')
 
     await transferOwnership({
       network,
-      timelock: options.timelock,
+      timelock: timelockAddress,
       contract: options.contract,
       dryRun: options.dryRun,
     })
   })
 
-// Verify subcommand - verify ownership after transfer
 decentralizeCommand
   .command('verify')
   .description('Verify contract ownership has been transferred')
   .requiredOption('--network <network>', 'Network: mainnet, testnet, localnet')
   .requiredOption('--timelock <address>', 'Expected GovernanceTimelock owner')
   .action(async (options) => {
-    const network = options.network as NetworkType
+    const network = parseNetworkType(options.network)
+    const timelockAddress = parseAddress(options.timelock, 'timelock')
     const deployment = loadDeployment(network)
     const rpcUrl = getRpcUrl(network)
 
@@ -362,7 +400,12 @@ decentralizeCommand
         continue
       }
 
-      const isCorrect = await verifyOwnership(rpcUrl, address, options.timelock)
+      const contractAddress = parseAddress(address, `Contract ${name}`)
+      const isCorrect = await verifyOwnership(
+        rpcUrl,
+        contractAddress,
+        timelockAddress,
+      )
 
       if (isCorrect) {
         console.log(`  ✅ ${name}: Owned by timelock`)
@@ -380,13 +423,12 @@ decentralizeCommand
     }
   })
 
-// Status subcommand - show current ownership
 decentralizeCommand
   .command('status')
   .description('Show current contract ownership status')
   .requiredOption('--network <network>', 'Network: mainnet, testnet, localnet')
   .action(async (options) => {
-    const network = options.network as NetworkType
+    const network = parseNetworkType(options.network)
     const deployment = loadDeployment(network)
     const rpcUrl = getRpcUrl(network)
 
@@ -403,8 +445,9 @@ decentralizeCommand
         continue
       }
 
+      const contractAddress = parseAddress(address, `Contract ${name}`)
       const owner = await client.readContract({
-        address: address as `0x${string}`,
+        address: contractAddress,
         abi: [
           {
             name: 'owner',

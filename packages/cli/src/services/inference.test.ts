@@ -9,6 +9,7 @@
  */
 
 import { describe, expect, test } from 'bun:test'
+import type { OpenAIResponse } from '../schemas'
 
 // We need to test the internal logic, so we'll recreate the patterns here
 // and test them directly. The actual service tests are in services.test.ts
@@ -333,7 +334,7 @@ describe('Response Normalization', () => {
     content: Array<{ text: string }>
     stop_reason: string
     usage: { input_tokens: number; output_tokens: number }
-  }): object {
+  }): OpenAIResponse {
     return {
       id: data.id,
       object: 'chat.completion',
@@ -367,7 +368,7 @@ describe('Response Normalization', () => {
       }
     },
     model: string,
-  ): object {
+  ): OpenAIResponse {
     return {
       id: `gemini-${Date.now()}`,
       object: 'chat.completion',
@@ -398,7 +399,7 @@ describe('Response Normalization', () => {
       meta?: { tokens?: { input_tokens: number; output_tokens: number } }
     },
     model: string,
-  ): object {
+  ): OpenAIResponse {
     return {
       id: data.generation_id || `cohere-${Date.now()}`,
       object: 'chat.completion',

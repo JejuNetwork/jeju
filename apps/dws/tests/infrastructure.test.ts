@@ -1,7 +1,7 @@
 /**
- * Decentralized Infrastructure E2E Tests
+ * Infrastructure E2E Tests
  *
- * Tests the fully decentralized compute infrastructure:
+ * Tests the compute infrastructure:
  * - Node registration and discovery
  * - Worker deployment across nodes
  * - Request routing and load balancing
@@ -24,9 +24,7 @@ const isLocalnet = process.env.NETWORK === 'localnet' || !process.env.NETWORK
 const hasAnvil = process.env.RPC_URL?.includes('localhost:6545') || isLocalnet
 
 describe('Decentralized Infrastructure', () => {
-  // ============================================================================
   // Health Checks
-  // ============================================================================
 
   describe('Infrastructure Health', () => {
     test('DWS server is running', async () => {
@@ -47,9 +45,7 @@ describe('Decentralized Infrastructure', () => {
     })
   })
 
-  // ============================================================================
   // Node Registry Tests
-  // ============================================================================
 
   describe('Node Registry', () => {
     test('can list nodes (may be empty)', async () => {
@@ -89,9 +85,7 @@ describe('Decentralized Infrastructure', () => {
     })
   })
 
-  // ============================================================================
   // Worker Deployment Tests
-  // ============================================================================
 
   describe('Worker Deployment', () => {
     test('can list workers', async () => {
@@ -184,9 +178,7 @@ describe('Decentralized Infrastructure', () => {
     })
   })
 
-  // ============================================================================
   // Request Routing Tests
-  // ============================================================================
 
   describe('Request Routing', () => {
     test('routes to healthy nodes', async () => {
@@ -216,9 +208,7 @@ describe('Decentralized Infrastructure', () => {
     })
   })
 
-  // ============================================================================
   // Storage Integration Tests
-  // ============================================================================
 
   describe('Decentralized Storage', () => {
     test('upload and download file via IPFS', async () => {
@@ -280,9 +270,7 @@ describe('Decentralized Infrastructure', () => {
     })
   })
 
-  // ============================================================================
   // Payment Integration Tests
-  // ============================================================================
 
   describe('Payment Integration', () => {
     test('x402 endpoint exists', async () => {
@@ -308,9 +296,7 @@ describe('Decentralized Infrastructure', () => {
     })
   })
 
-  // ============================================================================
   // TEE/Proof of Cloud Tests
-  // ============================================================================
 
   describe('TEE and Proof of Cloud', () => {
     test('PoC status endpoint exists', async () => {
@@ -336,9 +322,7 @@ describe('Decentralized Infrastructure', () => {
     })
   })
 
-  // ============================================================================
   // P2P Coordination Tests
-  // ============================================================================
 
   describe('P2P Coordination', () => {
     test('can get peer count', async () => {
@@ -375,9 +359,7 @@ describe('Decentralized Infrastructure', () => {
     })
   })
 
-  // ============================================================================
   // Auto-Scaling Tests
-  // ============================================================================
 
   describe('Auto-Scaling', () => {
     test('load balancer stats endpoint exists', async () => {
@@ -391,9 +373,7 @@ describe('Decentralized Infrastructure', () => {
     })
   })
 
-  // ============================================================================
   // Multi-Network Tests
-  // ============================================================================
 
   describe('Multi-Network Support', () => {
     test('supports multiple chain configurations', async () => {
@@ -413,18 +393,14 @@ describe('Decentralized Infrastructure', () => {
     })
   })
 
-  // ============================================================================
   // Cleanup
-  // ============================================================================
 
   afterAll(async () => {
     // Any cleanup needed
   })
 })
 
-// ============================================================================
 // Stress Tests (optional, run with STRESS_TEST=true)
-// ============================================================================
 
 describe.skipIf(!process.env.STRESS_TEST)('Infrastructure Stress Tests', () => {
   test('handles concurrent worker deployments', async () => {

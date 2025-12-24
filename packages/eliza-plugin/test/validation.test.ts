@@ -27,9 +27,7 @@ import {
   validateProvider,
 } from '../src/validation'
 
-// =============================================================================
 // Test Helpers
-// =============================================================================
 
 function createMemory(content: Record<string, unknown>): Memory {
   return {
@@ -40,9 +38,7 @@ function createMemory(content: Record<string, unknown>): Memory {
   } as Memory
 }
 
-// =============================================================================
 // getMessageText Tests
-// =============================================================================
 
 describe('getMessageText', () => {
   test('extracts text from message content', () => {
@@ -81,9 +77,7 @@ describe('getMessageText', () => {
   })
 })
 
-// =============================================================================
 // getOptionalMessageText Tests
-// =============================================================================
 
 describe('getOptionalMessageText', () => {
   test('extracts text from message content', () => {
@@ -112,9 +106,7 @@ describe('getOptionalMessageText', () => {
   })
 })
 
-// =============================================================================
 // expectResponseData Tests
-// =============================================================================
 
 describe('expectResponseData', () => {
   test('returns data when present', () => {
@@ -169,9 +161,7 @@ describe('expectResponseData', () => {
   })
 })
 
-// =============================================================================
 // expectArray Tests
-// =============================================================================
 
 describe('expectArray', () => {
   test('returns array at field', () => {
@@ -228,9 +218,7 @@ describe('expectArray', () => {
   })
 })
 
-// =============================================================================
 // expect (expectValue) Tests
-// =============================================================================
 
 describe('expect (value assertion)', () => {
   test('returns value when defined', () => {
@@ -267,9 +255,7 @@ describe('expect (value assertion)', () => {
   })
 })
 
-// =============================================================================
 // parseContent Tests
-// =============================================================================
 
 describe('parseContent', () => {
   const simpleSchema = z.object({
@@ -313,9 +299,7 @@ describe('parseContent', () => {
   })
 })
 
-// =============================================================================
 // validateProvider Tests
-// =============================================================================
 
 describe('validateProvider', () => {
   test('validates complete provider', () => {
@@ -404,9 +388,7 @@ describe('validateProvider', () => {
   })
 })
 
-// =============================================================================
 // validatePoolStats Tests
-// =============================================================================
 
 describe('validatePoolStats', () => {
   test('validates complete pool stats', () => {
@@ -454,9 +436,7 @@ describe('validatePoolStats', () => {
   })
 })
 
-// =============================================================================
 // validateNodeStats Tests
-// =============================================================================
 
 describe('validateNodeStats', () => {
   test('validates complete node stats', () => {
@@ -497,9 +477,7 @@ describe('validateNodeStats', () => {
   })
 })
 
-// =============================================================================
 // validateIntentQuote Tests
-// =============================================================================
 
 describe('validateIntentQuote', () => {
   test('validates complete intent quote', () => {
@@ -536,9 +514,7 @@ describe('validateIntentQuote', () => {
   })
 })
 
-// =============================================================================
 // validateIntentInfo Tests
-// =============================================================================
 
 describe('validateIntentInfo', () => {
   test('validates complete intent info', () => {
@@ -585,9 +561,7 @@ describe('validateIntentInfo', () => {
   })
 })
 
-// =============================================================================
 // formatNumberedList Tests
-// =============================================================================
 
 describe('formatNumberedList', () => {
   test('formats simple list', () => {
@@ -635,9 +609,7 @@ describe('formatNumberedList', () => {
   })
 })
 
-// =============================================================================
 // Zod Schema Tests - evidenceContentSchema
-// =============================================================================
 
 describe('evidenceContentSchema', () => {
   test('parses valid evidence content', () => {
@@ -684,9 +656,7 @@ describe('evidenceContentSchema', () => {
   })
 })
 
-// =============================================================================
 // Zod Schema Tests - caseContentSchema
-// =============================================================================
 
 describe('caseContentSchema', () => {
   test('parses valid case content', () => {
@@ -721,9 +691,7 @@ describe('caseContentSchema', () => {
   })
 })
 
-// =============================================================================
 // Zod Schema Tests - labelContentSchema
-// =============================================================================
 
 describe('labelContentSchema', () => {
   test('parses valid label content', () => {
@@ -747,9 +715,7 @@ describe('labelContentSchema', () => {
   })
 })
 
-// =============================================================================
 // Zod Schema Tests - bountyContentSchema
-// =============================================================================
 
 describe('bountyContentSchema', () => {
   test('parses valid bounty content', () => {
@@ -776,9 +742,7 @@ describe('bountyContentSchema', () => {
   })
 })
 
-// =============================================================================
 // Zod Schema Tests - Address Validation (property-based style)
-// =============================================================================
 
 describe('Address validation', () => {
   test('valid addresses', () => {
@@ -812,9 +776,7 @@ describe('Address validation', () => {
   })
 })
 
-// =============================================================================
 // Zod Schema Tests - ETH Amount Validation (property-based style)
-// =============================================================================
 
 describe('ETH amount validation', () => {
   test('valid ETH amounts', () => {
@@ -855,9 +817,7 @@ describe('ETH amount validation', () => {
   })
 })
 
-// =============================================================================
 // Zod Schema Tests - Hex ID Validation
-// =============================================================================
 
 describe('Hex ID validation (caseId/bountyId format)', () => {
   test('valid hex IDs', () => {
@@ -890,9 +850,7 @@ describe('Hex ID validation (caseId/bountyId format)', () => {
   })
 })
 
-// =============================================================================
 // Edge Cases and Boundary Conditions
-// =============================================================================
 
 describe('Edge cases', () => {
   test('very long strings in text fields', () => {

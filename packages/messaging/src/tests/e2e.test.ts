@@ -25,8 +25,6 @@ import {
   serializeEncryptedMessage,
 } from '../sdk'
 
-// ============ Crypto Tests ============
-
 describe('Crypto', () => {
   test('generates valid key pairs', () => {
     const keyPair = generateKeyPair()
@@ -137,9 +135,6 @@ describe('Crypto', () => {
     expect(decrypted).toBe(message)
   })
 })
-
-// ============ Relay Server Tests ============
-
 describe('Relay Server', () => {
   let server: ReturnType<typeof Bun.serve>
   const PORT = 3201
@@ -273,9 +268,6 @@ describe('Relay Server', () => {
     expect(typeof stats.totalMessagesRelayed).toBe('number')
   })
 })
-
-// ============ Full E2E Flow Test ============
-
 describe('E2E Flow', () => {
   let server: ReturnType<typeof Bun.serve>
   const PORT = 3202

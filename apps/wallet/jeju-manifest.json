@@ -7,13 +7,11 @@
   "description": "Agentic multi-chain wallet with seamless cross-chain UX. No chain switching, bridgeless transfers via EIL/OIF, account abstraction (ERC-4337), multi-token gas payment. Supports Ethereum, all major L2s, and Solana.",
   "commands": {
     "dev": "bun run dev",
-    "dev:tauri": "bun run tauri dev",
-    "dev:mobile": "bun run cap:dev",
+    "dev:app": "bun run dev:app",
     "build": "bun run build",
-    "build:extension": "bun run build:ext",
-    "build:tauri": "bun run tauri build",
-    "build:mobile": "bun run cap:build",
-    "start": "bun run preview",
+    "build:app": "bun run build:app",
+    "build:ext": "bun run build:ext",
+    "build:mobile": "bun run build:mobile",
     "test": "bun run test"
   },
   "ports": {
@@ -89,7 +87,7 @@
   },
   "testing": {
     "unit": {
-      "command": "bun test src/",
+      "command": "bun test",
       "timeout": 120000
     },
     "e2e": {

@@ -5,9 +5,6 @@
  */
 
 import type { Address, Hex } from 'viem'
-
-// ============ FID Types ============
-
 export interface FIDInfo {
   /** Farcaster ID */
   fid: number
@@ -29,9 +26,6 @@ export interface FIDAvailability {
   /** Reason if not available */
   reason?: 'taken' | 'reserved' | 'invalid'
 }
-
-// ============ Storage Types ============
-
 export interface StorageUnit {
   /** Number of storage units */
   units: number
@@ -51,9 +45,6 @@ export interface StorageInfo {
   /** Storage units */
   units: StorageUnit[]
 }
-
-// ============ Registration Config ============
-
 export interface RegistrationConfig {
   /** Optimism RPC URL */
   rpcUrl: string
@@ -66,9 +57,6 @@ export interface RegistrationConfig {
   /** Bundler address */
   bundlerAddress?: Address
 }
-
-// ============ Registration Request ============
-
 export interface RegisterFIDRequest {
   /** Custody address (wallet that will own the FID) */
   custodyAddress: Address
@@ -94,9 +82,6 @@ export interface RegisterFIDResult {
   /** Storage units purchased */
   storageUnits: number
 }
-
-// ============ Bundled Registration ============
-
 export interface BundledRegistrationRequest {
   /** Custody address */
   custodyAddress: Address
@@ -128,9 +113,6 @@ export interface BundledRegistrationResult {
   /** Signer registered */
   signerRegistered: boolean
 }
-
-// ============ Username Types ============
-
 export interface UsernameInfo {
   /** Username */
   username: string
@@ -150,9 +132,6 @@ export interface UsernameAvailability {
   /** Reason if not available */
   reason?: 'taken' | 'reserved' | 'invalid' | 'too_short'
 }
-
-// ============ Price Types ============
-
 export interface RegistrationPrice {
   /** Base price for FID registration */
   fidPrice: bigint
@@ -163,9 +142,6 @@ export interface RegistrationPrice {
   /** Price in USD (if available) */
   priceUsd?: number
 }
-
-// ============ Event Types ============
-
 interface BaseRegistrationEvent {
   fid: number
   txHash: Hex

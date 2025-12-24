@@ -1,8 +1,5 @@
 /**
- * MCP API Key Authentication
- *
- * Provides interfaces and utilities for API key based authentication.
- * Implementations should provide their own validation logic.
+ * API key authentication interfaces and utilities.
  */
 
 import type { JsonValue } from '../types/mcp'

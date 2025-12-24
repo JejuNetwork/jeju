@@ -16,7 +16,7 @@
       "rest": "http://127.0.0.1:4351"
     },
     "gateway": {
-      "ui": "http://127.0.0.1:4001",
+      "ui": "http://127.0.0.1:4013",
       "api": "http://127.0.0.1:4002",
       "a2a": "http://127.0.0.1:4003",
       "mcp": "http://127.0.0.1:4002/mcp",
@@ -49,8 +49,8 @@
       "bots": "http://127.0.0.1:4022"
     },
     "cql": {
-      "blockProducer": "http://127.0.0.1:4028",
-      "miner": "http://127.0.0.1:4028"
+      "blockProducer": "http://127.0.0.1:4661",
+      "miner": "http://127.0.0.1:4661"
     },
     "dws": {
       "api": "http://127.0.0.1:4030",
@@ -102,7 +102,7 @@
     },
     "external": {
       "farcaster": {
-        "hub": "https://nemes.farcaster.xyz:2281",
+        "hub": "http://127.0.0.1:2281",
         "api": "https://api.neynar.com/v2"
       },
       "bundler": "http://127.0.0.1:4337"
@@ -209,7 +209,7 @@
     },
     "external": {
       "farcaster": {
-        "hub": "https://nemes.farcaster.xyz:2281",
+        "hub": "https://hub.testnet.jejunetwork.org",
         "api": "https://api.neynar.com/v2"
       },
       "bundler": "https://bundler.testnet.jejunetwork.org"
@@ -316,7 +316,7 @@
     },
     "external": {
       "farcaster": {
-        "hub": "https://nemes.farcaster.xyz:2281",
+        "hub": "https://hub.jejunetwork.org",
         "api": "https://api.neynar.com/v2"
       },
       "bundler": "https://bundler.jejunetwork.org"

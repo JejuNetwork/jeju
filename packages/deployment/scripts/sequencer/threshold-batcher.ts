@@ -31,18 +31,15 @@ import {
   createPublicClient,
   createWalletClient,
   encodeAbiParameters,
-  getBalance,
-  getChainId,
   http,
   keccak256,
   type PublicClient,
   parseAbi,
-  readContract,
   stringToBytes,
   type WalletClient,
-  waitForTransactionReceipt,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
+import { waitForTransactionReceipt } from 'viem/actions'
 import {
   expectValid,
   SignRequestSchema,
@@ -81,12 +78,15 @@ class ThresholdBatcherProxy {
   private app: Elysia
   private publicClient: PublicClient
   private walletClient: WalletClient
+  private chain: ReturnType<typeof inferChainFromRpcUrl>
   private contractAddress: Address
   private signers: SignerConfig[]
   private threshold: number
   private pendingBatches = new Map<string, BatchRequest>()
   private chainId: bigint = 0n
   private domainSeparator: `0x${string}` = '0x' as `0x${string}`
+  private coordinatorAddress: Address
+  private coordinatorAccount: ReturnType<typeof privateKeyToAccount>
 
   constructor(
     rpcUrl: string,
@@ -95,13 +95,19 @@ class ThresholdBatcherProxy {
     signers: SignerConfig[],
     threshold: number,
   ) {
-    const chain = inferChainFromRpcUrl(rpcUrl)
-    const account = privateKeyToAccount(coordinatorKey as `0x${string}`)
-    this.publicClient = createPublicClient({ chain, transport: http(rpcUrl) })
-    this.walletClient = createWalletClient({
-      chain,
+    this.chain = inferChainFromRpcUrl(rpcUrl)
+    this.coordinatorAccount = privateKeyToAccount(
+      coordinatorKey as `0x${string}`,
+    )
+    this.coordinatorAddress = this.coordinatorAccount.address
+    this.publicClient = createPublicClient({
+      chain: this.chain,
       transport: http(rpcUrl),
-      account,
+    })
+    this.walletClient = createWalletClient({
+      chain: this.chain,
+      transport: http(rpcUrl),
+      account: this.coordinatorAccount,
     })
     this.contractAddress = contractAddress as Address
     this.signers = signers
@@ -111,15 +117,15 @@ class ThresholdBatcherProxy {
   }
 
   async initialize(): Promise<void> {
-    this.chainId = BigInt(await getChainId(this.publicClient))
-    this.domainSeparator = (await readContract(this.publicClient, {
+    this.chainId = BigInt(await this.publicClient.getChainId())
+    this.domainSeparator = (await this.publicClient.readContract({
       address: this.contractAddress,
       abi: THRESHOLD_BATCH_SUBMITTER_ABI,
       functionName: 'DOMAIN_SEPARATOR',
     })) as `0x${string}`
 
     // Verify threshold matches contract
-    const contractThreshold = await readContract(this.publicClient, {
+    const contractThreshold = await this.publicClient.readContract({
       address: this.contractAddress,
       abi: THRESHOLD_BATCH_SUBMITTER_ABI,
       functionName: 'threshold',
@@ -134,7 +140,7 @@ class ThresholdBatcherProxy {
     console.log(`  Chain ID: ${this.chainId}`)
     console.log(`  Contract: ${this.contractAddress}`)
     console.log(`  Threshold: ${this.threshold}/${this.signers.length}`)
-    console.log(`  Coordinator: ${this.walletClient.account.address}`)
+    console.log(`  Coordinator: ${this.coordinatorAddress}`)
   }
 
   private setupRoutes(): void {
@@ -180,13 +186,13 @@ class ThresholdBatcherProxy {
 
     // Get status
     this.app.get('/status', async () => {
-      const nonce = await readContract(this.publicClient, {
+      const nonce = await this.publicClient.readContract({
         address: this.contractAddress,
         abi: THRESHOLD_BATCH_SUBMITTER_ABI,
         functionName: 'nonce',
       })
-      const balance = await getBalance(this.publicClient, {
-        address: this.walletClient.account.address,
+      const balance = await this.publicClient.getBalance({
+        address: this.coordinatorAddress,
       })
       return {
         nonce: Number(nonce),
@@ -219,7 +225,7 @@ class ThresholdBatcherProxy {
     this.pendingBatches.set(batchId, batch)
 
     // Get current nonce
-    const nonce = await readContract(this.publicClient, {
+    const nonce = await this.publicClient.readContract({
       address: this.contractAddress,
       abi: THRESHOLD_BATCH_SUBMITTER_ABI,
       functionName: 'nonce',
@@ -318,6 +324,8 @@ class ThresholdBatcherProxy {
         .map((s) => s.signature as `0x${string}`)
 
       const hash = await this.walletClient.writeContract({
+        account: this.coordinatorAccount,
+        chain: this.chain,
         address: this.contractAddress,
         abi: THRESHOLD_BATCH_SUBMITTER_ABI,
         functionName: 'submitBatch',

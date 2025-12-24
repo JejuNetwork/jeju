@@ -33,9 +33,6 @@ const keccak256 = (data: Buffer | Uint8Array | string): Buffer => {
   const hash = viemKeccak256(bytes)
   return Buffer.from(hash.slice(2), 'hex')
 }
-
-// ============ Types ============
-
 export interface EILConfig {
   l1RpcUrl: string
   l2RpcUrl: string
@@ -44,6 +41,12 @@ export interface EILConfig {
   entryPoint?: string
   l1ChainId: number
   l2ChainId: number
+}
+
+/** Contract return type for XLP stake info */
+interface XLPStakeInfo {
+  stakedAmount: bigint
+  isActive: boolean
 }
 
 export interface TransferRequest {
@@ -82,11 +85,8 @@ export interface MultiChainUserOp {
   value: bigint
   gasLimit: bigint
 }
-
-// ============ ABIs ============
-
 const CROSS_CHAIN_PAYMASTER_ABI = parseAbi([
-  'function createVoucherRequest(address token, uint256 amount, address destinationToken, uint256 destinationChainId, address recipient, uint256 gasOnDestination, uint256 maxFee, uint256 feeIncrement) external returns (bytes32)',
+  'function createVoucherRequest(address token, uint256 amount, address destinationToken, uint256 destinationChainId, address recipient, uint256 gasOnDestination, uint256 maxFee, uint256 feeIncrement) external payable returns (bytes32)',
   'function getCurrentFee(bytes32 requestId) external view returns (uint256)',
   'function refundExpiredRequest(bytes32 requestId) external',
   'function depositLiquidity(address token, uint256 amount) external',
@@ -185,9 +185,6 @@ const L1_STAKE_MANAGER_ABI = [
     outputs: [{ name: '', type: 'bool' }],
   },
 ] as const
-
-// ============ EIL Client ============
-
 export class EILClient {
   private l1Client: PublicClient
   private l2Client: PublicClient
@@ -195,18 +192,20 @@ export class EILClient {
   private l2WalletClient: WalletClient
   private account: PrivateKeyAccount
   private config: EILConfig
+  private l1Chain: Chain
+  private l2Chain: Chain
 
   constructor(config: EILConfig, account: PrivateKeyAccount) {
     this.config = config
     this.account = account
 
-    const l1Chain: Chain = {
+    this.l1Chain = {
       id: config.l1ChainId,
       name: 'L1',
       nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
       rpcUrls: { default: { http: [config.l1RpcUrl] } },
     }
-    const l2Chain: Chain = {
+    this.l2Chain = {
       id: config.l2ChainId,
       name: 'L2',
       nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
@@ -214,30 +213,27 @@ export class EILClient {
     }
 
     this.l1Client = createPublicClient({
-      chain: l1Chain,
+      chain: this.l1Chain,
       transport: http(config.l1RpcUrl),
     })
 
     this.l2Client = createPublicClient({
-      chain: l2Chain,
+      chain: this.l2Chain,
       transport: http(config.l2RpcUrl),
     })
 
     this.l1WalletClient = createWalletClient({
       account,
-      chain: l1Chain,
+      chain: this.l1Chain,
       transport: http(config.l1RpcUrl),
     })
 
     this.l2WalletClient = createWalletClient({
       account,
-      chain: l2Chain,
+      chain: this.l2Chain,
       transport: http(config.l2RpcUrl),
     })
   }
-
-  // ============ Transfer Operations ============
-
   /**
    * Create a cross-chain transfer request
    */
@@ -261,6 +257,7 @@ export class EILClient {
     const txValue = isETH ? params.amount + maxFee : 0n
 
     const hash = await this.l2WalletClient.writeContract({
+      chain: this.l2Chain,
       address: this.config.crossChainPaymaster as Address,
       abi: CROSS_CHAIN_PAYMASTER_ABI,
       functionName: 'createVoucherRequest',
@@ -274,9 +271,8 @@ export class EILClient {
         maxFee,
         feeIncrement,
       ],
-      value: txValue,
       account: this.account,
-      chain: null, // Use wallet client's chain
+      ...(txValue > 0n && { value: txValue }),
     })
 
     const receipt = await waitForTransactionReceipt(this.l2Client, { hash })
@@ -341,11 +337,12 @@ export class EILClient {
     requestId: `0x${string}`,
   ): Promise<TransactionReceipt> {
     const hash = await this.l2WalletClient.writeContract({
+      chain: this.l2Chain,
+      account: this.account,
       address: this.config.crossChainPaymaster as Address,
       abi: CROSS_CHAIN_PAYMASTER_ABI,
       functionName: 'refundExpiredRequest',
       args: [requestId],
-      account: this.account,
     })
     return waitForTransactionReceipt(this.l2Client, { hash })
   }
@@ -444,9 +441,6 @@ export class EILClient {
       }, timeoutMs)
     })
   }
-
-  // ============ XLP Operations ============
-
   /**
    * Get XLP information with liquidity for specified tokens
    */
@@ -489,10 +483,11 @@ export class EILClient {
       }
     }
 
+    const stakeInfo = stake as XLPStakeInfo
     return {
       address: xlpAddress,
-      stakedAmount: (stake as { stakedAmount: bigint }).stakedAmount,
-      isActive: (stake as { isActive: boolean }).isActive,
+      stakedAmount: stakeInfo.stakedAmount,
+      isActive: stakeInfo.isActive,
       supportedChains: (chains as bigint[]).map((c) => Number(c)),
       liquidity,
       ethBalance,
@@ -511,6 +506,7 @@ export class EILClient {
       'function approve(address spender, uint256 amount) external returns (bool)',
     ])
     const approveHash = await this.l2WalletClient.writeContract({
+      chain: this.l2Chain,
       address: token,
       abi: ERC20_ABI,
       functionName: 'approve',
@@ -521,11 +517,12 @@ export class EILClient {
 
     // Then deposit
     const hash = await this.l2WalletClient.writeContract({
+      chain: this.l2Chain,
+      account: this.account,
       address: this.config.crossChainPaymaster as Address,
       abi: CROSS_CHAIN_PAYMASTER_ABI,
       functionName: 'depositLiquidity',
       args: [token, amount],
-      account: this.account,
     })
     return waitForTransactionReceipt(this.l2Client, { hash })
   }
@@ -535,11 +532,12 @@ export class EILClient {
    */
   async depositETH(amount: bigint): Promise<TransactionReceipt> {
     const hash = await this.l2WalletClient.writeContract({
+      chain: this.l2Chain,
+      account: this.account,
       address: this.config.crossChainPaymaster as Address,
       abi: CROSS_CHAIN_PAYMASTER_ABI,
       functionName: 'depositETH',
       value: amount,
-      account: this.account,
     })
     return waitForTransactionReceipt(this.l2Client, { hash })
   }
@@ -552,11 +550,12 @@ export class EILClient {
     amount: bigint,
   ): Promise<TransactionReceipt> {
     const hash = await this.l2WalletClient.writeContract({
+      chain: this.l2Chain,
+      account: this.account,
       address: this.config.crossChainPaymaster as Address,
       abi: CROSS_CHAIN_PAYMASTER_ABI,
       functionName: 'withdrawLiquidity',
       args: [token, amount],
-      account: this.account,
     })
     return waitForTransactionReceipt(this.l2Client, { hash })
   }
@@ -566,11 +565,12 @@ export class EILClient {
    */
   async withdrawETH(amount: bigint): Promise<TransactionReceipt> {
     const hash = await this.l2WalletClient.writeContract({
+      chain: this.l2Chain,
+      account: this.account,
       address: this.config.crossChainPaymaster as Address,
       abi: CROSS_CHAIN_PAYMASTER_ABI,
       functionName: 'withdrawETH',
       args: [amount],
-      account: this.account,
     })
     return waitForTransactionReceipt(this.l2Client, { hash })
   }
@@ -583,12 +583,13 @@ export class EILClient {
     stakeAmount: bigint,
   ): Promise<TransactionReceipt> {
     const hash = await this.l1WalletClient.writeContract({
+      chain: this.l1Chain,
+      account: this.account,
       address: this.config.l1StakeManager as Address,
       abi: L1_STAKE_MANAGER_ABI,
       functionName: 'register',
       args: [chains.map((c) => BigInt(c))],
       value: stakeAmount,
-      account: this.account,
     })
     return waitForTransactionReceipt(this.l1Client, { hash })
   }
@@ -598,11 +599,12 @@ export class EILClient {
    */
   async addStake(amount: bigint): Promise<TransactionReceipt> {
     const hash = await this.l1WalletClient.writeContract({
+      chain: this.l1Chain,
+      account: this.account,
       address: this.config.l1StakeManager as Address,
       abi: L1_STAKE_MANAGER_ABI,
       functionName: 'addStake',
       value: amount,
-      account: this.account,
     })
     return waitForTransactionReceipt(this.l1Client, { hash })
   }
@@ -612,17 +614,15 @@ export class EILClient {
    */
   async startUnbonding(amount: bigint): Promise<TransactionReceipt> {
     const hash = await this.l1WalletClient.writeContract({
+      chain: this.l1Chain,
+      account: this.account,
       address: this.config.l1StakeManager as Address,
       abi: L1_STAKE_MANAGER_ABI,
       functionName: 'startUnbonding',
       args: [amount],
-      account: this.account,
     })
     return waitForTransactionReceipt(this.l1Client, { hash })
   }
-
-  // ============ Multi-Chain UserOp Batch ============
-
   /**
    * Build a multi-chain UserOp batch with single signature
    */
@@ -703,9 +703,6 @@ export class EILClient {
     )
   }
 }
-
-// ============ Helper Functions ============
-
 /**
  * Estimate fee for a cross-chain transfer
  */

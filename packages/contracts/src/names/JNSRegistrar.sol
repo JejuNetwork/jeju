@@ -130,7 +130,7 @@ contract JNSRegistrar is ERC721, Ownable, ReentrancyGuard, IJNSRegistrar {
         defaultResolver = _defaultResolver;
         treasury = _treasury;
 
-        // Reserve some common names
+        // Reserve canonical platform names
         _reserveName("jeju", true);
         _reserveName("gateway", true);
         _reserveName("bazaar", true);
@@ -140,6 +140,14 @@ contract JNSRegistrar is ERC721, Ownable, ReentrancyGuard, IJNSRegistrar {
         _reserveName("cloud", true);
         _reserveName("admin", true);
         _reserveName("system", true);
+        _reserveName("docs", true);
+        _reserveName("monitoring", true);
+        _reserveName("crucible", true);
+        _reserveName("factory", true);
+        _reserveName("wallet", true);
+        _reserveName("dws", true);
+        _reserveName("node", true);
+        _reserveName("bridge", true);
     }
 
     // ============ Registration Functions ============

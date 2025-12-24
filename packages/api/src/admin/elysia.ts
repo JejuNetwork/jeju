@@ -8,8 +8,6 @@ import {
 import { requireAdmin, requireRole, validateAdmin } from './core.js'
 import type { AdminConfig, AdminRole, AdminUser } from './types.js'
 
-// ============ Types ============
-
 /** Context with address from auth plugin */
 interface AuthDerivedContext {
   address?: string

@@ -1,12 +1,4 @@
-/**
- * jeju publish - Publish workspace packages to JejuPkg
- *
- * Handles:
- * - Converting workspace:* to real versions
- * - Building packages in correct order
- * - Publishing to JejuPkg registry (npm CLI compatible)
- * - Restoring workspace:* after publish
- */
+/** Publish workspace packages to JejuPkg */
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -17,10 +9,8 @@ import { logger } from '../lib/logger'
 import { findMonorepoRoot } from '../lib/system'
 import { validate } from '../schemas'
 
-// Packages in publish order (dependencies first)
 const PACKAGES = ['types', 'config', 'contracts', 'sdk', 'cli']
 
-// Schema for package.json validation
 const PackageJsonSchema = z.object({
   name: z.string().min(1),
   version: z.string().min(1),
@@ -65,7 +55,6 @@ export const publishCommand = new Command('publish')
 
     try {
       // Phase 1: Replace workspace:* references
-      logger.step('Replacing workspace:* references')
       for (const pkg of packagesToPublish) {
         const pkgPath = getPackagePath(rootDir, pkg)
         if (!existsSync(pkgPath)) {
@@ -88,10 +77,9 @@ export const publishCommand = new Command('publish')
         )
         writePackageJson(rootDir, pkg, data)
       }
-      logger.success('References updated')
+      logger.success('Workspace references replaced')
       logger.newline()
 
-      // Phase 2: Build packages
       if (!skipBuild) {
         logger.step('Building packages')
         for (const pkg of packagesToPublish) {
@@ -113,7 +101,6 @@ export const publishCommand = new Command('publish')
         logger.newline()
       }
 
-      // Phase 3: Publish
       logger.step('Publishing to JejuPkg')
       for (const pkg of packagesToPublish) {
         const pkgPath = getPackagePath(rootDir, pkg)
@@ -138,7 +125,6 @@ export const publishCommand = new Command('publish')
       logger.newline()
       logger.success('All packages published')
     } finally {
-      // Phase 4: Restore original package.json files
       logger.newline()
       logger.step('Restoring workspace:* references')
       for (const pkg of packagesToPublish) {
@@ -204,5 +190,213 @@ function replaceWorkspaceRefs(
       result[name] = version
     }
   }
+  return result
+}
+
+const PublishPackageJsonSchema = z.object({
+  name: z.string().min(1),
+  version: z.string().min(1),
+  private: z.boolean().optional(),
+  main: z.string().optional(),
+  types: z.string().optional(),
+  license: z.string().optional(),
+  repository: z
+    .object({
+      type: z.string(),
+      url: z.string(),
+      directory: z.string().optional(),
+    })
+    .optional(),
+  publishConfig: z.object({ access: z.string() }).optional(),
+  files: z.array(z.string()).optional(),
+})
+
+interface ValidationResult {
+  package: string
+  valid: boolean
+  errors: string[]
+  warnings: string[]
+  files: string[]
+}
+
+const REQUIRED_STRING_FIELDS = [
+  'name',
+  'version',
+  'main',
+  'types',
+  'license',
+] as const
+
+publishCommand
+  .command('check')
+  .description('Check packages for npm publishing readiness')
+  .action(async () => {
+    const rootDir = findMonorepoRoot()
+    const packagesDir = join(rootDir, 'packages')
+
+    logger.header('PUBLISH CHECK')
+    logger.info('Checking packages for npm publishing readiness...')
+    logger.newline()
+
+    const packages = await getPackageList(packagesDir)
+    const results: ValidationResult[] = []
+
+    for (const pkg of packages) {
+      const result = await validatePackage(packagesDir, pkg)
+      results.push(result)
+    }
+
+    // Print results
+    let hasErrors = false
+    const publicPackages: ValidationResult[] = []
+    const privatePackages: ValidationResult[] = []
+
+    for (const r of results) {
+      if (r.warnings.some((w) => w.includes('private'))) {
+        privatePackages.push(r)
+      } else {
+        publicPackages.push(r)
+      }
+    }
+
+    logger.subheader('Public Packages')
+    for (const r of publicPackages) {
+      const status = r.valid ? '✅' : '❌'
+      logger.info(`${status} @jejunetwork/${r.package}`)
+
+      for (const err of r.errors) {
+        logger.error(`   ⛔ ${err}`)
+        hasErrors = true
+      }
+      for (const warn of r.warnings) {
+        logger.warn(`   ⚠️  ${warn}`)
+      }
+      if (r.files.length > 0 && r.valid) {
+        logger.info(`   📄 ${r.files.length} files would be published`)
+      }
+    }
+
+    logger.newline()
+    logger.subheader('Private Packages (not published)')
+    for (const r of privatePackages) {
+      logger.info(`   ${r.package}`)
+    }
+
+    logger.newline()
+    if (hasErrors) {
+      logger.error('Some packages have errors. Fix them before publishing.')
+      process.exit(1)
+    }
+
+    logger.success(
+      `All ${publicPackages.length} public packages are ready for publishing.`,
+    )
+    logger.info(`${privatePackages.length} private packages will be skipped.`)
+  })
+
+async function getPackageList(packagesDir: string): Promise<string[]> {
+  const { readdir } = await import('node:fs/promises')
+  const entries = await readdir(packagesDir, { withFileTypes: true })
+  return entries.filter((e) => e.isDirectory()).map((e) => e.name)
+}
+
+async function validatePackage(
+  packagesDir: string,
+  pkgDir: string,
+): Promise<ValidationResult> {
+  const pkgPath = join(packagesDir, pkgDir, 'package.json')
+  const result: ValidationResult = {
+    package: pkgDir,
+    valid: true,
+    errors: [],
+    warnings: [],
+    files: [],
+  }
+
+  if (!existsSync(pkgPath)) {
+    result.valid = false
+    result.errors.push('Could not read package.json')
+    return result
+  }
+
+  const content = readFileSync(pkgPath, 'utf-8')
+  const parseResult = PublishPackageJsonSchema.safeParse(JSON.parse(content))
+
+  if (!parseResult.success) {
+    result.valid = false
+    result.errors.push('Invalid package.json format')
+    return result
+  }
+
+  const pkg = parseResult.data
+
+  if (pkg.private) {
+    result.warnings.push('Package is private (will not be published)')
+    return result
+  }
+
+  // Check required string fields
+  for (const field of REQUIRED_STRING_FIELDS) {
+    if (!pkg[field]) {
+      result.errors.push(`Missing required field: ${field}`)
+      result.valid = false
+    }
+  }
+
+  // Check repository object
+  if (!pkg.repository?.url) {
+    result.errors.push('Missing required field: repository')
+    result.valid = false
+  }
+
+  // Check publishConfig
+  if (!pkg.publishConfig?.access) {
+    result.errors.push('Missing required field: publishConfig.access')
+    result.valid = false
+  }
+
+  // Check publishConfig.access
+  if (pkg.publishConfig && pkg.publishConfig.access !== 'public') {
+    result.warnings.push(
+      "publishConfig.access should be 'public' for scoped packages",
+    )
+  }
+
+  // Check for dist directory if main points to dist
+  if (pkg.main?.includes('dist/')) {
+    const distPath = join(packagesDir, pkgDir, 'dist')
+    const distIndexExists = existsSync(join(distPath, 'index.js'))
+    if (!distIndexExists) {
+      result.errors.push('dist/index.js does not exist - run build first')
+      result.valid = false
+    }
+  }
+
+  // Check files field includes dist
+  if (pkg.files && pkg.main?.includes('dist/') && !pkg.files.includes('dist')) {
+    result.warnings.push("'files' field should include 'dist'")
+  }
+
+  // Run npm pack --dry-run
+  const pkgFullPath = join(packagesDir, pkgDir)
+  const { $ } = await import('bun')
+  const packResult = await $`cd ${pkgFullPath} && npm pack --dry-run 2>&1`
+    .text()
+    .catch((e: Error) => e.message)
+
+  if (packResult.includes('npm error') || packResult.includes('npm ERR')) {
+    result.errors.push(`npm pack failed: ${packResult.slice(0, 200)}`)
+    result.valid = false
+  } else {
+    // Extract files that would be included
+    const lines = packResult.split('\n')
+    for (const line of lines) {
+      if (line.startsWith('npm notice') && !line.includes('=')) {
+        const match = line.match(/npm notice \d+[.\d]*[kKMG]?B\s+(.+)/)
+        if (match) result.files.push(match[1])
+      }
+    }
+  }
+
   return result
 }

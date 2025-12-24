@@ -9,7 +9,6 @@ export default defineWalletSetup(PASSWORD, async (context, walletPage) => {
   const metamask = new MetaMask(context, walletPage, PASSWORD)
   await metamask.importWallet(SEED_PHRASE)
 
-  // Add localnet network
   await metamask.addNetwork({
     name: 'Jeju Localnet',
     rpcUrl: 'http://127.0.0.1:6546',

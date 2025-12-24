@@ -5,7 +5,7 @@
  * Messages are encrypted with XMTP/MLS, transported via Jeju relay nodes.
  */
 
-import { randomBytes } from 'node:crypto'
+import { bytesToHex, randomBytes } from '@jejunetwork/shared'
 import type { Address } from 'viem'
 import { z } from 'zod'
 import { IPFSAddResponseSchema } from '../schemas'
@@ -472,7 +472,7 @@ export class JejuXMTPNode {
    * Generate a unique message ID
    */
   static generateMessageId(): string {
-    return randomBytes(16).toString('hex')
+    return bytesToHex(randomBytes(16))
   }
 }
 

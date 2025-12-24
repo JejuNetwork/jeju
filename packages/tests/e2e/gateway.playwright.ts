@@ -5,12 +5,12 @@
  * Requires: Gateway running on port 4001
  */
 
-import { getCoreAppUrl } from '@jejunetwork/config/ports'
+import { getCoreAppUrl } from '@jejunetwork/config'
 import { expect, test } from '@playwright/test'
 
 const GATEWAY_URL = process.env.GATEWAY_URL || getCoreAppUrl('GATEWAY')
 
-test.describe('Gateway Portal', () => {
+test.describe('Gateway', () => {
   test.beforeEach(async ({ page: _page }) => {
     // Check if gateway is running
     try {

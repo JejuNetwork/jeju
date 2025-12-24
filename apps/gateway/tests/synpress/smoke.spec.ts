@@ -5,7 +5,7 @@
  * These should run first and fast to catch obvious breaks.
  */
 
-import { getCoreAppUrl, getL2RpcUrl } from '@jejunetwork/config/ports'
+import { getCoreAppUrl, getL2RpcUrl } from '@jejunetwork/config'
 import { testWithSynpress } from '@synthetixio/synpress'
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright'
 import { basicSetup } from '../../synpress.config'
@@ -27,7 +27,7 @@ test.describe('Gateway Smoke Tests', () => {
     await page.goto(GATEWAY_URL)
     await page.waitForLoadState('networkidle')
 
-    await expect(page.getByText(/Gateway Portal/i)).toBeVisible()
+    await expect(page.getByText(/Gateway/i)).toBeVisible()
     await page.waitForTimeout(2000)
 
     if (errors.length > 0) {
@@ -157,7 +157,7 @@ test.describe('Gateway Smoke Tests', () => {
     expect(response.status()).toBe(200)
 
     const agentCard = await response.json()
-    expect(agentCard.name).toBe('Gateway Portal - Protocol Infrastructure Hub')
+    expect(agentCard.name).toBe('Gateway - Protocol Infrastructure Hub')
   })
 
   test('wallet connection persists across navigation', async ({

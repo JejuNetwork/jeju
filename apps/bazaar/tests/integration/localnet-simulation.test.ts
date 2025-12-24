@@ -26,9 +26,7 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 
-// =============================================================================
 // CONFIGURATION
-// =============================================================================
 
 const RPC_URL = process.env.L2_RPC_URL || 'http://localhost:6546'
 const CHAIN_ID = 420691 // network localnet chain ID
@@ -49,9 +47,7 @@ const localnet = {
   rpcUrls: { default: { http: [RPC_URL] } },
 }
 
-// =============================================================================
 // ABIS
-// =============================================================================
 
 const NFT_MARKETPLACE_ABI = parseAbi([
   'function buyListing(uint256 listingId) payable',
@@ -72,9 +68,7 @@ function isDeployed(address: string | undefined): address is Address {
   return !!address && address !== ZERO_ADDRESS
 }
 
-// =============================================================================
 // DEPLOYMENT LOADING
-// =============================================================================
 
 interface Deployments {
   v4: {
@@ -110,9 +104,7 @@ function loadDeployments(): Deployments {
   }
 }
 
-// =============================================================================
 // TEST SETUP
-// =============================================================================
 
 let publicClient: PublicClient
 let deployerWallet: WalletClient
@@ -174,9 +166,7 @@ beforeAll(async () => {
   console.log('')
 })
 
-// =============================================================================
 // TEST: BLOCKCHAIN HEALTH
-// =============================================================================
 
 describe('Blockchain Health', () => {
   test('should be connected to localnet', async () => {
@@ -210,9 +200,7 @@ describe('Blockchain Health', () => {
   })
 })
 
-// =============================================================================
 // TEST: CONTRACT DEPLOYMENT VERIFICATION
-// =============================================================================
 
 describe('Contract Deployment Verification', () => {
   test('V4 PoolManager should be deployed', async () => {
@@ -289,9 +277,7 @@ describe('Contract Deployment Verification', () => {
   })
 })
 
-// =============================================================================
 // TEST: TOKEN FACTORY
-// =============================================================================
 
 describe('Token Factory', () => {
   test('should create a new ERC20 token', async () => {
@@ -351,9 +337,7 @@ describe('Token Factory', () => {
   })
 })
 
-// =============================================================================
 // TEST: UNISWAP V4 LIQUIDITY
-// =============================================================================
 
 describe('Uniswap V4 Liquidity', () => {
   test('should add liquidity to a pool', async () => {
@@ -376,9 +360,7 @@ describe('Uniswap V4 Liquidity', () => {
   })
 })
 
-// =============================================================================
 // TEST: UNISWAP V4 SWAPS
-// =============================================================================
 
 describe('Uniswap V4 Swaps', () => {
   test('should verify swap router is ready', async () => {
@@ -415,9 +397,7 @@ describe('Uniswap V4 Swaps', () => {
   })
 })
 
-// =============================================================================
 // TEST: NFT MARKETPLACE
-// =============================================================================
 
 describe('NFT Marketplace', () => {
   test('should read marketplace version', async () => {
@@ -463,9 +443,7 @@ describe('NFT Marketplace', () => {
   })
 })
 
-// =============================================================================
 // TEST: SWAP FEES
-// =============================================================================
 
 describe('Swap Fee Verification', () => {
   test('should verify pool fee structure', async () => {
@@ -493,9 +471,7 @@ describe('Swap Fee Verification', () => {
   })
 })
 
-// =============================================================================
 // TEST: END-TO-END FLOW
-// =============================================================================
 
 describe('End-to-End Flow', () => {
   test('complete user journey: create token -> add liquidity -> swap', async () => {
@@ -541,9 +517,7 @@ describe('End-to-End Flow', () => {
   })
 })
 
-// =============================================================================
 // TEST SUMMARY
-// =============================================================================
 
 describe('Simulation Summary', () => {
   test('print final summary', async () => {

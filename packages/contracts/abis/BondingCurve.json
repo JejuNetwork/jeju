@@ -42,6 +42,32 @@
     },
     {
       "type": "function",
+      "name": "GRADUATION_DELAY",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "LP_LOCK_PERIOD",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
       "name": "buy",
       "inputs": [
         {
@@ -58,6 +84,33 @@
         }
       ],
       "stateMutability": "payable"
+    },
+    {
+      "type": "function",
+      "name": "canExecuteGraduation",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bool",
+          "internalType": "bool"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "claimLPTokens",
+      "inputs": [],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "executeGraduation",
+      "inputs": [],
+      "outputs": [],
+      "stateMutability": "nonpayable"
     },
     {
       "type": "function",
@@ -85,6 +138,39 @@
       "outputs": [
         {
           "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "getGraduationStatus",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "isQueued",
+          "type": "bool",
+          "internalType": "bool"
+        },
+        {
+          "name": "isGraduated",
+          "type": "bool",
+          "internalType": "bool"
+        },
+        {
+          "name": "executableAt",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "lpLocked",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "lpUnlock",
           "type": "uint256",
           "internalType": "uint256"
         }
@@ -191,6 +277,45 @@
     },
     {
       "type": "function",
+      "name": "graduationExecutableAt",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "graduationQueued",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bool",
+          "internalType": "bool"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "graduationQueuedAt",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
       "name": "graduationTarget",
       "inputs": [],
       "outputs": [
@@ -244,6 +369,45 @@
           "name": "",
           "type": "address",
           "internalType": "address"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "lpTokenRecipient",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "lpTokensLocked",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "lpUnlockTime",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
         }
       ],
       "stateMutability": "view"
@@ -440,6 +604,75 @@
     },
     {
       "type": "event",
+      "name": "GraduationQueued",
+      "inputs": [
+        {
+          "name": "executableAt",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        },
+        {
+          "name": "ethCollected",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        },
+        {
+          "name": "tokensRemaining",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "LPTokensClaimed",
+      "inputs": [
+        {
+          "name": "recipient",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "LPTokensLocked",
+      "inputs": [
+        {
+          "name": "recipient",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        },
+        {
+          "name": "unlockTime",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
       "name": "Sell",
       "inputs": [
         {
@@ -471,7 +704,49 @@
     },
     {
       "type": "error",
+      "name": "AddressEmptyCode",
+      "inputs": [
+        {
+          "name": "target",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "AddressInsufficientBalance",
+      "inputs": [
+        {
+          "name": "account",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    },
+    {
+      "type": "error",
       "name": "AlreadyGraduated",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "FailedInnerCall",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "GraduationAlreadyQueued",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "GraduationNotQueued",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "GraduationNotReady",
       "inputs": []
     },
     {
@@ -486,7 +761,17 @@
     },
     {
       "type": "error",
+      "name": "LPTokensStillLocked",
+      "inputs": []
+    },
+    {
+      "type": "error",
       "name": "NotGraduated",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "NotLPRecipient",
       "inputs": []
     },
     {

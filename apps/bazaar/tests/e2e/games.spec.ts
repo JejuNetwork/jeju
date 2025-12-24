@@ -3,7 +3,7 @@
  * Tests games listing and Hyperscape page
  */
 
-import { assertNoPageErrors } from '@jejunetwork/tests/playwright-only'
+import { assertNoPageErrors } from '@jejunetwork/tests'
 import { expect, type Page, test } from '@playwright/test'
 
 async function navigateTo(page: Page, url: string): Promise<void> {

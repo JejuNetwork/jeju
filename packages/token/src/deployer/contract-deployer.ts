@@ -1,6 +1,5 @@
 /**
- * Contract Deployer - Loads Foundry artifacts and deploys contracts
- * Supports both standard deployment and CREATE2 deterministic deployment
+ * Contract deployer with Foundry artifacts and CREATE2 support.
  */
 
 import { expectValid } from '@jejunetwork/types'
@@ -26,24 +25,14 @@ export type ContractName =
   | 'CCALauncher'
   | 'Airdrop'
   | 'WarpRoute'
-  // Hyperlane infrastructure
   | 'Mailbox'
   | 'InterchainGasPaymaster'
   | 'MultisigISM'
 
-// CREATE2 Factory (Deterministic Deployment Proxy - same address on all chains)
-// https://github.com/Arachnid/deterministic-deployment-proxy
 const CREATE2_FACTORY = '0x4e59b44847b379578588920cA78FbF26c0B4956C' as Address
-
-// Cache for loaded artifacts
 const artifactCache = new Map<ContractName, FoundryArtifact>()
-
-// Hyperlane contracts are in a subdirectory
 const HYPERLANE_CONTRACTS = ['Mailbox', 'InterchainGasPaymaster', 'MultisigISM']
 
-/**
- * Load a Foundry artifact from the contracts/out directory
- */
 export async function loadArtifact(
   contractName: ContractName,
 ): Promise<FoundryArtifact> {

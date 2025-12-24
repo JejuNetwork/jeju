@@ -1,24 +1,13 @@
 /**
- * Network CLI Types
+ * CLI type definitions
  */
 
-// Import and re-export port config from @jejunetwork/config
 import {
   CORE_PORTS as CONFIG_CORE_PORTS,
   INFRA_PORTS as CONFIG_INFRA_PORTS,
-} from '@jejunetwork/config/ports'
+} from '@jejunetwork/config'
 
-export {
-  CORE_PORTS,
-  getJejuRpcUrl,
-  getL1RpcUrl,
-  getL2RpcUrl,
-  getL2WsUrl,
-  INFRA_PORTS,
-  isLocalnet,
-} from '@jejunetwork/config/ports'
-
-export type NetworkType = 'localnet' | 'testnet' | 'mainnet'
+import type { NetworkType } from '@jejunetwork/types'
 
 export interface CLIContext {
   network: NetworkType
@@ -93,19 +82,21 @@ export interface DeploymentConfig {
 
 export interface AppTestConfig {
   unit?: {
-    command: string
+    command?: string
     timeout?: number
   }
   e2e?: {
-    command: string
+    command?: string
     config?: string
     timeout?: number
     requiresChain?: boolean
     requiresWallet?: boolean
   }
   integration?: {
-    command: string
+    command?: string
     timeout?: number
+    requiresChain?: boolean
+    requiresServices?: boolean | string[]
   }
   services?: string[]
 }
@@ -115,7 +106,7 @@ export interface AppManifest {
   displayName?: string
   slug?: string // Folder name for path lookup
   version: string
-  type: 'core' | 'vendor' | 'service'
+  type: 'core' | 'vendor' | 'service' | 'app' | 'utility'
   description?: string
   commands?: {
     dev?: string
@@ -124,17 +115,22 @@ export interface AppManifest {
     start?: string
   }
   ports?: Record<string, number>
-  dependencies?: string[]
+  dependencies?: string[] | Record<string, string | string[]>
   enabled?: boolean
   autoStart?: boolean
   tags?: string[]
   testing?: AppTestConfig
-  // Internal field: populated by discoverApps with actual directory name
+  /** Architecture configuration for on-chain deployment */
+  architecture?: {
+    frontend?: boolean | { outputDir?: string }
+    backend?: boolean | { outputDir?: string }
+  }
+  /** Populated by discoverApps with actual directory name */
   _folderName?: string
 }
 
 export const WELL_KNOWN_KEYS = {
-  // Anvil default accounts - prefunded with 10k ETH
+  /** Anvil default accounts - prefunded with 10k ETH */
   dev: [
     {
       name: 'Account #0 (Deployer)',
@@ -175,36 +171,27 @@ export const WELL_KNOWN_KEYS = {
 } as const
 
 export const DEFAULT_PORTS = {
-  // Chain (from @jejunetwork/config - 6xxx range to avoid conflicts)
   l1Rpc: CONFIG_INFRA_PORTS.L1_RPC.DEFAULT,
   l2Rpc: CONFIG_INFRA_PORTS.L2_RPC.DEFAULT,
   l2Ws: CONFIG_INFRA_PORTS.L2_WS.DEFAULT,
-
-  // Apps (from @jejunetwork/config)
   gateway: CONFIG_CORE_PORTS.GATEWAY.DEFAULT,
   bazaar: CONFIG_CORE_PORTS.BAZAAR.DEFAULT,
   compute: CONFIG_CORE_PORTS.COMPUTE.DEFAULT,
   wallet: 4015,
-
-  // Infrastructure
   indexerGraphQL: CONFIG_CORE_PORTS.INDEXER_GRAPHQL.DEFAULT,
   prometheus: CONFIG_INFRA_PORTS.PROMETHEUS.DEFAULT,
   grafana: CONFIG_INFRA_PORTS.GRAFANA.DEFAULT,
   kurtosisUI: CONFIG_INFRA_PORTS.KURTOSIS_UI.DEFAULT,
-
-  // Development Services
   inference: 4100,
   storage: 4101,
   cron: 4102,
   cvm: 4103,
-  cql: 4300,
+  cql: CONFIG_INFRA_PORTS.CQL.DEFAULT,
   oracle: 4301,
   jns: 4302,
   ipfs: CONFIG_CORE_PORTS.IPFS_API.DEFAULT,
 } as const
 
-// Note: localnet rpcUrl is dynamically built from INFRA_PORTS
-// Use getL2RpcUrl() for runtime URL resolution with env var support
 export const CHAIN_CONFIG = {
   localnet: {
     chainId: 1337,
@@ -226,18 +213,14 @@ export const CHAIN_CONFIG = {
 export const DOMAIN_CONFIG = {
   domain: 'jejunetwork.org',
   localDomain: 'local.jejunetwork.org',
-
-  // Local development URLs (require proxy)
   local: {
-    gateway: 'http://gateway.local.jejunetwork.org',
-    bazaar: 'http://bazaar.local.jejunetwork.org',
-    docs: 'http://docs.local.jejunetwork.org',
-    indexer: 'http://indexer.local.jejunetwork.org',
-    rpc: 'http://rpc.local.jejunetwork.org',
-    crucible: 'http://crucible.local.jejunetwork.org',
+    gateway: 'http://gateway.local.jejunetwork.org:8080',
+    bazaar: 'http://bazaar.local.jejunetwork.org:8080',
+    docs: 'http://docs.local.jejunetwork.org:8080',
+    indexer: 'http://indexer.local.jejunetwork.org:8080',
+    rpc: 'http://rpc.local.jejunetwork.org:8080',
+    crucible: 'http://crucible.local.jejunetwork.org:8080',
   },
-
-  // Testnet URLs
   testnet: {
     gateway: 'https://gateway.testnet.jejunetwork.org',
     bazaar: 'https://bazaar.testnet.jejunetwork.org',
@@ -246,8 +229,6 @@ export const DOMAIN_CONFIG = {
     ws: 'wss://testnet-ws.jejunetwork.org',
     indexer: 'https://testnet-indexer.jejunetwork.org',
   },
-
-  // Mainnet URLs
   mainnet: {
     gateway: 'https://gateway.jejunetwork.org',
     bazaar: 'https://bazaar.jejunetwork.org',

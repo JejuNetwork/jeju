@@ -25,18 +25,14 @@ import {
   createPublicClient,
   createWalletClient,
   formatEther,
-  getBalance,
   http,
   parseAbi,
   parseEther,
-  sendTransaction,
-  waitForTransactionReceipt,
   zeroAddress,
 } from 'viem'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
+import { sendTransaction, waitForTransactionReceipt } from 'viem/actions'
 import { inferChainFromRpcUrl } from '../shared/chain-utils'
-
-// ============ Configuration ============
 
 interface ChainConfig {
   name: string
@@ -95,9 +91,6 @@ const CROSS_CHAIN_PAYMASTER_ABI = [
   'function depositETH() payable',
   'function updateXLPStake(address xlp, uint256 stake)',
 ]
-
-// ============ Utilities ============
-
 function log(msg: string) {
   console.log(`[${new Date().toISOString()}] ${msg}`)
 }
@@ -114,12 +107,9 @@ async function getBalanceFormatted(
   publicClient: ReturnType<typeof createPublicClient>,
   address: Address,
 ): Promise<string> {
-  const balance = await getBalance(publicClient, { address })
+  const balance = await publicClient.getBalance({ address })
   return formatEther(balance)
 }
-
-// ============ Deployment Functions ============
-
 interface DeploymentResult {
   chainId: number
   chainName: string
@@ -330,9 +320,6 @@ async function depositXLPLiquidity(
     }
   }
 }
-
-// ============ Main ============
-
 async function main() {
   console.log('\n╔══════════════════════════════════════════╗')
   console.log('║    JEJU TESTNET FULL DEPLOYMENT          ║')

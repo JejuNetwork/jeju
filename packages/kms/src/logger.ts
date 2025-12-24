@@ -1,7 +1,8 @@
 /**
- * KMS Logger - Standalone pino logger (avoids circular dep with shared)
+ * KMS Logger - Uses shared logger utilities
  */
 
+import { getEnv } from '@jejunetwork/shared'
 import pino from 'pino'
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error'
@@ -20,8 +21,8 @@ type LogValue =
 /** Structured log data - strongly typed instead of Record<string, unknown> */
 export type LogData = Record<string, LogValue>
 
-const isProduction = process.env.NODE_ENV === 'production'
-const logLevel = (process.env.LOG_LEVEL?.toLowerCase() as LogLevel) ?? 'info'
+const isProduction = getEnv('NODE_ENV') === 'production'
+const logLevel = (getEnv('LOG_LEVEL')?.toLowerCase() as LogLevel) ?? 'info'
 
 const baseLogger = pino({
   level: logLevel,
@@ -36,7 +37,7 @@ const baseLogger = pino({
       }
     : undefined,
   formatters: {
-    level: (label) => ({ level: label }),
+    level: (label: string) => ({ level: label }),
   },
   timestamp: () => `,"timestamp":"${new Date().toISOString()}"`,
 })

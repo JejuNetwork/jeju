@@ -4,14 +4,11 @@
 
 import { describe, expect, test } from 'bun:test'
 import {
-  CHAINS,
-  getChain,
-  isChainSupported,
-} from '../../src/rpc/config/chains.js'
-import {
-  getChainStats,
-  getEndpointHealth,
-} from '../../src/rpc/proxy/rpc-proxy.js'
+  RPC_CHAINS as CHAINS,
+  getRpcChain as getChain,
+  isRpcChainSupported as isChainSupported,
+} from '@jejunetwork/config'
+import { getChainStats, getEndpointHealth } from '../../api/rpc/proxy/rpc-proxy'
 
 describe('Chain Configuration', () => {
   test('supports expected chains', () => {

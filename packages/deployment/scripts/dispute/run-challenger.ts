@@ -26,20 +26,16 @@ import {
   type Address,
   createPublicClient,
   createWalletClient,
-  decodeEventLog,
   formatEther,
-  getBalance,
-  getLogs,
   type Hex,
   http,
   type PublicClient,
   parseAbi,
-  readContract,
   type WalletClient,
-  waitForTransactionReceipt,
   zeroAddress,
 } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
+import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
+import { waitForTransactionReceipt } from 'viem/actions'
 import { inferChainFromRpcUrl } from '../shared/chain-utils'
 import { type CannonProof, FraudProofGenerator } from './proof-generator'
 import { type L2StateSnapshot, StateFetcher } from './state-fetcher'
@@ -72,6 +68,7 @@ interface ChallengerConfig {
   l1PublicClient: PublicClient
   l2PublicClient: PublicClient | null
   walletClient: WalletClient
+  l1Chain: ReturnType<typeof inferChainFromRpcUrl>
   disputeGameFactoryAddress: Address
   l2OutputOracleAddress: Address | null
   minBond: bigint
@@ -154,7 +151,7 @@ class ChallengerService {
     if (!this.config.l2OutputOracleAddress) return
 
     try {
-      const latest = (await readContract(this.config.l1PublicClient, {
+      const latest = (await this.config.l1PublicClient.readContract({
         address: this.config.l2OutputOracleAddress,
         abi: L2_OUTPUT_ORACLE_ABI,
         functionName: 'latestOutputIndex',
@@ -164,7 +161,7 @@ class ChallengerService {
       if (latest <= this.lastCheckedOutputIndex) return
 
       for (let i = this.lastCheckedOutputIndex + 1n; i <= latest; i++) {
-        const output = (await readContract(this.config.l1PublicClient, {
+        const output = (await this.config.l1PublicClient.readContract({
           address: this.config.l2OutputOracleAddress,
           abi: L2_OUTPUT_ORACLE_ABI,
           functionName: 'getL2Output',
@@ -259,7 +256,7 @@ class ChallengerService {
 
   private async pollGames(): Promise<void> {
     try {
-      const activeGames = (await readContract(this.config.l1PublicClient, {
+      const activeGames = (await this.config.l1PublicClient.readContract({
         address: this.config.disputeGameFactoryAddress,
         abi: DISPUTE_GAME_FACTORY_ABI,
         functionName: 'getActiveGames',
@@ -268,7 +265,7 @@ class ChallengerService {
       for (const gameId of activeGames) {
         if (this.pendingGames.has(gameId)) continue
 
-        const game = (await readContract(this.config.l1PublicClient, {
+        const game = (await this.config.l1PublicClient.readContract({
           address: this.config.disputeGameFactoryAddress,
           abi: DISPUTE_GAME_FACTORY_ABI,
           functionName: 'getGame',
@@ -347,7 +344,7 @@ class ChallengerService {
     const account = this.config.walletClient.account
     if (!account) throw new Error('WalletClient must have an account')
     const myAddress = account.address
-    const balance = await getBalance(this.config.l1PublicClient, {
+    const balance = await this.config.l1PublicClient.getBalance({
       address: myAddress,
     })
 
@@ -359,7 +356,11 @@ class ChallengerService {
     }
 
     try {
+      const createAccount = this.config.walletClient.account
+      if (!createAccount) throw new Error('WalletClient must have an account')
       const hash = await this.config.walletClient.writeContract({
+        chain: this.config.l1Chain,
+        account: createAccount,
         address: this.config.disputeGameFactoryAddress,
         abi: DISPUTE_GAME_FACTORY_ABI,
         functionName: 'createGame',
@@ -381,7 +382,7 @@ class ChallengerService {
       console.log(`✓ Challenge confirmed in block ${receipt.blockNumber}`)
 
       // Parse GameCreated event
-      const logs = await getLogs(this.config.l1PublicClient, {
+      const logs = await this.config.l1PublicClient.getLogs({
         address: this.config.disputeGameFactoryAddress,
         event: parseAbi([
           'event GameCreated(bytes32 indexed gameId, address indexed challenger, address indexed proposer, bytes32 stateRoot, uint8 gameType, uint8 proverType, uint256 bond)',
@@ -391,12 +392,10 @@ class ChallengerService {
       })
 
       if (logs.length > 0) {
-        const decoded = decodeEventLog({
-          abi: DISPUTE_GAME_FACTORY_ABI,
-          data: logs[0].data,
-          topics: logs[0].topics,
-        })
-        const gameId = (decoded.args as { gameId: Hex }).gameId
+        // GameCreated event: gameId is first indexed topic (after event signature)
+        const gameId = logs[0].topics[1]
+        if (!gameId)
+          throw new Error('Failed to parse gameId from GameCreated event')
         console.log(`   Game ID: ${gameId}`)
 
         // Store game with snapshot for proof generation
@@ -448,12 +447,16 @@ class ChallengerService {
 
       const proofAccount = this.config.walletClient.account
       if (!proofAccount) throw new Error('WalletClient must have an account')
+      if (proofAccount.type !== 'local')
+        throw new Error(
+          'WalletClient account must be a local account for signing',
+        )
       const proof = await this.config.proofGenerator.generateFraudProof(
         preStateRoot,
         game.stateRoot, // claimed (potentially wrong)
         game.claimRoot, // correct state
         game.l2BlockNumber,
-        proofAccount,
+        proofAccount as PrivateKeyAccount,
       )
 
       game.proof = proof
@@ -469,7 +472,7 @@ class ChallengerService {
   private startTimeoutChecker(): void {
     setInterval(async () => {
       try {
-        const activeGames = (await readContract(this.config.l1PublicClient, {
+        const activeGames = (await this.config.l1PublicClient.readContract({
           address: this.config.disputeGameFactoryAddress,
           abi: DISPUTE_GAME_FACTORY_ABI,
           functionName: 'getActiveGames',
@@ -477,7 +480,7 @@ class ChallengerService {
 
         for (const gameId of activeGames) {
           try {
-            const canResolve = await readContract(this.config.l1PublicClient, {
+            const canResolve = await this.config.l1PublicClient.readContract({
               address: this.config.disputeGameFactoryAddress,
               abi: DISPUTE_GAME_FACTORY_ABI,
               functionName: 'canResolveTimeout',
@@ -488,7 +491,12 @@ class ChallengerService {
               console.log(
                 `\n⏰ Resolving timed-out game: ${gameId.slice(0, 10)}...`,
               )
+              const resolveAccount = this.config.walletClient.account
+              if (!resolveAccount)
+                throw new Error('WalletClient must have an account')
               const hash = await this.config.walletClient.writeContract({
+                chain: this.config.l1Chain,
+                account: resolveAccount,
                 address: this.config.disputeGameFactoryAddress,
                 abi: DISPUTE_GAME_FACTORY_ABI,
                 functionName: 'resolveTimeout',
@@ -516,7 +524,7 @@ class ChallengerService {
         if (!game.proof) continue
 
         try {
-          const onChainGame = (await readContract(this.config.l1PublicClient, {
+          const onChainGame = (await this.config.l1PublicClient.readContract({
             address: this.config.disputeGameFactoryAddress,
             abi: DISPUTE_GAME_FACTORY_ABI,
             functionName: 'getGame',
@@ -558,7 +566,12 @@ class ChallengerService {
             game.proof,
           )
 
+          const walletAccount = this.config.walletClient.account
+          if (!walletAccount)
+            throw new Error('WalletClient must have an account')
           const hash = await this.config.walletClient.writeContract({
+            chain: this.config.l1Chain,
+            account: walletAccount,
             address: this.config.disputeGameFactoryAddress,
             abi: DISPUTE_GAME_FACTORY_ABI,
             functionName: 'resolveChallengerWins',
@@ -648,7 +661,7 @@ async function main(): Promise<void> {
   // Initialize state fetcher if L2 RPC available
   const stateFetcher = l2RpcUrl ? new StateFetcher(l2RpcUrl) : null
 
-  const minBond = (await readContract(l1PublicClient, {
+  const minBond = (await l1PublicClient.readContract({
     address: disputeGameFactoryAddress,
     abi: DISPUTE_GAME_FACTORY_ABI,
     functionName: 'MIN_BOND',
@@ -666,6 +679,7 @@ async function main(): Promise<void> {
     l1PublicClient,
     l2PublicClient,
     walletClient,
+    l1Chain,
     disputeGameFactoryAddress,
     l2OutputOracleAddress,
     minBond,

@@ -11,5 +11,4 @@ export default createSynpressConfig({
   },
 })
 
-// Export wallet setup for Synpress
 export const basicSetup = createWalletSetup()

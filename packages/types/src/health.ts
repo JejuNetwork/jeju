@@ -1,20 +1,9 @@
 /**
- * @fileoverview Network Standard Health Check API
- *
- * All decentralized apps should implement this standard health check API
- * to enable automatic monitoring and recovery via the KeepaliveRegistry.
- *
- * Endpoints:
- * - GET /health - Basic health check
- * - GET /health/ready - Readiness check (dependencies available)
- * - GET /health/live - Liveness check (app is running)
- * - GET /health/resources - Resource-level health details
+ * Standard health check API types.
  */
 
 import { z } from 'zod'
 import { AddressSchema } from './validation'
-
-// ============ Health Status ============
 
 export const HealthStatusSchema = z.enum([
   'healthy',
@@ -25,11 +14,6 @@ export const HealthStatusSchema = z.enum([
 ])
 export type HealthStatus = z.infer<typeof HealthStatusSchema>
 
-// ============ Basic Health Response ============
-
-/**
- * Response from GET /health
- */
 export const HealthResponseSchema = z.object({
   status: HealthStatusSchema,
   service: z.string(),
@@ -38,9 +22,6 @@ export const HealthResponseSchema = z.object({
   uptime: z.number(),
 })
 export type HealthResponse = z.infer<typeof HealthResponseSchema>
-
-// ============ Readiness Check ============
-
 export const DependencyTypeSchema = z.enum([
   'database',
   'cache',
@@ -62,18 +43,12 @@ export const DependencyHealthSchema = z.object({
 })
 export type DependencyHealth = z.infer<typeof DependencyHealthSchema>
 
-/**
- * Response from GET /health/ready
- */
 export const ReadinessResponseSchema = z.object({
   ready: z.boolean(),
   status: HealthStatusSchema,
   dependencies: z.array(DependencyHealthSchema),
 })
 export type ReadinessResponse = z.infer<typeof ReadinessResponseSchema>
-
-// ============ Liveness Check ============
-
 export const MemoryUsageSchema = z.object({
   heapUsed: z.number(),
   heapTotal: z.number(),
@@ -81,18 +56,12 @@ export const MemoryUsageSchema = z.object({
 })
 export type MemoryUsage = z.infer<typeof MemoryUsageSchema>
 
-/**
- * Response from GET /health/live
- */
 export const LivenessResponseSchema = z.object({
   alive: z.boolean(),
   pid: z.number().optional(),
   memoryUsage: MemoryUsageSchema.optional(),
 })
 export type LivenessResponse = z.infer<typeof LivenessResponseSchema>
-
-// ============ Resource Health ============
-
 export const HealthResourceTypeSchema = z.enum([
   'ipfs_content',
   'compute_endpoint',
@@ -157,9 +126,6 @@ export const ResourceHealthResponseSchema = z.object({
 export type ResourceHealthResponse = z.infer<
   typeof ResourceHealthResponseSchema
 >
-
-// ============ Keepalive Types ============
-
 export const KeepaliveResourceSchema = z.object({
   type: HealthResourceTypeSchema,
   identifier: z.string(),
@@ -194,9 +160,6 @@ export const KeepaliveStatusSchema = z.object({
   failedResources: z.array(z.string()),
 })
 export type KeepaliveStatus = z.infer<typeof KeepaliveStatusSchema>
-
-// ============ Health Check Executor ============
-
 export const KeepaliveHealthCheckRequestSchema = z.object({
   keepaliveId: z.string(),
   resources: z.array(KeepaliveResourceSchema),
@@ -231,9 +194,6 @@ export const KeepaliveHealthCheckResultSchema = z.object({
 export type KeepaliveHealthCheckResult = z.infer<
   typeof KeepaliveHealthCheckResultSchema
 >
-
-// ============ Wake Page Data ============
-
 export const WakePageDataSchema = z.object({
   jnsName: z.string(),
   appName: z.string(),
@@ -248,9 +208,6 @@ export const WakePageDataSchema = z.object({
   avatar: z.string().optional(),
 })
 export type WakePageData = z.infer<typeof WakePageDataSchema>
-
-// ============ ENS Mirror Types ============
-
 export const ENSMirrorConfigSchema = z.object({
   ensName: z.string(),
   jnsName: z.string(),
@@ -269,9 +226,6 @@ export const ENSMirrorStatusSchema = z.object({
   error: z.string().optional(),
 })
 export type ENSMirrorStatus = z.infer<typeof ENSMirrorStatusSchema>
-
-// ============ Helper Functions ============
-
 /**
  * Check if health response indicates healthy status
  */

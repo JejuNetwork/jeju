@@ -12,9 +12,7 @@ import {
   ProposalStatusResponseSchema,
 } from '../schemas'
 
-// ============================================================================
 // Types
-// ============================================================================
 
 export interface ModelDeploymentProposal {
   proposalId: string
@@ -43,9 +41,7 @@ export interface TrainingProposal {
   status: 'draft' | 'submitted' | 'approved' | 'rejected'
 }
 
-// ============================================================================
 // Autocrat Training Client
-// ============================================================================
 
 export class AutocratTrainingClient {
   private autocratApiUrl: string
@@ -252,9 +248,7 @@ ${proposal.description}
   }
 }
 
-// ============================================================================
 // Factory
-// ============================================================================
 
 export function createAutocratTrainingClient(config?: {
   autocratApiUrl?: string

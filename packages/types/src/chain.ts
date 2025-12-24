@@ -1,31 +1,21 @@
+/**
+ * Chain configuration types for EVM and Solana networks.
+ */
+
 import { z } from 'zod'
 import { AddressSchema } from './validation'
 
 export const NetworkSchema = z.enum(['localnet', 'testnet', 'mainnet'])
+export type NetworkType = z.infer<typeof NetworkSchema>
 
-/**
- * Optional address schema - allows empty strings for contracts that haven't been deployed yet
- * Empty string means "not yet deployed/configured"
- */
 const OptionalAddressSchema = z
   .string()
   .refine((val) => val === '' || /^0x[a-fA-F0-9]{40}$/.test(val), {
     message: 'Must be empty or valid Ethereum address',
   })
-export type NetworkType = z.infer<typeof NetworkSchema>
 
-// ============ Chain Type Classification ============
-
-/**
- * Chain type classification - distinguishes between EVM and Solana chains
- */
 export type ChainType = 'evm' | 'solana'
 
-// ============ EVM Chain IDs ============
-
-/**
- * Supported EVM chain IDs across the Jeju ecosystem
- */
 export type EVMChainId =
   | 1 // Ethereum Mainnet
   | 10 // Optimism
@@ -40,15 +30,9 @@ export type EVMChainId =
   | 421614 // Arbitrum Sepolia (testnet)
   | 420690 // Jeju Testnet (L2 on Sepolia)
   | 420691 // Jeju Mainnet (L2 on Ethereum)
-  | 1337 // Localnet (development)
-  | 31337 // Local EVM (development)
+  | 1337
+  | 31337
 
-// ============ Solana Networks ============
-
-/**
- * Supported Solana network identifiers
- * Includes both standard and common alias names
- */
 export type SolanaNetwork =
   | 'mainnet-beta'
   | 'devnet'
@@ -62,7 +46,6 @@ const GasTokenSchema = z.object({
   decimals: z.number(),
 })
 
-/** OP Stack L2 contract addresses for chain config */
 const ChainL2ContractsSchema = z.object({
   L2CrossDomainMessenger: AddressSchema,
   L2StandardBridge: AddressSchema,
@@ -73,7 +56,6 @@ const ChainL2ContractsSchema = z.object({
   WETH: AddressSchema,
 })
 
-/** OP Stack L1 contract addresses for chain config - allows empty for undeployed contracts */
 const ChainL1ContractsSchema = z.object({
   OptimismPortal: OptionalAddressSchema,
   L2OutputOracle: OptionalAddressSchema,
@@ -82,12 +64,6 @@ const ChainL1ContractsSchema = z.object({
   SystemConfig: OptionalAddressSchema,
 })
 
-// ============ Base Chain Configuration ============
-
-/**
- * Base chain configuration interface
- * Used as foundation for domain-specific chain configs
- */
 export interface BaseChainConfig {
   chainId: EVMChainId | SolanaNetwork
   chainType: ChainType
@@ -101,12 +77,6 @@ export interface BaseChainConfig {
   }
 }
 
-// ============ OP Stack Chain Configuration ============
-
-/**
- * OP Stack-specific chain configuration (extends base)
- * Used for OP Stack L2 deployments
- */
 export const ChainConfigSchema = z.object({
   chainId: z.number(),
   networkId: z.number(),
@@ -193,11 +163,11 @@ export type JejuDAConfig = z.infer<typeof JejuDAConfigSchema>
 
 export const FlashblocksConfigSchema = z.object({
   enabled: z.boolean(),
-  subBlockTime: z.number(), // milliseconds
+  subBlockTime: z.number(),
   leaderElection: z.object({
     enabled: z.boolean(),
-    heartbeatInterval: z.number(), // milliseconds
-    electionTimeout: z.number(), // milliseconds
+    heartbeatInterval: z.number(),
+    electionTimeout: z.number(),
   }),
   sequencerFollowers: z.number(),
 })

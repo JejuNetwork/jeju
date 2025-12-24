@@ -212,7 +212,11 @@ async function installToSystemPath(): Promise<string | null> {
         console.log(`[workerd] Installed to system path: ${binaryPath}`)
         return binaryPath
       }
-    } catch {}
+    } catch (e) {
+      console.log(
+        `[workerd] Skipping ${dir}: ${e instanceof Error ? e.message : String(e)}`,
+      )
+    }
   }
 
   return null

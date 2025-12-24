@@ -1,9 +1,5 @@
 /**
- * Jeju DWS Training Client
- *
- * Connects training to Jeju's DWS distributed training infrastructure.
- * Provides a unified interface for submitting training jobs, tracking progress,
- * and integrating with the decentralized training network.
+ * DWS distributed training client.
  */
 
 import { expectValid } from '@jejunetwork/types'
@@ -22,38 +18,23 @@ import {
 } from '../schemas'
 import type { TrainingJobRequest, TrainingJobResult } from './types'
 
-// ============================================================================
-// Types
-// ============================================================================
-
 export interface DWSClientConfig {
-  /** DWS Training API endpoint */
   dwsApiUrl: string
-  /** Atropos server endpoint (optional, will be started on-demand) */
   atroposUrl?: string
-  /** Solana RPC for Psyche integration */
   solanaRpcUrl?: string
-  /** EVM RPC for cross-chain bridge */
   evmRpcUrl?: string
-  /** EVM private key for signing */
   evmPrivateKey?: Hex
-  /** Bridge contract address */
   bridgeAddress?: Address
-  /** LLM judge endpoint for rollout scoring */
   llmJudgeUrl?: string
-  /** Model to use for LLM-as-judge */
   llmJudgeModel?: string
-  /** Polling interval for job status checks */
   pollingIntervalMs?: number
 }
 
-/** Observation data from a training step */
 export interface RolloutObservation {
   state: string
   context?: string
   validActions?: string[]
   stepNumber?: number
-  /** Additional environment-specific fields */
   boardState?: string
   playerTurn?: string
   gamePhase?: string
@@ -98,9 +79,7 @@ export interface RolloutData {
   metadata: RolloutMetadata
 }
 
-// ============================================================================
 // DWS Client
-// ============================================================================
 
 export class DWSTrainingClient {
   private config: DWSClientConfig
@@ -401,9 +380,7 @@ export class DWSTrainingClient {
     this.activeJobs.delete(jobId)
   }
 
-  // ============================================================================
   // Private Methods
-  // ============================================================================
 
   private startPolling(jobId: string): void {
     if (this.pollingIntervals.has(jobId)) return
@@ -436,9 +413,7 @@ export class DWSTrainingClient {
   }
 }
 
-// ============================================================================
 // Factory Function
-// ============================================================================
 
 export function createDWSClient(config: DWSClientConfig): DWSTrainingClient {
   return new DWSTrainingClient(config)

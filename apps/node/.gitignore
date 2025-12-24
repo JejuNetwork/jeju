@@ -1,1 +1,46 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+out/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# TypeScript
+*.tsbuildinfo
+
+# Testing
+coverage/
+test-results/
+test-results*.json
+playwright-report/
+synpress-report*/
+
+# Logs
+*.log
+
+# Cache
+.cache/
+.turbo/
 cache/
+
+# Tauri
+app/src-tauri/target/
+
+# bun.lock (only at monorepo root)
+bun.lock

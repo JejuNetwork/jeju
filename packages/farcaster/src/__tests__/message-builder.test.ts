@@ -34,8 +34,6 @@ import {
   verifyMessage,
 } from '../hub/message-builder'
 
-// ============ Constants ============
-
 const FARCASTER_EPOCH = 1609459200 // Jan 1, 2021 00:00:00 UTC
 
 // Test key pair (deterministic for reproducible tests)
@@ -43,9 +41,6 @@ const TEST_PRIVATE_KEY = hexToBytes(
   'deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef',
 )
 const TEST_PUBLIC_KEY = ed25519.getPublicKey(TEST_PRIVATE_KEY)
-
-// ============ Timestamp Functions ============
-
 describe('Timestamp Functions', () => {
   describe('getFarcasterTimestamp', () => {
     it('returns a positive integer', () => {
@@ -117,9 +112,6 @@ describe('Timestamp Functions', () => {
     })
   })
 })
-
-// ============ Message Encoding ============
-
 describe('Message Encoding', () => {
   describe('encodeMessageData', () => {
     it('encodes basic CAST_ADD message', () => {
@@ -439,9 +431,6 @@ describe('Message Encoding', () => {
     })
   })
 })
-
-// ============ Hashing ============
-
 describe('Message Hashing', () => {
   describe('hashMessageData', () => {
     it('produces 20-byte hash (per Farcaster spec)', () => {
@@ -513,9 +502,6 @@ describe('Message Hashing', () => {
     })
   })
 })
-
-// ============ Signing ============
-
 describe('Message Signing', () => {
   describe('signMessageHash', () => {
     it('produces Ed25519 signature (64 bytes)', async () => {
@@ -673,9 +659,6 @@ describe('Message Signing', () => {
     })
   })
 })
-
-// ============ Serialization ============
-
 describe('Message Serialization', () => {
   describe('serializeMessage', () => {
     it('serializes message to bytes', async () => {
@@ -787,9 +770,6 @@ describe('Message Serialization', () => {
     })
   })
 })
-
-// ============ Utility Functions ============
-
 describe('Utility Functions', () => {
   describe('hexToMessageBytes', () => {
     it('converts 0x-prefixed hex to bytes', () => {
@@ -845,9 +825,6 @@ describe('Utility Functions', () => {
     })
   })
 })
-
-// ============ Property-Based / Fuzz Testing ============
-
 describe('Property-Based Tests', () => {
   describe('message building', () => {
     it('always produces valid signatures for random FIDs', async () => {

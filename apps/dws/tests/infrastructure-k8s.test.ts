@@ -50,9 +50,7 @@ interface ServiceMeshResponse {
   policies?: number
 }
 
-// =============================================================================
 // Helm Provider Tests
-// =============================================================================
 
 describe('Helm Provider', () => {
   let deploymentId: string
@@ -282,9 +280,7 @@ describe('Helm Provider', () => {
   })
 })
 
-// =============================================================================
 // Terraform Provider Tests
-// =============================================================================
 
 describe('Terraform Provider', () => {
   let workerId: string
@@ -484,9 +480,7 @@ describe('Terraform Provider', () => {
   })
 })
 
-// =============================================================================
 // K3s Provider Tests
-// =============================================================================
 
 describe('K3s Provider', () => {
   // Skip cluster creation tests in CI unless K3S_TEST=true
@@ -599,9 +593,7 @@ describe('K3s Provider', () => {
   })
 })
 
-// =============================================================================
 // Service Mesh Tests
-// =============================================================================
 
 describe('Service Mesh', () => {
   test('mesh health check', async () => {
@@ -676,9 +668,7 @@ describe('Service Mesh', () => {
   })
 })
 
-// =============================================================================
 // Ingress Controller Tests
-// =============================================================================
 
 describe('Ingress Controller', () => {
   test('ingress health check', async () => {
@@ -761,9 +751,7 @@ describe('Ingress Controller', () => {
   })
 })
 
-// =============================================================================
 // End-to-End Deployment Flow Tests
-// =============================================================================
 
 describe('E2E Deployment Flow', () => {
   test('full deployment flow: Terraform -> Helm -> Ingress', async () => {
@@ -850,9 +838,7 @@ describe('E2E Deployment Flow', () => {
   })
 })
 
-// =============================================================================
 // Cleanup
-// =============================================================================
 
 afterAll(() => {
   console.log('[Infrastructure K8s Tests] Complete')

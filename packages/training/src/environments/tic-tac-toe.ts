@@ -1,13 +1,6 @@
 /**
- * Tic-Tac-Toe Environment for Training
- *
- * A simple game environment for demonstrating RLAIF training.
- * Agents learn to play tic-tac-toe through self-play and LLM-as-judge scoring.
+ * Tic-Tac-Toe environment for RLAIF training demonstration.
  */
-
-// ============================================================================
-// Types
-// ============================================================================
 
 export type Player = 'X' | 'O'
 export type Cell = Player | null
@@ -58,9 +51,7 @@ export interface GameTrajectory {
   }
 }
 
-// ============================================================================
 // Game Logic
-// ============================================================================
 
 const WINNING_LINES: ReadonlyArray<readonly [number, number, number]> = [
   [0, 1, 2],
@@ -102,9 +93,7 @@ function boardToString(board: Board): string {
   return `${symbols[0]}|${symbols[1]}|${symbols[2]}\n-+-+-\n${symbols[3]}|${symbols[4]}|${symbols[5]}\n-+-+-\n${symbols[6]}|${symbols[7]}|${symbols[8]}`
 }
 
-// ============================================================================
 // Environment
-// ============================================================================
 
 export class TicTacToeEnv {
   private state: GameState
@@ -298,9 +287,7 @@ export class TicTacToeEnv {
   }
 }
 
-// ============================================================================
 // Factory
-// ============================================================================
 
 export function createTicTacToeEnv(): TicTacToeEnv {
   return new TicTacToeEnv()

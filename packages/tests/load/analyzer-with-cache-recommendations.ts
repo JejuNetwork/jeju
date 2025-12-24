@@ -6,6 +6,22 @@
  * for integrating DWS caching to optimize slow endpoints.
  */
 
+import { z } from 'zod'
+
+// Metrics response schema
+const EndpointMetricsSchema = z.object({
+  path: z.string(),
+  avgLatency: z.union([z.number(), z.string()]),
+  maxLatency: z.union([z.number(), z.string()]),
+  count: z.number(),
+  cacheHitRate: z.union([z.number(), z.string()]).optional(),
+})
+
+const MetricsResponseSchema = z.object({
+  slowest: z.array(EndpointMetricsSchema),
+  allEndpoints: z.array(EndpointMetricsSchema),
+})
+
 interface EndpointMetrics {
   path: string
   avgLatency: number | string
@@ -102,7 +118,7 @@ export async function cachedSearch(query: string): Promise<SearchResult> {
       'Use DWS EdgeCache with stale-while-revalidate for list data'
     codeExample = `
 // packages/shared/src/cache/list-cache.ts
-import { getEdgeCache } from '@jejunetwork/dws/cache'
+import { getEdgeCache } from '@jejunetwork/dws'
 
 const cache = getEdgeCache({
   defaultTTL: 120,
@@ -240,10 +256,7 @@ async function analyzeServer(baseUrl: string): Promise<CacheRecommendation[]> {
     throw new Error(`Failed to fetch metrics from ${baseUrl}`)
   }
 
-  const metrics = (await response.json()) as {
-    slowest: EndpointMetrics[]
-    allEndpoints: EndpointMetrics[]
-  }
+  const metrics = MetricsResponseSchema.parse(await response.json())
 
   const recommendations: CacheRecommendation[] = []
 

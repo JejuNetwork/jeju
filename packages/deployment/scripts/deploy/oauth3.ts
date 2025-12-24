@@ -14,6 +14,7 @@ import {
   type Address,
   createPublicClient,
   createWalletClient,
+  defineChain,
   type Hex,
   http,
 } from 'viem'
@@ -81,16 +82,28 @@ async function deployOAuth3(): Promise<OAuth3Deployment> {
 
   const account = privateKeyToAccount(privateKey as Hex)
 
+  // First get chainId to create proper chain config
+  const tempClient = createPublicClient({ transport: http(rpcUrl) })
+  const chainId = await tempClient.getChainId()
+
+  // Define chain dynamically based on RPC
+  const chain = defineChain({
+    id: chainId,
+    name: `Chain ${chainId}`,
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+    rpcUrls: { default: { http: [rpcUrl] } },
+  })
+
   const publicClient = createPublicClient({
+    chain,
     transport: http(rpcUrl),
   })
 
   const walletClient = createWalletClient({
     account,
+    chain,
     transport: http(rpcUrl),
   })
-
-  const chainId = await publicClient.getChainId()
 
   console.log(`
 ╔════════════════════════════════════════════════════════════╗
@@ -107,6 +120,7 @@ async function deployOAuth3(): Promise<OAuth3Deployment> {
     abi: OAuth3TEEVerifierABI,
     bytecode: OAuth3TEEVerifierBytecode,
     args: ['0x0000000000000000000000000000000000000000'],
+    chain: null,
   })
 
   const teeVerifierReceipt = await publicClient.waitForTransactionReceipt({
@@ -126,6 +140,7 @@ async function deployOAuth3(): Promise<OAuth3Deployment> {
       '0x0000000000000000000000000000000000000000',
       '0x0000000000000000000000000000000000000000',
     ],
+    chain: null,
   })
 
   const accountFactoryReceipt = await publicClient.waitForTransactionReceipt({
@@ -141,6 +156,7 @@ async function deployOAuth3(): Promise<OAuth3Deployment> {
     abi: OAuth3IdentityRegistryABI,
     bytecode: OAuth3IdentityRegistryBytecode,
     args: [teeVerifier, accountFactory],
+    chain: null,
   })
 
   const identityRegistryReceipt = await publicClient.waitForTransactionReceipt({
@@ -156,6 +172,7 @@ async function deployOAuth3(): Promise<OAuth3Deployment> {
     abi: OAuth3AppRegistryABI,
     bytecode: OAuth3AppRegistryBytecode,
     args: [identityRegistry, teeVerifier],
+    chain: null,
   })
 
   const appRegistryReceipt = await publicClient.waitForTransactionReceipt({
@@ -172,6 +189,7 @@ async function deployOAuth3(): Promise<OAuth3Deployment> {
     abi: OAuth3TEEVerifierABI,
     functionName: 'setIdentityRegistry',
     args: [identityRegistry],
+    chain: null,
   })
   console.log('  ✓ TEE Verifier updated')
 
@@ -193,6 +211,7 @@ async function deployOAuth3(): Promise<OAuth3Deployment> {
           maxSessionsPerUser: 10,
         },
       ],
+      chain: null,
     })
 
     await publicClient.waitForTransactionReceipt({ hash: tx })

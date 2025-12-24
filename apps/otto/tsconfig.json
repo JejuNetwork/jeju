@@ -2,7 +2,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "rootDir": "./src",
+    "rootDir": ".",
     "declaration": true,
     "declarationMap": true,
     "composite": true,
@@ -15,7 +15,6 @@
     "resolveJsonModule": true,
     "types": ["bun"]
   },
-  "include": ["src/**/*.ts"],
+  "include": ["api/**/*.ts", "lib/**/*.ts"],
   "exclude": ["node_modules", "dist", "**/*.test.ts"]
 }
-

@@ -1,10 +1,5 @@
 /**
- * Hyperlane Adapter
- *
- * Provides cross-chain messaging and token bridging via Hyperlane.
- * This adapter is for EVM↔EVM bridging only.
- *
- * For Solana bridging, use @jejunetwork/zksolbridge package instead.
+ * Hyperlane cross-chain messaging and token bridging adapter for EVM chains.
  */
 
 import {
@@ -49,10 +44,6 @@ const VIEM_CHAINS: Record<number, Chain> = {
   421614: arbitrumSepolia,
 }
 
-// ============================================================================
-// Types
-// ============================================================================
-
 export interface WarpRouteDeployment {
   chainId: ChainId
   address: Address
@@ -81,9 +72,7 @@ export interface TransferQuote {
   }
 }
 
-// ============================================================================
 // Hyperlane Adapter (EVM-only)
-// ============================================================================
 
 export class HyperlaneAdapter {
   private readonly warpRoutes: Record<ChainId, Address>
@@ -108,9 +97,7 @@ export class HyperlaneAdapter {
     }
   }
 
-  // ============================================================================
   // Domain & Address Utilities
-  // ============================================================================
 
   /**
    * Get the Hyperlane domain ID for a chain
@@ -158,9 +145,7 @@ export class HyperlaneAdapter {
     return client
   }
 
-  // ============================================================================
   // Warp Route Configuration
-  // ============================================================================
 
   /**
    * Generate warp route configuration for EVM deployment
@@ -183,9 +168,7 @@ export class HyperlaneAdapter {
     }
   }
 
-  // ============================================================================
   // Cross-Chain Transfers
-  // ============================================================================
 
   /**
    * Validate cross-chain transfer parameters
@@ -252,9 +235,7 @@ export class HyperlaneAdapter {
     }
   }
 
-  // ============================================================================
   // Utility Methods
-  // ============================================================================
 
   /**
    * Generate a deterministic deployment salt
@@ -297,9 +278,7 @@ export class HyperlaneAdapter {
   }
 }
 
-// ============================================================================
 // Factory Function
-// ============================================================================
 
 /**
  * Create a Hyperlane adapter with default configuration

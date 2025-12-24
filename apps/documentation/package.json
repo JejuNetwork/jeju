@@ -4,19 +4,20 @@
   "description": "Network documentation site powered by Vocs",
   "type": "module",
   "scripts": {
-    "dev": "vocs dev --port ${DOCUMENTATION_PORT:-4004}",
+    "dev": "vocs dev --port ${PORT:-4055}",
     "build": "vocs build",
+    "deploy": "jeju deploy docs",
     "test": "bun test tests/",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@elysiajs/cors": "^1.4.0",
     "@jejunetwork/config": "workspace:*",
+    "@jejunetwork/shared": "workspace:*",
+    "@jejunetwork/types": "workspace:*",
     "elysia": "^1.4.19",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
-    "remark-stringify": "11.0.0",
-    "unified": "11.0.5",
     "vocs": "1.4.0",
     "zod": "4.2.1"
   },

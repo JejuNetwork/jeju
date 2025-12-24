@@ -1,12 +1,4 @@
-/**
- * Localnet Orchestrator
- *
- * Manages Kurtosis localnet lifecycle:
- * - Start/stop localnet
- * - Port forwarding
- * - Contract bootstrap
- * - Health checks
- */
+/** Localnet orchestrator for Kurtosis lifecycle management */
 
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'

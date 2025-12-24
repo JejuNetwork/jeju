@@ -1,28 +1,42 @@
 {
   "$schema": "../../packages/config/jeju-manifest.schema.json",
   "name": "autocrat",
-  "displayName": "Autocrat DAO",
+  "displayName": "Autocrat",
   "version": "3.0.0",
   "type": "core",
   "description": "AI-powered autonomous governance with futarchy, deep research, and multi-agent decision making",
   "maintainer": "jeju-network",
   "repository": "https://github.com/jejunetwork/jeju",
   "commands": {
-    "dev": "bun run src/server.ts",
-    "build": "bun build src/server.ts --outdir dist --target bun",
-    "build:frontend": "bun run app/build.ts",
-    "start": "bun run dist/server.js",
-    "test": "bun test tests/integration"
+    "dev": "bun run dev",
+    "build": "bun build index.html --outdir dist --minify && bun build api/server.ts --outdir dist/api --target bun",
+    "build:frontend": "bun build index.html --outdir dist --minify",
+    "start": "bun run dist/api/server.js",
+    "test": "SKIP_TEE_TESTS=true bun test tests/unit/"
   },
   "ports": {
-    "main": 8010,
-    "frontend": 8011
+    "main": 3010,
+    "frontend": 3010,
+    "api": 8010
   },
-  "dependencies": ["contracts", "config", "dws", "db"],
+  "dependencies": [
+    "contracts",
+    "config",
+    "dws",
+    "db"
+  ],
   "optional": false,
   "enabled": true,
   "autoStart": true,
-  "tags": ["governance", "dao", "ai", "futarchy", "proposals", "voting", "research"],
+  "tags": [
+    "governance",
+    "dao",
+    "ai",
+    "futarchy",
+    "proposals",
+    "voting",
+    "research"
+  ],
   "endpoints": {
     "a2a": "/a2a",
     "mcp": "/mcp",
@@ -42,13 +56,28 @@
     "enabled": true,
     "a2aEndpoint": "/a2a",
     "mcpEndpoint": "/mcp",
-    "tags": ["jeju-app", "governance", "dao", "proposals", "voting", "futarchy"],
+    "tags": [
+      "jeju-app",
+      "governance",
+      "dao",
+      "proposals",
+      "voting",
+      "futarchy"
+    ],
     "metadata": {
       "category": "governance",
       "provider": "jeju-network",
-      "features": ["ai-agents", "futarchy", "deep-research", "multi-agent"]
+      "features": [
+        "ai-agents",
+        "futarchy",
+        "deep-research",
+        "multi-agent"
+      ]
     },
-    "trustModels": ["open", "staked"],
+    "trustModels": [
+      "open",
+      "staked"
+    ],
     "x402Support": true,
     "jnsName": "autocrat.jeju"
   },
@@ -119,11 +148,24 @@
   "decentralization": {
     "cdn": {
       "enabled": true,
-      "regions": ["global"],
+      "regions": [
+        "global"
+      ],
       "cacheRules": [
-        { "pattern": "/static/**", "ttl": 31536000, "immutable": true },
-        { "pattern": "/api/**", "ttl": 0 },
-        { "pattern": "/**/*.html", "ttl": 300, "staleWhileRevalidate": 86400 }
+        {
+          "pattern": "/static/**",
+          "ttl": 31536000,
+          "immutable": true
+        },
+        {
+          "pattern": "/api/**",
+          "ttl": 0
+        },
+        {
+          "pattern": "/**/*.html",
+          "ttl": 300,
+          "staleWhileRevalidate": 86400
+        }
       ],
       "serviceWorker": true
     },
@@ -131,7 +173,7 @@
       "ipfs": true,
       "arweave": true,
       "jnsName": "autocrat.jeju",
-      "buildDir": "app/dist",
+      "buildDir": "dist",
       "spa": true,
       "generator": "bun"
     },
@@ -146,25 +188,27 @@
     "backend": {
       "enabled": true,
       "runtime": "bun",
-      "entrypoint": "src/server.ts",
+      "entrypoint": "api/server.ts",
       "memory": 512,
       "timeout": 30000,
       "minInstances": 1,
       "maxInstances": 10,
       "teeRequired": true,
-      "regions": ["global"]
+      "regions": [
+        "global"
+      ]
     },
     "triggers": [
       {
         "name": "autocrat-orchestrator-cycle",
         "schedule": "*/30 * * * *",
-        "entrypoint": "src/compute-trigger.ts",
+        "entrypoint": "api/compute-trigger.ts",
         "handler": "runOrchestratorCycle"
       },
       {
         "name": "autocrat-proposal-submitted",
         "event": "proposal_submitted",
-        "entrypoint": "src/compute-trigger.ts",
+        "entrypoint": "api/compute-trigger.ts",
         "handler": "handleProposalSubmitted"
       }
     ],
@@ -172,7 +216,10 @@
       "platform": "dstack",
       "attestation": true,
       "decryption": true,
-      "secrets": ["OPERATOR_KEY", "ASSESSOR_KEY"]
+      "secrets": [
+        "OPERATOR_KEY",
+        "ASSESSOR_KEY"
+      ]
     }
   },
   "testing": {
@@ -184,6 +231,15 @@
       "command": "bunx playwright test tests/synpress",
       "timeout": 300000,
       "requiresChain": true
+    }
+  },
+  "architecture": {
+    "type": "hybrid",
+    "frontend": {
+      "type": "spa",
+      "builder": "bun",
+      "entrypoint": "index.html",
+      "outputDir": "dist"
     }
   }
 }

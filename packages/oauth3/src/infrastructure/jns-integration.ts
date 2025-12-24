@@ -2,6 +2,7 @@
  * JNS Integration - Direct on-chain name resolution for OAuth3
  */
 
+import { ZERO_ADDRESS } from '@jejunetwork/types'
 import {
   type Address,
   createPublicClient,
@@ -10,7 +11,7 @@ import {
   type PublicClient,
 } from 'viem'
 import { JNS_REGISTRY_ABI, JNS_RESOLVER_ABI, namehash } from './abis.js'
-import { CHAIN_IDS, DEFAULT_RPC, getContracts, ZERO_ADDRESS } from './config.js'
+import { CHAIN_IDS, DEFAULT_RPC, getContracts } from './config.js'
 
 export interface OAuth3JNSConfig {
   rpcUrl?: string

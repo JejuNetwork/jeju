@@ -52,17 +52,13 @@ import {
   StatusResponseSchema,
 } from '../src/schemas'
 
-// ============================================================================
 // Test Configuration
-// ============================================================================
 
 const TEST_PORT = 9100 + Math.floor(Math.random() * 100)
 let atroposServer: Server | null = null
 const baseUrl = () => `http://localhost:${TEST_PORT}`
 
-// ============================================================================
 // Setup / Teardown
-// ============================================================================
 
 beforeAll(async () => {
   console.log('\n========================================')
@@ -91,9 +87,7 @@ beforeEach(async () => {
   await fetch(`${baseUrl()}/reset_data`)
 })
 
-// ============================================================================
 // Rubrics Registry Tests
-// ============================================================================
 
 describe('Rubrics Registry', () => {
   beforeEach(() => {
@@ -165,9 +159,7 @@ describe('Rubrics Registry', () => {
   })
 })
 
-// ============================================================================
 // Atropos Server Tests
-// ============================================================================
 
 describe('Atropos Server Integration', () => {
   test('server health check works', async () => {
@@ -260,9 +252,7 @@ describe('Atropos Server Integration', () => {
   })
 })
 
-// ============================================================================
 // GRPO Trainer Tests
-// ============================================================================
 
 describe('GRPO Trainer Integration', () => {
   test('trainer can be created and configured', () => {
@@ -311,9 +301,7 @@ describe('GRPO Trainer Integration', () => {
   })
 })
 
-// ============================================================================
 // Training Environment Tests
-// ============================================================================
 
 describe('Training Environment Integration', () => {
   test('fundamental prediction environment setup', async () => {
@@ -351,9 +339,7 @@ describe('Training Environment Integration', () => {
   })
 })
 
-// ============================================================================
 // Full Pipeline Tests
-// ============================================================================
 
 describe('Full RLAIF Pipeline', () => {
   test('complete training flow: register → submit → batch', async () => {
@@ -544,9 +530,7 @@ describe('Full RLAIF Pipeline', () => {
   })
 })
 
-// ============================================================================
 // Babylon Rubric Integration Tests
-// ============================================================================
 
 describe('Babylon Rubric Integration', () => {
   beforeEach(() => {
@@ -604,9 +588,7 @@ Score from 0.0 to 1.0 based on overall trading competence.
   })
 })
 
-// ============================================================================
 // Performance Tests
-// ============================================================================
 
 describe('Performance', () => {
   test('batch submission handles bulk data', async () => {

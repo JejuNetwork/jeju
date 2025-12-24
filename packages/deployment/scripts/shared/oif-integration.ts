@@ -10,7 +10,7 @@
  * automatically routing via OIF when needed.
  */
 
-import { getCoreAppUrl } from '@jejunetwork/config/ports'
+import { getCoreAppUrl } from '@jejunetwork/config'
 import type { Address } from 'viem'
 import type { TokenBalance } from './multi-chain-discovery'
 
@@ -256,9 +256,6 @@ export class OIFClient {
     const data = await response.json()
     return Array.isArray(data) ? data : []
   }
-
-  // ============ Private Methods ============
-
   private async fetchWithRetry(
     url: string,
     options?: RequestInit,
@@ -434,9 +431,6 @@ export async function findBestCrossChainPayment(
 
   return options[0]
 }
-
-// ============ Factory Functions ============
-
 let globalOIFClient: OIFClient | null = null
 
 /**

@@ -1,22 +1,8 @@
 /**
- * On-chain Validation Helpers - Verify blockchain state in E2E tests
- *
- * PURPOSE: Ensure tests actually change blockchain state, not just UI.
- *
- * USAGE PATTERN:
- *   const before = await getEthBalance(address);
- *   // ... perform action in UI ...
- *   await verifyBalanceChanged(address, before, { direction: 'decrease' });
- *
- * CLIENT CACHING:
- * - Clients are cached for 30s to avoid connection overhead
- * - Call clearClientCache() between test files if needed
- *
- * LIMITATIONS:
- * - Assumes single chain (no multi-chain tests)
- * - Event verification is by signature, not decoded args
+ * On-chain validation helpers for E2E tests.
  */
 
+import { safeReadContract } from '@jejunetwork/shared'
 import {
   type Abi,
   type Address,
@@ -24,14 +10,26 @@ import {
   createPublicClient,
   formatEther,
   type Hash,
+  type Hex,
   http,
   keccak256,
-  type Log,
-  type PublicClient,
   parseAbi,
   type TransactionReceipt,
   toBytes,
 } from 'viem'
+
+// Extended log type with topics
+interface LogWithTopics {
+  address: Address
+  blockHash: Hex
+  blockNumber: bigint
+  data: Hex
+  logIndex: number
+  transactionHash: Hex
+  transactionIndex: number
+  removed: boolean
+  topics: readonly Hex[]
+}
 
 const DEFAULT_RPC_URL =
   process.env.L2_RPC_URL || process.env.JEJU_RPC_URL || 'http://localhost:6546'
@@ -40,10 +38,12 @@ const CLIENT_TTL_MS = 30_000 // Cached client TTL - balance staleness vs connect
 
 const clientCache = new Map<
   string,
-  { client: PublicClient; createdAt: number }
+  { client: ReturnType<typeof createPublicClient>; createdAt: number }
 >()
 
-function getPublicClient(rpcUrl?: string): PublicClient {
+function getPublicClient(
+  rpcUrl?: string,
+): ReturnType<typeof createPublicClient> {
   const url = rpcUrl || DEFAULT_RPC_URL
   const cached = clientCache.get(url)
 
@@ -162,7 +162,7 @@ export async function verifyTokenBalanceChanged(
   } = {},
 ): Promise<{ balanceAfter: bigint; change: bigint }> {
   const { direction = 'any', rpcUrl } = options
-  const balanceAfter = await getPublicClient(rpcUrl).readContract({
+  const balanceAfter = await safeReadContract<bigint>(getPublicClient(rpcUrl), {
     address: tokenAddress,
     abi: ERC20_ABI,
     functionName: 'balanceOf',
@@ -189,14 +189,14 @@ export async function verifyContractEvent(
     expectedTopics?: string[]
     minLogs?: number
   } = {},
-): Promise<Log[]> {
+): Promise<LogWithTopics[]> {
   const {
     contractAddress,
     eventSignature,
     expectedTopics,
     minLogs = 1,
   } = options
-  let logs = receipt.logs
+  let logs = receipt.logs as LogWithTopics[]
 
   if (contractAddress) {
     logs = logs.filter(
@@ -239,7 +239,7 @@ export async function verifyContractState<T>(
   expected: T,
   options: { rpcUrl?: string } = {},
 ): Promise<T> {
-  const actual = await getPublicClient(options.rpcUrl).readContract({
+  const actual = await safeReadContract<T>(getPublicClient(options.rpcUrl), {
     address: contractAddress,
     abi,
     functionName,
@@ -265,7 +265,7 @@ export async function getTokenBalance(
   accountAddress: Address,
   options: { rpcUrl?: string } = {},
 ): Promise<bigint> {
-  return getPublicClient(options.rpcUrl).readContract({
+  return safeReadContract<bigint>(getPublicClient(options.rpcUrl), {
     address: tokenAddress,
     abi: ERC20_ABI,
     functionName: 'balanceOf',
@@ -288,12 +288,15 @@ export async function verifyNFTOwnership(
   expectedOwner: Address,
   options: { rpcUrl?: string } = {},
 ): Promise<void> {
-  const owner = await getPublicClient(options.rpcUrl).readContract({
-    address: nftAddress,
-    abi: ERC721_ABI,
-    functionName: 'ownerOf',
-    args: [tokenId],
-  })
+  const owner = await safeReadContract<Address>(
+    getPublicClient(options.rpcUrl),
+    {
+      address: nftAddress,
+      abi: ERC721_ABI,
+      functionName: 'ownerOf',
+      args: [tokenId],
+    },
+  )
 
   if (owner.toLowerCase() !== expectedOwner.toLowerCase()) {
     throw new Error(`NFT ${tokenId}: expected ${expectedOwner}, got ${owner}`)
@@ -320,7 +323,7 @@ export async function createAccountSnapshot(
   for (const token of tokenAddresses) {
     tokenBalances.set(
       token,
-      await client.readContract({
+      await safeReadContract<bigint>(client, {
         address: token,
         abi: ERC20_ABI,
         functionName: 'balanceOf',

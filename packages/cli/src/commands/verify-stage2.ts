@@ -1,14 +1,4 @@
-/**
- * jeju verify-stage2 - Verify Stage 2 decentralization readiness
- *
- * Stage 2 requires:
- * - Fraud proofs active (real MIPS, not test mode)
- * - Escape hatch deployed (ForcedInclusion)
- * - Ownership transferred to GovernanceTimelock
- * - DA verification active
- * - Timelock configured with proper delays
- * - Security Council multisig set
- */
+/** Verify Stage 2 decentralization readiness */
 
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'

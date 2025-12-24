@@ -21,8 +21,6 @@ import {
 } from '../mls/content-types'
 import { JejuGroup } from '../mls/group'
 
-// ============ Client Tests ============
-
 describe('MLS Client', () => {
   let client: JejuMLSClient
   const testAddress = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as Address
@@ -112,9 +110,6 @@ describe('MLS Client', () => {
     )
   })
 })
-
-// ============ Group Tests ============
-
 describe('MLS Group', () => {
   let client: JejuMLSClient
   let group: JejuGroup
@@ -165,8 +160,11 @@ describe('MLS Group', () => {
     const messageId = await group.sendContent(imageContent)
     expect(typeof messageId).toBe('string')
 
-    const messages = await group.getMessages({ limit: 1, direction: 'desc' })
-    const parsed = deserializeContent(messages[0]?.content)
+    // Find the image message by ID to avoid timestamp ordering issues
+    const messages = await group.getMessages({ limit: 10, direction: 'desc' })
+    const imageMessage = messages.find((m) => m.id === messageId)
+    expect(imageMessage).toBeDefined()
+    const parsed = deserializeContent(imageMessage?.content ?? '')
     expect(parsed.type).toBe('image')
   })
 
@@ -253,9 +251,6 @@ describe('MLS Group', () => {
     await nonAdminClient.shutdown()
   })
 })
-
-// ============ Content Type Tests ============
-
 describe('Content Types', () => {
   test('creates text content', () => {
     const content = text('Hello')
@@ -364,9 +359,6 @@ describe('Content Types', () => {
     )
   })
 })
-
-// ============ Member Removal Tests ============
-
 describe('Member Removal with Key Rotation', () => {
   let client1: JejuMLSClient
   let client2: JejuMLSClient
@@ -424,9 +416,6 @@ describe('Member Removal with Key Rotation', () => {
     // - Remaining members can still communicate
   })
 })
-
-// ============ Message Sync Tests ============
-
 describe('Message Sync Across Devices', () => {
   test('syncs messages', async () => {
     const client = createMLSClient({
@@ -451,9 +440,6 @@ describe('Message Sync Across Devices', () => {
     await client.shutdown()
   })
 })
-
-// ============ Offline/Online Tests ============
-
 describe('Offline/Online Transitions', () => {
   test('client handles disconnect gracefully', async () => {
     const client = createMLSClient({
@@ -482,9 +468,6 @@ describe('Offline/Online Transitions', () => {
     expect(client.getState().isInitialized).toBe(false)
   })
 })
-
-// ============ Large Group Tests ============
-
 describe('Large Group Support', () => {
   test('supports up to 400 members', async () => {
     const client = createMLSClient({

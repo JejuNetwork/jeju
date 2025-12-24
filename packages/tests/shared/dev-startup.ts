@@ -5,7 +5,7 @@
  *   bun run dev-startup.ts && bun run src/server.ts
  *
  * Or import and call:
- *   import { ensureInfra } from '@jejunetwork/tests/dev-startup';
+ *   import { ensureInfra } from '@jejunetwork/tests';
  *   await ensureInfra();
  */
 
@@ -101,7 +101,7 @@ async function startDws(rootDir: string): Promise<boolean> {
     return false
   }
 
-  dwsProcess = Bun.spawn(['bun', 'run', 'src/server/index.ts'], {
+  dwsProcess = Bun.spawn(['bun', 'run', 'api/server/index.ts'], {
     cwd: dwsPath,
     stdout: 'pipe',
     stderr: 'pipe',

@@ -86,9 +86,10 @@ async function main(): Promise<void> {
     allowPositionals: false,
   })
 
-  const network = values.network as string
-  const verify = values.verify
-  const dryRun = values['dry-run']
+  // parseArgs with default ensures network is always defined
+  const network = values.network ?? 'localnet'
+  const verify = values.verify ?? false
+  const dryRun = values['dry-run'] ?? false
 
   console.log(`
 ╔══════════════════════════════════════════════════════════════╗

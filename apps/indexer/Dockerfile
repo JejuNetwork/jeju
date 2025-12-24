@@ -1,57 +1,36 @@
 # Multi-stage Dockerfile for Kubernetes deployment
 # Optimized for the working squid indexer
 
-FROM node:20-slim AS builder
-
-# Install build tools for native modules
-RUN apt-get update && apt-get install -y \
-    python3 \
-    make \
-    g++ \
-    && rm -rf /var/lib/apt/lists/*
+FROM oven/bun:1 AS builder
 
 WORKDIR /squid
 
 # Copy package files
-COPY package.json package-lock.json* ./
+COPY package.json bun.lock* ./
 
 # Install dependencies
-RUN npm install
+RUN bun install --frozen-lockfile
 
 # Copy source and schema
 COPY . .
 
-# Build TypeScript
-RUN npm run build
-
-# Generate code from schema (may fail if no schema)
-RUN npx sqd codegen || echo "No codegen needed"
+# Build TypeScript to lib/
+RUN bun run build
 
 # Production image
-FROM node:20-slim
+FROM oven/bun:1-slim
 
 WORKDIR /squid
 
-# Install build tools for native modules in production too
-RUN apt-get update && apt-get install -y \
-    python3 \
-    make \
-    g++ \
-    && rm -rf /var/lib/apt/lists/*
-
 # Copy package files and install production deps only
-COPY package.json package-lock.json* ./
-RUN npm install --production && \
-    apt-get purge -y python3 make g++ && \
-    apt-get autoremove -y && \
-    rm -rf /var/lib/apt/lists/*
+COPY package.json bun.lock* ./
+RUN bun install --frozen-lockfile --production
 
-# Copy built artifacts from builder
+# Copy compiled output and required files from builder
 COPY --from=builder /squid/lib ./lib
 COPY --from=builder /squid/schema.graphql ./schema.graphql
 COPY --from=builder /squid/db ./db
 COPY --from=builder /squid/commands.json ./commands.json
-COPY --from=builder /squid/src ./src
 
 # Create non-root user
 RUN groupadd -g 1001 squid && \
@@ -62,5 +41,5 @@ USER squid
 
 EXPOSE 4350
 
-# Default command (processor)
-CMD ["node", "lib/main.js"]
+# Default command (processor using compiled output)
+CMD ["bun", "lib/main.js"]

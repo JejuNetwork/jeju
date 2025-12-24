@@ -11,6 +11,7 @@ import {
   type Hex,
   parseEther,
 } from 'viem'
+import { z } from 'zod'
 import { safeGetContract } from '../config'
 import {
   COMPUTE_REGISTRY_ABI,
@@ -20,6 +21,57 @@ import {
 } from '../contracts'
 import { InferenceResponseSchema } from '../shared/schemas'
 import type { JejuWallet } from '../wallet'
+
+// Contract return type schemas for type-safe parsing
+const ProviderInfoSchema = z.object({
+  name: z.string(),
+  endpoint: z.string(),
+  stake: z.bigint(),
+  active: z.boolean(),
+  registeredAt: z.bigint(),
+  agentId: z.bigint(),
+})
+
+const ProviderResourcesSchema = z.object({
+  resources: z.object({
+    cpuCores: z.bigint(),
+    memoryGb: z.bigint(),
+    storageGb: z.bigint(),
+    bandwidthMbps: z.bigint(),
+    gpuType: z.number(),
+    gpuCount: z.bigint(),
+    gpuMemoryGb: z.bigint(),
+    teeSupported: z.boolean(),
+  }),
+  pricing: z.object({
+    pricePerHour: z.bigint(),
+    minimumRentalHours: z.bigint(),
+    maximumRentalHours: z.bigint(),
+    depositRequired: z.bigint(),
+  }),
+  activeRentals: z.bigint(),
+  maxConcurrentRentals: z.bigint(),
+  available: z.boolean(),
+  sshEnabled: z.boolean(),
+  dockerEnabled: z.boolean(),
+})
+
+const RentalSchema = z.object({
+  rentalId: z.string().transform((s) => s as Hex),
+  user: z.string().transform((s) => s as Address),
+  provider: z.string().transform((s) => s as Address),
+  status: z.number(),
+  startTime: z.bigint(),
+  endTime: z.bigint(),
+  totalCost: z.bigint(),
+  paidAmount: z.bigint(),
+  refundedAmount: z.bigint(),
+  sshPublicKey: z.string(),
+  containerImage: z.string(),
+  startupScript: z.string(),
+  sshHost: z.string(),
+  sshPort: z.number(),
+})
 
 const GPU_TYPES = [
   'NONE',
@@ -231,45 +283,19 @@ export function createComputeModule(
   async function listProviders(
     options?: ListProvidersOptions,
   ): Promise<ProviderInfo[]> {
-    const addresses = (await registry.read.getAllProviders()) as Address[]
+    const rawAddresses = await registry.read.getAllProviders()
+    const addresses = rawAddresses as Address[]
     const providers: ProviderInfo[] = []
 
     for (const addr of addresses.slice(0, 50)) {
       const isActive = await registry.read.isActive([addr])
       if (!isActive) continue
 
-      const info = (await registry.read.getProvider([addr])) as {
-        name: string
-        endpoint: string
-        stake: bigint
-        active: boolean
-        registeredAt: bigint
-        agentId: bigint
-      }
+      const rawInfo = await registry.read.getProvider([addr])
+      const info = ProviderInfoSchema.parse(rawInfo)
 
-      const resources = (await rental.read.getProviderResources([addr])) as {
-        resources: {
-          cpuCores: bigint
-          memoryGb: bigint
-          storageGb: bigint
-          bandwidthMbps: bigint
-          gpuType: number
-          gpuCount: bigint
-          gpuMemoryGb: bigint
-          teeSupported: boolean
-        }
-        pricing: {
-          pricePerHour: bigint
-          minimumRentalHours: bigint
-          maximumRentalHours: bigint
-          depositRequired: bigint
-        }
-        activeRentals: bigint
-        maxConcurrentRentals: bigint
-        available: boolean
-        sshEnabled: boolean
-        dockerEnabled: boolean
-      }
+      const rawResources = await rental.read.getProviderResources([addr])
+      const resources = ProviderResourcesSchema.parse(rawResources)
 
       const gpuType = GPU_TYPES[resources.resources.gpuType]
       if (!gpuType) {
@@ -366,22 +392,8 @@ export function createComputeModule(
   }
 
   async function getRental(rentalId: Hex): Promise<RentalInfo> {
-    const r = (await rental.read.getRental([rentalId])) as {
-      rentalId: Hex
-      user: Address
-      provider: Address
-      status: number
-      startTime: bigint
-      endTime: bigint
-      totalCost: bigint
-      paidAmount: bigint
-      refundedAmount: bigint
-      sshPublicKey: string
-      containerImage: string
-      startupScript: string
-      sshHost: string
-      sshPort: number
-    }
+    const rawRental = await rental.read.getRental([rentalId])
+    const r = RentalSchema.parse(rawRental)
 
     return {
       rentalId: r.rentalId,

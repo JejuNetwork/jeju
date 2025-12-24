@@ -1,0 +1,177 @@
+/* Factory Global Styles */
+/* NOTE: @apply directives removed for Bun dev server compatibility */
+/* Use Tailwind utility classes directly in JSX instead */
+
+:root {
+  --factory-gradient: linear-gradient(135deg, #18181b 0%, #1e1e24 50%, #18181b 100%);
+  --accent-glow: 0 0 20px rgba(59, 130, 246, 0.3);
+  --terminal-green: #4ade80;
+  --terminal-amber: #fbbf24;
+  
+  /* Color palette */
+  --factory-50: #f7f7f8;
+  --factory-100: #eeeef0;
+  --factory-200: #d9d9de;
+  --factory-300: #b8b8c1;
+  --factory-400: #91919f;
+  --factory-500: #747484;
+  --factory-600: #5e5e6c;
+  --factory-700: #4d4d58;
+  --factory-800: #42424b;
+  --factory-900: #3a3a41;
+  --factory-950: #18181b;
+  
+  --accent-500: #3b82f6;
+  --accent-600: #2563eb;
+}
+
+body {
+  background: var(--factory-gradient);
+  font-feature-settings: 'liga' 1, 'calt' 1;
+  color: var(--factory-100);
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #18181b;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #3a3a41;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #4d4d58;
+}
+
+/* Code blocks */
+pre, code {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+/* Card hover effects */
+.card-hover {
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+/* Badge styles - converted from @apply */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.badge-success {
+  background-color: rgba(34, 197, 94, 0.2);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.badge-warning {
+  background-color: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.badge-error {
+  background-color: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.badge-info {
+  background-color: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+/* Button base - converted from @apply */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background-color: var(--accent-600);
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--accent-500);
+}
+
+.btn-secondary {
+  background-color: var(--factory-800);
+  color: var(--factory-100);
+  border: 1px solid var(--factory-700);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background-color: var(--factory-700);
+}
+
+.btn-ghost {
+  color: var(--factory-300);
+  background: transparent;
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background-color: var(--factory-800);
+  color: var(--factory-100);
+}
+
+/* Input styling - converted from @apply */
+.input {
+  width: 100%;
+  padding: 0.5rem 1rem;
+  background-color: var(--factory-900);
+  border: 1px solid var(--factory-700);
+  border-radius: 0.5rem;
+  color: var(--factory-100);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.input::placeholder {
+  color: var(--factory-500);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--accent-500);
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.5);
+}
+
+/* Card styling - converted from @apply */
+.card {
+  background-color: rgba(58, 58, 65, 0.5);
+  border: 1px solid var(--factory-800);
+  border-radius: 0.75rem;
+  backdrop-filter: blur(4px);
+}

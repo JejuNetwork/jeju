@@ -16,6 +16,10 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { FullConfig } from '@playwright/test'
+import { z } from 'zod'
+
+// RPC response schema
+const JsonRpcResultSchema = z.object({ result: z.string() })
 
 const DEFAULT_RPC = 'http://127.0.0.1:6546'
 const DEFAULT_CHAIN_ID = 1337
@@ -75,11 +79,15 @@ export async function setupTestEnvironment(
         })
 
         if (response.ok) {
-          const data = (await response.json()) as { result: string }
-          const remoteChainId = parseInt(data.result, 16)
-          if (remoteChainId === chainId) {
-            chainReady = true
-            break
+          const parseResult = JsonRpcResultSchema.safeParse(
+            await response.json(),
+          )
+          if (parseResult.success) {
+            const remoteChainId = parseInt(parseResult.data.result, 16)
+            if (remoteChainId === chainId) {
+              chainReady = true
+              break
+            }
           }
         }
       } catch {
@@ -126,17 +134,19 @@ async function globalSetup(_config: FullConfig) {
       })
 
       if (response.ok) {
-        const data = (await response.json()) as { result: string }
-        const remoteChainId = parseInt(data.result, 16)
+        const parseResult = JsonRpcResultSchema.safeParse(await response.json())
+        if (parseResult.success) {
+          const remoteChainId = parseInt(parseResult.data.result, 16)
 
-        if (remoteChainId === CHAIN_ID) {
-          chainReady = true
-          console.log(`✅ Chain ready (ID: ${remoteChainId})`)
-          break
-        } else {
-          console.log(
-            `⚠️  Chain ID mismatch: expected ${CHAIN_ID}, got ${remoteChainId}`,
-          )
+          if (remoteChainId === CHAIN_ID) {
+            chainReady = true
+            console.log(`✅ Chain ready (ID: ${remoteChainId})`)
+            break
+          } else {
+            console.log(
+              `⚠️  Chain ID mismatch: expected ${CHAIN_ID}, got ${remoteChainId}`,
+            )
+          }
         }
       }
     } catch {
@@ -166,7 +176,7 @@ async function globalSetup(_config: FullConfig) {
     }),
   })
 
-  const blockData = (await blockResponse.json()) as { result: string }
+  const blockData = JsonRpcResultSchema.parse(await blockResponse.json())
   const blockNumber = parseInt(blockData.result, 16)
   console.log(`   Block: ${blockNumber}`)
 

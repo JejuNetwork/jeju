@@ -67,4 +67,4 @@ ENV NODE_ENV=production
 ENV DWS_PORT=4030
 
 # Run
-CMD ["bun", "run", "src/server/index.ts"]
+CMD ["bun", "run", "api/server/index.ts"]

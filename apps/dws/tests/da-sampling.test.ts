@@ -23,9 +23,7 @@ import {
 
 const TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address
 
-// ============================================================================
 // calculateRequiredSamples Tests
-// ============================================================================
 
 describe('calculateRequiredSamples', () => {
   it('should calculate samples for 99.99% confidence with 50% availability', () => {
@@ -82,9 +80,7 @@ describe('calculateRequiredSamples', () => {
   })
 })
 
-// ============================================================================
 // generateSampleIndices Tests
-// ============================================================================
 
 describe('generateSampleIndices', () => {
   it('should generate correct number of indices', () => {
@@ -183,9 +179,7 @@ describe('generateSampleIndices', () => {
   })
 })
 
-// ============================================================================
 // PeerDAS Sampling Tests
-// ============================================================================
 
 describe('generatePeerDASSamples', () => {
   it('should generate samples for each custody group', () => {
@@ -290,9 +284,7 @@ describe('verifyPeerDASSampling', () => {
   })
 })
 
-// ============================================================================
 // DASampler Class Tests
-// ============================================================================
 
 describe('DASampler', () => {
   it('should use default config', () => {
@@ -325,9 +317,7 @@ describe('DASampler', () => {
   })
 })
 
-// ============================================================================
 // SampleVerifier Class Tests
-// ============================================================================
 
 describe('SampleVerifier', () => {
   let verifier: SampleVerifier
@@ -438,9 +428,7 @@ describe('SampleVerifier', () => {
   })
 })
 
-// ============================================================================
 // Sample Request/Response Tests
-// ============================================================================
 
 describe('createSampleRequest', () => {
   it('should create request with correct fields', () => {

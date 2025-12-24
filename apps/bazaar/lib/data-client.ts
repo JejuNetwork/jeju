@@ -1,4 +1,10 @@
-import { AddressSchema } from '@jejunetwork/types'
+import {
+  AddressSchema,
+  expect,
+  expectTrue,
+  type JsonValue,
+  JsonValueSchema,
+} from '@jejunetwork/types'
 import {
   type Address,
   createPublicClient,
@@ -8,21 +14,6 @@ import {
 } from 'viem'
 import { z } from 'zod'
 import { INDEXER_URL, RPC_URL } from '../config'
-import { expect, expectTrue } from './validation'
-
-// JSON value type for GraphQL data
-type JsonPrimitive = string | number | boolean | null
-type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue }
-const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
-  z.union([
-    z.string(),
-    z.number(),
-    z.boolean(),
-    z.null(),
-    z.array(JsonValueSchema),
-    z.record(z.string(), JsonValueSchema),
-  ]),
-)
 
 // GraphQL response schema for runtime validation
 const GraphQLResponseSchema = z.object({
@@ -197,14 +188,15 @@ const mapToken = (c: RawTokenData): Token => {
     throw new Error(`Token ${c.address}: totalSupply is required`)
 
   return {
-    address: c.address as Address,
+    address: AddressSchema.parse(c.address),
     chainId: c.chainId ?? 420691, // Default to Jeju
     name: c.name,
     symbol: c.symbol,
     decimals: c.decimals,
     totalSupply: BigInt(c.totalSupply),
-    creator: (c.creator?.address ??
-      '0x0000000000000000000000000000000000000000') as Address,
+    creator: AddressSchema.parse(
+      c.creator?.address ?? '0x0000000000000000000000000000000000000000',
+    ),
     createdAt: new Date(c.createdAt ?? c.firstSeenAt ?? Date.now()),
     verified: c.verified,
     logoUrl: c.logoUrl,
@@ -349,7 +341,7 @@ export async function fetchTokenDetails(address: Address): Promise<Token> {
 
     if (data?.contracts[0]) {
       const c = data.contracts[0]
-      creator = c.creator.address as Address
+      creator = AddressSchema.parse(c.creator.address)
       createdAt = new Date(c.firstSeenAt)
       verified = c.verified
       volume24h = c.totalVolume ? BigInt(c.totalVolume) : undefined

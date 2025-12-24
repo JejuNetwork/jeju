@@ -11,7 +11,7 @@ import {
   autocratAgentRuntime,
   checkDWSCompute,
   dwsGenerate,
-} from '../src/agents/runtime'
+} from '../api/agents/runtime'
 
 // Verify DWS is available before running tests
 beforeAll(async () => {

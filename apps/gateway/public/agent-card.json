@@ -1,6 +1,6 @@
 {
   "protocolVersion": "0.3.0",
-  "name": "Gateway Portal - Protocol Infrastructure & Governance Hub",
+  "name": "Gateway - Protocol Infrastructure & Governance Hub",
   "description": "Multi-token paymaster system, node staking, app registry, cross-chain intents, and decentralized moderation governance",
   "url": "http://localhost:4003/a2a",
   "preferredTransport": "http",

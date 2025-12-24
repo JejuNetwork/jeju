@@ -1,44 +1,44 @@
-# dependencies (bun install)
-node_modules
+# Dependencies
+node_modules/
 
-# output
-out
-dist
-*.tgz
+# Build outputs
+dist/
+build/
+out/
 
-# code coverage
-coverage
-*.lcov
-
-# logs
-logs
-_.log
-report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
-
-# dotenv environment variable files
+# Environment
 .env
-.env.development.local
-.env.test.local
-.env.production.local
 .env.local
+.env.*.local
 
-# caches
-.cache
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# TypeScript
 *.tsbuildinfo
 
-# IntelliJ based IDEs
-.idea
-
-# Finder (MacOS) folder config
-.DS_Store
-
-# Playwright test results
+# Testing
+coverage/
 test-results/
-playwright-report/
-playwright/.cache/
-synpress-report*/
-synpress-results*.json
 test-results*.json
+playwright-report/
+playwright-report-*/
+synpress-report*/
+
+# Logs
+*.log
+
+# Cache
+.cache/
+.cache-synpress/
+.turbo/
 
 # bun.lock (only at monorepo root)
 bun.lock

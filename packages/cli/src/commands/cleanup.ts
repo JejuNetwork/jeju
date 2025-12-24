@@ -1,6 +1,4 @@
-/**
- * jeju cleanup - Cleanup orphaned processes
- */
+/** Cleanup orphaned processes */
 
 import { $ } from 'bun'
 import { Command } from 'commander'

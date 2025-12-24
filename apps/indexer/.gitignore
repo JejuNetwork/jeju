@@ -1,8 +1,49 @@
-node_modules
-/lib
-/builds
+# Dependencies
+node_modules/
 
+# Build outputs
+dist/
+build/
+out/
+lib/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# TypeScript
+*.tsbuildinfo
+
+# Testing
+coverage/
+test-results/
+test-results*.json
+playwright-report/
+
+# Logs
+*.log
+
+# Cache
+.cache/
+.turbo/
+
+# Database
+*.db
+*.sqlite
+
+# Squid version files
 /**Versions.json
 
-# IDE files
-/.idea
+# bun.lock (only at monorepo root)
+bun.lock

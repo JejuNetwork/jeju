@@ -9,7 +9,7 @@
  * Works because DEX prices lag oracle updates by 1-2 blocks.
  */
 
-import { EventEmitter } from 'node:events'
+import { EventEmitter } from '@jejunetwork/shared'
 import {
   type Address,
   type Hash,

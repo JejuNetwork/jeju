@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import { getCoreAppUrl } from '@jejunetwork/config/ports'
+import { getCoreAppUrl } from '@jejunetwork/config'
 
 const A2A_BASE_URL = getCoreAppUrl('NODE_EXPLORER_UI')
 const TEST_ADDRESS = '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266' // Anvil default test address

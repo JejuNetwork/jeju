@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test'
 import type { Hex } from 'viem'
-import { FarcasterClient, farcasterClient } from '../hub/client'
+import { FarcasterClient } from '../hub/client'
 
 // Mock fetch globally
 const originalFetch = globalThis.fetch
@@ -30,10 +30,11 @@ describe('FarcasterClient', () => {
   })
 
   describe('constructor', () => {
-    it('uses default values when no config provided', () => {
-      const defaultClient = new FarcasterClient()
-      // Verify internal URLs are set (test via getHubInfo call)
-      expect(defaultClient).toBeDefined()
+    it('requires hubUrl in config', () => {
+      const customClient = new FarcasterClient({
+        hubUrl: 'custom-hub:2283',
+      })
+      expect(customClient).toBeDefined()
     })
 
     it('accepts custom configuration', () => {
@@ -593,12 +594,5 @@ describe('FarcasterClient', () => {
       expect(verifications[0].protocol).toBe('ethereum')
       expect(verifications[1].protocol).toBe('solana')
     })
-  })
-})
-
-describe('farcasterClient singleton', () => {
-  it('exports a default client instance', () => {
-    expect(farcasterClient).toBeDefined()
-    expect(farcasterClient).toBeInstanceOf(FarcasterClient)
   })
 })

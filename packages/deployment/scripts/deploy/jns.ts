@@ -31,7 +31,7 @@ import {
   http,
   keccak256,
   parseAbi,
-  toUtf8Bytes,
+  stringToHex,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { waitForTransactionReceipt } from 'viem/actions'
@@ -104,6 +104,7 @@ async function deployContract(
   publicClient: ReturnType<typeof createPublicClient>,
   walletClient: ReturnType<typeof createWalletClient>,
   account: ReturnType<typeof privateKeyToAccount>,
+  chain: Chain,
   name: string,
   args: (string | bigint)[] = [],
 ): Promise<Address> {
@@ -122,6 +123,7 @@ async function deployContract(
   })
 
   const txHash = await walletClient.sendTransaction({
+    chain,
     data: deployData,
     account,
   })
@@ -169,7 +171,7 @@ function namehash(name: string): `0x${string}` {
 
   const labels = name.split('.').reverse()
   for (const label of labels) {
-    const labelHash = keccak256(toUtf8Bytes(label))
+    const labelHash = keccak256(stringToHex(label))
     node = keccak256(concat([node, labelHash]))
   }
 
@@ -178,7 +180,7 @@ function namehash(name: string): `0x${string}` {
 
 // Compute labelhash
 function labelhash(label: string): `0x${string}` {
-  return keccak256(toUtf8Bytes(label))
+  return keccak256(stringToHex(label))
 }
 
 async function main() {
@@ -216,6 +218,7 @@ async function main() {
     publicClient,
     walletClient,
     account,
+    chain,
     'JNSRegistry',
     [],
   )
@@ -223,6 +226,7 @@ async function main() {
     publicClient,
     walletClient,
     account,
+    chain,
     'JNSResolver',
     [registryAddress],
   )
@@ -230,6 +234,7 @@ async function main() {
     publicClient,
     walletClient,
     account,
+    chain,
     'JNSRegistrar',
     [registryAddress, resolverAddress, account.address],
   )
@@ -237,6 +242,7 @@ async function main() {
     publicClient,
     walletClient,
     account,
+    chain,
     'JNSReverseRegistrar',
     [registryAddress, resolverAddress],
   )

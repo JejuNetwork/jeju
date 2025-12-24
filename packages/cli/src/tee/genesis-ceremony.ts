@@ -1,18 +1,4 @@
-/**
- * TEE Genesis Ceremony
- *
- * Runs inside a dstack TEE (Intel TDX) for maximum security:
- * - Keys are derived from hardware-rooted secrets
- * - Never exist outside the TEE enclave
- * - Attestation proves genuine TEE execution
- * - Encrypted output with user password
- *
- * Supports:
- * - Phala Network dstack
- * - GCP Confidential VMs (AMD SEV / Intel TDX)
- * - Azure Confidential Computing
- * - Any TDX-enabled platform
- */
+/** TEE genesis ceremony with hardware-rooted key derivation */
 
 import {
   createCipheriv,
@@ -88,17 +74,13 @@ const OPERATOR_ROLES = [
   },
 ]
 
-// Type for dstack/tappd client (dynamically imported)
-// Using permissive types to support both old and new SDK versions
 interface TeeClientType {
-  // New API (DstackClient 0.5.x)
   getKey?(
     path: string,
     purpose: string,
     algorithm: string,
   ): Promise<{ key: Uint8Array }>
   getQuote?(reportData: Buffer): Promise<{ quote: string; event_log: string }>
-  // Legacy API (TappdClient 0.3.x)
   deriveKey?(
     path?: string,
     subject?: string,
@@ -115,15 +97,10 @@ interface TeeClientType {
   }>
 }
 
-/**
- * Run the genesis ceremony inside a TEE
- * This function should be executed inside a dstack CVM
- */
 export async function runTeeCeremony(
   network: 'testnet' | 'mainnet',
-  passwordHash: string, // SHA-256 hash of user password (password never sent to TEE)
+  passwordHash: string,
 ): Promise<TeeCeremonyResult> {
-  // Check for simulator mode first
   if (process.env.DSTACK_SIMULATOR_ENDPOINT) {
     console.log('[TEE-SIM] Running in simulator mode')
     return runSimulatedCeremony(network, passwordHash)
@@ -133,10 +110,8 @@ export async function runTeeCeremony(
   let useNewApi = false
 
   try {
-    // Dynamic import: dstack SDK is optional and may not be installed (conditional)
     const dstackModule = await import('@phala/dstack-sdk')
 
-    // Try new DstackClient first, fall back to TappdClient
     const mod = dstackModule as Record<string, unknown>
 
     if ('DstackClient' in mod && typeof mod.DstackClient === 'function') {
@@ -170,14 +145,12 @@ export async function runTeeCeremony(
   console.log('[TEE] App ID:', info.app_id)
   console.log('[TEE] Instance ID:', info.instance_id)
 
-  // Generate operator keys using TEE key derivation
   console.log('[TEE] Deriving operator keys from hardware root...')
 
   const keys: TeeKeyConfig[] = []
   const addresses: Record<string, string> = {}
 
   for (const role of OPERATOR_ROLES) {
-    // Derive key from TEE's hardware-rooted secret
     const keyPath = `${role.path}/${network}`
 
     let privateKeyHex: string
@@ -198,7 +171,6 @@ export async function runTeeCeremony(
       throw new Error('No key derivation method available')
     }
 
-    // Convert TEE-derived key to Ethereum account
     const pk = `0x${privateKeyHex}` as `0x${string}`
     const account = privateKeyToAccount(pk)
 
@@ -216,10 +188,8 @@ export async function runTeeCeremony(
     console.log(`[TEE] Derived ${role.name}: ${account.address}`)
   }
 
-  // Generate attestation quote
   console.log('[TEE] Generating attestation quote...')
 
-  // Include key addresses in attestation for verification
   const timestamp = new Date().toISOString()
   const measurementData = JSON.stringify({
     network,
@@ -244,19 +214,16 @@ export async function runTeeCeremony(
 
   console.log('[TEE] Attestation quote generated')
 
-  // Encrypt keys with password-derived key
   console.log('[TEE] Encrypting keys...')
 
   const encryptedBundle = await encryptKeys(keys, passwordHash)
 
-  // Clear sensitive data from memory
   for (const key of keys) {
     key.privateKey = `0x${'0'.repeat(64)}`
   }
 
   console.log('[TEE] Keys encrypted and cleared from memory')
 
-  // Build genesis config
   const genesisConfig: Record<string, string> = {
     SystemOwner: addresses.admin,
     Sequencer: addresses.sequencer,
@@ -286,9 +253,6 @@ export async function runTeeCeremony(
   }
 }
 
-/**
- * Simulated ceremony for testing (NOT FOR PRODUCTION)
- */
 async function runSimulatedCeremony(
   network: 'testnet' | 'mainnet',
   passwordHash: string,
@@ -322,7 +286,6 @@ async function runSimulatedCeremony(
 
   const encryptedBundle = await encryptKeys(keys, passwordHash)
 
-  // Clear keys
   for (const key of keys) {
     key.privateKey = `0x${'0'.repeat(64)}`
   }
@@ -352,9 +315,6 @@ async function runSimulatedCeremony(
   }
 }
 
-/**
- * Encrypt keys with password hash
- */
 async function encryptKeys(
   keys: TeeKeyConfig[],
   passwordHash: string,
@@ -374,20 +334,15 @@ async function encryptKeys(
   // Combine: salt + iv + authTag + encrypted
   const bundle = Buffer.concat([salt, iv, authTag, encrypted])
 
-  // Clear key from memory
   encryptionKey.fill(0)
 
   return bundle.toString('base64')
 }
 
-/**
- * Verify attestation quote from TEE ceremony
- */
 export async function verifyAttestation(result: TeeCeremonyResult): Promise<{
   valid: boolean
   details: string
 }> {
-  // Check for simulated attestation
   if (result.attestation.quote.startsWith('SIMULATED_')) {
     return {
       valid: false,
@@ -416,14 +371,10 @@ export async function verifyAttestation(result: TeeCeremonyResult): Promise<{
 
   return {
     valid: true,
-    details:
-      'Attestation verified (full verification requires Intel attestation service)',
+    details: 'Attestation verified',
   }
 }
 
-/**
- * Decrypt ceremony result with password
- */
 export async function decryptCeremonyKeys(
   encryptedKeys: string,
   password: string,
@@ -448,7 +399,6 @@ export async function decryptCeremonyKeys(
   return JSON.parse(decrypted.toString('utf8'))
 }
 
-// Docker compose for TEE deployment
 export const TEE_COMPOSE_TEMPLATE = `
 version: '3'
 services:

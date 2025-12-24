@@ -31,8 +31,6 @@ import {
 import { privateKeyToAccount } from 'viem/accounts'
 import { RawArtifactJsonSchema } from '../../schemas'
 
-// ============ Configuration ============
-
 const ENTRYPOINT_V07 = '0x0000000071727De22E5E9d8BAf0edAc6f37da032' as const
 
 interface DeployConfig {
@@ -42,9 +40,6 @@ interface DeployConfig {
   privateKey: Hex
   fundAmount: bigint
 }
-
-// ============ Network Configuration ============
-
 function getNetworkConfig(
   network: string,
 ): Omit<DeployConfig, 'privateKey' | 'fundAmount'> {
@@ -74,9 +69,6 @@ function getNetworkConfig(
       throw new Error(`Unknown network: ${network}`)
   }
 }
-
-// ============ Main Deployment ============
-
 async function main() {
   console.log('🚀 Deploying Account Abstraction Infrastructure\n')
 
@@ -322,21 +314,20 @@ async function deploySponsoredPaymaster(
 
   let artifact: {
     bytecode?: { object?: string }
-    abi?: Array<unknown>
+    abi?: readonly unknown[]
   } | null = null
   for (const artifactPath of artifactPaths) {
-    try {
-      const file = Bun.file(artifactPath)
-      if (await file.exists()) {
-        const artRaw = await file.json()
-        const parsed = RawArtifactJsonSchema.safeParse(artRaw)
-        if (parsed.success) {
-          artifact = parsed.data
-          break
+    const file = Bun.file(artifactPath)
+    if (await file.exists()) {
+      const artRaw = await file.json()
+      const parsed = RawArtifactJsonSchema.safeParse(artRaw)
+      if (parsed.success) {
+        artifact = {
+          bytecode: parsed.data.bytecode,
+          abi: parsed.data.abi,
         }
+        break
       }
-    } catch {
-      // Continue to next path
     }
   }
 

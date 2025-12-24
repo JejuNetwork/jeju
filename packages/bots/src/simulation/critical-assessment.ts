@@ -5,9 +5,6 @@
  * This analysis identifies overly bullish assumptions, missing costs,
  * and realistic adjustments needed for production deployment.
  */
-
-// ============ ISSUE CATEGORIES ============
-
 interface CriticalIssue {
   category:
     | 'missing_cost'
@@ -39,11 +36,7 @@ interface RealisticProjection {
   breakEvenCapital: number
   timeToProfit: string
 }
-
-// ============ CRITICAL ISSUES ============
-
 const CRITICAL_ISSUES: CriticalIssue[] = [
-  // === MISSING COSTS ===
   {
     category: 'missing_cost',
     severity: 'critical',
@@ -112,7 +105,6 @@ const CRITICAL_ISSUES: CriticalIssue[] = [
     fix: 'Add $500/month infrastructure overhead minimum',
   },
 
-  // === UNREALISTIC ASSUMPTIONS ===
   {
     category: 'unrealistic_assumption',
     severity: 'critical',
@@ -174,7 +166,6 @@ const CRITICAL_ISSUES: CriticalIssue[] = [
     fix: 'Add time decay: crossChainValue *= exp(-bridgeTime * priceVolatility)',
   },
 
-  // === COMPETITION ===
   {
     category: 'competition',
     severity: 'critical',
@@ -216,7 +207,6 @@ const CRITICAL_ISSUES: CriticalIssue[] = [
     fix: 'Discount L2 opportunities by 15% for sequencer extraction',
   },
 
-  // === EXECUTION RISKS ===
   {
     category: 'execution_risk',
     severity: 'high',
@@ -246,7 +236,6 @@ const CRITICAL_ISSUES: CriticalIssue[] = [
     fix: 'Check tick liquidity before trade, fallback to V2 if V3 shallow',
   },
 
-  // === MARKET CONDITIONS ===
   {
     category: 'market_condition',
     severity: 'high',
@@ -276,9 +265,6 @@ const CRITICAL_ISSUES: CriticalIssue[] = [
     fix: 'Build compliant architecture, prepare for jurisdiction changes',
   },
 ]
-
-// ============ COMPLETE FEE BREAKDOWN ============
-
 const ALL_FEES: FeeBreakdown[] = [
   // Trading Fees
   {
@@ -516,9 +502,6 @@ const ALL_FEES: FeeBreakdown[] = [
     notes: '10-50% of profit to builders',
   },
 ]
-
-// ============ REALISTIC CALCULATIONS ============
-
 function calculateRealisticProjection(): RealisticProjection {
   // Original backtest numbers
   const originalMonthlyProfit = 292703
@@ -593,9 +576,6 @@ function calculateRealisticProjection(): RealisticProjection {
         : 'Not profitable',
   }
 }
-
-// ============ MAIN REPORT ============
-
 async function main() {
   console.log('')
   console.log(
@@ -612,7 +592,6 @@ async function main() {
   )
   console.log('')
 
-  // === CRITICAL ISSUES ===
   console.log(
     '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
   )
@@ -640,7 +619,6 @@ async function main() {
   console.log(`  📉 TOTAL CRITICAL IMPACT: ${totalCriticalImpact}%`)
   console.log('')
 
-  // === HIGH SEVERITY ISSUES ===
   console.log(
     '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
   )
@@ -660,7 +638,6 @@ async function main() {
   console.log(`\n  📉 TOTAL HIGH SEVERITY IMPACT: ${totalHighImpact}%`)
   console.log('')
 
-  // === COMPLETE FEE BREAKDOWN ===
   console.log(
     '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
   )
@@ -731,7 +708,6 @@ async function main() {
   console.log('  └─────────────────────────────────┴────────────────┘')
   console.log('')
 
-  // === REALISTIC PROJECTION ===
   console.log(
     '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
   )
@@ -769,7 +745,6 @@ async function main() {
   }
   console.log('')
 
-  // === RECOMMENDATIONS ===
   console.log(
     '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
   )
@@ -797,7 +772,6 @@ async function main() {
   }
   console.log('')
 
-  // === FINAL VERDICT ===
   console.log(
     '╔══════════════════════════════════════════════════════════════════════╗',
   )

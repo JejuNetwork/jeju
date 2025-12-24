@@ -4,6 +4,6 @@
     "jsx": "react-jsx",
     "noEmit": true
   },
-  "include": ["src/**/*", "server/**/*"],
-  "exclude": ["node_modules", "test/**/*"]
+  "include": ["api/**/*", "web/**/*", "lib/**/*"],
+  "exclude": ["node_modules", "tests/**/*"]
 }

@@ -15,9 +15,7 @@ import { encodeFunctionData, keccak256, toHex } from 'viem'
 import { getContractAddresses } from '../config'
 import type { JejuWallet } from '../wallet'
 
-// ============================================================================
 // Types
-// ============================================================================
 
 export type ContainerVisibility = 'PUBLIC' | 'PRIVATE' | 'ORGANIZATION'
 

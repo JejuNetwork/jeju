@@ -1,4 +1,3 @@
-export type { ServiceType } from '@jejunetwork/sdk'
 export {
   type NetworkContextValue,
   NetworkProvider,
@@ -6,7 +5,6 @@ export {
   type NetworkProviderProps,
   useNetworkContext,
 } from './context'
-// Contract ABIs and constants
 export {
   IERC20_ABI,
   LIQUIDITY_VAULT_ABI,
@@ -15,7 +13,6 @@ export {
   ZERO_ADDRESS,
   ZERO_BYTES32,
 } from './contracts'
-// Liquidity calculation utilities (pure functions, useful for testing/simulations)
 export {
   calculateSharePercent,
   parseLPPosition,
@@ -45,7 +42,6 @@ export {
 } from './hooks/usePaymasterFactoryContract'
 export { type UsePaymentsResult, usePayments } from './hooks/usePayments'
 export { type UseStorageResult, useStorage } from './hooks/useStorage'
-// Contract hooks (wagmi-based)
 export {
   type TokenConfig,
   type TokenInfo,

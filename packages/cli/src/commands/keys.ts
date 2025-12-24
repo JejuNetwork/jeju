@@ -1,15 +1,4 @@
-/**
- * jeju keys - Key management and genesis ceremony
- *
- * For mainnet deployment, this implements a secure ceremony:
- * 1. Security checklist verification
- * 2. Choice: generate new keys OR import existing
- * 3. Entropy collection for key generation
- * 4. Password-based encryption (AES-256-GCM)
- * 5. Key display with confirmation
- * 6. Secure key burning from memory
- * 7. Genesis config generation
- */
+/** Key management and genesis ceremony */
 
 import { createHash, randomBytes } from 'node:crypto'
 import {
@@ -28,7 +17,6 @@ import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import { z } from 'zod'
 import { logger } from '../lib/logger'
 
-// Schema validation for TEE provider configs
 const TeeProviderConfigSchema = z.array(
   z.object({
     name: z.string().min(1).max(100),
@@ -37,7 +25,6 @@ const TeeProviderConfigSchema = z.array(
   }),
 )
 
-// Schema for attestation files
 const AttestationSchema = z.object({
   quote: z.string().min(1),
   eventLog: z.string().optional(),
@@ -48,7 +35,6 @@ const AttestationSchema = z.object({
   measurementHash: z.string().optional(),
 })
 
-// Schema for addresses files
 const AddressesSchema = z.record(
   z.string(),
   z.string().regex(/^0x[a-fA-F0-9]{40}$/),
@@ -64,13 +50,24 @@ import {
 import { findMonorepoRoot, getKeysDir } from '../lib/system'
 import type { KeyConfig, KeySet, NetworkType } from '../types'
 
+const VALID_NETWORKS = ['mainnet', 'testnet', 'localnet'] as const
+
+function parseNetworkType(value: string): NetworkType {
+  if (!VALID_NETWORKS.includes(value as NetworkType)) {
+    throw new Error(
+      `Invalid network: ${value}. Must be: ${VALID_NETWORKS.join(', ')}`,
+    )
+  }
+  return value as NetworkType
+}
+
 export const keysCommand = new Command('keys')
   .description('Manage keys')
   .argument('[action]', 'show | genesis | burn', 'show')
   .option('-n, --network <network>', 'Network', 'localnet')
   .option('--private', 'Show private keys')
   .action(async (action, options) => {
-    const network = options.network as NetworkType
+    const network = parseNetworkType(options.network)
 
     switch (action) {
       case 'show':
@@ -94,16 +91,16 @@ const genesisSubcommand = new Command('genesis')
   .option('--tee', 'Run ceremony in TEE (dstack/Phala/GCP CVM)')
   .option('--tee-endpoint <url>', 'TEE endpoint URL')
   .action(async (options) => {
+    const network = parseNetworkType(options.network)
     if (options.tee) {
-      await runTeeGenesis(options.network as NetworkType, options.teeEndpoint)
+      await runTeeGenesis(network, options.teeEndpoint)
     } else {
-      await runGenesis(options.network as NetworkType)
+      await runGenesis(network)
     }
   })
 
 keysCommand.addCommand(genesisSubcommand)
 
-// TEE ceremony subcommand
 const teeSubcommand = new Command('tee')
   .description('Run genesis ceremony in Trusted Execution Environment (TEE)')
   .option('-n, --network <network>', 'Network: testnet | mainnet', 'testnet')
@@ -113,13 +110,13 @@ const teeSubcommand = new Command('tee')
     if (options.verify) {
       await verifyTeeAttestation(options.verify)
     } else {
-      await runTeeGenesis(options.network as NetworkType, options.endpoint)
+      const network = parseNetworkType(options.network)
+      await runTeeGenesis(network, options.endpoint)
     }
   })
 
 keysCommand.addCommand(teeSubcommand)
 
-// Distributed ceremony subcommand (maximum trustlessness)
 const distributedSubcommand = new Command('distributed')
   .description(
     'Run distributed ceremony across multiple TEEs (maximum trustlessness)',
@@ -134,7 +131,6 @@ const distributedSubcommand = new Command('distributed')
 
 keysCommand.addCommand(distributedSubcommand)
 
-// Setup testnet deployer subcommand
 const setupTestnetSubcommand = new Command('setup-testnet')
   .description('Setup testnet deployer wallet across all testnets')
   .option('--bridge', 'Automatically bridge ETH to L2s if Sepolia is funded')
@@ -160,10 +156,6 @@ const setupTestnetSubcommand = new Command('setup-testnet')
   })
 
 keysCommand.addCommand(setupTestnetSubcommand)
-
-// ═══════════════════════════════════════════════════════════════════════════
-// TEE CEREMONY FUNCTIONS
-// ═══════════════════════════════════════════════════════════════════════════
 
 async function runTeeGenesis(network: NetworkType, endpoint?: string) {
   if (network === 'localnet') {
@@ -318,7 +310,6 @@ async function runTeeGenesis(network: NetworkType, endpoint?: string) {
   logger.step('Connecting to TEE...')
 
   try {
-    // Dynamic import kept conditional - only loads TEE ceremony module when TEE ceremony is requested
     const { runTeeCeremony, verifyAttestation } = await import(
       '../tee/genesis-ceremony'
     )
@@ -439,10 +430,10 @@ interface DistributedCeremonyOptions {
 }
 
 async function runDistributedCeremony(options: DistributedCeremonyOptions) {
-  const network = options.network as 'testnet' | 'mainnet'
+  const network = parseNetworkType(options.network)
   const threshold = parseInt(options.threshold, 10)
 
-  if (options.network === 'localnet') {
+  if (network === 'localnet') {
     logger.error('Distributed ceremony not needed for localnet')
     return
   }
@@ -590,11 +581,9 @@ async function runDistributedCeremony(options: DistributedCeremonyOptions) {
   logger.newline()
 
   try {
-    // Dynamic import kept conditional - only loads distributed ceremony module when distributed ceremony is requested
     const { runDistributedCeremony: runCeremony, registerCeremonyOnChain } =
       await import('../tee/distributed-ceremony')
 
-    // Enable simulation for development
     process.env.CEREMONY_SIMULATION = 'true'
 
     const result = await runCeremony(
@@ -753,7 +742,6 @@ async function verifyTeeAttestation(attestationFile: string) {
   }
 
   const rawData = JSON.parse(readFileSync(attestationFile, 'utf-8'))
-  // SECURITY: Validate schema to prevent insecure deserialization
   const result = AttestationSchema.safeParse(rawData)
   if (!result.success) {
     logger.error(`Invalid attestation file format: ${result.error.message}`)
@@ -789,10 +777,6 @@ async function verifyTeeAttestation(attestationFile: string) {
   logger.success('Attestation file is valid JSON')
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// LOCAL CEREMONY FUNCTIONS
-// ═══════════════════════════════════════════════════════════════════════════
-
 async function runGenesis(network: NetworkType) {
   if (network === 'localnet') {
     logger.error('Genesis ceremony not needed for localnet')
@@ -822,10 +806,6 @@ async function runGenesis(network: NetworkType) {
   }
 
   logger.newline()
-
-  // ═══════════════════════════════════════════════════════════════════════
-  // PHASE 1: Security Environment Check
-  // ═══════════════════════════════════════════════════════════════════════
 
   logger.subheader('Phase 1: Security Environment')
   logger.info('Verify your environment is secure before proceeding.\n')
@@ -869,10 +849,6 @@ async function runGenesis(network: NetworkType) {
   logger.newline()
   logger.success('Security environment verified')
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // PHASE 2: Key Source Selection
-  // ═══════════════════════════════════════════════════════════════════════
-
   logger.newline()
   logger.subheader('Phase 2: Key Source')
 
@@ -907,10 +883,6 @@ async function runGenesis(network: NetworkType) {
       return
     }
   } else {
-    // ═══════════════════════════════════════════════════════════════════════
-    // PHASE 3: Entropy Collection (for generation only)
-    // ═══════════════════════════════════════════════════════════════════════
-
     logger.newline()
     logger.subheader('Phase 3: Entropy Collection')
     logger.info('Additional entropy strengthens key generation.\n')
@@ -926,7 +898,6 @@ async function runGenesis(network: NetworkType) {
     logger.info('\nCollecting timing entropy...')
     const timingEntropy = await collectTimingEntropy()
 
-    // Combine all entropy sources
     const combinedEntropy = combineEntropy([
       userEntropy || '',
       timingEntropy,
@@ -937,7 +908,6 @@ async function runGenesis(network: NetworkType) {
 
     logger.success(`Entropy collected: ${combinedEntropy.slice(0, 16)}...`)
 
-    // Generate keys with entropy
     logger.newline()
     logger.step('Generating operator keys...')
     operatorKeys = generateKeysWithEntropy(combinedEntropy)
@@ -947,10 +917,6 @@ async function runGenesis(network: NetworkType) {
     logger.error('Failed to generate or import keys')
     return
   }
-
-  // ═══════════════════════════════════════════════════════════════════════
-  // PHASE 4: Encryption Password
-  // ═══════════════════════════════════════════════════════════════════════
 
   logger.newline()
   logger.subheader('Phase 4: Encryption Password')
@@ -995,10 +961,6 @@ async function runGenesis(network: NetworkType) {
   }
 
   logger.success('Password accepted')
-
-  // ═══════════════════════════════════════════════════════════════════════
-  // PHASE 5: Key Display and Recording
-  // ═══════════════════════════════════════════════════════════════════════
 
   console.clear()
   logger.header('PHASE 5: KEY RECORDING')
@@ -1069,12 +1031,8 @@ async function runGenesis(network: NetworkType) {
     }
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // PHASE 6: Key Encryption and Storage
-  // ═══════════════════════════════════════════════════════════════════════
-
   logger.newline()
-  logger.subheader('Phase 6: Secure Storage')
+  logger.subheader('Secure Storage')
   logger.step('Encrypting keys...')
 
   const keysDir = getKeysDir()
@@ -1126,12 +1084,8 @@ async function runGenesis(network: NetworkType) {
   writeFileSync(genesisPath, JSON.stringify(genesisConfig, null, 2))
   logger.info(`Genesis config saved to: ${genesisPath}`)
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // PHASE 7: Key Burning
-  // ═══════════════════════════════════════════════════════════════════════
-
   logger.newline()
-  logger.subheader('Phase 7: Memory Clearing')
+  logger.subheader('Memory Clearing')
   logger.step('Clearing keys from memory...')
 
   // Clear the password from memory
@@ -1146,20 +1100,14 @@ async function runGenesis(network: NetworkType) {
     key.role = ''
   }
 
-  // Force garbage collection hint (not guaranteed)
   if (global.gc) {
     global.gc()
   }
 
   logger.success('Keys cleared from memory')
 
-  // Clear screen to remove key display
   await new Promise((r) => setTimeout(r, 1000))
   console.clear()
-
-  // ═══════════════════════════════════════════════════════════════════════
-  // PHASE 8: Summary and Next Steps
-  // ═══════════════════════════════════════════════════════════════════════
 
   logger.header('CEREMONY COMPLETE')
   logger.success('Genesis keys have been securely generated and stored.\n')
@@ -1200,6 +1148,7 @@ async function runGenesis(network: NetworkType) {
     printFundingRequirements(opKeys, network)
   }
 
+  logger.newline()
   logger.subheader('Next Steps')
   logger.list([
     'Verify backup: Decrypt and check keys match your written copy',
@@ -1304,7 +1253,6 @@ async function importKeys(): Promise<Record<string, KeyConfig> | null> {
 }
 
 function generateKeysWithEntropy(entropy: string): Record<string, KeyConfig> {
-  // Use entropy to seed additional randomness
   const entropyHash = createHash('sha256').update(entropy).digest()
 
   const roles = [
@@ -1322,14 +1270,12 @@ function generateKeysWithEntropy(entropy: string): Record<string, KeyConfig> {
   for (let i = 0; i < roles.length; i++) {
     const role = roles[i]
 
-    // Mix entropy with role-specific data for additional randomness
-    // This supplements the entropy already used by generatePrivateKey()
     createHash('sha256')
       .update(entropyHash)
       .update(Buffer.from([i]))
       .update(role.name)
       .update(randomBytes(32))
-      .digest() // Side-effect: adds to system entropy pool via timing
+      .digest()
 
     const pk = generatePrivateKey()
     const account = privateKeyToAccount(pk)
@@ -1417,7 +1363,6 @@ async function burnKeys(network: NetworkType) {
   for (const file of files) {
     const path = join(networkDir, file)
     if (existsSync(path)) {
-      // Overwrite with random data before deleting
       const size = readFileSync(path).length
       writeFileSync(path, randomBytes(size))
       writeFileSync(path, randomBytes(size))
@@ -1477,7 +1422,6 @@ async function showKeys(network: NetworkType, showPrivate: boolean) {
       )
 
       const rawData = JSON.parse(readFileSync(addressesPath, 'utf-8'))
-      // SECURITY: Validate schema to prevent insecure deserialization
       const result = AddressesSchema.safeParse(rawData)
       if (!result.success) {
         logger.error(`Invalid addresses file format: ${result.error.message}`)

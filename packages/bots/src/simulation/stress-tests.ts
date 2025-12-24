@@ -28,9 +28,6 @@ import {
   RiskAnalyzer,
   type RiskMetrics,
 } from './risk-analyzer'
-
-// ============ Types ============
-
 export interface StressTestResult {
   scenario: StressTestScenario
   backtest: BacktestResult
@@ -72,9 +69,6 @@ export interface LiquidityShockConfig {
   crisisSlippageBps: number
   liquidityDropPercent: number
 }
-
-// ============ Stress Test Runner ============
-
 export class StressTestRunner {
   private fetcher: MultiSourceFetcher
   private backtester: Backtester
@@ -214,9 +208,6 @@ export class StressTestRunner {
 
     return this.runScenario(scenario, config)
   }
-
-  // ============ Crisis Data Generation ============
-
   private generateCrisisData(
     scenario: StressTestScenario,
     tokens: Token[],
@@ -332,9 +323,6 @@ export class StressTestRunner {
     const severityMultiplier = 1 + scenario.peakDrawdown * 5
     return Math.round(baseSlippage * severityMultiplier)
   }
-
-  // ============ Gas Crisis Simulation ============
-
   private generateCrisisGasData(scenario: StressTestScenario): GasDataPoint[] {
     const gasData: GasDataPoint[] = []
     const startTs = scenario.startDate.getTime()
@@ -366,9 +354,6 @@ export class StressTestRunner {
 
     return gasData
   }
-
-  // ============ Analysis Methods ============
-
   private checkCircuitBreaker(
     backtest: BacktestResult,
     riskParams: StressTestConfig['riskParams'],
@@ -472,9 +457,6 @@ export class StressTestRunner {
       peakToTroughDays: peakToTroughMs / 86400000,
     }
   }
-
-  // ============ Reporting ============
-
   private printScenarioResult(result: StressTestResult): void {
     const { scenario, backtest, survivalMetrics, circuitBreakerTriggered } =
       result
@@ -549,9 +531,6 @@ export class StressTestRunner {
     console.log('─'.repeat(60))
   }
 }
-
-// ============ Convenience Exports ============
-
 export { STRESS_SCENARIOS }
 
 export async function runStressTests(

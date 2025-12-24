@@ -281,6 +281,54 @@ services:
       retries: 5
     restart: unless-stopped
 
+  # ============================================================================
+  # Farcaster Hub - Permissionless Farcaster Hub Node
+  # ============================================================================
+  farcaster-hub:
+    image: farcasterxyz/hubble:1.14.0
+    container_name: jeju-farcaster-hub
+    hostname: farcaster-hub
+    ports:
+      - "2281:2281"  # HTTP API
+      - "2282:2282"  # Gossip
+      - "2283:2283"  # gRPC
+    command:
+      - node
+      - build/cli.js
+      - start
+      - --eth-mainnet-rpc-url=${ETH_RPC_URL:-https://mainnet.optimism.io}
+      - --l2-rpc-url=${ETH_RPC_URL:-https://mainnet.optimism.io}
+      - --rpc-port=2283
+      - --gossip-port=2282
+      - --http-api-port=2281
+      - --http-api-enabled
+      - --db-name=/data/rocks
+      - --bootstrap=/dns/nemes.farcaster.xyz/tcp/2282
+      - --bootstrap=/dns/hoyt.farcaster.xyz/tcp/2282
+    environment:
+      - HUB_HOST=0.0.0.0
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    volumes:
+      - farcaster-hub-data:/data
+      - farcaster-hub-identity:/identity
+    networks:
+      - jeju
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:2281/v1/info"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '1'
+          memory: 2G
+
 networks:
   jeju:
     name: jeju
@@ -293,3 +341,5 @@ volumes:
   postgres-data:
   cql-bp-data:      # Docker-based CQL (production profile)
   cql-miner-data:   # Docker-based CQL miner (production profile)
+  farcaster-hub-data:
+  farcaster-hub-identity:

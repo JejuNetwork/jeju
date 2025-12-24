@@ -9,12 +9,36 @@
  * - Reliability (historical success rate)
  */
 
-import { EventEmitter } from 'node:events'
-import { type Address, formatUnits, type Hex, parseUnits } from 'viem'
+import { EventEmitter } from '@jejunetwork/shared'
+import {
+  type Address,
+  formatUnits,
+  type Hex,
+  isAddress,
+  parseUnits,
+} from 'viem'
 
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address
+const ZERO_ADDRESS: Address = '0x0000000000000000000000000000000000000000'
 
-import { type ChainId, isSolanaChain } from '../types/index.js'
+import {
+  type ChainId,
+  ChainId as ChainIdValues,
+  isSolanaChain,
+} from '../types/index.js'
+
+/** Type guard to check if a number is a valid ChainId */
+function isValidChainId(chainId: number): chainId is ChainId {
+  return Object.values(ChainIdValues).includes(chainId as ChainId)
+}
+
+/** Ensure a token string is an Address */
+function ensureAddress(token: Address | string, context: string): Address {
+  if (typeof token === 'string' && !isAddress(token)) {
+    throw new Error(`${context}: Invalid address format: ${token}`)
+  }
+  return token as Address
+}
+
 import { CCIPAdapter, type CCIPTransferRequest } from './ccip-adapter.js'
 import { CrossChainRouter, type RouterConfig } from './cross-chain-router.js'
 import { WormholeAdapter, type WormholeConfig } from './wormhole-adapter.js'
@@ -176,8 +200,11 @@ export class MultiBridgeRouter extends EventEmitter {
   async findRoutes(params: TransferParams): Promise<BridgeRoute[]> {
     const routes: BridgeRoute[] = []
 
-    const isSolanaSrc = isSolanaChain(params.sourceChainId as ChainId)
-    const isSolanaDst = isSolanaChain(params.destChainId as ChainId)
+    const isSolanaSrc =
+      isValidChainId(params.sourceChainId) &&
+      isSolanaChain(params.sourceChainId)
+    const isSolanaDst =
+      isValidChainId(params.destChainId) && isSolanaChain(params.destChainId)
 
     for (const provider of this.config.enabledProviders) {
       const support = BRIDGE_CHAIN_SUPPORT[provider]
@@ -271,10 +298,11 @@ export class MultiBridgeRouter extends EventEmitter {
     const gasCost = parseUnits('0.002', 18)
 
     // Check if wrapped asset exists
+    const tokenAddress = ensureAddress(params.token, 'Wormhole route token')
     const destToken = await this.wormhole.getWrappedAsset(
       params.destChainId,
       params.sourceChainId,
-      params.token as Address,
+      tokenAddress,
     )
 
     return {
@@ -306,18 +334,23 @@ export class MultiBridgeRouter extends EventEmitter {
     if (!this.ccip) return null
 
     // CCIP doesn't support Solana
-    if (
-      isSolanaChain(params.sourceChainId as ChainId) ||
-      isSolanaChain(params.destChainId as ChainId)
-    ) {
+    const srcIsSolana =
+      isValidChainId(params.sourceChainId) &&
+      isSolanaChain(params.sourceChainId)
+    const dstIsSolana =
+      isValidChainId(params.destChainId) && isSolanaChain(params.destChainId)
+    if (srcIsSolana || dstIsSolana) {
       return null
     }
+
+    const recipientAddress = ensureAddress(params.recipient, 'CCIP recipient')
+    const tokenAddress = ensureAddress(params.token, 'CCIP token')
 
     const request: CCIPTransferRequest = {
       sourceChainId: params.sourceChainId,
       destChainId: params.destChainId,
-      recipient: params.recipient as Address,
-      token: params.token as Address,
+      recipient: recipientAddress,
+      token: tokenAddress,
       amount: params.amount,
     }
 
@@ -379,7 +412,8 @@ export class MultiBridgeRouter extends EventEmitter {
         const aCost = a.bridgeFee + a.gasCost
         const bCost = b.bridgeFee + b.gasCost
         if (aCost !== bCost) {
-          return Number(aCost - bCost)
+          // Use bigint comparison to avoid precision loss with large values
+          return aCost < bCost ? -1 : 1
         }
       }
 
@@ -588,7 +622,7 @@ export class MultiBridgeRouter extends EventEmitter {
     // Known Solana chain IDs
     const knownSolanaChains = new Set([101, 102, 103, 104])
 
-    if (isSolanaChain(chainId as ChainId)) {
+    if (isValidChainId(chainId) && isSolanaChain(chainId)) {
       if (!knownSolanaChains.has(chainId)) {
         throw new Error(`Unknown Solana chain ID: ${chainId}`)
       }
@@ -617,15 +651,24 @@ export class MultiBridgeRouter extends EventEmitter {
       }
     }
 
-    const isSolanaSrc = isSolanaChain(params.sourceChainId as ChainId)
-    const isSolanaDst = isSolanaChain(params.destChainId as ChainId)
+    const isSolanaSrc =
+      isValidChainId(params.sourceChainId) &&
+      isSolanaChain(params.sourceChainId)
+    const isSolanaDst =
+      isValidChainId(params.destChainId) && isSolanaChain(params.destChainId)
 
     if (isSolanaSrc && !isSolanaDst) {
+      // Solana token mint is a string pubkey - Address is a branded string, so use String()
+      const tokenMint = String(params.token)
+      const recipientAddress = ensureAddress(
+        params.recipient,
+        'Wormhole Solana->EVM recipient',
+      )
       const result = await this.wormhole.transferSolanaToEVM({
-        tokenMint: params.token as string,
+        tokenMint,
         amount: params.amount,
         destChainId: params.destChainId,
-        recipient: params.recipient as Address,
+        recipient: recipientAddress,
       })
       return {
         success: result.success,
@@ -634,11 +677,17 @@ export class MultiBridgeRouter extends EventEmitter {
         error: result.error,
       }
     } else if (!isSolanaSrc && isSolanaDst) {
+      const tokenAddress = ensureAddress(
+        params.token,
+        'Wormhole EVM->Solana token',
+      )
+      // Solana recipient is a string pubkey - Address is a branded string, so use String()
+      const recipientPubkey = String(params.recipient)
       const result = await this.wormhole.transferEVMToSolana({
         sourceChainId: params.sourceChainId,
-        token: params.token as Address,
+        token: tokenAddress,
         amount: params.amount,
-        recipient: params.recipient as string,
+        recipient: recipientPubkey,
       })
       return {
         success: result.success,
@@ -647,12 +696,18 @@ export class MultiBridgeRouter extends EventEmitter {
         error: result.error,
       }
     } else {
+      const tokenAddress = ensureAddress(
+        params.token,
+        'Wormhole EVM->EVM token',
+      )
+      // EVM recipient is also an Address for EVM->EVM, but Wormhole accepts string
+      const recipientStr = String(params.recipient)
       const result = await this.wormhole.transferEVMToEVM({
         sourceChainId: params.sourceChainId,
         destChainId: params.destChainId,
-        token: params.token as Address,
+        token: tokenAddress,
         amount: params.amount,
-        recipient: params.recipient as string,
+        recipient: recipientStr,
       })
       return {
         success: result.success,
@@ -670,11 +725,17 @@ export class MultiBridgeRouter extends EventEmitter {
       return { success: false, provider: 'ccip', error: 'CCIP not configured' }
     }
 
+    const recipientAddress = ensureAddress(
+      params.recipient,
+      'CCIP transfer recipient',
+    )
+    const tokenAddress = ensureAddress(params.token, 'CCIP transfer token')
+
     const request: CCIPTransferRequest = {
       sourceChainId: params.sourceChainId,
       destChainId: params.destChainId,
-      recipient: params.recipient as Address,
-      token: params.token as Address,
+      recipient: recipientAddress,
+      token: tokenAddress,
       amount: params.amount,
     }
 

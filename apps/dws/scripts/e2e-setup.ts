@@ -18,9 +18,7 @@ import { join } from 'node:path'
 import { type Subprocess, spawn } from 'bun'
 import { z } from 'zod'
 
-// ============================================================================
 // Configuration
-// ============================================================================
 
 const JEJU_L2_RPC = 'http://127.0.0.1:6546'
 const JEJU_L1_RPC = 'http://127.0.0.1:6545'
@@ -47,9 +45,7 @@ const TEST_ACCOUNTS = [
 
 const processes: Map<string, Subprocess> = new Map()
 
-// ============================================================================
 // Chain Check
-// ============================================================================
 
 async function checkJejuLocalnet(): Promise<boolean> {
   try {
@@ -78,9 +74,7 @@ async function checkJejuLocalnet(): Promise<boolean> {
   }
 }
 
-// ============================================================================
 // Contract Deployment Check
-// ============================================================================
 
 interface DeployedContracts {
   identityRegistry?: string
@@ -157,15 +151,13 @@ async function ensureContractsDeployed(): Promise<DeployedContracts> {
   return contracts
 }
 
-// ============================================================================
 // DWS Server
-// ============================================================================
 
 async function startDWSServer(contracts: DeployedContracts): Promise<void> {
   console.log('[E2E Setup] Starting DWS server...')
 
   const proc = spawn({
-    cmd: ['bun', 'run', 'src/server/index.ts'],
+    cmd: ['bun', 'run', 'api/server/index.ts'],
     cwd: process.cwd(),
     env: {
       ...process.env,
@@ -203,9 +195,7 @@ async function startDWSServer(contracts: DeployedContracts): Promise<void> {
   throw new Error('DWS server failed to start')
 }
 
-// ============================================================================
 // Worker Node Registration
-// ============================================================================
 
 async function registerTestNodes(): Promise<void> {
   console.log('[E2E Setup] Registering test worker nodes...')
@@ -270,9 +260,7 @@ async function getAddress(privateKey: string): Promise<string> {
   return addresses[privateKey] ?? '0x0000000000000000000000000000000000000000'
 }
 
-// ============================================================================
 // Run E2E Tests
-// ============================================================================
 
 async function runE2ETests(): Promise<boolean> {
   console.log('\n[E2E Setup] Running E2E tests...\n')
@@ -295,9 +283,7 @@ async function runE2ETests(): Promise<boolean> {
   return exitCode === 0
 }
 
-// ============================================================================
 // Cleanup
-// ============================================================================
 
 async function cleanup(): Promise<void> {
   console.log('\n[E2E Setup] Cleaning up...')
@@ -310,9 +296,7 @@ async function cleanup(): Promise<void> {
   processes.clear()
 }
 
-// ============================================================================
 // Main
-// ============================================================================
 
 async function main(): Promise<void> {
   console.log(`
