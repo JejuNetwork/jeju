@@ -21,6 +21,15 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
+import {
+  CastResultSchema,
+  FarcasterMessagesResponseSchema,
+  HubInfoResponseSchema,
+  RelayHealthSchema,
+  RelayMessageResultSchema,
+  RelayMessagesResponseSchema,
+  RelayStatsSchema,
+} from '../shared/schemas'
 
 // Jeju localnet ports (from packages/config/ports.ts)
 const L2_RPC_PORT = 6546
@@ -389,10 +398,7 @@ describe('Farcaster Integration', () => {
       const response = await fetch(`http://127.0.0.1:${MOCK_HUB_PORT}/v1/info`)
       expect(response.ok).toBe(true)
 
-      const info = (await response.json()) as {
-        version: string
-        isSyncing: boolean
-      }
+      const info = HubInfoResponseSchema.parse(await response.json())
       expect(info.version).toBeDefined()
       expect(info.isSyncing).toBe(false)
     })
@@ -403,9 +409,7 @@ describe('Farcaster Integration', () => {
       )
       expect(response.ok).toBe(true)
 
-      const data = (await response.json()) as {
-        messages: Array<{ data: { fid: number } }>
-      }
+      const data = FarcasterMessagesResponseSchema.parse(await response.json())
       expect(data.messages).toBeArray()
       expect(data.messages.length).toBeGreaterThan(0)
     })
@@ -416,12 +420,7 @@ describe('Farcaster Integration', () => {
       )
       expect(response.ok).toBe(true)
 
-      const data = (await response.json()) as {
-        messages: Array<{
-          hash: string
-          data: { castAddBody: { text: string } }
-        }>
-      }
+      const data = FarcasterMessagesResponseSchema.parse(await response.json())
       expect(data.messages).toBeArray()
       expect(data.messages[0].data.castAddBody.text).toBeDefined()
     })
@@ -456,7 +455,7 @@ describe('Farcaster Integration', () => {
       )
 
       expect(response.ok).toBe(true)
-      const result = (await response.json()) as { hash: string }
+      const result = CastResultSchema.parse(await response.json())
       expect(result.hash).toBeDefined()
       expect(result.hash).toMatch(/^0x[a-f0-9]+$/)
     })
@@ -493,9 +492,9 @@ describe('Farcaster Integration', () => {
       )
       expect(getResponse.ok).toBe(true)
 
-      const casts = (await getResponse.json()) as {
-        messages: Array<{ data: { castAddBody: { text: string } } }>
-      }
+      const casts = FarcasterMessagesResponseSchema.parse(
+        await getResponse.json(),
+      )
       expect(casts.messages.length).toBeGreaterThan(0)
     })
   })
@@ -526,10 +525,7 @@ describe('Farcaster Integration', () => {
       })
 
       expect(response.ok).toBe(true)
-      const result = (await response.json()) as {
-        success: boolean
-        messageId: string
-      }
+      const result = RelayMessageResultSchema.parse(await response.json())
       expect(result.success).toBe(true)
       expect(result.messageId).toBe(envelope.id)
     })
@@ -556,10 +552,7 @@ describe('Farcaster Integration', () => {
       )
       expect(response.ok).toBe(true)
 
-      const result = (await response.json()) as {
-        messages: Array<{ id: string }>
-        count: number
-      }
+      const result = RelayMessagesResponseSchema.parse(await response.json())
       expect(result.count).toBeGreaterThan(0)
       expect(result.messages.some((m) => m.id === envelope.id)).toBe(true)
     })
@@ -713,7 +706,7 @@ describe('Messaging SDK Integration', () => {
       const response = await fetch(`http://127.0.0.1:${RELAY_PORT}/health`)
       expect(response.ok).toBe(true)
 
-      const data = (await response.json()) as { status: string; nodeId: string }
+      const data = RelayHealthSchema.parse(await response.json())
       expect(data.status).toBe('healthy')
       expect(data.nodeId).toBeDefined()
     })
@@ -722,10 +715,7 @@ describe('Messaging SDK Integration', () => {
       const response = await fetch(`http://127.0.0.1:${RELAY_PORT}/stats`)
       expect(response.ok).toBe(true)
 
-      const stats = (await response.json()) as {
-        nodeId: string
-        totalMessagesRelayed: number
-      }
+      const stats = RelayStatsSchema.parse(await response.json())
       expect(stats.nodeId).toBeDefined()
       expect(typeof stats.totalMessagesRelayed).toBe('number')
     })
@@ -770,9 +760,9 @@ describe('Messaging SDK Integration', () => {
       )
       expect(fetchResponse.ok).toBe(true)
 
-      const result = (await fetchResponse.json()) as {
-        messages: Array<{ id: string; content: string }>
-      }
+      const result = RelayMessagesResponseSchema.parse(
+        await fetchResponse.json(),
+      )
       const received = result.messages.find((m) => m.id === envelope.id)
       expect(received).toBeDefined()
 
@@ -818,10 +808,7 @@ describe('Messaging SDK Integration', () => {
       const response = await fetch(
         `http://127.0.0.1:${RELAY_PORT}/messages/${userB}`,
       )
-      const result = (await response.json()) as {
-        messages: Array<{ from: string }>
-        count: number
-      }
+      const result = RelayMessagesResponseSchema.parse(await response.json())
 
       const fromA = result.messages.filter((m) => m.from === userA)
       expect(fromA.length).toBe(messagesToSend.length)
@@ -853,7 +840,7 @@ describe('End-to-End Messaging Flow', () => {
       }),
     })
     expect(castResponse.ok).toBe(true)
-    const cast = (await castResponse.json()) as { hash: string }
+    const cast = CastResultSchema.parse(await castResponse.json())
 
     // 2. Reply to the cast
     const replyResponse = await fetch(`${hubUrl}/v1/submitMessage`, {
@@ -923,7 +910,7 @@ describe('End-to-End Messaging Flow', () => {
 
     // 2. Bob retrieves DM
     const bobMessages = await fetch(`${relayUrl}/messages/${bob}`)
-    const bobResult = (await bobMessages.json()) as { count: number }
+    const bobResult = CountResponseSchema.parse(await bobMessages.json())
     expect(bobResult.count).toBeGreaterThan(0)
 
     // 3. Simulate group creation (would be MLS in production)
@@ -955,7 +942,7 @@ describe('End-to-End Messaging Flow', () => {
 
     // 5. Verify group receives message
     const groupMessages = await fetch(`${relayUrl}/messages/${groupId}`)
-    const groupResult = (await groupMessages.json()) as { count: number }
+    const groupResult = CountResponseSchema.parse(await groupMessages.json())
     expect(groupResult.count).toBeGreaterThan(0)
   })
 
@@ -1013,7 +1000,7 @@ describe('End-to-End Messaging Flow', () => {
     expect(hubCheck.ok).toBe(true)
     expect(relayCheck.ok).toBe(true)
 
-    const dms = (await relayCheck.json()) as { messages: Array<{ id: string }> }
+    const dms = RelayMessagesResponseSchema.parse(await relayCheck.json())
     expect(dms.messages.some((m) => m.id === privateDm.id)).toBe(true)
   })
 })
@@ -1052,7 +1039,7 @@ describe('Performance', () => {
 
     // Verify all received
     const response = await fetch(`${relayUrl}/messages/${recipient}`)
-    const result = (await response.json()) as { count: number }
+    const result = CountResponseSchema.parse(await response.json())
     expect(result.count).toBe(100)
   })
 })

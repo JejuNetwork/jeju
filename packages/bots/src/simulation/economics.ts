@@ -9,9 +9,6 @@
  * - Bridge costs and timing
  * - Impermanent loss
  */
-
-// ============ Types ============
-
 export interface LiquidityPool {
   reserve0: bigint
   reserve1: bigint
@@ -68,7 +65,6 @@ export interface EconomicConfig {
   liquidityConfidence: number // 0-1, confidence in liquidity data
 }
 
-// ============ Constants ============
 // VALIDATED: Dec 2024 - See critical-review.ts for sources
 
 /**
@@ -161,9 +157,6 @@ const BRIDGE_ECONOMICS_DATA: Record<
     timeMinutes: 7 * 24 * 60, // 7 days for L1->L2 official
   },
 }
-
-// ============ Slippage Model ============
-
 export namespace SlippageModel {
   /**
    * Calculate slippage for AMM (constant product) swap
@@ -304,9 +297,6 @@ export namespace SlippageModel {
     }
   }
 }
-
-// ============ Market Impact Model ============
-
 export namespace MarketImpactModel {
   /**
    * Almgren-Chriss market impact model
@@ -365,9 +355,6 @@ export namespace MarketImpactModel {
     }
   }
 }
-
-// ============ Gas Cost Model ============
-
 export namespace GasCostModel {
   /**
    * Estimate gas costs for a trade
@@ -434,9 +421,6 @@ export namespace GasCostModel {
     return estimate(operation, chainId, config)
   }
 }
-
-// ============ Bridge Economics ============
-
 export namespace BridgeEconomics {
   /**
    * Calculate total bridge cost including time value
@@ -497,9 +481,6 @@ export namespace BridgeEconomics {
     return cheapest
   }
 }
-
-// ============ MEV Risk Model ============
-
 export namespace MEVRiskModel {
   /**
    * Estimate MEV extraction risk for a trade
@@ -548,9 +529,6 @@ export namespace MEVRiskModel {
     return { riskFactor, expectedLossUsd, mitigations }
   }
 }
-
-// ============ Impermanent Loss Calculator ============
-
 export namespace ImpermanentLossCalculator {
   /**
    * Calculate impermanent loss for a 50/50 LP position
@@ -623,9 +601,6 @@ export namespace ImpermanentLossCalculator {
     }
   }
 }
-
-// ============ Complete Trade Economics ============
-
 // Error function approximation
 function erf(x: number): number {
   const a1 = 0.254829592
@@ -784,9 +759,6 @@ export class TradeEconomicsCalculator {
     return { optimalSize, maxProfit }
   }
 }
-
-// ============ Exports ============
-
 export function createEconomicsCalculator(
   config: Partial<EconomicConfig> = {},
 ): TradeEconomicsCalculator {

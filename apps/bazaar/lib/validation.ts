@@ -1,171 +1,164 @@
 /**
- * Shared validation utilities for fail-fast error handling
- * Re-exports from @jejunetwork/types/validation for DRY
+ * Shared Zod validation schemas for Bazaar
+ * Import validation utilities directly from @jejunetwork/types
  */
 
 import { AddressSchema } from '@jejunetwork/types'
 import { z } from 'zod'
 
-export {
-  expect,
-  expectAddress,
-  expectBigInt,
-  expectChainId,
-  expectDefined as expectExists,
-  expectHex,
-  expectJson,
-  expectNonEmpty,
-  expectNonEmptyString,
-  expectNonNegative,
-  expectPositive,
-  expectTrue,
-  expectValid,
-  validateOrNull,
-  validateOrThrow,
-} from '@jejunetwork/types'
+// OIF/Intent Schemas
+
+export const SolverResponseSchema = z.object({
+  solver: AddressSchema,
+  name: z.string(),
+  reputation: z.number(),
+  successRate: z.number(),
+})
+export type SolverResponse = z.infer<typeof SolverResponseSchema>
+
+export const SolversResponseSchema = z.object({
+  solvers: z.array(SolverResponseSchema),
+})
+export type SolversResponse = z.infer<typeof SolversResponseSchema>
+
+export const RouteStepSchema = z.object({
+  protocol: z.string(),
+  action: z.string(),
+  inputToken: AddressSchema,
+  outputToken: AddressSchema,
+  inputAmount: z.string(),
+  outputAmount: z.string(),
+  chainId: z.number(),
+})
+export type RouteStep = z.infer<typeof RouteStepSchema>
+
+export const RouteResponseSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  steps: z.array(RouteStepSchema),
+  estimatedTime: z.number(),
+  estimatedGas: z.string(),
+  fee: z.string(),
+})
+export type RouteResponse = z.infer<typeof RouteResponseSchema>
+
+export const RoutesResponseSchema = z.object({
+  routes: z.array(RouteResponseSchema),
+})
+export type RoutesResponse = z.infer<typeof RoutesResponseSchema>
 
 export const IntentQuoteSchema = z.object({
+  inputAmount: z.string(),
   outputAmount: z.string(),
-  feePercent: z.number(),
-  estimatedFillTimeSeconds: z.number(),
-  solver: z.string(),
+  fee: z.string(),
+  route: RouteResponseSchema.optional(),
+  solver: SolverResponseSchema.optional(),
+  priceImpact: z.number().optional(),
 })
 export type IntentQuote = z.infer<typeof IntentQuoteSchema>
 
 export const IntentQuotesResponseSchema = z.object({
-  quotes: z.array(IntentQuoteSchema).optional(),
+  quotes: z.array(IntentQuoteSchema),
 })
 export type IntentQuotesResponse = z.infer<typeof IntentQuotesResponseSchema>
 
-export const OIFStatsSchema = z.object({
-  totalIntents: z.number(),
-  last24hIntents: z.number(),
-  activeSolvers: z.number(),
-  totalSolvers: z.number(),
-  successRate: z.number(),
-  totalVolume: z.string(),
-  totalVolumeUsd: z.string(),
-  last24hVolume: z.string(),
-  totalFeesUsd: z.string(),
-  avgFillTimeSeconds: z.number(),
-  activeRoutes: z.number(),
-  totalSolverStake: z.string(),
+export const IntentStatusSchema = z.enum([
+  'pending',
+  'open',
+  'filled',
+  'expired',
+  'cancelled',
+])
+export type IntentStatus = z.infer<typeof IntentStatusSchema>
+
+export const IntentInputOutputSchema = z.object({
+  amount: z.string(),
+  chainId: z.number(),
 })
-export type OIFStats = z.infer<typeof OIFStatsSchema>
 
 export const IntentSchema = z.object({
   id: z.string(),
-  creator: AddressSchema,
-  sourceChain: z.number(),
-  destinationChain: z.number(),
-  sourceToken: AddressSchema,
-  destinationToken: AddressSchema,
-  amount: z
-    .union([z.bigint(), z.string()])
-    .transform((v) => (typeof v === 'string' ? BigInt(v) : v)),
-  minReceived: z
-    .union([z.bigint(), z.string()])
-    .transform((v) => (typeof v === 'string' ? BigInt(v) : v)),
-  recipient: AddressSchema,
-  deadline: z.number(),
-  status: z.enum(['pending', 'filled', 'expired', 'cancelled']),
+  intentId: z.string().optional(),
+  user: AddressSchema,
+  inputToken: AddressSchema,
+  inputAmount: z.string(),
+  outputToken: AddressSchema,
+  outputAmount: z.string(),
+  sourceChainId: z.number(),
+  destinationChainId: z.number(),
+  status: IntentStatusSchema,
+  solver: AddressSchema.optional(),
   createdAt: z.number(),
   filledAt: z.number().optional(),
+  txHash: z.string().optional(),
   fillTxHash: z.string().optional(),
+  inputs: z.array(IntentInputOutputSchema).optional(),
+  outputs: z.array(IntentInputOutputSchema).optional(),
 })
 export type Intent = z.infer<typeof IntentSchema>
 
+export const IntentsResponseSchema = z.object({
+  intents: z.array(IntentSchema),
+  total: z.number(),
+})
+export type IntentsResponse = z.infer<typeof IntentsResponseSchema>
+
+export const AllIntentsResponseSchema = z.object({
+  intents: z.array(IntentSchema),
+  pagination: z.object({
+    total: z.number(),
+    page: z.number(),
+    pageSize: z.number(),
+    hasMore: z.boolean(),
+  }),
+})
+export type AllIntentsResponse = z.infer<typeof AllIntentsResponseSchema>
+
 export const CreateIntentResponseSchema = z.object({
+  intentId: z.string(),
+  txHash: z.string(),
+  status: IntentStatusSchema,
   intent: IntentSchema.optional(),
 })
 export type CreateIntentResponse = z.infer<typeof CreateIntentResponseSchema>
 
-export const IntentsResponseSchema = z.object({
-  intents: z.array(IntentSchema).optional(),
-})
-export type IntentsResponse = z.infer<typeof IntentsResponseSchema>
-
-export const AllIntentsIntentSchema = z.object({
-  intentId: z.string(),
-  status: z.enum([
-    'open',
-    'pending',
-    'filled',
-    'expired',
-    'cancelled',
-    'failed',
-  ]),
-  sourceChainId: z.number(),
-  createdAt: z.number().optional(),
-  solver: z.string().optional(),
-  inputs: z.array(
-    z.object({
-      amount: z.string(),
-      chainId: z.number(),
-    }),
-  ),
-  outputs: z.array(
-    z.object({
-      amount: z.string(),
-      chainId: z.number(),
-    }),
-  ),
-})
-export type AllIntentsIntent = z.infer<typeof AllIntentsIntentSchema>
-
-export const AllIntentsResponseSchema = z.object({
-  intents: z.array(AllIntentsIntentSchema).optional(),
-})
-export type AllIntentsResponse = z.infer<typeof AllIntentsResponseSchema>
-
-export const RouteSchema = z.object({
-  id: z.string(),
-  sourceChain: z.number(),
-  destinationChain: z.number(),
-  token: z.string(),
-  volume24h: z.string(),
-  avgFillTime: z.number(),
-  successRate: z.number(),
-})
-export type Route = z.infer<typeof RouteSchema>
-
-export const RoutesResponseSchema = z.object({
-  routes: z.array(RouteSchema).optional(),
-})
-export type RoutesResponse = z.infer<typeof RoutesResponseSchema>
-
-export const SolverSchema = z.object({
-  address: z.string(),
-  name: z.string().optional(),
-  filledIntents: z.number(),
-  totalVolume: z.string(),
-  successRate: z.number(),
-  avgFillTime: z.number(),
-  stake: z.string(),
-})
-export type Solver = z.infer<typeof SolverSchema>
-
-export const SolversResponseSchema = z.object({
-  solvers: z.array(SolverSchema).optional(),
-})
-export type SolversResponse = z.infer<typeof SolversResponseSchema>
-
 export const LeaderboardEntrySchema = z.object({
+  address: AddressSchema,
+  score: z.number(),
   rank: z.number(),
-  address: z.string(),
-  name: z.string().optional(),
-  filledIntents: z.number(),
+  totalIntents: z.number(),
+  successfulIntents: z.number(),
   totalVolume: z.string(),
-  successRate: z.number(),
 })
 export type LeaderboardEntry = z.infer<typeof LeaderboardEntrySchema>
 
 export const LeaderboardResponseSchema = z.object({
+  entries: z.array(LeaderboardEntrySchema),
   leaderboard: z.array(LeaderboardEntrySchema).optional(),
+  lastUpdated: z.number(),
 })
 export type LeaderboardResponse = z.infer<typeof LeaderboardResponseSchema>
 
-export const JNSListingSchema = z.object({
+export const OIFStatsSchema = z.object({
+  totalIntents: z.number(),
+  last24hIntents: z.number().optional().default(0),
+  activeSolvers: z.number().optional().default(0),
+  totalSolvers: z.number(),
+  successRate: z.number(),
+  totalVolume: z.string(),
+  totalVolumeUsd: z.string().optional().default('0'),
+  last24hVolume: z.string().optional().default('0'),
+  totalFeesUsd: z.string().optional().default('0'),
+  avgFillTime: z.number(),
+  avgFillTimeSeconds: z.number().optional().default(0),
+  activeRoutes: z.number().optional().default(0),
+  totalSolverStake: z.string().optional().default('0'),
+})
+export type OIFStats = z.infer<typeof OIFStatsSchema>
+
+// JNS Schemas
+
+export const JNSListingGraphQLSchema = z.object({
   id: z.string(),
   price: z.string(),
   currency: z.string(),
@@ -181,30 +174,25 @@ export const JNSListingSchema = z.object({
     id: z.string(),
   }),
 })
+export type JNSListingGraphQL = z.infer<typeof JNSListingGraphQLSchema>
+
+export const JNSListingSchema = z.object({
+  id: z.string(),
+  tokenId: z.string(),
+  name: z.string(),
+  seller: AddressSchema,
+  price: z.string(),
+  expiresAt: z.number(),
+  listedAt: z.number(),
+  status: z.enum(['active', 'sold', 'cancelled', 'expired']),
+})
 export type JNSListing = z.infer<typeof JNSListingSchema>
 
 export const JNSListingsGraphQLResponseSchema = z.object({
   data: z.object({
-    jnsListings: z.array(JNSListingSchema),
+    jnsListings: z.array(JNSListingGraphQLSchema),
   }),
 })
 export type JNSListingsGraphQLResponse = z.infer<
   typeof JNSListingsGraphQLResponseSchema
 >
-
-export const GraphQLResponseSchema = <T extends z.ZodTypeAny>(dataSchema: T) =>
-  z.object({
-    data: dataSchema.optional(),
-    errors: z
-      .array(
-        z.object({
-          message: z.string(),
-        }),
-      )
-      .optional(),
-  })
-
-export type GraphQLResponse<T> = {
-  data?: T
-  errors?: Array<{ message: string }>
-}

@@ -10,11 +10,11 @@
  */
 
 import { describe, expect, it } from 'bun:test'
+import { getCQLBlockProducerUrl } from '@jejunetwork/config'
+import { createCovenantSQLClient, MigrationManager } from '@jejunetwork/db'
 import {
-  createCovenantSQLClient,
   getHSMClient,
   getMPCCustodyManager,
-  MigrationManager,
   resetHSMClient,
   resetMPCCustodyManager,
 } from '@jejunetwork/shared'
@@ -33,7 +33,7 @@ const TEST_CONFIG = {
 describe('CovenantSQL Integration', () => {
   it('should connect to CovenantSQL cluster', async () => {
     const client = createCovenantSQLClient({
-      nodes: ['http://localhost:4661'],
+      nodes: [getCQLBlockProducerUrl()],
       databaseId: 'test-db',
       privateKey: 'test-key',
       defaultConsistency: 'strong',
@@ -51,7 +51,7 @@ describe('CovenantSQL Integration', () => {
 
   it('should support strong consistency queries', async () => {
     const _client = createCovenantSQLClient({
-      nodes: ['http://localhost:4661'],
+      nodes: [getCQLBlockProducerUrl()],
       databaseId: 'test-db',
       privateKey: 'test-key',
       defaultConsistency: 'strong',
@@ -67,7 +67,7 @@ describe('CovenantSQL Integration', () => {
 
   it('should support eventual consistency queries', async () => {
     const _client = createCovenantSQLClient({
-      nodes: ['http://localhost:4661'],
+      nodes: [getCQLBlockProducerUrl()],
       databaseId: 'test-db',
       privateKey: 'test-key',
       defaultConsistency: 'eventual',
@@ -82,7 +82,7 @@ describe('CovenantSQL Integration', () => {
 
   it('should run migrations', async () => {
     const client = createCovenantSQLClient({
-      nodes: ['http://localhost:4661'],
+      nodes: [getCQLBlockProducerUrl()],
       databaseId: 'test-db',
       privateKey: 'test-key',
       defaultConsistency: 'strong',

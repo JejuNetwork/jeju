@@ -1,19 +1,8 @@
 /**
- * CDN (Content Delivery Network) Types
- *
- * Types for the decentralized CDN marketplace supporting:
- * - Edge node registration and discovery
- * - Static asset caching and delivery
- * - API response caching
- * - Geo-based routing
- * - Hybrid cloud/decentralized providers
+ * Decentralized CDN marketplace types.
  */
 
 import { z } from 'zod'
-
-// ============================================================================
-// Region and Geography
-// ============================================================================
 
 export const CDNRegionSchema = z.enum([
   'us-east-1',
@@ -35,6 +24,8 @@ export const CDNRegionSchema = z.enum([
 ])
 export type CDNRegion = z.infer<typeof CDNRegionSchema>
 
+// Geography
+
 export interface GeoLocation {
   latitude: number
   longitude: number
@@ -48,12 +39,8 @@ export interface GeoLocation {
 export interface RegionMapping {
   region: CDNRegion
   countries: string[] // ISO country codes
-  latencyTarget: number // Target latency in ms
+  latencyTarget: number
 }
-
-// ============================================================================
-// Provider Types
-// ============================================================================
 
 export const CDNProviderTypeSchema = z.enum([
   'decentralized', // Permissionless node operators
@@ -63,8 +50,8 @@ export const CDNProviderTypeSchema = z.enum([
   'fleek', // Fleek Network (decentralized)
   'pipe', // Pipe Network (Solana-based)
   'aioz', // AIOZ W3IPFS
-  'ipfs-gateway', // Direct IPFS gateway
-  'residential', // Residential proxy/edge nodes
+  'ipfs-gateway',
+  'residential',
 ])
 export type CDNProviderType = z.infer<typeof CDNProviderTypeSchema>
 
@@ -76,7 +63,7 @@ export interface CDNProvider {
   regions: CDNRegion[]
   stake: bigint
   registeredAt: number
-  agentId: number // ERC-8004 agent ID
+  agentId: number
   active: boolean
   verified: boolean
 }
@@ -100,22 +87,22 @@ export interface CDNProviderCapabilities {
 }
 
 export interface CDNProviderPricing {
-  pricePerGBEgress: bigint // Price per GB transferred
-  pricePerMillionRequests: bigint // Price per 1M requests
-  pricePerGBStorage: bigint // Price per GB cached/stored
-  minimumCommitmentUSD: number // Minimum monthly commitment
-  freeEgressGB: number // Free tier egress
-  freeRequestsM: number // Free tier requests (millions)
+  pricePerGBEgress: bigint
+  pricePerMillionRequests: bigint
+  pricePerGBStorage: bigint
+  minimumCommitmentUSD: number
+  freeEgressGB: number
+  freeRequestsM: number
 }
 
 export interface CDNProviderMetrics {
   totalBytesServed: bigint
   totalRequests: bigint
-  cacheHitRate: number // 0-100
+  cacheHitRate: number
   avgLatencyMs: number
   p99LatencyMs: number
-  uptime: number // 0-100
-  errorRate: number // 0-100
+  uptime: number
+  errorRate: number
   activeConnections: number
   lastHealthCheck: number
 }
@@ -125,92 +112,76 @@ export interface CDNProviderInfo {
   capabilities: CDNProviderCapabilities
   pricing: CDNProviderPricing
   metrics: CDNProviderMetrics
-  healthScore: number // 0-100 composite score
-  reputationScore: number // 0-100 from reputation system
+  healthScore: number
+  reputationScore: number
 }
 
-// ============================================================================
-// Content Types
-// ============================================================================
-
 export const ContentTypeSchema = z.enum([
-  'static', // HTML, JS, CSS, fonts
-  'image', // Images (png, jpg, webp, avif, svg)
-  'video', // Video files
-  'audio', // Audio files
-  'document', // PDFs, docs
-  'api', // API responses
-  'manifest', // App manifests, service workers
-  'wasm', // WebAssembly modules
-  'other', // Other binary content
+  'static',
+  'image',
+  'video',
+  'audio',
+  'document',
+  'api',
+  'manifest',
+  'wasm',
+  'other',
 ])
 export type ContentType = z.infer<typeof ContentTypeSchema>
 
 export interface ContentMetadata {
-  cid?: string // IPFS CID if from IPFS
-  contentHash: string // SHA-256 hash for verification
+  cid?: string
+  contentHash: string
   contentType: ContentType
   mimeType: string
-  size: number // bytes
+  size: number
   encoding?: 'gzip' | 'br' | 'deflate' | 'identity'
   etag: string
-  lastModified: number // timestamp
+  lastModified: number
   cacheControl: string
-  immutable: boolean // Content-addressed, never changes
+  immutable: boolean
 }
 
-// ============================================================================
-// Cache Configuration (Vercel-style defaults)
-// ============================================================================
-
 export const CacheStrategySchema = z.enum([
-  'immutable', // Static assets with hash in filename (1 year)
-  'static', // Static HTML (5 minutes, revalidate)
-  'dynamic', // API responses (vary by request)
-  'streaming', // No cache, pass-through
-  'stale-revalidate', // Serve stale while revalidating
+  'immutable',
+  'static',
+  'dynamic',
+  'streaming',
+  'stale-revalidate',
 ])
 export type CacheStrategy = z.infer<typeof CacheStrategySchema>
 
 export interface CacheTTLConfig {
-  /** Static assets with content hash (js, css, images) - immutable */
-  immutableAssets: number // 31536000 (1 year)
-  /** HTML files */
-  html: number // 0 (must-revalidate)
-  /** API responses default */
-  api: number // 60 (1 minute)
-  /** Fonts */
-  fonts: number // 31536000 (1 year)
-  /** Images without hash */
-  images: number // 86400 (1 day)
-  /** JSON/XML data */
-  data: number // 300 (5 minutes)
-  /** Service worker */
-  serviceWorker: number // 0 (always check)
-  /** Manifest */
-  manifest: number // 86400 (1 day)
+  immutableAssets: number
+  html: number
+  api: number
+  fonts: number
+  images: number
+  data: number
+  serviceWorker: number
+  manifest: number
 }
 
 export const DEFAULT_TTL_CONFIG: CacheTTLConfig = {
-  immutableAssets: 31536000, // 1 year
-  html: 0, // must-revalidate
-  api: 60, // 1 minute
-  fonts: 31536000, // 1 year
-  images: 86400, // 1 day
-  data: 300, // 5 minutes
-  serviceWorker: 0, // always check
-  manifest: 86400, // 1 day
+  immutableAssets: 31536000,
+  html: 0,
+  api: 60,
+  fonts: 31536000,
+  images: 86400,
+  data: 300,
+  serviceWorker: 0,
+  manifest: 86400,
 }
 
 export interface CacheRule {
-  pattern: string // glob pattern
+  pattern: string
   strategy: CacheStrategy
-  ttl: number // seconds
-  staleWhileRevalidate?: number // seconds
-  staleIfError?: number // seconds
-  varyHeaders?: string[] // Headers to vary cache by
-  bypassCookie?: string // Cookie that bypasses cache
-  tags?: string[] // Cache tags for invalidation
+  ttl: number
+  staleWhileRevalidate?: number
+  staleIfError?: number
+  varyHeaders?: string[]
+  bypassCookie?: string
+  tags?: string[]
 }
 
 export interface CacheConfig {
@@ -222,8 +193,8 @@ export interface CacheConfig {
   rules: CacheRule[]
   ttlConfig: CacheTTLConfig
   respectOriginHeaders: boolean
-  cachePrivate: boolean // Cache responses with private directive
-  cacheAuthenticated: boolean // Cache authenticated requests
+  cachePrivate: boolean
+  cacheAuthenticated: boolean
 }
 
 export const DEFAULT_CACHE_RULES: CacheRule[] = [
@@ -284,14 +255,10 @@ export const DEFAULT_CACHE_RULES: CacheRule[] = [
   { pattern: '/site.webmanifest', strategy: 'static', ttl: 86400 },
 ]
 
-// ============================================================================
-// Edge Node Types
-// ============================================================================
-
 export interface EdgeNode {
   nodeId: string
-  address: string // Ethereum address of operator
-  endpoint: string // Edge node URL
+  address: string
+  endpoint: string
   region: CDNRegion
   location: GeoLocation
   providerType: CDNProviderType
@@ -300,7 +267,7 @@ export interface EdgeNode {
   metrics: EdgeNodeMetrics
   registeredAt: number
   lastSeen: number
-  agentId: number // ERC-8004 agent ID
+  agentId: number
 }
 
 export const EdgeNodeStatusSchema = z.enum([
@@ -313,19 +280,19 @@ export const EdgeNodeStatusSchema = z.enum([
 export type EdgeNodeStatus = z.infer<typeof EdgeNodeStatusSchema>
 
 export interface EdgeNodeMetrics {
-  currentLoad: number // 0-100
-  memoryUsage: number // 0-100
-  diskUsage: number // 0-100
-  bandwidthUsage: number // Mbps
+  currentLoad: number
+  memoryUsage: number
+  diskUsage: number
+  bandwidthUsage: number
   activeConnections: number
   requestsPerSecond: number
   bytesServedTotal: bigint
   requestsTotal: bigint
-  cacheSize: number // bytes
+  cacheSize: number
   cacheEntries: number
-  cacheHitRate: number // 0-100
-  avgResponseTime: number // ms
-  errorRate: number // 0-100
+  cacheHitRate: number
+  avgResponseTime: number
+  errorRate: number
   lastUpdated: number
 }
 
@@ -344,9 +311,7 @@ export interface EdgeNodeConfig {
   rateLimits: RateLimitConfig
 }
 
-// ============================================================================
 // Origin Configuration
-// ============================================================================
 
 export interface OriginConfig {
   name: string
@@ -377,9 +342,7 @@ export interface HealthCheckConfig {
   unhealthyThreshold: number
 }
 
-// ============================================================================
 // Request/Response Types
-// ============================================================================
 
 export interface CDNRequest {
   requestId: string
@@ -420,9 +383,7 @@ export const CacheStatusSchema = z.enum([
 ])
 export type CacheStatus = z.infer<typeof CacheStatusSchema>
 
-// ============================================================================
 // Rate Limiting
-// ============================================================================
 
 export interface RateLimitConfig {
   enabled: boolean
@@ -444,9 +405,7 @@ export interface RateLimitRule {
   action: 'block' | 'throttle' | 'log'
 }
 
-// ============================================================================
 // Cache Invalidation
-// ============================================================================
 
 export interface InvalidationRequest {
   requestId: string
@@ -477,9 +436,7 @@ export interface InvalidationError {
   retryable: boolean
 }
 
-// ============================================================================
 // Warmup/Prefetch
-// ============================================================================
 
 export interface WarmupRequest {
   requestId: string
@@ -508,9 +465,7 @@ export interface WarmupError {
   statusCode?: number
 }
 
-// ============================================================================
 // Billing and Metering
-// ============================================================================
 
 export interface CDNUsageRecord {
   recordId: string
@@ -548,9 +503,7 @@ export interface CDNBillingRecord {
   txHash?: string
 }
 
-// ============================================================================
 // Site/App Configuration
-// ============================================================================
 
 export interface CDNSiteConfig {
   siteId: string
@@ -627,9 +580,7 @@ export interface SecurityConfig {
   geoBlocking?: string[] // Blocked country codes
 }
 
-// ============================================================================
 // SDK Configuration
-// ============================================================================
 
 export interface CDNSDKConfig {
   rpcUrl: string
@@ -654,9 +605,7 @@ export interface CDNDeployConfig {
   invalidate?: boolean // Invalidate on deploy
 }
 
-// ============================================================================
 // Events
-// ============================================================================
 
 export interface CDNNodeRegisteredEvent {
   nodeId: string
@@ -702,9 +651,7 @@ export interface CDNSettlementEvent {
   timestamp: number
 }
 
-// ============================================================================
 // Integration Types (External Providers)
-// ============================================================================
 
 export interface CloudFrontConfig {
   distributionId: string
@@ -740,9 +687,7 @@ export interface AIOZConfig {
   endpoint: string
 }
 
-// ============================================================================
 // API Types
-// ============================================================================
 
 export interface CDNDeployRequest {
   siteId?: string // Existing site to update

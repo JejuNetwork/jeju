@@ -13,9 +13,7 @@ import { Elysia } from 'elysia'
 
 const PORT = parseInt(process.env.PORT ?? '4098', 10)
 
-// ============================================================================
 // LRU Cache Implementation (DWS-style)
-// ============================================================================
 
 interface CacheEntry<T> {
   value: T
@@ -117,9 +115,7 @@ class LRUCache<T> {
   }
 }
 
-// ============================================================================
 // Caches for Different Data Types
-// ============================================================================
 
 // Cache for search results (60s TTL, 30s stale window)
 const searchCache = new LRUCache<{ query: string; results: unknown[] }>(
@@ -145,9 +141,7 @@ const computeCache = new LRUCache<{ computed: number }>(
   60000,
 )
 
-// ============================================================================
 // Simulated DB & Compute
-// ============================================================================
 
 const simulateDbQuery = (ms: number = 10) =>
   new Promise<void>((resolve) => setTimeout(resolve, ms))
@@ -170,9 +164,7 @@ async function coalesceRequest<T>(
   return promise
 }
 
-// ============================================================================
 // Metrics Tracking
-// ============================================================================
 
 const metrics = {
   requests: 0,
@@ -210,9 +202,7 @@ function trackEndpoint(path: string, latency: number, cached: boolean) {
   metrics.endpoints.set(path, existing)
 }
 
-// ============================================================================
 // Cached Server
-// ============================================================================
 
 const app = new Elysia()
   .onRequest(() => {
@@ -245,9 +235,7 @@ const app = new Elysia()
     },
   }))
 
-  // ============================================================================
   // Cached Endpoints
-  // ============================================================================
 
   // Fast endpoint - NOW CACHED to eliminate even small DB latency
   .get('/api/fast', async () => {
@@ -499,9 +487,7 @@ const app = new Elysia()
     }
   })
 
-  // ============================================================================
   // Cache Management Endpoints
-  // ============================================================================
 
   .get('/cache/stats', () => ({
     search: searchCache.getStats(),
@@ -530,9 +516,7 @@ const app = new Elysia()
     return { success: true, entriesPurged: purged }
   })
 
-  // ============================================================================
   // Metrics
-  // ============================================================================
 
   .get('/metrics', () => {
     const uptime = (Date.now() - metrics.startTime) / 1000

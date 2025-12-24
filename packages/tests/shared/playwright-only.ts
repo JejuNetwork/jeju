@@ -1,8 +1,7 @@
 /**
- * @jejunetwork/tests/playwright-only
+ * Playwright utilities (internal module)
  *
  * Playwright utilities that DON'T require synpress.
- * Use this for standard Playwright tests without wallet integration.
  */
 
 // Constants

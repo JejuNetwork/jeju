@@ -21,13 +21,12 @@ import {
   createPublicClient,
   createWalletClient,
   formatEther,
-  getBalance,
   http,
   parseAbi,
   parseEther,
-  waitForTransactionReceipt,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
+import { waitForTransactionReceipt } from 'viem/actions'
 import { inferChainFromRpcUrl } from '../shared/chain-utils'
 
 const ROOT = join(import.meta.dir, '../../../..')
@@ -122,7 +121,7 @@ async function checkBalance(
     chain: chainObj,
     transport: http(config.rpcUrl),
   })
-  const balance = await getBalance(publicClient, { address })
+  const balance = await publicClient.getBalance({ address })
 
   return {
     network,
@@ -133,7 +132,7 @@ async function checkBalance(
   }
 }
 
-async function checkAllBalances(address: string): Promise<BalanceInfo[]> {
+async function checkAllBalances(address: Address): Promise<BalanceInfo[]> {
   console.log('\n📊 Checking balances across all testnets...\n')
 
   const results: BalanceInfo[] = []
@@ -248,7 +247,7 @@ async function bridgeToL2s(privateKey: `0x${string}`, amountPerChain: string) {
   })
   const account = privateKeyToAccount(privateKey)
 
-  const sepoliaBalance = await getBalance(publicClient, {
+  const sepoliaBalance = await publicClient.getBalance({
     address: account.address,
   })
   const requiredAmount = parseEther(amountPerChain) * 3n + parseEther('0.05') // 3 chains + gas
@@ -402,12 +401,12 @@ async function main() {
       console.log('\n⏳ Waiting 30 seconds for bridges to process...')
       await new Promise((resolve) => setTimeout(resolve, 30000))
 
-      await checkAllBalances(deployer.address)
+      await checkAllBalances(deployer.address as Address)
     } else {
       console.log(
         '\n❌ Insufficient Sepolia balance for bridging (need > 0.1 ETH)',
       )
-      printFaucetLinks(deployer.address)
+      printFaucetLinks(deployer.address as Address)
     }
   } else if (
     sepoliaBalance?.hasFunds &&

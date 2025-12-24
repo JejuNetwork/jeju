@@ -9,7 +9,7 @@
  * Lower risk than sandwich since we're not frontrunning.
  */
 
-import { EventEmitter } from 'node:events'
+import { EventEmitter } from '@jejunetwork/shared'
 import {
   type Address,
   encodeFunctionData,
@@ -174,82 +174,83 @@ export class BackrunStrategy extends EventEmitter {
     for (const targetPool of this.config.targetDexes) {
       if (targetPool === trade.pool) continue
 
-      try {
-        const [token0, token1, reserves] = await Promise.all([
-          this.client.readContract({
-            address: targetPool,
-            abi: UNISWAP_V2_PAIR_ABI,
-            functionName: 'token0',
-          }),
-          this.client.readContract({
-            address: targetPool,
-            abi: UNISWAP_V2_PAIR_ABI,
-            functionName: 'token1',
-          }),
-          this.client.readContract({
-            address: targetPool,
-            abi: UNISWAP_V2_PAIR_ABI,
-            functionName: 'getReserves',
-          }),
-        ])
+      const poolData = await Promise.all([
+        this.client.readContract({
+          address: targetPool,
+          abi: UNISWAP_V2_PAIR_ABI,
+          functionName: 'token0',
+        }),
+        this.client.readContract({
+          address: targetPool,
+          abi: UNISWAP_V2_PAIR_ABI,
+          functionName: 'token1',
+        }),
+        this.client.readContract({
+          address: targetPool,
+          abi: UNISWAP_V2_PAIR_ABI,
+          functionName: 'getReserves',
+        }),
+      ]).catch(() => null)
 
-        // Check if this pool has the tokens we need
-        if (
-          (token0 === trade.tokenOut && token1 === trade.tokenIn) ||
-          (token1 === trade.tokenOut && token0 === trade.tokenIn)
-        ) {
-          // Calculate potential profit
-          const [reserve0, reserve1] = reserves
-          const isForward = token0 === trade.tokenOut
+      if (!poolData) continue
+      const [token0, token1, reserves] = poolData
 
-          // Get source pool reserves
-          const sourceReserves = await this.client.readContract({
-            address: trade.pool,
-            abi: UNISWAP_V2_PAIR_ABI,
-            functionName: 'getReserves',
-          })
+      // Check if this pool has the tokens we need
+      if (
+        (token0 === trade.tokenOut && token1 === trade.tokenIn) ||
+        (token1 === trade.tokenOut && token0 === trade.tokenIn)
+      ) {
+        // Calculate potential profit
+        const [reserve0, reserve1] = reserves
+        const isForward = token0 === trade.tokenOut
 
-          // Calculate price difference
-          const sourcePrice = isForward
-            ? Number(sourceReserves[0]) / Number(sourceReserves[1])
-            : Number(sourceReserves[1]) / Number(sourceReserves[0])
+        // Get source pool reserves
+        const sourceReserves = await this.client.readContract({
+          address: trade.pool,
+          abi: UNISWAP_V2_PAIR_ABI,
+          functionName: 'getReserves',
+        })
 
-          const targetPrice = isForward
-            ? Number(reserve0) / Number(reserve1)
-            : Number(reserve1) / Number(reserve0)
+        // Calculate price difference
+        const sourcePrice = isForward
+          ? Number(sourceReserves[0]) / Number(sourceReserves[1])
+          : Number(sourceReserves[1]) / Number(sourceReserves[0])
 
-          const priceDiff = Math.abs(sourcePrice - targetPrice) / sourcePrice
+        const targetPrice = isForward
+          ? Number(reserve0) / Number(reserve1)
+          : Number(reserve1) / Number(reserve0)
 
-          if (priceDiff > 0.001) {
-            // 0.1% minimum spread
-            // Estimate optimal trade size
-            const optimalAmount = this.calculateOptimalAmount(
-              sourceReserves[0],
-              sourceReserves[1],
-              reserve0,
-              reserve1,
-            )
+        const priceDiff = Math.abs(sourcePrice - targetPrice) / sourcePrice
 
-            const expectedProfit =
-              (optimalAmount * BigInt(Math.floor(priceDiff * 10000))) / 10000n
+        if (priceDiff > 0.001) {
+          // 0.1% minimum spread
+          // Estimate optimal trade size
+          const optimalAmount = this.calculateOptimalAmount(
+            sourceReserves[0],
+            sourceReserves[1],
+            reserve0,
+            reserve1,
+          )
 
-            if (
-              (Number(expectedProfit) / 1e18) * 3500 >
-              this.config.minProfitUsd
-            ) {
-              return {
-                sourcePool: trade.pool,
-                targetPool,
-                tokenIn: trade.tokenIn,
-                tokenMid: trade.tokenOut,
-                tokenOut: trade.tokenIn,
-                expectedProfit,
-                gasEstimate: 300000n,
-              }
+          const expectedProfit =
+            (optimalAmount * BigInt(Math.floor(priceDiff * 10000))) / 10000n
+
+          if (
+            (Number(expectedProfit) / 1e18) * 3500 >
+            this.config.minProfitUsd
+          ) {
+            return {
+              sourcePool: trade.pool,
+              targetPool,
+              tokenIn: trade.tokenIn,
+              tokenMid: trade.tokenOut,
+              tokenOut: trade.tokenIn,
+              expectedProfit,
+              gasEstimate: 300000n,
             }
           }
         }
-      } catch {}
+      }
     }
 
     return null

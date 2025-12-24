@@ -5,7 +5,7 @@
  * Replaces HTTP polling for 50-100ms latency reduction.
  */
 
-import { EventEmitter } from 'node:events'
+import { EventEmitter } from '@jejunetwork/shared'
 import {
   type Block,
   type Chain,
@@ -16,8 +16,6 @@ import {
 } from 'viem'
 import { arbitrum, base, bsc, mainnet, optimism } from 'viem/chains'
 import type WebSocket from 'ws'
-
-// ============ Types ============
 
 interface BlockSubscription {
   chainId: number
@@ -51,9 +49,6 @@ interface SubscriberConfig {
   onError?: (chainId: number, error: Error) => void
   onReconnect?: (chainId: number, attempt: number) => void
 }
-
-// ============ Constants ============
-
 const CHAINS: Record<number, Chain> = {
   1: mainnet,
   8453: base,
@@ -69,9 +64,6 @@ const DEFAULT_WS_URLS: Record<number, string> = {
   10: 'wss://opt-mainnet.g.alchemy.com/v2/demo',
   56: 'wss://bsc-mainnet.nodereal.io/ws/v1/demo',
 }
-
-// ============ WebSocket Subscriber ============
-
 export class WebSocketBlockSubscriber extends EventEmitter {
   private subscriptions: Map<number, BlockSubscription> = new Map()
   private config: SubscriberConfig
@@ -343,9 +335,6 @@ export class WebSocketBlockSubscriber extends EventEmitter {
     }, delay)
   }
 }
-
-// ============ Factory Function ============
-
 export function createBlockSubscriber(
   config: Partial<SubscriberConfig> & { onBlock: (event: BlockEvent) => void },
 ): WebSocketBlockSubscriber {

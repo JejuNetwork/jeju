@@ -27,6 +27,17 @@ Storage:
   SyncWrites: true
   MaxTableSize: 104857600
 
+# SQLite Extensions (loaded automatically via Go bindings)
+SQLiteExtensions:
+  # sqlite-vec provides vector similarity search
+  # - vec0 virtual tables for KNN search
+  # - Supports float32, int8, and bit vector types
+  # - L2, cosine, and L1 distance metrics
+  VectorSearch:
+    Enable: true
+    # Default chunk size for quantized search (in bytes)
+    ChunkSize: 65536
+
 # Replication configuration
 Replication:
   Enable: true

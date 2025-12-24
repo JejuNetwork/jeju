@@ -1,12 +1,7 @@
-/**
- * jeju apps - List and manage apps
- */
+/** List and manage apps */
 
 import { Command } from 'commander'
-import {
-  discoverAllApps,
-  displayAppsSummary,
-} from '../../../../packages/deployment/scripts/shared/discover-apps'
+import { discoverAllApps, displayAppsSummary } from '../lib/discover-apps'
 import { logger } from '../lib/logger'
 
 export const appsCommand = new Command('apps')

@@ -2,7 +2,6 @@
  * Integration Test Setup for Eliza Plugin
  *
  * Auto-starts chain and services for integration tests.
- * Re-exports from SDK test setup for consistency.
  */
 
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
@@ -13,7 +12,7 @@ import {
   getL1RpcUrl,
   getL2RpcUrl,
   INFRA_PORTS,
-} from '@jejunetwork/config/ports'
+} from '@jejunetwork/config'
 import { execa } from 'execa'
 import type { Hex } from 'viem'
 import { z } from 'zod'

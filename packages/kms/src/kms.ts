@@ -2,6 +2,7 @@
  * Network KMS - Unified key management via Encryption, TEE, and MPC providers
  */
 
+import { getEnv, getEnvNumber } from '@jejunetwork/shared'
 import type { Address } from 'viem'
 import { kmsLogger as log } from './logger.js'
 import {
@@ -10,11 +11,7 @@ import {
 } from './providers/encryption-provider.js'
 import { getMPCProvider, MPCProvider } from './providers/mpc-provider.js'
 import { getTEEProvider, TEEProvider } from './providers/tee-provider.js'
-import {
-  generateKeyOptionsSchema,
-  parseEnvInt,
-  validateOrThrow,
-} from './schemas.js'
+import { generateKeyOptionsSchema, validateOrThrow } from './schemas.js'
 import {
   type AccessControlPolicy,
   type AuthSignature,
@@ -245,26 +242,28 @@ let kmsService: KMSService | undefined
 
 function buildKMSConfig(config?: Partial<KMSConfig>): KMSConfig {
   const encryptionConfig = config?.providers?.encryption ?? {
-    debug: process.env.KMS_DEBUG === 'true',
+    debug: getEnv('KMS_DEBUG') === 'true',
   }
 
   let teeConfig = config?.providers?.tee
-  if (!teeConfig && process.env.TEE_ENDPOINT) {
-    teeConfig = { endpoint: process.env.TEE_ENDPOINT }
+  const teeEndpoint = getEnv('TEE_ENDPOINT')
+  if (!teeConfig && teeEndpoint) {
+    teeConfig = { endpoint: teeEndpoint }
   }
 
   let mpcConfig = config?.providers?.mpc
-  if (!mpcConfig && process.env.MPC_COORDINATOR_ENDPOINT) {
-    const threshold = parseEnvInt(process.env.MPC_THRESHOLD, 2)
-    const totalParties = parseEnvInt(process.env.MPC_TOTAL_PARTIES, 3)
+  const mpcCoordinatorEndpoint = getEnv('MPC_COORDINATOR_ENDPOINT')
+  if (!mpcConfig && mpcCoordinatorEndpoint) {
+    const threshold = getEnvNumber('MPC_THRESHOLD', 2)
+    const totalParties = getEnvNumber('MPC_TOTAL_PARTIES', 3)
     mpcConfig = {
       threshold,
       totalParties,
-      coordinatorEndpoint: process.env.MPC_COORDINATOR_ENDPOINT,
+      coordinatorEndpoint: mpcCoordinatorEndpoint,
     }
   }
 
-  const defaultProviderEnv = process.env.KMS_DEFAULT_PROVIDER
+  const defaultProviderEnv = getEnv('KMS_DEFAULT_PROVIDER')
   let defaultProvider: KMSProviderType
   if (config?.defaultProvider) {
     defaultProvider = config.defaultProvider
@@ -279,7 +278,7 @@ function buildKMSConfig(config?: Partial<KMSConfig>): KMSConfig {
   }
 
   const defaultChain =
-    config?.defaultChain ?? process.env.KMS_DEFAULT_CHAIN ?? 'base-sepolia'
+    config?.defaultChain ?? getEnv('KMS_DEFAULT_CHAIN') ?? 'base-sepolia'
 
   return {
     providers: { encryption: encryptionConfig, tee: teeConfig, mpc: mpcConfig },

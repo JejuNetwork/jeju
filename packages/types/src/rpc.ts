@@ -1,20 +1,10 @@
 /**
- * @fileoverview JSON-RPC Types and Schemas
- *
- * Provides Zod schemas for JSON-RPC 2.0 protocol types,
- * including request/response validation and chain-specific schemas.
+ * JSON-RPC 2.0 types and schemas.
  */
 
 import { z } from 'zod'
 import { HexSchema, type JsonValue } from './validation'
 
-// ============================================================================
-// JSON Value Schema
-// ============================================================================
-
-/**
- * JSON primitive values (non-recursive)
- */
 const JsonPrimitiveSchema = z.union([
   z.string(),
   z.number(),
@@ -22,10 +12,6 @@ const JsonPrimitiveSchema = z.union([
   z.null(),
 ])
 
-/**
- * Full JSON value schema with proper recursion handling for Zod
- * Validates any valid JSON value (primitives, arrays, objects)
- */
 export const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() => {
   const jsonValueUnion: z.ZodType<JsonValue> = z.union([
     JsonPrimitiveSchema,
@@ -35,30 +21,22 @@ export const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() => {
   return jsonValueUnion
 })
 
-// ============================================================================
-// Chain ID Schemas
-// ============================================================================
-
-/**
- * Supported EVM chain IDs
- * Use this for strict validation of supported chains
- */
 export const EvmChainIdSchema = z.union([
-  z.literal(1), // Ethereum Mainnet
-  z.literal(10), // Optimism
-  z.literal(56), // BSC
-  z.literal(137), // Polygon
-  z.literal(42161), // Arbitrum One
-  z.literal(43114), // Avalanche
-  z.literal(8453), // Base
-  z.literal(84532), // Base Sepolia
-  z.literal(11155111), // Sepolia
-  z.literal(11155420), // Optimism Sepolia
-  z.literal(421614), // Arbitrum Sepolia
-  z.literal(420690), // Jeju Testnet
-  z.literal(420691), // Jeju Mainnet
-  z.literal(1337), // Localnet
-  z.literal(31337), // Local EVM
+  z.literal(1),
+  z.literal(10),
+  z.literal(56),
+  z.literal(137),
+  z.literal(42161),
+  z.literal(43114),
+  z.literal(8453),
+  z.literal(84532),
+  z.literal(11155111),
+  z.literal(11155420),
+  z.literal(421614),
+  z.literal(420690),
+  z.literal(420691),
+  z.literal(1337),
+  z.literal(31337),
 ])
 export type EvmChainId = z.infer<typeof EvmChainIdSchema>
 
@@ -71,9 +49,7 @@ export const SolanaNetworkIdSchema = z.union([
 ])
 export type SolanaNetworkId = z.infer<typeof SolanaNetworkIdSchema>
 
-// ============================================================================
 // JSON-RPC 2.0 Schemas
-// ============================================================================
 
 /**
  * JSON-RPC 2.0 Request schema
@@ -121,9 +97,7 @@ export const JsonRpcResponseSchema = z.union([
 ])
 export type JsonRpcResponse = z.infer<typeof JsonRpcResponseSchema>
 
-// ============================================================================
 // Chain-Specific Response Schemas
-// ============================================================================
 
 /**
  * eth_chainId response schema
@@ -157,9 +131,7 @@ export const GetBalanceResponseSchema = JsonRpcSuccessResponseSchema.extend({
 })
 export type GetBalanceResponse = z.infer<typeof GetBalanceResponseSchema>
 
-// ============================================================================
 // Validation Helpers
-// ============================================================================
 
 /**
  * Parse and validate JSON-RPC chain ID response

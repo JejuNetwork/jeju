@@ -14,15 +14,35 @@
  * - PHALA_API_KEY: API key for Phala TEE
  */
 
-import { createRLAIFCoordinator } from '../../../../apps/dws/src/rlaif/coordinator'
-import { createRulerScorer } from '../../../../apps/dws/src/rlaif/ruler-scorer'
-import { createTrajectoryStore } from '../../../../apps/dws/src/rlaif/trajectory-store'
-import { RLAlgorithm, RLRunState } from '../../../../apps/dws/src/rlaif/types'
-import { trainingCommand } from '../../../../packages/cli/src/commands/training'
+import {
+  createRLAIFCoordinator,
+  createRulerScorer,
+  createTrajectoryStore,
+  RLAlgorithm,
+  RLRunState,
+} from '@jejunetwork/dws'
+import { z } from 'zod'
+import { trainingCommand } from '../../../cli/src/commands/training'
 
 const DWS_URL = process.env.DWS_URL || 'http://localhost:4030'
 const PHALA_ENDPOINT = process.env.PHALA_ENDPOINT
 const TIMEOUT = 5000
+
+// API response schemas
+const DwsHealthSchema = z.object({ status: z.string() })
+const RlaifHealthSchema = z.object({ service: z.string() })
+const RlaifRunCreatedSchema = z.object({ runId: z.string() })
+const RlaifRunStatusSchema = z.object({ state: z.number() })
+const TrainingResultSchema = z.object({
+  manifestCID: z.string().optional(),
+  trajectoryCount: z.number().optional(),
+})
+const PhalaHealthSchema = z.object({ enclave_id: z.string().optional() })
+const VendorExportsSchema = z.object({
+  BabylonJejuAdapter: z.unknown().optional(),
+  createBabylonJejuAdapter: z.unknown().optional(),
+  trainWithJejuRLAIF: z.unknown().optional(),
+})
 
 interface TestResult {
   name: string
@@ -62,7 +82,7 @@ async function main() {
       signal: AbortSignal.timeout(TIMEOUT),
     })
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
-    const health = await response.json()
+    const health = DwsHealthSchema.parse(await response.json())
     if (health.status !== 'ok') throw new Error(`Status: ${health.status}`)
   })
 
@@ -71,7 +91,7 @@ async function main() {
       signal: AbortSignal.timeout(TIMEOUT),
     })
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
-    const health = await response.json()
+    const health = RlaifHealthSchema.parse(await response.json())
     if (health.service !== 'rlaif') throw new Error('Wrong service')
   })
 
@@ -102,8 +122,7 @@ async function main() {
       signal: AbortSignal.timeout(TIMEOUT),
     })
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
-    const result = await response.json()
-    if (!result.runId) throw new Error('No runId returned')
+    const result = RlaifRunCreatedSchema.parse(await response.json())
     runId = result.runId
   })
 
@@ -113,8 +132,7 @@ async function main() {
       signal: AbortSignal.timeout(TIMEOUT),
     })
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
-    const run = await response.json()
-    if (run.state === undefined) throw new Error('No state in response')
+    RlaifRunStatusSchema.parse(await response.json())
   })
 
   // Test Trajectory Submission
@@ -169,7 +187,7 @@ async function main() {
       signal: AbortSignal.timeout(TIMEOUT),
     })
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
-    const result = await response.json()
+    const result = TrainingResultSchema.parse(await response.json())
     if (!result.manifestCID) throw new Error('No manifestCID returned')
     if (result.trajectoryCount !== 2) throw new Error('Wrong trajectory count')
   })
@@ -198,14 +216,14 @@ async function main() {
       throw new Error('Not a function')
   })
 
-  // Test Babylon Adapter
+  // Test Babylon Adapter (vendor - dynamic import required)
   console.log('\n5. Babylon Adapter Verification')
-  // Dynamic import for test isolation: verifies importability independently
-  // Tests that vendor module exports are accessible
   await test('Babylon adapter exports are available', async () => {
-    const exports = await import(
-      '../vendor/babylon/packages/training/src/compute/jeju-rlaif-adapter'
+    // Vendor modules require dynamic import for runtime resolution
+    const mod = await import(
+      '../../../../vendor/babylon/packages/training/src/compute/jeju-rlaif-adapter'
     )
+    const exports = VendorExportsSchema.parse(mod)
     if (!exports.BabylonJejuAdapter)
       throw new Error('BabylonJejuAdapter not exported')
     if (!exports.createBabylonJejuAdapter)
@@ -214,11 +232,12 @@ async function main() {
       throw new Error('trainWithJejuRLAIF not exported')
   })
 
-  // Dynamic import for test isolation: verifies importability independently
   await test('Babylon compute index exports adapter', async () => {
-    const exports = await import(
-      '../vendor/babylon/packages/training/src/compute/index'
+    // Vendor modules require dynamic import for runtime resolution
+    const mod = await import(
+      '../../../../vendor/babylon/packages/training/src/compute/index'
     )
+    const exports = VendorExportsSchema.parse(mod)
     if (!exports.BabylonJejuAdapter)
       throw new Error('BabylonJejuAdapter not in compute/index')
     if (!exports.trainWithJejuRLAIF)
@@ -242,7 +261,7 @@ async function main() {
         signal: AbortSignal.timeout(TIMEOUT),
       })
       if (!response.ok) throw new Error(`HTTP ${response.status}`)
-      const health = await response.json()
+      const health = PhalaHealthSchema.parse(await response.json())
       console.log(`     Enclave ID: ${health.enclave_id ?? 'unknown'}`)
     })
 

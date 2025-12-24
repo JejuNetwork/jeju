@@ -5,6 +5,7 @@
 import type {
   Action,
   HandlerCallback,
+  HandlerOptions,
   IAgentRuntime,
   Memory,
   State,
@@ -31,7 +32,7 @@ export const createProposalAction: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options?: Record<string, unknown>,
+    _options?: HandlerOptions,
     callback?: HandlerCallback,
   ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
@@ -115,7 +116,7 @@ export const voteAction: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options?: Record<string, unknown>,
+    _options?: HandlerOptions,
     callback?: HandlerCallback,
   ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService

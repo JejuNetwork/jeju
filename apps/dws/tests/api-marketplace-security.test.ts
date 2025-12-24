@@ -45,9 +45,7 @@ import {
 const TEST_USER: Address = '0x1234567890123456789012345678901234567890'
 const TEST_SELLER: Address = '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd'
 
-// ============================================================================
 // Key Leakage Prevention Tests
-// ============================================================================
 
 describe('Key Leakage Prevention', () => {
   const sensitiveKeys = [
@@ -243,9 +241,7 @@ describe('Key Leakage Prevention', () => {
   })
 })
 
-// ============================================================================
 // Access Control Bypass Tests
-// ============================================================================
 
 describe('Access Control Bypass Prevention', () => {
   describe('Domain Bypass Attempts', () => {
@@ -396,9 +392,7 @@ describe('Access Control Bypass Prevention', () => {
   })
 })
 
-// ============================================================================
 // Key Vault Security Tests
-// ============================================================================
 
 describe('Key Vault Security', () => {
   test('should not expose encrypted key data in metadata', () => {
@@ -455,9 +449,7 @@ describe('Key Vault Security', () => {
   })
 })
 
-// ============================================================================
 // Injection Attack Prevention
-// ============================================================================
 
 describe('Injection Attack Prevention', () => {
   test('should handle malicious JSON in sanitization', () => {
@@ -513,9 +505,7 @@ describe('Injection Attack Prevention', () => {
   })
 })
 
-// ============================================================================
 // Full Flow Security Tests (require CQL)
-// ============================================================================
 
 describe.skipIf(!CQL_AVAILABLE)('Full Flow Security', () => {
   test('should prevent key exposure in complete proxy flow', () => {
@@ -576,9 +566,7 @@ describe.skipIf(!CQL_AVAILABLE)('Full Flow Security', () => {
   )
 })
 
-// ============================================================================
 // Edge Cases
-// ============================================================================
 
 describe('Security Edge Cases', () => {
   test('should handle empty strings', () => {

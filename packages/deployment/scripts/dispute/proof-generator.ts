@@ -14,18 +14,15 @@
 import {
   type Address,
   concat,
-  createPublicClient,
   decodeAbiParameters,
   encodeAbiParameters,
   type Hex,
   hashMessage,
-  http,
   keccak256,
   pad,
   recoverAddress,
 } from 'viem'
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
-import { inferChainFromRpcUrl } from '../shared/chain-utils'
 import {
   CannonInterface,
   type CannonProofData,
@@ -36,9 +33,6 @@ import {
   type L2StateSnapshot,
   StateFetcher,
 } from './state-fetcher'
-
-// ============ Types ============
-
 export interface ProofData {
   version: number
   proofType: number
@@ -75,29 +69,14 @@ const PROOF_TYPE = {
 } as const
 
 const PROOF_VERSION = 1
-
-// ============ Proof Generator ============
-
 export class FraudProofGenerator {
   private stateFetcher: StateFetcher | null
   private cannonInterface: CannonInterface
 
-  constructor(l1RpcUrl: string, l2RpcUrl?: string) {
-    const l1Chain = inferChainFromRpcUrl(l1RpcUrl)
-    this.l1PublicClient = createPublicClient({
-      chain: l1Chain,
-      transport: http(l1RpcUrl),
-    })
-
+  constructor(_l1RpcUrl: string, l2RpcUrl?: string) {
     if (l2RpcUrl) {
-      const l2Chain = inferChainFromRpcUrl(l2RpcUrl)
-      this.l2PublicClient = createPublicClient({
-        chain: l2Chain,
-        transport: http(l2RpcUrl),
-      })
       this.stateFetcher = new StateFetcher(l2RpcUrl)
     } else {
-      this.l2PublicClient = null
       this.stateFetcher = null
     }
 
@@ -730,9 +709,6 @@ export class FraudProofGenerator {
       ],
     )
   }
-
-  // ============ Internal Methods ============
-
   private createMockInitialState(stateRoot: Hex): MIPSState {
     return {
       memRoot: stateRoot,
@@ -865,9 +841,6 @@ export class FraudProofGenerator {
     }
   }
 }
-
-// ============ CLI ============
-
 async function main(): Promise<void> {
   console.log('🔐 Fraud Proof Generator')
   console.log('='.repeat(50))
@@ -953,4 +926,4 @@ if (import.meta.main) {
   main().catch(console.error)
 }
 
-export type { CannonProof, ProofData, StateVerification }
+// Types are already exported above

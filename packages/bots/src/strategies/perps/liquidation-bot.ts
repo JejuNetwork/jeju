@@ -106,9 +106,9 @@ export class LiquidationBot {
     const query = `
       query GetOpenPositions($markets: [String!]!, $limit: Int!) {
         positions(
-          where: { 
-            marketId_in: $markets, 
-            isOpen_eq: true 
+          where: {
+            marketId_in: $markets,
+            isOpen_eq: true
           }
           limit: $limit
           orderBy: margin_ASC

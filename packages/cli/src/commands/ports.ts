@@ -1,6 +1,4 @@
-/**
- * jeju ports - Check port configuration
- */
+/** Check port configuration */
 
 import {
   CORE_PORTS,

@@ -1,10 +1,4 @@
-/**
- * jeju fund - Fund development accounts
- *
- * Security notes:
- * - Addresses are validated before use
- * - Amounts are validated and bounded
- */
+/** Fund development accounts */
 
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
@@ -73,7 +67,6 @@ async function fundAddress(
   address: string,
   amountEth: string,
 ): Promise<boolean> {
-  // Validate address using security utility
   let validAddress: `0x${string}`
   try {
     validAddress = validateAddress(address)
@@ -82,7 +75,6 @@ async function fundAddress(
     return false
   }
 
-  // Validate amount
   const amountNum = parseFloat(amountEth)
   if (Number.isNaN(amountNum) || amountNum <= 0 || amountNum > 10000) {
     logger.error('Invalid amount: must be between 0 and 10000 ETH')

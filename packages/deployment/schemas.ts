@@ -5,12 +5,11 @@
  * These schemas provide fail-fast validation to catch configuration errors early.
  */
 
+import type { JsonValue } from '@jejunetwork/types'
 import type { Abi } from 'viem'
 import { z } from 'zod'
 
-// ============================================================================
 // Address Schemas
-// ============================================================================
 
 /**
  * Ethereum Address Schema - validates 0x-prefixed 40-character hex strings
@@ -42,9 +41,7 @@ export const PrivateKeySchema = z
   .string()
   .regex(/^0x[a-fA-F0-9]{64}$/, 'Invalid private key')
 
-// ============================================================================
 // Operator Key Schemas
-// ============================================================================
 
 /**
  * Single operator key entry
@@ -62,9 +59,7 @@ export type OperatorKey = z.infer<typeof OperatorKeySchema>
 export const OperatorKeysArraySchema = z.array(OperatorKeySchema)
 export type OperatorKeysArray = z.infer<typeof OperatorKeysArraySchema>
 
-// ============================================================================
 // Deploy Config Schemas
-// ============================================================================
 
 /**
  * Deploy config (testnet.json in deploy-config)
@@ -83,9 +78,7 @@ export const DeployConfigSchema = z
   .passthrough()
 export type DeployConfig = z.infer<typeof DeployConfigSchema>
 
-// ============================================================================
 // Deployment State Schemas
-// ============================================================================
 
 /**
  * op-deployer deployment entry
@@ -112,9 +105,7 @@ export const OpDeployerStateSchema = z
   .passthrough()
 export type OpDeployerState = z.infer<typeof OpDeployerStateSchema>
 
-// ============================================================================
 // DWS Contract Address Schemas
-// ============================================================================
 
 /**
  * DWS addresses file (addresses.json)
@@ -148,9 +139,7 @@ export const DwsDeploymentSchema = z.object({
 })
 export type DwsDeployment = z.infer<typeof DwsDeploymentSchema>
 
-// ============================================================================
 // Manifest Schemas
-// ============================================================================
 
 /**
  * Jeju manifest (jeju-manifest.json)
@@ -178,9 +167,7 @@ export const JejuManifestSchema = z
   .passthrough()
 export type JejuManifest = z.infer<typeof JejuManifestSchema>
 
-// ============================================================================
 // Package.json Schema (minimal for deployment)
-// ============================================================================
 
 /**
  * Minimal package.json schema for deployment scripts
@@ -195,9 +182,7 @@ export const PackageJsonSchema = z
   .passthrough()
 export type PackageJson = z.infer<typeof PackageJsonSchema>
 
-// ============================================================================
 // Governance Address Schema
-// ============================================================================
 
 /**
  * Deployed governance addresses (network addresses file)
@@ -216,9 +201,7 @@ export const GovernanceAddressesSchema = z
   .passthrough()
 export type GovernanceAddresses = z.infer<typeof GovernanceAddressesSchema>
 
-// ============================================================================
 // Forge Artifact Schema
-// ============================================================================
 
 /**
  * ABI parameter schema (for function/event inputs/outputs)
@@ -278,9 +261,7 @@ export const ForgeArtifactSchema = z
   .passthrough()
 export type ForgeArtifact = z.infer<typeof ForgeArtifactSchema>
 
-// ============================================================================
 // Payment Header Schema (x402)
-// ============================================================================
 
 /**
  * x402 payment payload from header
@@ -298,9 +279,7 @@ export const PaymentPayloadSchema = z.object({
 })
 export type PaymentPayload = z.infer<typeof PaymentPayloadSchema>
 
-// ============================================================================
 // Config Validation Schemas
-// ============================================================================
 
 /**
  * Chain config for validation
@@ -455,9 +434,7 @@ export type BrandingConfigValidation = z.infer<
   typeof BrandingConfigValidationSchema
 >
 
-// ============================================================================
 // Sequencer Request Schemas
-// ============================================================================
 
 /**
  * Threshold batcher sign request - security sensitive endpoint
@@ -467,9 +444,7 @@ export const SignRequestSchema = z.object({
 })
 export type SignRequest = z.infer<typeof SignRequestSchema>
 
-// ============================================================================
 // Raw Artifact Schema (Foundry/Forge output)
-// ============================================================================
 
 /**
  * Raw contract artifact JSON from Foundry compilation
@@ -500,9 +475,7 @@ export const RawArtifactJsonSchema = z.object({
 })
 export type RawArtifactJson = z.infer<typeof RawArtifactJsonSchema>
 
-// ============================================================================
 // Deployment State Schemas
-// ============================================================================
 
 /**
  * Deployment state for rollback operations
@@ -543,9 +516,7 @@ export const DAODeploymentConfigSchema = z.object({
 })
 export type DAODeploymentConfig = z.infer<typeof DAODeploymentConfigSchema>
 
-// ============================================================================
 // API Response Schemas
-// ============================================================================
 
 /**
  * GitHub release API response
@@ -570,35 +541,30 @@ export type JsonRpcBlockNumberResponse = z.infer<
 
 /**
  * JSON-compatible value schema (for polymorphic JSON-RPC results)
+ * Using local schema to match specific JsonRpcResponseSchema structure
  */
-const JsonValueSchema: z.ZodType<
-  string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
-> = z.lazy(() =>
+const LocalJsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
   z.union([
     z.string(),
     z.number(),
     z.boolean(),
     z.null(),
-    z.array(JsonValueSchema),
-    z.record(z.string(), JsonValueSchema),
+    z.array(LocalJsonValueSchema),
+    z.record(z.string(), LocalJsonValueSchema),
   ]),
 )
-type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | JsonValue[]
-  | { [key: string]: JsonValue }
 
 /**
  * Generic JSON-RPC response (for any method)
+ * Note: Uses simplified schema for deployment validation
  */
-export const JsonRpcResponseSchema = z.object({
-  result: JsonValueSchema.optional(),
+export const DeploymentJsonRpcResponseSchema = z.object({
+  result: LocalJsonValueSchema.optional(),
   error: z.object({ message: z.string() }).optional(),
 })
-export type JsonRpcResponse = z.infer<typeof JsonRpcResponseSchema>
+export type DeploymentJsonRpcResponse = z.infer<
+  typeof DeploymentJsonRpcResponseSchema
+>
 
 /**
  * Minimal chain config schema (just rpcUrl for readiness checks)
@@ -890,9 +856,7 @@ export const IPFSAddResponseLineSchema = z.object({
 })
 export type IPFSAddResponseLine = z.infer<typeof IPFSAddResponseLineSchema>
 
-// ============================================================================
 // Validation Helpers
-// ============================================================================
 
 /**
  * Validate JSON string against schema, throwing on failure

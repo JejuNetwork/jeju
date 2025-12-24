@@ -15,9 +15,7 @@ import type { Hex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { CIDUploadResponseSchema, expectValid } from '../../schemas'
 
-// ============================================================================
 // Configuration
-// ============================================================================
 
 interface FrontendManifest {
   name: string
@@ -76,9 +74,7 @@ const MIME_TYPES: Record<string, string> = {
   '.webmanifest': 'application/manifest+json',
 }
 
-// ============================================================================
 // Uploader Class
-// ============================================================================
 
 class FrontendUploader {
   private dwsEndpoint: string
@@ -311,7 +307,7 @@ class FrontendUploader {
     contentType: string,
   ): Promise<string> {
     const formData = new FormData()
-    const blob = new Blob([content], { type: contentType })
+    const blob = new Blob([new Uint8Array(content)], { type: contentType })
     formData.append('file', blob, filename)
     formData.append('permanent', 'true')
 
@@ -400,9 +396,7 @@ class FrontendUploader {
   }
 }
 
-// ============================================================================
 // CLI Entry Point
-// ============================================================================
 
 async function main() {
   const network = (process.argv[2] || 'testnet') as 'testnet' | 'mainnet'

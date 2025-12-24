@@ -1,27 +1,20 @@
-/**
- * Build script for the Factory client
- *
- * Handles browser bundling with proper externalization of Node.js builtins
- */
+/** Factory Client Build */
 
 import { existsSync, mkdirSync, rmSync } from 'node:fs'
 
 const outdir = 'dist/client'
 
-// Clean output directory
 if (existsSync(outdir)) {
   rmSync(outdir, { recursive: true })
 }
 mkdirSync(outdir, { recursive: true })
 
-// Build the client
 const result = await Bun.build({
-  entrypoints: ['./src/client/index.html'],
+  entrypoints: ['./web/index.html'],
   outdir,
   minify: process.env.NODE_ENV === 'production',
   sourcemap: 'linked',
   target: 'browser',
-  // Mark Node.js builtins as external - they won't be used in browser
   external: [
     'node:*',
     'fs',

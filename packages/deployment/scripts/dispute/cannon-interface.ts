@@ -291,7 +291,46 @@ export class CannonInterface {
       return `0x${unsigned.toString(16).padStart(8, '0')}` as Hex
     }
 
-    const registersHex = state.registers.map((r) => toUint32Hex(r))
+    // MIPS has exactly 32 registers - convert to hex tuple for ABI encoding
+    if (state.registers.length !== 32) {
+      throw new Error(`Expected 32 registers, got ${state.registers.length}`)
+    }
+    // Convert registers to hex and build fixed-length tuple explicitly
+    const r = state.registers.map((reg) => toUint32Hex(reg))
+    const registersHex = [
+      r[0],
+      r[1],
+      r[2],
+      r[3],
+      r[4],
+      r[5],
+      r[6],
+      r[7],
+      r[8],
+      r[9],
+      r[10],
+      r[11],
+      r[12],
+      r[13],
+      r[14],
+      r[15],
+      r[16],
+      r[17],
+      r[18],
+      r[19],
+      r[20],
+      r[21],
+      r[22],
+      r[23],
+      r[24],
+      r[25],
+      r[26],
+      r[27],
+      r[28],
+      r[29],
+      r[30],
+      r[31],
+    ] as const
 
     return encodeAbiParameters(
       [
@@ -320,7 +359,7 @@ export class CannonInterface {
         state.exitCode,
         state.exited,
         state.step,
-        registersHex as [Hex, ...Hex[]],
+        registersHex,
       ],
     )
   }

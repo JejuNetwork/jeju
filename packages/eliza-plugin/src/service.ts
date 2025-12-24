@@ -155,9 +155,7 @@ export class JejuService extends Service {
   }
 }
 
-// ============================================================
 // Standalone service for testing (without Eliza runtime)
-// ============================================================
 
 let standaloneService: StandaloneJejuService | null = null
 

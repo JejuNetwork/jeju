@@ -1,21 +1,11 @@
 /**
- * Fundamental Prediction Environment for Jeju Training
- *
- * Adapted from Nous Research's Atropos fundamental_prediction_environment.py
- * for TypeScript and Jeju's distributed training infrastructure.
- *
- * This environment trains models to predict company fundamental metrics
- * (earnings, revenue, etc.) based on financial data and news.
+ * Fundamental prediction environment for financial metric training.
  */
 
 import { HfInference } from '@huggingface/inference'
 import { expectValid } from '@jejunetwork/types'
 import { z } from 'zod'
 import { CompletionResponseSchema } from '../schemas'
-
-// ============================================================================
-// Types
-// ============================================================================
 
 export interface EnvConfig {
   tokenizerName: string
@@ -67,9 +57,7 @@ export interface CompletionResult {
   choices: Completion[]
 }
 
-// ============================================================================
 // Prompts
-// ============================================================================
 
 const SYSTEM_PROMPT = `You are a deep thinking AI financial analyst.
 You may use extremely long chains of thought to deeply consider the problem and deliberate with yourself via systematic reasoning processes to help come to a correct solution prior to answering.
@@ -90,9 +78,7 @@ Here is the data to analyze:
 ${context}`
 }
 
-// ============================================================================
 // Dataset Schemas
-// ============================================================================
 
 /** Schema for validating dataset items */
 const DatasetItemSchema = z.object({
@@ -232,9 +218,7 @@ Macro: ${macro}`,
   return items
 }
 
-// ============================================================================
 // Scoring
-// ============================================================================
 
 function extractPrediction(
   text: string,
@@ -312,9 +296,7 @@ function calculateMagnitudeScore(
   return 0.0
 }
 
-// ============================================================================
 // Fundamental Prediction Environment
-// ============================================================================
 
 export class FundamentalPredictionEnv {
   private config: EnvConfig
@@ -686,9 +668,7 @@ export class FundamentalPredictionEnv {
   }
 }
 
-// ============================================================================
 // Factory
-// ============================================================================
 
 export function createFundamentalPredictionEnv(
   config?: Partial<EnvConfig>,

@@ -24,26 +24,21 @@ import {
   type Address,
   createPublicClient,
   createWalletClient,
-  decodeEventLog,
   encodePacked,
   formatEther,
-  getBalance,
-  getLogs,
   http,
   type PublicClient,
   parseAbi,
-  readContract,
   type WalletClient,
-  waitForTransactionReceipt,
-  watchContractEvent,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
+import { waitForTransactionReceipt } from 'viem/actions'
 import { inferChainFromRpcUrl } from '../shared/chain-utils'
 
 const ROOT = join(import.meta.dir, '../..')
 const DEPLOYMENTS_DIR = join(ROOT, 'packages/contracts/deployments')
 
-// ForcedInclusion ABI
+// ForcedInclusion ABI - defined with const assertion for viem type inference
 const FORCED_INCLUSION_ABI = [
   'event TxQueued(bytes32 indexed txId, address indexed sender, uint256 fee, uint256 queuedAtBlock)',
   'event TxIncluded(bytes32 indexed txId, address indexed sequencer, bytes32 batchRoot)',
@@ -54,7 +49,11 @@ const FORCED_INCLUSION_ABI = [
   'function pendingTxIds(uint256 index) view returns (bytes32)',
   'function INCLUSION_WINDOW_BLOCKS() view returns (uint256)',
   'function MIN_FEE() view returns (uint256)',
-]
+] as const
+
+// Parsed ABI for contract interactions
+const parsedAbi = parseAbi(FORCED_INCLUSION_ABI)
+type ForcedInclusionAbi = typeof parsedAbi
 
 interface QueuedTx {
   txId: string
@@ -88,16 +87,19 @@ class ForcedInclusionMonitor {
   private isRunning = false
   private pollInterval: ReturnType<typeof setInterval> | null = null
   private unwatchCallbacks: Array<() => void> = []
+  private readonly abi: ForcedInclusionAbi
 
   constructor(
     private publicClient: PublicClient,
     private forcedInclusionAddress: Address,
-    private forcedInclusionAbi: ReturnType<typeof parseAbi>,
     private walletClient: WalletClient | null,
     private inclusionWindow: bigint,
+    private chain: ReturnType<typeof inferChainFromRpcUrl>,
     private alertThreshold = 10,
     private checkInterval = 12000,
-  ) {}
+  ) {
+    this.abi = parsedAbi
+  }
 
   async start(): Promise<void> {
     if (this.isRunning) return
@@ -119,80 +121,66 @@ class ForcedInclusionMonitor {
     // Load past events
     await this.loadPastEvents()
 
-    // Watch for new events
-    const unwatchQueued = watchContractEvent(this.publicClient, {
+    // Watch for new events using properly typed event handlers
+    const unwatchQueued = this.publicClient.watchContractEvent({
       address: this.forcedInclusionAddress,
-      abi: this.forcedInclusionAbi,
+      abi: this.abi,
       eventName: 'TxQueued',
       onLogs: (logs) => {
         for (const log of logs) {
-          const decoded = decodeEventLog({
-            abi: this.forcedInclusionAbi,
-            ...log,
-          })
+          const args = log.args
+          if (
+            !args?.txId ||
+            !args.sender ||
+            args.fee === undefined ||
+            args.queuedAtBlock === undefined
+          )
+            continue
           this.handleTxQueued(
-            decoded.args.txId,
-            decoded.args.sender,
-            decoded.args.fee,
-            decoded.args.queuedAtBlock,
+            args.txId,
+            args.sender,
+            args.fee,
+            args.queuedAtBlock,
           )
         }
       },
     })
 
-    const unwatchIncluded = watchContractEvent(this.publicClient, {
+    const unwatchIncluded = this.publicClient.watchContractEvent({
       address: this.forcedInclusionAddress,
-      abi: this.forcedInclusionAbi,
+      abi: this.abi,
       eventName: 'TxIncluded',
       onLogs: (logs) => {
         for (const log of logs) {
-          const decoded = decodeEventLog({
-            abi: this.forcedInclusionAbi,
-            ...log,
-          })
-          this.handleTxIncluded(
-            decoded.args.txId,
-            decoded.args.sequencer,
-            decoded.args.batchRoot,
-          )
+          const args = log.args
+          if (!args?.txId || !args.sequencer || !args.batchRoot) continue
+          this.handleTxIncluded(args.txId, args.sequencer, args.batchRoot)
         }
       },
     })
 
-    const unwatchForced = watchContractEvent(this.publicClient, {
+    const unwatchForced = this.publicClient.watchContractEvent({
       address: this.forcedInclusionAddress,
-      abi: this.forcedInclusionAbi,
+      abi: this.abi,
       eventName: 'TxForced',
       onLogs: (logs) => {
         for (const log of logs) {
-          const decoded = decodeEventLog({
-            abi: this.forcedInclusionAbi,
-            ...log,
-          })
-          this.handleTxForced(
-            decoded.args.txId,
-            decoded.args.forcer,
-            decoded.args.reward,
-          )
+          const args = log.args
+          if (!args?.txId || !args.forcer || args.reward === undefined) continue
+          this.handleTxForced(args.txId, args.forcer, args.reward)
         }
       },
     })
 
-    const unwatchExpired = watchContractEvent(this.publicClient, {
+    const unwatchExpired = this.publicClient.watchContractEvent({
       address: this.forcedInclusionAddress,
-      abi: this.forcedInclusionAbi,
+      abi: this.abi,
       eventName: 'TxExpired',
       onLogs: (logs) => {
         for (const log of logs) {
-          const decoded = decodeEventLog({
-            abi: this.forcedInclusionAbi,
-            ...log,
-          })
-          this.handleTxExpired(
-            decoded.args.txId,
-            decoded.args.sender,
-            decoded.args.refund,
-          )
+          const args = log.args
+          if (!args?.txId || !args.sender || args.refund === undefined) continue
+          this.handleTxExpired(args.txId, args.sender, args.refund)
         }
       },
     })
@@ -219,67 +207,60 @@ class ForcedInclusionMonitor {
 
     const [queuedLogs, includedLogs, forcedLogs, expiredLogs] =
       await Promise.all([
-        getLogs(this.publicClient, {
+        this.publicClient.getContractEvents({
           address: this.forcedInclusionAddress,
-          abi: this.forcedInclusionAbi,
+          abi: this.abi,
           eventName: 'TxQueued',
           fromBlock,
         }),
-        getLogs(this.publicClient, {
+        this.publicClient.getContractEvents({
           address: this.forcedInclusionAddress,
-          abi: this.forcedInclusionAbi,
+          abi: this.abi,
           eventName: 'TxIncluded',
           fromBlock,
         }),
-        getLogs(this.publicClient, {
+        this.publicClient.getContractEvents({
           address: this.forcedInclusionAddress,
-          abi: this.forcedInclusionAbi,
+          abi: this.abi,
           eventName: 'TxForced',
           fromBlock,
         }),
-        getLogs(this.publicClient, {
+        this.publicClient.getContractEvents({
           address: this.forcedInclusionAddress,
-          abi: this.forcedInclusionAbi,
+          abi: this.abi,
           eventName: 'TxExpired',
           fromBlock,
         }),
       ])
 
     for (const log of queuedLogs) {
-      const decoded = decodeEventLog({ abi: this.forcedInclusionAbi, ...log })
-      this.handleTxQueued(
-        decoded.args.txId,
-        decoded.args.sender,
-        decoded.args.fee,
-        decoded.args.queuedAtBlock,
+      const args = log.args
+      if (
+        !args?.txId ||
+        !args.sender ||
+        args.fee === undefined ||
+        args.queuedAtBlock === undefined
       )
+        continue
+      this.handleTxQueued(args.txId, args.sender, args.fee, args.queuedAtBlock)
     }
 
     for (const log of includedLogs) {
-      const decoded = decodeEventLog({ abi: this.forcedInclusionAbi, ...log })
-      this.handleTxIncluded(
-        decoded.args.txId,
-        decoded.args.sequencer,
-        decoded.args.batchRoot,
-      )
+      const args = log.args
+      if (!args?.txId || !args.sequencer || !args.batchRoot) continue
+      this.handleTxIncluded(args.txId, args.sequencer, args.batchRoot)
     }
 
     for (const log of forcedLogs) {
-      const decoded = decodeEventLog({ abi: this.forcedInclusionAbi, ...log })
-      this.handleTxForced(
-        decoded.args.txId,
-        decoded.args.forcer,
-        decoded.args.reward,
-      )
+      const args = log.args
+      if (!args?.txId || !args.forcer || args.reward === undefined) continue
+      this.handleTxForced(args.txId, args.forcer, args.reward)
     }
 
     for (const log of expiredLogs) {
-      const decoded = decodeEventLog({ abi: this.forcedInclusionAbi, ...log })
-      this.handleTxExpired(
-        decoded.args.txId,
-        decoded.args.sender,
-        decoded.args.refund,
-      )
+      const args = log.args
+      if (!args?.txId || !args.sender || args.refund === undefined) continue
+      this.handleTxExpired(args.txId, args.sender, args.refund)
     }
   }
 
@@ -396,7 +377,7 @@ class ForcedInclusionMonitor {
         !tx.included &&
         !tx.expired
       ) {
-        await this.tryForceInclude(txId)
+        await this.tryForceInclude(txId as `0x${string}`)
       }
     }
   }
@@ -406,11 +387,16 @@ class ForcedInclusionMonitor {
 
     console.log(`⚡ Attempting to force-include ${txId.slice(0, 10)}...`)
 
+    const account = this.walletClient.account
+    if (!account) throw new Error('Wallet client has no account')
+
     const hash = await this.walletClient.writeContract({
       address: this.forcedInclusionAddress,
-      abi: this.forcedInclusionAbi,
+      abi: this.abi,
       functionName: 'forceInclude',
       args: [txId],
+      chain: this.chain,
+      account,
     })
     console.log(`   TX submitted: ${hash}`)
 
@@ -431,9 +417,19 @@ class ForcedInclusionMonitor {
   }
 }
 
-// ============================================================
 // OP-BATCHER INTEGRATION HELPER
-// ============================================================
+
+// Type for queuedTxs return value
+type QueuedTxData = readonly [
+  Address, // sender
+  `0x${string}`, // data
+  bigint, // gasLimit
+  bigint, // fee
+  bigint, // queuedAtBlock
+  bigint, // queuedAtTimestamp
+  boolean, // included
+  boolean, // expired
+]
 
 /**
  * Gets pending forced transactions that the batcher should include
@@ -451,11 +447,10 @@ export async function getPendingForcedTxs(
     deadline: number
   }>
 > {
-  const abi = parseAbi(FORCED_INCLUSION_ABI)
   const currentBlock = await publicClient.getBlockNumber()
-  const inclusionWindow = await readContract(publicClient, {
+  const inclusionWindow = await publicClient.readContract({
     address: forcedInclusionAddress,
-    abi,
+    abi: parsedAbi,
     functionName: 'INCLUSION_WINDOW_BLOCKS',
   })
 
@@ -468,45 +463,34 @@ export async function getPendingForcedTxs(
   }> = []
 
   // Get all queued transactions by listening to past events
-  const events = await getLogs(publicClient, {
+  const events = await publicClient.getContractEvents({
     address: forcedInclusionAddress,
-    abi,
+    abi: parsedAbi,
     eventName: 'TxQueued',
     fromBlock: currentBlock - BigInt(Number(inclusionWindow) + 10),
   })
 
   for (const log of events) {
-    const decoded = decodeEventLog({ abi, ...log })
-    const txId = decoded.args.txId as `0x${string}`
-    const queuedAtBlock = decoded.args.queuedAtBlock as bigint
+    const args = log.args
+    if (!args?.txId || args.queuedAtBlock === undefined) continue
+    const txId = args.txId
+    const queuedAtBlock = args.queuedAtBlock
 
     // Check if still pending
-    const txData = (await readContract(publicClient, {
+    const txData = (await publicClient.readContract({
       address: forcedInclusionAddress,
-      abi,
+      abi: parsedAbi,
       functionName: 'queuedTxs',
       args: [txId],
-    })) as {
-      sender: Address
-      data: `0x${string}`
-      gasLimit: bigint
-      included: boolean
-      expired: boolean
-    }
+    })) as QueuedTxData
+    const [sender, data, gasLimit, , , , included, expired] = txData
 
-    if (!txData.included && !txData.expired) {
+    if (!included && !expired) {
       const deadline = Number(queuedAtBlock) + Number(inclusionWindow)
 
       // Prioritize transactions close to deadline
       if (deadline - Number(currentBlock) <= 25) {
-        // Last 25 blocks
-        pendingTxs.push({
-          txId,
-          sender: txData.sender,
-          data: txData.data,
-          gasLimit: txData.gasLimit,
-          deadline,
-        })
+        pendingTxs.push({ txId, sender, data, gasLimit, deadline })
       }
     }
   }
@@ -534,9 +518,7 @@ export function generateForcedTxBatchData(
   return encoded
 }
 
-// ============================================================
 // CLI ENTRY POINT
-// ============================================================
 
 async function main(): Promise<void> {
   console.log('📡 Forced Inclusion Monitor\n')
@@ -562,7 +544,6 @@ async function main(): Promise<void> {
 
   const chain = inferChainFromRpcUrl(l1RpcUrl)
   const publicClient = createPublicClient({ chain, transport: http(l1RpcUrl) })
-  const forcedInclusionAbi = parseAbi(FORCED_INCLUSION_ABI)
   const forcedInclusionAddr = forcedInclusionAddress as Address
 
   // Optional forcer wallet for automatic force-inclusion
@@ -575,14 +556,14 @@ async function main(): Promise<void> {
       transport: http(l1RpcUrl),
       account,
     })
-    const balance = await getBalance(publicClient, { address: account.address })
+    const balance = await publicClient.getBalance({ address: account.address })
     console.log(`Forcer wallet: ${account.address}`)
     console.log(`Forcer balance: ${formatEther(balance)} ETH`)
   }
 
-  const inclusionWindow = await readContract(publicClient, {
+  const inclusionWindow = await publicClient.readContract({
     address: forcedInclusionAddr,
-    abi: forcedInclusionAbi,
+    abi: parsedAbi,
     functionName: 'INCLUSION_WINDOW_BLOCKS',
   })
   console.log(`Inclusion window: ${inclusionWindow} blocks`)
@@ -591,9 +572,9 @@ async function main(): Promise<void> {
   const monitor = new ForcedInclusionMonitor(
     publicClient,
     forcedInclusionAddr,
-    forcedInclusionAbi,
     walletClient,
     inclusionWindow,
+    chain,
     alertThreshold,
     checkInterval,
   )

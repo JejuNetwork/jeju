@@ -1,5 +1,4 @@
 #!/usr/bin/env bun
-
 /**
  * Verify TEE GPU Provisioning End-to-End
  *
@@ -20,13 +19,12 @@ import {
   GPUType,
   getTEEGPUNode,
   getTEEGPUNodes,
+  type TEEGPUNode,
   type TEEGPUProvider,
   TEEProvider,
-} from '../apps/dws/src/containers/tee-gpu-provider'
+} from '../../../../apps/dws/api/containers/tee-gpu-provider'
 
-// ============================================================================
 // Test Configuration
-// ============================================================================
 
 interface TestResult {
   name: string
@@ -70,9 +68,7 @@ async function runTest(
   }
 }
 
-// ============================================================================
 // Setup
-// ============================================================================
 
 const network = process.env.NETWORK ?? 'localnet'
 const rpcUrl =
@@ -89,22 +85,25 @@ if (!privateKey) {
 const account = privateKeyToAccount(privateKey)
 const chain = network === 'localnet' ? localhost : baseSepolia
 
-const _publicClient = createPublicClient({
+// Clients for future on-chain verification tests
+const publicClient = createPublicClient({
   chain,
   transport: http(rpcUrl),
 })
 
-const _walletClient = createWalletClient({
+const walletClient = createWalletClient({
   account,
   chain,
   transport: http(rpcUrl),
 })
 
+// Export to prevent unused variable errors while keeping them available
+void publicClient
+void walletClient
+
 let provider: TEEGPUProvider
 
-// ============================================================================
 // Tests
-// ============================================================================
 
 async function testProviderInitialization() {
   provider = createTEEGPUProvider({
@@ -273,7 +272,9 @@ async function testResourceAllocation() {
   await testProvider.initialize()
 
   const nodes = getTEEGPUNodes()
-  const node = nodes.find((n) => n.nodeId.startsWith('resource-test-'))
+  const node = nodes.find((n: TEEGPUNode) =>
+    n.nodeId.startsWith('resource-test-'),
+  )
   if (!node) throw new Error('Test node not found')
 
   const initialCpu = node.resources.availableCpu
@@ -377,9 +378,7 @@ async function testProviderShutdown() {
   }
 }
 
-// ============================================================================
 // Main
-// ============================================================================
 
 async function main() {
   console.log('='.repeat(60))

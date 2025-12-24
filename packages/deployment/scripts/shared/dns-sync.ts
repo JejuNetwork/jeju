@@ -110,10 +110,18 @@ function castSDKClass<T>(sdkExport: { new (...args: never[]): object }): T {
   return sdkExport as T
 }
 
+// Optional SDK module names - stored as variables to avoid TypeScript module resolution
+const AWS_SDK_MODULE = '@aws-sdk/client-route-53'
+const GCP_SDK_MODULE = '@google-cloud/dns'
+
 // Conditional import: AWS SDK is optional - only loaded if Route53 provider is configured
 async function loadAWSSDK(): Promise<boolean> {
   try {
-    const aws = await import('@aws-sdk/client-route-53')
+    const aws = (await import(AWS_SDK_MODULE)) as {
+      Route53Client: { new (config: { region: string }): Route53ClientInstance }
+      ChangeResourceRecordSetsCommand: { new (input: object): Route53Command }
+      ListResourceRecordSetsCommand: { new (input: object): Route53Command }
+    }
     Route53ClientClass = castSDKClass<Route53ClientConstructor>(
       aws.Route53Client,
     )
@@ -135,7 +143,9 @@ async function loadAWSSDK(): Promise<boolean> {
 // Conditional import: GCP SDK is optional - only loaded if Cloud DNS provider is configured
 async function loadGCPSDK(): Promise<boolean> {
   try {
-    const gcp = await import('@google-cloud/dns')
+    const gcp = (await import(GCP_SDK_MODULE)) as {
+      DNS: { new (config: { projectId: string }): CloudDNSInstance }
+    }
     DNSClass = castSDKClass<CloudDNSConstructor>(gcp.DNS)
     return true
   } catch {
@@ -144,9 +154,7 @@ async function loadGCPSDK(): Promise<boolean> {
   }
 }
 
-// ============================================================================
 // Configuration Schema
-// ============================================================================
 
 const DNSProviderConfigSchema = z.object({
   route53: z
@@ -189,9 +197,7 @@ const DNSSyncConfigSchema = z.object({
 export type DNSProviderConfig = z.infer<typeof DNSProviderConfigSchema>
 export type DNSSyncConfig = z.infer<typeof DNSSyncConfigSchema>
 
-// ============================================================================
 // Types
-// ============================================================================
 
 export interface DNSRecord {
   name: string
@@ -217,9 +223,7 @@ interface AuditLogEntry {
   details: Record<string, unknown>
 }
 
-// ============================================================================
 // Default Records
-// ============================================================================
 
 const DEFAULT_RECORDS: DNSRecord[] = [
   { name: 'rpc', type: 'A', ttl: 60, values: [], healthCheckEnabled: true },
@@ -245,9 +249,7 @@ const DEFAULT_RECORDS: DNSRecord[] = [
   { name: 'proxy', type: 'A', ttl: 60, values: [], healthCheckEnabled: true },
 ]
 
-// ============================================================================
 // Endpoint Registry ABI (reference - inline ABIs used in writeContract calls)
-// ============================================================================
 
 const _ENDPOINT_REGISTRY_ABI = [
   'function setEndpoint(bytes32 service, string url, string region, uint256 priority) external',
@@ -257,9 +259,7 @@ const _ENDPOINT_REGISTRY_ABI = [
 ]
 void _ENDPOINT_REGISTRY_ABI // Suppress unused warning - kept for reference
 
-// ============================================================================
 // Prometheus Metrics
-// ============================================================================
 
 const metricsRegistry = new Registry()
 
@@ -292,9 +292,7 @@ const dnsEndpointLatency = new Gauge({
   registers: [metricsRegistry],
 })
 
-// ============================================================================
 // Retry Helper
-// ============================================================================
 
 async function withRetry<T>(
   fn: () => Promise<T>,
@@ -317,9 +315,7 @@ async function withRetry<T>(
   throw lastError
 }
 
-// ============================================================================
 // DNS Sync Service
-// ============================================================================
 
 export class DNSSyncService {
   private config: DNSSyncConfig
@@ -404,9 +400,7 @@ export class DNSSyncService {
     console.log('[DNS Sync] Running')
   }
 
-  // ============================================================================
   // Lifecycle
-  // ============================================================================
 
   stop(): void {
     if (!this.running) return
@@ -451,9 +445,7 @@ export class DNSSyncService {
     console.log(`[DNS Sync] Metrics server on port ${this.config.metricsPort}`)
   }
 
-  // ============================================================================
   // Sync Operations
-  // ============================================================================
 
   async syncAll(): Promise<void> {
     console.log('[DNS Sync] Starting sync...')
@@ -483,9 +475,7 @@ export class DNSSyncService {
     }
   }
 
-  // ============================================================================
   // Route53
-  // ============================================================================
 
   private async getRecordsFromRoute53(): Promise<DNSRecord[]> {
     if (!this.route53Client || !this.config.providers.route53) {
@@ -500,10 +490,11 @@ export class DNSSyncService {
       if (!route53 || !route53Config || !ListResourceRecordSetsCommandClass) {
         return DEFAULT_RECORDS
       }
+      const ListCommand = ListResourceRecordSetsCommandClass
       const response = (await withRetry(
         () =>
           route53.send(
-            new ListResourceRecordSetsCommandClass({
+            new ListCommand({
               HostedZoneId: route53Config.zoneId,
             }),
           ),
@@ -545,6 +536,7 @@ export class DNSSyncService {
       return
 
     const timer = dnsSyncDuration.startTimer({ provider: 'route53' })
+    const ChangeCommand = ChangeResourceRecordSetsCommandClass
 
     try {
       const changes = records
@@ -564,7 +556,7 @@ export class DNSSyncService {
       await withRetry(
         () =>
           route53.send(
-            new ChangeResourceRecordSetsCommandClass({
+            new ChangeCommand({
               HostedZoneId: route53Config.zoneId,
               ChangeBatch: { Changes: changes },
             }),
@@ -584,9 +576,7 @@ export class DNSSyncService {
     }
   }
 
-  // ============================================================================
   // Cloud DNS
-  // ============================================================================
 
   private async syncToCloudDns(records: DNSRecord[]): Promise<void> {
     if (!this.cloudDnsClient || !this.config.providers.cloudDns) return
@@ -629,9 +619,7 @@ export class DNSSyncService {
     }
   }
 
-  // ============================================================================
   // Cloudflare
-  // ============================================================================
 
   private async syncToCloudflare(records: DNSRecord[]): Promise<void> {
     if (!this.config.providers.cloudflare) return
@@ -720,9 +708,7 @@ export class DNSSyncService {
     }
   }
 
-  // ============================================================================
   // On-Chain
-  // ============================================================================
 
   private async syncToOnChain(records: DNSRecord[]): Promise<void> {
     const registryAddr = this.endpointRegistryAddress
@@ -785,9 +771,7 @@ export class DNSSyncService {
     }
   }
 
-  // ============================================================================
   // Health Checks
-  // ============================================================================
 
   async runHealthChecks(): Promise<void> {
     const records = this.currentRecords.filter((r) => r.healthCheckEnabled)
@@ -876,9 +860,7 @@ export class DNSSyncService {
     return paths[service] ?? '/health'
   }
 
-  // ============================================================================
   // Utilities
-  // ============================================================================
 
   private guessRegion(ip: string): string {
     if (ip.startsWith('52.') || ip.startsWith('54.')) return 'aws-us-east-1'
@@ -933,9 +915,7 @@ export class DNSSyncService {
   }
 }
 
-// ============================================================================
 // CLI Entry Point
-// ============================================================================
 
 // Check if running as main module
 // Uses require.main for Node.js compatibility, Bun.main for Bun

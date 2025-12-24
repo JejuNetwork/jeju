@@ -1,9 +1,7 @@
 import { type Address, type Hex, isAddress, isHex } from 'viem'
 import { z } from 'zod'
 
-// ============================================================================
 // Core Schemas
-// ============================================================================
 
 /** Hex string schema for viem compatibility */
 export const HexSchema = z.custom<Hex>(
@@ -292,9 +290,7 @@ export const FrameActionPayloadSchema = z
   })
   .strict()
 
-// ============================================================================
 // Hub Submitter Schemas
-// ============================================================================
 
 /** Hub info response for connectivity checks */
 export const HubInfoSchema = z
@@ -324,9 +320,7 @@ export type ValidateMessageResponse = z.infer<
   typeof ValidateMessageResponseSchema
 >
 
-// ============================================================================
 // DC Client Schemas (for external API responses)
-// ============================================================================
 
 /** User data message for DC encryption key lookup */
 export const DCUserDataMessageSchema = z.object({

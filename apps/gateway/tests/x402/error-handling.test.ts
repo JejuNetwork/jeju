@@ -4,10 +4,10 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
-import { resetConfig } from '../../src/x402/config'
-import { createServer } from '../../src/x402/server'
-import { clearNonceCache } from '../../src/x402/services/nonce-manager'
-import { decodePaymentHeader } from '../../src/x402/services/verifier'
+import { resetConfig } from '../../api/x402/config'
+import { createServer } from '../../api/x402/server'
+import { clearNonceCache } from '../../api/x402/services/nonce-manager'
+import { decodePaymentHeader } from '../../api/x402/services/verifier'
 
 const app = createServer()
 

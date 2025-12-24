@@ -3,7 +3,7 @@
  * Synchronizes ban status and moderation actions between EVM and Solana
  */
 
-import { EventEmitter } from 'node:events'
+import { EventEmitter } from '@jejunetwork/shared'
 import {
   Connection,
   Keypair,

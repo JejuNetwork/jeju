@@ -11,8 +11,8 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
+import { ZERO_ADDRESS } from '@jejunetwork/types'
 import {
-  type Address,
   createPublicClient,
   encodePacked,
   type Hex,
@@ -94,7 +94,6 @@ describe.skipIf(SKIP_INTEGRATION)('Oracle Integration', () => {
   describe('MetricsExporter Integration', () => {
     let metrics: MetricsExporter
     const metricsPort = 19090 // Use different port to avoid conflicts
-    const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address
 
     beforeAll(async () => {
       const config: OracleNodeConfig = {

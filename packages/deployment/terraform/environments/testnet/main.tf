@@ -903,7 +903,7 @@ output "messaging_config" {
     covenantsql_architecture = module.covenantsql.architecture
     covenantsql_image        = module.covenantsql.cql_image
     messaging_role_arn       = module.messaging.messaging_role_arn
-    farcaster_hub            = "nemes.farcaster.xyz:2283"
+    farcaster_hub            = module.farcaster_hub.hub_grpc_url
   }
 }
 
@@ -933,6 +933,22 @@ module "covenantsql" {
 }
 
 # ============================================================
+# Module: Farcaster Hub (Self-Hosted)
+# ============================================================
+module "farcaster_hub" {
+  source = "../../modules/farcaster-hub"
+
+  environment       = local.environment
+  eks_cluster_name  = module.eks.cluster_name
+  domain_name       = var.domain_name
+  zone_id           = module.route53.zone_id
+  optimism_rpc_url  = "https://mainnet.optimism.io"
+  tags              = local.common_tags
+
+  depends_on = [module.eks, module.route53]
+}
+
+# ============================================================
 # Module: Messaging Infrastructure
 # ============================================================
 module "messaging" {
@@ -947,7 +963,7 @@ module "messaging" {
   jeju_rpc_url         = "https://testnet-rpc.${var.domain_name}"
   key_registry_address = var.key_registry_address
   node_registry_address = var.node_registry_address
-  farcaster_hub_url    = "nemes.farcaster.xyz:2283"
+  farcaster_hub_url    = module.farcaster_hub.hub_grpc_url
   relay_node_count     = 3
   kms_key_arn          = module.kms.main_key_arn
   domain_name          = var.domain_name
@@ -955,7 +971,7 @@ module "messaging" {
   acm_certificate_arn  = module.acm.certificate_arn
   tags                 = local.common_tags
 
-  depends_on = [module.eks, module.covenantsql, module.kms, module.route53]
+  depends_on = [module.eks, module.covenantsql, module.kms, module.route53, module.farcaster_hub]
 }
 
 # ============================================================

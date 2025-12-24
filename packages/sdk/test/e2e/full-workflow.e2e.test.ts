@@ -8,7 +8,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
-import { getCoreAppUrl, getL2RpcUrl } from '@jejunetwork/config/ports'
+import { getCoreAppUrl, getL2RpcUrl } from '@jejunetwork/config'
 import { parseEther } from 'viem'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import { createJejuClient, type JejuClient } from '../../src'

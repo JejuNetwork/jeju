@@ -30,9 +30,7 @@ setDefaultTimeout(10000)
 
 const SKIP = process.env.SKIP_INTEGRATION === 'true'
 
-// =============================================================================
 // Helper Functions
-// =============================================================================
 
 function createTestBuffer(size: number, fill = 0): Buffer {
   return Buffer.alloc(size, fill)
@@ -57,9 +55,7 @@ async function uploadFile(
   })
 }
 
-// =============================================================================
 // Backend Manager Tests
-// =============================================================================
 
 describe.skipIf(SKIP)('BackendManager', () => {
   let backend: BackendManager
@@ -272,9 +268,7 @@ describe.skipIf(SKIP)('BackendManager', () => {
   })
 })
 
-// =============================================================================
 // HTTP API Tests
-// =============================================================================
 
 describe.skipIf(SKIP)('Storage HTTP API', () => {
   afterAll(() => {
@@ -539,9 +533,7 @@ describe.skipIf(SKIP)('Storage HTTP API', () => {
   })
 })
 
-// =============================================================================
 // S3 Compatibility Tests
-// =============================================================================
 
 describe.skipIf(SKIP)('S3 Compatibility', () => {
   const testBucket = `test-bucket-${Date.now()}`
@@ -617,9 +609,7 @@ describe.skipIf(SKIP)('S3 Compatibility', () => {
   })
 })
 
-// =============================================================================
 // Edge Cases
-// =============================================================================
 
 describe.skipIf(SKIP)('Edge Cases', () => {
   let backend: BackendManager

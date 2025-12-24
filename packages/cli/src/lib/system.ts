@@ -1,11 +1,4 @@
-/**
- * System utilities for checking dependencies
- *
- * Security notes:
- * - All external command execution is validated
- * - Port numbers are sanitized
- * - Path construction uses safe patterns
- */
+/** System utilities for dependency checking */
 
 import { randomBytes } from 'node:crypto'
 import { existsSync } from 'node:fs'

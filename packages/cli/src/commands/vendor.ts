@@ -1,9 +1,4 @@
-/**
- * vendor command - Manage vendor app integration
- *
- * Commands:
- *   jeju vendor init <app-name>  - Create vendor manifest for external app integration
- */
+/** Manage vendor app integration */
 
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
@@ -15,10 +10,6 @@ import { findMonorepoRoot } from '../lib/system'
 export const vendorCommand = new Command('vendor').description(
   'Manage vendor app integration',
 )
-
-// ============================================================================
-// init - Create vendor manifest for external app integration
-// ============================================================================
 
 vendorCommand
   .command('init')

@@ -10,27 +10,22 @@
  */
 
 import { beforeEach, describe, expect, it } from 'bun:test'
+import { getCQLBlockProducerUrl } from '@jejunetwork/config'
+import {
+  CovenantSQLClient,
+  createCovenantSQLClient,
+  createTableMigration,
+  getCovenantSQLClient,
+  MigrationManager,
+  resetCovenantSQLClient,
+} from '@jejunetwork/db'
 import {
   getMPCConfig,
   getMPCCoordinator,
   MPCCoordinator,
   resetMPCCoordinator,
 } from '@jejunetwork/kms'
-import {
-  CovenantSQLClient,
-  createCovenantSQLClient,
-  createTableMigration,
-  getCovenantSQLClient,
-  getHSMClient,
-  HSMClient,
-  MigrationManager,
-  resetCovenantSQLClient,
-  resetHSMClient,
-} from '@jejunetwork/shared'
-import {
-  getCQLDatabase,
-  resetCQLDatabase,
-} from '@jejunetwork/storage-pinning-api/src/database/cql-adapter'
+import { getHSMClient, HSMClient, resetHSMClient } from '@jejunetwork/shared'
 import { keccak256, toBytes, verifyMessage } from 'viem'
 
 // CovenantSQL Client Tests
@@ -54,7 +49,7 @@ describe('CovenantSQL Client - Boundary Conditions', () => {
 
   it('should handle single node configuration', async () => {
     const client = createCovenantSQLClient({
-      nodes: ['http://localhost:4661'],
+      nodes: [getCQLBlockProducerUrl()],
       databaseId: 'test',
       privateKey: 'key',
       poolSize: 1,
@@ -66,7 +61,7 @@ describe('CovenantSQL Client - Boundary Conditions', () => {
 
   it('should handle maximum pool size', async () => {
     const client = createCovenantSQLClient({
-      nodes: ['http://localhost:4661'],
+      nodes: [getCQLBlockProducerUrl()],
       databaseId: 'test',
       privateKey: 'key',
       poolSize: 100,
@@ -77,7 +72,7 @@ describe('CovenantSQL Client - Boundary Conditions', () => {
 
   it('should handle zero query timeout', async () => {
     const client = createCovenantSQLClient({
-      nodes: ['http://localhost:4661'],
+      nodes: [getCQLBlockProducerUrl()],
       databaseId: 'test',
       privateKey: 'key',
       queryTimeout: 0,
@@ -88,7 +83,7 @@ describe('CovenantSQL Client - Boundary Conditions', () => {
 
   it('should handle zero retry attempts', async () => {
     const client = createCovenantSQLClient({
-      nodes: ['http://localhost:4661'],
+      nodes: [getCQLBlockProducerUrl()],
       databaseId: 'test',
       privateKey: 'key',
       retryAttempts: 0,
@@ -99,7 +94,7 @@ describe('CovenantSQL Client - Boundary Conditions', () => {
 
   it('should use default consistency when not specified', async () => {
     const client = createCovenantSQLClient({
-      nodes: ['http://localhost:4661'],
+      nodes: [getCQLBlockProducerUrl()],
       databaseId: 'test',
       privateKey: 'key',
     })
@@ -143,7 +138,7 @@ describe('CovenantSQL Client - Error Handling', () => {
 
   it('should close connections cleanly', async () => {
     const client = createCovenantSQLClient({
-      nodes: ['http://localhost:4661'],
+      nodes: [getCQLBlockProducerUrl()],
       databaseId: 'test',
       privateKey: 'key',
     })
@@ -161,7 +156,7 @@ describe('CovenantSQL Client - SQL Operations', () => {
 
   it('should build correct INSERT SQL for single row', async () => {
     const _client = createCovenantSQLClient({
-      nodes: ['http://localhost:4661'],
+      nodes: [getCQLBlockProducerUrl()],
       databaseId: 'test',
       privateKey: 'key',
     })
@@ -173,7 +168,7 @@ describe('CovenantSQL Client - SQL Operations', () => {
 
   it('should build correct INSERT SQL for multiple rows', async () => {
     const _client = createCovenantSQLClient({
-      nodes: ['http://localhost:4661'],
+      nodes: [getCQLBlockProducerUrl()],
       databaseId: 'test',
       privateKey: 'key',
     })
@@ -197,7 +192,7 @@ describe('CovenantSQL Client - SQL Operations', () => {
 
   it('should handle empty insert data', async () => {
     const _client = createCovenantSQLClient({
-      nodes: ['http://localhost:4661'],
+      nodes: [getCQLBlockProducerUrl()],
       databaseId: 'test',
       privateKey: 'key',
     })
@@ -1208,341 +1203,6 @@ describe('HSM Client - Key Lifecycle', () => {
   })
 })
 
-// CQL Database Adapter Tests
-
-describe('CQL Adapter - In-Memory Mode', () => {
-  beforeEach(() => {
-    resetCQLDatabase()
-  })
-
-  it('should initialize in memory mode without endpoint', async () => {
-    resetCQLDatabase()
-    const db = getCQLDatabase({
-      blockProducerEndpoint: '', // Empty = memory mode
-    })
-
-    await db.initialize()
-    const health = await db.healthCheck()
-    expect(health.healthy).toBe(true)
-  })
-
-  it('should create and retrieve pins in memory', async () => {
-    resetCQLDatabase()
-    const db = getCQLDatabase({ blockProducerEndpoint: '' })
-    await db.initialize()
-
-    const pinData = {
-      cid: 'QmTest123',
-      name: 'test-pin',
-      status: 'pinned',
-      sizeBytes: 1024,
-      created: new Date(),
-      expiresAt: null,
-      origins: ['node-1'],
-      metadata: { type: 'test' },
-      paidAmount: '1000000',
-      paymentToken: '0xUSDC',
-      paymentTxHash: '0xabc123',
-      ownerAddress: '0xowner',
-    }
-
-    const id = await db.createPin(pinData)
-    expect(id).toBeDefined()
-
-    const retrieved = await db.getPin(id)
-    expect(retrieved?.cid).toBe('QmTest123')
-    expect(retrieved?.name).toBe('test-pin')
-    expect(retrieved?.status).toBe('pinned')
-  })
-
-  it('should list pins with filters', async () => {
-    resetCQLDatabase()
-    const db = getCQLDatabase({ blockProducerEndpoint: '' })
-    await db.initialize()
-
-    // Create multiple pins
-    for (const status of ['pinned', 'pinned', 'queued', 'failed']) {
-      await db.createPin({
-        cid: `Qm${status}${Math.random()}`,
-        name: `pin-${status}`,
-        status,
-        sizeBytes: 100,
-        created: new Date(),
-        expiresAt: null,
-        origins: null,
-        metadata: null,
-        paidAmount: null,
-        paymentToken: null,
-        paymentTxHash: null,
-        ownerAddress: null,
-      })
-    }
-
-    const allPins = await db.listPins({})
-    expect(allPins.length).toBe(4)
-
-    const pinnedOnly = await db.listPins({ status: 'pinned' })
-    expect(pinnedOnly.length).toBe(2)
-    expect(pinnedOnly.every((p) => p.status === 'pinned')).toBe(true)
-  })
-
-  it('should update pin status', async () => {
-    resetCQLDatabase()
-    const db = getCQLDatabase({ blockProducerEndpoint: '' })
-    await db.initialize()
-
-    const id = await db.createPin({
-      cid: 'QmUpdate',
-      name: 'update-test',
-      status: 'queued',
-      sizeBytes: null,
-      created: new Date(),
-      expiresAt: null,
-      origins: null,
-      metadata: null,
-      paidAmount: null,
-      paymentToken: null,
-      paymentTxHash: null,
-      ownerAddress: null,
-    })
-
-    await db.updatePin(id, { status: 'pinned', sizeBytes: 2048 })
-
-    const updated = await db.getPin(id)
-    expect(updated?.status).toBe('pinned')
-    expect(updated?.sizeBytes).toBe(2048)
-  })
-
-  it('should delete pins', async () => {
-    resetCQLDatabase()
-    const db = getCQLDatabase({ blockProducerEndpoint: '' })
-    await db.initialize()
-
-    const id = await db.createPin({
-      cid: 'QmDelete',
-      name: 'delete-test',
-      status: 'pinned',
-      sizeBytes: 100,
-      created: new Date(),
-      expiresAt: null,
-      origins: null,
-      metadata: null,
-      paidAmount: null,
-      paymentToken: null,
-      paymentTxHash: null,
-      ownerAddress: null,
-    })
-
-    const before = await db.getPin(id)
-    expect(before).not.toBeNull()
-
-    await db.deletePin(id)
-
-    const after = await db.getPin(id)
-    expect(after).toBeNull()
-  })
-
-  it('should count pins correctly', async () => {
-    resetCQLDatabase()
-    const db = getCQLDatabase({ blockProducerEndpoint: '' })
-    await db.initialize()
-
-    // Create 5 pinned, 3 failed
-    for (let i = 0; i < 5; i++) {
-      await db.createPin({
-        cid: `QmPinned${i}`,
-        name: `pinned-${i}`,
-        status: 'pinned',
-        sizeBytes: 100,
-        created: new Date(),
-        expiresAt: null,
-        origins: null,
-        metadata: null,
-        paidAmount: null,
-        paymentToken: null,
-        paymentTxHash: null,
-        ownerAddress: null,
-      })
-    }
-    for (let i = 0; i < 3; i++) {
-      await db.createPin({
-        cid: `QmFailed${i}`,
-        name: `failed-${i}`,
-        status: 'failed',
-        sizeBytes: null,
-        created: new Date(),
-        expiresAt: null,
-        origins: null,
-        metadata: null,
-        paidAmount: null,
-        paymentToken: null,
-        paymentTxHash: null,
-        ownerAddress: null,
-      })
-    }
-
-    const total = await db.countPins()
-    expect(total).toBe(8)
-
-    const pinnedCount = await db.countPins('pinned')
-    expect(pinnedCount).toBe(5)
-
-    const failedCount = await db.countPins('failed')
-    expect(failedCount).toBe(3)
-  })
-
-  it('should calculate storage stats', async () => {
-    resetCQLDatabase()
-    const db = getCQLDatabase({ blockProducerEndpoint: '' })
-    await db.initialize()
-
-    // Create pins with known sizes
-    await db.createPin({
-      cid: 'QmSize1',
-      name: 'size-1',
-      status: 'pinned',
-      sizeBytes: 1024, // 1 KB
-      created: new Date(),
-      expiresAt: null,
-      origins: null,
-      metadata: null,
-      paidAmount: null,
-      paymentToken: null,
-      paymentTxHash: null,
-      ownerAddress: null,
-    })
-    await db.createPin({
-      cid: 'QmSize2',
-      name: 'size-2',
-      status: 'pinned',
-      sizeBytes: 2048, // 2 KB
-      created: new Date(),
-      expiresAt: null,
-      origins: null,
-      metadata: null,
-      paidAmount: null,
-      paymentToken: null,
-      paymentTxHash: null,
-      ownerAddress: null,
-    })
-    await db.createPin({
-      cid: 'QmQueued',
-      name: 'queued',
-      status: 'queued',
-      sizeBytes: null, // No size yet
-      created: new Date(),
-      expiresAt: null,
-      origins: null,
-      metadata: null,
-      paidAmount: null,
-      paymentToken: null,
-      paymentTxHash: null,
-      ownerAddress: null,
-    })
-
-    const stats = await db.getStorageStats()
-    expect(stats.totalPins).toBe(2) // Only pinned
-    expect(stats.totalSizeBytes).toBe(3072) // 1024 + 2048
-    expect(stats.totalSizeGB).toBeCloseTo(3072 / 1024 ** 3, 10)
-  })
-
-  it('should find pin by CID', async () => {
-    resetCQLDatabase()
-    const db = getCQLDatabase({ blockProducerEndpoint: '' })
-    await db.initialize()
-
-    const targetCid = 'QmUniqueTestCid12345'
-    await db.createPin({
-      cid: targetCid,
-      name: 'find-by-cid',
-      status: 'pinned',
-      sizeBytes: 512,
-      created: new Date(),
-      expiresAt: null,
-      origins: null,
-      metadata: null,
-      paidAmount: null,
-      paymentToken: null,
-      paymentTxHash: null,
-      ownerAddress: null,
-    })
-
-    const found = await db.getPinByCid(targetCid)
-    expect(found).not.toBeNull()
-    expect(found?.cid).toBe(targetCid)
-    expect(found?.name).toBe('find-by-cid')
-
-    const notFound = await db.getPinByCid('QmNonExistent')
-    expect(notFound).toBeNull()
-  })
-
-  it('should handle pagination in listPins', async () => {
-    resetCQLDatabase()
-    const db = getCQLDatabase({ blockProducerEndpoint: '' })
-    await db.initialize()
-
-    // Create 10 pins
-    for (let i = 0; i < 10; i++) {
-      await db.createPin({
-        cid: `QmPage${i}`,
-        name: `page-${i}`,
-        status: 'pinned',
-        sizeBytes: 100,
-        created: new Date(),
-        expiresAt: null,
-        origins: null,
-        metadata: null,
-        paidAmount: null,
-        paymentToken: null,
-        paymentTxHash: null,
-        ownerAddress: null,
-      })
-    }
-
-    const page1 = await db.listPins({ limit: 3, offset: 0 })
-    expect(page1.length).toBe(3)
-
-    const page2 = await db.listPins({ limit: 3, offset: 3 })
-    expect(page2.length).toBe(3)
-
-    const page4 = await db.listPins({ limit: 3, offset: 9 })
-    expect(page4.length).toBe(1)
-  })
-
-  it('should close and clear state', async () => {
-    resetCQLDatabase()
-    const db = getCQLDatabase({ blockProducerEndpoint: '' })
-    await db.initialize()
-
-    await db.createPin({
-      cid: 'QmClose',
-      name: 'close-test',
-      status: 'pinned',
-      sizeBytes: 100,
-      created: new Date(),
-      expiresAt: null,
-      origins: null,
-      metadata: null,
-      paidAmount: null,
-      paymentToken: null,
-      paymentTxHash: null,
-      ownerAddress: null,
-    })
-
-    const beforeClose = await db.countPins()
-    expect(beforeClose).toBe(1)
-
-    await db.close()
-
-    // After close, data should be cleared
-    resetCQLDatabase()
-    const db2 = getCQLDatabase({ blockProducerEndpoint: '' })
-    await db2.initialize()
-    const afterClose = await db2.countPins()
-    expect(afterClose).toBe(0)
-  })
-})
-
 // Concurrent Operations Tests
 
 describe('Concurrent Operations', () => {
@@ -1615,37 +1275,6 @@ describe('Concurrent Operations', () => {
     expect(signatures.length).toBe(5)
     expect(signatures.every((s) => s.signature.startsWith('0x'))).toBe(true)
   })
-
-  it('should handle concurrent CQL pin operations', async () => {
-    resetCQLDatabase()
-    const db = getCQLDatabase({ blockProducerEndpoint: '' })
-    await db.initialize()
-
-    // Create 20 pins concurrently
-    const createPromises = Array.from({ length: 20 }, (_, i) =>
-      db.createPin({
-        cid: `QmConcurrent${i}`,
-        name: `concurrent-${i}`,
-        status: 'pinned',
-        sizeBytes: 100 * i,
-        created: new Date(),
-        expiresAt: null,
-        origins: null,
-        metadata: null,
-        paidAmount: null,
-        paymentToken: null,
-        paymentTxHash: null,
-        ownerAddress: null,
-      }),
-    )
-
-    const ids = await Promise.all(createPromises)
-    expect(ids.length).toBe(20)
-
-    // Verify all were created
-    const count = await db.countPins()
-    expect(count).toBe(20)
-  })
 })
 
 // Integration Verification Tests
@@ -1661,7 +1290,7 @@ describe('Module Export Verification', () => {
   })
 
   it('should export all crypto components', async () => {
-    // Check re-exports from shared/crypto
+    // Check HSM exports
     expect(typeof HSMClient).toBe('function')
     expect(typeof getHSMClient).toBe('function')
     expect(typeof resetHSMClient).toBe('function')

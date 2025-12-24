@@ -31,16 +31,20 @@ import { privateKeyToAccount } from 'viem/accounts'
 import { base, baseSepolia } from 'viem/chains'
 import {
   CIDUploadResponseSchema,
+  DwsAddressesSchema,
+  DwsDeploymentSchema,
   expectJson,
   expectValid,
   type JejuManifest,
   JejuManifestSchema,
   PackageJsonSchema,
 } from '../../schemas'
+import type {
+  DeployPublicClient,
+  DeployWalletClient,
+} from '../shared/viem-chains'
 
-// ============================================================================
 // Configuration
-// ============================================================================
 
 interface DeploymentConfig {
   network: 'testnet' | 'mainnet'
@@ -230,14 +234,12 @@ const JNS_REGISTRAR_ABI = [
   },
 ] as const
 
-// ============================================================================
 // Bootstrap Class
-// ============================================================================
 
 class SelfHostingBootstrap {
   private config: DeploymentConfig
-  private publicClient: ReturnType<typeof createPublicClient>
-  private walletClient: ReturnType<typeof createWalletClient>
+  private publicClient: DeployPublicClient
+  private walletClient: DeployWalletClient
   private account: ReturnType<typeof privateKeyToAccount>
   private rootDir: string
   private result: BootstrapResult
@@ -252,12 +254,12 @@ class SelfHostingBootstrap {
     this.publicClient = createPublicClient({
       chain,
       transport: http(config.rpcUrl),
-    })
+    }) as DeployPublicClient
     this.walletClient = createWalletClient({
       account: this.account,
       chain,
       transport: http(config.rpcUrl),
-    })
+    }) as DeployWalletClient
 
     this.result = {
       git: { repoId: '', commitHash: '', pushed: false },
@@ -360,9 +362,7 @@ class SelfHostingBootstrap {
     return this.result
   }
 
-  // ==========================================================================
   // Step 1: Push to JejuGit
-  // ==========================================================================
 
   private async pushToJejuGit(): Promise<void> {
     console.log('Creating repository jeju/jeju...')
@@ -474,9 +474,7 @@ class SelfHostingBootstrap {
     return cid
   }
 
-  // ==========================================================================
   // Step 2: Publish Packages
-  // ==========================================================================
 
   private async publishPackages(): Promise<void> {
     const packagesDir = join(this.rootDir, 'packages')
@@ -494,7 +492,7 @@ class SelfHostingBootstrap {
         `package.json for ${dir}`,
       )
 
-      if (!pkg.name || pkg.private) continue
+      if (!pkg.name || !pkg.version || pkg.private) continue
 
       console.log(`Publishing ${pkg.name}@${pkg.version}...`)
 
@@ -548,9 +546,7 @@ class SelfHostingBootstrap {
     }
   }
 
-  // ==========================================================================
   // Step 3: Build and Push Containers
-  // ==========================================================================
 
   private async pushContainers(): Promise<void> {
     // Claim namespace first
@@ -577,6 +573,7 @@ class SelfHostingBootstrap {
 
       let manifest: JejuManifest = {
         name: app,
+        tags: [] as string[],
       }
       if (existsSync(manifestPath)) {
         const manifestContent = readFileSync(manifestPath, 'utf-8')
@@ -692,9 +689,7 @@ class SelfHostingBootstrap {
     }
   }
 
-  // ==========================================================================
   // Step 4: Upload Frontends
-  // ==========================================================================
 
   private async uploadFrontends(): Promise<void> {
     const appsDir = join(this.rootDir, 'apps')
@@ -808,9 +803,7 @@ class SelfHostingBootstrap {
     return mimeTypes[ext || ''] || 'application/octet-stream'
   }
 
-  // ==========================================================================
   // Step 5: Register JNS Names
-  // ==========================================================================
 
   private async registerJNSNames(): Promise<void> {
     const appsDir = join(this.rootDir, 'apps')
@@ -925,9 +918,7 @@ class SelfHostingBootstrap {
     return node as Hex
   }
 
-  // ==========================================================================
   // DWS Upload Helper
-  // ==========================================================================
 
   private async uploadToDWS(
     content: Buffer,
@@ -935,7 +926,7 @@ class SelfHostingBootstrap {
     contentType: string,
   ): Promise<string> {
     const formData = new FormData()
-    const blob = new Blob([content], { type: contentType })
+    const blob = new Blob([new Uint8Array(content)], { type: contentType })
     formData.append('file', blob, filename)
     formData.append('permanent', 'true') // Use permanent storage
 
@@ -961,9 +952,7 @@ class SelfHostingBootstrap {
     return result.cid
   }
 
-  // ==========================================================================
   // Results
-  // ==========================================================================
 
   private saveResults(): void {
     const resultPath = join(
@@ -1028,9 +1017,7 @@ class SelfHostingBootstrap {
   }
 }
 
-// ============================================================================
 // CLI Entry Point
-// ============================================================================
 
 async function main() {
   const network = (process.argv[2] || 'testnet') as 'testnet' | 'mainnet'
@@ -1059,7 +1046,16 @@ async function main() {
       DwsAddressesSchema,
       'DWS addresses',
     )
-    contracts = addresses
+    contracts = {
+      identityRegistry: addresses.identityRegistry as Address,
+      repoRegistry: addresses.repoRegistry as Address,
+      packageRegistry: addresses.packageRegistry as Address,
+      containerRegistry: addresses.containerRegistry as Address,
+      jnsRegistrar: addresses.jnsRegistrar as Address,
+      jnsRegistry: addresses.jnsRegistry as Address,
+      modelRegistry: addresses.modelRegistry as Address,
+      storageManager: addresses.storageManager as Address,
+    }
   } else if (existsSync(deploymentFile)) {
     const deploymentContent = readFileSync(deploymentFile, 'utf-8')
     const deployment = expectJson(
@@ -1068,14 +1064,16 @@ async function main() {
       'DWS deployment',
     )
     contracts = {
-      identityRegistry: deployment.contracts.identityRegistry.address,
-      repoRegistry: deployment.contracts.repoRegistry.address,
-      packageRegistry: deployment.contracts.packageRegistry.address,
-      containerRegistry: deployment.contracts.containerRegistry.address,
-      jnsRegistrar: deployment.contracts.jnsRegistrar.address,
-      jnsRegistry: deployment.contracts.jnsRegistry.address,
-      modelRegistry: deployment.contracts.modelRegistry.address,
-      storageManager: deployment.contracts.storageManager.address,
+      identityRegistry: deployment.contracts.identityRegistry
+        .address as Address,
+      repoRegistry: deployment.contracts.repoRegistry.address as Address,
+      packageRegistry: deployment.contracts.packageRegistry.address as Address,
+      containerRegistry: deployment.contracts.containerRegistry
+        .address as Address,
+      jnsRegistrar: deployment.contracts.jnsRegistrar.address as Address,
+      jnsRegistry: deployment.contracts.jnsRegistry.address as Address,
+      modelRegistry: deployment.contracts.modelRegistry.address as Address,
+      storageManager: deployment.contracts.storageManager.address as Address,
     }
   } else {
     // Use environment variables as fallback

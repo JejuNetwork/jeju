@@ -2,25 +2,16 @@
  * Bot Configuration
  */
 
+import {
+  getEnv,
+  getEnvBoolean,
+  getEnvNumber,
+  getEnvOrDefault,
+  requireEnv,
+} from '@jejunetwork/shared'
 import type { EVMChainId } from '@jejunetwork/types'
 import { expectEVMChainId } from '../schemas'
 import type { FeeConfig, TFMMRiskParameters } from '../types'
-
-function getEnvWithDefault(key: string, defaultValue: string): string {
-  const value = process.env[key]
-  return value !== undefined ? value : defaultValue
-}
-
-function getEnvNumber(key: string, defaultValue: number): number {
-  const value = process.env[key]
-  return value ? Number(value) : defaultValue
-}
-
-function getEnvBoolean(key: string, defaultValue: boolean): boolean {
-  const value = process.env[key]
-  if (value === undefined) return defaultValue
-  return value.toLowerCase() === 'true' || value === '1'
-}
 
 export interface ChainRpcConfig {
   chainId: EVMChainId
@@ -52,7 +43,7 @@ export function getChainConfig(chainId: EVMChainId): ChainRpcConfig {
   const rpcEnvKey = `${chainId === 1 ? 'ETH' : chainId === 8453 ? 'BASE' : chainId === 42161 ? 'ARB' : chainId === 10 ? 'OP' : chainId === 56 ? 'BSC' : 'RPC'}_RPC_URL`
   const wsEnvKey = rpcEnvKey.replace('_RPC_', '_WS_')
 
-  const rpcUrl = process.env[rpcEnvKey]
+  const rpcUrl = getEnv(rpcEnvKey)
   if (!rpcUrl) {
     throw new Error(
       `Missing RPC URL: Set ${rpcEnvKey} environment variable for chain ${chainId}`,
@@ -62,7 +53,7 @@ export function getChainConfig(chainId: EVMChainId): ChainRpcConfig {
   return {
     ...base,
     rpcUrl,
-    wsUrl: process.env[wsEnvKey], // Optional WebSocket URL
+    wsUrl: getEnv(wsEnvKey), // Optional WebSocket URL
   }
 }
 
@@ -161,7 +152,7 @@ export interface CrossChainArbConfig {
 }
 
 export function getCrossChainArbConfig(): CrossChainArbConfig {
-  const enabledChainsStr = getEnvWithDefault(
+  const enabledChainsStr = getEnvOrDefault(
     'CROSS_CHAIN_ENABLED_CHAINS',
     '1,8453,42161,10,56',
   )
@@ -194,11 +185,11 @@ export function getDefaultFees(): DefaultFeeConfig {
       protocolFeeBps: getEnvNumber('FEE_STANDARD_PROTOCOL_BPS', 1000),
       xlpFulfillmentFeeBps: getEnvNumber('FEE_XLP_FULFILLMENT_BPS', 10),
       oifSolverFeeBps: getEnvNumber('FEE_OIF_SOLVER_BPS', 5),
-      treasuryAddress: getEnvWithDefault(
+      treasuryAddress: getEnvOrDefault(
         'TREASURY_ADDRESS',
         '0x0000000000000000000000000000000000000000',
       ) as `0x${string}`,
-      governanceAddress: getEnvWithDefault(
+      governanceAddress: getEnvOrDefault(
         'GOVERNANCE_ADDRESS',
         '0x0000000000000000000000000000000000000000',
       ) as `0x${string}`,
@@ -208,11 +199,11 @@ export function getDefaultFees(): DefaultFeeConfig {
       protocolFeeBps: getEnvNumber('FEE_STABLE_PROTOCOL_BPS', 1000),
       xlpFulfillmentFeeBps: 5,
       oifSolverFeeBps: 3,
-      treasuryAddress: getEnvWithDefault(
+      treasuryAddress: getEnvOrDefault(
         'TREASURY_ADDRESS',
         '0x0000000000000000000000000000000000000000',
       ) as `0x${string}`,
-      governanceAddress: getEnvWithDefault(
+      governanceAddress: getEnvOrDefault(
         'GOVERNANCE_ADDRESS',
         '0x0000000000000000000000000000000000000000',
       ) as `0x${string}`,
@@ -222,11 +213,11 @@ export function getDefaultFees(): DefaultFeeConfig {
       protocolFeeBps: getEnvNumber('FEE_PREMIUM_PROTOCOL_BPS', 1500),
       xlpFulfillmentFeeBps: 15,
       oifSolverFeeBps: 8,
-      treasuryAddress: getEnvWithDefault(
+      treasuryAddress: getEnvOrDefault(
         'TREASURY_ADDRESS',
         '0x0000000000000000000000000000000000000000',
       ) as `0x${string}`,
-      governanceAddress: getEnvWithDefault(
+      governanceAddress: getEnvOrDefault(
         'GOVERNANCE_ADDRESS',
         '0x0000000000000000000000000000000000000000',
       ) as `0x${string}`,
@@ -236,11 +227,11 @@ export function getDefaultFees(): DefaultFeeConfig {
       protocolFeeBps: getEnvNumber('FEE_EXPERIMENTAL_PROTOCOL_BPS', 2000),
       xlpFulfillmentFeeBps: 20,
       oifSolverFeeBps: 10,
-      treasuryAddress: getEnvWithDefault(
+      treasuryAddress: getEnvOrDefault(
         'TREASURY_ADDRESS',
         '0x0000000000000000000000000000000000000000',
       ) as `0x${string}`,
-      governanceAddress: getEnvWithDefault(
+      governanceAddress: getEnvOrDefault(
         'GOVERNANCE_ADDRESS',
         '0x0000000000000000000000000000000000000000',
       ) as `0x${string}`,
@@ -264,11 +255,7 @@ export interface FullBotConfig {
 export function loadFullConfig(): FullBotConfig {
   const chainId = expectEVMChainId(getEnvNumber('CHAIN_ID', 8453), 'CHAIN_ID')
   const chainConfig = getChainConfig(chainId)
-  const privateKey = process.env.PRIVATE_KEY
-
-  if (!privateKey) {
-    throw new Error('PRIVATE_KEY environment variable is required')
-  }
+  const privateKey = requireEnv('PRIVATE_KEY')
 
   return {
     chainId,

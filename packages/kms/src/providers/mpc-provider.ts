@@ -2,6 +2,7 @@
  * MPC Provider - Threshold ECDSA (2-of-3 testnet, 3-of-5 mainnet)
  */
 
+import { getEnv, getEnvNumber, requireEnv } from '@jejunetwork/shared'
 import { type Address, type Hex, keccak256, toBytes, toHex } from 'viem'
 import {
   decryptFromPayload,
@@ -16,7 +17,6 @@ import {
   type KeyVersion,
   type MPCCoordinator,
 } from '../mpc/index.js'
-import { parseEnvInt } from '../schemas.js'
 import {
   type AccessControlPolicy,
   type DecryptRequest,
@@ -58,12 +58,7 @@ export class MPCProvider implements KMSProvider {
       threshold: config.threshold,
       totalParties: config.totalParties,
     })
-    const secret = process.env.MPC_ENCRYPTION_SECRET
-    if (!secret) {
-      throw new Error(
-        'MPC_ENCRYPTION_SECRET environment variable is required for MPC provider',
-      )
-    }
+    const secret = requireEnv('MPC_ENCRYPTION_SECRET')
     this.encryptionKey = deriveKeyFromSecret(secret)
   }
 
@@ -412,7 +407,7 @@ let mpcProvider: MPCProvider | undefined
 
 export function getMPCProvider(config?: Partial<MPCConfig>): MPCProvider {
   if (!mpcProvider) {
-    const networkEnv = process.env.MPC_NETWORK
+    const networkEnv = getEnv('MPC_NETWORK')
     const network =
       networkEnv === 'mainnet' || networkEnv === 'testnet'
         ? networkEnv
@@ -421,13 +416,11 @@ export function getMPCProvider(config?: Partial<MPCConfig>): MPCProvider {
     const defaultTotal = network === 'mainnet' ? 5 : 3
 
     const threshold =
-      config?.threshold ??
-      parseEnvInt(process.env.MPC_THRESHOLD, defaultThreshold)
+      config?.threshold ?? getEnvNumber('MPC_THRESHOLD', defaultThreshold)
     const totalParties =
-      config?.totalParties ??
-      parseEnvInt(process.env.MPC_TOTAL_PARTIES, defaultTotal)
+      config?.totalParties ?? getEnvNumber('MPC_TOTAL_PARTIES', defaultTotal)
     const coordinatorEndpoint =
-      config?.coordinatorEndpoint ?? process.env.MPC_COORDINATOR_ENDPOINT
+      config?.coordinatorEndpoint ?? getEnv('MPC_COORDINATOR_ENDPOINT')
 
     mpcProvider = new MPCProvider({
       threshold,

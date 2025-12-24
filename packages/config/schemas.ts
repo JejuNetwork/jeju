@@ -8,16 +8,15 @@
 
 import { z } from 'zod'
 
-// ============================================================================
-// Network Type
-// ============================================================================
+// Network Type - import from canonical source
+export {
+  type ChainConfig,
+  ChainConfigSchema,
+  NetworkSchema,
+  type NetworkType,
+} from '@jejunetwork/types'
 
-export const NetworkSchema = z.enum(['localnet', 'testnet', 'mainnet'])
-export type NetworkType = z.infer<typeof NetworkSchema>
-
-// ============================================================================
-// Chain Configuration Schema
-// ============================================================================
+// Address Schemas for local use
 
 /**
  * Address schema using regex validation (no viem dependency)
@@ -35,59 +34,7 @@ const OptionalAddressSchema = z
     message: 'Must be empty or valid Ethereum address',
   })
 
-const GasTokenSchema = z.object({
-  name: z.string().min(1),
-  symbol: z.string().min(1).max(10),
-  decimals: z.number().int().nonnegative().max(18),
-})
-
-/** OP Stack L2 contract addresses for chain config */
-const ChainL2ContractsSchema = z.object({
-  L2CrossDomainMessenger: AddressSchema,
-  L2StandardBridge: AddressSchema,
-  L2ToL1MessagePasser: AddressSchema,
-  L2ERC721Bridge: AddressSchema,
-  GasPriceOracle: AddressSchema,
-  L1Block: AddressSchema,
-  WETH: AddressSchema,
-})
-
-/** OP Stack L1 contract addresses for chain config - allows empty for undeployed contracts */
-const ChainL1ContractsSchema = z.object({
-  OptimismPortal: OptionalAddressSchema,
-  L2OutputOracle: OptionalAddressSchema,
-  L1CrossDomainMessenger: OptionalAddressSchema,
-  L1StandardBridge: OptionalAddressSchema,
-  SystemConfig: OptionalAddressSchema,
-})
-
-/**
- * OP Stack chain configuration schema
- */
-export const ChainConfigSchema = z.object({
-  chainId: z.number().int().positive(),
-  networkId: z.number().int().positive(),
-  name: z.string().min(1),
-  rpcUrl: z.string().min(1),
-  wsUrl: z.string().min(1),
-  explorerUrl: z.string().min(1),
-  l1ChainId: z.number().int().positive(),
-  l1RpcUrl: z.string().min(1),
-  l1Name: z.string().min(1),
-  flashblocksEnabled: z.boolean(),
-  flashblocksSubBlockTime: z.number().int().nonnegative(),
-  blockTime: z.number().int().positive(),
-  gasToken: GasTokenSchema,
-  contracts: z.object({
-    l2: ChainL2ContractsSchema,
-    l1: ChainL1ContractsSchema,
-  }),
-})
-export type ChainConfig = z.infer<typeof ChainConfigSchema>
-
-// ============================================================================
 // Contract Schemas
-// ============================================================================
 
 /**
  * Contract address - empty string or valid Ethereum address
@@ -180,9 +127,14 @@ const NetworkContractsSchema = z.object({
 })
 export type NetworkContracts = z.infer<typeof NetworkContractsSchema>
 
-/** Type with index signature for dynamic category access */
+/**
+ * Type for dynamic contract category access.
+ * Use this with explicit type narrowing when accessing dynamic keys.
+ * The contractCategory getter functions (getContractCategory) provide type-safe access.
+ */
+export type ContractCategoryValue = Record<string, string>
 export type NetworkContractsDynamic = NetworkContracts & {
-  [category: string]: Record<string, string> | number | undefined
+  [K in ContractCategory]?: ContractCategoryValue
 }
 
 const ExternalChainContractsSchema = z.object({
@@ -198,9 +150,17 @@ export type ExternalChainContracts = z.infer<
   typeof ExternalChainContractsSchema
 >
 
-/** Type with index signature for dynamic category access on external chains */
+/** External chain contract categories that support dynamic access */
+export type ExternalContractCategory =
+  | 'oif'
+  | 'eil'
+  | 'payments'
+  | 'tokens'
+  | 'poc'
+
+/** Type for dynamic category access on external chains */
 export type ExternalChainContractsDynamic = ExternalChainContracts & {
-  [category: string]: Record<string, string> | number | string | undefined
+  [K in ExternalContractCategory]?: ContractCategoryValue
 }
 
 export const ContractsConfigSchema = z.object({
@@ -219,9 +179,7 @@ export const ContractsConfigSchema = z.object({
 })
 export type ContractsConfig = z.infer<typeof ContractsConfigSchema>
 
-// ============================================================================
 // Services Schemas
-// ============================================================================
 
 /** URL string - must be non-empty */
 const UrlString = z.string().min(1)
@@ -361,9 +319,7 @@ export const ServicesConfigSchema = z.object({
 })
 export type ServicesConfig = z.infer<typeof ServicesConfigSchema>
 
-// ============================================================================
 // EIL (Cross-Chain Liquidity) Schemas
-// ============================================================================
 
 export const EILChainConfigSchema = z.object({
   chainId: z.number().int().positive(),
@@ -404,9 +360,7 @@ export const EILConfigSchema = z.object({
 })
 export type EILConfig = z.infer<typeof EILConfigSchema>
 
-// ============================================================================
 // Federation Schemas
-// ============================================================================
 
 export const FederationHubConfigSchema = z.object({
   chainId: z.number().int().positive(),
@@ -476,9 +430,7 @@ export const FederationFullConfigSchema = z.object({
 })
 export type FederationFullConfig = z.infer<typeof FederationFullConfigSchema>
 
-// ============================================================================
 // Branding Schemas
-// ============================================================================
 
 export const ChainBrandingSchema = z.object({
   name: z.string().min(1),
@@ -611,9 +563,7 @@ export const BrandingConfigSchema = z.object({
 })
 export type BrandingConfig = z.infer<typeof BrandingConfigSchema>
 
-// ============================================================================
 // Vendor Apps Schema
-// ============================================================================
 
 export const VendorAppConfigSchema = z.object({
   name: z.string().min(1),
@@ -631,9 +581,7 @@ export const VendorAppsConfigSchema = z.object({
 })
 export type VendorAppsConfig = z.infer<typeof VendorAppsConfigSchema>
 
-// ============================================================================
 // Test Keys Schema
-// ============================================================================
 
 export const KeyRoleSchema = z.enum([
   'deployer',
@@ -670,9 +618,7 @@ export const SolanaKeyPairSchema = z.object({
 })
 export type SolanaKeyPair = z.infer<typeof SolanaKeyPairSchema>
 
-// ============================================================================
 // Deployment File Schemas (for loading contract addresses from deployment files)
-// ============================================================================
 
 /**
  * JSON value type for deployment files - can be any valid JSON
@@ -709,9 +655,7 @@ export const DeploymentFileDataSchema = z.record(
 )
 export type DeploymentFileData = z.infer<typeof DeploymentFileDataSchema>
 
-// ============================================================================
 // RPC Response Schemas (for validating JSON-RPC responses)
-// ============================================================================
 
 /**
  * Simple RPC response with optional hex result (for eth_blockNumber, eth_getBalance, etc.)

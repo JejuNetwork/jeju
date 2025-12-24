@@ -11,7 +11,6 @@ import {
   zeroAddress,
   zeroHash,
 } from 'viem'
-import { readContract } from 'viem/actions'
 
 export interface JNSConfig {
   registry: Address
@@ -114,9 +113,6 @@ export function formatJNSName(label: string): string {
 export function parseJNSName(name: string): string {
   return name.replace('.jeju', '')
 }
-
-// ============ Client Class ============
-
 export class JNSClient {
   private client: PublicClient
   private registry: Address
@@ -143,7 +139,7 @@ export class JNSClient {
     // Check if record exists
     let exists: boolean
     try {
-      exists = await readContract(this.client, {
+      exists = await this.client.readContract({
         address: this.registry,
         abi: JNS_REGISTRY_ABI,
         functionName: 'recordExists',
@@ -163,7 +159,7 @@ export class JNSClient {
     // Get resolver address
     let resolverAddr: Address
     try {
-      resolverAddr = await readContract(this.client, {
+      resolverAddr = await this.client.readContract({
         address: this.registry,
         abi: JNS_REGISTRY_ABI,
         functionName: 'resolver',
@@ -181,7 +177,7 @@ export class JNSClient {
     // Fetch all records
     let address: Address | null
     let contenthash: `0x${string}` | null
-    let appInfo: [
+    let appInfo: readonly [
       Address | null,
       `0x${string}` | null,
       bigint,
@@ -192,54 +188,62 @@ export class JNSClient {
 
     try {
       ;[address, contenthash, appInfo] = await Promise.all([
-        readContract(this.client, {
-          address: resolverAddr,
-          abi: JNS_RESOLVER_ABI,
-          functionName: 'addr',
-          args: [node],
-        }).catch((err) => {
-          if (process.env.DEBUG) {
-            const errorMessage =
-              err instanceof Error ? err.message : 'Unknown error'
-            console.warn(`Failed to get address for ${name}: ${errorMessage}`)
-          }
-          return null
-        }),
-        readContract(this.client, {
-          address: resolverAddr,
-          abi: JNS_RESOLVER_ABI,
-          functionName: 'contenthash',
-          args: [node],
-        }).catch((err) => {
-          if (process.env.DEBUG) {
-            const errorMessage =
-              err instanceof Error ? err.message : 'Unknown error'
-            console.warn(
-              `Failed to get contenthash for ${name}: ${errorMessage}`,
-            )
-          }
-          return null
-        }),
-        readContract(this.client, {
-          address: resolverAddr,
-          abi: JNS_RESOLVER_ABI,
-          functionName: 'getAppInfo',
-          args: [node],
-        }).catch((err) => {
-          if (process.env.DEBUG) {
-            const errorMessage =
-              err instanceof Error ? err.message : 'Unknown error'
-            console.warn(`Failed to get app info for ${name}: ${errorMessage}`)
-          }
-          return [null, null, 0n, null, null, null] as [
-            Address | null,
-            `0x${string}` | null,
-            bigint,
-            string | null,
-            string | null,
-            `0x${string}` | null,
-          ]
-        }),
+        this.client
+          .readContract({
+            address: resolverAddr,
+            abi: JNS_RESOLVER_ABI,
+            functionName: 'addr',
+            args: [node],
+          })
+          .catch((err) => {
+            if (process.env.DEBUG) {
+              const errorMessage =
+                err instanceof Error ? err.message : 'Unknown error'
+              console.warn(`Failed to get address for ${name}: ${errorMessage}`)
+            }
+            return null
+          }),
+        this.client
+          .readContract({
+            address: resolverAddr,
+            abi: JNS_RESOLVER_ABI,
+            functionName: 'contenthash',
+            args: [node],
+          })
+          .catch((err) => {
+            if (process.env.DEBUG) {
+              const errorMessage =
+                err instanceof Error ? err.message : 'Unknown error'
+              console.warn(
+                `Failed to get contenthash for ${name}: ${errorMessage}`,
+              )
+            }
+            return null
+          }),
+        this.client
+          .readContract({
+            address: resolverAddr,
+            abi: JNS_RESOLVER_ABI,
+            functionName: 'getAppInfo',
+            args: [node],
+          })
+          .catch((err) => {
+            if (process.env.DEBUG) {
+              const errorMessage =
+                err instanceof Error ? err.message : 'Unknown error'
+              console.warn(
+                `Failed to get app info for ${name}: ${errorMessage}`,
+              )
+            }
+            return [null, null, 0n, null, null, null] as [
+              Address | null,
+              `0x${string}` | null,
+              bigint,
+              string | null,
+              string | null,
+              `0x${string}` | null,
+            ]
+          }),
       ])
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error'
@@ -261,7 +265,7 @@ export class JNSClient {
 
     for (const key of textKeys) {
       try {
-        const value = await readContract(this.client, {
+        const value = await this.client.readContract({
           address: resolverAddr,
           abi: JNS_RESOLVER_ABI,
           functionName: 'text',
@@ -302,12 +306,14 @@ export class JNSClient {
    * Resolve an address to its primary name (reverse lookup)
    */
   async reverseLookup(address: Address): Promise<string | null> {
-    const name = await readContract(this.client, {
-      address: this.reverseRegistrar,
-      abi: JNS_REVERSE_REGISTRAR_ABI,
-      functionName: 'nameOf',
-      args: [address],
-    }).catch(() => '')
+    const name = await this.client
+      .readContract({
+        address: this.reverseRegistrar,
+        abi: JNS_REVERSE_REGISTRAR_ABI,
+        functionName: 'nameOf',
+        args: [address],
+      })
+      .catch(() => '')
     return name || null
   }
 
@@ -316,7 +322,7 @@ export class JNSClient {
    */
   async isAvailable(name: string): Promise<boolean> {
     const label = parseJNSName(name)
-    return await readContract(this.client, {
+    return await this.client.readContract({
       address: this.registrar,
       abi: JNS_REGISTRAR_ABI,
       functionName: 'available',
@@ -333,30 +339,34 @@ export class JNSClient {
     const node = computeNamehash(fullName)
 
     const [available, owner, expires, resolverAddr] = await Promise.all([
-      readContract(this.client, {
+      this.client.readContract({
         address: this.registrar,
         abi: JNS_REGISTRAR_ABI,
         functionName: 'available',
         args: [label],
       }),
-      readContract(this.client, {
-        address: this.registrar,
-        abi: JNS_REGISTRAR_ABI,
-        functionName: 'ownerOf',
-        args: [label],
-      }).catch(() => zeroAddress),
-      readContract(this.client, {
+      this.client
+        .readContract({
+          address: this.registrar,
+          abi: JNS_REGISTRAR_ABI,
+          functionName: 'ownerOf',
+          args: [label],
+        })
+        .catch(() => zeroAddress),
+      this.client.readContract({
         address: this.registrar,
         abi: JNS_REGISTRAR_ABI,
         functionName: 'nameExpires',
         args: [label],
       }),
-      readContract(this.client, {
-        address: this.registry,
-        abi: JNS_REGISTRY_ABI,
-        functionName: 'resolver',
-        args: [node],
-      }).catch(() => zeroAddress),
+      this.client
+        .readContract({
+          address: this.registry,
+          abi: JNS_REGISTRY_ABI,
+          functionName: 'resolver',
+          args: [node],
+        })
+        .catch(() => zeroAddress),
     ])
 
     if (owner === zeroAddress && available) {
@@ -384,7 +394,7 @@ export class JNSClient {
   async getPrice(name: string, durationYears: number = 1): Promise<bigint> {
     const label = parseJNSName(name)
     const duration = BigInt(durationYears * 365 * 24 * 60 * 60)
-    return await readContract(this.client, {
+    return await this.client.readContract({
       address: this.registrar,
       abi: JNS_REGISTRAR_ABI,
       functionName: 'rentPrice',
@@ -416,9 +426,6 @@ export class JNSClient {
     return record?.app || null
   }
 }
-
-// ============ Factory Function ============
-
 /**
  * Create a JNS client from deployment config
  */
@@ -455,9 +462,6 @@ export async function createJNSClient(
 
   return new JNSClient(config)
 }
-
-// ============ Canonical App Names ============
-
 export const JEJU_APPS = {
   gateway: 'gateway.jeju',
   bazaar: 'bazaar.jeju',

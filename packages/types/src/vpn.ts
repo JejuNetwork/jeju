@@ -1,23 +1,9 @@
 /**
- * VPN Types for Jeju Decentralized VPN Network
- *
- * Supports:
- * - WireGuard-based system VPN
- * - SOCKS5/HTTP proxy for browser-only mode
- * - Static asset CDN serving
- * - Fair contribution model (3x usage cap)
- * - Region-based legal compliance
+ * Decentralized VPN network types.
  */
 
 import { z } from 'zod'
 
-// ============================================================================
-// Country and Region Codes
-// ============================================================================
-
-/**
- * ISO 3166-1 alpha-2 country codes for legal compliance
- */
 export const CountryCodeSchema = z.enum([
   // Americas
   'US',
@@ -316,9 +302,7 @@ export const VPN_LEGAL_COUNTRIES: CountryLegalStatus[] = [
   },
 ]
 
-// ============================================================================
 // VPN Node Types
-// ============================================================================
 
 export const VPNNodeTypeSchema = z.enum([
   'residential', // Home user running VPN app
@@ -397,9 +381,7 @@ export const VPNNodeInfoSchema = z.object({
 })
 export type VPNNodeInfo = z.infer<typeof VPNNodeInfoSchema>
 
-// ============================================================================
 // Fair Contribution Model
-// ============================================================================
 
 /**
  * Contribution tracking for fair sharing
@@ -469,9 +451,7 @@ export const DEFAULT_CONTRIBUTION_SETTINGS: ContributionSettings = {
   earningBandwidthPercent: 50,
 }
 
-// ============================================================================
 // VPN Connection Types
-// ============================================================================
 
 export const VPNProtocolSchema = z.enum([
   'wireguard', // System-wide VPN
@@ -551,9 +531,7 @@ export const VPNConnectionSchema = z.object({
 })
 export type VPNConnection = z.infer<typeof VPNConnectionSchema>
 
-// ============================================================================
 // WireGuard Types
-// ============================================================================
 
 /**
  * WireGuard peer configuration
@@ -578,9 +556,7 @@ export const WireGuardConfigSchema = z.object({
 })
 export type WireGuardConfig = z.infer<typeof WireGuardConfigSchema>
 
-// ============================================================================
 // VPN SDK Types
-// ============================================================================
 
 export const VPNClientConfigSchema = z.object({
   // Network
@@ -616,9 +592,7 @@ export const VPNNodeQuerySchema = z.object({
 })
 export type VPNNodeQuery = z.infer<typeof VPNNodeQuerySchema>
 
-// ============================================================================
 // Earnings and Billing
-// ============================================================================
 
 /**
  * Pricing for VPN services
@@ -671,9 +645,7 @@ export const VPNProviderEarningsSchema = z.object({
 })
 export type VPNProviderEarnings = z.infer<typeof VPNProviderEarningsSchema>
 
-// ============================================================================
 // Events
-// ============================================================================
 
 export const VPNNodeRegisteredEventSchema = z.object({
   nodeId: HexSchema,

@@ -16,15 +16,15 @@ import {
 } from 'bun:test'
 import { type Address, createPublicClient, http, type PublicClient } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { resetConfig } from '../../src/x402/config'
-import { CHAIN_CONFIGS } from '../../src/x402/lib/chains'
-import { createServer } from '../../src/x402/server'
-import { clearNonceCache } from '../../src/x402/services/nonce-manager'
+import { resetConfig } from '../../api/x402/config'
+import { CHAIN_CONFIGS } from '../../api/x402/lib/chains'
+import { createServer } from '../../api/x402/server'
+import { clearNonceCache } from '../../api/x402/services/nonce-manager'
 import {
   createClients,
   getFacilitatorStats,
   isTokenSupported,
-} from '../../src/x402/services/settler'
+} from '../../api/x402/services/settler'
 
 const app = createServer()
 const TEST_PRIVATE_KEY =
@@ -91,9 +91,9 @@ async function createSignedPayment(overrides?: {
     message,
   })
 
-  return Buffer.from(JSON.stringify({ ...payload, signature })).toString(
-    'base64',
-  )
+  return Buffer.from(
+    JSON.stringify({ ...payload, signature, payer: null }),
+  ).toString('base64')
 }
 
 async function isRpcAvailable(network: string): Promise<boolean> {

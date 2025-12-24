@@ -5,9 +5,6 @@
  * Identifies gaps, optimizations, and profit opportunities
  * based on current implementation and market conditions.
  */
-
-// ============ TYPES ============
-
 interface Improvement {
   category:
     | 'missing_strategy'
@@ -40,11 +37,7 @@ interface LatencyOptimization {
   improvement: string
   implementation: string
 }
-
-// ============ ANALYSIS DATA ============
-
 const IMPROVEMENTS: Improvement[] = [
-  // ============ MISSING STRATEGIES ============
   {
     category: 'missing_strategy',
     priority: 'critical',
@@ -157,7 +150,6 @@ const IMPROVEMENTS: Improvement[] = [
     ],
   },
 
-  // ============ INFRASTRUCTURE OPTIMIZATIONS ============
   {
     category: 'infrastructure',
     priority: 'critical',
@@ -170,7 +162,7 @@ const IMPROVEMENTS: Improvement[] = [
     requiredChanges: [
       'Switch to eth_subscribe for newHeads',
       'Implement reconnection logic',
-      'Add Alchemy/QuickNode enhanced APIs',
+      'Add Alchemy/QuickNode APIs',
     ],
   },
   {
@@ -237,7 +229,6 @@ const IMPROVEMENTS: Improvement[] = [
     ],
   },
 
-  // ============ OPTIMIZATION ============
   {
     category: 'optimization',
     priority: 'critical',
@@ -302,7 +293,6 @@ const IMPROVEMENTS: Improvement[] = [
     ],
   },
 
-  // ============ RISK REDUCTION ============
   {
     category: 'risk_reduction',
     priority: 'critical',
@@ -352,7 +342,6 @@ const IMPROVEMENTS: Improvement[] = [
     ],
   },
 
-  // ============ NEW REVENUE STREAMS ============
   {
     category: 'new_revenue',
     priority: 'high',
@@ -512,9 +501,6 @@ const LATENCY_OPTIMIZATIONS: LatencyOptimization[] = [
     implementation: 'Rewrite AMM math in Rust/WASM',
   },
 ]
-
-// ============ MAIN REPORT ============
-
 async function main() {
   console.log('')
   console.log(
@@ -531,7 +517,6 @@ async function main() {
   )
   console.log('')
 
-  // ============ CRITICAL IMPROVEMENTS ============
   console.log(
     '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
   )
@@ -551,7 +536,6 @@ async function main() {
     console.log('')
   }
 
-  // ============ HIGH PRIORITY ============
   console.log(
     '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
   )
@@ -567,7 +551,6 @@ async function main() {
   }
   console.log('')
 
-  // ============ MISSING PROTOCOLS ============
   console.log(
     '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
   )
@@ -596,7 +579,6 @@ async function main() {
   )
   console.log('')
 
-  // ============ LATENCY OPTIMIZATIONS ============
   console.log(
     '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
   )
@@ -625,7 +607,6 @@ async function main() {
   )
   console.log('')
 
-  // ============ PROFIT POTENTIAL SUMMARY ============
   console.log(
     '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
   )
@@ -656,7 +637,6 @@ async function main() {
   console.log('    - Full-time monitoring and optimization')
   console.log('')
 
-  // ============ IMPLEMENTATION ROADMAP ============
   console.log(
     '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
   )
@@ -693,7 +673,6 @@ async function main() {
   console.log('    □ Build builder relationships')
   console.log('')
 
-  // ============ QUICK WINS ============
   console.log(
     '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
   )

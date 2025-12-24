@@ -1,24 +1,18 @@
-/**
- * Service Integration Tests
- * Tests service capabilities and on-chain interactions
- * Requires: localnet running with `jeju dev`
- */
-
 import { beforeAll, describe, expect, test } from 'bun:test'
 import { type Address, createPublicClient, http, parseEther } from 'viem'
 import {
   createNodeClient,
   getContractAddresses,
-  jejuLocalnet,
-} from '../../src/lib/contracts'
+  networkLocalnet,
+} from '../../api/lib/contracts'
 import {
   detectHardware,
   getComputeCapabilities,
   type HardwareInfo,
   meetsRequirements,
   type ServiceRequirements,
-} from '../../src/lib/hardware'
-import { createNodeServices, type NodeServices } from '../../src/lib/services'
+} from '../../api/lib/hardware'
+import { createNodeServices, type NodeServices } from '../../api/lib/services'
 
 const RPC_URL = process.env.JEJU_RPC_URL ?? 'http://127.0.0.1:6546'
 const CHAIN_ID = 1337
@@ -48,19 +42,19 @@ let hardware: HardwareInfo
 
 async function checkLocalnet(): Promise<boolean> {
   const publicClient = createPublicClient({
-    chain: jejuLocalnet,
+    chain: networkLocalnet,
     transport: http(RPC_URL),
   })
   const blockNumber = await publicClient.getBlockNumber().catch(() => null)
   return blockNumber !== null
 }
 
-async function waitForTx(hash: string): Promise<void> {
+async function waitForTx(hash: `0x${string}`): Promise<void> {
   const publicClient = createPublicClient({
-    chain: jejuLocalnet,
+    chain: networkLocalnet,
     transport: http(RPC_URL),
   })
-  await publicClient.waitForTransactionReceipt({ hash: hash as `0x${string}` })
+  await publicClient.waitForTransactionReceipt({ hash })
 }
 
 function skipIfNoLocalnet(): boolean {
@@ -141,7 +135,7 @@ describe('Wallet & Signing', () => {
     if (!account) throw new Error('Wallet client account not available')
 
     const hash = await client.walletClient?.sendTransaction({
-      chain: jejuLocalnet,
+      chain: networkLocalnet,
       account,
       to: TEST_ACCOUNTS[0].address,
       value: parseEther('0.001'),

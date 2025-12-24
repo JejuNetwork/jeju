@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import { getCoreAppUrl } from '@jejunetwork/config/ports'
+import { getCoreAppUrl } from '@jejunetwork/config'
 
 const A2A_BASE_URL = getCoreAppUrl('NODE_EXPLORER_UI')
 
@@ -18,7 +18,7 @@ describe('A2A Agent Card Discovery', () => {
     const agentCard = await response.json()
 
     expect(agentCard.protocolVersion).toBe('0.3.0')
-    expect(agentCard.name).toBe('Gateway Portal - Protocol Infrastructure Hub')
+    expect(agentCard.name).toBe('Gateway - Protocol Infrastructure Hub')
     expect(agentCard.description).toContain('Multi-token paymaster system')
   })
 

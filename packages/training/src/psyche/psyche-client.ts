@@ -1,8 +1,5 @@
 /**
- * Psyche Client for Jeju Training
- *
- * TypeScript client for Nous Research's Psyche distributed training network.
- * Handles coordination between Solana-based Psyche network and Jeju's EVM chain.
+ * Psyche distributed training client for Solana/EVM coordination.
  */
 
 import {
@@ -19,25 +16,34 @@ import { type Address, createWalletClient, type Hex, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
 
-// ============================================================================
-// Constants
-// ============================================================================
+let _coordinatorProgramId: PublicKey | null = null
+let _miningPoolProgramId: PublicKey | null = null
 
-// Nous Research Psyche program IDs - load from env or use defaults
-// See: https://github.com/NousResearch/psyche
-const PSYCHE_COORDINATOR_PROGRAM_ID = new PublicKey(
-  process.env.PSYCHE_COORDINATOR_PROGRAM_ID ??
-    'PsychEwWYxBfk4YMfHnYd6A6KM69j2z8MfmxP7N1YLs1',
-)
+function getCoordinatorProgramId(): PublicKey {
+  if (!_coordinatorProgramId) {
+    const programId = process.env.PSYCHE_COORDINATOR_PROGRAM_ID
+    if (!programId) {
+      throw new Error(
+        'getCoordinatorProgramId() env var required to use Psyche integration',
+      )
+    }
+    _coordinatorProgramId = new PublicKey(programId)
+  }
+  return _coordinatorProgramId
+}
 
-const PSYCHE_MINING_POOL_PROGRAM_ID = new PublicKey(
-  process.env.PSYCHE_MINING_POOL_PROGRAM_ID ??
-    'PsychMnPL1zCfW8kJAaGX5xRuJDxHVvbFKQn4VTkM2z',
-)
-
-// ============================================================================
-// Types
-// ============================================================================
+function getMiningPoolProgramId(): PublicKey {
+  if (!_miningPoolProgramId) {
+    const programId = process.env.PSYCHE_MINING_POOL_PROGRAM_ID
+    if (!programId) {
+      throw new Error(
+        'getMiningPoolProgramId() env var required to use Psyche integration',
+      )
+    }
+    _miningPoolProgramId = new PublicKey(programId)
+  }
+  return _miningPoolProgramId
+}
 
 export interface PsycheConfig {
   solanaRpcUrl: string
@@ -119,9 +125,7 @@ export interface TrainingMetrics {
   tokensProcessed: number
 }
 
-// ============================================================================
 // Borsh Schema for Solana Instructions
-// ============================================================================
 
 class InitCoordinatorInstruction {
   instruction = 0
@@ -227,9 +231,7 @@ class CheckpointInstruction {
   }
 }
 
-// ============================================================================
 // Psyche Client
-// ============================================================================
 
 export class PsycheClient {
   private connection: Connection
@@ -254,9 +256,7 @@ export class PsycheClient {
     }
   }
 
-  // ============================================================================
   // Run Management
-  // ============================================================================
 
   async createRun(
     runId: string,
@@ -270,7 +270,7 @@ export class PsycheClient {
 
     const [coordinatorInstance] = PublicKey.findProgramAddressSync(
       [Buffer.from('coordinator'), Buffer.from(runId.slice(0, 32))],
-      PSYCHE_COORDINATOR_PROGRAM_ID,
+      getCoordinatorProgramId(),
     )
 
     const coordinatorAccount = Keypair.generate()
@@ -321,7 +321,7 @@ export class PsycheClient {
 
     const tx = new Transaction().add(
       new TransactionInstruction({
-        programId: PSYCHE_COORDINATOR_PROGRAM_ID,
+        programId: getCoordinatorProgramId(),
         keys: [
           {
             pubkey: this.solanaKeypair.publicKey,
@@ -356,7 +356,7 @@ export class PsycheClient {
   async getRunState(runId: string): Promise<CoordinatorState | null> {
     const [coordinatorInstance] = PublicKey.findProgramAddressSync(
       [Buffer.from('coordinator'), Buffer.from(runId.slice(0, 32))],
-      PSYCHE_COORDINATOR_PROGRAM_ID,
+      getCoordinatorProgramId(),
     )
 
     const accountInfo =
@@ -484,7 +484,7 @@ export class PsycheClient {
 
     const [coordinatorInstance] = PublicKey.findProgramAddressSync(
       [Buffer.from('coordinator'), Buffer.from(runId.slice(0, 32))],
-      PSYCHE_COORDINATOR_PROGRAM_ID,
+      getCoordinatorProgramId(),
     )
 
     const instruction = new JoinRunInstruction(
@@ -508,7 +508,7 @@ export class PsycheClient {
 
     const tx = new Transaction().add(
       new TransactionInstruction({
-        programId: PSYCHE_COORDINATOR_PROGRAM_ID,
+        programId: getCoordinatorProgramId(),
         keys: [
           {
             pubkey: this.solanaKeypair.publicKey,
@@ -538,7 +538,7 @@ export class PsycheClient {
 
     const [coordinatorInstance] = PublicKey.findProgramAddressSync(
       [Buffer.from('coordinator'), Buffer.from(runId.slice(0, 32))],
-      PSYCHE_COORDINATOR_PROGRAM_ID,
+      getCoordinatorProgramId(),
     )
 
     const instruction = new TickInstruction()
@@ -546,7 +546,7 @@ export class PsycheClient {
 
     const tx = new Transaction().add(
       new TransactionInstruction({
-        programId: PSYCHE_COORDINATOR_PROGRAM_ID,
+        programId: getCoordinatorProgramId(),
         keys: [
           {
             pubkey: this.solanaKeypair.publicKey,
@@ -575,7 +575,7 @@ export class PsycheClient {
 
     const [coordinatorInstance] = PublicKey.findProgramAddressSync(
       [Buffer.from('coordinator'), Buffer.from(runId.slice(0, 32))],
-      PSYCHE_COORDINATOR_PROGRAM_ID,
+      getCoordinatorProgramId(),
     )
 
     const instruction = new WitnessInstruction(
@@ -600,7 +600,7 @@ export class PsycheClient {
 
     const tx = new Transaction().add(
       new TransactionInstruction({
-        programId: PSYCHE_COORDINATOR_PROGRAM_ID,
+        programId: getCoordinatorProgramId(),
         keys: [
           {
             pubkey: this.solanaKeypair.publicKey,
@@ -623,7 +623,7 @@ export class PsycheClient {
 
     const [coordinatorInstance] = PublicKey.findProgramAddressSync(
       [Buffer.from('coordinator'), Buffer.from(runId.slice(0, 32))],
-      PSYCHE_COORDINATOR_PROGRAM_ID,
+      getCoordinatorProgramId(),
     )
 
     const instruction = new HealthCheckInstruction(clientId)
@@ -639,7 +639,7 @@ export class PsycheClient {
 
     const tx = new Transaction().add(
       new TransactionInstruction({
-        programId: PSYCHE_COORDINATOR_PROGRAM_ID,
+        programId: getCoordinatorProgramId(),
         keys: [
           {
             pubkey: this.solanaKeypair.publicKey,
@@ -662,7 +662,7 @@ export class PsycheClient {
 
     const [coordinatorInstance] = PublicKey.findProgramAddressSync(
       [Buffer.from('coordinator'), Buffer.from(runId.slice(0, 32))],
-      PSYCHE_COORDINATOR_PROGRAM_ID,
+      getCoordinatorProgramId(),
     )
 
     const instruction = new CheckpointInstruction(hubRepo)
@@ -678,7 +678,7 @@ export class PsycheClient {
 
     const tx = new Transaction().add(
       new TransactionInstruction({
-        programId: PSYCHE_COORDINATOR_PROGRAM_ID,
+        programId: getCoordinatorProgramId(),
         keys: [
           {
             pubkey: this.solanaKeypair.publicKey,
@@ -694,9 +694,7 @@ export class PsycheClient {
     return sendAndConfirmTransaction(this.connection, tx, [this.solanaKeypair])
   }
 
-  // ============================================================================
   // Mining Pool Integration
-  // ============================================================================
 
   async createMiningPool(
     poolId: string,
@@ -709,7 +707,7 @@ export class PsycheClient {
 
     const [poolPda] = PublicKey.findProgramAddressSync(
       [Buffer.from('pool'), Buffer.from(poolId.slice(0, 32))],
-      PSYCHE_MINING_POOL_PROGRAM_ID,
+      getMiningPoolProgramId(),
     )
 
     const data = Buffer.alloc(1 + 32 + 8)
@@ -719,7 +717,7 @@ export class PsycheClient {
 
     const tx = new Transaction().add(
       new TransactionInstruction({
-        programId: PSYCHE_MINING_POOL_PROGRAM_ID,
+        programId: getMiningPoolProgramId(),
         keys: [
           {
             pubkey: this.solanaKeypair.publicKey,
@@ -748,7 +746,7 @@ export class PsycheClient {
 
     const [poolPda] = PublicKey.findProgramAddressSync(
       [Buffer.from('pool'), Buffer.from(poolId.slice(0, 32))],
-      PSYCHE_MINING_POOL_PROGRAM_ID,
+      getMiningPoolProgramId(),
     )
 
     const [lenderPda] = PublicKey.findProgramAddressSync(
@@ -757,7 +755,7 @@ export class PsycheClient {
         Buffer.from(poolId.slice(0, 32)),
         this.solanaKeypair.publicKey.toBuffer(),
       ],
-      PSYCHE_MINING_POOL_PROGRAM_ID,
+      getMiningPoolProgramId(),
     )
 
     const data = Buffer.alloc(1 + 8)
@@ -766,7 +764,7 @@ export class PsycheClient {
 
     const tx = new Transaction().add(
       new TransactionInstruction({
-        programId: PSYCHE_MINING_POOL_PROGRAM_ID,
+        programId: getMiningPoolProgramId(),
         keys: [
           {
             pubkey: this.solanaKeypair.publicKey,
@@ -790,7 +788,7 @@ export class PsycheClient {
 
     const [poolPda] = PublicKey.findProgramAddressSync(
       [Buffer.from('pool'), Buffer.from(poolId.slice(0, 32))],
-      PSYCHE_MINING_POOL_PROGRAM_ID,
+      getMiningPoolProgramId(),
     )
 
     const [lenderPda] = PublicKey.findProgramAddressSync(
@@ -799,7 +797,7 @@ export class PsycheClient {
         Buffer.from(poolId.slice(0, 32)),
         this.solanaKeypair.publicKey.toBuffer(),
       ],
-      PSYCHE_MINING_POOL_PROGRAM_ID,
+      getMiningPoolProgramId(),
     )
 
     const data = Buffer.alloc(1)
@@ -807,7 +805,7 @@ export class PsycheClient {
 
     const tx = new Transaction().add(
       new TransactionInstruction({
-        programId: PSYCHE_MINING_POOL_PROGRAM_ID,
+        programId: getMiningPoolProgramId(),
         keys: [
           {
             pubkey: this.solanaKeypair.publicKey,
@@ -824,9 +822,7 @@ export class PsycheClient {
     return sendAndConfirmTransaction(this.connection, tx, [this.solanaKeypair])
   }
 
-  // ============================================================================
   // Cross-Chain Bridge to Jeju EVM
-  // ============================================================================
 
   async bridgeProgressToEVM(
     runId: string,
@@ -877,9 +873,7 @@ export class PsycheClient {
     return hash
   }
 
-  // ============================================================================
   // Utilities
-  // ============================================================================
 
   async getBalance(): Promise<number> {
     if (!this.solanaKeypair) {
@@ -897,9 +891,7 @@ export class PsycheClient {
   }
 }
 
-// ============================================================================
 // Factory
-// ============================================================================
 
 export function createPsycheClient(config: PsycheConfig): PsycheClient {
   return new PsycheClient(config)

@@ -11,7 +11,12 @@ import { existsSync, mkdirSync, readFileSync, symlinkSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { $ } from 'bun'
 import { discoverVendorApps } from './shared/discover-apps'
-import { getHostsBlockStatus, hasJejuHostsBlock } from './shared/local-proxy'
+import {
+  getHostsBlockStatus,
+  hasJejuHostsBlock,
+  installPortForwarding,
+  isPortForwardingActive,
+} from './shared/local-proxy'
 
 /**
  * Ensure workspace packages are properly symlinked in node_modules
@@ -29,6 +34,7 @@ function ensureWorkspaceSymlinks(): void {
   // Map of package names to their paths
   const workspacePackages: Record<string, string> = {
     // packages/*
+    cli: 'packages/cli',
     config: 'packages/config',
     contracts: 'packages/contracts',
     types: 'packages/types',
@@ -303,42 +309,30 @@ async function main() {
 
   // Try to initialize submodules with a short timeout to avoid hanging
   // Use depth=1 to speed up cloning
-  let contractLibsResult: { exitCode: number; timedOut?: boolean } | undefined
   let timedOut = false
+  let exitCode = 0
+  let errorMessage = ''
 
   try {
-    const submoduleProcess =
-      $`git submodule update --init --recursive --depth 1 packages/contracts/lib/`.nothrow()
-    const timeoutPromise = new Promise<{ exitCode: number; timedOut: boolean }>(
-      (resolve) => {
-        setTimeout(() => {
-          // Kill the submodule process if it's still running
-          submoduleProcess.kill()
-          resolve({ exitCode: 124, timedOut: true })
-        }, 30000) // 30 second timeout
-      },
-    )
+    // Run git submodule with timeout using Bun's built-in timeout
+    const result =
+      await $`timeout 30 git submodule update --init --recursive --depth 1 packages/contracts/lib/`
+        .nothrow()
+        .quiet()
 
-    const result = await Promise.race([submoduleProcess, timeoutPromise])
-
-    if ('timedOut' in result && result.timedOut) {
+    exitCode = result.exitCode
+    if (exitCode === 124) {
       timedOut = true
-      contractLibsResult = {
-        exitCode: 124,
-        stderr: { toString: () => 'Operation timed out after 30s' },
-      }
-    } else {
-      contractLibsResult = result
+      errorMessage = 'Operation timed out after 30s'
+    } else if (exitCode !== 0) {
+      errorMessage = result.stderr.toString()
     }
   } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : String(err)
-    contractLibsResult = {
-      exitCode: 1,
-      stderr: { toString: () => errorMessage },
-    }
+    exitCode = 1
+    errorMessage = err instanceof Error ? err.message : String(err)
   }
 
-  if (contractLibsResult.exitCode === 0) {
+  if (exitCode === 0) {
     console.log('   ✅ Contract libraries synced\n')
   } else if (timedOut) {
     console.log(
@@ -348,12 +342,8 @@ async function main() {
       '   ℹ️  To initialize manually: git submodule update --init --recursive\n',
     )
   } else {
-    const stderr =
-      'stderr' in contractLibsResult && contractLibsResult.stderr
-        ? contractLibsResult.stderr.toString()
-        : ''
     console.log(
-      `   ⚠️  Could not sync: ${stderr.split('\n')[0] || 'unknown error'}\n`,
+      `   ⚠️  Could not sync: ${errorMessage.split('\n')[0] || 'unknown error'}\n`,
     )
     console.log(
       '   ℹ️  To initialize manually: git submodule update --init --recursive\n',
@@ -464,14 +454,10 @@ async function main() {
       console.log(
         '   Would you like to configure the hosts file now? (requires sudo)',
       )
-      console.log(
-        '   Run: bun run packages/deployment/scripts/shared/local-proxy.ts hosts:add\n',
-      )
+      console.log('   Run: jeju proxy hosts:add\n')
     } else {
       console.log('   To configure manually, run:')
-      console.log(
-        '   bun run packages/deployment/scripts/shared/local-proxy.ts hosts:add\n',
-      )
+      console.log('   jeju proxy hosts:add\n')
 
       // Show what would be added
       const status = getHostsBlockStatus()
@@ -481,13 +467,39 @@ async function main() {
     }
   }
 
-  // 10. Summary
+  // 10. Setup port forwarding for port 80 (clean URLs)
+  const portForwardingActive = await isPortForwardingActive()
+
+  if (portForwardingActive) {
+    console.log('🔌 Port forwarding already configured (port 80 → 8080)\n')
+  } else {
+    // Skip in CI or non-interactive environments
+    const isCI = Boolean(process.env.CI)
+    const isInteractive = process.stdin.isTTY
+
+    if (isCI) {
+      console.log('🔌 Skipping port forwarding setup (CI environment)\n')
+    } else if (!isInteractive) {
+      console.log('🔌 Skipping port forwarding setup (non-interactive)\n')
+    } else {
+      // Interactive terminal - try to install with sudo prompt
+      console.log('🔌 Setting up port forwarding (port 80 → 8080)...')
+      console.log(
+        '   (This requires sudo - you may be prompted for your password)\n',
+      )
+      const success = await installPortForwarding()
+      if (success) {
+        console.log('   ✅ Port forwarding installed\n')
+      } else {
+        console.log('   ⚠️  Port forwarding setup failed or was cancelled\n')
+      }
+    }
+  }
+
+  // 11. Summary
   console.log('✅ Workspace setup complete\n')
   console.log('Next steps:')
   console.log('  • Start development: bun run dev')
-  console.log(
-    '  • Configure local DNS: bun run packages/deployment/scripts/shared/local-proxy.ts hosts:add',
-  )
   console.log('  • Run all tests: bun test')
   console.log('  • Run wallet tests: bun run test:wallet')
   console.log('  • Build synpress cache: bun run synpress:cache\n')
@@ -504,9 +516,7 @@ main().catch((err) => {
     console.error(errorStack)
   }
   console.error('\n⚠️  Setup completed with errors. Some features may not work.')
-  console.error(
-    '   You can re-run setup manually: bun run scripts/setup-apps.ts\n',
-  )
+  console.error('   You can re-run setup manually: jeju init\n')
 
   // Exit with 0 to not break install, but log the error clearly
   process.exit(0)

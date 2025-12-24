@@ -15,12 +15,6 @@ export interface UseStorageResult extends AsyncState {
     options?: UploadOptions,
   ) => Promise<UploadResult>
   retrieve: (cid: string) => Promise<Uint8Array>
-  /**
-   * Retrieve and validate JSON from storage using a Zod schema
-   * @param cid - Content identifier
-   * @param schema - Zod schema for validation
-   * @throws Error if validation fails
-   */
   retrieveJson: <T>(cid: string, schema: ZodType<T>) => Promise<T>
   listPins: () => Promise<PinInfo[]>
   getGatewayUrl: (cid: string) => string

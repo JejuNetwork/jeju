@@ -5,12 +5,30 @@
  * Base/Optimism/Arbitrum chains should only be used for cross-chain contracts (EIL, OIF).
  */
 
-import type { Chain } from 'viem'
+import type {
+  Account,
+  Chain,
+  PublicClient,
+  Transport,
+  WalletClient,
+} from 'viem'
 import { sepolia } from 'viem/chains'
 
-// ============================================================================
+// Client Type Aliases
+
+/**
+ * Type alias for PublicClient that works with any chain.
+ * Use this instead of ReturnType<typeof createPublicClient> for better type inference.
+ */
+export type DeployPublicClient = PublicClient<Transport, Chain>
+
+/**
+ * Type alias for WalletClient that works with any chain + account.
+ * Use this instead of ReturnType<typeof createWalletClient> for better type inference.
+ */
+export type DeployWalletClient = WalletClient<Transport, Chain, Account>
+
 // Jeju L2 Chains (PRIMARY - deploy apps here)
-// ============================================================================
 
 /** Jeju Testnet - L2 rolling up to Sepolia */
 export const jejuTestnet: Chain = {
@@ -55,9 +73,7 @@ export const jejuLocalnet: Chain = {
   testnet: true,
 }
 
-// ============================================================================
 // Chain Selection Helpers
-// ============================================================================
 
 export type JejuNetwork = 'localnet' | 'testnet' | 'mainnet'
 
@@ -131,9 +147,7 @@ export function getL1RpcUrl(network: JejuNetwork): string {
   return 'https://ethereum-sepolia-rpc.publicnode.com'
 }
 
-// ============================================================================
 // Chain ID Constants
-// ============================================================================
 
 export const JEJU_CHAIN_IDS = {
   localnet: 1337,

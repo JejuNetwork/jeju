@@ -8,7 +8,7 @@ import { describe, expect, test } from 'bun:test'
 import {
   RATE_LIMITS,
   type RateTier,
-} from '../../src/rpc/middleware/rate-limiter'
+} from '../../api/rpc/middleware/rate-limiter'
 
 // Re-implement the pure function to test its logic
 // This mirrors the implementation in rate-limiter.ts

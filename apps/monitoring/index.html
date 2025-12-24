@@ -10,6 +10,33 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <title>Network Monitoring</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              jeju: {
+                primary: '#FF6B35',
+                'primary-dark': '#E85A2A',
+                'primary-light': '#FF8F66',
+                accent: '#00D9C0',
+                'accent-dark': '#00B8A3',
+                'accent-light': '#4AEADB',
+                purple: '#7C3AED',
+                'purple-dark': '#6D28D9',
+                'purple-light': '#A78BFA',
+                success: '#10B981',
+                error: '#EF4444',
+                warning: '#F59E0B',
+                info: '#3B82F6',
+              },
+            },
+          },
+        },
+      }
+    </script>
     <script>
       (function() {
         try {
@@ -22,10 +49,11 @@
         } catch (e) {}
       })();
     </script>
+    <link rel="stylesheet" href="./web/globals.css">
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <script type="module" src="./web/main.tsx"></script>
   </body>
 </html>
 

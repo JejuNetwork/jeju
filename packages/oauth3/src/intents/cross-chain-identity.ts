@@ -16,9 +16,6 @@ import {
 } from 'viem'
 import { ChainId, type IntentSolution, type OAuth3Session } from '../types.js'
 
-// Re-export ChainId for consumers who import from this module
-export { ChainId }
-
 interface CrossChainIdentityInput {
   identityId?: Hex
   id?: Hex

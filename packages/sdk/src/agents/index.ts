@@ -11,8 +11,19 @@
 
 import type { NetworkType } from '@jejunetwork/types'
 import { type Address, encodeFunctionData, type Hex, parseEther } from 'viem'
+import { z } from 'zod'
 import { requireContract } from '../config'
 import type { JejuWallet } from '../wallet'
+
+// Contract return type schemas
+const RoomSchema = z.object({
+  roomId: z.string().transform((s) => s as Hex),
+  name: z.string(),
+  owner: z.string().transform((s) => s as Address),
+  isPublic: z.boolean(),
+  createdAt: z.bigint(),
+  memberCount: z.bigint(),
+})
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                              TYPES
@@ -586,14 +597,7 @@ export function createAgentsModule(
         args: [roomId],
       })
 
-      const room = result as {
-        roomId: Hex
-        name: string
-        owner: Address
-        isPublic: boolean
-        createdAt: bigint
-        memberCount: bigint
-      }
+      const room = RoomSchema.parse(result)
 
       if (room.owner === '0x0000000000000000000000000000000000000000') {
         return null

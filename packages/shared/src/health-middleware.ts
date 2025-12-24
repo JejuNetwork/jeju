@@ -331,7 +331,7 @@ export const healthChecks = {
   ipfs: (gatewayUrl: string) => async () => {
     const response = await fetch(`${gatewayUrl}/api/v0/id`, {
       method: 'POST',
-    }).catch(() => null)
+    }).catch((): null => null)
 
     return !!response?.ok
   },

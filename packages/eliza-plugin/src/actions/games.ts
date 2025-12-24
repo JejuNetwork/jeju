@@ -6,6 +6,7 @@ import type {
   Action,
   ActionExample,
   HandlerCallback,
+  HandlerOptions,
   IAgentRuntime,
   Memory,
   State,
@@ -35,7 +36,7 @@ export const getPlayerInfoAction: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options?: Record<string, unknown>,
+    _options?: HandlerOptions,
     callback?: HandlerCallback,
   ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
@@ -87,7 +88,7 @@ export const getGoldBalanceAction: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options?: Record<string, unknown>,
+    _options?: HandlerOptions,
     callback?: HandlerCallback,
   ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
@@ -133,7 +134,7 @@ export const transferGoldAction: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options?: Record<string, unknown>,
+    _options?: HandlerOptions,
     callback?: HandlerCallback,
   ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
@@ -193,7 +194,7 @@ export const getItemBalanceAction: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options?: Record<string, unknown>,
+    _options?: HandlerOptions,
     callback?: HandlerCallback,
   ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
@@ -259,7 +260,7 @@ export const transferItemAction: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options?: Record<string, unknown>,
+    _options?: HandlerOptions,
     callback?: HandlerCallback,
   ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
@@ -328,7 +329,7 @@ export const linkAgentAction: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options?: Record<string, unknown>,
+    _options?: HandlerOptions,
     callback?: HandlerCallback,
   ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
@@ -383,7 +384,7 @@ export const getGameStatsAction: Action = {
     runtime: IAgentRuntime,
     _message: Memory,
     _state: State | undefined,
-    _options?: Record<string, unknown>,
+    _options?: HandlerOptions,
     callback?: HandlerCallback,
   ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService

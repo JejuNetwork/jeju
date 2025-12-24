@@ -3,7 +3,7 @@
  * Handles NFT bridging between EVM chains and Solana
  */
 
-import { EventEmitter } from 'node:events'
+import { EventEmitter } from '@jejunetwork/shared'
 import {
   Connection,
   Keypair,

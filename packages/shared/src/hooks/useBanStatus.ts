@@ -4,9 +4,10 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import { type Address, createPublicClient, http } from 'viem'
+import { type Address, createPublicClient, http, type PublicClient } from 'viem'
 import { baseSepolia } from 'viem/chains'
 import { BAN_MANAGER_ABI, MODERATION_MARKETPLACE_ABI } from '../api/abis'
+import { safeReadContract } from '../viem'
 
 export const BanType = {
   NONE: 0,
@@ -103,35 +104,34 @@ export function useBanStatus(
     const client = createPublicClient({
       chain: baseSepolia,
       transport: http(mergedConfig.rpcUrl),
-    })
+    }) as PublicClient
 
     try {
       // Check address-based ban
       const [isAddressBanned, isOnNotice, addressBan] = await Promise.all([
-        client
-          .readContract({
-            address: mergedConfig.banManagerAddress,
-            abi: BAN_MANAGER_ABI,
-            functionName: 'isAddressBanned',
-            args: [userAddress],
-          })
-          .catch(() => false),
-        client
-          .readContract({
-            address: mergedConfig.banManagerAddress,
-            abi: BAN_MANAGER_ABI,
-            functionName: 'isOnNotice',
-            args: [userAddress],
-          })
-          .catch(() => false),
-        client
-          .readContract({
-            address: mergedConfig.banManagerAddress,
-            abi: BAN_MANAGER_ABI,
-            functionName: 'getAddressBan',
-            args: [userAddress],
-          })
-          .catch(() => null),
+        safeReadContract<boolean>(client, {
+          address: mergedConfig.banManagerAddress,
+          abi: BAN_MANAGER_ABI,
+          functionName: 'isAddressBanned',
+          args: [userAddress],
+        }).catch((): boolean => false),
+        safeReadContract<boolean>(client, {
+          address: mergedConfig.banManagerAddress,
+          abi: BAN_MANAGER_ABI,
+          functionName: 'isOnNotice',
+          args: [userAddress],
+        }).catch((): boolean => false),
+        safeReadContract<{
+          isBanned: boolean
+          banType: number
+          reason: string
+          caseId: `0x${string}`
+        } | null>(client, {
+          address: mergedConfig.banManagerAddress,
+          abi: BAN_MANAGER_ABI,
+          functionName: 'getAddressBan',
+          args: [userAddress],
+        }).catch((): null => null),
       ])
 
       if (isAddressBanned || isOnNotice) {
@@ -161,14 +161,12 @@ export function useBanStatus(
 
       // Check ModerationMarketplace ban
       if (mergedConfig.moderationMarketplaceAddress) {
-        const marketplaceBanned = await client
-          .readContract({
-            address: mergedConfig.moderationMarketplaceAddress,
-            abi: MODERATION_MARKETPLACE_ABI,
-            functionName: 'isBanned',
-            args: [userAddress],
-          })
-          .catch(() => false)
+        const marketplaceBanned = await safeReadContract<boolean>(client, {
+          address: mergedConfig.moderationMarketplaceAddress,
+          abi: MODERATION_MARKETPLACE_ABI,
+          functionName: 'isBanned',
+          args: [userAddress],
+        }).catch((): boolean => false)
 
         if (marketplaceBanned) {
           setStatus({

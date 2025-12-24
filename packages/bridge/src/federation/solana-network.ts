@@ -470,7 +470,7 @@ export async function establishSolanaTrust(
       const hash = await registry.establishTrust(evmChainId, solanaChainId)
       txHashes.push(hash)
       log.info('Established trust', {
-        evmChainId,
+        evmChainId: evmChainId.toString(),
         network: solanaIsDevnet ? 'devnet' : 'mainnet',
         hash,
       })

@@ -2,7 +2,10 @@
  * Logger Utility
  *
  * Production-ready logging with configurable levels and environment awareness.
+ * Works in both browser and Node.js/Bun environments.
  */
+
+import { getEnv } from '@jejunetwork/shared'
 
 import type { JsonValue } from '../types/common'
 
@@ -46,11 +49,11 @@ export class Logger {
     if (level && this.levelPriority[level] !== undefined) {
       this.level = level
     } else {
-      const envLevel = process.env.LOG_LEVEL as LogLevel | undefined
+      const envLevel = getEnv('LOG_LEVEL') as LogLevel | undefined
       if (envLevel && this.levelPriority[envLevel] !== undefined) {
         this.level = envLevel
       } else {
-        this.level = process.env.NODE_ENV === 'production' ? 'info' : 'debug'
+        this.level = getEnv('NODE_ENV') === 'production' ? 'info' : 'debug'
       }
     }
   }

@@ -1,16 +1,5 @@
-/**
- * Decentralized App Deployment Integration Tests
- *
- * Tests the complete flow of deploying a decentralized app:
- * 1. Upload to IPFS
- * 2. Register JNS name
- * 3. Set contenthash
- * 4. Configure keepalive
- * 5. Verify serving via gateway
- */
-
 import { describe, expect, test } from 'bun:test'
-import { getIpfsApiUrl } from '@jejunetwork/config/ports'
+import { getIpfsApiUrl } from '@jejunetwork/config'
 import {
   type Address,
   createPublicClient,

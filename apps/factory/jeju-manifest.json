@@ -17,7 +17,14 @@
   "ports": {
     "main": 4009
   },
-  "dependencies": ["contracts", "dws", "messaging", "indexer", "crucible", "autocrat"],
+  "dependencies": [
+    "contracts",
+    "dws",
+    "messaging",
+    "indexer",
+    "crucible",
+    "autocrat"
+  ],
   "optional": false,
   "enabled": true,
   "autoStart": true,
@@ -47,7 +54,13 @@
     "enabled": true,
     "a2aEndpoint": "/api/a2a",
     "mcpEndpoint": "/api/mcp",
-    "tags": ["jeju-app", "factory", "bounties", "jobs", "collaboration"],
+    "tags": [
+      "jeju-app",
+      "factory",
+      "bounties",
+      "jobs",
+      "collaboration"
+    ],
     "metadata": {
       "category": "developer-tools",
       "provider": "jeju-network",
@@ -64,7 +77,10 @@
         "guardian-validation"
       ]
     },
-    "trustModels": ["open", "staked"],
+    "trustModels": [
+      "open",
+      "staked"
+    ],
     "x402Support": true,
     "multiTokenPayments": true,
     "jnsName": "factory.jeju"
@@ -73,23 +89,41 @@
     "backend": {
       "enabled": true,
       "runtime": "bun",
-      "entrypoint": "src/server.ts",
+      "entrypoint": "api/server.ts",
       "memory": 512,
       "timeout": 30000,
       "minInstances": 1,
       "maxInstances": 10,
       "teeRequired": false,
-      "regions": ["global"]
+      "regions": [
+        "global"
+      ]
     },
     "cdn": {
       "enabled": true,
-      "regions": ["global"],
+      "regions": [
+        "global"
+      ],
       "staticDir": "dist/client",
       "cacheRules": [
-        { "pattern": "/assets/**", "ttl": 31536000, "immutable": true },
-        { "pattern": "/*.js", "ttl": 86400 },
-        { "pattern": "/*.css", "ttl": 86400 },
-        { "pattern": "/**/*.html", "ttl": 60, "staleWhileRevalidate": 3600 }
+        {
+          "pattern": "/assets/**",
+          "ttl": 31536000,
+          "immutable": true
+        },
+        {
+          "pattern": "/*.js",
+          "ttl": 86400
+        },
+        {
+          "pattern": "/*.css",
+          "ttl": 86400
+        },
+        {
+          "pattern": "/**/*.html",
+          "ttl": 60,
+          "staleWhileRevalidate": 3600
+        }
       ]
     }
   },
@@ -122,25 +156,50 @@
   "integrations": {
     "crucible": {
       "enabled": true,
-      "features": ["agent-hiring", "pr-review", "bounty-validation", "code-audit"]
+      "features": [
+        "agent-hiring",
+        "pr-review",
+        "bounty-validation",
+        "code-audit"
+      ]
     },
     "autocrat": {
       "enabled": true,
-      "features": ["governance-proposals", "ceo-feedback", "reputation", "disputes"]
+      "features": [
+        "governance-proposals",
+        "ceo-feedback",
+        "reputation",
+        "disputes"
+      ]
     },
     "farcaster": {
       "enabled": true,
       "channel": "factory",
-      "features": ["feed", "comments", "messaging"]
+      "features": [
+        "feed",
+        "comments",
+        "messaging"
+      ]
     },
     "dws": {
       "enabled": true,
-      "features": ["git", "packages", "containers", "compute", "storage", "cdn", "ci"]
+      "features": [
+        "git",
+        "packages",
+        "containers",
+        "compute",
+        "storage",
+        "cdn",
+        "ci"
+      ]
     },
     "kms": {
       "enabled": true,
       "provider": "mpc",
-      "features": ["secret-management", "threshold-signing"]
+      "features": [
+        "secret-management",
+        "threshold-signing"
+      ]
     }
   },
   "decentralization": {
@@ -174,11 +233,23 @@
     },
     "cdn": {
       "enabled": true,
-      "regions": ["global"],
+      "regions": [
+        "global"
+      ],
       "cacheRules": [
-        { "pattern": "/assets/**", "ttl": 31536000, "immutable": true },
-        { "pattern": "/images/**", "ttl": 86400 },
-        { "pattern": "/api/**", "ttl": 0 }
+        {
+          "pattern": "/assets/**",
+          "ttl": 31536000,
+          "immutable": true
+        },
+        {
+          "pattern": "/images/**",
+          "ttl": 86400
+        },
+        {
+          "pattern": "/api/**",
+          "ttl": 0
+        }
       ],
       "invalidateOnDeploy": true
     },
@@ -204,5 +275,14 @@
       "NEYNAR_API_KEY",
       "FARCASTER_CHANNEL_ID"
     ]
+  },
+  "architecture": {
+    "type": "hybrid",
+    "frontend": {
+      "type": "spa",
+      "builder": "bun",
+      "entrypoint": "index.html",
+      "outputDir": "dist/client"
+    }
   }
 }

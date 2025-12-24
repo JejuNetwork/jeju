@@ -9,6 +9,7 @@
  * - Client registration
  */
 
+import { safeReadContract } from '@jejunetwork/shared'
 import type { Keypair, PublicKey } from '@solana/web3.js'
 import { sign } from 'tweetnacl'
 import {
@@ -25,9 +26,20 @@ import { privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
 import type { CoordinatorState, PsycheClient } from './psyche-client'
 
-// ============================================================================
+// Extended log type with topics
+interface LogWithTopics {
+  address: Address
+  blockHash: Hex
+  blockNumber: bigint
+  data: Hex
+  logIndex: number
+  transactionHash: Hex
+  transactionIndex: number
+  removed: boolean
+  topics: readonly Hex[]
+}
+
 // Constants
-// ============================================================================
 
 const BRIDGE_CONTRACT_ABI = [
   {
@@ -118,9 +130,7 @@ const BRIDGE_CONTRACT_ABI = [
   },
 ] as const
 
-// ============================================================================
 // Types
-// ============================================================================
 
 export interface BridgeConfig {
   evmRpcUrl: string
@@ -165,9 +175,7 @@ export interface CheckpointData {
   modelHash: Hex
 }
 
-// ============================================================================
 // Cross-Chain Bridge
-// ============================================================================
 
 export class CrossChainTrainingBridge {
   private evmPublicClient
@@ -205,9 +213,7 @@ export class CrossChainTrainingBridge {
     this.psycheClient = client
   }
 
-  // ============================================================================
   // Run Management
-  // ============================================================================
 
   async trackRun(runId: string): Promise<BridgedRunState> {
     const state: BridgedRunState = {
@@ -228,9 +234,7 @@ export class CrossChainTrainingBridge {
     return this.runStates.get(runId) ?? null
   }
 
-  // ============================================================================
   // State Synchronization
-  // ============================================================================
 
   private async syncRunState(
     runId: string,
@@ -243,7 +247,9 @@ export class CrossChainTrainingBridge {
     const runIdBytes =
       `0x${Buffer.from(runId).toString('hex').padEnd(64, '0')}` as Hex
 
-    const evmResult = await this.evmPublicClient.readContract({
+    const evmResult = await safeReadContract<
+      [number, bigint, number, number, bigint]
+    >(this.evmPublicClient, {
       address: this.config.bridgeContractAddress,
       abi: BRIDGE_CONTRACT_ABI,
       functionName: 'getRunState',
@@ -290,9 +296,7 @@ export class CrossChainTrainingBridge {
     }
   }
 
-  // ============================================================================
   // Bridge Operations
-  // ============================================================================
 
   async bridgeProgress(
     runId: string,
@@ -320,6 +324,8 @@ export class CrossChainTrainingBridge {
     const solanaSignature = sign.detached(message, this.solanaKeypair.secretKey)
 
     const hash = await this.evmWalletClient.writeContract({
+      chain: foundry,
+      account: this.evmAccount,
       address: this.config.bridgeContractAddress,
       abi: BRIDGE_CONTRACT_ABI,
       functionName: 'reportProgress',
@@ -349,6 +355,8 @@ export class CrossChainTrainingBridge {
       `0x${Buffer.from(runId).toString('hex').padEnd(64, '0')}` as Hex
 
     const hash = await this.evmWalletClient.writeContract({
+      chain: foundry,
+      account: this.evmAccount,
       address: this.config.bridgeContractAddress,
       abi: BRIDGE_CONTRACT_ABI,
       functionName: 'submitCheckpoint',
@@ -375,6 +383,8 @@ export class CrossChainTrainingBridge {
       `0x${registration.solanaKey.toBuffer().toString('hex')}` as Hex
 
     const hash = await this.evmWalletClient.writeContract({
+      chain: foundry,
+      account: this.evmAccount,
       address: this.config.bridgeContractAddress,
       abi: BRIDGE_CONTRACT_ABI,
       functionName: 'registerClient',
@@ -397,7 +407,7 @@ export class CrossChainTrainingBridge {
 
     // Parse clientId from transaction logs
     // The registerClient function returns uint32 clientId
-    for (const log of receipt.logs) {
+    for (const log of receipt.logs as LogWithTopics[]) {
       // Look for ClientRegistered event with signature:
       // event ClientRegistered(uint32 indexed clientId, address indexed client)
       if (log.topics.length >= 2) {
@@ -409,7 +419,7 @@ export class CrossChainTrainingBridge {
     }
 
     // Fallback: query the contract for the client count
-    const clientCount = await this.evmPublicClient.readContract({
+    const clientCount = await safeReadContract<number>(this.evmPublicClient, {
       address: this.config.bridgeContractAddress,
       abi: [
         {
@@ -419,7 +429,7 @@ export class CrossChainTrainingBridge {
           stateMutability: 'view',
           type: 'function',
         },
-      ] as const,
+      ],
       functionName: 'clientCount',
     })
 
@@ -440,6 +450,8 @@ export class CrossChainTrainingBridge {
       `0x${Buffer.from(runId).toString('hex').padEnd(64, '0')}` as Hex
 
     const hash = await this.evmWalletClient.writeContract({
+      chain: foundry,
+      account: this.evmAccount,
       address: this.config.bridgeContractAddress,
       abi: BRIDGE_CONTRACT_ABI,
       functionName: 'distributeRewards',
@@ -452,9 +464,7 @@ export class CrossChainTrainingBridge {
     return hash
   }
 
-  // ============================================================================
   // Merkle Tree for Reward Verification
-  // ============================================================================
 
   computeRewardsMerkleRoot(rewards: RewardDistribution[]): Hex {
     const leaves = rewards.map((r) =>
@@ -559,9 +569,7 @@ export class CrossChainTrainingBridge {
     return computedHash === root
   }
 
-  // ============================================================================
   // Utilities
-  // ============================================================================
 
   async getClientInfo(clientId: number): Promise<{
     evmAddress: Address
@@ -572,7 +580,9 @@ export class CrossChainTrainingBridge {
     stepsContributed: bigint
     rewardsClaimed: bigint
   }> {
-    const result = await this.evmPublicClient.readContract({
+    const result = await safeReadContract<
+      [Address, Hex, string, number, number, bigint, bigint]
+    >(this.evmPublicClient, {
       address: this.config.bridgeContractAddress,
       abi: BRIDGE_CONTRACT_ABI,
       functionName: 'getClientInfo',
@@ -591,9 +601,7 @@ export class CrossChainTrainingBridge {
   }
 }
 
-// ============================================================================
 // Factory
-// ============================================================================
 
 export function createCrossChainBridge(
   config: BridgeConfig,

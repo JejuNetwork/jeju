@@ -30,9 +30,7 @@ import {
   ReputationTier,
 } from '../moderation'
 
-// ============================================================================
 // appNameToId Tests
-// ============================================================================
 
 describe('appNameToId', () => {
   test('converts simple app name to bytes32 hex', () => {
@@ -100,9 +98,7 @@ describe('appNameToId', () => {
   })
 })
 
-// ============================================================================
 // getBanStatusLabel Tests
-// ============================================================================
 
 describe('getBanStatusLabel', () => {
   const testCases: [BanStatus, string][] = [
@@ -132,9 +128,7 @@ describe('getBanStatusLabel', () => {
   })
 })
 
-// ============================================================================
 // getBanTypeLabel Tests
-// ============================================================================
 
 describe('getBanTypeLabel', () => {
   const testCases: [BanType, string][] = [
@@ -164,9 +158,7 @@ describe('getBanTypeLabel', () => {
   })
 })
 
-// ============================================================================
 // calculateVotePercentages Tests
-// ============================================================================
 
 describe('calculateVotePercentages', () => {
   test('returns 50/50 for zero votes', () => {
@@ -249,9 +241,7 @@ describe('calculateVotePercentages', () => {
   })
 })
 
-// ============================================================================
 // formatStake Tests
-// ============================================================================
 
 describe('formatStake', () => {
   test('formats small stakes as "<0.001 ETH"', () => {
@@ -282,9 +272,7 @@ describe('formatStake', () => {
   })
 })
 
-// ============================================================================
 // getTimeRemaining Tests
-// ============================================================================
 
 describe('getTimeRemaining', () => {
   test('returns expired for past timestamp', () => {
@@ -351,9 +339,7 @@ describe('getTimeRemaining', () => {
   })
 })
 
-// ============================================================================
 // getReputationTierFromScore Tests
-// ============================================================================
 
 describe('getReputationTierFromScore', () => {
   test('returns UNTRUSTED for 0-1000', () => {
@@ -393,9 +379,7 @@ describe('getReputationTierFromScore', () => {
   })
 })
 
-// ============================================================================
 // getReputationTierLabel Tests
-// ============================================================================
 
 describe('getReputationTierLabel', () => {
   const testCases: [ReputationTier, string][] = [
@@ -413,9 +397,7 @@ describe('getReputationTierLabel', () => {
   })
 })
 
-// ============================================================================
 // getQuorumForTier Tests
-// ============================================================================
 
 describe('getQuorumForTier', () => {
   test('returns Infinity for UNTRUSTED', () => {
@@ -455,9 +437,7 @@ describe('getQuorumForTier', () => {
   })
 })
 
-// ============================================================================
 // formatPnL Tests
-// ============================================================================
 
 describe('formatPnL', () => {
   test('formats positive PnL with + sign', () => {
@@ -489,9 +469,7 @@ describe('formatPnL', () => {
   })
 })
 
-// ============================================================================
 // calculateWinRate Tests
-// ============================================================================
 
 describe('calculateWinRate', () => {
   test('returns 50 for 0 wins and 0 losses', () => {

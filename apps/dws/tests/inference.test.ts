@@ -9,13 +9,13 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
+import { app } from '../api/server/index'
 import {
   getActiveNodes,
   inferenceNodes,
   registerNode,
   unregisterNode,
 } from '../src/compute/inference-node'
-import { app } from '../src/server/index'
 
 const HAS_GROQ = !!process.env.GROQ_API_KEY
 const HAS_OPENAI = !!process.env.OPENAI_API_KEY

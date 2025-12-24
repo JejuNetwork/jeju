@@ -22,8 +22,6 @@ import {
 import { privateKeyToAccount } from 'viem/accounts'
 import { baseSepolia } from 'viem/chains'
 
-// ============ Configuration ============
-
 const CONTRACTS_DIR = join(import.meta.dir, '../../packages/contracts')
 const DEPLOYMENT_FILE = join(
   CONTRACTS_DIR,
@@ -48,9 +46,6 @@ interface DeploymentConfig {
     priceOracle: Address | null
   }
 }
-
-// ============ Contract ABIs (deploy functions) ============
-
 const DEPLOY_ABIS = {
   BanManager: [
     {
@@ -107,9 +102,6 @@ const DEPLOY_ABIS = {
     },
   ],
 } as const
-
-// ============ Load compiled contracts ============
-
 function loadContractBytecode(contractName: string): Hex {
   // Try forge out directory first
   const forgePath = join(
@@ -125,9 +117,6 @@ function loadContractBytecode(contractName: string): Hex {
     `Contract bytecode not found for ${contractName}. Run 'forge build' first.`,
   )
 }
-
-// ============ Main Deploy Function ============
-
 async function deployModeration() {
   console.log('🚀 Deploying Moderation System to Testnet...\n')
 

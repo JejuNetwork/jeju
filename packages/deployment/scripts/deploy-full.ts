@@ -3,12 +3,17 @@
 /**
  * Full deployment pipeline for testnet/mainnet
  *
+ * Architecture: Decentralization-First
+ * - Chain infrastructure deploys via Terraform/Kubernetes (L1/L2 nodes only)
+ * - ALL apps deploy via DWS (on-chain provisioning)
+ *
  * Steps:
  * 1. Validate configurations
- * 2. Deploy infrastructure (Terraform)
- * 3. Build and push Docker images
- * 4. Deploy to Kubernetes (Helmfile)
- * 5. Verify deployment
+ * 2. Deploy CHAIN infrastructure (Terraform) - nodes, sequencer, etc.
+ * 3. Build and push Docker images (chain components only)
+ * 4. Deploy chain infrastructure to Kubernetes (Helmfile)
+ * 5. Bootstrap DWS and deploy ALL apps on-chain
+ * 6. Verify deployment
  *
  * Usage:
  *   NETWORK=testnet bun run scripts/deploy-full.ts
@@ -29,6 +34,7 @@ interface DeploymentSteps {
   IMAGES: boolean
   CQL_IMAGE: boolean
   KUBERNETES: boolean
+  DWS_APPS: boolean
   VERIFY: boolean
 }
 
@@ -40,6 +46,7 @@ const STEPS: DeploymentSteps = {
     process.env.BUILD_CQL_IMAGE === 'true' ||
     process.env.USE_ARM64_CQL === 'true',
   KUBERNETES: process.env.SKIP_KUBERNETES !== 'true',
+  DWS_APPS: process.env.SKIP_DWS_APPS !== 'true',
   VERIFY: process.env.SKIP_VERIFY !== 'true',
 }
 
@@ -55,6 +62,10 @@ async function main(): Promise<void> {
 ╔══════════════════════════════════════════════════════════════╗
 ║                                                              ║
 ║   🚀 JEJU ${NETWORK.toUpperCase()} DEPLOYMENT                              ║
+║                                                              ║
+║   Architecture: Decentralization-First                       ║
+║   - Chain infrastructure: Terraform/K8s                      ║
+║   - All apps: DWS (on-chain provisioning)                    ║
 ║                                                              ║
 ╚══════════════════════════════════════════════════════════════╝
 `)
@@ -74,16 +85,21 @@ async function main(): Promise<void> {
   }
 
   if (STEPS.TERRAFORM) {
-    await step('Deploying infrastructure', async () => {
+    await step('Deploying CHAIN infrastructure (Terraform)', async () => {
+      console.log('ℹ️  Only chain-level infrastructure (L1/L2 nodes, sequencer)')
+      console.log('ℹ️  Apps will deploy via DWS (on-chain)\n')
       await $`NETWORK=${NETWORK} bun run ${join(ROOT, 'scripts/terraform.ts')} plan`
       await $`NETWORK=${NETWORK} bun run ${join(ROOT, 'scripts/terraform.ts')} apply`
     })
   }
 
   if (STEPS.IMAGES) {
-    await step('Building and pushing Docker images', async () => {
-      await $`NETWORK=${NETWORK} bun run ${join(ROOT, 'scripts/build-images.ts')} --push`
-    })
+    await step(
+      'Building and pushing Docker images (chain components)',
+      async () => {
+        await $`NETWORK=${NETWORK} bun run ${join(ROOT, 'scripts/build-images.ts')} --push`
+      },
+    )
   }
 
   if (STEPS.CQL_IMAGE) {
@@ -96,15 +112,38 @@ async function main(): Promise<void> {
   }
 
   if (STEPS.KUBERNETES) {
-    await step('Deploying to Kubernetes', async () => {
+    await step('Deploying CHAIN infrastructure to Kubernetes', async () => {
+      console.log('ℹ️  Helmfile only deploys chain infrastructure now.')
+      console.log('ℹ️  Apps deploy via DWS (on-chain provisioning)\n')
       await $`NETWORK=${NETWORK} bun run ${join(ROOT, 'scripts/helmfile.ts')} sync`
+    })
+  }
+
+  if (STEPS.DWS_APPS) {
+    await step('Deploying ALL apps via DWS (on-chain)', async () => {
+      console.log('ℹ️  Frontends -> IPFS')
+      console.log('ℹ️  Workers -> On-chain registry')
+      console.log('ℹ️  JNS names -> Bound to content\n')
+      await $`NETWORK=${NETWORK} bun run ${join(ROOT, 'scripts/deploy/dws-bootstrap.ts')}`
     })
   }
 
   if (STEPS.VERIFY) {
     await step('Verifying deployment', async () => {
-      console.log('Running health checks...')
-      await $`kubectl get pods -n jeju-apps`.nothrow()
+      console.log('Checking chain infrastructure...')
+      await $`kubectl get pods -n op-stack`.nothrow()
+      await $`kubectl get pods -n rpc`.nothrow()
+      await $`kubectl get pods -n l1`.nothrow()
+
+      console.log('\nChecking DWS apps deployment...')
+      const deploymentsFile = join(
+        ROOT,
+        `../contracts/deployments/${NETWORK}-dws-apps.json`,
+      )
+      const result = await $`cat ${deploymentsFile}`.nothrow()
+      if (result.exitCode === 0) {
+        console.log('✅ DWS apps deployed successfully')
+      }
     })
   }
 
@@ -116,6 +155,13 @@ async function main(): Promise<void> {
 ║   ✅ DEPLOYMENT COMPLETE                                      ║
 ║   Network: ${NETWORK.padEnd(47)}║
 ║   Duration: ${(`${duration}s`).padEnd(45)}║
+║                                                              ║
+║   ARCHITECTURE:                                              ║
+║   - Chain infra: Terraform/K8s (L1/L2 nodes, sequencer)      ║
+║   - All apps: DWS (frontends on IPFS, workers on-chain)     ║
+║                                                              ║
+║   Apps are now 100%% decentralized.                            ║
+║   Anyone can deploy apps using: jeju deploy app <name>       ║
 ║                                                              ║
 ╚══════════════════════════════════════════════════════════════╝
 `)

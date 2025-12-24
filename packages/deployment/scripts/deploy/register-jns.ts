@@ -23,10 +23,12 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { base, baseSepolia } from 'viem/chains'
+import type {
+  DeployPublicClient,
+  DeployWalletClient,
+} from '../shared/viem-chains'
 
-// ============================================================================
 // Configuration
-// ============================================================================
 
 interface JNSConfig {
   name: string
@@ -115,16 +117,14 @@ const JNS_RESOLVER_ABI = [
   },
 ] as const
 
-// ============================================================================
 // JNS Registrar Class
-// ============================================================================
 
 class JNSRegistrar {
   private network: 'testnet' | 'mainnet'
   private privateKey: Hex
   private account: ReturnType<typeof privateKeyToAccount>
-  private publicClient: ReturnType<typeof createPublicClient>
-  private walletClient: ReturnType<typeof createWalletClient>
+  private publicClient: DeployPublicClient
+  private walletClient: DeployWalletClient
   private registrarAddress: Address
   private resolverAddress: Address
   private results: JNSRegistrationResult[] = []
@@ -147,12 +147,12 @@ class JNSRegistrar {
     this.publicClient = createPublicClient({
       chain,
       transport: http(rpcUrl),
-    })
+    }) as DeployPublicClient
     this.walletClient = createWalletClient({
       account: this.account,
       chain,
       transport: http(rpcUrl),
-    })
+    }) as DeployWalletClient
 
     // Load contract addresses
     const addressesPath = join(
@@ -523,9 +523,7 @@ class JNSRegistrar {
   }
 }
 
-// ============================================================================
 // CLI Entry Point
-// ============================================================================
 
 async function main() {
   const network = (process.argv[2] || 'testnet') as 'testnet' | 'mainnet'

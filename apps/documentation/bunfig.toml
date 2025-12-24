@@ -1,4 +1,3 @@
-
 [test]
 coverage = true
 coverageDir = "./test-results/coverage"

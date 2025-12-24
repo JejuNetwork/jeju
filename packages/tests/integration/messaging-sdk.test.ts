@@ -16,6 +16,42 @@ import {
   expect,
   test,
 } from 'bun:test'
+import { z } from 'zod'
+
+// Response schemas for messaging tests
+const HealthResponseSchema = z.object({
+  status: z.string(),
+  nodeId: z.string(),
+})
+
+const SendResponseSchema = z.object({
+  success: z.boolean(),
+  messageId: z.string(),
+})
+
+const MessagesResponseSchema = z.object({
+  messages: z.array(z.object({ id: z.string(), from: z.string() })),
+  count: z.number(),
+})
+
+const RelayStatsSchema = z.object({
+  nodeId: z.string(),
+  totalMessagesRelayed: z.number(),
+  totalBytesRelayed: z.number(),
+})
+
+const HubInfoSchema = z.object({
+  version: z.string(),
+  isSyncing: z.boolean(),
+})
+
+const HubMessagesSchema = z.object({
+  messages: z.array(z.unknown()),
+})
+
+const SubmitResponseSchema = z.object({
+  hash: z.string(),
+})
 
 const RELAY_PORT = 3302
 const MOCK_HUB_PORT = 3311
@@ -308,7 +344,7 @@ describe('Messaging SDK', () => {
       const response = await fetch(`http://127.0.0.1:${RELAY_PORT}/health`)
       expect(response.ok).toBe(true)
 
-      const data = (await response.json()) as { status: string; nodeId: string }
+      const data = RelayHealthSchema.parse(await response.json())
       expect(data.status).toBe('healthy')
       expect(data.nodeId).toBe('test-relay')
     })
@@ -339,11 +375,7 @@ describe('Messaging SDK', () => {
 
       expect(response.ok).toBe(true)
 
-      const result = (await response.json()) as {
-        success: boolean
-        messageId: string
-        cid: string
-      }
+      const result = RelayMessageResultSchema.parse(await response.json())
       expect(result.success).toBe(true)
       expect(result.messageId).toBe(envelope.id)
       expect(result.cid).toBeDefined()
@@ -380,10 +412,7 @@ describe('Messaging SDK', () => {
       )
       expect(response.ok).toBe(true)
 
-      const result = (await response.json()) as {
-        messages: Array<{ id: string }>
-        count: number
-      }
+      const result = RelayMessagesResponseSchema.parse(await response.json())
       expect(result.count).toBeGreaterThan(0)
       expect(result.messages.some((m) => m.id === envelope.id)).toBe(true)
     })

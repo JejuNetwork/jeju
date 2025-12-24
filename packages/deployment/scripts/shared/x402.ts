@@ -17,39 +17,18 @@ import {
 import { privateKeyToAccount } from 'viem/accounts'
 import { PaymentPayloadSchema } from '../../schemas'
 
-// ============ Types ============
+export type {
+  PaymentPayload,
+  PaymentRequirements,
+  PaymentScheme,
+  X402Network,
+} from '@jejunetwork/shared'
 
-export interface PaymentRequirements {
-  x402Version: number
-  error: string
-  accepts: PaymentScheme[]
-}
-
-export interface PaymentScheme {
-  scheme: 'exact' | 'upto'
-  network: X402Network
-  maxAmountRequired: string
-  asset: Address
-  payTo: Address
-  resource: string
-  description: string
-  mimeType: string
-  outputSchema: string | null
-  maxTimeoutSeconds: number
-  extra?: Record<string, unknown>
-}
-
-export interface PaymentPayload {
-  scheme: string
-  network: string
-  asset: Address
-  payTo: Address
-  amount: string
-  resource: string
-  nonce: string
-  timestamp: number
-  signature?: string
-}
+import type {
+  PaymentPayload,
+  PaymentRequirements,
+  X402Network,
+} from '@jejunetwork/shared'
 
 /** Untrusted input for validation boundary - use when validating external input */
 export type UntrustedPaymentPayload = Partial<PaymentPayload>
@@ -79,22 +58,11 @@ export interface SettlementResponse {
   error?: string
 }
 
-export type X402Network =
-  | 'sepolia'
-  | 'ethereum'
-  | 'jeju'
-  | 'jeju-testnet'
-  | 'base'
-  | 'base-sepolia'
-
 export interface X402Config {
   recipientAddress: Address
   network: X402Network
   serviceName: string
 }
-
-// ============ Network Configuration ============
-
 export const CHAIN_IDS: Record<X402Network, number> = {
   sepolia: 11155111,
   'base-sepolia': 84532,
@@ -123,9 +91,6 @@ export const USDC_ADDRESSES: Record<X402Network, Address> = {
   jeju: '0x0165878A594ca255338adfa4d48449f69242Eb8F',
   'jeju-testnet': '0x0000000000000000000000000000000000000000',
 }
-
-// ============ Payment Tiers (used across all apps) ============
-
 export const PAYMENT_TIERS = {
   // API Access
   API_CALL_BASIC: parseEther('0.0001'),
@@ -154,9 +119,6 @@ export const PAYMENT_TIERS = {
   BET_PLACEMENT: parseEther('0.001'),
   MARKET_CREATION: parseEther('0.02'),
 } as const
-
-// ============ EIP-712 Configuration ============
-
 const EIP712_DOMAIN_BASE = {
   name: 'x402 Payment Protocol',
   version: '1',
@@ -175,9 +137,6 @@ const EIP712_TYPES = {
     { name: 'timestamp', type: 'uint256' },
   ],
 }
-
-// ============ Core Functions ============
-
 /**
  * Create a 402 Payment Required response
  */

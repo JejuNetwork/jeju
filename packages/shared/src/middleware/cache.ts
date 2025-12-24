@@ -1,3 +1,5 @@
+import type { JsonValue } from '@jejunetwork/sdk'
+
 /**
  * API Caching Middleware
  *
@@ -5,21 +7,18 @@
  * Provides LRU caching with stale-while-revalidate support.
  *
  * Usage:
- *   import { createCacheMiddleware, CacheConfig } from '@jejunetwork/shared/middleware/cache'
+ *   import { createCacheMiddleware, type CacheConfig } from '@jejunetwork/shared';
  *
  *   const cache = createCacheMiddleware({
  *     maxSize: 1000,
  *     defaultTTL: 60000,
  *     staleTTL: 30000,
- *   })
+ *   });
  *
- *   app.use(cache.middleware)
- *   app.get('/api/items', cache.wrap(async () => fetchItems()))
+ *   app.get('/api/items', cache.wrap('items', async () => fetchItems()));
  */
 
-// ============================================================================
 // Types
-// ============================================================================
 
 export interface CacheConfig {
   /** Maximum number of entries in cache */
@@ -59,9 +58,7 @@ interface CacheResult<T> {
   isStale: boolean
 }
 
-// ============================================================================
 // LRU Cache Implementation
-// ============================================================================
 
 export class APICache<T = unknown> {
   private cache = new Map<string, CacheEntry<T>>()
@@ -189,15 +186,13 @@ export class APICache<T = unknown> {
   }
 }
 
-// ============================================================================
 // Cache Key Generation
-// ============================================================================
 
 export function generateCacheKey(
   method: string,
   path: string,
   query?: Record<string, string>,
-  body?: unknown,
+  body?: JsonValue,
 ): string {
   let key = `${method}:${path}`
 
@@ -216,9 +211,7 @@ export function generateCacheKey(
   return key
 }
 
-// ============================================================================
 // Middleware Factory
-// ============================================================================
 
 export interface CacheMiddlewareResult {
   cache: APICache
@@ -284,9 +277,7 @@ export function createCacheMiddleware(
   }
 }
 
-// ============================================================================
 // Specialized Cache Factories
-// ============================================================================
 
 /** Create a cache optimized for search results */
 export function createSearchCache(maxQueries = 1000, ttlMs = 60000) {
@@ -324,8 +315,6 @@ export function createStatsCache(maxStats = 50, ttlMs = 15000) {
   })
 }
 
-// ============================================================================
 // Export All
-// ============================================================================
 
 export type { CacheEntry, CacheResult, CacheStats }

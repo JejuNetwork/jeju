@@ -16,9 +16,7 @@ import {
   type WalletClient,
 } from 'viem'
 
-// ============================================================================
 // Types
-// ============================================================================
 
 export interface JejuContractAddresses {
   identityRegistry: Address
@@ -56,9 +54,7 @@ export interface RegistrationResult {
   txHashes: Hex[]
 }
 
-// ============================================================================
 // Contract ABIs (minimal)
-// ============================================================================
 
 const IDENTITY_REGISTRY_ABI = parseAbi([
   'function register(string tokenURI) external returns (uint256 agentId)',
@@ -72,9 +68,7 @@ const TOKEN_REGISTRY_ABI = parseAbi([
   'function registrationFee() external view returns (uint256)',
 ])
 
-// ============================================================================
 // Jeju Registry Integration
-// ============================================================================
 
 export class JejuRegistryIntegration {
   private readonly publicClient: PublicClient
@@ -215,9 +209,7 @@ export class JejuRegistryIntegration {
   }
 }
 
-// ============================================================================
 // Factory
-// ============================================================================
 
 export function createJejuRegistryIntegration(
   publicClient: PublicClient,

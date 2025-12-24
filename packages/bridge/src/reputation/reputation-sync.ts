@@ -3,7 +3,7 @@
  * Synchronizes reputation scores between EVM ReputationRegistry and Solana 8004-solana
  */
 
-import { EventEmitter } from 'node:events'
+import { EventEmitter } from '@jejunetwork/shared'
 import {
   Connection,
   Keypair,

@@ -235,9 +235,9 @@ describe('Configuration', () => {
     expect(serverCode).toContain('CORE_PORTS.DOCUMENTATION_A2A')
   })
 
-  test('has default port', async () => {
+  test('uses port from CORE_PORTS', async () => {
     const serverCode = await Bun.file(SERVER_PATH).text()
-    expect(serverCode).toContain('7778')
+    expect(serverCode).toContain('CORE_PORTS.DOCUMENTATION_A2A.get()')
   })
 
   test('EXCLUDED_DIRS includes expected directories', () => {

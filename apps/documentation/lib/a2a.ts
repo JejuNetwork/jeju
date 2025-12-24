@@ -20,10 +20,6 @@ export interface Topic {
   path: string
 }
 
-/**
- * Escapes regex special characters to prevent ReDoS attacks.
- * User input is treated as literal text, not regex patterns.
- */
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
@@ -38,10 +34,7 @@ export async function searchDocumentation(
   let filesProcessed = 0
 
   async function searchDir(dir: string, depth: number): Promise<void> {
-    // Prevent DoS via deeply nested directories
     if (depth > MAX_DIRECTORY_DEPTH) return
-
-    // Limit total files processed
     if (filesProcessed >= MAX_FILES_PER_SEARCH) return
 
     const entries = await readdir(dir, { withFileTypes: true })
@@ -82,10 +75,7 @@ export async function listTopics(): Promise<Topic[]> {
     prefix: string,
     depth: number,
   ): Promise<void> {
-    // Prevent DoS via deeply nested directories
     if (depth > MAX_DIRECTORY_DEPTH) return
-
-    // Limit total files processed
     if (filesProcessed >= MAX_FILES_PER_SEARCH) return
 
     const entries = await readdir(dir, { withFileTypes: true })

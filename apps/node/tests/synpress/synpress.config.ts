@@ -1,7 +1,3 @@
-/**
- * Synpress Configuration for Node App
- * Configures MetaMask wallet testing with Playwright
- */
 import {
   createSynpressConfig,
   createWalletSetup,

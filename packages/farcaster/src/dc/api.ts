@@ -9,8 +9,6 @@ import { z } from 'zod'
 import type { DirectCastClient } from './client'
 import type { DirectCastEmbed } from './types'
 
-// ============ Rate Limiting ============
-
 interface RateLimitEntry {
   count: number
   windowStart: number
@@ -59,9 +57,6 @@ class RateLimiter {
 // Separate rate limiters for different operation types
 const messageSendLimiter = new RateLimiter(60000, 30) // 30 messages per minute
 const readLimiter = new RateLimiter(60000, 120) // 120 reads per minute
-
-// ============ Schemas ============
-
 const DirectCastEmbedSchema = z
   .object({
     type: z.enum(['url', 'cast', 'image']),
@@ -98,9 +93,6 @@ const MuteRequestSchema = z
     muted: z.boolean().default(true),
   })
   .strict()
-
-// ============ Helper Functions ============
-
 function requireClient(
   getClient: () => DirectCastClient | null,
 ): DirectCastClient {
@@ -110,9 +102,6 @@ function requireClient(
   }
   return client
 }
-
-// ============ API Factory ============
-
 /**
  * Create Direct Cast REST API
  */
@@ -127,9 +116,6 @@ export function createDCApi(getClient: () => DirectCastClient | null): Elysia {
     }
     throw error
   })
-
-  // ============ Conversations ============
-
   // List conversations
   app.get('/conversations', async () => {
     const client = requireClient(getClient)
@@ -188,9 +174,6 @@ export function createDCApi(getClient: () => DirectCastClient | null): Elysia {
     await client.muteConversation(fid, parseResult.data.muted)
     return { success: true }
   })
-
-  // ============ Messages ============
-
   // Get messages in conversation
   app.get('/conversations/:fid/messages', async ({ params, query, set }) => {
     const client = requireClient(getClient)
@@ -284,9 +267,6 @@ export function createDCApi(getClient: () => DirectCastClient | null): Elysia {
     await client.markAsRead(fid)
     return { success: true }
   })
-
-  // ============ Status ============
-
   // Get client state
   app.get('/status', async () => {
     const client = requireClient(getClient)
@@ -310,9 +290,6 @@ export function createDCApi(getClient: () => DirectCastClient | null): Elysia {
 
   return app
 }
-
-// ============ Standalone Server ============
-
 /**
  * Create standalone DC server
  */

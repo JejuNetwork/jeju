@@ -1,7 +1,7 @@
 /**
  * Network ElizaOS Plugin
  *
- * Fully decentralized infrastructure for AI agents.
+ * Infrastructure for AI agents.
  * Agents only need a funded wallet to access all network services.
  *
  * @example
@@ -159,7 +159,6 @@ export const jejuPlugin: Plugin = {
   services: [JejuService],
 
   actions: [
-    // === Core Compute ===
     rentGpuAction,
     runInferenceAction,
     createTriggerAction,
@@ -168,7 +167,6 @@ export const jejuPlugin: Plugin = {
     listMyRentalsAction,
     getSshAccessAction,
 
-    // === Storage ===
     uploadFileAction,
     retrieveFileAction,
     pinCidAction,
@@ -177,40 +175,32 @@ export const jejuPlugin: Plugin = {
     getStorageStatsAction,
     estimateStorageCostAction,
 
-    // === DeFi ===
     swapTokensAction,
     addLiquidityAction,
     listPoolsAction,
     getPoolStatsAction,
     myPositionsAction,
 
-    // === Governance ===
     createProposalAction,
     voteAction,
 
-    // === Names (JNS) ===
     registerNameAction,
     resolveNameAction,
 
-    // === Identity ===
     registerAgentAction,
 
-    // === Cross-chain (OIF) ===
     crossChainTransferAction,
     createIntentAction,
     trackIntentAction,
     listSolversAction,
     listRoutesAction,
 
-    // === Payments ===
     checkBalanceAction,
 
-    // === Bazaar ===
     launchTokenAction,
     listNftsAction,
     listNamesForSaleAction,
 
-    // === Moderation ===
     reportAgentAction,
     submitEvidenceAction,
     supportEvidenceAction,
@@ -225,7 +215,6 @@ export const jejuPlugin: Plugin = {
     getLabelsAction,
     checkTrustAction,
 
-    // === Work (Bounties/Projects) ===
     createBountyAction,
     listBountiesAction,
     claimBountyAction,
@@ -239,15 +228,12 @@ export const jejuPlugin: Plugin = {
     registerGuardianAction,
     listGuardiansAction,
 
-    // === Infrastructure ===
     listNodesAction,
     getNodeStatsAction,
 
-    // === A2A Protocol ===
     callAgentAction,
     discoverAgentsAction,
 
-    // === Games (Babylon/Hyperscape) ===
     getPlayerInfoAction,
     getGoldBalanceAction,
     transferGoldAction,
@@ -256,7 +242,6 @@ export const jejuPlugin: Plugin = {
     linkAgentAction,
     getGameStatsAction,
 
-    // === Containers (OCI Registry) ===
     createRepoAction,
     getRepoInfoAction,
     listMyReposAction,
@@ -264,7 +249,6 @@ export const jejuPlugin: Plugin = {
     starRepoAction,
     grantAccessAction,
 
-    // === Launchpad ===
     createTokenAction,
     createPresaleAction,
     contributePresaleAction,
@@ -275,7 +259,6 @@ export const jejuPlugin: Plugin = {
     listCurvesAction,
     lockLPAction,
 
-    // === Training (DWS/Psyche) ===
     submitTrajectory,
     checkTrainingStatus,
     startTrainingJob,
@@ -284,4 +267,12 @@ export const jejuPlugin: Plugin = {
 
 export default jejuPlugin
 
+// CQL Database Plugin - decentralized database for ElizaOS agents
+export {
+  CQL_SCHEMA,
+  CQLDatabaseAdapter,
+  checkMigrationStatus,
+  cqlDatabasePlugin,
+  runCQLMigrations,
+} from './db'
 export { JejuService } from './service'

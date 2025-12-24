@@ -4,6 +4,12 @@ export * from './dc/api'
 export * from './dc/client'
 // Direct Casts (encrypted DMs)
 export * from './dc/types'
+// DWS Worker (decentralized deployment)
+export {
+  createFarcasterWorker,
+  type FarcasterWorker,
+  type FarcasterWorkerConfig,
+} from './dws-worker/index.js'
 // Frames
 export * from './frames/types'
 export * from './hub/cast-builder'

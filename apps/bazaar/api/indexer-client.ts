@@ -1,0 +1,319 @@
+import { AddressSchema, expect, expectValid } from '@jejunetwork/types'
+import { z } from 'zod'
+import { INDEXER_URL as CONFIG_INDEXER_URL } from '../config'
+
+const INDEXER_URL = CONFIG_INDEXER_URL
+
+// Security: Maximum limits to prevent DoS via large responses
+const MAX_LIMIT = 500
+const DEFAULT_LIMIT = 50
+
+function sanitizeLimit(
+  limit: number | undefined,
+  defaultVal: number = DEFAULT_LIMIT,
+): number {
+  if (limit === undefined || limit <= 0) return defaultVal
+  return Math.min(limit, MAX_LIMIT)
+}
+
+// Schema for base GraphQL response validation
+const BaseGraphQLResponseSchema = z.object({
+  data: z.unknown().optional(),
+  errors: z
+    .array(
+      z.object({
+        message: z.string(),
+      }),
+    )
+    .optional(),
+})
+
+async function graphqlQuery<T>(
+  query: string,
+  variables?: Record<string, unknown>,
+): Promise<T> {
+  if (!query || query.length === 0) {
+    throw new Error('GraphQL query is required and cannot be empty')
+  }
+
+  const response = await fetch(INDEXER_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      query,
+      variables,
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error(
+      `Indexer HTTP error: ${response.status} ${response.statusText}`,
+    )
+  }
+
+  const json = expectValid(
+    BaseGraphQLResponseSchema,
+    await response.json(),
+    'GraphQL response',
+  )
+
+  if (json.errors) {
+    throw new Error(`GraphQL Error: ${json.errors[0].message}`)
+  }
+
+  // BaseGraphQLResponseSchema validates the structure; caller provides T based on their query
+  // This cast is necessary because the generic type T cannot be known at schema definition time
+  const data: T = expect(json.data, 'No data returned from GraphQL query') as T
+
+  return data
+}
+
+export async function getNetworkTokens(filter?: {
+  limit?: number
+  offset?: number
+  verified?: boolean
+}) {
+  const query = `
+    query GetTokens($limit: Int, $offset: Int, $isERC20: Boolean) {
+      contracts(
+        where: { isERC20_eq: $isERC20 }
+        limit: $limit
+        offset: $offset
+        orderBy: firstSeenAt_DESC
+      ) {
+        id
+        address
+        contractType
+        isERC20
+        firstSeenAt
+        lastSeenAt
+        creator {
+          address
+        }
+      }
+    }
+  `
+
+  interface QueryResult {
+    contracts: Array<{
+      id: string
+      address: string
+      contractType: string
+      isERC20: boolean
+      firstSeenAt: string
+      lastSeenAt: string
+      creator: {
+        address: string
+      }
+      decodedEvents: Array<{
+        eventName: string
+        args: Record<string, unknown>
+        timestamp: string
+      }>
+    }>
+  }
+
+  const limit = sanitizeLimit(filter?.limit)
+  const offset = filter?.offset || 0
+  if (offset < 0) throw new Error('Offset must be non-negative')
+
+  const result = await graphqlQuery<QueryResult>(query, {
+    limit,
+    offset,
+    isERC20: true,
+  })
+
+  return result.contracts
+}
+
+export async function getTokenTransfers(
+  tokenAddress: string,
+  requestedLimit = 50,
+) {
+  const validatedAddress = AddressSchema.parse(tokenAddress)
+  const limit = sanitizeLimit(requestedLimit)
+
+  const query = `
+    query GetTokenTransfers($tokenAddress: String!, $limit: Int!) {
+      tokenTransfers(
+        where: { token: { address_eq: $tokenAddress } }
+        limit: $limit
+        orderBy: timestamp_DESC
+      ) {
+        id
+        tokenStandard
+        from {
+          address
+        }
+        to {
+          address
+        }
+        value
+        timestamp
+        transaction {
+          hash
+        }
+        block {
+          number
+        }
+      }
+    }
+  `
+
+  interface QueryResult {
+    tokenTransfers: Array<{
+      id: string
+      tokenStandard: string
+      from: { address: string }
+      to: { address: string }
+      value: string
+      timestamp: string
+      transaction: { hash: string }
+      block: { number: number }
+    }>
+  }
+
+  const result = await graphqlQuery<QueryResult>(query, {
+    tokenAddress: validatedAddress.toLowerCase(),
+    limit,
+  })
+
+  return result.tokenTransfers
+}
+
+export async function getTokenHolders(
+  tokenAddress: string,
+  requestedLimit = 100,
+) {
+  const validatedAddress = AddressSchema.parse(tokenAddress)
+  const limit = sanitizeLimit(requestedLimit, 100)
+  const query = `
+    query GetTokenHolders($tokenAddress: String!, $limit: Int!) {
+      tokenBalances(
+        where: { token: { address_eq: $tokenAddress }, balance_gt: "0" }
+        limit: $limit
+        orderBy: balance_DESC
+      ) {
+        id
+        balance
+        account {
+          address
+          firstSeenBlock
+        }
+        lastUpdated
+        transferCount
+      }
+    }
+  `
+
+  interface QueryResult {
+    tokenBalances: Array<{
+      id: string
+      balance: string
+      account: {
+        address: string
+        firstSeenBlock: number
+      }
+      lastUpdated: string
+      transferCount: number
+    }>
+  }
+
+  const result = await graphqlQuery<QueryResult>(query, {
+    tokenAddress: validatedAddress.toLowerCase(),
+    limit,
+  })
+
+  return result.tokenBalances
+}
+
+export async function getLatestBlocks(requestedLimit = 10) {
+  const limit = sanitizeLimit(requestedLimit, 10)
+  const query = `
+    query GetBlocks($limit: Int!) {
+      blocks(limit: $limit, orderBy: number_DESC) {
+        number
+        hash
+        timestamp
+        transactionCount
+        gasUsed
+      }
+    }
+  `
+
+  interface QueryResult {
+    blocks: Array<{
+      number: number
+      hash: string
+      timestamp: string
+      transactionCount: number
+      gasUsed: string
+    }>
+  }
+
+  const result = await graphqlQuery<QueryResult>(query, { limit })
+  return result.blocks
+}
+
+export async function getContractDetails(address: string) {
+  const validatedAddress = AddressSchema.parse(address)
+
+  const query = `
+    query GetContract($address: String!) {
+      contracts(where: { address_eq: $address }, limit: 1) {
+        id
+        address
+        contractType
+        isERC20
+        isERC721
+        isERC1155
+        creator {
+          address
+        }
+        creationTransaction {
+          hash
+        }
+        creationBlock {
+          number
+          timestamp
+        }
+        firstSeenAt
+        lastSeenAt
+      }
+    }
+  `
+
+  interface QueryResult {
+    contracts: Array<{
+      id: string
+      address: string
+      contractType: string
+      isERC20: boolean
+      isERC721: boolean
+      isERC1155: boolean
+      creator: {
+        address: string
+      }
+      creationTransaction: {
+        hash: string
+      }
+      creationBlock: {
+        number: number
+        timestamp: string
+      }
+      firstSeenAt: string
+      lastSeenAt: string
+    }>
+  }
+
+  const result = await graphqlQuery<QueryResult>(query, {
+    address: validatedAddress.toLowerCase(),
+  })
+
+  if (result.contracts.length === 0) {
+    throw new Error('Contract not found')
+  }
+  return result.contracts[0]
+}

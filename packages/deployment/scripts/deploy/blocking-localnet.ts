@@ -24,10 +24,15 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
-import { ANVIL_KEYS } from '../../packages/config/test-keys'
 
-// ============ Configuration ============
-
+// Anvil default test keys - DO NOT USE ON MAINNET
+const ANVIL_KEYS = {
+  deployer: {
+    address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address,
+    privateKey:
+      '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as Hex,
+  },
+} as const
 const RPC_URL = 'http://localhost:6545'
 const CHAIN_ID = 31337
 
@@ -53,9 +58,6 @@ interface BlockingDeployment {
     authCaptureEscrow?: Address
   }
 }
-
-// ============ Load compiled contracts ============
-
 function loadContractBytecode(contractName: string): Hex {
   const forgePath = join(
     CONTRACTS_DIR,
@@ -83,9 +85,6 @@ function loadContractAbi(contractName: string): readonly object[] {
     `Contract ABI not found for ${contractName}. Run 'forge build' first.`,
   )
 }
-
-// ============ Main Deploy Function ============
-
 async function deployBlocking() {
   console.log(
     '╔══════════════════════════════════════════════════════════════════╗',

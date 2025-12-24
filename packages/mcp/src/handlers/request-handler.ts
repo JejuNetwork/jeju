@@ -1,7 +1,5 @@
 /**
- * MCP Request Handler
- *
- * Handles JSON-RPC 2.0 requests for MCP protocol methods
+ * JSON-RPC 2.0 request handler for MCP protocol methods.
  */
 
 import { z } from 'zod'
@@ -381,7 +379,9 @@ export class MCPRequestHandler {
    * Extract request ID from raw request for error responses
    * Returns null if ID cannot be extracted (per JSON-RPC spec)
    */
-  private extractRequestId(rawRequest: unknown): string | number | null {
+  private extractRequestId(
+    rawRequest: Record<string, unknown> | unknown,
+  ): string | number | null {
     if (
       typeof rawRequest === 'object' &&
       rawRequest !== null &&

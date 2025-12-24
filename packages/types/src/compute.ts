@@ -1,8 +1,5 @@
 /**
- * @fileoverview Compute Marketplace Types
- *
- * Types for the decentralized AI compute marketplace.
- * Includes Zod schemas for runtime validation.
+ * Decentralized AI compute marketplace types.
  */
 
 import { z } from 'zod'
@@ -15,48 +12,32 @@ import {
   MAX_STRING_LENGTH,
 } from './validation'
 
-// ============================================================================
-// Status Schemas
-// ============================================================================
-
-/**
- * Run/Job execution status schema
- */
 export const RunStatusSchema = z.enum([
-  'queued', // Waiting to start
-  'waiting', // Waiting for dependencies
-  'in_progress', // Currently executing
-  'started', // Started (alias for in_progress)
-  'completed', // Successfully finished
-  'failed', // Execution failed
-  'cancelled', // User cancelled
-  'skipped', // Skipped due to conditions
-  'timeout', // Execution timed out
+  'queued',
+  'waiting',
+  'in_progress',
+  'started',
+  'completed',
+  'failed',
+  'cancelled',
+  'skipped',
+  'timeout',
 ])
 export type RunStatus = z.infer<typeof RunStatusSchema>
 
-/** Job status schema (alias for RunStatus for backward compatibility) */
 export const JobStatusSchema = RunStatusSchema
 export type JobStatus = RunStatus
 
-/**
- * Todo/Task status schema
- */
 export const TodoStatusSchema = z.enum([
-  'pending', // Not started
-  'in_progress', // Currently being worked on
-  'completed', // Finished successfully
-  'cancelled', // Cancelled/abandoned
+  'pending',
+  'in_progress',
+  'completed',
+  'cancelled',
 ])
 export type TodoStatus = z.infer<typeof TodoStatusSchema>
 
-/** Execution status schema (alias for RunStatus for backward compatibility) */
 export const ExecutionStatusSchema = RunStatusSchema
 export type ExecutionStatus = RunStatus
-
-// ============================================================================
-// Provider Schemas
-// ============================================================================
 
 export const ComputeProviderSchema = z.object({
   address: AddressSchema,
@@ -79,9 +60,7 @@ export const ComputeCapabilitySchema = z.object({
 })
 export type ComputeCapability = z.infer<typeof ComputeCapabilitySchema>
 
-// ============================================================================
 // Ledger Types
-// ============================================================================
 
 export const ComputeLedgerSchema = z.object({
   totalBalance: z.bigint(),
@@ -99,9 +78,7 @@ export const ProviderSubAccountSchema = z.object({
 })
 export type ProviderSubAccount = z.infer<typeof ProviderSubAccountSchema>
 
-// ============================================================================
 // Inference Schemas
-// ============================================================================
 
 export const InferenceServiceSchema = z.object({
   provider: AddressSchema,
@@ -183,9 +160,7 @@ export const InferenceResponseSchema = z.object({
 })
 export type InferenceResponse = z.infer<typeof InferenceResponseSchema>
 
-// ============================================================================
 // Staking Schemas
-// ============================================================================
 
 export const ComputeStakeTypeSchema = z.enum([
   'NONE',
@@ -217,9 +192,7 @@ export const ComputeStakeSchema = z.object({
 })
 export type ComputeStake = z.infer<typeof ComputeStakeSchema>
 
-// ============================================================================
 // Hardware Types
-// ============================================================================
 
 export const PlatformSchema = z.enum(['darwin', 'linux', 'win32'])
 export type Platform = z.infer<typeof PlatformSchema>
@@ -249,9 +222,7 @@ export const AttestationReportSchema = z.object({
 })
 export type AttestationReport = z.infer<typeof AttestationReportSchema>
 
-// ============================================================================
 // SDK Configuration Types
-// ============================================================================
 
 export const ComputeSDKConfigSchema = z.object({
   rpcUrl: z.string().url(),
@@ -274,9 +245,7 @@ export const ModerationSDKConfigSchema = z.object({
 })
 export type ModerationSDKConfig = z.infer<typeof ModerationSDKConfigSchema>
 
-// ============================================================================
 // Auth Types
-// ============================================================================
 
 export const ComputeAuthHeadersSchema = z.object({
   'x-jeju-address': z.string(),
@@ -286,9 +255,7 @@ export const ComputeAuthHeadersSchema = z.object({
 })
 export type ComputeAuthHeaders = z.infer<typeof ComputeAuthHeadersSchema>
 
-// ============================================================================
 // Node Configuration Types
-// ============================================================================
 
 export const ModelBackendSchema = z.enum(['ollama', 'llamacpp', 'mock'])
 export type ModelBackend = z.infer<typeof ModelBackendSchema>
@@ -314,9 +281,7 @@ export const ComputeNodeConfigSchema = z.object({
 })
 export type ComputeNodeConfig = z.infer<typeof ComputeNodeConfigSchema>
 
-// ============================================================================
 // Network Types
-// ============================================================================
 
 export const ComputeNetworkSchema = z.object({
   name: z.string(),
@@ -342,9 +307,7 @@ export const ComputeDeploymentSchema = z.object({
 })
 export type ComputeDeployment = z.infer<typeof ComputeDeploymentSchema>
 
-// ============================================================================
 // Compute Resource Types (vast.ai-style)
-// ============================================================================
 
 export const ResourceType = {
   GPU: 0,
@@ -397,9 +360,7 @@ export const ResourcePricingSchema = z.object({
 })
 export type ResourcePricing = z.infer<typeof ResourcePricingSchema>
 
-// ============================================================================
 // Rental/Session Types
-// ============================================================================
 
 export const RentalStatus = {
   PENDING: 0,
@@ -506,9 +467,7 @@ export const RentalSessionSchema = z.object({
 })
 export type RentalSession = z.infer<typeof RentalSessionSchema>
 
-// ============================================================================
 // SSH Access Types
-// ============================================================================
 
 export const SSHCredentialsSchema = z.object({
   host: z.string(),
@@ -536,9 +495,7 @@ export const SSHProxyConfigSchema = z.object({
 })
 export type SSHProxyConfig = z.infer<typeof SSHProxyConfigSchema>
 
-// ============================================================================
 // Compute Node Extended Types
-// ============================================================================
 
 export const ComputeNodeCapabilitiesSchema = z.object({
   inference: z.boolean(),
@@ -563,9 +520,7 @@ export const ExtendedProviderInfoSchema = ComputeProviderSchema.extend({
 })
 export type ExtendedProviderInfo = z.infer<typeof ExtendedProviderInfoSchema>
 
-// ============================================================================
 // Gateway Proxy Types
-// ============================================================================
 
 export const GatewayRouteTypeSchema = z.enum(['ssh', 'http', 'tcp'])
 export type GatewayRouteType = z.infer<typeof GatewayRouteTypeSchema>
@@ -594,9 +549,7 @@ export const ProxySessionSchema = z.object({
 })
 export type ProxySession = z.infer<typeof ProxySessionSchema>
 
-// ============================================================================
 // Events
-// ============================================================================
 
 export const RentalCreatedEventSchema = z.object({
   rentalId: z.string(),

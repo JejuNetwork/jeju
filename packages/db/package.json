@@ -16,15 +16,17 @@
   "sideEffects": false,
   "scripts": {
     "build": "tsc",
+    "server": "bun run src/server.ts",
     "test": "bun test",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@elysiajs/cors": "^1.2.0",
     "@jejunetwork/config": "workspace:*",
+    "@jejunetwork/sdk": "workspace:*",
+    "@jejunetwork/types": "workspace:*",
     "elysia": "^1.2.25",
     "generic-pool": "^3.9.0",
-    "opossum": "^9.0.0",
     "pino": "^10.1.0",
     "viem": "2.43.3",
     "zod": "4.2.1"
@@ -33,13 +35,13 @@
     "@types/bun": "latest",
     "typescript": "5.9.3"
   },
-  "peerDependencies": {
-    "drizzle-orm": ">=0.30.0",
-    "typeorm": ">=0.3.0"
-  },
   "peerDependenciesMeta": {
-    "drizzle-orm": { "optional": true },
     "typeorm": { "optional": true }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/elizaos/jeju.git",
+    "directory": "packages/db"
   },
   "publishConfig": {
     "access": "public"

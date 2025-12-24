@@ -1,18 +1,4 @@
-/**
- * Token Command
- *
- * Deploy and manage cross-chain tokens (JEJU, custom tokens)
- *
- * Usage:
- *   jeju token deploy:jeju --network testnet
- *   jeju token deploy:ecosystem --network testnet
- *   jeju token deploy:testnet --cross-chain
- *   jeju token deploy:hyperlane --network testnet
- *   jeju token deploy:solana --network devnet
- *   jeju token verify --network testnet
- *   jeju token bridge <token> <amount> --from <chain> --to <chain>
- *   jeju token status <token> --network testnet
- */
+/** Deploy and manage cross-chain tokens */
 
 import chalk from 'chalk'
 import { Command } from 'commander'
@@ -47,9 +33,7 @@ Examples:
 `,
   )
 
-// ============================================================================
 // Deploy JEJU Command
-// ============================================================================
 
 tokenCommand
   .command('deploy:jeju')
@@ -78,9 +62,7 @@ tokenCommand
     },
   )
 
-// ============================================================================
 // Deploy Ecosystem Command
-// ============================================================================
 
 tokenCommand
   .command('deploy:ecosystem')
@@ -102,9 +84,7 @@ tokenCommand
     process.exit(1)
   })
 
-// ============================================================================
 // Deploy Testnet Command
-// ============================================================================
 
 tokenCommand
   .command('deploy:testnet')
@@ -121,9 +101,7 @@ tokenCommand
     process.exit(1)
   })
 
-// ============================================================================
 // Deploy Hyperlane Command
-// ============================================================================
 
 tokenCommand
   .command('deploy:hyperlane')
@@ -141,9 +119,7 @@ tokenCommand
     process.exit(1)
   })
 
-// ============================================================================
 // Deploy Solana Command
-// ============================================================================
 
 tokenCommand
   .command('deploy:solana')
@@ -163,9 +139,7 @@ tokenCommand
     process.exit(1)
   })
 
-// ============================================================================
 // Verify Command
-// ============================================================================
 
 tokenCommand
   .command('verify')
@@ -183,9 +157,7 @@ tokenCommand
     process.exit(1)
   })
 
-// ============================================================================
 // Status Command
-// ============================================================================
 
 interface StatusOptions {
   network: 'localnet' | 'testnet' | 'mainnet'
@@ -231,9 +203,7 @@ tokenCommand
     console.log(`  ZK Discount:   20% off bridge fees`)
   })
 
-// ============================================================================
 // Bridge Command
-// ============================================================================
 
 interface BridgeOptions {
   from: string
@@ -279,9 +249,7 @@ tokenCommand
     logger.info('To proceed, run with --confirm flag')
   })
 
-// ============================================================================
 // Configure Routes Command
-// ============================================================================
 
 tokenCommand
   .command('configure-routes <token>')
@@ -304,9 +272,7 @@ tokenCommand
     logger.success('\nWarp routes configured successfully.')
   })
 
-// ============================================================================
 // Helpers
-// ============================================================================
 
 function getNetworkConfig(network: string, tokenSymbol?: string) {
   // JEJU's home chain is the Jeju network

@@ -1,8 +1,75 @@
 {
-  "name": "@jejunetwork/dws",
+  "$schema": "../../packages/config/jeju-manifest.schema.json",
+  "name": "dws",
+  "displayName": "DWS",
   "version": "1.0.0",
   "description": "Decentralized Web Services - Storage, Compute, CDN, Funding",
   "type": "service",
+  "commands": {
+    "dev": "bun run dev",
+    "build": "bun run build",
+    "start": "bun run start"
+  },
+  "ports": {
+    "main": 4031,
+    "api": 4030,
+    "frontend": 4031
+  },
+  "dependencies": [
+    "contracts",
+    "config"
+  ],
+  "optional": false,
+  "enabled": true,
+  "autoStart": true,
+  "tags": [
+    "dws",
+    "storage",
+    "compute",
+    "cdn",
+    "funding",
+    "infrastructure"
+  ],
+  "jns": {
+    "name": "dws.jeju",
+    "description": "Decentralized Web Services",
+    "url": "https://dws.jejunetwork.org"
+  },
+  "healthCheck": {
+    "url": "http://localhost:4030/health",
+    "interval": 30000
+  },
+  "agent": {
+    "enabled": true,
+    "a2aEndpoint": "/a2a",
+    "mcpEndpoint": "/mcp",
+    "tags": [
+      "jeju-app",
+      "dws",
+      "storage",
+      "compute",
+      "cdn"
+    ],
+    "metadata": {
+      "category": "infrastructure",
+      "provider": "jeju-network",
+      "features": [
+        "storage",
+        "compute",
+        "cdn",
+        "git",
+        "packages",
+        "containers",
+        "ci"
+      ]
+    },
+    "trustModels": [
+      "open",
+      "staked"
+    ],
+    "x402Support": true,
+    "jnsName": "dws.jeju"
+  },
   "deployment": {
     "testnet": {
       "network": "jeju-testnet",
@@ -77,11 +144,50 @@
     "registry": "/registry/*"
   },
   "decentralization": {
-    "frontendStorage": "ipfs",
-    "dataStorage": "cql",
-    "nodeDiscovery": "on-chain",
-    "coordination": "p2p",
-    "execution": ["workerd", "containers", "tee"],
-    "payments": "x402"
+    "frontend": {
+      "buildDir": "dist",
+      "buildCommand": "bun run build",
+      "spa": true,
+      "jnsName": "dws.jeju",
+      "ipfs": true,
+      "arweave": false,
+      "cacheRules": [
+        {
+          "pattern": "/assets/**",
+          "ttl": 31536000,
+          "immutable": true
+        },
+        {
+          "pattern": "/*.js",
+          "ttl": 86400
+        },
+        {
+          "pattern": "/**/*.html",
+          "ttl": 60,
+          "staleWhileRevalidate": 3600
+        }
+      ]
+    },
+    "robustness": {
+      "frontendStorage": "ipfs",
+      "dataStorage": "cql",
+      "nodeDiscovery": "on-chain",
+      "coordination": "p2p",
+      "execution": [
+        "workerd",
+        "containers",
+        "tee"
+      ],
+      "payments": "x402"
+    }
+  },
+  "architecture": {
+    "type": "hybrid",
+    "frontend": {
+      "type": "spa",
+      "builder": "bun",
+      "entrypoint": "index.html",
+      "outputDir": "dist"
+    }
   }
 }

@@ -1,8 +1,5 @@
 /**
- * @fileoverview Main types barrel export for Jeju Network
- *
- * Exports all shared types, schemas, and utilities for the Jeju ecosystem.
- * Types include Zod schemas for runtime validation.
+ * Jeju Network shared types, schemas, and validation utilities.
  */
 
 export * from './api'

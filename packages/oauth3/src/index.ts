@@ -1,3 +1,6 @@
+// Browser polyfills MUST be imported first before any other modules
+import './polyfills'
+
 /**
  * @jejunetwork/oauth3
  *
@@ -16,6 +19,32 @@
  * - mainnet: Jeju Mainnet production (chain 420692)
  */
 
+// Multi-tenant Council
+export {
+  type CEOConfig,
+  type CouncilAgentConfig,
+  type CouncilDeployment,
+  createMultiTenantCouncilManager,
+  MultiTenantCouncilManager,
+} from './council/multi-tenant.js'
+// Verifiable Credentials
+export {
+  addressFromDid,
+  type CredentialIssuanceParams,
+  type CredentialPresentation,
+  type CredentialVerificationResult,
+  createCredentialHash,
+  credentialToOnChainAttestation,
+  didFromAddress,
+  VerifiableCredentialIssuer,
+  VerifiableCredentialVerifier,
+} from './credentials/verifiable-credentials.js'
+// DWS Worker (decentralized deployment)
+export {
+  createOAuth3Worker,
+  type OAuth3Worker,
+  type OAuth3WorkerConfig,
+} from './dws-worker/index.js'
 export {
   // Contract ABIs
   JNS_REGISTRY_ABI,
@@ -59,7 +88,6 @@ export {
   type OAuth3AgentConfig,
   RPC_URLS,
   type TEEMode,
-  ZERO_ADDRESS,
 } from './infrastructure/config.js'
 export {
   createDecentralizedDiscovery,
@@ -114,6 +142,19 @@ export {
   // x402 Payments
   X402PaymentClient,
 } from './infrastructure/x402-payments.js'
+// Cross-chain Identity (Open Intents)
+export {
+  type ChainIdentityState,
+  type CrossChainAuthIntent,
+  CrossChainIdentityManager,
+  type CrossChainIdentityState,
+  computeIntentHash,
+  crossChainIdentityManager,
+  encodeContractCallIntent,
+  encodeTransferIntent,
+  type IdentitySyncIntent,
+  type SupportedChain,
+} from './intents/cross-chain-identity.js'
 export {
   type BackupCode,
   BackupCodesManager,
@@ -158,7 +199,6 @@ export {
   publicKeyToAddress,
   verifySignature,
 } from './mpc/frost-signing.js'
-
 // Email Authentication Provider
 export {
   createEmailProvider,
@@ -200,49 +240,32 @@ export {
   type OAuthToken,
   TwitterProvider,
 } from './providers/social.js'
-// TEE Agent
-export { DstackAuthAgent, startAuthAgent } from './tee/dstack-agent.js'
-// Core types
-export * from './types.js'
-
-// React SDK (separate entry point for tree-shaking)
-// import { OAuth3Provider, useOAuth3 } from '@jejunetwork/oauth3/react'
-
-// Re-export type guards from viem
-export { isAddress, isHex } from 'viem'
-// Multi-tenant Council
+// React SDK
 export {
-  type CEOConfig,
-  type CouncilAgentConfig,
-  type CouncilDeployment,
-  createMultiTenantCouncilManager,
-  MultiTenantCouncilManager,
-} from './council/multi-tenant.js'
-// Verifiable Credentials
-export {
-  addressFromDid,
-  type CredentialIssuanceParams,
-  type CredentialPresentation,
-  type CredentialVerificationResult,
-  createCredentialHash,
-  credentialToOnChainAttestation,
-  didFromAddress,
-  VerifiableCredentialIssuer,
-  VerifiableCredentialVerifier,
-} from './credentials/verifiable-credentials.js'
-// Cross-chain Identity (Open Intents)
-export {
-  type ChainIdentityState,
-  type CrossChainAuthIntent,
-  CrossChainIdentityManager,
-  type CrossChainIdentityState,
-  computeIntentHash,
-  crossChainIdentityManager,
-  encodeContractCallIntent,
-  encodeTransferIntent,
-  type IdentitySyncIntent,
-  type SupportedChain,
-} from './intents/cross-chain-identity.js'
+  ConnectedAccount,
+  type ConnectedAccountProps,
+  LoginButton,
+  type LoginButtonProps,
+  LoginModal,
+  type LoginModalProps,
+  MFASetup,
+  type MFASetupProps,
+  type OAuth3ContextValue,
+  OAuth3Provider,
+  type OAuth3ProviderProps,
+  type UseCredentialsReturn,
+  type UseLoginOptions,
+  type UseLoginReturn,
+  type UseMFAOptions,
+  type UseMFAReturn,
+  type UseSessionReturn,
+  useCredentials,
+  useLogin,
+  useMFA,
+  useOAuth3,
+  useOAuth3Client,
+  useSession,
+} from './react/index.js'
 // SDK Client
 export {
   createOAuth3Client,
@@ -256,7 +279,8 @@ export {
   type SignMessageOptions,
   type TransactionOptions,
 } from './sdk/client.js'
-
+// Core types
+export * from './types.js'
 // Validation (Zod schemas and utilities)
 export {
   AddressSchema,

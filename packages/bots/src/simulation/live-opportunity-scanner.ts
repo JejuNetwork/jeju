@@ -21,8 +21,12 @@ import {
   parseAbi,
 } from 'viem'
 import { arbitrum, base, bsc, mainnet, optimism } from 'viem/chains'
+import { z } from 'zod'
 
-// ============ Types ============
+// DeFi Llama price response schema
+const DefiLlamaPriceResponseSchema = z.object({
+  coins: z.record(z.string(), z.object({ price: z.number() })),
+})
 
 interface LiveOpportunity {
   type: 'arb' | 'cross-chain' | 'mev'
@@ -53,9 +57,6 @@ interface ChainScanResult {
   pairsScanned: number
   opportunities: LiveOpportunity[]
 }
-
-// ============ Constants ============
-
 const CHAINS: Array<{
   chainId: number
   name: string
@@ -183,9 +184,6 @@ const FACTORY_ABI = parseAbi([
   'function allPairsLength() external view returns (uint256)',
   'function allPairs(uint256) external view returns (address pair)',
 ])
-
-// ============ Live Scanner ============
-
 export class LiveOpportunityScanner {
   private clients: Map<number, PublicClient<HttpTransport, Chain>> = new Map()
   private ethPrice = 3500
@@ -390,10 +388,13 @@ export class LiveOpportunityScanner {
         'https://coins.llama.fi/prices/current/coingecko:ethereum',
       )
       if (response.ok) {
-        const data = (await response.json()) as {
-          coins: Record<string, { price: number }>
+        const parseResult = DefiLlamaPriceResponseSchema.safeParse(
+          await response.json(),
+        )
+        if (parseResult.success) {
+          this.ethPrice =
+            parseResult.data.coins['coingecko:ethereum']?.price ?? 3500
         }
-        this.ethPrice = data.coins['coingecko:ethereum']?.price ?? 3500
       }
     } catch {
       // Use default
@@ -482,9 +483,6 @@ export class LiveOpportunityScanner {
     console.log(`\n${'═'.repeat(70)}`)
   }
 }
-
-// ============ CLI ============
-
 async function main() {
   const scanner = new LiveOpportunityScanner()
   const result = await scanner.scan()

@@ -1,7 +1,3 @@
-// TODO: REVIEW TRY-CATCH - Audit all try-catch blocks in this file.
-// Remove any unnecessary try-catch. Only use for: user input validation, external API calls, file I/O.
-// See: https://github.com/jeju/jeju/issues/TRY-CATCH-AUDIT
-
 import { describe, expect, test } from 'bun:test'
 import { z } from 'zod'
 import {
@@ -242,12 +238,7 @@ describe('Error Handler', () => {
 
     test('includes context in error message', () => {
       const data = { name: 123 }
-
-      try {
-        expectValid(schema, data, 'user data')
-      } catch (error) {
-        expect((error as Error).message).toContain('user data')
-      }
+      expect(() => expectValid(schema, data, 'user data')).toThrow(/user data/)
     })
   })
 

@@ -28,9 +28,12 @@ import {
   optimism,
   polygon,
 } from 'viem/chains'
+import { z } from 'zod'
 
-// ============ Types ============
-
+// Jupiter price response schema
+const JupiterPriceResponseSchema = z.object({
+  data: z.record(z.string(), z.object({ price: z.number() })),
+})
 export interface ChainPrice {
   chainId: number | string
   chainName: string
@@ -99,9 +102,6 @@ export interface ScannerConfig {
   scanIntervalMs: number
   heliusApiKey?: string
 }
-
-// ============ Constants ============
-
 const EVM_CHAINS = {
   1: { chain: mainnet, name: 'Ethereum' },
   8453: { chain: base, name: 'Base' },
@@ -159,9 +159,6 @@ const BRIDGE_ESTIMATES: Record<
   'solana-1': { costUsd: 15, timeMinutes: 20 }, // Solana -> Eth (via Wormhole)
   'solana-8453': { costUsd: 8, timeMinutes: 15 },
 }
-
-// ============ Multi-Chain Scanner ============
-
 // Generic public client type that works with any chain
 // Using Chain | undefined allows clients from different chains to be stored together
 type AnyPublicClient = PublicClient<Transport, Chain | undefined>
@@ -353,22 +350,24 @@ export class MultiChainScanner {
         )
 
         if (response.ok) {
-          const data = (await response.json()) as {
-            data: Record<string, { price: number }>
-          }
-          const tokenId = this.getSolanaTokenId(token)
-          const price = data.data?.[tokenId]?.price
+          const parseResult = JupiterPriceResponseSchema.safeParse(
+            await response.json(),
+          )
+          if (parseResult.success) {
+            const tokenId = this.getSolanaTokenId(token)
+            const price = parseResult.data.data?.[tokenId]?.price
 
-          if (price) {
-            prices.push({
-              chainId: 'solana',
-              chainName: 'Solana',
-              token,
-              price,
-              dex: 'jupiter',
-              liquidity: 0n,
-              timestamp: Date.now(),
-            })
+            if (price) {
+              prices.push({
+                chainId: 'solana',
+                chainName: 'Solana',
+                token,
+                price,
+                dex: 'jupiter',
+                liquidity: 0n,
+                timestamp: Date.now(),
+              })
+            }
           }
         }
       } catch (error) {
@@ -653,9 +652,6 @@ export class MultiChainScanner {
     }
   }
 }
-
-// ============ Exports ============
-
 export function createScanner(
   config: Partial<ScannerConfig> = {},
 ): MultiChainScanner {

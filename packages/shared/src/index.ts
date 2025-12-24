@@ -48,6 +48,7 @@ export {
   getProviderInfo,
   getServiceName,
   getTestnetChain,
+  inferChainFromRpcUrl,
 } from './chains'
 // Components
 export {
@@ -69,27 +70,93 @@ export {
   type SignatureRequest,
   type SignatureResult,
 } from './crypto'
-// Database (CovenantSQL)
+// Crypto (Universal - browser/worker compatible)
 export {
-  type ColumnDefinition,
-  type ConsistencyLevel,
-  CovenantSQLClient,
-  type CovenantSQLConfig,
-  createCovenantSQLClient,
-  createTableMigration,
-  getCovenantSQLClient,
-  type IndexDefinition,
-  type Migration,
-  MigrationManager,
-  type MigrationRecord,
-  type MigrationResult,
-  migrateData,
-  type QueryOptions,
-  type QueryResult as CovenantQueryResult,
-  resetCovenantSQLClient,
-  type TableSchema,
-  type TransactionContext,
-} from './db'
+  bytesToHex,
+  constantTimeEqual,
+  decryptAesGcm,
+  decryptWithPassword,
+  deriveKeyScrypt,
+  encryptAesGcm,
+  encryptWithPassword,
+  fromHex,
+  generateUUID,
+  hash256,
+  hash512,
+  hexToBytes,
+  hmacSha256,
+  hmacSha512,
+  randomBytes,
+  randomHex,
+  sha256,
+  sha512,
+  toHex,
+} from './crypto/universal'
+// Dev Server (for frontend development)
+export {
+  type AppTheme,
+  AUTOCRAT_THEME,
+  BAZAAR_THEME,
+  CRUCIBLE_THEME,
+  createDevServer,
+  DEFAULT_BROWSER_EXTERNALS,
+  DEFAULT_PROXY_PATHS,
+  DEFAULT_WATCH_DIRS,
+  type DevServerConfig,
+  DWS_THEME,
+  GATEWAY_THEME,
+  generateDevHtml,
+  THEMES,
+  type ThemeName,
+  VPN_THEME,
+} from './dev-server'
+// EIL (Economic Interoperability Layer)
+export {
+  APP_TOKEN_PREFERENCE_ABI,
+  type AppPreference,
+  buildAppAwarePaymentData,
+  buildLiquidityDepositTransaction,
+  buildSwapTransaction,
+  buildTokenPaymentData,
+  buildXLPStakeTransaction,
+  type ChainInfo,
+  CROSS_CHAIN_PAYMASTER_ABI,
+  type CrossChainSwapParams,
+  calculateSwapFee,
+  canPayGasWithToken,
+  DEFAULT_EIL_CONFIG,
+  type EILConfig,
+  type EILStats,
+  estimateSwapTime,
+  formatGasPaymentOption,
+  formatSwapRoute,
+  formatXLPPosition,
+  type GasPaymentOption,
+  getBestGasTokenForApp,
+  getChainById,
+  isCrossChainSwap,
+  L1_STAKE_MANAGER_ABI,
+  SUPPORTED_CHAINS,
+  type SwapStatus,
+  selectBestGasToken,
+  validateSwapParams,
+  type XLPPosition,
+} from './eil'
+// Environment Utilities (browser-safe)
+export {
+  getEnv,
+  getEnvBoolean,
+  getEnvNumber,
+  getEnvOrDefault,
+  initEnv,
+  isBrowser,
+  isServer,
+  isWorker,
+  requireEnv,
+  setEnv,
+} from './env'
+// Events (Universal EventEmitter - browser/worker compatible)
+export { createEventEmitter, EventEmitter } from './events'
 // Federation
 export {
   type CrossNetworkAttestation,
@@ -177,7 +244,10 @@ export {
 } from './ipfs-client'
 // Logger
 export {
+  clearLoggerCache,
   createLogger,
+  createLoggerAsync,
+  getDefaultLogger,
   getLogger,
   type Logger,
   type LoggerConfig,
@@ -221,6 +291,23 @@ export {
   type NotificationConfig,
   type Subscriber,
 } from './notifications/moderation-events'
+// Paymaster
+export {
+  checkPaymasterApproval,
+  estimateTokenCost,
+  generatePaymasterData,
+  getApprovalTxData,
+  getAvailablePaymasters,
+  getPaymasterForToken,
+  getPaymasterOptions,
+  getTokenBalance,
+  PAYMASTER_ABI,
+  PAYMASTER_FACTORY_ABI,
+  type PaymasterConfig,
+  type PaymasterInfo,
+  type PaymasterOption,
+  preparePaymasterData,
+} from './paymaster'
 // Protocol Servers
 export {
   type A2AConfig,
@@ -232,9 +319,7 @@ export {
   configureERC8004,
   configureProtocolMiddleware,
   configureX402,
-  // Legacy A2A
   createA2AServer,
-  // Legacy MCP
   createMCPServer,
   createPaymentRequirement,
   // Protocol Server
@@ -297,6 +382,10 @@ export {
   type CacheConfig,
   type CacheService,
   type CacheServiceConfig,
+  type ContentResolution,
+  type ContentVersioningConfig,
+  // Content Versioning
+  ContentVersioningService,
   type CronConfig,
   type CronJob,
   type CronJobConfig,
@@ -304,33 +393,42 @@ export {
   cacheKeys,
   // Cache
   createCacheService,
+  createContentVersioningService,
   // Cron
   createCronService,
   // Database
   createDatabaseService,
+  // IPNS
+  createIPNSClient,
   // JNS
   createJNSService,
   // KMS
   createKMSService,
+  createPreviewManager,
   // Storage
   createStorageService,
   type DatabaseConfig,
   type DatabaseService,
   type DatabaseServiceConfig,
-  type DeployConfig,
-  type DeployResult,
-  // Deploy
-  deployApp,
+  type DeploymentMode,
+  decodeIPNSContenthash,
   type EncryptionPolicy,
   type ExecResult,
-  generateMigrationSQL,
+  encodeIPNSContenthash,
+  getCurrentDeploymentMode,
+  getIPNSKeyName,
+  IPNSClient,
+  type IPNSKey,
+  type IPNSPublishResult,
+  type IPNSResolution,
+  isDevModeActive,
   type JNSConfig,
   type JNSRecords,
   type JNSService,
   type KMSConfig,
   type KMSServiceClient,
-  type MigrationConfig,
   type PinOptions,
+  PreviewDeploymentManager,
   type QueryParam,
   type QueryResult,
   resetCacheService,
@@ -391,3 +489,63 @@ export type {
   SqlRow,
   WebhookBody,
 } from './types'
+// Viem Utilities (EIP-7702 compatible)
+export {
+  // EIP-7702 authorization helpers
+  type Authorization,
+  BATCH_EXECUTOR_ABI,
+  type BatchCall,
+  // Core contract helpers
+  createTypedPublicClient,
+  createTypedWalletClient,
+  type EIP7702TransactionParams,
+  getContract,
+  hashAuthorizationMessage,
+  type PublicClientConfig,
+  prepareAuthorization,
+  readContract,
+  recoverAuthorizer,
+  requiresAuthorization,
+  type SignAuthorizationConfig,
+  type SignedAuthorization,
+  // Safe contract helpers (simplified API)
+  safeReadContract,
+  safeWriteContract,
+  signAuthorization,
+  verifyAuthorizationSignature,
+  type WalletClientConfig,
+  writeContract,
+} from './viem'
+// Wagmi Utilities
+export {
+  createTypedWriteContract,
+  createTypedWriteContractAsync,
+  type TypedWriteContractParams,
+  typedWriteContract,
+  typedWriteContractAsync,
+} from './wagmi'
+// x402 Payment Protocol
+export {
+  CHAIN_IDS as X402_CHAIN_IDS,
+  calculatePercentageFee,
+  checkPayment,
+  createPaymentPayload,
+  createX402PaymentRequirement,
+  generate402Headers,
+  getEIP712Domain,
+  getEIP712Types,
+  isValidPaymentPayload,
+  PAYMENT_TIERS as X402_PAYMENT_TIERS,
+  type PaymentPayload,
+  type PaymentRequirements,
+  type PaymentScheme,
+  parsePaymentHeader,
+  RPC_URLS as X402_RPC_URLS,
+  type SettlementResponse,
+  signPaymentPayload,
+  type UntrustedPaymentPayload,
+  USDC_ADDRESSES,
+  verifyPayment,
+  type X402Network,
+  type X402PaymentConfig,
+} from './x402'

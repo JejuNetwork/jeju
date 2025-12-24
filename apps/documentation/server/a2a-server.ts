@@ -1,30 +1,14 @@
-/**
- * A2A Server for network Documentation
- * Enables agents to search and query documentation programmatically
- *
- * This is a secondary server for the Documentation app, providing A2A protocol support.
- * The main docs site runs on CORE_PORTS.DOCUMENTATION (4004), while this A2A server
- * runs on CORE_PORTS.DOCUMENTATION_A2A (7778 by default).
- */
-
 import { readFile, realpath, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { cors } from '@elysiajs/cors'
-import { getNetworkName } from '@jejunetwork/config'
-import { CORE_PORTS } from '@jejunetwork/config/ports'
+import { CORE_PORTS, getNetworkName } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import { z } from 'zod'
-import {
-  DOCS_ROOT,
-  listTopics,
-  type SearchResult,
-  searchDocumentation,
-  type Topic,
-} from '../lib/a2a'
+import { DOCS_ROOT, listTopics, searchDocumentation } from '../lib/a2a'
 
 const PORT = CORE_PORTS.DOCUMENTATION_A2A.get()
-const MAX_FILE_SIZE_BYTES = 1024 * 1024 // 1MB max file size
-const RATE_LIMIT_WINDOW_MS = 60 * 1000 // 1 minute
+const MAX_FILE_SIZE_BYTES = 1024 * 1024
+const RATE_LIMIT_WINDOW_MS = 60_000
 const RATE_LIMIT_MAX_REQUESTS = 100
 
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>()
@@ -59,8 +43,8 @@ setInterval(() => {
 }, RATE_LIMIT_WINDOW_MS)
 
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS?.split(',') || [
-  `http://localhost:${CORE_PORTS.DOCUMENTATION.DEFAULT}`, // Main docs site
-  'http://localhost:3000', // Common dev server port
+  `http://localhost:${CORE_PORTS.DOCUMENTATION.DEFAULT}`,
+  'http://localhost:3000',
   'https://docs.jejunetwork.org',
   'https://jejunetwork.org',
 ]
@@ -94,10 +78,7 @@ const A2ARequestSchema = z.object({
   id: z.union([z.number(), z.string()]),
 })
 
-interface SkillResult {
-  message: string
-  data: Record<string, string | number | SearchResult[] | Topic[]>
-}
+import type { SkillResult } from '@jejunetwork/shared/protocols/middleware'
 
 const AGENT_CARD = {
   protocolVersion: '0.3.0',
@@ -139,15 +120,6 @@ const AGENT_CARD = {
   ],
 } as const
 
-/**
- * Validates that a file path is safe and within the documentation root.
- * Prevents path traversal attacks by:
- * 1. Resolving the full path
- * 2. Verifying it starts with DOCS_ROOT
- * 3. Only allowing .md files
- * 4. Resolving symlinks to prevent escaping via symlink chains
- * 5. Checking file size to prevent memory exhaustion
- */
 async function validateDocPath(pagePath: string): Promise<string> {
   const normalizedPath = path.normalize(pagePath)
 
@@ -221,7 +193,7 @@ async function executeSkill(
   }
 }
 
-const _app = new Elysia()
+export const app = new Elysia()
   .use(
     cors({
       origin: (request) => {
@@ -243,6 +215,7 @@ const _app = new Elysia()
       set.status = 429
       return { error: 'Too many requests' }
     }
+    return undefined
   })
   .get('/.well-known/agent-card.json', () => AGENT_CARD)
   .post('/api/a2a', async ({ body, set }) => {
@@ -282,7 +255,7 @@ const _app = new Elysia()
 
     const result = await executeSkill(skillId, skillParams).catch(
       (err: Error) => {
-        set.status = 200 // JSON-RPC errors still return 200
+        set.status = 200
         return { error: err.message }
       },
     )

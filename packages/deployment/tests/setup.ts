@@ -17,9 +17,6 @@ import {
   type WalletClient,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-
-// ============ Constants ============
-
 export const TEST_CHAIN_ID = 31337
 export const TEST_RPC_URL = 'http://127.0.0.1:6546'
 
@@ -48,9 +45,6 @@ export const TEST_CHAIN: Chain = {
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: { default: { http: [TEST_RPC_URL] } },
 }
-
-// ============ Types ============
-
 export interface TestContext {
   anvilProcess: ChildProcess | null
   publicClient: PublicClient
@@ -62,9 +56,6 @@ export interface TestContext {
     simpleAccountFactory?: Address
   }
 }
-
-// ============ Anvil Management ============
-
 let anvilProcess: ChildProcess | null = null
 
 function getAnvilPath(): string {
@@ -169,9 +160,6 @@ export async function isAnvilRunning(): Promise<boolean> {
     return false
   }
 }
-
-// ============ Test Context Creation ============
-
 export async function createTestContext(): Promise<TestContext> {
   const deployer = privateKeyToAccount(TEST_ACCOUNTS.deployer.privateKey)
 
@@ -194,9 +182,6 @@ export async function createTestContext(): Promise<TestContext> {
     deployedContracts: {},
   }
 }
-
-// ============ Contract Deployment ============
-
 // EntryPoint v0.7 bytecode (pre-deployed address check)
 export const ENTRYPOINT_V07_ADDRESS =
   '0x0000000071727De22E5E9d8BAf0edAc6f37da032' as const
@@ -223,9 +208,6 @@ export async function deployEntryPointMock(ctx: TestContext): Promise<Address> {
   ctx.deployedContracts.entryPoint = ENTRYPOINT_V07_ADDRESS
   return ENTRYPOINT_V07_ADDRESS
 }
-
-// ============ Utility Functions ============
-
 export async function waitForBlock(
   client: PublicClient,
   blockNumber?: bigint,
@@ -264,9 +246,6 @@ export async function setBalance(
     }),
   })
 }
-
-// ============ Full Test Setup/Teardown ============
-
 export async function setupTestEnvironment(): Promise<TestContext> {
   console.log('🔧 Setting up test environment...')
 

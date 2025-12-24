@@ -1,23 +1,33 @@
-/**
- * jeju deploy-mips - Deploy or configure real MIPS infrastructure for Stage 2
- *
- * MIPS (MIPS Instruction Proof System) is required for fraud proofs.
- * Options:
- * 1. Use pre-deployed Optimism MIPS contracts (recommended for Base)
- * 2. Deploy fresh MIPS contracts from Optimism monorepo
- */
+/** Deploy or configure MIPS infrastructure for Stage 2 fraud proofs */
 
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { Command } from 'commander'
-import { createPublicClient, http } from 'viem'
+import { type Address, createPublicClient, http, isAddress } from 'viem'
 import { z } from 'zod'
 import { logger } from '../lib/logger'
 import { findMonorepoRoot } from '../lib/system'
 import { validate } from '../schemas'
 import { CHAIN_CONFIG, type NetworkType } from '../types'
 
-// Schema for deployment data validation
+const VALID_NETWORKS = ['mainnet', 'testnet', 'localnet'] as const
+
+function parseNetworkType(value: string): NetworkType {
+  if (!VALID_NETWORKS.includes(value as NetworkType)) {
+    throw new Error(
+      `Invalid network: ${value}. Must be: ${VALID_NETWORKS.join(', ')}`,
+    )
+  }
+  return value as NetworkType
+}
+
+function parseAddress(value: string, context: string): Address {
+  if (!isAddress(value)) {
+    throw new Error(`${context}: Invalid address format`)
+  }
+  return value
+}
+
 const MipsDeploymentDataSchema = z.object({
   network: z.string().optional(),
   chainId: z.number().optional(),
@@ -41,7 +51,6 @@ interface CannonProverStatus {
   preimageOracleAddress: string
 }
 
-// Pre-deployed Optimism MIPS contracts per network
 const OPTIMISM_MIPS_ADDRESSES: Record<string, MipsAddresses> = {
   mainnet: {
     mips: '0x0f8EdFbDdD3c0256A80AD8C0F2560B1807c3e67e',
@@ -52,7 +61,6 @@ const OPTIMISM_MIPS_ADDRESSES: Record<string, MipsAddresses> = {
     preimageOracle: '0x627F825CBd48c4102d36f287BE71f4234426b9e4',
   },
   localnet: {
-    // Localnet uses placeholder addresses - these get deployed by test setup
     mips: '0x0000000000000000000000000000000000000000',
     preimageOracle: '0x0000000000000000000000000000000000000000',
   },
@@ -97,9 +105,11 @@ async function checkCannonProverTestMode(
     transport: http(rpcUrl),
   })
 
+  const proverAddress = parseAddress(cannonProverAddress, 'CannonProver')
+
   // Check if MIPS is set to real address or placeholder
   const mipsAddress = (await client.readContract({
-    address: cannonProverAddress as `0x${string}`,
+    address: proverAddress,
     abi: [
       {
         name: 'mips',
@@ -110,10 +120,10 @@ async function checkCannonProverTestMode(
       },
     ],
     functionName: 'mips',
-  })) as string
+  })) as Address
 
   const preimageOracleAddress = (await client.readContract({
-    address: cannonProverAddress as `0x${string}`,
+    address: proverAddress,
     abi: [
       {
         name: 'preimageOracle',
@@ -124,9 +134,8 @@ async function checkCannonProverTestMode(
       },
     ],
     functionName: 'preimageOracle',
-  })) as string
+  })) as Address
 
-  // Test mode = zero address or known placeholder
   const isTestMode =
     mipsAddress === '0x0000000000000000000000000000000000000000' ||
     mipsAddress === '0x0000000000000000000000000000000000000001'
@@ -183,8 +192,6 @@ async function updateCannonProver(
     throw new Error('DEPLOYER_PRIVATE_KEY environment variable required')
   }
 
-  // In production, this would call setMips and setPreimageOracle on CannonProver
-  // For now, we just indicate what would happen
   console.log('⚠️  To update CannonProver, you need to:')
   console.log('  1. Call setMips(address) on CannonProver')
   console.log('  2. Call setPreimageOracle(address) on CannonProver')
@@ -199,9 +206,10 @@ export const deployMipsCommand = new Command('deploy-mips')
   .option('--deploy-fresh', 'Deploy new MIPS contracts')
   .option('--dry-run', 'Simulate without executing')
   .action(async (options) => {
-    const network = options.network as NetworkType
-
-    if (!['mainnet', 'testnet', 'localnet'].includes(network)) {
+    let network: NetworkType
+    try {
+      network = parseNetworkType(options.network)
+    } catch {
       logger.error('Invalid network. Must be: mainnet, testnet, or localnet')
       process.exit(1)
     }
@@ -251,13 +259,12 @@ export const deployMipsCommand = new Command('deploy-mips')
     }
   })
 
-// Status subcommand
 deployMipsCommand
   .command('status')
   .description('Check MIPS configuration status')
   .requiredOption('--network <network>', 'Network to check')
   .action(async (options) => {
-    const network = options.network as NetworkType
+    const network = parseNetworkType(options.network)
 
     logger.header(`MIPS STATUS - ${network.toUpperCase()}`)
 

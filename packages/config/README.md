@@ -254,7 +254,7 @@ Default ports for local development (all overridable via env):
 
 | Service | Port | Env Override |
 |---------|------|--------------|
-| Gateway | 4001 | `GATEWAY_PORT` |
+| Gateway | 4013 | `GATEWAY_PORT` |
 | Node Explorer API | 4002 | `NODE_EXPLORER_API_PORT` |
 | Documentation | 4004 | `DOCUMENTATION_PORT` |
 | Bazaar | 4006 | `BAZAAR_PORT` |
@@ -321,7 +321,8 @@ Secrets are resolved in this order:
 4. Local file fallback (`.secrets/` directory)
 
 ```typescript
-import { getSecret, getActiveProvider } from '@jejunetwork/config/secrets';
+// Note: secrets module is internal - import directly if needed in Node.js
+import { getSecret, getActiveProvider } from '../secrets';
 
 // Check which provider is being used
 const provider = getActiveProvider(); // 'env' | 'aws' | 'gcp' | 'local'
@@ -363,7 +364,7 @@ import {
   validateSecrets,      // Validate multiple secrets exist
   storeLocalSecret,     // Store secret locally
   storeAWSSecret,       // Store secret in AWS
-} from '@jejunetwork/config/secrets';
+} from '../secrets'; // Internal module, import directly if needed
 ```
 
 ### API Keys (`./api-keys.ts`)
@@ -377,7 +378,7 @@ import {
   getBlockExplorerKeys, // Get all block explorer keys
   getAIProviderKeys,    // Get all AI provider keys
   hasAnyAIProvider,     // Check if any AI provider is configured
-} from '@jejunetwork/config/api-keys';
+} from '@jejunetwork/config'; // Re-exported from barrel
 ```
 
 ### Ports (`./ports.ts`)
@@ -391,7 +392,7 @@ import {
   getL2RpcUrl,          // Get L2 RPC URL
   checkPortConflicts,   // Check for port conflicts
   printPortAllocation,  // Print all port allocations
-} from '@jejunetwork/config/ports';
+} from '@jejunetwork/config';
 ```
 
 ### Test Keys (`./test-keys.ts`)
@@ -403,7 +404,7 @@ import {
   getDeployerKey,       // Get deployer key
   ANVIL_KEYS,           // Pre-computed Anvil keys
   TEST_MNEMONIC,        // Standard test mnemonic
-} from '@jejunetwork/config/test-keys';
+} from '../test-keys'; // Internal module, import directly if needed
 ```
 
 ### Config Updates (`./update.ts`)
@@ -414,7 +415,7 @@ import {
   updateServiceUrl,         // Update service in services.json
   saveDeploymentArtifact,   // Save deployment artifact
   applyTerraformOutputs,    // Apply Terraform outputs to config
-} from '@jejunetwork/config/update';
+} from '../update'; // Internal module, import directly if needed
 ```
 
 ## Environment File Template

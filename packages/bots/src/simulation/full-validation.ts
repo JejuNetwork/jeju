@@ -12,12 +12,8 @@
  * - HTML report generation with charts
  */
 
-import type { Token } from '../types'
-import {
-  type BacktestConfig,
-  Backtester,
-  type BacktestResult,
-} from './backtester'
+import type { BacktestResult, PortfolioSnapshot, Token } from '../types'
+import { type BacktestConfig, Backtester } from './backtester'
 import { HistoricalDataFetcher } from './data-fetcher'
 import {
   createEconomicsCalculator,
@@ -45,9 +41,6 @@ import {
   StressTestRunner,
 } from './stress-tests'
 import { ASCIICharts, HTMLReportGenerator, TerminalReport } from './visualizer'
-
-// ============ Types ============
-
 export interface FullValidationConfig {
   // Strategy
   strategy: 'momentum' | 'mean-reversion' | 'volatility' | 'composite'
@@ -157,9 +150,6 @@ interface ValidationSummary {
   warnings: string[]
   criticalIssues: string[]
 }
-
-// ============ Full Validation Runner ============
-
 export class FullValidationRunner {
   private config: FullValidationConfig
 
@@ -217,7 +207,7 @@ export class FullValidationRunner {
     console.log('\n📊 PHASE 5: WALK-FORWARD ANALYSIS')
     console.log('─'.repeat(50))
     const walkForward = validationSuite.runWalkForward(
-      backtest.snapshots.map((s, i) => ({
+      backtest.snapshots.map((s: PortfolioSnapshot, i: number) => ({
         timestamp: s.timestamp,
         return:
           i === 0
@@ -300,9 +290,6 @@ export class FullValidationRunner {
 
     return result
   }
-
-  // ============ Phase Runners ============
-
   private async runBacktest(): Promise<BacktestResult> {
     const fetcher = new HistoricalDataFetcher()
 
@@ -507,9 +494,6 @@ export class FullValidationRunner {
 
     return scanner.scan()
   }
-
-  // ============ Summary Generation ============
-
   private generateSummary(
     backtest: BacktestResult,
     economics: EconomicsAnalysis,
@@ -663,9 +647,6 @@ export class FullValidationRunner {
       criticalIssues,
     }
   }
-
-  // ============ Reporting ============
-
   private printEconomicsReport(economics: EconomicsAnalysis): void {
     console.log('\n📊 TRADE ECONOMICS')
     console.log('─'.repeat(40))
@@ -847,9 +828,6 @@ export class FullValidationRunner {
     }
     console.log(`${'█'.repeat(70)}\n`)
   }
-
-  // ============ Helpers ============
-
   private extractReturns(backtest: BacktestResult): number[] {
     const returns: number[] = []
     for (let i = 1; i < backtest.snapshots.length; i++) {
@@ -906,9 +884,6 @@ export class FullValidationRunner {
     return matrix
   }
 }
-
-// ============ CLI Entry Point ============
-
 async function main() {
   const config: FullValidationConfig = {
     strategy: 'momentum',

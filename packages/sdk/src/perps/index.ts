@@ -11,8 +11,33 @@
 
 import type { NetworkType } from '@jejunetwork/types'
 import { type Address, encodeFunctionData, type Hex, parseEther } from 'viem'
+import { z } from 'zod'
 import { requireContract } from '../config'
 import type { JejuWallet } from '../wallet'
+
+// Contract return type schemas
+const MarketSchema = z.object({
+  marketId: z.string().transform((s) => s as Hex),
+  symbol: z.string(),
+  baseAsset: z.string().transform((s) => s as Address),
+  quoteAsset: z.string().transform((s) => s as Address),
+  oracle: z.string().transform((s) => s as Address),
+  maxLeverage: z.bigint(),
+  maintenanceMarginBps: z.bigint(),
+  initialMarginBps: z.bigint(),
+  takerFeeBps: z.bigint(),
+  makerFeeBps: z.bigint(),
+  maxOpenInterest: z.bigint(),
+  fundingInterval: z.bigint(),
+  isActive: z.boolean(),
+})
+
+const FundingDataSchema = z.object({
+  fundingRate: z.bigint(),
+  fundingIndex: z.bigint(),
+  lastFundingTime: z.bigint(),
+  nextFundingTime: z.bigint(),
+})
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                              TYPES
@@ -491,21 +516,7 @@ export function createPerpsModule(
         args: [marketId],
       })
 
-      const market = result as {
-        marketId: Hex
-        symbol: string
-        baseAsset: Address
-        quoteAsset: Address
-        oracle: Address
-        maxLeverage: bigint
-        maintenanceMarginBps: bigint
-        initialMarginBps: bigint
-        takerFeeBps: bigint
-        makerFeeBps: bigint
-        maxOpenInterest: bigint
-        fundingInterval: bigint
-        isActive: boolean
-      }
+      const market = MarketSchema.parse(result)
 
       if (market.marketId === (`0x${'0'.repeat(64)}` as Hex)) return null
 
@@ -572,12 +583,7 @@ export function createPerpsModule(
         args: [marketId],
       })
 
-      const data = result as {
-        fundingRate: bigint
-        fundingIndex: bigint
-        lastFundingTime: bigint
-        nextFundingTime: bigint
-      }
+      const data = FundingDataSchema.parse(result)
 
       return data
     },

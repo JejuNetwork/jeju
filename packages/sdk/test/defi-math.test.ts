@@ -11,9 +11,7 @@
 
 import { describe, expect, test } from 'bun:test'
 
-// ============================================================================
 // Extracted Math Functions (Pure functions for testing)
-// ============================================================================
 
 /**
  * Calculate minimum amount out given slippage tolerance
@@ -234,9 +232,7 @@ function fromBaseUnits(amount: bigint, decimals: number): number {
   return Number(amount) / 10 ** decimals
 }
 
-// ============================================================================
 // Tests
-// ============================================================================
 
 describe('DeFi Math', () => {
   describe('calculateAmountOutMin (Slippage)', () => {

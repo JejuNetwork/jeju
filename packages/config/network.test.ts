@@ -19,7 +19,7 @@ import {
   loadChainConfig,
   loadDeployedContracts,
   TEST_ACCOUNTS,
-} from './network'
+} from './index'
 import type { NetworkType } from './schemas'
 
 describe('Network Detection', () => {
@@ -351,11 +351,11 @@ describe('RPC Availability Checks', () => {
   describe('getNetworkInfo', () => {
     it('should return network info object', async () => {
       // Use a quick timeout test with unreachable endpoint
-      const info = await getNetworkInfo('localnet')
+      const rpcUrl = getRpcUrl('localnet')
+      const info = await getNetworkInfo('localnet', rpcUrl)
 
       expect(info.network).toBe('localnet')
-      expect(info.chain).toBeDefined()
-      expect(info.chain.chainId).toBe(1337)
+      expect(info.chainId).toBe(1337)
       expect(info.contracts).toBeDefined()
       expect(typeof info.rpcReachable).toBe('boolean')
       expect(typeof info.hasBalance).toBe('boolean')
