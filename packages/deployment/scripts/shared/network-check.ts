@@ -9,9 +9,9 @@
 import { getLocalnetChain } from '@jejunetwork/shared'
 import type { JsonValue, NetworkType } from '@jejunetwork/types'
 import {
+  DeploymentJsonRpcResponseSchema,
   expectValid,
   JsonRpcBalanceResponseSchema,
-  JsonRpcResponseSchema,
 } from '../../schemas'
 
 interface NetworkCheckResult {
@@ -69,12 +69,12 @@ async function checkRpc(rpcUrl: string): Promise<{
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
     const dataRaw = await response.json()
     const data = expectValid(
-      JsonRpcResponseSchema,
+      DeploymentJsonRpcResponseSchema,
       dataRaw,
       `${method} response`,
     )
     if (data.error) throw new Error(data.error.message)
-    return (data.result as JsonValue) ?? null
+    return data.result ?? null
   }
 
   try {

@@ -17,7 +17,7 @@ COPY packages/kms/package.json ./packages/kms/
 COPY packages/oauth3/package.json ./packages/oauth3/
 COPY apps/otto/package.json ./apps/otto/
 
-# Install dependencies (ignore preinstall scripts that may fail)
+# Install dependencies
 RUN bun install --frozen-lockfile --ignore-scripts || bun install --ignore-scripts
 
 # Copy source code
@@ -48,11 +48,10 @@ RUN addgroup -g 1001 -S nodejs && \
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/packages ./packages
 COPY --from=builder /app/apps/otto/dist ./apps/otto/dist
-COPY --from=builder /app/apps/otto/src ./apps/otto/src
 COPY --from=builder /app/apps/otto/package.json ./apps/otto/
 
-# Set ownership
-RUN chown -R otto:nodejs /app
+# Create data directory
+RUN mkdir -p /app/apps/otto/data && chown -R otto:nodejs /app
 
 USER otto
 
@@ -67,4 +66,3 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 
 # Default command
 CMD ["bun", "run", "start"]
-

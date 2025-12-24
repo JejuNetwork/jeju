@@ -26,21 +26,16 @@
  * ```
  */
 
-import { existsSync, readFileSync, statSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
-
-/** Maximum config file size (10MB) - prevents DoS via large files */
-const MAX_CONFIG_FILE_SIZE = 10 * 1024 * 1024
-
-// Import for internal use - these are also re-exported via 'export * from ./network'
-import {
-  getChainConfig as _getChainConfig,
-  getCurrentNetwork,
-  loadChainConfig,
-} from './network'
+import localnetChainRaw from './chain/localnet.json'
+import mainnetChainRaw from './chain/mainnet.json'
+import testnetChainRaw from './chain/testnet.json'
+// Direct JSON imports for browser compatibility (bundlers inline these)
+import contractsJsonRaw from './contracts.json'
+import eilJsonRaw from './eil.json'
+import federationJsonRaw from './federation.json'
 import {
   type ChainConfig,
+  ChainConfigSchema,
   type ContractCategory,
   type ContractsConfig,
   ContractsConfigSchema,
@@ -52,83 +47,124 @@ import {
   FederationFullConfigSchema,
   type FederationHubConfig,
   type FederationNetworkConfig,
+  NetworkSchema,
   type NetworkType,
   ServicesConfigSchema,
   type ServicesNetworkConfig,
   type VendorAppConfig,
   VendorAppsConfigSchema,
 } from './schemas'
+import servicesJsonRaw from './services.json'
+import vendorAppsJsonRaw from './vendor-apps.json'
 
-export * from './network'
+export * from './dev-proxy'
+// Network utilities
+// Note: Some of these use fs and are Node.js-only (loadDeployedContracts, getNetworkInfo)
+// They will throw in browser builds if called, but won't break the import
+export {
+  checkHasBalance,
+  checkRpcReachable,
+  type DeployedContracts,
+  ENTRYPOINT_V07,
+  getContractAddress,
+  getDeployerConfig,
+  getNetworkInfo,
+  L2_PREDEPLOYS,
+  loadDeployedContracts,
+  type NetworkInfo,
+  TEST_ACCOUNTS,
+} from './network'
 export * from './ports'
+export * from './rpc-chains'
 export * from './schemas'
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
-const CONFIG_DIR = __dirname
+// Types from schemas.ts
 
-// ============================================================================
-// Types (re-exported from schemas.ts for convenience)
-// ============================================================================
-
-// ContractCategory is exported from schemas.ts
-// Alias for backwards compatibility
+// ContractCategory is exported from schemas.ts, alias for backwards compatibility
 export type ContractCategoryName = ContractCategory
 
 type NetworkContracts = ContractsConfig['localnet']
 
-// ============================================================================
-// Loaders
-// ============================================================================
+// Chain Configs (from direct imports - browser safe)
 
-function loadJsonRaw(filename: string): unknown {
-  const path = resolve(CONFIG_DIR, filename)
-  if (!existsSync(path)) throw new Error(`Config not found: ${path}`)
-
-  // Check file size to prevent DoS via large config files
-  const stats = statSync(path)
-  if (stats.size > MAX_CONFIG_FILE_SIZE) {
-    throw new Error(
-      `Config file ${filename} exceeds maximum size limit (${MAX_CONFIG_FILE_SIZE} bytes)`,
-    )
-  }
-
-  return JSON.parse(readFileSync(path, 'utf-8'))
+const chainConfigs: Record<NetworkType, ChainConfig> = {
+  localnet: ChainConfigSchema.parse(localnetChainRaw),
+  testnet: ChainConfigSchema.parse(testnetChainRaw),
+  mainnet: ChainConfigSchema.parse(mainnetChainRaw),
 }
+
+// Loaders (using direct imports - browser safe)
 
 let contractsCache: ContractsConfig | null = null
 let servicesCache: Record<NetworkType, ServicesNetworkConfig> | null = null
 
 function loadContracts(): ContractsConfig {
   if (!contractsCache) {
-    contractsCache = ContractsConfigSchema.parse(loadJsonRaw('contracts.json'))
+    contractsCache = ContractsConfigSchema.parse(contractsJsonRaw)
   }
   return contractsCache
 }
 
 function loadServices(): Record<NetworkType, ServicesNetworkConfig> {
   if (!servicesCache) {
-    const parsed = ServicesConfigSchema.parse(loadJsonRaw('services.json'))
-    servicesCache = parsed
+    servicesCache = ServicesConfigSchema.parse(servicesJsonRaw)
   }
   return servicesCache
 }
 
-// ============================================================================
-// Core Functions
-// ============================================================================
+/**
+ * Get chain config - browser safe (uses pre-imported JSON)
+ */
+export function getChainConfig(network?: NetworkType): ChainConfig {
+  return chainConfigs[network ?? getCurrentNetwork()]
+}
 
-// Note: getCurrentNetwork, loadChainConfig, and getChainConfig are imported from './network'
-// and re-exported via 'export * from './network'' above
+/**
+ * Load chain config (alias for getChainConfig for backwards compatibility)
+ */
+export function loadChainConfig(network: NetworkType): ChainConfig {
+  return getChainConfig(network)
+}
+
+/**
+ * Get the current network based on environment or default
+ * Browser safe - doesn't use fs
+ */
+export function getCurrentNetwork(): NetworkType {
+  // Browser check - look for Vite env vars
+  if (typeof globalThis !== 'undefined') {
+    const g = globalThis as Record<string, unknown>
+    const importMeta = g.import as
+      | { meta?: { env?: Record<string, string> } }
+      | undefined
+    if (importMeta?.meta?.env?.VITE_NETWORK) {
+      const result = NetworkSchema.safeParse(importMeta.meta.env.VITE_NETWORK)
+      if (result.success) return result.data
+    }
+  }
+
+  // Node.js check
+  const envNetwork =
+    typeof process !== 'undefined' ? process.env?.JEJU_NETWORK : undefined
+  if (!envNetwork) return 'localnet'
+
+  const result = NetworkSchema.safeParse(envNetwork)
+  if (!result.success) {
+    throw new Error(
+      `Invalid JEJU_NETWORK: ${envNetwork}. Must be one of: localnet, testnet, mainnet`,
+    )
+  }
+  return result.data
+}
+
+// Core Functions
 
 /** Get chain ID */
 export function getChainId(network?: NetworkType): number {
-  return _getChainConfig(network).chainId
+  return getChainConfig(network).chainId
 }
 
-// ============================================================================
 // Contracts
-// ============================================================================
 
 /**
  * Convert camelCase to SCREAMING_SNAKE_CASE
@@ -223,9 +259,7 @@ export function getExternalContract(
   return address
 }
 
-// ============================================================================
 // Proof-of-Cloud (PoC) Configuration
-// ============================================================================
 
 export interface PoCConfig {
   validatorAddress: string
@@ -317,9 +351,7 @@ export function getContractsConfig(network?: NetworkType): NetworkContracts {
   return contracts
 }
 
-// ============================================================================
 // Services
-// ============================================================================
 
 /**
  * Get env var with VITE_ or PUBLIC_ prefix support
@@ -333,30 +365,37 @@ function getEnvService(key: string): string | undefined {
   )
 }
 
-/** Get services config with env overrides */
+/** Get services config with env overrides. Network-specific env vars take priority. */
 export function getServicesConfig(
   network?: NetworkType,
 ): ServicesNetworkConfig {
   const net = network ?? getCurrentNetwork()
   const config = loadServices()[net]
+  const networkPrefix = `JEJU_${net.toUpperCase()}_`
 
   return {
     ...config,
     rpc: {
       l1:
+        getEnvService(`${networkPrefix}L1_RPC_URL`) ??
         getEnvService('JEJU_L1_RPC_URL') ??
         getEnvService('L1_RPC_URL') ??
         config.rpc.l1,
       l2:
+        getEnvService(`${networkPrefix}RPC_URL`) ??
         getEnvService('JEJU_RPC_URL') ??
         getEnvService('RPC_URL') ??
         config.rpc.l2,
       ws:
+        getEnvService(`${networkPrefix}WS_URL`) ??
         getEnvService('JEJU_WS_URL') ??
         getEnvService('WS_URL') ??
         config.rpc.ws,
     },
-    explorer: getEnvService('JEJU_EXPLORER_URL') ?? config.explorer,
+    explorer:
+      getEnvService(`${networkPrefix}EXPLORER_URL`) ??
+      getEnvService('JEJU_EXPLORER_URL') ??
+      config.explorer,
     indexer: {
       graphql:
         getEnvService('INDEXER_URL') ??
@@ -483,9 +522,7 @@ export function getServiceUrl(
   throw new Error(`Service ${service} not configured`)
 }
 
-// ============================================================================
 // Convenience
-// ============================================================================
 
 export function getRpcUrl(network?: NetworkType): string {
   return getServicesConfig(network).rpc.l2
@@ -503,9 +540,7 @@ export function getExplorerUrl(network?: NetworkType): string {
   return getServicesConfig(network).explorer
 }
 
-// ============================================================================
 // Decentralized Services (CQL, DWS, Autocrat)
-// ============================================================================
 
 /** Get CovenantSQL block producer URL - for decentralized database */
 export function getCQLUrl(network?: NetworkType): string {
@@ -616,9 +651,7 @@ export function getBridgeContractAddress(
   return address
 }
 
-// ============================================================================
 // Config
-// ============================================================================
 
 // Alias for backwards compatibility
 export type ServicesConfig = ServicesNetworkConfig
@@ -635,15 +668,13 @@ export function getConfig(network?: NetworkType): NetworkConfig {
   const net = network ?? getCurrentNetwork()
   return {
     network: net,
-    chain: _getChainConfig(net),
+    chain: getChainConfig(net),
     services: getServicesConfig(net),
     contracts: getContractsConfig(net),
   }
 }
 
-// ============================================================================
 // Frontend Helpers
-// ============================================================================
 
 /**
  * Get all contracts needed for frontend apps
@@ -734,15 +765,13 @@ export function getFrontendServices(network?: NetworkType) {
   }
 }
 
-// ============================================================================
 // EIL (Cross-Chain Liquidity)
-// ============================================================================
 
 let eilCache: EILConfig | null = null
 
 function loadEILConfig(): EILConfig {
   if (!eilCache) {
-    eilCache = EILConfigSchema.parse(loadJsonRaw('eil.json'))
+    eilCache = EILConfigSchema.parse(eilJsonRaw)
   }
   return eilCache
 }
@@ -833,25 +862,19 @@ export function getEILToken(
   return token
 }
 
-// ============================================================================
 // Vendor Apps (for setup scripts)
-// ============================================================================
 
 export function loadVendorAppsConfig(): { apps: VendorAppConfig[] } {
-  return VendorAppsConfigSchema.parse(loadJsonRaw('vendor-apps.json'))
+  return VendorAppsConfigSchema.parse(vendorAppsJsonRaw)
 }
 
-// ============================================================================
 // Federation Config
-// ============================================================================
 
 let federationCache: FederationFullConfig | null = null
 
 function loadFederationConfig(): FederationFullConfig {
   if (!federationCache) {
-    federationCache = FederationFullConfigSchema.parse(
-      loadJsonRaw('federation.json'),
-    )
+    federationCache = FederationFullConfigSchema.parse(federationJsonRaw)
   }
   return federationCache
 }
@@ -893,9 +916,7 @@ export function getFederationDiscoveryEndpoints(): string[] {
   return loadFederationConfig().discovery.endpoints
 }
 
-// ============================================================================
 // Branding Config
-// ============================================================================
 
 export {
   clearBrandingCache,
@@ -923,9 +944,7 @@ export {
   setConfigPath,
 } from './branding'
 
-// ============================================================================
-// Secrets & API Keys
-// ============================================================================
+// API Keys (browser-safe - uses env vars)
 
 export type {
   AIProviderKeys,
@@ -947,65 +966,10 @@ export {
   hasApiKey,
   printApiKeyStatus,
 } from './api-keys'
-export type { SecretName, SecretProvider, SecretResult } from './secrets'
-export {
-  getActiveProvider,
-  getSecret,
-  getSecretWithProvider,
-  initSecretsDirectory,
-  requireSecret,
-  requireSecretSync,
-  storeAWSSecret,
-  storeLocalSecret,
-  validateSecrets,
-} from './secrets'
 
-// ============================================================================
-// Test Keys
-// ============================================================================
-
-export {
-  ANVIL_KEYS,
-  BSC_FUNDING_WARNING,
-  type ChainBalance,
-  formatKeyForDisplay,
-  getDeployerKey,
-  getKeyByRole,
-  getMultisigSigners,
-  getRoleDescription,
-  getTestKeys,
-  loadSolanaKeys,
-  printKeys,
-  ROLE_CONFIGS,
-  type RoleConfig,
-  SOLANA_ROLE_PATHS,
-  saveSolanaKeys,
-  saveTestnetKeys,
-  solanaKeysExist,
-  TEST_MNEMONIC,
-  TESTNET_CHAINS,
-  type TestKeySet,
-  testnetKeysExist,
-} from './test-keys'
-
-// ============================================================================
-// Config Updates (for deployment scripts)
-// ============================================================================
-
-export {
-  applyArtifactToConfig,
-  applyTerraformOutputs,
-  applyTerraformOutputsFile,
-  type DeploymentArtifact,
-  loadLatestArtifact,
-  printConfigSummary,
-  saveDeploymentArtifact,
-  updateChainConfig,
-  updateContractAddress,
-  updateContracts,
-  updateEILChain,
-  updateExternalContract,
-  updateExternalRpc,
-  updateServiceUrl,
-  validateConfig,
-} from './update'
+// Node.js-only modules (internal, not exported)
+// These modules use node:fs and are internal implementation details.
+// They are exported from their source files but not from the barrel:
+//   - secrets.ts - getSecret, requireSecret
+//   - test-keys.ts - getTestKeys, getKeyByRole
+//   - update.ts - updateContracts, saveDeploymentArtifact

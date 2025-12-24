@@ -8,28 +8,41 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "bun": "./ts/index.ts",
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
+    },
+    "./viem": {
+      "bun": "./ts/viem.ts",
+      "import": "./dist/viem.js",
+      "types": "./dist/viem.d.ts"
     }
   },
   "files": ["dist", "abis", "deployments"],
   "sideEffects": false,
   "scripts": {
     "build": "node ../../node_modules/typescript/bin/tsc",
+    "generate": "wagmi generate",
+    "generate:watch": "wagmi generate --watch",
+    "sync-abis": "bun run scripts/sync-abis.ts",
     "test": "forge test",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@jejunetwork/types": "workspace:*",
+    "viem": "2.43.3",
     "zod": "4.2.1"
   },
   "devDependencies": {
     "@types/node": "22.15.30",
+    "@wagmi/cli": "2.8.0",
     "solhint": "6.0.1",
     "typescript": "5.9.3"
   },
-  "peerDependencies": {
-    "viem": ">=2.0.0"
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/elizaos/jeju.git",
+    "directory": "packages/contracts"
   },
   "publishConfig": {
     "access": "public"

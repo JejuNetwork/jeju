@@ -1,6 +1,6 @@
-# Experimental Decentralized Todo App
+# Experimental Todo App
 
-A fully decentralized Todo application demonstrating all Jeju Network services working together.
+A Todo application demonstrating all Jeju Network services working together.
 
 ## Features
 
@@ -25,50 +25,81 @@ This dApp showcases end-to-end decentralization using:
 # Install dependencies
 bun install
 
-# Start development server
+# Start both frontend and backend (with HMR)
 bun run dev
-
-# In another terminal, start frontend
-bun run dev:frontend
 ```
+
+This starts:
+- **Frontend**: http://localhost:4501 (with API proxy)
+- **Backend API**: http://localhost:4500
 
 ## Development
 
-### Backend Server (Port 4500)
+### Full Stack (Recommended)
 
 ```bash
 bun run dev
 ```
 
-Endpoints:
+This runs both servers concurrently with hot module reloading:
+- API server with `bun --watch` for automatic restarts
+- Frontend server with TypeScript transpilation and API proxy
+
+### Individual Servers
+
+```bash
+# Backend only (port 4500)
+bun run dev:api
+
+# Frontend only (port 4501)
+bun run dev:web
+```
+
+### API Endpoints
+
 - REST API: `http://localhost:4500/api/v1`
 - A2A: `http://localhost:4500/a2a`
 - MCP: `http://localhost:4500/mcp`
+- x402: `http://localhost:4500/x402`
+- Auth: `http://localhost:4500/auth`
 - Health: `http://localhost:4500/health`
 - Agent Card: `http://localhost:4500/a2a/.well-known/agent-card.json`
 
-### Frontend (Port 4501)
+### Frontend Proxy
 
-```bash
-bun run dev:frontend
-```
-
-Access at `http://localhost:4501`
-
-### Database Migration
-
-```bash
-bun run migrate
-```
+The frontend dev server proxies all API requests to the backend:
+- `/api/*` → `http://localhost:4500/api/*`
+- `/a2a/*` → `http://localhost:4500/a2a/*`
+- `/mcp/*` → `http://localhost:4500/mcp/*`
+- etc.
 
 ## Testing
 
 ```bash
-# Run all tests
-bun test
+# Run unit tests
+bun run test
 
-# Run E2E tests (requires running server)
+# Run API integration tests (requires running server)
+bun run test:integration
+
+# Run Playwright e2e tests (requires running server)
 bun run test:e2e
+
+# Run Synpress wallet tests (requires running server + MetaMask)
+bun run test:wallet
+
+# Run all tests
+bun run test:all
+```
+
+### Test Structure
+
+```
+tests/
+├── unit/           # Pure unit tests (no server needed)
+├── integration/    # API integration tests (needs server)
+├── e2e/            # Playwright browser tests
+└── wallet/         # Synpress MetaMask wallet tests
 ```
 
 ## Deployment
@@ -186,7 +217,7 @@ PORT=4500
 FRONTEND_PORT=4501
 
 # Services
-CQL_BLOCK_PRODUCER_ENDPOINT=http://localhost:4300
+CQL_BLOCK_PRODUCER_ENDPOINT=http://localhost:4661
 CQL_DATABASE_ID=todo-experimental
 COMPUTE_CACHE_ENDPOINT=http://localhost:4200/cache
 KMS_ENDPOINT=http://localhost:4400

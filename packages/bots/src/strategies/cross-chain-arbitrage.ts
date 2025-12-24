@@ -2,7 +2,7 @@
  * Cross-Chain Arbitrage Strategy
  */
 
-import { EventEmitter } from 'node:events'
+import { EventEmitter } from '@jejunetwork/shared'
 import type { EVMChainId, SolanaNetwork } from '@jejunetwork/types'
 import { expectValid } from '@jejunetwork/types'
 import type { Commitment, PublicKey } from '@solana/web3.js'

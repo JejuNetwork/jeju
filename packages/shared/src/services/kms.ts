@@ -141,7 +141,7 @@ class KMSServiceImpl implements KMSServiceClient {
         },
       }),
       signal: AbortSignal.timeout(5000),
-    }).catch((err: Error) => {
+    }).catch((err: Error): null => {
       console.error('[KMS] Encrypt request failed:', err.message)
       this.available = false
       return null
@@ -172,7 +172,7 @@ class KMSServiceImpl implements KMSServiceClient {
       },
       body: JSON.stringify({ payload: encryptedData }),
       signal: AbortSignal.timeout(5000),
-    }).catch((err: Error) => {
+    }).catch((err: Error): null => {
       console.error('[KMS] Decrypt request failed:', err.message)
       this.available = false
       return null

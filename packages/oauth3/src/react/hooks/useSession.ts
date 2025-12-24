@@ -6,8 +6,8 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import type { Address, Hex } from 'viem'
-import type { OAuth3Session } from '../../index.js'
-import { useOAuth3 } from '../provider.js'
+import type { OAuth3Session } from '../../types'
+import { useOAuth3 } from '../provider'
 
 export interface UseSessionReturn {
   session: OAuth3Session | null

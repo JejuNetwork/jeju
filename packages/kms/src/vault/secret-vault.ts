@@ -2,6 +2,7 @@
  * SecretVault - Encrypted secret storage with access control and audit logging
  */
 
+import { getEnv, requireEnv } from '@jejunetwork/shared'
 import { type Address, keccak256, toBytes } from 'viem'
 import {
   decryptFromPayload,
@@ -72,12 +73,7 @@ export class SecretVault {
 
   constructor(config: Partial<VaultConfig> = {}) {
     this.config = { auditLogging: true, ...config }
-    const secret = process.env.VAULT_ENCRYPTION_SECRET
-    if (!secret) {
-      throw new Error(
-        'VAULT_ENCRYPTION_SECRET environment variable is required for SecretVault',
-      )
-    }
+    const secret = requireEnv('VAULT_ENCRYPTION_SECRET')
     this.encryptionKey = deriveKeyFromSecret(secret)
   }
 
@@ -467,8 +463,8 @@ let vaultInstance: SecretVault | undefined
 export function getSecretVault(config?: Partial<VaultConfig>): SecretVault {
   if (!vaultInstance) {
     vaultInstance = new SecretVault({
-      daEndpoint: process.env.DA_ENDPOINT ?? process.env.VAULT_DA_ENDPOINT,
-      auditLogging: process.env.VAULT_AUDIT_LOGGING !== 'false',
+      daEndpoint: getEnv('DA_ENDPOINT') ?? getEnv('VAULT_DA_ENDPOINT'),
+      auditLogging: getEnv('VAULT_AUDIT_LOGGING') !== 'false',
       ...config,
     })
   }

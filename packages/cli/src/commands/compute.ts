@@ -1,12 +1,4 @@
-/**
- * jeju compute - DWS compute operations
- *
- * Manage compute jobs on DWS (Decentralized Web Services).
- *
- * Security notes:
- * - Shell commands are validated before execution
- * - User inputs are sanitized
- */
+/** DWS compute operations */
 
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'

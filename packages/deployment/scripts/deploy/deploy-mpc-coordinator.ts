@@ -17,7 +17,8 @@ import {
   getMPCConfig,
   getMPCCoordinator,
   resetMPCCoordinator,
-} from '../../packages/kms/src/mpc/index.js'
+} from '../../../kms/src/mpc/index.js'
+import type { MPCParty } from '../../../kms/src/mpc/types'
 
 type Network = 'localnet' | 'testnet' | 'mainnet'
 
@@ -123,7 +124,7 @@ async function main() {
   console.log('\n--- Generating System Key ---')
 
   const systemKeyId = `system-${network}-${Date.now().toString(36)}`
-  const partyIds = activeParties.map((p) => p.id)
+  const partyIds = activeParties.map((p: MPCParty) => p.id)
 
   try {
     const keyResult = await coordinator.generateKey({

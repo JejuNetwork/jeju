@@ -1,3 +1,7 @@
+/**
+ * Infrastructure deployment and management types.
+ */
+
 import { z } from 'zod'
 import type { NetworkType } from './chain'
 import {
@@ -10,35 +14,24 @@ import {
 
 export type Environment = NetworkType
 
-// ============ Deployment & Infrastructure Status Types ============
-
-/**
- * Deployment status for containers, workers, and infrastructure
- */
 export const DeploymentStatusSchema = z.enum([
-  'pending', // Waiting to start
-  'building', // Building image/bundle
-  'deploying', // Deploying to infrastructure
-  'running', // Successfully running
-  'stopped', // Stopped (not failed)
-  'error', // Deployment failed
+  'pending',
+  'building',
+  'deploying',
+  'running',
+  'stopped',
+  'error',
 ])
 export type DeploymentStatus = z.infer<typeof DeploymentStatusSchema>
 
-/**
- * Worker status
- */
 export const WorkerStatusSchema = z.enum([
-  'pending', // Waiting to start
-  'deploying', // Currently deploying
-  'active', // Running and accepting requests
-  'inactive', // Stopped but not failed
-  'error', // Worker failed
+  'pending',
+  'deploying',
+  'active',
+  'inactive',
+  'error',
 ])
 export type WorkerStatus = z.infer<typeof WorkerStatusSchema>
-
-// ============ Cloud Provider Types ============
-
 export const CloudProviderSchema = z.enum(['aws', 'gcp', 'azure'])
 export type CloudProvider = z.infer<typeof CloudProviderSchema>
 

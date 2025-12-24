@@ -3,9 +3,21 @@
  */
 
 import { type Logger as BaseLogger, createLogger } from '@jejunetwork/shared'
-import type { LogValue } from '@jejunetwork/types'
+import type { JsonValue, LogValue } from '@jejunetwork/types'
 
 export type LogLevel = 'debug' | 'info' | 'success' | 'warn' | 'error'
+
+// Convert LogValue to JsonValue (serialize Error objects)
+function toJsonValue(value: LogValue): JsonValue {
+  if (value instanceof Error) {
+    return { error: value.message, stack: value.stack ?? null }
+  }
+  return value as JsonValue
+}
+
+function toJsonArgs(args: LogValue[]): JsonValue[] {
+  return args.map(toJsonValue)
+}
 
 export class Logger {
   private baseLogger: BaseLogger
@@ -17,26 +29,40 @@ export class Logger {
   }
 
   debug(message: string, ...args: LogValue[]): void {
-    this.baseLogger.debug(message, args.length > 0 ? { args } : undefined)
+    this.baseLogger.debug(
+      message,
+      args.length > 0 ? { args: toJsonArgs(args) } : undefined,
+    )
   }
 
   info(message: string, ...args: LogValue[]): void {
-    this.baseLogger.info(message, args.length > 0 ? { args } : undefined)
+    this.baseLogger.info(
+      message,
+      args.length > 0 ? { args: toJsonArgs(args) } : undefined,
+    )
   }
 
   success(message: string, ...args: LogValue[]): void {
     this.baseLogger.info(
       `✅ ${message}`,
-      args.length > 0 ? { args, success: true } : { success: true },
+      args.length > 0
+        ? { args: toJsonArgs(args), success: true }
+        : { success: true },
     )
   }
 
   warn(message: string, ...args: LogValue[]): void {
-    this.baseLogger.warn(message, args.length > 0 ? { args } : undefined)
+    this.baseLogger.warn(
+      message,
+      args.length > 0 ? { args: toJsonArgs(args) } : undefined,
+    )
   }
 
   error(message: string, ...args: LogValue[]): void {
-    this.baseLogger.error(message, args.length > 0 ? { args } : undefined)
+    this.baseLogger.error(
+      message,
+      args.length > 0 ? { args: toJsonArgs(args) } : undefined,
+    )
   }
 
   child(prefix: string): Logger {

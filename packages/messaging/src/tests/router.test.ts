@@ -10,8 +10,6 @@ import type { Address } from 'viem'
 import type { RelayNode, RouterStats } from '../xmtp/router'
 import type { XMTPEnvelope } from '../xmtp/types'
 
-// ============ Helper Functions ============
-
 /**
  * Creates a mock envelope for testing
  */
@@ -28,9 +26,6 @@ function createMockEnvelope(overrides?: Partial<XMTPEnvelope>): XMTPEnvelope {
     ...overrides,
   }
 }
-
-// ============ Average Latency Algorithm Tests ============
-
 describe('Average Latency Calculation', () => {
   /**
    * Tests the running average formula:
@@ -116,9 +111,6 @@ describe('Average Latency Calculation', () => {
     expect(average).toBeCloseTo(1.5, 10)
   })
 })
-
-// ============ Node Selection Algorithm Tests ============
-
 describe('Node Selection Algorithm', () => {
   /**
    * Tests the node selection logic:
@@ -330,9 +322,6 @@ describe('Node Selection Algorithm', () => {
     expect(sorted[0].latencyMs).toBe(100)
   })
 })
-
-// ============ Retry Logic Tests ============
-
 describe('Retry Logic', () => {
   /**
    * Tests exponential backoff and retry behavior
@@ -403,9 +392,6 @@ describe('Retry Logic', () => {
     expect(pendingMessages.size).toBe(0)
   })
 })
-
-// ============ Statistics Tracking Tests ============
-
 describe('Statistics Tracking', () => {
   test('tracks total messages correctly', () => {
     const stats: RouterStats = {
@@ -501,9 +487,6 @@ describe('Statistics Tracking', () => {
     expect(successRate).toBe(0.95)
   })
 })
-
-// ============ URL Transformation Tests ============
-
 describe('URL Transformations', () => {
   test('converts wss to https for health checks', () => {
     const wsUrl = 'wss://relay-us-east.jejunetwork.org'
@@ -550,9 +533,6 @@ describe('URL Transformations', () => {
     expect(clean2).toBe('https://relay.example.com/send')
   })
 })
-
-// ============ Health Check Timing Tests ============
-
 describe('Health Check Timing', () => {
   test('calculates latency from timing', async () => {
     const startTime = Date.now()
@@ -597,9 +577,6 @@ describe('Health Check Timing', () => {
     expect(node.lastHealthCheck).toBeGreaterThanOrEqual(before)
   })
 })
-
-// ============ Message Grouping Tests ============
-
 describe('Message Grouping by Region', () => {
   test('groups addresses by region', () => {
     // Default behavior - all in one group
@@ -641,9 +618,6 @@ describe('Message Grouping by Region', () => {
     expect(results.length).toBe(3)
   })
 })
-
-// ============ Edge Cases ============
-
 describe('Edge Cases', () => {
   test('handles envelope with no recipients gracefully', () => {
     const envelope = createMockEnvelope({ recipients: [] })

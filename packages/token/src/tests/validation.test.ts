@@ -33,9 +33,7 @@ import {
   vestingScheduleSchema,
 } from '../validation/schemas'
 
-// =============================================================================
 // ADDRESS SCHEMA
-// =============================================================================
 
 describe('addressSchema - Valid Addresses', () => {
   // Note: viem's isAddress requires valid checksums for mixed-case addresses
@@ -105,9 +103,7 @@ describe('addressSchema - Invalid Addresses', () => {
   })
 })
 
-// =============================================================================
 // HEX SCHEMA
-// =============================================================================
 
 describe('hexSchema - Valid Hex Strings', () => {
   test('accepts valid hex strings', () => {
@@ -144,9 +140,7 @@ describe('hexSchema - Invalid Hex Strings', () => {
   })
 })
 
-// =============================================================================
 // BYTES32 SCHEMA
-// =============================================================================
 
 describe('bytes32Schema', () => {
   test('accepts valid bytes32', () => {
@@ -173,9 +167,7 @@ describe('bytes32Schema', () => {
   })
 })
 
-// =============================================================================
 // SOLANA PUBLIC KEY SCHEMA
-// =============================================================================
 
 describe('solanaPublicKeySchema', () => {
   test('accepts valid Solana public keys', () => {
@@ -205,9 +197,7 @@ describe('solanaPublicKeySchema', () => {
   })
 })
 
-// =============================================================================
 // BIGINT SCHEMAS
-// =============================================================================
 
 describe('positiveBigintSchema', () => {
   test('accepts positive bigints', () => {
@@ -244,9 +234,7 @@ describe('nonNegativeBigintSchema', () => {
   })
 })
 
-// =============================================================================
 // PERCENTAGE AND BPS SCHEMAS
-// =============================================================================
 
 describe('percentageSchema', () => {
   test('accepts valid percentages', () => {
@@ -288,9 +276,7 @@ describe('bpsSchema (Basis Points)', () => {
   })
 })
 
-// =============================================================================
 // CHAIN ID SCHEMAS
-// =============================================================================
 
 describe('evmChainIdSchema', () => {
   test('accepts positive integer chain IDs', () => {
@@ -342,9 +328,7 @@ describe('chainIdSchema (union)', () => {
   })
 })
 
-// =============================================================================
 // TOKEN ALLOCATION SCHEMA
-// =============================================================================
 
 describe('tokenAllocationSchema - Sum Validation', () => {
   test('accepts allocation summing to exactly 100', () => {
@@ -450,9 +434,7 @@ describe('tokenAllocationSchema - Field Validation', () => {
   })
 })
 
-// =============================================================================
 // FEE DISTRIBUTION SCHEMA
-// =============================================================================
 
 describe('feeDistributionSchema - Sum Validation', () => {
   test('accepts distribution summing to exactly 100', () => {
@@ -498,9 +480,7 @@ describe('feeDistributionSchema - Sum Validation', () => {
   })
 })
 
-// =============================================================================
 // VESTING SCHEDULE SCHEMA
-// =============================================================================
 
 describe('vestingScheduleSchema', () => {
   test('accepts valid vesting schedule', () => {
@@ -565,9 +545,7 @@ describe('vestingScheduleSchema', () => {
   })
 })
 
-// =============================================================================
 // LIQUIDITY CONFIG SCHEMA
-// =============================================================================
 
 describe('liquidityConfigSchema', () => {
   test('accepts valid liquidity config with allocations summing to 100', () => {
@@ -622,9 +600,7 @@ describe('liquidityConfigSchema', () => {
   })
 })
 
-// =============================================================================
 // BRIDGE REQUEST SCHEMA
-// =============================================================================
 
 describe('bridgeRequestSchema', () => {
   test('accepts valid bridge request', () => {
@@ -673,9 +649,7 @@ describe('bridgeRequestSchema', () => {
   })
 })
 
-// =============================================================================
 // VALIDATOR FUNCTIONS
-// =============================================================================
 
 describe('validate function', () => {
   test('returns validated data on success', () => {
@@ -732,9 +706,7 @@ describe('validateAddress function', () => {
   })
 })
 
-// =============================================================================
 // TYPE GUARDS
-// =============================================================================
 
 describe('isValidAddress', () => {
   test('returns true for valid addresses', () => {
@@ -784,9 +756,7 @@ describe('isValidHex', () => {
   })
 })
 
-// =============================================================================
 // TOKEN ECONOMICS FULL VALIDATION
-// =============================================================================
 
 describe('tokenEconomicsSchema - Full Integration', () => {
   const validVesting = {

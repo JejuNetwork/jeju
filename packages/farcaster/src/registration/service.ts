@@ -28,8 +28,6 @@ import type {
   UsernameAvailability,
 } from './types'
 
-// ============ Contract Addresses ============
-
 const DEFAULT_CONTRACTS = {
   ID_GATEWAY: '0x00000000Fc25870C6eD6b6c7E41Fb078b7656f69' as Address,
   ID_REGISTRY: '0x00000000Fc6c5F01Fc30151999387Bb99A9f489b' as Address,
@@ -38,9 +36,6 @@ const DEFAULT_CONTRACTS = {
   BUNDLER: '0x00000000FC04c910A0b5feA33b03E5320622718e' as Address,
   KEY_GATEWAY: '0x00000000fC56947c7E7183f8Ca4B62398CaAdf0B' as Address,
 } as const
-
-// ============ ABIs ============
-
 const ID_GATEWAY_ABI = [
   {
     name: 'register',
@@ -156,9 +151,6 @@ const BUNDLER_ABI = [
     outputs: [{ type: 'uint256' }],
   },
 ] as const
-
-// ============ Resolved Config (all required) ============
-
 interface ResolvedConfig {
   rpcUrl: string
   idGatewayAddress: Address
@@ -166,9 +158,6 @@ interface ResolvedConfig {
   keyRegistryAddress: Address
   bundlerAddress: Address
 }
-
-// ============ Registration Service ============
-
 export class FIDRegistrationService {
   private config: ResolvedConfig
   private publicClient: PublicClient
@@ -198,9 +187,6 @@ export class FIDRegistrationService {
   setWalletClient(walletClient: WalletClient): void {
     this.walletClient = walletClient
   }
-
-  // ============ Registration ============
-
   /**
    * Register a new FID
    */
@@ -337,9 +323,6 @@ export class FIDRegistrationService {
       signerRegistered: !!request.signerPublicKey,
     }
   }
-
-  // ============ Storage ============
-
   /**
    * Purchase additional storage
    */
@@ -393,9 +376,6 @@ export class FIDRegistrationService {
       units: [],
     }
   }
-
-  // ============ Signer Registration ============
-
   /**
    * Register a signer key for FID
    */
@@ -441,9 +421,6 @@ export class FIDRegistrationService {
 
     return txHash
   }
-
-  // ============ Queries ============
-
   /**
    * Check if address has an FID
    */
@@ -594,9 +571,6 @@ export class FIDRegistrationService {
 
     return { available: true }
   }
-
-  // ============ Pricing ============
-
   /**
    * Get registration price
    */
@@ -651,9 +625,6 @@ export class FIDRegistrationService {
     return `${formatEther(wei)} ETH`
   }
 }
-
-// ============ Factory Function ============
-
 /**
  * Create registration service
  */

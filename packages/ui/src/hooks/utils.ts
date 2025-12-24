@@ -2,25 +2,15 @@ import type { JejuClient } from '@jejunetwork/sdk'
 import { toError } from '@jejunetwork/types'
 import { useCallback, useState } from 'react'
 
-/**
- * Async operation state for hooks
- */
 export interface AsyncState {
   isLoading: boolean
   error: Error | null
 }
 
-/**
- * Return type for useAsyncState hook
- */
 export interface UseAsyncStateResult extends AsyncState {
   execute: <T>(operation: () => Promise<T>) => Promise<T>
 }
 
-/**
- * Hook for managing async operation state.
- * Eliminates repeated isLoading/error state management across hooks.
- */
 export function useAsyncState(): UseAsyncStateResult {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<Error | null>(null)
@@ -47,10 +37,6 @@ export function useAsyncState(): UseAsyncStateResult {
   return { isLoading, error, execute }
 }
 
-/**
- * Requires client to be connected, throws if not.
- * Provides type narrowing for the client.
- */
 export function requireClient(client: JejuClient | null): JejuClient {
   if (!client) {
     throw new Error('Not connected')

@@ -1,7 +1,7 @@
 // Compute Marketplace Integration Tests
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { type Server, serve } from 'bun'
-import { ResearchAgent } from '../../src/research-agent'
+import { ResearchAgent } from '../../api/research-agent'
 
 let mockServer: Server | null = null
 const MOCK_PORT = 18020

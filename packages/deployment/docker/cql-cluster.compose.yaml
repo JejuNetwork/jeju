@@ -1,0 +1,230 @@
+# CQL (CovenantSQL) Multi-Node Cluster for Local Development
+#
+# This starts a CQL cluster with:
+# - 1 Block Producer (consensus coordinator)
+# - 3 Miner nodes (data storage & replication)
+# - Load balancer for client connections
+#
+# Usage:
+#   docker compose -f cql-cluster.compose.yaml up -d
+#
+# Connect via:
+#   http://localhost:4661 (load balanced to miners)
+#   http://localhost:8546 (HTTP API)
+
+services:
+  # ============================================================================
+  # Block Producer - Coordinates consensus and block production
+  # ============================================================================
+  cql-bp:
+    build:
+      context: ./covenantsql
+      dockerfile: Dockerfile
+    container_name: cql-block-producer
+    hostname: cql-bp
+    command:
+      - cqld
+      - -config
+      - /config/bp.yaml
+      - -role
+      - blockproducer
+    ports:
+      - "4660:4661"  # Different port to avoid conflict with LB
+      - "8546:8546"  # HTTP API
+      - "9100:9100"  # Metrics
+    volumes:
+      - ./covenantsql/config/bp.yaml:/config/bp.yaml:ro
+      - cql-bp-data:/data
+      - cql-bp-logs:/logs
+    environment:
+      - CQL_NODE_ID=bp-001
+      - CQL_ROLE=blockproducer
+      - CQL_LOG_LEVEL=info
+    networks:
+      cql-network:
+        aliases:
+          - cql-bp
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8546/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # ============================================================================
+  # Miner Node 1
+  # ============================================================================
+  cql-miner-1:
+    build:
+      context: ./covenantsql
+      dockerfile: Dockerfile
+    container_name: cql-miner-1
+    hostname: cql-miner-1
+    command:
+      - cql-minerd
+      - -config
+      - /config/miner.yaml
+    depends_on:
+      cql-bp:
+        condition: service_healthy
+    volumes:
+      - ./covenantsql/config/miner.yaml:/config/miner.yaml:ro
+      - cql-miner-1-data:/data
+      - cql-miner-1-logs:/logs
+    environment:
+      - CQL_NODE_ID=miner-001
+      - CQL_ROLE=miner
+      - CQL_BP_ADDR=cql-bp:4661
+      - CQL_LOG_LEVEL=info
+    networks:
+      - cql-network
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8546/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+  # ============================================================================
+  # Miner Node 2
+  # ============================================================================
+  cql-miner-2:
+    build:
+      context: ./covenantsql
+      dockerfile: Dockerfile
+    container_name: cql-miner-2
+    hostname: cql-miner-2
+    command:
+      - cql-minerd
+      - -config
+      - /config/miner.yaml
+    depends_on:
+      cql-bp:
+        condition: service_healthy
+    volumes:
+      - ./covenantsql/config/miner.yaml:/config/miner.yaml:ro
+      - cql-miner-2-data:/data
+      - cql-miner-2-logs:/logs
+    environment:
+      - CQL_NODE_ID=miner-002
+      - CQL_ROLE=miner
+      - CQL_BP_ADDR=cql-bp:4661
+      - CQL_LOG_LEVEL=info
+    networks:
+      - cql-network
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8546/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+  # ============================================================================
+  # Miner Node 3
+  # ============================================================================
+  cql-miner-3:
+    build:
+      context: ./covenantsql
+      dockerfile: Dockerfile
+    container_name: cql-miner-3
+    hostname: cql-miner-3
+    command:
+      - cql-minerd
+      - -config
+      - /config/miner.yaml
+    depends_on:
+      cql-bp:
+        condition: service_healthy
+    volumes:
+      - ./covenantsql/config/miner.yaml:/config/miner.yaml:ro
+      - cql-miner-3-data:/data
+      - cql-miner-3-logs:/logs
+    environment:
+      - CQL_NODE_ID=miner-003
+      - CQL_ROLE=miner
+      - CQL_BP_ADDR=cql-bp:4661
+      - CQL_LOG_LEVEL=info
+    networks:
+      - cql-network
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8546/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+  # ============================================================================
+  # HAProxy Load Balancer - Distributes client connections
+  # ============================================================================
+  cql-lb:
+    image: haproxy:2.9-alpine
+    container_name: cql-load-balancer
+    hostname: cql-lb
+    ports:
+      - "4661:4661"  # Client connections
+      - "8547:8080"  # Stats UI
+    volumes:
+      - ./covenantsql/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    depends_on:
+      - cql-miner-1
+      - cql-miner-2
+      - cql-miner-3
+    networks:
+      - cql-network
+    healthcheck:
+      test: ["CMD", "haproxy", "-c", "-f", "/usr/local/etc/haproxy/haproxy.cfg"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # ============================================================================
+  # Prometheus - Metrics collection
+  # ============================================================================
+  cql-prometheus:
+    image: prom/prometheus:v2.48.0
+    container_name: cql-prometheus
+    hostname: cql-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./covenantsql/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - cql-prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+    networks:
+      - cql-network
+    profiles:
+      - monitoring
+    restart: unless-stopped
+
+# ============================================================================
+# Networks
+# ============================================================================
+networks:
+  cql-network:
+    driver: bridge
+    name: cql-network
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+# ============================================================================
+# Volumes
+# ============================================================================
+volumes:
+  cql-bp-data:
+  cql-bp-logs:
+  cql-miner-1-data:
+  cql-miner-1-logs:
+  cql-miner-2-data:
+  cql-miner-2-logs:
+  cql-miner-3-data:
+  cql-miner-3-logs:
+  cql-prometheus-data:

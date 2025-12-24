@@ -14,7 +14,7 @@
  * - Minimize idle capital
  */
 
-import { EventEmitter } from 'node:events'
+import { EventEmitter } from '@jejunetwork/shared'
 import {
   type Address,
   createPublicClient,
@@ -96,7 +96,6 @@ const TOKENS: Record<string, Record<number, Address>> = {
 
 /**
  * Check if a chain ID is a Solana chain
- * Re-exported from types for convenience
  */
 export function isSolanaChain(chainId: number): boolean {
   return isSolanaChainType(chainId as ChainId)
@@ -759,7 +758,11 @@ export class XLPService extends EventEmitter {
 
   getHighVolumeRoutes(): RouteStats[] {
     return Array.from(this.routeVolumes.values())
-      .sort((a, b) => Number(b.volume24h - a.volume24h))
+      .sort((a, b) => {
+        // Use bigint comparison to avoid precision loss with large volume values
+        if (a.volume24h === b.volume24h) return 0
+        return b.volume24h > a.volume24h ? 1 : -1
+      })
       .slice(0, 10)
   }
 }

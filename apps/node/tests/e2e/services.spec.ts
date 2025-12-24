@@ -1,8 +1,3 @@
-/**
- * Services E2E Tests
- * Tests service controls, compute options, and service configuration
- */
-
 import { expect, test } from '@playwright/test'
 
 const BASE_URL = 'http://localhost:1420'

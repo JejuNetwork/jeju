@@ -12,6 +12,7 @@ import { setupTestEnvironment, teardownTestEnvironment } from './setup'
 describe('JejuService Integration Tests', () => {
   let service: StandaloneJejuService | null = null
   let env: Awaited<ReturnType<typeof setupTestEnvironment>> | null = null
+  let sdkReady = false
 
   beforeAll(async () => {
     env = await setupTestEnvironment()
@@ -25,6 +26,8 @@ describe('JejuService Integration Tests', () => {
         rpcUrl: env.rpcUrl,
         smartAccount: false,
       })
+      // Check if SDK is fully initialized
+      sdkReady = !!service?.sdk?.payments
     } catch (e) {
       console.log(
         '⚠️ Service init failed (contracts may not be deployed):',
@@ -49,55 +52,55 @@ describe('JejuService Integration Tests', () => {
   })
 
   test('sdk has all expected modules', () => {
-    if (!env?.chainRunning || !service) return
+    if (!env?.chainRunning || !sdkReady) return
 
-    expect(service.sdk.compute).toBeDefined()
-    expect(service.sdk.storage).toBeDefined()
-    expect(service.sdk.defi).toBeDefined()
-    expect(service.sdk.governance).toBeDefined()
-    expect(service.sdk.names).toBeDefined()
-    expect(service.sdk.identity).toBeDefined()
-    expect(service.sdk.crosschain).toBeDefined()
-    expect(service.sdk.payments).toBeDefined()
-    expect(service.sdk.a2a).toBeDefined()
+    expect(service?.sdk?.compute).toBeDefined()
+    expect(service?.sdk?.storage).toBeDefined()
+    expect(service?.sdk?.defi).toBeDefined()
+    expect(service?.sdk?.governance).toBeDefined()
+    expect(service?.sdk?.names).toBeDefined()
+    expect(service?.sdk?.identity).toBeDefined()
+    expect(service?.sdk?.crosschain).toBeDefined()
+    expect(service?.sdk?.payments).toBeDefined()
+    expect(service?.sdk?.a2a).toBeDefined()
   })
 
   test('payments getBalance integration', async () => {
-    if (!env?.chainRunning || !service) return
+    if (!env?.chainRunning || !sdkReady) return
 
-    const balance = await service.sdk.payments.getBalance()
+    const balance = await service?.sdk.payments.getBalance()
     expect(typeof balance).toBe('bigint')
   })
 
   test('names isAvailable integration (requires contracts)', async () => {
-    if (!env?.contractsDeployed || !service) return
-    const available = await service.sdk.names.isAvailable(
+    if (!env?.contractsDeployed || !sdkReady) return
+    const available = await service?.sdk.names.isAvailable(
       'test-unique-name-123456',
     )
     expect(typeof available).toBe('boolean')
   })
 
   test('compute listProviders integration (requires contracts)', async () => {
-    if (!env?.contractsDeployed || !service) return
-    const providers = await service.sdk.compute.listProviders()
+    if (!env?.contractsDeployed || !sdkReady) return
+    const providers = await service?.sdk.compute.listProviders()
     expect(Array.isArray(providers)).toBe(true)
   })
 
   test('compute listModels integration (requires contracts)', async () => {
-    if (!env?.contractsDeployed || !service) return
-    const models = await service.sdk.compute.listModels()
+    if (!env?.contractsDeployed || !sdkReady) return
+    const models = await service?.sdk.compute.listModels()
     expect(Array.isArray(models)).toBe(true)
   })
 
   test('governance listProposals integration (requires contracts)', async () => {
-    if (!env?.contractsDeployed || !service) return
-    const proposals = await service.sdk.governance.listProposals()
+    if (!env?.contractsDeployed || !sdkReady) return
+    const proposals = await service?.sdk.governance.listProposals()
     expect(Array.isArray(proposals)).toBe(true)
   })
 
   test('a2a discover gateway (requires services)', async () => {
-    if (!env?.servicesRunning || !service) return
-    const card = await service.sdk.a2a.discover(env.gatewayUrl)
+    if (!env?.servicesRunning || !sdkReady) return
+    const card = await service?.sdk.a2a.discover(env.gatewayUrl)
     expect(card).toBeDefined()
     expect(card.protocolVersion).toBe('0.3.0')
   })

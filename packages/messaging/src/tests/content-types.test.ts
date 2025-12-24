@@ -30,8 +30,6 @@ import type {
   TransactionContent,
 } from '../mls/types'
 
-// ============ Content Builder Tests ============
-
 describe('Content Builders', () => {
   describe('text()', () => {
     test('creates text content', () => {
@@ -302,9 +300,6 @@ describe('Content Builders', () => {
     })
   })
 })
-
-// ============ Content Type ID Tests ============
-
 describe('Content Type IDs', () => {
   test('returns correct ID for text', () => {
     const content = text('test')
@@ -350,9 +345,6 @@ describe('Content Type IDs', () => {
     })
   })
 })
-
-// ============ Serialization Tests ============
-
 describe('Content Serialization', () => {
   test('serializes and deserializes text content', () => {
     const original = text('Hello, World!')
@@ -471,9 +463,6 @@ describe('Content Serialization', () => {
     expect(parsed.type).toBe('image')
   })
 })
-
-// ============ Validation Tests ============
-
 describe('validateImage', () => {
   test('validates valid JPEG image', () => {
     const content: ImageContent = {
@@ -784,9 +773,6 @@ describe('validateTransaction', () => {
     expect(validateTransaction(content)).toBe(false)
   })
 })
-
-// ============ Content Preview Tests ============
-
 describe('getContentPreview', () => {
   test('returns text content directly', () => {
     const content = text('Hello, World!')
@@ -881,9 +867,6 @@ describe('getContentPreview', () => {
     expect(getContentPreview(content)).toBe('🤖 Agent: trade')
   })
 })
-
-// ============ Rich Content Detection Tests ============
-
 describe('isRichContent', () => {
   test('text is not rich content', () => {
     expect(isRichContent(text('Hello'))).toBe(false)
@@ -960,9 +943,6 @@ describe('isRichContent', () => {
     ).toBe(true)
   })
 })
-
-// ============ Edge Cases ============
-
 describe('Edge Cases', () => {
   test('handles null in serialization gracefully', () => {
     // A text with null would fail type checking, but test runtime safety

@@ -6,13 +6,13 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import type { Address } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { resetConfig } from '../../src/x402/config'
-import { createServer } from '../../src/x402/server'
+import { resetConfig } from '../../api/x402/config'
+import { createServer } from '../../api/x402/server'
 import {
   clearNonceCache,
   isNonceUsedLocally,
   markNoncePending,
-} from '../../src/x402/services/nonce-manager'
+} from '../../api/x402/services/nonce-manager'
 
 const app = createServer()
 
@@ -79,9 +79,9 @@ async function createSignedPayment(overrides?: {
     message,
   })
 
-  return Buffer.from(JSON.stringify({ ...payload, signature })).toString(
-    'base64',
-  )
+  return Buffer.from(
+    JSON.stringify({ ...payload, signature, payer: null }),
+  ).toString('base64')
 }
 
 describe('Concurrent Payment Verification', () => {

@@ -1,8 +1,26 @@
 /**
  * @fileoverview Main exports for @jejunetwork/contracts package
  * @module @jejunetwork/contracts
+ *
+ * This package provides:
+ * 1. Typed ABIs from wagmi CLI (generated.ts) - with full type inference
+ * 2. Legacy ABIs (abis/index.ts) - backward compatible, cast to Abi
+ * 3. CAIP utilities for cross-chain addressing
+ * 4. Deployment addresses by network
+ *
+ * Prefer importing typed ABIs (camelCase) over legacy ABIs (PascalCase):
+ * ```typescript
+ * // GOOD - Full type inference
+ * import { identityRegistryAbi } from '@jejunetwork/contracts'
+ *
+ * // LEGACY - No type inference
+ * import { IdentityRegistryAbi } from '@jejunetwork/contracts'
+ * ```
  */
 
+// ============================================================================
+// Account Abstraction utilities
+// ============================================================================
 export {
   calculateRequiredDeposit,
   DEFAULT_GAS_LIMITS,
@@ -20,6 +38,9 @@ export {
   SponsoredPaymasterAbi as SponsoredPaymasterMinimalAbi,
   type SponsoredPaymasterConfig,
 } from './aa'
+// ============================================================================
+// LEGACY ABIs - Cast to Abi type (backward compatible, no type inference)
+// ============================================================================
 export {
   AppTokenPreferenceAbi,
   AppTokenPreferenceAbiJson,
@@ -171,7 +192,6 @@ export {
   type UniversalAddress,
   type UniversalId,
 } from './caip'
-
 export {
   bazaarMarketplaceDeployments,
   erc20FactoryDeployments,
@@ -198,11 +218,11 @@ export {
   uniswapV4Deployments,
   xlpDeployments,
 } from './deployments'
+// ============================================================================
+// TYPED ABIs - Generated with full type inference (PREFERRED)
+// ============================================================================
+export * from './eip7702'
+export * from './generated'
 export * from './schemas'
 export * from './types'
-export {
-  CHAIN_IDS,
-  isValidAddress,
-  NETWORK_BY_CHAIN_ID,
-  ZERO_ADDRESS,
-} from './types'
+export * from './viem'

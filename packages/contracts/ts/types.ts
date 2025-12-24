@@ -3,7 +3,10 @@
  * @module @jejunetwork/contracts/types
  */
 
+import { isValidAddress, ZERO_ADDRESS } from '@jejunetwork/types'
 import type { Abi, Address } from 'viem'
+
+export { ZERO_ADDRESS, isValidAddress }
 
 export type NetworkName = 'localnet' | 'testnet' | 'mainnet'
 
@@ -46,12 +49,3 @@ export type DeploymentFile =
   | 'eliza-token-1337'
   | 'predimarket-1337'
   | 'rpg-tokens-1337'
-
-export const ZERO_ADDRESS =
-  '0x0000000000000000000000000000000000000000' as Address
-
-export function isValidAddress(
-  address: Address | string | undefined,
-): address is Address {
-  return !!address && address !== ZERO_ADDRESS && address.startsWith('0x')
-}

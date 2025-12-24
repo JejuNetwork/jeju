@@ -61,9 +61,7 @@ import {
   verifyProofOfPossession,
 } from '../src/da'
 
-// ============================================================================
 // BLS12-381 Tests
-// ============================================================================
 
 describe('BLS12-381 Signatures', () => {
   let keyPair1: BLSKeyPair
@@ -314,9 +312,7 @@ describe('BLS12-381 Signatures', () => {
   })
 })
 
-// ============================================================================
 // KZG Commitment Tests
-// ============================================================================
 
 describe('KZG Polynomial Commitments', () => {
   beforeAll(async () => {
@@ -451,9 +447,7 @@ describe('KZG Polynomial Commitments', () => {
   })
 })
 
-// ============================================================================
 // 2D Reed-Solomon Tests
-// ============================================================================
 
 describe('2D Reed-Solomon Erasure Coding', () => {
   describe('Galois Field Operations', () => {
@@ -589,9 +583,7 @@ describe('2D Reed-Solomon Erasure Coding', () => {
   })
 })
 
-// ============================================================================
 // Hash-to-Curve Tests
-// ============================================================================
 
 describe('Hash-to-Curve (RFC 9380)', () => {
   describe('Hash to G1', () => {
@@ -711,9 +703,7 @@ describe('Hash-to-Curve (RFC 9380)', () => {
   })
 })
 
-// ============================================================================
 // Integration Tests
-// ============================================================================
 
 describe('Crypto Integration', () => {
   test('should use BLS with hash-to-curve', () => {

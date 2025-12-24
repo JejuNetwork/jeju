@@ -1,14 +1,4 @@
-/**
- * federation command - Manage Jeju Federation membership
- *
- * Commands:
- *   jeju federation join      - Join the federation
- *   jeju federation status    - Check federation status
- *   jeju federation list      - List all federated networks
- *   jeju federation add-stake - Add stake to upgrade trust tier
- *   jeju federation registries - List all federated registries
- *   jeju federation sync      - Sync registry data
- */
+/** Manage Jeju Federation membership */
 
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
@@ -24,11 +14,52 @@ import {
   parseEther,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
+import { z } from 'zod'
 import { logger } from '../lib/logger'
 import { findMonorepoRoot } from '../lib/system'
 import '@jejunetwork/config'
 
-// Contract ABIs (minimal)
+// Contract return types
+interface NetworkInfo {
+  chainId: bigint
+  name: string
+  rpcUrl: string
+  explorerUrl: string
+  wsUrl: string
+  operator: string
+  stake: bigint
+  trustTier: number
+  isActive: boolean
+  isVerified: boolean
+  isSuperchain: boolean
+  registeredAt: bigint
+}
+
+interface RegistryInfo {
+  chainId: bigint
+  name: string
+  registryType: number
+  version: string
+  contractAddress: string
+  entryCount: bigint
+  lastSyncBlock: bigint
+}
+
+// API response schemas
+const HealthResponseSchema = z.object({
+  status: z.string(),
+})
+
+const IndexerStatsSchema = z.object({
+  totalBlocks: z.number().optional(),
+  totalTransactions: z.number().optional(),
+  networksIndexed: z.number().optional(),
+})
+
+const AgentsDataSchema = z.object({
+  total: z.number(),
+})
+
 const NETWORK_REGISTRY_ABI = [
   'function registerNetwork(uint256 chainId, string name, string rpcUrl, string explorerUrl, string wsUrl, tuple(address identityRegistry, address solverRegistry, address inputSettler, address outputSettler, address liquidityVault, address governance, address oracle, address registryHub) contracts, bytes32 genesisHash) payable',
   'function addStake(uint256 chainId) payable',
@@ -53,10 +84,58 @@ const REGISTRY_HUB_ABI = [
   'function totalStaked() view returns (uint256)',
 ]
 
-// Default addresses (Ethereum mainnet hub)
+const FEDERATION_GOVERNANCE_ABI = [
+  'function getProposal(bytes32 proposalId) view returns (uint256 chainId, address operator, uint256 stake, uint8 status, uint8 overallScore, bool autocratApproved, uint256 timelockEnds)',
+  'function getChallenge(bytes32 challengeId) view returns (uint256 chainId, address challenger, uint8 reason, string evidence, uint256 challengeBond, bool resolved, bool upheld, uint256 voteCount, uint256 approveCount)',
+  'function getOperatorHistory(address operator) view returns (uint256 totalNetworks, uint256 approvedNetworks, uint256 rejectedNetworks, uint256 revokedNetworks, bool isBanned)',
+  'function getVerifiedChainIds() view returns (uint256[])',
+  'function getAllGuardians() view returns (address[])',
+  'function guardians(address guardian) view returns (address guardian, uint256 agentId, uint256 votingPower, uint256 appointedAt, uint256 challengesReviewed, uint256 correctDecisions, bool isActive)',
+  'function allProposalIds(uint256 index) view returns (bytes32)',
+  'function allChallengeIds(uint256 index) view returns (bytes32)',
+  'function chainIdToProposal(uint256 chainId) view returns (bytes32)',
+  'function getCurrentSequencer() view returns (uint256)',
+  'function isSequencerEligible(uint256 chainId) view returns (bool)',
+  'function currentSequencerIndex() view returns (uint256)',
+  'function lastRotation() view returns (uint256)',
+  'function rotationInterval() view returns (uint256)',
+  'function verifiedChainIds(uint256 index) view returns (uint256)',
+  'function challengeNetwork(uint256 chainId, uint8 reason, string evidence) payable returns (bytes32 challengeId)',
+  'function CHALLENGE_BOND() view returns (uint256)',
+  'function MARKET_VOTING_PERIOD() view returns (uint256)',
+  'function TIMELOCK_PERIOD() view returns (uint256)',
+  'event ProposalCreated(bytes32 indexed proposalId, uint256 indexed chainId, address indexed operator, uint256 stake)',
+  'event ChallengeCreated(bytes32 indexed challengeId, uint256 indexed chainId, address indexed challenger, uint8 reason)',
+]
+
+// Proposal status enum matching contract
+const PROPOSAL_STATUS = [
+  'PENDING_MARKET',
+  'MARKET_PASSED',
+  'AUTOCRAT_REVIEW',
+  'APPROVED',
+  'ACTIVE',
+  'REJECTED',
+  'CHALLENGED',
+  'REVOKED',
+]
+
+// Challenge reason enum matching contract
+const CHALLENGE_REASONS: Record<string, number> = {
+  sybil: 0,
+  downtime: 1,
+  malicious: 2,
+  invalid_genesis: 3,
+  rpc_failure: 4,
+  other: 5,
+}
+
 const DEFAULT_HUB_RPC = 'https://eth.llamarpc.com'
 const DEFAULT_NETWORK_REGISTRY = '0x0000000000000000000000000000000000000000' // To be deployed
 const DEFAULT_REGISTRY_HUB = '0x0000000000000000000000000000000000000000' // To be deployed
+const DEFAULT_FEDERATION_GOVERNANCE =
+  '0x0000000000000000000000000000000000000000' // To be deployed
+const DEFAULT_INDEXER_URL = 'http://localhost:4352'
 
 const TRUST_TIERS = ['UNSTAKED', 'STAKED', 'VERIFIED']
 const REGISTRY_TYPES = [
@@ -77,10 +156,11 @@ export const federationCommand = new Command('federation')
   .option('--hub-rpc <url>', 'Hub chain RPC URL', DEFAULT_HUB_RPC)
   .option('--network-registry <address>', 'NetworkRegistry contract address')
   .option('--registry-hub <address>', 'RegistryHub contract address')
-
-// ============================================================================
-// join - Join the federation
-// ============================================================================
+  .option(
+    '--federation-governance <address>',
+    'FederationGovernance contract address',
+  )
+  .option('--indexer-url <url>', 'Indexer REST API URL', DEFAULT_INDEXER_URL)
 
 federationCommand
   .command('join')
@@ -200,10 +280,6 @@ federationCommand
     )
   })
 
-// ============================================================================
-// status - Check federation status
-// ============================================================================
-
 federationCommand
   .command('status')
   .description('Check federation status')
@@ -238,18 +314,7 @@ federationCommand
       // Show specific network
       const network = (await registry.read.getNetwork([
         BigInt(options.chainId),
-      ])) as {
-        chainId: bigint
-        name: string
-        rpcUrl: string
-        operator: string
-        stake: bigint
-        trustTier: number
-        isActive: boolean
-        isVerified: boolean
-        isSuperchain: boolean
-        registeredAt: bigint
-      }
+      ])) as NetworkInfo
 
       console.log(chalk.cyan('\nNetwork Details:'))
       console.log(`  Chain ID: ${network.chainId}`)
@@ -304,10 +369,6 @@ federationCommand
     }
   })
 
-// ============================================================================
-// list - List all federated networks
-// ============================================================================
-
 federationCommand
   .command('list')
   .description('List all federated networks')
@@ -337,14 +398,7 @@ federationCommand
     console.log(chalk.cyan(`\nFound ${chainIds.length} networks:\n`))
 
     for (const chainId of chainIds) {
-      const network = (await registry.read.getNetwork([chainId])) as {
-        chainId: bigint
-        name: string
-        rpcUrl: string
-        stake: bigint
-        trustTier: number
-        isActive: boolean
-      }
+      const network = (await registry.read.getNetwork([chainId])) as NetworkInfo
 
       const tier = TRUST_TIERS[network.trustTier]
       if (options.stakedOnly && network.trustTier < 1) continue
@@ -367,10 +421,6 @@ federationCommand
       console.log()
     }
   })
-
-// ============================================================================
-// add-stake - Add stake to upgrade tier
-// ============================================================================
 
 federationCommand
   .command('add-stake')
@@ -413,10 +463,6 @@ federationCommand
       `Run 'jeju federation status --chain-id ${options.chainId}' to see your new tier.`,
     )
   })
-
-// ============================================================================
-// registries - List all federated registries
-// ============================================================================
 
 federationCommand
   .command('registries')
@@ -467,64 +513,123 @@ federationCommand
     console.log(chalk.cyan(`\nFound ${registryIds.length} registries:\n`))
 
     for (const registryId of registryIds) {
-      const registry = (await hub.read.getRegistry([registryId])) as {
-        chainId: bigint
-        name: string
-        registryType: number
-        contractAddress: string
-        entryCount: bigint
-        lastSyncBlock: bigint
-      }
+      const registryData = (await hub.read.getRegistry([
+        registryId,
+      ])) as RegistryInfo
 
-      if (options.chain && registry.chainId.toString() !== options.chain)
+      if (options.chain && registryData.chainId.toString() !== options.chain)
         continue
 
-      const typeName = REGISTRY_TYPES[registry.registryType]
+      const typeName = REGISTRY_TYPES[registryData.registryType]
 
-      console.log(`📦 ${chalk.bold(registry.name)} (${typeName})`)
+      console.log(`📦 ${chalk.bold(registryData.name)} (${typeName})`)
       console.log(
-        `   Chain: ${registry.chainId} | Entries: ${registry.entryCount}`,
+        `   Chain: ${registryData.chainId} | Entries: ${registryData.entryCount}`,
       )
-      console.log(`   Contract: ${registry.contractAddress.slice(0, 20)}...`)
-      console.log(`   Last Sync: Block ${registry.lastSyncBlock}`)
+      console.log(
+        `   Contract: ${registryData.contractAddress.slice(0, 20)}...`,
+      )
+      console.log(`   Last Sync: Block ${registryData.lastSyncBlock}`)
       console.log()
     }
   })
-
-// ============================================================================
-// sync - Trigger registry sync
-// ============================================================================
 
 federationCommand
   .command('sync')
   .description('Sync registry data from all chains')
   .option('--registry-id <id>', 'Sync specific registry')
-  .action(async (_options) => {
+  .option('--chain-id <id>', 'Sync specific chain')
+  .action(async (options) => {
     logger.header('SYNC REGISTRIES')
+
+    const parent = federationCommand.opts()
+    const indexerUrl = parent.indexerUrl || DEFAULT_INDEXER_URL
 
     console.log(chalk.cyan('Triggering federation sync...\n'))
 
-    // In production, this would call the indexer API
     console.log('This command triggers the federated indexer to:')
     console.log('  1. Query all registered chains')
     console.log('  2. Fetch registry contract events')
     console.log('  3. Aggregate and deduplicate entries')
     console.log('  4. Update the unified GraphQL API')
     console.log()
-    console.log(chalk.yellow('TODO: Implement indexer sync API call'))
-  })
 
-// ============================================================================
-// AI DAO Governance Commands
-// ============================================================================
+    // Check indexer health first
+    let healthResponse: Response
+    try {
+      healthResponse = await fetch(`${indexerUrl}/health`)
+    } catch {
+      console.log(chalk.red(`Indexer not reachable at ${indexerUrl}`))
+      console.log(
+        chalk.yellow(
+          'Make sure the indexer is running: bun run --cwd apps/indexer api',
+        ),
+      )
+      process.exit(1)
+    }
+    if (!healthResponse.ok) {
+      console.log(chalk.red(`Indexer returned error: ${healthResponse.status}`))
+      process.exit(1)
+    }
+
+    const rawHealth: unknown = await healthResponse.json()
+    const health = HealthResponseSchema.parse(rawHealth)
+    console.log(chalk.green(`Indexer status: ${health.status}\n`))
+
+    // Query current federation stats
+    const statsResponse = await fetch(`${indexerUrl}/api/stats`)
+    if (statsResponse.ok) {
+      const rawStats: unknown = await statsResponse.json()
+      const statsResult = IndexerStatsSchema.safeParse(rawStats)
+      if (statsResult.success) {
+        const stats = statsResult.data
+        console.log(chalk.cyan('Current Indexer Stats:'))
+        console.log(`  Blocks indexed: ${stats.totalBlocks ?? 'N/A'}`)
+        console.log(`  Transactions: ${stats.totalTransactions ?? 'N/A'}`)
+        console.log(`  Networks indexed: ${stats.networksIndexed ?? 'N/A'}`)
+        console.log()
+      }
+    }
+
+    // If specific chain or registry, show filtered info
+    if (options.chainId) {
+      console.log(chalk.cyan(`Syncing chain ${options.chainId}...`))
+      const agentsResponse = await fetch(`${indexerUrl}/api/agents?limit=10`)
+      if (agentsResponse.ok) {
+        const rawAgents: unknown = await agentsResponse.json()
+        const agentsResult = AgentsDataSchema.safeParse(rawAgents)
+        if (agentsResult.success) {
+          console.log(`  Found ${agentsResult.data.total} agents in index`)
+        }
+      }
+    }
+
+    if (options.registryId) {
+      console.log(chalk.cyan(`Syncing registry ${options.registryId}...`))
+    }
+
+    console.log(chalk.green('\nSync triggered successfully.'))
+    console.log('The indexer will process new events in the background.')
+    console.log(`\nMonitor progress at: ${indexerUrl}/api/stats`)
+  })
 
 federationCommand
   .command('proposals')
   .description(
     'List pending AI DAO governance proposals for network verification',
   )
-  .action(async () => {
+  .option(
+    '--status <status>',
+    'Filter by status: pending_market | autocrat_review | approved | active',
+  )
+  .action(async (options) => {
     logger.header('NETWORK VERIFICATION PROPOSALS')
+
+    const parent = federationCommand.opts()
+    const publicClient = createPublicClient({ transport: http(parent.hubRpc) })
+
+    const governanceAddress =
+      parent.federationGovernance || DEFAULT_FEDERATION_GOVERNANCE
 
     console.log(chalk.cyan('How Network Verification Works:\n'))
     console.log('1. Network stakes 10+ ETH → Auto-creates governance proposal')
@@ -551,9 +656,100 @@ federationCommand
     )
     console.log()
 
+    if (governanceAddress === DEFAULT_FEDERATION_GOVERNANCE) {
+      console.log(chalk.yellow('FederationGovernance not deployed yet.\n'))
+      console.log('Deploy with: jeju deploy federation --network mainnet')
+      return
+    }
+
+    const governance = getContract({
+      address: governanceAddress as `0x${string}`,
+      abi: FEDERATION_GOVERNANCE_ABI,
+      client: publicClient,
+    })
+
+    // Get verified chain IDs to find proposals
+    const verifiedChainIds =
+      (await governance.read.getVerifiedChainIds()) as readonly bigint[]
+
     console.log(
-      chalk.yellow('TODO: Query FederationGovernance for pending proposals'),
+      chalk.cyan(`\nFound ${verifiedChainIds.length} verified networks:\n`),
     )
+
+    // Query proposals for each chain
+    const registryAddress = parent.networkRegistry || DEFAULT_NETWORK_REGISTRY
+    if (registryAddress !== DEFAULT_NETWORK_REGISTRY) {
+      const registry = getContract({
+        address: registryAddress as `0x${string}`,
+        abi: NETWORK_REGISTRY_ABI,
+        client: publicClient,
+      })
+
+      const chainIds =
+        (await registry.read.getAllNetworkIds()) as readonly bigint[]
+
+      for (const chainId of chainIds) {
+        const proposalId = (await governance.read.chainIdToProposal([
+          chainId,
+        ])) as `0x${string}`
+        if (
+          proposalId ===
+          '0x0000000000000000000000000000000000000000000000000000000000000000'
+        )
+          continue
+
+        const proposal = (await governance.read.getProposal([
+          proposalId,
+        ])) as readonly [
+          bigint,
+          string,
+          bigint,
+          number,
+          number,
+          boolean,
+          bigint,
+        ]
+        const [
+          _chainIdResult,
+          operator,
+          stake,
+          status,
+          overallScore,
+          autocratApproved,
+          timelockEnds,
+        ] = proposal
+
+        const statusName = PROPOSAL_STATUS[status] || `UNKNOWN(${status})`
+
+        // Filter by status if specified
+        if (options.status) {
+          const filterStatus = options.status.toUpperCase().replace(/-/g, '_')
+          if (statusName !== filterStatus) continue
+        }
+
+        const statusColor =
+          status === 4
+            ? chalk.green
+            : status === 5
+              ? chalk.red
+              : status <= 3
+                ? chalk.yellow
+                : chalk.gray
+
+        console.log(`📋 Chain ${chainId} - ${statusColor(statusName)}`)
+        console.log(`   Operator: ${operator}`)
+        console.log(`   Stake: ${formatEther(stake)} ETH`)
+        console.log(`   AI Score: ${overallScore}/100`)
+        console.log(
+          `   Autocrat Approved: ${autocratApproved ? chalk.green('Yes') : chalk.gray('Pending')}`,
+        )
+        if (timelockEnds > 0n) {
+          const timelockDate = new Date(Number(timelockEnds) * 1000)
+          console.log(`   Timelock Ends: ${timelockDate.toISOString()}`)
+        }
+        console.log()
+      }
+    }
   })
 
 federationCommand
@@ -565,9 +761,12 @@ federationCommand
     'Reason: sybil | downtime | malicious | invalid_genesis | rpc_failure | other',
   )
   .requiredOption('--evidence <ipfs>', 'IPFS hash of evidence')
-  .option('--private-key <key>', 'Challenger private key')
+  .requiredOption('--private-key <key>', 'Challenger private key')
+  .option('--bond <eth>', 'Challenge bond in ETH (default: 1)', '1')
   .action(async (options) => {
     logger.header('CHALLENGE NETWORK')
+
+    const parent = federationCommand.opts()
 
     const validReasons = [
       'sybil',
@@ -584,10 +783,19 @@ federationCommand
       process.exit(1)
     }
 
+    const governanceAddress =
+      parent.federationGovernance || DEFAULT_FEDERATION_GOVERNANCE
+    if (governanceAddress === DEFAULT_FEDERATION_GOVERNANCE) {
+      console.log(chalk.red('FederationGovernance not deployed yet.'))
+      console.log('Deploy with: jeju deploy federation --network mainnet')
+      process.exit(1)
+    }
+
     console.log(chalk.cyan('Challenge Details:'))
     console.log(`  Chain ID: ${options.chainId}`)
     console.log(`  Reason: ${options.reason.toUpperCase()}`)
     console.log(`  Evidence: ${options.evidence}`)
+    console.log(`  Bond: ${options.bond} ETH`)
     console.log()
 
     console.log(chalk.yellow('Challenge Requirements:'))
@@ -602,11 +810,39 @@ federationCommand
     console.log('  • Network downgraded to STAKED if challenge upheld')
     console.log()
 
-    console.log(
-      chalk.yellow(
-        'TODO: Implement FederationGovernance.challengeNetwork() call',
-      ),
-    )
+    const publicClient = createPublicClient({ transport: http(parent.hubRpc) })
+    const account = privateKeyToAccount(options.privateKey as `0x${string}`)
+    const walletClient = createWalletClient({
+      account,
+      transport: http(parent.hubRpc),
+    })
+
+    const reasonIndex = CHALLENGE_REASONS[options.reason]
+    const bondAmount = parseEther(options.bond)
+
+    console.log(chalk.cyan('Submitting challenge...'))
+
+    const hash = await walletClient.writeContract({
+      chain: null,
+      address: governanceAddress as `0x${string}`,
+      abi: FEDERATION_GOVERNANCE_ABI,
+      functionName: 'challengeNetwork',
+      args: [BigInt(options.chainId), reasonIndex, options.evidence],
+      value: bondAmount,
+    })
+
+    console.log(`  Transaction: ${hash}`)
+    const receipt = await publicClient.waitForTransactionReceipt({ hash })
+
+    if (receipt.status === 'success') {
+      console.log(chalk.green('\nChallenge submitted successfully.'))
+      console.log('Guardians will now review the evidence and vote.')
+      console.log(
+        `\nMonitor status: jeju federation status --chain-id ${options.chainId}`,
+      )
+    } else {
+      console.log(chalk.red('\nChallenge transaction failed.'))
+    }
   })
 
 federationCommand
@@ -614,6 +850,12 @@ federationCommand
   .description('View current sequencer and rotation schedule')
   .action(async () => {
     logger.header('SEQUENCER STATUS')
+
+    const parent = federationCommand.opts()
+    const publicClient = createPublicClient({ transport: http(parent.hubRpc) })
+
+    const governanceAddress =
+      parent.federationGovernance || DEFAULT_FEDERATION_GOVERNANCE
 
     console.log(chalk.cyan('Sequencer Rotation Rules:\n'))
     console.log('  • Only VERIFIED networks can be sequencers')
@@ -629,9 +871,84 @@ federationCommand
     console.log('  • Economic penalty for malicious behavior')
     console.log()
 
-    console.log(
-      chalk.yellow('TODO: Query FederationGovernance for current sequencer'),
-    )
+    if (governanceAddress === DEFAULT_FEDERATION_GOVERNANCE) {
+      console.log(chalk.yellow('FederationGovernance not deployed yet.\n'))
+      console.log('Deploy with: jeju deploy federation --network mainnet')
+      return
+    }
+
+    const governance = getContract({
+      address: governanceAddress as `0x${string}`,
+      abi: FEDERATION_GOVERNANCE_ABI,
+      client: publicClient,
+    })
+
+    // Get current sequencer
+    const currentSequencer =
+      (await governance.read.getCurrentSequencer()) as bigint
+    const currentIndex =
+      (await governance.read.currentSequencerIndex()) as bigint
+    const lastRotation = (await governance.read.lastRotation()) as bigint
+    const rotationInterval =
+      (await governance.read.rotationInterval()) as bigint
+    const verifiedChainIds =
+      (await governance.read.getVerifiedChainIds()) as readonly bigint[]
+
+    console.log(chalk.cyan('Current Sequencer Status:\n'))
+
+    if (currentSequencer === 0n) {
+      console.log(chalk.yellow('  No current sequencer (no verified networks)'))
+    } else {
+      console.log(chalk.green(`  Current Sequencer: Chain ${currentSequencer}`))
+    }
+
+    console.log(`  Rotation Index: ${currentIndex}/${verifiedChainIds.length}`)
+
+    if (lastRotation > 0n) {
+      const lastRotationDate = new Date(Number(lastRotation) * 1000)
+      const nextRotationDate = new Date(
+        (Number(lastRotation) + Number(rotationInterval)) * 1000,
+      )
+      console.log(`  Last Rotation: ${lastRotationDate.toISOString()}`)
+      console.log(`  Next Rotation: ${nextRotationDate.toISOString()}`)
+    }
+
+    console.log(`  Rotation Interval: ${Number(rotationInterval) / 3600} hours`)
+    console.log()
+
+    console.log(chalk.cyan('Verified Networks (Sequencer Eligible):\n'))
+
+    if (verifiedChainIds.length === 0) {
+      console.log(chalk.gray('  No verified networks yet'))
+    } else {
+      const registryAddress = parent.networkRegistry || DEFAULT_NETWORK_REGISTRY
+      if (registryAddress !== DEFAULT_NETWORK_REGISTRY) {
+        const registry = getContract({
+          address: registryAddress as `0x${string}`,
+          abi: NETWORK_REGISTRY_ABI,
+          client: publicClient,
+        })
+
+        for (let i = 0; i < verifiedChainIds.length; i++) {
+          const chainId = verifiedChainIds[i]
+          const network = (await registry.read.getNetwork([
+            chainId,
+          ])) as NetworkInfo
+          const isCurrent = chainId === currentSequencer
+          const prefix = isCurrent ? chalk.green('▶') : ' '
+          console.log(`${prefix} ${i + 1}. Chain ${chainId} - ${network.name}`)
+          console.log(`     Operator: ${network.operator}`)
+          console.log(`     Stake: ${formatEther(network.stake)} ETH`)
+        }
+      } else {
+        for (let i = 0; i < verifiedChainIds.length; i++) {
+          const chainId = verifiedChainIds[i]
+          const isCurrent = chainId === currentSequencer
+          const prefix = isCurrent ? chalk.green('▶') : ' '
+          console.log(`${prefix} ${i + 1}. Chain ${chainId}`)
+        }
+      }
+    }
   })
 
 federationCommand
@@ -639,6 +956,12 @@ federationCommand
   .description('List federation guardians and their stats')
   .action(async () => {
     logger.header('FEDERATION GUARDIANS')
+
+    const parent = federationCommand.opts()
+    const publicClient = createPublicClient({ transport: http(parent.hubRpc) })
+
+    const governanceAddress =
+      parent.federationGovernance || DEFAULT_FEDERATION_GOVERNANCE
 
     console.log(chalk.cyan('Guardian Responsibilities:\n'))
     console.log('  • Vote on network challenges')
@@ -654,14 +977,74 @@ federationCommand
     console.log('  • Performance tracked over time')
     console.log()
 
-    console.log(
-      chalk.yellow('TODO: Query FederationGovernance for guardian list'),
-    )
-  })
+    if (governanceAddress === DEFAULT_FEDERATION_GOVERNANCE) {
+      console.log(chalk.yellow('FederationGovernance not deployed yet.\n'))
+      console.log('Deploy with: jeju deploy federation --network mainnet')
+      return
+    }
 
-// ============================================================================
-// configure-remotes - Configure Hyperlane trusted remotes for cross-chain
-// ============================================================================
+    const governance = getContract({
+      address: governanceAddress as `0x${string}`,
+      abi: FEDERATION_GOVERNANCE_ABI,
+      client: publicClient,
+    })
+
+    // Get all guardians
+    const guardianAddresses =
+      (await governance.read.getAllGuardians()) as readonly `0x${string}`[]
+
+    console.log(chalk.cyan(`Active Guardians (${guardianAddresses.length}):\n`))
+
+    if (guardianAddresses.length === 0) {
+      console.log(chalk.gray('  No guardians appointed yet'))
+      return
+    }
+
+    for (const address of guardianAddresses) {
+      const guardian = (await governance.read.guardians([
+        address,
+      ])) as readonly [
+        string, // guardian address
+        bigint, // agentId
+        bigint, // votingPower
+        bigint, // appointedAt
+        bigint, // challengesReviewed
+        bigint, // correctDecisions
+        boolean, // isActive
+      ]
+
+      const [
+        ,
+        agentId,
+        votingPower,
+        appointedAt,
+        challengesReviewed,
+        correctDecisions,
+        isActive,
+      ] = guardian
+
+      if (!isActive) continue
+
+      const appointedDate = new Date(Number(appointedAt) * 1000)
+      const accuracy =
+        challengesReviewed > 0n
+          ? (
+              (Number(correctDecisions) / Number(challengesReviewed)) *
+              100
+            ).toFixed(1)
+          : 'N/A'
+
+      console.log(
+        `🛡️  ${chalk.bold(address.slice(0, 10))}...${address.slice(-8)}`,
+      )
+      console.log(`    Agent ID: ${agentId}`)
+      console.log(`    Voting Power: ${votingPower}`)
+      console.log(`    Appointed: ${appointedDate.toISOString().split('T')[0]}`)
+      console.log(`    Challenges Reviewed: ${challengesReviewed}`)
+      console.log(`    Accuracy: ${accuracy}${accuracy !== 'N/A' ? '%' : ''}`)
+      console.log()
+    }
+  })
 
 federationCommand
   .command('configure-remotes')

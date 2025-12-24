@@ -1,6 +1,6 @@
 /** TFMM pool rebalancer. */
 
-import { EventEmitter } from 'node:events'
+import { EventEmitter } from '@jejunetwork/shared'
 import type { EVMChainId } from '@jejunetwork/types'
 import {
   type Address,
@@ -19,13 +19,8 @@ import type { TFMMRiskParameters, TFMMWeightUpdate, Token } from '../../types'
 import type { StrategyContext, WeightCalculation } from './base-strategy'
 import { type CompositeConfig, CompositeStrategy } from './composite-strategy'
 
-// ============ Constants ============
-
 // Maximum update history entries to prevent memory leaks
 const MAX_UPDATE_HISTORY = 10000
-
-// ============ Contract ABIs ============
-
 const TFMM_POOL_ABI = parseAbi([
   'function getNormalizedWeights() view returns (uint256[])',
   'function getTokens() view returns (address[])',
@@ -36,9 +31,6 @@ const TFMM_POOL_ABI = parseAbi([
   'function getBalances() view returns (uint256[])',
   'function owner() view returns (address)',
 ])
-
-// ============ Types ============
-
 export interface TFMMRebalancerConfig {
   chainId: EVMChainId
   rpcUrl: string
@@ -69,9 +61,6 @@ interface ManagedPool {
   updateInterval: number
   enabled: boolean
 }
-
-// ============ Rebalancer ============
-
 export class TFMMRebalancer extends EventEmitter {
   private config: TFMMRebalancerConfig
   private publicClient: PublicClient

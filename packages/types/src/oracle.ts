@@ -1,8 +1,5 @@
 /**
- * Oracle Network (JON) Types
- *
- * Type definitions for the decentralized oracle network
- * providing price feeds, FX rates, stablecoin pegs, and market status
+ * Oracle Network (JON) types for price feeds and market data.
  */
 
 import type { Address, Hex } from 'viem'
@@ -16,19 +13,9 @@ import {
   MAX_SMALL_ARRAY_LENGTH,
 } from './validation'
 
-// ============ Core Types ============
-
-/** Feed identifier (keccak256 of baseAsset + quoteAsset) */
 export type FeedId = Hex
-
-/** Report hash for dispute tracking */
 export type ReportHash = Hex
-
-/** Committee assignment round */
 export type CommitteeRound = bigint
-
-// ============ Feed Configuration ============
-
 export const FeedCategorySchema = z.enum([
   'SPOT_PRICE',
   'TWAP',
@@ -74,9 +61,6 @@ export const FeedCreateParamsSchema = z.object({
   category: FeedCategorySchema.optional(),
 })
 export type FeedCreateParams = z.infer<typeof FeedCreateParamsSchema>
-
-// ============ Price Data ============
-
 export const VenueSourceSchema = z.object({
   chainId: z.number().int().positive(),
   venue: AddressSchema,
@@ -123,9 +107,6 @@ export const PriceFeedDataSchema = z.object({
   lastUpdateBlock: z.bigint(),
 })
 export type PriceFeedData = z.infer<typeof PriceFeedDataSchema>
-
-// ============ Oracle Operator ============
-
 export const OperatorStatusSchema = z.enum([
   'ACTIVE',
   'UNBONDING',
@@ -178,9 +159,6 @@ export const OperatorPerformanceSchema = z.object({
   slashesIncurred: z.number().int().nonnegative(),
 })
 export type OperatorPerformance = z.infer<typeof OperatorPerformanceSchema>
-
-// ============ Committee Management ============
-
 export const CommitteeSchema = z.object({
   feedId: HexSchema,
   round: z.bigint(),
@@ -199,9 +177,6 @@ export const CommitteeAssignmentSchema = z.object({
   assignedAt: z.bigint(),
 })
 export type CommitteeAssignment = z.infer<typeof CommitteeAssignmentSchema>
-
-// ============ Delegation ============
-
 export const DelegationPoolSchema = z.object({
   operatorId: HexSchema,
   totalDelegated: z.bigint(),
@@ -231,9 +206,6 @@ export const DelegationParamsSchema = z.object({
   stakingToken: AddressSchema,
 })
 export type DelegationParams = z.infer<typeof DelegationParamsSchema>
-
-// ============ Disputes ============
-
 export const DisputeReasonSchema = z.enum([
   'PRICE_DEVIATION',
   'INVALID_SOURCE',
@@ -300,9 +272,6 @@ export const DisputeCreateParamsSchema = z.object({
   bond: z.bigint(),
 })
 export type DisputeCreateParams = z.infer<typeof DisputeCreateParamsSchema>
-
-// ============ Fees & Revenue ============
-
 export const FeeConfigSchema = z.object({
   subscriptionFeePerMonth: z.bigint(),
   perReadFee: z.bigint(),
@@ -336,9 +305,6 @@ export const OperatorEarningsSchema = z.object({
     }),
 })
 export type OperatorEarnings = z.infer<typeof OperatorEarningsSchema>
-
-// ============ Network Stats ============
-
 export const OracleNetworkStatsSchema = z.object({
   totalOperators: z.number().int().nonnegative(),
   activeOperators: z.number().int().nonnegative(),
@@ -364,9 +330,6 @@ export const FeedStatsSchema = z.object({
   totalRevenue: z.bigint(),
 })
 export type FeedStats = z.infer<typeof FeedStatsSchema>
-
-// ============ ERC-8004 Integration ============
-
 export const OraclePerformanceAttestationSchema = z.object({
   agentId: z.bigint(),
   epochNumber: z.bigint(),
@@ -406,9 +369,6 @@ export const OracleModerationActionSchema = z.object({
 export type OracleModerationAction = z.infer<
   typeof OracleModerationActionSchema
 >
-
-// ============ Report Verification ============
-
 export const ReportErrorSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('INVALID_SIGNATURE'), signer: AddressSchema }),
   z.object({ type: z.literal('NOT_COMMITTEE_MEMBER'), signer: AddressSchema }),
@@ -451,9 +411,6 @@ export const ReportVerificationResultSchema = z.object({
 export type ReportVerificationResult = z.infer<
   typeof ReportVerificationResultSchema
 >
-
-// ============ TWAP Sources ============
-
 export const TWAPSourceSchema = z.object({
   chainId: z.number().int().positive(),
   chainName: z.string().max(MAX_SHORT_STRING_LENGTH),
@@ -476,9 +433,6 @@ export const TWAPConfigSchema = z.object({
   outlierThresholdBps: z.number().int().nonnegative(),
 })
 export type TWAPConfig = z.infer<typeof TWAPConfigSchema>
-
-// ============ Contract Addresses ============
-
 export const OracleContractAddressesSchema = z.object({
   feedRegistry: AddressSchema,
   reportVerifier: AddressSchema,
@@ -492,9 +446,6 @@ export const OracleContractAddressesSchema = z.object({
 export type OracleContractAddresses = z.infer<
   typeof OracleContractAddressesSchema
 >
-
-// ============ Events ============
-
 export const FeedCreatedEventSchema = z.object({
   feedId: HexSchema,
   symbol: z.string(),
@@ -556,9 +507,6 @@ export const OperatorSlashedEventSchema = z.object({
   blockNumber: z.bigint(),
 })
 export type OperatorSlashedEvent = z.infer<typeof OperatorSlashedEventSchema>
-
-// ============ Default Values ============
-
 // Helper to avoid BigInt exponentiation transpilation issues
 const E18 = 1000000000000000000n // 10^18
 const E15 = 1000000000000000n // 10^15
@@ -591,9 +539,6 @@ export const DISPUTE_CONSTANTS = {
   SLASH_DEVIATION_BPS: 100,
   MAX_SLASH_BPS: 5000,
 } as const
-
-// ============ Feed Presets ============
-
 export const STANDARD_FEEDS = {
   'ETH-USD': {
     symbol: 'ETH-USD',
@@ -633,9 +578,6 @@ export const STANDARD_FEEDS = {
     category: 'SPOT_PRICE' as FeedCategory,
   },
 } as const
-
-// ============ Utility Functions ============
-
 /**
  * Compute feed ID from base and quote tokens
  * @param _baseToken - The base token address

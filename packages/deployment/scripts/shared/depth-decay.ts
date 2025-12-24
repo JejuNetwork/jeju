@@ -4,7 +4,7 @@
  * Used by both TypeScript services and matches Solidity implementation
  */
 
-import { DEPTH_DECAY_BPS, MAX_BPS } from '../../types/funding'
+import { DEPTH_DECAY_BPS, MAX_BPS } from '@jejunetwork/types'
 
 /**
  * Apply depth decay to a weight value

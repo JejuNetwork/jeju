@@ -3,6 +3,7 @@
  * Extracted from pages/hooks for testability
  */
 
+import { expect } from '@jejunetwork/types'
 import { z } from 'zod'
 import { INDEXER_URL } from '../config'
 import {
@@ -11,7 +12,6 @@ import {
   type RegisteredGame,
   RegisteredGamesResponseSchema,
 } from '../schemas/games'
-import { expect } from './validation'
 
 // GraphQL response schema for games query
 const GamesGraphQLResponseSchema = z.object({
@@ -127,10 +127,11 @@ export function getItemCategory(item: GameItem): ItemCategory {
     return 'resources'
 
   // Check by name keywords for remaining categories
-  for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
-    if (category === 'all' || category === 'tools') continue
+  const categoriesToCheck: ItemCategory[] = ['weapons', 'armor', 'resources']
+  for (const category of categoriesToCheck) {
+    const keywords = CATEGORY_KEYWORDS[category]
     if (keywords.some((keyword) => name.includes(keyword))) {
-      return category as ItemCategory
+      return category
     }
   }
 

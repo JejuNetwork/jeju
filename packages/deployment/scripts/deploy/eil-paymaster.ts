@@ -22,20 +22,15 @@ import {
   createPublicClient,
   createWalletClient,
   formatEther,
-  getChainId,
   http,
   parseAbi,
   parseEther,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import {
-  getBalance,
-  readContract,
-  waitForTransactionReceipt,
-} from 'viem/actions'
+import { waitForTransactionReceipt } from 'viem/actions'
 import { Logger } from '../shared/logger'
 
-const logger = new Logger('deploy-eil-paymaster')
+const logger = new Logger({ prefix: 'deploy-eil-paymaster' })
 
 const CONTRACTS_DIR = resolve(process.cwd(), 'packages/contracts')
 const CONFIG_DIR = resolve(process.cwd(), 'packages/config')
@@ -116,7 +111,7 @@ async function checkChainConnectivity(
     rpcUrls: { default: { http: [rpcUrl] } },
   }
   const publicClient = createPublicClient({ chain, transport: http(rpcUrl) })
-  const chainId = await getChainId(publicClient)
+  const chainId = await publicClient.getChainId()
   return chainId === expectedChainId
 }
 
@@ -153,7 +148,7 @@ async function deployPaymaster(
   })
 
   // Check balance
-  const balance = await getBalance(publicClient, { address: account.address })
+  const balance = await publicClient.getBalance({ address: account.address })
   if (balance < parseEther('0.01')) {
     return {
       success: false,
@@ -273,7 +268,7 @@ async function registerPaymasterOnL1(
   ])
 
   // Check if already registered
-  const existing = await readContract(publicClient, {
+  const existing = await publicClient.readContract({
     address: l1StakeManager as Address,
     abi: STAKE_MANAGER_ABI,
     functionName: 'l2Paymasters',
@@ -285,7 +280,7 @@ async function registerPaymasterOnL1(
   }
 
   // Check ownership
-  const owner = await readContract(publicClient, {
+  const owner = await publicClient.readContract({
     address: l1StakeManager as Address,
     abi: STAKE_MANAGER_ABI,
     functionName: 'owner',
@@ -405,16 +400,16 @@ async function main() {
               ? 'arbitrumSepolia'
               : 'testnet'
 
-      if (contracts.external?.[chainKey]) {
-        ;(contracts.external as Record<string, Record<string, unknown>>)[
-          chainKey
-        ].eil = {
-          ...(
-            contracts.external as Record<
-              string,
-              Record<string, Record<string, unknown>>
-            >
-          )[chainKey].eil,
+      const external = contracts.external as
+        | Record<string, Record<string, unknown>>
+        | undefined
+      if (external?.[chainKey]) {
+        const chainExternal = external[chainKey] as Record<string, unknown>
+        const existingEil = chainExternal.eil as
+          | Record<string, unknown>
+          | undefined
+        chainExternal.eil = {
+          ...existingEil,
           crossChainPaymaster: result.address,
         }
       }

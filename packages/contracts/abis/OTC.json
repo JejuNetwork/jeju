@@ -135,6 +135,19 @@
     },
     {
       "type": "function",
+      "name": "blocking",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "blockRegistry",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
       "name": "cancelOffer",
       "inputs": [
         {
@@ -529,6 +542,49 @@
     },
     {
       "type": "function",
+      "name": "isUserBanned",
+      "inputs": [
+        {
+          "name": "user",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bool",
+          "internalType": "bool"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "isUserBlocked",
+      "inputs": [
+        {
+          "name": "source",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "target",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bool",
+          "internalType": "bool"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
       "name": "maxFeedAgeSeconds",
       "inputs": [],
       "outputs": [
@@ -575,6 +631,24 @@
           "name": "",
           "type": "uint256",
           "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "moderation",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "banManager",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "identityRegistry",
+          "type": "address",
+          "internalType": "contract IIdentityRegistry"
         }
       ],
       "stateMutability": "view"
@@ -782,6 +856,25 @@
     },
     {
       "type": "function",
+      "name": "pendingRefunds",
+      "inputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
       "name": "quoteExpirySeconds",
       "inputs": [],
       "outputs": [
@@ -946,6 +1039,32 @@
     },
     {
       "type": "function",
+      "name": "setBanManager",
+      "inputs": [
+        {
+          "name": "_banManager",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "setBlockRegistry",
+      "inputs": [
+        {
+          "name": "_blockRegistry",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
       "name": "setEmergencyRefund",
       "inputs": [
         {
@@ -978,6 +1097,19 @@
           "name": "ethUsd",
           "type": "address",
           "internalType": "contract IAggregatorV3"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "setIdentityRegistry",
+      "inputs": [
+        {
+          "name": "_identityRegistry",
+          "type": "address",
+          "internalType": "address"
         }
       ],
       "outputs": [],
@@ -1260,6 +1392,13 @@
     },
     {
       "type": "function",
+      "name": "withdrawPendingRefund",
+      "inputs": [],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
       "name": "withdrawStable",
       "inputs": [
         {
@@ -1315,6 +1454,44 @@
           "type": "bool",
           "indexed": false,
           "internalType": "bool"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "BanManagerUpdated",
+      "inputs": [
+        {
+          "name": "oldManager",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "newManager",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "BlockRegistryUpdated",
+      "inputs": [
+        {
+          "name": "oldRegistry",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "newRegistry",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
         }
       ],
       "anonymous": false
@@ -1504,6 +1681,25 @@
           "type": "uint256",
           "indexed": false,
           "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "IdentityRegistryUpdated",
+      "inputs": [
+        {
+          "name": "oldRegistry",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "newRegistry",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
         }
       ],
       "anonymous": false
@@ -1705,6 +1901,25 @@
     },
     {
       "type": "event",
+      "name": "RefundWithdrawn",
+      "inputs": [
+        {
+          "name": "user",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
       "name": "RequireApproverFulfillUpdated",
       "inputs": [
         {
@@ -1845,12 +2060,54 @@
     },
     {
       "type": "error",
+      "name": "AddressEmptyCode",
+      "inputs": [
+        {
+          "name": "target",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "AddressInsufficientBalance",
+      "inputs": [
+        {
+          "name": "account",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    },
+    {
+      "type": "error",
       "name": "EnforcedPause",
       "inputs": []
     },
     {
       "type": "error",
       "name": "ExpectedPause",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "FailedInnerCall",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "InteractionBlocked",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "InvalidPrice",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "MathOverflowedMulDiv",
       "inputs": []
     },
     {
@@ -1890,6 +2147,43 @@
           "internalType": "address"
         }
       ]
+    },
+    {
+      "type": "error",
+      "name": "StalePrice",
+      "inputs": [
+        {
+          "name": "updatedAt",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "maxAge",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "StaleRound",
+      "inputs": [
+        {
+          "name": "answeredInRound",
+          "type": "uint80",
+          "internalType": "uint80"
+        },
+        {
+          "name": "roundId",
+          "type": "uint80",
+          "internalType": "uint80"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "ZeroAddress",
+      "inputs": []
     }
   ]
 }

@@ -83,6 +83,12 @@ interface BootstrapResult {
     liquidityVault?: string
     // Security
     securityBountyRegistry?: string
+    // DWS (Decentralized Web Services)
+    jnsRegistry?: string
+    jnsResolver?: string
+    storageManager?: string
+    workerRegistry?: string
+    cdnRegistry?: string
   }
   pools: {
     'USDC-ETH'?: string
@@ -269,6 +275,17 @@ class CompleteBootstrapper {
     console.log('-'.repeat(70))
     result.contracts.securityBountyRegistry =
       await this.deploySecurityBountyRegistry(result.contracts)
+    console.log('')
+
+    // Step 5.11: Deploy DWS (Decentralized Web Services)
+    console.log('🌐 STEP 5.11: Deploying DWS (Decentralized Web Services)')
+    console.log('-'.repeat(70))
+    const dws = await this.deployDWS(result.contracts)
+    result.contracts.jnsRegistry = dws.jnsRegistry
+    result.contracts.jnsResolver = dws.jnsResolver
+    result.contracts.storageManager = dws.storageManager
+    result.contracts.workerRegistry = dws.workerRegistry
+    result.contracts.cdnRegistry = dws.cdnRegistry
     console.log('')
 
     // Step 6: Authorize Services
@@ -604,8 +621,9 @@ class CompleteBootstrapper {
         maxFee: 100,
       },
     ].filter(
-      (t) =>
-        t.address && t.address !== '0x0000000000000000000000000000000000000000',
+      (t): t is typeof t & { address: string } =>
+        !!t.address &&
+        t.address !== '0x0000000000000000000000000000000000000000',
     )
 
     console.log('  📝 Registering local tokens...')
@@ -960,6 +978,175 @@ class CompleteBootstrapper {
     }
   }
 
+  private async deployDWS(
+    contracts: Partial<BootstrapResult['contracts']>,
+  ): Promise<{
+    jnsRegistry: string
+    jnsResolver: string
+    storageManager: string
+    workerRegistry: string
+    cdnRegistry: string
+  }> {
+    try {
+      // Deploy JNSRegistry
+      const jnsRegistry = this.deployContractFromPackages(
+        'src/names/JNSRegistry.sol:JNSRegistry',
+        [],
+        'JNSRegistry',
+      )
+
+      // Deploy JNSResolver
+      const jnsResolver = this.deployContractFromPackages(
+        'src/names/JNSResolver.sol:JNSResolver',
+        [jnsRegistry],
+        'JNSResolver',
+      )
+
+      // Set resolver for root node
+      this.sendTx(
+        jnsRegistry,
+        'setResolver(bytes32,address)',
+        [
+          '0x0000000000000000000000000000000000000000000000000000000000000000',
+          jnsResolver,
+        ],
+        'Root resolver set',
+      )
+
+      // Create .jeju TLD (keccak256("jeju"))
+      const jejuLabel = execSync('cast keccak "jeju"', {
+        encoding: 'utf-8',
+      }).trim()
+
+      this.sendTx(
+        jnsRegistry,
+        'setSubnodeOwner(bytes32,bytes32,address)',
+        [
+          '0x0000000000000000000000000000000000000000000000000000000000000000',
+          jejuLabel,
+          this.deployerAddress,
+        ],
+        '.jeju TLD created',
+      )
+
+      // Calculate jeju node hash
+      const jejuNode = execSync('cast namehash "jeju"', {
+        encoding: 'utf-8',
+      }).trim()
+
+      // Set resolver for .jeju
+      this.sendTx(
+        jnsRegistry,
+        'setResolver(bytes32,address)',
+        [jejuNode, jnsResolver],
+        '.jeju resolver set',
+      )
+
+      // Create .apps.jeju subdomain for OAuth3 apps
+      const appsLabel = execSync('cast keccak "apps"', {
+        encoding: 'utf-8',
+      }).trim()
+
+      this.sendTx(
+        jnsRegistry,
+        'setSubnodeOwner(bytes32,bytes32,address)',
+        [jejuNode, appsLabel, this.deployerAddress],
+        '.apps.jeju created',
+      )
+
+      // Calculate apps.jeju node
+      const appsJejuNode = execSync('cast namehash "apps.jeju"', {
+        encoding: 'utf-8',
+      }).trim()
+
+      // Set resolver for apps.jeju
+      this.sendTx(
+        jnsRegistry,
+        'setResolver(bytes32,address)',
+        [appsJejuNode, jnsResolver],
+        '.apps.jeju resolver set',
+      )
+
+      // Register OAuth3 app names (dws.apps.jeju, etc.)
+      const oauth3Apps = ['dws', 'bazaar', 'example', 'gateway', 'auth']
+      for (const appName of oauth3Apps) {
+        const appLabel = execSync(`cast keccak "${appName}"`, {
+          encoding: 'utf-8',
+        }).trim()
+
+        this.sendTx(
+          jnsRegistry,
+          'setSubnodeOwner(bytes32,bytes32,address)',
+          [appsJejuNode, appLabel, this.deployerAddress],
+          `${appName}.apps.jeju created`,
+        )
+
+        const appNode = execSync(`cast namehash "${appName}.apps.jeju"`, {
+          encoding: 'utf-8',
+        }).trim()
+
+        // Set resolver for the app
+        this.sendTx(
+          jnsRegistry,
+          'setResolver(bytes32,address)',
+          [appNode, jnsResolver],
+          `${appName}.apps.jeju resolver set`,
+        )
+      }
+
+      // Deploy StorageManager
+      const storageManager = this.deployContractFromPackages(
+        'src/storage/StorageManager.sol:StorageManager',
+        [
+          contracts.identityRegistry || this.deployerAddress,
+          this.deployerAddress, // treasury
+          this.deployerAddress, // owner
+        ],
+        'StorageManager',
+      )
+
+      // Deploy WorkerRegistry
+      const workerRegistry = this.deployContractFromPackages(
+        'src/compute/WorkerRegistry.sol:WorkerRegistry',
+        [],
+        'WorkerRegistry',
+      )
+
+      // Deploy CDNRegistry
+      const cdnRegistry = this.deployContractFromPackages(
+        'src/cdn/CDNRegistry.sol:CDNRegistry',
+        [
+          this.deployerAddress, // owner
+          contracts.identityRegistry || this.deployerAddress,
+          contracts.banManager || this.deployerAddress,
+          '10000000000000000', // 0.01 ETH min stake
+        ],
+        'CDNRegistry',
+      )
+
+      console.log('  ✅ DWS deployed')
+      console.log('     ✨ JNS, Storage, Workers, and CDN ready')
+      return {
+        jnsRegistry,
+        jnsResolver,
+        storageManager,
+        workerRegistry,
+        cdnRegistry,
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      console.log('  ⚠️  DWS deployment skipped (contracts may not exist)')
+      console.log('     Error:', errorMsg)
+      return {
+        jnsRegistry: '0x0000000000000000000000000000000000000000',
+        jnsResolver: '0x0000000000000000000000000000000000000000',
+        storageManager: '0x0000000000000000000000000000000000000000',
+        workerRegistry: '0x0000000000000000000000000000000000000000',
+        cdnRegistry: '0x0000000000000000000000000000000000000000',
+      }
+    }
+  }
+
   private deployContractFromPackages(
     path: string,
     args: string[],
@@ -1088,17 +1275,23 @@ class CompleteBootstrapper {
         )
       }
 
-      // ETH: 1000 ETH
-      execSync(
-        `cast send ${address} --value 1000ether --rpc-url ${this.rpcUrl} --private-key ${this.deployerKey}`,
-        { stdio: 'pipe' },
-      )
+      // ETH: 100 ETH (skip if same as deployer)
+      if (address.toLowerCase() !== this.deployerAddress.toLowerCase()) {
+        execSync(
+          `cast send ${address} --value 100ether --rpc-url ${this.rpcUrl} --private-key ${this.deployerKey}`,
+          { stdio: 'pipe' },
+        )
+      }
 
       const jejuStr =
         jeju && jeju !== '0x0000000000000000000000000000000000000000'
           ? ', 100,000 JEJU'
           : ''
-      console.log(`    ✅ 10,000 USDC, 100,000 elizaOS${jejuStr}, 1,000 ETH`)
+      const ethStr =
+        address.toLowerCase() !== this.deployerAddress.toLowerCase()
+          ? ', 100 ETH'
+          : ' (deployer has remaining ETH)'
+      console.log(`    ✅ 10,000 USDC, 100,000 elizaOS${jejuStr}${ethStr}`)
       console.log('')
 
       wallets.push({
@@ -1233,9 +1426,6 @@ class CompleteBootstrapper {
       return {}
     }
   }
-
-  // ============ Helpers ============
-
   private deployContract(path: string, args: string[], name: string): string {
     const argsStr = args.join(' ')
     const cmd = `cd packages/contracts && forge create ${path} \
@@ -1290,6 +1480,29 @@ class CompleteBootstrapper {
       'localnet-complete.json',
     )
     writeFileSync(path, JSON.stringify(result, null, 2))
+
+    // Also write dws-localnet.json for the dev command to find
+    const dwsPath = join(
+      process.cwd(),
+      'packages',
+      'contracts',
+      'deployments',
+      'dws-localnet.json',
+    )
+    const dwsContracts = {
+      jnsRegistry: result.contracts.jnsRegistry,
+      jnsResolver: result.contracts.jnsResolver,
+      storageManager: result.contracts.storageManager,
+      workerRegistry: result.contracts.workerRegistry,
+      cdnRegistry: result.contracts.cdnRegistry,
+      jnsRegistrar:
+        (result.contracts as Record<string, string>).jnsRegistrar ||
+        '0x0000000000000000000000000000000000000000',
+      jnsReverseRegistrar:
+        (result.contracts as Record<string, string>).jnsReverseRegistrar ||
+        '0x0000000000000000000000000000000000000000',
+    }
+    writeFileSync(dwsPath, JSON.stringify(dwsContracts, null, 2))
 
     // Update gateway .env with ALL contract addresses
     const gatewayEnvPath = join(process.cwd(), 'apps', 'gateway', '.env.local')
@@ -1349,6 +1562,13 @@ VITE_LIQUIDITY_VAULT_ADDRESS="${result.contracts.liquidityVault || ''}"
 VITE_CREDIT_MANAGER_ADDRESS="${result.contracts.creditManager}"
 VITE_SERVICE_REGISTRY_ADDRESS="${result.contracts.serviceRegistry}"
 VITE_MULTI_TOKEN_PAYMASTER_ADDRESS="${result.contracts.universalPaymaster}"
+
+# DWS (Decentralized Web Services)
+VITE_JNS_REGISTRY_ADDRESS="${result.contracts.jnsRegistry || ''}"
+VITE_JNS_RESOLVER_ADDRESS="${result.contracts.jnsResolver || ''}"
+VITE_STORAGE_MANAGER_ADDRESS="${result.contracts.storageManager || ''}"
+VITE_WORKER_REGISTRY_ADDRESS="${result.contracts.workerRegistry || ''}"
+VITE_CDN_REGISTRY_ADDRESS="${result.contracts.cdnRegistry || ''}"
 `
     writeFileSync(gatewayEnvPath, gatewayEnvContent)
     console.log(`   ${gatewayEnvPath}`)
@@ -1413,6 +1633,13 @@ LIQUIDITY_ROUTER_ADDRESS="${result.contracts.liquidityRouter || ''}"
 MULTI_SERVICE_STAKE_MANAGER_ADDRESS="${result.contracts.multiServiceStakeManager || ''}"
 LIQUIDITY_VAULT_ADDRESS="${result.contracts.liquidityVault || ''}"
 
+# DWS (Decentralized Web Services)
+JNS_REGISTRY_ADDRESS="${result.contracts.jnsRegistry || ''}"
+JNS_RESOLVER_ADDRESS="${result.contracts.jnsResolver || ''}"
+STORAGE_MANAGER_ADDRESS="${result.contracts.storageManager || ''}"
+WORKER_REGISTRY_ADDRESS="${result.contracts.workerRegistry || ''}"
+CDN_REGISTRY_ADDRESS="${result.contracts.cdnRegistry || ''}"
+
 # x402 Configuration
 X402_NETWORK=jeju-localnet
 X402_FACILITATOR_URL=http://localhost:3402
@@ -1466,7 +1693,17 @@ ${result.testWallets.map((w, i) => `TEST_ACCOUNT_${i + 1}_KEY="${w.privateKey}"`
     console.log('   ✅ Oracle prices initialized')
     console.log('   ✅ All services authorized')
     console.log('   ✅ Banned users cannot transfer JEJU')
+    console.log('   ✅ DWS (JNS, Storage, Workers, CDN)')
     console.log('')
+    if (result.contracts.jnsRegistry) {
+      console.log('🌐 DWS Contracts:')
+      console.log(`   JNSRegistry:     ${result.contracts.jnsRegistry}`)
+      console.log(`   JNSResolver:     ${result.contracts.jnsResolver}`)
+      console.log(`   StorageManager:  ${result.contracts.storageManager}`)
+      console.log(`   WorkerRegistry:  ${result.contracts.workerRegistry}`)
+      console.log(`   CDNRegistry:     ${result.contracts.cdnRegistry}`)
+      console.log('')
+    }
     console.log('👥 Test Wallets (all funded):')
     result.testWallets.slice(0, 5).forEach((w) => {
       console.log(`   ${w.address.slice(0, 10)}... ${w.name}`)
@@ -1476,7 +1713,7 @@ ${result.testWallets.map((w, i) => `TEST_ACCOUNT_${i + 1}_KEY="${w.privateKey}"`
     console.log('')
     console.log('1. Everything is ready! Use: bun run dev')
     console.log('')
-    console.log('2. Gateway Portal (paymaster system):')
+    console.log('2. Gateway (paymaster system):')
     console.log('   http://localhost:4001')
     console.log('')
     console.log('3. Test paymaster:')

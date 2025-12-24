@@ -21,9 +21,6 @@ import {
   http,
   parseAbi,
 } from 'viem'
-
-// ============ Types ============
-
 export interface TokenBalance {
   address: Address
   symbol: string
@@ -79,9 +76,6 @@ export interface CrossChainRouterConfig {
     crossChainPaymaster: Address
   }[]
 }
-
-// ============ ABIs ============
-
 const PAYMASTER_FACTORY_ABI = parseAbi([
   'function getAllPaymasters() view returns (address[])',
   'function getPaymasterInfo(address paymaster) view returns (address token, uint256 stakedEth, bool isActive)',
@@ -117,9 +111,6 @@ const PRICE_ORACLE_ABI = parseAbi([
   'function getETHPrice() view returns (uint256)',
   'function convertAmount(address fromToken, address toToken, uint256 amount) view returns (uint256)',
 ])
-
-// ============ Core Router ============
-
 export class GasIntentRouter {
   private client: ReturnType<typeof createPublicClient>
   private config: RouterConfig
@@ -651,9 +642,6 @@ export class GasIntentRouter {
       ethCostUsd,
     }
   }
-
-  // ============ Helper Functions ============
-
   private async getTokenUsdValue(
     tokenAddress: Address,
     amount: bigint,
@@ -724,9 +712,6 @@ export class GasIntentRouter {
     return reasons.length > 0 ? reasons.join(', ') : 'Available option'
   }
 }
-
-// ============ Factory Function ============
-
 export function createGasRouter(
   config: Partial<RouterConfig> = {},
 ): GasIntentRouter {
@@ -766,9 +751,6 @@ export function createMultiChainGasRouter(
 
   return router
 }
-
-// ============ Utility Functions ============
-
 /**
  * Format a paymaster option for display
  */

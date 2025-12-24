@@ -1,17 +1,4 @@
-/**
- * jeju test - Comprehensive Test Runner
- *
- * Modes:
- * - unit: Fast tests, no chain, no services
- * - integration: Chain + real services via Docker
- * - e2e: Full stack with UI testing (Playwright/Synpress)
- * - full: Everything including multi-chain (Solana, Arbitrum, Base)
- * - infra: Infrastructure and deployment tests
- * - smoke: Quick health checks
- *
- * All modes use REAL services - no mocks.
- * CLI handles all setup/teardown automatically.
- */
+/** Comprehensive test runner with automatic setup/teardown */
 
 import {
   existsSync,
@@ -396,9 +383,7 @@ testCommand
     }
   })
 
-// ============================================================================
 // SUBAGENT COMMANDS
-// ============================================================================
 
 testCommand
   .command('analyze')
@@ -577,6 +562,67 @@ testCommand
     } finally {
       if (cleanup && !options.setupOnly) await cleanup()
     }
+  })
+
+testCommand
+  .command('crucible')
+  .description('Run Crucible-specific tests (autonomous agents, ElizaOS)')
+  .option('--mode <mode>', 'Test mode: autonomous, eliza-memory, all', 'all')
+  .option('--verbose', 'Verbose output')
+  .action(async (options) => {
+    const rootDir = findMonorepoRoot()
+    logger.header('CRUCIBLE TESTS')
+
+    const cruciblePath = join(rootDir, 'apps/crucible')
+    if (!existsSync(cruciblePath)) {
+      logger.error('Crucible app not found')
+      process.exit(1)
+    }
+
+    const mode = options.mode
+    const testScripts: string[] = []
+
+    if (mode === 'autonomous' || mode === 'all') {
+      testScripts.push('scripts/test-autonomous.ts')
+    }
+    if (mode === 'eliza-memory' || mode === 'all') {
+      testScripts.push('scripts/test-eliza-memory.ts')
+    }
+
+    logger.keyValue('Mode', mode)
+    logger.keyValue('Scripts', testScripts.join(', '))
+    logger.newline()
+
+    let failed = false
+    for (const script of testScripts) {
+      const scriptPath = join(cruciblePath, script)
+      if (!existsSync(scriptPath)) {
+        logger.warn(`Script not found: ${script}`)
+        continue
+      }
+
+      logger.step(`Running ${script}...`)
+      const proc = Bun.spawn(['bun', 'run', scriptPath], {
+        cwd: cruciblePath,
+        stdout: 'inherit',
+        stderr: 'inherit',
+        env: process.env,
+      })
+
+      const exitCode = await proc.exited
+      if (exitCode !== 0) {
+        logger.error(`${script} failed`)
+        failed = true
+      } else {
+        logger.success(`${script} passed`)
+      }
+    }
+
+    if (failed) {
+      logger.error('Some Crucible tests failed')
+      process.exit(1)
+    }
+    logger.success('All Crucible tests passed')
   })
 
 // Test runners

@@ -1,14 +1,20 @@
 {
   "name": "@jejunetwork/deployment",
   "version": "0.1.0",
-  "description": "Infrastructure deployment for Jeju Network",
+  "private": true,
+  "description": "Serverless deployment for Jeju Network",
   "type": "module",
   "exports": {
-    ".": "./scripts/shared/index.ts"
+    ".": "./scripts/serverless/index.ts"
   },
   "scripts": {
     "test": "bun test",
     "typecheck": "tsc --noEmit",
+    "dev": "bun run scripts/serverless/local-server.ts",
+    "deploy": "bun run scripts/serverless/deploy.ts",
+    "deploy:testnet": "bun run scripts/serverless/deploy.ts --testnet",
+    "deploy:mainnet": "bun run scripts/serverless/deploy.ts --mainnet",
+    "verify": "bun run scripts/serverless/deploy.ts --verify",
     "localnet:start": "bun run scripts/localnet-start.ts",
     "localnet:stop": "bun run scripts/localnet-stop.ts",
     "localnet:reset": "bun run scripts/localnet-reset.ts",
@@ -17,6 +23,9 @@
   },
   "dependencies": {
     "@elysiajs/cors": "^1.2.0",
+    "@jejunetwork/cli": "workspace:*",
+    "@jejunetwork/dws": "workspace:*",
+    "@jejunetwork/shared": "workspace:*",
     "@jejunetwork/types": "workspace:*",
     "elysia": "^1.2.25",
     "viem": "2.43.3",

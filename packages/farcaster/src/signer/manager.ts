@@ -9,9 +9,6 @@ import { randomBytes } from '@noble/ciphers/webcrypto'
 import { ed25519 } from '@noble/curves/ed25519'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils'
 import type { Hex } from 'viem'
-
-// ============ Types ============
-
 export type SignerStatus = 'pending' | 'active' | 'revoked'
 
 export interface SignerInfo {
@@ -46,9 +43,6 @@ interface StoredSigner {
   info: SignerInfo
   privateKey: Uint8Array
 }
-
-// ============ Signer Manager Class ============
-
 export class FarcasterSignerManager {
   private signers: Map<string, StoredSigner> = new Map()
   private readonly storage: 'memory' | 'file'
@@ -282,9 +276,6 @@ export class FarcasterSignerManager {
       appName: stored.info.appName,
     }
   }
-
-  // ============ Persistence (simplified) ============
-
   private async persist(): Promise<void> {
     if (this.storage === 'memory') {
       return // No persistence needed
@@ -301,21 +292,4 @@ export class FarcasterSignerManager {
 
     // File-based loading would go here
   }
-}
-
-// ============ Singleton Instance ============
-
-let defaultManager: FarcasterSignerManager | null = null
-
-export function getSignerManager(
-  config?: SignerManagerConfig,
-): FarcasterSignerManager {
-  if (!defaultManager) {
-    defaultManager = new FarcasterSignerManager(config)
-  }
-  return defaultManager
-}
-
-export function resetSignerManager(): void {
-  defaultManager = null
 }

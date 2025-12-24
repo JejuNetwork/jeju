@@ -1,11 +1,5 @@
 /**
- * Zod Validation Schemas
- *
- * Provides runtime validation for all external inputs:
- * - Deployment configurations
- * - Chain configurations
- * - Token economics
- * - User-provided parameters
+ * Token deployment validation schemas.
  */
 
 import {
@@ -16,54 +10,26 @@ import {
 } from '@jejunetwork/types'
 import { z } from 'zod'
 
-// =============================================================================
-// PRIMITIVE VALIDATORS (re-exports with token package naming convention)
-// =============================================================================
-
-/** Ethereum address validator */
 export const addressSchema = AddressSchema
-
-/** Hex string validator */
 export const hexSchema = HexSchema
-
-/** Hex bytes32 validator */
 export const bytes32Schema = HashSchema
 
-/** Solana public key validator (base58) */
 export const solanaPublicKeySchema = z
   .string()
   .regex(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/, 'Invalid Solana public key')
 
-/** Cross-chain address validator (EVM 0x address or Solana base58 public key) */
 export const crossChainAddressSchema = z.union([
   addressSchema,
   solanaPublicKeySchema,
 ])
 
-/** Positive bigint validator */
 export const positiveBigintSchema = z.bigint().positive()
-
-/** Non-negative bigint validator */
 export const nonNegativeBigintSchema = z.bigint().nonnegative()
-
-/** Percentage validator (0-100) */
 export const percentageSchema = PercentageSchema
-
-/** Basis points validator (0-10000) */
 export const bpsSchema = z.number().int().min(0).max(10000)
-
-/** EVM chain ID */
 export const evmChainIdSchema = z.number().int().positive()
-
-/** Solana network */
 export const solanaNetworkSchema = z.enum(['solana-mainnet', 'solana-devnet'])
-
-/** Chain ID (EVM or Solana) */
 export const chainIdSchema = z.union([evmChainIdSchema, solanaNetworkSchema])
-
-// =============================================================================
-// CHAIN CONFIG SCHEMAS
-// =============================================================================
 
 export const nativeCurrencySchema = z.object({
   name: z.string().min(1),
@@ -101,9 +67,7 @@ export const chainConfigSchema = z
     }
   })
 
-// =============================================================================
 // TOKEN ECONOMICS SCHEMAS
-// =============================================================================
 
 export const tokenAllocationSchema = z
   .object({
@@ -175,9 +139,7 @@ export const tokenEconomicsSchema = z.object({
   maxTxPercent: percentageSchema,
 })
 
-// =============================================================================
 // LIQUIDITY SCHEMAS
-// =============================================================================
 
 /**
  * Liquidity DEX protocols for token deployment
@@ -216,9 +178,7 @@ export const liquidityConfigSchema = z
     { message: 'Liquidity allocation percentages must sum to 100' },
   )
 
-// =============================================================================
 // PRESALE SCHEMAS
-// =============================================================================
 
 export const presaleTierSchema = z.object({
   name: z.string().min(1),
@@ -245,9 +205,7 @@ export const presaleConfigSchema = z
     message: 'endTime must be after startTime',
   })
 
-// =============================================================================
 // CCA (CONTINUOUS CLEARING AUCTION) SCHEMAS
-// =============================================================================
 
 export const ccaDeploymentModeSchema = z.enum([
   'uniswap-platform',
@@ -280,9 +238,7 @@ export const ccaConfigSchema = z
     message: 'reservePriceUsd must be less than or equal to startPriceUsd',
   })
 
-// =============================================================================
 // HYPERLANE SCHEMAS
-// =============================================================================
 
 export const ismTypeSchema = z.enum([
   'multisig',
@@ -341,9 +297,7 @@ export const hyperlaneConfigSchema = z.object({
   gasConfig: hyperlaneGasConfigSchema,
 })
 
-// =============================================================================
 // DEPLOYMENT CONFIG SCHEMAS
-// =============================================================================
 
 export const deploymentConfigSchema = z.object({
   token: tokenEconomicsSchema,
@@ -357,9 +311,7 @@ export const deploymentConfigSchema = z.object({
   deploymentSalt: bytes32Schema,
 })
 
-// =============================================================================
 // BRIDGE REQUEST SCHEMAS
-// =============================================================================
 
 export const bridgeRequestSchema = z
   .object({
@@ -386,9 +338,7 @@ export const bridgeStatusSchema = z.object({
   error: z.string().optional(),
 })
 
-// =============================================================================
 // TOKEN DEPLOYMENT CONFIG SCHEMAS
-// =============================================================================
 
 export const tokenCategorySchema = z.enum([
   'defi',
@@ -417,9 +367,7 @@ export const tokenDeploymentConfigSchema = z
   })
   .strict()
 
-// =============================================================================
 // SOLANA PRIVATE KEY SCHEMAS
-// =============================================================================
 
 /**
  * Validates a Solana private key as a JSON array of 64 bytes (0-255)
@@ -428,9 +376,7 @@ export const solanaPrivateKeyBytesSchema = z
   .array(z.number().int().min(0).max(255))
   .length(64, 'Solana private key must be exactly 64 bytes')
 
-// =============================================================================
 // FOUNDRY ARTIFACT SCHEMA
-// =============================================================================
 
 const foundryLinkReferenceSchema = z.object({
   start: z.number().int().nonnegative(),
@@ -497,9 +443,7 @@ export const foundryArtifactSchema = z.object({
 
 export type FoundryArtifact = z.infer<typeof foundryArtifactSchema>
 
-// =============================================================================
 // TYPE EXPORTS (inferred from schemas)
-// =============================================================================
 
 export type ValidatedAddress = z.infer<typeof addressSchema>
 export type ValidatedChainConfig = z.infer<typeof chainConfigSchema>

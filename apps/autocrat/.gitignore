@@ -1,2 +1,47 @@
-.council-storage/
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+out/
+
+# Environment
+.env
+.env.local
+.env.*.local
+.env.localnet
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# TypeScript
+*.tsbuildinfo
+
+# Testing
+coverage/
+test-results/
+test-results*.json
+playwright-report/
+synpress-report*/
+
+# Logs
+*.log
+
+# Cache
+.cache/
+.turbo/
+
+# App storage
 .autocrat-storage/
+.council-storage/
+
+# bun.lock (only at monorepo root)
+bun.lock

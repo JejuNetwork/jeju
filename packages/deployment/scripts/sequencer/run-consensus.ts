@@ -9,13 +9,7 @@
 
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import {
-  type Address,
-  createPublicClient,
-  getBlockNumber,
-  http,
-  parseAbi,
-} from 'viem'
+import { type Address, createPublicClient, http, parseAbi } from 'viem'
 import { inferChainFromRpcUrl } from '../shared/chain-utils'
 import { ConsensusAdapter } from './integration/consensus-adapter'
 
@@ -63,7 +57,7 @@ async function main() {
   const chain = inferChainFromRpcUrl(rpcUrl)
   const publicClient = createPublicClient({ chain, transport: http(rpcUrl) })
 
-  const blockNumber = await getBlockNumber(publicClient)
+  const blockNumber = await publicClient.getBlockNumber()
   console.log(`✅ Connected to L1 at block ${blockNumber}`)
 
   const sequencerRegistryAddress = deployment.sequencerRegistry as Address

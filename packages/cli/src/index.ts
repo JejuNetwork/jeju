@@ -1,15 +1,7 @@
 #!/usr/bin/env bun
 
 /**
- * Network CLI - Development toolchain
- *
- * Core Commands:
- *   dev      Start development environment
- *   test     Run test suite
- *   deploy   Deploy to testnet/mainnet
- *   init     Create new project
- *   keys     Key management and genesis
- *   status   Check system status
+ * Jeju Network CLI
  */
 
 import { existsSync, readFileSync } from 'node:fs'
@@ -28,10 +20,10 @@ import { buildCommand } from './commands/build'
 import { cleanCommand } from './commands/clean'
 import { cleanupCommand } from './commands/cleanup'
 import { computeCommand } from './commands/compute'
+import { cqlCommand } from './commands/cql'
 import { decentralizeCommand } from './commands/decentralize'
 import { deployCommand } from './commands/deploy'
 import { deployMipsCommand } from './commands/deploy-mips'
-// Import commands
 import { devCommand } from './commands/dev'
 import { dwsCommand } from './commands/dws'
 import { faucetCommand } from './commands/faucet'
@@ -44,6 +36,7 @@ import { keysCommand } from './commands/keys'
 import { portsCommand } from './commands/ports'
 import { proxyCommand } from './commands/proxy'
 import { publishCommand } from './commands/publish'
+import { seedCommand } from './commands/seed'
 import { serviceCommand } from './commands/service'
 import { statusCommand } from './commands/status'
 import { superchainCommand } from './commands/superchain'
@@ -115,8 +108,10 @@ program.addCommand(buildCommand)
 program.addCommand(cleanCommand)
 program.addCommand(cleanupCommand)
 program.addCommand(serviceCommand)
+program.addCommand(seedCommand)
 program.addCommand(publishCommand)
 program.addCommand(infraCommand)
+program.addCommand(cqlCommand)
 program.addCommand(tokenCommand)
 program.addCommand(dwsCommand)
 program.addCommand(validateCommand)

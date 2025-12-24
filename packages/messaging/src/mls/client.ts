@@ -7,7 +7,7 @@
  * - Transport via Jeju relay nodes
  */
 
-import { randomBytes } from 'node:crypto'
+import { bytesToHex, randomBytes } from '@jejunetwork/shared'
 import type { Address, Hex } from 'viem'
 import { JejuGroup } from './group'
 import type {
@@ -501,7 +501,7 @@ export class JejuMLSClient {
   }
 
   private generateGroupId(): string {
-    return randomBytes(16).toString('hex')
+    return bytesToHex(randomBytes(16))
   }
 }
 

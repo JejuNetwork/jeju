@@ -1042,7 +1042,11 @@ export class RelayerService {
     for (const [key, nonces] of this.processedNonces) {
       if (nonces.size > 10000) {
         // If a sender has too many nonces, trim old ones
-        const noncesArray = Array.from(nonces).sort((a, b) => Number(a - b))
+        // Use bigint comparison to avoid precision loss with large nonce values
+        const noncesArray = Array.from(nonces).sort((a, b) => {
+          if (a === b) return 0
+          return a < b ? -1 : 1
+        })
         const trimCount = nonces.size - 5000
         for (let i = 0; i < trimCount; i++) {
           nonces.delete(noncesArray[i])

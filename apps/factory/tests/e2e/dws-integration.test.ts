@@ -8,7 +8,7 @@
  */
 
 import { beforeAll, describe, expect, test } from 'bun:test'
-import { getCoreAppUrl, getL2RpcUrl } from '@jejunetwork/config/ports'
+import { getCoreAppUrl, getL2RpcUrl } from '@jejunetwork/config'
 import { z } from 'zod'
 
 const FACTORY_API_URL = process.env.FACTORY_API_URL || getCoreAppUrl('FACTORY')
@@ -18,9 +18,7 @@ const RPC_URL = process.env.RPC_URL || getL2RpcUrl()
 // Test wallet (hardhat default)
 const _TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
 
-// ============================================================================
 // Response Schemas for E2E Tests
-// ============================================================================
 
 const HealthResponseSchema = z.object({
   status: z.string(),

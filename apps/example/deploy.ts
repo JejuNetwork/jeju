@@ -1,41 +1,23 @@
-/**
- * Deploy Script
- *
- * Deploys the example app to the Jeju network.
- * Uses typed clients for all service interactions.
- */
-
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
+import { getCQLBlockProducerUrl } from '@jejunetwork/config'
+import { expectHex } from '@jejunetwork/types'
 import type { Hex } from 'viem'
 import type { PrivateKeyAccount } from 'viem/accounts'
 import { privateKeyToAccount } from 'viem/accounts'
-import { createJNSClient, type JNSRecords } from './src/services/jns'
-import { createStorageClient } from './src/services/storage'
-import type { DeployResult } from './src/types'
-
-// ============================================================================
-// Configuration
-// ============================================================================
+import { setupDAppJNS } from './api/services/jns'
+import { getStorageService } from './api/services/storage'
+import {
+  isValidHex,
+  parseJsonResponse,
+  triggerIdResponseSchema,
+} from './lib/schemas'
+import type { DeployResult } from './lib/types'
 
 const NETWORK = process.env.NETWORK || 'localnet'
 const DWS_URL = process.env.DWS_URL || 'http://localhost:4030'
-const GATEWAY_API = process.env.GATEWAY_API || `${DWS_URL}/cdn`
-const STORAGE_API = process.env.STORAGE_API || `${DWS_URL}/storage`
 const COMPUTE_API = process.env.COMPUTE_API || `${DWS_URL}/compute`
-const CQL_ENDPOINT = process.env.CQL_ENDPOINT || 'http://localhost:4300'
-const IPFS_GATEWAY = process.env.IPFS_GATEWAY || 'http://localhost:4180'
-
-// ============================================================================
-// Typed Clients
-// ============================================================================
-
-const jnsClient = createJNSClient(GATEWAY_API)
-const storageClient = createStorageClient(STORAGE_API, IPFS_GATEWAY)
-
-// ============================================================================
-// Compute Client (typed wrapper)
-// ============================================================================
+const CQL_ENDPOINT = process.env.CQL_ENDPOINT || getCQLBlockProducerUrl()
 
 interface ComputeClient {
   registerService(config: ServiceConfig): Promise<{ success: boolean }>
@@ -83,7 +65,11 @@ function createComputeClient(baseUrl: string): ComputeClient {
       if (!response.ok) {
         throw new Error(`Cron registration failed: ${response.status}`)
       }
-      return (await response.json()) as { triggerId: Hex }
+      return parseJsonResponse(
+        response,
+        triggerIdResponseSchema,
+        'Cron register response',
+      )
     },
 
     async health(): Promise<boolean> {
@@ -97,9 +83,11 @@ function createComputeClient(baseUrl: string): ComputeClient {
 
 const computeClient = createComputeClient(COMPUTE_API)
 
-// ============================================================================
-// Wallet Setup
-// ============================================================================
+// Validated Anvil dev key constant
+const ANVIL_DEV_KEY = expectHex(
+  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
+  'ANVIL_DEV_KEY',
+)
 
 async function getDeployerWallet(): Promise<PrivateKeyAccount> {
   const privateKey = process.env.DEPLOYER_PRIVATE_KEY
@@ -110,34 +98,27 @@ async function getDeployerWallet(): Promise<PrivateKeyAccount> {
       console.warn(
         '[Deploy] Using default Anvil dev key - DO NOT USE IN PRODUCTION',
       )
-      // Anvil account #0 - well-known test key
-      const ANVIL_DEV_KEY =
-        '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
-      return privateKeyToAccount(ANVIL_DEV_KEY as `0x${string}`)
+      return privateKeyToAccount(ANVIL_DEV_KEY)
     }
     throw new Error(
       'DEPLOYER_PRIVATE_KEY environment variable is required for non-localnet deployment',
     )
   }
 
-  // Validate the provided key format
-  if (!privateKey.startsWith('0x') || privateKey.length !== 66) {
+  // Validate the provided key format using type guard
+  if (!isValidHex(privateKey) || privateKey.length !== 66) {
     throw new Error(
       'DEPLOYER_PRIVATE_KEY must be a valid 32-byte hex string starting with 0x',
     )
   }
 
-  return privateKeyToAccount(privateKey as `0x${string}`)
+  return privateKeyToAccount(privateKey)
 }
-
-// ============================================================================
-// Database Deployment
-// ============================================================================
 
 async function deployDatabase(): Promise<string> {
   console.log('📦 Deploying database schema...')
 
-  const schemaPath = join(import.meta.dir, 'src/db/migrate.ts')
+  const schemaPath = join(import.meta.dir, 'api/db/migrate.ts')
 
   // Run migration
   const proc = Bun.spawn(['bun', 'run', schemaPath], {
@@ -154,19 +135,15 @@ async function deployDatabase(): Promise<string> {
   return databaseId
 }
 
-// ============================================================================
-// Frontend Build & Deploy
-// ============================================================================
-
 async function buildFrontend(): Promise<string> {
   console.log('🏗️  Building frontend...')
 
-  const frontendDir = join(import.meta.dir, 'src/frontend')
+  const frontendDir = join(import.meta.dir, 'web')
 
   // Bundle with Bun
   const result = await Bun.build({
     entrypoints: [join(frontendDir, 'app.ts')],
-    outdir: join(import.meta.dir, 'dist/frontend'),
+    outdir: join(import.meta.dir, 'dist/web'),
     target: 'browser',
     minify: true,
   })
@@ -176,7 +153,7 @@ async function buildFrontend(): Promise<string> {
   }
 
   console.log('   Frontend built successfully')
-  return join(import.meta.dir, 'dist/frontend')
+  return join(import.meta.dir, 'dist/web')
 }
 
 async function deployFrontendToIPFS(
@@ -207,29 +184,23 @@ async function deployFrontendToIPFS(
   }
 
   // Add HTML
-  const indexHtml = readFileSync(
-    join(import.meta.dir, 'src/frontend/index.html'),
-  )
+  const indexHtml = readFileSync(join(import.meta.dir, 'web/index.html'))
   files.push({ name: 'index.html', content: new Uint8Array(indexHtml) })
 
   // Add built JS files
   addFilesFromDir(buildDir)
 
   // Upload primary file (index.html with bundled JS reference)
-  const cid = await storageClient.upload(
+  const storageService = getStorageService()
+  const cid = await storageService.upload(
     files[0].content,
     files[0].name,
     account.address,
-    'hot',
   )
 
   console.log(`   Frontend CID: ${cid}`)
   return cid
 }
-
-// ============================================================================
-// Backend Deployment
-// ============================================================================
 
 async function deployBackendToCompute(
   _account: PrivateKeyAccount,
@@ -255,45 +226,22 @@ async function deployBackendToCompute(
   return backendEndpoint
 }
 
-// ============================================================================
-// JNS Registration
-// ============================================================================
-
 async function registerJNS(
   account: PrivateKeyAccount,
   config: { name: string; frontendCid: string; backendUrl: string },
 ): Promise<void> {
   console.log('🌐 Registering JNS name...')
 
-  // Check availability and get existing records
-  const isAvailable = await jnsClient.isAvailable(config.name)
-
-  const records: JNSRecords = {
-    address: account.address,
-    contentHash: `ipfs://${config.frontendCid}`,
-    a2aEndpoint: `${config.backendUrl}/a2a`,
-    mcpEndpoint: `${config.backendUrl}/mcp`,
-    restEndpoint: `${config.backendUrl}/api/v1`,
+  // Use the setupDAppJNS helper which handles registration and records
+  await setupDAppJNS(account.address, {
+    name: config.name,
+    backendUrl: config.backendUrl,
+    frontendCid: config.frontendCid,
     description: 'Decentralized Todo Application',
-  }
-
-  if (isAvailable) {
-    // Register name
-    const price = await jnsClient.getPrice(config.name, 1)
-    if (price > 0n) {
-      await jnsClient.register(config.name, account.address, 1, price)
-    }
-  }
-
-  // Set records
-  await jnsClient.setRecords(config.name, records)
+  })
 
   console.log(`   Registered ${config.name}`)
 }
-
-// ============================================================================
-// Cron Triggers
-// ============================================================================
 
 async function setupCronTriggers(
   _account: PrivateKeyAccount,
@@ -311,10 +259,6 @@ async function setupCronTriggers(
   console.log(`   Trigger ID: ${result.triggerId}`)
   return result.triggerId
 }
-
-// ============================================================================
-// OAuth3 Seeding
-// ============================================================================
 
 async function seedOAuth3Registry(): Promise<boolean> {
   console.log('🔐 Seeding OAuth3 registry...')
@@ -338,10 +282,6 @@ async function seedOAuth3Registry(): Promise<boolean> {
   console.log('   OAuth3 seeding skipped or failed')
   return false
 }
-
-// ============================================================================
-// Main Deploy Function
-// ============================================================================
 
 async function deploy(): Promise<DeployResult> {
   console.log('\n🚀 DEPLOYING DECENTRALIZED APP TEMPLATE\n')
@@ -377,6 +317,7 @@ async function deploy(): Promise<DeployResult> {
     await seedOAuth3Registry()
   }
 
+  const ZERO_HEX = expectHex('0x0', 'Zero hex')
   const result: DeployResult = {
     jnsName,
     frontendCid,
@@ -384,7 +325,7 @@ async function deploy(): Promise<DeployResult> {
     a2aEndpoint: `${backendEndpoint}/a2a`,
     mcpEndpoint: `${backendEndpoint}/mcp`,
     databaseId,
-    triggerId: triggerId || ('0x0' as Hex),
+    triggerId: triggerId ?? ZERO_HEX,
   }
 
   console.log('\n✅ DEPLOYMENT COMPLETE\n')

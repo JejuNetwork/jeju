@@ -11,9 +11,6 @@
  */
 
 import { type Address, formatEther, parseEther } from 'viem'
-
-// ============ Types ============
-
 export interface ChainInfo {
   id: number
   name: string
@@ -76,9 +73,6 @@ export type SwapStatus =
   | 'waiting'
   | 'complete'
   | 'error'
-
-// ============ Supported Chains ============
-
 export const SUPPORTED_CHAINS: ChainInfo[] = [
   {
     id: 420691,
@@ -129,9 +123,6 @@ export const SUPPORTED_CHAINS: ChainInfo[] = [
     isDestination: true,
   },
 ]
-
-// ============ ABIs ============
-
 export const CROSS_CHAIN_PAYMASTER_ABI = [
   // Cross-chain transfer functions
   {
@@ -484,9 +475,6 @@ export const L1_STAKE_MANAGER_ABI = [
     stateMutability: 'view',
   },
 ] as const
-
-// ============ Configuration ============
-
 export interface AppPreference {
   appAddress: Address
   preferredToken: Address
@@ -522,9 +510,6 @@ export const DEFAULT_EIL_CONFIG: EILConfig = {
   minStake: parseEther('0.1'),
   unbondingPeriod: 7 * 24 * 60 * 60, // 7 days
 }
-
-// ============ Fee Calculation ============
-
 export function calculateSwapFee(
   amount: bigint,
   sourceChainId: number,
@@ -562,9 +547,6 @@ export function estimateSwapTime(
   if (isL2ToL1) return 600 // ~10 min with challenge
   return 10 // L2 to L2
 }
-
-// ============ Formatting Utilities ============
-
 export function formatSwapRoute(
   sourceChain: ChainInfo,
   destChain: ChainInfo,
@@ -602,9 +584,6 @@ export function isCrossChainSwap(
 ): boolean {
   return sourceChainId !== destChainId
 }
-
-// ============ Validation ============
-
 export function validateSwapParams(params: CrossChainSwapParams): {
   valid: boolean
   error?: string
@@ -631,9 +610,6 @@ export function validateSwapParams(params: CrossChainSwapParams): {
 
   return { valid: true }
 }
-
-// ============ Transaction Builders ============
-
 export function buildSwapTransaction(
   params: CrossChainSwapParams,
   paymasterAddress: Address,
@@ -674,9 +650,6 @@ export function buildLiquidityDepositTransaction(
     value: isETH ? amount : 0n,
   }
 }
-
-// ============ Gas Payment Helpers ============
-
 /**
  * Generate paymasterAndData for CrossChainPaymaster token payment mode
  * This allows users to pay gas with any supported token

@@ -13,13 +13,12 @@ import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   type Address,
+  type Chain,
   createPublicClient,
   formatEther,
-  getBalance,
-  getBlockNumber,
-  getCode,
   http,
   parseAbi,
+  type Transport,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { readContract } from 'viem/actions'
@@ -30,6 +29,7 @@ const CONTRACTS_DIR = join(ROOT, 'packages/contracts')
 const DEPLOYMENTS_DIR = join(CONTRACTS_DIR, 'deployments')
 
 interface Deployment {
+  [key: string]: string | number
   jejuToken: string
   identityRegistry: string
   reputationRegistry: string
@@ -72,10 +72,10 @@ async function main() {
     transport: http(rpcUrl),
   })
 
-  const blockNumber = await getBlockNumber(publicClient)
+  const blockNumber = await publicClient.getBlockNumber()
   console.log(`✅ L1 connected at block ${blockNumber}`)
 
-  const balance = await getBalance(publicClient, { address: account.address })
+  const balance = await publicClient.getBalance({ address: account.address })
   console.log(`✅ Deployer: ${account.address}`)
   console.log(`   Balance: ${formatEther(balance)} ETH`)
 
@@ -170,47 +170,43 @@ function parseDeploymentOutput(
   }
 
   // Parse addresses from Forge output
-  const patterns: [keyof Deployment, RegExp][] = [
-    ['jejuToken', /MockJEJUToken deployed: (0x[a-fA-F0-9]{40})/],
-    ['identityRegistry', /IdentityRegistry deployed: (0x[a-fA-F0-9]{40})/],
-    ['reputationRegistry', /ReputationRegistry deployed: (0x[a-fA-F0-9]{40})/],
-    ['sequencerRegistry', /SequencerRegistry deployed: (0x[a-fA-F0-9]{40})/],
-    ['governanceTimelock', /GovernanceTimelock deployed: (0x[a-fA-F0-9]{40})/],
-    ['disputeGameFactory', /DisputeGameFactory deployed: (0x[a-fA-F0-9]{40})/],
-    ['prover', /Prover deployed: (0x[a-fA-F0-9]{40})/],
-    [
-      'l2OutputOracleAdapter',
+  const addressPatterns: Record<string, RegExp> = {
+    jejuToken: /MockJEJUToken deployed: (0x[a-fA-F0-9]{40})/,
+    identityRegistry: /IdentityRegistry deployed: (0x[a-fA-F0-9]{40})/,
+    reputationRegistry: /ReputationRegistry deployed: (0x[a-fA-F0-9]{40})/,
+    sequencerRegistry: /SequencerRegistry deployed: (0x[a-fA-F0-9]{40})/,
+    governanceTimelock: /GovernanceTimelock deployed: (0x[a-fA-F0-9]{40})/,
+    disputeGameFactory: /DisputeGameFactory deployed: (0x[a-fA-F0-9]{40})/,
+    prover: /Prover deployed: (0x[a-fA-F0-9]{40})/,
+    l2OutputOracleAdapter:
       /L2OutputOracleAdapter deployed: (0x[a-fA-F0-9]{40})/,
-    ],
-    [
-      'optimismPortalAdapter',
+    optimismPortalAdapter:
       /OptimismPortalAdapter deployed: (0x[a-fA-F0-9]{40})/,
-    ],
-    [
-      'thresholdBatchSubmitter',
+    thresholdBatchSubmitter:
       /ThresholdBatchSubmitter deployed: (0x[a-fA-F0-9]{40})/,
-    ],
-  ]
+  }
 
-  for (const [key, pattern] of patterns) {
+  for (const [key, pattern] of Object.entries(addressPatterns)) {
     const match = output.match(pattern)
     if (match) {
-      ;(deployment as Record<string, string | number>)[key] = match[1]
+      deployment[key] = match[1]
     }
   }
 
   return deployment
 }
 
+type AnyPublicClient = ReturnType<typeof createPublicClient<Transport, Chain>>
+
 async function verifyDeployment(
-  publicClient: ReturnType<typeof createPublicClient>,
+  publicClient: AnyPublicClient,
   deployment: Deployment,
 ): Promise<void> {
   console.log('🔍 Verifying deployment...')
   console.log('')
 
   // Verify DisputeGameFactory
-  const factoryCode = await getCode(publicClient, {
+  const factoryCode = await publicClient.getCode({
     address: deployment.disputeGameFactory as Address,
   })
   if (factoryCode === '0x') {

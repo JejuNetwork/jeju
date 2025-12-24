@@ -41,6 +41,31 @@ export {
   sealWithMasterKey,
   unsealWithMasterKey,
 } from './crypto.js'
+export {
+  createKMSAPIWorker,
+  type KMSAPIConfig,
+  type KMSAPIWorker,
+} from './dws-worker/api.js'
+export {
+  FROSTCoordinator as DWSFROSTCoordinator,
+  type KeyGenContribution,
+  type KeyGenResult,
+} from './dws-worker/frost-coordinator.js'
+// DWS Workers (decentralized deployment)
+export {
+  createMPCPartyWorker,
+  type MPCPartyConfig,
+  type MPCPartyWorker,
+} from './dws-worker/index.js'
+export {
+  createMPCClient,
+  type MPCCluster,
+  type MPCDiscoveryConfig,
+  MPCPartyDiscovery,
+  type MPCPartyNode,
+  MPCSigningClient,
+  type SignatureResult,
+} from './dws-worker/mpc-discovery.js'
 // Core service
 export { getKMS, KMSService, resetKMS } from './kms.js'
 // Logger

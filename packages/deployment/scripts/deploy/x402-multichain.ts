@@ -30,9 +30,6 @@ import { privateKeyToAccount } from 'viem/accounts'
 import { Logger } from '../shared/logger'
 
 const logger = new Logger({ prefix: 'deploy-x402' })
-
-// ============ Types ============
-
 interface ChainConfig {
   chainId: number
   name: string
@@ -52,9 +49,6 @@ interface DeploymentResult {
   deployedAt: string
   txHash: Hash
 }
-
-// ============ Chain Configurations ============
-
 const TESTNET_CHAINS: ChainConfig[] = [
   {
     chainId: 420690,
@@ -178,21 +172,12 @@ const MAINNET_CHAINS: ChainConfig[] = [
     nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
   },
 ]
-
-// ============ Paths ============
-
 const CONTRACTS_DIR = resolve(process.cwd(), 'packages/contracts')
 const DEPLOYMENTS_DIR = resolve(CONTRACTS_DIR, 'deployments')
 const TESTNET_DEPLOYMENTS_FILE = resolve(DEPLOYMENTS_DIR, 'x402-testnet.json')
 const MAINNET_DEPLOYMENTS_FILE = resolve(DEPLOYMENTS_DIR, 'x402-mainnet.json')
-
-// ============ Protocol Fee Configuration ============
-
 const PROTOCOL_FEE_BPS = 50 // 0.5% - standard for micropayments
 const FEE_RECIPIENT = process.env.FEE_RECIPIENT || process.env.TREASURY_ADDRESS
-
-// ============ Helper Functions ============
-
 function createViemChain(config: ChainConfig): Chain {
   return {
     id: config.chainId,
@@ -385,7 +370,11 @@ function updateDeploymentsFile(
     mkdirSync(DEPLOYMENTS_DIR, { recursive: true })
   }
 
-  let deployments: Record<string, Record<string, unknown>> = { chains: {} }
+  let deployments: {
+    chains: Record<string, Record<string, unknown>>
+    lastUpdated?: string
+    version?: string
+  } = { chains: {} }
 
   if (existsSync(filePath)) {
     deployments = JSON.parse(readFileSync(filePath, 'utf-8'))
@@ -394,9 +383,7 @@ function updateDeploymentsFile(
     }
   }
 
-  const chains = deployments.chains as Record<string, Record<string, unknown>>
-
-  chains[chainId.toString()] = {
+  deployments.chains[chainId.toString()] = {
     name: chainName,
     status: 'deployed',
     x402Facilitator: addresses.x402Facilitator,
@@ -468,9 +455,6 @@ function updateConfigContracts(
   writeFileSync(configPath, JSON.stringify(config, null, 2))
   logger.info(`Updated contracts.json for chain ${chainId}`)
 }
-
-// ============ Main ============
-
 async function main() {
   const args = process.argv.slice(2)
   const deployAll = args.includes('--all')

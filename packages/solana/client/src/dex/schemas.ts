@@ -5,9 +5,7 @@
 
 import { z } from 'zod'
 
-// ============================================================================
 // Common Validation Patterns
-// ============================================================================
 
 /** Base58 Solana address (32-44 characters) */
 const Base58Address = z.string().min(32).max(44)
@@ -18,9 +16,7 @@ const NumericString = z.string().regex(/^\d+$/, 'Must be a numeric string')
 /** Non-empty string label */
 const NonEmptyString = z.string().min(1)
 
-// ============================================================================
 // Jupiter API Schemas
-// ============================================================================
 
 export const JupiterRouteSwapInfoSchema = z
   .object({
@@ -80,9 +76,7 @@ export const JupiterTokenSchema = z
 export const JupiterTokenListSchema = z.array(JupiterTokenSchema)
 export type JupiterToken = z.infer<typeof JupiterTokenSchema>
 
-// ============================================================================
 // Raydium API Schemas
-// ============================================================================
 
 export const RaydiumMintInfoSchema = z
   .object({
@@ -171,9 +165,7 @@ export const RaydiumCLMMPositionsResponseSchema = z
   })
   .strict()
 
-// ============================================================================
 // Meteora API Schemas
-// ============================================================================
 
 export const MeteoraPoolInfoSchema = z
   .object({
@@ -219,9 +211,7 @@ export type MeteoraPositionInfo = z.infer<typeof MeteoraPositionInfoSchema>
 
 export const MeteoraPositionsListSchema = z.array(MeteoraPositionInfoSchema)
 
-// ============================================================================
 // Orca API Schemas
-// ============================================================================
 
 export const OrcaWhirlpoolInfoSchema = z
   .object({

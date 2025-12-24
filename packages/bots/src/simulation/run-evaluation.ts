@@ -14,9 +14,14 @@
 
 import { createPublicClient, http } from 'viem'
 import { arbitrum, base, bsc, mainnet, optimism } from 'viem/chains'
+import { z } from 'zod'
 import { MultiChainBacktester } from './real-data-backtest'
 
-// ============ Types ============
+// API response schemas
+const SolanaSlotResponseSchema = z.object({ result: z.number() })
+const DefiLlamaPriceResponseSchema = z.object({
+  coins: z.record(z.string(), z.object({ price: z.number() })),
+})
 
 interface ChainStatus {
   chainId: number
@@ -34,9 +39,6 @@ interface EvaluationResult {
   timestamp: number
   durationMs: number
 }
-
-// ============ Chain Connections ============
-
 const CHAIN_CONFIGS = [
   {
     chainId: 1,
@@ -69,9 +71,6 @@ const CHAIN_CONFIGS = [
     rpc: process.env.BSC_RPC_URL ?? 'https://bsc-dataseed.binance.org',
   },
 ] as const
-
-// ============ Evaluation Runner ============
-
 async function checkChainStatus(
   config: (typeof CHAIN_CONFIGS)[number],
 ): Promise<ChainStatus> {
@@ -123,8 +122,12 @@ async function checkSolanaStatus(): Promise<{
     })
 
     if (response.ok) {
-      const data = (await response.json()) as { result: number }
-      return { connected: true, slot: data.result }
+      const parseResult = SolanaSlotResponseSchema.safeParse(
+        await response.json(),
+      )
+      if (parseResult.success) {
+        return { connected: true, slot: parseResult.data.result }
+      }
     }
   } catch {
     // Solana RPC error
@@ -139,14 +142,16 @@ async function fetchCurrentPrices(): Promise<Record<string, number>> {
       'https://coins.llama.fi/prices/current/coingecko:ethereum,coingecko:bitcoin,coingecko:solana,coingecko:binancecoin',
     )
     if (response.ok) {
-      const data = (await response.json()) as {
-        coins: Record<string, { price: number }>
-      }
-      return {
-        ETH: data.coins['coingecko:ethereum']?.price ?? 3500,
-        BTC: data.coins['coingecko:bitcoin']?.price ?? 95000,
-        SOL: data.coins['coingecko:solana']?.price ?? 200,
-        BNB: data.coins['coingecko:binancecoin']?.price ?? 600,
+      const parseResult = DefiLlamaPriceResponseSchema.safeParse(
+        await response.json(),
+      )
+      if (parseResult.success) {
+        return {
+          ETH: parseResult.data.coins['coingecko:ethereum']?.price ?? 3500,
+          BTC: parseResult.data.coins['coingecko:bitcoin']?.price ?? 95000,
+          SOL: parseResult.data.coins['coingecko:solana']?.price ?? 200,
+          BNB: parseResult.data.coins['coingecko:binancecoin']?.price ?? 600,
+        }
       }
     }
   } catch {

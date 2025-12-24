@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@elysiajs/cors": "^1.2.0",
+    "@jejunetwork/kms": "workspace:*",
     "@jejunetwork/types": "workspace:*",
     "@noble/ciphers": "^1.2.1",
     "@noble/curves": "^1.8.1",
@@ -35,6 +36,11 @@
   },
   "peerDependencies": {
     "viem": ">=2.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/elizaos/jeju.git",
+    "directory": "packages/farcaster"
   },
   "publishConfig": {
     "access": "public"

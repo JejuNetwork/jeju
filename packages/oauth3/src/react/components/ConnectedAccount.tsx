@@ -6,7 +6,7 @@
 
 import type React from 'react'
 import { useState } from 'react'
-import { useOAuth3 } from '../provider.js'
+import { useOAuth3 } from '../provider'
 
 export interface ConnectedAccountProps {
   showAddress?: boolean

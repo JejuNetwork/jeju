@@ -10,9 +10,6 @@ import { optimism } from 'viem/chains'
 import { FarcasterPoster } from '../hub/poster'
 import { FarcasterSignerManager, type SignerInfo } from './manager'
 import { generateDeadline, SignerRegistration } from './registration'
-
-// ============ Types ============
-
 export interface SignerServiceConfig {
   /** RPC URL for Optimism */
   rpcUrl?: string
@@ -33,9 +30,6 @@ export interface SignerWithPoster {
   signer: SignerInfo
   poster: FarcasterPoster
 }
-
-// ============ Signer Service Class ============
-
 export class FarcasterSignerService {
   private manager: FarcasterSignerManager
   private registration: SignerRegistration
@@ -260,21 +254,4 @@ export class FarcasterSignerService {
   }> {
     return this.manager.exportSigner(keyId)
   }
-}
-
-// ============ Singleton Instance ============
-
-let defaultService: FarcasterSignerService | null = null
-
-export function getSignerService(
-  config?: SignerServiceConfig,
-): FarcasterSignerService {
-  if (!defaultService) {
-    defaultService = new FarcasterSignerService(config)
-  }
-  return defaultService
-}
-
-export function resetSignerService(): void {
-  defaultService = null
 }

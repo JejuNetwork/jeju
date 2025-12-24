@@ -239,7 +239,7 @@ export class GCPConfidentialProvider implements ITEEProvider {
     this.publicKey[0] = 0x02
 
     log.info('GCP instance initialized', {
-      instanceId: this.instanceId,
+      instanceId: this.instanceId ?? 'unknown',
       gpuTee: this.hasGpuTEE,
     })
   }
@@ -398,7 +398,7 @@ export class GCPConfidentialProvider implements ITEEProvider {
 
     if (!parseResult.success) {
       log.error('Invalid token: missing required claims', {
-        errors: parseResult.error.issues,
+        errors: JSON.stringify(parseResult.error.issues),
       })
       return false
     }

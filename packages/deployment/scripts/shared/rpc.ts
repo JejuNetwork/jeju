@@ -24,11 +24,12 @@ export class FailoverProvider {
       typeof urls === 'string' ? urls.split(',').map((u) => u.trim()) : urls
     this.name = name
     this.chain = chain || mainnet
-    this.clients = urlArray.map((url) =>
-      createPublicClient({
-        chain: this.chain,
-        transport: http(url),
-      }),
+    this.clients = urlArray.map(
+      (url) =>
+        createPublicClient({
+          chain: this.chain,
+          transport: http(url),
+        }) as PublicClient,
     )
     this.onFailover = onFailover
 

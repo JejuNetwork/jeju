@@ -23,14 +23,12 @@ import {
   createPublicClient,
   createWalletClient,
   formatEther,
-  getBalance,
   http,
   parseAbi,
   parseEther,
-  sendTransaction,
-  waitForTransactionReceipt,
 } from 'viem'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
+import { sendTransaction, waitForTransactionReceipt } from 'viem/actions'
 import {
   type DeployerConfig,
   DeployerConfigSchema,
@@ -147,7 +145,7 @@ async function checkBalance(
     transport: http(config.rpcUrl),
   })
 
-  const balance = await getBalance(publicClient, { address })
+  const balance = await publicClient.getBalance({ address })
   const balanceEth = formatEther(balance)
 
   return {
@@ -198,7 +196,7 @@ async function bridgeToL2(
     account,
   })
 
-  const balance = await getBalance(publicClient, { address: account.address })
+  const balance = await publicClient.getBalance({ address: account.address })
   const amountWei = parseEther(amount)
 
   if (balance < amountWei + parseEther('0.01')) {
@@ -260,10 +258,10 @@ function printFaucetInstructions(address: string): void {
     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     • Alchemy Faucet (0.5 ETH/day):
       https://www.alchemy.com/faucets/ethereum-sepolia
-    
+
     • Google Cloud Faucet (0.05 ETH):
       https://cloud.google.com/application/web3/faucet/ethereum/sepolia
-    
+
     • Sepolia Faucet:
       https://sepoliafaucet.com
 
@@ -422,14 +420,14 @@ async function main() {
  1. Fund your wallet using the faucets above
  2. Run this script again to check balances:
     bun run scripts/setup-testnet-deployer.ts
-    
+
  3. Once Sepolia is funded, bridge to L2s:
     bun run scripts/setup-testnet-deployer.ts --bridge
-    
+
  4. Add keys to your .env.testnet:
     cp env.testnet .env.testnet
     # Then add DEPLOYER_PRIVATE_KEY and DEPLOYER_ADDRESS
-    
+
  5. Deploy contracts:
     bun run contracts:deploy:testnet
 `)

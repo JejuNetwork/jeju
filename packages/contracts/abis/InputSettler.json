@@ -129,13 +129,8 @@
         {
           "name": "",
           "type": "tuple",
-          "internalType": "struct InputSettler.Order",
+          "internalType": "struct InputSettler.TokenOrder",
           "components": [
-            {
-              "name": "user",
-              "type": "address",
-              "internalType": "address"
-            },
             {
               "name": "inputToken",
               "type": "address",
@@ -170,6 +165,37 @@
               "name": "maxFee",
               "type": "uint256",
               "internalType": "uint256"
+            }
+          ]
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "getOrderState",
+      "inputs": [
+        {
+          "name": "orderId",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "tuple",
+          "internalType": "struct BaseInputSettler.OrderState",
+          "components": [
+            {
+              "name": "user",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "solver",
+              "type": "address",
+              "internalType": "address"
             },
             {
               "name": "openDeadline",
@@ -182,9 +208,9 @@
               "internalType": "uint32"
             },
             {
-              "name": "solver",
-              "type": "address",
-              "internalType": "address"
+              "name": "createdBlock",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
               "name": "filled",
@@ -195,11 +221,6 @@
               "name": "refunded",
               "type": "bool",
               "internalType": "bool"
-            },
-            {
-              "name": "createdBlock",
-              "type": "uint256",
-              "internalType": "uint256"
             }
           ]
         }
@@ -389,11 +410,6 @@
       ],
       "outputs": [
         {
-          "name": "user",
-          "type": "address",
-          "internalType": "address"
-        },
-        {
           "name": "inputToken",
           "type": "address",
           "internalType": "address"
@@ -425,36 +441,6 @@
         },
         {
           "name": "maxFee",
-          "type": "uint256",
-          "internalType": "uint256"
-        },
-        {
-          "name": "openDeadline",
-          "type": "uint32",
-          "internalType": "uint32"
-        },
-        {
-          "name": "fillDeadline",
-          "type": "uint32",
-          "internalType": "uint32"
-        },
-        {
-          "name": "solver",
-          "type": "address",
-          "internalType": "address"
-        },
-        {
-          "name": "filled",
-          "type": "bool",
-          "internalType": "bool"
-        },
-        {
-          "name": "refunded",
-          "type": "bool",
-          "internalType": "bool"
-        },
-        {
-          "name": "createdBlock",
           "type": "uint256",
           "internalType": "uint256"
         }
@@ -971,12 +957,6 @@
           "type": "address",
           "indexed": true,
           "internalType": "address"
-        },
-        {
-          "name": "amount",
-          "type": "uint256",
-          "indexed": false,
-          "internalType": "uint256"
         }
       ],
       "anonymous": false
@@ -996,18 +976,6 @@
           "type": "address",
           "indexed": true,
           "internalType": "address"
-        },
-        {
-          "name": "amount",
-          "type": "uint256",
-          "indexed": false,
-          "internalType": "uint256"
-        },
-        {
-          "name": "fee",
-          "type": "uint256",
-          "indexed": false,
-          "internalType": "uint256"
         }
       ],
       "anonymous": false
@@ -1030,6 +998,52 @@
         }
       ],
       "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "SolverRegistryUpdated",
+      "inputs": [
+        {
+          "name": "oldRegistry",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "newRegistry",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "error",
+      "name": "AddressEmptyCode",
+      "inputs": [
+        {
+          "name": "target",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "AddressInsufficientBalance",
+      "inputs": [
+        {
+          "name": "account",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "AlreadyClaimed",
+      "inputs": []
     },
     {
       "type": "error",
@@ -1062,6 +1076,11 @@
           "internalType": "bytes32"
         }
       ]
+    },
+    {
+      "type": "error",
+      "name": "FailedInnerCall",
+      "inputs": []
     },
     {
       "type": "error",

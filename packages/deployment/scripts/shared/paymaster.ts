@@ -5,33 +5,16 @@
  * Supports multi-token gas payments via PaymasterFactory.
  */
 
+import { safeReadContract } from '@jejunetwork/shared'
 import {
   type Address,
   createPublicClient,
   encodePacked,
   formatEther,
   http,
-  type PublicClient,
   parseAbi,
   parseEther,
 } from 'viem'
-
-async function safeReadContract<T>(
-  client: PublicClient,
-  params: {
-    address: Address
-    abi: readonly unknown[]
-    functionName: string
-    args?: readonly unknown[]
-  },
-): Promise<T> {
-  return client.readContract(
-    params as Parameters<typeof client.readContract>[0],
-  ) as Promise<T>
-}
-
-// ============ Types ============
-
 export interface PaymasterInfo {
   address: Address
   token: Address
@@ -55,9 +38,6 @@ export interface PaymasterOption {
   estimatedCostFormatted: string
   isRecommended: boolean
 }
-
-// ============ ABIs ============
-
 const FACTORY_ABI = parseAbi([
   'function getAllPaymasters() view returns (address[])',
   'function getPaymasterInfo(address paymaster) view returns (address token, uint256 stakedEth, bool isActive)',
@@ -78,9 +58,6 @@ const ERC20_ABI = parseAbi([
   'function balanceOf(address account) view returns (uint256)',
   'function allowance(address owner, address spender) view returns (uint256)',
 ])
-
-// ============ Default Configuration ============
-
 const DEFAULT_CONFIG: PaymasterConfig = {
   factoryAddress: (process.env.PAYMASTER_FACTORY_ADDRESS ||
     '0x0000000000000000000000000000000000000000') as Address,
@@ -88,9 +65,6 @@ const DEFAULT_CONFIG: PaymasterConfig = {
   rpcUrl: process.env.JEJU_RPC_URL || 'http://127.0.0.1:6546',
   chainId: Number(process.env.CHAIN_ID) || 1337,
 }
-
-// ============ Client Factory ============
-
 function getClient(config: PaymasterConfig = DEFAULT_CONFIG) {
   return createPublicClient({
     chain: {
@@ -102,9 +76,6 @@ function getClient(config: PaymasterConfig = DEFAULT_CONFIG) {
     transport: http(config.rpcUrl),
   })
 }
-
-// ============ Core Functions ============
-
 /**
  * Get all available paymasters meeting minimum stake
  */
@@ -298,9 +269,6 @@ export async function getTokenBalance(
     args: [userAddress],
   })
 }
-
-// ============ Data Encoding ============
-
 /**
  * Prepare paymaster data for UserOperation
  */
@@ -347,9 +315,6 @@ export function getApprovalTxData(
 
   return { to: tokenAddress, data }
 }
-
-// ============ Configuration ============
-
 /**
  * Load paymaster config from environment
  */

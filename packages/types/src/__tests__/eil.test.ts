@@ -18,9 +18,7 @@ import {
   XLPStatusSchema,
 } from '../eil'
 
-// ============================================================================
 // isSupportedChainId Type Guard Tests
-// ============================================================================
 
 describe('isSupportedChainId', () => {
   const supportedChains: EVMChainId[] = [
@@ -76,9 +74,7 @@ describe('isSupportedChainId', () => {
   })
 })
 
-// ============================================================================
 // SupportedChainIdSchema Tests
-// ============================================================================
 
 describe('SupportedChainIdSchema', () => {
   test('accepts Ethereum Mainnet (1)', () => {
@@ -121,9 +117,7 @@ describe('SupportedChainIdSchema', () => {
   })
 })
 
-// ============================================================================
 // XLPStatusSchema Tests
-// ============================================================================
 
 describe('XLPStatusSchema', () => {
   const validStatuses = ['active', 'paused', 'unbonding', 'slashed']
@@ -138,9 +132,7 @@ describe('XLPStatusSchema', () => {
   })
 })
 
-// ============================================================================
 // VoucherStatusSchema Tests
-// ============================================================================
 
 describe('VoucherStatusSchema', () => {
   const validStatuses = [
@@ -162,9 +154,7 @@ describe('VoucherStatusSchema', () => {
   })
 })
 
-// ============================================================================
 // CrossChainOperationTypeSchema Tests
-// ============================================================================
 
 describe('CrossChainOperationTypeSchema', () => {
   const validTypes = ['transfer', 'swap', 'mint', 'stake', 'custom']
@@ -179,9 +169,7 @@ describe('CrossChainOperationTypeSchema', () => {
   })
 })
 
-// ============================================================================
 // EILEventTypeSchema Tests
-// ============================================================================
 
 describe('EILEventTypeSchema', () => {
   const validEventTypes = [

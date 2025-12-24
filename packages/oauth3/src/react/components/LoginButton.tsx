@@ -6,8 +6,8 @@
 
 import type React from 'react'
 import { useCallback, useState } from 'react'
-import { AuthProvider } from '../../index.js'
-import { useOAuth3 } from '../provider.js'
+import { AuthProvider } from '../../types'
+import { useOAuth3 } from '../provider'
 
 export interface LoginButtonProps {
   provider?: AuthProvider

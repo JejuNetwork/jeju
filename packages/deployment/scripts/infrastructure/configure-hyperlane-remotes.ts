@@ -221,6 +221,8 @@ async function main() {
         abi: CROSS_CHAIN_IDENTITY_SYNC_ABI,
         functionName: 'setTrustedRemote',
         args: [targetDomain, targetBytes32],
+        chain: null,
+        account: null,
       })
 
       await publicClient.waitForTransactionReceipt({ hash })

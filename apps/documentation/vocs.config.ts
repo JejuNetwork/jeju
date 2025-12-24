@@ -3,9 +3,21 @@ import { defineConfig } from 'vocs'
 export default defineConfig({
   title: 'Jeju',
   description: 'OP-Stack L2 for Agents',
-  basePath: '/jeju/',
   logoUrl: '/logo.svg',
   iconUrl: '/favicon.ico',
+
+  vite: {
+    cacheDir: 'node_modules/.vite',
+    server: {
+      allowedHosts: ['.local.jejunetwork.org'],
+      strictPort: true,
+      hmr: {
+        protocol: 'ws',
+        host: 'localhost',
+        port: 24005,
+      },
+    },
+  },
 
   theme: {
     accentColor: '#3eaf7c',

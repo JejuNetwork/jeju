@@ -16,25 +16,25 @@
   "sideEffects": false,
   "scripts": {
     "build": "tsc",
-    "dev": "bun run src/cli.ts",
     "test": "bun test src/",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@jejunetwork/config": "workspace:*",
-    "@jejunetwork/contracts": "workspace:*",
     "@jejunetwork/shared": "workspace:*",
     "@jejunetwork/types": "workspace:*",
     "@solana/web3.js": "1.98.4",
     "viem": "2.43.3",
     "zod": "4.2.1",
-    "simple-statistics": "^7.8.8",
-    "technicalindicators": "^3.1.0",
-    "lru-cache": "^11.0.0"
+    "simple-statistics": "^7.8.8"
   },
   "devDependencies": {
     "@types/bun": "latest",
     "typescript": "5.9.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/elizaos/jeju.git",
+    "directory": "packages/bots"
   },
   "publishConfig": {
     "access": "public"

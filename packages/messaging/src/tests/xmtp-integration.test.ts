@@ -10,8 +10,6 @@ import { XMTPMessageRouter } from '../xmtp/router'
 import { XMTPSyncService } from '../xmtp/sync'
 import type { XMTPEnvelope, XMTPIdentity } from '../xmtp/types'
 
-// ============ Test Helpers ============
-
 function createTestEnvelope(
   sender: string,
   recipients: string[],
@@ -41,9 +39,6 @@ function createTestIdentity(address: string): XMTPIdentity {
     lastActiveAt: Date.now(),
   }
 }
-
-// ============ Node Tests ============
-
 describe('XMTP Node', () => {
   let node: JejuXMTPNode
 
@@ -118,9 +113,6 @@ describe('XMTP Node', () => {
     expect(id1.length).toBe(32) // 16 bytes = 32 hex chars
   })
 })
-
-// ============ Router Tests ============
-
 describe('XMTP Router', () => {
   let router: XMTPMessageRouter
 
@@ -179,9 +171,6 @@ describe('XMTP Router', () => {
     expect(typeof count).toBe('number')
   })
 })
-
-// ============ Sync Tests ============
-
 describe('XMTP Sync Service', () => {
   let syncService: XMTPSyncService
 
@@ -226,9 +215,6 @@ describe('XMTP Sync Service', () => {
     expect(typeof count).toBe('number')
   })
 })
-
-// ============ Integration Flow Tests ============
-
 describe('XMTP End-to-End Flow', () => {
   test('complete message flow simulation', async () => {
     // 1. Create identities
@@ -353,9 +339,6 @@ describe('XMTP End-to-End Flow', () => {
     await node2.stop()
   })
 })
-
-// ============ Group Chat Tests ============
-
 describe('XMTP Group Chat', () => {
   test('group with MLS encryption simulation', async () => {
     const members = [
@@ -391,9 +374,6 @@ describe('XMTP Group Chat', () => {
     await node.stop()
   })
 })
-
-// ============ Cross-Region Tests ============
-
 describe('Cross-Region Delivery', () => {
   test('routes to preferred region', async () => {
     const router = new XMTPMessageRouter({

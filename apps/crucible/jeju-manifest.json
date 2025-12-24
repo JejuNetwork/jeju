@@ -6,40 +6,64 @@
   "type": "core",
   "description": "Decentralized agent orchestration platform for autonomous AI agents",
   "commands": {
-    "dev": "bun run src/server.ts",
+    "dev": "bun run dev",
     "build": "tsc",
-    "start": "bun run src/server.ts",
+    "start": "bun run api/server.ts",
     "test": "bun test"
   },
   "ports": {
-    "api": 4020,
-    "executor": 4021
+    "main": 4020,
+    "api": 4021
   },
-  "dependencies": ["contracts", "config", "dws"],
+  "dependencies": [
+    "contracts",
+    "config",
+    "dws"
+  ],
   "optional": false,
   "enabled": true,
   "autoStart": true,
-  "tags": ["agents", "orchestration", "ai", "automation", "triggers", "rooms"],
+  "tags": [
+    "agents",
+    "orchestration",
+    "ai",
+    "automation",
+    "triggers",
+    "rooms"
+  ],
   "jns": {
     "name": "crucible.jeju",
     "description": "Agent Orchestration Platform",
     "url": "https://crucible.jejunetwork.org"
   },
   "healthCheck": {
-    "url": "http://localhost:4020/health",
+    "url": "http://localhost:4021/health",
     "interval": 30000
   },
   "agent": {
     "enabled": true,
     "a2aEndpoint": "/a2a",
     "mcpEndpoint": "/mcp",
-    "tags": ["jeju-app", "agents", "orchestration", "automation"],
+    "tags": [
+      "jeju-app",
+      "agents",
+      "orchestration",
+      "automation"
+    ],
     "metadata": {
       "category": "infrastructure",
       "provider": "jeju-network",
-      "features": ["agent-rooms", "triggers", "vault", "identity"]
+      "features": [
+        "agent-rooms",
+        "triggers",
+        "vault",
+        "identity"
+      ]
     },
-    "trustModels": ["open", "staked"],
+    "trustModels": [
+      "open",
+      "staked"
+    ],
     "x402Support": true,
     "jnsName": "crucible.jeju"
   },
@@ -47,23 +71,38 @@
     "backend": {
       "enabled": true,
       "runtime": "bun",
-      "entrypoint": "src/server.ts",
+      "entrypoint": "api/server.ts",
       "memory": 512,
       "timeout": 30000,
       "minInstances": 1,
       "maxInstances": 10,
       "teeRequired": false,
-      "regions": ["global"]
+      "regions": [
+        "global"
+      ]
     }
   },
   "decentralization": {
     "cdn": {
       "enabled": true,
-      "regions": ["global"],
+      "regions": [
+        "global"
+      ],
       "cacheRules": [
-        { "pattern": "/static/**", "ttl": 31536000, "immutable": true },
-        { "pattern": "/api/**", "ttl": 0 },
-        { "pattern": "/**/*.html", "ttl": 60, "staleWhileRevalidate": 3600 }
+        {
+          "pattern": "/static/**",
+          "ttl": 31536000,
+          "immutable": true
+        },
+        {
+          "pattern": "/api/**",
+          "ttl": 0
+        },
+        {
+          "pattern": "/**/*.html",
+          "ttl": 60,
+          "staleWhileRevalidate": 3600
+        }
       ],
       "serviceWorker": true
     },
@@ -73,7 +112,9 @@
       "jnsName": "crucible.jeju",
       "buildDir": "dist",
       "spa": true,
-      "fallbackOrigins": ["https://crucible.jejunetwork.org"]
+      "fallbackOrigins": [
+        "https://crucible.jejunetwork.org"
+      ]
     },
     "robustness": {
       "multiOrigin": true,
@@ -96,6 +137,15 @@
       "command": "bunx playwright test tests/synpress",
       "timeout": 300000,
       "requiresChain": true
+    }
+  },
+  "architecture": {
+    "type": "hybrid",
+    "frontend": {
+      "type": "spa",
+      "builder": "bun",
+      "entrypoint": "index.html",
+      "outputDir": "dist/web"
     }
   }
 }

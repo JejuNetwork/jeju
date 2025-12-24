@@ -11,7 +11,7 @@
 import { existsSync } from 'node:fs'
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { getCoreAppUrl, getL1RpcUrl } from '@jejunetwork/config/ports'
+import { getCoreAppUrl, getL1RpcUrl } from '@jejunetwork/config'
 import { $ } from 'bun'
 import { type Address, keccak256 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
@@ -21,9 +21,7 @@ import {
   IPFSUploadResponseSchema,
 } from '../schemas/api'
 
-// ============================================================================
 // Configuration
-// ============================================================================
 
 interface DeployConfig {
   network: 'localnet' | 'testnet' | 'mainnet'
@@ -73,9 +71,7 @@ function getConfig(): DeployConfig {
   } as DeployConfig
 }
 
-// ============================================================================
 // Build Check
-// ============================================================================
 
 async function checkBuild(): Promise<void> {
   const requiredFiles = [
@@ -95,9 +91,7 @@ async function checkBuild(): Promise<void> {
   console.log('✅ Build found')
 }
 
-// ============================================================================
 // IPFS Upload
-// ============================================================================
 
 interface UploadResult {
   cid: string
@@ -166,9 +160,7 @@ async function uploadDirectory(
   return results
 }
 
-// ============================================================================
 // Worker Deployment
-// ============================================================================
 
 async function deployWorker(
   config: DeployConfig,
@@ -234,9 +226,7 @@ async function deployWorker(
   return parsed.data.workerId
 }
 
-// ============================================================================
 // CDN Setup
-// ============================================================================
 
 async function setupCDN(
   config: DeployConfig,
@@ -298,9 +288,7 @@ function getContentType(path: string): string {
   return 'application/octet-stream'
 }
 
-// ============================================================================
 // Main Deploy Function
-// ============================================================================
 
 async function deploy(): Promise<void> {
   console.log('🚀 Deploying Bazaar to DWS...\n')

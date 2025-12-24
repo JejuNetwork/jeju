@@ -1,13 +1,4 @@
-/**
- * jeju dws - Decentralized Web Services CLI
- *
- * Manage DWS services: storage, git (JejuGit), pkg (JejuPkg), CI/CD, CDN
- *
- * Security notes:
- * - All file paths are validated before use
- * - CIDs are validated against known formats
- * - User inputs are sanitized before API calls
- */
+/** Decentralized Web Services CLI */
 
 import {
   existsSync,
@@ -17,6 +8,7 @@ import {
   statSync,
 } from 'node:fs'
 import { join, normalize, resolve } from 'node:path'
+import { getCQLBlockProducerUrl } from '@jejunetwork/config'
 import { Command } from 'commander'
 import type { Address } from 'viem'
 import { bootstrapContracts, getChainStatus } from '../lib/chain'
@@ -110,7 +102,6 @@ export const dwsCommand = new Command('dws')
         await downloadFile(cid, options)
       }),
   )
-  // Git subcommands
   .addCommand(
     new Command('repos')
       .description('List Git repositories')
@@ -140,7 +131,6 @@ export const dwsCommand = new Command('dws')
         await createRepo(name, options)
       }),
   )
-  // Package registry subcommands
   .addCommand(
     new Command('pkg-search')
       .description('Search packages in JejuPkg registry')
@@ -158,7 +148,6 @@ export const dwsCommand = new Command('dws')
         await getPackageInfo(name)
       }),
   )
-  // CI/CD subcommands
   .addCommand(
     new Command('workflows')
       .description('List CI/CD workflows for a repository')
@@ -185,7 +174,6 @@ export const dwsCommand = new Command('dws')
         await getRunDetails(runId)
       }),
   )
-  // Seeding and setup
   .addCommand(
     new Command('seed')
       .description('Seed development environment with test data')
@@ -210,7 +198,6 @@ export const dwsCommand = new Command('dws')
         await buildRunner(options)
       }),
   )
-  // CDN subcommands
   .addCommand(
     new Command('cdn-status')
       .description('Check CDN service status')
@@ -218,7 +205,6 @@ export const dwsCommand = new Command('dws')
         await checkCdnStatus()
       }),
   )
-  // Setup and verification
   .addCommand(
     new Command('setup')
       .description('Install workerd binary (Cloudflare Workers runtime)')
@@ -238,7 +224,6 @@ export const dwsCommand = new Command('dws')
         await verifyTeeGpu(options)
       }),
   )
-  // Regional node seeding
   .addCommand(
     new Command('seed-nodes')
       .description('Seed regional TEE worker nodes')
@@ -362,10 +347,6 @@ async function checkStatus(): Promise<void> {
   }
 }
 
-/**
- * Start DWS in development mode with full infrastructure
- * This is the main development entry point - starts Docker, services, localnet, and DWS
- */
 async function startDwsDev(options: {
   port: string
   bootstrap?: boolean
@@ -394,7 +375,6 @@ async function startDwsDev(options: {
     '╚══════════════════════════════════════════════════════════════╝\n',
   )
 
-  // Step 1: Start all infrastructure (Docker, services, localnet)
   const infra = createInfrastructureService(rootDir)
   const infraReady = await infra.ensureRunning()
 
@@ -406,7 +386,6 @@ async function startDwsDev(options: {
 
   const rpcUrl = `http://127.0.0.1:${DEFAULT_PORTS.l2Rpc}`
 
-  // Step 2: Bootstrap contracts (if enabled)
   if (options.bootstrap !== false) {
     const bootstrapFile = join(
       rootDir,
@@ -425,14 +404,13 @@ async function startDwsDev(options: {
   logger.subheader('DWS Server')
   logger.keyValue('Port', options.port)
   logger.keyValue('RPC', rpcUrl)
-  logger.keyValue('CQL', 'http://127.0.0.1:4661')
+  logger.keyValue('CQL', getCQLBlockProducerUrl())
   logger.newline()
 
-  // Get environment from infrastructure service
   const infraEnv = infra.getEnvVars()
 
   const proc = Bun.spawn({
-    cmd: ['bun', 'run', 'src/server/index.ts'],
+    cmd: ['bun', 'run', 'api/server/index.ts'],
     cwd: dwsDir,
     stdout: 'inherit',
     stderr: 'inherit',
@@ -445,7 +423,6 @@ async function startDwsDev(options: {
     },
   })
 
-  // Handle shutdown
   const cleanup = () => {
     logger.newline()
     logger.step('Shutting down...')
@@ -501,7 +478,7 @@ async function startDws(options: {
   }
 
   const proc = Bun.spawn({
-    cmd: ['bun', 'run', 'src/server/index.ts'],
+    cmd: ['bun', 'run', 'api/server/index.ts'],
     cwd: dwsDir,
     stdout: 'inherit',
     stderr: 'inherit',
@@ -532,7 +509,6 @@ async function startDws(options: {
 async function uploadFile(filePath: string): Promise<void> {
   logger.header('UPLOAD FILE')
 
-  // Resolve and normalize path to prevent traversal
   const resolvedPath = resolve(normalize(filePath))
 
   if (!existsSync(resolvedPath)) {
@@ -543,9 +519,8 @@ async function uploadFile(filePath: string): Promise<void> {
   const dwsUrl = getDwsUrl()
   const content = readFileSync(resolvedPath)
 
-  // Extract and validate filename
   const rawFilename = resolvedPath.split('/').pop() || 'file'
-  const filename = rawFilename.replace(/[^a-zA-Z0-9._-]/g, '_') // Sanitize filename
+  const filename = rawFilename.replace(/[^a-zA-Z0-9._-]/g, '_')
 
   logger.keyValue('File', resolvedPath)
   logger.keyValue('Size', `${content.length} bytes`)
@@ -586,15 +561,12 @@ async function downloadFile(
 ): Promise<void> {
   logger.header('DOWNLOAD FILE')
 
-  // Validate CID format to prevent path injection
   const validCid = validateCID(cid)
 
   const dwsUrl = getDwsUrl()
 
-  // Sanitize output path - resolve and ensure it's in current directory or below
   let outputPath = options.output || validCid
 
-  // SECURITY: Check for null bytes which could bypass path checks
   if (outputPath.includes('\0')) {
     logger.error('Invalid output path: null bytes not allowed')
     process.exit(1)
@@ -602,14 +574,12 @@ async function downloadFile(
 
   outputPath = resolve(normalize(outputPath))
 
-  // Prevent writing outside current directory
   const cwd = resolve(process.cwd())
   if (!outputPath.startsWith(`${cwd}/`) && outputPath !== cwd) {
     logger.error('Output path must be within current directory')
     process.exit(1)
   }
 
-  // SECURITY: Ensure parent directory exists and is actually a directory
   const parentDir = join(outputPath, '..')
   const resolvedParent = resolve(parentDir)
   if (existsSync(resolvedParent)) {
@@ -620,7 +590,6 @@ async function downloadFile(
     }
   }
 
-  // SECURITY: Check output path is not a symlink pointing outside cwd
   if (existsSync(outputPath)) {
     const lstat = lstatSync(outputPath)
     if (lstat.isSymbolicLink()) {
@@ -760,7 +729,6 @@ async function createRepo(
 ): Promise<void> {
   logger.header('CREATE REPOSITORY')
 
-  // Validate repository name
   const repoNamePattern = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/
   if (!name || !repoNamePattern.test(name) || name.length > 100) {
     logger.error('Invalid repository name')
@@ -864,13 +832,11 @@ async function searchPackages(
 async function getPackageInfo(name: string): Promise<void> {
   const dwsUrl = getDwsUrl()
 
-  // Validate package name format
   if (!name || typeof name !== 'string') {
     logger.error('Package name is required')
     process.exit(1)
   }
 
-  // Validate package name pattern (npm-style: @scope/package or package)
   const packagePattern =
     /^(@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/
   if (!packagePattern.test(name)) {
@@ -878,7 +844,6 @@ async function getPackageInfo(name: string): Promise<void> {
     process.exit(1)
   }
 
-  // Safely encode package name
   const encodedName = encodeURIComponent(name)
     .replace(/%40/g, '@')
     .replace(/%2F/g, '/')
@@ -1139,9 +1104,6 @@ async function checkCdnStatus(): Promise<void> {
   }
 }
 
-/**
- * Seed development environment with test data
- */
 async function seedDev(): Promise<void> {
   const dwsUrl = getDwsUrl()
   const testAddress = getDefaultAddress()
@@ -1262,9 +1224,6 @@ async function seedDev(): Promise<void> {
   logger.success(`Seeded. ${healthy}/${services.length} services healthy.`)
 }
 
-/**
- * Self-host DWS on DWS storage
- */
 async function selfHost(): Promise<void> {
   const dwsUrl = getDwsUrl()
   const testAddress = getDefaultAddress()
@@ -1365,9 +1324,6 @@ async function selfHost(): Promise<void> {
   logger.success('Self-hosting setup complete')
 }
 
-/**
- * Build CI runner Docker images
- */
 async function buildRunner(options: {
   push?: boolean
   version: string
@@ -1383,7 +1339,6 @@ async function buildRunner(options: {
   logger.keyValue('Push', options.push ? 'Yes' : 'No')
   logger.newline()
 
-  // Create buildx builder
   logger.step('Setting up Docker buildx...')
   const createBuilder = Bun.spawn(
     ['docker', 'buildx', 'create', '--use', '--name', 'jeju-builder'],
@@ -1404,7 +1359,6 @@ async function buildRunner(options: {
   await inspectBuilder.exited
   logger.success('Buildx ready')
 
-  // Build image
   logger.step('Building images...')
   const platforms = options.push
     ? 'linux/amd64,linux/arm64'
@@ -1466,9 +1420,6 @@ async function buildRunner(options: {
   logger.info(`    ${options.registry}/${imageName}:latest`)
 }
 
-/**
- * Setup workerd (Cloudflare Workers runtime)
- */
 async function setupWorkerd(): Promise<void> {
   logger.header('WORKERD SETUP')
 
@@ -1477,7 +1428,6 @@ async function setupWorkerd(): Promise<void> {
   const workerdBinPath = join(dwsDir, 'node_modules', '.bin', 'workerd')
   const workerdPathFile = join(dwsDir, 'node_modules', '.workerd-path')
 
-  // Check if workerd is already installed
   logger.step('Checking for existing workerd installation...')
 
   let isInstalled = false
@@ -1504,7 +1454,6 @@ async function setupWorkerd(): Promise<void> {
     return
   }
 
-  // Run the install script
   logger.step('Installing workerd...')
   logger.keyValue('Platform', `${process.platform}-${process.arch}`)
   logger.newline()
@@ -1527,7 +1476,6 @@ async function setupWorkerd(): Promise<void> {
     process.exit(1)
   }
 
-  // Verify installation
   logger.newline()
   logger.step('Verifying installation...')
 
@@ -1536,7 +1484,6 @@ async function setupWorkerd(): Promise<void> {
     process.exit(1)
   }
 
-  // Check the installed path
   let installedPath = workerdBinPath
   if (existsSync(workerdPathFile)) {
     installedPath = await Bun.file(workerdPathFile).text()
@@ -1560,9 +1507,6 @@ async function setupWorkerd(): Promise<void> {
   logger.keyValue('Version', versionOutput.trim())
 }
 
-/**
- * Seed regional TEE worker nodes
- */
 async function seedRegionalNodes(options: {
   env: string
   region?: string
@@ -1572,7 +1516,6 @@ async function seedRegionalNodes(options: {
 }): Promise<void> {
   logger.header('REGIONAL TEE NODE SEEDING')
 
-  // Known regions for listing
   const KNOWN_REGIONS = [
     { id: 'local', provider: 'local', name: 'Local Development' },
     { id: 'aws:us-east-1', provider: 'aws', name: 'US East (N. Virginia)' },
@@ -1607,7 +1550,6 @@ async function seedRegionalNodes(options: {
   logger.keyValue('Environment', environment)
 
   if (environment === 'localnet') {
-    // Simple localnet seeding
     const dwsUrl = getDwsUrl()
     const testAddress = getDefaultAddress()
 
@@ -1620,7 +1562,6 @@ async function seedRegionalNodes(options: {
     logger.keyValue('TEE Platform', teePlatform)
     logger.newline()
 
-    // Register node via DWS API
     const nodeData = {
       endpoint,
       teePlatform,
@@ -1647,7 +1588,9 @@ async function seedRegionalNodes(options: {
     if (res?.ok) {
       logger.success('Local TEE node registered')
     } else {
-      logger.warn('Node registration skipped (may already exist or DWS not ready)')
+      logger.warn(
+        'Node registration skipped (may already exist or DWS not ready)',
+      )
     }
   } else if (environment === 'testnet') {
     if (!options.region) {
@@ -1669,12 +1612,8 @@ async function seedRegionalNodes(options: {
 
     logger.step('Registering testnet node...')
 
-    // Use deployment script for testnet
     const rootDir = findMonorepoRoot()
-    const scriptPath = join(
-      rootDir,
-      'apps/dws/scripts/seed-regional-nodes.ts',
-    )
+    const scriptPath = join(rootDir, 'apps/dws/scripts/seed-regional-nodes.ts')
 
     if (existsSync(scriptPath)) {
       const args = ['run', scriptPath, '--env', 'testnet']
@@ -1698,9 +1637,6 @@ async function seedRegionalNodes(options: {
   }
 }
 
-/**
- * Verify TEE GPU provisioning and attestation
- */
 async function verifyTeeGpu(options: { network: string }): Promise<void> {
   logger.header('TEE GPU VERIFICATION')
 
@@ -1720,7 +1656,6 @@ async function verifyTeeGpu(options: { network: string }): Promise<void> {
   logger.keyValue('Script', verifyScript)
   logger.newline()
 
-  // Set up environment based on network
   const env: Record<string, string> = {
     ...(process.env as Record<string, string>),
     NETWORK: options.network,
@@ -1737,7 +1672,6 @@ async function verifyTeeGpu(options: { network: string }): Promise<void> {
     env.DWS_ENDPOINT = 'https://dws.jejunetwork.org'
   }
 
-  // Check for required private key
   if (!process.env.DEPLOYER_PRIVATE_KEY) {
     logger.error('DEPLOYER_PRIVATE_KEY environment variable required')
     logger.info('  Set it with: export DEPLOYER_PRIVATE_KEY=0x...')

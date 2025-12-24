@@ -8,6 +8,7 @@
 import type {
   Action,
   HandlerCallback,
+  HandlerOptions,
   IAgentRuntime,
   Memory,
   State,
@@ -121,7 +122,7 @@ export const submitTrajectory: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options?: Record<string, unknown>,
+    _options?: HandlerOptions,
     callback?: HandlerCallback,
   ): Promise<void> => {
     const text = getOptionalMessageText(message)
@@ -193,7 +194,7 @@ export const checkTrainingStatus: Action = {
     _runtime: IAgentRuntime,
     _message: Memory,
     _state: State | undefined,
-    _options?: Record<string, unknown>,
+    _options?: HandlerOptions,
     callback?: HandlerCallback,
   ): Promise<void> => {
     const url = getDWSUrl()
@@ -275,7 +276,7 @@ export const startTrainingJob: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options?: Record<string, unknown>,
+    _options?: HandlerOptions,
     callback?: HandlerCallback,
   ): Promise<void> => {
     const url = getDWSUrl()

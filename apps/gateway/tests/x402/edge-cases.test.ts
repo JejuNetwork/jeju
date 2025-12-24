@@ -6,16 +6,16 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import type { Address } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { resetConfig } from '../../src/x402/config'
-import { createServer } from '../../src/x402/server'
+import { resetConfig } from '../../api/x402/config'
+import { createServer } from '../../api/x402/server'
 import {
   clearNonceCache,
   markNonceUsed,
-} from '../../src/x402/services/nonce-manager'
+} from '../../api/x402/services/nonce-manager'
 import {
   calculateProtocolFee,
   formatAmount,
-} from '../../src/x402/services/settler'
+} from '../../api/x402/services/settler'
 
 const app = createServer()
 
@@ -89,9 +89,9 @@ async function createSignedPayment(overrides?: {
     message,
   })
 
-  return Buffer.from(JSON.stringify({ ...payload, signature })).toString(
-    'base64',
-  )
+  return Buffer.from(
+    JSON.stringify({ ...payload, signature, payer: null }),
+  ).toString('base64')
 }
 
 describe('Amount Boundary Conditions', () => {

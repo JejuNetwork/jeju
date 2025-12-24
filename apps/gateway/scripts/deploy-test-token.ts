@@ -5,7 +5,7 @@
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { inferChainFromRpcUrl } from '@jejunetwork/deployment/scripts/shared/chain-utils'
+import { inferChainFromRpcUrl } from '@jejunetwork/shared'
 import {
   createPublicClient,
   createWalletClient,

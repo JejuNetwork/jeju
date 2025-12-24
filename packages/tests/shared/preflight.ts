@@ -179,6 +179,8 @@ export async function runPreflightChecks(
     const txHash = await walletClient.sendTransaction({
       to: account.address,
       value: parseEther('0.0001'),
+      chain,
+      account,
     })
 
     const receipt = await publicClient.waitForTransactionReceipt({

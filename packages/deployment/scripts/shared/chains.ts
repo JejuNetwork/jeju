@@ -10,7 +10,7 @@ import {
   getConfig,
   getEILChains,
   type NetworkType,
-} from '../../packages/config'
+} from '@jejunetwork/config'
 
 // Compute chain data from config
 function buildChainMaps() {

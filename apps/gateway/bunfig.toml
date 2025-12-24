@@ -1,6 +1,18 @@
-[serve.static]
-plugins = ["bun-plugin-tailwind"]
-
 [test]
 coverage = true
 coverageDir = "./test-results/coverage"
+
+# Mark server-only packages as external for browser builds
+[serve.static]
+external = [
+  "@google-cloud/*",
+  "@grpc/*",
+  "google-gax",
+  "google-auth-library",
+  "native-dns",
+  "native-dns-cache",
+  "@farcaster/hub-nodejs",
+  "@opentelemetry/*",
+  "bun:sqlite",
+  "node:*"
+]

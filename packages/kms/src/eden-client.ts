@@ -1,10 +1,8 @@
 /**
- * TEE Client for KMS TEE Services
- *
- * Type-safe HTTP client for TEE endpoint communication.
- * Uses raw fetch with typed wrappers since we don't have access to server types.
+ * HTTP client for TEE endpoint communication.
  */
 
+import { getEnv } from '@jejunetwork/shared'
 import type { Address, Hex } from 'viem'
 import type {
   AccessControlPolicy,
@@ -120,7 +118,7 @@ export class TEEClient {
 let teeClient: TEEClient | undefined
 
 export function getTEEClient(endpoint?: string): TEEClient | undefined {
-  const teeEndpoint = endpoint ?? process.env.TEE_ENDPOINT
+  const teeEndpoint = endpoint ?? getEnv('TEE_ENDPOINT')
   if (!teeEndpoint) return undefined
 
   if (!teeClient || teeClient.getEndpoint() !== teeEndpoint) {

@@ -1,26 +1,27 @@
 /**
  * Bazaar Development Server
  *
- * Runs:
- * 1. Static file server for frontend (port 4006)
- * 2. Elysia API server (port 4007)
- * 3. Optionally connects to local DWS for TEE worker simulation
- *
- * All API requests are proxied to the backend.
+ * Simple Bun-based dev server - no shared package dependencies.
+ * Builds frontend, serves static files, proxies API requests.
  */
 
 import { existsSync, watch } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
-import { CORE_PORTS, getCoreAppUrl } from '@jejunetwork/config/ports'
+import {
+  CORE_PORTS,
+  getCoreAppUrl,
+  getCQLBlockProducerUrl,
+} from '@jejunetwork/config'
 import { createBazaarApp } from '../api/worker'
 
 const FRONTEND_PORT = Number(process.env.PORT) || CORE_PORTS.BAZAAR.get()
-const API_PORT = Number(process.env.API_PORT) || CORE_PORTS.COMPUTE.get()
+const API_PORT = Number(process.env.API_PORT) || CORE_PORTS.BAZAAR_API.get()
 const DWS_URL = process.env.DWS_URL || getCoreAppUrl('DWS_API')
 const USE_DWS = process.env.USE_DWS === 'true'
 
-// External packages for browser build
-const BROWSER_EXTERNALS = [
+// Browser externals - packages that can't run in browser
+const EXTERNALS = [
+  // Node.js built-ins
   'bun:sqlite',
   'child_process',
   'http2',
@@ -31,17 +32,15 @@ const BROWSER_EXTERNALS = [
   'dns',
   'stream',
   'crypto',
+  'module',
+  'worker_threads',
   'node:url',
   'node:fs',
   'node:path',
   'node:crypto',
   'node:events',
-  '@jejunetwork/config',
-  '@jejunetwork/shared',
-  '@jejunetwork/sdk',
-  '@jejunetwork/oauth3',
-  '@jejunetwork/deployment',
-  '@jejunetwork/contracts',
+  'node:module',
+  'node:worker_threads',
 ]
 
 let buildInProgress = false
@@ -49,212 +48,96 @@ let buildInProgress = false
 async function buildFrontend(): Promise<void> {
   if (buildInProgress) return
   buildInProgress = true
-
-  const startTime = Date.now()
+  const start = Date.now()
 
   const result = await Bun.build({
-    entrypoints: ['./src/client.tsx'],
+    entrypoints: ['./web/client.tsx'],
     outdir: './dist/dev',
     target: 'browser',
-    splitting: true,
+    splitting: false, // Disabled due to Bun duplicate export bug with secp256k1
     minify: false,
     sourcemap: 'inline',
-    external: BROWSER_EXTERNALS,
+    external: EXTERNALS,
     define: {
       'process.env.NODE_ENV': JSON.stringify('development'),
       'process.env.PUBLIC_API_URL': JSON.stringify(
         `http://localhost:${API_PORT}`,
       ),
+      'process.env': JSON.stringify({
+        NODE_ENV: 'development',
+        PUBLIC_API_URL: `http://localhost:${API_PORT}`,
+      }),
+      'globalThis.process': JSON.stringify({
+        env: { NODE_ENV: 'development' },
+      }),
     },
+    plugins: [
+      {
+        name: 'browser-pino-stub',
+        setup(build) {
+          // Replace pino imports with a browser-safe stub
+          build.onResolve({ filter: /^pino$/ }, () => ({
+            path: 'pino',
+            namespace: 'pino-stub',
+          }))
+          build.onLoad({ filter: /.*/, namespace: 'pino-stub' }, () => ({
+            contents: `
+              const noop = () => {};
+              const createChild = () => logger;
+              const logger = {
+                debug: console.debug.bind(console),
+                info: console.info.bind(console),
+                warn: console.warn.bind(console),
+                error: console.error.bind(console),
+                fatal: console.error.bind(console),
+                trace: console.trace.bind(console),
+                child: createChild,
+                level: 'info',
+                levels: { values: { trace: 10, debug: 20, info: 30, warn: 40, error: 50, fatal: 60 } },
+              };
+              export default function pino() { return logger; }
+              export const levels = logger.levels;
+            `,
+            loader: 'js',
+          }))
+
+          // Dedupe React - force all react imports to resolve to the same location
+          const reactPath = require.resolve('react')
+          const reactDomPath = require.resolve('react-dom')
+          const reactJsxPath = require.resolve('react/jsx-runtime')
+          const reactJsxDevPath = require.resolve('react/jsx-dev-runtime')
+
+          build.onResolve({ filter: /^react$/ }, () => ({ path: reactPath }))
+          build.onResolve({ filter: /^react-dom$/ }, () => ({
+            path: reactDomPath,
+          }))
+          build.onResolve({ filter: /^react\/jsx-runtime$/ }, () => ({
+            path: reactJsxPath,
+          }))
+          build.onResolve({ filter: /^react\/jsx-dev-runtime$/ }, () => ({
+            path: reactJsxDevPath,
+          }))
+        },
+      },
+    ],
   })
 
   buildInProgress = false
 
   if (!result.success) {
-    console.error('❌ Build failed:')
-    for (const log of result.logs) {
-      console.error(log)
-    }
+    console.error('[Bazaar] Build failed:')
+    for (const log of result.logs) console.error(log)
     return
   }
 
-  console.log(`📦 Frontend rebuilt in ${Date.now() - startTime}ms`)
-}
-
-async function createDevHtml(): Promise<string> {
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
-  <meta name="theme-color" content="#0D0B14" media="(prefers-color-scheme: dark)">
-  <meta name="theme-color" content="#FFFBF7" media="(prefers-color-scheme: light)">
-  <title>Bazaar - Dev</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            'bazaar-primary': '#FF6B35',
-            'bazaar-accent': '#00D9C0',
-            'bazaar-purple': '#7C3AED',
-          }
-        }
-      }
-    }
-  </script>
-  <script>
-    (function() {
-      try {
-        const savedTheme = localStorage.getItem('bazaar-theme');
-        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        const shouldBeDark = savedTheme ? savedTheme === 'dark' : prefersDark;
-        if (shouldBeDark) {
-          document.documentElement.classList.add('dark');
-        }
-      } catch (e) {}
-    })();
-  </script>
-  <style>
-    /* Dev-time TailwindCSS base styles */
-    *, ::before, ::after { box-sizing: border-box; }
-    html { line-height: 1.5; -webkit-text-size-adjust: 100%; }
-    body { margin: 0; font-family: system-ui, -apple-system, sans-serif; }
-  </style>
-</head>
-<body class="font-sans antialiased">
-  <div id="root"></div>
-  <script type="module" src="/client.js"></script>
-</body>
-</html>`
-}
-
-async function startFrontendServer(): Promise<void> {
-  await mkdir('./dist/dev', { recursive: true })
-  await buildFrontend()
-
-  Bun.serve({
-    port: FRONTEND_PORT,
-    async fetch(req) {
-      const url = new URL(req.url)
-      const pathname = url.pathname
-
-      // Proxy API requests to backend
-      if (
-        pathname.startsWith('/api/') ||
-        pathname.startsWith('/health') ||
-        pathname.startsWith('/.well-known/')
-      ) {
-        const targetUrl = USE_DWS
-          ? `${DWS_URL}/workers/bazaar-api${pathname}${url.search}`
-          : `http://localhost:${API_PORT}${pathname}${url.search}`
-
-        const proxyResponse = await fetch(targetUrl, {
-          method: req.method,
-          headers: req.headers,
-          body:
-            req.method !== 'GET' && req.method !== 'HEAD'
-              ? req.body
-              : undefined,
-        }).catch((error) => {
-          console.error('Proxy error:', error.message)
-          return new Response(
-            JSON.stringify({ error: 'Backend unavailable' }),
-            { status: 503, headers: { 'Content-Type': 'application/json' } },
-          )
-        })
-
-        return proxyResponse
-      }
-
-      // Serve static files
-      if (pathname !== '/' && !pathname.includes('.')) {
-        // SPA fallback for client-side routes
-        return new Response(await createDevHtml(), {
-          headers: { 'Content-Type': 'text/html' },
-        })
-      }
-
-      // Serve built files
-      const filePath = pathname === '/' ? '/index.html' : pathname
-
-      if (filePath === '/index.html') {
-        return new Response(await createDevHtml(), {
-          headers: { 'Content-Type': 'text/html' },
-        })
-      }
-
-      // Check dist/dev first, then src for CSS
-      const devFile = Bun.file(`./dist/dev${filePath}`)
-      if (await devFile.exists()) {
-        return new Response(devFile, {
-          headers: {
-            'Content-Type': getContentType(filePath),
-            'Cache-Control': 'no-cache',
-          },
-        })
-      }
-
-      // Serve CSS from src
-      if (filePath.endsWith('.css')) {
-        const srcCss = Bun.file(`./src${filePath}`)
-        if (await srcCss.exists()) {
-          return new Response(srcCss, {
-            headers: {
-              'Content-Type': 'text/css',
-              'Cache-Control': 'no-cache',
-            },
-          })
-        }
-      }
-
-      // Serve public files
-      const publicFile = Bun.file(`./public${filePath}`)
-      if (await publicFile.exists()) {
-        return new Response(publicFile, {
-          headers: { 'Content-Type': getContentType(filePath) },
-        })
-      }
-
-      return new Response('Not Found', { status: 404 })
-    },
-  })
-
-  console.log(`🌐 Frontend: http://localhost:${FRONTEND_PORT}`)
-
-  // Watch for changes and rebuild
-  const watchDirs = [
-    './src',
-    './components',
-    './hooks',
-    './lib',
-    './config',
-    './schemas',
-  ]
-
-  for (const dir of watchDirs) {
-    if (existsSync(dir)) {
-      watch(dir, { recursive: true }, (_eventType, filename) => {
-        if (
-          filename &&
-          (filename.endsWith('.ts') || filename.endsWith('.tsx'))
-        ) {
-          console.log(`🔄 ${filename} changed, rebuilding...`)
-          buildFrontend()
-        }
-      })
-    }
-  }
+  console.log(`[Bazaar] Built in ${Date.now() - start}ms`)
 }
 
 async function startApiServer(): Promise<void> {
   if (USE_DWS) {
-    console.log(`🔌 API proxied through DWS: ${DWS_URL}/workers/bazaar-api`)
+    console.log(
+      `[Bazaar] API proxied through DWS: ${DWS_URL}/workers/bazaar-api`,
+    )
     return
   }
 
@@ -267,47 +150,143 @@ async function startApiServer(): Promise<void> {
     DWS_URL: DWS_URL,
     GATEWAY_URL: process.env.GATEWAY_URL || 'http://localhost:4002',
     INDEXER_URL: process.env.INDEXER_URL || 'http://localhost:4003',
-    COVENANTSQL_NODES: process.env.COVENANTSQL_NODES || 'http://localhost:4661',
+    COVENANTSQL_NODES:
+      process.env.COVENANTSQL_NODES || getCQLBlockProducerUrl(),
     COVENANTSQL_DATABASE_ID:
       process.env.COVENANTSQL_DATABASE_ID || 'dev-bazaar',
     COVENANTSQL_PRIVATE_KEY: process.env.COVENANTSQL_PRIVATE_KEY || '',
   })
 
   app.listen(API_PORT, () => {
-    console.log(`🔌 API: http://localhost:${API_PORT}`)
+    console.log(`[Bazaar] API: http://localhost:${API_PORT}`)
   })
 }
 
-function getContentType(path: string): string {
-  if (path.endsWith('.js')) return 'application/javascript'
-  if (path.endsWith('.css')) return 'text/css'
-  if (path.endsWith('.html')) return 'text/html'
-  if (path.endsWith('.json')) return 'application/json'
-  if (path.endsWith('.svg')) return 'image/svg+xml'
-  if (path.endsWith('.png')) return 'image/png'
-  if (path.endsWith('.jpg') || path.endsWith('.jpeg')) return 'image/jpeg'
-  if (path.endsWith('.woff2')) return 'font/woff2'
-  if (path.endsWith('.woff')) return 'font/woff'
-  return 'application/octet-stream'
+async function startFrontendServer(): Promise<void> {
+  await mkdir('./dist/dev', { recursive: true })
+  await buildFrontend()
+
+  const apiUrl = USE_DWS
+    ? `${DWS_URL}/workers/bazaar-api`
+    : `http://localhost:${API_PORT}`
+
+  Bun.serve({
+    port: FRONTEND_PORT,
+    async fetch(req) {
+      const url = new URL(req.url)
+      const path = url.pathname
+
+      // Proxy API requests
+      if (
+        path.startsWith('/api/') ||
+        path === '/health' ||
+        path.startsWith('/.well-known/')
+      ) {
+        return fetch(`${apiUrl}${path}${url.search}`, {
+          method: req.method,
+          headers: req.headers,
+          body:
+            req.method !== 'GET' && req.method !== 'HEAD'
+              ? req.body
+              : undefined,
+        }).catch(() => new Response('Backend unavailable', { status: 503 }))
+      }
+
+      // Serve built JS
+      if (path.endsWith('.js') || path.endsWith('.js.map')) {
+        const file = Bun.file(`./dist/dev${path}`)
+        if (await file.exists()) {
+          return new Response(file, {
+            headers: {
+              'Content-Type': 'application/javascript',
+              'Cache-Control': 'no-cache',
+            },
+          })
+        }
+      }
+
+      // Serve CSS
+      if (path.endsWith('.css')) {
+        const file = Bun.file(`./web${path}`)
+        if (await file.exists()) {
+          return new Response(file, {
+            headers: {
+              'Content-Type': 'text/css',
+              'Cache-Control': 'no-cache',
+            },
+          })
+        }
+      }
+
+      // Serve public files
+      if (path !== '/' && !path.includes('.')) {
+        // SPA fallback
+      }
+      const publicFile = Bun.file(`./public${path}`)
+      if (path !== '/' && (await publicFile.exists())) {
+        return new Response(publicFile)
+      }
+
+      // Serve index.html (with Tailwind CDN for dev)
+      return new Response(generateDevHtml(), {
+        headers: { 'Content-Type': 'text/html' },
+      })
+    },
+  })
+
+  console.log(`[Bazaar] Frontend: http://localhost:${FRONTEND_PORT}`)
+
+  // Watch for changes
+  for (const dir of ['./web', './components', './hooks', './lib']) {
+    if (existsSync(dir)) {
+      watch(dir, { recursive: true }, (_, file) => {
+        if (file?.endsWith('.ts') || file?.endsWith('.tsx')) {
+          console.log(`[Bazaar] ${file} changed, rebuilding...`)
+          buildFrontend()
+        }
+      })
+    }
+  }
 }
 
-async function main(): Promise<void> {
-  console.log('🚀 Starting Bazaar development servers...\n')
+function generateDevHtml(): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0D0B14" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#FFFBF7" media="(prefers-color-scheme: light)">
+  <title>Bazaar - Dev</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    // Process polyfill for browser
+    window.process = window.process || { env: { NODE_ENV: 'development' } };
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { darkMode: 'class' }
+    const saved = localStorage.getItem('bazaar-theme');
+    if (saved === 'dark' || (!saved && matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark');
+    }
+  </script>
+  <link rel="stylesheet" href="/globals.css">
+</head>
+<body class="font-sans antialiased">
+  <div id="root"></div>
+  <script type="module" src="/client.js"></script>
+</body>
+</html>`
+}
 
-  if (USE_DWS) {
-    console.log(
-      '📡 DWS mode enabled - API requests will be proxied to DWS workers\n',
-    )
-  }
-
-  // Start both servers
-  await Promise.all([startFrontendServer(), startApiServer()])
-
-  console.log('\n✅ Development servers ready!')
-  console.log(`   Frontend: http://localhost:${FRONTEND_PORT}`)
-  console.log(
-    `   API: ${USE_DWS ? `${DWS_URL}/workers/bazaar-api` : `http://localhost:${API_PORT}`}`,
-  )
+async function main() {
+  console.log('[Bazaar] Starting dev server...\n')
+  await startApiServer()
+  await startFrontendServer()
+  console.log('\n[Bazaar] Ready.')
 }
 
 main()

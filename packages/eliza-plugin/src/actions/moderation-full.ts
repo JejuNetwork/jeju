@@ -7,6 +7,7 @@
 import type {
   Action,
   HandlerCallback,
+  HandlerOptions,
   IAgentRuntime,
   Memory,
   State,
@@ -56,7 +57,7 @@ export const submitEvidenceAction: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options?: Record<string, unknown>,
+    _options?: HandlerOptions,
     callback?: HandlerCallback,
   ) => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
@@ -109,7 +110,7 @@ export const supportEvidenceAction: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options?: Record<string, unknown>,
+    _options?: HandlerOptions,
     callback?: HandlerCallback,
   ) => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
@@ -159,7 +160,7 @@ export const getEvidenceAction: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options?: Record<string, unknown>,
+    _options?: HandlerOptions,
     callback?: HandlerCallback,
   ) => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
@@ -216,7 +217,7 @@ export const listCaseEvidenceAction: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options?: Record<string, unknown>,
+    _options?: HandlerOptions,
     callback?: HandlerCallback,
   ) => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
@@ -271,7 +272,7 @@ export const claimEvidenceRewardAction: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options?: Record<string, unknown>,
+    _options?: HandlerOptions,
     callback?: HandlerCallback,
   ) => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
@@ -319,7 +320,7 @@ export const createCaseAction: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options?: Record<string, unknown>,
+    _options?: HandlerOptions,
     callback?: HandlerCallback,
   ) => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
@@ -371,7 +372,7 @@ export const getCaseAction: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options?: Record<string, unknown>,
+    _options?: HandlerOptions,
     callback?: HandlerCallback,
   ) => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
@@ -440,7 +441,7 @@ export const listCasesAction: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options?: Record<string, unknown>,
+    _options?: HandlerOptions,
     callback?: HandlerCallback,
   ) => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
@@ -501,7 +502,7 @@ export const appealCaseAction: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options?: Record<string, unknown>,
+    _options?: HandlerOptions,
     callback?: HandlerCallback,
   ) => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
@@ -552,7 +553,7 @@ export const issueLabelAction: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options?: Record<string, unknown>,
+    _options?: HandlerOptions,
     callback?: HandlerCallback,
   ) => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
@@ -605,7 +606,7 @@ export const getLabelsAction: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options?: Record<string, unknown>,
+    _options?: HandlerOptions,
     callback?: HandlerCallback,
   ) => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
@@ -659,7 +660,7 @@ export const checkTrustAction: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options?: Record<string, unknown>,
+    _options?: HandlerOptions,
     callback?: HandlerCallback,
   ) => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService

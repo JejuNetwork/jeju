@@ -21,28 +21,70 @@
 
 import type { QueryParam } from './types.js'
 
-// ============================================================================
 // Where Clause Types
-// ============================================================================
 
-type WhereValue<T> =
-  | T
-  | {
-      equals?: T
-      not?: T | { equals?: T }
-      in?: T[]
-      notIn?: T[]
-      lt?: T
-      lte?: T
-      gt?: T
-      gte?: T
-      contains?: string
-      startsWith?: string
-      endsWith?: string
-      mode?: 'insensitive'
-    }
-  | null
-  | undefined
+/** Operators for string filtering with optional case sensitivity */
+interface StringFilterOps {
+  contains?: string
+  startsWith?: string
+  endsWith?: string
+  mode?: 'insensitive'
+}
+
+/** Nested not equals operator */
+interface NotEqualsOp<T> {
+  equals?: T
+}
+
+/** All comparison and filter operators */
+interface WhereOps<T> extends StringFilterOps {
+  equals?: T
+  not?: T | NotEqualsOp<T>
+  in?: T[]
+  notIn?: T[]
+  lt?: T
+  lte?: T
+  gt?: T
+  gte?: T
+}
+
+type WhereValue<T> = T | WhereOps<T> | null | undefined
+
+/** Type guard to check if value is a where operator object */
+function isWhereOps(value: unknown): value is WhereOps<unknown> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return false
+  }
+  if (value instanceof Date) {
+    return false
+  }
+  const keys = Object.keys(value)
+  const opKeys = [
+    'equals',
+    'not',
+    'in',
+    'notIn',
+    'lt',
+    'lte',
+    'gt',
+    'gte',
+    'contains',
+    'startsWith',
+    'endsWith',
+    'mode',
+  ]
+  return keys.some((k) => opKeys.includes(k))
+}
+
+/** Type guard to check if not operator is a nested equals object */
+function isNotEqualsOp(value: unknown): value is NotEqualsOp<unknown> {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'equals' in value &&
+    !Array.isArray(value)
+  )
+}
 
 export type WhereInput<TTable> = {
   [K in keyof TTable]?: WhereValue<TTable[K]>
@@ -56,9 +98,7 @@ export type OrderByInput<TTable> = {
   [K in keyof TTable]?: 'asc' | 'desc'
 }
 
-// ============================================================================
 // Where Clause Builder
-// ============================================================================
 
 export interface WhereClauseResult {
   sql: string
@@ -144,15 +184,10 @@ export function buildWhereClause(
 
     if (value === undefined) continue
 
-    if (
-      typeof value === 'object' &&
-      value !== null &&
-      !Array.isArray(value) &&
-      !(value instanceof Date)
-    ) {
-      const ops = value as Record<string, unknown>
+    if (isWhereOps(value)) {
+      const ops = value
 
-      if ('equals' in ops) {
+      if (ops.equals !== undefined) {
         if (ops.equals === null) {
           conditions.push(`"${key}" IS NULL`)
         } else {
@@ -161,17 +196,12 @@ export function buildWhereClause(
           conditions.push(`"${key}" = $${offset}`)
         }
       }
-      if ('not' in ops) {
+      if (ops.not !== undefined) {
         if (ops.not === null) {
           conditions.push(`"${key}" IS NOT NULL`)
-        } else if (
-          typeof ops.not === 'object' &&
-          ops.not !== null &&
-          'equals' in ops.not
-        ) {
-          const notEqualsValue = (ops.not as { equals: unknown }).equals
+        } else if (isNotEqualsOp(ops.not)) {
           offset++
-          params.push(notEqualsValue as QueryParam)
+          params.push(ops.not.equals as QueryParam)
           conditions.push(`"${key}" != $${offset}`)
         } else {
           offset++
@@ -179,7 +209,7 @@ export function buildWhereClause(
           conditions.push(`"${key}" != $${offset}`)
         }
       }
-      if ('in' in ops && Array.isArray(ops.in)) {
+      if (ops.in !== undefined && Array.isArray(ops.in)) {
         const placeholders = ops.in.map(() => {
           offset++
           return `$${offset}`
@@ -187,7 +217,7 @@ export function buildWhereClause(
         params.push(...(ops.in as QueryParam[]))
         conditions.push(`"${key}" IN (${placeholders.join(', ')})`)
       }
-      if ('notIn' in ops && Array.isArray(ops.notIn)) {
+      if (ops.notIn !== undefined && Array.isArray(ops.notIn)) {
         const placeholders = ops.notIn.map(() => {
           offset++
           return `$${offset}`
@@ -195,51 +225,48 @@ export function buildWhereClause(
         params.push(...(ops.notIn as QueryParam[]))
         conditions.push(`"${key}" NOT IN (${placeholders.join(', ')})`)
       }
-      if ('lt' in ops) {
+      if (ops.lt !== undefined) {
         offset++
         params.push(ops.lt as QueryParam)
         conditions.push(`"${key}" < $${offset}`)
       }
-      if ('lte' in ops) {
+      if (ops.lte !== undefined) {
         offset++
         params.push(ops.lte as QueryParam)
         conditions.push(`"${key}" <= $${offset}`)
       }
-      if ('gt' in ops) {
+      if (ops.gt !== undefined) {
         offset++
         params.push(ops.gt as QueryParam)
         conditions.push(`"${key}" > $${offset}`)
       }
-      if ('gte' in ops) {
+      if (ops.gte !== undefined) {
         offset++
         params.push(ops.gte as QueryParam)
         conditions.push(`"${key}" >= $${offset}`)
       }
-      if ('contains' in ops) {
-        const mode = (ops as { mode?: string }).mode
+      if (ops.contains !== undefined) {
         offset++
         params.push(`%${ops.contains}%`)
-        if (mode === 'insensitive') {
+        if (ops.mode === 'insensitive') {
           conditions.push(`"${key}" ILIKE $${offset}`)
         } else {
           conditions.push(`"${key}" LIKE $${offset}`)
         }
       }
-      if ('startsWith' in ops) {
-        const mode = (ops as { mode?: string }).mode
+      if (ops.startsWith !== undefined) {
         offset++
         params.push(`${ops.startsWith}%`)
-        if (mode === 'insensitive') {
+        if (ops.mode === 'insensitive') {
           conditions.push(`"${key}" ILIKE $${offset}`)
         } else {
           conditions.push(`"${key}" LIKE $${offset}`)
         }
       }
-      if ('endsWith' in ops) {
-        const mode = (ops as { mode?: string }).mode
+      if (ops.endsWith !== undefined) {
         offset++
         params.push(`%${ops.endsWith}`)
-        if (mode === 'insensitive') {
+        if (ops.mode === 'insensitive') {
           conditions.push(`"${key}" ILIKE $${offset}`)
         } else {
           conditions.push(`"${key}" LIKE $${offset}`)
@@ -258,9 +285,7 @@ export function buildWhereClause(
   }
 }
 
-// ============================================================================
 // Order By Clause Builder
-// ============================================================================
 
 /**
  * Build an ORDER BY clause from an OrderByInput object.
@@ -288,10 +313,13 @@ export function buildOrderByClause(
   return clauses.length > 0 ? ` ORDER BY ${clauses.join(', ')}` : ''
 }
 
-// ============================================================================
 // Query Param Conversion
-// ============================================================================
 
+import type { JsonObject, JsonValue } from '@jejunetwork/types'
+
+type JsonArray = JsonValue[]
+
+/** Values that can be converted to SQL query parameters */
 type SQLValue =
   | string
   | number
@@ -300,8 +328,8 @@ type SQLValue =
   | bigint
   | Uint8Array
   | Date
-  | Record<string, unknown>
-  | unknown[]
+  | JsonObject
+  | JsonArray
 
 /**
  * Convert a value to a QueryParam, handling special types like Date and JSON objects.

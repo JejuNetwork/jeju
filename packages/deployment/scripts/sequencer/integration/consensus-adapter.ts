@@ -72,13 +72,13 @@ export class ConsensusAdapter {
   }
 
   async loadSequencers(): Promise<void> {
-    const result = await this.publicClient.readContract({
+    const result = (await this.publicClient.readContract({
       address: this.sequencerRegistryAddress,
       abi: this.sequencerRegistryAbi,
       functionName: 'getActiveSequencers',
-    })
-    const addresses = result[0] as Address[]
-    const weights = result[1] as bigint[]
+    })) as [Address[], bigint[]]
+    const addresses = result[0]
+    const weights = result[1]
     this.sequencers = addresses.map((addr, i) => ({
       address: addr,
       weight: weights[i],
@@ -137,7 +137,7 @@ export class ConsensusAdapter {
         [
           BigInt(proposal.blockNumber),
           proposal.stateRoot as `0x${string}`,
-          proposal.parentHash,
+          proposal.parentHash as `0x${string}`,
           BigInt(proposal.timestamp),
         ],
       ),
@@ -236,7 +236,7 @@ export class ConsensusAdapter {
   /**
    * Verify signatures are valid and from registered sequencers
    */
-  verifyVotes(proposal: BlockProposal, votes: Vote[]): boolean {
+  async verifyVotes(proposal: BlockProposal, votes: Vote[]): Promise<boolean> {
     const requiredVotes = Math.ceil(
       this.sequencers.length * this.requiredVoteRatio,
     )
@@ -253,7 +253,7 @@ export class ConsensusAdapter {
         [
           BigInt(proposal.blockNumber),
           proposal.stateRoot as `0x${string}`,
-          proposal.parentHash,
+          proposal.parentHash as `0x${string}`,
           BigInt(proposal.timestamp),
         ],
       ),
@@ -266,7 +266,7 @@ export class ConsensusAdapter {
 
     for (const vote of votes) {
       try {
-        const recovered = recoverAddress({
+        const recovered = await recoverAddress({
           hash: messageHash,
           signature: vote.signature as `0x${string}`,
         })
@@ -354,7 +354,7 @@ export class ConsensusAdapter {
   }
 
   private async runBlockProduction(): Promise<void> {
-    let parentHash = zeroHash
+    let parentHash: `0x${string}` = zeroHash
     let consecutiveFailures = 0
     const maxConsecutiveFailures = 5
 
@@ -371,7 +371,7 @@ export class ConsensusAdapter {
       const votes = await this.collectVotesP2P(proposal)
 
       // Verify signatures
-      const hasConsensus = this.verifyVotes(proposal, votes)
+      const hasConsensus = await this.verifyVotes(proposal, votes)
 
       if (hasConsensus) {
         const result = await this.finalizeBlock(proposal, votes)

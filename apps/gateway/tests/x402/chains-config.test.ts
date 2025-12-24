@@ -9,7 +9,7 @@ import {
   getConfig,
   resetConfig,
   validateConfig,
-} from '../../src/x402/config'
+} from '../../api/x402/config'
 import {
   CHAIN_CONFIGS,
   CHAIN_ID_TO_NETWORK,
@@ -18,7 +18,7 @@ import {
   getPrimaryNetwork,
   getTokenConfig,
   ZERO_ADDRESS,
-} from '../../src/x402/lib/chains'
+} from '../../api/x402/lib/chains'
 
 describe('Chain Configuration', () => {
   test('should have all expected networks', () => {

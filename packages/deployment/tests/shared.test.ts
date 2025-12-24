@@ -8,8 +8,6 @@
 import { describe, expect, it } from 'bun:test'
 import { z } from 'zod'
 
-// ============ Types & Schemas (re-exported for testing) ============
-
 const NetworkSchema = z.enum(['localnet', 'testnet', 'mainnet'])
 type NetworkType = z.infer<typeof NetworkSchema>
 
@@ -38,9 +36,6 @@ const NETWORK_RPC_CONFIGS: Record<NetworkType, NetworkRpcConfig> = {
     defaultLocalnet: 'http://localhost:6546',
   },
 }
-
-// ============ Functions Under Test ============
-
 function getRequiredNetwork(
   env: Record<string, string | undefined>,
 ): NetworkType {
@@ -93,9 +88,6 @@ function getNetworkRpcUrl(
     `${config.rpcUrlEnvVar} environment variable is required for ${network}`,
   )
 }
-
-// ============ Tests ============
-
 describe('NetworkSchema', () => {
   it('should accept valid network values', () => {
     expect(NetworkSchema.parse('localnet')).toBe('localnet')

@@ -5,6 +5,7 @@
  * Without TEE_ENDPOINT, runs in local encrypted mode using TEE_ENCRYPTION_SECRET.
  */
 
+import { getEnv, requireEnv } from '@jejunetwork/shared'
 import { type Address, type Hex, keccak256, toBytes, toHex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import {
@@ -60,12 +61,7 @@ export class TEEProvider implements KMSProvider {
       ? new TEEClient(config.endpoint)
       : undefined
 
-    const secret = process.env.TEE_ENCRYPTION_SECRET
-    if (!secret) {
-      throw new Error(
-        'TEE_ENCRYPTION_SECRET environment variable is required for TEE provider',
-      )
-    }
+    const secret = requireEnv('TEE_ENCRYPTION_SECRET')
     this.enclaveKey = deriveKeyFromSecret(secret)
   }
 
@@ -309,7 +305,7 @@ let teeProvider: TEEProvider | undefined
 
 export function getTEEProvider(config?: Partial<TEEConfig>): TEEProvider {
   if (!teeProvider) {
-    const endpoint = config?.endpoint ?? process.env.TEE_ENDPOINT
+    const endpoint = config?.endpoint ?? getEnv('TEE_ENDPOINT')
     teeProvider = new TEEProvider({ endpoint })
   }
   return teeProvider

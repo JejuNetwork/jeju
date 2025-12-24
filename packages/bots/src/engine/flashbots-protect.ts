@@ -5,7 +5,7 @@
  * Supports Flashbots Protect (mainnet) and MEV Blocker (L2s).
  */
 
-import { EventEmitter } from 'node:events'
+import { EventEmitter } from '@jejunetwork/shared'
 import {
   createWalletClient,
   type Hash,
@@ -16,8 +16,12 @@ import {
 } from 'viem'
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
 import { arbitrum, base, mainnet, optimism } from 'viem/chains'
-
-// ============ Types ============
+import {
+  FlashbotsBundleResponseSchema,
+  FlashbotsBundleStatsResponseSchema,
+  FlashbotsRpcResponseSchema,
+  FlashbotsSimResponseSchema,
+} from '../schemas'
 
 interface FlashbotsBundle {
   transactions: Hex[]
@@ -51,9 +55,6 @@ interface PendingBundle {
   submittedAt: number
   status: 'pending' | 'included' | 'failed'
 }
-
-// ============ Constants ============
-
 const _FLASHBOTS_RPC = 'https://rpc.flashbots.net'
 const FLASHBOTS_PROTECT = 'https://protect.flashbots.net'
 const FLASHBOTS_RELAY = 'https://relay.flashbots.net'
@@ -72,9 +73,6 @@ const CHAINS = {
   42161: arbitrum,
   10: optimism,
 } as const
-
-// ============ Flashbots Protect ============
-
 export class FlashbotsProtect extends EventEmitter {
   private config: ProtectConfig
   private account: PrivateKeyAccount
@@ -156,13 +154,15 @@ export class FlashbotsProtect extends EventEmitter {
         }),
       })
 
-      const result = (await response.json()) as {
-        result?: Hash
-        error?: { message: string }
-      }
+      const rawData: unknown = await response.json()
+      const result = FlashbotsRpcResponseSchema.parse(rawData)
 
       if (result.error) {
         throw new Error(result.error.message)
+      }
+
+      if (!result.result) {
+        throw new Error('No transaction hash in Flashbots response')
       }
 
       console.log(`✓ TX submitted via Flashbots Protect: ${result.result}`)
@@ -242,10 +242,8 @@ export class FlashbotsProtect extends EventEmitter {
       body: bundleBody,
     })
 
-    const result = (await response.json()) as {
-      result?: { bundleHash: string }
-      error?: { message: string }
-    }
+    const rawData: unknown = await response.json()
+    const result = FlashbotsBundleResponseSchema.parse(rawData)
 
     if (result.error) {
       return {
@@ -312,10 +310,8 @@ export class FlashbotsProtect extends EventEmitter {
       body: simBody,
     })
 
-    const result = (await response.json()) as {
-      result?: { results: Array<{ error?: string; gasUsed: string }> }
-      error?: { message: string }
-    }
+    const rawData: unknown = await response.json()
+    const result = FlashbotsSimResponseSchema.parse(rawData)
 
     if (result.error) {
       return { success: false, error: result.error.message }
@@ -357,13 +353,8 @@ export class FlashbotsProtect extends EventEmitter {
       body,
     })
 
-    const result = (await response.json()) as {
-      result?: {
-        isSimulated: boolean
-        isSentToMiners: boolean
-        isHighPriority: boolean
-      }
-    }
+    const rawData: unknown = await response.json()
+    const result = FlashbotsBundleStatsResponseSchema.parse(rawData)
 
     return {
       status: result.result?.isSentToMiners ? 'sent' : 'pending',
@@ -407,9 +398,6 @@ export class FlashbotsProtect extends EventEmitter {
     }
   }
 }
-
-// ============ Factory ============
-
 export function createFlashbotsProtect(
   config: Partial<ProtectConfig> & { privateKey: string },
 ): FlashbotsProtect {

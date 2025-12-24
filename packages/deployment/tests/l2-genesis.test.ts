@@ -6,8 +6,6 @@
 
 import { describe, expect, it } from 'bun:test'
 
-// ============ Function Under Test ============
-
 /**
  * Generate a 32-byte (64 hex character) JWT secret
  * This is used for secure communication between L1 and L2 nodes
@@ -17,9 +15,6 @@ function generateJwtSecret(): string {
     Math.floor(Math.random() * 16).toString(16),
   ).join('')
 }
-
-// ============ Tests ============
-
 describe('generateJwtSecret', () => {
   it('should generate a 64-character hex string', () => {
     const secret = generateJwtSecret()

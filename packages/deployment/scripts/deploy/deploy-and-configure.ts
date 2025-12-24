@@ -17,8 +17,7 @@
 import { execSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-
-type NetworkType = 'localnet' | 'testnet' | 'mainnet'
+import type { NetworkType } from '@jejunetwork/types'
 
 interface DeployedAddresses {
   feedRegistry: string

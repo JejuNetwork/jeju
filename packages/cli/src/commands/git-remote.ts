@@ -1,31 +1,11 @@
 #!/usr/bin/env bun
-/**
- * git-remote-jeju - Git remote helper for Jeju DWS
- *
- * This script implements the git-remote-helper protocol for custom remotes.
- * It allows git to communicate with Jeju's decentralized git hosting.
- *
- * Usage:
- *   git remote add origin jeju://0x1234.../my-repo
- *   git clone jeju://0x1234.../my-repo
- *   git push origin main
- *
- * Install:
- *   1. Build CLI: bun run build in packages/cli
- *   2. Link CLI: npm link or add to PATH
- *   3. Create symlink: ln -s $(which jeju) /usr/local/bin/git-remote-jeju
- *   4. Git will automatically find it when using jeju:// URLs
- *
- * Security notes:
- * - Remote URLs are validated to prevent injection
- * - All user inputs are sanitized
- */
+
+/** Git remote helper for Jeju DWS */
 
 import { createHash } from 'node:crypto'
 import * as readline from 'node:readline'
 import { deflateSync } from 'node:zlib'
 
-// Configuration
 const DWS_URL = process.env.DWS_URL || 'http://localhost:4030'
 
 /** Validate owner format (Ethereum address or username) */
@@ -216,7 +196,6 @@ export class JejuGitRemote {
       wantOids.push(firstOid)
     }
 
-    // Read additional fetch lines
     for await (const line of rl) {
       if (!line.trim()) break
 
@@ -419,7 +398,6 @@ export class JejuGitRemote {
   private async createPackfile(objects: GitObject[]): Promise<Buffer> {
     const parts: Buffer[] = []
 
-    // Header: PACK, version 2, num objects
     const header = Buffer.alloc(12)
     header.write('PACK', 0)
     header.writeUInt32BE(2, 4)
@@ -519,9 +497,6 @@ export class JejuGitRemote {
   }
 }
 
-/**
- * Run the remote helper when invoked directly
- */
 export async function runGitRemote(
   remoteName: string,
   remoteUrl: string,

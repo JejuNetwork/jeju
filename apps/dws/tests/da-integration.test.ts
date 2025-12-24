@@ -13,8 +13,6 @@ const TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address
 const TEST_DATA = 'Hello, DA Layer!'
 
 describe('DA Layer HTTP API', () => {
-  // ============ Health ============
-
   it('should return health status', async () => {
     const response = await app.request('/da/health')
     expect(response.status).toBe(200)
@@ -26,9 +24,6 @@ describe('DA Layer HTTP API', () => {
     expect(data.status).toBe('healthy')
     expect(data.initialized).toBe(true)
   })
-
-  // ============ Blob Submission ============
-
   it('should submit a blob', async () => {
     // First register an operator so dispersal can work
     const operator = {
@@ -74,9 +69,6 @@ describe('DA Layer HTTP API', () => {
       expect(error.blobId).toMatch(/^0x[a-f0-9]{64}$/)
     }
   })
-
-  // ============ Operators ============
-
   it('should list operators', async () => {
     const response = await app.request('/da/operators')
     expect(response.status).toBe(200)
@@ -114,9 +106,6 @@ describe('DA Layer HTTP API', () => {
     expect(result.success).toBe(true)
     expect(result.address).toBe(TEST_ADDRESS)
   })
-
-  // ============ Stats ============
-
   it('should return stats', async () => {
     const response = await app.request('/da/stats')
     expect(response.status).toBe(200)
@@ -130,18 +119,12 @@ describe('DA Layer HTTP API', () => {
     expect(typeof data.blobs.totalBlobs).toBe('number')
     expect(data.operators).toBeDefined()
   })
-
-  // ============ Blob Status ============
-
   it('should return 404 for non-existent blob', async () => {
     const fakeBlobId = keccak256(toBytes('nonexistent'))
     const response = await app.request(`/da/blob/${fakeBlobId}`)
 
     expect(response.status).toBe(404)
   })
-
-  // ============ Blob List ============
-
   it('should list blobs', async () => {
     const response = await app.request('/da/blobs?status=available&limit=10')
     expect(response.status).toBe(200)

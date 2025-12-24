@@ -1,9 +1,10 @@
 /**
  * @title Shared Utilities Index
- * @notice Central export for all shared utilities
+ * @notice Central export for all shared utilities (browser-safe)
  */
 
 export * from './agent0'
+export * from './chain-utils'
 // Chain utilities
 export * from './chains'
 // Config utilities (unified config access)
@@ -12,15 +13,18 @@ export * from './config-utils'
 export * from './contract-types'
 // EIL exports - export everything, EILConfig is the canonical one
 export * from './eil'
-// EIL Hooks
+// EIL Hooks (browser-safe)
 export {
   APP_TOKEN_PREFERENCE_ABI,
+  type AppPreference,
   buildAppAwarePaymentData,
   buildLiquidityDepositTransaction,
   buildSwapTransaction,
   buildTokenPaymentData,
   buildXLPStakeTransaction,
+  type ChainInfo,
   CROSS_CHAIN_PAYMASTER_ABI,
+  type CrossChainSwapParams,
   calculateSwapFee,
   canPayGasWithToken,
   DEFAULT_EIL_CONFIG,
@@ -28,13 +32,16 @@ export {
   formatGasPaymentOption,
   formatSwapRoute,
   formatXLPPosition,
+  type GasPaymentOption,
   getBestGasTokenForApp,
   getChainById,
   isCrossChainSwap,
   L1_STAKE_MANAGER_ABI,
   SUPPORTED_CHAINS,
+  type SwapStatus,
   selectBestGasToken,
   validateSwapParams,
+  type XLPPosition,
 } from './eil-hooks'
 // Gas Intent Router
 export {
@@ -49,19 +56,6 @@ export {
 } from './gas-intent-router'
 export * from './intent-swap'
 export * from './jns'
-// Local Proxy - hosts file and Caddy reverse proxy management
-export {
-  ensureHostsFile,
-  generateCaddyfile,
-  getHostsBlockStatus,
-  getLocalUrls,
-  hasJejuHostsBlock,
-  installCaddy,
-  isCaddyInstalled,
-  removeHostsBlock,
-  startProxy,
-  stopProxy,
-} from './local-proxy'
 export * from './logger'
 // Multi-chain Discovery
 export {

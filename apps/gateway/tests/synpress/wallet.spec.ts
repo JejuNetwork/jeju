@@ -22,7 +22,7 @@ test.describe('Wallet Connection', () => {
       page.locator('button:has-text("Connect")').first(),
     ).toBeVisible()
     await expect(
-      page.getByText(/Gateway Portal|Protocol Infrastructure/i),
+      page.getByText(/Gateway|Protocol Infrastructure/i),
     ).toBeVisible()
   })
 

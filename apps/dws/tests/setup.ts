@@ -32,9 +32,7 @@ let dwsProcess: Subprocess | null = null
 let mockInferenceServer: { stop: () => void } | null = null
 let isSetup = false
 
-// =============================================================================
 // Utility Functions
-// =============================================================================
 
 function findMonorepoRoot(): string {
   let dir = import.meta.dir
@@ -94,9 +92,7 @@ async function waitForAnvil(): Promise<boolean> {
   return false
 }
 
-// =============================================================================
 // Service Management
-// =============================================================================
 
 async function startAnvil(): Promise<boolean> {
   console.log('[Test Setup] Checking Anvil...')
@@ -246,7 +242,7 @@ async function startDWS(): Promise<boolean> {
   const dwsDir = join(rootDir, 'apps', 'dws')
 
   console.log('[Test Setup] Starting DWS...')
-  dwsProcess = Bun.spawn(['bun', 'run', 'src/server/index.ts'], {
+  dwsProcess = Bun.spawn(['bun', 'run', 'api/server/index.ts'], {
     cwd: dwsDir,
     stdout: 'pipe',
     stderr: 'pipe',
@@ -306,9 +302,7 @@ async function registerMockInferenceNode(): Promise<boolean> {
   }
 }
 
-// =============================================================================
 // Public API
-// =============================================================================
 
 export async function setup(): Promise<void> {
   if (isSetup) return

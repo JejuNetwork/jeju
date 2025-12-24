@@ -10,7 +10,7 @@
  * Best on L2s where gas is cheap and blocks are fast.
  */
 
-import { EventEmitter } from 'node:events'
+import { EventEmitter } from '@jejunetwork/shared'
 import {
   type Address,
   encodeFunctionData,

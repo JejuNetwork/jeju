@@ -29,9 +29,7 @@ import type { NetworkEnvironment } from '../src/workers/tee/types'
 const RPC_URL = 'http://127.0.0.1:6546'
 let isAnvilRunning = false
 
-// ============================================================================
 // Setup
-// ============================================================================
 
 beforeAll(async () => {
   // Check if anvil is running
@@ -50,9 +48,7 @@ beforeAll(async () => {
   }
 })
 
-// ============================================================================
 // App SDK Live Tests
-// ============================================================================
 
 describe('App SDK Live', () => {
   let app: DWSApp
@@ -141,9 +137,7 @@ describe('App SDK Live', () => {
   })
 })
 
-// ============================================================================
 // Multiple Apps Live Tests
-// ============================================================================
 
 describe('Multiple Apps Live', () => {
   const apps: DWSApp[] = []
@@ -197,9 +191,7 @@ describe('Multiple Apps Live', () => {
   })
 })
 
-// ============================================================================
 // Region Configuration Tests (with live RPC context)
-// ============================================================================
 
 describe('Region Configuration Live', () => {
   it('should use localnet config for localnet environment', () => {
@@ -239,9 +231,7 @@ describe('Region Configuration Live', () => {
   })
 })
 
-// ============================================================================
 // Secret Manager Live Tests
-// ============================================================================
 
 describe('Secret Manager Live', () => {
   const environment: NetworkEnvironment = 'localnet'
@@ -314,9 +304,7 @@ describe('Secret Manager Live', () => {
   })
 })
 
-// ============================================================================
 // Chain Connectivity Tests (if anvil is running)
-// ============================================================================
 
 describe('Chain Connectivity', () => {
   it('should connect to anvil', async () => {

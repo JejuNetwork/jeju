@@ -22,9 +22,6 @@ import {
   type HubEndpoint,
   HubSubmitter,
 } from './submitter'
-
-// ============ Types ============
-
 export interface FarcasterPosterConfig {
   /** Farcaster ID */
   fid: number
@@ -56,9 +53,6 @@ export interface UserDataUpdate {
   type: 'pfp' | 'display' | 'bio' | 'url' | 'username'
   value: string
 }
-
-// ============ Farcaster Poster Class ============
-
 export class FarcasterPoster {
   private readonly castBuilder: CastBuilder
   private readonly submitter: HubSubmitter | FailoverHubSubmitter
@@ -92,9 +86,6 @@ export class FarcasterPoster {
       })
     }
   }
-
-  // ============ Cast Operations ============
-
   /**
    * Post a cast
    */
@@ -186,9 +177,6 @@ export class FarcasterPoster {
       throw new Error(`Failed to delete cast: ${result.error}`)
     }
   }
-
-  // ============ Reaction Operations ============
-
   /**
    * Like a cast
    */
@@ -264,9 +252,6 @@ export class FarcasterPoster {
       throw new Error(`Failed to remove reaction: ${result.error}`)
     }
   }
-
-  // ============ Link (Follow) Operations ============
-
   /**
    * Follow a user
    */
@@ -314,9 +299,6 @@ export class FarcasterPoster {
       throw new Error(`Failed to unfollow: ${result.error}`)
     }
   }
-
-  // ============ User Data Operations ============
-
   /**
    * Update user profile data
    */
@@ -369,9 +351,6 @@ export class FarcasterPoster {
   async updateBio(bio: string): Promise<void> {
     return this.updateUserData({ type: 'bio', value: bio })
   }
-
-  // ============ Batch Operations ============
-
   /**
    * Like multiple casts (continues on individual failures)
    */
@@ -417,9 +396,6 @@ export class FarcasterPoster {
 
     return { succeeded, failed }
   }
-
-  // ============ Utility Methods ============
-
   /**
    * Get the FID this poster is configured for
    */
@@ -438,9 +414,6 @@ export class FarcasterPoster {
         : 'devnet'
   }
 }
-
-// ============ Factory Functions ============
-
 /**
  * Create a FarcasterPoster from hex private key
  */

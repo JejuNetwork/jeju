@@ -2,6 +2,7 @@
  * NFT Cross-chain Module - EIL + OIF + Hyperlane for NFTs
  */
 
+import { getEnv } from '@jejunetwork/shared'
 import type { NetworkType } from '@jejunetwork/types'
 import {
   type Address,
@@ -25,9 +26,6 @@ import {
   WrappedNFTInfoResponseSchema,
 } from '../shared/schemas'
 import type { JejuWallet } from '../wallet'
-
-// ============ Types ============
-
 export type NFTAssetType = 'ERC721' | 'ERC1155'
 
 export interface NFTInfo {
@@ -396,15 +394,14 @@ export function createNFTModule(
 
   // Contract addresses from environment or defaults
   function getNFTPaymasterAddress(): Address {
-    const addr =
-      process.env.NFTEIL_PAYMASTER || process.env.VITE_NFTEIL_PAYMASTER
+    const addr = getEnv('NFTEIL_PAYMASTER') ?? getEnv('VITE_NFTEIL_PAYMASTER')
     if (!addr) throw new Error('NFTEIL_PAYMASTER not configured')
     return addr as Address
   }
 
   function getNFTInputSettlerAddress(): Address {
     const addr =
-      process.env.NFTEIL_INPUT_SETTLER || process.env.VITE_NFTEIL_INPUT_SETTLER
+      getEnv('NFTEIL_INPUT_SETTLER') ?? getEnv('VITE_NFTEIL_INPUT_SETTLER')
     if (!addr) throw new Error('NFTEIL_INPUT_SETTLER not configured')
     return addr as Address
   }

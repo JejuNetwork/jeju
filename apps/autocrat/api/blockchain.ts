@@ -1,0 +1,699 @@
+/**
+ * Blockchain client for Autocrat
+ */
+
+import {
+  type Address,
+  createPublicClient,
+  formatEther,
+  http,
+  type PublicClient,
+  isAddress as viemIsAddress,
+} from 'viem'
+import { base, baseSepolia, localhost } from 'viem/chains'
+
+function inferChainFromRpcUrl(rpcUrl: string) {
+  if (rpcUrl.includes('base-sepolia') || rpcUrl.includes('84532')) {
+    return baseSepolia
+  }
+  if (rpcUrl.includes('base') && !rpcUrl.includes('localhost')) {
+    return base
+  }
+  return localhost
+}
+
+import {
+  asTuple,
+  expectTrue as expect,
+  toBigInt,
+  expectValid as validateOrThrow,
+  ZERO_ADDRESS,
+} from '@jejunetwork/types'
+import type { AutocratConfig } from '../lib'
+import {
+  type AutocratVoteFromContract,
+  CEO_AGENT_ABI,
+  type CEOStatsFromContract,
+  COUNCIL_ABI,
+  type DecisionFromContract,
+  getAutocratRole,
+  getProposalStatus,
+  getProposalType,
+  getVoteType,
+  type ModelFromContract,
+  type ProposalFromContract,
+  ProposalIdSchema,
+  toAddress,
+} from '../lib'
+
+// Contract return tuple types for proper typing
+type ProposalTuple = readonly [
+  `0x${string}`, // proposalId
+  `0x${string}`, // proposer
+  bigint, // proposerAgentId
+  number, // proposalType
+  number, // status
+  number, // qualityScore
+  bigint, // createdAt
+  bigint, // autocratVoteEnd
+  bigint, // gracePeriodEnd
+  `0x${string}`, // contentHash
+  `0x${string}`, // targetContract
+  `0x${string}`, // callData
+  bigint, // value
+  bigint, // totalStaked
+  bigint, // totalReputation
+  bigint, // backerCount
+  boolean, // hasResearch
+  `0x${string}`, // researchHash
+  boolean, // ceoApproved
+  `0x${string}`, // ceoDecisionHash
+]
+
+type AutocratVoteTuple = readonly [
+  `0x${string}`, // proposalId
+  `0x${string}`, // councilAgent
+  number, // role
+  number, // vote
+  `0x${string}`, // reasoningHash
+  bigint, // votedAt
+  bigint, // weight
+]
+
+type ModelTuple = readonly [
+  string, // modelId
+  string, // modelName
+  string, // provider
+  string, // nominatedBy
+  bigint, // totalStaked
+  bigint, // totalReputation
+  bigint, // nominatedAt
+  boolean, // isActive
+  bigint, // decisionsCount
+  bigint, // approvedDecisions
+  bigint, // benchmarkScore
+]
+
+type CEOStatsTuple = readonly [
+  string, // currentModelId
+  bigint, // totalDecisions
+  bigint, // approvedDecisions
+  bigint, // overriddenDecisions
+  bigint, // approvalRate
+  bigint, // overrideRate
+]
+
+type DecisionTuple = readonly [
+  string, // proposalId
+  string, // modelId
+  boolean, // approved
+  string, // decisionHash
+  string, // encryptedHash
+  string, // contextHash
+  bigint, // decidedAt
+  bigint, // confidenceScore
+  bigint, // alignmentScore
+  boolean, // disputed
+  boolean, // overridden
+]
+
+function parseProposalTuple(t: ProposalTuple): ProposalFromContract {
+  return {
+    proposalId: t[0],
+    proposer: t[1],
+    proposerAgentId: t[2],
+    proposalType: t[3],
+    status: t[4],
+    qualityScore: t[5],
+    createdAt: t[6],
+    autocratVoteEnd: t[7],
+    gracePeriodEnd: t[8],
+    contentHash: t[9],
+    targetContract: t[10],
+    callData: t[11],
+    value: t[12],
+    totalStaked: t[13],
+    totalReputation: t[14],
+    backerCount: t[15],
+    hasResearch: t[16],
+    researchHash: t[17],
+    ceoApproved: t[18],
+    ceoDecisionHash: t[19],
+  }
+}
+
+function parseAutocratVoteTuple(
+  t: AutocratVoteTuple,
+): AutocratVoteFromContract {
+  return {
+    proposalId: t[0],
+    councilAgent: t[1],
+    role: t[2],
+    vote: t[3],
+    reasoningHash: t[4],
+    votedAt: t[5],
+    weight: t[6],
+  }
+}
+
+function parseModelTuple(t: ModelTuple): ModelFromContract {
+  return {
+    modelId: t[0],
+    modelName: t[1],
+    provider: t[2],
+    nominatedBy: t[3],
+    totalStaked: t[4],
+    totalReputation: t[5],
+    nominatedAt: t[6],
+    isActive: t[7],
+    decisionsCount: t[8],
+    approvedDecisions: t[9],
+    benchmarkScore: t[10],
+  }
+}
+
+function parseCEOStatsTuple(t: CEOStatsTuple): CEOStatsFromContract {
+  return {
+    currentModelId: t[0],
+    totalDecisions: t[1],
+    approvedDecisions: t[2],
+    overriddenDecisions: t[3],
+    approvalRate: t[4],
+    overrideRate: t[5],
+  }
+}
+
+function parseDecisionTuple(t: DecisionTuple): DecisionFromContract {
+  return {
+    proposalId: t[0],
+    modelId: t[1],
+    approved: t[2],
+    decisionHash: t[3],
+    encryptedHash: t[4],
+    contextHash: t[5],
+    decidedAt: t[6],
+    confidenceScore: t[7],
+    alignmentScore: t[8],
+    disputed: t[9],
+    overridden: t[10],
+  }
+}
+
+// Type-safe contract result parsers
+function expectProposalTuple(result: unknown): ProposalFromContract {
+  return parseProposalTuple(asTuple<ProposalTuple>(result, 20))
+}
+
+function expectVoteTuples(result: unknown): AutocratVoteFromContract[] {
+  if (!Array.isArray(result)) throw new Error('Expected array of vote tuples')
+  return result.map((v) =>
+    parseAutocratVoteTuple(asTuple<AutocratVoteTuple>(v, 7)),
+  )
+}
+
+function expectModelTuple(result: unknown): ModelFromContract {
+  return parseModelTuple(asTuple<ModelTuple>(result, 11))
+}
+
+function expectCEOStatsTuple(result: unknown): CEOStatsFromContract {
+  return parseCEOStatsTuple(asTuple<CEOStatsTuple>(result, 6))
+}
+
+function expectDecisionTuple(result: unknown): DecisionFromContract {
+  return parseDecisionTuple(asTuple<DecisionTuple>(result, 11))
+}
+
+function expectStringArray(result: unknown): string[] {
+  if (!Array.isArray(result)) throw new Error('Expected string array')
+  return [...result]
+}
+
+export class AutocratBlockchain {
+  readonly client: PublicClient
+  readonly councilAddress: Address
+  readonly ceoAgentAddress: Address
+  readonly councilDeployed: boolean
+  readonly ceoDeployed: boolean
+  private readonly config: AutocratConfig
+
+  // Wrapper object for CEO Agent contract calls
+  readonly ceoAgent: {
+    getAllModels: () => Promise<string[]>
+  }
+
+  constructor(config: AutocratConfig) {
+    this.config = config
+    const chain = inferChainFromRpcUrl(config.rpcUrl)
+    // Type assertion required: viem's createPublicClient returns a complex parameterized type
+    // that is not directly assignable to PublicClient due to generic variance
+    this.client = createPublicClient({
+      chain,
+      transport: http(config.rpcUrl),
+    }) as PublicClient
+    this.councilAddress = toAddress(config.contracts?.council)
+    this.ceoAgentAddress = toAddress(config.contracts?.ceoAgent)
+    this.councilDeployed =
+      viemIsAddress(this.councilAddress) && this.councilAddress !== ZERO_ADDRESS
+    this.ceoDeployed =
+      viemIsAddress(this.ceoAgentAddress) &&
+      this.ceoAgentAddress !== ZERO_ADDRESS
+
+    // Initialize ceoAgent wrapper
+    this.ceoAgent = {
+      getAllModels: async () => {
+        if (!this.ceoDeployed) return []
+        const result = await this.client.readContract({
+          address: this.ceoAgentAddress,
+          abi: CEO_AGENT_ABI,
+          functionName: 'getAllModels',
+        })
+        return expectStringArray(result)
+      },
+    }
+  }
+
+  async getProposal(proposalId: string): Promise<{
+    proposal: ProposalFromContract
+    votes: AutocratVoteFromContract[]
+  } | null> {
+    const validated = validateOrThrow(
+      ProposalIdSchema,
+      proposalId,
+      'Proposal ID',
+    )
+    if (!this.councilDeployed) return null
+    const proposalResult = await this.client.readContract({
+      address: this.councilAddress,
+      abi: COUNCIL_ABI,
+      functionName: 'getProposal',
+      args: [validated],
+    })
+    const proposal = expectProposalTuple(proposalResult)
+    const votesResult = await this.client.readContract({
+      address: this.councilAddress,
+      abi: COUNCIL_ABI,
+      functionName: 'getAutocratVotes',
+      args: [validated],
+    })
+    const votes = expectVoteTuples(votesResult)
+    return { proposal, votes }
+  }
+
+  formatProposal(p: ProposalFromContract) {
+    return {
+      proposalId: p.proposalId,
+      proposer: p.proposer,
+      type: getProposalType(p.proposalType),
+      status: getProposalStatus(p.status),
+      qualityScore: p.qualityScore,
+      createdAt: new Date(Number(p.createdAt) * 1000).toISOString(),
+      autocratVoteEnd: new Date(Number(p.autocratVoteEnd) * 1000).toISOString(),
+      gracePeriodEnd:
+        p.gracePeriodEnd > 0n
+          ? new Date(Number(p.gracePeriodEnd) * 1000).toISOString()
+          : null,
+      contentHash: p.contentHash,
+      targetContract: p.targetContract,
+      value: formatEther(p.value),
+      totalStaked: formatEther(p.totalStaked),
+      totalReputation: p.totalReputation.toString(),
+      backerCount: p.backerCount.toString(),
+      hasResearch: p.hasResearch,
+      researchHash: p.researchHash,
+      ceoApproved: p.ceoApproved,
+    }
+  }
+
+  formatVotes(votes: AutocratVoteFromContract[]) {
+    return votes.map((v) => ({
+      agent: v.councilAgent,
+      role: getAutocratRole(v.role),
+      vote: getVoteType(v.vote),
+      weight: v.weight.toString(),
+      votedAt: new Date(Number(v.votedAt) * 1000).toISOString(),
+      reasoningHash: v.reasoningHash,
+    }))
+  }
+
+  async listProposals(
+    activeOnly: boolean,
+    limit = 20,
+  ): Promise<{
+    total: number
+    proposals: Array<{
+      proposalId: string
+      proposer: string
+      type: string
+      status: string
+      qualityScore: number
+      createdAt: string
+    }>
+  }> {
+    expect(
+      limit > 0 && limit <= 1000,
+      `Limit must be between 1 and 1000, got ${limit}`,
+    )
+    if (!this.councilDeployed) return { total: 0, proposals: [] }
+
+    const proposalIdsResult = activeOnly
+      ? await this.client.readContract({
+          address: this.councilAddress,
+          abi: COUNCIL_ABI,
+          functionName: 'getActiveProposals',
+        })
+      : await this.client.readContract({
+          address: this.councilAddress,
+          abi: COUNCIL_ABI,
+          functionName: 'getAllProposals',
+        })
+    const proposalIds = expectStringArray(proposalIdsResult)
+
+    const proposals = []
+    for (const id of proposalIds.slice(-limit)) {
+      const proposalResult = await this.client.readContract({
+        address: this.councilAddress,
+        abi: COUNCIL_ABI,
+        functionName: 'getProposal',
+        args: [id],
+      })
+      const p = expectProposalTuple(proposalResult)
+      proposals.push({
+        proposalId: id,
+        proposer: p.proposer,
+        type: getProposalType(p.proposalType),
+        status: getProposalStatus(p.status),
+        qualityScore: p.qualityScore,
+        createdAt: new Date(Number(p.createdAt) * 1000).toISOString(),
+      })
+    }
+
+    return { total: proposalIds.length, proposals: proposals.reverse() }
+  }
+
+  async getCEOStatus(): Promise<{
+    currentModel: {
+      modelId: string
+      name: string
+      provider: string
+      totalStaked?: string
+      benchmarkScore?: string
+    }
+    stats: {
+      totalDecisions: string
+      approvedDecisions: string
+      overriddenDecisions: string
+      approvalRate: string
+      overrideRate: string
+    }
+  }> {
+    if (!this.ceoDeployed) {
+      const ceoModel = this.config.agents?.ceo?.model ?? 'local'
+      const ceoName = this.config.agents?.ceo?.name ?? 'Local CEO'
+      return {
+        currentModel: { modelId: ceoModel, name: ceoName, provider: 'local' },
+        stats: {
+          totalDecisions: '0',
+          approvedDecisions: '0',
+          overriddenDecisions: '0',
+          approvalRate: '0%',
+          overrideRate: '0%',
+        },
+      }
+    }
+
+    const statsResult = await this.client.readContract({
+      address: this.ceoAgentAddress,
+      abi: CEO_AGENT_ABI,
+      functionName: 'getCEOStats',
+    })
+    const stats = expectCEOStatsTuple(statsResult)
+    const modelResult = await this.client.readContract({
+      address: this.ceoAgentAddress,
+      abi: CEO_AGENT_ABI,
+      functionName: 'getCurrentModel',
+    })
+    const model = expectModelTuple(modelResult)
+
+    return {
+      currentModel: {
+        modelId: model.modelId,
+        name: model.modelName,
+        provider: model.provider,
+        totalStaked: formatEther(model.totalStaked),
+        benchmarkScore: `${(Number(model.benchmarkScore) / 100).toFixed(2)}%`,
+      },
+      stats: {
+        totalDecisions: stats.totalDecisions.toString(),
+        approvedDecisions: stats.approvedDecisions.toString(),
+        overriddenDecisions: stats.overriddenDecisions.toString(),
+        approvalRate: `${(Number(stats.approvalRate) / 100).toFixed(2)}%`,
+        overrideRate: `${(Number(stats.overrideRate) / 100).toFixed(2)}%`,
+      },
+    }
+  }
+
+  async getDecision(proposalId: string): Promise<{
+    decided: boolean
+    decision?: {
+      proposalId: string
+      modelId: string
+      approved: boolean
+      decisionHash: string
+      decidedAt: string
+      confidenceScore: string
+      alignmentScore: string
+      disputed: boolean
+      overridden: boolean
+    }
+  }> {
+    const validated = validateOrThrow(
+      ProposalIdSchema,
+      proposalId,
+      'Proposal ID',
+    )
+    if (!this.ceoDeployed) return { decided: false }
+
+    const decisionResult = await this.client.readContract({
+      address: this.ceoAgentAddress,
+      abi: CEO_AGENT_ABI,
+      functionName: 'getDecision',
+      args: [validated],
+    })
+    const decision = expectDecisionTuple(decisionResult)
+    if (!decision.decidedAt || decision.decidedAt === 0n)
+      return { decided: false }
+
+    return {
+      decided: true,
+      decision: {
+        proposalId: validated,
+        modelId: decision.modelId,
+        approved: decision.approved,
+        decisionHash: decision.decisionHash,
+        decidedAt: new Date(Number(decision.decidedAt) * 1000).toISOString(),
+        confidenceScore: decision.confidenceScore.toString(),
+        alignmentScore: decision.alignmentScore.toString(),
+        disputed: decision.disputed,
+        overridden: decision.overridden,
+      },
+    }
+  }
+
+  async getModelCandidates(): Promise<
+    Array<{
+      modelId: string
+      modelName: string
+      provider: string
+      totalStaked: string
+      totalReputation: string
+      benchmarkScore: number
+      decisionsCount: number
+      isActive: boolean
+    }>
+  > {
+    if (!this.ceoDeployed) return []
+
+    const modelIdsResult = await this.client.readContract({
+      address: this.ceoAgentAddress,
+      abi: CEO_AGENT_ABI,
+      functionName: 'getAllModels',
+    })
+    const modelIds = expectStringArray(modelIdsResult)
+    const models = []
+
+    for (const modelId of modelIds) {
+      const modelResult = await this.client.readContract({
+        address: this.ceoAgentAddress,
+        abi: CEO_AGENT_ABI,
+        functionName: 'getModel',
+        args: [modelId],
+      })
+      const m = expectModelTuple(modelResult)
+      models.push({
+        modelId: m.modelId,
+        modelName: m.modelName,
+        provider: m.provider,
+        totalStaked: formatEther(m.totalStaked),
+        totalReputation: m.totalReputation.toString(),
+        benchmarkScore: Number(m.benchmarkScore) / 100,
+        decisionsCount: Number(m.decisionsCount),
+        isActive: m.isActive,
+      })
+    }
+
+    return models.sort(
+      (a, b) => parseFloat(b.totalStaked) - parseFloat(a.totalStaked),
+    )
+  }
+
+  async getRecentDecisions(limit = 10): Promise<
+    Array<{
+      decisionId: string
+      proposalId: string
+      approved: boolean
+      confidenceScore: number
+      alignmentScore: number
+      decidedAt: number
+      disputed: boolean
+      overridden: boolean
+    }>
+  > {
+    expect(
+      limit > 0 && limit <= 100,
+      `Limit must be between 1 and 100, got ${limit}`,
+    )
+    if (!this.ceoDeployed) return []
+
+    const decisionIdsResult = await this.client.readContract({
+      address: this.ceoAgentAddress,
+      abi: CEO_AGENT_ABI,
+      functionName: 'getRecentDecisions',
+      args: [limit],
+    })
+    const decisionIds = expectStringArray(decisionIdsResult)
+    const decisions = []
+
+    for (const id of decisionIds) {
+      const decisionResult = await this.client.readContract({
+        address: this.ceoAgentAddress,
+        abi: CEO_AGENT_ABI,
+        functionName: 'getDecision',
+        args: [id],
+      })
+      const d = expectDecisionTuple(decisionResult)
+      if (d.decidedAt && d.decidedAt > 0n) {
+        decisions.push({
+          decisionId: id,
+          proposalId: d.proposalId,
+          approved: d.approved,
+          confidenceScore: Number(d.confidenceScore),
+          alignmentScore: Number(d.alignmentScore),
+          decidedAt: Number(d.decidedAt) * 1000,
+          disputed: d.disputed,
+          overridden: d.overridden,
+        })
+      }
+    }
+
+    return decisions
+  }
+
+  async getGovernanceStats(): Promise<{
+    totalProposals: string
+    ceo: { model: string; decisions: string; approvalRate: string }
+    parameters: {
+      minQualityScore: string
+      autocratVotingPeriod: string
+      gracePeriod: string
+    }
+  }> {
+    if (!this.councilDeployed || !this.ceoDeployed) {
+      const ceoModel = this.config.agents?.ceo?.model ?? 'local'
+      const minQuality = this.config.parameters?.minQualityScore ?? 70
+      const votingPeriod = this.config.parameters?.autocratVotingPeriod ?? 86400
+      const gracePeriod = this.config.parameters?.gracePeriod ?? 172800
+      return {
+        totalProposals: '0',
+        ceo: { model: ceoModel, decisions: '0', approvalRate: '0%' },
+        parameters: {
+          minQualityScore: minQuality.toString(),
+          autocratVotingPeriod: `${votingPeriod} seconds`,
+          gracePeriod: `${gracePeriod} seconds`,
+        },
+      }
+    }
+
+    const proposalCountResult = await this.client.readContract({
+      address: this.councilAddress,
+      abi: COUNCIL_ABI,
+      functionName: 'proposalCount',
+    })
+    const proposalCount = toBigInt(proposalCountResult)
+    const ceoStatsResult = await this.client.readContract({
+      address: this.ceoAgentAddress,
+      abi: CEO_AGENT_ABI,
+      functionName: 'getCEOStats',
+    })
+    const ceoStats = expectCEOStatsTuple(ceoStatsResult)
+    const minQualityResult = await this.client.readContract({
+      address: this.councilAddress,
+      abi: COUNCIL_ABI,
+      functionName: 'minQualityScore',
+    })
+    const minQuality = Number(minQualityResult)
+    const votingPeriodResult = await this.client.readContract({
+      address: this.councilAddress,
+      abi: COUNCIL_ABI,
+      functionName: 'autocratVotingPeriod',
+    })
+    const votingPeriod = toBigInt(votingPeriodResult)
+    const graceResult = await this.client.readContract({
+      address: this.councilAddress,
+      abi: COUNCIL_ABI,
+      functionName: 'gracePeriod',
+    })
+    const grace = toBigInt(graceResult)
+
+    return {
+      totalProposals: proposalCount.toString(),
+      ceo: {
+        model: ceoStats.currentModelId,
+        decisions: ceoStats.totalDecisions.toString(),
+        approvalRate: `${(Number(ceoStats.approvalRate) / 100).toFixed(2)}%`,
+      },
+      parameters: {
+        minQualityScore: minQuality.toString(),
+        autocratVotingPeriod: `${votingPeriod.toString()} seconds`,
+        gracePeriod: `${grace.toString()} seconds`,
+      },
+    }
+  }
+
+  getAutocratStatus() {
+    const votingPeriod = this.config.parameters?.autocratVotingPeriod ?? 86400
+    const gracePeriod = this.config.parameters?.gracePeriod ?? 172800
+    return {
+      agents: ['Treasury', 'Code', 'Community', 'Security'].map((role, i) => ({
+        role,
+        index: i,
+        description: [
+          'Financial review',
+          'Technical review',
+          'Community impact',
+          'Security assessment',
+        ][i],
+      })),
+      votingPeriod: `${votingPeriod} seconds`,
+      gracePeriod: `${gracePeriod} seconds`,
+    }
+  }
+}
+
+let instance: AutocratBlockchain | null = null
+
+export function getBlockchain(config: AutocratConfig): AutocratBlockchain {
+  if (!instance) {
+    instance = new AutocratBlockchain(config)
+  }
+  return instance
+}

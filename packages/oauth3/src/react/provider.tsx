@@ -23,7 +23,7 @@ import {
   type OAuth3Event,
   type OAuth3Session,
   type VerifiableCredential,
-} from '../index.js'
+} from '../index'
 
 export interface OAuth3ProviderProps {
   children: ReactNode

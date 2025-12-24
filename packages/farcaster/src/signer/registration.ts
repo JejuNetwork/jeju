@@ -17,9 +17,6 @@ import {
   toBytes,
 } from 'viem'
 import { optimism } from 'viem/chains'
-
-// ============ Contract Addresses ============
-
 export const FARCASTER_CONTRACTS = {
   ID_GATEWAY: '0x00000000Fc25870C6eD6b6c7E41Fb078b7656f69' as Address,
   ID_REGISTRY: '0x00000000Fc6c5F01Fc30151999387Bb99A9f489b' as Address,
@@ -29,9 +26,6 @@ export const FARCASTER_CONTRACTS = {
   SIGNED_KEY_REQUEST_VALIDATOR:
     '0x00000000Fc1237824fb747aBDE0FF18990E59b7e' as Address,
 } as const
-
-// ============ ABIs ============
-
 const KEY_REGISTRY_ABI = [
   {
     name: 'add',
@@ -96,9 +90,6 @@ const ID_REGISTRY_ABI = [
     outputs: [{ type: 'address' }],
   },
 ] as const
-
-// ============ Types ============
-
 export interface SignerRegistrationConfig {
   rpcUrl?: string
 }
@@ -114,9 +105,6 @@ export interface KeyData {
   state: KeyState
   keyType: number
 }
-
-// ============ Signer Registration Class ============
-
 export class SignerRegistration {
   private publicClient: PublicClient
 
@@ -303,9 +291,6 @@ export class SignerRegistration {
     return `0x${fid}${deadline}${sig}` as Hex
   }
 }
-
-// ============ Helper Functions ============
-
 /**
  * Verify an Ed25519 signature
  */

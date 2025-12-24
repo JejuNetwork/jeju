@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { getIpfsApiUrl } from '@jejunetwork/config/ports'
+import { getIpfsApiUrl } from '@jejunetwork/config'
 import {
   type Address,
   type Chain,
@@ -121,9 +121,6 @@ const NETWORK_CONFIG: Record<
     },
   },
 }
-
-// ============ Core Functions ============
-
 /**
  * Load deployment addresses for localnet from deployment files
  */
@@ -223,9 +220,6 @@ export function createSigner(config: Agent0Config): {
 
   return { client, walletClient, account }
 }
-
-// ============ Minimal ABI for IdentityRegistry ============
-
 const IDENTITY_REGISTRY_ABI = parseAbi([
   'function register(string tokenURI_) external returns (uint256 agentId)',
   'function register(string tokenURI_, (string key, bytes value)[] metadata) external returns (uint256 agentId)',
@@ -242,9 +236,6 @@ const IDENTITY_REGISTRY_ABI = parseAbi([
   'event Registered(uint256 indexed agentId, address indexed owner, uint8 tier, uint256 stakedAmount, string tokenURI)',
   'event AgentUriUpdated(uint256 indexed agentId, string newTokenURI)',
 ])
-
-// ============ Registration Functions ============
-
 /**
  * Build a registration file from jeju-manifest.json
  */
@@ -479,9 +470,6 @@ export async function updateAgentMetadata(
 
   return hash
 }
-
-// ============ Discovery Functions ============
-
 /**
  * Get agent info by ID
  */
@@ -593,9 +581,6 @@ export async function getNetworkAppAgents(
   // Network apps should use the "jeju-app" tag
   return findAgentsByTag(config, 'jeju-app')
 }
-
-// ============ Utility Functions ============
-
 /**
  * Detect current network from environment
  */

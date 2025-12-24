@@ -1,9 +1,5 @@
 /**
- * GRPO Trainer for Jeju Training
- *
- * Group Relative Policy Optimization trainer with Atropos API integration.
- * Coordinates with vLLM for inference and implements the GRPO algorithm
- * for reinforcement learning from AI feedback.
+ * GRPO trainer with Atropos API integration.
  */
 
 import { expectValid } from '@jejunetwork/types'
@@ -11,17 +7,12 @@ import { type Subprocess, spawn } from 'bun'
 import { z } from 'zod'
 import { BatchResponseSchema } from '../schemas'
 
-/** Schema for training step response from Python trainer */
 const TrainingStepResponseSchema = z.object({
   loss: z.number(),
   pos_logp: z.number(),
   neg_logp: z.number(),
   grad_norm: z.number(),
 })
-
-// ============================================================================
-// Types
-// ============================================================================
 
 export interface TrainingConfig {
   modelName: string
@@ -66,9 +57,7 @@ export interface TrainerStatus {
   checkpointPath?: string
 }
 
-// ============================================================================
 // Constants
-// ============================================================================
 
 const DEFAULT_CONFIG: TrainingConfig = {
   modelName: 'microsoft/phi-2',
@@ -84,9 +73,7 @@ const DEFAULT_CONFIG: TrainingConfig = {
   atroposUrl: 'http://localhost:8000',
 }
 
-// ============================================================================
 // Utility Functions
-// ============================================================================
 
 function padToGoodOffset(
   data: { batch: BatchData[] },
@@ -191,9 +178,7 @@ function padToGoodOffset(
   return { tokenBatches, labelBatches, advantageBatches, temperatureBatches }
 }
 
-// ============================================================================
 // GRPO Trainer
-// ============================================================================
 
 export class GRPOTrainer {
   protected config: TrainingConfig
@@ -499,9 +484,7 @@ export class GRPOTrainer {
   }
 }
 
-// ============================================================================
 // Distributed GRPO Trainer with Psyche Integration
-// ============================================================================
 
 export class DistributedGRPOTrainer extends GRPOTrainer {
   private psycheClient: import('../psyche/psyche-client').PsycheClient | null =
@@ -595,9 +578,7 @@ export class DistributedGRPOTrainer extends GRPOTrainer {
   }
 }
 
-// ============================================================================
 // Factory Functions
-// ============================================================================
 
 export function createGRPOTrainer(
   config?: Partial<TrainingConfig>,
@@ -611,9 +592,7 @@ export function createDistributedGRPOTrainer(
   return new DistributedGRPOTrainer(config)
 }
 
-// ============================================================================
 // CLI Entry Point
-// ============================================================================
 
 if (import.meta.main) {
   const config: Partial<TrainingConfig> = {

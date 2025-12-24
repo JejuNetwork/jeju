@@ -19,9 +19,9 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { type Address, createPublicClient, type Hex, http, toHex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { resetConfig } from '../../src/x402/config'
-import { createServer } from '../../src/x402/server'
-import { clearNonceCache } from '../../src/x402/services/nonce-manager'
+import { resetConfig } from '../../api/x402/config'
+import { createServer } from '../../api/x402/server'
+import { clearNonceCache } from '../../api/x402/services/nonce-manager'
 
 // Use environment variables for test configuration
 const ANVIL_RPC = process.env.JEJU_RPC_URL || 'http://127.0.0.1:8548'

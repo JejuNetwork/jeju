@@ -126,6 +126,7 @@ async function deployContract(
   publicClient: ReturnType<typeof createPublicClient>,
   walletClient: ReturnType<typeof createWalletClient>,
   account: PrivateKeyAccount,
+  chain: Chain,
   contractName: string,
   constructorArgs: ConstructorArg[],
 ): Promise<Address> {
@@ -144,6 +145,7 @@ async function deployContract(
   })
 
   const txHash = await walletClient.sendTransaction({
+    chain,
     data: deployData,
     account,
   })
@@ -260,6 +262,7 @@ async function main() {
     publicClient,
     walletClient,
     account,
+    chain,
     'Council',
     [governanceToken, identityRegistry, reputationRegistry, account.address],
   )
@@ -268,6 +271,7 @@ async function main() {
     publicClient,
     walletClient,
     account,
+    chain,
     'CEOAgent',
     [
       governanceToken,

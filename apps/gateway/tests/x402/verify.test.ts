@@ -5,13 +5,13 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import type { Address, Hex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { resetConfig } from '../../src/x402/config'
-import { clearNonceCache } from '../../src/x402/services/nonce-manager'
+import { resetConfig } from '../../api/x402/config'
+import { clearNonceCache } from '../../api/x402/services/nonce-manager'
 import {
   decodePaymentHeader,
   encodePaymentHeader,
   verifySignatureOnly,
-} from '../../src/x402/services/verifier'
+} from '../../api/x402/services/verifier'
 
 // Test wallet (anvil default account 0)
 const TEST_PRIVATE_KEY =
@@ -88,7 +88,7 @@ async function createTestPaymentHeader(
     message,
   })
 
-  const fullPayload = { ...payload, signature }
+  const fullPayload = { ...payload, signature, payer: null }
   return Buffer.from(JSON.stringify(fullPayload)).toString('base64')
 }
 
@@ -126,6 +126,7 @@ describe('Payment Header Decoding', () => {
       nonce: 'testnonce123',
       timestamp: 1700000000,
       signature: validSignature,
+      payer: null,
     }
 
     // Encode as base64 (which is what the decoder expects)

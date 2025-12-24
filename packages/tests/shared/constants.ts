@@ -1,11 +1,7 @@
 /**
- * Shared constants for network testing
- *
- * Port assignments imported from packages/config/ports.ts (single source of truth)
- * RPC URLs use 127.0.0.1 for consistency across the codebase
+ * Shared constants for testing.
  */
 
-// Import ports from central config
 import {
   INFRA_PORTS as CONFIG_INFRA_PORTS,
   CORE_PORTS,
@@ -14,10 +10,7 @@ import {
   getL2RpcUrl,
   getL2WsUrl,
 } from '../../config/ports'
-// Import canonical test accounts from utils (single source of truth)
 import { SEED_PHRASE, TEST_ACCOUNTS } from './utils'
-
-// Infrastructure Ports (re-exported for backward compatibility)
 
 export const INFRA_PORTS = {
   l1Rpc: CONFIG_INFRA_PORTS.L1_RPC.get(),
@@ -26,8 +19,6 @@ export const INFRA_PORTS = {
   prometheus: CONFIG_INFRA_PORTS.PROMETHEUS.get(),
   grafana: CONFIG_INFRA_PORTS.GRAFANA.get(),
 } as const
-
-// Network Configuration
 
 export const JEJU_LOCALNET = {
   chainId: 1337,
@@ -42,8 +33,6 @@ export const L1_LOCALNET = {
   rpcUrl: getL1RpcUrl(),
 } as const
 
-// Test Wallets (Anvil defaults) - Using canonical values from utils
-
 export const DEFAULT_TEST_WALLET = {
   address: TEST_ACCOUNTS.deployer.address,
   privateKey: TEST_ACCOUNTS.deployer.privateKey,
@@ -55,8 +44,6 @@ export const TEST_WALLETS = {
   user1: TEST_ACCOUNTS.user1,
   user2: TEST_ACCOUNTS.user2,
 } as const
-
-// App Ports (derived from central config CORE_PORTS)
 
 export const APP_PORTS = {
   gateway: CORE_PORTS.GATEWAY.get(),
@@ -70,7 +57,6 @@ export const APP_PORTS = {
   ipfs: CORE_PORTS.IPFS.get(),
   ipfsNode: CORE_PORTS.IPFS_NODE.get(),
   facilitator: CORE_PORTS.FACILITATOR.get(),
-  // Indexer services (4350-4399 range)
   indexerGraphQL: CORE_PORTS.INDEXER_GRAPHQL.get(),
   indexerA2A: 4351,
   indexerRest: 4352,

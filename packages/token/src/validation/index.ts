@@ -17,9 +17,7 @@ import {
 
 export * from './schemas'
 
-// =============================================================================
 // VALIDATION ERROR
-// =============================================================================
 
 export class ValidationError extends Error {
   constructor(
@@ -31,9 +29,7 @@ export class ValidationError extends Error {
   }
 }
 
-// =============================================================================
 // VALIDATOR FUNCTIONS
-// =============================================================================
 
 /**
  * Parse and validate data with a Zod schema
@@ -67,9 +63,7 @@ export function safeParse<T>(
   return { success: false, error: result.error }
 }
 
-// =============================================================================
 // SPECIFIC VALIDATORS
-// =============================================================================
 
 /**
  * Validate an Ethereum address
@@ -125,16 +119,7 @@ export function validateTokenDeploymentConfig(
   return validate(tokenDeploymentConfigSchema, config)
 }
 
-// =============================================================================
 // TYPE GUARDS
-// =============================================================================
-
-/**
- * Check if a string is a valid Ethereum address
- */
-export function isValidAddress(address: string): boolean {
-  return addressSchema.safeParse(address).success
-}
 
 /**
  * Valid chain ID types - EVM chain IDs (positive numbers) or Solana network identifiers
@@ -156,8 +141,16 @@ export function isValidChainId(
 }
 
 /**
- * Check if a string is a valid hex string
+ * Check if a string is a valid Ethereum address
  */
-export function isValidHex(hex: string): boolean {
-  return /^0x[a-fA-F0-9]+$/.test(hex)
+export function isValidAddress(value: unknown): boolean {
+  return addressSchema.safeParse(value).success
+}
+
+/**
+ * Check if a string is a valid hex string (0x-prefixed)
+ */
+export function isValidHex(value: unknown): boolean {
+  // Require at least one hex character after 0x prefix
+  return typeof value === 'string' && /^0x[a-fA-F0-9]+$/.test(value)
 }

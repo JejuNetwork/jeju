@@ -19,8 +19,6 @@ import {
   WebSocketSubscribeSchema,
 } from '../schemas'
 
-// ============ HexStringSchema Tests ============
-
 describe('HexStringSchema', () => {
   test('accepts valid lowercase hex', () => {
     expect(HexStringSchema.safeParse('abcdef0123456789').success).toBe(true)
@@ -69,9 +67,6 @@ describe('HexStringSchema', () => {
     expect(HexStringSchema.safeParse([]).success).toBe(false)
   })
 })
-
-// ============ SerializedEncryptedMessageSchema Tests ============
-
 describe('SerializedEncryptedMessageSchema', () => {
   const validMessage = {
     ciphertext: 'abcdef123456',
@@ -144,9 +139,6 @@ describe('SerializedEncryptedMessageSchema', () => {
     expect(result.success).toBe(false)
   })
 })
-
-// ============ MessageEnvelopeSchema Tests ============
-
 describe('MessageEnvelopeSchema', () => {
   const validEnvelope = {
     id: '123e4567-e89b-12d3-a456-426614174000',
@@ -222,9 +214,6 @@ describe('MessageEnvelopeSchema', () => {
     }
   })
 })
-
-// ============ NodeConfigSchema Tests ============
-
 describe('NodeConfigSchema', () => {
   const validConfig = {
     port: 8080,
@@ -286,9 +275,6 @@ describe('NodeConfigSchema', () => {
     expect(NodeConfigSchema.safeParse(invalid).success).toBe(false)
   })
 })
-
-// ============ MessagingClientConfigBaseSchema Tests ============
-
 describe('MessagingClientConfigBaseSchema', () => {
   const validConfig = {
     rpcUrl: 'https://rpc.example.com',
@@ -352,9 +338,6 @@ describe('MessagingClientConfigBaseSchema', () => {
     ).toBe(false)
   })
 })
-
-// ============ WebSocketSubscribeSchema Tests ============
-
 describe('WebSocketSubscribeSchema', () => {
   test('accepts valid subscribe message', () => {
     const valid = {
@@ -380,9 +363,6 @@ describe('WebSocketSubscribeSchema', () => {
     expect(WebSocketSubscribeSchema.safeParse(invalid).success).toBe(false)
   })
 })
-
-// ============ DeliveryReceiptDataSchema Tests ============
-
 describe('DeliveryReceiptDataSchema', () => {
   test('accepts valid UUID messageId', () => {
     const valid = {
@@ -405,9 +385,6 @@ describe('DeliveryReceiptDataSchema', () => {
     expect(DeliveryReceiptDataSchema.safeParse(invalid).success).toBe(false)
   })
 })
-
-// ============ ReadReceiptDataSchema Tests ============
-
 describe('ReadReceiptDataSchema', () => {
   test('accepts valid read receipt', () => {
     const valid = {
@@ -433,9 +410,6 @@ describe('ReadReceiptDataSchema', () => {
     expect(ReadReceiptDataSchema.safeParse(invalid).success).toBe(false)
   })
 })
-
-// ============ WebSocketIncomingMessageSchema Tests ============
-
 describe('WebSocketIncomingMessageSchema', () => {
   test('accepts message type with envelope data', () => {
     const valid = {
@@ -486,9 +460,6 @@ describe('WebSocketIncomingMessageSchema', () => {
     )
   })
 })
-
-// ============ IPFSAddResponseSchema Tests ============
-
 describe('IPFSAddResponseSchema', () => {
   test('accepts valid IPFS hash', () => {
     const valid = {
@@ -508,9 +479,6 @@ describe('IPFSAddResponseSchema', () => {
     expect(IPFSAddResponseSchema.safeParse({}).success).toBe(false)
   })
 })
-
-// ============ SendMessageRequestSchema Tests ============
-
 describe('SendMessageRequestSchema', () => {
   test('accepts valid request', () => {
     const valid = {
@@ -555,9 +523,6 @@ describe('SendMessageRequestSchema', () => {
     ).toBe(false)
   })
 })
-
-// ============ Edge Cases and Type Coercion ============
-
 describe('Type Coercion Edge Cases', () => {
   test('schema rejects number as string', () => {
     expect(HexStringSchema.safeParse(123456).success).toBe(false)
@@ -596,9 +561,6 @@ describe('Type Coercion Edge Cases', () => {
     expect(result.success).toBe(false)
   })
 })
-
-// ============ Large Input Tests ============
-
 describe('Large Input Handling', () => {
   test('accepts very long hex strings', () => {
     const longHex = 'a'.repeat(10000)

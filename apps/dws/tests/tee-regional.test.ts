@@ -23,9 +23,7 @@ import {
   TEESecretManager,
 } from '../src/workers/tee/secrets'
 
-// ============================================================================
 // Region Tests
-// ============================================================================
 
 describe('Region Configuration', () => {
   it('should have local region for development', () => {
@@ -268,9 +266,7 @@ describe('Latency Estimation', () => {
   })
 })
 
-// ============================================================================
 // Secret Manager Tests
-// ============================================================================
 
 describe('Secret Encryption/Decryption', () => {
   let secretManager: TEESecretManager

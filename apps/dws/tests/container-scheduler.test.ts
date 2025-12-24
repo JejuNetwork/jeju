@@ -90,9 +90,7 @@ function createTestImage(digest: string = 'sha256:test'): ContainerImage {
   } as ContainerImage
 }
 
-// ============================================================================
 // Node Management Tests
-// ============================================================================
 
 describe('Node Registration', () => {
   beforeEach(() => {
@@ -163,9 +161,7 @@ describe('Node Registration', () => {
   })
 })
 
-// ============================================================================
 // Health Check Tests
-// ============================================================================
 
 describe('Node Health Checks', () => {
   beforeEach(() => {
@@ -219,9 +215,7 @@ describe('Node Health Checks', () => {
   })
 })
 
-// ============================================================================
 // Scheduling Strategy Tests
-// ============================================================================
 
 describe('Scheduling Strategies', () => {
   beforeEach(() => {
@@ -531,9 +525,7 @@ describe('Scheduling Strategies', () => {
   })
 })
 
-// ============================================================================
 // Resource Reservation Tests
-// ============================================================================
 
 describe('Resource Reservation', () => {
   beforeEach(() => {
@@ -620,9 +612,7 @@ describe('Resource Reservation', () => {
   })
 })
 
-// ============================================================================
 // Geographic Routing Tests
-// ============================================================================
 
 describe('Geographic Routing', () => {
   describe('findNearestRegion', () => {
@@ -699,9 +689,7 @@ describe('Geographic Routing', () => {
   })
 })
 
-// ============================================================================
 // Statistics Tests
-// ============================================================================
 
 describe('Scheduler Statistics', () => {
   beforeEach(() => {

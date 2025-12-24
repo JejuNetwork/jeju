@@ -1,19 +1,8 @@
-/**
- * Docker-based Services Orchestrator
- *
- * Manages real services via docker-compose for testing.
- * NO MOCKS - all services are real containers.
- *
- * Profiles:
- * - chain: L1 + L2 only (fastest)
- * - services: Chain + Indexer, Oracle, Storage
- * - apps: Services + Gateway, Wallet, etc.
- * - full: Everything including multi-chain (Solana, Arbitrum, Base)
- */
+/** Docker-based services orchestrator for testing */
 
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { CORE_PORTS } from '@jejunetwork/config/ports'
+import { CORE_PORTS } from '@jejunetwork/config'
 import { execa } from 'execa'
 import { logger } from '../lib/logger'
 
@@ -130,7 +119,6 @@ export class DockerOrchestrator {
       throw error
     }
 
-    // Wait for services to be healthy
     await this.waitForHealthy()
   }
 
@@ -146,7 +134,7 @@ export class DockerOrchestrator {
         '-p',
         this.config.projectName || 'jeju-test',
         'down',
-        '-v', // Remove volumes
+        '-v',
         '--remove-orphans',
       ],
       {
@@ -212,7 +200,6 @@ export class DockerOrchestrator {
 
     try {
       if (name === 'postgres') {
-        // Special check for postgres
         const result = await execa(
           'docker',
           ['exec', 'jeju-postgres', 'pg_isready', '-U', 'jeju'],
@@ -229,7 +216,6 @@ export class DockerOrchestrator {
       }
 
       if (name === 'redis') {
-        // Special check for redis
         const result = await execa(
           'docker',
           ['exec', 'jeju-redis', 'redis-cli', 'ping'],
@@ -245,7 +231,6 @@ export class DockerOrchestrator {
         }
       }
 
-      // HTTP health check for most services
       const response = await fetch(url, {
         method: name.includes('geth') || name === 'solana' ? 'POST' : 'GET',
         headers: { 'Content-Type': 'application/json' },

@@ -4,7 +4,7 @@
  * Tests room creation, joining, and multi-agent coordination.
  */
 
-import basicSetup from '@jejunetwork/tests/wallet-setup'
+import { basicSetup } from '@jejunetwork/tests'
 import { testWithSynpress } from '@synthetixio/synpress'
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright'
 

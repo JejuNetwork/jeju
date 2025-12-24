@@ -1,14 +1,7 @@
-/**
- * jeju proxy - Local development proxy and hosts management
- *
- * Manages the reverse proxy for clean local development URLs:
- * - gateway.local.jejunetwork.org -> localhost:4001
- * - bazaar.local.jejunetwork.org -> localhost:4006
- * - etc.
- */
+/** Local development proxy and hosts management */
 
 import { Command } from 'commander'
-import * as proxyModule from '../../../deployment/scripts/shared/local-proxy'
+import * as proxyModule from '../lib/local-proxy'
 import { logger } from '../lib/logger'
 
 interface ProxyModule {
@@ -17,12 +10,19 @@ interface ProxyModule {
     exists: boolean
     current: string
     expected: string
+    missingDomains: string[]
   }
-  ensureHostsFile: () => Promise<boolean>
+  ensureHostsFile: (
+    config?: Record<string, unknown>,
+    options?: { force?: boolean },
+  ) => Promise<boolean>
   removeHostsBlock: () => Promise<boolean>
   isCaddyInstalled: () => Promise<boolean>
   installCaddy: () => Promise<boolean>
   generateCaddyfile: () => string
+  ensureSudoAccess: () => Promise<boolean>
+  installPortForwarding: () => Promise<boolean>
+  uninstallPortForwarding: () => Promise<boolean>
   startProxy: () => Promise<boolean>
   stopProxy: () => Promise<void>
   getLocalUrls: () => Record<string, string>
@@ -81,16 +81,15 @@ export const proxyCommand = new Command('proxy')
     logger.newline()
   })
 
-// Subcommand: start
 proxyCommand
   .command('start')
   .description('Start the local reverse proxy (Caddy)')
   .action(async () => {
     const proxy = await loadProxyModule()
+    await proxy.ensureSudoAccess()
     await proxy.startProxy()
   })
 
-// Subcommand: stop
 proxyCommand
   .command('stop')
   .description('Stop the local reverse proxy')
@@ -100,7 +99,6 @@ proxyCommand
     logger.success('Proxy stopped')
   })
 
-// Subcommand: urls
 proxyCommand
   .command('urls')
   .description('Show all available local development URLs')
@@ -116,7 +114,6 @@ proxyCommand
     logger.newline()
   })
 
-// Subcommand: hosts (status)
 proxyCommand
   .command('hosts')
   .description('Check hosts file status')
@@ -125,7 +122,19 @@ proxyCommand
     const status = proxy.getHostsBlockStatus()
 
     if (status.exists) {
-      logger.success('Jeju hosts block found:\n')
+      if (status.missingDomains.length === 0) {
+        logger.success('Jeju hosts block found and complete:\n')
+      } else {
+        logger.warn(
+          `Jeju hosts block found but missing ${status.missingDomains.length} domain(s):\n`,
+        )
+        for (const domain of status.missingDomains) {
+          logger.info(`  - ${domain}`)
+        }
+        logger.newline()
+        logger.info('Run: jeju proxy hosts:add to update')
+        logger.newline()
+      }
       console.log(status.current)
     } else {
       logger.error('Jeju hosts block not found')
@@ -137,7 +146,6 @@ proxyCommand
     }
   })
 
-// Subcommand: hosts:add
 proxyCommand
   .command('hosts:add')
   .description('Add Jeju entries to hosts file (requires sudo)')
@@ -147,10 +155,9 @@ proxyCommand
     logger.header('HOSTS FILE SETUP')
     logger.info('Adding Jeju block to hosts file...\n')
 
-    await proxy.ensureHostsFile()
+    await proxy.ensureHostsFile({}, { force: true })
   })
 
-// Subcommand: hosts:remove
 proxyCommand
   .command('hosts:remove')
   .description('Remove Jeju entries from hosts file (requires sudo)')
@@ -163,11 +170,48 @@ proxyCommand
     await proxy.removeHostsBlock()
   })
 
-// Subcommand: caddyfile
 proxyCommand
   .command('caddyfile')
   .description('Print the generated Caddyfile')
   .action(async () => {
     const proxy = await loadProxyModule()
     console.log(proxy.generateCaddyfile())
+  })
+
+proxyCommand
+  .command('install')
+  .description(
+    'Install persistent port forwarding (80 → 8080) - run once with sudo',
+  )
+  .action(async () => {
+    const proxy = await loadProxyModule()
+
+    logger.header('PORT FORWARDING SETUP')
+    logger.info('This enables clean URLs without :8080\n')
+
+    const success = await proxy.installPortForwarding()
+    if (success) {
+      logger.newline()
+      logger.success('Port forwarding installed.')
+      logger.info('Now run "bun run dev" - port 80 will work automatically.')
+    } else {
+      logger.error('Failed to install port forwarding')
+      logger.info('Try running with sudo: sudo jeju proxy install')
+    }
+  })
+
+proxyCommand
+  .command('uninstall')
+  .description('Remove persistent port forwarding rules')
+  .action(async () => {
+    const proxy = await loadProxyModule()
+
+    logger.header('REMOVING PORT FORWARDING')
+
+    const success = await proxy.uninstallPortForwarding()
+    if (success) {
+      logger.success('Port forwarding removed.')
+    } else {
+      logger.error('Failed to remove port forwarding')
+    }
   })

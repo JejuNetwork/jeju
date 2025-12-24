@@ -5,13 +5,13 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import type { AuthProvider, VerifiableCredential } from '../../index.js'
+import type { AuthProvider, VerifiableCredential } from '../../types'
 import {
   CredentialVerifyResponseSchema,
   expectEndpoint,
   validateResponse,
-} from '../../validation.js'
-import { useOAuth3 } from '../provider.js'
+} from '../../validation'
+import { useOAuth3 } from '../provider'
 
 export interface UseCredentialsReturn {
   credentials: VerifiableCredential[]

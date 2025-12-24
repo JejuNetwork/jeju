@@ -199,27 +199,6 @@ export const TriggerBalanceResponseSchema = z.object({
   balance: z.string(),
 })
 
-// CovenantSQL Response Schemas
-
-/** Schema for SQL row values (matches SqlParam type) */
-const SqlValueSchema = z.union([
-  z.string(),
-  z.number(),
-  z.boolean(),
-  z.null(),
-  z.instanceof(Uint8Array),
-  z.bigint(),
-  z.date(),
-])
-
-/** Schema for CovenantSQL query response */
-export const CQLQueryResponseSchema = z.object({
-  rows: z.array(z.record(z.string(), SqlValueSchema)),
-  rowCount: z.number(),
-  affectedRows: z.number(),
-  lastInsertId: z.string().optional(),
-})
-
 // Farcaster/SIWF Response Schemas
 
 /** Schema for Farcaster auth channel creation response */

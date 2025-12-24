@@ -1,10 +1,12 @@
 import { type Address, createPublicClient, http, type PublicClient } from 'viem'
 import { z } from 'zod'
+import { safeReadContract } from '../viem'
 import {
   FEDERATED_LIQUIDITY_ABI,
   FEDERATED_SOLVER_ABI,
   NETWORK_REGISTRY_ABI,
 } from './abis'
+
 import type {
   DiscoveryConfig,
   FederatedSolver,
@@ -63,7 +65,7 @@ const MAX_DISCOVERY_CACHE_SIZE = 1000
 
 export class FederationDiscovery {
   private config: DiscoveryConfig
-  private hubClient: PublicClient
+  private hubClient: ReturnType<typeof createPublicClient>
   private cache: Map<
     string,
     CacheEntry<
@@ -74,7 +76,9 @@ export class FederationDiscovery {
 
   constructor(config: DiscoveryConfig) {
     this.config = config
-    this.hubClient = createPublicClient({ transport: http(config.hubRpcUrl) })
+    this.hubClient = createPublicClient({
+      transport: http(config.hubRpcUrl),
+    }) as PublicClient
     this.cache = new Map()
     this.cacheTtl = config.cacheTtlMs ?? 300000 // 5 minutes default
   }
@@ -123,7 +127,7 @@ export class FederationDiscovery {
     const cached = this.getCached<NetworkInfo[]>(cacheKey)
     if (cached) return cached
 
-    const chainIds = (await this.hubClient.readContract({
+    const chainIds = (await safeReadContract(this.hubClient, {
       address: this.config.networkRegistryAddress,
       abi: NETWORK_REGISTRY_ABI,
       functionName: 'getActiveNetworks',
@@ -145,7 +149,7 @@ export class FederationDiscovery {
     const cached = this.getCached<NetworkInfo>(cacheKey)
     if (cached) return cached
 
-    const result = await this.hubClient.readContract({
+    const result = await safeReadContract(this.hubClient, {
       address: this.config.networkRegistryAddress,
       abi: NETWORK_REGISTRY_ABI,
       functionName: 'getNetwork',
@@ -171,7 +175,7 @@ export class FederationDiscovery {
     const cached = this.getCached<NetworkInfo[]>(cacheKey)
     if (cached) return cached
 
-    const chainIds = (await this.hubClient.readContract({
+    const chainIds = (await safeReadContract(this.hubClient, {
       address: this.config.networkRegistryAddress,
       abi: NETWORK_REGISTRY_ABI,
       functionName: 'getVerifiedNetworks',
@@ -189,7 +193,7 @@ export class FederationDiscovery {
   }
 
   async getTrustedPeers(chainId: number): Promise<number[]> {
-    const result = (await this.hubClient.readContract({
+    const result = (await safeReadContract(this.hubClient, {
       address: this.config.networkRegistryAddress,
       abi: NETWORK_REGISTRY_ABI,
       functionName: 'getTrustedPeers',
@@ -203,7 +207,7 @@ export class FederationDiscovery {
     sourceChainId: number,
     targetChainId: number,
   ): Promise<boolean> {
-    return this.hubClient.readContract({
+    return safeReadContract(this.hubClient, {
       address: this.config.networkRegistryAddress,
       abi: NETWORK_REGISTRY_ABI,
       functionName: 'isTrusted',
@@ -243,9 +247,11 @@ export class FederationDiscovery {
     sourceChainId: number,
     destChainId: number,
   ): Promise<FederatedSolver[]> {
-    const localClient = createPublicClient({ transport: http(localRpcUrl) })
+    const localClient = createPublicClient({
+      transport: http(localRpcUrl),
+    }) as PublicClient
 
-    const solverIds = (await localClient.readContract({
+    const solverIds = (await safeReadContract(localClient, {
       address: federatedSolverAddress,
       abi: FEDERATED_SOLVER_ABI,
       functionName: 'getSolversForRoute',
@@ -255,7 +261,7 @@ export class FederationDiscovery {
     const solvers: FederatedSolver[] = []
 
     for (const solverId of solverIds) {
-      const solverData = await localClient.readContract({
+      const solverData = await safeReadContract(localClient, {
         address: federatedSolverAddress,
         abi: FEDERATED_SOLVER_ABI,
         functionName: 'getSolver',
@@ -296,9 +302,11 @@ export class FederationDiscovery {
     totalToken: bigint
     networks: NetworkLiquidity[]
   }> {
-    const localClient = createPublicClient({ transport: http(localRpcUrl) })
+    const localClient = createPublicClient({
+      transport: http(localRpcUrl),
+    }) as PublicClient
 
-    const [totalEth, totalToken] = (await localClient.readContract({
+    const [totalEth, totalToken] = (await safeReadContract(localClient, {
       address: federatedLiquidityAddress,
       abi: FEDERATED_LIQUIDITY_ABI,
       functionName: 'getTotalFederatedLiquidity',

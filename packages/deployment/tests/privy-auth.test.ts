@@ -17,8 +17,6 @@
 
 import { beforeAll, describe, expect, it } from 'bun:test'
 
-// ============ Types ============
-
 interface PrivyUserInfo {
   privyUserId: string
   farcasterFid: string | null
@@ -38,9 +36,6 @@ interface MockPrivyUser {
   email?: { address: string }
   farcaster?: { fid: number }
 }
-
-// ============ Configuration ============
-
 // Privy credentials - check both common env var names
 function getPrivyAppId(): string | undefined {
   return process.env.PRIVY_APP_ID ?? process.env.PUBLIC_PRIVY_APP_ID
@@ -52,9 +47,6 @@ const PRIVY_APP_SECRET = process.env.PRIVY_APP_SECRET
 function isPrivyConfigured(): boolean {
   return !!(PRIVY_APP_ID && PRIVY_APP_SECRET)
 }
-
-// ============ Mock Privy Client ============
-
 /**
  * Create a mock Privy client for testing without real credentials
  */
@@ -93,9 +85,6 @@ function createMockPrivyClient(): MockPrivyClient {
     },
   }
 }
-
-// ============ Verification Functions ============
-
 async function verifyPrivyToken(
   client: MockPrivyClient,
   token: string,
@@ -121,9 +110,6 @@ async function verifyPrivyToken(
     isVerified: true,
   }
 }
-
-// ============ Tests ============
-
 describe('Privy Configuration', () => {
   it('should detect when Privy is not configured', () => {
     // This test validates our configuration detection
@@ -338,9 +324,6 @@ describe('Auth State Management', () => {
     expect(parsed.farcasterFid).toBe(authData.farcasterFid)
   })
 })
-
-// ============ Helper Functions ============
-
 function computeMockSmartAccount(owner: string, salt: bigint): string {
   // Mock deterministic address computation
   // Real implementation uses CREATE2 with factory, init code hash, and salt

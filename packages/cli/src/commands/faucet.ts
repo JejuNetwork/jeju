@@ -1,16 +1,4 @@
-/**
- * jeju faucet - Multi-chain testnet faucet
- *
- * Supported chains:
- * - Jeju Testnet (Base Sepolia)
- * - Base Sepolia
- * - Ethereum Sepolia
- * - Solana Devnet (via web faucet)
- *
- * Security notes:
- * - Addresses are validated before use
- * - Amounts are validated and bounded
- */
+/** Multi-chain testnet faucet */
 
 import { Command } from 'commander'
 import {
@@ -27,7 +15,6 @@ import { loadPrivateKey } from '../lib/keys'
 import { logger } from '../lib/logger'
 import { validateAddress } from '../lib/security'
 
-// Chain configurations
 const CHAINS = {
   jeju: {
     id: 84532, // Base Sepolia
@@ -61,7 +48,7 @@ const CHAINS = {
     explorer: 'https://explorer.solana.com/?cluster=devnet',
     native: 'SOL',
   },
-} as const
+}
 
 type ChainName = keyof typeof CHAINS
 
@@ -208,10 +195,8 @@ async function selfFund(
     return
   }
 
-  // Validate target address
   const validAddress = validateAddress(targetAddress)
 
-  // Validate amount
   const amountNum = parseFloat(amountEth)
   if (Number.isNaN(amountNum) || amountNum <= 0 || amountNum > 100) {
     logger.error('Invalid amount: must be between 0 and 100 ETH')
@@ -256,7 +241,6 @@ async function selfFund(
     return
   }
 
-  // Log truncated address to avoid exposing full address in logs
   logger.step(
     `Sending ${amountEth} ${chain.native} to ${validAddress.slice(0, 10)}...`,
   )
@@ -276,7 +260,6 @@ async function selfFund(
   }
 }
 
-// Subcommand: faucet deploy - Deploy faucet contract
 export const faucetDeployCommand = new Command('deploy')
   .description('Deploy a Faucet contract')
   .option('-c, --chain <chain>', 'Chain to deploy to', 'jeju')
