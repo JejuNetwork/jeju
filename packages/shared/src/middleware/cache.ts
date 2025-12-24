@@ -1,4 +1,4 @@
-import type { JsonValue } from '@jejunetwork/sdk'
+import type { JsonValue } from '@jejunetwork/types'
 
 /**
  * API Caching Middleware

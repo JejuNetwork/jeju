@@ -5,7 +5,6 @@
  * These schemas provide fail-fast validation to catch configuration errors early.
  */
 
-import type { JsonValue } from '@jejunetwork/types'
 import type { Abi } from 'viem'
 import { z } from 'zod'
 
@@ -541,30 +540,35 @@ export type JsonRpcBlockNumberResponse = z.infer<
 
 /**
  * JSON-compatible value schema (for polymorphic JSON-RPC results)
- * Using local schema to match specific JsonRpcResponseSchema structure
  */
-const LocalJsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
+const JsonValueSchema: z.ZodType<
+  string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
+> = z.lazy(() =>
   z.union([
     z.string(),
     z.number(),
     z.boolean(),
     z.null(),
-    z.array(LocalJsonValueSchema),
-    z.record(z.string(), LocalJsonValueSchema),
+    z.array(JsonValueSchema),
+    z.record(z.string(), JsonValueSchema),
   ]),
 )
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue }
 
 /**
  * Generic JSON-RPC response (for any method)
- * Note: Uses simplified schema for deployment validation
  */
-export const DeploymentJsonRpcResponseSchema = z.object({
-  result: LocalJsonValueSchema.optional(),
+export const JsonRpcResponseSchema = z.object({
+  result: JsonValueSchema.optional(),
   error: z.object({ message: z.string() }).optional(),
 })
-export type DeploymentJsonRpcResponse = z.infer<
-  typeof DeploymentJsonRpcResponseSchema
->
+export type JsonRpcResponse = z.infer<typeof JsonRpcResponseSchema>
 
 /**
  * Minimal chain config schema (just rpcUrl for readiness checks)

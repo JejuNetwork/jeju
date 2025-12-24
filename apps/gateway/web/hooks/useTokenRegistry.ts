@@ -79,7 +79,8 @@ export function useTokenRegistry(): UseTokenRegistryResult {
   // Note: registrationFee may not exist in minimal ABI
   const registrationFee = 0n // Default to 0 if not available
 
-  const { writeContract, data: hash, isPending } = useWriteContract()
+  const { writeContract: _writeContract, data: hash, isPending } = useWriteContract()
+  const writeContract = createTypedWriteContract(_writeContract)
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
     hash,
   })
@@ -99,10 +100,10 @@ export function useTokenRegistry(): UseTokenRegistryResult {
       writeContract({
         address: registryAddress,
         abi: TOKEN_REGISTRY_ABI,
-        functionName: 'registerToken' as string,
+        functionName: 'registerToken',
         args: [tokenAddress, oracleAddress, BigInt(minFee), BigInt(maxFee)],
         value: registrationFee,
-      } as unknown as Parameters<typeof writeContract>[0])
+      })
     },
     [registryAddress, writeContract],
   )
@@ -137,12 +138,12 @@ export function useTokenConfig(
   const { data: config, refetch } = useReadContract({
     address: registryAddress,
     abi: TOKEN_REGISTRY_ABI,
-    functionName: 'getTokenConfig' as const,
+    functionName: 'getTokenInfo' as const,
     args: tokenAddress ? [tokenAddress] : undefined,
   })
 
   return {
-    config: config as TokenConfig | undefined,
+    config: config as unknown as TokenConfig | undefined,
     refetch,
   }
 }

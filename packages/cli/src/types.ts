@@ -7,7 +7,7 @@ import {
   INFRA_PORTS as CONFIG_INFRA_PORTS,
 } from '@jejunetwork/config'
 
-import type { NetworkType } from '@jejunetwork/types'
+export type NetworkType = 'localnet' | 'testnet' | 'mainnet'
 
 export interface CLIContext {
   network: NetworkType

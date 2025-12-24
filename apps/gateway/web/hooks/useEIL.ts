@@ -175,11 +175,12 @@ export function useCrossChainSwap(paymasterAddress: Address | undefined) {
   const [error, setError] = useState<string | null>(null)
 
   const {
-    writeContract,
+    writeContract: _writeContract,
     data: hash,
     isPending,
     error: writeError,
   } = useWriteContract()
+  const writeContract = createTypedWriteContract(_writeContract)
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
     hash,
   })
@@ -225,7 +226,7 @@ export function useCrossChainSwap(paymasterAddress: Address | undefined) {
           feeIncrement,
         ],
         value: txValue,
-      } as unknown as Parameters<typeof writeContract>[0])
+      })
     },
     [paymasterAddress, userAddress, writeContract],
   )
@@ -279,11 +280,12 @@ export function useXLPRegistration(stakeManagerAddress: Address | undefined) {
   const [error, setError] = useState<string | null>(null)
 
   const {
-    writeContract,
+    writeContract: _writeContract,
     data: hash,
     isPending,
     error: writeError,
   } = useWriteContract()
+  const writeContract = createTypedWriteContract(_writeContract)
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
     hash,
   })
@@ -312,7 +314,7 @@ export function useXLPRegistration(stakeManagerAddress: Address | undefined) {
         functionName: 'register',
         args: [chains.map((c) => BigInt(c))],
         value: stakeAmount,
-      } as unknown as Parameters<typeof writeContract>[0])
+      })
     },
     [stakeManagerAddress, writeContract],
   )
@@ -330,7 +332,7 @@ export function useXLPRegistration(stakeManagerAddress: Address | undefined) {
         functionName: 'addStake',
         args: [],
         value: amount,
-      } as unknown as Parameters<typeof writeContract>[0])
+      })
     },
     [stakeManagerAddress, writeContract],
   )
@@ -347,7 +349,7 @@ export function useXLPRegistration(stakeManagerAddress: Address | undefined) {
         abi: L1_STAKE_MANAGER_ABI,
         functionName: 'startUnbonding',
         args: [amount],
-      } as unknown as Parameters<typeof writeContract>[0])
+      })
     },
     [stakeManagerAddress, writeContract],
   )
@@ -363,7 +365,7 @@ export function useXLPRegistration(stakeManagerAddress: Address | undefined) {
       abi: L1_STAKE_MANAGER_ABI,
       functionName: 'completeUnbonding',
       args: [],
-    } as unknown as Parameters<typeof writeContract>[0])
+    })
   }, [stakeManagerAddress, writeContract])
 
   return {
@@ -385,11 +387,12 @@ export function useXLPLiquidity(paymasterAddress: Address | undefined) {
   const [error, setError] = useState<string | null>(null)
 
   const {
-    writeContract,
+    writeContract: _writeContract,
     data: hash,
     isPending,
     error: writeError,
   } = useWriteContract()
+  const writeContract = createTypedWriteContract(_writeContract)
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
     hash,
   })
@@ -419,7 +422,7 @@ export function useXLPLiquidity(paymasterAddress: Address | undefined) {
         functionName: 'depositETH',
         args: [],
         value: amount,
-      } as unknown as Parameters<typeof writeContract>[0])
+      })
     },
     [paymasterAddress, writeContract],
   )
@@ -433,7 +436,7 @@ export function useXLPLiquidity(paymasterAddress: Address | undefined) {
         abi: CROSS_CHAIN_PAYMASTER_ABI,
         functionName: 'withdrawETH',
         args: [amount],
-      } as unknown as Parameters<typeof writeContract>[0])
+      })
     },
     [paymasterAddress, writeContract],
   )
@@ -447,7 +450,7 @@ export function useXLPLiquidity(paymasterAddress: Address | undefined) {
         abi: CROSS_CHAIN_PAYMASTER_ABI,
         functionName: 'depositLiquidity',
         args: [token, amount],
-      } as unknown as Parameters<typeof writeContract>[0])
+      })
     },
     [paymasterAddress, writeContract],
   )
@@ -461,7 +464,7 @@ export function useXLPLiquidity(paymasterAddress: Address | undefined) {
         abi: CROSS_CHAIN_PAYMASTER_ABI,
         functionName: 'withdrawLiquidity',
         args: [token, amount],
-      } as unknown as Parameters<typeof writeContract>[0])
+      })
     },
     [paymasterAddress, writeContract],
   )
@@ -481,7 +484,8 @@ export function useXLPLiquidity(paymasterAddress: Address | undefined) {
 }
 
 export function useAppTokenPreference(preferenceAddress: Address | undefined) {
-  const { writeContract, data: hash, isPending, error } = useWriteContract()
+  const { writeContract: _writeContract, data: hash, isPending, error } = useWriteContract()
+  const writeContract = createTypedWriteContract(_writeContract)
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
     hash,
   })
@@ -500,7 +504,7 @@ export function useAppTokenPreference(preferenceAddress: Address | undefined) {
         abi: APP_TOKEN_PREFERENCE_ABI,
         functionName: 'registerApp',
         args: [appAddress, preferredToken, allowFallback, minBalance],
-      } as unknown as Parameters<typeof writeContract>[0])
+      })
     },
     [preferenceAddress, writeContract],
   )
@@ -514,7 +518,7 @@ export function useAppTokenPreference(preferenceAddress: Address | undefined) {
         abi: APP_TOKEN_PREFERENCE_ABI,
         functionName: 'updatePreferredToken',
         args: [appAddress, newPreferredToken],
-      } as unknown as Parameters<typeof writeContract>[0])
+      })
     },
     [preferenceAddress, writeContract],
   )
@@ -528,7 +532,7 @@ export function useAppTokenPreference(preferenceAddress: Address | undefined) {
         abi: APP_TOKEN_PREFERENCE_ABI,
         functionName: 'setFallbackTokens',
         args: [appAddress, tokens],
-      } as unknown as Parameters<typeof writeContract>[0])
+      })
     },
     [preferenceAddress, writeContract],
   )

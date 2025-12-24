@@ -23,6 +23,7 @@ import { privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
 import {
   CastResultSchema,
+  CountResponseSchema,
   FarcasterMessagesResponseSchema,
   HubInfoResponseSchema,
   RelayHealthSchema,
@@ -422,7 +423,7 @@ describe('Farcaster Integration', () => {
 
       const data = FarcasterMessagesResponseSchema.parse(await response.json())
       expect(data.messages).toBeArray()
-      expect(data.messages[0].data.castAddBody.text).toBeDefined()
+      expect(data.messages[0]?.data.castAddBody?.text).toBeDefined()
     })
   })
 

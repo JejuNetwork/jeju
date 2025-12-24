@@ -16,19 +16,37 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { PaymentPayloadSchema } from '../../schemas'
+export interface PaymentRequirements {
+  x402Version: number
+  error: string
+  accepts: PaymentScheme[]
+}
 
-export type {
-  PaymentPayload,
-  PaymentRequirements,
-  PaymentScheme,
-  X402Network,
-} from '@jejunetwork/shared'
+export interface PaymentScheme {
+  scheme: 'exact' | 'upto'
+  network: X402Network
+  maxAmountRequired: string
+  asset: Address
+  payTo: Address
+  resource: string
+  description: string
+  mimeType: string
+  outputSchema: string | null
+  maxTimeoutSeconds: number
+  extra?: Record<string, unknown>
+}
 
-import type {
-  PaymentPayload,
-  PaymentRequirements,
-  X402Network,
-} from '@jejunetwork/shared'
+export interface PaymentPayload {
+  scheme: string
+  network: string
+  asset: Address
+  payTo: Address
+  amount: string
+  resource: string
+  nonce: string
+  timestamp: number
+  signature?: string
+}
 
 /** Untrusted input for validation boundary - use when validating external input */
 export type UntrustedPaymentPayload = Partial<PaymentPayload>
@@ -57,6 +75,14 @@ export interface SettlementResponse {
   amountSettled?: string
   error?: string
 }
+
+export type X402Network =
+  | 'sepolia'
+  | 'ethereum'
+  | 'jeju'
+  | 'jeju-testnet'
+  | 'base'
+  | 'base-sepolia'
 
 export interface X402Config {
   recipientAddress: Address

@@ -5,10 +5,16 @@
  * @packageDocumentation
  */
 
-import type { JsonValue } from '@jejunetwork/types'
-
-// Re-export JsonValue for consumers of this module
-export type { JsonValue }
+/**
+ * JSON value types supported by JSON-RPC
+ */
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue }
 
 /**
  * String-keyed record type for JSON objects

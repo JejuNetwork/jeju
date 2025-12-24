@@ -80,7 +80,19 @@ const A2AMessageBodySchema = t.Object({
   }),
 })
 
-import type { SkillResult } from '@jejunetwork/shared/protocols/middleware'
+interface SkillResult {
+  message: string
+  // Data is JSON-serializable but contains typed objects like QualityCriteria, AutocratVote, etc.
+  data: Record<
+    string,
+    | string
+    | number
+    | boolean
+    | null
+    | object
+    | (string | number | boolean | null | object)[]
+  >
+}
 
 export class AutocratA2AServer {
   private readonly app: Elysia

@@ -9,7 +9,7 @@ import {
   addressSchema,
   todoIdSchema,
 } from '../lib/schemas'
-import type { A2AResponse } from '../lib/types'
+import type { A2AResponse, JsonRecord } from '../lib/types'
 import { getTopPriorities, prioritizeTodos } from '../lib/utils'
 import { getCronService } from './services/cron'
 import { getTodoService } from './services/todo'
@@ -229,7 +229,10 @@ export function createA2AServer() {
     })
 }
 
-import type { SkillResult } from '@jejunetwork/shared/protocols/middleware'
+interface SkillResult {
+  message: string
+  data: JsonRecord
+}
 
 async function executeSkill(
   skillId: string,

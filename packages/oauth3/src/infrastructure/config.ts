@@ -8,10 +8,10 @@
  */
 
 import { getEnv } from '@jejunetwork/shared'
-import { type NetworkType, ZERO_ADDRESS } from '@jejunetwork/types'
+import { ZERO_ADDRESS } from '@jejunetwork/types'
 import type { Address } from 'viem'
 
-export type { NetworkType }
+export type NetworkType = 'localnet' | 'testnet' | 'mainnet'
 export type TEEMode = 'dstack' | 'phala' | 'simulated' | 'auto'
 
 export const CHAIN_IDS = {

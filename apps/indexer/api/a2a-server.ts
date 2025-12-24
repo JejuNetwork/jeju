@@ -95,7 +95,10 @@ function createAgentCard(options: {
   }
 }
 
-import type { SkillResult } from '@jejunetwork/shared'
+interface SkillResult {
+  message: string
+  data: Record<string, unknown>
+}
 
 const INDEXER_SKILLS = [
   {

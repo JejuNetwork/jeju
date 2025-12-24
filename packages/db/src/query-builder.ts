@@ -315,9 +315,11 @@ export function buildOrderByClause(
 
 // Query Param Conversion
 
-import type { JsonObject, JsonValue } from '@jejunetwork/types'
-
+/** JSON-compatible value for SQL parameter serialization */
+type JsonPrimitive = string | number | boolean | null
 type JsonArray = JsonValue[]
+type JsonObject = { [key: string]: JsonValue }
+type JsonValue = JsonPrimitive | JsonArray | JsonObject
 
 /** Values that can be converted to SQL query parameters */
 type SQLValue =

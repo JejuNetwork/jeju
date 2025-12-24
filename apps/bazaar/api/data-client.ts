@@ -1,10 +1,4 @@
-import {
-  AddressSchema,
-  expect,
-  expectTrue,
-  type JsonValue,
-  JsonValueSchema,
-} from '@jejunetwork/types'
+import { AddressSchema, expect, expectTrue } from '@jejunetwork/types'
 import {
   type Address,
   createPublicClient,
@@ -14,6 +8,20 @@ import {
 } from 'viem'
 import { z } from 'zod'
 import { INDEXER_URL, RPC_URL } from '../config'
+
+// JSON value type for GraphQL data
+type JsonPrimitive = string | number | boolean | null
+type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue }
+const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(JsonValueSchema),
+    z.record(z.string(), JsonValueSchema),
+  ]),
+)
 
 // GraphQL response schema for runtime validation
 const GraphQLResponseSchema = z.object({

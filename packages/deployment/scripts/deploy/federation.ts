@@ -16,7 +16,6 @@
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import type { NetworkType } from '@jejunetwork/types'
 import { $ } from 'bun'
 import {
   type Address,
@@ -37,6 +36,8 @@ import type { ConstructorArg } from '../shared/contract-types'
 
 const ROOT = join(import.meta.dir, '../..')
 const CONTRACTS_DIR = join(ROOT, 'packages/contracts')
+
+type NetworkType = 'localnet' | 'testnet' | 'mainnet'
 
 const NETWORK = (process.env.NETWORK ||
   process.argv[2] ||

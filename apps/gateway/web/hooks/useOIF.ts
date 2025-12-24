@@ -211,7 +211,8 @@ export function useCreateIntent(inputSettlerAddress: Address | undefined) {
   const publicClient = usePublicClient()
   const [intentId, setIntentId] = useState<`0x${string}` | null>(null)
 
-  const { writeContract, data: hash, isPending, error } = useWriteContract()
+  const { writeContract: _writeContract, data: hash, isPending, error } = useWriteContract()
+  const writeContract = createTypedWriteContract(_writeContract)
   const { isSuccess, isLoading: isConfirming } = useWaitForTransactionReceipt({
     hash,
   })
@@ -284,7 +285,7 @@ export function useCreateIntent(inputSettlerAddress: Address | undefined) {
         functionName: 'open',
         args: [order],
         value: params.inputToken === ZERO_ADDRESS ? params.inputAmount : 0n,
-      } as unknown as Parameters<typeof writeContract>[0])
+      })
     },
     [address, inputSettlerAddress, publicClient, nonce, writeContract],
   )
@@ -340,7 +341,8 @@ export function useIntentStatus(
 }
 
 export function useRefundIntent(inputSettlerAddress: Address | undefined) {
-  const { writeContract, data: hash, isPending, error } = useWriteContract()
+  const { writeContract: _writeContract, data: hash, isPending, error } = useWriteContract()
+  const writeContract = createTypedWriteContract(_writeContract)
   const { isSuccess, isLoading: isConfirming } = useWaitForTransactionReceipt({
     hash,
   })
@@ -353,7 +355,7 @@ export function useRefundIntent(inputSettlerAddress: Address | undefined) {
         abi: INPUT_SETTLER_ABI,
         functionName: 'refund',
         args: [intentId],
-      } as unknown as Parameters<typeof writeContract>[0])
+      })
     },
     [inputSettlerAddress, writeContract],
   )
@@ -363,7 +365,8 @@ export function useRefundIntent(inputSettlerAddress: Address | undefined) {
 
 export function useSolverRegistration(registryAddress: Address | undefined) {
   const { address } = useAccount()
-  const { writeContract, data: hash, isPending, error } = useWriteContract()
+  const { writeContract: _writeContract, data: hash, isPending, error } = useWriteContract()
+  const writeContract = createTypedWriteContract(_writeContract)
   const { isSuccess, isLoading: isConfirming } = useWaitForTransactionReceipt({
     hash,
   })
@@ -379,7 +382,7 @@ export function useSolverRegistration(registryAddress: Address | undefined) {
         functionName: 'register',
         args: [supportedChains.map(BigInt)],
         value: stakeAmount,
-      } as unknown as Parameters<typeof writeContract>[0])
+      })
     },
     [registryAddress, writeContract],
   )
@@ -393,7 +396,7 @@ export function useSolverRegistration(registryAddress: Address | undefined) {
         functionName: 'addStake',
         args: [],
         value: amount,
-      } as unknown as Parameters<typeof writeContract>[0])
+      })
     },
     [registryAddress, writeContract],
   )
@@ -406,7 +409,7 @@ export function useSolverRegistration(registryAddress: Address | undefined) {
         abi: SOLVER_REGISTRY_ABI,
         functionName: 'startUnbonding',
         args: [amount],
-      } as unknown as Parameters<typeof writeContract>[0])
+      })
     },
     [registryAddress, writeContract],
   )

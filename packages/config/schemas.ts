@@ -8,15 +8,12 @@
 
 import { z } from 'zod'
 
-// Network Type - import from canonical source
-export {
-  type ChainConfig,
-  ChainConfigSchema,
-  NetworkSchema,
-  type NetworkType,
-} from '@jejunetwork/types'
+// Network Type
 
-// Address Schemas for local use
+export const NetworkSchema = z.enum(['localnet', 'testnet', 'mainnet'])
+export type NetworkType = z.infer<typeof NetworkSchema>
+
+// Chain Configuration Schema
 
 /**
  * Address schema using regex validation (no viem dependency)
@@ -33,6 +30,56 @@ const OptionalAddressSchema = z
   .refine((val) => val === '' || /^0x[a-fA-F0-9]{40}$/.test(val), {
     message: 'Must be empty or valid Ethereum address',
   })
+
+const GasTokenSchema = z.object({
+  name: z.string().min(1),
+  symbol: z.string().min(1).max(10),
+  decimals: z.number().int().nonnegative().max(18),
+})
+
+/** OP Stack L2 contract addresses for chain config */
+const ChainL2ContractsSchema = z.object({
+  L2CrossDomainMessenger: AddressSchema,
+  L2StandardBridge: AddressSchema,
+  L2ToL1MessagePasser: AddressSchema,
+  L2ERC721Bridge: AddressSchema,
+  GasPriceOracle: AddressSchema,
+  L1Block: AddressSchema,
+  WETH: AddressSchema,
+})
+
+/** OP Stack L1 contract addresses for chain config - allows empty for undeployed contracts */
+const ChainL1ContractsSchema = z.object({
+  OptimismPortal: OptionalAddressSchema,
+  L2OutputOracle: OptionalAddressSchema,
+  L1CrossDomainMessenger: OptionalAddressSchema,
+  L1StandardBridge: OptionalAddressSchema,
+  SystemConfig: OptionalAddressSchema,
+})
+
+/**
+ * OP Stack chain configuration schema
+ */
+export const ChainConfigSchema = z.object({
+  chainId: z.number().int().positive(),
+  networkId: z.number().int().positive(),
+  name: z.string().min(1),
+  rpcUrl: z.string().min(1),
+  wsUrl: z.string().min(1),
+  explorerUrl: z.string().min(1),
+  l1ChainId: z.number().int().positive(),
+  l1RpcUrl: z.string().min(1),
+  l1Name: z.string().min(1),
+  flashblocksEnabled: z.boolean(),
+  flashblocksSubBlockTime: z.number().int().nonnegative(),
+  blockTime: z.number().int().positive(),
+  gasToken: GasTokenSchema,
+  contracts: z.object({
+    l2: ChainL2ContractsSchema,
+    l1: ChainL1ContractsSchema,
+  }),
+})
+export type ChainConfig = z.infer<typeof ChainConfigSchema>
 
 // Contract Schemas
 

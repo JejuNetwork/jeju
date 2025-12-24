@@ -7,7 +7,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { JsonValueSchema } from '@jejunetwork/types'
+import { z } from 'zod'
 import {
   BrandingConfigValidationSchema,
   ChainConfigValidationSchema,
@@ -30,6 +30,27 @@ interface ValidationResult {
 }
 
 const results: ValidationResult[] = []
+
+/**
+ * JSON value schema for generic JSON validation
+ */
+const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(JsonValueSchema),
+    z.record(z.string(), JsonValueSchema),
+  ]),
+)
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue }
 
 /**
  * Generic JSON validation - just checks if file is valid JSON

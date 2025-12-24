@@ -1,6 +1,5 @@
 /** Factory API Schemas */
 
-import { JsonValueSchema } from '@jejunetwork/types'
 import type { Address } from 'viem'
 import { z } from 'zod'
 
@@ -10,6 +9,25 @@ export const AddressSchema = z.custom<Address>(
     return /^0x[a-fA-F0-9]{40}$/.test(val)
   },
   { message: 'Invalid Ethereum address' },
+)
+
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue }
+
+const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(JsonValueSchema),
+    z.record(z.string(), JsonValueSchema),
+  ]),
 )
 
 export function expectValid<T>(

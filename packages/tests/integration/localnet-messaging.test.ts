@@ -21,6 +21,15 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
+import {
+  CastResultSchema,
+  CountResponseSchema,
+  FarcasterMessagesResponseSchema,
+  HubInfoResponseSchema,
+  RelayHealthSchema,
+  RelayMessageResultSchema,
+  RelayMessagesResponseSchema,
+} from '../shared/schemas'
 
 // Jeju localnet ports (from packages/config/ports.ts)
 const L1_RPC_PORT = parseInt(process.env.L1_RPC_PORT ?? '6545', 10)
@@ -441,7 +450,7 @@ describe('Messaging Relay', () => {
     const response = await fetch(`http://127.0.0.1:${RELAY_PORT}/health`)
     expect(response.ok).toBe(true)
 
-    const data = (await response.json()) as { status: string; nodeId: string }
+    const data = RelayHealthSchema.parse(await response.json())
     expect(data.status).toBe('healthy')
     expect(data.nodeId).toBe('localnet-relay')
   })
@@ -465,10 +474,7 @@ describe('Messaging Relay', () => {
     })
 
     expect(sendResponse.ok).toBe(true)
-    const sendResult = (await sendResponse.json()) as {
-      success: boolean
-      messageId: string
-    }
+    const sendResult = RelayMessageResultSchema.parse(await sendResponse.json())
     expect(sendResult.success).toBe(true)
     expect(sendResult.messageId).toBe(messageId)
 
@@ -478,9 +484,7 @@ describe('Messaging Relay', () => {
     )
     expect(receiveResponse.ok).toBe(true)
 
-    const messages = (await receiveResponse.json()) as {
-      messages: Array<{ id: string }>
-    }
+    const messages = RelayMessagesResponseSchema.parse(await receiveResponse.json())
     expect(messages.messages.some((m) => m.id === messageId)).toBe(true)
   })
 
@@ -511,15 +515,14 @@ describe('Messaging Relay', () => {
     const response = await fetch(
       `http://127.0.0.1:${RELAY_PORT}/messages/bob-${bytesToHex(bobKeys.publicKey).slice(2, 12)}`,
     )
-    const data = (await response.json()) as {
-      messages: Array<{ id: string; content: string }>
-    }
+    const data = RelayMessagesResponseSchema.parse(await response.json())
 
     const received = data.messages.find((m) => m.id === messageId)
     expect(received).toBeDefined()
 
+    const content = received?.content ?? ''
     const decrypted = decrypt(
-      new Uint8Array(Buffer.from(received?.content, 'base64')),
+      new Uint8Array(Buffer.from(content, 'base64')),
       sharedKey,
     )
     expect(decrypted).toBe(originalMessage)
@@ -536,10 +539,7 @@ describe('Farcaster Hub', () => {
     const response = await fetch(`http://127.0.0.1:${HUB_PORT}/v1/info`)
     expect(response.ok).toBe(true)
 
-    const info = (await response.json()) as {
-      version: string
-      isSyncing: boolean
-    }
+    const info = HubInfoResponseSchema.parse(await response.json())
     expect(info.version).toBeDefined()
     expect(info.isSyncing).toBe(false)
   })
@@ -551,11 +551,9 @@ describe('Farcaster Hub', () => {
     )
     expect(response.ok).toBe(true)
 
-    const data = (await response.json()) as {
-      messages: Array<{ data: { fid: number } }>
-    }
+    const data = FarcasterMessagesResponseSchema.parse(await response.json())
     expect(data.messages.length).toBeGreaterThan(0)
-    expect(data.messages[0].data.fid).toBe(fid)
+    expect(data.messages[0]?.data.fid).toBe(fid)
   })
 
   test('submits and retrieves cast', async () => {
@@ -585,7 +583,7 @@ describe('Farcaster Hub', () => {
     )
 
     expect(submitResponse.ok).toBe(true)
-    const submitResult = (await submitResponse.json()) as { hash: string }
+    const submitResult = CastResultSchema.parse(await submitResponse.json())
     expect(submitResult.hash).toMatch(/^0x[a-f0-9]+$/)
 
     // Retrieve
@@ -594,11 +592,9 @@ describe('Farcaster Hub', () => {
     )
     expect(castsResponse.ok).toBe(true)
 
-    const casts = (await castsResponse.json()) as {
-      messages: Array<{ data: { castAddBody: { text: string } } }>
-    }
+    const casts = FarcasterMessagesResponseSchema.parse(await castsResponse.json())
     expect(
-      casts.messages.some((m) => m.data.castAddBody.text === castText),
+      casts.messages.some((m) => m.data.castAddBody?.text === castText),
     ).toBe(true)
   })
 
@@ -772,7 +768,7 @@ describe('Direct Casts', () => {
     const response = await fetch(
       `http://127.0.0.1:${RELAY_PORT}/messages/${conversationId}`,
     )
-    const data = (await response.json()) as { count: number }
+    const data = CountResponseSchema.parse(await response.json())
     expect(data.count).toBe(3)
   })
 })
@@ -821,7 +817,7 @@ describe('End-to-End Flows', () => {
     const messages = await fetch(
       `http://127.0.0.1:${RELAY_PORT}/messages/fid:${userFid}`,
     )
-    const data = (await messages.json()) as { messages: Array<{ id: string }> }
+    const data = RelayMessagesResponseSchema.parse(await messages.json())
     expect(data.messages.some((m) => m.id === dmId)).toBe(true)
   })
 
@@ -863,7 +859,7 @@ describe('End-to-End Flows', () => {
     const response = await fetch(
       `http://127.0.0.1:${RELAY_PORT}/messages/${groupId}`,
     )
-    const data = (await response.json()) as { count: number }
+    const data = CountResponseSchema.parse(await response.json())
     expect(data.count).toBe(members.length)
   })
 
@@ -923,20 +919,16 @@ describe('End-to-End Flows', () => {
     const xmtpMessages = await fetch(
       `http://127.0.0.1:${RELAY_PORT}/messages/${userAddress}`,
     )
-    const xmtpData = (await xmtpMessages.json()) as {
-      messages: Array<{ id: string }>
-    }
+    const xmtpData = RelayMessagesResponseSchema.parse(await xmtpMessages.json())
     expect(xmtpData.messages.some((m) => m.id === xmtpMsgId)).toBe(true)
 
     const farcasterCasts = await fetch(
       `http://127.0.0.1:${HUB_PORT}/v1/castsByFid?fid=${userFid}`,
     )
-    const castData = (await farcasterCasts.json()) as {
-      messages: Array<{ data: { castAddBody: { text: string } } }>
-    }
+    const castData = FarcasterMessagesResponseSchema.parse(await farcasterCasts.json())
     expect(
       castData.messages.some((m) =>
-        m.data.castAddBody.text.includes('Cross-platform'),
+        m.data.castAddBody?.text.includes('Cross-platform'),
       ),
     ).toBe(true)
   })
@@ -970,7 +962,7 @@ describe('Performance', () => {
     const response = await fetch(
       `http://127.0.0.1:${RELAY_PORT}/messages/${recipient}`,
     )
-    const data = (await response.json()) as { count: number }
+    const data = CountResponseSchema.parse(await response.json())
     expect(data.count).toBe(50)
   })
 

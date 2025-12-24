@@ -9,7 +9,7 @@
  *   import { createLogger, Logger } from '@jejunetwork/shared';
  */
 
-import type { JsonRecord } from '@jejunetwork/sdk'
+import type { JsonRecord } from '@jejunetwork/types'
 import { getEnv, isBrowser } from './env'
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error'

@@ -8,25 +8,27 @@ import {
   getRpcChain as getChain,
   isRpcChainSupported as isChainSupported,
 } from '@jejunetwork/config'
-import type { JsonValue } from '@jejunetwork/types'
+
+// JSON-RPC param type - serializable values (limited depth to avoid infinite recursion)
+type JsonRpcParam = string | number | boolean | null | object
 
 export interface JsonRpcRequest {
   jsonrpc: string
   id: number | string
   method: string
-  params?: JsonValue[]
+  params?: JsonRpcParam[]
 }
 
 interface JsonRpcError {
   code: number
   message: string
-  data?: JsonValue
+  data?: string | number | boolean | null | object
 }
 
 export interface JsonRpcResponse {
   jsonrpc: string
   id: number | string
-  result?: JsonValue
+  result?: string | number | boolean | null | object
   error?: JsonRpcError
 }
 

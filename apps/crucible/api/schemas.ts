@@ -9,7 +9,6 @@ import {
   AddressSchema,
   expect as baseExpect,
   expectValid,
-  JsonValueSchema,
   NonEmptyStringSchema,
   NonNegativeIntSchema,
   PositiveIntSchema,
@@ -44,6 +43,26 @@ export const HexSchema = z
 export const BigIntStringSchema = z
   .string()
   .regex(/^\d+$/, 'Must be numeric string')
+
+// JsonValue recursive type for JSON-serializable values
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue }
+
+const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(JsonValueSchema),
+    z.record(z.string(), JsonValueSchema),
+  ]),
+)
 
 // Agent Request Schemas
 

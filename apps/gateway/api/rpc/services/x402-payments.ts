@@ -1,12 +1,16 @@
-import type { X402Network } from '@jejunetwork/shared/x402'
 import { expectValid, ZERO_ADDRESS } from '@jejunetwork/types'
-
-export type { X402Network }
-
 import type { Address } from 'viem'
 import { hashMessage, recoverAddress } from 'viem'
 import { X402PaymentProofSchema } from '../../../lib/validation'
 import { initializeState, x402State } from '../../services/state'
+
+export type X402Network =
+  | 'sepolia'
+  | 'base'
+  | 'base-sepolia'
+  | 'ethereum'
+  | 'jeju'
+  | 'jeju-testnet'
 
 export interface X402PaymentRequirement {
   x402Version: number
