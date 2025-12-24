@@ -246,7 +246,8 @@ export interface RegisterAppParams {
 export function useRegistry() {
   const [lastTx, setLastTx] = useState<`0x${string}` | undefined>()
   const { data: txReceipt } = useWaitForTransactionReceipt({ hash: lastTx })
-  const { writeContractAsync } = useWriteContract()
+  const { writeContractAsync: _writeContractAsync } = useWriteContract()
+  const writeContractAsync = createTypedWriteContractAsync(_writeContractAsync)
 
   async function registerApp(
     params: RegisterAppParams,
@@ -259,7 +260,7 @@ export function useRegistry() {
         abi: IERC20_ABI,
         functionName: 'approve',
         args: [REGISTRY_ADDRESS, stakeAmount],
-      } as unknown as Parameters<typeof writeContractAsync>[0])
+      })
     }
 
     const hash = await writeContractAsync({
@@ -268,7 +269,7 @@ export function useRegistry() {
       functionName: 'registerWithStake',
       args: [tokenURI, tags, a2aEndpoint, stakeToken],
       value: stakeToken === ZERO_ADDRESS ? stakeAmount : 0n,
-    } as unknown as Parameters<typeof writeContractAsync>[0])
+    })
 
     setLastTx(hash)
     return { success: true }
@@ -282,7 +283,7 @@ export function useRegistry() {
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'withdrawStake',
       args: [agentId],
-    } as unknown as Parameters<typeof writeContractAsync>[0])
+    })
     setLastTx(hash)
     return { success: true }
   }
@@ -454,7 +455,8 @@ export function useRegistryAppDetails(agentId: bigint) {
 export function useRegistryMarketplaceActions() {
   const [lastTx, setLastTx] = useState<`0x${string}` | undefined>()
   const { data: txReceipt } = useWaitForTransactionReceipt({ hash: lastTx })
-  const { writeContractAsync } = useWriteContract()
+  const { writeContractAsync: _writeContractAsync } = useWriteContract()
+  const writeContractAsync = createTypedWriteContractAsync(_writeContractAsync)
 
   async function setEndpoints(
     agentId: bigint,
@@ -466,7 +468,7 @@ export function useRegistryMarketplaceActions() {
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'setEndpoints',
       args: [agentId, a2aEndpoint, mcpEndpoint],
-    } as unknown as Parameters<typeof writeContractAsync>[0])
+    })
     setLastTx(hash)
     return { success: true }
   }
@@ -480,7 +482,7 @@ export function useRegistryMarketplaceActions() {
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'setCategory',
       args: [agentId, category],
-    } as unknown as Parameters<typeof writeContractAsync>[0])
+    })
     setLastTx(hash)
     return { success: true }
   }
@@ -494,7 +496,7 @@ export function useRegistryMarketplaceActions() {
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'setX402Support',
       args: [agentId, supported],
-    } as unknown as Parameters<typeof writeContractAsync>[0])
+    })
     setLastTx(hash)
     return { success: true }
   }

@@ -23,7 +23,6 @@
   "dependencies": {
     "@elysiajs/cors": "^1.2.0",
     "@jejunetwork/config": "workspace:*",
-    "@jejunetwork/sdk": "workspace:*",
     "@jejunetwork/types": "workspace:*",
     "elysia": "^1.2.25",
     "generic-pool": "^3.9.0",

@@ -48,7 +48,10 @@ function createAgentCard(options: {
 
 // Using A2ARequestType from schemas instead of local interface
 
-import type { SkillResult } from '@jejunetwork/shared/protocols/middleware'
+interface SkillResult {
+  message: string
+  data: Record<string, unknown>
+}
 
 const BAZAAR_SKILLS = [
   // Token Launch Skills

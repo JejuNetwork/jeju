@@ -1,15 +1,12 @@
 /**
  * Autocrat Test Setup
  *
- * Provides infrastructure management for tests:
- * - Anvil/chain management
- * - API server management
- * - Service health checks
- * - Environment configuration
+ * Provides infrastructure management for integration tests.
+ * Services are automatically started when required.
  *
- * Tests should import the utilities they need:
+ * Usage:
  * - Unit tests: no setup needed
- * - Integration tests: use requireChain() or requireApi()
+ * - Integration tests: call ensureServices() in beforeAll
  * - E2E tests: handled by playwright/synpress configs
  */
 
@@ -28,7 +25,7 @@ const RPC_URL = process.env.RPC_URL || `http://127.0.0.1:${ANVIL_PORT}`
 const API_URL = process.env.API_URL || `http://127.0.0.1:${API_PORT}`
 const DWS_URL = process.env.DWS_URL || `http://127.0.0.1:${DWS_PORT}`
 
-// Track managed processes
+// Track managed processes for cleanup
 const managedProcesses: ChildProcess[] = []
 
 export interface TestEnv {
@@ -47,13 +44,11 @@ interface ServiceStatus {
   error?: string
 }
 
-/**
- * Check if Anvil/chain is running and get chain ID
- */
-export async function checkChain(
-  url: string = RPC_URL,
-  _timeout = 3000,
-): Promise<ServiceStatus> {
+// ============================================================================
+// Service Health Checks
+// ============================================================================
+
+export async function checkChain(url: string = RPC_URL): Promise<ServiceStatus> {
   try {
     const client = createPublicClient({
       chain: localhost,
@@ -69,9 +64,6 @@ export async function checkChain(
   }
 }
 
-/**
- * Check if API server is healthy
- */
 export async function checkApi(
   url: string = API_URL,
   timeout = 3000,
@@ -89,9 +81,6 @@ export async function checkApi(
   }
 }
 
-/**
- * Check if DWS service is healthy
- */
 export async function checkDws(
   url: string = DWS_URL,
   timeout = 3000,
@@ -109,45 +98,14 @@ export async function checkDws(
   }
 }
 
-/**
- * Check if DWS compute is actually functional (can run inference)
- */
-export async function checkDwsCompute(
-  url: string = DWS_URL,
-  timeout = 10000,
-): Promise<ServiceStatus> {
-  try {
-    const response = await fetch(`${url}/v1/chat/completions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'default',
-        messages: [{ role: 'user', content: 'ping' }],
-        max_tokens: 1,
-      }),
-      signal: AbortSignal.timeout(timeout),
-    })
-    // Even a 4xx/5xx shows compute endpoint is reachable
-    // but we want 2xx to confirm it's working
-    return { available: response.ok }
-  } catch (err) {
-    return {
-      available: false,
-      error: err instanceof Error ? err.message : 'DWS compute unavailable',
-    }
-  }
-}
+// ============================================================================
+// Service Starters
+// ============================================================================
 
-/**
- * Start Anvil if not already running
- */
 export async function startAnvil(port: number = ANVIL_PORT): Promise<boolean> {
-  // Check if already running
   const status = await checkChain(`http://127.0.0.1:${port}`)
   if (status.available) {
-    console.log(
-      `✅ Anvil already running on port ${port} (chainId: ${status.chainId})`,
-    )
+    console.log(`✅ Anvil already running (chainId: ${status.chainId})`)
     return true
   }
 
@@ -156,15 +114,10 @@ export async function startAnvil(port: number = ANVIL_PORT): Promise<boolean> {
   const anvil = spawn(
     'anvil',
     ['--port', port.toString(), '--chain-id', '31337'],
-    {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      detached: false,
-    },
+    { stdio: ['ignore', 'pipe', 'pipe'], detached: false },
   )
-
   managedProcesses.push(anvil)
 
-  // Wait for Anvil to be ready
   for (let i = 0; i < 30; i++) {
     await Bun.sleep(200)
     const check = await checkChain(`http://127.0.0.1:${port}`)
@@ -174,17 +127,13 @@ export async function startAnvil(port: number = ANVIL_PORT): Promise<boolean> {
     }
   }
 
-  console.error('❌ Failed to start Anvil within timeout')
+  console.error('❌ Failed to start Anvil')
   return false
 }
 
-/**
- * Start API server if not already running
- */
 export async function startApiServer(
   port: number = API_PORT,
 ): Promise<boolean> {
-  // Check if already running
   const status = await checkApi(`http://127.0.0.1:${port}`)
   if (status.available) {
     console.log(`✅ API server already running on port ${port}`)
@@ -199,10 +148,8 @@ export async function startApiServer(
     env: { ...process.env, PORT: port.toString() },
     detached: false,
   })
-
   managedProcesses.push(server)
 
-  // Wait for server to be ready
   for (let i = 0; i < 60; i++) {
     await Bun.sleep(500)
     const check = await checkApi(`http://127.0.0.1:${port}`)
@@ -212,13 +159,41 @@ export async function startApiServer(
     }
   }
 
-  console.error('❌ Failed to start API server within timeout')
+  console.error('❌ Failed to start API server')
   return false
 }
 
-/**
- * Stop all managed processes
- */
+export async function startDws(port: number = DWS_PORT): Promise<boolean> {
+  const status = await checkDws(`http://127.0.0.1:${port}`)
+  if (status.available) {
+    console.log(`✅ DWS already running on port ${port}`)
+    return true
+  }
+
+  console.log(`🚀 Starting DWS on port ${port}...`)
+
+  // DWS is started from apps/dws
+  const dws = spawn('bun', ['run', 'dev'], {
+    cwd: `${process.cwd()}/../dws`,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: { ...process.env, PORT: port.toString() },
+    detached: false,
+  })
+  managedProcesses.push(dws)
+
+  for (let i = 0; i < 60; i++) {
+    await Bun.sleep(500)
+    const check = await checkDws(`http://127.0.0.1:${port}`)
+    if (check.available) {
+      console.log(`✅ DWS started on port ${port}`)
+      return true
+    }
+  }
+
+  console.error('❌ Failed to start DWS')
+  return false
+}
+
 export function stopManagedProcesses(): void {
   for (const proc of managedProcesses) {
     if (proc && !proc.killed) {
@@ -228,9 +203,69 @@ export function stopManagedProcesses(): void {
   managedProcesses.length = 0
 }
 
+// ============================================================================
+// Service Ensurers (auto-start if needed)
+// ============================================================================
+
+export async function ensureChain(): Promise<string> {
+  const status = await checkChain()
+  if (status.available) return RPC_URL
+
+  const started = await startAnvil()
+  if (!started) {
+    throw new Error(
+      `Failed to start Anvil. Install with: curl -L https://foundry.paradigm.xyz | bash && foundryup`,
+    )
+  }
+  return RPC_URL
+}
+
+export async function ensureApi(): Promise<string> {
+  const status = await checkApi()
+  if (status.available) return API_URL
+
+  const started = await startApiServer()
+  if (!started) {
+    throw new Error(`Failed to start API server`)
+  }
+  return API_URL
+}
+
+export async function ensureDws(): Promise<string> {
+  const status = await checkDws()
+  if (status.available) return DWS_URL
+
+  const started = await startDws()
+  if (!started) {
+    throw new Error(`Failed to start DWS`)
+  }
+  return DWS_URL
+}
+
 /**
- * Get current test environment status
+ * Ensure all integration test services are running.
+ * Call this in beforeAll for integration tests.
  */
+export async function ensureServices(
+  options: { chain?: boolean; api?: boolean; dws?: boolean } = {},
+): Promise<TestEnv> {
+  const { chain = true, api = false, dws = false } = options
+
+  console.log('\n🔧 Setting up test services...')
+
+  if (chain) await ensureChain()
+  if (api) await ensureApi()
+  if (dws) await ensureDws()
+
+  const env = await getTestEnv()
+  printEnvStatus(env)
+  return env
+}
+
+// ============================================================================
+// Environment Info
+// ============================================================================
+
 export async function getTestEnv(): Promise<TestEnv> {
   const [chainStatus, apiStatus, dwsStatus] = await Promise.all([
     checkChain(),
@@ -249,79 +284,16 @@ export async function getTestEnv(): Promise<TestEnv> {
   }
 }
 
-/**
- * Require chain to be available - starts Anvil if AUTO_START_SERVICES=true
- * Returns the RPC URL or throws if unavailable
- */
-export async function requireChain(): Promise<string> {
-  const status = await checkChain()
-
-  if (status.available) {
-    return RPC_URL
-  }
-
-  if (process.env.AUTO_START_SERVICES === 'true') {
-    const started = await startAnvil()
-    if (started) return RPC_URL
-  }
-
-  throw new Error(
-    `Chain not available at ${RPC_URL}. ` +
-      'Start Anvil with: anvil --port 8545 --chain-id 31337\n' +
-      'Or set AUTO_START_SERVICES=true to auto-start',
+function printEnvStatus(env: TestEnv): void {
+  console.log('\n📋 Test Environment:')
+  console.log(
+    `   Chain: ${env.rpcUrl} ${env.anvilRunning ? '✅' : '❌'}${env.chainId ? ` (chainId: ${env.chainId})` : ''}`,
   )
+  console.log(`   API:   ${env.apiUrl} ${env.apiRunning ? '✅' : '❌'}`)
+  console.log(`   DWS:   ${env.dwsUrl} ${env.dwsRunning ? '✅' : '❌'}`)
+  console.log('')
 }
 
-/**
- * Require API to be available - starts server if AUTO_START_SERVICES=true
- * Returns the API URL or throws if unavailable
- */
-export async function requireApi(): Promise<string> {
-  const status = await checkApi()
-
-  if (status.available) {
-    return API_URL
-  }
-
-  if (process.env.AUTO_START_SERVICES === 'true') {
-    const started = await startApiServer()
-    if (started) return API_URL
-  }
-
-  throw new Error(
-    `API not available at ${API_URL}. ` +
-      'Start the server with: bun run dev:api\n' +
-      'Or set AUTO_START_SERVICES=true to auto-start',
-  )
-}
-
-/**
- * Skip test if chain is not available
- */
-export async function skipIfNoChain(): Promise<boolean> {
-  const status = await checkChain()
-  if (!status.available) {
-    console.log('⏭️  Skipping: Chain not available')
-    return true
-  }
-  return false
-}
-
-/**
- * Skip test if API is not available
- */
-export async function skipIfNoApi(): Promise<boolean> {
-  const status = await checkApi()
-  if (!status.available) {
-    console.log('⏭️  Skipping: API not available')
-    return true
-  }
-  return false
-}
-
-/**
- * Create a public client for testing
- */
 export function createTestClient(rpcUrl: string = RPC_URL) {
   return createPublicClient({
     chain: localhost,
@@ -329,21 +301,10 @@ export function createTestClient(rpcUrl: string = RPC_URL) {
   })
 }
 
-/**
- * Print test environment status
- */
-export async function printTestEnv(): Promise<void> {
-  const env = await getTestEnv()
-  console.log('\n📋 Test Environment:')
-  console.log(
-    `   RPC: ${env.rpcUrl} ${env.anvilRunning ? '✅' : '❌'}${env.chainId ? ` (chainId: ${env.chainId})` : ''}`,
-  )
-  console.log(`   API: ${env.apiUrl} ${env.apiRunning ? '✅' : '❌'}`)
-  console.log(`   DWS: ${env.dwsUrl} ${env.dwsRunning ? '✅' : '❌'}`)
-  console.log('')
-}
+// ============================================================================
+// Cleanup
+// ============================================================================
 
-// Global cleanup on process exit
 process.on('exit', stopManagedProcesses)
 process.on('SIGINT', () => {
   stopManagedProcesses()
@@ -354,12 +315,8 @@ process.on('SIGTERM', () => {
   process.exit(0)
 })
 
-// Auto-setup when imported in test context (print environment)
+// Auto-cleanup when imported in test context
 if (process.env.BUN_TEST === 'true') {
-  beforeAll(async () => {
-    await printTestEnv()
-  })
-
   afterAll(() => {
     stopManagedProcesses()
   })

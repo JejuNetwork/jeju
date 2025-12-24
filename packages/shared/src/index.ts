@@ -516,14 +516,6 @@ export {
   type WalletClientConfig,
   writeContract,
 } from './viem'
-// Wagmi Utilities
-export {
-  createTypedWriteContract,
-  createTypedWriteContractAsync,
-  type TypedWriteContractParams,
-  typedWriteContract,
-  typedWriteContractAsync,
-} from './wagmi'
 // x402 Payment Protocol
 export {
   CHAIN_IDS as X402_CHAIN_IDS,

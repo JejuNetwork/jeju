@@ -8,8 +8,28 @@
  * - Decentralized worker registry
  */
 
-import { isRecord, JsonValueSchema } from '@jejunetwork/types'
+import { isRecord } from '@jejunetwork/types'
 import { z } from 'zod'
+
+// JsonValue type and schema for JSON-serializable values
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue }
+
+const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(JsonValueSchema),
+    z.record(z.string(), JsonValueSchema),
+  ]),
+)
 
 // Worker Runtime Configuration
 

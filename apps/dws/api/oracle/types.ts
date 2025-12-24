@@ -74,4 +74,4 @@ export interface NodeMetrics {
   uptime: number
 }
 
-export type { NetworkType } from '@jejunetwork/types'
+export type NetworkType = 'localnet' | 'testnet' | 'mainnet'

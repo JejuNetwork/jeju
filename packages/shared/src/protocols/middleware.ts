@@ -77,9 +77,9 @@ export interface PaymentRequirement {
   description: string
 }
 
-export interface SkillResult<T = Record<string, unknown>> {
+export interface SkillResult {
   message: string
-  data: T
+  data: Record<string, unknown>
   requiresPayment?: PaymentRequirement
 }
 

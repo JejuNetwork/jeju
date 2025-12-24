@@ -4,7 +4,13 @@ import { cors } from '@elysiajs/cors'
 import { CORE_PORTS, getNetworkName } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import { z } from 'zod'
-import { DOCS_ROOT, listTopics, searchDocumentation } from '../lib/a2a'
+import {
+  DOCS_ROOT,
+  listTopics,
+  type SearchResult,
+  searchDocumentation,
+  type Topic,
+} from '../lib/a2a'
 
 const PORT = CORE_PORTS.DOCUMENTATION_A2A.get()
 const MAX_FILE_SIZE_BYTES = 1024 * 1024
@@ -78,7 +84,10 @@ const A2ARequestSchema = z.object({
   id: z.union([z.number(), z.string()]),
 })
 
-import type { SkillResult } from '@jejunetwork/shared/protocols/middleware'
+interface SkillResult {
+  message: string
+  data: Record<string, string | number | SearchResult[] | Topic[]>
+}
 
 const AGENT_CARD = {
   protocolVersion: '0.3.0',

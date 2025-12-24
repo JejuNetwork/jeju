@@ -1,10 +1,27 @@
 /**
  * Shared type definitions for SDK modules
  *
- * Import JSON types from @jejunetwork/types directly.
+ * These types provide type-safe representations of JSON data
+ * instead of using `unknown` or `any`.
  */
 
-import type { JsonRecord, JsonValue } from '@jejunetwork/types'
+/**
+ * Represents any valid JSON value.
+ * Use this instead of `unknown` when dealing with JSON data.
+ */
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | JsonRecord
+
+/**
+ * Represents a JSON object with string keys.
+ * Use this instead of `Record<string, unknown>` for JSON objects.
+ */
+export type JsonRecord = { [key: string]: JsonValue }
 
 /**
  * Represents a JSON array.

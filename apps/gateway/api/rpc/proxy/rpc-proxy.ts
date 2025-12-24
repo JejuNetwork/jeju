@@ -3,8 +3,13 @@ import {
   getRpcChain as getChain,
   isRpcChainSupported as isChainSupported,
 } from '@jejunetwork/config'
-import type { JsonValue } from '@jejunetwork/types'
 import { JsonRpcResponseSchema } from '../../../lib/validation'
+
+/** JSON-RPC primitive values */
+type JsonPrimitive = string | number | boolean | null
+
+/** JSON-RPC compatible value (any valid JSON) */
+type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue }
 
 /** JSON-RPC request params - array of JSON values */
 type JsonRpcParams = JsonValue[]

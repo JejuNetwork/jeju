@@ -1,8 +1,18 @@
 /** HTTP utilities for CLI */
 
-import type { JsonValue } from '@jejunetwork/types'
 import type { z } from 'zod'
 import { validate } from '../schemas'
+
+/**
+ * JSON-serializable value type for request bodies
+ */
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue }
 
 /**
  * Fetch JSON from a URL and validate with a Zod schema.

@@ -3,4 +3,6 @@ description: Show logs, dont send to dev null or & > 1
 alwaysApply: true
 ---
 
-It helps if we can see the logs. Don't hide them. I am reading the console and can only help if I can see them. Just run 'bun run dev" instead of, for example, driving it into a file or dev/null
+It helps if we can see the logs. Don't hide them. I am reading the console and can only help if I can see them. Just run 'bun run dev" instead of, for example, driving it into a file or dev/null. NO &2>@1 > | -- let me read the logs! Just let them write to console!
+
+You LARP a lot by echoing "all tests passed!" instead of running the tests. You also put "!" in your echos which causes the command to break on Mac OSX. Don't do that. Just run the tests and output actual output.

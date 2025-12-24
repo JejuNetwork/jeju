@@ -1,21 +1,19 @@
 /**
  * Load Testing for Autocrat API
  *
- * These tests measure API performance under load.
- * Requires the API server to be running.
- *
- * Run with: AUTO_START_SERVICES=true bun test tests/integration/load.test.ts
+ * Measures API performance under load.
+ * Automatically starts the API server if not running.
  */
 import { beforeAll, describe, expect, setDefaultTimeout, test } from 'bun:test'
-import { requireApi } from '../setup'
+import { ensureServices, type TestEnv } from '../setup'
 
 setDefaultTimeout(30000)
 
-let API_URL: string
+let env: TestEnv
 
 beforeAll(async () => {
-  API_URL = await requireApi()
-  console.log(`📊 Load testing against ${API_URL}`)
+  env = await ensureServices({ api: true })
+  console.log(`📊 Load testing against ${env.apiUrl}`)
 })
 
 async function benchmark(
@@ -53,7 +51,7 @@ describe('Load Tests', () => {
   test('health endpoint latency', async () => {
     const result = await benchmark(
       'health',
-      () => fetch(`${API_URL}/health`),
+      () => fetch(`${env.apiUrl}/health`),
       50,
     )
     console.log(
@@ -66,7 +64,7 @@ describe('Load Tests', () => {
   test('metrics endpoint latency', async () => {
     const result = await benchmark(
       'metrics',
-      () => fetch(`${API_URL}/metrics`),
+      () => fetch(`${env.apiUrl}/metrics`),
       50,
     )
     console.log(
@@ -76,7 +74,7 @@ describe('Load Tests', () => {
   })
 
   test('assess endpoint latency', async () => {
-    const check = await fetch(`${API_URL}/api/v1/proposals/assess`, {
+    const check = await fetch(`${env.apiUrl}/api/v1/proposals/assess`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -95,7 +93,7 @@ describe('Load Tests', () => {
     const result = await benchmark(
       'assess',
       () =>
-        fetch(`${API_URL}/api/v1/proposals/assess`, {
+        fetch(`${env.apiUrl}/api/v1/proposals/assess`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -113,7 +111,7 @@ describe('Load Tests', () => {
   })
 
   test('concurrent requests (100)', async () => {
-    const result = await concurrent(() => fetch(`${API_URL}/health`), 100)
+    const result = await concurrent(() => fetch(`${env.apiUrl}/health`), 100)
     console.log(
       `✅ Concurrent: ${result.success}/100 in ${result.durationMs.toFixed(0)}ms`,
     )
@@ -121,8 +119,8 @@ describe('Load Tests', () => {
   })
 
   test('burst load (2x100 waves)', async () => {
-    const w1 = await concurrent(() => fetch(`${API_URL}/health`), 100)
-    const w2 = await concurrent(() => fetch(`${API_URL}/health`), 100)
+    const w1 = await concurrent(() => fetch(`${env.apiUrl}/health`), 100)
+    const w2 = await concurrent(() => fetch(`${env.apiUrl}/health`), 100)
     console.log(`✅ Burst: wave1=${w1.success} wave2=${w2.success}`)
     expect(w1.success + w2.success).toBeGreaterThanOrEqual(190)
   })
@@ -130,7 +128,7 @@ describe('Load Tests', () => {
   test('sustained load (50 req @ 10/s)', async () => {
     let success = 0
     for (let i = 0; i < 50; i++) {
-      const r = await fetch(`${API_URL}/health`)
+      const r = await fetch(`${env.apiUrl}/health`)
       if (r.ok) success++
       await new Promise((r) => setTimeout(r, 100))
     }

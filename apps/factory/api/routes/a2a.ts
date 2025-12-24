@@ -178,12 +178,12 @@ const FACTORY_AGENT_CARD = {
 
 const ALLOWED_SKILL_IDS = new Set(FACTORY_SKILLS.map((s) => s.id))
 
-interface ExecuteSkillResult {
+interface SkillResult {
   message: string
   data: JsonRecord
 }
 
-function executeSkill(skillId: string, params: JsonRecord): ExecuteSkillResult {
+function executeSkill(skillId: string, params: JsonRecord): SkillResult {
   if (!ALLOWED_SKILL_IDS.has(skillId)) {
     return {
       message: 'Unknown skill',

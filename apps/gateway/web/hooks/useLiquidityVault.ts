@@ -1,4 +1,3 @@
-import { createTypedWriteContract } from '@jejunetwork/shared'
 import { useCallback } from 'react'
 import type { Address } from 'viem'
 import { formatEther, parseEther } from 'viem'
@@ -148,7 +147,7 @@ export function useLiquidityVault(
         abi: LIQUIDITY_VAULT_ABI,
         functionName: 'withdraw',
         args: [amount, userAddress],
-      } as unknown as Parameters<typeof removeETHWrite>[0])
+      })
     },
     [vaultAddress, userAddress, removeETHWrite],
   )
@@ -158,7 +157,7 @@ export function useLiquidityVault(
     console.warn('claimFees: Not supported in this vault implementation')
   }, [])
 
-  const position = lpPosition as RawPositionTuple | undefined
+  const position = lpPosition as unknown as RawPositionTuple | undefined
   const balance = lpBalance as bigint | undefined
   const supply = totalSupply as bigint | undefined
   const parsedPosition = parseLPPosition(position, balance, supply)

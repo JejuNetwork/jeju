@@ -2,10 +2,8 @@
  * Agent Runtime Tests
  *
  * Verifies that agents trigger, work, and respond correctly.
- * Tests the unified DWS-based inference shared by Autocrat, Otto, and Crucible.
- *
- * Requires: DWS service running
- * Run with: AUTO_START_SERVICES=true bun test tests/integration/agent-runtime.test.ts
+ * Tests the unified DWS-based inference.
+ * Automatically starts DWS if not running.
  */
 
 import { beforeAll, describe, expect, test } from 'bun:test'
@@ -14,33 +12,27 @@ import {
   checkDWSCompute,
   dwsGenerate,
 } from '../../api/agents/runtime'
-import { checkDws, getTestEnv } from '../setup'
+import { ensureServices, type TestEnv } from '../setup'
 
-let dwsAvailable = false
+let env: TestEnv
+let dwsComputeWorking = false
 
 beforeAll(async () => {
-  const env = await getTestEnv()
-  const status = await checkDws()
+  env = await ensureServices({ dws: true })
 
-  if (!status.available) {
-    console.log('⚠️  DWS not available - some tests will be skipped')
-    console.log('   Start DWS with: bun run dev:dws')
-    return
-  }
-
-  // Health check passed, now verify inference actually works
+  // Verify DWS compute actually works (not just health)
   try {
-    const testResponse = await dwsGenerate('ping', 'Reply with pong', 10)
-    dwsAvailable = testResponse.length > 0
-    if (dwsAvailable) {
-      console.log(`✅ DWS available and compute working at ${env.dwsUrl}`)
+    const response = await dwsGenerate('ping', 'Reply with pong', 10)
+    dwsComputeWorking = response.length > 0
+    if (dwsComputeWorking) {
+      console.log('✅ DWS compute verified')
     }
   } catch (err) {
     console.log(
       '⚠️  DWS health OK but inference failed - some tests will be skipped',
     )
     console.log(`   Error: ${err instanceof Error ? err.message : 'Unknown'}`)
-    dwsAvailable = false
+    dwsComputeWorking = false
   }
 })
 
@@ -63,8 +55,8 @@ describe('Agent Runtime', () => {
 
   describe('Runtime Initialization', () => {
     test('should initialize runtime', async () => {
-      if (!dwsAvailable) {
-        console.log('⏭️  Skipping: DWS not available')
+      if (!dwsComputeWorking) {
+        console.log('⏭️  Skipping: DWS compute not working')
         return
       }
       await autocratAgentRuntime.initialize()
@@ -72,8 +64,8 @@ describe('Agent Runtime', () => {
     })
 
     test('should report DWS status after init', () => {
-      if (!dwsAvailable) {
-        console.log('⏭️  Skipping: DWS not available')
+      if (!dwsComputeWorking) {
+        console.log('⏭️  Skipping: DWS compute not working')
         return
       }
       const isDWSAvailable = autocratAgentRuntime.isDWSAvailable()
@@ -84,8 +76,8 @@ describe('Agent Runtime', () => {
 
   describe('Agent Deliberation', () => {
     test('should deliberate on proposal', async () => {
-      if (!dwsAvailable) {
-        console.log('⏭️  Skipping: DWS not available')
+      if (!dwsComputeWorking) {
+        console.log('⏭️  Skipping: DWS compute not working')
         return
       }
 
@@ -115,8 +107,8 @@ describe('Agent Runtime', () => {
 
   describe('CEO Decision', () => {
     test('should make CEO decision', async () => {
-      if (!dwsAvailable) {
-        console.log('⏭️  Skipping: DWS not available')
+      if (!dwsComputeWorking) {
+        console.log('⏭️  Skipping: DWS compute not working')
         return
       }
 
@@ -167,8 +159,8 @@ describe('Agent Runtime', () => {
 
   describe('DAO-Specific Agents', () => {
     test('should register DAO agents with persona', async () => {
-      if (!dwsAvailable) {
-        console.log('⏭️  Skipping: DWS not available')
+      if (!dwsComputeWorking) {
+        console.log('⏭️  Skipping: DWS compute not working')
         return
       }
 
@@ -195,8 +187,8 @@ describe('Agent Runtime', () => {
     })
 
     test('should get DAO-specific runtime', async () => {
-      if (!dwsAvailable) {
-        console.log('⏭️  Skipping: DWS not available')
+      if (!dwsComputeWorking) {
+        console.log('⏭️  Skipping: DWS compute not working')
         return
       }
 
@@ -210,8 +202,8 @@ describe('Agent Runtime', () => {
 
   describe('Shutdown', () => {
     test('should shutdown cleanly', async () => {
-      if (!dwsAvailable) {
-        console.log('⏭️  Skipping: DWS not available')
+      if (!dwsComputeWorking) {
+        console.log('⏭️  Skipping: DWS compute not working')
         return
       }
       await autocratAgentRuntime.shutdown()
@@ -222,8 +214,8 @@ describe('Agent Runtime', () => {
 
 describe('DWS Direct Inference', () => {
   test('should call DWS', async () => {
-    if (!dwsAvailable) {
-      console.log('⏭️  Skipping: DWS not available')
+    if (!dwsComputeWorking) {
+      console.log('⏭️  Skipping: DWS compute not working')
       return
     }
 

@@ -11,8 +11,8 @@ import {
 import type { NetworkType } from '@jejunetwork/types'
 import type { Address } from 'viem'
 
-import type { ServicesConfig } from '@jejunetwork/config'
-export { getContract, getServicesConfig, type ServicesConfig }
+export { getContract, getServicesConfig }
+export type { ServicesConfig } from '@jejunetwork/config'
 
 /** Get chain configuration for a network */
 export function getChainConfig(network: NetworkType): ChainConfig {

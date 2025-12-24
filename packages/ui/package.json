@@ -21,7 +21,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@jejunetwork/config": "workspace:*",
     "@jejunetwork/sdk": "workspace:*",
     "@jejunetwork/types": "workspace:*",
     "viem": "2.43.3"

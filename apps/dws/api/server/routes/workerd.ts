@@ -751,7 +751,7 @@ export type WorkerdRoutes = ReturnType<typeof createWorkerdRouter>
 
 // Network Configuration
 
-import type { NetworkType } from '@jejunetwork/types'
+type NetworkType = 'localnet' | 'testnet' | 'mainnet'
 
 function getNetworkType(): NetworkType {
   const network = process.env.NETWORK?.toLowerCase()

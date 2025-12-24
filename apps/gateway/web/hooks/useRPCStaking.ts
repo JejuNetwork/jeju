@@ -1,4 +1,3 @@
-import { createTypedWriteContractAsync } from '@jejunetwork/shared'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import { useCallback, useMemo, useState } from 'react'
 import { formatEther, formatUnits, parseEther } from 'viem'
@@ -172,8 +171,7 @@ export function useRPCStaking() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([])
-  const { writeContractAsync: _writeContractAsync } = useWriteContract()
-  const writeContractAsync = createTypedWriteContractAsync(_writeContractAsync)
+  const { writeContractAsync } = useWriteContract()
   const enabled = isConfigured && !!address
 
   const positionArgs = enabled && address ? ([address] as const) : undefined

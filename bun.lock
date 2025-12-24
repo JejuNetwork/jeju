@@ -770,7 +770,6 @@
       "dependencies": {
         "@elysiajs/cors": "^1.2.0",
         "@jejunetwork/config": "workspace:*",
-        "@jejunetwork/sdk": "workspace:*",
         "@jejunetwork/types": "workspace:*",
         "elysia": "^1.2.25",
         "generic-pool": "^3.9.0",
@@ -850,7 +849,6 @@
       "name": "@jejunetwork/kms",
       "version": "0.1.0",
       "dependencies": {
-        "@elysiajs/eden": "^1.4.5",
         "@jejunetwork/oauth3": "workspace:*",
         "@jejunetwork/sdk": "workspace:*",
         "@jejunetwork/shared": "workspace:*",
@@ -937,13 +935,11 @@
       "name": "@jejunetwork/sdk",
       "version": "0.1.0",
       "dependencies": {
-        "@elysiajs/eden": "^1.4.5",
         "@jejunetwork/config": "workspace:*",
         "@jejunetwork/shared": "workspace:*",
         "@jejunetwork/types": "workspace:*",
         "@noble/curves": "^1.8.0",
         "@noble/hashes": "^1.7.1",
-        "elysia": "^1.4.19",
         "permissionless": "0.2.34",
         "viem": "2.43.3",
       },
@@ -965,7 +961,6 @@
         "@jejunetwork/config": "workspace:*",
         "@jejunetwork/contracts": "workspace:*",
         "@jejunetwork/db": "workspace:*",
-        "@jejunetwork/sdk": "workspace:*",
         "@jejunetwork/types": "workspace:*",
         "@noble/hashes": "1.7.1",
         "clsx": "^2.1.1",
@@ -1058,16 +1053,12 @@
       "dependencies": {
         "@elysiajs/cors": "^1.1.1",
         "@huggingface/inference": "^3.3.3",
-        "@jejunetwork/config": "workspace:*",
-        "@jejunetwork/kms": "workspace:*",
-        "@jejunetwork/sdk": "workspace:*",
         "@jejunetwork/shared": "workspace:*",
         "@jejunetwork/types": "workspace:*",
         "@solana/web3.js": "^1.98.0",
         "borsh": "^2.0.0",
         "elysia": "^1.2.25",
         "tweetnacl": "^1.0.3",
-        "uuid": "^13.0.0",
         "viem": "2.43.3",
         "zod": "4.2.1",
       },
@@ -1092,7 +1083,6 @@
       "name": "@jejunetwork/ui",
       "version": "0.1.0",
       "dependencies": {
-        "@jejunetwork/config": "workspace:*",
         "@jejunetwork/sdk": "workspace:*",
         "@jejunetwork/types": "workspace:*",
         "viem": "2.43.3",
@@ -1146,7 +1136,6 @@
         "babylon": "./dist/index.js",
       },
       "dependencies": {
-        "@babylon/a2a": "workspace:*",
         "@babylon/agents": "workspace:*",
         "@babylon/api": "workspace:*",
         "@babylon/db": "workspace:*",
@@ -1154,7 +1143,6 @@
         "@babylon/shared": "workspace:*",
         "@babylon/testing": "workspace:*",
         "@babylon/training": "workspace:*",
-        "@fal-ai/client": "^1.7.2",
         "@jejunetwork/config": "workspace:*",
         "@jejunetwork/sdk": "workspace:*",
         "uuid": "^13.0.0",
@@ -1351,7 +1339,6 @@
       "version": "0.1.0",
       "dependencies": {
         "@elysiajs/eden": "^1.2.0",
-        "zod": "4.2.1",
       },
       "devDependencies": {
         "@babylon/server": "workspace:*",
@@ -1371,7 +1358,6 @@
         "@babylon/shared": "workspace:*",
         "@jejunetwork/config": "workspace:*",
         "@jejunetwork/db": "workspace:*",
-        "zod": "4.2.1",
       },
       "devDependencies": {
         "@types/node": "^24.10.0",
@@ -1384,7 +1370,6 @@
       "version": "0.1.0",
       "dependencies": {
         "@babylon/agents": "workspace:*",
-        "@babylon/api": "workspace:*",
         "@babylon/db": "workspace:*",
         "@babylon/shared": "workspace:*",
         "xml2js": "^0.6.2",
@@ -2819,7 +2804,7 @@
 
     "@faker-js/faker": ["@faker-js/faker@7.6.0", "", {}, "sha512-XK6BTq1NDMo9Xqw/YkYyGjSsg44fbNwYRx7QK2CuoQgyy+f1rrTDHoExVM5PsyXCtfl2vs2vVJ0MN0yN6LppRw=="],
 
-    "@fal-ai/client": ["@fal-ai/client@1.8.1", "", { "dependencies": { "@msgpack/msgpack": "^3.0.0-beta2", "eventsource-parser": "^1.1.2", "robot3": "^0.4.1" } }, "sha512-IO05V0VaiIA4pIi4q5thM0suC0bUCzxX40qM15XcMuvefYk+qWECKHnxjeGCSEkvKkZ/uCF8RNqvYwjZ4wJxXQ=="],
+    "@fal-ai/client": ["@fal-ai/client@1.2.0", "", { "dependencies": { "@msgpack/msgpack": "^3.0.0-beta2", "eventsource-parser": "^1.1.2", "robot3": "^0.4.1" } }, "sha512-MNCnE5icY+OM5ahgYJItmydZ7AxhtzhgA5tQI13jVntzhLT0z+tetHIlAL1VA0XFZgldDzqxeTf9Pr5TW3VErg=="],
 
     "@fal-ai/serverless-client": ["@fal-ai/serverless-client@0.15.0", "", { "dependencies": { "@msgpack/msgpack": "^3.0.0-beta2", "eventsource-parser": "^1.1.2", "robot3": "^0.4.1" } }, "sha512-4Vuocu0342OijAN6xO/lwohDV7h90LbkTnOAEwH+pYvMFVC6RYmHS4GILc/wnOWBTw+iFlZFEKlljEVolkjVfg=="],
 
@@ -11540,8 +11525,6 @@
     "@discordjs/node-pre-gyp/tar/yallist": ["yallist@4.0.0", "", {}, "sha512-3wdGidZyq5PB084XLES5TpOSRA3wjXAlIWMhum2kRcv/41Sn2emQ0dycQW4uZXLejwKvg6EsvbdlVL+FYEct7A=="],
 
     "@elizaos/adapter-sqlite/@elizaos/core/@ai-sdk/openai": ["@ai-sdk/openai@1.1.9", "", { "dependencies": { "@ai-sdk/provider": "1.0.7", "@ai-sdk/provider-utils": "2.1.6" }, "peerDependencies": { "zod": "^3.0.0" } }, "sha512-t/CpC4TLipdbgBJTMX/otzzqzCMBSPQwUOkYPGbT/jyuC86F+YO9o+LS0Ty2pGUE1kyT+B3WmJ318B16ZCg4hw=="],
-
-    "@elizaos/adapter-sqlite/@elizaos/core/@fal-ai/client": ["@fal-ai/client@1.2.0", "", { "dependencies": { "@msgpack/msgpack": "^3.0.0-beta2", "eventsource-parser": "^1.1.2", "robot3": "^0.4.1" } }, "sha512-MNCnE5icY+OM5ahgYJItmydZ7AxhtzhgA5tQI13jVntzhLT0z+tetHIlAL1VA0XFZgldDzqxeTf9Pr5TW3VErg=="],
 
     "@elizaos/adapter-sqlite/@elizaos/core/dotenv": ["dotenv@16.4.5", "", {}, "sha512-ZmdL2rui+eB2YwhsWzjInR8LldtZHGDoQ1ugH85ppHKwpUHL7j7rN0Ti9NCnGiQbhaZ11FpR+7ao1dNsmduNUg=="],
 

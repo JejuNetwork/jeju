@@ -2,15 +2,19 @@
  * TEE and Encryption Tests
  *
  * Tests TEE-based decision making and network KMS encryption.
- * Set TEE_PLATFORM=none to run in local mode without external dependencies.
+ * Automatically starts Anvil for chain-dependent tests.
  */
 import { beforeAll, describe, expect, test } from 'bun:test'
-import { checkChain } from '../setup'
+import { ensureServices, type TestEnv } from '../setup'
 
 const SKIP_TEE_TESTS =
   !process.env.TEE_PLATFORM || process.env.SKIP_TEE_TESTS === 'true'
 
-let chainAvailable = false
+let env: TestEnv
+
+beforeAll(async () => {
+  env = await ensureServices({ chain: true })
+})
 
 describe('TEE Encryption', () => {
   let tee: typeof import('../../api/tee')
@@ -118,11 +122,6 @@ describe('Network KMS Encryption', () => {
 
   beforeAll(async () => {
     encryption = await import('../../api/encryption')
-    const chainStatus = await checkChain()
-    chainAvailable = chainStatus.available
-    if (!chainAvailable) {
-      console.log('⚠️  Chain not available - canDecrypt test will be skipped')
-    }
   })
 
   const makeDecision = (
@@ -175,8 +174,8 @@ describe('Network KMS Encryption', () => {
   })
 
   test('canDecrypt returns false for recent decisions', async () => {
-    if (!chainAvailable) {
-      console.log('⏭️  Skipping: Chain not available for canDecrypt check')
+    if (!env.anvilRunning) {
+      console.log('⏭️  Skipping: Chain not available')
       return
     }
     const encrypted = await encryption.encryptDecision(

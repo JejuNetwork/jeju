@@ -26,6 +26,7 @@
  */
 
 import type { Abi, Address } from 'viem'
+import type { UseWriteContractReturnType } from 'wagmi'
 
 /**
  * Parameters for a typed contract write call.
@@ -40,6 +41,31 @@ export interface TypedWriteContractParams<TAbi extends Abi = Abi> {
 }
 
 /**
+ * The internal parameter type that wagmi's writeContract accepts.
+ * This matches the actual runtime shape wagmi expects.
+ */
+type WriteContractInternalParams = {
+  address: Address
+  abi: Abi
+  functionName: string
+  args?: readonly unknown[]
+  value?: bigint
+}
+
+/**
+ * Type for wagmi's writeContract function with relaxed input types.
+ * This matches what wagmi actually accepts at runtime.
+ */
+type WriteContractFunction = (params: WriteContractInternalParams) => void
+
+/**
+ * Type for wagmi's writeContractAsync function with relaxed input types.
+ */
+type WriteContractAsyncFunction = (
+  params: WriteContractInternalParams,
+) => Promise<`0x${string}`>
+
+/**
  * Type-safe wrapper for wagmi's writeContract function.
  *
  * This wrapper handles the viem 2.43+ type strictness without
@@ -49,7 +75,7 @@ export interface TypedWriteContractParams<TAbi extends Abi = Abi> {
  * @param params - The contract write parameters
  */
 export function typedWriteContract<TAbi extends Abi>(
-  writeContract: (params: unknown) => void,
+  writeContract: WriteContractFunction,
   params: TypedWriteContractParams<TAbi>,
 ): void {
   writeContract(params)
@@ -63,7 +89,7 @@ export function typedWriteContract<TAbi extends Abi>(
  * @returns Promise resolving to the transaction hash
  */
 export async function typedWriteContractAsync<TAbi extends Abi>(
-  writeContractAsync: (params: unknown) => Promise<`0x${string}`>,
+  writeContractAsync: WriteContractAsyncFunction,
   params: TypedWriteContractParams<TAbi>,
 ): Promise<`0x${string}`> {
   return writeContractAsync(params)
@@ -71,6 +97,9 @@ export async function typedWriteContractAsync<TAbi extends Abi>(
 
 /**
  * Create a typed write contract function from wagmi's useWriteContract.
+ *
+ * This factory creates a wrapper that accepts properly typed parameters
+ * and forwards them to wagmi's writeContract function.
  *
  * @example
  * ```typescript
@@ -88,21 +117,27 @@ export async function typedWriteContractAsync<TAbi extends Abi>(
  * ```
  */
 export function createTypedWriteContract(
-  writeContract: (params: unknown) => void,
+  writeContract: UseWriteContractReturnType['writeContract'],
 ): <TAbi extends Abi>(params: TypedWriteContractParams<TAbi>) => void {
-  return (params) => writeContract(params)
+  // Cast is necessary here because wagmi's writeContract type is overly strict
+  // due to viem 2.43+ EIP-7702 changes. The actual runtime behavior accepts
+  // our TypedWriteContractParams shape.
+  const fn = writeContract as WriteContractFunction
+  return (params) => fn(params)
 }
 
 /**
  * Create a typed async write contract function from wagmi's useWriteContract.
  */
 export function createTypedWriteContractAsync(
-  writeContractAsync: (params: unknown) => Promise<`0x${string}`>,
+  writeContractAsync: UseWriteContractReturnType['writeContractAsync'],
 ): <TAbi extends Abi>(
   params: TypedWriteContractParams<TAbi>,
 ) => Promise<`0x${string}`> {
-  return (params) => writeContractAsync(params)
+  // Cast is necessary here because wagmi's writeContractAsync type is overly strict.
+  const fn = writeContractAsync as WriteContractAsyncFunction
+  return (params) => fn(params)
 }
 
-// Re-export common ABIs that should be used with these helpers
+// Re-export common types that should be used with these helpers
 export type { Abi, Address }

@@ -1,12 +1,7 @@
-import type {
-  IntentRoute,
-  OracleType,
-  SupportedChainId,
-} from '@jejunetwork/types'
+import type { IntentRoute, SupportedChainId } from '@jejunetwork/types'
 import {
   expectChainId,
   isSupportedChainId,
-  OracleTypeSchema,
   ZERO_ADDRESS,
 } from '@jejunetwork/types'
 import {
@@ -22,10 +17,26 @@ import {
   RouteIdSchema,
 } from '../../lib/validation'
 
+/** Valid oracle types for routes */
+type OracleType =
+  | 'hyperlane'
+  | 'superchain'
+  | 'optimism-native'
+  | 'layerzero'
+  | 'custom'
+
 /** Validate and parse oracle type */
 function parseOracleType(value: string): OracleType {
-  const result = OracleTypeSchema.safeParse(value)
-  return result.success ? result.data : 'custom'
+  const validOracles: OracleType[] = [
+    'hyperlane',
+    'superchain',
+    'optimism-native',
+    'layerzero',
+    'custom',
+  ]
+  return validOracles.includes(value as OracleType)
+    ? (value as OracleType)
+    : 'custom'
 }
 
 const CHAINS = [

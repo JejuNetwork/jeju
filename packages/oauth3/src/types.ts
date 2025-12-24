@@ -7,6 +7,10 @@
 
 import type { Address, Hex } from 'viem'
 
+// Re-export JSON types from canonical source
+export type { JsonValue, JsonRecord } from '@jejunetwork/types'
+import type { JsonValue, JsonRecord } from '@jejunetwork/types'
+
 export const AuthProvider = {
   WALLET: 'wallet',
   FARCASTER: 'farcaster',

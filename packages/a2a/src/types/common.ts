@@ -4,21 +4,42 @@
  * Shared types for A2A protocol that replace 'unknown' and 'any'
  */
 
-import {
-  type JsonPrimitive,
-  type JsonValue,
-  JsonValueSchema,
-} from '@jejunetwork/types'
 import { z } from 'zod'
 
-// Re-export core JSON types for A2A consumers
-export type { JsonPrimitive, JsonValue }
-export { JsonValueSchema }
+/**
+ * JSON-serializable value types
+ * Note: undefined is NOT included as it's not valid JSON - use optional properties instead
+ */
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue }
 
 /**
- * Zod schema type for JSON-serializable values
+ * Primitive JSON values (no nesting)
+ * Used for payment metadata where nested objects are not needed
+ */
+export type JsonPrimitive = string | number | boolean | null
+
+/**
+ * Zod schema for JSON-serializable values
+ * Used in validation schemas for metadata and flexible data fields
  */
 export type JsonValueSchemaType = z.ZodType<JsonValue>
+
+export const JsonValueSchema: JsonValueSchemaType = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(JsonValueSchema),
+    z.record(z.string(), JsonValueSchema),
+  ]),
+)
 
 /**
  * Generic key-value record with string keys

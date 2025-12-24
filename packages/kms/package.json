@@ -20,7 +20,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@elysiajs/eden": "^1.4.5",
     "@jejunetwork/oauth3": "workspace:*",
     "@jejunetwork/sdk": "workspace:*",
     "@jejunetwork/shared": "workspace:*",

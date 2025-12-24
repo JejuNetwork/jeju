@@ -35,7 +35,6 @@
     "@jejunetwork/config": "workspace:*",
     "@jejunetwork/contracts": "workspace:*",
     "@jejunetwork/db": "workspace:*",
-    "@jejunetwork/sdk": "workspace:*",
     "@jejunetwork/types": "workspace:*",
     "@noble/hashes": "1.7.1",
     "clsx": "^2.1.1",

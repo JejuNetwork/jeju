@@ -3,8 +3,6 @@
  * Performance and stress testing for DWS services
  */
 
-import type { JsonValue } from '@jejunetwork/types'
-
 export interface LoadTestConfig {
   target: string // Base URL
   duration: number // Test duration in seconds
@@ -15,6 +13,15 @@ export interface LoadTestConfig {
   headers?: Record<string, string>
   scenarios?: LoadTestScenario[]
 }
+
+// JSON serializable body type for load test scenarios
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue }
 
 export interface LoadTestScenario {
   name: string

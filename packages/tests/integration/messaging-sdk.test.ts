@@ -16,42 +16,16 @@ import {
   expect,
   test,
 } from 'bun:test'
-import { z } from 'zod'
-
-// Response schemas for messaging tests
-const HealthResponseSchema = z.object({
-  status: z.string(),
-  nodeId: z.string(),
-})
-
-const SendResponseSchema = z.object({
-  success: z.boolean(),
-  messageId: z.string(),
-})
-
-const MessagesResponseSchema = z.object({
-  messages: z.array(z.object({ id: z.string(), from: z.string() })),
-  count: z.number(),
-})
-
-const RelayStatsSchema = z.object({
-  nodeId: z.string(),
-  totalMessagesRelayed: z.number(),
-  totalBytesRelayed: z.number(),
-})
-
-const HubInfoSchema = z.object({
-  version: z.string(),
-  isSyncing: z.boolean(),
-})
-
-const HubMessagesSchema = z.object({
-  messages: z.array(z.unknown()),
-})
-
-const SubmitResponseSchema = z.object({
-  hash: z.string(),
-})
+import {
+  CastResultSchema,
+  CountResponseSchema,
+  FarcasterMessagesResponseSchema,
+  HubInfoResponseSchema,
+  RelayHealthSchema,
+  RelayMessageResultSchema,
+  RelayMessagesResponseSchema,
+  RelayStatsSchema,
+} from '../shared/schemas'
 
 const RELAY_PORT = 3302
 const MOCK_HUB_PORT = 3311
@@ -421,10 +395,7 @@ describe('Messaging SDK', () => {
       const response = await fetch(`http://127.0.0.1:${RELAY_PORT}/stats`)
       expect(response.ok).toBe(true)
 
-      const stats = (await response.json()) as {
-        nodeId: string
-        totalMessagesRelayed: number
-      }
+      const stats = RelayStatsSchema.parse(await response.json())
       expect(stats.nodeId).toBe('test-relay')
       expect(typeof stats.totalMessagesRelayed).toBe('number')
     })
@@ -466,9 +437,7 @@ describe('Messaging SDK', () => {
       const fetchResponse = await fetch(
         `http://127.0.0.1:${RELAY_PORT}/messages/${bobAddress}`,
       )
-      const { messages } = (await fetchResponse.json()) as {
-        messages: Array<{ id: string; from: string }>
-      }
+      const { messages } = RelayMessagesResponseSchema.parse(await fetchResponse.json())
 
       // Find our message
       const received = messages.find((m) => m.id === envelope.id)
@@ -513,10 +482,7 @@ describe('Messaging SDK', () => {
       const response = await fetch(
         `http://127.0.0.1:${RELAY_PORT}/messages/${bobAddress}`,
       )
-      const { messages, count } = (await response.json()) as {
-        messages: Array<{ id: string; from: string }>
-        count: number
-      }
+      const { messages, count } = RelayMessagesResponseSchema.parse(await response.json())
 
       expect(count).toBe(messagesToSend.length)
 
@@ -538,11 +504,7 @@ describe('Farcaster SDK', () => {
       const response = await fetch(`http://127.0.0.1:${MOCK_HUB_PORT}/v1/info`)
       expect(response.ok).toBe(true)
 
-      const info = (await response.json()) as {
-        version: string
-        isSyncing: boolean
-        nickname: string
-      }
+      const info = HubInfoResponseSchema.parse(await response.json())
       expect(info.version).toBe('1.0.0')
       expect(info.isSyncing).toBe(false)
       expect(info.nickname).toBe('test-hub')
@@ -555,11 +517,7 @@ describe('Farcaster SDK', () => {
       )
       expect(response.ok).toBe(true)
 
-      const data = (await response.json()) as {
-        messages: Array<{
-          data: { fid: number; userDataBody: { value: string } }
-        }>
-      }
+      const data = FarcasterMessagesResponseSchema.parse(await response.json())
       expect(data.messages).toBeArray()
       expect(data.messages.length).toBeGreaterThan(0)
       expect(data.messages[0].data.fid).toBe(fid)
@@ -572,15 +530,10 @@ describe('Farcaster SDK', () => {
       )
       expect(response.ok).toBe(true)
 
-      const data = (await response.json()) as {
-        messages: Array<{
-          hash: string
-          data: { castAddBody: { text: string } }
-        }>
-      }
+      const data = FarcasterMessagesResponseSchema.parse(await response.json())
       expect(data.messages).toBeArray()
-      expect(data.messages[0].hash).toBeDefined()
-      expect(data.messages[0].data.castAddBody.text).toBeDefined()
+      expect(data.messages[0]?.hash).toBeDefined()
+      expect(data.messages[0]?.data.castAddBody?.text).toBeDefined()
     })
   })
 
@@ -613,7 +566,7 @@ describe('Farcaster SDK', () => {
       )
 
       expect(response.ok).toBe(true)
-      const result = (await response.json()) as { hash: string }
+      const result = CastResultSchema.parse(await response.json())
       expect(result.hash).toBeDefined()
       expect(result.hash).toMatch(/^0x[a-f0-9]+$/)
     })
@@ -787,9 +740,7 @@ describe('Combined Messaging Flow', () => {
     const messagesResponse = await fetch(
       `http://127.0.0.1:${RELAY_PORT}/messages/0xAliceAddress`,
     )
-    const messages = (await messagesResponse.json()) as {
-      messages: Array<{ id: string }>
-    }
+    const messages = RelayMessagesResponseSchema.parse(await messagesResponse.json())
     expect(messages.messages.some((m) => m.id === dmId)).toBe(true)
   })
 
@@ -858,7 +809,7 @@ describe('Combined Messaging Flow', () => {
     const groupMsgs = await fetch(
       `http://127.0.0.1:${RELAY_PORT}/messages/${group.id}`,
     )
-    const result = (await groupMsgs.json()) as { count: number }
+    const result = CountResponseSchema.parse(await groupMsgs.json())
     expect(result.count).toBeGreaterThan(0)
   })
 })
@@ -887,7 +838,7 @@ describe('Error Handling', () => {
     )
     expect(response.ok).toBe(true)
 
-    const result = (await response.json()) as { count: number }
+    const result = CountResponseSchema.parse(await response.json())
     expect(result.count).toBe(0)
   })
 })

@@ -526,9 +526,13 @@ export interface GraphQLResponse<T> {
   errors?: Array<{ message: string }>
 }
 
-import type { JsonValue } from '@jejunetwork/types'
-
-export type JsonRpcParams = JsonValue[]
+export type JsonRpcParams = (
+  | string
+  | number
+  | boolean
+  | Record<string, unknown>
+  | null
+)[]
 
 export interface JsonRpcResponse<T> {
   result: T
