@@ -42,10 +42,8 @@ export {
 
 // Providers
 export {
-  ALL_PROVIDERS,
   getAllProviders,
   getConfiguredProviders,
-  getProvider,
   getProviderById,
   getProvidersByCategory,
 } from './providers'
@@ -71,7 +69,6 @@ export {
   updateListing,
   withdraw,
 } from './registry'
-
 // Sanitizer
 export {
   checkForLeaks,
@@ -85,8 +82,6 @@ export {
 
 // Types
 export type { APIProvider, ProxyRequest, ProxyResponse } from './types'
-
-// Types
 export * from './types'
 
 // Initialize

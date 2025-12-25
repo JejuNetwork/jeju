@@ -33,51 +33,11 @@ import {
 } from '../lib'
 
 // Internal types
-export interface DAO {
-  daoId: string
-  name: string
-  displayName: string
-  description: string
-  treasury: Address
-  council: Address
-  ceoAgent: Address
-  feeConfig: Address
-  ceoModelId: string
-  manifestCid: string
-  status: DAOStatus
-  createdAt: number
-  updatedAt: number
-  creator: Address
-}
+// Re-export DAO types from lib/types.ts for API consumers
+export type { DAO, DAOFull, FundingAllocation, FundingProject } from '../lib/types'
+import type { DAO, DAOFull, FundingAllocation, FundingProject } from '../lib/types'
 
-export interface DAOFull {
-  dao: DAO
-  ceoPersona: CEOPersona
-  params: GovernanceParams
-  councilMembers: CouncilMemberConfig[]
-  linkedPackages: string[]
-  linkedRepos: string[]
-}
-
-export interface FundingProject {
-  projectId: string
-  daoId: string
-  projectType: 'package' | 'repo'
-  registryId: string
-  name: string
-  description: string
-  primaryRecipient: Address
-  additionalRecipients: Address[]
-  recipientShares: number[]
-  ceoWeight: number
-  communityStake: bigint
-  totalFunded: bigint
-  status: FundingStatus
-  createdAt: number
-  lastFundedAt: number
-  proposer: Address
-}
-
+// Types FundingEpoch is local to this service (not in lib/types.ts)
 export interface FundingEpoch {
   epochId: number
   daoId: string
@@ -87,16 +47,6 @@ export interface FundingEpoch {
   matchingPool: bigint
   distributed: bigint
   finalized: boolean
-}
-
-export interface FundingAllocation {
-  projectId: string
-  projectName: string
-  ceoWeight: number
-  communityStake: bigint
-  stakerCount: number
-  allocation: bigint
-  allocationPercentage: number
 }
 const DAORegistryABI = [
   {

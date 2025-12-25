@@ -1,8 +1,16 @@
 /** Zod schemas for VPN server validation */
 
-import { AddressSchema, HexSchema } from '@jejunetwork/types'
+import {
+  AddressSchema,
+  HexSchema,
+  type VPNProtocol,
+  VPNProtocolSchema,
+} from '@jejunetwork/types'
 import type { Address } from 'viem'
 import { z } from 'zod'
+
+// Re-export VPNProtocol from types
+export { type VPNProtocol, VPNProtocolSchema } from '@jejunetwork/types'
 
 export const VPNNodeStatusSchema = z.enum(['online', 'busy', 'offline'])
 
@@ -29,10 +37,6 @@ export const VPNNodeStateSchema = z
     latencyMs: z.number().int().nonnegative('Latency cannot be negative'),
   })
   .strict()
-
-export const VPNProtocolSchema = z.enum(['wireguard', 'socks5', 'http'])
-
-export type VPNProtocol = z.infer<typeof VPNProtocolSchema>
 
 /**
  * Validate and parse a protocol string, returning a typed protocol value.

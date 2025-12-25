@@ -5,6 +5,13 @@
  * Supports localnet, testnet, and mainnet deployments.
  */
 
+import {
+  ConfigurationError,
+  type OracleConfigFileData,
+  type OracleNetworkConfig,
+  resolveEnvVar,
+  validatePrivateKey,
+} from '@jejunetwork/shared'
 import type {
   NetworkType,
   OracleNodeConfig,
@@ -12,38 +19,9 @@ import type {
 } from '@jejunetwork/types'
 import { type Address, type Hex, isAddress } from 'viem'
 
-interface NetworkConfig {
-  chainId: number
-  rpcUrl: string
-  contracts: {
-    feedRegistry: string | null
-    reportVerifier: string | null
-    committeeManager: string | null
-    feeRouter: string | null
-    networkConnector: string | null
-  }
-  priceSources: Record<
-    string,
-    {
-      type: 'uniswap_v3' | 'chainlink' | 'manual'
-      address?: string
-      decimals: number
-      token0Decimals?: number
-      token1Decimals?: number
-    }
-  >
-  settings: {
-    pollIntervalMs: number
-    heartbeatIntervalMs: number
-    metricsPort: number
-  }
-}
-
-interface ConfigFileData {
-  localnet: NetworkConfig
-  testnet: NetworkConfig
-  mainnet: NetworkConfig
-}
+// Re-export shared types for local usage
+type NetworkConfig = OracleNetworkConfig
+type ConfigFileData = OracleConfigFileData
 
 const REQUIRED_ENV_VARS = [
   'OPERATOR_PRIVATE_KEY',
@@ -58,35 +36,8 @@ const REQUIRED_ADDRESSES = [
   'networkConnector',
 ] as const
 
-class ConfigurationError extends Error {
-  constructor(message: string) {
-    super(message)
-    this.name = 'ConfigurationError'
-  }
-}
-
-function resolveEnvVar(value: string): string {
-  if (value.startsWith('${') && value.endsWith('}')) {
-    const envVar = value.slice(2, -1)
-    const resolved = process.env[envVar]
-    if (!resolved) {
-      throw new ConfigurationError(`Environment variable ${envVar} not set`)
-    }
-    return resolved
-  }
-  return value
-}
-
-function validatePrivateKey(key: string, name: string): Hex {
-  if (!key || !key.startsWith('0x') || key.length !== 66) {
-    throw new ConfigurationError(
-      `${name} must be a valid 32-byte hex string (0x + 64 chars)`,
-    )
-  }
-  return key as Hex
-}
-
-function validateAddress(addr: string | null, name: string): Address {
+// Local validateAddress with isAddress check
+function validateAddressLocal(addr: string | null, name: string): Address {
   if (!addr || addr === '0x0000000000000000000000000000000000000000') {
     throw new ConfigurationError(`${name} address not configured`)
   }
@@ -141,7 +92,7 @@ export function loadContractAddresses(
     const configAddr = networkConfig.contracts[key]
     const addr = envAddr || configAddr
 
-    addresses[key] = validateAddress(addr, key)
+    addresses[key] = validateAddressLocal(addr, key)
   }
 
   return addresses

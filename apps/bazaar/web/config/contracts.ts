@@ -1,13 +1,8 @@
 import {
   bazaarMarketplaceDeployments,
   type ChainId,
-  erc20FactoryDeployments,
   getBazaarMarketplace,
-  getERC20Factory,
-  getLaunchpadDeployment,
-  getTokenLaunchpad,
   getUniswapV4,
-  getXLPDeployment,
   isValidAddress,
   ZERO_ADDRESS,
 } from '@jejunetwork/contracts'
@@ -39,15 +34,7 @@ export interface V4Contracts {
   stateView?: Address
 }
 
-export interface XLPContracts {
-  v2Factory?: Address
-  v3Factory?: Address
-  router?: Address
-  positionManager?: Address
-  weth?: Address
-}
-
-export interface NFTContracts {
+interface NFTContracts {
   gameItems?: Address
   gameGold?: Address
   marketplace?: Address
@@ -64,18 +51,6 @@ export interface GameContracts {
   gameAgentId?: number
 }
 
-export interface TokenFactoryContracts {
-  erc20Factory: Address
-}
-
-export interface LaunchpadContracts {
-  tokenLaunchpad: Address
-  lpLocker?: Address
-  weth?: Address
-  xlpV2Factory?: Address
-  communityVault?: Address
-}
-
 function buildV4Contracts(chainId: ChainId): V4Contracts {
   const v4 = getUniswapV4(chainId)
   return {
@@ -88,9 +63,8 @@ function buildV4Contracts(chainId: ChainId): V4Contracts {
   }
 }
 
-export const V4_CONTRACTS: Record<number, V4Contracts> = {
+const V4_CONTRACTS: Record<number, V4Contracts> = {
   31337: buildV4Contracts(31337),
-  // Only build for JEJU_CHAIN_ID if it's different from 31337
   ...(JEJU_CHAIN_ID !== 31337
     ? { [JEJU_CHAIN_ID]: buildV4Contracts(JEJU_CHAIN_ID as ChainId) }
     : {}),
@@ -107,40 +81,10 @@ function buildNFTContracts(chainId: ChainId): NFTContracts {
   }
 }
 
-export const NFT_CONTRACTS: Record<number, NFTContracts> = {
+const NFT_CONTRACTS: Record<number, NFTContracts> = {
   31337: buildNFTContracts(31337),
   ...(JEJU_CHAIN_ID !== 31337
     ? { [JEJU_CHAIN_ID]: buildNFTContracts(JEJU_CHAIN_ID as ChainId) }
-    : {}),
-}
-
-function buildTokenFactoryContracts(chainId: ChainId): TokenFactoryContracts {
-  const factory = erc20FactoryDeployments[chainId]
-  return {
-    erc20Factory: toAddress(getERC20Factory(chainId) || factory?.at),
-  }
-}
-
-export const TOKEN_FACTORY_CONTRACTS: Record<number, TokenFactoryContracts> = {
-  31337: buildTokenFactoryContracts(31337),
-  [JEJU_CHAIN_ID]: buildTokenFactoryContracts(420691),
-}
-
-function buildLaunchpadContracts(chainId: ChainId): LaunchpadContracts {
-  const launchpad = getLaunchpadDeployment(chainId)
-  return {
-    tokenLaunchpad: toAddress(getTokenLaunchpad(chainId)),
-    lpLocker: toOptionalAddress(launchpad.lpLockerTemplate),
-    weth: toOptionalAddress(launchpad.weth),
-    xlpV2Factory: toOptionalAddress(launchpad.xlpV2Factory),
-    communityVault: toOptionalAddress(launchpad.defaultCommunityVault),
-  }
-}
-
-export const LAUNCHPAD_CONTRACTS: Record<number, LaunchpadContracts> = {
-  31337: buildLaunchpadContracts(31337),
-  ...(JEJU_CHAIN_ID !== 31337
-    ? { [JEJU_CHAIN_ID]: buildLaunchpadContracts(JEJU_CHAIN_ID as ChainId) }
     : {}),
 }
 
@@ -152,21 +96,12 @@ export function getV4Contracts(chainId: number): V4Contracts {
   return contracts
 }
 
-export function getNFTContracts(chainId: number): NFTContracts {
+function getNFTContracts(chainId: number): NFTContracts {
   const contracts = NFT_CONTRACTS[chainId]
   if (!contracts) {
     throw new Error(`NFT contracts not configured for chain ${chainId}`)
   }
   return contracts
-}
-
-export function hasV4Periphery(chainId: number): boolean {
-  const contracts = getV4Contracts(chainId)
-  return !!(
-    contracts.swapRouter &&
-    contracts.positionManager &&
-    contracts.quoterV4
-  )
 }
 
 export function hasNFTMarketplace(chainId: number): boolean {
@@ -176,66 +111,6 @@ export function hasNFTMarketplace(chainId: number): boolean {
     contracts.gameItems &&
     isValidAddress(contracts.marketplace)
   )
-}
-
-export function getTokenFactoryContracts(
-  chainId: number,
-): TokenFactoryContracts | undefined {
-  return TOKEN_FACTORY_CONTRACTS[chainId]
-}
-
-export function hasTokenFactory(chainId: number): boolean {
-  const contracts = getTokenFactoryContracts(chainId)
-  return !!contracts?.erc20Factory && isValidAddress(contracts.erc20Factory)
-}
-
-export function getLaunchpadContracts(
-  chainId: number,
-): LaunchpadContracts | undefined {
-  return LAUNCHPAD_CONTRACTS[chainId]
-}
-
-export function hasLaunchpad(chainId: number): boolean {
-  const contracts = getLaunchpadContracts(chainId)
-  return !!contracts?.tokenLaunchpad && isValidAddress(contracts.tokenLaunchpad)
-}
-
-// XLP AMM Contracts (V2 + V3) - loaded from deployments
-function buildXLPContracts(chainId: ChainId): XLPContracts {
-  const xlp = getXLPDeployment(chainId)
-  return {
-    v2Factory: toOptionalAddress(xlp.v2Factory),
-    v3Factory: toOptionalAddress(xlp.v3Factory),
-    router: toOptionalAddress(xlp.router),
-    positionManager: toOptionalAddress(xlp.positionManager),
-    weth: toOptionalAddress(xlp.weth),
-  }
-}
-
-export const XLP_CONTRACTS: Record<number, XLPContracts> = {
-  31337: buildXLPContracts(31337),
-  ...(JEJU_CHAIN_ID !== 31337
-    ? { [JEJU_CHAIN_ID]: buildXLPContracts(JEJU_CHAIN_ID as ChainId) }
-    : {}),
-}
-
-export function getXLPContracts(chainId: number): XLPContracts | undefined {
-  return XLP_CONTRACTS[chainId]
-}
-
-export function hasXLPV2(chainId: number): boolean {
-  const contracts = getXLPContracts(chainId)
-  return !!contracts?.v2Factory && isValidAddress(contracts.v2Factory)
-}
-
-export function hasXLPV3(chainId: number): boolean {
-  const contracts = getXLPContracts(chainId)
-  return !!contracts?.v3Factory && isValidAddress(contracts.v3Factory)
-}
-
-export function hasXLPRouter(chainId: number): boolean {
-  const contracts = getXLPContracts(chainId)
-  return !!contracts?.router && isValidAddress(contracts.router)
 }
 
 // Game Contracts
@@ -251,7 +126,7 @@ function buildGameContracts(chainId: ChainId): GameContracts {
   }
 }
 
-export const GAME_CONTRACTS: Record<number, GameContracts> = {
+const GAME_CONTRACTS: Record<number, GameContracts> = {
   31337: buildGameContracts(31337),
   ...(JEJU_CHAIN_ID !== 31337
     ? { [JEJU_CHAIN_ID]: buildGameContracts(JEJU_CHAIN_ID as ChainId) }
