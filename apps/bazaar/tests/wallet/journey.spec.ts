@@ -65,13 +65,9 @@ test.describe('Complete User Journey', () => {
     await page.waitForTimeout(500)
     console.log('Step 6: Browsed items')
 
-    await page.goto('/games')
-    await page.waitForTimeout(500)
-    console.log('Step 7: Checked games')
-
     await page.goto('/')
     await expect(page.getByText(/0xf39F/i)).toBeVisible()
-    console.log('Step 8: Journey complete - wallet still connected')
+    console.log('Step 7: Journey complete - wallet still connected')
 
     console.log('COMPLETE USER JOURNEY: ALL STEPS PASSED')
   })
@@ -158,7 +154,6 @@ test.describe('Network and Wallet Validation', () => {
       { name: /Coins/i, url: '/coins' },
       { name: /Swap/i, url: '/swap' },
       { name: /Markets/i, url: '/markets' },
-      { name: /Games/i, url: '/games' },
       { name: /Items/i, url: '/items' },
     ]
 

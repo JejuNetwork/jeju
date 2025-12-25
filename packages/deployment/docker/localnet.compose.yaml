@@ -172,7 +172,8 @@ services:
       - DATA_DIR=/data
       # SECURITY: Vault secret MUST be set via environment variable
       # Generate a secure secret: openssl rand -hex 32
-      - VAULT_ENCRYPTION_SECRET=${VAULT_ENCRYPTION_SECRET:?VAULT_ENCRYPTION_SECRET required - run: export VAULT_ENCRYPTION_SECRET=$(openssl rand -hex 32)}
+      # LOCALNET: Use a fixed secret for local development
+      - VAULT_ENCRYPTION_SECRET=${VAULT_ENCRYPTION_SECRET:-localnet_dev_only_vault_secret_32}
       - LOG_LEVEL=info
     depends_on:
       ipfs:

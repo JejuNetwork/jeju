@@ -20,7 +20,6 @@ export {
 export * from './client'
 export * from './data-client'
 export * from './erc8004'
-export * from './games'
 export * from './ipfs'
 
 // JNS - explicit exports to avoid conflicts with nft.ts formatTimeRemaining

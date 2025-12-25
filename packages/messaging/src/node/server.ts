@@ -73,22 +73,25 @@ function generateCID(content: string): string {
 
 /**
  * Convert MessageEnvelope to CQL StoredMessage format
+ * Note: Addresses are normalized to lowercase for consistent querying
  */
 function envelopeToCQLMessage(
   envelope: MessageEnvelope,
   cid: string,
 ): CQLStoredMessage {
+  const normalizedFrom = envelope.from.toLowerCase() as Address
+  const normalizedTo = envelope.to.toLowerCase() as Address
   return {
     id: envelope.id,
-    conversationId: `dm:${[envelope.from, envelope.to].sort().join('-')}`,
-    sender: envelope.from as Address,
-    recipient: envelope.to as Address,
-    encryptedContent: envelope.ciphertext,
+    conversationId: `dm:${[normalizedFrom, normalizedTo].sort().join('-')}`,
+    sender: normalizedFrom,
+    recipient: normalizedTo,
+    encryptedContent: envelope.encryptedContent.ciphertext,
     contentCid: cid,
-    ephemeralPublicKey: envelope.ephemeralPublicKey ?? '',
-    nonce: envelope.nonce ?? '',
+    ephemeralPublicKey: envelope.encryptedContent.ephemeralPublicKey,
+    nonce: envelope.encryptedContent.nonce,
     timestamp: envelope.timestamp,
-    chainId: envelope.chainId ?? 1,
+    chainId: 1,
     messageType: 'dm',
     deliveryStatus: 'pending',
     signature: envelope.signature ?? null,
@@ -102,14 +105,14 @@ function cqlMessageToStored(msg: CQLStoredMessage): StoredMessage {
   return {
     envelope: {
       id: msg.id,
-      version: 1,
       from: msg.sender,
       to: msg.recipient,
-      ciphertext: msg.encryptedContent,
-      ephemeralPublicKey: msg.ephemeralPublicKey,
-      nonce: msg.nonce,
+      encryptedContent: {
+        ciphertext: msg.encryptedContent,
+        ephemeralPublicKey: msg.ephemeralPublicKey,
+        nonce: msg.nonce,
+      },
       timestamp: msg.timestamp,
-      chainId: msg.chainId,
       signature: msg.signature ?? undefined,
     },
     cid: msg.contentCid ?? generateCID(msg.encryptedContent),
@@ -132,7 +135,15 @@ function addPendingMessage(recipient: string, messageId: string): void {
 async function getPendingMessages(recipient: string): Promise<StoredMessage[]> {
   const normalizedRecipient = recipient.toLowerCase()
 
-  // Try CQL storage first if available
+  // Check in-memory cache first (preserves original data like address case)
+  const pending = pendingByRecipient.get(normalizedRecipient)
+  if (pending && pending.length > 0) {
+    return pending
+      .map((id) => messageCache.get(id))
+      .filter((m): m is StoredMessage => m !== undefined)
+  }
+
+  // Fall back to CQL storage for messages not in cache
   if (cqlStorage) {
     const cqlMessages = await cqlStorage.getPendingMessages(
       normalizedRecipient as Address,
@@ -140,14 +151,7 @@ async function getPendingMessages(recipient: string): Promise<StoredMessage[]> {
     return cqlMessages.map(cqlMessageToStored)
   }
 
-  // Fall back to in-memory cache
-  const pending = pendingByRecipient.get(normalizedRecipient)
-  if (!pending) {
-    return []
-  }
-  return pending
-    .map((id) => messageCache.get(id))
-    .filter((m): m is StoredMessage => m !== undefined)
+  return []
 }
 
 async function markDelivered(messageId: string): Promise<void> {
@@ -302,8 +306,9 @@ interface RequestHeaders {
  * Initialize CQL storage for persistent message storage
  */
 async function initializeCQLStorage(): Promise<void> {
-  cqlStorage = new CQLMessageStorage()
-  await cqlStorage.initialize()
+  const storage = new CQLMessageStorage()
+  await storage.initialize()
+  cqlStorage = storage
   console.log('[Relay Server] CQL storage initialized')
 }
 
@@ -312,7 +317,9 @@ export function createRelayServer(config: NodeConfig) {
   startRateLimitCleanup()
 
   // Initialize CQL storage asynchronously (non-blocking)
+  // On failure, cqlStorage remains null and we use in-memory only
   initializeCQLStorage().catch((error) => {
+    cqlStorage = null
     console.warn(
       '[Relay Server] CQL storage unavailable, using in-memory only:',
       error instanceof Error ? error.message : 'Unknown error',
@@ -549,7 +556,7 @@ export function createRelayServer(config: NodeConfig) {
       totalMessagesRelayed,
       totalBytesRelayed,
       activeSubscribers: subscribers.size,
-      pendingMessages: messages.size,
+      pendingMessages: messageCache.size,
       uptime: process.uptime(),
     }))
 

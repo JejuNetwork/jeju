@@ -14,16 +14,8 @@ import {
   getCacheProvisioningManager,
   initializeCacheProvisioning,
 } from './provisioning'
-import { createTEECacheProvider, TEECacheProvider } from './tee-provider'
-import {
-  CacheError,
-  CacheErrorCode,
-  CacheTier,
-  type CacheInstance,
-  type CacheRentalPlan,
-  type CacheStats,
-  type SortedSetMember,
-} from './types'
+import { TEECacheProvider } from './tee-provider'
+import { CacheError, CacheErrorCode, type CacheTEEAttestation } from './types'
 
 // Shared engine for standard tier (multi-tenant)
 let sharedEngine: CacheEngine | null = null
@@ -75,11 +67,6 @@ const SetRequestSchema = t.Object({
   namespace: t.Optional(t.String()),
   nx: t.Optional(t.Boolean()),
   xx: t.Optional(t.Boolean()),
-})
-
-const GetRequestSchema = t.Object({
-  key: t.String(),
-  namespace: t.Optional(t.String()),
 })
 
 const DelRequestSchema = t.Object({
@@ -149,11 +136,6 @@ const ZAddRequestSchema = t.Object({
       score: t.Number(),
     }),
   ),
-  namespace: t.Optional(t.String()),
-})
-
-const KeysRequestSchema = t.Object({
-  pattern: t.Optional(t.String()),
   namespace: t.Optional(t.String()),
 })
 
@@ -979,10 +961,9 @@ export function createCacheRoutes() {
       '/nodes/:id/heartbeat',
       async ({ params, body }) => {
         const manager = getCacheProvisioningManager()
-        const success = await manager.updateNodeHeartbeat(
-          params.id,
-          body?.attestation,
-        )
+        // Attestation is validated externally, pass as typed if present
+        const attestation = body?.attestation as CacheTEEAttestation | undefined
+        const success = await manager.updateNodeHeartbeat(params.id, attestation)
         return { success }
       },
       {
@@ -991,7 +972,17 @@ export function createCacheRoutes() {
         }),
         body: t.Optional(
           t.Object({
-            attestation: t.Optional(t.Object({})),
+            attestation: t.Optional(
+              t.Object({
+                quote: t.String(),
+                mrEnclave: t.String(),
+                mrSigner: t.String(),
+                reportData: t.String(),
+                timestamp: t.Number(),
+                provider: t.String(),
+                simulated: t.Boolean(),
+              }),
+            ),
           }),
         ),
       },
@@ -1001,7 +992,7 @@ export function createCacheRoutes() {
 /**
  * Create and initialize the cache service app
  */
-export async function createCacheService(): Promise<Elysia> {
+export async function createCacheService() {
   // Initialize provisioning manager
   await initializeCacheProvisioning()
 

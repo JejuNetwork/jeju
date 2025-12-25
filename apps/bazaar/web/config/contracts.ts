@@ -1,5 +1,4 @@
 import {
-  bazaarMarketplaceDeployments,
   type ChainId,
   getBazaarMarketplace,
   getUniswapV4,
@@ -35,20 +34,8 @@ export interface V4Contracts {
 }
 
 interface NFTContracts {
-  gameItems?: Address
-  gameGold?: Address
   marketplace?: Address
   tradeEscrow?: Address
-  gameAgentId?: number
-}
-
-export interface GameContracts {
-  items?: Address
-  gold?: Address
-  marketplace?: Address
-  tradeEscrow?: Address
-  sponsoredPaymaster?: Address
-  gameAgentId?: number
 }
 
 function buildV4Contracts(chainId: ChainId): V4Contracts {
@@ -71,13 +58,9 @@ const V4_CONTRACTS: Record<number, V4Contracts> = {
 }
 
 function buildNFTContracts(chainId: ChainId): NFTContracts {
-  const marketplace = bazaarMarketplaceDeployments[chainId]
   const marketplaceAddr = toAddress(getBazaarMarketplace(chainId))
-  const goldAddr = toAddress(marketplace?.goldToken)
   return {
     marketplace: marketplaceAddr,
-    gameGold: goldAddr,
-    gameItems: marketplaceAddr,
   }
 }
 
@@ -106,37 +89,5 @@ function getNFTContracts(chainId: number): NFTContracts {
 
 export function hasNFTMarketplace(chainId: number): boolean {
   const contracts = getNFTContracts(chainId)
-  return !!(
-    contracts.marketplace &&
-    contracts.gameItems &&
-    isValidAddress(contracts.marketplace)
-  )
-}
-
-// Game Contracts
-function buildGameContracts(chainId: ChainId): GameContracts {
-  const nft = buildNFTContracts(chainId)
-  return {
-    items: nft.gameItems,
-    gold: nft.gameGold,
-    marketplace: nft.marketplace,
-    tradeEscrow: nft.tradeEscrow,
-    sponsoredPaymaster: ZERO_ADDRESS,
-    gameAgentId: nft.gameAgentId,
-  }
-}
-
-const GAME_CONTRACTS: Record<number, GameContracts> = {
-  31337: buildGameContracts(31337),
-  ...(JEJU_CHAIN_ID !== 31337
-    ? { [JEJU_CHAIN_ID]: buildGameContracts(JEJU_CHAIN_ID as ChainId) }
-    : {}),
-}
-
-export function getGameContracts(chainId: number): GameContracts {
-  const contracts = GAME_CONTRACTS[chainId]
-  if (!contracts) {
-    throw new Error(`Game contracts not configured for chain ${chainId}`)
-  }
-  return contracts
+  return !!(contracts.marketplace && isValidAddress(contracts.marketplace))
 }

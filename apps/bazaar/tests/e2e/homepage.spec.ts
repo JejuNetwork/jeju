@@ -135,7 +135,6 @@ test.describe('Navigation', () => {
       { name: /Coins/i, url: '/coins' },
       { name: /Swap/i, url: '/swap' },
       { name: /Markets/i, url: '/markets' },
-      { name: /Games/i, url: '/games' },
       { name: /Items/i, url: '/items' },
     ]
 
@@ -179,7 +178,6 @@ test.describe('Feature Cards', () => {
       { name: /markets/i, href: /\/markets/ },
       { name: /items/i, href: /\/items/ },
       { name: /names/i, href: /\/names/ },
-      { name: /games/i, href: /\/games/ },
     ]
 
     for (const feature of featureLinks) {

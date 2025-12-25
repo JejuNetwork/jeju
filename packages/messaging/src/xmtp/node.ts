@@ -97,8 +97,15 @@ export class JejuXMTPNode {
 
     console.log(`[XMTP Node ${this.config.nodeId}] Starting...`)
 
-    // Connect to Jeju relay network
-    await this.connectToRelay()
+    // Connect to Jeju relay network (skip in test mode)
+    if (!this.config.skipRelayConnection) {
+      await this.connectToRelay().catch((err) => {
+        console.warn(
+          `[XMTP Node] Relay connection failed (continuing):`,
+          err instanceof Error ? err.message : 'Unknown error',
+        )
+      })
+    }
 
     // Initialize MLS state
     await this.initializeMLS()

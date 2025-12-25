@@ -107,8 +107,15 @@ export class JejuMLSClient {
     // Register public key in Jeju KeyRegistry
     await this.registerPublicKey()
 
-    // Connect to relay
-    await this.connectToRelay()
+    // Connect to relay (skip in test mode)
+    if (!this.config.skipRelayConnection) {
+      await this.connectToRelay().catch((err) => {
+        console.warn(
+          `[MLS Client] Relay connection failed (continuing):`,
+          err instanceof Error ? err.message : 'Unknown error',
+        )
+      })
+    }
 
     // Start sync loop
     this.startSyncLoop()

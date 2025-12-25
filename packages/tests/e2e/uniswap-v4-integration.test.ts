@@ -74,7 +74,7 @@ describe('Uniswap V4 Integration Tests', () => {
     }
 
     console.log(`✅ PoolManager: ${v4Deployment.poolManager}`)
-    console.log(`✅ elizaOS Token: ${tokenDeployment.address}`)
+    console.log(`✅ JEJU Token: ${tokenDeployment.address}`)
   })
 
   describe('Deployment Verification', () => {
@@ -100,7 +100,7 @@ describe('Uniswap V4 Integration Tests', () => {
       console.log(`   Bytecode size: ${code?.length} bytes`)
     })
 
-    test('should have elizaOS token deployed', async () => {
+    test('should have JEJU token deployed', async () => {
       const code = await publicClient.getBytecode({
         address: tokenDeployment.address as `0x${string}`,
       })
@@ -183,7 +183,7 @@ describe('Uniswap V4 Integration Tests', () => {
     })
   })
 
-  describe('elizaOS Token Functions', () => {
+  describe('JEJU Token Functions', () => {
     const ERC20_ABI = [
       {
         name: 'name',
@@ -229,7 +229,7 @@ describe('Uniswap V4 Integration Tests', () => {
         functionName: 'name',
       })
 
-      expect(name).toBe('elizaOS Token')
+      expect(name).toBe('Jeju Network')
     })
 
     test('should have correct token symbol', async () => {
@@ -239,7 +239,7 @@ describe('Uniswap V4 Integration Tests', () => {
         functionName: 'symbol',
       })
 
-      expect(symbol).toBe('elizaOS')
+      expect(symbol).toBe('JEJU')
     })
 
     test('should have 18 decimals', async () => {
@@ -263,7 +263,7 @@ describe('Uniswap V4 Integration Tests', () => {
       expect(totalSupply).toBeGreaterThan(0n)
 
       const supplyInTokens = formatEther(totalSupply as bigint)
-      console.log(`   Total Supply: ${supplyInTokens} elizaOS`)
+      console.log(`   Total Supply: ${supplyInTokens} JEJU`)
     })
 
     test('deployer should have initial balance', async () => {
@@ -278,7 +278,7 @@ describe('Uniswap V4 Integration Tests', () => {
       expect(balance).toBeGreaterThan(0n)
 
       const balanceInTokens = formatEther(balance as bigint)
-      console.log(`   Deployer Balance: ${balanceInTokens} elizaOS`)
+      console.log(`   Deployer Balance: ${balanceInTokens} JEJU`)
     })
   })
 

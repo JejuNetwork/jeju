@@ -154,6 +154,8 @@ export interface XMTPNodeConfig {
   metricsEnabled?: boolean
   /** Metrics port */
   metricsPort?: number
+  /** Skip relay connection (for testing) */
+  skipRelayConnection?: boolean
 }
 
 export interface XMTPNodeStats {

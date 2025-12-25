@@ -14,7 +14,6 @@ import {
   CacheErrorCode,
   CacheEventType,
   type CacheConfig,
-  type CacheEntry,
   type CacheEvent,
   type CacheEventListener,
   type CacheNamespaceStats,

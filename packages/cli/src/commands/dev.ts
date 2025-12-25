@@ -149,8 +149,8 @@ async function startDev(options: {
 
   // Indexer is started by the orchestrator, no need to start again
 
-  // Discover apps
-  const apps = discoverApps(rootDir)
+  // Discover apps (including vendor apps like Babylon)
+  const apps = discoverApps(rootDir, true)
   const appsToStart = filterApps(apps, options)
 
   // Deploy apps on-chain through DWS (like production)
@@ -550,7 +550,6 @@ devCommand
     interface BootstrapContracts {
       jeju?: string
       usdc?: string
-      elizaOS?: string
       weth?: string
       creditManager?: string
       universalPaymaster?: string
@@ -605,10 +604,6 @@ devCommand
     if (isValidAddress(contracts.usdc)) {
       config.localnet.tokens.usdc = contracts.usdc
       logger.info(`  tokens.usdc: ${contracts.usdc}`)
-    }
-    if (isValidAddress(contracts.elizaOS)) {
-      config.localnet.tokens.elizaOS = contracts.elizaOS
-      logger.info(`  tokens.elizaOS: ${contracts.elizaOS}`)
     }
 
     // Update registry

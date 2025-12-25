@@ -241,7 +241,7 @@ describe('Service Interaction Tests', () => {
       console.log('       1. Oracle bot reads prices from Ethereum')
       console.log('       2. Bot calls updatePrices() on the network oracle')
       console.log('       3. Paymaster reads updated prices')
-      console.log('       4. Paymaster calculates elizaOS fees')
+      console.log('       4. Paymaster calculates JEJU fees')
       console.log('   ℹ️  See scripts/oracle-updater.ts for bot implementation')
     })
   })

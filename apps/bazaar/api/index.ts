@@ -80,7 +80,6 @@ export {
   isFaucetConfigured,
   parseJsonResponse,
 } from './faucet'
-export * from './games'
 export * from './indexer-client'
 export * from './markets'
 export {
