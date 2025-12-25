@@ -3,8 +3,8 @@
  * Wraps FROST signing with MPCCoordinator interface.
  */
 
-import { FROSTCoordinator } from './frost-signing.js'
 import { type Hex, keccak256, toBytes } from 'viem'
+import { FROSTCoordinator } from './frost-signing.js'
 import {
   getMPCConfig,
   type KeyVersion,

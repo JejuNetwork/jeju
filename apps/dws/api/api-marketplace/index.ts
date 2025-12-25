@@ -28,17 +28,13 @@ export {
 
 // Providers
 export {
-  getConfiguredProviders,
   getAllProviders,
+  getConfiguredProviders,
   getProviderById,
 } from './providers'
 
 // Proxy Router
 export { checkProviderHealth, proxyRequest } from './proxy-router'
-
-// Types
-export type { APIProvider, ProxyRequest, ProxyResponse } from './types'
-
 // Registry
 export {
   createListing,
@@ -51,6 +47,8 @@ export {
   getMarketplaceStats,
   updateListing,
 } from './registry'
+// Types
+export type { APIProvider, ProxyRequest, ProxyResponse } from './types'
 
 // Types
 export * from './types'

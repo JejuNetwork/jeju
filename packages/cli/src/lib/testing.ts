@@ -10,7 +10,12 @@ import {
 import { join } from 'node:path'
 import { validateOrNull } from '@jejunetwork/types'
 import { execa } from 'execa'
-import type { AppManifest, AppTestConfig, TestPhase, TestResult } from '../types'
+import type {
+  AppManifest,
+  AppTestConfig,
+  TestPhase,
+  TestResult,
+} from '../types'
 import { checkRpcHealth } from './chain'
 import { AppManifestSchema } from './discover-apps'
 import { logger } from './logger'

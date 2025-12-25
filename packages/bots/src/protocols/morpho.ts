@@ -130,7 +130,6 @@ const AAVE_V3_POOL: Record<number, Address> = {
 export class MorphoIntegration extends EventEmitter {
   private config: MorphoConfig
   private client: PublicClient
-  private wallet: WalletClient
   private running = false
   private marketStates: Map<string, MarketState> = new Map()
   private watchedBorrowers: Map<string, Set<Address>> = new Map()

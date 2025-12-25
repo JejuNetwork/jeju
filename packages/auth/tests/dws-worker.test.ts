@@ -11,7 +11,7 @@ import { describe, expect, it, mock } from 'bun:test'
 // Mock the KMS module before importing the worker
 mock.module('@jejunetwork/kms', () => ({
   createMPCClient: (_config: unknown, _serviceAgentId: string) => ({
-    requestKeyGen: async (params: { keyId: string }) => ({
+    requestKeyGen: async (_params: { keyId: string }) => ({
       groupPublicKey: `0x${'ab'.repeat(32)}` as const,
       groupAddress: `0x${'cd'.repeat(20)}` as const,
     }),
@@ -67,7 +67,7 @@ describe('OAuth3 DWS Worker', () => {
           body: JSON.stringify({
             address: '0x1234567890123456789012345678901234567890',
             message: 'Sign in to OAuth3',
-            signature: '0x' + 'ab'.repeat(65),
+            signature: `0x${'ab'.repeat(65)}`,
           }),
         }),
       )

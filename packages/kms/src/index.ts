@@ -70,6 +70,21 @@ export {
 export { getKMS, KMSService, resetKMS } from './kms.js'
 // Logger
 export { createLogger, kmsLogger } from './logger.js'
+// FROST Threshold Signing
+export {
+  aggregateSignatures,
+  type FROSTCluster,
+  FROSTCoordinator,
+  type FROSTKeyShare,
+  type FROSTSignature,
+  type FROSTSignatureShare,
+  type FROSTSigningCommitment,
+  generateKeyShares,
+  generateSignatureShare,
+  generateSigningCommitment,
+  publicKeyToAddress,
+  verifySignature,
+} from './mpc/frost-signing.js'
 // MPC Coordinator
 export {
   DEFAULT_MPC_CONFIG,
@@ -88,21 +103,6 @@ export {
   type MPCSignSession,
   resetMPCCoordinator,
 } from './mpc/index.js'
-// FROST Threshold Signing
-export {
-  aggregateSignatures,
-  type FROSTCluster,
-  FROSTCoordinator,
-  type FROSTKeyShare,
-  type FROSTSignature,
-  type FROSTSignatureShare,
-  type FROSTSigningCommitment,
-  generateKeyShares,
-  generateSignatureShare,
-  generateSigningCommitment,
-  publicKeyToAddress,
-  verifySignature,
-} from './mpc/frost-signing.js'
 // Providers
 export {
   EncryptionProvider,

@@ -1,7 +1,5 @@
 import {
   Award,
-  ChevronDown,
-  ChevronUp,
   Flag,
   Loader2,
   RefreshCw,
@@ -72,7 +70,8 @@ export default function ModerationPage() {
       fetchModeratorLeaderboard(10).catch(() => ({ entries: [] })),
     ])
     setFlags(
-      (flagsData as { flags: ActiveFlag[] } | null)?.flags ?? ([] as ActiveFlag[]),
+      (flagsData as { flags: ActiveFlag[] } | null)?.flags ??
+        ([] as ActiveFlag[]),
     )
     setLeaderboard(
       (leaderboardData as { entries: LeaderboardEntry[] } | null)?.entries ??
@@ -104,7 +103,8 @@ export default function ModerationPage() {
     setLookupLoading(false)
   }
 
-  const formatAddress = (addr: string) => `${addr.slice(0, 6)}...${addr.slice(-4)}`
+  const formatAddress = (addr: string) =>
+    `${addr.slice(0, 6)}...${addr.slice(-4)}`
 
   const getFlagTypeColor = (type: string) => {
     switch (type) {
@@ -192,8 +192,8 @@ export default function ModerationPage() {
                           Evidence:
                         </span>
                         <ul className="text-xs text-gray-600 mt-1">
-                          {flag.evidence.map((e, i) => (
-                            <li key={i}>• {e}</li>
+                          {flag.evidence.map((e) => (
+                            <li key={e}>• {e}</li>
                           ))}
                         </ul>
                       </div>
@@ -282,7 +282,9 @@ export default function ModerationPage() {
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-semibold">{entry.reputation}</p>
+                      <p className="text-sm font-semibold">
+                        {entry.reputation}
+                      </p>
                       <p className="text-xs text-gray-500">rep</p>
                     </div>
                   </div>
@@ -333,7 +335,9 @@ export default function ModerationPage() {
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div>
                       <span className="text-gray-500">Total Flags</span>
-                      <p className="font-semibold">{moderatorStats.totalFlags}</p>
+                      <p className="font-semibold">
+                        {moderatorStats.totalFlags}
+                      </p>
                     </div>
                     <div>
                       <span className="text-gray-500">Accurate</span>
@@ -343,11 +347,15 @@ export default function ModerationPage() {
                     </div>
                     <div>
                       <span className="text-gray-500">Accuracy</span>
-                      <p className="font-semibold">{moderatorStats.accuracy}%</p>
+                      <p className="font-semibold">
+                        {moderatorStats.accuracy}%
+                      </p>
                     </div>
                     <div>
                       <span className="text-gray-500">Reputation</span>
-                      <p className="font-semibold">{moderatorStats.reputation}</p>
+                      <p className="font-semibold">
+                        {moderatorStats.reputation}
+                      </p>
                     </div>
                   </div>
                   <div className="pt-2 border-t border-gray-200 dark:border-gray-700">

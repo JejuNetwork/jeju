@@ -1,111 +1,51 @@
 /**
  * Container Execution Module
  * Decentralized serverless container execution with warmth management
+ *
+ * For internal testing, import directly from specific modules:
+ * - ./image-cache for cache operations
+ * - ./warm-pool for instance management
+ * - ./scheduler for node scheduling
+ * - ./executor for container execution
+ * - ./tee-gpu-provider for GPU attestation
  */
 
-// Image Cache
+// Executor - public API
 export {
-  analyzeDeduplication,
-  type CacheStats,
-  cacheImage,
-  cacheLayer,
-  clearCache,
-  type DeduplicationStats,
-  getCachedImage,
-  getCachedLayer,
-  getCacheStats,
-  type PrewarmRequest,
-  queuePrewarm,
-  recordCacheHit,
-  recordCacheMiss,
-  invalidateLayer,
-} from './image-cache'
-
-// Types
-export * from './types'
-
-// Warm Pool
-export {
-  acquireWarmInstance,
-  addInstance,
-  cleanupAllPools,
-  cleanupPool,
-  getAllPoolStats,
-  getInstance,
-  getOrCreatePool,
-  getPool,
-  getPoolStats,
-  onContainerEvent,
-  prewarmInstances,
-  releaseInstance,
-  removeInstance,
-  startCooldownManager,
-  stopCooldownManager,
-  updateInstanceState,
-  updatePoolConfig,
-} from './warm-pool'
-
-// Executor
-import { cleanup as executorCleanup } from './executor'
-
-export {
-  calculateCost,
   cancelExecution,
   type ExecutorStats,
   estimateCost,
-  executeBatch,
-  executeContainer,
   getExecution,
   getExecutionResult,
   getExecutorStats,
   listExecutions,
 } from './executor'
-export const cleanupExecutor = executorCleanup
 
-// Scheduler
+// Image Cache - minimal public API
 export {
-  checkNodeHealth,
-  cleanupExpiredReservations,
-  findNearestRegion,
+  analyzeDeduplication,
+  type CacheStats,
+  getCacheStats,
+} from './image-cache'
+// Scheduler - public API
+export {
   getAllNodes,
-  getNode,
-  getNodesByRegion,
-  getRegionsOrderedByDistance,
   getSchedulerStats,
   registerNode,
-  releaseReservation,
-  removeNode,
-  reserveResources,
   type SchedulerStats,
   type SchedulingStrategy,
-  scheduleExecution,
-  updateNodeResources,
-  updateNodeStatus,
 } from './scheduler'
-
-// TEE GPU Provider
-export {
-  type CreateTEEGPUProviderConfig,
-  createTEEGPUProvider,
-  GPU_SPECS,
-  type GPUCapabilities,
-  GPUType,
-  getTEEGPUNode,
-  getTEEGPUNodes,
-  type TEEAttestation,
-  type TEEGPUNode,
-  type TEEGPUNodeConfig,
-  TEEGPUProvider,
-  TEEProvider,
-} from './tee-gpu-provider'
+// Types - always exported for consumers
+export * from './types'
+// Warm Pool - minimal public API
+export { getAllPoolStats } from './warm-pool'
 
 // High-Level API
-
 import type { Address } from 'viem'
 import * as executor from './executor'
 import * as cache from './image-cache'
 import * as scheduler from './scheduler'
-import type { ComputeNode, ExecutionRequest, ExecutionResult } from './types'
+import type { ExecutionRequest, ExecutionResult } from './types'
 import * as warmPool from './warm-pool'
 
 /**
@@ -127,8 +67,6 @@ export async function runContainer(
     schedulingStrategy?: scheduler.SchedulingStrategy
   },
 ): Promise<ExecutionResult> {
-  // For now, execute locally (single-node mode)
-  // In production, this would schedule to the best node
   return executor.executeContainer(request, userAddress)
 }
 
@@ -141,7 +79,6 @@ export async function warmContainers(
   _resources: ExecutionRequest['resources'],
   _owner: Address,
 ): Promise<void> {
-  // Queue for pre-warming
   cache.queuePrewarm({
     imageDigests: [imageRef],
     priority: 'high',
@@ -161,22 +98,4 @@ export function getSystemStats(): {
     scheduler: scheduler.getSchedulerStats(),
     cache: cache.getCacheStats(),
   }
-}
-
-/**
- * Register a compute node
- */
-export function addComputeNode(node: ComputeNode): void {
-  scheduler.registerNode(node)
-  console.log(`[Containers] Node registered: ${node.nodeId} in ${node.region}`)
-}
-
-/**
- * Cleanup all resources
- */
-export function shutdownContainerSystem(): void {
-  warmPool.stopCooldownManager()
-  warmPool.cleanupAllPools()
-  executor.cleanup()
-  console.log('[Containers] System shutdown complete')
 }

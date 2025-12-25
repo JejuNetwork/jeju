@@ -2,10 +2,7 @@
  * Prediction market-related Zod schemas
  */
 
-import {
-  BigIntSchema,
-  NonEmptyStringSchema,
-} from '@jejunetwork/types'
+import { BigIntSchema, NonEmptyStringSchema } from '@jejunetwork/types'
 import { z } from 'zod'
 
 // Used internally by PositionSchema

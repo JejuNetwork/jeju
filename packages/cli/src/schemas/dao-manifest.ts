@@ -1,6 +1,9 @@
 import { z } from 'zod'
 
-const AddressSchema = z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid address').optional()
+const AddressSchema = z
+  .string()
+  .regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid address')
+  .optional()
 const WeiAmountSchema = z.string().regex(/^\d+$/, 'Must be numeric string')
 
 export const DAOCEOConfigSchema = z.object({
@@ -136,11 +139,17 @@ export function validateDAOManifest(data: unknown): DAOManifest {
   return DAOManifestSchema.parse(data)
 }
 
-export function validateCouncilWeights(members: Array<{ weight: number }>, expectedTotal = 10000) {
+export function validateCouncilWeights(
+  members: Array<{ weight: number }>,
+  expectedTotal = 10000,
+) {
   const total = members.reduce((sum, m) => sum + m.weight, 0)
   return {
     valid: total === expectedTotal,
     total,
-    message: total === expectedTotal ? `Weights valid (${total} bps)` : `Weights ${total} bps, expected ${expectedTotal}`,
+    message:
+      total === expectedTotal
+        ? `Weights valid (${total} bps)`
+        : `Weights ${total} bps, expected ${expectedTotal}`,
   }
 }

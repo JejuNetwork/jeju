@@ -36,9 +36,7 @@ export function isCIDResponse(value: unknown): value is CIDResponse {
 export function isAccessCondition(value: unknown): value is AccessCondition {
   if (!isObject(value)) return false
   const type = value.type
-  return (
-    type === 'role' || type === 'contract' || type === 'timestamp'
-  )
+  return type === 'role' || type === 'contract' || type === 'timestamp'
 }
 
 /**

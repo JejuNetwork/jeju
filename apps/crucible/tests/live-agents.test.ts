@@ -6,13 +6,13 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
-import { getCharacter } from '../src/characters'
-import { ChatApiResponseSchema, parseOrThrow } from '../src/schemas'
+import { getCharacter } from '../api/characters'
+import { ChatApiResponseSchema, parseOrThrow } from '../api/schemas'
 import {
   createCrucibleRuntime,
   type RuntimeMessage,
   runtimeManager,
-} from '../src/sdk/eliza-runtime'
+} from '../api/sdk/eliza-runtime'
 
 // Helper to create unique messages to ensure responses aren't cached
 function createUniqueMessage(text: string): RuntimeMessage {

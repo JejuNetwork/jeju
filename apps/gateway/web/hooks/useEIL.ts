@@ -8,10 +8,7 @@ import {
   type SwapStatus,
   type XLPPosition,
 } from '@jejunetwork/shared'
-
-type StakeStatus = 'idle' | 'pending' | 'complete' | 'error'
-
-import { ZERO_ADDRESS } from '@jejunetwork/types'
+import { type StakeStatus, ZERO_ADDRESS } from '@jejunetwork/types'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { type Address, parseEther } from 'viem'
 import { useAccount, useReadContract } from 'wagmi'

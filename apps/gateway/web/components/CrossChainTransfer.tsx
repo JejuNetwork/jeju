@@ -1,9 +1,9 @@
-import { ConnectButton } from '@rainbow-me/rainbowkit'
 import {
   calculateUsdValue as calculateUSDValue,
   formatTokenUsd as formatUSD,
   parseTokenAmount,
 } from '@jejunetwork/shared'
+import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { useEffect, useMemo, useState } from 'react'
 import type { Address } from 'viem'
 import { useAccount } from 'wagmi'

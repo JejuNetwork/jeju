@@ -5,4 +5,8 @@
  * import directly from @jejunetwork/types
  */
 
-// This file is reserved for future app-specific common schemas
+import { z } from 'zod'
+
+// App-specific: Chain type enum
+export const ChainTypeSchema = z.enum(['evm', 'solana'])
+export type ChainType = z.infer<typeof ChainTypeSchema>

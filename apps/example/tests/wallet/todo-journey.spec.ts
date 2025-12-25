@@ -1,6 +1,7 @@
+import { basicSetup, test } from '@jejunetwork/tests'
 import type { BrowserContext, Page } from '@playwright/test'
-import { test, basicSetup } from '@jejunetwork/tests'
 import { MetaMask } from '@synthetixio/synpress/playwright'
+
 const { expect } = test
 
 async function connectWallet(

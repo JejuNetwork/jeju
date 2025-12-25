@@ -21,42 +21,20 @@ export type {
   PaymentPayload,
   PaymentRequirements,
   PaymentScheme,
+  SettlementResponse,
+  UntrustedPaymentPayload,
   X402Network,
 } from '@jejunetwork/shared'
+
+export { isValidPaymentPayload } from '@jejunetwork/shared'
 
 import type {
   PaymentPayload,
   PaymentRequirements,
+  UntrustedPaymentPayload,
   X402Network,
 } from '@jejunetwork/shared'
-
-/** Untrusted input for validation boundary - use when validating external input */
-export type UntrustedPaymentPayload = Partial<PaymentPayload>
-
-/** Type guard to validate all required payment fields are present */
-export function isValidPaymentPayload(
-  payload: UntrustedPaymentPayload,
-): payload is PaymentPayload {
-  return !!(
-    payload.amount &&
-    payload.payTo &&
-    payload.asset &&
-    payload.scheme &&
-    payload.network &&
-    payload.resource &&
-    payload.nonce &&
-    payload.timestamp !== undefined
-  )
-}
-
-export interface SettlementResponse {
-  settled: boolean
-  txHash?: string
-  blockNumber?: number
-  timestamp?: number
-  amountSettled?: string
-  error?: string
-}
+import { isValidPaymentPayload } from '@jejunetwork/shared'
 
 export interface X402Config {
   recipientAddress: Address

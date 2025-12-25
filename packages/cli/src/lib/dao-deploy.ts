@@ -6,29 +6,14 @@
  */
 
 import {
+  type Dirent,
   existsSync,
   mkdirSync,
-  readFileSync,
   readdirSync,
+  readFileSync,
   writeFileSync,
-  type Dirent,
 } from 'node:fs'
 import { dirname, join } from 'node:path'
-import {
-  type Address,
-  type Chain,
-  type Log,
-  createPublicClient,
-  createWalletClient,
-  decodeEventLog,
-  formatEther,
-  http,
-  isAddress,
-  keccak256,
-  toBytes,
-} from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
-import { base, baseSepolia, localhost } from 'viem/chains'
 import {
   daoFundingAbi,
   daoRegistryAbi,
@@ -36,6 +21,21 @@ import {
   repoRegistryAbi,
 } from '@jejunetwork/contracts'
 import { uploadJSONToIPFS } from '@jejunetwork/shared'
+import {
+  type Address,
+  type Chain,
+  createPublicClient,
+  createWalletClient,
+  decodeEventLog,
+  formatEther,
+  http,
+  isAddress,
+  keccak256,
+  type Log,
+  toBytes,
+} from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+import { base, baseSepolia, localhost } from 'viem/chains'
 import { z } from 'zod'
 import {
   type DAOManifest,
@@ -96,7 +96,10 @@ function extractProjectIdFromLogs(
         data: log.data,
         topics: log.topics,
       })
-      if (decoded.eventName === 'ProjectProposed' && 'projectId' in decoded.args) {
+      if (
+        decoded.eventName === 'ProjectProposed' &&
+        'projectId' in decoded.args
+      ) {
         return decoded.args.projectId as `0x${string}`
       }
     } catch {
@@ -183,7 +186,6 @@ export interface DAODeployOptions {
   verbose: boolean
   ipfsApiUrl?: string
 }
-
 
 export async function deployDAO(
   options: DAODeployOptions,
@@ -407,11 +409,13 @@ export async function deployDAO(
     if (uniqueAddresses.size === 1 && councilResult.members.length > 1) {
       logger.warn(
         `All ${councilResult.members.length} council members have the same address. ` +
-        `For production, set unique addresses in manifest or use TEE/MPC deployment.`
+          `For production, set unique addresses in manifest or use TEE/MPC deployment.`,
       )
     }
 
-    logger.success(`Council configured with ${councilResult.members.length} members`)
+    logger.success(
+      `Council configured with ${councilResult.members.length} members`,
+    )
   }
 
   const packageIds: string[] = []
@@ -764,7 +768,6 @@ export function discoverDAOManifests(rootDir: string): DAOManifest[] {
   return manifests
 }
 
-
 // NOTE: DAOAllocationRegistry contract not yet deployed
 // These allocation types are for future use when inter-DAO allocations are supported
 const _ALLOCATION_TYPES = {
@@ -805,9 +808,7 @@ export async function deployMultipleDAOs(
   for (const manifest of manifests) {
     const manifestPath = findManifestPath(rootDir, manifest.name)
     if (!manifestPath) {
-      logger.warn(
-        `Could not find manifest path for ${manifest.name}, skipping`,
-      )
+      logger.warn(`Could not find manifest path for ${manifest.name}, skipping`)
       continue
     }
 
@@ -846,7 +847,9 @@ function setupDAOAllocations(
   manifests: DAOManifest[],
 ): void {
   logger.step('Planning DAO allocations...')
-  logger.warn('DAOAllocationRegistry not deployed - logging planned allocations only')
+  logger.warn(
+    'DAOAllocationRegistry not deployed - logging planned allocations only',
+  )
 
   const daoIdMap = new Map(deployments.map((d) => [d.name, d.daoId]))
 
@@ -857,7 +860,9 @@ function setupDAOAllocations(
 
     if (networkConfig.parentDao) {
       if (daoIdMap.has(networkConfig.parentDao)) {
-        logger.info(`  [PLANNED] ${manifest.name} parent -> ${networkConfig.parentDao}`)
+        logger.info(
+          `  [PLANNED] ${manifest.name} parent -> ${networkConfig.parentDao}`,
+        )
       } else {
         logger.warn(`  Parent DAO not found: ${networkConfig.parentDao}`)
       }
@@ -869,12 +874,16 @@ function setupDAOAllocations(
           logger.warn(`  Target DAO not found: ${allocation.targetDao}`)
           continue
         }
-        logger.info(`  [PLANNED] ${allocation.type}: ${manifest.name} -> ${allocation.targetDao} (${allocation.amount})`)
+        logger.info(
+          `  [PLANNED] ${allocation.type}: ${manifest.name} -> ${allocation.targetDao} (${allocation.amount})`,
+        )
       }
     }
   }
 
-  logger.info('Allocations will be configured when DAOAllocationRegistry is deployed')
+  logger.info(
+    'Allocations will be configured when DAOAllocationRegistry is deployed',
+  )
 }
 
 function findManifestPath(rootDir: string, daoName: string): string | null {

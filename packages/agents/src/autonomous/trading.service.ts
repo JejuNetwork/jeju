@@ -143,69 +143,6 @@ export class AutonomousTradingService {
   }
 
   /**
-   * Build trading decision prompt
-   * Note: Currently unused, prepared for LLM integration
-   */
-  // @ts-ignore - Unused method kept for future LLM integration
-  private buildTradingPrompt(
-    config: AgentTradingConfig,
-    displayName: string,
-    portfolio: Portfolio,
-    predictionMarkets: MarketInfo[],
-    perpMarkets: MarketInfo[],
-    contextString: string,
-  ): string {
-    return `${config.systemPrompt ?? 'You are an autonomous trading agent on Jeju.'}
-
-You are ${displayName}, an autonomous trading agent.
-
-Current Status:
-- Balance: $${portfolio.balance.toFixed(2)}
-- P&L: ${portfolio.pnl >= 0 ? '+' : ''}$${portfolio.pnl.toFixed(2)}
-- Open Positions: ${portfolio.positions.length}
-
-Available Prediction Markets:
-${
-  predictionMarkets.length > 0
-    ? predictionMarkets
-        .slice(0, 5)
-        .map((m) => {
-          const yesPrice = m.yesPrice ?? 0.5
-          const noPrice = m.noPrice ?? 0.5
-          return `- ${m.question ?? m.id} (YES: ${(yesPrice * 100).toFixed(1)}%, NO: ${(noPrice * 100).toFixed(1)}%)`
-        })
-        .join('\n')
-    : '(None available)'
-}
-
-Available Perp Markets:
-${
-  perpMarkets.length > 0
-    ? perpMarkets
-        .slice(0, 5)
-        .map((m) => {
-          const current = m.currentPrice ?? 100
-          const change = m.priceChange24h ?? 0
-          const trend = change > 0 ? '📈' : change < 0 ? '📉' : '➡️'
-          return `- ${m.ticker}: $${current.toFixed(2)} ${trend} ${(change * 100).toFixed(1)}%`
-        })
-        .join('\n')
-    : '(None available)'
-}
-
-Strategy: ${config.tradingStrategy ?? 'Balanced risk/reward seeking alpha'}
-
-Task: Decide on ONE trade action:
-
-{"action": "hold"} OR
-{"action": "trade", "trade": {"type": "prediction"|"perp", "market": "market_id_or_name", "action": "buy_yes"|"buy_no"|"open_long"|"open_short", "amount": number, "reasoning": "brief_reason"}}
-
-${contextString}
-
-Now analyze and decide:`
-  }
-
-  /**
    * Analyze market and decide on trade
    */
   async analyzeAndDecide(

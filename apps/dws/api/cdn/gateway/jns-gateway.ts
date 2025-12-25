@@ -37,12 +37,8 @@ const JNS_RESOLVER_ABI = [
   },
 ] as const
 
-// JNSGatewayConfig imported from lib/types above
-
-export interface ContentHash {
-  protocol: 'ipfs' | 'ipns' | 'arweave' | 'http' | 'https'
-  hash: string
-}
+// JNSGatewayConfig and ContentHash imported from lib/types
+import type { ContentHash } from '../../../lib/types'
 
 export class JNSGateway {
   private config: JNSGatewayConfig

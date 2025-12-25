@@ -19,8 +19,8 @@ import {
   fetchProposalFlags,
   fetchProposalModerationScore,
   type Proposal,
-  quickScreenResearch,
   type QuickScreenResult,
+  quickScreenResearch,
   type ResearchReport,
   submitModerationFlag,
 } from '../config/api'
@@ -157,7 +157,9 @@ export default function ProposalDetailPage() {
       <div className="card-static p-8 text-center">
         <XCircle className="mx-auto mb-4 text-red-500" size={48} />
         <h2 className="text-xl font-semibold mb-2">Proposal Not Found</h2>
-        <p className="text-gray-500 mb-4">{error ?? 'Unable to load proposal'}</p>
+        <p className="text-gray-500 mb-4">
+          {error ?? 'Unable to load proposal'}
+        </p>
         <Link to="/proposals" className="btn-secondary">
           ← Back to Proposals
         </Link>
@@ -197,7 +199,8 @@ export default function ProposalDetailPage() {
               <div className="flex justify-between py-2 border-b border-gray-100 dark:border-gray-800">
                 <dt className="text-gray-500">Proposer</dt>
                 <dd className="font-mono text-sm">
-                  {proposal.proposer.slice(0, 6)}...{proposal.proposer.slice(-4)}
+                  {proposal.proposer.slice(0, 6)}...
+                  {proposal.proposer.slice(-4)}
                 </dd>
               </div>
               <div className="flex justify-between py-2 border-b border-gray-100 dark:border-gray-800">
@@ -285,8 +288,8 @@ export default function ProposalDetailPage() {
                       Red Flags:
                     </span>
                     <ul className="text-sm text-gray-600 mt-1">
-                      {quickScreen.redFlags.map((flag, i) => (
-                        <li key={i}>• {flag}</li>
+                      {quickScreen.redFlags.map((flag) => (
+                        <li key={flag}>• {flag}</li>
                       ))}
                     </ul>
                   </div>
@@ -297,8 +300,8 @@ export default function ProposalDetailPage() {
                       Green Flags:
                     </span>
                     <ul className="text-sm text-gray-600 mt-1">
-                      {quickScreen.greenFlags.map((flag, i) => (
-                        <li key={i}>• {flag}</li>
+                      {quickScreen.greenFlags.map((flag) => (
+                        <li key={flag}>• {flag}</li>
                       ))}
                     </ul>
                   </div>
@@ -335,8 +338,8 @@ export default function ProposalDetailPage() {
                         Key Findings
                       </h4>
                       <ul className="text-sm space-y-1">
-                        {research.keyFindings.map((finding, i) => (
-                          <li key={i}>✓ {finding}</li>
+                        {research.keyFindings.map((finding) => (
+                          <li key={finding}>✓ {finding}</li>
                         ))}
                       </ul>
                     </div>
@@ -347,8 +350,8 @@ export default function ProposalDetailPage() {
                         Concerns
                       </h4>
                       <ul className="text-sm space-y-1 text-yellow-600">
-                        {research.concerns.map((concern, i) => (
-                          <li key={i}>⚠ {concern}</li>
+                        {research.concerns.map((concern) => (
+                          <li key={concern}>⚠ {concern}</li>
                         ))}
                       </ul>
                     </div>

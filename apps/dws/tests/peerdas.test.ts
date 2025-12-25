@@ -22,7 +22,7 @@ import {
   PeerDAS,
   type PeerDASBlobManager,
   SAMPLES_PER_SLOT,
-} from '../src/da'
+} from '../src/da/peerdas'
 
 const TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address
 

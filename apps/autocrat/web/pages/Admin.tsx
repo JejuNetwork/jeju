@@ -500,72 +500,68 @@ export default function AdminPage() {
           {/* Run Details */}
           <div className="space-y-4">
             {selectedRun ? (
-              <>
-                <div className="card-static p-4">
-                  <h3 className="font-semibold mb-3">Run Details</h3>
-                  <div className="space-y-3 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">ID</span>
-                      <span className="font-mono">{selectedRun.id}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Status</span>
-                      <span
-                        className={
-                          selectedRun.status === 'running'
-                            ? 'text-green-600'
-                            : ''
-                        }
-                      >
-                        {selectedRun.status}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Model</span>
-                      <span>{selectedRun.baseModel}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Environment</span>
-                      <span>{selectedRun.environment.type}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Iterations</span>
-                      <span>{selectedRun.iterations}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Score</span>
-                      <span className="font-semibold">
-                        {selectedRun.currentScore.toFixed(4)}
-                      </span>
-                    </div>
+              <div className="card-static p-4">
+                <h3 className="font-semibold mb-3">Run Details</h3>
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">ID</span>
+                    <span className="font-mono">{selectedRun.id}</span>
                   </div>
-
-                  <div className="flex gap-2 mt-4">
-                    {selectedRun.status === 'pending' && (
-                      <button
-                        type="button"
-                        onClick={() => handleStartRun(selectedRun.id)}
-                        disabled={actionLoading}
-                        className="btn-primary flex-1 text-sm flex items-center justify-center gap-1"
-                      >
-                        <Play size={14} />
-                        Start
-                      </button>
-                    )}
-                    {selectedRun.status === 'running' && (
-                      <button
-                        type="button"
-                        onClick={() => handleCancelRun(selectedRun.id)}
-                        disabled={actionLoading}
-                        className="btn-secondary flex-1 text-sm flex items-center justify-center gap-1"
-                      >
-                        <Pause size={14} />
-                        Cancel
-                      </button>
-                    )}
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Status</span>
+                    <span
+                      className={
+                        selectedRun.status === 'running' ? 'text-green-600' : ''
+                      }
+                    >
+                      {selectedRun.status}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Model</span>
+                    <span>{selectedRun.baseModel}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Environment</span>
+                    <span>{selectedRun.environment.type}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Iterations</span>
+                    <span>{selectedRun.iterations}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Score</span>
+                    <span className="font-semibold">
+                      {selectedRun.currentScore.toFixed(4)}
+                    </span>
                   </div>
                 </div>
-              </>
+
+                <div className="flex gap-2 mt-4">
+                  {selectedRun.status === 'pending' && (
+                    <button
+                      type="button"
+                      onClick={() => handleStartRun(selectedRun.id)}
+                      disabled={actionLoading}
+                      className="btn-primary flex-1 text-sm flex items-center justify-center gap-1"
+                    >
+                      <Play size={14} />
+                      Start
+                    </button>
+                  )}
+                  {selectedRun.status === 'running' && (
+                    <button
+                      type="button"
+                      onClick={() => handleCancelRun(selectedRun.id)}
+                      disabled={actionLoading}
+                      className="btn-secondary flex-1 text-sm flex items-center justify-center gap-1"
+                    >
+                      <Pause size={14} />
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              </div>
             ) : (
               <div className="card-static p-8 text-center text-gray-500">
                 <Cpu size={32} className="mx-auto mb-2 opacity-30" />
