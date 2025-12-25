@@ -2,7 +2,7 @@
  * Global type declarations for cross-platform compatibility
  */
 
-import type { EIP1193Param } from './chrome-types'
+import type { EIP1193Param } from '../../extension/types'
 import type { Address, Hex } from 'viem'
 
 /** Safari extension message user info */

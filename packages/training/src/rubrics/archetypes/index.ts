@@ -208,7 +208,7 @@ export function registerArchetypeRubrics(): void {
   }
 }
 
-// Re-export individual rubrics for direct access
+// Export individual rubrics for direct access
 export {
   ASS_KISSER_PRIORITY_METRICS,
   ASS_KISSER_RUBRIC,

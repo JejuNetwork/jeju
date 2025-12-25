@@ -7,10 +7,8 @@ import {
   VPNProtocolSchema,
 } from '@jejunetwork/types'
 import type { Address } from 'viem'
+import { VPNProtocolSchema, type VPNProtocol } from '@jejunetwork/types'
 import { z } from 'zod'
-
-// Re-export VPNProtocol from types
-export { type VPNProtocol, VPNProtocolSchema } from '@jejunetwork/types'
 
 export const VPNNodeStatusSchema = z.enum(['online', 'busy', 'offline'])
 

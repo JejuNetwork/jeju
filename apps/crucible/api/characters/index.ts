@@ -88,7 +88,6 @@ export { blueTeamCharacter } from './blue-team'
 export { communityManagerCharacter } from './community-manager'
 export { devRelCharacter } from './devrel'
 export { liaisonCharacter } from './liaison'
-// Re-export individual characters for direct import
 export { projectManagerCharacter } from './project-manager'
 export { redTeamCharacter } from './red-team'
 export { socialMediaManagerCharacter } from './social-media-manager'

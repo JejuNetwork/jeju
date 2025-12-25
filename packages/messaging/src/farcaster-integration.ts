@@ -15,10 +15,6 @@
 
 import type { Address } from 'viem'
 import type { DCClientConfig, DirectCast, DirectCastClient } from './farcaster'
-
-// Re-export Farcaster types for convenience
-export type { DirectCast, DCClientConfig }
-
 import {
   createMessagingClient,
   type MessagingClient,
