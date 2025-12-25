@@ -25,23 +25,25 @@ console.log(addresses.jejuToken);
 const testnet = getContractAddressesByNetwork('testnet');
 ```
 
-### ABIs
+### ABIs (Typed)
+
+Use typed ABIs (camelCase) for full type inference with viem:
 
 ```typescript
-import { ERC20Abi, IdentityRegistryAbi, BazaarAbi, JejuTokenAbi } from '@jejunetwork/contracts';
+import { erc20Abi, identityRegistryAbi, bazaarAbi, networkTokenAbi } from '@jejunetwork/contracts';
 
-// With viem
+// With viem - full type inference and autocomplete
 const balance = await client.readContract({
   address: tokenAddress,
-  abi: JejuTokenAbi,
-  functionName: 'balanceOf',
-  args: [userAddress],
+  abi: networkTokenAbi,
+  functionName: 'balanceOf', // ✓ Autocomplete works
+  args: [userAddress],       // ✓ Type checked
 });
 
 // Check if user is banned
 const isBanned = await client.readContract({
   address: jejuTokenAddress,
-  abi: JejuTokenAbi,
+  abi: networkTokenAbi,
   functionName: 'isBanned',
   args: [userAddress],
 });
