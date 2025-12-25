@@ -34,9 +34,9 @@ export function Dashboard() {
   const firingAlerts = alerts.filter((a: Alert) => a.state === 'firing')
 
   return (
-    <div className="space-y-6 md:space-y-8">
+    <div className="space-y-6 md:space-y-8" data-testid="dashboard">
       {/* Health Overview */}
-      <div className="card-static p-6 md:p-8">
+      <div className="card-static p-6 md:p-8" data-testid="health-overview">
         <div className="flex flex-col lg:flex-row items-center gap-8">
           <div className="flex-shrink-0">
             <HealthRing
@@ -305,7 +305,11 @@ function QuickLinkCard({
   gradient,
 }: QuickLinkCardProps) {
   return (
-    <Link to={to} className="group">
+    <Link
+      to={to}
+      className="group"
+      data-testid={`quick-link-${title.toLowerCase()}`}
+    >
       <div className="card p-4 md:p-6 h-full flex items-center gap-4">
         <div
           className={`w-12 h-12 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center text-white group-hover:scale-110 transition-transform`}

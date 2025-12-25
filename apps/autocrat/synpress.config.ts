@@ -2,13 +2,14 @@
  * Autocrat Synpress Configuration
  * Uses shared config from @jejunetwork/tests
  */
+import { CORE_PORTS } from '@jejunetwork/config'
 import {
   createSynpressConfig,
   createWalletSetup,
   PASSWORD,
 } from '@jejunetwork/tests'
 
-const AUTOCRAT_PORT = parseInt(process.env.PORT || '3010', 10)
+const AUTOCRAT_PORT = CORE_PORTS.AUTOCRAT_WEB.get()
 const BASE_URL = `http://localhost:${AUTOCRAT_PORT}`
 
 export default createSynpressConfig({

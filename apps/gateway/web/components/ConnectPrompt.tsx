@@ -1,5 +1,5 @@
 import { ConnectButton } from '@rainbow-me/rainbowkit'
-import { Wallet, type LucideProps } from 'lucide-react'
+import { type LucideProps, Wallet } from 'lucide-react'
 import type { ComponentType } from 'react'
 
 const WalletIcon = Wallet as ComponentType<LucideProps>
@@ -69,7 +69,11 @@ export function ConnectPrompt({
 /**
  * A smaller inline connect button for use in forms or action areas.
  */
-export function ConnectButtonInline({ label = 'Connect Wallet' }: { label?: string }) {
+export function ConnectButtonInline({
+  label = 'Connect Wallet',
+}: {
+  label?: string
+}) {
   return (
     <div style={{ display: 'flex', justifyContent: 'center' }}>
       <ConnectButton.Custom>

@@ -337,9 +337,23 @@ impl ContributionManager {
     }
 
     /// Check if current time is within scheduled contribution window
+    ///
+    /// TODO: Implement proper schedule parsing and checking.
+    /// Should parse schedule_start and schedule_end times (HH:MM format)
+    /// and check if current local time falls within the window.
+    ///
+    /// For now, always returns true (schedule not enforced).
     fn is_within_schedule(&self) -> bool {
-        // TODO: Implement schedule checking
-        // For now, return true
+        if !self.settings.schedule_enabled {
+            return true;
+        }
+
+        // Schedule checking not implemented - always allow when enabled
+        tracing::debug!(
+            "Schedule check: {} - {} (not enforced)",
+            self.settings.schedule_start,
+            self.settings.schedule_end
+        );
         true
     }
 

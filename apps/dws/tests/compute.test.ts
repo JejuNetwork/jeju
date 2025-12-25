@@ -20,8 +20,8 @@ import {
   inferenceNodes,
   registerNode,
   unregisterNode,
-} from '../src/compute/inference-node'
-import { app } from '../src/server'
+} from '../api/compute/inference-node'
+import { app } from '../api/server'
 
 setDefaultTimeout(10000)
 

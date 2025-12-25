@@ -39,7 +39,6 @@ export const TEEProvider = {
   PHALA: 'phala',
   INTEL_TDX: 'intel-tdx',
   AMD_SEV: 'amd-sev',
-  LOCAL: 'local', // For development
 } as const
 export type TEEProvider = (typeof TEEProvider)[keyof typeof TEEProvider]
 
@@ -70,8 +69,8 @@ export interface TEEGPUNodeConfig {
   zone: string
   gpu: GPUCapabilities
   teeProvider: TEEProvider
-  teeEndpoint?: string
-  teeApiKey?: string
+  teeEndpoint: string
+  teeApiKey: string
 }
 
 export interface TEEGPUNode extends ComputeNode {
@@ -114,7 +113,7 @@ export interface GPUJobResult {
 }
 
 // Validation schemas
-const TEEProviderSchema = z.enum(['phala', 'intel-tdx', 'amd-sev', 'local'])
+const TEEProviderSchema = z.enum(['phala', 'intel-tdx', 'amd-sev'])
 
 const TEEAttestationSchema = z.object({
   quote: HexSchema,
@@ -154,6 +153,17 @@ export class TEEGPUProvider {
   private attestationInterval?: ReturnType<typeof setInterval>
 
   constructor(config: TEEGPUNodeConfig) {
+    // Validate required fields
+    if (!config.teeEndpoint) {
+      throw new Error(
+        'TEE endpoint is required - set PHALA_ENDPOINT environment variable',
+      )
+    }
+    if (!config.teeApiKey) {
+      throw new Error(
+        'TEE API key is required - set PHALA_API_KEY environment variable',
+      )
+    }
     this.config = config
   }
 
@@ -165,7 +175,7 @@ export class TEEGPUProvider {
       `[TEE-GPU] Initializing ${this.config.gpu.gpuType} node ${this.config.nodeId}`,
     )
 
-    // Generate initial attestation
+    // Generate initial attestation from real TEE provider
     const attestation = await this.generateAttestation()
 
     // Register as compute node
@@ -200,7 +210,7 @@ export class TEEGPUProvider {
       reputation: 100,
       gpu: this.config.gpu,
       teeProvider: this.config.teeProvider,
-      teeEndpoint: this.config.teeEndpoint ?? this.config.endpoint,
+      teeEndpoint: this.config.teeEndpoint,
       attestation,
       lastAttestationAt: Date.now(),
     }
@@ -331,36 +341,12 @@ export class TEEGPUProvider {
    * Execute job in TEE environment
    */
   private async executeInTEE(request: GPUJobRequest): Promise<GPUJobResult> {
-    const teeEndpoint = this.config.teeEndpoint ?? this.config.endpoint
-
-    if (this.config.teeProvider === TEEProvider.LOCAL) {
-      // Local development mode - simulate TEE execution
-      console.log(`[TEE-GPU] Simulating TEE execution for job ${request.jobId}`)
-      await new Promise((resolve) => setTimeout(resolve, 100)) // Fast for testing
-
-      return {
-        jobId: request.jobId,
-        status: 'completed',
-        outputCID: `mock-output-${Date.now()}`,
-        metrics: {
-          trainingLoss: 0.05,
-          evalScore: 0.85,
-          gpuUtilization: 95,
-          vramUsedGb: 70,
-          durationSeconds: 0.1,
-        },
-      }
-    }
-
-    // Real TEE execution via Phala
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-    }
-    if (this.config.teeApiKey) {
-      headers['X-API-Key'] = this.config.teeApiKey
+      'X-API-Key': this.config.teeApiKey,
     }
 
-    const response = await fetch(`${teeEndpoint}/gpu/execute`, {
+    const response = await fetch(`${this.config.teeEndpoint}/gpu/execute`, {
       method: 'POST',
       headers,
       body: JSON.stringify({
@@ -384,44 +370,31 @@ export class TEEGPUProvider {
   }
 
   /**
-   * Generate TEE attestation
+   * Generate TEE attestation from real TEE provider
    */
   private async generateAttestation(): Promise<TEEAttestation> {
-    if (this.config.teeProvider === TEEProvider.LOCAL) {
-      // Mock attestation for local development
-      const timestamp = Date.now()
-      const mrEnclave = keccak256(toBytes(`${this.config.nodeId}:${timestamp}`))
-
-      return {
-        quote: `0x${'00'.repeat(256)}` as Hex,
-        mrEnclave,
-        mrSigner: keccak256(toBytes(this.config.address)),
-        reportData: keccak256(
-          toBytes(`${mrEnclave}:${this.config.gpu.gpuType}`),
-        ),
-        timestamp,
-        provider: TEEProvider.LOCAL,
-      }
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'X-API-Key': this.config.teeApiKey,
     }
 
-    const teeEndpoint = this.config.teeEndpoint ?? this.config.endpoint
-    const headers: Record<string, string> = {}
-    if (this.config.teeApiKey) {
-      headers['X-API-Key'] = this.config.teeApiKey
-    }
-
-    const response = await fetch(`${teeEndpoint}/attestation/generate`, {
-      method: 'POST',
-      headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        nodeId: this.config.nodeId,
-        gpuType: this.config.gpu.gpuType,
-        gpuCount: this.config.gpu.gpuCount,
-      }),
-    })
+    const response = await fetch(
+      `${this.config.teeEndpoint}/attestation/generate`,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          nodeId: this.config.nodeId,
+          gpuType: this.config.gpu.gpuType,
+          gpuCount: this.config.gpu.gpuCount,
+        }),
+      },
+    )
 
     if (!response.ok) {
-      throw new Error(`Failed to generate attestation: ${response.status}`)
+      throw new Error(
+        `Failed to generate attestation: ${response.status} ${await response.text()}`,
+      )
     }
 
     const data = expectValid(
@@ -460,17 +433,13 @@ export class TEEGPUProvider {
    * Refresh attestation
    */
   private async refreshAttestation(): Promise<void> {
-    try {
-      const attestation = await this.generateAttestation()
-      const node = teeGpuNodes.get(this.config.nodeId)
-      if (node) {
-        node.attestation = attestation
-        node.lastAttestationAt = Date.now()
-      }
-      console.log(`[TEE-GPU] Attestation refreshed for ${this.config.nodeId}`)
-    } catch (error) {
-      console.error(`[TEE-GPU] Failed to refresh attestation:`, error)
+    const attestation = await this.generateAttestation()
+    const node = teeGpuNodes.get(this.config.nodeId)
+    if (node) {
+      node.attestation = attestation
+      node.lastAttestationAt = Date.now()
     }
+    console.log(`[TEE-GPU] Attestation refreshed for ${this.config.nodeId}`)
   }
 
   /**
@@ -556,12 +525,27 @@ export interface CreateTEEGPUProviderConfig {
 
 /**
  * Create a TEE GPU provider for training
+ * Requires PHALA_ENDPOINT and PHALA_API_KEY environment variables
  */
 export function createTEEGPUProvider(
   config: CreateTEEGPUProviderConfig,
 ): TEEGPUProvider {
   const gpuSpec = GPU_SPECS[config.gpuType]
   const gpuName = config.gpuType.replace('nvidia-', '')
+
+  const teeEndpoint = config.teeEndpoint ?? process.env.PHALA_ENDPOINT
+  const teeApiKey = config.teeApiKey ?? process.env.PHALA_API_KEY
+
+  if (!teeEndpoint) {
+    throw new Error(
+      'TEE endpoint required: set PHALA_ENDPOINT environment variable or pass teeEndpoint',
+    )
+  }
+  if (!teeApiKey) {
+    throw new Error(
+      'TEE API key required: set PHALA_API_KEY environment variable or pass teeApiKey',
+    )
+  }
 
   return new TEEGPUProvider({
     nodeId: config.nodeId ?? `${gpuName}-${Date.now()}`,
@@ -574,8 +558,8 @@ export function createTEEGPUProvider(
       gpuCount: config.gpuCount ?? 8,
     },
     teeProvider: config.teeProvider ?? TEEProvider.PHALA,
-    teeEndpoint: config.teeEndpoint ?? process.env.PHALA_ENDPOINT,
-    teeApiKey: config.teeApiKey ?? process.env.PHALA_API_KEY,
+    teeEndpoint,
+    teeApiKey,
   })
 }
 

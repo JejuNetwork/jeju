@@ -25,11 +25,9 @@ const SecurityValidationResponseSchema = z.object({
   notes: z.array(z.string()),
 })
 
-// DWS URL is automatically resolved from network config - no direct API calls
+// DWS URL is resolved from network config (handles env overrides)
 function getDWSEndpoint(): string {
-  return (
-    process.env.DWS_URL ?? process.env.DWS_COMPUTE_URL ?? getDWSComputeUrl()
-  )
+  return getDWSComputeUrl()
 }
 
 interface ValidationContext {

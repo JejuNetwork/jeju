@@ -2,6 +2,7 @@
  * ERC-8004 Agent Registry Routes
  */
 
+import { getContract } from '@jejunetwork/config'
 import { expectValid } from '@jejunetwork/types'
 import { Elysia, t } from 'elysia'
 import { A2AJsonRpcResponseSchema } from '../../lib'
@@ -9,13 +10,20 @@ import { createAutocratA2AServer } from '../a2a-server'
 import { type ERC8004Config, getERC8004Client } from '../erc8004'
 import { blockchain, config } from '../shared-state'
 
+// Helper to safely get contract addresses
+const getValidationRegistryAddr = () => {
+  try {
+    return getContract('registry', 'validation')
+  } catch {
+    return '0x0000000000000000000000000000000000000000'
+  }
+}
+
 const erc8004Config: ERC8004Config = {
   rpcUrl: config.rpcUrl,
   identityRegistry: config.contracts.identityRegistry,
   reputationRegistry: config.contracts.reputationRegistry,
-  validationRegistry:
-    process.env.VALIDATION_REGISTRY_ADDRESS ??
-    '0x0000000000000000000000000000000000000000',
+  validationRegistry: getValidationRegistryAddr(),
   operatorKey: process.env.OPERATOR_KEY ?? process.env.PRIVATE_KEY,
 }
 const erc8004 = getERC8004Client(erc8004Config)

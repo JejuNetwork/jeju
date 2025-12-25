@@ -108,9 +108,10 @@ function validateSearchParams(raw: SearchParams): ValidatedSearchParams {
       .filter(Boolean)
   }
 
+  const parsedMinStakeTier = parseInt(String(raw.minStakeTier ?? '0'), 10)
   const minStakeTier = Math.max(
     0,
-    Math.min(4, parseInt(String(raw.minStakeTier ?? '0'), 10) ?? 0),
+    Math.min(4, Number.isNaN(parsedMinStakeTier) ? 0 : parsedMinStakeTier),
   )
   const limit = Math.max(
     1,

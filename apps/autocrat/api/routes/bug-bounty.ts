@@ -479,6 +479,30 @@ export const bugBountyRoutes = new Elysia({ prefix: '/api/v1/bug-bounty' })
       detail: { tags: ['bug-bounty'], summary: 'Get researcher stats' },
     },
   )
+  // Researcher Leaderboard
+  .get(
+    '/leaderboard',
+    async ({ query }) => {
+      const limit = query.limit ? Number.parseInt(query.limit, 10) : 10
+      const service = getBugBountyService()
+      const entries = await service.getLeaderboard(limit)
+
+      return {
+        entries: entries.map((e) => ({
+          researcher: e.researcher,
+          totalSubmissions: e.totalSubmissions,
+          approvedSubmissions: e.approvedSubmissions,
+          totalEarned: e.totalEarned.toString(),
+          successRate: e.successRate,
+        })),
+        total: entries.length,
+      }
+    },
+    {
+      query: t.Object({ limit: t.Optional(t.String()) }),
+      detail: { tags: ['bug-bounty'], summary: 'Get researcher leaderboard' },
+    },
+  )
   // Sandbox Stats
   .get(
     '/sandbox/stats',

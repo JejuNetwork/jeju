@@ -27,12 +27,12 @@ import {
   scheduleExecutionSync,
   updateNodeResources,
   updateNodeStatus,
-} from '../src/containers/scheduler'
+} from '../api/containers/scheduler'
 import type {
   ComputeNode,
   ContainerImage,
   ExecutionRequest,
-} from '../src/containers/types'
+} from '../api/containers/types'
 
 const TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address
 

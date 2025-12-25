@@ -23,6 +23,7 @@ export function createVPNServer(config: VPNServerConfig) {
     nodes: new Map(),
     sessions: new Map(),
     contributions: new Map(),
+    contributionSettings: new Map(),
   }
 
   const app = new Elysia()

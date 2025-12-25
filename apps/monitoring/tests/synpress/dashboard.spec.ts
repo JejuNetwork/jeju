@@ -3,7 +3,7 @@
  *
  * Tests monitoring functionality against real localnet:
  * - Dashboard loads correctly
- * - Metrics display properly
+ * - Health indicators display properly
  * - A2A endpoint responds
  * - Real-time updates work
  */
@@ -13,53 +13,52 @@ import { expect, test } from '@playwright/test'
 test.describe('Monitoring Dashboard', () => {
   test('should load dashboard', async ({ page }) => {
     await page.goto('/')
-    await expect(page).toHaveTitle(/Monitoring|Dashboard|Jeju/i)
+    await expect(page).toHaveTitle(/Monitoring|Network/i)
   })
 
-  test('should display metrics', async ({ page }) => {
+  test('should display health ring', async ({ page }) => {
     await page.goto('/')
-
-    // Wait for metrics to load
-    await page.waitForSelector('[data-testid="metrics"], .metric, .chart', {
-      timeout: 10000,
-    })
-
-    // Verify some metrics are visible
-    const metricsVisible = await page
-      .locator('.metric, [data-testid="metric"]')
-      .count()
-    expect(metricsVisible).toBeGreaterThan(0)
+    await page.waitForLoadState('networkidle')
+    const healthRing = page.locator('svg[role="img"]').first()
+    await expect(healthRing).toBeVisible({ timeout: 10000 })
   })
 
-  test('should check health endpoint', async ({ page }) => {
+  test('should display stat cards', async ({ page }) => {
+    await page.goto('/')
+    await page.waitForLoadState('networkidle')
+    await expect(page.getByText('Targets', { exact: true })).toBeVisible()
+    await expect(page.getByText('Alerts', { exact: true })).toBeVisible()
+  })
+
+  test('should display quick link cards', async ({ page }) => {
+    await page.goto('/')
+    await expect(page.locator('main a[href="/alerts"]').first()).toBeVisible()
+    await expect(page.locator('main a[href="/targets"]').first()).toBeVisible()
+    await expect(page.locator('main a[href="/oif"]').first()).toBeVisible()
+  })
+
+  test('should check agent card endpoint', async ({ page }) => {
     const response = await page.request.get('/.well-known/agent-card.json')
     expect(response.ok()).toBe(true)
 
     const card = await response.json()
     expect(card).toHaveProperty('name')
-    expect(card.name).toContain('monitoring')
-  })
-
-  test('should query Prometheus metrics', async ({ page }) => {
-    // Check if Prometheus endpoint is accessible
-    const response = await page.request.get('/api/metrics')
-
-    if (response.ok()) {
-      const text = await response.text()
-      // Prometheus metrics format check
-      expect(text).toContain('# HELP')
-    }
+    expect(card).toHaveProperty('skills')
+    expect(Array.isArray(card.skills)).toBe(true)
   })
 })
 
 test.describe('A2A Protocol', () => {
-  test('should respond to A2A requests', async ({ page }) => {
+  test('should respond to A2A message/send requests', async ({ page }) => {
     const response = await page.request.post('/api/a2a', {
       data: {
         jsonrpc: '2.0',
-        method: 'query',
+        method: 'message/send',
         params: {
-          query: 'up',
+          message: {
+            messageId: 'test-1',
+            parts: [{ kind: 'data', data: { skillId: 'get-alerts' } }],
+          },
         },
         id: 1,
       },
@@ -67,49 +66,81 @@ test.describe('A2A Protocol', () => {
 
     expect(response.ok()).toBe(true)
     const result = await response.json()
+    expect(result).toHaveProperty('jsonrpc', '2.0')
     expect(result).toHaveProperty('result')
   })
 
-  test('should list available tools', async ({ page }) => {
-    const response = await page.request.post('/api/mcp', {
+  test('should handle query-metrics skill', async ({ page }) => {
+    const response = await page.request.post('/api/a2a', {
       data: {
         jsonrpc: '2.0',
-        method: 'tools/list',
-        id: 1,
+        method: 'message/send',
+        params: {
+          message: {
+            messageId: 'test-2',
+            parts: [
+              { kind: 'data', data: { skillId: 'query-metrics', query: 'up' } },
+            ],
+          },
+        },
+        id: 2,
       },
     })
 
-    if (response.ok()) {
-      const result = await response.json()
-      expect(result).toHaveProperty('result')
-      expect(result.result).toHaveProperty('tools')
-    }
+    expect(response.ok()).toBe(true)
+    const result = await response.json()
+    expect(result.jsonrpc).toBe('2.0')
+  })
+})
+
+test.describe('Navigation', () => {
+  test('should navigate to alerts page', async ({ page }) => {
+    await page.goto('/')
+    await page.locator('main a[href="/alerts"]').first().click()
+    await expect(page).toHaveURL('/alerts')
+    await expect(page.getByRole('heading', { name: 'Alerts' })).toBeVisible()
+  })
+
+  test('should navigate to targets page', async ({ page }) => {
+    await page.goto('/')
+    await page.locator('main a[href="/targets"]').first().click()
+    await expect(page).toHaveURL('/targets')
+    await expect(page.getByRole('heading', { name: 'Targets' })).toBeVisible()
+  })
+
+  test('should navigate to OIF page', async ({ page }) => {
+    await page.goto('/')
+    await page.locator('main a[href="/oif"]').first().click()
+    await expect(page).toHaveURL('/oif')
+    await expect(page.getByRole('heading', { name: 'OIF' })).toBeVisible()
+  })
+
+  test('should navigate to query page', async ({ page }) => {
+    await page.goto('/')
+    await page.getByRole('link', { name: 'Query' }).first().click()
+    await expect(page).toHaveURL('/query')
+    await expect(page.getByRole('heading', { name: 'Query' })).toBeVisible()
   })
 })
 
 test.describe('Real-time Updates', () => {
-  test('should update metrics periodically', async ({ page }) => {
-    await page.goto('/')
+  test('should refresh alerts when clicking refresh button', async ({
+    page,
+  }) => {
+    await page.goto('/alerts')
+    const refreshBtn = page.getByRole('button', { name: /Refresh/i })
+    await expect(refreshBtn).toBeVisible()
+    await refreshBtn.click()
+    await expect(refreshBtn).toBeEnabled()
+  })
 
-    // Get initial value
-    const metricSelector = '.metric-value, [data-testid="metric-value"]'
-    await page.waitForSelector(metricSelector, { timeout: 10000 })
-
-    const _initialValue = await page
-      .locator(metricSelector)
-      .first()
-      .textContent()
-
-    // Wait for update (metrics typically refresh every 5-15 seconds)
-    await page.waitForTimeout(15000)
-
-    // Check if value changed (or at least page is still responsive)
-    const currentValue = await page
-      .locator(metricSelector)
-      .first()
-      .textContent()
-
-    // Value might be same or different, but should be valid
-    expect(currentValue).toBeDefined()
+  test('should refresh targets when clicking refresh button', async ({
+    page,
+  }) => {
+    await page.goto('/targets')
+    const refreshBtn = page.getByRole('button', { name: /Refresh/i })
+    await expect(refreshBtn).toBeVisible()
+    await refreshBtn.click()
+    await expect(refreshBtn).toBeEnabled()
   })
 })

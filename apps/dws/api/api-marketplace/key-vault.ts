@@ -105,11 +105,11 @@ function decryptApiKey(encryptedKey: string, keyId: string): string {
  * Store a key in the vault (encrypted)
  * Uses AES-256-GCM encryption with server secret
  */
-export function storeKey(
+export async function storeKey(
   providerId: string,
   owner: Address,
   apiKey: string,
-): VaultKey {
+): Promise<VaultKey> {
   const id = crypto.randomUUID()
 
   // Encrypt the API key with AES-256-GCM
@@ -120,7 +120,7 @@ export function storeKey(
     providerId,
     owner,
     encryptedKey,
-    attestation: generateAttestation(id),
+    attestation: await generateAttestation(id),
     createdAt: Date.now(),
   }
 
@@ -292,16 +292,52 @@ export function getAccessLogByRequester(requester: Address): typeof accessLog {
 
 // TEE Attestation
 
+const TEE_ENDPOINT = process.env.TEE_ATTESTATION_ENDPOINT
+const TEE_API_KEY = process.env.TEE_ATTESTATION_API_KEY
+
 /**
  * Generate a TEE attestation for a key
- * In production, this would be a real SGX/TDX attestation
+ * Uses real TEE attestation service when TEE_ATTESTATION_ENDPOINT is configured
  */
-function generateAttestation(keyId: string): string {
+async function generateAttestation(keyId: string): Promise<string> {
   const timestamp = Date.now()
+
+  // Use real TEE attestation if endpoint is configured
+  if (TEE_ENDPOINT && TEE_API_KEY) {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'X-API-Key': TEE_API_KEY,
+    }
+
+    const response = await fetch(`${TEE_ENDPOINT}/attestation/generate`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        keyId,
+        timestamp,
+        operation: 'key-access',
+      }),
+    })
+
+    if (!response.ok) {
+      throw new Error(`TEE attestation failed: ${response.status}`)
+    }
+
+    const result = (await response.json()) as { attestation: string }
+    return result.attestation
+  }
+
+  // Development mode - log warning
+  if (process.env.NODE_ENV === 'production') {
+    console.warn(
+      '[KeyVault] TEE attestation endpoint not configured - using local attestation',
+    )
+  }
+
   const attestationData = {
     keyId,
     timestamp,
-    enclave: 'simulated-tee',
+    enclave: process.env.TEE_ENCLAVE_ID ?? 'development',
     version: '1.0.0',
   }
   return Buffer.from(JSON.stringify(attestationData)).toString('base64')

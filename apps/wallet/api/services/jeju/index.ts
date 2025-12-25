@@ -92,8 +92,10 @@ const TokenBalancesDataSchema = z.object({
 const NFTTokenSchema = z.object({
   contractAddress: z.string().optional(),
   tokenId: z.string(),
+  chainId: z.number(),
   owner: z.string().optional(),
   tokenUri: z.string().nullable(),
+  collectionName: z.string().optional(),
   metadata: z
     .object({
       name: z.string().optional(),
@@ -292,8 +294,10 @@ export async function getTokenBalances(
 export interface IndexedNFT {
   contractAddress: string
   tokenId: string
+  chainId: number
   owner: string
   tokenUri: string | null
+  collectionName?: string
   metadata: {
     name?: string
     description?: string
@@ -307,7 +311,7 @@ export async function getNFTs(address: Address): Promise<IndexedNFT[]> {
     `
     query GetNFTs($address: String!) {
       nftTokens(where: { owner: { address_eq: $address } }) {
-        contract { address }
+        contract { address chainId name }
         tokenId
         owner { address }
         tokenUri
@@ -323,8 +327,10 @@ export async function getNFTs(address: Address): Promise<IndexedNFT[]> {
   return data.nftTokens.map((nft) => ({
     contractAddress: nft.contractAddress ?? '',
     tokenId: nft.tokenId,
+    chainId: nft.chainId,
     owner: nft.owner ?? '',
     tokenUri: nft.tokenUri,
+    collectionName: nft.collectionName,
     metadata: nft.metadata,
   }))
 }

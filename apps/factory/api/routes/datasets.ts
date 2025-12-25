@@ -2,13 +2,18 @@
 
 import { Elysia } from 'elysia'
 import {
+  type DatasetRow,
+  createDataset as dbCreateDataset,
+  listDatasets as dbListDatasets,
+} from '../db/client'
+import {
   CreateDatasetBodySchema,
   DatasetsQuerySchema,
   expectValid,
 } from '../schemas'
 import { requireAuth } from '../validation/access-control'
 
-interface Dataset {
+export interface Dataset {
   id: string
   name: string
   organization: string
@@ -27,33 +32,39 @@ interface Dataset {
   updatedAt: number
 }
 
+function transformDataset(row: DatasetRow): Dataset {
+  return {
+    id: row.id,
+    name: row.name,
+    organization: row.organization,
+    description: row.description,
+    type: row.type,
+    format: row.format,
+    size: row.size,
+    rows: row.rows,
+    downloads: row.downloads,
+    stars: row.stars,
+    license: row.license,
+    tags: JSON.parse(row.tags) as string[],
+    isVerified: row.is_verified === 1,
+    status: row.status,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
 export const datasetsRoutes = new Elysia({ prefix: '/api/datasets' })
   .get(
     '/',
     async ({ query }) => {
-      expectValid(DatasetsQuerySchema, query, 'query params')
+      const validated = expectValid(DatasetsQuerySchema, query, 'query params')
 
-      const datasets: Dataset[] = [
-        {
-          id: '1',
-          name: 'jeju-contracts-v2',
-          organization: 'jeju',
-          description: 'Curated dataset of audited Solidity smart contracts',
-          type: 'code',
-          format: 'parquet',
-          size: '2.3 GB',
-          rows: 150000,
-          downloads: 8420,
-          stars: 234,
-          license: 'Apache-2.0',
-          tags: ['solidity', 'smart-contracts', 'security'],
-          isVerified: true,
-          status: 'ready',
-          createdAt: Date.now() - 30 * 24 * 60 * 60 * 1000,
-          updatedAt: Date.now() - 3 * 24 * 60 * 60 * 1000,
-        },
-      ]
+      const datasetRows = dbListDatasets({
+        type: validated.type,
+        org: validated.org,
+      })
 
+      const datasets = datasetRows.map(transformDataset)
       return { datasets, total: datasets.length }
     },
     {
@@ -79,27 +90,17 @@ export const datasetsRoutes = new Elysia({ prefix: '/api/datasets' })
         'request body',
       )
 
-      const dataset: Dataset = {
-        id: `dataset-${Date.now()}`,
+      const row = dbCreateDataset({
         name: validated.name,
         organization: validated.organization,
         description: validated.description,
         type: validated.type,
         license: validated.license,
-        format: 'unknown',
-        size: '0',
-        rows: 0,
-        downloads: 0,
-        stars: 0,
-        tags: [],
-        isVerified: false,
-        status: 'processing',
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      }
+        owner: authResult.address,
+      })
 
       set.status = 201
-      return dataset
+      return transformDataset(row)
     },
     {
       detail: {

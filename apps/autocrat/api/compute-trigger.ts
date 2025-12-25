@@ -64,17 +64,16 @@ export interface OrchestratorTriggerResult {
   error?: string
 }
 
-// Network-aware endpoints
+// Network-aware endpoints - config already handles env overrides
 function getAutocratEndpoint(): string {
-  return process.env.AUTOCRAT_URL ?? getAutocratUrl()
+  return getAutocratUrl()
 }
 
 function getComputeEndpoint(): string {
-  return (
-    process.env.COMPUTE_URL ?? process.env.DWS_COMPUTE_URL ?? getDWSComputeUrl()
-  )
+  return getDWSComputeUrl()
 }
 
+// Cron expression for orchestrator cycle - env override for custom schedules
 const ORCHESTRATOR_CRON = process.env.ORCHESTRATOR_CRON ?? '*/30 * * * * *'
 
 export function getAutocratTriggers(): Array<

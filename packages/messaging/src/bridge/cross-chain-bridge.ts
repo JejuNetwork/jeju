@@ -151,7 +151,7 @@ export class CrossChainBridgeClient {
   constructor(config: Partial<CrossChainBridgeConfig> = {}) {
     const zeroAddress: Address = '0x0000000000000000000000000000000000000000'
     const sourceChain = config.sourceChain ?? MessagingChain.BASE
-    
+
     this.config = {
       jejuRpcUrl:
         config.jejuRpcUrl ??
@@ -225,17 +225,19 @@ export class CrossChainBridgeClient {
 
     if (!response.ok) {
       const errorText = await response.text()
-      throw new Error(`Failed to register keys: ${response.status} - ${errorText}`)
+      throw new Error(
+        `Failed to register keys: ${response.status} - ${errorText}`,
+      )
     }
 
     const json: unknown = await response.json()
     const result = RegisterKeysResponseSchema.parse(json)
-    
+
     logger.info('[CrossChainBridge] Keys registered', {
       address: userAddress,
       txHash: result.txHash,
     })
-    
+
     return { txHash: result.txHash }
   }
 
@@ -288,13 +290,15 @@ export class CrossChainBridgeClient {
 
     if (!response.ok) {
       const errorText = await response.text()
-      throw new Error(`Failed to send cross-chain message: ${response.status} - ${errorText}`)
+      throw new Error(
+        `Failed to send cross-chain message: ${response.status} - ${errorText}`,
+      )
     }
 
     this.pendingMessages.set(messageId, message)
-    
+
     logger.info('[CrossChainBridge] Message sent', { messageId })
-    
+
     return { messageId }
   }
 
@@ -308,7 +312,9 @@ export class CrossChainBridgeClient {
     )
 
     if (!response.ok) {
-      throw new Error(`Failed to get message status: ${response.status} ${response.statusText}`)
+      throw new Error(
+        `Failed to get message status: ${response.status} ${response.statusText}`,
+      )
     }
 
     const json: unknown = await response.json()
@@ -328,12 +334,14 @@ export class CrossChainBridgeClient {
     )
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch cross-chain messages: ${response.status} ${response.statusText}`)
+      throw new Error(
+        `Failed to fetch cross-chain messages: ${response.status} ${response.statusText}`,
+      )
     }
 
     const json: unknown = await response.json()
     const data = CrossChainMessagesResponseSchema.parse(json)
-    
+
     return data.messages.map((m) => ({
       id: m.id,
       sourceChain: m.sourceChain,
@@ -362,7 +370,9 @@ export class CrossChainBridgeClient {
     )
 
     if (!response.ok) {
-      throw new Error(`Failed to check keys on chain: ${response.status} ${response.statusText}`)
+      throw new Error(
+        `Failed to check keys on chain: ${response.status} ${response.statusText}`,
+      )
     }
 
     const json: unknown = await response.json()
@@ -383,7 +393,9 @@ export class CrossChainBridgeClient {
     )
 
     if (!response.ok) {
-      throw new Error(`Failed to get message route: ${response.status} ${response.statusText}`)
+      throw new Error(
+        `Failed to get message route: ${response.status} ${response.statusText}`,
+      )
     }
 
     const json: unknown = await response.json()

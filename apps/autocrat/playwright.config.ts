@@ -5,9 +5,10 @@
  * For wallet tests, use synpress.config.ts
  */
 
+import { CORE_PORTS } from '@jejunetwork/config'
 import { defineConfig, devices } from '@playwright/test'
 
-const AUTOCRAT_PORT = parseInt(process.env.PORT || '3010', 10)
+const AUTOCRAT_PORT = CORE_PORTS.AUTOCRAT_WEB.get()
 const BASE_URL = `http://localhost:${AUTOCRAT_PORT}`
 
 export default defineConfig({

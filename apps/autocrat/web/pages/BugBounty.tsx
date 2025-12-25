@@ -24,6 +24,8 @@ import {
   type BountySubmission,
   fetchBugBountyStats,
   fetchBugBountySubmissions,
+  fetchResearcherLeaderboard,
+  type ResearcherLeaderboardEntry,
 } from '../config/api'
 
 // Severity config
@@ -114,6 +116,9 @@ export default function BugBountyPage() {
   const navigate = useNavigate()
   const [stats, setStats] = useState<BountyStats | null>(null)
   const [submissions, setSubmissions] = useState<BountySubmission[]>([])
+  const [leaderboard, setLeaderboard] = useState<ResearcherLeaderboardEntry[]>(
+    [],
+  )
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<
     'overview' | 'submissions' | 'leaderboard'
@@ -122,18 +127,20 @@ export default function BugBountyPage() {
   useEffect(() => {
     async function fetchData() {
       setLoading(true)
-      const [statsData, submissionsData] = await Promise.all([
+      const [statsData, submissionsData, leaderboardData] = await Promise.all([
         fetchBugBountyStats().catch(() => null),
         fetchBugBountySubmissions(10).catch(() => ({
           submissions: [],
           total: 0,
         })),
+        fetchResearcherLeaderboard(20).catch(() => ({ entries: [], total: 0 })),
       ])
 
       if (statsData) {
         setStats(statsData)
       }
       setSubmissions(submissionsData.submissions ?? [])
+      setLeaderboard(leaderboardData.entries ?? [])
       setLoading(false)
     }
 
@@ -544,13 +551,64 @@ export default function BugBountyPage() {
 
         {activeTab === 'leaderboard' && (
           <div className="pb-16">
-            <h2 className="text-2xl font-bold text-white mb-6">
+            <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
+              <TrendingUp className="w-6 h-6 text-yellow-400" />
               Top Researchers
             </h2>
-            <div className="p-12 text-center">
-              <TrendingUp className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-              <p className="text-gray-400">Leaderboard coming soon...</p>
-            </div>
+
+            {loading ? (
+              <div className="text-center py-12 text-gray-400">Loading...</div>
+            ) : leaderboard.length === 0 ? (
+              <div className="text-center py-12">
+                <Users className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+                <p className="text-gray-400">
+                  No researchers yet. Be the first to submit a vulnerability.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {leaderboard.map((entry, index) => (
+                  <div
+                    key={entry.researcher}
+                    className="p-4 rounded-xl bg-gray-800/50 border border-gray-700 flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div
+                        className={`w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold ${
+                          index === 0
+                            ? 'bg-yellow-500 text-black'
+                            : index === 1
+                              ? 'bg-gray-300 text-black'
+                              : index === 2
+                                ? 'bg-orange-600 text-white'
+                                : 'bg-gray-700 text-white'
+                        }`}
+                      >
+                        {index + 1}
+                      </div>
+                      <div>
+                        <div className="font-medium text-white font-mono text-sm">
+                          {entry.researcher.slice(0, 6)}...
+                          {entry.researcher.slice(-4)}
+                        </div>
+                        <div className="text-sm text-gray-400">
+                          {entry.approvedSubmissions} approved /{' '}
+                          {entry.totalSubmissions} total
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-green-400 font-medium">
+                        {formatEther(BigInt(entry.totalEarned))} ETH
+                      </div>
+                      <div className="text-sm text-gray-400">
+                        {entry.successRate.toFixed(0)}% success
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -9,13 +9,13 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
-import { app } from '../api/server/index'
 import {
   getActiveNodes,
   inferenceNodes,
   registerNode,
   unregisterNode,
-} from '../src/compute/inference-node'
+} from '../api/compute/inference-node'
+import { app } from '../api/server/index'
 
 // Test response types
 interface ChatRequestBody {

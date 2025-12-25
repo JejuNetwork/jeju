@@ -12,6 +12,7 @@ import {
   http,
   type PublicClient,
 } from 'viem'
+import { API_URLS } from '../../../lib/eden'
 import { getChainContracts, getNetworkRpcUrl } from '../../sdk/chains'
 import { isSupportedChainId, rpcService } from '../rpc'
 
@@ -284,7 +285,7 @@ export class BazaarService {
   }
 
   /**
-   * Get active listings for a collection
+   * Get active listings for a collection via indexer
    */
   async getCollectionListings(
     collectionAddress: Address,
@@ -293,30 +294,53 @@ export class BazaarService {
     const bazaar = this.getBazaarAddress()
     if (!bazaar) return []
 
-    // In production, use indexer. For now, scan recent listings
-    const client = this.getClient()
-    const nextId = await client.readContract({
-      address: bazaar,
-      abi: BAZAAR_ABI,
-      functionName: 'nextListingId',
-      args: [],
-    })
-
-    const listings: Listing[] = []
-    const startId = nextId > BigInt(limit) ? nextId - BigInt(limit) : 1n
-
-    for (let i = startId; i < nextId && listings.length < limit; i++) {
-      const listing = await this.getListing(i)
-      if (
-        listing &&
-        listing.status === ListingStatus.Active &&
-        listing.assetContract.toLowerCase() === collectionAddress.toLowerCase()
-      ) {
-        listings.push(listing)
+    // Query indexer for active listings
+    try {
+      const response = await fetch(
+        `${API_URLS.indexer}/api/bazaar/listings?` +
+          `chainId=${this.chainId}&` +
+          `collection=${collectionAddress}&` +
+          `status=active&` +
+          `limit=${limit}`,
+      )
+      if (!response.ok) {
+        throw new Error(`Indexer returned ${response.status}`)
       }
-    }
 
-    return listings
+      const data = (await response.json()) as {
+        listings: Array<{
+          id: string
+          seller: string
+          assetType: number
+          assetContract: string
+          tokenId: string
+          amount: string
+          paymentToken: string
+          pricePerUnit: string
+          expirationTime: string
+          status: number
+        }>
+      }
+
+      return data.listings.map((listing) => ({
+        id: BigInt(listing.id),
+        seller: listing.seller as Address,
+        assetType: listing.assetType as AssetType,
+        assetContract: listing.assetContract as Address,
+        tokenId: BigInt(listing.tokenId),
+        amount: BigInt(listing.amount),
+        paymentToken: listing.paymentToken as Address,
+        pricePerUnit: BigInt(listing.pricePerUnit),
+        expirationTime: BigInt(listing.expirationTime),
+        status: listing.status as ListingStatus,
+        totalPrice: BigInt(listing.pricePerUnit) * BigInt(listing.amount),
+        isETH: listing.paymentToken === ZERO_ADDRESS,
+        chainId: this.chainId,
+      }))
+    } catch (error) {
+      console.warn('Failed to fetch listings from indexer:', error)
+      return []
+    }
   }
 
   /**

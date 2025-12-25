@@ -16,11 +16,8 @@
 import { logger } from '@jejunetwork/shared'
 import type { Address, Hex } from 'viem'
 import { keccak256, toBytes } from 'viem'
-import type {
-  EncryptedTrajectory,
-  TrajectoryBatch,
-} from '../storage'
 import type { TrajectoryStep } from '../schemas'
+import type { EncryptedTrajectory, TrajectoryBatch } from '../storage'
 import {
   isArrayOf,
   isCIDResponse,

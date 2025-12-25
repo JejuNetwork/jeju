@@ -64,6 +64,7 @@ const AppManifestSchema = z
         backend: z
           .object({
             runtime: z.string().optional(),
+            outputDir: z.string().optional(),
           })
           .optional(),
       })

@@ -1,21 +1,29 @@
 /**
  * DWS Inference Node System
  *
- * All inference goes through registered DWS nodes - no direct provider fallback.
+ * All inference goes through registered DWS nodes via on-chain ComputeRegistry.
  *
  * Architecture:
- * - Nodes register with DWS specifying their capabilities (models, providers)
- * - DWS routes requests to available nodes based on model/load
- * - Local dev: A local node registers to provide inference from your machine
- * - Testnet/Mainnet: Dedicated nodes serve the base providers
+ * - Nodes register on-chain with ComputeRegistry specifying their capabilities
+ * - DWS syncs the on-chain registry and routes requests to active nodes
+ * - Local cache is kept in sync with on-chain state
+ * - Nodes must stake to register and maintain active status
  */
 
+import { getContractsConfig } from '@jejunetwork/config'
+import type { Address, Hex, PublicClient } from 'viem'
+import { createPublicClient, http, keccak256, toBytes } from 'viem'
+import { z } from 'zod'
+
 export interface InferenceNode {
-  address: string
+  address: Address
   endpoint: string
+  name: string
   capabilities: string[]
   models: string[]
   provider: string
+  attestationHash: Hex
+  stake: bigint
   region: string
   gpuTier: number
   maxConcurrent: number
@@ -33,8 +41,6 @@ export interface InferenceRequest {
   temperature?: number
   stream?: boolean
 }
-
-import { z } from 'zod'
 
 const InferenceResponseSchema = z.object({
   id: z.string(),
@@ -76,8 +82,82 @@ export interface InferenceResponse {
   }
 }
 
-// In-memory node registry (in production, this would be on-chain via ComputeRegistry)
+// ComputeRegistry ABI - only the functions we need
+const COMPUTE_REGISTRY_ABI = [
+  {
+    name: 'getActiveProviders',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'address[]' }],
+  },
+  {
+    name: 'getActiveProvidersByService',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'serviceType', type: 'bytes32' }],
+    outputs: [{ name: '', type: 'address[]' }],
+  },
+  {
+    name: 'getProvider',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'addr', type: 'address' }],
+    outputs: [
+      {
+        name: '',
+        type: 'tuple',
+        components: [
+          { name: 'owner', type: 'address' },
+          { name: 'name', type: 'string' },
+          { name: 'endpoint', type: 'string' },
+          { name: 'attestationHash', type: 'bytes32' },
+          { name: 'stake', type: 'uint256' },
+          { name: 'registeredAt', type: 'uint256' },
+          { name: 'agentId', type: 'uint256' },
+          { name: 'serviceType', type: 'bytes32' },
+          { name: 'active', type: 'bool' },
+        ],
+      },
+    ],
+  },
+  {
+    name: 'getCapabilities',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'addr', type: 'address' }],
+    outputs: [
+      {
+        name: '',
+        type: 'tuple[]',
+        components: [
+          { name: 'model', type: 'string' },
+          { name: 'pricePerInputToken', type: 'uint256' },
+          { name: 'pricePerOutputToken', type: 'uint256' },
+          { name: 'maxContextLength', type: 'uint256' },
+          { name: 'active', type: 'bool' },
+        ],
+      },
+    ],
+  },
+  {
+    name: 'isActive',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'addr', type: 'address' }],
+    outputs: [{ name: '', type: 'bool' }],
+  },
+] as const
+
+// Service type constant (must match contract)
+const SERVICE_INFERENCE = keccak256(toBytes('inference'))
+
+// Local cache of inference nodes (synced from chain)
 const inferenceNodes = new Map<string, InferenceNode>()
+
+// Last sync timestamp
+let lastSyncTimestamp = 0
+const SYNC_INTERVAL_MS = 60000 // 1 minute
 
 // Model to provider mapping for routing
 const MODEL_PROVIDERS: Record<string, string[]> = {
@@ -108,32 +188,132 @@ const MODEL_PROVIDERS: Record<string, string[]> = {
   deepseek: ['together', 'local'],
 }
 
-/**
- * Register an inference node with DWS
- */
-export function registerNode(
-  node: Omit<InferenceNode, 'registeredAt' | 'lastHeartbeat' | 'currentLoad'>,
-): InferenceNode {
-  const fullNode: InferenceNode = {
-    ...node,
-    currentLoad: 0,
-    registeredAt: Date.now(),
-    lastHeartbeat: Date.now(),
+let publicClient: PublicClient | null = null
+let computeRegistryAddress: Address | null = null
+
+function getClient(): PublicClient {
+  if (!publicClient) {
+    const config = getContractsConfig()
+    const rpcUrl = config.rpcUrl
+    if (!rpcUrl) {
+      throw new Error('RPC URL not configured')
+    }
+    publicClient = createPublicClient({ transport: http(rpcUrl) })
   }
+  return publicClient
+}
 
-  inferenceNodes.set(node.address, fullNode)
-  console.log(
-    `[Inference] Node registered: ${node.address} (${node.provider}, ${node.models.length} models)`,
-  )
-
-  return fullNode
+function getComputeRegistryAddress(): Address {
+  if (!computeRegistryAddress) {
+    const config = getContractsConfig()
+    const address = config.addresses.computeRegistry
+    if (!address) {
+      throw new Error('ComputeRegistry address not configured')
+    }
+    computeRegistryAddress = address as Address
+  }
+  return computeRegistryAddress
 }
 
 /**
- * Update node heartbeat and load
+ * Sync inference nodes from on-chain ComputeRegistry
+ */
+export async function syncFromChain(): Promise<void> {
+  const now = Date.now()
+  if (now - lastSyncTimestamp < SYNC_INTERVAL_MS && inferenceNodes.size > 0) {
+    return // Already synced recently
+  }
+
+  const client = getClient()
+  const registryAddress = getComputeRegistryAddress()
+
+  // Get active inference providers
+  const activeAddresses = (await client.readContract({
+    address: registryAddress,
+    abi: COMPUTE_REGISTRY_ABI,
+    functionName: 'getActiveProvidersByService',
+    args: [SERVICE_INFERENCE],
+  })) as Address[]
+
+  // Clear stale nodes
+  inferenceNodes.clear()
+
+  // Fetch each provider's details
+  for (const address of activeAddresses) {
+    const provider = (await client.readContract({
+      address: registryAddress,
+      abi: COMPUTE_REGISTRY_ABI,
+      functionName: 'getProvider',
+      args: [address],
+    })) as {
+      owner: Address
+      name: string
+      endpoint: string
+      attestationHash: Hex
+      stake: bigint
+      registeredAt: bigint
+      agentId: bigint
+      serviceType: Hex
+      active: boolean
+    }
+
+    const capabilities = (await client.readContract({
+      address: registryAddress,
+      abi: COMPUTE_REGISTRY_ABI,
+      functionName: 'getCapabilities',
+      args: [address],
+    })) as Array<{
+      model: string
+      pricePerInputToken: bigint
+      pricePerOutputToken: bigint
+      maxContextLength: bigint
+      active: boolean
+    }>
+
+    const models = capabilities.filter((c) => c.active).map((c) => c.model)
+
+    // Determine provider type from models
+    let providerType = 'unknown'
+    for (const model of models) {
+      const prefix = model.split('-')[0].toLowerCase()
+      const providers =
+        MODEL_PROVIDERS[prefix] ?? MODEL_PROVIDERS[model.toLowerCase()]
+      if (providers && providers.length > 0) {
+        providerType = providers[0]
+        break
+      }
+    }
+
+    const node: InferenceNode = {
+      address,
+      endpoint: provider.endpoint,
+      name: provider.name,
+      capabilities: ['inference'],
+      models,
+      provider: providerType,
+      attestationHash: provider.attestationHash,
+      stake: provider.stake,
+      region: 'unknown', // Would need additional on-chain data
+      gpuTier: 0,
+      maxConcurrent: 10,
+      currentLoad: 0,
+      isActive: provider.active,
+      registeredAt: Number(provider.registeredAt) * 1000,
+      lastHeartbeat: Date.now(),
+    }
+
+    inferenceNodes.set(address.toLowerCase(), node)
+  }
+
+  lastSyncTimestamp = now
+  console.log(`[Inference] Synced ${inferenceNodes.size} nodes from chain`)
+}
+
+/**
+ * Update node heartbeat and load (local tracking)
  */
 export function updateNodeHeartbeat(address: string, load?: number): boolean {
-  const node = inferenceNodes.get(address)
+  const node = inferenceNodes.get(address.toLowerCase())
   if (!node) return false
 
   node.lastHeartbeat = Date.now()
@@ -144,18 +324,13 @@ export function updateNodeHeartbeat(address: string, load?: number): boolean {
 }
 
 /**
- * Unregister an inference node
+ * Get all active nodes (synced from chain)
  */
-export function unregisterNode(address: string): boolean {
-  return inferenceNodes.delete(address)
-}
+export async function getActiveNodes(): Promise<InferenceNode[]> {
+  await syncFromChain()
 
-/**
- * Get all active nodes
- */
-export function getActiveNodes(): InferenceNode[] {
   const now = Date.now()
-  const staleThreshold = 60000 // 1 minute
+  const staleThreshold = 300000 // 5 minutes (longer threshold for on-chain nodes)
 
   return Array.from(inferenceNodes.values()).filter(
     (node) => node.isActive && now - node.lastHeartbeat < staleThreshold,
@@ -165,8 +340,10 @@ export function getActiveNodes(): InferenceNode[] {
 /**
  * Find the best node for a given model
  */
-export function findNodeForModel(model: string): InferenceNode | null {
-  const activeNodes = getActiveNodes()
+export async function findNodeForModel(
+  model: string,
+): Promise<InferenceNode | null> {
+  const activeNodes = await getActiveNodes()
   if (activeNodes.length === 0) return null
 
   // Find nodes that can serve this model
@@ -200,7 +377,7 @@ export function findNodeForModel(model: string): InferenceNode | null {
   if (compatibleNodes.length === 0) {
     // Fall back to any available node
     const anyNode = activeNodes.find((n) => n.currentLoad < n.maxConcurrent)
-    return anyNode || null
+    return anyNode ?? null
   }
 
   // Select node with lowest load
@@ -219,11 +396,11 @@ export function findNodeForModel(model: string): InferenceNode | null {
 export async function routeInference(
   request: InferenceRequest,
 ): Promise<InferenceResponse> {
-  const node = findNodeForModel(request.model)
+  const node = await findNodeForModel(request.model)
 
   if (!node) {
     throw new Error(
-      'No inference nodes available. Register a node with DWS or start a local inference node.',
+      'No inference nodes available. Register on-chain with ComputeRegistry or wait for nodes to come online.',
     )
   }
 
@@ -264,15 +441,15 @@ export async function routeInference(
 /**
  * Get node statistics
  */
-export function getNodeStats(): {
+export async function getNodeStats(): Promise<{
   totalNodes: number
   activeNodes: number
   totalCapacity: number
   currentLoad: number
   providers: string[]
   models: string[]
-} {
-  const active = getActiveNodes()
+}> {
+  const active = await getActiveNodes()
   const allModels = new Set<string>()
   const allProviders = new Set<string>()
 
@@ -294,26 +471,66 @@ export function getNodeStats(): {
 }
 
 /**
- * Register a local development node that proxies to provider APIs
- * This is used during local development when you have API keys
+ * Force refresh of on-chain data
  */
-export function registerLocalDevNode(config: {
-  endpoint?: string
-  provider: string
-  apiKey: string
-  models?: string[]
-}): InferenceNode {
-  return registerNode({
-    address: 'local-dev-node',
-    endpoint: config.endpoint ?? 'http://localhost:4031',
-    capabilities: ['inference', 'embeddings'],
-    models: config.models ?? ['*'],
-    provider: config.provider,
-    region: 'local',
-    gpuTier: 0,
-    maxConcurrent: 10,
-    isActive: true,
-  })
+export async function forceSync(): Promise<void> {
+  lastSyncTimestamp = 0
+  await syncFromChain()
+}
+
+/**
+ * Check if a specific address is registered as an inference provider
+ */
+export async function isRegisteredProvider(address: Address): Promise<boolean> {
+  const client = getClient()
+  const registryAddress = getComputeRegistryAddress()
+
+  return (await client.readContract({
+    address: registryAddress,
+    abi: COMPUTE_REGISTRY_ABI,
+    functionName: 'isActive',
+    args: [address],
+  })) as boolean
+}
+
+/**
+ * Register a node directly (for testing only)
+ * In production, nodes register on-chain via ComputeRegistry
+ */
+export function registerNode(
+  node: Omit<
+    InferenceNode,
+    | 'registeredAt'
+    | 'lastHeartbeat'
+    | 'currentLoad'
+    | 'attestationHash'
+    | 'stake'
+  >,
+): InferenceNode {
+  const fullNode: InferenceNode = {
+    ...node,
+    address: node.address as Address,
+    attestationHash: '0x' as Hex,
+    stake: 0n,
+    currentLoad: 0,
+    registeredAt: Date.now(),
+    lastHeartbeat: Date.now(),
+  }
+
+  inferenceNodes.set(node.address.toLowerCase(), fullNode)
+  console.log(
+    `[Inference] Node registered: ${node.address} (${node.provider}, ${node.models.length} models)`,
+  )
+
+  return fullNode
+}
+
+/**
+ * Unregister a node directly (for testing only)
+ * In production, nodes deactivate on-chain via ComputeRegistry
+ */
+export function unregisterNode(address: string): boolean {
+  return inferenceNodes.delete(address.toLowerCase())
 }
 
 // Export for testing

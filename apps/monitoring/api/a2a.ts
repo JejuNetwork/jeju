@@ -19,26 +19,23 @@ import {
 
 const networkName = getNetworkName()
 
+const isDevelopment = process.env.NODE_ENV !== 'production'
+
 const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',') ?? [
   'http://localhost:3000',
   'http://localhost:4020',
 ]
-const isDevelopment = process.env.NODE_ENV !== 'production'
 
-const PROMETHEUS_URL = process.env.PROMETHEUS_URL
-const OIF_AGGREGATOR_URL = process.env.OIF_AGGREGATOR_URL
+const prometheusUrl = process.env.PROMETHEUS_URL ?? 'http://localhost:9090'
+const oifAggregatorUrl =
+  process.env.OIF_AGGREGATOR_URL ?? 'http://localhost:4010'
 
-if (!PROMETHEUS_URL) {
-  console.warn('⚠️ PROMETHEUS_URL not set, defaulting to http://localhost:9090')
+if (!isDevelopment && !process.env.PROMETHEUS_URL) {
+  throw new Error('PROMETHEUS_URL is required in production')
 }
-if (!OIF_AGGREGATOR_URL) {
-  console.warn(
-    '⚠️ OIF_AGGREGATOR_URL not set, defaulting to http://localhost:4010',
-  )
+if (!isDevelopment && !process.env.OIF_AGGREGATOR_URL) {
+  throw new Error('OIF_AGGREGATOR_URL is required in production')
 }
-
-const prometheusUrl = PROMETHEUS_URL ?? 'http://localhost:9090'
-const oifAggregatorUrl = OIF_AGGREGATOR_URL ?? 'http://localhost:4010'
 
 const MAX_QUERY_LENGTH = 2000
 
@@ -526,8 +523,8 @@ const app = new Elysia()
 export type App = typeof app
 
 if (import.meta.main) {
-  app.listen(9091)
-  console.log(`📊 Monitoring A2A: http://localhost:9091`)
+  const port = Number(process.env.A2A_PORT ?? 9091)
+  app.listen(port)
 }
 
 export { app }

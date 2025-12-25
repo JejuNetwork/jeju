@@ -532,6 +532,44 @@
       "tokens": {
         "usdc": "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85"
       }
+    },
+    "polygon": {
+      "chainId": 137,
+      "rpcUrl": "https://polygon-rpc.com",
+      "oif": {
+        "solverRegistry": "",
+        "inputSettler": "",
+        "outputSettler": "",
+        "oracleAdapter": ""
+      },
+      "payments": {
+        "x402Facilitator": ""
+      },
+      "tokens": {
+        "usdc": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359"
+      }
+    },
+    "solana": {
+      "chainId": 0,
+      "rpcUrl": "https://api.mainnet-beta.solana.com",
+      "bridge": {
+        "programId": "",
+        "evmLightClientProgramId": ""
+      },
+      "tokens": {
+        "usdc": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+      }
+    },
+    "solanaDevnet": {
+      "chainId": 0,
+      "rpcUrl": "https://api.devnet.solana.com",
+      "bridge": {
+        "programId": "",
+        "evmLightClientProgramId": ""
+      },
+      "tokens": {
+        "usdc": ""
+      }
     }
   }
 }

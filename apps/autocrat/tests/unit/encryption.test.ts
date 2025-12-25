@@ -19,14 +19,6 @@ interface AccessControlCondition {
   }
 }
 
-interface _EncryptedData {
-  ciphertext: string
-  dataToEncryptHash: string
-  accessControlConditions: AccessControlCondition[]
-  chain: string
-  encryptedAt: number
-}
-
 interface DecisionData {
   proposalId: string
   approved: boolean
@@ -38,7 +30,8 @@ interface DecisionData {
   model: string
   timestamp: number
 }
-const COUNCIL_ADDRESS = '0x1234567890abcdef1234567890abcdef12345678'
+const COUNCIL_ADDRESS: `0x${string}` =
+  '0x1234567890abcdef1234567890abcdef12345678'
 const CHAIN_ID = 'base-sepolia'
 const TEST_ENCRYPTION_KEY = 'test-encryption-key-for-unit-tests'
 function createAccessConditions(

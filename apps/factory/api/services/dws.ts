@@ -297,6 +297,36 @@ class DWSClient {
   isInitialized(): boolean {
     return this.initialized
   }
+
+  async inference(params: {
+    modelId: string
+    prompt: string
+    maxTokens?: number
+    temperature?: number
+  }): Promise<{
+    output: string
+    usage: { promptTokens: number; completionTokens: number }
+    model: string
+    temperature: number
+  }> {
+    const response = await this.request<{
+      output: string
+      usage: { promptTokens: number; completionTokens: number }
+      model: string
+      temperature: number
+    }>('/inference', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: params.modelId,
+        prompt: params.prompt,
+        max_tokens: params.maxTokens ?? 256,
+        temperature: params.temperature ?? 0.7,
+      }),
+    })
+    return response
+  }
 }
 
 export const dwsClient = new DWSClient()
+export const dwsService = dwsClient

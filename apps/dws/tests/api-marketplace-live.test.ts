@@ -21,7 +21,7 @@ import {
   loadSystemKeys,
   proxyRequest,
   storeKey,
-} from '../src/api-marketplace'
+} from '../api/api-marketplace'
 
 // Test user
 const TEST_USER: Address = '0x1234567890123456789012345678901234567890'

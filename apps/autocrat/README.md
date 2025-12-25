@@ -62,8 +62,7 @@ export REQUIRE_HARDWARE_TEE=true
 For decentralized LLM inference with x402 payments:
 
 ```bash
-# Enable compute marketplace for deep research
-export COMPUTE_ENABLED=true
+# Configure compute marketplace for deep research
 export COMPUTE_URL=http://localhost:8020  # or production endpoint
 export COMPUTE_MODEL=claude-3-opus
 ```
@@ -83,7 +82,6 @@ export COMPUTE_MODEL=claude-3-opus
 | `OPERATOR_KEY` | No | - | Private key for research operator |
 | `ASSESSOR_KEY` | No | - | Private key for quality assessor |
 | `TEE_API_KEY` | No | - | Phala Cloud API key |
-| `COMPUTE_ENABLED` | No | `false` | Enable compute marketplace |
 | `COMPUTE_URL` | No | `http://localhost:8020` | Compute marketplace URL |
 | `JEJU_COMPUTE_API_URL` | No | `http://localhost:8010` | RLAIF API URL for training pipelines |
 

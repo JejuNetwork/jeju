@@ -181,6 +181,22 @@ export {
   requireEnv,
   setEnv,
 } from './env'
+// Errors
+export {
+  AuthenticationError,
+  AuthorizationError,
+  BadRequestError,
+  BusinessLogicError,
+  ConflictError,
+  DatabaseError,
+  ExternalServiceError,
+  InternalServerError,
+  JejuError,
+  NotFoundError,
+  RateLimitError,
+  ServiceUnavailableError,
+  ValidationError,
+} from './errors'
 // Events (Universal EventEmitter - browser/worker compatible)
 export { createEventEmitter, EventEmitter } from './events'
 // Federation
@@ -490,22 +506,6 @@ export {
   type UploadOptions,
   type UploadResult,
 } from './services'
-// Errors
-export {
-  AuthenticationError,
-  AuthorizationError,
-  BadRequestError,
-  BusinessLogicError,
-  ConflictError,
-  DatabaseError,
-  ExternalServiceError,
-  InternalServerError,
-  JejuError,
-  NotFoundError,
-  RateLimitError,
-  ServiceUnavailableError,
-  ValidationError,
-} from './errors'
 // Singleton Utilities
 export {
   createGlobalSingleton,

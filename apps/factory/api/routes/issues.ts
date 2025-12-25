@@ -2,6 +2,15 @@
 
 import { Elysia } from 'elysia'
 import {
+  createIssue as dbCreateIssue,
+  createIssueComment as dbCreateComment,
+  getIssueComments,
+  listIssues as dbListIssues,
+  getIssue,
+  type IssueRow,
+  type IssueCommentRow,
+} from '../db/client'
+import {
   CreateIssueBodySchema,
   expectValid,
   IssueCommentBodySchema,
@@ -9,26 +18,67 @@ import {
 } from '../schemas'
 import { requireAuth } from '../validation/access-control'
 
-interface Issue {
+export interface IssueAuthor {
+  name: string
+  avatar?: string
+}
+
+export interface Issue {
   id: string
   number: number
   repo: string
   title: string
   body: string
   status: 'open' | 'closed'
-  author: { name: string; avatar?: string }
+  author: IssueAuthor
   labels: string[]
-  assignees: Array<{ name: string; avatar?: string }>
+  assignees: IssueAuthor[]
   comments: number
   createdAt: number
   updatedAt: number
 }
 
-interface IssueComment {
+export interface IssueComment {
   id: string
-  author: { name: string; avatar?: string }
+  author: IssueAuthor
   body: string
   createdAt: number
+}
+
+function transformComment(row: IssueCommentRow): IssueComment {
+  return {
+    id: row.id,
+    author: {
+      name: row.author.slice(0, 8),
+      avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${row.author}`,
+    },
+    body: row.body,
+    createdAt: row.created_at,
+  }
+}
+
+function transformIssue(row: IssueRow): Issue {
+  const assigneesList = JSON.parse(row.assignees) as string[]
+  return {
+    id: row.id,
+    number: row.number,
+    repo: row.repo,
+    title: row.title,
+    body: row.body,
+    status: row.status,
+    author: {
+      name: row.author,
+      avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${row.author}`,
+    },
+    labels: JSON.parse(row.labels) as string[],
+    assignees: assigneesList.map((addr) => ({
+      name: addr,
+      avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${addr}`,
+    })),
+    comments: row.comments_count,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
 }
 
 export const issuesRoutes = new Elysia({ prefix: '/api/issues' })
@@ -37,8 +87,17 @@ export const issuesRoutes = new Elysia({ prefix: '/api/issues' })
     async ({ query }) => {
       const validated = expectValid(IssuesQuerySchema, query, 'query params')
       const page = Number.parseInt(validated.page ?? '1', 10)
-      const issues: Issue[] = []
-      return { issues, total: issues.length, page }
+
+      const result = dbListIssues({
+        repo: validated.repo,
+        status: validated.status,
+        label: validated.label,
+        assignee: validated.assignee,
+        page,
+      })
+
+      const issues = result.issues.map(transformIssue)
+      return { issues, total: result.total, page }
     },
     { detail: { tags: ['issues'], summary: 'List issues' } },
   )
@@ -51,77 +110,129 @@ export const issuesRoutes = new Elysia({ prefix: '/api/issues' })
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
       }
       const validated = expectValid(CreateIssueBodySchema, body, 'request body')
-      const issue: Issue = {
-        id: `issue-${Date.now()}`,
-        number: Math.floor(Math.random() * 1000),
+
+      const row = dbCreateIssue({
         repo: validated.repo,
         title: validated.title,
         body: validated.body,
-        labels: validated.labels ?? [],
-        assignees: (validated.assignees ?? []).map((addr) => ({ name: addr })),
-        status: 'open',
-        author: { name: authResult.address },
-        comments: 0,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      }
+        labels: validated.labels,
+        assignees: validated.assignees,
+        author: authResult.address,
+      })
+
       set.status = 201
-      return issue
+      return transformIssue(row)
     },
     { detail: { tags: ['issues'], summary: 'Create issue' } },
   )
   .get(
-    '/:issueNumber',
+    '/:issueId',
     async ({ params, set }) => {
-      set.status = 404
-      return {
-        error: {
-          code: 'NOT_FOUND',
-          message: `Issue #${params.issueNumber} not found`,
-        },
+      // Try to find by ID first, then by number if it looks like a number
+      const row = getIssue(params.issueId)
+      if (!row) {
+        const num = parseInt(params.issueId, 10)
+        if (!Number.isNaN(num)) {
+          // Without a repo context, we can't look up by number alone
+          // This endpoint needs a repo param for number lookup
+        }
       }
+      if (!row) {
+        set.status = 404
+        return {
+          error: {
+            code: 'NOT_FOUND',
+            message: `Issue ${params.issueId} not found`,
+          },
+        }
+      }
+      return transformIssue(row)
     },
     { detail: { tags: ['issues'], summary: 'Get issue' } },
   )
   .patch(
-    '/:issueNumber',
-    async ({ params, headers, set }) => {
+    '/:issueId',
+    async ({ params, body, headers, set }) => {
       const authResult = await requireAuth(headers)
       if (!authResult.success) {
         set.status = 401
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
       }
-      set.status = 404
-      return {
-        error: {
-          code: 'NOT_FOUND',
-          message: `Issue #${params.issueNumber} not found`,
-        },
+      const row = getIssue(params.issueId)
+      if (!row) {
+        set.status = 404
+        return {
+          error: {
+            code: 'NOT_FOUND',
+            message: `Issue ${params.issueId} not found`,
+          },
+        }
       }
+
+      // Update the issue in the database
+      const dbClient = await import('../db/client')
+      const updateData = body as {
+        title?: string
+        body?: string
+        status?: 'open' | 'closed'
+      }
+      const updated = dbClient.updateIssue(params.issueId, updateData)
+
+      return transformIssue(updated ?? row)
     },
     { detail: { tags: ['issues'], summary: 'Update issue' } },
   )
   .post(
-    '/:issueNumber/comments',
-    async ({ body, headers, set }) => {
+    '/:issueId/comments',
+    async ({ params, body, headers, set }) => {
       const authResult = await requireAuth(headers)
       if (!authResult.success) {
         set.status = 401
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
+      }
+      const row = getIssue(params.issueId)
+      if (!row) {
+        set.status = 404
+        return {
+          error: {
+            code: 'NOT_FOUND',
+            message: `Issue ${params.issueId} not found`,
+          },
+        }
       }
       const validated = expectValid(
         IssueCommentBodySchema,
         body,
         'request body',
       )
-      const comment: IssueComment = {
-        id: `comment-${Date.now()}`,
-        author: { name: authResult.address.slice(0, 8) },
+
+      const commentRow = dbCreateComment({
+        issueId: params.issueId,
+        author: authResult.address,
         body: validated.content,
-        createdAt: Date.now(),
-      }
+      })
+
       set.status = 201
-      return comment
+      return transformComment(commentRow)
     },
     { detail: { tags: ['issues'], summary: 'Add comment' } },
+  )
+  .get(
+    '/:issueId/comments',
+    async ({ params, set }) => {
+      const row = getIssue(params.issueId)
+      if (!row) {
+        set.status = 404
+        return {
+          error: {
+            code: 'NOT_FOUND',
+            message: `Issue ${params.issueId} not found`,
+          },
+        }
+      }
+
+      const comments = getIssueComments(params.issueId)
+      return { comments: comments.map(transformComment), total: comments.length }
+    },
+    { detail: { tags: ['issues'], summary: 'Get comments' } },
   )

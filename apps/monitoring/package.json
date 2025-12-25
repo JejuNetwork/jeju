@@ -8,7 +8,7 @@
     "dev": "bun run scripts/dev.ts",
     "build": "bun build index.html --outdir=dist --minify",
     "start": "bun run api/a2a.ts",
-    "test": "bun test tests/ && bunx playwright test",
+    "test": "bun test tests/unit tests/integration && bunx playwright test",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

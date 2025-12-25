@@ -142,7 +142,10 @@ describe('RiskAnalyzer', () => {
     const oneStdDev = results.get('1 Std Dev')
     expect(threeStdDev).toBeDefined()
     expect(oneStdDev).toBeDefined()
-    expect(threeStdDev).toBeLessThan(oneStdDev ?? 0)
+    if (threeStdDev === undefined || oneStdDev === undefined) {
+      throw new Error('Expected stress test results to be defined')
+    }
+    expect(threeStdDev).toBeLessThan(oneStdDev)
   })
 
   test('should handle edge case with minimal data (non-zero variance)', () => {

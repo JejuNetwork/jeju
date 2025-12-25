@@ -109,7 +109,7 @@ describe('MPC Coordinator Edge Cases', () => {
     })
 
     it('should handle party re-registration', () => {
-      const _party1 = coordinator.registerParty({
+      coordinator.registerParty({
         id: 'party-1',
         index: 1,
         endpoint: 'http://localhost:4100',

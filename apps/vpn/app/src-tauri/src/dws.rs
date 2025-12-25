@@ -174,6 +174,14 @@ impl DWSManager {
     }
 
     /// Serve content from cache
+    ///
+    /// TODO: This currently only tracks cache hits but doesn't return actual data.
+    /// To complete the implementation:
+    /// 1. Add a local storage backend (filesystem or memory-mapped file)
+    /// 2. Store the actual bytes when caching in `cache_content()`
+    /// 3. Return the stored bytes here
+    ///
+    /// For now, this tracks statistics but returns empty data.
     pub async fn serve_content(&self, cid: &str) -> Option<Vec<u8>> {
         let mut cache = self.cache.write().await;
 
@@ -190,8 +198,13 @@ impl DWSManager {
             state.bytes_served += item.size_bytes;
             state.requests_served += 1;
 
-            // TODO: Actually fetch from local cache storage
-            // For now, return placeholder
+            // Note: Returns empty vec - actual content storage not implemented
+            // The cache_content() function fetches the data but doesn't store it
+            tracing::debug!(
+                "Cache hit for {} ({} bytes) - content storage not implemented",
+                cid,
+                item.size_bytes
+            );
             return Some(vec![]);
         }
 

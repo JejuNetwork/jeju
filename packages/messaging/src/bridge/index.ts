@@ -5,11 +5,11 @@
  */
 
 export {
-  createCrossChainBridgeClient,
   CrossChainBridgeClient,
   type CrossChainBridgeConfig,
   type CrossChainKeyRegistration,
   type CrossChainMessage,
+  createCrossChainBridgeClient,
   getCrossChainBridgeClient,
   type MessageRoute,
   type MessageStatus,

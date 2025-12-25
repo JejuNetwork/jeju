@@ -10,7 +10,12 @@
  * but becomes transparent after execution or timeout.
  */
 
-import { getRpcUrl, getServiceUrl } from '@jejunetwork/config'
+import {
+  getChainId,
+  getContract,
+  getRpcUrl,
+  getServiceUrl,
+} from '@jejunetwork/config'
 import { keccak256, stringToHex } from 'viem'
 import { z } from 'zod'
 
@@ -135,23 +140,30 @@ export interface AuthSig {
 }
 
 // Environment configuration (with network-aware fallbacks)
-const COUNCIL_ADDRESS =
-  process.env.COUNCIL_ADDRESS ?? '0x0000000000000000000000000000000000000000'
-const CHAIN_ID = process.env.CHAIN_ID ?? 'base-sepolia'
+const getCouncilAddress = () => {
+  try {
+    return getContract('governance', 'council')
+  } catch {
+    return '0x0000000000000000000000000000000000000000'
+  }
+}
+const COUNCIL_ADDRESS = getCouncilAddress()
+const CHAIN_ID = String(getChainId())
 
 function getDAUrl(): string {
-  return process.env.DA_URL ?? getServiceUrl('storage', 'api')
+  return getServiceUrl('storage', 'api')
 }
 
-// Encryption key from environment
-// NOTE: In production, TEE_ENCRYPTION_SECRET must be set. 'council-local-dev' is ONLY for local development.
-const ENCRYPTION_KEY =
-  process.env.TEE_ENCRYPTION_SECRET ??
-  (process.env.NODE_ENV === 'production'
-    ? (() => {
-        throw new Error('TEE_ENCRYPTION_SECRET required in production')
-      })()
-    : 'council-local-dev')
+// Encryption key from environment - MUST be set in production
+function getEncryptionKey(): string {
+  const key = process.env.TEE_ENCRYPTION_SECRET
+  if (key) return key
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('TEE_ENCRYPTION_SECRET required in production')
+  }
+  return 'council-local-dev'
+}
+const ENCRYPTION_KEY = getEncryptionKey()
 
 let initialized = false
 
@@ -456,7 +468,7 @@ export async function canDecrypt(
 
   const proposalId = proposalCondition.parameters[0]
   const councilAddress = proposalCondition.contractAddress
-  const rpc = rpcUrl ?? process.env.RPC_URL ?? getRpcUrl()
+  const rpc = rpcUrl ?? getRpcUrl()
 
   const callData = `0x013cf08b${proposalId.slice(2).padStart(64, '0')}` // proposals(uint256)
 

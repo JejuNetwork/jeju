@@ -5,8 +5,19 @@
 
 import { expectAddress, toError } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
+import { API_URLS, fetchApi } from '../../../lib/eden'
 import { oracleService } from '../oracle'
 import { rpcService, type SupportedChainId } from '../rpc'
+
+// Contract verification response from indexer
+interface ContractVerificationResponse {
+  address: string
+  isVerified: boolean
+  name?: string
+  isProxy: boolean
+  implementation?: string
+  createdAt?: string
+}
 
 // Token change types
 export type ChangeType = 'receive' | 'send' | 'approve' | 'revoke'
@@ -358,22 +369,46 @@ class SimulationService {
   }
 
   /**
-   * Analyze contract
+   * Analyze contract by checking verification status via indexer API
    */
   private async analyzeContract(
-    _chainId: SupportedChainId,
+    chainId: SupportedChainId,
     address: Address,
     method?: string,
   ): Promise<ContractInteraction> {
     const knownName = KNOWN_CONTRACTS[address.toLowerCase()]
 
+    // Check contract verification via indexer API
+    let verified = !!knownName
+    let isProxy = false
+    let contractName = knownName
+
+    try {
+      const response = await fetchApi<ContractVerificationResponse>(
+        API_URLS.indexer,
+        `/api/contracts/${chainId}/${address}`,
+      )
+      verified = response.isVerified
+      isProxy = response.isProxy
+      contractName = response.name ?? knownName
+    } catch {
+      // If API fails, fall back to known contracts list
+      verified = !!knownName
+    }
+
+    // Determine risk level based on verification and age
+    let riskLevel: ContractInteraction['riskLevel'] = 'safe'
+    if (!verified) {
+      riskLevel = isProxy ? 'medium' : 'low'
+    }
+
     return {
       address,
-      name: knownName,
-      method: method ?? 'unknown',
-      verified: !!knownName, // In production, check etherscan API
-      isProxy: false, // In production, detect proxy patterns
-      riskLevel: knownName ? 'safe' : 'low',
+      name: contractName,
+      method: method ?? 'call',
+      verified,
+      isProxy,
+      riskLevel,
     }
   }
 
@@ -385,7 +420,7 @@ class SimulationService {
     address: Address,
   ): Promise<string> {
     const client = rpcService.getClient(chainId)
-    const symbol = await client.readContract({
+    return (await client.readContract({
       address,
       abi: [
         {
@@ -396,8 +431,7 @@ class SimulationService {
         },
       ] as const,
       functionName: 'symbol',
-    })
-    return symbol
+    })) as string
   }
 
   /**

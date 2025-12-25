@@ -100,9 +100,9 @@ describe('API client', () => {
         }),
       )
 
-      const result = await api.faucet.getStatus(
-        '0x1234567890123456789012345678901234567890',
-      )
+      const testAddress: `0x${string}` =
+        '0x1234567890123456789012345678901234567890'
+      const result = await api.faucet.getStatus(testAddress)
       expect(result.eligible).toBe(true)
       expect(result.isRegistered).toBe(true)
     })
@@ -121,9 +121,9 @@ describe('API client', () => {
         }),
       )
 
-      const result = await api.faucet.claim(
-        '0x1234567890123456789012345678901234567890',
-      )
+      const claimAddress: `0x${string}` =
+        '0x1234567890123456789012345678901234567890'
+      const result = await api.faucet.claim(claimAddress)
       expect(result.success).toBe(true)
       expect(result.txHash).toBe('0xabc123')
     })

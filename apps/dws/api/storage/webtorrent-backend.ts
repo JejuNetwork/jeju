@@ -7,14 +7,75 @@
  * - Private content: Encrypted, access-controlled seeding
  */
 
-import { createHash } from 'node:crypto'
 import { EventEmitter } from 'node:events'
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 import type {
   ContentCategory,
   ContentTier,
   NodeStorageStats,
   StorageBackendType,
 } from './types'
+
+// Lazy-load webtorrent to avoid native module issues in test environments
+type WebTorrentInstance = {
+  destroyed: boolean
+  torrents: Array<{
+    infoHash: string
+    magnetURI: string
+    name: string
+    length: number
+    files: Array<{
+      name: string
+      path: string
+      length: number
+      createReadStream(): NodeJS.ReadableStream
+    }>
+    done: boolean
+    paused: boolean
+    downloaded: number
+    uploaded: number
+    downloadSpeed: number
+    uploadSpeed: number
+    ratio: number
+    numPeers: number
+    progress: number
+    on(event: string, cb: (...args: unknown[]) => void): void
+    pause(): void
+    resume(): void
+  }>
+  seed(
+    path: string,
+    opts: Record<string, unknown>,
+    cb: (torrent: WebTorrentInstance['torrents'][0]) => void,
+  ): void
+  add(
+    magnetUri: string,
+    opts: Record<string, unknown>,
+    cb: (torrent: WebTorrentInstance['torrents'][0]) => void,
+  ): void
+  get(infoHash: string): WebTorrentInstance['torrents'][0] | null
+  remove(
+    infoHash: string,
+    opts: { destroyStore?: boolean },
+    cb: (err: Error | null) => void,
+  ): void
+  destroy(cb: () => void): void
+  on(event: string, cb: (...args: unknown[]) => void): void
+  once(event: string, cb: (...args: unknown[]) => void): void
+}
+
+let WebTorrent: {
+  new (opts?: Record<string, unknown>): WebTorrentInstance
+} | null = null
+
+async function loadWebTorrent(): Promise<typeof WebTorrent> {
+  if (!WebTorrent) {
+    const mod = await import('webtorrent')
+    WebTorrent = mod.default as typeof WebTorrent
+  }
+  return WebTorrent
+}
 
 // Types
 
@@ -103,13 +164,10 @@ export class WebTorrentBackend extends EventEmitter {
   readonly type: StorageBackendType = 'webtorrent'
 
   private config: WebTorrentConfig
-  private torrents: Map<string, TorrentInfo> = new Map()
-  private stats: Map<string, TorrentStats> = new Map()
+  private client: WebTorrentInstance | null = null
+  private clientInitPromise: Promise<WebTorrentInstance> | null = null
+  private torrentMetadata: Map<string, TorrentInfo> = new Map()
   private cidToInfoHash: Map<string, string> = new Map()
-
-  // Simulated torrent state (in production, use webtorrent library)
-  private seeding: Set<string> = new Set()
-  private downloading: Set<string> = new Set()
 
   // Bandwidth tracking
   private bandwidthUsed = {
@@ -138,6 +196,43 @@ export class WebTorrentBackend extends EventEmitter {
         10,
       )
     }
+
+    // Ensure download path exists
+    if (!existsSync(this.config.downloadPath)) {
+      mkdirSync(this.config.downloadPath, { recursive: true })
+    }
+  }
+
+  /**
+   * Lazily initialize the WebTorrent client
+   */
+  private async getClient(): Promise<WebTorrentInstance> {
+    if (this.client) return this.client
+
+    if (!this.clientInitPromise) {
+      this.clientInitPromise = (async () => {
+        const WT = await loadWebTorrent()
+        if (!WT) throw new Error('Failed to load WebTorrent')
+
+        const client = new WT({
+          dht: this.config.dhtEnabled,
+          downloadLimit: this.config.maxDownloadSpeedMbps * 125000,
+          uploadLimit: this.config.maxUploadSpeedMbps * 125000,
+          maxConns: 100,
+        })
+
+        client.on('error', (err) => {
+          console.error('[WebTorrent] Client error:', err)
+          this.emit('error', err)
+        })
+
+        this.client = client
+        console.log('[WebTorrent] Client initialized')
+        return client
+      })()
+    }
+
+    return this.clientInitPromise
   }
 
   /**
@@ -152,59 +247,54 @@ export class WebTorrentBackend extends EventEmitter {
       category: ContentCategory
     },
   ): Promise<TorrentInfo> {
-    const hash = createHash('sha1').update(content).digest('hex')
-    const infoHash = hash.slice(0, 40)
+    const client = await this.getClient()
 
-    // Generate magnet URI
-    const magnetParams = [
-      `xt=urn:btih:${infoHash}`,
-      `dn=${encodeURIComponent(options.name)}`,
-      ...this.config.trackers.map((t) => `tr=${encodeURIComponent(t)}`),
-      `xs=jeju:${options.cid}`, // Cross-seed with CID
-    ]
-    const magnetUri = `magnet:?${magnetParams.join('&')}`
+    // Write content to temp file for seeding
+    const tempPath = join(this.config.downloadPath, options.name)
+    writeFileSync(tempPath, content)
 
-    const torrentInfo: TorrentInfo = {
-      infoHash,
-      magnetUri,
-      name: options.name,
-      size: content.length,
-      files: [
+    return new Promise((resolve, reject) => {
+      client.seed(
+        tempPath,
         {
           name: options.name,
-          path: options.name,
-          size: content.length,
+          announce: this.config.trackers,
+          comment: `jeju:${options.cid}`, // Cross-seed with CID
         },
-      ],
-      cid: options.cid,
-      tier: options.tier,
-      category: options.category,
-      createdAt: Date.now(),
-    }
+        (torrent) => {
+          const torrentInfo: TorrentInfo = {
+            infoHash: torrent.infoHash,
+            magnetUri: torrent.magnetURI,
+            name: torrent.name,
+            size: torrent.length,
+            files: torrent.files.map((f) => ({
+              name: f.name,
+              path: f.path,
+              size: f.length,
+            })),
+            cid: options.cid,
+            tier: options.tier,
+            category: options.category,
+            createdAt: Date.now(),
+          }
 
-    this.torrents.set(infoHash, torrentInfo)
-    this.cidToInfoHash.set(options.cid, infoHash)
+          this.torrentMetadata.set(torrent.infoHash, torrentInfo)
+          this.cidToInfoHash.set(options.cid, torrent.infoHash)
 
-    // Initialize stats
-    this.stats.set(infoHash, {
-      infoHash,
-      downloaded: content.length,
-      uploaded: 0,
-      downloadSpeed: 0,
-      uploadSpeed: 0,
-      ratio: 0,
-      peers: 0,
-      seeds: 1,
-      progress: 1,
-      status: 'seeding',
+          // Set up event listeners
+          this.setupTorrentEvents(torrent, torrentInfo)
+
+          this.emit('torrent:created', torrentInfo)
+          console.log(
+            `[WebTorrent] Created torrent: ${options.name} (${torrent.infoHash})`,
+          )
+          resolve(torrentInfo)
+        },
+      )
+
+      // Handle seed error
+      client.once('error', reject)
     })
-
-    // Start seeding
-    this.seeding.add(infoHash)
-    this.emit('torrent:created', torrentInfo)
-
-    console.log(`[WebTorrent] Created torrent: ${options.name} (${infoHash})`)
-    return torrentInfo
   }
 
   /**
@@ -223,7 +313,7 @@ export class WebTorrentBackend extends EventEmitter {
     }
 
     // Check if already have this torrent
-    const existing = this.torrents.get(infoHash)
+    const existing = this.torrentMetadata.get(infoHash)
     if (existing) {
       return existing
     }
@@ -234,48 +324,60 @@ export class WebTorrentBackend extends EventEmitter {
       throw new Error('System content bandwidth limit reached')
     }
 
-    // Parse magnet URI for metadata
-    const params = new URLSearchParams(magnetUri.replace('magnet:?', ''))
-    const name = params.get('dn') ?? infoHash
-    const cidParam = params.get('xs')
-    const cid = cidParam?.startsWith('jeju:') ? cidParam.slice(5) : undefined
-
-    const torrentInfo: TorrentInfo = {
-      infoHash,
-      magnetUri,
-      name,
-      size: 0, // Unknown until downloaded
-      files: [],
-      cid: cid ?? infoHash,
-      tier,
-      category: 'data',
-      createdAt: Date.now(),
+    // Check concurrent limit
+    if (this.client.torrents.length >= this.config.maxConcurrentTorrents) {
+      await this.evictLowestPriority()
     }
 
-    this.torrents.set(infoHash, torrentInfo)
-    if (cid) {
-      this.cidToInfoHash.set(cid, infoHash)
-    }
+    return new Promise((resolve, reject) => {
+      this.client.add(
+        magnetUri,
+        {
+          path: this.config.downloadPath,
+          announce: this.config.trackers,
+        },
+        (torrent) => {
+          // Parse magnet URI for CID
+          const params = new URLSearchParams(magnetUri.replace('magnet:?', ''))
+          const cidParam = params.get('xs')
+          const cid = cidParam?.startsWith('jeju:')
+            ? cidParam.slice(5)
+            : undefined
 
-    // Initialize stats
-    this.stats.set(infoHash, {
-      infoHash,
-      downloaded: 0,
-      uploaded: 0,
-      downloadSpeed: 0,
-      uploadSpeed: 0,
-      ratio: 0,
-      peers: 0,
-      seeds: 0,
-      progress: 0,
-      status: 'downloading',
+          const torrentInfo: TorrentInfo = {
+            infoHash: torrent.infoHash,
+            magnetUri: torrent.magnetURI,
+            name: torrent.name,
+            size: torrent.length,
+            files: torrent.files.map((f) => ({
+              name: f.name,
+              path: f.path,
+              size: f.length,
+            })),
+            cid: cid ?? torrent.infoHash,
+            tier,
+            category: 'data',
+            createdAt: Date.now(),
+          }
+
+          this.torrentMetadata.set(torrent.infoHash, torrentInfo)
+          if (cid) {
+            this.cidToInfoHash.set(cid, torrent.infoHash)
+          }
+
+          // Set up event listeners
+          this.setupTorrentEvents(torrent, torrentInfo)
+
+          this.emit('torrent:added', torrentInfo)
+          console.log(
+            `[WebTorrent] Added magnet: ${torrent.name} (${torrent.infoHash})`,
+          )
+          resolve(torrentInfo)
+        },
+      )
+
+      this.client.once('error', reject)
     })
-
-    this.downloading.add(infoHash)
-    this.emit('torrent:added', torrentInfo)
-
-    console.log(`[WebTorrent] Added magnet: ${name} (${infoHash})`)
-    return torrentInfo
   }
 
   /**
@@ -292,53 +394,52 @@ export class WebTorrentBackend extends EventEmitter {
       throw new Error(`Torrent not found: ${cidOrInfoHash}`)
     }
 
-    const torrent = this.torrents.get(infoHash)
+    const torrent = this.client.get(infoHash)
     if (!torrent) {
-      throw new Error(`Torrent info not found: ${infoHash}`)
+      throw new Error(`Torrent not in client: ${infoHash}`)
     }
 
-    const stats = this.stats.get(infoHash)
-    if (!stats || stats.progress < 1) {
-      // Simulate download - in production, wait for actual download
-      await this.simulateDownload(infoHash)
+    // Wait for download to complete if not done
+    if (!torrent.done) {
+      await new Promise<void>((resolve) => {
+        torrent.on('done', () => resolve())
+      })
     }
 
-    // In production, read from disk
-    // For now, return placeholder
-    const content = Buffer.from(`Torrent content: ${torrent.name}`)
+    // Read the first file's content
+    const file = torrent.files[0]
+    if (!file) {
+      throw new Error('Torrent has no files')
+    }
 
-    this.emit('torrent:downloaded', torrent)
-    return content
+    return new Promise((resolve, reject) => {
+      const chunks: Buffer[] = []
+      const stream = file.createReadStream()
+
+      stream.on('data', (chunk: Buffer) => chunks.push(chunk))
+      stream.on('end', () => {
+        const content = Buffer.concat(chunks)
+        this.emit('torrent:downloaded', this.torrentMetadata.get(infoHash))
+        resolve(content)
+      })
+      stream.on('error', reject)
+    })
   }
 
   /**
-   * Start seeding a torrent
+   * Start seeding a torrent (already downloaded)
    */
   async startSeeding(infoHash: string): Promise<void> {
-    const torrent = this.torrents.get(infoHash)
+    const torrent = this.client.get(infoHash)
     if (!torrent) {
       throw new Error(`Torrent not found: ${infoHash}`)
     }
 
-    if (this.seeding.has(infoHash)) {
-      return
-    }
+    // WebTorrent automatically seeds after download completes
+    // Just ensure it's not paused
+    torrent.resume()
 
-    // Check concurrent limit
-    if (this.seeding.size >= this.config.maxConcurrentTorrents) {
-      // Remove lowest priority torrent
-      await this.evictLowestPriority()
-    }
-
-    this.seeding.add(infoHash)
-    this.downloading.delete(infoHash)
-
-    const stats = this.stats.get(infoHash)
-    if (stats) {
-      stats.status = 'seeding'
-    }
-
-    this.emit('torrent:seeding', torrent)
+    this.emit('torrent:seeding', this.torrentMetadata.get(infoHash))
     console.log(`[WebTorrent] Started seeding: ${torrent.name}`)
   }
 
@@ -346,48 +447,53 @@ export class WebTorrentBackend extends EventEmitter {
    * Stop seeding a torrent
    */
   async stopSeeding(infoHash: string): Promise<void> {
-    const torrent = this.torrents.get(infoHash)
-    if (!torrent) return
+    const torrentInfo = this.torrentMetadata.get(infoHash)
+    if (!torrentInfo) return
 
     // Don't allow stopping system content seeding
-    if (torrent.tier === 'system' && this.config.autoSeedSystemContent) {
+    if (torrentInfo.tier === 'system' && this.config.autoSeedSystemContent) {
       console.warn(
-        `[WebTorrent] Cannot stop seeding system content: ${torrent.name}`,
+        `[WebTorrent] Cannot stop seeding system content: ${torrentInfo.name}`,
       )
       return
     }
 
-    this.seeding.delete(infoHash)
-
-    const stats = this.stats.get(infoHash)
-    if (stats) {
-      stats.status = 'stopped'
+    const torrent = this.client.get(infoHash)
+    if (torrent) {
+      torrent.pause()
     }
 
-    this.emit('torrent:stopped', torrent)
-    console.log(`[WebTorrent] Stopped seeding: ${torrent.name}`)
+    this.emit('torrent:stopped', torrentInfo)
+    console.log(`[WebTorrent] Stopped seeding: ${torrentInfo.name}`)
   }
 
   /**
    * Remove torrent completely
    */
   async removeTorrent(infoHash: string): Promise<void> {
-    const torrent = this.torrents.get(infoHash)
-    if (!torrent) return
+    const torrentInfo = this.torrentMetadata.get(infoHash)
+    if (!torrentInfo) return
 
     // Don't allow removing system content
-    if (torrent.tier === 'system' && this.config.autoSeedSystemContent) {
+    if (torrentInfo.tier === 'system' && this.config.autoSeedSystemContent) {
       throw new Error('Cannot remove system content')
     }
 
-    this.seeding.delete(infoHash)
-    this.downloading.delete(infoHash)
-    this.torrents.delete(infoHash)
-    this.stats.delete(infoHash)
-    this.cidToInfoHash.delete(torrent.cid)
+    return new Promise((resolve, reject) => {
+      this.client.remove(infoHash, { destroyStore: true }, (err) => {
+        if (err) {
+          reject(err)
+          return
+        }
 
-    this.emit('torrent:removed', torrent)
-    console.log(`[WebTorrent] Removed torrent: ${torrent.name}`)
+        this.torrentMetadata.delete(infoHash)
+        this.cidToInfoHash.delete(torrentInfo.cid)
+
+        this.emit('torrent:removed', torrentInfo)
+        console.log(`[WebTorrent] Removed torrent: ${torrentInfo.name}`)
+        resolve()
+      })
+    })
   }
 
   /**
@@ -398,21 +504,41 @@ export class WebTorrentBackend extends EventEmitter {
     if (!infoHash && cidOrInfoHash.length === 40) {
       infoHash = cidOrInfoHash
     }
-    return infoHash ? (this.torrents.get(infoHash) ?? null) : null
+    return infoHash ? (this.torrentMetadata.get(infoHash) ?? null) : null
   }
 
   /**
    * Get torrent stats
    */
   getTorrentStats(infoHash: string): TorrentStats | null {
-    return this.stats.get(infoHash) ?? null
+    const torrent = this.client.get(infoHash)
+    if (!torrent) return null
+
+    return {
+      infoHash,
+      downloaded: torrent.downloaded,
+      uploaded: torrent.uploaded,
+      downloadSpeed: torrent.downloadSpeed,
+      uploadSpeed: torrent.uploadSpeed,
+      ratio: torrent.ratio,
+      peers: torrent.numPeers,
+      seeds: torrent.numPeers, // WebTorrent doesn't distinguish seeds
+      progress: torrent.progress,
+      status: torrent.done
+        ? torrent.paused
+          ? 'paused'
+          : 'seeding'
+        : 'downloading',
+    }
   }
 
   /**
    * Get all torrents by tier
    */
   getTorrentsByTier(tier: ContentTier): TorrentInfo[] {
-    return Array.from(this.torrents.values()).filter((t) => t.tier === tier)
+    return Array.from(this.torrentMetadata.values()).filter(
+      (t) => t.tier === tier,
+    )
   }
 
   /**
@@ -421,7 +547,7 @@ export class WebTorrentBackend extends EventEmitter {
   getMagnetUri(cid: string): string | null {
     const infoHash = this.cidToInfoHash.get(cid)
     if (!infoHash) return null
-    return this.torrents.get(infoHash)?.magnetUri ?? null
+    return this.torrentMetadata.get(infoHash)?.magnetUri ?? null
   }
 
   /**
@@ -429,7 +555,7 @@ export class WebTorrentBackend extends EventEmitter {
    */
   hasTorrent(cidOrInfoHash: string): boolean {
     const infoHash = this.cidToInfoHash.get(cidOrInfoHash) ?? cidOrInfoHash
-    return this.torrents.has(infoHash)
+    return this.torrentMetadata.has(infoHash)
   }
 
   /**
@@ -491,22 +617,30 @@ export class WebTorrentBackend extends EventEmitter {
     let popularSize = 0
     let privateSize = 0
     let totalUploaded = 0
+    let seedingCount = 0
+    let downloadingCount = 0
 
-    for (const [infoHash, torrent] of this.torrents) {
-      const stats = this.stats.get(infoHash)
-      if (!stats) continue
+    for (const torrent of this.client.torrents) {
+      const info = this.torrentMetadata.get(torrent.infoHash)
+      if (!info) continue
 
-      totalUploaded += stats.uploaded
+      totalUploaded += torrent.uploaded
 
-      switch (torrent.tier) {
+      if (torrent.done) {
+        seedingCount++
+      } else {
+        downloadingCount++
+      }
+
+      switch (info.tier) {
         case 'system':
-          systemSize += torrent.size
+          systemSize += torrent.length
           break
         case 'popular':
-          popularSize += torrent.size
+          popularSize += torrent.length
           break
         case 'private':
-          privateSize += torrent.size
+          privateSize += torrent.length
           break
       }
     }
@@ -518,9 +652,9 @@ export class WebTorrentBackend extends EventEmitter {
       popularContentSize: popularSize,
       privateContentCount: this.getTorrentsByTier('private').length,
       privateContentSize: privateSize,
-      activeTorrents: this.seeding.size + this.downloading.size,
-      seedingTorrents: this.seeding.size,
-      downloadingTorrents: this.downloading.size,
+      activeTorrents: this.client.torrents.length,
+      seedingTorrents: seedingCount,
+      downloadingTorrents: downloadingCount,
       peersConnected: this.getTotalPeers(),
       bytesServed24h: totalUploaded,
     }
@@ -530,11 +664,41 @@ export class WebTorrentBackend extends EventEmitter {
    * Health check
    */
   async healthCheck(): Promise<boolean> {
-    // In production, check WebTorrent client status
-    return this.config.dhtEnabled || this.config.trackers.length > 0
+    return !this.client.destroyed
+  }
+
+  /**
+   * Destroy the client
+   */
+  async destroy(): Promise<void> {
+    return new Promise((resolve) => {
+      this.client.destroy(() => {
+        console.log('[WebTorrent] Client destroyed')
+        resolve()
+      })
+    })
   }
 
   // Private Helpers
+
+  private setupTorrentEvents(
+    torrent: WebTorrent.Torrent,
+    info: TorrentInfo,
+  ): void {
+    torrent.on('done', () => {
+      console.log(`[WebTorrent] Download complete: ${info.name}`)
+      this.emit('torrent:done', info)
+    })
+
+    torrent.on('error', (err) => {
+      console.error(`[WebTorrent] Torrent error (${info.name}):`, err)
+      this.emit('torrent:error', { info, error: err })
+    })
+
+    torrent.on('warning', (warning) => {
+      console.warn(`[WebTorrent] Torrent warning (${info.name}):`, warning)
+    })
+  }
 
   private extractInfoHash(magnetUri: string): string | null {
     const match = magnetUri.match(/btih:([a-fA-F0-9]{40})/)
@@ -549,17 +713,6 @@ export class WebTorrentBackend extends EventEmitter {
     return true
   }
 
-  private async simulateDownload(infoHash: string): Promise<void> {
-    const stats = this.stats.get(infoHash)
-    if (!stats) return
-
-    // Simulate download progress
-    stats.progress = 1
-    stats.status = 'seeding'
-    this.downloading.delete(infoHash)
-    this.seeding.add(infoHash)
-  }
-
   private async evictLowestPriority(): Promise<void> {
     // Find lowest priority popular content to evict
     const popularTorrents = this.getTorrentsByTier('popular')
@@ -567,7 +720,10 @@ export class WebTorrentBackend extends EventEmitter {
 
     // Sort by ratio (evict highest ratio first - already contributed enough)
     const sorted = popularTorrents
-      .map((t) => ({ torrent: t, stats: this.stats.get(t.infoHash) }))
+      .map((t) => ({
+        torrent: t,
+        stats: this.getTorrentStats(t.infoHash),
+      }))
       .filter((x) => x.stats)
       .sort((a, b) => (b.stats?.ratio ?? 0) - (a.stats?.ratio ?? 0))
 
@@ -578,8 +734,8 @@ export class WebTorrentBackend extends EventEmitter {
 
   private getTotalPeers(): number {
     let total = 0
-    for (const stats of this.stats.values()) {
-      total += stats.peers
+    for (const torrent of this.client.torrents) {
+      total += torrent.numPeers
     }
     return total
   }
@@ -599,5 +755,8 @@ export function getWebTorrentBackend(
 }
 
 export function resetWebTorrentBackend(): void {
+  if (globalWebTorrentBackend) {
+    globalWebTorrentBackend.destroy().catch(console.error)
+  }
   globalWebTorrentBackend = null
 }

@@ -170,6 +170,7 @@ export const CreateModelBodySchema = z.object({
     .regex(/^[a-zA-Z0-9._-]+$/),
   description: z.string().min(10),
   type: ModelTypeSchema,
+  fileUri: z.string().optional(),
 })
 
 export const ModelParamsSchema = z.object({

@@ -11,7 +11,7 @@
 
 import { afterAll, describe, expect, setDefaultTimeout, test } from 'bun:test'
 import type { Address, Hex } from 'viem'
-import { app } from '../src/server'
+import { app } from '../api/server'
 
 setDefaultTimeout(60000) // Infrastructure tests may take longer
 

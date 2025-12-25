@@ -57,48 +57,54 @@ const config: AuthConfig = {
   allowedOrigins: requireEnv('ALLOWED_ORIGINS', '*').split(','),
 }
 
-const app = new Elysia()
-  .use(
-    cors({
-      origin: config.allowedOrigins,
-      credentials: true,
-      allowedHeaders: [
-        'Content-Type',
-        'Authorization',
-        'X-Jeju-Address',
-        'X-Jeju-Signature',
-        'X-Jeju-Nonce',
-      ],
-    }),
-  )
-  .get('/health', () => ({
-    status: 'healthy',
-    service: 'auth',
-    timestamp: Date.now(),
-  }))
-  .get('/', () => ({
-    name: 'Jeju Auth Gateway',
-    version: '1.0.0',
-    description: 'OAuth3 authentication gateway for Jeju Network',
-    endpoints: {
-      oauth: '/oauth',
-      wallet: '/wallet',
-      farcaster: '/farcaster',
-      session: '/session',
-      client: '/client',
-    },
-    docs: 'https://docs.jejunetwork.org/auth',
-  }))
-  .use(createOAuthRouter(config))
-  .use(createWalletRouter(config))
-  .use(createFarcasterRouter(config))
-  .use(createSessionRouter(config))
-  .use(createClientRouter(config))
+async function createApp() {
+  const app = new Elysia()
+    .use(
+      cors({
+        origin: config.allowedOrigins,
+        credentials: true,
+        allowedHeaders: [
+          'Content-Type',
+          'Authorization',
+          'X-Jeju-Address',
+          'X-Jeju-Signature',
+          'X-Jeju-Nonce',
+        ],
+      }),
+    )
+    .get('/health', () => ({
+      status: 'healthy',
+      service: 'auth',
+      timestamp: Date.now(),
+    }))
+    .get('/', () => ({
+      name: 'Jeju Auth Gateway',
+      version: '1.0.0',
+      description: 'OAuth3 authentication gateway for Jeju Network',
+      endpoints: {
+        oauth: '/oauth',
+        wallet: '/wallet',
+        farcaster: '/farcaster',
+        session: '/session',
+        client: '/client',
+      },
+      docs: 'https://docs.jejunetwork.org/auth',
+    }))
+    .use(await createOAuthRouter(config))
+    .use(createWalletRouter(config))
+    .use(createFarcasterRouter(config))
+    .use(createSessionRouter(config))
+    .use(createClientRouter(config))
+
+  return app
+}
 
 const port = Number(process.env.PORT ?? 4200)
 
-app.listen(port, () => {
-  console.log(`Auth gateway running on http://localhost:${port}`)
+createApp().then((app) => {
+  app.listen(port, () => {
+    console.log(`Auth gateway running on http://localhost:${port}`)
+  })
 })
 
-export type App = typeof app
+export type { AuthConfig }

@@ -310,7 +310,7 @@ export class TokenPaymentRouter {
       preferredToken: preference[1],
       tokenSymbol: preference[2],
       allowFallback: preference[4],
-      fallbackTokens: fallbacks,
+      fallbackTokens: [...fallbacks],
     }
   }
 

@@ -183,7 +183,6 @@ type ClusterResult = readonly [
 
 export class MPCPartyDiscovery {
   private readonly registryAddress: Address
-  private readonly identityRegistryAddress: Address
   private readonly cacheExpiry: number
   private readonly rpcUrl: string
   private readonly chainId: number
@@ -195,7 +194,6 @@ export class MPCPartyDiscovery {
 
   constructor(config: MPCDiscoveryConfig) {
     this.registryAddress = config.mpcRegistryAddress
-    this.identityRegistryAddress = config.identityRegistryAddress
     this.cacheExpiry = config.cacheExpiry ?? 60000 // 1 minute
     this.rpcUrl = config.rpcUrl
     this.chainId = config.chainId ?? 84532 // Base Sepolia default

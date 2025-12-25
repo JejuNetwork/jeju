@@ -27,7 +27,6 @@ import type {
   ContractFunctionArgs,
   ContractFunctionName,
   Hex,
-  PublicClient,
   ReadContractReturnType,
   Transport,
   WalletClient,

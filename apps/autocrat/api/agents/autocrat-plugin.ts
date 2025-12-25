@@ -17,7 +17,11 @@ import type {
   Plugin,
   State,
 } from '@elizaos/core'
-import { getAutocratA2AUrl, getAutocratUrl } from '@jejunetwork/config'
+import {
+  getAutocratA2AUrl,
+  getAutocratUrl,
+  getCoreAppUrl,
+} from '@jejunetwork/config'
 import type { JsonRecord } from '@jejunetwork/sdk'
 import { expectValid } from '@jejunetwork/types'
 import {
@@ -29,12 +33,13 @@ import {
 } from '../../lib'
 import { autocratProviders } from './autocrat-providers'
 
+// Config handles env overrides for URLs
 function getA2AEndpoint(): string {
-  return process.env.AUTOCRAT_A2A_URL ?? getAutocratA2AUrl()
+  return getAutocratA2AUrl()
 }
 
 function getMCPEndpoint(): string {
-  return process.env.AUTOCRAT_MCP_URL ?? `${getAutocratUrl()}/mcp`
+  return `${getAutocratUrl()}/mcp`
 }
 
 async function callA2A<T>(
@@ -116,17 +121,13 @@ const discoverServicesAction: Action = {
       { name: 'Autocrat A2A', url: getA2AEndpoint(), type: 'a2a' },
       {
         name: 'CEO A2A',
-        url:
-          process.env.CEO_A2A_URL ??
-          `${getAutocratUrl().replace('4040', '4004')}/a2a`,
+        url: `${getCoreAppUrl('AUTOCRAT_CEO')}/a2a`,
         type: 'a2a',
       },
       { name: 'Autocrat MCP', url: getMCPEndpoint(), type: 'mcp' },
       {
         name: 'CEO MCP',
-        url:
-          process.env.CEO_MCP_URL ??
-          `${getAutocratUrl().replace('4040', '4004')}/mcp`,
+        url: `${getCoreAppUrl('AUTOCRAT_CEO')}/mcp`,
         type: 'mcp',
       },
     ]

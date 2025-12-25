@@ -7,8 +7,8 @@
  */
 
 export {
-  type EncryptionProvider,
   EncryptedTrajectoryStorage,
+  type EncryptionProvider,
   getEncryptedTrajectoryStorage,
   resetEncryptedTrajectoryStorage,
 } from './encrypted-storage'
@@ -16,8 +16,8 @@ export {
 export {
   getStorage,
   getStorageProvider,
-  shouldUseStorage,
   StorageUtil,
+  shouldUseStorage,
 } from './storage-util'
 
 export {

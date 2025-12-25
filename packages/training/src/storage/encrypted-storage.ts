@@ -199,9 +199,14 @@ export class EncryptedTrajectoryStorage {
     encrypted: EncryptedPayload,
     authSig: AuthSignature,
   ): Promise<T> {
-    if (!this.encryptionProvider || encrypted.encryptedSymmetricKey === 'unencrypted') {
+    if (
+      !this.encryptionProvider ||
+      encrypted.encryptedSymmetricKey === 'unencrypted'
+    ) {
       // Unencrypted data - just decode
-      return JSON.parse(Buffer.from(encrypted.ciphertext, 'base64').toString()) as T
+      return JSON.parse(
+        Buffer.from(encrypted.ciphertext, 'base64').toString(),
+      ) as T
     }
 
     logger.debug('[EncryptedStorage] Decrypting', {
@@ -379,7 +384,10 @@ export class EncryptedTrajectoryStorage {
     const encrypted = await this.downloadFromIPFS(encryptedCid)
 
     // Decrypt with auth
-    const decrypted = await this.decryptJSON<TrajectoryStep[]>(encrypted, authSig)
+    const decrypted = await this.decryptJSON<TrajectoryStep[]>(
+      encrypted,
+      authSig,
+    )
 
     logger.info('[EncryptedStorage] Retrieved trajectory', {
       cid: encryptedCid,

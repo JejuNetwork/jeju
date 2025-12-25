@@ -64,14 +64,13 @@ import {
 const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? 'autocrat'
 const OPERATOR_KEY = process.env.OPERATOR_PRIVATE_KEY
 
+// Config handles env overrides
 function getDWSEndpoint(): string {
-  return (
-    process.env.DWS_URL ?? process.env.DWS_COMPUTE_URL ?? getDWSComputeUrl()
-  )
+  return getDWSComputeUrl()
 }
 
 function getKMSEndpoint(): string {
-  return process.env.KMS_URL ?? getKMSUrl()
+  return getKMSUrl()
 }
 
 function getChain() {
@@ -264,14 +263,7 @@ function getWalletClient() {
 }
 
 function getContractAddressOrThrow(): Address {
-  const envAddr = process.env.SECURITY_BOUNTY_REGISTRY_ADDRESS
-  if (envAddr && envAddr !== '0x0000000000000000000000000000000000000000') {
-    if (!isAddress(envAddr)) {
-      throw new Error(`Invalid SECURITY_BOUNTY_REGISTRY_ADDRESS: ${envAddr}`)
-    }
-    return envAddr
-  }
-
+  // Config handles env overrides (SECURITY_BOUNTY_REGISTRY_ADDRESS)
   const addr = getSecurityBountyRegistryAddress()
   if (!addr || addr === '0x0000000000000000000000000000000000000000') {
     throw new Error(
@@ -1140,6 +1132,39 @@ export async function getResearcherStats(
   }
 }
 
+export interface ResearcherLeaderboardEntry {
+  researcher: Address
+  totalSubmissions: number
+  approvedSubmissions: number
+  totalEarned: bigint
+  successRate: number
+}
+
+export async function getResearcherLeaderboard(
+  limit = 10,
+): Promise<ResearcherLeaderboardEntry[]> {
+  const client = await getCQLClient()
+  const result = await client.query<Record<string, unknown>>(
+    `SELECT * FROM bounty_researcher_stats
+     ORDER BY total_earned DESC, approved_submissions DESC
+     LIMIT ?`,
+    [limit],
+    CQL_DATABASE_ID,
+  )
+
+  return result.rows.map((row) => {
+    const total = rowNumber(row, 'total_submissions')
+    const approved = rowNumber(row, 'approved_submissions')
+    return {
+      researcher: rowAddress(row, 'researcher'),
+      totalSubmissions: total,
+      approvedSubmissions: approved,
+      totalEarned: rowBigInt(row, 'total_earned'),
+      successRate: total > 0 ? (approved / total) * 100 : 0,
+    }
+  })
+}
+
 // SQL aggregate result type for pool stats query
 interface PoolStatsRow {
   pending_payouts: number | null
@@ -1256,6 +1281,7 @@ export class BugBountyService {
   researcherDisclose = researcherDisclose
   getResearcherStats = getResearcherStats
   getPoolStats = getBountyPoolStats
+  getLeaderboard = getResearcherLeaderboard
 }
 
 let instance: BugBountyService | null = null

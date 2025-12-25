@@ -46,6 +46,7 @@ const UNISWAP_V2_ROUTER_ABI = parseAbi([
   'function getAmountsOut(uint256 amountIn, address[] path) view returns (uint256[])',
 ])
 
+// @ts-expect-error Reserved for future Uniswap V3 integration
 const _UNISWAP_V3_QUOTER_ABI = parseAbi([
   'function quoteExactInputSingle(address tokenIn, address tokenOut, uint24 fee, uint256 amountIn, uint160 sqrtPriceLimitX96) returns (uint256 amountOut)',
 ])

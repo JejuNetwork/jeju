@@ -12,19 +12,19 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
 import { createPublicClient, http } from 'viem'
 import { localhost } from 'viem/chains'
-import { DWSApp, type FetchHandler } from '../src/workers/app-sdk'
+import { DWSApp, type FetchHandler } from '../api/workers/app-sdk'
 import {
   getRegion,
   getRegionConfig,
   haversineDistance,
   LOCALNET_CONFIG,
   TESTNET_CONFIG,
-} from '../src/workers/tee/regions'
+} from '../api/workers/tee/regions'
 import {
   createSecretManager,
   TEESecretManager,
-} from '../src/workers/tee/secrets'
-import type { NetworkEnvironment } from '../src/workers/tee/types'
+} from '../api/workers/tee/secrets'
+import type { NetworkEnvironment } from '../api/workers/tee/types'
 
 const RPC_URL = 'http://127.0.0.1:6546'
 let isAnvilRunning = false

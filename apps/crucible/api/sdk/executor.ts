@@ -73,7 +73,6 @@ const DEFAULT_COSTS: ExecutorCostConfig = {
 
 export class ExecutorSDK {
   private config: CrucibleConfig
-  private storage: CrucibleStorage
   private compute: CrucibleCompute
   private agentSdk: AgentSDK
   private roomSdk: RoomSDK
@@ -85,7 +84,7 @@ export class ExecutorSDK {
 
   constructor(cfg: ExecutorConfig) {
     this.config = cfg.crucibleConfig
-    this.storage = cfg.storage
+    this._storage = cfg.storage
     this.compute = cfg.compute
     this.agentSdk = cfg.agentSdk
     this.roomSdk = cfg.roomSdk

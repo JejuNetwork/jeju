@@ -13,12 +13,8 @@
  * - Automatic routing based on recipient type
  */
 
-import type {
-  DCClientConfig,
-  DirectCast,
-  DirectCastClient,
-} from './farcaster'
 import type { Address } from 'viem'
+import type { DCClientConfig, DirectCast, DirectCastClient } from './farcaster'
 
 // Re-export Farcaster types for convenience
 export type { DirectCast, DCClientConfig }

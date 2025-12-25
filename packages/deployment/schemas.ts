@@ -770,6 +770,7 @@ export const AgentRegistrationFileSchema = z
         }),
       )
       .optional(),
+    active: z.boolean().optional(),
   })
   .passthrough()
 export type AgentRegistrationFile = z.infer<typeof AgentRegistrationFileSchema>

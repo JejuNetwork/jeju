@@ -5,15 +5,15 @@
  */
 
 import { beforeAll, describe, expect, mock, test } from 'bun:test'
-import { RulerScorer } from '../src/rlaif/ruler-scorer'
-import { TrajectoryStore } from '../src/rlaif/trajectory-store'
+import { RulerScorer } from '../api/rlaif/ruler-scorer'
+import { TrajectoryStore } from '../api/rlaif/trajectory-store'
 import type {
   JudgeRubric,
   JudgeScore,
   RLAIFRunConfig,
   RLAlgorithm,
   Trajectory,
-} from '../src/rlaif/types'
+} from '../api/rlaif/types'
 
 // Mock fetch for storage tests
 const mockStorageResponses = new Map<string, unknown>()

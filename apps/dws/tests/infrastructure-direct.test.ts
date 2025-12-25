@@ -13,7 +13,7 @@ import {
   createTerraformProviderRouter,
   getIngressController,
   getServiceMesh,
-} from '../src/infrastructure'
+} from '../api/infrastructure'
 
 const TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
 

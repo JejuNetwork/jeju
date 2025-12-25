@@ -2,6 +2,15 @@
 
 import { Elysia } from 'elysia'
 import {
+  type DiscussionRow,
+  type DiscussionReplyRow,
+  createDiscussion as dbCreateDiscussion,
+  createDiscussionReply as dbCreateReply,
+  listDiscussions as dbListDiscussions,
+  getDiscussion,
+  getDiscussionReplies,
+} from '../db/client'
+import {
   CreateDiscussionBodySchema,
   CreateDiscussionReplyBodySchema,
   DiscussionIdParamSchema,
@@ -10,13 +19,13 @@ import {
 } from '../schemas'
 import { requireAuth } from '../validation/access-control'
 
-interface DiscussionAuthor {
+export interface DiscussionAuthor {
   id: string
   name: string
   avatar: string
 }
 
-interface Discussion {
+export interface Discussion {
   id: string
   title: string
   content: string
@@ -32,13 +41,50 @@ interface Discussion {
   tags: string[]
 }
 
-interface DiscussionReply {
+export interface DiscussionReply {
   id: string
   author: DiscussionAuthor
   content: string
   createdAt: number
   likes: number
   isAnswer?: boolean
+}
+
+function transformReply(row: DiscussionReplyRow): DiscussionReply {
+  return {
+    id: row.id,
+    author: {
+      id: row.author,
+      name: row.author_name,
+      avatar: row.author_avatar,
+    },
+    content: row.content,
+    createdAt: row.created_at,
+    likes: row.likes,
+    isAnswer: row.is_answer === 1,
+  }
+}
+
+function transformDiscussion(row: DiscussionRow): Discussion {
+  return {
+    id: row.id,
+    title: row.title,
+    content: row.content,
+    author: {
+      id: row.author,
+      name: row.author_name,
+      avatar: row.author_avatar,
+    },
+    category: row.category,
+    tags: JSON.parse(row.tags) as string[],
+    replies: row.replies_count,
+    views: row.views,
+    likes: row.likes,
+    isPinned: row.is_pinned === 1,
+    isLocked: row.is_locked === 1,
+    createdAt: row.created_at,
+    lastReplyAt: row.last_reply_at,
+  }
 }
 
 export const discussionsRoutes = new Elysia({ prefix: '/api/discussions' })
@@ -52,13 +98,13 @@ export const discussionsRoutes = new Elysia({ prefix: '/api/discussions' })
       )
       const page = Number.parseInt(validated.page ?? '1', 10)
 
-      const discussions: Discussion[] = []
+      const result = dbListDiscussions({
+        category: validated.category,
+        page,
+      })
 
-      const filtered = validated.category
-        ? discussions.filter((d) => d.category === validated.category)
-        : discussions
-
-      return { discussions: filtered, total: filtered.length, page }
+      const discussions = result.discussions.map(transformDiscussion)
+      return { discussions, total: result.total, page }
     },
     {
       detail: {
@@ -83,28 +129,18 @@ export const discussionsRoutes = new Elysia({ prefix: '/api/discussions' })
         'request body',
       )
 
-      const discussion: Discussion = {
-        id: `discussion-${Date.now()}`,
+      const row = dbCreateDiscussion({
         title: validated.title,
         content: validated.content,
         category: validated.category,
-        tags: validated.tags ?? [],
-        author: {
-          id: authResult.address,
-          name: authResult.address.slice(0, 8),
-          avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${authResult.address}`,
-        },
-        replies: 0,
-        views: 0,
-        likes: 0,
-        isPinned: false,
-        isLocked: false,
-        createdAt: Date.now(),
-        lastReplyAt: Date.now(),
-      }
+        tags: validated.tags,
+        author: authResult.address,
+        authorName: authResult.address.slice(0, 8),
+        authorAvatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${authResult.address}`,
+      })
 
       set.status = 201
-      return discussion
+      return transformDiscussion(row)
     },
     {
       detail: {
@@ -118,13 +154,17 @@ export const discussionsRoutes = new Elysia({ prefix: '/api/discussions' })
     '/:discussionId',
     async ({ params, set }) => {
       const validated = expectValid(DiscussionIdParamSchema, params, 'params')
-      set.status = 404
-      return {
-        error: {
-          code: 'NOT_FOUND',
-          message: `Discussion ${validated.discussionId} not found`,
-        },
+      const row = getDiscussion(validated.discussionId)
+      if (!row) {
+        set.status = 404
+        return {
+          error: {
+            code: 'NOT_FOUND',
+            message: `Discussion ${validated.discussionId} not found`,
+          },
+        }
       }
+      return transformDiscussion(row)
     },
     {
       detail: {
@@ -143,37 +183,71 @@ export const discussionsRoutes = new Elysia({ prefix: '/api/discussions' })
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
       }
 
-      const _validatedParams = expectValid(
+      const validatedParams = expectValid(
         DiscussionIdParamSchema,
         params,
         'params',
       )
+
+      const discussion = getDiscussion(validatedParams.discussionId)
+      if (!discussion) {
+        set.status = 404
+        return {
+          error: {
+            code: 'NOT_FOUND',
+            message: `Discussion ${validatedParams.discussionId} not found`,
+          },
+        }
+      }
+
       const validatedBody = expectValid(
         CreateDiscussionReplyBodySchema,
         body,
         'request body',
       )
 
-      const reply: DiscussionReply = {
-        id: `reply-${Date.now()}`,
-        author: {
-          id: authResult.address,
-          name: authResult.address.slice(0, 8),
-          avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${authResult.address}`,
-        },
+      const row = dbCreateReply({
+        discussionId: validatedParams.discussionId,
+        author: authResult.address,
+        authorName: authResult.address.slice(0, 8),
+        authorAvatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${authResult.address}`,
         content: validatedBody.content,
-        createdAt: Date.now(),
-        likes: 0,
-      }
+      })
 
       set.status = 201
-      return reply
+      return transformReply(row)
     },
     {
       detail: {
         tags: ['discussions'],
         summary: 'Reply to discussion',
         description: 'Add a reply to a discussion',
+      },
+    },
+  )
+  .get(
+    '/:discussionId/replies',
+    async ({ params, set }) => {
+      const validated = expectValid(DiscussionIdParamSchema, params, 'params')
+      const discussion = getDiscussion(validated.discussionId)
+      if (!discussion) {
+        set.status = 404
+        return {
+          error: {
+            code: 'NOT_FOUND',
+            message: `Discussion ${validated.discussionId} not found`,
+          },
+        }
+      }
+
+      const rows = getDiscussionReplies(validated.discussionId)
+      return { replies: rows.map(transformReply), total: rows.length }
+    },
+    {
+      detail: {
+        tags: ['discussions'],
+        summary: 'Get discussion replies',
+        description: 'Get all replies for a discussion',
       },
     },
   )

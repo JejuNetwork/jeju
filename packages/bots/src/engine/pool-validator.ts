@@ -46,6 +46,7 @@ const PAIR_ABI = parseAbi([
   'function factory() view returns (address)',
 ])
 
+// @ts-expect-error Reserved for future factory validation
 const _FACTORY_ABI = parseAbi([
   'function getPair(address, address) view returns (address)',
   'function allPairsLength() view returns (uint256)',

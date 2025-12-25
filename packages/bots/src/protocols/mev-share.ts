@@ -26,6 +26,7 @@ interface MEVShareBundle {
   revertingTxHashes?: Hash[]
 }
 
+// @ts-expect-error Reserved for future SSE integration
 const _MEVSHARE_SSE = 'https://mev-share.flashbots.net'
 const MEVSHARE_BUNDLE = 'https://relay.flashbots.net'
 

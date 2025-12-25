@@ -2,6 +2,19 @@
 
 import { Elysia } from 'elysia'
 import {
+  addPackageMaintainer,
+  createPackageToken,
+  deprecatePackage,
+  getPackageMaintainers,
+  getPackageSettings,
+  type MaintainerRow,
+  type PackageSettingsRow,
+  removePackageMaintainer,
+  revokePackageToken,
+  undeprecatePackage,
+  upsertPackageSettings,
+} from '../db/client'
+import {
   AddMaintainerBodySchema,
   CreateAccessTokenBodySchema,
   DeprecatePackageBodySchema,
@@ -11,41 +24,51 @@ import {
 } from '../schemas'
 import { requireAuth } from '../validation/access-control'
 
-interface PackageMaintainer {
+export interface PackageMaintainer {
   login: string
   avatar: string
   role: 'owner' | 'maintainer'
 }
 
-interface PackageWebhook {
-  id: string
-  url: string
-  events: ('publish' | 'unpublish' | 'download')[]
-  active: boolean
-  createdAt: number
-}
-
-interface PackageSettings {
+export interface PackageSettings {
   scope: string
   name: string
   description: string
   visibility: 'public' | 'private'
   maintainers: PackageMaintainer[]
-  webhooks: PackageWebhook[]
+  webhooks: Array<{
+    id: string
+    url: string
+    events: string[]
+    active: boolean
+    createdAt: number
+  }>
   downloadCount: number
   publishEnabled: boolean
   deprecated: boolean
   deprecationMessage?: string
 }
 
-interface PackageAccessToken {
-  id: string
-  name: string
-  token: string
-  permissions: ('read' | 'write' | 'delete')[]
-  createdAt: number
-  expiresAt?: number
-  lastUsed?: number
+function transformSettings(
+  row: PackageSettingsRow,
+  maintainers: MaintainerRow[],
+): PackageSettings {
+  return {
+    scope: row.scope,
+    name: row.name,
+    description: row.description ?? '',
+    visibility: row.visibility,
+    maintainers: maintainers.map((m) => ({
+      login: m.login,
+      avatar: m.avatar,
+      role: m.role,
+    })),
+    webhooks: [], // Package webhooks not implemented yet
+    downloadCount: row.download_count,
+    publishEnabled: row.publish_enabled === 1,
+    deprecated: row.deprecated === 1,
+    deprecationMessage: row.deprecation_message ?? undefined,
+  }
 }
 
 export const packageSettingsRoutes = new Elysia({
@@ -60,25 +83,15 @@ export const packageSettingsRoutes = new Elysia({
         'params',
       )
 
-      const settings: PackageSettings = {
-        scope: validated.scope,
-        name: validated.name,
-        description: 'A package description',
-        visibility: 'public',
-        maintainers: [
-          {
-            login: 'owner.eth',
-            avatar: 'https://avatars.githubusercontent.com/u/1?v=4',
-            role: 'owner',
-          },
-        ],
-        webhooks: [],
-        downloadCount: 1234,
-        publishEnabled: true,
-        deprecated: false,
+      let row = getPackageSettings(validated.scope, validated.name)
+      if (!row) {
+        // Create default settings for new package
+        row = upsertPackageSettings(validated.scope, validated.name, {})
       }
 
-      return settings
+      const maintainers = getPackageMaintainers(validated.scope, validated.name)
+
+      return transformSettings(row, maintainers)
     },
     {
       detail: {
@@ -97,8 +110,22 @@ export const packageSettingsRoutes = new Elysia({
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
       }
 
-      expectValid(PackageSettingsParamsSchema, params, 'params')
-      expectValid(UpdatePackageSettingsBodySchema, body, 'request body')
+      const validatedParams = expectValid(
+        PackageSettingsParamsSchema,
+        params,
+        'params',
+      )
+      const validatedBody = expectValid(
+        UpdatePackageSettingsBodySchema,
+        body,
+        'request body',
+      )
+
+      upsertPackageSettings(validatedParams.scope, validatedParams.name, {
+        description: validatedBody.description,
+        visibility: validatedBody.visibility,
+        publishEnabled: validatedBody.publishEnabled,
+      })
 
       return { success: true }
     },
@@ -119,21 +146,33 @@ export const packageSettingsRoutes = new Elysia({
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
       }
 
-      expectValid(PackageSettingsParamsSchema, params, 'params')
+      const validatedParams = expectValid(
+        PackageSettingsParamsSchema,
+        params,
+        'params',
+      )
       const validated = expectValid(
         AddMaintainerBodySchema,
         body,
         'request body',
       )
 
-      const maintainer: PackageMaintainer = {
-        login: validated.login,
-        avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${validated.login}`,
-        role: validated.role,
-      }
+      const row = addPackageMaintainer(
+        validatedParams.scope,
+        validatedParams.name,
+        {
+          login: validated.login,
+          avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${validated.login}`,
+          role: validated.role,
+        },
+      )
 
       set.status = 201
-      return maintainer
+      return {
+        login: row.login,
+        avatar: row.avatar,
+        role: row.role,
+      }
     },
     {
       detail: {
@@ -145,11 +184,30 @@ export const packageSettingsRoutes = new Elysia({
   )
   .delete(
     '/maintainers/:login',
-    async ({ headers, set }) => {
+    async ({ params, headers, set }) => {
       const authResult = await requireAuth(headers)
       if (!authResult.success) {
         set.status = 401
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
+      }
+
+      const validatedParams = expectValid(
+        PackageSettingsParamsSchema,
+        {
+          scope: params.scope,
+          name: params.name,
+        },
+        'params',
+      )
+
+      const success = removePackageMaintainer(
+        validatedParams.scope,
+        validatedParams.name,
+        params.login,
+      )
+      if (!success) {
+        set.status = 404
+        return { error: { code: 'NOT_FOUND', message: 'Maintainer not found' } }
       }
 
       return { success: true }
@@ -171,26 +229,38 @@ export const packageSettingsRoutes = new Elysia({
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
       }
 
-      expectValid(PackageSettingsParamsSchema, params, 'params')
+      const validatedParams = expectValid(
+        PackageSettingsParamsSchema,
+        params,
+        'params',
+      )
       const validated = expectValid(
         CreateAccessTokenBodySchema,
         body,
         'request body',
       )
 
-      const token: PackageAccessToken = {
-        id: `token-${Date.now()}`,
-        name: validated.name,
-        token: `pkg_${Math.random().toString(36).slice(2)}`,
-        permissions: validated.permissions,
-        createdAt: Date.now(),
-        expiresAt: validated.expiresIn
-          ? Date.now() + validated.expiresIn * 1000
-          : undefined,
-      }
+      const { row, plainToken } = createPackageToken(
+        validatedParams.scope,
+        validatedParams.name,
+        {
+          tokenName: validated.name,
+          permissions: validated.permissions,
+          expiresAt: validated.expiresIn
+            ? Date.now() + validated.expiresIn * 1000
+            : undefined,
+        },
+      )
 
       set.status = 201
-      return token
+      return {
+        id: row.id,
+        name: row.token_name,
+        token: plainToken,
+        permissions: JSON.parse(row.permissions) as string[],
+        createdAt: row.created_at,
+        expiresAt: row.expires_at ?? undefined,
+      }
     },
     {
       detail: {
@@ -202,11 +272,17 @@ export const packageSettingsRoutes = new Elysia({
   )
   .delete(
     '/tokens/:tokenId',
-    async ({ headers, set }) => {
+    async ({ params, headers, set }) => {
       const authResult = await requireAuth(headers)
       if (!authResult.success) {
         set.status = 401
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
+      }
+
+      const success = revokePackageToken(params.tokenId)
+      if (!success) {
+        set.status = 404
+        return { error: { code: 'NOT_FOUND', message: 'Token not found' } }
       }
 
       return { success: true }
@@ -228,8 +304,22 @@ export const packageSettingsRoutes = new Elysia({
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
       }
 
-      expectValid(PackageSettingsParamsSchema, params, 'params')
-      expectValid(DeprecatePackageBodySchema, body, 'request body')
+      const validatedParams = expectValid(
+        PackageSettingsParamsSchema,
+        params,
+        'params',
+      )
+      const validatedBody = expectValid(
+        DeprecatePackageBodySchema,
+        body,
+        'request body',
+      )
+
+      deprecatePackage(
+        validatedParams.scope,
+        validatedParams.name,
+        validatedBody.message,
+      )
 
       return { success: true }
     },
@@ -250,7 +340,13 @@ export const packageSettingsRoutes = new Elysia({
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
       }
 
-      expectValid(PackageSettingsParamsSchema, params, 'params')
+      const validatedParams = expectValid(
+        PackageSettingsParamsSchema,
+        params,
+        'params',
+      )
+
+      undeprecatePackage(validatedParams.scope, validatedParams.name)
 
       return { success: true }
     },

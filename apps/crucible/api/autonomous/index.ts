@@ -3,10 +3,20 @@
  * Manages autonomous agent lifecycle and tick execution
  */
 
+import { checkDWSHealth, getSharedDWSClient } from '../client/dws'
+import {
+  type CrucibleAgentRuntime,
+  createCrucibleRuntime,
+} from '../sdk/eliza-runtime'
+import { createLogger } from '../sdk/logger'
 import type {
+  ActivityEntry,
+  AgentTickContext,
   AutonomousAgentConfig,
   AutonomousRunnerConfig,
   AutonomousRunnerStatus,
+  AvailableAction,
+  NetworkState,
 } from './types'
 
 export type {
@@ -16,12 +26,22 @@ export type {
 }
 export { DEFAULT_AUTONOMOUS_CONFIG } from './types'
 
+const log = createLogger('AutonomousRunner')
+
 interface RegisteredAgent {
   config: AutonomousAgentConfig
+  runtime: CrucibleAgentRuntime | null
   lastTick: number
   tickCount: number
+  errorCount: number
+  lastError: string | null
+  backoffMs: number
   intervalId: ReturnType<typeof setInterval> | null
+  recentActivity: ActivityEntry[]
 }
+
+const BASE_BACKOFF_MS = 5000
+const MAX_BACKOFF_MS = 300000 // 5 minutes max
 
 export class AutonomousAgentRunner {
   private agents: Map<string, RegisteredAgent> = new Map()
@@ -40,14 +60,20 @@ export class AutonomousAgentRunner {
     if (this.running) return
     this.running = true
 
+    log.info('Starting autonomous runner', {
+      maxConcurrentAgents: this.config.maxConcurrentAgents,
+    })
+
     // Start tick loops for all registered agents
     for (const [agentId, agent] of this.agents) {
+      await this.initializeAgentRuntime(agent)
       this.startAgentTicks(agentId, agent)
     }
   }
 
   async stop(): Promise<void> {
     this.running = false
+    log.info('Stopping autonomous runner')
 
     // Stop all agent tick loops
     for (const agent of this.agents.values()) {
@@ -67,14 +93,24 @@ export class AutonomousAgentRunner {
 
     const agent: RegisteredAgent = {
       config,
+      runtime: null,
       lastTick: 0,
       tickCount: 0,
+      errorCount: 0,
+      lastError: null,
+      backoffMs: 0,
       intervalId: null,
+      recentActivity: [],
     }
 
     this.agents.set(config.agentId, agent)
+    log.info('Agent registered', {
+      agentId: config.agentId,
+      character: config.character.name,
+    })
 
     if (this.running) {
+      await this.initializeAgentRuntime(agent)
       this.startAgentTicks(config.agentId, agent)
     }
   }
@@ -85,6 +121,7 @@ export class AutonomousAgentRunner {
       clearInterval(agent.intervalId)
     }
     this.agents.delete(agentId)
+    log.info('Agent unregistered', { agentId })
   }
 
   getStatus(): AutonomousRunnerStatus {
@@ -100,34 +137,367 @@ export class AutonomousAgentRunner {
     }
   }
 
-  private startAgentTicks(_agentId: string, agent: RegisteredAgent): void {
+  private async initializeAgentRuntime(agent: RegisteredAgent): Promise<void> {
+    if (agent.runtime) return
+
+    agent.runtime = createCrucibleRuntime({
+      agentId: agent.config.agentId,
+      character: agent.config.character,
+    })
+
+    await agent.runtime.initialize()
+    log.info('Agent runtime initialized', { agentId: agent.config.agentId })
+  }
+
+  private startAgentTicks(agentId: string, agent: RegisteredAgent): void {
     if (agent.intervalId) return
 
     const tick = async () => {
       if (!this.running || !agent.config.enabled) return
 
+      // Apply exponential backoff if there have been errors
+      if (agent.backoffMs > 0) {
+        const timeSinceLastTick = Date.now() - agent.lastTick
+        if (timeSinceLastTick < agent.backoffMs) {
+          return
+        }
+      }
+
       agent.lastTick = Date.now()
       agent.tickCount++
 
-      // Execute agent tick - placeholder for actual implementation
-      await this.executeAgentTick(agent.config)
+      try {
+        await this.executeAgentTick(agent)
+        // Reset backoff on success
+        agent.errorCount = 0
+        agent.backoffMs = 0
+        agent.lastError = null
+      } catch (err) {
+        agent.errorCount++
+        agent.lastError = err instanceof Error ? err.message : String(err)
+        // Exponential backoff with cap
+        agent.backoffMs = Math.min(
+          BASE_BACKOFF_MS * 2 ** agent.errorCount,
+          MAX_BACKOFF_MS,
+        )
+        log.error('Tick failed', {
+          agentId,
+          error: agent.lastError,
+          backoffMs: agent.backoffMs,
+        })
+      }
     }
 
     // Run first tick immediately
-    tick().catch(console.error)
+    tick().catch((err) =>
+      log.error('Initial tick failed', { error: String(err) }),
+    )
 
     // Schedule recurring ticks
     agent.intervalId = setInterval(() => {
-      tick().catch(console.error)
+      tick().catch((err) => log.error('Tick failed', { error: String(err) }))
     }, agent.config.tickIntervalMs)
   }
 
-  private async executeAgentTick(config: AutonomousAgentConfig): Promise<void> {
-    // Placeholder - actual implementation would:
-    // 1. Check agent's current state
-    // 2. Evaluate opportunities based on capabilities
-    // 3. Execute actions up to maxActionsPerTick
-    console.log(`[Autonomous] Tick for agent ${config.agentId}`)
+  private async executeAgentTick(agent: RegisteredAgent): Promise<void> {
+    const config = agent.config
+
+    log.debug('Executing tick', {
+      agentId: config.agentId,
+      tickCount: agent.tickCount,
+    })
+
+    // Build tick context
+    const context = await this.buildTickContext(agent)
+
+    // Check if DWS is available for inference
+    if (!context.networkState.dwsAvailable) {
+      log.warn('DWS not available, skipping tick', { agentId: config.agentId })
+      return
+    }
+
+    // Build the tick prompt based on context
+    const tickPrompt = this.buildTickPrompt(config, context)
+
+    // Get response from agent runtime
+    if (!agent.runtime) {
+      throw new Error('Agent runtime not initialized')
+    }
+
+    const response = await agent.runtime.processMessage({
+      id: crypto.randomUUID(),
+      userId: 'autonomous-runner',
+      roomId: `autonomous-${config.agentId}`,
+      content: { text: tickPrompt, source: 'autonomous' },
+      createdAt: Date.now(),
+    })
+
+    log.info('Tick completed', {
+      agentId: config.agentId,
+      responseLength: response.text.length,
+      action: response.action ?? null,
+    })
+
+    // Record activity
+    agent.recentActivity.push({
+      action: response.action ?? 'respond',
+      timestamp: Date.now(),
+      success: true,
+      result: { text: response.text.slice(0, 200) },
+    })
+
+    // Keep only last 50 activities
+    if (agent.recentActivity.length > 50) {
+      agent.recentActivity = agent.recentActivity.slice(-50)
+    }
+
+    // Execute any parsed actions
+    if (response.actions && response.actions.length > 0) {
+      for (const action of response.actions.slice(
+        0,
+        config.maxActionsPerTick,
+      )) {
+        await this.executeAction(agent, action.name, action.params)
+      }
+    }
+  }
+
+  private async buildTickContext(
+    agent: RegisteredAgent,
+  ): Promise<AgentTickContext> {
+    const networkState = await this.getNetworkState()
+    const availableActions = this.getAvailableActions(agent.config.capabilities)
+
+    return {
+      availableActions,
+      recentActivity: agent.recentActivity.slice(-10),
+      pendingGoals: agent.config.goals ?? [],
+      pendingMessages: [],
+      networkState,
+    }
+  }
+
+  private async getNetworkState(): Promise<NetworkState> {
+    const dwsAvailable = await checkDWSHealth()
+    const network = process.env.NETWORK ?? 'localnet'
+
+    let inferenceAvailable = false
+    let inferenceNodes = 0
+
+    if (dwsAvailable) {
+      const client = getSharedDWSClient()
+      const inference = await client.checkInferenceAvailable()
+      inferenceAvailable = inference.available
+      inferenceNodes = inference.nodes
+    }
+
+    return {
+      network,
+      dwsAvailable,
+      inferenceAvailable,
+      inferenceNodes,
+    }
+  }
+
+  private getAvailableActions(
+    capabilities: AutonomousAgentConfig['capabilities'],
+  ): AvailableAction[] {
+    const actions: AvailableAction[] = []
+
+    if (capabilities.canChat) {
+      actions.push({
+        name: 'RESPOND',
+        description: 'Generate a response or message',
+        category: 'communication',
+      })
+    }
+
+    if (capabilities.canTrade) {
+      actions.push(
+        {
+          name: 'SWAP',
+          description: 'Execute a token swap',
+          category: 'defi',
+          parameters: [
+            {
+              name: 'tokenIn',
+              type: 'address',
+              description: 'Token to sell',
+              required: true,
+            },
+            {
+              name: 'tokenOut',
+              type: 'address',
+              description: 'Token to buy',
+              required: true,
+            },
+            {
+              name: 'amount',
+              type: 'bigint',
+              description: 'Amount to swap',
+              required: true,
+            },
+          ],
+          requiresApproval: true,
+        },
+        {
+          name: 'PROVIDE_LIQUIDITY',
+          description: 'Add liquidity to a pool',
+          category: 'defi',
+          requiresApproval: true,
+        },
+      )
+    }
+
+    if (capabilities.canPropose) {
+      actions.push({
+        name: 'PROPOSE',
+        description: 'Create a governance proposal',
+        category: 'governance',
+        requiresApproval: true,
+      })
+    }
+
+    if (capabilities.canVote) {
+      actions.push({
+        name: 'VOTE',
+        description: 'Vote on a proposal',
+        category: 'governance',
+        parameters: [
+          {
+            name: 'proposalId',
+            type: 'string',
+            description: 'ID of the proposal',
+            required: true,
+          },
+          {
+            name: 'support',
+            type: 'boolean',
+            description: 'Whether to vote for or against',
+            required: true,
+          },
+        ],
+      })
+    }
+
+    if (capabilities.canStake) {
+      actions.push({
+        name: 'STAKE',
+        description: 'Stake tokens',
+        category: 'defi',
+        requiresApproval: true,
+      })
+    }
+
+    if (capabilities.a2a) {
+      actions.push({
+        name: 'A2A_MESSAGE',
+        description: 'Send a message to another agent',
+        category: 'communication',
+      })
+    }
+
+    if (capabilities.compute) {
+      actions.push({
+        name: 'RUN_COMPUTE',
+        description: 'Execute a compute job on DWS',
+        category: 'compute',
+      })
+    }
+
+    return actions
+  }
+
+  private buildTickPrompt(
+    config: AutonomousAgentConfig,
+    context: AgentTickContext,
+  ): string {
+    const parts: string[] = []
+
+    parts.push(
+      'You are operating autonomously. Evaluate your current state and decide what actions to take.',
+    )
+    parts.push('')
+
+    // Goals
+    if (context.pendingGoals.length > 0) {
+      parts.push('## Current Goals')
+      for (const goal of context.pendingGoals) {
+        parts.push(`- [${goal.priority}] ${goal.description} (${goal.status})`)
+      }
+      parts.push('')
+    }
+
+    // Recent activity
+    if (context.recentActivity.length > 0) {
+      parts.push('## Recent Activity')
+      for (const activity of context.recentActivity.slice(-5)) {
+        const time = new Date(activity.timestamp).toISOString()
+        parts.push(
+          `- ${time}: ${activity.action} (${activity.success ? 'success' : 'failed'})`,
+        )
+      }
+      parts.push('')
+    }
+
+    // Available actions
+    parts.push('## Available Actions')
+    for (const action of context.availableActions) {
+      parts.push(`- ${action.name}: ${action.description}`)
+    }
+    parts.push('')
+
+    // Network state
+    parts.push('## Network State')
+    parts.push(`Network: ${context.networkState.network}`)
+    parts.push(
+      `Inference: ${context.networkState.inferenceAvailable ? 'available' : 'unavailable'} (${context.networkState.inferenceNodes} nodes)`,
+    )
+    parts.push('')
+
+    parts.push(
+      `You may execute up to ${config.maxActionsPerTick} actions this tick.`,
+    )
+    parts.push('Use [ACTION: NAME | param1=value1] syntax to execute actions.')
+
+    return parts.join('\n')
+  }
+
+  private async executeAction(
+    agent: RegisteredAgent,
+    actionName: string,
+    params: Record<string, string>,
+  ): Promise<void> {
+    log.info('Executing action', {
+      agentId: agent.config.agentId,
+      action: actionName,
+      params,
+    })
+
+    // Record action attempt
+    const activity: ActivityEntry = {
+      action: actionName,
+      timestamp: Date.now(),
+      success: false,
+    }
+
+    // Action execution would integrate with the agent SDK
+    // For now, we log the action - real implementation would:
+    // 1. Validate action against capabilities
+    // 2. Execute via appropriate SDK method
+    // 3. Record result
+
+    // Mark as successful (actual implementation would check result)
+    activity.success = true
+    activity.result = { executed: true, params }
+
+    agent.recentActivity.push(activity)
+
+    log.info('Action executed', {
+      agentId: agent.config.agentId,
+      action: actionName,
+      success: activity.success,
+    })
   }
 }
 

@@ -38,17 +38,31 @@ class TestExecutor extends BaseAgentExecutor {
   }
 }
 
+/** Event types that can be published to the event bus */
+interface StatusUpdateEvent {
+  kind: 'status-update'
+  status: { state: string; timestamp: string }
+  final?: boolean
+}
+
+interface ArtifactUpdateEvent {
+  kind: 'artifact-update'
+  artifact: { parts: Array<{ kind: string; data: Record<string, unknown> }> }
+}
+
+type ExecutorEvent = Task | StatusUpdateEvent | ArtifactUpdateEvent
+
 /**
  * Mock event bus for capturing published events
  */
 function createMockEventBus(): ExecutionEventBus & {
-  events: Array<Task | object>
+  events: ExecutorEvent[]
 } {
-  const events: Array<Task | object> = []
+  const events: ExecutorEvent[] = []
   return {
     events,
-    publish(event: Task | object) {
-      events.push(event)
+    publish(event: Task | Record<string, unknown>) {
+      events.push(event as ExecutorEvent)
     },
     finished() {
       // no-op for testing
@@ -81,7 +95,10 @@ describe('BaseAgentExecutor', () => {
 
       await executor.execute(context, eventBus)
 
-      const initialTask = eventBus.events[0] as Task
+      const initialTask = eventBus.events[0]
+      if (initialTask.kind !== 'task') {
+        throw new Error(`Expected task event, got ${initialTask.kind}`)
+      }
       expect(initialTask.kind).toBe('task')
       expect(initialTask.id).toBe('task-123')
       expect(initialTask.status.state).toBe('submitted')
@@ -153,16 +170,13 @@ describe('BaseAgentExecutor', () => {
       await executor.execute(context, eventBus)
 
       const artifactEvent = eventBus.events.find(
-        (
-          e,
-        ): e is {
-          kind: 'artifact-update'
-          artifact: { parts: Array<{ data: object }> }
-        } => (e as { kind?: string }).kind === 'artifact-update',
+        (e): e is ArtifactUpdateEvent => e.kind === 'artifact-update',
       )
 
-      expect(artifactEvent).toBeDefined()
-      expect(artifactEvent?.artifact.parts[0].data).toEqual({
+      if (!artifactEvent) {
+        throw new Error('Expected artifact-update event to be published')
+      }
+      expect(artifactEvent.artifact.parts[0].data).toEqual({
         data: 'test-result',
         value: 42,
       })
@@ -192,7 +206,7 @@ describe('BaseAgentExecutor', () => {
       await executor.execute(context, eventBus)
 
       // First event should be working update, not initial task
-      const firstEvent = eventBus.events[0] as { kind?: string }
+      const firstEvent = eventBus.events[0]
       expect(firstEvent.kind).toBe('status-update')
     })
   })
@@ -202,9 +216,9 @@ describe('BaseAgentExecutor', () => {
       await executor.cancelTask('task-123', eventBus)
 
       expect(eventBus.events).toHaveLength(1)
-      const cancelEvent = eventBus.events[0] as {
-        status: { state: string }
-        final: boolean
+      const cancelEvent = eventBus.events[0]
+      if (cancelEvent.kind !== 'status-update') {
+        throw new Error(`Expected status-update event, got ${cancelEvent.kind}`)
       }
       expect(cancelEvent.status.state).toBe('canceled')
       expect(cancelEvent.final).toBe(true)

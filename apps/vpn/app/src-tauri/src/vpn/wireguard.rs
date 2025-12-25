@@ -445,6 +445,13 @@ pub fn derive_public_key(private_key: &str) -> Result<String, VPNError> {
 }
 
 // Platform-specific TUN interface handling
+//
+// IMPLEMENTATION STATUS: These are placeholder implementations.
+// The WireGuard protocol layer (boringtun) is fully functional, but the
+// TUN interface code needs completion to actually route traffic.
+//
+// TODO: Integrate `tun` crate for Linux/macOS and `wintun` crate for Windows.
+// See Cargo.toml for adding these dependencies.
 
 #[cfg(target_os = "linux")]
 mod platform {
@@ -452,35 +459,38 @@ mod platform {
 
     pub struct TunDevice {
         pub name: String,
-        // In a real implementation, this would hold the tun fd
+        // TODO: Add actual file descriptor
+        // pub fd: std::os::unix::io::RawFd,
     }
 
+    /// TODO: Replace with actual TUN device creation using the `tun` crate:
+    /// ```ignore
+    /// use tun::{Configuration, Device};
+    /// let mut config = Configuration::default();
+    /// config.name("jeju0").mtu(MTU as i32).address((10, 0, 0, 2)).up();
+    /// let dev = tun::create_as_async(&config)?;
+    /// ```
     pub async fn create_tun_interface() -> Result<TunDevice, VPNError> {
         tracing::info!("Creating TUN interface on Linux");
-
-        // In production, use the tun crate:
-        // let mut config = tun::Configuration::default();
-        // config.name("jeju0").mtu(MTU as i32).up();
-        // let dev = tun::create_as_async(&config)?;
+        tracing::warn!("TUN interface is a placeholder - not routing real traffic");
 
         Ok(TunDevice {
             name: "jeju0".to_string(),
         })
     }
 
+    /// TODO: Implement actual write to TUN device
     pub async fn write_to_tun(device: &TunDevice, data: &[u8]) -> Result<(), VPNError> {
         tracing::trace!("Writing {} bytes to TUN {}", data.len(), device.name);
-        // In production: device.write(data).await?;
         Ok(())
     }
 
+    /// TODO: Implement actual read from TUN device
     pub async fn read_from_tun<'a>(
         device: &TunDevice,
         buf: &'a mut [u8],
     ) -> Result<&'a [u8], VPNError> {
         let _ = (device, buf);
-        // In production: let n = device.read(buf).await?;
-        // return Ok(&buf[..n]);
         Ok(&[])
     }
 }
@@ -491,24 +501,32 @@ mod platform {
 
     pub struct TunDevice {
         pub name: String,
+        // TODO: Add actual utun file descriptor
     }
 
+    /// TODO: Replace with actual utun device creation using the `tun` crate:
+    /// ```ignore
+    /// use tun::{Configuration, Device};
+    /// let config = Configuration::default();
+    /// let dev = tun::create(&config)?;
+    /// // macOS auto-assigns utunX name
+    /// ```
     pub async fn create_tun_interface() -> Result<TunDevice, VPNError> {
         tracing::info!("Creating TUN interface on macOS (utun)");
-
-        // macOS uses utun interfaces
-        // In production, use the tun crate with macOS support
+        tracing::warn!("TUN interface is a placeholder - not routing real traffic");
 
         Ok(TunDevice {
             name: "utun99".to_string(),
         })
     }
 
+    /// TODO: Implement actual write to utun device
     pub async fn write_to_tun(device: &TunDevice, data: &[u8]) -> Result<(), VPNError> {
         tracing::trace!("Writing {} bytes to TUN {}", data.len(), device.name);
         Ok(())
     }
 
+    /// TODO: Implement actual read from utun device
     pub async fn read_from_tun<'a>(
         device: &TunDevice,
         buf: &'a mut [u8],
@@ -524,24 +542,32 @@ mod platform {
 
     pub struct TunDevice {
         pub name: String,
+        // TODO: Add WinTun session handle
     }
 
+    /// TODO: Replace with actual WinTun device creation using the `wintun` crate:
+    /// ```ignore
+    /// use wintun::Adapter;
+    /// let wintun = unsafe { wintun::load()? };
+    /// let adapter = Adapter::create(&wintun, "JejuVPN", "JejuVPN", None)?;
+    /// let session = adapter.start_session(wintun::MAX_RING_CAPACITY)?;
+    /// ```
     pub async fn create_tun_interface() -> Result<TunDevice, VPNError> {
         tracing::info!("Creating TUN interface on Windows (WinTun)");
-
-        // Windows requires WinTun driver
-        // In production, use wintun crate
+        tracing::warn!("TUN interface is a placeholder - not routing real traffic");
 
         Ok(TunDevice {
             name: "JejuVPN".to_string(),
         })
     }
 
+    /// TODO: Implement actual write to WinTun device
     pub async fn write_to_tun(device: &TunDevice, data: &[u8]) -> Result<(), VPNError> {
         tracing::trace!("Writing {} bytes to TUN {}", data.len(), device.name);
         Ok(())
     }
 
+    /// TODO: Implement actual read from WinTun device
     pub async fn read_from_tun<'a>(
         device: &TunDevice,
         buf: &'a mut [u8],

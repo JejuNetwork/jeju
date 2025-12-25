@@ -5,12 +5,12 @@
  */
 
 import { describe, expect, it } from 'bun:test'
-import { DWSApp, type FetchHandler, JEJU_APPS } from '../src/workers/app-sdk'
+import { DWSApp, type FetchHandler, JEJU_APPS } from '../api/workers/app-sdk'
 import {
   adaptAppForWorkerd,
   generateWorkerdCode,
   generateWorkerdConfig,
-} from '../src/workers/workerd/app-adapter'
+} from '../api/workers/workerd/app-adapter'
 
 /** Test helper for creating DWSApp with invalid config */
 interface RawDWSAppConfig {

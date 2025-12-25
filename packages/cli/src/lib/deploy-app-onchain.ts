@@ -299,7 +299,7 @@ async function deployWorker(
 ): Promise<{ cid: string; workerId: Hex }> {
   const backend = manifest.architecture?.backend
   const outputDir =
-    (typeof backend === 'object' && backend?.outputDir) ?? 'dist/worker'
+    (typeof backend === 'object' && backend?.outputDir) || 'dist/worker'
   const workerPath = join(appDir, outputDir)
 
   if (!existsSync(workerPath)) {

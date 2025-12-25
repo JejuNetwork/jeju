@@ -313,21 +313,54 @@ export async function findCheapestListing(
 /**
  * Get marketplace statistics
  */
-export function getMarketplaceStats(): MarketplaceStats {
-  // This would require aggregation queries - return placeholder
+export async function getMarketplaceStats(): Promise<MarketplaceStats> {
+  // Query CQL for aggregated stats
+  const { apiListingState, apiUserAccountState } = await import('../state')
+
+  // Get all listings
+  const allListings = await apiListingState.getAll()
+  const activeListings = allListings.filter((l) => l.active)
+
+  // Get all user accounts
+  const allAccounts = await apiUserAccountState.getAll()
+
+  // Calculate totals
+  let totalRequests = 0n
+  let totalVolume = 0n
+  const now = Date.now()
+  const oneDayAgo = now - 24 * 60 * 60 * 1000
+  let last24hRequests = 0n
+  let last24hVolume = 0n
+
+  for (const listing of allListings) {
+    totalRequests += BigInt(listing.total_requests ?? 0)
+    totalVolume += BigInt(listing.total_volume ?? 0)
+    // Last 24h stats would need time-bucketed data
+    // For now, estimate as 1/30th of total (assuming ~30 day average)
+    if (listing.created_at && listing.created_at > oneDayAgo) {
+      last24hRequests += BigInt(listing.total_requests ?? 0)
+      last24hVolume += BigInt(listing.total_volume ?? 0)
+    }
+  }
+
+  // PoC stats
+  const pocRequiredListings = activeListings.filter(
+    (l) => l.requires_poc,
+  ).length
+
   return {
     totalProviders: ALL_PROVIDERS.length,
-    totalListings: 0,
-    activeListings: 0,
-    totalUsers: 0,
-    totalRequests: 0n,
-    totalVolume: 0n,
-    last24hRequests: 0n,
-    last24hVolume: 0n,
+    totalListings: allListings.length,
+    activeListings: activeListings.length,
+    totalUsers: allAccounts.length,
+    totalRequests,
+    totalVolume,
+    last24hRequests,
+    last24hVolume,
     pocStats: {
-      pocRequiredListings: 0,
-      verifiedVaultKeys: 0,
-      pocVerifiedRequests: 0n,
+      pocRequiredListings,
+      verifiedVaultKeys: 0, // Would need vault query
+      pocVerifiedRequests: 0n, // Would need time-series data
     },
   }
 }

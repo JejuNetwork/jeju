@@ -82,20 +82,6 @@ const PROVIDER_TYPES_MAP: StorageProviderType[] = [
   StorageProviderType.CLOUD_R2,
   StorageProviderType.HYBRID,
 ]
-const _STORAGE_TIERS_MAP: StorageTier[] = [
-  StorageTier.HOT,
-  StorageTier.WARM,
-  StorageTier.COLD,
-  StorageTier.PERMANENT,
-]
-const _DEAL_STATUS_MAP: StorageDealStatus[] = [
-  StorageDealStatus.PENDING,
-  StorageDealStatus.ACTIVE,
-  StorageDealStatus.EXPIRED,
-  StorageDealStatus.TERMINATED,
-  StorageDealStatus.FAILED,
-  StorageDealStatus.DISPUTED,
-]
 
 export function isStorageEvent(topic0: string): boolean {
   return isEventInSet(topic0, STORAGE_TOPIC_SET)

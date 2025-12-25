@@ -71,7 +71,7 @@ import {
   scheduleExecution,
   updateInstanceState,
   updateNodeResources,
-} from '../src/containers'
+} from '../api/containers'
 
 const TEST_USER: Address = '0x1234567890123456789012345678901234567890'
 const TEST_IMAGE_DIGEST = 'sha256:abc123def456789'

@@ -168,6 +168,11 @@ export const CONTRACTS = {
   githubReputationProvider: parseViteAddress(
     import.meta.env.VITE_GITHUB_REPUTATION_PROVIDER_ADDRESS,
   ),
+
+  // Oracle Network
+  oracleNetworkConnector: parseViteAddress(
+    import.meta.env.VITE_ORACLE_NETWORK_CONNECTOR_ADDRESS,
+  ),
 } as const
 
 // API keys (only ones that are actually public/client-safe)

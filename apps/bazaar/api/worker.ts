@@ -400,7 +400,7 @@ export default {
 const isMainModule = typeof Bun !== 'undefined' && import.meta.path === Bun.main
 
 if (isMainModule) {
-  const PORT = Number(process.env.API_PORT) || CORE_PORTS.COMPUTE.get()
+  const PORT = CORE_PORTS.BAZAAR_API.get()
 
   const app = createBazaarApp({
     NETWORK:
@@ -408,12 +408,11 @@ if (isMainModule) {
     TEE_MODE: 'simulated',
     TEE_PLATFORM: 'local',
     TEE_REGION: 'local',
-    RPC_URL: process.env.RPC_URL || getL2RpcUrl(),
-    DWS_URL: process.env.DWS_URL || getCoreAppUrl('DWS_API'),
-    GATEWAY_URL: process.env.GATEWAY_URL || getCoreAppUrl('NODE_EXPLORER_API'),
-    INDEXER_URL: process.env.INDEXER_URL || getCoreAppUrl('NODE_EXPLORER_UI'),
-    COVENANTSQL_NODES:
-      process.env.COVENANTSQL_NODES || getCQLBlockProducerUrl(),
+    RPC_URL: getL2RpcUrl(),
+    DWS_URL: getCoreAppUrl('DWS_API'),
+    GATEWAY_URL: getCoreAppUrl('NODE_EXPLORER_API'),
+    INDEXER_URL: getCoreAppUrl('NODE_EXPLORER_UI'),
+    COVENANTSQL_NODES: getCQLBlockProducerUrl(),
     COVENANTSQL_DATABASE_ID: process.env.COVENANTSQL_DATABASE_ID || '',
     COVENANTSQL_PRIVATE_KEY: process.env.COVENANTSQL_PRIVATE_KEY || '',
   })

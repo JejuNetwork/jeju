@@ -54,119 +54,26 @@ export {
 // FARCASTER - Public/Social Messaging
 // ============================================================================
 
-// Farcaster Hub Client (read operations)
+// Cross-chain messaging bridge
 export {
-  FarcasterClient,
-  HubError,
-  type HubEvent,
-} from './farcaster/hub/client'
-
-// Hub types
-export type {
-  CastEmbed,
-  CastFilter,
-  FarcasterCast,
-  FarcasterLink,
-  FarcasterProfile,
-  FarcasterReaction,
-  FarcasterVerification,
-  HubConfig,
-  HubInfoResponse,
-  PaginatedResponse,
-  UserData,
-  UserDataTypeName,
-} from './farcaster/hub/types'
-
-// Cast building and posting
-export {
-  CastBuilder,
-  createCast,
-  createDeleteCast,
-  createReply,
-  getTextByteLength,
-  type ParsedMention,
-  splitTextForThread,
-  type CastBuilderConfig,
-  type CastOptions,
-} from './farcaster/hub/cast-builder'
-export {
-  buildMessage,
-  createCastId,
-  encodeMessageData,
-  FarcasterNetwork,
-  fromFarcasterTimestamp,
-  getFarcasterTimestamp,
-  getMessageHashHex,
-  HashScheme,
-  hashMessageData,
-  hexToMessageBytes,
-  messageBytesToHex,
-  MessageType,
-  messageToHex,
-  ReactionType,
-  serializeMessage,
-  signMessageHash,
-  SignatureScheme,
-  toFarcasterTimestamp,
-  UserDataType,
-  verifyMessage as verifyFarcasterMessage,
-  type CastAddBody,
-  type CastId,
-  type CastRemoveBody,
-  type Embed,
-  type LinkBody,
-  type Message as FarcasterMessage,
-  type MessageData,
-  type ReactionBody,
-  type UserDataBody,
-  type VerificationAddBody,
-} from './farcaster/hub/message-builder'
-export {
-  createPoster,
-  DEFAULT_HUBS,
-  FarcasterPoster,
-  type FarcasterPosterConfig,
-  type PostedCast,
-  type ReactionTarget,
-  type UserDataUpdate,
-} from './farcaster/hub/poster'
-export {
-  FailoverHubSubmitter,
-  HubSubmitter,
-  selectBestHub,
-  type HubEndpoint,
-  type HubInfo,
-  type HubSubmitterConfig,
-  type SubmitResult,
-} from './farcaster/hub/submitter'
-
-// Farcaster schemas (for validation)
-export {
-  CastsResponseSchema,
-  DCPersistenceDataSchema,
-  DCSignerEventsResponseSchema,
-  DCUserDataResponseSchema,
-  EventsResponseSchema,
-  HubInfoResponseSchema,
-  LinksResponseSchema,
-  type ParsedCastMessage,
-  ReactionsResponseSchema,
-  SingleCastResponseSchema,
-  USER_DATA_TYPE_MAP,
-  UserDataResponseSchema,
-  UsernameProofResponseSchema,
-  VerificationLookupResponseSchema,
-  VerificationsResponseSchema,
-  type HubEventBody,
-  type HubEventType,
-} from './farcaster/hub/schemas'
-
+  CrossChainBridgeClient,
+  type CrossChainBridgeConfig,
+  type CrossChainKeyRegistration,
+  type CrossChainMessage,
+  createCrossChainBridgeClient,
+  getCrossChainBridgeClient,
+  type MessageRoute,
+  type MessageStatus as BridgeMessageStatus,
+  MessagingChain,
+  resetCrossChainBridgeClient,
+} from './bridge'
+// DC API (relay server)
+export { createDCApi, createDCServer } from './farcaster/dc/api'
 // Direct Casts (encrypted FID-to-FID DMs)
 export {
   createDirectCastClient,
   DirectCastClient,
 } from './farcaster/dc/client'
-
 export type {
   DCAuthFailedResponse,
   DCAuthMessage,
@@ -191,10 +98,147 @@ export type {
   GetMessagesParams as DCGetMessagesParams,
   SendDCParams,
 } from './farcaster/dc/types'
+// Farcaster DWS Worker
+export {
+  createFarcasterWorker,
+  type FarcasterWorker,
+  type FarcasterWorkerConfig,
+} from './farcaster/dws-worker/index.js'
+// Farcaster Frames
+export {
+  createFrameResponse,
+  encodeFrameState,
+  type FrameButton,
+  type FrameErrorResponse,
+  type FrameMessage,
+  type FrameMetadata,
+  type FrameResponse,
+  type FrameTransactionParams,
+  type FrameTransactionTarget,
+  type FrameValidationResult,
+  generateFrameMetaTags,
+  type JejuAgentFrameState,
+  JejuAgentFrameStateSchema,
+  type JejuBridgeFrameState,
+  JejuBridgeFrameStateSchema,
+  type JejuSwapFrameState,
+  JejuSwapFrameStateSchema,
+  parseFrameState,
+} from './farcaster/frames/types'
+// Cast building and posting
+export {
+  CastBuilder,
+  type CastBuilderConfig,
+  type CastOptions,
+  createCast,
+  createDeleteCast,
+  createReply,
+  getTextByteLength,
+  type ParsedMention,
+  splitTextForThread,
+} from './farcaster/hub/cast-builder'
+// Farcaster Hub Client (read operations)
+export {
+  FarcasterClient,
+  HubError,
+  type HubEvent,
+} from './farcaster/hub/client'
+export {
+  buildMessage,
+  type CastAddBody,
+  type CastId,
+  type CastRemoveBody,
+  createCastId,
+  type Embed,
+  encodeMessageData,
+  FarcasterNetwork,
+  fromFarcasterTimestamp,
+  getFarcasterTimestamp,
+  getMessageHashHex,
+  HashScheme,
+  hashMessageData,
+  hexToMessageBytes,
+  type LinkBody,
+  type Message as FarcasterMessage,
+  type MessageData,
+  MessageType,
+  messageBytesToHex,
+  messageToHex,
+  type ReactionBody,
+  ReactionType,
+  SignatureScheme,
+  serializeMessage,
+  signMessageHash,
+  toFarcasterTimestamp,
+  type UserDataBody,
+  UserDataType,
+  type VerificationAddBody,
+  verifyMessage as verifyFarcasterMessage,
+} from './farcaster/hub/message-builder'
+export {
+  createPoster,
+  DEFAULT_HUBS,
+  FarcasterPoster,
+  type FarcasterPosterConfig,
+  type PostedCast,
+  type ReactionTarget,
+  type UserDataUpdate,
+} from './farcaster/hub/poster'
+// Farcaster schemas (for validation)
+export {
+  CastsResponseSchema,
+  DCPersistenceDataSchema,
+  DCSignerEventsResponseSchema,
+  DCUserDataResponseSchema,
+  EventsResponseSchema,
+  type HubEventBody,
+  type HubEventType,
+  HubInfoResponseSchema,
+  LinksResponseSchema,
+  type ParsedCastMessage,
+  ReactionsResponseSchema,
+  SingleCastResponseSchema,
+  USER_DATA_TYPE_MAP,
+  UserDataResponseSchema,
+  UsernameProofResponseSchema,
+  VerificationLookupResponseSchema,
+  VerificationsResponseSchema,
+} from './farcaster/hub/schemas'
+export {
+  FailoverHubSubmitter,
+  type HubEndpoint,
+  type HubInfo,
+  HubSubmitter,
+  type HubSubmitterConfig,
+  type SubmitResult,
+  selectBestHub,
+} from './farcaster/hub/submitter'
+// Hub types
+export type {
+  CastEmbed,
+  CastFilter,
+  FarcasterCast,
+  FarcasterLink,
+  FarcasterProfile,
+  FarcasterReaction,
+  FarcasterVerification,
+  HubConfig,
+  HubInfoResponse,
+  PaginatedResponse,
+  UserData,
+  UserDataTypeName,
+} from './farcaster/hub/types'
 
-// DC API (relay server)
-export { createDCApi, createDCServer } from './farcaster/dc/api'
-
+// Farcaster Identity
+export {
+  generateLinkProofMessage,
+  type LinkVerificationResult,
+  lookupFidByAddress,
+  type ParsedLinkProof,
+  parseLinkProofMessage,
+  verifyAddressCanLink,
+  verifyLinkProof,
+} from './farcaster/identity/link'
 // Farcaster Signer Management
 export {
   FarcasterSignerManager,
@@ -205,58 +249,18 @@ export {
 export {
   FARCASTER_CONTRACTS,
   generateDeadline,
-  KeyState,
   type KeyData,
+  KeyState,
   SignerRegistration,
   type SignerRegistrationConfig,
   verifySignerSignature,
 } from './farcaster/signer/registration'
 export {
-  FarcasterSignerService,
   type CreateSignerResult,
+  FarcasterSignerService,
   type SignerServiceConfig,
   type SignerWithPoster,
 } from './farcaster/signer/service'
-
-// Farcaster Identity
-export {
-  generateLinkProofMessage,
-  lookupFidByAddress,
-  parseLinkProofMessage,
-  type LinkVerificationResult,
-  type ParsedLinkProof,
-  verifyAddressCanLink,
-  verifyLinkProof,
-} from './farcaster/identity/link'
-
-// Farcaster Frames
-export {
-  createFrameResponse,
-  encodeFrameState,
-  generateFrameMetaTags,
-  JejuAgentFrameStateSchema,
-  JejuBridgeFrameStateSchema,
-  JejuSwapFrameStateSchema,
-  parseFrameState,
-  type FrameButton,
-  type FrameErrorResponse,
-  type FrameMessage,
-  type FrameMetadata,
-  type FrameResponse,
-  type FrameTransactionParams,
-  type FrameTransactionTarget,
-  type FrameValidationResult,
-  type JejuAgentFrameState,
-  type JejuBridgeFrameState,
-  type JejuSwapFrameState,
-} from './farcaster/frames/types'
-
-// Farcaster DWS Worker
-export {
-  createFarcasterWorker,
-  type FarcasterWorker,
-  type FarcasterWorkerConfig,
-} from './farcaster/dws-worker/index.js'
 // Unified Farcaster-Messaging Integration
 export {
   createUnifiedMessagingService,
@@ -374,19 +378,5 @@ export type {
   XMTPNodeConfig,
   XMTPNodeStats,
 } from './xmtp/types'
-
-// Cross-chain messaging bridge
-export {
-  createCrossChainBridgeClient,
-  CrossChainBridgeClient,
-  type CrossChainBridgeConfig,
-  type CrossChainKeyRegistration,
-  type CrossChainMessage,
-  getCrossChainBridgeClient,
-  type MessageRoute,
-  type MessageStatus as BridgeMessageStatus,
-  MessagingChain,
-  resetCrossChainBridgeClient,
-} from './bridge'
 
 // Node-only exports (relay server) available via '@jejunetwork/messaging/node'

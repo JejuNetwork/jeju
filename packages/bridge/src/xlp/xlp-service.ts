@@ -14,6 +14,7 @@
  * - Minimize idle capital
  */
 
+import { getExternalRpc } from '@jejunetwork/config'
 import { EventEmitter } from '@jejunetwork/shared'
 import {
   type Address,
@@ -780,10 +781,10 @@ export function createXLPService(config: Partial<XLPConfig>): XLPService {
   const fullConfig: XLPConfig = {
     privateKey: privateKey as Hex,
     rpcUrls: config.rpcUrls ?? {
-      1: process.env.RPC_URL_1 ?? 'https://eth.llamarpc.com',
-      42161: process.env.RPC_URL_42161 ?? 'https://arb1.arbitrum.io/rpc',
-      10: process.env.RPC_URL_10 ?? 'https://mainnet.optimism.io',
-      8453: process.env.RPC_URL_8453 ?? 'https://mainnet.base.org',
+      1: process.env.RPC_URL_1 ?? getExternalRpc('ethereum'),
+      42161: process.env.RPC_URL_42161 ?? getExternalRpc('arbitrum'),
+      10: process.env.RPC_URL_10 ?? getExternalRpc('optimism'),
+      8453: process.env.RPC_URL_8453 ?? getExternalRpc('base'),
     },
     xlpPoolAddresses: config.xlpPoolAddresses ?? {},
     supportedTokens: config.supportedTokens ?? ['USDC', 'USDT', 'WETH'],

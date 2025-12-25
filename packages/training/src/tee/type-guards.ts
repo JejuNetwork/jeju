@@ -11,7 +11,13 @@ import type {
 } from './types'
 
 // Re-export types for convenience
-export type { JudgingScoreResponse, SimulationResultResponse, TEEInitResponse, TEEProvider, TrainingComputeResponse }
+export type {
+  JudgingScoreResponse,
+  SimulationResultResponse,
+  TEEInitResponse,
+  TEEProvider,
+  TrainingComputeResponse,
+}
 
 /**
  * Check if value is an object
@@ -44,7 +50,9 @@ export function isTEEInitResponse(value: unknown): value is TEEInitResponse {
 /**
  * Check if value is a judging score response
  */
-export function isJudgingScoreResponse(value: unknown): value is JudgingScoreResponse {
+export function isJudgingScoreResponse(
+  value: unknown,
+): value is JudgingScoreResponse {
   if (!isObject(value)) return false
   return (
     typeof value.trajectoryId === 'string' &&
@@ -56,23 +64,21 @@ export function isJudgingScoreResponse(value: unknown): value is JudgingScoreRes
 /**
  * Check if value is a training compute response
  */
-export function isTrainingComputeResponse(value: unknown): value is TrainingComputeResponse {
+export function isTrainingComputeResponse(
+  value: unknown,
+): value is TrainingComputeResponse {
   if (!isObject(value)) return false
-  return (
-    isObject(value.trainedModel) &&
-    typeof value.finalLoss === 'number'
-  )
+  return isObject(value.trainedModel) && typeof value.finalLoss === 'number'
 }
 
 /**
  * Check if value is a simulation result response
  */
-export function isSimulationResultResponse(value: unknown): value is SimulationResultResponse {
+export function isSimulationResultResponse(
+  value: unknown,
+): value is SimulationResultResponse {
   if (!isObject(value)) return false
-  return (
-    typeof value.pnl === 'number' &&
-    typeof value.trades === 'number'
-  )
+  return typeof value.pnl === 'number' && typeof value.trades === 'number'
 }
 
 /**
@@ -88,7 +94,9 @@ export function isArrayOf<T>(
 /**
  * Check if value is a generic object
  */
-export function isGenericObject(value: unknown): value is Record<string, unknown> {
+export function isGenericObject(
+  value: unknown,
+): value is Record<string, unknown> {
   return isObject(value)
 }
 
@@ -102,6 +110,8 @@ export function isCIDResponse(value: unknown): value is { cid: string } {
 /**
  * Check if value is scored training data (array of judging responses)
  */
-export function isScoredTrainingData(value: unknown): value is JudgingScoreResponse {
+export function isScoredTrainingData(
+  value: unknown,
+): value is JudgingScoreResponse {
   return isJudgingScoreResponse(value)
 }

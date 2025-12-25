@@ -17,11 +17,11 @@ import {
   MAINNET_CONFIG,
   parseRegionId,
   TESTNET_CONFIG,
-} from '../src/workers/tee/regions'
+} from '../api/workers/tee/regions'
 import {
   createSecretManager,
   TEESecretManager,
-} from '../src/workers/tee/secrets'
+} from '../api/workers/tee/secrets'
 
 // Region Tests
 

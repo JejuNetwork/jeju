@@ -9,7 +9,9 @@ import { Elysia, t } from 'elysia'
 import {
   ceoFeeSkills,
   executeCEOFeeSkill,
+  getFeeChangeHistory,
   getFeeConfigState,
+  getPendingFeeChanges,
   initializeFeeActions,
   isTxHashResult,
 } from '../ceo-fee-actions'
@@ -262,23 +264,98 @@ export const feesRoutes = new Elysia({ prefix: '/fees' })
   )
 
   /**
+   * GET /fees/treasury
+   * Get treasury address and balance
+   */
+  .get('/treasury', async () => {
+    if (!ensureFeeActionsReadOnly()) {
+      return {
+        success: false,
+        error: 'Fee actions not initialized - check FEE_CONFIG_ADDRESS and RPC',
+      }
+    }
+
+    const state = await getFeeConfigState()
+    const sharedState = getSharedState()
+
+    let balance = '0'
+    if (sharedState.clients.publicClient && state.treasury) {
+      const balanceWei = await sharedState.clients.publicClient.getBalance({
+        address: state.treasury,
+      })
+      // Format to ETH with 4 decimals
+      balance = (Number(balanceWei) / 1e18).toFixed(4)
+    }
+
+    return {
+      success: true,
+      treasury: {
+        address: state.treasury,
+        balance,
+      },
+    }
+  })
+
+  /**
    * GET /fees/history
    * Get fee change history (from blockchain events)
    */
-  .get('/history', () => ({
-    success: true,
-    history: [],
-    message:
-      'Fee history query not yet implemented - query FeeConfig events on-chain',
-  }))
+  .get(
+    '/history',
+    async ({ query }) => {
+      if (!ensureFeeActionsReadOnly()) {
+        return {
+          success: false,
+          error:
+            'Fee actions not initialized - check FEE_CONFIG_ADDRESS and RPC',
+        }
+      }
+
+      const limit = query.limit ? Number.parseInt(query.limit, 10) : 50
+      const history = await getFeeChangeHistory(limit)
+
+      return {
+        success: true,
+        history: history.map((h) => ({
+          changeId: h.changeId,
+          feeType: h.feeType,
+          effectiveAt: h.effectiveAt,
+          proposedBy: h.proposedBy,
+          status: h.status,
+          blockNumber: h.blockNumber.toString(),
+          transactionHash: h.transactionHash,
+        })),
+        total: history.length,
+      }
+    },
+    {
+      query: t.Object({ limit: t.Optional(t.String()) }),
+    },
+  )
 
   /**
    * GET /fees/pending
    * Get pending fee changes awaiting execution
    */
-  .get('/pending', () => ({
-    success: true,
-    pending: [],
-    message:
-      'Pending changes query not yet implemented - query pendingChanges mapping on-chain',
-  }))
+  .get('/pending', async () => {
+    if (!ensureFeeActionsReadOnly()) {
+      return {
+        success: false,
+        error: 'Fee actions not initialized - check FEE_CONFIG_ADDRESS and RPC',
+      }
+    }
+
+    const pending = await getPendingFeeChanges()
+
+    return {
+      success: true,
+      pending: pending.map((p) => ({
+        changeId: p.changeId,
+        feeType: p.feeType,
+        effectiveAt: p.effectiveAt,
+        proposedBy: p.proposedBy,
+        executed: p.executed,
+      })),
+      total: pending.length,
+    }
+  })

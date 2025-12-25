@@ -151,35 +151,35 @@ class SafeService {
           address: safeAddress,
           abi: SAFE_ABI,
           functionName: 'getOwners',
-        }),
+        }) as Promise<readonly Address[]>,
         client.readContract({
           address: safeAddress,
           abi: SAFE_ABI,
           functionName: 'getThreshold',
-        }),
+        }) as Promise<bigint>,
         client.readContract({
           address: safeAddress,
           abi: SAFE_ABI,
           functionName: 'nonce',
-        }),
+        }) as Promise<bigint>,
         client.readContract({
           address: safeAddress,
           abi: SAFE_ABI,
           functionName: 'VERSION',
-        }),
+        }) as Promise<string>,
         client.readContract({
           address: safeAddress,
           abi: SAFE_ABI,
           functionName: 'getModulesPaginated',
           args: ['0x0000000000000000000000000000000000000001' as Address, 10n],
-        }),
+        }) as Promise<readonly [readonly Address[], Address]>,
       ])
 
-    const guardAddress = await client.readContract({
+    const guardAddress = (await client.readContract({
       address: safeAddress,
       abi: SAFE_ABI,
       functionName: 'getGuard',
-    })
+    })) as Address
 
     return {
       address: safeAddress,

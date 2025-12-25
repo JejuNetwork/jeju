@@ -125,9 +125,7 @@ describe('DAOCEOConfigSchema', () => {
   })
 
   test('rejects empty name', () => {
-    expect(() =>
-      DAOCEOConfigSchema.parse({ ...VALID_CEO, name: '' }),
-    ).toThrow()
+    expect(() => DAOCEOConfigSchema.parse({ ...VALID_CEO, name: '' })).toThrow()
   })
 
   test('rejects empty traits array', () => {

@@ -50,7 +50,7 @@ class NFTService {
       const nfts: NFT[] = indexed.map((nft) => ({
         contractAddress: nft.contractAddress as Address,
         tokenId: BigInt(nft.tokenId),
-        chainId: 31337 as SupportedChainId, // Default to localnet; indexer will provide actual chainId
+        chainId: nft.chainId as SupportedChainId,
         name: nft.metadata?.name || `#${nft.tokenId}`,
         description: nft.metadata?.description ?? '',
         imageUrl: this.resolveImageUrl(nft.metadata?.image ?? ''),
@@ -58,7 +58,7 @@ class NFTService {
         standard: 'ERC721',
         balance: 1n,
         attributes: nft.metadata?.attributes,
-        collectionName: undefined, // Fetched via contract call if needed
+        collectionName: nft.collectionName,
       }))
 
       this.cache.set(cacheKey, nfts)

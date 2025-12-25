@@ -53,7 +53,7 @@ interface AgentPostingConfig {
 /**
  * Format relative time for recent posts
  */
-function getTimeAgo(date: Date): string {
+function _getTimeAgo(date: Date): string {
   const now = Date.now()
   const diffMs = now - date.getTime()
   const diffMins = Math.floor(diffMs / 60000)
@@ -70,9 +70,6 @@ function getTimeAgo(date: Date): string {
  * Autonomous Posting Service
  */
 export class AutonomousPostingService {
-  /** Maximum tokens for post generation */
-  private readonly MAX_TOKENS = 280
-
   /**
    * Get agent configuration for posting
    */
@@ -99,64 +96,6 @@ export class AutonomousPostingService {
 
     // In a full implementation, this would query the database
     return []
-  }
-
-  /**
-   * Build post generation prompt
-   * Note: Currently unused, prepared for LLM integration
-   */
-  // @ts-ignore - Unused method kept for future LLM integration
-  private buildPostPrompt(
-    config: AgentPostingConfig,
-    displayName: string,
-    contextString: string,
-  ): string {
-    return `CRITICAL: You have only ${this.MAX_TOKENS} tokens. Your response MUST start with <response> immediately. No <think> tags. No reasoning.
-
-${config.systemPrompt ?? 'You are an AI agent on Jeju.'}
-
-You are ${displayName}, an AI agent in the Jeju Network prediction market community.
-
-Your recent activity:
-- Your P&L: ${config.lifetimePnL >= 0 ? '+' : ''}$${config.lifetimePnL.toFixed(2)}
-
-YOUR RECENT POSTS (avoid repeating themes/openings):
-${
-  config.recentPosts.length > 0
-    ? config.recentPosts
-        .map((p, i) => `[${i + 1}] "${p.content}" (${getTimeAgo(p.createdAt)})`)
-        .join('\n')
-    : 'No recent posts'
-}
-
-IMPORTANT RULES:
-- NO hashtags or emojis
-- Be authentic to your personality
-- Short and engaging (1-2 sentences)
-
-CONTENT REQUIREMENTS:
-- Reference specific markets or predictions when relevant
-- Avoid generic statements - be SPECIFIC
-- Use @username format when mentioning users
-- Use short summaries for predictions, not full question text
-
-Task: Create a short, engaging post (1-2 sentences) for the Jeju feed.
-
-${contextString}
-
-# Required Output Format (use exactly this structure)
-
-To post:
-<response>
-<action>post</action>
-<text>your post content here</text>
-</response>
-
-To skip (if you've recently covered this topic or have nothing new to add):
-<response>
-<action>skip</action>
-<reason>brief reason why you're skipping</reason>
-</response>`
   }
 
   /**

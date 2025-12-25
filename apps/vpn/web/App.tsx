@@ -7,12 +7,18 @@ import {
   Users,
 } from 'lucide-react'
 import { useState } from 'react'
+import { formatBytes } from '../lib/utils'
 import { ConnectionStats } from './components/ConnectionStats'
 import { ContributionPanel } from './components/ContributionPanel'
 import { RegionSelector } from './components/RegionSelector'
 import { SettingsPanel } from './components/SettingsPanel'
 import { VPNToggle } from './components/VPNToggle'
-import { useVPNConnection, useVPNNodes, useVPNStatus } from './hooks'
+import {
+  useContribution,
+  useVPNConnection,
+  useVPNNodes,
+  useVPNStatus,
+} from './hooks'
 
 type Tab = 'vpn' | 'contribution' | 'settings'
 
@@ -21,6 +27,7 @@ function App() {
   const { status: vpnStatus } = useVPNStatus()
   const { nodes, selectedNode, selectNode: handleSelectNode } = useVPNNodes()
   const { connect, disconnect, isLoading } = useVPNConnection()
+  const { stats, dws } = useContribution()
 
   const handleConnect = async () => {
     if (vpnStatus.status === 'Connected') {
@@ -89,12 +96,16 @@ function App() {
               </div>
               <div className="card text-center">
                 <Users className="w-5 h-5 mx-auto mb-2 text-[#00cc6a]" />
-                <div className="text-lg font-semibold">1.2K</div>
-                <div className="text-xs text-[#606070]">Users</div>
+                <div className="text-lg font-semibold">
+                  {stats?.users_helped ?? 0}
+                </div>
+                <div className="text-xs text-[#606070]">Users Helped</div>
               </div>
               <div className="card text-center">
                 <HardDrive className="w-5 h-5 mx-auto mb-2 text-[#00aa55]" />
-                <div className="text-lg font-semibold">42 TB</div>
+                <div className="text-lg font-semibold">
+                  {dws ? `${dws.cache_used_mb} MB` : formatBytes(0)}
+                </div>
                 <div className="text-xs text-[#606070]">CDN Cache</div>
               </div>
             </div>

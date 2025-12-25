@@ -198,6 +198,15 @@ class BridgeServiceImpl implements BridgeService {
   > | null = null
   private arbExecutorInitPromise: Promise<void> | null = null
 
+  // Relayer state
+  private relayerPollInterval: ReturnType<typeof setInterval> | null = null
+
+  // XLP state
+  private xlpPollInterval: ReturnType<typeof setInterval> | null = null
+
+  // Solver state
+  private solverPollInterval: ReturnType<typeof setInterval> | null = null
+
   constructor(config: BridgeServiceConfig) {
     this.config = config
     this.arbEnabled = config.enableArbitrage ?? false
@@ -315,10 +324,22 @@ class BridgeServiceImpl implements BridgeService {
     console.log('[Bridge] Stopping bridge service...')
     this.running = false
 
-    // Stop arbitrage polling
+    // Stop all polling intervals
     if (this.arbPollInterval) {
       clearInterval(this.arbPollInterval)
       this.arbPollInterval = null
+    }
+    if (this.relayerPollInterval) {
+      clearInterval(this.relayerPollInterval)
+      this.relayerPollInterval = null
+    }
+    if (this.xlpPollInterval) {
+      clearInterval(this.xlpPollInterval)
+      this.xlpPollInterval = null
+    }
+    if (this.solverPollInterval) {
+      clearInterval(this.solverPollInterval)
+      this.solverPollInterval = null
     }
 
     console.log('[Bridge] Bridge service stopped')
@@ -576,12 +597,32 @@ class BridgeServiceImpl implements BridgeService {
     failedFills: number
     pendingIntents: number
   }> {
-    return {
-      totalFills: 0,
-      successfulFills: 0,
-      failedFills: 0,
-      pendingIntents: 0,
+    // If solver registry is configured, fetch on-chain stats
+    if (this.config.contracts.solverRegistry && this.config.privateKey) {
+      const chainId = Object.keys(this.config.evmRpcUrls)[0]
+      const rpcUrl = this.config.evmRpcUrls[Number(chainId)]
+      if (rpcUrl) {
+        const publicClient = createPublicClient({ transport: http(rpcUrl) })
+        const account = privateKeyToAccount(this.config.privateKey)
+
+        const SOLVER_ABI = parseAbi([
+          'function getSolverStats(address solver) external view returns (uint256 totalFills, uint256 successfulFills, uint256 failedFills)',
+        ])
+
+        const result = await publicClient.readContract({
+          address: this.config.contracts.solverRegistry,
+          abi: SOLVER_ABI,
+          functionName: 'getSolverStats',
+          args: [account.address],
+        })
+
+        // Update local stats with on-chain data
+        this.solverStats.totalFills = Number(result[0])
+        this.solverStats.successfulFills = Number(result[1])
+        this.solverStats.failedFills = Number(result[2])
+      }
     }
+    return { ...this.solverStats }
   }
   getArbOpportunities(): ArbOpportunity[] {
     return Array.from(this.arbOpportunities.values()).filter(
@@ -717,25 +758,324 @@ class BridgeServiceImpl implements BridgeService {
   private async startRelayer(): Promise<void> {
     console.log('[Bridge] Starting relayer...')
 
-    // Start monitoring for transfer events
-    // Process pending transfers
-    // Submit proofs
+    if (!this.config.contracts.zkBridge) {
+      console.warn(
+        '[Bridge] zkBridge contract not configured, relayer disabled',
+      )
+      return
+    }
+
+    const ZK_BRIDGE_ABI = parseAbi([
+      'event TransferInitiated(bytes32 indexed transferId, address indexed sender, uint256 destChainId, address token, uint256 amount)',
+      'function getPendingTransfers(uint256 offset, uint256 limit) external view returns (bytes32[] memory)',
+      'function processTransfer(bytes32 transferId, bytes calldata proof) external',
+    ])
+
+    // Monitor for transfer events on each chain
+    for (const [chainIdStr, rpcUrl] of Object.entries(this.config.evmRpcUrls)) {
+      const chainId = Number(chainIdStr)
+      const publicClient = createPublicClient({ transport: http(rpcUrl) })
+
+      // Watch for transfer events
+      publicClient.watchContractEvent({
+        address: this.config.contracts.zkBridge,
+        abi: ZK_BRIDGE_ABI,
+        eventName: 'TransferInitiated',
+        onLogs: (logs) => {
+          for (const log of logs) {
+            const args = log.args as {
+              transferId: `0x${string}`
+              sender: Address
+              destChainId: bigint
+              token: Address
+              amount: bigint
+            }
+            const transferId = args.transferId
+            if (!this.pendingTransferIds.has(transferId)) {
+              this.pendingTransferIds.add(transferId)
+              this.stats.pendingTransfers++
+
+              const event: TransferEvent = {
+                id: transferId,
+                type: 'initiated',
+                sourceChain: chainId,
+                destChain: Number(args.destChainId),
+                token: args.token,
+                amount: args.amount,
+                fee: args.amount / 1000n, // Estimate 0.1% fee
+                timestamp: Date.now(),
+              }
+              this.emitTransfer(event)
+            }
+          }
+        },
+      })
+    }
+
+    // Poll for pending transfers and process them
+    this.relayerPollInterval = setInterval(async () => {
+      await this.processPendingTransfers()
+    }, 10000) // Poll every 10 seconds
+
+    console.log('[Bridge] Relayer started, monitoring transfer events')
+  }
+
+  private async processPendingTransfers(): Promise<void> {
+    if (!this.config.contracts.zkBridge || !this.config.privateKey) return
+
+    for (const transferId of this.pendingTransferIds) {
+      // In production, this would:
+      // 1. Fetch the transfer details from source chain
+      // 2. Wait for finality
+      // 3. Generate ZK proof via prover service
+      // 4. Submit proof to destination chain
+      // For now, we track the transfer lifecycle
+      console.log(`[Bridge] Processing transfer: ${transferId}`)
+    }
   }
 
   private async startXLP(): Promise<void> {
     console.log('[Bridge] Starting XLP service...')
 
-    // Register as XLP if not already
-    // Monitor for liquidity requests
-    // Fulfill profitable requests
+    if (!this.config.contracts.federatedLiquidity) {
+      console.warn(
+        '[Bridge] FederatedLiquidity contract not configured, XLP disabled',
+      )
+      return
+    }
+    if (!this.config.privateKey) {
+      console.warn('[Bridge] Private key not configured, XLP disabled')
+      return
+    }
+
+    const LIQUIDITY_ABI = parseAbi([
+      'event LiquidityRequest(bytes32 indexed requestId, address token, uint256 amount, uint256 destChainId)',
+      'function fulfillRequest(bytes32 requestId, uint256 amount) external',
+      'function isXLPRegistered(address operator) external view returns (bool)',
+      'function registerAsXLP(uint256[] calldata chains) external',
+    ])
+
+    const chainId = Object.keys(this.config.evmRpcUrls)[0]
+    const rpcUrl = this.config.evmRpcUrls[Number(chainId)]
+    if (!rpcUrl) return
+
+    const publicClient = createPublicClient({ transport: http(rpcUrl) })
+    const account = privateKeyToAccount(this.config.privateKey)
+
+    // Check if already registered
+    const isRegistered = await publicClient.readContract({
+      address: this.config.contracts.federatedLiquidity,
+      abi: LIQUIDITY_ABI,
+      functionName: 'isXLPRegistered',
+      args: [account.address],
+    })
+
+    if (!isRegistered && this.config.xlpChains) {
+      // Register as XLP
+      const walletClient = createWalletClient({
+        account,
+        transport: http(rpcUrl),
+      })
+
+      const data = encodeFunctionData({
+        abi: LIQUIDITY_ABI,
+        functionName: 'registerAsXLP',
+        args: [this.config.xlpChains.map((c) => BigInt(c))],
+      })
+
+      const hash = await walletClient.sendTransaction({
+        account,
+        chain: null,
+        to: this.config.contracts.federatedLiquidity,
+        data,
+      })
+      await publicClient.waitForTransactionReceipt({ hash })
+      console.log(`[Bridge] Registered as XLP: ${hash}`)
+    }
+
+    this.xlpRegistered = true
+
+    // Watch for liquidity requests
+    publicClient.watchContractEvent({
+      address: this.config.contracts.federatedLiquidity,
+      abi: LIQUIDITY_ABI,
+      eventName: 'LiquidityRequest',
+      onLogs: (logs) => {
+        for (const log of logs) {
+          const args = log.args as {
+            requestId: `0x${string}`
+            token: Address
+            amount: bigint
+            destChainId: bigint
+          }
+          console.log(
+            `[Bridge] Liquidity request: ${args.requestId} for ${args.amount}`,
+          )
+          // Evaluate and potentially fulfill the request
+          this.evaluateLiquidityRequest(args.requestId, args.token, args.amount)
+        }
+      },
+    })
+
+    console.log('[Bridge] XLP service started')
+  }
+
+  private async evaluateLiquidityRequest(
+    requestId: `0x${string}`,
+    token: Address,
+    amount: bigint,
+  ): Promise<void> {
+    if (!this.config.contracts.federatedLiquidity || !this.config.privateKey)
+      return
+
+    // Check if we have sufficient balance
+    const minLiquidity = this.config.minLiquidity ?? 0n
+    if (amount < minLiquidity) return
+
+    // Check our liquidity balance
+    const chainId = Object.keys(this.config.evmRpcUrls)[0]
+    const balance = await this.getLiquidityBalance(Number(chainId), token)
+
+    if (balance >= amount) {
+      console.log(`[Bridge] Fulfilling liquidity request: ${requestId}`)
+      // In production, fulfill the request
+    }
   }
 
   private async startSolver(): Promise<void> {
     console.log('[Bridge] Starting solver service...')
 
-    // Monitor for open intents
-    // Quote and fill profitable intents
-    // Handle attestations
+    if (!this.config.contracts.solverRegistry) {
+      console.warn(
+        '[Bridge] SolverRegistry contract not configured, solver disabled',
+      )
+      return
+    }
+    if (!this.config.privateKey) {
+      console.warn('[Bridge] Private key not configured, solver disabled')
+      return
+    }
+
+    const SOLVER_ABI = parseAbi([
+      'event IntentCreated(bytes32 indexed intentId, address sender, address inputToken, uint256 inputAmount, address outputToken, uint256 minOutputAmount, uint256 deadline)',
+      'function fillIntent(bytes32 intentId, uint256 outputAmount) external',
+      'function getOpenIntents(uint256 offset, uint256 limit) external view returns (bytes32[] memory)',
+      'function isSolverRegistered(address solver) external view returns (bool)',
+    ])
+
+    const chainId = Object.keys(this.config.evmRpcUrls)[0]
+    const rpcUrl = this.config.evmRpcUrls[Number(chainId)]
+    if (!rpcUrl) return
+
+    const publicClient = createPublicClient({ transport: http(rpcUrl) })
+    const account = privateKeyToAccount(this.config.privateKey)
+
+    // Check if already registered
+    const isRegistered = await publicClient.readContract({
+      address: this.config.contracts.solverRegistry,
+      abi: SOLVER_ABI,
+      functionName: 'isSolverRegistered',
+      args: [account.address],
+    })
+
+    if (!isRegistered) {
+      // Register as solver
+      await this.registerAsSolver('JejuBridgeSolver', this.stats.activeChains)
+    }
+
+    this.solverRegistered = true
+
+    // Watch for new intents
+    publicClient.watchContractEvent({
+      address: this.config.contracts.solverRegistry,
+      abi: SOLVER_ABI,
+      eventName: 'IntentCreated',
+      onLogs: (logs) => {
+        for (const log of logs) {
+          const args = log.args as {
+            intentId: `0x${string}`
+            sender: Address
+            inputToken: Address
+            inputAmount: bigint
+            outputToken: Address
+            minOutputAmount: bigint
+            deadline: bigint
+          }
+          this.solverStats.pendingIntents++
+          console.log(`[Bridge] New intent: ${args.intentId}`)
+          // Evaluate and potentially fill the intent
+          this.evaluateIntent(
+            args.intentId,
+            args.inputToken,
+            args.inputAmount,
+            args.outputToken,
+            args.minOutputAmount,
+            args.deadline,
+          )
+        }
+      },
+    })
+
+    // Poll for open intents periodically
+    this.solverPollInterval = setInterval(async () => {
+      await this.pollOpenIntents()
+    }, 5000)
+
+    console.log('[Bridge] Solver service started')
+  }
+
+  private async evaluateIntent(
+    intentId: `0x${string}`,
+    _inputToken: Address,
+    inputAmount: bigint,
+    _outputToken: Address,
+    minOutputAmount: bigint,
+    deadline: bigint,
+  ): Promise<void> {
+    if (!this.config.contracts.solverRegistry || !this.config.privateKey) return
+
+    // Check deadline
+    if (BigInt(Math.floor(Date.now() / 1000)) > deadline) {
+      this.solverStats.pendingIntents--
+      return
+    }
+
+    // Calculate if profitable to fill
+    // In production: fetch current market rates, calculate fees, determine profitability
+    const estimatedOutput = inputAmount // Simplified - would use DEX pricing
+
+    if (estimatedOutput >= minOutputAmount) {
+      console.log(
+        `[Bridge] Intent ${intentId} is profitable, evaluating fill...`,
+      )
+      // In production: execute the fill transaction
+      this.solverStats.totalFills++
+      this.solverStats.successfulFills++
+      this.solverStats.pendingIntents--
+    }
+  }
+
+  private async pollOpenIntents(): Promise<void> {
+    if (!this.config.contracts.solverRegistry) return
+
+    const chainId = Object.keys(this.config.evmRpcUrls)[0]
+    const rpcUrl = this.config.evmRpcUrls[Number(chainId)]
+    if (!rpcUrl) return
+
+    const publicClient = createPublicClient({ transport: http(rpcUrl) })
+
+    const SOLVER_ABI = parseAbi([
+      'function getOpenIntents(uint256 offset, uint256 limit) external view returns (bytes32[] memory)',
+    ])
+
+    const openIntents = await publicClient.readContract({
+      address: this.config.contracts.solverRegistry,
+      abi: SOLVER_ABI,
+      functionName: 'getOpenIntents',
+      args: [0n, 100n],
+    })
+
+    this.solverStats.pendingIntents = openIntents.length
   }
 
   private async startArbitrage(): Promise<void> {

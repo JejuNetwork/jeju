@@ -11,7 +11,6 @@ import {
   Shield,
   Sparkles,
   Tag,
-  Wallet,
   Waves,
   Zap,
 } from 'lucide-react'
@@ -20,7 +19,6 @@ import { useAccount } from 'wagmi'
 import { ThemeToggle } from './ThemeProvider'
 
 // Fix for Lucide React 19 type compatibility
-const WalletIcon = Wallet as ComponentType<LucideProps>
 const FactoryIcon = Factory as ComponentType<LucideProps>
 const SparklesIcon = Sparkles as ComponentType<LucideProps>
 const BookIcon = Book as ComponentType<LucideProps>

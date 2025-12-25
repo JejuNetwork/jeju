@@ -172,6 +172,14 @@ export function getNetworkFromEnv(): NetworkType {
   return 'localnet'
 }
 
+/**
+ * Get the chain ID for the current network from environment
+ */
+export function getChainId(): number {
+  const network = getNetworkFromEnv()
+  return CHAIN_IDS[network]
+}
+
 interface NetworkDeployment {
   tokens?: { weth?: string; usdc?: string; jeju?: string }
   infrastructure?: {

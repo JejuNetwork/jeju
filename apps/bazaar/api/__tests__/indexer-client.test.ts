@@ -60,7 +60,8 @@ describe('Indexer Client', () => {
       console.log('⏭️ Skipping: Indexer not available')
       return
     }
-    const mockAddress = '0x0000000000000000000000000000000000000001'
+    const mockAddress: `0x${string}` =
+      '0x0000000000000000000000000000000000000001'
     const transfers = await getTokenTransfers(mockAddress, 10)
     expect(transfers).toBeDefined()
     expect(Array.isArray(transfers)).toBe(true)
@@ -71,7 +72,8 @@ describe('Indexer Client', () => {
       console.log('⏭️ Skipping: Indexer not available')
       return
     }
-    const mockAddress = '0x0000000000000000000000000000000000000001'
+    const mockAddress: `0x${string}` =
+      '0x0000000000000000000000000000000000000001'
     const holders = await getTokenHolders(mockAddress, 10)
     expect(holders).toBeDefined()
     expect(Array.isArray(holders)).toBe(true)

@@ -14,12 +14,12 @@ import {
   type GeoRouter,
   getGeoRouter,
   resetGeoRouter,
-} from '../src/cdn/routing/geo-router'
+} from '../api/cdn/routing/geo-router'
 import type {
   ConnectedEdgeNode,
   EdgeNodeMetrics,
   RouteRequest,
-} from '../src/cdn/types'
+} from '../api/cdn/types'
 
 // Helper to create test node
 function createTestNode(

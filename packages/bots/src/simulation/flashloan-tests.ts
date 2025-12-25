@@ -71,6 +71,7 @@ const BALANCER_VAULT_ABI = parseAbi([
   'function flashLoan(address recipient, address[] tokens, uint256[] amounts, bytes userData) external',
 ])
 
+// @ts-expect-error Reserved for future token interactions
 const _ERC20_ABI = parseAbi([
   'function balanceOf(address account) external view returns (uint256)',
   'function approve(address spender, uint256 amount) external returns (bool)',

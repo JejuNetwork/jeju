@@ -1,6 +1,7 @@
+import { CORE_PORTS } from '@jejunetwork/config'
 import { createSynpressConfig, createWalletSetup } from '@jejunetwork/tests'
 
-const BAZAAR_PORT = parseInt(process.env.BAZAAR_PORT || '4006', 10)
+const BAZAAR_PORT = CORE_PORTS.BAZAAR.get()
 
 // Export Playwright config - assumes server already running
 export default createSynpressConfig({

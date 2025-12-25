@@ -59,7 +59,7 @@ import {
   verifyG1Point,
   verifyG2Point,
   verifyProofOfPossession,
-} from '../src/da'
+} from '../api/da'
 
 // BLS12-381 Tests
 

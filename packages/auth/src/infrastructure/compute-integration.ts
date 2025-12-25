@@ -2,6 +2,7 @@
  * Compute Integration - On-chain TEE node discovery and verification
  */
 
+import { getRpcUrl } from '@jejunetwork/config'
 import {
   type Address,
   createPublicClient,
@@ -17,7 +18,6 @@ import {
   ATTESTATION_VALIDITY_MS,
   CACHE_EXPIRY_MS,
   CHAIN_IDS,
-  DEFAULT_RPC,
   getContracts,
   MIN_STAKE,
 } from './config.js'
@@ -96,7 +96,7 @@ export class OAuth3ComputeService {
     const contracts = getContracts(chainId)
 
     this.client = createPublicClient({
-      transport: http(config.rpcUrl || process.env.JEJU_RPC_URL || DEFAULT_RPC),
+      transport: http(config.rpcUrl || getRpcUrl()),
     })
     this.teeVerifierAddress = config.teeVerifierAddress || contracts.teeVerifier
     this.minStake = config.minStake || MIN_STAKE

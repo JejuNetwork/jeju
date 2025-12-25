@@ -8,13 +8,13 @@ import {
   NATIVE_ACTIONS,
   parseActionRef,
   resolveAction,
-} from '../src/ci/action-resolver'
-import { CIEventBus, resetCIEventBus } from '../src/ci/event-bus'
-import { RunnerManager, resetRunnerManager } from '../src/ci/runner-manager'
-import { CIScheduler, resetCIScheduler } from '../src/ci/scheduler'
-import { CISecretsStore, resetCISecretsStore } from '../src/ci/secrets-store'
-import type { Workflow } from '../src/ci/types'
-import { WorkflowEngine } from '../src/ci/workflow-engine'
+} from '../api/ci/action-resolver'
+import { CIEventBus, resetCIEventBus } from '../api/ci/event-bus'
+import { RunnerManager, resetRunnerManager } from '../api/ci/runner-manager'
+import { CIScheduler, resetCIScheduler } from '../api/ci/scheduler'
+import { CISecretsStore, resetCISecretsStore } from '../api/ci/secrets-store'
+import type { Workflow } from '../api/ci/types'
+import { WorkflowEngine } from '../api/ci/workflow-engine'
 
 const TEST_REPO_ID =
   '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as Hex

@@ -19,6 +19,7 @@ import {
   XLPLiquidityDeposit,
   XLPSlashEvent,
 } from './model'
+import { getChainId } from './network-config'
 import type { ProcessorContext } from './processor'
 import type { BlockHeader, LogData } from './utils/entities'
 import { decodeLogData, isEventInSet } from './utils/hex'
@@ -263,7 +264,7 @@ async function processVoucherRequested(
     id: requestId,
     requestId,
     requester,
-    sourceChain: 420691, // Network mainnet - in production, derive from contract address
+    sourceChain: getChainId(),
     destinationChain: Number(decoded[2]),
     sourceToken: decoded[0],
     destinationToken: decoded[0], // Same token by default
@@ -335,7 +336,7 @@ async function processVoucherIssued(
     voucherId,
     request: request ?? undefined,
     xlp,
-    sourceChainId: request?.sourceChain ?? 420691,
+    sourceChainId: request?.sourceChain ?? getChainId(),
     destinationChainId: request?.destinationChain ?? 1,
     sourceToken: request?.sourceToken ?? '',
     destinationToken: request?.destinationToken ?? '',
@@ -464,7 +465,8 @@ async function processXLPDeposit(
   const amount = BigInt(log.data)
 
   const xlp = await getOrCreateXLP(ctx, xlpAddr, timestamp, xlps)
-  const depositId = `${xlpAddr}-${tokenAddr}-420691` // chainId
+  const chainId = getChainId()
+  const depositId = `${xlpAddr}-${tokenAddr}-${chainId}`
 
   let deposit =
     xlpDeposits.get(depositId) ||
@@ -477,7 +479,7 @@ async function processXLPDeposit(
       id: depositId,
       xlp,
       token: tokenAddr,
-      chainId: 420691,
+      chainId,
       amount: isETH ? 0n : amount,
       ethAmount: isETH ? amount : 0n,
       lastUpdated: timestamp,
@@ -506,7 +508,7 @@ async function processXLPWithdraw(
   const tokenAddr = `0x${log.topics[2].slice(26)}`
   const amount = BigInt(log.data)
 
-  const depositId = `${xlpAddr}-${tokenAddr}-420691`
+  const depositId = `${xlpAddr}-${tokenAddr}-${getChainId()}`
   const deposit =
     xlpDeposits.get(depositId) ||
     (await ctx.store.get(XLPLiquidityDeposit, depositId))
@@ -675,7 +677,7 @@ async function processXLPSlashed(
         id: `${txHash}-${log.logIndex}`,
         xlp,
         voucherId,
-        chainId: 420691,
+        chainId: getChainId(),
         amount,
         victim,
         timestamp,
@@ -755,8 +757,7 @@ function updateChainStats(
   contractAddress: string,
   chainStats: Map<number, EILChainStats>,
 ): void {
-  // In production, map contract address to chain ID
-  const chainId = 420691 // Default to the network mainnet
+  const chainId = getChainId()
 
   let stats = chainStats.get(chainId)
   if (!stats) {

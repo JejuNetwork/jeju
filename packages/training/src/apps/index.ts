@@ -42,7 +42,9 @@ export interface CollectOptions {
   until?: Date
 }
 
-export interface Trajectory<TStep extends AppTrajectoryStep = AppTrajectoryStep> {
+export interface Trajectory<
+  TStep extends AppTrajectoryStep = AppTrajectoryStep,
+> {
   trajectoryId: string
   agentId: string
   archetype?: string

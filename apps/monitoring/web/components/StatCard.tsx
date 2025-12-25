@@ -72,11 +72,18 @@ export function StatCard({
   }
 
   return (
-    <div className="card-static p-4 md:p-6 group">
+    <div
+      className="card-static p-4 md:p-6 group"
+      data-testid={`stat-card-${label.toLowerCase().replace(/\s+/g, '-')}`}
+    >
       <div className="flex items-start justify-between">
         <div>
-          <p className="stat-label">{label}</p>
-          <p className="stat-value mt-1">{value}</p>
+          <p className="stat-label" data-testid="stat-label">
+            {label}
+          </p>
+          <p className="stat-value mt-1" data-testid="stat-value">
+            {value}
+          </p>
 
           {trend && (
             <div className="flex items-center gap-1.5 mt-2">

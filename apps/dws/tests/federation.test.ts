@@ -4,9 +4,9 @@
 
 import { beforeEach, describe, expect, it } from 'bun:test'
 import type { Address, Hex } from 'viem'
-import { FederationManager } from '../src/git/federation'
-import { SocialManager } from '../src/git/social'
-import type { GitUser, Repository } from '../src/git/types'
+import { FederationManager } from '../api/git/federation'
+import { SocialManager } from '../api/git/social'
+import type { GitUser, Repository } from '../api/git/types'
 
 // Mock backend
 const mockBackend = {

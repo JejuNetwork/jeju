@@ -33,10 +33,10 @@ const FaucetStatusSchema = z.object({
 
 const FaucetClaimResultSchema = z.object({
   success: z.boolean(),
-  txHash: z.string().nullable(),
-  amount: z.string().nullable(),
-  error: z.string().nullable(),
-  cooldownRemaining: z.number().nullable(),
+  txHash: z.string().optional(),
+  amount: z.string().optional(),
+  error: z.string().optional(),
+  cooldownRemaining: z.number().optional(),
 })
 
 const FaucetInfoSchema = z.object({

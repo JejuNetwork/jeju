@@ -4,8 +4,13 @@
  */
 
 import TrezorConnect from '@trezor/connect-web'
-import type { Address, Hex } from 'viem'
-import { toHex } from 'viem'
+import {
+  type Address,
+  type Hex,
+  serializeTransaction,
+  type TransactionSerializable,
+  toHex,
+} from 'viem'
 
 export type TrezorHDPathType = 'BIP44' | 'Legacy'
 
@@ -233,8 +238,32 @@ export class TrezorKeyring {
 
     const { v, r, s } = result.payload
 
+    // Build the serializable transaction object for viem
+    const serializableTx: TransactionSerializable = isEIP1559
+      ? {
+          type: 'eip1559',
+          to: tx.to,
+          value: tx.value,
+          data: tx.data,
+          nonce: tx.nonce,
+          gas: tx.gasLimit,
+          maxFeePerGas: tx.maxFeePerGas,
+          maxPriorityFeePerGas: tx.maxPriorityFeePerGas,
+          chainId: tx.chainId,
+        }
+      : {
+          type: 'legacy',
+          to: tx.to,
+          value: tx.value,
+          data: tx.data,
+          nonce: tx.nonce,
+          gas: tx.gasLimit,
+          gasPrice: tx.gasPrice,
+          chainId: tx.chainId,
+        }
+
     // Build signed transaction
-    return this.buildSignedTx(v, r, s)
+    return this.buildSignedTx(serializableTx, v, r, s)
   }
 
   async signMessage(address: Address, message: string): Promise<Hex> {
@@ -300,16 +329,19 @@ export class TrezorKeyring {
     return `0x${result.payload.signature}` as Hex
   }
 
-  private buildSignedTx(v: string, r: string, s: string): Hex {
-    // Build signed transaction RLP encoding
-    // This is a simplified version - in production use @ethereumjs/tx
-    const rHex = r.startsWith('0x') ? r.slice(2) : r
-    const sHex = s.startsWith('0x') ? s.slice(2) : s
-    const vHex = v.startsWith('0x') ? v.slice(2) : v
+  private buildSignedTx(
+    tx: TransactionSerializable,
+    v: string,
+    r: string,
+    s: string,
+  ): Hex {
+    // Convert signature components to proper hex format
+    const rHex = (r.startsWith('0x') ? r : `0x${r}`) as Hex
+    const sHex = (s.startsWith('0x') ? s : `0x${s}`) as Hex
+    const vBigInt = BigInt(v.startsWith('0x') ? v : `0x${v}`)
 
-    // For simplicity, return the signature components concatenated
-    // In production, properly serialize the signed transaction
-    return `0x${rHex}${sHex}${vHex}` as Hex
+    // Use viem's serializeTransaction with the signature
+    return serializeTransaction(tx, { r: rHex, s: sHex, v: vBigInt })
   }
 
   getModel(): string {

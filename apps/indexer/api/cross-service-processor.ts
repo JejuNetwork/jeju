@@ -519,7 +519,7 @@ export async function getMarketplaceStats(
 
   // Query container files
   const containerFiles = await ctx.store.find(IPFSFile, {
-    where: { category: FileCategory.GAME_ASSET },
+    where: { category: FileCategory.CONTAINER_IMAGE },
   })
 
   // Query full-stack agents - count manually since array contains is complex

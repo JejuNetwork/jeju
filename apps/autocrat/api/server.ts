@@ -6,7 +6,7 @@
  */
 
 import { cors } from '@elysiajs/cors'
-import { getNetworkName } from '@jejunetwork/config'
+import { CORE_PORTS, getNetworkName } from '@jejunetwork/config'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import { autocratAgentRuntime } from './agents'
@@ -44,7 +44,7 @@ import {
 } from './shared-state'
 import { getTEEMode } from './tee'
 
-const PORT = parseInt(process.env.PORT || '8010', 10)
+const PORT = CORE_PORTS.AUTOCRAT_API.get()
 const isDev = process.env.NODE_ENV !== 'production'
 
 const app = new Elysia()
@@ -113,9 +113,6 @@ const app = new Elysia()
     return { error: message }
   })
 
-const autoStart = process.env.AUTO_START_ORCHESTRATOR !== 'false'
-const useCompute = process.env.USE_COMPUTE_TRIGGER !== 'false'
-
 async function start() {
   await initLocalServices()
   await initModeration()
@@ -125,7 +122,7 @@ async function start() {
   const computeAvailable = await computeClient.isAvailable()
   let triggerMode = 'local'
 
-  if (computeAvailable && useCompute) {
+  if (computeAvailable) {
     await registerAutocratTriggers()
     triggerMode = 'compute'
   }
@@ -140,7 +137,7 @@ async function start() {
     config.contracts.daoRegistry !== ZERO_ADDRESS &&
     config.contracts.daoFunding !== ZERO_ADDRESS
 
-  if (autoStart && blockchain.councilDeployed && hasDAOContracts) {
+  if (blockchain.councilDeployed && hasDAOContracts) {
     const orchestratorConfig = {
       rpcUrl: config.rpcUrl,
       daoRegistry: config.contracts.daoRegistry,

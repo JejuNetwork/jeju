@@ -51,8 +51,9 @@ const FeeConfigResponseSchema = z.object({
   }),
 })
 
+// Config handles env overrides for URLs
 function getAutocratA2A(): string {
-  return process.env.AUTOCRAT_A2A_URL ?? getAutocratA2AUrl()
+  return getAutocratA2AUrl()
 }
 
 async function callAutocratA2ATyped<T>(
@@ -322,6 +323,15 @@ The autocrat typically achieves consensus when:
   },
 }
 
+/** Zod schema for treasury state response */
+const TreasuryStateResponseSchema = z.object({
+  success: z.boolean(),
+  treasury: z.object({
+    address: z.string(),
+    balance: z.string(),
+  }),
+})
+
 /**
  * Provider: Treasury State
  * Current treasury balance and allocations
@@ -335,24 +345,34 @@ export const treasuryProvider: Provider = {
     _message: Memory,
     _state: State,
   ): Promise<ProviderResult> => {
-    // Treasury data would come from on-chain in production
-    // For now, use governance stats as proxy
     const stats = await callAutocratA2ATyped(
       'get-governance-stats',
       GovernanceStatsDataSchema,
     )
-
-    // Treasury data is not in governance stats - show placeholder
-    const balance = 'unavailable'
-    const totalAllocated = 'unavailable'
     const pendingProposals = stats.pendingCount
+
+    // Fetch treasury balance from fees endpoint
+    let balance = 'unavailable'
+    let treasuryAddress = 'unavailable'
+
+    const treasuryUrl = `${getAutocratUrl()}/fees/treasury`
+    const response = await fetch(treasuryUrl).catch(() => null)
+    if (response?.ok) {
+      const result = TreasuryStateResponseSchema.safeParse(
+        await response.json(),
+      )
+      if (result.success && result.data.success) {
+        balance = result.data.treasury.balance
+        treasuryAddress = result.data.treasury.address
+      }
+    }
 
     return {
       text: `💰 TREASURY STATUS
 
 💵 BALANCE
+Address: ${treasuryAddress}
 Current: ${balance} ETH
-Allocated: ${totalAllocated} ETH
 Pending Proposals: ${pendingProposals}
 
 📈 BUDGET GUIDELINES
@@ -430,7 +450,7 @@ export const mcpResourcesProvider: Provider = {
     _message: Memory,
     _state: State,
   ): Promise<ProviderResult> => {
-    const mcpUrl = process.env.AUTOCRAT_MCP_URL ?? `${getAutocratUrl()}/mcp`
+    const mcpUrl = `${getAutocratUrl()}/mcp`
 
     const response = await fetch(`${mcpUrl}/tools`)
     const data = response.ok
@@ -452,8 +472,8 @@ ${
 }
 
 🔗 ENDPOINTS
-- A2A: ${process.env.AUTOCRAT_A2A_URL ?? 'http://localhost:8010/a2a'}
-- MCP: ${process.env.AUTOCRAT_MCP_URL ?? 'http://localhost:8010/mcp'}
+- A2A: ${getAutocratA2AUrl()}
+- MCP: ${mcpUrl}
 
 💡 USAGE
 Use these tools to gather information and prepare actions.

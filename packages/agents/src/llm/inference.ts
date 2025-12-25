@@ -6,6 +6,7 @@
  * @packageDocumentation
  */
 
+import { getCurrentNetwork, getServiceUrl } from '@jejunetwork/config'
 import { logger } from '@jejunetwork/shared'
 import { isValidAddress, ZERO_ADDRESS } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
@@ -125,38 +126,15 @@ const MODEL_ALIASES: Record<string, string[]> = {
 }
 
 /**
- * Gateway URLs by network
- */
-const GATEWAY_URLS = {
-  localnet: 'http://localhost:4200',
-  testnet: 'https://gateway.testnet.jeju.network',
-  mainnet: 'https://gateway.jeju.network',
-} as const satisfies Record<string, string>
-
-/**
- * Get network from environment
- */
-function getNetwork(): 'localnet' | 'testnet' | 'mainnet' {
-  const network = process.env.JEJU_NETWORK ?? 'localnet'
-  if (
-    network === 'localnet' ||
-    network === 'testnet' ||
-    network === 'mainnet'
-  ) {
-    return network
-  }
-  return 'localnet'
-}
-
-/**
- * Get gateway URL
+ * Get gateway URL from config
  */
 function getGatewayUrl(): string {
+  // Check for custom URL override first
   const customUrl = process.env.JEJU_COMPUTE_API_URL
   if (customUrl) return customUrl
 
-  const network = getNetwork()
-  return GATEWAY_URLS[network]
+  // Use config service URL
+  return getServiceUrl('compute')
 }
 
 /**
@@ -377,7 +355,7 @@ export class LLMInferenceService {
     modelsAvailable: number
     error?: string
   }> {
-    const network = getNetwork()
+    const network = getCurrentNetwork()
     const gatewayUrl = getGatewayUrl()
 
     if (!isJejuComputeAvailable()) {

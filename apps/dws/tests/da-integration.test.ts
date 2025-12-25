@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'bun:test'
 import type { Address, Hex } from 'viem'
 import { keccak256, toBytes, toHex } from 'viem'
-import { app } from '../src/server'
+import { app } from '../api/server'
 
 // Test response types
 interface DAHealthResponse {
@@ -175,7 +175,7 @@ import {
   createRollupDAAdapter,
   OPStackDAAdapter,
   RollupDAAdapter,
-} from '../src/da'
+} from '../api/da'
 
 describe('DA Layer Rollup Integration', () => {
   it('should import rollup adapters', () => {
