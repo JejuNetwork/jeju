@@ -1,45 +1,11 @@
 /**
  * Common Type Definitions
  *
- * Shared types for A2A protocol that replace 'unknown' and 'any'
+ * Common types for A2A protocol. For JSON types, import from @jejunetwork/types.
  */
 
 import { z } from 'zod'
-
-/**
- * JSON-serializable value types
- * Note: undefined is NOT included as it's not valid JSON - use optional properties instead
- */
-export type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | JsonValue[]
-  | { [key: string]: JsonValue }
-
-/**
- * Primitive JSON values (no nesting)
- * Used for payment metadata where nested objects are not needed
- */
-export type JsonPrimitive = string | number | boolean | null
-
-/**
- * Zod schema for JSON-serializable values
- * Used in validation schemas for metadata and flexible data fields
- */
-export type JsonValueSchemaType = z.ZodType<JsonValue>
-
-export const JsonValueSchema: JsonValueSchemaType = z.lazy(() =>
-  z.union([
-    z.string(),
-    z.number(),
-    z.boolean(),
-    z.null(),
-    z.array(JsonValueSchema),
-    z.record(z.string(), JsonValueSchema),
-  ]),
-)
+import type { JsonValue } from '@jejunetwork/types'
 
 /**
  * Generic key-value record with string keys

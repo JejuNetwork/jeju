@@ -7,6 +7,8 @@ import {
 import { NETWORK_NAME } from '../config'
 import type { A2ARequest as A2ARequestType } from '../schemas/api'
 
+export type { SkillResult }
+
 // Client-safe A2A helpers (avoiding @jejunetwork/shared which uses fs)
 function _getServiceName(service: string): string {
   return `${NETWORK_NAME} ${service}`
@@ -47,11 +49,7 @@ function createAgentCard(options: {
 }
 
 // Using A2ARequestType from schemas instead of local interface
-
-interface SkillResult {
-  message: string
-  data: Record<string, unknown>
-}
+// Using SkillResult from @jejunetwork/shared
 
 const BAZAAR_SKILLS = [
   // Token Launch Skills

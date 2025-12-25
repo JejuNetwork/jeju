@@ -164,22 +164,19 @@ describe('parseBlockIdentifier', () => {
     })
 
     it('should throw on null', () => {
-      // @ts-expect-error Testing null input validation
-      expect(() => parseBlockIdentifier(null)).toThrow(
+      expect(() => parseBlockIdentifier(null as unknown as string)).toThrow(
         'Block identifier is required',
       )
     })
 
     it('should throw on undefined', () => {
-      // @ts-expect-error Testing undefined input validation
-      expect(() => parseBlockIdentifier(undefined)).toThrow(
-        'Block identifier is required',
-      )
+      expect(() =>
+        parseBlockIdentifier(undefined as unknown as string),
+      ).toThrow('Block identifier is required')
     })
 
     it('should throw on non-string type', () => {
-      // @ts-expect-error Testing number input validation
-      expect(() => parseBlockIdentifier(123)).toThrow(
+      expect(() => parseBlockIdentifier(123 as unknown as string)).toThrow(
         'Block identifier is required',
       )
     })

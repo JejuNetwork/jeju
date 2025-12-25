@@ -17,6 +17,65 @@ import {
 
 const TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
 
+// Test response types
+interface StatusResponse {
+  status: string
+}
+
+interface ClustersListResponse {
+  clusters: Array<{ name: string }>
+}
+
+interface ProvidersListResponse {
+  providers: Array<{ name: string; available: boolean }>
+}
+
+interface DeploymentsListResponse {
+  deployments: Array<{ id: string }>
+}
+
+interface HelmApplyResponse {
+  id: string
+  name: string
+  status: string
+}
+
+interface HelmDeploymentResponse {
+  id: string
+  workers: number
+}
+
+interface TerraformSchemaResponse {
+  resource_schemas: Record<string, object>
+}
+
+interface ResourceIdNameResponse {
+  id: string
+  name: string
+}
+
+interface TerraformNodesResponse {
+  nodes: Array<{ id: string }>
+}
+
+interface IngressRulesResponse {
+  rules: Array<{ id: string }>
+}
+
+interface IngressRuleCreateResponse {
+  id: string
+  name: string
+  status: string
+}
+
+interface ServicesListResponse {
+  services: Array<{ name: string }>
+}
+
+interface PoliciesListResponse {
+  policies: Array<{ name: string }>
+}
+
 // Create a clean Elysia app with infrastructure routes
 function createInfrastructureApp() {
   return new Elysia()
@@ -47,23 +106,21 @@ describe('K3s Provider Direct', () => {
   test('health check', async () => {
     const res = await request('/k3s/health')
     expect(res.status).toBe(200)
-    const body = (await res.json()) as { status: string }
+    const body = (await res.json()) as StatusResponse
     expect(body.status).toBe('healthy')
   })
 
   test('list clusters', async () => {
     const res = await request('/k3s/clusters')
     expect(res.status).toBe(200)
-    const body = (await res.json()) as { clusters: Array<{ name: string }> }
+    const body = (await res.json()) as ClustersListResponse
     expect(body.clusters).toBeInstanceOf(Array)
   })
 
   test('list providers', async () => {
     const res = await request('/k3s/providers')
     expect(res.status).toBe(200)
-    const body = (await res.json()) as {
-      providers: Array<{ name: string; available: boolean }>
-    }
+    const body = (await res.json()) as ProvidersListResponse
     expect(body.providers).toBeInstanceOf(Array)
     expect(body.providers.length).toBeGreaterThan(0)
   })
@@ -73,7 +130,7 @@ describe('Helm Provider Direct', () => {
   test('health check', async () => {
     const res = await request('/helm/health')
     expect(res.status).toBe(200)
-    const body = (await res.json()) as { status: string }
+    const body = (await res.json()) as StatusResponse
     expect(body.status).toBe('healthy')
   })
 
@@ -82,7 +139,7 @@ describe('Helm Provider Direct', () => {
       headers: { 'x-jeju-address': TEST_ADDRESS },
     })
     expect(res.status).toBe(200)
-    const body = (await res.json()) as { deployments: Array<{ id: string }> }
+    const body = (await res.json()) as DeploymentsListResponse
     expect(body.deployments).toBeInstanceOf(Array)
   })
 
@@ -108,11 +165,7 @@ describe('Helm Provider Direct', () => {
     })
 
     expect(res.status).toBe(200)
-    const body = (await res.json()) as {
-      id: string
-      name: string
-      status: string
-    }
+    const body = (await res.json()) as HelmApplyResponse
     expect(body.id).toBeDefined()
     expect(body.name).toBe('test-config-release')
     expect(body.status).toBe('running')
@@ -154,7 +207,7 @@ describe('Helm Provider Direct', () => {
     })
 
     expect(res.status).toBe(200)
-    const body = (await res.json()) as { id: string; workers: number }
+    const body = (await res.json()) as HelmDeploymentResponse
     expect(body.id).toBeDefined()
     expect(body.workers).toBeGreaterThan(0)
   })
@@ -164,9 +217,7 @@ describe('Terraform Provider Direct', () => {
   test('get schema', async () => {
     const res = await request('/terraform/v1/schema')
     expect(res.status).toBe(200)
-    const body = (await res.json()) as {
-      resource_schemas: Record<string, object>
-    }
+    const body = (await res.json()) as TerraformSchemaResponse
     expect(body.resource_schemas).toBeDefined()
     expect(body.resource_schemas.dws_worker).toBeDefined()
     expect(body.resource_schemas.dws_container).toBeDefined()
@@ -187,7 +238,7 @@ describe('Terraform Provider Direct', () => {
     })
 
     expect(res.status).toBe(201)
-    const body = (await res.json()) as { id: string; name: string }
+    const body = (await res.json()) as ResourceIdNameResponse
     expect(body.id).toBeDefined()
     expect(body.name).toBe('tf-worker')
   })
@@ -207,7 +258,7 @@ describe('Terraform Provider Direct', () => {
     })
 
     expect(res.status).toBe(201)
-    const body = (await res.json()) as { id: string; name: string }
+    const body = (await res.json()) as ResourceIdNameResponse
     expect(body.id).toBeDefined()
     expect(body.name).toBe('tf-container')
   })
@@ -215,7 +266,7 @@ describe('Terraform Provider Direct', () => {
   test('list nodes data source', async () => {
     const res = await request('/terraform/v1/data/dws_nodes')
     expect(res.status).toBe(200)
-    const body = (await res.json()) as { nodes: Array<{ id: string }> }
+    const body = (await res.json()) as TerraformNodesResponse
     expect(body.nodes).toBeInstanceOf(Array)
   })
 })
@@ -224,7 +275,7 @@ describe('Ingress Controller Direct', () => {
   test('health check', async () => {
     const res = await request('/ingress/health')
     expect(res.status).toBe(200)
-    const body = (await res.json()) as { status: string }
+    const body = (await res.json()) as StatusResponse
     expect(body.status).toBe('healthy')
   })
 
@@ -233,7 +284,7 @@ describe('Ingress Controller Direct', () => {
       headers: { 'x-jeju-address': TEST_ADDRESS },
     })
     expect(res.status).toBe(200)
-    const body = (await res.json()) as { rules: Array<{ id: string }> }
+    const body = (await res.json()) as IngressRulesResponse
     expect(body.rules).toBeInstanceOf(Array)
   })
 
@@ -262,11 +313,7 @@ describe('Ingress Controller Direct', () => {
     })
 
     expect(res.status).toBe(201)
-    const body = (await res.json()) as {
-      id: string
-      name: string
-      status: string
-    }
+    const body = (await res.json()) as IngressRuleCreateResponse
     expect(body.id).toBeDefined()
     expect(body.name).toBe('test-ingress')
     expect(body.status).toBe('active')
@@ -277,7 +324,7 @@ describe('Service Mesh Direct', () => {
   test('health check', async () => {
     const res = await request('/mesh/health')
     expect(res.status).toBe(200)
-    const body = (await res.json()) as { status: string }
+    const body = (await res.json()) as StatusResponse
     expect(body.status).toBe('healthy')
   })
 
@@ -298,7 +345,7 @@ describe('Service Mesh Direct', () => {
     })
 
     expect(res.status).toBe(201)
-    const body = (await res.json()) as { id: string; name: string }
+    const body = (await res.json()) as ResourceIdNameResponse
     expect(body.id).toBeDefined()
     expect(body.name).toBe('test-service')
   })
@@ -306,7 +353,7 @@ describe('Service Mesh Direct', () => {
   test('list services', async () => {
     const res = await request('/mesh/services')
     expect(res.status).toBe(200)
-    const body = (await res.json()) as { services: Array<{ name: string }> }
+    const body = (await res.json()) as ServicesListResponse
     expect(body.services).toBeInstanceOf(Array)
   })
 
@@ -326,7 +373,7 @@ describe('Service Mesh Direct', () => {
     })
 
     expect(res.status).toBe(201)
-    const body = (await res.json()) as { id: string; name: string }
+    const body = (await res.json()) as ResourceIdNameResponse
     expect(body.id).toBeDefined()
     expect(body.name).toBe('test-policy')
   })
@@ -334,7 +381,7 @@ describe('Service Mesh Direct', () => {
   test('list policies', async () => {
     const res = await request('/mesh/policies/access')
     expect(res.status).toBe(200)
-    const body = (await res.json()) as { policies: Array<{ name: string }> }
+    const body = (await res.json()) as PoliciesListResponse
     expect(body.policies).toBeInstanceOf(Array)
   })
 })

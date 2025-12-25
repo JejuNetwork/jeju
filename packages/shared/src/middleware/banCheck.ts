@@ -8,9 +8,8 @@
 import { banManagerAbi } from '@jejunetwork/contracts'
 import { Elysia } from 'elysia'
 import type { Address, Chain, Hex, PublicClient, Transport } from 'viem'
-import { createPublicClient, http, toHex } from 'viem'
+import { createPublicClient, http } from 'viem'
 import { base, baseSepolia } from 'viem/chains'
-import { safeReadContract } from '../viem'
 
 export interface BanCheckConfig {
   banManagerAddress: Address
@@ -98,26 +97,19 @@ export class BanChecker {
     try {
       // Use typed ABI - viem infers return types automatically
       const [isBanned, isOnNotice, banRecord] = await Promise.all([
-        safeReadContract<boolean>(this.publicClient, {
+        this.publicClient.readContract({
           address: this.config.banManagerAddress,
           abi: banManagerAbi,
           functionName: 'isAddressBanned',
           args: [address],
         }),
-        safeReadContract<boolean>(this.publicClient, {
+        this.publicClient.readContract({
           address: this.config.banManagerAddress,
           abi: banManagerAbi,
           functionName: 'isOnNotice',
           args: [address],
         }),
-        safeReadContract<{
-          isBanned: boolean
-          reporter: Address
-          timestamp: bigint
-          caseId: bigint
-          reason: string
-          banType: number
-        }>(this.publicClient, {
+        this.publicClient.readContract({
           address: this.config.banManagerAddress,
           abi: banManagerAbi,
           functionName: 'getAddressBan',
@@ -130,7 +122,7 @@ export class BanChecker {
         isOnNotice,
         banType: banRecord.banType,
         reason: banRecord.reason || '',
-        caseId: banRecord.caseId ? toHex(banRecord.caseId) : null,
+        caseId: banRecord.caseId || null,
         canAppeal: banRecord.banType === 3,
       }
 

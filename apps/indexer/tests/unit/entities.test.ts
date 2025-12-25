@@ -240,17 +240,15 @@ describe('Account Factory', () => {
       })
 
       it('should throw on null address', () => {
-        // @ts-expect-error Testing null input validation
-        expect(() => factory.getOrCreate(null, 1, new Date())).toThrow(
-          'address is required',
-        )
+        expect(() =>
+          factory.getOrCreate(null as unknown as string, 1, new Date()),
+        ).toThrow('address is required')
       })
 
       it('should throw on undefined address', () => {
-        // @ts-expect-error Testing undefined input validation
-        expect(() => factory.getOrCreate(undefined, 1, new Date())).toThrow(
-          'address is required',
-        )
+        expect(() =>
+          factory.getOrCreate(undefined as unknown as string, 1, new Date()),
+        ).toThrow('address is required')
       })
 
       it('should throw on negative block number', () => {
@@ -287,8 +285,7 @@ describe('Account Factory', () => {
         expect(() =>
           factory.getOrCreate(
             '0x1234567890abcdef1234567890abcdef12345678',
-            // @ts-expect-error Testing string input validation
-            '100',
+            '100' as unknown as number,
             new Date(),
           ),
         ).toThrow('Invalid blockNumber')
@@ -309,8 +306,7 @@ describe('Account Factory', () => {
           factory.getOrCreate(
             '0x1234567890abcdef1234567890abcdef12345678',
             1,
-            // @ts-expect-error Testing string timestamp validation
-            '2024-01-01',
+            '2024-01-01' as unknown as Date,
           ),
         ).toThrow('timestamp must be a valid Date object')
       })

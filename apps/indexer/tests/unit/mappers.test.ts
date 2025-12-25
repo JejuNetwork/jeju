@@ -495,8 +495,7 @@ describe('Account Mappers', () => {
   })
 
   it('should throw on null account', () => {
-    // @ts-expect-error Testing null input validation
-    expect(() => mapAccountResponse(null)).toThrow('Account is required')
+    expect(() => mapAccountResponse(null as unknown as MockAccount)).toThrow('Account is required')
   })
 })
 
@@ -528,8 +527,7 @@ describe('Contract Mappers', () => {
   })
 
   it('should throw on null contract', () => {
-    // @ts-expect-error Testing null input validation
-    expect(() => mapContractResponse(null)).toThrow('Contract is required')
+    expect(() => mapContractResponse(null as unknown as MockContract)).toThrow('Contract is required')
   })
 })
 
@@ -572,8 +570,7 @@ describe('Token Transfer Mappers', () => {
   })
 
   it('should throw on null transfer', () => {
-    // @ts-expect-error Testing null input validation
-    expect(() => mapTokenTransferResponse(null)).toThrow(
+    expect(() => mapTokenTransferResponse(null as unknown as MockTokenTransfer)).toThrow(
       'TokenTransfer is required',
     )
   })
@@ -622,8 +619,7 @@ describe('Agent Mappers', () => {
     })
 
     it('should throw on null agent', () => {
-      // @ts-expect-error Testing null input validation
-      expect(() => mapAgentSummary(null)).toThrow('Agent is required')
+      expect(() => mapAgentSummary(null as unknown as MockAgent)).toThrow('Agent is required')
     })
   })
 
@@ -768,8 +764,7 @@ describe('Provider Mappers', () => {
   })
 
   it('should throw on null provider', () => {
-    // @ts-expect-error Testing null input validation
-    expect(() => mapProviderSummary(null, 'compute')).toThrow(
+    expect(() => mapProviderSummary(null as unknown as MockProvider, 'compute')).toThrow(
       'Provider is required',
     )
   })

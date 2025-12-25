@@ -8,11 +8,7 @@
 import { beforeAll, describe, expect, test } from 'bun:test'
 import { getIpfsApiUrl } from '@jejunetwork/config'
 import { Client } from 'pg'
-import { z } from 'zod'
-
-// IPFS response schemas
-const IpfsIdResponseSchema = z.object({ ID: z.string() })
-const IpfsAddResponseSchema = z.object({ Hash: z.string() })
+import { IpfsAddResponseSchema, IpfsIdResponseSchema } from '../shared/schemas'
 
 const POSTGRES_URL =
   process.env.DATABASE_URL || 'postgresql://jeju:jeju@127.0.0.1:5432/jeju'

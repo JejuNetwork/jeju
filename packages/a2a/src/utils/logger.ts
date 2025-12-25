@@ -5,9 +5,8 @@
  * Works in both browser and Node.js/Bun environments.
  */
 
+import type { JsonValue } from '@jejunetwork/types'
 import { getEnv } from '@jejunetwork/shared'
-
-import type { JsonValue } from '../types/common'
 
 /**
  * Log data payload - structured data for logging

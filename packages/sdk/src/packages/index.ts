@@ -8,6 +8,7 @@
  */
 
 import { getEnv, getEnvOrDefault } from '@jejunetwork/shared'
+import type { JsonValue } from '@jejunetwork/types'
 import type { Address, Hex, WalletClient } from 'viem'
 import { createWalletClient, http } from 'viem'
 import { type LocalAccount, privateKeyToAccount } from 'viem/accounts'
@@ -23,7 +24,6 @@ import {
   SyncResponseSchema,
   WhoamiResponseSchema,
 } from '../shared/schemas'
-import type { JsonValue } from '../shared/types'
 
 export interface PackageSDKConfig {
   rpcUrl: string

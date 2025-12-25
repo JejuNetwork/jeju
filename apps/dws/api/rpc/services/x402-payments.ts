@@ -1,18 +1,13 @@
+import type { X402Network } from '@jejunetwork/shared'
 import { expectJson, ZERO_ADDRESS } from '@jejunetwork/types'
 import type { Address } from 'viem'
 import { hashMessage, recoverAddress } from 'viem'
 import { z } from 'zod'
 import { x402State } from '../../state.js'
 
-// State initialization is handled by main server startup
+export type { X402Network }
 
-export type X402Network =
-  | 'sepolia'
-  | 'base'
-  | 'base-sepolia'
-  | 'ethereum'
-  | 'jeju'
-  | 'jeju-testnet'
+// State initialization is handled by main server startup
 
 export interface X402PaymentRequirement {
   x402Version: number

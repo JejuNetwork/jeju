@@ -138,6 +138,14 @@ async function buildFrontend(): Promise<void> {
         },
         browser: true,
       }),
+      // Vite-style environment variables
+      'import.meta.env': JSON.stringify({
+        VITE_NETWORK: 'localnet',
+        MODE: 'production',
+        DEV: false,
+        PROD: true,
+      }),
+      'import.meta.env.VITE_NETWORK': JSON.stringify('localnet'),
     },
     naming: {
       entry: '[name]-[hash].js',

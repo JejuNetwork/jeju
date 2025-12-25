@@ -4,7 +4,7 @@
  * Strongly typed response interfaces for all A2A protocol methods
  */
 
-import type { JsonValue } from './common'
+import type { JsonValue } from '@jejunetwork/types'
 
 /**
  * Balance information response

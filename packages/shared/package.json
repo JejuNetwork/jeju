@@ -12,15 +12,15 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./viem": {
-      "bun": "./src/viem/index.ts",
-      "types": "./dist/viem/index.d.ts",
-      "import": "./dist/viem/index.js"
-    },
     "./protocols/middleware": {
       "bun": "./src/protocols/middleware.ts",
       "types": "./dist/protocols/middleware.d.ts",
       "import": "./dist/protocols/middleware.js"
+    },
+    "./wagmi": {
+      "bun": "./src/wagmi/index.ts",
+      "types": "./dist/wagmi/index.d.ts",
+      "import": "./dist/wagmi/index.js"
     }
   },
   "files": ["dist", "src"],

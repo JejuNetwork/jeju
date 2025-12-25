@@ -1,7 +1,6 @@
 // Force viem mainnet initialization before RainbowKit imports
 import { mainnet as viemMainnet } from 'viem/chains'
 
-// eslint-disable-next-line @typescript-eslint/no-unused-expressions
 viemMainnet.id // Force initialization
 
 import { OAuth3Provider } from '@jejunetwork/oauth3'

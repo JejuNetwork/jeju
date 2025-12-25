@@ -1,9 +1,6 @@
 import { cors } from '@elysiajs/cors'
-import {
-  checkPayment,
-  getProviderInfo,
-  type PaymentRequirements,
-} from '@jejunetwork/shared'
+import { checkPayment, getProviderInfo } from '@jejunetwork/shared'
+import { skillRequiresPayment } from '@jejunetwork/shared/protocols/middleware'
 import {
   expectAddress,
   expectChainId,
@@ -80,7 +77,7 @@ import {
   toResponseData,
   validateQuery,
 } from '../lib/validation'
-import { createPaymentRequirement, PAYMENT_TIERS } from '../lib/x402'
+import { PAYMENT_TIERS } from '../lib/x402'
 import { banCheckPlugin } from './middleware/ban-check'
 import {
   agentRateLimitPlugin,
@@ -954,11 +951,7 @@ const MCP_TOOLS = [
     : [],
 )
 
-interface SkillResult {
-  message: string
-  data: JsonObject
-  requiresPayment?: PaymentRequirements
-}
+import type { SkillResult } from '@jejunetwork/shared/protocols/middleware'
 
 async function executeSkill(
   skillId: string,
@@ -1004,16 +997,11 @@ async function executeSkill(
         PAYMENT_RECIPIENT,
       )
       if (!paymentCheck.paid)
-        return {
-          message: 'Payment required',
-          data: {},
-          requiresPayment: createPaymentRequirement(
-            '/a2a',
-            PAYMENT_TIERS.PAYMASTER_DEPLOYMENT,
-            'Paymaster deployment fee',
-            PAYMENT_RECIPIENT,
-          ),
-        }
+        return skillRequiresPayment(
+          '/a2a',
+          PAYMENT_TIERS.PAYMASTER_DEPLOYMENT.toString(),
+          'Paymaster deployment fee',
+        )
       return {
         message: 'Paymaster deployment authorized',
         data: {

@@ -3,19 +3,14 @@
  * Used across all network apps to check and display user ban status
  */
 
+import { BanType } from '@jejunetwork/types'
 import { useCallback, useEffect, useState } from 'react'
 import { type Address, createPublicClient, http, type PublicClient } from 'viem'
 import { baseSepolia } from 'viem/chains'
 import { BAN_MANAGER_ABI, MODERATION_MARKETPLACE_ABI } from '../api/abis'
 import { safeReadContract } from '../viem'
 
-export const BanType = {
-  NONE: 0,
-  ON_NOTICE: 1,
-  CHALLENGED: 2,
-  PERMANENT: 3,
-} as const
-export type BanType = (typeof BanType)[keyof typeof BanType]
+export { BanType }
 
 export interface BanStatus {
   isBanned: boolean

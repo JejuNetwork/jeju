@@ -6,12 +6,10 @@
  * Ensures type safety when loading JSON configs.
  */
 
+import { NetworkSchema, type NetworkType } from '@jejunetwork/types'
 import { z } from 'zod'
 
-// Network Type
-
-export const NetworkSchema = z.enum(['localnet', 'testnet', 'mainnet'])
-export type NetworkType = z.infer<typeof NetworkSchema>
+export { NetworkSchema, type NetworkType }
 
 // Chain Configuration Schema
 

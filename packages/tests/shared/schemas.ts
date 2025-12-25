@@ -308,88 +308,79 @@ export function parseGetCodeResponse(data: unknown): GetCodeResponse {
   return GetCodeResponseSchema.parse(data)
 }
 
-// Messaging Test Schemas
-
-export const HubInfoResponseSchema = z.object({
-  version: z.string(),
-  isSyncing: z.boolean(),
-  nickname: z.string().optional(),
-  rootHash: z.string().optional(),
-  dbStats: z.record(z.string(), z.number()).optional(),
-  peerId: z.string().optional(),
-})
-
-export const FarcasterMessagesResponseSchema = z.object({
-  messages: z.array(
-    z.object({
-      data: z
-        .object({
-          fid: z.number(),
-          userDataBody: z.object({ value: z.string() }).optional(),
-          castAddBody: z.object({ text: z.string() }).optional(),
-        })
-        .passthrough(),
-      hash: z.string().optional(),
-    }),
-  ),
-})
-
-export const CastResultSchema = z.object({
-  hash: z.string(),
-})
+// ═══════════════════════════════════════════════════════════════════════════
+//                    MESSAGING / RELAY SERVICE SCHEMAS
+// ═══════════════════════════════════════════════════════════════════════════
 
 export const RelayHealthSchema = z.object({
   status: z.string(),
   nodeId: z.string(),
 })
 
-export const RelayStatsSchema = z.object({
-  nodeId: z.string(),
-  totalMessagesRelayed: z.number(),
-  totalBytesRelayed: z.number(),
-})
-
-export const RelayMessageResultSchema = z.object({
+export const RelaySendResultSchema = z.object({
   success: z.boolean(),
   messageId: z.string(),
   cid: z.string().optional(),
 })
 
-export const RelayMessagesResponseSchema = z.object({
-  messages: z.array(
-    z.object({
-      id: z.string(),
-      content: z.string().optional(),
-      from: z.string().optional(),
-    }),
-  ),
+export const RelayMessageSchema = z.object({
+  id: z.string(),
+  from: z.string().optional(),
+  content: z.string().optional(),
+})
+
+export const RelayMessagesSchema = z.object({
+  messages: z.array(RelayMessageSchema),
   count: z.number().optional(),
 })
 
-export const CountResponseSchema = z.object({
+export const RelayStatsSchema = z.object({
+  nodeId: z.string(),
+  totalMessagesRelayed: z.number(),
+})
+
+export const RelayCountSchema = z.object({
   count: z.number(),
 })
 
-export const GraphQLResponseSchema = z.object({
-  data: z.record(z.string(), z.unknown()).optional(),
-  errors: z.array(z.object({ message: z.string() })).optional(),
+// ═══════════════════════════════════════════════════════════════════════════
+//                         FARCASTER HUB SCHEMAS
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const HubInfoSchema = z.object({
+  version: z.string(),
+  isSyncing: z.boolean(),
+  nickname: z.string().optional(),
 })
 
-export const RpcResultResponseSchema = z.object({
-  result: z.string(),
-  error: z.object({ message: z.string() }).optional(),
+export const HubMessageDataSchema = z.object({
+  fid: z.number().optional(),
+  userDataBody: z.object({ value: z.string() }).optional(),
+  castAddBody: z.object({ text: z.string() }).optional(),
 })
 
-// Type exports for new schemas
-export type HubInfoResponse = z.infer<typeof HubInfoResponseSchema>
-export type FarcasterMessagesResponse = z.infer<
-  typeof FarcasterMessagesResponseSchema
->
-export type CastResult = z.infer<typeof CastResultSchema>
+export const HubMessageSchema = z.object({
+  hash: z.string().optional(),
+  data: HubMessageDataSchema,
+})
+
+export const HubMessagesSchema = z.object({
+  messages: z.array(HubMessageSchema),
+})
+
+export const HubSubmitResultSchema = z.object({
+  hash: z.string(),
+})
+
+// Type exports for messaging schemas
 export type RelayHealth = z.infer<typeof RelayHealthSchema>
+export type RelaySendResult = z.infer<typeof RelaySendResultSchema>
+export type RelayMessage = z.infer<typeof RelayMessageSchema>
+export type RelayMessages = z.infer<typeof RelayMessagesSchema>
 export type RelayStats = z.infer<typeof RelayStatsSchema>
-export type RelayMessageResult = z.infer<typeof RelayMessageResultSchema>
-export type RelayMessagesResponse = z.infer<typeof RelayMessagesResponseSchema>
-export type CountResponse = z.infer<typeof CountResponseSchema>
-export type GraphQLResponse = z.infer<typeof GraphQLResponseSchema>
-export type RpcResultResponse = z.infer<typeof RpcResultResponseSchema>
+export type RelayCount = z.infer<typeof RelayCountSchema>
+
+export type HubInfo = z.infer<typeof HubInfoSchema>
+export type HubMessage = z.infer<typeof HubMessageSchema>
+export type HubMessages = z.infer<typeof HubMessagesSchema>
+export type HubSubmitResult = z.infer<typeof HubSubmitResultSchema>

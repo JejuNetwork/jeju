@@ -1,9 +1,5 @@
+import type { IPFSUploadResponse } from '@jejunetwork/shared'
 import { IPFS_API_URL, IPFS_GATEWAY_URL } from './config'
-
-interface IPFSUploadResponse {
-  cid?: string
-  Hash?: string
-}
 
 interface IPFSPinsResponse {
   count?: number

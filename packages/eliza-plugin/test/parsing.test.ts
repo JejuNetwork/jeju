@@ -708,12 +708,10 @@ describe('Parser robustness tests', () => {
   // Note: null/undefined inputs will throw since these are internal functions
   // that expect string input. Callers (action handlers) should validate first.
   test('parseSwapParams throws on null input', () => {
-    // @ts-expect-error Testing null input validation
-    expect(() => parseSwapParams(null)).toThrow()
+    expect(() => parseSwapParams(null as unknown as string)).toThrow()
   })
 
   test('parseTransferParams throws on null input', () => {
-    // @ts-expect-error Testing null input validation
-    expect(() => parseTransferParams(null)).toThrow()
+    expect(() => parseTransferParams(null as unknown as string)).toThrow()
   })
 })

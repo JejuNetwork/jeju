@@ -69,7 +69,7 @@ export type EdgeConfig = z.infer<typeof EdgeConfigSchema>
 // Coordinator Message Schema
 export const CoordinatorMessageSchema = z.object({
   type: z.string(),
-  payload: z.record(z.unknown()),
+  payload: z.record(z.string(), z.unknown()),
   timestamp: z.number(),
   signature: z.string().optional(),
 })

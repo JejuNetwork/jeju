@@ -5,6 +5,7 @@
  * Supports multi-token gas payments via PaymasterFactory.
  */
 
+import { safeReadContract } from '@jejunetwork/contracts'
 import {
   type Address,
   createPublicClient,
@@ -14,7 +15,6 @@ import {
   parseAbi,
   parseEther,
 } from 'viem'
-import { safeReadContract } from '../viem'
 export interface PaymasterInfo {
   address: Address
   token: Address

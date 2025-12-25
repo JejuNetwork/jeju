@@ -108,8 +108,13 @@ async function checkContractsDeployed(
   councilAddress: Address,
 ): Promise<boolean> {
   try {
-    const code = await publicClient.getBytecode({ address: councilAddress })
-    return code !== undefined && code !== '0x' && code.length > 2
+    // Actually try calling proposalBond() to verify it's the right contract
+    await publicClient.readContract({
+      address: councilAddress,
+      abi: COUNCIL_ABI,
+      functionName: 'proposalBond',
+    })
+    return true
   } catch {
     return false
   }

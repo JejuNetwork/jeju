@@ -9,6 +9,55 @@ import type { Address, Hex } from 'viem'
 import { keccak256, toBytes, toHex } from 'viem'
 import { app } from '../src/server'
 
+// Test response types
+interface DAHealthResponse {
+  status: string
+  initialized: boolean
+}
+
+interface BlobSubmitResponse {
+  blobId: Hex
+  commitment: { commitment: Hex }
+}
+
+interface BlobErrorResponse {
+  error: string
+  blobId: Hex
+}
+
+interface OperatorsListResponse {
+  count: number
+  operators: object[]
+}
+
+interface OperatorRegistrationResponse {
+  success: boolean
+  address: Address
+}
+
+interface DAStatsResponse {
+  blobs: { totalBlobs: number }
+  operators: { active: number }
+}
+
+interface BlobsListResponse {
+  count: number
+  blobs: object[]
+}
+
+interface HealthServicesResponse {
+  services: { da: { status: string } }
+}
+
+interface ServiceListResponse {
+  services: string[]
+  endpoints: { da: string }
+}
+
+interface AgentCardResponse {
+  capabilities: Array<{ name: string; endpoint: string }>
+}
+
 const TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address
 const TEST_DATA = 'Hello, DA Layer!'
 
@@ -17,10 +66,7 @@ describe('DA Layer HTTP API', () => {
     const response = await app.request('/da/health')
     expect(response.status).toBe(200)
 
-    const data = (await response.json()) as {
-      status: string
-      initialized: boolean
-    }
+    const data = (await response.json()) as DAHealthResponse
     expect(data.status).toBe('healthy')
     expect(data.initialized).toBe(true)
   })
@@ -55,17 +101,14 @@ describe('DA Layer HTTP API', () => {
     // Since we have a mock operator that doesn't respond, dispersal may fail
     // but the blob should still be prepared
     if (response.status === 200) {
-      const result = (await response.json()) as {
-        blobId: Hex
-        commitment: { commitment: Hex }
-      }
+      const result = (await response.json()) as BlobSubmitResponse
 
       expect(result.blobId).toMatch(/^0x[a-f0-9]{64}$/)
       expect(result.commitment).toBeDefined()
       expect(result.commitment.commitment).toMatch(/^0x[a-f0-9]+$/)
     } else {
       // Dispersal failed due to no live operators - that's expected in tests
-      const error = (await response.json()) as { error: string; blobId: Hex }
+      const error = (await response.json()) as BlobErrorResponse
       expect(error.blobId).toMatch(/^0x[a-f0-9]{64}$/)
     }
   })
@@ -73,10 +116,7 @@ describe('DA Layer HTTP API', () => {
     const response = await app.request('/da/operators')
     expect(response.status).toBe(200)
 
-    const data = (await response.json()) as {
-      count: number
-      operators: object[]
-    }
+    const data = (await response.json()) as OperatorsListResponse
     expect(typeof data.count).toBe('number')
     expect(Array.isArray(data.operators)).toBe(true)
   })
@@ -99,10 +139,7 @@ describe('DA Layer HTTP API', () => {
 
     expect(response.status).toBe(200)
 
-    const result = (await response.json()) as {
-      success: boolean
-      address: Address
-    }
+    const result = (await response.json()) as OperatorRegistrationResponse
     expect(result.success).toBe(true)
     expect(result.address).toBe(TEST_ADDRESS)
   })
@@ -110,10 +147,7 @@ describe('DA Layer HTTP API', () => {
     const response = await app.request('/da/stats')
     expect(response.status).toBe(200)
 
-    const data = (await response.json()) as {
-      blobs: { totalBlobs: number }
-      operators: { active: number }
-    }
+    const data = (await response.json()) as DAStatsResponse
 
     expect(data.blobs).toBeDefined()
     expect(typeof data.blobs.totalBlobs).toBe('number')
@@ -129,7 +163,7 @@ describe('DA Layer HTTP API', () => {
     const response = await app.request('/da/blobs?status=available&limit=10')
     expect(response.status).toBe(200)
 
-    const data = (await response.json()) as { count: number; blobs: object[] }
+    const data = (await response.json()) as BlobsListResponse
     expect(typeof data.count).toBe('number')
     expect(Array.isArray(data.blobs)).toBe(true)
   })
@@ -172,9 +206,7 @@ describe('DA Layer DWS Server Integration', () => {
     const response = await app.request('/health')
     expect(response.status).toBe(200)
 
-    const data = (await response.json()) as {
-      services: { da: { status: string } }
-    }
+    const data = (await response.json()) as HealthServicesResponse
 
     expect(data.services.da).toBeDefined()
     expect(data.services.da.status).toBe('healthy')
@@ -184,10 +216,7 @@ describe('DA Layer DWS Server Integration', () => {
     const response = await app.request('/')
     expect(response.status).toBe(200)
 
-    const data = (await response.json()) as {
-      services: string[]
-      endpoints: { da: string }
-    }
+    const data = (await response.json()) as ServiceListResponse
 
     expect(data.services).toContain('da')
     expect(data.endpoints.da).toBe('/da/*')
@@ -197,9 +226,7 @@ describe('DA Layer DWS Server Integration', () => {
     const response = await app.request('/.well-known/agent-card.json')
     expect(response.status).toBe(200)
 
-    const data = (await response.json()) as {
-      capabilities: Array<{ name: string; endpoint: string }>
-    }
+    const data = (await response.json()) as AgentCardResponse
 
     const daCapability = data.capabilities.find((c) => c.name === 'da')
     expect(daCapability).toBeDefined()

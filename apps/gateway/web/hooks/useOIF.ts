@@ -211,8 +211,7 @@ export function useCreateIntent(inputSettlerAddress: Address | undefined) {
   const publicClient = usePublicClient()
   const [intentId, setIntentId] = useState<`0x${string}` | null>(null)
 
-  const { writeContract: _writeContract, data: hash, isPending, error } = useWriteContract()
-  const writeContract = createTypedWriteContract(_writeContract)
+  const { writeContract, data: hash, isPending, error } = useWriteContract()
   const { isSuccess, isLoading: isConfirming } = useWaitForTransactionReceipt({
     hash,
   })
@@ -341,8 +340,7 @@ export function useIntentStatus(
 }
 
 export function useRefundIntent(inputSettlerAddress: Address | undefined) {
-  const { writeContract: _writeContract, data: hash, isPending, error } = useWriteContract()
-  const writeContract = createTypedWriteContract(_writeContract)
+  const { writeContract, data: hash, isPending, error } = useWriteContract()
   const { isSuccess, isLoading: isConfirming } = useWaitForTransactionReceipt({
     hash,
   })
@@ -365,8 +363,7 @@ export function useRefundIntent(inputSettlerAddress: Address | undefined) {
 
 export function useSolverRegistration(registryAddress: Address | undefined) {
   const { address } = useAccount()
-  const { writeContract: _writeContract, data: hash, isPending, error } = useWriteContract()
-  const writeContract = createTypedWriteContract(_writeContract)
+  const { writeContract, data: hash, isPending, error } = useWriteContract()
   const { isSuccess, isLoading: isConfirming } = useWaitForTransactionReceipt({
     hash,
   })

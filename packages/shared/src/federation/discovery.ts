@@ -1,6 +1,6 @@
+import { safeReadContract } from '@jejunetwork/contracts'
 import { type Address, createPublicClient, http, type PublicClient } from 'viem'
 import { z } from 'zod'
-import { safeReadContract } from '../viem'
 import {
   FEDERATED_LIQUIDITY_ABI,
   FEDERATED_SOLVER_ABI,

@@ -1,5 +1,8 @@
+import type { PaymentRequirements, X402Network } from '@jejunetwork/shared'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import type { Address } from 'viem'
+
+export type { PaymentRequirements }
 
 export const parseEther = (value: string): bigint => {
   const [whole, decimal = ''] = value.split('.')
@@ -14,34 +17,13 @@ export const PAYMENT_TIERS = {
   EXAMPLES: parseEther('0.01'),
 } as const
 
-export interface PaymentScheme {
-  scheme: string
-  network: string
-  maxAmountRequired: string
-  resource: string
-  description: string
-  payTo: Address
-  asset: Address
-  maxTimeoutSeconds: number
-  mimeType: string
-  extra?: Record<string, string>
-}
-
-export interface PaymentRequirements {
-  x402Version: number
-  error: string
-  accepts: PaymentScheme[]
-}
-
-type Network = 'base-sepolia' | 'base' | 'jeju' | 'jeju-testnet'
-
 export function createPaymentRequirement(
   resource: string,
   amount: bigint,
   description: string,
   recipientAddress: Address,
   tokenAddress: Address = ZERO_ADDRESS,
-  network: Network = 'jeju',
+  network: X402Network = 'jeju',
 ): PaymentRequirements {
   return {
     x402Version: 1,
@@ -57,6 +39,7 @@ export function createPaymentRequirement(
         asset: tokenAddress,
         maxTimeoutSeconds: 300,
         mimeType: 'application/json',
+        outputSchema: null,
         extra: {
           serviceName: 'Documentation',
         },

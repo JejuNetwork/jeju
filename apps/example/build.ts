@@ -32,6 +32,24 @@ const frontendResult = await Bun.build({
   outdir: join(distDir, 'web'),
   target: 'browser',
   minify: true,
+  splitting: false,
+  packages: 'bundle',
+  naming: '[name].[hash].[ext]',
+  define: {
+    'process.env.NODE_ENV': JSON.stringify('production'),
+    'process.browser': 'true',
+    process: JSON.stringify({
+      env: { NODE_ENV: 'production' },
+      browser: true,
+    }),
+    'import.meta.env': JSON.stringify({
+      VITE_NETWORK: 'localnet',
+      MODE: 'production',
+      DEV: false,
+      PROD: true,
+    }),
+    'import.meta.env.VITE_NETWORK': JSON.stringify('localnet'),
+  },
 })
 
 if (!frontendResult.success) {
@@ -40,10 +58,16 @@ if (!frontendResult.success) {
 }
 console.log('   Frontend built successfully')
 
+// Find the main entry file with hash
+const mainEntry = frontendResult.outputs.find(
+  (o) => o.kind === 'entry-point' && o.path.includes('app'),
+)
+const mainFileName = mainEntry ? mainEntry.path.split('/').pop() : 'app.js'
+
 // Copy and update index.html to reference compiled JS
 console.log('Copying static files...')
 const indexHtml = await Bun.file(join(rootDir, 'web/index.html')).text()
-const updatedHtml = indexHtml.replace('./app.ts', './app.js')
+const updatedHtml = indexHtml.replace('./app.ts', `./${mainFileName}`)
 await Bun.write(join(distDir, 'web/index.html'), updatedHtml)
 
 // Copy manifest

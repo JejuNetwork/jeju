@@ -3,8 +3,8 @@ import { getCoreAppUrl } from '@jejunetwork/config'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import { z } from 'zod'
 
-// Health response schema
-const HealthResponseSchema = z.object({
+// Health check response schema
+const HealthCheckSchema = z.object({
   status: z.string(),
   timestamp: z.number(),
 })
@@ -50,7 +50,7 @@ describe.skipIf(!apiAvailable)('Node Explorer Integration Tests', () => {
   describe('API Health', () => {
     test('should respond to health check', async () => {
       const response = await fetch(`${API_URL}/health`)
-      const data = HealthResponseSchema.parse(await response.json())
+      const data = HealthCheckSchema.parse(await response.json())
 
       expect(response.ok).toBe(true)
       expect(data.status).toBe('ok')

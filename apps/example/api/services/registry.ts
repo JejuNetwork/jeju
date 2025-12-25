@@ -37,7 +37,7 @@ export interface RegistryService {
   isHealthy(): Promise<boolean>
 }
 
-type NetworkType = 'localnet' | 'testnet' | 'mainnet'
+import type { NetworkType } from '@jejunetwork/types'
 
 function getNetworkType(name: string): NetworkType {
   if (name === 'localnet') return 'localnet'

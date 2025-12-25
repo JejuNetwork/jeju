@@ -5,9 +5,9 @@
  * to ensure type safety at runtime.
  */
 
+import type { JsonRecord, JsonValue } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import { z } from 'zod'
-import type { JsonRecord, JsonValue } from './types'
 
 /**
  * Parse and validate JSON string against a schema

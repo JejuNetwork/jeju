@@ -30,6 +30,56 @@ setDefaultTimeout(10000)
 
 const SKIP = process.env.SKIP_INTEGRATION === 'true'
 
+// Test response types
+interface StorageHealthResponse {
+  status: string
+  backends: string[]
+}
+
+interface UploadResponse {
+  cid: string
+  size?: number
+  tier?: string
+}
+
+interface CidResponse {
+  cid: string
+}
+
+interface ExistsResponse {
+  exists: boolean
+  cid?: string
+}
+
+interface ContentMetadataResponse {
+  cid: string
+  tier: string
+  category: string
+}
+
+interface ContentListResponse {
+  items: Array<{ cid: string; tier?: string }>
+  total: number
+}
+
+interface PopularItemsResponse {
+  items: Array<{ cid: string; score?: number }>
+}
+
+interface IpfsAddResponse {
+  Hash: string
+  Size: string
+  Name: string
+}
+
+interface S3BucketsResponse {
+  Buckets: Array<{ Name: string }>
+}
+
+interface S3ObjectsResponse {
+  Contents: Array<{ Key: string }>
+}
+
 // Helper Functions
 
 function createTestBuffer(size: number, fill = 0): Buffer {
@@ -280,7 +330,7 @@ describe.skipIf(SKIP)('Storage HTTP API', () => {
       const res = await app.request('/storage/health')
       expect(res.status).toBe(200)
 
-      const body = (await res.json()) as { status: string; backends: string[] }
+      const body = (await res.json()) as StorageHealthResponse
       expect(body.status).toBe('healthy')
       expect(body.backends).toContain('local')
     })
@@ -293,7 +343,7 @@ describe.skipIf(SKIP)('Storage HTTP API', () => {
 
       expect(res.status).toBe(200)
 
-      const body = (await res.json()) as { cid: string; size: number }
+      const body = (await res.json()) as UploadResponse
       expect(body.cid).toBeDefined()
       expect(body.size).toBe(content.length)
     })
@@ -313,7 +363,7 @@ describe.skipIf(SKIP)('Storage HTTP API', () => {
       const res = await uploadFile(binaryData, { filename: 'test.png' })
 
       expect(res.status).toBe(200)
-      const body = (await res.json()) as { cid: string; size: number }
+      const body = (await res.json()) as UploadResponse
       expect(body.cid).toBeDefined()
       expect(body.size).toBe(8)
     })
@@ -326,7 +376,7 @@ describe.skipIf(SKIP)('Storage HTTP API', () => {
       })
 
       expect(res.status).toBe(200)
-      const body = (await res.json()) as { cid: string; tier: string }
+      const body = (await res.json()) as UploadResponse
       expect(body.tier).toBe('popular')
     })
 
@@ -342,7 +392,7 @@ describe.skipIf(SKIP)('Storage HTTP API', () => {
       })
 
       expect(res.status).toBe(200)
-      const body = (await res.json()) as { cid: string }
+      const body = (await res.json()) as CidResponse
       expect(body.cid).toBeDefined()
     })
   })
@@ -354,7 +404,7 @@ describe.skipIf(SKIP)('Storage HTTP API', () => {
       const res = await uploadFile(Buffer.from('download test content'), {
         filename: 'download-test.bin',
       })
-      const body = (await res.json()) as { cid: string }
+      const body = (await res.json()) as CidResponse
       uploadedCid = body.cid
     })
 
@@ -380,7 +430,7 @@ describe.skipIf(SKIP)('Storage HTTP API', () => {
       const res = await uploadFile(Buffer.from('exists check'), {
         filename: 'exists-test.txt',
       })
-      const body = (await res.json()) as { cid: string }
+      const body = (await res.json()) as CidResponse
       uploadedCid = body.cid
     })
 
@@ -388,7 +438,7 @@ describe.skipIf(SKIP)('Storage HTTP API', () => {
       const res = await app.request(`/storage/exists/${uploadedCid}`)
       expect(res.status).toBe(200)
 
-      const body = (await res.json()) as { exists: boolean; cid: string }
+      const body = (await res.json()) as ExistsResponse
       expect(body.exists).toBe(true)
       expect(body.cid).toBe(uploadedCid)
     })
@@ -397,7 +447,7 @@ describe.skipIf(SKIP)('Storage HTTP API', () => {
       const res = await app.request('/storage/exists/nonexistent-cid-abc')
       expect(res.status).toBe(200)
 
-      const body = (await res.json()) as { exists: boolean }
+      const body = (await res.json()) as ExistsResponse
       expect(body.exists).toBe(false)
     })
   })
@@ -411,7 +461,7 @@ describe.skipIf(SKIP)('Storage HTTP API', () => {
         tier: 'popular',
         category: 'data',
       })
-      const body = (await res.json()) as { cid: string }
+      const body = (await res.json()) as CidResponse
       testCid = body.cid
     })
 
@@ -419,11 +469,7 @@ describe.skipIf(SKIP)('Storage HTTP API', () => {
       const res = await app.request(`/storage/content/${testCid}`)
       expect(res.status).toBe(200)
 
-      const body = (await res.json()) as {
-        cid: string
-        tier: string
-        category: string
-      }
+      const body = (await res.json()) as ContentMetadataResponse
       expect(body.cid).toBe(testCid)
       expect(body.tier).toBe('popular')
       expect(body.category).toBe('data')
@@ -433,10 +479,7 @@ describe.skipIf(SKIP)('Storage HTTP API', () => {
       const res = await app.request('/storage/content')
       expect(res.status).toBe(200)
 
-      const body = (await res.json()) as {
-        items: Array<{ cid: string }>
-        total: number
-      }
+      const body = (await res.json()) as ContentListResponse
       expect(body.items).toBeInstanceOf(Array)
       expect(body.total).toBeGreaterThan(0)
     })
@@ -445,7 +488,7 @@ describe.skipIf(SKIP)('Storage HTTP API', () => {
       const res = await app.request('/storage/content?tier=popular')
       expect(res.status).toBe(200)
 
-      const body = (await res.json()) as { items: Array<{ tier: string }> }
+      const body = (await res.json()) as ContentListResponse
       for (const item of body.items) {
         expect(item.tier).toBe('popular')
       }
@@ -459,7 +502,7 @@ describe.skipIf(SKIP)('Storage HTTP API', () => {
         const res = await uploadFile(Buffer.from(`popularity test ${i}`), {
           tier: 'popular',
         })
-        const body = (await res.json()) as { cid: string }
+        const body = (await res.json()) as CidResponse
 
         for (let j = 0; j < 5; j++) {
           await app.request(`/storage/download/${body.cid}`)
@@ -471,9 +514,7 @@ describe.skipIf(SKIP)('Storage HTTP API', () => {
       const res = await app.request('/storage/popular')
       expect(res.status).toBe(200)
 
-      const body = (await res.json()) as {
-        items: Array<{ cid: string; score: number }>
-      }
+      const body = (await res.json()) as PopularItemsResponse
       expect(body.items).toBeInstanceOf(Array)
     })
 
@@ -481,7 +522,7 @@ describe.skipIf(SKIP)('Storage HTTP API', () => {
       const res = await app.request('/storage/popular?limit=5')
       expect(res.status).toBe(200)
 
-      const body = (await res.json()) as { items: Array<{ cid: string }> }
+      const body = (await res.json()) as PopularItemsResponse
       expect(body.items.length).toBeLessThanOrEqual(5)
     })
   })
@@ -502,11 +543,7 @@ describe.skipIf(SKIP)('Storage HTTP API', () => {
 
       expect(res.status).toBe(200)
 
-      const body = (await res.json()) as {
-        Hash: string
-        Size: string
-        Name: string
-      }
+      const body = (await res.json()) as IpfsAddResponse
       expect(body.Hash).toBeDefined()
       expect(body.Size).toBe('15')
     })
@@ -524,7 +561,7 @@ describe.skipIf(SKIP)('Storage HTTP API', () => {
         body: formData,
       })
 
-      const { Hash } = (await uploadRes.json()) as { Hash: string }
+      const { Hash } = (await uploadRes.json()) as IpfsAddResponse
 
       const res = await app.request(`/storage/ipfs/${Hash}`)
       expect(res.status).toBe(200)
@@ -544,7 +581,7 @@ describe.skipIf(SKIP)('S3 Compatibility', () => {
     const res = await app.request('/s3')
     expect(res.status).toBe(200)
 
-    const body = (await res.json()) as { Buckets: Array<{ Name: string }> }
+    const body = (await res.json()) as S3BucketsResponse
     expect(body.Buckets).toBeDefined()
   })
 
@@ -589,7 +626,7 @@ describe.skipIf(SKIP)('S3 Compatibility', () => {
     const res = await app.request(`/s3/${testBucket}?list-type=2`)
     expect(res.status).toBe(200)
 
-    const body = (await res.json()) as { Contents: Array<{ Key: string }> }
+    const body = (await res.json()) as S3ObjectsResponse
     expect(body.Contents).toBeDefined()
     expect(body.Contents.length).toBeGreaterThan(0)
   })

@@ -48,6 +48,10 @@ interface AgentStatusResponse {
   status: string
 }
 
+interface MockRequestBody {
+  message?: { content?: { text?: string } }
+}
+
 interface AgentCronListResponse {
   triggers: Array<{ schedule: string; action: string; id: string }>
 }
@@ -106,9 +110,7 @@ class MockWorkerdExecutor implements IWorkerdExecutor {
     workerId: string,
     request: WorkerdRequest,
   ): Promise<WorkerdResponse> {
-    const body = JSON.parse(request.body as string) as {
-      message?: { content?: { text?: string } }
-    }
+    const body = JSON.parse(request.body as string) as MockRequestBody
     return {
       status: 200,
       headers: {},

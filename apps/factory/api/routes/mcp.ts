@@ -1,5 +1,6 @@
 /** MCP Routes */
 
+import type { JsonRecord } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import {
   expectValid,
@@ -7,16 +8,6 @@ import {
   MCPResourceReadBodySchema,
   MCPToolCallBodySchema,
 } from '../schemas'
-
-type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | JsonValue[]
-  | { [key: string]: JsonValue }
-
-type JsonRecord = { [key: string]: JsonValue }
 
 const SERVER_INFO = {
   name: 'jeju-factory',

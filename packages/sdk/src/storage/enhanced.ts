@@ -8,7 +8,7 @@
  * - P2P content distribution
  */
 
-import type { NetworkType } from '@jejunetwork/types'
+import type { JsonValue, NetworkType } from '@jejunetwork/types'
 import { type Address, parseEther } from 'viem'
 import { getServicesConfig } from '../config'
 import { generateAuthHeaders } from '../shared/api'
@@ -22,7 +22,6 @@ import {
   MultiBackendUploadResultSchema,
   TorrentInfoSchema,
 } from '../shared/schemas'
-import type { JsonValue } from '../shared/types'
 import type { JejuWallet } from '../wallet'
 
 // Types

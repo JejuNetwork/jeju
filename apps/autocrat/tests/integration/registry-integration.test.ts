@@ -2,8 +2,7 @@
  * Registry Integration Tests
  *
  * Tests for the CouncilRegistryIntegration contract and client.
- * Automatically starts Anvil if not running.
- * Skips contract tests if contracts aren't deployed.
+ * Automatically starts Anvil and deploys contracts if not running.
  */
 
 import { beforeAll, describe, expect, it } from 'bun:test'
@@ -13,37 +12,16 @@ import {
 } from '../../api/registry-integration'
 import { ensureServices, type TestEnv } from '../setup'
 
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
-
 let env: TestEnv
 let client: RegistryIntegrationClient
-let contractsDeployed = false
-
-function skipIfNoContracts(): boolean {
-  if (!contractsDeployed) {
-    console.log('⏭️  Skipping: Contracts not deployed')
-    return true
-  }
-  return false
-}
 
 beforeAll(async () => {
   env = await ensureServices({ chain: true })
 
-  const identityAddress =
-    process.env.IDENTITY_REGISTRY_ADDRESS || ZERO_ADDRESS
-
-  contractsDeployed = identityAddress !== ZERO_ADDRESS
-  if (!contractsDeployed) {
-    console.log('⚠️  Contracts not deployed - contract tests will be skipped')
-    console.log('   Run: jeju dev --bootstrap to deploy contracts')
-  }
-
   const testConfig: RegistryIntegrationConfig = {
     rpcUrl: env.rpcUrl,
-    identityRegistry: identityAddress,
-    reputationRegistry:
-      process.env.REPUTATION_REGISTRY_ADDRESS || ZERO_ADDRESS,
+    identityRegistry: env.contracts.identityRegistry as `0x${string}`,
+    reputationRegistry: env.contracts.reputationRegistry as `0x${string}`,
     integrationContract: process.env.REGISTRY_INTEGRATION_ADDRESS,
     delegationRegistry: process.env.DELEGATION_REGISTRY_ADDRESS,
   }
@@ -54,7 +32,6 @@ beforeAll(async () => {
 describe('RegistryIntegrationClient', () => {
   describe('Agent Profile Queries', () => {
     it('should return null for non-existent agent', async () => {
-      if (skipIfNoContracts()) return
       const profile = await client.getAgentProfile(999999n)
       expect(profile).toBeNull()
     })
@@ -79,14 +56,12 @@ describe('RegistryIntegrationClient', () => {
 
   describe('Search Functions', () => {
     it('should search by tag and return empty for non-existent tag', async () => {
-      if (skipIfNoContracts()) return
       const result = await client.searchByTag('nonexistent-tag-12345', 0, 10)
       expect(result.agentIds).toBeDefined()
       expect(Array.isArray(result.agentIds)).toBe(true)
     })
 
     it('should get agents by score with high threshold', async () => {
-      if (skipIfNoContracts()) return
       const result = await client.getAgentsByScore(100, 0, 10)
       expect(result.agentIds).toBeDefined()
       expect(result.scores).toBeDefined()
@@ -94,7 +69,6 @@ describe('RegistryIntegrationClient', () => {
     })
 
     it('should get top agents', async () => {
-      if (skipIfNoContracts()) return
       const profiles = await client.getTopAgents(5)
       expect(Array.isArray(profiles)).toBe(true)
     })
@@ -102,21 +76,18 @@ describe('RegistryIntegrationClient', () => {
 
   describe('Eligibility Checks', () => {
     it('should check proposal eligibility for non-existent agent', async () => {
-      if (skipIfNoContracts()) return
       const result = await client.canSubmitProposal(999999n)
       expect(result.eligible).toBe(false)
       expect(result.reason).toContain('does not exist')
     })
 
     it('should check vote eligibility for non-existent agent', async () => {
-      if (skipIfNoContracts()) return
       const result = await client.canVote(999999n)
       expect(result.eligible).toBe(false)
       expect(result.reason).toContain('does not exist')
     })
 
     it('should check research eligibility for non-existent agent', async () => {
-      if (skipIfNoContracts()) return
       const result = await client.canConductResearch(999999n)
       expect(result.eligible).toBe(false)
       expect(result.reason).toContain('does not exist')
@@ -130,7 +101,6 @@ describe('RegistryIntegrationClient', () => {
     })
 
     it('should get weighted agent reputation', async () => {
-      if (skipIfNoContracts()) return
       const result = await client.getWeightedAgentReputation(1n)
       expect(result).toHaveProperty('reputation')
       expect(result).toHaveProperty('weight')
@@ -167,13 +137,11 @@ describe('RegistryIntegrationClient', () => {
 
   describe('Active Agents', () => {
     it('should get active agents with pagination', async () => {
-      if (skipIfNoContracts()) return
       const agents = await client.getActiveAgents(0, 10)
       expect(Array.isArray(agents)).toBe(true)
     })
 
     it('should get total agent count', async () => {
-      if (skipIfNoContracts()) return
       const total = await client.getTotalAgents()
       expect(typeof total).toBe('number')
       expect(total).toBeGreaterThanOrEqual(0)

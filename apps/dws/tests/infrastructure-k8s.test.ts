@@ -50,6 +50,41 @@ interface ServiceMeshResponse {
   policies?: number
 }
 
+interface StatusResponse {
+  status: string
+}
+
+interface DeploymentsListResponse {
+  deployments: HelmDeploymentResponse[]
+}
+
+interface TerraformSchemaResponse {
+  version: number
+  provider: { block: { attributes: Record<string, object> } }
+  resource_schemas: Record<string, object>
+  data_source_schemas: Record<string, object>
+}
+
+interface NodesListResponse {
+  nodes: Array<{ id: string }>
+}
+
+interface ClustersListResponse {
+  clusters: K3sClusterResponse[]
+}
+
+interface ProvidersListResponse {
+  providers: Array<{ name: string; available: boolean }>
+}
+
+interface PoliciesListResponse {
+  policies: Array<{ name: string }>
+}
+
+interface IngressesListResponse {
+  ingresses: Array<{ name: string }>
+}
+
 // Helm Provider Tests
 
 describe('Helm Provider', () => {
@@ -59,7 +94,7 @@ describe('Helm Provider', () => {
     const res = await app.request('/helm/health')
     expect(res.status).toBe(200)
 
-    const body = (await res.json()) as { status: string }
+    const body = (await res.json()) as StatusResponse
     expect(body.status).toBe('healthy')
   })
 
@@ -69,9 +104,7 @@ describe('Helm Provider', () => {
     })
     expect(res.status).toBe(200)
 
-    const body = (await res.json()) as {
-      deployments: HelmDeploymentResponse[]
-    }
+    const body = (await res.json()) as DeploymentsListResponse
     expect(body.deployments).toBeInstanceOf(Array)
   })
 
@@ -290,12 +323,7 @@ describe('Terraform Provider', () => {
     const res = await app.request('/terraform/v1/schema')
     expect(res.status).toBe(200)
 
-    const body = (await res.json()) as {
-      version: number
-      provider: { block: { attributes: Record<string, object> } }
-      resource_schemas: Record<string, object>
-      data_source_schemas: Record<string, object>
-    }
+    const body = (await res.json()) as TerraformSchemaResponse
     expect(body.version).toBe(1)
     expect(body.provider).toBeDefined()
     expect(body.resource_schemas.dws_worker).toBeDefined()
@@ -423,7 +451,7 @@ describe('Terraform Provider', () => {
     )
     expect(res.status).toBe(200)
 
-    const body = (await res.json()) as { nodes: Array<{ id: string }> }
+    const body = (await res.json()) as NodesListResponse
     expect(body.nodes).toBeInstanceOf(Array)
   })
 
@@ -490,7 +518,7 @@ describe('K3s Provider', () => {
     const res = await app.request('/k3s/health')
     expect(res.status).toBe(200)
 
-    const body = (await res.json()) as { status: string }
+    const body = (await res.json()) as StatusResponse
     expect(body.status).toBe('healthy')
   })
 
@@ -500,7 +528,7 @@ describe('K3s Provider', () => {
     })
     expect(res.status).toBe(200)
 
-    const body = (await res.json()) as { clusters: K3sClusterResponse[] }
+    const body = (await res.json()) as ClustersListResponse
     expect(body.clusters).toBeInstanceOf(Array)
   })
 
@@ -508,9 +536,7 @@ describe('K3s Provider', () => {
     const res = await app.request('/k3s/providers')
     expect(res.status).toBe(200)
 
-    const body = (await res.json()) as {
-      providers: Array<{ name: string; available: boolean }>
-    }
+    const body = (await res.json()) as ProvidersListResponse
     expect(body.providers).toBeInstanceOf(Array)
     expect(body.providers.length).toBe(3) // k3d, k3s, minikube
   })
@@ -656,7 +682,7 @@ describe('Service Mesh', () => {
     })
     expect(res.status).toBe(200)
 
-    const body = (await res.json()) as { policies: Array<{ name: string }> }
+    const body = (await res.json()) as PoliciesListResponse
     expect(body.policies).toBeInstanceOf(Array)
   })
 
@@ -738,7 +764,7 @@ describe('Ingress Controller', () => {
     })
     expect(res.status).toBe(200)
 
-    const body = (await res.json()) as { ingresses: Array<{ name: string }> }
+    const body = (await res.json()) as IngressesListResponse
     expect(body.ingresses).toBeInstanceOf(Array)
   })
 

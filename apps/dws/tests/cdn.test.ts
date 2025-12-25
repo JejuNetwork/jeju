@@ -7,6 +7,12 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import { type EdgeCache, getEdgeCache, resetEdgeCache } from '../src/cdn'
 import { app } from '../src/server'
 
+// Response types for JNS resolution
+interface JnsResolveResponse {
+  name?: string
+  error?: string
+}
+
 // Helper for Elysia testing
 async function request(
   path: string,
@@ -103,7 +109,7 @@ describe('CDN Service', () => {
       // Returns 200 with data if JNS configured, or 500/503 with error if not
       expect([200, 500, 503]).toContain(res.status)
 
-      const body = (await res.json()) as { name?: string; error?: string }
+      const body = (await res.json()) as JnsResolveResponse
       if (res.status === 200) {
         expect(body.name).toBe('test.jns')
       } else {
@@ -116,7 +122,7 @@ describe('CDN Service', () => {
       const res = await request('/cdn/resolve/test.jns')
       expect([200, 500, 503]).toContain(res.status)
 
-      const body = (await res.json()) as { name?: string; error?: string }
+      const body = (await res.json()) as JnsResolveResponse
       if (res.status === 200) {
         expect(body.name).toBe('test.jns')
       } else {

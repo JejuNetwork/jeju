@@ -2,19 +2,11 @@
  * Integration Tests - Full workflows with real dependencies
  */
 
+import type { JsonObject } from '@jejunetwork/types'
 import { expect, test } from '@playwright/test'
 
 const AUTOCRAT_URL = 'http://localhost:8010'
 const RPC_URL = process.env.RPC_URL ?? 'http://localhost:6546'
-
-/** JSON-serializable primitive */
-type JsonPrimitive = string | number | boolean | null
-
-/** JSON-serializable value */
-type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue }
-
-/** JSON object */
-type JsonObject = { [key: string]: JsonValue }
 
 interface A2ADataPart {
   kind: 'data'

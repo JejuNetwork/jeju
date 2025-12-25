@@ -14,11 +14,11 @@ import {
 } from '../../api/agents/runtime'
 import { ensureServices, type TestEnv } from '../setup'
 
-let env: TestEnv
+let _env: TestEnv
 let dwsComputeWorking = false
 
 beforeAll(async () => {
-  env = await ensureServices({ dws: true })
+  _env = await ensureServices({ dws: true })
 
   // Verify DWS compute actually works (not just health)
   try {

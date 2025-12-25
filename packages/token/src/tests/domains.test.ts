@@ -45,13 +45,11 @@ describe('Domain ID Mapping - Data Integrity', () => {
 
 describe('getDomainId - Error Handling', () => {
   test('throws for undefined chain ID', () => {
-    // @ts-expect-error Testing undefined input validation
-    expect(() => getDomainId(undefined)).toThrow()
+    expect(() => getDomainId(undefined as unknown as ChainId)).toThrow()
   })
 
   test('throws for null chain ID', () => {
-    // @ts-expect-error Testing null input validation
-    expect(() => getDomainId(null)).toThrow()
+    expect(() => getDomainId(null as unknown as ChainId)).toThrow()
   })
 
   test('throws for negative chain ID', () => {

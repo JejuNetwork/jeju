@@ -1,3 +1,4 @@
+import { safeReadContract } from '@jejunetwork/contracts'
 import {
   type Address,
   createPublicClient,
@@ -9,7 +10,6 @@ import {
   type WalletClient,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { safeReadContract } from '../viem'
 import {
   FEDERATED_IDENTITY_ABI,
   FEDERATED_LIQUIDITY_ABI,

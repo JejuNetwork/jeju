@@ -15,8 +15,8 @@ import {
 import { z } from 'zod'
 import { inferChainFromRpcUrl } from '../../../packages/deployment/scripts/shared/chain-utils'
 
-// RPC response schema
-const ClientVersionResponseSchema = z.object({
+// JSON-RPC response schema
+const JsonRpcResponseSchema = z.object({
   result: z.string().optional(),
   error: z.object({ message: z.string() }).optional(),
 })
@@ -119,7 +119,7 @@ async function getClientVersion(endpoint: ClientEndpoint): Promise<string> {
       }),
       signal: AbortSignal.timeout(3000),
     })
-    const data = ClientVersionResponseSchema.parse(await response.json())
+    const data = JsonRpcResponseSchema.parse(await response.json())
     if (data.error) {
       return `error: ${data.error.message}`
     }

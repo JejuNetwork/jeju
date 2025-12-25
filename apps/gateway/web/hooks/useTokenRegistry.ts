@@ -1,10 +1,8 @@
+import { useTypedWriteContract } from '@jejunetwork/shared/wagmi'
+import { ZERO_ADDRESS } from '@jejunetwork/types'
 import { useCallback, useMemo } from 'react'
 import type { Address } from 'viem'
-import {
-  useReadContract,
-  useWaitForTransactionReceipt,
-  useWriteContract,
-} from 'wagmi'
+import { useReadContract } from 'wagmi'
 import { CONTRACTS } from '../../lib/config'
 import { TOKEN_REGISTRY_ABI } from '../lib/constants'
 
@@ -31,14 +29,12 @@ export interface TokenConfig {
   metadataHash: `0x${string}`
 }
 
-// Built-in token definitions
-const ETH_ADDRESS =
-  '0x0000000000000000000000000000000000000000' as const satisfies Address
+// Built-in token definitions using shared ZERO_ADDRESS
 const KNOWN_TOKENS: ReadonlyMap<Lowercase<Address>, TokenInfo> = new Map([
   [
-    ETH_ADDRESS.toLowerCase() as Lowercase<Address>,
+    ZERO_ADDRESS.toLowerCase() as Lowercase<Address>,
     {
-      address: ETH_ADDRESS,
+      address: ZERO_ADDRESS,
       symbol: 'ETH',
       name: 'Ethereum',
       decimals: 18,
@@ -79,11 +75,7 @@ export function useTokenRegistry(): UseTokenRegistryResult {
   // Note: registrationFee may not exist in minimal ABI
   const registrationFee = 0n // Default to 0 if not available
 
-  const { writeContract: _writeContract, data: hash, isPending } = useWriteContract()
-  const writeContract = createTypedWriteContract(_writeContract)
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
-    hash,
-  })
+  const { writeContract, isLoading, isSuccess } = useTypedWriteContract()
 
   const registerToken = useCallback(
     async (
@@ -122,7 +114,7 @@ export function useTokenRegistry(): UseTokenRegistryResult {
     allTokens: allTokens ? (allTokens as Address[]) : [],
     registrationFee: registrationFee as bigint | undefined,
     registerToken,
-    isPending: isPending || isConfirming,
+    isPending: isLoading,
     isSuccess,
     refetchTokens,
     getTokenInfo,
@@ -138,12 +130,12 @@ export function useTokenConfig(
   const { data: config, refetch } = useReadContract({
     address: registryAddress,
     abi: TOKEN_REGISTRY_ABI,
-    functionName: 'getTokenInfo' as const,
+    functionName: 'getTokenConfig' as const,
     args: tokenAddress ? [tokenAddress] : undefined,
   })
 
   return {
-    config: config as unknown as TokenConfig | undefined,
+    config: config as TokenConfig | undefined,
     refetch,
   }
 }

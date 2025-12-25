@@ -1,3 +1,4 @@
+import { createTypedWriteContract } from '@jejunetwork/shared/wagmi'
 import { useCallback } from 'react'
 import type { Address } from 'viem'
 import { formatEther, parseEther } from 'viem'
@@ -157,7 +158,7 @@ export function useLiquidityVault(
     console.warn('claimFees: Not supported in this vault implementation')
   }, [])
 
-  const position = lpPosition as unknown as RawPositionTuple | undefined
+  const position = lpPosition as RawPositionTuple | undefined
   const balance = lpBalance as bigint | undefined
   const supply = totalSupply as bigint | undefined
   const parsedPosition = parseLPPosition(position, balance, supply)

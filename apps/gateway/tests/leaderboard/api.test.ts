@@ -8,6 +8,40 @@
 import { describe, expect, mock, test } from 'bun:test'
 import { leaderboardApp } from '../../src/leaderboard/server'
 
+// Test response types
+interface StatusResponse {
+  status: string
+}
+
+interface LeaderboardResponse {
+  contributors: Array<{
+    username: string
+    avatar_url: string
+    total_score: number
+  }>
+}
+
+interface A2AResultResponse {
+  result: { parts: Array<{ kind: string }> }
+}
+
+interface A2AProfileResponse {
+  result: {
+    parts: Array<{
+      kind: string
+      data?: { profile?: { username: string } }
+    }>
+  }
+}
+
+interface A2AErrorResponse {
+  result: { parts: Array<{ kind: string; data?: { error?: string } }> }
+}
+
+interface JsonRpcErrorResponse {
+  error: { code: number }
+}
+
 // Mock the database for unit tests
 const mockDb = {
   query: mock(
@@ -48,7 +82,7 @@ mock.module('../../src/leaderboard/db', () => ({
 describe('Leaderboard API', () => {
   test('GET /health should return ok', async () => {
     const response = await leaderboardApp.request('/health')
-    const data = (await response.json()) as { status: string }
+    const data = (await response.json()) as StatusResponse
 
     expect(response.status).toBe(200)
     expect(data.status).toBe('ok')
@@ -59,13 +93,7 @@ describe('Leaderboard API', () => {
     mockDb.query.mockImplementationOnce(async () => [])
 
     const response = await leaderboardApp.request('/api/leaderboard')
-    const data = (await response.json()) as {
-      contributors: Array<{
-        username: string
-        avatar_url: string
-        total_score: number
-      }>
-    }
+    const data = (await response.json()) as LeaderboardResponse
 
     expect(response.status).toBe(200)
     expect(data.contributors).toBeDefined()
@@ -140,9 +168,7 @@ describe('Leaderboard API', () => {
       }),
     })
 
-    const data = (await response.json()) as {
-      result: { parts: Array<{ kind: string }> }
-    }
+    const data = (await response.json()) as A2AResultResponse
 
     expect(response.status).toBe(200)
     expect(data.result).toBeDefined()
@@ -204,14 +230,7 @@ describe('Leaderboard API', () => {
       }),
     })
 
-    const data = (await response.json()) as {
-      result: {
-        parts: Array<{
-          kind: string
-          data?: { profile?: { username: string } }
-        }>
-      }
-    }
+    const data = (await response.json()) as A2AProfileResponse
 
     expect(response.status).toBe(200)
     expect(data.result).toBeDefined()
@@ -235,9 +254,7 @@ describe('Leaderboard API', () => {
       }),
     })
 
-    const data = (await response.json()) as {
-      result: { parts: Array<{ kind: string; data?: { error?: string } }> }
-    }
+    const data = (await response.json()) as A2AErrorResponse
 
     expect(response.status).toBe(200)
     expect(data.result.parts[1]?.data?.error).toBeDefined()
@@ -255,7 +272,7 @@ describe('Leaderboard API', () => {
       }),
     })
 
-    const data = (await response.json()) as { error: { code: number } }
+    const data = (await response.json()) as JsonRpcErrorResponse
 
     expect(response.status).toBe(200)
     // Accept either -32601 (Method not found) or -32600 (Invalid request)

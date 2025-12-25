@@ -19,6 +19,40 @@ const TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address
 const _TEST_PRIVATE_KEY =
   '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as Hex
 
+// Test response types
+interface StatusResponse {
+  status: string
+}
+
+interface NodesListResponse {
+  nodes: object[]
+}
+
+interface WorkersListResponse {
+  workers: object[]
+}
+
+interface CidResponse {
+  cid: string
+}
+
+interface WorkerIdResponse {
+  workerId: string
+}
+
+interface ChainsListResponse {
+  chains: Array<{ chainId: number; name?: string }>
+}
+
+interface OptionalNodesResponse {
+  nodes?: object[]
+}
+
+interface PeersResponse {
+  peers: object[]
+  count: number
+}
+
 // Check environment
 const isLocalnet = process.env.NETWORK === 'localnet' || !process.env.NETWORK
 const hasAnvil = process.env.RPC_URL?.includes('localhost:6545') || isLocalnet
@@ -30,7 +64,7 @@ describe('Decentralized Infrastructure', () => {
     test('DWS server is running', async () => {
       const res = await app.request('/health')
       expect(res.status).toBe(200)
-      const body = (await res.json()) as { status: string }
+      const body = (await res.json()) as StatusResponse
       expect(body.status).toBe('healthy')
     })
 
@@ -51,7 +85,7 @@ describe('Decentralized Infrastructure', () => {
     test('can list nodes (may be empty)', async () => {
       const res = await app.request('/edge/nodes')
       expect(res.status).toBe(200)
-      const body = (await res.json()) as { nodes: object[] }
+      const body = (await res.json()) as NodesListResponse
       expect(body.nodes).toBeInstanceOf(Array)
     })
 
@@ -93,7 +127,7 @@ describe('Decentralized Infrastructure', () => {
         headers: { 'x-jeju-address': TEST_ADDRESS },
       })
       expect(res.status).toBe(200)
-      const body = (await res.json()) as { workers: object[] }
+      const body = (await res.json()) as WorkersListResponse
       expect(body.workers).toBeInstanceOf(Array)
     })
 
@@ -134,7 +168,7 @@ describe('Decentralized Infrastructure', () => {
       })
 
       expect(uploadRes.status).toBe(200)
-      const { cid } = (await uploadRes.json()) as { cid: string }
+      const { cid } = (await uploadRes.json()) as CidResponse
       expect(cid).toBeDefined()
 
       // Now deploy worker
@@ -166,7 +200,7 @@ describe('Decentralized Infrastructure', () => {
       expect([200, 201, 500, 503]).toContain(deployRes.status)
 
       if (deployRes.status === 200 || deployRes.status === 201) {
-        const body = (await deployRes.json()) as { workerId: string }
+        const body = (await deployRes.json()) as WorkerIdResponse
         expect(body.workerId).toBeDefined()
 
         // Cleanup
@@ -202,7 +236,7 @@ describe('Decentralized Infrastructure', () => {
       const res = await app.request('/rpc/chains')
       expect(res.status).toBe(200)
 
-      const body = (await res.json()) as { chains: Array<{ chainId: number }> }
+      const body = (await res.json()) as ChainsListResponse
       expect(body.chains).toBeInstanceOf(Array)
       expect(body.chains.length).toBeGreaterThan(0)
     })
@@ -225,7 +259,7 @@ describe('Decentralized Infrastructure', () => {
       })
 
       expect(uploadRes.status).toBe(200)
-      const { cid } = (await uploadRes.json()) as { cid: string }
+      const { cid } = (await uploadRes.json()) as CidResponse
       expect(cid).toBeDefined()
 
       // Download and verify
@@ -309,7 +343,7 @@ describe('Decentralized Infrastructure', () => {
       expect([200, 404]).toContain(res.status)
 
       if (res.status === 200) {
-        const body = (await res.json()) as { nodes?: object[] }
+        const body = (await res.json()) as OptionalNodesResponse
         // If nodes are returned, verify the response structure is valid
         // The filter by capability may return empty or matching nodes
         expect(body).toBeDefined()
@@ -330,7 +364,7 @@ describe('Decentralized Infrastructure', () => {
       expect([200, 404]).toContain(res.status)
 
       if (res.status === 200) {
-        const body = (await res.json()) as { peers: object[]; count: number }
+        const body = (await res.json()) as PeersResponse
         expect(typeof body.count).toBe('number')
       }
     })
@@ -380,9 +414,7 @@ describe('Decentralized Infrastructure', () => {
       const res = await app.request('/rpc/chains')
       expect(res.status).toBe(200)
 
-      const body = (await res.json()) as {
-        chains: Array<{ chainId: number; name: string }>
-      }
+      const body = (await res.json()) as ChainsListResponse
       expect(body.chains.length).toBeGreaterThan(0)
 
       // Should support at least Base

@@ -31,14 +31,7 @@
 import { beforeAll, describe, expect, it } from 'bun:test'
 import { createPublicClient, createWalletClient, http, parseEther } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { z } from 'zod'
 import { APP_URLS, JEJU_LOCALNET, TEST_WALLETS } from '../shared/constants'
-
-// GraphQL response schema
-const GraphQLResponseSchema = z.object({
-  data: z.record(z.string(), z.unknown()).optional(),
-  errors: z.array(z.object({ message: z.string() })).optional(),
-})
 
 const RPC_URL = JEJU_LOCALNET.rpcUrl
 const GRAPHQL_URL = APP_URLS.indexerGraphQL
@@ -57,7 +50,10 @@ async function queryGraphQL(query: string): Promise<Record<string, unknown>> {
     throw new Error(`GraphQL query failed: ${response.statusText}`)
   }
 
-  const data = GraphQLResponseSchema.parse(await response.json())
+  const data = (await response.json()) as {
+    data?: Record<string, unknown>
+    errors?: Array<{ message: string }>
+  }
   if (data.errors) {
     throw new Error(`GraphQL errors: ${JSON.stringify(data.errors)}`)
   }

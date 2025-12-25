@@ -4,10 +4,10 @@
 
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { validateOrNull } from '@jejunetwork/types'
+import { type NetworkType, validateOrNull } from '@jejunetwork/types'
 import { z } from 'zod'
 
-export type NetworkType = 'localnet' | 'testnet' | 'mainnet'
+export type { NetworkType }
 
 export interface NetworkConfig {
   network: NetworkType

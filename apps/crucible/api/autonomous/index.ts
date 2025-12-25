@@ -3,14 +3,17 @@
  * Manages autonomous agent lifecycle and tick execution
  */
 
-import type { AgentCharacter } from '../../lib/types'
 import type {
   AutonomousAgentConfig,
   AutonomousRunnerConfig,
   AutonomousRunnerStatus,
 } from './types'
 
-export type { AutonomousAgentConfig, AutonomousRunnerConfig, AutonomousRunnerStatus }
+export type {
+  AutonomousAgentConfig,
+  AutonomousRunnerConfig,
+  AutonomousRunnerStatus,
+}
 export { DEFAULT_AUTONOMOUS_CONFIG } from './types'
 
 interface RegisteredAgent {
@@ -57,7 +60,9 @@ export class AutonomousAgentRunner {
 
   async registerAgent(config: AutonomousAgentConfig): Promise<void> {
     if (this.agents.size >= this.config.maxConcurrentAgents) {
-      throw new Error(`Max concurrent agents (${this.config.maxConcurrentAgents}) reached`)
+      throw new Error(
+        `Max concurrent agents (${this.config.maxConcurrentAgents}) reached`,
+      )
     }
 
     const agent: RegisteredAgent = {
@@ -95,7 +100,7 @@ export class AutonomousAgentRunner {
     }
   }
 
-  private startAgentTicks(agentId: string, agent: RegisteredAgent): void {
+  private startAgentTicks(_agentId: string, agent: RegisteredAgent): void {
     if (agent.intervalId) return
 
     const tick = async () => {
@@ -126,6 +131,8 @@ export class AutonomousAgentRunner {
   }
 }
 
-export function createAgentRunner(config?: AutonomousRunnerConfig): AutonomousAgentRunner {
+export function createAgentRunner(
+  config?: AutonomousRunnerConfig,
+): AutonomousAgentRunner {
   return new AutonomousAgentRunner(config)
 }

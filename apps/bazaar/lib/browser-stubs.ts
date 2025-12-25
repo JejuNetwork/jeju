@@ -2,7 +2,7 @@
  * Browser-compatible implementations for Bazaar
  */
 
-import { asTuple, isHexString } from '@jejunetwork/types'
+import { asTuple, BanType, isHexString } from '@jejunetwork/types'
 import { useCallback, useEffect, useState } from 'react'
 import {
   type Address,
@@ -13,6 +13,9 @@ import {
 } from 'viem'
 import { base, baseSepolia } from 'viem/chains'
 
+export { BanType }
+export type { BanType as BanTypeValue }
+
 /** Parse env var as Address or return null */
 function parseEnvAsAddress(value: string | undefined): Address | null {
   if (!value || !isHexString(value)) {
@@ -20,17 +23,6 @@ function parseEnvAsAddress(value: string | undefined): Address | null {
   }
   return value
 }
-
-// Ban Types and Status
-
-export const BanType = {
-  NONE: 0,
-  ON_NOTICE: 1,
-  CHALLENGED: 2,
-  PERMANENT: 3,
-} as const
-
-export type BanType = (typeof BanType)[keyof typeof BanType]
 
 function toBanType(value: number): BanType {
   if (value < 0 || value > 3) throw new Error(`Invalid BanType: ${value}`)

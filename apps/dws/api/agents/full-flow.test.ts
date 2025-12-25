@@ -57,6 +57,11 @@ interface AgentStatusResponse {
   status: string
 }
 
+interface MockInvokeRequestBody {
+  type: string
+  message?: AgentMessage
+}
+
 interface AgentCronCreateResponse {
   id: string
   schedule: string
@@ -133,10 +138,7 @@ class MockWorkerdWithInference implements IWorkerdExecutor {
       }
     }
 
-    const body = JSON.parse(request.body as string) as {
-      type: string
-      message?: AgentMessage
-    }
+    const body = JSON.parse(request.body as string) as MockInvokeRequestBody
 
     // Generate response based on character
     const messageText = body.message?.content?.text ?? 'Hello'

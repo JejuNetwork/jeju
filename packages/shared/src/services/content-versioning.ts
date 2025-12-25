@@ -249,7 +249,7 @@ export class ContentVersioningService {
     const ipnsResponse = await fetch(
       `${this.config.ipfsApiUrl}/api/v0/name/resolve?arg=${ipnsKeyName}&nocache=true`,
       { method: 'POST' },
-    ).catch((): null => null)
+    ).catch(() => null)
 
     if (ipnsResponse?.ok) {
       const rawData: unknown = await ipnsResponse.json()

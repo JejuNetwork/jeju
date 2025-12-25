@@ -23,6 +23,31 @@ export const BanTypeSchema = z.enum([...Object.values(BanType).map(String)] as [
   ...string[],
 ])
 
+export const ReportType = {
+  NETWORK_BAN: 0,
+  APP_BAN: 1,
+  LABEL_HACKER: 2,
+  LABEL_SCAMMER: 3,
+} as const
+export type ReportType = (typeof ReportType)[keyof typeof ReportType]
+
+export const SeverityLevel = {
+  LOW: 0,
+  MEDIUM: 1,
+  HIGH: 2,
+  CRITICAL: 3,
+} as const
+export type SeverityLevel = (typeof SeverityLevel)[keyof typeof SeverityLevel]
+
+export const ReportStatus = {
+  PENDING: 0,
+  VOTING: 1,
+  RESOLVED_YES: 2,
+  RESOLVED_NO: 3,
+  CANCELLED: 4,
+} as const
+export type ReportStatus = (typeof ReportStatus)[keyof typeof ReportStatus]
+
 export const BanStatus = {
   NONE: 'NONE',
   ON_NOTICE: 'ON_NOTICE',

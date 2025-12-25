@@ -4,10 +4,11 @@
  * Centralizes common patterns: network validation, AWS operations, command parsing
  */
 
+import { NetworkSchema, type NetworkType } from '@jejunetwork/types'
 import { $ } from 'bun'
 import { z } from 'zod'
-export const NetworkSchema = z.enum(['localnet', 'testnet', 'mainnet'])
-export type NetworkType = z.infer<typeof NetworkSchema>
+
+export { NetworkSchema, type NetworkType }
 
 const VALID_NETWORKS = ['localnet', 'testnet', 'mainnet'] as const
 /**

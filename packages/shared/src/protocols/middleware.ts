@@ -8,13 +8,13 @@
  * - Rate limiting with stake tiers
  */
 
+import { safeReadContract } from '@jejunetwork/contracts'
 import { Elysia } from 'elysia'
 import type { Address } from 'viem'
 import { createPublicClient, getAddress, http, verifyMessage } from 'viem'
 import { z } from 'zod'
 import { NETWORK_BAN_MANAGER_ABI } from '../api/abis'
 import { getChain } from '../chains'
-import { safeReadContract } from '../viem'
 
 /**
  * Constant-time string comparison to prevent timing attacks.
@@ -77,9 +77,9 @@ export interface PaymentRequirement {
   description: string
 }
 
-export interface SkillResult {
+export interface SkillResult<T = Record<string, unknown>> {
   message: string
-  data: Record<string, unknown>
+  data: T
   requiresPayment?: PaymentRequirement
 }
 

@@ -3,6 +3,15 @@ import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { type Server, serve } from 'bun'
 import { ResearchAgent } from '../../api/research-agent'
 
+// Test response types
+interface StatusResponse {
+  status: string
+}
+
+interface InferenceResponse {
+  content: string
+}
+
 let mockServer: Server | null = null
 const MOCK_PORT = 18020
 const MOCK_URL = `http://localhost:${MOCK_PORT}`
@@ -48,7 +57,7 @@ describe('Compute Marketplace Integration', () => {
 
   test('mock server health', async () => {
     const r = await fetch(`${MOCK_URL}/health`)
-    expect(((await r.json()) as { status: string }).status).toBe('ok')
+    expect(((await r.json()) as StatusResponse).status).toBe('ok')
   })
 
   test('mock server inference', async () => {
@@ -57,7 +66,7 @@ describe('Compute Marketplace Integration', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ modelId: 'test', input: { messages: [] } }),
     })
-    const data = (await r.json()) as { content: string }
+    const data = (await r.json()) as InferenceResponse
     expect(JSON.parse(data.content).recommendation).toBe('proceed')
   })
 

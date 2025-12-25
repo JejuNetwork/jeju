@@ -541,25 +541,9 @@ export type JsonRpcBlockNumberResponse = z.infer<
 /**
  * JSON-compatible value schema (for polymorphic JSON-RPC results)
  */
-const JsonValueSchema: z.ZodType<
-  string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
-> = z.lazy(() =>
-  z.union([
-    z.string(),
-    z.number(),
-    z.boolean(),
-    z.null(),
-    z.array(JsonValueSchema),
-    z.record(z.string(), JsonValueSchema),
-  ]),
-)
-type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | JsonValue[]
-  | { [key: string]: JsonValue }
+import { JsonValueSchema } from '@jejunetwork/types'
+
+export { JsonRpcResponse } from '@jejunetwork/types'
 
 /**
  * Generic JSON-RPC response (for any method)
@@ -568,7 +552,6 @@ export const JsonRpcResponseSchema = z.object({
   result: JsonValueSchema.optional(),
   error: z.object({ message: z.string() }).optional(),
 })
-export type JsonRpcResponse = z.infer<typeof JsonRpcResponseSchema>
 
 /**
  * Minimal chain config schema (just rpcUrl for readiness checks)

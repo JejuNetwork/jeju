@@ -211,14 +211,13 @@ let elysiaApp: ElysiaLike | null = null;
 // Check named exports first (e.g., export { app })
 for (const [name, exp] of Object.entries(appModule)) {
   if (exp && typeof exp === 'object') {
-    // @ts-ignore - Elysia has handle method
-    if (typeof exp.handle === 'function') {
+    const expRecord = exp as Record<string, unknown>;
+    if (typeof expRecord.handle === 'function') {
       elysiaApp = exp as ElysiaLike;
       console.log('[Worker] Found Elysia app via export:', name);
       break;
     }
-    // @ts-ignore - Also check for fetch method
-    if (typeof exp.fetch === 'function') {
+    if (typeof expRecord.fetch === 'function') {
       elysiaApp = exp as ElysiaLike;
       console.log('[Worker] Found Elysia app with fetch via export:', name);
       break;

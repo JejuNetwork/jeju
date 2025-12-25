@@ -1,48 +1,32 @@
-import type { Address, Hex } from 'viem'
+/**
+ * Oracle types - re-exported from @jejunetwork/types
+ */
 
-export interface OracleNodeConfig {
-  rpcUrl: string
-  chainId: number
-  operatorPrivateKey: Hex
-  workerPrivateKey: Hex
-  feedRegistry: Address
-  reportVerifier: Address
-  committeeManager: Address
-  feeRouter: Address
-  networkConnector: Address
-  pollIntervalMs: number
-  heartbeatIntervalMs: number
-  metricsPort: number
-  priceSources: PriceSourceConfig[]
-}
+export type {
+  NodeMetrics,
+  OracleNodeConfig,
+  PriceSourceConfig,
+  SignedReport,
+} from '@jejunetwork/types'
 
-export interface PriceSourceConfig {
-  type: 'uniswap_v3' | 'chainlink' | 'manual'
-  address: Address
-  feedId: Hex
-  decimals: number
-}
+export { type NetworkType } from '@jejunetwork/types'
 
+// Re-export PriceReport-like interface for backwards compatibility
 export interface PriceReport {
-  feedId: Hex
+  feedId: `0x${string}`
   price: bigint
   confidence: bigint
   timestamp: bigint
   round: bigint
-  sourcesHash: Hex
+  sourcesHash: `0x${string}`
 }
 
-export interface SignedReport {
-  report: PriceReport
-  signatures: Hex[]
-  signers: Address[]
-}
-
+// Re-export FeedSpec-like interface for backwards compatibility
 export interface FeedSpec {
-  feedId: Hex
+  feedId: `0x${string}`
   symbol: string
-  baseToken: Address
-  quoteToken: Address
+  baseToken: `0x${string}`
+  quoteToken: `0x${string}`
   decimals: number
   heartbeatSeconds: number
   twapWindowSeconds: number
@@ -54,24 +38,13 @@ export interface FeedSpec {
   category: number
 }
 
+// Re-export Committee-like interface
 export interface Committee {
-  feedId: Hex
+  feedId: `0x${string}`
   round: bigint
-  members: Address[]
+  members: `0x${string}`[]
   threshold: number
   activeUntil: bigint
-  leader: Address
+  leader: `0x${string}`
   isActive: boolean
 }
-
-export interface NodeMetrics {
-  reportsSubmitted: number
-  reportsAccepted: number
-  reportsRejected: number
-  lastReportTime: number
-  lastHeartbeat: number
-  feedPrices: Map<string, bigint>
-  uptime: number
-}
-
-export type NetworkType = 'localnet' | 'testnet' | 'mainnet'

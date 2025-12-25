@@ -246,8 +246,7 @@ export interface RegisterAppParams {
 export function useRegistry() {
   const [lastTx, setLastTx] = useState<`0x${string}` | undefined>()
   const { data: txReceipt } = useWaitForTransactionReceipt({ hash: lastTx })
-  const { writeContractAsync: _writeContractAsync } = useWriteContract()
-  const writeContractAsync = createTypedWriteContractAsync(_writeContractAsync)
+  const { writeContractAsync } = useWriteContract()
 
   async function registerApp(
     params: RegisterAppParams,
@@ -455,8 +454,7 @@ export function useRegistryAppDetails(agentId: bigint) {
 export function useRegistryMarketplaceActions() {
   const [lastTx, setLastTx] = useState<`0x${string}` | undefined>()
   const { data: txReceipt } = useWaitForTransactionReceipt({ hash: lastTx })
-  const { writeContractAsync: _writeContractAsync } = useWriteContract()
-  const writeContractAsync = createTypedWriteContractAsync(_writeContractAsync)
+  const { writeContractAsync } = useWriteContract()
 
   async function setEndpoints(
     agentId: bigint,

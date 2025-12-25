@@ -13,6 +13,64 @@ import {
   MAX_SMALL_ARRAY_LENGTH,
 } from './validation'
 
+// ═══════════════════════════════════════════════════════════════════════════
+//                         ORACLE NODE TYPES
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Configuration for an oracle node operator */
+export interface OracleNodeConfig {
+  rpcUrl: string
+  chainId: number
+  operatorPrivateKey: Hex
+  workerPrivateKey: Hex
+  feedRegistry: Address
+  reportVerifier: Address
+  committeeManager: Address
+  feeRouter: Address
+  networkConnector: Address
+  pollIntervalMs: number
+  heartbeatIntervalMs: number
+  metricsPort: number
+  priceSources: PriceSourceConfig[]
+}
+
+/** Price source configuration for oracle nodes */
+export interface PriceSourceConfig {
+  type: 'uniswap_v3' | 'chainlink' | 'manual'
+  address: Address
+  feedId: Hex
+  decimals: number
+}
+
+/** Signed price report from oracle nodes */
+export interface SignedReport {
+  report: {
+    feedId: Hex
+    price: bigint
+    confidence: bigint
+    timestamp: bigint
+    round: bigint
+    sourcesHash: Hex
+  }
+  signatures: Hex[]
+  signers: Address[]
+}
+
+/** Metrics for oracle node monitoring */
+export interface NodeMetrics {
+  reportsSubmitted: number
+  reportsAccepted: number
+  reportsRejected: number
+  lastReportTime: number
+  lastHeartbeat: number
+  feedPrices: Map<string, bigint>
+  uptime: number
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//                         CORE ORACLE TYPES
+// ═══════════════════════════════════════════════════════════════════════════
+
 export type FeedId = Hex
 export type ReportHash = Hex
 export type CommitteeRound = bigint

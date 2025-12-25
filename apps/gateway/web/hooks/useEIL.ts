@@ -175,12 +175,11 @@ export function useCrossChainSwap(paymasterAddress: Address | undefined) {
   const [error, setError] = useState<string | null>(null)
 
   const {
-    writeContract: _writeContract,
+    writeContract,
     data: hash,
     isPending,
     error: writeError,
   } = useWriteContract()
-  const writeContract = createTypedWriteContract(_writeContract)
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
     hash,
   })
@@ -280,12 +279,11 @@ export function useXLPRegistration(stakeManagerAddress: Address | undefined) {
   const [error, setError] = useState<string | null>(null)
 
   const {
-    writeContract: _writeContract,
+    writeContract,
     data: hash,
     isPending,
     error: writeError,
   } = useWriteContract()
-  const writeContract = createTypedWriteContract(_writeContract)
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
     hash,
   })
@@ -387,12 +385,11 @@ export function useXLPLiquidity(paymasterAddress: Address | undefined) {
   const [error, setError] = useState<string | null>(null)
 
   const {
-    writeContract: _writeContract,
+    writeContract,
     data: hash,
     isPending,
     error: writeError,
   } = useWriteContract()
-  const writeContract = createTypedWriteContract(_writeContract)
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
     hash,
   })
@@ -484,8 +481,7 @@ export function useXLPLiquidity(paymasterAddress: Address | undefined) {
 }
 
 export function useAppTokenPreference(preferenceAddress: Address | undefined) {
-  const { writeContract: _writeContract, data: hash, isPending, error } = useWriteContract()
-  const writeContract = createTypedWriteContract(_writeContract)
+  const { writeContract, data: hash, isPending, error } = useWriteContract()
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
     hash,
   })

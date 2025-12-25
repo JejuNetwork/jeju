@@ -2,7 +2,10 @@
  * Auth app types
  */
 
+import type { AuthProvider } from '@jejunetwork/oauth3'
 import type { Address, Hex } from 'viem'
+
+export type { AuthProvider }
 
 // ============ Session Types ============
 
@@ -17,17 +20,6 @@ export interface AuthSession {
   expiresAt: number
   metadata: Record<string, string>
 }
-
-export type AuthProvider =
-  | 'wallet'
-  | 'farcaster'
-  | 'github'
-  | 'google'
-  | 'twitter'
-  | 'discord'
-  | 'apple'
-  | 'email'
-  | 'phone'
 
 // ============ OAuth Flow Types ============
 

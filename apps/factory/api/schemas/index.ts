@@ -1,34 +1,9 @@
 /** Factory API Schemas */
 
-import type { Address } from 'viem'
+import { AddressSchema, JsonValueSchema } from '@jejunetwork/types'
 import { z } from 'zod'
 
-export const AddressSchema = z.custom<Address>(
-  (val): val is Address => {
-    if (typeof val !== 'string') return false
-    return /^0x[a-fA-F0-9]{40}$/.test(val)
-  },
-  { message: 'Invalid Ethereum address' },
-)
-
-type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | JsonValue[]
-  | { [key: string]: JsonValue }
-
-const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
-  z.union([
-    z.string(),
-    z.number(),
-    z.boolean(),
-    z.null(),
-    z.array(JsonValueSchema),
-    z.record(z.string(), JsonValueSchema),
-  ]),
-)
+export { AddressSchema }
 
 export function expectValid<T>(
   schema: z.ZodType<T>,

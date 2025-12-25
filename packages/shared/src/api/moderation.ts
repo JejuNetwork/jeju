@@ -3,6 +3,7 @@
  * Used by Gateway and Bazaar for A2A/MCP endpoints
  */
 
+import { safeReadContract } from '@jejunetwork/contracts'
 import {
   type Address,
   type Chain,
@@ -13,7 +14,6 @@ import {
   parseEther,
 } from 'viem'
 import { baseSepolia } from 'viem/chains'
-import { safeReadContract } from '../viem'
 import { BAN_MANAGER_ABI } from './abis'
 
 export interface ModerationConfig {

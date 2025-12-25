@@ -1,19 +1,7 @@
+import type { SIWEMessage } from '@jejunetwork/shared'
 import type { Address } from 'viem'
 
-export interface SIWEMessage {
-  domain: string
-  address: Address
-  statement: string
-  uri: string
-  version: string
-  chainId: number
-  nonce: string
-  issuedAt: string
-  expirationTime?: string
-  notBefore?: string
-  requestId?: string
-  resources?: string[]
-}
+export type { SIWEMessage }
 
 export function generateNonce(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(16))

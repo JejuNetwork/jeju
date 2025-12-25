@@ -2,7 +2,7 @@
  * Storage Module - IPFS, multi-provider storage
  */
 
-import type { NetworkType } from '@jejunetwork/types'
+import type { JsonValue, NetworkType } from '@jejunetwork/types'
 import { parseEther } from 'viem'
 import type { z } from 'zod'
 import { getServicesConfig } from '../config'
@@ -13,7 +13,6 @@ import {
   StorageStatsSchema,
   UploadResultSchema,
 } from '../shared/schemas'
-import type { JsonValue } from '../shared/types'
 import type { JejuWallet } from '../wallet'
 
 export * from './enhanced'

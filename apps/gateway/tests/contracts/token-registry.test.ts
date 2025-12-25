@@ -6,6 +6,12 @@
 import { beforeAll, describe, expect, test } from 'bun:test'
 import { getContractAddresses, getPublicClient } from '../fixtures/contracts'
 
+// Contract result types
+interface TokenConfig {
+  minFeeMargin: bigint
+  maxFeeMargin: bigint
+}
+
 describe('TokenRegistry Contract', () => {
   const publicClient = getPublicClient()
   let addresses: Awaited<ReturnType<typeof getContractAddresses>>
@@ -178,7 +184,7 @@ describe('TokenRegistry Contract', () => {
         ],
         functionName: 'getTokenConfig',
         args: [tokens[0]],
-      })) as { minFeeMargin: bigint; maxFeeMargin: bigint }
+      })) as TokenConfig
 
       // Min should be <= Max
       expect(config.minFeeMargin).toBeLessThanOrEqual(config.maxFeeMargin)

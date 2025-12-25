@@ -10,22 +10,8 @@
 
 import type { NetworkType } from '@jejunetwork/types'
 import { type Address, encodeFunctionData, type Hex, parseEther } from 'viem'
-import { z } from 'zod'
 import { requireContract } from '../config'
 import type { JejuWallet } from '../wallet'
-
-// Contract return type schemas
-const SequencerSchema = z.object({
-  sequencerAddress: z.string().transform((s) => s as Address),
-  operator: z.string().transform((s) => s as Address),
-  stake: z.bigint(),
-  status: z.number(),
-  blocksProduced: z.bigint(),
-  lastBlockTime: z.bigint(),
-  registeredAt: z.bigint(),
-  jailedUntil: z.bigint(),
-  slashCount: z.bigint(),
-})
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                              TYPES
@@ -385,7 +371,17 @@ export function createSequencerModule(
         args: [addr],
       })
 
-      const seq = SequencerSchema.parse(result)
+      const seq = result as {
+        sequencerAddress: Address
+        operator: Address
+        stake: bigint
+        status: number
+        blocksProduced: bigint
+        lastBlockTime: bigint
+        registeredAt: bigint
+        jailedUntil: bigint
+        slashCount: bigint
+      }
 
       if (
         seq.sequencerAddress === '0x0000000000000000000000000000000000000000'

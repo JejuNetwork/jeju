@@ -192,18 +192,17 @@ describe('Contracts Query Options Validation', () => {
     })
 
     it('should reject non-number limit', () => {
-      // @ts-expect-error Testing string input validation
-      expect(() => validateContractsQueryOptions({ limit: 'abc' })).toThrow(
-        'Invalid limit',
-      )
-      // @ts-expect-error Testing null input validation
-      expect(() => validateContractsQueryOptions({ limit: null })).toThrow(
-        'Invalid limit',
-      )
-      // @ts-expect-error Testing undefined input validation
-      expect(() => validateContractsQueryOptions({ limit: undefined })).toThrow(
-        'Invalid limit',
-      )
+      expect(() =>
+        validateContractsQueryOptions({ limit: 'abc' as unknown as number }),
+      ).toThrow('Invalid limit')
+      expect(() =>
+        validateContractsQueryOptions({ limit: null as unknown as number }),
+      ).toThrow('Invalid limit')
+      expect(() =>
+        validateContractsQueryOptions({
+          limit: undefined as unknown as number,
+        }),
+      ).toThrow('Invalid limit')
     })
 
     it('should handle NaN limit (treated as invalid number type check)', () => {
@@ -669,8 +668,7 @@ describe('Type Coercion Scenarios', () => {
   it('should reject string numbers as limit', () => {
     expect(() =>
       validateOracleFeedsQueryOptions({
-        // @ts-expect-error Testing string input validation
-        limit: '10',
+        limit: '10' as unknown as number,
         offset: 0,
       }),
     ).toThrow('Invalid limit')
@@ -680,8 +678,7 @@ describe('Type Coercion Scenarios', () => {
     expect(() =>
       validateOracleFeedsQueryOptions({
         limit: 10,
-        // @ts-expect-error Testing string input validation
-        offset: '0',
+        offset: '0' as unknown as number,
       }),
     ).toThrow('Invalid offset')
   })
@@ -689,8 +686,7 @@ describe('Type Coercion Scenarios', () => {
   it('should reject boolean as limit', () => {
     expect(() =>
       validateOracleFeedsQueryOptions({
-        // @ts-expect-error Testing boolean input validation
-        limit: true,
+        limit: true as unknown as number,
         offset: 0,
       }),
     ).toThrow('Invalid limit')
@@ -699,8 +695,7 @@ describe('Type Coercion Scenarios', () => {
   it('should reject object as limit', () => {
     expect(() =>
       validateOracleFeedsQueryOptions({
-        // @ts-expect-error Testing object input validation
-        limit: {},
+        limit: {} as unknown as number,
         offset: 0,
       }),
     ).toThrow('Invalid limit')
@@ -709,8 +704,7 @@ describe('Type Coercion Scenarios', () => {
   it('should reject array as limit', () => {
     expect(() =>
       validateOracleFeedsQueryOptions({
-        // @ts-expect-error Testing array input validation
-        limit: [10],
+        limit: [10] as unknown as number,
         offset: 0,
       }),
     ).toThrow('Invalid limit')

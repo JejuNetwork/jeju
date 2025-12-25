@@ -583,7 +583,12 @@ export function createPerpsModule(
         args: [marketId],
       })
 
-      const data = FundingDataSchema.parse(result)
+      const data = result as {
+        fundingRate: bigint
+        fundingIndex: bigint
+        lastFundingTime: bigint
+        nextFundingTime: bigint
+      }
 
       return data
     },

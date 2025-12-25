@@ -59,8 +59,7 @@ describe('DWSApp', () => {
       new DWSApp({
         name: 'test',
         port: 3000,
-        // @ts-expect-error Testing undefined handler validation
-        handler: undefined,
+        handler: undefined as unknown as FetchHandler,
       })
     }).toThrow('App handler is required')
   })

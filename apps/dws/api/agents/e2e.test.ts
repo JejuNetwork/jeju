@@ -7,6 +7,43 @@
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 
+// Test response types
+interface AgentIdNameResponse {
+  id: string
+  name: string
+}
+
+interface AgentDetailsResponse {
+  id: string
+  character: { name: string }
+}
+
+interface TextResponse {
+  text: string
+}
+
+interface AgentsListResponse {
+  agents: Array<{ id: string; name: string }>
+}
+
+interface AgentStatsResponse {
+  agentId: string
+  totalInvocations: number
+}
+
+interface StatusResponse {
+  status: string
+}
+
+interface CronResponse {
+  id: string
+  schedule: string
+}
+
+interface SuccessResponse {
+  success: boolean
+}
+
 const DWS_URL = process.env.DWS_URL ?? 'http://127.0.0.1:4030'
 
 // Check if DWS is available
@@ -88,7 +125,7 @@ describe('Agent E2E (requires DWS)', () => {
 
     expect(res.status).toBe(201)
 
-    const data = (await res.json()) as { id: string; name: string }
+    const data = (await res.json()) as AgentIdNameResponse
     expect(data.id).toBeDefined()
     expect(data.name).toBe('E2ETestBot')
 
@@ -104,10 +141,7 @@ describe('Agent E2E (requires DWS)', () => {
     const res = await fetch(`${DWS_URL}/agents/${createdAgentId}`)
     expect(res.status).toBe(200)
 
-    const data = (await res.json()) as {
-      id: string
-      character: { name: string }
-    }
+    const data = (await res.json()) as AgentDetailsResponse
     expect(data.id).toBe(createdAgentId)
     expect(data.character.name).toBe('E2ETestBot')
   })
@@ -134,7 +168,7 @@ describe('Agent E2E (requires DWS)', () => {
     expect([200, 500]).toContain(res.status)
 
     if (res.status === 200) {
-      const data = (await res.json()) as { text: string }
+      const data = (await res.json()) as TextResponse
       expect(data.text).toBeDefined()
     }
   })
@@ -148,9 +182,7 @@ describe('Agent E2E (requires DWS)', () => {
     const res = await fetch(`${DWS_URL}/agents`)
     expect(res.status).toBe(200)
 
-    const data = (await res.json()) as {
-      agents: Array<{ id: string; name: string }>
-    }
+    const data = (await res.json()) as AgentsListResponse
     expect(Array.isArray(data.agents)).toBe(true)
 
     // Should include our created agent
@@ -169,10 +201,7 @@ describe('Agent E2E (requires DWS)', () => {
     const res = await fetch(`${DWS_URL}/agents/${createdAgentId}/stats`)
     expect(res.status).toBe(200)
 
-    const data = (await res.json()) as {
-      agentId: string
-      totalInvocations: number
-    }
+    const data = (await res.json()) as AgentStatsResponse
     expect(data.agentId).toBe(createdAgentId)
     expect(typeof data.totalInvocations).toBe('number')
   })
@@ -192,7 +221,7 @@ describe('Agent E2E (requires DWS)', () => {
     })
     expect(pauseRes.status).toBe(200)
 
-    const pauseData = (await pauseRes.json()) as { status: string }
+    const pauseData = (await pauseRes.json()) as StatusResponse
     expect(pauseData.status).toBe('paused')
 
     // Resume
@@ -207,7 +236,7 @@ describe('Agent E2E (requires DWS)', () => {
     )
     expect(resumeRes.status).toBe(200)
 
-    const resumeData = (await resumeRes.json()) as { status: string }
+    const resumeData = (await resumeRes.json()) as StatusResponse
     expect(resumeData.status).toBe('active')
   })
 
@@ -230,7 +259,7 @@ describe('Agent E2E (requires DWS)', () => {
     })
     expect(res.status).toBe(201)
 
-    const data = (await res.json()) as { id: string; schedule: string }
+    const data = (await res.json()) as CronResponse
     expect(data.id).toBeDefined()
     expect(data.schedule).toBe('0 * * * *')
   })
@@ -249,7 +278,7 @@ describe('Agent E2E (requires DWS)', () => {
     })
     expect(res.status).toBe(200)
 
-    const data = (await res.json()) as { success: boolean }
+    const data = (await res.json()) as SuccessResponse
     expect(data.success).toBe(true)
 
     // Clear so cleanup doesn't try to delete again

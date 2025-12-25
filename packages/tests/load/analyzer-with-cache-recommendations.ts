@@ -6,22 +6,6 @@
  * for integrating DWS caching to optimize slow endpoints.
  */
 
-import { z } from 'zod'
-
-// Metrics response schema
-const EndpointMetricsSchema = z.object({
-  path: z.string(),
-  avgLatency: z.union([z.number(), z.string()]),
-  maxLatency: z.union([z.number(), z.string()]),
-  count: z.number(),
-  cacheHitRate: z.union([z.number(), z.string()]).optional(),
-})
-
-const MetricsResponseSchema = z.object({
-  slowest: z.array(EndpointMetricsSchema),
-  allEndpoints: z.array(EndpointMetricsSchema),
-})
-
 interface EndpointMetrics {
   path: string
   avgLatency: number | string
@@ -256,7 +240,10 @@ async function analyzeServer(baseUrl: string): Promise<CacheRecommendation[]> {
     throw new Error(`Failed to fetch metrics from ${baseUrl}`)
   }
 
-  const metrics = MetricsResponseSchema.parse(await response.json())
+  const metrics = (await response.json()) as {
+    slowest: EndpointMetrics[]
+    allEndpoints: EndpointMetrics[]
+  }
 
   const recommendations: CacheRecommendation[] = []
 

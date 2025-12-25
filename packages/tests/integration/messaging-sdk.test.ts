@@ -17,13 +17,13 @@ import {
   test,
 } from 'bun:test'
 import {
-  CastResultSchema,
-  CountResponseSchema,
-  FarcasterMessagesResponseSchema,
-  HubInfoResponseSchema,
+  HubInfoSchema,
+  HubMessagesSchema,
+  HubSubmitResultSchema,
+  RelayCountSchema,
   RelayHealthSchema,
-  RelayMessageResultSchema,
-  RelayMessagesResponseSchema,
+  RelayMessagesSchema,
+  RelaySendResultSchema,
   RelayStatsSchema,
 } from '../shared/schemas'
 
@@ -349,7 +349,7 @@ describe('Messaging SDK', () => {
 
       expect(response.ok).toBe(true)
 
-      const result = RelayMessageResultSchema.parse(await response.json())
+      const result = RelaySendResultSchema.parse(await response.json())
       expect(result.success).toBe(true)
       expect(result.messageId).toBe(envelope.id)
       expect(result.cid).toBeDefined()
@@ -386,7 +386,7 @@ describe('Messaging SDK', () => {
       )
       expect(response.ok).toBe(true)
 
-      const result = RelayMessagesResponseSchema.parse(await response.json())
+      const result = RelayMessagesSchema.parse(await response.json())
       expect(result.count).toBeGreaterThan(0)
       expect(result.messages.some((m) => m.id === envelope.id)).toBe(true)
     })
@@ -437,7 +437,7 @@ describe('Messaging SDK', () => {
       const fetchResponse = await fetch(
         `http://127.0.0.1:${RELAY_PORT}/messages/${bobAddress}`,
       )
-      const { messages } = RelayMessagesResponseSchema.parse(await fetchResponse.json())
+      const { messages } = RelayMessagesSchema.parse(await fetchResponse.json())
 
       // Find our message
       const received = messages.find((m) => m.id === envelope.id)
@@ -482,7 +482,7 @@ describe('Messaging SDK', () => {
       const response = await fetch(
         `http://127.0.0.1:${RELAY_PORT}/messages/${bobAddress}`,
       )
-      const { messages, count } = RelayMessagesResponseSchema.parse(await response.json())
+      const { messages, count } = RelayMessagesSchema.parse(await response.json())
 
       expect(count).toBe(messagesToSend.length)
 
@@ -504,7 +504,7 @@ describe('Farcaster SDK', () => {
       const response = await fetch(`http://127.0.0.1:${MOCK_HUB_PORT}/v1/info`)
       expect(response.ok).toBe(true)
 
-      const info = HubInfoResponseSchema.parse(await response.json())
+      const info = HubInfoSchema.parse(await response.json())
       expect(info.version).toBe('1.0.0')
       expect(info.isSyncing).toBe(false)
       expect(info.nickname).toBe('test-hub')
@@ -517,7 +517,7 @@ describe('Farcaster SDK', () => {
       )
       expect(response.ok).toBe(true)
 
-      const data = FarcasterMessagesResponseSchema.parse(await response.json())
+      const data = HubMessagesSchema.parse(await response.json())
       expect(data.messages).toBeArray()
       expect(data.messages.length).toBeGreaterThan(0)
       expect(data.messages[0].data.fid).toBe(fid)
@@ -530,10 +530,10 @@ describe('Farcaster SDK', () => {
       )
       expect(response.ok).toBe(true)
 
-      const data = FarcasterMessagesResponseSchema.parse(await response.json())
+      const data = HubMessagesSchema.parse(await response.json())
       expect(data.messages).toBeArray()
-      expect(data.messages[0]?.hash).toBeDefined()
-      expect(data.messages[0]?.data.castAddBody?.text).toBeDefined()
+      expect(data.messages[0].hash).toBeDefined()
+      expect(data.messages[0].data.castAddBody.text).toBeDefined()
     })
   })
 
@@ -566,7 +566,7 @@ describe('Farcaster SDK', () => {
       )
 
       expect(response.ok).toBe(true)
-      const result = CastResultSchema.parse(await response.json())
+      const result = HubSubmitResultSchema.parse(await response.json())
       expect(result.hash).toBeDefined()
       expect(result.hash).toMatch(/^0x[a-f0-9]+$/)
     })
@@ -740,7 +740,7 @@ describe('Combined Messaging Flow', () => {
     const messagesResponse = await fetch(
       `http://127.0.0.1:${RELAY_PORT}/messages/0xAliceAddress`,
     )
-    const messages = RelayMessagesResponseSchema.parse(await messagesResponse.json())
+    const messages = RelayMessagesSchema.parse(await messagesResponse.json())
     expect(messages.messages.some((m) => m.id === dmId)).toBe(true)
   })
 
@@ -809,7 +809,7 @@ describe('Combined Messaging Flow', () => {
     const groupMsgs = await fetch(
       `http://127.0.0.1:${RELAY_PORT}/messages/${group.id}`,
     )
-    const result = CountResponseSchema.parse(await groupMsgs.json())
+    const result = RelayCountSchema.parse(await groupMsgs.json())
     expect(result.count).toBeGreaterThan(0)
   })
 })
@@ -838,7 +838,7 @@ describe('Error Handling', () => {
     )
     expect(response.ok).toBe(true)
 
-    const result = CountResponseSchema.parse(await response.json())
+    const result = RelayCountSchema.parse(await response.json())
     expect(result.count).toBe(0)
   })
 })

@@ -46,6 +46,12 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { z } from 'zod'
+
+// GraphQL response schema
+const GraphQLResponseSchema = z.object({
+  data: z.record(z.unknown()).optional(),
+  errors: z.array(z.object({ message: z.string() })).optional(),
+})
 import {
   APP_PORTS,
   APP_URLS,
@@ -54,12 +60,6 @@ import {
   TEST_WALLETS,
   TIMEOUTS,
 } from '../shared/constants'
-
-// GraphQL response schema
-const _GraphQLResponseSchema = z.object({
-  data: z.record(z.string(), z.unknown()).optional(),
-  errors: z.array(z.object({ message: z.string() })).optional(),
-})
 
 // Quick check if L2 RPC is available before running full suite
 const l2RpcUrl = JEJU_LOCALNET.rpcUrl

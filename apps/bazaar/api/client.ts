@@ -98,12 +98,8 @@ export type FaucetInfo = z.infer<typeof FaucetInfoSchema>
 export type FaucetStatus = z.infer<typeof FaucetStatusSchema>
 export type FaucetClaimResult = z.infer<typeof FaucetClaimResultSchema>
 
-export interface HealthResponse {
-  status: string
-  service: string
-  teeMode?: string
-  network?: string
-}
+// Import HealthResponse from lib/client.ts to avoid duplication
+export type { HealthResponse } from '../lib/client'
 
 export interface A2AInfoResponse {
   service: string

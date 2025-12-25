@@ -20,7 +20,7 @@ import type {
 } from '@a2a-js/sdk/server'
 import { v4 as uuidv4 } from 'uuid'
 
-import type { JsonValue } from '../types/common'
+import type { JsonValue } from '@jejunetwork/types'
 
 /**
  * Command structure for executor operations

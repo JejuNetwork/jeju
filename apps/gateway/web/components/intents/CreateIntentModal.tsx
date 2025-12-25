@@ -16,9 +16,9 @@ import {
   useWaitForTransactionReceipt,
   useWriteContract,
 } from 'wagmi'
+import { ZERO_ADDRESS } from '@jejunetwork/types'
 import { useIntentQuote, useSupportedChains } from '../../hooks/useIntentAPI'
 import { useOIFConfig } from '../../hooks/useOIF'
-import { ZERO_ADDRESS } from '../../lib/constants'
 
 const XIcon = X as ComponentType<LucideProps>
 const ArrowRightIcon = ArrowRight as ComponentType<LucideProps>

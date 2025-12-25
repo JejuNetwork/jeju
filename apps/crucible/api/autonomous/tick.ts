@@ -12,7 +12,11 @@
  * 5. Repeat until FINISH or max iterations
  */
 
-import { getNetworkEnv } from '@jejunetwork/types'
+import {
+  getNetworkEnv,
+  type JsonValue,
+  JsonValueSchema,
+} from '@jejunetwork/types'
 import { z } from 'zod'
 import { checkDWSHealth, checkDWSInferenceAvailable } from '../client/dws'
 import type { CrucibleAgentRuntime, RuntimeMessage } from '../sdk/eliza-runtime'
@@ -26,22 +30,6 @@ import type {
 } from './types'
 
 const log = createLogger('AutonomousTick')
-
-/** JSON value types for LLM parameters */
-type JsonPrimitive = string | number | boolean | null
-type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue }
-
-/** JSON value schema for LLM parameters */
-const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
-  z.union([
-    z.string(),
-    z.number(),
-    z.boolean(),
-    z.null(),
-    z.array(JsonValueSchema),
-    z.record(z.string(), JsonValueSchema),
-  ]),
-)
 
 /** Schema for raw LLM decision parsing - accepts various field names LLMs might use */
 const RawLLMDecisionSchema = z.object({
