@@ -1,12 +1,4 @@
-/**
- * App Orchestrator
- *
- * Manages app lifecycle for E2E tests:
- * - Start/stop apps
- * - App warmup (pre-compile pages)
- * - Health checks
- * - Environment variable injection
- */
+/** App lifecycle orchestrator for E2E tests */
 
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
@@ -86,7 +78,7 @@ export class AppOrchestrator {
       ...this.serviceEnv,
       JEJU_RPC_URL: rpcUrl,
       RPC_URL: rpcUrl,
-      CHAIN_ID: '1337',
+      CHAIN_ID: '31337',
     }
 
     if (mainPort) {
@@ -124,8 +116,6 @@ export class AppOrchestrator {
 
     logger.step('Warming up apps...')
 
-    // Optional dependency - warmup is non-critical, skip if unavailable
-    // Dynamic import: optional dependency that may not be available
     type WarmupModule = { quickWarmup: (apps: string[]) => Promise<void> }
     const warmupModule = (await import('@jejunetwork/tests/warmup').catch(
       () => null,

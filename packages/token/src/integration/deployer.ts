@@ -18,9 +18,7 @@ import {
   type SolanaTokenDeployConfig,
 } from './solana-infra'
 
-// ============================================================================
 // Types
-// ============================================================================
 
 export interface TokenDeploymentConfig {
   name: string
@@ -62,9 +60,7 @@ export interface TokenDeploymentResult {
   txHashes: Hex[]
 }
 
-// ============================================================================
 // Unified Deployer
-// ============================================================================
 
 export class TokenDeployer {
   private readonly config: TokenDeploymentConfig
@@ -229,9 +225,7 @@ export class TokenDeployer {
   }
 }
 
-// ============================================================================
 // Factory
-// ============================================================================
 
 export async function deployToken(
   config: TokenDeploymentConfig,

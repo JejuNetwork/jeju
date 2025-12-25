@@ -1,0 +1,144 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "covenantsql.fullname" . }}-config
+  labels:
+    {{- include "covenantsql.labels" . | nindent 4 }}
+data:
+  bp.yaml: |
+    # Block Producer Configuration
+    Role: BlockProducer
+
+    # Network configuration
+    ListenAddr: "0.0.0.0:{{ .Values.blockProducer.service.clientPort }}"
+    RPCAddr: "0.0.0.0:{{ .Values.blockProducer.service.rpcPort }}"
+    KayakAddr: "0.0.0.0:{{ .Values.blockProducer.service.kayakPort }}"
+    HTTPAddr: "0.0.0.0:{{ .Values.blockProducer.service.httpPort }}"
+
+    # Data directories
+    DataDir: "/data"
+    LogDir: "/logs"
+
+    # Genesis configuration
+    Genesis:
+      TargetPeers: {{ .Values.miner.replicaCount }}
+      MinPeers: 1
+      BlockInterval: {{ .Values.blockProducer.config.blockInterval }}
+      MaxBlockSize: {{ .Values.blockProducer.config.maxBlockSize }}
+
+    # Storage configuration
+    Storage:
+      Engine: "bolt"
+      Path: "/data/db"
+      SyncWrites: true
+      CompactionInterval: 300
+
+    # Consensus configuration (Kayak - BFT-Raft)
+    Consensus:
+      Type: "kayak"
+      HeartbeatInterval: {{ .Values.blockProducer.config.heartbeatInterval }}
+      ElectionTimeout: {{ .Values.blockProducer.config.electionTimeout }}
+      MaxInflightBlocks: 256
+
+    # API configuration
+    API:
+      Enable: true
+      EnableCORS: true
+      CORSOrigins: ["*"]
+      RateLimit: 1000
+      Timeout: 30s
+
+    # Metrics configuration
+    Metrics:
+      Enable: {{ .Values.metrics.enabled }}
+      PrometheusPort: {{ .Values.blockProducer.service.metricsPort }}
+      Interval: 15s
+
+    # Security configuration
+    Security:
+      EnableTLS: false
+      EnableAuth: true
+
+    # On-chain integration
+    {{- if .Values.contracts.registry }}
+    Blockchain:
+      RpcUrl: {{ .Values.rpc.primary | quote }}
+      RegistryAddress: {{ .Values.contracts.registry | quote }}
+      {{- if .Values.contracts.billing }}
+      BillingAddress: {{ .Values.contracts.billing | quote }}
+      {{- end }}
+      AutoRegister: {{ .Values.operator.autoRegister }}
+      HeartbeatInterval: {{ .Values.operator.heartbeatIntervalMs }}
+    {{- end }}
+
+    # Logging configuration
+    Log:
+      Level: "info"
+      Format: "json"
+      Output: "stdout"
+
+  miner.yaml: |
+    # Miner Configuration
+    Role: Miner
+
+    # Network configuration
+    ListenAddr: "0.0.0.0:{{ .Values.miner.service.clientPort }}"
+    HTTPAddr: "0.0.0.0:{{ .Values.miner.service.httpPort }}"
+
+    # Block Producer connection
+    BlockProducerAddr: "{{ include "covenantsql.fullname" . }}-bp:{{ .Values.blockProducer.service.clientPort }}"
+
+    # Data directories
+    DataDir: "/data"
+    LogDir: "/logs"
+
+    # Mining configuration
+    Mining:
+      Enable: true
+      Threads: 2
+      MinGasPrice: 0
+
+    # Storage configuration
+    Storage:
+      Engine: "bolt"
+      Path: "/data/db"
+      SyncWrites: true
+      MaxTableSize: 104857600
+
+    # SQLite Extensions
+    SQLiteExtensions:
+      VectorSearch:
+        Enable: {{ .Values.miner.config.vectorSearchEnabled }}
+        ChunkSize: 65536
+
+    # Replication configuration
+    Replication:
+      Enable: true
+      Factor: {{ .Values.miner.config.replicationFactor }}
+      SyncInterval: {{ .Values.miner.config.syncInterval }}
+
+    # Metrics configuration
+    Metrics:
+      Enable: {{ .Values.metrics.enabled }}
+      PrometheusPort: {{ .Values.miner.service.metricsPort }}
+      Interval: 15s
+
+    # Security configuration
+    Security:
+      EnableTLS: false
+      EnableAuth: true
+
+    # On-chain integration
+    {{- if .Values.contracts.registry }}
+    Blockchain:
+      RpcUrl: {{ .Values.rpc.primary | quote }}
+      RegistryAddress: {{ .Values.contracts.registry | quote }}
+      AutoRegister: {{ .Values.operator.autoRegister }}
+      HeartbeatInterval: {{ .Values.operator.heartbeatIntervalMs }}
+    {{- end }}
+
+    # Logging configuration
+    Log:
+      Level: "info"
+      Format: "json"
+      Output: "stdout"

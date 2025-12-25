@@ -1,6 +1,6 @@
 {
-  "chainId": 1337,
-  "networkId": 1337,
+  "chainId": 31337,
+  "networkId": 31337,
   "name": "Jeju Localnet",
   "rpcUrl": "http://127.0.0.1:6546",
   "wsUrl": "ws://127.0.0.1:6547",

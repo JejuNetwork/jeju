@@ -1,20 +1,17 @@
+/**
+ * Contract deployment and address types.
+ */
+
 import { z } from 'zod'
 import { AddressSchema } from './validation'
 
-// ============================================================================
-// Transaction Status Types
-// ============================================================================
-
-/**
- * Transaction execution status
- */
 export type TransactionStatus =
-  | 'pending' // Transaction created but not yet submitted
-  | 'submitted' // Transaction submitted to network
-  | 'confirming' // Waiting for confirmations
-  | 'confirmed' // Transaction confirmed on chain
-  | 'failed' // Transaction failed
-  | 'cancelled' // Transaction cancelled by user
+  | 'pending'
+  | 'submitted'
+  | 'confirming'
+  | 'confirmed'
+  | 'failed'
+  | 'cancelled'
 
 export const L1ContractsSchema = z.object({
   OptimismPortal: AddressSchema,

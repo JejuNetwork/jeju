@@ -18,9 +18,13 @@
 
 import { type Chain, createPublicClient, http } from 'viem'
 import { arbitrum, base, bsc, mainnet, optimism } from 'viem/chains'
+import { z } from 'zod'
 import { ASCIICharts } from './visualizer'
 
-// ============ Types ============
+// DeFi Llama price response schema
+const DefiLlamaPriceResponseSchema = z.object({
+  coins: z.record(z.string(), z.object({ price: z.number() })),
+})
 
 interface ChainConfig {
   chainId: number
@@ -111,9 +115,6 @@ interface BacktestSummary {
   maxDrawdown: number
   winRate: number
 }
-
-// ============ Chain Configurations ============
-
 const CHAINS: ChainConfig[] = [
   {
     chainId: 1,
@@ -288,9 +289,6 @@ const DEXES: Record<
     },
   ],
 }
-
-// ============ Real Data Fetcher ============
-
 class RealDataFetcher {
   private clients: Map<number, ReturnType<typeof createPublicClient>> =
     new Map()
@@ -324,11 +322,13 @@ class RealDataFetcher {
         `https://coins.llama.fi/prices/current/${ids}`,
       )
       if (response.ok) {
-        const data = (await response.json()) as {
-          coins: Record<string, { price: number }>
-        }
-        for (const [key, value] of Object.entries(data.coins)) {
-          prices[key] = value.price
+        const parseResult = DefiLlamaPriceResponseSchema.safeParse(
+          await response.json(),
+        )
+        if (parseResult.success) {
+          for (const [key, value] of Object.entries(parseResult.data.coins)) {
+            prices[key] = value.price
+          }
         }
       }
     } catch (_error) {
@@ -593,9 +593,6 @@ class RealDataFetcher {
     return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2)
   }
 }
-
-// ============ Multi-Chain Backtester ============
-
 export class MultiChainBacktester {
   private fetcher: RealDataFetcher
 
@@ -1026,9 +1023,6 @@ export class MultiChainBacktester {
     return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2)
   }
 }
-
-// ============ CLI Entry Point ============
-
 async function main() {
   const backtester = new MultiChainBacktester()
   const result = await backtester.run(30) // 30 days

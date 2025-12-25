@@ -36,7 +36,7 @@
       ],
       "outputs": [
         {
-          "name": "requestHashes",
+          "name": "",
           "type": "bytes32[]",
           "internalType": "bytes32[]"
         }
@@ -49,7 +49,7 @@
       "inputs": [],
       "outputs": [
         {
-          "name": "registry",
+          "name": "",
           "type": "address",
           "internalType": "address"
         }
@@ -68,22 +68,22 @@
       ],
       "outputs": [
         {
-          "name": "validatorAddress",
+          "name": "",
           "type": "address",
           "internalType": "address"
         },
         {
-          "name": "agentId",
+          "name": "",
           "type": "uint256",
           "internalType": "uint256"
         },
         {
-          "name": "requestUri",
+          "name": "",
           "type": "string",
           "internalType": "string"
         },
         {
-          "name": "timestamp",
+          "name": "",
           "type": "uint256",
           "internalType": "uint256"
         }
@@ -180,7 +180,7 @@
       ],
       "outputs": [
         {
-          "name": "requestHashes",
+          "name": "",
           "type": "bytes32[]",
           "internalType": "bytes32[]"
         }
@@ -212,7 +212,7 @@
       ],
       "outputs": [
         {
-          "name": "exists",
+          "name": "",
           "type": "bool",
           "internalType": "bool"
         }

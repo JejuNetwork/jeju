@@ -1,5 +1,13 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
+  "ignoreWorkspaces": [
+    "vendor/**",
+    "vendor/eliza",
+    "vendor/eliza/packages/*",
+    "vendor/babylon",
+    "vendor/babylon/apps/*",
+    "vendor/babylon/packages/*"
+  ],
   "workspaces": {
     ".": {
       "entry": ["scripts/**/*.ts"],
@@ -37,7 +45,7 @@
     },
     "packages/oauth3": {
       "entry": ["src/index.ts"],
-      "project": ["src/**/*.ts"]
+      "project": ["src/**/*.ts", "src/**/*.tsx"]
     },
     "packages/messaging": {
       "entry": ["src/index.ts"],
@@ -64,79 +72,114 @@
       "project": ["src/**/*.ts"]
     },
     "packages/deployment": {
-      "entry": ["src/index.ts"],
-      "project": ["src/**/*.ts"]
+      "entry": ["scripts/**/*.ts", "schemas.ts"],
+      "project": ["scripts/**/*.ts", "schemas.ts"],
+      "ignore": ["**/tests/**"]
     },
     "packages/eliza-plugin": {
       "entry": ["src/index.ts"],
       "project": ["src/**/*.ts"]
     },
-    "apps/gateway": {
-      "entry": ["src/index.ts", "src/main.tsx"],
-      "project": ["src/**/*.ts", "src/**/*.tsx", "lib/**/*.ts"],
-      "ignore": ["**/synpress.config.ts", "**/playwright.config.ts", "**/tests/**"]
-    },
-    "apps/bazaar": {
-      "entry": ["app/**/*.tsx"],
-      "project": ["app/**/*.ts", "app/**/*.tsx", "lib/**/*.ts", "components/**/*.tsx"],
-      "ignore": ["**/synpress.config.ts", "**/playwright.config.ts", "**/tests/**"]
-    },
-    "apps/factory": {
-      "entry": ["app/**/*.tsx"],
-      "project": ["app/**/*.ts", "app/**/*.tsx", "lib/**/*.ts", "components/**/*.tsx"],
-      "ignore": ["**/synpress.config.ts", "**/playwright.config.ts", "**/tests/**"]
-    },
-    "apps/indexer": {
-      "entry": ["src/index.ts"],
-      "project": ["src/**/*.ts"],
-      "ignore": ["**/tests/**"]
-    },
-    "apps/crucible": {
-      "entry": ["src/index.ts"],
-      "project": ["src/**/*.ts"],
-      "ignore": ["**/synpress.config.ts", "**/playwright.config.ts", "**/tests/**"]
-    },
-    "apps/autocrat": {
-      "entry": ["src/index.ts"],
-      "project": ["src/**/*.ts"],
-      "ignore": ["**/synpress.config.ts", "**/playwright.config.ts", "**/tests/**"]
-    },
-    "apps/wallet": {
-      "entry": ["src/index.ts", "src/main.tsx"],
-      "project": ["src/**/*.ts", "src/**/*.tsx"],
-      "ignore": ["**/synpress.config.ts", "**/playwright.config.ts", "**/tests/**"]
-    },
-    "apps/node": {
-      "entry": ["src/main.tsx"],
-      "project": ["src/**/*.ts", "src/**/*.tsx"],
-      "ignore": ["**/synpress.config.ts", "**/playwright.config.ts", "**/tests/**"]
-    },
-    "apps/dws": {
+    "packages/a2a": {
       "entry": ["src/index.ts"],
       "project": ["src/**/*.ts"]
     },
-    "apps/example": {
+    "packages/api": {
       "entry": ["src/index.ts"],
-      "project": ["src/**/*.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/config": {
+      "entry": ["index.ts"],
+      "project": ["**/*.ts"],
+      "ignore": ["chainlink/**"]
+    },
+    "packages/mcp": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/training": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "apps/auth": {
+      "entry": ["api/index.ts", "web/app.ts", "lib/index.ts"],
+      "project": ["api/**/*.ts", "web/**/*.ts", "lib/**/*.ts"],
       "ignore": ["**/synpress.config.ts", "**/playwright.config.ts", "**/tests/**"]
     },
+    "apps/autocrat": {
+      "entry": ["api/index.ts", "web/main.tsx", "lib/index.ts"],
+      "project": ["api/**/*.ts", "web/**/*.ts", "web/**/*.tsx", "lib/**/*.ts"],
+      "ignore": ["**/synpress.config.ts", "**/playwright.config.ts", "**/tests/**"]
+    },
+    "apps/bazaar": {
+      "entry": ["api/index.ts", "web/App.tsx", "web/client.tsx", "lib/index.ts", "scripts/dev.ts"],
+      "project": ["api/**/*.ts", "web/**/*.ts", "web/**/*.tsx", "lib/**/*.ts", "scripts/**/*.ts"],
+      "ignore": ["**/synpress.config.ts", "**/playwright.config.ts", "**/tests/**"]
+    },
+    "apps/crucible": {
+      "entry": ["api/index.ts", "web/client.tsx", "lib/index.ts", "scripts/dev.ts"],
+      "project": ["api/**/*.ts", "web/**/*.ts", "web/**/*.tsx", "lib/**/*.ts", "scripts/**/*.ts"],
+      "ignore": ["**/synpress.config.ts", "**/playwright.config.ts", "**/tests/**"]
+    },
+    "apps/documentation": {
+      "entry": ["lib/index.ts", "server/a2a-server.ts"],
+      "project": ["lib/**/*.ts", "server/**/*.ts", "docs/components/**/*.ts", "docs/components/**/*.tsx"],
+      "ignore": ["**/playwright.config.ts", "**/tests/**", "api/**", "build/**"]
+    },
+    "apps/dws": {
+      "entry": ["api/index.ts", "web/main.tsx", "lib/index.ts"],
+      "project": ["api/**/*.ts", "web/**/*.ts", "web/**/*.tsx", "lib/**/*.ts"],
+      "ignore": ["**/tests/**"]
+    },
+    "apps/example": {
+      "entry": ["api/index.ts", "web/app.ts", "lib/index.ts"],
+      "project": ["api/**/*.ts", "web/**/*.ts", "lib/**/*.ts"],
+      "ignore": ["**/synpress.config.ts", "**/playwright.config.ts", "**/tests/**"]
+    },
+    "apps/factory": {
+      "entry": ["api/server.ts", "web/main.tsx", "lib/index.ts", "scripts/dev-local.ts"],
+      "project": ["api/**/*.ts", "web/**/*.ts", "web/**/*.tsx", "lib/**/*.ts", "scripts/**/*.ts"],
+      "ignore": ["**/synpress.config.ts", "**/playwright.config.ts", "**/tests/**"]
+    },
+    "apps/gateway": {
+      "entry": ["api/dev-proxy.ts", "api/jns-gateway.ts", "api/oracle-server.ts", "api/rpc-server.ts", "api/x402-server.ts", "api/leaderboard-server.ts", "api/a2a-server.ts", "web/main.tsx", "lib/index.ts", "dev-server.ts"],
+      "project": ["api/**/*.ts", "web/**/*.ts", "web/**/*.tsx", "lib/**/*.ts"],
+      "ignore": ["**/synpress.config.ts", "**/playwright.config.ts", "**/tests/**"]
+    },
+    "apps/indexer": {
+      "entry": ["api/main.ts", "api/api-server.ts", "api/rest-server.ts", "api/a2a-server.ts", "api/mcp-server.ts", "web/main.tsx", "scripts/dev.ts"],
+      "project": ["api/**/*.ts", "web/**/*.tsx", "scripts/**/*.ts"],
+      "ignore": ["**/tests/**"]
+    },
     "apps/monitoring": {
-      "entry": ["src/index.ts", "src/main.tsx"],
-      "project": ["src/**/*.ts", "src/**/*.tsx"]
+      "entry": ["api/heartbeat.ts", "api/a2a-mcp-server.ts", "web/main.tsx", "lib/index.ts", "scripts/dev.ts"],
+      "project": ["api/**/*.ts", "web/**/*.ts", "web/**/*.tsx", "lib/**/*.ts", "scripts/**/*.ts"],
+      "ignore": ["**/playwright.config.ts", "**/tests/**"]
+    },
+    "apps/node": {
+      "entry": ["api/cli.ts", "api/app/index.ts", "web/main.tsx", "lib/index.ts", "scripts/dev.ts"],
+      "project": ["api/**/*.ts", "web/**/*.ts", "web/**/*.tsx", "lib/**/*.ts", "scripts/**/*.ts"],
+      "ignore": ["**/synpress.config.ts", "**/playwright.config.ts", "**/tests/**"]
     },
     "apps/otto": {
-      "entry": ["src/server.ts"],
-      "project": ["src/**/*.ts"],
+      "entry": ["api/server.ts", "api/index.ts", "lib/index.ts"],
+      "project": ["api/**/*.ts", "lib/**/*.ts"],
       "ignore": ["**/synpress.config.ts", "**/playwright.config.ts", "**/tests/**"]
     },
     "apps/vpn": {
-      "entry": ["src/main.tsx"],
-      "project": ["src/**/*.ts", "src/**/*.tsx"],
-      "ignore": ["**/tests/**"]
+      "entry": ["api/index.ts", "web/main.tsx", "lib/index.ts"],
+      "project": ["api/**/*.ts", "web/**/*.ts", "web/**/*.tsx", "lib/**/*.ts"],
+      "ignore": ["**/synpress.config.ts", "**/playwright.config.ts", "**/tests/**"]
+    },
+    "apps/wallet": {
+      "entry": ["web/main.tsx", "lib/index.ts", "extension/background/index.ts", "extension/content/index.ts", "extension/popup/index.tsx"],
+      "project": ["api/**/*.ts", "web/**/*.ts", "web/**/*.tsx", "lib/**/*.ts", "extension/**/*.ts", "extension/**/*.tsx"],
+      "ignore": ["**/synpress.config.ts", "**/playwright.config.ts", "**/tests/**"]
     }
   },
   "ignore": [
     "vendor/**",
+    "vendor_examples/**",
     "8004/**",
     "**/node_modules/**",
     "packages/contracts/lib/**",
@@ -146,28 +189,22 @@
     "**/*.config.ts",
     "**/*.config.js",
     "**/synpress.config.ts",
-    "**/playwright.config.ts"
+    "**/playwright.config.ts",
+    "**/eslint.config.js"
   ],
   "ignoreDependencies": [
     "@playwright/test",
     "@synthetixio/synpress",
     "@jejunetwork/tests",
-    "knip",
     "madge",
     "depcheck",
-    "playwright",
     "playwright-core",
     "prettier",
     "prettier-plugin-solidity",
     "solhint",
-    "turbo",
-    "typedoc-plugin-markdown",
-    "concurrently",
     "autoprefixer",
     "postcss",
-    "tailwindcss",
-    "bun",
-    "bun:test"
+    "vitepress"
   ],
   "rules": {
     "classMembers": "off",

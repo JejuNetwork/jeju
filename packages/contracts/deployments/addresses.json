@@ -154,7 +154,7 @@
   },
   
   "jeju-localnet": {
-    "chainId": 1337,
+    "chainId": 31337,
     "_note": "Deploy locally with scripts/deploy-all.ts",
     
     "tokens": {

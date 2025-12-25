@@ -13,7 +13,7 @@ const test = testWithSynpress(metaMaskFixtures(basicSetup))
 const { expect } = test
 
 const RPC_URL = process.env.L2_RPC_URL ?? 'http://localhost:6546'
-const CHAIN_ID = parseInt(process.env.CHAIN_ID ?? '1337', 10)
+const CHAIN_ID = parseInt(process.env.CHAIN_ID ?? '31337', 10)
 
 const publicClient = createPublicClient({
   chain: {

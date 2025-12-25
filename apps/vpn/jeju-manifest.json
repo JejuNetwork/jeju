@@ -6,13 +6,16 @@
   "type": "app",
   "description": "Free, decentralized VPN powered by the community. Unlimited VPN access in exchange for contributing bandwidth to the network.",
   "commands": {
-    "dev": "bun run dev:web",
-    "build": "bun build index.html --outdir=dist --minify",
-    "start": "bun run preview",
-    "test": "bun test src"
+    "dev": "bun run dev",
+    "dev:web": "bun run dev:web",
+    "dev:api": "bun run dev:api",
+    "build": "bun run build",
+    "start": "bun run start",
+    "test": "bun run test"
   },
   "ports": {
-    "main": 1421,
+    "web": 1421,
+    "api": 4021,
     "wireguard": 51820
   },
   "dependencies": ["contracts", "config", "dws"],
@@ -26,7 +29,7 @@
     "url": "https://vpn.jejunetwork.org"
   },
   "healthCheck": {
-    "url": "http://localhost:1421/health",
+    "url": "http://localhost:4021/health",
     "interval": 30000
   },
   "agent": {

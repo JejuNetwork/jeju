@@ -17,8 +17,27 @@ import {
   parseAbiItem,
 } from 'viem'
 import { arbitrum, base, bsc, mainnet, optimism } from 'viem/chains'
+import { z } from 'zod'
 
-// ============ Types ============
+// API response schemas
+const DefiLlamaPriceResponseSchema = z.object({
+  coins: z.record(z.string(), z.object({ price: z.number() })),
+})
+
+const AlchemyTransferResponseSchema = z.object({
+  result: z.object({
+    transfers: z.array(
+      z.object({
+        blockNum: z.string(),
+        hash: z.string(),
+        from: z.string(),
+        to: z.string(),
+        value: z.number(),
+        asset: z.string(),
+      }),
+    ),
+  }),
+})
 
 interface HistoricalSwap {
   blockNumber: bigint
@@ -61,9 +80,6 @@ interface HistoricalAnalysisResult {
   }>
   recommendations: string[]
 }
-
-// ============ Constants ============
-
 const CHAINS: Array<{
   chainId: number
   name: string
@@ -131,9 +147,6 @@ const _SWAP_EVENT = parseAbiItem(
 const _UNISWAP_V3_SWAP = parseAbiItem(
   'event Swap(address indexed sender, address indexed recipient, int256 amount0, int256 amount1, uint160 sqrtPriceX96, uint128 liquidity, int24 tick)',
 )
-
-// ============ Historical MEV Analyzer ============
-
 export class HistoricalMEVAnalyzer {
   private clients: Map<number, PublicClient<HttpTransport, Chain>> = new Map()
   private priceCache: Map<string, number> = new Map()
@@ -289,14 +302,16 @@ export class HistoricalMEVAnalyzer {
         'https://coins.llama.fi/prices/current/ethereum:0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2,ethereum:0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599',
       )
       if (response.ok) {
-        const data = (await response.json()) as {
-          coins: Record<string, { price: number }>
-        }
-        for (const [key, value] of Object.entries(data.coins)) {
-          if (key.includes('0xC02aaA39'))
-            this.priceCache.set('ETH', value.price)
-          if (key.includes('0x2260FAC5'))
-            this.priceCache.set('BTC', value.price)
+        const parseResult = DefiLlamaPriceResponseSchema.safeParse(
+          await response.json(),
+        )
+        if (parseResult.success) {
+          for (const [key, value] of Object.entries(parseResult.data.coins)) {
+            if (key.includes('0xC02aaA39'))
+              this.priceCache.set('ETH', value.price)
+            if (key.includes('0x2260FAC5'))
+              this.priceCache.set('BTC', value.price)
+          }
         }
       }
     } catch {
@@ -520,9 +535,6 @@ export class HistoricalMEVAnalyzer {
     console.log('')
   }
 }
-
-// ============ Real Opportunity Fetcher ============
-
 export class RealOpportunityFetcher {
   private heliusKey?: string
   private alchemyKey?: string
@@ -566,19 +578,11 @@ export class RealOpportunityFetcher {
         )
 
         if (response.ok) {
-          const data = (await response.json()) as {
-            result: {
-              transfers: Array<{
-                blockNum: string
-                hash: string
-                from: string
-                to: string
-                value: number
-                asset: string
-              }>
-            }
-          }
-          for (const transfer of data.result.transfers) {
+          const parseResult = AlchemyTransferResponseSchema.safeParse(
+            await response.json(),
+          )
+          if (!parseResult.success) return swaps
+          for (const transfer of parseResult.data.result.transfers) {
             swaps.push({
               blockNumber: BigInt(parseInt(transfer.blockNum, 16)),
               txHash: transfer.hash,
@@ -678,9 +682,6 @@ export class RealOpportunityFetcher {
     return swaps
   }
 }
-
-// ============ CLI ============
-
 async function main() {
   const analyzer = new HistoricalMEVAnalyzer()
   const result = await analyzer.analyze(500) // Last 500 blocks per chain

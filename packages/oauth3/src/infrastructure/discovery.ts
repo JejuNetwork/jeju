@@ -2,6 +2,7 @@
  * OAuth3 Discovery - App and TEE node discovery via on-chain registries
  */
 
+import { ZERO_ADDRESS } from '@jejunetwork/types'
 import {
   type Address,
   createPublicClient,
@@ -27,7 +28,6 @@ import {
   CHAIN_IDS,
   DEFAULT_RPC,
   getContracts,
-  ZERO_ADDRESS,
 } from './config.js'
 import {
   createOAuth3JNSService,
@@ -355,7 +355,7 @@ export class OAuth3DecentralizedDiscovery {
     }
     const attestation = attestResult.data
 
-    // SECURITY: Simulated TEE is ONLY allowed in localnet (chain 420691 or 1337)
+    // SECURITY: Simulated TEE is ONLY allowed in localnet (chain 420691 or 31337)
     // Use the configured chainId from the service, not environment variable
     const configuredChainId = this.getConfiguredChainId()
     const isLocalnet =

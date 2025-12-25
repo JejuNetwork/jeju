@@ -17,7 +17,7 @@ export const TEST_WALLET = {
 }
 
 const jejuLocalnet = {
-  id: 1337,
+  id: 31337,
   name: 'Jeju Localnet',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
@@ -68,7 +68,7 @@ export interface ContractAddresses {
 }
 
 export async function getContractAddresses(): Promise<ContractAddresses> {
-  const deployed = getDeployedAddresses(1337)
+  const deployed = getDeployedAddresses(31337)
   const client = getPublicClient()
 
   // Allow env overrides for testing

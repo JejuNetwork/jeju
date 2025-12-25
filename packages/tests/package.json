@@ -31,6 +31,11 @@
     "@synthetixio/synpress": ">=4.0.0",
     "playwright-core": ">=1.55.1"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/elizaos/jeju.git",
+    "directory": "packages/tests"
+  },
   "publishConfig": {
     "access": "public"
   }

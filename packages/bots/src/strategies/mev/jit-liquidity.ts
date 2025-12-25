@@ -10,7 +10,7 @@
  * Full implementation with Flashbots bundle submission.
  */
 
-import { EventEmitter } from 'node:events'
+import { EventEmitter } from '@jejunetwork/shared'
 import {
   type PublicClient,
   type WalletClient,

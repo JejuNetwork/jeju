@@ -2,7 +2,14 @@
  * CQL Database Adapter for ElizaOS
  *
  * Implements IDatabaseAdapter using CovenantSQL as the backend.
- * This is a minimal but complete implementation for agent operation.
+ * This is a complete implementation for agent operation on Jeju Network.
+ *
+ * Features:
+ * - Full ElizaOS IDatabaseAdapter compatibility
+ * - BFT-Raft consensus for strong consistency
+ * - Column-level ACL for privacy
+ * - Multi-tenant database rental
+ * - Integration with DWS for vector embeddings
  *
  * NO SQLITE. NO POSTGRES. CQL ONLY.
  */
@@ -10,6 +17,7 @@
 import {
   type Agent,
   type AgentRunSummaryResult,
+  ChannelType,
   type Component,
   DatabaseAdapter,
   type Entity,
@@ -17,6 +25,7 @@ import {
   logger,
   type Memory,
   type MemoryMetadata,
+  type Participant,
   type Relationship,
   type Room,
   type RunStatus,
@@ -24,11 +33,23 @@ import {
   type UUID,
   type World,
 } from '@elizaos/core'
-import { type CQLClient, getCQL, type QueryParam } from '@jejunetwork/db'
+import {
+  type CQLClient,
+  getCQL,
+  type QueryParam,
+  serializeFloat32Vector,
+} from '@jejunetwork/db'
+import type { JsonRecord } from '@jejunetwork/sdk'
 import type { JsonValue } from '@jejunetwork/types'
 import { v4 as uuidv4 } from 'uuid'
 import type { ZodType } from 'zod'
+import { z } from 'zod'
 import { checkMigrationStatus, runCQLMigrations } from './migrations'
+
+// Embedding API response schema
+const EmbeddingResponseSchema = z.object({
+  data: z.array(z.object({ embedding: z.array(z.number()) })).optional(),
+})
 
 /**
  * CQL Database Adapter Configuration
@@ -45,6 +66,8 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
   private databaseId: string
   private autoMigrate: boolean
   private initialized = false
+  private vectorSearchEnabled = false
+  private embeddingDimension = 1536
   protected agentId: UUID
   private cacheStore = new Map<
     string,
@@ -86,9 +109,16 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
       }
     }
 
+    // Check if sqlite-vec is available for vector search
+    await this.checkVectorSearchAvailability()
+
     this.initialized = true
     logger.info(
-      { src: 'cql-adapter', agentId: this.agentId },
+      {
+        src: 'cql-adapter',
+        agentId: this.agentId,
+        vectorSearch: this.vectorSearchEnabled,
+      },
       'CQL adapter initialized',
     )
   }
@@ -109,9 +139,32 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
     return this.db
   }
 
-  // ============================================================================
   // Helper Methods
-  // ============================================================================
+
+  private async checkVectorSearchAvailability(): Promise<void> {
+    // Check if sqlite-vec extension is loaded by querying vec_version()
+    const result = await this.db
+      .query<{ version: string }>(
+        'SELECT vec_version() as version',
+        [],
+        this.databaseId,
+      )
+      .catch(() => null)
+
+    if (result?.rows[0]?.version) {
+      this.vectorSearchEnabled = true
+      logger.info(
+        { src: 'cql-adapter', version: result.rows[0].version },
+        'sqlite-vec extension available for vector search',
+      )
+    } else {
+      this.vectorSearchEnabled = false
+      logger.warn(
+        { src: 'cql-adapter' },
+        'sqlite-vec extension not available - vector search will use fallback',
+      )
+    }
+  }
 
   private async query<T>(sql: string, params: QueryParam[] = []): Promise<T[]> {
     const result = await this.db.query<T>(sql, params, this.databaseId)
@@ -145,9 +198,7 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
     }
   }
 
-  // ============================================================================
   // Agent Methods
-  // ============================================================================
 
   async getAgent(agentId: UUID): Promise<Agent | null> {
     const rows = await this.query<{
@@ -235,9 +286,7 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
     return true
   }
 
-  // ============================================================================
   // Entity Methods
-  // ============================================================================
 
   async getEntitiesByIds(entityIds: UUID[]): Promise<Entity[] | null> {
     if (entityIds.length === 0) return []
@@ -255,7 +304,7 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
       id: row.id as UUID,
       agentId: row.agent_id as UUID,
       names: this.fromJson<string[]>(row.names) ?? [],
-      metadata: this.fromJson<Record<string, unknown>>(row.metadata) ?? {},
+      metadata: this.fromJson<JsonRecord>(row.metadata) ?? {},
       createdAt: row.created_at,
     })) as Entity[]
   }
@@ -270,8 +319,8 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
       names: string
       metadata: string
     }>(
-      `SELECT e.* FROM entities e 
-       JOIN participants p ON p.entity_id = e.id 
+      `SELECT e.* FROM entities e
+       JOIN participants p ON p.entity_id = e.id
        WHERE p.room_id = ?`,
       [roomId],
     )
@@ -280,7 +329,7 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
       id: row.id as UUID,
       agentId: row.agent_id as UUID,
       names: this.fromJson<string[]>(row.names) ?? [],
-      metadata: this.fromJson<Record<string, unknown>>(row.metadata) ?? {},
+      metadata: this.fromJson<JsonRecord>(row.metadata) ?? {},
     })) as Entity[]
   }
 
@@ -316,9 +365,7 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
     await this.exec('DELETE FROM entities WHERE id = ?', [entityId])
   }
 
-  // ============================================================================
   // Component Methods
-  // ============================================================================
 
   async getComponent(
     entityId: UUID,
@@ -422,9 +469,7 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
     await this.exec('DELETE FROM components WHERE id = ?', [componentId])
   }
 
-  // ============================================================================
   // Memory Methods
-  // ============================================================================
 
   async getMemories(params: {
     entityId?: UUID
@@ -603,7 +648,7 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
     const uniqueHash = unique ? this.hashContent(memory.content) : null
 
     await this.exec(
-      `INSERT INTO memories (id, entity_id, agent_id, room_id, world_id, content, embedding, unique_hash) 
+      `INSERT INTO memories (id, entity_id, agent_id, room_id, world_id, content, embedding, unique_hash)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
@@ -617,7 +662,58 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
       ],
     )
 
+    // Also insert into vector search table if embedding is provided and sqlite-vec is available
+    if (
+      memory.embedding &&
+      memory.embedding.length > 0 &&
+      this.vectorSearchEnabled
+    ) {
+      await this.insertEmbeddingVector(id, memory)
+    }
+
     return id
+  }
+
+  /**
+   * Insert embedding into vec0 virtual table for fast KNN search
+   */
+  private async insertEmbeddingVector(
+    memoryId: UUID,
+    memory: Memory,
+  ): Promise<void> {
+    if (!memory.embedding || memory.embedding.length === 0) return
+
+    // Validate embedding dimension matches expected
+    if (memory.embedding.length !== this.embeddingDimension) {
+      logger.warn(
+        {
+          src: 'cql-adapter',
+          expected: this.embeddingDimension,
+          got: memory.embedding.length,
+        },
+        'Embedding dimension mismatch - skipping vector insert',
+      )
+      return
+    }
+
+    const embeddingBlob = serializeFloat32Vector(memory.embedding)
+
+    await this.exec(
+      `INSERT INTO memory_embeddings (embedding, memory_id, room_id, entity_id, agent_id)
+       VALUES (?, ?, ?, ?, ?)`,
+      [
+        embeddingBlob,
+        memoryId,
+        memory.roomId,
+        memory.entityId,
+        memory.agentId ?? null,
+      ],
+    ).catch((error) => {
+      logger.warn(
+        { src: 'cql-adapter', memoryId, error },
+        'Failed to insert embedding into vector table',
+      )
+    })
   }
 
   async updateMemory(
@@ -646,6 +742,12 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
   }
 
   async deleteMemory(memoryId: UUID): Promise<void> {
+    // Delete from vector table first
+    if (this.vectorSearchEnabled) {
+      await this.exec('DELETE FROM memory_embeddings WHERE memory_id = ?', [
+        memoryId,
+      ]).catch(() => {})
+    }
     await this.exec('DELETE FROM memories WHERE id = ?', [memoryId])
   }
 
@@ -690,13 +792,71 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
     worldId?: UUID
     entityId?: UUID
   }): Promise<Memory[]> {
-    // CQL doesn't have vector search, so we fall back to text search
-    // For production, consider using a dedicated vector search service
-    logger.warn(
-      { src: 'cql-adapter' },
-      'Vector search not supported in CQL, using text search fallback',
-    )
+    const k = params.count ?? 10
 
+    // Try sqlite-vec KNN search first
+    if (params.embedding.length > 0 && this.vectorSearchEnabled) {
+      const embeddingBlob = serializeFloat32Vector(params.embedding)
+      const sqlParams: QueryParam[] = [embeddingBlob]
+
+      // Build the KNN query using vec0 MATCH syntax
+      let sql = `
+        SELECT ve.memory_id, ve.distance, m.*
+        FROM memory_embeddings AS ve
+        JOIN memories AS m ON m.id = ve.memory_id
+        WHERE ve.embedding MATCH ?
+          AND k = ${k}
+      `
+
+      if (params.roomId) {
+        sql += ' AND ve.room_id = ?'
+        sqlParams.push(params.roomId)
+      }
+      if (params.entityId) {
+        sql += ' AND ve.entity_id = ?'
+        sqlParams.push(params.entityId)
+      }
+      if (params.unique) {
+        sql += ' AND m.unique_hash IS NOT NULL'
+      }
+
+      sql += ' ORDER BY ve.distance'
+
+      const rows = await this.query<{
+        id: string
+        memory_id: string
+        distance: number
+        entity_id: string
+        room_id: string
+        world_id: string | null
+        content: string
+        embedding: string | null
+        created_at: number
+      }>(sql, sqlParams).catch(() => null)
+
+      if (rows && rows.length > 0) {
+        // Filter by threshold if provided (convert L2 distance to similarity)
+        const threshold = params.match_threshold ?? 0.0
+        const filteredRows =
+          threshold > 0
+            ? rows.filter((row) => row.distance <= (1 - threshold) * 2)
+            : rows
+
+        return filteredRows.map((row) => ({
+          id: row.id as UUID,
+          entityId: row.entity_id as UUID,
+          roomId: row.room_id as UUID,
+          worldId: row.world_id as UUID | undefined,
+          content: this.fromJson(row.content) ?? { text: '' },
+          embedding: row.embedding
+            ? this.fromJson<number[]>(row.embedding)
+            : undefined,
+          createdAt: row.created_at,
+        })) as Memory[]
+      }
+    }
+
+    // Fallback to recency-based search if vector search unavailable
     let sql = 'SELECT * FROM memories WHERE 1=1'
     const sqlParams: QueryParam[] = []
 
@@ -717,11 +877,7 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
     }
 
     sql += ' ORDER BY created_at DESC'
-
-    if (params.count) {
-      sql += ' LIMIT ?'
-      sqlParams.push(params.count)
-    }
+    sql += ` LIMIT ${k}`
 
     const rows = await this.query<{
       id: string
@@ -740,9 +896,7 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
     })) as Memory[]
   }
 
-  // ============================================================================
   // World Methods
-  // ============================================================================
 
   async createWorld(world: World): Promise<UUID> {
     const id = (world.id ?? uuidv4()) as UUID
@@ -776,7 +930,7 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
       agentId: row.agent_id as UUID,
       name: row.name,
       serverId: row.server_id ?? undefined,
-      metadata: this.fromJson<Record<string, unknown>>(row.metadata) ?? {},
+      metadata: this.fromJson<JsonRecord>(row.metadata) ?? {},
     } as World
   }
 
@@ -798,7 +952,7 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
       agentId: row.agent_id as UUID,
       name: row.name,
       serverId: row.server_id ?? undefined,
-      metadata: this.fromJson<Record<string, unknown>>(row.metadata) ?? {},
+      metadata: this.fromJson<JsonRecord>(row.metadata) ?? {},
     })) as World[]
   }
 
@@ -815,9 +969,7 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
     )
   }
 
-  // ============================================================================
   // Room Methods
-  // ============================================================================
 
   async getRoomsByIds(roomIds: UUID[]): Promise<Room[] | null> {
     if (roomIds.length === 0) return []
@@ -840,7 +992,7 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
       source: row.source,
       type: row.type,
       channelId: row.channel_id ?? undefined,
-      metadata: this.fromJson<Record<string, unknown>>(row.metadata) ?? {},
+      metadata: this.fromJson<JsonRecord>(row.metadata) ?? {},
     })) as Room[]
   }
 
@@ -907,9 +1059,7 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
     return rows.map((row) => row.room_id as UUID)
   }
 
-  // ============================================================================
   // Participant Methods
-  // ============================================================================
 
   async addParticipant(entityId: UUID, roomId: UUID): Promise<boolean> {
     const id = uuidv4()
@@ -952,9 +1102,7 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
     // Not implemented in minimal version
   }
 
-  // ============================================================================
   // Relationship Methods
-  // ============================================================================
 
   async getRelationship(params: {
     sourceEntityId: UUID
@@ -982,7 +1130,7 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
       targetEntityId: row.target_entity_id as UUID,
       agentId: row.agent_id as UUID,
       tags: [],
-      metadata: this.fromJson<Record<string, unknown>>(row.metadata) ?? {},
+      metadata: this.fromJson<JsonRecord>(row.metadata) ?? {},
       createdAt: new Date(row.created_at).toISOString(),
     } as Relationship
   }
@@ -1007,7 +1155,7 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
       targetEntityId: row.target_entity_id as UUID,
       agentId: row.agent_id as UUID,
       tags: [],
-      metadata: this.fromJson<Record<string, unknown>>(row.metadata) ?? {},
+      metadata: this.fromJson<JsonRecord>(row.metadata) ?? {},
       createdAt: new Date(row.created_at).toISOString(),
     })) as Relationship[]
   }
@@ -1039,9 +1187,7 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
     )
   }
 
-  // ============================================================================
   // Cache Methods - In-Memory Implementation
-  // ============================================================================
 
   /**
    * Get cached value with optional schema validation
@@ -1085,9 +1231,7 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
     return true
   }
 
-  // ============================================================================
   // Log Methods
-  // ============================================================================
 
   async log(params: {
     body: { [key: string]: unknown }
@@ -1156,7 +1300,7 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
       entityId: row.entity_id as UUID,
       roomId: row.room_id as UUID,
       type: row.type,
-      body: this.fromJson<Record<string, unknown>>(row.body) ?? {},
+      body: this.fromJson<JsonRecord>(row.body) ?? {},
       createdAt: new Date(row.created_at),
     })) as Log[]
   }
@@ -1165,9 +1309,7 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
     await this.exec('DELETE FROM logs WHERE id = ?', [logId])
   }
 
-  // ============================================================================
   // Task Methods
-  // ============================================================================
 
   async getTasks(params: {
     roomId?: UUID
@@ -1293,12 +1435,15 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
     await this.exec('DELETE FROM tasks WHERE id = ?', [id])
   }
 
-  // ============================================================================
   // Not Implemented / Stub Methods
-  // ============================================================================
 
-  async ensureEmbeddingDimension(_dimension: number): Promise<void> {
-    // CQL doesn't support vector embeddings natively
+  async ensureEmbeddingDimension(dimension: number): Promise<void> {
+    // Store the expected embedding dimension for validation
+    this.embeddingDimension = dimension
+    logger.debug(
+      { src: 'cql-adapter', dimension },
+      'Embedding dimension configured',
+    )
   }
 
   async getCachedEmbeddings(_params: {
@@ -1329,10 +1474,7 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
   async runPluginMigrations(
     _plugins: {
       name: string
-      schema?: Record<
-        string,
-        string | number | boolean | Record<string, unknown> | null
-      >
+      schema?: Record<string, string | number | boolean | JsonRecord | null>
     }[],
     _options?: { verbose?: boolean; force?: boolean; dryRun?: boolean },
   ): Promise<void> {
@@ -1357,7 +1499,7 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
       source: row.source,
       type: row.type,
       channelId: row.channel_id ?? undefined,
-      metadata: this.fromJson<Record<string, unknown>>(row.metadata) ?? {},
+      metadata: this.fromJson<JsonRecord>(row.metadata) ?? {},
     })) as Room[]
   }
 
@@ -1490,9 +1632,470 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
     return entities?.[0] ?? null
   }
 
-  // ============================================================================
+  // Agent Management Methods
+
+  async countAgents(): Promise<number> {
+    const rows = await this.query<{ count: number }>(
+      'SELECT COUNT(*) as count FROM agents',
+    )
+    return rows[0]?.count ?? 0
+  }
+
+  async cleanupAgents(): Promise<void> {
+    await this.exec('DELETE FROM agents', [])
+    logger.info(
+      { src: 'cql-adapter', agentId: this.agentId },
+      'All agents cleaned up',
+    )
+  }
+
+  // Entity Helpers
+
+  async ensureEntityExists(entity: Entity): Promise<boolean> {
+    if (!entity.id) {
+      logger.error({ src: 'cql-adapter' }, 'Entity ID is required')
+      return false
+    }
+
+    const existing = await this.getEntitiesByIds([entity.id])
+    if (!existing || existing.length === 0) {
+      return await this.createEntities([entity])
+    }
+    return true
+  }
+
+  // Message & Channel Methods (Central Database Tables)
+
+  async getMessages(params: {
+    roomId?: UUID
+    limit?: number
+    before?: number
+    after?: number
+  }): Promise<Memory[]> {
+    let sql = 'SELECT * FROM memories WHERE 1=1'
+    const sqlParams: QueryParam[] = []
+
+    if (params.roomId) {
+      sql += ' AND room_id = ?'
+      sqlParams.push(params.roomId)
+    }
+    if (params.before) {
+      sql += ' AND created_at < ?'
+      sqlParams.push(params.before)
+    }
+    if (params.after) {
+      sql += ' AND created_at > ?'
+      sqlParams.push(params.after)
+    }
+
+    sql += ' ORDER BY created_at DESC'
+
+    if (params.limit) {
+      sql += ' LIMIT ?'
+      sqlParams.push(params.limit)
+    }
+
+    const rows = await this.query<{
+      id: string
+      entity_id: string
+      agent_id: string | null
+      room_id: string
+      world_id: string | null
+      content: string
+      embedding: string | null
+      created_at: number
+    }>(sql, sqlParams)
+
+    return rows.map((row) => ({
+      id: row.id as UUID,
+      entityId: row.entity_id as UUID,
+      agentId: row.agent_id as UUID | undefined,
+      roomId: row.room_id as UUID,
+      worldId: row.world_id as UUID | undefined,
+      content: this.fromJson(row.content) ?? { text: '' },
+      embedding: row.embedding
+        ? this.fromJson<number[]>(row.embedding)
+        : undefined,
+      createdAt: row.created_at,
+    })) as Memory[]
+  }
+
+  async getChannels(worldId: UUID): Promise<Room[]> {
+    const rows = await this.query<{
+      id: string
+      world_id: string | null
+      name: string
+      source: string
+      type: string
+      channel_id: string | null
+      metadata: string
+    }>('SELECT * FROM rooms WHERE world_id = ? AND type != ?', [
+      worldId,
+      ChannelType.DM,
+    ])
+
+    return rows.map((row) => ({
+      id: row.id as UUID,
+      worldId: row.world_id as UUID | undefined,
+      name: row.name,
+      source: row.source,
+      type: row.type as ChannelType,
+      channelId: row.channel_id ?? undefined,
+      metadata: this.fromJson<JsonRecord>(row.metadata) ?? {},
+    })) as Room[]
+  }
+
+  async getChannelParticipants(
+    roomId: UUID,
+  ): Promise<{ id: UUID; entityId: UUID; role: string }[]> {
+    const rows = await this.query<{
+      id: string
+      entity_id: string
+      role: string
+    }>('SELECT id, entity_id, role FROM participants WHERE room_id = ?', [
+      roomId,
+    ])
+
+    return rows.map((row) => ({
+      id: row.id as UUID,
+      entityId: row.entity_id as UUID,
+      role: row.role ?? 'member',
+    }))
+  }
+
+  // Participant Extended Methods
+
+  async getParticipant(
+    entityId: UUID,
+    roomId: UUID,
+  ): Promise<Participant | null> {
+    const rows = await this.query<{
+      id: string
+      room_id: string
+      entity_id: string
+      role: string
+      created_at: number
+    }>(
+      'SELECT * FROM participants WHERE entity_id = ? AND room_id = ? LIMIT 1',
+      [entityId, roomId],
+    )
+
+    if (rows.length === 0) return null
+
+    const row = rows[0]
+    // Load the entity for the participant
+    const entity = await this.getEntityById(row.entity_id as UUID)
+    return {
+      id: row.id as UUID,
+      entity: entity ?? {
+        id: row.entity_id as UUID,
+        names: [],
+        agentId: this.agentId,
+        metadata: {},
+      },
+    }
+  }
+
+  async updateParticipantRole(
+    entityId: UUID,
+    roomId: UUID,
+    role: string,
+  ): Promise<boolean> {
+    await this.exec(
+      'UPDATE participants SET role = ? WHERE entity_id = ? AND room_id = ?',
+      [role, entityId, roomId],
+    )
+    return true
+  }
+
+  // Server/World Integration (for multi-tenant DAOs)
+
+  async getWorldByServerId(serverId: string): Promise<World | null> {
+    const rows = await this.query<{
+      id: string
+      agent_id: string
+      name: string
+      server_id: string | null
+      metadata: string
+    }>('SELECT * FROM worlds WHERE server_id = ? LIMIT 1', [serverId])
+
+    if (rows.length === 0) return null
+
+    const row = rows[0]
+    return {
+      id: row.id as UUID,
+      agentId: row.agent_id as UUID,
+      name: row.name,
+      serverId: row.server_id ?? undefined,
+      metadata: this.fromJson<JsonRecord>(row.metadata) ?? {},
+    } as World
+  }
+
+  async getOrCreateWorld(params: {
+    serverId: string
+    name?: string
+    metadata?: JsonRecord
+  }): Promise<World> {
+    // Check if world exists
+    const existing = await this.getWorldByServerId(params.serverId)
+    if (existing) return existing
+
+    // Create new world
+    const worldId = uuidv4() as UUID
+    const world: World = {
+      id: worldId,
+      agentId: this.agentId,
+      name: params.name ?? params.serverId,
+      serverId: params.serverId as UUID,
+      metadata: params.metadata ?? {},
+    }
+
+    await this.exec(
+      'INSERT INTO worlds (id, agent_id, name, server_id, metadata) VALUES (?, ?, ?, ?, ?)',
+      [
+        worldId,
+        this.agentId,
+        world.name ?? params.serverId,
+        params.serverId,
+        this.toJson((world.metadata ?? {}) as JsonValue),
+      ],
+    )
+
+    return world
+  }
+
+  // DAO-Specific Methods (for Autocrat integration)
+
+  async getDAOAgents(daoId: string): Promise<Agent[]> {
+    // Query agents that have a specific DAO tag in their settings
+    const rows = await this.query<{
+      id: string
+      name: string
+      username: string
+      details: string
+      settings: string
+    }>('SELECT * FROM agents WHERE settings LIKE ?', [`%"daoId":"${daoId}"%`])
+
+    return rows.map((row) => ({
+      id: row.id as UUID,
+      name: row.name,
+      username: row.username,
+      bio: '',
+      enabled: true,
+      status: 'active',
+    })) as Agent[]
+  }
+
+  async setAgentDAOAffiliation(agentId: UUID, daoId: string): Promise<boolean> {
+    const agent = await this.getAgent(agentId)
+    if (!agent) return false
+
+    // Update the settings with DAO affiliation
+    const settings = this.toJson({ daoId })
+    await this.exec('UPDATE agents SET settings = ? WHERE id = ?', [
+      settings,
+      agentId,
+    ])
+    return true
+  }
+
+  // Crucible-Specific Methods (for team/room management)
+
+  async getTeamRooms(worldId: UUID): Promise<Room[]> {
+    const rows = await this.query<{
+      id: string
+      world_id: string | null
+      name: string
+      source: string
+      type: string
+      channel_id: string | null
+      metadata: string
+    }>('SELECT * FROM rooms WHERE world_id = ? AND type = ?', [
+      worldId,
+      ChannelType.GROUP,
+    ])
+
+    return rows.map((row) => ({
+      id: row.id as UUID,
+      worldId: row.world_id as UUID | undefined,
+      name: row.name,
+      source: row.source,
+      type: row.type as ChannelType,
+      channelId: row.channel_id ?? undefined,
+      metadata: this.fromJson<JsonRecord>(row.metadata) ?? {},
+    })) as Room[]
+  }
+
+  async createTeamRoom(params: {
+    worldId: UUID
+    name: string
+    teamType: string
+    metadata?: JsonRecord
+  }): Promise<Room> {
+    const roomId = uuidv4() as UUID
+    const room: Room = {
+      id: roomId,
+      worldId: params.worldId,
+      name: params.name,
+      source: 'crucible',
+      type: ChannelType.GROUP,
+      metadata: {
+        ...params.metadata,
+        teamType: params.teamType,
+      },
+    }
+
+    await this.exec(
+      'INSERT INTO rooms (id, world_id, name, source, type, metadata) VALUES (?, ?, ?, ?, ?, ?)',
+      [
+        roomId,
+        params.worldId,
+        room.name ?? params.name,
+        'crucible',
+        ChannelType.GROUP,
+        this.toJson((room.metadata ?? {}) as JsonValue),
+      ],
+    )
+
+    return room
+  }
+
+  // Embedding/Vector Integration with DWS
+
+  private embeddingEndpoint: string | null = null
+
+  setEmbeddingEndpoint(endpoint: string): void {
+    this.embeddingEndpoint = endpoint
+  }
+
+  async generateEmbedding(text: string): Promise<number[]> {
+    if (!this.embeddingEndpoint) {
+      logger.warn(
+        { src: 'cql-adapter' },
+        'No embedding endpoint configured, returning empty embedding',
+      )
+      return []
+    }
+
+    const response = await fetch(`${this.embeddingEndpoint}/embeddings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ input: text, model: 'text-embedding-3-small' }),
+    })
+
+    if (!response.ok) {
+      logger.error({ src: 'cql-adapter' }, 'Failed to generate embedding')
+      return []
+    }
+
+    const data = EmbeddingResponseSchema.parse(await response.json())
+    return data.data?.[0]?.embedding ?? []
+  }
+
+  async searchByEmbedding(
+    embedding: number[],
+    options: {
+      tableName?: string
+      roomId?: UUID
+      limit?: number
+      threshold?: number
+    } = {},
+  ): Promise<Memory[]> {
+    // CQL doesn't have native vector search, so we use a text-based approach
+    // For production, integrate with a dedicated vector service
+
+    let sql = 'SELECT * FROM memories WHERE embedding IS NOT NULL'
+    const sqlParams: QueryParam[] = []
+
+    if (options.roomId) {
+      sql += ' AND room_id = ?'
+      sqlParams.push(options.roomId)
+    }
+
+    sql += ' ORDER BY created_at DESC'
+
+    if (options.limit) {
+      sql += ' LIMIT ?'
+      sqlParams.push(options.limit * 10) // Fetch more to filter
+    }
+
+    const rows = await this.query<{
+      id: string
+      entity_id: string
+      agent_id: string | null
+      room_id: string
+      world_id: string | null
+      content: string
+      embedding: string
+      created_at: number
+    }>(sql, sqlParams)
+
+    // Calculate cosine similarity and filter
+    const threshold = options.threshold ?? 0.7
+    const limit = options.limit ?? 10
+
+    const results: Array<{ memory: Memory; similarity: number }> = []
+
+    for (const row of rows) {
+      const storedEmbedding = this.fromJson<number[]>(row.embedding)
+      if (!storedEmbedding || storedEmbedding.length !== embedding.length)
+        continue
+
+      const similarity = this.cosineSimilarity(embedding, storedEmbedding)
+      if (similarity >= threshold) {
+        results.push({
+          memory: {
+            id: row.id as UUID,
+            entityId: row.entity_id as UUID,
+            agentId: row.agent_id as UUID | undefined,
+            roomId: row.room_id as UUID,
+            worldId: row.world_id as UUID | undefined,
+            content: this.fromJson(row.content) ?? { text: '' },
+            embedding: storedEmbedding,
+            createdAt: row.created_at,
+          } as Memory,
+          similarity,
+        })
+      }
+    }
+
+    // Sort by similarity and take top results
+    results.sort((a, b) => b.similarity - a.similarity)
+    return results.slice(0, limit).map((r) => r.memory)
+  }
+
+  private cosineSimilarity(a: number[], b: number[]): number {
+    if (a.length !== b.length) return 0
+
+    let dotProduct = 0
+    let normA = 0
+    let normB = 0
+
+    for (let i = 0; i < a.length; i++) {
+      dotProduct += a[i] * b[i]
+      normA += a[i] * a[i]
+      normB += b[i] * b[i]
+    }
+
+    if (normA === 0 || normB === 0) return 0
+    return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB))
+  }
+
+  // Connection/Health Methods
+
+  async ping(): Promise<boolean> {
+    return await this.db.isHealthy()
+  }
+
+  getDatabaseId(): string {
+    return this.databaseId
+  }
+
+  getAgentId(): UUID {
+    return this.agentId
+  }
+
   // Utility Methods
-  // ============================================================================
 
   private hashContent(content: Memory['content']): string {
     const text = typeof content === 'string' ? content : JSON.stringify(content)

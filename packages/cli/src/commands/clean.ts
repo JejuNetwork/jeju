@@ -1,6 +1,4 @@
-/**
- * jeju clean - Clean build artifacts
- */
+/** Clean build artifacts */
 
 import { existsSync, rmSync } from 'node:fs'
 import { $ } from 'bun'

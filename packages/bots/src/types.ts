@@ -10,17 +10,11 @@ import type {
   SolanaNetwork,
 } from '@jejunetwork/types'
 import type { Address } from 'viem'
-
-// ============ Chain Types ============
-
 /** Bot-specific chain configuration */
 export interface ChainConfig extends BaseChainConfig {
   blockTimeMs: number
   nativeCurrency: { symbol: string; decimals: number }
 }
-
-// ============ Token Types ============
-
 /** Token type for bots package, compatible with SharedToken */
 export interface Token {
   address: string
@@ -47,9 +41,6 @@ export interface TokenPair {
   tokenB: Token
   poolAddress?: string
 }
-
-// ============ Pool Types ============
-
 export interface Pool {
   address: string
   chainId: EVMChainId
@@ -63,9 +54,6 @@ export interface Pool {
 }
 
 import type { DexProtocol } from '@jejunetwork/types'
-
-// ============ TFMM Types ============
-
 export interface TFMMPool extends Pool {
   dex: 'tfmm'
   tokens: Token[]
@@ -94,9 +82,6 @@ export interface TFMMWeightUpdate {
   blockNumber: bigint
   txHash: string
 }
-
-// ============ Strategy Types ============
-
 export type StrategyType =
   | 'dex-arbitrage'
   | 'cross-chain-arbitrage'
@@ -122,9 +107,6 @@ export interface TFMMStrategyConfig extends StrategyConfig {
   sensitivity: number
   ruleType: 'momentum' | 'mean-reversion' | 'volatility' | 'composite'
 }
-
-// ============ Opportunity Types ============
-
 export type OpportunityStatus =
   | 'DETECTED'
   | 'EXECUTING'
@@ -159,9 +141,6 @@ export interface CrossChainArbOpportunity extends ArbitrageOpportunity {
   bridgeFee: string
   bridgeTime: number
 }
-
-// ============ Oracle Types ============
-
 export interface OraclePrice {
   token: string
   price: bigint
@@ -187,9 +166,6 @@ export interface OracleConfig {
   heartbeatSeconds: number
   deviationThresholdBps: number
 }
-
-// ============ Fee Configuration ============
-
 export interface FeeConfig {
   swapFeeBps: number
   protocolFeeBps: number
@@ -198,9 +174,6 @@ export interface FeeConfig {
   treasuryAddress: Address
   governanceAddress: Address
 }
-
-// ============ Risk Parameters ============
-
 export interface RiskParameters {
   maxPositionSizeWei: bigint
   maxDailyLossWei: bigint
@@ -220,9 +193,6 @@ export interface TFMMRiskParameters {
   oracleStalenessSeconds: number
   maxPriceDeviationBps: number
 }
-
-// ============ Simulation Types ============
-
 export interface BacktestResult {
   totalReturn: number
   annualizedReturn: number
@@ -263,9 +233,6 @@ export interface RiskMetrics {
   skewness?: number
   kurtosis?: number
 }
-
-// ============ Bot Stats ============
-
 export interface BotStats {
   uptime: number
   totalProfitUsd: number

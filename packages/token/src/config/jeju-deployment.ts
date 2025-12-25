@@ -21,9 +21,7 @@ import {
   solanaMainnet,
 } from './chains'
 
-// =============================================================================
 // TOKEN CONSTANTS
-// =============================================================================
 
 export const JEJU_TOKEN_NAME = 'Jeju'
 export const JEJU_TOKEN_SYMBOL = 'JEJU'
@@ -37,9 +35,7 @@ export const JEJU_INITIAL_SUPPLY_WEI = JEJU_INITIAL_SUPPLY * 10n ** 18n
 export const JEJU_FAUCET_AMOUNT = 100n * 10n ** 18n // 100 JEJU per drip
 export const JEJU_FAUCET_COOLDOWN = 24 * 60 * 60 // 24 hours
 
-// =============================================================================
 // DEPLOYMENT ADDRESSES
-// =============================================================================
 
 export interface JEJUDeploymentAddresses {
   token: string
@@ -60,13 +56,11 @@ export interface JEJUDeployment {
   deployTxHash?: string
 }
 
-// =============================================================================
 // LOCALNET CONFIGURATION
-// =============================================================================
 
 export const JEJU_LOCALNET_CONFIG = {
   homeChain: {
-    chainId: 1337,
+    chainId: 31337,
     chainType: 'evm' as const,
     name: 'Anvil Localnet',
     rpcUrl: 'http://localhost:6546',
@@ -90,9 +84,7 @@ export const JEJU_LOCALNET_CONFIG = {
   },
 }
 
-// =============================================================================
 // TESTNET CONFIGURATION
-// =============================================================================
 
 export const JEJU_TESTNET_CONFIG = {
   homeChain: jejuTestnet,
@@ -116,9 +108,7 @@ export const JEJU_TESTNET_CONFIG = {
   },
 }
 
-// =============================================================================
 // MAINNET CONFIGURATION
-// =============================================================================
 
 // Note: JEJU mainnet deployment pending Jeju Network launch
 export const JEJU_MAINNET_CONFIG = {
@@ -162,9 +152,7 @@ export const JEJU_MAINNET_CONFIG = {
   },
 }
 
-// =============================================================================
 // DEPLOYMENT STATE TRACKING
-// =============================================================================
 
 export const JEJU_LOCALNET_DEPLOYMENTS: Map<number | string, JEJUDeployment> =
   new Map()
@@ -217,9 +205,7 @@ export function getJEJUDeployedChains(
     .map(([chainId]) => chainId)
 }
 
-// =============================================================================
 // DEPLOYMENT HELPERS
-// =============================================================================
 
 export function getJEJUDeploymentConfig(
   network: 'localnet' | 'testnet' | 'mainnet',
@@ -242,9 +228,7 @@ export function getJEJUChainConfig(
   return config.syntheticChains.find((c) => c.chainId === chainId)
 }
 
-// =============================================================================
 // TOKEN METADATA
-// =============================================================================
 
 export const JEJU_TOKEN_METADATA = {
   name: JEJU_TOKEN_NAME,

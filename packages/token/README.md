@@ -114,8 +114,7 @@ console.log('Synthetic chains:', config.syntheticChains.map(c => c.name));
 ### Use Hyperlane Adapter
 
 ```typescript
-import { HyperlaneAdapter } from '@jejunetwork/token';
-import { MAINNET_CHAINS } from '@jejunetwork/token/config';
+import { HyperlaneAdapter, MAINNET_CHAINS } from '@jejunetwork/token';
 
 const adapter = new HyperlaneAdapter(MAINNET_CHAINS, {});
 

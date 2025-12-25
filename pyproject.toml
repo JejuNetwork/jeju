@@ -9,8 +9,7 @@ pythonVersion = "3.10"
 typeCheckingMode = "basic"
 include = [
     "packages/training/python",
-    "apps/dws/src/rlaif",
-    "apps/dws/src/training",
+    "apps/dws/api/rlaif",
     "vendor/babylon/packages/training/python",
     "vendor/babylon/packages/examples/babylon-langgraph-agent",
 ]
@@ -20,7 +19,10 @@ exclude = [
     "**/.*",
     "packages/contracts/lib",
 ]
-reportMissingImports = "warning"
+# Suppress warnings for optional ML dependencies (torch, transformers, etc.)
+# These packages are installed in specific Python environments, not globally
+reportMissingImports = "none"
+reportMissingModuleSource = "none"
 reportMissingTypeStubs = false
 reportUnknownMemberType = false
 reportUnknownArgumentType = false
@@ -29,6 +31,8 @@ reportGeneralTypeIssues = "warning"
 # Pydantic alias support causes false positives
 reportCallIssue = "warning"
 reportArgumentType = "warning"
+# Lazy __getattr__ exports in __init__.py
+reportUnsupportedDunderAll = "none"
 
 [tool.mypy]
 python_version = "3.10"

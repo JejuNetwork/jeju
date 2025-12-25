@@ -7,14 +7,16 @@
  * - mainnet: Jeju Mainnet for production (chain 420692)
  */
 
+import { getEnv } from '@jejunetwork/shared'
+import { type NetworkType, ZERO_ADDRESS } from '@jejunetwork/types'
 import type { Address } from 'viem'
 
-export type NetworkType = 'localnet' | 'testnet' | 'mainnet'
+export type { NetworkType }
 export type TEEMode = 'dstack' | 'phala' | 'simulated' | 'auto'
 
 export const CHAIN_IDS = {
   localnet: 420691,
-  localnetAnvil: 1337, // Standard anvil/hardhat chain ID
+  localnetAnvil: 31337, // Standard anvil/hardhat chain ID
   testnet: 420690,
   mainnet: 420692,
 } as const
@@ -25,7 +27,7 @@ export const RPC_URLS: Record<NetworkType, string> = {
   mainnet: 'https://mainnet.jejunetwork.org',
 } as const
 
-export const DEFAULT_RPC = process.env.JEJU_RPC_URL || RPC_URLS.localnet
+export const DEFAULT_RPC = getEnv('JEJU_RPC_URL') || RPC_URLS.localnet
 
 // DWS Storage endpoints - all environments use DWS for storage
 // DWS exposes IPFS-compatible API at /storage/api/v0/* and /storage/ipfs/*
@@ -54,9 +56,9 @@ export const DWS_ENDPOINTS: Record<
 export const IPFS_ENDPOINTS = DWS_ENDPOINTS
 
 export const DEFAULT_IPFS_API =
-  process.env.IPFS_API_ENDPOINT || IPFS_ENDPOINTS.localnet.api
+  getEnv('IPFS_API_ENDPOINT') || IPFS_ENDPOINTS.localnet.api
 export const DEFAULT_IPFS_GATEWAY =
-  process.env.IPFS_GATEWAY_ENDPOINT || IPFS_ENDPOINTS.localnet.gateway
+  getEnv('IPFS_GATEWAY_ENDPOINT') || IPFS_ENDPOINTS.localnet.gateway
 
 // Localnet addresses (from local anvil deployment)
 const LOCALNET_CONTRACTS = {
@@ -91,8 +93,6 @@ export const CONTRACTS = {
   mainnet: MAINNET_CONTRACTS,
 } as const
 
-export const ZERO_ADDRESS =
-  '0x0000000000000000000000000000000000000000' as Address
 export const MIN_STAKE = BigInt(1e18) // 1 ETH
 export const ATTESTATION_VALIDITY_MS = 24 * 60 * 60 * 1000 // 24 hours
 export const CACHE_EXPIRY_MS = 60000 // 1 minute
@@ -120,20 +120,19 @@ export function getContracts(chainId: number) {
 
 export function getRpcUrl(chainId: number): string {
   const network = getNetworkType(chainId)
-  return process.env.JEJU_RPC_URL || RPC_URLS[network]
+  return getEnv('JEJU_RPC_URL') || RPC_URLS[network]
 }
 
 export function getIPFSEndpoints(chainId: number) {
   const network = getNetworkType(chainId)
   return {
-    api: process.env.IPFS_API_ENDPOINT || IPFS_ENDPOINTS[network].api,
-    gateway:
-      process.env.IPFS_GATEWAY_ENDPOINT || IPFS_ENDPOINTS[network].gateway,
+    api: getEnv('IPFS_API_ENDPOINT') || IPFS_ENDPOINTS[network].api,
+    gateway: getEnv('IPFS_GATEWAY_ENDPOINT') || IPFS_ENDPOINTS[network].gateway,
   }
 }
 
 export function getEnvironmentConfig(chainId?: number) {
-  const cid = chainId || Number(process.env.CHAIN_ID) || CHAIN_IDS.localnet
+  const cid = chainId || Number(getEnv('CHAIN_ID')) || CHAIN_IDS.localnet
   const network = getNetworkType(cid)
   const contracts = getContracts(cid)
   const ipfs = getIPFSEndpoints(cid)
@@ -144,7 +143,7 @@ export function getEnvironmentConfig(chainId?: number) {
     rpcUrl: getRpcUrl(cid),
     contracts,
     ipfs,
-    teeMode: (process.env.TEE_MODE || 'simulated') as TEEMode,
+    teeMode: (getEnv('TEE_MODE') || 'simulated') as TEEMode,
   }
 }
 
@@ -169,14 +168,14 @@ export interface OAuth3AgentConfig {
 
 export function getAgentConfig(): OAuth3AgentConfig {
   return {
-    nodeId: process.env.OAUTH3_NODE_ID || `oauth3-${Date.now()}`,
-    clusterId: process.env.OAUTH3_CLUSTER_ID || 'oauth3-local-cluster',
-    port: Number(process.env.OAUTH3_PORT) || 4200,
-    chainId: Number(process.env.CHAIN_ID) || CHAIN_IDS.localnet,
-    teeMode: (process.env.TEE_MODE || 'simulated') as TEEMode,
-    mpcEnabled: process.env.MPC_ENABLED === 'true',
-    mpcThreshold: Number(process.env.MPC_THRESHOLD) || MPC_DEFAULTS.threshold,
+    nodeId: getEnv('OAUTH3_NODE_ID') || `oauth3-${Date.now()}`,
+    clusterId: getEnv('OAUTH3_CLUSTER_ID') || 'oauth3-local-cluster',
+    port: Number(getEnv('OAUTH3_PORT')) || 4200,
+    chainId: Number(getEnv('CHAIN_ID')) || CHAIN_IDS.localnet,
+    teeMode: (getEnv('TEE_MODE') || 'simulated') as TEEMode,
+    mpcEnabled: getEnv('MPC_ENABLED') === 'true',
+    mpcThreshold: Number(getEnv('MPC_THRESHOLD')) || MPC_DEFAULTS.threshold,
     mpcTotalParties:
-      Number(process.env.MPC_TOTAL_PARTIES) || MPC_DEFAULTS.totalParties,
+      Number(getEnv('MPC_TOTAL_PARTIES')) || MPC_DEFAULTS.totalParties,
   }
 }

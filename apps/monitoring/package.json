@@ -1,11 +1,14 @@
 {
   "name": "@jejunetwork/monitoring",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "type": "module",
+  "description": "Network monitoring dashboard with Prometheus/Grafana integration",
+  "main": "api/a2a.ts",
   "scripts": {
-    "dev": "PORT=5173 bun index.html",
+    "dev": "bun run scripts/dev.ts",
     "build": "bun build index.html --outdir=dist --minify",
-    "test": "bun test test/",
+    "start": "bun run api/a2a.ts",
+    "test": "bun test tests/ && bunx playwright test",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -14,6 +17,7 @@
     "@jejunetwork/config": "workspace:*",
     "@jejunetwork/db": "workspace:*",
     "@jejunetwork/shared": "workspace:*",
+    "@jejunetwork/types": "workspace:*",
     "@tanstack/react-query": "^5.80.6",
     "elysia": "^1.4.19",
     "lucide-react": "0.546.0",
@@ -26,10 +30,12 @@
     "zod": "4.2.1"
   },
   "devDependencies": {
+    "@playwright/test": "1.49.1",
     "@types/pg": "8.11.13",
     "@types/react": "19.2.3",
     "@types/react-dom": "19.2.3",
     "bun-plugin-tailwind": "0.1.1",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vite": "^6.0.0"
   }
 }

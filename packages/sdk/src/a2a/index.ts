@@ -2,7 +2,7 @@
  * A2A Module - Agent-to-agent protocol client
  */
 
-import type { NetworkType } from '@jejunetwork/types'
+import type { JsonRecord, JsonValue, NetworkType } from '@jejunetwork/types'
 import type { ServicesConfig } from '../config'
 import {
   A2AResponseSchema,
@@ -11,7 +11,6 @@ import {
   AgentsListSchema,
   JNSRecordsResponseSchema,
 } from '../shared/schemas'
-import type { JsonRecord, JsonValue } from '../shared/types'
 import type { JejuWallet } from '../wallet'
 
 export interface AgentCard {

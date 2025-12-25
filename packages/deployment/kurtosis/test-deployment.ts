@@ -24,9 +24,9 @@ import {
   formatUnits,
   http,
   parseEther,
-  waitForTransactionReceipt,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
+import { waitForTransactionReceipt } from 'viem/actions'
 import { inferChainFromRpcUrl } from '../scripts/shared/chain-utils'
 import { TEST_ACCOUNTS } from '../tests/setup'
 
@@ -169,7 +169,7 @@ async function testL2RPC(): Promise<void> {
     const publicClient = createPublicClient({ chain, transport: http(rpcUrl) })
     const blockNumber = await publicClient.getBlockNumber()
     const chainId = await publicClient.getChainId()
-    const feeData = await publicClient.estimateGasPrice()
+    const feeData = await publicClient.getGasPrice()
 
     results.push({
       name: 'L2 RPC',
@@ -184,7 +184,7 @@ async function testL2RPC(): Promise<void> {
     console.log(`   ✅ L2 RPC responding`)
     console.log(`   📊 Block: ${blockNumber}`)
     console.log(`   🔗 Chain ID: ${chainId}`)
-    console.log(`   ⛽ Gas Price: ${formatUnits(feeData, 'gwei')} gwei\n`)
+    console.log(`   ⛽ Gas Price: ${formatUnits(feeData, 9)} gwei\n`)
   } catch (error) {
     results.push({
       name: 'L2 RPC',

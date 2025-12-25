@@ -11,8 +11,69 @@
 import type { NetworkType } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import { encodeFunctionData } from 'viem'
+import { z } from 'zod'
 import { getContractAddresses } from '../config'
 import type { JejuWallet } from '../wallet'
+
+// Contract return type schemas
+const ModelDataSchema = z.object({
+  modelId: z.string().transform((s) => s as Hex),
+  name: z.string(),
+  organization: z.string(),
+  owner: z.string().transform((s) => s as Address),
+  ownerAgentId: z.bigint(),
+  modelType: z.number(),
+  license: z.number(),
+  licenseUri: z.string(),
+  accessLevel: z.number(),
+  description: z.string(),
+  tags: z.array(z.string()),
+  createdAt: z.bigint(),
+  updatedAt: z.bigint(),
+  isPublic: z.boolean(),
+  isVerified: z.boolean(),
+})
+
+const ModelVersionSchema = z.object({
+  versionId: z.string().transform((s) => s as Hex),
+  modelId: z.string().transform((s) => s as Hex),
+  version: z.string(),
+  weightsUri: z.string(),
+  weightsHash: z.string().transform((s) => s as Hex),
+  weightsSize: z.bigint(),
+  configUri: z.string(),
+  tokenizerUri: z.string(),
+  parameterCount: z.bigint(),
+  precision: z.string(),
+  publishedAt: z.bigint(),
+  isLatest: z.boolean(),
+})
+
+const ProvenanceSchema = z.object({
+  modelId: z.string().transform((s) => s as Hex),
+  versionId: z.string().transform((s) => s as Hex),
+  datasetIds: z.array(z.string()),
+  trainingConfigUri: z.string(),
+  trainingConfigHash: z.string().transform((s) => s as Hex),
+  trainingStarted: z.bigint(),
+  trainingCompleted: z.bigint(),
+  computeProviderUri: z.string(),
+  computeJobId: z.string().transform((s) => s as Hex),
+  frameworkVersion: z.string(),
+  baseModels: z.array(z.string()),
+  trainer: z.string().transform((s) => s as Address),
+  verified: z.boolean(),
+})
+
+const MetricsSchema = z.object({
+  modelId: z.string().transform((s) => s as Hex),
+  totalDownloads: z.bigint(),
+  totalInferences: z.bigint(),
+  totalStars: z.bigint(),
+  totalForks: z.bigint(),
+  weeklyDownloads: z.bigint(),
+  lastUpdated: z.bigint(),
+})
 
 export const ModelType = {
   LLM: 0,
@@ -265,28 +326,13 @@ export function createModelsModule(
     },
 
     async getModel(modelId: Hex): Promise<Model | null> {
-      const data = (await wallet.publicClient.readContract({
+      const rawData = await wallet.publicClient.readContract({
         address: modelRegistryAddress,
         abi: MODEL_REGISTRY_ABI,
         functionName: 'getModel',
         args: [modelId],
-      })) as {
-        modelId: Hex
-        name: string
-        organization: string
-        owner: Address
-        ownerAgentId: bigint
-        modelType: number
-        license: number
-        licenseUri: string
-        accessLevel: number
-        description: string
-        tags: readonly string[]
-        createdAt: bigint
-        updatedAt: bigint
-        isPublic: boolean
-        isVerified: boolean
-      }
+      })
+      const data = ModelDataSchema.parse(rawData)
 
       if (!data || data.createdAt === 0n) return null
 
@@ -403,25 +449,13 @@ export function createModelsModule(
     },
 
     async getLatestVersion(modelId: Hex): Promise<ModelVersion | null> {
-      const v = (await wallet.publicClient.readContract({
+      const rawVersion = await wallet.publicClient.readContract({
         address: modelRegistryAddress,
         abi: MODEL_REGISTRY_ABI,
         functionName: 'getLatestVersion',
         args: [modelId],
-      })) as {
-        versionId: Hex
-        modelId: Hex
-        version: string
-        weightsUri: string
-        weightsHash: Hex
-        weightsSize: bigint
-        configUri: string
-        tokenizerUri: string
-        parameterCount: bigint
-        precision: string
-        publishedAt: bigint
-        isLatest: boolean
-      }
+      })
+      const v = ModelVersionSchema.parse(rawVersion)
 
       if (!v || v.publishedAt === 0n) return null
 
@@ -442,26 +476,13 @@ export function createModelsModule(
     },
 
     async getProvenance(versionId: Hex): Promise<TrainingProvenance | null> {
-      const p = (await wallet.publicClient.readContract({
+      const rawProvenance = await wallet.publicClient.readContract({
         address: modelRegistryAddress,
         abi: MODEL_REGISTRY_ABI,
         functionName: 'getProvenance',
         args: [versionId],
-      })) as {
-        modelId: Hex
-        versionId: Hex
-        datasetIds: readonly string[]
-        trainingConfigUri: string
-        trainingConfigHash: Hex
-        trainingStarted: bigint
-        trainingCompleted: bigint
-        computeProviderUri: string
-        computeJobId: Hex
-        frameworkVersion: string
-        baseModels: readonly string[]
-        trainer: Address
-        verified: boolean
-      }
+      })
+      const p = ProvenanceSchema.parse(rawProvenance)
 
       if (!p || p.trainingStarted === 0n) return null
 
@@ -483,20 +504,13 @@ export function createModelsModule(
     },
 
     async getMetrics(modelId: Hex): Promise<ModelMetrics | null> {
-      const m = (await wallet.publicClient.readContract({
+      const rawMetrics = await wallet.publicClient.readContract({
         address: modelRegistryAddress,
         abi: MODEL_REGISTRY_ABI,
         functionName: 'getMetrics',
         args: [modelId],
-      })) as {
-        modelId: Hex
-        totalDownloads: bigint
-        totalInferences: bigint
-        totalStars: bigint
-        totalForks: bigint
-        weeklyDownloads: bigint
-        lastUpdated: bigint
-      }
+      })
+      const m = MetricsSchema.parse(rawMetrics)
 
       return {
         modelId: m.modelId,

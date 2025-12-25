@@ -11,9 +11,6 @@
  * 6. Failed transaction costs
  * 7. All fees properly accounted
  */
-
-// ============ TYPES ============
-
 interface Competitor {
   name: string
   latencyMs: number
@@ -104,9 +101,6 @@ interface RealisticBacktestResult {
     avgLatency: number
   }
 }
-
-// ============ CONSTANTS ============
-
 const CHAINS = [
   { chainId: 1, name: 'Ethereum', gasMultiplier: 1.0, blockTimeMs: 12000 },
   { chainId: 8453, name: 'Base', gasMultiplier: 0.001, blockTimeMs: 2000 },
@@ -241,9 +235,6 @@ const FLASH_LOAN_FEES = {
   balancer: 0,
   uniswapV3: 5, // Same as pool fee
 }
-
-// ============ GAS CORRELATION MODEL ============
-
 /**
  * Calculate gas price based on opportunity value
  * Higher value opportunities = more competition = higher gas
@@ -280,9 +271,6 @@ function calculateGasPrice(
 
   return { gasGwei, priorityFeeGwei }
 }
-
-// ============ COMPETITION MODEL ============
-
 class CompetitionModel {
   private competitors: Competitor[]
   private ourLatencyMs: number
@@ -359,9 +347,6 @@ class CompetitionModel {
     )
   }
 }
-
-// ============ SLIPPAGE MODEL ============
-
 /**
  * Calculate realistic slippage based on:
  * - Trade size vs pool TVL
@@ -392,9 +377,6 @@ function calculateRealisticSlippage(
 
   return { slippageBps, effectiveSpreadBps }
 }
-
-// ============ OPPORTUNITY GENERATOR (REALISTIC) ============
-
 class RealisticOpportunityGenerator {
   private bearMarketMultiplier: number
   private dayOfWeek: number
@@ -489,9 +471,6 @@ class RealisticOpportunityGenerator {
     return median * Math.exp(sigma * z)
   }
 }
-
-// ============ EXECUTION SIMULATOR ============
-
 class ExecutionSimulator {
   private competition: CompetitionModel
   private ourLatencyMs: number
@@ -650,9 +629,6 @@ class ExecutionSimulator {
     }
   }
 }
-
-// ============ REALISTIC BACKTESTER ============
-
 export class RealisticBacktester {
   private config: BacktestConfig
 
@@ -990,9 +966,6 @@ export class RealisticBacktester {
     console.log('')
   }
 }
-
-// ============ MAIN ============
-
 async function main() {
   const scenarios: Array<{ name: string; config: BacktestConfig }> = [
     {

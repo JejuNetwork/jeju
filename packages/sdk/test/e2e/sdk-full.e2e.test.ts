@@ -6,7 +6,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
-import { getCoreAppUrl, getL2RpcUrl } from '@jejunetwork/config/ports'
+import { getCoreAppUrl, getL2RpcUrl } from '@jejunetwork/config'
 import { type Address, parseEther } from 'viem'
 import { createJejuClient, type JejuClient } from '../../src/index'
 import {
@@ -107,7 +107,7 @@ describe('JejuClient Core', () => {
   test('client has correct properties', () => {
     if (!env?.chainRunning || !deployer) return
     expect(deployer.network).toBe('localnet')
-    expect(deployer.chainId).toBe(1337)
+    expect(deployer.chainId).toBe(31337)
     expect(deployer.address).toMatch(/^0x[a-fA-F0-9]{40}$/)
     expect(deployer.isSmartAccount).toBe(false)
   })

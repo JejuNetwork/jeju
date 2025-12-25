@@ -108,10 +108,10 @@ describe('Global Setup - Environment Variable Parsing', () => {
   })
 
   test('should parse CHAIN_ID as integer', () => {
-    process.env.CHAIN_ID = '1337'
+    process.env.CHAIN_ID = '31337'
 
     const chainId = parseInt(process.env.CHAIN_ID, 10)
-    expect(chainId).toBe(1337)
+    expect(chainId).toBe(31337)
     expect(Number.isInteger(chainId)).toBe(true)
   })
 
@@ -120,8 +120,8 @@ describe('Global Setup - Environment Variable Parsing', () => {
 
     const chainId = process.env.CHAIN_ID
       ? parseInt(process.env.CHAIN_ID, 10)
-      : 1337
-    expect(chainId).toBe(1337)
+      : 31337
+    expect(chainId).toBe(31337)
   })
 
   test('should split WARMUP_APPS by comma', () => {

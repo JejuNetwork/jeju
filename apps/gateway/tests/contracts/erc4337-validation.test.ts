@@ -33,7 +33,7 @@ const SECONDARY_WALLET = {
 }
 
 const jejuLocalnet = {
-  id: 1337,
+  id: 31337,
   name: 'Jeju Localnet',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {

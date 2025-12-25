@@ -18,7 +18,7 @@ const REPUTATION_MANAGER_ABI = parseAbi([
   'function hasMinimumReputation(uint256 agentId, uint256 minScore) external view returns (bool)',
 ])
 
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address
+const ZERO_ADDRESS: Address = '0x0000000000000000000000000000000000000000'
 const IDENTITY_REGISTRY_ADDRESS = CONTRACTS.identityRegistry || ZERO_ADDRESS
 const BAN_MANAGER_ADDRESS = CONTRACTS.banManager || ZERO_ADDRESS
 const REPUTATION_MANAGER_ADDRESS =
@@ -80,14 +80,14 @@ export async function checkUserBan(
 
     return {
       allowed: false,
-      reason: reason as string,
+      reason: String(reason),
       bannedUntil: Number(expiry),
     }
   }
 
   if (appId) {
-    const appIdBytes =
-      `0x${Buffer.from(appId).toString('hex').padEnd(64, '0')}` as `0x${string}`
+    const hexStr = Buffer.from(appId).toString('hex').padEnd(64, '0')
+    const appIdBytes: `0x${string}` = `0x${hexStr}`
     const isAllowed = await publicClient.readContract({
       address: BAN_MANAGER_ADDRESS,
       abi: BAN_MANAGER_ABI,

@@ -6,24 +6,22 @@
     "incremental": false,
     "paths": {
       "@/*": ["./*"],
-      "@types/*": ["./types/*"],
-      "@scripts/*": ["./scripts/*"],
+      "@types/*": ["./packages/types/*"],
+      "@scripts/*": ["./packages/deployment/scripts/*"],
       "@contracts/*": ["./packages/contracts/*"],
       "@config/*": ["./packages/config/*"],
       "@tests/*": ["./packages/tests/*"],
       "@indexer/*": ["./apps/indexer/*"]
     }
   },
-  "include": [
-    "scripts/**/*.ts",
-    "types/**/*.ts"
-  ],
+  "include": ["**/*.d.ts", "packages/types/**/*.ts"],
   "exclude": [
     "node_modules",
     "dist",
     "build",
     ".terraform",
     "vendor",
+    "vendor_examples",
     "8004",
     "**/*.test.ts"
   ]

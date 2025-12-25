@@ -10,6 +10,7 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
+      "bun": "./src/index.ts",
       "import": "./dist/index.js"
     }
   },
@@ -21,11 +22,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@elysiajs/eden": "^1.4.5",
     "@jejunetwork/config": "workspace:*",
+    "@jejunetwork/shared": "workspace:*",
     "@jejunetwork/types": "workspace:*",
     "@noble/curves": "^1.8.0",
-    "elysia": "^1.4.19",
+    "@noble/hashes": "^1.7.1",
     "permissionless": "0.2.34",
     "viem": "2.43.3"
   },
@@ -37,6 +38,11 @@
   },
   "peerDependencies": {
     "zod": ">=4.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/elizaos/jeju.git",
+    "directory": "packages/sdk"
   },
   "publishConfig": {
     "access": "public"

@@ -8,6 +8,7 @@
  * - On-chain registry interaction
  */
 
+import { getEnv, getEnvOrDefault } from '@jejunetwork/shared'
 import type { Address, Hex } from 'viem'
 import { createWalletClient, http } from 'viem'
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
@@ -805,8 +806,8 @@ export function createJejuGitSDK(config: GitSDKConfig): JejuGitSDK {
 // Convenience function for default config
 export function createDefaultGitSDK(): JejuGitSDK {
   return new JejuGitSDK({
-    rpcUrl: process.env.JEJU_RPC_URL ?? 'http://127.0.0.1:6546',
-    gitServerUrl: process.env.JEJUGIT_URL ?? 'http://localhost:4030/git',
-    registryAddress: process.env.GIT_REGISTRY_ADDRESS as Address | undefined,
+    rpcUrl: getEnvOrDefault('JEJU_RPC_URL', 'http://127.0.0.1:6546'),
+    gitServerUrl: getEnvOrDefault('JEJUGIT_URL', 'http://localhost:4030/git'),
+    registryAddress: getEnv('GIT_REGISTRY_ADDRESS') as Address | undefined,
   })
 }

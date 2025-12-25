@@ -6,8 +6,17 @@ import {
   type PublicClient,
   parseAbi,
 } from 'viem'
+import { z } from 'zod'
 import { expectEVMChainId } from '../schemas'
 import type { OraclePrice } from '../types'
+
+// Pyth oracle return type schema
+const PythPriceSchema = z.object({
+  price: z.bigint(),
+  conf: z.bigint(),
+  expo: z.number(),
+  publishTime: z.bigint(),
+})
 
 const PYTH_ABI = parseAbi([
   'function getPriceUnsafe(bytes32 id) view returns ((int64 price, uint64 conf, int32 expo, uint256 publishTime))',
@@ -90,7 +99,7 @@ const CHAINLINK_FEEDS: Partial<Record<EVMChainId, Record<string, Address>>> = {
   11155111: {},
   420690: {},
   420691: {},
-  1337: {},
+  31337: {},
 }
 
 const PYTH_ADDRESSES: Partial<Record<EVMChainId, Address>> = {
@@ -185,12 +194,13 @@ export class OracleAggregator {
     const client = this.clients.get(chainId)
     if (!client) return null
 
-    const result = (await client.readContract({
+    const rawResult = await client.readContract({
       address: pythAddress,
       abi: PYTH_ABI,
       functionName: 'getPriceNoOlderThan',
       args: [priceId, BigInt(maxStalenessSeconds)],
-    })) as { price: bigint; conf: bigint; expo: number; publishTime: bigint }
+    })
+    const result = PythPriceSchema.parse(rawResult)
 
     // Validate price is positive
     if (result.price <= 0n) {
@@ -418,7 +428,7 @@ export const TOKEN_SYMBOLS: Partial<
   11155111: {},
   420690: {},
   420691: {},
-  1337: {},
+  31337: {},
 }
 
 export function getTokenSymbol(address: string, chainId: EVMChainId): string {

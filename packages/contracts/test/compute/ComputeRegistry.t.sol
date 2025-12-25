@@ -159,6 +159,6 @@ contract ComputeRegistryTest is Test {
     }
 
     function test_Version() public view {
-        assertEq(registry.version(), "2.0.0-base");
+        assertEq(registry.version(), "3.0.0-unified");
     }
 }

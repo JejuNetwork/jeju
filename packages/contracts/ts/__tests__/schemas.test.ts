@@ -106,13 +106,13 @@ describe('schemas.ts - Zod Schema Validation', () => {
         positionManager: VALID_ADDRESS_2,
         quoterV4: VALID_ADDRESS,
         stateView: VALID_ADDRESS_2,
-        chainId: 1337,
+        chainId: 31337,
         network: 'localnet',
       }
 
       const result = UniswapV4DeploymentSchema.parse(data)
       expect(result.poolManager).toBe(VALID_ADDRESS)
-      expect(result.chainId).toBe(1337)
+      expect(result.chainId).toBe(31337)
     })
 
     test('allows optional fields to be missing', () => {
@@ -246,12 +246,12 @@ describe('schemas.ts - Zod Schema Validation', () => {
         routerRegistry: VALID_ADDRESS_2,
         weth: VALID_ADDRESS,
         deployedAt: '2024-01-01',
-        chainId: 1337,
+        chainId: 31337,
       }
 
       const result = XLPDeploymentSchema.parse(data)
       expect(result.v2Factory).toBe(VALID_ADDRESS)
-      expect(result.chainId).toBe(1337)
+      expect(result.chainId).toBe(31337)
     })
   })
 
@@ -270,7 +270,7 @@ describe('schemas.ts - Zod Schema Validation', () => {
         gameName: 'Test Game',
         baseURI: 'https://example.com/metadata/',
         deployedAt: '2024-01-01',
-        chainId: 1337,
+        chainId: 31337,
       }
 
       const result = GameSystemDeploymentSchema.parse(data)
@@ -298,7 +298,7 @@ describe('schemas.ts - Zod Schema Validation', () => {
         xlpV2Factory: VALID_ADDRESS_2,
         weth: VALID_ADDRESS,
         deployedAt: '2024-01-01',
-        chainId: 1337,
+        chainId: 31337,
       }
 
       const result = LaunchpadDeploymentSchema.parse(data)

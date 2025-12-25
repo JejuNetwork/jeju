@@ -16,15 +16,15 @@ import {
 } from 'bun:test'
 import { type Address, createPublicClient, http, type PublicClient } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { resetConfig } from '../../src/x402/config'
-import { CHAIN_CONFIGS } from '../../src/x402/lib/chains'
-import { createServer } from '../../src/x402/server'
-import { clearNonceCache } from '../../src/x402/services/nonce-manager'
+import { resetConfig } from '../../api/x402/config'
+import { CHAIN_CONFIGS } from '../../api/x402/lib/chains'
+import { createServer } from '../../api/x402/server'
+import { clearNonceCache } from '../../api/x402/services/nonce-manager'
 import {
   createClients,
   getFacilitatorStats,
   isTokenSupported,
-} from '../../src/x402/services/settler'
+} from '../../api/x402/services/settler'
 
 const app = createServer()
 const TEST_PRIVATE_KEY =
@@ -91,9 +91,9 @@ async function createSignedPayment(overrides?: {
     message,
   })
 
-  return Buffer.from(JSON.stringify({ ...payload, signature })).toString(
-    'base64',
-  )
+  return Buffer.from(
+    JSON.stringify({ ...payload, signature, payer: null }),
+  ).toString('base64')
 }
 
 async function isRpcAvailable(network: string): Promise<boolean> {
@@ -134,8 +134,8 @@ describe('Real RPC Integration', () => {
     // Accept various chain IDs depending on environment:
     // - 420691: Jeju mainnet
     // - 420690: Jeju testnet
-    // - 31337 or 1337: Local Anvil
-    const validChainIds = [420691, 420690, 31337, 1337]
+    // - 31337 or 31337: Local Anvil
+    const validChainIds = [420691, 420690, 31337, 31337]
     expect(validChainIds).toContain(Number(chainId))
   })
 
@@ -426,7 +426,7 @@ describe('Concurrent Real Operations', () => {
     }
 
     // Accept various chain IDs depending on environment
-    const validChainIds = [420691, 420690, 31337, 1337]
+    const validChainIds = [420691, 420690, 31337, 31337]
     expect(validChainIds).toContain(firstChainId)
   })
 

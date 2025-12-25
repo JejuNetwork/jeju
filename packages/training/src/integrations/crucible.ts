@@ -8,9 +8,7 @@
 import { expectValid } from '@jejunetwork/types'
 import { JobsListResponseSchemaExternal } from '../schemas'
 
-// ============================================================================
 // Types
-// ============================================================================
 
 export interface TrainingAgentConfig {
   agentId: string
@@ -78,9 +76,7 @@ export interface TrajectoryStep {
   done: boolean
 }
 
-// ============================================================================
 // Crucible Training Client
-// ============================================================================
 
 export class CrucibleTrainingClient {
   private dwsApiUrl: string
@@ -169,6 +165,9 @@ export class CrucibleTrainingClient {
     const response = trajectory.steps.map((s) => s.action).join('\n')
 
     // Submit as messages - let Atropos handle tokenization
+    const emptyTokenArrays: number[][] = []
+    const emptyMaskArrays: number[][] = []
+
     const scoredData = {
       messages: [
         [
@@ -178,8 +177,8 @@ export class CrucibleTrainingClient {
       ],
       scores: [trajectory.totalReward],
       // Empty tokens/masks - server will tokenize from messages
-      tokens: [] as number[][],
-      masks: [] as number[][],
+      tokens: emptyTokenArrays,
+      masks: emptyMaskArrays,
       metadata: {
         trajectoryId: trajectory.episodeId,
         agentId: trajectory.agentId,
@@ -238,9 +237,7 @@ export class CrucibleTrainingClient {
   }
 }
 
-// ============================================================================
 // Factory
-// ============================================================================
 
 export function createCrucibleTrainingClient(config?: {
   dwsApiUrl?: string

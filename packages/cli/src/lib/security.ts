@@ -1,9 +1,4 @@
-/**
- * Security utilities for CLI
- *
- * Provides input validation, path sanitization, and secure handling patterns.
- * All functions use fail-fast validation - they throw on invalid input.
- */
+/** Security utilities with input validation and path sanitization */
 
 import { join, normalize, resolve } from 'node:path'
 

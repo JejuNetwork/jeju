@@ -6,6 +6,7 @@ import type {
   Action,
   ActionExample,
   HandlerCallback,
+  HandlerOptions,
   IAgentRuntime,
   Memory,
   State,
@@ -31,7 +32,7 @@ export const createTokenAction: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options?: Record<string, unknown>,
+    _options?: HandlerOptions,
     callback?: HandlerCallback,
   ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
@@ -105,7 +106,7 @@ export const createPresaleAction: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options?: Record<string, unknown>,
+    _options?: HandlerOptions,
     callback?: HandlerCallback,
   ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
@@ -197,7 +198,7 @@ export const contributePresaleAction: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options?: Record<string, unknown>,
+    _options?: HandlerOptions,
     callback?: HandlerCallback,
   ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
@@ -262,7 +263,7 @@ export const listPresalesAction: Action = {
     runtime: IAgentRuntime,
     _message: Memory,
     _state: State | undefined,
-    _options?: Record<string, unknown>,
+    _options?: HandlerOptions,
     callback?: HandlerCallback,
   ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
@@ -326,7 +327,7 @@ export const createBondingCurveAction: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options?: Record<string, unknown>,
+    _options?: HandlerOptions,
     callback?: HandlerCallback,
   ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
@@ -403,7 +404,7 @@ export const buyFromCurveAction: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options?: Record<string, unknown>,
+    _options?: HandlerOptions,
     callback?: HandlerCallback,
   ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
@@ -462,7 +463,7 @@ export const sellToCurveAction: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options?: Record<string, unknown>,
+    _options?: HandlerOptions,
     callback?: HandlerCallback,
   ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
@@ -521,7 +522,7 @@ export const listCurvesAction: Action = {
     runtime: IAgentRuntime,
     _message: Memory,
     _state: State | undefined,
-    _options?: Record<string, unknown>,
+    _options?: HandlerOptions,
     callback?: HandlerCallback,
   ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
@@ -584,7 +585,7 @@ export const lockLPAction: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options?: Record<string, unknown>,
+    _options?: HandlerOptions,
     callback?: HandlerCallback,
   ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService

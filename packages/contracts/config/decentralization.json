@@ -52,7 +52,7 @@
   },
   
   "localnet": {
-    "chainId": 1337,
+    "chainId": 31337,
     "_note": "Local testing - uses placeholder addresses",
     "cannon": {
       "MIPS": null,

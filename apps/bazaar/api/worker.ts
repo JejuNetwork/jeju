@@ -1,24 +1,32 @@
 /**
  * Bazaar API Worker
  *
- * DWS-deployable worker using Elysia, compatible with workerd runtime.
- * Can run standalone or as a serverless worker in DWS infrastructure.
+ * DWS-deployable worker using Elysia with CloudflareAdapter.
+ * Compatible with workerd runtime and DWS infrastructure.
+ *
+ * @see https://elysiajs.com/integrations/cloudflare-worker
  */
 
 import { cors } from '@elysiajs/cors'
 import {
   CORE_PORTS,
   getCoreAppUrl,
+  getCQLBlockProducerUrl,
   getL2RpcUrl,
-} from '@jejunetwork/config/ports'
+} from '@jejunetwork/config'
+import { type CQLClient, createTable, getCQL } from '@jejunetwork/db'
 import {
-  type ConsistencyLevel,
-  type CovenantSQLClient,
-  createCovenantSQLClient,
-} from '@jejunetwork/shared'
-import { AddressSchema } from '@jejunetwork/types'
+  AddressSchema,
+  expect as expectExists,
+  expectValid,
+} from '@jejunetwork/types'
 import { Elysia } from 'elysia'
-import { handleA2ARequest, handleAgentCard } from '../lib/a2a-server'
+import {
+  A2ARequestSchema,
+  TFMMGetQuerySchema,
+  TFMMPostRequestSchema,
+} from '../schemas/api'
+import { handleA2ARequest, handleAgentCard } from './a2a-server'
 import {
   ClaimRequestSchema,
   claimFromFaucet,
@@ -27,8 +35,8 @@ import {
   FaucetStatusSchema,
   getFaucetInfo,
   getFaucetStatus,
-} from '../lib/faucet'
-import { handleMCPInfo, handleMCPRequest } from '../lib/mcp-server'
+} from './faucet'
+import { handleMCPInfo, handleMCPRequest } from './mcp-server'
 import {
   createTFMMPool,
   getAllTFMMPools,
@@ -38,20 +46,9 @@ import {
   getTFMMStrategies,
   triggerPoolRebalance,
   updatePoolStrategy,
-} from '../lib/tfmm/utils'
-import { expectExists, expectValid } from '../lib/validation'
-import {
-  A2ARequestSchema,
-  type TFMMCreatePoolParams,
-  TFMMGetQuerySchema,
-  TFMMPostRequestSchema,
-  type TFMMTriggerRebalanceParams,
-  type TFMMUpdateStrategyParams,
-} from '../schemas/api'
+} from './tfmm/utils'
 
-// ============================================================================
 // Worker Environment Types
-// ============================================================================
 
 export interface BazaarEnv {
   // Standard workerd bindings
@@ -88,93 +85,68 @@ interface KVNamespace {
   delete(key: string): Promise<void>
 }
 
-// ============================================================================
 // Database Layer
-// ============================================================================
 
-// CovenantSQL port - not yet in centralized config (@jejunetwork/config/ports)
-const COVENANTSQL_DEFAULT_PORT = 4661
+let dbClient: CQLClient | null = null
 
-let dbClient: CovenantSQLClient | null = null
-
-function getDatabase(env: BazaarEnv): CovenantSQLClient {
+function getDatabase(env: BazaarEnv): CQLClient {
   if (dbClient) return dbClient
 
-  const nodes = env.COVENANTSQL_NODES?.split(',') || [
-    `http://localhost:${COVENANTSQL_DEFAULT_PORT}`,
-  ]
+  const blockProducerEndpoint =
+    env.COVENANTSQL_NODES?.split(',')[0] || getCQLBlockProducerUrl()
   const databaseId = env.COVENANTSQL_DATABASE_ID
-  const privateKey = env.COVENANTSQL_PRIVATE_KEY
 
-  if (!databaseId || !privateKey) {
-    throw new Error('CovenantSQL configuration required')
-  }
-
-  dbClient = createCovenantSQLClient({
-    nodes,
+  dbClient = getCQL({
+    blockProducerEndpoint,
     databaseId,
-    privateKey,
-    defaultConsistency: 'strong' as ConsistencyLevel,
-    poolSize: 5,
-    queryTimeout: 10000,
-    retryAttempts: 2,
-    logging: env.NETWORK === 'localnet',
+    debug: env.NETWORK === 'localnet',
   })
 
   return dbClient
 }
 
-// ============================================================================
 // Database Schemas
-// ============================================================================
 
-async function initializeDatabase(db: CovenantSQLClient): Promise<void> {
+async function initializeDatabase(db: CQLClient): Promise<void> {
   // Faucet claims table
-  await db.createTable({
-    name: 'faucet_claims',
-    columns: [
-      { name: 'id', type: 'TEXT', nullable: false },
-      { name: 'address', type: 'TEXT', nullable: false },
-      { name: 'amount', type: 'TEXT', nullable: false },
-      { name: 'tx_hash', type: 'TEXT', nullable: true },
-      { name: 'claimed_at', type: 'TIMESTAMP', nullable: false },
-      { name: 'ip_hash', type: 'TEXT', nullable: true },
-    ],
-    primaryKey: ['id'],
-    indexes: [
-      { name: 'idx_faucet_address', columns: ['address'] },
-      { name: 'idx_faucet_claimed_at', columns: ['claimed_at'] },
-    ],
-  })
+  const faucetTable = createTable('faucet_claims', [
+    { name: 'id', type: 'TEXT', primaryKey: true, notNull: true },
+    { name: 'address', type: 'TEXT', notNull: true },
+    { name: 'amount', type: 'TEXT', notNull: true },
+    { name: 'tx_hash', type: 'TEXT' },
+    { name: 'claimed_at', type: 'TIMESTAMP', notNull: true },
+    { name: 'ip_hash', type: 'TEXT' },
+  ])
+  await db.exec(faucetTable.up)
+  await db.exec(
+    'CREATE INDEX IF NOT EXISTS idx_faucet_address ON faucet_claims(address)',
+  )
+  await db.exec(
+    'CREATE INDEX IF NOT EXISTS idx_faucet_claimed_at ON faucet_claims(claimed_at)',
+  )
 
   // Market cache table
-  await db.createTable({
-    name: 'market_cache',
-    columns: [
-      { name: 'key', type: 'TEXT', nullable: false },
-      { name: 'value', type: 'JSON', nullable: false },
-      { name: 'expires_at', type: 'TIMESTAMP', nullable: false },
-      { name: 'updated_at', type: 'TIMESTAMP', nullable: false },
-    ],
-    primaryKey: ['key'],
-    indexes: [{ name: 'idx_cache_expires', columns: ['expires_at'] }],
-  })
+  const cacheTable = createTable('market_cache', [
+    { name: 'key', type: 'TEXT', primaryKey: true, notNull: true },
+    { name: 'value', type: 'JSON', notNull: true },
+    { name: 'expires_at', type: 'TIMESTAMP', notNull: true },
+    { name: 'updated_at', type: 'TIMESTAMP', notNull: true },
+  ])
+  await db.exec(cacheTable.up)
+  await db.exec(
+    'CREATE INDEX IF NOT EXISTS idx_cache_expires ON market_cache(expires_at)',
+  )
 
   // User preferences table
-  await db.createTable({
-    name: 'user_preferences',
-    columns: [
-      { name: 'address', type: 'TEXT', nullable: false },
-      { name: 'preferences', type: 'JSON', nullable: false },
-      { name: 'updated_at', type: 'TIMESTAMP', nullable: false },
-    ],
-    primaryKey: ['address'],
-  })
+  const prefsTable = createTable('user_preferences', [
+    { name: 'address', type: 'TEXT', primaryKey: true, notNull: true },
+    { name: 'preferences', type: 'JSON', notNull: true },
+    { name: 'updated_at', type: 'TIMESTAMP', notNull: true },
+  ])
+  await db.exec(prefsTable.up)
 }
 
-// ============================================================================
 // Create Elysia App
-// ============================================================================
 
 export function createBazaarApp(env?: Partial<BazaarEnv>) {
   const isDev = env?.NETWORK === 'localnet'
@@ -344,34 +316,27 @@ export function createBazaarApp(env?: Partial<BazaarEnv>) {
         }
       })
       .post('/', async ({ body }) => {
-        const { action, params } = expectValid(
+        const validated = expectValid(
           TFMMPostRequestSchema,
           body,
           'TFMM POST request',
         )
 
-        switch (action) {
+        switch (validated.action) {
           case 'create_pool': {
-            const result = await createTFMMPool(params as TFMMCreatePoolParams)
+            const result = await createTFMMPool(validated.params)
             return { success: true, ...result }
           }
 
           case 'update_strategy': {
-            const result = await updatePoolStrategy(
-              params as TFMMUpdateStrategyParams,
-            )
+            const result = await updatePoolStrategy(validated.params)
             return { success: true, ...result }
           }
 
           case 'trigger_rebalance': {
-            const result = await triggerPoolRebalance(
-              params as TFMMTriggerRebalanceParams,
-            )
+            const result = await triggerPoolRebalance(validated.params)
             return { success: true, ...result }
           }
-
-          default:
-            throw new Error(`Unknown action: ${action}`)
         }
       }),
   )
@@ -382,29 +347,55 @@ export function createBazaarApp(env?: Partial<BazaarEnv>) {
   return app
 }
 
-// ============================================================================
 // Worker Export (for DWS/workerd)
-// ============================================================================
 
+/**
+ * Workerd/Cloudflare Workers execution context
+ */
+interface ExecutionContext {
+  waitUntil(promise: Promise<unknown>): void
+  passThroughOnException(): void
+}
+
+/**
+ * Cached app instance for worker reuse
+ * Compiled once, reused across requests for better performance
+ */
+let cachedApp: ReturnType<typeof createBazaarApp> | null = null
+let cachedEnvHash: string | null = null
+
+function getAppForEnv(env: BazaarEnv): ReturnType<typeof createBazaarApp> {
+  // Create a simple hash of the env to detect changes
+  const envHash = `${env.NETWORK}-${env.TEE_MODE}`
+
+  if (cachedApp && cachedEnvHash === envHash) {
+    return cachedApp
+  }
+
+  cachedApp = createBazaarApp(env).compile()
+  cachedEnvHash = envHash
+  return cachedApp
+}
+
+/**
+ * Default export for workerd/Cloudflare Workers
+ *
+ * Note: For optimal workerd performance, the build script should generate
+ * a worker entry that uses CloudflareAdapter in the Elysia constructor.
+ * This export provides the fetch handler pattern.
+ */
 export default {
   async fetch(
     request: Request,
     env: BazaarEnv,
     _ctx: ExecutionContext,
   ): Promise<Response> {
-    const app = createBazaarApp(env)
+    const app = getAppForEnv(env)
     return app.handle(request)
   },
 }
 
-interface ExecutionContext {
-  waitUntil(promise: Promise<unknown>): void
-  passThroughOnException(): void
-}
-
-// ============================================================================
 // Standalone Server (for local dev)
-// ============================================================================
 
 const isMainModule = typeof Bun !== 'undefined' && import.meta.path === Bun.main
 
@@ -422,8 +413,7 @@ if (isMainModule) {
     GATEWAY_URL: process.env.GATEWAY_URL || getCoreAppUrl('NODE_EXPLORER_API'),
     INDEXER_URL: process.env.INDEXER_URL || getCoreAppUrl('NODE_EXPLORER_UI'),
     COVENANTSQL_NODES:
-      process.env.COVENANTSQL_NODES ||
-      `http://localhost:${COVENANTSQL_DEFAULT_PORT}`,
+      process.env.COVENANTSQL_NODES || getCQLBlockProducerUrl(),
     COVENANTSQL_DATABASE_ID: process.env.COVENANTSQL_DATABASE_ID || '',
     COVENANTSQL_PRIVATE_KEY: process.env.COVENANTSQL_PRIVATE_KEY || '',
   })

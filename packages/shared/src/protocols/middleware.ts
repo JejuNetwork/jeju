@@ -8,7 +8,7 @@
  * - Rate limiting with stake tiers
  */
 
-import { timingSafeEqual } from 'node:crypto'
+import { readContract } from '@jejunetwork/contracts'
 import { Elysia } from 'elysia'
 import type { Address } from 'viem'
 import { createPublicClient, getAddress, http, verifyMessage } from 'viem'
@@ -19,20 +19,21 @@ import { getChain } from '../chains'
 /**
  * Constant-time string comparison to prevent timing attacks.
  * Both strings are normalized to lowercase before comparison.
+ * Uses XOR-based comparison that doesn't short-circuit.
  */
 function constantTimeAddressCompare(a: string, b: string): boolean {
   const normalizedA = a.toLowerCase()
   const normalizedB = b.toLowerCase()
 
-  // Ensure same length (addresses should be same length)
   if (normalizedA.length !== normalizedB.length) {
     return false
   }
 
-  const bufA = Buffer.from(normalizedA, 'utf8')
-  const bufB = Buffer.from(normalizedB, 'utf8')
-
-  return timingSafeEqual(bufA, bufB)
+  let result = 0
+  for (let i = 0; i < normalizedA.length; i++) {
+    result |= normalizedA.charCodeAt(i) ^ normalizedB.charCodeAt(i)
+  }
+  return result === 0
 }
 
 const X402PaymentPayloadSchema = z.object({
@@ -76,9 +77,9 @@ export interface PaymentRequirement {
   description: string
 }
 
-export interface SkillResult {
+export interface SkillResult<T = Record<string, unknown>> {
   message: string
-  data: Record<string, unknown>
+  data: T
   requiresPayment?: PaymentRequirement
 }
 
@@ -157,7 +158,7 @@ export async function getAgentInfo(
     )
   }
 
-  const agent = await erc8004Client.readContract({
+  const agent = await readContract(erc8004Client, {
     address: erc8004Config.identityRegistryAddress,
     abi: IDENTITY_REGISTRY_ABI,
     functionName: 'getAgentByAddress',
@@ -169,7 +170,7 @@ export async function getAgentInfo(
   }
 
   // Get tags
-  const tagsRaw = await erc8004Client.readContract({
+  const tagsRaw = await readContract(erc8004Client, {
     address: erc8004Config.identityRegistryAddress,
     abi: IDENTITY_REGISTRY_ABI,
     functionName: 'getAgentTags',
@@ -185,7 +186,7 @@ export async function getAgentInfo(
   let banReason: string | undefined
 
   if (erc8004Config.banManagerAddress) {
-    const banInfo = await erc8004Client.readContract({
+    const banInfo = await readContract(erc8004Client, {
       address: erc8004Config.banManagerAddress,
       abi: NETWORK_BAN_MANAGER_ABI,
       functionName: 'getNetworkBan',

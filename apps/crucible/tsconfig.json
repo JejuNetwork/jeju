@@ -2,12 +2,12 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "rootDir": "./src",
+    "rootDir": ".",
     "jsx": "react-jsx",
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "skipLibCheck": true
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "tests", "src/**/*.test.ts"]
+  "include": ["api/**/*", "lib/**/*"],
+  "exclude": ["node_modules", "dist", "tests", "api/**/*.test.ts"]
 }

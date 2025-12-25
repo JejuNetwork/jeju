@@ -6,6 +6,73 @@
 import { describe, expect, test } from 'bun:test'
 import { app } from '../src/server'
 
+// Test response types
+interface EdgeNode {
+  id: string
+  nodeType: string
+  platform: string
+  operator?: string
+  capabilities: Record<string, boolean | number>
+  region: string
+  status: string
+}
+
+interface EdgeHealthResponse {
+  status: string
+  service: string
+  nodes: { total: number; online: number; offline: number }
+  capacity: { totalCacheBytes: number; totalBandwidthMbps: number }
+  regions: Record<string, number>
+}
+
+interface NodeIdResponse {
+  nodeId: string
+  status?: string
+}
+
+interface NodesListResponse {
+  nodes: EdgeNode[]
+}
+
+interface NodesRegionResponse {
+  nodes: Array<{ region: string }>
+}
+
+interface NodesTypeResponse {
+  nodes: Array<{ nodeType: string }>
+}
+
+interface NodeDetailsResponse {
+  id: string
+  nodeType: string
+  capabilities: { cdn: boolean }
+}
+
+interface CacheRequestResponse {
+  cid: string
+  targetNodes: number
+}
+
+interface CidResponse {
+  cid: string
+}
+
+interface RouteResponse {
+  cid: string
+  endpoint: string
+}
+
+interface NodeEarnings {
+  nodeId: string
+  bytesServed: number
+  estimatedEarnings: string
+  period: string
+}
+
+interface SuccessResponse {
+  success: boolean
+}
+
 describe('Edge Coordination', () => {
   let testNodeId: string
 
@@ -14,13 +81,6 @@ describe('Edge Coordination', () => {
       const response = await app.request('/edge/health')
       expect(response.ok).toBe(true)
 
-      interface EdgeHealthResponse {
-        status: string
-        service: string
-        nodes: { total: number; online: number; offline: number }
-        capacity: { totalCacheBytes: number; totalBandwidthMbps: number }
-        regions: Record<string, number>
-      }
       const data = (await response.json()) as EdgeHealthResponse
       expect(data.status).toBe('healthy')
       expect(data.service).toBe('dws-edge-coordinator')
@@ -53,7 +113,7 @@ describe('Edge Coordination', () => {
       })
       expect(response.status).toBe(201)
 
-      const data = (await response.json()) as { nodeId: string; status: string }
+      const data = (await response.json()) as NodeIdResponse
       expect(data.nodeId).toBeDefined()
       expect(data.status).toBe('registered')
       testNodeId = data.nodeId
@@ -80,7 +140,7 @@ describe('Edge Coordination', () => {
       })
       expect(response.status).toBe(201)
 
-      const data = (await response.json()) as { nodeId: string }
+      const data = (await response.json()) as NodeIdResponse
       expect(data.nodeId).toBeDefined()
     })
   })
@@ -90,16 +150,7 @@ describe('Edge Coordination', () => {
       const response = await app.request('/edge/nodes')
       expect(response.ok).toBe(true)
 
-      interface EdgeNode {
-        id: string
-        nodeType: string
-        platform: string
-        operator?: string
-        capabilities: Record<string, boolean | number>
-        region: string
-        status: string
-      }
-      const data = (await response.json()) as { nodes: EdgeNode[] }
+      const data = (await response.json()) as NodesListResponse
       expect(data.nodes).toBeDefined()
       expect(data.nodes.length).toBeGreaterThan(0)
     })
@@ -108,9 +159,7 @@ describe('Edge Coordination', () => {
       const response = await app.request('/edge/nodes?region=us-west')
       expect(response.ok).toBe(true)
 
-      const data = (await response.json()) as {
-        nodes: Array<{ region: string }>
-      }
+      const data = (await response.json()) as NodesRegionResponse
       for (const node of data.nodes) {
         expect(node.region).toBe('us-west')
       }
@@ -120,9 +169,7 @@ describe('Edge Coordination', () => {
       const response = await app.request('/edge/nodes?type=wallet-edge')
       expect(response.ok).toBe(true)
 
-      const data = (await response.json()) as {
-        nodes: Array<{ nodeType: string }>
-      }
+      const data = (await response.json()) as NodesTypeResponse
       for (const node of data.nodes) {
         expect(node.nodeType).toBe('wallet-edge')
       }
@@ -132,11 +179,7 @@ describe('Edge Coordination', () => {
       const response = await app.request(`/edge/nodes/${testNodeId}`)
       expect(response.ok).toBe(true)
 
-      const data = (await response.json()) as {
-        id: string
-        nodeType: string
-        capabilities: { cdn: boolean }
-      }
+      const data = (await response.json()) as NodeDetailsResponse
       expect(data.id).toBe(testNodeId)
       expect(data.nodeType).toBe('wallet-edge')
       expect(data.capabilities.cdn).toBe(true)
@@ -157,10 +200,7 @@ describe('Edge Coordination', () => {
       })
       expect(response.status).toBe(202)
 
-      const data = (await response.json()) as {
-        cid: string
-        targetNodes: number
-      }
+      const data = (await response.json()) as CacheRequestResponse
       expect(data.cid).toBe('QmTestContent123')
       expect(data.targetNodes).toBeGreaterThanOrEqual(0)
     })
@@ -169,7 +209,7 @@ describe('Edge Coordination', () => {
       const response = await app.request('/edge/cache/QmTestContent123')
       expect(response.ok).toBe(true)
 
-      const data = (await response.json()) as { cid: string }
+      const data = (await response.json()) as CidResponse
       expect(data.cid).toBe('QmTestContent123')
     })
   })
@@ -182,10 +222,7 @@ describe('Edge Coordination', () => {
 
       // May return 503 if no nodes online, which is acceptable
       if (response.ok) {
-        const data = (await response.json()) as {
-          cid: string
-          endpoint: string
-        }
+        const data = (await response.json()) as RouteResponse
         expect(data.cid).toBe('QmTestContent123')
         expect(data.endpoint).toBeDefined()
       }
@@ -197,12 +234,6 @@ describe('Edge Coordination', () => {
       const response = await app.request(`/edge/earnings/${testNodeId}`)
       expect(response.ok).toBe(true)
 
-      interface NodeEarnings {
-        nodeId: string
-        bytesServed: number
-        estimatedEarnings: string
-        period: string
-      }
       const data = (await response.json()) as NodeEarnings
       expect(data.nodeId).toBe(testNodeId)
       expect(data.bytesServed).toBeDefined()
@@ -225,7 +256,7 @@ describe('Edge Coordination', () => {
       })
       expect(response.ok).toBe(true)
 
-      const data = (await response.json()) as { success: boolean }
+      const data = (await response.json()) as SuccessResponse
       expect(data.success).toBe(true)
     })
 

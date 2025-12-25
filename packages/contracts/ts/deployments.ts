@@ -30,19 +30,19 @@ function toAddress(address: string | undefined): Address | undefined {
   return isValidAddress(address) ? address : undefined
 }
 
-import bazaarMarketplace1337_raw from '../deployments/bazaar-marketplace-1337.json'
+import bazaarMarketplace1337_raw from '../deployments/bazaar-marketplace-31337.json'
 import eilLocalnet_raw from '../deployments/eil-localnet.json'
 import eilTestnet_raw from '../deployments/eil-testnet.json'
-import elizaToken1337_raw from '../deployments/eliza-token-1337.json'
-import erc20Factory1337_raw from '../deployments/erc20-factory-1337.json'
-import gameSystem1337_raw from '../deployments/game-system-1337.json'
-import identitySystem1337_raw from '../deployments/identity-system-1337.json'
+import elizaToken1337_raw from '../deployments/eliza-token-31337.json'
+import erc20Factory1337_raw from '../deployments/erc20-factory-31337.json'
+import gameSystem1337_raw from '../deployments/game-system-31337.json'
+import identitySystem1337_raw from '../deployments/identity-system-31337.json'
 import launchpadLocalnet_raw from '../deployments/launchpad-localnet.json'
 import localnetAddresses_raw from '../deployments/localnet-addresses.json'
 import paymasterSystemLocalnet_raw from '../deployments/paymaster-system-localnet.json'
-import predimarket1337_raw from '../deployments/predimarket-1337.json'
-import rpgTokens1337_raw from '../deployments/rpg-tokens-1337.json'
-import uniswapV4_1337_raw from '../deployments/uniswap-v4-1337.json'
+import predimarket1337_raw from '../deployments/predimarket-31337.json'
+import rpgTokens1337_raw from '../deployments/rpg-tokens-31337.json'
+import uniswapV4_1337_raw from '../deployments/uniswap-v4-31337.json'
 import uniswapV4_420691_raw from '../deployments/uniswap-v4-420691.json'
 import xlpAmmLocalnet_raw from '../deployments/xlp-amm-localnet.json'
 
@@ -69,54 +69,54 @@ const launchpadLocalnet = LaunchpadDeploymentSchema.parse(launchpadLocalnet_raw)
 export const uniswapV4Deployments: Partial<
   Record<ChainId, UniswapV4Deployment>
 > = {
-  1337: uniswapV4_1337,
+  31337: uniswapV4_1337,
   420691: uniswapV4_420691,
 }
 
 export const bazaarMarketplaceDeployments: Partial<
   Record<ChainId, BazaarMarketplaceDeployment>
 > = {
-  1337: bazaarMarketplace1337,
+  31337: bazaarMarketplace1337,
   420691: bazaarMarketplace1337,
 }
 
 export const erc20FactoryDeployments: Partial<
   Record<ChainId, ERC20FactoryDeployment>
 > = {
-  1337: erc20Factory1337,
+  31337: erc20Factory1337,
   420691: erc20Factory1337,
 }
 
 export const identitySystemDeployments: Partial<
   Record<ChainId, IdentitySystemDeployment>
 > = {
-  1337: { ...identitySystem1337, ...localnetAddresses },
+  31337: { ...identitySystem1337, ...localnetAddresses },
   420691: { ...identitySystem1337, ...localnetAddresses },
 }
 
 export const paymasterDeployments: Partial<
   Record<ChainId, PaymasterSystemDeployment>
 > = {
-  1337: paymasterSystemLocalnet,
+  31337: paymasterSystemLocalnet,
   420691: paymasterSystemLocalnet,
 }
 
 export const xlpDeployments: Partial<Record<ChainId, XLPDeployment>> = {
-  1337: xlpAmmLocalnet,
+  31337: xlpAmmLocalnet,
   420691: xlpAmmLocalnet,
 }
 
 export const gameSystemDeployments: Partial<
   Record<ChainId, GameSystemDeployment>
 > = {
-  1337: gameSystem1337,
+  31337: gameSystem1337,
   420691: gameSystem1337,
 }
 
 export const launchpadDeployments: Partial<
   Record<ChainId, LaunchpadDeployment>
 > = {
-  1337: launchpadLocalnet,
+  31337: launchpadLocalnet,
   420691: launchpadLocalnet,
 }
 

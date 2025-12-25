@@ -276,10 +276,10 @@ describe.skipIf(!localnetAvailable)('Localnet Full System Integration', () => {
       console.log(`   📊 L2 at block ${blockNumber}`)
     })
 
-    it('should verify L2 chain ID is localnet (1337 or 31337)', async () => {
+    it('should verify L2 chain ID is localnet (31337 or 31337)', async () => {
       const chainId = await getChainId(l2PublicClient)
-      // Accept both 1337 (OP-Stack) and 31337 (Anvil default)
-      expect([1337, 31337]).toContain(chainId)
+      // Accept both 31337 (OP-Stack) and 31337 (Anvil default)
+      expect([31337, 31337]).toContain(chainId)
       console.log(`   🔗 Chain ID: ${chainId}`)
     })
 
@@ -708,7 +708,7 @@ describe.skipIf(!localnetAvailable)('Localnet Full System Integration', () => {
 
       console.log('\n📊 System Status Summary:')
       console.log('─────────────────────────────────────────')
-      console.log(`L1 Chain ID: 1337 (local)`)
+      console.log(`L1 Chain ID: 31337 (local)`)
       console.log(`L1 Block Height: ${l1Block}`)
       console.log(`L2 Chain ID: ${l2ChainId}`)
       console.log(`L2 Block Height: ${l2Block}`)

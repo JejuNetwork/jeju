@@ -7,10 +7,10 @@
  *
  * Usage in app's wallet-setup/basic.setup.ts:
  * ```typescript
- * export { default, PASSWORD, SEED_PHRASE } from '@jejunetwork/tests/wallet-setup';
+ * export { basicSetup as default, PASSWORD, SEED_PHRASE } from '@jejunetwork/tests';
  * ```
  *
- * Or re-export in app synpress.config.ts:
+ * Or import in app synpress.config.ts:
  * ```typescript
  * import { createSynpressConfig, createWalletSetup, PASSWORD, SEED_PHRASE } from '@jejunetwork/tests';
  * export default createSynpressConfig({ appName: 'myapp', port: 3000 });
@@ -40,7 +40,7 @@ import { JEJU_CHAIN, PASSWORD, SEED_PHRASE } from '../utils'
  *
  * This setup:
  * 1. Imports the standard test wallet using Anvil's default seed phrase
- * 2. Adds the Jeju Localnet network (chainId 1337)
+ * 2. Adds the Jeju Localnet network (chainId 31337)
  * 3. Switches to the Jeju network
  *
  * The test wallet address will be: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266

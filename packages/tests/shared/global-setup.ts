@@ -18,7 +18,7 @@ import { join } from 'node:path'
 import type { FullConfig } from '@playwright/test'
 
 const DEFAULT_RPC = 'http://127.0.0.1:6546'
-const DEFAULT_CHAIN_ID = 1337
+const DEFAULT_CHAIN_ID = 31337
 
 interface SetupOptions {
   rpcUrl?: string

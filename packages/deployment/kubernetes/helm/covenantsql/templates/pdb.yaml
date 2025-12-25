@@ -1,0 +1,13 @@
+{{- if .Values.podDisruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "covenantsql.fullname" . }}-miner
+  labels:
+    {{- include "covenantsql.minerLabels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "covenantsql.minerSelectorLabels" . | nindent 6 }}
+{{- end }}

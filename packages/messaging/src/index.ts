@@ -38,9 +38,15 @@
  * });
  * ```
  *
- * For relay node functionality, import from '@jejunetwork/messaging/node' (Node.js only)
+ * Relay node functionality is available via the SDK exports
  */
 
+// DWS Worker (decentralized deployment)
+export {
+  createMessagingWorker,
+  type MessagingWorker,
+  type MessagingWorkerConfig,
+} from './dws-worker/index.js'
 // MLS (Message Layer Security) for group messaging
 // Exclude MessageEvent which conflicts with sdk/types
 export {

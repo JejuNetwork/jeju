@@ -37,6 +37,6 @@
   "reportReturnType": "error",
   "reportAssignmentType": "error",
   "reportUnsupportedDunderAll": "none",
-  "include": ["src"],
+  "include": ["api"],
   "exclude": ["**/__pycache__", "**/node_modules", "**/.venv"]
 }

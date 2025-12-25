@@ -7,6 +7,7 @@
 
 import {
   type Address,
+  concat,
   decodeAbiParameters,
   encodeAbiParameters,
   type Hex,
@@ -16,7 +17,6 @@ import {
   recoverAddress,
   toHex,
 } from 'viem'
-import { signMessage } from 'viem/accounts'
 
 /**
  * Creates properly signed feedback authorizations for CloudReputationProvider.
@@ -89,11 +89,8 @@ export async function createSignedFeedbackAuth(
   )
   const structHash = keccak256(encoded)
 
-  // Sign the message
-  const signature = await signMessage({
-    account,
-    message: { raw: structHash },
-  })
+  // Sign the message using the account's signMessage method
+  const signature = await account.signMessage({ message: { raw: structHash } })
 
   // Parse signature components (r, s, v from signature)
   const r = `0x${signature.slice(2, 66)}` as Hex
@@ -135,10 +132,10 @@ export async function createBatchSignedAuths(
 /**
  * Verify a signed feedback authorization (for testing)
  */
-export function verifyFeedbackAuth(
+export async function verifyFeedbackAuth(
   signedAuth: Hex,
   expectedSigner: Address,
-): boolean {
+): Promise<boolean> {
   try {
     // Extract struct data (first 224 bytes = 448 hex chars)
     const structData = signedAuth.slice(0, 2 + 448) as Hex
@@ -181,7 +178,7 @@ export function verifyFeedbackAuth(
     const messageHash = hashMessage({ raw: structHash })
 
     // Recover signer
-    const recoveredSigner = recoverAddress({
+    const recoveredSigner = await recoverAddress({
       hash: messageHash,
       signature: (r + s.slice(2) + toHex(v).slice(2)) as Hex,
     })

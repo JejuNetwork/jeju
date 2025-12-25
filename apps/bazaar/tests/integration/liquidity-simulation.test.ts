@@ -8,6 +8,7 @@
 
 import { beforeAll, describe, expect, test } from 'bun:test'
 import { rawDeployments } from '@jejunetwork/contracts'
+import { ZERO_ADDRESS } from '@jejunetwork/types'
 import {
   type Address,
   createPublicClient,
@@ -22,16 +23,13 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 
-// =============================================================================
 // CONFIGURATION
-// =============================================================================
 
 const RPC_URL = process.env.L2_RPC_URL || 'http://localhost:6546'
 const CHAIN_ID = 420691 // network localnet chain ID
 const DEPLOYER_KEY =
   '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as `0x${string}`
 const WETH_ADDRESS = '0x4200000000000000000000000000000000000006' as Address
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address
 
 const localnet = {
   id: CHAIN_ID,
@@ -40,9 +38,7 @@ const localnet = {
   rpcUrls: { default: { http: [RPC_URL] } },
 }
 
-// =============================================================================
 // TYPES
-// =============================================================================
 
 interface PoolKey {
   currency0: Address
@@ -52,9 +48,7 @@ interface PoolKey {
   hooks: Address
 }
 
-// =============================================================================
 // HELPERS
-// =============================================================================
 
 function sortTokens(tokenA: Address, tokenB: Address): [Address, Address] {
   return tokenA.toLowerCase() < tokenB.toLowerCase()
@@ -78,9 +72,7 @@ function computePoolId(key: PoolKey): `0x${string}` {
   return keccak256(encoded)
 }
 
-// =============================================================================
 // SETUP
-// =============================================================================
 
 let publicClient: PublicClient
 let _walletClient: WalletClient
@@ -90,17 +82,17 @@ let skipTests = false
 
 function loadDeployment(filename: string): Record<string, string> {
   const deploymentMap: Record<string, Record<string, string>> = {
-    'uniswap-v4-1337.json': rawDeployments.uniswapV4_1337 as Record<
+    'uniswap-v4-31337.json': rawDeployments.uniswapV4_1337 as Record<
       string,
       string
     >,
-    'bazaar-marketplace-1337.json':
+    'bazaar-marketplace-31337.json':
       rawDeployments.bazaarMarketplace1337 as Record<string, string>,
-    'erc20-factory-1337.json': rawDeployments.erc20Factory1337 as Record<
+    'erc20-factory-31337.json': rawDeployments.erc20Factory1337 as Record<
       string,
       string
     >,
-    'multi-token-system-1337.json':
+    'multi-token-system-31337.json':
       rawDeployments.multiTokenSystem1337 as Record<string, string>,
   }
   return deploymentMap[filename] || {}
@@ -128,7 +120,7 @@ beforeAll(async () => {
     return
   }
 
-  const v4 = loadDeployment('uniswap-v4-1337.json')
+  const v4 = loadDeployment('uniswap-v4-31337.json')
   poolManager = v4.poolManager as Address
   positionManager = v4.positionManager as Address
 
@@ -136,9 +128,7 @@ beforeAll(async () => {
   console.log(`   PositionManager: ${positionManager || 'NOT DEPLOYED'}`)
 })
 
-// =============================================================================
 // TESTS: POOL INITIALIZATION
-// =============================================================================
 
 describe('Pool Initialization', () => {
   test('should compute pool ID correctly', async () => {
@@ -169,9 +159,7 @@ describe('Pool Initialization', () => {
   })
 })
 
-// =============================================================================
 // TESTS: LIQUIDITY PROVISION
-// =============================================================================
 
 describe('Liquidity Provision', () => {
   test('should calculate tick range for full range liquidity', async () => {
@@ -252,9 +240,7 @@ describe('Liquidity Provision', () => {
   })
 })
 
-// =============================================================================
 // TESTS: FEE ACCRUAL
-// =============================================================================
 
 describe('Fee Accrual', () => {
   test('should calculate fees earned from swaps', async () => {
@@ -321,9 +307,7 @@ describe('Fee Accrual', () => {
   })
 })
 
-// =============================================================================
 // TESTS: IMPERMANENT LOSS
-// =============================================================================
 
 describe('Impermanent Loss', () => {
   test('should calculate IL for 2x price change', async () => {
@@ -375,7 +359,6 @@ describe('Impermanent Loss', () => {
   test('should compare IL vs holding', async () => {
     // Initial: 1 ETH @ $3500 + 3500 USDC = $7000
     // After 2x: Price goes to $7000
-    //
     // Holding value: 1 ETH * $7000 + $3500 = $10,500
     // LP value with IL: $10,500 * (1 - 0.0572) = $9,899
     // Loss from IL: $601
@@ -405,9 +388,7 @@ describe('Impermanent Loss', () => {
   })
 })
 
-// =============================================================================
 // SUMMARY
-// =============================================================================
 
 describe('Liquidity Simulation Summary', () => {
   test('print summary', async () => {

@@ -68,7 +68,7 @@ const CHAIN_CONFIGS: Record<
   { local: ChainConfig; hub: ChainConfig }
 > = {
   localnet: {
-    local: { chainId: 1337, rpcUrl: 'http://localhost:6546' },
+    local: { chainId: 31337, rpcUrl: 'http://localhost:6546' },
     hub: { chainId: 31337, rpcUrl: 'http://localhost:6546' },
   },
   testnet: {
@@ -99,6 +99,7 @@ async function deployContract(
   publicClient: ReturnType<typeof createPublicClient>,
   walletClient: ReturnType<typeof createWalletClient>,
   account: PrivateKeyAccount,
+  chain: Chain,
   name: string,
   args: ConstructorArg[] = [],
 ): Promise<Address> {
@@ -126,6 +127,7 @@ async function deployContract(
   })
 
   const hash = await walletClient.sendTransaction({
+    chain,
     data: deployData,
     account,
   })
@@ -216,6 +218,7 @@ async function main() {
     hubPublicClient,
     hubWalletClient,
     account,
+    hubChain,
     'NetworkRegistry',
     [account.address],
   )
@@ -226,6 +229,7 @@ async function main() {
     localPublicClient,
     localWalletClient,
     account,
+    localChain,
     'FederatedIdentity',
     [
       BigInt(config.local.chainId),
@@ -240,6 +244,7 @@ async function main() {
     localPublicClient,
     localWalletClient,
     account,
+    localChain,
     'FederatedSolver',
     [
       BigInt(config.local.chainId),
@@ -254,6 +259,7 @@ async function main() {
     localPublicClient,
     localWalletClient,
     account,
+    localChain,
     'FederatedLiquidity',
     [
       BigInt(config.local.chainId),

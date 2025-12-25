@@ -21,9 +21,7 @@ import { type Address, createPublicClient, http } from 'viem'
 import { baseSepolia } from 'viem/chains'
 import { CIDUploadResponseSchema, expectValid } from '../../schemas'
 
-// ============================================================================
 // Configuration
-// ============================================================================
 
 interface VerificationResult {
   category: string
@@ -47,14 +45,12 @@ interface VerificationReport {
 
 const ROOT_DIR = join(import.meta.dir, '../..')
 
-// ============================================================================
 // Verifier Class
-// ============================================================================
 
 class TestnetVerifier {
   private rpcUrl: string
   private dwsEndpoint: string
-  private publicClient: ReturnType<typeof createPublicClient>
+  private publicClient
   private results: VerificationResult[] = []
   private addresses: Record<string, Address> = {}
 
@@ -787,9 +783,7 @@ class TestnetVerifier {
   }
 }
 
-// ============================================================================
 // CLI Entry Point
-// ============================================================================
 
 async function main() {
   const verifier = new TestnetVerifier()

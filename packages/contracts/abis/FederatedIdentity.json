@@ -33,6 +33,19 @@
     },
     {
       "type": "function",
+      "name": "LOCAL_CHAIN_ID",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
       "name": "agentToFederatedId",
       "inputs": [
         {
@@ -89,7 +102,7 @@
           "internalType": "uint256"
         },
         {
-          "name": "proof",
+          "name": "",
           "type": "bytes",
           "internalType": "bytes"
         }
@@ -432,19 +445,6 @@
     },
     {
       "type": "function",
-      "name": "localChainId",
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "",
-          "type": "uint256",
-          "internalType": "uint256"
-        }
-      ],
-      "stateMutability": "view"
-    },
-    {
-      "type": "function",
       "name": "localIdentityRegistry",
       "inputs": [],
       "outputs": [
@@ -539,6 +539,32 @@
       "inputs": [
         {
           "name": "_governance",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "setLocalIdentityRegistry",
+      "inputs": [
+        {
+          "name": "_registry",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "setNetworkRegistry",
+      "inputs": [
+        {
+          "name": "_networkRegistry",
           "type": "address",
           "internalType": "address"
         }
@@ -727,6 +753,63 @@
     },
     {
       "type": "event",
+      "name": "GovernanceUpdated",
+      "inputs": [
+        {
+          "name": "oldGovernance",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "newGovernance",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "NetworkRegistryUpdated",
+      "inputs": [
+        {
+          "name": "oldRegistry",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "newRegistry",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "OracleUpdated",
+      "inputs": [
+        {
+          "name": "oldOracle",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "newOracle",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
       "name": "ReputationUpdated",
       "inputs": [
         {
@@ -753,6 +836,11 @@
     {
       "type": "error",
       "name": "AgentInactive",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "AlreadyExists",
       "inputs": []
     },
     {
@@ -794,6 +882,11 @@
     },
     {
       "type": "error",
+      "name": "InvalidChain",
+      "inputs": []
+    },
+    {
+      "type": "error",
       "name": "InvalidOrigin",
       "inputs": []
     },
@@ -804,7 +897,17 @@
     },
     {
       "type": "error",
+      "name": "NotActive",
+      "inputs": []
+    },
+    {
+      "type": "error",
       "name": "NotFederated",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "NotFound",
       "inputs": []
     },
     {
@@ -814,12 +917,27 @@
     },
     {
       "type": "error",
+      "name": "NotOracle",
+      "inputs": []
+    },
+    {
+      "type": "error",
       "name": "ReentrancyGuardReentrantCall",
       "inputs": []
     },
     {
       "type": "error",
+      "name": "Unauthorized",
+      "inputs": []
+    },
+    {
+      "type": "error",
       "name": "UnauthorizedAttester",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "ZeroAddress",
       "inputs": []
     }
   ]

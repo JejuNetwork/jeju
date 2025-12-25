@@ -5,7 +5,7 @@
  * Used as fallback when ZKSolBridge is congested or for specific token types
  */
 
-import { EventEmitter } from 'node:events'
+import { EventEmitter } from '@jejunetwork/shared'
 import {
   Connection,
   Keypair,
@@ -21,8 +21,21 @@ import {
   createWalletClient,
   type Hex,
   http,
+  isAddress,
   parseAbi,
 } from 'viem'
+
+/** Convert an EVM address string to bytes32 hex format */
+function addressToBytes32(address: string): Hex {
+  const cleanAddress = address.startsWith('0x') ? address.slice(2) : address
+  return `0x${cleanAddress.padStart(64, '0')}` as Hex
+}
+
+/** Convert a Solana pubkey to bytes32 hex format */
+function pubkeyToBytes32(pubkey: PublicKey): Hex {
+  return `0x${Buffer.from(pubkey.toBytes()).toString('hex')}` as Hex
+}
+
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
 import { arbitrum, base, mainnet, optimism, sepolia } from 'viem/chains'
 import { createLogger, WormholeVAAResponseSchema } from '../utils/index.js'
@@ -211,9 +224,8 @@ export class WormholeAdapter extends EventEmitter {
       }
     }
 
-    // Convert recipient to bytes32
-    const recipientBytes32 =
-      `0x${(params.recipient as string).slice(2).padStart(64, '0')}` as Hex
+    // Convert recipient to bytes32 - Address is a branded string type, so use String()
+    const recipientBytes32 = addressToBytes32(String(params.recipient))
 
     // Get message fee
     const coreBridge = WORMHOLE_CORE_BRIDGES[params.sourceChainId]
@@ -228,8 +240,15 @@ export class WormholeAdapter extends EventEmitter {
       'function approve(address spender, uint256 amount) returns (bool)',
     ])
 
+    const tokenAddress =
+      typeof params.token === 'string' && isAddress(params.token)
+        ? params.token
+        : (() => {
+            throw new Error(`Invalid token address: ${params.token}`)
+          })()
+
     const approveHash = await sourceClients.wallet.writeContract({
-      address: params.token as Address,
+      address: tokenAddress,
       abi: ERC20_ABI,
       functionName: 'approve',
       args: [tokenBridge, params.amount],
@@ -247,7 +266,7 @@ export class WormholeAdapter extends EventEmitter {
       abi: WORMHOLE_TOKEN_BRIDGE_ABI,
       functionName: 'transferTokens',
       args: [
-        params.token as Address,
+        tokenAddress,
         params.amount,
         destWormholeChainId,
         recipientBytes32,
@@ -318,8 +337,7 @@ export class WormholeAdapter extends EventEmitter {
 
     // Convert Solana pubkey to bytes32
     const solanaRecipient = new PublicKey(params.recipient)
-    const recipientBytes32 =
-      `0x${Buffer.from(solanaRecipient.toBytes()).toString('hex')}` as Hex
+    const recipientBytes32 = pubkeyToBytes32(solanaRecipient)
 
     const coreBridge = WORMHOLE_CORE_BRIDGES[params.sourceChainId]
     const messageFee = (await sourceClients.public.readContract({
@@ -592,15 +610,16 @@ export class WormholeAdapter extends EventEmitter {
     if (!originWormholeChainId) return null
 
     // Convert origin token to bytes32
+    // Convert origin token to bytes32
+    const tokenStr = String(originToken)
     let originTokenBytes32: Hex
-    if (typeof originToken === 'string' && originToken.length === 44) {
-      // Solana pubkey
-      const pubkey = new PublicKey(originToken)
-      originTokenBytes32 =
-        `0x${Buffer.from(pubkey.toBytes()).toString('hex')}` as Hex
+    if (tokenStr.length === 44 && !tokenStr.startsWith('0x')) {
+      // Solana pubkey (base58 encoded, typically 44 chars)
+      const pubkey = new PublicKey(tokenStr)
+      originTokenBytes32 = pubkeyToBytes32(pubkey)
     } else {
-      originTokenBytes32 =
-        `0x${(originToken as string).slice(2).padStart(64, '0')}` as Hex
+      // EVM address
+      originTokenBytes32 = addressToBytes32(tokenStr)
     }
 
     const wrappedAsset = (await destClients.public.readContract({

@@ -23,9 +23,7 @@ import {
   tickToPrice,
 } from '../dex/utils'
 
-// ============================================================================
 // AMM Swap Calculation Tests
-// ============================================================================
 
 describe('calculateAMMSwap', () => {
   describe('constant product formula correctness', () => {
@@ -253,9 +251,7 @@ describe('calculateAMMSwap', () => {
   })
 })
 
-// ============================================================================
 // Tick/Price Conversion Tests (CLMM)
-// ============================================================================
 
 describe('priceToTick and tickToPrice', () => {
   it('converts price to tick and back correctly', () => {
@@ -333,9 +329,7 @@ describe('sqrtPriceX64ToPrice', () => {
   })
 })
 
-// ============================================================================
 // Meteora DLMM Bin Tests
-// ============================================================================
 
 describe('priceToBinId and binIdToPrice', () => {
   it('converts price to bin and back correctly', () => {
@@ -374,9 +368,7 @@ describe('priceToBinId and binIdToPrice', () => {
   })
 })
 
-// ============================================================================
 // Bonding Curve Calculations
-// ============================================================================
 
 describe('calculateBondingCurveBuy', () => {
   it('calculates tokens out for SOL in', () => {
@@ -485,9 +477,7 @@ describe('getBondingCurvePrice', () => {
   })
 })
 
-// ============================================================================
 // Hex/Bytes Conversion Tests
-// ============================================================================
 
 describe('hexToBytes', () => {
   it('converts hex string to bytes', () => {
@@ -597,9 +587,7 @@ describe('bytesToEvmAddress', () => {
   })
 })
 
-// ============================================================================
 // Pool Filtering Tests
-// ============================================================================
 
 describe('poolMatchesFilter', () => {
   const mintA = new PublicKey('So11111111111111111111111111111111111111112') // WSOL
@@ -680,9 +668,7 @@ describe('getSwapReserves', () => {
   })
 })
 
-// ============================================================================
 // Decimal Inference Tests
-// ============================================================================
 
 describe('inferDecimals', () => {
   it('infers 9 decimals for SOL-like amounts', () => {
@@ -706,9 +692,7 @@ describe('inferDecimals', () => {
   })
 })
 
-// ============================================================================
 // buildSwapQuote Tests
-// ============================================================================
 
 describe('buildSwapQuote', () => {
   it('builds a complete swap quote', () => {

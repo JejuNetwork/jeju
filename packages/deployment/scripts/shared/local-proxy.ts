@@ -8,7 +8,7 @@
  * - Hosts file entries (with sudo prompt if needed)
  * - Caddy reverse proxy for clean URLs without ports
  *
- * Port mappings are loaded from @jejunetwork/config/ports
+ * Port mappings are loaded from @jejunetwork/config
  */
 
 import {
@@ -18,7 +18,7 @@ import {
   unlinkSync,
   writeFileSync,
 } from 'node:fs'
-import { CORE_PORTS, INFRA_PORTS } from '@jejunetwork/config/ports'
+import { CORE_PORTS, INFRA_PORTS } from '@jejunetwork/config'
 import { $ } from 'bun'
 
 const DOMAIN = 'local.jejunetwork.org'
@@ -53,9 +53,7 @@ interface ProxyConfig {
   domain?: string
 }
 
-// ============================================================================
 // Hosts File Management
-// ============================================================================
 
 function getHostsFilePath(): string {
   if (process.platform === 'win32') {
@@ -243,9 +241,7 @@ export async function removeHostsBlock(): Promise<boolean> {
   return true
 }
 
-// ============================================================================
 // Caddy Proxy Management
-// ============================================================================
 
 export async function isCaddyInstalled(): Promise<boolean> {
   const result = await $`which caddy`.nothrow().quiet()
@@ -458,6 +454,172 @@ export function getLocalUrls(config: ProxyConfig = {}): Record<string, string> {
     urls[service] = `http://${service}.${domain}:${proxyPort}`
   }
   return urls
+}
+
+/**
+ * Check if port forwarding is already set up
+ */
+export async function isPortForwardingActive(): Promise<boolean> {
+  const platform = process.platform
+
+  if (platform === 'darwin') {
+    // Check if pf has our rules loaded
+    const result = await $`sudo -n pfctl -sr 2>/dev/null`.nothrow().quiet()
+    if (result.exitCode === 0) {
+      const rules = result.stdout.toString()
+      return rules.includes('port 80') && rules.includes('port 8080')
+    }
+    return false
+  } else if (platform === 'linux') {
+    const result = await $`sudo -n iptables -t nat -L OUTPUT -n 2>/dev/null`
+      .nothrow()
+      .quiet()
+    if (result.exitCode === 0) {
+      const rules = result.stdout.toString()
+      return rules.includes('80') && rules.includes('8080')
+    }
+    return false
+  } else if (platform === 'win32') {
+    const result = await $`netsh interface portproxy show v4tov4`
+      .nothrow()
+      .quiet()
+    if (result.exitCode === 0) {
+      const output = result.stdout.toString()
+      return output.includes('80') && output.includes('8080')
+    }
+    return false
+  }
+
+  return false
+}
+
+/**
+ * Install persistent port forwarding rules (run once with sudo)
+ * After running this, port 80 will forward to 8080 automatically
+ */
+export async function installPortForwarding(): Promise<boolean> {
+  const platform = process.platform
+  const targetPort = 8080
+
+  console.log('🔧 Installing persistent port forwarding (80 → 8080)...\n')
+
+  if (platform === 'darwin') {
+    // macOS: Add rules to /etc/pf.anchors and configure pf.conf
+    console.log('Platform: macOS (using pf)')
+    console.log('')
+
+    // Create anchor file with our rules
+    const anchorContent = `# Jeju local development port forwarding
+rdr pass on lo0 inet proto tcp from any to 127.0.0.1 port 80 -> 127.0.0.1 port ${targetPort}
+rdr pass on lo0 inet proto tcp from any to any port 80 -> 127.0.0.1 port ${targetPort}
+`
+    const anchorPath = '/etc/pf.anchors/jeju'
+
+    console.log('1. Creating anchor file...')
+    const tempAnchor = '/tmp/jeju-pf-anchor'
+    writeFileSync(tempAnchor, anchorContent)
+    const copyResult = await $`sudo cp ${tempAnchor} ${anchorPath}`.nothrow()
+    if (copyResult.exitCode !== 0) {
+      console.error('   ❌ Failed to create anchor file')
+      return false
+    }
+    console.log('   ✅ Created /etc/pf.anchors/jeju')
+
+    // Check if pf.conf already has our anchor
+    console.log('')
+    console.log('2. Configuring pf.conf...')
+    const pfConfResult = await $`cat /etc/pf.conf`.nothrow().quiet()
+    const pfConf = pfConfResult.stdout.toString()
+
+    if (!pfConf.includes('anchor "jeju"')) {
+      // Add our anchor to pf.conf
+      const newPfConf =
+        pfConf.trimEnd() +
+        `
+
+# Jeju local development
+rdr-anchor "jeju"
+load anchor "jeju" from "/etc/pf.anchors/jeju"
+`
+      const tempPfConf = '/tmp/jeju-pf-conf'
+      writeFileSync(tempPfConf, newPfConf)
+      const updateResult = await $`sudo cp ${tempPfConf} /etc/pf.conf`.nothrow()
+      if (updateResult.exitCode !== 0) {
+        console.error('   ❌ Failed to update pf.conf')
+        return false
+      }
+      console.log('   ✅ Added jeju anchor to /etc/pf.conf')
+    } else {
+      console.log('   ✅ Anchor already in pf.conf')
+    }
+
+    // Enable and load pf
+    console.log('')
+    console.log('3. Enabling packet filter...')
+    await $`sudo pfctl -ef /etc/pf.conf`.nothrow()
+    console.log('   ✅ Packet filter enabled')
+
+    console.log('')
+    console.log('Port forwarding installed. Port 80 now forwards to 8080.')
+    console.log('This persists across reboots on macOS.')
+    return true
+  } else if (platform === 'linux') {
+    console.log('Platform: Linux (using iptables)')
+    console.log('')
+
+    console.log('1. Adding iptables rules...')
+    // Add iptables rules
+    await $`sudo iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-port ${targetPort}`.nothrow()
+    await $`sudo iptables -t nat -A OUTPUT -o lo -p tcp --dport 80 -j REDIRECT --to-port ${targetPort}`.nothrow()
+    console.log('   ✅ iptables rules added')
+
+    // Try to persist rules
+    console.log('')
+    console.log('2. Persisting rules...')
+    const netfilterResult = await $`which netfilter-persistent`
+      .nothrow()
+      .quiet()
+    if (netfilterResult.exitCode === 0) {
+      await $`sudo netfilter-persistent save`.nothrow()
+      console.log('   ✅ Rules saved with netfilter-persistent')
+    } else {
+      const iptablesSaveResult = await $`which iptables-save`.nothrow().quiet()
+      if (iptablesSaveResult.exitCode === 0) {
+        await $`sudo iptables-save | sudo tee /etc/iptables/rules.v4`.nothrow()
+        console.log('   ✅ Rules saved to /etc/iptables/rules.v4')
+      } else {
+        console.log(
+          '   ⚠️  Install iptables-persistent to persist rules across reboots',
+        )
+        console.log('   Run: sudo apt install iptables-persistent')
+      }
+    }
+
+    console.log('')
+    console.log('Port forwarding installed. Port 80 now forwards to 8080.')
+    return true
+  } else if (platform === 'win32') {
+    console.log('Platform: Windows (using netsh)')
+    console.log('')
+
+    console.log('1. Adding port forwarding rule...')
+    const result =
+      await $`netsh interface portproxy add v4tov4 listenport=80 listenaddress=127.0.0.1 connectport=${targetPort} connectaddress=127.0.0.1`.nothrow()
+
+    if (result.exitCode !== 0) {
+      console.error('   ❌ Failed to add port forwarding rule')
+      console.log('   Try running this command as Administrator')
+      return false
+    }
+    console.log('   ✅ Port forwarding rule added')
+    console.log('')
+    console.log('Port forwarding installed. Port 80 now forwards to 8080.')
+    console.log('This persists across reboots on Windows.')
+    return true
+  }
+
+  console.error('Unsupported platform:', platform)
+  return false
 }
 
 // CLI entry point

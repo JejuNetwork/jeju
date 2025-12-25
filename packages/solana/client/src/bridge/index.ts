@@ -99,9 +99,7 @@ export class TokenBridgeClient {
     this.programId = programId ?? TOKEN_BRIDGE_PROGRAM_ID
   }
 
-  // ============================================================================
   // PDA Derivation
-  // ============================================================================
 
   getBridgeStatePDA(): [PublicKey, number] {
     return PublicKey.findProgramAddressSync([BRIDGE_STATE_SEED], this.programId)
@@ -137,9 +135,7 @@ export class TokenBridgeClient {
     )
   }
 
-  // ============================================================================
   // Read Operations
-  // ============================================================================
 
   async getBridgeState(): Promise<BridgeState | null> {
     const [statePDA] = this.getBridgeStatePDA()
@@ -184,9 +180,7 @@ export class TokenBridgeClient {
     return state.paused
   }
 
-  // ============================================================================
   // Admin Instructions
-  // ============================================================================
 
   async initializeInstructions(
     params: InitializeBridgeParams,
@@ -280,9 +274,7 @@ export class TokenBridgeClient {
     ]
   }
 
-  // ============================================================================
   // Transfer Instructions
-  // ============================================================================
 
   async initiateTransferInstructions(
     params: InitiateTransferParams,
@@ -498,9 +490,7 @@ export class TokenBridgeClient {
     return data
   }
 
-  // ============================================================================
   // Deserialization
-  // ============================================================================
 
   private deserializeBridgeState(data: Buffer): BridgeState {
     let offset = 8 // Skip discriminator

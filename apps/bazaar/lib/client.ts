@@ -1,108 +1,67 @@
 /**
- * Typed API client for Bazaar API
- *
- * Provides type-safe API access using Zod schemas for response validation.
+ * API client utilities for browser
  */
 
-import { getCoreAppUrl } from '@jejunetwork/config/ports'
 import type { Address } from 'viem'
 import type { z } from 'zod'
-import {
-  FaucetClaimResultSchema,
-  FaucetInfoSchema,
-  FaucetStatusSchema,
-} from './faucet'
-
-// =============================================================================
-// API Base URL
-// =============================================================================
 
 export const API_BASE =
-  typeof window !== 'undefined'
-    ? ''
-    : process.env.BAZAAR_API_URL || getCoreAppUrl('BAZAAR_API')
+  typeof import.meta.env !== 'undefined'
+    ? String(import.meta.env.VITE_API_URL || '/api')
+    : '/api'
 
-// =============================================================================
-// Query Keys for React Query
-// =============================================================================
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+    public code?: string,
+  ) {
+    super(message)
+    this.name = 'ApiError'
+  }
+}
 
-export const queryKeys = {
-  faucet: {
-    all: ['faucet'] as const,
-    info: () => [...queryKeys.faucet.all, 'info'] as const,
-    status: (address: string) =>
-      [...queryKeys.faucet.all, 'status', address] as const,
-  },
-  tfmm: {
-    all: ['tfmm'] as const,
-    pools: () => [...queryKeys.tfmm.all, 'pools'] as const,
-    pool: (address: string) =>
-      [...queryKeys.tfmm.all, 'pool', address] as const,
-    strategies: () => [...queryKeys.tfmm.all, 'strategies'] as const,
-    oracles: () => [...queryKeys.tfmm.all, 'oracles'] as const,
-  },
-  a2a: {
-    all: ['a2a'] as const,
-    info: () => [...queryKeys.a2a.all, 'info'] as const,
-    card: () => [...queryKeys.a2a.all, 'card'] as const,
-  },
-  mcp: {
-    all: ['mcp'] as const,
-    info: () => [...queryKeys.mcp.all, 'info'] as const,
-  },
-  health: () => ['health'] as const,
-  oif: {
-    all: ['oif'] as const,
-    quote: (params: {
-      sourceChain: number
-      destChain: number
-      tokenIn: string
-      tokenOut: string
-      amount: string
-    }) => [...queryKeys.oif.all, 'quote', params] as const,
-    intents: (creator?: string) =>
-      [...queryKeys.oif.all, 'intents', creator] as const,
-    stats: () => [...queryKeys.oif.all, 'stats'] as const,
-    routes: () => [...queryKeys.oif.all, 'routes'] as const,
-    solvers: () => [...queryKeys.oif.all, 'solvers'] as const,
-    leaderboard: () => [...queryKeys.oif.all, 'leaderboard'] as const,
-  },
-  bridge: {
-    all: ['bridge'] as const,
-    history: (address: string) =>
-      [...queryKeys.bridge.all, 'history', address] as const,
-  },
-  xlp: {
-    all: ['xlp'] as const,
-    voucherHistory: (address: string) =>
-      [...queryKeys.xlp.all, 'voucher-history', address] as const,
-  },
-  prices: {
-    all: ['prices'] as const,
-    token: (chainId: number, address: string) =>
-      [...queryKeys.prices.all, 'token', chainId, address] as const,
-    eth: (chainId: number) =>
-      [...queryKeys.prices.all, 'eth', chainId] as const,
-  },
-  trending: {
-    all: ['trending'] as const,
-    tag: (tag: string, offset?: number) =>
-      [...queryKeys.trending.all, 'tag', tag, offset] as const,
-    group: (tags: string) =>
-      [...queryKeys.trending.all, 'group', tags] as const,
-  },
-  referral: {
-    code: (userId: string) => ['referral', 'code', userId] as const,
-  },
-} as const
+async function get<T>(path: string, schema?: z.ZodType<T>): Promise<T> {
+  const response = await fetch(`${API_BASE}${path}`)
+  if (!response.ok) {
+    throw new ApiError(
+      `API request failed: ${response.statusText}`,
+      response.status,
+    )
+  }
+  const data: T = await response.json()
+  if (schema) {
+    return schema.parse(data)
+  }
+  return data
+}
 
-// =============================================================================
+import type { JsonRecord } from '@jejunetwork/sdk'
+
+async function post<T>(
+  path: string,
+  body: JsonRecord,
+  schema?: z.ZodType<T>,
+): Promise<T> {
+  const response = await fetch(`${API_BASE}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!response.ok) {
+    throw new ApiError(
+      `API request failed: ${response.statusText}`,
+      response.status,
+    )
+  }
+  const data: T = await response.json()
+  if (schema) {
+    return schema.parse(data)
+  }
+  return data
+}
+
 // Response Types
-// =============================================================================
-
-export type FaucetInfo = z.infer<typeof FaucetInfoSchema>
-export type FaucetStatus = z.infer<typeof FaucetStatusSchema>
-export type FaucetClaimResult = z.infer<typeof FaucetClaimResultSchema>
 
 export interface HealthResponse {
   status: string
@@ -111,17 +70,24 @@ export interface HealthResponse {
   network?: string
 }
 
-export interface A2AInfoResponse {
-  service: string
-  version: string
-  description: string
-  agentCard: string
+export interface FaucetInfo {
+  name: string
+  chainId: number
+  maxClaimAmount: string
+  cooldownSeconds: number
 }
 
-export interface MCPInfoResponse {
-  name: string
-  version: string
-  capabilities: Record<string, boolean>
+export interface FaucetStatus {
+  canClaim: boolean
+  lastClaim: number
+  cooldownRemaining: number
+}
+
+export interface FaucetClaimResult {
+  success: boolean
+  txHash?: string
+  amount?: string
+  error?: string
 }
 
 export interface TFMMPool {
@@ -130,189 +96,165 @@ export interface TFMMPool {
   weights: number[]
   strategy: string
   tvl: string
-  apy: string
+  apy: number
 }
 
 export interface TFMMPoolsResponse {
   pools: TFMMPool[]
   totalTvl: string
-  totalVolume24h: string
+  totalPools: number
 }
 
-export interface TFMMStrategiesResponse {
-  strategies: string[]
+export interface A2AInfo {
+  service: string
+  version: string
+  description: string
+  agentCard: string
 }
 
-export interface TFMMOraclesResponse {
-  oracles: Array<{
-    address: Address
+export interface AgentCard {
+  name: string
+  skills: Array<{
+    id: string
     name: string
-    status: string
+    description: string
+    tags?: string[]
   }>
 }
 
-export interface TFMMActionResponse {
-  success: boolean
-  txHash?: string
-  poolAddress?: Address
+export interface MCPInfo {
+  service: string
+  version: string
+  resources: string[]
+  tools: string[]
 }
 
-// =============================================================================
-// API Error Handling
-// =============================================================================
-
-export class ApiError extends Error {
-  constructor(
-    message: string,
-    public statusCode: number,
-    public details?: Record<string, unknown>,
-  ) {
-    super(message)
-    this.name = 'ApiError'
-  }
-}
-
-async function handleResponse<T>(
-  response: Response,
-  schema?: z.ZodType<T>,
-): Promise<T> {
-  if (!response.ok) {
-    const errorBody = await response.json().catch(() => ({}))
-    const message =
-      (errorBody as { error?: string }).error ||
-      (errorBody as { message?: string }).message ||
-      `Request failed: ${response.status}`
-    throw new ApiError(
-      message,
-      response.status,
-      errorBody as Record<string, unknown>,
-    )
-  }
-
-  const data = await response.json()
-
-  if (schema) {
-    const result = schema.safeParse(data)
-    if (!result.success) {
-      throw new ApiError('Invalid response format', 500, {
-        zodError: result.error.issues,
-      })
-    }
-    return result.data
-  }
-
-  return data as T
-}
-
-// =============================================================================
 // Typed API Client
-// =============================================================================
 
-export const api = {
+export interface BazaarClient {
+  get<T>(path: string): Promise<T>
+  post<T>(path: string, body: JsonRecord): Promise<T>
+
   health: {
-    async get(): Promise<HealthResponse> {
-      const response = await fetch(`${API_BASE}/health`)
-      return handleResponse(response)
-    },
-  },
+    get(): Promise<HealthResponse>
+  }
 
   faucet: {
-    async getInfo(): Promise<FaucetInfo> {
-      const response = await fetch(`${API_BASE}/api/faucet/info`)
-      return handleResponse(response, FaucetInfoSchema)
-    },
-
-    async getStatus(address: Address): Promise<FaucetStatus> {
-      const response = await fetch(`${API_BASE}/api/faucet/status/${address}`)
-      return handleResponse(response, FaucetStatusSchema)
-    },
-
-    async claim(address: Address): Promise<FaucetClaimResult> {
-      const response = await fetch(`${API_BASE}/api/faucet/claim`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address }),
-      })
-      return handleResponse(response, FaucetClaimResultSchema)
-    },
-  },
+    getInfo(): Promise<FaucetInfo>
+    getStatus(address: Address): Promise<FaucetStatus>
+    claim(address: Address): Promise<FaucetClaimResult>
+  }
 
   tfmm: {
-    async getPools(): Promise<TFMMPoolsResponse> {
-      const response = await fetch(`${API_BASE}/api/tfmm`)
-      return handleResponse(response)
-    },
-
-    async getPool(poolAddress: Address): Promise<{ pool: TFMMPool }> {
-      const response = await fetch(`${API_BASE}/api/tfmm?pool=${poolAddress}`)
-      return handleResponse(response)
-    },
-
-    async getStrategies(): Promise<TFMMStrategiesResponse> {
-      const response = await fetch(`${API_BASE}/api/tfmm?action=strategies`)
-      return handleResponse(response)
-    },
-
-    async getOracles(): Promise<TFMMOraclesResponse> {
-      const response = await fetch(`${API_BASE}/api/tfmm?action=oracles`)
-      return handleResponse(response)
-    },
-
-    async createPool(params: {
+    getPools(): Promise<TFMMPoolsResponse>
+    getPool(address: Address): Promise<TFMMPool>
+    getStrategies(): Promise<{ strategies: string[] }>
+    getOracles(): Promise<{ oracles: Array<{ name: string; status: string }> }>
+    createPool(params: {
       tokens: Address[]
       initialWeights: number[]
       strategy: string
-    }): Promise<TFMMActionResponse> {
-      const response = await fetch(`${API_BASE}/api/tfmm`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'create_pool', params }),
-      })
-      return handleResponse(response)
-    },
-
-    async updateStrategy(params: {
+    }): Promise<{ poolAddress: Address }>
+    updateStrategy(params: {
       poolAddress: Address
       newStrategy: string
-    }): Promise<TFMMActionResponse> {
-      const response = await fetch(`${API_BASE}/api/tfmm`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'update_strategy', params }),
-      })
-      return handleResponse(response)
-    },
-
-    async triggerRebalance(params: {
+    }): Promise<{ success: boolean }>
+    triggerRebalance(params: {
       poolAddress: Address
-    }): Promise<TFMMActionResponse> {
-      const response = await fetch(`${API_BASE}/api/tfmm`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'trigger_rebalance', params }),
-      })
-      return handleResponse(response)
-    },
+    }): Promise<{ success: boolean }>
+  }
+
+  a2a: {
+    getInfo(): Promise<A2AInfo>
+    getAgentCard(): Promise<AgentCard>
+  }
+
+  mcp: {
+    getInfo(): Promise<MCPInfo>
+  }
+}
+
+export const api: BazaarClient = {
+  get,
+  post,
+
+  health: {
+    get: () => get<HealthResponse>('/health'),
+  },
+
+  faucet: {
+    getInfo: () => get<FaucetInfo>('/faucet/info'),
+    getStatus: (address: Address) =>
+      get<FaucetStatus>(`/faucet/status/${address}`),
+    claim: (address: Address) =>
+      post<FaucetClaimResult>('/faucet/claim', { address }),
+  },
+
+  tfmm: {
+    getPools: () => get<TFMMPoolsResponse>('/tfmm'),
+    getPool: (address: Address) => get<TFMMPool>(`/tfmm?pool=${address}`),
+    getStrategies: () =>
+      get<{ strategies: string[] }>('/tfmm?action=strategies'),
+    getOracles: () =>
+      get<{ oracles: Array<{ name: string; status: string }> }>(
+        '/tfmm?action=oracles',
+      ),
+    createPool: (params) =>
+      post<{ poolAddress: Address }>('/tfmm', {
+        action: 'create_pool',
+        params,
+      }),
+    updateStrategy: (params) =>
+      post<{ success: boolean }>('/tfmm', {
+        action: 'update_strategy',
+        params,
+      }),
+    triggerRebalance: (params) =>
+      post<{ success: boolean }>('/tfmm', {
+        action: 'trigger_rebalance',
+        params,
+      }),
   },
 
   a2a: {
-    async getInfo(): Promise<A2AInfoResponse> {
-      const response = await fetch(`${API_BASE}/api/a2a`)
-      return handleResponse(response)
-    },
-
-    async getAgentCard(): Promise<Record<string, unknown>> {
-      const response = await fetch(`${API_BASE}/api/a2a?card=true`)
-      return handleResponse(response)
-    },
+    getInfo: () => get<A2AInfo>('/a2a'),
+    getAgentCard: () => get<AgentCard>('/a2a?card=true'),
   },
 
   mcp: {
-    async getInfo(): Promise<MCPInfoResponse> {
-      const response = await fetch(`${API_BASE}/api/mcp`)
-      return handleResponse(response)
-    },
+    getInfo: () => get<MCPInfo>('/mcp'),
   },
 }
 
-export type BazaarClient = typeof api
+// Query Keys for React Query
+
+export const queryKeys = {
+  health: () => ['health'] as const,
+
+  faucet: {
+    info: () => ['faucet', 'info'] as const,
+    status: (address: string) => ['faucet', 'status', address] as const,
+  },
+
+  tfmm: {
+    pools: () => ['tfmm', 'pools'] as const,
+    pool: (address: string) => ['tfmm', 'pool', address] as const,
+    strategies: () => ['tfmm', 'strategies'] as const,
+    oracles: () => ['tfmm', 'oracles'] as const,
+  },
+
+  a2a: {
+    info: () => ['a2a', 'info'] as const,
+    card: () => ['a2a', 'card'] as const,
+  },
+
+  mcp: {
+    info: () => ['mcp', 'info'] as const,
+  },
+
+  pools: ['pools'] as const,
+  pool: (id: string) => ['pools', id] as const,
+  tokens: ['tokens'] as const,
+  nfts: (address: string) => ['nfts', address] as const,
+  intents: (address: string) => ['intents', address] as const,
+}

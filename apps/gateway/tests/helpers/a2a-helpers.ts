@@ -3,7 +3,7 @@
  * @module gateway/tests/helpers/a2a-helpers
  */
 
-import { getCoreAppUrl } from '@jejunetwork/config/ports'
+import { getCoreAppUrl } from '@jejunetwork/config'
 
 const A2A_BASE_URL = getCoreAppUrl('NODE_EXPLORER_UI')
 

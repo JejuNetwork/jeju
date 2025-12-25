@@ -23,6 +23,19 @@
     },
     {
       "type": "function",
+      "name": "MAX_FEED_STALENESS",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
       "name": "MAX_PRICE_CHANGE_PERCENT",
       "inputs": [],
       "outputs": [
@@ -367,6 +380,36 @@
     },
     {
       "type": "error",
+      "name": "InvalidInterval",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "InvalidPool",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "InvalidPrice",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "InvalidPrice",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "InvalidTick",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "InvalidToken",
+      "inputs": []
+    },
+    {
+      "type": "error",
       "name": "OwnableInvalidOwner",
       "inputs": [
         {
@@ -386,6 +429,78 @@
           "internalType": "address"
         }
       ]
+    },
+    {
+      "type": "error",
+      "name": "PriceManipulationDetected",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "PriceTooHigh",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "PriceTooLow",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "SpotPriceDeviationHigh",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "StalePrice",
+      "inputs": [
+        {
+          "name": "updatedAt",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "maxAge",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "StaleRound",
+      "inputs": [
+        {
+          "name": "answeredInRound",
+          "type": "uint80",
+          "internalType": "uint80"
+        },
+        {
+          "name": "roundId",
+          "type": "uint80",
+          "internalType": "uint80"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "TokenNotInPool",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "UnsupportedBaseToken",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "ZeroAddress",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "ZeroAddress",
+      "inputs": []
     }
   ]
 }

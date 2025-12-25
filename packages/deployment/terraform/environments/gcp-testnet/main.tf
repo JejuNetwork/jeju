@@ -287,6 +287,26 @@ provider "helm" {
 }
 
 # ============================================================
+# Module: Farcaster Hub (Self-Hosted)
+# ============================================================
+module "farcaster_hub" {
+  source = "../../modules/farcaster-hub-gcp"
+
+  project_id                = var.project_id
+  environment               = local.environment
+  region                    = var.region
+  gke_cluster_name          = module.gke.cluster_name
+  gke_cluster_endpoint      = module.gke.cluster_endpoint
+  gke_cluster_ca_certificate = module.gke.cluster_ca_certificate
+  domain_name               = var.domain_name
+  dns_zone_name             = module.cloud_dns.zone_name
+  optimism_rpc_url          = "https://mainnet.optimism.io"
+  tags                      = local.common_labels
+
+  depends_on = [module.gke, module.cloud_dns]
+}
+
+# ============================================================
 # Outputs
 # ============================================================
 output "vpc_id" {
@@ -342,7 +362,13 @@ output "testnet_urls" {
     api     = "https://api.testnet.${var.domain_name}"
     gateway = "https://gateway.testnet.${var.domain_name}"
     bazaar  = "https://bazaar.testnet.${var.domain_name}"
+    hub     = module.farcaster_hub.hub_http_url
   }
+}
+
+output "farcaster_hub_url" {
+  description = "Farcaster Hub URL"
+  value       = module.farcaster_hub.hub_http_url
 }
 
 output "next_steps" {

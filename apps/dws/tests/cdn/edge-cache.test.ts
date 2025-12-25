@@ -7,17 +7,13 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
 import { EdgeCache, resetEdgeCache } from '../../src/cdn/cache/edge-cache'
 
-// ============================================================================
 // Test Utilities
-// ============================================================================
 
 function createTestBuffer(size: number, fill = 0): Buffer {
   return Buffer.alloc(size, fill)
 }
 
-// ============================================================================
 // Basic Cache Operations
-// ============================================================================
 
 describe('EdgeCache - Basic Operations', () => {
   let cache: EdgeCache
@@ -76,9 +72,7 @@ describe('EdgeCache - Basic Operations', () => {
   })
 })
 
-// ============================================================================
 // TTL and Expiration
-// ============================================================================
 
 describe('EdgeCache - TTL', () => {
   let cache: EdgeCache
@@ -136,9 +130,7 @@ describe('EdgeCache - TTL', () => {
   })
 })
 
-// ============================================================================
 // Stale-While-Revalidate
-// ============================================================================
 
 describe('EdgeCache - Stale-While-Revalidate', () => {
   let cache: EdgeCache
@@ -177,9 +169,7 @@ describe('EdgeCache - Stale-While-Revalidate', () => {
   })
 })
 
-// ============================================================================
 // Conditional Requests
-// ============================================================================
 
 describe('EdgeCache - Conditional Requests', () => {
   let cache: EdgeCache
@@ -223,9 +213,7 @@ describe('EdgeCache - Conditional Requests', () => {
   })
 })
 
-// ============================================================================
 // Cache Key Generation
-// ============================================================================
 
 describe('EdgeCache - Key Generation', () => {
   let cache: EdgeCache
@@ -271,9 +259,7 @@ describe('EdgeCache - Key Generation', () => {
   })
 })
 
-// ============================================================================
 // Popularity Tracking
-// ============================================================================
 
 describe('EdgeCache - Popularity', () => {
   let cache: EdgeCache
@@ -361,9 +347,7 @@ describe('EdgeCache - Popularity', () => {
   })
 })
 
-// ============================================================================
 // Statistics
-// ============================================================================
 
 describe('EdgeCache - Statistics', () => {
   let cache: EdgeCache
@@ -421,9 +405,7 @@ describe('EdgeCache - Statistics', () => {
   })
 })
 
-// ============================================================================
 // LRU Eviction
-// ============================================================================
 
 describe('EdgeCache - LRU Eviction', () => {
   let cache: EdgeCache

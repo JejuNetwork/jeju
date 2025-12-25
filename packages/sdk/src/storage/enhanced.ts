@@ -1,5 +1,5 @@
 /**
- * Enhanced Storage Module - Multi-backend decentralized storage
+ * Multi-Backend Storage Module - Multi-backend decentralized storage
  *
  * Provides easy-to-use interface for:
  * - Multi-backend storage (WebTorrent, IPFS, Arweave)
@@ -8,26 +8,23 @@
  * - P2P content distribution
  */
 
-import type { NetworkType } from '@jejunetwork/types'
+import type { JsonValue, NetworkType } from '@jejunetwork/types'
 import { type Address, parseEther } from 'viem'
 import { getServicesConfig } from '../config'
 import { generateAuthHeaders } from '../shared/api'
 import {
   ContentInfoSchema,
   ContentListSchema,
-  EnhancedStorageStatsSchema,
-  EnhancedUploadResultSchema,
   JsonValueSchema,
   KMSDecryptResponseSchema,
   KMSEncryptResponseSchema,
+  MultiBackendStorageStatsSchema,
+  MultiBackendUploadResultSchema,
   TorrentInfoSchema,
 } from '../shared/schemas'
-import type { JsonValue } from '../shared/types'
 import type { JejuWallet } from '../wallet'
 
-// ============================================================================
 // Types
-// ============================================================================
 
 export type StorageBackend = 'webtorrent' | 'ipfs' | 'arweave' | 'local'
 export type ContentTier = 'system' | 'popular' | 'private'
@@ -38,7 +35,7 @@ export type ContentCategory =
   | 'media'
   | 'data'
 
-export interface EnhancedStorageStats {
+export interface MultiBackendStorageStats {
   totalPins: number
   totalSizeBytes: number
   totalSizeGB: number
@@ -64,7 +61,7 @@ export interface ContentInfo {
   accessCount: number
 }
 
-export interface EnhancedUploadOptions {
+export interface MultiBackendUploadOptions {
   name?: string
   tier?: ContentTier
   category?: ContentCategory
@@ -81,7 +78,7 @@ export interface EnhancedUploadOptions {
   createTorrent?: boolean
 }
 
-export interface EnhancedUploadResult {
+export interface MultiBackendUploadResult {
   cid: string
   size: number
   tier: ContentTier
@@ -111,23 +108,23 @@ export interface AccessPolicy {
   }
 }
 
-export interface EnhancedStorageModule {
+export interface MultiBackendStorageModule {
   // Stats
-  getStats(): Promise<EnhancedStorageStats>
+  getStats(): Promise<MultiBackendStorageStats>
 
   // Upload
   upload(
     data: Uint8Array | Blob | File,
-    options?: EnhancedUploadOptions,
-  ): Promise<EnhancedUploadResult>
+    options?: MultiBackendUploadOptions,
+  ): Promise<MultiBackendUploadResult>
   uploadJson(
-    data: object,
-    options?: EnhancedUploadOptions,
-  ): Promise<EnhancedUploadResult>
+    data: JsonValue,
+    options?: MultiBackendUploadOptions,
+  ): Promise<MultiBackendUploadResult>
   uploadPermanent(
     data: Uint8Array | Blob | File,
-    options?: Omit<EnhancedUploadOptions, 'permanent'>,
-  ): Promise<EnhancedUploadResult>
+    options?: Omit<MultiBackendUploadOptions, 'permanent'>,
+  ): Promise<MultiBackendUploadResult>
 
   // Download
   download(cid: string, options?: DownloadOptions): Promise<Uint8Array>
@@ -157,7 +154,7 @@ export interface EnhancedStorageModule {
   // Cost estimation
   estimateCost(
     sizeBytes: number,
-    options: EnhancedUploadOptions,
+    options: MultiBackendUploadOptions,
   ): Promise<{
     ipfs: bigint
     arweave: bigint
@@ -175,10 +172,10 @@ const STORAGE_PRICING = {
   webtorrent: parseEther('0'), // Free (P2P)
 }
 
-export function createEnhancedStorageModule(
+export function createMultiBackendStorageModule(
   wallet: JejuWallet,
   network: NetworkType,
-): EnhancedStorageModule {
+): MultiBackendStorageModule {
   const services = getServicesConfig(network)
   const apiUrl = services.storage.api
   const gatewayUrl = services.storage.ipfsGateway
@@ -188,7 +185,7 @@ export function createEnhancedStorageModule(
     return generateAuthHeaders(wallet, 'jeju-storage')
   }
 
-  async function getStats(): Promise<EnhancedStorageStats> {
+  async function getStats(): Promise<MultiBackendStorageStats> {
     const response = await fetch(`${apiUrl}/v2/stats`, {
       headers: await authHeaders(),
     })
@@ -198,13 +195,13 @@ export function createEnhancedStorageModule(
     }
 
     const rawData: unknown = await response.json()
-    return EnhancedStorageStatsSchema.parse(rawData)
+    return MultiBackendStorageStatsSchema.parse(rawData)
   }
 
   async function upload(
     data: Uint8Array | Blob | File,
-    options: EnhancedUploadOptions = {},
-  ): Promise<EnhancedUploadResult> {
+    options: MultiBackendUploadOptions = {},
+  ): Promise<MultiBackendUploadResult> {
     const formData = new FormData()
     const blob =
       data instanceof Uint8Array ? new Blob([new Uint8Array(data)]) : data
@@ -238,7 +235,7 @@ export function createEnhancedStorageModule(
     }
 
     const rawData: unknown = await response.json()
-    const result = EnhancedUploadResultSchema.parse(rawData)
+    const result = MultiBackendUploadResultSchema.parse(rawData)
     return {
       ...result,
       gatewayUrl: getGatewayUrl(result.cid),
@@ -246,9 +243,9 @@ export function createEnhancedStorageModule(
   }
 
   async function uploadJson(
-    data: object,
-    options: EnhancedUploadOptions = {},
-  ): Promise<EnhancedUploadResult> {
+    data: JsonValue,
+    options: MultiBackendUploadOptions = {},
+  ): Promise<MultiBackendUploadResult> {
     const json = JSON.stringify(data)
     const bytes = new TextEncoder().encode(json)
     return upload(new Uint8Array(bytes), {
@@ -260,8 +257,8 @@ export function createEnhancedStorageModule(
 
   async function uploadPermanent(
     data: Uint8Array | Blob | File,
-    options: Omit<EnhancedUploadOptions, 'permanent'> = {},
-  ): Promise<EnhancedUploadResult> {
+    options: Omit<MultiBackendUploadOptions, 'permanent'> = {},
+  ): Promise<MultiBackendUploadResult> {
     return upload(data, {
       ...options,
       permanent: true,
@@ -379,7 +376,7 @@ export function createEnhancedStorageModule(
 
   async function estimateCost(
     sizeBytes: number,
-    options: EnhancedUploadOptions,
+    options: MultiBackendUploadOptions,
   ): Promise<{ ipfs: bigint; arweave: bigint; total: bigint }> {
     const sizeGB = sizeBytes / (1024 * 1024 * 1024)
 

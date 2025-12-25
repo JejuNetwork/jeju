@@ -1,4 +1,20 @@
-# Helmfile for deploying Jeju infrastructure across environments
+# Helmfile for deploying Jeju CHAIN INFRASTRUCTURE ONLY
+#
+# ⚠️  IMPORTANT: This helmfile deploys ONLY chain-level infrastructure.
+# ALL apps (bazaar, gateway, factory, etc.) deploy via DWS (on-chain provisioning).
+#
+# What's deployed here:
+# - L1/L2 blockchain nodes (geth, reth, op-node, etc.)
+# - OP Stack components (batcher, proposer, challenger)
+# - Cross-chain infrastructure (Solana, Farcaster Hub)
+# - CovenantSQL (decentralized DB)
+#
+# What's NOT deployed here (uses DWS instead):
+# - All apps (bazaar, gateway, factory, crucible, etc.)
+# - RPC Gateway (can be DWS workers)
+# - Bundler (can be DWS compute)
+# - Frontend applications
+#
 # Usage: helmfile -e <environment> sync
 
 # Available environments: localnet, testnet, mainnet
@@ -213,6 +229,8 @@ releases:
       - ../helm/jeju-da/values.yaml
 
   # ERC-4337 Bundler (Account Abstraction)
+  # NOTE: This is CHAIN INFRASTRUCTURE for account abstraction.
+  # FUTURE: Could be migrated to DWS compute for full decentralization
   - name: bundler
     namespace: aa
     createNamespace: true
@@ -223,6 +241,9 @@ releases:
       - ../helm/bundler/values-{{ .Environment.Name }}.yaml
 
   # RPC Gateway (Load Balancer + Rate Limiting)
+  # NOTE: This is CHAIN INFRASTRUCTURE, not an app.
+  # It provides access to the blockchain nodes.
+  # FUTURE: Could be migrated to DWS workers for full decentralization
   - name: rpc-gateway
     namespace: rpc
     chart: ../helm/rpc-gateway
@@ -278,32 +299,21 @@ releases:
       - ../helm/blockscout/values-{{ .Environment.Name }}.yaml
 
   # ==========================================================================
-  # Compute Services (AI, Workers, MPC)
+  # Farcaster Hub (Self-Hosted Permissionless Hub)
   # ==========================================================================
+  # NOTE: compute and oauth3 are now deployed via DWS (on-chain provisioning)
 
-  # Compute (AI Inference, Workers, MPC)
-  - name: compute
-    namespace: compute
+  # Farcaster Hubble (Self-hosted Farcaster hub)
+  - name: farcaster-hubble
+    namespace: farcaster
     createNamespace: true
-    chart: ../helm/compute
+    chart: ../helm/farcaster-hubble
     installed: {{ ne .Environment.Name "localnet" }}
     values:
-      - ../helm/compute/values.yaml
-      - ../helm/compute/values-{{ .Environment.Name }}.yaml
-
-  # ==========================================================================
-  # Authentication & Identity Services
-  # ==========================================================================
-
-  # OAuth3 (TEE Auth Agent with MPC signing)
-  - name: oauth3
-    namespace: auth
-    createNamespace: true
-    chart: ../helm/oauth3
-    installed: {{ ne .Environment.Name "localnet" }}
-    values:
-      - ../helm/oauth3/values.yaml
-      - ../helm/oauth3/values-{{ .Environment.Name }}.yaml
+      - ../helm/farcaster-hubble/values.yaml
+      {{- if ne .Environment.Name "localnet" }}
+      - ../helm/farcaster-hubble/values-{{ .Environment.Name }}.yaml
+      {{- end }}
 
   # ==========================================================================
   # Monitoring & Alerting

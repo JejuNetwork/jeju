@@ -11,7 +11,7 @@
  * Full implementation with subgraph integration.
  */
 
-import { EventEmitter } from 'node:events'
+import { EventEmitter } from '@jejunetwork/shared'
 import {
   type PublicClient,
   type WalletClient,

@@ -33,7 +33,7 @@ describe('SDK Module Structure', () => {
     test('client has expected properties', () => {
       if (skipTests || !client) return
       expect(client.network).toBe('localnet')
-      expect(client.chainId).toBe(1337)
+      expect(client.chainId).toBe(31337)
       expect(typeof client.address).toBe('string')
       expect(client.address).toMatch(/^0x[a-fA-F0-9]{40}$/)
       expect(typeof client.isSmartAccount).toBe('boolean')

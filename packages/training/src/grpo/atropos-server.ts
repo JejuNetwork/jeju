@@ -49,9 +49,7 @@ export interface AtroposState {
   latest: ScoredData | null
 }
 
-// ============================================================================
 // State Management
-// ============================================================================
 
 function createInitialState(): AtroposState {
   return {
@@ -75,9 +73,7 @@ function createInitialState(): AtroposState {
 
 const MIN_ENV_WEIGHT = 0.01
 
-// ============================================================================
 // Batch Helpers
-// ============================================================================
 
 function findGroupsSummingToTarget(
   groups: ScoredData[],
@@ -168,9 +164,7 @@ function grabExactFromHeterogeneousQueue(
   return [batch, remaining]
 }
 
-// ============================================================================
 // Scored Data Processing
-// ============================================================================
 
 function processScoredData(
   state: AtroposState,
@@ -223,9 +217,7 @@ function processScoredData(
   return { status: 'received' }
 }
 
-// ============================================================================
 // Response Types
-// ============================================================================
 
 interface RegisterResponse {
   uuid: string
@@ -310,9 +302,7 @@ interface HealthResponse {
   step: number
 }
 
-// ============================================================================
 // Create Atropos Server
-// ============================================================================
 
 export function createAtroposServer() {
   const state = createInitialState()
@@ -636,9 +626,7 @@ export function createAtroposServer() {
   return app
 }
 
-// ============================================================================
 // Standalone Server
-// ============================================================================
 
 export async function startAtroposServer(port = 8000): Promise<void> {
   const app = createAtroposServer()

@@ -9,13 +9,44 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
+import { app } from '../api/server/index'
 import {
   getActiveNodes,
   inferenceNodes,
   registerNode,
   unregisterNode,
 } from '../src/compute/inference-node'
-import { app } from '../src/server/index'
+
+// Test response types
+interface ChatRequestBody {
+  model?: string
+  messages?: Array<{ content: string }>
+}
+
+interface ProvidersResponse {
+  providers: Array<{ id: string; configured: boolean }>
+}
+
+interface ModelsResponse {
+  models: Array<{ id: string; provider: string }>
+}
+
+interface ChatCompletionResponse {
+  provider: string
+  model: string
+  choices: Array<{ message: { content: string } }>
+}
+
+interface EmbeddingResponse {
+  object: string
+  model: string
+  data: Array<{ embedding: number[] }>
+}
+
+interface InferenceResponse {
+  content: string
+  provider: string
+}
 
 const HAS_GROQ = !!process.env.GROQ_API_KEY
 const HAS_OPENAI = !!process.env.OPENAI_API_KEY
@@ -45,10 +76,7 @@ describe('Inference E2E', () => {
         }
 
         if (url.pathname === '/v1/chat/completions' && req.method === 'POST') {
-          const body = (await req.json()) as {
-            model?: string
-            messages?: Array<{ content: string }>
-          }
+          const body = (await req.json()) as ChatRequestBody
           const userMessage =
             body.messages?.find((m) => (m as { role: string }).role === 'user')
               ?.content || ''
@@ -135,9 +163,7 @@ describe('Inference E2E', () => {
       )
       expect(res.status).toBe(200)
 
-      const data = (await res.json()) as {
-        providers: Array<{ id: string; configured: boolean }>
-      }
+      const data = (await res.json()) as ProvidersResponse
       expect(data.providers.length).toBeGreaterThan(0)
 
       const configuredProviders = data.providers.filter((p) => p.configured)
@@ -150,9 +176,7 @@ describe('Inference E2E', () => {
       const res = await app.fetch(new Request('http://localhost/api/v1/models'))
       expect(res.status).toBe(200)
 
-      const data = (await res.json()) as {
-        models: Array<{ id: string; provider: string }>
-      }
+      const data = (await res.json()) as ModelsResponse
       expect(data.models.length).toBeGreaterThan(0)
       console.log(`[Inference Tests] ${data.models.length} models available`)
     })
@@ -178,14 +202,10 @@ describe('Inference E2E', () => {
         }),
       )
 
-      const latency = Date.now() - start
       expect(res.status).toBe(200)
 
-      const data = (await res.json()) as {
-        provider: string
-        model: string
-        choices: Array<{ message: { content: string } }>
-      }
+      const data = (await res.json()) as ChatCompletionResponse
+      const latency = Date.now() - start
 
       expect(data.provider).toBe('groq')
       expect(data.choices[0].message.content).toContain('4')
@@ -220,11 +240,7 @@ describe('Inference E2E', () => {
         const latency = Date.now() - start
         expect(res.status).toBe(200)
 
-        const data = (await res.json()) as {
-          provider: string
-          model: string
-          choices: Array<{ message: { content: string } }>
-        }
+        const data = (await res.json()) as ChatCompletionResponse
 
         expect(data.provider).toBe('openai')
         expect(data.choices[0].message.content).toContain('6')
@@ -248,11 +264,7 @@ describe('Inference E2E', () => {
 
       expect(res.status).toBe(200)
 
-      const data = (await res.json()) as {
-        object: string
-        model: string
-        data: Array<{ embedding: number[] }>
-      }
+      const data = (await res.json()) as EmbeddingResponse
 
       expect(data.object).toBe('list')
       expect(data.data[0].embedding.length).toBe(1536)
@@ -287,11 +299,7 @@ describe('Inference E2E', () => {
         const latency = Date.now() - start
         expect(res.status).toBe(200)
 
-        const data = (await res.json()) as {
-          provider: string
-          model: string
-          choices: Array<{ message: { content: string } }>
-        }
+        const data = (await res.json()) as ChatCompletionResponse
 
         expect(data.provider).toBe('anthropic')
         expect(data.choices[0].message.content).toContain('8')
@@ -320,7 +328,7 @@ describe('Inference E2E', () => {
 
       expect(res.status).toBe(200)
 
-      const data = (await res.json()) as { content: string; provider: string }
+      const data = (await res.json()) as InferenceResponse
       expect(data.content).toContain('10')
       expect(data.provider).toBe('groq')
     })

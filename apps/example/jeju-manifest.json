@@ -1,34 +1,48 @@
 {
   "$schema": "../../packages/config/jeju-manifest.schema.json",
   "name": "example",
-  "displayName": "Decentralized App Template",
+  "displayName": "Example",
   "version": "1.0.0",
   "type": "app",
-  "description": "A production-ready template for building fully decentralized applications on Jeju Network. Includes: CQL database, IPFS storage, KMS encryption, Cron triggers, JNS naming, REST API, A2A protocol, MCP tools, x402 payments, and OAuth3 authentication.",
+  "description": "A production-ready template for building applications on Jeju Network. Includes: CQL database, IPFS storage, KMS encryption, Cron triggers, JNS naming, REST API, A2A protocol, MCP tools, x402 payments, and OAuth3 authentication.",
   "commands": {
-    "dev": "bun run src/server/index.ts",
-    "dev:frontend": "bun run --hot src/frontend/dev.ts",
-    "build": "bun run build.ts",
-    "start": "bun run dist/server/index.js",
-    "test": "bun test",
-    "test:e2e": "bun run src/tests/e2e.test.ts",
-    "test:synpress": "synpress run --config synpress.config.ts",
-    "deploy": "bun run deploy.ts",
-    "migrate": "bun run src/db/migrate.ts",
-    "seed": "bun run scripts/seed.ts"
+    "dev": "bun run dev",
+    "build": "bun run build",
+    "start": "bun run start",
+    "test": "bun run test",
+    "deploy": "bun run deploy"
   },
   "ports": {
     "main": 4500,
     "frontend": 4501
   },
-  "dependencies": ["contracts", "config"],
+  "dependencies": [
+    "contracts",
+    "config"
+  ],
   "optional": false,
   "enabled": true,
-  "autoStart": false,
-  "tags": ["template", "dapp", "full-stack", "decentralized", "a2a", "mcp", "cql", "kms", "jns", "storage", "compute", "cron", "cache", "x402", "oauth3"],
+  "autoStart": true,
+  "tags": [
+    "template",
+    "dapp",
+    "full-stack",
+    "decentralized",
+    "a2a",
+    "mcp",
+    "cql",
+    "kms",
+    "jns",
+    "storage",
+    "compute",
+    "cron",
+    "cache",
+    "x402",
+    "oauth3"
+  ],
   "jns": {
     "name": "example.jeju",
-    "description": "Decentralized App Template",
+    "description": "Example",
     "url": "https://example.jejunetwork.org"
   },
   "healthCheck": {
@@ -39,13 +53,27 @@
     "enabled": true,
     "a2aEndpoint": "/a2a",
     "mcpEndpoint": "/mcp",
-    "tags": ["jeju-app", "template", "dapp"],
+    "tags": [
+      "jeju-app",
+      "template",
+      "dapp"
+    ],
     "metadata": {
       "category": "template",
       "provider": "jeju-network",
-      "features": ["full-decentralization", "ai-integration", "scheduled-tasks", "encrypted-data", "x402-payments", "oauth3-auth"]
+      "features": [
+        "full-decentralization",
+        "ai-integration",
+        "scheduled-tasks",
+        "encrypted-data",
+        "x402-payments",
+        "oauth3-auth"
+      ]
     },
-    "trustModels": ["open", "staked"],
+    "trustModels": [
+      "open",
+      "staked"
+    ],
     "x402Support": true,
     "multiTokenPayments": true,
     "jnsName": "example.jeju"
@@ -54,23 +82,41 @@
     "backend": {
       "enabled": true,
       "runtime": "bun",
-      "entrypoint": "src/server/index.ts",
+      "entrypoint": "api/index.ts",
       "memory": 256,
       "timeout": 30000,
       "minInstances": 1,
       "maxInstances": 5,
       "teeRequired": false,
-      "regions": ["global"]
+      "regions": [
+        "global"
+      ]
     },
     "cdn": {
       "enabled": true,
-      "regions": ["global"],
+      "regions": [
+        "global"
+      ],
       "staticDir": "dist/frontend",
       "cacheRules": [
-        { "pattern": "/assets/**", "ttl": 31536000, "immutable": true },
-        { "pattern": "/*.js", "ttl": 86400 },
-        { "pattern": "/*.css", "ttl": 86400 },
-        { "pattern": "/**/*.html", "ttl": 60, "staleWhileRevalidate": 3600 }
+        {
+          "pattern": "/assets/**",
+          "ttl": 31536000,
+          "immutable": true
+        },
+        {
+          "pattern": "/*.js",
+          "ttl": 86400
+        },
+        {
+          "pattern": "/*.css",
+          "ttl": 86400
+        },
+        {
+          "pattern": "/**/*.html",
+          "ttl": 60,
+          "staleWhileRevalidate": 3600
+        }
       ]
     },
     "database": {
@@ -97,11 +143,22 @@
     },
     "triggers": {
       "type": "cron",
-      "schedules": ["cleanup", "reminders", "sync"]
+      "schedules": [
+        "cleanup",
+        "reminders",
+        "sync"
+      ]
     },
     "auth": {
       "type": "oauth3",
-      "providers": ["wallet", "farcaster", "github", "google", "twitter", "discord"],
+      "providers": [
+        "wallet",
+        "farcaster",
+        "github",
+        "google",
+        "twitter",
+        "discord"
+      ],
       "teeAgent": "http://localhost:8004",
       "registry": "on-chain"
     }
@@ -122,11 +179,24 @@
   "decentralization": {
     "cdn": {
       "enabled": true,
-      "regions": ["global"],
+      "regions": [
+        "global"
+      ],
       "cacheRules": [
-        { "pattern": "/assets/**", "ttl": 31536000, "immutable": true },
-        { "pattern": "/api/**", "ttl": 0 },
-        { "pattern": "/**/*.html", "ttl": 60, "staleWhileRevalidate": 3600 }
+        {
+          "pattern": "/assets/**",
+          "ttl": 31536000,
+          "immutable": true
+        },
+        {
+          "pattern": "/api/**",
+          "ttl": 0
+        },
+        {
+          "pattern": "/**/*.html",
+          "ttl": 60,
+          "staleWhileRevalidate": 3600
+        }
       ],
       "serviceWorker": true
     },
@@ -153,6 +223,15 @@
       "DESCRIPTION": "Your app description",
       "OAUTH3_APP_ID": "yourapp.oauth3.jeju",
       "OAUTH3_TEE_AGENT_URL": "http://localhost:8004"
+    }
+  },
+  "architecture": {
+    "type": "hybrid",
+    "frontend": {
+      "type": "spa",
+      "builder": "bun",
+      "entrypoint": "index.html",
+      "outputDir": "dist/web"
     }
   }
 }

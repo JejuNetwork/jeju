@@ -6,13 +6,16 @@
  */
 
 import {
-  createCipheriv,
-  createDecipheriv,
-  createHash,
-  createHmac,
+  bytesToHex,
+  decryptAesGcm,
+  deriveKeyScrypt,
+  encryptAesGcm,
+  fromHex,
+  hash256,
+  hmacSha256,
   randomBytes,
-  scrypt,
-} from 'node:crypto'
+  toHex,
+} from '@jejunetwork/shared'
 import { ed25519, x25519 } from '@noble/curves/ed25519'
 import { hkdf } from '@noble/hashes/hkdf'
 import { sha256 } from '@noble/hashes/sha256'
@@ -30,21 +33,6 @@ import type {
   TEEKeyConfig,
   TEEPreKey,
 } from './types'
-
-// Typed promisified scrypt for async usage
-const scryptAsync = (
-  password: string | Buffer,
-  salt: Buffer,
-  keylen: number,
-  options: { N: number; r: number; p: number },
-): Promise<Buffer> => {
-  return new Promise((resolve, reject) => {
-    scrypt(password, salt, keylen, options, (err, derivedKey) => {
-      if (err) reject(err)
-      else resolve(derivedKey)
-    })
-  })
-}
 
 /** Max identity keys per manager to prevent memory exhaustion */
 export const MAX_IDENTITY_KEYS = 10000
@@ -182,7 +170,7 @@ export class TEEXMTPKeyManager {
     // Sign pre-key with identity key
     const signature = await this.signInTEE({
       keyId: identityKeyId,
-      message: Buffer.from(preKeyPair.publicKey.slice(2), 'hex'),
+      message: fromHex(preKeyPair.publicKey),
     })
 
     const preKey: TEEPreKey = {
@@ -292,13 +280,20 @@ export class TEEXMTPKeyManager {
     }
 
     // Mock ECDH - in production, use TEE-backed X25519
-    const theirPub = Buffer.from(theirPublicKey.slice(2), 'hex')
+    const theirPub = new Uint8Array(
+      theirPublicKey
+        .slice(2)
+        .match(/.{2}/g)
+        ?.map((b) => parseInt(b, 16)) ?? [],
+    )
 
     // For mock, just hash the concatenation
-    const shared = createHash('sha256')
-      .update(keyStore.privateKey)
-      .update(theirPub)
-      .digest()
+    const combined = new Uint8Array(
+      keyStore.privateKey.length + theirPub.length,
+    )
+    combined.set(keyStore.privateKey)
+    combined.set(theirPub, keyStore.privateKey.length)
+    const shared = hash256(combined)
 
     return shared
   }
@@ -317,33 +312,32 @@ export class TEEXMTPKeyManager {
 
     // Derive encryption key from password using strong scrypt parameters
     const salt = randomBytes(32)
-    const encryptionKey = (await scryptAsync(
-      backupPassword,
-      salt,
-      SCRYPT_KEYLEN,
-      { N: SCRYPT_N, r: SCRYPT_R, p: SCRYPT_P },
-    )) as Buffer
+    const encryptionKey = await deriveKeyScrypt(backupPassword, salt, {
+      N: SCRYPT_N,
+      r: SCRYPT_R,
+      p: SCRYPT_P,
+      dkLen: SCRYPT_KEYLEN,
+    })
 
-    // Encrypt private key
-    const iv = randomBytes(16)
-    const cipher = createCipheriv('aes-256-gcm', encryptionKey, iv)
-
-    const encrypted = Buffer.concat([
-      cipher.update(keyStore.privateKey),
-      cipher.final(),
-    ])
-    const authTag = cipher.getAuthTag()
+    // Encrypt private key using AES-GCM
+    const { ciphertext, iv, tag } = await encryptAesGcm(
+      keyStore.privateKey,
+      encryptionKey,
+    )
 
     // Combine: iv + authTag + ciphertext
-    const ciphertext = Buffer.concat([iv, authTag, encrypted])
+    const combined = new Uint8Array(iv.length + tag.length + ciphertext.length)
+    combined.set(iv, 0)
+    combined.set(tag, iv.length)
+    combined.set(ciphertext, iv.length + tag.length)
 
     return {
-      ciphertext: `0x${ciphertext.toString('hex')}` as Hex,
+      ciphertext: `0x${bytesToHex(combined)}` as Hex,
       metadata: {
         keyId,
         algorithm: 'aes-256-gcm',
         kdfParams: {
-          salt: `0x${salt.toString('hex')}` as Hex,
+          salt: `0x${bytesToHex(salt)}` as Hex,
           iterations: SCRYPT_N, // N value for reference
         },
       },
@@ -362,27 +356,27 @@ export class TEEXMTPKeyManager {
     const { ciphertext, metadata } = encryptedBackup
 
     // Derive decryption key using strong scrypt parameters
-    const salt = Buffer.from(metadata.kdfParams.salt.slice(2), 'hex')
-    const decryptionKey = (await scryptAsync(password, salt, SCRYPT_KEYLEN, {
+    const salt = fromHex(metadata.kdfParams.salt)
+    const decryptionKey = await deriveKeyScrypt(password, salt, {
       N: SCRYPT_N,
       r: SCRYPT_R,
       p: SCRYPT_P,
-    })) as Buffer
+      dkLen: SCRYPT_KEYLEN,
+    })
 
-    // Parse ciphertext
-    const data = Buffer.from(ciphertext.slice(2), 'hex')
-    const iv = data.subarray(0, 16)
-    const authTag = data.subarray(16, 32)
-    const encrypted = data.subarray(32)
+    // Parse ciphertext: iv (12 bytes) + authTag (16 bytes) + ciphertext
+    const data = fromHex(ciphertext)
+    const iv = data.subarray(0, 12)
+    const authTag = data.subarray(12, 28)
+    const encrypted = data.subarray(28)
 
-    // Decrypt
-    const decipher = createDecipheriv('aes-256-gcm', decryptionKey, iv)
-    decipher.setAuthTag(authTag)
-
-    const privateKey = Buffer.concat([
-      decipher.update(encrypted),
-      decipher.final(),
-    ])
+    // Decrypt using AES-GCM
+    const privateKey = await decryptAesGcm(
+      encrypted,
+      decryptionKey,
+      iv,
+      authTag,
+    )
 
     // Generate public key from private key
     const publicKey = ed25519.getPublicKey(privateKey)
@@ -410,7 +404,7 @@ export class TEEXMTPKeyManager {
     const identityKey: TEEIdentityKey = {
       keyId: newKeyId,
       address: '0x0000000000000000000000000000000000000000' as Address, // Would derive from key
-      publicKey: `0x${Buffer.from(publicKey).toString('hex')}` as Hex,
+      publicKey: toHex(publicKey),
       createdAt: Date.now(),
     }
 
@@ -483,7 +477,7 @@ export class TEEXMTPKeyManager {
 
     return {
       keyId: request.keyId,
-      publicKey: `0x${Buffer.from(publicKey).toString('hex')}` as Hex,
+      publicKey: toHex(publicKey),
       type: request.type,
     }
   }
@@ -500,7 +494,7 @@ export class TEEXMTPKeyManager {
     const signature = ed25519.sign(request.message, keyStore.privateKey)
 
     return {
-      signature: `0x${Buffer.from(signature).toString('hex')}` as Hex,
+      signature: toHex(signature),
       keyId: request.keyId,
       timestamp: Date.now(),
     }
@@ -539,7 +533,7 @@ export class TEEXMTPKeyManager {
 
     return {
       keyId: newKeyId,
-      publicKey: `0x${Buffer.from(publicKey).toString('hex')}` as Hex,
+      publicKey: toHex(publicKey),
       type: 'x25519',
     }
   }
@@ -556,34 +550,42 @@ export class TEEXMTPKeyManager {
 
     // Sign attestation using key-derived secret
     // In production, TEE hardware provides the signing capability
-    const attestationData = Buffer.concat([
-      Buffer.from(this.config.enclaveId),
-      measurement,
-      nonce,
-      Buffer.from(timestamp.toString()),
-    ])
+    const enclaveIdBytes = new TextEncoder().encode(this.config.enclaveId)
+    const timestampBytes = new TextEncoder().encode(timestamp.toString())
+    const attestationData = new Uint8Array(
+      enclaveIdBytes.length +
+        measurement.length +
+        nonce.length +
+        timestampBytes.length,
+    )
+    let offset = 0
+    attestationData.set(enclaveIdBytes, offset)
+    offset += enclaveIdBytes.length
+    attestationData.set(measurement, offset)
+    offset += measurement.length
+    attestationData.set(nonce, offset)
+    offset += nonce.length
+    attestationData.set(timestampBytes, offset)
 
     // Use key material for HMAC instead of hardcoded secret
     // The attestation key should be derived from TEE-specific secrets
     const keyStore = this.mockKeyStore.get(keyId)
     const hmacKey = keyStore ? keyStore.privateKey : randomBytes(32) // Ephemeral key if no stored key
 
-    const signature = createHmac('sha256', hmacKey)
-      .update(attestationData)
-      .digest()
+    const signature = hmacSha256(hmacKey, attestationData)
 
     return {
       version: 1,
       enclaveId: this.config.enclaveId,
-      measurement: `0x${measurement.toString('hex')}` as Hex,
+      measurement: toHex(measurement),
       pcrs: {
-        0: `0x${randomBytes(32).toString('hex')}` as Hex,
-        1: `0x${randomBytes(32).toString('hex')}` as Hex,
-        2: `0x${randomBytes(32).toString('hex')}` as Hex,
+        0: toHex(randomBytes(32)),
+        1: toHex(randomBytes(32)),
+        2: toHex(randomBytes(32)),
       },
-      nonce: `0x${nonce.toString('hex')}` as Hex,
+      nonce: toHex(nonce),
       timestamp,
-      signature: `0x${signature.toString('hex')}` as Hex,
+      signature: toHex(signature),
     }
   }
 

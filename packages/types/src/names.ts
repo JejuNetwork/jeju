@@ -1,29 +1,15 @@
 /**
- * @fileoverview Network Name Service (JNS) Types
- *
- * Type definitions for the decentralized naming system
- * that integrates with ERC-8004 and hosted apps.
- * Includes Zod schemas for runtime validation.
+ * Network Name Service (JNS) types.
  */
 
 import { z } from 'zod'
 import { AddressSchema, HashSchema } from './validation'
 
-// ============ Core Type Schemas ============
-
-/** JNS name without the .jeju suffix */
 export type JNSLabel = string
-
-/** Full JNS name with .jeju suffix */
 export type JNSName = `${string}.jeju`
-
-/** Node hash (keccak256) for name resolution */
 export type NodeHash = `0x${string}`
-
-/** Label hash (keccak256 of the label) */
 export type LabelHash = `0x${string}`
 
-/** Schema for JNS label validation */
 export const JNSLabelSchema = z
   .string()
   .min(3)
@@ -36,52 +22,32 @@ export const JNSLabelSchema = z
     'Label cannot contain consecutive hyphens',
   )
 
-/** Schema for full JNS name */
 export const JNSNameSchema = z
   .string()
   .endsWith('.jeju')
   .transform((val) => val as JNSName)
 
-/** Schema for node hash */
 export const NodeHashSchema = HashSchema
-
-/** Schema for label hash */
 export const LabelHashSchema = HashSchema
 
-// ============ Registration Schemas ============
-
 export const JNSRegistrationSchema = z.object({
-  /** The registered name (without .jeju) */
   name: JNSLabelSchema,
-  /** Full name with suffix */
   fullName: JNSNameSchema,
-  /** Node hash for registry lookups */
   node: NodeHashSchema,
-  /** Label hash (token ID in ERC-721) */
   labelhash: LabelHashSchema,
-  /** Current owner address */
   owner: AddressSchema,
-  /** Resolver contract address */
   resolver: AddressSchema,
-  /** Registration timestamp */
   registeredAt: z.number(),
-  /** Expiration timestamp */
   expiresAt: z.number(),
-  /** Whether in grace period */
   inGracePeriod: z.boolean(),
 })
 export type JNSRegistration = z.infer<typeof JNSRegistrationSchema>
 
 export const JNSRegistrationParamsSchema = z.object({
-  /** Name to register (without .jeju) */
   name: JNSLabelSchema,
-  /** Owner address */
   owner: AddressSchema,
-  /** Duration in seconds */
   duration: z.number().int().positive(),
-  /** Custom resolver (optional, uses default if not provided) */
   resolver: AddressSchema.optional(),
-  /** Initial resolver data to set */
   resolverData: z.lazy(() => JNSResolverDataSchema).optional(),
 })
 export type JNSRegistrationParams = z.infer<typeof JNSRegistrationParamsSchema>
@@ -93,9 +59,6 @@ export const JNSRenewalParamsSchema = z.object({
   duration: z.number().int().positive(),
 })
 export type JNSRenewalParams = z.infer<typeof JNSRenewalParamsSchema>
-
-// ============ Resolver Schemas ============
-
 export const JNSAppConfigSchema = z.object({
   /** App contract address */
   appContract: AddressSchema.optional(),
@@ -144,9 +107,6 @@ export const JNS_TEXT_KEYS = {
 export type JNSTextKey =
   | (typeof JNS_TEXT_KEYS)[keyof typeof JNS_TEXT_KEYS]
   | string
-
-// ============ Reverse Resolution Schemas ============
-
 export const JNSReverseRecordSchema = z.object({
   /** Address the record is for */
   address: AddressSchema,
@@ -156,9 +116,6 @@ export const JNSReverseRecordSchema = z.object({
   name: JNSNameSchema,
 })
 export type JNSReverseRecord = z.infer<typeof JNSReverseRecordSchema>
-
-// ============ Pricing Schemas ============
-
 export const JNSPricingSchema = z.object({
   /** Base price per year in wei */
   basePrice: z.bigint(),
@@ -186,9 +143,6 @@ export const JNSPriceQuoteSchema = z.object({
   hasAgentDiscount: z.boolean(),
 })
 export type JNSPriceQuote = z.infer<typeof JNSPriceQuoteSchema>
-
-// ============ App Registry Integration ============
-
 /** Canonical JNS names for network apps */
 export const JEJU_APP_NAMES = {
   GATEWAY: 'gateway.jeju',
@@ -216,9 +170,6 @@ export type JNSAppRegistryEntry = z.infer<typeof JNSAppRegistryEntrySchema>
 
 /** Mapping of app names to their JNS configurations */
 export type JNSAppRegistry = Record<string, JNSAppRegistryEntry>
-
-// ============ Event Schemas ============
-
 export const JNSNameRegisteredEventSchema = z.object({
   node: NodeHashSchema,
   name: JNSLabelSchema,
@@ -262,9 +213,6 @@ export const JNSResolverChangedEventSchema = z.object({
 export type JNSResolverChangedEvent = z.infer<
   typeof JNSResolverChangedEventSchema
 >
-
-// ============ Query Schemas ============
-
 export const JNSLookupResultSchema = z.object({
   /** Whether the name exists and is not expired */
   exists: z.boolean(),
@@ -301,9 +249,6 @@ export const JNSSearchResultSchema = z.object({
   hasMore: z.boolean(),
 })
 export type JNSSearchResult = z.infer<typeof JNSSearchResultSchema>
-
-// ============ Contract Addresses ============
-
 export const JNSContractAddressesSchema = z.object({
   registry: AddressSchema,
   resolver: AddressSchema,
@@ -311,9 +256,6 @@ export const JNSContractAddressesSchema = z.object({
   reverseRegistrar: AddressSchema,
 })
 export type JNSContractAddresses = z.infer<typeof JNSContractAddressesSchema>
-
-// ============ Utils ============
-
 /**
  * Compute the namehash for a JNS name
  * @param name Full name (e.g., "myapp.jeju")
@@ -369,4 +311,13 @@ export function formatJNSName(label: JNSLabel): JNSName {
  */
 export function parseJNSName(name: JNSName): JNSLabel {
   return name.replace('.jeju', '')
+}
+
+/**
+ * Base configuration for JNS Gateway implementations
+ */
+export interface JNSGatewayConfigBase {
+  port: number
+  rpcUrl: string
+  jnsRegistryAddress: `0x${string}`
 }

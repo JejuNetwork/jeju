@@ -33,9 +33,7 @@ import type {
   TEEPlatform,
 } from '../src/workers/tee/types'
 
-// ============================================================================
 // ERC-8004 Registry ABI
-// ============================================================================
 
 const IDENTITY_REGISTRY_ABI = [
   {
@@ -91,9 +89,7 @@ const REGION_KEY = 'teeRegion'
 const TEE_PLATFORM_KEY = 'teePlatform'
 const CAPABILITIES_KEY = 'teeCapabilities'
 
-// ============================================================================
 // Configuration
-// ============================================================================
 
 interface SeedConfig {
   environment: NetworkEnvironment
@@ -189,12 +185,10 @@ Examples:
 `)
 }
 
-// ============================================================================
 // Node Registration
-// ============================================================================
 
 async function registerNode(config: SeedConfig): Promise<bigint> {
-  console.log(`\n📍 Registering TEE worker node in ${config.region}...`)
+  console.log(`\n[Seed] Registering TEE worker node in ${config.region}`)
 
   const chain = inferChain(config.rpcUrl)
   const account = privateKeyToAccount(config.privateKey)
@@ -244,7 +238,7 @@ async function registerNode(config: SeedConfig): Promise<bigint> {
 
   // Extract agentId from logs (Transfer event)
   const agentId = extractAgentId(receipt.logs)
-  console.log(`  ✅ Registered with agentId: ${agentId}`)
+  console.log(`[Seed] Registered with agentId: ${agentId}`)
 
   // Set endpoint
   const { request: endpointRequest } = await publicClient.simulateContract({
@@ -255,7 +249,7 @@ async function registerNode(config: SeedConfig): Promise<bigint> {
     account,
   })
   await walletClient.writeContract(endpointRequest)
-  console.log(`  ✅ Set endpoint: ${config.endpoint}`)
+  console.log(`[Seed] Set endpoint: ${config.endpoint}`)
 
   // Set metadata
   const metadata: [string, string][] = [
@@ -274,7 +268,7 @@ async function registerNode(config: SeedConfig): Promise<bigint> {
     })
     await walletClient.writeContract(request)
   }
-  console.log(`  ✅ Set metadata (region, teePlatform, capabilities)`)
+  console.log(`[Seed] Set metadata (region, teePlatform, capabilities)`)
 
   // Add TEE worker tag
   const { request: tagRequest } = await publicClient.simulateContract({
@@ -285,7 +279,7 @@ async function registerNode(config: SeedConfig): Promise<bigint> {
     account,
   })
   await walletClient.writeContract(tagRequest)
-  console.log(`  ✅ Added tag: ${TEE_WORKER_TAG}`)
+  console.log(`[Seed] Added tag: ${TEE_WORKER_TAG}`)
 
   return agentId
 }
@@ -311,12 +305,10 @@ function inferChain(rpcUrl: string) {
   return localhost
 }
 
-// ============================================================================
 // Environment-Specific Seeding
-// ============================================================================
 
 async function seedLocalnet(baseConfig: Partial<SeedConfig>): Promise<void> {
-  console.log('\n🏠 Seeding LOCALNET environment...')
+  console.log('\n[Seed] Seeding LOCALNET environment')
   console.log('   Single local node with simulated TEE')
 
   const config: SeedConfig = {
@@ -338,12 +330,12 @@ async function seedLocalnet(baseConfig: Partial<SeedConfig>): Promise<void> {
 
   const agentId = await registerNode(config)
   console.log(
-    `\n✅ Localnet seeded with 1 TEE worker node (agentId: ${agentId})`,
+    `\n[Seed] Localnet seeded with 1 TEE worker node (agentId: ${agentId})`,
   )
 }
 
 async function seedTestnet(baseConfig: Partial<SeedConfig>): Promise<void> {
-  console.log('\n🧪 Seeding TESTNET environment...')
+  console.log('\n[Seed] Seeding TESTNET environment')
   console.log('   2 regions: us-east, eu-west')
 
   const regionConfig = getRegionConfig('testnet')
@@ -353,13 +345,13 @@ async function seedTestnet(baseConfig: Partial<SeedConfig>): Promise<void> {
 
   // Require region to be specified
   if (!baseConfig.region) {
-    console.log('\n⚠️  Please specify a region with --region <region>')
+    console.log('\n[Seed] Please specify a region with --region <region>')
     console.log('   Available: aws:us-east-1, aws:eu-west-1')
     process.exit(1)
   }
 
   if (!baseConfig.endpoint) {
-    console.log('\n⚠️  Please specify an endpoint with --endpoint <url>')
+    console.log('\n[Seed] Please specify an endpoint with --endpoint <url>')
     process.exit(1)
   }
 
@@ -378,33 +370,37 @@ async function seedTestnet(baseConfig: Partial<SeedConfig>): Promise<void> {
   }
 
   if (!config.rpcUrl) {
-    console.log('\n⚠️  Please specify RPC URL with --rpc <url> or RPC_URL env')
+    console.log(
+      '\n[Seed] Please specify RPC URL with --rpc <url> or RPC_URL env',
+    )
     process.exit(1)
   }
 
   if (!config.registryAddress) {
     console.log(
-      '\n⚠️  Please specify registry address with --registry or IDENTITY_REGISTRY_ADDRESS env',
+      '\n[Seed] Please specify registry address with --registry or IDENTITY_REGISTRY_ADDRESS env',
     )
     process.exit(1)
   }
 
   if (!config.privateKey) {
-    console.log('\n⚠️  Please specify private key with --key or PRIVATE_KEY env')
+    console.log(
+      '\n[Seed] Please specify private key with --key or PRIVATE_KEY env',
+    )
     process.exit(1)
   }
 
   const agentId = await registerNode(config)
-  console.log(`\n✅ Testnet node registered (agentId: ${agentId})`)
+  console.log(`\n[Seed] Testnet node registered (agentId: ${agentId})`)
 }
 
 async function seedMainnet(baseConfig: Partial<SeedConfig>): Promise<void> {
-  console.log('\n🚀 Seeding MAINNET environment...')
+  console.log('\n[Seed] Seeding MAINNET environment')
   console.log('   Registering operator node')
 
   // Require all config
   if (!baseConfig.region) {
-    console.log('\n⚠️  Please specify a region with --region <region>')
+    console.log('\n[Seed] Please specify a region with --region <region>')
     console.log(
       '   See available regions: bun run scripts/seed-regional-nodes.ts --list-regions',
     )
@@ -412,13 +408,15 @@ async function seedMainnet(baseConfig: Partial<SeedConfig>): Promise<void> {
   }
 
   if (!baseConfig.endpoint) {
-    console.log('\n⚠️  Please specify your node endpoint with --endpoint <url>')
+    console.log(
+      '\n[Seed] Please specify your node endpoint with --endpoint <url>',
+    )
     process.exit(1)
   }
 
   const region = getRegion(baseConfig.region)
   if (!region) {
-    console.log(`\n⚠️  Unknown region: ${baseConfig.region}`)
+    console.log(`\n[Seed] Unknown region: ${baseConfig.region}`)
     console.log(
       '   You can still use custom regions, but make sure coordinates are correct',
     )
@@ -445,45 +443,47 @@ async function seedMainnet(baseConfig: Partial<SeedConfig>): Promise<void> {
   }
 
   if (!config.rpcUrl) {
-    console.log('\n⚠️  Please specify RPC URL with --rpc <url> or RPC_URL env')
+    console.log(
+      '\n[Seed] Please specify RPC URL with --rpc <url> or RPC_URL env',
+    )
     process.exit(1)
   }
 
   if (!config.registryAddress) {
     console.log(
-      '\n⚠️  Please specify registry address with --registry or IDENTITY_REGISTRY_ADDRESS env',
+      '\n[Seed] Please specify registry address with --registry or IDENTITY_REGISTRY_ADDRESS env',
     )
     process.exit(1)
   }
 
   if (!config.privateKey) {
-    console.log('\n⚠️  Please specify private key with --key or PRIVATE_KEY env')
+    console.log(
+      '\n[Seed] Please specify private key with --key or PRIVATE_KEY env',
+    )
     process.exit(1)
   }
 
-  console.log(`\n📋 Configuration:`)
+  console.log(`\n[Seed] Configuration:`)
   console.log(`   Region:       ${config.region}`)
   console.log(`   Endpoint:     ${config.endpoint}`)
   console.log(`   TEE Platform: ${config.teePlatform}`)
   console.log(`   Capabilities: ${config.capabilities.join(', ')}`)
 
   const agentId = await registerNode(config)
-  console.log(`\n✅ Mainnet node registered (agentId: ${agentId})`)
+  console.log(`\n[Seed] Mainnet node registered (agentId: ${agentId})`)
 }
 
-// ============================================================================
 // Main
-// ============================================================================
 
 async function main(): Promise<void> {
-  console.log('🌐 Regional TEE Node Seeding')
+  console.log('[Seed] Regional TEE Node Seeding')
   console.log('============================')
 
   const args = parseArgs()
 
   // Check for list regions
   if (process.argv.includes('--list-regions')) {
-    console.log('\n📍 Known Regions:\n')
+    console.log('\n[Seed] Known Regions:\n')
 
     const byProvider = new Map<string, typeof KNOWN_REGIONS>()
     for (const region of KNOWN_REGIONS) {
@@ -518,13 +518,13 @@ async function main(): Promise<void> {
       await seedMainnet(args)
       break
     default:
-      console.log(`\n⚠️  Unknown environment: ${environment}`)
+      console.log(`\n[Seed] Unknown environment: ${environment}`)
       console.log('   Use: localnet, testnet, or mainnet')
       process.exit(1)
   }
 }
 
 main().catch((err) => {
-  console.error('\n❌ Seeding failed:', err.message)
+  console.error('\n[Seed] Failed:', err.message)
   process.exit(1)
 })

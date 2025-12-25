@@ -1,25 +1,8 @@
-/**
- * Services Orchestrator
- *
- * Manages all local services for development:
- * - Inference (OpenAI/Claude/Groq wrapper)
- * - CQL (CovenantSQL database)
- * - Oracle (Real on-chain price oracle node)
- * - Indexer (GraphQL API)
- * - JNS (Real on-chain JNS service)
- * - Storage (DWS decentralized storage)
- * - Cron (Real CI workflow engine)
- * - CVM (TEE compute via dstack/local)
- * - Compute (TEE GPU provider)
- * - Git (DWS git service)
- * - Pkg (DWS package registry)
- *
- * NOTE: All services run REAL implementations connected to the blockchain.
- * Nothing is mocked - this is a fully functional decentralized system.
- */
+/** Services orchestrator for local development */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { getFarcasterHubUrl } from '@jejunetwork/config'
 import { type Subprocess, spawn } from 'bun'
 import {
   type Address,
@@ -40,8 +23,6 @@ import {
 import { DEFAULT_PORTS } from '../types'
 import { createInferenceServer, type LocalInferenceServer } from './inference'
 
-// Schema for contract addresses from deployment files
-// Contract values can be either a direct address string or a nested object with address strings
 const ContractAddressValueSchema: z.ZodType<string | Record<string, string>> =
   z.lazy(() => z.union([z.string(), z.record(z.string(), z.string())]))
 const ContractAddressesSchema = z.record(z.string(), ContractAddressValueSchema)
@@ -74,7 +55,6 @@ interface MockServer {
   stop(): Promise<void>
 }
 
-// Service-specific ports that extend the CLI defaults
 const SERVICE_PORTS = {
   inference: DEFAULT_PORTS.inference,
   cql: DEFAULT_PORTS.cql,
@@ -85,13 +65,10 @@ const SERVICE_PORTS = {
   cron: DEFAULT_PORTS.cron,
   cvm: DEFAULT_PORTS.cvm,
   computeBridge: 4031, // DWS compute node port
-  git: 4020,
-  pkg: 4021, // JejuPkg registry (npm CLI compatible)
+  git: 4030, // Git is a DWS endpoint at /git
+  pkg: 4030,
 } as const
 
-/**
- * Fetch real market prices from public APIs (fallback when on-chain oracle not deployed)
- */
 async function fetchRealPrices(): Promise<
   Record<string, { price: number; timestamp: number; source: string }>
 > {
@@ -139,17 +116,13 @@ async function fetchRealPrices(): Promise<
       }
     }
   } catch {
-    // Fallback to static prices if API fails
+    // API failed, use fallbacks
   }
 
-  // Add stablecoin prices
   prices['USDC/USD'] = { price: 1.0, timestamp: Date.now(), source: 'static' }
   prices['DAI/USD'] = { price: 1.0, timestamp: Date.now(), source: 'static' }
-
-  // Add JEJU price (placeholder - would come from DEX in production)
   prices['JEJU/USD'] = { price: 1.25, timestamp: Date.now(), source: 'static' }
 
-  // Fill in missing prices with defaults
   if (!prices['ETH/USD']) {
     prices['ETH/USD'] = {
       price: 3500,
@@ -185,13 +158,12 @@ async function isPortInUse(port: number): Promise<boolean> {
     })
     return response.ok
   } catch {
-    // Check if something is listening even if it doesn't respond to /health
     try {
       const server = Bun.serve({ port, fetch: () => new Response('') })
       server.stop()
-      return false // Port was free
+      return false
     } catch {
-      return true // Port in use
+      return true
     }
   }
 }
@@ -223,7 +195,6 @@ class ServicesOrchestrator {
 
     logger.step('Starting development services...')
 
-    // Start services in dependency order, skip if already running
     if (enabledServices.inference) await this.startInference()
     if (enabledServices.cql) await this.startCQL()
     if (enabledServices.oracle) await this.startOracle()
@@ -236,7 +207,6 @@ class ServicesOrchestrator {
     if (enabledServices.git) await this.startGit()
     if (enabledServices.pkg) await this.startPkg()
 
-    // Wait for services to be ready
     await this.waitForServices()
     this.printStatus()
   }
@@ -273,7 +243,6 @@ class ServicesOrchestrator {
   private async startCQL(): Promise<void> {
     const port = SERVICE_PORTS.cql
 
-    // Check if already running
     if (await isPortInUse(port)) {
       logger.info(`CQL already running on port ${port}`)
       this.services.set('cql', {
@@ -286,11 +255,9 @@ class ServicesOrchestrator {
       return
     }
 
-    // Start SQLite-backed CQL server from packages/db
     const dbPath = join(this.rootDir, 'packages/db')
     const dataDir = join(this.rootDir, '.data/cql')
 
-    // Ensure data directory exists
     if (!existsSync(dataDir)) {
       mkdirSync(dataDir, { recursive: true })
     }
@@ -335,13 +302,11 @@ class ServicesOrchestrator {
       return
     }
 
-    // Get contract addresses from bootstrap
     const contracts = this.loadContractAddresses()
     const rpcUrl = this.rpcUrl
     const priceOracleAddress =
       typeof contracts.priceOracle === 'string' ? contracts.priceOracle : ''
 
-    // Create Oracle server that reads from on-chain PriceOracle contract
     const server = await this.createOnChainOracle(
       port,
       rpcUrl,
@@ -361,21 +326,16 @@ class ServicesOrchestrator {
     )
   }
 
-  /**
-   * Create Oracle server that reads prices from on-chain PriceOracle contract
-   */
   private async createOnChainOracle(
     port: number,
     rpcUrl: string,
     priceOracleAddress: string,
   ): Promise<MockServer> {
-    // ABI for PriceOracle contract
     const priceOracleAbi = [
       'function getPrice(address token) external view returns (uint256 price, uint256 decimals)',
       'function setPrice(address token, uint256 price, uint256 decimals) external',
     ]
 
-    // Known token mappings for localnet
     const tokenPairs: Record<string, string> = {
       'ETH/USD': '0x0000000000000000000000000000000000000000',
       'WETH/USD': '0x4200000000000000000000000000000000000006',
@@ -399,7 +359,6 @@ class ServicesOrchestrator {
         if (url.pathname === '/api/v1/prices') {
           const pair = url.searchParams.get('pair')
 
-          // If PriceOracle not deployed, return from real price feeds
           if (!priceOracleAddress) {
             const prices = await fetchRealPrices()
             if (pair && prices[pair]) {
@@ -408,7 +367,6 @@ class ServicesOrchestrator {
             return Response.json(prices)
           }
 
-          // Read from on-chain PriceOracle
           const client = createPublicClient({ transport: http(rpcUrl) })
 
           const allPrices: Record<string, object> = {}
@@ -446,14 +404,12 @@ class ServicesOrchestrator {
           const quote = url.searchParams.get('quote') || 'USD'
           const pair = `${base}/${quote}`
 
-          // Redirect to /api/v1/prices?pair=...
           const response = await fetch(
             `http://localhost:${port}/api/v1/prices?pair=${encodeURIComponent(pair)}`,
           )
           return response
         }
 
-        // Chainlink-compatible aggregator format
         if (url.pathname === '/api/v1/latestRoundData') {
           const pair = url.searchParams.get('pair') || 'ETH/USD'
           const response = await fetch(
@@ -503,9 +459,6 @@ class ServicesOrchestrator {
     }
   }
 
-  /**
-   * Load contract addresses from bootstrap output
-   */
   private loadContractAddresses(): Record<
     string,
     string | Record<string, string>
@@ -526,20 +479,17 @@ class ServicesOrchestrator {
       if (existsSync(path)) {
         if (path.endsWith('.json')) {
           const rawData = JSON.parse(readFileSync(path, 'utf-8'))
-          // Validate structure is an object
-          const validated = validate(
-            rawData,
-            ContractAddressesSchema,
-            `contract addresses at ${path}`,
-          )
-          // Handle both formats - if it has a contracts key, use that, otherwise use the whole object
-          const contracts = validated.contracts
+          const contracts = rawData.contracts ?? rawData
           if (typeof contracts === 'object' && contracts !== null) {
-            return contracts as Record<string, string | Record<string, string>>
+            const validated = validate(
+              contracts,
+              ContractAddressesSchema,
+              `contract addresses at ${path}`,
+            )
+            return validated as Record<string, string | Record<string, string>>
           }
-          return validated as Record<string, string | Record<string, string>>
+          return {} as Record<string, string | Record<string, string>>
         } else {
-          // Parse .env file
           const content = readFileSync(path, 'utf-8')
           const contracts: Record<string, string> = {}
           for (const line of content.split('\n')) {
@@ -567,7 +517,6 @@ class ServicesOrchestrator {
       return
     }
 
-    // Check if Docker is available for PostgreSQL
     try {
       const result = await Bun.spawn(['docker', 'info'], {
         stdout: 'ignore',
@@ -584,7 +533,6 @@ class ServicesOrchestrator {
       return
     }
 
-    // Start PostgreSQL via docker-compose
     const dbProc = spawn(['docker', 'compose', 'up', '-d', 'db'], {
       cwd: indexerPath,
       stdout: 'pipe',
@@ -593,17 +541,19 @@ class ServicesOrchestrator {
 
     await dbProc.exited
 
-    // Start indexer
-    const proc = spawn(['bun', 'run', 'dev'], {
+    // Start full indexer stack (processor, graphql, frontend, api)
+    const proc = spawn(['bun', 'run', 'dev:full'], {
       cwd: indexerPath,
       stdout: 'inherit',
       stderr: 'inherit',
       env: {
         ...process.env,
         GQL_PORT: String(SERVICE_PORTS.indexer),
+        REST_PORT: '4352',
+        PORT: '4355',
         RPC_ETH_HTTP: this.rpcUrl,
         START_BLOCK: '0',
-        CHAIN_ID: '1337',
+        CHAIN_ID: '31337',
       },
     })
 
@@ -624,20 +574,22 @@ class ServicesOrchestrator {
   private async startLocalIndexer(): Promise<void> {
     const port = SERVICE_PORTS.indexer
 
-    // Start local indexer that connects to the blockchain
     const indexerPath = join(this.rootDir, 'apps/indexer')
 
     if (existsSync(indexerPath)) {
-      const proc = spawn(['bun', 'run', 'dev'], {
+      // Start full indexer stack (processor, graphql, frontend, api)
+      const proc = spawn(['bun', 'run', 'dev:full'], {
         cwd: indexerPath,
         stdout: 'inherit',
         stderr: 'inherit',
         env: {
           ...process.env,
           GQL_PORT: String(port),
+          REST_PORT: '4352',
+          PORT: '4355',
           RPC_ETH_HTTP: this.rpcUrl,
           START_BLOCK: '0',
-          CHAIN_ID: '1337',
+          CHAIN_ID: '31337',
           DATABASE_URL: `sqlite://${join(this.rootDir, '.data/indexer.db')}`,
         },
       })
@@ -657,7 +609,6 @@ class ServicesOrchestrator {
       return
     }
 
-    // Fallback: start a minimal GraphQL server that reads from RPC directly
     const server = Bun.serve({
       port,
       async fetch(req) {
@@ -671,7 +622,6 @@ class ServicesOrchestrator {
           if (req.method === 'GET') {
             return Response.json({ status: 'ok', mode: 'rpc-direct' })
           }
-          // For GraphQL POST, return minimal data from RPC
           return Response.json({
             data: {
               blocks: [],
@@ -716,7 +666,6 @@ class ServicesOrchestrator {
       return
     }
 
-    // Start real JNS service connected to on-chain contracts
     const server = await this.createOnChainJNS()
     this.services.set('jns', {
       name: 'JNS (On-Chain)',
@@ -731,16 +680,11 @@ class ServicesOrchestrator {
     )
   }
 
-  /**
-   * Create JNS service that connects to on-chain JNS contracts
-   * All operations go through the blockchain - nothing is mocked
-   */
   private async createOnChainJNS(): Promise<MockServer> {
     const port = SERVICE_PORTS.jns
     const rpcUrl = this.rpcUrl
     const contracts = this.loadContractAddresses()
 
-    // JNS contract addresses from bootstrap
     const jns = typeof contracts.jns === 'object' ? contracts.jns : null
     const jnsRegistrar =
       (typeof contracts.jnsRegistrar === 'string'
@@ -761,7 +705,6 @@ class ServicesOrchestrator {
       jns?.registry ||
       ''
 
-    // ABI fragments for JNS contracts
     const registrarAbi = [
       'function register(string name, address owner, uint256 duration) external payable returns (bytes32)',
       'function renew(bytes32 node, uint256 duration) external payable',
@@ -777,7 +720,6 @@ class ServicesOrchestrator {
       'function setText(bytes32 node, string key, string value) external',
     ]
 
-    // ENS-compatible namehash
     const namehash = (name: string): string => {
       let node =
         '0x0000000000000000000000000000000000000000000000000000000000000000' as `0x${string}`
@@ -819,7 +761,6 @@ class ServicesOrchestrator {
 
           const node = namehash(name)
 
-          // Call on-chain resolver
           const client = createPublicClient({ transport: http(rpcUrl) })
 
           if (!jnsResolver) {
@@ -942,15 +883,12 @@ class ServicesOrchestrator {
           })
         }
 
-        // List names for owner by querying events
         if (url.pathname === '/api/v1/names') {
           const owner = url.searchParams.get('owner')
           if (!owner || !jnsRegistry) {
             return Response.json({ names: [], total: 0 })
           }
 
-          // Note: For full implementation, would query Transfer events
-          // For now, return empty as this requires event indexing
           return Response.json({
             names: [],
             total: 0,
@@ -992,18 +930,11 @@ class ServicesOrchestrator {
 
     const contracts = this.loadContractAddresses()
 
-    // Start full DWS server which includes:
-    // - Storage (IPFS/multi-backend)
-    // - Compute (TEE GPU provider with LOCAL mode)
-    // - Git (on-chain repo registry)
-    // - Pkg (on-chain package registry)
-    // - CI (workflow engine with cron scheduler)
-    // - CDN, API Marketplace, Containers, etc.
     const getContractAddr = (key: string): string => {
       const val = contracts[key]
       return typeof val === 'string' ? val : ''
     }
-    const proc = spawn(['bun', 'run', 'src/server/index.ts'], {
+    const proc = spawn(['bun', 'run', 'api/server/index.ts'], {
       cwd: dwsPath,
       stdout: 'inherit',
       stderr: 'inherit',
@@ -1012,8 +943,7 @@ class ServicesOrchestrator {
         PORT: String(port),
         DWS_PORT: String(port),
         RPC_URL: this.rpcUrl,
-        CHAIN_ID: '1337',
-        // Contract addresses
+        CHAIN_ID: '31337',
         REPO_REGISTRY_ADDRESS: getContractAddr('repoRegistry'),
         PACKAGE_REGISTRY_ADDRESS: getContractAddr('packageRegistry'),
         TRIGGER_REGISTRY_ADDRESS: getContractAddr('triggerRegistry'),
@@ -1021,9 +951,7 @@ class ServicesOrchestrator {
         COMPUTE_REGISTRY_ADDRESS: getContractAddr('computeRegistry'),
         LEDGER_MANAGER_ADDRESS: getContractAddr('ledgerManager'),
         INFERENCE_SERVING_ADDRESS: getContractAddr('inferenceServing'),
-        // TEE provider for compute
         TEE_PROVIDER: 'local',
-        // Default private key for localnet operations
         DWS_PRIVATE_KEY:
           '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
       },
@@ -1058,11 +986,8 @@ class ServicesOrchestrator {
       return
     }
 
-    // Cron service runs as part of DWS - just register endpoint for CI workflows
-    // The CI scheduler is integrated into DWS server (/ci routes)
     const dwsPort = SERVICE_PORTS.storage
 
-    // Wait for DWS to start (has CI routes built-in)
     let retries = 20
     while (retries > 0) {
       if (await isPortInUse(dwsPort)) {
@@ -1071,7 +996,7 @@ class ServicesOrchestrator {
           type: 'server',
           port: dwsPort,
           url: `http://localhost:${dwsPort}/ci`,
-          healthCheck: '/health',
+          // No health check - DWS sub-route
         })
         logger.success(
           `Cron service available via DWS on port ${dwsPort} (CI workflow engine)`,
@@ -1082,7 +1007,6 @@ class ServicesOrchestrator {
       retries--
     }
 
-    // Create minimal standalone cron server if DWS is not available
     const contracts = this.loadContractAddresses()
     const rpcUrl = this.rpcUrl
 
@@ -1225,11 +1149,8 @@ class ServicesOrchestrator {
       return
     }
 
-    // Compute service runs as part of DWS - just register endpoint
-    // The compute routes are integrated into DWS server (/compute routes)
     const dwsPort = SERVICE_PORTS.storage
 
-    // Wait for DWS to start (has compute routes built-in)
     let retries = 20
     while (retries > 0) {
       if (await isPortInUse(dwsPort)) {
@@ -1238,7 +1159,7 @@ class ServicesOrchestrator {
           type: 'server',
           port: dwsPort,
           url: `http://localhost:${dwsPort}/compute`,
-          healthCheck: '/health',
+          // No health check - DWS sub-route
         })
         logger.success(
           `DWS Compute available via DWS on port ${dwsPort} (TEE LOCAL mode)`,
@@ -1249,7 +1170,6 @@ class ServicesOrchestrator {
       retries--
     }
 
-    // Create minimal standalone compute server if DWS is not available
     const contracts = this.loadContractAddresses()
     const rpcUrl = this.rpcUrl
 
@@ -1273,7 +1193,6 @@ class ServicesOrchestrator {
           })
         }
 
-        // Forward inference requests to local inference service
         if (
           url.pathname === '/v1/chat/completions' ||
           url.pathname === '/chat/completions'
@@ -1309,180 +1228,38 @@ class ServicesOrchestrator {
     logger.info(`DWS Compute on port ${port} (standalone - DWS not available)`)
   }
 
+  /**
+   * Register JejuGit as a DWS route (git.local.jejunetwork.org -> DWS:4030/git)
+   * Git is part of DWS, not a separate service
+   */
   private async startGit(): Promise<void> {
-    const port = SERVICE_PORTS.git
-
-    if (await isPortInUse(port)) {
-      logger.info(`JejuGit already running on port ${port}`)
-      this.services.set('git', {
-        name: 'JejuGit',
-        type: 'server',
-        port,
-        url: `http://localhost:${port}`,
-        healthCheck: '/git/health',
-      })
-      return
-    }
-
-    // Git is part of DWS - ensure DWS is running first
     const dwsPort = SERVICE_PORTS.storage
-    if (await isPortInUse(dwsPort)) {
-      // DWS is running, Git is available at /git routes (fully on-chain)
-      this.services.set('git', {
-        name: 'JejuGit (via DWS)',
-        type: 'server',
-        port: dwsPort,
-        url: `http://localhost:${dwsPort}/git`,
-        healthCheck: '/health',
-      })
-      logger.success(
-        `JejuGit available via DWS on port ${dwsPort} (on-chain repo registry)`,
-      )
-      return
-    }
 
-    // Wait for DWS to start (it should be starting in parallel)
-    logger.info(`Waiting for DWS to start for JejuGit...`)
-    let retries = 10
-    while (retries > 0) {
-      await new Promise((r) => setTimeout(r, 500))
-      if (await isPortInUse(dwsPort)) {
-        this.services.set('git', {
-          name: 'JejuGit (via DWS)',
-          type: 'server',
-          port: dwsPort,
-          url: `http://localhost:${dwsPort}/git`,
-          healthCheck: '/health',
-        })
-        logger.success(
-          `JejuGit available via DWS on port ${dwsPort} (on-chain repo registry)`,
-        )
-        return
-      }
-      retries--
-    }
-
-    // If DWS didn't start, start a dedicated git server
-    const dwsPath = join(this.rootDir, 'apps/dws')
-    if (existsSync(dwsPath)) {
-      const contracts = this.loadContractAddresses()
-      const repoAddr =
-        typeof contracts.repoRegistry === 'string' ? contracts.repoRegistry : ''
-      const proc = spawn(['bun', 'run', 'src/server/routes/git.ts'], {
-        cwd: dwsPath,
-        stdout: 'inherit',
-        stderr: 'inherit',
-        env: {
-          ...process.env,
-          RPC_URL: this.rpcUrl,
-          GIT_PORT: String(port),
-          REPO_REGISTRY_ADDRESS: repoAddr,
-        },
-      })
-
-      this.services.set('git', {
-        name: 'JejuGit (On-Chain)',
-        type: 'process',
-        port,
-        process: proc,
-        url: `http://localhost:${port}`,
-        healthCheck: '/health',
-      })
-      logger.success(
-        `JejuGit starting on port ${port} (on-chain repo registry)`,
-      )
-    } else {
-      logger.warn('DWS app not found, JejuGit service unavailable')
-    }
+    // Git is always served by DWS - just register the route
+    this.services.set('git', {
+      name: 'JejuGit',
+      type: 'server',
+      port: dwsPort,
+      url: `http://localhost:${dwsPort}/git`,
+      // No health check - DWS sub-route
+    })
   }
 
+  /**
+   * Register JejuPkg as a DWS route (pkg.local.jejunetwork.org -> DWS:4030/pkg)
+   * Pkg is part of DWS, not a separate service
+   */
   private async startPkg(): Promise<void> {
-    const port = SERVICE_PORTS.pkg
-
-    if (await isPortInUse(port)) {
-      logger.info(`JejuPkg already running on port ${port}`)
-      this.services.set('pkg', {
-        name: 'JejuPkg',
-        type: 'server',
-        port,
-        url: `http://localhost:${port}`,
-        healthCheck: '/health',
-      })
-      return
-    }
-
-    // Pkg registry is part of DWS - ensure DWS is running first
     const dwsPort = SERVICE_PORTS.storage
-    if (await isPortInUse(dwsPort)) {
-      // DWS is running, pkg registry is available at /pkg routes (npm CLI compatible, on-chain)
-      this.services.set('pkg', {
-        name: 'JejuPkg (via DWS)',
-        type: 'server',
-        port: dwsPort,
-        url: `http://localhost:${dwsPort}/pkg`,
-        healthCheck: '/health',
-      })
-      logger.success(
-        `JejuPkg available via DWS on port ${dwsPort} (on-chain package registry)`,
-      )
-      return
-    }
 
-    // Wait for DWS to start (it should be starting in parallel)
-    logger.info(`Waiting for DWS to start for JejuPkg...`)
-    let retries = 10
-    while (retries > 0) {
-      await new Promise((r) => setTimeout(r, 500))
-      if (await isPortInUse(dwsPort)) {
-        this.services.set('pkg', {
-          name: 'JejuPkg (via DWS)',
-          type: 'server',
-          port: dwsPort,
-          url: `http://localhost:${dwsPort}/pkg`,
-          healthCheck: '/health',
-        })
-        logger.success(
-          `JejuPkg available via DWS on port ${dwsPort} (on-chain package registry)`,
-        )
-        return
-      }
-      retries--
-    }
-
-    // If DWS didn't start, start a dedicated pkg server
-    const dwsPath2 = join(this.rootDir, 'apps/dws')
-    if (existsSync(dwsPath2)) {
-      const contracts = this.loadContractAddresses()
-      const pkgAddr =
-        typeof contracts.packageRegistry === 'string'
-          ? contracts.packageRegistry
-          : ''
-      const proc = spawn(['bun', 'run', 'src/server/routes/pkg.ts'], {
-        cwd: dwsPath2,
-        stdout: 'inherit',
-        stderr: 'inherit',
-        env: {
-          ...process.env,
-          RPC_URL: this.rpcUrl,
-          PKG_PORT: String(port),
-          PACKAGE_REGISTRY_ADDRESS: pkgAddr,
-        },
-      })
-
-      this.services.set('pkg', {
-        name: 'JejuPkg (On-Chain)',
-        type: 'process',
-        port,
-        process: proc,
-        url: `http://localhost:${port}`,
-        healthCheck: '/health',
-      })
-      logger.success(
-        `JejuPkg starting on port ${port} (on-chain package registry)`,
-      )
-    } else {
-      logger.warn('DWS app not found, JejuPkg service unavailable')
-    }
+    // Pkg is always served by DWS - just register the route
+    this.services.set('pkg', {
+      name: 'JejuPkg',
+      type: 'server',
+      port: dwsPort,
+      url: `http://localhost:${dwsPort}/pkg`,
+      // No health check - DWS sub-route
+    })
   }
 
   private async waitForServices(): Promise<void> {
@@ -1518,31 +1295,27 @@ class ServicesOrchestrator {
     logger.newline()
     logger.subheader('Development Services')
 
-    const sortOrder = [
+    // Only show main services, not DWS sub-routes (cron, computeBridge, git, pkg)
+    const mainServices = [
       'inference',
       'cql',
       'oracle',
       'indexer',
       'jns',
-      'storage',
-      'cron',
-      'cvm',
-      'computeBridge',
-      'git',
-      'pkg',
+      'storage', // DWS is registered as 'storage'
     ]
-    const sorted = Array.from(this.services.entries()).sort(
-      ([a], [b]) => sortOrder.indexOf(a) - sortOrder.indexOf(b),
-    )
 
-    for (const [_key, service] of sorted) {
-      logger.table([
-        {
-          label: service.name,
-          value: service.url || 'running',
-          status: 'ok',
-        },
-      ])
+    for (const key of mainServices) {
+      const service = this.services.get(key)
+      if (service) {
+        logger.table([
+          {
+            label: service.name,
+            value: service.url || 'running',
+            status: 'ok',
+          },
+        ])
+      }
     }
   }
 
@@ -1654,6 +1427,9 @@ class ServicesOrchestrator {
       // Backwards compatibility alias
       env.DWS_NPM_URL = `${storage.url}/pkg`
     }
+
+    // Farcaster Hub URL from config (self-hosted for local development)
+    env.FARCASTER_HUB_URL = getFarcasterHubUrl()
 
     return env
   }

@@ -23,9 +23,7 @@ import {
   validatePriceReport,
 } from '../oracle'
 
-// ============================================================================
 // Test Fixtures
-// ============================================================================
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address
 const TEST_ADDRESS_1 = '0x1111111111111111111111111111111111111111' as Address
@@ -86,9 +84,7 @@ function createPriceReport(overrides: Partial<PriceReport> = {}): PriceReport {
   }
 }
 
-// ============================================================================
 // validatePriceReport Tests
-// ============================================================================
 
 describe('validatePriceReport', () => {
   test('validates report with sufficient quorum', () => {
@@ -242,9 +238,7 @@ describe('validatePriceReport', () => {
   })
 })
 
-// ============================================================================
 // isPriceStale Tests
-// ============================================================================
 
 describe('isPriceStale', () => {
   test('returns false for fresh price', () => {
@@ -321,9 +315,7 @@ describe('isPriceStale', () => {
   })
 })
 
-// ============================================================================
 // calculateWeightedMedian Tests
-// ============================================================================
 
 describe('calculateWeightedMedian', () => {
   test('calculates median of single price', () => {
@@ -475,9 +467,7 @@ describe('calculateWeightedMedian', () => {
   })
 })
 
-// ============================================================================
 // formatPrice Tests
-// ============================================================================
 
 describe('formatPrice', () => {
   test('formats price with 8 decimals (standard oracle)', () => {

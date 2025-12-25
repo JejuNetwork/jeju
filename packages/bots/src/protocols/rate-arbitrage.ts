@@ -5,8 +5,16 @@
  * Implements actual rate fetching from on-chain contracts.
  */
 
-import { EventEmitter } from 'node:events'
+import { EventEmitter } from '@jejunetwork/shared'
 import { type Address, type PublicClient, parseAbi } from 'viem'
+import { z } from 'zod'
+
+// Aave reserve data schema
+const AaveReserveDataSchema = z.object({
+  currentLiquidityRate: z.bigint(),
+  currentVariableBorrowRate: z.bigint(),
+  liquidityIndex: z.bigint(),
+})
 
 export interface RateArbConfig {
   chainId: number
@@ -229,12 +237,10 @@ export class RateArbitrage extends EventEmitter {
     const rates: AssetRates['rates'] = []
 
     for (const protocol of this.protocols) {
-      try {
-        const rate = await this.getProtocolRate(protocol, asset)
-        if (rate) {
-          rates.push({ protocol: protocol.name, ...rate })
-        }
-      } catch {}
+      const rate = await this.getProtocolRate(protocol, asset).catch(() => null)
+      if (rate) {
+        rates.push({ protocol: protocol.name, ...rate })
+      }
     }
 
     if (rates.length === 0) return null
@@ -276,11 +282,7 @@ export class RateArbitrage extends EventEmitter {
         args: [asset],
       })
 
-      const reserveData = data as {
-        currentLiquidityRate: bigint
-        currentVariableBorrowRate: bigint
-        liquidityIndex: bigint
-      }
+      const reserveData = AaveReserveDataSchema.parse(data)
 
       // Convert from ray (1e27) to APY
       // APY = (1 + rate/secondsPerYear)^secondsPerYear - 1

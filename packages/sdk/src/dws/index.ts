@@ -8,7 +8,7 @@
  * - Compute resource allocation
  */
 
-import type { NetworkType } from '@jejunetwork/types'
+import type { JsonRecord, NetworkType } from '@jejunetwork/types'
 import type { Address } from 'viem'
 import { getServicesConfig } from '../config'
 import { generateAuthHeaders } from '../shared/api'
@@ -26,7 +26,6 @@ import {
   WorkflowSchema,
   WorkflowsListSchema,
 } from '../shared/schemas'
-import type { JsonRecord } from '../shared/types'
 import type { JejuWallet } from '../wallet'
 
 // ═══════════════════════════════════════════════════════════════════════════

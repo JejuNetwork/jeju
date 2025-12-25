@@ -193,10 +193,10 @@ async function updateGatewayConfig(addresses: DeployedAddresses) {
   try {
     const content = await Bun.file(configPath).text()
 
-    // Update localnet addresses (chain ID 1337)
+    // Update localnet addresses (chain ID 31337)
     const updatedContent = content.replace(
-      /1337:\s*\{[^}]+\}/s,
-      `1337: {
+      /31337:\s*\{[^}]+\}/s,
+      `31337: {
     feedRegistry: '${addresses.feedRegistry}',
     reportVerifier: '${addresses.reportVerifier}',
     committeeManager: '${addresses.committeeManager}',
@@ -219,7 +219,7 @@ async function updateOracleNodeConfig(addresses: DeployedAddresses) {
 
 JEJU_NETWORK=localnet
 RPC_URL=http://localhost:6546
-CHAIN_ID=1337
+CHAIN_ID=31337
 
 # Contract addresses
 FEED_REGISTRY_ADDRESS=${addresses.feedRegistry}

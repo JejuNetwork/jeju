@@ -26,7 +26,5 @@ mock.module('@jejunetwork/sdk', () => ({
   }),
 }))
 
-// Mock @jejunetwork/config to provide test values
-mock.module('@jejunetwork/config', () => ({
-  getNetworkName: () => 'jeju',
-}))
+// Note: @jejunetwork/config is NOT mocked - tests need the real exports
+// including INFRA_PORTS, getCoreAppUrl, etc.

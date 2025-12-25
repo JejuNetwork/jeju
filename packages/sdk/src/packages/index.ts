@@ -7,6 +7,8 @@
  * - On-chain registry interaction
  */
 
+import { getEnv, getEnvOrDefault } from '@jejunetwork/shared'
+import type { JsonValue } from '@jejunetwork/types'
 import type { Address, Hex, WalletClient } from 'viem'
 import { createWalletClient, http } from 'viem'
 import { type LocalAccount, privateKeyToAccount } from 'viem/accounts'
@@ -22,7 +24,6 @@ import {
   SyncResponseSchema,
   WhoamiResponseSchema,
 } from '../shared/schemas'
-import type { JsonValue } from '../shared/types'
 
 export interface PackageSDKConfig {
   rpcUrl: string
@@ -803,11 +804,9 @@ export function createJejuPkgSDK(config: PackageSDKConfig): JejuPkgSDK {
 // Convenience function for default config
 export function createDefaultPkgSDK(): JejuPkgSDK {
   return new JejuPkgSDK({
-    rpcUrl: process.env.JEJU_RPC_URL ?? 'http://127.0.0.1:6546',
-    registryUrl: process.env.JEJUPKG_URL ?? 'http://localhost:4030/pkg',
-    registryAddress: process.env.PACKAGE_REGISTRY_ADDRESS as
-      | Address
-      | undefined,
+    rpcUrl: getEnvOrDefault('JEJU_RPC_URL', 'http://127.0.0.1:6546'),
+    registryUrl: getEnvOrDefault('JEJUPKG_URL', 'http://localhost:4030/pkg'),
+    registryAddress: getEnv('PACKAGE_REGISTRY_ADDRESS') as Address | undefined,
   })
 }
 

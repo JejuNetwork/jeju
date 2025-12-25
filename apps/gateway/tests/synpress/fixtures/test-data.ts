@@ -2,6 +2,10 @@
  * Test Data and Constants for Gateway Synpress Tests
  */
 
+import { isValidAddress } from '@jejunetwork/types'
+
+export { isValidAddress }
+
 export const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:4001'
 export const RPC_URL = 'http://127.0.0.1:6546'
 
@@ -105,13 +109,6 @@ export const TIMEOUTS = {
   DEPLOYMENT: 90000,
   BRIDGE: 120000,
 } as const
-
-/**
- * Validate address format
- */
-export function isValidAddress(address: string): boolean {
-  return /^0x[a-fA-F0-9]{40}$/.test(address)
-}
 
 /**
  * Generate random address (for testing)

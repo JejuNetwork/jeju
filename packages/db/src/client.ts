@@ -7,7 +7,6 @@
 
 import { getCQLMinerUrl, getCQLUrl } from '@jejunetwork/config'
 import { createPool, type Pool } from 'generic-pool'
-import CircuitBreakerLib from 'opossum'
 import pino from 'pino'
 import type { Address, Hex } from 'viem'
 import { isAddress, isHex, toHex } from 'viem'
@@ -29,8 +28,20 @@ import type {
   RentalInfo,
   RentalPlan,
   RevokeRequest,
+  VectorBatchInsertRequest,
+  VectorIndexConfig,
+  VectorInsertRequest,
+  VectorSearchRequest,
+  VectorSearchResult,
 } from './types.js'
 import { parseTimeout } from './utils.js'
+import {
+  generateCreateVectorTableSQL,
+  generateVectorInsertSQL,
+  parseVectorSearchResults,
+  serializeVector,
+  validateVectorValues,
+} from './vector.js'
 
 const HexSchema = z.custom<Hex>(
   (val): val is Hex => typeof val === 'string' && isHex(val),
@@ -53,6 +64,7 @@ const QueryResponseSchema = z
     rowCount: z.number().int().nonnegative(),
     columns: z.array(z.string()),
     blockHeight: z.number().int().nonnegative(),
+    executionTime: z.number().int().nonnegative().optional(),
   })
   .strict()
 
@@ -149,14 +161,22 @@ const RentalInfoSchema = z
 
 const BlockProducerInfoSchema = z
   .object({
-    address: AddressSchema,
-    endpoint: z.string().url(),
+    // Required fields
     blockHeight: z.number().int().nonnegative(),
     databases: z.number().int().nonnegative(),
-    stake: z.union([z.bigint(), z.string()]).transform((v) => BigInt(v)),
-    status: z.enum(['active', 'syncing', 'offline']),
+    status: z.string(),
+    // Optional fields (may not be present in dev mode)
+    address: AddressSchema.optional(),
+    endpoint: z.string().url().optional(),
+    stake: z
+      .union([z.bigint(), z.string()])
+      .transform((v) => BigInt(v))
+      .optional(),
+    // Dev server fields
+    type: z.string().optional(),
+    nodeCount: z.number().int().nonnegative().optional(),
   })
-  .strict()
+  .passthrough()
 
 const CQLConfigSchema = z
   .object({
@@ -178,26 +198,91 @@ const log = pino({
       : undefined,
 })
 
-const circuitBreakerOptions = {
-  timeout: 30000,
-  errorThresholdPercentage: 50,
-  resetTimeout: 30000,
-  volumeThreshold: 5,
+// Native Circuit Breaker implementation
+interface CircuitState {
+  state: 'closed' | 'open' | 'half-open'
+  failures: number
+  lastFailure: number
+  halfOpenAttempts: number
 }
 
-type CircuitBreakerAction<T> = () => Promise<T>
-const circuitBreaker = new CircuitBreakerLib<
-  [CircuitBreakerAction<Response>],
-  Response
->(async (fn: CircuitBreakerAction<Response>) => fn(), circuitBreakerOptions)
+const circuitState: CircuitState = {
+  state: 'closed',
+  failures: 0,
+  lastFailure: 0,
+  halfOpenAttempts: 0,
+}
 
-circuitBreaker.on('open', () => log.warn('Circuit breaker opened'))
-circuitBreaker.on('halfOpen', () =>
-  log.info('Circuit breaker half-open, attempting recovery'),
-)
-circuitBreaker.on('close', () =>
-  log.info('Circuit breaker closed, service recovered'),
-)
+const circuitConfig = {
+  failureThreshold: 5,
+  resetTimeout: 30000,
+  halfOpenRequests: 3,
+}
+
+class CircuitOpenError extends Error {
+  constructor() {
+    super('Circuit breaker is open')
+    this.name = 'CircuitOpenError'
+  }
+}
+
+const circuitBreaker = {
+  get opened() {
+    return circuitState.state === 'open'
+  },
+  get halfOpen() {
+    return circuitState.state === 'half-open'
+  },
+  stats: {
+    get failures() {
+      return circuitState.failures
+    },
+  },
+  async fire<T>(fn: () => Promise<T>): Promise<T> {
+    // Check state transitions
+    if (circuitState.state === 'open') {
+      if (Date.now() - circuitState.lastFailure >= circuitConfig.resetTimeout) {
+        circuitState.state = 'half-open'
+        circuitState.halfOpenAttempts = 0
+        log.info('Circuit breaker half-open, attempting recovery')
+      } else {
+        throw new CircuitOpenError()
+      }
+    }
+
+    if (circuitState.state === 'half-open') {
+      if (circuitState.halfOpenAttempts >= circuitConfig.halfOpenRequests) {
+        circuitState.state = 'open'
+        log.warn('Circuit breaker opened')
+        throw new CircuitOpenError()
+      }
+      circuitState.halfOpenAttempts++
+    }
+
+    try {
+      const result = await fn()
+      // Success - reset or close circuit
+      if (circuitState.state === 'half-open') {
+        circuitState.state = 'closed'
+        circuitState.failures = 0
+        log.info('Circuit breaker closed, service recovered')
+      } else {
+        circuitState.failures = 0
+      }
+      return result
+    } catch (error) {
+      circuitState.failures++
+      circuitState.lastFailure = Date.now()
+
+      if (circuitState.failures >= circuitConfig.failureThreshold) {
+        circuitState.state = 'open'
+        log.warn('Circuit breaker opened')
+      }
+
+      throw error
+    }
+  },
+}
 
 async function request<T>(
   url: string,
@@ -577,7 +662,10 @@ export class CQLClient {
     return response?.ok ?? false
   }
 
-  getCircuitState() {
+  getCircuitState(): {
+    state: 'open' | 'closed' | 'half-open'
+    failures: number
+  } {
     return {
       state: circuitBreaker.opened
         ? 'open'
@@ -591,6 +679,241 @@ export class CQLClient {
   async close(): Promise<void> {
     await Promise.all(Array.from(this.pools.values()).map((p) => p.close()))
     this.pools.clear()
+  }
+
+  // Vector Search Methods (powered by sqlite-vec)
+
+  /**
+   * Create a vector index (vec0 virtual table)
+   *
+   * @example
+   * ```typescript
+   * await cql.createVectorIndex({
+   *   tableName: 'embeddings',
+   *   dimensions: 384,
+   *   metadataColumns: [
+   *     { name: 'title', type: 'TEXT' },
+   *     { name: 'source', type: 'TEXT' }
+   *   ]
+   * }, 'db-id')
+   * ```
+   */
+  async createVectorIndex(
+    config: VectorIndexConfig,
+    dbId?: string,
+  ): Promise<ExecResult> {
+    const sql = generateCreateVectorTableSQL(config)
+    return this.exec(sql, undefined, dbId)
+  }
+
+  /**
+   * Insert a vector into a vec0 table
+   *
+   * @example
+   * ```typescript
+   * await cql.insertVector({
+   *   tableName: 'embeddings',
+   *   vector: [0.1, 0.2, 0.3, ...], // 384 dimensions
+   *   metadata: { title: 'My Document', source: 'wiki' }
+   * }, 'db-id')
+   * ```
+   */
+  async insertVector(
+    request: VectorInsertRequest,
+    dbId?: string,
+  ): Promise<ExecResult> {
+    const { tableName, rowid, vector, metadata, partitionValue } = request
+
+    validateVectorValues(vector)
+
+    const blob = serializeVector(vector, 'float32')
+    const params: QueryParam[] = []
+
+    if (rowid !== undefined) {
+      params.push(rowid)
+    }
+    params.push(blob)
+
+    const metadataColumns = metadata ? Object.keys(metadata) : []
+    if (metadata) {
+      for (const key of metadataColumns) {
+        const value = metadata[key]
+        params.push(value === null ? null : (value as QueryParam))
+      }
+    }
+
+    if (partitionValue !== undefined) {
+      params.push(partitionValue as QueryParam)
+    }
+
+    const sql = generateVectorInsertSQL(
+      tableName,
+      rowid !== undefined,
+      metadataColumns,
+      partitionValue !== undefined ? 'partition_key' : undefined,
+    )
+
+    return this.exec(sql, params, dbId)
+  }
+
+  /**
+   * Batch insert vectors into a vec0 table
+   *
+   * @example
+   * ```typescript
+   * await cql.insertVectorBatch({
+   *   tableName: 'embeddings',
+   *   vectors: [
+   *     { vector: [...], metadata: { title: 'Doc 1' } },
+   *     { vector: [...], metadata: { title: 'Doc 2' } },
+   *   ]
+   * }, 'db-id')
+   * ```
+   */
+  async insertVectorBatch(
+    request: VectorBatchInsertRequest,
+    dbId?: string,
+  ): Promise<ExecResult[]> {
+    const results: ExecResult[] = []
+
+    for (const item of request.vectors) {
+      const result = await this.insertVector(
+        {
+          tableName: request.tableName,
+          rowid: item.rowid,
+          vector: item.vector,
+          metadata: item.metadata,
+          partitionValue: item.partitionValue,
+        },
+        dbId,
+      )
+      results.push(result)
+    }
+
+    return results
+  }
+
+  /**
+   * Search for similar vectors using KNN
+   *
+   * @example
+   * ```typescript
+   * const results = await cql.searchVectors({
+   *   tableName: 'embeddings',
+   *   vector: queryEmbedding,
+   *   k: 10,
+   *   includeMetadata: true
+   * }, 'db-id')
+   *
+   * for (const result of results) {
+   *   console.log(`Row ${result.rowid}: distance ${result.distance}`)
+   *   console.log(`  Title: ${result.metadata?.title}`)
+   * }
+   * ```
+   */
+  async searchVectors(
+    request: VectorSearchRequest,
+    dbId?: string,
+    metadataColumns: string[] = [],
+  ): Promise<VectorSearchResult[]> {
+    const {
+      tableName,
+      vector,
+      k,
+      partitionValue,
+      metadataFilter,
+      includeMetadata,
+    } = request
+
+    validateVectorValues(vector)
+
+    const blob = serializeVector(vector, 'float32')
+    const params: QueryParam[] = [blob]
+
+    if (partitionValue !== undefined) {
+      params.push(partitionValue as QueryParam)
+    }
+
+    // Build SELECT columns
+    const selectCols = ['rowid', 'distance']
+    if (includeMetadata && metadataColumns.length > 0) {
+      for (const col of metadataColumns) {
+        selectCols.push(col)
+      }
+    }
+
+    // sqlite-vec uses MATCH syntax for KNN
+    let sql = `SELECT ${selectCols.join(', ')}
+FROM ${tableName}
+WHERE embedding MATCH ?
+  AND k = ${k}`
+
+    if (partitionValue !== undefined) {
+      sql += '\n  AND partition_key = ?'
+    }
+
+    if (metadataFilter) {
+      sql += `\n  AND ${metadataFilter}`
+    }
+
+    sql += '\nORDER BY distance'
+
+    const result = await this.query<
+      Record<string, string | number | boolean | null>
+    >(sql, params, dbId)
+
+    return parseVectorSearchResults(
+      result.rows,
+      includeMetadata ? metadataColumns : [],
+    )
+  }
+
+  /**
+   * Delete vectors from a vec0 table
+   *
+   * @example
+   * ```typescript
+   * await cql.deleteVectors('embeddings', [1, 2, 3], 'db-id')
+   * ```
+   */
+  async deleteVectors(
+    tableName: string,
+    rowids: number[],
+    dbId?: string,
+  ): Promise<ExecResult> {
+    const placeholders = rowids.map(() => '?').join(', ')
+    const sql = `DELETE FROM ${tableName} WHERE rowid IN (${placeholders})`
+    return this.exec(sql, rowids, dbId)
+  }
+
+  /**
+   * Get vector count in a vec0 table
+   */
+  async getVectorCount(tableName: string, dbId?: string): Promise<number> {
+    const result = await this.query<{ count: number }>(
+      `SELECT COUNT(*) as count FROM ${tableName}`,
+      undefined,
+      dbId,
+    )
+    return result.rows[0]?.count ?? 0
+  }
+
+  /**
+   * Check if sqlite-vec extension is available
+   */
+  async checkVecExtension(
+    dbId?: string,
+  ): Promise<{ available: boolean; version?: string }> {
+    const result = await this.query<{ version: string }>(
+      `SELECT vec_version() as version`,
+      undefined,
+      dbId,
+    ).catch(() => null)
+
+    if (result?.rows[0]) {
+      return { available: true, version: result.rows[0].version }
+    }
+    return { available: false }
   }
 }
 

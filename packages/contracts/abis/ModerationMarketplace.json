@@ -136,19 +136,6 @@
     },
     {
       "type": "function",
-      "name": "MARKET_MAKER_SHARE_BPS",
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "",
-          "type": "uint256",
-          "internalType": "uint256"
-        }
-      ],
-      "stateMutability": "view"
-    },
-    {
-      "type": "function",
       "name": "MAX_ACTIVE_REPORTS",
       "inputs": [],
       "outputs": [
@@ -539,6 +526,19 @@
     },
     {
       "type": "function",
+      "name": "VOTER_POOL_SHARE_BPS",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
       "name": "WINNER_SHARE_BPS",
       "inputs": [],
       "outputs": [
@@ -661,6 +661,25 @@
         },
         {
           "name": "timestamp",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "caseVoterRewardPool",
+      "inputs": [
+        {
+          "name": "",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
           "type": "uint256",
           "internalType": "uint256"
         }
@@ -805,6 +824,51 @@
     },
     {
       "type": "function",
+      "name": "claimVoterReward",
+      "inputs": [
+        {
+          "name": "caseId",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "claimableVoterRewards",
+      "inputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "commitRevealVoting",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "contract ICommitRevealVoting"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
       "name": "convictionLockUntil",
       "inputs": [
         {
@@ -818,6 +882,83 @@
           "name": "",
           "type": "uint256",
           "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "crossChainArbitration",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "contract ICrossChainArbitration"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "escalateToCrossChain",
+      "inputs": [
+        {
+          "name": "caseId",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "payable"
+    },
+    {
+      "type": "function",
+      "name": "evidenceRegistry",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "evidenceResolutionComplete",
+      "inputs": [
+        {
+          "name": "",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bool",
+          "internalType": "bool"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "evidenceResolutionFailed",
+      "inputs": [
+        {
+          "name": "",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bool",
+          "internalType": "bool"
         }
       ],
       "stateMutability": "view"
@@ -1008,6 +1149,25 @@
         },
         {
           "name": "lockUntil",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "getEffectiveReputation",
+      "inputs": [
+        {
+          "name": "moderator",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
           "type": "uint256",
           "internalType": "uint256"
         }
@@ -1572,32 +1732,16 @@
     },
     {
       "type": "function",
-      "name": "openCase",
-      "inputs": [
-        {
-          "name": "target",
-          "type": "address",
-          "internalType": "address"
-        },
-        {
-          "name": "reason",
-          "type": "string",
-          "internalType": "string"
-        },
-        {
-          "name": "evidenceHash",
-          "type": "bytes32",
-          "internalType": "bytes32"
-        }
-      ],
+      "name": "multiOracleReputation",
+      "inputs": [],
       "outputs": [
         {
-          "name": "caseId",
-          "type": "bytes32",
-          "internalType": "bytes32"
+          "name": "",
+          "type": "address",
+          "internalType": "contract IMultiOracleReputation"
         }
       ],
-      "stateMutability": "nonpayable"
+      "stateMutability": "view"
     },
     {
       "type": "function",
@@ -1754,6 +1898,63 @@
     },
     {
       "type": "function",
+      "name": "retryEvidenceResolution",
+      "inputs": [
+        {
+          "name": "caseId",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "setCommitRevealVoting",
+      "inputs": [
+        {
+          "name": "_extension",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "_enabled",
+          "type": "bool",
+          "internalType": "bool"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "setCrossChainArbitration",
+      "inputs": [
+        {
+          "name": "_extension",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "setEvidenceRegistry",
+      "inputs": [
+        {
+          "name": "registry",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
       "name": "setGitHubReputationProvider",
       "inputs": [
         {
@@ -1793,12 +1994,48 @@
     },
     {
       "type": "function",
+      "name": "setMultiOracleReputation",
+      "inputs": [
+        {
+          "name": "_extension",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "_enabled",
+          "type": "bool",
+          "internalType": "bool"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
       "name": "setTreasury",
       "inputs": [
         {
           "name": "newTreasury",
           "type": "address",
           "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "setVoterSlashing",
+      "inputs": [
+        {
+          "name": "_extension",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "_enabled",
+          "type": "bool",
+          "internalType": "bool"
         }
       ],
       "outputs": [],
@@ -1891,6 +2128,19 @@
     },
     {
       "type": "function",
+      "name": "totalVoterRewardsDistributed",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
       "name": "transferOwnership",
       "inputs": [
         {
@@ -1937,6 +2187,45 @@
     },
     {
       "type": "function",
+      "name": "useCommitRevealVoting",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bool",
+          "internalType": "bool"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "useMultiOracleReputation",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bool",
+          "internalType": "bool"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "useVoterSlashing",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bool",
+          "internalType": "bool"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
       "name": "version",
       "inputs": [],
       "outputs": [
@@ -1965,6 +2254,19 @@
       ],
       "outputs": [],
       "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "voterSlashing",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "contract IVoterSlashing"
+        }
+      ],
+      "stateMutability": "view"
     },
     {
       "type": "function",
@@ -2009,6 +2311,13 @@
         }
       ],
       "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "withdrawVoterRewards",
+      "inputs": [],
+      "outputs": [],
+      "stateMutability": "nonpayable"
     },
     {
       "type": "event",
@@ -2068,6 +2377,19 @@
           "type": "uint256",
           "indexed": false,
           "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "CaseEscalated",
+      "inputs": [
+        {
+          "name": "caseId",
+          "type": "bytes32",
+          "indexed": true,
+          "internalType": "bytes32"
         }
       ],
       "anonymous": false
@@ -2148,6 +2470,19 @@
     },
     {
       "type": "event",
+      "name": "CommitRevealInitialized",
+      "inputs": [
+        {
+          "name": "caseId",
+          "type": "bytes32",
+          "indexed": true,
+          "internalType": "bytes32"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
       "name": "ConfigUpdated",
       "inputs": [
         {
@@ -2192,6 +2527,95 @@
           "type": "string",
           "indexed": false,
           "internalType": "string"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "EvidenceRegistrationFailed",
+      "inputs": [
+        {
+          "name": "caseId",
+          "type": "bytes32",
+          "indexed": true,
+          "internalType": "bytes32"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "EvidenceRegistryUpdated",
+      "inputs": [
+        {
+          "name": "oldRegistry",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "newRegistry",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "EvidenceResolutionFailed",
+      "inputs": [
+        {
+          "name": "caseId",
+          "type": "bytes32",
+          "indexed": true,
+          "internalType": "bytes32"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "EvidenceResolutionRetried",
+      "inputs": [
+        {
+          "name": "caseId",
+          "type": "bytes32",
+          "indexed": true,
+          "internalType": "bytes32"
+        },
+        {
+          "name": "success",
+          "type": "bool",
+          "indexed": false,
+          "internalType": "bool"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "ExtensionUpdated",
+      "inputs": [
+        {
+          "name": "name",
+          "type": "string",
+          "indexed": true,
+          "internalType": "string"
+        },
+        {
+          "name": "extension",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "enabled",
+          "type": "bool",
+          "indexed": false,
+          "internalType": "bool"
         }
       ],
       "anonymous": false
@@ -2478,6 +2902,78 @@
       "anonymous": false
     },
     {
+      "type": "event",
+      "name": "VoterRewardClaimed",
+      "inputs": [
+        {
+          "name": "caseId",
+          "type": "bytes32",
+          "indexed": true,
+          "internalType": "bytes32"
+        },
+        {
+          "name": "voter",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "VoterSlashed",
+      "inputs": [
+        {
+          "name": "caseId",
+          "type": "bytes32",
+          "indexed": true,
+          "internalType": "bytes32"
+        },
+        {
+          "name": "voter",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "error",
+      "name": "AddressEmptyCode",
+      "inputs": [
+        {
+          "name": "target",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "AddressInsufficientBalance",
+      "inputs": [
+        {
+          "name": "account",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    },
+    {
       "type": "error",
       "name": "AlreadyReportedTarget",
       "inputs": []
@@ -2535,6 +3031,16 @@
     {
       "type": "error",
       "name": "ExpectedPause",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "ExtensionNotEnabled",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "FailedInnerCall",
       "inputs": []
     },
     {
@@ -2658,6 +3164,11 @@
     {
       "type": "error",
       "name": "TransferFailed",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "VoterBanned",
       "inputs": []
     },
     {

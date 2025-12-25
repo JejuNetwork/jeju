@@ -77,9 +77,9 @@ describe('Query Classification', () => {
   it('should handle complex SELECT as read', () => {
     expect(
       isWriteQuery(`
-      SELECT u.name, o.total 
-      FROM users u 
-      JOIN orders o ON u.id = o.user_id 
+      SELECT u.name, o.total
+      FROM users u
+      JOIN orders o ON u.id = o.user_id
       WHERE o.status = 'complete'
     `),
     ).toBe(false)

@@ -1,15 +1,20 @@
 {
   "name": "@jejunetwork/node",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Network Node - Run infrastructure and earn rewards",
   "type": "module",
   "bin": {
-    "jeju-node": "./src/cli.ts"
+    "jeju-node": "./api/cli.ts"
   },
   "scripts": {
-    "dev": "PORT=1420 bun index.html",
-    "build": "bun build index.html --outdir=dist --minify",
-    "test": "bun test",
+    "dev": "bun run scripts/dev.ts",
+    "dev:app": "cd app/src-tauri && tauri dev",
+    "build": "bun run scripts/build.ts",
+    "build:app": "cd app/src-tauri && tauri build",
+    "start": "bun api/app/index.ts",
+    "cli": "bun api/cli.ts",
+    "test": "bun test api/ lib/ web/ --timeout 30000",
+    "test:e2e": "bunx playwright test",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -50,7 +55,7 @@
     "@types/react-dom": "^19.0.0",
     "@types/webtorrent": "0.109.5",
     "@types/ws": "^8.18.1",
-    "bun-plugin-tailwind": "0.1.1",
+    "bun-plugin-tailwind": "0.1.2",
     "typescript": "5.9.3"
   }
 }

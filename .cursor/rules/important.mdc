@@ -3,6 +3,8 @@ description: EXTERMELY IMPORTANT CODING STYLE RULES
 alwaysApply: true
 ---
 
+# IMPORTANT CODE STYLE RULES
+
 Do not use try { } catch { } blocks unless they are absolutely necessary or handling user supplied data. Avoid defensive programming and implement clean code with fail-fast patterns.
 
 IMPORTANT: After you have finished a task, go through again and review for slop, unnecessary comments, fallbacks and overly complex state management
@@ -10,3 +12,16 @@ IMPORTANT: After you have finished a task, go through again and review for slop,
 It is very important that you ALWAYS review your work after you've completed it to make sure that it is as clean, tight, compact as possible, with strong types and fail fast where it makes sense
 
 If you are expecting something, you can use an expect/throw pattern. Always aim to catch errors and throw instead of hiding errors and falling back.
+
+### CODE DETAILS
+
+- Always research for strong types and avoid as unknown as and other weak casts
+- Avoid 'as' in general and try to make the type strong and work from upstream first
+- Especially avoid inline typecasts (as { }) and fix them as you work
+- Avoid defaults or null coallescence if the value should never be undefined, always validate input and output from external sources
+- Make sure types are only optional if they are ACTUALLY optional
+- Always delete dead code and unused private variables
+- Always search for existing utilities becaues making new ones, try to consolidate and put sharable code into shared package
+- Ditto for types -- always search for existing types before making new ones
+- Prefer configuration files over environment variables for public, rarely reset information
+- Parse JSON with Zod validation, always validate all external inputs and outputs

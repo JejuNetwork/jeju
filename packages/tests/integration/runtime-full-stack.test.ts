@@ -45,6 +45,14 @@ import {
   parseEther,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
+import { z } from 'zod'
+
+// GraphQL response schema
+const GraphQLResponseSchema = z.object({
+  data: z.record(z.unknown()).optional(),
+  errors: z.array(z.object({ message: z.string() })).optional(),
+})
+
 import {
   APP_PORTS,
   APP_URLS,
@@ -748,10 +756,7 @@ async function queryGraphQL(query: string): Promise<Record<string, unknown>> {
     throw new Error(`GraphQL query failed: ${response.statusText}`)
   }
 
-  const result = (await response.json()) as {
-    data?: Record<string, unknown>
-    errors?: Array<{ message: string }>
-  }
+  const result = GraphQLResponseSchema.parse(await response.json())
 
   if (result.errors) {
     throw new Error(`GraphQL errors: ${JSON.stringify(result.errors)}`)

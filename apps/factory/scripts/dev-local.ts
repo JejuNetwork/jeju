@@ -1,17 +1,11 @@
-/**
- * Factory Local Development with DWS
- *
- * Starts:
- * 1. CovenantSQL local node (if not running)
- * 2. DWS server (if not running)
- * 3. Factory Elysia server
- * 4. Factory frontend dev server
- */
+/** Factory Local Development */
 
-const COVENANTSQL_PORT = 4661
-const DWS_PORT = 4030
-const FACTORY_API_PORT = 4009
-const FACTORY_CLIENT_PORT = 4010
+import { CORE_PORTS, INFRA_PORTS } from '@jejunetwork/config'
+
+const COVENANTSQL_PORT = INFRA_PORTS.CQL.get()
+const DWS_PORT = CORE_PORTS.DWS_API.get()
+const FACTORY_API_PORT = CORE_PORTS.FACTORY.get()
+const FACTORY_CLIENT_PORT = 3009
 
 interface ServiceStatus {
   running: boolean
@@ -44,7 +38,6 @@ async function startService(
     },
   })
 
-  // Wait for service to be ready
   const maxWait = 30000
   const start = Date.now()
 
@@ -67,20 +60,16 @@ async function main() {
 
   const services: Record<string, ServiceStatus> = {}
 
-  // Check CovenantSQL
   console.log('Checking CovenantSQL...')
   const cqlRunning = await checkPort(COVENANTSQL_PORT)
   services.CovenantSQL = { running: cqlRunning, port: COVENANTSQL_PORT }
 
   if (!cqlRunning) {
     console.log('⚠️  CovenantSQL not running. Starting mock mode...')
-    // In real setup, would start CovenantSQL here
-    // For now, we'll use mock data in the API
   } else {
     console.log('✅ CovenantSQL running')
   }
 
-  // Check DWS
   console.log('Checking DWS...')
   const dwsRunning = await checkPort(DWS_PORT)
   services.DWS = { running: dwsRunning, port: DWS_PORT }
@@ -92,13 +81,12 @@ async function main() {
     console.log('✅ DWS running')
   }
 
-  // Start Factory API
   console.log('')
   console.log('Starting Factory services...')
 
   const apiPid = await startService(
     'Factory API',
-    ['bun', 'run', '--watch', 'src/server.ts'],
+    ['bun', 'run', '--watch', 'api/server.ts'],
     FACTORY_API_PORT,
   )
   services['Factory API'] = {
@@ -107,13 +95,12 @@ async function main() {
     pid: apiPid ?? undefined,
   }
 
-  // Start Factory client (in background)
   console.log('')
   console.log(
     `Starting Factory client dev server on http://localhost:${FACTORY_CLIENT_PORT}...`,
   )
   const clientProc = Bun.spawn(
-    ['bun', './src/client/index.html', '--port', String(FACTORY_CLIENT_PORT)],
+    ['bun', './web/index.html', '--port', String(FACTORY_CLIENT_PORT)],
     {
       cwd: process.cwd(),
       stdout: 'inherit',
@@ -126,7 +113,6 @@ async function main() {
     pid: clientProc.pid,
   }
 
-  // Print status
   console.log('')
   console.log('═══════════════════════════════════════════')
   console.log('  Factory Local Development Environment')
@@ -150,7 +136,6 @@ async function main() {
   console.log('')
   console.log('Press Ctrl+C to stop all services')
 
-  // Handle cleanup
   const cleanup = () => {
     console.log('')
     console.log('Shutting down...')
@@ -163,7 +148,6 @@ async function main() {
   process.on('SIGINT', cleanup)
   process.on('SIGTERM', cleanup)
 
-  // Keep process alive
   await new Promise(() => {})
 }
 

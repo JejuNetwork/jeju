@@ -19,7 +19,7 @@ import {
   loadChainConfig,
   loadDeployedContracts,
   TEST_ACCOUNTS,
-} from './network'
+} from './index'
 import type { NetworkType } from './schemas'
 
 describe('Network Detection', () => {
@@ -77,7 +77,7 @@ describe('Chain Configuration', () => {
   describe('loadChainConfig', () => {
     it('should load localnet config', () => {
       const config = loadChainConfig('localnet')
-      expect(config.chainId).toBe(1337)
+      expect(config.chainId).toBe(31337)
       expect(config.name).toBe('Jeju Localnet')
     })
 
@@ -141,7 +141,7 @@ describe('Chain Configuration', () => {
     it('should default to localnet', () => {
       delete process.env.JEJU_NETWORK
       const config = getChainConfig()
-      expect(config.chainId).toBe(1337)
+      expect(config.chainId).toBe(31337)
     })
   })
 })
@@ -313,7 +313,7 @@ describe('RPC URL Helpers', () => {
 
   describe('getChainId', () => {
     it('should return correct chain ID for each network', () => {
-      expect(getChainId('localnet')).toBe(1337)
+      expect(getChainId('localnet')).toBe(31337)
       expect(getChainId('testnet')).toBe(420690)
       expect(getChainId('mainnet')).toBe(420691)
     })
@@ -351,11 +351,11 @@ describe('RPC Availability Checks', () => {
   describe('getNetworkInfo', () => {
     it('should return network info object', async () => {
       // Use a quick timeout test with unreachable endpoint
-      const info = await getNetworkInfo('localnet')
+      const rpcUrl = getRpcUrl('localnet')
+      const info = await getNetworkInfo('localnet', rpcUrl)
 
       expect(info.network).toBe('localnet')
-      expect(info.chain).toBeDefined()
-      expect(info.chain.chainId).toBe(1337)
+      expect(info.chainId).toBe(31337)
       expect(info.contracts).toBeDefined()
       expect(typeof info.rpcReachable).toBe('boolean')
       expect(typeof info.hasBalance).toBe('boolean')

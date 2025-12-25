@@ -10,6 +10,7 @@ import {
   copyFileSync,
   existsSync,
   mkdirSync,
+  readFileSync,
   rmSync,
   writeFileSync,
 } from 'node:fs'
@@ -32,7 +33,7 @@ const isProduction = process.env.NODE_ENV === 'production'
 
 const ROOT = resolve(import.meta.dir, '..')
 const DIST = resolve(ROOT, `dist-ext-${target}`)
-const SRC = resolve(ROOT, 'src/extension')
+const SRC = resolve(ROOT, 'extension')
 
 // Manifest files per target
 const manifestMap: Record<ExtensionTarget, string> = {
@@ -88,9 +89,27 @@ const stubPlugin: BunPlugin = {
   },
 }
 
-import tw from 'bun-plugin-tailwind'
-
-const tailwindPlugin: BunPlugin = tw
+// Plugin to handle CSS imports by inlining them
+const cssPlugin: BunPlugin = {
+  name: 'css-inline',
+  setup(build) {
+    build.onLoad({ filter: /\.css$/ }, async (args) => {
+      const css = readFileSync(args.path, 'utf8')
+      return {
+        contents: `
+          // Inject CSS into document
+          if (typeof document !== 'undefined') {
+            const style = document.createElement('style');
+            style.textContent = ${JSON.stringify(css)};
+            document.head.appendChild(style);
+          }
+          export default ${JSON.stringify(css)};
+        `,
+        loader: 'js',
+      }
+    })
+  },
+}
 
 async function build() {
   console.log(`Building extension for ${target}...`)
@@ -104,14 +123,15 @@ async function build() {
   mkdirSync(resolve(DIST, '_locales/en'), { recursive: true })
   mkdirSync(resolve(DIST, 'assets'), { recursive: true })
 
-  // Build popup HTML (with its referenced TSX)
+  // Build popup entry point (TSX file that popup.html references)
   console.log('  Building popup...')
   const popupResult = await Bun.build({
-    entrypoints: [resolve(SRC, 'popup/popup.html')],
+    entrypoints: [resolve(SRC, 'popup/index.tsx')],
     outdir: DIST,
     minify: isProduction,
     sourcemap: isProduction ? 'none' : 'linked',
     target: 'browser',
+    splitting: true,
     define: {
       'process.env.EXT_TARGET': JSON.stringify(target),
       'process.env.IS_EXTENSION': JSON.stringify(true),
@@ -119,8 +139,10 @@ async function build() {
         isProduction ? 'production' : 'development',
       ),
     },
-    plugins: [stubPlugin, tailwindPlugin],
+    plugins: [stubPlugin, cssPlugin],
     naming: {
+      entry: '[name].js',
+      chunk: '[name]-[hash].js',
       asset: 'assets/[name]-[hash].[ext]',
     },
   })
@@ -132,6 +154,75 @@ async function build() {
     }
     process.exit(1)
   }
+
+  // Create popup.html that loads the built JS with Tailwind CDN
+  const popupHtml = `<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Network Wallet</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              background: '#0f0f0f',
+              foreground: '#fafafa',
+              card: '#1a1a1a',
+              'card-foreground': '#fafafa',
+              primary: '#22c55e',
+              'primary-foreground': '#ffffff',
+              secondary: '#27272a',
+              'secondary-foreground': '#fafafa',
+              muted: '#27272a',
+              'muted-foreground': '#a1a1aa',
+              accent: '#27272a',
+              'accent-foreground': '#fafafa',
+              destructive: '#ef4444',
+              'destructive-foreground': '#fafafa',
+              border: '#2e2e2e',
+              input: '#27272a',
+              ring: '#22c55e',
+              surface: {
+                DEFAULT: '#0f0f0f',
+                elevated: '#1a1a1a',
+                hover: '#242424',
+                border: '#2e2e2e',
+              },
+            },
+            fontFamily: {
+              sans: ['system-ui', 'sans-serif'],
+              mono: ['monospace'],
+            },
+          },
+        },
+      }
+    </script>
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        width: 380px;
+        height: 600px;
+        overflow: hidden;
+        background: #0f0f0f;
+        color: #fafafa;
+      }
+      #root {
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body class="bg-surface text-white antialiased">
+    <div id="root"></div>
+    <script type="module" src="./index.js"></script>
+  </body>
+</html>`
+  writeFileSync(resolve(DIST, 'popup.html'), popupHtml)
 
   // Build background service worker
   console.log('  Building background script...')

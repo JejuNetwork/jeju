@@ -5,7 +5,7 @@
  *   bun run dev-startup.ts && bun run src/server.ts
  *
  * Or import and call:
- *   import { ensureInfra } from '@jejunetwork/tests/dev-startup';
+ *   import { ensureInfra } from '@jejunetwork/tests';
  *   await ensureInfra();
  */
 
@@ -36,7 +36,7 @@ async function startLocalnet(rootDir: string): Promise<boolean> {
 
   console.log('🔗 Starting localnet (anvil)...')
   localnetProcess = Bun.spawn(
-    [anvil, '--port', String(LOCALNET_PORT), '--chain-id', '1337'],
+    [anvil, '--port', String(LOCALNET_PORT), '--chain-id', '31337'],
     {
       cwd: rootDir,
       stdout: 'pipe',
@@ -101,7 +101,7 @@ async function startDws(rootDir: string): Promise<boolean> {
     return false
   }
 
-  dwsProcess = Bun.spawn(['bun', 'run', 'src/server/index.ts'], {
+  dwsProcess = Bun.spawn(['bun', 'run', 'api/server/index.ts'], {
     cwd: dwsPath,
     stdout: 'pipe',
     stderr: 'pipe',

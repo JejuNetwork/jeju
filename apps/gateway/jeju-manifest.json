@@ -1,7 +1,7 @@
 {
   "$schema": "../../packages/config/jeju-manifest.schema.json",
   "name": "gateway",
-  "displayName": "Gateway Portal",
+  "displayName": "Gateway",
   "version": "1.0.0",
   "type": "core",
   "description": "Protocol Infrastructure Hub: Bridge tokens, deploy paymasters, provide ETH liquidity, run nodes, earn rewards, cross-chain intents. Supports any ERC20. Protocol power = paymaster + liquidity.",
@@ -12,36 +12,70 @@
     "solver": "bun src/solver/index.ts"
   },
   "ports": {
-    "main": 4001,
-    "nodeApi": 4002,
-    "a2a": 4003,
-    "ws": 4012
+    "main": 4013,
+    "frontend": 4014,
+    "a2a": 4013,
+    "ws": 4015
   },
-  "dependencies": ["contracts", "config", "dws"],
+  "dependencies": [
+    "contracts",
+    "config",
+    "dws"
+  ],
   "optional": false,
   "enabled": true,
   "autoStart": true,
-  "tags": ["protocol", "infrastructure", "paymaster", "nodes", "staking", "liquidity", "multi-token", "intents", "cross-chain", "oif", "aggregator", "solver"],
+  "tags": [
+    "protocol",
+    "infrastructure",
+    "paymaster",
+    "nodes",
+    "staking",
+    "liquidity",
+    "multi-token",
+    "intents",
+    "cross-chain",
+    "oif",
+    "aggregator",
+    "solver"
+  ],
   "jns": {
     "name": "gateway.jeju",
     "description": "Protocol Infrastructure Hub for the Network",
     "url": "https://gateway.jejunetwork.org"
   },
   "healthCheck": {
-    "url": "http://localhost:4003/health",
+    "url": "http://localhost:4001/health",
     "interval": 30000
   },
   "agent": {
     "enabled": true,
     "a2aEndpoint": "/a2a",
     "mcpEndpoint": "/mcp",
-    "tags": ["jeju-app", "protocol", "infrastructure", "nodes", "staking", "intents", "cross-chain", "oif"],
+    "tags": [
+      "jeju-app",
+      "protocol",
+      "infrastructure",
+      "nodes",
+      "staking",
+      "intents",
+      "cross-chain",
+      "oif"
+    ],
     "metadata": {
       "category": "infrastructure",
       "provider": "jeju-network",
-      "features": ["bridge", "paymaster", "liquidity", "solver", "intents"]
+      "features": [
+        "bridge",
+        "paymaster",
+        "liquidity",
+        "solver",
+        "intents"
+      ]
     },
-    "trustModels": ["open"],
+    "trustModels": [
+      "open"
+    ],
     "x402Support": true,
     "jnsName": "gateway.jeju"
   },
@@ -55,45 +89,138 @@
       "minInstances": 1,
       "maxInstances": 10,
       "teeRequired": false,
-      "regions": ["global"]
+      "regions": [
+        "global"
+      ]
     },
     "cdn": {
       "enabled": true,
-      "regions": ["global"],
+      "regions": [
+        "global"
+      ],
       "staticDir": "dist",
       "cacheRules": [
-        { "pattern": "/assets/**", "ttl": 31536000, "immutable": true },
-        { "pattern": "/*.js", "ttl": 86400 },
-        { "pattern": "/*.css", "ttl": 86400 },
-        { "pattern": "/**/*.html", "ttl": 60, "staleWhileRevalidate": 3600 }
+        {
+          "pattern": "/assets/**",
+          "ttl": 31536000,
+          "immutable": true
+        },
+        {
+          "pattern": "/*.js",
+          "ttl": 86400
+        },
+        {
+          "pattern": "/*.css",
+          "ttl": 86400
+        },
+        {
+          "pattern": "/**/*.html",
+          "ttl": 60,
+          "staleWhileRevalidate": 3600
+        }
       ]
     }
   },
   "decentralization": {
+    "worker": {
+      "name": "gateway-api",
+      "entrypoint": "api/worker.ts",
+      "runtime": "workerd",
+      "memory": 512,
+      "timeout": 60000,
+      "compatibilityDate": "2024-01-01",
+      "compatibilityFlags": [
+        "nodejs_compat"
+      ],
+      "bindings": {
+        "GATEWAY_CACHE": {
+          "type": "kv",
+          "name": "gateway-cache-kv"
+        }
+      },
+      "secrets": [
+        "PRIVATE_KEY",
+        "RPC_URL"
+      ],
+      "routes": [
+        {
+          "pattern": "/api/*"
+        },
+        {
+          "pattern": "/a2a/*"
+        },
+        {
+          "pattern": "/health"
+        }
+      ]
+    },
+    "frontend": {
+      "buildDir": "dist",
+      "buildCommand": "bun run build",
+      "spa": true,
+      "jnsName": "gateway.jeju",
+      "ipfs": true,
+      "arweave": true,
+      "cacheRules": [
+        {
+          "pattern": "/assets/**",
+          "ttl": 31536000,
+          "immutable": true
+        },
+        {
+          "pattern": "/*.js",
+          "ttl": 86400
+        },
+        {
+          "pattern": "/*.css",
+          "ttl": 86400
+        },
+        {
+          "pattern": "/**/*.html",
+          "ttl": 60,
+          "staleWhileRevalidate": 3600
+        }
+      ]
+    },
     "cdn": {
       "enabled": true,
-      "regions": ["global"],
+      "regions": [
+        "global"
+      ],
       "cacheRules": [
-        { "pattern": "/assets/**", "ttl": 31536000, "immutable": true },
-        { "pattern": "/api/quotes/**", "ttl": 2, "staleWhileRevalidate": 10 },
-        { "pattern": "/api/prices/**", "ttl": 5 },
-        { "pattern": "/api/**", "ttl": 0 },
-        { "pattern": "/**/*.html", "ttl": 60, "staleWhileRevalidate": 3600 }
+        {
+          "pattern": "/assets/**",
+          "ttl": 31536000,
+          "immutable": true
+        },
+        {
+          "pattern": "/api/quotes/**",
+          "ttl": 2,
+          "staleWhileRevalidate": 10
+        },
+        {
+          "pattern": "/api/prices/**",
+          "ttl": 5
+        },
+        {
+          "pattern": "/api/**",
+          "ttl": 0
+        },
+        {
+          "pattern": "/**/*.html",
+          "ttl": 60,
+          "staleWhileRevalidate": 3600
+        }
       ],
       "apiCaching": {
         "enabled": true,
         "defaultTtl": 5,
-        "varyHeaders": ["x-jeju-address", "x-chain-id"]
+        "varyHeaders": [
+          "x-jeju-address",
+          "x-chain-id"
+        ]
       },
       "serviceWorker": true
-    },
-    "frontend": {
-      "ipfs": true,
-      "arweave": true,
-      "jnsName": "gateway.jeju",
-      "buildDir": "dist",
-      "spa": true,
-      "fallbackOrigins": ["https://gateway.jejunetwork.org"]
     },
     "robustness": {
       "multiOrigin": true,
@@ -104,21 +231,27 @@
   },
   "testing": {
     "unit": {
-      "command": "bun run test:unit",
+      "command": "bun test tests/",
       "timeout": 120000
     },
-    "integration": {
-      "command": "bun run test:rpc",
-      "timeout": 120000,
-      "requiresServices": true
-    },
     "e2e": {
-      "command": "bunx playwright test tests/synpress",
+      "command": "bunx playwright test tests/synpress/",
       "config": "synpress.config.ts",
       "timeout": 600000,
       "requiresChain": true,
       "requiresWallet": true
     },
-    "services": ["contracts"]
+    "services": [
+      "contracts"
+    ]
+  },
+  "architecture": {
+    "type": "hybrid",
+    "frontend": {
+      "type": "spa",
+      "builder": "bun",
+      "entrypoint": "index.html",
+      "outputDir": "dist"
+    }
   }
 }

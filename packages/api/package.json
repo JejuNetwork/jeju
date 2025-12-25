@@ -2,18 +2,43 @@
   "name": "@jejunetwork/api",
   "version": "0.1.0",
   "description": "Framework-agnostic API middleware with auth, rate limiting, and error handling",
+  "license": "MIT",
   "type": "module",
-  "main": "src/index.ts",
-  "types": "src/index.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
   },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "sideEffects": false,
   "scripts": {
+    "build": "tsc",
     "test": "bun test",
-    "typecheck": "tsc --noEmit"
+    "test:coverage": "bun test --coverage",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "bun run build"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/elizaos/jeju.git",
+    "directory": "packages/api"
+  },
+  "keywords": [
+    "jeju",
+    "api",
+    "middleware",
+    "auth",
+    "rate-limiting",
+    "elysia"
+  ],
   "dependencies": {
-    "@jejunetwork/oauth3": "workspace:*",
     "@jejunetwork/types": "workspace:*",
     "viem": "2.43.3",
     "zod": "4.2.1"
@@ -30,5 +55,8 @@
     "elysia": {
       "optional": true
     }
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

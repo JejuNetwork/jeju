@@ -2,16 +2,39 @@
   "name": "@jejunetwork/solana",
   "version": "0.1.0",
   "description": "Jeju Network Solana SDK - OIF, Launchpad, DEX aggregation, EVM Light Client, and Token Bridge",
+  "license": "MIT",
   "type": "module",
-  "main": "client/src/index.ts",
-  "types": "client/src/index.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "exports": {
-    ".": "./client/src/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
   },
+  "files": [
+    "dist",
+    "client/src"
+  ],
+  "sideEffects": false,
   "scripts": {
+    "build": "tsc",
     "test": "bun test",
-    "typecheck": "cd client && bun tsc --noEmit"
+    "typecheck": "tsc --noEmit"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/elizaos/jeju.git",
+    "directory": "packages/solana"
+  },
+  "keywords": [
+    "jeju",
+    "solana",
+    "anchor",
+    "oif",
+    "bridge",
+    "dex"
+  ],
   "dependencies": {
     "@coral-xyz/anchor": "0.30.1",
     "@jejunetwork/types": "workspace:*",
@@ -27,5 +50,8 @@
   },
   "peerDependencies": {
     "@solana/web3.js": ">=1.95.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

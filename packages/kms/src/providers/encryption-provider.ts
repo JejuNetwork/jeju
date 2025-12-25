@@ -4,6 +4,7 @@
  * Access conditions: 'timestamp' works locally; others require on-chain KeyRegistry
  */
 
+import { getEnvBoolean, requireEnv } from '@jejunetwork/shared'
 import type { Address, Hex } from 'viem'
 import { keccak256, toBytes, toHex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
@@ -74,12 +75,7 @@ export class EncryptionProvider implements KMSProvider {
   private sessions = new Map<string, Session>()
 
   constructor(_config: EncryptionConfig) {
-    const secret = process.env.KMS_ENCRYPTION_SECRET
-    if (!secret) {
-      throw new Error(
-        'KMS_ENCRYPTION_SECRET environment variable is required for encryption provider',
-      )
-    }
+    const secret = requireEnv('KMS_ENCRYPTION_SECRET')
     this.masterKey = deriveKeyFromSecret(secret)
   }
 
@@ -467,7 +463,7 @@ export function getEncryptionProvider(
   config?: Partial<EncryptionConfig>,
 ): EncryptionProvider {
   if (!encryptionProvider) {
-    const debug = config?.debug ?? process.env.KMS_DEBUG === 'true'
+    const debug = config?.debug ?? getEnvBoolean('KMS_DEBUG', false)
     encryptionProvider = new EncryptionProvider({ debug })
   }
   return encryptionProvider

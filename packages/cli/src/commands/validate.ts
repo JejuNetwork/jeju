@@ -1,16 +1,11 @@
-/**
- * Validation commands for manifests, configs, etc.
- */
+/** Validation commands for manifests, configs, and deployments */
 
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { Command } from 'commander'
 import { execa } from 'execa'
 import { z } from 'zod'
-import {
-  discoverCoreApps,
-  discoverVendorApps,
-} from '../../../../packages/deployment/scripts/shared/discover-apps'
+import { discoverCoreApps, discoverVendorApps } from '../lib/discover-apps'
 import { logger } from '../lib/logger'
 import { findMonorepoRoot } from '../lib/system'
 import { validate } from '../schemas'

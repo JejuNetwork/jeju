@@ -18,7 +18,9 @@ import {
   copyFileSync,
   existsSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
+  statSync,
   writeFileSync,
 } from 'node:fs'
 import { join } from 'node:path'
@@ -58,11 +60,11 @@ function listBackups(network: string): string[] {
   // List backup directories, sorted by timestamp (newest first)
   const backups: string[] = []
   try {
-    const entries = Bun.readdirSync(networkBackupsDir)
+    const entries = readdirSync(networkBackupsDir)
     for (const entry of entries) {
       const backupPath = join(networkBackupsDir, entry)
       try {
-        if (Bun.statSync(backupPath).isDirectory()) {
+        if (statSync(backupPath).isDirectory()) {
           backups.push(entry)
         }
       } catch (err) {

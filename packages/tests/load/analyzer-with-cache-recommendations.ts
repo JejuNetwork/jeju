@@ -39,10 +39,23 @@ const LATENCY_THRESHOLDS = {
 }
 
 function analyzeEndpoint(metrics: EndpointMetrics): CacheRecommendation | null {
-  const { path, avgLatency, maxLatency } = metrics
+  const { path } = metrics
+  const avgLatency =
+    typeof metrics.avgLatency === 'string'
+      ? parseFloat(metrics.avgLatency)
+      : metrics.avgLatency
+  const maxLatency =
+    typeof metrics.maxLatency === 'string'
+      ? parseFloat(metrics.maxLatency)
+      : metrics.maxLatency
+  const cacheHitRate = metrics.cacheHitRate
+    ? typeof metrics.cacheHitRate === 'string'
+      ? parseFloat(metrics.cacheHitRate)
+      : metrics.cacheHitRate
+    : undefined
 
   // Skip already well-cached endpoints
-  if (metrics.cacheHitRate && metrics.cacheHitRate > 90) {
+  if (cacheHitRate !== undefined && cacheHitRate > 90) {
     return null
   }
 
@@ -102,7 +115,7 @@ export async function cachedSearch(query: string): Promise<SearchResult> {
       'Use DWS EdgeCache with stale-while-revalidate for list data'
     codeExample = `
 // packages/shared/src/cache/list-cache.ts
-import { getEdgeCache } from '@jejunetwork/dws/cache'
+import { getEdgeCache } from '@jejunetwork/dws'
 
 const cache = getEdgeCache({
   defaultTTL: 120,
@@ -353,8 +366,8 @@ ${rec.codeExample}
   DWS Integration Points:
   ─────────────────────────────────────────────────────────────────────────────────
   1. packages/shared/src/services/cache.ts - Centralized cache service
-  2. apps/dws/src/cdn/cache/edge-cache.ts - EdgeCache for CDN-style caching
-  3. apps/dws/src/server/routes/prices.ts - Example of price caching
+  2. apps/dws/api/cdn/index.ts - EdgeCache for CDN-style caching
+  3. apps/dws/api/server/routes/prices.ts - Example of price caching
 
   Next Steps:
   ─────────────────────────────────────────────────────────────────────────────────

@@ -15,16 +15,13 @@
   },
   "dependencies": {
     "@huggingface/inference": "^3.3.3",
-    "@jejunetwork/config": "workspace:*",
-    "@jejunetwork/kms": "workspace:*",
-    "@jejunetwork/sdk": "workspace:*",
     "@jejunetwork/shared": "workspace:*",
     "@jejunetwork/types": "workspace:*",
     "@solana/web3.js": "^1.98.0",
     "borsh": "^2.0.0",
     "elysia": "^1.2.25",
     "@elysiajs/cors": "^1.1.1",
-    "uuid": "^13.0.0",
+    "tweetnacl": "^1.0.3",
     "viem": "2.43.3",
     "zod": "4.2.1"
   },

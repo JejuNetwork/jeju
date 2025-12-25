@@ -1,6 +1,6 @@
 # @jejunetwork/oauth3
 
-**Open-source, self-hostable alternative to Privy.** Fully decentralized OAuth3 authentication with TEE-backed key management, FROST threshold MPC signing, MFA (Passkeys/TOTP), and W3C Verifiable Credentials.
+**Open-source, self-hostable alternative to Privy.** OAuth3 authentication with TEE-backed key management, FROST threshold MPC signing, MFA (Passkeys/TOTP), and W3C Verifiable Credentials.
 
 ## Features
 
@@ -52,9 +52,6 @@ import {
   // MPC/FROST
   FROSTCoordinator,
   generateKeyShares,
-  // TEE
-  DstackAuthAgent,
-  startAuthAgent,
   // Credentials
   VerifiableCredentialIssuer,
   // Providers
@@ -96,22 +93,6 @@ const credential = await oauth3.issueCredential(
   '12345',  // fid
   'alice'   // username
 );
-```
-
-### Server-Side (Running Your Own TEE Node)
-
-```typescript
-import { startAuthAgent } from '@jejunetwork/oauth3';
-
-// Start the OAuth3 agent server
-await startAuthAgent({
-  port: 4200,
-  chainId: 420690,
-  privateKey: process.env.TEE_PRIVATE_KEY,
-  mpcEnabled: true,
-  mpcThreshold: 2,
-  mpcTotalParties: 3,
-});
 ```
 
 ## Architecture
@@ -297,20 +278,7 @@ interface OAuth3Client {
 
 ### TEE Attestation
 
-All OAuth3 nodes run inside TEEs and provide attestation quotes that can be verified on-chain:
-
-```typescript
-import { DstackAuthAgent } from '@jejunetwork/oauth3';
-
-const agent = new DstackAuthAgent(config);
-const attestation = await agent.getAttestation();
-
-// Verify on-chain
-const isValid = await teeVerifierContract.verifyAttestation(
-  attestation.quote,
-  attestation.reportData
-);
-```
+All OAuth3 nodes run inside TEEs and provide attestation quotes that can be verified on-chain via the `OAuth3TEEVerifier` contract.
 
 ### MPC Key Management
 
@@ -363,7 +331,7 @@ const { council, oauth3App } = await manager.deployCouncil({
 
 ```tsx
 // Use the built-in React SDK for the best experience
-import { OAuth3Provider, useOAuth3, LoginModal, ConnectedAccount, MFASetup } from '@jejunetwork/oauth3/react';
+import { OAuth3Provider, useOAuth3, LoginModal, ConnectedAccount, MFASetup } from '@jejunetwork/oauth3';
 
 function App() {
   return (
@@ -407,7 +375,7 @@ function MyApp() {
 ### React Hooks
 
 ```tsx
-import { useLogin, useMFA, useCredentials, useSession } from '@jejunetwork/oauth3/react';
+import { useLogin, useMFA, useCredentials, useSession } from '@jejunetwork/oauth3';
 
 // Login hook with all providers
 const { login, loginWithEmail, loginWithPhone, verifyEmailCode, verifyPhoneCode } = useLogin();

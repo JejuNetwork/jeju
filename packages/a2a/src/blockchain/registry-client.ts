@@ -3,10 +3,10 @@
  * Blockchain integration for agent identity and reputation
  */
 
+import type { JsonValue } from '@jejunetwork/types'
 import { createPublicClient, http, type PublicClient } from 'viem'
-
 import type { AgentProfile, AgentReputation } from '../types/a2a'
-import { AgentCapabilitiesSchema, type JsonValue } from '../types/common'
+import { AgentCapabilitiesSchema } from '../types/common'
 
 /**
  * Minimal ABI for Identity Registry contract

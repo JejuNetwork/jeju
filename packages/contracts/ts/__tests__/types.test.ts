@@ -88,8 +88,8 @@ describe('types.ts - Type Utilities and Constants', () => {
   })
 
   describe('CHAIN_IDS', () => {
-    test('localnet is 1337', () => {
-      expect(CHAIN_IDS.localnet).toBe(1337)
+    test('localnet is 31337', () => {
+      expect(CHAIN_IDS.localnet).toBe(31337)
     })
 
     test('anvil is 31337', () => {
@@ -126,8 +126,8 @@ describe('types.ts - Type Utilities and Constants', () => {
   })
 
   describe('NETWORK_BY_CHAIN_ID', () => {
-    test('maps 1337 to localnet', () => {
-      expect(NETWORK_BY_CHAIN_ID[1337]).toBe('localnet')
+    test('maps 31337 to localnet', () => {
+      expect(NETWORK_BY_CHAIN_ID[31337]).toBe('localnet')
     })
 
     test('maps 31337 to localnet', () => {
@@ -162,13 +162,13 @@ describe('types.ts - Type Utilities and Constants', () => {
     test('CHAIN_IDS values are valid ChainId type', () => {
       // This is a compile-time check - if it compiles, the types are correct
       const chainId: ChainId = CHAIN_IDS.localnet
-      expect(chainId).toBe(1337)
+      expect(chainId).toBe(31337)
     })
 
     test('NETWORK_BY_CHAIN_ID keys match ChainId type', () => {
       // Verify the record keys match our ChainId union
       const validChainIds: ChainId[] = [
-        1337, 31337, 420690, 420691, 11155111, 1,
+        31337, 31337, 420690, 420691, 11155111, 1,
       ]
       for (const chainId of validChainIds) {
         expect(NETWORK_BY_CHAIN_ID[chainId]).toBeDefined()

@@ -26,7 +26,9 @@ describe('Domain ID Mapping - Data Integrity', () => {
   test('EVM chain IDs equal their domain IDs', () => {
     const evmChains = ALL_CHAINS.filter((c) => c.chainType === 'evm')
     for (const chain of evmChains) {
-      expect(CHAIN_TO_DOMAIN[chain.chainId]).toBe(chain.chainId as number)
+      // EVM chains have numeric chainIds by definition
+      if (typeof chain.chainId !== 'number') continue
+      expect(CHAIN_TO_DOMAIN[chain.chainId]).toBe(chain.chainId)
     }
   })
 
@@ -43,13 +45,11 @@ describe('Domain ID Mapping - Data Integrity', () => {
 
 describe('getDomainId - Error Handling', () => {
   test('throws for undefined chain ID', () => {
-    // biome-ignore lint/suspicious/noExplicitAny: Testing invalid input types
-    expect(() => getDomainId(undefined as any)).toThrow()
+    expect(() => getDomainId(undefined as unknown as ChainId)).toThrow()
   })
 
   test('throws for null chain ID', () => {
-    // biome-ignore lint/suspicious/noExplicitAny: Testing invalid input types
-    expect(() => getDomainId(null as any)).toThrow()
+    expect(() => getDomainId(null as unknown as ChainId)).toThrow()
   })
 
   test('throws for negative chain ID', () => {
@@ -81,9 +81,11 @@ describe('getDomainId - Valid Inputs', () => {
   test('returns correct domain for all mainnet EVM chains', () => {
     const evmMainnets = MAINNET_CHAINS.filter((c) => c.chainType === 'evm')
     for (const chain of evmMainnets) {
+      // EVM chains have numeric chainIds by definition
+      if (typeof chain.chainId !== 'number') continue
       const domain = getDomainId(chain.chainId)
       // EVM chain IDs equal domain IDs
-      expect(domain).toBe(chain.chainId as number)
+      expect(domain).toBe(chain.chainId)
     }
   })
 
@@ -120,20 +122,22 @@ describe('Domain Mapping - Boundary Conditions', () => {
   })
 
   test('L2 chains have valid domains', () => {
-    const l2ChainIds: ChainId[] = [10, 8453, 42161] // Optimism, Base, Arbitrum
+    // L2 EVM chain IDs (numeric literals)
+    const l2ChainIds = [10, 8453, 42161] as const // Optimism, Base, Arbitrum
     for (const chainId of l2ChainIds) {
       const domain = getDomainId(chainId)
       // Domain should equal chain ID for EVM chains
-      expect(domain).toBe(chainId as number)
+      expect(domain).toBe(chainId)
     }
   })
 
   test('alt-L1 chains have valid domains', () => {
-    const altL1ChainIds: ChainId[] = [56, 137, 43114] // BSC, Polygon, Avalanche
+    // Alt-L1 EVM chain IDs (numeric literals)
+    const altL1ChainIds = [56, 137, 43114] as const // BSC, Polygon, Avalanche
     for (const chainId of altL1ChainIds) {
       const domain = getDomainId(chainId)
       // Domain should equal chain ID for EVM chains
-      expect(domain).toBe(chainId as number)
+      expect(domain).toBe(chainId)
     }
   })
 })

@@ -4,9 +4,9 @@
  * Provides common fetch patterns with Zod validation and auth header generation.
  */
 
+import type { JsonValue } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import type { z } from 'zod'
-import type { JsonValue } from './types'
 
 /** Wallet interface for auth header generation */
 export interface AuthWallet {

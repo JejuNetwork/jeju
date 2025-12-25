@@ -17,14 +17,7 @@
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import {
-  type Chain,
-  createPublicClient,
-  formatEther,
-  getBalance,
-  getChainId,
-  http,
-} from 'viem'
+import { type Chain, createPublicClient, formatEther, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { Logger } from '../shared/logger'
 
@@ -114,7 +107,7 @@ async function checkChainConnectivity(chain: ChainConfig): Promise<boolean> {
       chain: chainConfig,
       transport: http(chain.rpcUrl),
     })
-    const chainId = await getChainId(publicClient)
+    const chainId = await publicClient.getChainId()
     return chainId === chain.chainId
   } catch {
     return false
@@ -139,7 +132,7 @@ async function checkDeployerBalance(
     chain: chainConfig,
     transport: http(chain.rpcUrl),
   })
-  const balance = await getBalance(publicClient, { address: account.address })
+  const balance = await publicClient.getBalance({ address: account.address })
   const ethBalance = Number(formatEther(balance))
 
   return {

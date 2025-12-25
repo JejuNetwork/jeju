@@ -10,10 +10,11 @@
  * - Direct hub posting (permissionless)
  * - Sign In With Farcaster (SIWF)
  *
- * Uses permissionless Hub access when NEYNAR_API_KEY is not set.
- * Set FARCASTER_HUB_URL to use a self-hosted hub (default: public hub).
+ * Config-first: Uses services.json for hub URL.
+ * Falls back to public hub if config not available.
  */
 
+import { getFarcasterApiUrl, getFarcasterHubUrl } from '@jejunetwork/config'
 import { type Address, type Hex, keccak256, toBytes, toHex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { z } from 'zod'
@@ -37,10 +38,9 @@ import {
   validateResponse,
 } from '../validation.js'
 
-const FARCASTER_HUB_URL =
-  process.env.FARCASTER_HUB_URL ?? 'https://nemes.farcaster.xyz:2281'
-const FARCASTER_API_URL =
-  process.env.FARCASTER_API_URL ?? 'https://api.neynar.com/v2'
+// Config-first URLs with fallbacks
+const FARCASTER_HUB_URL = getFarcasterHubUrl()
+const FARCASTER_API_URL = getFarcasterApiUrl()
 const NEYNAR_API_KEY = process.env.NEYNAR_API_KEY ?? ''
 
 export interface FarcasterSession {

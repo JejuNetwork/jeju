@@ -7,7 +7,7 @@
  * - Managing MCP sessions
  */
 
-import type { NetworkType } from '@jejunetwork/types'
+import type { JsonRecord, JsonValue, NetworkType } from '@jejunetwork/types'
 import { getServicesConfig } from '../config'
 import {
   MCPJsonRpcResponseSchema,
@@ -20,7 +20,6 @@ import {
   MCPToolResultSchema,
   MCPToolsListResponseSchema,
 } from '../shared/schemas'
-import type { JsonRecord, JsonValue } from '../shared/types'
 import type { JejuWallet } from '../wallet'
 
 export interface MCPServer {

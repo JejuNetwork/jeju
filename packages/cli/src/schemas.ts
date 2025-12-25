@@ -1,15 +1,8 @@
 /**
- * CLI Zod Schemas
- *
- * Validation schemas for CLI API responses.
- * Uses fail-fast validation - throws on invalid data instead of returning defaults.
+ * CLI Zod validation schemas
  */
 
 import { z } from 'zod'
-
-// ============================================================================
-// Package.json Schema
-// ============================================================================
 
 export const PackageJsonSchema = z.object({
   name: z.string().min(1).max(214).optional(), // npm name limits
@@ -22,10 +15,6 @@ export const PackageJsonSchema = z.object({
 })
 export type PackageJson = z.infer<typeof PackageJsonSchema>
 
-// ============================================================================
-// GitHub API Schemas
-// ============================================================================
-
 export const GitHubReleaseSchema = z.object({
   tag_name: z.string(),
   name: z.string().optional(),
@@ -34,19 +23,11 @@ export const GitHubReleaseSchema = z.object({
 })
 export type GitHubRelease = z.infer<typeof GitHubReleaseSchema>
 
-// ============================================================================
-// Commander Error Schema
-// ============================================================================
-
 export const CommanderErrorSchema = z.object({
   code: z.string().optional(),
   message: z.string().optional(),
 })
 export type CommanderError = z.infer<typeof CommanderErrorSchema>
-
-// ============================================================================
-// Service Schemas
-// ============================================================================
 
 export const ServiceHealthResponseSchema = z.object({
   status: z.string(),
@@ -74,10 +55,6 @@ export const ServiceHealthResponseSchema = z.object({
 })
 export type ServiceHealthResponse = z.infer<typeof ServiceHealthResponseSchema>
 
-// ============================================================================
-// DWS API Response Schemas
-// ============================================================================
-
 export const UploadResponseSchema = z.object({
   cid: z.string().min(1).max(100), // CIDs have a max practical length
   backend: z.string().min(1).max(50).optional(),
@@ -85,7 +62,6 @@ export const UploadResponseSchema = z.object({
 })
 export type UploadResponse = z.infer<typeof UploadResponseSchema>
 
-// Simple CID response (for uploads that just return cid)
 export const CidResponseSchema = z.object({
   cid: z.string().min(1).max(100),
 })
@@ -172,10 +148,6 @@ export const PackageInfoSchema = z.object({
 })
 export type PackageInfo = z.infer<typeof PackageInfoSchema>
 
-// ============================================================================
-// CI/CD Schemas
-// ============================================================================
-
 export const WorkflowSchema = z.object({
   workflowId: z.string(),
   name: z.string(),
@@ -236,10 +208,6 @@ export const CIRunListResponseSchema = z.object({
 })
 export type CIRunListResponse = z.infer<typeof CIRunListResponseSchema>
 
-// ============================================================================
-// Inference Schemas
-// ============================================================================
-
 export const ChatMessageSchema = z.object({
   role: z.enum(['system', 'user', 'assistant']),
   content: z.string().min(1).max(100000), // Reasonable max for chat content
@@ -255,10 +223,6 @@ export const ChatRequestSchema = z.object({
   provider: z.string().min(1).max(50).optional(),
 })
 export type ChatRequest = z.infer<typeof ChatRequestSchema>
-
-// ============================================================================
-// Training API Response Schemas
-// ============================================================================
 
 export const DWSHealthResponseSchema = z.object({
   status: z.string(),
@@ -360,7 +324,6 @@ export type TrajectorySubmitResponse = z.infer<
   typeof TrajectorySubmitResponseSchema
 >
 
-// Score/Judge response for RLAIF labeling
 export const ScoreResponseSchema = z.object({
   rewardsCID: z.string(),
   count: z.number(),
@@ -368,7 +331,6 @@ export const ScoreResponseSchema = z.object({
 })
 export type ScoreResponse = z.infer<typeof ScoreResponseSchema>
 
-// Benchmark response
 export const BenchmarkResultsSchema = z.object({
   score: z.number(),
   baselineScore: z.number().optional(),
@@ -383,10 +345,6 @@ export const BenchmarkResponseSchema = z.object({
   results: BenchmarkResultsSchema.optional(),
 })
 export type BenchmarkResponse = z.infer<typeof BenchmarkResponseSchema>
-
-// ============================================================================
-// Compute API Response Schemas
-// ============================================================================
 
 export const ComputeHealthResponseSchema = z.object({
   service: z.string().optional(),
@@ -449,7 +407,6 @@ export const InferenceResponseSchema = z.object({
 })
 export type InferenceResponse = z.infer<typeof InferenceResponseSchema>
 
-// Anthropic API response schema
 export const AnthropicUsageSchema = z.object({
   input_tokens: z.number(),
   output_tokens: z.number(),
@@ -470,7 +427,6 @@ export const AnthropicResponseSchema = z.object({
 })
 export type AnthropicResponse = z.infer<typeof AnthropicResponseSchema>
 
-// Google Gemini API response schema
 export const GeminiPartSchema = z.object({
   text: z.string(),
 })
@@ -497,7 +453,6 @@ export const GeminiResponseSchema = z.object({
 })
 export type GeminiResponse = z.infer<typeof GeminiResponseSchema>
 
-// Cohere API response schema
 export const CohereResponseSchema = z.object({
   generation_id: z.string().optional(),
   text: z.string().optional(),
@@ -515,8 +470,8 @@ export const CohereResponseSchema = z.object({
 })
 export type CohereResponse = z.infer<typeof CohereResponseSchema>
 
-// OpenAI-compatible response schema (for various providers)
 export const OpenAIChoiceSchema = z.object({
+  index: z.number().optional(),
   message: z.object({
     role: z.string().optional(),
     content: z.string(),
@@ -534,12 +489,12 @@ export const OpenAIResponseSchema = z.object({
   id: z.string().optional(),
   object: z.string().optional(),
   model: z.string().optional(),
+  created: z.number().optional(),
   choices: z.array(OpenAIChoiceSchema),
   usage: OpenAIUsageSchema.optional(),
 })
 export type OpenAIResponse = z.infer<typeof OpenAIResponseSchema>
 
-// Union type for all provider responses
 export const ProviderResponseSchema = z.union([
   AnthropicResponseSchema,
   GeminiResponseSchema,
@@ -547,10 +502,6 @@ export const ProviderResponseSchema = z.union([
   OpenAIResponseSchema,
 ])
 export type ProviderResponse = z.infer<typeof ProviderResponseSchema>
-
-// ============================================================================
-// CDN Health Response Schema
-// ============================================================================
 
 export const CDNHealthResponseSchema = z.object({
   status: z.string(),
@@ -565,10 +516,6 @@ export const CDNHealthResponseSchema = z.object({
 })
 export type CDNHealthResponse = z.infer<typeof CDNHealthResponseSchema>
 
-// ============================================================================
-// RPC Response Schemas
-// ============================================================================
-
 export const EthChainIdResponseSchema = z.object({
   result: z.string().optional(),
   error: z
@@ -578,10 +525,6 @@ export const EthChainIdResponseSchema = z.object({
     .optional(),
 })
 export type EthChainIdResponse = z.infer<typeof EthChainIdResponseSchema>
-
-// ============================================================================
-// Price API Response Schemas
-// ============================================================================
 
 export const CoinGeckoPriceResponseSchema = z.object({
   ethereum: z
@@ -604,10 +547,6 @@ export const PriceDataResponseSchema = z.object({
   priceRaw: z.string().optional(),
 })
 export type PriceDataResponse = z.infer<typeof PriceDataResponseSchema>
-
-// ============================================================================
-// Federation Contract Response Schemas
-// ============================================================================
 
 export const NetworkDetailsSchema = z.object({
   chainId: z.bigint(),
@@ -643,14 +582,7 @@ export const RegistryDetailsSchema = z.object({
 })
 export type RegistryDetails = z.infer<typeof RegistryDetailsSchema>
 
-// ============================================================================
-// Validation Helper
-// ============================================================================
-
-/**
- * Validate data with a schema, throwing on failure
- * Note: Uses different parameter order than expectValid from @jejunetwork/types
- */
+/** Validate data with a schema, throwing on failure */
 export function validate<T>(
   data: unknown,
   schema: z.ZodType<T>,

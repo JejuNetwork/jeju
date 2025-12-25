@@ -4,7 +4,7 @@
  * Handles group creation, membership, and key rotation.
  */
 
-import { randomBytes } from 'node:crypto'
+import { bytesToHex, randomBytes } from '@jejunetwork/shared'
 import type { Address } from 'viem'
 import type { JejuMLSClient } from './client'
 import type {
@@ -350,7 +350,7 @@ export class JejuGroup {
   async createInvite(expiresInHours: number = 24): Promise<GroupInvite> {
     this.ensureAdmin()
 
-    const code = randomBytes(16).toString('hex')
+    const code = bytesToHex(randomBytes(16))
     const expiresAt = Date.now() + expiresInHours * 60 * 60 * 1000
 
     const invite: GroupInvite = {
@@ -492,6 +492,6 @@ export class JejuGroup {
   }
 
   private generateMessageId(): string {
-    return `${this.state.id}-${Date.now()}-${randomBytes(4).toString('hex')}`
+    return `${this.state.id}-${Date.now()}-${bytesToHex(randomBytes(4))}`
   }
 }

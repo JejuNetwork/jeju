@@ -8,6 +8,7 @@
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { isValidAddress } from '@jejunetwork/types'
 
 const ROOT = process.cwd()
 const DEPLOYMENT_FILE = join(
@@ -52,14 +53,6 @@ interface BootstrapResult {
     multiServiceStakeManager?: string
     liquidityVault?: string
   }
-}
-
-function isValidAddress(addr: string | undefined): boolean {
-  return (
-    !!addr &&
-    addr !== '0x0000000000000000000000000000000000000000' &&
-    addr.startsWith('0x')
-  )
 }
 
 function main() {

@@ -1,6 +1,4 @@
-/**
- * jeju status - System status and diagnostics
- */
+/** System status and diagnostics */
 
 import { Command } from 'commander'
 import { getAccountBalance, getChainStatus } from '../lib/chain'

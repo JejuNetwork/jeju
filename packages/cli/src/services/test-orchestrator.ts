@@ -1,16 +1,6 @@
-/**
- * Test Orchestrator
- *
- * Coordinates all test infrastructure:
- * - CQL (always started - it's the core database)
- * - Test locking
- * - Localnet startup/teardown
- * - Docker services
- * - App orchestration
- * - Preflight checks
- * - App warmup
- */
+/** Test orchestrator for infrastructure coordination */
 
+import { getCQLBlockProducerUrl } from '@jejunetwork/config'
 import { logger } from '../lib/logger'
 import type { TestMode } from '../types'
 import { AppOrchestrator } from './app-orchestrator'
@@ -91,14 +81,12 @@ export class TestOrchestrator {
 
     logger.header(`TEST SETUP - ${this.options.mode.toUpperCase()}`)
 
-    // Step 0: ALWAYS start CQL - it's the core database for all apps
     logger.step('Starting CQL (core database)...')
     const cqlStarted = await this.infrastructureService.startCQL()
     if (!cqlStarted) {
       throw new Error('Failed to start CQL - required for all tests')
     }
 
-    // Step 1: Acquire lock
     if (!this.options.skipLock) {
       logger.step('Acquiring test lock...')
       type LockManagerModule = {
@@ -109,7 +97,6 @@ export class TestOrchestrator {
           releaseLock: () => boolean
         }
       }
-      // Dynamic import: optional dependency that may not be available
       const lockModule = (await import('@jejunetwork/tests/lock-manager').catch(
         () => null,
       )) as LockManagerModule | null
@@ -132,25 +119,21 @@ export class TestOrchestrator {
       }
     }
 
-    // Step 2: Start localnet (if needed)
     if (MODE_NEEDS_LOCALNET[this.options.mode]) {
       logger.step('Starting localnet...')
       this.localnetOrchestrator = new LocalnetOrchestrator(this.options.rootDir)
       await this.localnetOrchestrator.start()
 
-      // Wait for chain to be ready
       const ready = await this.localnetOrchestrator.waitForReady(60000)
       if (!ready) {
         throw new Error('Localnet failed to become ready')
       }
 
-      // Bootstrap contracts (if needed)
       if (!this.options.skipBootstrap) {
         await this.localnetOrchestrator.bootstrap()
       }
     }
 
-    // Step 3: Start Docker services (if needed)
     if (MODE_NEEDS_DOCKER[this.options.mode]) {
       logger.step('Starting Docker services...')
       const profile = MODE_TO_PROFILE[this.options.mode]
@@ -163,7 +146,6 @@ export class TestOrchestrator {
       this.dockerOrchestrator.printStatus(statuses)
     }
 
-    // Step 4: Start apps (if E2E mode)
     if (MODE_NEEDS_APPS[this.options.mode]) {
       logger.step('Starting apps...')
       const serviceEnv = this.getServiceEnv()
@@ -176,7 +158,6 @@ export class TestOrchestrator {
         apps: this.options.app ? [this.options.app] : undefined,
       })
 
-      // Warmup apps
       if (!this.options.skipWarmup) {
         await this.appOrchestrator.warmup({
           apps: this.options.app ? [this.options.app] : undefined,
@@ -184,7 +165,6 @@ export class TestOrchestrator {
       }
     }
 
-    // Step 5: Run preflight checks
     if (!this.options.skipPreflight && MODE_NEEDS_LOCALNET[this.options.mode]) {
       logger.step('Running preflight checks...')
       const envVars = this.getEnvVars()
@@ -204,7 +184,6 @@ export class TestOrchestrator {
           chainId: number
         }) => Promise<{ success: boolean }>
       }
-      // Dynamic import: optional dependency that may not be available
       const preflightModule = (await import(
         '@jejunetwork/tests/preflight'
       ).catch(() => null)) as PreflightModule | null
@@ -235,7 +214,6 @@ export class TestOrchestrator {
 
     logger.step('Tearing down test infrastructure...')
 
-    // Reverse order of setup
     if (this.appOrchestrator && !this.options.keepServices) {
       await this.appOrchestrator.stop()
     }
@@ -248,7 +226,6 @@ export class TestOrchestrator {
       await this.localnetOrchestrator.stop()
     }
 
-    // Stop CQL last
     if (!this.options.keepServices) {
       await this.infrastructureService.stopCQL()
     }
@@ -265,11 +242,9 @@ export class TestOrchestrator {
     const env: Record<string, string> = {
       NODE_ENV: 'test',
       CI: process.env.CI || '',
-      // CQL is always available
-      CQL_URL: 'http://127.0.0.1:4661',
+      CQL_URL: getCQLBlockProducerUrl(),
     }
 
-    // Add infrastructure env vars (includes CQL_URL)
     Object.assign(env, this.infrastructureService.getEnvVars())
 
     if (this.localnetOrchestrator) {

@@ -1,8 +1,3 @@
-/**
- * Dashboard E2E Tests
- * Tests app loading, navigation, and responsive design
- */
-
 import { expect, test } from '@playwright/test'
 
 const BASE_URL = 'http://localhost:1420'

@@ -20,8 +20,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@elysiajs/eden": "^1.4.5",
     "@jejunetwork/oauth3": "workspace:*",
+    "@jejunetwork/sdk": "workspace:*",
+    "@jejunetwork/shared": "workspace:*",
     "elysia": "^1.4.19",
     "pino": "^10.1.0",
     "viem": "2.43.3",
@@ -33,6 +34,11 @@
   },
   "peerDependencies": {
     "viem": ">=2.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/elizaos/jeju.git",
+    "directory": "packages/kms"
   },
   "publishConfig": {
     "access": "public"

@@ -43,9 +43,7 @@ async function trackRequest(path: string): Promise<void> {
   await cache.set(key, count.toString(), 3600)
 }
 
-// ============================================================================
 // Worker-Compatible Server
-// ============================================================================
 
 const app = new Elysia()
   // Health check - fails if cache is unavailable
@@ -87,9 +85,7 @@ const app = new Elysia()
     },
   }))
 
-  // ============================================================================
   // Cached Endpoints (using distributed cache)
-  // ============================================================================
 
   // Fast endpoint - distributed cache
   .get('/api/fast', async () => {
@@ -289,9 +285,7 @@ const app = new Elysia()
     return { ...result, cached: false, source: 'origin' }
   })
 
-  // ============================================================================
   // Cache Management
-  // ============================================================================
 
   .get('/cache/stats', async () => {
     const stats = await cache.getStats()
@@ -303,9 +297,7 @@ const app = new Elysia()
     return { success: true, message: 'Cache cleared' }
   })
 
-  // ============================================================================
   // Metrics (from distributed cache)
-  // ============================================================================
 
   .get('/metrics', async () => {
     const keys = await cache.keys('metrics:*')

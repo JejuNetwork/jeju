@@ -109,7 +109,7 @@ def run(plan, args={}):
 WorkingRoot: "/data"
 ThisNodeID: "00000000000000000000000000000000"
 ListenAddr: "0.0.0.0:4661"
-APIAddr: "0.0.0.0:4300"
+APIAddr: "0.0.0.0:4661"
 LogLevel: "info"
 Genesis:
   Timestamp: "2024-01-01T00:00:00Z"
@@ -126,7 +126,7 @@ Genesis:
             config=ServiceConfig(
                 image=cql_image,
                 ports={
-                    "api": PortSpec(number=4300, transport_protocol="TCP", application_protocol="http"),
+                    "api": PortSpec(number=4661, transport_protocol="TCP", application_protocol="http"),
                     "rpc": PortSpec(number=4661, transport_protocol="TCP"),
                 },
                 cmd=[
@@ -183,7 +183,7 @@ Genesis:
     plan.print("  L1 RPC:     http://127.0.0.1:6545")
     plan.print("  L2 RPC:     http://127.0.0.1:6546  (use port forwarding)")
     if enable_cql:
-        plan.print("  CQL API:    http://127.0.0.1:4300  (use port forwarding)")
+        plan.print("  CQL API:    http://127.0.0.1:4661  (use port forwarding)")
     if enable_solana:
         plan.print("  Solana RPC: http://127.0.0.1:8899  (use port forwarding)")
         plan.print("  Solana WS:  ws://127.0.0.1:8900   (use port forwarding)")

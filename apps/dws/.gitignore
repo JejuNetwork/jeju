@@ -1,40 +1,58 @@
 # Dependencies
 node_modules/
-pinning-api/node_modules/
+
+# Build outputs
+dist/
+build/
+out/
 
 # Environment
 .env
 .env.local
 .env.*.local
 
-# Build output
-dist/
-pinning-api/dist/
-
-# Database
-*.db
-*.sqlite
-
-# Logs
-logs/
-*.log
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
 
 # OS
 .DS_Store
 Thumbs.db
 
-# IDE
-.vscode/
-.idea/
+# TypeScript
+*.tsbuildinfo
 
-# IPFS data (use ~/.ipfs instead)
+# Testing
+coverage/
+test-results/
+test-results*.json
+playwright-report/
+synpress-report*/
+
+# Logs
+*.log
+logs/
+
+# Cache
+.cache/
+.turbo/
+
+# Database
+*.db
+*.sqlite
+
+# IPFS data
 .ipfs/
 
+# Training artifacts
 training_checkpoints/
 training_output/
-
-# Model files
 *.safetensors
 
-# Generated deployment artifacts
+# Generated deployment
 deployment-*.json
+
+# bun.lock (only at monorepo root)
+bun.lock

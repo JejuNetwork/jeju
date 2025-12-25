@@ -8,9 +8,7 @@ import { describe, expect, test } from 'bun:test'
 import type { Address, Hex } from 'viem'
 import { addressToBytes32, bytes32ToAddress } from '../utils/address'
 
-// =============================================================================
 // addressToBytes32 - CORE CONVERSION
-// =============================================================================
 
 describe('addressToBytes32 - Standard Addresses', () => {
   test('converts standard 40-char address', () => {
@@ -126,9 +124,7 @@ describe('addressToBytes32 - Padding', () => {
   })
 })
 
-// =============================================================================
 // bytes32ToAddress - REVERSE CONVERSION
-// =============================================================================
 
 describe('bytes32ToAddress - Standard Conversion', () => {
   test('extracts address from padded bytes32', () => {
@@ -182,9 +178,7 @@ describe('bytes32ToAddress - Edge Cases', () => {
   })
 })
 
-// =============================================================================
 // ROUND TRIP - addressToBytes32 -> bytes32ToAddress
-// =============================================================================
 
 describe('Round Trip Conversion', () => {
   test('recovers original address from bytes32', () => {
@@ -221,9 +215,7 @@ describe('Round Trip Conversion', () => {
   })
 })
 
-// =============================================================================
 // PROPERTY-BASED TESTING (FUZZING)
-// =============================================================================
 
 describe('Property-Based Testing', () => {
   // Generate random valid addresses
@@ -295,9 +287,7 @@ describe('Property-Based Testing', () => {
   })
 })
 
-// =============================================================================
 // HYPERLANE COMPATIBILITY
-// =============================================================================
 
 describe('Hyperlane Cross-Chain Format', () => {
   test('format matches Hyperlane bytes32 recipient format', () => {
@@ -342,9 +332,7 @@ describe('Hyperlane Cross-Chain Format', () => {
   })
 })
 
-// =============================================================================
 // TYPE SAFETY
-// =============================================================================
 
 describe('Type Safety', () => {
   test('addressToBytes32 returns Hex type', () => {
@@ -368,9 +356,7 @@ describe('Type Safety', () => {
   })
 })
 
-// =============================================================================
 // COMMON CONTRACT ADDRESSES
-// =============================================================================
 
 describe('Well-Known Addresses', () => {
   const wellKnownAddresses: [string, string][] = [

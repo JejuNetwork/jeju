@@ -213,6 +213,25 @@
     },
     {
       "type": "function",
+      "name": "isUserBanned",
+      "inputs": [
+        {
+          "name": "user",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bool",
+          "internalType": "bool"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
       "name": "launchBondingCurve",
       "inputs": [
         {
@@ -472,6 +491,24 @@
     },
     {
       "type": "function",
+      "name": "moderation",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "banManager",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "identityRegistry",
+          "type": "address",
+          "internalType": "contract IIdentityRegistry"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
       "name": "nextLaunchId",
       "inputs": [],
       "outputs": [
@@ -505,10 +542,36 @@
     },
     {
       "type": "function",
+      "name": "setBanManager",
+      "inputs": [
+        {
+          "name": "_banManager",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
       "name": "setDefaultCommunityVault",
       "inputs": [
         {
           "name": "vault",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "setIdentityRegistry",
+      "inputs": [
+        {
+          "name": "_identityRegistry",
           "type": "address",
           "internalType": "address"
         }
@@ -589,6 +652,25 @@
     },
     {
       "type": "event",
+      "name": "BanManagerUpdated",
+      "inputs": [
+        {
+          "name": "oldManager",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "newManager",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
       "name": "FeeDistributed",
       "inputs": [
         {
@@ -614,6 +696,25 @@
           "type": "uint256",
           "indexed": false,
           "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "IdentityRegistryUpdated",
+      "inputs": [
+        {
+          "name": "oldRegistry",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "newRegistry",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
         }
       ],
       "anonymous": false
@@ -713,7 +814,34 @@
     },
     {
       "type": "error",
+      "name": "AddressEmptyCode",
+      "inputs": [
+        {
+          "name": "target",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "AddressInsufficientBalance",
+      "inputs": [
+        {
+          "name": "account",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    },
+    {
+      "type": "error",
       "name": "AlreadyGraduated",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "FailedInnerCall",
       "inputs": []
     },
     {
@@ -773,6 +901,11 @@
           "internalType": "address"
         }
       ]
+    },
+    {
+      "type": "error",
+      "name": "UserIsBanned",
+      "inputs": []
     }
   ]
 }

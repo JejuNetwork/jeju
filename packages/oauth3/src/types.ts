@@ -7,17 +7,7 @@
 
 import type { Address, Hex } from 'viem'
 
-/** Represents any valid JSON value */
-export type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | JsonValue[]
-  | JsonRecord
-
-/** Represents a JSON object with string keys */
-export type JsonRecord = { [key: string]: JsonValue }
+export type { JsonRecord, JsonValue } from '@jejunetwork/types'
 
 export const AuthProvider = {
   WALLET: 'wallet',

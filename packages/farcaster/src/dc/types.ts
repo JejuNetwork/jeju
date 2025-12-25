@@ -5,9 +5,6 @@
  */
 
 import type { Hex } from 'viem'
-
-// ============ Message Types ============
-
 export interface DirectCast {
   /** Unique message ID */
   id: string
@@ -58,9 +55,6 @@ export interface EncryptedDirectCast {
   /** Signature over encrypted content */
   signature: Hex
 }
-
-// ============ Conversation Types ============
-
 export interface DirectCastConversation {
   /** Unique conversation ID */
   id: string
@@ -79,9 +73,6 @@ export interface DirectCastConversation {
   /** Is archived */
   isArchived?: boolean
 }
-
-// ============ Notification Types ============
-
 export type DCNotificationType =
   | 'new_message'
   | 'read_receipt'
@@ -100,9 +91,6 @@ export interface DirectCastNotification {
   /** Message ID (for new_message, delivered) */
   messageId?: string
 }
-
-// ============ Client Types ============
-
 export interface DCClientConfig {
   /** User's FID */
   fid: number
@@ -130,9 +118,6 @@ export interface DCClientState {
   /** Unread message count */
   unreadCount: number
 }
-
-// ============ API Types ============
-
 export interface SendDCParams {
   /** Recipient FID */
   recipientFid: number
@@ -152,9 +137,6 @@ export interface GetMessagesParams {
   /** Get messages after this ID */
   after?: string
 }
-
-// ============ WebSocket Types ============
-
 export interface DCAuthMessage {
   type: 'auth'
   payload: {

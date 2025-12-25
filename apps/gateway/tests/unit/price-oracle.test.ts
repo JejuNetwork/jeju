@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import {
   CHAINLINK_FEEDS,
   TOKEN_TO_FEED,
-} from '../../src/solver/external/price-oracle'
+} from '../../api/solver/external/price-oracle'
 
 // Re-implement fair value calculation for testing
 function calculateFairValue(

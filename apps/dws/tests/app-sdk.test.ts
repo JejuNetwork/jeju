@@ -12,9 +12,7 @@ import {
   generateWorkerdConfig,
 } from '../src/workers/workerd/app-adapter'
 
-// ============================================================================
 // DWS App Tests
-// ============================================================================
 
 describe('DWSApp', () => {
   const mockHandler: FetchHandler = async (_request) => {
@@ -120,9 +118,7 @@ describe('DWSApp', () => {
   })
 })
 
-// ============================================================================
 // JEJU_APPS Registry Tests
-// ============================================================================
 
 describe('JEJU_APPS Registry', () => {
   it('should have all standard apps', () => {
@@ -150,9 +146,7 @@ describe('JEJU_APPS Registry', () => {
   })
 })
 
-// ============================================================================
 // Workerd App Adapter Tests
-// ============================================================================
 
 describe('Workerd App Adapter', () => {
   const mockHandler: FetchHandler = async (request) => {
@@ -259,9 +253,7 @@ describe('Workerd App Adapter', () => {
   })
 })
 
-// ============================================================================
 // Integration Tests
-// ============================================================================
 
 describe('App SDK Integration', () => {
   it('should start multiple apps without port conflicts', async () => {

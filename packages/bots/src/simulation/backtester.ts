@@ -19,9 +19,6 @@ import type {
   Token,
 } from '../types'
 
-// Re-export for index.ts
-export type { BacktestResult } from '../types'
-
 export interface BacktestConfig {
   strategy: 'momentum' | 'mean-reversion' | 'volatility' | 'composite'
   strategyParams?: Record<string, number>

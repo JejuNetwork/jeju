@@ -10,8 +10,18 @@
 
 import type { NetworkType } from '@jejunetwork/types'
 import { type Address, encodeFunctionData, type Hex } from 'viem'
+import { z } from 'zod'
 import { requireContract } from '../config'
 import type { JejuWallet } from '../wallet'
+
+// Contract return type schema
+const OracleConfigSchema = z.object({
+  oracleAddress: z.string().transform((s) => s as Address),
+  oracleType: z.number(),
+  heartbeat: z.bigint(),
+  deviationThreshold: z.bigint(),
+  description: z.string(),
+})
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                              TYPES
@@ -473,13 +483,7 @@ export function createOracleModule(
         args: [oracleAddress],
       })
 
-      const config = result as {
-        oracleAddress: Address
-        oracleType: number
-        heartbeat: bigint
-        deviationThreshold: bigint
-        description: string
-      }
+      const config = OracleConfigSchema.parse(result)
 
       if (
         config.oracleAddress === '0x0000000000000000000000000000000000000000'

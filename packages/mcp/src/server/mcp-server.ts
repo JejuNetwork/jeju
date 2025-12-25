@@ -1,8 +1,5 @@
 /**
- * MCP Server Implementation
- *
- * Provides a configurable MCP server that accepts tools at runtime.
- * Uses Zod schemas as single source of truth for tool input validation.
+ * Configurable MCP server with runtime tool registration.
  */
 
 import { MCPRequestHandler } from '../handlers/request-handler'
@@ -22,38 +19,6 @@ import { MCP_PROTOCOL_VERSIONS } from '../types/mcp'
  */
 export const DEFAULT_MCP_PROTOCOL_VERSION: MCPProtocolVersion = '2024-11-05'
 
-/**
- * MCP Server
- *
- * A configurable Model Context Protocol server that accepts tools
- * at runtime via configuration or registration methods.
- *
- * @example
- * ```typescript
- * const server = new MCPServer({
- *   name: 'My MCP Server',
- *   version: '1.0.0',
- *   instructions: 'Use tools/list to see available tools.',
- * });
- *
- * // Register tools
- * server.registerTool({
- *   tool: {
- *     name: 'hello',
- *     description: 'Say hello',
- *     inputSchema: {
- *       type: 'object',
- *       properties: { name: { type: 'string' } },
- *       required: ['name'],
- *     },
- *   },
- *   handler: async (args) => ({ message: `Hello, ${args.name}!` }),
- * });
- *
- * // Handle requests
- * const response = await server.handleRequest(jsonRpcRequest);
- * ```
- */
 export class MCPServer {
   private config: MCPServerConfig
   private tools: Map<string, MCPToolDefinition> = new Map()

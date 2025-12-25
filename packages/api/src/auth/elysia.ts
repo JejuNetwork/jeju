@@ -16,13 +16,14 @@ import {
   type WalletSignatureConfig,
 } from './types.js'
 
-/** Context derived by auth plugin - extends Record for Elysia compatibility */
-export interface AuthContext extends Record<string, unknown> {
+/** Context derived by auth plugin */
+export interface AuthContext {
   address?: Address
   authUser?: AuthUser
   authMethod?: AuthMethod
   oauth3SessionId?: string
   isAuthenticated: boolean
+  [key: string]: unknown
 }
 
 export interface AuthPluginConfig extends CombinedAuthConfig {
@@ -33,7 +34,9 @@ export interface AuthPluginConfig extends CombinedAuthConfig {
 }
 
 export function createAuthDerive(config: CombinedAuthConfig) {
-  return async function authDerive({ request }: Context): Promise<AuthContext> {
+  return async function authDerive({
+    request,
+  }: Context): Promise<Record<string, unknown>> {
     const headers = extractAuthHeaders(
       Object.fromEntries(request.headers.entries()),
     )
@@ -47,10 +50,10 @@ export function createAuthDerive(config: CombinedAuthConfig) {
         authMethod: result.method,
         oauth3SessionId: result.user.sessionId,
         isAuthenticated: true,
-      }
+      } satisfies AuthContext
     }
 
-    return { isAuthenticated: false }
+    return { isAuthenticated: false } satisfies AuthContext
   }
 }
 

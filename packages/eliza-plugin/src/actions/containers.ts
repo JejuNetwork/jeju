@@ -6,6 +6,7 @@ import type {
   Action,
   ActionExample,
   HandlerCallback,
+  HandlerOptions,
   IAgentRuntime,
   Memory,
   State,
@@ -31,7 +32,7 @@ export const createRepoAction: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options?: Record<string, unknown>,
+    _options?: HandlerOptions,
     callback?: HandlerCallback,
   ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
@@ -106,7 +107,7 @@ export const getRepoInfoAction: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options?: Record<string, unknown>,
+    _options?: HandlerOptions,
     callback?: HandlerCallback,
   ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
@@ -170,7 +171,7 @@ export const listMyReposAction: Action = {
     runtime: IAgentRuntime,
     _message: Memory,
     _state: State | undefined,
-    _options?: Record<string, unknown>,
+    _options?: HandlerOptions,
     callback?: HandlerCallback,
   ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
@@ -233,7 +234,7 @@ export const getManifestAction: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options?: Record<string, unknown>,
+    _options?: HandlerOptions,
     callback?: HandlerCallback,
   ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
@@ -300,7 +301,7 @@ export const starRepoAction: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options?: Record<string, unknown>,
+    _options?: HandlerOptions,
     callback?: HandlerCallback,
   ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
@@ -354,7 +355,7 @@ export const grantAccessAction: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options?: Record<string, unknown>,
+    _options?: HandlerOptions,
     callback?: HandlerCallback,
   ): Promise<void> => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService

@@ -13,6 +13,7 @@
  * - Network Testnet (420690)
  */
 
+import { readContract } from '@jejunetwork/shared'
 import {
   type Address,
   createPublicClient,
@@ -20,8 +21,6 @@ import {
   type PublicClient,
   parseAbi,
 } from 'viem'
-
-// ============ Types ============
 
 export interface ChainConfig {
   chainId: number
@@ -64,9 +63,6 @@ export interface MultiChainBalances {
   byToken: Map<string, TokenBalance[]> // symbol -> balances across chains
   lastUpdated: number
 }
-
-// ============ Default Chain Configs ============
-
 const DEFAULT_CHAINS: ChainConfig[] = [
   {
     chainId: 1,
@@ -179,17 +175,11 @@ const DEFAULT_CHAINS: ChainConfig[] = [
     ],
   },
 ]
-
-// ============ ABIs ============
-
 const ERC20_BALANCE_ABI = parseAbi([
   'function balanceOf(address account) view returns (uint256)',
   'function decimals() view returns (uint8)',
   'function symbol() view returns (string)',
 ])
-
-// ============ Discovery Service ============
-
 export class MultiChainDiscovery {
   private chains: ChainConfig[]
   private clients: Map<number, PublicClient> = new Map()
@@ -270,12 +260,12 @@ export class MultiChainDiscovery {
           ) {
             balance = await client.getBalance({ address: user })
           } else {
-            balance = (await client.readContract({
+            balance = await readContract(client, {
               address: token.address,
               abi: ERC20_BALANCE_ABI,
               functionName: 'balanceOf',
               args: [user],
-            })) as bigint
+            })
           }
 
           if (balance > 0n) {
@@ -447,9 +437,6 @@ export class MultiChainDiscovery {
       topTokens: topTokens.slice(0, 10),
     }
   }
-
-  // ============ Private Helpers ============
-
   private formatBalance(balance: bigint, decimals: number): string {
     const formatted = Number(balance) / 10 ** decimals
     if (formatted >= 1000) return formatted.toFixed(2)
@@ -474,9 +461,6 @@ export class MultiChainDiscovery {
     }
     return total
   }
-
-  // ============ Static Helpers ============
-
   /**
    * Get supported chains
    */
@@ -492,9 +476,6 @@ export class MultiChainDiscovery {
     return chain?.tokens || []
   }
 }
-
-// ============ Factory Functions ============
-
 let globalDiscovery: MultiChainDiscovery | null = null
 
 /**

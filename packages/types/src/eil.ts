@@ -1,12 +1,5 @@
 /**
- * @fileoverview Ethereum Interop Layer (EIL) Types
- *
- * EIL enables trustless cross-chain transactions across L2s with:
- * - One signature for multi-chain operations
- * - Atomic swaps via Cross-chain Liquidity Providers (XLPs)
- * - No trusted bridges or oracles required
- *
- * @see https://ethresear.ch/t/eil-trust-minimized-cross-l2-interop
+ * Ethereum Interop Layer (EIL) types for trustless cross-chain transactions.
  */
 
 import { z } from 'zod'
@@ -19,30 +12,27 @@ import {
   MAX_SMALL_ARRAY_LENGTH,
 } from './validation'
 
-// ============ Chain & Network Types ============
-
-/**
- * EIL-supported chain IDs (subset of EVMChainId)
- * EIL focuses on L2s and testnets for cross-chain interoperability
- */
 export const SupportedChainIdSchema = z.union([
-  z.literal(1), // Ethereum Mainnet
-  z.literal(11155111), // Sepolia (L1 Testnet)
-  z.literal(42161), // Arbitrum One
-  z.literal(10), // Optimism
-  z.literal(1337), // Localnet
-  z.literal(420691), // Network Mainnet (L2 on Ethereum)
-  z.literal(420690), // Network Testnet (L2 on Sepolia)
+  z.literal(1),
+  z.literal(11155111),
+  z.literal(42161),
+  z.literal(10),
+  z.literal(31337),
+  z.literal(420691),
+  z.literal(420690),
 ])
 export type SupportedChainId = z.infer<typeof SupportedChainIdSchema>
 
 // Type guard to ensure SupportedChainId is a subset of EVMChainId
+const SUPPORTED_CHAIN_IDS: readonly SupportedChainId[] = [
+  1, 11155111, 42161, 10, 31337, 420691, 420690,
+]
+
 export function isSupportedChainId(
   chainId: EVMChainId,
 ): chainId is SupportedChainId {
-  return [1, 11155111, 42161, 10, 1337, 420691, 420690].includes(
-    chainId as number,
-  )
+  // includes() works because EVMChainId is a union of numbers
+  return SUPPORTED_CHAIN_IDS.includes(chainId as SupportedChainId)
 }
 
 export const ChainInfoSchema = z.object({
@@ -56,23 +46,21 @@ export const ChainInfoSchema = z.object({
 })
 export type ChainInfo = z.infer<typeof ChainInfoSchema>
 
-// ============ Cross-Chain Liquidity Provider (XLP) Types ============
-
 export const XLPStatusSchema = z.enum([
-  'active', // Accepting requests
-  'paused', // Temporarily not accepting
-  'unbonding', // Stake withdrawal in progress
-  'slashed', // Was slashed for misbehavior
+  'active',
+  'paused',
+  'unbonding',
+  'slashed',
 ])
 export type XLPStatus = z.infer<typeof XLPStatusSchema>
 
 export const XLPStakeSchema = z.object({
   xlpAddress: AddressSchema,
-  stakedAmount: z.string(), // ETH staked on L1 (wei)
-  stakedAt: z.number(), // Unix timestamp
-  unbondingAt: z.number().optional(), // When unbonding started
-  unbondingComplete: z.number().optional(), // When can withdraw (8 days after unbonding)
-  slashedAmount: z.string(), // Total slashed (wei)
+  stakedAmount: z.string(),
+  stakedAt: z.number(),
+  unbondingAt: z.number().optional(),
+  unbondingComplete: z.number().optional(),
+  slashedAmount: z.string(),
   status: XLPStatusSchema,
 })
 export type XLPStake = z.infer<typeof XLPStakeSchema>
@@ -106,9 +94,6 @@ export const XLPProfileSchema = z.object({
   registeredAt: z.number(),
 })
 export type XLPProfile = z.infer<typeof XLPProfileSchema>
-
-// ============ Voucher Types ============
-
 export const VoucherStatusSchema = z.enum([
   'pending', // Request created, waiting for XLP
   'claimed', // XLP issued voucher, funds locked
@@ -159,9 +144,6 @@ export const VoucherSchema = z.object({
   destinationFulfillTx: z.string().optional(), // Tx where user received funds
 })
 export type Voucher = z.infer<typeof VoucherSchema>
-
-// ============ Cross-Chain Transaction Types ============
-
 export const CrossChainOperationTypeSchema = z.enum([
   'transfer', // Simple token transfer
   'swap', // Swap on destination DEX
@@ -198,9 +180,6 @@ export const CrossChainTransactionSchema = z.object({
   totalFees: z.string().max(MAX_SHORT_STRING_LENGTH),
 })
 export type CrossChainTransaction = z.infer<typeof CrossChainTransactionSchema>
-
-// ============ EIL Configuration Types ============
-
 export const EILConfigSchema = z.object({
   // L1 Configuration
   l1StakeManager: AddressSchema,
@@ -236,9 +215,6 @@ export const EILConfigSchema = z.object({
   claimDelay: z.number(),
 })
 export type EILConfig = z.infer<typeof EILConfigSchema>
-
-// ============ User Operation Types (ERC-4337) ============
-
 export const PackedUserOperationSchema = z.object({
   sender: AddressSchema,
   nonce: z.string(),
@@ -272,9 +248,6 @@ export const MultiChainUserOpBatchSchema = z.object({
   signature: z.string().max(MAX_SHORT_STRING_LENGTH),
 })
 export type MultiChainUserOpBatch = z.infer<typeof MultiChainUserOpBatchSchema>
-
-// ============ Event Types for Indexer ============
-
 export const EILEventTypeSchema = z.enum([
   'VoucherRequested',
   'VoucherIssued',
@@ -358,9 +331,6 @@ export const EILEventSchema = z.object({
   data: EILEventDataSchema,
 })
 export type EILEvent = z.infer<typeof EILEventSchema>
-
-// ============ Analytics Types ============
-
 export const EILStatsSchema = z.object({
   totalVolumeUsd: z.string(),
   totalTransactions: z.number(),

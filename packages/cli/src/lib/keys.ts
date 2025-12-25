@@ -1,14 +1,4 @@
-/**
- * Key management utilities
- *
- * Security features:
- * - AES-256-GCM encryption with scrypt key derivation
- * - Secure random key generation
- * - Memory clearing after use
- * - Path traversal protection
- * - Input validation
- * - JSON schema validation for key files
- */
+/** Key management utilities with AES-256-GCM encryption */
 
 import {
   createCipheriv,

@@ -29,8 +29,6 @@ import {
   serializeEncryptedMessage,
 } from '../sdk/crypto'
 
-// ============ Key Generation Tests ============
-
 describe('Key Generation', () => {
   test('generates valid X25519 key pair', () => {
     const keyPair = generateKeyPair()
@@ -80,9 +78,6 @@ describe('Key Generation', () => {
     expect(publicKeysEqual(keyPair1.publicKey, keyPair2.publicKey)).toBe(false)
   })
 })
-
-// ============ Wallet Key Derivation Tests ============
-
 describe('Wallet Key Derivation', () => {
   test('derives deterministic keys from wallet address and signature', () => {
     const walletAddress = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
@@ -135,9 +130,6 @@ describe('Wallet Key Derivation', () => {
     expect(publicKeysEqual(keyPair1.publicKey, keyPair2.publicKey)).toBe(false)
   })
 })
-
-// ============ Encryption/Decryption Tests ============
-
 describe('Encryption and Decryption', () => {
   let sender: KeyPair
   let recipient: KeyPair
@@ -290,9 +282,6 @@ describe('Encryption and Decryption', () => {
     }).toThrow()
   })
 })
-
-// ============ Property-Based / Fuzzing Tests ============
-
 describe('Property-Based Encryption Tests', () => {
   test('encrypt/decrypt roundtrip for random strings', () => {
     const recipient = generateKeyPair()
@@ -345,9 +334,6 @@ describe('Property-Based Encryption Tests', () => {
     }
   })
 })
-
-// ============ Serialization Tests ============
-
 describe('Message Serialization', () => {
   test('serializes and deserializes encrypted message', () => {
     const recipient = generateKeyPair()
@@ -403,9 +389,6 @@ describe('Message Serialization', () => {
     expect(decrypted).toBe('JSON safe test')
   })
 })
-
-// ============ Public Key Conversion Tests ============
-
 describe('Public Key Conversions', () => {
   test('publicKeyToHex and hexToPublicKey roundtrip', () => {
     const keyPair = generateKeyPair()
@@ -442,9 +425,6 @@ describe('Public Key Conversions', () => {
     expect(bytes32.slice(2)).toMatch(/^[a-f0-9]+$/)
   })
 })
-
-// ============ Message ID Tests ============
-
 describe('Message ID Generation', () => {
   test('generates 32-char hex message ID', () => {
     const id = generateMessageId()
@@ -463,9 +443,6 @@ describe('Message ID Generation', () => {
     expect(ids.size).toBe(1000)
   })
 })
-
-// ============ Public Key Comparison Tests ============
-
 describe('Public Key Comparison', () => {
   test('equal keys return true', () => {
     const keyPair = generateKeyPair()
@@ -495,9 +472,6 @@ describe('Public Key Comparison', () => {
     expect(publicKeysEqual(key1, key2)).toBe(false)
   })
 })
-
-// ============ Content Hashing Tests ============
-
 describe('Content Hashing', () => {
   test('produces 64-char hex hash', () => {
     const content = new TextEncoder().encode('Hash me!')
@@ -532,9 +506,6 @@ describe('Content Hashing', () => {
     expect(hash).toBe(expected)
   })
 })
-
-// ============ Message Envelope Tests ============
-
 describe('Message Envelope', () => {
   test('creates envelope with encrypted content', () => {
     const recipient = generateKeyPair()
@@ -591,9 +562,6 @@ describe('Message Envelope', () => {
     expect(ids.size).toBe(100)
   })
 })
-
-// ============ Edge Cases ============
-
 describe('Edge Cases', () => {
   test('handles max-length hex string conversion', () => {
     // 32-byte key is the standard

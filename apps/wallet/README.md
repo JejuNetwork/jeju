@@ -479,10 +479,10 @@ VITE_ELIZA_API_URL=http://your-eliza-server:3000 bun run dev
 ### Localnet (Development)
 ```bash
 # Start local development environment
-bun run jeju dev  # or: anvil --chain-id 1337 --port 9545
+bun run jeju dev  # or: anvil --chain-id 31337 --port 9545
 
 # RPC: http://localhost:6546
-# Chain ID: 1337
+# Chain ID: 31337
 ```
 
 ### Testnet (Base Sepolia)

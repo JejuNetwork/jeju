@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": ".",
+    "types": ["bun"],
+    "jsx": "react-jsx",
+    "jsxImportSource": "@kitajs/html",
+    "noUnusedLocals": false,
+    "noUnusedParameters": false
+  },
+  "include": ["api/**/*", "web/**/*", "lib/**/*", "tests/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

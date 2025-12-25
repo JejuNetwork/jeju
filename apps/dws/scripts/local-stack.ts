@@ -17,13 +17,11 @@
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { type Subprocess, spawn } from 'bun'
-import { JEJU_APPS, type JejuAppName } from '../src/workers/app-sdk'
-import { getRegionConfig } from '../src/workers/tee/regions'
-import type { NetworkEnvironment } from '../src/workers/tee/types'
+import { JEJU_APPS, type JejuAppName } from '../api/workers/app-sdk'
+import { getRegionConfig } from '../api/workers/tee/regions'
+import type { NetworkEnvironment } from '../api/workers/tee/types'
 
-// ============================================================================
 // Configuration
-// ============================================================================
 
 interface StackConfig {
   environment: NetworkEnvironment
@@ -49,6 +47,7 @@ const DEFAULT_APPS: JejuAppName[] = [
   'factory',
   'crucible',
   'otto',
+  'vpn',
 ]
 
 function parseArgs(): Partial<StackConfig> {
@@ -124,9 +123,7 @@ Examples:
 `)
 }
 
-// ============================================================================
 // Service Management
-// ============================================================================
 
 interface RunningService {
   name: string
@@ -147,7 +144,7 @@ async function startService(
     throw new Error(`Unknown app: ${name}`)
   }
 
-  console.log(`🚀 Starting ${name} on port ${appConfig.port}...`)
+  console.log(`[Stack] Starting ${name} on port ${appConfig.port}`)
 
   // Build environment
   const env: Record<string, string> = {
@@ -181,13 +178,16 @@ async function startService(
 
   switch (name) {
     case 'dws':
-      cmd = ['bun', 'run', 'dev:server']
+      cmd = ['bun', 'run', 'api/server/index.ts']
       break
     case 'indexer':
       cmd = ['bun', 'run', 'start']
       break
     case 'gateway':
       cmd = ['bun', 'run', 'src/rpc/server.ts']
+      break
+    case 'vpn':
+      cmd = ['bun', 'run', 'api/index.ts']
       break
     default:
       cmd = ['bun', 'run', 'src/server.ts']
@@ -227,14 +227,16 @@ async function waitForService(
     if (healthy) {
       service.ready = true
       console.log(
-        `✅ ${service.name} ready at http://localhost:${service.port}`,
+        `[Stack] ${service.name} ready at http://localhost:${service.port}`,
       )
       return
     }
     await new Promise((r) => setTimeout(r, 500))
   }
 
-  console.log(`⚠️  ${service.name} did not become ready (continuing anyway)`)
+  console.log(
+    `[Stack] Warning: ${service.name} did not become ready (continuing)`,
+  )
 }
 
 async function checkHealth(port: number): Promise<boolean> {
@@ -244,7 +246,7 @@ async function checkHealth(port: number): Promise<boolean> {
 }
 
 async function stopAllServices(): Promise<void> {
-  console.log('\n🛑 Stopping all services...')
+  console.log('\n[Stack] Stopping all services')
 
   for (const [name, service] of services) {
     console.log(`  Stopping ${name}...`)
@@ -254,9 +256,7 @@ async function stopAllServices(): Promise<void> {
   services.clear()
 }
 
-// ============================================================================
 // Stack Orchestration
-// ============================================================================
 
 async function startStack(config: StackConfig): Promise<void> {
   const regionConfig = getRegionConfig(config.environment)
@@ -302,7 +302,7 @@ async function startStack(config: StackConfig): Promise<void> {
   console.log('╠════════════════════════════════════════════════════════╣')
 
   for (const [name, service] of services) {
-    const status = service.ready ? '✅' : '⚠️ '
+    const status = service.ready ? '[OK]' : '[--]'
     const url = `http://localhost:${service.port}`
     console.log(`║ ${status} ${name.padEnd(12)} ${url.padEnd(35)}║`)
   }
@@ -312,9 +312,7 @@ async function startStack(config: StackConfig): Promise<void> {
   console.log('╚════════════════════════════════════════════════════════╝\n')
 }
 
-// ============================================================================
 // Main
-// ============================================================================
 
 async function main(): Promise<void> {
   const args = parseArgs()
@@ -325,22 +323,23 @@ async function main(): Promise<void> {
     verbose: args.verbose ?? false,
     dataDir: join(process.cwd(), '.local-stack'),
     rpcUrl: args.rpcUrl ?? process.env.RPC_URL ?? 'http://localhost:6546',
+    // Contract addresses - zero means feature disabled until deployed
     contracts: {
       identityRegistry:
         process.env.IDENTITY_REGISTRY_ADDRESS ??
-        '0x5FbDB2315678afecb367f032d93F642f64180aa3',
+        '0x0000000000000000000000000000000000000000',
       serviceRegistry:
         process.env.SERVICE_REGISTRY_ADDRESS ??
-        '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
+        '0x0000000000000000000000000000000000000000',
       agentVault:
         process.env.AGENT_VAULT_ADDRESS ??
-        '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
+        '0x0000000000000000000000000000000000000000',
       roomRegistry:
         process.env.ROOM_REGISTRY_ADDRESS ??
-        '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9',
+        '0x0000000000000000000000000000000000000000',
       triggerRegistry:
         process.env.TRIGGER_REGISTRY_ADDRESS ??
-        '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9',
+        '0x0000000000000000000000000000000000000000',
     },
   }
 
@@ -362,6 +361,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err) => {
-  console.error('❌ Stack failed:', err.message)
+  console.error('[Stack] Failed:', err.message)
   process.exit(1)
 })

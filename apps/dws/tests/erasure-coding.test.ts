@@ -20,9 +20,7 @@ import {
 const TEST_BLOB_ID =
   '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as Hex
 
-// ============================================================================
 // Codec Configuration Tests
-// ============================================================================
 
 describe('ReedSolomonCodec Configuration', () => {
   it('should create codec with default configuration', () => {
@@ -51,9 +49,7 @@ describe('ReedSolomonCodec Configuration', () => {
   })
 })
 
-// ============================================================================
 // Encoding Tests
-// ============================================================================
 
 describe('ReedSolomonCodec.encode', () => {
   let codec: ReedSolomonCodec
@@ -117,9 +113,7 @@ describe('ReedSolomonCodec.encode', () => {
   })
 })
 
-// ============================================================================
 // Decoding Tests
-// ============================================================================
 
 describe('ReedSolomonCodec.decode', () => {
   let codec: ReedSolomonCodec
@@ -219,9 +213,7 @@ describe('ReedSolomonCodec.decode', () => {
   })
 })
 
-// ============================================================================
 // Verification Tests
-// ============================================================================
 
 describe('ReedSolomonCodec.verify', () => {
   let codec: ReedSolomonCodec
@@ -268,9 +260,7 @@ describe('ReedSolomonCodec.verify', () => {
   })
 })
 
-// ============================================================================
 // Chunk Creation Tests
-// ============================================================================
 
 describe('ReedSolomonCodec.createChunks', () => {
   let codec: ReedSolomonCodec
@@ -315,9 +305,7 @@ describe('ReedSolomonCodec.createChunks', () => {
   })
 })
 
-// ============================================================================
 // Chunk Reconstruction Tests
-// ============================================================================
 
 describe('ReedSolomonCodec.reconstructFromChunks', () => {
   let codec: ReedSolomonCodec
@@ -370,9 +358,7 @@ describe('ReedSolomonCodec.reconstructFromChunks', () => {
   })
 })
 
-// ============================================================================
 // Merkle Proof Verification Tests
-// ============================================================================
 
 describe('ReedSolomonCodec.verifyMerkleProof', () => {
   let codec: ReedSolomonCodec
@@ -434,9 +420,7 @@ describe('ReedSolomonCodec.verifyMerkleProof', () => {
   })
 })
 
-// ============================================================================
 // Edge Cases and Stress Tests
-// ============================================================================
 
 describe('ReedSolomonCodec Edge Cases', () => {
   it('should handle minimum size data', () => {
@@ -497,9 +481,7 @@ describe('ReedSolomonCodec Edge Cases', () => {
   })
 })
 
-// ============================================================================
 // Property-Based Tests
-// ============================================================================
 
 describe('ReedSolomonCodec Property Tests', () => {
   it('should always reconstruct original data (fuzzing)', () => {

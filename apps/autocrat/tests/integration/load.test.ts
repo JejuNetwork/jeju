@@ -1,21 +1,36 @@
-// Load Testing for Council API
-// These tests require the API to be running at API_URL (default: localhost:8010)
-// Run with REQUIRE_API=true to fail instead of skip when API is down
-import { describe, expect, setDefaultTimeout, test } from 'bun:test'
+/**
+ * Load Testing for Autocrat API
+ *
+ * Measures API performance under load.
+ * Requires the API server to be running (won't auto-start due to complexity).
+ */
+import { beforeAll, describe, expect, setDefaultTimeout, test } from 'bun:test'
+import { checkApi } from '../setup'
 
 setDefaultTimeout(30000)
 
-const API_URL = process.env.API_URL ?? 'http://localhost:8010'
+const API_URL = process.env.API_URL || 'http://127.0.0.1:8010'
+let apiRunning = false
 
-async function checkApi(): Promise<boolean> {
-  try {
-    const r = await fetch(`${API_URL}/health`, {
-      signal: AbortSignal.timeout(5000),
-    })
-    return r.ok
-  } catch {
-    return false
+beforeAll(async () => {
+  const status = await checkApi(API_URL)
+  apiRunning = status.available
+
+  if (!apiRunning) {
+    console.log('⚠️  API server not running - load tests will be skipped')
+    console.log('   Start with: bun run dev:api')
+    return
   }
+
+  console.log(`📊 Load testing against ${API_URL}`)
+})
+
+function skipIfNoApi(): boolean {
+  if (!apiRunning) {
+    console.log('⏭️  Skipping: API not running')
+    return true
+  }
+  return false
 }
 
 async function benchmark(
@@ -49,17 +64,9 @@ async function concurrent(fn: () => Promise<Response>, count: number) {
   }
 }
 
-// Check API availability once at module load
-const apiAvailable = await checkApi()
-
-if (!apiAvailable) {
-  throw new Error(
-    `API not running at ${API_URL}. Start the server with: bun run dev`,
-  )
-}
-
 describe('Load Tests', () => {
   test('health endpoint latency', async () => {
+    if (skipIfNoApi()) return
     const result = await benchmark(
       'health',
       () => fetch(`${API_URL}/health`),
@@ -73,6 +80,7 @@ describe('Load Tests', () => {
   })
 
   test('metrics endpoint latency', async () => {
+    if (skipIfNoApi()) return
     const result = await benchmark(
       'metrics',
       () => fetch(`${API_URL}/metrics`),
@@ -85,6 +93,7 @@ describe('Load Tests', () => {
   })
 
   test('assess endpoint latency', async () => {
+    if (skipIfNoApi()) return
     const check = await fetch(`${API_URL}/api/v1/proposals/assess`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -122,6 +131,7 @@ describe('Load Tests', () => {
   })
 
   test('concurrent requests (100)', async () => {
+    if (skipIfNoApi()) return
     const result = await concurrent(() => fetch(`${API_URL}/health`), 100)
     console.log(
       `✅ Concurrent: ${result.success}/100 in ${result.durationMs.toFixed(0)}ms`,
@@ -130,6 +140,7 @@ describe('Load Tests', () => {
   })
 
   test('burst load (2x100 waves)', async () => {
+    if (skipIfNoApi()) return
     const w1 = await concurrent(() => fetch(`${API_URL}/health`), 100)
     const w2 = await concurrent(() => fetch(`${API_URL}/health`), 100)
     console.log(`✅ Burst: wave1=${w1.success} wave2=${w2.success}`)
@@ -137,6 +148,7 @@ describe('Load Tests', () => {
   })
 
   test('sustained load (50 req @ 10/s)', async () => {
+    if (skipIfNoApi()) return
     let success = 0
     for (let i = 0; i < 50; i++) {
       const r = await fetch(`${API_URL}/health`)
