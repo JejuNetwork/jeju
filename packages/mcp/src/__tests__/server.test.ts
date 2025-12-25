@@ -6,21 +6,34 @@
 
 import { beforeEach, describe, expect, it } from 'bun:test'
 import { z } from 'zod'
+import { AgentAuthenticator } from '../auth/agent-auth'
+import type { ApiKeyValidator } from '../auth/api-key-auth'
 import { createMCPServer, MCPServer } from '../server/mcp-server'
 import type { JsonValue, MCPToolDefinition } from '../types/mcp'
+
+// Test validator that accepts any key with 'valid-' prefix
+const testValidator: ApiKeyValidator = async (apiKey: string) => {
+  if (apiKey.startsWith('valid-')) {
+    return { userId: 'test-user', agentId: 'test-agent' }
+  }
+  return null
+}
+
+const testAuthenticator = new AgentAuthenticator(testValidator)
 
 describe('MCPServer', () => {
   let server: MCPServer
 
   beforeEach(() => {
     server = new MCPServer({
-      name: 'test-server',
-      version: '1.0.0',
-      title: 'Test MCP Server',
-      instructions: 'Test server for unit tests',
+      config: {
+        name: 'test-server',
+        version: '1.0.0',
+        title: 'Test MCP Server',
+        instructions: 'Test server for unit tests',
+      },
+      authenticator: testAuthenticator,
     })
-    // Disable auth for testing
-    server.setRequireAuth(false)
   })
 
   describe('getServerInfo', () => {
@@ -43,11 +56,14 @@ describe('MCPServer', () => {
 
     it('should merge custom capabilities', () => {
       const customServer = new MCPServer({
-        name: 'custom',
-        version: '1.0.0',
-        capabilities: {
-          tools: { listChanged: true },
+        config: {
+          name: 'custom',
+          version: '1.0.0',
+          capabilities: {
+            tools: { listChanged: true },
+          },
         },
+        authenticator: testAuthenticator,
       })
 
       const capabilities = customServer.getServerCapabilities()
@@ -203,17 +219,22 @@ describe('MCPServer', () => {
   })
 
   describe('handleRequest', () => {
+    const validAuthContext = { apiKey: 'valid-key' }
+
     it('should handle initialize request', async () => {
-      const response = await server.handleRequest({
-        jsonrpc: '2.0',
-        method: 'initialize',
-        params: {
-          protocolVersion: '2024-11-05',
-          capabilities: {},
-          clientInfo: { name: 'test-client', version: '1.0.0' },
+      const response = await server.handleRequest(
+        {
+          jsonrpc: '2.0',
+          method: 'initialize',
+          params: {
+            protocolVersion: '2024-11-05',
+            capabilities: {},
+            clientInfo: { name: 'test-client', version: '1.0.0' },
+          },
+          id: 1,
         },
-        id: 1,
-      })
+        validAuthContext,
+      )
 
       expect(response.jsonrpc).toBe('2.0')
       expect(response.id).toBe(1)
@@ -222,11 +243,14 @@ describe('MCPServer', () => {
     })
 
     it('should handle ping request', async () => {
-      const response = await server.handleRequest({
-        jsonrpc: '2.0',
-        method: 'ping',
-        id: 2,
-      })
+      const response = await server.handleRequest(
+        {
+          jsonrpc: '2.0',
+          method: 'ping',
+          id: 2,
+        },
+        validAuthContext,
+      )
 
       expect(response.result).toEqual({})
     })
@@ -244,11 +268,14 @@ describe('MCPServer', () => {
         handler: async (args: Record<string, JsonValue>) => args,
       })
 
-      const response = await server.handleRequest({
-        jsonrpc: '2.0',
-        method: 'tools/list',
-        id: 3,
-      })
+      const response = await server.handleRequest(
+        {
+          jsonrpc: '2.0',
+          method: 'tools/list',
+          id: 3,
+        },
+        validAuthContext,
+      )
 
       const result = response.result
       if (!result || typeof result !== 'object' || !('tools' in result)) {
@@ -259,7 +286,7 @@ describe('MCPServer', () => {
       expect(tools[0].name).toBe('echo')
     })
 
-    it('should handle tools/call request', async () => {
+    it('should handle tools/call request with valid auth', async () => {
       server.registerTool({
         tool: {
           name: 'add',
@@ -283,15 +310,18 @@ describe('MCPServer', () => {
         },
       })
 
-      const response = await server.handleRequest({
-        jsonrpc: '2.0',
-        method: 'tools/call',
-        params: {
-          name: 'add',
-          arguments: { a: 5, b: 3 },
+      const response = await server.handleRequest(
+        {
+          jsonrpc: '2.0',
+          method: 'tools/call',
+          params: {
+            name: 'add',
+            arguments: { a: 5, b: 3 },
+          },
+          id: 4,
         },
-        id: 4,
-      })
+        validAuthContext,
+      )
 
       const result = response.result
       if (!result || typeof result !== 'object' || !('content' in result)) {
@@ -302,63 +332,206 @@ describe('MCPServer', () => {
       expect(JSON.parse(content[0].text)).toEqual({ sum: 8 })
     })
 
-    it('should return error for unknown method', async () => {
-      const response = await server.handleRequest({
-        jsonrpc: '2.0',
-        method: 'unknown/method',
-        id: 5,
+    it('should reject tools/call with invalid auth', async () => {
+      server.registerTool({
+        tool: {
+          name: 'protected',
+          description: 'Protected tool',
+          inputSchema: { type: 'object', properties: {} },
+        },
+        handler: async () => ({ secret: 'data' }),
       })
+
+      const response = await server.handleRequest(
+        {
+          jsonrpc: '2.0',
+          method: 'tools/call',
+          params: {
+            name: 'protected',
+            arguments: {},
+          },
+          id: 5,
+        },
+        { apiKey: 'invalid-key' },
+      )
+
+      expect(response.error).toBeDefined()
+      expect(response.error?.message).toContain('Authentication failed')
+    })
+
+    it('should return error for unknown method', async () => {
+      const response = await server.handleRequest(
+        {
+          jsonrpc: '2.0',
+          method: 'unknown/method',
+          id: 5,
+        },
+        validAuthContext,
+      )
 
       expect(response.error).toBeDefined()
       expect(response.error?.code).toBe(-32601) // Method not found
     })
 
     it('should return error for invalid JSON-RPC request', async () => {
-      const response = await server.handleRequest({
-        jsonrpc: '1.0', // Invalid version
-        method: 'ping',
-        id: 6,
-      })
+      const response = await server.handleRequest(
+        {
+          jsonrpc: '1.0', // Invalid version
+          method: 'ping',
+          id: 6,
+        },
+        validAuthContext,
+      )
 
       expect(response.error).toBeDefined()
       expect(response.error?.code).toBe(-32600) // Invalid request
     })
 
     it('should return error for unknown tool', async () => {
-      const response = await server.handleRequest({
-        jsonrpc: '2.0',
-        method: 'tools/call',
-        params: {
-          name: 'non-existent-tool',
-          arguments: {},
+      const response = await server.handleRequest(
+        {
+          jsonrpc: '2.0',
+          method: 'tools/call',
+          params: {
+            name: 'non-existent-tool',
+            arguments: {},
+          },
+          id: 7,
         },
-        id: 7,
-      })
+        validAuthContext,
+      )
 
       expect(response.error).toBeDefined()
       expect(response.error?.message).toContain('Unknown tool')
+    })
+
+    it('should handle resources/list request', async () => {
+      server.registerResource({
+        resource: {
+          uri: 'test://resource',
+          name: 'Test Resource',
+          description: 'A test resource',
+        },
+        handler: async () => 'resource content',
+      })
+
+      const response = await server.handleRequest(
+        {
+          jsonrpc: '2.0',
+          method: 'resources/list',
+          id: 8,
+        },
+        validAuthContext,
+      )
+
+      const result = response.result as { resources: Array<{ uri: string }> }
+      expect(result.resources).toHaveLength(1)
+      expect(result.resources[0].uri).toBe('test://resource')
+    })
+
+    it('should handle resources/read request', async () => {
+      server.registerResource({
+        resource: {
+          uri: 'test://resource',
+          name: 'Test Resource',
+          mimeType: 'text/plain',
+        },
+        handler: async () => 'resource content',
+      })
+
+      const response = await server.handleRequest(
+        {
+          jsonrpc: '2.0',
+          method: 'resources/read',
+          params: { uri: 'test://resource' },
+          id: 9,
+        },
+        validAuthContext,
+      )
+
+      const result = response.result as {
+        contents: Array<{ uri: string; text: string }>
+      }
+      expect(result.contents[0].text).toBe('resource content')
+    })
+
+    it('should handle prompts/list request', async () => {
+      server.registerPrompt({
+        prompt: {
+          name: 'test-prompt',
+          description: 'A test prompt',
+        },
+        handler: async () => 'Hello from prompt',
+      })
+
+      const response = await server.handleRequest(
+        {
+          jsonrpc: '2.0',
+          method: 'prompts/list',
+          id: 10,
+        },
+        validAuthContext,
+      )
+
+      const result = response.result as { prompts: Array<{ name: string }> }
+      expect(result.prompts).toHaveLength(1)
+      expect(result.prompts[0].name).toBe('test-prompt')
+    })
+
+    it('should handle prompts/get request', async () => {
+      server.registerPrompt({
+        prompt: {
+          name: 'greeting',
+          description: 'A greeting prompt',
+        },
+        handler: async (args) => `Hello, ${args.name ?? 'world'}`,
+      })
+
+      const response = await server.handleRequest(
+        {
+          jsonrpc: '2.0',
+          method: 'prompts/get',
+          params: { name: 'greeting', arguments: { name: 'Alice' } },
+          id: 11,
+        },
+        validAuthContext,
+      )
+
+      const result = response.result as {
+        messages: Array<{ content: { text: string } }>
+      }
+      expect(result.messages[0].content.text).toBe('Hello, Alice')
     })
   })
 })
 
 describe('createMCPServer', () => {
   it('should create server with initial tools', () => {
-    const server = createMCPServer({ name: 'test', version: '1.0.0' }, [
+    const server = createMCPServer(
       {
-        tool: {
-          name: 'tool1',
-          description: 'Tool 1',
-          inputSchema: { type: 'object', properties: {} },
-        },
-        handler: async () => ({}),
+        config: { name: 'test', version: '1.0.0' },
+        authenticator: testAuthenticator,
       },
-    ])
+      [
+        {
+          tool: {
+            name: 'tool1',
+            description: 'Tool 1',
+            inputSchema: { type: 'object', properties: {} },
+          },
+          handler: async () => ({}),
+        },
+      ],
+    )
 
     expect(server.hasTool('tool1')).toBe(true)
   })
 
   it('should create server with no initial tools', () => {
-    const server = createMCPServer({ name: 'test', version: '1.0.0' })
+    const server = createMCPServer({
+      config: { name: 'test', version: '1.0.0' },
+      authenticator: testAuthenticator,
+    })
 
     expect(server.getTools()).toHaveLength(0)
   })
@@ -366,13 +539,16 @@ describe('createMCPServer', () => {
 
 describe('MCPServer with validation', () => {
   let server: MCPServer
+  const validAuthContext = { apiKey: 'valid-key' }
 
   beforeEach(() => {
     server = new MCPServer({
-      name: 'validated-server',
-      version: '1.0.0',
+      config: {
+        name: 'validated-server',
+        version: '1.0.0',
+      },
+      authenticator: testAuthenticator,
     })
-    server.setRequireAuth(false)
   })
 
   it('should validate tool arguments with Zod schema', async () => {
@@ -401,28 +577,34 @@ describe('MCPServer with validation', () => {
     })
 
     // Valid request
-    const validResponse = await server.handleRequest({
-      jsonrpc: '2.0',
-      method: 'tools/call',
-      params: {
-        name: 'validated-tool',
-        arguments: { name: 'Alice', count: 5 },
+    const validResponse = await server.handleRequest(
+      {
+        jsonrpc: '2.0',
+        method: 'tools/call',
+        params: {
+          name: 'validated-tool',
+          arguments: { name: 'Alice', count: 5 },
+        },
+        id: 1,
       },
-      id: 1,
-    })
+      validAuthContext,
+    )
 
     expect(validResponse.error).toBeUndefined()
 
     // Invalid request (empty name)
-    const invalidResponse = await server.handleRequest({
-      jsonrpc: '2.0',
-      method: 'tools/call',
-      params: {
-        name: 'validated-tool',
-        arguments: { name: '', count: 5 },
+    const invalidResponse = await server.handleRequest(
+      {
+        jsonrpc: '2.0',
+        method: 'tools/call',
+        params: {
+          name: 'validated-tool',
+          arguments: { name: '', count: 5 },
+        },
+        id: 2,
       },
-      id: 2,
-    })
+      validAuthContext,
+    )
 
     expect(invalidResponse.error).toBeDefined()
     expect(invalidResponse.error?.message).toContain('Invalid arguments')

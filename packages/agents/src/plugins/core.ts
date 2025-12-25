@@ -11,7 +11,6 @@ import type { Action, Evaluator, Plugin, Provider } from '@elizaos/core'
 import { logger } from '@jejunetwork/shared'
 import { autonomousA2AService } from '../autonomous/a2a.service'
 import { autonomousTradingService } from '../autonomous/trading.service'
-import { getJejuProvider } from '../llm/provider'
 
 /**
  * Core plugin configuration
@@ -31,24 +30,44 @@ const tradeAction: Action = {
   examples: [
     [
       { user: 'user', content: { text: 'Buy $50 of YES on market abc123' } },
-      { user: 'assistant', content: { text: 'Executing trade: BUY YES $50 on market abc123' } },
+      {
+        user: 'assistant',
+        content: { text: 'Executing trade: BUY YES $50 on market abc123' },
+      },
     ],
   ],
-  similes: ['trade', 'buy', 'sell', 'long', 'short', 'open position', 'close position'],
-  validate: async (runtime, message) => {
-    const text = typeof message.content === 'string' ? message.content : message.content?.text
+  similes: [
+    'trade',
+    'buy',
+    'sell',
+    'long',
+    'short',
+    'open position',
+    'close position',
+  ],
+  validate: async (_runtime, message) => {
+    const text =
+      typeof message.content === 'string'
+        ? message.content
+        : message.content?.text
     if (!text) return false
     const tradeKeywords = ['buy', 'sell', 'long', 'short', 'trade', 'position']
     return tradeKeywords.some((kw) => text.toLowerCase().includes(kw))
   },
-  handler: async (runtime, message, state) => {
+  handler: async (runtime, message, _state) => {
     const agentId = runtime.agentId
-    const text = typeof message.content === 'string' ? message.content : message.content?.text ?? ''
+    const text =
+      typeof message.content === 'string'
+        ? message.content
+        : (message.content?.text ?? '')
 
     logger.info(`Trade action triggered for agent ${agentId}`, { text })
 
     // Use the trading service to execute
-    const result = await autonomousTradingService.executeTrades(agentId, runtime)
+    const result = await autonomousTradingService.executeTrades(
+      agentId,
+      runtime,
+    )
 
     if (result.tradesExecuted > 0) {
       return {
@@ -77,23 +96,36 @@ const a2aMessageAction: Action = {
   description: 'Send a message to another agent via A2A protocol',
   examples: [
     [
-      { user: 'user', content: { text: 'Ask agent-xyz for their market analysis' } },
-      { user: 'assistant', content: { text: 'Sending A2A message to agent-xyz' } },
+      {
+        user: 'user',
+        content: { text: 'Ask agent-xyz for their market analysis' },
+      },
+      {
+        user: 'assistant',
+        content: { text: 'Sending A2A message to agent-xyz' },
+      },
     ],
   ],
   similes: ['message agent', 'ask agent', 'contact agent', 'collaborate with'],
-  validate: async (runtime, message) => {
-    const text = typeof message.content === 'string' ? message.content : message.content?.text
+  validate: async (_runtime, message) => {
+    const text =
+      typeof message.content === 'string'
+        ? message.content
+        : message.content?.text
     if (!text) return false
-    return text.toLowerCase().includes('agent') && (
-      text.toLowerCase().includes('ask') ||
-      text.toLowerCase().includes('message') ||
-      text.toLowerCase().includes('contact')
+    return (
+      text.toLowerCase().includes('agent') &&
+      (text.toLowerCase().includes('ask') ||
+        text.toLowerCase().includes('message') ||
+        text.toLowerCase().includes('contact'))
     )
   },
   handler: async (runtime, message) => {
     const agentId = runtime.agentId
-    const text = typeof message.content === 'string' ? message.content : message.content?.text ?? ''
+    const text =
+      typeof message.content === 'string'
+        ? message.content
+        : (message.content?.text ?? '')
 
     // Extract target agent ID from message
     const agentMatch = text.match(/agent[- ]?(\w+)/i)
@@ -130,30 +162,50 @@ const discoverAgentsAction: Action = {
   description: 'Discover other agents with specific skills or capabilities',
   examples: [
     [
-      { user: 'user', content: { text: 'Find agents that can analyze prediction markets' } },
-      { user: 'assistant', content: { text: 'Discovering agents with market analysis capabilities...' } },
+      {
+        user: 'user',
+        content: { text: 'Find agents that can analyze prediction markets' },
+      },
+      {
+        user: 'assistant',
+        content: {
+          text: 'Discovering agents with market analysis capabilities...',
+        },
+      },
     ],
   ],
   similes: ['find agents', 'discover agents', 'search agents', 'which agents'],
-  validate: async (runtime, message) => {
-    const text = typeof message.content === 'string' ? message.content : message.content?.text
+  validate: async (_runtime, message) => {
+    const text =
+      typeof message.content === 'string'
+        ? message.content
+        : message.content?.text
     if (!text) return false
     const discoverKeywords = ['find', 'discover', 'search', 'which', 'list']
-    return discoverKeywords.some((kw) => text.toLowerCase().includes(kw)) &&
-           text.toLowerCase().includes('agent')
+    return (
+      discoverKeywords.some((kw) => text.toLowerCase().includes(kw)) &&
+      text.toLowerCase().includes('agent')
+    )
   },
   handler: async (runtime, message) => {
     const agentId = runtime.agentId
-    const text = typeof message.content === 'string' ? message.content : message.content?.text ?? ''
+    const text =
+      typeof message.content === 'string'
+        ? message.content
+        : (message.content?.text ?? '')
 
     // Extract skills from message
     const skills: string[] = []
-    if (text.includes('trading') || text.includes('trade')) skills.push('trading')
-    if (text.includes('analysis') || text.includes('analyze')) skills.push('analysis')
+    if (text.includes('trading') || text.includes('trade'))
+      skills.push('trading')
+    if (text.includes('analysis') || text.includes('analyze'))
+      skills.push('analysis')
     if (text.includes('prediction')) skills.push('prediction_markets')
     if (text.includes('social')) skills.push('social')
 
-    const agents = await autonomousA2AService.discoverAgents(agentId, { skills })
+    const agents = await autonomousA2AService.discoverAgents(agentId, {
+      skills,
+    })
 
     return {
       success: true,
@@ -166,7 +218,7 @@ const discoverAgentsAction: Action = {
  * Portfolio provider - Provides current portfolio state to the agent
  */
 const portfolioProvider: Provider = {
-  get: async (runtime, message, state) => {
+  get: async (runtime, _message, _state) => {
     const agentId = runtime.agentId
     const portfolio = await autonomousTradingService.getPortfolio(agentId)
 
@@ -174,9 +226,12 @@ const portfolioProvider: Provider = {
 - Balance: $${portfolio.balance.toFixed(2)}
 - P&L: $${portfolio.pnl.toFixed(2)}
 - Open Positions: ${portfolio.positions.length}
-${portfolio.positions.map((p) =>
-  `  - ${p.ticker ?? p.marketId}: ${p.side} ${p.amount} @ $${p.entryPrice.toFixed(4)}`
-).join('\n')}`
+${portfolio.positions
+  .map(
+    (p) =>
+      `  - ${p.ticker ?? p.marketId}: ${p.side} ${p.amount} @ $${p.entryPrice.toFixed(4)}`,
+  )
+  .join('\n')}`
   },
 }
 
@@ -184,8 +239,9 @@ ${portfolio.positions.map((p) =>
  * Market data provider - Provides current market information
  */
 const marketDataProvider: Provider = {
-  get: async (runtime, message, state) => {
-    const { predictions, perps } = await autonomousTradingService.getAvailableMarkets()
+  get: async (_runtime, _message, _state) => {
+    const { predictions, perps } =
+      await autonomousTradingService.getAvailableMarkets()
 
     let marketInfo = 'Available Markets:\n\n'
 
@@ -215,14 +271,25 @@ const riskEvaluator: Evaluator = {
   description: 'Evaluates if proposed actions are within agent risk tolerance',
   similes: ['risk check', 'safety check'],
   examples: [],
-  validate: async (runtime, message) => {
-    const text = typeof message.content === 'string' ? message.content : message.content?.text
+  validate: async (_runtime, message) => {
+    const text =
+      typeof message.content === 'string'
+        ? message.content
+        : message.content?.text
     if (!text) return false
     // Run on trade-related messages
-    const tradeKeywords = ['buy', 'sell', 'long', 'short', 'trade', 'position', 'leverage']
+    const tradeKeywords = [
+      'buy',
+      'sell',
+      'long',
+      'short',
+      'trade',
+      'position',
+      'leverage',
+    ]
     return tradeKeywords.some((kw) => text.toLowerCase().includes(kw))
   },
-  handler: async (runtime, message) => {
+  handler: async (runtime, _message) => {
     const agentId = runtime.agentId
     const portfolio = await autonomousTradingService.getPortfolio(agentId)
 

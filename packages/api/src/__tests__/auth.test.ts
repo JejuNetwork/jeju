@@ -50,6 +50,7 @@ describe('OAuth3 Validation', () => {
       expiresAt: Date.now() + 3600000, // 1 hour from now
     }
 
+    // @ts-expect-error - Bun mock type doesn't include all fetch properties
     globalThis.fetch = mock(() =>
       Promise.resolve(
         new Response(JSON.stringify(mockSession), { status: 200 }),
@@ -77,6 +78,7 @@ describe('OAuth3 Validation', () => {
   })
 
   test('rejects session not found', async () => {
+    // @ts-expect-error - Bun mock type doesn't include all fetch properties
     globalThis.fetch = mock(() =>
       Promise.resolve(new Response('Not found', { status: 404 })),
     )
@@ -95,6 +97,7 @@ describe('OAuth3 Validation', () => {
       expiresAt: Date.now() - 1000, // Expired
     }
 
+    // @ts-expect-error - Bun mock type doesn't include all fetch properties
     globalThis.fetch = mock(() =>
       Promise.resolve(
         new Response(JSON.stringify(mockSession), { status: 200 }),
@@ -109,6 +112,7 @@ describe('OAuth3 Validation', () => {
   })
 
   test('handles server error', async () => {
+    // @ts-expect-error - Bun mock type doesn't include all fetch properties
     globalThis.fetch = mock(() =>
       Promise.resolve(new Response('Server error', { status: 500 })),
     )
@@ -120,6 +124,7 @@ describe('OAuth3 Validation', () => {
   })
 
   test('rejects invalid session data structure', async () => {
+    // @ts-expect-error - Bun mock type doesn't include all fetch properties
     globalThis.fetch = mock(() =>
       Promise.resolve(
         new Response(JSON.stringify({ invalid: 'data' }), { status: 200 }),
@@ -158,6 +163,7 @@ describe('validateOAuth3FromHeaders', () => {
       expiresAt: Date.now() + 3600000,
     }
 
+    // @ts-expect-error - Bun mock type doesn't include all fetch properties
     globalThis.fetch = mock(() =>
       Promise.resolve(
         new Response(JSON.stringify(mockSession), { status: 200 }),

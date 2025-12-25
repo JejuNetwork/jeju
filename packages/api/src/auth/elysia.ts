@@ -17,7 +17,11 @@ import {
 } from './types.js'
 
 /** Context derived by auth plugin - index signature required for Elysia derive compatibility */
-export interface AuthContext extends Record<string, Address | AuthUser | AuthMethod | string | boolean | undefined> {
+export interface AuthContext
+  extends Record<
+    string,
+    Address | AuthUser | AuthMethod | string | boolean | undefined
+  > {
   address?: Address
   authUser?: AuthUser
   authMethod?: AuthMethod

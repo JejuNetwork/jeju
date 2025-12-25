@@ -155,8 +155,8 @@ class TestConverter:
         """Create a sample trajectory for testing"""
         from src.models import (
             Action,
-            JejuTrajectory,
             EnvironmentState,
+            JejuTrajectory,
             LLMCall,
             TrajectoryStep,
         )

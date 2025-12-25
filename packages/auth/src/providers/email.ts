@@ -709,7 +709,10 @@ export class EmailProvider {
     }
 
     const formData = new FormData()
-    formData.append('from', `${this.config.fromName} <${this.config.fromEmail}>`)
+    formData.append(
+      'from',
+      `${this.config.fromName} <${this.config.fromEmail}>`,
+    )
     formData.append('to', to)
     formData.append('subject', subject)
     formData.append('text', this.htmlToPlainText(html))

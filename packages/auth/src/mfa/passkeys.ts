@@ -345,8 +345,8 @@ export class PasskeyManager {
     let credential: PasskeyCredential | undefined
 
     // Note: userHandle can be used to identify the user if needed
-    // const userId = response.response.userHandle 
-    //   ? new TextDecoder().decode(response.response.userHandle) 
+    // const userId = response.response.userHandle
+    //   ? new TextDecoder().decode(response.response.userHandle)
     //   : undefined
 
     // Search for credential
@@ -435,8 +435,213 @@ export class PasskeyManager {
     return true
   }
 
+  /**
+   * Extract public key from CBOR-encoded attestation object
+   * Implements proper COSE key parsing per WebAuthn spec
+   */
   private extractPublicKey(attestationObject: Uint8Array): Uint8Array | null {
-    return attestationObject.slice(-65)
+    // The attestation object is CBOR-encoded. We need to parse:
+    // 1. Find authenticatorData
+    // 2. Parse the credential public key from COSE format
+
+    // Simple CBOR parsing for attestation object structure:
+    // { "fmt": string, "authData": bytes, "attStmt": {...} }
+
+    // Look for authData (0x68 'h' = 104, 0x61 'a' = 97, 0x75 'u' = 117, 0x74 't' = 116, 0x68 'h' = 104, 0x44 'D' = 68, 0x61 'a' = 97, 0x74 't' = 116, 0x61 'a' = 97)
+    // Or look for the byte pattern indicating authData length
+
+    // Find COSE key structure in authenticatorData
+    // authenticatorData structure:
+    // - rpIdHash (32 bytes)
+    // - flags (1 byte)
+    // - signCount (4 bytes)
+    // - attestedCredentialData (if flags.AT set):
+    //   - aaguid (16 bytes)
+    //   - credentialIdLength (2 bytes big endian)
+    //   - credentialId (credentialIdLength bytes)
+    //   - credentialPublicKey (COSE key format)
+
+    // Simplified approach: Find the COSE key map start
+    // COSE_Key for EC2 (ECDSA P-256) has kty=2, alg=-7 (ES256)
+    // The key components are:
+    // 1: kty (key type) = 2 (EC2)
+    // 3: alg (algorithm) = -7 (ES256)
+    // -1: crv (curve) = 1 (P-256)
+    // -2: x (x-coordinate, 32 bytes)
+    // -3: y (y-coordinate, 32 bytes)
+
+    // Find the CBOR map pattern for COSE key
+    // Looking for map with kty=2 (EC2)
+    for (let i = 0; i < attestationObject.length - 67; i++) {
+      // Look for COSE key map start with EC2 key type
+      // A5 (map of 5 items) followed by 01 02 (kty=2)
+      if (
+        attestationObject[i] === 0xa5 && // Map of 5 items
+        attestationObject[i + 1] === 0x01 && // Label: kty (1)
+        attestationObject[i + 2] === 0x02 // Value: EC2 (2)
+      ) {
+        // Parse COSE_Key structure
+        return this.parseCoseEc2Key(attestationObject.slice(i))
+      }
+    }
+
+    // Fallback: Try to find raw public key bytes (65 bytes uncompressed EC point)
+    // Look for 0x04 prefix (uncompressed point indicator)
+    for (let i = 0; i < attestationObject.length - 65; i++) {
+      if (attestationObject[i] === 0x04) {
+        const potentialKey = attestationObject.slice(i, i + 65)
+        // Basic sanity check - x and y coordinates should be non-zero
+        const nonZeroBytes = potentialKey.filter((b) => b !== 0).length
+        if (nonZeroBytes > 32) {
+          return potentialKey
+        }
+      }
+    }
+
+    return null
+  }
+
+  /**
+   * Parse COSE EC2 key and return uncompressed public key bytes
+   * Returns 65-byte uncompressed format: 0x04 || x (32 bytes) || y (32 bytes)
+   */
+  private parseCoseEc2Key(coseKey: Uint8Array): Uint8Array | null {
+    // Parse CBOR map to extract x and y coordinates
+    // Structure: {1: 2, 3: -7, -1: 1, -2: x(32), -3: y(32)}
+
+    let x: Uint8Array | null = null
+    let y: Uint8Array | null = null
+    let offset = 1 // Skip map header
+
+    const mapSize = coseKey[0] & 0x1f // Lower 5 bits of map header
+
+    for (let item = 0; item < mapSize; item++) {
+      if (offset >= coseKey.length - 1) break
+
+      // Parse label
+      let label: number
+      const labelByte = coseKey[offset]
+
+      if ((labelByte & 0xe0) === 0x00) {
+        // Positive integer (0-23)
+        label = labelByte
+        offset++
+      } else if ((labelByte & 0xe0) === 0x20) {
+        // Negative integer (-1 to -24)
+        label = -1 - (labelByte & 0x1f)
+        offset++
+      } else {
+        // Skip unknown label type
+        offset++
+        continue
+      }
+
+      // Parse value based on label
+      if (label === -2 || label === -3) {
+        // x or y coordinate (should be byte string of 32 bytes)
+        const valueByte = coseKey[offset]
+        if ((valueByte & 0xe0) === 0x40) {
+          // Byte string with length in lower 5 bits
+          const byteLen = valueByte & 0x1f
+          offset++
+
+          if (offset + byteLen > coseKey.length) break
+
+          const bytes = coseKey.slice(offset, offset + byteLen)
+          offset += byteLen
+
+          if (label === -2) {
+            x = bytes
+          } else {
+            y = bytes
+          }
+        } else if (valueByte === 0x58) {
+          // Byte string with 1-byte length
+          const byteLen = coseKey[offset + 1]
+          offset += 2
+
+          if (offset + byteLen > coseKey.length) break
+
+          const bytes = coseKey.slice(offset, offset + byteLen)
+          offset += byteLen
+
+          if (label === -2) {
+            x = bytes
+          } else {
+            y = bytes
+          }
+        } else {
+          // Skip value we don't understand
+          offset = this.skipCborValue(coseKey, offset)
+        }
+      } else {
+        // Skip other labels' values
+        offset = this.skipCborValue(coseKey, offset)
+      }
+    }
+
+    if (!x || !y || x.length !== 32 || y.length !== 32) {
+      return null
+    }
+
+    // Build uncompressed public key: 0x04 || x || y
+    const publicKey = new Uint8Array(65)
+    publicKey[0] = 0x04
+    publicKey.set(x, 1)
+    publicKey.set(y, 33)
+
+    return publicKey
+  }
+
+  /**
+   * Skip a CBOR value and return the new offset
+   */
+  private skipCborValue(data: Uint8Array, offset: number): number {
+    if (offset >= data.length) return offset
+
+    const majorType = data[offset] >> 5
+    const additionalInfo = data[offset] & 0x1f
+
+    offset++
+
+    // Get length based on additional info
+    let length = 0
+    if (additionalInfo < 24) {
+      length = additionalInfo
+    } else if (additionalInfo === 24) {
+      length = data[offset++]
+    } else if (additionalInfo === 25) {
+      length = (data[offset] << 8) | data[offset + 1]
+      offset += 2
+    } else if (additionalInfo === 26) {
+      length =
+        (data[offset] << 24) |
+        (data[offset + 1] << 16) |
+        (data[offset + 2] << 8) |
+        data[offset + 3]
+      offset += 4
+    }
+
+    // Skip based on major type
+    if (majorType === 0 || majorType === 1) {
+      // Integer - already handled
+    } else if (majorType === 2 || majorType === 3) {
+      // Byte/text string - skip length bytes
+      offset += length
+    } else if (majorType === 4) {
+      // Array - skip items
+      for (let i = 0; i < length; i++) {
+        offset = this.skipCborValue(data, offset)
+      }
+    } else if (majorType === 5) {
+      // Map - skip key-value pairs
+      for (let i = 0; i < length; i++) {
+        offset = this.skipCborValue(data, offset) // key
+        offset = this.skipCborValue(data, offset) // value
+      }
+    }
+
+    return offset
   }
 
   private getSignCount(authenticatorData: Uint8Array): number {

@@ -24,8 +24,8 @@ from typing import Protocol
 
 from ..models import (
     Action,
-    JejuTrajectory,
     EnvironmentState,
+    JejuTrajectory,
     LLMCall,
 )
 from .quality_utils import (

@@ -1,9 +1,23 @@
 /** Manage CovenantSQL decentralized database */
 
 import { execSync, spawn } from 'node:child_process'
-import { existsSync, mkdirSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import {
+  getRpcUrl as getConfigRpcUrl,
+  type NetworkType,
+} from '@jejunetwork/config'
 import { Command } from 'commander'
+import {
+  createPublicClient,
+  createWalletClient,
+  http,
+  keccak256,
+  parseEther,
+  stringToBytes,
+} from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+import { base, baseSepolia, foundry } from 'viem/chains'
 import { logger } from '../lib/logger'
 import { findMonorepoRoot } from '../lib/system'
 
@@ -14,6 +28,78 @@ interface ClusterStatus {
   blockProducer: { running: boolean; endpoint?: string }
   miners: Array<{ id: string; running: boolean; endpoint?: string }>
   healthy: boolean
+}
+
+// ComputeRegistry ABI for database provider registration
+const COMPUTE_REGISTRY_ABI = [
+  {
+    name: 'registerDatabaseProvider',
+    type: 'function',
+    inputs: [
+      { name: 'name', type: 'string' },
+      { name: 'endpoint', type: 'string' },
+      { name: 'serviceType', type: 'bytes32' },
+    ],
+    outputs: [{ name: 'providerId', type: 'uint256' }],
+    stateMutability: 'payable',
+  },
+  {
+    name: 'getProvider',
+    type: 'function',
+    inputs: [{ name: 'providerId', type: 'uint256' }],
+    outputs: [
+      {
+        name: '',
+        type: 'tuple',
+        components: [
+          { name: 'id', type: 'uint256' },
+          { name: 'owner', type: 'address' },
+          { name: 'name', type: 'string' },
+          { name: 'endpoint', type: 'string' },
+          { name: 'serviceType', type: 'bytes32' },
+          { name: 'stake', type: 'uint256' },
+          { name: 'isActive', type: 'bool' },
+        ],
+      },
+    ],
+    stateMutability: 'view',
+  },
+] as const
+
+function loadComputeRegistryAddress(
+  network: NetworkType,
+): `0x${string}` | null {
+  const rootDir = findMonorepoRoot()
+  const paths = [
+    join(rootDir, 'packages/contracts/deployments', `dws-${network}.json`),
+    join(rootDir, 'packages/contracts/deployments', `${network}.json`),
+  ]
+
+  for (const path of paths) {
+    if (existsSync(path)) {
+      const content = readFileSync(path, 'utf-8')
+      const deployment = JSON.parse(content)
+      const address =
+        deployment.ComputeRegistry ?? deployment.dws?.ComputeRegistry
+      if (address && address !== '0x0000000000000000000000000000000000000000') {
+        return address as `0x${string}`
+      }
+    }
+  }
+  return null
+}
+
+function getChainForNetwork(network: NetworkType) {
+  switch (network) {
+    case 'localnet':
+      return foundry
+    case 'testnet':
+      return baseSepolia
+    case 'mainnet':
+      return base
+    default:
+      throw new Error(`Unknown network: ${network}`)
+  }
 }
 
 export const cqlCommand = new Command('cql').description(
@@ -137,9 +223,13 @@ cqlCommand
 cqlCommand
   .command('register')
   .description('Register as a CQL database provider in ComputeRegistry')
-  .option('--name <name>', 'Provider name')
-  .option('--endpoint <endpoint>', 'HTTP endpoint for your node')
-  .option('--stake <amount>', 'Stake amount in ETH')
+  .requiredOption('--name <name>', 'Provider name')
+  .requiredOption('--endpoint <endpoint>', 'HTTP endpoint for your node')
+  .requiredOption('--stake <amount>', 'Stake amount in ETH')
+  .option(
+    '--private-key <key>',
+    'Private key (or set DEPLOYER_PRIVATE_KEY env)',
+  )
   .option(
     '--network <network>',
     'Network: localnet, testnet, mainnet',
@@ -149,40 +239,72 @@ cqlCommand
     logger.header('CQL REGISTER')
     logger.keyValue('Network', options.network)
 
-    if (!options.name) {
-      logger.error('--name is required')
+    const network = options.network as NetworkType
+    const privateKey = options.privateKey ?? process.env.DEPLOYER_PRIVATE_KEY
+
+    if (!privateKey) {
+      logger.error(
+        'Private key required. Set --private-key or DEPLOYER_PRIVATE_KEY env',
+      )
       process.exit(1)
     }
 
-    if (!options.endpoint) {
-      logger.error('--endpoint is required')
+    // Load ComputeRegistry address from deployments
+    const registryAddress = loadComputeRegistryAddress(network)
+    if (!registryAddress) {
+      logger.error('ComputeRegistry not deployed on this network')
+      logger.info(`Deploy with: jeju deploy dws --network ${network}`)
       process.exit(1)
     }
 
-    if (!options.stake) {
-      logger.error('--stake is required')
-      process.exit(1)
-    }
+    const rpcUrl = getConfigRpcUrl(network)
+    const chain = getChainForNetwork(network)
+    const account = privateKeyToAccount(privateKey as `0x${string}`)
+
+    const publicClient = createPublicClient({
+      chain,
+      transport: http(rpcUrl),
+    })
+
+    const walletClient = createWalletClient({
+      account,
+      chain,
+      transport: http(rpcUrl),
+    })
+
+    // Service type for database providers
+    const serviceType = keccak256(stringToBytes('database'))
+    const stakeAmount = parseEther(options.stake)
 
     logger.step('Registering as database provider in ComputeRegistry...')
-    logger.info('Call: ComputeRegistry.registerDatabaseProvider()')
-    logger.info(`  name: ${options.name}`)
-    logger.info(`  endpoint: ${options.endpoint}`)
-    logger.info(`  stake: ${options.stake} ETH`)
-    logger.info('  serviceType: keccak256("database")')
+    logger.keyValue('Name', options.name)
+    logger.keyValue('Endpoint', options.endpoint)
+    logger.keyValue('Stake', `${options.stake} ETH`)
+    logger.keyValue('Registry', registryAddress)
     logger.newline()
 
-    logger.warn('Manual registration required - use cast or a transaction')
-    logger.info(`
-Example using cast:
+    const hash = await walletClient.writeContract({
+      address: registryAddress,
+      abi: COMPUTE_REGISTRY_ABI,
+      functionName: 'registerDatabaseProvider',
+      args: [options.name, options.endpoint, serviceType],
+      value: stakeAmount,
+    })
 
-cast send $COMPUTE_REGISTRY \\
-  "registerDatabaseProvider(string,string,bytes32)" \\
-  "${options.name}" "${options.endpoint}" 0x0 \\
-  --value ${options.stake}ether \\
-  --private-key $PRIVATE_KEY \\
-  --rpc-url ${getRpcUrl(options.network)}
-`)
+    logger.step('Waiting for confirmation...')
+    logger.keyValue('TX Hash', hash)
+
+    const receipt = await publicClient.waitForTransactionReceipt({ hash })
+
+    if (receipt.status === 'success') {
+      logger.success('Successfully registered as database provider.')
+      logger.newline()
+      logger.info('Your CQL node is now registered in the ComputeRegistry.')
+      logger.info('Users can discover your node via: jeju cql status')
+    } else {
+      logger.error('Transaction failed')
+      process.exit(1)
+    }
   })
 
 async function startDevMode(detach: boolean): Promise<void> {
@@ -405,7 +527,7 @@ async function checkMiner(
   return { id, running, endpoint: running ? endpoint : undefined }
 }
 
-function getRpcUrl(network: string): string {
+function _getRpcUrl(network: string): string {
   switch (network) {
     case 'localnet':
       return 'http://localhost:6546'

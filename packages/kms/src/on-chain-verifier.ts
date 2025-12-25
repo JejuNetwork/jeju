@@ -442,7 +442,12 @@ export class OnChainVerifier {
    * Unified access condition verification
    */
   async verifyAccessCondition(
-    condition: BalanceCondition | StakeCondition | RoleCondition | AgentCondition | ContractCondition,
+    condition:
+      | BalanceCondition
+      | StakeCondition
+      | RoleCondition
+      | AgentCondition
+      | ContractCondition,
     userAddress: Address,
   ): Promise<boolean> {
     try {
@@ -471,7 +476,10 @@ export class OnChainVerifier {
       return result.success
     } catch (error) {
       // Log error but don't expose details
-      console.error(`On-chain verification failed for ${condition.type}:`, error)
+      console.error(
+        `On-chain verification failed for ${condition.type}:`,
+        error,
+      )
       return false
     }
   }

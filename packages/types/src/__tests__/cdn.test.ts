@@ -13,7 +13,6 @@
 
 import { describe, expect, test } from 'bun:test'
 import {
-  type CacheConfig,
   CacheStatusSchema,
   CacheStrategySchema,
   type CDNProviderType,
@@ -83,12 +82,11 @@ describe('CDNProviderTypeSchema', () => {
     expect(CDNProviderTypeSchema.safeParse(type).success).toBe(true)
   })
 
-  test.each(invalidProviderTypes)(
-    'rejects invalid provider type: %s',
-    (type) => {
-      expect(CDNProviderTypeSchema.safeParse(type).success).toBe(false)
-    },
-  )
+  test.each(
+    invalidProviderTypes,
+  )('rejects invalid provider type: %s', (type) => {
+    expect(CDNProviderTypeSchema.safeParse(type).success).toBe(false)
+  })
 })
 
 describe('ContentTypeSchema', () => {
@@ -378,4 +376,3 @@ describe('CDN Type Structures', () => {
     expect(config.security.waf).toBe(true)
   })
 })
-

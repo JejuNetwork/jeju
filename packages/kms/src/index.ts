@@ -24,6 +24,14 @@
  * ```
  */
 
+// Attestation verification
+export {
+  type AttestationVerificationResult,
+  AttestationVerifier,
+  type AttestationVerifierConfig,
+  createAttestationVerifier,
+  type TrustedMeasurement,
+} from './attestation-verifier.js'
 // Crypto utilities
 export {
   type AESGCMPayload,
@@ -108,6 +116,14 @@ export {
   type MPCSignSession,
   resetMPCCoordinator,
 } from './mpc/index.js'
+// On-chain verification
+export {
+  getOnChainVerifier,
+  OnChainVerifier,
+  type OnChainVerifierConfig,
+  resetOnChainVerifier,
+  type VerificationResult,
+} from './on-chain-verifier.js'
 // Providers
 export {
   EncryptionProvider,

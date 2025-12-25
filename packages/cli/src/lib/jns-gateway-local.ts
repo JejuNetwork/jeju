@@ -122,26 +122,36 @@ export class LocalJNSGateway {
           const resolution = await this.resolve(name)
 
           // Check for API requests that should be routed to backend
-          if (url.pathname.startsWith('/api') || url.pathname.startsWith('/health') || 
-              url.pathname.startsWith('/a2a') || url.pathname.startsWith('/mcp') ||
-              url.pathname.startsWith('/ws')) {
+          if (
+            url.pathname.startsWith('/api') ||
+            url.pathname.startsWith('/health') ||
+            url.pathname.startsWith('/a2a') ||
+            url.pathname.startsWith('/mcp') ||
+            url.pathname.startsWith('/ws')
+          ) {
             // For local development, use local worker endpoint if available
             const localEndpoint = this.getLocalWorkerEndpoint(appName)
             if (localEndpoint) {
               return this.proxyToWorker(localEndpoint, request)
             }
             // If JNS has a real worker endpoint (not a tx hash), use it
-            if (resolution.workerEndpoint && !resolution.workerEndpoint.startsWith('0x')) {
+            if (
+              resolution.workerEndpoint &&
+              !resolution.workerEndpoint.startsWith('0x')
+            ) {
               return this.proxyToWorker(resolution.workerEndpoint, request)
             }
             // No local or JNS worker - return 503 for API requests
-            return new Response(JSON.stringify({ 
-              error: 'Backend not available',
-              message: `No worker endpoint configured for ${appName}`,
-            }), {
-              status: 503,
-              headers: { 'Content-Type': 'application/json' },
-            })
+            return new Response(
+              JSON.stringify({
+                error: 'Backend not available',
+                message: `No worker endpoint configured for ${appName}`,
+              }),
+              {
+                status: 503,
+                headers: { 'Content-Type': 'application/json' },
+              },
+            )
           }
 
           if (resolution.ipfsCid) {

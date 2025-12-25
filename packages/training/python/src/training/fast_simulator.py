@@ -44,8 +44,8 @@ from typing import Literal, Protocol
 import asyncpg
 
 from ..models import (
-    JejuTrajectory,
     EnvironmentState,
+    JejuTrajectory,
 )
 from .quality_utils import (
     build_trajectory_from_ticks,

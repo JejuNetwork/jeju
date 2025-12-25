@@ -18,7 +18,7 @@ import { join } from 'node:path'
 import type { Address } from 'viem'
 import { activeSessions, authAttemptsTotal } from './metrics'
 import { getMailboxStorage } from './storage'
-import type { IMAPSession } from './types'
+import type { IMAPMessageData, IMAPSession } from './types'
 
 // ============ Configuration ============
 
@@ -448,7 +448,7 @@ protocol imap {
     sessionId: string,
     _sequence: string, // Will be used when integrating with Dovecot IMAP proxy
     _items: string[], // Will be used when integrating with Dovecot IMAP proxy
-  ): Promise<Array<{ uid: number; data: Record<string, unknown> }>> {
+  ): Promise<IMAPMessageData[]> {
     const session = this.sessions.get(sessionId)
     if (!session || !session.authenticated || !session.selectedMailbox) {
       throw new Error('No mailbox selected')
@@ -486,25 +486,26 @@ protocol imap {
     }
 
     // Build response based on requested items
-    return emails.map((email, i) => ({
-      uid: i + 1,
-      data: {
-        FLAGS: [
+    return emails.map(
+      (email, i): IMAPMessageData => ({
+        uid: i + 1,
+        flags: [
           email.flags.read ? '\\Seen' : '',
           email.flags.starred ? '\\Flagged' : '',
           email.flags.deleted ? '\\Deleted' : '',
           email.flags.answered ? '\\Answered' : '',
         ].filter(Boolean),
-        INTERNALDATE: new Date(email.timestamp).toISOString(),
-        RFC822_SIZE: email.size,
-        ENVELOPE: {
+        internalDate: email.timestamp,
+        size: email.size,
+        envelope: {
           date: new Date(email.timestamp).toISOString(),
           subject: email.subject,
-          from: [{ name: '', email: email.from }],
-          to: email.to.map((t) => ({ name: '', email: t })),
+          from: email.from,
+          to: email.to.join(', '),
+          messageId: email.messageId,
         },
-      },
-    }))
+      }),
+    )
   }
 }
 

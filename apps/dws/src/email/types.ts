@@ -377,3 +377,20 @@ export interface SearchEmailsResponse {
   total: number
   hasMore: boolean
 }
+
+// IMAP message data for fetch operations
+export interface IMAPMessageData {
+  uid: number
+  flags: string[]
+  internalDate: number
+  size: number
+  envelope: {
+    date: string
+    subject: string
+    from: string
+    to: string
+    messageId: string
+  }
+  bodyStructure?: string
+  body?: string
+}

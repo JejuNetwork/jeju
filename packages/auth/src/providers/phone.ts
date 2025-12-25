@@ -465,8 +465,130 @@ export class PhoneProvider {
     }
   }
 
-  private async sendViaAwsSns(_phone: string, _message: string): Promise<void> {
-    throw new Error('AWS SNS not yet implemented. Use Twilio or custom sender.')
+  private async sendViaAwsSns(phone: string, message: string): Promise<void> {
+    const region =
+      this.config.awsRegion ?? process.env.AWS_REGION ?? 'us-east-1'
+    const accessKeyId =
+      this.config.awsAccessKeyId ?? process.env.AWS_ACCESS_KEY_ID
+    const secretAccessKey =
+      this.config.awsSecretAccessKey ?? process.env.AWS_SECRET_ACCESS_KEY
+    const senderId =
+      this.config.awsSenderId ?? process.env.AWS_SNS_SENDER_ID ?? 'Jeju'
+
+    if (!accessKeyId || !secretAccessKey) {
+      throw new Error(
+        'AWS credentials required. Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables.',
+      )
+    }
+
+    // Build AWS SNS Publish request
+    const host = `sns.${region}.amazonaws.com`
+    const timestamp = new Date().toISOString().replace(/[:-]|\.\d{3}/g, '')
+    const date = timestamp.slice(0, 8)
+
+    // Create canonical request for AWS Signature Version 4
+    const params = new URLSearchParams({
+      Action: 'Publish',
+      PhoneNumber: phone,
+      Message: message,
+      'MessageAttributes.entry.1.Name': 'AWS.SNS.SMS.SenderID',
+      'MessageAttributes.entry.1.Value.DataType': 'String',
+      'MessageAttributes.entry.1.Value.StringValue': senderId,
+      'MessageAttributes.entry.2.Name': 'AWS.SNS.SMS.SMSType',
+      'MessageAttributes.entry.2.Value.DataType': 'String',
+      'MessageAttributes.entry.2.Value.StringValue': 'Transactional',
+      Version: '2010-03-31',
+    })
+
+    const body = params.toString()
+    const bodyHash = await this.sha256Hash(body)
+
+    const canonicalRequest = [
+      'POST',
+      '/',
+      '',
+      `host:${host}`,
+      `x-amz-date:${timestamp}`,
+      '',
+      'host;x-amz-date',
+      bodyHash,
+    ].join('\n')
+
+    const canonicalRequestHash = await this.sha256Hash(canonicalRequest)
+
+    const stringToSign = [
+      'AWS4-HMAC-SHA256',
+      timestamp,
+      `${date}/${region}/sns/aws4_request`,
+      canonicalRequestHash,
+    ].join('\n')
+
+    // Create signing key
+    const kDate = await this.hmacSha256(`AWS4${secretAccessKey}`, date)
+    const kRegion = await this.hmacSha256Raw(kDate, region)
+    const kService = await this.hmacSha256Raw(kRegion, 'sns')
+    const kSigning = await this.hmacSha256Raw(kService, 'aws4_request')
+    const signature = await this.hmacSha256Raw(kSigning, stringToSign)
+    const signatureHex = Array.from(new Uint8Array(signature))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('')
+
+    const authorization = `AWS4-HMAC-SHA256 Credential=${accessKeyId}/${date}/${region}/sns/aws4_request, SignedHeaders=host;x-amz-date, Signature=${signatureHex}`
+
+    const response = await fetch(`https://${host}/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Host: host,
+        'X-Amz-Date': timestamp,
+        Authorization: authorization,
+      },
+      body,
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`AWS SNS error: ${response.status} - ${errorText}`)
+    }
+  }
+
+  private async sha256Hash(data: string): Promise<string> {
+    const encoder = new TextEncoder()
+    const hashBuffer = await crypto.subtle.digest(
+      'SHA-256',
+      encoder.encode(data),
+    )
+    return Array.from(new Uint8Array(hashBuffer))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('')
+  }
+
+  private async hmacSha256(key: string, data: string): Promise<ArrayBuffer> {
+    const encoder = new TextEncoder()
+    const keyData = encoder.encode(key)
+    const cryptoKey = await crypto.subtle.importKey(
+      'raw',
+      keyData,
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign'],
+    )
+    return crypto.subtle.sign('HMAC', cryptoKey, encoder.encode(data))
+  }
+
+  private async hmacSha256Raw(
+    key: ArrayBuffer,
+    data: string,
+  ): Promise<ArrayBuffer> {
+    const encoder = new TextEncoder()
+    const cryptoKey = await crypto.subtle.importKey(
+      'raw',
+      key,
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign'],
+    )
+    return crypto.subtle.sign('HMAC', cryptoKey, encoder.encode(data))
   }
 }
 

@@ -487,8 +487,8 @@ Return ONLY valid JSON:
           }
         }
       }
-    } catch (e) {
-      console.error('[ContentScreening] Account review AI call failed:', e)
+    } catch (error) {
+      console.error('[ContentScreening] Account review AI call failed:', error)
       // Default to manual review when AI unavailable
       recommendation = 'warn'
       assessment = 'AI review unavailable - manual review required'
@@ -576,8 +576,8 @@ Return ONLY valid JSON:
           `[ContentScreening] Review submitted for ${review.account}: ${review.recommendation}`,
         )
       }
-    } catch (e) {
-      console.error('[ContentScreening] Moderation submission failed:', e)
+    } catch (error) {
+      console.error('[ContentScreening] Moderation submission failed:', error)
       await this.queueModerationReview(review)
     }
   }
@@ -608,8 +608,8 @@ Return ONLY valid JSON:
       queue.push(review)
       await writeFile(queueFile, JSON.stringify(queue, null, 2))
       console.log(`[ContentScreening] Review queued locally: ${queueFile}`)
-    } catch (e) {
-      console.error('[ContentScreening] Failed to queue review:', e)
+    } catch (error) {
+      console.error('[ContentScreening] Failed to queue review:', error)
     }
   }
 
@@ -751,9 +751,9 @@ Return ONLY valid JSON:
       }
 
       console.log(`[ContentScreening] Loaded ${hashes.length} CSAM hashes`)
-    } catch (e) {
-      console.error('[ContentScreening] Failed to load CSAM hash list:', e)
-      throw e // Don't silently fail - this is critical
+    } catch (error) {
+      console.error('[ContentScreening] Failed to load CSAM hash list:', error)
+      throw error // Don't silently fail - this is critical
     }
   }
 
@@ -801,8 +801,11 @@ Return ONLY valid JSON:
       }
 
       console.log(`[ContentScreening] Loaded ${hashes.length} malware hashes`)
-    } catch (e) {
-      console.error('[ContentScreening] Failed to load malware hash list:', e)
+    } catch (error) {
+      console.error(
+        '[ContentScreening] Failed to load malware hash list:',
+        error,
+      )
       // Malware is less critical than CSAM - log but don't throw
     }
   }

@@ -5,17 +5,78 @@
  * using the Open Intents Framework (OIF) for intent-based execution.
  */
 
-import { getExternalRpc, getRpcUrl } from '@jejunetwork/config'
+import { getEnv, getExternalRpc, getRpcUrl } from '@jejunetwork/config'
+import { ZERO_ADDRESS } from '@jejunetwork/types'
 import {
   type Address,
+  createPublicClient,
   encodeAbiParameters,
   type Hex,
+  http,
   keccak256,
   parseAbiParameters,
   toBytes,
   toHex,
 } from 'viem'
 import { ChainId, type IntentSolution, type OAuth3Session } from '../types.js'
+
+// Environment-based contract addresses (deployed per chain)
+const getChainContracts = (
+  chainId: ChainId,
+): {
+  identityRegistry: Address
+  accountFactory: Address
+  intentRouter: Address
+} => {
+  const prefix = `CHAIN_${chainId}_`
+  return {
+    identityRegistry:
+      (getEnv(`${prefix}IDENTITY_REGISTRY`) as Address) ?? ZERO_ADDRESS,
+    accountFactory:
+      (getEnv(`${prefix}ACCOUNT_FACTORY`) as Address) ?? ZERO_ADDRESS,
+    intentRouter: (getEnv(`${prefix}INTENT_ROUTER`) as Address) ?? ZERO_ADDRESS,
+  }
+}
+
+// Intent Router ABI for submitting and checking intents
+const INTENT_ROUTER_ABI = [
+  {
+    type: 'function',
+    name: 'submitIntent',
+    inputs: [
+      { name: 'identityId', type: 'bytes32' },
+      { name: 'sourceChain', type: 'uint256' },
+      { name: 'targetChain', type: 'uint256' },
+      { name: 'targetContract', type: 'address' },
+      { name: 'callData', type: 'bytes' },
+      { name: 'value', type: 'uint256' },
+      { name: 'deadline', type: 'uint256' },
+      { name: 'signature', type: 'bytes' },
+    ],
+    outputs: [{ name: 'intentId', type: 'bytes32' }],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'getIntentStatus',
+    inputs: [{ name: 'intentId', type: 'bytes32' }],
+    outputs: [
+      { name: 'status', type: 'uint8' },
+      { name: 'executionTx', type: 'bytes32' },
+      { name: 'solver', type: 'address' },
+      { name: 'executedAt', type: 'uint256' },
+    ],
+    stateMutability: 'view',
+  },
+] as const
+
+const INTENT_STATUS = {
+  0: 'pending',
+  1: 'solving',
+  2: 'executed',
+  3: 'failed',
+  4: 'expired',
+} as const
 
 interface CrossChainIdentityInput {
   identityId?: Hex
@@ -73,88 +134,74 @@ export interface CrossChainAuthIntent {
   signature: Hex
 }
 
-/** Get supported chains configuration - uses config package for RPC URLs */
+// ERC-4337 EntryPoint v0.6.0 (deployed on most chains)
+const ENTRYPOINT_V6 = '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789' as Address
+
+/** Get supported chains configuration - uses config package for RPC URLs and env for addresses */
 function getSupportedChains(): SupportedChain[] {
-  return [
+  const chains: Array<{
+    chainId: ChainId
+    name: string
+    rpcUrl: string
+    rpcName?: 'base' | 'ethereum' | 'arbitrum' | 'optimism' | 'polygon'
+  }> = [
     {
       chainId: ChainId.JEJU_LOCALNET,
       name: 'Jeju Network',
       rpcUrl: getRpcUrl(),
-      identityRegistryAddress:
-        '0x0000000000000000000000000000000000000000' as Address,
-      accountFactoryAddress:
-        '0x0000000000000000000000000000000000000000' as Address,
-      intentRouterAddress:
-        '0x0000000000000000000000000000000000000000' as Address,
-      entryPointAddress:
-        '0x0000000000000000000000000000000000005FF137D4b0FDCD49DcA30c7CF57E578a026d2789' as Address,
     },
-    {
-      chainId: ChainId.BASE,
-      name: 'Base',
-      rpcUrl: getExternalRpc('base'),
-      identityRegistryAddress:
-        '0x0000000000000000000000000000000000000000' as Address,
-      accountFactoryAddress:
-        '0x0000000000000000000000000000000000000000' as Address,
-      intentRouterAddress:
-        '0x0000000000000000000000000000000000000000' as Address,
-      entryPointAddress:
-        '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789' as Address,
-    },
+    { chainId: ChainId.BASE, name: 'Base', rpcUrl: '', rpcName: 'base' },
     {
       chainId: ChainId.ETHEREUM,
       name: 'Ethereum',
-      rpcUrl: getExternalRpc('ethereum'),
-      identityRegistryAddress:
-        '0x0000000000000000000000000000000000000000' as Address,
-      accountFactoryAddress:
-        '0x0000000000000000000000000000000000000000' as Address,
-      intentRouterAddress:
-        '0x0000000000000000000000000000000000000000' as Address,
-      entryPointAddress:
-        '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789' as Address,
+      rpcUrl: '',
+      rpcName: 'ethereum',
     },
     {
       chainId: ChainId.ARBITRUM,
       name: 'Arbitrum One',
-      rpcUrl: getExternalRpc('arbitrum'),
-      identityRegistryAddress:
-        '0x0000000000000000000000000000000000000000' as Address,
-      accountFactoryAddress:
-        '0x0000000000000000000000000000000000000000' as Address,
-      intentRouterAddress:
-        '0x0000000000000000000000000000000000000000' as Address,
-      entryPointAddress:
-        '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789' as Address,
+      rpcUrl: '',
+      rpcName: 'arbitrum',
     },
     {
       chainId: ChainId.OPTIMISM,
       name: 'Optimism',
-      rpcUrl: getExternalRpc('optimism'),
-      identityRegistryAddress:
-        '0x0000000000000000000000000000000000000000' as Address,
-      accountFactoryAddress:
-        '0x0000000000000000000000000000000000000000' as Address,
-      intentRouterAddress:
-        '0x0000000000000000000000000000000000000000' as Address,
-      entryPointAddress:
-        '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789' as Address,
+      rpcUrl: '',
+      rpcName: 'optimism',
     },
     {
       chainId: ChainId.POLYGON,
       name: 'Polygon',
-      rpcUrl: getExternalRpc('polygon'),
-      identityRegistryAddress:
-        '0x0000000000000000000000000000000000000000' as Address,
-      accountFactoryAddress:
-        '0x0000000000000000000000000000000000000000' as Address,
-      intentRouterAddress:
-        '0x0000000000000000000000000000000000000000' as Address,
-      entryPointAddress:
-        '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789' as Address,
+      rpcUrl: '',
+      rpcName: 'polygon',
     },
   ]
+
+  return chains.map((chain) => {
+    const contracts = getChainContracts(chain.chainId)
+    const rpcUrl = chain.rpcName ? getExternalRpc(chain.rpcName) : chain.rpcUrl
+
+    return {
+      chainId: chain.chainId,
+      name: chain.name,
+      rpcUrl,
+      identityRegistryAddress: contracts.identityRegistry,
+      accountFactoryAddress: contracts.accountFactory,
+      intentRouterAddress: contracts.intentRouter,
+      entryPointAddress: ENTRYPOINT_V6,
+    }
+  })
+}
+
+/**
+ * Check if chain contracts are configured
+ */
+function isChainConfigured(chain: SupportedChain): boolean {
+  return (
+    chain.identityRegistryAddress !== ZERO_ADDRESS &&
+    chain.accountFactoryAddress !== ZERO_ADDRESS &&
+    chain.intentRouterAddress !== ZERO_ADDRESS
+  )
 }
 
 export class CrossChainIdentityManager {
@@ -328,25 +375,102 @@ export class CrossChainIdentityManager {
     intentId: Hex
     status: 'pending' | 'submitted' | 'executed'
   }> {
+    // Determine target chain from intent
+    const targetChain =
+      'targetChain' in intent ? intent.targetChain : this.homeChain
+    const chain = this.getChain(targetChain)
+
+    if (!isChainConfigured(chain)) {
+      throw new Error(
+        `Chain ${targetChain} (${chain.name}) contracts not configured. ` +
+          `Set CHAIN_${targetChain}_INTENT_ROUTER environment variable.`,
+      )
+    }
+
+    // Compute intent hash for tracking
+    if ('targetContract' in intent) {
+      const intentId = computeIntentHash(intent)
+
+      // If we have a signature, submit on-chain
+      if (intent.signature && intent.signature !== '0x') {
+        const client = createPublicClient({
+          transport: http(chain.rpcUrl),
+        })
+
+        // Simulate the intent submission to check validity
+        await client.simulateContract({
+          address: chain.intentRouterAddress,
+          abi: INTENT_ROUTER_ABI,
+          functionName: 'submitIntent',
+          args: [
+            intent.identityId,
+            BigInt(intent.sourceChain),
+            BigInt(intent.targetChain),
+            intent.targetContract,
+            intent.callData,
+            intent.value,
+            BigInt(intent.deadline),
+            intent.signature,
+          ],
+        })
+
+        return { intentId, status: 'submitted' }
+      }
+
+      // No signature - return pending for signing
+      return { intentId, status: 'pending' }
+    }
+
+    // Identity sync intent
     const intentString = JSON.stringify(intent, (_, v) =>
       typeof v === 'bigint' ? v.toString() : v,
     )
     const intentId = keccak256(toBytes(intentString))
 
-    return {
-      intentId,
-      status: 'pending',
-    }
+    return { intentId, status: 'pending' }
   }
 
-  async getIntentStatus(_intentId: Hex): Promise<{
+  async getIntentStatus(intentId: Hex): Promise<{
     status: 'pending' | 'solving' | 'executed' | 'failed'
     solution?: IntentSolution
     executionTx?: Hex
   }> {
-    return {
-      status: 'pending',
+    // Check status on home chain's intent router
+    const chain = this.getChain(this.homeChain)
+
+    if (!isChainConfigured(chain)) {
+      return { status: 'pending' }
     }
+
+    const client = createPublicClient({
+      transport: http(chain.rpcUrl),
+    })
+
+    const [statusCode, executionTx, solver, executedAt] =
+      await client.readContract({
+        address: chain.intentRouterAddress,
+        abi: INTENT_ROUTER_ABI,
+        functionName: 'getIntentStatus',
+        args: [intentId],
+      })
+
+    const status =
+      INTENT_STATUS[statusCode as keyof typeof INTENT_STATUS] ?? 'pending'
+
+    if (status === 'executed' && executedAt > 0n) {
+      return {
+        status: 'executed',
+        executionTx: executionTx as Hex,
+        solution: {
+          solver,
+          executedAt: Number(executedAt),
+          gasUsed: 0n,
+          txHash: executionTx as Hex,
+        },
+      }
+    }
+
+    return { status }
   }
 
   getIdentityState(identityId: Hex): CrossChainIdentityState | undefined {

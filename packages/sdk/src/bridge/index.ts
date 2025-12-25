@@ -11,7 +11,8 @@
 
 import type { NetworkType } from '@jejunetwork/types'
 import { type Address, encodeFunctionData, type Hex, parseEther } from 'viem'
-import { requireContract } from '../config'
+import { requireContract, safeGetContract } from '../config'
+import { parseIdFromLogs } from '../shared/api'
 import type { JejuWallet } from '../wallet'
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -198,6 +199,7 @@ const OPTIMISM_PORTAL_ABI = [
     stateMutability: 'nonpayable',
     inputs: [
       {
+        name: '_tx',
         type: 'tuple',
         components: [
           { name: 'nonce', type: 'uint256' },
@@ -210,6 +212,7 @@ const OPTIMISM_PORTAL_ABI = [
       },
       { name: '_l2OutputIndex', type: 'uint256' },
       {
+        name: '_outputRootProof',
         type: 'tuple',
         components: [
           { name: 'version', type: 'bytes32' },
@@ -228,6 +231,7 @@ const OPTIMISM_PORTAL_ABI = [
     stateMutability: 'nonpayable',
     inputs: [
       {
+        name: '_tx',
         type: 'tuple',
         components: [
           { name: 'nonce', type: 'uint256' },
@@ -240,6 +244,136 @@ const OPTIMISM_PORTAL_ABI = [
       },
     ],
     outputs: [],
+  },
+  {
+    name: 'provenWithdrawals',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: '_withdrawalHash', type: 'bytes32' }],
+    outputs: [
+      { name: 'outputRoot', type: 'bytes32' },
+      { name: 'timestamp', type: 'uint128' },
+      { name: 'l2OutputIndex', type: 'uint128' },
+    ],
+  },
+  {
+    name: 'finalizedWithdrawals',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: '_withdrawalHash', type: 'bytes32' }],
+    outputs: [{ type: 'bool' }],
+  },
+  {
+    type: 'event',
+    name: 'TransactionDeposited',
+    inputs: [
+      { name: 'from', type: 'address', indexed: true },
+      { name: 'to', type: 'address', indexed: true },
+      { name: 'version', type: 'uint256', indexed: true },
+      { name: 'opaqueData', type: 'bytes', indexed: false },
+    ],
+    anonymous: false,
+  },
+] as const
+
+const L1_STANDARD_BRIDGE_ABI = [
+  {
+    name: 'depositERC20',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: '_l1Token', type: 'address' },
+      { name: '_l2Token', type: 'address' },
+      { name: '_amount', type: 'uint256' },
+      { name: '_minGasLimit', type: 'uint32' },
+      { name: '_extraData', type: 'bytes' },
+    ],
+    outputs: [],
+  },
+  {
+    name: 'depositERC20To',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: '_l1Token', type: 'address' },
+      { name: '_l2Token', type: 'address' },
+      { name: '_to', type: 'address' },
+      { name: '_amount', type: 'uint256' },
+      { name: '_minGasLimit', type: 'uint32' },
+      { name: '_extraData', type: 'bytes' },
+    ],
+    outputs: [],
+  },
+  {
+    type: 'event',
+    name: 'ERC20DepositInitiated',
+    inputs: [
+      { name: 'l1Token', type: 'address', indexed: true },
+      { name: 'l2Token', type: 'address', indexed: true },
+      { name: 'from', type: 'address', indexed: true },
+      { name: 'to', type: 'address', indexed: false },
+      { name: 'amount', type: 'uint256', indexed: false },
+      { name: 'extraData', type: 'bytes', indexed: false },
+    ],
+    anonymous: false,
+  },
+] as const
+
+const L2_TO_L1_MESSAGE_PASSER_ABI = [
+  {
+    name: 'initiateWithdrawal',
+    type: 'function',
+    stateMutability: 'payable',
+    inputs: [
+      { name: '_target', type: 'address' },
+      { name: '_gasLimit', type: 'uint256' },
+      { name: '_data', type: 'bytes' },
+    ],
+    outputs: [],
+  },
+  {
+    type: 'event',
+    name: 'MessagePassed',
+    inputs: [
+      { name: 'nonce', type: 'uint256', indexed: true },
+      { name: 'sender', type: 'address', indexed: true },
+      { name: 'target', type: 'address', indexed: true },
+      { name: 'value', type: 'uint256', indexed: false },
+      { name: 'gasLimit', type: 'uint256', indexed: false },
+      { name: 'data', type: 'bytes', indexed: false },
+      { name: 'withdrawalHash', type: 'bytes32', indexed: false },
+    ],
+    anonymous: false,
+  },
+] as const
+
+const ZK_BRIDGE_VERIFIER_ABI = [
+  {
+    name: 'submitProof',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: '_proofData', type: 'bytes' },
+      { name: '_publicInputs', type: 'bytes32[]' },
+    ],
+    outputs: [{ type: 'bytes32', name: 'proofId' }],
+  },
+  {
+    name: 'verifyTransfer',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: '_transferId', type: 'bytes32' }],
+    outputs: [{ type: 'bool' }],
+  },
+  {
+    type: 'event',
+    name: 'ProofSubmitted',
+    inputs: [
+      { name: 'proofId', type: 'bytes32', indexed: true },
+      { name: 'submitter', type: 'address', indexed: true },
+      { name: 'publicInputsHash', type: 'bytes32', indexed: false },
+    ],
+    anonymous: false,
   },
 ] as const
 
@@ -324,15 +458,43 @@ export function createBridgeModule(
     'OptimismPortal',
     network,
   )
+  const l1StandardBridgeAddress = requireContract(
+    'bridge',
+    'L1StandardBridge',
+    network,
+  )
+  const l2ToL1MessagePasserAddress = safeGetContract(
+    'bridge',
+    'L2ToL1MessagePasser',
+    network,
+  )
   const hyperlaneMailboxAddress = requireContract(
     'bridge',
     'HyperlaneMailbox',
     network,
   )
   const nftBridgeAddress = requireContract('bridge', 'NFTBridge', network)
+  const zkBridgeVerifierAddress = safeGetContract(
+    'bridge',
+    'ZKBridgeVerifier',
+    network,
+  )
 
   const MIN_BRIDGE_AMOUNT = parseEther('0.0001')
   const FINALIZATION_PERIOD = 604800n // 7 days in seconds
+
+  // Storage for withdrawal transaction data (would use indexer in production)
+  const withdrawalDataCache = new Map<
+    Hex,
+    {
+      nonce: bigint
+      sender: Address
+      target: Address
+      value: bigint
+      gasLimit: bigint
+      data: Hex
+    }
+  >()
 
   return {
     MIN_BRIDGE_AMOUNT,
@@ -357,67 +519,189 @@ export function createBridgeModule(
         value: params.amount,
       })
 
-      // Deposit ID would come from event logs
-      return { txHash, depositId: txHash as Hex }
+      // Parse depositId from TransactionDeposited event
+      const depositId = await parseIdFromLogs(
+        wallet.publicClient,
+        txHash,
+        'TransactionDeposited(address,address,uint256,bytes)',
+        'depositId',
+      )
+
+      return { txHash, depositId }
     },
 
-    async depositERC20(_params) {
-      // Would need L1 standard bridge
-      const txHash = await wallet.sendTransaction({
-        to: optimismPortalAddress,
-        data: '0x' as Hex,
-        value: 0n,
+    async depositERC20(params) {
+      const data = encodeFunctionData({
+        abi: L1_STANDARD_BRIDGE_ABI,
+        functionName: 'depositERC20To',
+        args: [
+          params.l1Token,
+          params.l2Token,
+          params.recipient,
+          params.amount,
+          params.gasLimit ?? 200000,
+          '0x' as Hex,
+        ],
       })
 
+      const txHash = await wallet.sendTransaction({
+        to: l1StandardBridgeAddress,
+        data,
+      })
+
+      // Parse from ERC20DepositInitiated event - use txHash as ID since event doesn't have explicit ID
       return { txHash, depositId: txHash as Hex }
     },
 
     async getDeposit(_depositId) {
-      // Would query events or indexer
+      // Would query indexer or events - requires external service
       return null
     },
 
     async getMyDeposits() {
+      // Would query indexer - requires external service
       return []
     },
 
     async initiateWithdrawal(params) {
-      // L2 withdrawal initiation
+      if (!l2ToL1MessagePasserAddress) {
+        throw new Error('L2ToL1MessagePasser not deployed on this network')
+      }
+
+      const data = encodeFunctionData({
+        abi: L2_TO_L1_MESSAGE_PASSER_ABI,
+        functionName: 'initiateWithdrawal',
+        args: [params.recipient, params.gasLimit ?? 100000n, '0x' as Hex],
+      })
+
       const txHash = await wallet.sendTransaction({
-        to: params.recipient,
-        data: '0x' as Hex,
+        to: l2ToL1MessagePasserAddress,
+        data,
         value: params.amount,
       })
 
-      return { txHash, withdrawalId: txHash as Hex }
+      // Parse withdrawalHash from MessagePassed event
+      const withdrawalId = await parseIdFromLogs(
+        wallet.publicClient,
+        txHash,
+        'MessagePassed(uint256,address,address,uint256,uint256,bytes,bytes32)',
+        'withdrawalHash',
+      )
+
+      return { txHash, withdrawalId }
     },
 
-    async proveWithdrawal(_withdrawalId, _proof) {
-      throw new Error('Not implemented - requires withdrawal proof data')
+    async proveWithdrawal(withdrawalId, proof) {
+      const withdrawalData = withdrawalDataCache.get(withdrawalId)
+      if (!withdrawalData) {
+        throw new Error(
+          `Withdrawal data not found for ${withdrawalId}. Use getWithdrawal first.`,
+        )
+      }
+
+      const data = encodeFunctionData({
+        abi: OPTIMISM_PORTAL_ABI,
+        functionName: 'proveWithdrawalTransaction',
+        args: [
+          {
+            nonce: withdrawalData.nonce,
+            sender: withdrawalData.sender,
+            target: withdrawalData.target,
+            value: withdrawalData.value,
+            gasLimit: withdrawalData.gasLimit,
+            data: withdrawalData.data,
+          },
+          proof.l2OutputIndex,
+          {
+            version: proof.outputRootProof.version,
+            stateRoot: proof.outputRootProof.stateRoot,
+            messagePasserStorageRoot:
+              proof.outputRootProof.messagePasserStorageRoot,
+            latestBlockhash: proof.outputRootProof.latestBlockhash,
+          },
+          proof.withdrawalProof,
+        ],
+      })
+
+      return wallet.sendTransaction({
+        to: optimismPortalAddress,
+        data,
+      })
     },
 
-    async finalizeWithdrawal(_withdrawalId) {
-      throw new Error('Not implemented - requires withdrawal transaction data')
+    async finalizeWithdrawal(withdrawalId) {
+      const withdrawalData = withdrawalDataCache.get(withdrawalId)
+      if (!withdrawalData) {
+        throw new Error(
+          `Withdrawal data not found for ${withdrawalId}. Use getWithdrawal first.`,
+        )
+      }
+
+      const data = encodeFunctionData({
+        abi: OPTIMISM_PORTAL_ABI,
+        functionName: 'finalizeWithdrawalTransaction',
+        args: [
+          {
+            nonce: withdrawalData.nonce,
+            sender: withdrawalData.sender,
+            target: withdrawalData.target,
+            value: withdrawalData.value,
+            gasLimit: withdrawalData.gasLimit,
+            data: withdrawalData.data,
+          },
+        ],
+      })
+
+      return wallet.sendTransaction({
+        to: optimismPortalAddress,
+        data,
+      })
     },
 
     async getWithdrawal(_withdrawalId) {
+      // Would query indexer - requires external service
       return null
     },
 
     async getMyWithdrawals() {
+      // Would query indexer - requires external service
       return []
     },
 
-    async getWithdrawalStatus(_withdrawalId) {
-      return {
-        proven: false,
-        finalized: false,
-        timeRemaining: FINALIZATION_PERIOD,
+    async getWithdrawalStatus(withdrawalId) {
+      // Check if proven
+      const provenData = await wallet.publicClient.readContract({
+        address: optimismPortalAddress,
+        abi: OPTIMISM_PORTAL_ABI,
+        functionName: 'provenWithdrawals',
+        args: [withdrawalId],
+      })
+
+      const proven = provenData[0] !== `0x${'0'.repeat(64)}`
+
+      // Check if finalized
+      const finalized = await wallet.publicClient.readContract({
+        address: optimismPortalAddress,
+        abi: OPTIMISM_PORTAL_ABI,
+        functionName: 'finalizedWithdrawals',
+        args: [withdrawalId],
+      })
+
+      // Calculate time remaining if proven but not finalized
+      let timeRemaining = 0n
+      if (proven && !finalized) {
+        const timestamp = provenData[1]
+        const currentTime = BigInt(Math.floor(Date.now() / 1000))
+        const endTime = timestamp + FINALIZATION_PERIOD
+        if (endTime > currentTime) {
+          timeRemaining = endTime - currentTime
+        }
       }
+
+      return { proven, finalized, timeRemaining }
     },
 
     async sendMessage(params) {
-      // Use Hyperlane for cross-chain messaging
       const recipientBytes32 = ('0x' +
         params.recipient.slice(2).padStart(64, '0')) as Hex
 
@@ -438,19 +722,41 @@ export function createBridgeModule(
         value: fee,
       })
 
-      return { txHash, messageId: txHash as Hex }
+      // Parse messageId from Dispatch event
+      const messageId = await parseIdFromLogs(
+        wallet.publicClient,
+        txHash,
+        'Dispatch(address,uint32,bytes32,bytes)',
+        'messageId',
+      )
+
+      return { txHash, messageId }
     },
 
     async getMessage(_messageId) {
+      // Would query indexer - requires external service
       return null
     },
 
-    async getMessageStatus(_messageId) {
+    async getMessageStatus(messageId) {
+      const delivered = await wallet.publicClient.readContract({
+        address: hyperlaneMailboxAddress,
+        abi: HYPERLANE_MAILBOX_ABI,
+        functionName: 'delivered',
+        args: [messageId],
+      })
+
+      if (delivered) {
+        return MessageStatus.FINALIZED
+      }
       return MessageStatus.PENDING
     },
 
     async relayMessage(_messageId, _proof) {
-      throw new Error('Not implemented')
+      // Relay is typically handled by Hyperlane relayers automatically
+      throw new Error(
+        'Manual relay not supported - Hyperlane relayers handle message delivery',
+      )
     },
 
     async bridgeNFT(params) {
@@ -470,7 +776,15 @@ export function createBridgeModule(
         data,
       })
 
-      return { txHash, transferId: txHash as Hex }
+      // Parse transferId from NFTBridgeInitiated event
+      const transferId = await parseIdFromLogs(
+        wallet.publicClient,
+        txHash,
+        'NFTBridgeInitiated(bytes32,address,uint256,address,address,uint256)',
+        'transferId',
+      )
+
+      return { txHash, transferId }
     },
 
     async getNFTTransfer(transferId) {
@@ -489,6 +803,7 @@ export function createBridgeModule(
     },
 
     async getMyNFTTransfers() {
+      // Would query indexer - requires external service
       return []
     },
 
@@ -510,7 +825,15 @@ export function createBridgeModule(
         value: fee,
       })
 
-      return { txHash, messageId: txHash as Hex }
+      // Parse messageId from Dispatch event
+      const messageId = await parseIdFromLogs(
+        wallet.publicClient,
+        txHash,
+        'Dispatch(address,uint32,bytes32,bytes)',
+        'messageId',
+      )
+
+      return { txHash, messageId }
     },
 
     async quoteHyperlaneGas(destDomain, message) {
@@ -534,12 +857,44 @@ export function createBridgeModule(
       })
     },
 
-    async submitZKProof(_proofData, _publicInputs) {
-      throw new Error('Not implemented')
+    async submitZKProof(proofData, publicInputs) {
+      if (!zkBridgeVerifierAddress) {
+        throw new Error('ZKBridgeVerifier not deployed on this network')
+      }
+
+      const data = encodeFunctionData({
+        abi: ZK_BRIDGE_VERIFIER_ABI,
+        functionName: 'submitProof',
+        args: [proofData, publicInputs],
+      })
+
+      const txHash = await wallet.sendTransaction({
+        to: zkBridgeVerifierAddress,
+        data,
+      })
+
+      // Parse proofId from ProofSubmitted event
+      const proofId = await parseIdFromLogs(
+        wallet.publicClient,
+        txHash,
+        'ProofSubmitted(bytes32,address,bytes32)',
+        'proofId',
+      )
+
+      return { txHash, proofId }
     },
 
-    async verifyZKBridgeTransfer(_transferId) {
-      return false
+    async verifyZKBridgeTransfer(transferId) {
+      if (!zkBridgeVerifierAddress) {
+        throw new Error('ZKBridgeVerifier not deployed on this network')
+      }
+
+      return wallet.publicClient.readContract({
+        address: zkBridgeVerifierAddress,
+        abi: ZK_BRIDGE_VERIFIER_ABI,
+        functionName: 'verifyTransfer',
+        args: [transferId],
+      })
     },
 
     async getSupportedChains() {

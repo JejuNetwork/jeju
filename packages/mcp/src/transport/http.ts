@@ -4,8 +4,8 @@
  * Provides a Bun-native HTTP server for handling MCP JSON-RPC requests.
  */
 
-import type { MCPAuthContext } from '../types/mcp'
 import type { MCPServer } from '../server/mcp-server'
+import type { MCPAuthContext } from '../types/mcp'
 
 /**
  * HTTP transport configuration
@@ -55,13 +55,10 @@ export class HTTPTransport {
 
         // Only accept POST requests
         if (request.method !== 'POST') {
-          return new Response(
-            JSON.stringify({ error: 'Method not allowed' }),
-            {
-              status: 405,
-              headers: this.getHeaders(corsOrigin),
-            },
-          )
+          return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+            status: 405,
+            headers: this.getHeaders(corsOrigin),
+          })
         }
 
         // Check content type
@@ -169,4 +166,3 @@ export function createHTTPTransport(
   transport.start()
   return transport
 }
-

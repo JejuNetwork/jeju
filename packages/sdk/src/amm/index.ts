@@ -840,33 +840,243 @@ export function createAMMModule(
       })
     },
 
-    async addLiquidityV2(_params) {
-      // Would need V2 router liquidity functions
-      throw new Error('Not implemented - use V2 router directly')
+    async addLiquidityV2(params) {
+      const data = encodeFunctionData({
+        abi: V2_ROUTER_ABI,
+        functionName: 'addLiquidity',
+        args: [
+          params.tokenA,
+          params.tokenB,
+          params.amountADesired,
+          params.amountBDesired,
+          params.amountAMin,
+          params.amountBMin,
+          params.recipient ?? wallet.address,
+          params.deadline ?? defaultDeadline(),
+        ],
+      })
+
+      const txHash = await wallet.sendTransaction({
+        to: routerAddress,
+        data,
+      })
+
+      // Parse liquidity from Mint event
+      const receipt = await wallet.publicClient.waitForTransactionReceipt({
+        hash: txHash,
+      })
+      // Liquidity is emitted in Mint event - extract from last topic or use estimate
+      const liquidity =
+        receipt.logs.length > 0 && receipt.logs[0].data.length >= 66
+          ? BigInt(`0x${receipt.logs[0].data.slice(2, 66)}`)
+          : 0n
+
+      return { txHash, liquidity }
     },
 
-    async removeLiquidityV2(_params) {
-      throw new Error('Not implemented - use V2 router directly')
+    async removeLiquidityV2(params) {
+      const data = encodeFunctionData({
+        abi: V2_ROUTER_ABI,
+        functionName: 'removeLiquidity',
+        args: [
+          params.tokenA,
+          params.tokenB,
+          params.liquidity,
+          params.amountAMin,
+          params.amountBMin,
+          params.recipient ?? wallet.address,
+          params.deadline ?? defaultDeadline(),
+        ],
+      })
+
+      const txHash = await wallet.sendTransaction({
+        to: routerAddress,
+        data,
+      })
+
+      // Parse amounts from Burn event
+      const receipt = await wallet.publicClient.waitForTransactionReceipt({
+        hash: txHash,
+      })
+      // Amounts are in event data
+      const amountA =
+        receipt.logs.length > 0 && receipt.logs[0].data.length >= 66
+          ? BigInt(`0x${receipt.logs[0].data.slice(2, 66)}`)
+          : 0n
+      const amountB =
+        receipt.logs.length > 0 && receipt.logs[0].data.length >= 130
+          ? BigInt(`0x${receipt.logs[0].data.slice(66, 130)}`)
+          : 0n
+
+      return { txHash, amountA, amountB }
     },
 
-    async addLiquidityETHV2(_params) {
-      throw new Error('Not implemented - use V2 router directly')
+    async addLiquidityETHV2(params) {
+      const data = encodeFunctionData({
+        abi: V2_ROUTER_ABI,
+        functionName: 'addLiquidityETH',
+        args: [
+          params.tokenA,
+          params.amountADesired,
+          params.amountAMin,
+          params.amountBMin,
+          params.recipient ?? wallet.address,
+          params.deadline ?? defaultDeadline(),
+        ],
+      })
+
+      const txHash = await wallet.sendTransaction({
+        to: routerAddress,
+        data,
+        value: params.ethAmount,
+      })
+
+      const receipt = await wallet.publicClient.waitForTransactionReceipt({
+        hash: txHash,
+      })
+      const liquidity =
+        receipt.logs.length > 0 && receipt.logs[0].data.length >= 66
+          ? BigInt(`0x${receipt.logs[0].data.slice(2, 66)}`)
+          : 0n
+
+      return { txHash, liquidity }
     },
 
-    async addLiquidityV3(_params) {
-      throw new Error('Not implemented - use position manager directly')
+    async addLiquidityV3(params) {
+      if (!v3PositionManagerAddress) {
+        throw new Error('V3 Position Manager not deployed on this network')
+      }
+
+      const data = encodeFunctionData({
+        abi: V3_POSITION_MANAGER_ABI,
+        functionName: 'mint',
+        args: [
+          {
+            token0: params.token0,
+            token1: params.token1,
+            fee: params.fee,
+            tickLower: params.tickLower,
+            tickUpper: params.tickUpper,
+            amount0Desired: params.amount0Desired,
+            amount1Desired: params.amount1Desired,
+            amount0Min: params.amount0Min,
+            amount1Min: params.amount1Min,
+            recipient: params.recipient ?? wallet.address,
+            deadline: params.deadline ?? defaultDeadline(),
+          },
+        ],
+      })
+
+      const txHash = await wallet.sendTransaction({
+        to: v3PositionManagerAddress,
+        data,
+      })
+
+      // Parse tokenId and liquidity from IncreaseLiquidity event
+      const receipt = await wallet.publicClient.waitForTransactionReceipt({
+        hash: txHash,
+      })
+      // TokenId is typically in topics[1], liquidity in data
+      const tokenId =
+        receipt.logs.length > 0 && receipt.logs[0].topics.length > 1
+          ? BigInt(receipt.logs[0].topics[1])
+          : 0n
+      const liquidity =
+        receipt.logs.length > 0 && receipt.logs[0].data.length >= 66
+          ? BigInt(`0x${receipt.logs[0].data.slice(2, 66)}`)
+          : 0n
+
+      return { txHash, tokenId, liquidity }
     },
 
-    async increaseLiquidityV3(_tokenId, _amount0Desired, _amount1Desired) {
-      throw new Error('Not implemented - use position manager directly')
+    async increaseLiquidityV3(tokenId, amount0Desired, amount1Desired) {
+      if (!v3PositionManagerAddress) {
+        throw new Error('V3 Position Manager not deployed on this network')
+      }
+
+      const data = encodeFunctionData({
+        abi: V3_POSITION_MANAGER_ABI,
+        functionName: 'increaseLiquidity',
+        args: [
+          {
+            tokenId,
+            amount0Desired,
+            amount1Desired,
+            amount0Min: 0n,
+            amount1Min: 0n,
+            deadline: defaultDeadline(),
+          },
+        ],
+      })
+
+      return wallet.sendTransaction({
+        to: v3PositionManagerAddress,
+        data,
+      })
     },
 
-    async decreaseLiquidityV3(_tokenId, _liquidity) {
-      throw new Error('Not implemented - use position manager directly')
+    async decreaseLiquidityV3(tokenId, liquidity) {
+      if (!v3PositionManagerAddress) {
+        throw new Error('V3 Position Manager not deployed on this network')
+      }
+
+      const data = encodeFunctionData({
+        abi: V3_POSITION_MANAGER_ABI,
+        functionName: 'decreaseLiquidity',
+        args: [
+          {
+            tokenId,
+            liquidity,
+            amount0Min: 0n,
+            amount1Min: 0n,
+            deadline: defaultDeadline(),
+          },
+        ],
+      })
+
+      return wallet.sendTransaction({
+        to: v3PositionManagerAddress,
+        data,
+      })
     },
 
-    async collectFeesV3(_tokenId) {
-      throw new Error('Not implemented - use position manager directly')
+    async collectFeesV3(tokenId) {
+      if (!v3PositionManagerAddress) {
+        throw new Error('V3 Position Manager not deployed on this network')
+      }
+
+      const data = encodeFunctionData({
+        abi: V3_POSITION_MANAGER_ABI,
+        functionName: 'collect',
+        args: [
+          {
+            tokenId,
+            recipient: wallet.address,
+            amount0Max: MAX_UINT128,
+            amount1Max: MAX_UINT128,
+          },
+        ],
+      })
+
+      const txHash = await wallet.sendTransaction({
+        to: v3PositionManagerAddress,
+        data,
+      })
+
+      // Parse collected amounts from Collect event
+      const receipt = await wallet.publicClient.waitForTransactionReceipt({
+        hash: txHash,
+      })
+      const amount0 =
+        receipt.logs.length > 0 && receipt.logs[0].data.length >= 66
+          ? BigInt(`0x${receipt.logs[0].data.slice(2, 66)}`)
+          : 0n
+      const amount1 =
+        receipt.logs.length > 0 && receipt.logs[0].data.length >= 130
+          ? BigInt(`0x${receipt.logs[0].data.slice(66, 130)}`)
+          : 0n
+
+      return { txHash, amount0, amount1 }
     },
 
     async getV2Pool(tokenA, tokenB) {
@@ -917,18 +1127,160 @@ export function createAMMModule(
       }
     },
 
-    async getV3Pool(_tokenA, _tokenB, _fee) {
-      // Would need to query V3 factory and pool
-      return null
+    async getV3Pool(tokenA, tokenB, fee) {
+      if (!v3FactoryAddress) {
+        return null
+      }
+
+      const poolAddress = (await wallet.publicClient.readContract({
+        address: v3FactoryAddress,
+        abi: V3_FACTORY_ABI,
+        functionName: 'getPool',
+        args: [tokenA, tokenB, fee],
+      })) as Address
+
+      if (poolAddress === '0x0000000000000000000000000000000000000000') {
+        return null
+      }
+
+      const [slot0, liquidity, token0, token1, poolFee, tickSpacing] =
+        await Promise.all([
+          wallet.publicClient.readContract({
+            address: poolAddress,
+            abi: V3_POOL_ABI,
+            functionName: 'slot0',
+          }),
+          wallet.publicClient.readContract({
+            address: poolAddress,
+            abi: V3_POOL_ABI,
+            functionName: 'liquidity',
+          }),
+          wallet.publicClient.readContract({
+            address: poolAddress,
+            abi: V3_POOL_ABI,
+            functionName: 'token0',
+          }),
+          wallet.publicClient.readContract({
+            address: poolAddress,
+            abi: V3_POOL_ABI,
+            functionName: 'token1',
+          }),
+          wallet.publicClient.readContract({
+            address: poolAddress,
+            abi: V3_POOL_ABI,
+            functionName: 'fee',
+          }),
+          wallet.publicClient.readContract({
+            address: poolAddress,
+            abi: V3_POOL_ABI,
+            functionName: 'tickSpacing',
+          }),
+        ])
+
+      const [sqrtPriceX96, tick] = slot0 as [bigint, number]
+
+      return {
+        poolAddress,
+        token0: token0 as Address,
+        token1: token1 as Address,
+        fee: poolFee as number,
+        tickSpacing: tickSpacing as number,
+        liquidity: liquidity as bigint,
+        sqrtPriceX96,
+        tick,
+      }
     },
 
-    async getV3Position(_tokenId) {
-      // Would need to query position manager
-      return null
+    async getV3Position(tokenId) {
+      if (!v3PositionManagerAddress) {
+        return null
+      }
+
+      const result = await wallet.publicClient.readContract({
+        address: v3PositionManagerAddress,
+        abi: V3_POSITION_MANAGER_ABI,
+        functionName: 'positions',
+        args: [tokenId],
+      })
+
+      const [
+        _nonce,
+        _operator,
+        token0,
+        token1,
+        fee,
+        tickLower,
+        tickUpper,
+        liquidity,
+        feeGrowthInside0LastX128,
+        feeGrowthInside1LastX128,
+        tokensOwed0,
+        tokensOwed1,
+      ] = result as [
+        bigint,
+        Address,
+        Address,
+        Address,
+        number,
+        number,
+        number,
+        bigint,
+        bigint,
+        bigint,
+        bigint,
+        bigint,
+      ]
+
+      if (liquidity === 0n && tokensOwed0 === 0n && tokensOwed1 === 0n) {
+        return null
+      }
+
+      return {
+        positionId: tokenId,
+        owner: wallet.address,
+        token0,
+        token1,
+        fee,
+        tickLower,
+        tickUpper,
+        liquidity,
+        feeGrowthInside0LastX128,
+        feeGrowthInside1LastX128,
+        tokensOwed0,
+        tokensOwed1,
+      }
     },
 
     async getMyV3Positions() {
-      return []
+      if (!v3PositionManagerAddress) {
+        return []
+      }
+
+      const balance = await wallet.publicClient.readContract({
+        address: v3PositionManagerAddress,
+        abi: V3_POSITION_MANAGER_ABI,
+        functionName: 'balanceOf',
+        args: [wallet.address],
+      })
+
+      const positions: AMMPosition[] = []
+      const balanceNum = Number(balance)
+
+      for (let i = 0; i < balanceNum; i++) {
+        const tokenId = await wallet.publicClient.readContract({
+          address: v3PositionManagerAddress,
+          abi: V3_POSITION_MANAGER_ABI,
+          functionName: 'tokenOfOwnerByIndex',
+          args: [wallet.address, BigInt(i)],
+        })
+
+        const position = await this.getV3Position(tokenId as bigint)
+        if (position) {
+          positions.push(position)
+        }
+      }
+
+      return positions
     },
 
     async getSpotPrice(tokenIn, tokenOut) {
@@ -959,8 +1311,31 @@ export function createAMMModule(
       return { txHash, pairAddress }
     },
 
-    async createV3Pool(_tokenA, _tokenB, _fee) {
-      throw new Error('Not implemented - use V3 factory directly')
+    async createV3Pool(tokenA, tokenB, fee) {
+      if (!v3FactoryAddress) {
+        throw new Error('V3 Factory not deployed on this network')
+      }
+
+      const data = encodeFunctionData({
+        abi: V3_FACTORY_ABI,
+        functionName: 'createPool',
+        args: [tokenA, tokenB, fee],
+      })
+
+      const txHash = await wallet.sendTransaction({
+        to: v3FactoryAddress,
+        data,
+      })
+
+      // Get the created pool address
+      const poolAddress = (await wallet.publicClient.readContract({
+        address: v3FactoryAddress,
+        abi: V3_FACTORY_ABI,
+        functionName: 'getPool',
+        args: [tokenA, tokenB, fee],
+      })) as Address
+
+      return { txHash, poolAddress }
     },
   }
 }

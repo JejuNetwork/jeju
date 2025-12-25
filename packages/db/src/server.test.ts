@@ -19,9 +19,7 @@ function createTestServer() {
   const databases = new Map<string, InstanceType<typeof SqliteDatabase>>()
   let blockHeight = 0
 
-  function getDatabase(
-    dbId: string,
-  ): InstanceType<typeof SqliteDatabase> {
+  function getDatabase(dbId: string): InstanceType<typeof SqliteDatabase> {
     let db = databases.get(dbId)
     if (!db) {
       const dbPath = `${TEST_DATA_DIR}/${dbId}.sqlite`
@@ -47,7 +45,12 @@ function createTestServer() {
       }
     })
     .post('/api/v1/query', ({ body, set }) => {
-      const { database, type, sql, params = [] } = body as {
+      const {
+        database,
+        type,
+        sql,
+        params = [],
+      } = body as {
         database: string
         type: 'query' | 'exec'
         sql: string
@@ -250,7 +253,10 @@ describe('CQL Development Server', () => {
       })
 
       expect(res.ok).toBe(true)
-      const data = (await res.json()) as { rowsAffected: number; lastInsertId: string }
+      const data = (await res.json()) as {
+        rowsAffected: number
+        lastInsertId: string
+      }
       expect(data.rowsAffected).toBe(1)
       expect(data.lastInsertId).toBe('1')
     })
@@ -268,7 +274,10 @@ describe('CQL Development Server', () => {
       })
 
       expect(res.ok).toBe(true)
-      const data = (await res.json()) as { rows: { id: number; name: string; email: string }[]; rowCount: number }
+      const data = (await res.json()) as {
+        rows: { id: number; name: string; email: string }[]
+        rowCount: number
+      }
       expect(data.rowCount).toBe(1)
       expect(data.rows[0].name).toBe('Alice')
       expect(data.rows[0].email).toBe('alice@example.com')
@@ -341,7 +350,9 @@ describe('CQL Development Server', () => {
   describe('Rental Plans', () => {
     it('should list available plans', async () => {
       const res = await fetch(`${baseUrl}/api/v1/plans`)
-      const data = (await res.json()) as { plans: { id: string; name: string }[] }
+      const data = (await res.json()) as {
+        plans: { id: string; name: string }[]
+      }
 
       expect(res.ok).toBe(true)
       expect(data.plans.length).toBeGreaterThan(0)
@@ -361,11 +372,14 @@ describe('CQL Development Server', () => {
       })
 
       expect(res.status).toBe(201)
-      const data = (await res.json()) as { id: string; databaseId: string; paymentStatus: string }
+      const data = (await res.json()) as {
+        id: string
+        databaseId: string
+        paymentStatus: string
+      }
       expect(data.id).toMatch(/^rental-/)
       expect(data.databaseId).toMatch(/^db-/)
       expect(data.paymentStatus).toBe('current')
     })
   })
 })
-

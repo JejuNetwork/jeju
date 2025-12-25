@@ -5,9 +5,13 @@
  * Without TEE_ENDPOINT, runs in local encrypted mode using TEE_ENCRYPTION_SECRET.
  */
 
-import { getEnv, requireEnv } from '@jejunetwork/shared'
+import { getEnv, getEnvBoolean, requireEnv } from '@jejunetwork/shared'
 import { type Address, type Hex, keccak256, toBytes, toHex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
+import {
+  type AttestationVerifier,
+  createAttestationVerifier,
+} from '../attestation-verifier.js'
 import {
   decryptFromPayload,
   deriveKeyFromSecret,
@@ -52,6 +56,7 @@ export class TEEProvider implements KMSProvider {
   private keys = new Map<string, EnclaveKey>()
   private attestation: TEEAttestation | undefined = undefined
   private teeClient: TEEClient | undefined = undefined
+  private attestationVerifier: AttestationVerifier
 
   constructor(config: TEEConfig) {
     this.config = config
@@ -63,6 +68,17 @@ export class TEEProvider implements KMSProvider {
 
     const secret = requireEnv('TEE_ENCRYPTION_SECRET')
     this.enclaveKey = deriveKeyFromSecret(secret)
+
+    // Configure attestation verifier based on mode
+    const teeType = this.remoteMode
+      ? ((getEnv('TEE_TYPE') as 'sgx' | 'nitro') ?? 'sgx')
+      : 'local'
+    this.attestationVerifier = createAttestationVerifier({
+      teeType,
+      allowLocalMode: !this.remoteMode || getEnvBoolean('TEE_ALLOW_LOCAL'),
+      iasApiKey: getEnv('INTEL_IAS_API_KEY'),
+      maxAttestationAgeMs: 60 * 60 * 1000, // 1 hour
+    })
   }
 
   async isAvailable(): Promise<boolean> {
@@ -281,7 +297,18 @@ export class TEEProvider implements KMSProvider {
   }
 
   async verifyAttestation(attestation: TEEAttestation): Promise<boolean> {
-    return Date.now() - attestation.timestamp < 60 * 60 * 1000
+    const result = await this.attestationVerifier.verify(attestation)
+
+    if (!result.valid) {
+      log.warn('Attestation verification failed', {
+        error: result.error,
+        teeType: result.teeType,
+        fresh: result.fresh,
+        measurementTrusted: result.measurementTrusted,
+      })
+    }
+
+    return result.valid
   }
 
   private async ensureConnected(): Promise<void> {

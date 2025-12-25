@@ -8,6 +8,7 @@ import { createLogger } from '@jejunetwork/shared'
 import {
   type Address,
   createPublicClient,
+  encodeAbiParameters,
   encodeFunctionData,
   type Hex,
   http,
@@ -17,6 +18,7 @@ import {
 import { base, baseSepolia } from 'viem/chains'
 
 const log = createLogger('key-registry-sync')
+
 import type { TEEXMTPKeyManager } from './key-manager'
 import type {
   KeyRegistration,
@@ -263,7 +265,10 @@ export class KeyRegistrySync {
       data,
     })
 
-    log.info('Rotated pre-key', { keyId: keyId.slice(0, 20), txHash: txHash.slice(0, 18) })
+    log.info('Rotated pre-key', {
+      keyId: keyId.slice(0, 20),
+      txHash: txHash.slice(0, 18),
+    })
 
     // Wait for confirmation
     const receipt = await this.publicClient.waitForTransactionReceipt({
@@ -397,21 +402,36 @@ export class KeyRegistrySync {
   }
 
   /**
-   * Encode attestation for on-chain storage
+   * Encode attestation for on-chain storage using proper ABI encoding
    */
   private encodeAttestation(attestation: TEEAttestation): Hex {
-    // ABI encode attestation struct
-    // In production, use proper ABI encoding
-    const encoded = JSON.stringify({
-      version: attestation.version,
-      enclaveId: attestation.enclaveId,
-      measurement: attestation.measurement,
-      nonce: attestation.nonce,
-      timestamp: attestation.timestamp,
-      signature: attestation.signature,
-    })
-
-    return `0x${Buffer.from(encoded).toString('hex')}` as Hex
+    // ABI encode attestation struct to match on-chain format
+    // This ensures consistent encoding/decoding between TypeScript and Solidity
+    return encodeAbiParameters(
+      [
+        {
+          type: 'tuple',
+          components: [
+            { name: 'version', type: 'uint256' },
+            { name: 'enclaveId', type: 'string' },
+            { name: 'measurement', type: 'bytes32' },
+            { name: 'nonce', type: 'bytes32' },
+            { name: 'timestamp', type: 'uint256' },
+            { name: 'signature', type: 'bytes' },
+          ],
+        },
+      ],
+      [
+        {
+          version: BigInt(attestation.version),
+          enclaveId: attestation.enclaveId,
+          measurement: attestation.measurement as `0x${string}`,
+          nonce: attestation.nonce as `0x${string}`,
+          timestamp: BigInt(attestation.timestamp),
+          signature: attestation.signature as `0x${string}`,
+        },
+      ],
+    )
   }
 }
 

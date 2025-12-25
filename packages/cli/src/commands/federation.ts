@@ -2,7 +2,7 @@
 
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { type NetworkType } from '@jejunetwork/config'
+import type { NetworkType } from '@jejunetwork/config'
 import chalk from 'chalk'
 import { Command } from 'commander'
 import { execa } from 'execa'
@@ -141,10 +141,16 @@ interface FederationDeployment {
   SolverRegistry?: string
 }
 
-function loadFederationAddresses(network: NetworkType = 'mainnet'): FederationDeployment {
+function loadFederationAddresses(
+  network: NetworkType = 'mainnet',
+): FederationDeployment {
   const rootDir = findMonorepoRoot()
   const paths = [
-    join(rootDir, 'packages/contracts/deployments', `federation-${network}.json`),
+    join(
+      rootDir,
+      'packages/contracts/deployments',
+      `federation-${network}.json`,
+    ),
     join(rootDir, 'packages/contracts/deployments', `l1-${network}.json`),
   ]
 
@@ -165,7 +171,7 @@ function loadFederationAddresses(network: NetworkType = 'mainnet'): FederationDe
 function getContractAddress(
   overrideAddress: string | undefined,
   deployedAddress: string | undefined,
-  contractName: string,
+  _contractName: string,
 ): `0x${string}` | null {
   const address = overrideAddress ?? deployedAddress
   if (!address || address === '0x0000000000000000000000000000000000000000') {
@@ -213,6 +219,7 @@ federationCommand
   .option('--explorer <url>', 'Your explorer URL')
   .option('--ws <url>', 'Your WebSocket URL')
   .option('--private-key <key>', 'Deployer private key')
+  .option('--network <network>', 'Hub network: mainnet | testnet', 'mainnet')
   .action(async (options) => {
     logger.header('JOIN JEJU FEDERATION')
 
@@ -230,21 +237,28 @@ federationCommand
       process.exit(1)
     }
 
+    // Load deployed addresses
+    const deployment = loadFederationAddresses(options.network as NetworkType)
+    const registryAddress = getContractAddress(
+      parent.networkRegistry,
+      deployment.NetworkRegistry,
+      'NetworkRegistry',
+    )
+
+    if (!registryAddress) {
+      console.log(chalk.red('Error: NetworkRegistry not deployed'))
+      console.log(
+        `Deploy with: jeju deploy federation --network ${options.network}`,
+      )
+      process.exit(1)
+    }
+
     const publicClient = createPublicClient({ transport: http(parent.hubRpc) })
     const account = privateKeyToAccount(options.privateKey as `0x${string}`)
     const walletClient = createWalletClient({
       account,
       transport: http(parent.hubRpc),
     })
-
-    const registryAddress = parent.networkRegistry || DEFAULT_NETWORK_REGISTRY
-    if (registryAddress === DEFAULT_NETWORK_REGISTRY) {
-      console.log(
-        chalk.yellow(
-          'Warning: Using default NetworkRegistry address. Deploy contracts first.',
-        ),
-      )
-    }
 
     const stakeAmount = parseEther(options.stake)
     const tierName =
@@ -260,6 +274,7 @@ federationCommand
     console.log(`  RPC: ${options.rpc}`)
     console.log(`  Stake: ${options.stake} ETH`)
     console.log(`  Trust Tier: ${tierName}`)
+    console.log(`  Registry: ${registryAddress}`)
     console.log()
 
     if (tierName === 'UNSTAKED') {
@@ -270,17 +285,47 @@ federationCommand
       console.log(chalk.yellow('Stake 1+ ETH to upgrade to STAKED tier.\n'))
     }
 
+    // Use deployed contract addresses if available
     const contracts = {
-      identityRegistry: '0x0000000000000000000000000000000000000000',
-      solverRegistry: '0x0000000000000000000000000000000000000000',
+      identityRegistry:
+        deployment.IdentityRegistry ??
+        '0x0000000000000000000000000000000000000000',
+      solverRegistry:
+        deployment.SolverRegistry ??
+        '0x0000000000000000000000000000000000000000',
       inputSettler: '0x0000000000000000000000000000000000000000',
       outputSettler: '0x0000000000000000000000000000000000000000',
       liquidityVault: '0x0000000000000000000000000000000000000000',
-      governance: '0x0000000000000000000000000000000000000000',
+      governance:
+        deployment.FederationGovernance ??
+        '0x0000000000000000000000000000000000000000',
       oracle: '0x0000000000000000000000000000000000000000',
-      registryHub: '0x0000000000000000000000000000000000000000',
+      registryHub:
+        deployment.RegistryHub ?? '0x0000000000000000000000000000000000000000',
     }
 
+    // Warn about missing contract deployments
+    const missingContracts = Object.entries(contracts)
+      .filter(
+        ([_, addr]) => addr === '0x0000000000000000000000000000000000000000',
+      )
+      .map(([name]) => name)
+
+    if (missingContracts.length > 0) {
+      console.log(
+        chalk.yellow(
+          `Warning: Some contracts not deployed: ${missingContracts.join(', ')}`,
+        ),
+      )
+      console.log(
+        chalk.yellow(
+          'You can update these later with: jeju federation update-contracts',
+        ),
+      )
+      console.log()
+    }
+
+    // Get genesis hash from chain config if available
     const genesisHash =
       '0x0000000000000000000000000000000000000000000000000000000000000000'
 
@@ -288,7 +333,7 @@ federationCommand
 
     const hash = await walletClient.writeContract({
       chain: null,
-      address: registryAddress as `0x${string}`,
+      address: registryAddress,
       abi: NETWORK_REGISTRY_ABI,
       functionName: 'registerNetwork',
       args: [
@@ -306,7 +351,7 @@ federationCommand
     console.log(`  Transaction: ${hash}`)
     await publicClient.waitForTransactionReceipt({ hash })
 
-    console.log(chalk.green('\nSuccessfully joined the Jeju Federation!'))
+    console.log(chalk.green('\nSuccessfully joined the Jeju Federation.'))
     console.log(`\nNext steps:`)
     console.log(`  1. Deploy your IdentityRegistry: jeju deploy identity`)
     console.log(
@@ -321,31 +366,46 @@ federationCommand
   .command('status')
   .description('Check federation status')
   .option('--chain-id <id>', 'Specific chain ID to check')
+  .option('--network <network>', 'Hub network: mainnet | testnet', 'mainnet')
   .action(async (options) => {
     logger.header('FEDERATION STATUS')
 
     const parent = federationCommand.opts()
     const publicClient = createPublicClient({ transport: http(parent.hubRpc) })
 
-    const registryAddress = parent.networkRegistry || DEFAULT_NETWORK_REGISTRY
-    const hubAddress = parent.registryHub || DEFAULT_REGISTRY_HUB
+    // Load deployed addresses
+    const deployment = loadFederationAddresses(options.network as NetworkType)
+    const registryAddress = getContractAddress(
+      parent.networkRegistry,
+      deployment.NetworkRegistry,
+      'NetworkRegistry',
+    )
+    const hubAddress = getContractAddress(
+      parent.registryHub,
+      deployment.RegistryHub,
+      'RegistryHub',
+    )
 
-    if (registryAddress === DEFAULT_NETWORK_REGISTRY) {
+    if (!registryAddress) {
       console.log(chalk.yellow('NetworkRegistry not deployed yet.\n'))
-      console.log('Deploy with: jeju deploy federation --network mainnet')
+      console.log(
+        `Deploy with: jeju deploy federation --network ${options.network}`,
+      )
       return
     }
 
     const registry = getContract({
-      address: registryAddress as `0x${string}`,
+      address: registryAddress,
       abi: NETWORK_REGISTRY_ABI,
       client: publicClient,
     })
-    const hub = getContract({
-      address: hubAddress as `0x${string}`,
-      abi: REGISTRY_HUB_ABI,
-      client: publicClient,
-    })
+    const hub = hubAddress
+      ? getContract({
+          address: hubAddress,
+          abi: REGISTRY_HUB_ABI,
+          client: publicClient,
+        })
+      : null
 
     if (options.chainId) {
       // Show specific network
@@ -393,7 +453,7 @@ federationCommand
       console.log(`  Active Networks: ${activeNetworks}`)
       console.log(`  Verified Networks: ${verifiedNetworks}`)
 
-      if (hubAddress !== DEFAULT_REGISTRY_HUB) {
+      if (hub) {
         const totalChains = (await hub.read.totalChains()) as bigint
         const totalRegistries = (await hub.read.totalRegistries()) as bigint
         const totalStaked = (await hub.read.totalStaked()) as bigint
@@ -411,20 +471,31 @@ federationCommand
   .description('List all federated networks')
   .option('--staked-only', 'Only show staked networks')
   .option('--verified-only', 'Only show verified networks')
+  .option('--network <network>', 'Hub network: mainnet | testnet', 'mainnet')
   .action(async (options) => {
     logger.header('FEDERATED NETWORKS')
 
     const parent = federationCommand.opts()
     const publicClient = createPublicClient({ transport: http(parent.hubRpc) })
 
-    const registryAddress = parent.networkRegistry || DEFAULT_NETWORK_REGISTRY
-    if (registryAddress === DEFAULT_NETWORK_REGISTRY) {
+    // Load deployed addresses
+    const deployment = loadFederationAddresses(options.network as NetworkType)
+    const registryAddress = getContractAddress(
+      parent.networkRegistry,
+      deployment.NetworkRegistry,
+      'NetworkRegistry',
+    )
+
+    if (!registryAddress) {
       console.log(chalk.yellow('NetworkRegistry not deployed yet.'))
+      console.log(
+        `Deploy with: jeju deploy federation --network ${options.network}`,
+      )
       return
     }
 
     const registry = getContract({
-      address: registryAddress as `0x${string}`,
+      address: registryAddress,
       abi: NETWORK_REGISTRY_ABI,
       client: publicClient,
     })
@@ -509,20 +580,31 @@ federationCommand
     'Filter by type (identity, compute, storage, solver, package, container, model)',
   )
   .option('--chain <chainId>', 'Filter by chain ID')
+  .option('--network <network>', 'Hub network: mainnet | testnet', 'mainnet')
   .action(async (options) => {
     logger.header('FEDERATED REGISTRIES')
 
     const parent = federationCommand.opts()
     const publicClient = createPublicClient({ transport: http(parent.hubRpc) })
 
-    const hubAddress = parent.registryHub || DEFAULT_REGISTRY_HUB
-    if (hubAddress === DEFAULT_REGISTRY_HUB) {
+    // Load deployed addresses
+    const deployment = loadFederationAddresses(options.network as NetworkType)
+    const hubAddress = getContractAddress(
+      parent.registryHub,
+      deployment.RegistryHub,
+      'RegistryHub',
+    )
+
+    if (!hubAddress) {
       console.log(chalk.yellow('RegistryHub not deployed yet.'))
+      console.log(
+        `Deploy with: jeju deploy federation --network ${options.network}`,
+      )
       return
     }
 
     const hub = getContract({
-      address: hubAddress as `0x${string}`,
+      address: hubAddress,
       abi: REGISTRY_HUB_ABI,
       client: publicClient,
     })
@@ -659,14 +741,20 @@ federationCommand
     '--status <status>',
     'Filter by status: pending_market | autocrat_review | approved | active',
   )
+  .option('--network <network>', 'Hub network: mainnet | testnet', 'mainnet')
   .action(async (options) => {
     logger.header('NETWORK VERIFICATION PROPOSALS')
 
     const parent = federationCommand.opts()
     const publicClient = createPublicClient({ transport: http(parent.hubRpc) })
 
-    const governanceAddress =
-      parent.federationGovernance || DEFAULT_FEDERATION_GOVERNANCE
+    // Load deployed addresses
+    const deployment = loadFederationAddresses(options.network as NetworkType)
+    const governanceAddress = getContractAddress(
+      parent.federationGovernance,
+      deployment.FederationGovernance,
+      'FederationGovernance',
+    )
 
     console.log(chalk.cyan('How Network Verification Works:\n'))
     console.log('1. Network stakes 10+ ETH → Auto-creates governance proposal')
@@ -693,14 +781,16 @@ federationCommand
     )
     console.log()
 
-    if (governanceAddress === DEFAULT_FEDERATION_GOVERNANCE) {
+    if (!governanceAddress) {
       console.log(chalk.yellow('FederationGovernance not deployed yet.\n'))
-      console.log('Deploy with: jeju deploy federation --network mainnet')
+      console.log(
+        `Deploy with: jeju deploy federation --network ${options.network}`,
+      )
       return
     }
 
     const governance = getContract({
-      address: governanceAddress as `0x${string}`,
+      address: governanceAddress,
       abi: FEDERATION_GOVERNANCE_ABI,
       client: publicClient,
     })
@@ -714,10 +804,14 @@ federationCommand
     )
 
     // Query proposals for each chain
-    const registryAddress = parent.networkRegistry || DEFAULT_NETWORK_REGISTRY
-    if (registryAddress !== DEFAULT_NETWORK_REGISTRY) {
+    const registryAddress = getContractAddress(
+      parent.networkRegistry,
+      deployment.NetworkRegistry,
+      'NetworkRegistry',
+    )
+    if (registryAddress) {
       const registry = getContract({
-        address: registryAddress as `0x${string}`,
+        address: registryAddress,
         abi: NETWORK_REGISTRY_ABI,
         client: publicClient,
       })
@@ -800,6 +894,7 @@ federationCommand
   .requiredOption('--evidence <ipfs>', 'IPFS hash of evidence')
   .requiredOption('--private-key <key>', 'Challenger private key')
   .option('--bond <eth>', 'Challenge bond in ETH (default: 1)', '1')
+  .option('--network <network>', 'Hub network: mainnet | testnet', 'mainnet')
   .action(async (options) => {
     logger.header('CHALLENGE NETWORK')
 
@@ -820,11 +915,19 @@ federationCommand
       process.exit(1)
     }
 
-    const governanceAddress =
-      parent.federationGovernance || DEFAULT_FEDERATION_GOVERNANCE
-    if (governanceAddress === DEFAULT_FEDERATION_GOVERNANCE) {
+    // Load deployed addresses
+    const deployment = loadFederationAddresses(options.network as NetworkType)
+    const governanceAddress = getContractAddress(
+      parent.federationGovernance,
+      deployment.FederationGovernance,
+      'FederationGovernance',
+    )
+
+    if (!governanceAddress) {
       console.log(chalk.red('FederationGovernance not deployed yet.'))
-      console.log('Deploy with: jeju deploy federation --network mainnet')
+      console.log(
+        `Deploy with: jeju deploy federation --network ${options.network}`,
+      )
       process.exit(1)
     }
 
@@ -861,7 +964,7 @@ federationCommand
 
     const hash = await walletClient.writeContract({
       chain: null,
-      address: governanceAddress as `0x${string}`,
+      address: governanceAddress,
       abi: FEDERATION_GOVERNANCE_ABI,
       functionName: 'challengeNetwork',
       args: [BigInt(options.chainId), reasonIndex, options.evidence],
@@ -885,14 +988,20 @@ federationCommand
 federationCommand
   .command('sequencer')
   .description('View current sequencer and rotation schedule')
-  .action(async () => {
+  .option('--network <network>', 'Hub network: mainnet | testnet', 'mainnet')
+  .action(async (options) => {
     logger.header('SEQUENCER STATUS')
 
     const parent = federationCommand.opts()
     const publicClient = createPublicClient({ transport: http(parent.hubRpc) })
 
-    const governanceAddress =
-      parent.federationGovernance || DEFAULT_FEDERATION_GOVERNANCE
+    // Load deployed addresses
+    const deployment = loadFederationAddresses(options.network as NetworkType)
+    const governanceAddress = getContractAddress(
+      parent.federationGovernance,
+      deployment.FederationGovernance,
+      'FederationGovernance',
+    )
 
     console.log(chalk.cyan('Sequencer Rotation Rules:\n'))
     console.log('  • Only VERIFIED networks can be sequencers')
@@ -908,14 +1017,16 @@ federationCommand
     console.log('  • Economic penalty for malicious behavior')
     console.log()
 
-    if (governanceAddress === DEFAULT_FEDERATION_GOVERNANCE) {
+    if (!governanceAddress) {
       console.log(chalk.yellow('FederationGovernance not deployed yet.\n'))
-      console.log('Deploy with: jeju deploy federation --network mainnet')
+      console.log(
+        `Deploy with: jeju deploy federation --network ${options.network}`,
+      )
       return
     }
 
     const governance = getContract({
-      address: governanceAddress as `0x${string}`,
+      address: governanceAddress,
       abi: FEDERATION_GOVERNANCE_ABI,
       client: publicClient,
     })
@@ -958,10 +1069,14 @@ federationCommand
     if (verifiedChainIds.length === 0) {
       console.log(chalk.gray('  No verified networks yet'))
     } else {
-      const registryAddress = parent.networkRegistry || DEFAULT_NETWORK_REGISTRY
-      if (registryAddress !== DEFAULT_NETWORK_REGISTRY) {
+      const registryAddress = getContractAddress(
+        parent.networkRegistry,
+        deployment.NetworkRegistry,
+        'NetworkRegistry',
+      )
+      if (registryAddress) {
         const registry = getContract({
-          address: registryAddress as `0x${string}`,
+          address: registryAddress,
           abi: NETWORK_REGISTRY_ABI,
           client: publicClient,
         })
@@ -991,14 +1106,20 @@ federationCommand
 federationCommand
   .command('guardians')
   .description('List federation guardians and their stats')
-  .action(async () => {
+  .option('--network <network>', 'Hub network: mainnet | testnet', 'mainnet')
+  .action(async (options) => {
     logger.header('FEDERATION GUARDIANS')
 
     const parent = federationCommand.opts()
     const publicClient = createPublicClient({ transport: http(parent.hubRpc) })
 
-    const governanceAddress =
-      parent.federationGovernance || DEFAULT_FEDERATION_GOVERNANCE
+    // Load deployed addresses
+    const deployment = loadFederationAddresses(options.network as NetworkType)
+    const governanceAddress = getContractAddress(
+      parent.federationGovernance,
+      deployment.FederationGovernance,
+      'FederationGovernance',
+    )
 
     console.log(chalk.cyan('Guardian Responsibilities:\n'))
     console.log('  • Vote on network challenges')
@@ -1014,14 +1135,16 @@ federationCommand
     console.log('  • Performance tracked over time')
     console.log()
 
-    if (governanceAddress === DEFAULT_FEDERATION_GOVERNANCE) {
+    if (!governanceAddress) {
       console.log(chalk.yellow('FederationGovernance not deployed yet.\n'))
-      console.log('Deploy with: jeju deploy federation --network mainnet')
+      console.log(
+        `Deploy with: jeju deploy federation --network ${options.network}`,
+      )
       return
     }
 
     const governance = getContract({
-      address: governanceAddress as `0x${string}`,
+      address: governanceAddress,
       abi: FEDERATION_GOVERNANCE_ABI,
       client: publicClient,
     })

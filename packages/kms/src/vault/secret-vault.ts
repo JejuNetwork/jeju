@@ -41,7 +41,12 @@ export interface SecretVersion {
 export interface SecretPolicy {
   allowedAddresses?: Address[]
   allowedRoles?: string[]
-  minStake?: bigint
+  /** Minimum stake requirement in USD */
+  minStakeUSD?: number
+  /** Chain for stake verification (default: base-sepolia) */
+  stakeChain?: string
+  /** Staking registry contract address */
+  stakeRegistryAddress?: Address
   expiresAt?: number
   maxAccessCount?: number
   rotationInterval?: number
@@ -317,13 +322,41 @@ export class SecretVault {
       if (accessCount >= policy.maxAccessCount) return false
     }
 
-    if (policy.minStake !== undefined && policy.minStake > 0n) {
-      log.warn('minStake check requires on-chain verification', {
-        secretId,
+    // Verify stake requirement on-chain
+    if (policy.minStakeUSD !== undefined && policy.minStakeUSD > 0) {
+      if (!policy.stakeRegistryAddress) {
+        log.warn('minStakeUSD requires stakeRegistryAddress', { secretId })
+        return false
+      }
+
+      const rpcUrl = getEnv('KMS_RPC_URL')
+      if (!rpcUrl) {
+        log.warn('KMS_RPC_URL not configured, stake verification disabled', {
+          secretId,
+        })
+        return false
+      }
+
+      const verifier = getOnChainVerifier({ defaultRpcUrl: rpcUrl })
+      const result = await verifier.verifyStake(
+        {
+          type: 'stake',
+          chain: policy.stakeChain ?? 'base-sepolia',
+          registryAddress: policy.stakeRegistryAddress,
+          minStakeUSD: policy.minStakeUSD,
+        },
         accessor,
-        required: policy.minStake.toString(),
-      })
-      return false
+      )
+
+      if (!result.success) {
+        log.info('Stake requirement not met', {
+          secretId,
+          accessor,
+          required: policy.minStakeUSD,
+          actual: result.value?.toString(),
+        })
+        return false
+      }
     }
 
     return true

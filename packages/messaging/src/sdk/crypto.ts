@@ -9,7 +9,7 @@
 
 import { gcm } from '@noble/ciphers/aes'
 import { randomBytes } from '@noble/ciphers/webcrypto'
-import { x25519 } from '@noble/curves/ed25519'
+import { ed25519, x25519 } from '@noble/curves/ed25519'
 import { hkdf } from '@noble/hashes/hkdf'
 import { sha256 } from '@noble/hashes/sha256'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils'
@@ -290,4 +290,106 @@ export function publicKeysEqual(a: Uint8Array, b: Uint8Array): boolean {
 export function hashContent(content: Uint8Array): string {
   const hash = sha256(content)
   return bytesToHex(hash)
+}
+
+/**
+ * Signing key pair type for ED25519
+ */
+export interface SigningKeyPair {
+  publicKey: Uint8Array
+  privateKey: Uint8Array
+}
+
+/**
+ * Generate an ED25519 signing key pair
+ */
+export function generateSigningKeyPair(): SigningKeyPair {
+  const privateKey = randomBytes(32)
+  const publicKey = ed25519.getPublicKey(privateKey)
+  return { publicKey, privateKey }
+}
+
+/**
+ * Derive an ED25519 signing key pair from a seed (e.g., wallet signature)
+ * Separate from encryption keys for security.
+ */
+export function deriveSigningKeyPairFromSeed(seed: Uint8Array): SigningKeyPair {
+  // Use HKDF to derive a proper private key from seed with different context
+  const privateKey = hkdf(sha256, seed, undefined, 'jeju-messaging-signing', 32)
+  const publicKey = ed25519.getPublicKey(privateKey)
+  return { publicKey, privateKey }
+}
+
+/**
+ * Sign a message with ED25519
+ * @param message - Message to sign (bytes or string)
+ * @param privateKey - ED25519 private key
+ * @returns Signature bytes
+ */
+export function signMessage(
+  message: Uint8Array | string,
+  privateKey: Uint8Array,
+): Uint8Array {
+  const msgBytes =
+    typeof message === 'string' ? new TextEncoder().encode(message) : message
+  return ed25519.sign(msgBytes, privateKey)
+}
+
+/**
+ * Verify an ED25519 signature
+ * @param signature - Signature bytes
+ * @param message - Original message
+ * @param publicKey - Signer's public key
+ * @returns true if valid
+ */
+export function verifySignature(
+  signature: Uint8Array,
+  message: Uint8Array | string,
+  publicKey: Uint8Array,
+): boolean {
+  const msgBytes =
+    typeof message === 'string' ? new TextEncoder().encode(message) : message
+  return ed25519.verify(signature, msgBytes, publicKey)
+}
+
+/**
+ * Create pre-key signature for on-chain registration.
+ * Signs the pre-key with the identity key to prove ownership.
+ * @param preKeyBytes - Pre-key public key bytes
+ * @param identityPrivateKey - Identity (signing) private key
+ * @param address - User's Ethereum address
+ * @returns Signature as hex string
+ */
+export function signPreKey(
+  preKeyBytes: Uint8Array,
+  identityPrivateKey: Uint8Array,
+  address: string,
+): `0x${string}` {
+  // Include address in the signed data to bind the pre-key to this user
+  const signaturePayload = new TextEncoder().encode(
+    `jeju-prekey:${address.toLowerCase()}:${bytesToHex(preKeyBytes)}`,
+  )
+  const signature = ed25519.sign(signaturePayload, identityPrivateKey)
+  return `0x${bytesToHex(signature)}` as `0x${string}`
+}
+
+/**
+ * Derive both encryption and signing key pairs from wallet signature.
+ * Returns separate key pairs for different purposes.
+ */
+export function deriveKeyPairsFromWallet(
+  walletAddress: string,
+  signature: string,
+): {
+  encryption: KeyPair
+  signing: SigningKeyPair
+} {
+  // Create deterministic seed from address + signature
+  const seedInput = `${walletAddress.toLowerCase()}:${signature}`
+  const seed = sha256(new TextEncoder().encode(seedInput))
+
+  return {
+    encryption: generateKeyPairFromSeed(seed),
+    signing: deriveSigningKeyPairFromSeed(seed),
+  }
 }

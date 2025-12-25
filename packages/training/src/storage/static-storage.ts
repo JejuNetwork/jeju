@@ -19,9 +19,11 @@
 import { gzipSync } from 'node:zlib'
 import { getServiceUrl } from '@jejunetwork/config'
 import { generateSnowflakeId, logger } from '@jejunetwork/shared'
-import type { TrajectoryRecord } from '../recording/trajectory-recorder'
-import type { TrajectoryStorage } from '../recording/trajectory-recorder'
-import type { LLMCallLogRecord } from '../recording/trajectory-recorder'
+import type {
+  LLMCallLogRecord,
+  TrajectoryRecord,
+  TrajectoryStorage,
+} from '../recording/trajectory-recorder'
 
 /**
  * Configuration for static storage
@@ -336,7 +338,9 @@ export class StaticTrajectoryStorage implements TrajectoryStorage {
     // Create combined JSONL content
     const jsonlContent = [
       `{"_type":"header","batchId":"${batchId}","appName":"${this.config.appName}","trajectoryCount":${items.length},"timestamp":"${new Date().toISOString()}"}`,
-      ...trajectoryLines.map((line) => `{"_type":"trajectory",${line.slice(1)}`),
+      ...trajectoryLines.map(
+        (line) => `{"_type":"trajectory",${line.slice(1)}`,
+      ),
       ...llmCallLines.map((line) => `{"_type":"llm_call",${line.slice(1)}`),
     ].join('\n')
 

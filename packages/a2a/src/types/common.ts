@@ -107,15 +107,13 @@ export type PaymentRequest = z.infer<typeof PaymentRequestSchema>
 
 /**
  * Payment verification parameters
+ *
+ * Only requestId and txHash are required - other fields are
+ * verified directly from the blockchain transaction.
  */
 export interface PaymentVerificationParams {
   requestId: string
   txHash: string
-  from: string
-  to: string
-  amount: string
-  timestamp: number
-  confirmed: boolean
 }
 
 /**

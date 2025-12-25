@@ -78,12 +78,8 @@ function handleStatus() {
   }
 }
 
-interface RequestContext {
-  set: { status: number }
-}
-
 // Combined query/exec handler - CQL client sends both to same endpoint
-function handleCQLQuery(rawBody: unknown, set: RequestContext['set']) {
+function handleCQLQuery(rawBody: unknown, set: { status?: number | string }) {
   const parseResult = CQLRequestSchema.safeParse(rawBody)
   if (!parseResult.success) {
     set.status = 400

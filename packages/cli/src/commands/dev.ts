@@ -273,7 +273,9 @@ async function deployAppsOnchain(
       process: workerProc,
     })
 
-    logger.success(`  ${manifest.displayName || manifest.name} backend started on port ${apiPort}`)
+    logger.success(
+      `  ${manifest.displayName || manifest.name} backend started on port ${apiPort}`,
+    )
   }
 
   logger.step('Starting JNS Gateway...')

@@ -266,4 +266,3 @@ describe('AgentDiscoveryQuery type', () => {
     expect(falseQuery.external).toBe('false')
   })
 })
-

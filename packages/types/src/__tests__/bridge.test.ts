@@ -79,15 +79,15 @@ describe('BridgeTransferSchema', () => {
   test('accepts transfer with optional tx hashes', () => {
     const transfer = {
       ...validTransfer,
-      sourceTxHash: '0x' + 'a'.repeat(64),
-      destinationTxHash: '0x' + 'b'.repeat(64),
+      sourceTxHash: `0x${'a'.repeat(64)}`,
+      destinationTxHash: `0x${'b'.repeat(64)}`,
       completedAt: Date.now() + 1800000,
     }
 
     const result = BridgeTransferSchema.safeParse(transfer)
     expect(result.success).toBe(true)
     if (result.success) {
-      expect(result.data.sourceTxHash).toBe('0x' + 'a'.repeat(64))
+      expect(result.data.sourceTxHash).toBe(`0x${'a'.repeat(64)}`)
     }
   })
 
@@ -215,12 +215,11 @@ describe('BridgeEventTypeSchema', () => {
     expect(BridgeEventTypeSchema.safeParse(eventType).success).toBe(true)
   })
 
-  test.each(invalidEventTypes)(
-    'rejects invalid event type: %s',
-    (eventType) => {
-      expect(BridgeEventTypeSchema.safeParse(eventType).success).toBe(false)
-    },
-  )
+  test.each(
+    invalidEventTypes,
+  )('rejects invalid event type: %s', (eventType) => {
+    expect(BridgeEventTypeSchema.safeParse(eventType).success).toBe(false)
+  })
 })
 
 describe('BridgeEventLogSchema', () => {
@@ -232,7 +231,7 @@ describe('BridgeEventLogSchema', () => {
     localToken: TEST_ADDRESS,
     remoteToken: TEST_ADDRESS_2,
     extraData: '0x',
-    transactionHash: '0x' + 'a'.repeat(64),
+    transactionHash: `0x${'a'.repeat(64)}`,
     blockNumber: 12345678,
     timestamp: Date.now(),
   }
@@ -288,4 +287,3 @@ describe('BridgeEventLogSchema', () => {
     expect(BridgeEventLogSchema.safeParse(eventLog).success).toBe(false)
   })
 })
-

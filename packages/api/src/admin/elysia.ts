@@ -14,7 +14,8 @@ interface AuthDerivedContext {
 }
 
 /** Admin context - index signature required for Elysia derive compatibility */
-export interface AdminContext extends Record<string, AdminUser | boolean | undefined> {
+export interface AdminContext
+  extends Record<string, AdminUser | boolean | undefined> {
   admin?: AdminUser
   isAdmin: boolean
 }

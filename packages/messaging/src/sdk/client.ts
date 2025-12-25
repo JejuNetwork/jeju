@@ -17,6 +17,7 @@ import {
 } from 'viem'
 
 const log = createLogger('messaging-client')
+
 import { privateKeyToAccount } from 'viem/accounts'
 import {
   MessagingClientConfigBaseSchema,
@@ -28,13 +29,15 @@ import { KEY_REGISTRY_ABI, MESSAGE_NODE_REGISTRY_ABI } from './abis'
 import {
   bytes32ToPublicKey,
   decryptMessage,
-  deriveKeyPairFromWallet,
+  deriveKeyPairsFromWallet,
   deserializeEncryptedMessage,
   encryptMessage,
   KEY_DERIVATION_MESSAGE,
   type KeyPair,
   publicKeyToBytes32,
+  type SigningKeyPair,
   serializeEncryptedMessage,
+  signPreKey,
 } from './crypto'
 import {
   type DeliveryReceiptData,
@@ -61,6 +64,7 @@ export class MessagingClient {
   private publicClient: PublicClient
   private walletClient?: WalletClient
   private keyPair?: KeyPair
+  private signingKeyPair?: SigningKeyPair
   private relayNode?: RelayNode
   private ws?: WebSocket
   private eventHandlers: Set<MessageEventHandler> = new Set()
@@ -88,15 +92,17 @@ export class MessagingClient {
    * Initialize the client: derive keys, register on-chain, connect to relay
    */
   async initialize(signature?: string): Promise<void> {
-    // 1. Derive or use provided key pair
-    if (!this.keyPair) {
+    // 1. Derive or use provided key pairs
+    if (!this.keyPair || !this.signingKeyPair) {
       if (!signature) {
         throw new MessagingError(
           'Signature required to derive messaging keys',
           ErrorCodes.UNAUTHORIZED,
         )
       }
-      this.keyPair = deriveKeyPairFromWallet(this.config.address, signature)
+      const keyPairs = deriveKeyPairsFromWallet(this.config.address, signature)
+      this.keyPair = keyPairs.encryption
+      this.signingKeyPair = keyPairs.signing
     }
 
     // 2. Check if key is registered on-chain
@@ -162,10 +168,22 @@ export class MessagingClient {
       )
     }
 
+    if (!this.signingKeyPair) {
+      throw new MessagingError(
+        'Signing key pair not initialized',
+        ErrorCodes.NO_KEY_BUNDLE,
+      )
+    }
+
     const identityKey = publicKeyToBytes32(this.keyPair.publicKey)
     // For MVP, use same key as signed pre-key (should rotate in production)
     const signedPreKey = identityKey
-    const preKeySignature = `0x${'00'.repeat(32)}` as Hex // Placeholder
+    // Sign the pre-key with the signing key to prove ownership
+    const preKeySignature = signPreKey(
+      this.keyPair.publicKey,
+      this.signingKeyPair.privateKey,
+      this.config.address,
+    )
 
     await this.walletClient.writeContract({
       chain: null, // Use chain from wallet client

@@ -1,28 +1,41 @@
 /**
  * Agent Runtime Factory
  *
- * Creates ElizaOS runtime instances for agents.
+ * Creates ElizaOS runtime instances for agents with Jeju plugins.
  *
  * @packageDocumentation
  */
 
-import type { Character, IAgentRuntime } from '@elizaos/core'
+import type { Character, IAgentRuntime, Plugin } from '@elizaos/core'
 import { logger } from '@jejunetwork/shared'
+import { createAutonomyPlugin } from '../plugins/autonomy'
+import { createCorePlugin } from '../plugins/core'
+import { createExperiencePlugin } from '../plugins/experience'
+import { createTrajectoryPlugin } from '../plugins/trajectory'
 import type { AgentConfig, AgentTemplate } from '../types'
 
 /**
  * Runtime creation options
  */
 export interface RuntimeCreationOptions {
-  plugins?: Array<Record<string, unknown>>
+  /** Additional plugins to include */
+  plugins?: Plugin[]
+  /** Override the default model */
   modelOverride?: string
+  /** Skip adding Jeju enhancement plugins */
   skipEnhancement?: boolean
+  /** Enable trading capabilities */
+  enableTrading?: boolean
+  /** Enable social capabilities */
+  enableSocial?: boolean
+  /** Enable trajectory logging */
+  enableTrajectoryLogging?: boolean
 }
 
 /**
  * Agent Runtime Factory
  *
- * Creates configured ElizaOS runtime instances.
+ * Creates configured ElizaOS runtime instances with Jeju plugins.
  */
 export class AgentRuntimeFactory {
   /**
@@ -30,14 +43,36 @@ export class AgentRuntimeFactory {
    */
   async createFromConfig(
     agent: AgentConfig,
-    _options: RuntimeCreationOptions = {},
+    options: RuntimeCreationOptions = {},
   ): Promise<IAgentRuntime> {
     logger.info('Creating runtime from config', {
       agentId: agent.id,
       modelTier: agent.modelTier,
     })
 
-    throw new Error('Not implemented - requires ElizaOS integration')
+    // Build character from agent config
+    const character = this.createCharacter(agent)
+
+    // Enhance with Jeju plugins
+    const enhancedCharacter = options.skipEnhancement
+      ? character
+      : this.enhanceCharacter(character, options)
+
+    // Use dynamic import to avoid circular dependency issues
+    const { AgentRuntime } = await import('@elizaos/core')
+
+    const runtime = new AgentRuntime({
+      agentId: agent.id,
+      character: enhancedCharacter,
+      token: process.env.JEJU_API_KEY ?? '',
+      modelProvider: 'openai', // Will be overridden by Jeju provider
+      evaluationModel:
+        options.modelOverride ?? this.getModelForTier(agent.modelTier),
+    })
+
+    logger.info('Runtime created successfully', { agentId: agent.id })
+
+    return runtime
   }
 
   /**
@@ -46,38 +81,180 @@ export class AgentRuntimeFactory {
   async createFromTemplate(
     template: AgentTemplate,
     agentId: string,
-    _options: RuntimeCreationOptions = {},
+    options: RuntimeCreationOptions = {},
   ): Promise<IAgentRuntime> {
     logger.info('Creating runtime from template', {
       agentId,
       archetype: template.archetype,
     })
 
-    throw new Error('Not implemented - requires ElizaOS integration')
+    // Build character from template
+    const character: Character = {
+      name: template.name,
+      bio: [template.bio],
+      system: template.system,
+      lore: [],
+      adjectives: template.personality.split(',').map((a) => a.trim()),
+      topics: [],
+      style: {
+        all: [template.personality],
+        chat: [],
+        post: [],
+      },
+      plugins: [],
+    }
+
+    // Enhance with Jeju plugins
+    const enhancedCharacter = options.skipEnhancement
+      ? character
+      : this.enhanceCharacter(character, options)
+
+    const { AgentRuntime } = await import('@elizaos/core')
+
+    const runtime = new AgentRuntime({
+      agentId,
+      character: enhancedCharacter,
+      token: process.env.JEJU_API_KEY ?? '',
+      modelProvider: 'openai',
+      evaluationModel: options.modelOverride ?? 'Qwen/Qwen2.5-3B-Instruct',
+    })
+
+    logger.info('Runtime created from template', {
+      agentId,
+      archetype: template.archetype,
+    })
+
+    return runtime
   }
 
   /**
-   * Create character from config
+   * Create character from agent config
    */
   createCharacter(agent: AgentConfig): Character {
     return {
       name: agent.name,
       bio: agent.description ? [agent.description] : [],
-      system: '',
-    } as Character
+      system: agent.character.system ?? '',
+      lore: agent.character.lore ?? [],
+      adjectives: agent.character.adjectives ?? [],
+      topics: agent.character.topics ?? [],
+      style: agent.character.style ?? {
+        all: [],
+        chat: [],
+        post: [],
+      },
+      plugins: agent.character.plugins ?? [],
+    }
   }
 
   /**
    * Enhance character with Jeju capabilities
    */
-  enhanceCharacter(character: Character): Character {
+  enhanceCharacter(
+    character: Character,
+    options: RuntimeCreationOptions = {},
+  ): Character {
+    const plugins: Plugin[] = []
+
+    // Add core plugin
+    plugins.push(
+      createCorePlugin({
+        enableTrading: options.enableTrading !== false,
+        enableSocial: options.enableSocial !== false,
+        enableA2A: true,
+      }),
+    )
+
+    // Add autonomy plugin
+    plugins.push(
+      createAutonomyPlugin({
+        enableTrading: options.enableTrading !== false,
+        enablePosting: options.enableSocial !== false,
+        enableCommenting: options.enableSocial !== false,
+        enableDMs: options.enableSocial !== false,
+      }),
+    )
+
+    // Add experience plugin
+    plugins.push(
+      createExperiencePlugin({
+        enableTrajectoryLogging: options.enableTrajectoryLogging !== false,
+        enableFeedbackCollection: true,
+      }),
+    )
+
+    // Add trajectory plugin if enabled
+    if (options.enableTrajectoryLogging !== false) {
+      plugins.push(
+        createTrajectoryPlugin({
+          batchSize: 50,
+          flushInterval: 60000,
+        }),
+      )
+    }
+
+    // Add any custom plugins from options
+    if (options.plugins) {
+      plugins.push(...options.plugins)
+    }
+
+    // Enhance system prompt with Jeju context
+    const enhancedSystem = `${character.system ?? ''}
+
+You are an AI agent on Jeju Network - a decentralized platform for prediction markets and social trading.
+
+Your capabilities include:
+- Trading on prediction markets and perpetual futures
+- Creating social posts and engaging with the community
+- Communicating with other AI agents via A2A protocol
+- Learning and improving from your experiences
+
+Always act in accordance with your goals and directives while respecting risk limits.`
+
     return {
       ...character,
-      plugins: [
-        ...(character.plugins ?? []),
-        // Jeju plugins will be added here
-      ],
+      system: enhancedSystem,
+      plugins: [...(character.plugins ?? []), ...plugins],
     }
+  }
+
+  /**
+   * Get model name for tier
+   */
+  private getModelForTier(tier: 'lite' | 'standard' | 'pro'): string {
+    switch (tier) {
+      case 'lite':
+        return 'Qwen/Qwen2.5-3B-Instruct'
+      case 'standard':
+        return 'Qwen/Qwen2.5-7B-Instruct'
+      case 'pro':
+        return 'meta-llama/Llama-3.1-70B-Instruct'
+      default:
+        return 'Qwen/Qwen2.5-3B-Instruct'
+    }
+  }
+
+  /**
+   * Create a minimal runtime for testing
+   */
+  async createTestRuntime(agentId: string): Promise<IAgentRuntime> {
+    const { AgentRuntime } = await import('@elizaos/core')
+
+    return new AgentRuntime({
+      agentId,
+      character: {
+        name: 'Test Agent',
+        bio: ['A test agent'],
+        system: 'You are a test agent.',
+        lore: [],
+        adjectives: [],
+        topics: [],
+        style: { all: [], chat: [], post: [] },
+        plugins: [],
+      },
+      token: 'test-token',
+      modelProvider: 'openai',
+    })
   }
 }
 

@@ -333,7 +333,9 @@ export class WebTorrentBackend extends EventEmitter {
     }
 
     // Check concurrent limit
-    if (this.clientOrThrow.torrents.length >= this.config.maxConcurrentTorrents) {
+    if (
+      this.clientOrThrow.torrents.length >= this.config.maxConcurrentTorrents
+    ) {
       await this.evictLowestPriority()
     }
 

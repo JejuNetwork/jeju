@@ -12,9 +12,12 @@ import type {
   JsonRpcResponse,
   JsonValue,
   MCPAuthContext,
+  MCPPrompt,
   MCPProtocolVersion,
+  MCPResource,
   MCPTool,
   MCPToolDefinition,
+  ResourcesListResult,
   StringRecord,
   ToolCallResult,
   ToolsListResult,
@@ -108,17 +111,7 @@ export type GetInitializeResultFn = (
 ) => InitializeResult
 
 /**
- * MCP Resource definition
- */
-export interface MCPResource {
-  uri: string
-  name: string
-  description?: string
-  mimeType?: string
-}
-
-/**
- * MCP Resource handler
+ * MCP Resource handler definition
  */
 export interface MCPResourceDefinition {
   resource: MCPResource
@@ -126,20 +119,7 @@ export interface MCPResourceDefinition {
 }
 
 /**
- * MCP Prompt definition
- */
-export interface MCPPrompt {
-  name: string
-  description?: string
-  arguments?: Array<{
-    name: string
-    description?: string
-    required?: boolean
-  }>
-}
-
-/**
- * MCP Prompt handler
+ * MCP Prompt handler definition
  */
 export interface MCPPromptDefinition {
   prompt: MCPPrompt
@@ -398,8 +378,17 @@ export class MCPRequestHandler {
     // Validate arguments if validator exists
     let validatedArgs: StringRecord<JsonValue> = params.arguments
     if (toolDef.validator) {
-      const validated = toolDef.validator(params.arguments)
-      validatedArgs = validated as StringRecord<JsonValue>
+      try {
+        const validated = toolDef.validator(params.arguments)
+        validatedArgs = validated as StringRecord<JsonValue>
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : String(err)
+        return this.createErrorResponse(
+          request.id,
+          -32602,
+          `Invalid arguments for ${params.name}: ${errorMessage}`,
+        )
+      }
     }
 
     // Execute tool
@@ -427,10 +416,11 @@ export class MCPRequestHandler {
     request: ValidatedJsonRpcRequest,
   ): JsonRpcResponse {
     const resources = this.getResources()
+    const result: ResourcesListResult = { resources }
     return {
       jsonrpc: '2.0',
       id: request.id,
-      result: { resources },
+      result,
     }
   }
 

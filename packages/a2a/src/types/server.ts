@@ -244,17 +244,9 @@ export interface IRegistryClient {
 }
 
 /**
- * Payment request result (matches PaymentRequest from a2a/types)
+ * Payment request result - re-exported from common for interface use
  */
-export interface PaymentRequestResult {
-  requestId: string
-  from: string
-  to: string
-  amount: string
-  service: string
-  metadata?: PaymentMetadata
-  expiresAt: number
-}
+export type PaymentRequestResult = PaymentRequest
 
 /**
  * X402 payment manager interface

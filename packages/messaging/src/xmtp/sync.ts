@@ -9,6 +9,7 @@ import { createLogger } from '@jejunetwork/shared'
 import { expectValid } from '@jejunetwork/types'
 
 const log = createLogger('xmtp-sync')
+
 import {
   IPFSAddResponseSchema,
   SyncEventsArraySchema,
@@ -35,6 +36,18 @@ export interface SyncPeer {
   cursor: string
 }
 
+/** Event handler functions for sync events */
+export interface SyncEventHandlers {
+  /** Called when a message event is received */
+  onMessage?: (envelope: XMTPEnvelope) => Promise<void>
+  /** Called when a conversation event is received */
+  onConversation?: (conversation: XMTPConversation) => Promise<void>
+  /** Called when an identity event is received */
+  onIdentity?: (data: Record<string, unknown>) => Promise<void>
+  /** Called when a group event is received */
+  onGroup?: (data: Record<string, unknown>) => Promise<void>
+}
+
 export interface SyncServiceConfig {
   /** Sync interval in ms */
   syncIntervalMs: number
@@ -46,6 +59,8 @@ export interface SyncServiceConfig {
   ipfsUrl?: string
   /** Max buffer size */
   maxBufferSize?: number
+  /** Event handlers - at least one handler should be provided */
+  handlers?: SyncEventHandlers
 }
 
 // Maximum event buffer size to prevent memory exhaustion
@@ -69,6 +84,14 @@ export class XMTPSyncService {
       persistencePath: config?.persistencePath,
       ipfsUrl: config?.ipfsUrl,
       maxBufferSize: config?.maxBufferSize ?? DEFAULT_MAX_BUFFER_SIZE,
+      handlers: config?.handlers,
+    }
+
+    // Warn if no handlers are configured
+    if (!config?.handlers || Object.keys(config.handlers).length === 0) {
+      log.warn(
+        'No event handlers configured - sync events will not be processed',
+      )
     }
 
     this.state = {
@@ -150,7 +173,10 @@ export class XMTPSyncService {
   private async syncWithPeer(peer: SyncPeer): Promise<void> {
     const events = await this.fetchEventsFromPeer(peer).catch(
       (error: Error) => {
-        log.error('Failed to sync with peer', { nodeId: peer.nodeId, error: error.message })
+        log.error('Failed to sync with peer', {
+          nodeId: peer.nodeId,
+          error: error.message,
+        })
         return []
       },
     )
@@ -229,18 +255,28 @@ export class XMTPSyncService {
    * Process a single event
    */
   private async processEvent(event: SyncEvent): Promise<void> {
+    const handlers = this.config.handlers
+
     switch (event.type) {
       case 'message':
-        // Store message
+        if (handlers?.onMessage) {
+          await handlers.onMessage(event.data as XMTPEnvelope)
+        }
         break
       case 'conversation':
-        // Update conversation
+        if (handlers?.onConversation) {
+          await handlers.onConversation(event.data as XMTPConversation)
+        }
         break
       case 'identity':
-        // Update identity
+        if (handlers?.onIdentity) {
+          await handlers.onIdentity(event.data as Record<string, unknown>)
+        }
         break
       case 'group':
-        // Update group
+        if (handlers?.onGroup) {
+          await handlers.onGroup(event.data as Record<string, unknown>)
+        }
         break
     }
 

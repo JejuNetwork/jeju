@@ -274,7 +274,7 @@ describe('Relay Server', () => {
     expect(response.headers.get('content-type')).toContain('text/plain')
 
     const metricsText = await response.text()
-    
+
     // Verify Prometheus format
     expect(metricsText).toContain('# HELP relay_messages_total')
     expect(metricsText).toContain('# TYPE relay_messages_total counter')
