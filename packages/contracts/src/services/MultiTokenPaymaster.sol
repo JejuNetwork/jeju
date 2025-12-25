@@ -130,10 +130,10 @@ contract MultiTokenPaymaster is BasePaymaster {
         address _revenueWallet,
         address _owner
     ) BasePaymaster(_entryPoint) {
-        require(_usdc != address(0), "Invalid USDC");
         if (_owner != msg.sender) {
             _transferOwnership(_owner);
         }
+        require(_usdc != address(0), "Invalid USDC");
         require(_elizaOS != address(0), "Invalid elizaOS");
         require(_creditManager != address(0), "Invalid credit manager"); 
         require(_serviceRegistry != address(0), "Invalid service registry");
@@ -146,10 +146,6 @@ contract MultiTokenPaymaster is BasePaymaster {
         serviceRegistry = IServiceRegistry(_serviceRegistry);
         priceOracle = IPriceOracle(_priceOracle);
         revenueWallet = _revenueWallet;
-        
-        if (_owner != msg.sender) {
-            _transferOwnership(_owner);
-        }
     }
 
     // ============ Core Paymaster Logic ============

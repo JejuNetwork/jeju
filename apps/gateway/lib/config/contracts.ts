@@ -39,7 +39,11 @@ const TESTNET_CONTRACTS: NetworkContracts = {
   liquidityAggregator: getAddress('0x9A676e781A523b5d0C0e43731313A708CB607508'),
 }
 
-// Mainnet addresses - update when deployed
+/**
+ * Mainnet contract addresses.
+ * These must be populated before mainnet launch.
+ * Any code using mainnet contracts will throw at runtime if addresses are not set.
+ */
 const MAINNET_CONTRACTS: NetworkContracts = {
   jejuToken: ZERO_ADDRESS,
   identityRegistry: ZERO_ADDRESS,
@@ -55,6 +59,23 @@ const MAINNET_CONTRACTS: NetworkContracts = {
   liquidityAggregator: ZERO_ADDRESS,
 }
 
+/**
+ * Validates that a contract address is deployed (not zero address) for the current network.
+ * Throws an error if using an undeployed contract on mainnet.
+ */
+function validateContractDeployed(
+  address: Address,
+  contractName: string,
+): Address {
+  if (NETWORK === 'mainnet' && address === ZERO_ADDRESS) {
+    throw new Error(
+      `Contract ${contractName} is not deployed on mainnet. ` +
+        'Update MAINNET_CONTRACTS in lib/config/contracts.ts with the deployed address.',
+    )
+  }
+  return address
+}
+
 const CONTRACTS_BY_NETWORK: Record<NetworkId, NetworkContracts> = {
   testnet: TESTNET_CONTRACTS,
   mainnet: MAINNET_CONTRACTS,
@@ -62,25 +83,55 @@ const CONTRACTS_BY_NETWORK: Record<NetworkId, NetworkContracts> = {
 }
 
 // Export individual addresses for server-side use
-export const JEJU_TOKEN_ADDRESS = CONTRACTS_BY_NETWORK[NETWORK].jejuToken
-export const IDENTITY_REGISTRY_ADDRESS =
-  CONTRACTS_BY_NETWORK[NETWORK].identityRegistry
-export const BAN_MANAGER_ADDRESS = CONTRACTS_BY_NETWORK[NETWORK].banManager
-export const MODERATION_MARKETPLACE_ADDRESS =
-  CONTRACTS_BY_NETWORK[NETWORK].moderationMarketplace
-export const REPORTING_SYSTEM_ADDRESS =
-  CONTRACTS_BY_NETWORK[NETWORK].reportingSystem
-export const REPUTATION_LABEL_MANAGER_ADDRESS =
-  CONTRACTS_BY_NETWORK[NETWORK].reputationLabelManager
-export const INPUT_SETTLER_ADDRESS = CONTRACTS_BY_NETWORK[NETWORK].inputSettler
-export const OUTPUT_SETTLER_ADDRESS =
-  CONTRACTS_BY_NETWORK[NETWORK].outputSettler
-export const SOLVER_REGISTRY_ADDRESS =
-  CONTRACTS_BY_NETWORK[NETWORK].solverRegistry
-export const OIF_ORACLE_ADDRESS = CONTRACTS_BY_NETWORK[NETWORK].oifOracle
-export const XLP_ROUTER_ADDRESS = CONTRACTS_BY_NETWORK[NETWORK].xlpRouter
-export const LIQUIDITY_AGGREGATOR_ADDRESS =
-  CONTRACTS_BY_NETWORK[NETWORK].liquidityAggregator
+// Each getter validates that the contract is deployed on mainnet
+export const JEJU_TOKEN_ADDRESS = validateContractDeployed(
+  CONTRACTS_BY_NETWORK[NETWORK].jejuToken,
+  'jejuToken',
+)
+export const IDENTITY_REGISTRY_ADDRESS = validateContractDeployed(
+  CONTRACTS_BY_NETWORK[NETWORK].identityRegistry,
+  'identityRegistry',
+)
+export const BAN_MANAGER_ADDRESS = validateContractDeployed(
+  CONTRACTS_BY_NETWORK[NETWORK].banManager,
+  'banManager',
+)
+export const MODERATION_MARKETPLACE_ADDRESS = validateContractDeployed(
+  CONTRACTS_BY_NETWORK[NETWORK].moderationMarketplace,
+  'moderationMarketplace',
+)
+export const REPORTING_SYSTEM_ADDRESS = validateContractDeployed(
+  CONTRACTS_BY_NETWORK[NETWORK].reportingSystem,
+  'reportingSystem',
+)
+export const REPUTATION_LABEL_MANAGER_ADDRESS = validateContractDeployed(
+  CONTRACTS_BY_NETWORK[NETWORK].reputationLabelManager,
+  'reputationLabelManager',
+)
+export const INPUT_SETTLER_ADDRESS = validateContractDeployed(
+  CONTRACTS_BY_NETWORK[NETWORK].inputSettler,
+  'inputSettler',
+)
+export const OUTPUT_SETTLER_ADDRESS = validateContractDeployed(
+  CONTRACTS_BY_NETWORK[NETWORK].outputSettler,
+  'outputSettler',
+)
+export const SOLVER_REGISTRY_ADDRESS = validateContractDeployed(
+  CONTRACTS_BY_NETWORK[NETWORK].solverRegistry,
+  'solverRegistry',
+)
+export const OIF_ORACLE_ADDRESS = validateContractDeployed(
+  CONTRACTS_BY_NETWORK[NETWORK].oifOracle,
+  'oifOracle',
+)
+export const XLP_ROUTER_ADDRESS = validateContractDeployed(
+  CONTRACTS_BY_NETWORK[NETWORK].xlpRouter,
+  'xlpRouter',
+)
+export const LIQUIDITY_AGGREGATOR_ADDRESS = validateContractDeployed(
+  CONTRACTS_BY_NETWORK[NETWORK].liquidityAggregator,
+  'liquidityAggregator',
+)
 
 export interface TokenConfig {
   symbol: string

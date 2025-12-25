@@ -1,3 +1,4 @@
+import { getChainId, getRpcUrl } from '@jejunetwork/config'
 import { RATE_LIMITS, type RateTier } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import { type Address, type Chain, createPublicClient, http } from 'viem'
@@ -36,8 +37,8 @@ const RPC_STAKING_ABI = [
 ] as const
 
 const STAKING_ADDR = process.env.RPC_STAKING_ADDRESS as Address | undefined
-const RPC_URL = process.env.JEJU_RPC_URL || 'http://localhost:6546'
-const CHAIN_ID = Number(process.env.JEJU_CHAIN_ID || 420690)
+const RPC_URL = getRpcUrl()
+const CHAIN_ID = getChainId()
 
 const chain: Chain = {
   id: CHAIN_ID,

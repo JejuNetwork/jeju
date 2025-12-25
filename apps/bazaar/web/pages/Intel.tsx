@@ -1,10 +1,16 @@
 /**
  * Intel Page - AI-powered market analysis
+ *
+ * Market intelligence requires integration with data providers.
+ * This page indicates that the feature is pending.
  */
+
+import { ArrowRight } from 'lucide-react'
+import { Link } from 'react-router-dom'
 
 export default function IntelPage() {
   return (
-    <div>
+    <div className="max-w-4xl mx-auto">
       <div className="mb-6">
         <h1
           className="text-2xl sm:text-3xl md:text-4xl font-bold mb-1"
@@ -20,37 +26,116 @@ export default function IntelPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="card p-5">
+      <div className="card p-6 mb-6">
+        <div className="text-center">
+          <div className="text-5xl mb-4">🔧</div>
           <h3
-            className="font-semibold mb-3"
+            className="text-lg font-semibold mb-2"
             style={{ color: 'var(--text-primary)' }}
           >
-            🤖 Market Sentiment
+            Data Integration Pending
           </h3>
-          <div className="text-3xl font-bold text-green-400 mb-2">Bullish</div>
-          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-            Based on on-chain activity and social signals
+          <p
+            className="text-sm mb-4"
+            style={{ color: 'var(--text-secondary)' }}
+          >
+            Market intelligence requires integration with on-chain analytics and
+            social data providers. This feature is currently being developed.
           </p>
         </div>
+      </div>
 
-        <div className="card p-5">
-          <h3
-            className="font-semibold mb-3"
-            style={{ color: 'var(--text-primary)' }}
+      <div className="card p-6">
+        <h3
+          className="text-lg font-semibold mb-4"
+          style={{ color: 'var(--text-primary)' }}
+        >
+          Explore Markets
+        </h3>
+        <div className="space-y-3">
+          <Link
+            to="/charts"
+            className="flex items-center justify-between p-3 rounded-lg hover:bg-white/5 transition-colors"
+            style={{ backgroundColor: 'var(--bg-secondary)' }}
           >
-            📈 Trending Tokens
-          </h3>
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span style={{ color: 'var(--text-primary)' }}>JEJU</span>
-              <span className="text-green-400">+15.5%</span>
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">📊</span>
+              <div>
+                <div
+                  className="font-medium"
+                  style={{ color: 'var(--text-primary)' }}
+                >
+                  Charts
+                </div>
+                <div
+                  className="text-xs"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  View token price charts
+                </div>
+              </div>
             </div>
-            <div className="flex justify-between text-sm">
-              <span style={{ color: 'var(--text-primary)' }}>ETH</span>
-              <span className="text-green-400">+2.5%</span>
+            <ArrowRight
+              className="h-5 w-5"
+              style={{ color: 'var(--text-tertiary)' }}
+            />
+          </Link>
+
+          <Link
+            to="/coins"
+            className="flex items-center justify-between p-3 rounded-lg hover:bg-white/5 transition-colors"
+            style={{ backgroundColor: 'var(--bg-secondary)' }}
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">🪙</span>
+              <div>
+                <div
+                  className="font-medium"
+                  style={{ color: 'var(--text-primary)' }}
+                >
+                  Coins
+                </div>
+                <div
+                  className="text-xs"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  Browse tokens and their metrics
+                </div>
+              </div>
             </div>
-          </div>
+            <ArrowRight
+              className="h-5 w-5"
+              style={{ color: 'var(--text-tertiary)' }}
+            />
+          </Link>
+
+          <Link
+            to="/markets"
+            className="flex items-center justify-between p-3 rounded-lg hover:bg-white/5 transition-colors"
+            style={{ backgroundColor: 'var(--bg-secondary)' }}
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">🎯</span>
+              <div>
+                <div
+                  className="font-medium"
+                  style={{ color: 'var(--text-primary)' }}
+                >
+                  Prediction Markets
+                </div>
+                <div
+                  className="text-xs"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  Trade on outcomes
+                </div>
+              </div>
+            </div>
+            <ArrowRight
+              className="h-5 w-5"
+              style={{ color: 'var(--text-tertiary)' }}
+            />
+          </Link>
         </div>
       </div>
     </div>

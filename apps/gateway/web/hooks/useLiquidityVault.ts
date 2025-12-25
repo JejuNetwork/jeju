@@ -84,13 +84,8 @@ export function useLiquidityVault(
   const { isLoading: isConfirmingRemove, isSuccess: isRemoveSuccess } =
     useWaitForTransactionReceipt({ hash: removeHash })
 
-  const {
-    // claimWrite unused but may be needed for future claim functionality
-    data: claimHash,
-    isPending: isClaiming,
-  } = useWriteContract()
-  const { isLoading: isConfirmingClaim, isSuccess: isClaimSuccess } =
-    useWaitForTransactionReceipt({ hash: claimHash })
+  // Note: ERC4626 vaults auto-compound rewards, so no claim transaction is needed
+  // isClaimSuccess is always false since no claim tx is ever submitted
 
   const addETHLiquidity = useCallback(
     async (amount: bigint | string) => {
@@ -122,9 +117,14 @@ export function useLiquidityVault(
     [vaultAddress, userAddress, removeETHWrite],
   )
 
+  /**
+   * Claim accumulated fees from the vault.
+   * Note: ERC4626 vaults auto-compound rewards, so this is a no-op.
+   * The isClaimSuccess state will remain false as no transaction is submitted.
+   */
   const claimFees = useCallback(async () => {
-    // Note: claimFees not available in ERC4626 vault - rewards are auto-compounded
-    console.warn('claimFees: Not supported in this vault implementation')
+    // ERC4626 vaults auto-compound rewards into share value
+    // No explicit claim action is needed - rewards are reflected in share price
   }, [])
 
   // Convert object format from ABI to tuple format expected by parseLPPosition
@@ -148,15 +148,10 @@ export function useLiquidityVault(
     removeETHLiquidity,
     claimFees,
     isLoading:
-      isAddingETH ||
-      isConfirmingAdd ||
-      isRemovingETH ||
-      isConfirmingRemove ||
-      isClaiming ||
-      isConfirmingClaim,
+      isAddingETH || isConfirmingAdd || isRemovingETH || isConfirmingRemove,
     isAddSuccess,
     isRemoveSuccess,
-    isClaimSuccess,
+    isClaimSuccess: false, // ERC4626 vaults auto-compound, no claim tx needed
     refetchPosition,
   }
 }

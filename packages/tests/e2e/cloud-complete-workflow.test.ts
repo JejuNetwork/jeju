@@ -51,7 +51,6 @@ const logger = new Logger('cloud-complete-workflow')
 let publicClient: PublicClient
 let cloudOperator: WalletClient
 let cloudOperatorAccount: Account
-let _cloudAgentSigner: WalletClient
 let cloudAgentAccount: Account
 let testUser: WalletClient
 let testUserAccount: Account
@@ -82,11 +81,6 @@ describe('Complete User Workflow E2E', () => {
     cloudAgentAccount = privateKeyToAccount(
       '0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a' as `0x${string}`,
     )
-    _cloudAgentSigner = createWalletClient({
-      account: cloudAgentAccount,
-      chain,
-      transport: http(rpcUrl),
-    })
 
     testUserAccount = privateKeyToAccount(
       '0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6' as `0x${string}`,

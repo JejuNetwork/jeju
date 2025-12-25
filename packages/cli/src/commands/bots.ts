@@ -2,12 +2,16 @@
 
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
+import {
+  getChainId as getConfigChainId,
+  getRpcUrl as getConfigRpcUrl,
+  type NetworkType,
+} from '@jejunetwork/config'
 import { spawn } from 'bun'
 import { Command } from 'commander'
 import { getChainStatus } from '../lib/chain'
 import { logger } from '../lib/logger'
 import { findMonorepoRoot } from '../lib/system'
-import { DEFAULT_PORTS } from '../types'
 
 const AVAILABLE_STRATEGIES = [
   'tfmm-rebalancer',
@@ -29,19 +33,13 @@ function getBotsDir(): string {
 }
 
 function getRpcUrl(network: string): string {
-  if (network === 'localnet') {
-    return `http://localhost:${DEFAULT_PORTS.l2Rpc}`
-  }
-  if (network === 'testnet') {
-    return process.env.TESTNET_RPC_URL || 'https://testnet-rpc.jejunetwork.org'
-  }
-  return process.env.MAINNET_RPC_URL || 'https://rpc.jejunetwork.org'
+  const net = network as NetworkType
+  return getConfigRpcUrl(net)
 }
 
 function getChainId(network: string): number {
-  if (network === 'localnet') return 901
-  if (network === 'testnet') return 84532
-  return 8453
+  const net = network as NetworkType
+  return getConfigChainId(net)
 }
 
 export const botsCommand = new Command('bots')

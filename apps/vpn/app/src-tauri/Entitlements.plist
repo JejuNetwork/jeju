@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Allow app to be sandboxed (required for App Store) -->
+    <key>com.apple.security.app-sandbox</key>
+    <true/>
+
+    <!-- Network access for VPN functionality -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+    <key>com.apple.security.network.server</key>
+    <true/>
+
+    <!-- VPN entitlement for Network Extension -->
+    <key>com.apple.developer.networking.vpn.api</key>
+    <array>
+        <string>allow-vpn</string>
+    </array>
+
+    <!-- Network Extension entitlement -->
+    <key>com.apple.developer.networking.networkextension</key>
+    <array>
+        <string>packet-tunnel-provider</string>
+    </array>
+
+    <!-- Allow outgoing connections -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+
+    <!-- Allow system notifications -->
+    <key>com.apple.security.temporary-exception.apple-events</key>
+    <array>
+        <string>com.apple.notificationcenterui</string>
+    </array>
+
+    <!-- Keychain access for storing credentials -->
+    <key>com.apple.security.keychain-access-groups</key>
+    <array>
+        <string>$(AppIdentifierPrefix)network.jeju.vpn</string>
+    </array>
+</dict>
+</plist>
+

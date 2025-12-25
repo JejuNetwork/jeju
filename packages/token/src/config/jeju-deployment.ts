@@ -6,6 +6,7 @@
  * as the home chain, with synthetic copies on other EVM chains and Solana.
  */
 
+import { getRpcUrl } from '@jejunetwork/config'
 import type { ChainConfig } from '../types'
 import {
   arbitrum,
@@ -117,7 +118,7 @@ export const JEJU_MAINNET_CONFIG = {
     chainId: 420691, // Jeju Mainnet chain ID (TBD)
     chainType: 'evm' as const,
     name: 'Jeju Network',
-    rpcUrl: process.env.JEJU_MAINNET_RPC_URL ?? 'https://rpc.jejunetwork.org',
+    rpcUrl: getRpcUrl('mainnet'),
     blockExplorerUrl: 'https://explorer.jejunetwork.org',
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
     hyperlaneMailbox: process.env.JEJU_MAINNET_HYPERLANE_MAILBOX ?? '',

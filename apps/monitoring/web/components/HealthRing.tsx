@@ -5,6 +5,7 @@ interface HealthRingProps {
   label?: string
   value?: string
   status?: 'success' | 'warning' | 'error'
+  loading?: boolean
 }
 
 export function HealthRing({
@@ -14,7 +15,22 @@ export function HealthRing({
   label,
   value,
   status,
+  loading,
 }: HealthRingProps) {
+  if (loading) {
+    return (
+      <div
+        className="relative inline-flex items-center justify-center"
+        data-testid="health-ring-loading"
+      >
+        <div
+          className="rounded-full shimmer"
+          style={{ width: size, height: size }}
+        />
+      </div>
+    )
+  }
+
   const radius = (size - strokeWidth) / 2
   const circumference = radius * 2 * Math.PI
   const offset = circumference - (percentage / 100) * circumference
@@ -26,7 +42,10 @@ export function HealthRing({
   }
 
   return (
-    <div className="relative inline-flex items-center justify-center">
+    <div
+      className="relative inline-flex items-center justify-center"
+      data-testid="health-ring"
+    >
       <svg
         width={size}
         height={size}

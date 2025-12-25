@@ -698,6 +698,23 @@ export async function fetchResearcherStats(address: string) {
   return extractData(response)
 }
 
+export interface ResearcherLeaderboardEntry {
+  researcher: string
+  totalSubmissions: number
+  approvedSubmissions: number
+  totalEarned: string
+  successRate: number
+}
+
+export async function fetchResearcherLeaderboard(
+  limit = 10,
+): Promise<{ entries: ResearcherLeaderboardEntry[]; total: number }> {
+  const response = await api.api.v1['bug-bounty'].leaderboard.get({
+    query: { limit: String(limit) },
+  })
+  return extractData(response)
+}
+
 export async function fetchDAOs() {
   const response = await api.api.v1.dao.list.get()
   return extractData(response)

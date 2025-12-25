@@ -34,7 +34,7 @@ export function QueryExplorer() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="query-page">
       {/* Header */}
       <h1 className="text-2xl md:text-3xl font-bold text-gradient">Query</h1>
 

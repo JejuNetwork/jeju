@@ -1,3 +1,4 @@
+import { getChainId, getRpcUrl } from '@jejunetwork/config'
 import type {
   NodeMetrics,
   OracleNodeConfig,
@@ -23,7 +24,7 @@ import {
   FEED_REGISTRY_ABI,
   NETWORK_CONNECTOR_ABI,
   REPORT_VERIFIER_ABI,
-} from './abis'
+} from '@jejunetwork/shared'
 import { type PriceData, PriceFetcher } from './price-fetcher'
 
 const ZERO_BYTES32 =
@@ -340,8 +341,8 @@ export function createNodeConfig(): OracleNodeConfig {
   const zeroAddress = '0x0000000000000000000000000000000000000000' as Address
 
   return {
-    rpcUrl: process.env.RPC_URL || 'http://localhost:6546',
-    chainId: parseInt(process.env.CHAIN_ID || '31337', 10),
+    rpcUrl: getRpcUrl(),
+    chainId: getChainId(),
     operatorPrivateKey: (process.env.OPERATOR_PRIVATE_KEY ||
       '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80') as Hex,
     workerPrivateKey: (process.env.WORKER_PRIVATE_KEY ||

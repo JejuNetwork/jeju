@@ -7,6 +7,7 @@
  * @packageDocumentation
  */
 
+import { getExternalRpc } from '@jejunetwork/config'
 import { logger } from '@jejunetwork/shared'
 import {
   type AgentCapabilities,
@@ -479,15 +480,17 @@ export function createAgent0Client(): Agent0Client {
     ? networkEnv
     : 'localnet'
 
-  const rpcUrl =
-    process.env.AGENT0_RPC_URL ??
-    (network === 'localnet'
-      ? 'http://localhost:6545'
-      : network === 'sepolia'
-        ? (process.env.ETHEREUM_SEPOLIA_RPC_URL ??
-          'https://ethereum-sepolia-rpc.publicnode.com')
-        : (process.env.ETHEREUM_RPC_URL ??
-          'https://ethereum-rpc.publicnode.com'))
+  // Get RPC URL from config (which supports env overrides)
+  let rpcUrl = process.env.AGENT0_RPC_URL
+  if (!rpcUrl) {
+    if (network === 'localnet') {
+      rpcUrl = 'http://localhost:6545'
+    } else if (network === 'sepolia') {
+      rpcUrl = getExternalRpc('sepolia')
+    } else {
+      rpcUrl = getExternalRpc('ethereum')
+    }
+  }
 
   const privateKey = process.env.AGENT0_PRIVATE_KEY
   const ipfsEnv = process.env.AGENT0_IPFS_PROVIDER ?? 'node'

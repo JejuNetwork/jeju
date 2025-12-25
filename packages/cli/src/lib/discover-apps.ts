@@ -10,8 +10,6 @@ const AppManifestSchema = z
     $schema: z.string().optional(),
     name: z.string().regex(/^[a-z0-9-]+$/),
     displayName: z.string().optional(),
-    slug: z.string().optional(),
-    _folderName: z.string().optional(),
     version: z.string().regex(/^\d+\.\d+\.\d+(-[a-z0-9.]+)?$/),
     type: z
       .enum(['core', 'service', 'vendor', 'app', 'utility'])
@@ -19,6 +17,8 @@ const AppManifestSchema = z
       .default('core'),
     description: z.string().optional(),
     category: z.string().optional(),
+    slug: z.string().optional(),
+    _folderName: z.string().optional(),
     commands: z
       .object({
         dev: z.string().optional(),

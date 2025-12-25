@@ -40,7 +40,7 @@ import {
   sanitizeString,
   // Key Vault
   storeKey,
-} from '../src/api-marketplace'
+} from '../api/api-marketplace'
 
 const TEST_USER: Address = '0x1234567890123456789012345678901234567890'
 const TEST_SELLER: Address = '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd'

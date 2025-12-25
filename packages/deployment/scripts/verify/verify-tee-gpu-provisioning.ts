@@ -10,6 +10,7 @@
  * 5. Verify on-chain state
  */
 
+import { getCurrentNetwork } from '@jejunetwork/config'
 import { createPublicClient, createWalletClient, type Hex, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { baseSepolia, localhost } from 'viem/chains'
@@ -70,7 +71,7 @@ async function runTest(
 
 // Setup
 
-const network = process.env.NETWORK ?? 'localnet'
+const network = getCurrentNetwork()
 const rpcUrl =
   process.env.RPC_URL ??
   (network === 'localnet' ? 'http://localhost:6546' : undefined)

@@ -307,6 +307,14 @@ export const ServicesNetworkConfigSchema = z.object({
       tee: UrlString,
     })
     .optional(),
+  tee: z
+    .object({
+      mode: z.enum(['simulated', 'phala', 'gcp', 'aws']),
+      platform: z.enum(['local', 'phala', 'gcp-confidential', 'aws-nitro']),
+      region: z.string().min(1).optional(),
+      endpoint: UrlString.optional(),
+    })
+    .optional(),
   oracle: z
     .object({
       api: UrlString,

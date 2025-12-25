@@ -80,7 +80,8 @@ export function createNodeServices(
     staticAssets: staticConfig,
   } = config
 
-  // Get operator address from config or use a placeholder for bridge
+  // Bridge service requires operator address - defaults to ZERO_ADDRESS when not provided
+  // Services will validate and error if operator address is required for specific operations
   const operatorAddress = bridgeConfig?.operatorAddress ?? ZERO_ADDRESS
 
   const fullBridgeConfig: BridgeServiceConfig = {

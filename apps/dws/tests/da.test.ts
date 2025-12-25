@@ -15,8 +15,8 @@ import {
   Disperser,
   generateSampleIndices,
   verifyProof,
-} from '../src/da'
-import type { DAOperatorInfo } from '../src/da/types'
+} from '../api/da'
+import type { DAOperatorInfo } from '../api/da/types'
 
 describe('Reed-Solomon Erasure Coding', () => {
   it('should encode and decode data correctly', () => {
@@ -167,7 +167,7 @@ describe('Blob Manager', () => {
       data: data1,
       submitter: testAddress,
     })
-    const { blob: _blob2 } = blobManager.submit({
+    blobManager.submit({
       data: data2,
       submitter: testAddress,
     })

@@ -10,14 +10,7 @@
 
 import { beforeAll, describe, expect, test } from 'bun:test'
 import { rawDeployments } from '@jejunetwork/contracts'
-import {
-  createPublicClient,
-  createWalletClient,
-  formatEther,
-  http,
-  type PublicClient,
-  type WalletClient,
-} from 'viem'
+import { createPublicClient, formatEther, http, type PublicClient } from 'viem'
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
 import { getLocalnetRpcUrl } from '../../packages/deployment/scripts/shared/get-localnet-rpc'
 import { TEST_ACCOUNTS } from '../shared/utils'
@@ -48,8 +41,7 @@ interface TokenDeployment {
 describe('Uniswap V4 Integration Tests', () => {
   let rpcUrl: string
   let publicClient: PublicClient
-  let _walletClient: WalletClient
-  let account: PrivateKeyAccount
+  let _account: PrivateKeyAccount
   let v4Deployment: V4Deployment
   let tokenDeployment: TokenDeployment
 
@@ -59,14 +51,9 @@ describe('Uniswap V4 Integration Tests', () => {
     console.log(`📡 Using RPC: ${rpcUrl}`)
 
     // Create clients
-    account = privateKeyToAccount(PRIVATE_KEY as `0x${string}`)
+    _account = privateKeyToAccount(PRIVATE_KEY as `0x${string}`)
 
     publicClient = createPublicClient({
-      transport: http(rpcUrl),
-    })
-
-    _walletClient = createWalletClient({
-      account,
       transport: http(rpcUrl),
     })
 

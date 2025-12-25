@@ -10,14 +10,13 @@
  */
 
 import { afterAll, describe, expect, setDefaultTimeout, test } from 'bun:test'
-import type { Address, Hex } from 'viem'
-import { app } from '../src/server'
+import { getCurrentNetwork } from '@jejunetwork/config'
+import type { Address } from 'viem'
+import { app } from '../api/server'
 
 setDefaultTimeout(60000) // Infrastructure tests may take longer
 
 const TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address
-const _TEST_PRIVATE_KEY =
-  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as Hex
 
 // Test response types
 interface StatusResponse {
@@ -54,7 +53,7 @@ interface PeersResponse {
 }
 
 // Check environment
-const isLocalnet = process.env.NETWORK === 'localnet' || !process.env.NETWORK
+const isLocalnet = getCurrentNetwork() === 'localnet'
 const hasAnvil = process.env.RPC_URL?.includes('localhost:6545') || isLocalnet
 
 describe('Decentralized Infrastructure', () => {

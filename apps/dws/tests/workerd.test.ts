@@ -10,14 +10,14 @@ import { Elysia } from 'elysia'
 import {
   createWorkerdRouter,
   type WorkerdRouterOptions,
-} from '../src/server/routes/workerd'
-import { createBackendManager } from '../src/storage/backends'
+} from '../api/server/routes/workerd'
+import { createBackendManager } from '../api/storage/backends'
 import {
   generateWorkerConfig,
   wrapHandlerAsWorker,
-} from '../src/workers/workerd/config-generator'
-import type { WorkerdWorkerDefinition } from '../src/workers/workerd/types'
-import { DEFAULT_WORKERD_CONFIG } from '../src/workers/workerd/types'
+} from '../api/workers/workerd/config-generator'
+import type { WorkerdWorkerDefinition } from '../api/workers/workerd/types'
+import { DEFAULT_WORKERD_CONFIG } from '../api/workers/workerd/types'
 
 // Test response types
 interface WorkerdHealthResponse {

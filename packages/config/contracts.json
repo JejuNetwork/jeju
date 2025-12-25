@@ -370,6 +370,10 @@
     },
     "baseSepolia": {
       "chainId": 84532,
+      "rpcUrl": "https://sepolia.base.org"
+    },
+    "base-sepolia": {
+      "chainId": 84532,
       "rpcUrl": "https://sepolia.base.org",
       "oif": {
         "solverRegistry": "0xecfE47302D941c8ce5B0009C0ac2E6D6ee2A42de",
@@ -531,6 +535,44 @@
       },
       "tokens": {
         "usdc": "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85"
+      }
+    },
+    "polygon": {
+      "chainId": 137,
+      "rpcUrl": "https://polygon-rpc.com",
+      "oif": {
+        "solverRegistry": "",
+        "inputSettler": "",
+        "outputSettler": "",
+        "oracleAdapter": ""
+      },
+      "payments": {
+        "x402Facilitator": ""
+      },
+      "tokens": {
+        "usdc": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359"
+      }
+    },
+    "solana": {
+      "chainId": 101,
+      "rpcUrl": "https://api.mainnet-beta.solana.com",
+      "bridge": {
+        "programId": "",
+        "evmLightClientProgramId": ""
+      },
+      "tokens": {
+        "usdc": ""
+      }
+    },
+    "solanaDevnet": {
+      "chainId": 103,
+      "rpcUrl": "https://api.devnet.solana.com",
+      "bridge": {
+        "programId": "",
+        "evmLightClientProgramId": ""
+      },
+      "tokens": {
+        "usdc": ""
       }
     }
   }

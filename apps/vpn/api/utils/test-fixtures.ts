@@ -122,6 +122,7 @@ export function createTestContext(
     nodes: nodesMap,
     sessions: new Map(),
     contributions: new Map(),
+    contributionSettings: new Map(),
     ...overrides,
   }
 }

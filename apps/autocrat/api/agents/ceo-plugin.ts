@@ -279,8 +279,8 @@ const getDeliberationAction: Action = {
       return
     }
 
-    // Fetch from A2A (using network-aware endpoint)
-    const autocratA2aUrl = process.env.AUTOCRAT_A2A_URL ?? getAutocratA2AUrl()
+    // Fetch from A2A (config handles env overrides)
+    const autocratA2aUrl = getAutocratA2AUrl()
     const response = await fetch(autocratA2aUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

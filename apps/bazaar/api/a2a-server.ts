@@ -1,6 +1,6 @@
+import { type ContractCategory, getContract } from '@jejunetwork/config'
 import {
   expect,
-  getOptionalNumber,
   getOptionalString,
   getString,
   validateOrThrow,
@@ -13,18 +13,23 @@ const SkillIdSchema = z
   })
   .passthrough()
 
-import { NETWORK_NAME } from '../config'
+import { CONTRACTS, NETWORK_NAME } from '../config'
+
+// Helper to get contract address for mock data
+const getContractAddr = (category: ContractCategory, name: string): string => {
+  try {
+    return getContract(category, name)
+  } catch {
+    return '0x0000000000000000000000000000000000000000'
+  }
+}
+
 import type { A2ARequest as A2ARequestType } from '../schemas/api'
 
 // SkillResult type (defined locally to avoid importing @jejunetwork/shared which uses fs)
 export interface SkillResult<T = Record<string, unknown>> {
   message: string
   data: T
-}
-
-// Client-safe A2A helpers (avoiding @jejunetwork/shared which uses fs)
-function _getServiceName(service: string): string {
-  return `${NETWORK_NAME} ${service}`
 }
 
 function createAgentCard(options: {
@@ -376,18 +381,18 @@ async function executeSkill(
     case 'prepare-participate': {
       const launchId = getString(params, 'launchId')
       const amount = getString(params, 'amount')
-      const _address = getString(params, 'address')
+      getString(params, 'address') // Required param but not used in mock
       return {
         message: `Prepare participation in ${launchId}`,
         data: {
           action: 'sign-and-send',
           transaction: {
-            to: process.env.PUBLIC_LAUNCH_CONTRACT,
+            to: getContractAddr('tokens', 'launchpad'),
             data: `0x...`, // Would be actual calldata
             value: '0',
           },
           approvalRequired: true,
-          approvalToken: process.env.PUBLIC_USDC_ADDRESS,
+          approvalToken: getContractAddr('tokens', 'usdc'),
           approvalAmount: amount,
         },
       }
@@ -502,10 +507,6 @@ async function executeSkill(
     }
 
     case 'list-nfts': {
-      // Extract params for potential future use
-      const _collectionId = getOptionalString(params, 'collectionId')
-      const _owner = getOptionalString(params, 'owner')
-      const _limit = getOptionalNumber(params, 'limit')
       return {
         message: 'NFT listings',
         data: {
@@ -539,7 +540,7 @@ async function executeSkill(
         data: {
           action: 'sign-and-send',
           transaction: {
-            to: process.env.PUBLIC_MARKETPLACE_CONTRACT,
+            to: CONTRACTS.nftMarketplace,
             data: `0x...`,
             value: price,
           },
@@ -566,15 +567,14 @@ async function executeSkill(
 
     case 'prepare-swap': {
       const tokenIn = getString(params, 'tokenIn')
-      const _tokenOut = getString(params, 'tokenOut')
+      getString(params, 'tokenOut') // Required param
       const amountIn = getString(params, 'amountIn')
-      const _slippage = getOptionalNumber(params, 'slippage')
       return {
         message: 'Prepare swap transaction',
         data: {
           action: 'sign-and-send',
           transaction: {
-            to: process.env.PUBLIC_ROUTER_CONTRACT,
+            to: getContractAddr('defi', 'router'),
             data: `0x...`,
             value: tokenIn === 'ETH' ? amountIn : '0',
           },
@@ -765,8 +765,6 @@ async function executeSkill(
 
     case 'prepare-tfmm-deposit': {
       const poolAddress = getString(params, 'poolAddress')
-      // amounts is optional for mock data
-      const _amounts = params.amounts
       return {
         message: `Prepare deposit to Smart Pool ${poolAddress}`,
         data: {
@@ -784,7 +782,6 @@ async function executeSkill(
 
     case 'prepare-tfmm-withdraw': {
       const poolAddress = getString(params, 'poolAddress')
-      const _shares = getOptionalString(params, 'shares')
       return {
         message: `Prepare withdrawal from Smart Pool ${poolAddress}`,
         data: {
@@ -873,7 +870,6 @@ async function executeSkill(
 
     case 'get-perp-position': {
       const positionId = getOptionalString(params, 'positionId')
-      const _address = getOptionalString(params, 'address')
       return {
         message: 'Position details',
         data: {
@@ -894,15 +890,13 @@ async function executeSkill(
     case 'prepare-perp-open': {
       const marketId = getString(params, 'marketId')
       const side = getString(params, 'side')
-      const _size = getString(params, 'size')
-      const _leverage = getOptionalNumber(params, 'leverage')
-      const _margin = getOptionalString(params, 'margin')
+      getString(params, 'size') // Required param
       return {
         message: `Prepare ${side} position on ${marketId}`,
         data: {
           action: 'sign-and-send',
           transaction: {
-            to: process.env.PUBLIC_PERP_MARKET,
+            to: CONTRACTS.perpetualMarket,
             data: '0x...',
             value: '0',
           },
@@ -920,7 +914,7 @@ async function executeSkill(
         data: {
           action: 'sign-and-send',
           transaction: {
-            to: process.env.PUBLIC_PERP_MARKET,
+            to: CONTRACTS.perpetualMarket,
             data: '0x...',
             value: '0',
           },
@@ -983,7 +977,6 @@ async function executeSkill(
 
     case 'get-top-tokens': {
       const sortBy = getOptionalString(params, 'sortBy')
-      const _limit = getOptionalNumber(params, 'limit')
       return {
         message: 'Top tokens',
         data: {

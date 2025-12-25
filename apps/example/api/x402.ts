@@ -1,3 +1,4 @@
+import { getCurrentNetwork } from '@jejunetwork/config'
 import { expectAddress, isValidAddress } from '@jejunetwork/types'
 import { type Context, Elysia } from 'elysia'
 import type { Address, Hex } from 'viem'
@@ -43,8 +44,8 @@ const TOKENS: Record<string, X402Token> = {
 }
 
 // Environment configuration
-const NETWORK = process.env.NETWORK || 'localnet'
-const IS_LOCALNET = NETWORK === 'localnet' || NETWORK === 'Jeju'
+const NETWORK = getCurrentNetwork()
+const IS_LOCALNET = NETWORK === 'localnet'
 
 // Default dev address (Anvil account #0) - ONLY for localnet
 const DEV_PAYMENT_ADDRESS = expectAddress(

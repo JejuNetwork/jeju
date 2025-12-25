@@ -38,6 +38,7 @@ const app = new Elysia()
       set.status = 413
       return { error: 'Request body too large', maxSize: MAX_BODY_SIZE }
     }
+    return undefined
   })
   .onAfterHandle(({ set }) => {
     set.headers['X-Content-Type-Options'] = 'nosniff'

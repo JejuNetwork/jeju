@@ -8,7 +8,7 @@ import {
   type OAuth3Identity,
   type OAuth3Session,
 } from '@jejunetwork/auth'
-import { getNetworkName } from '@jejunetwork/config'
+import { getNetworkName, getRpcUrl } from '@jejunetwork/config'
 import type { Address, Hex } from 'viem'
 
 export interface OAuth3Service {
@@ -124,7 +124,7 @@ export function getOAuth3Service(): OAuth3Service {
     const redirectUri =
       process.env.OAUTH3_REDIRECT_URI ||
       `http://localhost:${frontendPort}/oauth3/callback`
-    const rpcUrl = process.env.L2_RPC_URL || 'http://localhost:6546'
+    const rpcUrl = getRpcUrl()
     const jnsGateway = process.env.JNS_GATEWAY_URL || 'http://localhost:4020'
     const storageEndpoint =
       process.env.STORAGE_API_ENDPOINT || 'http://localhost:4010'

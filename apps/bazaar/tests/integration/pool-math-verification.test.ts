@@ -530,7 +530,7 @@ describe('Real World Scenarios', () => {
     // Swap 100 ETH (10% of ETH reserve)
     const ethIn = 100n * 10n ** 18n
 
-    const { amountOut: usdcOut, feeAmount: _feeAmount } = getAmountOutWithFee(
+    const { amountOut: usdcOut } = getAmountOutWithFee(
       ethIn,
       ethReserve,
       usdcReserve,

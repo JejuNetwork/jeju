@@ -28,8 +28,31 @@ const ethereumMainnet = {
   },
 } as const
 
-// Use placeholder project ID for local dev if none configured
-const wcProjectId = WALLETCONNECT_PROJECT_ID || 'LOCAL_DEV_PLACEHOLDER'
+// Validate WalletConnect project ID for non-local networks
+function getWalletConnectProjectId(): string {
+  const projectId = WALLETCONNECT_PROJECT_ID
+  const isPlaceholder =
+    !projectId ||
+    projectId === 'YOUR_PROJECT_ID' ||
+    projectId === 'LOCAL_DEV_PLACEHOLDER'
+
+  if (NETWORK === 'localnet') {
+    // Use placeholder for local development
+    return isPlaceholder ? 'LOCAL_DEV_PLACEHOLDER' : projectId
+  }
+
+  if (isPlaceholder) {
+    throw new Error(
+      `WalletConnect project ID required for ${NETWORK}. ` +
+        'Set PUBLIC_WALLETCONNECT_PROJECT_ID environment variable. ' +
+        'Get a project ID at https://cloud.walletconnect.com',
+    )
+  }
+
+  return projectId
+}
+
+const wcProjectId = getWalletConnectProjectId()
 
 const config = getDefaultConfig({
   appName: 'Gateway - the network',

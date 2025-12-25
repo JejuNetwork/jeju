@@ -360,8 +360,15 @@ export type OIFRouteStatsData = {
 export type ErrorData = { error: string }
 export type SuccessData = { success: boolean }
 export type ServiceHealthData = { status: string; latency: number }
+export type ServiceStatus = {
+  name: string
+  status: string
+  instances?: number
+  healthy?: number
+}
+
 export type AllServicesData = {
-  services: string[]
+  services: ServiceStatus[]
   healthy: number
   unhealthy: number
 }
@@ -371,7 +378,14 @@ export type ChainStatsData = {
   gasPrice: string
 }
 export type LogsData = { logs: string[]; total: number }
-export type NodeStatusData = { nodes: string[]; healthy: number }
+export type NodeInfo = {
+  instance: string
+  job: string
+  health: string
+  lastScrape?: string
+}
+
+export type NodeStatusData = { nodes: NodeInfo[]; healthy: number }
 
 export type SkillResultData =
   | QueryMetricsData

@@ -4,8 +4,8 @@
  */
 
 import { beforeEach, describe, expect, test } from 'bun:test'
-import { type EdgeCache, getEdgeCache, resetEdgeCache } from '../src/cdn'
-import { app } from '../src/server'
+import { type EdgeCache, getEdgeCache, resetEdgeCache } from '../api/cdn'
+import { app } from '../api/server'
 
 // Response types for JNS resolution
 interface JnsResolveResponse {

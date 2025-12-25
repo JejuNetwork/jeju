@@ -2,15 +2,23 @@
 
 import { Elysia } from 'elysia'
 import {
+  createModel as dbCreateModel,
+  listModels as dbListModels,
+  starModel as dbStarModel,
+  getModel,
+  type ModelRow,
+} from '../db/client'
+import {
   CreateModelBodySchema,
   expectValid,
   ModelInferenceBodySchema,
   ModelParamsSchema,
   ModelsQuerySchema,
 } from '../schemas'
+import { dwsService } from '../services/dws'
 import { requireAuth } from '../validation/access-control'
 
-interface Model {
+export interface Model {
   id: string
   name: string
   organization: string
@@ -27,47 +35,37 @@ interface Model {
   updatedAt: number
 }
 
+function transformModel(row: ModelRow): Model {
+  return {
+    id: row.id,
+    name: row.name,
+    organization: row.organization,
+    type: row.type,
+    description: row.description,
+    version: row.version,
+    fileUri: row.file_uri,
+    downloads: row.downloads,
+    stars: row.stars,
+    size: row.size ?? undefined,
+    license: row.license ?? undefined,
+    status: row.status,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
 export const modelsRoutes = new Elysia({ prefix: '/api/models' })
   .get(
     '/',
     async ({ query }) => {
-      expectValid(ModelsQuerySchema, query, 'query params')
+      const validated = expectValid(ModelsQuerySchema, query, 'query params')
 
-      const models: Model[] = [
-        {
-          id: 'jeju/llama-3-jeju-ft',
-          name: 'Llama 3 Jeju Fine-tuned',
-          organization: 'jeju',
-          type: 'llm',
-          description: 'Fine-tuned for smart contract development',
-          version: '1.0.0',
-          fileUri: 'ipfs://...',
-          downloads: 15000,
-          stars: 234,
-          size: '4.2GB',
-          license: 'MIT',
-          status: 'ready',
-          createdAt: Date.now() - 30 * 24 * 60 * 60 * 1000,
-          updatedAt: Date.now() - 3 * 24 * 60 * 60 * 1000,
-        },
-        {
-          id: 'jeju/code-embed-v1',
-          name: 'Code Embedding v1',
-          organization: 'jeju',
-          type: 'embedding',
-          description: 'Code embedding model for semantic search',
-          version: '1.0.0',
-          fileUri: 'ipfs://...',
-          downloads: 8500,
-          stars: 156,
-          size: '400MB',
-          license: 'Apache-2.0',
-          status: 'ready',
-          createdAt: Date.now() - 60 * 24 * 60 * 60 * 1000,
-          updatedAt: Date.now() - 14 * 24 * 60 * 60 * 1000,
-        },
-      ]
+      const modelRows = dbListModels({
+        type: validated.type,
+        org: validated.org,
+      })
 
+      const models = modelRows.map(transformModel)
       return { models, total: models.length }
     },
     {
@@ -89,23 +87,17 @@ export const modelsRoutes = new Elysia({ prefix: '/api/models' })
 
       const validated = expectValid(CreateModelBodySchema, body, 'request body')
 
-      const model: Model = {
-        id: `${validated.organization}/${validated.name}`,
+      const row = dbCreateModel({
         name: validated.name,
         organization: validated.organization,
         description: validated.description,
         type: validated.type,
-        version: '1.0.0',
-        fileUri: '',
-        downloads: 0,
-        stars: 0,
-        status: 'processing',
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      }
+        fileUri: validated.fileUri ?? '',
+        owner: authResult.address,
+      })
 
       set.status = 201
-      return model
+      return transformModel(row)
     },
     {
       detail: {
@@ -117,23 +109,19 @@ export const modelsRoutes = new Elysia({ prefix: '/api/models' })
   )
   .get(
     '/:org/:name',
-    async ({ params }) => {
+    async ({ params, set }) => {
       const validated = expectValid(ModelParamsSchema, params, 'params')
-      const model: Model = {
-        id: `${validated.org}/${validated.name}`,
-        name: validated.name,
-        organization: validated.org,
-        type: 'llm',
-        description: 'Example model',
-        version: '1.0.0',
-        fileUri: 'ipfs://...',
-        downloads: 1000,
-        stars: 50,
-        status: 'ready',
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
+      const row = getModel(validated.org, validated.name)
+      if (!row) {
+        set.status = 404
+        return {
+          error: {
+            code: 'NOT_FOUND',
+            message: `Model ${validated.org}/${validated.name} not found`,
+          },
+        }
       }
-      return model
+      return transformModel(row)
     },
     {
       detail: {
@@ -157,15 +145,28 @@ export const modelsRoutes = new Elysia({ prefix: '/api/models' })
         body,
         'request body',
       )
-      return {
-        output: `Inference result for ${validatedParams.org}/${validatedParams.name}: "${validatedBody.prompt.slice(0, 50)}..."`,
-        usage: {
-          promptTokens: Math.ceil(validatedBody.prompt.length / 4),
-          completionTokens: validatedBody.maxTokens ?? 100,
-        },
-        model: `${validatedParams.org}/${validatedParams.name}`,
-        temperature: validatedBody.temperature ?? 0.7,
+
+      // Check if model exists
+      const row = getModel(validatedParams.org, validatedParams.name)
+      if (!row) {
+        set.status = 404
+        return {
+          error: {
+            code: 'NOT_FOUND',
+            message: `Model ${validatedParams.org}/${validatedParams.name} not found`,
+          },
+        }
       }
+
+      // Call DWS for actual inference
+      const result = await dwsService.inference({
+        modelId: row.id,
+        prompt: validatedBody.prompt,
+        maxTokens: validatedBody.maxTokens,
+        temperature: validatedBody.temperature,
+      })
+
+      return result
     },
     { detail: { tags: ['models'], summary: 'Run inference' } },
   )
@@ -178,6 +179,17 @@ export const modelsRoutes = new Elysia({ prefix: '/api/models' })
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
       }
       const validated = expectValid(ModelParamsSchema, params, 'params')
+      const row = getModel(validated.org, validated.name)
+      if (!row) {
+        set.status = 404
+        return {
+          error: {
+            code: 'NOT_FOUND',
+            message: `Model ${validated.org}/${validated.name} not found`,
+          },
+        }
+      }
+      dbStarModel(validated.org, validated.name)
       return { success: true, model: `${validated.org}/${validated.name}` }
     },
     { detail: { tags: ['models'], summary: 'Star model' } },

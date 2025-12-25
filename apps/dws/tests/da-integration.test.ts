@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'bun:test'
 import type { Address, Hex } from 'viem'
 import { keccak256, toBytes, toHex } from 'viem'
-import { app } from '../src/server'
+import { app } from '../api/server'
 
 // Test response types
 interface DAHealthResponse {
@@ -169,13 +169,13 @@ describe('DA Layer HTTP API', () => {
   })
 })
 
-import { BLS } from '../src/da/crypto/bls'
+import { BLS } from '../api/da/crypto/bls'
 import {
   ArbitrumOrbitDAAdapter,
   createRollupDAAdapter,
   OPStackDAAdapter,
   RollupDAAdapter,
-} from '../src/da/integrations'
+} from '../api/da/integrations'
 
 describe('DA Layer Rollup Integration', () => {
   it('should import rollup adapters', () => {

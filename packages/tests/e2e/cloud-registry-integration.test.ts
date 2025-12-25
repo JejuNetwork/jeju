@@ -75,7 +75,6 @@ let user1Wallet: ReturnType<typeof createWalletClient>
 let user2Wallet: ReturnType<typeof createWalletClient>
 let banApprover1Wallet: ReturnType<typeof createWalletClient>
 let banApprover2Wallet: ReturnType<typeof createWalletClient>
-let _banApprover3Wallet: ReturnType<typeof createWalletClient>
 
 // Cloud integration instance
 let integration: CloudIntegration
@@ -131,10 +130,6 @@ describe('Cloud Integration E2E - Setup', () => {
     })
     banApprover2Wallet = createWalletClient({
       account: banApprover2,
-      transport: http(TEST_CONFIG.rpcUrl),
-    })
-    _banApprover3Wallet = createWalletClient({
-      account: banApprover3,
       transport: http(TEST_CONFIG.rpcUrl),
     })
 

@@ -19,26 +19,23 @@ import {
 
 const networkName = getNetworkName()
 
+const isDevelopment = process.env.NODE_ENV !== 'production'
+
 const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',') ?? [
   'http://localhost:3000',
   'http://localhost:4020',
 ]
-const isDevelopment = process.env.NODE_ENV !== 'production'
 
-const PROMETHEUS_URL = process.env.PROMETHEUS_URL
-const OIF_AGGREGATOR_URL = process.env.OIF_AGGREGATOR_URL
+const prometheusUrl = process.env.PROMETHEUS_URL ?? 'http://localhost:9090'
+const oifAggregatorUrl =
+  process.env.OIF_AGGREGATOR_URL ?? 'http://localhost:4010'
 
-if (!PROMETHEUS_URL) {
-  console.warn('⚠️ PROMETHEUS_URL not set, defaulting to http://localhost:9090')
+if (!isDevelopment && !process.env.PROMETHEUS_URL) {
+  throw new Error('PROMETHEUS_URL is required in production')
 }
-if (!OIF_AGGREGATOR_URL) {
-  console.warn(
-    '⚠️ OIF_AGGREGATOR_URL not set, defaulting to http://localhost:4010',
-  )
+if (!isDevelopment && !process.env.OIF_AGGREGATOR_URL) {
+  throw new Error('OIF_AGGREGATOR_URL is required in production')
 }
-
-const prometheusUrl = PROMETHEUS_URL ?? 'http://localhost:9090'
-const oifAggregatorUrl = OIF_AGGREGATOR_URL ?? 'http://localhost:4010'
 
 const MAX_QUERY_LENGTH = 2000
 
@@ -102,86 +99,90 @@ const app = new Elysia()
       allowedHeaders: ['Content-Type', 'Authorization'],
     }),
   )
-  .get('/.well-known/agent-card.json', () => ({
-    protocolVersion: '0.3.0',
-    name: `${networkName} Monitoring`,
-    description: 'Query blockchain metrics and system health via Prometheus',
-    url: 'http://localhost:9091/api/a2a',
-    preferredTransport: 'http',
-    provider: { organization: 'the network', url: 'https://jejunetwork.org' },
-    version: '1.0.0',
-    capabilities: {
-      streaming: false,
-      pushNotifications: false,
-      stateTransitionHistory: false,
-    },
-    defaultInputModes: ['text', 'data'],
-    defaultOutputModes: ['text', 'data'],
-    skills: [
-      {
-        id: 'query-metrics',
-        name: 'Query Metrics',
-        description: 'Execute PromQL query against Prometheus',
-        tags: ['query', 'metrics'],
-        examples: [
-          'Show current TPS',
-          'Get block production rate',
-          'Check system health',
-        ],
+  .get('/.well-known/agent-card.json', ({ request }) => {
+    const host = request.headers.get('host') ?? 'localhost:9091'
+    const protocol = request.headers.get('x-forwarded-proto') ?? 'http'
+    return {
+      protocolVersion: '0.3.0',
+      name: `${networkName} Monitoring`,
+      description: 'Query blockchain metrics and system health via Prometheus',
+      url: `${protocol}://${host}/api/a2a`,
+      preferredTransport: 'http',
+      provider: { organization: 'the network', url: 'https://jejunetwork.org' },
+      version: '1.0.0',
+      capabilities: {
+        streaming: false,
+        pushNotifications: false,
+        stateTransitionHistory: false,
       },
-      {
-        id: 'get-alerts',
-        name: 'Get Alerts',
-        description: 'Get currently firing alerts',
-        tags: ['alerts', 'monitoring'],
-        examples: ['Show active alerts', 'Are there any critical issues?'],
-      },
-      {
-        id: 'get-targets',
-        name: 'Get Targets',
-        description: 'Get Prometheus scrape targets and their status',
-        tags: ['targets', 'health'],
-        examples: [
-          'Show scrape targets',
-          'Which services are being monitored?',
-        ],
-      },
-      {
-        id: 'oif-stats',
-        name: 'OIF Statistics',
-        description:
-          'Get Open Intents Framework statistics (intents, solvers, volume)',
-        tags: ['oif', 'intents', 'cross-chain'],
-        examples: [
-          'Show OIF stats',
-          'How many intents today?',
-          'Cross-chain volume?',
-        ],
-      },
-      {
-        id: 'oif-solver-health',
-        name: 'OIF Solver Health',
-        description: 'Get health status of active OIF solvers',
-        tags: ['oif', 'solvers', 'health'],
-        examples: [
-          'Solver health check',
-          'Are solvers online?',
-          'Solver success rates',
-        ],
-      },
-      {
-        id: 'oif-route-stats',
-        name: 'OIF Route Statistics',
-        description: 'Get cross-chain route performance metrics',
-        tags: ['oif', 'routes', 'performance'],
-        examples: [
-          'Route performance',
-          'Best route for Base to Arbitrum?',
-          'Route success rates',
-        ],
-      },
-    ],
-  }))
+      defaultInputModes: ['text', 'data'],
+      defaultOutputModes: ['text', 'data'],
+      skills: [
+        {
+          id: 'query-metrics',
+          name: 'Query Metrics',
+          description: 'Execute PromQL query against Prometheus',
+          tags: ['query', 'metrics'],
+          examples: [
+            'Show current TPS',
+            'Get block production rate',
+            'Check system health',
+          ],
+        },
+        {
+          id: 'get-alerts',
+          name: 'Get Alerts',
+          description: 'Get currently firing alerts',
+          tags: ['alerts', 'monitoring'],
+          examples: ['Show active alerts', 'Are there any critical issues?'],
+        },
+        {
+          id: 'get-targets',
+          name: 'Get Targets',
+          description: 'Get Prometheus scrape targets and their status',
+          tags: ['targets', 'health'],
+          examples: [
+            'Show scrape targets',
+            'Which services are being monitored?',
+          ],
+        },
+        {
+          id: 'oif-stats',
+          name: 'OIF Statistics',
+          description:
+            'Get Open Intents Framework statistics (intents, solvers, volume)',
+          tags: ['oif', 'intents', 'cross-chain'],
+          examples: [
+            'Show OIF stats',
+            'How many intents today?',
+            'Cross-chain volume?',
+          ],
+        },
+        {
+          id: 'oif-solver-health',
+          name: 'OIF Solver Health',
+          description: 'Get health status of active OIF solvers',
+          tags: ['oif', 'solvers', 'health'],
+          examples: [
+            'Solver health check',
+            'Are solvers online?',
+            'Solver success rates',
+          ],
+        },
+        {
+          id: 'oif-route-stats',
+          name: 'OIF Route Statistics',
+          description: 'Get cross-chain route performance metrics',
+          tags: ['oif', 'routes', 'performance'],
+          examples: [
+            'Route performance',
+            'Best route for Base to Arbitrum?',
+            'Route success rates',
+          ],
+        },
+      ],
+    }
+  })
   .post('/api/a2a', async ({ body }) => {
     const parseResult = A2ARequestSchema.safeParse(body)
     if (!parseResult.success) {
@@ -526,8 +527,8 @@ const app = new Elysia()
 export type App = typeof app
 
 if (import.meta.main) {
-  app.listen(9091)
-  console.log(`📊 Monitoring A2A: http://localhost:9091`)
+  const port = Number(process.env.A2A_PORT ?? 9091)
+  app.listen(port)
 }
 
 export { app }

@@ -7,7 +7,7 @@
 
 import { getDWSComputeUrl } from '@jejunetwork/config'
 import { z } from 'zod'
-import { expect, StorageUploadResponseSchema } from '../schemas'
+import { expect, expectTrue, StorageUploadResponseSchema } from '../schemas'
 
 // Response Schemas
 
@@ -218,7 +218,7 @@ export class DWSClient {
 
   async storageFetch(cid: string): Promise<string> {
     expect(cid, 'CID is required')
-    expect(cid.length > 0, 'CID cannot be empty')
+    expectTrue(cid.length > 0, 'CID cannot be empty')
 
     const response = await fetch(`${this.ipfsGateway}/ipfs/${cid}`, {
       headers: this.headers,
@@ -234,7 +234,7 @@ export class DWSClient {
 
   async storageExists(cid: string): Promise<boolean> {
     expect(cid, 'CID is required')
-    expect(cid.length > 0, 'CID cannot be empty')
+    expectTrue(cid.length > 0, 'CID cannot be empty')
 
     const response = await fetch(`${this.ipfsGateway}/ipfs/${cid}`, {
       method: 'HEAD',

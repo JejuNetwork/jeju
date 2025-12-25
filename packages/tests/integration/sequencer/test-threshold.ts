@@ -8,6 +8,7 @@
 
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { getCurrentNetwork } from '@jejunetwork/config'
 import {
   type Address,
   createPublicClient,
@@ -26,7 +27,7 @@ async function main() {
   console.log('='.repeat(70))
   console.log('')
 
-  const network = process.env.NETWORK || 'localnet'
+  const network = getCurrentNetwork()
   const rpcUrl = process.env.L1_RPC_URL || 'http://127.0.0.1:6545'
   const deploymentFile = join(DEPLOYMENTS_DIR, `${network}.json`)
 

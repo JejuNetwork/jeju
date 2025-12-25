@@ -3,13 +3,10 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
-    "declaration": true,
-    "declarationMap": true,
     "composite": true,
-    "types": ["bun-types", "node"],
+    "types": ["bun", "node"],
     "noUncheckedIndexedAccess": true
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "python"]
 }
-

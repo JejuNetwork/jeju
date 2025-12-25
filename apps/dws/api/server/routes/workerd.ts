@@ -3,6 +3,7 @@
  * V8 isolate-based serverless worker deployment and invocation
  */
 
+import { getCurrentNetwork } from '@jejunetwork/config'
 import {
   expectJson,
   expectValid,
@@ -788,10 +789,7 @@ export type WorkerdRoutes = ReturnType<typeof createWorkerdRouter>
 type NetworkType = 'localnet' | 'testnet' | 'mainnet'
 
 function getNetworkType(): NetworkType {
-  const network = process.env.NETWORK?.toLowerCase()
-  if (network === 'mainnet' || network === 'production') return 'mainnet'
-  if (network === 'testnet' || network === 'staging') return 'testnet'
-  return 'localnet'
+  return getCurrentNetwork()
 }
 
 function getChainForNetwork(network: NetworkType) {

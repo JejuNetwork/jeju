@@ -1,7 +1,13 @@
 /**
  * Autocrat Agents Module
  *
- * Re-exports agent runtime, providers, and templates
+ * Import directly from specific modules:
+ * - ./autocrat-plugin
+ * - ./autocrat-providers
+ * - ./ceo-plugin
+ * - ./ceo-providers
+ * - ./runtime
+ * - ./templates
  */
 
 export * from './autocrat-plugin'

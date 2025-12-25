@@ -498,7 +498,11 @@ export class ArweaveBackend {
   private async signTransaction(
     tx: ArweaveTransaction,
   ): Promise<ArweaveTransaction> {
-    // Simplified - real implementation would use RSA-PSS signing
+    if (!this.wallet?.d) {
+      throw new Error('Arweave wallet private key required for signing')
+    }
+
+    // Create the deep hash for signing (Arweave uses SHA-384)
     const txData = JSON.stringify({
       owner: tx.owner,
       target: tx.target,
@@ -506,10 +510,41 @@ export class ArweaveBackend {
       data: tx.data,
       tags: tx.tags,
     })
+    const dataHash = createHash('sha384').update(txData).digest()
 
-    const hash = createHash('sha256').update(txData).digest('hex')
-    tx.id = hash.slice(0, 43) // Arweave IDs are 43 chars
-    tx.signature = hash // Placeholder
+    // Import the private key and sign with RSA-PSS
+    const { createPrivateKey, sign } = await import('node:crypto')
+
+    // Reconstruct JWK for Node.js crypto
+    const privateKeyJwk = {
+      kty: this.wallet.kty,
+      n: this.wallet.n,
+      e: this.wallet.e,
+      d: this.wallet.d,
+      p: this.wallet.p,
+      q: this.wallet.q,
+      dp: this.wallet.dp,
+      dq: this.wallet.dq,
+      qi: this.wallet.qi,
+    }
+
+    const privateKey = createPrivateKey({
+      key: privateKeyJwk,
+      format: 'jwk',
+    })
+
+    // Sign with RSA-PSS SHA-256 (Arweave's signature scheme)
+    const signature = sign('sha256', dataHash, {
+      key: privateKey,
+      padding: 6, // RSA_PKCS1_PSS_PADDING
+      saltLength: 32,
+    })
+
+    tx.signature = signature.toString('base64url')
+
+    // Calculate transaction ID (SHA-256 of signature)
+    const idHash = createHash('sha256').update(signature).digest()
+    tx.id = idHash.toString('base64url').slice(0, 43)
 
     return tx
   }

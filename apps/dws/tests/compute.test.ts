@@ -20,13 +20,12 @@ import {
   inferenceNodes,
   registerNode,
   unregisterNode,
-} from '../src/compute/inference-node'
-import { app } from '../src/server'
+} from '../api/compute/inference-node'
+import { app } from '../api/server'
 
 setDefaultTimeout(10000)
 
 const TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
-let _mockServerStarted = false
 
 // Skip integration tests when running from root (parallel execution causes issues)
 // Only skip if explicitly requested, not by default in CI

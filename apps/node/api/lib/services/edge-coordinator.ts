@@ -273,6 +273,15 @@ export class EdgeCoordinator {
     ttl: 5 * 60 * 1000, // Cache registration status for 5 min
   })
 
+  // Real-time metrics tracking
+  private metricsState = {
+    cacheHits: 0,
+    cacheMisses: 0,
+    totalBytesServed: 0,
+    latencySamples: [] as number[],
+    maxLatencySamples: 100,
+  }
+
   constructor(config: EdgeCoordinatorConfig) {
     this.config = EdgeCoordinatorConfigSchema.parse(config)
 
@@ -997,12 +1006,56 @@ export class EdgeCoordinator {
   }
 
   private getLocalMetrics(): EdgeMetrics {
+    // Calculate cache hit rate from actual hits/misses
+    const totalRequests =
+      this.metricsState.cacheHits + this.metricsState.cacheMisses
+    const cacheHitRate =
+      totalRequests > 0 ? this.metricsState.cacheHits / totalRequests : 0
+
+    // Calculate average latency from samples
+    const avgLatencyMs =
+      this.metricsState.latencySamples.length > 0
+        ? this.metricsState.latencySamples.reduce((a, b) => a + b, 0) /
+          this.metricsState.latencySamples.length
+        : 0
+
+    // Calculate cache utilization based on content index size
+    const maxCacheEntries = 100000
+    const cacheUtilization = this.contentIndex.size / maxCacheEntries
+
     return {
-      cacheHitRate: 0.85,
-      avgLatencyMs: 50,
-      bytesServed: 0,
+      cacheHitRate,
+      avgLatencyMs,
+      bytesServed: this.metricsState.totalBytesServed,
       activeConnections: this.peers.size,
-      cacheUtilization: 0.5,
+      cacheUtilization,
+    }
+  }
+
+  /** Record a cache hit for metrics */
+  recordCacheHit(): void {
+    this.metricsState.cacheHits++
+  }
+
+  /** Record a cache miss for metrics */
+  recordCacheMiss(): void {
+    this.metricsState.cacheMisses++
+  }
+
+  /** Record bytes served for metrics */
+  recordBytesServed(bytes: number): void {
+    this.metricsState.totalBytesServed += bytes
+  }
+
+  /** Record a latency sample for metrics */
+  recordLatency(latencyMs: number): void {
+    this.metricsState.latencySamples.push(latencyMs)
+    // Keep only the most recent samples
+    if (
+      this.metricsState.latencySamples.length >
+      this.metricsState.maxLatencySamples
+    ) {
+      this.metricsState.latencySamples.shift()
     }
   }
 

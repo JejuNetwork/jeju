@@ -3,6 +3,12 @@
 import { Elysia } from 'elysia'
 import type { Address } from 'viem'
 import {
+  type BountyRow,
+  createBounty as dbCreateBounty,
+  listBounties as dbListBounties,
+  getBounty,
+} from '../db/client'
+import {
   BountiesQuerySchema,
   BountyIdParamSchema,
   CreateBountyBodySchema,
@@ -10,7 +16,15 @@ import {
 } from '../schemas'
 import { requireAuth } from '../validation/access-control'
 
-interface Bounty {
+export interface Milestone {
+  name: string
+  description: string
+  reward: string
+  currency: string
+  deadline: number
+}
+
+export interface Bounty {
   id: string
   title: string
   description: string
@@ -20,16 +34,30 @@ interface Bounty {
   skills: string[]
   creator: Address
   deadline: number
-  milestones?: Array<{
-    name: string
-    description: string
-    reward: string
-    currency: string
-    deadline: number
-  }>
+  milestones?: Milestone[]
   submissions: number
   createdAt: number
   updatedAt: number
+}
+
+function transformBounty(row: BountyRow): Bounty {
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    reward: row.reward,
+    currency: row.currency,
+    status: row.status,
+    skills: JSON.parse(row.skills) as string[],
+    creator: row.creator as Address,
+    deadline: row.deadline,
+    milestones: row.milestones
+      ? (JSON.parse(row.milestones) as Milestone[])
+      : undefined,
+    submissions: row.submissions,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
 }
 
 export const bountiesRoutes = new Elysia({ prefix: '/api/bounties' })
@@ -40,14 +68,21 @@ export const bountiesRoutes = new Elysia({ prefix: '/api/bounties' })
       const page = parseInt(validated.page ?? '1', 10)
       const limit = parseInt(validated.limit ?? '20', 10)
 
-      const bounties: Bounty[] = []
+      const result = dbListBounties({
+        status: validated.status,
+        skill: validated.skill,
+        page,
+        limit,
+      })
+
+      const bounties = result.bounties.map(transformBounty)
 
       return {
         bounties,
-        total: bounties.length,
+        total: result.total,
         page,
         limit,
-        hasMore: false,
+        hasMore: page * limit < result.total,
       }
     },
     {
@@ -73,8 +108,7 @@ export const bountiesRoutes = new Elysia({ prefix: '/api/bounties' })
         'request body',
       )
 
-      const bounty: Bounty = {
-        id: `bounty-${Date.now()}`,
+      const row = dbCreateBounty({
         title: validated.title,
         description: validated.description,
         reward: validated.reward,
@@ -82,15 +116,11 @@ export const bountiesRoutes = new Elysia({ prefix: '/api/bounties' })
         skills: validated.skills,
         deadline: validated.deadline,
         milestones: validated.milestones,
-        status: 'open',
         creator: authResult.address,
-        submissions: 0,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      }
+      })
 
       set.status = 201
-      return bounty
+      return transformBounty(row)
     },
     {
       detail: {
@@ -104,13 +134,17 @@ export const bountiesRoutes = new Elysia({ prefix: '/api/bounties' })
     '/:id',
     async ({ params, set }) => {
       const validated = expectValid(BountyIdParamSchema, params, 'params')
-      set.status = 404
-      return {
-        error: {
-          code: 'NOT_FOUND',
-          message: `Bounty ${validated.id} not found`,
-        },
+      const row = getBounty(validated.id)
+      if (!row) {
+        set.status = 404
+        return {
+          error: {
+            code: 'NOT_FOUND',
+            message: `Bounty ${validated.id} not found`,
+          },
+        }
       }
+      return transformBounty(row)
     },
     {
       detail: {

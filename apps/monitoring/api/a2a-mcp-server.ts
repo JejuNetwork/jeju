@@ -4,6 +4,7 @@ import { cors } from '@elysiajs/cors'
 import { getNetworkName, getWebsiteUrl } from '@jejunetwork/config'
 import { isRecord } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
+import { z } from 'zod'
 import {
   MCPPromptGetSchema,
   MCPRequestSchema,
@@ -11,13 +12,28 @@ import {
   MCPResourceReadSchema,
   MCPToolCallSchema,
   type MCPToolResult,
+  PrometheusAlertsResponseSchema,
+  PrometheusQueryResultSchema,
+  PrometheusTargetsResponseSchema,
   type SkillResult,
 } from '../lib/types'
+
+const isDevelopment = process.env.NODE_ENV !== 'production'
 
 const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',') ?? [
   'http://localhost:3000',
   'http://localhost:4020',
 ]
+
+const PROMETHEUS_URL = process.env.PROMETHEUS_URL ?? 'http://localhost:9090'
+const RPC_URL = process.env.RPC_URL ?? 'http://localhost:6546'
+
+if (!isDevelopment && !process.env.PROMETHEUS_URL) {
+  throw new Error('PROMETHEUS_URL is required in production')
+}
+if (!isDevelopment && !process.env.RPC_URL) {
+  throw new Error('RPC_URL is required in production')
+}
 
 const corsConfig = {
   origin: (request: Request) => {
@@ -30,6 +46,27 @@ const corsConfig = {
   methods: ['GET', 'POST', 'OPTIONS'],
 }
 
+interface SafeFetchResponse {
+  ok: boolean
+  status: number
+  json: () => Promise<Record<string, unknown>>
+}
+
+async function safeFetch(url: string): Promise<SafeFetchResponse | null> {
+  const response = await fetch(url, {
+    signal: AbortSignal.timeout(5000),
+  }).catch(() => null)
+  if (!response) return null
+  return {
+    ok: response.ok,
+    status: response.status,
+    json: async () => {
+      const data: unknown = await response.json()
+      return isRecord(data) ? data : {}
+    },
+  }
+}
+
 const AGENT_CARD = {
   protocolVersion: '0.3.0',
   name: `${getNetworkName()} Monitoring`,
@@ -39,9 +76,9 @@ const AGENT_CARD = {
   provider: { organization: getNetworkName(), url: getWebsiteUrl() },
   version: '1.0.0',
   capabilities: {
-    streaming: true,
-    pushNotifications: true,
-    stateTransitionHistory: true,
+    streaming: false,
+    pushNotifications: false,
+    stateTransitionHistory: false,
   },
   defaultInputModes: ['text', 'data'],
   defaultOutputModes: ['text', 'data'],
@@ -49,110 +86,32 @@ const AGENT_CARD = {
     {
       id: 'check-service-health',
       name: 'Check Service Health',
-      description: 'Check health of a specific service',
+      description: 'Check health of a specific service via Prometheus targets',
       tags: ['query', 'health'],
     },
     {
       id: 'check-all-services',
       name: 'Check All Services',
-      description: 'Check health of all services',
+      description: 'Check health of all services via Prometheus targets',
       tags: ['query', 'health'],
-    },
-    {
-      id: 'get-service-metrics',
-      name: 'Get Service Metrics',
-      description: 'Get metrics for a service',
-      tags: ['query', 'metrics'],
     },
     {
       id: 'list-alerts',
       name: 'List Alerts',
-      description: 'List active alerts',
+      description: 'List active alerts from Prometheus',
       tags: ['query', 'alerts'],
-    },
-    {
-      id: 'acknowledge-alert',
-      name: 'Acknowledge Alert',
-      description: 'Acknowledge an alert',
-      tags: ['action', 'alert'],
-    },
-    {
-      id: 'create-alert-rule',
-      name: 'Create Alert Rule',
-      description: 'Create new alert rule',
-      tags: ['action', 'rule'],
-    },
-    {
-      id: 'delete-alert-rule',
-      name: 'Delete Alert Rule',
-      description: 'Delete alert rule',
-      tags: ['action', 'rule'],
     },
     {
       id: 'get-chain-stats',
       name: 'Get Chain Stats',
-      description: 'Get blockchain statistics',
+      description: 'Get blockchain statistics from RPC',
       tags: ['query', 'chain'],
-    },
-    {
-      id: 'check-rpc-health',
-      name: 'Check RPC Health',
-      description: 'Check RPC endpoint health',
-      tags: ['query', 'rpc'],
-    },
-    {
-      id: 'get-gas-prices',
-      name: 'Get Gas Prices',
-      description: 'Get current gas prices',
-      tags: ['query', 'gas'],
-    },
-    {
-      id: 'monitor-contract',
-      name: 'Monitor Contract',
-      description: 'Add contract to monitoring',
-      tags: ['action', 'contract'],
-    },
-    {
-      id: 'get-contract-events',
-      name: 'Get Contract Events',
-      description: 'Get recent contract events',
-      tags: ['query', 'events'],
-    },
-    {
-      id: 'check-contract-balance',
-      name: 'Check Contract Balance',
-      description: 'Check contract balance',
-      tags: ['query', 'balance'],
     },
     {
       id: 'get-node-status',
       name: 'Get Node Status',
-      description: 'Get node status',
+      description: 'Get node status from Prometheus targets',
       tags: ['query', 'nodes'],
-    },
-    {
-      id: 'get-database-stats',
-      name: 'Get Database Stats',
-      description: 'Get database statistics',
-      tags: ['query', 'database'],
-    },
-    {
-      id: 'get-storage-usage',
-      name: 'Get Storage Usage',
-      description: 'Get storage usage',
-      tags: ['query', 'storage'],
-    },
-    {
-      id: 'query-logs',
-      name: 'Query Logs',
-      description: 'Query application logs',
-      tags: ['query', 'logs'],
-    },
-    {
-      id: 'get-error-summary',
-      name: 'Get Error Summary',
-      description: 'Get error summary',
-      tags: ['query', 'errors'],
     },
   ],
 }
@@ -168,25 +127,19 @@ const MCP_RESOURCES = [
   {
     uri: 'monitoring://services',
     name: 'Services',
-    description: 'All monitored services',
+    description: 'All monitored services from Prometheus',
     mimeType: 'application/json',
   },
   {
     uri: 'monitoring://alerts/active',
     name: 'Active Alerts',
-    description: 'Currently active alerts',
+    description: 'Currently active alerts from Prometheus',
     mimeType: 'application/json',
   },
   {
     uri: 'monitoring://chain/stats',
     name: 'Chain Stats',
-    description: 'Blockchain statistics',
-    mimeType: 'application/json',
-  },
-  {
-    uri: 'monitoring://infrastructure',
-    name: 'Infrastructure',
-    description: 'Infrastructure status',
+    description: 'Blockchain statistics from RPC',
     mimeType: 'application/json',
   },
   {
@@ -200,62 +153,24 @@ const MCP_RESOURCES = [
 const MCP_TOOLS = [
   {
     name: 'check_service',
-    description: 'Check health of a specific service',
+    description: 'Check health of a specific service via Prometheus',
     inputSchema: {
       type: 'object',
       properties: {
-        service: { type: 'string', description: 'Service name' },
-        includeMetrics: { type: 'boolean', description: 'Include metrics' },
+        service: { type: 'string', description: 'Service name (job label)' },
       },
       required: ['service'],
     },
   },
   {
-    name: 'query_logs',
-    description: 'Query application logs',
+    name: 'query_prometheus',
+    description: 'Execute a PromQL query',
     inputSchema: {
       type: 'object',
       properties: {
-        service: { type: 'string', description: 'Service to query' },
-        level: { type: 'string', description: 'Log level filter' },
-        query: { type: 'string', description: 'Search query' },
-        limit: { type: 'number', description: 'Max results' },
-        since: { type: 'string', description: 'Start time (ISO)' },
+        query: { type: 'string', description: 'PromQL query' },
       },
-    },
-  },
-  {
-    name: 'create_alert_rule',
-    description: 'Create a new alert rule',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        name: { type: 'string', description: 'Rule name' },
-        condition: {
-          type: 'string',
-          description: 'Alert condition expression',
-        },
-        threshold: { type: 'number', description: 'Threshold value' },
-        severity: {
-          type: 'string',
-          enum: ['info', 'warning', 'critical'],
-          description: 'Alert severity',
-        },
-        channels: { type: 'array', description: 'Notification channels' },
-      },
-      required: ['name', 'condition', 'threshold', 'severity'],
-    },
-  },
-  {
-    name: 'acknowledge_alert',
-    description: 'Acknowledge an active alert',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        alertId: { type: 'string', description: 'Alert ID' },
-        comment: { type: 'string', description: 'Acknowledgement comment' },
-      },
-      required: ['alertId'],
+      required: ['query'],
     },
   },
   {
@@ -264,17 +179,8 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        target: {
-          type: 'string',
-          description: 'Metric target (service/contract/node)',
-        },
+        target: { type: 'string', description: 'Metric target' },
         metric: { type: 'string', description: 'Metric name' },
-        period: { type: 'string', description: 'Time period (1h, 24h, 7d)' },
-        aggregation: {
-          type: 'string',
-          enum: ['avg', 'max', 'min', 'sum'],
-          description: 'Aggregation function',
-        },
       },
       required: ['target', 'metric'],
     },
@@ -366,32 +272,285 @@ async function executeSkill(
   params: SkillParams,
 ): Promise<SkillResult> {
   switch (skillId) {
-    case 'check-service-health':
-      return {
-        message: `Health check for ${params.service}`,
-        data: { status: 'healthy', latency: 50 },
+    case 'check-service-health': {
+      if (!params.service) {
+        return {
+          message: 'Missing service parameter',
+          data: { error: 'service required' },
+        }
       }
-    case 'check-all-services':
-      return {
-        message: 'All services health',
-        data: { services: [], healthy: 0, unhealthy: 0 },
+
+      const response = await safeFetch(`${PROMETHEUS_URL}/api/v1/targets`)
+      if (!response) {
+        return {
+          message: 'Prometheus unavailable',
+          data: { error: 'Connection failed' },
+        }
       }
-    case 'list-alerts':
-      return { message: 'Active alerts', data: { alerts: [], count: 0 } }
-    case 'acknowledge-alert':
-      return {
-        message: `Alert ${params.alertId} acknowledged`,
-        data: { success: true },
+      if (!response.ok) {
+        return {
+          message: 'Failed to fetch targets',
+          data: { error: `HTTP ${response.status}` },
+        }
       }
-    case 'get-chain-stats':
-      return {
-        message: 'Chain statistics',
-        data: { blockNumber: 0, tps: 0, gasPrice: '0' },
+
+      const rawData = await response.json()
+      const parsed = PrometheusTargetsResponseSchema.safeParse(rawData)
+      if (!parsed.success) {
+        return {
+          message: 'Invalid targets response',
+          data: { error: parsed.error.message },
+        }
       }
-    case 'query-logs':
-      return { message: 'Log query results', data: { logs: [], total: 0 } }
-    case 'get-node-status':
-      return { message: 'Node status', data: { nodes: [], healthy: 0 } }
+
+      const serviceTargets = parsed.data.data.activeTargets.filter(
+        (t) => t.labels.job === params.service,
+      )
+
+      if (serviceTargets.length === 0) {
+        return {
+          message: `Service ${params.service} not found`,
+          data: { error: 'Service not monitored' },
+        }
+      }
+
+      const upCount = serviceTargets.filter((t) => t.health === 'up').length
+      const status =
+        upCount === serviceTargets.length
+          ? 'healthy'
+          : upCount > 0
+            ? 'degraded'
+            : 'down'
+      const avgLatency =
+        serviceTargets.reduce(
+          (sum, t) => sum + (t.lastScrapeDuration ?? 0) * 1000,
+          0,
+        ) / serviceTargets.length
+
+      return {
+        message: `Service ${params.service}: ${status}`,
+        data: {
+          status,
+          latency: Math.round(avgLatency),
+        },
+      }
+    }
+
+    case 'check-all-services': {
+      const response = await safeFetch(`${PROMETHEUS_URL}/api/v1/targets`)
+      if (!response) {
+        return {
+          message: 'Prometheus unavailable',
+          data: { error: 'Connection failed' },
+        }
+      }
+      if (!response.ok) {
+        return {
+          message: 'Failed to fetch targets',
+          data: { error: `HTTP ${response.status}` },
+        }
+      }
+
+      const rawData = await response.json()
+      const parsed = PrometheusTargetsResponseSchema.safeParse(rawData)
+      if (!parsed.success) {
+        return {
+          message: 'Invalid targets response',
+          data: { error: parsed.error.message },
+        }
+      }
+
+      const targets = parsed.data.data.activeTargets
+      const serviceMap = new Map<string, { up: number; total: number }>()
+
+      for (const target of targets) {
+        const job = target.labels.job ?? 'unknown'
+        const current = serviceMap.get(job) ?? { up: 0, total: 0 }
+        current.total++
+        if (target.health === 'up') current.up++
+        serviceMap.set(job, current)
+      }
+
+      const services = Array.from(serviceMap.entries()).map(
+        ([name, stats]) => ({
+          name,
+          status:
+            stats.up === stats.total
+              ? 'healthy'
+              : stats.up > 0
+                ? 'degraded'
+                : 'down',
+          instances: stats.total,
+          healthy: stats.up,
+        }),
+      )
+
+      const healthy = services.filter((s) => s.status === 'healthy').length
+      const unhealthy = services.filter((s) => s.status === 'down').length
+
+      return {
+        message: `${healthy}/${services.length} services healthy`,
+        data: { services, healthy, unhealthy },
+      }
+    }
+
+    case 'list-alerts': {
+      const response = await safeFetch(`${PROMETHEUS_URL}/api/v1/alerts`)
+      if (!response) {
+        return {
+          message: 'Prometheus unavailable',
+          data: { error: 'Connection failed' },
+        }
+      }
+      if (!response.ok) {
+        return {
+          message: 'Failed to fetch alerts',
+          data: { error: `HTTP ${response.status}` },
+        }
+      }
+
+      const rawData = await response.json()
+      const parsed = PrometheusAlertsResponseSchema.safeParse(rawData)
+      if (!parsed.success) {
+        return {
+          message: 'Invalid alerts response',
+          data: { error: parsed.error.message },
+        }
+      }
+
+      const activeAlerts = parsed.data.data.alerts.filter(
+        (a) => a.state === 'firing',
+      )
+
+      return {
+        message: `${activeAlerts.length} active alerts`,
+        data: { alerts: activeAlerts, count: activeAlerts.length },
+      }
+    }
+
+    case 'get-chain-stats': {
+      const blockNumberRes = await fetch(RPC_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'eth_blockNumber',
+          params: [],
+          id: 1,
+        }),
+        signal: AbortSignal.timeout(5000),
+      }).catch(() => null)
+
+      if (!blockNumberRes) {
+        return {
+          message: 'RPC unavailable',
+          data: { error: 'Connection failed' },
+        }
+      }
+
+      const blockData: unknown = await blockNumberRes.json()
+      const blockParsed = z
+        .object({
+          result: z.string(),
+        })
+        .safeParse(blockData)
+
+      if (!blockParsed.success) {
+        return {
+          message: 'Invalid RPC response',
+          data: { error: 'Failed to parse block number' },
+        }
+      }
+
+      const blockNumber = parseInt(blockParsed.data.result, 16)
+
+      const gasPriceRes = await fetch(RPC_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'eth_gasPrice',
+          params: [],
+          id: 2,
+        }),
+        signal: AbortSignal.timeout(5000),
+      }).catch(() => null)
+
+      let gasPrice = '0'
+      if (gasPriceRes) {
+        const gasPriceData: unknown = await gasPriceRes.json()
+        const gasParsed = z
+          .object({ result: z.string() })
+          .safeParse(gasPriceData)
+        if (gasParsed.success) {
+          gasPrice = (parseInt(gasParsed.data.result, 16) / 1e9).toFixed(2)
+        }
+      }
+
+      const tpsResponse = await safeFetch(
+        `${PROMETHEUS_URL}/api/v1/query?query=rate(ethereum_transactions_total[5m])`,
+      )
+      let tps = 0
+      if (tpsResponse?.ok) {
+        const tpsData = await tpsResponse.json()
+        const tpsParsed = PrometheusQueryResultSchema.safeParse(tpsData)
+        if (tpsParsed.success) {
+          const result = tpsParsed.data.data?.result?.[0]
+          if (result?.value) {
+            tps = Math.round(parseFloat(result.value[1]))
+          }
+        }
+      }
+
+      return {
+        message: `Block ${blockNumber}, Gas ${gasPrice} gwei`,
+        data: { blockNumber, tps, gasPrice },
+      }
+    }
+
+    case 'get-node-status': {
+      const response = await safeFetch(`${PROMETHEUS_URL}/api/v1/targets`)
+      if (!response) {
+        return {
+          message: 'Prometheus unavailable',
+          data: { error: 'Connection failed' },
+        }
+      }
+      if (!response.ok) {
+        return {
+          message: 'Failed to fetch targets',
+          data: { error: `HTTP ${response.status}` },
+        }
+      }
+
+      const rawData = await response.json()
+      const parsed = PrometheusTargetsResponseSchema.safeParse(rawData)
+      if (!parsed.success) {
+        return {
+          message: 'Invalid targets response',
+          data: { error: parsed.error.message },
+        }
+      }
+
+      const nodeTargets = parsed.data.data.activeTargets.filter(
+        (t) => t.labels.job?.includes('node') || t.labels.job?.includes('reth'),
+      )
+
+      const nodes = nodeTargets.map((t) => ({
+        instance: t.labels.instance ?? 'unknown',
+        job: t.labels.job ?? 'unknown',
+        health: t.health,
+        lastScrape: t.lastScrape,
+      }))
+
+      const healthy = nodes.filter((n) => n.health === 'up').length
+
+      return {
+        message: `${healthy}/${nodes.length} nodes healthy`,
+        data: { nodes, healthy },
+      }
+    }
+
     default:
       return { message: 'Unknown skill', data: { error: 'Skill not found' } }
   }
@@ -418,32 +577,148 @@ export function createMonitoringMCPServer() {
       let contents: MCPResourceContent
 
       switch (uri) {
-        case 'monitoring://services':
-          contents = {
-            services: [
-              { name: 'storage', status: 'healthy', uptime: 99.9 },
-              { name: 'indexer', status: 'healthy', uptime: 99.8 },
-              { name: 'council', status: 'healthy', uptime: 99.9 },
-            ],
+        case 'monitoring://services': {
+          const response = await safeFetch(`${PROMETHEUS_URL}/api/v1/targets`)
+          if (!response?.ok) {
+            contents = { services: [] }
+            break
           }
-          break
-        case 'monitoring://alerts/active':
-          contents = { alerts: [] }
-          break
-        case 'monitoring://chain/stats':
-          contents = { blockNumber: 0, avgBlockTime: 2, tps: 100 }
-          break
-        case 'monitoring://infrastructure':
-          contents = { nodes: 3, databases: 1, storage: '100GB' }
-          break
-        case 'monitoring://dashboard':
-          contents = {
-            status: 'healthy',
-            services: 10,
-            alerts: 0,
-            uptime: 99.9,
+
+          const rawData = await response.json()
+          const parsed = PrometheusTargetsResponseSchema.safeParse(rawData)
+          if (!parsed.success) {
+            contents = { services: [] }
+            break
           }
+
+          const serviceMap = new Map<string, { up: number; total: number }>()
+          for (const target of parsed.data.data.activeTargets) {
+            const job = target.labels.job ?? 'unknown'
+            const current = serviceMap.get(job) ?? { up: 0, total: 0 }
+            current.total++
+            if (target.health === 'up') current.up++
+            serviceMap.set(job, current)
+          }
+
+          const services = Array.from(serviceMap.entries()).map(
+            ([name, stats]) => ({
+              name,
+              status:
+                stats.up === stats.total
+                  ? 'healthy'
+                  : stats.up > 0
+                    ? 'degraded'
+                    : 'down',
+              uptime: stats.total > 0 ? (stats.up / stats.total) * 100 : 0,
+            }),
+          )
+
+          contents = { services }
           break
+        }
+
+        case 'monitoring://alerts/active': {
+          const response = await safeFetch(`${PROMETHEUS_URL}/api/v1/alerts`)
+          if (!response?.ok) {
+            contents = { alerts: [] }
+            break
+          }
+
+          const rawData = await response.json()
+          const parsed = PrometheusAlertsResponseSchema.safeParse(rawData)
+          if (!parsed.success) {
+            contents = { alerts: [] }
+            break
+          }
+
+          const alerts = parsed.data.data.alerts
+            .filter((a) => a.state === 'firing')
+            .map((a) => ({
+              id: a.labels.alertname ?? 'unknown',
+              severity: a.labels.severity ?? 'unknown',
+              message:
+                a.annotations.description ??
+                a.annotations.summary ??
+                a.labels.alertname ??
+                'Alert',
+            }))
+
+          contents = { alerts }
+          break
+        }
+
+        case 'monitoring://chain/stats': {
+          const blockRes = await fetch(RPC_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              jsonrpc: '2.0',
+              method: 'eth_blockNumber',
+              params: [],
+              id: 1,
+            }),
+            signal: AbortSignal.timeout(5000),
+          }).catch(() => null)
+
+          let blockNumber = 0
+          if (blockRes) {
+            const data: unknown = await blockRes.json()
+            const parsed = z.object({ result: z.string() }).safeParse(data)
+            if (parsed.success) {
+              blockNumber = parseInt(parsed.data.result, 16)
+            }
+          }
+
+          contents = { blockNumber, avgBlockTime: 2, tps: 0 }
+          break
+        }
+
+        case 'monitoring://dashboard': {
+          const targetsRes = await safeFetch(`${PROMETHEUS_URL}/api/v1/targets`)
+          const alertsRes = await safeFetch(`${PROMETHEUS_URL}/api/v1/alerts`)
+
+          let services = 0
+          let upCount = 0
+          let alerts = 0
+
+          if (targetsRes?.ok) {
+            const rawData = await targetsRes.json()
+            const parsed = PrometheusTargetsResponseSchema.safeParse(rawData)
+            if (parsed.success) {
+              const jobs = new Set(
+                parsed.data.data.activeTargets.map((t) => t.labels.job),
+              )
+              services = jobs.size
+              upCount = parsed.data.data.activeTargets.filter(
+                (t) => t.health === 'up',
+              ).length
+            }
+          }
+
+          if (alertsRes?.ok) {
+            const rawData = await alertsRes.json()
+            const parsed = PrometheusAlertsResponseSchema.safeParse(rawData)
+            if (parsed.success) {
+              alerts = parsed.data.data.alerts.filter(
+                (a) => a.state === 'firing',
+              ).length
+            }
+          }
+
+          const status = alerts > 0 ? 'degraded' : 'healthy'
+          const total = targetsRes?.ok
+            ? ((
+                await PrometheusTargetsResponseSchema.safeParseAsync(
+                  await targetsRes.json(),
+                )
+              ).data?.data.activeTargets.length ?? 0)
+            : 0
+          const uptime = total > 0 ? (upCount / total) * 100 : 100
+
+          contents = { status, services, alerts, uptime }
+          break
+        }
+
         default:
           set.status = 404
           return { error: 'Resource not found' }
@@ -475,30 +750,146 @@ export function createMonitoringMCPServer() {
       let result: MCPToolResult
 
       switch (name) {
-        case 'check_service':
+        case 'check_service': {
+          if (!args.service) {
+            return {
+              content: [{ type: 'text', text: 'Missing service parameter' }],
+              isError: true,
+            }
+          }
+
+          const response = await safeFetch(`${PROMETHEUS_URL}/api/v1/targets`)
+          if (!response?.ok) {
+            result = {
+              service: args.service,
+              status: 'unknown',
+              latency: 0,
+              uptime: 0,
+            }
+            break
+          }
+
+          const rawData = await response.json()
+          const parsed = PrometheusTargetsResponseSchema.safeParse(rawData)
+          if (!parsed.success) {
+            result = {
+              service: args.service,
+              status: 'unknown',
+              latency: 0,
+              uptime: 0,
+            }
+            break
+          }
+
+          const serviceTargets = parsed.data.data.activeTargets.filter(
+            (t) => t.labels.job === args.service,
+          )
+
+          if (serviceTargets.length === 0) {
+            result = {
+              service: args.service,
+              status: 'not found',
+              latency: 0,
+              uptime: 0,
+            }
+            break
+          }
+
+          const upCount = serviceTargets.filter((t) => t.health === 'up').length
+          const avgLatency =
+            serviceTargets.reduce(
+              (sum, t) => sum + (t.lastScrapeDuration ?? 0) * 1000,
+              0,
+            ) / serviceTargets.length
+
           result = {
             service: args.service,
-            status: 'healthy',
-            latency: 45,
-            uptime: 99.9,
+            status:
+              upCount === serviceTargets.length
+                ? 'healthy'
+                : upCount > 0
+                  ? 'degraded'
+                  : 'down',
+            latency: Math.round(avgLatency),
+            uptime: (upCount / serviceTargets.length) * 100,
           }
           break
-        case 'query_logs':
-          result = { logs: [], total: 0, query: args.query }
-          break
-        case 'create_alert_rule':
+        }
+
+        case 'query_prometheus': {
+          if (!args.query) {
+            return {
+              content: [{ type: 'text', text: 'Missing query parameter' }],
+              isError: true,
+            }
+          }
+
+          const response = await safeFetch(
+            `${PROMETHEUS_URL}/api/v1/query?query=${encodeURIComponent(args.query)}`,
+          )
+
+          if (!response?.ok) {
+            result = { logs: [], total: 0, query: args.query }
+            break
+          }
+
+          const rawData = await response.json()
+          const parsed = PrometheusQueryResultSchema.safeParse(rawData)
+          if (!parsed.success) {
+            result = { logs: [], total: 0, query: args.query }
+            break
+          }
+
+          const values =
+            parsed.data.data?.result?.map((r) => ({
+              metric: r.metric,
+              value: r.value?.[1] ?? '0',
+            })) ?? []
+
           result = {
-            ruleId: crypto.randomUUID(),
-            name: args.name,
-            active: true,
+            logs: values.map((v) => JSON.stringify(v)),
+            total: values.length,
+            query: args.query,
           }
           break
-        case 'acknowledge_alert':
-          result = { success: true, alertId: args.alertId }
+        }
+
+        case 'get_metrics': {
+          if (!args.target || !args.metric) {
+            return {
+              content: [
+                { type: 'text', text: 'Missing target or metric parameter' },
+              ],
+              isError: true,
+            }
+          }
+
+          const query = `${args.metric}{job="${args.target}"}`
+          const response = await safeFetch(
+            `${PROMETHEUS_URL}/api/v1/query?query=${encodeURIComponent(query)}`,
+          )
+
+          if (!response?.ok) {
+            result = { target: args.target, metric: args.metric, values: [] }
+            break
+          }
+
+          const rawData = await response.json()
+          const parsed = PrometheusQueryResultSchema.safeParse(rawData)
+          if (!parsed.success) {
+            result = { target: args.target, metric: args.metric, values: [] }
+            break
+          }
+
+          const values =
+            parsed.data.data?.result?.map((r) =>
+              parseFloat(r.value?.[1] ?? '0'),
+            ) ?? []
+
+          result = { target: args.target, metric: args.metric, values }
           break
-        case 'get_metrics':
-          result = { target: args.target, metric: args.metric, values: [] }
-          break
+        }
+
         default:
           return {
             content: [{ type: 'text', text: 'Tool not found' }],

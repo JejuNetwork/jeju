@@ -11,7 +11,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
       rel="stylesheet"
     />
     <style>
@@ -35,7 +35,7 @@
       }
 
       body {
-        font-family: 'Space Grotesk', sans-serif;
+        font-family: 'Instrument Sans', sans-serif;
         background: var(--bg-primary);
         color: var(--text-primary);
         min-height: 100vh;
@@ -200,6 +200,55 @@
       .btn-secondary:hover {
         border-color: var(--accent);
         background: var(--accent-dim);
+      }
+
+      /* Profile Section */
+      #profile-section {
+        display: none;
+      }
+
+      .profile-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 32px;
+        max-width: 480px;
+        margin: 0 auto;
+      }
+
+      .profile-header {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 24px;
+        padding-bottom: 24px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .provider-icon {
+        font-size: 48px;
+      }
+
+      .user-id {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 18px;
+        color: var(--accent);
+      }
+
+      .profile-details {
+        color: var(--text-secondary);
+        font-size: 14px;
+        line-height: 2;
+      }
+
+      .profile-details strong {
+        color: var(--text-primary);
+      }
+
+      .profile-actions {
+        margin-top: 24px;
+        padding-top: 24px;
+        border-top: 1px solid var(--border);
       }
 
       /* Features */
@@ -418,7 +467,8 @@
     </header>
 
     <main>
-      <section class="hero">
+      <!-- Login Section -->
+      <section id="login-section" class="hero">
         <div class="container">
           <h1>
             Decentralized<br />
@@ -430,15 +480,27 @@
             decentralized.
           </p>
           <div class="hero-buttons">
-            <a
-              href="/oauth/authorize?client_id=jeju-default&redirect_uri=https://gateway.jejunetwork.org/callback"
-              class="btn btn-primary"
-            >
+            <button id="demo-login-btn" class="btn btn-primary">
               Try Demo Login
-            </a>
+            </button>
             <a href="https://docs.jejunetwork.org/auth" class="btn btn-secondary">
               Read the Docs
             </a>
+          </div>
+        </div>
+      </section>
+
+      <!-- Profile Section (shown when logged in) -->
+      <section id="profile-section" class="hero">
+        <div class="container">
+          <h1>Welcome Back</h1>
+          <div class="profile-card">
+            <div id="profile-content"></div>
+            <div class="profile-actions">
+              <button id="logout-btn" class="btn btn-secondary" style="width: 100%">
+                Sign Out
+              </button>
+            </div>
           </div>
         </div>
       </section>
@@ -456,18 +518,18 @@
             </div>
             <div class="feature-card">
               <div class="feature-icon">🛡️</div>
-              <h3>MPC Security</h3>
+              <h3>Secure Sessions</h3>
               <p>
-                Session keys secured by threshold signing across TEE nodes. No
-                single point of failure.
+                Database-backed session management with automatic expiration and
+                refresh token support.
               </p>
             </div>
             <div class="feature-card">
               <div class="feature-icon">🌐</div>
-              <h3>Fully Decentralized</h3>
+              <h3>Decentralized</h3>
               <p>
-                Running on DWS infrastructure. No central servers, no data silos,
-                censorship resistant.
+                Running on DWS infrastructure. Deploy anywhere with CovenantSQL
+                for distributed state.
               </p>
             </div>
             <div class="feature-card">
@@ -479,19 +541,19 @@
               </p>
             </div>
             <div class="feature-card">
-              <div class="feature-icon">🎫</div>
-              <h3>Verifiable Credentials</h3>
+              <div class="feature-icon">🔗</div>
+              <h3>Social Providers</h3>
               <p>
-                Issue and verify W3C credentials. Prove attributes without
-                revealing unnecessary data.
+                Connect with GitHub, Google, Twitter, and Discord. Link multiple
+                identities to one account.
               </p>
             </div>
             <div class="feature-card">
-              <div class="feature-icon">🔗</div>
-              <h3>Cross-Chain</h3>
+              <div class="feature-icon">🟣</div>
+              <h3>Farcaster Ready</h3>
               <p>
-                Works across EVM chains, Solana, and more. One identity,
-                everywhere.
+                Native Farcaster integration with QR code sign-in and custody
+                address verification.
               </p>
             </div>
           </div>

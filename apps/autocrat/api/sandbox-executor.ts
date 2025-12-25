@@ -14,11 +14,9 @@ import {
   VulnerabilityType,
 } from '../lib'
 
-// DWS endpoint is resolved dynamically based on the current network
+// DWS endpoint is resolved from network config (handles env overrides)
 function getDWSEndpoint(): string {
-  return (
-    process.env.DWS_URL ?? process.env.DWS_COMPUTE_URL ?? getDWSComputeUrl()
-  )
+  return getDWSComputeUrl()
 }
 const MAX_EXECUTION_TIME = parseInt(process.env.SANDBOX_MAX_TIME ?? '3600', 10) // 1 hour
 const MAX_MEMORY_MB = parseInt(process.env.SANDBOX_MAX_MEMORY ?? '8192', 10)

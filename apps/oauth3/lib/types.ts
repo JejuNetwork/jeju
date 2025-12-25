@@ -90,27 +90,6 @@ export interface RegisteredClient {
   active: boolean
 }
 
-// ============ Verifiable Credentials ============
-
-export interface VerifiableCredential {
-  '@context': string[]
-  type: string[]
-  issuer: string
-  issuanceDate: string
-  expirationDate?: string
-  credentialSubject: {
-    id: string
-    [key: string]: string | number | boolean | undefined
-  }
-  proof?: {
-    type: string
-    created: string
-    verificationMethod: string
-    proofPurpose: string
-    proofValue: Hex
-  }
-}
-
 // ============ Config ============
 
 export interface AuthConfig {

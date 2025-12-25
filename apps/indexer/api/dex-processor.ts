@@ -131,7 +131,7 @@ function isStablecoin(chainId: number, address: string): boolean {
   return STABLECOINS[chainId]?.has(address.toLowerCase()) ?? false
 }
 
-function _isWETH(chainId: number, address: string): boolean {
+function isWETH(chainId: number, address: string): boolean {
   return WETH[chainId]?.toLowerCase() === address.toLowerCase()
 }
 
@@ -558,7 +558,7 @@ async function processSwapV2(
   }
 
   // Create swap entity
-  const txHash = log.topics[0]?.slice(0, 66) || 'unknown' // Simplified - would need actual tx hash
+  const txHash = log.transactionHash
   const swapId = `${txHash}-${log.logIndex}`
   const sender = accountFactory.getOrCreate(
     senderAddr,
@@ -621,7 +621,7 @@ async function processSwapV2(
   tokenOut.lastSwapAt = timestamp
   tokenOut.lastUpdated = timestamp
 
-  // Update USD prices based on stablecoin swaps
+  // Update USD prices based on stablecoin or WETH swaps
   if (isStablecoin(chainId, tokenIn.address)) {
     // tokenOut price = amountIn / amountOut
     const priceUSD =
@@ -634,6 +634,24 @@ async function processSwapV2(
       (Number(amountOut) / Number(amountIn)) *
       10 ** (tokenIn.decimals - tokenOut.decimals)
     tokenIn.priceUSD = priceUSD.toString()
+  } else if (isWETH(chainId, tokenIn.address) && tokenIn.priceUSD) {
+    // Calculate tokenOut price using WETH price
+    const wethPrice = parseFloat(tokenIn.priceUSD)
+    if (wethPrice > 0 && Number(amountOut) > 0) {
+      const priceUSD =
+        ((wethPrice * Number(amountIn)) / Number(amountOut)) *
+        10 ** (tokenOut.decimals - tokenIn.decimals)
+      tokenOut.priceUSD = priceUSD.toString()
+    }
+  } else if (isWETH(chainId, tokenOut.address) && tokenOut.priceUSD) {
+    // Calculate tokenIn price using WETH price
+    const wethPrice = parseFloat(tokenOut.priceUSD)
+    if (wethPrice > 0 && Number(amountIn) > 0) {
+      const priceUSD =
+        ((wethPrice * Number(amountOut)) / Number(amountIn)) *
+        10 ** (tokenIn.decimals - tokenOut.decimals)
+      tokenIn.priceUSD = priceUSD.toString()
+    }
   }
 
   tokens.set(token0.id, token0)
@@ -720,7 +738,7 @@ async function processSwapV3(
   )
 
   // Create swap
-  const txHash = log.topics[0]?.slice(0, 66) || 'unknown'
+  const txHash = log.transactionHash
   const swapId = `${txHash}-${log.logIndex}`
   const sender = accountFactory.getOrCreate(
     senderAddr,
@@ -803,9 +821,85 @@ async function processSyncV2(
 
   pool.reserve0 = reserve0
   pool.reserve1 = reserve1
-  pool.totalLiquidity = reserve0 + reserve1 // Simplified - should use sqrt(reserve0 * reserve1)
+  // Sum of reserves as proxy for total liquidity (geometric mean would be more accurate for Uniswap V2)
+  pool.totalLiquidity = reserve0 + reserve1
 
   pools.set(poolId, pool)
+}
+
+// Known token metadata by chain and address (lowercase)
+const KNOWN_TOKENS: Record<
+  number,
+  Record<string, { symbol: string; name: string; decimals: number }>
+> = {
+  1: {
+    '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2': {
+      symbol: 'WETH',
+      name: 'Wrapped Ether',
+      decimals: 18,
+    },
+    '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48': {
+      symbol: 'USDC',
+      name: 'USD Coin',
+      decimals: 6,
+    },
+    '0xdac17f958d2ee523a2206206994597c13d831ec7': {
+      symbol: 'USDT',
+      name: 'Tether USD',
+      decimals: 6,
+    },
+    '0x6b175474e89094c44da98b954eedeac495271d0f': {
+      symbol: 'DAI',
+      name: 'Dai Stablecoin',
+      decimals: 18,
+    },
+  },
+  42161: {
+    '0x82af49447d8a07e3bd95bd0d56f35241523fbab1': {
+      symbol: 'WETH',
+      name: 'Wrapped Ether',
+      decimals: 18,
+    },
+    '0xaf88d065e77c8cc2239327c5edb3a432268e5831': {
+      symbol: 'USDC',
+      name: 'USD Coin',
+      decimals: 6,
+    },
+    '0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9': {
+      symbol: 'USDT',
+      name: 'Tether USD',
+      decimals: 6,
+    },
+  },
+  8453: {
+    '0x4200000000000000000000000000000000000006': {
+      symbol: 'WETH',
+      name: 'Wrapped Ether',
+      decimals: 18,
+    },
+    '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913': {
+      symbol: 'USDC',
+      name: 'USD Coin',
+      decimals: 6,
+    },
+  },
+  10: {
+    '0x4200000000000000000000000000000000000006': {
+      symbol: 'WETH',
+      name: 'Wrapped Ether',
+      decimals: 18,
+    },
+    '0x0b2c639c533813f4aa9d7837caf62653d097ff85': {
+      symbol: 'USDC',
+      name: 'USD Coin',
+      decimals: 6,
+    },
+    '0x94b008aa00579c1307b0ef2c499ad98a8ce58e58': {
+      symbol: 'USDT',
+      name: 'Tether USD',
+      decimals: 6,
+    },
+  },
 }
 
 async function getOrCreateToken(
@@ -827,15 +921,19 @@ async function getOrCreateToken(
     return token
   }
 
-  // Create new token - decimals/name/symbol would need RPC call
-  // For now, use placeholders (would be enriched by a separate token metadata job)
+  // Look up known token metadata
+  const knownToken = KNOWN_TOKENS[chainId]?.[address.toLowerCase()]
+  const symbol = knownToken?.symbol ?? address.slice(0, 8).toUpperCase()
+  const name = knownToken?.name ?? `Token ${address.slice(0, 10)}`
+  const decimals = knownToken?.decimals ?? 18
+
   token = new Token({
     id: tokenId,
     address: address.toLowerCase(),
     chainId,
-    symbol: 'UNKNOWN',
-    name: 'Unknown Token',
-    decimals: 18,
+    symbol,
+    name,
+    decimals,
     totalSupply: 0n,
     volume24h: 0n,
     volumeUSD24h: '0',
@@ -844,7 +942,7 @@ async function getOrCreateToken(
     liquidityUSD: '0',
     holderCount: 0,
     poolCount: 0,
-    verified: false,
+    verified: knownToken !== undefined,
     createdAt: timestamp,
     lastUpdated: timestamp,
   })

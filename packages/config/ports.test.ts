@@ -226,11 +226,11 @@ describe('Port Conflict Detection', () => {
     })
 
     const result = checkPortConflicts()
-    // Known conflicts that require env var overrides in practice:
-    // - Port 5008: BABYLON_WEB (core) vs CALIGULAND_GAME (vendor)
-    // - Port 5009: BABYLON_API (core) vs CALIGULAND_AUTH (vendor)
-    expect(result.hasConflicts).toBe(true)
-    expect(result.conflicts).toHaveLength(2)
+    // No known conflicts with default ports after port reassignment:
+    // - BABYLON_WEB: 5008, BABYLON_API: 5009 (core)
+    // - CALIGULAND_GAME: 5011, CALIGULAND_AUTH: 5012 (vendor)
+    expect(result.hasConflicts).toBe(false)
+    expect(result.conflicts).toHaveLength(0)
   })
 
   it('should detect conflicts when ports overlap', () => {
@@ -254,8 +254,8 @@ describe('Port Conflict Detection', () => {
 
     const result = checkPortConflicts()
     expect(result.hasConflicts).toBe(true)
-    // 2 known conflicts (5008, 5009) + 2 new conflicts (1111, 2222) = 4 total
-    expect(result.conflicts.length).toBe(4)
+    // 2 conflicts: 1111 (GATEWAY + NODE_EXPLORER_API) and 2222 (BAZAAR + COMPUTE)
+    expect(result.conflicts.length).toBe(2)
   })
 })
 
@@ -431,6 +431,7 @@ describe('Port Range Guidelines', () => {
       // - IPFS_API (5001) - standard Kubo HTTP API port
       // - DOCUMENTATION_A2A (7778) - separate A2A endpoint for docs search
       // - BABYLON_WEB/BABYLON_API (5008/5009) - social prediction platform in 5xxx range
+      // - VPN_WEB (1421) - VPN web frontend on lower port
       if (
         ![
           'INDEXER_DATABASE',
@@ -438,6 +439,7 @@ describe('Port Range Guidelines', () => {
           'DOCUMENTATION_A2A',
           'BABYLON_WEB',
           'BABYLON_API',
+          'VPN_WEB',
         ].includes(name)
       ) {
         expect(port).toBeGreaterThanOrEqual(3000)
@@ -486,10 +488,10 @@ describe('Port Range Guidelines', () => {
     // Restore env
     process.env = { ...originalEnv }
 
-    // Known conflicts that require env var overrides in practice:
-    // - Port 5008: BABYLON_WEB (core) vs CALIGULAND_GAME (vendor)
-    // - Port 5009: BABYLON_API (core) vs CALIGULAND_AUTH (vendor)
-    expect(result.hasConflicts).toBe(true)
-    expect(result.conflicts.length).toBe(2)
+    // No known conflicts after port reassignment:
+    // - BABYLON_WEB: 5008, BABYLON_API: 5009 (core)
+    // - CALIGULAND_GAME: 5011, CALIGULAND_AUTH: 5012 (vendor)
+    expect(result.hasConflicts).toBe(false)
+    expect(result.conflicts.length).toBe(0)
   })
 })

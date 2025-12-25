@@ -31,7 +31,10 @@ import {
   ProposalIdSchema,
   QualityCriteriaSchema,
 } from '../lib'
-import { autocratAgentRuntime, type DeliberationRequest } from './agents'
+import {
+  autocratAgentRuntime,
+  type DeliberationRequest,
+} from './agents/runtime'
 import type { AutocratBlockchain } from './blockchain'
 import {
   checkOllama,

@@ -8,6 +8,7 @@
 import {
   AddressSchema,
   expect as baseExpect,
+  expectTrue,
   expectValid,
   JsonValueSchema,
   NonEmptyStringSchema,
@@ -19,6 +20,7 @@ import { z } from 'zod'
 // Validation Helpers
 
 export const expect = baseExpect
+export { expectTrue }
 
 /** Parse and throw with context */
 export function parseOrThrow<T>(

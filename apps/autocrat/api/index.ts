@@ -23,7 +23,13 @@
  */
 
 import { cors } from '@elysiajs/cors'
-import { getNetworkName } from '@jejunetwork/config'
+import {
+  CORE_PORTS,
+  getChainId,
+  getContract,
+  getNetworkName,
+  getRpcUrl,
+} from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import type { CouncilConfig } from '../lib'
 import {
@@ -32,7 +38,7 @@ import {
   ProposalTypeSchema,
 } from '../lib'
 import { createAutocratA2AServer } from './a2a-server'
-import { autocratAgentRuntime } from './agents'
+import { autocratAgentRuntime } from './agents/runtime'
 import { getBlockchain } from './blockchain'
 import {
   getComputeTriggerClient,
@@ -133,7 +139,31 @@ import {
 } from '../lib'
 import { parseBigInt } from './validation'
 
-const addr = (key: string) => toAddress(process.env[key] ?? ZERO_ADDRESS)
+// Helper to safely get contract addresses - uses config with env override
+const getContractAddr = (category: string, name: string) => {
+  try {
+    return toAddress(
+      getContract(
+        category as
+          | 'governance'
+          | 'registry'
+          | 'tokens'
+          | 'moderation'
+          | 'defi'
+          | 'oif'
+          | 'eil'
+          | 'payments'
+          | 'nodeStaking'
+          | 'jns'
+          | 'security',
+        name,
+      ),
+    )
+  } catch {
+    return ZERO_ADDRESS
+  }
+}
+
 const agent = (id: string, name: string, prompt: string) => ({
   id,
   name,
@@ -144,23 +174,20 @@ const agent = (id: string, name: string, prompt: string) => ({
 
 function getConfig(): CouncilConfig {
   return {
-    rpcUrl:
-      process.env.RPC_URL ??
-      process.env.JEJU_RPC_URL ??
-      'http://localhost:6546',
+    rpcUrl: getRpcUrl(),
     daoId: process.env.DEFAULT_DAO ?? 'jeju',
     contracts: {
-      council: addr('COUNCIL_ADDRESS'),
-      ceoAgent: addr('CEO_AGENT_ADDRESS'),
-      treasury: addr('TREASURY_ADDRESS'),
-      feeConfig: addr('FEE_CONFIG_ADDRESS'),
-      daoRegistry: addr('DAO_REGISTRY_ADDRESS'),
-      daoFunding: addr('DAO_FUNDING_ADDRESS'),
-      identityRegistry: addr('IDENTITY_REGISTRY_ADDRESS'),
-      reputationRegistry: addr('REPUTATION_REGISTRY_ADDRESS'),
-      packageRegistry: addr('PACKAGE_REGISTRY_ADDRESS'),
-      repoRegistry: addr('REPO_REGISTRY_ADDRESS'),
-      modelRegistry: addr('MODEL_REGISTRY_ADDRESS'),
+      council: getContractAddr('governance', 'council'),
+      ceoAgent: getContractAddr('governance', 'ceoAgent'),
+      treasury: getContractAddr('governance', 'treasury'),
+      feeConfig: getContractAddr('payments', 'feeConfig'),
+      daoRegistry: getContractAddr('governance', 'daoRegistry'),
+      daoFunding: getContractAddr('governance', 'daoFunding'),
+      identityRegistry: getContractAddr('registry', 'identity'),
+      reputationRegistry: getContractAddr('registry', 'reputation'),
+      packageRegistry: getContractAddr('registry', 'package'),
+      repoRegistry: getContractAddr('registry', 'repo'),
+      modelRegistry: getContractAddr('registry', 'model'),
     },
     agents: {
       ceo: agent('eliza-ceo', 'Eliza', 'AI CEO of Network DAO'),
@@ -264,9 +291,7 @@ const erc8004Config: ERC8004Config = {
   rpcUrl: config.rpcUrl,
   identityRegistry: config.contracts.identityRegistry,
   reputationRegistry: config.contracts.reputationRegistry,
-  validationRegistry:
-    process.env.VALIDATION_REGISTRY_ADDRESS ??
-    '0x0000000000000000000000000000000000000000',
+  validationRegistry: getContractAddr('registry', 'validation'),
   operatorKey: process.env.OPERATOR_KEY ?? process.env.PRIVATE_KEY,
 }
 const erc8004 = getERC8004Client(erc8004Config)
@@ -296,7 +321,7 @@ const initDAOService = () => {
   if (!daoService && config.contracts.daoRegistry !== ZERO_ADDRESS) {
     daoService = createDAOService({
       rpcUrl: config.rpcUrl,
-      chainId: parseInt(process.env.CHAIN_ID ?? '31337', 10),
+      chainId: getChainId(),
       daoRegistryAddress: config.contracts.daoRegistry,
       daoFundingAddress: config.contracts.daoFunding,
       privateKey: process.env.OPERATOR_KEY ?? process.env.PRIVATE_KEY,
@@ -309,10 +334,10 @@ const initDAOService = () => {
 // Registry Integration API - Deep AI DAO integration
 const registryConfig: RegistryIntegrationConfig = {
   rpcUrl: config.rpcUrl,
-  integrationContract: process.env.REGISTRY_INTEGRATION_ADDRESS,
+  integrationContract: getContractAddr('governance', 'registryIntegration'),
   identityRegistry: config.contracts.identityRegistry,
   reputationRegistry: config.contracts.reputationRegistry,
-  delegationRegistry: process.env.DELEGATION_REGISTRY_ADDRESS,
+  delegationRegistry: getContractAddr('governance', 'delegationRegistry'),
 }
 const registryIntegration = getRegistryIntegrationClient(registryConfig)
 
@@ -1123,9 +1148,7 @@ const app = new Elysia()
     },
   }))
 
-const port = parseInt(process.env.PORT ?? '8010', 10)
-const autoStart = process.env.AUTO_START_ORCHESTRATOR !== 'false'
-const useCompute = process.env.USE_COMPUTE_TRIGGER !== 'false'
+const port = CORE_PORTS.AUTOCRAT_API.get()
 
 async function start() {
   await initLocalServices()
@@ -1136,7 +1159,7 @@ async function start() {
   const computeAvailable = await computeClient.isAvailable()
   let triggerMode = 'local'
 
-  if (computeAvailable && useCompute) {
+  if (computeAvailable) {
     await registerAutocratTriggers()
     triggerMode = 'compute'
   }
@@ -1145,7 +1168,7 @@ async function start() {
     `[Council] port=${port} tee=${getTEEMode()} trigger=${triggerMode}`,
   )
 
-  if (autoStart && blockchain.councilDeployed) {
+  if (blockchain.councilDeployed) {
     const orchestratorConfig: import('./orchestrator').AutocratConfig = {
       rpcUrl: config.rpcUrl,
       daoRegistry: config.contracts.daoRegistry,
@@ -1178,11 +1201,10 @@ export { createAutocratA2AServer } from './a2a-server'
 export {
   type AgentVote,
   autocratAgentRuntime,
-  autocratAgentTemplates,
   type CEODecisionRequest,
   type DeliberationRequest,
-  getAgentByRole,
-} from './agents'
+} from './agents/runtime'
+export { autocratAgentTemplates, getAgentByRole } from './agents/templates'
 export { AutocratBlockchain, getBlockchain } from './blockchain'
 export {
   getComputeTriggerClient,

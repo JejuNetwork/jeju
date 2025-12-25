@@ -1,13 +1,6 @@
 /**
  * Container Execution Module
  * Decentralized serverless container execution with warmth management
- *
- * For internal testing, import directly from specific modules:
- * - ./image-cache for cache operations
- * - ./warm-pool for instance management
- * - ./scheduler for node scheduling
- * - ./executor for container execution
- * - ./tee-gpu-provider for GPU attestation
  */
 
 // Executor - public API

@@ -156,18 +156,18 @@ export function createComputeRouter() {
       .post(
         '/chat/completions',
         async ({ body, set }) => {
-          const activeNodes = getActiveNodes()
+          const activeNodes = await getActiveNodes()
           const modelLower = (body.model ?? '').toLowerCase()
           let selectedNode: InferenceNode | null = null
 
           for (const node of activeNodes) {
             if (node.currentLoad >= node.maxConcurrent) continue
 
-            const nodeModels = node.models.map((m) => m.toLowerCase())
+            const nodeModels = node.models.map((m: string) => m.toLowerCase())
             if (
               nodeModels.includes('*') ||
               nodeModels.some(
-                (m) =>
+                (m: string) =>
                   modelLower.includes(m) ||
                   m.includes(modelLower.split('-')[0]),
               )
@@ -179,7 +179,9 @@ export function createComputeRouter() {
 
           if (!selectedNode) {
             selectedNode =
-              activeNodes.find((n) => n.currentLoad < n.maxConcurrent) ?? null
+              activeNodes.find(
+                (n: InferenceNode) => n.currentLoad < n.maxConcurrent,
+              ) ?? null
           }
 
           if (!selectedNode) {
@@ -577,7 +579,7 @@ export function createComputeRouter() {
         }
       })
 
-      .get('/nodes/inference', () => getActiveNodes())
+      .get('/nodes/inference', async () => await getActiveNodes())
 
       .get('/nodes/:address', async ({ params, set }) => {
         const node = await trainingState.getNode(params.address)
@@ -600,7 +602,7 @@ export function createComputeRouter() {
       .post(
         '/nodes/register',
         async ({ body }) => {
-          const address = body.address.toLowerCase()
+          const address = body.address.toLowerCase() as Address
 
           await trainingState.saveNode({
             address,
@@ -614,6 +616,7 @@ export function createComputeRouter() {
           if (body.endpoint && body.capabilities?.includes('inference')) {
             registerNode({
               address,
+              name: body.name ?? `node-${address.slice(0, 8)}`,
               endpoint: body.endpoint,
               capabilities: body.capabilities ?? ['inference'],
               models: body.models ?? ['*'],
@@ -647,6 +650,7 @@ export function createComputeRouter() {
           body: t.Object({
             address: t.String(),
             gpuTier: t.Number(),
+            name: t.Optional(t.String()),
             endpoint: t.Optional(t.String()),
             capabilities: t.Optional(t.Array(t.String())),
             models: t.Optional(t.Array(t.String())),

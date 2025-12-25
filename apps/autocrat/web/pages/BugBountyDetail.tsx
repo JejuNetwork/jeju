@@ -1,4 +1,5 @@
 import {
+  AlertCircle,
   ArrowLeft,
   Award,
   Bug,
@@ -35,12 +36,8 @@ interface SubmissionDetail {
   proofOfConcept?: string
   suggestedFix?: string
   impact?: string
-  validationResult?: {
-    valid: boolean
-    severity: number
-    confidence: number
-    findings: string[]
-  }
+  validationResult?: number
+  validationNotes?: string
 }
 
 interface ResearcherStats {
@@ -270,7 +267,7 @@ export default function BugBountyDetailPage() {
             )}
 
             {/* Validation Results */}
-            {submission.validationResult && (
+            {submission.validationResult !== undefined && (
               <div className="p-6 rounded-xl bg-gray-800/50 border border-gray-700">
                 <h2 className="font-semibold text-white mb-4 flex items-center gap-2">
                   <Shield size={18} />
@@ -278,27 +275,35 @@ export default function BugBountyDetailPage() {
                 </h2>
                 <div className="space-y-4">
                   <div className="flex items-center gap-4">
-                    {submission.validationResult.valid ? (
+                    {submission.validationResult === 1 ||
+                    submission.validationResult === 2 ? (
                       <span className="flex items-center gap-2 text-green-400">
                         <CheckCircle size={18} />
-                        Validated
+                        {submission.validationResult === 1
+                          ? 'Verified'
+                          : 'Likely Valid'}
                       </span>
-                    ) : (
+                    ) : submission.validationResult === 4 ? (
                       <span className="flex items-center gap-2 text-red-400">
                         <XCircle size={18} />
                         Invalid
                       </span>
+                    ) : submission.validationResult === 3 ? (
+                      <span className="flex items-center gap-2 text-yellow-400">
+                        <AlertCircle size={18} />
+                        Needs More Info
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-2 text-gray-400">
+                        <Clock size={18} />
+                        Pending
+                      </span>
                     )}
-                    <span className="text-gray-400">
-                      {submission.validationResult.confidence}% confidence
-                    </span>
                   </div>
-                  {submission.validationResult.findings.length > 0 && (
-                    <ul className="space-y-1 text-sm text-gray-300">
-                      {submission.validationResult.findings.map((f) => (
-                        <li key={f}>• {f}</li>
-                      ))}
-                    </ul>
+                  {submission.validationNotes && (
+                    <p className="text-sm text-gray-300">
+                      {submission.validationNotes}
+                    </p>
                   )}
                 </div>
               </div>

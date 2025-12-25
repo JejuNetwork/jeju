@@ -199,7 +199,19 @@ export class OracleArbStrategy extends EventEmitter {
         eventName: 'AnswerUpdated',
         onLogs: (logs) => {
           for (const log of logs) {
-            this.onOracleUpdate(oracle, log)
+            // Skip logs with missing args
+            if (!log.args.current || !log.transactionHash || !log.blockNumber) {
+              continue
+            }
+            this.onOracleUpdate(oracle, {
+              args: {
+                current: log.args.current,
+                roundId: log.args.roundId ?? 0n,
+                updatedAt: log.args.updatedAt ?? 0n,
+              },
+              transactionHash: log.transactionHash,
+              blockNumber: log.blockNumber,
+            })
           }
         },
       })

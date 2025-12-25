@@ -13,9 +13,9 @@ import {
   connectAndVerify,
   expect,
   test,
+  walletPassword,
 } from '@jejunetwork/tests'
 import { MetaMask } from '@synthetixio/synpress/playwright'
-import basicSetup from '../wallet-setup/basic.setup'
 
 test.describe('Example App Smoke Tests', () => {
   test('should load homepage', async ({ page }) => {
@@ -32,7 +32,7 @@ test.describe('Example App Smoke Tests', () => {
     const metamask = new MetaMask(
       context,
       metamaskPage,
-      basicSetup.walletPassword,
+      walletPassword,
       extensionId,
     )
 
@@ -68,7 +68,7 @@ test.describe('Database Operations', () => {
     const metamask = new MetaMask(
       context,
       metamaskPage,
-      basicSetup.walletPassword,
+      walletPassword,
       extensionId,
     )
 
@@ -102,7 +102,7 @@ test.describe('Wallet Transactions', () => {
     const metamask = new MetaMask(
       context,
       metamaskPage,
-      basicSetup.walletPassword,
+      walletPassword,
       extensionId,
     )
 
@@ -126,7 +126,7 @@ test.describe('Wallet Transactions', () => {
     const metamask = new MetaMask(
       context,
       metamaskPage,
-      basicSetup.walletPassword,
+      walletPassword,
       extensionId,
     )
 

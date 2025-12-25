@@ -9,6 +9,7 @@
  */
 
 import { beforeAll, describe, expect, test } from 'bun:test'
+import { FROSTCoordinator, generateKeyShares } from '@jejunetwork/kms'
 import { type Address, type Hex, keccak256, toBytes } from 'viem'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import { createMultiTenantCouncilManager } from '../src/council/multi-tenant.js'
@@ -23,10 +24,6 @@ import {
   CrossChainIdentityManager,
   computeIntentHash,
 } from '../src/intents/cross-chain-identity.js'
-import {
-  FROSTCoordinator,
-  generateKeyShares,
-} from '../src/mpc/frost-signing.js'
 import type {
   AuthProvider,
   OAuth3Identity,

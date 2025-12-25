@@ -107,9 +107,9 @@ interface CEOPersonaConfig {
   decisionStyle: string
 }
 
-// DWS URL is automatically resolved from network config, but env var overrides
+// DWS URL is resolved from network config (handles env overrides)
 function getDWSEndpoint(): string {
-  return process.env.DWS_URL ?? getDWSComputeUrl()
+  return getDWSComputeUrl()
 }
 
 export async function checkDWSCompute(): Promise<boolean> {

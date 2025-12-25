@@ -5,7 +5,16 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
+import { z } from 'zod'
 import { type RedisClient, X402Manager } from '../payments/x402'
+
+/** Schema for stored payment data */
+const StoredPaymentSchema = z.object({
+  request: z.object({
+    requestId: z.string(),
+  }),
+  verified: z.boolean(),
+})
 
 /**
  * Mock Redis client for testing
@@ -97,10 +106,10 @@ describe('X402Manager', () => {
       )
 
       const stored = mockRedis.store.get(`x402:payment:${request.requestId}`)
-      expect(stored).toBeDefined()
-
-      if (!stored) throw new Error('stored should be defined')
-      const parsed = JSON.parse(stored)
+      if (!stored) {
+        throw new Error('stored should be defined')
+      }
+      const parsed = StoredPaymentSchema.parse(JSON.parse(stored))
       expect(parsed.request.requestId).toBe(request.requestId)
       expect(parsed.verified).toBe(false)
     })

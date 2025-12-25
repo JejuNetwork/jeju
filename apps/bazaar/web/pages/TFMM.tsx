@@ -1,6 +1,39 @@
 /**
  * TFMM Smart Pools Page
+ *
+ * TFMM pools are not yet deployed. This page shows available strategies
+ * and indicates that pool deployment is pending.
  */
+
+import { ArrowRight } from 'lucide-react'
+import { Link } from 'react-router-dom'
+
+const AVAILABLE_STRATEGIES = [
+  {
+    type: 'momentum',
+    name: 'Momentum',
+    description: 'Allocates more to assets with positive price momentum',
+    color: 'purple',
+  },
+  {
+    type: 'mean_reversion',
+    name: 'Mean Reversion',
+    description: 'Rebalances when assets deviate from historical averages',
+    color: 'blue',
+  },
+  {
+    type: 'trend_following',
+    name: 'Trend Following',
+    description: 'Follows medium-term price trends using moving averages',
+    color: 'green',
+  },
+  {
+    type: 'volatility_targeting',
+    name: 'Volatility Targeting',
+    description: 'Adjusts allocations to maintain target portfolio volatility',
+    color: 'orange',
+  },
+]
 
 export default function TFMMPage() {
   return (
@@ -38,169 +71,118 @@ export default function TFMMPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        <div className="card p-4">
-          <div
-            className="text-xs mb-1"
-            style={{ color: 'var(--text-tertiary)' }}
-          >
-            Total TVL
-          </div>
-          <div
-            className="text-xl font-bold"
+      <div className="card p-6 mb-6">
+        <div className="text-center">
+          <div className="text-5xl mb-4">🔧</div>
+          <h3
+            className="text-lg font-semibold mb-2"
             style={{ color: 'var(--text-primary)' }}
           >
-            $4.19M
-          </div>
-        </div>
-        <div className="card p-4">
-          <div
-            className="text-xs mb-1"
-            style={{ color: 'var(--text-tertiary)' }}
+            Contracts Pending Deployment
+          </h3>
+          <p
+            className="text-sm mb-4"
+            style={{ color: 'var(--text-secondary)' }}
           >
-            Active Pools
-          </div>
-          <div
-            className="text-xl font-bold"
-            style={{ color: 'var(--text-primary)' }}
-          >
-            3
-          </div>
-        </div>
-        <div className="card p-4">
-          <div
-            className="text-xs mb-1"
-            style={{ color: 'var(--text-tertiary)' }}
-          >
-            24h Volume
-          </div>
-          <div
-            className="text-xl font-bold"
-            style={{ color: 'var(--text-primary)' }}
-          >
-            $1.55M
-          </div>
-        </div>
-        <div className="card p-4">
-          <div
-            className="text-xs mb-1"
-            style={{ color: 'var(--text-tertiary)' }}
-          >
-            Avg APY
-          </div>
-          <div className="text-xl font-bold text-green-400">12.0%</div>
+            TFMM smart pool contracts are currently being audited and will be
+            deployed soon.
+          </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-        <div className="card p-5 hover:scale-[1.02] transition-transform cursor-pointer">
-          <div className="flex items-start justify-between gap-2 mb-3">
-            <h3 className="font-bold" style={{ color: 'var(--text-primary)' }}>
-              Momentum ETH/BTC
-            </h3>
-            <span className="px-2 py-0.5 rounded-full text-xs bg-purple-500/20 text-purple-400">
-              momentum
-            </span>
-          </div>
+      <h2
+        className="text-xl font-bold mb-4"
+        style={{ color: 'var(--text-primary)' }}
+      >
+        Available Strategies
+      </h2>
 
-          <div className="grid grid-cols-3 gap-2 text-sm mb-4">
-            <div>
-              <div
-                className="text-xs"
-                style={{ color: 'var(--text-tertiary)' }}
-              >
-                TVL
-              </div>
-              <div
-                className="font-semibold"
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+        {AVAILABLE_STRATEGIES.map((strategy) => (
+          <div key={strategy.type} className="card p-5">
+            <div className="flex items-start justify-between gap-2 mb-3">
+              <h3
+                className="font-bold"
                 style={{ color: 'var(--text-primary)' }}
               >
-                $2.4M
-              </div>
-            </div>
-            <div>
-              <div
-                className="text-xs"
-                style={{ color: 'var(--text-tertiary)' }}
+                {strategy.name}
+              </h3>
+              <span
+                className={`px-2 py-0.5 rounded-full text-xs bg-${strategy.color}-500/20 text-${strategy.color}-400`}
               >
-                APY
-              </div>
-              <div className="font-semibold text-green-400">12.5%</div>
+                {strategy.type}
+              </span>
             </div>
-            <div>
-              <div
-                className="text-xs"
-                style={{ color: 'var(--text-tertiary)' }}
-              >
-                24h
-              </div>
-              <div
-                className="font-semibold"
-                style={{ color: 'var(--text-primary)' }}
-              >
-                $890K
-              </div>
-            </div>
+            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+              {strategy.description}
+            </p>
           </div>
+        ))}
+      </div>
 
-          <button type="button" className="btn-primary w-full py-2.5">
-            Add Liquidity
-          </button>
-        </div>
-
-        <div className="card p-5 hover:scale-[1.02] transition-transform cursor-pointer">
-          <div className="flex items-start justify-between gap-2 mb-3">
-            <h3 className="font-bold" style={{ color: 'var(--text-primary)' }}>
-              Mean Reversion Stables
-            </h3>
-            <span className="px-2 py-0.5 rounded-full text-xs bg-blue-500/20 text-blue-400">
-              mean_reversion
-            </span>
-          </div>
-
-          <div className="grid grid-cols-3 gap-2 text-sm mb-4">
-            <div>
-              <div
-                className="text-xs"
-                style={{ color: 'var(--text-tertiary)' }}
-              >
-                TVL
-              </div>
-              <div
-                className="font-semibold"
-                style={{ color: 'var(--text-primary)' }}
-              >
-                $1.2M
+      <div className="card p-6">
+        <h3
+          className="text-lg font-semibold mb-4"
+          style={{ color: 'var(--text-primary)' }}
+        >
+          Trade Now
+        </h3>
+        <div className="space-y-3">
+          <Link
+            to="/pools"
+            className="flex items-center justify-between p-3 rounded-lg hover:bg-white/5 transition-colors"
+            style={{ backgroundColor: 'var(--bg-secondary)' }}
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">💧</span>
+              <div>
+                <div
+                  className="font-medium"
+                  style={{ color: 'var(--text-primary)' }}
+                >
+                  Liquidity Pools
+                </div>
+                <div
+                  className="text-xs"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  Provide liquidity and earn fees
+                </div>
               </div>
             </div>
-            <div>
-              <div
-                className="text-xs"
-                style={{ color: 'var(--text-tertiary)' }}
-              >
-                APY
-              </div>
-              <div className="font-semibold text-green-400">8.2%</div>
-            </div>
-            <div>
-              <div
-                className="text-xs"
-                style={{ color: 'var(--text-tertiary)' }}
-              >
-                24h
-              </div>
-              <div
-                className="font-semibold"
-                style={{ color: 'var(--text-primary)' }}
-              >
-                $450K
-              </div>
-            </div>
-          </div>
+            <ArrowRight
+              className="h-5 w-5"
+              style={{ color: 'var(--text-tertiary)' }}
+            />
+          </Link>
 
-          <button type="button" className="btn-primary w-full py-2.5">
-            Add Liquidity
-          </button>
+          <Link
+            to="/swap"
+            className="flex items-center justify-between p-3 rounded-lg hover:bg-white/5 transition-colors"
+            style={{ backgroundColor: 'var(--bg-secondary)' }}
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">💱</span>
+              <div>
+                <div
+                  className="font-medium"
+                  style={{ color: 'var(--text-primary)' }}
+                >
+                  Swap
+                </div>
+                <div
+                  className="text-xs"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  Exchange tokens instantly
+                </div>
+              </div>
+            </div>
+            <ArrowRight
+              className="h-5 w-5"
+              style={{ color: 'var(--text-tertiary)' }}
+            />
+          </Link>
         </div>
       </div>
     </div>

@@ -10,6 +10,7 @@
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, relative } from 'node:path'
+import { getCurrentNetwork } from '@jejunetwork/config'
 import { z } from 'zod'
 import type { ServerlessWorkerConfig, WorkerBuildOutput } from './types'
 
@@ -153,7 +154,7 @@ import worker from './${relativePath}';
 const PORT = parseInt(process.env.PORT || '8080', 10);
 
 const env = {
-  NETWORK: process.env.NETWORK || 'localnet',
+  NETWORK: '${getCurrentNetwork()}',
   TEE_MODE: process.env.TEE_MODE || 'simulated',
   TEE_PLATFORM: process.env.TEE_PLATFORM || 'local',
   TEE_REGION: process.env.TEE_REGION || 'local',
@@ -238,7 +239,7 @@ if (!elysiaApp) {
 }
 
 const env = {
-  NETWORK: process.env.NETWORK || 'localnet',
+  NETWORK: '${getCurrentNetwork()}',
   TEE_MODE: process.env.TEE_MODE || 'simulated',
   TEE_PLATFORM: process.env.TEE_PLATFORM || 'local',
   TEE_REGION: process.env.TEE_REGION || 'local',

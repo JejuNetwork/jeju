@@ -4,9 +4,7 @@
     "outDir": "./dist",
     "rootDir": ".",
     "jsx": "react-jsx",
-    "noUnusedLocals": false,
-    "noUnusedParameters": false,
-    "skipLibCheck": true
+    "noUnusedLocals": false
   },
   "include": ["api/**/*", "lib/**/*"],
   "exclude": ["node_modules", "dist", "tests", "api/**/*.test.ts"]

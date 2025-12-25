@@ -16,6 +16,7 @@ import {
   waitForTransactionReceipt,
   writeContract,
 } from 'wagmi/actions'
+import { CONTRACTS } from '../../../lib/config'
 import { getConfig } from '../../../lib/wagmi-config'
 import {
   useFeedRegistry,
@@ -200,11 +201,7 @@ function OperatorRegistrationForm({
         },
       ] as const
 
-      // Get contract address from environment
-      const contractAddress = process.env.PUBLIC_ORACLE_NETWORK_CONNECTOR
-      if (!contractAddress) {
-        throw new Error('PUBLIC_ORACLE_NETWORK_CONNECTOR not configured')
-      }
+      const contractAddress = CONTRACTS.oracleNetworkConnector
 
       const account = getAccount(config)
       if (!account.address || !account.chain) {
@@ -212,7 +209,7 @@ function OperatorRegistrationForm({
       }
 
       const hash = await writeContract(config, {
-        address: contractAddress as `0x${string}`,
+        address: contractAddress,
         abi: ORACLE_NETWORK_ABI,
         functionName: 'registerOperator',
         args: [
@@ -373,12 +370,7 @@ function PerformanceMetrics() {
 
     const fetchMetrics = async () => {
       try {
-        const contractAddress = process.env.PUBLIC_ORACLE_NETWORK_CONNECTOR
-
-        if (!contractAddress) {
-          setLoading(false)
-          return
-        }
+        const contractAddress = CONTRACTS.oracleNetworkConnector
 
         const METRICS_ABI = [
           {
@@ -404,13 +396,13 @@ function PerformanceMetrics() {
 
         const [operatorMetrics, currentEpoch] = await Promise.all([
           readContract(publicClient, {
-            address: contractAddress as `0x${string}`,
+            address: contractAddress,
             abi: METRICS_ABI,
             functionName: 'getOperatorMetrics',
             args: [address],
           }) as Promise<readonly [bigint, bigint, bigint, bigint]>,
           readContract(publicClient, {
-            address: contractAddress as `0x${string}`,
+            address: contractAddress,
             abi: METRICS_ABI,
             functionName: 'currentEpoch',
           }) as Promise<bigint>,

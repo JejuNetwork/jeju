@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, setDefaultTimeout, test } from 'bun:test'
-import { app } from '../src/server'
+import { app } from '../api/server'
 
 setDefaultTimeout(10000)
 

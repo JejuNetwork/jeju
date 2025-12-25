@@ -1,21 +1,10 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "lib": ["ES2022", "DOM"],
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "declaration": true,
-    "declarationMap": true,
     "outDir": "./dist",
     "rootDir": ".",
     "noEmit": true,
     "jsx": "react-jsx",
-    "noUnusedLocals": false,
     "types": ["bun", "react", "react-dom"]
   },
   "include": ["api/**/*", "web/**/*", "lib/**/*"],

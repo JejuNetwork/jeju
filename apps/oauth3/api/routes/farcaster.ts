@@ -3,10 +3,11 @@
  */
 
 import { Elysia, t } from 'elysia'
+import QRCode from 'qrcode'
 import type { Address, Hex } from 'viem'
 import { isAddress, isHex, verifyMessage } from 'viem'
 import type { AuthConfig } from '../../lib/types'
-import { authorizationCodes, sessions } from './oauth'
+import { authCodeState, sessionState } from '../services/state'
 
 const InitQuerySchema = t.Object({
   client_id: t.String(),
@@ -22,7 +23,7 @@ const VerifyBodySchema = t.Object({
   custody: t.String({ pattern: '^0x[a-fA-F0-9]{40}$' }),
 })
 
-// Farcaster auth state
+// Farcaster auth state (short-lived, in-memory is OK)
 const farcasterChallenges = new Map<
   string,
   {
@@ -34,6 +35,16 @@ const farcasterChallenges = new Map<
     expiresAt: number
   }
 >()
+
+// Clean up expired challenges periodically
+setInterval(() => {
+  const now = Date.now()
+  for (const [key, challenge] of farcasterChallenges) {
+    if (challenge.expiresAt < now) {
+      farcasterChallenges.delete(key)
+    }
+  }
+}, 60 * 1000)
 
 export function createFarcasterRouter(_config: AuthConfig) {
   return new Elysia({ name: 'farcaster', prefix: '/farcaster' })
@@ -53,6 +64,10 @@ export function createFarcasterRouter(_config: AuthConfig) {
           state,
           expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes
         })
+
+        // Generate QR code data URL for Warpcast deep link
+        const warpcastUri = `https://warpcast.com/~/sign-in-with-farcaster?nonce=${nonce}&domain=${domain}`
+        const qrDataUrl = await generateQRDataUrl(warpcastUri)
 
         // Return Farcaster auth page
         return new Response(
@@ -82,35 +97,21 @@ export function createFarcasterRouter(_config: AuthConfig) {
       width: 90%;
       text-align: center;
     }
-    .logo {
-      font-size: 48px;
-      margin-bottom: 16px;
-    }
-    .title {
-      font-size: 24px;
-      font-weight: 600;
-      margin-bottom: 8px;
-      color: #fff;
-    }
-    .subtitle {
-      color: #888;
-      font-size: 14px;
-      margin-bottom: 32px;
-    }
-    .qr-placeholder {
+    .logo { font-size: 48px; margin-bottom: 16px; }
+    .title { font-size: 24px; font-weight: 600; margin-bottom: 8px; color: #fff; }
+    .subtitle { color: #888; font-size: 14px; margin-bottom: 32px; }
+    .qr-container {
       width: 200px;
       height: 200px;
       margin: 0 auto 24px;
-      background: rgba(138, 99, 210, 0.1);
-      border: 2px dashed rgba(138, 99, 210, 0.3);
+      background: #fff;
       border-radius: 12px;
+      padding: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
-      flex-direction: column;
-      gap: 8px;
     }
-    .qr-placeholder span { font-size: 12px; color: #888; }
+    .qr-container img { width: 100%; height: 100%; }
     .btn {
       display: inline-flex;
       align-items: center;
@@ -127,19 +128,10 @@ export function createFarcasterRouter(_config: AuthConfig) {
       color: #fff;
     }
     .btn:hover { opacity: 0.9; transform: translateY(-1px); }
-    .or {
-      margin: 24px 0;
-      color: #666;
-      font-size: 12px;
-    }
-    .manual-input {
-      display: none;
-      margin-top: 24px;
-    }
+    .or { margin: 24px 0; color: #666; font-size: 12px; }
+    .manual-input { display: none; margin-top: 24px; }
     .manual-input.show { display: block; }
-    .input-group {
-      margin-bottom: 16px;
-    }
+    .input-group { margin-bottom: 16px; }
     .input-group label {
       display: block;
       text-align: left;
@@ -157,15 +149,8 @@ export function createFarcasterRouter(_config: AuthConfig) {
       font-family: inherit;
       font-size: 14px;
     }
-    .input-group input:focus {
-      outline: none;
-      border-color: #8a63d2;
-    }
-    .status {
-      margin-top: 16px;
-      font-size: 14px;
-      color: #888;
-    }
+    .input-group input:focus { outline: none; border-color: #8a63d2; }
+    .status { margin-top: 16px; font-size: 14px; color: #888; }
     .status.error { color: #ff6b6b; }
     .status.success { color: #64ffda; }
   </style>
@@ -174,14 +159,13 @@ export function createFarcasterRouter(_config: AuthConfig) {
   <div class="container">
     <div class="logo">🟣</div>
     <div class="title">Sign in with Farcaster</div>
-    <div class="subtitle">Connect your Farcaster account to continue</div>
+    <div class="subtitle">Scan the QR code with Warpcast or sign manually</div>
     
-    <div class="qr-placeholder">
-      <span>📱</span>
-      <span>Scan with Warpcast</span>
+    <div class="qr-container">
+      <img src="${qrDataUrl}" alt="Scan with Warpcast">
     </div>
     
-    <a href="https://warpcast.com" target="_blank" class="btn">
+    <a href="${warpcastUri}" target="_blank" class="btn">
       Open Warpcast
     </a>
     
@@ -276,21 +260,19 @@ Resources:
           status.className = 'status success';
           window.location.href = result.redirectUrl;
         } else {
-          throw new Error(result.error ?? 'Verification failed');
+          throw new Error(result.error || 'Verification failed');
         }
         
       } catch (err) {
         console.error(err);
-        status.textContent = err.message ?? 'Sign-in failed';
+        status.textContent = err.message || 'Sign-in failed';
         status.className = 'status error';
       }
     });
   </script>
 </body>
 </html>`,
-          {
-            headers: { 'Content-Type': 'text/html' },
-          },
+          { headers: { 'Content-Type': 'text/html' } },
         )
       },
       { query: InitQuerySchema },
@@ -339,7 +321,7 @@ Resources:
         const code = crypto.randomUUID()
         const userId = `farcaster:${body.fid}`
 
-        authorizationCodes.set(code, {
+        await authCodeState.save(code, {
           clientId: challenge.clientId,
           redirectUri: challenge.redirectUri,
           userId,
@@ -349,7 +331,7 @@ Resources:
 
         // Create session
         const sessionId = crypto.randomUUID()
-        sessions.set(sessionId, {
+        await sessionState.save({
           sessionId,
           userId,
           provider: 'farcaster',
@@ -377,4 +359,18 @@ Resources:
       },
       { body: VerifyBodySchema },
     )
+}
+
+/**
+ * Generate a QR code as a data URL
+ */
+async function generateQRDataUrl(data: string): Promise<string> {
+  return QRCode.toDataURL(data, {
+    width: 200,
+    margin: 2,
+    color: {
+      dark: '#000000',
+      light: '#ffffff',
+    },
+  })
 }

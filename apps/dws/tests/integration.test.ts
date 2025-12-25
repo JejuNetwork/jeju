@@ -19,7 +19,7 @@ import {
 } from 'bun:test'
 import type { Address, Hex } from 'viem'
 import { createPublicClient, http } from 'viem'
-import { app } from '../src/server'
+import { app } from '../api/server'
 
 setDefaultTimeout(30000)
 

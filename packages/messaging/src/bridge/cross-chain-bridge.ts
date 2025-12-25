@@ -10,6 +10,7 @@
  * - Messages can be sent cross-chain via relay nodes
  */
 
+import { getExternalRpc, getRpcUrl } from '@jejunetwork/config'
 import { logger } from '@jejunetwork/shared'
 import type { Address, Hex } from 'viem'
 import { z } from 'zod'
@@ -153,16 +154,13 @@ export class CrossChainBridgeClient {
     const sourceChain = config.sourceChain ?? MessagingChain.BASE
 
     this.config = {
-      jejuRpcUrl:
-        config.jejuRpcUrl ??
-        process.env.JEJU_RPC_URL ??
-        'http://localhost:6545',
+      jejuRpcUrl: config.jejuRpcUrl ?? getRpcUrl(),
       sourceChainRpcUrl:
         config.sourceChainRpcUrl ??
         process.env.SOURCE_CHAIN_RPC_URL ??
         (sourceChain === MessagingChain.BASE
-          ? 'https://mainnet.base.org'
-          : 'https://mainnet.optimism.io'),
+          ? getExternalRpc('base')
+          : getExternalRpc('optimism')),
       jejuBridgeAddress:
         config.jejuBridgeAddress ??
         (process.env.JEJU_BRIDGE_ADDRESS as Address | undefined) ??

@@ -370,7 +370,7 @@ export const TokenConfigEntrySchema = z
     priceUSD: z.number().optional(),
     hasPaymaster: z.boolean().optional(),
     hasBanEnforcement: z.boolean().optional(),
-    tags: z.array(z.string()).optional(),
+    tags: z.array(z.string()).default([]),
     addresses: z.record(z.string(), z.string()).optional(),
   })
   .passthrough()
@@ -762,7 +762,6 @@ export const AgentRegistrationFileSchema = z
   .object({
     name: z.string().optional(),
     description: z.string().optional(),
-    active: z.boolean().optional(),
     endpoints: z
       .array(
         z.object({
@@ -771,6 +770,7 @@ export const AgentRegistrationFileSchema = z
         }),
       )
       .optional(),
+    active: z.boolean().optional(),
   })
   .passthrough()
 export type AgentRegistrationFile = z.infer<typeof AgentRegistrationFileSchema>

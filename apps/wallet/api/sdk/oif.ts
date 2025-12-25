@@ -210,91 +210,59 @@ export class OIFClient {
   /**
    * Get a quote for an intent
    * Queries solver network for optimal route and pricing
-   * Falls back to local estimation if API is unavailable
    */
   async getQuote(params: IntentParams): Promise<IntentQuote> {
-    try {
-      const data = await postApi<{
-        inputToken: string
-        inputAmount: string
-        outputToken: string
-        outputAmount: string
-        fee: string
-        route: Array<{
-          chainId: number
-          protocol: string
-          action: string
-          inputToken: string
-          outputToken: string
-          inputAmount: string
-          outputAmount: string
-        }>
-        estimatedTime: number
-        priceImpact: number
-      }>(this.quoteApiUrl, '/quote', {
-        inputToken: params.inputToken,
-        inputAmount: params.inputAmount.toString(),
-        outputToken: params.outputToken,
-        minOutputAmount: params.minOutputAmount.toString(),
-        sourceChainId: this.config.chainId,
-        destinationChainId: params.destinationChainId,
-        recipient: params.recipient,
-      })
-
-      return expectValid(
-        OIFQuoteResponseSchema,
-        {
-          inputToken: data.inputToken,
-          inputAmount: BigInt(data.inputAmount),
-          outputToken: data.outputToken,
-          outputAmount: BigInt(data.outputAmount),
-          fee: BigInt(data.fee),
-          route: data.route.map((r) => ({
-            ...r,
-            inputAmount: BigInt(r.inputAmount),
-            outputAmount: BigInt(r.outputAmount),
-          })),
-          estimatedTime: data.estimatedTime,
-          priceImpact: data.priceImpact,
-        },
-        'OIF quote response',
+    if (!this.isConfigured) {
+      throw new Error(
+        `OIF not configured for chain ${this.config.chainId}. Cannot get quotes.`,
       )
-    } catch {
-      return this._estimateQuote(params)
     }
-  }
 
-  /**
-   * @internal - For testing only
-   */
-  _estimateQuote(params: IntentParams): IntentQuote {
-    // Simple estimate: 0.3% fee, same output as input (assumes 1:1 wrapped tokens)
-    const fee = (params.inputAmount * 30n) / 10000n
-    const outputAmount = params.inputAmount - fee
-
-    return {
+    const data = await postApi<{
+      inputToken: string
+      inputAmount: string
+      outputToken: string
+      outputAmount: string
+      fee: string
+      route: Array<{
+        chainId: number
+        protocol: string
+        action: string
+        inputToken: string
+        outputToken: string
+        inputAmount: string
+        outputAmount: string
+      }>
+      estimatedTime: number
+      priceImpact: number
+    }>(this.quoteApiUrl, '/quote', {
       inputToken: params.inputToken,
-      inputAmount: params.inputAmount,
+      inputAmount: params.inputAmount.toString(),
       outputToken: params.outputToken,
-      outputAmount:
-        outputAmount > params.minOutputAmount
-          ? outputAmount
-          : params.minOutputAmount,
-      fee,
-      route: [
-        {
-          chainId: this.config.chainId,
-          protocol: 'jeju-oif',
-          action: 'bridge',
-          inputToken: params.inputToken,
-          outputToken: params.outputToken,
-          inputAmount: params.inputAmount,
-          outputAmount,
-        },
-      ],
-      estimatedTime: 120, // 2 minutes
-      priceImpact: 0.003,
-    }
+      minOutputAmount: params.minOutputAmount.toString(),
+      sourceChainId: this.config.chainId,
+      destinationChainId: params.destinationChainId,
+      recipient: params.recipient,
+    })
+
+    return expectValid(
+      OIFQuoteResponseSchema,
+      {
+        inputToken: data.inputToken,
+        inputAmount: BigInt(data.inputAmount),
+        outputToken: data.outputToken,
+        outputAmount: BigInt(data.outputAmount),
+        fee: BigInt(data.fee),
+        route: data.route.map((r) => ({
+          ...r,
+          inputAmount: BigInt(r.inputAmount),
+          outputAmount: BigInt(r.outputAmount),
+        })),
+        estimatedTime: data.estimatedTime,
+        priceImpact: data.priceImpact,
+      },
+      'OIF quote response',
+    )
   }
 
   /**

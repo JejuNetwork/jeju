@@ -4,7 +4,7 @@
 
 import { Elysia, t } from 'elysia'
 import type { AuthConfig, AuthSession } from '../../lib/types'
-import { sessions } from './oauth'
+import { refreshTokenState, sessionState } from '../services/state'
 
 const VerifyQuerySchema = t.Object({
   token: t.Optional(t.String()),
@@ -34,11 +34,8 @@ export function createSessionRouter(config: AuthConfig) {
         return { error: 'no_session', authenticated: false }
       }
 
-      const session = sessions.get(sessionId)
-      if (!session || session.expiresAt < Date.now()) {
-        if (session) {
-          sessions.delete(sessionId)
-        }
+      const session = await sessionState.get(sessionId)
+      if (!session) {
         set.status = 401
         return { error: 'session_expired', authenticated: false }
       }
@@ -66,8 +63,8 @@ export function createSessionRouter(config: AuthConfig) {
           return { valid: false, error: 'missing_token' }
         }
 
-        const session = sessions.get(query.token)
-        if (!session || session.expiresAt < Date.now()) {
+        const session = await sessionState.get(query.token)
+        if (!session) {
           return { valid: false, error: 'invalid_or_expired' }
         }
 
@@ -91,7 +88,11 @@ export function createSessionRouter(config: AuthConfig) {
         return { error: 'no_session' }
       }
 
-      sessions.delete(sessionId)
+      // Revoke all refresh tokens for this session
+      await refreshTokenState.revokeAllForSession(sessionId)
+
+      // Delete session
+      await sessionState.delete(sessionId)
 
       // Clear cookie
       if (cookie?.jeju_session) {
@@ -113,7 +114,7 @@ export function createSessionRouter(config: AuthConfig) {
         return { error: 'no_session' }
       }
 
-      const session = sessions.get(sessionId)
+      const session = await sessionState.get(sessionId)
       if (!session) {
         set.status = 401
         return { error: 'session_not_found' }
@@ -129,8 +130,8 @@ export function createSessionRouter(config: AuthConfig) {
       }
 
       // Delete old, add new
-      sessions.delete(sessionId)
-      sessions.set(newSessionId, newSession)
+      await sessionState.delete(sessionId)
+      await sessionState.save(newSession)
 
       // Update cookie
       if (cookie?.jeju_session) {
@@ -153,17 +154,11 @@ export function createSessionRouter(config: AuthConfig) {
       }
     })
 
-    .get('/:sessionId', ({ params, set }) => {
-      const session = sessions.get(params.sessionId)
+    .get('/:sessionId', async ({ params, set }) => {
+      const session = await sessionState.get(params.sessionId)
       if (!session) {
         set.status = 404
         return { error: 'session_not_found' }
-      }
-
-      if (session.expiresAt < Date.now()) {
-        sessions.delete(params.sessionId)
-        set.status = 401
-        return { error: 'session_expired' }
       }
 
       return {
@@ -177,36 +172,36 @@ export function createSessionRouter(config: AuthConfig) {
       }
     })
 
-    .delete('/:sessionId', ({ params, set }) => {
-      const session = sessions.get(params.sessionId)
+    .delete('/:sessionId', async ({ params, set }) => {
+      const session = await sessionState.get(params.sessionId)
       if (!session) {
         set.status = 404
         return { error: 'session_not_found' }
       }
 
-      sessions.delete(params.sessionId)
+      await refreshTokenState.revokeAllForSession(params.sessionId)
+      await sessionState.delete(params.sessionId)
       return { success: true }
     })
 
-    .post('/:sessionId/refresh', ({ params, set }) => {
-      const session = sessions.get(params.sessionId)
+    .post('/:sessionId/refresh', async ({ params, set }) => {
+      const session = await sessionState.get(params.sessionId)
       if (!session) {
         set.status = 404
         return { error: 'session_not_found' }
       }
 
-      // Extend session by 24 hours
-      session.expiresAt = Date.now() + config.sessionDuration
-      sessions.set(params.sessionId, session)
+      // Extend session
+      const newExpiry = Date.now() + config.sessionDuration
+      await sessionState.updateExpiry(params.sessionId, newExpiry)
 
       return {
         sessionId: session.sessionId,
-        expiresAt: session.expiresAt,
+        expiresAt: newExpiry,
       }
     })
 
     .get('/list', async ({ headers, set }) => {
-      // Admin endpoint - list all sessions for a user
       const authHeader = headers.authorization
       if (!authHeader) {
         set.status = 401
@@ -219,27 +214,28 @@ export function createSessionRouter(config: AuthConfig) {
         return { error: 'invalid_auth' }
       }
 
-      const currentSession = sessions.get(sessionId)
+      const currentSession = await sessionState.get(sessionId)
       if (!currentSession) {
         set.status = 401
         return { error: 'session_not_found' }
       }
 
       // Find all sessions for this user
-      const userSessions = Array.from(sessions.values())
-        .filter((s) => s.userId === currentSession.userId)
-        .map((s) => ({
-          sessionId: s.sessionId,
-          provider: s.provider,
-          createdAt: s.createdAt,
-          expiresAt: s.expiresAt,
-          isCurrent: s.sessionId === sessionId,
-        }))
+      const userSessions = await sessionState.findByUserId(
+        currentSession.userId,
+      )
+      const sessionList = userSessions.map((s) => ({
+        sessionId: s.sessionId,
+        provider: s.provider,
+        createdAt: s.createdAt,
+        expiresAt: s.expiresAt,
+        isCurrent: s.sessionId === sessionId,
+      }))
 
       return {
         userId: currentSession.userId,
-        sessions: userSessions,
-        count: userSessions.length,
+        sessions: sessionList,
+        count: sessionList.length,
       }
     })
 }

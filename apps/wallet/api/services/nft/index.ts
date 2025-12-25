@@ -50,7 +50,7 @@ class NFTService {
       const nfts: NFT[] = indexed.map((nft) => ({
         contractAddress: nft.contractAddress as Address,
         tokenId: BigInt(nft.tokenId),
-        chainId: 31337 as SupportedChainId, // Default to localnet; indexer will provide actual chainId
+        chainId: nft.chainId as SupportedChainId,
         name: nft.metadata?.name || `#${nft.tokenId}`,
         description: nft.metadata?.description ?? '',
         imageUrl: this.resolveImageUrl(nft.metadata?.image ?? ''),
@@ -58,7 +58,7 @@ class NFTService {
         standard: 'ERC721',
         balance: 1n,
         attributes: nft.metadata?.attributes,
-        collectionName: undefined, // Fetched via contract call if needed
+        collectionName: nft.collectionName,
       }))
 
       this.cache.set(cacheKey, nfts)
@@ -102,7 +102,7 @@ class NFTService {
     contractAddress: Address,
     tokenId: bigint,
   ): Promise<NFT | null> {
-    // For now, search in cache
+    // First, check cache
     for (const [, nfts] of this.cache) {
       const found = nfts.find(
         (n) =>
@@ -112,7 +112,24 @@ class NFTService {
       )
       if (found) return found
     }
-    return null
+
+    // Fetch from indexer if not in cache
+    const indexed = await jeju.getNFT(contractAddress, tokenId.toString())
+    if (!indexed) return null
+
+    return {
+      contractAddress: indexed.contractAddress as Address,
+      tokenId: BigInt(indexed.tokenId),
+      chainId: indexed.chainId as SupportedChainId,
+      name: indexed.metadata?.name || `#${indexed.tokenId}`,
+      description: indexed.metadata?.description ?? '',
+      imageUrl: this.resolveImageUrl(indexed.metadata?.image ?? ''),
+      tokenUri: indexed.tokenUri || undefined,
+      standard: 'ERC721',
+      balance: 1n,
+      attributes: indexed.metadata?.attributes,
+      collectionName: indexed.collectionName,
+    }
   }
 
   // Transfer NFT (returns tx data, doesn't send)

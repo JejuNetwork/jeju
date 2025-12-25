@@ -2,6 +2,7 @@
  * Registry Integration Routes - Deep AI DAO integration
  */
 
+import { getContract } from '@jejunetwork/config'
 import { Elysia, t } from 'elysia'
 import { toAddress } from '../../lib'
 import {
@@ -10,12 +11,21 @@ import {
 } from '../registry-integration'
 import { config } from '../shared-state'
 
+// Helper to safely get contract addresses
+const getContractAddr = (category: string, name: string) => {
+  try {
+    return getContract(category as 'governance' | 'registry', name)
+  } catch {
+    return undefined
+  }
+}
+
 const registryConfig: RegistryIntegrationConfig = {
   rpcUrl: config.rpcUrl,
-  integrationContract: process.env.REGISTRY_INTEGRATION_ADDRESS,
+  integrationContract: getContractAddr('governance', 'registryIntegration'),
   identityRegistry: config.contracts.identityRegistry,
   reputationRegistry: config.contracts.reputationRegistry,
-  delegationRegistry: process.env.DELEGATION_REGISTRY_ADDRESS,
+  delegationRegistry: getContractAddr('governance', 'delegationRegistry'),
 }
 const registryIntegration = getRegistryIntegrationClient(registryConfig)
 

@@ -24,20 +24,30 @@
       ],
       "category": "Utility",
       "shortDescription": "Free, decentralized VPN powered by the community",
-      "longDescription": "Jeju VPN provides free, unlimited VPN access powered by a global network of community nodes.",
+      "longDescription": "Jeju VPN provides free, unlimited VPN access powered by a global network of community nodes. Join thousands of users in creating a more private, open internet.",
       "appimage": {
         "bundleMediaFramework": true
       },
       "deb": {
-        "depends": []
+        "depends": [],
+        "desktopTemplate": "desktop-template.desktop"
       },
       "macOS": {
-        "minimumSystemVersion": "10.15"
+        "minimumSystemVersion": "10.15",
+        "frameworks": [],
+        "exceptionDomain": null,
+        "entitlements": "Entitlements.plist",
+        "providerShortName": null,
+        "signingIdentity": null
       },
       "windows": {
         "certificateThumbprint": null,
         "digestAlgorithm": "sha256",
-        "timestampUrl": ""
+        "timestampUrl": "",
+        "wix": null
+      },
+      "iOS": {
+        "developmentTeam": null
       }
     },
     "security": {
@@ -46,8 +56,9 @@
     "windows": [
       {
         "title": "Jeju VPN",
+        "label": "main",
         "width": 420,
-        "height": 680,
+        "height": 700,
         "minWidth": 380,
         "minHeight": 600,
         "maxWidth": 600,
@@ -57,13 +68,17 @@
         "decorations": true,
         "transparent": false,
         "center": true,
-        "visible": true
+        "visible": true,
+        "focus": true,
+        "skipTaskbar": false,
+        "alwaysOnTop": false
       }
     ],
     "systemTray": {
-      "iconPath": "icons/icon.png",
+      "iconPath": "icons/icon-disconnected.png",
       "iconAsTemplate": true,
-      "menuOnLeftClick": false
+      "menuOnLeftClick": false,
+      "title": "Jeju VPN"
     },
     "allowlist": {
       "all": false,
@@ -79,7 +94,31 @@
       },
       "window": {
         "all": true
+      },
+      "globalShortcut": {
+        "all": true
+      },
+      "notification": {
+        "all": true
+      },
+      "clipboard": {
+        "all": true
       }
+    },
+    "cli": {
+      "description": "Jeju VPN - Decentralized Privacy Network",
+      "args": [
+        {
+          "name": "connect",
+          "short": "c",
+          "description": "Connect to VPN immediately on launch"
+        },
+        {
+          "name": "minimized",
+          "short": "m",
+          "description": "Start minimized to tray"
+        }
+      ]
     }
   }
 }

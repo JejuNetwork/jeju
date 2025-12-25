@@ -26,7 +26,6 @@ interface MEVShareBundle {
   revertingTxHashes?: Hash[]
 }
 
-const _MEVSHARE_SSE = 'https://mev-share.flashbots.net'
 const MEVSHARE_BUNDLE = 'https://relay.flashbots.net'
 
 export class MEVShareClient extends EventEmitter {

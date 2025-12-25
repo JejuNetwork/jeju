@@ -74,9 +74,11 @@ code, .font-mono {
 @keyframes pulse-glow {
   0%, 100% {
     box-shadow: 0 0 20px var(--accent-glow);
+    opacity: 0.8;
   }
   50% {
-    box-shadow: 0 0 30px var(--accent-glow), 0 0 50px var(--accent-glow);
+    box-shadow: 0 0 40px var(--accent-glow), 0 0 60px var(--accent-glow);
+    opacity: 1;
   }
 }
 
@@ -95,6 +97,78 @@ code, .font-mono {
 
 .animate-rotate {
   animation: rotate 10s linear infinite;
+}
+
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 8s linear infinite;
+}
+
+@keyframes ripple {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+.animate-ripple {
+  animation: ripple 1s ease-out forwards;
+}
+
+.animate-ripple-delay {
+  animation: ripple 1s ease-out 0.2s forwards;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out forwards;
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out forwards;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-5px); }
+  40%, 80% { transform: translateX(5px); }
+}
+
+.animate-shake {
+  animation: shake 0.5s ease-in-out;
 }
 
 /* Button styles */
@@ -117,5 +191,100 @@ code, .font-mono {
 
 .card-hover {
   @apply card hover:border-[#3a3a45] hover:bg-[#14141c] transition-all duration-200 cursor-pointer;
+}
+
+/* Mobile-specific styles */
+.is-mobile body {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.is-touch button:active {
+  transform: scale(0.97);
+}
+
+/* Safe area insets for mobile */
+@supports (padding: env(safe-area-inset-top)) {
+  .is-ios body {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
+  .is-ios nav {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Haptic feedback simulation for touch devices */
+.is-touch .haptic-feedback:active {
+  animation: haptic 0.1s ease-out;
+}
+
+@keyframes haptic {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(0.98); }
+}
+
+/* Disable hover effects on touch devices */
+@media (hover: none) {
+  .card-hover:hover {
+    border-color: var(--border-color);
+    background: var(--bg-secondary);
+  }
+
+  .btn-secondary:hover {
+    background: #1a1a25;
+    border-color: #2a2a35;
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 400px) {
+  .card {
+    @apply p-3;
+  }
+
+  header {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+/* Dark/Light mode system preference */
+@media (prefers-color-scheme: light) {
+  /* Keep dark theme for VPN app - better for privacy aesthetic */
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .animate-pulse-glow,
+  .animate-spin-slow,
+  .animate-ripple,
+  .animate-ripple-delay,
+  .animate-fade-in,
+  .animate-slide-up,
+  .animate-rotate,
+  .animate-shake {
+    animation: none;
+  }
+
+  * {
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Focus visible for accessibility */
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+/* Hide outline on mouse click but show on keyboard */
+:focus:not(:focus-visible) {
+  outline: none;
 }
 

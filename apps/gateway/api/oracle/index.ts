@@ -1,5 +1,3 @@
-export type { NetworkType, OracleNodeConfig } from '@jejunetwork/types'
-export * from './abis'
 export {
   buildPriceSources,
   createConfig,

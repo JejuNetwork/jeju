@@ -5,6 +5,11 @@
  * Base/Optimism/Arbitrum chains should only be used for cross-chain contracts (EIL, OIF).
  */
 
+import {
+  getRpcUrl as getConfigRpcUrl,
+  getExternalRpc,
+  type NetworkType,
+} from '@jejunetwork/config'
 import type {
   Account,
   Chain,
@@ -118,33 +123,19 @@ export function getL1Chain(network: JejuNetwork): Chain {
  * Get RPC URL for a Jeju network with env override support
  */
 export function getJejuRpcUrl(network: JejuNetwork): string {
-  // Check env overrides first
-  const envKey =
-    network === 'mainnet'
-      ? 'JEJU_RPC_URL'
-      : network === 'testnet'
-        ? 'JEJU_TESTNET_RPC_URL'
-        : 'RPC_URL'
-
-  const envUrl = process.env[envKey] || process.env.JEJU_RPC_URL
-  if (envUrl) return envUrl
-
-  // Use chain defaults
-  const chain = getJejuChain(network)
-  return chain.rpcUrls.default.http[0]
+  return getConfigRpcUrl(network as NetworkType)
 }
 
 /**
  * Get L1 RPC URL for a Jeju network with env override support
  */
 export function getL1RpcUrl(network: JejuNetwork): string {
-  const envUrl = process.env.L1_RPC_URL || process.env.SEPOLIA_RPC_URL
-  if (envUrl) return envUrl
-
   if (network === 'mainnet') {
-    return process.env.ETHEREUM_RPC_URL || 'https://eth.llamarpc.com'
+    return getExternalRpc('ethereum') || 'https://eth.llamarpc.com'
   }
-  return 'https://ethereum-sepolia-rpc.publicnode.com'
+  return (
+    getExternalRpc('sepolia') || 'https://ethereum-sepolia-rpc.publicnode.com'
+  )
 }
 
 // Chain ID Constants
