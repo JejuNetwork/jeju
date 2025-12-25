@@ -339,10 +339,12 @@ export class CQLMessageStorage {
     const bundle = await this.getKeyBundle(address)
     if (!bundle || bundle.oneTimePreKeys.length === 0) return null
 
-    const key = bundle.oneTimePreKeys.shift()!
+    const [key, ...remaining] = bundle.oneTimePreKeys
+    if (!key) return null
+
     await this.client?.exec(
       `UPDATE key_bundles SET one_time_pre_keys = $1, updated_at = $2 WHERE address = $3`,
-      [JSON.stringify(bundle.oneTimePreKeys), Date.now(), address],
+      [JSON.stringify(remaining), Date.now(), address],
     )
     return key
   }

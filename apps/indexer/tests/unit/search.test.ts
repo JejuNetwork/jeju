@@ -110,13 +110,13 @@ function validateSearchParams(raw: SearchParams): ValidatedSearchParams {
 
   const minStakeTier = Math.max(
     0,
-    Math.min(4, parseInt(String(raw.minStakeTier || '0'), 10) || 0),
+    Math.min(4, parseInt(String(raw.minStakeTier ?? '0'), 10) ?? 0),
   )
   const limit = Math.max(
     1,
-    Math.min(1000, parseInt(String(raw.limit || '50'), 10) || 50),
+    Math.min(1000, parseInt(String(raw.limit ?? '50'), 10) ?? 50),
   )
-  const offset = Math.max(0, parseInt(String(raw.offset || '0'), 10) || 0)
+  const offset = Math.max(0, parseInt(String(raw.offset ?? '0'), 10) ?? 0)
 
   const parseBoolean = (
     val: string | boolean | undefined,

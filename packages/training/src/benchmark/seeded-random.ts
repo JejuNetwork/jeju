@@ -58,9 +58,10 @@ export class SeededRandom {
   shuffle<T>(array: T[]): T[] {
     for (let i = array.length - 1; i > 0; i--) {
       const j = Math.floor(this.next() * (i + 1))
-      const temp = array[i]
-      array[i] = array[j]!
-      array[j] = temp!
+      const elemI = array[i] as T
+      const elemJ = array[j] as T
+      array[i] = elemJ
+      array[j] = elemI
     }
     return array
   }
