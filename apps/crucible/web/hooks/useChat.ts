@@ -2,7 +2,7 @@
  * Chat Hook
  */
 
-import type { JsonRecord, JsonValue } from '@jejunetwork/sdk'
+import type { JsonRecord, JsonValue } from '@jejunetwork/types'
 import { useMutation } from '@tanstack/react-query'
 import { API_URL } from '../config'
 
@@ -26,12 +26,6 @@ interface ChatResponse {
   character: string
 }
 
-interface InitRuntimesResponse {
-  initialized: number
-  total: number
-  results: Record<string, { success: boolean; error?: string }>
-}
-
 export function useChat() {
   return useMutation({
     mutationFn: async (request: ChatRequest): Promise<ChatResponse> => {
@@ -50,22 +44,6 @@ export function useChat() {
       if (!response.ok) {
         const error = await response.json()
         throw new Error(error.error ?? 'Failed to chat')
-      }
-      return response.json()
-    },
-  })
-}
-
-export function useInitRuntimes() {
-  return useMutation({
-    mutationFn: async (): Promise<InitRuntimesResponse> => {
-      const response = await fetch(`${API_URL}/api/v1/chat/init`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      })
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error ?? 'Failed to initialize runtimes')
       }
       return response.json()
     },

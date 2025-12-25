@@ -2,16 +2,8 @@
  * API request/response Zod schemas
  */
 
-import {
-  AddressSchema,
-  BigIntSchema,
-  EvmChainIdSchema,
-  NonEmptyStringSchema,
-  SolanaNetworkIdSchema,
-} from '@jejunetwork/types'
+import { AddressSchema, NonEmptyStringSchema } from '@jejunetwork/types'
 import { z } from 'zod'
-import { ChainTypeSchema } from './common'
-import { TokenMetadataSchema } from './token'
 
 export const A2ARequestSchema = z
   .object({
@@ -124,18 +116,6 @@ export const TFMMPostRequestSchema = z.discriminatedUnion('action', [
 ])
 
 export type TFMMPostRequest = z.infer<typeof TFMMPostRequestSchema>
-
-// CreateToken schema uses common imports
-export const CreateTokenRequestSchema = z.object({
-  chainType: ChainTypeSchema,
-  chainId: z.union([EvmChainIdSchema, SolanaNetworkIdSchema]),
-  metadata: TokenMetadataSchema,
-  initialSupply: BigIntSchema.optional(),
-  bondingCurveEnabled: z.boolean().default(false),
-  aiGenerated: z.boolean().default(false),
-})
-
-export type CreateTokenRequest = z.infer<typeof CreateTokenRequestSchema>
 
 export const MCPResourceReadRequestSchema = z
   .object({

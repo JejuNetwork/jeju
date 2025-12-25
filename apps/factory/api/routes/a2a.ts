@@ -1,6 +1,6 @@
 /** A2A Routes */
 
-import type { JsonRecord } from '@jejunetwork/sdk'
+import type { JsonRecord } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import { z } from 'zod'
 import { listAgents, listBounties, listCIRuns, listModels } from '../db/client'

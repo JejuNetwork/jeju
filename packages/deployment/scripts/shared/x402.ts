@@ -26,8 +26,6 @@ export type {
   X402Network,
 } from '@jejunetwork/shared'
 
-export { isValidPaymentPayload } from '@jejunetwork/shared'
-
 import type {
   PaymentPayload,
   PaymentRequirements,

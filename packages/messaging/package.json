@@ -28,7 +28,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@elysiajs/cors": "^1.4.0",
+    "@elysiajs/cors": "1.4.0",
     "@jejunetwork/db": "workspace:*",
     "@jejunetwork/kms": "workspace:*",
     "@jejunetwork/shared": "workspace:*",

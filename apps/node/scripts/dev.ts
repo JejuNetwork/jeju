@@ -529,7 +529,7 @@ function getMockEarnings() {
   }
 }
 
-import type { JsonRecord, JsonValue } from '@jejunetwork/sdk'
+import type { JsonRecord, JsonValue } from '@jejunetwork/types'
 import { isPlainObject } from '@jejunetwork/types'
 
 /** Type guard for JSON records - delegates to shared implementation */

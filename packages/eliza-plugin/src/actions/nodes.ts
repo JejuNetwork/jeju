@@ -9,7 +9,7 @@ import type {
   Memory,
   State,
 } from '@elizaos/core'
-import type { JsonRecord } from '@jejunetwork/sdk'
+import type { JsonRecord } from '@jejunetwork/types'
 import { JEJU_SERVICE_NAME, type JejuService } from '../service'
 import {
   expectArray,

@@ -1,4 +1,4 @@
-import { type Address, defineChain } from 'viem'
+import { defineChain } from 'viem'
 import { CHAIN_ID, EXPLORER_URL, NETWORK, NETWORK_NAME, RPC_URL } from './index'
 
 export const JEJU_CHAIN_ID = CHAIN_ID
@@ -31,28 +31,3 @@ export const jeju = defineChain({
   },
   testnet: NETWORK !== 'mainnet',
 })
-
-export interface OIFChainInfo {
-  id: number
-  chainId: number
-  name: string
-  symbol: string
-  inputSettler?: Address
-}
-function createChainInfo(
-  chainId: number,
-  name: string,
-  symbol: string,
-): OIFChainInfo {
-  return { id: chainId, chainId, name, symbol }
-}
-
-export const OIF_SUPPORTED_CHAINS: OIFChainInfo[] = [
-  createChainInfo(1, 'Ethereum', 'ETH'),
-  createChainInfo(10, 'Optimism', 'ETH'),
-  createChainInfo(137, 'Polygon', 'MATIC'),
-  createChainInfo(42161, 'Arbitrum', 'ETH'),
-  createChainInfo(8453, 'Base', 'ETH'),
-  createChainInfo(420690, 'Jeju Testnet', 'ETH'),
-  createChainInfo(420691, 'Jeju Mainnet', 'ETH'),
-]

@@ -29,7 +29,7 @@ const baseLogger = pino({
   timestamp: () => `,"timestamp":"${new Date().toISOString()}"`,
 })
 
-import type { JsonRecord } from '@jejunetwork/sdk'
+import type { JsonRecord } from '@jejunetwork/types'
 
 export interface Logger {
   debug: (message: string, data?: JsonRecord) => void

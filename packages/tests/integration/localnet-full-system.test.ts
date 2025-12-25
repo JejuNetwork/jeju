@@ -208,7 +208,7 @@ try {
 
 /** Track deployed contracts for cleanup */
 const deployedContracts: {
-  elizaOS?: string
+  jeju?: string
   oracle?: string
   vault?: string
   distributor?: string
@@ -335,44 +335,44 @@ describe.skipIf(!localnetAvailable)('Localnet Full System Integration', () => {
   })
 
   describe('3. Contract Deployments', () => {
-    it('should deploy elizaOS token and transfer tokens', async () => {
-      console.log('   🔨 Deploying elizaOS token...')
+    it('should deploy JEJU token and transfer tokens', async () => {
+      console.log('   🔨 Deploying JEJU token...')
       const initialSupply = parseEther('1000000') // 1M tokens
 
       const hash = await deployContract(deployerWalletClient, {
         abi: MockERC20Artifact.abi,
         bytecode: MockERC20Artifact.bytecode as `0x${string}`,
-        args: ['ElizaOS', 'ELIZA', 18, initialSupply],
+        args: ['JEJU', 'JEJU', 18, initialSupply],
       })
       const receipt = await waitForTransactionReceipt(l2PublicClient, { hash })
 
       if (!receipt.contractAddress)
         throw new Error('Contract deployment failed')
-      deployedContracts.elizaOS = receipt.contractAddress
-      console.log(`   ✅ Token deployed at ${deployedContracts.elizaOS}`)
+      deployedContracts.jeju = receipt.contractAddress
+      console.log(`   ✅ Token deployed at ${deployedContracts.jeju}`)
 
       // Verify deployment using read-only client
       const tokenAbi = parseAbi(MockERC20Artifact.abi)
       const name = (await readContract(l2PublicClient, {
-        address: deployedContracts.elizaOS as Address,
+        address: deployedContracts.jeju as Address,
         abi: tokenAbi,
         functionName: 'name',
       })) as string
 
       const symbol = (await readContract(l2PublicClient, {
-        address: deployedContracts.elizaOS as Address,
+        address: deployedContracts.jeju as Address,
         abi: tokenAbi,
         functionName: 'symbol',
       })) as string
 
       const totalSupply = (await readContract(l2PublicClient, {
-        address: deployedContracts.elizaOS as Address,
+        address: deployedContracts.jeju as Address,
         abi: tokenAbi,
         functionName: 'totalSupply',
       })) as bigint
 
-      expect(name).toBe('ElizaOS')
-      expect(symbol).toBe('ELIZA')
+      expect(name).toBe('JEJU')
+      expect(symbol).toBe('JEJU')
       expect(totalSupply).toBe(initialSupply)
       console.log(
         `   📊 Token: ${name} (${symbol}), Supply: ${formatEther(totalSupply)}`,
@@ -380,7 +380,7 @@ describe.skipIf(!localnetAvailable)('Localnet Full System Integration', () => {
 
       // Verify deployer has token balance
       const balance = (await readContract(l2PublicClient, {
-        address: deployedContracts.elizaOS as Address,
+        address: deployedContracts.jeju as Address,
         abi: tokenAbi,
         functionName: 'balanceOf',
         args: [deployerAccount.address],
@@ -391,7 +391,7 @@ describe.skipIf(!localnetAvailable)('Localnet Full System Integration', () => {
       // Transfer tokens to user1
       const transferAmount = parseEther('1000')
       const transferHash = await deployerWalletClient.writeContract({
-        address: deployedContracts.elizaOS as Address,
+        address: deployedContracts.jeju as Address,
         abi: tokenAbi,
         functionName: 'transfer',
         args: [user1Account.address, transferAmount],
@@ -407,7 +407,7 @@ describe.skipIf(!localnetAvailable)('Localnet Full System Integration', () => {
 
       // Verify recipient balance
       const user1Balance = (await readContract(l2PublicClient, {
-        address: deployedContracts.elizaOS as Address,
+        address: deployedContracts.jeju as Address,
         abi: tokenAbi,
         functionName: 'balanceOf',
         args: [user1Account.address],
@@ -536,7 +536,7 @@ describe.skipIf(!localnetAvailable)('Localnet Full System Integration', () => {
 
   describe('6. Event Log Verification', () => {
     it('should capture and query Transfer events from token contract', async () => {
-      expect(deployedContracts.elizaOS).toBeTruthy()
+      expect(deployedContracts.jeju).toBeTruthy()
 
       // Query historical Transfer events for user1 (from earlier transfer)
       const tokenAbi = parseAbi(MockERC20Artifact.abi)
@@ -545,7 +545,7 @@ describe.skipIf(!localnetAvailable)('Localnet Full System Integration', () => {
       )
 
       const logs = await l2PublicClient.getLogs({
-        address: deployedContracts.elizaOS as Address,
+        address: deployedContracts.jeju as Address,
         event: {
           type: 'event',
           name: 'Transfer',
