@@ -109,6 +109,44 @@ export interface TransferEvent {
   timestamp: number
 }
 
+/** Event args from ZK Bridge TransferInitiated */
+interface TransferInitiatedArgs {
+  transferId: `0x${string}`
+  sender: Address
+  destChainId: bigint
+  token: Address
+  amount: bigint
+}
+
+/** Event args from Federated Liquidity LiquidityRequest */
+interface LiquidityRequestArgs {
+  requestId: `0x${string}`
+  token: Address
+  amount: bigint
+  destChainId: bigint
+}
+
+/** Event args from Solver Registry IntentCreated */
+interface IntentCreatedArgs {
+  intentId: `0x${string}`
+  sender: Address
+  inputToken: Address
+  inputAmount: bigint
+  outputToken: Address
+  minOutputAmount: bigint
+  deadline: bigint
+}
+
+/** Response from proof generation */
+interface ProofResponse {
+  proof: `0x${string}`
+}
+
+/** Response from quote API */
+interface QuoteResponse {
+  dstAmount: string
+}
+
 export interface BridgeService {
   // Lifecycle
   start(): Promise<void>
@@ -783,13 +821,7 @@ class BridgeServiceImpl implements BridgeService {
         eventName: 'TransferInitiated',
         onLogs: (logs) => {
           for (const log of logs) {
-            const args = log.args as {
-              transferId: `0x${string}`
-              sender: Address
-              destChainId: bigint
-              token: Address
-              amount: bigint
-            }
+            const args = log.args as TransferInitiatedArgs
             const transferId = args.transferId
             if (!this.pendingTransferIds.has(transferId)) {
               this.pendingTransferIds.add(transferId)
@@ -893,7 +925,7 @@ class BridgeServiceImpl implements BridgeService {
         continue
       }
 
-      const { proof } = (await proofResponse.json()) as { proof: `0x${string}` }
+      const { proof } = (await proofResponse.json()) as ProofResponse
 
       // Submit proof to destination chain
       const destRpcUrl = this.config.evmRpcUrls[Number(destChainId)]
@@ -1004,12 +1036,7 @@ class BridgeServiceImpl implements BridgeService {
       eventName: 'LiquidityRequest',
       onLogs: (logs) => {
         for (const log of logs) {
-          const args = log.args as {
-            requestId: `0x${string}`
-            token: Address
-            amount: bigint
-            destChainId: bigint
-          }
+          const args = log.args as LiquidityRequestArgs
           console.log(
             `[Bridge] Liquidity request: ${args.requestId} for ${args.amount}`,
           )
@@ -1119,15 +1146,7 @@ class BridgeServiceImpl implements BridgeService {
       eventName: 'IntentCreated',
       onLogs: (logs) => {
         for (const log of logs) {
-          const args = log.args as {
-            intentId: `0x${string}`
-            sender: Address
-            inputToken: Address
-            inputAmount: bigint
-            outputToken: Address
-            minOutputAmount: bigint
-            deadline: bigint
-          }
+          const args = log.args as IntentCreatedArgs
           this.solverStats.pendingIntents++
           console.log(`[Bridge] New intent: ${args.intentId}`)
           // Evaluate and potentially fill the intent
@@ -1194,7 +1213,7 @@ class BridgeServiceImpl implements BridgeService {
       return
     }
 
-    const quote = (await quoteResponse.json()) as { dstAmount: string }
+    const quote = (await quoteResponse.json()) as QuoteResponse
     const estimatedOutput = BigInt(quote.dstAmount)
 
     // Add 1% buffer for slippage and profit margin

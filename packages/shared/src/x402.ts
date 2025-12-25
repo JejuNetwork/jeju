@@ -147,8 +147,7 @@ export const RPC_URLS: Record<X402Network, string> = {
   ethereum: getExternalRpc('ethereum'),
   base: getExternalRpc('base'),
   jeju: getRpcUrl(),
-  'jeju-testnet':
-    process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jejunetwork.org',
+  'jeju-testnet': getRpcUrl('testnet'),
 }
 
 // USDC addresses per network

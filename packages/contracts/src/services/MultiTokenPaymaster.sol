@@ -129,11 +129,8 @@ contract MultiTokenPaymaster is BasePaymaster {
         address _priceOracle,
         address _revenueWallet,
         address _owner
-    ) BasePaymaster(_entryPoint) {
+    ) BasePaymaster(_entryPoint, _owner) {
         require(_usdc != address(0), "Invalid USDC");
-        if (_owner != msg.sender) {
-            _transferOwnership(_owner);
-        }
         require(_elizaOS != address(0), "Invalid elizaOS");
         require(_creditManager != address(0), "Invalid credit manager"); 
         require(_serviceRegistry != address(0), "Invalid service registry");
@@ -146,10 +143,6 @@ contract MultiTokenPaymaster is BasePaymaster {
         serviceRegistry = IServiceRegistry(_serviceRegistry);
         priceOracle = IPriceOracle(_priceOracle);
         revenueWallet = _revenueWallet;
-        
-        if (_owner != msg.sender) {
-            _transferOwnership(_owner);
-        }
     }
 
     // ============ Core Paymaster Logic ============
@@ -322,12 +315,12 @@ contract MultiTokenPaymaster is BasePaymaster {
     }
 
     function depositToEntryPoint() external payable onlyOwner {
-        entryPoint.depositTo{value: msg.value}(address(this));
+        entryPoint().depositTo{value: msg.value}(address(this));
         emit EntryPointFunded(msg.value);
     }
 
     function withdrawFromEntryPoint(address payable to, uint256 amount) external onlyOwner {
-        entryPoint.withdrawTo(to, amount);
+        entryPoint().withdrawTo(to, amount);
     }
 
     function pause() external onlyOwner {

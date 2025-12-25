@@ -42,7 +42,7 @@ describe('Port Constants', () => {
       expect(CORE_PORTS.OIF_AGGREGATOR.DEFAULT).toBe(4011)
       expect(CORE_PORTS.RPC_GATEWAY.DEFAULT).toBe(4012)
       expect(CORE_PORTS.LEADERBOARD_API.DEFAULT).toBe(4090)
-      expect(CORE_PORTS.OAUTH3_API.DEFAULT).toBe(4060)
+      expect(CORE_PORTS.OAUTH3_API.DEFAULT).toBe(4200)
     })
 
     it('should have ENV_VAR for each port', () => {

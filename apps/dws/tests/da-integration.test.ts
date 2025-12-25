@@ -169,13 +169,13 @@ describe('DA Layer HTTP API', () => {
   })
 })
 
-import { BLS } from '../src/da/crypto/bls'
+import { BLS } from '../api/da/crypto/bls'
 import {
   ArbitrumOrbitDAAdapter,
   createRollupDAAdapter,
   OPStackDAAdapter,
   RollupDAAdapter,
-} from '../src/da/integrations'
+} from '../api/da/integrations'
 
 describe('DA Layer Rollup Integration', () => {
   it('should import rollup adapters', () => {

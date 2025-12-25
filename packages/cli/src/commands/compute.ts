@@ -2,6 +2,7 @@
 
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
+import { getDWSUrl } from '@jejunetwork/config'
 import { toError } from '@jejunetwork/types'
 import { spawn } from 'bun'
 import { Command } from 'commander'
@@ -10,7 +11,6 @@ import { logger } from '../lib/logger'
 import {
   sanitizeErrorMessage,
   validateAddress,
-  validatePort,
   validateShellCommand,
 } from '../lib/security'
 import {
@@ -23,21 +23,8 @@ import {
 } from '../schemas'
 import { DEFAULT_PORTS } from '../types'
 
-function getDwsPort(): number {
-  const portStr = process.env.DWS_PORT || '4030'
-  return validatePort(portStr)
-}
-
 function getDwsUrl(): string {
-  if (process.env.DWS_URL) {
-    // Basic URL validation
-    const url = process.env.DWS_URL
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      throw new Error('DWS_URL must start with http:// or https://')
-    }
-    return url
-  }
-  return `http://localhost:${getDwsPort()}`
+  return getDWSUrl()
 }
 
 export const computeCommand = new Command('compute')

@@ -11,6 +11,7 @@
 
 import type { Action, Plugin } from '@elizaos/core'
 import { getCurrentNetwork } from '@jejunetwork/config'
+import type { JsonValue } from '@jejunetwork/types'
 import type { AgentCharacter } from '../../lib/types'
 import {
   checkDWSHealth,
@@ -78,7 +79,10 @@ async function generateResponse(
     },
   )
   const choice = response.choices[0]
-  return choice?.message?.content ?? ''
+  if (!choice) {
+    throw new Error('DWS inference returned no choices')
+  }
+  return choice.message?.content ?? ''
 }
 
 /**
@@ -383,6 +387,68 @@ export class CrucibleAgentRuntime {
   /** Get the loaded jeju plugin */
   getPlugin(): Plugin | null {
     return jejuPlugin
+  }
+
+  /**
+   * Execute a specific action by name
+   * Returns the result of the action execution
+   */
+  async executeAction(
+    actionName: string,
+    params: Record<string, string>,
+  ): Promise<{ success: boolean; result?: JsonValue; error?: string }> {
+    // Find the action in the loaded jeju actions
+    const action = jejuActions.find(
+      (a) => a.name.toUpperCase() === actionName.toUpperCase(),
+    )
+
+    if (!action) {
+      this.log.warn('Action not found', {
+        actionName,
+        availableActions: jejuActions.map((a) => a.name),
+      })
+      return { success: false, error: `Action not found: ${actionName}` }
+    }
+
+    if (!action.handler) {
+      this.log.warn('Action has no handler', { actionName })
+      return { success: false, error: `Action has no handler: ${actionName}` }
+    }
+
+    this.log.info('Executing action', { actionName, params })
+
+    try {
+      // Convert params to the expected format
+      const typedParams: Record<string, string | number | boolean | null> = {}
+      for (const [key, value] of Object.entries(params)) {
+        // Try to convert numeric strings
+        const numVal = Number(value)
+        if (!Number.isNaN(numVal) && value === String(numVal)) {
+          typedParams[key] = numVal
+        } else if (value === 'true') {
+          typedParams[key] = true
+        } else if (value === 'false') {
+          typedParams[key] = false
+        } else if (value === 'null') {
+          typedParams[key] = null
+        } else {
+          typedParams[key] = value
+        }
+      }
+
+      const rawResult = await action.handler(this, typedParams)
+      // Cast to JsonValue - handlers should return JSON-serializable values
+      const result = rawResult as JsonValue
+      this.log.info('Action executed successfully', { actionName, result })
+      return { success: true, result }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err)
+      this.log.error('Action execution failed', {
+        actionName,
+        error: errorMessage,
+      })
+      return { success: false, error: errorMessage }
+    }
   }
 }
 

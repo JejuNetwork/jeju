@@ -3,6 +3,7 @@
  */
 
 import { Elysia, t } from 'elysia'
+import QRCode from 'qrcode'
 import type { Address, Hex } from 'viem'
 import { isAddress, isHex, verifyMessage } from 'viem'
 import type { AuthConfig } from '../../lib/types'
@@ -361,53 +362,15 @@ Resources:
 }
 
 /**
- * Generate a QR code as a data URL using a simple SVG-based approach
- * For production, you'd want to use a proper QR library
+ * Generate a QR code as a data URL
  */
 async function generateQRDataUrl(data: string): Promise<string> {
-  // Simple placeholder - in production use a QR library like 'qrcode'
-  // For now, encode the URL so users can at least click the link
-  const _encodedData = encodeURIComponent(data)
-
-  // Create a simple SVG QR placeholder with the link
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
-      <rect width="200" height="200" fill="white"/>
-      <rect x="20" y="20" width="40" height="40" fill="black"/>
-      <rect x="140" y="20" width="40" height="40" fill="black"/>
-      <rect x="20" y="140" width="40" height="40" fill="black"/>
-      <rect x="30" y="30" width="20" height="20" fill="white"/>
-      <rect x="35" y="35" width="10" height="10" fill="black"/>
-      <rect x="150" y="30" width="20" height="20" fill="white"/>
-      <rect x="155" y="35" width="10" height="10" fill="black"/>
-      <rect x="30" y="150" width="20" height="20" fill="white"/>
-      <rect x="35" y="155" width="10" height="10" fill="black"/>
-      <!-- QR pattern approximation -->
-      <rect x="80" y="20" width="10" height="10" fill="black"/>
-      <rect x="100" y="20" width="10" height="10" fill="black"/>
-      <rect x="80" y="40" width="10" height="10" fill="black"/>
-      <rect x="100" y="40" width="10" height="10" fill="black"/>
-      <rect x="90" y="30" width="10" height="10" fill="black"/>
-      <rect x="20" y="80" width="10" height="10" fill="black"/>
-      <rect x="40" y="80" width="10" height="10" fill="black"/>
-      <rect x="20" y="100" width="10" height="10" fill="black"/>
-      <rect x="40" y="100" width="10" height="10" fill="black"/>
-      <rect x="160" y="80" width="10" height="10" fill="black"/>
-      <rect x="160" y="100" width="10" height="10" fill="black"/>
-      <rect x="80" y="80" width="40" height="40" fill="black"/>
-      <rect x="90" y="90" width="20" height="20" fill="white"/>
-      <rect x="95" y="95" width="10" height="10" fill="black"/>
-      <rect x="80" y="140" width="10" height="10" fill="black"/>
-      <rect x="100" y="140" width="10" height="10" fill="black"/>
-      <rect x="80" y="160" width="10" height="10" fill="black"/>
-      <rect x="100" y="160" width="10" height="10" fill="black"/>
-      <rect x="140" y="140" width="40" height="40" fill="black"/>
-      <rect x="150" y="150" width="20" height="20" fill="white"/>
-      <rect x="155" y="155" width="10" height="10" fill="black"/>
-    </svg>
-  `
-
-  // Convert SVG to data URL
-  const base64 = btoa(svg)
-  return `data:image/svg+xml;base64,${base64}`
+  return QRCode.toDataURL(data, {
+    width: 200,
+    margin: 2,
+    color: {
+      dark: '#000000',
+      light: '#ffffff',
+    },
+  })
 }

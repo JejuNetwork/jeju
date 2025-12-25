@@ -7,7 +7,7 @@
 import { getCurrentNetwork } from '@jejunetwork/config'
 import type { AgentCharacter, ExecutionOptions } from '../../lib/types'
 import { createDWSClient, type DWSClient, getDWSEndpoint } from '../client/dws'
-import { AgentCharacterSchema, expect } from '../schemas'
+import { AgentCharacterSchema, expect, expectTrue } from '../schemas'
 import { createLogger, type Logger } from './logger'
 
 export interface ComputeConfig {
@@ -120,16 +120,16 @@ export class CrucibleCompute {
     expect(character, 'Character is required')
     AgentCharacterSchema.parse(character)
     expect(userMessage, 'User message is required')
-    expect(userMessage.length > 0, 'User message cannot be empty')
+    expectTrue(userMessage.length > 0, 'User message cannot be empty')
     expect(context, 'Context is required')
     if (options?.maxTokens != null) {
-      expect(
+      expectTrue(
         options.maxTokens > 0 && options.maxTokens <= 100000,
         'Max tokens must be between 1 and 100000',
       )
     }
     if (options?.temperature != null) {
-      expect(
+      expectTrue(
         options.temperature >= 0 && options.temperature <= 2,
         'Temperature must be between 0 and 2',
       )
@@ -170,7 +170,7 @@ export class CrucibleCompute {
   async inference(request: InferenceRequest): Promise<InferenceResponse> {
     expect(request, 'Inference request is required')
     expect(request.messages, 'Messages are required')
-    expect(request.messages.length > 0, 'At least one message is required')
+    expectTrue(request.messages.length > 0, 'At least one message is required')
     const model = request.model ?? this.config.defaultModel
     if (!model) {
       throw new Error(
@@ -178,13 +178,13 @@ export class CrucibleCompute {
       )
     }
     if (request.maxTokens !== undefined) {
-      expect(
+      expectTrue(
         request.maxTokens > 0 && request.maxTokens <= 100000,
         'Max tokens must be between 1 and 100000',
       )
     }
     if (request.temperature !== undefined) {
-      expect(
+      expectTrue(
         request.temperature >= 0 && request.temperature <= 2,
         'Temperature must be between 0 and 2',
       )
@@ -216,14 +216,19 @@ export class CrucibleCompute {
       })
 
     const choice = result.choices[0]
-    const content = choice?.message?.content ?? ''
-    const promptTokens = result.usage?.prompt_tokens ?? 0
-    const completionTokens = result.usage?.completion_tokens ?? 0
+    if (!choice) {
+      throw new Error('DWS inference returned no choices')
+    }
+    const content = choice.message?.content ?? ''
+    const usage = result.usage ?? { prompt_tokens: 0, completion_tokens: 0 }
 
     return {
       content,
       model,
-      tokensUsed: { input: promptTokens, output: completionTokens },
+      tokensUsed: {
+        input: usage.prompt_tokens,
+        output: usage.completion_tokens,
+      },
       cost: 0n,
       latencyMs: Date.now() - start,
     }
@@ -231,7 +236,7 @@ export class CrucibleCompute {
 
   async generateEmbedding(text: string): Promise<number[]> {
     expect(text, 'Text is required')
-    expect(text.length > 0, 'Text cannot be empty')
+    expectTrue(text.length > 0, 'Text cannot be empty')
     this.log.debug('Generating embedding', { textLength: text.length })
     return this.client.generateEmbedding(text)
   }
@@ -242,11 +247,11 @@ export class CrucibleCompute {
     maxOutputTokens: number,
   ): Promise<bigint> {
     expect(messages, 'Messages are required')
-    expect(messages.length > 0, 'At least one message is required')
+    expectTrue(messages.length > 0, 'At least one message is required')
     expect(model, 'Model is required')
-    expect(model.length > 0, 'Model cannot be empty')
-    expect(maxOutputTokens > 0, 'Max output tokens must be greater than 0')
-    expect(
+    expectTrue(model.length > 0, 'Model cannot be empty')
+    expectTrue(maxOutputTokens > 0, 'Max output tokens must be greater than 0')
+    expectTrue(
       maxOutputTokens <= 100000,
       'Max output tokens must be less than or equal to 100000',
     )

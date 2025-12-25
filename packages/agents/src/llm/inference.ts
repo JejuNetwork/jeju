@@ -8,7 +8,11 @@
 
 import { getCurrentNetwork, getServiceUrl } from '@jejunetwork/config'
 import { logger } from '@jejunetwork/shared'
-import { type ChatMessage, isValidAddress, ZERO_ADDRESS } from '@jejunetwork/types'
+import {
+  type ChatMessage,
+  isValidAddress,
+  ZERO_ADDRESS,
+} from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import { z } from 'zod'
 
@@ -149,7 +153,7 @@ function getGatewayUrl(): string {
  * Check if Jeju Compute is configured
  */
 function isJejuComputeAvailable(): boolean {
-  return !!(process.env.JEJU_NETWORK ?? process.env.JEJU_COMPUTE_API_URL)
+  return getCurrentNetwork() !== 'localnet' || !!getServiceUrl('compute')
 }
 
 /**
@@ -550,7 +554,7 @@ export class JejuInference {
 export function createJejuInference(
   config: Omit<JejuInferenceConfig, 'network'> & { network?: string },
 ): JejuInference {
-  const network = (config.network ?? process.env.JEJU_NETWORK ?? 'localnet') as
+  const network = (config.network ?? getCurrentNetwork()) as
     | 'localnet'
     | 'testnet'
     | 'mainnet'

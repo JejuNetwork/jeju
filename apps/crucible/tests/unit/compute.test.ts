@@ -15,13 +15,15 @@ describe('CrucibleCompute', () => {
   let mockFetch: ReturnType<typeof mock>
 
   beforeEach(() => {
+    // Set up mock fetch BEFORE creating compute so DWSClient uses it
+    mockFetch = mock(() => Promise.resolve(new Response()))
+    global.fetch = mockFetch as typeof fetch
+
     compute = createCompute({
       marketplaceUrl: getCoreAppUrl('COMPUTE'),
       rpcUrl: getL2RpcUrl(),
       defaultModel: 'llama-3.1-8b',
     })
-    mockFetch = mock(() => Promise.resolve(new Response()))
-    global.fetch = mockFetch as typeof fetch
   })
 
   afterEach(() => {
@@ -31,15 +33,15 @@ describe('CrucibleCompute', () => {
 
   describe('Model Discovery', () => {
     it('should fetch available models', async () => {
-      // Note: In production, prices come as strings and need conversion
+      // DWS API returns prices as strings (big number format)
       const mockModels = {
         models: [
           {
             id: 'llama-3.1-8b',
             name: 'Llama 3.1 8B',
             provider: 'provider-1',
-            pricePerInputToken: 100,
-            pricePerOutputToken: 150,
+            pricePerInputToken: '100',
+            pricePerOutputToken: '150',
             maxContextLength: 8192,
             capabilities: ['chat', 'reasoning'],
           },
@@ -47,8 +49,8 @@ describe('CrucibleCompute', () => {
             id: 'llama-3.1-70b',
             name: 'Llama 3.1 70B',
             provider: 'provider-2',
-            pricePerInputToken: 500,
-            pricePerOutputToken: 750,
+            pricePerInputToken: '500',
+            pricePerOutputToken: '750',
             maxContextLength: 32768,
             capabilities: ['chat', 'reasoning', 'coding'],
           },
@@ -97,8 +99,8 @@ describe('CrucibleCompute', () => {
             id: 'small',
             name: 'Small',
             provider: 'p1',
-            pricePerInputToken: 100,
-            pricePerOutputToken: 100,
+            pricePerInputToken: '100',
+            pricePerOutputToken: '100',
             maxContextLength: 4096,
             capabilities: ['chat'],
           },
@@ -106,8 +108,8 @@ describe('CrucibleCompute', () => {
             id: 'large',
             name: 'Large',
             provider: 'p2',
-            pricePerInputToken: 200,
-            pricePerOutputToken: 200,
+            pricePerInputToken: '200',
+            pricePerOutputToken: '200',
             maxContextLength: 32768,
             capabilities: ['chat'],
           },
@@ -134,8 +136,8 @@ describe('CrucibleCompute', () => {
             id: 'chat-only',
             name: 'Chat',
             provider: 'p1',
-            pricePerInputToken: 100,
-            pricePerOutputToken: 100,
+            pricePerInputToken: '100',
+            pricePerOutputToken: '100',
             maxContextLength: 8192,
             capabilities: ['chat'],
           },
@@ -143,8 +145,8 @@ describe('CrucibleCompute', () => {
             id: 'coder',
             name: 'Coder',
             provider: 'p2',
-            pricePerInputToken: 200,
-            pricePerOutputToken: 200,
+            pricePerInputToken: '200',
+            pricePerOutputToken: '200',
             maxContextLength: 8192,
             capabilities: ['chat', 'coding'],
           },
@@ -169,8 +171,8 @@ describe('CrucibleCompute', () => {
             id: 'small',
             name: 'Small',
             provider: 'p1',
-            pricePerInputToken: 100,
-            pricePerOutputToken: 100,
+            pricePerInputToken: '100',
+            pricePerOutputToken: '100',
             maxContextLength: 4096,
             capabilities: ['chat'],
           },
@@ -446,7 +448,7 @@ describe('CrucibleCompute', () => {
     it('should handle empty text embedding', async () => {
       // Empty text should be rejected
       await expect(compute.generateEmbedding('')).rejects.toThrow(
-        'Text is required',
+        'Text cannot be empty',
       )
     })
 
@@ -478,8 +480,8 @@ describe('CrucibleCompute', () => {
             id: 'llama-3.1-8b',
             name: 'Llama',
             provider: 'p1',
-            pricePerInputToken: 1000,
-            pricePerOutputToken: 2000,
+            pricePerInputToken: '1000',
+            pricePerOutputToken: '2000',
             maxContextLength: 8192,
             capabilities: ['chat'],
           },
@@ -529,8 +531,8 @@ describe('CrucibleCompute', () => {
             id: 'llama-3.1-8b',
             name: 'Llama',
             provider: 'p1',
-            pricePerInputToken: 1,
-            pricePerOutputToken: 1,
+            pricePerInputToken: '1',
+            pricePerOutputToken: '1',
             maxContextLength: 8192,
             capabilities: ['chat'],
           },

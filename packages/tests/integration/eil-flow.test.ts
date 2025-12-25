@@ -105,7 +105,6 @@ describe('EIL Flow Integration Tests', () => {
   let l1PublicClient: ReturnType<typeof createPublicClient>
   let l2PublicClient: ReturnType<typeof createPublicClient>
   let l1WalletClient: ReturnType<typeof createWalletClient>
-  let _l2WalletClient: ReturnType<typeof createWalletClient>
   let xlpL1: ReturnType<typeof privateKeyToAccount>
   let xlpL2: ReturnType<typeof privateKeyToAccount>
   let user: ReturnType<typeof privateKeyToAccount>

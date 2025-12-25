@@ -133,14 +133,13 @@ async function createApp(env: Env) {
 }
 
 // Cloudflare Workers / DWS handler
-let appPromise: Promise<Elysia> | null = null
+let app: Awaited<ReturnType<typeof createApp>> | null = null
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    if (!appPromise) {
-      appPromise = createApp(env)
+    if (!app) {
+      app = await createApp(env)
     }
-    const app = await appPromise
     return app.fetch(request)
   },
 }

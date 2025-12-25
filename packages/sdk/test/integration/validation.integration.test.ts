@@ -12,13 +12,10 @@ import { createJejuClient, type JejuClient } from '../../src'
 
 const TEST_PRIVATE_KEY =
   '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
-const VALIDATOR_PRIVATE_KEY =
-  '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d'
 const RPC_URL = process.env.RPC_URL || 'http://127.0.0.1:6546'
 
 describe('Validation Integration Tests', () => {
   let agentClient: JejuClient | null = null
-  let _validatorClient: JejuClient | null = null
   let chainRunning = false
   let contractsDeployed = false
   let skipTests = false
@@ -51,13 +48,6 @@ describe('Validation Integration Tests', () => {
         smartAccount: false,
       })
 
-      const validatorAccount = privateKeyToAccount(VALIDATOR_PRIVATE_KEY)
-      _validatorClient = await createJejuClient({
-        account: validatorAccount,
-        network: 'localnet',
-        rpcUrl: RPC_URL,
-        smartAccount: false,
-      })
     } catch (_e) {
       console.log('⚠️ Contracts not configured for localnet - skipping tests')
       skipTests = true

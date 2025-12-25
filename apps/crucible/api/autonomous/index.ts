@@ -482,15 +482,45 @@ export class AutonomousAgentRunner {
       success: false,
     }
 
-    // Action execution would integrate with the agent SDK
-    // For now, we log the action - real implementation would:
-    // 1. Validate action against capabilities
-    // 2. Execute via appropriate SDK method
-    // 3. Record result
+    // Validate action against agent capabilities
+    const capabilities = agent.config.capabilities
+    const actionCategory = this.getActionCategory(actionName)
 
-    // Mark as successful (actual implementation would check result)
-    activity.success = true
-    activity.result = { executed: true, params }
+    if (!this.isActionAllowed(actionCategory, capabilities)) {
+      log.warn('Action not allowed for agent capabilities', {
+        agentId: agent.config.agentId,
+        action: actionName,
+        category: actionCategory,
+      })
+      activity.result = { error: 'Action not allowed for agent capabilities' }
+      agent.recentActivity.push(activity)
+      return
+    }
+
+    // Execute action via runtime
+    if (!agent.runtime) {
+      log.error('Agent runtime not initialized', {
+        agentId: agent.config.agentId,
+      })
+      activity.result = { error: 'Runtime not initialized' }
+      agent.recentActivity.push(activity)
+      return
+    }
+
+    const result = await agent.runtime.executeAction(actionName, params)
+
+    activity.success = result.success
+    if (result.success) {
+      activity.result = {
+        executed: true,
+        params: Object.fromEntries(
+          Object.entries(params).map(([k, v]) => [k, v] as const),
+        ),
+        result: result.result ?? null,
+      }
+    } else {
+      activity.result = { error: result.error ?? 'Unknown error' }
+    }
 
     agent.recentActivity.push(activity)
 
@@ -498,7 +528,56 @@ export class AutonomousAgentRunner {
       agentId: agent.config.agentId,
       action: actionName,
       success: activity.success,
+      ...(result.error && { error: result.error }),
     })
+  }
+
+  private getActionCategory(actionName: string): string {
+    const upperName = actionName.toUpperCase()
+    if (
+      upperName.includes('SWAP') ||
+      upperName.includes('LIQUIDITY') ||
+      upperName.includes('POOL')
+    ) {
+      return 'defi'
+    }
+    if (upperName.includes('PROPOSE') || upperName.includes('VOTE')) {
+      return 'governance'
+    }
+    if (upperName.includes('STAKE')) {
+      return 'staking'
+    }
+    if (upperName.includes('AGENT') || upperName.includes('A2A')) {
+      return 'a2a'
+    }
+    if (
+      upperName.includes('GPU') ||
+      upperName.includes('INFERENCE') ||
+      upperName.includes('COMPUTE')
+    ) {
+      return 'compute'
+    }
+    return 'general'
+  }
+
+  private isActionAllowed(
+    category: string,
+    capabilities: AutonomousAgentConfig['capabilities'],
+  ): boolean {
+    switch (category) {
+      case 'defi':
+        return capabilities.canTrade === true
+      case 'governance':
+        return capabilities.canPropose === true || capabilities.canVote === true
+      case 'staking':
+        return capabilities.canStake === true
+      case 'a2a':
+        return capabilities.a2a === true
+      case 'compute':
+        return capabilities.compute === true
+      default:
+        return capabilities.canChat === true
+    }
   }
 }
 

@@ -1,4 +1,15 @@
+/**
+ * Ban Status Hook
+ *
+ * Uses @jejunetwork/config for defaults with PUBLIC_ env overrides.
+ */
+
 // BanCheckConfig is exported as HookBanCheckConfig from shared barrel
+import {
+  getContractsConfig,
+  getCurrentNetwork,
+  getRpcUrl,
+} from '@jejunetwork/config'
 import type {
   HookBanCheckConfig as BanCheckConfig,
   BanStatus,
@@ -65,35 +76,29 @@ const MODERATION_MARKETPLACE_ABI = [
   },
 ] as const
 
-// Get RPC URL with network-aware defaults
-function getDefaultRpcUrl(): string {
-  const network =
-    import.meta.env.PUBLIC_NETWORK || import.meta.env.VITE_NETWORK || 'localnet'
-  const envRpc =
-    import.meta.env.PUBLIC_RPC_URL ||
-    import.meta.env.PUBLIC_JEJU_RPC_URL ||
-    import.meta.env.VITE_RPC_URL
-  if (envRpc) return envRpc
-
-  switch (network) {
-    case 'mainnet':
-      return 'https://rpc.jejunetwork.org'
-    case 'testnet':
-      return 'https://testnet-rpc.jejunetwork.org'
-    default:
-      return 'http://localhost:6546'
+/** Get env var from import.meta.env (browser) */
+function getEnv(key: string): string | undefined {
+  if (typeof import.meta?.env === 'object') {
+    return import.meta.env[key as keyof ImportMetaEnv] as string | undefined
   }
+  return undefined
 }
 
+// Get config defaults
+const network = getCurrentNetwork()
+const contracts = getContractsConfig(network)
+
 const DEFAULT_CONFIG: BanCheckConfig = {
-  banManagerAddress: (import.meta.env.PUBLIC_BAN_MANAGER_ADDRESS ||
-    import.meta.env.VITE_BAN_MANAGER_ADDRESS) as Address | undefined,
-  moderationMarketplaceAddress: (import.meta.env
-    .PUBLIC_MODERATION_MARKETPLACE_ADDRESS ||
-    import.meta.env.VITE_MODERATION_MARKETPLACE_ADDRESS) as Address | undefined,
-  identityRegistryAddress: (import.meta.env.PUBLIC_IDENTITY_REGISTRY_ADDRESS ||
-    import.meta.env.VITE_IDENTITY_REGISTRY_ADDRESS) as Address | undefined,
-  rpcUrl: getDefaultRpcUrl(),
+  banManagerAddress:
+    (getEnv('PUBLIC_BAN_MANAGER_ADDRESS') as Address | undefined) ||
+    (contracts.moderation?.BanManager as Address | undefined),
+  moderationMarketplaceAddress:
+    (getEnv('PUBLIC_MODERATION_MARKETPLACE_ADDRESS') as Address | undefined) ||
+    (contracts.moderation?.ModerationMarketplace as Address | undefined),
+  identityRegistryAddress:
+    (getEnv('PUBLIC_IDENTITY_REGISTRY_ADDRESS') as Address | undefined) ||
+    (contracts.registry?.IdentityRegistry as Address | undefined),
+  rpcUrl: getEnv('PUBLIC_RPC_URL') || getRpcUrl(network),
 }
 
 /**

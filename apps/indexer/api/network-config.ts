@@ -4,6 +4,7 @@
 
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { getCurrentNetwork } from '@jejunetwork/config'
 import { type NetworkType, validateOrNull } from '@jejunetwork/types'
 import { z } from 'zod'
 
@@ -138,38 +139,8 @@ function loadNetworkDeployment<T>(
 }
 
 export function getNetworkFromEnv(): NetworkType {
-  const chainId = process.env.CHAIN_ID
-  const networkEnv = process.env.NETWORK
-
-  if (networkEnv) {
-    if (
-      networkEnv === 'localnet' ||
-      networkEnv === 'testnet' ||
-      networkEnv === 'mainnet'
-    ) {
-      return networkEnv
-    }
-    throw new Error(
-      `Invalid NETWORK environment variable: ${networkEnv}. Must be one of: localnet, testnet, mainnet`,
-    )
-  }
-
-  if (chainId) {
-    const id = parseInt(chainId, 10)
-    if (Number.isNaN(id)) {
-      throw new Error(
-        `Invalid CHAIN_ID environment variable: ${chainId}. Must be a number.`,
-      )
-    }
-    if (id === 31337) return 'localnet'
-    if (id === 420690) return 'testnet'
-    if (id === 420691) return 'mainnet'
-    throw new Error(
-      `Unsupported CHAIN_ID: ${id}. Supported chain IDs: 31337 (localnet), 420690 (testnet), 420691 (mainnet)`,
-    )
-  }
-
-  return 'localnet'
+  // Use centralized config which handles env vars and defaults
+  return getCurrentNetwork()
 }
 
 /**

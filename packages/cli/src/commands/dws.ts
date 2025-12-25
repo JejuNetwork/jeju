@@ -8,7 +8,11 @@ import {
   statSync,
 } from 'node:fs'
 import { join, normalize, resolve } from 'node:path'
-import { getCQLBlockProducerUrl } from '@jejunetwork/config'
+import {
+  CORE_PORTS,
+  getCQLBlockProducerUrl,
+  getDWSUrl,
+} from '@jejunetwork/config'
 import { toError } from '@jejunetwork/types'
 import { Command } from 'commander'
 import type { Address } from 'viem'
@@ -38,10 +42,10 @@ import {
 import { createInfrastructureService } from '../services/infrastructure'
 import { DEFAULT_PORTS } from '../types'
 
-const DWS_PORT = parseInt(process.env.DWS_PORT || '4030', 10)
+const DWS_PORT = CORE_PORTS.DWS_API.get()
 
 function getDwsUrl(): string {
-  return process.env.DWS_URL || `http://localhost:${DWS_PORT}`
+  return getDWSUrl()
 }
 
 function getDefaultAddress(): Address {

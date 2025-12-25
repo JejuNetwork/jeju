@@ -20,12 +20,14 @@ describe('CrucibleStorage Edge Cases', () => {
   let mockFetch: ReturnType<typeof mock>
 
   beforeEach(() => {
+    // Set up mock fetch BEFORE creating storage so it uses the mock
+    mockFetch = mock(() => Promise.resolve(new Response()))
+    global.fetch = mockFetch as typeof fetch
+
     storage = createStorage({
       apiUrl: 'http://localhost:3100',
       ipfsGateway: 'http://localhost:3100',
     })
-    mockFetch = mock(() => Promise.resolve(new Response()))
-    global.fetch = mockFetch as typeof fetch
   })
 
   afterEach(() => {

@@ -5,7 +5,7 @@ import {
   type TEENodeInfo,
   TEEProvider,
 } from '@jejunetwork/auth'
-import { getNetworkName } from '@jejunetwork/config'
+import { getNetworkName, getRpcUrl } from '@jejunetwork/config'
 import { AddressSchema, expectAddress, expectHex } from '@jejunetwork/types'
 import {
   type Address,
@@ -54,7 +54,7 @@ class RegistryServiceImpl implements RegistryService {
     this.networkType = getNetworkType(networkName)
 
     this.publicClient = createPublicClient({
-      transport: http(process.env.L2_RPC_URL || 'http://localhost:6546'),
+      transport: http(getRpcUrl()),
     })
   }
 

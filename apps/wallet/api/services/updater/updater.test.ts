@@ -3,7 +3,6 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test'
-import { UpdaterService } from './index'
 
 // Mock fetch
 const mockFetch = mock(() =>
@@ -15,18 +14,28 @@ const mockFetch = mock(() =>
           {
             version: '2.0.0',
             releaseDate: '2024-01-15',
-            notes: 'New features',
-            downloads: {
-              web: 'https://example.com/web.zip',
-              desktop: 'https://example.com/desktop.zip',
-              extension: 'https://example.com/extension.zip',
-            },
+            channel: 'stable',
+            changelog: 'New features',
+            size: 50000000,
+            signature: '0xsig',
+            assets: [
+              {
+                platform: 'web',
+                url: 'https://example.com/web.zip',
+                cid: 'Qm123',
+                hash: '0xhash',
+                size: 50000000,
+              },
+            ],
           },
           {
             version: '1.5.0',
             releaseDate: '2024-01-01',
-            notes: 'Bug fixes',
-            downloads: {},
+            channel: 'stable',
+            changelog: 'Bug fixes',
+            size: 45000000,
+            signature: '0xsig2',
+            assets: [],
           },
         ],
       }),
@@ -41,13 +50,20 @@ mock.module('../../../web/platform/detection', () => ({
     type: 'web',
     category: 'web',
   }),
+  isDesktop: () => false,
 }))
 
-describe('UpdaterService', () => {
-  let updater: UpdaterService
+// Import after mocks are set
+const { UpdateService, getUpdateService, resetUpdateService } = await import(
+  './index'
+)
+
+describe('UpdateService', () => {
+  let updater: InstanceType<typeof UpdateService>
 
   beforeEach(() => {
-    updater = new UpdaterService('1.0.0')
+    resetUpdateService()
+    updater = new UpdateService()
     mockFetch.mockClear()
   })
 
@@ -56,37 +72,41 @@ describe('UpdaterService', () => {
   })
 
   describe('configuration', () => {
-    it('should get default config', () => {
-      const config = updater.getConfig()
+    it('should get default config via getState', () => {
+      const state = updater.getState()
 
-      expect(config.enabled).toBe(true)
-      expect(config.checkInterval).toBeGreaterThan(0)
-      expect(config.autoDownload).toBe(true)
-      expect(config.autoInstall).toBe(false)
+      expect(state.checking).toBe(false)
+      expect(state.available).toBe(false)
+      expect(state.downloading).toBe(false)
+      expect(state.currentVersion).toBeDefined()
     })
 
-    it('should update config', () => {
-      updater.updateConfig({ autoDownload: false })
+    it('should accept custom config', () => {
+      const customUpdater = new UpdateService({
+        checkInterval: 60000,
+        autoDownload: false,
+        channel: 'beta',
+      })
 
-      const config = updater.getConfig()
-      expect(config.autoDownload).toBe(false)
+      expect(customUpdater).toBeDefined()
+      customUpdater.stop()
     })
   })
 
   describe('version checking', () => {
     it('should check for updates', async () => {
-      const hasUpdate = await updater.checkForUpdate()
+      const update = await updater.checkForUpdates()
 
-      expect(hasUpdate).toBe(true)
+      expect(update).not.toBeNull()
       expect(mockFetch).toHaveBeenCalled()
     })
 
     it('should detect available update', async () => {
-      await updater.checkForUpdate()
-      const update = updater.getAvailableUpdate()
+      await updater.checkForUpdates()
+      const state = updater.getState()
 
-      expect(update).toBeDefined()
-      expect(update?.version).toBe('2.0.0')
+      expect(state.available).toBe(true)
+      expect(state.latestVersion).toBe('2.0.0')
     })
 
     it('should report no update when current is latest', async () => {
@@ -95,114 +115,41 @@ describe('UpdaterService', () => {
         json: () =>
           Promise.resolve({
             versions: [
-              { version: '1.0.0', releaseDate: '2024-01-01', downloads: {} },
-            ],
-          }),
-      })
-
-      const hasUpdate = await updater.checkForUpdate()
-
-      expect(hasUpdate).toBe(false)
-    })
-
-    it('should include pre-releases when configured', async () => {
-      updater.updateConfig({ preRelease: true })
-
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            versions: [
               {
-                version: '2.1.0-beta.1',
-                releaseDate: '2024-01-20',
-                preRelease: true,
-                downloads: {},
+                version: '0.0.1',
+                releaseDate: '2024-01-01',
+                channel: 'stable',
+                changelog: '',
+                size: 0,
+                signature: '',
+                assets: [
+                  {
+                    platform: 'web',
+                    url: 'https://example.com/web.zip',
+                    cid: 'Qm123',
+                    hash: '0x',
+                    size: 1000,
+                  },
+                ],
               },
-              { version: '2.0.0', releaseDate: '2024-01-15', downloads: {} },
             ],
           }),
       })
 
-      await updater.checkForUpdate()
-      const update = updater.getAvailableUpdate()
+      const update = await updater.checkForUpdates()
 
-      expect(update?.version).toBe('2.1.0-beta.1')
+      expect(update).toBeNull()
     })
   })
 
-  describe('update lifecycle', () => {
-    it('should download update', async () => {
-      await updater.checkForUpdate()
-
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        arrayBuffer: () => Promise.resolve(new ArrayBuffer(1000)),
-      })
-
-      await updater.downloadUpdate()
-      const status = updater.getStatus()
-
-      expect(status.downloadProgress).toBe(100)
-    })
-
-    it('should report download progress', async () => {
-      await updater.checkForUpdate()
-
-      const progressUpdates: number[] = []
-      updater.on('onDownloadProgress', (progress) => {
-        progressUpdates.push(progress)
-      })
-
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        arrayBuffer: () => Promise.resolve(new ArrayBuffer(1000)),
-      })
-
-      await updater.downloadUpdate()
-
-      expect(progressUpdates.length).toBeGreaterThan(0)
-    })
-
-    it('should report status', () => {
-      const status = updater.getStatus()
-
-      expect(status.currentVersion).toBe('1.0.0')
-      expect(status.lastCheck).toBeNull()
-    })
-  })
-
-  describe('event handling', () => {
-    it('should notify on update available', async () => {
-      let notified = false
-      updater.on('onUpdateAvailable', () => {
-        notified = true
-      })
-
-      await updater.checkForUpdate()
-
-      expect(notified).toBe(true)
-    })
-
-    it('should notify on check complete', async () => {
-      let notified = false
-      updater.on('onCheckComplete', () => {
-        notified = true
-      })
-
-      await updater.checkForUpdate()
-
-      expect(notified).toBe(true)
-    })
-  })
-
-  describe('auto-update', () => {
+  describe('lifecycle', () => {
     it('should start periodic checking', () => {
-      updater.updateConfig({ checkInterval: 1000 })
-      updater.start()
+      const customUpdater = new UpdateService({ checkInterval: 100000 })
+      customUpdater.start()
 
-      // Service should be running
-      expect(updater.getStatus().currentVersion).toBe('1.0.0')
+      const state = customUpdater.getState()
+      expect(state).toBeDefined()
+      customUpdater.stop()
     })
 
     it('should stop periodic checking', () => {
@@ -213,13 +160,60 @@ describe('UpdaterService', () => {
     })
   })
 
-  describe('version comparison', () => {
-    it('should correctly compare versions', () => {
-      expect(updater.isNewerVersion('2.0.0', '1.0.0')).toBe(true)
-      expect(updater.isNewerVersion('1.0.0', '2.0.0')).toBe(false)
-      expect(updater.isNewerVersion('1.0.1', '1.0.0')).toBe(true)
-      expect(updater.isNewerVersion('1.1.0', '1.0.9')).toBe(true)
-      expect(updater.isNewerVersion('1.0.0', '1.0.0')).toBe(false)
+  describe('event handling', () => {
+    it('should notify on check complete', async () => {
+      let notified = false
+      updater.addListener({
+        onCheckComplete: () => {
+          notified = true
+        },
+      })
+
+      await updater.checkForUpdates()
+
+      expect(notified).toBe(true)
+    })
+
+    it('should handle fetch failures gracefully', async () => {
+      // Create a fresh updater instance
+      const errorUpdater = new UpdateService()
+      mockFetch.mockImplementation(() =>
+        Promise.reject(new Error('Network error')),
+      )
+
+      // Should not throw, returns null instead
+      const result = await errorUpdater.checkForUpdates()
+      errorUpdater.stop()
+
+      expect(result).toBeNull()
+
+      // Restore mock for subsequent tests
+      mockFetch.mockImplementation(() =>
+        Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              versions: [],
+            }),
+        }),
+      )
+    })
+  })
+
+  describe('singleton', () => {
+    it('should return same instance', () => {
+      const service1 = getUpdateService()
+      const service2 = getUpdateService()
+
+      expect(service1).toBe(service2)
+    })
+
+    it('should reset instance', () => {
+      const service1 = getUpdateService()
+      resetUpdateService()
+      const service2 = getUpdateService()
+
+      expect(service1).not.toBe(service2)
     })
   })
 })

@@ -1,7 +1,12 @@
 #!/usr/bin/env bun
 
 import { spawn } from 'node:child_process'
-import { getCliBranding, getNetworkName } from '@jejunetwork/config'
+import {
+  getCliBranding,
+  getNetworkName,
+  getRpcUrl,
+  type NetworkType,
+} from '@jejunetwork/config'
 import chalk from 'chalk'
 import { Command } from 'commander'
 import { z } from 'zod'
@@ -191,21 +196,9 @@ program
       process.exit(1)
     }
 
-    // Configure network
-    let rpcUrl = 'http://127.0.0.1:6546'
-
-    switch (options.network) {
-      case 'mainnet':
-        rpcUrl = 'https://rpc.jejunetwork.org'
-        break
-      case 'testnet':
-        rpcUrl = 'https://testnet-rpc.jejunetwork.org'
-        break
-    }
-
-    if (process.env.JEJU_RPC_URL) {
-      rpcUrl = process.env.JEJU_RPC_URL
-    }
+    // Configure network using config package
+    const network = options.network as NetworkType
+    const rpcUrl = getRpcUrl(network)
 
     const privateKey = process.env.JEJU_PRIVATE_KEY
 

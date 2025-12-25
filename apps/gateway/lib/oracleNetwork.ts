@@ -1,36 +1,65 @@
+import { ZERO_ADDRESS } from '@jejunetwork/types'
 import type { Address } from 'viem'
-import { CHAIN_ID } from './config'
+import { CHAIN_ID, NETWORK } from './config'
 
-const ORACLE_ADDRESSES: Record<
-  number,
-  {
-    feedRegistry: Address
-    reportVerifier: Address
-    committeeManager: Address
-    feeRouter: Address
-  }
-> = {
-  // Base Sepolia
+interface OracleAddresses {
+  feedRegistry: Address
+  reportVerifier: Address
+  committeeManager: Address
+  feeRouter: Address
+}
+
+/**
+ * Oracle contract addresses by chain.
+ * These are populated when contracts are deployed.
+ * Using zero address indicates not yet deployed.
+ */
+const ORACLE_ADDRESSES: Record<number, OracleAddresses> = {
+  // Base Sepolia - testnet deployment
   84532: {
-    feedRegistry: '0x0000000000000000000000000000000000000000',
-    reportVerifier: '0x0000000000000000000000000000000000000000',
-    committeeManager: '0x0000000000000000000000000000000000000000',
-    feeRouter: '0x0000000000000000000000000000000000000000',
+    feedRegistry: ZERO_ADDRESS,
+    reportVerifier: ZERO_ADDRESS,
+    committeeManager: ZERO_ADDRESS,
+    feeRouter: ZERO_ADDRESS,
   },
-  // Network Localnet
+  // Network Localnet - local dev
   31337: {
-    feedRegistry: '0x0000000000000000000000000000000000000000',
-    reportVerifier: '0x0000000000000000000000000000000000000000',
-    committeeManager: '0x0000000000000000000000000000000000000000',
-    feeRouter: '0x0000000000000000000000000000000000000000',
+    feedRegistry: ZERO_ADDRESS,
+    reportVerifier: ZERO_ADDRESS,
+    committeeManager: ZERO_ADDRESS,
+    feeRouter: ZERO_ADDRESS,
   },
 }
 
-export function getOracleAddresses() {
+/**
+ * Check if oracle network is deployed and ready for use.
+ * Returns false if any oracle contract is the zero address.
+ */
+export function isOracleNetworkDeployed(): boolean {
+  const addresses = ORACLE_ADDRESSES[CHAIN_ID]
+  if (!addresses) return false
+  return (
+    addresses.feedRegistry !== ZERO_ADDRESS &&
+    addresses.reportVerifier !== ZERO_ADDRESS &&
+    addresses.committeeManager !== ZERO_ADDRESS &&
+    addresses.feeRouter !== ZERO_ADDRESS
+  )
+}
+
+export function getOracleAddresses(): OracleAddresses {
   const addresses = ORACLE_ADDRESSES[CHAIN_ID]
   if (!addresses) {
     throw new Error(`Oracle addresses not configured for chain ${CHAIN_ID}`)
   }
+
+  // Fail-fast on mainnet if oracle contracts not deployed
+  if (NETWORK === 'mainnet' && !isOracleNetworkDeployed()) {
+    throw new Error(
+      `Oracle network contracts not deployed on mainnet (chain ${CHAIN_ID}). ` +
+        'Deploy contracts and update ORACLE_ADDRESSES in lib/oracleNetwork.ts',
+    )
+  }
+
   return addresses
 }
 

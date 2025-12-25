@@ -6,6 +6,7 @@
  * unavailable networks with helpful warnings instead of hard failures.
  */
 
+import { getChainId, getRpcUrl } from '@jejunetwork/config'
 import { getLocalnetChain } from '@jejunetwork/shared'
 import type { JsonValue, NetworkType } from '@jejunetwork/types'
 import {
@@ -28,19 +29,18 @@ const NETWORK_CONFIGS: Record<
   { rpcUrl: string; chainId: number; name: string }
 > = {
   localnet: {
-    rpcUrl: process.env.JEJU_RPC_URL || 'http://127.0.0.1:6546',
-    chainId: 31337,
+    rpcUrl: getRpcUrl('localnet'),
+    chainId: getChainId('localnet'),
     name: getLocalnetChain().name,
   },
   testnet: {
-    rpcUrl:
-      process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jejunetwork.org',
-    chainId: 420690,
+    rpcUrl: getRpcUrl('testnet'),
+    chainId: getChainId('testnet'),
     name: 'Testnet',
   },
   mainnet: {
-    rpcUrl: process.env.JEJU_MAINNET_RPC_URL || 'https://rpc.jejunetwork.org',
-    chainId: 420691,
+    rpcUrl: getRpcUrl('mainnet'),
+    chainId: getChainId('mainnet'),
     name: 'Mainnet',
   },
 }

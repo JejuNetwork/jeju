@@ -34,6 +34,28 @@ export interface InferenceNode {
   teeProvider?: string
 }
 
+/** Provider data from ComputeRegistry.getProvider */
+interface ProviderData {
+  owner: Address
+  name: string
+  endpoint: string
+  attestationHash: Hex
+  stake: bigint
+  registeredAt: bigint
+  agentId: bigint
+  serviceType: Hex
+  active: boolean
+}
+
+/** Capability data from ComputeRegistry.getCapabilities */
+interface CapabilityData {
+  model: string
+  pricePerInputToken: bigint
+  pricePerOutputToken: bigint
+  maxContextLength: bigint
+  active: boolean
+}
+
 export interface InferenceRequest {
   model: string
   messages: Array<{ role: string; content: string }>
@@ -240,30 +262,14 @@ export async function syncFromChain(): Promise<void> {
       abi: COMPUTE_REGISTRY_ABI,
       functionName: 'getProvider',
       args: [address],
-    })) as {
-      owner: Address
-      name: string
-      endpoint: string
-      attestationHash: Hex
-      stake: bigint
-      registeredAt: bigint
-      agentId: bigint
-      serviceType: Hex
-      active: boolean
-    }
+    })) as ProviderData
 
     const capabilities = (await client.readContract({
       address: registryAddress,
       abi: COMPUTE_REGISTRY_ABI,
       functionName: 'getCapabilities',
       args: [address],
-    })) as Array<{
-      model: string
-      pricePerInputToken: bigint
-      pricePerOutputToken: bigint
-      maxContextLength: bigint
-      active: boolean
-    }>
+    })) as CapabilityData[]
 
     const models = capabilities.filter((c) => c.active).map((c) => c.model)
 

@@ -21,13 +21,6 @@ interface SessionResponse {
 
 const API_BASE = ''
 
-// DOM elements
-function _getElement<T extends HTMLElement>(id: string): T {
-  const el = document.getElementById(id)
-  if (!el) throw new Error(`Element ${id} not found`)
-  return el as T
-}
-
 // Check for existing session
 async function checkSession(): Promise<Session | null> {
   const response = await fetch(`${API_BASE}/session`, {

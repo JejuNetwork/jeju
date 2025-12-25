@@ -836,13 +836,12 @@ export function createAPIMarketplaceRouter() {
         )
 
         if (inferenceProviders.length === 0) {
-          // Return mock embedding for dev
-          const dims = 1536
-          const embedding = Array.from(
-            { length: dims },
-            () => Math.random() * 2 - 1,
-          )
-          return { embedding, dimensions: dims, model: 'mock-embedding' }
+          set.status = 503
+          return {
+            error: 'No inference providers configured',
+            message:
+              'Configure an inference provider with API key (OPENAI_API_KEY, ANTHROPIC_API_KEY, etc.)',
+          }
         }
 
         // Find a listing for an inference provider that supports embeddings
@@ -852,13 +851,11 @@ export function createAPIMarketplaceRouter() {
         const listing = await findCheapestListing(provider.id)
 
         if (!listing) {
-          // Return mock embedding if no listing available
-          const dims = 1536
-          const embedding = Array.from(
-            { length: dims },
-            () => Math.random() * 2 - 1,
-          )
-          return { embedding, dimensions: dims, model: 'mock-embedding' }
+          set.status = 503
+          return {
+            error: 'No embedding listings available',
+            message: `No active listings for provider ${provider.id}. Create a listing first.`,
+          }
         }
 
         const proxyReq: ProxyRequest = {

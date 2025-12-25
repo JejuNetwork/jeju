@@ -105,7 +105,7 @@ describe('Auth API', () => {
 
       const html = await response.text()
       expect(html).toContain('Farcaster')
-      expect(html).toContain('data:image/svg+xml')
+      expect(html).toContain('data:image/png;base64')
     })
 
     test('verify requires valid nonce', async () => {

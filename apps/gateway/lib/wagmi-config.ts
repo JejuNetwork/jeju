@@ -44,7 +44,7 @@ function getWalletConnectProjectId(): string {
   if (isPlaceholder) {
     throw new Error(
       `WalletConnect project ID required for ${NETWORK}. ` +
-        'Set VITE_WALLETCONNECT_PROJECT_ID environment variable. ' +
+        'Set PUBLIC_WALLETCONNECT_PROJECT_ID environment variable. ' +
         'Get a project ID at https://cloud.walletconnect.com',
     )
   }

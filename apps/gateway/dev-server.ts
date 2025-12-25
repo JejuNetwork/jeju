@@ -2,8 +2,10 @@ import { watch } from 'node:fs'
 import { join } from 'node:path'
 import {
   CORE_PORTS,
+  getChainId,
   getIpfsApiUrl,
-  getL2RpcUrl,
+  getRpcUrl,
+  getWsUrl,
   INFRA_PORTS,
 } from '@jejunetwork/config'
 
@@ -32,26 +34,25 @@ async function build() {
     ],
     define: {
       'process.env.NODE_ENV': JSON.stringify('development'),
-      'import.meta.env.VITE_NETWORK': JSON.stringify('localnet'),
-      'import.meta.env.VITE_CHAIN_ID': JSON.stringify('31337'),
-      'import.meta.env.VITE_RPC_URL': JSON.stringify(getL2RpcUrl()),
-      'import.meta.env.VITE_WS_URL': JSON.stringify(
-        `ws://127.0.0.1:${INFRA_PORTS.L2_WS.get()}`,
-      ),
-      'import.meta.env.VITE_JEJU_IPFS_API': JSON.stringify(getIpfsApiUrl()),
-      'import.meta.env.VITE_JEJU_IPFS_GATEWAY': JSON.stringify(
+      // Use PUBLIC_ prefix for all public env vars
+      'import.meta.env.PUBLIC_NETWORK': JSON.stringify('localnet'),
+      'import.meta.env.PUBLIC_CHAIN_ID': JSON.stringify(String(getChainId('localnet'))),
+      'import.meta.env.PUBLIC_RPC_URL': JSON.stringify(getRpcUrl('localnet')),
+      'import.meta.env.PUBLIC_WS_URL': JSON.stringify(getWsUrl('localnet')),
+      'import.meta.env.PUBLIC_IPFS_API': JSON.stringify(getIpfsApiUrl()),
+      'import.meta.env.PUBLIC_IPFS_GATEWAY': JSON.stringify(
         'http://127.0.0.1:4180',
       ),
-      'import.meta.env.VITE_INDEXER_URL': JSON.stringify(
+      'import.meta.env.PUBLIC_INDEXER_URL': JSON.stringify(
         `http://127.0.0.1:${CORE_PORTS.INDEXER_GRAPHQL.get()}/graphql`,
       ),
-      'import.meta.env.VITE_RPC_GATEWAY_URL': JSON.stringify(
+      'import.meta.env.PUBLIC_RPC_GATEWAY_URL': JSON.stringify(
         `http://127.0.0.1:${CORE_PORTS.RPC_GATEWAY.get()}`,
       ),
-      'import.meta.env.VITE_OAUTH3_AGENT_URL': JSON.stringify(
+      'import.meta.env.PUBLIC_OAUTH3_AGENT_URL': JSON.stringify(
         `http://127.0.0.1:${CORE_PORTS.OAUTH3_API.get()}`,
       ),
-      'import.meta.env.VITE_WALLETCONNECT_PROJECT_ID':
+      'import.meta.env.PUBLIC_WALLETCONNECT_PROJECT_ID':
         JSON.stringify('YOUR_PROJECT_ID'),
       'import.meta.env.MODE': JSON.stringify('development'),
       'import.meta.env.DEV': JSON.stringify(true),

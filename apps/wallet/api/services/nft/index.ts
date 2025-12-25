@@ -102,7 +102,7 @@ class NFTService {
     contractAddress: Address,
     tokenId: bigint,
   ): Promise<NFT | null> {
-    // For now, search in cache
+    // First, check cache
     for (const [, nfts] of this.cache) {
       const found = nfts.find(
         (n) =>
@@ -112,7 +112,24 @@ class NFTService {
       )
       if (found) return found
     }
-    return null
+
+    // Fetch from indexer if not in cache
+    const indexed = await jeju.getNFT(contractAddress, tokenId.toString())
+    if (!indexed) return null
+
+    return {
+      contractAddress: indexed.contractAddress as Address,
+      tokenId: BigInt(indexed.tokenId),
+      chainId: indexed.chainId as SupportedChainId,
+      name: indexed.metadata?.name || `#${indexed.tokenId}`,
+      description: indexed.metadata?.description ?? '',
+      imageUrl: this.resolveImageUrl(indexed.metadata?.image ?? ''),
+      tokenUri: indexed.tokenUri || undefined,
+      standard: 'ERC721',
+      balance: 1n,
+      attributes: indexed.metadata?.attributes,
+      collectionName: indexed.collectionName,
+    }
   }
 
   // Transfer NFT (returns tx data, doesn't send)

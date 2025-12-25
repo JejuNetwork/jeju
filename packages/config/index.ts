@@ -271,7 +271,7 @@ export interface PoCConfig {
 /** Get PoC configuration for the default chain (Base Sepolia for testnet) */
 export function getPoCConfig(network?: NetworkType): PoCConfig {
   const net = network ?? getCurrentNetwork()
-  const chain = net === 'mainnet' ? 'base' : 'baseSepolia'
+  const chain = net === 'mainnet' ? 'base' : 'base-sepolia'
   const contracts = loadContracts()
   const chainConfig = contracts.external[chain]
 

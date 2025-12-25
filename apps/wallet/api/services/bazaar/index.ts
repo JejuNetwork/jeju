@@ -132,6 +132,25 @@ export interface Listing {
   chainId: number
 }
 
+/** Raw listing data from indexer API */
+interface IndexerListingData {
+  id: string
+  seller: string
+  assetType: number
+  assetContract: string
+  tokenId: string
+  amount: string
+  paymentToken: string
+  pricePerUnit: string
+  expirationTime: string
+  status: number
+}
+
+/** Response from indexer listings API */
+interface IndexerListingsResponse {
+  listings: IndexerListingData[]
+}
+
 export interface CreateListingParams {
   assetType: AssetType
   assetContract: Address
@@ -307,20 +326,7 @@ export class BazaarService {
         throw new Error(`Indexer returned ${response.status}`)
       }
 
-      const data = (await response.json()) as {
-        listings: Array<{
-          id: string
-          seller: string
-          assetType: number
-          assetContract: string
-          tokenId: string
-          amount: string
-          paymentToken: string
-          pricePerUnit: string
-          expirationTime: string
-          status: number
-        }>
-      }
+      const data = (await response.json()) as IndexerListingsResponse
 
       return data.listings.map((listing) => ({
         id: BigInt(listing.id),

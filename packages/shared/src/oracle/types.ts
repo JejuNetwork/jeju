@@ -73,7 +73,7 @@ export function resolveEnvVar(value: string): string {
     const envVar = value.slice(2, -1)
     const resolved = process.env[envVar]
     if (!resolved) {
-      throw new ConfigurationError(\`Environment variable \${envVar} not set\`)
+      throw new ConfigurationError(`Environment variable ${envVar} not set`)
     }
     return resolved
   }
@@ -86,7 +86,7 @@ export function resolveEnvVar(value: string): string {
 export function validatePrivateKey(key: string, name: string): Hex {
   if (!key || !key.startsWith('0x') || key.length !== 66) {
     throw new ConfigurationError(
-      \`\${name} must be a valid 32-byte hex string (0x + 64 chars)\`,
+      `${name} must be a valid 32-byte hex string (0x + 64 chars)`,
     )
   }
   return key as Hex
@@ -99,7 +99,9 @@ const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
  */
 export function validateAddress(addr: string | null, name: string): Address {
   if (!addr || addr === ZERO_ADDRESS) {
-    throw new ConfigurationError(\`\${name} is required and cannot be zero address\`)
+    throw new ConfigurationError(
+      `${name} is required and cannot be zero address`,
+    )
   }
   return addr as Address
 }

@@ -1,3 +1,4 @@
+import { getChainId, getRpcUrl } from '@jejunetwork/config'
 import { readContract } from '@jejunetwork/shared'
 import type { NodeMetrics, OracleNodeConfig } from '@jejunetwork/types'
 import { expectHex, parseEnvAddress, ZERO_ADDRESS } from '@jejunetwork/types'
@@ -333,8 +334,8 @@ const DEFAULT_WORKER_KEY: Hex =
 
 export function createNodeConfig(): OracleNodeConfig {
   return {
-    rpcUrl: process.env.RPC_URL || 'http://localhost:6546',
-    chainId: parseInt(process.env.CHAIN_ID || '31337', 10),
+    rpcUrl: getRpcUrl(),
+    chainId: getChainId(),
     operatorPrivateKey: expectHex(
       process.env.OPERATOR_PRIVATE_KEY || DEFAULT_OPERATOR_KEY,
     ),

@@ -25,12 +25,6 @@ const STORAGE_PROVIDER = process.env.STORAGE_PROVIDER || 'auto'
  * Jeju Storage endpoint based on network
  */
 function getJejuStorageEndpoint(): string {
-  // Allow direct override
-  if (process.env.JEJU_STORAGE_ENDPOINT) {
-    return process.env.JEJU_STORAGE_ENDPOINT
-  }
-
-  // Use config service URL (respects network and env overrides)
   return getServiceUrl('storage')
 }
 
@@ -46,7 +40,7 @@ export function shouldUseStorage(): boolean {
   }
   // Auto mode: use IPFS if Jeju network is configured
   const network = getCurrentNetwork()
-  return network !== 'localnet' || !!process.env.JEJU_STORAGE_ENDPOINT
+  return network !== 'localnet'
 }
 
 /**

@@ -1,3 +1,4 @@
+import { getExternalRpc, getRpcUrl as getJejuRpcUrl } from '@jejunetwork/config'
 import type { ChainConfig, ChainId } from '../types'
 import { chainConfigSchema, ValidationError } from '../validation'
 
@@ -18,12 +19,10 @@ const DEFAULT_RPC_URLS = {
   jejuTestnet: 'https://testnet-rpc.jejunetwork.org',
 } as const
 
-function getRpcUrl(
-  chainName: keyof typeof DEFAULT_RPC_URLS,
-  envVarName: string,
-): string {
-  const envValue = process.env[envVarName]
-  if (envValue) return envValue
+function getRpcUrl(chainName: keyof typeof DEFAULT_RPC_URLS): string {
+  // Try to get from config first
+  const configRpc = getExternalRpc(chainName)
+  if (configRpc) return configRpc
   return DEFAULT_RPC_URLS[chainName]
 }
 
@@ -32,7 +31,7 @@ export const ethereumMainnet: ChainConfig = {
   chainId: 1,
   chainType: 'evm',
   name: 'Ethereum Mainnet',
-  rpcUrl: getRpcUrl('ethereum', 'ETHEREUM_RPC_URL'),
+  rpcUrl: getRpcUrl('ethereum'),
   blockExplorerUrl: 'https://etherscan.io',
   nativeCurrency: {
     name: 'Ether',
@@ -51,7 +50,7 @@ export const optimism: ChainConfig = {
   chainId: 10,
   chainType: 'evm',
   name: 'Optimism',
-  rpcUrl: getRpcUrl('optimism', 'OPTIMISM_RPC_URL'),
+  rpcUrl: getRpcUrl('optimism'),
   blockExplorerUrl: 'https://optimistic.etherscan.io',
   nativeCurrency: {
     name: 'Ether',
@@ -70,7 +69,7 @@ export const bsc: ChainConfig = {
   chainId: 56,
   chainType: 'evm',
   name: 'BNB Smart Chain',
-  rpcUrl: getRpcUrl('bsc', 'BSC_RPC_URL'),
+  rpcUrl: getRpcUrl('bsc'),
   blockExplorerUrl: 'https://bscscan.com',
   nativeCurrency: {
     name: 'BNB',
@@ -88,7 +87,7 @@ export const base: ChainConfig = {
   chainId: 8453,
   chainType: 'evm',
   name: 'Base',
-  rpcUrl: process.env.BASE_RPC_URL ?? 'https://mainnet.base.org',
+  rpcUrl: getRpcUrl('base'),
   blockExplorerUrl: 'https://basescan.org',
   nativeCurrency: {
     name: 'Ether',
@@ -107,7 +106,7 @@ export const arbitrum: ChainConfig = {
   chainId: 42161,
   chainType: 'evm',
   name: 'Arbitrum One',
-  rpcUrl: getRpcUrl('arbitrum', 'ARBITRUM_RPC_URL'),
+  rpcUrl: getRpcUrl('arbitrum'),
   blockExplorerUrl: 'https://arbiscan.io',
   nativeCurrency: {
     name: 'Ether',
@@ -126,7 +125,7 @@ export const polygon: ChainConfig = {
   chainId: 137,
   chainType: 'evm',
   name: 'Polygon',
-  rpcUrl: getRpcUrl('polygon', 'POLYGON_RPC_URL'),
+  rpcUrl: getRpcUrl('polygon'),
   blockExplorerUrl: 'https://polygonscan.com',
   nativeCurrency: {
     name: 'MATIC',
@@ -144,7 +143,7 @@ export const avalanche: ChainConfig = {
   chainId: 43114,
   chainType: 'evm',
   name: 'Avalanche C-Chain',
-  rpcUrl: getRpcUrl('avalanche', 'AVALANCHE_RPC_URL'),
+  rpcUrl: getRpcUrl('avalanche'),
   blockExplorerUrl: 'https://snowtrace.io',
   nativeCurrency: {
     name: 'AVAX',
@@ -162,7 +161,7 @@ export const solanaMainnet: ChainConfig = {
   chainId: 'solana-mainnet',
   chainType: 'solana',
   name: 'Solana Mainnet',
-  rpcUrl: getRpcUrl('solana', 'SOLANA_RPC_URL'),
+  rpcUrl: getRpcUrl('solana'),
   blockExplorerUrl: 'https://explorer.solana.com',
   nativeCurrency: { name: 'Solana', symbol: 'SOL', decimals: 9 },
   hyperlaneMailbox: 'EitxJuv2iBjsg2d7jVy2LDC1e2zBrx4GB5Y9h2Ko3A9Y',
@@ -177,7 +176,7 @@ export const sepolia: ChainConfig = {
   chainId: 11155111,
   chainType: 'evm',
   name: 'Sepolia Testnet',
-  rpcUrl: getRpcUrl('sepolia', 'SEPOLIA_RPC_URL'),
+  rpcUrl: getRpcUrl('sepolia'),
   blockExplorerUrl: 'https://sepolia.etherscan.io',
   nativeCurrency: {
     name: 'Ether',
@@ -195,7 +194,7 @@ export const baseSepolia: ChainConfig = {
   chainId: 84532,
   chainType: 'evm',
   name: 'Base Sepolia',
-  rpcUrl: getRpcUrl('baseSepolia', 'BASE_SEPOLIA_RPC_URL'),
+  rpcUrl: getRpcUrl('baseSepolia'),
   blockExplorerUrl: 'https://sepolia.basescan.org',
   nativeCurrency: {
     name: 'Ether',
@@ -212,7 +211,7 @@ export const arbitrumSepolia: ChainConfig = {
   chainId: 421614,
   chainType: 'evm',
   name: 'Arbitrum Sepolia',
-  rpcUrl: getRpcUrl('arbitrumSepolia', 'ARBITRUM_SEPOLIA_RPC_URL'),
+  rpcUrl: getRpcUrl('arbitrumSepolia'),
   blockExplorerUrl: 'https://sepolia.arbiscan.io',
   nativeCurrency: {
     name: 'Ether',
@@ -229,7 +228,7 @@ export const solanaDevnet: ChainConfig = {
   chainId: 'solana-devnet',
   chainType: 'solana',
   name: 'Solana Devnet',
-  rpcUrl: getRpcUrl('solanaDevnet', 'SOLANA_DEVNET_RPC_URL'),
+  rpcUrl: getRpcUrl('solanaDevnet'),
   blockExplorerUrl: 'https://explorer.solana.com?cluster=devnet',
   nativeCurrency: { name: 'Solana', symbol: 'SOL', decimals: 9 },
   hyperlaneMailbox: 'E588QtVUvresuXq2KoNEwAmoifCzYGpRBdHByN9KQMbi',
@@ -256,7 +255,7 @@ export const jejuTestnet: ChainConfig = {
   chainId: 420690,
   chainType: 'evm',
   name: 'Jeju Testnet',
-  rpcUrl: getRpcUrl('jejuTestnet', 'JEJU_RPC_URL'),
+  rpcUrl: getJejuRpcUrl('testnet'),
   blockExplorerUrl: 'https://testnet-explorer.jejunetwork.org',
   nativeCurrency: {
     name: 'Ether',

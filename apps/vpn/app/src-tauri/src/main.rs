@@ -262,6 +262,7 @@ fn main() {
             commands::vpn::get_connection_stats,
             commands::vpn::get_public_key,
             commands::contribution::get_contribution_status,
+            commands::contribution::get_contribution_settings,
             commands::contribution::set_contribution_settings,
             commands::contribution::get_contribution_stats,
             commands::auth::login_with_wallet,

@@ -13,6 +13,15 @@ pub async fn get_contribution_status(
     Ok(contribution.get_status())
 }
 
+/// Get contribution settings
+#[tauri::command]
+pub async fn get_contribution_settings(
+    state: State<'_, AppState>,
+) -> Result<ContributionSettings, String> {
+    let contribution = state.contribution.read().await;
+    Ok(contribution.get_settings())
+}
+
 /// Set contribution settings
 #[tauri::command]
 pub async fn set_contribution_settings(

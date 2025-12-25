@@ -30,6 +30,11 @@ const accessLog: Array<{
 // System keys loaded from environment
 const systemKeys = new Map<string, string>()
 
+/** Response from TEE attestation endpoint */
+interface AttestationResponse {
+  attestation: string
+}
+
 // Start cleanup interval for old access log entries (older than 24 hours)
 const ACCESS_LOG_CLEANUP_INTERVAL_MS = 60 * 60 * 1000 // 1 hour
 const ACCESS_LOG_MAX_AGE_MS = 24 * 60 * 60 * 1000 // 24 hours
@@ -43,6 +48,9 @@ setInterval(() => {
 
 // Encryption Helpers (AES-256-GCM)
 
+/** Track if we've warned about missing secret */
+let warnedAboutMissingSecret = false
+
 /**
  * Derive encryption key from server secret + keyId
  * SECURITY: VAULT_ENCRYPTION_SECRET MUST be set in production
@@ -50,6 +58,7 @@ setInterval(() => {
 function deriveKey(keyId: string): Buffer {
   const serverSecret = process.env.VAULT_ENCRYPTION_SECRET
   const isProduction = process.env.NODE_ENV === 'production'
+  const isTest = process.env.NODE_ENV === 'test'
 
   if (!serverSecret) {
     if (isProduction) {
@@ -57,12 +66,19 @@ function deriveKey(keyId: string): Buffer {
         'CRITICAL: VAULT_ENCRYPTION_SECRET must be set in production. API keys cannot be secured without it.',
       )
     }
-    console.warn(
-      '[Key Vault] WARNING: VAULT_ENCRYPTION_SECRET not set. API keys are NOT properly secured.',
-    )
+    if (!isTest && !warnedAboutMissingSecret) {
+      warnedAboutMissingSecret = true
+      console.warn(
+        '[Key Vault] WARNING: VAULT_ENCRYPTION_SECRET not set. Using development-only key. Set VAULT_ENCRYPTION_SECRET for production.',
+      )
+    }
+    // Development-only fallback - keys are ephemeral and insecure
+    return createHash('sha256')
+      .update(`DEV_ONLY_INSECURE_KEY:${keyId}`)
+      .digest()
   }
   return createHash('sha256')
-    .update(`${serverSecret ?? 'INSECURE_VAULT_SECRET'}:${keyId}`)
+    .update(`${serverSecret}:${keyId}`)
     .digest()
 }
 
@@ -323,7 +339,7 @@ async function generateAttestation(keyId: string): Promise<string> {
       throw new Error(`TEE attestation failed: ${response.status}`)
     }
 
-    const result = (await response.json()) as { attestation: string }
+    const result = (await response.json()) as AttestationResponse
     return result.attestation
   }
 

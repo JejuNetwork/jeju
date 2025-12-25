@@ -14,6 +14,8 @@
  */
 
 import {
+  getChainId,
+  getServicesConfig,
   getTeeConfig,
   getTeeEndpoint,
   getTeeMode,
@@ -849,13 +851,12 @@ export function createTrainingWorker(
     workerId: `${type.toLowerCase()}-${Date.now()}`,
     codeHash: (process.env.WORKER_CODE_HASH ??
       '0x0000000000000000000000000000000000000000000000000000000000000000') as Hex,
-    chainId: process.env.CHAIN_ID ?? '420691',
+    chainId: String(getChainId()),
     trainingOrchestratorAddress: (process.env.TRAINING_ORCHESTRATOR_ADDRESS ??
       '0x0000000000000000000000000000000000000000') as Address,
     modelRegistryAddress: (process.env.MODEL_REGISTRY_ADDRESS ??
       '0x0000000000000000000000000000000000000000') as Address,
-    storageEndpoint:
-      process.env.JEJU_STORAGE_ENDPOINT ?? 'http://localhost:4400',
+    storageEndpoint: getServicesConfig().storage.api,
     teeProvider,
     requireAttestation: config?.requireAttestation ?? isProduction,
     ...config,

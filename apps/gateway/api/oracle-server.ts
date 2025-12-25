@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { getCurrentNetwork } from '@jejunetwork/config'
 import {
   createConfig,
   MetricsExporter,
@@ -37,8 +38,7 @@ function parseArgs(): {
   help: boolean
 } {
   const args = process.argv.slice(2)
-  let network: NetworkType =
-    (process.env.JEJU_NETWORK as NetworkType) || 'localnet'
+  let network: NetworkType = getCurrentNetwork()
   let metricsPort = parseInt(process.env.METRICS_PORT || '9090', 10)
   let dryRun = false
   let help = false

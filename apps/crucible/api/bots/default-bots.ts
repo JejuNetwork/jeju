@@ -4,6 +4,7 @@
  * Pre-configured MEV/arbitrage bots that initialize automatically.
  */
 
+import { getRpcUrl } from '@jejunetwork/config'
 import type { Address } from 'viem'
 import type { TradingBotChain, TradingBotStrategy } from '../../lib/types'
 
@@ -77,7 +78,7 @@ export const DEFAULT_CHAINS: Record<string, TradingBotChain> = {
   jeju: {
     chainId: 420691,
     name: 'Network',
-    rpcUrl: process.env.JEJU_RPC_URL ?? 'https://rpc.jejunetwork.org',
+    rpcUrl: getRpcUrl('mainnet'),
     blockTime: 200,
     isL2: true,
     nativeSymbol: 'ETH',

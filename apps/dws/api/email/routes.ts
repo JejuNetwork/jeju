@@ -2,11 +2,18 @@
  * Email Routes
  * Decentralized email service for DWS
  *
- * Stores emails per-wallet-address using in-memory storage for development.
- * Production would use CQL/IPFS for persistence.
+ * DEVELOPMENT ONLY: Uses in-memory storage that is NOT persistent.
+ * For production, this module needs to be integrated with CQL/IPFS.
  */
 
 import { createHash } from 'node:crypto'
+
+// Warn about in-memory storage at module load
+if (process.env.NODE_ENV === 'production') {
+  console.warn(
+    '[Email Routes] WARNING: Running in production with in-memory storage. Emails will be lost on restart.',
+  )
+}
 import { expectValid } from '@jejunetwork/types'
 import { Elysia, t } from 'elysia'
 import { z } from 'zod'

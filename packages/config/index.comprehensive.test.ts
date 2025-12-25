@@ -131,7 +131,11 @@ describe('Contract Resolution', () => {
 
   describe('getExternalContract', () => {
     it('should get external chain contracts', () => {
-      const address = getExternalContract('baseSepolia', 'tokens', 'usdc')
+      const address = getExternalContract(
+        'base-sepolia',
+        'oif',
+        'solverRegistry',
+      )
       expect(address).toMatch(/^0x[a-fA-F0-9]{40}$/)
     })
 
