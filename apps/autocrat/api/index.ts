@@ -1211,16 +1211,14 @@ export {
   registerAutocratTriggers,
   startLocalCron,
 } from './compute-trigger'
-export {
-  createDAOService,
-  type DAO,
-  type DAOFull,
-  DAOService,
-  type FundingAllocation,
-  type FundingEpoch,
-  type FundingProject,
-  getDAOService,
-} from './dao-service'
+export { createDAOService, DAOService, getDAOService } from './dao-service'
+export type {
+  DAO,
+  DAOFull,
+  FundingAllocation,
+  FundingEpoch,
+  FundingProject,
+} from '../lib/types'
 export {
   type AgentIdentity,
   type AgentReputation,

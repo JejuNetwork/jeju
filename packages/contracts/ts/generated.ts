@@ -3638,6 +3638,41 @@ export const contributorRegistryAbi = [
   {
     type: 'function',
     inputs: [],
+    name: 'MAX_BATCH_SIZE',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'MAX_DEP_CLAIMS',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'MAX_PAGE_SIZE',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'MAX_REPO_CLAIMS',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'MAX_SOCIAL_LINKS',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
     name: 'PLATFORM_DISCORD',
     outputs: [{ name: '', internalType: 'bytes32', type: 'bytes32' }],
     stateMutability: 'view',
@@ -3842,6 +3877,19 @@ export const contributorRegistryAbi = [
   {
     type: 'function',
     inputs: [
+      { name: 'offset', internalType: 'uint256', type: 'uint256' },
+      { name: 'limit', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'getContributorsPaginated',
+    outputs: [
+      { name: 'ids', internalType: 'bytes32[]', type: 'bytes32[]' },
+      { name: 'total', internalType: 'uint256', type: 'uint256' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
       { name: 'contributorId', internalType: 'bytes32', type: 'bytes32' },
       { name: 'daoId', internalType: 'bytes32', type: 'bytes32' },
     ],
@@ -3903,6 +3951,38 @@ export const contributorRegistryAbi = [
     type: 'function',
     inputs: [
       { name: 'contributorId', internalType: 'bytes32', type: 'bytes32' },
+      { name: 'offset', internalType: 'uint256', type: 'uint256' },
+      { name: 'limit', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'getDependencyClaimsPaginated',
+    outputs: [
+      {
+        name: 'claims',
+        internalType: 'struct ContributorRegistry.DependencyClaim[]',
+        type: 'tuple[]',
+        components: [
+          { name: 'claimId', internalType: 'bytes32', type: 'bytes32' },
+          { name: 'contributorId', internalType: 'bytes32', type: 'bytes32' },
+          { name: 'packageName', internalType: 'string', type: 'string' },
+          { name: 'registryType', internalType: 'string', type: 'string' },
+          { name: 'proofHash', internalType: 'bytes32', type: 'bytes32' },
+          {
+            name: 'status',
+            internalType: 'enum ContributorRegistry.VerificationStatus',
+            type: 'uint8',
+          },
+          { name: 'claimedAt', internalType: 'uint256', type: 'uint256' },
+          { name: 'verifiedAt', internalType: 'uint256', type: 'uint256' },
+        ],
+      },
+      { name: 'total', internalType: 'uint256', type: 'uint256' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'contributorId', internalType: 'bytes32', type: 'bytes32' },
     ],
     name: 'getRepositoryClaims',
     outputs: [
@@ -3925,6 +4005,38 @@ export const contributorRegistryAbi = [
           { name: 'verifiedAt', internalType: 'uint256', type: 'uint256' },
         ],
       },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'contributorId', internalType: 'bytes32', type: 'bytes32' },
+      { name: 'offset', internalType: 'uint256', type: 'uint256' },
+      { name: 'limit', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'getRepositoryClaimsPaginated',
+    outputs: [
+      {
+        name: 'claims',
+        internalType: 'struct ContributorRegistry.RepositoryClaim[]',
+        type: 'tuple[]',
+        components: [
+          { name: 'claimId', internalType: 'bytes32', type: 'bytes32' },
+          { name: 'contributorId', internalType: 'bytes32', type: 'bytes32' },
+          { name: 'owner', internalType: 'string', type: 'string' },
+          { name: 'repo', internalType: 'string', type: 'string' },
+          { name: 'proofHash', internalType: 'bytes32', type: 'bytes32' },
+          {
+            name: 'status',
+            internalType: 'enum ContributorRegistry.VerificationStatus',
+            type: 'uint8',
+          },
+          { name: 'claimedAt', internalType: 'uint256', type: 'uint256' },
+          { name: 'verifiedAt', internalType: 'uint256', type: 'uint256' },
+        ],
+      },
+      { name: 'total', internalType: 'uint256', type: 'uint256' },
     ],
     stateMutability: 'view',
   },
@@ -4496,11 +4608,20 @@ export const contributorRegistryAbi = [
   { type: 'error', inputs: [], name: 'AgentAlreadyLinked' },
   { type: 'error', inputs: [], name: 'AlreadyRegistered' },
   { type: 'error', inputs: [], name: 'AlreadyVerified' },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'provided', internalType: 'uint256', type: 'uint256' },
+      { name: 'maximum', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'BatchSizeExceeded',
+  },
   { type: 'error', inputs: [], name: 'ClaimAlreadyExists' },
   { type: 'error', inputs: [], name: 'ClaimNotFound' },
   { type: 'error', inputs: [], name: 'ContributorInactive' },
   { type: 'error', inputs: [], name: 'EnforcedPause' },
   { type: 'error', inputs: [], name: 'ExpectedPause' },
+  { type: 'error', inputs: [], name: 'InvalidPaginationParams' },
   { type: 'error', inputs: [], name: 'InvalidProfile' },
   { type: 'error', inputs: [], name: 'InvalidProof' },
   { type: 'error', inputs: [], name: 'InvalidWallet' },
@@ -4533,7 +4654,7 @@ export const creditManagerAbi = [
     type: 'constructor',
     inputs: [
       { name: '_usdc', internalType: 'address', type: 'address' },
-      { name: '_elizaOS', internalType: 'address', type: 'address' },
+      { name: '_jeju', internalType: 'address', type: 'address' },
     ],
     stateMutability: 'nonpayable',
   },
@@ -4631,13 +4752,6 @@ export const creditManagerAbi = [
   },
   {
     type: 'function',
-    inputs: [{ name: 'amount', internalType: 'uint256', type: 'uint256' }],
-    name: 'depositElizaOS',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
     inputs: [
       { name: 'agentId', internalType: 'uint256', type: 'uint256' },
       { name: 'token', internalType: 'address', type: 'address' },
@@ -4667,13 +4781,6 @@ export const creditManagerAbi = [
     name: 'depositUSDC',
     outputs: [],
     stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'elizaOS',
-    outputs: [{ name: '', internalType: 'contract IERC20', type: 'address' }],
-    stateMutability: 'view',
   },
   {
     type: 'function',
@@ -4708,20 +4815,8 @@ export const creditManagerAbi = [
     name: 'getAllBalances',
     outputs: [
       { name: 'usdcBalance', internalType: 'uint256', type: 'uint256' },
-      { name: 'elizaBalance', internalType: 'uint256', type: 'uint256' },
-      { name: 'ethBalance', internalType: 'uint256', type: 'uint256' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [{ name: 'user', internalType: 'address', type: 'address' }],
-    name: 'getAllBalancesWithJeju',
-    outputs: [
-      { name: 'usdcBalance', internalType: 'uint256', type: 'uint256' },
-      { name: 'elizaBalance', internalType: 'uint256', type: 'uint256' },
-      { name: 'ethBalance', internalType: 'uint256', type: 'uint256' },
       { name: 'jejuBalance', internalType: 'uint256', type: 'uint256' },
+      { name: 'ethBalance', internalType: 'uint256', type: 'uint256' },
     ],
     stateMutability: 'view',
   },
@@ -4891,13 +4986,6 @@ export const creditManagerAbi = [
     type: 'function',
     inputs: [{ name: 'newMin', internalType: 'uint256', type: 'uint256' }],
     name: 'setMinBalance',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [{ name: '_jeju', internalType: 'address', type: 'address' }],
-    name: 'setNetworkToken',
     outputs: [],
     stateMutability: 'nonpayable',
   },
@@ -17478,7 +17566,7 @@ export const multiTokenPaymasterAbi = [
         type: 'address',
       },
       { name: '_usdc', internalType: 'address', type: 'address' },
-      { name: '_elizaOS', internalType: 'address', type: 'address' },
+      { name: '_jeju', internalType: 'address', type: 'address' },
       { name: '_creditManager', internalType: 'address', type: 'address' },
       { name: '_serviceRegistry', internalType: 'address', type: 'address' },
       { name: '_priceOracle', internalType: 'address', type: 'address' },
@@ -17539,13 +17627,6 @@ export const multiTokenPaymasterAbi = [
     name: 'depositToEntryPoint',
     outputs: [],
     stateMutability: 'payable',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'elizaOS',
-    outputs: [{ name: '', internalType: 'contract IERC20', type: 'address' }],
-    stateMutability: 'view',
   },
   {
     type: 'function',
@@ -17684,13 +17765,6 @@ export const multiTokenPaymasterAbi = [
       { name: 'newMaxGasCost', internalType: 'uint256', type: 'uint256' },
     ],
     name: 'setMaxGasCost',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [{ name: '_jeju', internalType: 'address', type: 'address' }],
-    name: 'setNetworkToken',
     outputs: [],
     stateMutability: 'nonpayable',
   },
@@ -23575,7 +23649,7 @@ export const predictionMarketAbi = [
     inputs: [
       { name: 'sessionId', internalType: 'bytes32', type: 'bytes32' },
       { name: 'outcome', internalType: 'bool', type: 'bool' },
-      { name: 'elizaOSAmount', internalType: 'uint256', type: 'uint256' },
+      { name: 'tokenAmount', internalType: 'uint256', type: 'uint256' },
     ],
     name: 'calculateSharesReceived',
     outputs: [{ name: 'shares', internalType: 'uint256', type: 'uint256' }],
@@ -23652,13 +23726,6 @@ export const predictionMarketAbi = [
     name: 'createModerationMarket',
     outputs: [],
     stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'elizaOS',
-    outputs: [{ name: '', internalType: 'address', type: 'address' }],
-    stateMutability: 'view',
   },
   {
     type: 'function',
@@ -23929,6 +23996,13 @@ export const predictionMarketAbi = [
     inputs: [],
     name: 'paymentToken',
     outputs: [{ name: '', internalType: 'contract IERC20', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'paymentTokenAddress',
+    outputs: [{ name: '', internalType: 'address', type: 'address' }],
     stateMutability: 'view',
   },
   {

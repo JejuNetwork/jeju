@@ -20,7 +20,7 @@ import { CacheError, CacheErrorCode, type CacheTEEAttestation } from './types'
 // Shared engine for standard tier (multi-tenant)
 let sharedEngine: CacheEngine | null = null
 
-function getSharedEngine(): CacheEngine {
+export function getSharedEngine(): CacheEngine {
   if (!sharedEngine) {
     sharedEngine = new CacheEngine({
       maxMemoryMb: 1024, // 1GB shared cache

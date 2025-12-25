@@ -244,6 +244,17 @@ class BridgeServiceImpl implements BridgeService {
 
   // Solver state
   private solverPollInterval: ReturnType<typeof setInterval> | null = null
+  private solverStats = {
+    totalFills: 0,
+    successfulFills: 0,
+    failedFills: 0,
+    pendingIntents: 0,
+  }
+  private solverRegistered = false
+  private pendingTransferIds: Set<string> = new Set()
+
+  // XLP state
+  private xlpRegistered = false
 
   constructor(config: BridgeServiceConfig) {
     this.config = config
@@ -971,6 +982,10 @@ class BridgeServiceImpl implements BridgeService {
   private async startXLP(): Promise<void> {
     console.log('[Bridge] Starting XLP service...')
 
+    if (this.xlpRegistered) {
+      console.log('[Bridge] XLP already registered')
+      return
+    }
     if (!this.config.contracts.federatedLiquidity) {
       console.warn(
         '[Bridge] FederatedLiquidity contract not configured, XLP disabled',
@@ -1099,6 +1114,10 @@ class BridgeServiceImpl implements BridgeService {
   private async startSolver(): Promise<void> {
     console.log('[Bridge] Starting solver service...')
 
+    if (this.solverRegistered) {
+      console.log('[Bridge] Solver already registered')
+      return
+    }
     if (!this.config.contracts.solverRegistry) {
       console.warn(
         '[Bridge] SolverRegistry contract not configured, solver disabled',

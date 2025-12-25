@@ -25,12 +25,8 @@ import {
 import { base, baseSepolia, localhost } from 'viem/chains'
 import { type CEOPersona, toHex } from '../lib'
 import type { AutocratBlockchain } from './blockchain'
-import {
-  createDAOService,
-  type DAOFull,
-  type DAOService,
-  type FundingProject,
-} from './dao-service'
+import { createDAOService, type DAOService } from './dao-service'
+import type { DAOFull, FundingProject } from '../lib/types'
 
 // Config type for orchestrator - accepts CouncilConfig or minimal config
 export interface AutocratConfig {

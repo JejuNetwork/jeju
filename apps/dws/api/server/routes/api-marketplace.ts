@@ -815,7 +815,7 @@ export function createAPIMarketplaceRouter() {
       })
 
       // Embeddings endpoint (for agents/apps)
-      .post('/v1/embeddings', async ({ body, request }) => {
+      .post('/v1/embeddings', async ({ body, request, set }) => {
         const headers = extractHeaders(request)
         const { 'x-jeju-address': userAddress } = expectValid(
           jejuAddressHeaderSchema,

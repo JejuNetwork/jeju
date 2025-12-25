@@ -41,7 +41,7 @@ export {
 } from './provisioning'
 
 // Routes
-export { createCacheRoutes, createCacheService } from './routes'
+export { createCacheRoutes, createCacheService, getSharedEngine } from './routes'
 
 // Marketplace Integration
 export {

@@ -3,7 +3,7 @@
  * CQL-backed storage for agent configurations
  */
 
-import type { JsonRecord } from '@jejunetwork/sdk'
+import type { JsonRecord } from '@jejunetwork/types'
 import {
   isValidAddress,
   JsonValueSchema,

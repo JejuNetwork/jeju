@@ -9,7 +9,7 @@ import { CORE_PORTS } from '@jejunetwork/config'
 export const NETWORK_NAME = 'Jeju Network'
 
 // API URL - proxied through frontend dev server in development
-export const API_URL = ''
+export const API_URL = process.env.PUBLIC_API_URL ?? ''
 
 // Default ports from config
 export const CRUCIBLE_PORT = CORE_PORTS.CRUCIBLE.DEFAULT

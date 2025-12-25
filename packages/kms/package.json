@@ -24,7 +24,7 @@
     "@jejunetwork/sdk": "workspace:*",
     "@jejunetwork/shared": "workspace:*",
     "@noble/curves": "1.9.7",
-    "@noble/hashes": "1.7.1",
+    "@noble/hashes": "1.8.0",
     "elysia": "^1.4.19",
     "pino": "^10.1.0",
     "viem": "2.43.3",

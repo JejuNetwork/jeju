@@ -132,32 +132,4 @@ export function useRegisterAgent() {
   })
 }
 
-export function useFundAgent() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({
-      agentId,
-      amount,
-    }: {
-      agentId: string
-      amount: string
-    }): Promise<{ txHash: string }> => {
-      const response = await fetch(`${API_URL}/api/v1/agents/${agentId}/fund`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount }),
-      })
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error ?? 'Failed to fund agent')
-      }
-      return response.json()
-    },
-    onSuccess: (_, { agentId }) => {
-      queryClient.invalidateQueries({ queryKey: ['agent-balance', agentId] })
-    },
-  })
-}
-
 export type { Agent, RegisterAgentRequest, RegisterAgentResponse }

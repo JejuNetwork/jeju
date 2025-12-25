@@ -7,7 +7,7 @@
   "description": "Decentralized agent orchestration platform for autonomous AI agents",
   "commands": {
     "dev": "bun run dev",
-    "build": "tsc",
+    "build": "bun run build",
     "start": "bun run api/server.ts",
     "test": "bun test"
   },

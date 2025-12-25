@@ -482,16 +482,55 @@ export class DirectCastClient {
   }
 
   /**
-   * Publish our encryption key to hub
+   * Publish our encryption key to hub as UserDataAdd message
    */
   async publishEncryptionKey(): Promise<void> {
     if (!this.encryptionPublicKey) {
       throw new Error('Encryption keys not initialized')
     }
 
-    console.log(
-      `[DC Client] Publishing encryption key: 0x${bytesToHex(this.encryptionPublicKey)}`,
+    const keyHex = `0x${bytesToHex(this.encryptionPublicKey)}`
+    console.log(`[DC Client] Publishing encryption key: ${keyHex}`)
+
+    // Create signature for the key publication
+    const timestamp = Math.floor(Date.now() / 1000)
+    const payload = new TextEncoder().encode(
+      JSON.stringify({
+        fid: this.config.fid,
+        type: 'USER_DATA_ADD',
+        userDataType: 100, // Custom type for DC encryption key
+        value: keyHex,
+        timestamp,
+      }),
     )
+    const signature = ed25519.sign(payload, this.config.signerPrivateKey)
+
+    // Post to hub
+    const response = await fetch(`${this.config.hubUrl}/v1/submitMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'MESSAGE_TYPE_USER_DATA_ADD',
+        fid: this.config.fid,
+        timestamp,
+        userDataBody: {
+          type: 100, // Custom type for DC encryption key
+          value: keyHex,
+        },
+        signature: `0x${bytesToHex(signature)}`,
+        signatureScheme: 'SIGNATURE_SCHEME_ED25519',
+        signer: `0x${bytesToHex(ed25519.getPublicKey(this.config.signerPrivateKey))}`,
+      }),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(
+        `Failed to publish encryption key: ${response.status} - ${errorText}`,
+      )
+    }
+
+    console.log(`[DC Client] Encryption key published successfully`)
   }
   /**
    * Connect to relay server with automatic reconnection
@@ -732,7 +771,8 @@ export class DirectCastClient {
   }
 
   /**
-   * Send read receipt via relay (best-effort, failures ignored)
+   * Send read receipt via relay
+   * Failures are logged but not thrown to avoid blocking mark-as-read operations
    */
   private async sendReadReceipt(
     recipientFid: number,
@@ -740,16 +780,32 @@ export class DirectCastClient {
   ): Promise<void> {
     if (!this.config.relayUrl) return
 
-    await this.fetchWithTimeout(`${this.config.relayUrl}/api/dc/read`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        senderFid: this.config.fid,
-        recipientFid,
-        conversationId,
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {})
+    try {
+      const response = await this.fetchWithTimeout(
+        `${this.config.relayUrl}/api/dc/read`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            senderFid: this.config.fid,
+            recipientFid,
+            conversationId,
+            timestamp: Date.now(),
+          }),
+        },
+      )
+
+      if (!response.ok) {
+        console.warn(
+          `[DC Client] Read receipt failed: ${response.status} ${response.statusText}`,
+        )
+      }
+    } catch (error) {
+      console.warn(
+        `[DC Client] Read receipt failed:`,
+        error instanceof Error ? error.message : 'Unknown error',
+      )
+    }
   }
 
   /**
