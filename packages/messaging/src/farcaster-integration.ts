@@ -277,7 +277,7 @@ export class UnifiedMessagingService {
         return []
       }
       const fids = conversationId.split('-').map((f) => parseInt(f, 10))
-      const otherFid = fids.find((f) => f !== this.farcasterFid) ?? fids[0]
+      const otherFid = fids.find((f) => f !== this.farcasterFid) ?? fids[0] ?? 0
       const dcMessages = await this.farcasterClient.getMessages(otherFid, {
         limit: options?.limit,
         before: options?.before?.toString(),

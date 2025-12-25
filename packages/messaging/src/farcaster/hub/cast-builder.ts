@@ -162,6 +162,7 @@ export class CastBuilder {
 
     for (let i = 0; i < texts.length; i++) {
       const text = texts[i]
+      if (!text) continue
 
       const castOptions: CastOptions = {}
 
@@ -300,7 +301,8 @@ export function splitTextForThread(
     const wordsWithSpaces: string[] = []
 
     for (let i = 0; i < words.length; i++) {
-      wordsWithSpaces.push(i === 0 ? words[i] : ` ${words[i]}`)
+      const word = words[i] ?? ''
+      wordsWithSpaces.push(i === 0 ? word : ` ${word}`)
     }
 
     for (const word of wordsWithSpaces) {

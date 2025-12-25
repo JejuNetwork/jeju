@@ -140,7 +140,9 @@ export class FarcasterPoster {
     const postedCasts: PostedCast[] = []
 
     for (let i = 0; i < messages.length; i++) {
-      const result = await this.submitter.submit(messages[i])
+      const message = messages[i]
+      if (!message) continue
+      const result = await this.submitter.submit(message)
 
       if (!result.success) {
         throw new Error(
@@ -151,8 +153,8 @@ export class FarcasterPoster {
       postedCasts.push({
         hash: result.hash as Hex,
         fid: this.fid,
-        text: texts[i],
-        timestamp: messages[i].data.timestamp,
+        text: texts[i] ?? '',
+        timestamp: message.data.timestamp,
       })
     }
 

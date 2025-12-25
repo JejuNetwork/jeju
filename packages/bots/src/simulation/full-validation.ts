@@ -385,7 +385,7 @@ export class FullValidationRunner {
     )
 
     // Gas costs
-    const gasCost = GasCostModel.estimate('multiHop2', 1, {
+    const gasCost = GasCostModel.estimate('uniswapV3MultiHop2', 1, {
       ethPriceUsd: this.config.ethPriceUsd,
       gasMultiplier: 1.2,
       mevRiskFactor: 0.5,

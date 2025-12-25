@@ -734,7 +734,7 @@ export function calculateWeightedMedian(
   }
 
   // Create pairs and sort by price
-  const pairs = prices.map((price, i) => ({ price, weight: weights[i] }))
+  const pairs = prices.map((price, i) => ({ price, weight: weights[i] ?? 0n }))
   pairs.sort((a, b) => (a.price < b.price ? -1 : a.price > b.price ? 1 : 0))
 
   // Calculate total weight and find median
@@ -742,14 +742,16 @@ export function calculateWeightedMedian(
   const halfWeight = totalWeight / 2n
 
   let cumWeight = 0n
-  for (const { price, weight } of pairs) {
-    cumWeight += weight
+  for (const pair of pairs) {
+    cumWeight += pair.weight
     if (cumWeight >= halfWeight) {
-      return price
+      return pair.price
     }
   }
 
-  return pairs[pairs.length - 1].price
+  const lastPair = pairs[pairs.length - 1]
+  if (!lastPair) throw new Error('No pairs to calculate median')
+  return lastPair.price
 }
 
 /**

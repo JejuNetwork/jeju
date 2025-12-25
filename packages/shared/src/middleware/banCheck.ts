@@ -49,8 +49,9 @@ function setCacheEntry(key: string, entry: CacheEntry): void {
       (a, b) => a[1].timestamp - b[1].timestamp,
     )
     const toRemove = Math.ceil(entries.length * 0.1)
-    for (let i = 0; i < toRemove; i++) {
-      cache.delete(entries[i][0])
+    for (let i = 0; i < toRemove && i < entries.length; i++) {
+      const entry = entries[i]
+      if (entry) cache.delete(entry[0])
     }
   }
   cache.set(key, entry)

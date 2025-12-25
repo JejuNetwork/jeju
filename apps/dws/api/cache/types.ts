@@ -209,12 +209,8 @@ export interface CacheConfig {
   defaultTtlSeconds: number
   /** Maximum TTL (seconds) */
   maxTtlSeconds: number
-  /** Eviction policy */
-  evictionPolicy: 'lru' | 'lfu' | 'ttl' | 'random'
-  /** Persistence enabled */
-  persistenceEnabled: boolean
-  /** Replication factor */
-  replicationFactor: number
+  /** Eviction policy (currently only 'lru' is implemented) */
+  evictionPolicy: 'lru'
   /** TEE provider for secure tier */
   teeProvider?: CacheTEEProvider
   /** TEE endpoint */

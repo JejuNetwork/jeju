@@ -442,7 +442,9 @@ function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
 
   let result = 0
   for (let i = 0; i < a.length; i++) {
-    result |= a[i] ^ b[i]
+    const ai = a[i] ?? 0
+    const bi = b[i] ?? 0
+    result |= ai ^ bi
   }
 
   return result === 0

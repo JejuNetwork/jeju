@@ -1,5 +1,7 @@
-import { bytesToHex, randomBytes } from '@jejunetwork/shared'
+import { bytesToHex, createLogger, randomBytes } from '@jejunetwork/shared'
 import type { Address } from 'viem'
+
+const log = createLogger('mls-group')
 import type { JejuMLSClient } from './client'
 import type {
   FetchOptions,
@@ -64,7 +66,7 @@ export class JejuGroup {
   }
 
   async initialize(): Promise<void> {
-    console.log(`[MLS Group] Initializing group ${this.state.id}`)
+    log.info('Initializing group', { groupId: this.state.id })
     await this.notifyRelay('group_created', {
       groupId: this.state.id,
       metadata: this.state.metadata,
@@ -73,12 +75,12 @@ export class JejuGroup {
   }
 
   async join(_inviteCode: string): Promise<void> {
-    console.log(`[MLS Group] Joining group ${this.state.id}`)
+    log.info('Joining group', { groupId: this.state.id })
     await this.sync()
   }
 
   async leave(): Promise<void> {
-    console.log(`[MLS Group] Leaving group ${this.state.id}`)
+    log.info('Leaving group', { groupId: this.state.id })
     this.removeMemberInternal(this.config.client.getAddress())
     this.state.isActive = false
   }
@@ -121,9 +123,10 @@ export class JejuGroup {
     this.state.lastMessageAt = timestamp
     await this.sendToRelay(message)
 
-    console.log(
-      `[MLS Group] Sent message ${messageId.slice(0, 12)}... to group ${this.state.id.slice(0, 12)}...`,
-    )
+    log.info('Sent message', {
+      messageId: messageId.slice(0, 12),
+      groupId: this.state.id.slice(0, 12),
+    })
 
     return messageId
   }
@@ -192,9 +195,10 @@ export class JejuGroup {
         installationIds: [],
       })
 
-      console.log(
-        `[MLS Group] Added member ${address.slice(0, 10)}... to group ${this.state.id.slice(0, 12)}...`,
-      )
+      log.info('Added member', {
+        address: address.slice(0, 10),
+        groupId: this.state.id.slice(0, 12),
+      })
     }
 
     this.state.metadata.memberCount = this.state.members.length
@@ -300,7 +304,7 @@ export class JejuGroup {
         `${this.config.relayUrl}/api/messages?groupId=${encodeURIComponent(this.state.id)}&since=${this.state.lastMessageAt ?? 0}`,
       )
     } catch {
-      console.log(`[MLS Group] Relay unavailable for sync`)
+      log.debug('Relay unavailable for sync')
       return []
     }
 
@@ -315,9 +319,7 @@ export class JejuGroup {
     for (const raw of data.messages) {
       const parseResult = MLSMessageSchema.safeParse(raw)
       if (!parseResult.success) {
-        console.warn(
-          `[MLS Group] Skipping invalid message: ${parseResult.error.message}`,
-        )
+        log.warn('Skipping invalid message', { error: parseResult.error.message })
         continue
       }
 
@@ -370,7 +372,7 @@ export class JejuGroup {
 
     this.state.members.splice(index, 1)
     this.state.metadata.memberCount = this.state.members.length
-    console.log(`[MLS Group] Removed member ${address.slice(0, 10)}...`)
+    log.info('Removed member', { address: address.slice(0, 10) })
   }
 
   private ensureAdmin(): void {
@@ -392,7 +394,7 @@ export class JejuGroup {
         }),
       })
     } catch {
-      console.log(`[MLS Group] Relay unavailable, message stored locally only`)
+      log.debug('Relay unavailable, message stored locally only')
       return
     }
 
@@ -415,7 +417,7 @@ export class JejuGroup {
         body: JSON.stringify({ event, data }),
       })
     } catch {
-      console.log(`[MLS Group] Relay unavailable, event ${event} not sent`)
+      log.debug('Relay unavailable, event not sent', { event })
       return
     }
 

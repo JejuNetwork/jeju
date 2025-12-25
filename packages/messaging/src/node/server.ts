@@ -7,13 +7,11 @@
  */
 
 import { cors } from '@elysiajs/cors'
+import { createLogger } from '@jejunetwork/shared'
 import { sha256 } from '@noble/hashes/sha256'
 import { bytesToHex } from '@noble/hashes/utils'
-import type { Address } from 'viem'
 import { Elysia } from 'elysia'
-import { createLogger } from '@jejunetwork/shared'
-
-const log = createLogger('relay-server')
+import type { Address } from 'viem'
 import {
   CQLMessageStorage,
   type StoredMessage as CQLStoredMessage,
@@ -25,6 +23,8 @@ import {
   type NodeConfig,
   WebSocketSubscribeSchema,
 } from '../schemas'
+
+const log = createLogger('relay-server')
 
 interface StoredMessage {
   envelope: MessageEnvelope

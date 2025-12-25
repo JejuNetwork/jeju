@@ -209,8 +209,9 @@ export class FarcasterClient {
       throw e
     }
     const response = UsernameProofResponseSchema.parse(data)
-    if (response.proofs.length > 0) {
-      return this.getProfile(response.proofs[0].fid)
+    const firstProof = response.proofs[0]
+    if (firstProof) {
+      return this.getProfile(firstProof.fid)
     }
     return null
   }
@@ -228,9 +229,9 @@ export class FarcasterClient {
       throw e
     }
     const response = VerificationLookupResponseSchema.parse(data)
-
-    if (response.messages.length > 0) {
-      return this.getProfile(response.messages[0].data.fid)
+    const firstMessage = response.messages[0]
+    if (firstMessage) {
+      return this.getProfile(firstMessage.data.fid)
     }
     return null
   }

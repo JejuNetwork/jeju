@@ -334,8 +334,9 @@ function addNonce(nonce: string): boolean {
 
       // Remove oldest 10% of entries
       const toRemove = Math.ceil(entries.length * 0.1)
-      for (let i = 0; i < toRemove; i++) {
-        usedNonces.delete(entries[i][0])
+      for (let i = 0; i < toRemove && i < entries.length; i++) {
+        const entry = entries[i]
+        if (entry) usedNonces.delete(entry[0])
       }
     }
   }
@@ -391,6 +392,7 @@ export function parseX402Header(header: string): X402PaymentPayload | null {
   if (parts.length < 3) return null
 
   const payloadB64 = parts[2]
+  if (!payloadB64) return null
   const payloadJson = Buffer.from(payloadB64, 'base64').toString('utf8')
 
   const parseResult = X402PaymentPayloadSchema.safeParse(

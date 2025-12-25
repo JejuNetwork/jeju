@@ -56,19 +56,19 @@ export const CONTRACTS = {
 
   // JNS
   jnsRegistrar: addr(contracts.jns?.registrar),
-  bazaar: addr(contracts.bazaar?.marketplace),
+  bazaar: addr(contracts.commerce?.marketplace),
 
   // NFT Marketplace
-  nftMarketplace: addr(contracts.nft?.marketplace),
+  nftMarketplace: addr(contracts.commerce?.nftMarketplace),
 
   // Payments
   predimarket: addr(contracts.moderation?.predimarket),
 
   // Perpetuals
-  perpetualMarket: addr(contracts.perpetuals?.market),
-  marginManager: addr(contracts.perpetuals?.marginManager),
-  insuranceFund: addr(contracts.perpetuals?.insuranceFund),
-  liquidationEngine: addr(contracts.perpetuals?.liquidationEngine),
+  perpetualMarket: addr(contracts.perps?.market),
+  marginManager: addr(contracts.perps?.marginManager),
+  insuranceFund: addr(contracts.perps?.insuranceFund),
+  liquidationEngine: addr(contracts.perps?.liquidationEngine),
 
   // Oracle Network
   oracleStakingManager: addr(contracts.oracle?.stakingManager),

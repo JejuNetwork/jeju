@@ -69,10 +69,10 @@ let WebTorrent: {
   new (opts?: Record<string, unknown>): WebTorrentInstance
 } | null = null
 
-async function loadWebTorrent(): Promise<typeof WebTorrent> {
+async function loadWebTorrent(): Promise<NonNullable<typeof WebTorrent>> {
   if (!WebTorrent) {
     const mod = await import('webtorrent')
-    WebTorrent = mod.default as typeof WebTorrent
+    WebTorrent = mod.default as NonNullable<typeof WebTorrent>
   }
   return WebTorrent
 }
@@ -166,6 +166,14 @@ export class WebTorrentBackend extends EventEmitter {
   private config: WebTorrentConfig
   private client: WebTorrentInstance | null = null
   private clientInitPromise: Promise<WebTorrentInstance> | null = null
+
+  /** Get client, asserting it's initialized (use after await getClient()) */
+  private get clientOrThrow(): WebTorrentInstance {
+    if (!this.client) {
+      throw new Error('WebTorrent client not initialized')
+    }
+    return this.client
+  }
   private torrentMetadata: Map<string, TorrentInfo> = new Map()
   private cidToInfoHash: Map<string, string> = new Map()
 
@@ -325,12 +333,12 @@ export class WebTorrentBackend extends EventEmitter {
     }
 
     // Check concurrent limit
-    if (this.client.torrents.length >= this.config.maxConcurrentTorrents) {
+    if (this.clientOrThrow.torrents.length >= this.config.maxConcurrentTorrents) {
       await this.evictLowestPriority()
     }
 
     return new Promise((resolve, reject) => {
-      this.client.add(
+      this.clientOrThrow.add(
         magnetUri,
         {
           path: this.config.downloadPath,
@@ -376,7 +384,7 @@ export class WebTorrentBackend extends EventEmitter {
         },
       )
 
-      this.client.once('error', reject)
+      this.clientOrThrow.once('error', reject)
     })
   }
 
@@ -394,7 +402,7 @@ export class WebTorrentBackend extends EventEmitter {
       throw new Error(`Torrent not found: ${cidOrInfoHash}`)
     }
 
-    const torrent = this.client.get(infoHash)
+    const torrent = this.clientOrThrow.get(infoHash)
     if (!torrent) {
       throw new Error(`Torrent not in client: ${infoHash}`)
     }
@@ -430,7 +438,7 @@ export class WebTorrentBackend extends EventEmitter {
    * Start seeding a torrent (already downloaded)
    */
   async startSeeding(infoHash: string): Promise<void> {
-    const torrent = this.client.get(infoHash)
+    const torrent = this.clientOrThrow.get(infoHash)
     if (!torrent) {
       throw new Error(`Torrent not found: ${infoHash}`)
     }
@@ -458,7 +466,7 @@ export class WebTorrentBackend extends EventEmitter {
       return
     }
 
-    const torrent = this.client.get(infoHash)
+    const torrent = this.clientOrThrow.get(infoHash)
     if (torrent) {
       torrent.pause()
     }
@@ -480,7 +488,7 @@ export class WebTorrentBackend extends EventEmitter {
     }
 
     return new Promise((resolve, reject) => {
-      this.client.remove(infoHash, { destroyStore: true }, (err) => {
+      this.clientOrThrow.remove(infoHash, { destroyStore: true }, (err) => {
         if (err) {
           reject(err)
           return
@@ -511,7 +519,7 @@ export class WebTorrentBackend extends EventEmitter {
    * Get torrent stats
    */
   getTorrentStats(infoHash: string): TorrentStats | null {
-    const torrent = this.client.get(infoHash)
+    const torrent = this.clientOrThrow.get(infoHash)
     if (!torrent) return null
 
     return {
@@ -620,7 +628,7 @@ export class WebTorrentBackend extends EventEmitter {
     let seedingCount = 0
     let downloadingCount = 0
 
-    for (const torrent of this.client.torrents) {
+    for (const torrent of this.clientOrThrow.torrents) {
       const info = this.torrentMetadata.get(torrent.infoHash)
       if (!info) continue
 
@@ -652,7 +660,7 @@ export class WebTorrentBackend extends EventEmitter {
       popularContentSize: popularSize,
       privateContentCount: this.getTorrentsByTier('private').length,
       privateContentSize: privateSize,
-      activeTorrents: this.client.torrents.length,
+      activeTorrents: this.clientOrThrow.torrents.length,
       seedingTorrents: seedingCount,
       downloadingTorrents: downloadingCount,
       peersConnected: this.getTotalPeers(),
@@ -664,7 +672,7 @@ export class WebTorrentBackend extends EventEmitter {
    * Health check
    */
   async healthCheck(): Promise<boolean> {
-    return !this.client.destroyed
+    return !this.clientOrThrow.destroyed
   }
 
   /**
@@ -672,7 +680,7 @@ export class WebTorrentBackend extends EventEmitter {
    */
   async destroy(): Promise<void> {
     return new Promise((resolve) => {
-      this.client.destroy(() => {
+      this.clientOrThrow.destroy(() => {
         console.log('[WebTorrent] Client destroyed')
         resolve()
       })
@@ -682,7 +690,7 @@ export class WebTorrentBackend extends EventEmitter {
   // Private Helpers
 
   private setupTorrentEvents(
-    torrent: WebTorrent.Torrent,
+    torrent: WebTorrentInstance['torrents'][0],
     info: TorrentInfo,
   ): void {
     torrent.on('done', () => {
@@ -692,7 +700,7 @@ export class WebTorrentBackend extends EventEmitter {
 
     torrent.on('error', (err) => {
       console.error(`[WebTorrent] Torrent error (${info.name}):`, err)
-      this.emit('torrent:error', { info, error: err })
+      this.emit('torrent:error', { info, error: err as Error })
     })
 
     torrent.on('warning', (warning) => {
@@ -734,7 +742,7 @@ export class WebTorrentBackend extends EventEmitter {
 
   private getTotalPeers(): number {
     let total = 0
-    for (const torrent of this.client.torrents) {
+    for (const torrent of this.clientOrThrow.torrents) {
       total += torrent.numPeers
     }
     return total
