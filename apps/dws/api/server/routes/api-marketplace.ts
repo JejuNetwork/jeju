@@ -31,6 +31,8 @@ const EmbeddingResponseSchema = z.object({
 })
 
 import {
+  // Types
+  type APIProvider,
   calculateAffordableRequests,
   checkProviderHealth,
   createListing,
@@ -53,8 +55,6 @@ import {
   // Access control
   getRateLimitUsage,
   getVaultStats,
-  // Types
-  type APIProvider,
   type ProxyRequest,
   parsePaymentProof,
   // Payments

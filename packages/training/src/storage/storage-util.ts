@@ -11,8 +11,8 @@
 import { promises as fs } from 'node:fs'
 import * as path from 'node:path'
 import { logger } from '@jejunetwork/shared'
-import type { IPFSUploadResult, ModelMetadata, StorageOptions } from './types'
 import { isIPFSUploadResult } from './type-guards'
+import type { IPFSUploadResult, ModelMetadata, StorageOptions } from './types'
 
 /**
  * Storage provider configuration

@@ -6,7 +6,7 @@ import { ConnectPrompt } from './ConnectPrompt'
 import RegisterAppForm from './RegisterAppForm'
 import RegisteredAppsList from './RegisteredAppsList'
 
-const SparklesIcon = Sparkles as ComponentType<LucideProps>
+const _SparklesIcon = Sparkles as ComponentType<LucideProps>
 const PlusIcon = Plus as ComponentType<LucideProps>
 const Grid3x3Icon = Grid3x3 as ComponentType<LucideProps>
 

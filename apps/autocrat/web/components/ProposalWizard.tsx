@@ -13,16 +13,13 @@ import {
 } from 'lucide-react'
 import { useCallback, useState } from 'react'
 import {
-  assessProposal,
   assessProposalFull,
   checkDuplicates,
-  factCheck,
   type FullQualityAssessment,
+  factCheck,
   generateProposal,
   improveProposal,
-  prepareSubmitProposal,
   type ProposalDraft,
-  type QualityAssessment,
   type QuickScoreResult,
   quickScore,
   type SimilarProposal,
@@ -104,10 +101,6 @@ export function ProposalWizard({ onComplete, onCancel }: WizardProps) {
     confidence: number
     sources: string[]
   } | null>(null)
-  const [a2aAssessment, setA2aAssessment] = useState<QualityAssessment | null>(
-    null,
-  )
-  const [a2aLoading, setA2aLoading] = useState(false)
 
   // Quick score as user types
   const handleQuickScore = useCallback(async () => {
@@ -160,52 +153,6 @@ export function ProposalWizard({ onComplete, onCancel }: WizardProps) {
       setError(e instanceof Error ? e.message : 'Fact check failed')
     }
     setFactChecking(false)
-  }
-
-  // Quick A2A assessment (lighter than full assessment)
-  const handleA2AAssess = async () => {
-    setA2aLoading(true)
-    setError('')
-    try {
-      const result = await assessProposal({
-        title: draft.title,
-        summary: draft.summary,
-        description: draft.description,
-        proposalType: String(draft.proposalType),
-      })
-      setA2aAssessment(result)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'A2A assessment failed')
-    }
-    setA2aLoading(false)
-  }
-
-  // Prepare submission transaction
-  const handlePrepareSubmit = async () => {
-    if (!assessment) return
-    setLoading(true)
-    setError('')
-    try {
-      const result = await prepareSubmitProposal({
-        proposalType: draft.proposalType,
-        qualityScore: assessment.overallScore,
-        contentHash: `0x${Date.now().toString(16).padStart(64, '0')}`,
-        targetContract: draft.targetContract,
-        callData: draft.calldata,
-        value: draft.value,
-      })
-      if (result.success) {
-        // Proceed to on-chain submission
-        if (assessment && onComplete) {
-          onComplete(draft, assessment)
-        }
-      } else {
-        setError(result.error ?? 'Prepare submission failed')
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Prepare submission failed')
-    }
-    setLoading(false)
   }
 
   // Full quality assessment

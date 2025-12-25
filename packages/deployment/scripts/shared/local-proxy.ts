@@ -538,7 +538,9 @@ rdr pass on lo0 inet proto tcp from any to any port 80 -> 127.0.0.1 port ${targe
       if (existingContent.trim() === anchorContent.trim()) {
         anchorNeedsUpdate = false
         console.log('1. Checking anchor file...')
-        console.log('   ✅ /etc/pf.anchors/jeju already exists with correct content')
+        console.log(
+          '   ✅ /etc/pf.anchors/jeju already exists with correct content',
+        )
       }
     }
 

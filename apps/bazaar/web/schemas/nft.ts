@@ -2,10 +2,7 @@
  * NFT-related Zod schemas
  */
 
-import {
-  AddressSchema,
-  NonEmptyStringSchema,
-} from '@jejunetwork/types'
+import { AddressSchema, NonEmptyStringSchema } from '@jejunetwork/types'
 import { z } from 'zod'
 
 const NormalizedNFTSchema = z.object({

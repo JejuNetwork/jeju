@@ -23,7 +23,7 @@ pub async fn get_bandwidth_state(state: State<'_, AppState>) -> Result<Bandwidth
 pub async fn set_adaptive_mode(state: State<'_, AppState>, enabled: bool) -> Result<(), String> {
     // Get the manager first
     let manager = state.bandwidth.read().await;
-    // Get the inner state Arc  
+    // Get the inner state Arc
     let state_arc = manager.state_arc();
     // Drop the manager guard before the next await
     drop(manager);

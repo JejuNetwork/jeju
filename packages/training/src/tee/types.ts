@@ -7,7 +7,12 @@ import type { Address, Hex } from 'viem'
 /**
  * TEE provider types
  */
-export type TEEProvider = 'phala' | 'intel-sgx' | 'intel-tdx' | 'amd-sev' | 'simulated'
+export type TEEProvider =
+  | 'phala'
+  | 'intel-sgx'
+  | 'intel-tdx'
+  | 'amd-sev'
+  | 'simulated'
 
 /**
  * Worker types

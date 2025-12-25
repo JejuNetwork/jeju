@@ -89,8 +89,12 @@ const TFMMTriggerRebalanceParamsSchema = z.object({
 
 // Export param types for use in utils
 export type TFMMCreatePoolParams = z.infer<typeof TFMMCreatePoolParamsSchema>
-export type TFMMUpdateStrategyParams = z.infer<typeof TFMMUpdateStrategyParamsSchema>
-export type TFMMTriggerRebalanceParams = z.infer<typeof TFMMTriggerRebalanceParamsSchema>
+export type TFMMUpdateStrategyParams = z.infer<
+  typeof TFMMUpdateStrategyParamsSchema
+>
+export type TFMMTriggerRebalanceParams = z.infer<
+  typeof TFMMTriggerRebalanceParamsSchema
+>
 
 const TFMMCreatePoolRequestSchema = z
   .object({
@@ -139,7 +143,9 @@ export const MCPResourceReadRequestSchema = z
   })
   .strict()
 
-export type MCPResourceReadRequest = z.infer<typeof MCPResourceReadRequestSchema>
+export type MCPResourceReadRequest = z.infer<
+  typeof MCPResourceReadRequestSchema
+>
 
 // ABI schema for tests
 const ABIFunctionSchema = z.object({

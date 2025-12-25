@@ -15,10 +15,7 @@ import {
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { formatEther } from 'viem'
-import {
-  fetchBugBountySubmission,
-  fetchResearcherStats,
-} from '../config/api'
+import { fetchBugBountySubmission, fetchResearcherStats } from '../config/api'
 
 interface SubmissionDetail {
   submissionId: string
@@ -103,17 +100,21 @@ export default function BugBountyDetailPage() {
     setLoading(true)
     setError(null)
 
-    const data = await fetchBugBountySubmission(id).catch((e: Error) => {
+    const response = await fetchBugBountySubmission(id).catch((e: Error) => {
       setError(e.message)
       return null
     })
 
-    if (data) {
-      setSubmission(data as SubmissionDetail)
+    if (response) {
+      // API returns { submission: {...}, guardianVotes: [...] } - extract submission
+      const responseObj = response as Record<string, unknown>
+      const rawSubmission = responseObj.submission ?? response
+      const submissionData = rawSubmission as SubmissionDetail
+      setSubmission(submissionData)
       // Load researcher stats
-      const stats = await fetchResearcherStats(
-        (data as SubmissionDetail).researcher,
-      ).catch(() => null)
+      const stats = await fetchResearcherStats(submissionData.researcher).catch(
+        () => null,
+      )
       setResearcherStats(stats as ResearcherStats | null)
     }
 
@@ -137,7 +138,9 @@ export default function BugBountyDetailPage() {
       <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center text-white">
         <XCircle size={48} className="text-red-500 mb-4" />
         <h1 className="text-xl font-semibold mb-2">Submission Not Found</h1>
-        <p className="text-gray-400 mb-6">{error ?? 'Unable to load submission'}</p>
+        <p className="text-gray-400 mb-6">
+          {error ?? 'Unable to load submission'}
+        </p>
         <Link to="/bug-bounty" className="text-red-400 hover:underline">
           ← Back to Bug Bounty
         </Link>
@@ -161,7 +164,9 @@ export default function BugBountyDetailPage() {
             <ArrowLeft size={20} />
           </Link>
           <div className="flex-1">
-            <h1 className="text-2xl font-bold text-white">{submission.title}</h1>
+            <h1 className="text-2xl font-bold text-white">
+              {submission.title}
+            </h1>
             <p className="text-sm text-gray-400">
               Submitted{' '}
               {new Date(submission.submittedAt * 1000).toLocaleDateString()}
@@ -206,9 +211,9 @@ export default function BugBountyDetailPage() {
                   Affected Components
                 </h2>
                 <div className="flex flex-wrap gap-2">
-                  {submission.affectedComponents.map((comp, i) => (
+                  {submission.affectedComponents.map((comp) => (
                     <span
-                      key={i}
+                      key={comp}
                       className="px-3 py-1 bg-gray-700 rounded-full text-sm text-gray-300"
                     >
                       {comp}
@@ -225,8 +230,8 @@ export default function BugBountyDetailPage() {
                   Steps to Reproduce
                 </h2>
                 <ol className="list-decimal list-inside space-y-2 text-gray-300">
-                  {submission.stepsToReproduce.map((step, i) => (
-                    <li key={i}>{step}</li>
+                  {submission.stepsToReproduce.map((step) => (
+                    <li key={step}>{step}</li>
                   ))}
                 </ol>
               </div>
@@ -290,8 +295,8 @@ export default function BugBountyDetailPage() {
                   </div>
                   {submission.validationResult.findings.length > 0 && (
                     <ul className="space-y-1 text-sm text-gray-300">
-                      {submission.validationResult.findings.map((f, i) => (
-                        <li key={i}>• {f}</li>
+                      {submission.validationResult.findings.map((f) => (
+                        <li key={f}>• {f}</li>
                       ))}
                     </ul>
                   )}

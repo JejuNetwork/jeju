@@ -4,18 +4,9 @@
 
 import type { Address, Hex } from 'viem'
 
-/** Valid JSON-RPC parameter types (EIP-1193 compatible) */
-export type EIP1193Param =
-  | string
-  | number
-  | boolean
-  | null
-  | EIP1193ParamObject
-  | EIP1193Param[]
-
-export interface EIP1193ParamObject {
-  [key: string]: EIP1193Param
-}
+// Re-export EIP-1193 types from extension/types
+export type { EIP1193Param, EIP1193ParamObject } from '../../extension/types'
+import type { EIP1193Param } from '../../extension/types'
 
 export interface ChromeMessageSender {
   id?: string

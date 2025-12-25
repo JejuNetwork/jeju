@@ -3,17 +3,7 @@
  * @notice Central export for all shared utilities (browser-safe)
  */
 
-export * from './agent0'
-export * from './chain-utils'
-// Chain utilities
-export * from './chains'
-// Config utilities (unified config access)
-export * from './config-utils'
-// Contract types for deployment scripts
-export * from './contract-types'
-// EIL exports - export everything, EILConfig is the canonical one
-export * from './eil'
-// EIL Hooks (browser-safe)
+// EIL Hooks (browser-safe) - re-export from @jejunetwork/shared
 export {
   APP_TOKEN_PREFERENCE_ABI,
   type AppPreference,
@@ -28,6 +18,8 @@ export {
   calculateSwapFee,
   canPayGasWithToken,
   DEFAULT_EIL_CONFIG,
+  type EILConfig,
+  type EILStats,
   estimateSwapTime,
   formatGasPaymentOption,
   formatSwapRoute,
@@ -42,7 +34,17 @@ export {
   selectBestGasToken,
   validateSwapParams,
   type XLPPosition,
-} from './eil-hooks'
+} from '@jejunetwork/shared'
+export * from './agent0'
+export * from './chain-utils'
+// Chain utilities
+export * from './chains'
+// Config utilities (unified config access)
+export * from './config-utils'
+// Contract types for deployment scripts
+export * from './contract-types'
+// EIL exports - export everything, EILConfig is the canonical one
+export * from './eil'
 // Gas Intent Router
 export {
   createGasRouter,

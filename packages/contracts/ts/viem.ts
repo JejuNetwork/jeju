@@ -87,7 +87,9 @@ export async function readContract<
     blockTag?: 'latest' | 'earliest' | 'pending' | 'safe' | 'finalized'
   },
 ): Promise<ReadContractReturnType<TAbi, TFunctionName, TArgs>> {
-  return (client.readContract as (params: Record<string, unknown>) => Promise<unknown>)({
+  return (
+    client.readContract as (params: Record<string, unknown>) => Promise<unknown>
+  )({
     address: params.address,
     abi: params.abi,
     functionName: params.functionName as string,

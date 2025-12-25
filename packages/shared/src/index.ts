@@ -181,6 +181,22 @@ export {
   requireEnv,
   setEnv,
 } from './env'
+// Errors
+export {
+  AuthenticationError,
+  AuthorizationError,
+  BadRequestError,
+  BusinessLogicError,
+  ConflictError,
+  DatabaseError,
+  ExternalServiceError,
+  InternalServerError,
+  JejuError,
+  NotFoundError,
+  RateLimitError,
+  ServiceUnavailableError,
+  ValidationError,
+} from './errors'
 // Events (Universal EventEmitter - browser/worker compatible)
 export { createEventEmitter, EventEmitter } from './events'
 // Federation
@@ -490,22 +506,6 @@ export {
   type UploadOptions,
   type UploadResult,
 } from './services'
-// Errors
-export {
-  AuthenticationError,
-  AuthorizationError,
-  BadRequestError,
-  BusinessLogicError,
-  ConflictError,
-  DatabaseError,
-  ExternalServiceError,
-  InternalServerError,
-  JejuError,
-  NotFoundError,
-  RateLimitError,
-  ServiceUnavailableError,
-  ValidationError,
-} from './errors'
 // Singleton Utilities
 export {
   createGlobalSingleton,
@@ -580,3 +580,19 @@ export {
   type X402PaymentOption,
   type X402PaymentRequirement,
 } from './x402'
+// Oracle (shared oracle node utilities)
+export {
+  CHAINLINK_AGGREGATOR_ABI,
+  COMMITTEE_MANAGER_ABI,
+  ConfigurationError,
+  FEED_REGISTRY_ABI,
+  NETWORK_CONNECTOR_ABI,
+  type OracleConfigFileData,
+  type OracleNetworkConfig,
+  type PrometheusMetric,
+  REPORT_VERIFIER_ABI,
+  resolveEnvVar,
+  UNISWAP_V3_POOL_ABI,
+  validateAddress,
+  validatePrivateKey,
+} from './oracle'

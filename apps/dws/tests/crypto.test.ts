@@ -9,57 +9,63 @@
  */
 
 import { beforeAll, describe, expect, test } from 'bun:test'
+// BLS Signatures
 import {
-  addG1Points,
   aggregatePublicKeys,
   aggregateSignatures,
-  BLOB_SIZE,
   type BLSKeyPair,
   type BLSSignature,
-  canReconstruct,
-  commitToBlob,
-  computeBlobProof,
-  computeVersionedHash,
-  createBlob,
-  createMatrix,
   createProofOfPossession,
-  DST_DA_ATTEST,
   derivePublicKey,
-  extend2D,
-  flattenMatrix,
-  G1Generator,
-  // BLS
   generateKeyPair,
-  gfAdd,
-  gfDiv,
-  // 2D Reed-Solomon
-  gfMul,
-  gfPow,
-  hashToField,
-  // Hash-to-Curve
-  hashToG1,
-  hashToG2,
-  // KZG
-  initializeKZG,
-  mulG1,
-  reconstruct2D,
   sign,
   signAttestation,
-  validateBlob,
   validatePublicKey,
   validateSecretKey,
   verify,
   verifyAggregate,
   verifyAttestation,
   verifyBatch,
+  verifyProofOfPossession,
+} from '../src/da/crypto/bls'
+// Hash-to-Curve
+import {
+  addG1Points,
+  DST_DA_ATTEST,
+  G1Generator,
+  hashToField,
+  hashToG1,
+  hashToG2,
+  mulG1,
+  verifyG1Point,
+  verifyG2Point,
+} from '../src/da/crypto/hash-to-curve'
+// KZG Commitments
+import {
+  BLOB_SIZE,
+  commitToBlob,
+  computeBlobProof,
+  computeVersionedHash,
+  createBlob,
+  initializeKZG,
+  validateBlob,
   verifyBlobProof,
   verifyBlobProofBatch,
   verifyCommitmentForData,
+} from '../src/da/crypto/kzg'
+// 2D Reed-Solomon
+import {
+  canReconstruct,
+  createMatrix,
+  extend2D,
+  flattenMatrix,
+  gfAdd,
+  gfDiv,
+  gfMul,
+  gfPow,
+  reconstruct2D,
   verifyExtended,
-  verifyG1Point,
-  verifyG2Point,
-  verifyProofOfPossession,
-} from '../src/da'
+} from '../src/da/crypto/reed-solomon-2d'
 
 // BLS12-381 Tests
 

@@ -1,90 +1,20 @@
 /**
  * Jeju Data Availability Layer
  *
- * High-performance, TEE-secured data availability service:
- * - Erasure coding (Reed-Solomon) for data redundancy
- * - Polynomial commitments for efficient verification
- * - Data availability sampling for lightweight verification
- * - Native integration with DWS infrastructure
- * - Restaking-based operator incentives
+ * High-performance, TEE-secured data availability service.
  *
- * Architecture:
+ * For cryptographic primitives, import directly from:
+ * - ./crypto/bls for BLS signatures
+ * - ./crypto/kzg for KZG commitments
+ * - ./crypto/hash-to-curve for hash-to-curve
+ * - ./crypto/reed-solomon-2d for 2D erasure coding
  *
- * ┌─────────────────────────────────────────────────────────────────┐
- * │                     Rollup / L2 Client                         │
- * │  - Submit blob data with commitment                            │
- * │  - Verify data availability via sampling                       │
- * │  - Retrieve data when needed                                   │
- * └─────────────────────────────────────────────────────────────────┘
- *                              │
- *                              ▼
- * ┌─────────────────────────────────────────────────────────────────┐
- * │                   DA Gateway / Disperser                       │
- * │  - Erasure encode blobs into chunks                            │
- * │  - Generate polynomial commitments                             │
- * │  - Disperse chunks to DA operators                             │
- * │  - Return commitment + availability proof                      │
- * └─────────────────────────────────────────────────────────────────┘
- *                              │
- *                              ▼
- * ┌─────────────────────────────────────────────────────────────────┐
- * │                   On-Chain Registry                            │
- * │  - DA operator staking and registration                        │
- * │  - Blob commitment storage                                     │
- * │  - Slashing for unavailability                                 │
- * │  - Payment and reward distribution                             │
- * └─────────────────────────────────────────────────────────────────┘
- *                              │
- *                              ▼
- * ┌─────────────────────────────────────────────────────────────────┐
- * │                   DA Operator Nodes                            │
- * │  - Store assigned data chunks                                  │
- * │  - Respond to sampling queries                                 │
- * │  - TEE attestation for data integrity                          │
- * │  - P2P chunk distribution                                      │
- * └─────────────────────────────────────────────────────────────────┘
- *
- * Key Features:
- *
- * 1. ERASURE CODING
- *    - Reed-Solomon encoding for 2x redundancy
- *    - Data reconstructable from 50% of chunks
- *    - Configurable coding ratio
- *
- * 2. POLYNOMIAL COMMITMENTS
- *    - Efficient verification without full data
- *    - Opening proofs for individual chunks
- *    - Batch verification support
- *
- * 3. DATA AVAILABILITY SAMPLING
- *    - Lightweight verification via random sampling
- *    - Statistical guarantee of availability
- *    - Network-level sampling coordination
- *
- * 4. TEE SECURITY
- *    - Operators run in TEE enclaves
- *    - Proof-of-Cloud attestation
- *    - Hardware-backed integrity guarantees
- *
- * 5. ECONOMIC SECURITY
- *    - Operators stake tokens to participate
- *    - Slashing for unavailability
- *    - Rewards for reliable service
+ * For PeerDAS, import directly from ./peerdas
+ * For rollup integrations, import directly from ./integrations
  */
 
 // Blob management
-export {
-  BlobManager,
-  type BlobStatus,
-  BlobSubmission,
-} from './blob'
-// Client SDK
-export {
-  createDAClient,
-  createDefaultDAClient,
-  DAClient,
-  type DAClientConfig,
-} from './client'
+export { BlobManager, type BlobStatus, BlobSubmission } from './blob'
 
 // Polynomial commitments
 export {
@@ -93,8 +23,7 @@ export {
   type PolynomialCommitment,
   verifyProof,
 } from './commitment'
-// Note: Cryptographic primitives (BLS, KZG, Reed-Solomon) are available by importing
-// directly from ./crypto/bls, ./crypto/kzg, ./crypto/hash-to-curve, ./crypto/reed-solomon-2d
+
 // Disperser service
 export {
   createDisperser,
@@ -102,24 +31,13 @@ export {
   type DispersalResult,
   Disperser,
 } from './disperser'
+
 // Erasure coding
 export { createReedSolomonCodec, ReedSolomonCodec } from './erasure'
+
 // Integration with DWS
 export { createDAGateway, createDARouter, DAGateway } from './gateway'
-// Rollup Integrations
-export {
-  type ArbitrumOrbitConfig,
-  ArbitrumOrbitDAAdapter,
-  type BatchData,
-  createArbitrumOrbitDAAdapter,
-  createOPStackDAAdapter,
-  createRollupDAAdapter,
-  type DAReference,
-  type OPStackConfig,
-  OPStackDAAdapter,
-  type RollupConfig,
-  RollupDAAdapter,
-} from './integrations'
+
 // DA operator node
 export {
   createDAOperator,
@@ -127,27 +45,7 @@ export {
   type OperatorConfig,
   type OperatorStatus,
 } from './operator'
-// PeerDAS Integration (EIP-7594 compatible)
-export {
-  // Types
-  type ColumnIndex,
-  CUSTODY_COLUMNS_PER_NODE,
-  type CustodyAssignment,
-  createPeerDASBlobManager,
-  // Constants
-  DATA_COLUMN_COUNT,
-  type DataColumn,
-  EXTENDED_COLUMN_COUNT,
-  FIELD_ELEMENTS_PER_BLOB,
-  MAX_BLOB_SIZE,
-  PeerDAS,
-  type PeerDASBlob,
-  PeerDASBlobManager,
-  type PeerDASSampleRequest,
-  type PeerDASSampleResponse,
-  SAMPLES_PER_SLOT,
-  type SubnetId,
-} from './peerdas'
+
 // Data availability sampling
 export {
   calculateRequiredSamples,
@@ -156,5 +54,6 @@ export {
   SampleVerifier,
   type SamplingConfig,
 } from './sampling'
+
 // Core types
 export * from './types'

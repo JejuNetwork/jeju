@@ -284,20 +284,22 @@ export default function BugBountyPage() {
       {/* Tabs */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex gap-4 border-b border-gray-700 mb-8">
-          {(['overview', 'submissions', 'submit', 'leaderboard'] as const).map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-3 font-medium capitalize transition-colors ${
-                activeTab === tab
-                  ? 'text-red-400 border-b-2 border-red-400'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
+          {(['overview', 'submissions', 'submit', 'leaderboard'] as const).map(
+            (tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveTab(tab)}
+                className={`px-4 py-3 font-medium capitalize transition-colors ${
+                  activeTab === tab
+                    ? 'text-red-400 border-b-2 border-red-400'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                {tab}
+              </button>
+            ),
+          )}
         </div>
 
         {activeTab === 'overview' && (
@@ -629,7 +631,9 @@ export default function BugBountyPage() {
                   id="report-title"
                   type="text"
                   value={draft.title}
-                  onChange={(e) => setDraft({ ...draft, title: e.target.value })}
+                  onChange={(e) =>
+                    setDraft({ ...draft, title: e.target.value })
+                  }
                   placeholder="Brief description of the vulnerability"
                   className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:border-red-500 focus:outline-none"
                 />
@@ -798,8 +802,8 @@ export default function BugBountyPage() {
                     <div className="mt-3">
                       <span className="text-sm text-yellow-400">Issues:</span>
                       <ul className="text-sm text-gray-400 mt-1">
-                        {assessment.issues.map((issue, i) => (
-                          <li key={i}>• {issue}</li>
+                        {assessment.issues.map((issue) => (
+                          <li key={issue}>• {issue}</li>
                         ))}
                       </ul>
                     </div>

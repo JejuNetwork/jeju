@@ -53,7 +53,7 @@ export const characters: Record<string, AgentCharacter> = {
 }
 
 // Red team character IDs (for adversarial testing)
-const RED_TEAM_CHARACTERS = [
+const _RED_TEAM_CHARACTERS = [
   'red-team',
   'scammer',
   'security-researcher',
@@ -62,7 +62,7 @@ const RED_TEAM_CHARACTERS = [
 ] as const
 
 // Blue team character IDs (for defense/moderation)
-const BLUE_TEAM_CHARACTERS = [
+const _BLUE_TEAM_CHARACTERS = [
   'blue-team',
   'moderator',
   'network-guardian',
@@ -83,4 +83,3 @@ export function getCharacter(id: string): AgentCharacter | null {
 export function listCharacters(): string[] {
   return Object.keys(characters)
 }
-

@@ -9,23 +9,23 @@
  * - Integration with real filesystem
  */
 
-import { describe, expect, test, beforeEach, afterEach } from 'bun:test'
-import { mkdirSync, rmSync, writeFileSync, existsSync } from 'node:fs'
-import { join } from 'node:path'
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { 
-  daoRegistryAbi, 
+import { join } from 'node:path'
+import {
   daoFundingAbi,
+  daoRegistryAbi,
   packageRegistryAbi,
   repoRegistryAbi,
 } from '@jejunetwork/contracts'
-import { discoverDAOManifests, type DAODeployOptions } from './dao-deploy'
 import {
-  WELL_KNOWN_KEYS,
-  getDevCouncilAddresses,
-  getDevCEOAddress,
   CHAIN_CONFIG,
+  getDevCEOAddress,
+  getDevCouncilAddresses,
+  WELL_KNOWN_KEYS,
 } from '../types'
+import { type DAODeployOptions, discoverDAOManifests } from './dao-deploy'
 
 // ============================================================================
 // Test Fixtures
@@ -643,7 +643,10 @@ describe('Data Integrity', () => {
       manifest.governance.parameters.minProposalStake =
         '88888888888888888888888888'
 
-      writeFileSync(join(daoDir, 'jeju-manifest.json'), JSON.stringify(manifest))
+      writeFileSync(
+        join(daoDir, 'jeju-manifest.json'),
+        JSON.stringify(manifest),
+      )
 
       const manifests = discoverDAOManifests(testDir)
       const discovered = manifests[0]
@@ -669,10 +672,10 @@ describe('Data Integrity', () => {
 
 describe('Contract ABI Verification', () => {
   // These tests verify that the generated ABIs contain the functions we use
-  
+
   test('DAORegistry has createDAO function', () => {
     const createDAO = daoRegistryAbi.find(
-      (item) => item.type === 'function' && item.name === 'createDAO'
+      (item) => item.type === 'function' && item.name === 'createDAO',
     )
     expect(createDAO).toBeDefined()
     expect(createDAO?.inputs).toHaveLength(7)
@@ -680,7 +683,7 @@ describe('Contract ABI Verification', () => {
 
   test('DAORegistry has addCouncilMember function', () => {
     const addCouncilMember = daoRegistryAbi.find(
-      (item) => item.type === 'function' && item.name === 'addCouncilMember'
+      (item) => item.type === 'function' && item.name === 'addCouncilMember',
     )
     expect(addCouncilMember).toBeDefined()
     expect(addCouncilMember?.inputs).toHaveLength(5)
@@ -688,7 +691,7 @@ describe('Contract ABI Verification', () => {
 
   test('DAORegistry has linkPackage function', () => {
     const linkPackage = daoRegistryAbi.find(
-      (item) => item.type === 'function' && item.name === 'linkPackage'
+      (item) => item.type === 'function' && item.name === 'linkPackage',
     )
     expect(linkPackage).toBeDefined()
     expect(linkPackage?.inputs).toHaveLength(2)
@@ -696,7 +699,7 @@ describe('Contract ABI Verification', () => {
 
   test('DAORegistry has linkRepo function', () => {
     const linkRepo = daoRegistryAbi.find(
-      (item) => item.type === 'function' && item.name === 'linkRepo'
+      (item) => item.type === 'function' && item.name === 'linkRepo',
     )
     expect(linkRepo).toBeDefined()
     expect(linkRepo?.inputs).toHaveLength(2)
@@ -704,14 +707,14 @@ describe('Contract ABI Verification', () => {
 
   test('DAORegistry has DAOCreated event', () => {
     const daoCreated = daoRegistryAbi.find(
-      (item) => item.type === 'event' && item.name === 'DAOCreated'
+      (item) => item.type === 'event' && item.name === 'DAOCreated',
     )
     expect(daoCreated).toBeDefined()
   })
 
   test('DAOFunding has setDAOConfig function', () => {
     const setDAOConfig = daoFundingAbi.find(
-      (item) => item.type === 'function' && item.name === 'setDAOConfig'
+      (item) => item.type === 'function' && item.name === 'setDAOConfig',
     )
     expect(setDAOConfig).toBeDefined()
     expect(setDAOConfig?.inputs).toHaveLength(2)
@@ -719,7 +722,7 @@ describe('Contract ABI Verification', () => {
 
   test('DAOFunding has proposeProject function', () => {
     const proposeProject = daoFundingAbi.find(
-      (item) => item.type === 'function' && item.name === 'proposeProject'
+      (item) => item.type === 'function' && item.name === 'proposeProject',
     )
     expect(proposeProject).toBeDefined()
     expect(proposeProject?.inputs).toHaveLength(8)
@@ -727,14 +730,14 @@ describe('Contract ABI Verification', () => {
 
   test('DAOFunding has acceptProject function', () => {
     const acceptProject = daoFundingAbi.find(
-      (item) => item.type === 'function' && item.name === 'acceptProject'
+      (item) => item.type === 'function' && item.name === 'acceptProject',
     )
     expect(acceptProject).toBeDefined()
   })
 
   test('DAOFunding has proposeCEOWeight function (with timelock)', () => {
     const proposeCEOWeight = daoFundingAbi.find(
-      (item) => item.type === 'function' && item.name === 'proposeCEOWeight'
+      (item) => item.type === 'function' && item.name === 'proposeCEOWeight',
     )
     expect(proposeCEOWeight).toBeDefined()
     expect(proposeCEOWeight?.inputs).toHaveLength(2)
@@ -742,7 +745,7 @@ describe('Contract ABI Verification', () => {
 
   test('DAOFunding does NOT have setCEOWeight function (uses timelock instead)', () => {
     const setCEOWeight = daoFundingAbi.find(
-      (item) => item.type === 'function' && item.name === 'setCEOWeight'
+      (item) => item.type === 'function' && item.name === 'setCEOWeight',
     )
     // setCEOWeight was removed in favor of proposeCEOWeight + timelock
     expect(setCEOWeight).toBeUndefined()
@@ -750,47 +753,49 @@ describe('Contract ABI Verification', () => {
 
   test('DAOFunding config struct includes minStakePerParticipant', () => {
     const setDAOConfig = daoFundingAbi.find(
-      (item) => item.type === 'function' && item.name === 'setDAOConfig'
+      (item) => item.type === 'function' && item.name === 'setDAOConfig',
     )
     expect(setDAOConfig).toBeDefined()
-    
+
     const configInput = setDAOConfig?.inputs?.find(
-      (input) => input.name === 'config' && input.type === 'tuple'
+      (input) => input.name === 'config' && input.type === 'tuple',
     )
     expect(configInput).toBeDefined()
-    
+
     // Check that minStakePerParticipant is in the struct
-    const components = (configInput as { components?: Array<{ name: string }> })?.components
+    const components = (configInput as { components?: Array<{ name: string }> })
+      ?.components
     const hasMinStakePerParticipant = components?.some(
-      (c) => c.name === 'minStakePerParticipant'
+      (c) => c.name === 'minStakePerParticipant',
     )
     expect(hasMinStakePerParticipant).toBe(true)
   })
 
   test('DAOFunding has createEpoch function', () => {
     const createEpoch = daoFundingAbi.find(
-      (item) => item.type === 'function' && item.name === 'createEpoch'
+      (item) => item.type === 'function' && item.name === 'createEpoch',
     )
     expect(createEpoch).toBeDefined()
   })
 
   test('DAOFunding has depositMatchingFunds function', () => {
     const depositMatchingFunds = daoFundingAbi.find(
-      (item) => item.type === 'function' && item.name === 'depositMatchingFunds'
+      (item) =>
+        item.type === 'function' && item.name === 'depositMatchingFunds',
     )
     expect(depositMatchingFunds).toBeDefined()
   })
 
   test('DAOFunding has ProjectProposed event', () => {
     const projectProposed = daoFundingAbi.find(
-      (item) => item.type === 'event' && item.name === 'ProjectProposed'
+      (item) => item.type === 'event' && item.name === 'ProjectProposed',
     )
     expect(projectProposed).toBeDefined()
   })
 
   test('PackageRegistry has createPackage function', () => {
     const createPackage = packageRegistryAbi.find(
-      (item) => item.type === 'function' && item.name === 'createPackage'
+      (item) => item.type === 'function' && item.name === 'createPackage',
     )
     expect(createPackage).toBeDefined()
     expect(createPackage?.inputs).toHaveLength(5)
@@ -798,7 +803,7 @@ describe('Contract ABI Verification', () => {
 
   test('RepoRegistry has createRepository function', () => {
     const createRepository = repoRegistryAbi.find(
-      (item) => item.type === 'function' && item.name === 'createRepository'
+      (item) => item.type === 'function' && item.name === 'createRepository',
     )
     expect(createRepository).toBeDefined()
     expect(createRepository?.inputs).toHaveLength(5)
@@ -812,22 +817,26 @@ describe('Contract ABI Verification', () => {
 describe('Contract Event Structure', () => {
   test('DAOCreated event has daoId as indexed', () => {
     const daoCreated = daoRegistryAbi.find(
-      (item) => item.type === 'event' && item.name === 'DAOCreated'
+      (item) => item.type === 'event' && item.name === 'DAOCreated',
     )
     expect(daoCreated).toBeDefined()
-    
-    const inputs = (daoCreated as { inputs?: Array<{ name: string; indexed?: boolean }> })?.inputs
+
+    const inputs = (
+      daoCreated as { inputs?: Array<{ name: string; indexed?: boolean }> }
+    )?.inputs
     const daoIdInput = inputs?.find((i) => i.name === 'daoId')
     expect(daoIdInput?.indexed).toBe(true)
   })
 
   test('ProjectProposed event has projectId as indexed', () => {
     const projectProposed = daoFundingAbi.find(
-      (item) => item.type === 'event' && item.name === 'ProjectProposed'
+      (item) => item.type === 'event' && item.name === 'ProjectProposed',
     )
     expect(projectProposed).toBeDefined()
-    
-    const inputs = (projectProposed as { inputs?: Array<{ name: string; indexed?: boolean }> })?.inputs
+
+    const inputs = (
+      projectProposed as { inputs?: Array<{ name: string; indexed?: boolean }> }
+    )?.inputs
     const projectIdInput = inputs?.find((i) => i.name === 'projectId')
     expect(projectIdInput?.indexed).toBe(true)
   })
@@ -849,7 +858,7 @@ describe('DAODeployOptions', () => {
       skipFundingConfig: false,
       verbose: true,
     }
-    
+
     expect(options.network).toBe('localnet')
     expect(options.manifestPath).toBe('/path/to/manifest.json')
     expect(options.rootDir).toBe('/path/to/root')
@@ -872,7 +881,7 @@ describe('DAODeployOptions', () => {
       verbose: false,
       ipfsApiUrl: 'https://ipfs.infura.io:5001',
     }
-    
+
     expect(options.ipfsApiUrl).toBe('https://ipfs.infura.io:5001')
   })
 
@@ -889,7 +898,7 @@ describe('DAODeployOptions', () => {
       fundTreasury: '1000000000000000000',
       fundMatching: '500000000000000000',
     }
-    
+
     expect(options.fundTreasury).toBe('1000000000000000000')
     expect(options.fundMatching).toBe('500000000000000000')
   })
@@ -901,9 +910,17 @@ describe('DAODeployOptions', () => {
 
 describe('Deployment Prerequisites', () => {
   test('deployment requires governance contracts at known paths', () => {
-    const deploymentPath = join(process.cwd(), 'packages', 'config', 'deployments', 'localnet.json')
+    const deploymentPath = join(
+      process.cwd(),
+      'packages',
+      'config',
+      'deployments',
+      'localnet.json',
+    )
     // This test documents the expected path for deployment config
-    expect(deploymentPath).toContain('packages/config/deployments/localnet.json')
+    expect(deploymentPath).toContain(
+      'packages/config/deployments/localnet.json',
+    )
   })
 
   test('WELL_KNOWN_KEYS provides dev addresses for localnet', () => {
@@ -915,10 +932,16 @@ describe('Deployment Prerequisites', () => {
   test('council roles map to dev addresses correctly', () => {
     const devAddresses = getDevCouncilAddresses()
     expect(Object.keys(devAddresses)).toHaveLength(4)
-    expect(devAddresses['Treasury Guardian']).toBe(WELL_KNOWN_KEYS.dev[1].address)
+    expect(devAddresses['Treasury Guardian']).toBe(
+      WELL_KNOWN_KEYS.dev[1].address,
+    )
     expect(devAddresses['Code Guardian']).toBe(WELL_KNOWN_KEYS.dev[2].address)
-    expect(devAddresses['Community Guardian']).toBe(WELL_KNOWN_KEYS.dev[3].address)
-    expect(devAddresses['Security Guardian']).toBe(WELL_KNOWN_KEYS.dev[4].address)
+    expect(devAddresses['Community Guardian']).toBe(
+      WELL_KNOWN_KEYS.dev[3].address,
+    )
+    expect(devAddresses['Security Guardian']).toBe(
+      WELL_KNOWN_KEYS.dev[4].address,
+    )
   })
 
   test('CEO address is account 5 (index 5)', () => {

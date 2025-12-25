@@ -47,7 +47,10 @@ function App() {
                 <Route path="/ceo" element={<CEOPage />} />
                 <Route path="/moderation" element={<ModerationPage />} />
                 <Route path="/bug-bounty" element={<BugBountyPage />} />
-                <Route path="/bug-bounty/:id" element={<BugBountyDetailPage />} />
+                <Route
+                  path="/bug-bounty/:id"
+                  element={<BugBountyDetailPage />}
+                />
                 <Route path="/admin" element={<AdminPage />} />
                 <Route path="/auth/callback" element={<AuthCallbackPage />} />
               </Route>
