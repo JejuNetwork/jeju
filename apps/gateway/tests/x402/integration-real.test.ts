@@ -18,7 +18,17 @@ import { type Address, createPublicClient, http, type PublicClient } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { resetConfig } from '../../api/x402/config'
 import { CHAIN_CONFIGS } from '../../api/x402/lib/chains'
-import { createServer } from '../../api/x402/server'
+import { createServer, type X402App } from '../../api/x402/server'
+
+// Helper to make requests to the app (wraps Elysia .handle method)
+async function request(
+  server: X402App,
+  path: string,
+  options?: RequestInit,
+): Promise<Response> {
+  const url = `http://localhost${path}`
+  return server.handle(new Request(url, options))
+}
 import { clearNonceCache } from '../../api/x402/services/nonce-manager'
 import {
   createClients,
@@ -134,8 +144,9 @@ describe('Real RPC Integration', () => {
     // Accept various chain IDs depending on environment:
     // - 420691: Jeju mainnet
     // - 420690: Jeju testnet
-    // - 31337 or 31337: Local Anvil
-    const validChainIds = [420691, 420690, 31337, 31337]
+    // - 31337: Local Anvil (foundry)
+    // - 1337: Hardhat
+    const validChainIds = [420691, 420690, 31337, 1337]
     expect(validChainIds).toContain(Number(chainId))
   })
 
@@ -159,7 +170,7 @@ describe('Real RPC Integration', () => {
       return
     }
 
-    const res = await app.request('/verify', {
+    const res = await request(app, '/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -185,7 +196,7 @@ describe('Real RPC Integration', () => {
   test('should verify signature-only endpoint returns correct signer', async () => {
     const paymentHeader = await createSignedPayment()
 
-    const res = await app.request('/verify/signature', {
+    const res = await request(app, '/verify/signature', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -277,7 +288,7 @@ describe('Actual Output Validation', () => {
   test('verify response should have exact expected structure', async () => {
     const paymentHeader = await createSignedPayment()
 
-    const res = await app.request('/verify', {
+    const res = await request(app, '/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -311,7 +322,7 @@ describe('Actual Output Validation', () => {
   })
 
   test('settle error response should have exact expected structure', async () => {
-    const res = await app.request('/settle', {
+    const res = await request(app, '/settle', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -354,7 +365,7 @@ describe('Actual Output Validation', () => {
   })
 
   test('supported response should contain actual network data', async () => {
-    const res = await app.request('/supported')
+    const res = await request(app, '/supported')
     const body = await res.json()
 
     // Verify actual data matches configuration
@@ -377,7 +388,7 @@ describe('Actual Output Validation', () => {
   })
 
   test('stats response should contain actual numeric values', async () => {
-    const res = await app.request('/stats')
+    const res = await request(app, '/stats')
     const body = await res.json()
 
     // Verify values are parseable and reasonable
@@ -426,7 +437,7 @@ describe('Concurrent Real Operations', () => {
     }
 
     // Accept various chain IDs depending on environment
-    const validChainIds = [420691, 420690, 31337, 31337]
+    const validChainIds = [420691, 420690, 31337, 1337]
     expect(validChainIds).toContain(firstChainId)
   })
 
@@ -437,7 +448,7 @@ describe('Concurrent Real Operations', () => {
 
     const results = await Promise.all(
       payments.map((paymentHeader) =>
-        app.request('/verify', {
+        request(app, '/verify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

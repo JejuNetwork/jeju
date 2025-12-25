@@ -20,7 +20,17 @@ import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { type Address, createPublicClient, type Hex, http, toHex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { resetConfig } from '../../api/x402/config'
-import { createServer } from '../../api/x402/server'
+import { createServer, type X402App } from '../../api/x402/server'
+
+// Helper to make requests to the app (wraps Elysia .handle method)
+async function request(
+  server: X402App,
+  path: string,
+  options?: RequestInit,
+): Promise<Response> {
+  const url = `http://localhost${path}`
+  return server.handle(new Request(url, options))
+}
 import { clearNonceCache } from '../../api/x402/services/nonce-manager'
 
 // Use environment variables for test configuration
@@ -218,7 +228,7 @@ describe('Settlement Integration', () => {
     const app = createServer()
     const { header, payload } = await createSignedPayment()
 
-    const res = await app.request('/verify', {
+    const res = await request(app, '/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -244,7 +254,7 @@ describe('Settlement Integration', () => {
     if (skipTests) return
 
     const app = createServer()
-    const res = await app.request('/stats')
+    const res = await request(app, '/stats')
     const body = await res.json()
 
     expect(body.protocolFeeBps).toBe(50)
@@ -256,7 +266,7 @@ describe('Settlement Integration', () => {
     if (skipTests) return
 
     const app = createServer()
-    const res = await app.request('/supported')
+    const res = await request(app, '/supported')
     const body = await res.json()
 
     expect(body.kinds).toBeArray()
@@ -271,7 +281,7 @@ describe('Settlement Integration', () => {
     const app = createServer()
     const { header, payload } = await createSignedPayment()
 
-    const res = await app.request('/settle/gasless', {
+    const res = await request(app, '/settle/gasless', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -303,7 +313,7 @@ describe('Settlement Integration', () => {
     const app = createServer()
     const { header, payload } = await createSignedPayment()
 
-    const res = await app.request('/settle/gasless', {
+    const res = await request(app, '/settle/gasless', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -359,7 +369,7 @@ describe('Settlement Integration', () => {
       BigInt(amount),
     )
 
-    const res = await app.request('/settle/gasless', {
+    const res = await request(app, '/settle/gasless', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
