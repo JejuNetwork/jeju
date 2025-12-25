@@ -1,17 +1,25 @@
 /**
  * @jejunetwork/messaging
  *
- * Decentralized private messaging protocol for Network L2
+ * Unified messaging protocol for Jeju Network - public and private messaging.
  *
- * Features:
+ * ## Public Messaging (Farcaster)
+ * - Cast posting and reading via Farcaster Hubs
+ * - Direct Casts (encrypted DMs between FIDs)
+ * - Signer management
+ * - Frames support
+ *
+ * ## Private Messaging (XMTP)
  * - End-to-end encryption (X25519 + AES-256-GCM)
  * - Decentralized relay network with economic incentives
  * - On-chain key registry for public keys
  * - IPFS storage for message persistence
+ * - MLS group messaging
  * - x402 micropayments for message delivery
  *
  * @example
  * ```typescript
+ * // Private messaging
  * import { createMessagingClient } from '@jejunetwork/messaging';
  *
  * const client = createMessagingClient({
@@ -20,25 +28,19 @@
  *   relayUrl: 'http://localhost:3200',
  * });
  *
- * // Initialize with wallet signature
- * const signature = await wallet.signMessage(client.getKeyDerivationMessage());
  * await client.initialize(signature);
+ * await client.sendMessage({ to: '0xRecipient...', content: 'Hello' });
  *
- * // Send encrypted message
- * await client.sendMessage({
- *   to: '0xRecipient...',
- *   content: 'Hello, private world!',
- * });
+ * // Farcaster public messaging
+ * import { FarcasterClient, DirectCastClient } from '@jejunetwork/messaging';
  *
- * // Listen for incoming messages
- * client.onMessage((event) => {
- *   if (event.type === 'message:new') {
- *     console.log('New message:', event.data.content);
- *   }
- * });
+ * const hub = new FarcasterClient({ hubUrl: 'https://hub.farcaster.xyz' });
+ * const profile = await hub.getProfile(fid);
+ *
+ * // Direct Casts (encrypted DMs)
+ * const dc = new DirectCastClient({ fid, signerPrivateKey, hubUrl });
+ * await dc.send({ recipientFid: 12345, text: 'Hello via DC' });
  * ```
- *
- * Relay node functionality is available via the SDK exports
  */
 
 // DWS Worker (decentralized deployment)
@@ -47,6 +49,214 @@ export {
   type MessagingWorker,
   type MessagingWorkerConfig,
 } from './dws-worker/index.js'
+
+// ============================================================================
+// FARCASTER - Public/Social Messaging
+// ============================================================================
+
+// Farcaster Hub Client (read operations)
+export {
+  FarcasterClient,
+  HubError,
+  type HubEvent,
+} from './farcaster/hub/client'
+
+// Hub types
+export type {
+  CastEmbed,
+  CastFilter,
+  FarcasterCast,
+  FarcasterLink,
+  FarcasterProfile,
+  FarcasterReaction,
+  FarcasterVerification,
+  HubConfig,
+  HubInfoResponse,
+  PaginatedResponse,
+  UserData,
+  UserDataTypeName,
+} from './farcaster/hub/types'
+
+// Cast building and posting
+export {
+  CastBuilder,
+  createCast,
+  createDeleteCast,
+  createReply,
+  getTextByteLength,
+  type ParsedMention,
+  splitTextForThread,
+  type CastBuilderConfig,
+  type CastOptions,
+} from './farcaster/hub/cast-builder'
+export {
+  buildMessage,
+  createCastId,
+  encodeMessageData,
+  FarcasterNetwork,
+  fromFarcasterTimestamp,
+  getFarcasterTimestamp,
+  getMessageHashHex,
+  HashScheme,
+  hashMessageData,
+  hexToMessageBytes,
+  messageBytesToHex,
+  MessageType,
+  messageToHex,
+  ReactionType,
+  serializeMessage,
+  signMessageHash,
+  SignatureScheme,
+  toFarcasterTimestamp,
+  UserDataType,
+  verifyMessage as verifyFarcasterMessage,
+  type CastAddBody,
+  type CastId,
+  type CastRemoveBody,
+  type Embed,
+  type LinkBody,
+  type Message as FarcasterMessage,
+  type MessageData,
+  type ReactionBody,
+  type UserDataBody,
+  type VerificationAddBody,
+} from './farcaster/hub/message-builder'
+export {
+  createPoster,
+  DEFAULT_HUBS,
+  FarcasterPoster,
+  type FarcasterPosterConfig,
+  type PostedCast,
+  type ReactionTarget,
+  type UserDataUpdate,
+} from './farcaster/hub/poster'
+export {
+  FailoverHubSubmitter,
+  HubSubmitter,
+  selectBestHub,
+  type HubEndpoint,
+  type HubInfo,
+  type HubSubmitterConfig,
+  type SubmitResult,
+} from './farcaster/hub/submitter'
+
+// Farcaster schemas (for validation)
+export {
+  CastsResponseSchema,
+  DCPersistenceDataSchema,
+  DCSignerEventsResponseSchema,
+  DCUserDataResponseSchema,
+  EventsResponseSchema,
+  HubInfoResponseSchema,
+  LinksResponseSchema,
+  type ParsedCastMessage,
+  ReactionsResponseSchema,
+  SingleCastResponseSchema,
+  USER_DATA_TYPE_MAP,
+  UserDataResponseSchema,
+  UsernameProofResponseSchema,
+  VerificationLookupResponseSchema,
+  VerificationsResponseSchema,
+  type HubEventBody,
+  type HubEventType,
+} from './farcaster/hub/schemas'
+
+// Direct Casts (encrypted FID-to-FID DMs)
+export {
+  createDirectCastClient,
+  DirectCastClient,
+} from './farcaster/dc/client'
+
+export type {
+  DCAuthFailedResponse,
+  DCAuthMessage,
+  DCAuthSuccessResponse,
+  DCClientConfig,
+  DCClientState,
+  DCErrorResponse,
+  DCMessageResponse,
+  DCNotificationResponse,
+  DCNotificationType,
+  DCReadMessage,
+  DCSendMessage,
+  DCSubscribeMessage,
+  DCTypingMessage,
+  DCWebSocketMessage,
+  DCWebSocketResponse,
+  DirectCast,
+  DirectCastConversation,
+  DirectCastEmbed,
+  DirectCastNotification,
+  EncryptedDirectCast,
+  GetMessagesParams as DCGetMessagesParams,
+  SendDCParams,
+} from './farcaster/dc/types'
+
+// DC API (relay server)
+export { createDCApi, createDCServer } from './farcaster/dc/api'
+
+// Farcaster Signer Management
+export {
+  FarcasterSignerManager,
+  type SignerInfo,
+  type SignerManagerConfig,
+  type SignerStatus,
+} from './farcaster/signer/manager'
+export {
+  FARCASTER_CONTRACTS,
+  generateDeadline,
+  KeyState,
+  type KeyData,
+  SignerRegistration,
+  type SignerRegistrationConfig,
+  verifySignerSignature,
+} from './farcaster/signer/registration'
+export {
+  FarcasterSignerService,
+  type CreateSignerResult,
+  type SignerServiceConfig,
+  type SignerWithPoster,
+} from './farcaster/signer/service'
+
+// Farcaster Identity
+export {
+  generateLinkProofMessage,
+  lookupFidByAddress,
+  parseLinkProofMessage,
+  type LinkVerificationResult,
+  type ParsedLinkProof,
+  verifyAddressCanLink,
+  verifyLinkProof,
+} from './farcaster/identity/link'
+
+// Farcaster Frames
+export {
+  createFrameResponse,
+  encodeFrameState,
+  generateFrameMetaTags,
+  JejuAgentFrameStateSchema,
+  JejuBridgeFrameStateSchema,
+  JejuSwapFrameStateSchema,
+  parseFrameState,
+  type FrameButton,
+  type FrameErrorResponse,
+  type FrameMessage,
+  type FrameMetadata,
+  type FrameResponse,
+  type FrameTransactionParams,
+  type FrameTransactionTarget,
+  type FrameValidationResult,
+  type JejuAgentFrameState,
+  type JejuBridgeFrameState,
+  type JejuSwapFrameState,
+} from './farcaster/frames/types'
+
+// Farcaster DWS Worker
+export {
+  createFarcasterWorker,
+  type FarcasterWorker,
+  type FarcasterWorkerConfig,
+} from './farcaster/dws-worker/index.js'
 // Unified Farcaster-Messaging Integration
 export {
   createUnifiedMessagingService,
@@ -164,5 +374,19 @@ export type {
   XMTPNodeConfig,
   XMTPNodeStats,
 } from './xmtp/types'
+
+// Cross-chain messaging bridge
+export {
+  createCrossChainBridgeClient,
+  CrossChainBridgeClient,
+  type CrossChainBridgeConfig,
+  type CrossChainKeyRegistration,
+  type CrossChainMessage,
+  getCrossChainBridgeClient,
+  type MessageRoute,
+  type MessageStatus as BridgeMessageStatus,
+  MessagingChain,
+  resetCrossChainBridgeClient,
+} from './bridge'
 
 // Node-only exports (relay server) available via '@jejunetwork/messaging/node'

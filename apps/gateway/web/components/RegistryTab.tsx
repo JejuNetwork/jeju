@@ -2,6 +2,7 @@ import { Grid3x3, type LucideProps, Plus, Sparkles } from 'lucide-react'
 import { type ComponentType, useEffect, useState } from 'react'
 import { useAccount } from 'wagmi'
 import AppDetailModal from './AppDetailModal'
+import { ConnectPrompt } from './ConnectPrompt'
 import RegisterAppForm from './RegisterAppForm'
 import RegisteredAppsList from './RegisteredAppsList'
 
@@ -26,17 +27,6 @@ export default function RegistryTab() {
         handleNavigateToRegister,
       )
   }, [])
-
-  if (!isConnected) {
-    return (
-      <div className="card hero-card animate-fade-in">
-        <div className="hero-icon">
-          <SparklesIcon size={36} />
-        </div>
-        <h2 className="hero-title">Agent Bazaar</h2>
-      </div>
-    )
-  }
 
   return (
     <div className="animate-fade-in">
@@ -68,7 +58,15 @@ export default function RegistryTab() {
       {activeSection === 'list' && (
         <RegisteredAppsList onSelectApp={setSelectedAppId} />
       )}
-      {activeSection === 'register' && <RegisterAppForm />}
+      {activeSection === 'register' &&
+        (isConnected ? (
+          <RegisterAppForm />
+        ) : (
+          <ConnectPrompt
+            message="Connect your wallet to register"
+            action="Registration requires a wallet to sign and stake"
+          />
+        ))}
       {selectedAppId !== null && (
         <AppDetailModal
           agentId={selectedAppId}

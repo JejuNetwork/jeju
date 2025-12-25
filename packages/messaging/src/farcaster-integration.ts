@@ -17,7 +17,7 @@ import type {
   DCClientConfig,
   DirectCast,
   DirectCastClient,
-} from '@jejunetwork/farcaster'
+} from './farcaster'
 import type { Address } from 'viem'
 
 // Re-export Farcaster types for convenience
@@ -73,7 +73,7 @@ async function getDirectCastClient(
   config: DCClientConfig,
 ): Promise<DirectCastClient> {
   if (!DirectCastClientClass) {
-    const mod = await import('@jejunetwork/farcaster')
+    const mod = await import('./farcaster')
     DirectCastClientClass = mod.DirectCastClient
   }
   return new DirectCastClientClass(config)

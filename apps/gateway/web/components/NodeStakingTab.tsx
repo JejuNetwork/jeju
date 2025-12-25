@@ -1,12 +1,13 @@
 import { Globe, type LucideProps, Server, TrendingUp } from 'lucide-react'
 import { type ComponentType, useState } from 'react'
 import { useAccount } from 'wagmi'
+import { ConnectPrompt } from './ConnectPrompt'
 import MyNodesCard from './MyNodesCard'
 import NetworkStatsCard from './NetworkStatsCard'
 import RegisterNodeForm from './RegisterNodeForm'
 
-const ServerIcon = Server as ComponentType<LucideProps>
 const GlobeIcon = Globe as ComponentType<LucideProps>
+const ServerIcon = Server as ComponentType<LucideProps>
 const TrendingUpIcon = TrendingUp as ComponentType<LucideProps>
 
 export default function NodeStakingTab() {
@@ -14,17 +15,6 @@ export default function NodeStakingTab() {
   const [activeSection, setActiveSection] = useState<
     'overview' | 'register' | 'my-nodes'
   >('overview')
-
-  if (!isConnected) {
-    return (
-      <div className="card hero-card animate-fade-in">
-        <div className="hero-icon">
-          <ServerIcon size={36} />
-        </div>
-        <h2 className="hero-title">Node Staking</h2>
-      </div>
-    )
-  }
 
   return (
     <div className="animate-fade-in">
@@ -62,8 +52,24 @@ export default function NodeStakingTab() {
         </button>
       </div>
       {activeSection === 'overview' && <NetworkStatsCard />}
-      {activeSection === 'my-nodes' && <MyNodesCard />}
-      {activeSection === 'register' && <RegisterNodeForm />}
+      {activeSection === 'my-nodes' &&
+        (isConnected ? (
+          <MyNodesCard />
+        ) : (
+          <ConnectPrompt
+            message="Connect your wallet to view your nodes"
+            action="See your registered nodes and their status"
+          />
+        ))}
+      {activeSection === 'register' &&
+        (isConnected ? (
+          <RegisterNodeForm />
+        ) : (
+          <ConnectPrompt
+            message="Connect your wallet to register a node"
+            action="Stake tokens and register your node on the network"
+          />
+        ))}
     </div>
   )
 }

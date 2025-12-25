@@ -473,7 +473,9 @@ jobs:
     name: Publish Chrome Extension
     runs-on: ubuntu-latest
     needs: [prepare, build-extensions]
-    if: (github.event_name == 'release' || github.event.inputs.publish_stores) && secrets.CHROME_EXTENSION_ID != ''
+    if: ${{ github.event_name == 'release' || github.event.inputs.publish_stores == true || github.event.inputs.publish_stores == 'true' }}
+    env:
+      CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
     steps:
       - name: Download Chrome extension
         uses: actions/download-artifact@v4
@@ -486,6 +488,7 @@ jobs:
           find chrome-ext -name "*.zip" -exec mv {} network-wallet-chrome.zip \;
 
       - name: Publish to Chrome Web Store
+        if: ${{ env.CHROME_EXTENSION_ID != '' }}
         uses: mnao305/chrome-extension-upload@v5.0.0
         with:
           file-path: network-wallet-chrome.zip
@@ -499,7 +502,9 @@ jobs:
     name: Publish Firefox Extension
     runs-on: ubuntu-latest
     needs: [prepare, build-extensions]
-    if: (github.event_name == 'release' || github.event.inputs.publish_stores) && secrets.FIREFOX_API_KEY != ''
+    if: ${{ github.event_name == 'release' || github.event.inputs.publish_stores == true || github.event.inputs.publish_stores == 'true' }}
+    env:
+      FIREFOX_API_KEY: ${{ secrets.FIREFOX_API_KEY }}
     steps:
       - name: Download Firefox extension
         uses: actions/download-artifact@v4
@@ -512,6 +517,7 @@ jobs:
           find firefox-ext -name "*.zip" -exec mv {} network-wallet-firefox.zip \;
 
       - name: Publish to Firefox Add-ons
+        if: ${{ env.FIREFOX_API_KEY != '' }}
         uses: yayuyokitano/firefox-addon@v0.0.6-alpha
         with:
           api_key: ${{ secrets.FIREFOX_API_KEY }}
@@ -523,7 +529,9 @@ jobs:
     name: Publish Edge Extension
     runs-on: ubuntu-latest
     needs: [prepare, build-extensions]
-    if: (github.event_name == 'release' || github.event.inputs.publish_stores) && secrets.EDGE_PRODUCT_ID != ''
+    if: ${{ github.event_name == 'release' || github.event.inputs.publish_stores == true || github.event.inputs.publish_stores == 'true' }}
+    env:
+      EDGE_PRODUCT_ID: ${{ secrets.EDGE_PRODUCT_ID }}
     steps:
       - name: Download Edge extension
         uses: actions/download-artifact@v4
@@ -536,6 +544,7 @@ jobs:
           find edge-ext -name "*.zip" -exec mv {} network-wallet-edge.zip \;
 
       - name: Publish to Edge Add-ons
+        if: ${{ env.EDGE_PRODUCT_ID != '' }}
         uses: nicovince/upload-edge-addon@v2
         with:
           product-id: ${{ secrets.EDGE_PRODUCT_ID }}
@@ -548,7 +557,9 @@ jobs:
     name: Publish to Snap Store
     runs-on: ubuntu-latest
     needs: [prepare, build-snap]
-    if: (github.event_name == 'release' || github.event.inputs.publish_stores) && secrets.SNAPCRAFT_TOKEN != ''
+    if: ${{ github.event_name == 'release' || github.event.inputs.publish_stores == true || github.event.inputs.publish_stores == 'true' }}
+    env:
+      SNAPCRAFT_TOKEN: ${{ secrets.SNAPCRAFT_TOKEN }}
     steps:
       - name: Download snap
         uses: actions/download-artifact@v4
@@ -560,6 +571,7 @@ jobs:
         run: sudo snap install snapcraft --classic
 
       - name: Login and publish
+        if: ${{ env.SNAPCRAFT_TOKEN != '' }}
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_TOKEN }}
         run: |
@@ -570,7 +582,9 @@ jobs:
     name: Publish to Google Play
     runs-on: ubuntu-latest
     needs: [prepare, build-android]
-    if: (github.event_name == 'release' || github.event.inputs.publish_stores) && secrets.GOOGLE_PLAY_SERVICE_ACCOUNT != ''
+    if: ${{ github.event_name == 'release' || github.event.inputs.publish_stores == true || github.event.inputs.publish_stores == 'true' }}
+    env:
+      GOOGLE_PLAY_SERVICE_ACCOUNT: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT }}
     steps:
       - uses: actions/checkout@v4
       
@@ -586,6 +600,7 @@ jobs:
           cat apps/wallet/fastlane/metadata/android/en-US/changelogs/1.txt > whatsnew/whatsnew-en-US
 
       - name: Upload to Google Play (Internal)
+        if: ${{ env.GOOGLE_PLAY_SERVICE_ACCOUNT != '' }}
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT }}
@@ -599,7 +614,9 @@ jobs:
     name: Publish to App Store
     runs-on: macos-latest
     needs: [prepare, build-ios]
-    if: (github.event_name == 'release' || github.event.inputs.publish_stores) && secrets.APPSTORE_API_KEY_ID != ''
+    if: ${{ github.event_name == 'release' || github.event.inputs.publish_stores == true || github.event.inputs.publish_stores == 'true' }}
+    env:
+      APPSTORE_API_KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID }}
     steps:
       - name: Download iOS IPA
         uses: actions/download-artifact@v4
@@ -608,6 +625,7 @@ jobs:
           path: ios-ipa
 
       - name: Upload to TestFlight
+        if: ${{ env.APPSTORE_API_KEY_ID != '' }}
         uses: apple-actions/upload-testflight-build@v1
         with:
           app-path: ios-ipa/*.ipa
@@ -619,7 +637,9 @@ jobs:
     name: Publish to Microsoft Store
     runs-on: windows-latest
     needs: [prepare, build-msix]
-    if: (github.event_name == 'release' || github.event.inputs.publish_stores) && secrets.MSSTORE_CLIENT_ID != ''
+    if: ${{ github.event_name == 'release' || github.event.inputs.publish_stores == true || github.event.inputs.publish_stores == 'true' }}
+    env:
+      MSSTORE_CLIENT_ID: ${{ secrets.MSSTORE_CLIENT_ID }}
     steps:
       - name: Download MSIX
         uses: actions/download-artifact@v4
@@ -628,6 +648,7 @@ jobs:
           path: msix-pkg
 
       - name: Submit to Microsoft Store
+        if: ${{ env.MSSTORE_CLIENT_ID != '' }}
         uses: isaacrlevin/windows-store-action@v1.0
         with:
           command: submit

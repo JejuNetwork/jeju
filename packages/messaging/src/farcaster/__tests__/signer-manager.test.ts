@@ -500,7 +500,9 @@ describe('FarcasterSignerManager', () => {
       expect(bytes.length).toBe(32)
       // Verify public key matches what we get from the signer info
       const signerInfo = await manager.getSigner(signer.keyId)
-      expect(bytesToHex(bytes)).toBe(signerInfo?.publicKey.slice(2))
+      const expectedHex = signerInfo?.publicKey.slice(2)
+      expect(expectedHex).toBeDefined()
+      expect(bytesToHex(bytes)).toBe(expectedHex as string)
     })
   })
 

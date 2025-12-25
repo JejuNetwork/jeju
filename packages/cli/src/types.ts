@@ -271,10 +271,11 @@ export interface DAODeploymentResult {
   network: NetworkType
   daoId: string
   name: string
+  manifestCid: string
   contracts: {
     daoRegistry: string
     daoFunding: string
-    council: string
+    council: string | null
     ceoAgent: string
     treasury: string
     feeConfig?: string

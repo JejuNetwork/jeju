@@ -144,8 +144,8 @@ export class AutonomousDMService {
   ): Promise<number> {
     logger.debug(`Responding to DMs for agent ${agentId}`)
 
-    const _config = await this.getAgentConfig(agentId)
-    const _displayName = `Agent-${agentId.slice(0, 8)}`
+    // Preload config for future use
+    await this.getAgentConfig(agentId)
 
     const chatsWithUnread = await this.getChatsWithUnread(agentId)
     const responsesCreated = 0
@@ -188,8 +188,6 @@ export class AutonomousDMService {
     if (!content || content.trim().length < 3) {
       return { success: false, error: 'Content too short' }
     }
-
-    const _cleanContent = content.trim()
 
     // In a full implementation, this would:
     // 1. Verify the chat exists

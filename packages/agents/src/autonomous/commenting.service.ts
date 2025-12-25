@@ -52,11 +52,6 @@ interface AgentCommentingConfig {
 }
 
 /**
- * Maximum characters for comment content
- */
-const _MAX_COMMENT_CHARS = 200
-
-/**
  * Autonomous Commenting Service
  */
 export class AutonomousCommentingService {
@@ -95,8 +90,6 @@ export class AutonomousCommentingService {
     logger.debug(`Getting uncommented posts for agent ${agentId}`)
 
     const commentedIds = await this.getCommentedPostIds(agentId)
-    const now = new Date()
-    const _oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
 
     // In a full implementation, this would query the database for:
     // - Posts not authored by the agent
@@ -118,7 +111,8 @@ export class AutonomousCommentingService {
   ): Promise<CommentDecision> {
     logger.debug(`Deciding on comment for agent ${agentId}`)
 
-    const _config = await this.getAgentConfig(agentId)
+    // Get config for potential future use in LLM prompts
+    await this.getAgentConfig(agentId)
     const uncommentedPosts = await this.getUncommentedPosts(agentId)
 
     if (uncommentedPosts.length === 0) {
@@ -208,8 +202,6 @@ export class AutonomousCommentingService {
     if (!content || content.trim().length < 3) {
       return { success: false, error: 'Content too short' }
     }
-
-    const _cleanContent = content.trim()
 
     // Check for duplicate comment
     const commentedPostIds = await this.getCommentedPostIds(agentId)

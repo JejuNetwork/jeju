@@ -1,12 +1,23 @@
 # @jejunetwork/messaging
 
-Decentralized private messaging protocol for Jeju L2.
+Unified messaging protocol for Jeju Network - public (Farcaster) and private (XMTP) messaging.
 
 ## Features
+
+### Public Messaging (Farcaster)
+
+- **Hub Client** - Read casts, profiles, reactions, and links
+- **Posting** - Cast, reply, react, follow/unfollow
+- **Direct Casts** - Encrypted FID-to-FID DMs
+- **Signer Management** - Ed25519 key generation and on-chain registration
+- **Frames** - Support for Farcaster Frames
+
+### Private Messaging (XMTP)
 
 - **End-to-end encryption** - X25519 key exchange + AES-256-GCM
 - **Decentralized relay network** - Permissionless node operators with economic incentives
 - **On-chain key registry** - Public keys stored on Jeju L2 for discovery
+- **MLS Groups** - Group messaging with Message Layer Security
 - **IPFS storage** - Message persistence with content-addressed storage
 - **x402 micropayments** - Pay-per-message economic model
 
@@ -18,7 +29,7 @@ Decentralized private messaging protocol for Jeju L2.
 bun add @jejunetwork/messaging
 ```
 
-### Usage
+### Private Messaging (XMTP)
 
 ```typescript
 import { createMessagingClient } from '@jejunetwork/messaging';
@@ -50,6 +61,59 @@ client.onMessage((event) => {
 });
 ```
 
+### Public Messaging (Farcaster)
+
+```typescript
+import { 
+  FarcasterClient, 
+  FarcasterPoster,
+  DirectCastClient,
+  DEFAULT_HUBS 
+} from '@jejunetwork/messaging';
+
+// Read from Farcaster
+const hub = new FarcasterClient({ hubUrl: DEFAULT_HUBS.mainnet });
+const profile = await hub.getProfile(fid);
+const casts = await hub.getCastsByFid(fid);
+
+// Post to Farcaster (requires Ed25519 signer)
+const poster = new FarcasterPoster({
+  fid: 12345,
+  signerPrivateKey,
+  hubUrl: DEFAULT_HUBS.mainnet,
+});
+await poster.cast('Hello Farcaster!');
+await poster.like({ fid: 54321, hash: '0x...' });
+await poster.follow(54321);
+
+// Encrypted Direct Casts
+const dc = new DirectCastClient({
+  fid: 12345,
+  signerPrivateKey,
+  hubUrl: DEFAULT_HUBS.mainnet,
+  relayUrl: 'http://localhost:3300',
+});
+await dc.initialize();
+await dc.send({ recipientFid: 54321, text: 'Private message via DC!' });
+```
+
+### Unified Messaging
+
+```typescript
+import { createUnifiedMessagingService } from '@jejunetwork/messaging';
+
+const service = createUnifiedMessagingService({
+  messaging: { rpcUrl, address, relayUrl },
+  farcaster: { fid, signerPrivateKey, hubUrl },
+});
+
+await service.initialize(signature);
+
+// Auto-routes based on recipient type
+await service.sendMessage('0xAddress...', 'XMTP message');  // Wallet address -> XMTP
+await service.sendMessage(12345, 'Farcaster DM');            // FID -> Direct Cast
+```
+
 ## Architecture
 
 ```
@@ -60,14 +124,14 @@ client.onMessage((event) => {
 │  └──────────────┘  └──────────────┘  └──────────────┘          │
 └─────────────────────────────────────────────────────────────────┘
                               │
-              ┌───────────────┼───────────────┐
-              ▼               ▼               ▼
-    ┌─────────────┐  ┌─────────────┐  ┌─────────────┐
-    │ Relay Node  │  │ Relay Node  │  │ Relay Node  │
-    │   (us-east) │  │  (eu-west)  │  │  (ap-south) │
-    └─────────────┘  └─────────────┘  └─────────────┘
-              │               │               │
-              └───────────────┼───────────────┘
+        ┌─────────────────────┼─────────────────────┐
+        ▼                     ▼                     ▼
+┌───────────────┐   ┌─────────────────┐   ┌─────────────────┐
+│  Farcaster    │   │   XMTP Relay    │   │   MLS Groups    │
+│  Hub Network  │   │   (Private)     │   │   (Private)     │
+└───────────────┘   └─────────────────┘   └─────────────────┘
+        │                     │                     │
+        └─────────────────────┼─────────────────────┘
                               ▼
                     ┌─────────────────┐
                     │  Jeju Storage   │
@@ -75,17 +139,32 @@ client.onMessage((event) => {
                     └─────────────────┘
 ```
 
-## Running the Demo
+## Exports
 
-```bash
-# 1. Start Jeju localnet (from root)
-cd ../..
-bun run dev
+### XMTP Private Messaging
 
-# 2. Run the demo
-cd packages/messaging
-bun run demo
-```
+- `createMessagingClient` - Client factory
+- `MessagingClient` - Browser-compatible client
+- Crypto utilities: `encryptMessage`, `decryptMessage`, `deriveKeyPairFromWallet`
+
+### Farcaster Public Messaging
+
+- `FarcasterClient` - Hub read client
+- `FarcasterPoster` - Posting client
+- `DirectCastClient` - Encrypted DM client
+- `FarcasterSignerManager` - Signer key management
+- `SignerRegistration` - On-chain signer registration
+
+### MLS Group Messaging
+
+- `JejuMLSClient` - MLS client for groups
+- `JejuGroup` - Group management
+- Content types: `text`, `image`, `file`, `reaction`, `transaction`
+
+### DWS Workers
+
+- `createMessagingWorker` - Decentralized messaging relay worker
+- `createFarcasterWorker` - Decentralized Farcaster signer worker
 
 ## Running Tests
 
@@ -93,128 +172,9 @@ bun run demo
 bun test
 ```
 
-## Running a Relay Node
-
-### Local Development
-
-```bash
-# Start relay node
-bun run node
-
-# With IPFS
-IPFS_URL=http://localhost:5001 bun run node
-```
-
-### AWS Deployment
-
-```bash
-cd terraform
-
-# Configure
-cp variables.tfvars.example terraform.tfvars
-# Edit terraform.tfvars with your values
-
-# Deploy
-terraform init
-terraform plan
-terraform apply
-```
-
-## Smart Contracts
-
-### KeyRegistry
-
-Stores public encryption keys on-chain for discovery:
-
-```solidity
-// Register your key bundle
-keyRegistry.registerKeyBundle(
-  identityKey,    // X25519 public key (bytes32)
-  signedPreKey,   // Rotating pre-key
-  preKeySignature // Signature for verification
-);
-
-// Look up someone's key
-(bytes32 key, bool active) = keyRegistry.getKeyBundle(address);
-```
-
-### MessageNodeRegistry
-
-Registry for relay node operators:
-
-```solidity
-// Register as node operator (requires stake)
-nodeRegistry.registerNode(
-  "https://relay.example.com",  // Endpoint
-  "us-east",                    // Region
-  1000 ether                    // Stake amount
-);
-
-// Find healthy nodes
-(bytes32 nodeId, string endpoint) = nodeRegistry.getRandomHealthyNode("us-east");
-```
-
-## Cryptography
-
-### Key Derivation
-
-Users derive messaging keys from their Ethereum wallet:
-
-```typescript
-// Sign a specific message
-const signature = await wallet.signMessage(
-  'Sign this message to enable Jeju Messaging.\n\n' +
-  'This signature will be used to derive your encryption keys.\n' +
-  'It does not grant access to your funds.'
-);
-
-// Derive X25519 key pair
-const keyPair = deriveKeyPairFromWallet(address, signature);
-```
-
-### Message Encryption
-
-Messages are encrypted using:
-
-1. **X25519 ECDH** - Derive shared secret
-2. **HKDF** - Expand shared secret into encryption key
-3. **AES-256-GCM** - Encrypt message with authenticated encryption
-
-```typescript
-// Encrypt
-const encrypted = encryptMessage(message, recipientPublicKey);
-
-// Decrypt
-const decrypted = decryptMessage(encrypted, recipientPrivateKey);
-```
-
-## Economics
-
-### Message Fees
-
-- Base fee: ~$0.0001 per message
-- Protocol cut: 5%
-- Node operator: 95%
-
-### Node Staking
-
-- Minimum stake: 1000 JEJU
-- Rewards based on:
-  - Messages relayed
-  - Uptime score
-  - Delivery success rate
-  - Geographic diversity
-
-### Slashing
-
-Nodes can be slashed for:
-- Censorship (proven non-delivery)
-- Data leaks
-- Extended downtime
-
 ## API Reference
 
-### Client Methods
+### MessagingClient Methods
 
 | Method | Description |
 |--------|-------------|
@@ -225,16 +185,29 @@ Nodes can be slashed for:
 | `isConnected()` | Check connection status |
 | `disconnect()` | Disconnect from relay |
 
-### Events
+### FarcasterPoster Methods
 
-| Event | Description |
-|-------|-------------|
-| `message:new` | New message received |
-| `message:delivered` | Message delivered to recipient |
-| `message:read` | Message read by recipient |
-| `error` | Error occurred |
+| Method | Description |
+|--------|-------------|
+| `cast(text, options?)` | Post a cast |
+| `reply(text, target)` | Reply to a cast |
+| `like(target)` / `unlike(target)` | Like/unlike a cast |
+| `recast(target)` / `unrecast(target)` | Recast/unrecast |
+| `follow(fid)` / `unfollow(fid)` | Follow/unfollow user |
+| `thread(texts[], options?)` | Post a thread |
+| `deleteCast(hash)` | Delete a cast |
+
+### DirectCastClient Methods
+
+| Method | Description |
+|--------|-------------|
+| `initialize()` | Initialize client |
+| `send(params)` | Send encrypted DM |
+| `getConversations()` | List conversations |
+| `getMessages(fid, options?)` | Get messages with user |
+| `markAsRead(fid)` | Mark conversation as read |
+| `onMessage(handler)` | Subscribe to new messages |
 
 ## License
 
 MIT
-

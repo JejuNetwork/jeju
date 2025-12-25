@@ -46,7 +46,6 @@ const DEFAULT_APPS: JejuAppName[] = [
   'bazaar',
   'factory',
   'crucible',
-  'otto',
   'vpn',
 ]
 

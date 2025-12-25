@@ -251,8 +251,6 @@ export class AutonomousGroupChatService {
       return { success: false, error: 'Agent chose to skip' }
     }
 
-    const _cleanContent = content.trim()
-
     // In a full implementation, this would:
     // 1. Verify the chat exists and is a group chat
     // 2. Insert the message into the database

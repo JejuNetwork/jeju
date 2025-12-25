@@ -5,13 +5,22 @@
  * Supports multi-DAO hierarchies, council auto-generation, and fee configuration.
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  writeFileSync,
+  type Dirent,
+} from 'node:fs'
 import { dirname, join } from 'node:path'
 import {
   type Address,
   type Chain,
+  type Log,
   createPublicClient,
   createWalletClient,
+  decodeEventLog,
   formatEther,
   http,
   isAddress,
@@ -20,6 +29,13 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { base, baseSepolia, localhost } from 'viem/chains'
+import {
+  daoFundingAbi,
+  daoRegistryAbi,
+  packageRegistryAbi,
+  repoRegistryAbi,
+} from '@jejunetwork/contracts'
+import { uploadJSONToIPFS } from '@jejunetwork/shared'
 import { z } from 'zod'
 import {
   type DAOManifest,
@@ -36,13 +52,10 @@ import {
 } from '../types'
 import { logger } from './logger'
 
-// ============ Validation Schemas ============
-
 const AddressSchema = z
   .string()
   .refine(isAddress, { message: 'Invalid address' })
 
-/** Schema for governance deployment file */
 const GovernanceDeploymentSchema = z
   .object({
     DAORegistry: AddressSchema,
@@ -50,248 +63,81 @@ const GovernanceDeploymentSchema = z
   })
   .passthrough()
 
-// ============ Contract ABIs ============
-
-const DAORegistryABI = [
-  {
-    type: 'function',
-    name: 'createDAO',
-    inputs: [
-      { name: 'name', type: 'string' },
-      { name: 'displayName', type: 'string' },
-      { name: 'description', type: 'string' },
-      { name: 'treasury', type: 'address' },
-      { name: 'manifestCid', type: 'string' },
-      {
-        name: 'ceoPersona',
-        type: 'tuple',
-        components: [
-          { name: 'name', type: 'string' },
-          { name: 'pfpCid', type: 'string' },
-          { name: 'description', type: 'string' },
-          { name: 'personality', type: 'string' },
-          { name: 'traits', type: 'string[]' },
-        ],
-      },
-      {
-        name: 'params',
-        type: 'tuple',
-        components: [
-          { name: 'minQualityScore', type: 'uint256' },
-          { name: 'councilVotingPeriod', type: 'uint256' },
-          { name: 'gracePeriod', type: 'uint256' },
-          { name: 'minProposalStake', type: 'uint256' },
-          { name: 'quorumBps', type: 'uint256' },
-        ],
-      },
-    ],
-    outputs: [{ name: 'daoId', type: 'bytes32' }],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    name: 'addCouncilMember',
-    inputs: [
-      { name: 'daoId', type: 'bytes32' },
-      { name: 'member', type: 'address' },
-      { name: 'agentId', type: 'uint256' },
-      { name: 'role', type: 'string' },
-      { name: 'weight', type: 'uint256' },
-    ],
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    name: 'setDAOFeeConfig',
-    inputs: [
-      { name: 'daoId', type: 'bytes32' },
-      { name: 'feeConfig', type: 'address' },
-    ],
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    name: 'linkPackage',
-    inputs: [
-      { name: 'daoId', type: 'bytes32' },
-      { name: 'packageId', type: 'bytes32' },
-    ],
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    name: 'linkRepo',
-    inputs: [
-      { name: 'daoId', type: 'bytes32' },
-      { name: 'repoId', type: 'bytes32' },
-    ],
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'event',
-    name: 'DAOCreated',
-    inputs: [
-      { name: 'daoId', type: 'bytes32', indexed: true },
-      { name: 'name', type: 'string', indexed: false },
-      { name: 'treasury', type: 'address', indexed: true },
-      { name: 'creator', type: 'address', indexed: true },
-    ],
-  },
-] as const
-
-const DAOFundingABI = [
-  {
-    type: 'function',
-    name: 'setDAOConfig',
-    inputs: [
-      { name: 'daoId', type: 'bytes32' },
-      {
-        name: 'config',
-        type: 'tuple',
-        components: [
-          { name: 'minStake', type: 'uint256' },
-          { name: 'maxStake', type: 'uint256' },
-          { name: 'epochDuration', type: 'uint256' },
-          { name: 'cooldownPeriod', type: 'uint256' },
-          { name: 'matchingMultiplier', type: 'uint256' },
-          { name: 'quadraticEnabled', type: 'bool' },
-          { name: 'ceoWeightCap', type: 'uint256' },
-        ],
-      },
-    ],
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    name: 'createEpoch',
-    inputs: [
-      { name: 'daoId', type: 'bytes32' },
-      { name: 'budget', type: 'uint256' },
-      { name: 'matchingPool', type: 'uint256' },
-    ],
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    name: 'depositMatchingFunds',
-    inputs: [
-      { name: 'daoId', type: 'bytes32' },
-      { name: 'amount', type: 'uint256' },
-    ],
-    outputs: [],
-    stateMutability: 'payable',
-  },
-  {
-    type: 'function',
-    name: 'proposeProject',
-    inputs: [
-      { name: 'daoId', type: 'bytes32' },
-      { name: 'projectType', type: 'uint8' },
-      { name: 'registryId', type: 'bytes32' },
-      { name: 'name', type: 'string' },
-      { name: 'description', type: 'string' },
-      { name: 'primaryRecipient', type: 'address' },
-      { name: 'additionalRecipients', type: 'address[]' },
-      { name: 'recipientShares', type: 'uint256[]' },
-    ],
-    outputs: [{ name: 'projectId', type: 'bytes32' }],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    name: 'acceptProject',
-    inputs: [{ name: 'projectId', type: 'bytes32' }],
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    name: 'setCEOWeight',
-    inputs: [
-      { name: 'projectId', type: 'bytes32' },
-      { name: 'weight', type: 'uint256' },
-    ],
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-] as const
-
-const PackageRegistryABI = [
-  {
-    type: 'function',
-    name: 'registerPackage',
-    inputs: [
-      { name: 'name', type: 'string' },
-      { name: 'description', type: 'string' },
-      { name: 'cid', type: 'string' },
-      { name: 'version', type: 'string' },
-    ],
-    outputs: [{ name: 'packageId', type: 'bytes32' }],
-    stateMutability: 'nonpayable',
-  },
-] as const
-
-const RepoRegistryABI = [
-  {
-    type: 'function',
-    name: 'registerRepository',
-    inputs: [
-      { name: 'name', type: 'string' },
-      { name: 'description', type: 'string' },
-      { name: 'url', type: 'string' },
-    ],
-    outputs: [{ name: 'repoId', type: 'bytes32' }],
-    stateMutability: 'nonpayable',
-  },
-] as const
-
-// ============ Configuration ============
-
-interface ChainConfig {
-  chain: Chain
-  rpcUrl: string
+function extractDaoIdFromLogs(
+  logs: Log[],
+  fallbackName: string,
+): `0x${string}` {
+  for (const log of logs) {
+    try {
+      const decoded = decodeEventLog({
+        abi: daoRegistryAbi,
+        data: log.data,
+        topics: log.topics,
+      })
+      if (decoded.eventName === 'DAOCreated' && 'daoId' in decoded.args) {
+        return decoded.args.daoId as `0x${string}`
+      }
+    } catch {
+      /* skip non-matching events */
+    }
+  }
+  logger.warn('Could not parse DAOCreated event, using fallback ID')
+  return keccak256(toBytes(fallbackName))
 }
 
-function getChainConfig(network: NetworkType): ChainConfig {
-  switch (network) {
-    case 'mainnet':
-      return {
-        chain: base,
-        rpcUrl: process.env.BASE_RPC_URL ?? 'https://mainnet.base.org',
+function extractProjectIdFromLogs(
+  logs: Log[],
+  fallbackId: `0x${string}`,
+): `0x${string}` {
+  for (const log of logs) {
+    try {
+      const decoded = decodeEventLog({
+        abi: daoFundingAbi,
+        data: log.data,
+        topics: log.topics,
+      })
+      if (decoded.eventName === 'ProjectProposed' && 'projectId' in decoded.args) {
+        return decoded.args.projectId as `0x${string}`
       }
-    case 'testnet':
-      return {
-        chain: baseSepolia,
-        rpcUrl: process.env.BASE_SEPOLIA_RPC_URL ?? 'https://sepolia.base.org',
-      }
-    default:
-      return {
-        chain: localhost,
-        rpcUrl:
-          process.env.LOCAL_RPC_URL ??
-          `http://127.0.0.1:${CHAIN_CONFIG.localnet.rpcUrl.split(':').pop()}`,
-      }
+    } catch {
+      /* skip non-matching events */
+    }
+  }
+  logger.warn('Could not parse ProjectProposed event, using fallback ID')
+  return fallbackId
+}
+
+function isAlreadyExistsError(error: Error): boolean {
+  const msg = error.message.toLowerCase()
+  return (
+    msg.includes('already exists') ||
+    msg.includes('already registered') ||
+    msg.includes('duplicate') ||
+    msg.includes('already linked')
+  )
+}
+
+const CHAINS: Record<NetworkType, Chain> = {
+  localnet: {
+    ...localhost,
+    id: CHAIN_CONFIG.localnet.chainId,
+    name: CHAIN_CONFIG.localnet.name,
+  },
+  testnet: baseSepolia,
+  mainnet: base,
+}
+
+function getChainConfig(network: NetworkType) {
+  return {
+    chain: CHAINS[network],
+    rpcUrl:
+      network === 'localnet'
+        ? (process.env.LOCAL_RPC_URL ?? CHAIN_CONFIG[network].rpcUrl)
+        : CHAIN_CONFIG[network].rpcUrl,
   }
 }
 
-interface ContractAddresses {
-  DAORegistry: Address
-  DAOFunding: Address
-  PackageRegistry?: Address
-  RepoRegistry?: Address
-  FeeConfig?: Address
-}
-
-async function loadContractAddresses(
-  rootDir: string,
-  network: NetworkType,
-): Promise<ContractAddresses> {
+function loadContractAddresses(rootDir: string, network: NetworkType) {
   const deploymentPath = join(
     rootDir,
     'packages',
@@ -299,10 +145,9 @@ async function loadContractAddresses(
     'deployments',
     `${network}.json`,
   )
-
   if (!existsSync(deploymentPath)) {
     throw new Error(
-      `No deployment found for ${network}. Run 'jeju deploy governance' first.`,
+      `No deployment for ${network}. Run 'jeju deploy governance' first.`,
     )
   }
 
@@ -313,13 +158,17 @@ async function loadContractAddresses(
   return {
     DAORegistry: deployment.DAORegistry as Address,
     DAOFunding: deployment.DAOFunding as Address,
-    PackageRegistry: deployment.PackageRegistry as Address | undefined,
-    RepoRegistry: deployment.RepoRegistry as Address | undefined,
-    FeeConfig: deployment.FeeConfig as Address | undefined,
+    PackageRegistry: (deployment as Record<string, string>).PackageRegistry as
+      | Address
+      | undefined,
+    RepoRegistry: (deployment as Record<string, string>).RepoRegistry as
+      | Address
+      | undefined,
+    FeeConfig: (deployment as Record<string, string>).FeeConfig as
+      | Address
+      | undefined,
   }
 }
-
-// ============ Deploy Options ============
 
 export interface DAODeployOptions {
   network: NetworkType
@@ -332,9 +181,9 @@ export interface DAODeployOptions {
   skipCouncil: boolean
   skipFundingConfig: boolean
   verbose: boolean
+  ipfsApiUrl?: string
 }
 
-// ============ Main Deployment Function ============
 
 export async function deployDAO(
   options: DAODeployOptions,
@@ -344,21 +193,19 @@ export async function deployDAO(
     manifestPath,
     rootDir,
     seed,
-    fundTreasury: _fundTreasury, // TODO: implement treasury funding
+    fundTreasury,
     fundMatching,
     dryRun,
     skipCouncil,
     skipFundingConfig,
     verbose,
+    ipfsApiUrl,
   } = options
 
   logger.header(`DEPLOY DAO TO ${network.toUpperCase()}`)
 
-  if (dryRun) {
-    logger.warn('DRY RUN - no transactions will be submitted')
-  }
+  if (dryRun) logger.warn('DRY RUN - no transactions will be submitted')
 
-  // 1. Load and validate manifest
   logger.step('Loading manifest...')
   if (!existsSync(manifestPath)) {
     throw new Error(`Manifest not found: ${manifestPath}`)
@@ -377,7 +224,6 @@ export async function deployDAO(
     )
   }
 
-  // Validate council weights
   const weightValidation = validateCouncilWeights(
     manifest.governance.council.members,
   )
@@ -385,15 +231,12 @@ export async function deployDAO(
     logger.warn(weightValidation.message)
   }
 
-  // 2. Setup clients
   logger.step('Connecting to network...')
   const chainConfig = getChainConfig(network)
-  const contracts = await loadContractAddresses(rootDir, network)
+  const contracts = loadContractAddresses(rootDir, network)
 
   const privateKey = process.env.DEPLOYER_KEY ?? process.env.PRIVATE_KEY
-  if (!privateKey) {
-    throw new Error('DEPLOYER_KEY or PRIVATE_KEY environment variable required')
-  }
+  if (!privateKey) throw new Error('DEPLOYER_KEY or PRIVATE_KEY required')
 
   const account = privateKeyToAccount(privateKey as `0x${string}`)
   logger.keyValue('Deployer', account.address)
@@ -411,21 +254,33 @@ export async function deployDAO(
     transport: http(chainConfig.rpcUrl),
   })
 
-  // Check balance
   const balance = await publicClient.getBalance({ address: account.address })
   logger.keyValue('Balance', `${formatEther(balance)} ETH`)
-
   if (balance < BigInt('100000000000000000') && !dryRun) {
     throw new Error('Insufficient balance: need at least 0.1 ETH')
   }
 
-  // 3. Determine treasury address
-  let treasuryAddress: Address = account.address
-  if (network === 'localnet') {
-    treasuryAddress = WELL_KNOWN_KEYS.dev[0].address as Address
-  }
+  const treasuryAddress: Address =
+    network === 'localnet'
+      ? (WELL_KNOWN_KEYS.dev[0].address as Address)
+      : account.address
 
-  // 4. Create DAO
+  let manifestCid = ''
+  if (ipfsApiUrl && !dryRun) {
+    logger.step('Uploading manifest to IPFS...')
+    try {
+      manifestCid = await uploadJSONToIPFS(
+        ipfsApiUrl,
+        rawManifest,
+        `${manifest.name}-manifest.json`,
+      )
+      logger.success(`Manifest uploaded: ${manifestCid}`)
+    } catch (err) {
+      logger.warn(`IPFS upload failed: ${(err as Error).message}`)
+    }
+  } else if (!ipfsApiUrl && network !== 'localnet') {
+    logger.warn('No IPFS API - manifest not stored on-chain')
+  }
   logger.step(`Creating ${manifest.displayName ?? manifest.name}...`)
 
   let daoId: `0x${string}`
@@ -436,14 +291,14 @@ export async function deployDAO(
   } else {
     const createDAOHash = await walletClient.writeContract({
       address: contracts.DAORegistry,
-      abi: DAORegistryABI,
+      abi: daoRegistryAbi,
       functionName: 'createDAO',
       args: [
         manifest.name,
         manifest.displayName ?? manifest.name,
         manifest.description ?? '',
         treasuryAddress,
-        '', // manifestCid - TODO: upload to IPFS in production
+        manifestCid,
         {
           name: manifest.governance.ceo.name,
           pfpCid: manifest.governance.ceo.pfpCid ?? '',
@@ -471,19 +326,17 @@ export async function deployDAO(
     const receipt = await publicClient.waitForTransactionReceipt({
       hash: createDAOHash,
     })
-    daoId = (receipt.logs[0]?.topics?.[1] ??
-      keccak256(toBytes(manifest.name))) as `0x${string}`
+    daoId = extractDaoIdFromLogs(receipt.logs, manifest.name)
     logger.success(`DAO created with ID: ${daoId}`)
   }
 
-  // 5. Configure funding
   if (!skipFundingConfig) {
     logger.step('Configuring funding parameters...')
 
     if (!dryRun) {
       const configHash = await walletClient.writeContract({
         address: contracts.DAOFunding,
-        abi: DAOFundingABI,
+        abi: daoFundingAbi,
         functionName: 'setDAOConfig',
         args: [
           daoId,
@@ -495,6 +348,7 @@ export async function deployDAO(
             matchingMultiplier: BigInt(manifest.funding.matchingMultiplier),
             quadraticEnabled: manifest.funding.quadraticEnabled,
             ceoWeightCap: BigInt(manifest.funding.ceoWeightCap),
+            minStakePerParticipant: BigInt(manifest.funding.minStake),
           },
         ],
       })
@@ -503,18 +357,15 @@ export async function deployDAO(
     logger.success('Funding configured')
   }
 
-  // 6. Setup council members
   const councilResult: DAODeploymentResult['council'] = { members: [] }
 
   if (!skipCouncil) {
     logger.step('Setting up council...')
-
     const devAddresses = network === 'localnet' ? getDevCouncilAddresses() : {}
 
     for (let i = 0; i < manifest.governance.council.members.length; i++) {
       const member = manifest.governance.council.members[i]
 
-      // Use manifest address, or dev address for localnet, or deployer as fallback
       let memberAddress: Address = account.address
       if (member.address) {
         memberAddress = member.address as Address
@@ -527,7 +378,7 @@ export async function deployDAO(
       if (!dryRun) {
         const memberHash = await walletClient.writeContract({
           address: contracts.DAORegistry,
-          abi: DAORegistryABI,
+          abi: daoRegistryAbi,
           functionName: 'addCouncilMember',
           args: [
             daoId,
@@ -551,12 +402,18 @@ export async function deployDAO(
       )
     }
 
-    logger.success(
-      `Council configured with ${councilResult.members.length} members`,
-    )
+    // Warn if all council members have the same address (likely misconfiguration)
+    const uniqueAddresses = new Set(councilResult.members.map((m) => m.address))
+    if (uniqueAddresses.size === 1 && councilResult.members.length > 1) {
+      logger.warn(
+        `All ${councilResult.members.length} council members have the same address. ` +
+        `For production, set unique addresses in manifest or use TEE/MPC deployment.`
+      )
+    }
+
+    logger.success(`Council configured with ${councilResult.members.length} members`)
   }
 
-  // 7. Seed packages and repos
   const packageIds: string[] = []
   const repoIds: string[] = []
 
@@ -565,7 +422,6 @@ export async function deployDAO(
     seed || (network === 'localnet' && deploymentConfig?.autoSeed !== false)
 
   if (shouldSeed) {
-    // Seed packages
     if (manifest.packages?.seeded && manifest.packages.seeded.length > 0) {
       logger.step('Seeding packages...')
 
@@ -575,46 +431,54 @@ export async function deployDAO(
         )
         packageIds.push(packageId)
 
-        // Register in PackageRegistry if available
         if (contracts.PackageRegistry && !dryRun) {
           try {
             const registerHash = await walletClient.writeContract({
               address: contracts.PackageRegistry,
-              abi: PackageRegistryABI,
-              functionName: 'registerPackage',
-              args: [pkg.name, pkg.description, '', '1.0.0'],
+              abi: packageRegistryAbi,
+              functionName: 'createPackage',
+              args: [pkg.name, '', pkg.description, 'MIT', BigInt(0)],
             })
             await publicClient.waitForTransactionReceipt({ hash: registerHash })
-          } catch {
-            // Package may already exist
+          } catch (err) {
+            const error = err as Error
+            if (isAlreadyExistsError(error)) {
+              if (verbose)
+                logger.info(`  Package ${pkg.name} already registered`)
+            } else {
+              throw error
+            }
           }
         }
 
-        // Link to DAO
         if (!dryRun) {
           try {
             const linkHash = await walletClient.writeContract({
               address: contracts.DAORegistry,
-              abi: DAORegistryABI,
+              abi: daoRegistryAbi,
               functionName: 'linkPackage',
               args: [daoId, packageId as `0x${string}`],
             })
             await publicClient.waitForTransactionReceipt({ hash: linkHash })
-          } catch {
-            // Link may already exist
+          } catch (err) {
+            const error = err as Error
+            if (isAlreadyExistsError(error)) {
+              if (verbose) logger.info(`  Package ${pkg.name} already linked`)
+            } else {
+              throw error
+            }
           }
         }
 
-        // Create funding project and set weight
         if (!dryRun) {
           try {
             const proposeHash = await walletClient.writeContract({
               address: contracts.DAOFunding,
-              abi: DAOFundingABI,
+              abi: daoFundingAbi,
               functionName: 'proposeProject',
               args: [
                 daoId,
-                0, // projectType: package
+                0,
                 packageId as `0x${string}`,
                 pkg.name,
                 pkg.description,
@@ -623,29 +487,39 @@ export async function deployDAO(
                 [],
               ],
             })
+
             const receipt = await publicClient.waitForTransactionReceipt({
               hash: proposeHash,
             })
-            const projectId = receipt.logs[0]?.topics?.[1] ?? packageId
+            const projectId = extractProjectIdFromLogs(
+              receipt.logs,
+              packageId as `0x${string}`,
+            )
 
-            // Accept and set weight
             const acceptHash = await walletClient.writeContract({
               address: contracts.DAOFunding,
-              abi: DAOFundingABI,
+              abi: daoFundingAbi,
               functionName: 'acceptProject',
-              args: [projectId as `0x${string}`],
+              args: [projectId],
             })
             await publicClient.waitForTransactionReceipt({ hash: acceptHash })
 
-            const weightHash = await walletClient.writeContract({
-              address: contracts.DAOFunding,
-              abi: DAOFundingABI,
-              functionName: 'setCEOWeight',
-              args: [projectId as `0x${string}`, BigInt(pkg.fundingWeight)],
-            })
-            await publicClient.waitForTransactionReceipt({ hash: weightHash })
-          } catch {
-            // Project may already exist
+            if (pkg.fundingWeight > 0) {
+              const weightHash = await walletClient.writeContract({
+                address: contracts.DAOFunding,
+                abi: daoFundingAbi,
+                functionName: 'proposeCEOWeight',
+                args: [projectId, BigInt(pkg.fundingWeight)],
+              })
+              await publicClient.waitForTransactionReceipt({ hash: weightHash })
+            }
+          } catch (err) {
+            const error = err as Error
+            if (isAlreadyExistsError(error)) {
+              if (verbose) logger.info(`  Project ${pkg.name} already exists`)
+            } else {
+              throw error
+            }
           }
         }
 
@@ -655,7 +529,6 @@ export async function deployDAO(
       logger.success(`Seeded ${packageIds.length} packages`)
     }
 
-    // Seed repos
     if (manifest.repos?.seeded && manifest.repos.seeded.length > 0) {
       logger.step('Seeding repositories...')
 
@@ -663,46 +536,59 @@ export async function deployDAO(
         const repoId = keccak256(toBytes(`${manifest.name}:repo:${repo.name}`))
         repoIds.push(repoId)
 
-        // Register in RepoRegistry if available
         if (contracts.RepoRegistry && !dryRun) {
           try {
             const registerHash = await walletClient.writeContract({
               address: contracts.RepoRegistry,
-              abi: RepoRegistryABI,
-              functionName: 'registerRepository',
-              args: [repo.name, repo.description, repo.url],
+              abi: repoRegistryAbi,
+              functionName: 'createRepository',
+              args: [
+                repo.name,
+                repo.description,
+                keccak256(toBytes(repo.url)) as `0x${string}`,
+                BigInt(0),
+                0,
+              ],
             })
             await publicClient.waitForTransactionReceipt({ hash: registerHash })
-          } catch {
-            // Repo may already exist
+          } catch (err) {
+            const error = err as Error
+            if (isAlreadyExistsError(error)) {
+              if (verbose) logger.info(`  Repo ${repo.name} already registered`)
+            } else {
+              throw error
+            }
           }
         }
 
-        // Link to DAO
         if (!dryRun) {
           try {
             const linkHash = await walletClient.writeContract({
               address: contracts.DAORegistry,
-              abi: DAORegistryABI,
+              abi: daoRegistryAbi,
               functionName: 'linkRepo',
               args: [daoId, repoId as `0x${string}`],
             })
             await publicClient.waitForTransactionReceipt({ hash: linkHash })
-          } catch {
-            // Link may already exist
+          } catch (err) {
+            const error = err as Error
+            if (isAlreadyExistsError(error)) {
+              if (verbose) logger.info(`  Repo ${repo.name} already linked`)
+            } else {
+              throw error
+            }
           }
         }
 
-        // Create funding project and set weight
         if (!dryRun) {
           try {
             const proposeHash = await walletClient.writeContract({
               address: contracts.DAOFunding,
-              abi: DAOFundingABI,
+              abi: daoFundingAbi,
               functionName: 'proposeProject',
               args: [
                 daoId,
-                1, // projectType: repo
+                1,
                 repoId as `0x${string}`,
                 repo.name,
                 repo.description,
@@ -711,28 +597,39 @@ export async function deployDAO(
                 [],
               ],
             })
+
             const receipt = await publicClient.waitForTransactionReceipt({
               hash: proposeHash,
             })
-            const projectId = receipt.logs[0]?.topics?.[1] ?? repoId
+            const projectId = extractProjectIdFromLogs(
+              receipt.logs,
+              repoId as `0x${string}`,
+            )
 
             const acceptHash = await walletClient.writeContract({
               address: contracts.DAOFunding,
-              abi: DAOFundingABI,
+              abi: daoFundingAbi,
               functionName: 'acceptProject',
-              args: [projectId as `0x${string}`],
+              args: [projectId],
             })
             await publicClient.waitForTransactionReceipt({ hash: acceptHash })
 
-            const weightHash = await walletClient.writeContract({
-              address: contracts.DAOFunding,
-              abi: DAOFundingABI,
-              functionName: 'setCEOWeight',
-              args: [projectId as `0x${string}`, BigInt(repo.fundingWeight)],
-            })
-            await publicClient.waitForTransactionReceipt({ hash: weightHash })
-          } catch {
-            // Project may already exist
+            if (repo.fundingWeight > 0) {
+              const weightHash = await walletClient.writeContract({
+                address: contracts.DAOFunding,
+                abi: daoFundingAbi,
+                functionName: 'proposeCEOWeight',
+                args: [projectId, BigInt(repo.fundingWeight)],
+              })
+              await publicClient.waitForTransactionReceipt({ hash: weightHash })
+            }
+          } catch (err) {
+            const error = err as Error
+            if (isAlreadyExistsError(error)) {
+              if (verbose) logger.info(`  Project ${repo.name} already exists`)
+            } else {
+              throw error
+            }
           }
         }
 
@@ -743,48 +640,50 @@ export async function deployDAO(
     }
   }
 
-  // 8. Fund treasury and matching pool
-  // Treasury funding: fundTreasury ?? deploymentConfig?.fundTreasury (TODO: implement)
+  const actualFundTreasury = fundTreasury ?? deploymentConfig?.fundTreasury
   const actualFundMatching = fundMatching ?? deploymentConfig?.fundMatching
+
+  if (actualFundTreasury && !dryRun) {
+    logger.step('Funding treasury...')
+    const amt = BigInt(actualFundTreasury)
+    const hash = await walletClient.sendTransaction({
+      to: treasuryAddress,
+      value: amt,
+    })
+    await publicClient.waitForTransactionReceipt({ hash })
+    logger.success(`Sent ${formatEther(amt)} ETH to treasury`)
+  }
 
   if (actualFundMatching && !dryRun) {
     logger.step('Funding matching pool...')
-
-    const matchingAmount = BigInt(actualFundMatching)
-
-    // Create epoch first
+    const amt = BigInt(actualFundMatching)
     const epochHash = await walletClient.writeContract({
       address: contracts.DAOFunding,
-      abi: DAOFundingABI,
+      abi: daoFundingAbi,
       functionName: 'createEpoch',
       args: [daoId, BigInt(0), BigInt(0)],
     })
     await publicClient.waitForTransactionReceipt({ hash: epochHash })
-
-    // Deposit matching funds
     const depositHash = await walletClient.writeContract({
       address: contracts.DAOFunding,
-      abi: DAOFundingABI,
+      abi: daoFundingAbi,
       functionName: 'depositMatchingFunds',
-      args: [daoId, matchingAmount],
-      value: matchingAmount,
+      args: [daoId, amt],
+      value: amt,
     })
     await publicClient.waitForTransactionReceipt({ hash: depositHash })
-
-    logger.success(
-      `Deposited ${formatEther(matchingAmount)} ETH to matching pool`,
-    )
+    logger.success(`Deposited ${formatEther(amt)} ETH to matching pool`)
   }
 
-  // 9. Build and save result
   const result: DAODeploymentResult = {
     network,
     daoId,
     name: manifest.name,
+    manifestCid,
     contracts: {
       daoRegistry: contracts.DAORegistry,
       daoFunding: contracts.DAOFunding,
-      council: account.address, // Placeholder - would be deployed council contract
+      council: null,
       ceoAgent: network === 'localnet' ? getDevCEOAddress() : account.address,
       treasury: treasuryAddress,
       feeConfig: contracts.FeeConfig,
@@ -796,14 +695,12 @@ export async function deployDAO(
     deployer: account.address,
   }
 
-  // Save deployment to manifest directory
   const deploymentDir = join(dirname(manifestPath), 'deployments')
   mkdirSync(deploymentDir, { recursive: true })
   const outputPath = join(deploymentDir, `${network}.json`)
   writeFileSync(outputPath, JSON.stringify(result, null, 2))
   logger.success(`Deployment saved to: ${outputPath}`)
 
-  // Summary
   logger.newline()
   logger.header('DEPLOYMENT COMPLETE')
   logger.keyValue('DAO', manifest.displayName ?? manifest.name)
@@ -820,93 +717,56 @@ export async function deployDAO(
 /**
  * List all DAOs from a directory containing multiple manifests
  */
-export async function discoverDAOManifests(
-  rootDir: string,
-): Promise<DAOManifest[]> {
+export function discoverDAOManifests(rootDir: string): DAOManifest[] {
   const manifests: DAOManifest[] = []
-  const fs = require('node:fs')
 
-  // Check vendor directory
-  const vendorDir = join(rootDir, 'vendor')
-  if (existsSync(vendorDir)) {
-    const vendorEntries = fs.readdirSync(vendorDir, { withFileTypes: true })
-    for (const entry of vendorEntries) {
-      if (entry.isDirectory()) {
-        const daoManifestPath = join(
-          vendorDir,
-          entry.name,
-          'dao',
-          'jeju-manifest.json',
-        )
-        if (existsSync(daoManifestPath)) {
-          const content = readFileSync(daoManifestPath, 'utf-8')
-          try {
-            const manifest = validateDAOManifest(JSON.parse(content))
-            manifests.push(manifest)
-          } catch {
-            // Not a valid DAO manifest
-          }
-        }
-      }
+  const tryLoadManifest = (
+    manifestPath: string,
+    requireGovernance = false,
+  ): DAOManifest | null => {
+    if (!existsSync(manifestPath)) return null
+    try {
+      const content = readFileSync(manifestPath, 'utf-8')
+      const parsed = JSON.parse(content) as Record<string, unknown>
+      if (requireGovernance && (!parsed.governance || !parsed.funding))
+        return null
+      return validateDAOManifest(parsed)
+    } catch {
+      return null
     }
   }
 
-  // Check apps directory
+  const vendorDir = join(rootDir, 'vendor')
+  if (existsSync(vendorDir)) {
+    const entries = readdirSync(vendorDir, { withFileTypes: true }) as Dirent[]
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue
+      const manifest = tryLoadManifest(
+        join(vendorDir, entry.name, 'dao', 'jeju-manifest.json'),
+      )
+      if (manifest) manifests.push(manifest)
+    }
+  }
+
   const appsDir = join(rootDir, 'apps')
   if (existsSync(appsDir)) {
-    const appEntries = fs.readdirSync(appsDir, { withFileTypes: true })
-    for (const entry of appEntries) {
-      if (entry.isDirectory()) {
-        const manifestPath = join(appsDir, entry.name, 'jeju-manifest.json')
-        if (existsSync(manifestPath)) {
-          const content = readFileSync(manifestPath, 'utf-8')
-          try {
-            const parsed = JSON.parse(content)
-            // Check if it's a DAO manifest (has governance section)
-            if (parsed.governance && parsed.funding) {
-              const manifest = validateDAOManifest(parsed)
-              manifests.push(manifest)
-            }
-          } catch {
-            // Not a valid DAO manifest
-          }
-        }
-      }
+    const entries = readdirSync(appsDir, { withFileTypes: true }) as Dirent[]
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue
+      const manifest = tryLoadManifest(
+        join(appsDir, entry.name, 'jeju-manifest.json'),
+        true,
+      )
+      if (manifest) manifests.push(manifest)
     }
   }
 
   return manifests
 }
 
-// ============ Multi-DAO Support ============
 
-const DAOAllocationRegistryABI = [
-  {
-    type: 'function',
-    name: 'createAllocation',
-    inputs: [
-      { name: 'sourceDaoId', type: 'bytes32' },
-      { name: 'targetDaoId', type: 'bytes32' },
-      { name: 'allocationType', type: 'uint8' },
-      { name: 'amount', type: 'uint256' },
-      { name: 'description', type: 'string' },
-    ],
-    outputs: [{ name: 'allocationId', type: 'bytes32' }],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    name: 'setParentDAO',
-    inputs: [
-      { name: 'childDaoId', type: 'bytes32' },
-      { name: 'parentDaoId', type: 'bytes32' },
-    ],
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-] as const
-
-/** Allocation type enum matching contract */
+// NOTE: DAOAllocationRegistry contract not yet deployed
+// These allocation types are for future use when inter-DAO allocations are supported
 const ALLOCATION_TYPES = {
   'deep-funding': 0,
   'fee-share': 1,
@@ -915,15 +775,10 @@ const ALLOCATION_TYPES = {
 } as const
 
 export interface MultiDAODeployOptions extends DAODeployOptions {
-  /** Deploy all discovered DAOs */
   all?: boolean
-  /** Establish allocations between DAOs after deployment */
   setupAllocations?: boolean
 }
 
-/**
- * Deploy multiple DAOs and establish relationships between them
- */
 export async function deployMultipleDAOs(
   options: MultiDAODeployOptions,
 ): Promise<DAODeploymentResult[]> {
@@ -932,8 +787,7 @@ export async function deployMultipleDAOs(
 
   logger.header(`MULTI-DAO DEPLOYMENT TO ${network.toUpperCase()}`)
 
-  // Discover all DAO manifests
-  const manifests = await discoverDAOManifests(rootDir)
+  const manifests = discoverDAOManifests(rootDir)
   if (manifests.length === 0) {
     logger.warn('No DAO manifests found')
     return results
@@ -947,11 +801,12 @@ export async function deployMultipleDAOs(
   }
   logger.newline()
 
-  // Deploy each DAO
   for (const manifest of manifests) {
     const manifestPath = findManifestPath(rootDir, manifest.name)
     if (!manifestPath) {
-      logger.warn(`Could not find manifest path for ${manifest.name}, skipping`)
+      logger.warn(
+        `Could not find manifest path for ${manifest.name}, skipping`,
+      )
       continue
     }
 
@@ -965,12 +820,10 @@ export async function deployMultipleDAOs(
     results.push(result)
   }
 
-  // Setup allocations between DAOs
   if (setupAllocations && results.length > 1) {
     await setupDAOAllocations(rootDir, network, results, manifests)
   }
 
-  // Summary
   logger.newline()
   logger.header('MULTI-DAO DEPLOYMENT COMPLETE')
   logger.keyValue('DAOs Deployed', String(results.length))
@@ -982,115 +835,47 @@ export async function deployMultipleDAOs(
 }
 
 /**
- * Setup allocations between DAOs based on manifest configuration
+ * Log planned DAO allocations.
+ * NOTE: DAOAllocationRegistry contract not yet deployed - this only logs what would be configured.
  */
-async function setupDAOAllocations(
-  rootDir: string,
+function setupDAOAllocations(
+  _rootDir: string,
   network: NetworkType,
   deployments: DAODeploymentResult[],
   manifests: DAOManifest[],
-): Promise<void> {
-  logger.step('Setting up DAO allocations...')
+): void {
+  logger.step('Planning DAO allocations...')
+  logger.warn('DAOAllocationRegistry not deployed - logging planned allocations only')
 
-  const chainConfig = getChainConfig(network)
-  const contracts = await loadContractAddresses(rootDir, network)
+  const daoIdMap = new Map(deployments.map((d) => [d.name, d.daoId]))
 
-  const privateKey = process.env.DEPLOYER_KEY ?? process.env.PRIVATE_KEY
-  if (!privateKey) {
-    throw new Error('DEPLOYER_KEY or PRIVATE_KEY required')
-  }
-
-  const account = privateKeyToAccount(privateKey as `0x${string}`)
-  const publicClient = createPublicClient({
-    chain: chainConfig.chain,
-    transport: http(chainConfig.rpcUrl),
-  })
-  const walletClient = createWalletClient({
-    account,
-    chain: chainConfig.chain,
-    transport: http(chainConfig.rpcUrl),
-  })
-
-  // Build lookup map from name to daoId
-  const daoIdMap = new Map<string, `0x${string}`>()
-  for (const d of deployments) {
-    daoIdMap.set(d.name, d.daoId as `0x${string}`)
-  }
-
-  // Process each manifest's allocations
   for (let i = 0; i < manifests.length; i++) {
     const manifest = manifests[i]
-    const deployment = deployments[i]
     const networkConfig = manifest.deployment?.[network]
-
     if (!networkConfig) continue
 
-    const sourceDaoId = deployment.daoId as `0x${string}`
-
-    // Setup parent DAO relationship
     if (networkConfig.parentDao) {
-      const parentDaoId = daoIdMap.get(networkConfig.parentDao)
-      if (parentDaoId) {
-        logger.info(
-          `  Setting ${manifest.name} parent to ${networkConfig.parentDao}`,
-        )
-        try {
-          const hash = await walletClient.writeContract({
-            address: contracts.DAORegistry,
-            abi: DAOAllocationRegistryABI,
-            functionName: 'setParentDAO',
-            args: [sourceDaoId, parentDaoId],
-          })
-          await publicClient.waitForTransactionReceipt({ hash })
-        } catch (error) {
-          logger.warn(`  Failed to set parent DAO: ${error}`)
-        }
+      if (daoIdMap.has(networkConfig.parentDao)) {
+        logger.info(`  [PLANNED] ${manifest.name} parent -> ${networkConfig.parentDao}`)
       } else {
         logger.warn(`  Parent DAO not found: ${networkConfig.parentDao}`)
       }
     }
 
-    // Setup peer allocations
     if (networkConfig.peerAllocations) {
       for (const allocation of networkConfig.peerAllocations) {
-        const targetDaoId = daoIdMap.get(allocation.targetDao)
-        if (!targetDaoId) {
+        if (!daoIdMap.has(allocation.targetDao)) {
           logger.warn(`  Target DAO not found: ${allocation.targetDao}`)
           continue
         }
-
-        const allocationType = ALLOCATION_TYPES[allocation.type]
-        logger.info(
-          `  Creating ${allocation.type} allocation: ${manifest.name} -> ${allocation.targetDao}`,
-        )
-
-        try {
-          const hash = await walletClient.writeContract({
-            address: contracts.DAORegistry,
-            abi: DAOAllocationRegistryABI,
-            functionName: 'createAllocation',
-            args: [
-              sourceDaoId,
-              targetDaoId,
-              allocationType,
-              BigInt(allocation.amount),
-              allocation.description ?? '',
-            ],
-          })
-          await publicClient.waitForTransactionReceipt({ hash })
-        } catch (error) {
-          logger.warn(`  Failed to create allocation: ${error}`)
-        }
+        logger.info(`  [PLANNED] ${allocation.type}: ${manifest.name} -> ${allocation.targetDao} (${allocation.amount})`)
       }
     }
   }
 
-  logger.success('DAO allocations configured')
+  logger.info('Allocations will be configured when DAOAllocationRegistry is deployed')
 }
 
-/**
- * Find the path to a DAO's manifest file
- */
 function findManifestPath(rootDir: string, daoName: string): string | null {
   const candidates = [
     join(rootDir, 'vendor', daoName, 'dao', 'jeju-manifest.json'),

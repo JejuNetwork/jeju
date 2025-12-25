@@ -18,7 +18,7 @@
     "@jejunetwork/a2a": "workspace:*",
     "@jejunetwork/config": "workspace:*",
     "@jejunetwork/db": "workspace:*",
-    "@jejunetwork/farcaster": "workspace:*",
+    "@jejunetwork/messaging": "workspace:*",
     "@jejunetwork/sdk": "workspace:*",
     "@jejunetwork/shared": "workspace:*",
     "@jejunetwork/training": "workspace:*",

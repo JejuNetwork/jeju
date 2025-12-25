@@ -590,7 +590,7 @@ export function getCrucibleUrl(network?: NetworkType): string {
 /** Get OAuth3 (decentralized identity) API URL */
 export function getOAuth3Url(network?: NetworkType): string {
   const config = getServicesConfig(network)
-  return config.oauth3?.api ?? 'http://127.0.0.1:4060'
+  return config.oauth3?.api ?? 'http://127.0.0.1:4200'
 }
 
 /** Get Oracle API URL */

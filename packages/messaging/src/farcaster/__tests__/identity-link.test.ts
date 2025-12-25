@@ -238,9 +238,9 @@ describe('Identity Link', () => {
       const messageWithWhitespace = `  \n${message}\n  `
 
       // Should still fail because the format doesn't match
-      const _parsed = parseLinkProofMessage(messageWithWhitespace)
       // The parser should handle leading whitespace gracefully
       // If it doesn't, that's acceptable - the format should be exact
+      parseLinkProofMessage(messageWithWhitespace)
     })
   })
 

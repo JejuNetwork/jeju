@@ -490,6 +490,22 @@ export {
   type UploadOptions,
   type UploadResult,
 } from './services'
+// Errors
+export {
+  AuthenticationError,
+  AuthorizationError,
+  BadRequestError,
+  BusinessLogicError,
+  ConflictError,
+  DatabaseError,
+  ExternalServiceError,
+  InternalServerError,
+  JejuError,
+  NotFoundError,
+  RateLimitError,
+  ServiceUnavailableError,
+  ValidationError,
+} from './errors'
 // Singleton Utilities
 export {
   createGlobalSingleton,

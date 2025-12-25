@@ -1,3 +1,4 @@
+import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { useState } from 'react'
 import { useAccount } from 'wagmi'
 import {
@@ -16,7 +17,7 @@ export default function DeployPaymaster({
 }) {
   const [feeMargin, setFeeMargin] = useState('100')
   const [selectedToken, setSelectedToken] = useState<TokenOption | null>(null)
-  const { address: userAddress } = useAccount()
+  const { address: userAddress, isConnected } = useAccount()
 
   const { tokens } = useProtocolTokens()
 
@@ -206,16 +207,38 @@ export default function DeployPaymaster({
             </div>
           )}
 
-          <button
-            type="submit"
-            className="button"
-            style={{ width: '100%' }}
-            disabled={isPending || !userAddress}
-          >
-            {isPending
-              ? `Deploying ${selectedToken.symbol} Paymaster...`
-              : `Deploy Paymaster for ${selectedToken.symbol}`}
-          </button>
+          {isConnected ? (
+            <button
+              type="submit"
+              className="button"
+              style={{ width: '100%' }}
+              disabled={isPending}
+            >
+              {isPending
+                ? `Deploying ${selectedToken.symbol} Paymaster...`
+                : `Deploy Paymaster for ${selectedToken.symbol}`}
+            </button>
+          ) : (
+            <div
+              style={{
+                padding: '1rem',
+                textAlign: 'center',
+                background: 'var(--surface-hover)',
+                borderRadius: 'var(--radius-md)',
+              }}
+            >
+              <p
+                style={{
+                  color: 'var(--text-secondary)',
+                  marginBottom: '0.75rem',
+                  fontSize: '0.875rem',
+                }}
+              >
+                Connect your wallet to deploy
+              </p>
+              <ConnectButton />
+            </div>
+          )}
         </form>
       )}
     </div>

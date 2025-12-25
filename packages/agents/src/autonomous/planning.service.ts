@@ -10,7 +10,6 @@
 import type { IAgentRuntime } from '@elizaos/core'
 import { logger } from '@jejunetwork/shared'
 import type { JsonValue } from '@jejunetwork/types'
-import { z } from 'zod'
 import type {
   AgentConstraints,
   AgentDirective,
@@ -95,23 +94,6 @@ interface ExecutionResult {
 }
 
 /**
- * Zod schema for action plan response
- */
-const _ActionPlanResponseSchema = z.object({
-  reasoning: z.string(),
-  actions: z.array(
-    z.object({
-      type: z.enum(['trade', 'post', 'comment', 'respond', 'message']),
-      priority: z.number().min(1).max(10),
-      goalId: z.string().optional().nullable(),
-      reasoning: z.string(),
-      estimatedImpact: z.number().min(0).max(1),
-      params: z.record(z.string(), z.unknown()).optional().default({}),
-    }),
-  ),
-})
-
-/**
  * Agent planning configuration
  */
 interface PlanningAgentConfig {
@@ -184,6 +166,8 @@ export class AutonomousPlanningCoordinator {
   }
 
   /**
+<<<<<<< HEAD
+=======
    * Build planning prompt
    */
   private buildPlanningPrompt(
@@ -287,6 +271,7 @@ Your action plan (JSON only):`
   }
 
   /**
+>>>>>>> 9ead75abad3a811d2d0d16aa55c89314f789455e
    * Generate simple plan for agents without goals
    */
   private generateSimplePlan(
@@ -354,9 +339,6 @@ Your action plan (JSON only):`
       logger.info('No goals configured, using simple planning')
       return this.generateSimplePlan(config, context)
     }
-
-    // Build prompt for LLM planning
-    const _prompt = this.buildPlanningPrompt(config, context)
 
     // If no runtime, fall back to simple planning
     if (!runtime) {

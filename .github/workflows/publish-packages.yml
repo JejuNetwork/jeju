@@ -118,7 +118,7 @@ jobs:
 
       # Publish packages in dependency order
       - name: Publish packages
-        if: github.event.inputs.dry_run != 'true'
+        if: ${{ github.event.inputs.dry_run != 'true' && github.event.inputs.dry_run != true }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
@@ -160,7 +160,7 @@ jobs:
 
       # Dry run mode
       - name: Dry run (pack only)
-        if: github.event.inputs.dry_run == 'true'
+        if: ${{ github.event.inputs.dry_run == 'true' || github.event.inputs.dry_run == true }}
         run: |
           PACKAGES="types config contracts oauth3 kms db api a2a messaging shared sdk solana ui bots farcaster eliza-plugin cli tests"
           
@@ -204,7 +204,7 @@ jobs:
             | @jejunetwork/solana | ${{ steps.version.outputs.version }} |
             | @jejunetwork/ui | ${{ steps.version.outputs.version }} |
             | @jejunetwork/bots | ${{ steps.version.outputs.version }} |
-            | @jejunetwork/farcaster | ${{ steps.version.outputs.version }} |
+            | @jejunetwork/messaging | ${{ steps.version.outputs.version }} |
             | @jejunetwork/eliza-plugin | ${{ steps.version.outputs.version }} |
             | @jejunetwork/cli | ${{ steps.version.outputs.version }} |
             | @jejunetwork/tests | ${{ steps.version.outputs.version }} |

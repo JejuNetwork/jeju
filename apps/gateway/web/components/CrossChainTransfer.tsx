@@ -1,3 +1,4 @@
+import { ConnectButton } from '@rainbow-me/rainbowkit'
 import {
   calculateUsdValue as calculateUSDValue,
   formatTokenUsd as formatUSD,
@@ -22,7 +23,7 @@ const DESTINATION_CHAINS = [
 type TransferStep = 'input' | 'confirm' | 'processing' | 'complete' | 'error'
 
 export default function CrossChainTransfer() {
-  const { address: userAddress } = useAccount()
+  const { address: userAddress, isConnected } = useAccount()
   const { crossChainPaymaster } = useEILConfig()
 
   const [selectedToken, setSelectedToken] = useState<TokenOption | null>(null)
@@ -326,21 +327,45 @@ export default function CrossChainTransfer() {
             </div>
           </div>
 
-          <button
-            type="submit"
-            className="button"
-            style={{
-              width: '100%',
-              padding: '1rem',
-              fontSize: '1rem',
-              fontWeight: '600',
-              background:
-                'linear-gradient(135deg, var(--info) 0%, var(--accent-primary) 100%)',
-            }}
-            disabled={isLoading || !amount || !selectedToken}
-          >
-            {isLoading ? 'Processing...' : `Transfer to ${selectedChain?.name}`}
-          </button>
+          {isConnected ? (
+            <button
+              type="submit"
+              className="button"
+              style={{
+                width: '100%',
+                padding: '1rem',
+                fontSize: '1rem',
+                fontWeight: '600',
+                background:
+                  'linear-gradient(135deg, var(--info) 0%, var(--accent-primary) 100%)',
+              }}
+              disabled={isLoading || !amount || !selectedToken}
+            >
+              {isLoading
+                ? 'Processing...'
+                : `Transfer to ${selectedChain?.name}`}
+            </button>
+          ) : (
+            <div
+              style={{
+                padding: '1rem',
+                textAlign: 'center',
+                background: 'var(--surface-hover)',
+                borderRadius: 'var(--radius-md)',
+              }}
+            >
+              <p
+                style={{
+                  color: 'var(--text-secondary)',
+                  marginBottom: '0.75rem',
+                  fontSize: '0.875rem',
+                }}
+              >
+                Connect your wallet to transfer
+              </p>
+              <ConnectButton />
+            </div>
+          )}
         </form>
       )}
 

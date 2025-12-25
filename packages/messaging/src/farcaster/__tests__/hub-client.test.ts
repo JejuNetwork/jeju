@@ -22,7 +22,7 @@ describe('FarcasterClient', () => {
         json: () => Promise.resolve({}),
       }),
     )
-    globalThis.fetch = mockFetch as typeof fetch
+    globalThis.fetch = mockFetch as unknown as typeof fetch
   })
 
   afterEach(() => {

@@ -31,15 +31,17 @@ export interface MCPResource {
  * MCP Communication Client
  */
 export class MCPCommunicationClient {
+  private serverEndpoint: string
+
   constructor(serverEndpoint?: string) {
-    this._serverEndpoint = serverEndpoint ?? ''
+    this.serverEndpoint = serverEndpoint ?? ''
   }
 
   /**
    * List available tools
    */
   async listTools(): Promise<MCPTool[]> {
-    logger.debug('Listing MCP tools')
+    logger.debug(`Listing MCP tools from ${this.serverEndpoint || 'default'}`)
     throw new Error('Not implemented')
   }
 
