@@ -155,12 +155,12 @@ export class MeteoraAdapter implements DexAdapter {
       tokenA: {
         mint: new PublicKey(data.mint_x),
         decimals: inferDecimals(data.reserve_x_amount, data.reserve_x),
-        symbol: symbolX || '',
+        symbol: symbolX ?? '',
       },
       tokenB: {
         mint: new PublicKey(data.mint_y),
         decimals: inferDecimals(data.reserve_y_amount, data.reserve_y),
-        symbol: symbolY || '',
+        symbol: symbolY ?? '',
       },
       reserveA: BigInt(data.reserve_x),
       reserveB: BigInt(data.reserve_y),

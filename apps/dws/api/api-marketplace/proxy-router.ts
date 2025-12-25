@@ -237,7 +237,7 @@ export async function proxyRequest(
   const controller = new AbortController()
   const timeoutId = setTimeout(
     () => controller.abort(),
-    options.timeout || 30000,
+    options.timeout ?? 30000,
   )
 
   try {

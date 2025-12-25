@@ -91,7 +91,7 @@ export function createA2AServer(config: A2AConfig) {
     url: '/a2a',
     preferredTransport: 'http',
     provider: { organization: getNetworkName(), url: getWebsiteUrl() },
-    version: config.version || '1.0.0',
+    version: config.version ?? '1.0.0',
     capabilities: {
       streaming: false,
       pushNotifications: true,

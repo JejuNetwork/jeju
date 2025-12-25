@@ -11,6 +11,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
+import type { OracleNodeConfig, PriceSourceConfig } from '@jejunetwork/types'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import {
   createPublicClient,
@@ -23,10 +24,6 @@ import { privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
 import { MetricsExporter } from '../../src/oracle/metrics'
 import { PriceFetcher } from '../../src/oracle/price-fetcher'
-import type {
-  OracleNodeConfig,
-  PriceSourceConfig,
-} from '@jejunetwork/types'
 
 const SKIP_INTEGRATION = process.env.INTEGRATION_TESTS !== '1'
 

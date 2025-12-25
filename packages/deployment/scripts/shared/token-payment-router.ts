@@ -613,7 +613,7 @@ export class TokenPaymentRouter {
         },
       ],
     }
-    return COMMON_TOKENS[chainId] || []
+    return COMMON_TOKENS[chainId] ?? []
   }
 
   /**
@@ -746,22 +746,22 @@ export function createTokenPaymentRouter(
   config: Partial<PaymentRouterConfig>,
 ): TokenPaymentRouter {
   const fullConfig: PaymentRouterConfig = {
-    chainId: config.chainId || 420691,
+    chainId: config.chainId ?? 420691,
     rpcUrl:
-      config.rpcUrl || process.env.JEJU_RPC_URL || 'http://127.0.0.1:6546',
-    crossChainPaymaster: (config.crossChainPaymaster ||
-      process.env.CROSS_CHAIN_PAYMASTER_ADDRESS ||
+      config.rpcUrl ?? process.env.JEJU_RPC_URL ?? 'http://127.0.0.1:6546',
+    crossChainPaymaster: (config.crossChainPaymaster ??
+      process.env.CROSS_CHAIN_PAYMASTER_ADDRESS ??
       '0x0000000000000000000000000000000000000000') as Address,
-    appTokenPreference: (config.appTokenPreference ||
-      process.env.APP_TOKEN_PREFERENCE_ADDRESS ||
+    appTokenPreference: (config.appTokenPreference ??
+      process.env.APP_TOKEN_PREFERENCE_ADDRESS ??
       '0x0000000000000000000000000000000000000000') as Address,
-    tokenRegistry: (config.tokenRegistry ||
-      process.env.TOKEN_REGISTRY_ADDRESS ||
-      '0x0000000000000000000000000000000000000000') as Address,
+    tokenRegistry: (config.tokenRegistry ??
+      (process.env.TOKEN_REGISTRY_ADDRESS ||
+        '0x0000000000000000000000000000000000000000')) as Address,
     priceOracle: (config.priceOracle ||
       process.env.PRICE_ORACLE_ADDRESS ||
       '0x0000000000000000000000000000000000000000') as Address,
-    oifAggregator: config.oifAggregator || process.env.OIF_AGGREGATOR_URL,
+    oifAggregator: config.oifAggregator ?? process.env.OIF_AGGREGATOR_URL,
   }
 
   return new TokenPaymentRouter(fullConfig)
@@ -799,7 +799,7 @@ export async function findBestPayment(
   userTokens?: Address[],
 ): Promise<PaymentOption | null> {
   const router = createTokenPaymentRouter({})
-  const tokens = userTokens || []
+  const tokens = userTokens ?? []
   return router.getBestPaymentOption(
     { appAddress, user, amount, isGasPayment: true },
     tokens,

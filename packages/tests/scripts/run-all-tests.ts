@@ -151,7 +151,7 @@ function discoverApps(rootDir: string): AppConfig[] {
     let port = 3000
     if (existsSync(manifestPath)) {
       const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'))
-      port = manifest.ports?.main || 3000
+      port = manifest.ports?.main ?? 3000
     }
 
     const hasTests =
@@ -249,7 +249,7 @@ async function runAppTests(
   const appPath = join(rootDir, 'apps', app.name)
 
   // Run unit tests if they exist
-  const unitPath = join(appPath, app.testDir || 'tests', 'unit')
+  const unitPath = join(appPath, app.testDir ?? 'tests', 'unit')
   if (existsSync(unitPath)) {
     console.log(`\n🧪 Running ${app.name} unit tests...`)
     const start = Date.now()

@@ -20,7 +20,7 @@ class MetricsRegistry {
     labels: Record<string, string> = {},
     value = 1,
   ): void {
-    const metrics = this.counters.get(name) || []
+    const metrics = this.counters.get(name) ?? []
     const existing = metrics.find((m) => this.labelsMatch(m.labels, labels))
     if (existing) {
       existing.value += value
@@ -36,7 +36,7 @@ class MetricsRegistry {
     value: number,
     buckets: number[] = [],
   ): void {
-    const metrics = this.histograms.get(name) || []
+    const metrics = this.histograms.get(name) ?? []
     let existing = metrics.find((m) => this.labelsMatch(m.labels, labels))
 
     if (!existing) {
@@ -58,7 +58,7 @@ class MetricsRegistry {
   }
 
   getGauge(name: string): number {
-    return this.gauges.get(name) || 0
+    return this.gauges.get(name) ?? 0
   }
 
   private labelsMatch(

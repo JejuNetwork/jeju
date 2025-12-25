@@ -2,6 +2,7 @@
  * Registry and game event processor
  */
 
+import { ZERO_ADDRESS } from '@jejunetwork/types'
 import type { Store } from '@subsquid/typeorm-store'
 import { decodeAbiParameters, hexToString, parseAbi, zeroHash } from 'viem'
 import { z } from 'zod'
@@ -153,8 +154,6 @@ import {
   VALIDATION_REQUEST,
   VALIDATION_RESPONSE,
 } from './contract-events'
-
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 // ABI for decoding events
 const identityRegistryInterface = parseAbi([

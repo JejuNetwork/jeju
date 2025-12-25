@@ -450,7 +450,7 @@ describe('Agent Search Result Transformation', () => {
 
     const result: AgentSearchResult = {
       agentId: mockAgent.agentId.toString(),
-      owner: mockAgent.owner?.address || '',
+      owner: mockAgent.owner?.address ?? '',
       name: mockAgent.name || 'Unnamed Agent',
       metadataUri: mockAgent.tokenURI || '',
       active: mockAgent.active,
@@ -477,7 +477,7 @@ describe('Agent Search Result Transformation', () => {
 
     const result: AgentSearchResult = {
       agentId: mockAgent.agentId.toString(),
-      owner: mockAgent.owner?.address || '',
+      owner: mockAgent.owner?.address ?? '',
       name: mockAgent.name || 'Unnamed Agent',
       metadataUri: mockAgent.tokenURI || '',
       active: mockAgent.active,
@@ -514,10 +514,10 @@ describe('Agent Search Result Transformation', () => {
 
     const result = {
       agentId: agent.agentId.toString(),
-      name: agent.name || 'Unnamed Agent',
-      description: agent.description || null,
-      tags: agent.tags || [],
-      owner: agent.owner?.address || '',
+      name: agent.name ?? 'Unnamed Agent',
+      description: agent.description ?? null,
+      tags: agent.tags ?? [],
+      owner: agent.owner?.address ?? '',
     }
 
     expect(result.name).toBe('Unnamed Agent')
@@ -811,8 +811,8 @@ describe('Facet Aggregation', () => {
     ]
 
     for (const agent of agents) {
-      for (const tag of agent.tags || []) {
-        tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1)
+      for (const tag of agent.tags ?? []) {
+        tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1)
       }
     }
 

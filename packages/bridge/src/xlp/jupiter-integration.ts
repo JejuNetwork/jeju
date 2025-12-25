@@ -210,7 +210,7 @@ export class JupiterClient extends EventEmitter {
       outputMint: params.outputMint,
       amount: params.amount,
       slippageBps: (params.slippageBps || this.defaultSlippageBps).toString(),
-      swapMode: params.swapMode || 'ExactIn',
+      swapMode: params.swapMode ?? 'ExactIn',
       onlyDirectRoutes: (params.onlyDirectRoutes ?? false).toString(),
       asLegacyTransaction: (params.asLegacyTransaction ?? false).toString(),
     })
@@ -497,7 +497,7 @@ export class XLPJupiterFiller extends EventEmitter {
       inputMint: params.inputMint,
       outputMint: params.outputMint,
       amount: params.inputAmount,
-      slippageBps: params.maxSlippageBps || 100,
+      slippageBps: params.maxSlippageBps ?? 100,
     })
 
     // Check price impact

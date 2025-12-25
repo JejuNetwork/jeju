@@ -108,7 +108,7 @@ function discoverAppTests(rootDir: string): AppTestConfig[] {
       existsSync(join(appPath, 'tests', 'wallet'))
 
     // Load manifest for requirements
-    let _requiresChain = false
+    let requiresChain = false
     let requiresServices: string[] = []
     let timeout = 60000
 
@@ -121,7 +121,7 @@ function discoverAppTests(rootDir: string): AppTestConfig[] {
           }
         | undefined
 
-      _requiresChain = testing?.e2e?.requiresChain ?? false
+      requiresChain = testing?.e2e?.requiresChain ?? false
       requiresServices = testing?.services ?? []
       timeout = testing?.e2e?.timeout ?? 60000
     }
@@ -150,7 +150,7 @@ function discoverAppTests(rootDir: string): AppTestConfig[] {
       configs.push({
         name: app,
         type: 'e2e',
-        requiresChain: true,
+        requiresChain,
         requiresServices,
         timeout,
       })
@@ -212,7 +212,7 @@ function validateCIConfig(rootDir: string): ValidationResult {
     const config = parseYaml(content) as CIConfig
 
     // Check for required jobs
-    const jobs = Object.keys(config.jobs || {})
+    const jobs = Object.keys(config.jobs ?? {})
 
     if (!jobs.some((j) => j.includes('unit'))) {
       result.warnings.push('No unit test job found')
@@ -227,7 +227,7 @@ function validateCIConfig(rootDir: string): ValidationResult {
     }
 
     // Check for services
-    for (const [jobName, job] of Object.entries(config.jobs || {})) {
+    for (const [jobName, job] of Object.entries(config.jobs ?? {})) {
       if (
         (jobName.includes('integration') || jobName.includes('e2e')) &&
         !job.services

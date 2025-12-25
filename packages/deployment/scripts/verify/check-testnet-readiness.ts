@@ -61,7 +61,7 @@ async function checkAWSInfra() {
   // Check AWS CLI configured
   const awsCheck = await $`aws sts get-caller-identity`.quiet().nothrow()
   if (awsCheck.exitCode !== 0) {
-    const errorMsg = awsCheck.stderr.toString() || 'Unknown error'
+    const errorMsg = awsCheck.stderr.toString() ?? 'Unknown error'
     addResult(
       category,
       'AWS CLI',
@@ -110,7 +110,7 @@ async function checkAWSInfra() {
       )
     }
   } else {
-    const errorMsg = eksCheck.stderr.toString() || 'Cluster not found'
+    const errorMsg = eksCheck.stderr.toString() ?? 'Cluster not found'
     addResult(category, 'EKS Cluster', 'fail', errorMsg.split('\n')[0])
   }
 
@@ -139,7 +139,7 @@ async function checkAWSInfra() {
       )
     }
   } else {
-    const errorMsg = rdsCheck.stderr.toString() || 'Database not found'
+    const errorMsg = rdsCheck.stderr.toString() ?? 'Database not found'
     addResult(category, 'RDS Database', 'fail', errorMsg.split('\n')[0])
   }
 
@@ -151,7 +151,7 @@ async function checkAWSInfra() {
   if (ecrCheck.exitCode === 0) {
     addResult(category, 'ECR Repositories', 'pass', 'Repositories exist')
   } else {
-    const errorMsg = ecrCheck.stderr.toString() || 'Repositories not found'
+    const errorMsg = ecrCheck.stderr.toString() ?? 'Repositories not found'
     addResult(category, 'ECR Repositories', 'fail', errorMsg.split('\n')[0])
   }
 
@@ -183,7 +183,7 @@ async function checkAWSInfra() {
       )
     }
   } else {
-    const errorMsg = r53Check.stderr.toString() || 'Zone check failed'
+    const errorMsg = r53Check.stderr.toString() ?? 'Zone check failed'
     addResult(category, 'Route53 Zone', 'fail', errorMsg.split('\n')[0])
   }
 
@@ -217,7 +217,7 @@ async function checkAWSInfra() {
       )
     }
   } else {
-    const errorMsg = acmCheck.stderr.toString() || 'Certificate check failed'
+    const errorMsg = acmCheck.stderr.toString() ?? 'Certificate check failed'
     addResult(category, 'ACM Certificate', 'fail', errorMsg.split('\n')[0])
   }
 }
@@ -547,7 +547,7 @@ async function checkChainStatus() {
         category,
         'L2 RPC',
         'fail',
-        data.error?.message || 'No response',
+        data.error?.message ?? 'No response',
       )
     }
   } catch {
@@ -564,7 +564,7 @@ async function checkApplicationContracts() {
   if (existsSync(oifFile)) {
     const oifContent = readFileSync(oifFile, 'utf-8')
     const oif = expectJson(oifContent, OIFDeploymentSchema, 'OIF deployment')
-    const deployedChains = Object.values(oif.chains || {}).filter(
+    const deployedChains = Object.values(oif.chains ?? {}).filter(
       (c) => c.status === 'deployed',
     ).length
     addResult(
@@ -653,7 +653,7 @@ async function checkNetworkInfrastructure(network: string) {
   if (cdnCheck.exitCode === 0) {
     type CloudFrontQueryResult = Array<Record<string, string>> | null
     const parsed = JSON.parse(
-      cdnCheck.stdout.toString() || '[]',
+      cdnCheck.stdout.toString() ?? '[]',
     ) as CloudFrontQueryResult
     const dists = Array.isArray(parsed) ? parsed : []
     if (dists.length > 0) {
@@ -681,7 +681,7 @@ async function checkNetworkInfrastructure(network: string) {
       .quiet()
       .nothrow()
   if (gcpCheck.exitCode === 0) {
-    const backends = JSON.parse(gcpCheck.stdout.toString() || '[]')
+    const backends = JSON.parse(gcpCheck.stdout.toString() ?? '[]')
     if (backends.length > 0) {
       addResult(
         category,

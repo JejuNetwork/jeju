@@ -88,7 +88,7 @@ export const discussionsRoutes = new Elysia({ prefix: '/api/discussions' })
         title: validated.title,
         content: validated.content,
         category: validated.category,
-        tags: validated.tags || [],
+        tags: validated.tags ?? [],
         author: {
           id: authResult.address,
           name: authResult.address.slice(0, 8),

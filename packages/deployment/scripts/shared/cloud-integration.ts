@@ -141,8 +141,8 @@ export class CloudIntegration {
   constructor(config: CloudConfig) {
     this.config = config
     this.chain =
-      config.chain ||
-      ({ id: Number(config.chainId || 31337n), name: 'local' } as Chain)
+      config.chain ??
+      ({ id: Number(config.chainId ?? 31337n), name: 'local' } as Chain)
 
     this.client = createPublicClient({
       chain: this.chain,
@@ -273,7 +273,7 @@ export class CloudIntegration {
       agentId,
       account.address, // Client is the operator calling setReputation
       this.config.reputationRegistryAddress,
-      this.config.chainId || 31337n,
+      this.config.chainId ?? 31337n,
     )
 
     const hash = await this.walletClient.writeContract({

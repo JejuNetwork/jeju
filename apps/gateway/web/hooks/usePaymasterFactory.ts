@@ -1,3 +1,4 @@
+import { ZERO_ADDRESS } from '@jejunetwork/types'
 import { useCallback } from 'react'
 import type { Address } from 'viem'
 import { useAccount, useReadContract } from 'wagmi'
@@ -72,8 +73,6 @@ export function usePaymasterFactory(): UsePaymasterFactoryResult {
     refetchDeployments,
   }
 }
-
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address
 
 const GET_DEPLOYMENT_ABI = [
   {

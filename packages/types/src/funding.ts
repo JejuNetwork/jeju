@@ -400,7 +400,7 @@ export function getContributorTypeIndex(type: ContributorType): number {
 }
 
 export function parseContributorType(index: number): ContributorType {
-  return CONTRIBUTOR_TYPES[index] || 'INDIVIDUAL'
+  return CONTRIBUTOR_TYPES[index] ?? 'INDIVIDUAL'
 }
 
 export function getVerificationStatusIndex(status: VerificationStatus): number {
@@ -408,7 +408,7 @@ export function getVerificationStatusIndex(status: VerificationStatus): number {
 }
 
 export function parseVerificationStatus(index: number): VerificationStatus {
-  return VERIFICATION_STATUSES[index] || 'UNVERIFIED'
+  return VERIFICATION_STATUSES[index] ?? 'UNVERIFIED'
 }
 
 export function getPaymentCategoryIndex(category: PaymentCategory): number {
@@ -416,7 +416,7 @@ export function getPaymentCategoryIndex(category: PaymentCategory): number {
 }
 
 export function parsePaymentCategory(index: number): PaymentCategory {
-  return PAYMENT_CATEGORIES[index] || 'OTHER'
+  return PAYMENT_CATEGORIES[index] ?? 'OTHER'
 }
 
 export function getPaymentStatusIndex(status: PaymentRequestStatus): number {
@@ -424,7 +424,7 @@ export function getPaymentStatusIndex(status: PaymentRequestStatus): number {
 }
 
 export function parsePaymentStatus(index: number): PaymentRequestStatus {
-  return PAYMENT_REQUEST_STATUSES[index] || 'SUBMITTED'
+  return PAYMENT_REQUEST_STATUSES[index] ?? 'SUBMITTED'
 }
 
 export function getPaymentVoteTypeIndex(vote: PaymentVoteType): number {
@@ -432,5 +432,5 @@ export function getPaymentVoteTypeIndex(vote: PaymentVoteType): number {
 }
 
 export function parsePaymentVoteType(index: number): PaymentVoteType {
-  return PAYMENT_VOTE_TYPES[index] || 'ABSTAIN'
+  return PAYMENT_VOTE_TYPES[index] ?? 'ABSTAIN'
 }

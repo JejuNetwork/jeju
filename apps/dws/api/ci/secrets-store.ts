@@ -249,9 +249,9 @@ export class CISecretsStore {
       repoId,
       name,
       url: options.url,
-      protectionRules: options.protectionRules || {},
+      protectionRules: options.protectionRules ?? {},
       secrets: [],
-      variables: options.variables || {},
+      variables: options.variables ?? {},
       createdAt: Date.now(),
       updatedAt: Date.now(),
     }

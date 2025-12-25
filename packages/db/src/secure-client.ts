@@ -23,10 +23,15 @@
  * ```
  */
 
-import type { JsonRecord } from '@jejunetwork/types'
+import { expectValid, type JsonRecord } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import { privateKeyToAccount, signMessage } from 'viem/accounts'
 import { z } from 'zod'
+
+/** Error response schema for API calls */
+const ErrorResponseSchema = z.object({
+  error: z.string(),
+})
 
 // API response schemas
 const ProvisionedDatabaseSchema = z.object({
@@ -84,6 +89,22 @@ export interface ExecResult {
   blockHeight: number
   gasUsed: string
 }
+
+const _QueryResultSchema = z.object({
+  rows: z.array(z.record(z.string(), z.unknown())),
+  rowCount: z.number(),
+  columns: z.array(z.string()),
+  executionTime: z.number().optional(),
+  blockHeight: z.number(),
+})
+
+const _ExecResultSchema = z.object({
+  rowsAffected: z.number(),
+  lastInsertId: z.string().optional(),
+  txHash: z.string(),
+  blockHeight: z.number(),
+  gasUsed: z.string(),
+})
 
 // Client Implementation
 
@@ -148,13 +169,20 @@ export class SecureCQLClient {
     )
 
     if (!response.ok) {
-      const error = await response
-        .json()
-        .catch(() => ({ error: 'Unknown error' }))
-      throw new Error(`Failed to provision database: ${error.error}`)
+      const errorResult = ErrorResponseSchema.safeParse(
+        await response.json().catch(() => ({})),
+      )
+      const errorMsg = errorResult.success
+        ? errorResult.data.error
+        : 'Unknown error'
+      throw new Error(`Failed to provision database: ${errorMsg}`)
     }
 
-    const result = ProvisionResponseSchema.parse(await response.json())
+    const result = expectValid(
+      ProvisionResponseSchema,
+      await response.json(),
+      'provision response',
+    )
     this.databaseId = result.database.databaseId
     return result.database
   }
@@ -224,10 +252,13 @@ export class SecureCQLClient {
     })
 
     if (!response.ok) {
-      const error = await response
-        .json()
-        .catch(() => ({ error: 'Unknown error' }))
-      throw new Error(`Failed to grant access: ${error.error}`)
+      const errorResult = ErrorResponseSchema.safeParse(
+        await response.json().catch(() => ({})),
+      )
+      const errorMsg = errorResult.success
+        ? errorResult.data.error
+        : 'Unknown error'
+      throw new Error(`Failed to grant access: ${errorMsg}`)
     }
   }
 
@@ -265,10 +296,13 @@ export class SecureCQLClient {
     })
 
     if (!response.ok) {
-      const error = await response
-        .json()
-        .catch(() => ({ error: 'Unknown error' }))
-      throw new Error(`Failed to revoke access: ${error.error}`)
+      const errorResult = ErrorResponseSchema.safeParse(
+        await response.json().catch(() => ({})),
+      )
+      const errorMsg = errorResult.success
+        ? errorResult.data.error
+        : 'Unknown error'
+      throw new Error(`Failed to revoke access: ${errorMsg}`)
     }
   }
 
@@ -285,7 +319,11 @@ export class SecureCQLClient {
       throw new Error('Failed to list databases')
     }
 
-    const result = ListDatabasesResponseSchema.parse(await response.json())
+    const result = expectValid(
+      ListDatabasesResponseSchema,
+      await response.json(),
+      'list databases response',
+    )
     return result.databases
   }
 
@@ -334,13 +372,20 @@ export class SecureCQLClient {
     })
 
     if (!response.ok) {
-      const error = await response
-        .json()
-        .catch(() => ({ error: 'Unknown error' }))
-      throw new Error(`CQL ${type} failed: ${error.error}`)
+      const errorResult = ErrorResponseSchema.safeParse(
+        await response.json().catch(() => ({})),
+      )
+      const errorMsg = errorResult.success
+        ? errorResult.data.error
+        : 'Unknown error'
+      throw new Error(`CQL ${type} failed: ${errorMsg}`)
     }
 
-    return response.json() as Promise<T>
+    const data = await response.json()
+    if (type === 'query') {
+      return expectValid(_QueryResultSchema, data, 'CQL query response') as T
+    }
+    return expectValid(_ExecResultSchema, data, 'CQL exec response') as T
   }
 }
 

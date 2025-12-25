@@ -14,6 +14,47 @@ const CqlRowsResponseSchema = z.object({
   rows: z.array(z.record(z.string(), z.unknown())).optional(),
 })
 
+// Agent data schemas for database reads
+const AgentCharacterSchema = z.object({
+  name: z.string(),
+  system: z.string(),
+  bio: z.array(z.string()),
+  messageExamples: z
+    .array(
+      z.array(
+        z.object({ name: z.string(), content: z.object({ text: z.string() }) }),
+      ),
+    )
+    .optional(),
+  topics: z.array(z.string()).optional(),
+  adjectives: z.array(z.string()).optional(),
+  style: z
+    .object({
+      all: z.array(z.string()).optional(),
+      chat: z.array(z.string()).optional(),
+      post: z.array(z.string()).optional(),
+    })
+    .optional(),
+  knowledge: z.array(z.string()).optional(),
+  lore: z.array(z.string()).optional(),
+})
+
+const AgentRuntimeConfigSchema = z.object({
+  keepWarm: z.boolean(),
+  cronSchedule: z.string().optional(),
+  maxMemoryMb: z.number(),
+  timeoutMs: z.number(),
+  plugins: z.array(z.string()),
+  mcpServers: z.array(z.string()).optional(),
+  a2aCapabilities: z.array(z.string()).optional(),
+})
+
+const AgentModelsConfigSchema = z.object({
+  small: z.string().optional(),
+  large: z.string().optional(),
+  embedding: z.string().optional(),
+})
+
 import type {
   AgentConfig,
   AgentCronTrigger,
@@ -153,15 +194,19 @@ async function loadAgentsFromCQL(): Promise<void> {
     const agent: AgentConfig = {
       id: row.id,
       owner: row.owner,
-      character: JSON.parse(row.character),
-      models: row.models ? JSON.parse(row.models) : undefined,
-      runtime: JSON.parse(row.runtime),
+      character: AgentCharacterSchema.parse(JSON.parse(row.character)),
+      models: row.models
+        ? AgentModelsConfigSchema.parse(JSON.parse(row.models))
+        : undefined,
+      runtime: AgentRuntimeConfigSchema.parse(JSON.parse(row.runtime)),
       secretsKeyId: row.secrets_key_id ?? undefined,
       memoriesDbId: row.memories_db_id ?? undefined,
       status: row.status,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
-      metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
+      metadata: row.metadata
+        ? z.record(z.string(), z.string()).parse(JSON.parse(row.metadata))
+        : undefined,
     }
     agents.set(agent.id, agent)
   }
@@ -188,7 +233,9 @@ async function loadAgentsFromCQL(): Promise<void> {
       agentId: row.agent_id,
       schedule: row.schedule,
       action,
-      payload: row.payload ? JSON.parse(row.payload) : undefined,
+      payload: row.payload
+        ? z.record(z.string(), z.unknown()).parse(JSON.parse(row.payload))
+        : undefined,
       enabled: row.enabled === 1,
       lastRunAt: row.last_run_at ?? undefined,
       nextRunAt: row.next_run_at ?? undefined,

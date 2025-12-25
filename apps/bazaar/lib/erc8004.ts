@@ -19,10 +19,10 @@ const REPUTATION_MANAGER_ABI = parseAbi([
 ])
 
 const ZERO_ADDRESS: Address = '0x0000000000000000000000000000000000000000'
-const IDENTITY_REGISTRY_ADDRESS = CONTRACTS.identityRegistry || ZERO_ADDRESS
-const BAN_MANAGER_ADDRESS = CONTRACTS.banManager || ZERO_ADDRESS
-const REPUTATION_MANAGER_ADDRESS =
-  CONTRACTS.reputationLabelManager || ZERO_ADDRESS
+// CONTRACTS already returns ZERO_ADDRESS when env var is not set
+const IDENTITY_REGISTRY_ADDRESS = CONTRACTS.identityRegistry
+const BAN_MANAGER_ADDRESS = CONTRACTS.banManager
+const REPUTATION_MANAGER_ADDRESS = CONTRACTS.reputationLabelManager
 
 export interface BanCheckResult {
   allowed: boolean
@@ -80,14 +80,14 @@ export async function checkUserBan(
 
     return {
       allowed: false,
-      reason: String(reason),
+      reason: reason as string,
       bannedUntil: Number(expiry),
     }
   }
 
   if (appId) {
-    const hexStr = Buffer.from(appId).toString('hex').padEnd(64, '0')
-    const appIdBytes: `0x${string}` = `0x${hexStr}`
+    const appIdBytes =
+      `0x${Buffer.from(appId).toString('hex').padEnd(64, '0')}` as `0x${string}`
     const isAllowed = await publicClient.readContract({
       address: BAN_MANAGER_ADDRESS,
       abi: BAN_MANAGER_ABI,

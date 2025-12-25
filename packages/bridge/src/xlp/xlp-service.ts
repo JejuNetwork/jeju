@@ -599,7 +599,7 @@ export class XLPService extends EventEmitter {
    * Check if rebalancing is needed and execute if so
    */
   async checkRebalancing(): Promise<void> {
-    const allocation = this.config.targetAllocation || DEFAULT_ALLOCATION
+    const allocation = this.config.targetAllocation ?? DEFAULT_ALLOCATION
     const totalValue = await this.calculateTotalValue()
 
     if (totalValue === 0n) return
@@ -607,11 +607,11 @@ export class XLPService extends EventEmitter {
     const chainValues: Record<number, bigint> = {}
     for (const [key, position] of this.positions) {
       const chainId = Number(key.split('-')[0])
-      chainValues[chainId] = (chainValues[chainId] || 0n) + position.balance
+      chainValues[chainId] = (chainValues[chainId] ?? 0n) + position.balance
     }
 
     for (const [chainId, targetPct] of Object.entries(allocation)) {
-      const currentValue = chainValues[Number(chainId)] || 0n
+      const currentValue = chainValues[Number(chainId)] ?? 0n
       const currentPct = Number((currentValue * 100n) / totalValue)
 
       const diff = currentPct - Number(targetPct)
@@ -640,7 +640,7 @@ export class XLPService extends EventEmitter {
     for (const stats of this.routeVolumes.values()) {
       // Destination chain needs liquidity to fill
       chainInflows[stats.destChain] =
-        (chainInflows[stats.destChain] || 0n) + stats.volume24h
+        (chainInflows[stats.destChain] ?? 0n) + stats.volume24h
     }
 
     // Calculate optimal allocation based on inflow volume
@@ -654,7 +654,7 @@ export class XLPService extends EventEmitter {
     for (const [chainId, inflow] of Object.entries(chainInflows)) {
       const pct = Number((inflow * 100n) / totalInflow)
       // Blend with default allocation (50/50)
-      const defaultPct = DEFAULT_ALLOCATION[Number(chainId)] || 0
+      const defaultPct = DEFAULT_ALLOCATION[Number(chainId)] ?? 0
       optimizedAllocation[Number(chainId)] = Math.round((pct + defaultPct) / 2)
     }
 
@@ -769,7 +769,7 @@ export class XLPService extends EventEmitter {
 
 export function createXLPService(config: Partial<XLPConfig>): XLPService {
   // SECURITY: Private key is required - no fallbacks to invalid values
-  const privateKey = config.privateKey || process.env.XLP_PRIVATE_KEY
+  const privateKey = config.privateKey ?? process.env.XLP_PRIVATE_KEY
   if (!privateKey) {
     throw new Error(
       'XLP_PRIVATE_KEY is required. Set it via config.privateKey or XLP_PRIVATE_KEY environment variable. ' +
@@ -779,14 +779,14 @@ export function createXLPService(config: Partial<XLPConfig>): XLPService {
 
   const fullConfig: XLPConfig = {
     privateKey: privateKey as Hex,
-    rpcUrls: config.rpcUrls || {
-      1: process.env.RPC_URL_1 || 'https://eth.llamarpc.com',
-      42161: process.env.RPC_URL_42161 || 'https://arb1.arbitrum.io/rpc',
-      10: process.env.RPC_URL_10 || 'https://mainnet.optimism.io',
-      8453: process.env.RPC_URL_8453 || 'https://mainnet.base.org',
+    rpcUrls: config.rpcUrls ?? {
+      1: process.env.RPC_URL_1 ?? 'https://eth.llamarpc.com',
+      42161: process.env.RPC_URL_42161 ?? 'https://arb1.arbitrum.io/rpc',
+      10: process.env.RPC_URL_10 ?? 'https://mainnet.optimism.io',
+      8453: process.env.RPC_URL_8453 ?? 'https://mainnet.base.org',
     },
-    xlpPoolAddresses: config.xlpPoolAddresses || {},
-    supportedTokens: config.supportedTokens || ['USDC', 'USDT', 'WETH'],
+    xlpPoolAddresses: config.xlpPoolAddresses ?? {},
+    supportedTokens: config.supportedTokens ?? ['USDC', 'USDT', 'WETH'],
     targetAllocation: config.targetAllocation,
   }
 

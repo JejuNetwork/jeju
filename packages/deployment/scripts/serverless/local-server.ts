@@ -91,10 +91,10 @@ class DWSClient {
         name,
         code: code.toString('base64'),
         runtime,
-        handler: config.handler || 'default',
-        memory: config.memory || 256,
-        timeout: config.timeout || 30000,
-        env: config.env || {},
+        handler: config.handler ?? 'default',
+        memory: config.memory ?? 256,
+        timeout: config.timeout ?? 30000,
+        env: config.env ?? {},
       }),
     })
 
@@ -118,7 +118,7 @@ class DWSClient {
     }
 
     const data = await response.json()
-    return data.functions || []
+    return data.functions ?? []
   }
 
   async deleteWorker(functionId: string): Promise<void> {

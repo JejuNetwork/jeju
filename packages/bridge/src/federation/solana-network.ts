@@ -3,6 +3,7 @@
  * Registers and manages Solana as a federated network in Jeju's NetworkRegistry
  */
 
+import { ZERO_ADDRESS } from '@jejunetwork/types'
 import { Connection, PublicKey } from '@solana/web3.js'
 import {
   type Address,
@@ -32,8 +33,6 @@ const NETWORK_REGISTRY_ABI = parseAbi([
   'event NetworkRegistered(uint256 indexed chainId, string name, address indexed operator, uint256 stake)',
   'event TrustEstablished(uint256 indexed sourceChainId, uint256 indexed targetChainId, address indexed attestedBy)',
 ])
-
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address
 
 const SOLANA_CHAIN_ID = 101n
 const SOLANA_DEVNET_CHAIN_ID = 102n

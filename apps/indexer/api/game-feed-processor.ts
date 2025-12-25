@@ -2,6 +2,7 @@
  * Game Feed Processor - Indexes GameFeedOracle events
  */
 
+import { ZERO_ADDRESS } from '@jejunetwork/types'
 import type { Store } from '@subsquid/typeorm-store'
 import { keccak256, parseAbi, stringToHex } from 'viem'
 import {
@@ -70,8 +71,6 @@ interface AchievementEventArgs {
   achievementType: string
   value: bigint
 }
-
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 const gameFeedInterface = parseAbi([
   'event FeedPostPublished(bytes32 indexed sessionId, bytes32 indexed postId, address indexed author, string content, uint8 gameDay, uint256 timestamp)',

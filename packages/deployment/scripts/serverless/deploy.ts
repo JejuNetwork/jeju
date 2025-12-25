@@ -360,7 +360,7 @@ class ServerlessDeployer {
       const relativePath = relative(buildDir, file)
       const content = readFileSync(file)
       const ext = extname(file)
-      const mimeType = MIME_TYPES[ext] || 'application/octet-stream'
+      const mimeType = MIME_TYPES[ext] ?? 'application/octet-stream'
       const hash = createHash('sha256').update(content).digest('hex')
       const size = content.length
       totalSize += size
@@ -724,7 +724,7 @@ class ServerlessDeployer {
       message: hasContent ? 'JNS resolves correctly' : 'JNS not configured',
       details: {
         jnsName: app.jnsName,
-        node: app.jnsNode || '',
+        node: app.jnsNode ?? '',
       },
       duration: Date.now() - start,
     }

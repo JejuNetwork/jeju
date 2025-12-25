@@ -100,12 +100,12 @@ export class OAuth3DecentralizedDiscovery {
   private lastCacheUpdate = 0
 
   constructor(config: DecentralizedConfig = {}) {
-    this.chainId = config.chainId || CHAIN_IDS.localnet
+    this.chainId = config.chainId ?? CHAIN_IDS.localnet
     const contracts = getContracts(this.chainId)
-    const rpcUrl = config.rpcUrl || process.env.JEJU_RPC_URL || DEFAULT_RPC
+    const rpcUrl = config.rpcUrl ?? process.env.JEJU_RPC_URL ?? DEFAULT_RPC
 
     this.client = createPublicClient({ transport: http(rpcUrl) })
-    this.appRegistryAddress = config.appRegistryAddress || contracts.appRegistry
+    this.appRegistryAddress = config.appRegistryAddress ?? contracts.appRegistry
 
     this.jns = createOAuth3JNSService({ rpcUrl, chainId: this.chainId })
     this.storage = createOAuth3StorageService({
@@ -267,7 +267,7 @@ export class OAuth3DecentralizedDiscovery {
     this.lastCacheUpdate = Date.now()
     return nodes.sort(
       (a, b) =>
-        Number(b.stake - a.stake) + ((a.latency || 1000) - (b.latency || 1000)),
+        Number(b.stake - a.stake) + ((a.latency ?? 1000) - (b.latency ?? 1000)),
     )
   }
 

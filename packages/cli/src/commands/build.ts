@@ -156,7 +156,7 @@ async function buildApp(rootDir: string, appName: string): Promise<void> {
       define: {
         'process.env.NODE_ENV': JSON.stringify('production'),
         'process.env.PUBLIC_API_URL': JSON.stringify(
-          process.env.PUBLIC_API_URL || '',
+          process.env.PUBLIC_API_URL ?? '',
         ),
       },
       naming: {
