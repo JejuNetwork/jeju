@@ -94,7 +94,7 @@ interface ServiceSearchResult {
 function validateSearchParams(raw: SearchParams): ValidatedSearchParams {
   const validEndpointTypes = ['a2a', 'mcp', 'rest', 'graphql', 'all']
 
-  const endpointType = validEndpointTypes.includes(raw.endpointType || '')
+  const endpointType = validEndpointTypes.includes(raw.endpointType ?? '')
     ? (raw.endpointType as ValidatedSearchParams['endpointType'])
     : 'all'
 

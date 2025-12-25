@@ -129,8 +129,8 @@ export default function DeployPaymaster({
               id="fee-margin"
               className="input"
               type="range"
-              min={config.minFeeMargin.toString()}
-              max={config.maxFeeMargin.toString()}
+              min="10"
+              max="500"
               value={feeMargin}
               onChange={(e) => setFeeMargin(e.target.value)}
               disabled={isPending}
@@ -144,13 +144,13 @@ export default function DeployPaymaster({
                 marginTop: '0.5rem',
               }}
             >
-              <span>{Number(config.minFeeMargin) / 100}% min</span>
+              <span>0.1% min</span>
               <span
                 style={{ fontWeight: '600', color: 'var(--accent-primary)' }}
               >
                 {parseInt(feeMargin, 10) / 100}% selected
               </span>
-              <span>{Number(config.maxFeeMargin) / 100}% max</span>
+              <span>5% max</span>
             </div>
           </div>
 

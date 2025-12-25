@@ -71,7 +71,6 @@ const InvokeWorkerBodySchema = z.object({
 const ReplicateWorkerBodySchema = z.object({
   targetCount: z.number().int().positive().optional(),
 })
-type ReplicateWorkerBody = z.infer<typeof ReplicateWorkerBodySchema>
 
 /** Zod schema for registry deployment */
 const DeployFromRegistryBodySchema = z.object({
@@ -289,7 +288,7 @@ export function createWorkerdRouter(options: WorkerdRouterOptions) {
         // Register on-chain if decentralized
         if (registry && enableDecentralized) {
           const endpoint =
-            routerConfig?.localEndpoint || DEFAULT_ROUTER_CONFIG.localEndpoint
+            routerConfig?.localEndpoint ?? DEFAULT_ROUTER_CONFIG.localEndpoint
           await registry
             .registerWorker(worker, endpoint)
             .catch((err: Error) => {

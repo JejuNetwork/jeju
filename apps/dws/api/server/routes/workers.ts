@@ -35,7 +35,6 @@ const DeployWorkerJsonBodySchema = z.object({
   timeout: z.number().int().positive().optional(),
   env: EnvRecordSchema.optional(),
 })
-type DeployWorkerJsonBody = z.infer<typeof DeployWorkerJsonBodySchema>
 
 /** Zod schema for worker update */
 const UpdateWorkerJsonBodySchema = z.object({
@@ -45,7 +44,6 @@ const UpdateWorkerJsonBodySchema = z.object({
   env: EnvRecordSchema.optional(),
   handler: z.string().optional(),
 })
-type UpdateWorkerJsonBody = z.infer<typeof UpdateWorkerJsonBodySchema>
 
 export function createWorkersRouter(backend: BackendManager) {
   const runtime = new WorkerRuntime(backend)

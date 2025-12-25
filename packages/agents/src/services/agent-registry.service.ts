@@ -145,7 +145,8 @@ export class AgentRegistryService {
     }
 
     if (filter.minTrustLevel !== undefined) {
-      results = results.filter((a) => a.trustLevel >= filter.minTrustLevel!)
+      const minTrust = filter.minTrustLevel
+      results = results.filter((a) => a.trustLevel >= minTrust)
     }
 
     if (filter.search) {

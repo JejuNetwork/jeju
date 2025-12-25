@@ -407,12 +407,12 @@ export function createOAuth3Worker(config: OAuth3WorkerConfig) {
 
         if (authHeader?.startsWith('Bearer ')) {
           token = authHeader.slice(7)
-        } else if (
-          typeof body === 'object' &&
-          body !== null &&
-          'token' in body
-        ) {
-          token = (body as { token?: string }).token
+        } else {
+          const bodySchema = z.object({ token: z.string().optional() })
+          const parsed = bodySchema.safeParse(body)
+          if (parsed.success) {
+            token = parsed.data.token
+          }
         }
 
         if (!token) {
