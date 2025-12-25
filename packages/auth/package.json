@@ -26,6 +26,7 @@
     "@jejunetwork/shared": "workspace:*",
     "@jejunetwork/types": "workspace:*",
     "@noble/curves": "1.9.7",
+    "@noble/hashes": "1.7.1",
     "elysia": "1.3.3",
     "viem": "2.43.3",
     "zod": "4.2.1"

@@ -307,20 +307,6 @@ export const CORE_PORTS = {
     get: () => safeParsePort(process.env.LEADERBOARD_PORT, 4090),
   },
 
-  /** Babylon Web Frontend - Social prediction platform */
-  BABYLON_WEB: {
-    DEFAULT: 5008,
-    ENV_VAR: 'BABYLON_WEB_PORT',
-    get: () => safeParsePort(process.env.BABYLON_WEB_PORT, 5008),
-  },
-
-  /** Babylon API - Social prediction backend */
-  BABYLON_API: {
-    DEFAULT: 5009,
-    ENV_VAR: 'BABYLON_API_PORT',
-    get: () => safeParsePort(process.env.BABYLON_API_PORT, 5009),
-  },
-
   /** Monitoring - Infrastructure monitoring service */
   MONITORING: {
     DEFAULT: 3002,
@@ -346,38 +332,6 @@ export const CORE_PORTS = {
 // Vendor Apps (5000-5999 range)
 
 export const VENDOR_PORTS = {
-  /**
-   * Hyperscape Client - 3D on-chain RPG (Vite dev server)
-   * Standalone: 3333 (default)
-   * Network mode: 5013 (set via VITE_PORT in jeju-manifest.json)
-   */
-  HYPERSCAPE_CLIENT: {
-    DEFAULT: 3333,
-    JEJU: 5013,
-    ENV_VAR: 'VITE_PORT',
-    get: () =>
-      safeParsePort(
-        process.env.VITE_PORT ?? process.env.VENDOR_HYPERSCAPE_CLIENT_PORT,
-        3333,
-      ),
-  },
-
-  /**
-   * Hyperscape Server - Game server (Fastify + WebSockets)
-   * Standalone: 5555 (default)
-   * Network mode: 5014 (set via PORT in jeju-manifest.json)
-   */
-  HYPERSCAPE_SERVER: {
-    DEFAULT: 5555,
-    JEJU: 5014,
-    ENV_VAR: 'PORT',
-    get: () =>
-      safeParsePort(
-        process.env.PORT ?? process.env.VENDOR_HYPERSCAPE_SERVER_PORT,
-        5555,
-      ),
-  },
-
   /** Launchpad Frontend - Token launchpad UI */
   LAUNCHPAD_FRONTEND: {
     DEFAULT: 5003,

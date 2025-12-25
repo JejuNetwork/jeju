@@ -36,6 +36,13 @@ const MAX_CONVERSATIONS = 500
 const MAX_DC_TEXT_LENGTH = 2000
 /** Default timeout for relay requests */
 const RELAY_TIMEOUT_MS = 10000
+/** WebSocket reconnection configuration */
+const INITIAL_RECONNECT_DELAY_MS = 1000
+const MAX_RECONNECT_DELAY_MS = 30000
+const MAX_RECONNECT_ATTEMPTS = 10
+/** Maximum pending messages to queue when disconnected */
+const MAX_PENDING_MESSAGES = 100
+
 export class DirectCastClient {
   private config: DCClientConfig
   private isInitialized: boolean = false
@@ -47,6 +54,13 @@ export class DirectCastClient {
   // Encryption key pair (X25519 derived from Ed25519 signer)
   private encryptionPrivateKey: Uint8Array | null = null
   private encryptionPublicKey: Uint8Array | null = null
+
+  // WebSocket reconnection state
+  private reconnectAttempts: number = 0
+  private reconnectTimeout: NodeJS.Timeout | null = null
+  private connectionPromise: Promise<void> | null = null
+  private pendingMessages: EncryptedDirectCast[] = []
+  private isShuttingDown: boolean = false
 
   constructor(config: DCClientConfig) {
     this.config = config
@@ -79,9 +93,23 @@ export class DirectCastClient {
    * Shutdown the client
    */
   async shutdown(): Promise<void> {
-    this.relayConnection?.close()
+    this.isShuttingDown = true
+
+    // Cancel any pending reconnection
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout)
+      this.reconnectTimeout = null
+    }
+
+    // Close WebSocket connection
+    if (this.relayConnection) {
+      this.relayConnection.close(1000, 'Client shutting down')
+      this.relayConnection = null
+    }
+
     await this.saveConversations()
     this.isInitialized = false
+    this.isShuttingDown = false
   }
 
   /**
@@ -466,24 +494,179 @@ export class DirectCastClient {
     )
   }
   /**
-   * Connect to relay server
+   * Connect to relay server with automatic reconnection
    */
   private async connectToRelay(): Promise<void> {
     const relayUrl = this.config.relayUrl
     if (!relayUrl) return
 
-    return new Promise((resolve) => {
-      const wsUrl = `${relayUrl.replace('http', 'ws')}/dc`
+    if (this.connectionPromise) {
+      return this.connectionPromise
+    }
 
-      // In production, use actual WebSocket
+    this.connectionPromise = this.establishRelayConnection()
+    return this.connectionPromise.finally(() => {
+      this.connectionPromise = null
+    })
+  }
+
+  /**
+   * Establish WebSocket connection to relay
+   */
+  private async establishRelayConnection(): Promise<void> {
+    const relayUrl = this.config.relayUrl
+    if (!relayUrl) return
+
+    return new Promise((resolve, reject) => {
+      const wsUrl = this.buildWebSocketUrl(relayUrl, '/dc')
       console.log(`[DC Client] Connecting to relay: ${wsUrl}`)
 
-      // Simulate connection for now
-      setTimeout(() => {
+      const ws = new WebSocket(wsUrl)
+
+      const connectionTimeout = setTimeout(() => {
+        ws.close()
+        reject(new Error(`Connection timeout to ${wsUrl}`))
+      }, 10000)
+
+      ws.onopen = () => {
+        clearTimeout(connectionTimeout)
+        this.relayConnection = ws
+        this.reconnectAttempts = 0
         console.log(`[DC Client] Connected to relay`)
+
+        // Authenticate with the relay
+        const authMessage = JSON.stringify({
+          type: 'auth',
+          fid: this.config.fid,
+          publicKey: this.encryptionPublicKey
+            ? bytesToHex(this.encryptionPublicKey)
+            : null,
+        })
+        ws.send(authMessage)
+
+        // Flush any pending messages
+        this.flushPendingMessages()
+
         resolve()
-      }, 100)
+      }
+
+      ws.onmessage = (event) => {
+        this.handleWebSocketMessage(event)
+      }
+
+      ws.onclose = (event) => {
+        clearTimeout(connectionTimeout)
+        this.relayConnection = null
+        console.log(
+          `[DC Client] Relay connection closed: ${event.code} ${event.reason}`,
+        )
+
+        if (this.isInitialized && !this.isShuttingDown) {
+          this.scheduleReconnect()
+        }
+      }
+
+      ws.onerror = (error) => {
+        clearTimeout(connectionTimeout)
+        console.error(`[DC Client] WebSocket error:`, error)
+        // onclose will be called after onerror
+      }
     })
+  }
+
+  /**
+   * Build WebSocket URL from HTTP URL
+   */
+  private buildWebSocketUrl(httpUrl: string, path: string): string {
+    const url = httpUrl.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:')
+    const base = url.endsWith('/') ? url.slice(0, -1) : url
+    return `${base}${path}`
+  }
+
+  /**
+   * Handle incoming WebSocket message from relay
+   */
+  private handleWebSocketMessage(event: MessageEvent): void {
+    const data = event.data
+    if (typeof data !== 'string') {
+      console.error('[DC Client] Received non-string message from relay')
+      return
+    }
+
+    let parsed: { type: string; payload: EncryptedDirectCast }
+    try {
+      parsed = JSON.parse(data)
+    } catch {
+      console.error('[DC Client] Failed to parse message from relay')
+      return
+    }
+
+    if (parsed.type === 'message' && parsed.payload) {
+      this.handleIncomingMessage(parsed.payload).catch((error) => {
+        console.error('[DC Client] Failed to handle incoming message:', error)
+      })
+    } else if (parsed.type === 'read_receipt') {
+      // Handle read receipt - mark messages as read
+      console.log('[DC Client] Received read receipt')
+    } else if (parsed.type === 'ack') {
+      // Acknowledgment from relay
+      console.log('[DC Client] Message acknowledged by relay')
+    }
+  }
+
+  /**
+   * Schedule reconnection with exponential backoff
+   */
+  private scheduleReconnect(): void {
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout)
+    }
+
+    if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+      console.error(
+        `[DC Client] Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached`,
+      )
+      return
+    }
+
+    const delay = Math.min(
+      INITIAL_RECONNECT_DELAY_MS * Math.pow(2, this.reconnectAttempts),
+      MAX_RECONNECT_DELAY_MS,
+    )
+    this.reconnectAttempts++
+
+    console.log(
+      `[DC Client] Scheduling reconnect attempt ${this.reconnectAttempts} in ${delay}ms`,
+    )
+
+    this.reconnectTimeout = setTimeout(() => {
+      this.connectToRelay().catch((error) => {
+        console.error(`[DC Client] Reconnect failed:`, error)
+      })
+    }, delay)
+  }
+
+  /**
+   * Flush pending messages after reconnection
+   */
+  private flushPendingMessages(): void {
+    if (this.pendingMessages.length === 0) return
+
+    console.log(
+      `[DC Client] Flushing ${this.pendingMessages.length} pending messages`,
+    )
+
+    const messages = [...this.pendingMessages]
+    this.pendingMessages = []
+
+    for (const msg of messages) {
+      this.sendToRelay(msg).catch((error) => {
+        console.error(`[DC Client] Failed to flush message:`, error)
+        if (this.pendingMessages.length < MAX_PENDING_MESSAGES) {
+          this.pendingMessages.push(msg)
+        }
+      })
+    }
   }
 
   /**
@@ -508,7 +691,7 @@ export class DirectCastClient {
   }
 
   /**
-   * Send encrypted DC to relay
+   * Send encrypted DC to relay via WebSocket or HTTP fallback
    */
   private async sendToRelay(encrypted: EncryptedDirectCast): Promise<void> {
     if (!this.config.relayUrl) {
@@ -518,6 +701,22 @@ export class DirectCastClient {
       return
     }
 
+    // Try WebSocket first
+    if (this.relayConnection?.readyState === WebSocket.OPEN) {
+      const message = JSON.stringify({
+        type: 'send',
+        payload: encrypted,
+      })
+      this.relayConnection.send(message)
+      return
+    }
+
+    // Queue message if WebSocket not available and queue not full
+    if (this.pendingMessages.length < MAX_PENDING_MESSAGES) {
+      this.pendingMessages.push(encrypted)
+    }
+
+    // Fall back to HTTP
     const response = await this.fetchWithTimeout(
       `${this.config.relayUrl}/api/dc/send`,
       {
@@ -761,10 +960,29 @@ export class DirectCastClient {
     return {
       fid: this.config.fid,
       isInitialized: this.isInitialized,
-      isConnected: this.relayConnection !== null,
+      isConnected: this.relayConnection?.readyState === WebSocket.OPEN,
       conversationCount: this.conversations.size,
       unreadCount: totalUnread,
     }
+  }
+
+  /**
+   * Force reconnection to relay
+   */
+  async reconnect(): Promise<void> {
+    if (this.relayConnection) {
+      this.relayConnection.close(1000, 'Reconnecting')
+      this.relayConnection = null
+    }
+    this.reconnectAttempts = 0
+    await this.connectToRelay()
+  }
+
+  /**
+   * Get pending message count
+   */
+  getPendingMessageCount(): number {
+    return this.pendingMessages.length
   }
 
   /**

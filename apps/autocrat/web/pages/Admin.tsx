@@ -170,7 +170,7 @@ export default function AdminPage() {
   const handleCreateRun = async () => {
     setActionLoading(true)
     await createRLAIFRun({
-      environment: { id: 'babylon', type: 'game', configCID: '' },
+      environment: { id: 'default', type: 'simulation', configCID: '' },
       baseModel: 'gpt-4o-mini',
       trainingConfig: { steps: 1000, batchSize: 32, learningRate: 0.0001 },
     }).catch(() => null)

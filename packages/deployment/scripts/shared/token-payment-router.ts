@@ -5,7 +5,7 @@
  * Works with ANY app, ANY token, ANY chain.
  *
  * Features:
- * - App token preferences (Hyperscape uses HYPER, Babylon uses BABYLON)
+ * - App token preferences
  * - Automatic fallback to cheapest available token
  * - Cross-chain support via OIF
  * - Works for gas sponsorship AND service payments

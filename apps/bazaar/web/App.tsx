@@ -30,7 +30,6 @@ const CoinCreatePage = lazy(() => import('./pages/CoinCreate'))
 const CoinLaunchPage = lazy(() => import('./pages/CoinLaunch'))
 const JejuICOPage = lazy(() => import('./pages/JejuICO'))
 const JejuWhitepaperPage = lazy(() => import('./pages/JejuWhitepaper'))
-const BblnICOPage = lazy(() => import('./pages/BblnICO'))
 const MarketsPage = lazy(() => import('./pages/Markets'))
 const MarketDetailPage = lazy(() => import('./pages/MarketDetail'))
 const PredictionDetailPage = lazy(() => import('./pages/PredictionDetail'))
@@ -38,8 +37,6 @@ const ItemsPage = lazy(() => import('./pages/Items'))
 const ItemDetailPage = lazy(() => import('./pages/ItemDetail'))
 const ItemMintPage = lazy(() => import('./pages/ItemMint'))
 const FaucetPage = lazy(() => import('./pages/Faucet'))
-const GamesPage = lazy(() => import('./pages/Games'))
-const HyperscapePage = lazy(() => import('./pages/Hyperscape'))
 const NamesPage = lazy(() => import('./pages/Names'))
 const LiquidityPage = lazy(() => import('./pages/Liquidity'))
 const TFMMPage = lazy(() => import('./pages/TFMM'))
@@ -153,7 +150,6 @@ export function App() {
                 path="/coins/jeju-ico/whitepaper"
                 element={<JejuWhitepaperPage />}
               />
-              <Route path="/coins/bbln-ico" element={<BblnICOPage />} />
               <Route
                 path="/coins/:chainId/:address"
                 element={<CoinDetailPage />}
@@ -174,8 +170,6 @@ export function App() {
               <Route path="/items/mint" element={<ItemMintPage />} />
               <Route path="/items/:id" element={<ItemDetailPage />} />
               <Route path="/faucet" element={<FaucetPage />} />
-              <Route path="/games" element={<GamesPage />} />
-              <Route path="/games/hyperscape" element={<HyperscapePage />} />
               <Route path="/names" element={<NamesPage />} />
               <Route path="/liquidity" element={<LiquidityPage />} />
               <Route path="/tfmm" element={<TFMMPage />} />

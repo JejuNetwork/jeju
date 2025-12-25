@@ -2,7 +2,7 @@
  * Training infrastructure for GRPO, Psyche, and compute integration.
  */
 
-// App training adapters (for vendor apps like Babylon)
+// App training adapters (for vendor apps)
 export {
   type AppTrainingConfig,
   AppTrainingRunner,

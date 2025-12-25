@@ -9,7 +9,6 @@
     "node_modules",
     "dist",
     ".temp",
-    "scripts/verify/verify-babylon-rlaif.ts",
     "scripts/verify/verify-tee-gpu-provisioning.ts",
     "scripts/infrastructure/deploy-tee-gpu.ts",
     "scripts/deploy/deploy-mpc-coordinator.ts"

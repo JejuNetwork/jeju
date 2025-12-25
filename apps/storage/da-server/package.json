@@ -1,0 +1,14 @@
+{
+  "name": "@jeju/da-server",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "index.ts",
+  "scripts": {
+    "dev": "bun run index.ts",
+    "start": "bun run index.ts"
+  },
+  "dependencies": {
+    "elysia": "^1.2.25"
+  }
+}

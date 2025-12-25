@@ -237,7 +237,7 @@ docker run -e NETWORK=mainnet \
 
 ## Autonomous Agents
 
-Crucible supports autonomous agents that run on configurable tick intervals, similar to Babylon's pattern. Each tick, the agent uses the LLM to decide what actions to take.
+Crucible supports autonomous agents that run on configurable tick intervals. Each tick, the agent uses the LLM to decide what actions to take.
 
 ### Running Autonomous Agents
 

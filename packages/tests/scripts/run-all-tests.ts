@@ -37,7 +37,7 @@ interface AppConfig {
 
 // Test configuration
 const RPC_URL = process.env.L2_RPC_URL || 'http://127.0.0.1:6546'
-const CHAIN_ID = process.env.CHAIN_ID || '1337'
+const CHAIN_ID = process.env.CHAIN_ID || '31337'
 const DATABASE_URL =
   process.env.DATABASE_URL || 'postgresql://test:test@localhost:5432/test'
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379'

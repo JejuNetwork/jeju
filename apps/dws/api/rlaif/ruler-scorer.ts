@@ -2,7 +2,6 @@
  * RULER Scorer for Jeju DWS
  *
  * Implements RULER (Relative Universal LLM-Elicited Rewards) scoring.
- * Generalized from Babylon's RulerScoringService.
  *
  * Key features:
  * - Groups trajectories for relative comparison
@@ -196,8 +195,7 @@ export class RulerScorer {
   /**
    * Score trajectories by rubric ID, looking up from the global registry
    *
-   * This allows scoring with rubrics registered by different environments
-   * (e.g., Babylon archetypes registered via registerBabylonRubrics)
+   * This allows scoring with rubrics registered by different environments.
    */
   async scoreByRubricId(
     trajectories: Trajectory[],

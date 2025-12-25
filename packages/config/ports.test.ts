@@ -62,16 +62,9 @@ describe('Port Constants', () => {
 
   describe('VENDOR_PORTS', () => {
     it('should have correct default values', () => {
-      expect(VENDOR_PORTS.HYPERSCAPE_CLIENT.DEFAULT).toBe(3333)
-      expect(VENDOR_PORTS.HYPERSCAPE_SERVER.DEFAULT).toBe(5555)
       expect(VENDOR_PORTS.LAUNCHPAD_FRONTEND.DEFAULT).toBe(5003)
       expect(VENDOR_PORTS.OTC_DESK.DEFAULT).toBe(5005)
       expect(VENDOR_PORTS.CLOUD.DEFAULT).toBe(5006)
-    })
-
-    it('should have Jeju-specific ports for some vendors', () => {
-      expect(VENDOR_PORTS.HYPERSCAPE_CLIENT.JEJU).toBe(5013)
-      expect(VENDOR_PORTS.HYPERSCAPE_SERVER.JEJU).toBe(5014)
     })
   })
 
@@ -226,9 +219,7 @@ describe('Port Conflict Detection', () => {
     })
 
     const result = checkPortConflicts()
-    // No known conflicts with default ports after port reassignment:
-    // - BABYLON_WEB: 5008, BABYLON_API: 5009 (core)
-    // - CALIGULAND_GAME: 5011, CALIGULAND_AUTH: 5012 (vendor)
+    // No known conflicts with default ports after port reassignment
     expect(result.hasConflicts).toBe(false)
     expect(result.conflicts).toHaveLength(0)
   })
@@ -278,7 +269,6 @@ describe('Port Aggregators', () => {
     const ports = getAllVendorPorts()
 
     expect(typeof ports).toBe('object')
-    expect(Object.keys(ports)).toContain('HYPERSCAPE_CLIENT')
     expect(Object.keys(ports)).toContain('LAUNCHPAD_FRONTEND')
 
     Object.values(ports).forEach((port) => {
@@ -430,15 +420,12 @@ describe('Port Range Guidelines', () => {
       // - INDEXER_DATABASE (23798) - PostgreSQL convention
       // - IPFS_API (5001) - standard Kubo HTTP API port
       // - DOCUMENTATION_A2A (7778) - separate A2A endpoint for docs search
-      // - BABYLON_WEB/BABYLON_API (5008/5009) - social prediction platform in 5xxx range
       // - VPN_WEB (1421) - VPN web frontend on lower port
       if (
         ![
           'INDEXER_DATABASE',
           'IPFS_API',
           'DOCUMENTATION_A2A',
-          'BABYLON_WEB',
-          'BABYLON_API',
           'VPN_WEB',
         ].includes(name)
       ) {
@@ -488,9 +475,7 @@ describe('Port Range Guidelines', () => {
     // Restore env
     process.env = { ...originalEnv }
 
-    // No known conflicts after port reassignment:
-    // - BABYLON_WEB: 5008, BABYLON_API: 5009 (core)
-    // - CALIGULAND_GAME: 5011, CALIGULAND_AUTH: 5012 (vendor)
+    // No known conflicts after port reassignment
     expect(result.hasConflicts).toBe(false)
     expect(result.conflicts.length).toBe(0)
   })

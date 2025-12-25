@@ -32,7 +32,6 @@ import {
   type FederationClientConfig,
 } from './federation'
 import { createFeedModule, type FeedModule } from './feed'
-import { createGamesModule, type GamesModule } from './games'
 import { createGovernanceModule, type GovernanceModule } from './governance'
 import { createIdentityModule, type IdentityModule } from './identity'
 import { createLaunchpadModule, type LaunchpadModule } from './launchpad'
@@ -107,8 +106,6 @@ export interface JejuClient {
   readonly payments: PaymentsModule
   /** A2A - Agent protocol client */
   readonly a2a: A2AModule
-  /** Games - Game integration contracts (Babylon, Hyperscape) */
-  readonly games: GamesModule
   /** Containers - OCI container registry */
   readonly containers: ContainersModule
   /** Launchpad - Token and NFT launches */
@@ -213,9 +210,6 @@ export async function createJejuClient(
   const a2a = createA2AModule(wallet, network, servicesConfig)
 
   // Create extended modules (may not be available on all networks)
-  const games = contractAddresses.gameIntegration
-    ? createGamesModule(wallet, network)
-    : createStubGamesModule()
   const containers = contractAddresses.containerRegistry
     ? createContainersModule(wallet, network)
     : createStubContainersModule()
@@ -276,7 +270,6 @@ export async function createJejuClient(
     nfts,
     payments,
     a2a,
-    games,
     containers,
     launchpad,
     moderation,
@@ -311,38 +304,6 @@ export async function createJejuClient(
 }
 
 // Stub modules for when contracts are not available
-function createStubGamesModule(): GamesModule {
-  const notAvailable = (): never => {
-    throw new Error('GameIntegration contract not deployed on this network')
-  }
-  return {
-    getContracts: notAvailable,
-    getGameAgentId: notAvailable,
-    isPlayerAllowed: notAvailable,
-    getPlayerAgentId: notAvailable,
-    linkAgentId: notAvailable,
-    unlinkAgentId: notAvailable,
-    getGoldBalance: notAvailable,
-    getGoldTotalSupply: notAvailable,
-    transferGold: notAvailable,
-    approveGold: notAvailable,
-    mintGold: notAvailable,
-    burnGold: notAvailable,
-    getItemBalance: notAvailable,
-    getItemBalances: notAvailable,
-    getItemUri: notAvailable,
-    mintItem: notAvailable,
-    mintItems: notAvailable,
-    burnItem: notAvailable,
-    transferItem: notAvailable,
-    transferItems: notAvailable,
-    setItemApprovalForAll: notAvailable,
-    isItemApprovedForAll: notAvailable,
-    getPlayerInfo: notAvailable,
-    getGameStats: notAvailable,
-  }
-}
-
 function createStubContainersModule(): ContainersModule {
   const notAvailable = (): never => {
     throw new Error('ContainerRegistry contract not deployed on this network')
