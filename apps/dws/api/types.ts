@@ -631,10 +631,5 @@ export interface InferenceResponse {
   }
 }
 
-export interface ContentHash {
-  protocol: 'ipfs' | 'ipns' | 'arweave' | 'http' | 'https'
-  hash: string
-}
-
-// Import JNSGatewayConfig from lib/types to avoid duplication
-export type { JNSGatewayConfig } from '../lib/types'
+// ContentHash now canonical in lib/types - re-export for API consumers
+export type { ContentHash, JNSGatewayConfig } from '../lib/types'

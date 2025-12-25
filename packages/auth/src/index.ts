@@ -21,6 +21,21 @@ import './polyfills'
  * - mainnet: Jeju Mainnet production (chain 420692)
  */
 
+// MPC/FROST Signing (re-exported from @jejunetwork/kms)
+export {
+  aggregateSignatures,
+  type FROSTCluster,
+  FROSTCoordinator,
+  type FROSTKeyShare,
+  type FROSTSignature,
+  type FROSTSignatureShare,
+  type FROSTSigningCommitment,
+  generateKeyShares,
+  generateSignatureShare,
+  generateSigningCommitment,
+  publicKeyToAddress,
+  verifySignature,
+} from '@jejunetwork/kms'
 // Multi-tenant Council
 export {
   type CEOConfig,

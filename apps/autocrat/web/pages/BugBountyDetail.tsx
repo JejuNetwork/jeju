@@ -97,16 +97,21 @@ export default function BugBountyDetailPage() {
     setLoading(true)
     setError(null)
 
-    const data = await fetchBugBountySubmission(id).catch((e: Error) => {
+    const response = await fetchBugBountySubmission(id).catch((e: Error) => {
       setError(e.message)
       return null
     })
 
-    if (data?.submission) {
-      const sub = data.submission as SubmissionDetail
-      setSubmission(sub)
+    if (response) {
+      // API returns { submission: {...}, guardianVotes: [...] } - extract submission
+      const responseObj = response as Record<string, unknown>
+      const rawSubmission = responseObj.submission ?? response
+      const submissionData = rawSubmission as SubmissionDetail
+      setSubmission(submissionData)
       // Load researcher stats
-      const stats = await fetchResearcherStats(sub.researcher).catch(() => null)
+      const stats = await fetchResearcherStats(submissionData.researcher).catch(
+        () => null,
+      )
       setResearcherStats(stats as ResearcherStats | null)
     }
 
