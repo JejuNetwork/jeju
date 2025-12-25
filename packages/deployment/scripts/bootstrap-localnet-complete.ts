@@ -418,7 +418,6 @@ class CompleteBootstrapper {
     )
   }
 
-
   private async deployPriceOracle(): Promise<string> {
     return this.deployContract(
       'src/oracle/PriceOracle.sol:PriceOracle',

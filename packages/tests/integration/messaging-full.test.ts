@@ -12,7 +12,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { type Subprocess, spawn } from 'bun'
-import { type Address, type Hex } from 'viem'
+import type { Address, Hex } from 'viem'
 import {
   HubInfoSchema,
   HubMessagesSchema,
@@ -29,7 +29,7 @@ const L2_RPC_PORT = 6546
 const _L1_RPC_PORT = 6545
 const RELAY_PORT = 3301
 const MOCK_HUB_PORT = 3310
-const RPC_URL = `http://127.0.0.1:${L2_RPC_PORT}`
+const _RPC_URL = `http://127.0.0.1:${L2_RPC_PORT}`
 
 // Anvil test accounts
 const TEST_ACCOUNTS = {

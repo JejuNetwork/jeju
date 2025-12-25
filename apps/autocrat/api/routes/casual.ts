@@ -2,8 +2,8 @@
  * Casual Proposal Routes - Simple proposal flow
  */
 
-import { Elysia, t } from 'elysia'
 import { expectValid } from '@jejunetwork/types'
+import { Elysia, t } from 'elysia'
 import { CasualProposalCategorySchema } from '../../lib'
 import {
   type CasualSubmission,

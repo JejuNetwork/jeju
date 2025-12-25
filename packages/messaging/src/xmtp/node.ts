@@ -3,6 +3,7 @@ import type { Address } from 'viem'
 import { z } from 'zod'
 
 const log = createLogger('xmtp-node')
+
 import { IPFSAddResponseSchema } from '../schemas'
 import type {
   SyncState,
@@ -167,7 +168,10 @@ export class JejuXMTPNode {
       ws.onclose = (event) => {
         clearTimeout(connectionTimeout)
         this.relayConnection = null
-        log.info('Relay connection closed', { code: event.code, reason: event.reason })
+        log.info('Relay connection closed', {
+          code: event.code,
+          reason: event.reason,
+        })
 
         if (this.isRunning) {
           this.scheduleReconnect()
@@ -220,7 +224,7 @@ export class JejuXMTPNode {
     }
 
     const delay = Math.min(
-      INITIAL_RECONNECT_DELAY_MS * Math.pow(2, this.reconnectAttempts),
+      INITIAL_RECONNECT_DELAY_MS * 2 ** this.reconnectAttempts,
       MAX_RECONNECT_DELAY_MS,
     )
     this.reconnectAttempts++
@@ -242,7 +246,9 @@ export class JejuXMTPNode {
   private flushPendingEnvelopes(): void {
     if (this.pendingEnvelopes.length === 0) return
 
-    log.info('Flushing pending envelopes', { count: this.pendingEnvelopes.length })
+    log.info('Flushing pending envelopes', {
+      count: this.pendingEnvelopes.length,
+    })
 
     const envelopes = [...this.pendingEnvelopes]
     this.pendingEnvelopes = []
@@ -309,7 +315,9 @@ export class JejuXMTPNode {
     }
 
     this.identityCache.set(key, identity)
-    log.info('Registered identity', { address: identity.address.slice(0, 10) + '...' })
+    log.info('Registered identity', {
+      address: `${identity.address.slice(0, 10)}...`,
+    })
   }
 
   async getIdentity(address: Address): Promise<XMTPIdentity | null> {
@@ -352,7 +360,9 @@ export class JejuXMTPNode {
 
     if (!exists) return
 
-    const data: { identities: XMTPIdentity[] } = await file.json().catch(() => ({ identities: [] }))
+    const data: { identities: XMTPIdentity[] } = await file
+      .json()
+      .catch(() => ({ identities: [] }))
 
     for (const identity of data.identities) {
       this.identityCache.set(identity.address.toLowerCase(), identity)
@@ -377,7 +387,9 @@ export class JejuXMTPNode {
 
       if (response?.ok) {
         const data: { messages: XMTPEnvelope[]; lastTimestamp: number } =
-          await response.json().catch(() => ({ messages: [], lastTimestamp: 0 }))
+          await response
+            .json()
+            .catch(() => ({ messages: [], lastTimestamp: 0 }))
 
         for (const envelope of data.messages) {
           this.messageCount++
@@ -523,7 +535,10 @@ export class JejuXMTPNode {
 
   private decodeEnvelope(data: Uint8Array): XMTPEnvelope | null {
     if (data.length > MAX_ENVELOPE_SIZE) {
-      log.error('Envelope too large, rejecting', { size: data.length, maxSize: MAX_ENVELOPE_SIZE })
+      log.error('Envelope too large, rejecting', {
+        size: data.length,
+        maxSize: MAX_ENVELOPE_SIZE,
+      })
       return null
     }
 
@@ -576,7 +591,9 @@ export class JejuXMTPNode {
       return
     }
 
-    log.info('Flushing pending messages to persistence', { count: this.pendingEnvelopes.length })
+    log.info('Flushing pending messages to persistence', {
+      count: this.pendingEnvelopes.length,
+    })
 
     if (this.config.persistenceDir) {
       const pendingFile = `${this.config.persistenceDir}/pending-messages.json`
@@ -587,7 +604,10 @@ export class JejuXMTPNode {
       }))
 
       await Bun.write(pendingFile, JSON.stringify(pendingData, null, 2))
-      log.info('Persisted pending messages', { count: pendingData.length, file: pendingFile })
+      log.info('Persisted pending messages', {
+        count: pendingData.length,
+        file: pendingFile,
+      })
     }
     this.pendingEnvelopes = []
     this.syncState.pendingMessages = 0

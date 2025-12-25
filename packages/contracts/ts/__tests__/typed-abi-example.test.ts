@@ -2,19 +2,19 @@
  * @fileoverview Demonstrates typed ABI usage with viem
  *
  * This test file shows the difference between:
- * 1. Legacy ABIs (cast to `Abi`) - no type inference
+ * 1. Deprecated ABIs (cast to `Abi`) - no type inference
  * 2. Generated typed ABIs - full type inference
  */
 
 import { describe, expect, test } from 'bun:test'
 import { type Address, createPublicClient, getContract, http } from 'viem'
 import { mainnet } from 'viem/chains'
-// Import legacy ABI (cast to Abi, no type inference)
+// Import deprecated ABI (cast to Abi, no type inference)
 import { IdentityRegistryAbi } from '../abis'
 // Import typed ABI (generated with `as const`)
 import { identityRegistryAbi } from '../generated'
 
-describe('Typed ABI vs Legacy ABI', () => {
+describe('Typed ABI vs Deprecated ABI', () => {
   const mockAddress: Address = '0x1234567890123456789012345678901234567890'
 
   test('typed ABI has correct structure', () => {
@@ -29,8 +29,8 @@ describe('Typed ABI vs Legacy ABI', () => {
     expect(registerFn).toBeDefined()
   })
 
-  test('legacy ABI loses type information', () => {
-    // Legacy ABI is also an array but typed as generic Abi
+  test('deprecated ABI loses type information', () => {
+    // Deprecated ABI is also an array but typed as generic Abi
     expect(Array.isArray(IdentityRegistryAbi)).toBe(true)
 
     // Both have the same runtime content
@@ -56,15 +56,15 @@ describe('Typed ABI vs Legacy ABI', () => {
     // - typedContract.read.getIdentity   -> (args: [address]) => Promise<...>
     expect(typedContract.read).toBeDefined()
 
-    // With legacy ABI: No autocomplete, generic types
-    const legacyContract = getContract({
+    // With deprecated ABI: No autocomplete, generic types
+    const deprecatedContract = getContract({
       address: mockAddress,
       abi: IdentityRegistryAbi,
       client,
     })
 
     // This works at runtime but TypeScript doesn't know the method signatures
-    expect(legacyContract.read).toBeDefined()
+    expect(deprecatedContract.read).toBeDefined()
   })
 })
 
@@ -82,7 +82,7 @@ describe('Typed ABI vs Legacy ABI', () => {
  * // result is typed as boolean
  * ```
  *
- * With legacy ABI:
+ * With deprecated ABI (avoid):
  * ```typescript
  * const result = await client.readContract({
  *   address: '0x...',

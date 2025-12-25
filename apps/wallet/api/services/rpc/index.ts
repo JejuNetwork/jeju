@@ -5,6 +5,7 @@
  * Uses @jejunetwork/config for defaults with PUBLIC_ env overrides.
  */
 
+import { getCurrentNetwork, getRpcUrl } from '@jejunetwork/config'
 import {
   type Address,
   type Chain,
@@ -16,7 +17,6 @@ import {
   type Transport,
 } from 'viem'
 import { arbitrum, base, bsc, mainnet, optimism } from 'viem/chains'
-import { getCurrentNetwork, getRpcUrl } from '@jejunetwork/config'
 import { getEnvOrDefault } from '../../../lib/env'
 
 // Supported chains - unified view, no chain switching

@@ -15,7 +15,9 @@ const { expect } = test
 
 const RPC_URL = getRpcUrl('localnet')
 const CHAIN_ID = getChainId('localnet')
-const NFT_MARKETPLACE_ADDRESS = getContract('nft', 'marketplace', 'localnet') as `0x${string}` | undefined
+const NFT_MARKETPLACE_ADDRESS = getContract('nft', 'marketplace', 'localnet') as
+  | `0x${string}`
+  | undefined
 
 const publicClient = createPublicClient({
   chain: {
@@ -116,7 +118,10 @@ test.describe('Items Page with Wallet', () => {
 test.describe('Marketplace Contract Verification', () => {
   test('verifies marketplace listing state', async () => {
     const marketplaceAddress = NFT_MARKETPLACE_ADDRESS
-    if (!marketplaceAddress || marketplaceAddress === '0x0000000000000000000000000000000000000000') {
+    if (
+      !marketplaceAddress ||
+      marketplaceAddress === '0x0000000000000000000000000000000000000000'
+    ) {
       console.log('Skipping: Marketplace not deployed')
       return
     }
@@ -133,7 +138,10 @@ test.describe('Marketplace Contract Verification', () => {
 
   test('verifies marketplace auction state', async () => {
     const marketplaceAddress = NFT_MARKETPLACE_ADDRESS
-    if (!marketplaceAddress || marketplaceAddress === '0x0000000000000000000000000000000000000000') {
+    if (
+      !marketplaceAddress ||
+      marketplaceAddress === '0x0000000000000000000000000000000000000000'
+    ) {
       console.log('Skipping: Marketplace not deployed')
       return
     }

@@ -9,7 +9,11 @@
  * This is a SMOKE TEST for the complete user flow
  */
 
-import { getContract, getServicesConfig, getCurrentNetwork } from '@jejunetwork/config'
+import {
+  getContract,
+  getCurrentNetwork,
+  getServicesConfig,
+} from '@jejunetwork/config'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import { expect, test } from '@playwright/test'
 

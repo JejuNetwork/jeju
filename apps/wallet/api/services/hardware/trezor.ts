@@ -12,11 +12,16 @@ import {
   toHex,
 } from 'viem'
 
-export type TrezorHDPathType = 'BIP44' | 'Legacy'
+/**
+ * Trezor HD path derivation types:
+ * - BIP44: m/44'/60'/0'/0/{index} (Standard BIP44)
+ * - MEW: m/44'/60'/0'/{index} (MyEtherWallet/MEW style - required for fund recovery)
+ */
+export type TrezorHDPathType = 'BIP44' | 'MEW'
 
 const HD_PATH_BASE: Record<TrezorHDPathType, string> = {
   BIP44: "m/44'/60'/0'/0",
-  Legacy: "m/44'/60'/0'",
+  MEW: "m/44'/60'/0'",
 }
 
 export interface TrezorAccount {
@@ -120,7 +125,7 @@ export class TrezorKeyring {
     switch (this.hdPathType) {
       case 'BIP44':
         return `m/44'/60'/0'/0/${index}`
-      case 'Legacy':
+      case 'MEW':
         return `m/44'/60'/0'/${index}`
       default:
         return `${this.hdPath}/${index}`

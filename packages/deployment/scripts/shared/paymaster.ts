@@ -5,9 +5,14 @@
  * Supports multi-token gas payments via PaymasterFactory.
  */
 
-import { getChainId, getContract, getCurrentNetwork, getRpcUrl } from '@jejunetwork/config'
-import { ZERO_ADDRESS } from '@jejunetwork/types'
+import {
+  getChainId,
+  getContract,
+  getCurrentNetwork,
+  getRpcUrl,
+} from '@jejunetwork/config'
 import { readContract } from '@jejunetwork/shared'
+import { ZERO_ADDRESS } from '@jejunetwork/types'
 import {
   type Address,
   createPublicClient,
@@ -63,7 +68,9 @@ const ERC20_ABI = parseAbi([
 
 // Get paymaster factory from config
 const network = getCurrentNetwork()
-const paymasterFactory = getContract('payments', 'paymasterFactory', network) as Address | undefined
+const paymasterFactory = getContract('payments', 'paymasterFactory', network) as
+  | Address
+  | undefined
 
 const DEFAULT_CONFIG: PaymasterConfig = {
   factoryAddress: paymasterFactory || ZERO_ADDRESS,
@@ -192,9 +199,7 @@ export async function getPaymasterOptions(
 
     tokenCost = quote
 
-    const isRecommended =
-      pm.tokenSymbol === 'JEJU' ||
-      pm.tokenSymbol === 'USDC'
+    const isRecommended = pm.tokenSymbol === 'JEJU' || pm.tokenSymbol === 'USDC'
 
     options.push({
       paymaster: pm,
@@ -323,8 +328,10 @@ export function getApprovalTxData(
  */
 export function loadPaymasterConfig(): PaymasterConfig {
   const net = getCurrentNetwork()
-  const factory = getContract('payments', 'paymasterFactory', net) as Address | undefined
-  
+  const factory = getContract('payments', 'paymasterFactory', net) as
+    | Address
+    | undefined
+
   return {
     factoryAddress: factory || ZERO_ADDRESS,
     minStakedEth: parseEther('1.0'),

@@ -9,8 +9,8 @@
  * Requires: Infrastructure running (jeju dev or INTEGRATION_TESTS=1)
  */
 
-import { getRpcUrl } from '@jejunetwork/config'
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
+import { getRpcUrl } from '@jejunetwork/config'
 import type { OracleNodeConfig, PriceSourceConfig } from '@jejunetwork/types'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import {

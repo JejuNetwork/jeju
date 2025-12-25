@@ -1,4 +1,10 @@
 import { getChainId, getRpcUrl } from '@jejunetwork/config'
+import {
+  COMMITTEE_MANAGER_ABI,
+  FEED_REGISTRY_ABI,
+  NETWORK_CONNECTOR_ABI,
+  REPORT_VERIFIER_ABI,
+} from '@jejunetwork/shared'
 import type {
   NodeMetrics,
   OracleNodeConfig,
@@ -19,12 +25,6 @@ import {
 } from 'viem'
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
 import { base, baseSepolia, foundry } from 'viem/chains'
-import {
-  COMMITTEE_MANAGER_ABI,
-  FEED_REGISTRY_ABI,
-  NETWORK_CONNECTOR_ABI,
-  REPORT_VERIFIER_ABI,
-} from '@jejunetwork/shared'
 import { type PriceData, PriceFetcher } from './price-fetcher'
 
 const ZERO_BYTES32 =

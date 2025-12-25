@@ -14,6 +14,7 @@ import { createLogger } from '@jejunetwork/shared'
 import type { Address } from 'viem'
 
 const log = createLogger('xmtp-router')
+
 import type { RouteConfig, RouteResult, XMTPEnvelope } from './types'
 
 export interface RelayNode {

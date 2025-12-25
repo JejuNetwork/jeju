@@ -7,8 +7,8 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 import type { Address, Hex } from 'viem'
 import {
-  createCrossChainBridgeClient,
   CrossChainBridgeClient,
+  createCrossChainBridgeClient,
   getCrossChainBridgeClient,
   MessagingChain,
   resetCrossChainBridgeClient,
@@ -182,7 +182,12 @@ describe('CrossChainMessage types', () => {
   })
 
   test('MessageStatus has valid status values', () => {
-    const validStatuses = ['pending', 'bridging', 'delivered', 'failed'] as const
+    const validStatuses = [
+      'pending',
+      'bridging',
+      'delivered',
+      'failed',
+    ] as const
 
     for (const status of validStatuses) {
       const messageStatus = {
@@ -212,7 +217,9 @@ describe('CrossChainMessage types', () => {
 
     expect(directRoute.route).toBe('direct')
     expect(bridgedRoute.route).toBe('bridge')
-    expect(bridgedRoute.estimatedTime).toBeGreaterThan(directRoute.estimatedTime)
+    expect(bridgedRoute.estimatedTime).toBeGreaterThan(
+      directRoute.estimatedTime,
+    )
   })
 })
 

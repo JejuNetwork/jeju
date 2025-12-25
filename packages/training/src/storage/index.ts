@@ -18,9 +18,9 @@ export {
   createStaticTrajectoryStorage,
   downloadTrajectoryBatch,
   getStaticTrajectoryStorage,
-  shutdownAllStaticStorage,
   type StaticStorageConfig,
   StaticTrajectoryStorage,
+  shutdownAllStaticStorage,
   type TrajectoryBatchReference,
 } from './static-storage'
 

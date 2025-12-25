@@ -1,5 +1,5 @@
-import { getServicesConfig, getCurrentNetwork } from '@jejunetwork/config'
 import { beforeAll, describe, expect, test } from 'bun:test'
+import { getCurrentNetwork, getServicesConfig } from '@jejunetwork/config'
 import {
   getNetworkTokens,
   getTokenHolders,

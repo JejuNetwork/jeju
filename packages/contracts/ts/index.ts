@@ -4,17 +4,12 @@
  *
  * This package provides:
  * 1. Typed ABIs from wagmi CLI (generated.ts) - with full type inference
- * 2. Legacy ABIs (abis/index.ts) - backward compatible, cast to Abi
- * 3. CAIP utilities for cross-chain addressing
- * 4. Deployment addresses by network
+ * 2. CAIP utilities for cross-chain addressing
+ * 3. Deployment addresses by network
  *
- * Prefer importing typed ABIs (camelCase) over legacy ABIs (PascalCase):
+ * Always use typed ABIs (camelCase) for full type inference:
  * ```typescript
- * // GOOD - Full type inference
  * import { identityRegistryAbi } from '@jejunetwork/contracts'
- *
- * // LEGACY - No type inference
- * import { IdentityRegistryAbi } from '@jejunetwork/contracts'
  * ```
  */
 
@@ -39,7 +34,8 @@ export {
   type SponsoredPaymasterConfig,
 } from './aa'
 // ============================================================================
-// LEGACY ABIs - Cast to Abi type (backward compatible, no type inference)
+// DEPRECATED ABIs - PascalCase exports (no type inference)
+// Use camelCase typed exports from './generated' instead
 // ============================================================================
 export {
   AppTokenPreferenceAbi,

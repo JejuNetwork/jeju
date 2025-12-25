@@ -7,6 +7,7 @@
  * - Standard, Premium, and TEE-backed tiers
  * - LRU eviction with TTL
  * - dstack TEE simulator support for local development
+ * - x402 payment protocol for billing
  *
  * Usage:
  *
@@ -18,6 +19,24 @@
  * ```
  */
 
+// Billing
+export {
+  type BillingInvoice,
+  BillingMode,
+  CacheBillingManager,
+  type CachePayment,
+  type CachePaymentConfig,
+  type CacheSubscription,
+  getCacheBillingManager,
+  type InvoiceLineItem,
+  initializeCacheBilling,
+  type PaymentProof,
+  type PaymentRequirement,
+  PaymentStatus,
+  resetCacheBilling,
+  SubscriptionStatus,
+  type UsageMetrics,
+} from './billing'
 // Engine
 export { CacheEngine } from './engine'
 // Marketplace Integration

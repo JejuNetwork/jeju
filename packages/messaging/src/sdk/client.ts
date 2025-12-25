@@ -17,6 +17,7 @@ import {
 } from 'viem'
 
 const log = createLogger('messaging-client')
+
 import { privateKeyToAccount } from 'viem/accounts'
 import {
   MessagingClientConfigBaseSchema,

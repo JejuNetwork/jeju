@@ -81,7 +81,9 @@ const contracts = getContractsConfig(network)
 
 const DEFAULT_CONFIG: BanCheckConfig = {
   banManagerAddress: contracts.moderation?.banManager as Address | undefined,
-  moderationMarketplaceAddress: contracts.moderation?.moderationMarketplace as Address | undefined,
+  moderationMarketplaceAddress: contracts.moderation?.moderationMarketplace as
+    | Address
+    | undefined,
   identityRegistryAddress: contracts.registry?.identity as Address | undefined,
   rpcUrl: getRpcUrl(network),
 }

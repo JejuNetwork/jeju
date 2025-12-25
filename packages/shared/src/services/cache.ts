@@ -51,7 +51,9 @@ export interface CacheService {
   delete(...keys: string[]): Promise<number>
   has(key: string): Promise<boolean>
   mget<T>(...keys: string[]): Promise<(T | null)[]>
-  mset(entries: { key: string; value: CacheJsonValue; ttl?: number }[]): Promise<void>
+  mset(
+    entries: { key: string; value: CacheJsonValue; ttl?: number }[],
+  ): Promise<void>
   incr(key: string, by?: number): Promise<number>
   decr(key: string, by?: number): Promise<number>
 
@@ -82,7 +84,10 @@ export interface CacheService {
   scard(key: string): Promise<number>
 
   // Sorted set operations
-  zadd(key: string, ...members: { member: string; score: number }[]): Promise<number>
+  zadd(
+    key: string,
+    ...members: { member: string; score: number }[]
+  ): Promise<number>
   zrange(key: string, start: number, stop: number): Promise<string[]>
   zcard(key: string): Promise<number>
 
@@ -194,7 +199,7 @@ class CacheServiceImpl implements CacheService {
   private getHeaders(): HeadersInit {
     const headers: HeadersInit = { 'Content-Type': 'application/json' }
     if (this.apiKey) {
-      headers['Authorization'] = `Bearer ${this.apiKey}`
+      headers.Authorization = `Bearer ${this.apiKey}`
     }
     if (this.ownerAddress) {
       headers['x-owner-address'] = this.ownerAddress
@@ -422,7 +427,11 @@ class CacheServiceImpl implements CacheService {
     return data.value as T
   }
 
-  async hset(key: string, field: string, value: CacheJsonValue): Promise<number> {
+  async hset(
+    key: string,
+    field: string,
+    value: CacheJsonValue,
+  ): Promise<number> {
     const response = await fetch(`${this.endpoint}/cache/hset`, {
       method: 'POST',
       headers: this.getHeaders(),
@@ -443,7 +452,10 @@ class CacheServiceImpl implements CacheService {
     return data.added
   }
 
-  async hmset(key: string, fields: Record<string, CacheJsonValue>): Promise<void> {
+  async hmset(
+    key: string,
+    fields: Record<string, CacheJsonValue>,
+  ): Promise<void> {
     const response = await fetch(`${this.endpoint}/cache/hmset`, {
       method: 'POST',
       headers: this.getHeaders(),
@@ -462,7 +474,9 @@ class CacheServiceImpl implements CacheService {
     }
   }
 
-  async hgetall<T extends Record<string, CacheJsonValue>>(key: string): Promise<T> {
+  async hgetall<T extends Record<string, CacheJsonValue>>(
+    key: string,
+  ): Promise<T> {
     const response = await fetch(
       `${this.endpoint}/cache/hgetall?key=${encodeURIComponent(key)}&namespace=${encodeURIComponent(this.namespace)}`,
       {

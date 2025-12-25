@@ -384,9 +384,7 @@ describe('Cloud Integration E2E - Service Registration', () => {
         user1.address,
       ])) as bigint
       expect(imageCost).toBeGreaterThan(0n)
-      logger.info(
-        `✓ Image generation cost: ${Number(imageCost) / 1e18} JEJU`,
-      )
+      logger.info(`✓ Image generation cost: ${Number(imageCost) / 1e18} JEJU`)
     },
     TEST_CONFIG.testTimeout,
   )
