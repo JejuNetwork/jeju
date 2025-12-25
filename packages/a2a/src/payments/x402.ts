@@ -348,10 +348,10 @@ export class X402Manager {
   /**
    * Get all pending payments (for testing/debugging)
    */
-  async getPendingPayments(): Promise<PendingPayment[]> {
+  async getPendingPayments(): Promise<PaymentRequest[]> {
     // Get from in-memory store
     const payments = Array.from(this.inMemoryStore.values())
-    return payments.filter((p) => !p.verified)
+    return payments.filter((p) => !p.verified).map((p) => p.request)
   }
 
   /**

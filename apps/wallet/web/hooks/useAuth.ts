@@ -91,12 +91,18 @@ const OAUTH3_TEE_URL = getEnvOrDefault(
   'PUBLIC_OAUTH3_TEE_URL',
   isDev() ? 'http://localhost:4010' : 'https://tee.jejunetwork.org',
 )
-const OAUTH3_APP_ID = getEnvOrDefault('PUBLIC_OAUTH3_APP_ID', 'wallet.apps.jeju')
+const OAUTH3_APP_ID = getEnvOrDefault(
+  'PUBLIC_OAUTH3_APP_ID',
+  'wallet.apps.jeju',
+)
 const RPC_URL = getEnvOrDefault(
   'PUBLIC_RPC_URL',
   isDev() ? 'http://localhost:6546' : 'https://rpc.jejunetwork.org',
 )
-const CHAIN_ID = Number.parseInt(getEnvOrDefault('PUBLIC_CHAIN_ID', '420691'), 10)
+const CHAIN_ID = Number.parseInt(
+  getEnvOrDefault('PUBLIC_CHAIN_ID', '420691'),
+  10,
+)
 
 function mapAuthProvider(provider: AuthProvider): OAuth3AuthProvider {
   const mapping: Record<AuthProvider, OAuth3AuthProvider> = {

@@ -7,10 +7,16 @@
  * - Transport via Jeju relay nodes
  */
 
-import { bytesToHex, createLogger, hexToBytes, randomBytes } from '@jejunetwork/shared'
+import {
+  bytesToHex,
+  createLogger,
+  hexToBytes,
+  randomBytes,
+} from '@jejunetwork/shared'
 import { ed25519, x25519 } from '@noble/curves/ed25519'
 
 const log = createLogger('mls-client')
+
 import { hkdf } from '@noble/hashes/hkdf'
 import { sha256 } from '@noble/hashes/sha256'
 import {
@@ -37,7 +43,7 @@ const MAX_EVENT_HANDLERS = 100
 const INITIAL_RECONNECT_DELAY_MS = 1000
 const MAX_RECONNECT_DELAY_MS = 30000
 const MAX_RECONNECT_ATTEMPTS = 10
-const EMPTY_KEY = '0x' + '00'.repeat(32)
+const EMPTY_KEY = `0x${'00'.repeat(32)}`
 const EMPTY_SALT = new Uint8Array(0)
 
 interface MLSKeyMaterial {
@@ -374,7 +380,8 @@ export class JejuMLSClient {
         for (const device of data.devices) {
           if (
             device.installationId &&
-            bytesToHex(device.installationId) === bytesToHex(this.installationId)
+            bytesToHex(device.installationId) ===
+              bytesToHex(this.installationId)
           ) {
             device.lastActiveAt = Date.now()
           }
@@ -419,7 +426,13 @@ export class JejuMLSClient {
     const identityInfo = new TextEncoder().encode('jeju-mls-identity')
     const preKeyInfo = new TextEncoder().encode('jeju-mls-prekey')
 
-    const identityKey = hkdf(sha256, signatureBytes, EMPTY_SALT, identityInfo, 32)
+    const identityKey = hkdf(
+      sha256,
+      signatureBytes,
+      EMPTY_SALT,
+      identityInfo,
+      32,
+    )
     const preKey = hkdf(sha256, signatureBytes, EMPTY_SALT, preKeyInfo, 32)
 
     this.keyMaterial = {
@@ -430,7 +443,10 @@ export class JejuMLSClient {
     }
 
     log.info('Derived MLS keys', {
-      identityPrefix: bytesToHex(this.keyMaterial.identityPublicKey).slice(0, 16),
+      identityPrefix: bytesToHex(this.keyMaterial.identityPublicKey).slice(
+        0,
+        16,
+      ),
     })
   }
 
@@ -455,7 +471,8 @@ export class JejuMLSClient {
 
     // If walletClient is provided, register on-chain
     if (this.config.walletClient && this.config.keyRegistryAddress) {
-      const identityKey = `0x${bytesToHex(this.keyMaterial.identityPublicKey)}` as Hex
+      const identityKey =
+        `0x${bytesToHex(this.keyMaterial.identityPublicKey)}` as Hex
       const preKey = `0x${bytesToHex(this.keyMaterial.preKeyPublic)}` as Hex
 
       // Sign the pre-key with identity key for verification
@@ -480,7 +497,9 @@ export class JejuMLSClient {
         args: [identityKey, preKey, `0x${bytesToHex(preKeySignature)}`],
       })
 
-      log.info('Registered public key in KeyRegistry', { address: this.config.address })
+      log.info('Registered public key in KeyRegistry', {
+        address: this.config.address,
+      })
     } else {
       log.debug('No walletClient configured, skipping on-chain registration')
     }
@@ -592,7 +611,10 @@ export class JejuMLSClient {
       ws.onclose = (event) => {
         clearTimeout(connectionTimeout)
         this.relayConnection = null
-        log.info('Relay connection closed', { code: event.code, reason: event.reason })
+        log.info('Relay connection closed', {
+          code: event.code,
+          reason: event.reason,
+        })
 
         if (this.isInitialized && !this.isShuttingDown) {
           this.scheduleReconnect()
@@ -645,17 +667,22 @@ export class JejuMLSClient {
     }
 
     if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-      log.error('Max reconnect attempts reached', { maxAttempts: MAX_RECONNECT_ATTEMPTS })
+      log.error('Max reconnect attempts reached', {
+        maxAttempts: MAX_RECONNECT_ATTEMPTS,
+      })
       return
     }
 
     const delay = Math.min(
-      INITIAL_RECONNECT_DELAY_MS * Math.pow(2, this.reconnectAttempts),
+      INITIAL_RECONNECT_DELAY_MS * 2 ** this.reconnectAttempts,
       MAX_RECONNECT_DELAY_MS,
     )
     this.reconnectAttempts++
 
-    log.info('Scheduling reconnect attempt', { attempt: this.reconnectAttempts, delayMs: delay })
+    log.info('Scheduling reconnect attempt', {
+      attempt: this.reconnectAttempts,
+      delayMs: delay,
+    })
 
     this.reconnectTimeout = setTimeout(() => {
       this.connectToRelay().catch((error) => {
@@ -741,7 +768,9 @@ export class JejuMLSClient {
           .catch(() => false)
 
         if (!hasKey) {
-          log.warn('Inviter has no registered key', { inviter: data.inviterAddress })
+          log.warn('Inviter has no registered key', {
+            inviter: data.inviterAddress,
+          })
           return null
         }
       } catch {

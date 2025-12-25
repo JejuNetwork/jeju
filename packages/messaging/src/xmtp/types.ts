@@ -186,6 +186,16 @@ export interface RouteConfig {
   retryDelayMs: number
   /** Request timeout ms */
   timeoutMs: number
+  /** RPC URL for on-chain node registry queries */
+  rpcUrl?: string
+  /** MessageNodeRegistry contract address */
+  nodeRegistryAddress?: `0x${string}`
+  /**
+   * Use fallback nodes when registry is unavailable.
+   * If false, will throw when no registry is configured.
+   * Only set to true in development/testing.
+   */
+  useFallbackNodes?: boolean
 }
 
 export interface RouteResult {

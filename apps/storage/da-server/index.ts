@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+
 /**
  * DA (Data Availability) Server
  *
@@ -6,11 +7,11 @@
  * Provides blob storage and retrieval with vault encryption.
  */
 
-import { Elysia, t } from 'elysia'
 import { createHash, randomBytes } from 'node:crypto'
+import { Elysia, t } from 'elysia'
 
 const PORT = parseInt(process.env.PORT ?? '4010', 10)
-const DATA_DIR = process.env.DATA_DIR ?? '/data'
+const _DATA_DIR = process.env.DATA_DIR ?? '/data'
 const VAULT_SECRET = process.env.VAULT_ENCRYPTION_SECRET ?? ''
 const IPFS_API_URL = process.env.IPFS_API_URL ?? 'http://localhost:5001'
 const MAX_BLOB_SIZE = 128 * 1024 * 1024 // 128MB
@@ -75,8 +76,9 @@ const app = new Elysia()
       blobCount: blobStore.size,
       blobsStored: stats.blobsStored,
       blobsRetrieved: stats.blobsRetrieved,
-      bytesStoredMb: Math.round(stats.bytesStored / 1024 / 1024 * 100) / 100,
-      bytesRetrievedMb: Math.round(stats.bytesRetrieved / 1024 / 1024 * 100) / 100,
+      bytesStoredMb: Math.round((stats.bytesStored / 1024 / 1024) * 100) / 100,
+      bytesRetrievedMb:
+        Math.round((stats.bytesRetrieved / 1024 / 1024) * 100) / 100,
     },
   }))
 
@@ -84,17 +86,21 @@ const app = new Elysia()
     '/blob',
     ({ body, set }) => {
       let data: Uint8Array
-      
+
       if (body.data.startsWith('0x')) {
         const hex = body.data.slice(2)
-        data = new Uint8Array(hex.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) ?? [])
+        data = new Uint8Array(
+          hex.match(/.{1,2}/g)?.map((byte) => parseInt(byte, 16)) ?? [],
+        )
       } else {
-        data = Uint8Array.from(atob(body.data), ch => ch.charCodeAt(0))
+        data = Uint8Array.from(atob(body.data), (ch) => ch.charCodeAt(0))
       }
 
       if (data.length > MAX_BLOB_SIZE) {
         set.status = 400
-        return { error: `Blob too large: ${data.length} bytes (max: ${MAX_BLOB_SIZE})` }
+        return {
+          error: `Blob too large: ${data.length} bytes (max: ${MAX_BLOB_SIZE})`,
+        }
       }
 
       const id = generateBlobId()
@@ -166,7 +172,7 @@ const app = new Elysia()
 
     // Return as hex
     const hex = Array.from(blob.data)
-      .map(b => b.toString(16).padStart(2, '0'))
+      .map((b) => b.toString(16).padStart(2, '0'))
       .join('')
 
     return {
@@ -231,14 +237,14 @@ const app = new Elysia()
       let blobs = Array.from(blobStore.values())
 
       if (namespace) {
-        blobs = blobs.filter(b => b.namespace === namespace)
+        blobs = blobs.filter((b) => b.namespace === namespace)
       }
 
       blobs = blobs.slice(0, limit)
 
       return {
         count: blobs.length,
-        blobs: blobs.map(b => ({
+        blobs: blobs.map((b) => ({
           id: b.id,
           commitment: b.commitment,
           size: b.size,
@@ -266,7 +272,8 @@ const app = new Elysia()
         region: 'local',
         status: 'active',
         capacityGB: 100,
-        usedGB: Math.round(stats.bytesStored / 1024 / 1024 / 1024 * 100) / 100,
+        usedGB:
+          Math.round((stats.bytesStored / 1024 / 1024 / 1024) * 100) / 100,
       },
     ],
   }))

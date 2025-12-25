@@ -80,11 +80,10 @@ async function installRust(os: OS): Promise<boolean> {
 
     // Try chocolatey
     if (await checkCommand('choco')) {
-      const result = await execa(
-        'choco',
-        ['install', 'rustup.install', '-y'],
-        { reject: false, timeout: 300000 },
-      )
+      const result = await execa('choco', ['install', 'rustup.install', '-y'], {
+        reject: false,
+        timeout: 300000,
+      })
       if (result.exitCode === 0) {
         await sourceCargoEnv()
         logger.success('Rust installed successfully via chocolatey')
@@ -95,7 +94,10 @@ async function installRust(os: OS): Promise<boolean> {
     // Fallback to rustup-init via curl (works in Git Bash/MSYS2)
     const result = await execa(
       'sh',
-      ['-c', 'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y'],
+      [
+        '-c',
+        'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y',
+      ],
       { reject: false, timeout: 300000 },
     )
     if (result.exitCode === 0) {
@@ -111,13 +113,18 @@ async function installRust(os: OS): Promise<boolean> {
   // Linux/macOS
   const result = await execa(
     'sh',
-    ['-c', 'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y'],
+    [
+      '-c',
+      'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y',
+    ],
     { reject: false, timeout: 300000 },
   )
 
   if (result.exitCode !== 0) {
     logger.error('Failed to install Rust')
-    logger.info('Try: curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh')
+    logger.info(
+      'Try: curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh',
+    )
     return false
   }
 
@@ -154,24 +161,24 @@ async function installRuff(): Promise<boolean> {
 
   if (result.exitCode !== 0) {
     // Fall back to --user only
-    result = await execa(
-      baseCmd,
-      [...baseArgs, 'install', '--user', 'ruff'],
-      { reject: false, timeout: 120000 },
-    )
+    result = await execa(baseCmd, [...baseArgs, 'install', '--user', 'ruff'], {
+      reject: false,
+      timeout: 120000,
+    })
   }
 
   if (result.exitCode !== 0) {
     // Fall back to plain install
-    result = await execa(
-      baseCmd,
-      [...baseArgs, 'install', 'ruff'],
-      { reject: false, timeout: 120000 },
-    )
+    result = await execa(baseCmd, [...baseArgs, 'install', 'ruff'], {
+      reject: false,
+      timeout: 120000,
+    })
   }
 
   if (result.exitCode !== 0) {
-    logger.warn(`Could not install ruff automatically. Please run: ${pipCmd} install ruff`)
+    logger.warn(
+      `Could not install ruff automatically. Please run: ${pipCmd} install ruff`,
+    )
     return false
   }
 
@@ -182,11 +189,10 @@ async function installRuff(): Promise<boolean> {
 async function installSetuptools(): Promise<boolean> {
   // Check if distutils is available
   const pythonCmd = (await checkCommand('python3')) ? 'python3' : 'python'
-  const hasDistutils = await execa(
-    pythonCmd,
-    ['-c', 'import distutils'],
-    { reject: false, timeout: 10000 },
-  )
+  const hasDistutils = await execa(pythonCmd, ['-c', 'import distutils'], {
+    reject: false,
+    timeout: 10000,
+  })
 
   if (hasDistutils.exitCode === 0) {
     return true
@@ -219,11 +225,10 @@ async function installSetuptools(): Promise<boolean> {
   }
 
   if (result.exitCode !== 0) {
-    result = await execa(
-      baseCmd,
-      [...baseArgs, 'install', 'setuptools'],
-      { reject: false, timeout: 120000 },
-    )
+    result = await execa(baseCmd, [...baseArgs, 'install', 'setuptools'], {
+      reject: false,
+      timeout: 120000,
+    })
   }
 
   return result.exitCode === 0
@@ -243,34 +248,39 @@ Examples:
   ${chalk.cyan('jeju setup --ruff')}       Install only ruff Python linter
 `,
   )
-  .action(async (options: { rust?: boolean; ruff?: boolean; setuptools?: boolean }) => {
-    const os = detectOS()
-    logger.header('SETUP DEVELOPMENT TOOLS')
-    logger.info(`Detected OS: ${os}`)
+  .action(
+    async (options: {
+      rust?: boolean
+      ruff?: boolean
+      setuptools?: boolean
+    }) => {
+      const os = detectOS()
+      logger.header('SETUP DEVELOPMENT TOOLS')
+      logger.info(`Detected OS: ${os}`)
 
-    await sourceCargoEnv()
+      await sourceCargoEnv()
 
-    const installAll = !options.rust && !options.ruff && !options.setuptools
-    let success = true
+      const installAll = !options.rust && !options.ruff && !options.setuptools
+      let success = true
 
-    if (installAll || options.rust) {
-      const rustOk = await installRust(os)
-      if (!rustOk) success = false
-    }
+      if (installAll || options.rust) {
+        const rustOk = await installRust(os)
+        if (!rustOk) success = false
+      }
 
-    if (installAll || options.ruff) {
-      const ruffOk = await installRuff()
-      if (!ruffOk) success = false
-    }
+      if (installAll || options.ruff) {
+        const ruffOk = await installRuff()
+        if (!ruffOk) success = false
+      }
 
-    if (installAll || options.setuptools) {
-      await installSetuptools()
-    }
+      if (installAll || options.setuptools) {
+        await installSetuptools()
+      }
 
-    if (success) {
-      logger.success('All development tools ready.')
-    } else {
-      logger.warn('Some tools could not be installed. See above for details.')
-    }
-  })
-
+      if (success) {
+        logger.success('All development tools ready.')
+      } else {
+        logger.warn('Some tools could not be installed. See above for details.')
+      }
+    },
+  )

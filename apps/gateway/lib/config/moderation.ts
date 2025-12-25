@@ -9,10 +9,12 @@ export const MODERATION_CONTRACTS = {
   ModerationMarketplace: CONTRACTS.moderationMarketplace,
   ReputationLabelManager: CONTRACTS.reputationLabelManager,
   ReportingSystem: CONTRACTS.reportingSystem,
-  Predimarket: CONTRACTS.predimarket,
   RegistryGovernance: CONTRACTS.registryGovernance,
   IdentityRegistry: CONTRACTS.identityRegistry,
 } as const
+
+// Bazaar prediction market (separate from moderation system)
+export const PREDICTION_MARKET_CONTRACT = CONTRACTS.predictionMarket
 
 export const MODERATION_CONFIG = {
   // Moderation Marketplace settings

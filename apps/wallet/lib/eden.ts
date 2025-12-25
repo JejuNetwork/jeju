@@ -8,8 +8,8 @@
  */
 
 import { treaty } from '@elysiajs/eden'
-import { z } from 'zod'
 import { getCurrentNetwork, getServicesConfig } from '@jejunetwork/config'
+import { z } from 'zod'
 import { getEnv } from './env'
 
 /** JSON-RPC response schema */

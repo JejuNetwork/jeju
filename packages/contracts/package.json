@@ -24,7 +24,8 @@
     "build": "node ../../node_modules/typescript/bin/tsc",
     "generate": "wagmi generate",
     "generate:watch": "wagmi generate --watch",
-    "sync-abis": "bun run scripts/sync-abis.ts",
+    "postinstall": "[ -d out ] && bun run ../../packages/cli/src/index.ts build abis || true",
+    "sync-abis": "bun run ../../packages/cli/src/index.ts build abis",
     "test": "forge test",
     "typecheck": "tsc --noEmit"
   },

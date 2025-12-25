@@ -137,7 +137,7 @@ services:
     container_name: jeju-cache
     hostname: cache
     ports:
-      - "4015:4015"  # Standard cache port for Babylon compatibility
+      - "4015:4015"  # Standard cache port for vendor app compatibility
     environment:
       - CACHE_SERVICE_PORT=4015
       - CACHE_DEFAULT_TTL=3600

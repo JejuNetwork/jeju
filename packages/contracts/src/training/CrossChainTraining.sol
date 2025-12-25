@@ -375,20 +375,148 @@ contract CrossChainTraining is Ownable, ReentrancyGuard {
         return _verifyGroth16(proof, publicInputs);
     }
 
+    /// @notice Verification key for Groth16 proofs (set during deployment)
+    /// @dev These are the G1/G2 points for the verification key
+    struct VerificationKey {
+        uint256[2] alpha;    // G1 point
+        uint256[4] beta;     // G2 point
+        uint256[4] gamma;    // G2 point
+        uint256[4] delta;    // G2 point
+        uint256[2][] ic;     // G1 points for public inputs
+    }
+
+    /// @notice Stored verification key for cross-chain training proofs
+    VerificationKey internal verificationKey;
+    bool internal verificationKeySet;
+
+    /// @notice Set the Groth16 verification key
+    /// @param alpha G1 alpha point [x, y]
+    /// @param beta G2 beta point [x1, x2, y1, y2]
+    /// @param gamma G2 gamma point
+    /// @param delta G2 delta point
+    /// @param ic Array of G1 points for public inputs
+    function setVerificationKey(
+        uint256[2] calldata alpha,
+        uint256[4] calldata beta,
+        uint256[4] calldata gamma,
+        uint256[4] calldata delta,
+        uint256[2][] calldata ic
+    ) external onlyOwner {
+        verificationKey.alpha = alpha;
+        verificationKey.beta = beta;
+        verificationKey.gamma = gamma;
+        verificationKey.delta = delta;
+        delete verificationKey.ic;
+        for (uint256 i = 0; i < ic.length; i++) {
+            verificationKey.ic.push(ic[i]);
+        }
+        verificationKeySet = true;
+    }
+
+    /// @notice Verify a Groth16 proof using the BN254 ecpairing precompile
+    /// @param proof 8-element array containing [A.x, A.y, B.x1, B.x2, B.y1, B.y2, C.x, C.y]
+    /// @param publicInputs Array of public inputs for the proof
     function _verifyGroth16(
         uint256[8] calldata proof,
         uint256[] calldata publicInputs
-    ) internal pure returns (bool) {
-        // Placeholder for actual Groth16 verification
-        // In production, this would use the BN254 precompile at 0x08
-        // and verify the proof against a verification key
-        
-        // Basic sanity checks
-        for (uint256 i = 0; i < 8; i++) {
-            if (proof[i] == 0) return false;
+    ) internal view returns (bool) {
+        if (!verificationKeySet) return false;
+        if (publicInputs.length + 1 != verificationKey.ic.length) return false;
+
+        // Compute the linear combination of public inputs
+        // vk_x = vk.IC[0] + sum(publicInputs[i] * vk.IC[i+1])
+        uint256[2] memory vkX;
+        vkX[0] = verificationKey.ic[0][0];
+        vkX[1] = verificationKey.ic[0][1];
+
+        for (uint256 i = 0; i < publicInputs.length; i++) {
+            uint256[2] memory term = _ecMul(verificationKey.ic[i + 1], publicInputs[i]);
+            vkX = _ecAdd(vkX, term);
         }
-        
-        return publicInputs.length > 0;
+
+        // Prepare pairing check inputs
+        // e(A, B) = e(alpha, beta) * e(vk_x, gamma) * e(C, delta)
+        // Rearranged: e(-A, B) * e(alpha, beta) * e(vk_x, gamma) * e(C, delta) = 1
+        uint256[24] memory input;
+
+        // Negate A.y for the pairing check
+        uint256 pNeg = 21888242871839275222246405745257275088696311157297823662689037894645226208583;
+        uint256 negAy = pNeg - (proof[1] % pNeg);
+
+        // -A
+        input[0] = proof[0];
+        input[1] = negAy;
+        // B (note: G2 point coordinates are swapped in Ethereum's precompile)
+        input[2] = proof[3]; // B.x2
+        input[3] = proof[2]; // B.x1
+        input[4] = proof[5]; // B.y2
+        input[5] = proof[4]; // B.y1
+
+        // alpha, beta
+        input[6] = verificationKey.alpha[0];
+        input[7] = verificationKey.alpha[1];
+        input[8] = verificationKey.beta[1]; // beta.x2
+        input[9] = verificationKey.beta[0]; // beta.x1
+        input[10] = verificationKey.beta[3]; // beta.y2
+        input[11] = verificationKey.beta[2]; // beta.y1
+
+        // vk_x, gamma
+        input[12] = vkX[0];
+        input[13] = vkX[1];
+        input[14] = verificationKey.gamma[1];
+        input[15] = verificationKey.gamma[0];
+        input[16] = verificationKey.gamma[3];
+        input[17] = verificationKey.gamma[2];
+
+        // C, delta
+        input[18] = proof[6];
+        input[19] = proof[7];
+        input[20] = verificationKey.delta[1];
+        input[21] = verificationKey.delta[0];
+        input[22] = verificationKey.delta[3];
+        input[23] = verificationKey.delta[2];
+
+        // Call the ecpairing precompile (address 0x08)
+        uint256[1] memory result;
+        assembly {
+            let success := staticcall(gas(), 0x08, input, 768, result, 32)
+            if iszero(success) {
+                revert(0, 0)
+            }
+        }
+
+        return result[0] == 1;
+    }
+
+    /// @notice Elliptic curve point addition on BN254
+    function _ecAdd(uint256[2] memory p1, uint256[2] memory p2) internal view returns (uint256[2] memory r) {
+        uint256[4] memory input;
+        input[0] = p1[0];
+        input[1] = p1[1];
+        input[2] = p2[0];
+        input[3] = p2[1];
+
+        assembly {
+            let success := staticcall(gas(), 0x06, input, 128, r, 64)
+            if iszero(success) {
+                revert(0, 0)
+            }
+        }
+    }
+
+    /// @notice Elliptic curve scalar multiplication on BN254
+    function _ecMul(uint256[2] memory p, uint256 s) internal view returns (uint256[2] memory r) {
+        uint256[3] memory input;
+        input[0] = p[0];
+        input[1] = p[1];
+        input[2] = s;
+
+        assembly {
+            let success := staticcall(gas(), 0x07, input, 96, r, 64)
+            if iszero(success) {
+                revert(0, 0)
+            }
+        }
     }
 }
 

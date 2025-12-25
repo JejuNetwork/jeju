@@ -1,5 +1,5 @@
 """
-Babylon Trajectory Reader
+Jeju Trajectory Reader
 
 Reads trajectories from PostgreSQL database or local JSON files for training.
 Validates LLM call quality to ensure training data authenticity.
@@ -150,7 +150,7 @@ def validate_llm_calls(steps: list, min_steps_with_llm: int = 3) -> tuple[bool, 
 
 
 class PostgresTrajectoryReader:
-    """Reads Babylon trajectories from a PostgreSQL database."""
+    """Reads Jeju trajectories from a PostgreSQL database."""
 
     def __init__(self, database_url: str):
         if psycopg2 is None:
@@ -260,7 +260,7 @@ class PostgresTrajectoryReader:
 
 
 class JsonTrajectoryReader:
-    """Reads Babylon trajectories from a local directory of JSON files."""
+    """Reads Jeju trajectories from a local directory of JSON files."""
 
     def __init__(self, directory_path: str):
         self._directory = Path(directory_path)

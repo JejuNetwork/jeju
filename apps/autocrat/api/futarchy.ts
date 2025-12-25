@@ -69,7 +69,7 @@ export interface FutarchyMarket {
 export interface FutarchyConfig {
   rpcUrl: string
   councilAddress: string
-  predimarketAddress: string
+  predictionMarketAddress: string
   operatorKey?: string
 }
 
@@ -89,7 +89,7 @@ export class FutarchyClient {
   private readonly marketAddress: Address
 
   readonly councilDeployed: boolean
-  readonly predimarketDeployed: boolean
+  readonly predictionMarketDeployed: boolean
 
   constructor(config: FutarchyConfig) {
     const chain = inferChainFromRpcUrl(config.rpcUrl)
@@ -100,10 +100,10 @@ export class FutarchyClient {
     }) as PublicClient<Transport, Chain>
 
     this.councilAddress = toAddress(config.councilAddress)
-    this.marketAddress = toAddress(config.predimarketAddress)
+    this.marketAddress = toAddress(config.predictionMarketAddress)
 
     this.councilDeployed = config.councilAddress !== ZERO
-    this.predimarketDeployed = config.predimarketAddress !== ZERO
+    this.predictionMarketDeployed = config.predictionMarketAddress !== ZERO
 
     if (config.operatorKey) {
       this.account = privateKeyToAccount(toHex(config.operatorKey))
@@ -140,7 +140,7 @@ export class FutarchyClient {
   }
 
   async getFutarchyMarket(proposalId: string): Promise<FutarchyMarket | null> {
-    if (!this.councilDeployed || !this.predimarketDeployed) return null
+    if (!this.councilDeployed || !this.predictionMarketDeployed) return null
 
     const result = (await readContract(this.client, {
       address: this.councilAddress,
@@ -292,7 +292,8 @@ export class FutarchyClient {
     position: 'yes' | 'no',
     amount: bigint,
   ): Promise<`0x${string}`> {
-    if (!this.predimarketDeployed) throw new Error('Predimarket not deployed')
+    if (!this.predictionMarketDeployed)
+      throw new Error('PredictionMarket not deployed')
     if (!this.account) throw new Error('Wallet required')
 
     const hash = await this.walletClient.writeContract({

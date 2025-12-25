@@ -27,9 +27,10 @@ describe('types.ts - Type Utilities and Constants', () => {
       expect(isValidAddress(validAddress)).toBe(true)
     })
 
-    test('returns true for valid uppercase address', () => {
-      const validAddress = '0xD8DA6BF26964AF9D7EED9E03E53415D37AA96045'
-      expect(isValidAddress(validAddress)).toBe(true)
+    test('returns false for invalid uppercase address (fails checksum)', () => {
+      // All-uppercase addresses fail EIP-55 checksum validation
+      const invalidAddress = '0xD8DA6BF26964AF9D7EED9E03E53415D37AA96045'
+      expect(isValidAddress(invalidAddress)).toBe(false)
     })
 
     test('returns false for zero address', () => {
@@ -49,10 +50,9 @@ describe('types.ts - Type Utilities and Constants', () => {
       expect(isValidAddress(noPrefix)).toBe(false)
     })
 
-    test('accepts short addresses starting with 0x (minimal validation)', () => {
-      // Note: isValidAddress only does minimal validation - checks prefix and non-zero
-      // It doesn't validate the full 40-char hex format
-      expect(isValidAddress('0x1234')).toBe(true)
+    test('rejects short addresses (requires 40 hex chars)', () => {
+      // isValidAddress uses viem's isAddress which validates full 40-char hex format
+      expect(isValidAddress('0x1234')).toBe(false)
     })
 
     test('returns true for any non-zero address starting with 0x', () => {
@@ -118,10 +118,10 @@ describe('types.ts - Type Utilities and Constants', () => {
       }
     })
 
-    test('all chain IDs are unique', () => {
-      const values = Object.values(CHAIN_IDS)
-      const uniqueValues = new Set(values)
-      expect(uniqueValues.size).toBe(values.length)
+    test('localnet and anvil share the same chain ID (31337)', () => {
+      // This is intentional - anvil is an alias for localnet
+      expect(CHAIN_IDS.localnet).toBe(CHAIN_IDS.anvil)
+      expect(CHAIN_IDS.localnet).toBe(31337)
     })
   })
 
@@ -177,10 +177,11 @@ describe('types.ts - Type Utilities and Constants', () => {
   })
 
   describe('Edge cases for isValidAddress', () => {
-    test('handles mixed case correctly', () => {
-      // Should accept any case
+    test('mixed case fails if not properly checksummed', () => {
+      // Mixed case addresses must follow EIP-55 checksum rules
+      // This random mixed case address doesn't follow EIP-55, so it fails
       expect(isValidAddress('0xAbCdEf0123456789AbCdEf0123456789AbCdEf01')).toBe(
-        true,
+        false,
       )
     })
 
@@ -201,9 +202,8 @@ describe('types.ts - Type Utilities and Constants', () => {
 
     test('rejects non-hex characters', () => {
       const invalidHex = '0xgggggggggggggggggggggggggggggggggggggggg'
-      // Note: Current implementation only checks prefix and non-zero
-      // It doesn't validate hex format
-      expect(isValidAddress(invalidHex)).toBe(true) // Still starts with 0x and not zero
+      // viem's isAddress properly validates hex format
+      expect(isValidAddress(invalidHex)).toBe(false)
     })
   })
 

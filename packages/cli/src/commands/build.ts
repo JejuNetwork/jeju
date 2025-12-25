@@ -2,13 +2,175 @@
  * Build commands for Docker images, apps, and other artifacts
  */
 
-import { existsSync } from 'node:fs'
+import { existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { Command } from 'commander'
 import { execa } from 'execa'
+import { z } from 'zod'
 import { logger } from '../lib/logger'
 import { findMonorepoRoot } from '../lib/system'
 import { discoverApps } from '../lib/testing'
+
+// Contracts to extract ABIs from (matches wagmi.config.ts)
+const CONTRACTS_TO_EXTRACT = [
+  // Core contracts
+  'ERC20',
+  'ERC20Factory',
+  'Bazaar',
+
+  // Identity & Moderation
+  'IdentityRegistry',
+  'ReputationRegistry',
+  'ValidationRegistry',
+  'BanManager',
+  'ModerationMarketplace',
+
+  // OIF (Open Intents Framework)
+  'InputSettler',
+  'OutputSettler',
+  'SolverRegistry',
+  'SimpleOracle',
+  'HyperlaneOracle',
+  'SuperchainOracle',
+  'FederatedIdentity',
+  'FederatedLiquidity',
+  'FederatedSolver',
+
+  // Native Token
+  'NetworkToken',
+  'JejuToken',
+
+  // Service Contracts
+  'CreditManager',
+  'MultiTokenPaymaster',
+
+  // Paymaster System
+  'TokenRegistry',
+  'PaymasterFactory',
+  'LiquidityVault',
+  'AppTokenPreference',
+  'SponsoredPaymaster',
+
+  // Launchpad
+  'TokenLaunchpad',
+  'BondingCurve',
+  'ICOPresale',
+  'LPLocker',
+  'LaunchpadToken',
+
+  // Chainlink
+  'AutomationRegistry',
+  'OracleRouter',
+  'ChainlinkGovernance',
+  'VRFCoordinatorV2_5',
+
+  // Registry contracts
+  'NetworkRegistry',
+  'RegistrationHelper',
+  'UserBlockRegistry',
+
+  // Oracle contracts
+  'MockAggregatorV3',
+  'SimplePoolOracle',
+
+  // OTC
+  'OTC',
+] as const
+
+const ForgeArtifactSchema = z.object({
+  abi: z.array(z.record(z.string(), z.unknown())),
+  bytecode: z.object({ object: z.string() }).optional(),
+  deployedBytecode: z.object({ object: z.string() }).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+})
+
+interface AbiOutput {
+  abi: readonly Record<string, unknown>[]
+}
+
+async function parseArtifact(
+  filePath: string,
+): Promise<z.infer<typeof ForgeArtifactSchema>> {
+  const file = Bun.file(filePath)
+  const json: unknown = await file.json()
+  return ForgeArtifactSchema.parse(json)
+}
+
+async function findArtifact(
+  outDir: string,
+  contractName: string,
+): Promise<z.infer<typeof ForgeArtifactSchema> | null> {
+  // Forge outputs to out/{ContractName}.sol/{ContractName}.json
+  const solDir = join(outDir, `${contractName}.sol`)
+
+  const dirExists = await Bun.file(solDir)
+    .exists()
+    .catch(() => false)
+  if (!dirExists) {
+    // Try to find in subdirectories
+    let outDirs: string[] = []
+    if (existsSync(outDir)) {
+      outDirs = readdirSync(outDir)
+    }
+    for (const dir of outDirs) {
+      if (dir.endsWith('.sol')) {
+        const artifactPath = join(outDir, dir, `${contractName}.json`)
+        const file = Bun.file(artifactPath)
+        if (await file.exists()) {
+          return parseArtifact(artifactPath)
+        }
+      }
+    }
+    return null
+  }
+
+  const artifactPath = join(solDir, `${contractName}.json`)
+  const file = Bun.file(artifactPath)
+  if (await file.exists()) {
+    return parseArtifact(artifactPath)
+  }
+
+  return null
+}
+
+/**
+ * Sync ABIs from Forge out/ directory to abis/ directory
+ */
+export async function syncAbis(contractsDir: string): Promise<{
+  synced: number
+  skipped: number
+}> {
+  const outDir = join(contractsDir, 'out')
+  const abisDir = join(contractsDir, 'abis')
+
+  let synced = 0
+  let skipped = 0
+
+  for (const contractName of CONTRACTS_TO_EXTRACT) {
+    const artifact = await findArtifact(outDir, contractName)
+
+    if (!artifact) {
+      logger.debug(`  [skip] ${contractName} - artifact not found`)
+      skipped++
+      continue
+    }
+
+    if (!artifact.abi || artifact.abi.length === 0) {
+      logger.debug(`  [skip] ${contractName} - no ABI in artifact`)
+      skipped++
+      continue
+    }
+
+    const output: AbiOutput = { abi: artifact.abi }
+    const outputPath = join(abisDir, `${contractName}.json`)
+
+    await Bun.write(outputPath, JSON.stringify(output, null, 2))
+    logger.debug(`  [sync] ${contractName}`)
+    synced++
+  }
+
+  return { synced, skipped }
+}
 
 // External packages that should not be bundled for browser
 const BROWSER_EXTERNALS = [
@@ -50,11 +212,15 @@ const buildCommand = new Command('build')
     }
 
     if (options.contractsOnly) {
+      const contractsDir = join(rootDir, 'packages/contracts')
       logger.step('Building contracts...')
       await execa('forge', ['build'], {
-        cwd: join(rootDir, 'packages/contracts'),
+        cwd: contractsDir,
         stdio: 'inherit',
       })
+      logger.step('Syncing ABIs...')
+      const { synced, skipped } = await syncAbis(contractsDir)
+      logger.info(`  ${synced} synced, ${skipped} skipped`)
       logger.success('Contracts built')
       return
     }
@@ -77,11 +243,15 @@ const buildCommand = new Command('build')
     })
 
     // Build contracts
+    const contractsDir = join(rootDir, 'packages/contracts')
     logger.step('Building contracts...')
     await execa('forge', ['build'], {
-      cwd: join(rootDir, 'packages/contracts'),
+      cwd: contractsDir,
       stdio: 'inherit',
     })
+    logger.step('Syncing ABIs...')
+    const { synced, skipped } = await syncAbis(contractsDir)
+    logger.info(`  ${synced} synced, ${skipped} skipped`)
 
     // Generate docs if not skipped
     if (!options.skipDocs) {
@@ -381,12 +551,19 @@ buildCommand
 
 buildCommand
   .command('abis')
-  .description('Export contract ABIs from forge build artifacts')
+  .description('Sync contract ABIs from forge out/ to abis/')
   .action(async () => {
-    logger.error('ABI export functionality has been removed.')
-    logger.info('ABIs are automatically exported during forge build.')
-    logger.info('Check packages/contracts/abis/ for exported ABIs.')
-    process.exit(1)
+    const rootDir = findMonorepoRoot()
+    const contractsDir = join(rootDir, 'packages/contracts')
+
+    if (!existsSync(join(contractsDir, 'out'))) {
+      logger.error('Forge out/ directory not found. Run forge build first.')
+      process.exit(1)
+    }
+
+    logger.step('Syncing ABIs from forge out/ to abis/')
+    const { synced, skipped } = await syncAbis(contractsDir)
+    logger.success(`Done: ${synced} synced, ${skipped} skipped`)
   })
 
 buildCommand

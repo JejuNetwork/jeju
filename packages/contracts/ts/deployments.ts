@@ -36,7 +36,7 @@ import identitySystem1337_raw from '../deployments/identity-system-31337.json'
 import launchpadLocalnet_raw from '../deployments/launchpad-localnet.json'
 import localnetAddresses_raw from '../deployments/localnet-addresses.json'
 import paymasterSystemLocalnet_raw from '../deployments/paymaster-system-localnet.json'
-import predimarket1337_raw from '../deployments/predimarket-31337.json'
+import predictionMarket1337_raw from '../deployments/prediction-market-31337.json'
 import uniswapV4_1337_raw from '../deployments/uniswap-v4-31337.json'
 import uniswapV4_420691_raw from '../deployments/uniswap-v4-420691.json'
 import xlpAmmLocalnet_raw from '../deployments/xlp-amm-localnet.json'
@@ -276,7 +276,7 @@ export const rawDeployments = {
   paymasterSystemLocalnet: paymasterSystemLocalnet_raw,
   eilLocalnet: eilLocalnet_raw,
   eilTestnet: eilTestnet_raw,
-  predimarket1337: predimarket1337_raw,
+  predictionMarket1337: predictionMarket1337_raw,
   xlpAmmLocalnet: xlpAmmLocalnet_raw,
   launchpadLocalnet: launchpadLocalnet_raw,
 } as const

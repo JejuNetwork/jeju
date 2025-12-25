@@ -26,7 +26,8 @@ export const DWS_API_URL = getDWSUrl(NETWORK)
 export const OAUTH3_AGENT_URL = getOAuth3Url(NETWORK)
 
 // WalletConnect project ID - placeholder for local dev
-export const WALLETCONNECT_PROJECT_ID = NETWORK === 'localnet' ? '' : 'YOUR_PROJECT_ID'
+export const WALLETCONNECT_PROJECT_ID =
+  NETWORK === 'localnet' ? '' : 'YOUR_PROJECT_ID'
 
 // Contract addresses from config
 const contracts = getContractsConfig(NETWORK)
@@ -34,12 +35,15 @@ const contracts = getContractsConfig(NETWORK)
 export const CONTRACTS = {
   identityRegistry: (contracts.registry?.identity as Address) || ZERO_ADDRESS,
   banManager: (contracts.moderation?.banManager as Address) || ZERO_ADDRESS,
-  moderationMarketplace: (contracts.moderation?.moderationMarketplace as Address) || ZERO_ADDRESS,
-  reportingSystem: (contracts.moderation?.reportingSystem as Address) || ZERO_ADDRESS,
+  moderationMarketplace:
+    (contracts.moderation?.moderationMarketplace as Address) || ZERO_ADDRESS,
+  reportingSystem:
+    (contracts.moderation?.reportingSystem as Address) || ZERO_ADDRESS,
   computeRegistry: (contracts.compute?.registry as Address) || ZERO_ADDRESS,
   jnsRegistry: (contracts.jns?.registry as Address) || ZERO_ADDRESS,
   jnsResolver: (contracts.jns?.resolver as Address) || ZERO_ADDRESS,
-  x402Facilitator: (contracts.payments?.x402Facilitator as Address) || ZERO_ADDRESS,
+  x402Facilitator:
+    (contracts.payments?.x402Facilitator as Address) || ZERO_ADDRESS,
 } as const
 
 export const API_ENDPOINTS = {

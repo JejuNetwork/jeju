@@ -18,6 +18,7 @@ const TEST_CONFIG = {
   kmsEndpoint: 'http://localhost:8080',
   enclaveId: 'jeju-tee-test',
   attestationRequired: true,
+  mockMode: true, // Required: explicitly enable mock mode for testing
 }
 
 const TEST_ADDRESS = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as Address

@@ -177,7 +177,8 @@ export async function validateWalletSignature(
   const now = Date.now()
   const validityWindow =
     config.validityWindowMs ?? DEFAULT_WALLET_VALIDITY_WINDOW_MS
-  const prefix = config.messagePrefix ?? DEFAULT_MESSAGE_PREFIX
+  // Use messagePrefix if provided, otherwise fall back to domain, then default
+  const prefix = config.messagePrefix ?? config.domain ?? DEFAULT_MESSAGE_PREFIX
 
   if (timestamp > now) {
     return {

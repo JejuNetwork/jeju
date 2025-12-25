@@ -5,6 +5,20 @@ import {Ownable2Step, Ownable} from "@openzeppelin/contracts/access/Ownable2Step
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
+/// @notice Minimal interface for Chainlink price feed
+interface IAggregatorV3 {
+    function latestRoundData()
+        external
+        view
+        returns (
+            uint80 roundId,
+            int256 answer,
+            uint256 startedAt,
+            uint256 updatedAt,
+            uint80 answeredInRound
+        );
+}
+
 /// @title VRFCoordinatorV2_5
 /// @notice Oracle-based randomness coordinator (note: no cryptographic proof verification)
 contract VRFCoordinatorV2_5 is Ownable2Step, ReentrancyGuard {
@@ -399,9 +413,35 @@ contract VRFCoordinatorV2_5 is Ownable2Step, ReentrancyGuard {
         return uint96(baseCost + premium + flatFee);
     }
 
-    function convertToLink(uint96 nativeAmount) internal pure returns (uint96) {
-        // TODO: Use LINK_NATIVE_FEED oracle instead of hardcoded rate
-        return uint96(uint256(nativeAmount) * 200);
+    /// @notice Convert native currency amount to LINK using the price feed
+    /// @param nativeAmount Amount in native currency (wei)
+    /// @return Amount in LINK (with LINK decimals)
+    function convertToLink(uint96 nativeAmount) internal view returns (uint96) {
+        if (LINK_NATIVE_FEED == address(0)) {
+            // Fallback to 1:200 rate if feed not configured (for testnet compatibility)
+            return uint96(uint256(nativeAmount) * 200);
+        }
+
+        // Query the Chainlink LINK/Native price feed
+        // The feed returns LINK per Native with 18 decimals
+        (, int256 answer, , uint256 updatedAt, ) = IAggregatorV3(LINK_NATIVE_FEED).latestRoundData();
+
+        // Verify the price feed is fresh (within 1 hour)
+        if (block.timestamp - updatedAt > 3600) {
+            // Stale price, use fallback rate
+            return uint96(uint256(nativeAmount) * 200);
+        }
+
+        if (answer <= 0) {
+            // Invalid price, use fallback rate
+            return uint96(uint256(nativeAmount) * 200);
+        }
+
+        // answer = LINK per 1 Native (18 decimals)
+        // nativeAmount is in wei (18 decimals)
+        // result should be in LINK (18 decimals)
+        uint256 linkAmount = (uint256(nativeAmount) * uint256(answer)) / 1e18;
+        return uint96(linkAmount);
     }
 
     function pendingRequestExists(uint64 subId) external view returns (bool) {

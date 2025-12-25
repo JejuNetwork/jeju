@@ -4,7 +4,6 @@
 
 import type { AuthenticatedAgent, MCPAuthContext } from '../types/mcp'
 import type { ApiKeyValidator } from './api-key-auth'
-import { defaultApiKeyValidator } from './api-key-auth'
 
 /**
  * Authentication options
@@ -17,13 +16,12 @@ export interface AuthOptions {
 /**
  * Agent authenticator class
  *
- * Provides a flexible authentication system that can be configured
- * with different validators.
+ * Requires a validator to be configured - no stub defaults.
  */
 export class AgentAuthenticator {
   private apiKeyValidator: ApiKeyValidator
 
-  constructor(apiKeyValidator: ApiKeyValidator = defaultApiKeyValidator) {
+  constructor(apiKeyValidator: ApiKeyValidator) {
     this.apiKeyValidator = apiKeyValidator
   }
 
@@ -53,7 +51,7 @@ export class AgentAuthenticator {
 
     return {
       userId: validationResult.userId,
-      agentId: validationResult.agentId || validationResult.userId,
+      agentId: validationResult.agentId,
     }
   }
 
@@ -74,27 +72,13 @@ export class AgentAuthenticator {
 }
 
 /**
- * Default authenticator instance
- */
-export const defaultAuthenticator = new AgentAuthenticator()
-
-/**
- * Authenticate agent using default authenticator
- *
- * @param auth - Authentication options
- * @returns Authenticated agent or null
- */
-export async function authenticateAgent(
-  auth: AuthOptions,
-): Promise<AuthenticatedAgent | null> {
-  return defaultAuthenticator.authenticate(auth)
-}
-
-/**
- * Configure the default authenticator with a custom API key validator
+ * Create an authenticator with the given validator
  *
  * @param validator - API key validator function
+ * @returns Configured authenticator instance
  */
-export function configureAuthentication(validator: ApiKeyValidator): void {
-  defaultAuthenticator.setApiKeyValidator(validator)
+export function createAuthenticator(
+  validator: ApiKeyValidator,
+): AgentAuthenticator {
+  return new AgentAuthenticator(validator)
 }

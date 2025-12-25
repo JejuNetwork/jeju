@@ -48,8 +48,14 @@ export interface FarcasterSession {
   profile: FarcasterProfile
   signerKeyId?: string
   signerPublicKey?: Hex
+  signerPrivateKey?: Hex // Only set for delegated signing (stored securely in TEE)
   expiresAt?: number
 }
+
+/**
+ * Signing callback for external signing (wallet/frame)
+ */
+export type FarcasterSignCallback = (message: Uint8Array) => Promise<Uint8Array>
 
 export interface AuthChannelResult {
   channelToken: string
@@ -152,6 +158,7 @@ export class FarcasterProvider {
   private appName: string
   private appFid?: number
   private sessions: Map<number, FarcasterSession> = new Map()
+  private signCallback?: FarcasterSignCallback
 
   constructor(config?: FarcasterProviderConfig) {
     this.apiKey = config?.apiKey ?? NEYNAR_API_KEY
@@ -424,11 +431,46 @@ export class FarcasterProvider {
   }
 
   private async signMessage(
-    _session: FarcasterSession,
+    session: FarcasterSession,
     message: Record<string, unknown>,
   ): Promise<Uint8Array> {
-    void JSON.stringify(message)
-    return new Uint8Array(64).fill(0)
+    // Hash the message using Farcaster's message encoding
+    const messageBytes = new TextEncoder().encode(JSON.stringify(message))
+    const messageHash = toBytes(keccak256(messageBytes))
+
+    // If session has a delegated signer private key, use it directly
+    if (session.signerPrivateKey) {
+      const signerAccount = privateKeyToAccount(session.signerPrivateKey)
+      const signature = await signerAccount.signMessage({
+        message: { raw: messageHash },
+      })
+      return toBytes(signature)
+    }
+
+    // If we have an external sign callback configured, use it
+    if (this.signCallback) {
+      return this.signCallback(messageHash)
+    }
+
+    // Otherwise, throw - signing requires either a delegated key or callback
+    throw new Error(
+      'Cannot sign Farcaster message: no signer key or sign callback configured. ' +
+        'Either set session.signerPrivateKey for delegated signing, or provide a signCallback.',
+    )
+  }
+
+  /**
+   * Set an external signing callback for wallet/frame integration
+   */
+  setSignCallback(callback: FarcasterSignCallback): void {
+    this.signCallback = callback
+  }
+
+  /**
+   * Clear the external signing callback
+   */
+  clearSignCallback(): void {
+    this.signCallback = undefined
   }
 
   private async submitToHub(

@@ -90,14 +90,7 @@ export const CORE_PORTS = {
     get: () => safeParsePort(process.env.DOCUMENTATION_A2A_PORT, 7778),
   },
 
-  /** Predimarket - Prediction market platform */
-  PREDIMARKET: {
-    DEFAULT: 4005,
-    ENV_VAR: 'PREDIMARKET_PORT',
-    get: () => safeParsePort(process.env.PREDIMARKET_PORT, 4005),
-  },
-
-  /** Bazaar - DeFi + NFT Marketplace */
+  /** Bazaar - DeFi + NFT Marketplace + Prediction Markets */
   BAZAAR: {
     DEFAULT: 4006,
     ENV_VAR: 'BAZAAR_PORT',

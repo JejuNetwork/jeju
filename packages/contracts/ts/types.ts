@@ -45,4 +45,4 @@ export type DeploymentFile =
   | 'multi-token-system-31337'
   | 'eil-localnet'
   | 'eil-testnet'
-  | 'predimarket-31337'
+  | 'prediction-market-31337'

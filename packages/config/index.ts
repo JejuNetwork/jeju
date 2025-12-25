@@ -590,37 +590,67 @@ export function getCrucibleUrl(network?: NetworkType): string {
 /** Get OAuth3 (decentralized identity) API URL */
 export function getOAuth3Url(network?: NetworkType): string {
   const config = getServicesConfig(network)
-  return config.oauth3?.api ?? 'http://127.0.0.1:4200'
+  if (!config.oauth3?.api) {
+    throw new Error(
+      `OAuth3 API not configured for ${network ?? getCurrentNetwork()}. Set OAUTH3_URL or add oauth3.api to services.json`,
+    )
+  }
+  return config.oauth3.api
 }
 
 /** Get Oracle API URL */
 export function getOracleUrl(network?: NetworkType): string {
   const config = getServicesConfig(network)
-  return config.oracle?.api ?? 'http://127.0.0.1:4070'
+  if (!config.oracle?.api) {
+    throw new Error(
+      `Oracle API not configured for ${network ?? getCurrentNetwork()}. Set ORACLE_URL or add oracle.api to services.json`,
+    )
+  }
+  return config.oracle.api
 }
 
 /** Get Node API URL */
 export function getNodeUrl(network?: NetworkType): string {
   const config = getServicesConfig(network)
-  return config.node?.api ?? 'http://127.0.0.1:4080'
+  if (!config.node?.api) {
+    throw new Error(
+      `Node API not configured for ${network ?? getCurrentNetwork()}. Set NODE_URL or add node.api to services.json`,
+    )
+  }
+  return config.node.api
 }
 
 /** Get external bundler URL */
 export function getBundlerUrl(network?: NetworkType): string {
   const config = getServicesConfig(network)
-  return config.external?.bundler ?? 'http://127.0.0.1:4337'
+  if (!config.external?.bundler) {
+    throw new Error(
+      `Bundler URL not configured for ${network ?? getCurrentNetwork()}. Set BUNDLER_URL or add external.bundler to services.json`,
+    )
+  }
+  return config.external.bundler
 }
 
 /** Get Farcaster hub URL */
 export function getFarcasterHubUrl(network?: NetworkType): string {
   const config = getServicesConfig(network)
-  return config.external?.farcaster?.hub ?? 'https://nemes.farcaster.xyz:2281'
+  if (!config.external?.farcaster?.hub) {
+    throw new Error(
+      `Farcaster hub not configured for ${network ?? getCurrentNetwork()}. Set FARCASTER_HUB_URL or add external.farcaster.hub to services.json`,
+    )
+  }
+  return config.external.farcaster.hub
 }
 
 /** Get Farcaster API URL (Neynar) */
 export function getFarcasterApiUrl(network?: NetworkType): string {
   const config = getServicesConfig(network)
-  return config.external?.farcaster?.api ?? 'https://api.neynar.com/v2'
+  if (!config.external?.farcaster?.api) {
+    throw new Error(
+      `Farcaster API not configured for ${network ?? getCurrentNetwork()}. Set FARCASTER_API_URL or add external.farcaster.api to services.json`,
+    )
+  }
+  return config.external.farcaster.api
 }
 
 // TEE Configuration

@@ -581,15 +581,17 @@ export class EmailProvider {
   }
 
   private async sendEmail(
-    _to: string,
-    _subject: string,
-    _html: string,
+    to: string,
+    subject: string,
+    html: string,
   ): Promise<void> {
     if (
       this.config.devMode ||
       process.env.NODE_ENV === 'development' ||
       process.env.NODE_ENV === 'test'
     ) {
+      // In dev mode, log the email instead of sending
+      console.log(`[EmailProvider] Would send email to ${to}: ${subject}`)
       return
     }
 
@@ -603,12 +605,203 @@ export class EmailProvider {
 
     if (!smtpConfig.host || !smtpConfig.user || !smtpConfig.password) {
       throw new Error(
-        'SMTP configuration required for production email sending',
+        'SMTP configuration required for production email sending. ' +
+          'Set SMTP_HOST, SMTP_USER, and SMTP_PASSWORD environment variables.',
       )
     }
 
+    // Build email message in RFC 5322 format
+    const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).substring(2)}`
+    const message = [
+      `From: ${this.config.fromName} <${this.config.fromEmail}>`,
+      `To: ${to}`,
+      `Subject: ${subject}`,
+      'MIME-Version: 1.0',
+      `Content-Type: multipart/alternative; boundary="${boundary}"`,
+      '',
+      `--${boundary}`,
+      'Content-Type: text/plain; charset=utf-8',
+      'Content-Transfer-Encoding: quoted-printable',
+      '',
+      this.htmlToPlainText(html),
+      '',
+      `--${boundary}`,
+      'Content-Type: text/html; charset=utf-8',
+      'Content-Transfer-Encoding: quoted-printable',
+      '',
+      html,
+      '',
+      `--${boundary}--`,
+    ].join('\r\n')
+
+    // Send via SMTP using fetch to a mail relay or direct SMTP
+    // Check for common transactional email providers
+    if (smtpConfig.host.includes('sendgrid')) {
+      await this.sendViaSendGrid(to, subject, html, message)
+    } else if (smtpConfig.host.includes('mailgun')) {
+      await this.sendViaMailgun(to, subject, html)
+    } else if (smtpConfig.host.includes('resend')) {
+      await this.sendViaResend(to, subject, html)
+    } else {
+      // Generic SMTP via relay endpoint
+      await this.sendViaRelay(to, subject, html, smtpConfig)
+    }
+  }
+
+  private htmlToPlainText(html: string): string {
+    return html
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n\n')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .trim()
+  }
+
+  private async sendViaSendGrid(
+    to: string,
+    subject: string,
+    html: string,
+    _message: string,
+  ): Promise<void> {
+    const apiKey = this.config.smtpPassword ?? process.env.SENDGRID_API_KEY
+    if (!apiKey) {
+      throw new Error('SendGrid API key not configured')
+    }
+
+    const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        personalizations: [{ to: [{ email: to }] }],
+        from: { email: this.config.fromEmail, name: this.config.fromName },
+        subject,
+        content: [
+          { type: 'text/plain', value: this.htmlToPlainText(html) },
+          { type: 'text/html', value: html },
+        ],
+      }),
+    })
+
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(`SendGrid email failed: ${response.status} - ${error}`)
+    }
+  }
+
+  private async sendViaMailgun(
+    to: string,
+    subject: string,
+    html: string,
+  ): Promise<void> {
+    const apiKey = this.config.smtpPassword ?? process.env.MAILGUN_API_KEY
+    const domain = this.config.smtpHost ?? process.env.MAILGUN_DOMAIN
+
+    if (!apiKey || !domain) {
+      throw new Error('Mailgun API key or domain not configured')
+    }
+
+    const formData = new FormData()
+    formData.append('from', `${this.config.fromName} <${this.config.fromEmail}>`)
+    formData.append('to', to)
+    formData.append('subject', subject)
+    formData.append('text', this.htmlToPlainText(html))
+    formData.append('html', html)
+
+    const response = await fetch(
+      `https://api.mailgun.net/v3/${domain}/messages`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${btoa(`api:${apiKey}`)}`,
+        },
+        body: formData,
+      },
+    )
+
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(`Mailgun email failed: ${response.status} - ${error}`)
+    }
+  }
+
+  private async sendViaResend(
+    to: string,
+    subject: string,
+    html: string,
+  ): Promise<void> {
+    const apiKey = this.config.smtpPassword ?? process.env.RESEND_API_KEY
+    if (!apiKey) {
+      throw new Error('Resend API key not configured')
+    }
+
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: `${this.config.fromName} <${this.config.fromEmail}>`,
+        to: [to],
+        subject,
+        text: this.htmlToPlainText(html),
+        html,
+      }),
+    })
+
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(`Resend email failed: ${response.status} - ${error}`)
+    }
+  }
+
+  private async sendViaRelay(
+    to: string,
+    subject: string,
+    html: string,
+    smtpConfig: {
+      host: string | undefined
+      port: number
+      user: string | undefined
+      password: string | undefined
+    },
+  ): Promise<void> {
+    // For generic SMTP, use a webhook-based relay service or direct SMTP
+    // This is a fallback - recommend using SendGrid, Mailgun, or Resend instead
+    const relayUrl = process.env.SMTP_RELAY_URL
+
+    if (relayUrl) {
+      // Use HTTP relay endpoint
+      const response = await fetch(relayUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Basic ${btoa(`${smtpConfig.user}:${smtpConfig.password}`)}`,
+        },
+        body: JSON.stringify({
+          from: `${this.config.fromName} <${this.config.fromEmail}>`,
+          to,
+          subject,
+          text: this.htmlToPlainText(html),
+          html,
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.text()
+        throw new Error(`Email relay failed: ${response.status} - ${error}`)
+      }
+      return
+    }
+
     throw new Error(
-      'Email provider not configured. Set SMTP_* environment variables.',
+      'Direct SMTP not supported. Use SendGrid, Mailgun, Resend, or set SMTP_RELAY_URL for a webhook-based relay.',
     )
   }
 

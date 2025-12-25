@@ -4,7 +4,7 @@
  *
  * Flow:
  * 1. Deploy IdentityRegistry with staking
- * 2. Register apps (Bazaar, Predimarket, eHorse) in Gateway
+ * 2. Register apps (Bazaar, PredictionMarket, eHorse) in Gateway
  * 3. Start agent with plugin-registry
  * 4. Agent discovers apps from registry
  * 5. Agent connects to apps via A2A
@@ -49,7 +49,7 @@ if (!servicesAvailable) {
 describe.skipIf(!servicesAvailable)('Deep Integration E2E', () => {
   let registryAddress: `0x${string}`
   let bazaarAgentId: bigint
-  let predimarketAgentId: bigint
+  let predictionMarketAgentId: bigint
   let ehorseAgentId: bigint
 
   beforeAll(async () => {
@@ -91,14 +91,14 @@ describe.skipIf(!servicesAvailable)('Deep Integration E2E', () => {
     console.log(`✅ Bazaar registered with agent ID: ${bazaarAgentId}`)
   })
 
-  it('should register Predimarket in registry with VIRTUAL stake', async () => {
-    console.log('\n🎲 Registering Predimarket...')
+  it('should register PredictionMarket in registry with VIRTUAL stake', async () => {
+    console.log('\n🎲 Registering PredictionMarket...')
 
     // Similar to Bazaar but with VIRTUAL token
-    predimarketAgentId = 2n
+    predictionMarketAgentId = 2n
 
     console.log(
-      `✅ Predimarket registered with agent ID: ${predimarketAgentId}`,
+      `✅ PredictionMarket registered with agent ID: ${predictionMarketAgentId}`,
     )
   })
 
@@ -115,7 +115,7 @@ describe.skipIf(!servicesAvailable)('Deep Integration E2E', () => {
     console.log('\n🔍 Agent discovering apps...')
 
     // TODO: Implement when registry contracts are deployed
-    const allApps = [bazaarAgentId, predimarketAgentId, ehorseAgentId]
+    const allApps = [bazaarAgentId, predictionMarketAgentId, ehorseAgentId]
 
     console.log(
       `✅ Discovered ${allApps.length} apps:`,

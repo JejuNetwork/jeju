@@ -84,7 +84,7 @@ const DEPLOY_ABIS = {
       inputs: [
         { name: '_banManager', type: 'address' },
         { name: '_labelManager', type: 'address' },
-        { name: '_predimarket', type: 'address' },
+        { name: '_predictionMarket', type: 'address' },
         { name: '_identityRegistry', type: 'address' },
         { name: '_owner', type: 'address' },
       ],
@@ -96,7 +96,7 @@ const DEPLOY_ABIS = {
       inputs: [
         { name: '_banManager', type: 'address' },
         { name: '_identityRegistry', type: 'address' },
-        { name: '_predimarket', type: 'address' },
+        { name: '_predictionMarket', type: 'address' },
         { name: '_owner', type: 'address' },
       ],
     },
@@ -180,7 +180,7 @@ async function deployModeration() {
   // Get dependencies
   const identityRegistry =
     deployment.registry?.identityRegistry || account.address
-  const predimarket = account.address // Placeholder - needs actual Predimarket address
+  const predictionMarket = account.address // Placeholder - needs actual PredictionMarket address (part of Bazaar)
 
   // Deploy BanManager
   if (!deployment.moderation.banManager) {
@@ -213,7 +213,7 @@ async function deployModeration() {
       args: [
         deployment.moderation.banManager,
         identityRegistry,
-        predimarket,
+        predictionMarket,
         account.address,
       ],
     })
@@ -291,7 +291,7 @@ async function deployModeration() {
     )
   }
 
-  // Deploy ReportingSystem (needs BanManager, LabelManager, Predimarket, IdentityRegistry)
+  // Deploy ReportingSystem (needs BanManager, LabelManager, PredictionMarket, IdentityRegistry)
   if (!deployment.moderation.reportingSystem) {
     console.log('📦 Deploying ReportingSystem...')
     const bytecode = loadContractBytecode('ReportingSystem')
@@ -302,7 +302,7 @@ async function deployModeration() {
       args: [
         deployment.moderation.banManager,
         deployment.moderation.reputationLabelManager,
-        predimarket,
+        predictionMarket,
         identityRegistry,
         account.address,
       ],

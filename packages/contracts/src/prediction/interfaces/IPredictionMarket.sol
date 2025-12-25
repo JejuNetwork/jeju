@@ -2,10 +2,11 @@
 pragma solidity ^0.8.33;
 
 /**
- * @title IPredimarket
- * @notice Interface for Council to interact with Predimarket for futarchy escalation
+ * @title IPredictionMarket
+ * @notice Interface for Council to interact with PredictionMarket for futarchy escalation
+ * @dev Part of Bazaar - the prediction market feature for governance and moderation
  */
-interface IPredimarket {
+interface IPredictionMarket {
     enum MarketCategory {
         GENERAL,
         MODERATION_NETWORK_BAN,

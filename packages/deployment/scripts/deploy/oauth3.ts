@@ -8,7 +8,7 @@
  * - AccountFactory
  *
  * Also registers default OAuth3 apps for Jeju and Eliza councils.
- * Vendor apps (like Babylon) should register their own OAuth3 apps.
+ * Vendor apps should register their own OAuth3 apps.
  */
 
 import {

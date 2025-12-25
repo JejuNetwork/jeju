@@ -39,10 +39,7 @@ class DWSCacheService implements CacheService {
   private healthLastChecked = 0
   private healthy = false
 
-  private async fetch<T>(
-    path: string,
-    options: RequestInit = {},
-  ): Promise<T> {
+  private async fetch<T>(path: string, options: RequestInit = {}): Promise<T> {
     const response = await fetch(`${DWS_CACHE_ENDPOINT}${path}`, {
       ...options,
       headers: {

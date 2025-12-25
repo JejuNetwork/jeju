@@ -1,5 +1,5 @@
 """
-Shared Type Definitions for Babylon RL Training
+Shared Type Definitions for Jeju RL Training
 Strong, validated types - no Any, no unknown casts
 """
 
@@ -96,7 +96,7 @@ class TrajectoryStep(BaseModel):
     reward: float = 0.0
 
 
-class BabylonTrajectory(BaseModel):
+class JejuTrajectory(BaseModel):
     """Complete trajectory from database"""
 
     # Combines camelCase conversion with mutability
@@ -225,7 +225,7 @@ class TrajectoryGroup(BaseModel):
     group_key: str
     window_id: str
     scenario_id: str | None = None
-    trajectories: list[BabylonTrajectory]
+    trajectories: list[JejuTrajectory]
 
     @property
     def size(self) -> int:

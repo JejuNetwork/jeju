@@ -24,8 +24,12 @@ import { TEST_ACCOUNTS } from '../shared/utils'
 
 const RPC_URL = getRpcUrl('localnet')
 const CHAIN_ID = getChainId('localnet')
-const ERC20_FACTORY_ADDRESS = getContract('tokens', 'factory', 'localnet') as Address | undefined
-const NFT_MARKETPLACE_ADDRESS = getContract('nft', 'marketplace', 'localnet') as Address | undefined
+const ERC20_FACTORY_ADDRESS = getContract('tokens', 'factory', 'localnet') as
+  | Address
+  | undefined
+const NFT_MARKETPLACE_ADDRESS = getContract('nft', 'marketplace', 'localnet') as
+  | Address
+  | undefined
 
 // Use shared test accounts (Anvil defaults)
 const TEST_PRIVATE_KEY = TEST_ACCOUNTS.deployer.privateKey
@@ -139,7 +143,10 @@ test.describe('Contract Deployment Check', () => {
   test('Can verify ERC20 Factory deployment', async () => {
     const factoryAddress = ERC20_FACTORY_ADDRESS
 
-    if (!factoryAddress || factoryAddress === '0x0000000000000000000000000000000000000000') {
+    if (
+      !factoryAddress ||
+      factoryAddress === '0x0000000000000000000000000000000000000000'
+    ) {
       test.skip()
       return
     }
@@ -152,7 +159,10 @@ test.describe('Contract Deployment Check', () => {
   test('Can verify NFT Marketplace deployment', async () => {
     const marketplaceAddress = NFT_MARKETPLACE_ADDRESS
 
-    if (!marketplaceAddress || marketplaceAddress === '0x0000000000000000000000000000000000000000') {
+    if (
+      !marketplaceAddress ||
+      marketplaceAddress === '0x0000000000000000000000000000000000000000'
+    ) {
       test.skip()
       return
     }

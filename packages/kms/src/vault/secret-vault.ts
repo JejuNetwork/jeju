@@ -12,6 +12,7 @@ import {
   generateKeyId,
 } from '../crypto.js'
 import { kmsLogger as log } from '../logger.js'
+import { getOnChainVerifier } from '../on-chain-verifier.js'
 import { daSecretsListResponseSchema } from '../schemas.js'
 
 export interface Secret {

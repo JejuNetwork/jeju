@@ -10,7 +10,7 @@
  *
  * 3. Contract deployment is OPTIONAL:
  *    - ERC8004 registries (identity, reputation, validation) return empty when not deployed
- *    - Futarchy (council, predimarket) returns empty arrays when not deployed
+ *    - Futarchy (council, predictionMarket) returns empty arrays when not deployed
  *    - Set addresses to 0x0 to explicitly disable
  *
  * 4. Security:
@@ -297,14 +297,16 @@ const erc8004Config: ERC8004Config = {
 const erc8004 = getERC8004Client(erc8004Config)
 
 // Futarchy API
-const predimarketAddr =
-  'predimarket' in config.contracts ? config.contracts.predimarket : undefined
+const predictionMarketAddr =
+  'predictionMarket' in config.contracts
+    ? config.contracts.predictionMarket
+    : undefined
 const futarchyConfig: FutarchyConfig = {
   rpcUrl: config.rpcUrl,
   councilAddress: toAddress(config.contracts.council),
-  predimarketAddress:
-    typeof predimarketAddr === 'string'
-      ? toAddress(predimarketAddr)
+  predictionMarketAddress:
+    typeof predictionMarketAddr === 'string'
+      ? toAddress(predictionMarketAddr)
       : ZERO_ADDRESS,
   operatorKey: process.env.OPERATOR_KEY ?? process.env.PRIVATE_KEY,
 }
@@ -1068,7 +1070,7 @@ const app = new Elysia()
     },
     futarchy: {
       council: futarchy.councilDeployed,
-      predimarket: futarchy.predimarketDeployed,
+      predictionMarket: futarchy.predictionMarketDeployed,
     },
     registry: {
       integration: !!registryConfig.integrationContract,
@@ -1197,6 +1199,13 @@ export type {
   FundingConfig,
   GovernanceParams,
 } from '../lib'
+export type {
+  DAO,
+  DAOFull,
+  FundingAllocation,
+  FundingEpoch,
+  FundingProject,
+} from '../lib/types'
 export { createAutocratA2AServer } from './a2a-server'
 export {
   type AgentVote,
@@ -1212,13 +1221,6 @@ export {
   startLocalCron,
 } from './compute-trigger'
 export { createDAOService, DAOService, getDAOService } from './dao-service'
-export type {
-  DAO,
-  DAOFull,
-  FundingAllocation,
-  FundingEpoch,
-  FundingProject,
-} from '../lib/types'
 export {
   type AgentIdentity,
   type AgentReputation,

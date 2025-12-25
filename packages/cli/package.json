@@ -35,7 +35,8 @@
     "madge": "8.0.0",
     "prompts": "2.4.2",
     "viem": "2.43.3",
-    "which": "4.0.0"
+    "which": "4.0.0",
+    "zod": "4.2.1"
   },
   "optionalDependencies": {
     "@phala/dstack-sdk": "0.5.7"
@@ -52,8 +53,7 @@
     "@jejunetwork/types": ">=0.1.0",
     "@jejunetwork/tests": ">=0.1.0",
     "@playwright/test": ">=1.55.0",
-    "@synthetixio/synpress": ">=4.0.0",
-    "zod": ">=4.0.0"
+    "@synthetixio/synpress": ">=4.0.0"
   },
   "peerDependenciesMeta": {
     "@jejunetwork/config": { "optional": true },
@@ -61,8 +61,7 @@
     "@jejunetwork/types": { "optional": true },
     "@jejunetwork/tests": { "optional": true },
     "@playwright/test": { "optional": true },
-    "@synthetixio/synpress": { "optional": true },
-    "zod": { "optional": true }
+    "@synthetixio/synpress": { "optional": true }
   },
   "repository": {
     "type": "git",

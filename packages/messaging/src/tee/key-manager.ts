@@ -67,12 +67,27 @@ export class TEEXMTPKeyManager {
   private preKeys: Map<string, TEEPreKey> = new Map()
   private installationKeys: Map<string, TEEInstallationKey> = new Map()
 
-  // In production, this would be a TEE-backed store
-  // For now, use in-memory mock
+  // Mock key store - only used when mockMode is enabled
   private mockKeyStore: Map<string, MockKeyStore> = new Map()
 
   constructor(config: TEEKeyConfig) {
     this.config = config
+
+    if (config.mockMode) {
+      console.warn(
+        '[TEE] WARNING: Running in MOCK MODE - keys are stored in-memory, NOT in real TEE hardware.',
+      )
+      console.warn(
+        '[TEE] Set mockMode: false in production to use actual TEE infrastructure.',
+      )
+    } else {
+      // In production mode, we require actual TEE integration
+      // For now, throw an error since real TEE is not yet implemented
+      throw new Error(
+        'Real TEE mode not yet implemented. Set mockMode: true for development/testing, ' +
+          'or implement TEE hardware integration for production.',
+      )
+    }
   }
 
   /**
@@ -607,7 +622,17 @@ export class TEEXMTPKeyManager {
 
 /**
  * Create TEE key manager
+ *
+ * @param config - Configuration for TEE key management
+ * @param config.mockMode - Must be explicitly set to true for development or false for production
  */
 export function createTEEKeyManager(config: TEEKeyConfig): TEEXMTPKeyManager {
+  // Validate mockMode is explicitly set
+  if (typeof config.mockMode !== 'boolean') {
+    throw new Error(
+      'TEEKeyConfig.mockMode must be explicitly set to true (development) or false (production).',
+    )
+  }
+
   return new TEEXMTPKeyManager(config)
 }

@@ -365,13 +365,10 @@ export function useCreateS3Bucket() {
       if (address) headers['x-jeju-address'] = address
       if (params.region) headers['x-amz-bucket-region'] = params.region
 
-      const response = await fetch(
-        `${DWS_API_URL}/s3/${params.name}`,
-        {
-          method: 'PUT',
-          headers,
-        },
-      )
+      const response = await fetch(`${DWS_API_URL}/s3/${params.name}`, {
+        method: 'PUT',
+        headers,
+      })
 
       if (!response.ok) {
         throw new Error(
@@ -392,12 +389,9 @@ export function useDeleteS3Bucket() {
 
   return useMutation({
     mutationFn: async (bucketName: string) => {
-      const response = await fetch(
-        `${DWS_API_URL}/s3/${bucketName}`,
-        {
-          method: 'DELETE',
-        },
-      )
+      const response = await fetch(`${DWS_API_URL}/s3/${bucketName}`, {
+        method: 'DELETE',
+      })
 
       if (!response.ok) {
         throw new Error(
@@ -420,9 +414,7 @@ export function useS3Objects(bucketName: string, prefix?: string) {
       const params = new URLSearchParams({ 'list-type': '2' })
       if (prefix) params.set('prefix', prefix)
 
-      const response = await fetch(
-        `${DWS_API_URL}/s3/${bucketName}?${params}`,
-      )
+      const response = await fetch(`${DWS_API_URL}/s3/${bucketName}?${params}`)
 
       if (!response.ok) {
         throw new Error(
@@ -510,14 +502,11 @@ export function useS3Presign() {
       expiresIn?: number
       contentType?: string
     }) => {
-      const response = await fetch(
-        `${DWS_API_URL}/s3/presign`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(params),
-        },
-      )
+      const response = await fetch(`${DWS_API_URL}/s3/presign`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params),
+      })
 
       if (!response.ok) {
         const errorJson: unknown = await response.json()
@@ -1033,12 +1022,9 @@ export function useScrapingSessions() {
     queryKey: ['scraping-sessions', address],
     queryFn: async () => {
       // Sessions endpoint requires auth - fetch with address header
-      const response = await fetch(
-        `${DWS_API_URL}/scraping/sessions`,
-        {
-          headers: address ? { 'x-jeju-address': address } : {},
-        },
-      )
+      const response = await fetch(`${DWS_API_URL}/scraping/sessions`, {
+        headers: address ? { 'x-jeju-address': address } : {},
+      })
       if (!response.ok) return { sessions: [] }
       return ScrapingSessionsResponseSchema.parse(await response.json())
     },
@@ -1056,17 +1042,14 @@ export function useCreateScrapingSession() {
       region?: string
       duration?: number
     }) => {
-      const response = await fetch(
-        `${DWS_API_URL}/scraping/sessions`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(address ? { 'x-jeju-address': address } : {}),
-          },
-          body: JSON.stringify(params),
+      const response = await fetch(`${DWS_API_URL}/scraping/sessions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(address ? { 'x-jeju-address': address } : {}),
         },
-      )
+        body: JSON.stringify(params),
+      })
       if (!response.ok) {
         throw new Error(
           parseSimpleError(await response.json(), 'Failed to create session'),
@@ -1093,17 +1076,14 @@ export function useSendEmail() {
       bodyText: string
       bodyHtml?: string
     }) => {
-      const response = await fetch(
-        `${DWS_API_URL}/email/send`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(address ? { 'x-wallet-address': address } : {}),
-          },
-          body: JSON.stringify(params),
+      const response = await fetch(`${DWS_API_URL}/email/send`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(address ? { 'x-wallet-address': address } : {}),
         },
-      )
+        body: JSON.stringify(params),
+      })
       if (!response.ok) {
         const errorJson: unknown = await response.json()
         const parsed = z
@@ -1125,12 +1105,9 @@ export function useMailbox() {
   return useQuery({
     queryKey: ['mailbox', address],
     queryFn: async () => {
-      const response = await fetch(
-        `${DWS_API_URL}/email/mailbox`,
-        {
-          headers: address ? { 'x-wallet-address': address } : {},
-        },
-      )
+      const response = await fetch(`${DWS_API_URL}/email/mailbox`, {
+        headers: address ? { 'x-wallet-address': address } : {},
+      })
       if (!response.ok) {
         throw new Error(
           parseSimpleError(await response.json(), 'Failed to fetch mailbox'),

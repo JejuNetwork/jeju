@@ -61,7 +61,8 @@ const app = new Elysia()
     stats: {
       totalKeys: store.size,
       namespaces: 1,
-      usedMemoryMb: Math.round(stats.memoryUsedBytes / 1024 / 1024 * 100) / 100,
+      usedMemoryMb:
+        Math.round((stats.memoryUsedBytes / 1024 / 1024) * 100) / 100,
       totalMemoryMb: MAX_MEMORY_MB,
       hits: stats.hits,
       misses: stats.misses,

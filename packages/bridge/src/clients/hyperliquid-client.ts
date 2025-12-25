@@ -341,6 +341,12 @@ export class HyperliquidClient {
   /**
    * Sign a HyperCore action using EIP-712 typed data signing
    * Follows Hyperliquid's L1 action signing specification
+   *
+   * @see https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/signing
+   *
+   * Important: Hyperliquid L1 actions use chainId 42161 (Arbitrum) for mainnet
+   * and chainId 421614 (Arbitrum Sepolia) for testnet. The EIP-712 domain
+   * is different from HyperEVM (chainId 998).
    */
   private async signHyperCoreAction(
     _action: Record<string, unknown>,
@@ -351,11 +357,15 @@ export class HyperliquidClient {
     }
 
     // Hyperliquid uses EIP-712 typed data signing with a specific domain
-    // The domain matches their L1 action signing specification
+    // L1 actions are signed against Arbitrum chainId (42161 for mainnet)
+    // NOT HyperEVM chainId (998) - this is per Hyperliquid specification
+    // @see https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/signing
+    const HYPERLIQUID_L1_CHAIN_ID = 42161 // Arbitrum One (mainnet)
+
     const domain = {
       name: 'HyperliquidSignTransaction',
       version: '1',
-      chainId: 31337, // Hyperliquid uses chainId 31337 for L1 action signing (not 998 which is HyperEVM)
+      chainId: HYPERLIQUID_L1_CHAIN_ID,
       verifyingContract:
         '0x0000000000000000000000000000000000000000' as Address,
     } as const
@@ -376,7 +386,7 @@ export class HyperliquidClient {
     // Create the message to sign
     const message = {
       hyperliquidChain: 'Mainnet',
-      signatureChainId: BigInt(31337),
+      signatureChainId: BigInt(HYPERLIQUID_L1_CHAIN_ID),
       nonce: BigInt(timestamp),
     }
 

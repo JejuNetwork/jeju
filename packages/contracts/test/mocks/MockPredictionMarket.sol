@@ -2,11 +2,11 @@
 pragma solidity ^0.8.26;
 
 /**
- * @title MockPredimarket
+ * @title MockPredictionMarket
  * @notice Shared mock for testing moderation contracts
  * @dev Used across multiple test suites to avoid duplication
  */
-contract MockPredimarket {
+contract MockPredictionMarket {
     mapping(bytes32 => bool) public marketResolved;
     mapping(bytes32 => bool) public marketOutcome;
     mapping(address => bool) public authorizedCreators;

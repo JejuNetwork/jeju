@@ -144,12 +144,8 @@ describe.skipIf(!localnetAvailable)('Credit Migration Integration', () => {
     console.log(`  Admin address: ${TEST_CONFIG.adminAccount.address}`)
     console.log(`  User address: ${TEST_CONFIG.userAccount.address}`)
     console.log(`  Credits to migrate: ${TEST_CONFIG.testCreditBalance}`)
-    console.log(
-      `  Exchange rate: 1 credit = ${TEST_CONFIG.exchangeRate} JEJU`,
-    )
-    console.log(
-      `  Expected mint: ${formatUnits(expectedMintAmount, 18)} JEJU`,
-    )
+    console.log(`  Exchange rate: 1 credit = ${TEST_CONFIG.exchangeRate} JEJU`)
+    console.log(`  Expected mint: ${formatUnits(expectedMintAmount, 18)} JEJU`)
     console.log(
       `  Initial balance: ${formatUnits(initialJejuBalance, 18)} JEJU\n`,
     )

@@ -88,11 +88,6 @@ import TokenRegistryAbiJson from '../../abis/TokenRegistry.json'
 import ValidationRegistryAbiJson from '../../abis/ValidationRegistry.json'
 import VRFCoordinatorV2_5AbiJson from '../../abis/VRFCoordinatorV2_5.json'
 
-// Babylon ABIs
-import BabylonDiamondLoupeFacetAbiJson from '../../abis/BabylonDiamondLoupeFacet.json'
-import BabylonOracleFacetAbiJson from '../../abis/BabylonOracleFacet.json'
-import BabylonPredictionMarketFacetAbiJson from '../../abis/BabylonPredictionMarketFacet.json'
-
 // Legacy PascalCase exports (cast to Abi, loses type inference)
 export const ERC20Abi = ERC20AbiJson.abi as Abi
 export const ERC20FactoryAbi = ERC20FactoryAbiJson.abi as Abi
@@ -126,11 +121,6 @@ export const VRFCoordinatorV2_5Abi = VRFCoordinatorV2_5AbiJson.abi as Abi
 export const AutomationRegistryAbi = AutomationRegistryAbiJson.abi as Abi
 export const OracleRouterAbi = OracleRouterAbiJson.abi as Abi
 export const ChainlinkGovernanceAbi = ChainlinkGovernanceAbiJson.abi as Abi
-
-// Babylon ABIs (vendor app support)
-export const BabylonDiamondLoupeFacetAbi = BabylonDiamondLoupeFacetAbiJson.abi as Abi
-export const BabylonOracleFacetAbi = BabylonOracleFacetAbiJson.abi as Abi
-export const BabylonPredictionMarketFacetAbi = BabylonPredictionMarketFacetAbiJson.abi as Abi
 
 // Export raw JSON files
 export {

@@ -161,6 +161,9 @@ contract SecurityBountyRegistry is ReentrancyGuard, Pausable, Ownable {
     mapping(address => uint256) public researcherApprovedCount;
     mapping(address => uint256) public researcherTotalEarned;
 
+    // All submission IDs for enumeration
+    bytes32[] private _allSubmissionIds;
+
     // Counters
     uint256 private _nextSubmissionId = 1;
     uint256 public totalBountyPool;
@@ -352,6 +355,7 @@ contract SecurityBountyRegistry is ReentrancyGuard, Pausable, Ownable {
 
         vulnerabilityHashes[vulnerabilityHash] = submissionId;
         researcherSubmissions[msg.sender]++;
+        _allSubmissionIds.push(submissionId);
 
         emit VulnerabilitySubmitted(submissionId, msg.sender, severity, vulnType, msg.value);
     }
@@ -748,9 +752,57 @@ contract SecurityBountyRegistry is ReentrancyGuard, Pausable, Ownable {
     }
 
     function getPendingSubmissions() external view returns (bytes32[] memory) {
-        // This would be better done via events/indexer in production
-        // Placeholder for now
-        return new bytes32[](0);
+        // Count pending submissions first
+        uint256 pendingCount = 0;
+        for (uint256 i = 0; i < _allSubmissionIds.length; i++) {
+            if (submissions[_allSubmissionIds[i]].status == SubmissionStatus.PENDING ||
+                submissions[_allSubmissionIds[i]].status == SubmissionStatus.VALIDATING ||
+                submissions[_allSubmissionIds[i]].status == SubmissionStatus.GUARDIAN_REVIEW ||
+                submissions[_allSubmissionIds[i]].status == SubmissionStatus.CEO_REVIEW) {
+                pendingCount++;
+            }
+        }
+
+        // Create result array and populate
+        bytes32[] memory result = new bytes32[](pendingCount);
+        uint256 resultIdx = 0;
+        for (uint256 i = 0; i < _allSubmissionIds.length; i++) {
+            SubmissionStatus status = submissions[_allSubmissionIds[i]].status;
+            if (status == SubmissionStatus.PENDING ||
+                status == SubmissionStatus.VALIDATING ||
+                status == SubmissionStatus.GUARDIAN_REVIEW ||
+                status == SubmissionStatus.CEO_REVIEW) {
+                result[resultIdx++] = _allSubmissionIds[i];
+            }
+        }
+
+        return result;
+    }
+
+    /// @notice Get total number of submissions
+    function getTotalSubmissions() external view returns (uint256) {
+        return _allSubmissionIds.length;
+    }
+
+    /// @notice Get all submission IDs (paginated for gas efficiency)
+    /// @param offset Starting index
+    /// @param limit Maximum number of submissions to return
+    function getSubmissionIds(uint256 offset, uint256 limit) external view returns (bytes32[] memory) {
+        if (offset >= _allSubmissionIds.length) {
+            return new bytes32[](0);
+        }
+        
+        uint256 actualLimit = limit;
+        if (offset + limit > _allSubmissionIds.length) {
+            actualLimit = _allSubmissionIds.length - offset;
+        }
+        
+        bytes32[] memory result = new bytes32[](actualLimit);
+        for (uint256 i = 0; i < actualLimit; i++) {
+            result[i] = _allSubmissionIds[offset + i];
+        }
+        
+        return result;
     }
 
     // ============ Admin ============

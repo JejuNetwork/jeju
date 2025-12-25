@@ -61,7 +61,7 @@ export interface ContractAddresses {
   bazaarMarketplace: string | null
   goldToken: string | null
   itemsNFT: string | null
-  predimarket: string | null
+  predictionMarket: string | null
   predictionOracle: string | null
   playerTradeEscrow: string | null
   contest: string | null
@@ -205,7 +205,9 @@ interface NetworkDeployment {
     bazaarMarketplace?: string
     goldToken?: string
     itemsNFT?: string
-    predimarket?: string
+  }
+  bazaar?: {
+    predictionMarket?: string
   }
 }
 
@@ -237,10 +239,10 @@ interface MultiTokenSystemDeployment {
   jeju?: string
 }
 
-interface PredimarketDeployment {
+interface PredictionMarketDeployment {
   jejuToken?: string
   predictionOracle?: string
-  predimarket?: string
+  predictionMarket?: string
   marketFactory?: string
 }
 
@@ -305,7 +307,7 @@ export function loadNetworkConfig(network?: NetworkType): NetworkConfig {
     bazaarMarketplace: null,
     goldToken: null,
     itemsNFT: null,
-    predimarket: null,
+    predictionMarket: null,
     predictionOracle: null,
     playerTradeEscrow: null,
     contest: null,
@@ -380,7 +382,7 @@ export function loadNetworkConfig(network?: NetworkType): NetworkConfig {
       mainDeployment.games?.bazaarMarketplace || null
     contracts.goldToken = mainDeployment.games?.goldToken || null
     contracts.itemsNFT = mainDeployment.games?.itemsNFT || null
-    contracts.predimarket = mainDeployment.games?.predimarket || null
+    contracts.predictionMarket = mainDeployment.bazaar?.predictionMarket || null
 
     contracts.weth = mainDeployment.tokens?.weth || contracts.weth
     contracts.usdc = mainDeployment.tokens?.usdc || null
@@ -527,15 +529,17 @@ export function loadNetworkConfig(network?: NetworkType): NetworkConfig {
       contracts.jeju = multiTokenSystem.jeju || contracts.jeju
     }
 
-    const predimarket = loadDeploymentFile<PredimarketDeployment>(
-      deploymentsPath,
-      'predimarket-31337.json',
-    )
-    if (predimarket) {
-      contracts.predimarket = predimarket.predimarket || contracts.predimarket
+    const predictionMarketDeploy =
+      loadDeploymentFile<PredictionMarketDeployment>(
+        deploymentsPath,
+        'prediction-market-31337.json',
+      )
+    if (predictionMarketDeploy) {
+      contracts.predictionMarket =
+        predictionMarketDeploy.predictionMarket || contracts.predictionMarket
       contracts.predictionOracle =
-        predimarket.predictionOracle || contracts.predictionOracle
-      contracts.jeju = predimarket.jejuToken || contracts.jeju
+        predictionMarketDeploy.predictionOracle || contracts.predictionOracle
+      contracts.jeju = predictionMarketDeploy.jejuToken || contracts.jeju
     }
 
     const bazaar = loadDeploymentFile<BazaarDeployment>(

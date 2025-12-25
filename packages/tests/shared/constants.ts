@@ -50,8 +50,7 @@ export const APP_PORTS = {
   nodeExplorerApi: CORE_PORTS.NODE_EXPLORER_API.get(),
   nodeExplorerUi: CORE_PORTS.NODE_EXPLORER_UI.get(),
   documentation: CORE_PORTS.DOCUMENTATION.get(),
-  predimarket: CORE_PORTS.PREDIMARKET.get(),
-  bazaar: CORE_PORTS.BAZAAR.get(),
+  bazaar: CORE_PORTS.BAZAAR.get(), // Includes prediction markets
   compute: CORE_PORTS.COMPUTE.get(),
   computeNodeApi: CORE_PORTS.COMPUTE_NODE_API.get(),
   ipfs: CORE_PORTS.IPFS.get(),
@@ -73,8 +72,7 @@ export const APP_URLS = {
   nodeExplorerApi: getCoreAppUrl('NODE_EXPLORER_API'),
   nodeExplorerUi: getCoreAppUrl('NODE_EXPLORER_UI'),
   documentation: getCoreAppUrl('DOCUMENTATION'),
-  predimarket: getCoreAppUrl('PREDIMARKET'),
-  bazaar: getCoreAppUrl('BAZAAR'),
+  bazaar: getCoreAppUrl('BAZAAR'), // Includes prediction markets
   compute: getCoreAppUrl('COMPUTE'),
   computeNodeApi: getCoreAppUrl('COMPUTE_NODE_API'),
   ipfs: getCoreAppUrl('IPFS'),

@@ -6,7 +6,7 @@ import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./BanManager.sol";
 
-interface IPredimarketLabel {
+interface IPredictionMarketLabel {
     function createMarket(bytes32 sessionId, string memory question, uint256 liquidityParameter) external;
     function getMarket(bytes32 sessionId)
         external
@@ -38,7 +38,7 @@ interface IPredimarketLabel {
  *
  * Process:
  * 1. User proposes label with evidence (IPFS hash) and stake
- * 2. Futarchy market created in Predimarket
+ * 2. Futarchy market created in PredictionMarket (Bazaar)
  * 3. Community votes via market trading
  * 4. If YES wins: label applied, proposer rewarded
  * 5. If NO wins: proposer slashed, target agent compensated
@@ -74,7 +74,7 @@ contract ReputationLabelManager is Ownable, Pausable, ReentrancyGuard {
         address proposer;
         uint256 stakeAmount;
         bytes32 evidenceHash; // IPFS hash
-        bytes32 marketId; // Predimarket market
+        bytes32 marketId; // PredictionMarket market
         uint256 createdAt;
         uint256 votingEnds;
         ProposalStatus status;
@@ -90,8 +90,8 @@ contract ReputationLabelManager is Ownable, Pausable, ReentrancyGuard {
     /// @notice BanManager contract for auto-ban integration
     BanManager public immutable banManager;
 
-    /// @notice Predimarket for futarchy voting
-    IPredimarketLabel public immutable predimarket;
+    /// @notice PredictionMarket for futarchy voting (part of Bazaar)
+    IPredictionMarketLabel public immutable predictionMarket;
 
     /// @notice Governance contract
     address public governance;
@@ -169,15 +169,15 @@ contract ReputationLabelManager is Ownable, Pausable, ReentrancyGuard {
 
     // ============ Constructor ============
 
-    constructor(address _banManager, address _predimarket, address _governance, address initialOwner)
+    constructor(address _banManager, address _predictionMarket, address _governance, address initialOwner)
         Ownable(initialOwner)
     {
         require(_banManager != address(0), "Invalid BanManager");
-        require(_predimarket != address(0), "Invalid Predimarket");
+        require(_predictionMarket != address(0), "Invalid PredictionMarket");
         require(_governance != address(0), "Invalid governance");
 
         banManager = BanManager(_banManager);
-        predimarket = IPredimarketLabel(_predimarket);
+        predictionMarket = IPredictionMarketLabel(_predictionMarket);
         governance = _governance;
 
         // Set stake requirements
@@ -222,7 +222,7 @@ contract ReputationLabelManager is Ownable, Pausable, ReentrancyGuard {
         bytes32 marketId = bytes32(uint256(uint160(address(this))) | uint256(proposalId));
 
         // Create futarchy market
-        predimarket.createMarket(marketId, question, defaultLiquidity);
+        predictionMarket.createMarket(marketId, question, defaultLiquidity);
 
         // Store proposal
         proposals[proposalId] = LabelProposal({
@@ -248,7 +248,7 @@ contract ReputationLabelManager is Ownable, Pausable, ReentrancyGuard {
      * @notice Resolve label proposal based on market outcome
      * @param proposalId Proposal to resolve
      * @dev Sends ETH to proposer (reward) and owner (treasury) - intentional design
-     *      Ignores return values from predimarket.getMarket() - only needs resolved/outcome
+     *      Ignores return values from predictionMarket.getMarket() - only needs resolved/outcome
      *      Uses timestamp for voting period check - intentional
      * @custom:security CEI pattern: Update all state before external calls
      */
@@ -260,7 +260,7 @@ contract ReputationLabelManager is Ownable, Pausable, ReentrancyGuard {
         if (block.timestamp < proposal.votingEnds) revert VotingNotEnded();
 
         // Get market outcome
-        (,,,,,,, bool resolved, bool outcome) = predimarket.getMarket(proposal.marketId);
+        (,,,,,,, bool resolved, bool outcome) = predictionMarket.getMarket(proposal.marketId);
 
         if (!resolved) revert ProposalNotResolved();
 

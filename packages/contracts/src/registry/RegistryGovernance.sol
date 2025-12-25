@@ -6,7 +6,7 @@ import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./IdentityRegistry.sol";
 
-interface IPredimarket {
+interface IPredictionMarket {
     function createMarket(bytes32 sessionId, string memory question, uint256 liquidityParameter) external;
     function getMarketPrices(bytes32 sessionId) external view returns (uint256 yesPrice, uint256 noPrice);
     function getMarket(bytes32 sessionId)
@@ -133,7 +133,7 @@ contract RegistryGovernance is Ownable, Pausable, ReentrancyGuard {
     // ============ State Variables ============
 
     IdentityRegistry public immutable registry;
-    IPredimarket public immutable predimarket;
+    IPredictionMarket public immutable predictionMarket;
 
     Environment public currentEnvironment;
     MultiSigConfig internal _multiSigConfig;
@@ -214,17 +214,17 @@ contract RegistryGovernance is Ownable, Pausable, ReentrancyGuard {
 
     constructor(
         address payable _registry,
-        address _predimarket,
+        address _predictionMarket,
         address _treasury,
         Environment _environment,
         address initialOwner
     ) Ownable(initialOwner) {
         require(_registry != address(0), "Invalid registry");
-        require(_predimarket != address(0), "Invalid predimarket");
+        require(_predictionMarket != address(0), "Invalid prediction market");
         require(_treasury != address(0), "Invalid treasury");
 
         registry = IdentityRegistry(_registry);
-        predimarket = IPredimarket(_predimarket);
+        predictionMarket = IPredictionMarket(_predictionMarket);
         treasury = _treasury;
         guardianRewardPool = _treasury; // Initially same as treasury
         currentEnvironment = _environment;
@@ -303,7 +303,7 @@ contract RegistryGovernance is Ownable, Pausable, ReentrancyGuard {
 
         // slither-disable-next-line encode-packed-collision
         // @audit-ok String concatenation for market question, not hashed
-        predimarket.createMarket(
+        predictionMarket.createMarket(
             yesMarketId,
             string(abi.encodePacked("Network quality improves IF we ", actionText, " Agent #", _uint2str(agentId))),
             defaultLiquidity
@@ -311,7 +311,7 @@ contract RegistryGovernance is Ownable, Pausable, ReentrancyGuard {
 
         // slither-disable-next-line encode-packed-collision
         // @audit-ok String concatenation for market question, not hashed
-        predimarket.createMarket(
+        predictionMarket.createMarket(
             noMarketId,
             string(
                 abi.encodePacked("Network quality improves IF we DON'T ", actionText, " Agent #", _uint2str(agentId))
@@ -356,7 +356,7 @@ contract RegistryGovernance is Ownable, Pausable, ReentrancyGuard {
         if (block.timestamp < proposal.votingEnds) revert VotingNotEnded();
 
         // Check market confidence
-        (uint256 yesPrice, uint256 noPrice) = predimarket.getMarketPrices(proposal.yesMarketId);
+        (uint256 yesPrice, uint256 noPrice) = predictionMarket.getMarketPrices(proposal.yesMarketId);
 
         if (yesPrice > noPrice + confidenceThreshold) {
             // Market shows confidence in action

@@ -46,7 +46,7 @@ const CONTRACT_TYPES: Record<string, ContractInfo['type']> = {
   bazaarMarketplace: 'marketplace',
   goldToken: 'token',
   itemsNFT: 'game',
-  predimarket: 'prediction',
+  predictionMarket: 'prediction',
   predictionOracle: 'oracle',
   playerTradeEscrow: 'marketplace',
   contest: 'game',

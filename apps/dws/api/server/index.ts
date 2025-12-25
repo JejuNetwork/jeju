@@ -15,6 +15,11 @@ import { Elysia } from 'elysia'
 import type { Address, Hex } from 'viem'
 import { createAgentRouter, initExecutor, initRegistry } from '../agents'
 import { initializeMarketplace } from '../api-marketplace'
+import {
+  createCacheRoutes,
+  getSharedEngine,
+  initializeCacheProvisioning,
+} from '../cache'
 import { WorkflowEngine } from '../ci/workflow-engine'
 import { initializeContainerSystem } from '../containers'
 import {
@@ -47,7 +52,6 @@ import { PkgRegistryManager } from '../pkg/registry-manager'
 import { createBackendManager } from '../storage/backends'
 import type { ServiceHealth } from '../types'
 import { WorkerdExecutor } from '../workers/workerd/executor'
-import { createCacheRoutes, getSharedEngine, initializeCacheProvisioning } from '../cache'
 import { createA2ARouter } from './routes/a2a'
 import { createAPIMarketplaceRouter } from './routes/api-marketplace'
 import { createCDNRouter } from './routes/cdn'
@@ -59,6 +63,10 @@ import { createEdgeRouter, handleEdgeWebSocket } from './routes/edge'
 import { createFundingRouter } from './routes/funding'
 import { createGitRouter } from './routes/git'
 import { createKMSRouter } from './routes/kms'
+import {
+  createLoadBalancerRouter,
+  shutdownLoadBalancer,
+} from './routes/load-balancer'
 import { createMCPRouter } from './routes/mcp'
 import { createModerationRouter } from './routes/moderation'
 import { createOAuth3Router } from './routes/oauth3'
@@ -310,7 +318,10 @@ app
       services: {
         storage: { status: 'healthy', backends },
         compute: { status: 'healthy' },
-        cdn: { status: 'healthy' },
+        cdn: {
+          status: 'healthy',
+          description: 'Decentralized CDN with edge caching',
+        },
         git: { status: 'healthy' },
         pkg: { status: 'healthy' },
         ci: { status: 'healthy' },
@@ -326,7 +337,15 @@ app
         scraping: { status: 'healthy' },
         rpc: { status: 'healthy' },
         da: { status: 'healthy', description: 'Data Availability layer' },
-        cache: { status: 'healthy', description: 'Decentralized serverless cache' },
+        cache: {
+          status: 'healthy',
+          description: 'Decentralized serverless cache',
+        },
+        email: {
+          status: 'healthy',
+          description: 'Decentralized email with SMTP/IMAP',
+        },
+        lb: { status: 'healthy', description: 'Scale-to-zero load balancer' },
       },
       backends: { available: backends, health: backendHealth },
     }
@@ -362,6 +381,8 @@ app
       'terraform',
       'mesh',
       'cache',
+      'email',
+      'lb',
     ],
     endpoints: {
       storage: '/storage/*',
@@ -392,6 +413,8 @@ app
       ingress: '/ingress/*',
       mesh: '/mesh/*',
       cache: '/cache/*',
+      email: '/email/*',
+      lb: '/lb/*',
     },
   }))
 
@@ -426,6 +449,9 @@ app.use(createEmailRouter())
 // Funding and package registry proxy
 app.use(createFundingRouter())
 app.use(createPkgRegistryProxyRouter())
+
+// Load balancer
+app.use(createLoadBalancerRouter())
 
 // Secure database provisioning and access
 app.use(createDatabaseRouter())
@@ -631,8 +657,8 @@ app.get('/.well-known/agent-card.json', () => {
 // DWS Cache Service routes (decentralized cache with TEE support)
 app.use(createCacheRoutes())
 
-// Root-level /stats endpoint for Babylon compatibility
-// Returns cache stats in the format expected by Babylon cache client
+// Root-level /stats endpoint for vendor app compatibility
+// Returns cache stats in standard format
 app.get('/stats', () => {
   const engine = getSharedEngine()
   const cacheStats = engine.getStats()
@@ -690,6 +716,8 @@ function shutdown(signal: string) {
   clearInterval(rateLimitCleanupInterval)
   shutdownDA()
   console.log('[DWS] DA layer stopped')
+  shutdownLoadBalancer()
+  console.log('[DWS] Load balancer stopped')
   stopKeepaliveService()
   console.log('[DWS] Keepalive service stopped')
   if (p2pCoordinator) {

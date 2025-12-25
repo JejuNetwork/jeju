@@ -5,7 +5,7 @@ This package provides training infrastructure:
 
 1. **Atropos-based Trainer** (RECOMMENDED)
    - `atropos_trainer.py` - GRPO trainer consuming from Atropos API
-   - `babylon_env.py` - RLAIF environment with LLM-as-judge scoring
+   - `jeju_env.py` - RLAIF environment with LLM-as-judge scoring
 
 2. **Fast Rollout Generation**
    - `rollout_generator.py` - High-speed rollout generation with full agent tick capture
@@ -87,23 +87,23 @@ from .tick_reward_attribution import (
 def __getattr__(name: str):
     """Lazy import for torch-dependent modules."""
     if name in (
-        "BabylonAtroposTrainer",
+        "JejuAtroposTrainer",
         "AtroposTrainingConfig",
     ):
         from .atropos_trainer import (
             AtroposTrainingConfig,
-            BabylonAtroposTrainer,
+            JejuAtroposTrainer,
         )
 
         return locals()[name]
 
     if name in (
-        "BabylonRLAIFEnv",
-        "BabylonEnvConfig",
+        "JejuRLAIFEnv",
+        "JejuEnvConfig",
     ):
-        from .babylon_env import (
-            BabylonEnvConfig,
-            BabylonRLAIFEnv,
+        from .jeju_env import (
+            JejuEnvConfig,
+            JejuRLAIFEnv,
         )
 
         return locals()[name]
@@ -153,9 +153,9 @@ __all__ = [
     "ArchetypeTrainingConfig",
     "ArchetypeTrainingResult",
     "AtroposTrainingConfig",
-    "BabylonAtroposTrainer",
-    "BabylonEnvConfig",
-    "BabylonRLAIFEnv",
+    "JejuAtroposTrainer",
+    "JejuEnvConfig",
+    "JejuRLAIFEnv",
     "CallPurpose",
     "FastRolloutGenerator",
     "FastSimulator",

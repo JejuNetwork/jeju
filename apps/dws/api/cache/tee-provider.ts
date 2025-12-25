@@ -18,13 +18,13 @@ import { CacheEngine } from './engine'
 import {
   CacheError,
   CacheErrorCode,
-  CacheInstanceStatus,
-  CacheTEEProvider,
-  CacheTier,
   type CacheInstance,
+  CacheInstanceStatus,
   type CacheSetOptions,
   type CacheStats,
   type CacheTEEAttestation,
+  CacheTEEProvider,
+  CacheTier,
   type HashEntry,
   type SortedSetMember,
 } from './types'
@@ -248,7 +248,7 @@ export class TEECacheProvider {
     if (this.config.encryptionEnabled) {
       const current = await this.get(namespace, key)
       const num = current ? parseInt(current, 10) : 0
-      if (isNaN(num)) {
+      if (Number.isNaN(num)) {
         throw new CacheError(
           CacheErrorCode.INVALID_OPERATION,
           'Value is not an integer',
@@ -276,7 +276,11 @@ export class TEECacheProvider {
   /**
    * Set expiration
    */
-  async expire(namespace: string, key: string, seconds: number): Promise<boolean> {
+  async expire(
+    namespace: string,
+    key: string,
+    seconds: number,
+  ): Promise<boolean> {
     this.requireInit()
     return this.engine.expire(namespace, key, seconds)
   }
@@ -296,7 +300,11 @@ export class TEECacheProvider {
   /**
    * Get hash field
    */
-  async hget(namespace: string, key: string, field: string): Promise<string | null> {
+  async hget(
+    namespace: string,
+    key: string,
+    field: string,
+  ): Promise<string | null> {
     this.requireInit()
 
     if (this.config.encryptionEnabled) {
@@ -349,7 +357,11 @@ export class TEECacheProvider {
   /**
    * Delete hash fields
    */
-  async hdel(namespace: string, key: string, ...fields: string[]): Promise<number> {
+  async hdel(
+    namespace: string,
+    key: string,
+    ...fields: string[]
+  ): Promise<number> {
     this.requireInit()
     return this.engine.hdel(namespace, key, ...fields)
   }
@@ -361,7 +373,11 @@ export class TEECacheProvider {
   /**
    * Push to left of list
    */
-  async lpush(namespace: string, key: string, ...values: string[]): Promise<number> {
+  async lpush(
+    namespace: string,
+    key: string,
+    ...values: string[]
+  ): Promise<number> {
     this.requireInit()
 
     if (this.config.encryptionEnabled) {
@@ -375,7 +391,11 @@ export class TEECacheProvider {
   /**
    * Push to right of list
    */
-  async rpush(namespace: string, key: string, ...values: string[]): Promise<number> {
+  async rpush(
+    namespace: string,
+    key: string,
+    ...values: string[]
+  ): Promise<number> {
     this.requireInit()
 
     if (this.config.encryptionEnabled) {
@@ -453,7 +473,11 @@ export class TEECacheProvider {
   /**
    * Add to set
    */
-  async sadd(namespace: string, key: string, ...members: string[]): Promise<number> {
+  async sadd(
+    namespace: string,
+    key: string,
+    ...members: string[]
+  ): Promise<number> {
     this.requireInit()
 
     if (this.config.encryptionEnabled) {
@@ -467,7 +491,11 @@ export class TEECacheProvider {
   /**
    * Remove from set
    */
-  async srem(namespace: string, key: string, ...members: string[]): Promise<number> {
+  async srem(
+    namespace: string,
+    key: string,
+    ...members: string[]
+  ): Promise<number> {
     this.requireInit()
 
     if (this.config.encryptionEnabled) {
@@ -496,7 +524,11 @@ export class TEECacheProvider {
   /**
    * Check set membership
    */
-  async sismember(namespace: string, key: string, member: string): Promise<boolean> {
+  async sismember(
+    namespace: string,
+    key: string,
+    member: string,
+  ): Promise<boolean> {
     this.requireInit()
 
     if (this.config.encryptionEnabled) {
@@ -553,7 +585,13 @@ export class TEECacheProvider {
   ): Promise<string[]> {
     this.requireInit()
 
-    const result = this.engine.zrange(namespace, key, start, stop, false) as string[]
+    const result = this.engine.zrange(
+      namespace,
+      key,
+      start,
+      stop,
+      false,
+    ) as string[]
 
     if (this.config.encryptionEnabled) {
       return Promise.all(result.map((m) => this.decrypt(m)))
@@ -685,7 +723,9 @@ export class TEECacheProvider {
 
     if (!response || !response.ok) {
       // Fallback to simulated if dstack not available
-      console.log('[TEE-Cache] dstack not available, using simulated attestation')
+      console.log(
+        '[TEE-Cache] dstack not available, using simulated attestation',
+      )
       const timestamp = Date.now()
       const mrEnclave = keccak256(toBytes(`dstack:${this.nodeId}:${timestamp}`))
 
@@ -768,9 +808,7 @@ export class TEECacheProvider {
       )
     }
 
-    const result = z
-      .object({ keyId: z.string() })
-      .parse(await response.json())
+    const result = z.object({ keyId: z.string() }).parse(await response.json())
 
     console.log(
       `[TEE-Cache] Created TEE encryption key: ${result.keyId.slice(0, 8)}...`,
@@ -935,11 +973,17 @@ export function createTEECacheProvider(
     provider === CacheTEEProvider.LOCAL ||
     provider === CacheTEEProvider.DSTACK
   ) {
-    console.log(`[TEE-Cache] Creating provider in ${provider.toUpperCase()} mode`)
+    console.log(
+      `[TEE-Cache] Creating provider in ${provider.toUpperCase()} mode`,
+    )
     return new TEECacheProvider(
       {
         provider,
-        endpoint: config.endpoint ?? (provider === CacheTEEProvider.DSTACK ? 'http://localhost:8090' : undefined),
+        endpoint:
+          config.endpoint ??
+          (provider === CacheTEEProvider.DSTACK
+            ? 'http://localhost:8090'
+            : undefined),
         encryptionEnabled: config.encryptionEnabled ?? true,
         attestationIntervalMs: config.attestationIntervalMs ?? 300000, // 5 minutes
         maxMemoryMb: config.maxMemoryMb ?? 256,

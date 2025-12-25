@@ -2,13 +2,15 @@
  * Zod-based tool argument validation utilities for MCP.
  */
 
-import { toJSONSchema, type ZodObject, type ZodRawShape, z } from 'zod'
+import { JsonValueSchema } from '@jejunetwork/types'
+import { toJSONSchema, type ZodObject, type ZodRawShape, type z } from 'zod'
 import type {
-  JsonValue,
   MCPTool,
   MCPToolInputSchemaProperty,
   StringRecord,
 } from '../types/mcp'
+
+export { JsonValueSchema }
 
 /**
  * JSON Schema output from Zod's toJSONSchema
@@ -18,20 +20,6 @@ interface ZodJSONSchemaOutput {
   properties?: StringRecord<MCPToolInputSchemaProperty>
   required?: string[]
 }
-
-/**
- * JSON Value Schema for Zod - validates any JSON value
- */
-export const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
-  z.union([
-    z.string(),
-    z.number(),
-    z.boolean(),
-    z.null(),
-    z.array(JsonValueSchema),
-    z.record(z.string(), JsonValueSchema),
-  ]),
-) as z.ZodType<JsonValue>
 
 /**
  * Convert Zod schema to MCP-compatible inputSchema using Zod's toJSONSchema

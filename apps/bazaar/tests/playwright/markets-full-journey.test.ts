@@ -2,23 +2,31 @@
  * Complete Trading Journey Integration Test
  *
  * ⚠️ REQUIRES FULL INFRASTRUCTURE:
- * - Deployed contracts (Predimarket, Oracle, ERC20)
+ * - Deployed contracts (PredictionMarket, Oracle, ERC20)
  * - Running indexer with Markets processor enabled
  * - Test markets with liquidity
  *
  * This is a SMOKE TEST for the complete user flow
  */
 
-import { getContract, getServicesConfig, getCurrentNetwork } from '@jejunetwork/config'
+import {
+  getContract,
+  getCurrentNetwork,
+  getServicesConfig,
+} from '@jejunetwork/config'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import { expect, test } from '@playwright/test'
 
 const services = getServicesConfig(getCurrentNetwork())
-const predimarketAddress = getContract('moderation', 'predimarket', 'localnet')
+const predictionMarketAddress = getContract(
+  'bazaar',
+  'predictionMarket',
+  'localnet',
+)
 
 const INFRASTRUCTURE_READY =
-  predimarketAddress &&
-  predimarketAddress !== ZERO_ADDRESS &&
+  predictionMarketAddress &&
+  predictionMarketAddress !== ZERO_ADDRESS &&
   services.indexer?.graphql
 
 test.describe('Complete Trading Journey', () => {

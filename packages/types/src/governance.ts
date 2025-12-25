@@ -365,7 +365,7 @@ export const CouncilHealthSchema = z.object({
   }),
   futarchy: z.object({
     council: z.boolean(),
-    predimarket: z.boolean(),
+    predictionMarket: z.boolean(),
   }),
   registry: z.object({
     integration: z.boolean(),

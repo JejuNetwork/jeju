@@ -2,7 +2,7 @@
 GRPO (Group Relative Policy Optimization) Trainer for Jeju DWS
 
 This trainer implements GRPO for training language models using RLAIF data.
-Generalized from Babylon's atropos_trainer.py to work with any environment.
+Generalized from Jeju's atropos_trainer.py to work with any environment.
 
 Key features:
 - Pulls training data from Jeju Storage (CID-based)

@@ -1,5 +1,6 @@
-import { describe, expect, test } from 'bun:test'
+import { afterEach, describe, expect, mock, test } from 'bun:test'
 import type { Address } from 'viem'
+import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import {
   authenticate,
   type CombinedAuthConfig,
@@ -7,15 +8,175 @@ import {
   createWalletAuthMessage,
   extractAuthHeaders,
   parseWalletAuthMessage,
+  requireAuth,
   validateAPIKey,
+  validateOAuth3FromHeaders,
+  validateOAuth3Session,
+  validateWalletSignature,
+  validateWalletSignatureFromHeaders,
 } from '../auth/core'
 import {
   type APIKeyConfig,
   AuthError,
   AuthErrorCode,
   AuthMethod,
+  type OAuth3Config,
   type WalletSignatureConfig,
 } from '../auth/types'
+
+describe('OAuth3 Validation', () => {
+  const oauth3Config: OAuth3Config = {
+    teeAgentUrl: 'https://tee.example.com',
+    appId: '0x1234',
+  }
+
+  // Valid hex session ID (32 bytes = 64 hex chars + 0x prefix)
+  const validSessionId =
+    '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890'
+  const validIdentityId =
+    '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+
+  const originalFetch = globalThis.fetch
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch
+  })
+
+  test('validates valid session', async () => {
+    const mockSession = {
+      sessionId: validSessionId,
+      identityId: validIdentityId,
+      smartAccount: '0x1234567890123456789012345678901234567890',
+      expiresAt: Date.now() + 3600000, // 1 hour from now
+    }
+
+    globalThis.fetch = mock(() =>
+      Promise.resolve(
+        new Response(JSON.stringify(mockSession), { status: 200 }),
+      ),
+    )
+
+    const result = await validateOAuth3Session(validSessionId, oauth3Config)
+
+    expect(result.valid).toBe(true)
+    if (!result.valid || !result.user) {
+      throw new Error('Expected valid result')
+    }
+    expect(result.user.address).toBe(
+      '0x1234567890123456789012345678901234567890',
+    )
+    expect(result.user.method).toBe(AuthMethod.OAUTH3)
+    expect(result.user.sessionId).toBe(validSessionId)
+  })
+
+  test('rejects invalid session ID format', async () => {
+    const result = await validateOAuth3Session('not-a-hex', oauth3Config)
+
+    expect(result.valid).toBe(false)
+    expect(result.error).toBe('Invalid session ID format')
+  })
+
+  test('rejects session not found', async () => {
+    globalThis.fetch = mock(() =>
+      Promise.resolve(new Response('Not found', { status: 404 })),
+    )
+
+    const result = await validateOAuth3Session(validSessionId, oauth3Config)
+
+    expect(result.valid).toBe(false)
+    expect(result.error).toBe('Session not found')
+  })
+
+  test('rejects expired session', async () => {
+    const mockSession = {
+      sessionId: validSessionId,
+      identityId: validIdentityId,
+      smartAccount: '0x1234567890123456789012345678901234567890',
+      expiresAt: Date.now() - 1000, // Expired
+    }
+
+    globalThis.fetch = mock(() =>
+      Promise.resolve(
+        new Response(JSON.stringify(mockSession), { status: 200 }),
+      ),
+    )
+
+    const result = await validateOAuth3Session(validSessionId, oauth3Config)
+
+    expect(result.valid).toBe(false)
+    expect(result.expired).toBe(true)
+    expect(result.error).toBe('Session expired')
+  })
+
+  test('handles server error', async () => {
+    globalThis.fetch = mock(() =>
+      Promise.resolve(new Response('Server error', { status: 500 })),
+    )
+
+    const result = await validateOAuth3Session(validSessionId, oauth3Config)
+
+    expect(result.valid).toBe(false)
+    expect(result.error).toBe('Session validation failed: 500')
+  })
+
+  test('rejects invalid session data structure', async () => {
+    globalThis.fetch = mock(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ invalid: 'data' }), { status: 200 }),
+      ),
+    )
+
+    const result = await validateOAuth3Session(validSessionId, oauth3Config)
+
+    expect(result.valid).toBe(false)
+    expect(result.error).toBe('Invalid session data from TEE agent')
+  })
+})
+
+describe('validateOAuth3FromHeaders', () => {
+  const oauth3Config: OAuth3Config = {
+    teeAgentUrl: 'https://tee.example.com',
+    appId: '0x1234',
+  }
+
+  const validSessionId =
+    '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890'
+  const validIdentityId =
+    '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+
+  const originalFetch = globalThis.fetch
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch
+  })
+
+  test('validates valid header', async () => {
+    const mockSession = {
+      sessionId: validSessionId,
+      identityId: validIdentityId,
+      smartAccount: '0x1234567890123456789012345678901234567890',
+      expiresAt: Date.now() + 3600000,
+    }
+
+    globalThis.fetch = mock(() =>
+      Promise.resolve(
+        new Response(JSON.stringify(mockSession), { status: 200 }),
+      ),
+    )
+
+    const headers = { 'x-oauth3-session': validSessionId }
+    const result = await validateOAuth3FromHeaders(headers, oauth3Config)
+
+    expect(result.valid).toBe(true)
+  })
+
+  test('rejects missing header', async () => {
+    const result = await validateOAuth3FromHeaders({}, oauth3Config)
+
+    expect(result.valid).toBe(false)
+    expect(result.error).toBe('Missing x-oauth3-session header')
+  })
+})
 
 describe('Auth Core', () => {
   describe('constantTimeCompare', () => {
@@ -261,5 +422,260 @@ describe('Auth Types', () => {
     expect(AuthMethod.OAUTH3).toBe('oauth3')
     expect(AuthMethod.WALLET_SIGNATURE).toBe('wallet-signature')
     expect(AuthMethod.API_KEY).toBe('api-key')
+  })
+})
+
+describe('Wallet Signature Validation', () => {
+  const privateKey = generatePrivateKey()
+  const account = privateKeyToAccount(privateKey)
+  const walletConfig: WalletSignatureConfig = {
+    validityWindowMs: 5 * 60 * 1000, // 5 minutes
+    messagePrefix: 'test-app',
+  }
+
+  test('validates correct wallet signature', async () => {
+    const timestamp = Date.now()
+    const message = `test-app:${timestamp}`
+    const signature = await account.signMessage({ message })
+
+    const result = await validateWalletSignature(
+      account.address,
+      timestamp,
+      signature,
+      walletConfig,
+    )
+
+    expect(result.valid).toBe(true)
+    if (!result.valid || !result.user) {
+      throw new Error('Expected valid result')
+    }
+    expect(result.user.address).toBe(account.address)
+    expect(result.user.method).toBe(AuthMethod.WALLET_SIGNATURE)
+  })
+
+  test('rejects future timestamp', async () => {
+    const futureTimestamp = Date.now() + 60000
+    const message = `test-app:${futureTimestamp}`
+    const signature = await account.signMessage({ message })
+
+    const result = await validateWalletSignature(
+      account.address,
+      futureTimestamp,
+      signature,
+      walletConfig,
+    )
+
+    expect(result.valid).toBe(false)
+    expect(result.error).toBe('Timestamp is in the future')
+  })
+
+  test('rejects expired signature', async () => {
+    const oldTimestamp = Date.now() - 10 * 60 * 1000 // 10 minutes ago
+    const message = `test-app:${oldTimestamp}`
+    const signature = await account.signMessage({ message })
+
+    const result = await validateWalletSignature(
+      account.address,
+      oldTimestamp,
+      signature,
+      walletConfig,
+    )
+
+    expect(result.valid).toBe(false)
+    expect(result.expired).toBe(true)
+    expect(result.error).toBe('Signature expired')
+  })
+
+  test('rejects invalid signature', async () => {
+    const timestamp = Date.now()
+    const wrongMessage = `wrong-prefix:${timestamp}`
+    const signature = await account.signMessage({ message: wrongMessage })
+
+    const result = await validateWalletSignature(
+      account.address,
+      timestamp,
+      signature,
+      walletConfig,
+    )
+
+    expect(result.valid).toBe(false)
+    expect(result.error).toBe('Invalid signature')
+  })
+
+  test('uses domain as fallback for messagePrefix', async () => {
+    const domainConfig: WalletSignatureConfig = {
+      domain: 'my-domain.com',
+      validityWindowMs: 5 * 60 * 1000,
+    }
+
+    const timestamp = Date.now()
+    const message = `my-domain.com:${timestamp}`
+    const signature = await account.signMessage({ message })
+
+    const result = await validateWalletSignature(
+      account.address,
+      timestamp,
+      signature,
+      domainConfig,
+    )
+
+    expect(result.valid).toBe(true)
+  })
+
+  test('uses default prefix when no domain or messagePrefix', async () => {
+    const minimalConfig: WalletSignatureConfig = {
+      validityWindowMs: 5 * 60 * 1000,
+    }
+
+    const timestamp = Date.now()
+    const message = `jeju-dapp:${timestamp}`
+    const signature = await account.signMessage({ message })
+
+    const result = await validateWalletSignature(
+      account.address,
+      timestamp,
+      signature,
+      minimalConfig,
+    )
+
+    expect(result.valid).toBe(true)
+  })
+})
+
+describe('validateWalletSignatureFromHeaders', () => {
+  const privateKey = generatePrivateKey()
+  const account = privateKeyToAccount(privateKey)
+  const walletConfig: WalletSignatureConfig = {
+    validityWindowMs: 5 * 60 * 1000,
+    messagePrefix: 'test-app',
+  }
+
+  test('validates correct headers', async () => {
+    const timestamp = Date.now()
+    const message = `test-app:${timestamp}`
+    const signature = await account.signMessage({ message })
+
+    const headers = {
+      'x-jeju-address': account.address,
+      'x-jeju-timestamp': String(timestamp),
+      'x-jeju-signature': signature,
+    }
+
+    const result = await validateWalletSignatureFromHeaders(
+      headers,
+      walletConfig,
+    )
+
+    expect(result.valid).toBe(true)
+    if (!result.valid || !result.user) {
+      throw new Error('Expected valid result')
+    }
+    expect(result.user.address).toBe(account.address)
+  })
+
+  test('rejects missing headers', async () => {
+    const result = await validateWalletSignatureFromHeaders({}, walletConfig)
+
+    expect(result.valid).toBe(false)
+    expect(result.error).toBe('Missing wallet signature headers')
+  })
+
+  test('rejects invalid address format', async () => {
+    const headers = {
+      'x-jeju-address': 'invalid-address',
+      'x-jeju-timestamp': String(Date.now()),
+      'x-jeju-signature': '0x1234',
+    }
+
+    const result = await validateWalletSignatureFromHeaders(
+      headers,
+      walletConfig,
+    )
+
+    expect(result.valid).toBe(false)
+    expect(result.error).toContain('Invalid headers')
+  })
+
+  test('rejects invalid timestamp format', async () => {
+    const headers = {
+      'x-jeju-address': account.address,
+      'x-jeju-timestamp': 'not-a-number',
+      'x-jeju-signature': '0x1234',
+    }
+
+    const result = await validateWalletSignatureFromHeaders(
+      headers,
+      walletConfig,
+    )
+
+    expect(result.valid).toBe(false)
+    expect(result.error).toContain('Invalid headers')
+  })
+})
+
+describe('requireAuth', () => {
+  const apiKeyConfig: APIKeyConfig = {
+    keys: new Map([
+      [
+        'valid-key',
+        {
+          address: '0x1234567890123456789012345678901234567890' as Address,
+          permissions: ['read'],
+          rateLimitTier: 'basic',
+        },
+      ],
+    ]),
+  }
+
+  test('returns user for valid credentials', async () => {
+    const config: CombinedAuthConfig = { apiKey: apiKeyConfig }
+    const headers = { 'x-api-key': 'valid-key' }
+
+    const user = await requireAuth(headers, config)
+
+    expect(user.address).toBe('0x1234567890123456789012345678901234567890')
+    expect(user.method).toBe(AuthMethod.API_KEY)
+  })
+
+  test('throws AuthError for missing credentials', async () => {
+    const config: CombinedAuthConfig = { apiKey: apiKeyConfig }
+
+    await expect(requireAuth({}, config)).rejects.toThrow(AuthError)
+  })
+
+  test('throws AuthError with SESSION_EXPIRED for expired credentials', async () => {
+    const expiredConfig: APIKeyConfig = {
+      keys: new Map([
+        [
+          'expired-key',
+          {
+            address: '0x1234567890123456789012345678901234567890' as Address,
+            permissions: ['read'],
+            rateLimitTier: 'basic',
+            expiresAt: Date.now() - 1000,
+          },
+        ],
+      ]),
+    }
+
+    const config: CombinedAuthConfig = { apiKey: expiredConfig }
+    const headers = { 'x-api-key': 'expired-key' }
+
+    try {
+      await requireAuth(headers, config)
+      throw new Error('Expected to throw')
+    } catch (error) {
+      if (!(error instanceof AuthError)) {
+        throw new Error('Expected AuthError')
+      }
+      expect(error.code).toBe(AuthErrorCode.SESSION_EXPIRED)
+    }
+  })
+
+  test('throws AuthError for invalid credentials', async () => {
+    const config: CombinedAuthConfig = { apiKey: apiKeyConfig }
+    const headers = { 'x-api-key': 'wrong-key' }
+
+    await expect(requireAuth(headers, config)).rejects.toThrow(AuthError)
   })
 })

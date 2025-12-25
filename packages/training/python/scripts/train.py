@@ -51,7 +51,7 @@ from src.data_bridge.reader import (
     PostgresTrajectoryReader,
     validate_llm_calls,
 )
-from src.models import BabylonTrajectory
+from src.models import JejuTrajectory
 
 # Load environment
 env_path = Path(__file__).parent.parent.parent.parent.parent / ".env"
@@ -90,11 +90,11 @@ async def load_postgres_data(
     min_actions: int,
     lookback_hours: int,
     max_trajectories: int,
-) -> list[BabylonTrajectory]:
+) -> list[JejuTrajectory]:
     """Load training data from PostgreSQL database."""
     logger.info("Loading training data from database...")
 
-    trajectories: list[BabylonTrajectory] = []
+    trajectories: list[JejuTrajectory] = []
 
     async with PostgresTrajectoryReader(database_url) as reader:
         windows = await reader.get_window_ids(lookback_hours=lookback_hours)
@@ -125,7 +125,7 @@ async def load_postgres_data(
                     "trades_executed": traj_row.trades_executed,
                     "archetype": traj_row.archetype,
                 }
-                trajectories.append(BabylonTrajectory.model_validate(traj_data))
+                trajectories.append(JejuTrajectory.model_validate(traj_data))
 
     if len(trajectories) < 10:
         raise ValueError(
@@ -136,12 +136,12 @@ async def load_postgres_data(
     return trajectories
 
 
-def load_json_data(source_dir: str, max_trajectories: int) -> list[BabylonTrajectory]:
+def load_json_data(source_dir: str, max_trajectories: int) -> list[JejuTrajectory]:
     """Load training data from local JSON files."""
     logger.info(f"Loading training data from: {source_dir}")
 
     reader = JsonTrajectoryReader(source_dir)
-    trajectories: list[BabylonTrajectory] = []
+    trajectories: list[JejuTrajectory] = []
 
     for window_id in reader.get_window_ids():
         if len(trajectories) >= max_trajectories:
@@ -160,7 +160,7 @@ def load_json_data(source_dir: str, max_trajectories: int) -> list[BabylonTrajec
             if "id" not in traj_data:
                 traj_data["id"] = traj_data.get("trajectory_id", "id_missing")
 
-            trajectories.append(BabylonTrajectory.model_validate(traj_data))
+            trajectories.append(JejuTrajectory.model_validate(traj_data))
 
     if len(trajectories) == 0:
         raise ValueError("No valid trajectories found in JSON files.")
@@ -198,7 +198,7 @@ def load_csv_data(csv_path: str) -> list[dict]:
     return samples
 
 
-def trajectories_to_samples(trajectories: list[BabylonTrajectory]) -> list[dict]:
+def trajectories_to_samples(trajectories: list[JejuTrajectory]) -> list[dict]:
     """Convert trajectories to training samples."""
     samples = []
     for traj in trajectories:

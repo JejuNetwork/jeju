@@ -969,7 +969,7 @@ Issued At: ${new Date().toISOString()}`
     )
   }
 
-  private async requestFarcasterSignature(_request: {
+  private async requestFarcasterSignature(request: {
     type: string
     message: string
     nonce: string
@@ -980,9 +980,137 @@ Issued At: ${new Date().toISOString()}`
     signature: Hex
     message: string
   }> {
+    // Try Warpcast SDK first (browser)
+    if (typeof window !== 'undefined') {
+      // Check if Warpcast is available in browser
+      const warpcastResult = await this.tryWarpcastSignIn(request)
+      if (warpcastResult) {
+        return warpcastResult
+      }
+
+      // Fall back to popup-based SIWF flow
+      return this.requestFarcasterSignatureViaPopup(request)
+    }
+
+    // Server-side: cannot request signature directly
     throw new Error(
-      'Farcaster signature request must be handled by frame or wallet',
+      'Farcaster signature request requires browser context (Warpcast app or popup flow)',
     )
+  }
+
+  private async tryWarpcastSignIn(request: {
+    type: string
+    message: string
+    nonce: string
+    domain: string
+  }): Promise<{
+    fid: number
+    custodyAddress: Address
+    signature: Hex
+    message: string
+  } | null> {
+    // Check for Warpcast's injected provider
+    if (typeof window === 'undefined') return null
+
+    const warpcast = (
+      window as {
+        warpcast?: {
+          signIn?: (params: { nonce: string; domain: string }) => Promise<{
+            fid: number
+            custodyAddress: string
+            signature: string
+            message: string
+          }>
+        }
+      }
+    ).warpcast
+    if (!warpcast?.signIn) return null
+
+    const result = await warpcast.signIn({
+      nonce: request.nonce,
+      domain: request.domain,
+    })
+
+    return {
+      fid: result.fid,
+      custodyAddress: result.custodyAddress as Address,
+      signature: result.signature as Hex,
+      message: result.message,
+    }
+  }
+
+  private async requestFarcasterSignatureViaPopup(request: {
+    type: string
+    message: string
+    nonce: string
+    domain: string
+  }): Promise<{
+    fid: number
+    custodyAddress: Address
+    signature: Hex
+    message: string
+  }> {
+    // Create SIWF URI for Warpcast popup
+    const siwfParams = new URLSearchParams({
+      nonce: request.nonce,
+      domain: request.domain,
+      notBefore: new Date().toISOString(),
+      expirationTime: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+      channelToken: crypto.randomUUID(),
+    })
+
+    const siwfUrl = `https://warpcast.com/~/siwf?${siwfParams.toString()}`
+    const popup = this.openPopup(siwfUrl)
+
+    return new Promise((resolve, reject) => {
+      const handleMessage = (event: MessageEvent) => {
+        // Verify origin
+        if (!event.origin.includes('warpcast.com')) return
+
+        const data = event.data as {
+          type?: string
+          fid?: number
+          custodyAddress?: string
+          signature?: string
+          message?: string
+          error?: string
+        }
+
+        if (data.type !== 'farcaster_sign_in_response') return
+
+        window.removeEventListener('message', handleMessage)
+        popup?.close()
+
+        if (data.error) {
+          reject(new Error(data.error))
+          return
+        }
+
+        if (!data.fid || !data.custodyAddress || !data.signature) {
+          reject(new Error('Invalid Farcaster sign-in response'))
+          return
+        }
+
+        resolve({
+          fid: data.fid,
+          custodyAddress: data.custodyAddress as Address,
+          signature: data.signature as Hex,
+          message: data.message ?? request.message,
+        })
+      }
+
+      window.addEventListener('message', handleMessage)
+
+      // Timeout after 5 minutes
+      setTimeout(
+        () => {
+          window.removeEventListener('message', handleMessage)
+          popup?.close()
+          reject(new Error('Farcaster sign-in timed out'))
+        },
+        5 * 60 * 1000,
+      )
+    })
   }
 }
 

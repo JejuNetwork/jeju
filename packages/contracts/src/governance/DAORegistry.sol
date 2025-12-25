@@ -13,7 +13,7 @@ import {IDAORegistry} from "./interfaces/IDAORegistry.sol";
  * @dev Manages multiple DAOs with their own governance, treasury, and CEO configurations
  *
  * Key Features:
- * - Multi-tenant DAO support (Jeju DAO, Babylon DAO, custom DAOs)
+ * - Multi-tenant DAO support (Jeju DAO, Apps DAO, custom DAOs)
  * - CEO persona management (name, pfp, personality)
  * - Council member management with weighted voting
  * - Package and repo linking for deep funding

@@ -4,11 +4,7 @@
  * Uses @jejunetwork/config for all configuration.
  */
 
-import {
-  getChainId,
-  getRpcUrl,
-  getServicesConfig,
-} from '@jejunetwork/config'
+import { getChainId, getRpcUrl, getServicesConfig } from '@jejunetwork/config'
 import type { Chain } from 'viem'
 
 // Network name constant
@@ -53,10 +49,12 @@ const URLS: UrlsBranding = {
     localnet: getRpcUrl('localnet'),
   },
   gateway: mainnetServices.gateway?.api || 'https://compute.jejunetwork.org',
-  indexer: mainnetServices.indexer?.graphql || 'https://indexer.jejunetwork.org',
+  indexer:
+    mainnetServices.indexer?.graphql || 'https://indexer.jejunetwork.org',
   explorer: {
     mainnet: mainnetServices.explorer || 'https://explorer.jejunetwork.org',
-    testnet: testnetServices.explorer || 'https://explorer.testnet.jejunetwork.org',
+    testnet:
+      testnetServices.explorer || 'https://explorer.testnet.jejunetwork.org',
   },
 }
 

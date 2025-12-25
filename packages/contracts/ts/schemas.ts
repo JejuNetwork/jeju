@@ -163,7 +163,6 @@ export const ModerationSystemDeploymentSchema = z.object({
   moderationMarketplace: AddressSchema.optional(),
   reportingSystem: AddressSchema.optional(),
   reputationLabelManager: AddressSchema.optional(),
-  predimarket: AddressSchema.optional(),
   registryGovernance: AddressSchema.optional(),
   treasury: AddressSchema.optional(),
   deployedAt: z.string().optional(),
@@ -200,7 +199,7 @@ export const ContractAddressesSchema = z.object({
   stateView: AddressSchema.optional(),
   weth: AddressSchema.optional(),
   marketplace: AddressSchema.optional(),
-  predimarket: AddressSchema.optional(),
+  predictionMarket: AddressSchema.optional(),
   erc20Factory: AddressSchema.optional(),
   entryPoint: AddressSchema.optional(),
   paymasterFactory: AddressSchema.optional(),
@@ -256,4 +255,3 @@ export function safeParseUniswapV4Deployment(
   const result = UniswapV4DeploymentSchema.safeParse(data)
   return result.success ? result.data : undefined
 }
-

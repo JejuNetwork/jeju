@@ -28,8 +28,11 @@
       "banManager": "",
       "moderationMarketplace": "",
       "reportingSystem": "",
-      "reputationLabelManager": "",
-      "predimarket": ""
+      "reputationLabelManager": ""
+    },
+    "bazaar": {
+      "marketplace": "",
+      "predictionMarket": ""
     },
     "security": {
       "bountyRegistry": ""
@@ -138,8 +141,11 @@
       "banManager": "",
       "moderationMarketplace": "",
       "reportingSystem": "",
-      "reputationLabelManager": "",
-      "predimarket": ""
+      "reputationLabelManager": ""
+    },
+    "bazaar": {
+      "marketplace": "",
+      "predictionMarket": ""
     },
     "security": {
       "bountyRegistry": ""
@@ -242,8 +248,11 @@
       "banManager": "",
       "moderationMarketplace": "",
       "reportingSystem": "",
-      "reputationLabelManager": "",
-      "predimarket": ""
+      "reputationLabelManager": ""
+    },
+    "bazaar": {
+      "marketplace": "",
+      "predictionMarket": ""
     },
     "security": {
       "bountyRegistry": ""

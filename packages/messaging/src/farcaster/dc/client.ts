@@ -669,7 +669,7 @@ export class DirectCastClient {
     }
 
     const delay = Math.min(
-      INITIAL_RECONNECT_DELAY_MS * Math.pow(2, this.reconnectAttempts),
+      INITIAL_RECONNECT_DELAY_MS * 2 ** this.reconnectAttempts,
       MAX_RECONNECT_DELAY_MS,
     )
     this.reconnectAttempts++

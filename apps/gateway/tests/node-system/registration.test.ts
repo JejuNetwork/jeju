@@ -9,13 +9,16 @@
  * - PriceOracle with correct prices
  */
 
+import { describe, expect, test } from 'bun:test'
 import { getContract } from '@jejunetwork/config'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
-import { describe, expect, test } from 'bun:test'
 
 // Contract addresses from config
-const NODE_STAKING_MANAGER = (getContract('nodeStaking', 'manager', 'localnet') ||
-  ZERO_ADDRESS) as `0x${string}`
+const NODE_STAKING_MANAGER = (getContract(
+  'nodeStaking',
+  'manager',
+  'localnet',
+) || ZERO_ADDRESS) as `0x${string}`
 const JEJU_TOKEN = (getContract('tokens', 'jeju', 'localnet') ||
   ZERO_ADDRESS) as `0x${string}`
 

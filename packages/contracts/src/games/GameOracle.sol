@@ -12,7 +12,7 @@ import {Pausable} from "openzeppelin-contracts/contracts/utils/Pausable.sol";
  *
  * Game Integration Pattern:
  * - Questions are committed by authorized game server
- * - Users trade on prediction markets via Predimarket
+ * - Users trade on prediction markets via PredictionMarket (part of Bazaar)
  * - Questions resolve with TEE-verified outcomes
  * - Results published on-chain for composability
  *
@@ -30,7 +30,7 @@ import {Pausable} from "openzeppelin-contracts/contracts/utils/Pausable.sol";
  *   // 1. Game server commits at question creation
  *   oracle.commitGame(questionId, questionNumber, question, commitment, category);
  *
- *   // 2. Users trade on Predimarket or custom contracts
+ *   // 2. Users trade on PredictionMarket or custom contracts
  *
  *   // 3. Game server reveals after resolution
  *   oracle.revealGame(sessionId, outcome, salt, teeQuote, winners, totalPayout);

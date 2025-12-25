@@ -13,6 +13,7 @@ import type { NetworkType } from '@jejunetwork/types'
 import { type Address, encodeFunctionData, type Hex, parseEther } from 'viem'
 import { z } from 'zod'
 import { requireContract } from '../config'
+import { parseIdFromLogs } from '../shared/api'
 import type { JejuWallet } from '../wallet'
 
 // Contract return type schemas
@@ -585,8 +586,15 @@ export function createAgentsModule(
         data,
       })
 
-      // Room ID would come from event logs
-      return { txHash, roomId: `0x${'0'.repeat(64)}` as Hex }
+      // Parse roomId from RoomCreated event logs
+      const roomId = await parseIdFromLogs(
+        wallet.publicClient,
+        txHash,
+        'RoomCreated(bytes32,address,string,bool)',
+        'roomId',
+      )
+
+      return { txHash, roomId }
     },
 
     async getRoom(roomId) {

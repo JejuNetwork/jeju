@@ -317,6 +317,6 @@ describe('X402Manager without Redis', () => {
 
     const pendingAfter = await manager.getPendingPayments()
     expect(pendingAfter).toHaveLength(1)
-    expect(pendingAfter[0].request.service).toBe('service-2')
+    expect(pendingAfter[0].service).toBe('service-2')
   })
 })
