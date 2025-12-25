@@ -5,6 +5,7 @@
  * Uses X25519 + AES-GCM encryption for end-to-end security.
  */
 
+import { createLogger } from '@jejunetwork/shared'
 import { gcm } from '@noble/ciphers/aes'
 import { randomBytes } from '@noble/ciphers/webcrypto'
 import { ed25519, x25519 } from '@noble/curves/ed25519'
@@ -12,6 +13,8 @@ import { hkdf } from '@noble/hashes/hkdf'
 import { sha256 } from '@noble/hashes/sha256'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils'
 import type { Hex } from 'viem'
+
+const log = createLogger('dc-client')
 import {
   DCPersistenceDataSchema,
   DCSignerEventsResponseSchema,
@@ -71,7 +74,7 @@ export class DirectCastClient {
   async initialize(): Promise<void> {
     if (this.isInitialized) return
 
-    console.log(`[DC Client] Initializing for FID ${this.config.fid}`)
+    log.info('Initializing', { fid: this.config.fid })
 
     // Derive X25519 key pair from Ed25519 signer
     this.deriveEncryptionKeys()
@@ -86,7 +89,7 @@ export class DirectCastClient {
 
     this.isInitialized = true
 
-    console.log(`[DC Client] Initialized successfully`)
+    log.info('Initialized successfully')
   }
 
   /**
@@ -299,7 +302,7 @@ export class DirectCastClient {
     // Store locally
     this.addMessage(dc)
 
-    console.log(`[DC Client] Sent message ${id} to FID ${params.recipientFid}`)
+    log.info('Sent message', { id, recipientFid: params.recipientFid })
 
     return dc
   }
@@ -490,7 +493,7 @@ export class DirectCastClient {
     }
 
     const keyHex = `0x${bytesToHex(this.encryptionPublicKey)}`
-    console.log(`[DC Client] Publishing encryption key: ${keyHex}`)
+    log.info('Publishing encryption key', { keyHex: keyHex.slice(0, 20) + '...' })
 
     // Create signature for the key publication
     const timestamp = Math.floor(Date.now() / 1000)
@@ -530,7 +533,7 @@ export class DirectCastClient {
       )
     }
 
-    console.log(`[DC Client] Encryption key published successfully`)
+    log.info('Encryption key published successfully')
   }
   /**
    * Connect to relay server with automatic reconnection
@@ -558,7 +561,7 @@ export class DirectCastClient {
 
     return new Promise((resolve, reject) => {
       const wsUrl = this.buildWebSocketUrl(relayUrl, '/dc')
-      console.log(`[DC Client] Connecting to relay: ${wsUrl}`)
+      log.info('Connecting to relay', { wsUrl })
 
       const ws = new WebSocket(wsUrl)
 
@@ -571,7 +574,7 @@ export class DirectCastClient {
         clearTimeout(connectionTimeout)
         this.relayConnection = ws
         this.reconnectAttempts = 0
-        console.log(`[DC Client] Connected to relay`)
+        log.info('Connected to relay')
 
         // Authenticate with the relay
         const authMessage = JSON.stringify({
@@ -596,9 +599,7 @@ export class DirectCastClient {
       ws.onclose = (event) => {
         clearTimeout(connectionTimeout)
         this.relayConnection = null
-        console.log(
-          `[DC Client] Relay connection closed: ${event.code} ${event.reason}`,
-        )
+        log.info('Relay connection closed', { code: event.code, reason: event.reason })
 
         if (this.isInitialized && !this.isShuttingDown) {
           this.scheduleReconnect()
@@ -607,7 +608,7 @@ export class DirectCastClient {
 
       ws.onerror = (error) => {
         clearTimeout(connectionTimeout)
-        console.error(`[DC Client] WebSocket error:`, error)
+        log.error('WebSocket error', { error: String(error) })
         // onclose will be called after onerror
       }
     })
@@ -628,7 +629,7 @@ export class DirectCastClient {
   private handleWebSocketMessage(event: MessageEvent): void {
     const data = event.data
     if (typeof data !== 'string') {
-      console.error('[DC Client] Received non-string message from relay')
+      log.error('Received non-string message from relay')
       return
     }
 
@@ -636,20 +637,20 @@ export class DirectCastClient {
     try {
       parsed = JSON.parse(data)
     } catch {
-      console.error('[DC Client] Failed to parse message from relay')
+      log.error('Failed to parse message from relay')
       return
     }
 
     if (parsed.type === 'message' && parsed.payload) {
       this.handleIncomingMessage(parsed.payload).catch((error) => {
-        console.error('[DC Client] Failed to handle incoming message:', error)
+        log.error('Failed to handle incoming message', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+        })
       })
     } else if (parsed.type === 'read_receipt') {
-      // Handle read receipt - mark messages as read
-      console.log('[DC Client] Received read receipt')
+      log.debug('Received read receipt')
     } else if (parsed.type === 'ack') {
-      // Acknowledgment from relay
-      console.log('[DC Client] Message acknowledged by relay')
+      log.debug('Message acknowledged by relay')
     }
   }
 
@@ -662,9 +663,7 @@ export class DirectCastClient {
     }
 
     if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-      console.error(
-        `[DC Client] Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached`,
-      )
+      log.error('Max reconnect attempts reached', { maxAttempts: MAX_RECONNECT_ATTEMPTS })
       return
     }
 
@@ -674,13 +673,13 @@ export class DirectCastClient {
     )
     this.reconnectAttempts++
 
-    console.log(
-      `[DC Client] Scheduling reconnect attempt ${this.reconnectAttempts} in ${delay}ms`,
-    )
+    log.info('Scheduling reconnect attempt', { attempt: this.reconnectAttempts, delayMs: delay })
 
     this.reconnectTimeout = setTimeout(() => {
       this.connectToRelay().catch((error) => {
-        console.error(`[DC Client] Reconnect failed:`, error)
+        log.error('Reconnect failed', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+        })
       })
     }, delay)
   }
@@ -691,16 +690,16 @@ export class DirectCastClient {
   private flushPendingMessages(): void {
     if (this.pendingMessages.length === 0) return
 
-    console.log(
-      `[DC Client] Flushing ${this.pendingMessages.length} pending messages`,
-    )
+    log.info('Flushing pending messages', { count: this.pendingMessages.length })
 
     const messages = [...this.pendingMessages]
     this.pendingMessages = []
 
     for (const msg of messages) {
       this.sendToRelay(msg).catch((error) => {
-        console.error(`[DC Client] Failed to flush message:`, error)
+        log.error('Failed to flush message', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+        })
         if (this.pendingMessages.length < MAX_PENDING_MESSAGES) {
           this.pendingMessages.push(msg)
         }
@@ -734,9 +733,7 @@ export class DirectCastClient {
    */
   private async sendToRelay(encrypted: EncryptedDirectCast): Promise<void> {
     if (!this.config.relayUrl) {
-      console.log(
-        `[DC Client] No relay configured, message stored locally only`,
-      )
+      log.debug('No relay configured, message stored locally only')
       return
     }
 
@@ -766,7 +763,7 @@ export class DirectCastClient {
     ).catch(() => null)
 
     if (!response) {
-      console.log(`[DC Client] Relay unavailable, message queued`)
+      log.debug('Relay unavailable, message queued')
     }
   }
 
@@ -796,15 +793,12 @@ export class DirectCastClient {
       )
 
       if (!response.ok) {
-        console.warn(
-          `[DC Client] Read receipt failed: ${response.status} ${response.statusText}`,
-        )
+        log.warn('Read receipt failed', { status: response.status, statusText: response.statusText })
       }
     } catch (error) {
-      console.warn(
-        `[DC Client] Read receipt failed:`,
-        error instanceof Error ? error.message : 'Unknown error',
-      )
+      log.warn('Read receipt failed', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      })
     }
   }
 
@@ -819,9 +813,7 @@ export class DirectCastClient {
       encrypted.senderFid,
     )
     if (!senderSignerKey) {
-      console.warn(
-        `[DC Client] No signer key found for FID ${encrypted.senderFid}`,
-      )
+      log.warn('No signer key found for FID', { fid: encrypted.senderFid })
       return false
     }
 
@@ -872,9 +864,7 @@ export class DirectCastClient {
     // Verify sender's signature before processing
     const signatureValid = await this.verifyIncomingSignature(encrypted)
     if (!signatureValid) {
-      console.warn(
-        `[DC Client] Rejecting message with invalid signature from FID ${encrypted.senderFid}`,
-      )
+      log.warn('Rejecting message with invalid signature', { senderFid: encrypted.senderFid })
       return
     }
 
@@ -963,14 +953,14 @@ export class DirectCastClient {
     const file = Bun.file(this.config.persistencePath)
     const exists = await file.exists().catch(() => false)
     if (!exists) {
-      console.log(`[DC Client] No previous conversations found`)
+      log.debug('No previous conversations found')
       return
     }
 
     const rawData: unknown = await file.json().catch(() => null)
     const parseResult = DCPersistenceDataSchema.safeParse(rawData)
     if (!parseResult.success) {
-      console.log(`[DC Client] Invalid persistence data, starting fresh`)
+      log.debug('Invalid persistence data, starting fresh')
       return
     }
 

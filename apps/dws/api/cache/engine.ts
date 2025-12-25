@@ -81,9 +81,7 @@ export class CacheEngine {
       maxMemoryMb: config.maxMemoryMb ?? 256,
       defaultTtlSeconds: config.defaultTtlSeconds ?? 3600,
       maxTtlSeconds: config.maxTtlSeconds ?? 86400 * 30, // 30 days
-      evictionPolicy: config.evictionPolicy ?? 'lru',
-      persistenceEnabled: config.persistenceEnabled ?? false,
-      replicationFactor: config.replicationFactor ?? 1,
+      evictionPolicy: 'lru', // Only LRU is implemented
       teeProvider: config.teeProvider,
       teeEndpoint: config.teeEndpoint,
     }
@@ -102,13 +100,6 @@ export class CacheEngine {
     }
   }
 
-  // ============================================================================
-  // String Operations
-  // ============================================================================
-
-  /**
-   * Get a string value
-   */
   get(namespace: string, key: string): string | null {
     const entry = this.getEntry(namespace, key)
     if (!entry || entry.type !== 'string') {
@@ -121,9 +112,6 @@ export class CacheEngine {
     return this.decodeString(entry.data)
   }
 
-  /**
-   * Set a string value
-   */
   set(
     namespace: string,
     key: string,
@@ -177,23 +165,14 @@ export class CacheEngine {
     return true
   }
 
-  /**
-   * Set if not exists
-   */
   setnx(namespace: string, key: string, value: string, ttl?: number): boolean {
     return this.set(namespace, key, value, { nx: true, ttl })
   }
 
-  /**
-   * Set with expiration
-   */
   setex(namespace: string, key: string, seconds: number, value: string): void {
     this.set(namespace, key, value, { ttl: seconds })
   }
 
-  /**
-   * Get and delete
-   */
   getdel(namespace: string, key: string): string | null {
     const value = this.get(namespace, key)
     if (value !== null) {
@@ -202,9 +181,6 @@ export class CacheEngine {
     return value
   }
 
-  /**
-   * Delete a key
-   */
   del(namespace: string, ...keys: string[]): number {
     const ns = this.namespaces.get(namespace)
     if (!ns) return 0
@@ -230,9 +206,6 @@ export class CacheEngine {
     return deleted
   }
 
-  /**
-   * Check if keys exist
-   */
   exists(namespace: string, ...keys: string[]): number {
     const ns = this.namespaces.get(namespace)
     if (!ns) return 0
@@ -247,9 +220,6 @@ export class CacheEngine {
     return count
   }
 
-  /**
-   * Increment a numeric value
-   */
   incr(namespace: string, key: string, by = 1): number {
     const value = this.get(namespace, key)
     const num = value ? parseInt(value, 10) : 0
@@ -265,16 +235,10 @@ export class CacheEngine {
     return newValue
   }
 
-  /**
-   * Decrement a numeric value
-   */
   decr(namespace: string, key: string, by = 1): number {
     return this.incr(namespace, key, -by)
   }
 
-  /**
-   * Append to a string
-   */
   append(namespace: string, key: string, value: string): number {
     const existing = this.get(namespace, key) ?? ''
     const newValue = existing + value
@@ -282,13 +246,6 @@ export class CacheEngine {
     return newValue.length
   }
 
-  // ============================================================================
-  // TTL Operations
-  // ============================================================================
-
-  /**
-   * Set expiration on a key
-   */
   expire(namespace: string, key: string, seconds: number): boolean {
     const entry = this.getEntry(namespace, key)
     if (!entry) return false
@@ -297,9 +254,6 @@ export class CacheEngine {
     return true
   }
 
-  /**
-   * Set expiration timestamp
-   */
   expireat(namespace: string, key: string, timestamp: number): boolean {
     const entry = this.getEntry(namespace, key)
     if (!entry) return false
@@ -308,9 +262,6 @@ export class CacheEngine {
     return true
   }
 
-  /**
-   * Get TTL in seconds
-   */
   ttl(namespace: string, key: string): number {
     const entry = this.getEntry(namespace, key)
     if (!entry) return -2 // Key doesn't exist
@@ -321,9 +272,6 @@ export class CacheEngine {
     return remaining > 0 ? remaining : -2
   }
 
-  /**
-   * Get TTL in milliseconds
-   */
   pttl(namespace: string, key: string): number {
     const entry = this.getEntry(namespace, key)
     if (!entry) return -2
@@ -334,9 +282,6 @@ export class CacheEngine {
     return remaining > 0 ? remaining : -2
   }
 
-  /**
-   * Remove expiration
-   */
   persist(namespace: string, key: string): boolean {
     const entry = this.getEntry(namespace, key)
     if (!entry) return false
@@ -345,22 +290,12 @@ export class CacheEngine {
     return true
   }
 
-  // ============================================================================
-  // Hash Operations
-  // ============================================================================
-
-  /**
-   * Get a hash field
-   */
   hget(namespace: string, key: string, field: string): string | null {
     const hash = this.getHash(namespace, key)
     if (!hash) return null
     return hash[field] ?? null
   }
 
-  /**
-   * Set a hash field
-   */
   hset(namespace: string, key: string, field: string, value: string): number {
     const ns = this.getOrCreateNamespace(namespace)
     let entry = ns.entries.get(key)
@@ -393,9 +328,6 @@ export class CacheEngine {
     return isNew ? 1 : 0
   }
 
-  /**
-   * Set multiple hash fields
-   */
   hmset(
     namespace: string,
     key: string,
@@ -407,9 +339,6 @@ export class CacheEngine {
     return true
   }
 
-  /**
-   * Get multiple hash fields
-   */
   hmget(
     namespace: string,
     key: string,
@@ -420,16 +349,10 @@ export class CacheEngine {
     return fields.map((f) => hash[f] ?? null)
   }
 
-  /**
-   * Get all hash fields
-   */
   hgetall(namespace: string, key: string): HashEntry {
     return this.getHash(namespace, key) ?? {}
   }
 
-  /**
-   * Delete hash fields
-   */
   hdel(namespace: string, key: string, ...fields: string[]): number {
     const hash = this.getHash(namespace, key)
     if (!hash) return 0
@@ -457,41 +380,26 @@ export class CacheEngine {
     return deleted
   }
 
-  /**
-   * Check if hash field exists
-   */
   hexists(namespace: string, key: string, field: string): boolean {
     const hash = this.getHash(namespace, key)
     return hash ? field in hash : false
   }
 
-  /**
-   * Get hash field count
-   */
   hlen(namespace: string, key: string): number {
     const hash = this.getHash(namespace, key)
     return hash ? Object.keys(hash).length : 0
   }
 
-  /**
-   * Get hash keys
-   */
   hkeys(namespace: string, key: string): string[] {
     const hash = this.getHash(namespace, key)
     return hash ? Object.keys(hash) : []
   }
 
-  /**
-   * Get hash values
-   */
   hvals(namespace: string, key: string): string[] {
     const hash = this.getHash(namespace, key)
     return hash ? Object.values(hash) : []
   }
 
-  /**
-   * Increment hash field
-   */
   hincrby(namespace: string, key: string, field: string, by: number): number {
     const current = this.hget(namespace, key, field)
     const num = current ? parseInt(current, 10) : 0
@@ -507,13 +415,6 @@ export class CacheEngine {
     return newValue
   }
 
-  // ============================================================================
-  // List Operations
-  // ============================================================================
-
-  /**
-   * Push to left of list
-   */
   lpush(namespace: string, key: string, ...values: string[]): number {
     const list = this.getOrCreateList(namespace, key)
     list.unshift(...values.reverse())
@@ -521,9 +422,6 @@ export class CacheEngine {
     return list.length
   }
 
-  /**
-   * Push to right of list
-   */
   rpush(namespace: string, key: string, ...values: string[]): number {
     const list = this.getOrCreateList(namespace, key)
     list.push(...values)
@@ -531,9 +429,6 @@ export class CacheEngine {
     return list.length
   }
 
-  /**
-   * Pop from left of list
-   */
   lpop(namespace: string, key: string): string | null {
     const list = this.getList(namespace, key)
     if (!list || list.length === 0) return null
@@ -543,9 +438,6 @@ export class CacheEngine {
     return value
   }
 
-  /**
-   * Pop from right of list
-   */
   rpop(namespace: string, key: string): string | null {
     const list = this.getList(namespace, key)
     if (!list || list.length === 0) return null
@@ -555,9 +447,6 @@ export class CacheEngine {
     return value
   }
 
-  /**
-   * Get list range
-   */
   lrange(
     namespace: string,
     key: string,
@@ -574,17 +463,11 @@ export class CacheEngine {
     return list.slice(normalizedStart, normalizedStop)
   }
 
-  /**
-   * Get list length
-   */
   llen(namespace: string, key: string): number {
     const list = this.getList(namespace, key)
     return list?.length ?? 0
   }
 
-  /**
-   * Get list element by index
-   */
   lindex(namespace: string, key: string, index: number): string | null {
     const list = this.getList(namespace, key)
     if (!list) return null
@@ -593,9 +476,6 @@ export class CacheEngine {
     return list[idx] ?? null
   }
 
-  /**
-   * Set list element by index
-   */
   lset(namespace: string, key: string, index: number, value: string): boolean {
     const list = this.getList(namespace, key)
     if (!list) return false
@@ -608,9 +488,6 @@ export class CacheEngine {
     return true
   }
 
-  /**
-   * Trim list
-   */
   ltrim(namespace: string, key: string, start: number, stop: number): boolean {
     const list = this.getList(namespace, key)
     if (!list) return true
@@ -624,13 +501,6 @@ export class CacheEngine {
     return true
   }
 
-  // ============================================================================
-  // Set Operations
-  // ============================================================================
-
-  /**
-   * Add members to set
-   */
   sadd(namespace: string, key: string, ...members: string[]): number {
     const set = this.getOrCreateSet(namespace, key)
     let added = 0
@@ -646,9 +516,6 @@ export class CacheEngine {
     return added
   }
 
-  /**
-   * Remove members from set
-   */
   srem(namespace: string, key: string, ...members: string[]): number {
     const set = this.getSet(namespace, key)
     if (!set) return 0
@@ -664,33 +531,21 @@ export class CacheEngine {
     return removed
   }
 
-  /**
-   * Get all set members
-   */
   smembers(namespace: string, key: string): string[] {
     const set = this.getSet(namespace, key)
     return set ? Array.from(set) : []
   }
 
-  /**
-   * Check if member exists in set
-   */
   sismember(namespace: string, key: string, member: string): boolean {
     const set = this.getSet(namespace, key)
     return set?.has(member) ?? false
   }
 
-  /**
-   * Get set size
-   */
   scard(namespace: string, key: string): number {
     const set = this.getSet(namespace, key)
     return set?.size ?? 0
   }
 
-  /**
-   * Pop random member
-   */
   spop(namespace: string, key: string): string | null {
     const set = this.getSet(namespace, key)
     if (!set || set.size === 0) return null
@@ -704,9 +559,6 @@ export class CacheEngine {
     return member
   }
 
-  /**
-   * Get random member without removing
-   */
   srandmember(namespace: string, key: string): string | null {
     const set = this.getSet(namespace, key)
     if (!set || set.size === 0) return null
@@ -716,13 +568,6 @@ export class CacheEngine {
     return members[idx]
   }
 
-  // ============================================================================
-  // Sorted Set Operations
-  // ============================================================================
-
-  /**
-   * Add members with scores to sorted set
-   */
   zadd(namespace: string, key: string, ...members: SortedSetMember[]): number {
     const zset = this.getOrCreateZSet(namespace, key)
     let added = 0
@@ -743,9 +588,6 @@ export class CacheEngine {
     return added
   }
 
-  /**
-   * Get sorted set range by index
-   */
   zrange(
     namespace: string,
     key: string,
@@ -764,9 +606,6 @@ export class CacheEngine {
     return withScores ? slice : slice.map((m) => m.member)
   }
 
-  /**
-   * Get sorted set range by score
-   */
   zrangebyscore(
     namespace: string,
     key: string,
@@ -781,9 +620,6 @@ export class CacheEngine {
     return withScores ? filtered : filtered.map((m) => m.member)
   }
 
-  /**
-   * Get score of member
-   */
   zscore(namespace: string, key: string, member: string): number | null {
     const zset = this.getZSet(namespace, key)
     if (!zset) return null
@@ -792,17 +628,11 @@ export class CacheEngine {
     return found?.score ?? null
   }
 
-  /**
-   * Get sorted set size
-   */
   zcard(namespace: string, key: string): number {
     const zset = this.getZSet(namespace, key)
     return zset?.length ?? 0
   }
 
-  /**
-   * Remove members from sorted set
-   */
   zrem(namespace: string, key: string, ...members: string[]): number {
     const zset = this.getZSet(namespace, key)
     if (!zset) return 0
@@ -818,13 +648,6 @@ export class CacheEngine {
     return removed
   }
 
-  // ============================================================================
-  // Stream Operations
-  // ============================================================================
-
-  /**
-   * Add entry to stream
-   */
   xadd(namespace: string, key: string, fields: Record<string, string>): string {
     const stream = this.getOrCreateStream(namespace, key)
     const id = `${Date.now()}-${stream.length}`
@@ -839,17 +662,11 @@ export class CacheEngine {
     return id
   }
 
-  /**
-   * Get stream length
-   */
   xlen(namespace: string, key: string): number {
     const stream = this.getStream(namespace, key)
     return stream?.length ?? 0
   }
 
-  /**
-   * Get stream range
-   */
   xrange(
     namespace: string,
     key: string,
@@ -873,13 +690,6 @@ export class CacheEngine {
     return filtered
   }
 
-  // ============================================================================
-  // Key Operations
-  // ============================================================================
-
-  /**
-   * Get all keys matching pattern
-   */
   keys(namespace: string, pattern = '*'): string[] {
     const ns = this.namespaces.get(namespace)
     if (!ns) return []
@@ -896,9 +706,6 @@ export class CacheEngine {
     return keys
   }
 
-  /**
-   * Scan keys with cursor
-   */
   scan(namespace: string, options: CacheScanOptions = {}): CacheScanResult {
     const ns = this.namespaces.get(namespace)
     if (!ns) return { cursor: '0', keys: [], done: true }
@@ -927,17 +734,11 @@ export class CacheEngine {
     }
   }
 
-  /**
-   * Get key type
-   */
   type(namespace: string, key: string): string {
     const entry = this.getEntry(namespace, key)
     return entry?.type ?? 'none'
   }
 
-  /**
-   * Rename key
-   */
   rename(namespace: string, oldKey: string, newKey: string): boolean {
     const ns = this.namespaces.get(namespace)
     if (!ns) return false
@@ -953,9 +754,6 @@ export class CacheEngine {
     return true
   }
 
-  /**
-   * Clear all keys in namespace
-   */
   flushdb(namespace: string): void {
     const ns = this.namespaces.get(namespace)
     if (ns) {
@@ -969,9 +767,6 @@ export class CacheEngine {
     }
   }
 
-  /**
-   * Clear all namespaces
-   */
   flushall(): void {
     for (const namespace of this.namespaces.keys()) {
       this.flushdb(namespace)
@@ -979,13 +774,6 @@ export class CacheEngine {
     this.namespaces.clear()
   }
 
-  // ============================================================================
-  // Statistics
-  // ============================================================================
-
-  /**
-   * Get global stats
-   */
   getStats(): CacheStats {
     let totalKeys = 0
     let usedMemory = 0
@@ -1059,13 +847,6 @@ export class CacheEngine {
     return stats
   }
 
-  // ============================================================================
-  // Events
-  // ============================================================================
-
-  /**
-   * Subscribe to cache events
-   */
   on(listener: CacheEventListener): () => void {
     this.listeners.add(listener)
     return () => this.listeners.delete(listener)
@@ -1076,10 +857,6 @@ export class CacheEngine {
       listener(event)
     }
   }
-
-  // ============================================================================
-  // Internal Helpers
-  // ============================================================================
 
   private getOrCreateNamespace(namespace: string): NamespaceData {
     let ns = this.namespaces.get(namespace)

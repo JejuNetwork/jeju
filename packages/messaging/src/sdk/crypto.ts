@@ -277,7 +277,9 @@ export function publicKeysEqual(a: Uint8Array, b: Uint8Array): boolean {
   // XOR all bytes and accumulate - takes same time regardless of match position
   let diff = 0
   for (let i = 0; i < a.length; i++) {
-    diff |= a[i] ^ b[i]
+    const ai = a[i] ?? 0
+    const bi = b[i] ?? 0
+    diff |= ai ^ bi
   }
   return diff === 0
 }

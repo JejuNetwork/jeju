@@ -18,10 +18,13 @@
  */
 
 import { createMPCClient } from '@jejunetwork/kms'
+import { createLogger } from '@jejunetwork/shared'
 import { Elysia } from 'elysia'
 import type { Address, Hex } from 'viem'
 import { keccak256, toBytes, toHex, verifyMessage } from 'viem'
 import { z } from 'zod'
+
+const log = createLogger('dws-worker')
 
 // IPFS response schema
 const IPFSAddResponseSchema = z.object({ Hash: z.string() })
@@ -277,7 +280,10 @@ export function createMessagingWorker(config: MessagingWorkerConfig) {
               stored.cid = cid
             })
             .catch((err) => {
-              console.error(`IPFS storage failed for ${envelope.id}:`, err)
+              log.error('IPFS storage failed', {
+                messageId: envelope.id,
+                error: err instanceof Error ? err.message : 'Unknown error',
+              })
             })
         }
 

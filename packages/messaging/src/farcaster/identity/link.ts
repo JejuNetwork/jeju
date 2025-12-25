@@ -87,6 +87,9 @@ export function parseLinkProofMessage(message: string): ParsedLinkProof | null {
     return null
   }
   const domain = domainMatch[1]
+  if (!domain) {
+    return null
+  }
 
   let fid: number | undefined
   let jejuAddress: Address | undefined

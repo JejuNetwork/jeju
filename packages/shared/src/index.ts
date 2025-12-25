@@ -276,6 +276,9 @@ export {
   generateId,
   generatePrefixedId,
   shortenAddress,
+  // Safe conversions
+  toSafeNumber,
+  toSafeString,
 } from './format'
 // Health Check Middleware
 export {

@@ -4,10 +4,13 @@
  * HTTP API for DC operations.
  */
 
+import { createLogger } from '@jejunetwork/shared'
 import { Elysia } from 'elysia'
 import { z } from 'zod'
 import type { DirectCastClient } from './client'
 import type { DirectCastEmbed } from './types'
+
+const log = createLogger('dc-api')
 
 interface RateLimitEntry {
   count: number
@@ -299,7 +302,7 @@ export function createDCServer(client: DirectCastClient, port: number = 3300) {
   // Health check
   app.get('/health', () => ({ status: 'ok' }))
 
-  console.log(`[DC API] Starting server on port ${port}`)
+  log.info('Starting server', { port })
 
   return app.listen(port)
 }

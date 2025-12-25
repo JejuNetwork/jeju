@@ -10,8 +10,7 @@
  * 4. Recipient decrypts with XMTP/MLS
  */
 
-import { createPublicClient, http, type Address, type Hex } from 'viem'
-import { MESSAGE_NODE_REGISTRY_ABI } from '../sdk/abis'
+import type { Address } from 'viem'
 import type { RouteConfig, RouteResult, XMTPEnvelope } from './types'
 
 export interface RelayNode {

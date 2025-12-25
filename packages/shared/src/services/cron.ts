@@ -99,8 +99,10 @@ class CronServiceImpl implements CronService {
 
       // Remove oldest 10%
       const toRemove = Math.ceil(remainingEntries.length * 0.1)
-      for (let i = 0; i < toRemove; i++) {
-        const [id, job] = remainingEntries[i]
+      for (let i = 0; i < toRemove && i < remainingEntries.length; i++) {
+        const entry = remainingEntries[i]
+        if (!entry) continue
+        const [id, job] = entry
         if (job.cronInstance) job.cronInstance.stop()
         if (job.timeoutId) clearTimeout(job.timeoutId)
         this.localJobs.delete(id)

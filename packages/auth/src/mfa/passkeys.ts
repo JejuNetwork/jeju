@@ -343,18 +343,17 @@ export class PasskeyManager {
 
     // Find the credential
     let credential: PasskeyCredential | undefined
-    let _userId: string | undefined
 
-    if (response.response.userHandle) {
-      _userId = new TextDecoder().decode(response.response.userHandle)
-    }
+    // Note: userHandle can be used to identify the user if needed
+    // const userId = response.response.userHandle 
+    //   ? new TextDecoder().decode(response.response.userHandle) 
+    //   : undefined
 
     // Search for credential
-    for (const [uid, creds] of this.credentials.entries()) {
+    for (const [_uid, creds] of this.credentials.entries()) {
       const found = creds.find((c) => c.id === response.id)
       if (found) {
         credential = found
-        _userId = uid
         break
       }
     }

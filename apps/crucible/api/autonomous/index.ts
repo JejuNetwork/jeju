@@ -1,9 +1,22 @@
 /**
  * Autonomous Agent Runner
- * Manages autonomous agent lifecycle and tick execution
+ * Manages autonomous agent lifecycle and tick execution with trajectory recording
  */
 
 import { getCurrentNetwork } from '@jejunetwork/config'
+import { generateSnowflakeId } from '@jejunetwork/shared'
+import type {
+  Action,
+  EnvironmentState,
+  LLMCall,
+  TrajectoryStep,
+} from '@jejunetwork/training'
+import {
+  getStaticTrajectoryStorage,
+  type StaticTrajectoryStorage,
+  type TrajectoryBatchReference,
+  TrajectoryRecorder,
+} from '@jejunetwork/training'
 import { checkDWSHealth, getSharedDWSClient } from '../client/dws'
 import {
   type CrucibleAgentRuntime,
@@ -29,8 +42,18 @@ export { DEFAULT_AUTONOMOUS_CONFIG } from './types'
 
 const log = createLogger('AutonomousRunner')
 
+/**
+ * Extended config with archetype for trajectory recording
+ */
+export interface ExtendedAgentConfig extends AutonomousAgentConfig {
+  /** Agent archetype for training (blue-team, red-team, etc.) */
+  archetype?: string
+  /** Enable trajectory recording for this agent */
+  recordTrajectories?: boolean
+}
+
 interface RegisteredAgent {
-  config: AutonomousAgentConfig
+  config: ExtendedAgentConfig
   runtime: CrucibleAgentRuntime | null
   lastTick: number
   tickCount: number
@@ -39,6 +62,15 @@ interface RegisteredAgent {
   backoffMs: number
   intervalId: ReturnType<typeof setInterval> | null
   recentActivity: ActivityEntry[]
+  /** Active trajectory ID for current tick */
+  currentTrajectoryId: string | null
+}
+
+interface ExtendedRunnerConfig extends AutonomousRunnerConfig {
+  /** Enable trajectory recording for all agents */
+  enableTrajectoryRecording?: boolean
+  /** Callback when a trajectory batch is flushed */
+  onBatchFlushed?: (batch: TrajectoryBatchReference) => Promise<void>
 }
 
 const BASE_BACKOFF_MS = 5000
@@ -47,14 +79,35 @@ const MAX_BACKOFF_MS = 300000 // 5 minutes max
 export class AutonomousAgentRunner {
   private agents: Map<string, RegisteredAgent> = new Map()
   private running = false
-  private config: Required<AutonomousRunnerConfig>
+  private config: Required<Omit<ExtendedRunnerConfig, 'onBatchFlushed'>> & {
+    onBatchFlushed?: (batch: TrajectoryBatchReference) => Promise<void>
+  }
+  private trajectoryRecorder: TrajectoryRecorder
+  private storage: StaticTrajectoryStorage
 
-  constructor(config: AutonomousRunnerConfig = {}) {
+  constructor(config: ExtendedRunnerConfig = {}) {
     this.config = {
       enableBuiltinCharacters: config.enableBuiltinCharacters ?? true,
       defaultTickIntervalMs: config.defaultTickIntervalMs ?? 60_000,
       maxConcurrentAgents: config.maxConcurrentAgents ?? 10,
+      enableTrajectoryRecording: config.enableTrajectoryRecording ?? true,
+      onBatchFlushed: config.onBatchFlushed,
     }
+
+    // Initialize static storage for trajectories
+    this.storage = getStaticTrajectoryStorage('crucible', {
+      maxBufferSize: 50,
+      maxBufferAgeMs: 10 * 60 * 1000, // 10 minutes
+      usePermanentStorage: false, // Use IPFS (temporary) for raw trajectories
+      onBatchFlushed: config.onBatchFlushed,
+    })
+
+    // Initialize trajectory recorder with static storage
+    this.trajectoryRecorder = new TrajectoryRecorder(this.storage)
+
+    log.info('Trajectory recording initialized', {
+      enabled: this.config.enableTrajectoryRecording,
+    })
   }
 
   async start(): Promise<void> {
@@ -63,6 +116,7 @@ export class AutonomousAgentRunner {
 
     log.info('Starting autonomous runner', {
       maxConcurrentAgents: this.config.maxConcurrentAgents,
+      trajectoryRecording: this.config.enableTrajectoryRecording,
     })
 
     // Start tick loops for all registered agents
@@ -82,10 +136,19 @@ export class AutonomousAgentRunner {
         clearInterval(agent.intervalId)
         agent.intervalId = null
       }
+
+      // Cancel any active trajectories
+      if (agent.currentTrajectoryId) {
+        this.trajectoryRecorder.cancelTrajectory(agent.currentTrajectoryId)
+        agent.currentTrajectoryId = null
+      }
     }
+
+    // Flush remaining trajectories
+    await this.storage.shutdown()
   }
 
-  async registerAgent(config: AutonomousAgentConfig): Promise<void> {
+  async registerAgent(config: ExtendedAgentConfig): Promise<void> {
     if (this.agents.size >= this.config.maxConcurrentAgents) {
       throw new Error(
         `Max concurrent agents (${this.config.maxConcurrentAgents}) reached`,
@@ -102,12 +165,15 @@ export class AutonomousAgentRunner {
       backoffMs: 0,
       intervalId: null,
       recentActivity: [],
+      currentTrajectoryId: null,
     }
 
     this.agents.set(config.agentId, agent)
     log.info('Agent registered', {
       agentId: config.agentId,
       character: config.character.name,
+      archetype: config.archetype ?? 'default',
+      recordTrajectories: config.recordTrajectories ?? true,
     })
 
     if (this.running) {
@@ -120,6 +186,9 @@ export class AutonomousAgentRunner {
     const agent = this.agents.get(agentId)
     if (agent?.intervalId) {
       clearInterval(agent.intervalId)
+    }
+    if (agent?.currentTrajectoryId) {
+      this.trajectoryRecorder.cancelTrajectory(agent.currentTrajectoryId)
     }
     this.agents.delete(agentId)
     log.info('Agent unregistered', { agentId })
@@ -136,6 +205,29 @@ export class AutonomousAgentRunner {
         tickCount: agent.tickCount,
       })),
     }
+  }
+
+  /**
+   * Get trajectory storage stats
+   */
+  getTrajectoryStats(): {
+    bufferCount: number
+    bufferAgeMs: number | null
+    activeTrajectories: number
+  } {
+    const bufferStats = this.storage.getBufferStats()
+    return {
+      bufferCount: bufferStats.count,
+      bufferAgeMs: bufferStats.ageMs,
+      activeTrajectories: this.trajectoryRecorder.getActiveCount(),
+    }
+  }
+
+  /**
+   * Force flush trajectory buffer
+   */
+  async flushTrajectories(): Promise<TrajectoryBatchReference | null> {
+    return this.storage.flush()
   }
 
   private async initializeAgentRuntime(agent: RegisteredAgent): Promise<void> {
@@ -167,15 +259,41 @@ export class AutonomousAgentRunner {
       agent.lastTick = Date.now()
       agent.tickCount++
 
+      // Start trajectory recording for this tick
+      const shouldRecord =
+        this.config.enableTrajectoryRecording &&
+        (agent.config.recordTrajectories ?? true)
+
+      if (shouldRecord) {
+        const trajectoryId = await this.trajectoryRecorder.startTrajectory({
+          agentId: agent.config.agentId,
+          archetype: agent.config.archetype,
+          scenarioId: `tick-${agent.tickCount}`,
+          metadata: {
+            tickNumber: agent.tickCount,
+            characterName: agent.config.character.name,
+          },
+        })
+        agent.currentTrajectoryId = trajectoryId
+      }
+
+      const tickStartTime = Date.now()
+      let tickSuccess = false
+      let tickError: string | null = null
+      let totalReward = 0
+
       try {
-        await this.executeAgentTick(agent)
+        const result = await this.executeAgentTick(agent)
+        tickSuccess = true
+        totalReward = result.reward
         // Reset backoff on success
         agent.errorCount = 0
         agent.backoffMs = 0
         agent.lastError = null
       } catch (err) {
         agent.errorCount++
-        agent.lastError = err instanceof Error ? err.message : String(err)
+        tickError = err instanceof Error ? err.message : String(err)
+        agent.lastError = tickError
         // Exponential backoff with cap
         agent.backoffMs = Math.min(
           BASE_BACKOFF_MS * 2 ** agent.errorCount,
@@ -186,6 +304,21 @@ export class AutonomousAgentRunner {
           error: agent.lastError,
           backoffMs: agent.backoffMs,
         })
+      }
+
+      // End trajectory recording
+      if (agent.currentTrajectoryId) {
+        await this.trajectoryRecorder.endTrajectory(agent.currentTrajectoryId, {
+          finalBalance: undefined, // Could add wallet balance tracking
+          finalPnL: totalReward,
+          gameKnowledge: {
+            actualOutcomes: {
+              tickSuccess,
+              ...(tickError && { error: tickError }),
+            },
+          },
+        })
+        agent.currentTrajectoryId = null
       }
     }
 
@@ -200,12 +333,16 @@ export class AutonomousAgentRunner {
     }, agent.config.tickIntervalMs)
   }
 
-  private async executeAgentTick(agent: RegisteredAgent): Promise<void> {
+  private async executeAgentTick(
+    agent: RegisteredAgent,
+  ): Promise<{ reward: number }> {
     const config = agent.config
+    const trajectoryId = agent.currentTrajectoryId
 
     log.debug('Executing tick', {
       agentId: config.agentId,
       tickCount: agent.tickCount,
+      trajectoryId,
     })
 
     // Build tick context
@@ -214,7 +351,19 @@ export class AutonomousAgentRunner {
     // Check if DWS is available for inference
     if (!context.networkState.dwsAvailable) {
       log.warn('DWS not available, skipping tick', { agentId: config.agentId })
-      return
+      return { reward: 0 }
+    }
+
+    // Start trajectory step with environment state
+    if (trajectoryId) {
+      const envState: EnvironmentState = {
+        timestamp: Date.now(),
+        agentBalance: 0, // Could track wallet balance
+        agentPoints: 0,
+        agentPnL: 0,
+        openPositions: 0,
+      }
+      this.trajectoryRecorder.startStep(trajectoryId, envState)
     }
 
     // Build the tick prompt based on context
@@ -225,6 +374,7 @@ export class AutonomousAgentRunner {
       throw new Error('Agent runtime not initialized')
     }
 
+    const llmCallStart = Date.now()
     const response = await agent.runtime.processMessage({
       id: crypto.randomUUID(),
       userId: 'autonomous-runner',
@@ -232,11 +382,30 @@ export class AutonomousAgentRunner {
       content: { text: tickPrompt, source: 'autonomous' },
       createdAt: Date.now(),
     })
+    const llmCallLatency = Date.now() - llmCallStart
+
+    // Log LLM call to trajectory
+    if (trajectoryId) {
+      const llmCall: LLMCall = {
+        timestamp: llmCallStart,
+        model: 'dws-inference',
+        systemPrompt: this.buildSystemPrompt(config),
+        userPrompt: tickPrompt,
+        response: response.text,
+        temperature: 0.7,
+        maxTokens: 1024,
+        latencyMs: llmCallLatency,
+        purpose: 'action',
+        actionType: response.action ?? 'respond',
+      }
+      this.trajectoryRecorder.logLLMCall(trajectoryId, llmCall)
+    }
 
     log.info('Tick completed', {
       agentId: config.agentId,
       responseLength: response.text.length,
       action: response.action ?? null,
+      latencyMs: llmCallLatency,
     })
 
     // Record activity
@@ -252,15 +421,94 @@ export class AutonomousAgentRunner {
       agent.recentActivity = agent.recentActivity.slice(-50)
     }
 
+    // Calculate reward for this tick
+    let tickReward = 0
+    const actionsExecuted: string[] = []
+
     // Execute any parsed actions
     if (response.actions && response.actions.length > 0) {
       for (const action of response.actions.slice(
         0,
         config.maxActionsPerTick,
       )) {
-        await this.executeAction(agent, action.name, action.params)
+        const actionResult = await this.executeAction(
+          agent,
+          action.name,
+          action.params,
+          trajectoryId,
+        )
+        actionsExecuted.push(action.name)
+        // Reward for successful actions
+        if (actionResult.success) {
+          tickReward += this.calculateActionReward(action.name)
+        }
       }
     }
+
+    // Complete the trajectory step
+    if (trajectoryId) {
+      const action: Action = {
+        timestamp: Date.now(),
+        actionType: response.action ?? 'RESPOND',
+        actionName: response.action ?? 'respond',
+        parameters: {},
+        reasoning: response.text.slice(0, 500),
+        success: true,
+        result: {
+          actionsExecuted,
+          responseLength: response.text.length,
+        },
+      }
+      this.trajectoryRecorder.completeStep(trajectoryId, action, tickReward)
+    }
+
+    return { reward: tickReward }
+  }
+
+  private buildSystemPrompt(config: ExtendedAgentConfig): string {
+    const char = config.character
+    const parts: string[] = []
+
+    parts.push(`You are ${char.name}, an autonomous AI agent.`)
+
+    if (char.system) {
+      parts.push(char.system)
+    }
+
+    if (char.bio) {
+      const bio = Array.isArray(char.bio) ? char.bio.join(' ') : char.bio
+      parts.push(bio)
+    }
+
+    if (config.archetype) {
+      parts.push(`Your operational archetype is: ${config.archetype}`)
+    }
+
+    return parts.join('\n\n')
+  }
+
+  private calculateActionReward(actionName: string): number {
+    const upperName = actionName.toUpperCase()
+
+    // Higher rewards for valuable actions
+    if (upperName.includes('SWAP') || upperName.includes('TRADE')) {
+      return 1.0
+    }
+    if (upperName.includes('VOTE') || upperName.includes('PROPOSE')) {
+      return 0.8
+    }
+    if (upperName.includes('STAKE')) {
+      return 0.7
+    }
+    if (upperName.includes('A2A') || upperName.includes('MESSAGE')) {
+      return 0.5
+    }
+    if (upperName.includes('COMPUTE')) {
+      return 0.6
+    }
+
+    // Base reward for any action
+    return 0.3
   }
 
   private async buildTickContext(
@@ -410,7 +658,7 @@ export class AutonomousAgentRunner {
   }
 
   private buildTickPrompt(
-    config: AutonomousAgentConfig,
+    config: ExtendedAgentConfig,
     context: AgentTickContext,
   ): string {
     const parts: string[] = []
@@ -419,6 +667,27 @@ export class AutonomousAgentRunner {
       'You are operating autonomously. Evaluate your current state and decide what actions to take.',
     )
     parts.push('')
+
+    // Archetype-specific instructions
+    if (config.archetype === 'blue-team') {
+      parts.push('## Objective: Blue Team Defense')
+      parts.push(
+        'Your mission is to protect the network, identify vulnerabilities, and propose security improvements.',
+      )
+      parts.push(
+        'Focus on: monitoring suspicious activity, voting for security proposals, delegating to trusted validators.',
+      )
+      parts.push('')
+    } else if (config.archetype === 'red-team') {
+      parts.push('## Objective: Red Team Testing')
+      parts.push(
+        'Your mission is to test network resilience by identifying weaknesses and proposing stress tests.',
+      )
+      parts.push(
+        'Focus on: exploring edge cases, testing governance limits, identifying potential attack vectors (for reporting).',
+      )
+      parts.push('')
+    }
 
     // Goals
     if (context.pendingGoals.length > 0) {
@@ -468,7 +737,8 @@ export class AutonomousAgentRunner {
     agent: RegisteredAgent,
     actionName: string,
     params: Record<string, string>,
-  ): Promise<void> {
+    trajectoryId: string | null,
+  ): Promise<{ success: boolean; error?: string }> {
     log.info('Executing action', {
       agentId: agent.config.agentId,
       action: actionName,
@@ -494,7 +764,7 @@ export class AutonomousAgentRunner {
       })
       activity.result = { error: 'Action not allowed for agent capabilities' }
       agent.recentActivity.push(activity)
-      return
+      return { success: false, error: 'Action not allowed' }
     }
 
     // Execute action via runtime
@@ -504,7 +774,7 @@ export class AutonomousAgentRunner {
       })
       activity.result = { error: 'Runtime not initialized' }
       agent.recentActivity.push(activity)
-      return
+      return { success: false, error: 'Runtime not initialized' }
     }
 
     const result = await agent.runtime.executeAction(actionName, params)
@@ -524,12 +794,39 @@ export class AutonomousAgentRunner {
 
     agent.recentActivity.push(activity)
 
+    // Log action to trajectory
+    if (trajectoryId) {
+      const actionRecord: Action = {
+        timestamp: Date.now(),
+        actionType: actionName,
+        actionName: actionName,
+        parameters: params,
+        success: result.success,
+        result: result.success ? { executed: true } : undefined,
+        error: result.error,
+      }
+
+      // Log as provider access (action execution)
+      this.trajectoryRecorder.logProviderAccess(trajectoryId, {
+        providerName: 'action-executor',
+        data: {
+          actionName,
+          params,
+          success: result.success,
+          error: result.error ?? null,
+        },
+        purpose: `Execute ${actionName} action`,
+      })
+    }
+
     log.info('Action executed', {
       agentId: agent.config.agentId,
       action: actionName,
       success: activity.success,
       ...(result.error && { error: result.error }),
     })
+
+    return { success: result.success, error: result.error }
   }
 
   private getActionCategory(actionName: string): string {
@@ -582,7 +879,7 @@ export class AutonomousAgentRunner {
 }
 
 export function createAgentRunner(
-  config?: AutonomousRunnerConfig,
+  config?: ExtendedRunnerConfig,
 ): AutonomousAgentRunner {
   return new AutonomousAgentRunner(config)
 }

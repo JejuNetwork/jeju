@@ -114,8 +114,9 @@ export class FederationDiscovery {
 
       // Remove oldest 10% of entries
       const toRemove = Math.ceil(entries.length * 0.1)
-      for (let i = 0; i < toRemove; i++) {
-        this.cache.delete(entries[i][0])
+      for (let i = 0; i < toRemove && i < entries.length; i++) {
+        const entry = entries[i]
+        if (entry) this.cache.delete(entry[0])
       }
     }
 

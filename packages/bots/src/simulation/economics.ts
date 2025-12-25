@@ -119,11 +119,6 @@ export const GAS_COSTS = {
   flashLoanBalancer: 180000n,
   flashLoanUniV3: 150000n,
 
-  // Legacy aliases for compatibility
-  multiHop2: 350000n,
-  multiHop3: 500000n,
-  multiHop4: 650000n,
-
   // Bridge operations
   bridgeInitiate: 120000n,
   bridgeClaim: 80000n,
@@ -417,7 +412,11 @@ export namespace GasCostModel {
     config: EconomicConfig,
   ): GasCostEstimate {
     const operation =
-      hops <= 2 ? 'multiHop2' : hops <= 3 ? 'multiHop3' : 'multiHop4'
+      hops <= 2
+        ? 'uniswapV3MultiHop2'
+        : hops <= 3
+          ? 'uniswapV3MultiHop3'
+          : 'uniswapV3MultiHop3' // 4+ hops use same estimate as 3
     return estimate(operation, chainId, config)
   }
 }

@@ -155,8 +155,6 @@ export class FarcasterProvider {
   private hubUrl: string
   private apiUrl: string
   private useHubDirect: boolean
-  private appName: string
-  private appFid?: number
   private sessions: Map<number, FarcasterSession> = new Map()
   private signCallback?: FarcasterSignCallback
 
@@ -165,8 +163,7 @@ export class FarcasterProvider {
     this.hubUrl = config?.hubUrl ?? FARCASTER_HUB_URL
     this.apiUrl = config?.apiUrl ?? FARCASTER_API_URL
     this.useHubDirect = !this.apiKey
-    this.appName = config?.appName ?? 'Jeju Network'
-    this.appFid = config?.appFid
+    // Note: appName and appFid from config can be used for app-specific branding if needed
   }
 
   /**
@@ -672,7 +669,9 @@ export class FarcasterProvider {
       return null
     }
 
-    return this.mapNeynarUser(users[0])
+    const firstUser = users[0]
+    if (!firstUser) return null
+    return this.mapNeynarUser(firstUser)
   }
 
   private async getProfileByVerifiedAddressFromHub(
@@ -691,7 +690,9 @@ export class FarcasterProvider {
       return null
     }
 
-    const fid = result.data.messages[0].data.fid
+    const firstMessage = result.data.messages[0]
+    if (!firstMessage) return null
+    const fid = firstMessage.data.fid
     if (fid === undefined) {
       return null
     }

@@ -614,7 +614,8 @@ export function generateOTP(length: number): string {
   let otp = ''
   const randomValues = crypto.getRandomValues(new Uint8Array(length))
   for (let i = 0; i < length; i++) {
-    otp += digits[randomValues[i] % 10]
+    const val = randomValues[i] ?? 0
+    otp += digits[val % 10]
   }
   return otp
 }

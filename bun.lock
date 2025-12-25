@@ -281,6 +281,7 @@
       "version": "1.0.0",
       "dependencies": {
         "@elysiajs/cors": "^1.4.0",
+        "@jejunetwork/auth": "workspace:*",
         "@jejunetwork/config": "workspace:*",
         "@jejunetwork/contracts": "workspace:*",
         "@jejunetwork/db": "workspace:*",
@@ -1382,6 +1383,8 @@
         "@babylon/training": "workspace:*",
         "@elizaos/core": "^1.6.3",
         "@jejunetwork/agents": "workspace:*",
+        "@jejunetwork/shared": "workspace:*",
+        "@jejunetwork/types": "workspace:*",
         "@tanstack/react-query": "^5.90.8",
         "react": "^19.2.1",
         "react-dom": "^19.2.1",

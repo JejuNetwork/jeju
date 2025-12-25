@@ -57,6 +57,16 @@ interface ContentResolution {
   workerEndpoint: string | null
 }
 
+// Local worker endpoint mappings for vendor apps during development
+// Maps app name to local backend URL
+const LOCAL_WORKER_ENDPOINTS: Record<string, string> = {
+  babylon: 'http://localhost:5009',
+  factory: 'http://localhost:4040',
+  bazaar: 'http://localhost:4050',
+  gateway: 'http://localhost:4060',
+  dws: 'http://localhost:4030',
+}
+
 export class LocalJNSGateway {
   private config: JNSGatewayConfig
   private client: ReturnType<typeof createPublicClient>
@@ -70,6 +80,13 @@ export class LocalJNSGateway {
       transport: http(config.rpcUrl),
     })
     this.app = this.createApp()
+  }
+
+  /**
+   * Get local worker endpoint for an app (for development)
+   */
+  private getLocalWorkerEndpoint(appName: string): string | null {
+    return LOCAL_WORKER_ENDPOINTS[appName] ?? null
   }
 
   private createApp() {
@@ -104,9 +121,27 @@ export class LocalJNSGateway {
           const name = `${appName}.jeju`
           const resolution = await this.resolve(name)
 
-          if (resolution.workerEndpoint && url.pathname.startsWith('/api')) {
-            // Proxy to worker
-            return this.proxyToWorker(resolution.workerEndpoint, request)
+          // Check for API requests that should be routed to backend
+          if (url.pathname.startsWith('/api') || url.pathname.startsWith('/health') || 
+              url.pathname.startsWith('/a2a') || url.pathname.startsWith('/mcp') ||
+              url.pathname.startsWith('/ws')) {
+            // For local development, use local worker endpoint if available
+            const localEndpoint = this.getLocalWorkerEndpoint(appName)
+            if (localEndpoint) {
+              return this.proxyToWorker(localEndpoint, request)
+            }
+            // If JNS has a real worker endpoint (not a tx hash), use it
+            if (resolution.workerEndpoint && !resolution.workerEndpoint.startsWith('0x')) {
+              return this.proxyToWorker(resolution.workerEndpoint, request)
+            }
+            // No local or JNS worker - return 503 for API requests
+            return new Response(JSON.stringify({ 
+              error: 'Backend not available',
+              message: `No worker endpoint configured for ${appName}`,
+            }), {
+              status: 503,
+              headers: { 'Content-Type': 'application/json' },
+            })
           }
 
           if (resolution.ipfsCid) {

@@ -5,7 +5,10 @@
  * Ensures message consistency and handles offline message queuing.
  */
 
+import { createLogger } from '@jejunetwork/shared'
 import { expectValid } from '@jejunetwork/types'
+
+const log = createLogger('xmtp-sync')
 import {
   IPFSAddResponseSchema,
   SyncEventsArraySchema,
@@ -80,7 +83,7 @@ export class XMTPSyncService {
    * Start the sync service
    */
   async start(): Promise<void> {
-    console.log('[XMTP Sync] Starting sync service...')
+    log.info('Starting sync service')
 
     // Load persisted state
     await this.loadState()
@@ -93,7 +96,7 @@ export class XMTPSyncService {
     // Run initial sync
     await this.runSyncCycle()
 
-    console.log('[XMTP Sync] Sync service started')
+    log.info('Sync service started')
   }
 
   /**
@@ -112,7 +115,7 @@ export class XMTPSyncService {
     // Persist state
     await this.saveState()
 
-    console.log('[XMTP Sync] Sync service stopped')
+    log.info('Sync service stopped')
   }
 
   /**
@@ -147,9 +150,7 @@ export class XMTPSyncService {
   private async syncWithPeer(peer: SyncPeer): Promise<void> {
     const events = await this.fetchEventsFromPeer(peer).catch(
       (error: Error) => {
-        console.error(
-          `[XMTP Sync] Failed to sync with peer ${peer.nodeId}: ${error.message}`,
-        )
+        log.error('Failed to sync with peer', { nodeId: peer.nodeId, error: error.message })
         return []
       },
     )
@@ -159,7 +160,7 @@ export class XMTPSyncService {
         this.eventBuffer.length >=
         (this.config.maxBufferSize ?? DEFAULT_MAX_BUFFER_SIZE)
       ) {
-        console.warn('[XMTP Sync] Event buffer full, dropping oldest events')
+        log.warn('Event buffer full, dropping oldest events')
         const toRemove = Math.ceil(this.eventBuffer.length * 0.1)
         this.eventBuffer.splice(0, toRemove)
       }
@@ -289,7 +290,7 @@ export class XMTPSyncService {
       this.eventBuffer.length >=
       (this.config.maxBufferSize ?? DEFAULT_MAX_BUFFER_SIZE)
     ) {
-      console.warn('[XMTP Sync] Event buffer full, dropping oldest events')
+      log.warn('Event buffer full, dropping oldest events')
       const toRemove = Math.ceil(this.eventBuffer.length * 0.1)
       this.eventBuffer.splice(0, toRemove)
     }
@@ -328,15 +329,13 @@ export class XMTPSyncService {
 
     const rawData: unknown = await file.json().catch(() => null)
     if (!rawData) {
-      console.log('[XMTP Sync] Failed to parse persistence file')
+      log.debug('Failed to parse persistence file')
       return
     }
 
     const result = SyncPersistenceSchema.safeParse(rawData)
     if (!result.success) {
-      console.log(
-        `[XMTP Sync] Invalid persistence data: ${result.error.message}`,
-      )
+      log.debug('Invalid persistence data', { error: result.error.message })
       return
     }
 
