@@ -370,7 +370,7 @@ export const TokenConfigEntrySchema = z
     priceUSD: z.number().optional(),
     hasPaymaster: z.boolean().optional(),
     hasBanEnforcement: z.boolean().optional(),
-    tags: z.array(z.string()).optional(),
+    tags: z.array(z.string()).default([]),
     addresses: z.record(z.string(), z.string()).optional(),
   })
   .passthrough()

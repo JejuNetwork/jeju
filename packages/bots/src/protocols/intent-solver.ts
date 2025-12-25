@@ -192,7 +192,13 @@ export class IntentSolver extends EventEmitter {
         minAmountOut: BigInt(order.buyAmount),
         deadline: BigInt(order.validTo),
         user: order.owner as Address,
-        rawOrder: order,
+        rawOrder: {
+          ...order,
+          sellToken: order.sellToken as Address,
+          buyToken: order.buyToken as Address,
+          receiver: order.receiver as Address,
+          owner: order.owner as Address,
+        },
       }))
     } catch (error) {
       console.warn('Failed to fetch Cowswap orders:', error)
@@ -219,13 +225,22 @@ export class IntentSolver extends EventEmitter {
         .map((order) => ({
           id: order.orderHash,
           protocol: 'uniswapx' as const,
-          tokenIn: order.input.token,
-          tokenOut: order.outputs[0].token,
+          tokenIn: order.input.token as Address,
+          tokenOut: order.outputs[0].token as Address,
           amountIn: BigInt(order.input.amount),
           minAmountOut: BigInt(order.outputs[0].amount),
           deadline: BigInt(order.deadline),
-          user: order.swapper,
-          rawOrder: order,
+          user: order.swapper as Address,
+          rawOrder: {
+            ...order,
+            swapper: order.swapper as Address,
+            input: { ...order.input, token: order.input.token as Address },
+            outputs: order.outputs.map((o) => ({
+              ...o,
+              token: o.token as Address,
+              recipient: o.recipient as Address,
+            })),
+          },
         }))
     } catch (error) {
       console.warn('Failed to fetch UniswapX orders:', error)
