@@ -5,13 +5,8 @@
  * Supports localnet, testnet, and mainnet deployments.
  */
 
-import type {
-  NetworkType,
-  OracleNodeConfig,
-  PriceSourceConfig,
-} from '@jejunetwork/types'
-import { expectAddress, ZERO_ADDRESS } from '@jejunetwork/types'
-import { type Address, type Hex, isAddress, isHex } from 'viem'
+import { type Address, type Hex, isAddress } from 'viem'
+import type { NetworkType, OracleNodeConfig, PriceSourceConfig } from '@jejunetwork/types'
 
 interface NetworkConfig {
   chainId: number
@@ -79,22 +74,22 @@ function resolveEnvVar(value: string): string {
 }
 
 function validatePrivateKey(key: string, name: string): Hex {
-  if (!key || !isHex(key) || key.length !== 66) {
+  if (!key || !key.startsWith('0x') || key.length !== 66) {
     throw new ConfigurationError(
       `${name} must be a valid 32-byte hex string (0x + 64 chars)`,
     )
   }
-  return key
+  return key as Hex
 }
 
 function validateAddress(addr: string | null, name: string): Address {
-  if (!addr || addr === ZERO_ADDRESS) {
+  if (!addr || addr === '0x0000000000000000000000000000000000000000') {
     throw new ConfigurationError(`${name} address not configured`)
   }
   if (!isAddress(addr)) {
     throw new ConfigurationError(`${name} is not a valid address: ${addr}`)
   }
-  return addr
+  return addr as Address
 }
 
 export async function loadNetworkConfig(
@@ -140,7 +135,7 @@ export function loadContractAddresses(
   for (const key of REQUIRED_ADDRESSES) {
     const envAddr = envOverrides[key]
     const configAddr = networkConfig.contracts[key]
-    const addr = envAddr ?? configAddr
+    const addr = envAddr || configAddr
 
     addresses[key] = validateAddress(addr, key)
   }
@@ -162,9 +157,8 @@ export function buildPriceSources(
 
     sources.push({
       type: sourceConfig.type,
-      address: sourceConfig.address
-        ? expectAddress(sourceConfig.address)
-        : ZERO_ADDRESS,
+      address: (sourceConfig.address ||
+        '0x0000000000000000000000000000000000000000') as Address,
       feedId,
       decimals: sourceConfig.decimals,
     })
@@ -249,13 +243,14 @@ export function validateConfig(config: OracleNodeConfig): void {
     errors.push('Heartbeat interval should be >= poll interval')
   }
 
-  if (config.feedRegistry === ZERO_ADDRESS) {
+  const zeroAddress = '0x0000000000000000000000000000000000000000'
+  if (config.feedRegistry === zeroAddress) {
     errors.push('Feed registry address not configured')
   }
-  if (config.reportVerifier === ZERO_ADDRESS) {
+  if (config.reportVerifier === zeroAddress) {
     errors.push('Report verifier address not configured')
   }
-  if (config.networkConnector === ZERO_ADDRESS) {
+  if (config.networkConnector === zeroAddress) {
     errors.push('Network connector address not configured')
   }
 

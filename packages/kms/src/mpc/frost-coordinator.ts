@@ -1,9 +1,9 @@
 /**
  * FROST Coordinator - True threshold ECDSA where the private key is never reconstructed.
- * Wraps @jejunetwork/oauth3 FROST with MPCCoordinator interface.
+ * Wraps @jejunetwork/auth FROST with MPCCoordinator interface.
  */
 
-import { FROSTCoordinator } from '@jejunetwork/oauth3'
+import { FROSTCoordinator } from '@jejunetwork/auth'
 import { type Hex, keccak256, toBytes } from 'viem'
 import {
   getMPCConfig,

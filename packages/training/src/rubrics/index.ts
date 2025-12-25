@@ -266,3 +266,48 @@ export const rubricRegistry: RubricRegistry = {
 
 // Register the default rubric on module load
 registerOrUpdateRubric(DEFAULT_RUBRIC)
+
+// =============================================================================
+// ARCHETYPE RUBRICS
+// =============================================================================
+
+export {
+  // Archetype functions
+  ARCHETYPE_PRIORITY_METRICS,
+  ARCHETYPE_RUBRICS,
+  ARCHETYPE_RUBRICS_VERSION,
+  // Individual rubrics
+  ASS_KISSER_PRIORITY_METRICS,
+  ASS_KISSER_RUBRIC,
+  DEFAULT_ARCHETYPE_PRIORITY_METRICS,
+  DEFAULT_ARCHETYPE_RUBRIC,
+  DEGEN_PRIORITY_METRICS,
+  DEGEN_RUBRIC,
+  getAllArchetypeRubricsHash,
+  getArchetypePriorityMetrics,
+  getArchetypeRubric,
+  getArchetypeRubricHash,
+  getAvailableArchetypes,
+  GOODY_TWOSHOES_PRIORITY_METRICS,
+  GOODY_TWOSHOES_RUBRIC,
+  hasArchetypeRubric,
+  INFOSEC_PRIORITY_METRICS,
+  INFOSEC_RUBRIC,
+  INFORMATION_TRADER_PRIORITY_METRICS,
+  INFORMATION_TRADER_RUBRIC,
+  LIAR_PRIORITY_METRICS,
+  LIAR_RUBRIC,
+  PERPS_TRADER_PRIORITY_METRICS,
+  PERPS_TRADER_RUBRIC,
+  registerArchetypeRubrics,
+  RESEARCHER_PRIORITY_METRICS,
+  RESEARCHER_RUBRIC,
+  SCAMMER_PRIORITY_METRICS,
+  SCAMMER_RUBRIC,
+  SOCIAL_BUTTERFLY_PRIORITY_METRICS,
+  SOCIAL_BUTTERFLY_RUBRIC,
+  SUPER_PREDICTOR_PRIORITY_METRICS,
+  SUPER_PREDICTOR_RUBRIC,
+  TRADER_PRIORITY_METRICS,
+  TRADER_RUBRIC,
+} from './archetypes'

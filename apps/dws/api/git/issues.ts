@@ -134,8 +134,8 @@ export class IssuesManager {
     }
 
     // Sort
-    const sortField = options.sort || 'created'
-    const direction = options.direction || 'desc'
+    const sortField = options.sort ?? 'created'
+    const direction = options.direction ?? 'desc'
     issueRefs.sort((a, b) => {
       const aVal = sortField === 'updated' ? a.updatedAt : a.createdAt
       const bVal = sortField === 'updated' ? b.updatedAt : b.createdAt

@@ -376,3 +376,156 @@ export const ScoredDataListResponseSchema = z
     last_buffer_size: z.number().int().nonnegative().nullable().optional(),
   })
   .strict()
+
+// ============================================================================
+// Trajectory Schemas (for LLM-as-judge scoring)
+// ============================================================================
+
+/**
+ * Schema for LLM call within a trajectory step
+ */
+export const LLMCallSchema = z.object({
+  callId: z.string().optional(),
+  timestamp: z.number(),
+  model: z.string(),
+  modelVersion: z.string().optional(),
+  systemPrompt: z.string(),
+  userPrompt: z.string(),
+  response: z.string(),
+  reasoning: z.string().optional(),
+  temperature: z.number(),
+  maxTokens: z.number(),
+  latencyMs: z.number().optional(),
+  purpose: z.enum(['action', 'reasoning', 'evaluation', 'response', 'other']),
+  actionType: z.string().optional(),
+})
+
+/**
+ * Schema for provider access within a trajectory step
+ */
+export const ProviderAccessSchema = z.object({
+  providerId: z.string(),
+  providerName: z.string(),
+  timestamp: z.number(),
+  query: z.record(z.string(), z.unknown()),
+  data: z.record(z.string(), z.unknown()),
+  purpose: z.string(),
+})
+
+/**
+ * Schema for action within a trajectory step
+ */
+export const ActionSchema = z.object({
+  attemptId: z.string().optional(),
+  timestamp: z.number(),
+  actionType: z.string(),
+  actionName: z.string().optional(),
+  parameters: z.record(z.string(), z.unknown()).optional(),
+  reasoning: z.string().optional(),
+  success: z.boolean(),
+  result: z.record(z.string(), z.unknown()).optional(),
+  error: z.string().optional(),
+})
+
+/**
+ * Schema for environment state in a trajectory step
+ */
+export const EnvironmentStateSchema = z
+  .object({
+    timestamp: z.number().optional(),
+    agentBalance: z.number().optional(),
+    agentPoints: z.number().optional(),
+    agentPnL: z.number().optional(),
+    openPositions: z.number().int().optional(),
+  })
+  .passthrough()
+
+/**
+ * Schema for a single trajectory step
+ */
+export const TrajectoryStepSchema = z.object({
+  stepId: z.string().optional(),
+  stepNumber: z.number().int().nonnegative(),
+  timestamp: z.number(),
+  environmentState: EnvironmentStateSchema.optional(),
+  observation: z.record(z.string(), z.unknown()).optional(),
+  providerAccesses: z.array(ProviderAccessSchema).optional(),
+  llmCalls: z.array(LLMCallSchema).optional(),
+  llm_calls: z.array(LLMCallSchema).optional(), // snake_case variant
+  action: ActionSchema.nullable().optional(),
+  reward: z.number().optional(),
+  done: z.boolean().optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+})
+
+/**
+ * Schema for trajectory data stored in database
+ */
+export const TrajectoryDataSchema = z.object({
+  trajectoryId: z.string(),
+  agentId: z.string(),
+  windowId: z.string().optional(),
+  steps: z.array(TrajectoryStepSchema),
+  totalReward: z.number().optional(),
+  episodeLength: z.number().int().optional(),
+  finalStatus: z.string().optional(),
+  finalPnL: z.number().optional(),
+  aiJudgeReward: z.number().optional(),
+  archetype: z.string().optional(),
+})
+
+// ============================================================================
+// LLM Judge Response Schemas
+// ============================================================================
+
+/**
+ * Schema for single trajectory score response from LLM judge
+ */
+export const TrajectoryScoreResponseSchema = z.object({
+  score: z.number().min(0).max(1),
+  reasoning: z.string(),
+  strengths: z.array(z.string()).optional(),
+  weaknesses: z.array(z.string()).optional(),
+})
+
+/**
+ * Schema for RULER comparison score response
+ */
+export const RulerScoreResponseSchema = z.object({
+  scores: z.array(
+    z.object({
+      trajectory_id: z.string(),
+      explanation: z.string(),
+      score: z.number().min(0).max(1),
+    }),
+  ),
+})
+
+// Inferred Types for Trajectory Schemas
+export type LLMCall = z.infer<typeof LLMCallSchema>
+export type ProviderAccess = z.infer<typeof ProviderAccessSchema>
+export type Action = z.infer<typeof ActionSchema>
+export type EnvironmentState = z.infer<typeof EnvironmentStateSchema>
+export type TrajectoryStep = z.infer<typeof TrajectoryStepSchema>
+export type TrajectoryData = z.infer<typeof TrajectoryDataSchema>
+export type TrajectoryScoreResponse = z.infer<
+  typeof TrajectoryScoreResponseSchema
+>
+export type RulerScoreResponse = z.infer<typeof RulerScoreResponseSchema>
+
+/**
+ * Safely parse trajectory steps from JSON string
+ */
+export function parseTrajectorySteps(stepsJson: string): TrajectoryStep[] {
+  if (!stepsJson || stepsJson === 'null' || stepsJson === '[]') {
+    return []
+  }
+  const parsed: unknown = JSON.parse(stepsJson)
+  const result = z.array(TrajectoryStepSchema).safeParse(parsed)
+  if (!result.success) {
+    throw new Error(
+      `Validation failed for trajectory steps: ${result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join(', ')}`,
+    )
+  }
+  return result.data
+}

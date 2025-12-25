@@ -14,9 +14,9 @@ import {
   parseUnits,
   type WalletClient,
 } from 'viem'
+import { delay as sleep } from '@jejunetwork/shared'
 import type { OracleAggregator } from '../../oracles'
 import { IndexerPositionsResponseSchema } from '../../schemas'
-import { sleep } from '../../shared'
 
 export interface LiquidationBotConfig {
   chainId: EVMChainId

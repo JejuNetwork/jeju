@@ -75,10 +75,6 @@
       "api": "http://127.0.0.1:4009",
       "mcp": "http://127.0.0.1:4009/api/mcp"
     },
-    "otto": {
-      "api": "http://127.0.0.1:4042",
-      "webhook": "http://127.0.0.1:4043"
-    },
     "oauth3": {
       "api": "http://127.0.0.1:4060",
       "tee": "http://127.0.0.1:4061"
@@ -180,10 +176,6 @@
       "ui": "https://factory.testnet.jejunetwork.org",
       "api": "https://factory.testnet.jejunetwork.org",
       "mcp": "https://factory.testnet.jejunetwork.org/api/mcp"
-    },
-    "otto": {
-      "api": "https://otto.testnet.jejunetwork.org",
-      "webhook": "https://otto.testnet.jejunetwork.org/webhook"
     },
     "oauth3": {
       "api": "https://oauth3.testnet.jejunetwork.org",
@@ -287,10 +279,6 @@
       "ui": "https://factory.jejunetwork.org",
       "api": "https://factory.jejunetwork.org",
       "mcp": "https://factory.jejunetwork.org/api/mcp"
-    },
-    "otto": {
-      "api": "https://otto.jejunetwork.org",
-      "webhook": "https://otto.jejunetwork.org/webhook"
     },
     "oauth3": {
       "api": "https://oauth3.jejunetwork.org",

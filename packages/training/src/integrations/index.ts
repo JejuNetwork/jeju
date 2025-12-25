@@ -16,10 +16,10 @@ export {
   type AgentTrajectory,
   CrucibleTrainingClient,
   createCrucibleTrainingClient,
+  type CrucibleTrajectoryStep,
   type TrainingAgentConfig,
   type TrainingEnvironment,
   type TrainingMetrics as CrucibleTrainingMetrics,
   type TrainingRun,
   type TrajectoryMetadata,
-  type TrajectoryStep,
 } from './crucible'

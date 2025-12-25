@@ -1,6 +1,5 @@
-import type { NodeMetrics, OracleNodeConfig } from '@jejunetwork/types'
+import { readContract } from '@jejunetwork/shared'
 import { expectHex, parseEnvAddress, ZERO_ADDRESS } from '@jejunetwork/types'
-import type { Abi } from 'abitype'
 import {
   type Chain,
   createPublicClient,
@@ -16,6 +15,7 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { base, baseSepolia, foundry } from 'viem/chains'
+
 import {
   COMMITTEE_MANAGER_ABI,
   FEED_REGISTRY_ABI,
@@ -23,6 +23,7 @@ import {
   REPORT_VERIFIER_ABI,
 } from './abis'
 import { type PriceData, PriceFetcher } from './price-fetcher'
+import type { NodeMetrics, OracleNodeConfig } from '@jejunetwork/types'
 import type { PriceReport } from './types'
 
 const ZERO_BYTES32 =
@@ -103,12 +104,12 @@ export class OracleNode {
       throw new Error('Wallet client has no account')
     const workerAddress = this.walletClient.account.address
 
-    const existingOperatorId = (await this.publicClient.readContract({
+    const existingOperatorId = await readContract(this.publicClient, {
       address: this.config.networkConnector,
-      abi: NETWORK_CONNECTOR_ABI as Abi,
+      abi: NETWORK_CONNECTOR_ABI,
       functionName: 'workerToOperator',
       args: [workerAddress],
-    })) as Hex
+    })
 
     if (existingOperatorId !== ZERO_BYTES32) {
       this.operatorId = existingOperatorId
@@ -136,12 +137,12 @@ export class OracleNode {
 
     await this.publicClient.waitForTransactionReceipt({ hash })
 
-    this.operatorId = (await this.publicClient.readContract({
+    this.operatorId = await readContract(this.publicClient, {
       address: this.config.networkConnector,
-      abi: NETWORK_CONNECTOR_ABI as Abi,
+      abi: NETWORK_CONNECTOR_ABI,
       functionName: 'workerToOperator',
       args: [workerAddress],
-    })) as Hex
+    })
     console.log(`[OracleNode] Operator ID: ${this.operatorId}`)
   }
 
@@ -150,11 +151,11 @@ export class OracleNode {
 
     console.log('[OracleNode] Polling prices...')
 
-    const feedIds = (await this.publicClient.readContract({
+    const feedIds = await readContract(this.publicClient, {
       address: this.config.feedRegistry,
-      abi: FEED_REGISTRY_ABI as Abi,
+      abi: FEED_REGISTRY_ABI,
       functionName: 'getActiveFeeds',
-    })) as Hex[]
+    })
 
     const prices = await this.priceFetcher.fetchAllPrices()
 
@@ -181,21 +182,21 @@ export class OracleNode {
       throw new Error('Wallet client has no account')
     const workerAddress = this.walletClient.account.address
 
-    return this.publicClient.readContract({
+    return readContract(this.publicClient, {
       address: this.config.committeeManager,
-      abi: COMMITTEE_MANAGER_ABI as Abi,
+      abi: COMMITTEE_MANAGER_ABI,
       functionName: 'isCommitteeMember',
       args: [feedId, workerAddress],
-    }) as Promise<boolean>
+    })
   }
 
   private async submitReport(feedId: Hex, priceData: PriceData): Promise<void> {
-    const currentRound = (await this.publicClient.readContract({
+    const currentRound = await readContract(this.publicClient, {
       address: this.config.reportVerifier,
-      abi: REPORT_VERIFIER_ABI as Abi,
+      abi: REPORT_VERIFIER_ABI,
       functionName: 'getCurrentRound',
       args: [feedId],
-    })) as bigint
+    })
 
     const newRound = currentRound + 1n
 

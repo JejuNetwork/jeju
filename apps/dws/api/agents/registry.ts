@@ -4,7 +4,11 @@
  */
 
 import type { JsonRecord } from '@jejunetwork/sdk'
-import { isValidAddress, validateOrNull } from '@jejunetwork/types'
+import {
+  isValidAddress,
+  JsonValueSchema,
+  validateOrNull,
+} from '@jejunetwork/types'
 import type { Address } from 'viem'
 import { z } from 'zod'
 import { isAgentStatus, isCronAction } from '../shared/utils/type-guards'
@@ -234,7 +238,7 @@ async function loadAgentsFromCQL(): Promise<void> {
       schedule: row.schedule,
       action,
       payload: row.payload
-        ? z.record(z.string(), z.unknown()).parse(JSON.parse(row.payload))
+        ? z.record(z.string(), JsonValueSchema).parse(JSON.parse(row.payload))
         : undefined,
       enabled: row.enabled === 1,
       lastRunAt: row.last_run_at ?? undefined,

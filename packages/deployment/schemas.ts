@@ -543,6 +543,7 @@ export type JsonRpcBlockNumberResponse = z.infer<
  */
 import { JsonValueSchema } from '@jejunetwork/types'
 
+
 /**
  * Generic JSON-RPC response (for any method)
  */
@@ -762,7 +763,6 @@ export const AgentRegistrationFileSchema = z
   .object({
     name: z.string().optional(),
     description: z.string().optional(),
-    active: z.boolean().optional(),
     endpoints: z
       .array(
         z.object({

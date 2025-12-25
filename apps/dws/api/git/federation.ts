@@ -101,7 +101,7 @@ export class FederationManager {
       metadata: {
         nodeName: this.config.instanceName,
         nodeDescription:
-          this.config.instanceDescription || 'A Jeju Git instance',
+          this.config.instanceDescription ?? 'A Jeju Git instance',
         features: 'git,issues,pull-requests,stars,forks',
       },
     }

@@ -21,6 +21,8 @@
   },
   "dependencies": {
     "@elysiajs/cors": "^1.4.0",
+    "@jejunetwork/db": "workspace:*",
+    "@jejunetwork/farcaster": "workspace:*",
     "@jejunetwork/shared": "workspace:*",
     "@jejunetwork/types": "workspace:*",
     "@noble/curves": "2.0.1",

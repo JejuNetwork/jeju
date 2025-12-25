@@ -272,20 +272,6 @@ export const CORE_PORTS = {
     get: () => safeParsePort(process.env.CEO_PORT, 4041),
   },
 
-  /** Otto API - Multi-platform agent bot */
-  OTTO_API: {
-    DEFAULT: 4042,
-    ENV_VAR: 'OTTO_PORT',
-    get: () => safeParsePort(process.env.OTTO_PORT, 4042),
-  },
-
-  /** Otto Webhook - Webhook receiver for platforms */
-  OTTO_WEBHOOK: {
-    DEFAULT: 4043,
-    ENV_VAR: 'OTTO_WEBHOOK_PORT',
-    get: () => safeParsePort(process.env.OTTO_WEBHOOK_PORT, 4043),
-  },
-
   /** KMS API - Key Management Service */
   KMS_API: {
     DEFAULT: 4050,

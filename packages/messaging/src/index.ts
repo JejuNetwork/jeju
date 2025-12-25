@@ -145,4 +145,26 @@ export type {
   XMTPNodeStats,
 } from './xmtp/types'
 
+// Storage adapters
+export {
+  createCQLStorage,
+  getCQLStorage,
+  resetCQLStorage,
+  CQLMessageStorage,
+  type CQLConfig,
+  type ConsistencyLevel,
+  type StoredConversation,
+  type StoredKeyBundle,
+  type StoredMessage,
+} from './storage/cql-storage'
+
+// Unified Farcaster-Messaging Integration
+export {
+  createUnifiedMessagingService,
+  UnifiedMessagingService,
+  type UnifiedMessagingConfig,
+  type UnifiedMessage,
+  type UnifiedConversation,
+} from './farcaster-integration'
+
 // Node-only exports (relay server) available via '@jejunetwork/messaging/node'

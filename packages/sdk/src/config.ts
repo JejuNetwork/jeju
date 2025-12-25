@@ -12,7 +12,6 @@ import type { NetworkType } from '@jejunetwork/types'
 import type { Address } from 'viem'
 
 export { getContract, getServicesConfig }
-
 import type { ServicesConfig } from '@jejunetwork/config'
 export type { ServicesConfig }
 

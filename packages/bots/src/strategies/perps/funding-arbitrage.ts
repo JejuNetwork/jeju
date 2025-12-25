@@ -14,8 +14,9 @@ import {
   parseUnits,
   type WalletClient,
 } from 'viem'
+import { delay as sleep } from '@jejunetwork/shared'
 import type { OracleAggregator } from '../../oracles'
-import { NonceManager, sleep } from '../../shared'
+import { NonceManager } from '../../shared'
 
 export interface FundingArbConfig {
   chainId: EVMChainId

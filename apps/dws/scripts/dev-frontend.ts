@@ -27,7 +27,7 @@ const browserShimPlugin: BunPlugin = {
 
     // Resolve workspace packages to their source for proper bundling
     build.onResolve({ filter: /^@jejunetwork\/oauth3$/ }, () => ({
-      path: resolve('../../packages/oauth3/src/index.ts'),
+      path: resolve('../../packages/auth/src/index.ts'),
     }))
     build.onResolve({ filter: /^@jejunetwork\/shared$/ }, () => ({
       path: resolve('../../packages/shared/src/index.ts'),

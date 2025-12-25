@@ -351,8 +351,17 @@ export class LocalJNSGateway {
       return null
     }
 
-    // Common build output directories
-    const buildDirs = ['dist', 'dist/web', 'build', 'out', '.next/static']
+    // Common build output directories (order matters - more specific first)
+    const buildDirs = [
+      'dist/web', // auth, crucible, example, indexer
+      'dist/client', // factory
+      'dist/static', // bazaar, node
+      'docs/dist', // documentation (vocs)
+      'dist', // autocrat, dws, gateway, monitoring, vpn, wallet
+      'build',
+      'out',
+      '.next/static',
+    ]
 
     // Normalize path
     let requestPath = path || '/'

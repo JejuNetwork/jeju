@@ -1,11 +1,11 @@
-import type { NodeMetrics, OracleNodeConfig } from '@jejunetwork/types'
-import type { Abi } from 'abitype'
-import { createPublicClient, type Hex, http } from 'viem'
+import { readContract } from '@jejunetwork/shared'
+import { createPublicClient, http } from 'viem'
 import {
   COMMITTEE_MANAGER_ABI,
   FEED_REGISTRY_ABI,
   REPORT_VERIFIER_ABI,
 } from './abis'
+import type { NodeMetrics, OracleNodeConfig } from './types'
 
 interface PrometheusMetric {
   name: string
@@ -189,9 +189,9 @@ export class MetricsExporter {
       return metrics
     }
 
-    const feedIds = await this.client.readContract({
+    const feedIds = await readContract(this.client, {
       address: this.config.feedRegistry,
-      abi: FEED_REGISTRY_ABI as Abi,
+      abi: FEED_REGISTRY_ABI,
       functionName: 'getActiveFeeds',
     })
 
@@ -201,34 +201,34 @@ export class MetricsExporter {
       'Total active oracle feeds',
       'gauge',
       {},
-      (feedIds as Hex[]).length,
+      feedIds.length,
     )
 
     let totalActiveMembers = 0
 
-    for (const feedId of feedIds as Hex[]) {
+    for (const feedId of feedIds) {
       const [feed, priceData, currentRound, committee] = await Promise.all([
-        this.client.readContract({
+        readContract(this.client, {
           address: this.config.feedRegistry,
-          abi: FEED_REGISTRY_ABI as Abi,
+          abi: FEED_REGISTRY_ABI,
           functionName: 'getFeed',
           args: [feedId],
         }),
-        this.client.readContract({
+        readContract(this.client, {
           address: this.config.reportVerifier,
-          abi: REPORT_VERIFIER_ABI as Abi,
+          abi: REPORT_VERIFIER_ABI,
           functionName: 'getLatestPrice',
           args: [feedId],
         }),
-        this.client.readContract({
+        readContract(this.client, {
           address: this.config.reportVerifier,
-          abi: REPORT_VERIFIER_ABI as Abi,
+          abi: REPORT_VERIFIER_ABI,
           functionName: 'getCurrentRound',
           args: [feedId],
         }),
-        this.client.readContract({
+        readContract(this.client, {
           address: this.config.committeeManager,
-          abi: COMMITTEE_MANAGER_ABI as Abi,
+          abi: COMMITTEE_MANAGER_ABI,
           functionName: 'getCommittee',
           args: [feedId],
         }),

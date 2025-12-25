@@ -2,11 +2,11 @@
  * KMS API Routes
  * Key Management Service integration for DWS
  *
- * Uses real FROST threshold signing from @jejunetwork/oauth3
+ * Uses real FROST threshold signing from @jejunetwork/auth
  */
 
 import crypto from 'node:crypto'
-import { FROSTCoordinator } from '@jejunetwork/oauth3'
+import { FROSTCoordinator } from '@jejunetwork/auth'
 import { expectValid } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import type { Address, Hex } from 'viem'

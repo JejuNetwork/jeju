@@ -12,6 +12,7 @@ import {
   parseEther,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
+import { toError } from '@jejunetwork/types'
 import { checkRpcHealth } from '../lib/chain'
 import { logger } from '../lib/logger'
 import { sanitizeErrorMessage, validateAddress } from '../lib/security'
@@ -122,7 +123,7 @@ async function fundAddress(
       return false
     }
   } catch (error) {
-    logger.error(`Transaction error: ${sanitizeErrorMessage(error as Error)}`)
+    logger.error(`Transaction error: ${sanitizeErrorMessage(toError(error))}`)
     return false
   }
 }

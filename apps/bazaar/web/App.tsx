@@ -4,7 +4,7 @@
  * Main application component with routing and providers
  */
 
-import { OAuth3Provider } from '@jejunetwork/oauth3'
+import { OAuth3Provider } from '@jejunetwork/auth'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 // Lazy load pages for better performance
 import { lazy, Suspense, useState } from 'react'

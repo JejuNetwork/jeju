@@ -11,6 +11,7 @@ import {
 } from '@jejunetwork/oauth3'
 import type { Address, Hex } from 'viem'
 
+
 export interface OAuth3Service {
   initialize(): Promise<{ app: DiscoveredApp; nodes: DiscoveredNode[] }>
   loginWithWallet(): Promise<OAuth3Session>
@@ -119,17 +120,17 @@ export function getOAuth3Service(): OAuth3Service {
     const network = getNetworkName()
     const chainId =
       network === 'localnet' ? 420691 : network === 'testnet' ? 420690 : 8453
-    const appId = process.env.OAUTH3_APP_ID ?? 'example.oauth3.jeju'
-    const frontendPort = process.env.FRONTEND_PORT ?? '4501'
+    const appId = process.env.OAUTH3_APP_ID || 'example.oauth3.jeju'
+    const frontendPort = process.env.FRONTEND_PORT || '4501'
     const redirectUri =
-      process.env.OAUTH3_REDIRECT_URI ??
+      process.env.OAUTH3_REDIRECT_URI ||
       `http://localhost:${frontendPort}/oauth3/callback`
-    const rpcUrl = process.env.L2_RPC_URL ?? 'http://localhost:6546'
-    const jnsGateway = process.env.JNS_GATEWAY_URL ?? 'http://localhost:4020'
+    const rpcUrl = process.env.L2_RPC_URL || 'http://localhost:6546'
+    const jnsGateway = process.env.JNS_GATEWAY_URL || 'http://localhost:4020'
     const storageEndpoint =
-      process.env.STORAGE_API_ENDPOINT ?? 'http://localhost:4010'
+      process.env.STORAGE_API_ENDPOINT || 'http://localhost:4010'
     const teeAgentUrl =
-      process.env.OAUTH3_TEE_AGENT_URL ?? 'http://localhost:8004'
+      process.env.OAUTH3_TEE_AGENT_URL || 'http://localhost:8004'
 
     oauth3Service = new OAuth3ServiceImpl({
       appId,

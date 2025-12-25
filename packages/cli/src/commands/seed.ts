@@ -43,7 +43,7 @@ async function seedOAuth3(options: {
   const rootDir = findMonorepoRoot()
 
   // Check for oauth3 package
-  const oauth3Path = join(rootDir, 'packages/oauth3')
+  const oauth3Path = join(rootDir, 'packages/auth')
   if (!existsSync(oauth3Path)) {
     logger.error('OAuth3 package not found')
     process.exit(1)
@@ -99,7 +99,7 @@ async function seedOAuth3Inline(options: {
 
   // Try to import and use oauth3 package directly
   const rootDir = findMonorepoRoot()
-  const registryPath = join(rootDir, 'packages/oauth3/dist/index.js')
+  const registryPath = join(rootDir, 'packages/auth/dist/index.js')
 
   if (!existsSync(registryPath)) {
     logger.warn(
@@ -121,7 +121,7 @@ async function seedOAuth3Inline(options: {
   logger.newline()
   logger.success('OAuth3 seeding configuration complete')
   logger.info('Next steps:')
-  logger.info(`  1. Start TEE agent: bun run --cwd packages/oauth3 start:agent`)
+  logger.info(`  1. Start TEE agent: bun run --cwd packages/auth start:agent`)
   logger.info(`  2. Start the app: jeju dev`)
   logger.info(`  3. Visit: http://localhost:${frontendPort}`)
 }
