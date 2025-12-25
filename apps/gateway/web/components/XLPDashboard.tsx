@@ -1,3 +1,4 @@
+import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { useQuery } from '@tanstack/react-query'
 import { CheckCircle, Clock, type LucideProps, XCircle } from 'lucide-react'
 import { type ComponentType, useMemo, useState } from 'react'
@@ -412,260 +413,251 @@ export default function XLPDashboard() {
           </div>
         )}
 
-        {activeTab === 'liquidity' && (
-          <div>
-            <div style={{ marginBottom: '2rem' }}>
-              <h3 style={{ fontSize: '1.125rem', marginBottom: '1rem' }}>
-                ETH Liquidity (Gas Sponsorship)
-              </h3>
+        {activeTab === 'liquidity' &&
+          (isConnected ? (
+            <div>
+              <div style={{ marginBottom: '2rem' }}>
+                <h3 style={{ fontSize: '1.125rem', marginBottom: '1rem' }}>
+                  ETH Liquidity (Gas Sponsorship)
+                </h3>
 
-              <div
-                style={{
-                  padding: '1rem',
-                  background: 'var(--surface-hover)',
-                  borderRadius: '12px',
-                  marginBottom: '1rem',
-                }}
-              >
                 <div
                   style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
+                    padding: '1rem',
+                    background: 'var(--surface-hover)',
+                    borderRadius: '12px',
+                    marginBottom: '1rem',
                   }}
                 >
-                  <span>Current Balance</span>
-                  <span style={{ fontSize: '1.25rem', fontWeight: '700' }}>
-                    {xlpETH ? formatEther(xlpETH) : '0'} ETH
-                  </span>
-                </div>
-              </div>
-
-              <form onSubmit={handleDepositETH}>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <input
-                    className="input"
-                    type="number"
-                    step="0.01"
-                    placeholder="0.0"
-                    value={ethAmount}
-                    onChange={(e) => setEthAmount(e.target.value)}
-                    disabled={isLoading}
-                    style={{ flex: 1 }}
-                  />
-                  <button
-                    type="submit"
-                    className="button"
-                    disabled={isLoading || !ethAmount}
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                    }}
                   >
-                    Deposit ETH
-                  </button>
+                    <span>Current Balance</span>
+                    <span style={{ fontSize: '1.25rem', fontWeight: '700' }}>
+                      {xlpETH ? formatEther(xlpETH) : '0'} ETH
+                    </span>
+                  </div>
                 </div>
-              </form>
 
-              {xlpETH && Boolean(xlpETH > 0n) && (
-                <button
-                  type="button"
-                  className="button button-secondary"
-                  style={{ width: '100%', marginTop: '0.5rem' }}
-                  onClick={handleWithdrawETH}
-                  disabled={isLoading}
-                >
-                  Withdraw All ETH
-                </button>
-              )}
-            </div>
-
-            <div>
-              <h3 style={{ fontSize: '1.125rem', marginBottom: '1rem' }}>
-                Token Liquidity
-              </h3>
-
-              <TokenSelector
-                tokens={tokenOptions}
-                selectedToken={selectedToken?.symbol}
-                onSelect={setSelectedToken}
-                label="Select Token"
-                placeholder="Choose token..."
-                disabled={isLoading}
-              />
-
-              {selectedToken && (
-                <form
-                  onSubmit={handleDepositToken}
-                  style={{ marginTop: '1rem' }}
-                >
+                <form onSubmit={handleDepositETH}>
                   <div style={{ display: 'flex', gap: '0.5rem' }}>
                     <input
                       className="input"
                       type="number"
-                      step="any"
+                      step="0.01"
                       placeholder="0.0"
-                      value={tokenAmount}
-                      onChange={(e) => setTokenAmount(e.target.value)}
+                      value={ethAmount}
+                      onChange={(e) => setEthAmount(e.target.value)}
                       disabled={isLoading}
                       style={{ flex: 1 }}
                     />
                     <button
                       type="submit"
                       className="button"
-                      disabled={isLoading || !tokenAmount}
+                      disabled={isLoading || !ethAmount}
                     >
-                      Deposit {selectedToken.symbol}
+                      Deposit ETH
                     </button>
                   </div>
                 </form>
-              )}
-            </div>
-          </div>
-        )}
 
-        {activeTab === 'stake' && (
-          <div>
-            {!stake?.isActive ? (
+                {xlpETH && Boolean(xlpETH > 0n) && (
+                  <button
+                    type="button"
+                    className="button button-secondary"
+                    style={{ width: '100%', marginTop: '0.5rem' }}
+                    onClick={handleWithdrawETH}
+                    disabled={isLoading}
+                  >
+                    Withdraw All ETH
+                  </button>
+                )}
+              </div>
+
               <div>
                 <h3 style={{ fontSize: '1.125rem', marginBottom: '1rem' }}>
-                  Register as XLP
+                  Token Liquidity
                 </h3>
 
-                <div
-                  style={{
-                    padding: '1rem',
-                    background: 'var(--info-soft)',
-                    borderRadius: '12px',
-                    marginBottom: '1.5rem',
-                  }}
-                >
-                  <p
-                    style={{
-                      fontSize: '0.875rem',
-                      margin: 0,
-                      color: 'var(--info)',
-                    }}
-                  >
-                    <strong>Requirements:</strong> Minimum 1 ETH stake, 8-day
-                    unbonding period
-                  </p>
-                </div>
+                <TokenSelector
+                  tokens={tokenOptions}
+                  selectedToken={selectedToken?.symbol}
+                  onSelect={setSelectedToken}
+                  label="Select Token"
+                  placeholder="Choose token..."
+                  disabled={isLoading}
+                />
 
-                <div style={{ marginBottom: '1.5rem' }}>
-                  <span
-                    style={{
-                      display: 'block',
-                      marginBottom: '0.5rem',
-                      fontWeight: '600',
-                    }}
+                {selectedToken && (
+                  <form
+                    onSubmit={handleDepositToken}
+                    style={{ marginTop: '1rem' }}
                   >
-                    Supported Chains
-                  </span>
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns:
-                        'repeat(auto-fit, minmax(100px, 1fr))',
-                      gap: '0.375rem',
-                    }}
-                  >
-                    {SUPPORTED_CHAINS.map((chain) => (
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <input
+                        className="input"
+                        type="number"
+                        step="any"
+                        placeholder="0.0"
+                        value={tokenAmount}
+                        onChange={(e) => setTokenAmount(e.target.value)}
+                        disabled={isLoading}
+                        style={{ flex: 1 }}
+                      />
                       <button
-                        key={chain.id}
-                        type="button"
-                        onClick={() => toggleChain(chain.id)}
-                        style={{
-                          padding: '0.375rem 0.5rem',
-                          borderRadius: '6px',
-                          border: selectedChains.includes(chain.id)
-                            ? '2px solid var(--info)'
-                            : '2px solid var(--border)',
-                          background: selectedChains.includes(chain.id)
-                            ? 'var(--info-soft)'
-                            : 'white',
-                          cursor: 'pointer',
-                          fontSize: '0.75rem',
-                          fontWeight: '600',
-                        }}
+                        type="submit"
+                        className="button"
+                        disabled={isLoading || !tokenAmount}
                       >
-                        {chain.name}
+                        Deposit {selectedToken.symbol}
                       </button>
-                    ))}
-                  </div>
-                </div>
-
-                <form onSubmit={handleRegister}>
-                  <label
-                    htmlFor="initial-stake-register"
-                    style={{
-                      display: 'block',
-                      marginBottom: '0.5rem',
-                      fontWeight: '600',
-                    }}
-                  >
-                    Initial Stake (min 1 ETH)
-                  </label>
-                  <input
-                    id="initial-stake-register"
-                    className="input"
-                    type="number"
-                    step="0.1"
-                    min="1"
-                    placeholder="1.0"
-                    value={stakeAmount}
-                    onChange={(e) => setStakeAmount(e.target.value)}
-                    disabled={isLoading}
-                    style={{ marginBottom: '1rem' }}
-                  />
-                  <button
-                    type="submit"
-                    className="button"
-                    style={{ width: '100%' }}
-                    disabled={
-                      isLoading || !stakeAmount || selectedChains.length === 0
-                    }
-                  >
-                    Register as XLP
-                  </button>
-                </form>
+                    </div>
+                  </form>
+                )}
               </div>
-            ) : (
-              <div>
-                <div
-                  className="grid grid-2"
-                  style={{ gap: '1rem', marginBottom: '1.5rem' }}
-                >
+            </div>
+          ) : (
+            <div
+              style={{
+                padding: '2rem',
+                textAlign: 'center',
+                background: 'var(--surface-hover)',
+                borderRadius: 'var(--radius-lg)',
+              }}
+            >
+              <p
+                style={{
+                  color: 'var(--text-secondary)',
+                  marginBottom: '1rem',
+                }}
+              >
+                Connect your wallet to manage liquidity
+              </p>
+              <ConnectButton />
+            </div>
+          ))}
+
+        {activeTab === 'stake' &&
+          (isConnected ? (
+            <div>
+              {!stake?.isActive ? (
+                <div>
+                  <h3 style={{ fontSize: '1.125rem', marginBottom: '1rem' }}>
+                    Register as XLP
+                  </h3>
+
                   <div
                     style={{
-                      padding: '1.5rem',
-                      background: 'var(--success-soft)',
+                      padding: '1rem',
+                      background: 'var(--info-soft)',
                       borderRadius: '12px',
-                      textAlign: 'center',
+                      marginBottom: '1.5rem',
                     }}
                   >
                     <p
                       style={{
-                        fontSize: '0.75rem',
-                        color: 'var(--text-secondary)',
+                        fontSize: '0.875rem',
                         margin: 0,
+                        color: 'var(--info)',
                       }}
                     >
-                      Active Stake
-                    </p>
-                    <p
-                      style={{
-                        fontSize: '1.5rem',
-                        fontWeight: '700',
-                        margin: '0.5rem 0',
-                        color: 'var(--success)',
-                      }}
-                    >
-                      {formatEther(stake.stakedAmount)} ETH
+                      <strong>Requirements:</strong> Minimum 1 ETH stake, 8-day
+                      unbonding period
                     </p>
                   </div>
 
-                  {Boolean(stake.unbondingAmount > 0n) && (
+                  <div style={{ marginBottom: '1.5rem' }}>
+                    <span
+                      style={{
+                        display: 'block',
+                        marginBottom: '0.5rem',
+                        fontWeight: '600',
+                      }}
+                    >
+                      Supported Chains
+                    </span>
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns:
+                          'repeat(auto-fit, minmax(100px, 1fr))',
+                        gap: '0.375rem',
+                      }}
+                    >
+                      {SUPPORTED_CHAINS.map((chain) => (
+                        <button
+                          key={chain.id}
+                          type="button"
+                          onClick={() => toggleChain(chain.id)}
+                          style={{
+                            padding: '0.375rem 0.5rem',
+                            borderRadius: '6px',
+                            border: selectedChains.includes(chain.id)
+                              ? '2px solid var(--info)'
+                              : '2px solid var(--border)',
+                            background: selectedChains.includes(chain.id)
+                              ? 'var(--info-soft)'
+                              : 'white',
+                            cursor: 'pointer',
+                            fontSize: '0.75rem',
+                            fontWeight: '600',
+                          }}
+                        >
+                          {chain.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <form onSubmit={handleRegister}>
+                    <label
+                      htmlFor="initial-stake-register"
+                      style={{
+                        display: 'block',
+                        marginBottom: '0.5rem',
+                        fontWeight: '600',
+                      }}
+                    >
+                      Initial Stake (min 1 ETH)
+                    </label>
+                    <input
+                      id="initial-stake-register"
+                      className="input"
+                      type="number"
+                      step="0.1"
+                      min="1"
+                      placeholder="1.0"
+                      value={stakeAmount}
+                      onChange={(e) => setStakeAmount(e.target.value)}
+                      disabled={isLoading}
+                      style={{ marginBottom: '1rem' }}
+                    />
+                    <button
+                      type="submit"
+                      className="button"
+                      style={{ width: '100%' }}
+                      disabled={
+                        isLoading || !stakeAmount || selectedChains.length === 0
+                      }
+                    >
+                      Register as XLP
+                    </button>
+                  </form>
+                </div>
+              ) : (
+                <div>
+                  <div
+                    className="grid grid-2"
+                    style={{ gap: '1rem', marginBottom: '1.5rem' }}
+                  >
                     <div
                       style={{
                         padding: '1.5rem',
-                        background: 'var(--warning-soft)',
+                        background: 'var(--success-soft)',
                         borderRadius: '12px',
                         textAlign: 'center',
                       }}
@@ -677,106 +669,170 @@ export default function XLPDashboard() {
                           margin: 0,
                         }}
                       >
-                        Unbonding
+                        Active Stake
                       </p>
                       <p
                         style={{
                           fontSize: '1.5rem',
                           fontWeight: '700',
                           margin: '0.5rem 0',
-                          color: 'var(--warning)',
+                          color: 'var(--success)',
                         }}
                       >
-                        {formatEther(stake.unbondingAmount)} ETH
+                        {formatEther(stake.stakedAmount)} ETH
                       </p>
-                      {Boolean(
-                        unbondingTimeRemaining && unbondingTimeRemaining > 0n,
-                      ) && (
+                    </div>
+
+                    {Boolean(stake.unbondingAmount > 0n) && (
+                      <div
+                        style={{
+                          padding: '1.5rem',
+                          background: 'var(--warning-soft)',
+                          borderRadius: '12px',
+                          textAlign: 'center',
+                        }}
+                      >
                         <p
                           style={{
                             fontSize: '0.75rem',
+                            color: 'var(--text-secondary)',
+                            margin: 0,
+                          }}
+                        >
+                          Unbonding
+                        </p>
+                        <p
+                          style={{
+                            fontSize: '1.5rem',
+                            fontWeight: '700',
+                            margin: '0.5rem 0',
                             color: 'var(--warning)',
                           }}
                         >
-                          {Math.ceil(Number(unbondingTimeRemaining) / 86400)}{' '}
-                          days remaining
+                          {formatEther(stake.unbondingAmount)} ETH
                         </p>
-                      )}
-                    </div>
-                  )}
-                </div>
+                        {Boolean(
+                          unbondingTimeRemaining && unbondingTimeRemaining > 0n,
+                        ) && (
+                          <p
+                            style={{
+                              fontSize: '0.75rem',
+                              color: 'var(--warning)',
+                            }}
+                          >
+                            {Math.ceil(Number(unbondingTimeRemaining) / 86400)}{' '}
+                            days remaining
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
 
-                <form
-                  onSubmit={handleAddStake}
-                  style={{ marginBottom: '1.5rem' }}
-                >
-                  <label
-                    htmlFor="add-stake-amount"
-                    style={{
-                      display: 'block',
-                      marginBottom: '0.5rem',
-                      fontWeight: '600',
-                    }}
+                  <form
+                    onSubmit={handleAddStake}
+                    style={{ marginBottom: '1.5rem' }}
                   >
-                    Add Stake
-                  </label>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <input
-                      id="add-stake-amount"
-                      className="input"
-                      type="number"
-                      step="0.1"
-                      placeholder="0.0"
-                      value={stakeAmount}
-                      onChange={(e) => setStakeAmount(e.target.value)}
-                      disabled={isLoading}
-                      style={{ flex: 1 }}
-                    />
-                    <button
-                      type="submit"
-                      className="button"
-                      disabled={isLoading || !stakeAmount}
+                    <label
+                      htmlFor="add-stake-amount"
+                      style={{
+                        display: 'block',
+                        marginBottom: '0.5rem',
+                        fontWeight: '600',
+                      }}
                     >
                       Add Stake
-                    </button>
-                  </div>
-                </form>
-
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns:
-                      stake.unbondingAmount > 0n &&
-                      unbondingTimeRemaining === 0n
-                        ? 'repeat(auto-fit, minmax(130px, 1fr))'
-                        : '1fr',
-                    gap: '0.5rem',
-                  }}
-                >
-                  <button
-                    type="button"
-                    className="button button-secondary"
-                    onClick={() => stake && startUnbonding(stake.stakedAmount)}
-                    disabled={isLoading || stake.unbondingAmount > 0n}
-                  >
-                    Start Unbonding
-                  </button>
-                  {stake.unbondingAmount > 0n &&
-                    unbondingTimeRemaining === 0n && (
-                      <button
-                        type="button"
-                        className="button"
-                        onClick={() => completeUnbonding()}
+                    </label>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <input
+                        id="add-stake-amount"
+                        className="input"
+                        type="number"
+                        step="0.1"
+                        placeholder="0.0"
+                        value={stakeAmount}
+                        onChange={(e) => setStakeAmount(e.target.value)}
                         disabled={isLoading}
+                        style={{ flex: 1 }}
+                      />
+                      <button
+                        type="submit"
+                        className="button"
+                        disabled={isLoading || !stakeAmount}
                       >
-                        Complete Unbonding
+                        Add Stake
                       </button>
-                    )}
+                    </div>
+                  </form>
+
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns:
+                        stake.unbondingAmount > 0n &&
+                        unbondingTimeRemaining === 0n
+                          ? 'repeat(auto-fit, minmax(130px, 1fr))'
+                          : '1fr',
+                      gap: '0.5rem',
+                    }}
+                  >
+                    <button
+                      type="button"
+                      className="button button-secondary"
+                      onClick={() =>
+                        stake && startUnbonding(stake.stakedAmount)
+                      }
+                      disabled={isLoading || stake.unbondingAmount > 0n}
+                    >
+                      Start Unbonding
+                    </button>
+                    {stake.unbondingAmount > 0n &&
+                      unbondingTimeRemaining === 0n && (
+                        <button
+                          type="button"
+                          className="button"
+                          onClick={() => completeUnbonding()}
+                          disabled={isLoading}
+                        >
+                          Complete Unbonding
+                        </button>
+                      )}
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
-        )}
+              )}
+            </div>
+          ) : (
+            <div
+              style={{
+                padding: '2rem',
+                textAlign: 'center',
+                background: 'var(--surface-hover)',
+                borderRadius: 'var(--radius-lg)',
+              }}
+            >
+              <h3 style={{ fontSize: '1.125rem', marginBottom: '0.5rem' }}>
+                Become an XLP
+              </h3>
+              <p
+                style={{
+                  color: 'var(--text-secondary)',
+                  marginBottom: '0.75rem',
+                  fontSize: '0.875rem',
+                }}
+              >
+                Stake ETH and provide cross-chain liquidity to earn fees
+              </p>
+              <p
+                style={{
+                  color: 'var(--text-muted)',
+                  marginBottom: '1rem',
+                  fontSize: '0.8125rem',
+                }}
+              >
+                Minimum 1 ETH stake • 8-day unbonding period
+              </p>
+              <ConnectButton />
+            </div>
+          ))}
 
         {activeTab === 'history' && <VoucherHistory />}
       </div>

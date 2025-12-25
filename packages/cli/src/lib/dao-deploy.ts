@@ -402,9 +402,16 @@ export async function deployDAO(
       )
     }
 
-    logger.success(
-      `Council configured with ${councilResult.members.length} members`,
-    )
+    // Warn if all council members have the same address (likely misconfiguration)
+    const uniqueAddresses = new Set(councilResult.members.map((m) => m.address))
+    if (uniqueAddresses.size === 1 && councilResult.members.length > 1) {
+      logger.warn(
+        `All ${councilResult.members.length} council members have the same address. ` +
+        `For production, set unique addresses in manifest or use TEE/MPC deployment.`
+      )
+    }
+
+    logger.success(`Council configured with ${councilResult.members.length} members`)
   }
 
   const packageIds: string[] = []
@@ -672,6 +679,7 @@ export async function deployDAO(
     network,
     daoId,
     name: manifest.name,
+    manifestCid,
     contracts: {
       daoRegistry: contracts.DAORegistry,
       daoFunding: contracts.DAOFunding,
@@ -757,32 +765,8 @@ export function discoverDAOManifests(rootDir: string): DAOManifest[] {
 }
 
 
-const DAOAllocationRegistryABI = [
-  {
-    type: 'function',
-    name: 'createAllocation',
-    inputs: [
-      { name: 'sourceDaoId', type: 'bytes32' },
-      { name: 'targetDaoId', type: 'bytes32' },
-      { name: 'allocationType', type: 'uint8' },
-      { name: 'amount', type: 'uint256' },
-      { name: 'description', type: 'string' },
-    ],
-    outputs: [{ name: 'allocationId', type: 'bytes32' }],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    name: 'setParentDAO',
-    inputs: [
-      { name: 'childDaoId', type: 'bytes32' },
-      { name: 'parentDaoId', type: 'bytes32' },
-    ],
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-] as const
-
+// NOTE: DAOAllocationRegistry contract not yet deployed
+// These allocation types are for future use when inter-DAO allocations are supported
 const ALLOCATION_TYPES = {
   'deep-funding': 0,
   'fee-share': 1,
@@ -850,65 +834,29 @@ export async function deployMultipleDAOs(
   return results
 }
 
-async function setupDAOAllocations(
-  rootDir: string,
+/**
+ * Log planned DAO allocations.
+ * NOTE: DAOAllocationRegistry contract not yet deployed - this only logs what would be configured.
+ */
+function setupDAOAllocations(
+  _rootDir: string,
   network: NetworkType,
   deployments: DAODeploymentResult[],
   manifests: DAOManifest[],
-): Promise<void> {
-  logger.step('Setting up DAO allocations...')
+): void {
+  logger.step('Planning DAO allocations...')
+  logger.warn('DAOAllocationRegistry not deployed - logging planned allocations only')
 
-  const chainConfig = getChainConfig(network)
-  const contracts = loadContractAddresses(rootDir, network)
-
-  const privateKey = process.env.DEPLOYER_KEY ?? process.env.PRIVATE_KEY
-  if (!privateKey) {
-    throw new Error('DEPLOYER_KEY or PRIVATE_KEY required')
-  }
-
-  const account = privateKeyToAccount(privateKey as `0x${string}`)
-  const publicClient = createPublicClient({
-    chain: chainConfig.chain,
-    transport: http(chainConfig.rpcUrl),
-  })
-  const walletClient = createWalletClient({
-    account,
-    chain: chainConfig.chain,
-    transport: http(chainConfig.rpcUrl),
-  })
-
-  const daoIdMap = new Map<string, `0x${string}`>()
-  for (const d of deployments) {
-    daoIdMap.set(d.name, d.daoId as `0x${string}`)
-  }
+  const daoIdMap = new Map(deployments.map((d) => [d.name, d.daoId]))
 
   for (let i = 0; i < manifests.length; i++) {
     const manifest = manifests[i]
-    const deployment = deployments[i]
     const networkConfig = manifest.deployment?.[network]
-
     if (!networkConfig) continue
 
-    const sourceDaoId = deployment.daoId as `0x${string}`
-
     if (networkConfig.parentDao) {
-      const parentDaoId = daoIdMap.get(networkConfig.parentDao)
-      if (parentDaoId) {
-        logger.info(
-          `  Setting ${manifest.name} parent to ${networkConfig.parentDao}`,
-        )
-        const hash = await walletClient
-          .writeContract({
-            address: contracts.DAORegistry,
-            abi: DAOAllocationRegistryABI,
-            functionName: 'setParentDAO',
-            args: [sourceDaoId, parentDaoId],
-          })
-          .catch((e: Error) => {
-            logger.warn(`  Failed to set parent DAO: ${e.message}`)
-            return null
-          })
-        if (hash) await publicClient.waitForTransactionReceipt({ hash })
+      if (daoIdMap.has(networkConfig.parentDao)) {
+        logger.info(`  [PLANNED] ${manifest.name} parent -> ${networkConfig.parentDao}`)
       } else {
         logger.warn(`  Parent DAO not found: ${networkConfig.parentDao}`)
       }
@@ -916,40 +864,16 @@ async function setupDAOAllocations(
 
     if (networkConfig.peerAllocations) {
       for (const allocation of networkConfig.peerAllocations) {
-        const targetDaoId = daoIdMap.get(allocation.targetDao)
-        if (!targetDaoId) {
+        if (!daoIdMap.has(allocation.targetDao)) {
           logger.warn(`  Target DAO not found: ${allocation.targetDao}`)
           continue
         }
-
-        const allocationType = ALLOCATION_TYPES[allocation.type]
-        logger.info(
-          `  Creating ${allocation.type} allocation: ${manifest.name} -> ${allocation.targetDao}`,
-        )
-
-        const hash = await walletClient
-          .writeContract({
-            address: contracts.DAORegistry,
-            abi: DAOAllocationRegistryABI,
-            functionName: 'createAllocation',
-            args: [
-              sourceDaoId,
-              targetDaoId,
-              allocationType,
-              BigInt(allocation.amount),
-              allocation.description ?? '',
-            ],
-          })
-          .catch((e: Error) => {
-            logger.warn(`  Failed to create allocation: ${e.message}`)
-            return null
-          })
-        if (hash) await publicClient.waitForTransactionReceipt({ hash })
+        logger.info(`  [PLANNED] ${allocation.type}: ${manifest.name} -> ${allocation.targetDao} (${allocation.amount})`)
       }
     }
   }
 
-  logger.success('DAO allocations configured')
+  logger.info('Allocations will be configured when DAOAllocationRegistry is deployed')
 }
 
 function findManifestPath(rootDir: string, daoName: string): string | null {

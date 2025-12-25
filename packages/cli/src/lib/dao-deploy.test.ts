@@ -19,7 +19,7 @@ import {
   packageRegistryAbi,
   repoRegistryAbi,
 } from '@jejunetwork/contracts'
-import { discoverDAOManifests } from './dao-deploy'
+import { discoverDAOManifests, type DAODeployOptions } from './dao-deploy'
 import {
   WELL_KNOWN_KEYS,
   getDevCouncilAddresses,
@@ -830,5 +830,98 @@ describe('Contract Event Structure', () => {
     const inputs = (projectProposed as { inputs?: Array<{ name: string; indexed?: boolean }> })?.inputs
     const projectIdInput = inputs?.find((i) => i.name === 'projectId')
     expect(projectIdInput?.indexed).toBe(true)
+  })
+})
+
+// ============================================================================
+// DAODeployOptions Validation Tests
+// ============================================================================
+
+describe('DAODeployOptions', () => {
+  test('options interface has all required fields', () => {
+    const options: DAODeployOptions = {
+      network: 'localnet',
+      manifestPath: '/path/to/manifest.json',
+      rootDir: '/path/to/root',
+      seed: true,
+      dryRun: false,
+      skipCouncil: false,
+      skipFundingConfig: false,
+      verbose: true,
+    }
+    
+    expect(options.network).toBe('localnet')
+    expect(options.manifestPath).toBe('/path/to/manifest.json')
+    expect(options.rootDir).toBe('/path/to/root')
+    expect(options.seed).toBe(true)
+    expect(options.dryRun).toBe(false)
+    expect(options.skipCouncil).toBe(false)
+    expect(options.skipFundingConfig).toBe(false)
+    expect(options.verbose).toBe(true)
+  })
+
+  test('options allows optional ipfsApiUrl', () => {
+    const options: DAODeployOptions = {
+      network: 'testnet',
+      manifestPath: '/path/to/manifest.json',
+      rootDir: '/path/to/root',
+      seed: false,
+      dryRun: true,
+      skipCouncil: true,
+      skipFundingConfig: true,
+      verbose: false,
+      ipfsApiUrl: 'https://ipfs.infura.io:5001',
+    }
+    
+    expect(options.ipfsApiUrl).toBe('https://ipfs.infura.io:5001')
+  })
+
+  test('options allows optional funding amounts', () => {
+    const options: DAODeployOptions = {
+      network: 'mainnet',
+      manifestPath: '/path/to/manifest.json',
+      rootDir: '/path/to/root',
+      seed: true,
+      dryRun: false,
+      skipCouncil: false,
+      skipFundingConfig: false,
+      verbose: false,
+      fundTreasury: '1000000000000000000',
+      fundMatching: '500000000000000000',
+    }
+    
+    expect(options.fundTreasury).toBe('1000000000000000000')
+    expect(options.fundMatching).toBe('500000000000000000')
+  })
+})
+
+// ============================================================================
+// Deployment Prerequisites Tests
+// ============================================================================
+
+describe('Deployment Prerequisites', () => {
+  test('deployment requires governance contracts at known paths', () => {
+    const deploymentPath = join(process.cwd(), 'packages', 'config', 'deployments', 'localnet.json')
+    // This test documents the expected path for deployment config
+    expect(deploymentPath).toContain('packages/config/deployments/localnet.json')
+  })
+
+  test('WELL_KNOWN_KEYS provides dev addresses for localnet', () => {
+    // Document that dev keys are only for localnet
+    expect(WELL_KNOWN_KEYS.dev.length).toBe(8)
+    expect(WELL_KNOWN_KEYS.dev[0].role).toBe('deployer')
+  })
+
+  test('council roles map to dev addresses correctly', () => {
+    const devAddresses = getDevCouncilAddresses()
+    expect(Object.keys(devAddresses)).toHaveLength(4)
+    expect(devAddresses['Treasury Guardian']).toBe(WELL_KNOWN_KEYS.dev[1].address)
+    expect(devAddresses['Code Guardian']).toBe(WELL_KNOWN_KEYS.dev[2].address)
+    expect(devAddresses['Community Guardian']).toBe(WELL_KNOWN_KEYS.dev[3].address)
+    expect(devAddresses['Security Guardian']).toBe(WELL_KNOWN_KEYS.dev[4].address)
+  })
+
+  test('CEO address is account 5 (index 5)', () => {
+    expect(getDevCEOAddress()).toBe(WELL_KNOWN_KEYS.dev[5].address)
   })
 })

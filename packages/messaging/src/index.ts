@@ -375,4 +375,18 @@ export type {
   XMTPNodeStats,
 } from './xmtp/types'
 
+// Cross-chain messaging bridge
+export {
+  createCrossChainBridgeClient,
+  CrossChainBridgeClient,
+  type CrossChainBridgeConfig,
+  type CrossChainKeyRegistration,
+  type CrossChainMessage,
+  getCrossChainBridgeClient,
+  type MessageRoute,
+  type MessageStatus as BridgeMessageStatus,
+  MessagingChain,
+  resetCrossChainBridgeClient,
+} from './bridge'
+
 // Node-only exports (relay server) available via '@jejunetwork/messaging/node'

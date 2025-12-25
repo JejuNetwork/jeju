@@ -1,5 +1,7 @@
+import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { useState } from 'react'
 import { formatEther, parseEther } from 'viem'
+import { useAccount } from 'wagmi'
 import { useLiquidityVault } from '../hooks/useLiquidityVault'
 import { usePaymasterDeployment } from '../hooks/usePaymasterFactory'
 import { useProtocolTokens } from '../hooks/useProtocolTokens'
@@ -11,6 +13,7 @@ export default function AddLiquidity({
 }: {
   vaultAddress?: `0x${string}`
 }) {
+  const { isConnected } = useAccount()
   const [ethAmount, setEthAmount] = useState('1')
   const [selectedToken, setSelectedToken] = useState<TokenOption | null>(null)
 
@@ -82,68 +85,91 @@ export default function AddLiquidity({
           </div>
         )}
 
-        {selectedToken && deployment && (
-          <form onSubmit={handleAddLiquidity} style={{ marginTop: '1.5rem' }}>
-            <div style={{ marginBottom: '1rem' }}>
-              <label
-                htmlFor="liquidity-amount"
-                style={{
-                  display: 'block',
-                  marginBottom: '0.5rem',
-                  fontWeight: '600',
-                }}
-              >
-                ETH Amount
-              </label>
-              <input
-                id="liquidity-amount"
-                className="input"
-                type="number"
-                step="0.1"
-                min="0.1"
-                placeholder="1.0"
-                value={ethAmount}
-                onChange={(e) => setEthAmount(e.target.value)}
+        {selectedToken &&
+          deployment &&
+          (isConnected ? (
+            <form onSubmit={handleAddLiquidity} style={{ marginTop: '1.5rem' }}>
+              <div style={{ marginBottom: '1rem' }}>
+                <label
+                  htmlFor="liquidity-amount"
+                  style={{
+                    display: 'block',
+                    marginBottom: '0.5rem',
+                    fontWeight: '600',
+                  }}
+                >
+                  ETH Amount
+                </label>
+                <input
+                  id="liquidity-amount"
+                  className="input"
+                  type="number"
+                  step="0.1"
+                  min="0.1"
+                  placeholder="1.0"
+                  value={ethAmount}
+                  onChange={(e) => setEthAmount(e.target.value)}
+                  disabled={isLoading}
+                />
+                <p
+                  style={{
+                    fontSize: '0.75rem',
+                    color: 'var(--text-secondary)',
+                    marginTop: '0.25rem',
+                  }}
+                >
+                  Deposit ETH to earn fees in {selectedToken.symbol}
+                </p>
+              </div>
+
+              {isAddSuccess && (
+                <div
+                  style={{
+                    padding: '1rem',
+                    background: 'var(--success-soft)',
+                    borderRadius: '8px',
+                    marginBottom: '1rem',
+                  }}
+                >
+                  <p style={{ color: 'var(--success)', margin: 0 }}>
+                    Liquidity added successfully to {selectedToken.symbol}{' '}
+                    vault.
+                  </p>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                className="button"
+                style={{ width: '100%' }}
                 disabled={isLoading}
-              />
+              >
+                {isLoading
+                  ? 'Adding Liquidity...'
+                  : `Add ${ethAmount} ETH to ${selectedToken.symbol} Vault`}
+              </button>
+            </form>
+          ) : (
+            <div
+              style={{
+                marginTop: '1.5rem',
+                padding: '1.5rem',
+                textAlign: 'center',
+                background: 'var(--surface-hover)',
+                borderRadius: 'var(--radius-lg)',
+              }}
+            >
               <p
                 style={{
-                  fontSize: '0.75rem',
                   color: 'var(--text-secondary)',
-                  marginTop: '0.25rem',
-                }}
-              >
-                Deposit ETH to earn fees in {selectedToken.symbol}
-              </p>
-            </div>
-
-            {isAddSuccess && (
-              <div
-                style={{
-                  padding: '1rem',
-                  background: 'var(--success-soft)',
-                  borderRadius: '8px',
                   marginBottom: '1rem',
                 }}
               >
-                <p style={{ color: 'var(--success)', margin: 0 }}>
-                  Liquidity added successfully to {selectedToken.symbol} vault!
-                </p>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              className="button"
-              style={{ width: '100%' }}
-              disabled={isLoading}
-            >
-              {isLoading
-                ? 'Adding Liquidity...'
-                : `Add ${ethAmount} ETH to ${selectedToken.symbol} Vault`}
-            </button>
-          </form>
-        )}
+                Connect your wallet to add liquidity
+              </p>
+              <ConnectButton />
+            </div>
+          ))}
       </div>
 
       {selectedToken &&

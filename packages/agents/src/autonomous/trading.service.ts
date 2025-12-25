@@ -9,7 +9,6 @@
 
 import type { IAgentRuntime } from '@elizaos/core'
 import { logger } from '@jejunetwork/shared'
-import { z } from 'zod'
 
 /**
  * Trade decision from the agent
@@ -72,42 +71,6 @@ export interface MarketInfo {
   volume?: number
   liquidity?: number
   type: 'prediction' | 'perp'
-}
-
-/**
- * Zod schema for trade decision parsing
- */
-const _TradeDecisionSchema = z.object({
-  action: z.enum(['trade', 'hold']),
-  trade: z
-    .object({
-      type: z.enum(['prediction', 'perp']),
-      market: z.string(),
-      action: z.enum(['buy_yes', 'buy_no', 'open_long', 'open_short']),
-      amount: z.number(),
-      reasoning: z.string().optional(),
-    })
-    .optional(),
-  reasoning: z.string().optional(),
-})
-
-/**
- * Parse LLM response with Zod validation
- */
-function _parseLLMResponse<T>(
-  response: string,
-  schema: z.ZodType<T>,
-): T | null {
-  const jsonMatch = response.match(/\{[\s\S]*\}/)
-  if (!jsonMatch) return null
-
-  try {
-    const parsed: unknown = JSON.parse(jsonMatch[0])
-    const result = schema.safeParse(parsed)
-    return result.success ? result.data : null
-  } catch {
-    return null
-  }
 }
 
 /**
@@ -181,7 +144,9 @@ export class AutonomousTradingService {
 
   /**
    * Build trading decision prompt
+   * Note: Currently unused, prepared for LLM integration
    */
+  // @ts-ignore - Unused method kept for future LLM integration
   private buildTradingPrompt(
     config: AgentTradingConfig,
     displayName: string,
@@ -260,14 +225,9 @@ Now analyze and decide:`
       return null
     }
 
-    const _prompt = this.buildTradingPrompt(
-      config,
-      `Agent-${agentId.slice(0, 8)}`,
-      portfolio,
-      predictions,
-      perps,
-      '',
-    )
+    // Use config and portfolio for future LLM implementation
+    void config
+    void portfolio
 
     // If no runtime provided, we can't make LLM calls
     if (!runtime) {

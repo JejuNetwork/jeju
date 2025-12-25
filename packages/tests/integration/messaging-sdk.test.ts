@@ -3,7 +3,7 @@
  *
  * Tests the actual SDK implementations:
  * - MessagingClient from @jejunetwork/messaging
- * - FarcasterClient from @jejunetwork/farcaster
+ * - FarcasterClient from @jejunetwork/messaging
  * - JejuMLSClient for group messaging
  * - DirectCastClient for encrypted DMs
  */

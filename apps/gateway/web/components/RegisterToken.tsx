@@ -1,9 +1,12 @@
+import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { useState } from 'react'
 import { formatEther } from 'viem'
+import { useAccount } from 'wagmi'
 import { CONTRACTS } from '../../lib/config'
 import { useTokenRegistry } from '../hooks/useTokenRegistry'
 
 export default function RegisterToken() {
+  const { isConnected } = useAccount()
   const [tokenAddress, setTokenAddress] = useState('')
   const [minFee, setMinFee] = useState('0')
   const [maxFee, setMaxFee] = useState('200')
@@ -201,14 +204,36 @@ export default function RegisterToken() {
           </div>
         )}
 
-        <button
-          type="submit"
-          className="button"
-          style={{ width: '100%' }}
-          disabled={isPending}
-        >
-          {isPending ? 'Registering...' : 'Register Token'}
-        </button>
+        {isConnected ? (
+          <button
+            type="submit"
+            className="button"
+            style={{ width: '100%' }}
+            disabled={isPending}
+          >
+            {isPending ? 'Registering...' : 'Register Token'}
+          </button>
+        ) : (
+          <div
+            style={{
+              padding: '1rem',
+              textAlign: 'center',
+              background: 'var(--surface-hover)',
+              borderRadius: 'var(--radius-md)',
+            }}
+          >
+            <p
+              style={{
+                color: 'var(--text-secondary)',
+                marginBottom: '0.75rem',
+                fontSize: '0.875rem',
+              }}
+            >
+              Connect your wallet to register a token
+            </p>
+            <ConnectButton />
+          </div>
+        )}
       </form>
     </div>
   )

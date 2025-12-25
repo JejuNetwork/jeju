@@ -103,7 +103,9 @@ export class AutonomousPostingService {
 
   /**
    * Build post generation prompt
+   * Note: Currently unused, prepared for LLM integration
    */
+  // @ts-ignore - Unused method kept for future LLM integration
   private buildPostPrompt(
     config: AgentPostingConfig,
     displayName: string,
@@ -213,11 +215,8 @@ To skip (if you've recently covered this topic or have nothing new to add):
     const config = await this.getAgentConfig(agentId)
     config.recentPosts = await this.getRecentPosts(agentId)
 
-    const _prompt = this.buildPostPrompt(
-      config,
-      `Agent-${agentId.slice(0, 8)}`,
-      '',
-    )
+    // Use config for future implementation
+    void config
 
     // If no runtime provided, we can't make LLM calls
     if (!runtime) {

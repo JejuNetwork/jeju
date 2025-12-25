@@ -184,15 +184,6 @@ export class A2ACommunicationClient {
 
     const messageId = `msg-${Date.now()}-${Math.random().toString(36).slice(2)}`
 
-    const _message: A2AMessage = {
-      id: messageId,
-      type: payload.type,
-      from: this.config.agentId,
-      to: toAgentId,
-      payload,
-      timestamp: new Date(),
-    }
-
     logger.debug(`Sending A2A message`, {
       messageId,
       to: toAgentId,

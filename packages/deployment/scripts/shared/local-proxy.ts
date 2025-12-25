@@ -458,19 +458,35 @@ export function getLocalUrls(config: ProxyConfig = {}): Record<string, string> {
 
 /**
  * Check if port forwarding is already set up
+ * Uses file existence checks first to avoid unnecessary sudo prompts
  */
 export async function isPortForwardingActive(): Promise<boolean> {
   const platform = process.platform
 
   if (platform === 'darwin') {
-    // Check if pf has our rules loaded
-    const result = await $`sudo -n pfctl -sr 2>/dev/null`.nothrow().quiet()
-    if (result.exitCode === 0) {
-      const rules = result.stdout.toString()
-      return rules.includes('port 80') && rules.includes('port 8080')
+    // First check if our anchor file exists (no sudo needed)
+    const anchorPath = '/etc/pf.anchors/jeju'
+    if (!existsSync(anchorPath)) {
+      return false
     }
-    return false
+
+    // Check if pf.conf has our anchor configured
+    const pfConfResult = await $`cat /etc/pf.conf`.nothrow().quiet()
+    if (pfConfResult.exitCode !== 0) {
+      return false
+    }
+    const pfConf = pfConfResult.stdout.toString()
+    return pfConf.includes('anchor "jeju"')
   } else if (platform === 'linux') {
+    // Check iptables rules file if it exists
+    if (existsSync('/etc/iptables/rules.v4')) {
+      const rulesResult = await $`cat /etc/iptables/rules.v4`.nothrow().quiet()
+      if (rulesResult.exitCode === 0) {
+        const rules = rulesResult.stdout.toString()
+        return rules.includes('--dport 80') && rules.includes('8080')
+      }
+    }
+    // Fallback: try sudo -n (non-interactive)
     const result = await $`sudo -n iptables -t nat -L OUTPUT -n 2>/dev/null`
       .nothrow()
       .quiet()
@@ -515,15 +531,28 @@ rdr pass on lo0 inet proto tcp from any to any port 80 -> 127.0.0.1 port ${targe
 `
     const anchorPath = '/etc/pf.anchors/jeju'
 
-    console.log('1. Creating anchor file...')
-    const tempAnchor = '/tmp/jeju-pf-anchor'
-    writeFileSync(tempAnchor, anchorContent)
-    const copyResult = await $`sudo cp ${tempAnchor} ${anchorPath}`.nothrow()
-    if (copyResult.exitCode !== 0) {
-      console.error('   ❌ Failed to create anchor file')
-      return false
+    // Check if anchor file already exists with correct content
+    let anchorNeedsUpdate = true
+    if (existsSync(anchorPath)) {
+      const existingContent = readFileSync(anchorPath, 'utf-8')
+      if (existingContent.trim() === anchorContent.trim()) {
+        anchorNeedsUpdate = false
+        console.log('1. Checking anchor file...')
+        console.log('   ✅ /etc/pf.anchors/jeju already exists with correct content')
+      }
     }
-    console.log('   ✅ Created /etc/pf.anchors/jeju')
+
+    if (anchorNeedsUpdate) {
+      console.log('1. Creating anchor file...')
+      const tempAnchor = '/tmp/jeju-pf-anchor'
+      writeFileSync(tempAnchor, anchorContent)
+      const copyResult = await $`sudo cp ${tempAnchor} ${anchorPath}`.nothrow()
+      if (copyResult.exitCode !== 0) {
+        console.error('   ❌ Failed to create anchor file')
+        return false
+      }
+      console.log('   ✅ Created /etc/pf.anchors/jeju')
+    }
 
     // Check if pf.conf already has our anchor
     console.log('')
@@ -553,11 +582,16 @@ load anchor "jeju" from "/etc/pf.anchors/jeju"
       console.log('   ✅ Anchor already in pf.conf')
     }
 
-    // Enable and load pf
-    console.log('')
-    console.log('3. Enabling packet filter...')
-    await $`sudo pfctl -ef /etc/pf.conf`.nothrow()
-    console.log('   ✅ Packet filter enabled')
+    // Only reload pf if we made changes
+    if (anchorNeedsUpdate || !pfConf.includes('anchor "jeju"')) {
+      console.log('')
+      console.log('3. Enabling packet filter...')
+      await $`sudo pfctl -ef /etc/pf.conf`.nothrow()
+      console.log('   ✅ Packet filter enabled')
+    } else {
+      console.log('')
+      console.log('3. Packet filter already configured')
+    }
 
     console.log('')
     console.log('Port forwarding installed. Port 80 now forwards to 8080.')
