@@ -50,7 +50,8 @@ describe('CovenantSQL Integration', () => {
   })
 
   it('should support strong consistency queries', async () => {
-    const _client = createCovenantSQLClient({
+    // Create client with strong consistency
+    createCovenantSQLClient({
       nodes: [getCQLBlockProducerUrl()],
       databaseId: 'test-db',
       privateKey: 'test-key',
@@ -66,7 +67,8 @@ describe('CovenantSQL Integration', () => {
   })
 
   it('should support eventual consistency queries', async () => {
-    const _client = createCovenantSQLClient({
+    // Create client with eventual consistency
+    createCovenantSQLClient({
       nodes: [getCQLBlockProducerUrl()],
       databaseId: 'test-db',
       privateKey: 'test-key',

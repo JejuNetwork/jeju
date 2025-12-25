@@ -1,28 +1,35 @@
 /**
  * Browser-safe branding configuration
  *
- * This provides wallet-specific branding that doesn't rely on Node.js modules.
- * For browser builds, we use environment variables or defaults.
+ * Uses @jejunetwork/config for defaults with PUBLIC_ env overrides.
+ * All public env vars use PUBLIC_ prefix (not VITE_).
  */
 
-import { getEnvOrDefault } from '../../lib/env'
+import {
+  getChainId as getConfigChainId,
+  getRpcUrl as getConfigRpcUrl,
+  getServicesConfig,
+} from '@jejunetwork/config'
+import type { Chain } from 'viem'
+
+/** Get env var from import.meta.env (browser) or process.env (node) */
+function getEnv(key: string): string | undefined {
+  if (typeof import.meta?.env === 'object') {
+    return import.meta.env[key] as string | undefined
+  }
+  if (typeof process !== 'undefined' && process.env) {
+    return process.env[key]
+  }
+  return undefined
+}
+
+/** Get env var with fallback */
+function getEnvOrDefault(key: string, fallback: string): string {
+  return getEnv(key) || fallback
+}
 
 // Network name from environment or default
-const NETWORK_NAME = getEnvOrDefault('VITE_NETWORK_NAME', 'Jeju')
-
-// URLs from environment or defaults
-const RPC_MAINNET = getEnvOrDefault(
-  'VITE_RPC_MAINNET',
-  'https://rpc.jejunetwork.org',
-)
-const RPC_TESTNET = getEnvOrDefault(
-  'VITE_RPC_TESTNET',
-  'https://rpc.testnet.jejunetwork.org',
-)
-const RPC_LOCALNET = getEnvOrDefault(
-  'VITE_RPC_LOCALNET',
-  'http://localhost:6546',
-)
+const NETWORK_NAME = getEnvOrDefault('PUBLIC_NETWORK_NAME', 'Jeju')
 
 export interface UrlsBranding {
   rpc: {
@@ -54,31 +61,35 @@ export function getNetworkDisplayName(): string {
 
 /**
  * Get URLs configuration (browser-safe)
+ * Uses @jejunetwork/config for defaults with PUBLIC_ env overrides.
  */
 export function getUrls(): UrlsBranding {
+  const mainnetServices = getServicesConfig('mainnet')
+  const testnetServices = getServicesConfig('testnet')
+
   return {
     rpc: {
-      mainnet: RPC_MAINNET,
-      testnet: RPC_TESTNET,
-      localnet: RPC_LOCALNET,
+      mainnet: getEnv('PUBLIC_RPC_MAINNET') || getConfigRpcUrl('mainnet'),
+      testnet: getEnv('PUBLIC_RPC_TESTNET') || getConfigRpcUrl('testnet'),
+      localnet: getEnv('PUBLIC_RPC_LOCALNET') || getConfigRpcUrl('localnet'),
     },
-    gateway: getEnvOrDefault(
-      'VITE_JEJU_GATEWAY_URL',
+    gateway:
+      getEnv('PUBLIC_GATEWAY_URL') ||
+      mainnetServices.gateway?.api ||
       'https://compute.jejunetwork.org',
-    ),
-    indexer: getEnvOrDefault(
-      'VITE_JEJU_INDEXER_URL',
+    indexer:
+      getEnv('PUBLIC_INDEXER_URL') ||
+      mainnetServices.indexer?.graphql ||
       'https://indexer.jejunetwork.org',
-    ),
     explorer: {
-      mainnet: getEnvOrDefault(
-        'VITE_EXPLORER_MAINNET',
+      mainnet:
+        getEnv('PUBLIC_EXPLORER_MAINNET') ||
+        mainnetServices.explorer ||
         'https://explorer.jejunetwork.org',
-      ),
-      testnet: getEnvOrDefault(
-        'VITE_EXPLORER_TESTNET',
+      testnet:
+        getEnv('PUBLIC_EXPLORER_TESTNET') ||
+        testnetServices.explorer ||
         'https://explorer.testnet.jejunetwork.org',
-      ),
     },
   }
 }
@@ -124,15 +135,13 @@ export function getBrandingRpcUrl(chainId: number): string {
   }
 }
 
-import type { Chain } from 'viem'
-
 /**
  * Get the localnet chain definition (browser-safe)
  */
 export function getLocalnetChain(): Chain {
   const urls = getUrls()
   return {
-    id: 31337,
+    id: getConfigChainId('localnet'),
     name: `${NETWORK_NAME} Localnet`,
     nativeCurrency: {
       name: 'Ether',
@@ -154,7 +163,7 @@ export function getLocalnetChain(): Chain {
 export function getTestnetChain(): Chain {
   const urls = getUrls()
   return {
-    id: 420690,
+    id: getConfigChainId('testnet'),
     name: `${NETWORK_NAME} Testnet`,
     nativeCurrency: {
       name: 'Ether',
@@ -179,7 +188,7 @@ export function getTestnetChain(): Chain {
 export function getMainnetChain(): Chain {
   const urls = getUrls()
   return {
-    id: 420691,
+    id: getConfigChainId('mainnet'),
     name: `${NETWORK_NAME} Mainnet`,
     nativeCurrency: {
       name: 'Ether',

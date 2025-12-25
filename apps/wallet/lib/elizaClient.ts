@@ -11,10 +11,10 @@
 import { getEnvOrDefault, isDev } from './env'
 
 const API_BASE_URL = getEnvOrDefault(
-  'VITE_ELIZA_API_URL',
+  'PUBLIC_ELIZA_API_URL',
   isDev() ? 'http://localhost:3000' : 'https://agent.jejunetwork.org',
 )
-const AGENT_ID = getEnvOrDefault('VITE_ELIZA_AGENT_ID', 'jeju-wallet')
+const AGENT_ID = getEnvOrDefault('PUBLIC_ELIZA_AGENT_ID', 'jeju-wallet')
 
 interface Agent {
   id: string

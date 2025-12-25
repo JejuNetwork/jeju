@@ -1,88 +1,111 @@
+/**
+ * DWS Web Frontend Configuration
+ *
+ * Uses @jejunetwork/config for defaults with PUBLIC_ env overrides.
+ * All public env vars use PUBLIC_ prefix (not VITE_).
+ */
+
+import {
+  CORE_PORTS,
+  getChainId as getConfigChainId,
+  getContractsConfig,
+  getCurrentNetwork,
+  getDWSUrl as getConfigDwsUrl,
+  getOAuth3Url as getConfigOAuth3Url,
+  getRpcUrl as getConfigRpcUrl,
+  type NetworkType,
+} from '@jejunetwork/config'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import type { Address } from 'viem'
 
-// Get environment safely
-const env = typeof import.meta?.env === 'object' ? import.meta.env : {}
-
-export const NETWORK = (env.VITE_NETWORK || 'localnet') as
-  | 'localnet'
-  | 'testnet'
-  | 'mainnet'
-
-function getDefaultChainId(network: string): string {
-  switch (network) {
-    case 'mainnet':
-      return '420691'
-    case 'testnet':
-      return '420690'
-    default:
-      return '31337'
+/** Get env var from import.meta.env (browser) */
+function getEnv(key: string): string | undefined {
+  if (typeof import.meta?.env === 'object') {
+    return import.meta.env[key] as string | undefined
   }
+  return undefined
 }
 
-function getDefaultRpcUrl(network: string): string {
-  switch (network) {
-    case 'mainnet':
-      return 'https://rpc.jejunetwork.org'
-    case 'testnet':
-      return 'https://testnet-rpc.jejunetwork.org'
-    default:
-      return 'http://127.0.0.1:6546'
+// Network detection from PUBLIC_NETWORK or config
+export const NETWORK: NetworkType = (() => {
+  const envNetwork = getEnv('PUBLIC_NETWORK')
+  if (
+    envNetwork === 'localnet' ||
+    envNetwork === 'testnet' ||
+    envNetwork === 'mainnet'
+  ) {
+    return envNetwork
   }
-}
+  return getCurrentNetwork()
+})()
 
-function getDefaultDwsApiUrl(network: string): string {
-  switch (network) {
-    case 'mainnet':
-      return 'https://dws.jejunetwork.org'
-    case 'testnet':
-      return 'https://testnet-dws.jejunetwork.org'
-    default:
-      return 'http://127.0.0.1:4030'
-  }
-}
-
-function getDefaultOAuth3AgentUrl(network: string): string {
-  switch (network) {
-    case 'mainnet':
-      return 'https://auth.jejunetwork.org'
-    case 'testnet':
-      return 'https://testnet-auth.jejunetwork.org'
-    default:
-      return 'http://127.0.0.1:4200'
-  }
-}
-
+// Chain configuration - prefer PUBLIC_ env, fall back to config
 export const CHAIN_ID = parseInt(
-  env.VITE_CHAIN_ID || getDefaultChainId(NETWORK),
+  getEnv('PUBLIC_CHAIN_ID') || String(getConfigChainId(NETWORK)),
   10,
 )
-export const RPC_URL = env.VITE_RPC_URL || getDefaultRpcUrl(NETWORK)
-export const DWS_API_URL = env.VITE_DWS_API_URL || getDefaultDwsApiUrl(NETWORK)
+
+export const RPC_URL =
+  getEnv('PUBLIC_RPC_URL') || getConfigRpcUrl(NETWORK)
+
+export const DWS_API_URL =
+  getEnv('PUBLIC_DWS_API_URL') || getConfigDwsUrl(NETWORK)
+
 export const OAUTH3_AGENT_URL =
-  env.VITE_OAUTH3_AGENT_URL || getDefaultOAuth3AgentUrl(NETWORK)
+  getEnv('PUBLIC_OAUTH3_AGENT_URL') || getConfigOAuth3Url(NETWORK)
+
 // WalletConnect project ID - for local dev, this can be empty
 // The error "origin not on allowlist" is expected without a configured project
 export const WALLETCONNECT_PROJECT_ID =
-  env.VITE_WALLETCONNECT_PROJECT_ID ||
+  getEnv('PUBLIC_WALLETCONNECT_PROJECT_ID') ||
   (NETWORK === 'localnet' ? '' : 'YOUR_PROJECT_ID')
 
+// Contract addresses from config with PUBLIC_ env overrides
+const contracts = getContractsConfig(NETWORK)
+
+/** Parse env var as Address or return fallback */
+function parseAddress(envKey: string, fallback?: string): Address {
+  const envValue = getEnv(envKey)
+  if (envValue && envValue.startsWith('0x') && envValue.length === 42) {
+    return envValue as Address
+  }
+  return (fallback || ZERO_ADDRESS) as Address
+}
+
 export const CONTRACTS = {
-  identityRegistry: (env.VITE_IDENTITY_REGISTRY_ADDRESS ||
-    ZERO_ADDRESS) as Address,
-  banManager: (env.VITE_BAN_MANAGER_ADDRESS || ZERO_ADDRESS) as Address,
-  moderationMarketplace: (env.VITE_MODERATION_MARKETPLACE_ADDRESS ||
-    ZERO_ADDRESS) as Address,
-  reportingSystem: (env.VITE_REPORTING_SYSTEM_ADDRESS ||
-    ZERO_ADDRESS) as Address,
-  computeRegistry: (env.VITE_COMPUTE_REGISTRY_ADDRESS ||
-    ZERO_ADDRESS) as Address,
-  fileStorageManager: (env.VITE_FILE_STORAGE_MANAGER_ADDRESS ||
-    ZERO_ADDRESS) as Address,
-  jnsRegistry: (env.VITE_JNS_REGISTRY || ZERO_ADDRESS) as Address,
-  jnsResolver: (env.VITE_JNS_RESOLVER || ZERO_ADDRESS) as Address,
-  x402Facilitator: (env.VITE_X402_FACILITATOR_ADDRESS ||
-    ZERO_ADDRESS) as Address,
+  identityRegistry: parseAddress(
+    'PUBLIC_IDENTITY_REGISTRY_ADDRESS',
+    contracts.registry?.IdentityRegistry,
+  ),
+  banManager: parseAddress(
+    'PUBLIC_BAN_MANAGER_ADDRESS',
+    contracts.moderation?.BanManager,
+  ),
+  moderationMarketplace: parseAddress(
+    'PUBLIC_MODERATION_MARKETPLACE_ADDRESS',
+    contracts.moderation?.ModerationMarketplace,
+  ),
+  reportingSystem: parseAddress(
+    'PUBLIC_REPORTING_SYSTEM_ADDRESS',
+    contracts.moderation?.ReportingSystem,
+  ),
+  computeRegistry: parseAddress(
+    'PUBLIC_COMPUTE_REGISTRY_ADDRESS',
+    contracts.compute?.ComputeRegistry,
+  ),
+  fileStorageManager: parseAddress(
+    'PUBLIC_FILE_STORAGE_MANAGER_ADDRESS',
+    contracts.storage?.FileStorageManager,
+  ),
+  jnsRegistry: parseAddress('PUBLIC_JNS_REGISTRY', contracts.jns?.JNSRegistry),
+  jnsResolver: parseAddress(
+    'PUBLIC_JNS_RESOLVER',
+    contracts.jns?.PublicResolver,
+  ),
+  x402Facilitator: parseAddress(
+    'PUBLIC_X402_FACILITATOR_ADDRESS',
+    contracts.payments?.X402Facilitator,
+  ),
 } as const
 
 export const API_ENDPOINTS = {

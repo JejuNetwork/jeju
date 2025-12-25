@@ -12,15 +12,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { type Subprocess, spawn } from 'bun'
-import {
-  type Address,
-  createPublicClient,
-  createWalletClient,
-  type Hex,
-  http,
-} from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
-import { foundry } from 'viem/chains'
+import { type Address, type Hex } from 'viem'
 import {
   HubInfoSchema,
   HubMessagesSchema,
@@ -158,17 +150,6 @@ async function deployMessagingContracts(): Promise<{
   keyRegistry: Address
   nodeRegistry: Address
 }> {
-  const _publicClient = createPublicClient({
-    chain: foundry,
-    transport: http(RPC_URL),
-  })
-
-  const _walletClient = createWalletClient({
-    chain: foundry,
-    transport: http(RPC_URL),
-    account: privateKeyToAccount(TEST_ACCOUNTS.deployer.privateKey),
-  })
-
   // For integration testing, we'll use mock addresses
   // In real test, this would compile and deploy the contracts
   // Using deterministic CREATE2 addresses for testing

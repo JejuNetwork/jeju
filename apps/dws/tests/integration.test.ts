@@ -454,8 +454,6 @@ describe('CDN', () => {
 // KMS Tests
 
 describe('KMS', () => {
-  let _keyId: string
-
   test('generate key', async () => {
     const res = await dwsRequest('/kms/keys', {
       method: 'POST',
@@ -470,7 +468,6 @@ describe('KMS', () => {
     const body = (await res.json()) as KeyResponse
     expect(body.keyId).toBeDefined()
     expect(body.address).toMatch(/^0x/)
-    _keyId = body.keyId
   })
 
   test('list keys', async () => {

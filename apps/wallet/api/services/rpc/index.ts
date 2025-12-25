@@ -1,6 +1,8 @@
 /**
  * Network RPC Service
  * All RPC calls go through the network infrastructure
+ *
+ * Uses @jejunetwork/config for defaults with PUBLIC_ env overrides.
  */
 
 import {
@@ -14,7 +16,8 @@ import {
   type Transport,
 } from 'viem'
 import { arbitrum, base, bsc, mainnet, optimism } from 'viem/chains'
-import { getEnvOrDefault, isDev } from '../../../lib/env'
+import { getCurrentNetwork, getRpcUrl } from '@jejunetwork/config'
+import { getEnvOrDefault } from '../../../lib/env'
 
 // Supported chains - unified view, no chain switching
 export const SUPPORTED_CHAINS = {
@@ -39,10 +42,10 @@ export function getSupportedChainIds(): SupportedChainId[] {
   return Object.keys(SUPPORTED_CHAINS).map(Number).filter(isSupportedChainId)
 }
 
-// Network RPC endpoints
+// Network RPC endpoints - use config with PUBLIC_ env override
 const JEJU_RPC_BASE = getEnvOrDefault(
-  'VITE_JEJU_RPC_URL',
-  isDev() ? 'http://localhost:4012' : 'https://rpc.jejunetwork.org',
+  'PUBLIC_JEJU_RPC_URL',
+  getRpcUrl(getCurrentNetwork()),
 )
 
 export function getNetworkRpc(chainId: SupportedChainId): string {

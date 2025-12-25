@@ -3,10 +3,13 @@
  *
  * Provides fully typed API calls with end-to-end type safety
  * from Elysia routes to client code.
+ *
+ * Uses @jejunetwork/config for defaults with PUBLIC_ env overrides.
  */
 
 import { treaty } from '@elysiajs/eden'
 import { z } from 'zod'
+import { getCurrentNetwork, getServicesConfig } from '@jejunetwork/config'
 import { getEnv } from './env'
 
 /** JSON-RPC response schema */
@@ -15,41 +18,49 @@ const JsonRpcResponseSchema = z.object({
   error: z.object({ code: z.number(), message: z.string() }).optional(),
 })
 
-// Dynamic import types from backend services
-// In production, these would be imported from the actual server type exports
-// For now, we define the base URL configuration
+// Get services config from @jejunetwork/config
+const network = getCurrentNetwork()
+const services = getServicesConfig(network)
 
+// Detect local development for fallbacks
 const isLocalDev =
   typeof window !== 'undefined' && window.location.hostname === 'localhost'
 
 export const API_URLS = {
   gateway:
-    getEnv('VITE_JEJU_GATEWAY_URL') ||
+    getEnv('PUBLIC_JEJU_GATEWAY_URL') ||
+    services.gateway?.api ||
     (isLocalDev ? 'http://localhost:4001' : 'https://gateway.jejunetwork.org'),
   dws:
-    getEnv('VITE_JEJU_DWS_URL') ||
+    getEnv('PUBLIC_JEJU_DWS_URL') ||
+    services.dws?.api ||
     (isLocalDev ? 'http://localhost:4010' : 'https://dws.jejunetwork.org'),
   indexer:
-    getEnv('VITE_JEJU_INDEXER_URL') ||
+    getEnv('PUBLIC_JEJU_INDEXER_URL') ||
+    services.indexer?.rest ||
     (isLocalDev ? 'http://localhost:4352' : 'https://indexer.jejunetwork.org'),
   graphql:
-    getEnv('VITE_JEJU_GRAPHQL_URL') ||
+    getEnv('PUBLIC_JEJU_GRAPHQL_URL') ||
+    services.indexer?.graphql ||
     (isLocalDev
       ? 'http://localhost:4350/graphql'
       : 'https://indexer.jejunetwork.org/graphql'),
   bundler:
-    getEnv('VITE_JEJU_BUNDLER_URL') ||
+    getEnv('PUBLIC_JEJU_BUNDLER_URL') ||
     (isLocalDev ? 'http://localhost:4337' : 'https://bundler.jejunetwork.org'),
   solver:
-    getEnv('VITE_JEJU_SOLVER_URL') ||
+    getEnv('PUBLIC_JEJU_SOLVER_URL') ||
+    services.oif?.aggregator ||
     (isLocalDev
       ? 'http://localhost:4010/solver'
       : 'https://solver.jejunetwork.org'),
   compute:
-    getEnv('VITE_JEJU_COMPUTE_URL') ||
+    getEnv('PUBLIC_JEJU_COMPUTE_URL') ||
+    services.compute?.marketplace ||
     (isLocalDev ? 'http://localhost:4100' : 'https://compute.jejunetwork.org'),
   rpc:
-    getEnv('VITE_JEJU_RPC_URL') ||
+    getEnv('PUBLIC_JEJU_RPC_URL') ||
+    services.rpc?.l2 ||
     (isLocalDev ? 'http://localhost:4012' : 'https://rpc.jejunetwork.org'),
 }
 

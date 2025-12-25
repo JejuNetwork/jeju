@@ -7,12 +7,12 @@ describe('useClaim Hook', () => {
   })
 
   test('should handle missing contract address', () => {
-    const _originalEnv = process.env.PUBLIC_PREDIMARKET_ADDRESS
+    const originalEnv = process.env.PUBLIC_PREDIMARKET_ADDRESS
     process.env.PUBLIC_PREDIMARKET_ADDRESS = '0x0'
 
     expect(typeof useClaim).toBe('function')
 
-    process.env.PUBLIC_PREDIMARKET_ADDRESS = _originalEnv
+    process.env.PUBLIC_PREDIMARKET_ADDRESS = originalEnv
   })
 
   test('should accept sessionId parameter', () => {

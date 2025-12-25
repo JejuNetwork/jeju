@@ -6,7 +6,6 @@ import {
   getIpfsApiUrl,
   getRpcUrl,
   getWsUrl,
-  INFRA_PORTS,
 } from '@jejunetwork/config'
 
 const PORT = Number(process.env.PORT) || 4014

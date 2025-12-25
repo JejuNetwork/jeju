@@ -30,6 +30,8 @@ const ALLOWED_VERSION_COMMANDS = new Set([
   'kubectl',
   'helmfile',
   'terraform',
+  'cargo',
+  'ruff',
 ])
 
 export async function checkCommand(cmd: string): Promise<boolean> {

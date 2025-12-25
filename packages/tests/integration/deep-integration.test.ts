@@ -13,8 +13,7 @@
  */
 
 import { afterAll, beforeAll, describe, it } from 'bun:test'
-import { createPublicClient, createWalletClient, http } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
+import { createPublicClient, http } from 'viem'
 import { APP_URLS, JEJU_LOCALNET, TEST_WALLETS } from '../shared/constants'
 
 const RPC_URL = process.env.RPC_URL || JEJU_LOCALNET.rpcUrl
@@ -84,31 +83,8 @@ describe.skipIf(!servicesAvailable)('Deep Integration E2E', () => {
   it('should register Bazaar in registry with elizaOS stake', async () => {
     console.log('\n📱 Registering Bazaar...')
 
-    const account = privateKeyToAccount(PRIVATE_KEY)
-    const _walletClient = createWalletClient({
-      account,
-      transport: http(RPC_URL),
-    })
-
-    // Approve elizaOS tokens
-    const _elizaOSAddress = process.env.ELIZAOS_TOKEN_ADDRESS as `0x${string}`
-
-    // Calculate required stake (35 elizaOS for $3.50)
-    // const requiredStake = await calculateRequiredStake(elizaOSAddress);
-
-    // Register Bazaar
-    // const hash = await walletClient.writeContract({
-    //   address: registryAddress,
-    //   abi: REGISTRY_ABI,
-    //   functionName: 'registerWithStake',
-    //   args: [
-    //     JSON.stringify({ name: 'Bazaar', description: 'DeFi + NFT Marketplace' }),
-    //     ['marketplace', 'defi'],
-    //     `${APP_URLS.bazaar}/api/a2a`,
-    //     elizaOSAddress,
-    //   ],
-    //   value: 0n,
-    // });
+    // TODO: Implement when registry contracts are deployed
+    // This would approve elizaOS tokens and register Bazaar
 
     bazaarAgentId = 1n // Would get from tx receipt
 
@@ -138,17 +114,7 @@ describe.skipIf(!servicesAvailable)('Deep Integration E2E', () => {
   it('should discover apps via registry contract', async () => {
     console.log('\n🔍 Agent discovering apps...')
 
-    const _publicClient = createPublicClient({
-      transport: http(RPC_URL),
-    })
-
-    // const allApps = await publicClient.readContract({
-    //   address: registryAddress,
-    //   abi: REGISTRY_ABI,
-    //   functionName: 'getAllAgents',
-    //   args: [0n, 100n],
-    // });
-
+    // TODO: Implement when registry contracts are deployed
     const allApps = [bazaarAgentId, predimarketAgentId, ehorseAgentId]
 
     console.log(
@@ -164,18 +130,7 @@ describe.skipIf(!servicesAvailable)('Deep Integration E2E', () => {
   it('should fetch A2A endpoints from metadata', async () => {
     console.log('\n🔗 Fetching A2A endpoints...')
 
-    const _publicClient = createPublicClient({
-      transport: http(RPC_URL),
-    })
-
-    // For each registered app, fetch a2a-endpoint metadata
-    // const bazaarEndpointBytes = await publicClient.readContract({
-    //   address: registryAddress,
-    //   abi: REGISTRY_ABI,
-    //   functionName: 'getMetadata',
-    //   args: [bazaarAgentId, 'a2a-endpoint'],
-    // });
-
+    // TODO: Implement when registry contracts are deployed
     const bazaarEndpoint = `${APP_URLS.bazaar}/api/a2a`
 
     console.log(`✅ Bazaar A2A: ${bazaarEndpoint}`)
@@ -246,32 +201,7 @@ describe.skipIf(!servicesAvailable)('Deep Integration E2E', () => {
   it('should withdraw stake successfully', async () => {
     console.log('\n💰 Testing stake withdrawal...')
 
-    const account = privateKeyToAccount(PRIVATE_KEY)
-    const _walletClient = createWalletClient({
-      account,
-      transport: http(RPC_URL),
-    })
-
-    // Get initial balance
-    const _publicClient = createPublicClient({
-      transport: http(RPC_URL),
-    })
-
-    // const balanceBefore = await getTokenBalance(elizaOSAddress, account.address);
-
-    // Withdraw stake
-    // const hash = await walletClient.writeContract({
-    //   address: registryAddress,
-    //   abi: REGISTRY_ABI,
-    //   functionName: 'withdrawStake',
-    //   args: [bazaarAgentId],
-    // });
-
-    // const balanceAfter = await getTokenBalance(elizaOSAddress, account.address);
-
-    // if (balanceAfter <= balanceBefore) {
-    //   throw new Error('Stake not refunded');
-    // }
+    // TODO: Implement when registry contracts are deployed
 
     console.log('✅ Stake withdrawn and refunded')
   })

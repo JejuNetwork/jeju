@@ -193,7 +193,7 @@ describe('ERC-4337 On-Chain Validation', () => {
 
   beforeAll(async () => {
     paymasterFactoryAddress = process.env
-      .VITE_PAYMASTER_FACTORY_ADDRESS as `0x${string}`
+      .PUBLIC_PAYMASTER_FACTORY_ADDRESS as `0x${string}`
 
     if (
       !paymasterFactoryAddress ||

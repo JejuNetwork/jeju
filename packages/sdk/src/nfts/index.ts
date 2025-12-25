@@ -392,16 +392,16 @@ export function createNFTModule(
 ): NFTModule {
   const services = getServicesConfig(network)
 
-  // Contract addresses from environment or defaults
+  // Contract addresses from environment or defaults (PUBLIC_ for browser, bare for server)
   function getNFTPaymasterAddress(): Address {
-    const addr = getEnv('NFTEIL_PAYMASTER') ?? getEnv('VITE_NFTEIL_PAYMASTER')
+    const addr = getEnv('PUBLIC_NFTEIL_PAYMASTER') ?? getEnv('NFTEIL_PAYMASTER')
     if (!addr) throw new Error('NFTEIL_PAYMASTER not configured')
     return addr as Address
   }
 
   function getNFTInputSettlerAddress(): Address {
     const addr =
-      getEnv('NFTEIL_INPUT_SETTLER') ?? getEnv('VITE_NFTEIL_INPUT_SETTLER')
+      getEnv('PUBLIC_NFTEIL_INPUT_SETTLER') ?? getEnv('NFTEIL_INPUT_SETTLER')
     if (!addr) throw new Error('NFTEIL_INPUT_SETTLER not configured')
     return addr as Address
   }

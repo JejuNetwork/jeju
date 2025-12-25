@@ -23,9 +23,6 @@ import {
   isDevModeActive,
 } from '@jejunetwork/shared'
 
-// Save original env
-const _originalEnv = { ...process.env }
-
 // Helper to reset env
 function resetEnv() {
   for (const key of Object.keys(process.env)) {

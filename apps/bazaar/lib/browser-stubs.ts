@@ -5,7 +5,6 @@
  */
 
 import {
-  getChainId,
   getContractsConfig,
   getCurrentNetwork,
   getRpcUrl,

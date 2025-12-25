@@ -169,8 +169,8 @@ describe('FundingArbitrageBot', () => {
 
   describe('Position Management', () => {
     test('should close when funding reverses significantly', () => {
-      const _entryRate = 0.01 // Entered when positive
-      const currentRate = -0.001 // Now negative
+      // Entered when positive at 0.01, now negative
+      const currentRate = -0.001
       const minRate = TEST_CONFIG.minFundingRate
 
       // Should exit if funding reversed past threshold
@@ -179,8 +179,8 @@ describe('FundingArbitrageBot', () => {
     })
 
     test('should hold when funding is still favorable', () => {
-      const _entryRate = 0.01
-      const currentRate = 0.005 // Reduced but still positive
+      // Entry rate was 0.01, reduced but still positive
+      const currentRate = 0.005
       const minRate = TEST_CONFIG.minFundingRate
 
       const shouldExit = currentRate < -minRate

@@ -1,8 +1,15 @@
 /**
  * @fileoverview Contract interaction helpers for testing
  * @module gateway/tests/fixtures/contracts
+ *
+ * Uses @jejunetwork/config and @jejunetwork/contracts for defaults.
  */
 
+import {
+  getChainId,
+  getContractsConfig,
+  getRpcUrl,
+} from '@jejunetwork/config'
 import {
   getContractAddresses as getDeployedAddresses,
   isValidAddress,
@@ -16,13 +23,16 @@ export const TEST_WALLET = {
   address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as `0x${string}`,
 }
 
+const chainId = getChainId('localnet')
+const rpcUrl = getRpcUrl('localnet')
+
 const jejuLocalnet = {
-  id: 31337,
+  id: chainId,
   name: 'Jeju Localnet',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
-    default: { http: ['http://127.0.0.1:6546'] },
-    public: { http: ['http://127.0.0.1:6546'] },
+    default: { http: [rpcUrl] },
+    public: { http: [rpcUrl] },
   },
 } as const
 
@@ -68,20 +78,25 @@ export interface ContractAddresses {
 }
 
 export async function getContractAddresses(): Promise<ContractAddresses> {
-  const deployed = getDeployedAddresses(31337)
+  const deployed = getDeployedAddresses(chainId)
+  const config = getContractsConfig('localnet')
   const client = getPublicClient()
 
-  // Allow env overrides for testing
-  const tokenRegistryAddr = (process.env.VITE_TOKEN_REGISTRY_ADDRESS ||
+  // Use config with env overrides for testing
+  const tokenRegistryAddr = (process.env.PUBLIC_TOKEN_REGISTRY_ADDRESS ||
+    config.registry?.TokenRegistry ||
     deployed.tokenRegistry ||
     deployed.validationRegistry) as `0x${string}` | undefined
-  const paymasterFactoryAddr = (process.env.VITE_PAYMASTER_FACTORY_ADDRESS ||
+  const paymasterFactoryAddr = (process.env.PUBLIC_PAYMASTER_FACTORY_ADDRESS ||
+    config.payments?.PaymasterFactory ||
     deployed.paymasterFactory) as `0x${string}` | undefined
-  const priceOracleAddr = (process.env.VITE_PRICE_ORACLE_ADDRESS ||
+  const priceOracleAddr = (process.env.PUBLIC_PRICE_ORACLE_ADDRESS ||
+    config.payments?.PriceOracle ||
     deployed.priceOracle) as `0x${string}` | undefined
-  const nodeStakingManagerAddr = process.env
-    .VITE_NODE_STAKING_MANAGER_ADDRESS as `0x${string}` | undefined
-  const identityRegistryAddr = (process.env.VITE_IDENTITY_REGISTRY_ADDRESS ||
+  const nodeStakingManagerAddr = (process.env.PUBLIC_NODE_STAKING_MANAGER_ADDRESS ||
+    config.nodeStaking?.NodeStakingManager) as `0x${string}` | undefined
+  const identityRegistryAddr = (process.env.PUBLIC_IDENTITY_REGISTRY_ADDRESS ||
+    config.registry?.IdentityRegistry ||
     deployed.identityRegistry) as `0x${string}` | undefined
 
   return {
@@ -108,8 +123,10 @@ export async function getContractAddresses(): Promise<ContractAddresses> {
       (await isContractDeployed(client, identityRegistryAddr))
         ? identityRegistryAddr
         : undefined,
-    jeju: deployed.jeju as `0x${string}` | undefined,
-    entryPoint: deployed.entryPoint as `0x${string}` | undefined,
+    jeju: (config.tokens?.JEJU || deployed.jeju) as `0x${string}` | undefined,
+    entryPoint: (config.payments?.EntryPoint || deployed.entryPoint) as
+      | `0x${string}`
+      | undefined,
     paymaster: undefined,
     vault: undefined,
   }

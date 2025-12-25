@@ -39,6 +39,7 @@ import { proxyCommand } from './commands/proxy'
 import { publishCommand } from './commands/publish'
 import { seedCommand } from './commands/seed'
 import { serviceCommand } from './commands/service'
+import { setupCommand } from './commands/setup'
 import { statusCommand } from './commands/status'
 import { superchainCommand } from './commands/superchain'
 import { testCommand } from './commands/test'
@@ -110,6 +111,7 @@ program.addCommand(circularCommand)
 program.addCommand(cleanCommand)
 program.addCommand(cleanupCommand)
 program.addCommand(serviceCommand)
+program.addCommand(setupCommand)
 program.addCommand(seedCommand)
 program.addCommand(publishCommand)
 program.addCommand(infraCommand)
@@ -241,6 +243,11 @@ program.action(() => {
     '  ' +
       chalk.cyan(`${cliName} cleanup`) +
       '          Clean up orphaned processes',
+  )
+  console.log(
+    '  ' +
+      chalk.cyan(`${cliName} setup`) +
+      '            Install development tools (Rust, ruff)',
   )
   console.log(
     '  ' +

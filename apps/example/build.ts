@@ -1,8 +1,10 @@
 import { cpSync, mkdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
+import { getCurrentNetwork } from '@jejunetwork/config'
 
 const rootDir = import.meta.dir
 const distDir = join(rootDir, 'dist')
+const network = getCurrentNetwork()
 
 console.log('Building example app...\n')
 
@@ -42,13 +44,14 @@ const frontendResult = await Bun.build({
       env: { NODE_ENV: 'production' },
       browser: true,
     }),
+    // Use PUBLIC_ prefix for all public env vars
     'import.meta.env': JSON.stringify({
-      VITE_NETWORK: 'localnet',
+      PUBLIC_NETWORK: network,
       MODE: 'production',
       DEV: false,
       PROD: true,
     }),
-    'import.meta.env.VITE_NETWORK': JSON.stringify('localnet'),
+    'import.meta.env.PUBLIC_NETWORK': JSON.stringify(network),
   },
 })
 

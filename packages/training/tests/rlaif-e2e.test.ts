@@ -503,7 +503,7 @@ describe('Full RLAIF Pipeline', () => {
     // 3. Generate some training items and submit
     let submitCount = 0
     for (let i = 0; i < 2; i++) {
-      const _item = await env.getNextItem()
+      await env.getNextItem()
 
       // Simulate scored data
       const submitResponse = await fetch(`${baseUrl()}/scored_data`, {

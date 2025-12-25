@@ -255,7 +255,7 @@ describe('NodeStakingManager Contract', () => {
     }
 
     // Get JEJU token address
-    const jejuAddress = process.env.VITE_JEJU_TOKEN_ADDRESS as `0x${string}`
+    const jejuAddress = process.env.PUBLIC_JEJU_TOKEN_ADDRESS as `0x${string}`
 
     if (
       jejuAddress &&

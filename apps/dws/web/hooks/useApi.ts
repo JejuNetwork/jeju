@@ -2,6 +2,7 @@ import type { JsonRecord } from '@jejunetwork/sdk'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAccount } from 'wagmi'
 import { z } from 'zod'
+import { DWS_API_URL } from '../config'
 import { fetchApi, postApi, uploadFile } from '../lib/eden'
 import type {
   APIListing,
@@ -365,7 +366,7 @@ export function useCreateS3Bucket() {
       if (params.region) headers['x-amz-bucket-region'] = params.region
 
       const response = await fetch(
-        `${import.meta.env.VITE_DWS_API_URL || 'http://localhost:3456'}/s3/${params.name}`,
+        `${DWS_API_URL}/s3/${params.name}`,
         {
           method: 'PUT',
           headers,
@@ -392,7 +393,7 @@ export function useDeleteS3Bucket() {
   return useMutation({
     mutationFn: async (bucketName: string) => {
       const response = await fetch(
-        `${import.meta.env.VITE_DWS_API_URL || 'http://localhost:3456'}/s3/${bucketName}`,
+        `${DWS_API_URL}/s3/${bucketName}`,
         {
           method: 'DELETE',
         },
@@ -420,7 +421,7 @@ export function useS3Objects(bucketName: string, prefix?: string) {
       if (prefix) params.set('prefix', prefix)
 
       const response = await fetch(
-        `${import.meta.env.VITE_DWS_API_URL || 'http://localhost:3456'}/s3/${bucketName}?${params}`,
+        `${DWS_API_URL}/s3/${bucketName}?${params}`,
       )
 
       if (!response.ok) {
@@ -446,7 +447,7 @@ export function useUploadS3Object() {
       contentType?: string
     }) => {
       const response = await fetch(
-        `${import.meta.env.VITE_DWS_API_URL || 'http://localhost:3456'}/s3/${params.bucket}/${params.key}`,
+        `${DWS_API_URL}/s3/${params.bucket}/${params.key}`,
         {
           method: 'PUT',
           headers: {
@@ -478,7 +479,7 @@ export function useDeleteS3Object() {
   return useMutation({
     mutationFn: async (params: { bucket: string; key: string }) => {
       const response = await fetch(
-        `${import.meta.env.VITE_DWS_API_URL || 'http://localhost:3456'}/s3/${params.bucket}/${params.key}`,
+        `${DWS_API_URL}/s3/${params.bucket}/${params.key}`,
         {
           method: 'DELETE',
         },
@@ -510,7 +511,7 @@ export function useS3Presign() {
       contentType?: string
     }) => {
       const response = await fetch(
-        `${import.meta.env.VITE_DWS_API_URL || 'http://localhost:3456'}/s3/presign`,
+        `${DWS_API_URL}/s3/presign`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1033,7 +1034,7 @@ export function useScrapingSessions() {
     queryFn: async () => {
       // Sessions endpoint requires auth - fetch with address header
       const response = await fetch(
-        `${import.meta.env.VITE_DWS_API_URL || 'http://localhost:3456'}/scraping/sessions`,
+        `${DWS_API_URL}/scraping/sessions`,
         {
           headers: address ? { 'x-jeju-address': address } : {},
         },
@@ -1056,7 +1057,7 @@ export function useCreateScrapingSession() {
       duration?: number
     }) => {
       const response = await fetch(
-        `${import.meta.env.VITE_DWS_API_URL || 'http://localhost:3456'}/scraping/sessions`,
+        `${DWS_API_URL}/scraping/sessions`,
         {
           method: 'POST',
           headers: {
@@ -1093,7 +1094,7 @@ export function useSendEmail() {
       bodyHtml?: string
     }) => {
       const response = await fetch(
-        `${import.meta.env.VITE_DWS_API_URL || 'http://localhost:3456'}/email/send`,
+        `${DWS_API_URL}/email/send`,
         {
           method: 'POST',
           headers: {
@@ -1125,7 +1126,7 @@ export function useMailbox() {
     queryKey: ['mailbox', address],
     queryFn: async () => {
       const response = await fetch(
-        `${import.meta.env.VITE_DWS_API_URL || 'http://localhost:3456'}/email/mailbox`,
+        `${DWS_API_URL}/email/mailbox`,
         {
           headers: address ? { 'x-wallet-address': address } : {},
         },

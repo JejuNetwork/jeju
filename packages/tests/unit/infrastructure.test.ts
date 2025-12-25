@@ -223,7 +223,6 @@ describe('Content Hash Verification', () => {
 
     if (expectedHash.startsWith('Qm')) {
       // CIDv0 format - simplified check
-      const _hash = crypto.createHash('sha256').update(data).digest('hex')
       return expectedHash.length === 46 // CIDv0 is always 46 chars
     }
 

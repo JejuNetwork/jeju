@@ -12,7 +12,7 @@ import { getLocalnetChain, getTestnetChain, getUrls } from './config/branding'
 
 // RPC endpoints from branding config
 const urls = getUrls()
-const NETWORK_RPC = getEnv('VITE_NETWORK_RPC_URL') || urls.rpc.mainnet
+const NETWORK_RPC = getEnv('PUBLIC_NETWORK_RPC_URL') || urls.rpc.mainnet
 
 // Chain definitions from shared config
 const networkLocalnet = getLocalnetChain()

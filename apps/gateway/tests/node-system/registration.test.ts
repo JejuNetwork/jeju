@@ -12,9 +12,9 @@
 import { describe, expect, test } from 'bun:test'
 
 // Contract addresses (loaded from env or deployment file)
-const NODE_STAKING_MANAGER = (process.env.VITE_NODE_STAKING_MANAGER_ADDRESS ||
+const NODE_STAKING_MANAGER = (process.env.PUBLIC_NODE_STAKING_MANAGER_ADDRESS ||
   '0x0000000000000000000000000000000000000000') as `0x${string}`
-const JEJU_TOKEN = (process.env.VITE_JEJU_TOKEN_ADDRESS ||
+const JEJU_TOKEN = (process.env.PUBLIC_JEJU_TOKEN_ADDRESS ||
   '0x0000000000000000000000000000000000000000') as `0x${string}`
 
 describe('Node Registration - On-Chain Validation', () => {

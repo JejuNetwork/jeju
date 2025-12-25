@@ -830,13 +830,7 @@ describe('End-to-End Flows', () => {
       TEST_ACCOUNTS.charlie.address,
     ]
 
-    // 1. Create group (metadata)
-    const _group = {
-      id: groupId,
-      name: 'E2E Test Group',
-      members,
-      createdAt: Date.now(),
-    }
+    // 1. Group setup: id=groupId, name='E2E Test Group', members
 
     // 2. Send messages
     const messageIds: string[] = []

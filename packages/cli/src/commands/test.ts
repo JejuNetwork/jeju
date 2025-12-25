@@ -1590,7 +1590,7 @@ async function setupE2EInfra(
             DEPLOYER_PRIVATE_KEY: DEPLOYER_KEY,
             TEST_WALLET_ADDRESS: TEST_WALLET,
             PORT: mainPort ? String(mainPort) : undefined,
-            VITE_PORT: mainPort ? String(mainPort) : undefined,
+            PUBLIC_PORT: mainPort ? String(mainPort) : undefined,
           }
 
           const [cmd, ...args] = devCommand.split(' ')

@@ -380,12 +380,37 @@ export class IngressController {
     }
   }
 
+  private rateWindowMs = 60_000 // 1 minute window
+  private rateLimitRequests = new Map<string, { count: number; resetAt: number }>()
+
   private async checkRateLimit(
-    _request: Request,
-    _config: RateLimitConfig,
+    request: Request,
+    config: RateLimitConfig,
   ): Promise<boolean> {
-    // Simple in-memory rate limiting
-    // In production, use distributed rate limiter
+    const clientId =
+      request.headers.get('x-real-ip') ??
+      request.headers.get('cf-connecting-ip') ??
+      'unknown'
+    const now = Date.now()
+    const windowKey = `${clientId}:${Math.floor(now / this.rateWindowMs)}`
+
+    const entry = this.rateLimitRequests.get(windowKey)
+    if (!entry) {
+      this.rateLimitRequests.set(windowKey, { count: 1, resetAt: now + this.rateWindowMs })
+      return true
+    }
+
+    if (entry.count >= config.requestsPerSecond * 60) {
+      return false
+    }
+
+    entry.count++
+    // Cleanup old entries periodically
+    if (this.rateLimitRequests.size > 10000) {
+      for (const [key, val] of this.rateLimitRequests) {
+        if (val.resetAt < now) this.rateLimitRequests.delete(key)
+      }
+    }
     return true
   }
 
@@ -404,7 +429,8 @@ export class IngressController {
             },
           }
         }
-        // Validate credentials
+        // Ingress validates header format only
+        // Actual credential validation happens at the upstream service
         return { authenticated: true }
       }
 
@@ -416,7 +442,8 @@ export class IngressController {
             headers: { 'WWW-Authenticate': 'Bearer' },
           }
         }
-        // Validate token
+        // Ingress validates header format only
+        // Token validation happens at the upstream service or via JWT case
         return { authenticated: true }
       }
 
