@@ -115,8 +115,6 @@ export function createKMSAPIWorker(config: KMSAPIConfig) {
     config.serviceAgentId,
   )
 
-  const _minRequiredParties = config.minRequiredParties ?? 2
-
   // Key registry (indexed by owner for access control)
   const keys = new Map<string, ManagedKey>()
   const ownerKeys = new Map<string, string[]>() // owner address => keyIds

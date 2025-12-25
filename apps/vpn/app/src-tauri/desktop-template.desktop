@@ -1,0 +1,21 @@
+[Desktop Entry]
+Name=Jeju VPN
+Comment=Free, decentralized VPN powered by the community
+Exec=jeju-vpn %u
+Icon=jeju-vpn
+Type=Application
+Categories=Network;Security;Utility;
+Keywords=VPN;Privacy;Security;Decentralized;WireGuard;
+StartupNotify=true
+StartupWMClass=jeju-vpn
+MimeType=x-scheme-handler/jeju;
+Actions=Connect;Disconnect;
+
+[Desktop Action Connect]
+Name=Connect VPN
+Exec=jeju-vpn --connect
+
+[Desktop Action Disconnect]
+Name=Disconnect VPN
+Exec=jeju-vpn --disconnect
+

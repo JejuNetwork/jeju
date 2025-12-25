@@ -5,6 +5,7 @@
  * using the Open Intents Framework (OIF) for intent-based execution.
  */
 
+import { getExternalRpc, getRpcUrl } from '@jejunetwork/config'
 import {
   type Address,
   encodeAbiParameters,
@@ -72,81 +73,89 @@ export interface CrossChainAuthIntent {
   signature: Hex
 }
 
-const SUPPORTED_CHAINS: SupportedChain[] = [
-  {
-    chainId: ChainId.JEJU_LOCALNET,
-    name: 'Jeju Network',
-    rpcUrl: process.env.JEJU_RPC_URL ?? 'https://rpc.jejunetwork.org',
-    identityRegistryAddress:
-      '0x0000000000000000000000000000000000000000' as Address,
-    accountFactoryAddress:
-      '0x0000000000000000000000000000000000000000' as Address,
-    intentRouterAddress:
-      '0x0000000000000000000000000000000000000000' as Address,
-    entryPointAddress:
-      '0x0000000000000000000000000000000000005FF137D4b0FDCD49DcA30c7CF57E578a026d2789' as Address,
-  },
-  {
-    chainId: ChainId.BASE,
-    name: 'Base',
-    rpcUrl: process.env.BASE_RPC_URL ?? 'https://mainnet.base.org',
-    identityRegistryAddress:
-      '0x0000000000000000000000000000000000000000' as Address,
-    accountFactoryAddress:
-      '0x0000000000000000000000000000000000000000' as Address,
-    intentRouterAddress:
-      '0x0000000000000000000000000000000000000000' as Address,
-    entryPointAddress: '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789' as Address,
-  },
-  {
-    chainId: ChainId.ETHEREUM,
-    name: 'Ethereum',
-    rpcUrl: process.env.ETHEREUM_RPC_URL ?? 'https://eth.llamarpc.com',
-    identityRegistryAddress:
-      '0x0000000000000000000000000000000000000000' as Address,
-    accountFactoryAddress:
-      '0x0000000000000000000000000000000000000000' as Address,
-    intentRouterAddress:
-      '0x0000000000000000000000000000000000000000' as Address,
-    entryPointAddress: '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789' as Address,
-  },
-  {
-    chainId: ChainId.ARBITRUM,
-    name: 'Arbitrum One',
-    rpcUrl: process.env.ARBITRUM_RPC_URL ?? 'https://arb1.arbitrum.io/rpc',
-    identityRegistryAddress:
-      '0x0000000000000000000000000000000000000000' as Address,
-    accountFactoryAddress:
-      '0x0000000000000000000000000000000000000000' as Address,
-    intentRouterAddress:
-      '0x0000000000000000000000000000000000000000' as Address,
-    entryPointAddress: '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789' as Address,
-  },
-  {
-    chainId: ChainId.OPTIMISM,
-    name: 'Optimism',
-    rpcUrl: process.env.OPTIMISM_RPC_URL ?? 'https://mainnet.optimism.io',
-    identityRegistryAddress:
-      '0x0000000000000000000000000000000000000000' as Address,
-    accountFactoryAddress:
-      '0x0000000000000000000000000000000000000000' as Address,
-    intentRouterAddress:
-      '0x0000000000000000000000000000000000000000' as Address,
-    entryPointAddress: '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789' as Address,
-  },
-  {
-    chainId: ChainId.POLYGON,
-    name: 'Polygon',
-    rpcUrl: process.env.POLYGON_RPC_URL ?? 'https://polygon-rpc.com',
-    identityRegistryAddress:
-      '0x0000000000000000000000000000000000000000' as Address,
-    accountFactoryAddress:
-      '0x0000000000000000000000000000000000000000' as Address,
-    intentRouterAddress:
-      '0x0000000000000000000000000000000000000000' as Address,
-    entryPointAddress: '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789' as Address,
-  },
-]
+/** Get supported chains configuration - uses config package for RPC URLs */
+function getSupportedChains(): SupportedChain[] {
+  return [
+    {
+      chainId: ChainId.JEJU_LOCALNET,
+      name: 'Jeju Network',
+      rpcUrl: getRpcUrl(),
+      identityRegistryAddress:
+        '0x0000000000000000000000000000000000000000' as Address,
+      accountFactoryAddress:
+        '0x0000000000000000000000000000000000000000' as Address,
+      intentRouterAddress:
+        '0x0000000000000000000000000000000000000000' as Address,
+      entryPointAddress:
+        '0x0000000000000000000000000000000000005FF137D4b0FDCD49DcA30c7CF57E578a026d2789' as Address,
+    },
+    {
+      chainId: ChainId.BASE,
+      name: 'Base',
+      rpcUrl: getExternalRpc('base'),
+      identityRegistryAddress:
+        '0x0000000000000000000000000000000000000000' as Address,
+      accountFactoryAddress:
+        '0x0000000000000000000000000000000000000000' as Address,
+      intentRouterAddress:
+        '0x0000000000000000000000000000000000000000' as Address,
+      entryPointAddress:
+        '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789' as Address,
+    },
+    {
+      chainId: ChainId.ETHEREUM,
+      name: 'Ethereum',
+      rpcUrl: getExternalRpc('ethereum'),
+      identityRegistryAddress:
+        '0x0000000000000000000000000000000000000000' as Address,
+      accountFactoryAddress:
+        '0x0000000000000000000000000000000000000000' as Address,
+      intentRouterAddress:
+        '0x0000000000000000000000000000000000000000' as Address,
+      entryPointAddress:
+        '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789' as Address,
+    },
+    {
+      chainId: ChainId.ARBITRUM,
+      name: 'Arbitrum One',
+      rpcUrl: getExternalRpc('arbitrum'),
+      identityRegistryAddress:
+        '0x0000000000000000000000000000000000000000' as Address,
+      accountFactoryAddress:
+        '0x0000000000000000000000000000000000000000' as Address,
+      intentRouterAddress:
+        '0x0000000000000000000000000000000000000000' as Address,
+      entryPointAddress:
+        '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789' as Address,
+    },
+    {
+      chainId: ChainId.OPTIMISM,
+      name: 'Optimism',
+      rpcUrl: getExternalRpc('optimism'),
+      identityRegistryAddress:
+        '0x0000000000000000000000000000000000000000' as Address,
+      accountFactoryAddress:
+        '0x0000000000000000000000000000000000000000' as Address,
+      intentRouterAddress:
+        '0x0000000000000000000000000000000000000000' as Address,
+      entryPointAddress:
+        '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789' as Address,
+    },
+    {
+      chainId: ChainId.POLYGON,
+      name: 'Polygon',
+      rpcUrl: getExternalRpc('polygon'),
+      identityRegistryAddress:
+        '0x0000000000000000000000000000000000000000' as Address,
+      accountFactoryAddress:
+        '0x0000000000000000000000000000000000000000' as Address,
+      intentRouterAddress:
+        '0x0000000000000000000000000000000000000000' as Address,
+      entryPointAddress:
+        '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789' as Address,
+    },
+  ]
+}
 
 export class CrossChainIdentityManager {
   private chainConfigs: Map<ChainId, SupportedChain>
@@ -158,7 +167,7 @@ export class CrossChainIdentityManager {
     this.chainConfigs = new Map()
     this.identityStates = new Map()
 
-    for (const chain of SUPPORTED_CHAINS) {
+    for (const chain of getSupportedChains()) {
       this.chainConfigs.set(chain.chainId, chain)
     }
   }

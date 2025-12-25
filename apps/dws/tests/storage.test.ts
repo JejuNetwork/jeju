@@ -19,12 +19,12 @@ import {
   setDefaultTimeout,
   test,
 } from 'bun:test'
-import { app } from '../src/server'
+import { app } from '../api/server'
 import {
   type BackendManager,
   createBackendManager,
-} from '../src/storage/backends'
-import { resetMultiBackendManager } from '../src/storage/multi-backend'
+} from '../api/storage/backends'
+import { resetMultiBackendManager } from '../api/storage/multi-backend'
 
 setDefaultTimeout(10000)
 

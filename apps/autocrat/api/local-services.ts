@@ -39,9 +39,9 @@ const OllamaResponseSchema = z.object({
   content: z.string().optional(),
 })
 
-// DWS endpoint is automatically resolved from network config, but env var overrides
+// DWS endpoint is resolved from network config (config handles env overrides)
 function getDWSEndpoint(): string {
-  return process.env.DWS_URL ?? getDWSComputeUrl()
+  return getDWSComputeUrl()
 }
 
 // Bounded in-memory caches for performance (CQL is source of truth)
@@ -238,6 +238,7 @@ export function isInitialized(): boolean {
   return initialized
 }
 
+// Ollama is optional for local development - not part of main infra
 const OLLAMA_URL = process.env.OLLAMA_URL ?? 'http://localhost:11434'
 export const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? 'llama3.2'
 

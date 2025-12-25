@@ -225,3 +225,161 @@ export function chunk<T>(array: T[], size: number): T[][] {
   }
   return chunks
 }
+
+// Date/Time Formatting (from Babylon)
+
+/**
+ * Format date to readable date string
+ * @example formatDate(new Date()) // "Jan 16, 2025"
+ */
+export function formatDate(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date
+  return d.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
+/**
+ * Format date to readable time string
+ * @example formatTime(new Date()) // "3:45 PM"
+ */
+export function formatTime(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date
+  return d.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })
+}
+
+/**
+ * Format relative time in compact form (e.g., "5m", "2h", "3d")
+ * Falls back to formatted date for dates older than 7 days.
+ * @example formatRelativeTime(new Date(Date.now() - 300000)) // "5m"
+ */
+export function formatRelativeTime(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date
+  const now = new Date()
+  const diff = now.getTime() - d.getTime()
+  const seconds = Math.floor(diff / 1000)
+  const minutes = Math.floor(seconds / 60)
+  const hours = Math.floor(minutes / 60)
+  const days = Math.floor(hours / 24)
+
+  if (seconds < 60) return `${seconds}s`
+  if (minutes < 60) return `${minutes}m`
+  if (hours < 24) return `${hours}h`
+  if (days < 7) return `${days}d`
+  return formatDate(d)
+}
+
+/**
+ * Format number as simple percentage (integer)
+ * @example formatPercentageSimple(50) // "50%"
+ */
+export function formatPercentageSimple(value: number): string {
+  return `${Math.round(value)}%`
+}
+
+/**
+ * Format currency with configurable decimals
+ * @example formatCurrency(123.456) // "$123.46"
+ * @example formatCurrency(1000, 0) // "$1000"
+ */
+export function formatCurrency(amount: number, decimals = 2): string {
+  return `$${amount.toFixed(decimals)}`
+}
+
+/**
+ * Clamp number between min and max values
+ * @example clamp(150, 0, 100) // 100
+ * @example clamp(-10, 0, 100) // 0
+ */
+export function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max)
+}
+
+/**
+ * Sanitize ID for use in file paths
+ * Converts to lowercase, replaces spaces with hyphens, removes special characters.
+ * @example sanitizeId("My User ID!") // "my-user-id"
+ */
+export function sanitizeId(id: string | undefined | null): string {
+  if (!id) {
+    return 'unknown'
+  }
+  return id
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9\-_]/g, '')
+    .trim()
+}
+
+/**
+ * Decimal-like value type that supports toString conversion
+ */
+type DecimalLike =
+  | string
+  | number
+  | bigint
+  | null
+  | undefined
+  | { toString: () => string }
+
+/**
+ * Safely convert a value to a string representation
+ * Handles numbers, strings, bigints, null, undefined, and objects with toString.
+ * @example toSafeString(123.45) // "123.45"
+ * @example toSafeString(null) // "0"
+ */
+export function toSafeString(
+  value: DecimalLike,
+  defaultValue: string = '0',
+): string {
+  if (value === null || value === undefined) {
+    return defaultValue
+  }
+  if (typeof value === 'string') {
+    return value
+  }
+  if (typeof value === 'number' || typeof value === 'bigint') {
+    return String(value)
+  }
+  if (typeof value === 'object' && typeof value.toString === 'function') {
+    return value.toString()
+  }
+  return defaultValue
+}
+
+/**
+ * Safely convert a value to a number
+ * Handles numbers, strings, bigints, null, undefined, and objects with toString.
+ * @example toSafeNumber('123.45') // 123.45
+ * @example toSafeNumber(null) // 0
+ */
+export function toSafeNumber(
+  value: DecimalLike,
+  defaultValue: number = 0,
+): number {
+  if (value === null || value === undefined) {
+    return defaultValue
+  }
+  if (typeof value === 'number') {
+    return Number.isNaN(value) ? defaultValue : value
+  }
+  if (typeof value === 'bigint') {
+    return Number(value)
+  }
+
+  const str =
+    typeof value === 'string'
+      ? value.trim()
+      : typeof value === 'object' && typeof value.toString === 'function'
+        ? value.toString()
+        : String(value)
+
+  const parsed = Number(str)
+  return Number.isNaN(parsed) ? defaultValue : parsed
+}

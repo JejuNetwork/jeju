@@ -115,6 +115,7 @@ docs/
 
 # Generated indexer models (regenerated from schema)
 apps/indexer/api/model/generated/
+apps/indexer/src/model/generated/
 
 # Jeju cache and test files
 .jeju/*

@@ -1,10 +1,24 @@
 /** Jobs Routes */
 
 import { Elysia } from 'elysia'
+import {
+  createJob as dbCreateJob,
+  getJobStats as dbGetJobStats,
+  listJobs as dbListJobs,
+  getJob,
+  type JobRow,
+} from '../db/client'
 import { CreateJobBodySchema, expectValid, JobsQuerySchema } from '../schemas'
 import { requireAuth } from '../validation/access-control'
 
-interface Job {
+export interface JobSalary {
+  min: number
+  max: number
+  currency: string
+  period?: 'hour' | 'day' | 'week' | 'month' | 'year'
+}
+
+export interface Job {
   id: string
   title: string
   company: string
@@ -12,17 +26,40 @@ interface Job {
   type: 'full-time' | 'part-time' | 'contract' | 'bounty'
   remote: boolean
   location: string
-  salary?: {
-    min: number
-    max: number
-    currency: string
-    period?: 'hour' | 'day' | 'week' | 'month' | 'year'
-  }
+  salary?: JobSalary
   skills: string[]
   description: string
   createdAt: number
   updatedAt: number
   applications: number
+}
+
+function transformJob(row: JobRow): Job {
+  return {
+    id: row.id,
+    title: row.title,
+    company: row.company,
+    companyLogo: row.company_logo ?? undefined,
+    type: row.type,
+    remote: row.remote === 1,
+    location: row.location,
+    salary:
+      row.salary_min !== null &&
+      row.salary_max !== null &&
+      row.salary_currency !== null
+        ? {
+            min: row.salary_min,
+            max: row.salary_max,
+            currency: row.salary_currency,
+            period: row.salary_period as JobSalary['period'],
+          }
+        : undefined,
+    skills: JSON.parse(row.skills) as string[],
+    description: row.description,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    applications: row.applications,
+  }
 }
 
 export const jobsRoutes = new Elysia({ prefix: '/api/jobs' })
@@ -33,45 +70,26 @@ export const jobsRoutes = new Elysia({ prefix: '/api/jobs' })
       const page = parseInt(validated.page ?? '1', 10)
       const limit = parseInt(validated.limit ?? '20', 10)
 
-      const jobs: Job[] = [
-        {
-          id: '1',
-          title: 'Senior Solidity Developer',
-          company: 'Jeju Network',
-          companyLogo: 'https://avatars.githubusercontent.com/u/1?v=4',
-          type: 'full-time',
-          remote: true,
-          location: 'Remote',
-          salary: { min: 150000, max: 200000, currency: 'USD' },
-          skills: ['Solidity', 'Foundry', 'EVM'],
-          description: 'Build core smart contracts for the Jeju ecosystem',
-          createdAt: Date.now() - 3 * 24 * 60 * 60 * 1000,
-          updatedAt: Date.now() - 3 * 24 * 60 * 60 * 1000,
-          applications: 45,
-        },
-        {
-          id: '2',
-          title: 'Frontend Engineer',
-          company: 'DeFi Protocol',
-          companyLogo: 'https://avatars.githubusercontent.com/u/2?v=4',
-          type: 'contract',
-          remote: true,
-          location: 'Remote',
-          salary: { min: 100, max: 150, currency: 'USD', period: 'hour' },
-          skills: ['React', 'TypeScript', 'Web3'],
-          description: 'Build beautiful DeFi interfaces',
-          createdAt: Date.now() - 7 * 24 * 60 * 60 * 1000,
-          updatedAt: Date.now() - 7 * 24 * 60 * 60 * 1000,
-          applications: 28,
-        },
-      ]
+      const result = dbListJobs({
+        type: validated.type,
+        remote:
+          validated.remote === 'true'
+            ? true
+            : validated.remote === 'false'
+              ? false
+              : undefined,
+        page,
+        limit,
+      })
+
+      const jobs = result.jobs.map(transformJob)
 
       return {
         jobs,
-        total: jobs.length,
+        total: result.total,
         page,
         limit,
-        hasMore: false,
+        hasMore: page * limit < result.total,
       }
     },
     {
@@ -93,8 +111,7 @@ export const jobsRoutes = new Elysia({ prefix: '/api/jobs' })
 
       const validated = expectValid(CreateJobBodySchema, body, 'request body')
 
-      const job: Job = {
-        id: `job-${Date.now()}`,
+      const row = dbCreateJob({
         title: validated.title,
         company: validated.company,
         type: validated.type,
@@ -103,13 +120,11 @@ export const jobsRoutes = new Elysia({ prefix: '/api/jobs' })
         salary: validated.salary,
         skills: validated.skills,
         description: validated.description,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        applications: 0,
-      }
+        poster: authResult.address,
+      })
 
       set.status = 201
-      return job
+      return transformJob(row)
     },
     {
       detail: {
@@ -122,12 +137,7 @@ export const jobsRoutes = new Elysia({ prefix: '/api/jobs' })
   .get(
     '/stats',
     async () => {
-      return {
-        totalJobs: 156,
-        openJobs: 89,
-        remoteJobs: 124,
-        averageSalary: 125000,
-      }
+      return dbGetJobStats()
     },
     {
       detail: {
@@ -139,23 +149,18 @@ export const jobsRoutes = new Elysia({ prefix: '/api/jobs' })
   )
   .get(
     '/:jobId',
-    async ({ params }) => {
-      const job: Job = {
-        id: params.jobId,
-        title: 'Senior Solidity Developer',
-        company: 'Jeju Network',
-        companyLogo: 'https://avatars.githubusercontent.com/u/1?v=4',
-        type: 'full-time',
-        remote: true,
-        location: 'Remote',
-        salary: { min: 150000, max: 200000, currency: 'USD' },
-        skills: ['Solidity', 'Foundry', 'EVM'],
-        description: 'Build core smart contracts for the Jeju ecosystem',
-        createdAt: Date.now() - 3 * 24 * 60 * 60 * 1000,
-        updatedAt: Date.now() - 3 * 24 * 60 * 60 * 1000,
-        applications: 45,
+    async ({ params, set }) => {
+      const row = getJob(params.jobId)
+      if (!row) {
+        set.status = 404
+        return {
+          error: {
+            code: 'NOT_FOUND',
+            message: `Job ${params.jobId} not found`,
+          },
+        }
       }
-      return job
+      return transformJob(row)
     },
     {
       detail: {
@@ -172,6 +177,16 @@ export const jobsRoutes = new Elysia({ prefix: '/api/jobs' })
       if (!authResult.success) {
         set.status = 401
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
+      }
+      const row = getJob(params.jobId)
+      if (!row) {
+        set.status = 404
+        return {
+          error: {
+            code: 'NOT_FOUND',
+            message: `Job ${params.jobId} not found`,
+          },
+        }
       }
       return { success: true, jobId: params.jobId }
     },
@@ -190,6 +205,16 @@ export const jobsRoutes = new Elysia({ prefix: '/api/jobs' })
       if (!authResult.success) {
         set.status = 401
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
+      }
+      const row = getJob(params.jobId)
+      if (!row) {
+        set.status = 404
+        return {
+          error: {
+            code: 'NOT_FOUND',
+            message: `Job ${params.jobId} not found`,
+          },
+        }
       }
       return { success: true, jobId: params.jobId }
     },

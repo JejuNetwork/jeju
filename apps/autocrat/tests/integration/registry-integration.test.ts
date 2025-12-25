@@ -18,10 +18,16 @@ let client: RegistryIntegrationClient
 beforeAll(async () => {
   env = await ensureServices({ chain: true })
 
+  const identityRegistry = env.contracts.identityRegistry
+  const reputationRegistry = env.contracts.reputationRegistry
+  if (!identityRegistry || !reputationRegistry) {
+    throw new Error('Missing contract addresses from test environment')
+  }
+
   const testConfig: RegistryIntegrationConfig = {
     rpcUrl: env.rpcUrl,
-    identityRegistry: env.contracts.identityRegistry as `0x${string}`,
-    reputationRegistry: env.contracts.reputationRegistry as `0x${string}`,
+    identityRegistry,
+    reputationRegistry,
     integrationContract: process.env.REGISTRY_INTEGRATION_ADDRESS,
     delegationRegistry: process.env.DELEGATION_REGISTRY_ADDRESS,
   }
@@ -42,8 +48,10 @@ describe('RegistryIntegrationClient', () => {
     })
 
     it('should calculate voting power with default multipliers', async () => {
+      const testAddress: `0x${string}` =
+        '0x1234567890123456789012345678901234567890'
       const power = await client.getVotingPower(
-        '0x1234567890123456789012345678901234567890',
+        testAddress,
         0n,
         1000000000000000000n,
       )
@@ -110,10 +118,10 @@ describe('RegistryIntegrationClient', () => {
   })
 
   describe('Delegation', () => {
+    const testAddr: `0x${string}` = '0x1234567890123456789012345678901234567890'
+
     it('should return null for non-existent delegate', async () => {
-      const delegate = await client.getDelegate(
-        '0x1234567890123456789012345678901234567890',
-      )
+      const delegate = await client.getDelegate(testAddr)
       expect(delegate === null || delegate.delegate !== undefined).toBe(true)
     })
 
@@ -128,9 +136,7 @@ describe('RegistryIntegrationClient', () => {
     })
 
     it('should check security council membership', async () => {
-      const isMember = await client.isSecurityCouncilMember(
-        '0x1234567890123456789012345678901234567890',
-      )
+      const isMember = await client.isSecurityCouncilMember(testAddr)
       expect(typeof isMember).toBe('boolean')
     })
   })

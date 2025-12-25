@@ -1,19 +1,12 @@
 {
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "target": "ESNext",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "esModuleInterop": true,
-    "strict": true,
-    "skipLibCheck": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "lib": ["ESNext", "DOM", "DOM.Iterable"],
-    "types": [],
+    "baseUrl": ".",
     "paths": {
       "@/*": ["./api/*", "./web/*"]
-    },
-    "baseUrl": "."
+    }
   },
   "include": ["api/**/*", "web/**/*", "lib/**/*"],
   "exclude": ["node_modules", "dist", "tests/**/*"]

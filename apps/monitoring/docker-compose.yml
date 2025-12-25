@@ -27,6 +27,12 @@ services:
       - jeju-monitoring
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   alertmanager:
     image: prom/alertmanager:latest
@@ -42,6 +48,12 @@ services:
       - alertmanager-data:/alertmanager
     networks:
       - jeju-monitoring
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9093/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
 
   grafana:
     image: grafana/grafana:latest
@@ -61,12 +73,20 @@ services:
       - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
       - grafana-data:/var/lib/grafana
     depends_on:
-      - prometheus
-      - alertmanager
+      prometheus:
+        condition: service_healthy
+      alertmanager:
+        condition: service_healthy
     networks:
       - jeju-monitoring
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:${GRAFANA_PORT:-4010}/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
 networks:
   jeju-monitoring:

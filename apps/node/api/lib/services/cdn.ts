@@ -565,12 +565,24 @@ export class CDNService {
   }
 
   private async getPrivateKey(): Promise<string> {
-    // In Tauri, this would come from secure storage
-    // For now, use environment variable
-    const key = process.env.PRIVATE_KEY
+    // Priority order for private key retrieval:
+    // 1. PRIVATE_KEY environment variable (for CLI/daemon mode)
+    // 2. JEJU_PRIVATE_KEY environment variable (alternate name)
+    // The Tauri desktop app uses secure OS keychain storage instead
+    const key = process.env.PRIVATE_KEY ?? process.env.JEJU_PRIVATE_KEY
     if (!key) {
-      throw new Error('Private key not available')
+      throw new Error(
+        'Private key not available. Set PRIVATE_KEY or JEJU_PRIVATE_KEY environment variable.',
+      )
     }
+
+    // Validate key format
+    if (!/^0x[a-fA-F0-9]{64}$/.test(key)) {
+      throw new Error(
+        'Invalid private key format. Must be 0x followed by 64 hex characters.',
+      )
+    }
+
     return key
   }
 }

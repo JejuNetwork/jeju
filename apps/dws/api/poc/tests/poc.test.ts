@@ -596,7 +596,7 @@ describe('Quote Parser', () => {
       expect(parseResult.success).toBe(true)
       if (!parseResult.quote) throw new Error('quote should be defined')
 
-      const _verifyResult = await verifyQuote(parseResult.quote)
+      await verifyQuote(parseResult.quote)
 
       // SEV uses RSA-4096 (512 bytes)
       expect(parseResult.quote.signature.length).toBe(2 + 512 * 2)

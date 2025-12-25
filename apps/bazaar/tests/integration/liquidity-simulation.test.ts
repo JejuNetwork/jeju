@@ -12,23 +12,18 @@ import { ZERO_ADDRESS } from '@jejunetwork/types'
 import {
   type Address,
   createPublicClient,
-  createWalletClient,
   encodeAbiParameters,
   formatEther,
   http,
   keccak256,
   type PublicClient,
   parseEther,
-  type WalletClient,
 } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
 
 // CONFIGURATION
 
 const RPC_URL = process.env.L2_RPC_URL || 'http://localhost:6546'
 const CHAIN_ID = 420691 // network localnet chain ID
-const DEPLOYER_KEY =
-  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as `0x${string}`
 const WETH_ADDRESS = '0x4200000000000000000000000000000000000006' as Address
 
 const localnet = {
@@ -75,7 +70,6 @@ function computePoolId(key: PoolKey): `0x${string}` {
 // SETUP
 
 let publicClient: PublicClient
-let _walletClient: WalletClient
 let poolManager: Address | null = null
 let positionManager: Address | null = null
 let skipTests = false
@@ -100,13 +94,6 @@ function loadDeployment(filename: string): Record<string, string> {
 
 beforeAll(async () => {
   publicClient = createPublicClient({
-    chain: localnet,
-    transport: http(RPC_URL),
-  })
-
-  const account = privateKeyToAccount(DEPLOYER_KEY)
-  _walletClient = createWalletClient({
-    account,
     chain: localnet,
     transport: http(RPC_URL),
   })

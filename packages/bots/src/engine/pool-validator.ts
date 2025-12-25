@@ -46,11 +46,6 @@ const PAIR_ABI = parseAbi([
   'function factory() view returns (address)',
 ])
 
-const _FACTORY_ABI = parseAbi([
-  'function getPair(address, address) view returns (address)',
-  'function allPairsLength() view returns (uint256)',
-])
-
 // Known safe tokens (stablecoins, major tokens)
 const SAFE_TOKENS: Set<string> = new Set([
   '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', // WETH

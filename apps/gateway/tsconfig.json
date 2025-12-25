@@ -11,11 +11,6 @@
       "@jejunetwork/contracts": ["../../packages/contracts/ts/index.ts"],
       "@jejunetwork/contracts/*": ["../../packages/contracts/ts/*"]
     },
-    "noUnusedLocals": false,
-    "noUnusedParameters": false,
-    "noImplicitReturns": false,
-    "skipLibCheck": true,
-    "strictNullChecks": false,
     "types": ["bun", "react", "react-dom"]
   },
   "include": ["api/**/*", "web/**/*", "lib/**/*", "*.ts"],

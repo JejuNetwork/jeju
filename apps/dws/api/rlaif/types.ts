@@ -157,8 +157,7 @@ export const TrajectoryManifestSchema = z.object({
   merkleRoot: z.string().regex(/^0x[a-fA-F0-9]+$/) as z.ZodType<Hex>,
 })
 
-// Re-export the JSON schema from shared validation for trajectory serialization
-import { JSONValueSchema as JsonValueSchema } from '../shared/validation'
+import { JSONValueSchema } from '../shared/validation'
 
 const TrajectoryMetadataSchema = z
   .object({
@@ -179,10 +178,10 @@ export const TrajectorySchema = z.object({
     z.object({
       stepNumber: z.number(),
       timestamp: z.number(),
-      observation: z.record(z.string(), JsonValueSchema),
+      observation: z.record(z.string(), JSONValueSchema),
       action: z.object({
         type: z.string(),
-        parameters: z.record(z.string(), JsonValueSchema),
+        parameters: z.record(z.string(), JSONValueSchema),
       }),
       reward: z.number(),
       done: z.boolean(),

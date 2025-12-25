@@ -35,11 +35,9 @@ const AIResearchReportSchema = z.object({
   ),
 })
 
-// DWS endpoint is resolved dynamically based on the current network
+// DWS endpoint is resolved from network config (handles env overrides)
 function getComputeEndpoint(): string {
-  return (
-    process.env.COMPUTE_URL ?? process.env.DWS_COMPUTE_URL ?? getDWSComputeUrl()
-  )
+  return getDWSComputeUrl()
 }
 
 export interface ResearchRequest {
@@ -104,10 +102,6 @@ const evictOldest = () => {
 }
 
 // Compute marketplace configuration - uses DWS network
-// These are functions to allow test overrides via process.env
-function isComputeEnabled(): boolean {
-  return process.env.COMPUTE_ENABLED === 'true'
-}
 function getComputeModel(): string {
   return process.env.COMPUTE_MODEL ?? 'claude-3-opus'
 }
@@ -127,10 +121,6 @@ async function computeMarketplaceInference(
   prompt: string,
   systemPrompt: string,
 ): Promise<string> {
-  if (!isComputeEnabled()) {
-    throw new Error('Compute marketplace is not enabled')
-  }
-
   const request: ComputeInferenceRequest = {
     modelId: getComputeModel(),
     input: {
@@ -169,7 +159,6 @@ async function computeMarketplaceInference(
 }
 
 async function checkComputeMarketplace(): Promise<boolean> {
-  if (!isComputeEnabled()) return false
   const computeEndpoint = getComputeEndpoint()
   const response = await fetch(`${computeEndpoint}/health`)
   return response.ok

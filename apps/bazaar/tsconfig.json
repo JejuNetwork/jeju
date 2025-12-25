@@ -8,10 +8,6 @@
     "incremental": true,
     "declaration": false,
     "declarationMap": false,
-    "noUnusedLocals": false,
-    "noUnusedParameters": false,
-    "skipLibCheck": true,
-    "moduleResolution": "bundler",
     "paths": {
       "@/*": ["./*"],
       "@/components/*": ["./web/components/*"],
@@ -20,12 +16,6 @@
       "@/config/*": ["./web/config/*"]
     }
   },
-  "include": [
-    "api/**/*.ts",
-    "web/**/*.ts",
-    "web/**/*.tsx",
-    "lib/**/*.ts",
-    "types/**/*.ts"
-  ],
+  "include": ["api/**/*.ts", "web/**/*.ts", "web/**/*.tsx", "lib/**/*.ts", "types/**/*.ts"],
   "exclude": ["node_modules", "tests/**/*", "api/__tests__/**", "**/*.test.ts", "dist", "web/lib", "web/types"]
 }

@@ -15,6 +15,7 @@
  * - Policies are stored on-chain or via P2P gossip
  */
 
+import { generateKeyPairSync, X509Certificate } from 'node:crypto'
 import { Elysia, t } from 'elysia'
 import type { Address, Hex } from 'viem'
 import { keccak256, toBytes } from 'viem'
@@ -98,10 +99,167 @@ export interface ServiceMetrics {
   }
 }
 
+// Certificate Authority
+interface CACredentials {
+  cert: string
+  key: string
+  publicKey: string
+}
+
+let caCredentials: CACredentials | null = null
+
+function getOrCreateCA(): CACredentials {
+  if (caCredentials) return caCredentials
+
+  // Check if CA is provided via environment
+  if (process.env.DWS_MESH_CA_CERT && process.env.DWS_MESH_CA_KEY) {
+    caCredentials = {
+      cert: process.env.DWS_MESH_CA_CERT,
+      key: process.env.DWS_MESH_CA_KEY,
+      publicKey: '',
+    }
+    // Extract public key from cert
+    const caCert = new X509Certificate(caCredentials.cert)
+    caCredentials.publicKey = caCert.publicKey.export({
+      type: 'spki',
+      format: 'pem',
+    }) as string
+    console.log('[ServiceMesh] Using provided CA certificate')
+    return caCredentials
+  }
+
+  // Generate a new CA for this mesh instance
+  console.log('[ServiceMesh] Generating new CA certificate')
+  const { privateKey, publicKey } = generateKeyPairSync('ec', {
+    namedCurve: 'prime256v1',
+  })
+
+  // Self-signed CA certificate using node:crypto
+  // Build certificate manually since node:crypto doesn't have a high-level API
+  const caPrivateKeyPem = privateKey.export({
+    type: 'pkcs8',
+    format: 'pem',
+  }) as string
+  const caPublicKeyPem = publicKey.export({
+    type: 'spki',
+    format: 'pem',
+  }) as string
+
+  // Use Bun's native crypto for certificate generation
+  const caCertPem = generateSelfSignedCert({
+    commonName: 'DWS Mesh CA',
+    isCA: true,
+    privateKey: caPrivateKeyPem,
+    publicKey: caPublicKeyPem,
+    validDays: 3650,
+  })
+
+  caCredentials = {
+    cert: caCertPem,
+    key: caPrivateKeyPem,
+    publicKey: caPublicKeyPem,
+  }
+
+  return caCredentials
+}
+
+function generateSelfSignedCert(options: {
+  commonName: string
+  isCA: boolean
+  privateKey: string
+  publicKey: string
+  validDays: number
+  issuerCert?: string
+  issuerKey?: string
+}): string {
+  // Use openssl-like certificate generation via Bun subprocess
+  // For production, use the @peculiar/x509 library or similar
+  const { spawnSync } = require('node:child_process')
+
+  const subject = `/CN=${options.commonName}`
+
+  // Create temp files for openssl
+  const tmpDir = require('node:os').tmpdir()
+  const keyPath = `${tmpDir}/mesh-key-${Date.now()}.pem`
+  const certPath = `${tmpDir}/mesh-cert-${Date.now()}.pem`
+  const csrPath = `${tmpDir}/mesh-csr-${Date.now()}.pem`
+
+  require('node:fs').writeFileSync(keyPath, options.privateKey)
+
+  // Generate CSR
+  const csrResult = spawnSync(
+    'openssl',
+    ['req', '-new', '-key', keyPath, '-subj', subject, '-out', csrPath],
+    { encoding: 'utf-8' },
+  )
+
+  if (csrResult.status !== 0) {
+    throw new Error(`Failed to generate CSR: ${csrResult.stderr}`)
+  }
+
+  // Self-sign or sign with CA
+  const signArgs = options.isCA
+    ? [
+        'x509',
+        '-req',
+        '-in',
+        csrPath,
+        '-signkey',
+        keyPath,
+        '-out',
+        certPath,
+        '-days',
+        String(options.validDays),
+        '-extfile',
+        '/dev/stdin',
+      ]
+    : [
+        'x509',
+        '-req',
+        '-in',
+        csrPath,
+        '-CA',
+        `${tmpDir}/ca-cert.pem`,
+        '-CAkey',
+        `${tmpDir}/ca-key.pem`,
+        '-CAcreateserial',
+        '-out',
+        certPath,
+        '-days',
+        String(options.validDays),
+      ]
+
+  const extConfig = options.isCA
+    ? 'basicConstraints=critical,CA:TRUE\nkeyUsage=critical,keyCertSign,cRLSign'
+    : 'basicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature,keyEncipherment\nextendedKeyUsage=serverAuth,clientAuth'
+
+  const signResult = spawnSync('openssl', signArgs, {
+    input: extConfig,
+    encoding: 'utf-8',
+  })
+
+  if (signResult.status !== 0) {
+    throw new Error(`Failed to sign certificate: ${signResult.stderr}`)
+  }
+
+  const cert = require('node:fs').readFileSync(certPath, 'utf-8')
+
+  // Cleanup temp files
+  require('node:fs').unlinkSync(keyPath)
+  require('node:fs').unlinkSync(csrPath)
+  require('node:fs').unlinkSync(certPath)
+
+  return cert
+}
+
 const services = new Map<string, ServiceIdentity>()
 const accessPolicies = new Map<string, AccessPolicy>()
 const trafficPolicies = new Map<string, TrafficPolicy>()
 const serviceMetrics = new Map<string, ServiceMetrics>()
+const serviceCertificates = new Map<
+  string,
+  { cert: string; key: string; expiresAt: number }
+>()
 
 export class ServiceMesh {
   selfIdentity: ServiceIdentity | null = null
@@ -268,20 +426,128 @@ export class ServiceMesh {
   async generateCertificate(
     service: ServiceIdentity,
   ): Promise<{ cert: string; key: string }> {
-    // In production, this would use a proper CA
-    // For now, return a placeholder
-    const certData = {
-      subject: `CN=${service.name}.${service.namespace}.mesh.dws`,
-      issuer: 'CN=DWS Mesh CA',
-      notBefore: new Date().toISOString(),
-      notAfter: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-      publicKey: service.publicKey,
+    // Check cache for valid certificate
+    const cached = serviceCertificates.get(service.id)
+    if (cached && cached.expiresAt > Date.now() + 24 * 60 * 60 * 1000) {
+      return { cert: cached.cert, key: cached.key }
     }
 
-    return {
-      cert: `-----BEGIN CERTIFICATE-----\n${Buffer.from(JSON.stringify(certData)).toString('base64')}\n-----END CERTIFICATE-----`,
-      key: `-----BEGIN PRIVATE KEY-----\nPLACEHOLDER\n-----END PRIVATE KEY-----`,
+    // Get or create CA
+    const ca = getOrCreateCA()
+
+    // Generate key pair for service
+    const { privateKey } = generateKeyPairSync('ec', {
+      namedCurve: 'prime256v1',
+    })
+
+    const servicePrivateKeyPem = privateKey.export({
+      type: 'pkcs8',
+      format: 'pem',
+    }) as string
+
+    // Generate certificate signed by CA
+    const commonName = `${service.name}.${service.namespace}.mesh.dws`
+    const validDays = 365
+
+    const { spawnSync } = require('node:child_process')
+    const fs = require('node:fs')
+    const tmpDir = require('node:os').tmpdir()
+    const timestamp = Date.now()
+
+    // Write CA cert and key to temp files
+    const caCertPath = `${tmpDir}/ca-cert-${timestamp}.pem`
+    const caKeyPath = `${tmpDir}/ca-key-${timestamp}.pem`
+    const serviceKeyPath = `${tmpDir}/svc-key-${timestamp}.pem`
+    const csrPath = `${tmpDir}/svc-csr-${timestamp}.pem`
+    const certPath = `${tmpDir}/svc-cert-${timestamp}.pem`
+    const extPath = `${tmpDir}/svc-ext-${timestamp}.cnf`
+
+    fs.writeFileSync(caCertPath, ca.cert)
+    fs.writeFileSync(caKeyPath, ca.key)
+    fs.writeFileSync(serviceKeyPath, servicePrivateKeyPem)
+
+    // Generate CSR
+    const csrResult = spawnSync(
+      'openssl',
+      [
+        'req',
+        '-new',
+        '-key',
+        serviceKeyPath,
+        '-subj',
+        `/CN=${commonName}`,
+        '-out',
+        csrPath,
+      ],
+      { encoding: 'utf-8' },
+    )
+
+    if (csrResult.status !== 0) {
+      throw new Error(`Failed to generate CSR: ${csrResult.stderr}`)
     }
+
+    // Create extensions file for SAN
+    const extConfig = `
+basicConstraints=critical,CA:FALSE
+keyUsage=critical,digitalSignature,keyEncipherment
+extendedKeyUsage=serverAuth,clientAuth
+subjectAltName=DNS:${commonName},DNS:${service.name}.${service.namespace},DNS:${service.name}
+`
+    fs.writeFileSync(extPath, extConfig)
+
+    // Sign with CA
+    const signResult = spawnSync(
+      'openssl',
+      [
+        'x509',
+        '-req',
+        '-in',
+        csrPath,
+        '-CA',
+        caCertPath,
+        '-CAkey',
+        caKeyPath,
+        '-CAcreateserial',
+        '-out',
+        certPath,
+        '-days',
+        String(validDays),
+        '-extfile',
+        extPath,
+      ],
+      { encoding: 'utf-8' },
+    )
+
+    if (signResult.status !== 0) {
+      throw new Error(`Failed to sign certificate: ${signResult.stderr}`)
+    }
+
+    const cert = fs.readFileSync(certPath, 'utf-8')
+
+    // Cleanup temp files
+    fs.unlinkSync(caCertPath)
+    fs.unlinkSync(caKeyPath)
+    fs.unlinkSync(serviceKeyPath)
+    fs.unlinkSync(csrPath)
+    fs.unlinkSync(certPath)
+    fs.unlinkSync(extPath)
+    // CA serial file
+    try {
+      fs.unlinkSync(`${tmpDir}/ca-cert-${timestamp}.srl`)
+    } catch {
+      // Ignore if doesn't exist
+    }
+
+    // Cache the certificate
+    const expiresAt = Date.now() + validDays * 24 * 60 * 60 * 1000
+    serviceCertificates.set(service.id, {
+      cert,
+      key: servicePrivateKeyPem,
+      expiresAt,
+    })
+
+    console.log(`[ServiceMesh] Generated certificate for ${commonName}`)
+    return { cert, key: servicePrivateKeyPem }
   }
 
   /**
@@ -289,19 +555,83 @@ export class ServiceMesh {
    */
   async verifyCertificate(
     cert: string,
-    _expectedService?: ServiceSelector,
+    expectedService?: ServiceSelector,
   ): Promise<{
     valid: boolean
     service?: ServiceIdentity
   }> {
-    // Extract service identity from certificate
-    // In production, verify against CA
+    const ca = getOrCreateCA()
 
-    if (cert.includes('PLACEHOLDER')) {
-      return { valid: true }
+    // Parse and verify the certificate
+    let x509: X509Certificate
+    try {
+      x509 = new X509Certificate(cert)
+    } catch {
+      return { valid: false }
     }
 
-    return { valid: false }
+    // Verify against CA
+    const caCert = new X509Certificate(ca.cert)
+    if (!x509.verify(caCert.publicKey)) {
+      console.warn(
+        '[ServiceMesh] Certificate verification failed: invalid CA signature',
+      )
+      return { valid: false }
+    }
+
+    // Check expiration
+    const now = new Date()
+    if (new Date(x509.validTo) < now) {
+      console.warn('[ServiceMesh] Certificate verification failed: expired')
+      return { valid: false }
+    }
+    if (new Date(x509.validFrom) > now) {
+      console.warn(
+        '[ServiceMesh] Certificate verification failed: not yet valid',
+      )
+      return { valid: false }
+    }
+
+    // Extract service identity from CN
+    const cnMatch = x509.subject.match(/CN=([^,]+)/)
+    if (!cnMatch) {
+      return { valid: false }
+    }
+
+    const cn = cnMatch[1]
+    const parts = cn.split('.')
+    if (parts.length < 4 || parts[parts.length - 1] !== 'dws') {
+      return { valid: false }
+    }
+
+    const serviceName = parts[0]
+    const namespace = parts[1]
+
+    // Find the service
+    const service = await this.discoverService(serviceName, namespace)
+    if (!service) {
+      return { valid: true } // Certificate is valid but service not registered
+    }
+
+    // Check if matches expected service
+    if (expectedService) {
+      if (!this.matchesSelector(service, expectedService)) {
+        console.warn(
+          '[ServiceMesh] Certificate verification failed: service mismatch',
+        )
+        return { valid: false }
+      }
+    }
+
+    return { valid: true, service }
+  }
+
+  /**
+   * Get the CA certificate (for trust anchoring)
+   */
+  getCACertificate(): string {
+    const ca = getOrCreateCA()
+    return ca.cert
   }
 
   private generateServiceId(name: string, namespace: string): string {
@@ -456,6 +786,7 @@ const RegisterServiceBody = t.Object({
 export function createServiceMeshRouter(mesh: ServiceMesh) {
   return new Elysia({ prefix: '' })
     .get('/health', () => ({ status: 'healthy', services: services.size }))
+    .get('/ca', () => ({ cert: mesh.getCACertificate() }))
     .post(
       '/services',
       async ({ body, headers, set }) => {
@@ -570,6 +901,25 @@ export function createServiceMeshRouter(mesh: ServiceMesh) {
         return cert
       },
       { body: t.Object({ serviceId: t.String() }) },
+    )
+    .post(
+      '/certificates/verify',
+      async ({ body }) => {
+        const selector: ServiceSelector | undefined = body.expectedService
+          ? {
+              ...body.expectedService,
+              owner: body.expectedService.owner as Address | undefined,
+            }
+          : undefined
+        const result = await mesh.verifyCertificate(body.cert, selector)
+        return result
+      },
+      {
+        body: t.Object({
+          cert: t.String(),
+          expectedService: t.Optional(ServiceSelectorSchema),
+        }),
+      },
     )
 }
 

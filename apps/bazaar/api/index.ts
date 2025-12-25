@@ -83,7 +83,6 @@ export {
 export * from './games'
 export * from './indexer-client'
 export * from './markets'
-export * from './moderation-contracts'
 export {
   calculateCurrentLeverage,
   calculateFee,

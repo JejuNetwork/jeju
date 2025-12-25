@@ -57,9 +57,6 @@ contract LiquidityPaymaster is BasePaymaster {
         address _owner
     ) BasePaymaster(_entryPoint) {
         require(_token != address(0), "Invalid token");
-        if (_owner != msg.sender) {
-            _transferOwnership(_owner);
-        }
         require(_vault != address(0), "Invalid vault");
         require(_oracle != address(0), "Invalid oracle");
         require(_feeMargin <= MAX_FEE_MARGIN, "Fee margin too high");
@@ -68,6 +65,9 @@ contract LiquidityPaymaster is BasePaymaster {
         vault = _vault;
         oracle = IPriceOracle(_oracle);
         feeMargin = _feeMargin;
+        if (_owner != msg.sender) {
+            _transferOwnership(_owner);
+        }
     }
 
     function setFeeMargin(uint256 _feeMargin) external onlyOwner {

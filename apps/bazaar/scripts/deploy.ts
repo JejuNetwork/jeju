@@ -11,7 +11,11 @@
 import { existsSync } from 'node:fs'
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { getCoreAppUrl, getL1RpcUrl } from '@jejunetwork/config'
+import {
+  getCoreAppUrl,
+  getCurrentNetwork,
+  getL1RpcUrl,
+} from '@jejunetwork/config'
 import { $ } from 'bun'
 import { type Address, keccak256 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
@@ -33,7 +37,7 @@ interface DeployConfig {
 }
 
 function getConfig(): DeployConfig {
-  const network = (process.env.NETWORK || 'localnet') as DeployConfig['network']
+  const network = getCurrentNetwork()
 
   const configs: Record<DeployConfig['network'], Partial<DeployConfig>> = {
     localnet: {

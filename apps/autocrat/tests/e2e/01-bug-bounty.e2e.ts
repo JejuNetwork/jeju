@@ -126,9 +126,6 @@ test.describe('Bug Bounty Tabs', () => {
 
     // Should show leaderboard section
     await expect(page.getByText('Top Researchers')).toBeVisible()
-
-    // Coming soon message (placeholder)
-    await expect(page.getByText('Leaderboard coming soon...')).toBeVisible()
   })
 
   test('tabs maintain state on click', async ({ page }) => {

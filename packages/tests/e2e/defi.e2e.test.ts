@@ -4,14 +4,11 @@ import { join } from 'node:path'
 import { getContractAddresses } from '@jejunetwork/contracts'
 import type { ChainConfig } from '@jejunetwork/types'
 import { createPublicClient, http } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
-import { TEST_ACCOUNTS } from '../shared/utils'
 
 const CONFIG_PATH = join(process.cwd(), 'config', 'chain', 'localnet.json')
 
 describe('DeFi E2E Tests', () => {
   let publicClient: ReturnType<typeof createPublicClient>
-  let _account: ReturnType<typeof privateKeyToAccount>
   let deployment: {
     uniswapV4: { PoolManager?: string; SwapRouter?: string }
     synthetixV3: Record<string, string>
@@ -37,8 +34,6 @@ describe('DeFi E2E Tests', () => {
       throw new Error('Config file not found')
     }
     config = JSON.parse(readFileSync(CONFIG_PATH, 'utf-8'))
-
-    _account = privateKeyToAccount(TEST_ACCOUNTS.deployer.privateKey)
 
     publicClient = createPublicClient({
       transport: http(config.rpcUrl),

@@ -34,7 +34,7 @@ interface AgentRegistration {
   isSlashed: boolean
 }
 
-import { AgentSearchResponseSchema, expect } from '../schemas'
+import { AgentSearchResponseSchema, expect, expectTrue } from '../schemas'
 import type { CrucibleCompute } from './compute'
 import { createLogger, type Logger } from './logger'
 import type { CrucibleStorage } from './storage'
@@ -134,9 +134,18 @@ export class AgentSDK {
     const receipt = await this.publicClient.waitForTransactionReceipt({
       hash: txHash,
     })
-    const agentId = receipt.logs[0]?.topics[1]
-      ? BigInt(receipt.logs[0].topics[1])
-      : 0n
+
+    const log = receipt.logs[0]
+    if (!log) {
+      throw new Error('Agent registration failed: no logs in receipt')
+    }
+    const topic = log.topics[1]
+    if (!topic) {
+      throw new Error(
+        'Agent registration failed: agent ID not found in log topics',
+      )
+    }
+    const agentId = BigInt(topic)
 
     this.log.info('Agent registered', { agentId: agentId.toString(), txHash })
 
@@ -153,10 +162,10 @@ export class AgentSDK {
     initialFunding?: bigint,
   ): Promise<Address> {
     expect(this.walletClient, 'Wallet client required')
-    expect(agentId > 0n, 'Agent ID must be greater than 0')
+    expectTrue(agentId > 0n, 'Agent ID must be greater than 0')
 
     const funding = initialFunding ?? parseEther('0.01')
-    expect(funding >= 0n, 'Funding must be non-negative')
+    expectTrue(funding >= 0n, 'Funding must be non-negative')
     this.log.info('Creating vault', {
       agentId: agentId.toString(),
       funding: funding.toString(),
@@ -273,7 +282,7 @@ export class AgentSDK {
   }
 
   async loadCharacter(agentId: bigint): Promise<AgentCharacter> {
-    expect(agentId > 0n, 'Agent ID must be greater than 0')
+    expectTrue(agentId > 0n, 'Agent ID must be greater than 0')
     const agent = await this.getAgent(agentId)
     const validAgent = expect(agent, `Agent not found: ${agentId}`)
     const characterCid = expect(
@@ -284,7 +293,7 @@ export class AgentSDK {
   }
 
   async loadState(agentId: bigint): Promise<AgentState> {
-    expect(agentId > 0n, 'Agent ID must be greater than 0')
+    expectTrue(agentId > 0n, 'Agent ID must be greater than 0')
     const agent = await this.getAgent(agentId)
     const validAgent = expect(agent, `Agent not found: ${agentId}`)
     return this.storage.loadAgentState(validAgent.stateCid)
@@ -333,11 +342,11 @@ export class AgentSDK {
     content: string,
     options?: { importance?: number; roomId?: string; userId?: string },
   ): Promise<MemoryEntry> {
-    expect(agentId > 0n, 'Agent ID must be greater than 0')
+    expectTrue(agentId > 0n, 'Agent ID must be greater than 0')
     expect(content, 'Memory content is required')
-    expect(content.length > 0, 'Memory content cannot be empty')
+    expectTrue(content.length > 0, 'Memory content cannot be empty')
     if (options?.importance !== undefined) {
-      expect(
+      expectTrue(
         options.importance >= 0 && options.importance <= 1,
         'Importance must be between 0 and 1',
       )
@@ -402,8 +411,8 @@ export class AgentSDK {
 
   async withdrawFromVault(agentId: bigint, amount: bigint): Promise<string> {
     expect(this.walletClient, 'Wallet client required')
-    expect(agentId > 0n, 'Agent ID must be greater than 0')
-    expect(amount > 0n, 'Amount must be greater than 0')
+    expectTrue(agentId > 0n, 'Agent ID must be greater than 0')
+    expectTrue(amount > 0n, 'Amount must be greater than 0')
 
     this.log.info('Withdrawing from vault', {
       agentId: agentId.toString(),
@@ -513,14 +522,14 @@ export class AgentSDK {
     stateCid: string
   } {
     expect(uri, 'Token URI is required')
-    expect(uri.length > 0, 'Token URI cannot be empty')
+    expectTrue(uri.length > 0, 'Token URI cannot be empty')
     const [base, fragment] = uri.split('#')
     expect(base, 'Token URI must contain base part')
     expect(fragment, 'Token URI must contain fragment part')
     const characterCid = base.replace('ipfs://', '')
     const stateCid = fragment.replace('state=', '')
-    expect(characterCid.length > 0, 'Character CID cannot be empty')
-    expect(stateCid.length > 0, 'State CID cannot be empty')
+    expectTrue(characterCid.length > 0, 'Character CID cannot be empty')
+    expectTrue(stateCid.length > 0, 'State CID cannot be empty')
     return { characterCid, stateCid }
   }
 }

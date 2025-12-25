@@ -32,7 +32,8 @@ const MarketSchema = z.object({
   isActive: z.boolean(),
 })
 
-const _FundingDataSchema = z.object({
+/** Funding data schema - reserved for future funding data queries */
+export const FundingDataSchema = z.object({
   fundingRate: z.bigint(),
   fundingIndex: z.bigint(),
   lastFundingTime: z.bigint(),

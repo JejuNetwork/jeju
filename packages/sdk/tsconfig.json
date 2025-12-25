@@ -4,11 +4,7 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "composite": true,
-    "noEmit": false,
-    "noUnusedLocals": false,
-    "noUnusedParameters": false,
-    "resolveJsonModule": true,
-    "allowSyntheticDefaultImports": true
+    "noEmit": false
   },
   "include": ["src/**/*.ts", "src/**/*.json"],
   "exclude": ["node_modules", "dist/**", "test"]

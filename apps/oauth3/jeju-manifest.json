@@ -27,9 +27,7 @@
     "oauth3",
     "login",
     "identity",
-    "passthrough",
-    "mpc",
-    "tee"
+    "passthrough"
   ],
   "jns": {
     "name": "auth.jeju",
@@ -40,33 +38,6 @@
     "url": "http://localhost:4200/health",
     "interval": 30000
   },
-  "agent": {
-    "enabled": true,
-    "a2aEndpoint": "/a2a",
-    "mcpEndpoint": "/mcp",
-    "tags": [
-      "jeju-app",
-      "auth",
-      "oauth3",
-      "identity"
-    ],
-    "metadata": {
-      "category": "auth",
-      "provider": "jeju-network",
-      "features": [
-        "oauth3",
-        "mpc-signing",
-        "session-management",
-        "verifiable-credentials"
-      ]
-    },
-    "trustModels": [
-      "open",
-      "staked"
-    ],
-    "x402Support": false,
-    "jnsName": "auth.jeju"
-  },
   "dws": {
     "backend": {
       "enabled": true,
@@ -76,7 +47,7 @@
       "timeout": 30000,
       "minInstances": 2,
       "maxInstances": 10,
-      "teeRequired": true,
+      "teeRequired": false,
       "regions": [
         "global"
       ]
@@ -118,17 +89,8 @@
         "github",
         "google",
         "twitter",
-        "discord",
-        "apple",
-        "email",
-        "phone"
-      ],
-      "mpcCluster": "default",
-      "teeRequired": true
-    },
-    "secrets": {
-      "type": "kms",
-      "provider": "mpc"
+        "discord"
+      ]
     }
   },
   "decentralization": {

@@ -548,16 +548,20 @@ export async function processRegistryEvents(
           log.topics,
         )
 
-        // Mark existing feedback as revoked
         const agentId = BigInt(log.topics[1])
         const clientAddress = `0x${log.topics[2].slice(26)}`
         const feedbackIndex = args.feedbackIndex
 
-        // We'd need to look up the existing feedback and mark it revoked
-        // For now, we just log this event
-        ctx.log.info(
-          `Feedback revoked: agent ${agentId}, client ${clientAddress}, index ${feedbackIndex}`,
-        )
+        // Find and revoke the feedback entry
+        const feedbackId = `${agentId}-${clientAddress.toLowerCase()}-${feedbackIndex}`
+        const existingFeedback = await ctx.store.get(AgentFeedback, feedbackId)
+        if (existingFeedback) {
+          existingFeedback.isRevoked = true
+          feedbackEntries.push(existingFeedback)
+          ctx.log.info(
+            `Feedback revoked: agent ${agentId}, client ${clientAddress}, index ${feedbackIndex}`,
+          )
+        }
       } else if (topic0 === RESPONSE_APPENDED) {
         const args = decodeEventArgs<ResponseAppendedArgs>(
           reputationRegistryInterface,

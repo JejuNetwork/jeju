@@ -3,11 +3,24 @@
 import type { JsonRecord } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import {
+  createBounty,
+  createCIRun,
+  createIssue,
+  listAgents,
+  listBounties,
+  listCIRuns,
+  listIssues,
+  listJobs,
+  listModels,
+  listPullRequests,
+} from '../db/client'
+import {
   expectValid,
   MCPPromptGetBodySchema,
   MCPResourceReadBodySchema,
   MCPToolCallBodySchema,
 } from '../schemas'
+import { dwsClient } from '../services/dws'
 
 const SERVER_INFO = {
   name: 'jeju-factory',
@@ -152,8 +165,23 @@ const TOOLS = [
         description: { type: 'string', description: 'Detailed description' },
         reward: { type: 'string', description: 'Reward amount' },
         currency: { type: 'string', description: 'Reward currency' },
+        skills: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Required skills',
+        },
+        deadline: { type: 'number', description: 'Deadline timestamp' },
+        creator: { type: 'string', description: 'Creator address' },
       },
-      required: ['title', 'description', 'reward'],
+      required: [
+        'title',
+        'description',
+        'reward',
+        'currency',
+        'skills',
+        'deadline',
+        'creator',
+      ],
     },
   },
   {
@@ -203,70 +231,136 @@ const PROMPTS = [
   },
 ]
 
-function handleResourceRead(
-  uri: string,
-): { contents: Array<{ uri: string; mimeType: string; text: string }> } | null {
+async function handleResourceRead(uri: string): Promise<{
+  contents: Array<{ uri: string; mimeType: string; text: string }>
+} | null> {
   let contents: JsonRecord
 
   switch (uri) {
-    case 'factory://git/repos':
+    case 'factory://git/repos': {
+      const repos = await dwsClient.listRepositories()
       contents = {
-        repositories: [
-          {
-            name: 'jeju/protocol',
-            stars: 1250,
-            forks: 340,
-            language: 'Solidity',
-          },
-          { name: 'jeju/sdk', stars: 890, forks: 120, language: 'TypeScript' },
-        ],
+        repositories: repos.map((r) => ({
+          name: r.name,
+          owner: r.owner,
+          stars: r.stars,
+          forks: r.forks,
+        })),
+        total: repos.length,
       }
       break
-    case 'factory://packages':
+    }
+    case 'factory://git/issues': {
+      const result = listIssues({ status: 'open' })
       contents = {
-        packages: [
-          { name: '@jejunetwork/sdk', version: '1.5.2', downloads: 45000 },
-          {
-            name: '@jejunetwork/contracts',
-            version: '2.0.0',
-            downloads: 32000,
-          },
-        ],
+        issues: result.issues.map((i) => ({
+          id: i.id,
+          number: i.number,
+          repo: i.repo,
+          title: i.title,
+          status: i.status,
+        })),
+        total: result.total,
       }
       break
-    case 'factory://models':
+    }
+    case 'factory://git/pulls': {
+      const result = listPullRequests({ status: 'open' })
       contents = {
-        models: [
-          { id: 'jeju/llama-3-jeju-ft', downloads: 15000, type: 'llm' },
-          { id: 'jeju/code-embed-v1', downloads: 8500, type: 'embedding' },
-        ],
+        pulls: result.pulls.map((p) => ({
+          id: p.id,
+          number: p.number,
+          repo: p.repo,
+          title: p.title,
+          status: p.status,
+        })),
+        total: result.total,
       }
       break
-    case 'factory://bounties':
+    }
+    case 'factory://packages': {
+      const packages = await dwsClient.searchPackages('')
       contents = {
-        bounties: [
-          {
-            id: '1',
-            title: 'Implement ERC-4337',
-            reward: '5000 USDC',
-            status: 'open',
-          },
-          {
-            id: '2',
-            title: 'Build Dashboard',
-            reward: '2500 USDC',
-            status: 'in_progress',
-          },
-        ],
+        packages: packages.map((p) => ({
+          name: p.name,
+          version: p.version,
+          downloads: p.downloads,
+        })),
+        total: packages.length,
       }
       break
-    case 'factory://ci/runs':
+    }
+    case 'factory://models': {
+      const models = listModels({})
       contents = {
-        runs: [
-          { id: 'run-1', workflow: 'Build & Test', status: 'success' },
-          { id: 'run-2', workflow: 'Deploy', status: 'running' },
-        ],
+        models: models.map((m) => ({
+          id: m.id,
+          name: m.name,
+          type: m.type,
+          downloads: m.downloads,
+          stars: m.stars,
+        })),
+        total: models.length,
       }
+      break
+    }
+    case 'factory://bounties': {
+      const result = listBounties({ status: 'open' })
+      contents = {
+        bounties: result.bounties.map((b) => ({
+          id: b.id,
+          title: b.title,
+          reward: b.reward,
+          currency: b.currency,
+          status: b.status,
+        })),
+        total: result.total,
+      }
+      break
+    }
+    case 'factory://jobs': {
+      const result = listJobs({ status: 'open' })
+      contents = {
+        jobs: result.jobs.map((j) => ({
+          id: j.id,
+          title: j.title,
+          company: j.company,
+          type: j.type,
+          remote: j.remote === 1,
+        })),
+        total: result.total,
+      }
+      break
+    }
+    case 'factory://ci/runs': {
+      const result = listCIRuns({})
+      contents = {
+        runs: result.runs.map((r) => ({
+          id: r.id,
+          workflow: r.workflow,
+          status: r.status,
+          branch: r.branch,
+        })),
+        total: result.total,
+      }
+      break
+    }
+    case 'factory://agents': {
+      const agents = listAgents({ active: true })
+      contents = {
+        agents: agents.map((a) => ({
+          agentId: a.agent_id,
+          name: a.name,
+          botType: a.bot_type,
+          reputation: a.reputation,
+        })),
+        total: agents.length,
+      }
+      break
+    }
+    case 'factory://feed':
+      // Feed would come from Farcaster integration
+      contents = { posts: [], total: 0 }
       break
     default:
       return null
@@ -283,66 +377,135 @@ function handleResourceRead(
   }
 }
 
-function handleToolCall(
+async function handleToolCall(
   name: string,
   args: JsonRecord,
-): { content: Array<{ type: string; text: string }>; isError: boolean } {
+): Promise<{
+  content: Array<{ type: string; text: string }>
+  isError: boolean
+}> {
   let result: JsonRecord
   let isError = false
 
   switch (name) {
-    case 'create_repository':
+    case 'create_repository': {
+      const repo = await dwsClient.createRepository({
+        name: args.name as string,
+        description: args.description as string | undefined,
+        isPrivate: args.isPrivate as boolean | undefined,
+      })
       result = {
-        id: `repo-${Date.now()}`,
+        id: repo.id,
+        name: repo.name,
+        url: repo.cloneUrl,
+        cloneUrl: repo.cloneUrl,
+      }
+      break
+    }
+    case 'create_issue': {
+      const issue = createIssue({
+        repo: args.repo as string,
+        title: args.title as string,
+        body: (args.body as string) ?? '',
+        author: (args.author as string) ?? 'mcp-tool',
+      })
+      result = {
+        id: issue.id,
+        number: issue.number,
+        repo: issue.repo,
+        title: issue.title,
+      }
+      break
+    }
+    case 'search_packages': {
+      const packages = await dwsClient.searchPackages(
+        (args.query as string) ?? '',
+      )
+      result = {
+        packages: packages.map((p) => ({
+          name: p.name,
+          version: p.version,
+          description: p.description ?? '',
+        })),
+        total: packages.length,
+      }
+      break
+    }
+    case 'search_models': {
+      const models = listModels({
+        type: args.type as string | undefined,
+      })
+      result = {
+        models: models.map((m) => ({
+          id: m.id,
+          name: m.name,
+          type: m.type,
+          downloads: m.downloads,
+        })),
+        total: models.length,
+      }
+      break
+    }
+    case 'list_bounties': {
+      const bountyResult = listBounties({
+        status: args.status as string | undefined,
+        skill: args.skill as string | undefined,
+      })
+      result = {
+        bounties: bountyResult.bounties.map((b) => ({
+          id: b.id,
+          title: b.title,
+          reward: b.reward,
+          currency: b.currency,
+          status: b.status,
+        })),
+        total: bountyResult.total,
+      }
+      break
+    }
+    case 'create_bounty': {
+      const bounty = createBounty({
+        title: args.title as string,
+        description: args.description as string,
+        reward: args.reward as string,
+        currency: (args.currency as string) ?? 'USDC',
+        skills: (args.skills as string[]) ?? [],
+        deadline:
+          (args.deadline as number) ?? Date.now() + 30 * 24 * 60 * 60 * 1000,
+        creator: (args.creator as string) ?? 'mcp-tool',
+      })
+      result = {
+        id: bounty.id,
+        title: bounty.title,
+        reward: bounty.reward,
+        currency: bounty.currency,
+        status: bounty.status,
+      }
+      break
+    }
+    case 'trigger_workflow': {
+      const run = createCIRun({
+        repo: args.repo as string,
+        workflow: args.workflow as string,
+        branch: (args.branch as string) ?? 'main',
+      })
+      result = {
+        runId: run.id,
+        workflow: run.workflow,
+        status: run.status,
+      }
+      break
+    }
+    case 'deploy_agent': {
+      // Agent deployment would go through Crucible
+      result = {
+        message:
+          'Agent deployment requires authentication. Use the /api/agents endpoint.',
         name: args.name,
-        url: `https://git.jejunetwork.org/${args.name}`,
-        cloneUrl: `https://git.jejunetwork.org/${args.name}.git`,
+        type: args.type,
       }
       break
-    case 'search_packages':
-      result = {
-        packages: [
-          {
-            name: '@jejunetwork/sdk',
-            version: '1.5.2',
-            description: 'Jeju Network SDK',
-          },
-        ],
-        total: 1,
-      }
-      break
-    case 'search_models':
-      result = {
-        models: [{ id: 'jeju/llama-3-jeju-ft', downloads: 15000, type: 'llm' }],
-      }
-      break
-    case 'list_bounties':
-      result = {
-        bounties: [
-          {
-            id: '1',
-            title: 'Implement ERC-4337',
-            reward: '5000',
-            currency: 'USDC',
-            status: 'open',
-          },
-        ],
-      }
-      break
-    case 'trigger_workflow':
-      result = {
-        runId: `run-${Date.now()}`,
-        workflow: args.workflow,
-        status: 'queued',
-      }
-      break
-    case 'deploy_agent':
-      result = {
-        agentId: `agent-${Date.now()}`,
-        name: args.name,
-        status: 'deploying',
-      }
-      break
+    }
     default:
       result = { error: 'Tool not found' }
       isError = true
@@ -397,7 +560,7 @@ export const mcpRoutes = new Elysia({ prefix: '/api/mcp' })
         body,
         'request body',
       )
-      const result = handleResourceRead(validated.uri)
+      const result = await handleResourceRead(validated.uri)
       if (!result) {
         set.status = 404
         return { error: 'Resource not found' }

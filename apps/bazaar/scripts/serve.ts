@@ -7,8 +7,8 @@
 
 import { CORE_PORTS, getCoreAppUrl } from '@jejunetwork/config'
 
-const PORT = Number(process.env.PORT) || CORE_PORTS.BAZAAR.get()
-const API_URL = process.env.API_URL || getCoreAppUrl('BAZAAR_API')
+const PORT = CORE_PORTS.BAZAAR.get()
+const API_URL = getCoreAppUrl('BAZAAR_API')
 const STATIC_DIR = './dist/static'
 
 Bun.serve({

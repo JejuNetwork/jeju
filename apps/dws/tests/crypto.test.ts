@@ -27,7 +27,7 @@ import {
   verifyAttestation,
   verifyBatch,
   verifyProofOfPossession,
-} from '../src/da/crypto/bls'
+} from '../api/da/crypto/bls'
 // Hash-to-Curve
 import {
   addG1Points,
@@ -39,7 +39,7 @@ import {
   mulG1,
   verifyG1Point,
   verifyG2Point,
-} from '../src/da/crypto/hash-to-curve'
+} from '../api/da/crypto/hash-to-curve'
 // KZG Commitments
 import {
   BLOB_SIZE,
@@ -52,7 +52,7 @@ import {
   verifyBlobProof,
   verifyBlobProofBatch,
   verifyCommitmentForData,
-} from '../src/da/crypto/kzg'
+} from '../api/da/crypto/kzg'
 // 2D Reed-Solomon
 import {
   canReconstruct,
@@ -65,7 +65,7 @@ import {
   gfPow,
   reconstruct2D,
   verifyExtended,
-} from '../src/da/crypto/reed-solomon-2d'
+} from '../api/da/crypto/reed-solomon-2d'
 
 // BLS12-381 Tests
 

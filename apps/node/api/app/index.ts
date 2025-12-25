@@ -5,6 +5,7 @@ import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { createInterface } from 'node:readline'
 import { parseArgs } from 'node:util'
+import { getCurrentNetwork } from '@jejunetwork/config'
 import { expectAddress, expectHex } from '@jejunetwork/types'
 import chalk from 'chalk'
 import { formatEther } from 'viem'
@@ -693,31 +694,14 @@ async function main(): Promise<void> {
 
   const [command, ...args] = positionals
 
-  if (process.env.JEJU_NETWORK) {
-    const envNetwork = process.env.JEJU_NETWORK
-    if (
-      envNetwork !== 'testnet' &&
-      envNetwork !== 'mainnet' &&
-      envNetwork !== 'localnet'
-    ) {
-      throw new Error(
-        `Invalid JEJU_NETWORK environment variable: ${envNetwork}. Must be 'testnet', 'mainnet', or 'localnet'`,
-      )
-    }
-    const config = loadConfig()
+  // Sync network from environment if set
+  const envNetwork = getCurrentNetwork()
+  const config = loadConfig()
+  if (config.network !== envNetwork) {
+    const { getChainId, getRpcUrl } = await import('@jejunetwork/config')
     config.network = envNetwork
-    config.rpcUrl =
-      config.network === 'mainnet'
-        ? 'https://rpc.jejunetwork.org'
-        : config.network === 'testnet'
-          ? 'https://testnet-rpc.jejunetwork.org'
-          : 'http://localhost:6545'
-    config.chainId =
-      config.network === 'mainnet'
-        ? 420690
-        : config.network === 'testnet'
-          ? 420691
-          : 31337
+    config.rpcUrl = getRpcUrl(envNetwork)
+    config.chainId = getChainId(envNetwork)
     saveConfig(config)
   }
 

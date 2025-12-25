@@ -79,6 +79,11 @@
       "api": "http://127.0.0.1:4200",
       "tee": "http://127.0.0.1:4201"
     },
+    "tee": {
+      "mode": "simulated",
+      "platform": "local",
+      "region": "local"
+    },
     "oracle": {
       "api": "http://127.0.0.1:4070",
       "feeds": "http://127.0.0.1:4071"
@@ -180,6 +185,12 @@
     "oauth3": {
       "api": "https://oauth3.testnet.jejunetwork.org",
       "tee": "https://oauth3.testnet.jejunetwork.org/tee"
+    },
+    "tee": {
+      "mode": "phala",
+      "platform": "phala",
+      "region": "global",
+      "endpoint": "https://tee.testnet.jejunetwork.org"
     },
     "oracle": {
       "api": "https://oracle.testnet.jejunetwork.org",
@@ -283,6 +294,12 @@
     "oauth3": {
       "api": "https://oauth3.jejunetwork.org",
       "tee": "https://oauth3.jejunetwork.org/tee"
+    },
+    "tee": {
+      "mode": "phala",
+      "platform": "phala",
+      "region": "global",
+      "endpoint": "https://tee.jejunetwork.org"
     },
     "oracle": {
       "api": "https://oracle.jejunetwork.org",

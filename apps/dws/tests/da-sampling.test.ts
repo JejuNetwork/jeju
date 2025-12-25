@@ -19,7 +19,7 @@ import {
   generateSampleIndices,
   SampleVerifier,
   verifyPeerDASSampling,
-} from '../src/da/sampling'
+} from '../api/da/sampling'
 
 const TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address
 
@@ -288,7 +288,8 @@ describe('verifyPeerDASSampling', () => {
 
 describe('DASampler', () => {
   it('should use default config', () => {
-    const _sampler = new DASampler({})
+    // Verify DASampler can be constructed with empty config
+    new DASampler({})
 
     expect(DEFAULT_SAMPLING_CONFIG.sampleCount).toBe(16)
     expect(DEFAULT_SAMPLING_CONFIG.targetConfidence).toBe(0.9999)

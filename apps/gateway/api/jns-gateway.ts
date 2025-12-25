@@ -1,4 +1,5 @@
 import { cors } from '@elysiajs/cors'
+import { getRpcUrl } from '@jejunetwork/config'
 import { getCacheClient, readContract } from '@jejunetwork/shared'
 import { Elysia } from 'elysia'
 import {
@@ -542,10 +543,7 @@ export async function startJNSGateway(): Promise<JNSGateway> {
 
   const config: JNSGatewayConfig = {
     port: parseInt(process.env.JNS_GATEWAY_PORT ?? '4005', 10),
-    rpcUrl:
-      process.env.JEJU_RPC_URL ??
-      process.env.RPC_URL ??
-      'http://localhost:6546',
+    rpcUrl: getRpcUrl(),
     jnsRegistryAddress: registryAddress,
     ipfsGatewayUrl,
     defaultResolver,

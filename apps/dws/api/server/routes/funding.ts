@@ -11,6 +11,7 @@
  * All data is read from on-chain contracts, no centralized database.
  */
 
+import { getCurrentNetwork } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import type { Address, Hex } from 'viem'
 import { createPublicClient, http, parseAbi } from 'viem'
@@ -298,7 +299,7 @@ interface FundingConfig {
 }
 
 function getConfig(): FundingConfig {
-  const network = process.env.NETWORK || 'localnet'
+  const network = getCurrentNetwork()
 
   // Load from deployment config or env
   const contracts = {
@@ -571,7 +572,7 @@ export function createFundingRouter() {
     const blockNumber = await publicClient.getBlockNumber()
     return {
       status: 'ok',
-      network: process.env.NETWORK || 'localnet',
+      network: getCurrentNetwork(),
       rpcUrl: config.rpcUrl,
       blockNumber: blockNumber.toString(),
       contracts: config.contracts,

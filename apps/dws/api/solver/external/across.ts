@@ -12,6 +12,7 @@
  */
 
 import { EventEmitter } from 'node:events'
+import { expectValid, HexSchema } from '@jejunetwork/types'
 import {
   type Address,
   encodeAbiParameters,
@@ -21,6 +22,7 @@ import {
   parseAbiParameters,
   type WalletClient,
 } from 'viem'
+import { z } from 'zod'
 
 // Across SpokePool addresses (mainnet)
 export const ACROSS_SPOKE_POOLS: Record<number, Address> = {
@@ -39,22 +41,22 @@ export const ACROSS_SPOKE_POOLS_TESTNET: Record<number, Address> = {
   11155420: '0x4e8E101E1C85DB23c021eD76c6E28f2fAd3b8cc8', // OP Sepolia
 }
 
-/** Event args from V3FundsDeposited log */
-interface V3FundsDepositedArgs {
-  inputToken: Address
-  outputToken: Address
-  inputAmount: bigint
-  outputAmount: bigint
-  destinationChainId: bigint
-  depositId: number
-  quoteTimestamp: number
-  fillDeadline: number
-  exclusivityDeadline: number
-  depositor: Address
-  recipient: Address
-  exclusiveRelayer: Address
-  message: `0x${string}`
-}
+/** Schema for V3FundsDeposited event args validation */
+const V3FundsDepositedArgsSchema = z.object({
+  inputToken: HexSchema,
+  outputToken: HexSchema,
+  inputAmount: z.bigint(),
+  outputAmount: z.bigint(),
+  destinationChainId: z.bigint(),
+  depositId: z.number(),
+  quoteTimestamp: z.number(),
+  fillDeadline: z.number(),
+  exclusivityDeadline: z.number(),
+  depositor: HexSchema,
+  recipient: HexSchema,
+  exclusiveRelayer: HexSchema,
+  message: HexSchema,
+})
 
 export interface AcrossDeposit {
   depositId: number
@@ -195,7 +197,11 @@ export class AcrossAdapter extends EventEmitter {
       transactionHash: `0x${string}`
     },
   ): void {
-    const args = log.args as unknown as V3FundsDepositedArgs
+    const args = expectValid(
+      V3FundsDepositedArgsSchema,
+      log.args,
+      'V3FundsDeposited event args',
+    )
 
     const deposit: AcrossDeposit = {
       depositId: args.depositId,

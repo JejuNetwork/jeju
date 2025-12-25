@@ -8,7 +8,7 @@ import {
   keccak256,
 } from 'viem'
 import { foundry } from 'viem/chains'
-import { CHAINLINK_AGGREGATOR_ABI, UNISWAP_V3_POOL_ABI } from './abis'
+import { CHAINLINK_AGGREGATOR_ABI, UNISWAP_V3_POOL_ABI } from '@jejunetwork/shared'
 
 export type { PriceData }
 

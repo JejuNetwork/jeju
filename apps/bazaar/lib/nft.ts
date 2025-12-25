@@ -4,6 +4,7 @@
  * Extracted from hooks and pages for testability and reuse.
  */
 
+import { formatAddress } from '@jejunetwork/shared'
 import {
   AddressSchema,
   BigIntSchema,
@@ -13,6 +14,8 @@ import {
 import { formatEther, parseEther } from 'viem'
 import { z } from 'zod'
 import type { NormalizedNFT } from '../schemas/nft'
+
+export { formatAddress }
 
 export const ListingParamsSchema = z.object({
   nftContract: AddressSchema,
@@ -320,12 +323,4 @@ export function isNFTOwner(nft: NormalizedNFT, address: string): boolean {
 
   // ERC1155 - check balance
   return Number(nft.balance) > 0
-}
-
-/**
- * Format an address for display by truncating the middle
- */
-export function formatAddress(address: string, chars = 4): string {
-  if (address.length <= chars * 2 + 4) return address
-  return `${address.slice(0, chars + 2)}...${address.slice(-chars)}`
 }

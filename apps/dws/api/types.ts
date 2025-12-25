@@ -631,5 +631,3 @@ export interface InferenceResponse {
   }
 }
 
-// ContentHash now canonical in lib/types - re-export for API consumers
-export type { ContentHash, JNSGatewayConfig } from '../lib/types'

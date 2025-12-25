@@ -311,7 +311,13 @@ async function executeSettlement(
     payment.nonce,
   )
   if (!nonceReservation.reserved) {
-    return { success: false, error: nonceReservation.error }
+    return {
+      success: false,
+      txHash: null,
+      paymentId: null,
+      protocolFee: null,
+      error: nonceReservation.error ?? null,
+    }
   }
 
   pendingSettlements.set(settlementKey, { timestamp: Date.now(), payment })
@@ -324,7 +330,13 @@ async function executeSettlement(
   if (!prereq.valid) {
     await markFailed(payment.payer, payment.nonce)
     pendingSettlements.delete(settlementKey)
-    return { success: false, error: prereq.error }
+    return {
+      success: false,
+      txHash: null,
+      paymentId: null,
+      protocolFee: null,
+      error: prereq.error ?? null,
+    }
   }
 
   let lastError: Error | null = null
@@ -374,7 +386,13 @@ async function executeSettlement(
       await markUsed(payment.payer, payment.nonce)
       pendingSettlements.delete(settlementKey)
 
-      return { success: true, txHash: hash, paymentId, protocolFee }
+      return {
+        success: true,
+        txHash: hash,
+        paymentId: paymentId ?? null,
+        protocolFee: protocolFee ?? null,
+        error: null,
+      }
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error))
       console.error(
@@ -388,7 +406,13 @@ async function executeSettlement(
 
   await markFailed(payment.payer, payment.nonce)
   pendingSettlements.delete(settlementKey)
-  return { success: false, error: lastError?.message ?? 'Settlement failed' }
+  return {
+    success: false,
+    txHash: null,
+    paymentId: null,
+    protocolFee: null,
+    error: lastError?.message ?? 'Settlement failed',
+  }
 }
 
 function isRetryableError(error: Error): boolean {

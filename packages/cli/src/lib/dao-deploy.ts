@@ -14,6 +14,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { getRpcUrl } from '@jejunetwork/config'
 import {
   daoFundingAbi,
   daoRegistryAbi,
@@ -133,10 +134,7 @@ const CHAINS: Record<NetworkType, Chain> = {
 function getChainConfig(network: NetworkType) {
   return {
     chain: CHAINS[network],
-    rpcUrl:
-      network === 'localnet'
-        ? (process.env.LOCAL_RPC_URL ?? CHAIN_CONFIG[network].rpcUrl)
-        : CHAIN_CONFIG[network].rpcUrl,
+    rpcUrl: network === 'localnet' ? getRpcUrl() : CHAIN_CONFIG[network].rpcUrl,
   }
 }
 
@@ -770,13 +768,12 @@ export function discoverDAOManifests(rootDir: string): DAOManifest[] {
 
 // NOTE: DAOAllocationRegistry contract not yet deployed
 // These allocation types are for future use when inter-DAO allocations are supported
-const _ALLOCATION_TYPES = {
+export const DAO_ALLOCATION_TYPES = {
   'deep-funding': 0,
   'fee-share': 1,
   recurring: 2,
   'one-time': 3,
 } as const
-void _ALLOCATION_TYPES
 
 export interface MultiDAODeployOptions extends DAODeployOptions {
   all?: boolean

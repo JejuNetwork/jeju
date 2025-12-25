@@ -3,10 +3,8 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
-    "noUnusedLocals": false,
-    "noUnusedParameters": false,
     "jsx": "react-jsx",
-    "esModuleInterop": true
+    "noUnusedLocals": false
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "tests"]

@@ -1,14 +1,21 @@
 /**
  * API client utilities for browser
+ *
+ * Uses PUBLIC_ env for API URL with sensible fallback.
  */
 
 import type { Address } from 'viem'
 import type { z } from 'zod'
 
-export const API_BASE =
-  typeof import.meta.env !== 'undefined'
-    ? String(import.meta.env.VITE_API_URL || '/api')
-    : '/api'
+/** Get env var from import.meta.env (browser) */
+function getEnv(key: string): string | undefined {
+  if (typeof import.meta?.env === 'object') {
+    return import.meta.env[key] as string | undefined
+  }
+  return undefined
+}
+
+export const API_BASE = getEnv('PUBLIC_API_URL') || '/api'
 
 export class ApiError extends Error {
   constructor(

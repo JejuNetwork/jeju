@@ -49,9 +49,6 @@ Quick links:
 import { 
   createOAuth3Client, 
   AuthProvider,
-  // MPC/FROST
-  FROSTCoordinator,
-  generateKeyShares,
   // Credentials
   VerifiableCredentialIssuer,
   // Providers
@@ -61,6 +58,7 @@ import {
   OAuth3JNSService,
   OAuth3StorageService,
 } from '@jejunetwork/auth';
+import { FROSTCoordinator, generateKeyShares } from '@jejunetwork/kms';
 
 // Create client
 const oauth3 = createOAuth3Client({
@@ -285,7 +283,7 @@ All OAuth3 nodes run inside TEEs and provide attestation quotes that can be veri
 Keys never exist in full form - they're split across nodes using FROST threshold signatures:
 
 ```typescript
-import { generateKeyShares, FROSTCoordinator } from '@jejunetwork/auth';
+import { generateKeyShares, FROSTCoordinator } from '@jejunetwork/kms';
 
 // Generate 3 shares with threshold 2
 const shares = generateKeyShares(3, 2);

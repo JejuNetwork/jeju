@@ -187,11 +187,6 @@ describe('Intent Event Parsing', () => {
   })
 
   test('should compute correct event topic', () => {
-    const abi = parseAbi(OPEN_EVENT_ABI)
-    const _event = abi.find(
-      (item) => item.type === 'event' && item.name === 'Open',
-    )
-
     // Compute topic hash manually
     const eventSignature = 'Open(bytes32,tuple)'
     const topic = keccak256(stringToBytes(eventSignature))

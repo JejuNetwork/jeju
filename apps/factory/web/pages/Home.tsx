@@ -27,8 +27,6 @@ export function HomePage() {
   const { packages, isLoading: packagesLoading } = usePackages()
 
   const featuredBounties = bounties.slice(0, 3)
-  const _isStatsLoading =
-    bountyStatsLoading || jobStatsLoading || repoStatsLoading || packagesLoading
 
   const stats = [
     {

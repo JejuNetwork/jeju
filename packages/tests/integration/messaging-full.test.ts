@@ -107,24 +107,6 @@ const _KEY_REGISTRY_ABI = [
 ] as const
 
 let anvilProcess: Subprocess | null = null
-const _relayProcess: Subprocess | null = null
-const _mockHubProcess: Subprocess | null = null
-let _keyRegistryAddress: Address
-let _nodeRegistryAddress: Address
-
-async function _waitForPort(port: number, timeout = 30000): Promise<boolean> {
-  const start = Date.now()
-  while (Date.now() - start < timeout) {
-    try {
-      const response = await fetch(`http://127.0.0.1:${port}`)
-      if (response.ok || response.status < 500) return true
-    } catch {
-      // Port not ready
-    }
-    await Bun.sleep(200)
-  }
-  return false
-}
 
 async function waitForRpc(port: number, timeout = 30000): Promise<boolean> {
   const start = Date.now()
@@ -376,9 +358,7 @@ beforeAll(async () => {
 
   // Deploy contracts
   console.log('[Setup] Deploying contracts...')
-  const contracts = await deployMessagingContracts()
-  _keyRegistryAddress = contracts.keyRegistry
-  _nodeRegistryAddress = contracts.nodeRegistry
+  await deployMessagingContracts()
 
   console.log('[Setup] Ready\n')
 }, 60000)

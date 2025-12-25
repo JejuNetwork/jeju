@@ -78,11 +78,9 @@ const TEEPlatformSchema = z.enum(['intel_tdx', 'amd_sev', 'simulator', 'none'])
 type TEEPlatform = z.infer<typeof TEEPlatformSchema>
 type TEEMode = 'dstack' | 'local'
 
-// dstack endpoint - defaults to DWS compute which runs dstack
+// dstack endpoint - resolves from network config (handles env overrides)
 function getDStackEndpoint(): string {
-  return (
-    process.env.DSTACK_ENDPOINT ?? process.env.DWS_URL ?? getDWSComputeUrl()
-  )
+  return getDWSComputeUrl()
 }
 
 function getTEEPlatform(): TEEPlatform {
@@ -103,9 +101,6 @@ function getTEEPlatform(): TEEPlatform {
       return 'simulator' // Local dev uses simulator
   }
 }
-
-const USE_ENCRYPTION = process.env.USE_ENCRYPTION !== 'false'
-const BACKUP_TO_DA = process.env.BACKUP_TO_DA !== 'false'
 
 function getDerivedKey(): Buffer {
   const secret = process.env.TEE_ENCRYPTION_SECRET
@@ -300,28 +295,24 @@ export async function makeTEEDecision(
   const result: TEEDecisionResult =
     mode === 'dstack' ? await callDStack(context) : makeLocalDecision(context)
 
-  // Apply additional encryption layer via KMS
-  if (USE_ENCRYPTION) {
-    const decisionData: DecisionData = {
-      proposalId: context.proposalId,
-      approved: result.approved,
-      reasoning: result.publicReasoning,
-      confidenceScore: result.confidenceScore,
-      alignmentScore: result.alignmentScore,
-      autocratVotes: context.autocratVotes,
-      researchSummary: context.researchReport,
-      model: mode === 'dstack' ? `dstack-${platform}` : 'local',
-      timestamp: Date.now(),
-    }
-
-    result.encrypted = await encryptDecision(decisionData)
+  // Apply encryption layer via KMS
+  const decisionData: DecisionData = {
+    proposalId: context.proposalId,
+    approved: result.approved,
+    reasoning: result.publicReasoning,
+    confidenceScore: result.confidenceScore,
+    alignmentScore: result.alignmentScore,
+    autocratVotes: context.autocratVotes,
+    researchSummary: context.researchReport,
+    model: mode === 'dstack' ? `dstack-${platform}` : 'local',
+    timestamp: Date.now(),
   }
+
+  result.encrypted = await encryptDecision(decisionData)
 
   // Backup to DA layer
-  if (BACKUP_TO_DA && result.encrypted) {
-    const backup = await backupToDA(context.proposalId, result.encrypted)
-    result.daBackupHash = backup.hash
-  }
+  const backup = await backupToDA(context.proposalId, result.encrypted)
+  result.daBackupHash = backup.hash
 
   return result
 }

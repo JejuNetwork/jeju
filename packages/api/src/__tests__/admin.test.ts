@@ -41,7 +41,10 @@ describe('Admin Core', () => {
       )
 
       expect(result.valid).toBe(true)
-      expect(result.admin?.role).toBe(AdminRole.SUPER_ADMIN)
+      if (!result.valid || !result.admin) {
+        throw new Error('Expected valid admin result')
+      }
+      expect(result.admin.role).toBe(AdminRole.SUPER_ADMIN)
     })
 
     test('validates regular admin', () => {
@@ -54,7 +57,10 @@ describe('Admin Core', () => {
       )
 
       expect(result.valid).toBe(true)
-      expect(result.admin?.role).toBe(AdminRole.ADMIN)
+      if (!result.valid || !result.admin) {
+        throw new Error('Expected valid admin result')
+      }
+      expect(result.admin.role).toBe(AdminRole.ADMIN)
     })
 
     test('validates moderator', () => {
@@ -67,7 +73,10 @@ describe('Admin Core', () => {
       )
 
       expect(result.valid).toBe(true)
-      expect(result.admin?.role).toBe(AdminRole.MODERATOR)
+      if (!result.valid || !result.admin) {
+        throw new Error('Expected valid admin result')
+      }
+      expect(result.admin.role).toBe(AdminRole.MODERATOR)
     })
 
     test('rejects non-admin', () => {

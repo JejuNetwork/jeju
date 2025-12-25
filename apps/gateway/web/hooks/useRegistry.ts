@@ -380,28 +380,28 @@ interface StakeInfoData {
 }
 
 export function useRegistryAppDetails(agentId: bigint) {
-  const { data: owner } = useReadContract({
+  const { data: owner, refetch: refetchOwner } = useReadContract({
     address: REGISTRY_ADDRESS,
     abi: IDENTITY_REGISTRY_ABI,
     functionName: 'ownerOf',
     args: [agentId],
   })
 
-  const { data: stakeInfo } = useReadContract({
+  const { data: stakeInfo, refetch: refetchStake } = useReadContract({
     address: REGISTRY_ADDRESS,
     abi: IDENTITY_REGISTRY_ABI,
     functionName: 'getStakeInfo',
     args: [agentId],
   })
 
-  const { data: tags } = useReadContract({
+  const { data: tags, refetch: refetchTags } = useReadContract({
     address: REGISTRY_ADDRESS,
     abi: IDENTITY_REGISTRY_ABI,
     functionName: 'getAgentTags',
     args: [agentId],
   })
 
-  const { data: a2aEndpoint } = useReadContract({
+  const { data: a2aEndpoint, refetch: refetchEndpoint } = useReadContract({
     address: REGISTRY_ADDRESS,
     abi: IDENTITY_REGISTRY_ABI,
     functionName: 'getA2AEndpoint',
@@ -424,12 +424,19 @@ export function useRegistryAppDetails(agentId: bigint) {
       }
     : null
 
+  const refetch = async () => {
+    await Promise.all([
+      refetchOwner(),
+      refetchStake(),
+      refetchTags(),
+      refetchEndpoint(),
+    ])
+  }
+
   return {
     app,
     isLoading,
-    refetch: async () => {
-      /* placeholder for future implementation */
-    },
+    refetch,
   }
 }
 

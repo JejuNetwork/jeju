@@ -12,13 +12,12 @@ import {
   checkDWSCompute,
   dwsGenerate,
 } from '../../api/agents/runtime'
-import { ensureServices, type TestEnv } from '../setup'
+import { ensureServices } from '../setup'
 
-let _env: TestEnv
 let dwsComputeWorking = false
 
 beforeAll(async () => {
-  _env = await ensureServices({ dws: true })
+  await ensureServices({ dws: true })
 
   // Verify DWS compute actually works (not just health)
   try {
@@ -87,7 +86,8 @@ describe('Agent Runtime', () => {
         summary: 'A test proposal for unit testing',
         description: 'This is a detailed description of the test proposal.',
         proposalType: 'TREASURY_SPEND',
-        submitter: '0x1234567890abcdef1234567890abcdef12345678',
+        submitter:
+          '0x1234567890abcdef1234567890abcdef12345678' as `0x${string}`,
       }
 
       const vote = await autocratAgentRuntime.deliberate('treasury', request)

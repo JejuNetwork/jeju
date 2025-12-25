@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import { app } from '../src/server'
+import { app } from '../api/server'
 
 // Test response types
 interface EdgeNode {

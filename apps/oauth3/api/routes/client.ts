@@ -2,11 +2,12 @@
  * Client registration routes
  */
 
+import type { AuthProvider } from '@jejunetwork/auth'
 import { Elysia, t } from 'elysia'
-import type { Address } from 'viem'
+import type { Address, Hex } from 'viem'
 import { isAddress, keccak256, toBytes, toHex } from 'viem'
 import type { AuthConfig, RegisteredClient } from '../../lib/types'
-import { clients } from './oauth'
+import { clientState } from '../services/state'
 
 const AuthProviderValues = [
   'wallet',
@@ -42,7 +43,7 @@ export function createClientRouter(_config: AuthConfig) {
   return new Elysia({ name: 'client', prefix: '/client' })
     .post(
       '/register',
-      ({ body, set }) => {
+      async ({ body, set }) => {
         if (!isAddress(body.owner)) {
           set.status = 400
           return { error: 'invalid_owner_address' }
@@ -52,25 +53,25 @@ export function createClientRouter(_config: AuthConfig) {
         const clientId = crypto.randomUUID()
         const clientSecret = toHex(
           toBytes(keccak256(toBytes(`${clientId}:${Date.now()}:${owner}`))),
-        )
+        ) as Hex
 
         const client: RegisteredClient = {
           clientId,
           clientSecret,
           name: body.name,
           redirectUris: body.redirectUris,
-          allowedProviders: body.allowedProviders ?? [
+          allowedProviders: (body.allowedProviders ?? [
             'wallet',
             'farcaster',
             'github',
             'google',
-          ],
+          ]) as AuthProvider[],
           owner: owner,
           createdAt: Date.now(),
           active: true,
         }
 
-        clients.set(clientId, client)
+        await clientState.save(client)
 
         return {
           clientId,
@@ -84,8 +85,8 @@ export function createClientRouter(_config: AuthConfig) {
       { body: RegisterClientBodySchema },
     )
 
-    .get('/:clientId', ({ params, set }) => {
-      const client = clients.get(params.clientId)
+    .get('/:clientId', async ({ params, set }) => {
+      const client = await clientState.get(params.clientId)
       if (!client) {
         set.status = 404
         return { error: 'client_not_found' }
@@ -104,8 +105,8 @@ export function createClientRouter(_config: AuthConfig) {
 
     .patch(
       '/:clientId',
-      ({ params, body, set }) => {
-        const client = clients.get(params.clientId)
+      async ({ params, body, set }) => {
+        const client = await clientState.get(params.clientId)
         if (!client) {
           set.status = 404
           return { error: 'client_not_found' }
@@ -115,10 +116,10 @@ export function createClientRouter(_config: AuthConfig) {
         if (body.redirectUris !== undefined)
           client.redirectUris = body.redirectUris
         if (body.allowedProviders !== undefined)
-          client.allowedProviders = body.allowedProviders
+          client.allowedProviders = body.allowedProviders as AuthProvider[]
         if (body.active !== undefined) client.active = body.active
 
-        clients.set(params.clientId, client)
+        await clientState.save(client)
 
         return {
           clientId: client.clientId,
@@ -131,19 +132,19 @@ export function createClientRouter(_config: AuthConfig) {
       { body: UpdateClientBodySchema },
     )
 
-    .delete('/:clientId', ({ params, set }) => {
-      const client = clients.get(params.clientId)
+    .delete('/:clientId', async ({ params, set }) => {
+      const client = await clientState.get(params.clientId)
       if (!client) {
         set.status = 404
         return { error: 'client_not_found' }
       }
 
-      clients.delete(params.clientId)
+      await clientState.delete(params.clientId)
       return { success: true }
     })
 
-    .post('/:clientId/rotate-secret', ({ params, set }) => {
-      const client = clients.get(params.clientId)
+    .post('/:clientId/rotate-secret', async ({ params, set }) => {
+      const client = await clientState.get(params.clientId)
       if (!client) {
         set.status = 404
         return { error: 'client_not_found' }
@@ -155,9 +156,9 @@ export function createClientRouter(_config: AuthConfig) {
             toBytes(`${params.clientId}:${Date.now()}:${client.owner}`),
           ),
         ),
-      )
+      ) as Hex
       client.clientSecret = newSecret
-      clients.set(params.clientId, client)
+      await clientState.save(client)
 
       return {
         clientId: client.clientId,

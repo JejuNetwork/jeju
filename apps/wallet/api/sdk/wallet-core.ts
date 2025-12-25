@@ -20,6 +20,7 @@ import type { Address, Hex, PublicClient, WalletClient } from 'viem'
 import { createPublicClient, http } from 'viem'
 import { z } from 'zod'
 import { expectNonEmpty, expectSchema } from '../../lib/validation'
+import { keyringService } from '../services/keyring'
 import { type AAClient, createAAClient } from './account-abstraction'
 import { chains, getNetworkRpcUrl } from './chains'
 import { createEILClient, type EILClient } from './eil'
@@ -193,9 +194,42 @@ export class WalletCore {
 
   async unlock(password: string): Promise<boolean> {
     expectNonEmpty(password, 'password')
-    // In a real implementation, this would decrypt the stored keys
-    // For now, we simulate unlock
+
+    // Unlock keyring service which decrypts stored keys
+    const unlocked = await keyringService.unlock(password)
+    if (!unlocked) {
+      throw new Error('Failed to unlock wallet')
+    }
+
     this.state.isUnlocked = true
+
+    // Load accounts from keyring
+    const keyringAccounts = keyringService.getAccounts()
+    for (const account of keyringAccounts) {
+      const existingWallet = this.state.accounts.find((a) =>
+        a.evmAccounts.some((e) => e.address === account.address),
+      )
+      if (!existingWallet) {
+        // Add keyring account to wallet state
+        const walletAccount: WalletAccount = {
+          id: `keyring-${account.address}`,
+          label: account.name,
+          evmAccounts: [
+            {
+              address: account.address,
+              chainId: this.config.defaultChainId ?? 1,
+            },
+          ],
+          solanaAccounts: [],
+          smartAccounts: [],
+        }
+        this.state.accounts.push(walletAccount)
+        if (!this.state.activeAccountId) {
+          this.state.activeAccountId = walletAccount.id
+        }
+      }
+    }
+
     this.emit({ type: 'connect', chainId: this.config.defaultChainId ?? 1 })
     return true
   }
@@ -203,6 +237,7 @@ export class WalletCore {
   lock(): void {
     this.state.isUnlocked = false
     this.walletClient = undefined
+    keyringService.lock()
     this.emit({ type: 'disconnect' })
   }
 

@@ -39,7 +39,7 @@ export const TEEProvider = {
   PHALA: 'phala',
   INTEL_TDX: 'intel-tdx',
   AMD_SEV: 'amd-sev',
-  LOCAL: 'local', // For development
+  LOCAL: 'local', // For testing - generates simulated attestations
 } as const
 export type TEEProvider = (typeof TEEProvider)[keyof typeof TEEProvider]
 
@@ -60,6 +60,8 @@ export interface TEEAttestation {
   reportData: Hex
   timestamp: number
   provider: TEEProvider
+  /** True if this is a simulated attestation (LOCAL mode) */
+  simulated: boolean
 }
 
 export interface TEEGPUNodeConfig {
@@ -70,7 +72,9 @@ export interface TEEGPUNodeConfig {
   zone: string
   gpu: GPUCapabilities
   teeProvider: TEEProvider
+  /** Required for non-LOCAL providers */
   teeEndpoint?: string
+  /** Required for non-LOCAL providers */
   teeApiKey?: string
 }
 
@@ -123,6 +127,7 @@ const TEEAttestationSchema = z.object({
   reportData: HexSchema,
   timestamp: z.number(),
   provider: TEEProviderSchema,
+  simulated: z.boolean(),
 })
 
 const GPUJobResultSchema = z.object({
@@ -154,7 +159,27 @@ export class TEEGPUProvider {
   private attestationInterval?: ReturnType<typeof setInterval>
 
   constructor(config: TEEGPUNodeConfig) {
+    // LOCAL mode doesn't require endpoint/key - used for testing
+    if (config.teeProvider !== TEEProvider.LOCAL) {
+      if (!config.teeEndpoint) {
+        throw new Error(
+          'TEE endpoint is required - set PHALA_ENDPOINT environment variable',
+        )
+      }
+      if (!config.teeApiKey) {
+        throw new Error(
+          'TEE API key is required - set PHALA_API_KEY environment variable',
+        )
+      }
+    }
     this.config = config
+  }
+
+  /**
+   * Check if this provider is running in simulated mode
+   */
+  isSimulated(): boolean {
+    return this.config.teeProvider === TEEProvider.LOCAL
   }
 
   /**
@@ -165,7 +190,7 @@ export class TEEGPUProvider {
       `[TEE-GPU] Initializing ${this.config.gpu.gpuType} node ${this.config.nodeId}`,
     )
 
-    // Generate initial attestation
+    // Generate initial attestation from real TEE provider
     const attestation = await this.generateAttestation()
 
     // Register as compute node
@@ -200,7 +225,7 @@ export class TEEGPUProvider {
       reputation: 100,
       gpu: this.config.gpu,
       teeProvider: this.config.teeProvider,
-      teeEndpoint: this.config.teeEndpoint ?? this.config.endpoint,
+      teeEndpoint: this.config.teeEndpoint ?? '',
       attestation,
       lastAttestationAt: Date.now(),
     }
@@ -331,17 +356,17 @@ export class TEEGPUProvider {
    * Execute job in TEE environment
    */
   private async executeInTEE(request: GPUJobRequest): Promise<GPUJobResult> {
-    const teeEndpoint = this.config.teeEndpoint ?? this.config.endpoint
-
+    // LOCAL mode - simulate TEE execution for testing
     if (this.config.teeProvider === TEEProvider.LOCAL) {
-      // Local development mode - simulate TEE execution
-      console.log(`[TEE-GPU] Simulating TEE execution for job ${request.jobId}`)
-      await new Promise((resolve) => setTimeout(resolve, 100)) // Fast for testing
+      console.log(
+        `[TEE-GPU] SIMULATED execution for job ${request.jobId} (LOCAL mode)`,
+      )
+      await new Promise((resolve) => setTimeout(resolve, 100)) // Simulate processing
 
       return {
         jobId: request.jobId,
         status: 'completed',
-        outputCID: `mock-output-${Date.now()}`,
+        outputCID: `simulated-output-${Date.now()}`,
         metrics: {
           trainingLoss: 0.05,
           evalScore: 0.85,
@@ -352,15 +377,13 @@ export class TEEGPUProvider {
       }
     }
 
-    // Real TEE execution via Phala
+    // Real TEE execution
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-    }
-    if (this.config.teeApiKey) {
-      headers['X-API-Key'] = this.config.teeApiKey
+      'X-API-Key': this.config.teeApiKey ?? '',
     }
 
-    const response = await fetch(`${teeEndpoint}/gpu/execute`, {
+    const response = await fetch(`${this.config.teeEndpoint}/gpu/execute`, {
       method: 'POST',
       headers,
       body: JSON.stringify({
@@ -385,15 +408,18 @@ export class TEEGPUProvider {
 
   /**
    * Generate TEE attestation
+   * In LOCAL mode, generates simulated attestation for testing
    */
   private async generateAttestation(): Promise<TEEAttestation> {
+    // LOCAL mode - generate simulated attestation for testing
     if (this.config.teeProvider === TEEProvider.LOCAL) {
-      // Mock attestation for local development
       const timestamp = Date.now()
       const mrEnclave = keccak256(toBytes(`${this.config.nodeId}:${timestamp}`))
 
+      console.log(`[TEE-GPU] Generating SIMULATED attestation (LOCAL mode)`)
+
       return {
-        quote: `0x${'00'.repeat(256)}` as Hex,
+        quote: `0x${'00'.repeat(256)}` as Hex, // Placeholder quote
         mrEnclave,
         mrSigner: keccak256(toBytes(this.config.address)),
         reportData: keccak256(
@@ -401,27 +427,33 @@ export class TEEGPUProvider {
         ),
         timestamp,
         provider: TEEProvider.LOCAL,
+        simulated: true,
       }
     }
 
-    const teeEndpoint = this.config.teeEndpoint ?? this.config.endpoint
-    const headers: Record<string, string> = {}
-    if (this.config.teeApiKey) {
-      headers['X-API-Key'] = this.config.teeApiKey
+    // Real TEE attestation
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'X-API-Key': this.config.teeApiKey ?? '',
     }
 
-    const response = await fetch(`${teeEndpoint}/attestation/generate`, {
-      method: 'POST',
-      headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        nodeId: this.config.nodeId,
-        gpuType: this.config.gpu.gpuType,
-        gpuCount: this.config.gpu.gpuCount,
-      }),
-    })
+    const response = await fetch(
+      `${this.config.teeEndpoint}/attestation/generate`,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          nodeId: this.config.nodeId,
+          gpuType: this.config.gpu.gpuType,
+          gpuCount: this.config.gpu.gpuCount,
+        }),
+      },
+    )
 
     if (!response.ok) {
-      throw new Error(`Failed to generate attestation: ${response.status}`)
+      throw new Error(
+        `Failed to generate attestation: ${response.status} ${await response.text()}`,
+      )
     }
 
     const data = expectValid(
@@ -437,6 +469,7 @@ export class TEEGPUProvider {
       reportData: data.report_data as Hex,
       timestamp: data.timestamp,
       provider: this.config.teeProvider,
+      simulated: false,
     }
   }
 
@@ -460,17 +493,13 @@ export class TEEGPUProvider {
    * Refresh attestation
    */
   private async refreshAttestation(): Promise<void> {
-    try {
-      const attestation = await this.generateAttestation()
-      const node = teeGpuNodes.get(this.config.nodeId)
-      if (node) {
-        node.attestation = attestation
-        node.lastAttestationAt = Date.now()
-      }
-      console.log(`[TEE-GPU] Attestation refreshed for ${this.config.nodeId}`)
-    } catch (error) {
-      console.error(`[TEE-GPU] Failed to refresh attestation:`, error)
+    const attestation = await this.generateAttestation()
+    const node = teeGpuNodes.get(this.config.nodeId)
+    if (node) {
+      node.attestation = attestation
+      node.lastAttestationAt = Date.now()
     }
+    console.log(`[TEE-GPU] Attestation refreshed for ${this.config.nodeId}`)
   }
 
   /**
@@ -556,12 +585,48 @@ export interface CreateTEEGPUProviderConfig {
 
 /**
  * Create a TEE GPU provider for training
+ *
+ * For production: Requires PHALA_ENDPOINT and PHALA_API_KEY environment variables
+ * For testing: Use teeProvider: TEEProvider.LOCAL to run in simulated mode
  */
 export function createTEEGPUProvider(
   config: CreateTEEGPUProviderConfig,
 ): TEEGPUProvider {
   const gpuSpec = GPU_SPECS[config.gpuType]
   const gpuName = config.gpuType.replace('nvidia-', '')
+  const teeProvider = config.teeProvider ?? TEEProvider.PHALA
+
+  // LOCAL mode doesn't require endpoint/key
+  if (teeProvider === TEEProvider.LOCAL) {
+    console.log('[TEE-GPU] Creating provider in LOCAL (simulated) mode')
+    return new TEEGPUProvider({
+      nodeId: config.nodeId ?? `${gpuName}-local-${Date.now()}`,
+      address: config.address,
+      endpoint: config.endpoint,
+      region: config.region ?? 'local',
+      zone: config.zone ?? 'local-zone',
+      gpu: {
+        ...gpuSpec,
+        gpuCount: config.gpuCount ?? 8,
+      },
+      teeProvider: TEEProvider.LOCAL,
+    })
+  }
+
+  // Production mode requires real TEE credentials
+  const teeEndpoint = config.teeEndpoint ?? process.env.PHALA_ENDPOINT
+  const teeApiKey = config.teeApiKey ?? process.env.PHALA_API_KEY
+
+  if (!teeEndpoint) {
+    throw new Error(
+      'TEE endpoint required: set PHALA_ENDPOINT environment variable or pass teeEndpoint',
+    )
+  }
+  if (!teeApiKey) {
+    throw new Error(
+      'TEE API key required: set PHALA_API_KEY environment variable or pass teeApiKey',
+    )
+  }
 
   return new TEEGPUProvider({
     nodeId: config.nodeId ?? `${gpuName}-${Date.now()}`,
@@ -573,9 +638,9 @@ export function createTEEGPUProvider(
       ...gpuSpec,
       gpuCount: config.gpuCount ?? 8,
     },
-    teeProvider: config.teeProvider ?? TEEProvider.PHALA,
-    teeEndpoint: config.teeEndpoint ?? process.env.PHALA_ENDPOINT,
-    teeApiKey: config.teeApiKey ?? process.env.PHALA_API_KEY,
+    teeProvider,
+    teeEndpoint,
+    teeApiKey,
   })
 }
 

@@ -131,11 +131,14 @@ describe('Auth Core', () => {
       const result = validateAPIKey('valid-key-123', config)
 
       expect(result.valid).toBe(true)
-      expect(result.user?.address).toBe(
+      if (!result.valid || !result.user) {
+        throw new Error('Expected valid API key result')
+      }
+      expect(result.user.address).toBe(
         '0x1234567890123456789012345678901234567890',
       )
-      expect(result.user?.method).toBe(AuthMethod.API_KEY)
-      expect(result.user?.permissions).toEqual(['read', 'write'])
+      expect(result.user.method).toBe(AuthMethod.API_KEY)
+      expect(result.user.permissions).toEqual(['read', 'write'])
       expect(result.rateLimitTier).toBe('premium')
     })
 
@@ -185,7 +188,10 @@ describe('Auth Core', () => {
       const result = await authenticate(headers, config)
 
       expect(result.authenticated).toBe(true)
-      expect(result.user?.address).toBe(
+      if (!result.authenticated || !result.user) {
+        throw new Error('Expected authenticated result')
+      }
+      expect(result.user.address).toBe(
         '0x1234567890123456789012345678901234567890',
       )
       expect(result.method).toBe(AuthMethod.API_KEY)

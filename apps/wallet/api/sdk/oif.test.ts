@@ -151,9 +151,32 @@ describe('OIFClient', () => {
   })
 
   describe('Quote Estimation', () => {
-    it('should estimate quote with 0.3% fee', async () => {
-      // Mock failed API call to trigger fallback
-      mockFetch.mockResolvedValueOnce({ ok: false } as Response)
+    it('should get quote from API with fee', async () => {
+      const apiQuote = {
+        inputToken: USDC_ADDRESS,
+        inputAmount: '1000000000',
+        outputToken: USDC_ADDRESS,
+        outputAmount: '997000000',
+        fee: '3000000',
+        route: [
+          {
+            chainId: 84532,
+            protocol: 'jeju-oif',
+            action: 'bridge',
+            inputToken: USDC_ADDRESS,
+            outputToken: USDC_ADDRESS,
+            inputAmount: '1000000000',
+            outputAmount: '997000000',
+          },
+        ],
+        estimatedTime: 120,
+        priceImpact: 0.003,
+      }
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(apiQuote),
+      } as Response)
 
       const params = {
         inputToken: USDC_ADDRESS,
@@ -176,25 +199,52 @@ describe('OIFClient', () => {
       expect(quote.route[0].protocol).toBe('jeju-oif')
     })
 
-    it('should respect minOutputAmount', async () => {
-      mockFetch.mockResolvedValueOnce({ ok: false } as Response)
+    it('should respect minOutputAmount from API', async () => {
+      const apiQuote = {
+        inputToken: USDC_ADDRESS,
+        inputAmount: '1000000',
+        outputToken: USDC_ADDRESS,
+        outputAmount: '999000',
+        fee: '1000',
+        route: [],
+        estimatedTime: 120,
+        priceImpact: 0.001,
+      }
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(apiQuote),
+      } as Response)
 
       const params = {
         inputToken: USDC_ADDRESS,
         inputAmount: 1000000n, // 1 USDC
         outputToken: USDC_ADDRESS,
-        minOutputAmount: 999000n, // Higher than calculated output
+        minOutputAmount: 999000n,
         destinationChainId: 8453,
       }
 
       const quote = await client.getQuote(params)
 
-      // Should use minOutputAmount when calculated is lower
       expect(quote.outputAmount).toBe(999000n)
     })
 
-    it('should include estimated time', async () => {
-      mockFetch.mockResolvedValueOnce({ ok: false } as Response)
+    it('should include estimated time from API', async () => {
+      const apiQuote = {
+        inputToken: USDC_ADDRESS,
+        inputAmount: '1000000',
+        outputToken: USDC_ADDRESS,
+        outputAmount: '997000',
+        fee: '3000',
+        route: [],
+        estimatedTime: 120,
+        priceImpact: 0.003,
+      }
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(apiQuote),
+      } as Response)
 
       const quote = await client.getQuote({
         inputToken: USDC_ADDRESS,
@@ -205,6 +255,23 @@ describe('OIFClient', () => {
       })
 
       expect(quote.estimatedTime).toBe(120) // 2 minutes
+    })
+
+    it('should throw on API error', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        json: () => Promise.resolve({ error: 'Quote unavailable' }),
+      } as Response)
+
+      await expect(
+        client.getQuote({
+          inputToken: USDC_ADDRESS,
+          inputAmount: 1000000n,
+          outputToken: USDC_ADDRESS,
+          minOutputAmount: 0n,
+          destinationChainId: 8453,
+        }),
+      ).rejects.toThrow()
     })
 
     it('should use API quote when available', async () => {

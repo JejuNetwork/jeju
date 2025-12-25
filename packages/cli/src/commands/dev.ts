@@ -2,7 +2,11 @@
 
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { getCQLBlockProducerUrl, getFarcasterHubUrl } from '@jejunetwork/config'
+import {
+  getCQLBlockProducerUrl,
+  getFarcasterHubUrl,
+  getRpcUrl,
+} from '@jejunetwork/config'
 import { isValidAddress } from '@jejunetwork/types'
 import { Command } from 'commander'
 import { execa } from 'execa'
@@ -363,8 +367,7 @@ async function startVendorOnly(): Promise<void> {
   logger.newline()
 
   // Deploy vendor apps on-chain through DWS
-  const rpcUrl =
-    process.env.JEJU_RPC_URL || `http://127.0.0.1:${DEFAULT_PORTS.l2Rpc}`
+  const rpcUrl = getRpcUrl()
   const deployerKey = WELL_KNOWN_KEYS.dev[0].privateKey as `0x${string}`
 
   localDeployOrchestrator = createLocalDeployOrchestrator(

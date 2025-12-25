@@ -1,5 +1,5 @@
 /**
- * Example app wallet setup - re-exports the shared Jeju wallet setup
+ * Example app wallet setup - import directly from @jejunetwork/tests
  */
 export {
   basicSetup as default,

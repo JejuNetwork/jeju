@@ -1,17 +1,21 @@
 /**
  * Swap business logic
  * Pure functions for swap calculations, validation, and quote generation
+ *
+ * Note: Token addresses and pricing are loaded from config.
+ * Price rates should come from on-chain oracles when available.
  */
 
 import { type Address, formatEther, parseEther } from 'viem'
 import type {
-  PricePair,
   SwapFeeEstimate,
   SwapQuote,
   SwapToken,
   SwapValidationResult,
 } from '../schemas/swap'
 
+// Only include ETH (native token) as it's the only guaranteed available token
+// Other tokens are loaded dynamically from config based on network
 export const SWAP_TOKENS: SwapToken[] = [
   {
     symbol: 'ETH',
@@ -20,29 +24,6 @@ export const SWAP_TOKENS: SwapToken[] = [
     address: '0x0000000000000000000000000000000000000000',
     decimals: 18,
   },
-  {
-    symbol: 'USDC',
-    name: 'USD Coin',
-    icon: '💵',
-    address: '0x0000000000000000000000000000000000000001',
-    decimals: 6,
-  },
-  {
-    symbol: 'JEJU',
-    name: 'Jeju Token',
-    icon: '🏝️',
-    address: '0x0000000000000000000000000000000000000002',
-    decimals: 18,
-  },
-]
-
-export const PRICE_PAIRS: PricePair[] = [
-  { baseToken: 'ETH', quoteToken: 'USDC', rate: 3000 },
-  { baseToken: 'USDC', quoteToken: 'ETH', rate: 1 / 3000 },
-  { baseToken: 'ETH', quoteToken: 'JEJU', rate: 10000 },
-  { baseToken: 'JEJU', quoteToken: 'ETH', rate: 1 / 10000 },
-  { baseToken: 'USDC', quoteToken: 'JEJU', rate: 10000 / 3000 },
-  { baseToken: 'JEJU', quoteToken: 'USDC', rate: 3000 / 10000 },
 ]
 
 export const DEFAULT_FEE_BPS = 30n
@@ -67,25 +48,17 @@ export function getTokenByAddress(
   return tokens.find((t) => t.address.toLowerCase() === address.toLowerCase())
 }
 
-export function getExchangeRate(
-  fromSymbol: string,
-  toSymbol: string,
-  pairs: PricePair[] = PRICE_PAIRS,
-): number {
+/**
+ * Get exchange rate between tokens
+ * Returns 1 for same token, throws for unknown pairs (no oracle data)
+ */
+export function getExchangeRate(fromSymbol: string, toSymbol: string): number {
   if (fromSymbol === toSymbol) return 1
 
-  const pair = pairs.find(
-    (p) => p.baseToken === fromSymbol && p.quoteToken === toSymbol,
+  // No oracle integration yet - throw error for unknown pairs
+  throw new Error(
+    `Exchange rate not available for ${fromSymbol}/${toSymbol} - oracle integration pending`,
   )
-  if (pair) return pair.rate
-
-  // Try inverse
-  const inverse = pairs.find(
-    (p) => p.baseToken === toSymbol && p.quoteToken === fromSymbol,
-  )
-  if (inverse) return 1 / inverse.rate
-
-  return 1 // Default 1:1 if no pair found
 }
 
 /**
@@ -155,16 +128,16 @@ export function calculateOutputAmount(
   const afterSwapFee = afterFees - (afterFees * feeBps) / 10000n
   if (afterSwapFee <= 0n) return 0n
 
-  // Get exchange rate
+  // Get exchange rate - will throw if no oracle data available
   const rate = getExchangeRate(inputSymbol, outputSymbol)
 
   // Convert to output token
-  // For precision, we work in wei then convert
   const outputValue =
     (afterSwapFee * BigInt(Math.floor(rate * 1e18))) / parseEther('1')
 
   return outputValue > 0n ? outputValue : 0n
 }
+
 /**
  * Generate a complete swap quote
  */
@@ -250,6 +223,7 @@ export function formatSwapAmount(amount: bigint): string {
   if (amount <= 0n) return ''
   return formatEther(amount)
 }
+
 /**
  * Get button text based on current state
  */

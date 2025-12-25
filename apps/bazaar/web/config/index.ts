@@ -45,6 +45,8 @@ export const EXPLORER_URL =
   process.env.PUBLIC_EXPLORER_URL || getDefaultExplorerUrl()
 export const OIF_AGGREGATOR_URL =
   process.env.PUBLIC_OIF_AGGREGATOR_URL || getDefaultOifAggregatorUrl()
+export const OAUTH3_AGENT_URL =
+  process.env.PUBLIC_OAUTH3_AGENT_URL || getDefaultOAuth3AgentUrl()
 
 // Contract addresses - with PUBLIC_ override support
 export const CONTRACTS = {
@@ -160,5 +162,16 @@ function getDefaultOifAggregatorUrl(): string {
       return 'https://testnet-oif.jejunetwork.org'
     default:
       return 'http://localhost:4030/oif'
+  }
+}
+
+function getDefaultOAuth3AgentUrl(): string {
+  switch (NETWORK) {
+    case 'mainnet':
+      return 'https://auth.jejunetwork.org'
+    case 'testnet':
+      return 'https://testnet-auth.jejunetwork.org'
+    default:
+      return 'http://localhost:4200'
   }
 }

@@ -12,9 +12,7 @@ import {
 import { crucibleService } from '../services/crucible'
 import { requireAuth } from '../validation/access-control'
 
-const ZERO_ADDRESS: Address = '0x0000000000000000000000000000000000000000'
-
-interface Agent {
+export interface Agent {
   agentId: bigint
   owner: Address
   name: string
@@ -61,22 +59,33 @@ export const agentsRoutes = new Elysia({ prefix: '/api/agents' })
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
       }
       const validated = expectValid(CreateAgentBodySchema, body, 'request body')
-      const agent: Agent = {
-        agentId: BigInt(Date.now()),
-        owner: authResult.address,
-        name: validated.name,
-        botType: validated.type,
-        characterCid: null,
-        stateCid: 'ipfs://...',
-        vaultAddress: ZERO_ADDRESS,
-        active: true,
-        registeredAt: Date.now(),
-        lastExecutedAt: 0,
-        executionCount: 0,
-        capabilities: validated.capabilities ?? [],
-        specializations: [],
-        reputation: 0,
+
+      // Call Crucible API to actually register the agent
+      const response = await fetch(
+        `${process.env.CRUCIBLE_URL || 'http://localhost:4020'}/api/v1/agents`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-jeju-address': authResult.address,
+          },
+          body: JSON.stringify({
+            name: validated.name,
+            type: validated.type,
+            capabilities: validated.capabilities ?? [],
+          }),
+        },
+      )
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        set.status = response.status
+        return { error: { code: 'AGENT_CREATION_FAILED', message: errorText } }
       }
+
+      const data: unknown = await response.json()
+      const agent = data as Agent
+
       set.status = 201
       return { ...agent, agentId: agent.agentId.toString() }
     },

@@ -6,7 +6,7 @@
   "type": "core",
   "description": "Unified DeFi + NFT + Token Launchpad - Decentralized marketplace with Elysia backend and static frontend",
   "architecture": {
-    "type": "serverless",
+    "type": "hybrid",
     "runtime": "workerd",
     "frontend": {
       "type": "spa",

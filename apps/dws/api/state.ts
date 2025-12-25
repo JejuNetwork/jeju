@@ -1073,6 +1073,16 @@ export const apiUserAccountState = {
       CQL_DATABASE_ID,
     )
   },
+
+  async listAll(limit = 100): Promise<ApiUserAccountRow[]> {
+    const client = await getCQLClient()
+    const result = await client.query<ApiUserAccountRow>(
+      'SELECT * FROM api_user_accounts ORDER BY created_at DESC LIMIT ?',
+      [limit],
+      CQL_DATABASE_ID,
+    )
+    return result.rows
+  },
 }
 
 // API Key State Operations (for RPC rate limiting)

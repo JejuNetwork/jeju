@@ -56,6 +56,14 @@ describe('Auth API', () => {
       const response = await fetch(`${BASE_URL}/oauth/userinfo`)
       expect(response.status).toBe(401)
     })
+
+    test('social provider returns 503 when not configured', async () => {
+      const response = await fetch(
+        `${BASE_URL}/oauth/social/github?client_id=jeju-default&redirect_uri=http://localhost:3000/callback`,
+      )
+      // Should return 503 if credentials not set, or redirect if configured
+      expect([302, 503]).toContain(response.status)
+    })
   })
 
   describe('Wallet endpoints', () => {
@@ -88,7 +96,7 @@ describe('Auth API', () => {
   })
 
   describe('Farcaster endpoints', () => {
-    test('init returns HTML page', async () => {
+    test('init returns HTML page with QR code', async () => {
       const response = await fetch(
         `${BASE_URL}/farcaster/init?client_id=jeju-default&redirect_uri=http://localhost:3000/callback&state=test`,
       )
@@ -97,6 +105,7 @@ describe('Auth API', () => {
 
       const html = await response.text()
       expect(html).toContain('Farcaster')
+      expect(html).toContain('data:image/png;base64')
     })
 
     test('verify requires valid nonce', async () => {
@@ -137,20 +146,36 @@ describe('Auth API', () => {
   })
 
   describe('Client endpoints', () => {
-    test('register requires owner field', async () => {
+    test('register validates body schema', async () => {
       const response = await fetch(`${BASE_URL}/client/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: 'Test App',
           redirectUris: ['http://localhost:3000/callback'],
+          // Missing owner field - Elysia returns validation error
         }),
       })
-      // Returns 400 because owner field is missing
-      expect(response.status).toBe(400)
+      // Elysia returns 422 for validation errors
+      expect([400, 422]).toContain(response.status)
+    })
+
+    test('register succeeds with valid data', async () => {
+      const response = await fetch(`${BASE_URL}/client/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Test App',
+          redirectUris: ['http://localhost:3000/callback'],
+          owner: '0x1234567890123456789012345678901234567890',
+        }),
+      })
+      expect(response.ok).toBe(true)
 
       const data = await response.json()
-      expect(data.error).toBe('missing_required_fields')
+      expect(data.clientId).toBeDefined()
+      expect(data.clientSecret).toBeDefined()
+      expect(data.name).toBe('Test App')
     })
 
     test('get client info for default client', async () => {
@@ -166,6 +191,25 @@ describe('Auth API', () => {
     test('get unknown client returns 404', async () => {
       const response = await fetch(`${BASE_URL}/client/unknown-client`)
       expect(response.status).toBe(404)
+    })
+  })
+
+  describe('Token refresh flow', () => {
+    test('refresh_token grant type is supported', async () => {
+      const response = await fetch(`${BASE_URL}/oauth/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          grant_type: 'refresh_token',
+          refresh_token: 'invalid-token',
+          client_id: 'jeju-default',
+        }),
+      })
+      expect(response.status).toBe(400)
+
+      const data = await response.json()
+      // Should return invalid_grant, not unsupported_grant_type
+      expect(data.error).toBe('invalid_grant')
     })
   })
 })

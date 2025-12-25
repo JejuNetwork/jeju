@@ -346,6 +346,30 @@ export function createRESTRouter(ctx: VPNServiceContext) {
       }
     })
 
+    .get('/contribution/settings', async ({ request }) => {
+      const auth = await verifyAuth(request)
+      expect(auth.valid, auth.error ?? 'Authentication required')
+      if (!auth.address) {
+        throw new Error('Authentication address missing')
+      }
+
+      const settings = ctx.contributionSettings.get(auth.address)
+      if (!settings) {
+        // Return defaults for new users
+        return {
+          address: auth.address,
+          enabled: true,
+          maxBandwidthPercent: 10,
+          shareCDN: true,
+          shareVPNRelay: true,
+          earningMode: false,
+          updatedAt: 0,
+        }
+      }
+
+      return settings
+    })
+
     .post('/contribution/settings', async ({ request, body }) => {
       const auth = await verifyAuth(request)
       expect(auth.valid, auth.error ?? 'Authentication required')
@@ -359,9 +383,29 @@ export function createRESTRouter(ctx: VPNServiceContext) {
         'contribution settings',
       )
 
+      // Store the settings for this user
+      const existingSettings = ctx.contributionSettings.get(auth.address)
+      const updatedSettings = {
+        address: auth.address,
+        enabled: validatedBody.enabled ?? existingSettings?.enabled ?? true,
+        maxBandwidthPercent:
+          validatedBody.maxBandwidthPercent ??
+          existingSettings?.maxBandwidthPercent ??
+          10,
+        shareCDN: validatedBody.shareCDN ?? existingSettings?.shareCDN ?? true,
+        shareVPNRelay:
+          validatedBody.shareVPNRelay ??
+          existingSettings?.shareVPNRelay ??
+          true,
+        earningMode:
+          validatedBody.earningMode ?? existingSettings?.earningMode ?? false,
+        updatedAt: Date.now(),
+      }
+      ctx.contributionSettings.set(auth.address, updatedSettings)
+
       return {
         success: true,
-        settings: validatedBody,
+        settings: updatedSettings,
       }
     })
 

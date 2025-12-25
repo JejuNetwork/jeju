@@ -1,6 +1,7 @@
 /** OpenAI-compatible inference proxy with multi-provider routing */
 
 import { cors } from '@elysiajs/cors'
+import { getDWSUrl } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import { logger } from '../lib/logger'
 
@@ -50,10 +51,8 @@ const InferenceProviderRegistrationSchema = z.object({
   knownModels: z.array(z.string()).optional(),
 })
 
-const DWS_ENDPOINT = process.env.DWS_URL || 'http://localhost:4030'
-
 const PROVIDER_ENDPOINTS: Record<string, { baseUrl: string; type: string }> = {
-  dws: { baseUrl: `${DWS_ENDPOINT}/compute`, type: 'openai' }, // Primary - DWS
+  dws: { baseUrl: `${getDWSUrl()}/compute`, type: 'openai' }, // Primary - DWS
   openai: { baseUrl: 'https://api.openai.com/v1', type: 'openai' },
   anthropic: { baseUrl: 'https://api.anthropic.com/v1', type: 'anthropic' },
   groq: { baseUrl: 'https://api.groq.com/openai/v1', type: 'openai' },

@@ -61,7 +61,7 @@ import {
   storeKey,
   updateListing,
   withdraw,
-} from '../src/api-marketplace'
+} from '../api/api-marketplace'
 
 // Test addresses
 const TEST_USER: Address = '0x1234567890123456789012345678901234567890'
@@ -127,7 +127,7 @@ describe.skipIf(!CQL_AVAILABLE)('Registry', () => {
   const testApiKey = 'sk-test-key-12345678901234567890'
 
   test('should create a listing', async () => {
-    const vaultKey = storeKey('openai', TEST_SELLER, testApiKey)
+    const vaultKey = await storeKey('openai', TEST_SELLER, testApiKey)
     const listing = await createListing({
       providerId: 'openai',
       seller: TEST_SELLER,
@@ -143,7 +143,7 @@ describe.skipIf(!CQL_AVAILABLE)('Registry', () => {
   })
 
   test('should get listing by ID', async () => {
-    const vaultKey = storeKey('groq', TEST_SELLER, testApiKey)
+    const vaultKey = await storeKey('groq', TEST_SELLER, testApiKey)
     const created = await createListing({
       providerId: 'groq',
       seller: TEST_SELLER,
@@ -156,7 +156,7 @@ describe.skipIf(!CQL_AVAILABLE)('Registry', () => {
   })
 
   test('should get listings by seller', async () => {
-    const vaultKey = storeKey('anthropic', TEST_SELLER, testApiKey)
+    const vaultKey = await storeKey('anthropic', TEST_SELLER, testApiKey)
     await createListing({
       providerId: 'anthropic',
       seller: TEST_SELLER,
@@ -173,7 +173,7 @@ describe.skipIf(!CQL_AVAILABLE)('Registry', () => {
   })
 
   test('should update listing', async () => {
-    const vaultKey = storeKey('mistral', TEST_SELLER, testApiKey)
+    const vaultKey = await storeKey('mistral', TEST_SELLER, testApiKey)
     const listing = await createListing({
       providerId: 'mistral',
       seller: TEST_SELLER,
@@ -191,7 +191,7 @@ describe.skipIf(!CQL_AVAILABLE)('Registry', () => {
 
   test('should find cheapest listing', async () => {
     // Create multiple listings with different prices
-    const key1 = storeKey('deepseek', TEST_SELLER, testApiKey)
+    const key1 = await storeKey('deepseek', TEST_SELLER, testApiKey)
     await createListing({
       providerId: 'deepseek',
       seller: TEST_SELLER,
@@ -199,7 +199,7 @@ describe.skipIf(!CQL_AVAILABLE)('Registry', () => {
       pricePerRequest: 100000000000000n,
     })
 
-    const key2 = storeKey('deepseek', TEST_SELLER, testApiKey)
+    const key2 = await storeKey('deepseek', TEST_SELLER, testApiKey)
     await createListing({
       providerId: 'deepseek',
       seller: TEST_SELLER,
@@ -290,8 +290,8 @@ describe.skipIf(!CQL_AVAILABLE)('Accounts', () => {
 describe('Key Vault', () => {
   const testApiKey = 'sk-real-test-key-abcdef1234567890'
 
-  test('should store and retrieve key metadata', () => {
-    const vaultKey = storeKey('openai', TEST_SELLER, testApiKey)
+  test('should store and retrieve key metadata', async () => {
+    const vaultKey = await storeKey('openai', TEST_SELLER, testApiKey)
 
     expect(vaultKey.id).toBeDefined()
     expect(vaultKey.providerId).toBe('openai')
@@ -305,8 +305,8 @@ describe('Key Vault', () => {
     expect((metadata as Record<string, unknown>)?.encryptedKey).toBeUndefined()
   })
 
-  test('should decrypt key for valid request', () => {
-    const vaultKey = storeKey('groq', TEST_SELLER, testApiKey)
+  test('should decrypt key for valid request', async () => {
+    const vaultKey = await storeKey('groq', TEST_SELLER, testApiKey)
 
     const decrypted = decryptKeyForRequest({
       keyId: vaultKey.id,
@@ -335,8 +335,8 @@ describe('Key Vault', () => {
     expect(decrypted).toBeNull()
   })
 
-  test('should delete key by owner', () => {
-    const vaultKey = storeKey('anthropic', TEST_SELLER, testApiKey)
+  test('should delete key by owner', async () => {
+    const vaultKey = await storeKey('anthropic', TEST_SELLER, testApiKey)
 
     const deleted = deleteKey(vaultKey.id, TEST_SELLER)
     expect(deleted).toBe(true)
@@ -345,8 +345,8 @@ describe('Key Vault', () => {
     expect(metadata).toBeUndefined()
   })
 
-  test('should not delete key by non-owner', () => {
-    const vaultKey = storeKey('mistral', TEST_SELLER, testApiKey)
+  test('should not delete key by non-owner', async () => {
+    const vaultKey = await storeKey('mistral', TEST_SELLER, testApiKey)
 
     const deleted = deleteKey(vaultKey.id, TEST_USER)
     expect(deleted).toBe(false)
@@ -355,10 +355,10 @@ describe('Key Vault', () => {
     expect(metadata).toBeDefined()
   })
 
-  test('should get keys by owner', () => {
+  test('should get keys by owner', async () => {
     const owner = '0x1111111111111111111111111111111111111111' as Address
-    storeKey('openai', owner, 'key1')
-    storeKey('groq', owner, 'key2')
+    await storeKey('openai', owner, 'key1')
+    await storeKey('groq', owner, 'key2')
 
     const keys = getKeysByOwner(owner)
     expect(keys.length).toBe(2)
@@ -658,7 +658,7 @@ describe('Payments', () => {
   test('should parse payment proof header', () => {
     const headers = {
       'x-payment-proof':
-        '0x1234567890123456789012345678901234567890123456789012345678901234:1000000000000000:0xabcd:1234567890',
+        '0x1234567890123456789012345678901234567890123456789012345678901234:1000000000000000:0x1234567890123456789012345678901234567890:1234567890',
     }
 
     const proof = parsePaymentProof(headers)
@@ -717,7 +717,7 @@ describe.skipIf(!CQL_AVAILABLE)('Integration', () => {
     const apiKey = 'sk-integration-test-key-123456789'
 
     // 1. Store key in vault
-    const vaultKey = storeKey('openai', seller, apiKey)
+    const vaultKey = await storeKey('openai', seller, apiKey)
     expect(vaultKey.id).toBeDefined()
 
     // 2. Create listing
@@ -745,7 +745,7 @@ describe.skipIf(!CQL_AVAILABLE)('Integration', () => {
     const user = '0x5555555555555555555555555555555555555555' as Address
 
     // Create listing
-    const vaultKey = storeKey('groq', seller, 'test-key')
+    const vaultKey = await storeKey('groq', seller, 'test-key')
     const listing = await createListing({
       providerId: 'groq',
       seller,

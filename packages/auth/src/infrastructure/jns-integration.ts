@@ -2,6 +2,7 @@
  * JNS Integration - Direct on-chain name resolution for OAuth3
  */
 
+import { getRpcUrl } from '@jejunetwork/config'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import {
   type Address,
@@ -75,7 +76,7 @@ export class OAuth3JNSService {
     const contracts = getContracts(chainId)
 
     this.client = createPublicClient({
-      transport: http(config.rpcUrl || process.env.JEJU_RPC_URL || DEFAULT_RPC),
+      transport: http(config.rpcUrl || getRpcUrl() || DEFAULT_RPC),
     })
     this.registryAddress = config.registryAddress || contracts.jnsRegistry
     this.defaultResolverAddress =

@@ -13,7 +13,7 @@ import type {
   Memory,
   State,
 } from '@elizaos/core'
-import { getDWSComputeUrl } from '@jejunetwork/config'
+import { getDWSUrl as getConfigDWSUrl } from '@jejunetwork/config'
 import { validateOrNull } from '@jejunetwork/types'
 import { z } from 'zod'
 import { getOptionalMessageText } from '../validation'
@@ -49,7 +49,7 @@ interface TrajectorySubmission {
 }
 
 function getDWSUrl(): string {
-  return process.env.DWS_URL ?? getDWSComputeUrl()
+  return getConfigDWSUrl()
 }
 
 async function submitTrajectoryToDWS(

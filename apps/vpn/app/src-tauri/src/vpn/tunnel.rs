@@ -4,6 +4,24 @@
 //! - Linux (using /dev/net/tun)
 //! - macOS (using utun)
 //! - Windows (using WinTun)
+//!
+//! # Implementation Status
+//!
+//! The TUN interface code is structured but not fully implemented:
+//! - Interface creation: Returns Ok but doesn't create actual TUN device
+//! - IP/route configuration: Uses system commands (ip, ifconfig, route)
+//! - Read/write operations: Placeholder implementations
+//!
+//! # TODO: Complete TUN Implementation
+//!
+//! To complete the implementation, integrate the `tun` crate for Linux/macOS
+//! or the `wintun` crate for Windows. Example for Linux:
+//! ```ignore
+//! use tun::Configuration;
+//! let mut config = Configuration::default();
+//! config.name("jeju0").address((10, 0, 0, 2)).mtu(1420).up();
+//! let dev = tun::create(&config)?;
+//! ```
 
 use super::VPNError;
 use std::net::Ipv4Addr;

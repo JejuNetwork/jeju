@@ -14,9 +14,9 @@ import {
 } from '@jejunetwork/config'
 import { createBazaarApp } from '../api/worker'
 
-const FRONTEND_PORT = Number(process.env.PORT) || CORE_PORTS.BAZAAR.get()
-const API_PORT = Number(process.env.API_PORT) || CORE_PORTS.BAZAAR_API.get()
-const DWS_URL = process.env.DWS_URL || getCoreAppUrl('DWS_API')
+const FRONTEND_PORT = CORE_PORTS.BAZAAR.get()
+const API_PORT = CORE_PORTS.BAZAAR_API.get()
+const DWS_URL = getCoreAppUrl('DWS_API')
 const USE_DWS = process.env.USE_DWS === 'true'
 
 // Browser externals - packages that can't run in browser
@@ -146,12 +146,11 @@ async function startApiServer(): Promise<void> {
     TEE_MODE: 'simulated',
     TEE_PLATFORM: 'local',
     TEE_REGION: 'local',
-    RPC_URL: process.env.RPC_URL || 'http://localhost:6545',
+    RPC_URL: 'http://localhost:6545',
     DWS_URL: DWS_URL,
-    GATEWAY_URL: process.env.GATEWAY_URL || 'http://localhost:4002',
-    INDEXER_URL: process.env.INDEXER_URL || 'http://localhost:4003',
-    COVENANTSQL_NODES:
-      process.env.COVENANTSQL_NODES || getCQLBlockProducerUrl(),
+    GATEWAY_URL: getCoreAppUrl('NODE_EXPLORER_API'),
+    INDEXER_URL: getCoreAppUrl('INDEXER_API'),
+    COVENANTSQL_NODES: getCQLBlockProducerUrl(),
     COVENANTSQL_DATABASE_ID:
       process.env.COVENANTSQL_DATABASE_ID || 'dev-bazaar',
     COVENANTSQL_PRIVATE_KEY: process.env.COVENANTSQL_PRIVATE_KEY || '',

@@ -7,6 +7,7 @@
  * @see https://x402.org
  */
 
+import { getExternalRpc, getRpcUrl } from '@jejunetwork/config'
 import {
   type Address,
   formatEther,
@@ -141,13 +142,12 @@ export const CHAIN_IDS: Record<X402Network, number> = {
 }
 
 export const RPC_URLS: Record<X402Network, string> = {
-  sepolia: 'https://ethereum-sepolia-rpc.publicnode.com',
-  'base-sepolia': 'https://sepolia.base.org',
-  ethereum: 'https://eth.llamarpc.com',
-  base: 'https://mainnet.base.org',
-  jeju: process.env.JEJU_RPC_URL || 'http://127.0.0.1:6546',
-  'jeju-testnet':
-    process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jejunetwork.org',
+  sepolia: getExternalRpc('sepolia'),
+  'base-sepolia': getExternalRpc('base-sepolia'),
+  ethereum: getExternalRpc('ethereum'),
+  base: getExternalRpc('base'),
+  jeju: getRpcUrl(),
+  'jeju-testnet': getRpcUrl('testnet'),
 }
 
 // USDC addresses per network

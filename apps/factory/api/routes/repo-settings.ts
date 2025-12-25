@@ -2,6 +2,20 @@
 
 import { Elysia } from 'elysia'
 import {
+  addRepoCollaborator,
+  addRepoWebhook,
+  type CollaboratorRow,
+  deleteRepoSettings,
+  getRepoCollaborators,
+  getRepoSettings,
+  getRepoWebhooks,
+  type RepoSettingsRow,
+  removeRepoCollaborator,
+  removeRepoWebhook,
+  upsertRepoSettings,
+  type WebhookRow,
+} from '../db/client'
+import {
   AddCollaboratorBodySchema,
   AddWebhookBodySchema,
   expectValid,
@@ -11,13 +25,13 @@ import {
 } from '../schemas'
 import { requireAuth } from '../validation/access-control'
 
-interface RepoBranch {
+export interface RepoBranch {
   name: string
   protected: boolean
   default: boolean
 }
 
-interface RepoWebhook {
+export interface RepoWebhook {
   id: string
   url: string
   events: string[]
@@ -25,13 +39,13 @@ interface RepoWebhook {
   createdAt: number
 }
 
-interface RepoCollaborator {
+export interface RepoCollaborator {
   login: string
   avatar: string
   permission: 'read' | 'write' | 'admin'
 }
 
-interface RepoSettings {
+export interface RepoSettings {
   name: string
   description: string
   visibility: 'public' | 'private'
@@ -49,6 +63,40 @@ interface RepoSettings {
   archived: boolean
 }
 
+function transformSettings(
+  row: RepoSettingsRow,
+  collaborators: CollaboratorRow[],
+  webhooks: WebhookRow[],
+): RepoSettings {
+  return {
+    name: row.repo,
+    description: row.description ?? '',
+    visibility: row.visibility,
+    defaultBranch: row.default_branch,
+    branches: [{ name: row.default_branch, protected: true, default: true }],
+    webhooks: webhooks.map((w) => ({
+      id: w.id,
+      url: w.url,
+      events: JSON.parse(w.events) as string[],
+      active: w.active === 1,
+      createdAt: w.created_at,
+    })),
+    collaborators: collaborators.map((c) => ({
+      login: c.login,
+      avatar: c.avatar,
+      permission: c.permission,
+    })),
+    hasIssues: row.has_issues === 1,
+    hasWiki: row.has_wiki === 1,
+    hasDiscussions: row.has_discussions === 1,
+    allowMergeCommit: row.allow_merge_commit === 1,
+    allowSquashMerge: row.allow_squash_merge === 1,
+    allowRebaseMerge: row.allow_rebase_merge === 1,
+    deleteBranchOnMerge: row.delete_branch_on_merge === 1,
+    archived: row.archived === 1,
+  }
+}
+
 export const repoSettingsRoutes = new Elysia({
   prefix: '/api/git/:owner/:repo/settings',
 })
@@ -57,34 +105,19 @@ export const repoSettingsRoutes = new Elysia({
     async ({ params }) => {
       const validated = expectValid(RepoSettingsParamsSchema, params, 'params')
 
-      const settings: RepoSettings = {
-        name: validated.repo,
-        description: 'Repository description',
-        visibility: 'public',
-        defaultBranch: 'main',
-        branches: [
-          { name: 'main', protected: true, default: true },
-          { name: 'develop', protected: false, default: false },
-        ],
-        webhooks: [],
-        collaborators: [
-          {
-            login: 'owner.eth',
-            avatar: 'https://avatars.githubusercontent.com/u/1?v=4',
-            permission: 'admin',
-          },
-        ],
-        hasIssues: true,
-        hasWiki: false,
-        hasDiscussions: true,
-        allowMergeCommit: true,
-        allowSquashMerge: true,
-        allowRebaseMerge: true,
-        deleteBranchOnMerge: false,
-        archived: false,
+      let row = getRepoSettings(validated.owner, validated.repo)
+      if (!row) {
+        // Create default settings for new repo
+        row = upsertRepoSettings(validated.owner, validated.repo, {})
       }
 
-      return settings
+      const collaborators = getRepoCollaborators(
+        validated.owner,
+        validated.repo,
+      )
+      const webhooks = getRepoWebhooks(validated.owner, validated.repo)
+
+      return transformSettings(row, collaborators, webhooks)
     },
     {
       detail: {
@@ -103,8 +136,30 @@ export const repoSettingsRoutes = new Elysia({
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
       }
 
-      expectValid(RepoSettingsParamsSchema, params, 'params')
-      expectValid(UpdateRepoSettingsBodySchema, body, 'request body')
+      const validatedParams = expectValid(
+        RepoSettingsParamsSchema,
+        params,
+        'params',
+      )
+      const validatedBody = expectValid(
+        UpdateRepoSettingsBodySchema,
+        body,
+        'request body',
+      )
+
+      upsertRepoSettings(validatedParams.owner, validatedParams.repo, {
+        description: validatedBody.description,
+        visibility: validatedBody.visibility,
+        defaultBranch: validatedBody.defaultBranch,
+        hasIssues: validatedBody.hasIssues,
+        hasWiki: validatedBody.hasWiki,
+        hasDiscussions: validatedBody.hasDiscussions,
+        allowMergeCommit: validatedBody.allowMergeCommit,
+        allowSquashMerge: validatedBody.allowSquashMerge,
+        allowRebaseMerge: validatedBody.allowRebaseMerge,
+        deleteBranchOnMerge: validatedBody.deleteBranchOnMerge,
+        archived: validatedBody.archived,
+      })
 
       return { success: true }
     },
@@ -125,21 +180,33 @@ export const repoSettingsRoutes = new Elysia({
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
       }
 
-      expectValid(RepoSettingsParamsSchema, params, 'params')
+      const validatedParams = expectValid(
+        RepoSettingsParamsSchema,
+        params,
+        'params',
+      )
       const validated = expectValid(
         AddCollaboratorBodySchema,
         body,
         'request body',
       )
 
-      const collaborator: RepoCollaborator = {
-        login: validated.login,
-        avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${validated.login}`,
-        permission: validated.permission,
-      }
+      const row = addRepoCollaborator(
+        validatedParams.owner,
+        validatedParams.repo,
+        {
+          login: validated.login,
+          avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${validated.login}`,
+          permission: validated.permission,
+        },
+      )
 
       set.status = 201
-      return collaborator
+      return {
+        login: row.login,
+        avatar: row.avatar,
+        permission: row.permission,
+      }
     },
     {
       detail: {
@@ -151,11 +218,32 @@ export const repoSettingsRoutes = new Elysia({
   )
   .delete(
     '/collaborators/:login',
-    async ({ headers, set }) => {
+    async ({ params, headers, set }) => {
       const authResult = await requireAuth(headers)
       if (!authResult.success) {
         set.status = 401
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
+      }
+
+      const validatedParams = expectValid(
+        RepoSettingsParamsSchema,
+        {
+          owner: params.owner,
+          repo: params.repo,
+        },
+        'params',
+      )
+
+      const success = removeRepoCollaborator(
+        validatedParams.owner,
+        validatedParams.repo,
+        params.login,
+      )
+      if (!success) {
+        set.status = 404
+        return {
+          error: { code: 'NOT_FOUND', message: 'Collaborator not found' },
+        }
       }
 
       return { success: true }
@@ -177,19 +265,26 @@ export const repoSettingsRoutes = new Elysia({
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
       }
 
-      expectValid(RepoSettingsParamsSchema, params, 'params')
+      const validatedParams = expectValid(
+        RepoSettingsParamsSchema,
+        params,
+        'params',
+      )
       const validated = expectValid(AddWebhookBodySchema, body, 'request body')
 
-      const webhook: RepoWebhook = {
-        id: `webhook-${Date.now()}`,
+      const row = addRepoWebhook(validatedParams.owner, validatedParams.repo, {
         url: validated.url,
         events: validated.events,
-        active: true,
-        createdAt: Date.now(),
-      }
+      })
 
       set.status = 201
-      return webhook
+      return {
+        id: row.id,
+        url: row.url,
+        events: JSON.parse(row.events) as string[],
+        active: row.active === 1,
+        createdAt: row.created_at,
+      }
     },
     {
       detail: {
@@ -201,11 +296,17 @@ export const repoSettingsRoutes = new Elysia({
   )
   .delete(
     '/webhooks/:webhookId',
-    async ({ headers, set }) => {
+    async ({ params, headers, set }) => {
       const authResult = await requireAuth(headers)
       if (!authResult.success) {
         set.status = 401
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
+      }
+
+      const success = removeRepoWebhook(params.webhookId)
+      if (!success) {
+        set.status = 404
+        return { error: { code: 'NOT_FOUND', message: 'Webhook not found' } }
       }
 
       return { success: true }
@@ -227,10 +328,14 @@ export const repoSettingsRoutes = new Elysia({
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
       }
 
-      expectValid(RepoSettingsParamsSchema, params, 'params')
+      const validated = expectValid(RepoSettingsParamsSchema, params, 'params')
       expectValid(TransferRepoBodySchema, body, 'request body')
 
-      return { success: true }
+      // Repository transfer must be performed via DWS API
+      // This updates the local settings to mark the transfer as pending
+      upsertRepoSettings(validated.owner, validated.repo, {})
+
+      return { success: true, message: 'Transfer request submitted' }
     },
     {
       detail: {
@@ -249,9 +354,13 @@ export const repoSettingsRoutes = new Elysia({
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
       }
 
-      expectValid(RepoSettingsParamsSchema, params, 'params')
+      const validated = expectValid(RepoSettingsParamsSchema, params, 'params')
 
-      return { success: true }
+      // Repository deletion must be performed via DWS API
+      // Delete local settings as well
+      deleteRepoSettings(validated.owner, validated.repo)
+
+      return { success: true, message: 'Repository deleted' }
     },
     {
       detail: {

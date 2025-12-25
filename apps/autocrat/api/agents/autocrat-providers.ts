@@ -38,20 +38,21 @@ import {
   ResearchDataSchema,
 } from '../../lib'
 
+// Config handles env overrides for URLs
 function getAutocratA2A(): string {
-  return process.env.AUTOCRAT_A2A_URL ?? getAutocratA2AUrl()
+  return getAutocratA2AUrl()
 }
 
 function getAutocratMCP(): string {
-  return process.env.AUTOCRAT_MCP_URL ?? `${getAutocratUrl()}/mcp`
+  return `${getAutocratUrl()}/mcp`
 }
 
 function getCEOA2A(): string {
-  return process.env.CEO_A2A_URL ?? `${getCoreAppUrl('AUTOCRAT_CEO')}/a2a`
+  return `${getCoreAppUrl('AUTOCRAT_CEO')}/a2a`
 }
 
 function getCEOMCP(): string {
-  return process.env.CEO_MCP_URL ?? `${getCoreAppUrl('AUTOCRAT_CEO')}/mcp`
+  return `${getCoreAppUrl('AUTOCRAT_CEO')}/mcp`
 }
 
 // Service registry for A2A discovery - resolved dynamically

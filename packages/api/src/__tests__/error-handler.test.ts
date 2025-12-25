@@ -254,9 +254,13 @@ describe('Error Handler', () => {
     test('uses custom status code', () => {
       try {
         assert(false, 'Not found', 404, 'NOT_FOUND')
+        throw new Error('Expected assert to throw')
       } catch (error) {
-        expect((error as APIError).statusCode).toBe(404)
-        expect((error as APIError).code).toBe('NOT_FOUND')
+        if (!(error instanceof APIError)) {
+          throw new Error('Expected APIError instance')
+        }
+        expect(error.statusCode).toBe(404)
+        expect(error.code).toBe('NOT_FOUND')
       }
     })
   })

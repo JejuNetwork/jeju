@@ -1,6 +1,5 @@
 // Oracle Node Barrel Export
 
-export * from './abis'
 export {
   buildPriceSources,
   createConfig,

@@ -7,6 +7,7 @@
  */
 
 import { cors } from '@elysiajs/cors'
+import { getCurrentNetwork } from '@jejunetwork/config'
 import type { JsonObject } from '@jejunetwork/types'
 import { isHexString, isValidAddress } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
@@ -141,7 +142,7 @@ function getRequiredAddress(
 }
 
 function getNetwork(): 'localnet' | 'testnet' | 'mainnet' {
-  const network = process.env.NETWORK ?? 'localnet'
+  const network = getCurrentNetwork()
   if (
     network !== 'localnet' &&
     network !== 'testnet' &&

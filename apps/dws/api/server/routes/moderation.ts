@@ -8,6 +8,7 @@
  * - Appeal handling
  */
 
+import { getChainId, getRpcUrl } from '@jejunetwork/config'
 import { Elysia, t } from 'elysia'
 import {
   type Address,
@@ -28,8 +29,8 @@ interface ModerationConfig {
 }
 
 const getConfig = (): ModerationConfig => ({
-  rpcUrl: process.env.JEJU_RPC_URL ?? 'http://localhost:6545',
-  chainId: parseInt(process.env.CHAIN_ID ?? '31337', 10),
+  rpcUrl: getRpcUrl(),
+  chainId: getChainId(),
   moderationMarketplaceAddress: (process.env.MODERATION_MARKETPLACE_ADDRESS ??
     '0x0') as Address,
   banManagerAddress: (process.env.BAN_MANAGER_ADDRESS ?? '0x0') as Address,

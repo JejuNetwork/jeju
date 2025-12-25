@@ -7,17 +7,11 @@
  */
 
 import { beforeAll, describe, expect, setDefaultTimeout, test } from 'bun:test'
-import {
-  type Address,
-  createPublicClient,
-  createWalletClient,
-  type Hex,
-  http,
-} from 'viem'
+import { type Address, createPublicClient, type Hex, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
-import { PkgRegistryManager } from '../../src/pkg/registry-manager'
-import { createBackendManager } from '../../src/storage/backends'
+import { PkgRegistryManager } from '../../api/pkg/registry-manager'
+import { createBackendManager } from '../../api/storage/backends'
 
 setDefaultTimeout(30000)
 
@@ -26,52 +20,8 @@ const PRIVATE_KEY = (process.env.DWS_PRIVATE_KEY ||
   '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80') as Hex
 const SKIP = process.env.SKIP_INTEGRATION === 'true'
 
-// PackageRegistry ABI (minimal for testing)
-const _PACKAGE_REGISTRY_ABI = [
-  {
-    name: 'createPackage',
-    type: 'function',
-    inputs: [
-      { name: 'name', type: 'string' },
-      { name: 'scope', type: 'string' },
-      { name: 'description', type: 'string' },
-      { name: 'license', type: 'string' },
-      { name: 'agentId', type: 'uint256' },
-    ],
-    outputs: [{ name: 'packageId', type: 'bytes32' }],
-  },
-  {
-    name: 'getPackageByName',
-    type: 'function',
-    inputs: [
-      { name: 'name', type: 'string' },
-      { name: 'scope', type: 'string' },
-    ],
-    outputs: [
-      {
-        name: '',
-        type: 'tuple',
-        components: [
-          { name: 'packageId', type: 'bytes32' },
-          { name: 'name', type: 'string' },
-          { name: 'scope', type: 'string' },
-          { name: 'owner', type: 'address' },
-          { name: 'createdAt', type: 'uint256' },
-        ],
-      },
-    ],
-  },
-  {
-    name: 'getPackageCount',
-    type: 'function',
-    inputs: [],
-    outputs: [{ name: '', type: 'uint256' }],
-  },
-] as const
-
 describe.skipIf(SKIP)('Package Registry On-Chain Integration', () => {
   let publicClient: ReturnType<typeof createPublicClient>
-  let _walletClient: ReturnType<typeof createWalletClient>
   let registryManager: PkgRegistryManager
   let packageRegistryAddress: Address
   let testAccount: Address
@@ -88,12 +38,6 @@ describe.skipIf(SKIP)('Package Registry On-Chain Integration', () => {
     }
 
     publicClient = createPublicClient({
-      chain,
-      transport: http(RPC_URL),
-    })
-
-    _walletClient = createWalletClient({
-      account,
       chain,
       transport: http(RPC_URL),
     })

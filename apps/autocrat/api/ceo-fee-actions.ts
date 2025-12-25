@@ -876,3 +876,185 @@ export async function executeCEOFeeSkill(
     return { success: false, result: null, error: message }
   }
 }
+
+/**
+ * Get pending fee changes
+ */
+export async function getPendingFeeChanges(): Promise<PendingFeeChange[]> {
+  const { address, public: client } = ensureReadOnly()
+
+  // Query FeeChangeProposed events that haven't been executed or cancelled
+  const proposedLogs = await client.getLogs({
+    address,
+    event: {
+      type: 'event',
+      name: 'FeeChangeProposed',
+      inputs: [
+        { name: 'changeId', type: 'bytes32', indexed: true },
+        { name: 'feeType', type: 'bytes32', indexed: false },
+        { name: 'effectiveAt', type: 'uint256', indexed: false },
+        { name: 'proposedBy', type: 'address', indexed: false },
+      ],
+    },
+    fromBlock: 'earliest',
+    toBlock: 'latest',
+  })
+
+  const executedLogs = await client.getLogs({
+    address,
+    event: {
+      type: 'event',
+      name: 'FeeChangeExecuted',
+      inputs: [{ name: 'changeId', type: 'bytes32', indexed: true }],
+    },
+    fromBlock: 'earliest',
+    toBlock: 'latest',
+  })
+
+  const cancelledLogs = await client.getLogs({
+    address,
+    event: {
+      type: 'event',
+      name: 'FeeChangeCancelled',
+      inputs: [{ name: 'changeId', type: 'bytes32', indexed: true }],
+    },
+    fromBlock: 'earliest',
+    toBlock: 'latest',
+  })
+
+  const executedIds = new Set(executedLogs.map((l) => l.args.changeId as Hex))
+  const cancelledIds = new Set(cancelledLogs.map((l) => l.args.changeId as Hex))
+
+  const pending: PendingFeeChange[] = []
+  for (const log of proposedLogs) {
+    const changeId = log.args.changeId as Hex
+    if (!executedIds.has(changeId) && !cancelledIds.has(changeId)) {
+      pending.push({
+        changeId,
+        feeType: log.args.feeType as Hex,
+        effectiveAt: Number(log.args.effectiveAt),
+        proposedBy: log.args.proposedBy as Address,
+        executed: false,
+      })
+    }
+  }
+
+  return pending
+}
+
+export interface FeeChangeHistoryEntry {
+  changeId: Hex
+  feeType: Hex
+  effectiveAt: number
+  proposedBy: Address
+  status: 'proposed' | 'executed' | 'cancelled'
+  blockNumber: bigint
+  transactionHash: Hex
+}
+
+/**
+ * Get fee change history
+ */
+export async function getFeeChangeHistory(
+  limit = 50,
+): Promise<FeeChangeHistoryEntry[]> {
+  const { address, public: client } = ensureReadOnly()
+
+  // Query all fee change events
+  const [proposedLogs, executedLogs, cancelledLogs] = await Promise.all([
+    client.getLogs({
+      address,
+      event: {
+        type: 'event',
+        name: 'FeeChangeProposed',
+        inputs: [
+          { name: 'changeId', type: 'bytes32', indexed: true },
+          { name: 'feeType', type: 'bytes32', indexed: false },
+          { name: 'effectiveAt', type: 'uint256', indexed: false },
+          { name: 'proposedBy', type: 'address', indexed: false },
+        ],
+      },
+      fromBlock: 'earliest',
+      toBlock: 'latest',
+    }),
+    client.getLogs({
+      address,
+      event: {
+        type: 'event',
+        name: 'FeeChangeExecuted',
+        inputs: [{ name: 'changeId', type: 'bytes32', indexed: true }],
+      },
+      fromBlock: 'earliest',
+      toBlock: 'latest',
+    }),
+    client.getLogs({
+      address,
+      event: {
+        type: 'event',
+        name: 'FeeChangeCancelled',
+        inputs: [{ name: 'changeId', type: 'bytes32', indexed: true }],
+      },
+      fromBlock: 'earliest',
+      toBlock: 'latest',
+    }),
+  ])
+
+  const executedMap = new Map<
+    Hex,
+    { blockNumber: bigint; transactionHash: Hex }
+  >()
+  const cancelledMap = new Map<
+    Hex,
+    { blockNumber: bigint; transactionHash: Hex }
+  >()
+
+  for (const log of executedLogs) {
+    executedMap.set(log.args.changeId as Hex, {
+      blockNumber: log.blockNumber,
+      transactionHash: log.transactionHash,
+    })
+  }
+
+  for (const log of cancelledLogs) {
+    cancelledMap.set(log.args.changeId as Hex, {
+      blockNumber: log.blockNumber,
+      transactionHash: log.transactionHash,
+    })
+  }
+
+  const history: FeeChangeHistoryEntry[] = []
+  for (const log of proposedLogs) {
+    const changeId = log.args.changeId as Hex
+    const executed = executedMap.get(changeId)
+    const cancelled = cancelledMap.get(changeId)
+
+    let status: 'proposed' | 'executed' | 'cancelled' = 'proposed'
+    let blockNumber = log.blockNumber
+    let transactionHash = log.transactionHash
+
+    if (executed) {
+      status = 'executed'
+      blockNumber = executed.blockNumber
+      transactionHash = executed.transactionHash
+    } else if (cancelled) {
+      status = 'cancelled'
+      blockNumber = cancelled.blockNumber
+      transactionHash = cancelled.transactionHash
+    }
+
+    history.push({
+      changeId,
+      feeType: log.args.feeType as Hex,
+      effectiveAt: Number(log.args.effectiveAt),
+      proposedBy: log.args.proposedBy as Address,
+      status,
+      blockNumber,
+      transactionHash,
+    })
+  }
+
+  // Sort by block number descending (most recent first) and limit
+  return history
+    .sort((a, b) => Number(b.blockNumber - a.blockNumber))
+    .slice(0, limit)
+}

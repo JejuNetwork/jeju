@@ -11,6 +11,7 @@
 import { execSync } from 'node:child_process'
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { getCurrentNetwork } from '@jejunetwork/config'
 import {
   type Address,
   type Chain,
@@ -53,7 +54,7 @@ async function main() {
   const rpcUrl = process.env.L1_RPC_URL || 'http://127.0.0.1:6545'
   const deployerKey =
     process.env.DEPLOYER_PRIVATE_KEY || process.env.PRIVATE_KEY
-  const network = process.env.NETWORK || 'localnet'
+  const network = getCurrentNetwork()
 
   if (!deployerKey) {
     console.error('DEPLOYER_PRIVATE_KEY or PRIVATE_KEY required')

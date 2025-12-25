@@ -21,7 +21,7 @@ import type {
   RoomState,
   RoomType,
 } from '../../lib/types'
-import { expect } from '../schemas'
+import { expect, expectTrue } from '../schemas'
 import { createLogger, type Logger } from './logger'
 import type { CrucibleStorage } from './storage'
 
@@ -134,16 +134,23 @@ export class RoomSDK {
     const receipt = await this.publicClient.waitForTransactionReceipt({
       hash: txHash,
     })
-    const roomId = receipt.logs[0]?.topics[1]
-      ? BigInt(receipt.logs[0].topics[1])
-      : 0n
+
+    const log = receipt.logs[0]
+    if (!log) {
+      throw new Error('Room creation failed: no logs in receipt')
+    }
+    const topic = log.topics[1]
+    if (!topic) {
+      throw new Error('Room creation failed: room ID not found in log topics')
+    }
+    const roomId = BigInt(topic)
 
     this.log.info('Room created', { roomId: roomId.toString(), stateCid })
     return { roomId, stateCid }
   }
 
   async getRoom(roomId: bigint): Promise<Room | null> {
-    expect(roomId > 0n, 'Room ID must be greater than 0')
+    expectTrue(roomId > 0n, 'Room ID must be greater than 0')
     this.log.debug('Getting room', { roomId: roomId.toString() })
 
     // Fetch full room data from storage mapping
@@ -223,8 +230,8 @@ export class RoomSDK {
     role: AgentRole,
   ): Promise<void> {
     expect(this.walletClient, 'Wallet client required')
-    expect(roomId > 0n, 'Room ID must be greater than 0')
-    expect(agentId > 0n, 'Agent ID must be greater than 0')
+    expectTrue(roomId > 0n, 'Room ID must be greater than 0')
+    expectTrue(agentId > 0n, 'Agent ID must be greater than 0')
     expect(role, 'Role is required')
 
     this.log.info('Agent joining room', {
@@ -248,8 +255,8 @@ export class RoomSDK {
 
   async leaveRoom(roomId: bigint, agentId: bigint): Promise<void> {
     expect(this.walletClient, 'Wallet client required')
-    expect(roomId > 0n, 'Room ID must be greater than 0')
-    expect(agentId > 0n, 'Agent ID must be greater than 0')
+    expectTrue(roomId > 0n, 'Room ID must be greater than 0')
+    expectTrue(agentId > 0n, 'Agent ID must be greater than 0')
 
     this.log.info('Agent leaving room', {
       roomId: roomId.toString(),
@@ -282,10 +289,10 @@ export class RoomSDK {
     action?: string,
   ): Promise<RoomMessage> {
     expect(this.walletClient, 'Wallet client required')
-    expect(roomId > 0n, 'Room ID must be greater than 0')
-    expect(agentId > 0n, 'Agent ID must be greater than 0')
+    expectTrue(roomId > 0n, 'Room ID must be greater than 0')
+    expectTrue(agentId > 0n, 'Agent ID must be greater than 0')
     expect(content, 'Message content is required')
-    expect(
+    expectTrue(
       content.length > 0 && content.length <= 10000,
       'Message content must be between 1 and 10000 characters',
     )
@@ -328,9 +335,9 @@ export class RoomSDK {
   }
 
   async getMessages(roomId: bigint, limit?: number): Promise<RoomMessage[]> {
-    expect(roomId > 0n, 'Room ID must be greater than 0')
+    expectTrue(roomId > 0n, 'Room ID must be greater than 0')
     if (limit !== undefined) {
-      expect(limit > 0 && limit <= 1000, 'Limit must be between 1 and 1000')
+      expectTrue(limit > 0 && limit <= 1000, 'Limit must be between 1 and 1000')
     }
     const state = await this.loadState(roomId)
     return state.messages.slice(-(limit ?? 50))
@@ -338,7 +345,7 @@ export class RoomSDK {
 
   async setPhase(roomId: bigint, phase: RoomPhase): Promise<void> {
     expect(this.walletClient, 'Wallet client required')
-    expect(roomId > 0n, 'Room ID must be greater than 0')
+    expectTrue(roomId > 0n, 'Room ID must be greater than 0')
     expect(phase, 'Phase is required')
 
     this.log.info('Setting room phase', { roomId: roomId.toString(), phase })
@@ -382,9 +389,9 @@ export class RoomSDK {
     delta: number,
   ): Promise<void> {
     expect(this.walletClient, 'Wallet client required')
-    expect(roomId > 0n, 'Room ID must be greater than 0')
-    expect(agentId > 0n, 'Agent ID must be greater than 0')
-    expect(
+    expectTrue(roomId > 0n, 'Room ID must be greater than 0')
+    expectTrue(agentId > 0n, 'Agent ID must be greater than 0')
+    expectTrue(
       typeof delta === 'number' && !Number.isNaN(delta),
       'Delta must be a valid number',
     )

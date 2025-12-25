@@ -151,8 +151,8 @@ describe('FundingOracle', () => {
   })
 
   describe('calculateQuadraticAllocation', () => {
-    const mockStaker =
-      '0x1234567890abcdef1234567890abcdef12345678' as `0x${string}`
+    const mockStaker: `0x${string}` =
+      '0x1234567890abcdef1234567890abcdef12345678'
 
     test('empty stakes returns 0', () => {
       const result = calculateQuadraticAllocation([], parseEther('100'), 10)

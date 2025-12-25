@@ -2,6 +2,12 @@
 
 import { Elysia } from 'elysia'
 import {
+  type CIRunRow,
+  createCIRun as dbCreateCIRun,
+  listCIRuns as dbListCIRuns,
+  getCIRun,
+} from '../db/client'
+import {
   CIQuerySchema,
   CIRunParamsSchema,
   expectValid,
@@ -9,7 +15,13 @@ import {
 } from '../schemas'
 import { requireAuth } from '../validation/access-control'
 
-interface CIRun {
+export interface CIJob {
+  name: string
+  status: string
+  duration?: number
+}
+
+export interface CIRun {
   id: string
   workflow: string
   status: 'queued' | 'running' | 'success' | 'failure' | 'cancelled'
@@ -21,13 +33,28 @@ interface CIRun {
   duration?: number
   startedAt: number
   completedAt?: number
-  jobs: Array<{
-    name: string
-    status: string
-    duration?: number
-  }>
+  jobs: CIJob[]
   createdAt: number
   updatedAt: number
+}
+
+function transformCIRun(row: CIRunRow): CIRun {
+  return {
+    id: row.id,
+    workflow: row.workflow,
+    status: row.status,
+    conclusion: row.conclusion ?? undefined,
+    branch: row.branch,
+    commit: row.commit_sha,
+    commitMessage: row.commit_message,
+    author: row.author,
+    duration: row.duration ?? undefined,
+    startedAt: row.started_at,
+    completedAt: row.completed_at ?? undefined,
+    jobs: [], // CI jobs loaded separately if needed
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
 }
 
 export const ciRoutes = new Elysia({ prefix: '/api/ci' })
@@ -37,9 +64,15 @@ export const ciRoutes = new Elysia({ prefix: '/api/ci' })
       const validated = expectValid(CIQuerySchema, query, 'query params')
       const page = parseInt(validated.page || '1', 10)
 
-      const runs: CIRun[] = []
+      const result = dbListCIRuns({
+        repo: validated.repo,
+        status: validated.status,
+        branch: validated.branch,
+        page,
+      })
 
-      return { runs, total: runs.length, page }
+      const runs = result.runs.map(transformCIRun)
+      return { runs, total: result.total, page }
     },
     {
       detail: {
@@ -64,22 +97,15 @@ export const ciRoutes = new Elysia({ prefix: '/api/ci' })
         'request body',
       )
 
-      const run: CIRun = {
-        id: `run-${Date.now()}`,
+      const row = dbCreateCIRun({
         workflow: validated.workflow,
+        repo: validated.repo,
         branch: validated.branch,
-        status: 'queued',
-        commit: '',
-        commitMessage: '',
-        author: '',
-        startedAt: Date.now(),
-        jobs: [],
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      }
+        author: authResult.address,
+      })
 
       set.status = 201
-      return run
+      return transformCIRun(row)
     },
     {
       detail: {
@@ -93,13 +119,17 @@ export const ciRoutes = new Elysia({ prefix: '/api/ci' })
     '/:runId',
     async ({ params, set }) => {
       const validated = expectValid(CIRunParamsSchema, params, 'params')
-      set.status = 404
-      return {
-        error: {
-          code: 'NOT_FOUND',
-          message: `CI run ${validated.runId} not found`,
-        },
+      const row = getCIRun(validated.runId)
+      if (!row) {
+        set.status = 404
+        return {
+          error: {
+            code: 'NOT_FOUND',
+            message: `CI run ${validated.runId} not found`,
+          },
+        }
       }
+      return transformCIRun(row)
     },
     {
       detail: {
