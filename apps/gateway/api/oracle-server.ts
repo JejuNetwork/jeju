@@ -1,11 +1,10 @@
 #!/usr/bin/env bun
 import { getCurrentNetwork } from '@jejunetwork/config'
+import type { NetworkType, OracleNodeConfig } from '@jejunetwork/types'
 import {
   createConfig,
   MetricsExporter,
-  type NetworkType,
   OracleNode,
-  type OracleNodeConfig,
   validateConfig,
 } from './oracle'
 

@@ -77,9 +77,7 @@ function deriveKey(keyId: string): Buffer {
       .update(`DEV_ONLY_INSECURE_KEY:${keyId}`)
       .digest()
   }
-  return createHash('sha256')
-    .update(`${serverSecret}:${keyId}`)
-    .digest()
+  return createHash('sha256').update(`${serverSecret}:${keyId}`).digest()
 }
 
 /**

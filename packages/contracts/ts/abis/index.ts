@@ -12,7 +12,7 @@
  */
 
 // ============================================================================
-// TYPED ABIs - Re-export from generated (full type inference)
+// TYPED ABIs - Export from generated (full type inference)
 // ============================================================================
 export {
   automationRegistryAbi,

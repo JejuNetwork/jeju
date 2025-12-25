@@ -32,7 +32,9 @@ interface ModerationContractAddresses {
   identityRegistry: Address
 }
 
-function getContractsForNetwork(network: 'mainnet' | 'testnet' | 'localnet'): ModerationContractAddresses {
+function getContractsForNetwork(
+  network: 'mainnet' | 'testnet' | 'localnet',
+): ModerationContractAddresses {
   const contracts = getContractsConfig(network)
 
   return {
@@ -63,7 +65,11 @@ export const MODERATION_CONTRACTS: {
 
 function getCurrentNetworkType(): 'mainnet' | 'testnet' | 'localnet' {
   const envNetwork = getEnv('PUBLIC_NETWORK')
-  if (envNetwork === 'mainnet' || envNetwork === 'testnet' || envNetwork === 'localnet') {
+  if (
+    envNetwork === 'mainnet' ||
+    envNetwork === 'testnet' ||
+    envNetwork === 'localnet'
+  ) {
     return envNetwork
   }
   return getCurrentNetwork()

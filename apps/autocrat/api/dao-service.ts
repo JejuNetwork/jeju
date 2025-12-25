@@ -32,15 +32,6 @@ import {
   toHex,
 } from '../lib'
 
-// Internal types
-// Re-export DAO types from lib/types.ts for API consumers
-export type {
-  DAO,
-  DAOFull,
-  FundingAllocation,
-  FundingProject,
-} from '../lib/types'
-
 import type {
   DAO,
   DAOFull,

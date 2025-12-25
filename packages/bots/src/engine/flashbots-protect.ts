@@ -55,8 +55,7 @@ interface PendingBundle {
   submittedAt: number
   status: 'pending' | 'included' | 'failed'
 }
-// @ts-expect-error Reserved for future direct RPC use
-const _FLASHBOTS_RPC = 'https://rpc.flashbots.net'
+
 const FLASHBOTS_PROTECT = 'https://protect.flashbots.net'
 const FLASHBOTS_RELAY = 'https://relay.flashbots.net'
 

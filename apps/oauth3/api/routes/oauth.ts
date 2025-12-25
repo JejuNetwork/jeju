@@ -720,6 +720,3 @@ function verifyToken(token: string, secret: string): string | null {
 
   return decoded.sub
 }
-
-// Re-export state for other routes
-export { authCodeState, clientState, sessionState }

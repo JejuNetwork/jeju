@@ -3,7 +3,8 @@
  */
 
 import { Elysia, t } from 'elysia'
-import { CasualProposalCategorySchema, expectValid } from '../../lib'
+import { expectValid } from '@jejunetwork/types'
+import { CasualProposalCategorySchema } from '../../lib'
 import {
   type CasualSubmission,
   getProposalAssistant,

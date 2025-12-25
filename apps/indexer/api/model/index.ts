@@ -1,1 +1,1 @@
-export * from '../../src/model/generated'
+export * from './generated'

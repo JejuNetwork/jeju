@@ -13,7 +13,7 @@ import type {
 import { expectAddress, ZERO_ADDRESS } from '@jejunetwork/types'
 import { type Address, type Hex, isAddress } from 'viem'
 
-// Re-export shared types for local usage
+// Local type aliases for convenience
 type NetworkConfig = OracleNetworkConfig
 type ConfigFileData = OracleConfigFileData
 

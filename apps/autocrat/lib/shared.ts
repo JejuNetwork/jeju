@@ -2,9 +2,6 @@
  * Shared constants and utilities for Council
  */
 
-// Re-export commonly used utilities from shared packages
-export { expectValid } from '@jejunetwork/types'
-
 import { expectValid, ZERO_ADDRESS } from '@jejunetwork/types'
 import { type Address, type Hex, isAddress, isHex } from 'viem'
 import { z } from 'zod'

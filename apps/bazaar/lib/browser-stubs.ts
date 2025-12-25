@@ -65,7 +65,9 @@ function getNetworkConfig(): {
 } {
   const networkEnv = getEnv('PUBLIC_NETWORK')
   const network =
-    networkEnv === 'mainnet' || networkEnv === 'testnet' || networkEnv === 'localnet'
+    networkEnv === 'mainnet' ||
+    networkEnv === 'testnet' ||
+    networkEnv === 'localnet'
       ? networkEnv
       : getCurrentNetwork()
 

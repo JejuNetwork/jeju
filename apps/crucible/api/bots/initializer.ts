@@ -303,8 +303,8 @@ class TradingBotImpl implements TradingBot {
 }
 
 export class BotInitializer {
-  private bots: Map<bigint, TradingBot> = new Map()
   private config: BotInitializerConfig
+  private bots: Map<bigint, TradingBot> = new Map()
 
   constructor(config: BotInitializerConfig) {
     this.config = config
@@ -488,7 +488,7 @@ export class BotInitializer {
     return this.bots.get(id)
   }
 
-  getAllBots(): TradingBot[] {
-    return Array.from(this.bots.values())
+  getAllBots(): Map<bigint, TradingBot> {
+    return this.bots
   }
 }

@@ -11,8 +11,7 @@
  * Import directly from specific modules if needed.
  */
 
-// Re-export only the essential types and utilities that may be needed by other da modules
-// The full implementations are available by importing directly from:
+// Import directly from the specific modules as needed:
 // - ./bls for BLS signatures
 // - ./hash-to-curve for hash-to-curve
 // - ./kzg for KZG commitments

@@ -14,6 +14,7 @@ if (process.env.NODE_ENV === 'production') {
     '[Email Routes] WARNING: Running in production with in-memory storage. Emails will be lost on restart.',
   )
 }
+
 import { expectValid } from '@jejunetwork/types'
 import { Elysia, t } from 'elysia'
 import { z } from 'zod'

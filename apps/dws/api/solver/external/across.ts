@@ -58,8 +58,6 @@ const V3FundsDepositedArgsSchema = z.object({
   message: HexSchema,
 })
 
-type V3FundsDepositedArgs = z.infer<typeof V3FundsDepositedArgsSchema>
-
 export interface AcrossDeposit {
   depositId: number
   originChainId: number

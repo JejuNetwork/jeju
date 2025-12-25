@@ -35,7 +35,9 @@ async function build() {
       'process.env.NODE_ENV': JSON.stringify('development'),
       // Use PUBLIC_ prefix for all public env vars
       'import.meta.env.PUBLIC_NETWORK': JSON.stringify('localnet'),
-      'import.meta.env.PUBLIC_CHAIN_ID': JSON.stringify(String(getChainId('localnet'))),
+      'import.meta.env.PUBLIC_CHAIN_ID': JSON.stringify(
+        String(getChainId('localnet')),
+      ),
       'import.meta.env.PUBLIC_RPC_URL': JSON.stringify(getRpcUrl('localnet')),
       'import.meta.env.PUBLIC_WS_URL': JSON.stringify(getWsUrl('localnet')),
       'import.meta.env.PUBLIC_IPFS_API': JSON.stringify(getIpfsApiUrl()),

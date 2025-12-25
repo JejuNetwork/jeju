@@ -352,7 +352,7 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
 
 
     constructor(IEntryPoint _entryPoint, address _l1StakeManager, uint256 _chainId, address _priceOracle, address _owner)
-        BasePaymaster(_entryPoint, _owner)
+        BasePaymaster(_entryPoint)
     {
         require(_l1StakeManager != address(0), "Invalid stake manager");
         l1StakeManager = _l1StakeManager;
@@ -360,6 +360,9 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         messenger = ICrossDomainMessenger(0x4200000000000000000000000000000000000007);
         if (_priceOracle != address(0)) {
             priceOracle = IPriceOracle(_priceOracle);
+        }
+        if (_owner != msg.sender) {
+            _transferOwnership(_owner);
         }
     }
 

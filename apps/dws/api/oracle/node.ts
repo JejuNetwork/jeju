@@ -24,7 +24,7 @@ import {
   FEED_REGISTRY_ABI,
   NETWORK_CONNECTOR_ABI,
   REPORT_VERIFIER_ABI,
-} from './abis'
+} from '@jejunetwork/shared'
 import { type PriceData, PriceFetcher } from './price-fetcher'
 
 const ZERO_BYTES32 =
