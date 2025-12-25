@@ -82,21 +82,16 @@ export async function getContractAddresses(): Promise<ContractAddresses> {
   const config = getContractsConfig('localnet')
   const client = getPublicClient()
 
-  // Use config with env overrides for testing
-  const tokenRegistryAddr = (process.env.PUBLIC_TOKEN_REGISTRY_ADDRESS ||
-    config.registry?.TokenRegistry ||
+  // Use config for all addresses
+  const tokenRegistryAddr = (config.registry?.TokenRegistry ||
     deployed.tokenRegistry ||
     deployed.validationRegistry) as `0x${string}` | undefined
-  const paymasterFactoryAddr = (process.env.PUBLIC_PAYMASTER_FACTORY_ADDRESS ||
-    config.payments?.PaymasterFactory ||
+  const paymasterFactoryAddr = (config.payments?.PaymasterFactory ||
     deployed.paymasterFactory) as `0x${string}` | undefined
-  const priceOracleAddr = (process.env.PUBLIC_PRICE_ORACLE_ADDRESS ||
-    config.payments?.PriceOracle ||
+  const priceOracleAddr = (config.payments?.PriceOracle ||
     deployed.priceOracle) as `0x${string}` | undefined
-  const nodeStakingManagerAddr = (process.env.PUBLIC_NODE_STAKING_MANAGER_ADDRESS ||
-    config.nodeStaking?.NodeStakingManager) as `0x${string}` | undefined
-  const identityRegistryAddr = (process.env.PUBLIC_IDENTITY_REGISTRY_ADDRESS ||
-    config.registry?.IdentityRegistry ||
+  const nodeStakingManagerAddr = config.nodeStaking?.NodeStakingManager as `0x${string}` | undefined
+  const identityRegistryAddr = (config.registry?.IdentityRegistry ||
     deployed.identityRegistry) as `0x${string}` | undefined
 
   return {

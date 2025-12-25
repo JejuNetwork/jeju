@@ -7,7 +7,17 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import type { Address } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { resetConfig } from '../../api/x402/config'
-import { createServer } from '../../api/x402/server'
+import { createServer, type X402App } from '../../api/x402/server'
+
+// Helper to make requests to the app (wraps Elysia .handle method)
+async function request(
+  server: X402App,
+  path: string,
+  options?: RequestInit,
+): Promise<Response> {
+  const url = `http://localhost${path}`
+  return server.handle(new Request(url, options))
+}
 import {
   clearNonceCache,
   markNonceUsed,
@@ -105,7 +115,7 @@ describe('Amount Boundary Conditions', () => {
   test('should reject zero amount payment', async () => {
     const paymentHeader = await createSignedPayment({ amount: '0' })
 
-    const res = await app.request('/verify', {
+    const res = await request(app, '/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -130,7 +140,7 @@ describe('Amount Boundary Conditions', () => {
   test('should accept exact amount match', async () => {
     const paymentHeader = await createSignedPayment({ amount: '1000000' })
 
-    const res = await app.request('/verify', {
+    const res = await request(app, '/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -158,7 +168,7 @@ describe('Amount Boundary Conditions', () => {
       scheme: 'upto',
     }) // 2 USDC
 
-    const res = await app.request('/verify', {
+    const res = await request(app, '/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -185,7 +195,7 @@ describe('Amount Boundary Conditions', () => {
     const largeAmount = '340282366920938463463374607431768211455'
     const paymentHeader = await createSignedPayment({ amount: largeAmount })
 
-    const res = await app.request('/verify', {
+    const res = await request(app, '/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -210,7 +220,7 @@ describe('Amount Boundary Conditions', () => {
   test('should reject underpayment by 1 unit with exact scheme', async () => {
     const paymentHeader = await createSignedPayment({ amount: '999999' }) // 1 unit short
 
-    const res = await app.request('/verify', {
+    const res = await request(app, '/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -246,7 +256,7 @@ describe('Timestamp Boundary Conditions', () => {
     const timestamp = Math.floor(Date.now() / 1000) - 300
     const paymentHeader = await createSignedPayment({ timestamp })
 
-    const res = await app.request('/verify', {
+    const res = await request(app, '/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -272,7 +282,7 @@ describe('Timestamp Boundary Conditions', () => {
     const timestamp = Math.floor(Date.now() / 1000) - 301 // 1 second past limit
     const paymentHeader = await createSignedPayment({ timestamp })
 
-    const res = await app.request('/verify', {
+    const res = await request(app, '/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -298,7 +308,7 @@ describe('Timestamp Boundary Conditions', () => {
     const timestamp = Math.floor(Date.now() / 1000) + 30 // 30 seconds in future
     const paymentHeader = await createSignedPayment({ timestamp })
 
-    const res = await app.request('/verify', {
+    const res = await request(app, '/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -323,7 +333,7 @@ describe('Timestamp Boundary Conditions', () => {
     const timestamp = Math.floor(Date.now() / 1000) + 120 // 2 minutes in future
     const paymentHeader = await createSignedPayment({ timestamp })
 
-    const res = await app.request('/verify', {
+    const res = await request(app, '/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -362,7 +372,7 @@ describe('Nonce Replay Prevention', () => {
 
     const paymentHeader = await createSignedPayment({ nonce })
 
-    const res = await app.request('/verify', {
+    const res = await request(app, '/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -394,7 +404,7 @@ describe('Nonce Replay Prevention', () => {
     // This payer should still be able to use the same nonce
     const paymentHeader = await createSignedPayment({ nonce })
 
-    const res = await app.request('/verify', {
+    const res = await request(app, '/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -428,7 +438,7 @@ describe('Asset Mismatch Detection', () => {
     const wrongAsset: Address = '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC'
     const paymentHeader = await createSignedPayment({ asset: wrongAsset })
 
-    const res = await app.request('/verify', {
+    const res = await request(app, '/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -466,7 +476,7 @@ describe('Network Mismatch Detection', () => {
       chainId: 84532,
     })
 
-    const res = await app.request('/verify', {
+    const res = await request(app, '/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -496,7 +506,7 @@ describe('Malformed Input Handling', () => {
   })
 
   test('should handle empty paymentHeader', async () => {
-    const res = await app.request('/verify', {
+    const res = await request(app, '/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -518,7 +528,7 @@ describe('Malformed Input Handling', () => {
   })
 
   test('should handle non-base64 paymentHeader', async () => {
-    const res = await app.request('/verify', {
+    const res = await request(app, '/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -540,7 +550,7 @@ describe('Malformed Input Handling', () => {
   })
 
   test('should handle base64 that decodes to non-JSON', async () => {
-    const res = await app.request('/verify', {
+    const res = await request(app, '/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -574,7 +584,7 @@ describe('Malformed Input Handling', () => {
       // signature field missing
     }
 
-    const res = await app.request('/verify', {
+    const res = await request(app, '/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -609,7 +619,7 @@ describe('Malformed Input Handling', () => {
       signature: 'not-a-hex-signature',
     }
 
-    const res = await app.request('/verify', {
+    const res = await request(app, '/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -635,7 +645,7 @@ describe('Malformed Input Handling', () => {
   test('should handle requirements with invalid address format', async () => {
     const paymentHeader = await createSignedPayment()
 
-    const res = await app.request('/verify', {
+    const res = await request(app, '/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -720,7 +730,7 @@ describe('Response Structure Verification', () => {
   test('verify response should have all required fields', async () => {
     const paymentHeader = await createSignedPayment()
 
-    const res = await app.request('/verify', {
+    const res = await request(app, '/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -757,7 +767,7 @@ describe('Response Structure Verification', () => {
   })
 
   test('supported response should have correct structure', async () => {
-    const res = await app.request('/supported')
+    const res = await request(app, '/supported')
     const body = await res.json()
 
     expect(body).toHaveProperty('kinds')
@@ -780,7 +790,7 @@ describe('Response Structure Verification', () => {
   })
 
   test('health response should have correct structure', async () => {
-    const res = await app.request('/')
+    const res = await request(app, '/')
     const body = await res.json()
 
     expect(body).toHaveProperty('service')

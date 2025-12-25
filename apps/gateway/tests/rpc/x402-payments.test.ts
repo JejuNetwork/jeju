@@ -12,7 +12,7 @@ import {
   isX402Enabled,
   processPayment,
   RPC_PRICING,
-} from '../../src/rpc/services/x402-payments.js'
+} from '../../api/rpc/services/x402-payments'
 
 // Helper to check if state service is available
 async function isServiceAvailable(): Promise<boolean> {

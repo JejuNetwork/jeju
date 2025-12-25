@@ -1,6 +1,7 @@
 /** Factory Client Build */
 
 import { existsSync, mkdirSync, rmSync } from 'node:fs'
+import { getCurrentNetwork } from '@jejunetwork/config'
 
 const outdir = 'dist/client'
 
@@ -8,6 +9,9 @@ if (existsSync(outdir)) {
   rmSync(outdir, { recursive: true })
 }
 mkdirSync(outdir, { recursive: true })
+
+// Get network from config
+const network = getCurrentNetwork()
 
 const result = await Bun.build({
   entrypoints: ['./web/index.html'],
@@ -47,9 +51,8 @@ const result = await Bun.build({
     'process.env.NODE_ENV': JSON.stringify(
       process.env.NODE_ENV || 'production',
     ),
-    'process.env.PUBLIC_NETWORK': JSON.stringify(
-      process.env.PUBLIC_NETWORK || 'localnet',
-    ),
+    'process.env.PUBLIC_NETWORK': JSON.stringify(network),
+    // WalletConnect ID is an intentional env override (API key)
     'process.env.PUBLIC_WALLETCONNECT_ID': JSON.stringify(
       process.env.PUBLIC_WALLETCONNECT_ID || '',
     ),

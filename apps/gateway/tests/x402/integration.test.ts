@@ -6,10 +6,20 @@ import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import type { Address } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { resetConfig } from '../../api/x402/config'
-import { createServer } from '../../api/x402/server'
+import { createServer, type X402App } from '../../api/x402/server'
 import { clearNonceCache } from '../../api/x402/services/nonce-manager'
 
 const app = createServer()
+
+// Helper to make requests to the app (wraps Elysia .handle method)
+async function request(
+  server: X402App,
+  path: string,
+  options?: RequestInit,
+): Promise<Response> {
+  const url = `http://localhost${path}`
+  return server.handle(new Request(url, options))
+}
 
 // Test wallet (anvil default account 0)
 const TEST_PRIVATE_KEY =
@@ -93,7 +103,7 @@ describe('Full Payment Verification Flow', () => {
   test('should verify a valid signed payment', async () => {
     const paymentHeader = await createSignedPayment()
 
-    const res = await app.request('/verify', {
+    const res = await request(app, '/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -121,7 +131,7 @@ describe('Full Payment Verification Flow', () => {
   test('should reject insufficient payment amount with exact scheme', async () => {
     const paymentHeader = await createSignedPayment({ amount: '500000' }) // 0.5 USDC
 
-    const res = await app.request('/verify', {
+    const res = await request(app, '/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -149,7 +159,7 @@ describe('Full Payment Verification Flow', () => {
     const oldTimestamp = Math.floor(Date.now() / 1000) - 600 // 10 minutes ago
     const paymentHeader = await createSignedPayment({ timestamp: oldTimestamp })
 
-    const res = await app.request('/verify', {
+    const res = await request(app, '/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -176,7 +186,7 @@ describe('Full Payment Verification Flow', () => {
   test('should reject wrong recipient', async () => {
     const paymentHeader = await createSignedPayment()
 
-    const res = await app.request('/verify', {
+    const res = await request(app, '/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -203,7 +213,7 @@ describe('Full Payment Verification Flow', () => {
   test('should reject wrong resource', async () => {
     const paymentHeader = await createSignedPayment({ resource: '/api/test' })
 
-    const res = await app.request('/verify', {
+    const res = await request(app, '/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -232,7 +242,7 @@ describe('Settle Flow (Development Mode)', () => {
   test('should fail settle when facilitator not configured', async () => {
     const paymentHeader = await createSignedPayment()
 
-    const res = await app.request('/settle', {
+    const res = await request(app, '/settle', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -261,7 +271,7 @@ describe('Signature-Only Verification', () => {
   test('should verify signature without full requirements', async () => {
     const paymentHeader = await createSignedPayment()
 
-    const res = await app.request('/verify/signature', {
+    const res = await request(app, '/verify/signature', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
