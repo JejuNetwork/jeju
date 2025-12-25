@@ -76,7 +76,6 @@ export async function readContract<
   TFunctionName extends ContractFunctionName<TAbi, 'pure' | 'view'>,
   TArgs extends ContractFunctionArgs<TAbi, 'pure' | 'view', TFunctionName>,
 >(
-  // biome-ignore lint/suspicious/noExplicitAny: Required for viem client compatibility - viem's PublicClient has complex generics that cannot be structurally matched
   client: { readContract: (...args: never[]) => Promise<unknown> },
   params: {
     address: Address

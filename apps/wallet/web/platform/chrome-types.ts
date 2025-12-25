@@ -6,6 +6,7 @@ import type { Address, Hex } from 'viem'
 
 // Re-export EIP-1193 types from extension/types
 export type { EIP1193Param, EIP1193ParamObject } from '../../extension/types'
+
 import type { EIP1193Param } from '../../extension/types'
 
 export interface ChromeMessageSender {

@@ -7,7 +7,11 @@
  */
 
 import { logger } from '@jejunetwork/shared'
-import { type ChatMessage, isValidAddress, ZERO_ADDRESS } from '@jejunetwork/types'
+import {
+  type ChatMessage,
+  isValidAddress,
+  ZERO_ADDRESS,
+} from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import { z } from 'zod'
 

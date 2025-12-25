@@ -1,5 +1,6 @@
 import { hasArrayProperty } from '@jejunetwork/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { Address } from 'viem'
 import type { Project, ProjectTask } from '../../lib/types'
 import { api, extractDataSafe } from '../lib/client'
 

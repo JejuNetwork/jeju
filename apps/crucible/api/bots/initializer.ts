@@ -3,7 +3,7 @@
  * Sets up and manages trading bots for the Crucible
  */
 
-import type { Address, PublicClient, WalletClient } from 'viem'
+import { type Address, erc20Abi, type PublicClient, type WalletClient } from 'viem'
 import type { CrucibleConfig } from '../../lib/types'
 import type { AgentSDK } from '../sdk/agent'
 import type { TradingBot, TradingBotConfig } from './trading-bot'
@@ -17,6 +17,7 @@ export interface BotInitializerConfig {
 }
 
 export class BotInitializer {
+  private config: BotInitializerConfig
   private bots: Map<bigint, TradingBot> = new Map()
 
   constructor(config: BotInitializerConfig) {
@@ -96,8 +97,8 @@ export class BotInitializer {
     return this.bots
   }
 
-  private createBot(config: TradingBotConfig): TradingBot {
-    // Create a trading bot instance
+  private createBot(botConfig: TradingBotConfig): TradingBot {
+    const { publicClient, walletClient } = this.config
     let running = false
     const startTime = Date.now()
 
@@ -111,18 +112,18 @@ export class BotInitializer {
     }
 
     const bot: TradingBot = {
-      id: config.id,
-      config,
+      id: botConfig.id,
+      config: botConfig,
       state,
 
       async start() {
         running = true
-        console.log(`[Bot] Started: ${config.name}`)
+        console.log(`[Bot] Started: ${botConfig.name}`)
       },
 
       async stop() {
         running = false
-        console.log(`[Bot] Stopped: ${config.name}`)
+        console.log(`[Bot] Stopped: ${botConfig.name}`)
       },
 
       isRunning() {
@@ -130,8 +131,7 @@ export class BotInitializer {
       },
 
       isHealthy() {
-        // Bot is healthy if running and no critical errors
-        return running && config.enabled
+        return running && botConfig.enabled
       },
 
       getMetrics() {
@@ -148,18 +148,78 @@ export class BotInitializer {
         }
       },
 
-      async evaluateOpportunity(_token: Address, _price: bigint) {
-        // Strategy-specific evaluation
-        return false
+      async evaluateOpportunity(token: Address, price: bigint) {
+        const account = walletClient.account
+        if (!account) return false
+        
+        // Check if price meets minimum trade size
+        if (price < botConfig.minTradeSize) return false
+        if (price > botConfig.maxPositionSize) return false
+        
+        // Check token balance to see if we have enough to trade
+        const tokenBalance = await publicClient.readContract({
+          address: token,
+          abi: erc20Abi,
+          functionName: 'balanceOf',
+          args: [account.address],
+        })
+        
+        // Check ETH balance for gas
+        const ethBalance = await publicClient.getBalance({ address: account.address })
+        const hasGas = ethBalance > 0n
+        const hasTokens = tokenBalance > 0n
+        
+        return hasGas && hasTokens
       },
 
-      async executeTrade(_token: Address, _amount: bigint, _isBuy: boolean) {
-        // Execute via wallet client
-        return '0x'
+      async executeTrade(token: Address, amount: bigint, isBuy: boolean) {
+        const account = walletClient.account
+        if (!account) throw new Error('Wallet account required for trade execution')
+        
+        // Check cooldown
+        const timeSinceLastTrade = Date.now() - state.lastTradeTimestamp
+        if (timeSinceLastTrade < botConfig.cooldownMs) {
+          throw new Error(`Cooldown active: ${botConfig.cooldownMs - timeSinceLastTrade}ms remaining`)
+        }
+        
+        // Validate amount against config limits
+        if (amount < botConfig.minTradeSize) {
+          throw new Error(`Trade amount ${amount} below minimum ${botConfig.minTradeSize}`)
+        }
+        if (amount > botConfig.maxPositionSize) {
+          throw new Error(`Trade amount ${amount} exceeds max position ${botConfig.maxPositionSize}`)
+        }
+        
+        // TODO: Integrate with DEX router (Uniswap, etc.)
+        // For now, this is a direct ERC20 transfer placeholder
+        const txHash = isBuy
+          ? await walletClient.writeContract({
+              address: token,
+              abi: erc20Abi,
+              functionName: 'transfer',
+              args: [account.address, amount],
+              account,
+              chain: walletClient.chain,
+            })
+          : await walletClient.writeContract({
+              address: token,
+              abi: erc20Abi,
+              functionName: 'transfer',
+              args: [token, amount], // Placeholder - real impl would send to DEX
+              account,
+              chain: walletClient.chain,
+            })
+        
+        state.totalTrades++
+        state.successfulTrades++
+        state.totalVolume += amount
+        state.lastTradeTimestamp = Date.now()
+        
+        return txHash
       },
 
       async updateState() {
-        // Update positions and PnL
+        // Refresh positions from chain
       },
     }
 

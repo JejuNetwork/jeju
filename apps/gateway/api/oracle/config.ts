@@ -3,7 +3,6 @@ import {
   type OracleConfigFileData,
   type OracleNetworkConfig,
   resolveEnvVar,
-  validateAddress,
   validatePrivateKey,
 } from '@jejunetwork/shared'
 import type {
@@ -12,7 +11,7 @@ import type {
   PriceSourceConfig,
 } from '@jejunetwork/types'
 import { expectAddress, ZERO_ADDRESS } from '@jejunetwork/types'
-import { type Address, type Hex, isAddress, isHex } from 'viem'
+import { type Address, type Hex, isAddress } from 'viem'
 
 // Re-export shared types for local usage
 type NetworkConfig = OracleNetworkConfig

@@ -345,6 +345,22 @@ export {
   toNull,
   toUndefined,
 } from './nullable'
+// Oracle (shared oracle node utilities)
+export {
+  CHAINLINK_AGGREGATOR_ABI,
+  COMMITTEE_MANAGER_ABI,
+  ConfigurationError,
+  FEED_REGISTRY_ABI,
+  NETWORK_CONNECTOR_ABI,
+  type OracleConfigFileData,
+  type OracleNetworkConfig,
+  type PrometheusMetric,
+  REPORT_VERIFIER_ABI,
+  resolveEnvVar,
+  UNISWAP_V3_POOL_ABI,
+  validateAddress,
+  validatePrivateKey,
+} from './oracle'
 // Paymaster
 export {
   checkPaymasterApproval,
@@ -580,19 +596,3 @@ export {
   type X402PaymentOption,
   type X402PaymentRequirement,
 } from './x402'
-// Oracle (shared oracle node utilities)
-export {
-  CHAINLINK_AGGREGATOR_ABI,
-  COMMITTEE_MANAGER_ABI,
-  ConfigurationError,
-  FEED_REGISTRY_ABI,
-  NETWORK_CONNECTOR_ABI,
-  type OracleConfigFileData,
-  type OracleNetworkConfig,
-  type PrometheusMetric,
-  REPORT_VERIFIER_ABI,
-  resolveEnvVar,
-  UNISWAP_V3_POOL_ABI,
-  validateAddress,
-  validatePrivateKey,
-} from './oracle'

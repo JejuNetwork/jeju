@@ -34,8 +34,19 @@ import {
 
 // Internal types
 // Re-export DAO types from lib/types.ts for API consumers
-export type { DAO, DAOFull, FundingAllocation, FundingProject } from '../lib/types'
-import type { DAO, DAOFull, FundingAllocation, FundingProject } from '../lib/types'
+export type {
+  DAO,
+  DAOFull,
+  FundingAllocation,
+  FundingProject,
+} from '../lib/types'
+
+import type {
+  DAO,
+  DAOFull,
+  FundingAllocation,
+  FundingProject,
+} from '../lib/types'
 
 // Types FundingEpoch is local to this service (not in lib/types.ts)
 export interface FundingEpoch {
