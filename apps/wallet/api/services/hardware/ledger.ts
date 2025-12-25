@@ -15,12 +15,18 @@ import {
 } from 'viem'
 import { stringToHex } from '../../../lib/buffer'
 
-export type LedgerHDPathType = 'LedgerLive' | 'BIP44' | 'Legacy'
+/**
+ * Ledger HD path derivation types:
+ * - LedgerLive: m/44'/60'/{account}'/0/0 (Ledger Live default)
+ * - BIP44: m/44'/60'/0'/0/{index} (Standard BIP44)
+ * - MEW: m/44'/60'/0'/{index} (MyEtherWallet/MEW style - required for fund recovery)
+ */
+export type LedgerHDPathType = 'LedgerLive' | 'BIP44' | 'MEW'
 
 const HD_PATH_BASE: Record<LedgerHDPathType, string> = {
   LedgerLive: "m/44'/60'/0'/0/0",
   BIP44: "m/44'/60'/0'/0",
-  Legacy: "m/44'/60'/0'",
+  MEW: "m/44'/60'/0'",
 }
 
 export interface LedgerAccount {
@@ -60,8 +66,8 @@ export class LedgerKeyring {
   private app: LedgerEth | null = null
   private accounts: Address[] = []
   private accountDetails: Record<string, AccountDetails> = {}
-  private hdPath: string = HD_PATH_BASE.Legacy
-  private hdPathType: LedgerHDPathType = 'Legacy'
+  private hdPath: string = HD_PATH_BASE.MEW
+  private hdPathType: LedgerHDPathType = 'MEW'
 
   async isSupported(): Promise<boolean> {
     return TransportWebHID.isSupported()
@@ -99,7 +105,7 @@ export class LedgerKeyring {
         return `m/44'/60'/${index}'/0/0`
       case 'BIP44':
         return `m/44'/60'/0'/0/${index}`
-      case 'Legacy':
+      case 'MEW':
         return `m/44'/60'/0'/${index}`
       default:
         return `${this.hdPath}/${index}`

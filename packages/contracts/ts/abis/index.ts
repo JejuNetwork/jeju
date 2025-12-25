@@ -1,11 +1,11 @@
 /**
- * @fileoverview Contract ABI exports with full type inference
+ * @fileoverview Contract ABI exports
  * @module @jejunetwork/contracts/abis
  *
- * TYPED ABIs (camelCase) - Generated with full viem type inference
- * LEGACY ABIs (PascalCase) - Cast to Abi for backward compatibility
+ * TYPED ABIs (camelCase) - Re-exported from generated.ts with full viem type inference
+ * DEPRECATED ABIs (PascalCase) - Cast to Abi, no type inference (kept for backward compatibility)
  *
- * Always prefer typed exports for new code:
+ * Always use typed ABIs (camelCase):
  * ```typescript
  * import { identityRegistryAbi } from '@jejunetwork/contracts'
  * ```
@@ -52,11 +52,16 @@ export {
 } from '../generated'
 
 // ============================================================================
-// LEGACY ABIs - JSON imports cast to Abi (backward compatible, no type inference)
+// DEPRECATED ABIs - JSON imports cast to Abi (no type inference)
+// Use camelCase typed exports from '../generated' instead
 // ============================================================================
 import type { Abi } from 'viem'
 import AppTokenPreferenceAbiJson from '../../abis/AppTokenPreference.json'
 import AutomationRegistryAbiJson from '../../abis/AutomationRegistry.json'
+// Babylon ABIs
+import BabylonDiamondLoupeFacetAbiJson from '../../abis/BabylonDiamondLoupeFacet.json'
+import BabylonOracleFacetAbiJson from '../../abis/BabylonOracleFacet.json'
+import BabylonPredictionMarketFacetAbiJson from '../../abis/BabylonPredictionMarketFacet.json'
 import BanManagerAbiJson from '../../abis/BanManager.json'
 import BazaarAbiJson from '../../abis/Bazaar.json'
 import BondingCurveAbiJson from '../../abis/BondingCurve.json'
@@ -88,12 +93,7 @@ import TokenRegistryAbiJson from '../../abis/TokenRegistry.json'
 import ValidationRegistryAbiJson from '../../abis/ValidationRegistry.json'
 import VRFCoordinatorV2_5AbiJson from '../../abis/VRFCoordinatorV2_5.json'
 
-// Babylon ABIs
-import BabylonDiamondLoupeFacetAbiJson from '../../abis/BabylonDiamondLoupeFacet.json'
-import BabylonOracleFacetAbiJson from '../../abis/BabylonOracleFacet.json'
-import BabylonPredictionMarketFacetAbiJson from '../../abis/BabylonPredictionMarketFacet.json'
-
-// Legacy PascalCase exports (cast to Abi, loses type inference)
+// @deprecated PascalCase exports (cast to Abi, loses type inference)
 export const ERC20Abi = ERC20AbiJson.abi as Abi
 export const ERC20FactoryAbi = ERC20FactoryAbiJson.abi as Abi
 export const BazaarAbi = BazaarAbiJson.abi as Abi
@@ -128,9 +128,11 @@ export const OracleRouterAbi = OracleRouterAbiJson.abi as Abi
 export const ChainlinkGovernanceAbi = ChainlinkGovernanceAbiJson.abi as Abi
 
 // Babylon ABIs (vendor app support)
-export const BabylonDiamondLoupeFacetAbi = BabylonDiamondLoupeFacetAbiJson.abi as Abi
+export const BabylonDiamondLoupeFacetAbi =
+  BabylonDiamondLoupeFacetAbiJson.abi as Abi
 export const BabylonOracleFacetAbi = BabylonOracleFacetAbiJson.abi as Abi
-export const BabylonPredictionMarketFacetAbi = BabylonPredictionMarketFacetAbiJson.abi as Abi
+export const BabylonPredictionMarketFacetAbi =
+  BabylonPredictionMarketFacetAbiJson.abi as Abi
 
 // Export raw JSON files
 export {

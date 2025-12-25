@@ -80,7 +80,30 @@
       "regions": [
         "global"
       ]
-    }
+    },
+    "cron": [
+      {
+        "name": "agent-tick",
+        "schedule": "*/2 * * * *",
+        "endpoint": "/api/cron/agent-tick",
+        "timeout": 60000,
+        "description": "Execute autonomous agent ticks with trajectory recording"
+      },
+      {
+        "name": "flush-trajectories",
+        "schedule": "*/10 * * * *",
+        "endpoint": "/api/cron/flush-trajectories",
+        "timeout": 30000,
+        "description": "Flush trajectory buffer to DWS storage"
+      },
+      {
+        "name": "health-check",
+        "schedule": "*/5 * * * *",
+        "endpoint": "/api/cron/health-check",
+        "timeout": 15000,
+        "description": "System health check"
+      }
+    ]
   },
   "decentralization": {
     "cdn": {

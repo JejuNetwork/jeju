@@ -76,4 +76,5 @@ export const CONTRACTS = {
 } as const
 
 // WalletConnect Project ID - placeholder for local dev
-export const WALLETCONNECT_PROJECT_ID = NETWORK === 'localnet' ? '' : 'YOUR_PROJECT_ID'
+export const WALLETCONNECT_PROJECT_ID =
+  NETWORK === 'localnet' ? '' : 'YOUR_PROJECT_ID'

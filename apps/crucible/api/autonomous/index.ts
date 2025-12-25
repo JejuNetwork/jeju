@@ -4,13 +4,7 @@
  */
 
 import { getCurrentNetwork } from '@jejunetwork/config'
-import { generateSnowflakeId } from '@jejunetwork/shared'
-import type {
-  Action,
-  EnvironmentState,
-  LLMCall,
-  TrajectoryStep,
-} from '@jejunetwork/training'
+import type { Action, EnvironmentState, LLMCall } from '@jejunetwork/training'
 import {
   getStaticTrajectoryStorage,
   type StaticTrajectoryStorage,
@@ -277,7 +271,7 @@ export class AutonomousAgentRunner {
         agent.currentTrajectoryId = trajectoryId
       }
 
-      const tickStartTime = Date.now()
+      const _tickStartTime = Date.now()
       let tickSuccess = false
       let tickError: string | null = null
       let totalReward = 0
@@ -796,7 +790,7 @@ export class AutonomousAgentRunner {
 
     // Log action to trajectory
     if (trajectoryId) {
-      const actionRecord: Action = {
+      const _actionRecord: Action = {
         timestamp: Date.now(),
         actionType: actionName,
         actionName: actionName,

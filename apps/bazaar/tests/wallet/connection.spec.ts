@@ -16,10 +16,20 @@ const { expect } = test
 const RPC_URL = getRpcUrl('localnet')
 const CHAIN_ID = getChainId('localnet')
 const TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
-const ERC20_FACTORY_ADDRESS = getContract('tokens', 'factory', 'localnet') as `0x${string}` | undefined
-const NFT_MARKETPLACE_ADDRESS = getContract('nft', 'marketplace', 'localnet') as `0x${string}` | undefined
-const PREDIMARKET_ADDRESS = getContract('moderation', 'predimarket', 'localnet') as `0x${string}` | undefined
-const POOL_MANAGER_ADDRESS = getContract('defi', 'poolManager', 'localnet') as `0x${string}` | undefined
+const ERC20_FACTORY_ADDRESS = getContract('tokens', 'factory', 'localnet') as
+  | `0x${string}`
+  | undefined
+const NFT_MARKETPLACE_ADDRESS = getContract('nft', 'marketplace', 'localnet') as
+  | `0x${string}`
+  | undefined
+const PREDIMARKET_ADDRESS = getContract(
+  'moderation',
+  'predimarket',
+  'localnet',
+) as `0x${string}` | undefined
+const POOL_MANAGER_ADDRESS = getContract('defi', 'poolManager', 'localnet') as
+  | `0x${string}`
+  | undefined
 
 const publicClient = createPublicClient({
   chain: {
@@ -165,7 +175,10 @@ test.describe('Contract Deployment', () => {
   test('ERC20 Factory is deployed', async () => {
     const factoryAddress = ERC20_FACTORY_ADDRESS
 
-    if (factoryAddress && factoryAddress !== '0x0000000000000000000000000000000000000000') {
+    if (
+      factoryAddress &&
+      factoryAddress !== '0x0000000000000000000000000000000000000000'
+    ) {
       const code = await publicClient.getCode({
         address: factoryAddress as `0x${string}`,
       })
@@ -179,7 +192,10 @@ test.describe('Contract Deployment', () => {
   test('NFT Marketplace is deployed', async () => {
     const marketplaceAddress = NFT_MARKETPLACE_ADDRESS
 
-    if (marketplaceAddress && marketplaceAddress !== '0x0000000000000000000000000000000000000000') {
+    if (
+      marketplaceAddress &&
+      marketplaceAddress !== '0x0000000000000000000000000000000000000000'
+    ) {
       const code = await publicClient.getCode({
         address: marketplaceAddress as `0x${string}`,
       })
@@ -193,7 +209,10 @@ test.describe('Contract Deployment', () => {
   test('Predimarket is deployed', async () => {
     const predimarketAddress = PREDIMARKET_ADDRESS
 
-    if (predimarketAddress && predimarketAddress !== '0x0000000000000000000000000000000000000000') {
+    if (
+      predimarketAddress &&
+      predimarketAddress !== '0x0000000000000000000000000000000000000000'
+    ) {
       const code = await publicClient.getCode({
         address: predimarketAddress as `0x${string}`,
       })
@@ -207,7 +226,10 @@ test.describe('Contract Deployment', () => {
   test('Pool Manager is deployed', async () => {
     const poolManagerAddress = POOL_MANAGER_ADDRESS
 
-    if (poolManagerAddress && poolManagerAddress !== '0x0000000000000000000000000000000000000000') {
+    if (
+      poolManagerAddress &&
+      poolManagerAddress !== '0x0000000000000000000000000000000000000000'
+    ) {
       const code = await publicClient.getCode({
         address: poolManagerAddress as `0x${string}`,
       })

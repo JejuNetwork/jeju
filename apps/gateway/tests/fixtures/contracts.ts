@@ -5,11 +5,7 @@
  * Uses @jejunetwork/config and @jejunetwork/contracts for defaults.
  */
 
-import {
-  getChainId,
-  getContractsConfig,
-  getRpcUrl,
-} from '@jejunetwork/config'
+import { getChainId, getContractsConfig, getRpcUrl } from '@jejunetwork/config'
 import {
   getContractAddresses as getDeployedAddresses,
   isValidAddress,
@@ -90,7 +86,9 @@ export async function getContractAddresses(): Promise<ContractAddresses> {
     deployed.paymasterFactory) as `0x${string}` | undefined
   const priceOracleAddr = (config.payments?.PriceOracle ||
     deployed.priceOracle) as `0x${string}` | undefined
-  const nodeStakingManagerAddr = config.nodeStaking?.NodeStakingManager as `0x${string}` | undefined
+  const nodeStakingManagerAddr = config.nodeStaking?.NodeStakingManager as
+    | `0x${string}`
+    | undefined
   const identityRegistryAddr = (config.registry?.IdentityRegistry ||
     deployed.identityRegistry) as `0x${string}` | undefined
 

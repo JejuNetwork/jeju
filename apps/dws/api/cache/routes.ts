@@ -9,13 +9,19 @@
 
 import { Elysia, t } from 'elysia'
 import type { Address } from 'viem'
+import type { BillingMode } from './billing'
 import { CacheEngine } from './engine'
 import {
   getCacheProvisioningManager,
   initializeCacheProvisioning,
 } from './provisioning'
 import type { TEECacheProvider } from './tee-provider'
-import { CacheError, CacheErrorCode, type CacheTEEAttestation } from './types'
+import {
+  CacheError,
+  CacheErrorCode,
+  type CacheTEEAttestation,
+  CacheTier,
+} from './types'
 
 // Shared engine for standard tier (multi-tenant)
 let sharedEngine: CacheEngine | null = null
@@ -186,6 +192,46 @@ export function createCacheRoutes() {
           global: globalStats,
           shared: sharedStats,
         }
+      })
+
+      .get('/metrics', async ({ set }) => {
+        const sharedStats = getSharedEngine().getStats()
+        const manager = getCacheProvisioningManager()
+        const globalStats = manager.getGlobalStats()
+
+        // Prometheus text format
+        const metrics = [
+          '# HELP cache_keys_total Total number of keys in cache',
+          '# TYPE cache_keys_total gauge',
+          `cache_keys_total ${sharedStats.totalKeys}`,
+          '# HELP cache_memory_bytes Memory used by cache in bytes',
+          '# TYPE cache_memory_bytes gauge',
+          `cache_memory_bytes ${sharedStats.usedMemoryBytes}`,
+          '# HELP cache_hits_total Total cache hits',
+          '# TYPE cache_hits_total counter',
+          `cache_hits_total ${sharedStats.hits}`,
+          '# HELP cache_misses_total Total cache misses',
+          '# TYPE cache_misses_total counter',
+          `cache_misses_total ${sharedStats.misses}`,
+          '# HELP cache_hit_rate Cache hit rate',
+          '# TYPE cache_hit_rate gauge',
+          `cache_hit_rate ${sharedStats.hitRate}`,
+          '# HELP cache_uptime_seconds Cache uptime in seconds',
+          '# TYPE cache_uptime_seconds counter',
+          `cache_uptime_seconds ${Math.floor(sharedStats.uptime / 1000)}`,
+          '# HELP cache_instances_total Total provisioned cache instances',
+          '# TYPE cache_instances_total gauge',
+          `cache_instances_total ${globalStats.totalInstances}`,
+          '# HELP cache_nodes_total Total cache nodes',
+          '# TYPE cache_nodes_total gauge',
+          `cache_nodes_total ${globalStats.totalNodes}`,
+          '# HELP cache_tee_instances TEE-backed cache instances',
+          '# TYPE cache_tee_instances gauge',
+          `cache_tee_instances ${globalStats.tierBreakdown[CacheTier.TEE]}`,
+        ]
+
+        set.headers['content-type'] = 'text/plain; version=0.0.4'
+        return metrics.join('\n')
       })
 
       // ========================================================================
@@ -1019,6 +1065,297 @@ export function createCacheRoutes() {
           ),
         },
       )
+
+      // ========================================================================
+      // Billing & Payments (x402)
+      // ========================================================================
+
+      .get('/billing/requirement', async ({ query }) => {
+        const { getCacheBillingManager } = await import('./billing')
+        const billing = getCacheBillingManager()
+        const manager = getCacheProvisioningManager()
+
+        const planId = query.planId
+        const billingMode = (query.billingMode || 'hourly') as
+          | 'hourly'
+          | 'monthly'
+        const plan = manager.getPlan(planId)
+
+        if (!plan) {
+          throw new CacheError(
+            CacheErrorCode.INVALID_OPERATION,
+            `Plan ${planId} not found`,
+          )
+        }
+
+        const requirement = billing.createPaymentRequirement(
+          plan,
+          billingMode,
+          query.instanceId,
+        )
+
+        return { requirement }
+      })
+
+      .post(
+        '/billing/subscribe',
+        async ({ body, headers, set }) => {
+          const { getCacheBillingManager } = await import('./billing')
+          const billing = getCacheBillingManager()
+          const manager = getCacheProvisioningManager()
+
+          const owner = headers['x-owner-address'] as Address
+          if (!owner) {
+            throw new CacheError(
+              CacheErrorCode.UNAUTHORIZED,
+              'Owner address required',
+            )
+          }
+
+          // Parse payment proof from headers
+          const proof = billing.parsePaymentProof(
+            headers as Record<string, string>,
+          )
+          if (!proof) {
+            // Return 402 Payment Required
+            const plan = manager.getPlan(body.planId)
+            if (!plan) {
+              throw new CacheError(
+                CacheErrorCode.INVALID_OPERATION,
+                `Plan ${body.planId} not found`,
+              )
+            }
+
+            const requirement = billing.createPaymentRequirement(
+              plan,
+              body.billingMode as BillingMode,
+              body.instanceId,
+            )
+            set.status = 402
+            set.headers['X-Payment-Required'] = 'true'
+            return requirement
+          }
+
+          const plan = manager.getPlan(body.planId)
+          if (!plan) {
+            throw new CacheError(
+              CacheErrorCode.INVALID_OPERATION,
+              `Plan ${body.planId} not found`,
+            )
+          }
+
+          const subscription = await billing.createSubscription(
+            body.instanceId,
+            owner,
+            plan,
+            body.billingMode as BillingMode,
+            proof,
+          )
+
+          return { subscription }
+        },
+        {
+          body: t.Object({
+            instanceId: t.String(),
+            planId: t.String(),
+            billingMode: t.String(),
+          }),
+        },
+      )
+
+      .post(
+        '/billing/renew',
+        async ({ body, headers, set }) => {
+          const { getCacheBillingManager } = await import('./billing')
+          const billing = getCacheBillingManager()
+          const manager = getCacheProvisioningManager()
+
+          const owner = headers['x-owner-address'] as Address
+          if (!owner) {
+            throw new CacheError(
+              CacheErrorCode.UNAUTHORIZED,
+              'Owner address required',
+            )
+          }
+
+          const proof = billing.parsePaymentProof(
+            headers as Record<string, string>,
+          )
+          if (!proof) {
+            // Get subscription to determine required amount
+            const subscription = billing.getSubscription(body.instanceId)
+            if (!subscription) {
+              throw new CacheError(
+                CacheErrorCode.INVALID_OPERATION,
+                'No active subscription',
+              )
+            }
+
+            const plan = manager.getPlan(subscription.planId)
+            if (!plan) {
+              throw new CacheError(
+                CacheErrorCode.INVALID_OPERATION,
+                'Plan not found',
+              )
+            }
+
+            const requirement = billing.createPaymentRequirement(
+              plan,
+              subscription.billingMode,
+              body.instanceId,
+            )
+            set.status = 402
+            set.headers['X-Payment-Required'] = 'true'
+            return requirement
+          }
+
+          const subscription = billing.getSubscription(body.instanceId)
+          if (!subscription) {
+            throw new CacheError(
+              CacheErrorCode.INVALID_OPERATION,
+              'No active subscription',
+            )
+          }
+
+          const plan = manager.getPlan(subscription.planId)
+          if (!plan) {
+            throw new CacheError(
+              CacheErrorCode.INVALID_OPERATION,
+              'Plan not found',
+            )
+          }
+
+          const renewed = await billing.processRenewal(
+            subscription.id,
+            proof,
+            plan,
+          )
+
+          return { subscription: renewed }
+        },
+        {
+          body: t.Object({
+            instanceId: t.String(),
+          }),
+        },
+      )
+
+      .post(
+        '/billing/cancel',
+        async ({ body, headers }) => {
+          const { getCacheBillingManager } = await import('./billing')
+          const billing = getCacheBillingManager()
+
+          const owner = headers['x-owner-address'] as Address
+          if (!owner) {
+            throw new CacheError(
+              CacheErrorCode.UNAUTHORIZED,
+              'Owner address required',
+            )
+          }
+
+          const subscription = billing.getSubscription(body.instanceId)
+          if (!subscription) {
+            throw new CacheError(
+              CacheErrorCode.INVALID_OPERATION,
+              'No active subscription',
+            )
+          }
+
+          const cancelled = await billing.cancelSubscription(
+            subscription.id,
+            owner,
+          )
+
+          return { subscription: cancelled }
+        },
+        {
+          body: t.Object({
+            instanceId: t.String(),
+          }),
+        },
+      )
+
+      .get('/billing/subscription/:instanceId', async ({ params }) => {
+        const { getCacheBillingManager } = await import('./billing')
+        const billing = getCacheBillingManager()
+
+        const subscription = billing.getSubscription(params.instanceId)
+
+        return {
+          subscription: subscription
+            ? {
+                ...subscription,
+                totalPaid: subscription.totalPaid.toString(),
+              }
+            : null,
+        }
+      })
+
+      .get('/billing/payments', async ({ headers }) => {
+        const { getCacheBillingManager } = await import('./billing')
+        const billing = getCacheBillingManager()
+
+        const owner = headers['x-owner-address'] as Address
+        if (!owner) {
+          throw new CacheError(
+            CacheErrorCode.UNAUTHORIZED,
+            'Owner address required',
+          )
+        }
+
+        const payments = billing.getPaymentHistory(owner)
+
+        return {
+          payments: payments.map((p) => ({
+            ...p,
+            amount: p.amount.toString(),
+          })),
+        }
+      })
+
+      .get('/billing/invoices', async ({ headers }) => {
+        const { getCacheBillingManager } = await import('./billing')
+        const billing = getCacheBillingManager()
+
+        const owner = headers['x-owner-address'] as Address
+        if (!owner) {
+          throw new CacheError(
+            CacheErrorCode.UNAUTHORIZED,
+            'Owner address required',
+          )
+        }
+
+        const invoices = billing.getInvoices(owner)
+
+        return {
+          invoices: invoices.map((inv) => ({
+            ...inv,
+            lineItems: inv.lineItems.map((li) => ({
+              ...li,
+              unitPrice: li.unitPrice.toString(),
+              total: li.total.toString(),
+            })),
+            subtotal: inv.subtotal.toString(),
+            platformFee: inv.platformFee.toString(),
+            total: inv.total.toString(),
+          })),
+        }
+      })
+
+      .get('/billing/stats', async () => {
+        const { getCacheBillingManager } = await import('./billing')
+        const billing = getCacheBillingManager()
+
+        const stats = billing.getBillingStats()
+
+        return {
+          stats: {
+            ...stats,
+            totalRevenue: stats.totalRevenue.toString(),
+          },
+        }
+      })
   )
 }
 
@@ -1028,6 +1365,10 @@ export function createCacheRoutes() {
 export async function createCacheService() {
   // Initialize provisioning manager
   await initializeCacheProvisioning()
+
+  // Initialize billing manager
+  const { initializeCacheBilling } = await import('./billing')
+  await initializeCacheBilling()
 
   const app = new Elysia()
     // Root-level endpoints for Babylon compatibility

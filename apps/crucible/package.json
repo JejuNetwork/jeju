@@ -19,6 +19,7 @@
     "@jejunetwork/config": "workspace:*",
     "@jejunetwork/shared": "workspace:*",
     "@jejunetwork/sdk": "workspace:*",
+    "@jejunetwork/training": "workspace:*",
     "@jejunetwork/types": "workspace:*",
     "@jejunetwork/eliza-plugin": "workspace:*",
     "@tanstack/react-query": "5.90.12",

@@ -709,7 +709,7 @@ const DWSAgentBody = t.Object({
 const ClusterNameParams = t.Object({ name: t.String() })
 
 export function createK3sRouter() {
-  return new Elysia({ prefix: '' })
+  return new Elysia({ prefix: '/k3s' })
     .get('/health', () => ({
       status: 'healthy',
       clusters: clusters.size,

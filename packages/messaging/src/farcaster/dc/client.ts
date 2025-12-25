@@ -15,6 +15,7 @@ import { bytesToHex, hexToBytes } from '@noble/hashes/utils'
 import type { Hex } from 'viem'
 
 const log = createLogger('dc-client')
+
 import {
   DCPersistenceDataSchema,
   DCSignerEventsResponseSchema,
@@ -493,7 +494,9 @@ export class DirectCastClient {
     }
 
     const keyHex = `0x${bytesToHex(this.encryptionPublicKey)}`
-    log.info('Publishing encryption key', { keyHex: keyHex.slice(0, 20) + '...' })
+    log.info('Publishing encryption key', {
+      keyHex: `${keyHex.slice(0, 20)}...`,
+    })
 
     // Create signature for the key publication
     const timestamp = Math.floor(Date.now() / 1000)
@@ -599,7 +602,10 @@ export class DirectCastClient {
       ws.onclose = (event) => {
         clearTimeout(connectionTimeout)
         this.relayConnection = null
-        log.info('Relay connection closed', { code: event.code, reason: event.reason })
+        log.info('Relay connection closed', {
+          code: event.code,
+          reason: event.reason,
+        })
 
         if (this.isInitialized && !this.isShuttingDown) {
           this.scheduleReconnect()
@@ -663,17 +669,22 @@ export class DirectCastClient {
     }
 
     if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-      log.error('Max reconnect attempts reached', { maxAttempts: MAX_RECONNECT_ATTEMPTS })
+      log.error('Max reconnect attempts reached', {
+        maxAttempts: MAX_RECONNECT_ATTEMPTS,
+      })
       return
     }
 
     const delay = Math.min(
-      INITIAL_RECONNECT_DELAY_MS * Math.pow(2, this.reconnectAttempts),
+      INITIAL_RECONNECT_DELAY_MS * 2 ** this.reconnectAttempts,
       MAX_RECONNECT_DELAY_MS,
     )
     this.reconnectAttempts++
 
-    log.info('Scheduling reconnect attempt', { attempt: this.reconnectAttempts, delayMs: delay })
+    log.info('Scheduling reconnect attempt', {
+      attempt: this.reconnectAttempts,
+      delayMs: delay,
+    })
 
     this.reconnectTimeout = setTimeout(() => {
       this.connectToRelay().catch((error) => {
@@ -690,7 +701,9 @@ export class DirectCastClient {
   private flushPendingMessages(): void {
     if (this.pendingMessages.length === 0) return
 
-    log.info('Flushing pending messages', { count: this.pendingMessages.length })
+    log.info('Flushing pending messages', {
+      count: this.pendingMessages.length,
+    })
 
     const messages = [...this.pendingMessages]
     this.pendingMessages = []
@@ -793,7 +806,10 @@ export class DirectCastClient {
       )
 
       if (!response.ok) {
-        log.warn('Read receipt failed', { status: response.status, statusText: response.statusText })
+        log.warn('Read receipt failed', {
+          status: response.status,
+          statusText: response.statusText,
+        })
       }
     } catch (error) {
       log.warn('Read receipt failed', {
@@ -864,7 +880,9 @@ export class DirectCastClient {
     // Verify sender's signature before processing
     const signatureValid = await this.verifyIncomingSignature(encrypted)
     if (!signatureValid) {
-      log.warn('Rejecting message with invalid signature', { senderFid: encrypted.senderFid })
+      log.warn('Rejecting message with invalid signature', {
+        senderFid: encrypted.senderFid,
+      })
       return
     }
 

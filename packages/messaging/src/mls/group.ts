@@ -2,6 +2,7 @@ import { bytesToHex, createLogger, randomBytes } from '@jejunetwork/shared'
 import type { Address } from 'viem'
 
 const log = createLogger('mls-group')
+
 import type { JejuMLSClient } from './client'
 import type {
   FetchOptions,
@@ -319,7 +320,9 @@ export class JejuGroup {
     for (const raw of data.messages) {
       const parseResult = MLSMessageSchema.safeParse(raw)
       if (!parseResult.success) {
-        log.warn('Skipping invalid message', { error: parseResult.error.message })
+        log.warn('Skipping invalid message', {
+          error: parseResult.error.message,
+        })
         continue
       }
 
@@ -335,7 +338,10 @@ export class JejuGroup {
       this.messages.set(message.id, message)
       newMessages.push(message)
 
-      if (!this.state.lastMessageAt || message.timestamp > this.state.lastMessageAt) {
+      if (
+        !this.state.lastMessageAt ||
+        message.timestamp > this.state.lastMessageAt
+      ) {
         this.state.lastMessageAt = message.timestamp
       }
       if (message.senderAddress !== this.config.client.getAddress()) {

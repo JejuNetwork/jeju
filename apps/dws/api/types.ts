@@ -630,4 +630,3 @@ export interface InferenceResponse {
     total_tokens: number
   }
 }
-

@@ -17,6 +17,7 @@ import {
 import { base, baseSepolia } from 'viem/chains'
 
 const log = createLogger('key-registry-sync')
+
 import type { TEEXMTPKeyManager } from './key-manager'
 import type {
   KeyRegistration,
@@ -263,7 +264,10 @@ export class KeyRegistrySync {
       data,
     })
 
-    log.info('Rotated pre-key', { keyId: keyId.slice(0, 20), txHash: txHash.slice(0, 18) })
+    log.info('Rotated pre-key', {
+      keyId: keyId.slice(0, 20),
+      txHash: txHash.slice(0, 18),
+    })
 
     // Wait for confirmation
     const receipt = await this.publicClient.waitForTransactionReceipt({

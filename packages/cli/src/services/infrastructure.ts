@@ -145,9 +145,12 @@ export class InfrastructureService {
 
   async isCacheServiceRunning(): Promise<boolean> {
     try {
-      const response = await fetch(`http://127.0.0.1:${DOCKER_SERVICES.cache.nativePort}/health`, {
-        signal: AbortSignal.timeout(2000),
-      })
+      const response = await fetch(
+        `http://127.0.0.1:${DOCKER_SERVICES.cache.nativePort}/health`,
+        {
+          signal: AbortSignal.timeout(2000),
+        },
+      )
       return response.ok
     } catch {
       return false
@@ -183,7 +186,9 @@ export class InfrastructureService {
     for (let i = 0; i < 30; i++) {
       await this.sleep(500)
       if (await this.isCacheServiceRunning()) {
-        logger.success(`Cache service running on port ${DOCKER_SERVICES.cache.nativePort}`)
+        logger.success(
+          `Cache service running on port ${DOCKER_SERVICES.cache.nativePort}`,
+        )
         return true
       }
     }
@@ -194,9 +199,12 @@ export class InfrastructureService {
 
   async isDAServerRunning(): Promise<boolean> {
     try {
-      const response = await fetch(`http://127.0.0.1:${DOCKER_SERVICES.da.nativePort}/health`, {
-        signal: AbortSignal.timeout(2000),
-      })
+      const response = await fetch(
+        `http://127.0.0.1:${DOCKER_SERVICES.da.nativePort}/health`,
+        {
+          signal: AbortSignal.timeout(2000),
+        },
+      )
       return response.ok
     } catch {
       return false
@@ -233,7 +241,9 @@ export class InfrastructureService {
     for (let i = 0; i < 30; i++) {
       await this.sleep(500)
       if (await this.isDAServerRunning()) {
-        logger.success(`DA Server running on port ${DOCKER_SERVICES.da.nativePort}`)
+        logger.success(
+          `DA Server running on port ${DOCKER_SERVICES.da.nativePort}`,
+        )
         return true
       }
     }
@@ -252,7 +262,9 @@ export class InfrastructureService {
       daProcess = null
     }
     // Also kill any orphaned processes
-    await execa('pkill', ['-f', 'apps/storage/cache-service'], { reject: false })
+    await execa('pkill', ['-f', 'apps/storage/cache-service'], {
+      reject: false,
+    })
     await execa('pkill', ['-f', 'apps/storage/da-server'], { reject: false })
   }
 
@@ -387,7 +399,7 @@ export class InfrastructureService {
     // Start native services first (cache, DA)
     const cacheStarted = await this.startCacheService()
     const daStarted = await this.startDAServer()
-    
+
     if (!cacheStarted || !daStarted) {
       logger.error('Native services failed to start')
       return false
@@ -408,14 +420,7 @@ export class InfrastructureService {
     try {
       await execa(
         'docker',
-        [
-          'compose',
-          '-f',
-          composePath,
-          'up',
-          '-d',
-          'ipfs',
-        ],
+        ['compose', '-f', composePath, 'up', '-d', 'ipfs'],
         {
           cwd: this.rootDir,
           stdio: 'pipe',

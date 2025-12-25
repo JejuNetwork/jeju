@@ -345,8 +345,8 @@ export class PasskeyManager {
     let credential: PasskeyCredential | undefined
 
     // Note: userHandle can be used to identify the user if needed
-    // const userId = response.response.userHandle 
-    //   ? new TextDecoder().decode(response.response.userHandle) 
+    // const userId = response.response.userHandle
+    //   ? new TextDecoder().decode(response.response.userHandle)
     //   : undefined
 
     // Search for credential

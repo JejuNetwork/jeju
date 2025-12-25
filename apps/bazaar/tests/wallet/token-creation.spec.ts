@@ -16,7 +16,9 @@ const { expect } = test
 const RPC_URL = getRpcUrl('localnet')
 const CHAIN_ID = getChainId('localnet')
 const TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
-const ERC20_FACTORY_ADDRESS = getContract('tokens', 'factory', 'localnet') as `0x${string}` | undefined
+const ERC20_FACTORY_ADDRESS = getContract('tokens', 'factory', 'localnet') as
+  | `0x${string}`
+  | undefined
 
 const publicClient = createPublicClient({
   chain: {
@@ -157,7 +159,10 @@ test.describe('Token Creation', () => {
     )
 
     const factoryAddress = ERC20_FACTORY_ADDRESS
-    if (!factoryAddress || factoryAddress === '0x0000000000000000000000000000000000000000') {
+    if (
+      !factoryAddress ||
+      factoryAddress === '0x0000000000000000000000000000000000000000'
+    ) {
       console.log('Skipping: Factory not deployed')
       return
     }

@@ -1624,7 +1624,6 @@ async function submitRLAIFTrajectories(
   }
 }
 
-
 async function verifyTraining(options: { network: string }): Promise<void> {
   const rootDir = findMonorepoRoot()
 

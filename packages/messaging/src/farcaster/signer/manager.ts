@@ -267,7 +267,9 @@ export class FarcasterSignerManager {
       throw new Error(`Signer not found: ${keyId}`)
     }
 
-    log.warn('SECURITY: Exporting private key - ensure proper key handling', { keyId })
+    log.warn('SECURITY: Exporting private key - ensure proper key handling', {
+      keyId,
+    })
 
     return {
       publicKey: stored.info.publicKey,

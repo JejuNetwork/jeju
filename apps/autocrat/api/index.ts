@@ -1197,6 +1197,13 @@ export type {
   FundingConfig,
   GovernanceParams,
 } from '../lib'
+export type {
+  DAO,
+  DAOFull,
+  FundingAllocation,
+  FundingEpoch,
+  FundingProject,
+} from '../lib/types'
 export { createAutocratA2AServer } from './a2a-server'
 export {
   type AgentVote,
@@ -1212,13 +1219,6 @@ export {
   startLocalCron,
 } from './compute-trigger'
 export { createDAOService, DAOService, getDAOService } from './dao-service'
-export type {
-  DAO,
-  DAOFull,
-  FundingAllocation,
-  FundingEpoch,
-  FundingProject,
-} from '../lib/types'
 export {
   type AgentIdentity,
   type AgentReputation,

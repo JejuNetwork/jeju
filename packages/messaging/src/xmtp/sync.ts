@@ -9,6 +9,7 @@ import { createLogger } from '@jejunetwork/shared'
 import { expectValid } from '@jejunetwork/types'
 
 const log = createLogger('xmtp-sync')
+
 import {
   IPFSAddResponseSchema,
   SyncEventsArraySchema,
@@ -150,7 +151,10 @@ export class XMTPSyncService {
   private async syncWithPeer(peer: SyncPeer): Promise<void> {
     const events = await this.fetchEventsFromPeer(peer).catch(
       (error: Error) => {
-        log.error('Failed to sync with peer', { nodeId: peer.nodeId, error: error.message })
+        log.error('Failed to sync with peer', {
+          nodeId: peer.nodeId,
+          error: error.message,
+        })
         return []
       },
     )

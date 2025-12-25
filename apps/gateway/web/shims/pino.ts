@@ -36,8 +36,7 @@ function createLogger(bindings: Record<string, unknown> = {}): Logger {
     warn: (...args) => console.warn(prefix, ...args),
     error: (...args) => console.error(prefix, ...args),
     fatal: (...args) => console.error(prefix, '[FATAL]', ...args),
-    child: (childBindings) =>
-      createLogger({ ...bindings, ...childBindings }),
+    child: (childBindings) => createLogger({ ...bindings, ...childBindings }),
   }
 }
 

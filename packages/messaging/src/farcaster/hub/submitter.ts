@@ -9,6 +9,7 @@ import { expectValid } from '@jejunetwork/types'
 import type { Hex } from 'viem'
 
 const log = createLogger('hub-submitter')
+
 import type { Message } from './message-builder'
 import { messageBytesToHex, serializeMessage } from './message-builder'
 import {

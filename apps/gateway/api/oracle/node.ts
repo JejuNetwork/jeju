@@ -1,5 +1,11 @@
 import { getChainId, getRpcUrl } from '@jejunetwork/config'
-import { readContract } from '@jejunetwork/shared'
+import {
+  COMMITTEE_MANAGER_ABI,
+  FEED_REGISTRY_ABI,
+  NETWORK_CONNECTOR_ABI,
+  REPORT_VERIFIER_ABI,
+  readContract,
+} from '@jejunetwork/shared'
 import type { NodeMetrics, OracleNodeConfig } from '@jejunetwork/types'
 import { expectHex, parseEnvAddress, ZERO_ADDRESS } from '@jejunetwork/types'
 import {
@@ -17,12 +23,6 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { base, baseSepolia, foundry } from 'viem/chains'
-import {
-  COMMITTEE_MANAGER_ABI,
-  FEED_REGISTRY_ABI,
-  NETWORK_CONNECTOR_ABI,
-  REPORT_VERIFIER_ABI,
-} from '@jejunetwork/shared'
 import { type PriceData, PriceFetcher } from './price-fetcher'
 import type { PriceReport } from './types'
 

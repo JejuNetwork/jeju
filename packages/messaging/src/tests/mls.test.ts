@@ -228,7 +228,9 @@ describe('MLS Key Derivation', () => {
       skipRelayConnection: true,
     })
 
-    expect(() => client.getIdentityPublicKey()).toThrow('Client not initialized')
+    expect(() => client.getIdentityPublicKey()).toThrow(
+      'Client not initialized',
+    )
     expect(() => client.getPreKeyPublic()).toThrow('Client not initialized')
   })
 })

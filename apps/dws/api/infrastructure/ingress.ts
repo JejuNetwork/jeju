@@ -381,7 +381,10 @@ export class IngressController {
   }
 
   private rateWindowMs = 60_000 // 1 minute window
-  private rateLimitRequests = new Map<string, { count: number; resetAt: number }>()
+  private rateLimitRequests = new Map<
+    string,
+    { count: number; resetAt: number }
+  >()
 
   private async checkRateLimit(
     request: Request,
@@ -396,7 +399,10 @@ export class IngressController {
 
     const entry = this.rateLimitRequests.get(windowKey)
     if (!entry) {
-      this.rateLimitRequests.set(windowKey, { count: 1, resetAt: now + this.rateWindowMs })
+      this.rateLimitRequests.set(windowKey, {
+        count: 1,
+        resetAt: now + this.rateWindowMs,
+      })
       return true
     }
 
@@ -555,7 +561,7 @@ const IngressRuleBody = t.Object({
 })
 
 export function createIngressRouter(controller: IngressController) {
-  return new Elysia({ prefix: '' })
+  return new Elysia({ prefix: '/ingress' })
     .get('/health', () => ({ status: 'healthy', rules: ingressRules.size }))
     .post(
       '/rules',
