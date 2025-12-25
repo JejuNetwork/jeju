@@ -798,7 +798,7 @@ export class SimulationA2AInterface {
     return true
   }
 
-  // ===== Wrapper methods to match BabylonA2AClient interface =====
+  // ===== Wrapper methods to match A2A client interface =====
 
   /**
    * Buy shares in prediction market

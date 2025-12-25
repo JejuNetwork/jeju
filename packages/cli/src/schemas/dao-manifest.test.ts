@@ -6,12 +6,9 @@
  * - Boundary conditions (min/max values)
  * - Edge cases (empty arrays, special characters)
  * - Error handling for invalid inputs
- * - Real manifest validation from vendor/babylon/dao
  */
 
 import { describe, expect, test } from 'bun:test'
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import {
   DAOCEOConfigSchema,
   DAOCouncilMemberSchema,
@@ -578,86 +575,6 @@ describe('validateCouncilWeights', () => {
     const result = validateCouncilWeights(members)
     expect(result.valid).toBe(true)
     expect(result.total).toBe(10000)
-  })
-})
-
-// ============================================================================
-// Real Manifest Integration Test
-// ============================================================================
-
-describe('Real Babylon DAO Manifest', () => {
-  const manifestPath = join(
-    __dirname,
-    '../../../../vendor/babylon/dao/jeju-manifest.json',
-  )
-
-  test('validates real babylon DAO manifest', () => {
-    const content = readFileSync(manifestPath, 'utf-8')
-    const rawManifest = JSON.parse(content)
-    const manifest = validateDAOManifest(rawManifest)
-
-    expect(manifest.name).toBe('babylon-dao')
-    expect(manifest.displayName).toBe('Babylon DAO')
-    expect(manifest.governance.ceo.name).toBe('Monkey King')
-    expect(manifest.governance.council.members).toHaveLength(4)
-  })
-
-  test('babylon DAO council weights are valid', () => {
-    const content = readFileSync(manifestPath, 'utf-8')
-    const rawManifest = JSON.parse(content)
-    const manifest = validateDAOManifest(rawManifest)
-
-    const result = validateCouncilWeights(manifest.governance.council.members)
-    expect(result.valid).toBe(true)
-    expect(result.total).toBe(10000)
-  })
-
-  test('babylon DAO has all required seeded packages', () => {
-    const content = readFileSync(manifestPath, 'utf-8')
-    const rawManifest = JSON.parse(content)
-    const manifest = validateDAOManifest(rawManifest)
-
-    expect(manifest.packages?.seeded).toBeDefined()
-    expect(manifest.packages?.seeded.length).toBeGreaterThan(0)
-
-    const packageNames = manifest.packages?.seeded.map((p) => p.name)
-    expect(packageNames).toContain('@babylon/engine')
-    expect(packageNames).toContain('@babylon/contracts')
-  })
-
-  test('babylon DAO package weights sum correctly', () => {
-    const content = readFileSync(manifestPath, 'utf-8')
-    const rawManifest = JSON.parse(content)
-    const manifest = validateDAOManifest(rawManifest)
-
-    const totalWeight = manifest.packages?.seeded.reduce(
-      (sum, p) => sum + p.fundingWeight,
-      0,
-    )
-    expect(totalWeight).toBe(10000)
-  })
-
-  test('babylon DAO has valid fee categories', () => {
-    const content = readFileSync(manifestPath, 'utf-8')
-    const rawManifest = JSON.parse(content)
-    const manifest = validateDAOManifest(rawManifest)
-
-    expect(manifest.fees).toBeDefined()
-    expect(manifest.fees?.type).toBe('game')
-    expect(manifest.fees?.categories.trading).toBeDefined()
-    expect(manifest.fees?.categories.trading.defaultBps).toBeLessThanOrEqual(
-      10000,
-    )
-  })
-
-  test('babylon DAO deployment config is valid', () => {
-    const content = readFileSync(manifestPath, 'utf-8')
-    const rawManifest = JSON.parse(content)
-    const manifest = validateDAOManifest(rawManifest)
-
-    expect(manifest.deployment?.localnet?.autoSeed).toBe(true)
-    expect(manifest.deployment?.mainnet?.requiresMultisig).toBe(true)
-    expect(manifest.deployment?.mainnet?.autoSeed).toBe(false)
   })
 })
 

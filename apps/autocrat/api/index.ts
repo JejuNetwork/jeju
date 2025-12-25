@@ -1123,7 +1123,7 @@ const app = new Elysia()
     version: '3.0.0',
     description: 'Multi-tenant DAO governance with AI CEOs and deep funding',
     features: [
-      'Multi-DAO support (Jeju DAO, Babylon DAO, custom DAOs)',
+      'Multi-DAO support (Jeju DAO, custom DAOs)',
       'CEO personas with unique personalities',
       'Casual proposal flow (opinions, suggestions, applications)',
       'Deep funding with quadratic matching',

@@ -1272,14 +1272,6 @@ export class ArbitrageExecutor {
     // The action hash is keccak256 of the structured data
     const { keccak256, toBytes, concat } = require('viem')
 
-    // Construct the typed data structure for Hyperliquid
-    const _domain = {
-      name: 'Exchange',
-      version: '1',
-      chainId: 1337, // Hyperliquid L1 chain ID
-      verifyingContract: '0x0000000000000000000000000000000000000000' as const,
-    }
-
     // Serialize action to msgpack format (Hyperliquid uses msgpack)
     const actionBytes = this.msgpackEncode(action)
     const nonceBytes = toBytes(BigInt(nonce))

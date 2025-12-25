@@ -2,13 +2,19 @@
  * Network Messaging Relay Node Server
  *
  * Handles message routing, storage, and delivery for the decentralized
- * messaging network.
+ * messaging network. Uses CQL for persistent storage with in-memory cache
+ * for fast access.
  */
 
 import { cors } from '@elysiajs/cors'
 import { sha256 } from '@noble/hashes/sha256'
 import { bytesToHex } from '@noble/hashes/utils'
+import type { Address } from 'viem'
 import { Elysia } from 'elysia'
+import {
+  CQLMessageStorage,
+  type StoredMessage as CQLStoredMessage,
+} from '../storage/cql-storage'
 import {
   IPFSAddResponseSchema,
   type MessageEnvelope,
@@ -44,14 +50,17 @@ interface WebSocketNotification {
   details?: { message: string; path?: (string | number)[] }[]
 }
 
-// Message storage (in production, use LevelDB or similar)
-const messages = new Map<string, StoredMessage>()
+// In-memory cache for fast access (backed by CQL)
+const messageCache = new Map<string, StoredMessage>()
 
-// Pending messages per recipient
+// Pending messages per recipient (cached, synced with CQL)
 const pendingByRecipient = new Map<string, string[]>()
 
 // WebSocket subscribers
 const subscribers = new Map<string, Subscriber>()
+
+// CQL storage instance (initialized on server start)
+let cqlStorage: CQLMessageStorage | null = null
 
 // Stats
 let totalMessagesRelayed = 0
@@ -60,6 +69,54 @@ let totalBytesRelayed = 0
 function generateCID(content: string): string {
   const hash = sha256(new TextEncoder().encode(content))
   return `Qm${bytesToHex(hash).slice(0, 44)}`
+}
+
+/**
+ * Convert MessageEnvelope to CQL StoredMessage format
+ */
+function envelopeToCQLMessage(
+  envelope: MessageEnvelope,
+  cid: string,
+): CQLStoredMessage {
+  return {
+    id: envelope.id,
+    conversationId: `dm:${[envelope.from, envelope.to].sort().join('-')}`,
+    sender: envelope.from as Address,
+    recipient: envelope.to as Address,
+    encryptedContent: envelope.ciphertext,
+    contentCid: cid,
+    ephemeralPublicKey: envelope.ephemeralPublicKey ?? '',
+    nonce: envelope.nonce ?? '',
+    timestamp: envelope.timestamp,
+    chainId: envelope.chainId ?? 1,
+    messageType: 'dm',
+    deliveryStatus: 'pending',
+    signature: envelope.signature ?? null,
+  }
+}
+
+/**
+ * Convert CQL StoredMessage to StoredMessage format
+ */
+function cqlMessageToStored(msg: CQLStoredMessage): StoredMessage {
+  return {
+    envelope: {
+      id: msg.id,
+      version: 1,
+      from: msg.sender,
+      to: msg.recipient,
+      ciphertext: msg.encryptedContent,
+      ephemeralPublicKey: msg.ephemeralPublicKey,
+      nonce: msg.nonce,
+      timestamp: msg.timestamp,
+      chainId: msg.chainId,
+      signature: msg.signature ?? undefined,
+    },
+    cid: msg.contentCid ?? generateCID(msg.encryptedContent),
+    receivedAt: msg.timestamp,
+    deliveredAt: msg.deliveryStatus !== 'pending' ? msg.timestamp : undefined,
+    storedOnIPFS: !!msg.contentCid,
+  }
 }
 
 function addPendingMessage(recipient: string, messageId: string): void {
@@ -72,22 +129,79 @@ function addPendingMessage(recipient: string, messageId: string): void {
   }
 }
 
-function getPendingMessages(recipient: string): StoredMessage[] {
+async function getPendingMessages(recipient: string): Promise<StoredMessage[]> {
   const normalizedRecipient = recipient.toLowerCase()
+
+  // Try CQL storage first if available
+  if (cqlStorage) {
+    const cqlMessages = await cqlStorage.getPendingMessages(
+      normalizedRecipient as Address,
+    )
+    return cqlMessages.map(cqlMessageToStored)
+  }
+
+  // Fall back to in-memory cache
   const pending = pendingByRecipient.get(normalizedRecipient)
   if (!pending) {
     return []
   }
   return pending
-    .map((id) => messages.get(id))
+    .map((id) => messageCache.get(id))
     .filter((m): m is StoredMessage => m !== undefined)
 }
 
-function markDelivered(messageId: string): void {
-  const msg = messages.get(messageId)
+async function markDelivered(messageId: string): Promise<void> {
+  // Update CQL storage
+  if (cqlStorage) {
+    await cqlStorage.updateDeliveryStatus(messageId, 'delivered')
+  }
+
+  // Update in-memory cache
+  const msg = messageCache.get(messageId)
   if (msg) {
     msg.deliveredAt = Date.now()
   }
+}
+
+/**
+ * Store message in both CQL and cache
+ */
+async function storeMessage(
+  envelope: MessageEnvelope,
+  cid: string,
+): Promise<StoredMessage> {
+  const storedMessage: StoredMessage = {
+    envelope,
+    cid,
+    receivedAt: Date.now(),
+    storedOnIPFS: false,
+  }
+
+  // Store in in-memory cache
+  messageCache.set(envelope.id, storedMessage)
+  addPendingMessage(envelope.to, envelope.id)
+
+  // Persist to CQL if available
+  if (cqlStorage) {
+    const cqlMessage = envelopeToCQLMessage(envelope, cid)
+    await cqlStorage.storeMessage(cqlMessage)
+  }
+
+  return storedMessage
+}
+
+/**
+ * Get message by ID from cache or CQL
+ */
+async function getMessage(id: string): Promise<StoredMessage | null> {
+  // Check cache first
+  const cached = messageCache.get(id)
+  if (cached) return cached
+
+  // Try CQL storage
+  // Note: CQL doesn't have a getMessageById method, so we'd need to add it
+  // For now, return null if not in cache
+  return null
 }
 
 function notifySubscriber(
@@ -184,9 +298,26 @@ interface RequestHeaders {
   get(name: string): string | null
 }
 
+/**
+ * Initialize CQL storage for persistent message storage
+ */
+async function initializeCQLStorage(): Promise<void> {
+  cqlStorage = new CQLMessageStorage()
+  await cqlStorage.initialize()
+  console.log('[Relay Server] CQL storage initialized')
+}
+
 export function createRelayServer(config: NodeConfig) {
   // Start periodic rate limit cleanup
   startRateLimitCleanup()
+
+  // Initialize CQL storage asynchronously (non-blocking)
+  initializeCQLStorage().catch((error) => {
+    console.warn(
+      '[Relay Server] CQL storage unavailable, using in-memory only:',
+      error instanceof Error ? error.message : 'Unknown error',
+    )
+  })
 
   // CORS - restrict to known origins in production
   const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') ?? ['*']
@@ -209,12 +340,13 @@ export function createRelayServer(config: NodeConfig) {
         messagesRelayed: totalMessagesRelayed,
         bytesRelayed: totalBytesRelayed,
         activeSubscribers: subscribers.size,
-        pendingMessages: messages.size,
+        pendingMessages: messageCache.size,
+        cqlAvailable: cqlStorage !== null,
       },
       timestamp: Date.now(),
     }))
 
-    .post('/send', ({ body, request, set }) => {
+    .post('/send', async ({ body, request, set }) => {
       // Rate limiting by IP or address
       const headers = request.headers as RequestHeaders
       const clientIp =
@@ -252,7 +384,7 @@ export function createRelayServer(config: NodeConfig) {
       }
 
       // Check if this message ID was already processed (dedupe)
-      if (messages.has(envelope.id)) {
+      if (messageCache.has(envelope.id)) {
         set.status = 400
         return {
           success: false,
@@ -270,16 +402,8 @@ export function createRelayServer(config: NodeConfig) {
       // Generate CID
       const cid = generateCID(JSON.stringify(envelope))
 
-      // Store message
-      const storedMessage: StoredMessage = {
-        envelope,
-        cid,
-        receivedAt: Date.now(),
-        storedOnIPFS: false,
-      }
-
-      messages.set(envelope.id, storedMessage)
-      addPendingMessage(envelope.to, envelope.id)
+      // Store message in CQL and cache
+      const storedMessage = await storeMessage(envelope, cid)
 
       // Update stats
       totalMessagesRelayed++
@@ -306,7 +430,7 @@ export function createRelayServer(config: NodeConfig) {
       })
 
       if (delivered) {
-        markDelivered(envelope.id)
+        await markDelivered(envelope.id)
 
         // Notify sender of delivery
         notifySubscriber(envelope.from, {
@@ -324,7 +448,7 @@ export function createRelayServer(config: NodeConfig) {
       }
     })
 
-    .get('/messages/:address', ({ params, request, set }) => {
+    .get('/messages/:address', async ({ params, request, set }) => {
       // Rate limiting
       const headers = request.headers as RequestHeaders
       const clientIp =
@@ -345,7 +469,7 @@ export function createRelayServer(config: NodeConfig) {
         return { error: 'Invalid address format' }
       }
 
-      const pending = getPendingMessages(address)
+      const pending = await getPendingMessages(address)
 
       return {
         address,
@@ -358,7 +482,7 @@ export function createRelayServer(config: NodeConfig) {
       }
     })
 
-    .get('/message/:id', ({ params, set }) => {
+    .get('/message/:id', async ({ params, set }) => {
       const { id } = params
 
       // Validate UUID format to prevent injection
@@ -371,7 +495,7 @@ export function createRelayServer(config: NodeConfig) {
         return { error: 'Invalid message ID format' }
       }
 
-      const message = messages.get(id)
+      const message = await getMessage(id)
 
       if (!message) {
         set.status = 404
@@ -386,7 +510,7 @@ export function createRelayServer(config: NodeConfig) {
       }
     })
 
-    .post('/read/:id', ({ params, set }) => {
+    .post('/read/:id', async ({ params, set }) => {
       const { id } = params
 
       // Validate UUID format
@@ -399,11 +523,16 @@ export function createRelayServer(config: NodeConfig) {
         return { error: 'Invalid message ID format' }
       }
 
-      const message = messages.get(id)
+      const message = await getMessage(id)
 
       if (!message) {
         set.status = 404
         return { error: 'Message not found' }
+      }
+
+      // Update status in CQL
+      if (cqlStorage) {
+        await cqlStorage.updateDeliveryStatus(id, 'read')
       }
 
       // Notify sender of read receipt
@@ -437,11 +566,11 @@ interface WebSocketLike {
  * Process a subscription message and set up the subscriber
  * Returns the subscribed address or null if invalid
  */
-function processSubscription(
+async function processSubscription(
   rawMessage: string,
   ws: WebSocketLike,
   onSubscribe: (address: string) => void,
-): string | null {
+): Promise<string | null> {
   // Validate message size to prevent DoS
   if (rawMessage.length > MAX_WS_MESSAGE_SIZE) {
     ws.send(
@@ -502,7 +631,7 @@ function processSubscription(
   onSubscribe(address)
 
   // Send any pending messages
-  const pending = getPendingMessages(address)
+  const pending = await getPendingMessages(address)
   for (const msg of pending) {
     ws.send(
       JSON.stringify({
@@ -510,7 +639,7 @@ function processSubscription(
         data: msg.envelope,
       }),
     )
-    markDelivered(msg.envelope.id)
+    await markDelivered(msg.envelope.id)
   }
 
   // Confirm subscription
@@ -530,9 +659,15 @@ export function handleWebSocket(ws: WebSocket, _request: Request): void {
 
   ws.addEventListener('message', (event) => {
     if (typeof event.data !== 'string') return
-    subscribedAddress = processSubscription(event.data, ws, () => {
+    processSubscription(event.data, ws, () => {
       /* no-op callback for standard WebSocket handler */
     })
+      .then((address) => {
+        subscribedAddress = address
+      })
+      .catch((error) => {
+        console.error('[Relay Server] Subscription error:', error)
+      })
   })
 
   ws.addEventListener('close', () => {
@@ -565,18 +700,23 @@ export function startRelayServer(config: NodeConfig): void {
         }
 
         if (typeof message !== 'string') return
-        const address = processSubscription(message, wsWrapper, (addr) => {
+
+        processSubscription(message, wsWrapper, (addr) => {
           bunWsToAddress.set(ws, addr)
         })
-
-        if (address) {
-          // Update subscriber with wrapper
-          subscribers.set(address, {
-            address,
-            ws: wsWrapper as WebSocket,
-            subscribedAt: Date.now(),
+          .then((address) => {
+            if (address) {
+              // Update subscriber with wrapper
+              subscribers.set(address, {
+                address,
+                ws: wsWrapper as WebSocket,
+                subscribedAt: Date.now(),
+              })
+            }
           })
-        }
+          .catch((error) => {
+            console.error('[Relay Server] Subscription error:', error)
+          })
       },
       close(ws) {
         const address = bunWsToAddress.get(ws)

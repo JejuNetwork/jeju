@@ -2,7 +2,7 @@
  * RLAIF Routes
  *
  * Endpoints for Reinforcement Learning from AI Feedback training integration.
- * Used by Babylon and other environments to submit trajectories and training runs.
+ * Used by external environments to submit trajectories and training runs.
  */
 
 import { Elysia, t } from 'elysia'
@@ -283,7 +283,7 @@ export const rlaifRoutes = new Elysia({ prefix: '/rlaif' })
         return { error: 'Run not found', status: 404 }
       }
 
-      // Convert Babylon-style rollouts to our trajectory format
+      // Convert external rollouts to our trajectory format
       const trajectories: Trajectory[] = body.trajectories.map((t) => {
         const steps: TrajectoryStep[] = t.steps.map((s) => ({
           observation:
@@ -388,7 +388,7 @@ export const rlaifRoutes = new Elysia({ prefix: '/rlaif' })
   .get(
     '/trajectories/stats',
     async ({ query }) => {
-      const environment = query.environment ?? 'babylon'
+      const environment = query.environment ?? 'default'
       const stats = rlaifService.getTrajectoryStats(environment)
 
       return stats
@@ -407,7 +407,7 @@ export const rlaifRoutes = new Elysia({ prefix: '/rlaif' })
   .get(
     '/trajectories',
     async ({ query }) => {
-      const environment = query.environment ?? 'babylon'
+      const environment = query.environment ?? 'default'
       const archetype = query.archetype ?? 'default'
       const trajectories = rlaifService.getTrajectories(environment, archetype)
 
@@ -435,7 +435,7 @@ export const rlaifRoutes = new Elysia({ prefix: '/rlaif' })
   .get(
     '/health',
     () => {
-      const stats = rlaifService.getTrajectoryStats('babylon')
+      const stats = rlaifService.getTrajectoryStats('default')
       const runs = rlaifService.listRuns()
       const activeRuns = runs.filter(
         (r) =>

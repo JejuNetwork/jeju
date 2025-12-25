@@ -265,7 +265,8 @@ services:
       - ALTO_ENTRYPOINT=0x0000000071727De22E5E9d8BAf0edAc6f37da032
       # SECURITY: Private key required - set BUNDLER_PRIVATE_KEY env var
       # For localnet only, you can use Anvil account #1
-      - ALTO_PRIVATE_KEY=${BUNDLER_PRIVATE_KEY:?BUNDLER_PRIVATE_KEY required}
+      # LOCALNET: Use Anvil account #1 by default for local development
+      - ALTO_PRIVATE_KEY=${BUNDLER_PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}
       - ALTO_PORT=4337
       - ALTO_LOG_LEVEL=${LOG_LEVEL:-info}
       - ALTO_MAX_BUNDLE_SIZE=10

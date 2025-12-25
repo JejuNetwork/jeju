@@ -596,3 +596,107 @@ export {
   type X402PaymentOption,
   type X402PaymentRequirement,
 } from './x402'
+// Token Counter Utilities
+export {
+  budgetTokens,
+  countTokens,
+  countTokensSync,
+  getModelTokenLimit,
+  getSafeContextLimit,
+  MODEL_TOKEN_LIMITS,
+  truncateToTokenLimit,
+  truncateToTokenLimitSync,
+} from './tokens'
+// Type Guards
+export {
+  assertDefined,
+  assertNotNull,
+  fetchJsonAs,
+  getErrorMessage,
+  hasArrayProperty,
+  hasBooleanProperty,
+  hasNumberProperty,
+  hasProperty,
+  hasStringProperty,
+  isArray,
+  isArrayOf,
+  isBoolean,
+  isDate,
+  isFiniteNumber,
+  isJsonRecord,
+  isJsonValue,
+  isNonEmptyString,
+  isNumber,
+  isNumberArray,
+  isObject,
+  isPlainObject,
+  isPositiveInteger,
+  isString,
+  isStringArray,
+  isStringRecord,
+  isUint8Array,
+  type JsonValue as TypeGuardJsonValue,
+  parseJson,
+  parseJsonAs,
+  responseJson,
+  toError,
+  toJsonRecord,
+  toJsonValueOrNull,
+  toStringArray,
+} from './type-guards'
+// JSON Parsing Utilities
+export {
+  parseJsonResponse,
+  parseJsonString,
+  parseJsonWithFallback,
+  type ParseResult,
+  tryParseJson,
+  tryStringifyJson,
+} from './json'
+// Content Safety Utilities
+export {
+  checkAgentOutput,
+  checkUserInput,
+  type ContentCategory,
+  type ContentCheckResult,
+  hasContentIssue,
+  sanitizeContent,
+} from './content-safety'
+// Performance Monitoring
+export {
+  type Bottleneck,
+  type BottleneckSeverity,
+  type BottleneckType,
+  type CacheMetrics,
+  type DatabaseMetrics,
+  performanceMonitor,
+  PerformanceMonitor,
+  type PerformanceSnapshot,
+  type StorageMetrics,
+  type SystemMetrics,
+} from './monitoring'
+// Duplicate Detection
+export {
+  checkDuplicate,
+  cleanupDuplicates,
+  clearAllDuplicates,
+  clearDuplicates,
+  type DuplicateCheckResult,
+  type DuplicateConfig,
+  type DuplicateConfigType,
+  DUPLICATE_DETECTION_CONFIGS,
+  getDuplicateStats,
+} from './dedup'
+// Jeju Storage (IPFS/Arweave)
+export {
+  getJejuStorageClient,
+  initializeJejuStorage,
+  isJejuStorageAvailable,
+  type JejuStorageConfig,
+  JejuStorageClient,
+  type JejuUploadOptions,
+  type JejuUploadResult,
+  type ModelStorageOptions,
+  resetJejuStorageClient,
+  type StoredModel,
+} from './storage'

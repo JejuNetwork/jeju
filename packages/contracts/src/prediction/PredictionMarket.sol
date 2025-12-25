@@ -74,7 +74,6 @@ contract PredictionMarket is ReentrancyGuard, Pausable, Ownable {
         GENERIC, // Generic prediction market
         CALIGULAND, // Caliguland social deduction game
         CONTEST, // Contest oracle (eHorse, tournaments, etc.)
-        HYPERSCAPE, // Hyperscape RPG battles
         CUSTOM // Custom oracle game
 
     }

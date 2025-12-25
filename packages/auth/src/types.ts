@@ -313,7 +313,6 @@ export interface CouncilConfig {
 
 export const CouncilType = {
   JEJU: 'jeju',
-  BABYLON: 'babylon',
   ELIZA: 'eliza',
 } as const
 export type CouncilType = (typeof CouncilType)[keyof typeof CouncilType]

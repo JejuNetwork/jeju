@@ -343,7 +343,7 @@ function generateCIWorkflow(rootDir: string): string {
         },
         {
           name: 'Start Localnet',
-          run: 'anvil --chain-id 1337 --port 6546 --block-time 1 &',
+          run: 'anvil --chain-id 31337 --port 6546 --block-time 1 &',
         },
         {
           name: 'Wait for Services',
@@ -403,7 +403,7 @@ function generateCIWorkflow(rootDir: string): string {
         },
         {
           name: 'Start Localnet',
-          run: 'anvil --chain-id 1337 --port 6546 --block-time 1 &',
+          run: 'anvil --chain-id 31337 --port 6546 --block-time 1 &',
         },
         {
           name: 'Deploy Contracts',

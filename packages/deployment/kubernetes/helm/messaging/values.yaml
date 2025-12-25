@@ -59,7 +59,7 @@ relay:
     
     # CovenantSQL
     covenantsqlNodes: ""
-    covenantsqlDatabaseId: "babylon-messaging"
+    covenantsqlDatabaseId: "jeju-messaging"
     
     # IPFS for large payloads
     ipfsGateway: "https://gateway.testnet.jejunetwork.org"

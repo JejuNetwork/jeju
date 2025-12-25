@@ -7,7 +7,7 @@
  * @module @jejunetwork/shared/tokens
  */
 
-import type { Tiktoken } from 'tiktoken'
+import type { Tiktoken } from 'js-tiktoken'
 
 // Lazy-load encoding to avoid startup overhead
 let encoding: Tiktoken | null = null
@@ -17,8 +17,8 @@ let encoding: Tiktoken | null = null
  */
 async function getEncoding(): Promise<Tiktoken> {
   if (!encoding) {
-    const tiktoken = await import('tiktoken')
-    encoding = tiktoken.encoding_for_model('gpt-4')
+    const { encodingForModel } = await import('js-tiktoken')
+    encoding = encodingForModel('gpt-4')
   }
   return encoding
 }

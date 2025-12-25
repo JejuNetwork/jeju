@@ -31,15 +31,6 @@ const CONTRACTS_TO_EXTRACT = [
   'BanManager',
   'ModerationMarketplace',
 
-  // Babylon Diamond (Prediction Markets)
-  'BabylonDiamond',
-  'BabylonDiamondCutFacet',
-  'BabylonDiamondLoupeFacet',
-  'BabylonPredictionMarketFacet',
-  'BabylonOracleFacet',
-  'BabylonERC8004IdentityRegistry',
-  'BabylonERC8004ReputationSystem',
-
   // OIF (Open Intents Framework)
   'InputSettler',
   'OutputSettler',

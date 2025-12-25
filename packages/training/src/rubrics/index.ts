@@ -2,7 +2,7 @@
  * Rubrics Registry for Jeju Training
  *
  * A centralized registry for LLM-as-judge rubrics used in RLAIF training.
- * Allows different environments (Babylon, custom games, etc.) to register
+ * Allows different environments (games, simulations, etc.) to register
  * their scoring rubrics that can be used by the RULER scorer.
  *
  * @packageDocumentation

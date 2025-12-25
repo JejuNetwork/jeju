@@ -259,7 +259,7 @@ async function main(): Promise<void> {
      key_registry_address  = "${result.keyRegistry}"
      node_registry_address = "${result.nodeRegistry}"
 
-  2. Update Babylon .env:
+  2. Update app .env:
      KEY_REGISTRY_ADDRESS=${result.keyRegistry}
      NODE_REGISTRY_ADDRESS=${result.nodeRegistry}
 
