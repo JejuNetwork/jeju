@@ -23,7 +23,7 @@
  * ```
  */
 
-import type { JsonRecord } from '@jejunetwork/sdk'
+import type { JsonRecord } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import { privateKeyToAccount, signMessage } from 'viem/accounts'
 import { z } from 'zod'

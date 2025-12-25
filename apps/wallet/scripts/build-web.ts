@@ -37,7 +37,7 @@ const BROWSER_EXTERNALS = [
   'node:util',
 ]
 
-// Browser plugin to shim server-only packages
+// Browser plugin to shim server-only packages and dedupe crypto libraries
 const browserPlugin = {
   name: 'browser-shims',
   setup(
@@ -62,6 +62,20 @@ const browserPlugin = {
         export const levels = { values: { trace: 10, debug: 20, info: 30, warn: 40, error: 50, fatal: 60 } };
       `,
       loader: 'js',
+    }))
+
+    // Dedupe @noble/curves to prevent duplicate exports
+    build.onResolve({ filter: /^@noble\/curves\/secp256k1$/ }, () => ({
+      path: require.resolve('@noble/curves/secp256k1'),
+    }))
+    build.onResolve({ filter: /^@noble\/curves\/p256$/ }, () => ({
+      path: require.resolve('@noble/curves/p256'),
+    }))
+    build.onResolve({ filter: /^@noble\/curves$/ }, () => ({
+      path: require.resolve('@noble/curves'),
+    }))
+    build.onResolve({ filter: /^@noble\/hashes/ }, (args) => ({
+      path: require.resolve(args.path),
     }))
   },
 }

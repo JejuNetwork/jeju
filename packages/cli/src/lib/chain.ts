@@ -366,11 +366,14 @@ export async function bootstrapContracts(
     // Check if any key contracts are deployed (not zero addresses)
     const hasValidContracts =
       (contracts.jnsRegistry &&
-        contracts.jnsRegistry !== '0x0000000000000000000000000000000000000000') ||
+        contracts.jnsRegistry !==
+          '0x0000000000000000000000000000000000000000') ||
       (contracts.storageManager &&
-        contracts.storageManager !== '0x0000000000000000000000000000000000000000') ||
+        contracts.storageManager !==
+          '0x0000000000000000000000000000000000000000') ||
       (contracts.identityRegistry &&
-        contracts.identityRegistry !== '0x0000000000000000000000000000000000000000')
+        contracts.identityRegistry !==
+          '0x0000000000000000000000000000000000000000')
 
     if (hasValidContracts) {
       logger.debug('Contracts already bootstrapped')

@@ -1,15 +1,14 @@
 /**
  * Extended Task Store
  *
- * Extends the A2A SDK's InMemoryTaskStore to add tasks/list functionality
- * required for full A2A protocol compliance. Provides filtering, pagination,
+ * In-memory task store implementation with tasks/list functionality
+ * for full A2A protocol compliance. Provides filtering, pagination,
  * and task history management.
  *
  * @public
  */
 
-import type { Task } from '@a2a-js/sdk'
-import { InMemoryTaskStore } from '@a2a-js/sdk/server'
+import type { Task, TaskStore } from '../types/server'
 
 /**
  * Parameters for listing tasks
@@ -48,22 +47,21 @@ export interface ListTasksResult {
  * Provides task storage and retrieval with filtering, pagination, and
  * history management for A2A protocol compliance.
  */
-export class ExtendedTaskStore extends InMemoryTaskStore {
+export class ExtendedTaskStore implements TaskStore {
   private tasks: Map<string, Task> = new Map()
 
   /**
-   * Save task (override to track in our map)
+   * Save task to the store
    */
   async save(task: Task): Promise<void> {
-    await super.save(task)
     this.tasks.set(task.id, task)
   }
 
   /**
-   * Load task (override to use our map)
+   * Load task from the store
    */
   async load(taskId: string): Promise<Task | undefined> {
-    return this.tasks.get(taskId) || (await super.load(taskId))
+    return this.tasks.get(taskId)
   }
 
   /**

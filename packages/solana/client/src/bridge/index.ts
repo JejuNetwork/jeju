@@ -1,3 +1,4 @@
+import type { TransferStatus } from '@jejunetwork/types'
 import {
   createAssociatedTokenAccountInstruction,
   getAssociatedTokenAddress,
@@ -25,7 +26,7 @@ const BRIDGE_VAULT_SEED = Buffer.from('bridge_vault')
 
 export const MAX_PAYLOAD_SIZE = 1024
 
-export type TransferStatus = 'pending' | 'completed' | 'failed'
+export type { TransferStatus }
 
 export interface BridgeState {
   admin: PublicKey

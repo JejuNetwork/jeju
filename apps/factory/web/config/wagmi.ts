@@ -1,6 +1,7 @@
 import { getChainConfig } from '@jejunetwork/config'
 import { getDefaultConfig } from '@rainbow-me/rainbowkit'
 import type { Chain } from 'wagmi/chains'
+import { mainnet } from 'wagmi/chains'
 
 function detectNetwork(): 'localnet' | 'testnet' | 'mainnet' {
   if (typeof window === 'undefined') return 'localnet'
@@ -33,7 +34,8 @@ const currentChain: Chain = {
   testnet: network !== 'mainnet',
 }
 
-export const chains: [Chain, ...Chain[]] = [currentChain]
+// Include mainnet for ENS resolution in RainbowKit
+export const chains: [Chain, ...Chain[]] = [currentChain, mainnet]
 
 const projectId = (() => {
   if (
