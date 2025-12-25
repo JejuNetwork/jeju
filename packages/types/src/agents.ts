@@ -12,7 +12,8 @@ import { z } from 'zod'
 export const GameNetworkInfoSchema = z.object({
   chainId: z.number().int().positive(),
   registryAddress: z.string(),
-  reputationAddress: z.string().optional(),
+  reputationAddress: z.string().optional().nullable(),
+  marketAddress: z.string().optional().nullable(),
 })
 export type GameNetworkInfo = z.infer<typeof GameNetworkInfoSchema>
 

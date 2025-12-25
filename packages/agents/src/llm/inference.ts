@@ -8,17 +8,11 @@
 
 import { getCurrentNetwork, getServiceUrl } from '@jejunetwork/config'
 import { logger } from '@jejunetwork/shared'
-import { isValidAddress, ZERO_ADDRESS } from '@jejunetwork/types'
+import { type ChatMessage, isValidAddress, ZERO_ADDRESS } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import { z } from 'zod'
 
-/**
- * Chat message for inference
- */
-export interface ChatMessage {
-  role: 'system' | 'user' | 'assistant'
-  content: string
-}
+export type { ChatMessage }
 
 /**
  * Inference request

@@ -304,7 +304,6 @@ class TradingBotImpl implements TradingBot {
 
 export class BotInitializer {
   private bots: Map<bigint, TradingBot> = new Map()
-  private config: BotInitializerConfig
 
   constructor(config: BotInitializerConfig) {
     this.config = config

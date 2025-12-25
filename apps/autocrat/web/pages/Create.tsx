@@ -1,5 +1,5 @@
 import { ZERO_ADDRESS } from '@jejunetwork/types'
-import { ArrowLeft, Loader2 } from 'lucide-react'
+import { ArrowLeft, CheckCircle, Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { keccak256, parseEther, toHex } from 'viem'
@@ -9,7 +9,13 @@ import {
   useWriteContract,
 } from 'wagmi'
 import { ProposalWizard } from '../components/ProposalWizard'
-import type { FullQualityAssessment, ProposalDraft } from '../config/api'
+import {
+  assessProposal,
+  type FullQualityAssessment,
+  type ProposalDraft,
+  prepareSubmitProposal,
+  type QualityAssessment,
+} from '../config/api'
 import { AUTOCRAT_ADDRESS } from '../config/env'
 
 const PROPOSAL_BOND = parseEther('0.001')
@@ -36,6 +42,10 @@ export default function CreateProposalPage() {
   const { isConnected } = useAccount()
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [a2aAssessment, setA2aAssessment] = useState<QualityAssessment | null>(
+    null,
+  )
+  const [prepareStatus, setPrepareStatus] = useState<string | null>(null)
 
   const { writeContract, data: txHash, isPending } = useWriteContract()
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
@@ -67,6 +77,19 @@ export default function CreateProposalPage() {
 
     setSubmitError(null)
     setSubmitting(true)
+    setPrepareStatus('Running A2A assessment...')
+
+    // Run A2A assessment for additional validation
+    const a2aResult = await assessProposal({
+      title: draft.title,
+      summary: draft.summary,
+      description: draft.description,
+      proposalType: String(draft.proposalType),
+    }).catch(() => null)
+
+    if (a2aResult) {
+      setA2aAssessment(a2aResult)
+    }
 
     // Compute content hash from draft content
     const contentString = JSON.stringify({
@@ -78,6 +101,26 @@ export default function CreateProposalPage() {
       assessedAt: assessment.assessedAt,
     })
     const contentHash = keccak256(toHex(contentString))
+
+    // Prepare submission via backend
+    setPrepareStatus('Preparing on-chain submission...')
+    const prepareResult = await prepareSubmitProposal({
+      proposalType: draft.proposalType,
+      qualityScore: assessment.overallScore,
+      contentHash,
+      targetContract: draft.targetContract,
+      callData: draft.calldata,
+      value: draft.value,
+    }).catch(() => null)
+
+    if (prepareResult && !prepareResult.success) {
+      setSubmitError(prepareResult.error ?? 'Failed to prepare submission')
+      setSubmitting(false)
+      setPrepareStatus(null)
+      return
+    }
+
+    setPrepareStatus('Submitting to blockchain...')
 
     writeContract({
       address: AUTOCRAT_ADDRESS,
@@ -131,7 +174,26 @@ export default function CreateProposalPage() {
         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 flex items-center gap-3">
           <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
           <p className="text-blue-700 dark:text-blue-300">
-            {isPending ? 'Confirm in wallet...' : 'Waiting for confirmation...'}
+            {prepareStatus ??
+              (isPending
+                ? 'Confirm in wallet...'
+                : 'Waiting for confirmation...')}
+          </p>
+        </div>
+      )}
+
+      {/* A2A Assessment Result */}
+      {a2aAssessment && !isLoading && (
+        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <CheckCircle className="w-5 h-5 text-green-600" />
+            <span className="font-medium text-green-700 dark:text-green-300">
+              A2A Assessment Complete
+            </span>
+          </div>
+          <p className="text-sm text-green-600 dark:text-green-400">
+            Score: {a2aAssessment.overallScore}/100 •{' '}
+            {a2aAssessment.readyToSubmit ? 'Ready to submit' : 'Needs review'}
           </p>
         </div>
       )}

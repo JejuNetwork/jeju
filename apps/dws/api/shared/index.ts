@@ -1,72 +1,33 @@
 /**
  * Shared utilities for DWS
+ *
+ * Note: Validation utilities (addressSchema, validateBody, etc.) are available
+ * by importing directly from ./validation
+ *
+ * Note: x402 payment utilities are available by importing from ./x402
  */
 
-// Reputation integration
-export {
-  type MetricsInput,
-  ReputationManager,
-  type ReputationManagerConfig,
-  type ReputationScore,
-} from './reputation'
+// Schemas (heavily used by routes)
 export * from './schemas'
+
+// API Marketplace utilities
 export * from './utils/api-marketplace'
-// Utility modules
+
+// Common utilities
 export * from './utils/common'
+
+// Crypto utilities
 export * from './utils/crypto'
+
+// RPC utilities
 export * from './utils/rpc'
 
-// Validation utilities and schemas
+// Re-export commonly needed types from validation
 export {
-  addressSchema,
-  cidSchema,
-  emailSchema,
-  errorResponseSchema,
-  hexSchema,
-  isoDateSchema,
   type JSONArray,
-  JSONArraySchema,
   type JSONObject,
-  JSONObjectSchema,
-  // JSON types
   type JSONPrimitive,
   type JSONValue,
-  JSONValueSchema,
   jejuAddressHeaderSchema,
-  jejuAuthHeadersSchema,
-  nonEmptyStringSchema,
-  nonNegativeIntSchema,
-  paginationSchema,
-  positiveBigIntSchema,
-  positiveIntSchema,
   strictHexSchema,
-  timestampSchema,
-  urlSchema,
-  validateBody,
-  validateBodyDirect,
-  validateHeaders,
-  validateParams,
-  validateQuery,
-  validateQueryFromObj,
-  z,
 } from './validation'
-// x402 Payment handling
-export {
-  calculatePrice,
-  create402Response,
-  createPaymentRequirement,
-  createX402BeforeHandle,
-  GIT_PRICING_RULES,
-  getTierPrice,
-  type PaymentConfig,
-  type PaymentProof,
-  type PaymentRequirement,
-  PKG_PRICING_RULES,
-  type PricingRule,
-  parsePaymentProof,
-  TIERS,
-  type TierDefinition,
-  tierAllows,
-  verifyPayment,
-  type X402HookResult,
-} from './x402'

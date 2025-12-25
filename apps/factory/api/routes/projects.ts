@@ -1,7 +1,6 @@
 /** Projects Routes */
 
 import { Elysia } from 'elysia'
-import type { Address } from 'viem'
 import {
   createProject as dbCreateProject,
   createTask as dbCreateTask,
@@ -21,33 +20,13 @@ import {
 } from '../schemas'
 import { requireAuth } from '../validation/access-control'
 
-export interface ProjectTask {
-  id: string
-  title: string
-  status: 'pending' | 'in_progress' | 'completed'
-  assignee?: string
-  dueDate?: number
-}
+export type { Project, ProjectTask }
 
-export interface TaskStats {
+interface TaskStats {
   total: number
   completed: number
   inProgress: number
   pending: number
-}
-
-export interface Project {
-  id: string
-  name: string
-  description: string
-  status: 'active' | 'archived' | 'completed' | 'on_hold'
-  visibility: 'public' | 'private' | 'internal'
-  owner: Address
-  members: number
-  tasks: TaskStats
-  milestones: Array<{ name: string; progress: number }>
-  createdAt: number
-  updatedAt: number
 }
 
 function transformTask(row: TaskRow): ProjectTask {
