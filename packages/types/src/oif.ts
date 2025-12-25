@@ -1,13 +1,5 @@
 /**
- * @fileoverview Open Intents Framework (OIF) Types
- *
- * OIF enables permissionless cross-chain interoperability via intents:
- * - Users express desired outcomes (intents) instead of manual execution
- * - Solvers compete to fulfill intents for fees
- * - Settlement contracts ensure atomic execution with trustless verification
- *
- * @see https://docs.openintents.xyz
- * @see ERC-7683 for cross-chain intent standard
+ * Open Intents Framework (OIF) types for cross-chain intent execution.
  */
 
 import { z } from 'zod'
@@ -20,18 +12,17 @@ import {
   MAX_SMALL_ARRAY_LENGTH,
   MAX_STRING_LENGTH,
 } from './validation'
+
 export { SupportedChainIdSchema }
 export type { SupportedChainId } from './eil'
 
-// ============ Intent Types (ERC-7683 Compatible) ============
-
 export const IntentStatusSchema = z.enum([
-  'open', // Intent created, awaiting solver
-  'pending', // Solver claimed, awaiting execution
-  'filled', // Successfully fulfilled
-  'expired', // No solver responded in time
-  'cancelled', // User cancelled before fill
-  'failed', // Solver failed to fulfill
+  'open',
+  'pending',
+  'filled',
+  'expired',
+  'cancelled',
+  'failed',
 ])
 export type IntentStatus = z.infer<typeof IntentStatusSchema>
 
@@ -53,7 +44,7 @@ export type IntentOutput = z.infer<typeof IntentOutputSchema>
 export const FillInstructionSchema = z.object({
   destinationChainId: SupportedChainIdSchema,
   destinationSettler: AddressSchema,
-  originData: z.string(), // Encoded execution params
+  originData: z.string(),
 })
 export type FillInstruction = z.infer<typeof FillInstructionSchema>
 
@@ -96,9 +87,6 @@ export const IntentSchema = z.object({
   executionTimeMs: z.number().optional(),
 })
 export type Intent = z.infer<typeof IntentSchema>
-
-// ============ Gasless Cross-Chain Order (ERC-7683) ============
-
 export const GaslessCrossChainOrderSchema = z.object({
   originSettler: AddressSchema,
   user: AddressSchema,
@@ -140,9 +128,6 @@ export const ResolvedCrossChainOrderSchema = z.object({
 export type ResolvedCrossChainOrder = z.infer<
   typeof ResolvedCrossChainOrderSchema
 >
-
-// ============ Solver Types ============
-
 export const SolverStatusSchema = z.enum([
   'active', // Accepting intents
   'paused', // Temporarily not accepting
@@ -196,9 +181,6 @@ export const SolverSchema = z.object({
   lastActiveAt: z.number().optional(),
 })
 export type Solver = z.infer<typeof SolverSchema>
-
-// ============ Route Types ============
-
 export const OracleTypeSchema = z.enum([
   'hyperlane', // Hyperlane messaging protocol
   'optimism-native', // OP Stack native bridge
@@ -236,9 +218,6 @@ export const IntentRouteSchema = z.object({
   lastUpdated: z.number(),
 })
 export type IntentRoute = z.infer<typeof IntentRouteSchema>
-
-// ============ Quote Types ============
-
 export const IntentQuoteSchema = z.object({
   quoteId: z.string(),
   intentId: z.string().optional(),
@@ -268,9 +247,6 @@ export const IntentQuoteSchema = z.object({
   route: IntentRouteSchema.optional(),
 })
 export type IntentQuote = z.infer<typeof IntentQuoteSchema>
-
-// ============ Settlement Types ============
-
 export const SettlementStatusSchema = z.enum([
   'pending', // Awaiting attestation
   'attested', // Oracle attested fulfillment
@@ -309,9 +285,6 @@ export const SettlementSchema = z.object({
   settledAt: z.number().optional(),
 })
 export type Settlement = z.infer<typeof SettlementSchema>
-
-// ============ Oracle Types ============
-
 export const OracleAttestationSchema = z.object({
   attestationId: z.string(),
   intentId: z.string(),
@@ -333,9 +306,6 @@ export const OracleAttestationSchema = z.object({
   verificationTx: z.string().optional(),
 })
 export type OracleAttestation = z.infer<typeof OracleAttestationSchema>
-
-// ============ OIF Configuration ============
-
 export const OIFConfigSchema = z.object({
   // Settlement contract addresses per chain
   inputSettlers: z
@@ -387,9 +357,6 @@ export const OIFConfigSchema = z.object({
   slashingPercent: z.number(),
 })
 export type OIFConfig = z.infer<typeof OIFConfigSchema>
-
-// ============ Analytics Types ============
-
 export const OIFStatsSchema = z.object({
   // Global stats
   totalIntents: z.number(),
@@ -434,9 +401,6 @@ export const SolverLeaderboardEntrySchema = z.object({
 export type SolverLeaderboardEntry = z.infer<
   typeof SolverLeaderboardEntrySchema
 >
-
-// ============ Event Types for Indexer ============
-
 export const OIFEventTypeSchema = z.enum([
   // Intent events
   'IntentCreated',
@@ -529,9 +493,6 @@ export const OIFEventSchema = z.object({
   data: OIFEventDataSchema,
 })
 export type OIFEvent = z.infer<typeof OIFEventSchema>
-
-// ============ A2A Skill Types ============
-
 /**
  * Skill input parameter schema - no unknown types
  */

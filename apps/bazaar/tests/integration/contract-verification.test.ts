@@ -20,9 +20,7 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 
-// =============================================================================
 // CONFIGURATION
-// =============================================================================
 
 const RPC_URL = process.env.L2_RPC_URL || 'http://localhost:6546'
 const CHAIN_ID = 420691 // network localnet chain ID
@@ -43,9 +41,7 @@ const localnet = {
   rpcUrls: { default: { http: [RPC_URL] } },
 }
 
-// =============================================================================
 // ABIs
-// =============================================================================
 
 const MOCK_SWAP_ROUTER_ABI = parseAbi([
   'function poolManager() view returns (address)',
@@ -88,9 +84,7 @@ const ERC20_ABI = parseAbi([
   'function balanceOf(address account) view returns (uint256)',
 ])
 
-// =============================================================================
 // SETUP
-// =============================================================================
 
 interface Deployments {
   v4: {
@@ -115,17 +109,17 @@ let skipTests = false
 
 function loadDeployment(filename: string): Record<string, string> {
   const deploymentMap: Record<string, Record<string, string>> = {
-    'uniswap-v4-1337.json': rawDeployments.uniswapV4_1337 as Record<
+    'uniswap-v4-31337.json': rawDeployments.uniswapV4_1337 as Record<
       string,
       string
     >,
-    'bazaar-marketplace-1337.json':
+    'bazaar-marketplace-31337.json':
       rawDeployments.bazaarMarketplace1337 as Record<string, string>,
-    'erc20-factory-1337.json': rawDeployments.erc20Factory1337 as Record<
+    'erc20-factory-31337.json': rawDeployments.erc20Factory1337 as Record<
       string,
       string
     >,
-    'multi-token-system-1337.json':
+    'multi-token-system-31337.json':
       rawDeployments.multiTokenSystem1337 as Record<string, string>,
   }
   return deploymentMap[filename] || {}
@@ -154,15 +148,13 @@ beforeAll(async () => {
   }
 
   deployments = {
-    v4: loadDeployment('uniswap-v4-1337.json'),
-    marketplace: loadDeployment('bazaar-marketplace-1337.json'),
-    factory: loadDeployment('erc20-factory-1337.json'),
+    v4: loadDeployment('uniswap-v4-31337.json'),
+    marketplace: loadDeployment('bazaar-marketplace-31337.json'),
+    factory: loadDeployment('erc20-factory-31337.json'),
   }
 })
 
-// =============================================================================
 // TESTS: V4 PERIPHERY CONTRACTS
-// =============================================================================
 
 describe('V4 Periphery Contracts', () => {
   test('SwapRouter should be callable', async () => {
@@ -257,9 +249,7 @@ describe('V4 Periphery Contracts', () => {
   })
 })
 
-// =============================================================================
 // TESTS: BAZAAR MARKETPLACE
-// =============================================================================
 
 describe('Bazaar Marketplace Contract', () => {
   test('should read marketplace version', async () => {
@@ -327,9 +317,7 @@ describe('Bazaar Marketplace Contract', () => {
   })
 })
 
-// =============================================================================
 // TESTS: TOKEN FACTORY
-// =============================================================================
 
 describe('Token Factory Contract', () => {
   test('should read token count', async () => {
@@ -429,9 +417,7 @@ describe('Token Factory Contract', () => {
   })
 })
 
-// =============================================================================
 // TESTS: TOKEN VERIFICATION
-// =============================================================================
 
 describe('Created Token Verification', () => {
   test('should verify created token is valid ERC20', async () => {
@@ -503,9 +489,7 @@ describe('Created Token Verification', () => {
   })
 })
 
-// =============================================================================
 // SUMMARY
-// =============================================================================
 
 describe('Contract Verification Summary', () => {
   test('print summary', async () => {

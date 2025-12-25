@@ -8,31 +8,25 @@ import {
   PASSWORD,
 } from '@jejunetwork/tests'
 
-const AUTOCRAT_PORT = parseInt(process.env.PORT || '8010', 10)
-const CEO_PORT = parseInt(process.env.CEO_PORT || '8004', 10)
+const AUTOCRAT_PORT = parseInt(process.env.PORT || '3010', 10)
+const BASE_URL = `http://localhost:${AUTOCRAT_PORT}`
 
 export default createSynpressConfig({
   appName: 'autocrat',
   port: AUTOCRAT_PORT,
-  testDir: './synpress-tests',
+  testDir: './tests/synpress',
   testMatch: '**/*.synpress.ts',
   timeout: 120000,
   overrides: {
-    // Autocrat needs both API and CEO servers
-    webServer: [
-      {
-        command: 'bun run src/index.ts',
-        url: `http://localhost:${AUTOCRAT_PORT}/health`,
-        reuseExistingServer: true,
-        timeout: 60000,
-      },
-      {
-        command: 'bun run src/ceo-server.ts',
-        url: `http://localhost:${CEO_PORT}/health`,
-        reuseExistingServer: true,
-        timeout: 60000,
-      },
-    ],
+    use: {
+      baseURL: BASE_URL,
+    },
+    webServer: {
+      command: 'bun run dev:web',
+      url: BASE_URL,
+      reuseExistingServer: true,
+      timeout: 60000,
+    },
   },
 })
 

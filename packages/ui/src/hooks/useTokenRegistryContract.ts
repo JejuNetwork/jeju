@@ -1,7 +1,3 @@
-/**
- * Token Registry Contract Hook
- */
-
 import { useCallback, useMemo } from 'react'
 import type { Address } from 'viem'
 import {
@@ -34,7 +30,6 @@ export interface TokenConfig {
   metadataHash: `0x${string}`
 }
 
-// Built-in token definitions - using lowercase addresses for consistent lookup
 const ETH_ADDRESS =
   '0x0000000000000000000000000000000000000000' as const satisfies Address
 const KNOWN_TOKENS: ReadonlyMap<Lowercase<Address>, TokenInfo> = new Map([
@@ -127,8 +122,6 @@ export function useTokenRegistry(
 
   const tokens = useMemo(() => Array.from(KNOWN_TOKENS.values()), [])
 
-  // Type assertion required: wagmi's useReadContract returns a generic type
-  // based on ABI inference. The ABI specifies address[] return type.
   return {
     allTokens: allTokens ? (allTokens as Address[]) : [],
     registrationFee,

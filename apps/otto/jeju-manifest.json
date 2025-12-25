@@ -12,14 +12,33 @@
     "test": "bun run test"
   },
   "ports": {
+    "main": 4040,
     "api": 4040,
     "webhooks": 4041
   },
-  "dependencies": ["contracts", "config", "dws", "gateway", "bazaar", "crucible"],
+  "dependencies": [
+    "contracts",
+    "config",
+    "dws",
+    "gateway",
+    "bazaar",
+    "crucible"
+  ],
   "optional": false,
   "enabled": true,
   "autoStart": true,
-  "tags": ["agents", "trading", "ai", "discord", "telegram", "whatsapp", "farcaster", "twitter", "defi", "cross-chain"],
+  "tags": [
+    "agents",
+    "trading",
+    "ai",
+    "discord",
+    "telegram",
+    "whatsapp",
+    "farcaster",
+    "twitter",
+    "defi",
+    "cross-chain"
+  ],
   "jns": {
     "name": "otto.jeju",
     "description": "Multi-Platform Trading Agent",
@@ -87,13 +106,29 @@
     "enabled": true,
     "a2aEndpoint": "/a2a",
     "mcpEndpoint": "/mcp",
-    "tags": ["jeju-app", "trading", "defi", "cross-chain", "ai-agent"],
+    "tags": [
+      "jeju-app",
+      "trading",
+      "defi",
+      "cross-chain",
+      "ai-agent"
+    ],
     "metadata": {
       "category": "trading",
       "provider": "jeju-network",
-      "features": ["swap", "bridge", "token-launch", "portfolio", "limit-orders", "cross-chain"]
+      "features": [
+        "swap",
+        "bridge",
+        "token-launch",
+        "portfolio",
+        "limit-orders",
+        "cross-chain"
+      ]
     },
-    "trustModels": ["open", "staked"],
+    "trustModels": [
+      "open",
+      "staked"
+    ],
     "x402Support": true,
     "jnsName": "otto.jeju"
   },
@@ -101,29 +136,47 @@
     "backend": {
       "enabled": true,
       "runtime": "bun",
-      "entrypoint": "src/server.ts",
+      "entrypoint": "api/worker.ts",
       "memory": 512,
       "timeout": 30000,
       "minInstances": 1,
       "maxInstances": 5,
       "teeRequired": false,
-      "regions": ["global"]
+      "regions": [
+        "global"
+      ]
     },
     "tee": {
       "platform": "dstack",
       "attestation": true,
       "decryption": true,
-      "secrets": ["DISCORD_BOT_TOKEN", "TELEGRAM_BOT_TOKEN", "TWITTER_BEARER_TOKEN"]
+      "secrets": [
+        "DISCORD_BOT_TOKEN",
+        "TELEGRAM_BOT_TOKEN",
+        "TWITTER_BEARER_TOKEN"
+      ]
     }
   },
   "decentralization": {
     "cdn": {
       "enabled": true,
-      "regions": ["global"],
+      "regions": [
+        "global"
+      ],
       "cacheRules": [
-        { "pattern": "/static/**", "ttl": 31536000, "immutable": true },
-        { "pattern": "/api/**", "ttl": 0 },
-        { "pattern": "/webhooks/**", "ttl": 0 }
+        {
+          "pattern": "/static/**",
+          "ttl": 31536000,
+          "immutable": true
+        },
+        {
+          "pattern": "/api/**",
+          "ttl": 0
+        },
+        {
+          "pattern": "/webhooks/**",
+          "ttl": 0
+        }
       ],
       "serviceWorker": false
     },
@@ -143,19 +196,21 @@
   },
   "testing": {
     "unit": {
-      "command": "bun run test",
+      "command": "bun run test:unit",
       "timeout": 120000
     },
-    "integration": {
-      "command": "bun test src/tests/integration.test.ts",
+    "e2e": {
+      "command": "bun run test:e2e",
       "timeout": 300000,
       "requiresServices": true
     },
-    "e2e": {
-      "command": "bunx playwright test tests/synpress",
+    "synpress": {
+      "command": "bun run test:synpress",
       "timeout": 300000,
       "requiresChain": true
     }
+  },
+  "architecture": {
+    "type": "hybrid"
   }
 }
-

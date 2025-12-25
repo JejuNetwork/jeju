@@ -22,7 +22,7 @@ describe('DeFi E2E Tests', () => {
 
   beforeAll(() => {
     // Load from @jejunetwork/contracts
-    const addresses = getContractAddresses(1337)
+    const addresses = getContractAddresses(31337)
     deployment = {
       uniswapV4: {
         PoolManager: addresses.poolManager,

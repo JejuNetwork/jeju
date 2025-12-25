@@ -19,7 +19,7 @@ describe('quickHealthCheck - Fast Health Validation', () => {
   test('should return false for unreachable RPC', async () => {
     const result = await quickHealthCheck({
       rpcUrl: FAKE_RPC,
-      chainId: 1337,
+      chainId: 31337,
     })
 
     expect(result).toBe(false)
@@ -40,7 +40,7 @@ describe('quickHealthCheck - Fast Health Validation', () => {
     const start = Date.now()
     const result = await quickHealthCheck({
       rpcUrl: FAKE_RPC,
-      chainId: 1337,
+      chainId: 31337,
     })
     const duration = Date.now() - start
 
@@ -54,7 +54,7 @@ describe('waitForChain - Retry Logic', () => {
   test('should timeout when chain never becomes ready', async () => {
     const start = Date.now()
     const result = await waitForChain(
-      { rpcUrl: FAKE_RPC, chainId: 1337 },
+      { rpcUrl: FAKE_RPC, chainId: 31337 },
       3000, // Short timeout
     )
     const duration = Date.now() - start
@@ -66,7 +66,10 @@ describe('waitForChain - Retry Logic', () => {
 
   test('should return false without retrying on unreachable host', async () => {
     // Verify basic behavior - can't easily test retry internals
-    const result = await waitForChain({ rpcUrl: FAKE_RPC, chainId: 1337 }, 3000)
+    const result = await waitForChain(
+      { rpcUrl: FAKE_RPC, chainId: 31337 },
+      3000,
+    )
 
     expect(result).toBe(false)
   })
@@ -76,7 +79,7 @@ describe('runPreflightChecks - Full Validation', () => {
   test('should fail immediately on RPC connection error', async () => {
     const result = await runPreflightChecks({
       rpcUrl: FAKE_RPC,
-      chainId: 1337,
+      chainId: 31337,
       timeout: 3000,
     })
 
@@ -90,7 +93,7 @@ describe('runPreflightChecks - Full Validation', () => {
   test('should return structured check results', async () => {
     const result = await runPreflightChecks({
       rpcUrl: FAKE_RPC,
-      chainId: 1337,
+      chainId: 31337,
       timeout: 3000,
     })
 
@@ -105,7 +108,7 @@ describe('runPreflightChecks - Full Validation', () => {
     const start = Date.now()
     const result = await runPreflightChecks({
       rpcUrl: FAKE_RPC,
-      chainId: 1337,
+      chainId: 31337,
       timeout: 3000,
     })
     const wallTime = Date.now() - start
@@ -117,7 +120,7 @@ describe('runPreflightChecks - Full Validation', () => {
   test('should stop on first failure', async () => {
     const result = await runPreflightChecks({
       rpcUrl: FAKE_RPC,
-      chainId: 1337,
+      chainId: 31337,
       timeout: 3000,
     })
 
@@ -189,7 +192,7 @@ describe.skipIf(!CHAIN_AVAILABLE)(
     test('should pass all checks on healthy chain', async () => {
       const result = await runPreflightChecks({
         rpcUrl: REAL_RPC,
-        chainId: 1337,
+        chainId: 31337,
       })
 
       expect(result.success).toBe(true)

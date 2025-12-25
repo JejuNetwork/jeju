@@ -13,7 +13,6 @@ export {
   createFundamentalPredictionEnv,
   type EnvConfig as FundamentalEnvConfig,
   FundamentalPredictionEnv,
-  type Message as FundamentalMessage,
   type ScoredDataGroup,
   type TrainingItem,
 } from './fundamental-prediction'

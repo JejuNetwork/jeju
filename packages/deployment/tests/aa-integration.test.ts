@@ -31,15 +31,10 @@ import {
   teardownTestEnvironment,
 } from './setup'
 
-// ============ Test State ============
-
 let ctx: TestContext
 let publicClient: PublicClient
 let sponsoredPaymasterAddress: Address | undefined
 let simpleAccountFactoryAddress: Address | undefined
-
-// ============ ABIs ============
-
 const ENTRYPOINT_ABI = [
   {
     name: 'balanceOf',
@@ -56,16 +51,10 @@ const ENTRYPOINT_ABI = [
     outputs: [],
   },
 ] as const
-
-// ============ Helper Functions ============
-
 async function isContractDeployed(address: Address): Promise<boolean> {
   const code = await publicClient.getCode({ address })
   return !!code && code !== '0x'
 }
-
-// ============ Tests ============
-
 describe('Account Abstraction Integration Tests', () => {
   beforeAll(async () => {
     ctx = await setupTestEnvironment()

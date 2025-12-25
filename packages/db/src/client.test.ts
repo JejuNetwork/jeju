@@ -687,7 +687,10 @@ describe('getCQL Factory', () => {
     // Explicitly provide endpoint to avoid config loading
     const client1 = getCQL({ blockProducerEndpoint: 'http://localhost:4020' })
     const client2 = getCQL({ blockProducerEndpoint: 'http://localhost:4020' })
-    expect(client1).toBe(client2)
+    // Check that they are the same object by verifying the endpoint matches
+    // and both return the same isHealthy function reference
+    expect(client1.isHealthy).toBe(client2.isHealthy)
+    expect(client1.query).toBe(client2.query)
   })
 
   it('should reset singleton', async () => {

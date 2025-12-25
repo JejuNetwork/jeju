@@ -18,9 +18,7 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 
-// =============================================================================
 // CONFIGURATION
-// =============================================================================
 
 const RPC_URL = process.env.L2_RPC_URL || 'http://localhost:6546'
 const CHAIN_ID = 420691 // network localnet chain ID
@@ -34,9 +32,7 @@ const localnet = {
   rpcUrls: { default: { http: [RPC_URL] } },
 }
 
-// =============================================================================
 // LMSR PRICING MODEL
-// =============================================================================
 
 /**
  * Logarithmic Market Scoring Rule (LMSR) pricing
@@ -94,9 +90,7 @@ class LMSR {
   }
 }
 
-// =============================================================================
 // SETUP
-// =============================================================================
 
 let publicClient: PublicClient
 let _walletClient: WalletClient
@@ -105,17 +99,17 @@ let prediMarketAddress: Address | null = null
 
 function loadDeployment(filename: string): Record<string, string> {
   const deploymentMap: Record<string, Record<string, string>> = {
-    'uniswap-v4-1337.json': rawDeployments.uniswapV4_1337 as Record<
+    'uniswap-v4-31337.json': rawDeployments.uniswapV4_1337 as Record<
       string,
       string
     >,
-    'bazaar-marketplace-1337.json':
+    'bazaar-marketplace-31337.json':
       rawDeployments.bazaarMarketplace1337 as Record<string, string>,
-    'predimarket-1337.json': rawDeployments.predimarket1337 as Record<
+    'predimarket-31337.json': rawDeployments.predimarket1337 as Record<
       string,
       string
     >,
-    'multi-token-system-1337.json':
+    'multi-token-system-31337.json':
       rawDeployments.multiTokenSystem1337 as Record<string, string>,
   }
   return deploymentMap[filename] || {}
@@ -143,15 +137,13 @@ beforeAll(async () => {
     return
   }
 
-  const prediMarket = loadDeployment('predimarket-1337.json')
+  const prediMarket = loadDeployment('predimarket-31337.json')
   prediMarketAddress = (prediMarket.at || prediMarket.prediMarket) as Address
 
   console.log(`   PrediMarket: ${prediMarketAddress || 'NOT DEPLOYED'}`)
 })
 
-// =============================================================================
 // TESTS: LMSR PRICING
-// =============================================================================
 
 describe('LMSR Pricing Model', () => {
   const lmsr = new LMSR(100)
@@ -227,9 +219,7 @@ describe('LMSR Pricing Model', () => {
   })
 })
 
-// =============================================================================
 // TESTS: MARKET DYNAMICS
-// =============================================================================
 
 describe('Market Dynamics', () => {
   test('should calculate expected value of bet', async () => {
@@ -301,9 +291,7 @@ describe('Market Dynamics', () => {
   })
 })
 
-// =============================================================================
 // TESTS: MARKET RESOLUTION
-// =============================================================================
 
 describe('Market Resolution', () => {
   test('should calculate winnings for YES outcome', async () => {
@@ -367,9 +355,7 @@ describe('Market Resolution', () => {
   })
 })
 
-// =============================================================================
 // TESTS: CONTRACT VERIFICATION
-// =============================================================================
 
 describe('PrediMarket Contract', () => {
   test('should verify PrediMarket deployment', async () => {
@@ -384,9 +370,7 @@ describe('PrediMarket Contract', () => {
   })
 })
 
-// =============================================================================
 // SUMMARY
-// =============================================================================
 
 describe('Prediction Market Summary', () => {
   test('print summary', async () => {

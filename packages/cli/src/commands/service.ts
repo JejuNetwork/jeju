@@ -1,17 +1,4 @@
-/**
- * jeju service - Manage long-running network services
- *
- * Services:
- * - auto-update: Automatic node updates
- * - bridge: Forced inclusion monitor
- * - dispute: Fraud proof challenger
- * - sequencer: Consensus coordinator (with options)
- * - zkbridge: ZK bridge orchestrator
- * - forced-inclusion: Stage 2 censorship resistance monitor
- * - consensus: Decentralized consensus coordinator
- * - signer: Threshold signer service
- * - threshold-batcher: Threshold batch submitter proxy
- */
+/** Manage long-running network services */
 
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'

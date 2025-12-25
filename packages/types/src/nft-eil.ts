@@ -1,66 +1,50 @@
 /**
- * @fileoverview NFT Ethereum Interop Layer (NFT-EIL) Types
- *
- * Cross-chain NFT transfer types for:
- * - ERC-721 (unique NFTs)
- * - ERC-1155 (semi-fungible tokens)
- * - Metadata preservation
- * - Royalty enforcement
- * - Provenance tracking
- *
- * @see INFTEIL.sol for contract interfaces
+ * NFT cross-chain transfer types via Ethereum Interop Layer.
  */
 
 import { z } from 'zod'
 import { SupportedChainIdSchema } from './eil'
 import { AddressSchema } from './validation'
-export { SupportedChainIdSchema }
 
-// ============ Asset Types ============
+export { SupportedChainIdSchema }
 
 export const NFTAssetTypeSchema = z.enum(['ERC721', 'ERC1155'])
 export type NFTAssetType = z.infer<typeof NFTAssetTypeSchema>
 
-// ============ NFT Voucher Request ============
-
 export const NFTVoucherStatusSchema = z.enum([
-  'pending', // Request created, waiting for XLP
-  'claimed', // XLP issued voucher
-  'fulfilled', // Transfer complete on destination
-  'expired', // No XLP responded in time
-  'failed', // XLP failed to fulfill
-  'refunded', // User refunded after expiry
+  'pending',
+  'claimed',
+  'fulfilled',
+  'expired',
+  'failed',
+  'refunded',
 ])
 export type NFTVoucherStatus = z.infer<typeof NFTVoucherStatusSchema>
 
 export const NFTVoucherRequestSchema = z.object({
-  requestId: z.string(), // bytes32
+  requestId: z.string(),
   requester: AddressSchema,
   assetType: NFTAssetTypeSchema,
   sourceChain: SupportedChainIdSchema,
   destinationChain: SupportedChainIdSchema,
   collection: AddressSchema,
-  tokenId: z.string(), // uint256 as string
-  amount: z.string(), // 1 for ERC721, >1 for ERC1155
+  tokenId: z.string(),
+  amount: z.string(),
   recipient: AddressSchema,
   gasOnDestination: z.string(),
   maxFee: z.string(),
   currentFee: z.string(),
   feeIncrement: z.string(),
-  metadataHash: z.string(), // bytes32 hash of tokenURI
-  deadline: z.number(), // Block number
-  createdAt: z.number(), // Unix timestamp
+  metadataHash: z.string(),
+  deadline: z.number(),
+  createdAt: z.number(),
   createdBlock: z.number(),
   status: NFTVoucherStatusSchema,
-  // Competition
   bidCount: z.number().optional(),
   winningXLP: AddressSchema.optional(),
   winningFee: z.string().optional(),
 })
 export type NFTVoucherRequest = z.infer<typeof NFTVoucherRequestSchema>
-
-// ============ NFT Voucher ============
-
 export const NFTVoucherSchema = z.object({
   voucherId: z.string(), // bytes32
   requestId: z.string(),
@@ -84,9 +68,6 @@ export const NFTVoucherSchema = z.object({
   destinationFulfillTx: z.string().optional(),
 })
 export type NFTVoucher = z.infer<typeof NFTVoucherSchema>
-
-// ============ Wrapped NFT Info ============
-
 export const WrappedNFTInfoSchema = z.object({
   wrappedTokenId: z.string(),
   wrappedCollection: AddressSchema,
@@ -104,9 +85,6 @@ export const WrappedNFTInfoSchema = z.object({
   attributes: z.array(z.record(z.string(), z.string())).optional(),
 })
 export type WrappedNFTInfo = z.infer<typeof WrappedNFTInfoSchema>
-
-// ============ Provenance Entry ============
-
 export const ProvenanceEntrySchema = z.object({
   chainId: SupportedChainIdSchema,
   collection: AddressSchema,
@@ -120,9 +98,6 @@ export const ProvenanceEntrySchema = z.object({
     .optional(),
 })
 export type ProvenanceEntry = z.infer<typeof ProvenanceEntrySchema>
-
-// ============ Cross-Chain NFT Transfer ============
-
 export const CrossChainNFTTransferSchema = z.object({
   id: z.string(),
   user: AddressSchema,
@@ -154,9 +129,6 @@ export const CrossChainNFTTransferSchema = z.object({
   solver: AddressSchema.optional(),
 })
 export type CrossChainNFTTransfer = z.infer<typeof CrossChainNFTTransferSchema>
-
-// ============ NFT Collection Info ============
-
 export const NFTCollectionInfoSchema = z.object({
   address: AddressSchema,
   chainId: SupportedChainIdSchema,
@@ -176,9 +148,6 @@ export const NFTCollectionInfoSchema = z.object({
   totalBridgedIn: z.number().optional(),
 })
 export type NFTCollectionInfo = z.infer<typeof NFTCollectionInfoSchema>
-
-// ============ XLP NFT Liquidity ============
-
 export const XLPNFTLiquiditySchema = z.object({
   xlp: AddressSchema,
   // Wrapped collections deployed by this XLP
@@ -197,9 +166,6 @@ export const XLPNFTLiquiditySchema = z.object({
   avgResponseTimeMs: z.number(),
 })
 export type XLPNFTLiquidity = z.infer<typeof XLPNFTLiquiditySchema>
-
-// ============ NFT Bridge Quote ============
-
 export const NFTBridgeQuoteSchema = z.object({
   quoteId: z.string(),
   // Input
@@ -223,9 +189,6 @@ export const NFTBridgeQuoteSchema = z.object({
   solver: AddressSchema.optional(),
 })
 export type NFTBridgeQuote = z.infer<typeof NFTBridgeQuoteSchema>
-
-// ============ NFT Intent Order ============
-
 export const NFTIntentOrderSchema = z.object({
   orderId: z.string(),
   user: AddressSchema,
@@ -250,9 +213,6 @@ export const NFTIntentOrderSchema = z.object({
   settleTx: z.string().optional(),
 })
 export type NFTIntentOrder = z.infer<typeof NFTIntentOrderSchema>
-
-// ============ Event Types ============
-
 export const NFTEILEventTypeSchema = z.enum([
   // Voucher events
   'NFTVoucherRequested',
@@ -332,9 +292,6 @@ export const NFTEILEventSchema = z.object({
   data: NFTEILEventDataSchema,
 })
 export type NFTEILEvent = z.infer<typeof NFTEILEventSchema>
-
-// ============ Configuration ============
-
 export const NFTEILConfigSchema = z.object({
   // NFT Paymaster addresses per chain
   nftPaymasters: z.record(z.string(), AddressSchema),
@@ -353,9 +310,6 @@ export const NFTEILConfigSchema = z.object({
   maxFee: z.string(),
 })
 export type NFTEILConfig = z.infer<typeof NFTEILConfigSchema>
-
-// ============ Analytics ============
-
 export const NFTEILStatsSchema = z.object({
   totalNFTsBridged: z.number(),
   totalUniqueCollections: z.number(),
@@ -377,9 +331,6 @@ export const NFTEILStatsSchema = z.object({
   lastUpdated: z.number(),
 })
 export type NFTEILStats = z.infer<typeof NFTEILStatsSchema>
-
-// ============ SDK Types ============
-
 export const NFTBridgeModeSchema = z.enum(['hyperlane', 'xlp', 'intent'])
 export type NFTBridgeMode = z.infer<typeof NFTBridgeModeSchema>
 

@@ -17,12 +17,17 @@
  *   preload = ["@jejunetwork/tests/bun-global-setup"]
  *
  * Or programmatically:
- *   import { setup, teardown } from '@jejunetwork/tests/bun-global-setup';
+ *   import { bunSetup, bunTeardown } from '@jejunetwork/tests';
  */
 
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { CORE_PORTS, getIpfsApiUrl } from '@jejunetwork/config/ports'
+import {
+  CORE_PORTS,
+  getCQLBlockProducerUrl,
+  getIpfsApiUrl,
+  INFRA_PORTS,
+} from '@jejunetwork/config'
 import type { Subprocess } from 'bun'
 import type { InfraStatus } from './schemas'
 import {
@@ -45,7 +50,11 @@ const DWS_PORT = 4030
 
 // Docker service ports
 const DOCKER_SERVICES = {
-  cql: { port: 4661, healthPath: '/health', name: 'CovenantSQL' },
+  cql: {
+    port: INFRA_PORTS.CQL.get(),
+    healthPath: '/health',
+    name: 'CovenantSQL',
+  },
   ipfs: {
     port: CORE_PORTS.IPFS_API.DEFAULT,
     healthPath: '/api/v0/id',
@@ -101,7 +110,7 @@ async function startLocalnet(rootDir: string): Promise<void> {
   }
 
   localnetProcess = Bun.spawn(
-    [anvil, '--port', String(LOCALNET_PORT), '--chain-id', '1337'],
+    [anvil, '--port', String(LOCALNET_PORT), '--chain-id', '31337'],
     {
       cwd: rootDir,
       stdout: 'pipe',
@@ -373,7 +382,8 @@ function setEnvVars(status: InfraStatus): void {
   process.env.CDN_URL = `${status.dwsUrl}/cdn`
 
   // Docker service URLs
-  process.env.CQL_URL = 'http://127.0.0.1:4661'
+  process.env.CQL_URL = getCQLBlockProducerUrl()
+  process.env.CQL_BLOCK_PRODUCER_ENDPOINT = getCQLBlockProducerUrl()
   process.env.IPFS_API_URL = getIpfsApiUrl()
   process.env.DA_URL = 'http://127.0.0.1:4010'
   process.env.CACHE_URL = 'http://127.0.0.1:4115'

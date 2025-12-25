@@ -30,6 +30,7 @@
  * ```
  */
 
+import { readContract } from '@jejunetwork/shared'
 import {
   type Account,
   type Address,
@@ -39,6 +40,7 @@ import {
   type Hex,
   http,
   keccak256,
+  type Log,
   type PublicClient,
   stringToBytes,
   toHex,
@@ -52,8 +54,6 @@ import {
   X402SupportedSchemesResponseSchema,
   X402VerificationResponseSchema,
 } from '../../schemas'
-
-// ============ Types ============
 
 export interface X402ClientConfig {
   facilitatorAddress: Address
@@ -116,9 +116,6 @@ export interface FacilitatorInfo {
   totalSettlements: bigint
   totalVolumeUSD: bigint
 }
-
-// ============ ABIs ============
-
 const X402_FACILITATOR_ABI = [
   {
     type: 'function',
@@ -265,9 +262,6 @@ const IDENTITY_REGISTRY_ABI = [
     stateMutability: 'view',
   },
 ] as const
-
-// ============ Constants ============
-
 export const CHAIN_CONFIGS: Record<
   number,
   { name: string; rpcUrl: string; usdc: Address }
@@ -307,9 +301,6 @@ const PAYMENT_TYPES = {
     { name: 'timestamp', type: 'uint256' },
   ],
 } as const
-
-// ============ X402 Client ============
-
 export class X402Client {
   private publicClient: PublicClient
   private walletClient: WalletClient | null = null
@@ -332,7 +323,7 @@ export class X402Client {
     this.publicClient = createPublicClient({
       chain,
       transport: http(rpcUrl),
-    })
+    }) as PublicClient
 
     if (config.signer) {
       if (typeof config.signer === 'string') {
@@ -353,18 +344,13 @@ export class X402Client {
    * Get facilitator info
    */
   async getFacilitatorInfo(): Promise<FacilitatorInfo> {
-    const stats = await this.publicClient.readContract({
+    const stats = await readContract(this.publicClient, {
       address: this.config.facilitatorAddress,
       abi: X402_FACILITATOR_ABI,
       functionName: 'getStats',
     })
 
-    const [settlements, volumeUSD, feeBps] = stats as [
-      bigint,
-      bigint,
-      bigint,
-      Address,
-    ]
+    const [settlements, volumeUSD, feeBps] = stats
 
     return {
       address: this.config.facilitatorAddress,
@@ -384,24 +370,24 @@ export class X402Client {
    * Check if token is supported
    */
   async isTokenSupported(token: Address): Promise<boolean> {
-    return this.publicClient.readContract({
+    return readContract(this.publicClient, {
       address: this.config.facilitatorAddress,
       abi: X402_FACILITATOR_ABI,
       functionName: 'supportedTokens',
       args: [token],
-    }) as Promise<boolean>
+    })
   }
 
   /**
    * Check if a nonce has been used
    */
   async isNonceUsed(payer: Address, nonce: string): Promise<boolean> {
-    return this.publicClient.readContract({
+    return readContract(this.publicClient, {
       address: this.config.facilitatorAddress,
       abi: X402_FACILITATOR_ABI,
       functionName: 'isNonceUsed',
       args: [payer, nonce],
-    }) as Promise<boolean>
+    })
   }
 
   /**
@@ -476,12 +462,12 @@ export class X402Client {
       throw new Error('Wallet not connected')
     }
 
-    const currentAllowance = (await this.publicClient.readContract({
+    const currentAllowance = await readContract(this.publicClient, {
       address: token,
       abi: ERC20_ABI,
       functionName: 'allowance',
       args: [this.account.address, this.config.facilitatorAddress],
-    })) as bigint
+    })
 
     if (currentAllowance >= amount) {
       return null // Already approved
@@ -539,24 +525,21 @@ export class X402Client {
     const receipt = await this.publicClient.waitForTransactionReceipt({ hash })
 
     // Parse PaymentSettled event
-    const settledLog = receipt.logs.find((log) => {
-      const topic = log.topics[0]
-      return (
-        topic ===
-        keccak256(
-          stringToBytes(
-            'PaymentSettled(bytes32,address,address,address,uint256,uint256,string,uint256)',
-          ),
-        )
-      )
-    })
+    const paymentSettledTopic = keccak256(
+      stringToBytes(
+        'PaymentSettled(bytes32,address,address,address,uint256,uint256,string,uint256)',
+      ),
+    )
+    const settledLog = receipt.logs.find(
+      (log: Log) => log.topics[0] === paymentSettledTopic,
+    )
 
     const info = await this.getFacilitatorInfo()
     const protocolFee = (params.amount * BigInt(info.protocolFeeBps)) / 10000n
 
     return {
       success: receipt.status === 'success',
-      paymentId: (settledLog?.topics[1] || '0x') as Hex,
+      paymentId: (settledLog?.topics[1] ?? '0x') as Hex,
       txHash: hash,
       payer: signedPayment.payer,
       recipient: signedPayment.recipient,
@@ -575,22 +558,22 @@ export class X402Client {
     if (!this.account) throw new Error('Wallet not connected')
 
     const [balance, symbol, decimals] = await Promise.all([
-      this.publicClient.readContract({
+      readContract(this.publicClient, {
         address: token,
         abi: ERC20_ABI,
         functionName: 'balanceOf',
         args: [this.account.address],
-      }) as Promise<bigint>,
-      this.publicClient.readContract({
+      }),
+      readContract(this.publicClient, {
         address: token,
         abi: ERC20_ABI,
         functionName: 'symbol',
-      }) as Promise<string>,
-      this.publicClient.readContract({
+      }),
+      readContract(this.publicClient, {
         address: token,
         abi: ERC20_ABI,
         functionName: 'decimals',
-      }) as Promise<number>,
+      }),
     ])
 
     return { balance, symbol, decimals }
@@ -632,11 +615,11 @@ export class X402Client {
     const authNonce = this.generateAuthNonce()
 
     // Get token name for EIP-712 domain
-    const tokenSymbol = (await this.publicClient.readContract({
+    const tokenSymbol = await readContract(this.publicClient, {
       address: token,
       abi: ERC20_ABI,
       functionName: 'symbol',
-    })) as string
+    })
     const tokenName = tokenSymbol === 'USDC' ? 'USD Coin' : tokenSymbol
 
     const authDomain = {
@@ -732,9 +715,6 @@ export class X402Client {
     }
   }
 }
-
-// ============ Discovery Functions ============
-
 /**
  * Discover x402 facilitator from ERC-8004 registry
  */
@@ -747,28 +727,28 @@ export async function discoverFacilitator(
     transport: http(rpcUrl),
   })
 
-  const exists = (await client.readContract({
+  const exists = await readContract(client, {
     address: registryAddress,
     abi: IDENTITY_REGISTRY_ABI,
     functionName: 'agentExists',
     args: [agentId],
-  })) as boolean
+  })
 
   if (!exists) return null
 
   const [facilitatorData, endpointData] = await Promise.all([
-    client.readContract({
+    readContract(client, {
       address: registryAddress,
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'getMetadata',
       args: [agentId, 'x402.facilitator'],
-    }) as Promise<Hex>,
-    client.readContract({
+    }),
+    readContract(client, {
       address: registryAddress,
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'getMetadata',
       args: [agentId, 'x402.endpoint'],
-    }) as Promise<Hex>,
+    }),
   ])
 
   if (!facilitatorData || facilitatorData === '0x') return null
@@ -832,9 +812,6 @@ export async function registerAsPaymentProvider(
 
   return hash2
 }
-
-// ============ HTTP Facilitator Discovery ============
-
 /**
  * Configuration for HTTP-based facilitators
  */
@@ -1005,8 +982,9 @@ export async function settlePaymentViaHttp(
   },
 ): Promise<{
   success: boolean
-  txHash: string | null
-  error: string | null
+  txHash?: string | null
+  error?: string | null
+  paymentId?: string
   fee?: { human: string; base: string; bps: number }
   net?: { human: string; base: string }
 }> {
@@ -1055,9 +1033,6 @@ export async function getSupportedSchemes(facilitatorUrl: string): Promise<{
     return null
   }
 }
-
-// ============ HTTP Header Utilities ============
-
 /**
  * Encode signed payment as x402 header
  */
@@ -1097,9 +1072,6 @@ export function decodePaymentHeader(header: string): SignedPayment | null {
     return null
   }
 }
-
-// ============ Factory ============
-
 export function createX402Client(
   config: Partial<X402ClientConfig> & { chainId: number },
 ): X402Client {

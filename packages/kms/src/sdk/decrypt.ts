@@ -2,6 +2,7 @@
  * KMS SDK - Decryption utilities
  */
 
+import type { JsonValue } from '@jejunetwork/sdk'
 import { type Address, type Hex, keccak256, toBytes } from 'viem'
 import type { z } from 'zod'
 import { getKMS } from '../kms.js'
@@ -78,7 +79,7 @@ export async function decryptJSON<T>(
   const decrypted = await kms.decrypt({ payload, authSig })
 
   // Parse JSON in a way that prevents prototype pollution
-  const parsed: unknown = JSON.parse(decrypted, (key, value) => {
+  const parsed: JsonValue = JSON.parse(decrypted, (key, value) => {
     // Reject __proto__ and constructor to prevent prototype pollution
     if (key === '__proto__' || key === 'constructor') {
       throw new Error('Prototype pollution attempt detected')

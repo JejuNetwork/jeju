@@ -10,14 +10,42 @@
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
+    },
+    "./indexer": {
+      "import": "./dist/indexer.js",
+      "types": "./dist/indexer.d.ts"
+    },
+    "./names": {
+      "import": "./dist/names.js",
+      "types": "./dist/names.d.ts"
+    },
+    "./rpc": {
+      "import": "./dist/rpc.js",
+      "types": "./dist/rpc.d.ts"
     }
   },
-  "files": ["dist", "src"],
+  "files": [
+    "dist",
+    "src"
+  ],
   "sideEffects": false,
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/elizaos/jeju.git",
+    "directory": "packages/types"
+  },
+  "keywords": [
+    "jeju",
+    "types",
+    "typescript",
+    "ethereum",
+    "oif",
+    "eil"
+  ],
   "devDependencies": {
     "typescript": "5.9.3"
   },

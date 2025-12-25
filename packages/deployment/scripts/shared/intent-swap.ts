@@ -8,6 +8,8 @@
  * - No locked pools, better prices via competition
  */
 
+// Import IntentStatus from @jejunetwork/types (OIF standard)
+import type { IntentStatus } from '@jejunetwork/types'
 import {
   type Address,
   encodeAbiParameters,
@@ -16,11 +18,6 @@ import {
   keccak256,
   parseEther,
 } from 'viem'
-
-// ============ Types ============
-
-// Import consolidated IntentStatus from @jejunetwork/types (OIF standard)
-import type { IntentStatus } from '@jejunetwork/types'
 export type { IntentStatus }
 
 export interface SwapIntent {
@@ -71,28 +68,31 @@ export interface SwapResult {
   route: SwapRoute
   timestamp: number
 }
-
-// ============ ABIs ============
-
 const INPUT_SETTLER_ABI = [
   'function open((address user, uint256 nonce, uint256 originChainId, uint256 openDeadline, uint256 fillDeadline, bytes32 orderDataType, bytes orderData) order) external payable',
   'function openFor((address user, uint256 nonce, uint256 originChainId, uint256 openDeadline, uint256 fillDeadline, bytes32 orderDataType, bytes orderData) order, bytes signature, bytes originFillerData) external payable',
   'function getUserNonce(address user) view returns (uint256)',
   'event Open(bytes32 indexed orderId, address indexed user)',
 ] as const
-
-// ============ Configuration ============
-
 export interface IntentSwapConfig {
   inputSettlerAddress: Address
   crossChainPaymasterAddress: Address
   chainId: number
   supportedChains: number[]
 }
-
-// ============ Intent Swap Router ============
-
 export class IntentSwapRouter {
+  private readonly inputSettlerAddress: Address
+  private readonly crossChainPaymasterAddress: Address
+  private readonly chainId: number
+  private readonly supportedChains: number[]
+
+  constructor(config: IntentSwapConfig) {
+    this.inputSettlerAddress = config.inputSettlerAddress
+    this.crossChainPaymasterAddress = config.crossChainPaymasterAddress
+    this.chainId = config.chainId
+    this.supportedChains = config.supportedChains
+  }
+
   /**
    * Get quote for a swap intent
    */
@@ -153,7 +153,12 @@ export class IntentSwapRouter {
    * Get route via OIF (same-chain intent settlement)
    */
   private async getOIFRoute(intent: SwapIntent): Promise<SwapRoute | null> {
-    // For same-chain swaps, OIF solvers compete to fill
+    // Validate chain is current chain
+    if (intent.sourceChainId !== this.chainId) {
+      return null
+    }
+
+    // For same-chain swaps, OIF solvers compete to fill via InputSettler
     // Estimate output based on solver liquidity
     const estimatedOutput = (intent.inputAmount * 997n) / 1000n // ~0.3% fee estimate
     const fee = intent.inputAmount - estimatedOutput
@@ -167,6 +172,7 @@ export class IntentSwapRouter {
       fee,
       feePercentage: 0.3,
       executionTime: 12, // ~1 block
+      solver: this.inputSettlerAddress,
       confidence: 95,
     }
   }
@@ -175,7 +181,12 @@ export class IntentSwapRouter {
    * Get route via EIL (cross-chain voucher)
    */
   private async getEILRoute(intent: SwapIntent): Promise<SwapRoute | null> {
-    // Cross-chain via EIL XLPs
+    // Validate destination chain is supported
+    if (!this.supportedChains.includes(intent.destinationChainId)) {
+      return null
+    }
+
+    // Cross-chain via EIL XLPs using CrossChainPaymaster
     const baseFee = parseEther('0.001')
     const xlpFee = (intent.inputAmount * 50n) / 10000n // 0.5%
     const totalFee = baseFee + xlpFee
@@ -190,6 +201,7 @@ export class IntentSwapRouter {
       fee: totalFee,
       feePercentage: 0.5,
       executionTime: 15, // ~15 seconds with EIL
+      xlp: this.crossChainPaymasterAddress,
       confidence: 90,
     }
   }
@@ -287,9 +299,6 @@ export class IntentSwapRouter {
     return Number(formatEther(fee)) * 3000
   }
 }
-
-// ============ Liquidity Aggregator ============
-
 export interface LiquiditySource {
   name: string
   type: 'xlp' | 'paymaster' | 'pool'
@@ -326,9 +335,6 @@ export async function getLiquidity(_config: {
     eilLiquidity: 0n,
   }
 }
-
-// ============ Intent Builder ============
-
 let nonceCounter = 0n
 
 export function buildSwapIntent(params: {
@@ -385,9 +391,6 @@ export function buildSwapIntent(params: {
     createdAt: now,
   }
 }
-
-// ============ Export Factory ============
-
 export function createIntentSwapRouter(
   config: Partial<IntentSwapConfig> = {},
 ): IntentSwapRouter {
@@ -398,7 +401,7 @@ export function createIntentSwapRouter(
     crossChainPaymasterAddress: (config.crossChainPaymasterAddress ||
       process.env.CROSS_CHAIN_PAYMASTER_ADDRESS ||
       '0x0000000000000000000000000000000000000000') as Address,
-    chainId: config.chainId || Number(process.env.CHAIN_ID) || 1337,
+    chainId: config.chainId || Number(process.env.CHAIN_ID) || 31337,
     supportedChains: config.supportedChains || [1, 10, 42161, 420691],
   }
 

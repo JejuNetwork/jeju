@@ -1,0 +1,298 @@
+/**
+ * App Themes
+ */
+
+import type { AppTheme } from './types'
+
+export const CRUCIBLE_THEME: AppTheme = {
+  name: 'Crucible',
+  storageKey: 'crucible-theme',
+  fonts: {
+    google:
+      'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Sora:wght@400;500;600;700&display=swap',
+    sans: 'Inter',
+    display: 'Sora',
+    mono: 'JetBrains Mono',
+  },
+  colors: {
+    primary: '#3B82F6',
+    primaryDark: '#2563EB',
+    primaryLight: '#60A5FA',
+    accent: '#06B6D4',
+    accentDark: '#0891B2',
+    accentLight: '#22D3EE',
+    purple: '#8B5CF6',
+    purpleDark: '#7C3AED',
+    purpleLight: '#A78BFA',
+  },
+  light: {
+    bg: '#F8FAFC',
+    bgSecondary: '#F1F5F9',
+    bgTertiary: '#E2E8F0',
+    surface: '#FFFFFF',
+    surfaceElevated: '#FFFFFF',
+    border: '#E2E8F0',
+    borderStrong: '#CBD5E1',
+    text: '#0F172A',
+    textSecondary: '#475569',
+    textTertiary: '#94A3B8',
+  },
+  dark: {
+    bg: '#0A0E17',
+    bgSecondary: '#111827',
+    bgTertiary: '#1E293B',
+    surface: '#1E293B',
+    surfaceElevated: '#334155',
+    border: '#334155',
+    borderStrong: '#475569',
+    text: '#F8FAFC',
+    textSecondary: '#CBD5E1',
+    textTertiary: '#64748B',
+  },
+}
+
+export const BAZAAR_THEME: AppTheme = {
+  name: 'Bazaar',
+  storageKey: 'bazaar-theme',
+  fonts: {
+    google:
+      'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap',
+    sans: 'Outfit',
+    display: 'Space Grotesk',
+    mono: 'JetBrains Mono',
+  },
+  colors: {
+    primary: '#FF6B35',
+    primaryDark: '#E85A2A',
+    primaryLight: '#FF8F66',
+    accent: '#00D9C0',
+    accentDark: '#00B8A3',
+    accentLight: '#4AEADB',
+    purple: '#7C3AED',
+    purpleDark: '#6D28D9',
+    purpleLight: '#A78BFA',
+  },
+  light: {
+    bg: '#FFFBF7',
+    bgSecondary: '#FFF5ED',
+    bgTertiary: '#FFEDE0',
+    surface: '#FFFFFF',
+    surfaceElevated: '#FFFFFF',
+    border: '#FFE4D4',
+    borderStrong: '#FFD0B8',
+    text: '#1A1523',
+    textSecondary: '#635E69',
+    textTertiary: '#9D97A5',
+  },
+  dark: {
+    bg: '#0D0B14',
+    bgSecondary: '#161222',
+    bgTertiary: '#1E1830',
+    surface: '#1E1830',
+    surfaceElevated: '#2A2440',
+    border: '#3D3558',
+    borderStrong: '#4D4570',
+    text: '#FAFAFA',
+    textSecondary: '#B8B4C0',
+    textTertiary: '#7D7888',
+  },
+}
+
+export const AUTOCRAT_THEME: AppTheme = {
+  name: 'Autocrat',
+  storageKey: 'autocrat-theme',
+  fonts: {
+    google:
+      'https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap',
+    sans: 'Geist',
+    display: 'Geist',
+    mono: 'Geist Mono',
+  },
+  colors: {
+    primary: '#00E5FF',
+    primaryDark: '#00B8CC',
+    primaryLight: '#5EEFFF',
+    accent: '#8B5CF6',
+    accentDark: '#7C3AED',
+    accentLight: '#A78BFA',
+    purple: '#8B5CF6',
+    purpleDark: '#7C3AED',
+    purpleLight: '#A78BFA',
+  },
+  light: {
+    bg: '#F8FAFC',
+    bgSecondary: '#F1F5F9',
+    bgTertiary: '#E2E8F0',
+    surface: '#FFFFFF',
+    surfaceElevated: '#FFFFFF',
+    border: '#E2E8F0',
+    borderStrong: '#CBD5E1',
+    text: '#0F172A',
+    textSecondary: '#475569',
+    textTertiary: '#94A3B8',
+  },
+  dark: {
+    bg: '#0A0E17',
+    bgSecondary: '#111827',
+    bgTertiary: '#1E293B',
+    surface: '#1E293B',
+    surfaceElevated: '#334155',
+    border: '#334155',
+    borderStrong: '#475569',
+    text: '#F8FAFC',
+    textSecondary: '#CBD5E1',
+    textTertiary: '#64748B',
+  },
+}
+
+export const GATEWAY_THEME: AppTheme = {
+  name: 'Gateway',
+  storageKey: 'gateway-theme',
+  fonts: {
+    google:
+      'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap',
+    sans: 'Inter',
+    display: 'Inter',
+    mono: 'JetBrains Mono',
+  },
+  colors: {
+    primary: '#10B981',
+    primaryDark: '#059669',
+    primaryLight: '#34D399',
+    accent: '#3B82F6',
+    accentDark: '#2563EB',
+    accentLight: '#60A5FA',
+    purple: '#8B5CF6',
+    purpleDark: '#7C3AED',
+    purpleLight: '#A78BFA',
+  },
+  light: {
+    bg: '#F8FAFC',
+    bgSecondary: '#F1F5F9',
+    bgTertiary: '#E2E8F0',
+    surface: '#FFFFFF',
+    surfaceElevated: '#FFFFFF',
+    border: '#E2E8F0',
+    borderStrong: '#CBD5E1',
+    text: '#0F172A',
+    textSecondary: '#475569',
+    textTertiary: '#94A3B8',
+  },
+  dark: {
+    bg: '#0A1014',
+    bgSecondary: '#111A1F',
+    bgTertiary: '#1A252D',
+    surface: '#1A252D',
+    surfaceElevated: '#243340',
+    border: '#2E4050',
+    borderStrong: '#3D5468',
+    text: '#F8FAFC',
+    textSecondary: '#CBD5E1',
+    textTertiary: '#64748B',
+  },
+}
+
+export const DWS_THEME: AppTheme = {
+  name: 'DWS',
+  storageKey: 'dws-theme',
+  fonts: {
+    google:
+      'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap',
+    sans: 'Inter',
+    display: 'Inter',
+    mono: 'JetBrains Mono',
+  },
+  colors: {
+    primary: '#F59E0B',
+    primaryDark: '#D97706',
+    primaryLight: '#FBBF24',
+    accent: '#EF4444',
+    accentDark: '#DC2626',
+    accentLight: '#F87171',
+    purple: '#8B5CF6',
+    purpleDark: '#7C3AED',
+    purpleLight: '#A78BFA',
+  },
+  light: {
+    bg: '#FFFBEB',
+    bgSecondary: '#FEF3C7',
+    bgTertiary: '#FDE68A',
+    surface: '#FFFFFF',
+    surfaceElevated: '#FFFFFF',
+    border: '#FDE68A',
+    borderStrong: '#FCD34D',
+    text: '#1C1917',
+    textSecondary: '#57534E',
+    textTertiary: '#A8A29E',
+  },
+  dark: {
+    bg: '#0C0A09',
+    bgSecondary: '#1C1917',
+    bgTertiary: '#292524',
+    surface: '#292524',
+    surfaceElevated: '#44403C',
+    border: '#44403C',
+    borderStrong: '#57534E',
+    text: '#FAFAF9',
+    textSecondary: '#D6D3D1',
+    textTertiary: '#78716C',
+  },
+}
+
+export const VPN_THEME: AppTheme = {
+  name: 'VPN',
+  storageKey: 'vpn-theme',
+  fonts: {
+    google:
+      'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700&display=swap',
+    sans: 'Outfit',
+    display: 'Outfit',
+    mono: 'JetBrains Mono',
+  },
+  colors: {
+    primary: '#00FF88',
+    primaryDark: '#00CC6A',
+    primaryLight: '#4DFFA8',
+    accent: '#00FF88',
+    accentDark: '#00CC6A',
+    accentLight: '#4DFFA8',
+    purple: '#8B5CF6',
+    purpleDark: '#7C3AED',
+    purpleLight: '#A78BFA',
+  },
+  light: {
+    bg: '#F8FAFC',
+    bgSecondary: '#F1F5F9',
+    bgTertiary: '#E2E8F0',
+    surface: '#FFFFFF',
+    surfaceElevated: '#FFFFFF',
+    border: '#E2E8F0',
+    borderStrong: '#CBD5E1',
+    text: '#0F172A',
+    textSecondary: '#475569',
+    textTertiary: '#94A3B8',
+  },
+  dark: {
+    bg: '#0A0A0F',
+    bgSecondary: '#12121A',
+    bgTertiary: '#1A1A25',
+    surface: '#12121A',
+    surfaceElevated: '#1A1A25',
+    border: '#2A2A35',
+    borderStrong: '#3A3A45',
+    text: '#FFFFFF',
+    textSecondary: '#A0A0B0',
+    textTertiary: '#606070',
+  },
+}
+
+export const THEMES = {
+  crucible: CRUCIBLE_THEME,
+  bazaar: BAZAAR_THEME,
+  autocrat: AUTOCRAT_THEME,
+  gateway: GATEWAY_THEME,
+  dws: DWS_THEME,
+  vpn: VPN_THEME,
+} as const
+
+export type ThemeName = keyof typeof THEMES

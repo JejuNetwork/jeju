@@ -17,7 +17,7 @@
 
 import { existsSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
-import { getIpfsApiUrl } from '@jejunetwork/config/ports'
+import { getIpfsApiUrl } from '@jejunetwork/config'
 import { spawn } from 'bun'
 import {
   type Address,
@@ -139,7 +139,7 @@ function encodeContenthash(cid: string): Hex {
 
   if (multibasePrefix === 'b') {
     // Base32 CIDv1
-    const cidBytes = Buffer.from(cleanCid.slice(1), 'base32')
+    const cidBytes = decodeBase32(cleanCid.slice(1))
     // Extract multihash (skip version byte 0x01 and codec byte 0x70 for dag-pb)
     // Multihash starts after version + codec
     const multihashStart = 2 // Skip version (1 byte) and codec (1 byte)
@@ -163,6 +163,31 @@ function encodeContenthash(cid: string): Hex {
       'Supported formats: CIDv0 (Qm...), CIDv1 base32 (b...), CIDv1 base58 (z...)\n' +
       'For other formats, install multiformats: bun add multiformats',
   )
+}
+
+// Base32 decoding (RFC 4648 lowercase, used by multibase 'b' prefix)
+const BASE32_ALPHABET = 'abcdefghijklmnopqrstuvwxyz234567'
+
+function decodeBase32(input: string): Buffer {
+  const cleanInput = input.toLowerCase()
+  let bits = ''
+
+  for (let i = 0; i < cleanInput.length; i++) {
+    const char = cleanInput[i]
+    if (char === '=') break // Padding
+    const index = BASE32_ALPHABET.indexOf(char)
+    if (index === -1) {
+      throw new Error(`Invalid base32 character: ${char}`)
+    }
+    bits += index.toString(2).padStart(5, '0')
+  }
+
+  const bytes: number[] = []
+  for (let i = 0; i + 8 <= bits.length; i += 8) {
+    bytes.push(parseInt(bits.slice(i, i + 8), 2))
+  }
+
+  return Buffer.from(bytes)
 }
 
 // Base58 decoding (simplified implementation)

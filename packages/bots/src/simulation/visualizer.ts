@@ -9,13 +9,10 @@
  */
 
 import { writeFileSync } from 'node:fs'
-import type { BacktestResult } from './backtester'
+import type { BacktestResult, PortfolioSnapshot } from '../types'
 import type { CompetitionSimResult } from './mev-competition'
 import type { MonteCarloResult, ValidationResult } from './monte-carlo'
 import type { StressTestResult } from './stress-tests'
-
-// ============ Types ============
-
 export interface ChartConfig {
   width: number
   height: number
@@ -31,9 +28,6 @@ export interface ReportConfig {
   includeMonteCarlo: boolean
   includeWalkForward: boolean
 }
-
-// ============ ASCII Charts ============
-
 function formatNumber(n: number): string {
   if (Math.abs(n) >= 1e9) return `${(n / 1e9).toFixed(1)}B`
   if (Math.abs(n) >= 1e6) return `${(n / 1e6).toFixed(1)}M`
@@ -256,9 +250,6 @@ export const ASCIICharts = {
   table: asciiTable,
   formatNumber,
 }
-
-// ============ Terminal Report ============
-
 function calculateDrawdownSeries(values: number[]): number[] {
   const drawdowns: number[] = []
   let peak = values[0]
@@ -293,7 +284,7 @@ export namespace TerminalReport {
     // Equity Curve
     if (result.snapshots.length > 0) {
       console.log('\n📈 EQUITY CURVE')
-      const values = result.snapshots.map((s) => s.valueUsd)
+      const values = result.snapshots.map((s: PortfolioSnapshot) => s.valueUsd)
       console.log(
         ASCIICharts.lineChart(values, {
           width: 60,
@@ -306,7 +297,7 @@ export namespace TerminalReport {
     // Drawdown Chart
     console.log('\n📉 DRAWDOWN')
     const drawdowns = calculateDrawdownSeries(
-      result.snapshots.map((s) => s.valueUsd),
+      result.snapshots.map((s: PortfolioSnapshot) => s.valueUsd),
     )
     console.log(
       ASCIICharts.lineChart(
@@ -528,9 +519,6 @@ export namespace TerminalReport {
     )
   }
 }
-
-// ============ HTML Report Generator ============
-
 function generateSVGLineChart(
   data: number[],
   config: { width: number; height: number; color: string },
@@ -562,7 +550,7 @@ function generateSVGLineChart(
           <stop offset="100%" style="stop-color:${color};stop-opacity:0" />
         </linearGradient>
       </defs>
-      
+
       <!-- Grid lines -->
       ${[0, 0.25, 0.5, 0.75, 1]
         .map((p) => {
@@ -571,10 +559,10 @@ function generateSVGLineChart(
         <text x="${padding - 5}" y="${y + 4}" text-anchor="end" font-size="10">${((1 - p) * range + min).toFixed(0)}</text>`
         })
         .join('')}
-      
+
       <!-- Area fill -->
       <polygon points="${padding},${padding + chartHeight} ${points} ${width - padding},${padding + chartHeight}" fill="url(#gradient)" />
-      
+
       <!-- Line -->
       <polyline points="${points}" fill="none" stroke="${color}" stroke-width="2" />
     </svg>`
@@ -632,7 +620,7 @@ function generateBacktestSection(result: BacktestResult): string {
 
   // Generate SVG equity curve
   const equityCurve = generateSVGLineChart(
-    result.snapshots.map((s) => s.valueUsd),
+    result.snapshots.map((s: PortfolioSnapshot) => s.valueUsd),
     {
       width: 800,
       height: 200,
@@ -643,7 +631,7 @@ function generateBacktestSection(result: BacktestResult): string {
   return `
     <div class="card">
       <h2>📈 Backtest Results</h2>
-      
+
       <div class="grid grid-4">
         <div class="stat">
           <div class="stat-value ${returnClass}">${(result.totalReturn * 100).toFixed(2)}%</div>
@@ -662,12 +650,12 @@ function generateBacktestSection(result: BacktestResult): string {
           <div class="stat-label">Win Rate</div>
         </div>
       </div>
-      
+
       <div class="chart-container">
         <h3 style="margin-bottom: 1rem;">Equity Curve</h3>
         ${equityCurve}
       </div>
-      
+
       <div class="grid grid-2">
         <div>
           <h3>Performance</h3>
@@ -692,7 +680,7 @@ function generateMonteCarloSection(result: MonteCarloResult): string {
       <p style="color: var(--text-secondary); margin-bottom: 1rem;">
         ${result.simulations.toLocaleString()} simulations performed
       </p>
-      
+
       <div class="grid grid-4">
         <div class="stat">
           <div class="stat-value">${(result.probabilityOfProfit * 100).toFixed(1)}%</div>
@@ -711,12 +699,12 @@ function generateMonteCarloSection(result: MonteCarloResult): string {
           <div class="stat-label">Kelly Fraction</div>
         </div>
       </div>
-      
+
       <div class="chart-container">
         <h3 style="margin-bottom: 1rem;">Return Distribution</h3>
         ${histogram}
       </div>
-      
+
       <h3 style="margin-top: 1.5rem;">95% Confidence Intervals</h3>
       <table>
         <tr>
@@ -755,7 +743,7 @@ function generateValidationSection(result: ValidationResult): string {
   return `
     <div class="card">
       <h2>🔍 Validation Analysis</h2>
-      
+
       <div style="margin-bottom: 1.5rem;">
         <span style="margin-right: 1rem;">Overfit Risk:</span>
         ${overfitBadge}
@@ -763,7 +751,7 @@ function generateValidationSection(result: ValidationResult): string {
           Score: ${(result.overfitScore * 100).toFixed(0)}%
         </span>
       </div>
-      
+
       <h3>In-Sample vs Out-of-Sample</h3>
       <table>
         <tr>
@@ -793,7 +781,7 @@ function generateValidationSection(result: ValidationResult): string {
           <td></td>
         </tr>
       </table>
-      
+
       <h3 style="margin-top: 1.5rem;">Statistical Tests</h3>
       <table>
         <tr>
@@ -815,7 +803,7 @@ function generateValidationSection(result: ValidationResult): string {
           )
           .join('')}
       </table>
-      
+
       ${
         result.recommendations.length > 0
           ? `
@@ -836,18 +824,18 @@ function generateStressTestSection(results: StressTestResult[]): string {
   return `
     <div class="card">
       <h2>🔥 Stress Test Results</h2>
-      
+
       <div style="margin-bottom: 1.5rem;">
         <span style="font-size: 1.5rem; font-weight: 600;">
           ${survived}/${total}
         </span>
         <span style="color: var(--text-secondary);"> scenarios survived</span>
-        
+
         <div class="progress-bar" style="width: 200px; display: inline-block; margin-left: 1rem; vertical-align: middle;">
           <div class="progress-fill" style="width: ${(survived / total) * 100}%; background: ${survived / total >= 0.75 ? 'var(--accent-green)' : 'var(--accent-red)'}"></div>
         </div>
       </div>
-      
+
       <table>
         <tr>
           <th>Scenario</th>
@@ -881,7 +869,7 @@ function generateMEVSection(result: CompetitionSimResult): string {
   return `
     <div class="card">
       <h2>🏁 MEV Competition Analysis</h2>
-      
+
       <div class="grid grid-4">
         <div class="stat">
           <div class="stat-value">${(result.winRate * 100).toFixed(2)}%</div>
@@ -900,7 +888,7 @@ function generateMEVSection(result: CompetitionSimResult): string {
           <div class="stat-label">Latency</div>
         </div>
       </div>
-      
+
       <h3 style="margin-top: 1.5rem;">Profit by Strategy</h3>
       <table>
         <tr>
@@ -921,7 +909,7 @@ function generateMEVSection(result: CompetitionSimResult): string {
           )
           .join('')}
       </table>
-      
+
       <h3 style="margin-top: 1.5rem;">Competition Metrics</h3>
       <div class="grid grid-3">
         <div>
@@ -971,9 +959,9 @@ export namespace HTMLReportGenerator {
       --accent-yellow: #d29922;
       --border: #30363d;
     }
-    
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    
+
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: var(--bg-primary);
@@ -981,22 +969,22 @@ export namespace HTMLReportGenerator {
       line-height: 1.6;
       padding: 2rem;
     }
-    
+
     .container { max-width: 1400px; margin: 0 auto; }
-    
+
     h1 {
       font-size: 2rem;
       margin-bottom: 2rem;
       padding-bottom: 1rem;
       border-bottom: 1px solid var(--border);
     }
-    
+
     h2 {
       font-size: 1.25rem;
       margin: 2rem 0 1rem;
       color: var(--text-primary);
     }
-    
+
     .card {
       background: var(--bg-secondary);
       border: 1px solid var(--border);
@@ -1004,60 +992,60 @@ export namespace HTMLReportGenerator {
       padding: 1.5rem;
       margin-bottom: 1.5rem;
     }
-    
+
     .grid { display: grid; gap: 1.5rem; }
     .grid-2 { grid-template-columns: repeat(2, 1fr); }
     .grid-3 { grid-template-columns: repeat(3, 1fr); }
     .grid-4 { grid-template-columns: repeat(4, 1fr); }
-    
+
     @media (max-width: 768px) {
       .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
     }
-    
+
     .stat {
       text-align: center;
       padding: 1rem;
     }
-    
+
     .stat-value {
       font-size: 2rem;
       font-weight: 600;
     }
-    
+
     .stat-label {
       font-size: 0.875rem;
       color: var(--text-secondary);
       margin-top: 0.5rem;
     }
-    
+
     .positive { color: var(--accent-green); }
     .negative { color: var(--accent-red); }
     .neutral { color: var(--accent-blue); }
-    
+
     table {
       width: 100%;
       border-collapse: collapse;
       margin: 1rem 0;
     }
-    
+
     th, td {
       padding: 0.75rem;
       text-align: left;
       border-bottom: 1px solid var(--border);
     }
-    
+
     th {
       background: var(--bg-tertiary);
       font-weight: 600;
     }
-    
+
     .chart-container {
       background: var(--bg-tertiary);
       border-radius: 4px;
       padding: 1rem;
       margin: 1rem 0;
     }
-    
+
     .badge {
       display: inline-block;
       padding: 0.25rem 0.75rem;
@@ -1065,24 +1053,24 @@ export namespace HTMLReportGenerator {
       font-size: 0.75rem;
       font-weight: 600;
     }
-    
+
     .badge-success { background: rgba(63, 185, 80, 0.2); color: var(--accent-green); }
     .badge-danger { background: rgba(248, 81, 73, 0.2); color: var(--accent-red); }
     .badge-warning { background: rgba(210, 153, 34, 0.2); color: var(--accent-yellow); }
-    
+
     .progress-bar {
       background: var(--bg-tertiary);
       border-radius: 4px;
       height: 8px;
       overflow: hidden;
     }
-    
+
     .progress-fill {
       height: 100%;
       border-radius: 4px;
       transition: width 0.3s;
     }
-    
+
     svg text { fill: var(--text-primary); font-family: inherit; }
     svg .axis line, svg .axis path { stroke: var(--border); }
   </style>
@@ -1093,7 +1081,7 @@ export namespace HTMLReportGenerator {
     <p style="color: var(--text-secondary); margin-bottom: 2rem;">
       Generated: ${new Date().toISOString()}
     </p>
-    
+
     ${data.backtest ? generateBacktestSection(data.backtest) : ''}
     ${data.monteCarlo ? generateMonteCarloSection(data.monteCarlo) : ''}
     ${data.validation ? generateValidationSection(data.validation) : ''}

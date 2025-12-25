@@ -8,7 +8,7 @@
  *   bun run scripts/deploy-oif.ts [network]
  *
  * Networks:
- *   localnet  - Local Anvil (chainId: 1337)
+ *   localnet  - Local Anvil (chainId: 31337)
  *   testnet   - Network Testnet (420690) + Sepolia (11155111)
  *   mainnet   - Network Mainnet (420691) + Ethereum (1)
  *
@@ -34,7 +34,7 @@ interface NetworkConfig {
 const NETWORKS: Record<string, NetworkConfig[]> = {
   localnet: [
     {
-      chainId: 1337,
+      chainId: 31337,
       name: 'Anvil',
       rpcUrl: 'http://localhost:6546',
       oracleType: 'simple',

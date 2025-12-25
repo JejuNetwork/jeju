@@ -7,18 +7,33 @@
  * - Email (optional) for high-priority events
  */
 
-import EventEmitter from 'node:events'
 import {
   type Address,
   type Chain,
   createPublicClient,
   type Hex,
   http,
-  type Log,
   type PublicClient,
   type Transport,
 } from 'viem'
+
 import { baseSepolia } from 'viem/chains'
+
+// Extended log type with topics for event parsing
+interface LogWithTopics {
+  address: Address
+  blockHash: Hex
+  blockNumber: bigint
+  blockTimestamp?: bigint
+  data: Hex
+  logIndex: number
+  transactionHash: Hex
+  transactionIndex: number
+  removed: boolean
+  topics: readonly Hex[]
+}
+
+import { EventEmitter } from '../events'
 
 export interface ModerationEvent {
   type: EventType
@@ -157,7 +172,7 @@ export class ModerationNotificationService extends EventEmitter {
     if (currentBlock <= this.lastProcessedBlock) return
 
     // Fetch logs from all moderation contracts
-    const logs = await this.publicClient.getLogs({
+    const logs = (await this.publicClient.getLogs({
       address: [
         this.config.banManagerAddress,
         this.config.moderationMarketplaceAddress,
@@ -165,7 +180,7 @@ export class ModerationNotificationService extends EventEmitter {
       ],
       fromBlock: this.lastProcessedBlock + 1n,
       toBlock: currentBlock,
-    })
+    })) as LogWithTopics[]
 
     // Process each log
     for (const log of logs) {
@@ -181,7 +196,7 @@ export class ModerationNotificationService extends EventEmitter {
   /**
    * Parse a log into a ModerationEvent
    */
-  private parseLog(log: Log): ModerationEvent | null {
+  private parseLog(log: LogWithTopics): ModerationEvent | null {
     const topic0 = log.topics[0]
     if (!topic0) return null
 

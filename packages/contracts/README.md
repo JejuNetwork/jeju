@@ -16,7 +16,7 @@ bun add @jejunetwork/contracts
 import { getContractAddresses, getContractAddressesByNetwork } from '@jejunetwork/contracts';
 
 // By chain ID
-const addresses = getContractAddresses(1337);
+const addresses = getContractAddresses(31337);
 console.log(addresses.identityRegistry);
 console.log(addresses.marketplace);
 console.log(addresses.jejuToken);

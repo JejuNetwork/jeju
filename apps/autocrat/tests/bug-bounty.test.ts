@@ -6,14 +6,14 @@
  */
 
 import { describe, expect, setDefaultTimeout, test } from 'bun:test'
-import { assessSubmission } from '../src/bug-bounty-service'
-import { createSandboxConfig, getSandboxStats } from '../src/sandbox-executor'
+import { assessSubmission } from '../api/bug-bounty-service'
+import { createSandboxConfig, getSandboxStats } from '../api/sandbox-executor'
 import {
   BountySeverity,
   type BountySubmissionDraft,
   SEVERITY_REWARDS,
   VulnerabilityType,
-} from '../src/types'
+} from '../lib/types'
 
 setDefaultTimeout(60000)
 

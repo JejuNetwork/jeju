@@ -12,7 +12,14 @@ import {
   type PublicClient,
   type TransactionReceipt,
 } from 'viem'
+import { z } from 'zod'
 import { inferChainFromRpcUrl } from '../../../packages/deployment/scripts/shared/chain-utils'
+
+// JSON-RPC response schema
+const JsonRpcResponseSchema = z.object({
+  result: z.string().optional(),
+  error: z.object({ message: z.string() }).optional(),
+})
 
 // Test Configuration
 
@@ -112,10 +119,7 @@ async function getClientVersion(endpoint: ClientEndpoint): Promise<string> {
       }),
       signal: AbortSignal.timeout(3000),
     })
-    const data = (await response.json()) as {
-      result?: string
-      error?: { message: string }
-    }
+    const data = JsonRpcResponseSchema.parse(await response.json())
     if (data.error) {
       return `error: ${data.error.message}`
     }

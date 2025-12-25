@@ -30,9 +30,7 @@ const PRESALE_SEED = Buffer.from('presale')
 const VAULT_SEED = Buffer.from('vault')
 const CONTRIBUTION_SEED = Buffer.from('contribution')
 
-// ============================================================================
 // Types
-// ============================================================================
 
 export interface LaunchpadConfig {
   authority: PublicKey
@@ -101,9 +99,7 @@ export interface CreatePresaleParams {
   vestingDuration?: bigint
 }
 
-// ============================================================================
 // Client Class
-// ============================================================================
 
 export class LaunchpadClient {
   private connection: Connection
@@ -114,9 +110,7 @@ export class LaunchpadClient {
     this.programId = programId ?? LAUNCHPAD_PROGRAM_ID
   }
 
-  // ============================================================================
   // PDA Derivation
-  // ============================================================================
 
   getConfigPDA(): [PublicKey, number] {
     return PublicKey.findProgramAddressSync([CONFIG_SEED], this.programId)
@@ -153,9 +147,7 @@ export class LaunchpadClient {
     )
   }
 
-  // ============================================================================
   // Read Operations
-  // ============================================================================
 
   async getConfig(): Promise<LaunchpadConfig | null> {
     const [configPDA] = this.getConfigPDA()
@@ -192,9 +184,7 @@ export class LaunchpadClient {
     return this.deserializeContribution(accountInfo.data)
   }
 
-  // ============================================================================
   // Bonding Curve Operations
-  // ============================================================================
 
   async createBondingCurveInstructions(
     params: CreateBondingCurveParams,
@@ -421,9 +411,7 @@ export class LaunchpadClient {
     ]
   }
 
-  // ============================================================================
   // Bonding Curve Calculations
-  // ============================================================================
 
   calculateBuyAmount(curve: BondingCurve, solAmount: bigint): bigint {
     return calculateBondingCurveBuy(curve, solAmount)
@@ -448,9 +436,7 @@ export class LaunchpadClient {
     return price * Number(totalSupply)
   }
 
-  // ============================================================================
   // Presale Operations
-  // ============================================================================
 
   async createPresaleInstructions(
     params: CreatePresaleParams,
@@ -536,9 +522,7 @@ export class LaunchpadClient {
     ]
   }
 
-  // ============================================================================
   // Deserialization Helpers
-  // ============================================================================
 
   private deserializeConfig(data: Buffer): LaunchpadConfig {
     // Skip 8-byte discriminator

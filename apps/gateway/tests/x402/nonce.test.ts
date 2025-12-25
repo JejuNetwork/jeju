@@ -13,7 +13,7 @@ import {
   markNonceFailed,
   markNoncePending,
   markNonceUsed,
-} from '../../src/x402/services/nonce-manager'
+} from '../../api/x402/services/nonce-manager'
 
 const TEST_PAYER: Address = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
 

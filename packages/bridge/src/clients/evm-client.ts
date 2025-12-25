@@ -15,9 +15,15 @@ import {
   type WalletClient,
 } from 'viem'
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
+import { z } from 'zod'
 import type { ChainId, Hash32 } from '../types/index.js'
 import { TransferStatus, toHash32 } from '../types/index.js'
 import { createLogger } from '../utils/logger.js'
+
+// Schema for TransferInitiated event args
+const TransferInitiatedArgsSchema = z.object({
+  transferId: z.string().transform((s) => s as Hex),
+})
 
 const log = createLogger('evm-client')
 
@@ -198,8 +204,8 @@ export class EVMClient {
       topics: transferEvent.topics,
     })
 
-    const transferId = (decoded.args as { transferId: Hex }).transferId
-    const transferIdBytes = Buffer.from(transferId.slice(2), 'hex')
+    const args = TransferInitiatedArgsSchema.parse(decoded.args)
+    const transferIdBytes = Buffer.from(args.transferId.slice(2), 'hex')
 
     return {
       transferId: toHash32(new Uint8Array(transferIdBytes)),

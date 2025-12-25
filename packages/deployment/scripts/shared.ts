@@ -4,18 +4,13 @@
  * Centralizes common patterns: network validation, AWS operations, command parsing
  */
 
+import { NetworkSchema, type NetworkType } from '@jejunetwork/types'
 import { $ } from 'bun'
 import { z } from 'zod'
 
-// ============ Network Types ============
-
-export const NetworkSchema = z.enum(['localnet', 'testnet', 'mainnet'])
-export type NetworkType = z.infer<typeof NetworkSchema>
+export { NetworkSchema, type NetworkType }
 
 const VALID_NETWORKS = ['localnet', 'testnet', 'mainnet'] as const
-
-// ============ Environment Validation ============
-
 /**
  * Get and validate NETWORK environment variable
  */
@@ -43,9 +38,6 @@ export function getRequiredAwsRegion(): string {
   }
   return region
 }
-
-// ============ Command Validation ============
-
 /**
  * Create a command validator for CLI scripts
  */
@@ -66,9 +58,6 @@ export function createCommandValidator<
     return result.data
   }
 }
-
-// ============ AWS/ECR Operations ============
-
 /**
  * Get ECR registry URL for the current AWS account
  */
@@ -88,9 +77,6 @@ export async function loginToEcr(registry: string): Promise<void> {
   const region = getRequiredAwsRegion()
   await $`aws ecr get-login-password --region ${region} | docker login --username AWS --password-stdin ${registry}`
 }
-
-// ============ Git Utilities ============
-
 /**
  * Get short git commit hash
  * @throws Error if not in a git repository
@@ -104,9 +90,6 @@ export async function getGitShortHash(): Promise<string> {
   }
   return result.text().trim()
 }
-
-// ============ Zod Schemas for External Data ============
-
 export const GitHubReleaseSchema = z.object({
   tag_name: z.string(),
 })
@@ -122,9 +105,6 @@ export const L1DeploymentSchema = z
     contracts: z.record(z.string(), z.string()).optional(),
   })
   .passthrough()
-
-// ============ Network Configuration ============
-
 export interface NetworkRpcConfig {
   rpcUrlEnvVar: string
   chainId: number

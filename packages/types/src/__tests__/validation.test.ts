@@ -51,9 +51,7 @@ import {
   validateOrThrow,
 } from '../validation'
 
-// ============================================================================
 // AddressSchema Tests
-// ============================================================================
 
 describe('AddressSchema', () => {
   // Use valid addresses that viem will accept (lowercase or proper checksum)
@@ -104,9 +102,7 @@ describe('AddressSchema', () => {
   })
 })
 
-// ============================================================================
 // HexSchema Tests
-// ============================================================================
 
 describe('HexSchema', () => {
   const validHexStrings = [
@@ -146,9 +142,7 @@ describe('HexSchema', () => {
   })
 })
 
-// ============================================================================
 // HashSchema Tests (32-byte hash)
-// ============================================================================
 
 describe('HashSchema', () => {
   const validHashes = [
@@ -185,9 +179,7 @@ describe('HashSchema', () => {
   })
 })
 
-// ============================================================================
 // BigIntSchema Tests
-// ============================================================================
 
 describe('BigIntSchema', () => {
   test('transforms string to bigint', () => {
@@ -243,9 +235,7 @@ describe('BigIntSchema', () => {
   })
 })
 
-// ============================================================================
 // PositiveBigIntSchema Tests
-// ============================================================================
 
 describe('PositiveBigIntSchema', () => {
   test('accepts positive bigint', () => {
@@ -282,9 +272,7 @@ describe('PositiveBigIntSchema', () => {
   })
 })
 
-// ============================================================================
 // NonNegativeBigIntSchema Tests
-// ============================================================================
 
 describe('NonNegativeBigIntSchema', () => {
   test('accepts positive bigint', () => {
@@ -310,9 +298,7 @@ describe('NonNegativeBigIntSchema', () => {
   })
 })
 
-// ============================================================================
 // TimestampSchema Tests
-// ============================================================================
 
 describe('TimestampSchema', () => {
   test('accepts positive integer timestamps', () => {
@@ -333,9 +319,7 @@ describe('TimestampSchema', () => {
   })
 })
 
-// ============================================================================
 // String Validation Schemas
-// ============================================================================
 
 describe('UrlSchema', () => {
   test('accepts valid URLs', () => {
@@ -421,9 +405,7 @@ describe('NonNegativeNumberStringSchema', () => {
   })
 })
 
-// ============================================================================
 // Number Validation Schemas
-// ============================================================================
 
 describe('PositiveNumberSchema', () => {
   test('accepts positive numbers', () => {
@@ -505,9 +487,7 @@ describe('ChainIdSchema', () => {
   })
 })
 
-// ============================================================================
 // PaginationSchema Tests
-// ============================================================================
 
 describe('PaginationSchema', () => {
   test('applies defaults', () => {
@@ -549,9 +529,7 @@ describe('PaginationSchema', () => {
   })
 })
 
-// ============================================================================
 // Fail-Fast Helper Tests
-// ============================================================================
 
 describe('expect (expectValue)', () => {
   test('returns value when defined', () => {
@@ -672,9 +650,7 @@ describe('expectNonNegative', () => {
   })
 })
 
-// ============================================================================
 // Schema Validation Functions
-// ============================================================================
 
 describe('expectValid', () => {
   const TestSchema = z.object({
@@ -731,9 +707,7 @@ describe('validateOrNull', () => {
   })
 })
 
-// ============================================================================
 // Type-Specific Validators
-// ============================================================================
 
 describe('expectAddress', () => {
   const validAddress = '0x0000000000000000000000000000000000000000'
@@ -871,9 +845,7 @@ describe('expectJson', () => {
   })
 })
 
-// ============================================================================
 // CidSchema Tests
-// ============================================================================
 
 describe('CidSchema', () => {
   test('accepts non-empty CID strings', () => {

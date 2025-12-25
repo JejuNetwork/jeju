@@ -26,7 +26,7 @@ import {
 } from '@/hooks/nft/useGameItems'
 
 const LOCALNET_RPC = process.env.LOCALNET_RPC || 'http://localhost:6546'
-const CHAIN_ID = 1337
+const CHAIN_ID = 31337
 
 // Skip if no localnet
 const hasLocalnet = async () => {

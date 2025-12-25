@@ -19,6 +19,55 @@ import {
 import type { WorkerdWorkerDefinition } from '../src/workers/workerd/types'
 import { DEFAULT_WORKERD_CONFIG } from '../src/workers/workerd/types'
 
+// Test response types
+interface WorkerdHealthResponse {
+  status: string
+  service: string
+  runtime: string
+}
+
+interface PoolStatsResponse {
+  pool: { totalWorkers: number }
+}
+
+interface WorkersListResponse {
+  workers: Array<{ name: string }>
+  runtime: string
+}
+
+interface ErrorResponse {
+  error: string
+}
+
+interface WorkerDeployResponse {
+  workerId: string
+  name: string
+  status: string
+}
+
+interface WorkerStatusResponse {
+  status: string
+}
+
+interface WorkerInvokeResponse {
+  path: string
+  method: string
+  message: string
+}
+
+interface WorkerIdResponse {
+  workerId: string
+}
+
+interface WorkerEnvResponse {
+  secret: string
+  config: string
+}
+
+interface MetricsResponse {
+  invocations: number
+}
+
 // Find workerd binary - MUST run synchronously at module load for skipIf to work
 function findWorkerd(): string | null {
   const isWindows = process.platform === 'win32'
@@ -89,11 +138,7 @@ describe('Workerd API', () => {
       const res = await request('/workerd/health')
       expect(res.status).toBe(200)
 
-      const data = (await res.json()) as {
-        status: string
-        service: string
-        runtime: string
-      }
+      const data = (await res.json()) as WorkerdHealthResponse
       expect(data.status).toBe('healthy')
       expect(data.service).toBe('dws-workerd')
       expect(data.runtime).toBe('workerd')
@@ -103,7 +148,7 @@ describe('Workerd API', () => {
       const res = await request('/workerd/stats')
       expect(res.status).toBe(200)
 
-      const data = (await res.json()) as { pool: { totalWorkers: number } }
+      const data = (await res.json()) as PoolStatsResponse
       expect(data.pool).toBeDefined()
       expect(typeof data.pool.totalWorkers).toBe('number')
     })
@@ -116,10 +161,7 @@ describe('Workerd API', () => {
       const res = await request('/workerd')
       expect(res.status).toBe(200)
 
-      const data = (await res.json()) as {
-        workers: Array<{ name: string }>
-        runtime: string
-      }
+      const data = (await res.json()) as WorkersListResponse
       expect(data.workers).toBeInstanceOf(Array)
       expect(data.runtime).toBe('workerd')
     })
@@ -149,7 +191,7 @@ describe('Workerd API', () => {
       })
 
       expect(res.status).toBe(401)
-      const data = (await res.json()) as { error: string }
+      const data = (await res.json()) as ErrorResponse
       expect(data.error).toContain('x-jeju-address')
     })
 
@@ -290,9 +332,7 @@ describe('Types', () => {
   })
 })
 
-// =============================================================================
 // Integration Tests - require workerd to be installed
-// =============================================================================
 
 describe('Workerd Integration', () => {
   const skipIntegration = !WORKERD_AVAILABLE
@@ -330,11 +370,7 @@ export default {
       })
 
       expect(deployRes.status).toBe(201)
-      const deployData = (await deployRes.json()) as {
-        workerId: string
-        name: string
-        status: string
-      }
+      const deployData = (await deployRes.json()) as WorkerDeployResponse
       expect(deployData.workerId).toBeDefined()
       expect(deployData.name).toBe('integration-test-worker')
 
@@ -344,7 +380,7 @@ export default {
       // Check worker status
       const statusRes = await request(`/workerd/${deployData.workerId}`)
       expect(statusRes.status).toBe(200)
-      const statusData = (await statusRes.json()) as { status: string }
+      const statusData = (await statusRes.json()) as WorkerStatusResponse
       expect(['active', 'deploying']).toContain(statusData.status)
 
       // Invoke worker
@@ -357,11 +393,7 @@ export default {
         )
 
         expect(invokeRes.status).toBe(200)
-        const invokeData = (await invokeRes.json()) as {
-          path: string
-          method: string
-          message: string
-        }
+        const invokeData = (await invokeRes.json()) as WorkerInvokeResponse
         expect(invokeData.path).toBe('/test')
         expect(invokeData.method).toBe('GET')
         expect(invokeData.message).toBe('Hello from workerd integration test')
@@ -408,13 +440,13 @@ export default {
     })
 
     expect(deployRes.status).toBe(201)
-    const deployData = (await deployRes.json()) as { workerId: string }
+    const deployData = (await deployRes.json()) as WorkerIdResponse
 
     // Wait and then invoke
     await new Promise((r) => setTimeout(r, 2000))
 
     const statusRes = await request(`/workerd/${deployData.workerId}`)
-    const statusData = (await statusRes.json()) as { status: string }
+    const statusData = (await statusRes.json()) as WorkerStatusResponse
 
     if (statusData.status === 'active') {
       const invokeRes = await request(`/workerd/${deployData.workerId}/http/`, {
@@ -422,10 +454,7 @@ export default {
       })
 
       expect(invokeRes.status).toBe(200)
-      const invokeData = (await invokeRes.json()) as {
-        secret: string
-        config: string
-      }
+      const invokeData = (await invokeRes.json()) as WorkerEnvResponse
       expect(invokeData.secret).toBe('test-secret-key')
       expect(invokeData.config).toBe('integration-test')
     }
@@ -460,7 +489,7 @@ export default {
     })
 
     expect(deployRes.status).toBe(201)
-    const deployData = (await deployRes.json()) as { workerId: string }
+    const deployData = (await deployRes.json()) as WorkerIdResponse
 
     await new Promise((r) => setTimeout(r, 2000))
 
@@ -472,7 +501,7 @@ export default {
     // Check metrics
     const metricsRes = await request(`/workerd/${deployData.workerId}/metrics`)
     if (metricsRes.status === 200) {
-      const metrics = (await metricsRes.json()) as { invocations: number }
+      const metrics = (await metricsRes.json()) as MetricsResponse
       expect(metrics.invocations).toBeGreaterThanOrEqual(0)
     }
 

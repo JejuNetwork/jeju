@@ -1,8 +1,75 @@
 {
-  "name": "@jejunetwork/dws",
+  "$schema": "../../packages/config/jeju-manifest.schema.json",
+  "name": "dws",
+  "displayName": "DWS",
   "version": "1.0.0",
   "description": "Decentralized Web Services - Storage, Compute, CDN, Funding",
   "type": "service",
+  "commands": {
+    "dev": "bun run dev",
+    "build": "bun run build",
+    "start": "bun run start"
+  },
+  "ports": {
+    "main": 4031,
+    "api": 4030,
+    "frontend": 4031
+  },
+  "dependencies": [
+    "contracts",
+    "config"
+  ],
+  "optional": false,
+  "enabled": true,
+  "autoStart": true,
+  "tags": [
+    "dws",
+    "storage",
+    "compute",
+    "cdn",
+    "funding",
+    "infrastructure"
+  ],
+  "jns": {
+    "name": "dws.jeju",
+    "description": "Decentralized Web Services",
+    "url": "https://dws.jejunetwork.org"
+  },
+  "healthCheck": {
+    "url": "http://localhost:4030/health",
+    "interval": 30000
+  },
+  "agent": {
+    "enabled": true,
+    "a2aEndpoint": "/a2a",
+    "mcpEndpoint": "/mcp",
+    "tags": [
+      "jeju-app",
+      "dws",
+      "storage",
+      "compute",
+      "cdn"
+    ],
+    "metadata": {
+      "category": "infrastructure",
+      "provider": "jeju-network",
+      "features": [
+        "storage",
+        "compute",
+        "cdn",
+        "git",
+        "packages",
+        "containers",
+        "ci"
+      ]
+    },
+    "trustModels": [
+      "open",
+      "staked"
+    ],
+    "x402Support": true,
+    "jnsName": "dws.jeju"
+  },
   "deployment": {
     "testnet": {
       "network": "jeju-testnet",
@@ -52,12 +119,12 @@
       "network": "anvil",
       "chainId": 31337,
       "contracts": {
-        "IdentityRegistry": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
-        "DAORegistry": "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
-        "ContributorRegistry": "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707",
-        "PaymentRequestRegistry": "0x0165878A594ca255338adfa4d48449f69242Eb8F",
-        "DeepFundingDistributor": "0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6",
-        "JNSRegistry": "0x610178dA211FEF7D417bC0e6FeD39F05609AD788"
+        "IdentityRegistry": "${IDENTITY_REGISTRY_ADDRESS}",
+        "DAORegistry": "${DAO_REGISTRY_ADDRESS}",
+        "ContributorRegistry": "${CONTRIBUTOR_REGISTRY_ADDRESS}",
+        "PaymentRequestRegistry": "${PAYMENT_REQUEST_REGISTRY_ADDRESS}",
+        "DeepFundingDistributor": "${DEEP_FUNDING_DISTRIBUTOR_ADDRESS}",
+        "JNSRegistry": "${JNS_REGISTRY_ADDRESS}"
       }
     }
   },
@@ -77,11 +144,50 @@
     "registry": "/registry/*"
   },
   "decentralization": {
-    "frontendStorage": "ipfs",
-    "dataStorage": "cql",
-    "nodeDiscovery": "on-chain",
-    "coordination": "p2p",
-    "execution": ["workerd", "containers", "tee"],
-    "payments": "x402"
+    "frontend": {
+      "buildDir": "dist",
+      "buildCommand": "bun run build",
+      "spa": true,
+      "jnsName": "dws.jeju",
+      "ipfs": true,
+      "arweave": false,
+      "cacheRules": [
+        {
+          "pattern": "/assets/**",
+          "ttl": 31536000,
+          "immutable": true
+        },
+        {
+          "pattern": "/*.js",
+          "ttl": 86400
+        },
+        {
+          "pattern": "/**/*.html",
+          "ttl": 60,
+          "staleWhileRevalidate": 3600
+        }
+      ]
+    },
+    "robustness": {
+      "frontendStorage": "ipfs",
+      "dataStorage": "cql",
+      "nodeDiscovery": "on-chain",
+      "coordination": "p2p",
+      "execution": [
+        "workerd",
+        "containers",
+        "tee"
+      ],
+      "payments": "x402"
+    }
+  },
+  "architecture": {
+    "type": "hybrid",
+    "frontend": {
+      "type": "spa",
+      "builder": "bun",
+      "entrypoint": "index.html",
+      "outputDir": "dist"
+    }
   }
 }

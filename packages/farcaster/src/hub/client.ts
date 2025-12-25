@@ -29,8 +29,8 @@ import type {
   UserDataTypeName,
 } from './types'
 
-const DEFAULT_HUB_URL = 'nemes.farcaster.xyz:2283'
 const DEFAULT_TIMEOUT = 10000
+const DEFAULT_HUB_URL = 'https://nemes.farcaster.xyz:2281'
 
 export class HubError extends Error {
   constructor(
@@ -100,15 +100,30 @@ export class FarcasterClient {
   }
 
   private deriveHttpUrl(hubUrl: string): string {
-    // Strip existing protocol if present
+    // If URL already has protocol, validate and return as-is
+    if (hubUrl.startsWith('http://') || hubUrl.startsWith('https://')) {
+      return hubUrl
+    }
+
+    // Strip any protocol prefix if present
     const cleanUrl = hubUrl.replace(/^https?:\/\//, '')
-    const [host] = cleanUrl.split(':')
+    const parts = cleanUrl.split(':')
+    const host = parts[0]
+    const hasPort = parts.length > 1
 
     // Use HTTPS for production, HTTP only for localhost
     const isLocalhost = host === 'localhost' || host === '127.0.0.1'
     const protocol = isLocalhost ? 'http' : 'https'
 
-    return `${protocol}://${host}:2281`
+    // For localhost without explicit port, use 2281
+    // For production without port, use HTTPS on 443 (no port in URL)
+    if (hasPort) {
+      return `${protocol}://${cleanUrl}`
+    } else if (isLocalhost) {
+      return `${protocol}://${host}:2281`
+    } else {
+      return `${protocol}://${host}`
+    }
   }
 
   private async fetch(
@@ -373,5 +388,3 @@ export interface HubEvent {
   type: HubEventType
   body: HubEventBody
 }
-
-export const farcasterClient = new FarcasterClient()

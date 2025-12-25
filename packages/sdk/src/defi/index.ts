@@ -25,16 +25,9 @@ export interface Token {
   decimals: number
 }
 
-export interface SwapQuote {
-  tokenIn: Address
-  tokenOut: Address
-  amountIn: bigint
-  amountOut: bigint
-  amountOutMin: bigint
-  priceImpact: number
-  route: Address[]
-  fee: bigint
-}
+export type { SwapQuote } from '@jejunetwork/types'
+
+import type { SwapQuote } from '@jejunetwork/types'
 
 export interface SwapParams {
   tokenIn: Address

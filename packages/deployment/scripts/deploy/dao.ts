@@ -19,7 +19,7 @@ import {
   http,
   keccak256,
   parseEther,
-  toUtf8Bytes,
+  stringToHex,
 } from 'viem'
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
 import {
@@ -51,6 +51,7 @@ async function deploy(
   walletClient: ReturnType<typeof createWalletClient>,
   account: PrivateKeyAccount,
   client: ReturnType<typeof createPublicClient>,
+  chain: Chain,
   name: string,
   args: ConstructorArg[],
 ): Promise<{ address: Address; abi: Abi }> {
@@ -60,6 +61,7 @@ async function deploy(
     bytecode,
     args,
     account,
+    chain,
   })
   const receipt = await waitForTransactionReceipt(client, { hash })
   const address = receipt.contractAddress
@@ -110,6 +112,7 @@ async function main() {
     walletClient,
     deployerAccount,
     client,
+    chain,
     'TestERC20',
     ['Network', 'JEJU', parseEther('1000000000')],
   )
@@ -118,6 +121,7 @@ async function main() {
     walletClient,
     deployerAccount,
     client,
+    chain,
     'IdentityRegistry',
     [],
   )
@@ -126,6 +130,7 @@ async function main() {
     walletClient,
     deployerAccount,
     client,
+    chain,
     'ReputationRegistry',
     [identityAddr],
   )
@@ -134,6 +139,7 @@ async function main() {
     walletClient,
     deployerAccount,
     client,
+    chain,
     'Council',
     [tokenAddr, identityAddr, reputationAddr, deployerAccount.address],
   )
@@ -142,6 +148,7 @@ async function main() {
     walletClient,
     deployerAccount,
     client,
+    chain,
     'CEOAgent',
     [tokenAddr, councilAddr, 'claude-opus-4-5', deployerAccount.address],
   )
@@ -226,7 +233,7 @@ async function main() {
     const evt = receipt.logs.find(
       (l) =>
         l.topics[0] ===
-        keccak256(toUtf8Bytes('Transfer(address,address,uint256)')),
+        keccak256(stringToHex('Transfer(address,address,uint256)')),
     )
     const agentId = evt?.topics[3] ? Number(BigInt(evt.topics[3])) : i + 1
 

@@ -6,8 +6,6 @@
 
 import { describe, expect, it } from 'bun:test'
 
-// ============ Functions Under Test ============
-
 interface BuildFlags {
   armOnly: boolean
   x86Only: boolean
@@ -63,9 +61,6 @@ function isValidPlatformString(platform: string): boolean {
   const platforms = platform.split(',').map((p) => p.trim())
   return platforms.every((p) => validPlatforms.includes(p))
 }
-
-// ============ Tests ============
-
 describe('getPlatforms', () => {
   it('should return arm64 only when armOnly flag is set', () => {
     expect(getPlatforms({ armOnly: true, x86Only: false })).toBe('linux/arm64')

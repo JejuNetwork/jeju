@@ -10,6 +10,16 @@ import {
   TEST_WALLET,
 } from '../fixtures/contracts'
 
+// Contract result types
+interface VaultDeployment {
+  vault: `0x${string}`
+}
+
+interface FullDeployment {
+  token: `0x${string}`
+  vault: `0x${string}`
+}
+
 describe('LiquidityVault Contract', () => {
   const publicClient = getPublicClient()
   let addresses: Awaited<ReturnType<typeof getContractAddresses>>
@@ -61,7 +71,7 @@ describe('LiquidityVault Contract', () => {
         ],
         functionName: 'getDeployment',
         args: [deployments[0]],
-      })) as { vault: `0x${string}` }
+      })) as VaultDeployment
 
       const position = await publicClient.readContract({
         address: deployment.vault,
@@ -133,7 +143,7 @@ describe('LiquidityVault Contract', () => {
         ],
         functionName: 'getDeployment',
         args: [deployments[0]],
-      })) as { token: `0x${string}`; vault: `0x${string}` }
+      })) as FullDeployment
 
       expect(deployment.token.toLowerCase()).toBe(deployments[0].toLowerCase())
     }
@@ -179,7 +189,7 @@ describe('LiquidityVault Contract', () => {
         ],
         functionName: 'getDeployment',
         args: [deployments[0]],
-      })) as { vault: `0x${string}` }
+      })) as VaultDeployment
 
       // Check vault's ETH balance
       const balance = await publicClient.getBalance({

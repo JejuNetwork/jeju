@@ -12,9 +12,6 @@ import type { Hex } from 'viem'
 
 // Farcaster epoch: Jan 1, 2021 00:00:00 UTC
 const FARCASTER_EPOCH = 1609459200
-
-// ============ Enums ============
-
 export const MessageType = {
   CAST_ADD: 1,
   CAST_REMOVE: 2,
@@ -62,9 +59,6 @@ export const FarcasterNetwork = {
 } as const
 export type FarcasterNetwork =
   (typeof FarcasterNetwork)[keyof typeof FarcasterNetwork]
-
-// ============ Types ============
-
 export interface CastId {
   fid: number
   hash: Uint8Array
@@ -134,9 +128,6 @@ export interface Message {
   signatureScheme: SignatureScheme
   signer: Uint8Array
 }
-
-// ============ Timestamp Functions ============
-
 /**
  * Get current Farcaster timestamp (seconds since Farcaster epoch)
  */
@@ -157,9 +148,6 @@ export function toFarcasterTimestamp(unixTimestamp: number): number {
 export function fromFarcasterTimestamp(farcasterTimestamp: number): number {
   return farcasterTimestamp + FARCASTER_EPOCH
 }
-
-// ============ Message Encoding ============
-
 /**
  * Encode CastId for protobuf-like format
  */
@@ -371,9 +359,6 @@ export function encodeMessageData(data: MessageData): Uint8Array {
 
   return result
 }
-
-// ============ Hashing & Signing ============
-
 /**
  * Hash message data with BLAKE3 (truncated to 20 bytes per spec)
  */
@@ -462,9 +447,6 @@ function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
 
   return result === 0
 }
-
-// ============ Serialization ============
-
 /**
  * Serialize message to bytes for hub submission
  */
@@ -516,9 +498,6 @@ export function messageToHex(message: Message): Hex {
 export function getMessageHashHex(message: Message): Hex {
   return `0x${bytesToHex(message.hash)}` as Hex
 }
-
-// ============ Utilities ============
-
 /**
  * Convert hex string to bytes
  */

@@ -1,28 +1,37 @@
-// TEE and Encryption Tests
+/**
+ * TEE and Encryption Tests
+ *
+ * Tests TEE-based decision making and network KMS encryption.
+ * Automatically starts Anvil for chain-dependent tests.
+ */
 import { beforeAll, describe, expect, test } from 'bun:test'
+import { ensureServices, type TestEnv } from '../setup'
 
-// These tests require TEE infrastructure which may not be available in CI/local
-// Set TEE_PLATFORM=none to run in local mode without external dependencies
 const SKIP_TEE_TESTS =
   !process.env.TEE_PLATFORM || process.env.SKIP_TEE_TESTS === 'true'
 
+let env: TestEnv
+
+beforeAll(async () => {
+  env = await ensureServices({ chain: true })
+})
+
 describe('TEE Encryption', () => {
-  let tee: typeof import('../../src/tee')
+  let tee: typeof import('../../api/tee')
 
   beforeAll(async () => {
-    tee = await import('../../src/tee')
+    tee = await import('../../api/tee')
   })
 
   test('getTEEMode returns expected mode', () => {
     const mode = tee.getTEEMode()
-    // Returns 'dstack' by default, 'local' only when TEE_PLATFORM=none
     expect(['dstack', 'local']).toContain(mode)
     console.log(`✅ TEE mode: ${mode}`)
   })
 
   test('makeTEEDecision works', async () => {
     if (SKIP_TEE_TESTS) {
-      console.log('Skipping: TEE infrastructure not available')
+      console.log('⏭️  Skipping: TEE infrastructure not available')
       return
     }
     const result = await tee.makeTEEDecision({
@@ -45,7 +54,7 @@ describe('TEE Encryption', () => {
 
   test('encryptedReasoning can be decrypted', async () => {
     if (SKIP_TEE_TESTS) {
-      console.log('Skipping: TEE infrastructure not available')
+      console.log('⏭️  Skipping: TEE infrastructure not available')
       return
     }
     const result = await tee.makeTEEDecision({
@@ -62,7 +71,7 @@ describe('TEE Encryption', () => {
 
   test('decision includes recommendations', async () => {
     if (SKIP_TEE_TESTS) {
-      console.log('Skipping: TEE infrastructure not available')
+      console.log('⏭️  Skipping: TEE infrastructure not available')
       return
     }
     const result = await tee.makeTEEDecision({
@@ -79,7 +88,7 @@ describe('TEE Encryption', () => {
 
   test('alignment score reflects council consensus', async () => {
     if (SKIP_TEE_TESTS) {
-      console.log('Skipping: TEE infrastructure not available')
+      console.log('⏭️  Skipping: TEE infrastructure not available')
       return
     }
     const highResult = await tee.makeTEEDecision({
@@ -109,10 +118,10 @@ describe('TEE Encryption', () => {
 })
 
 describe('Network KMS Encryption', () => {
-  let encryption: typeof import('../../src/encryption')
+  let encryption: typeof import('../../api/encryption')
 
   beforeAll(async () => {
-    encryption = await import('../../src/encryption')
+    encryption = await import('../../api/encryption')
   })
 
   const makeDecision = (
@@ -165,6 +174,10 @@ describe('Network KMS Encryption', () => {
   })
 
   test('canDecrypt returns false for recent decisions', async () => {
+    if (!env.anvilRunning) {
+      console.log('⏭️  Skipping: Chain not available')
+      return
+    }
     const encrypted = await encryption.encryptDecision(
       makeDecision('test-recent'),
     )

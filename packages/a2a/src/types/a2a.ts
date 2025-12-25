@@ -8,71 +8,14 @@
  */
 
 import type {
-  AgentCapabilities,
-  GameNetworkInfo,
-  JsonPrimitive,
-  JsonRpcParams,
-  JsonRpcResult,
-  JsonValue,
-  PaymentMetadata,
-  PaymentRequest,
-} from './common'
+  JsonRpcError,
+  JsonRpcRequest,
+  JsonRpcResponse,
+} from '@jejunetwork/shared'
+import type { JsonValue } from '@jejunetwork/types'
+import type { AgentCapabilities, JsonRpcParams } from './common'
 
-export {
-  AgentCapabilitiesSchema,
-  GameNetworkInfoSchema,
-  JsonPrimitiveSchema,
-  JsonValueSchema,
-  PaymentMetadataSchema,
-  PaymentRequestSchema,
-} from './common'
-
-export type {
-  AgentCapabilities,
-  GameNetworkInfo,
-  JsonPrimitive,
-  JsonRpcParams,
-  JsonRpcResult,
-  JsonValue,
-  PaymentMetadata,
-  PaymentRequest,
-  PaymentVerificationParams,
-  PaymentVerificationResult,
-}
-
-import type {
-  PaymentVerificationParams,
-  PaymentVerificationResult,
-} from './common'
-
-/**
- * JSON-RPC 2.0 request structure
- */
-export interface JsonRpcRequest {
-  jsonrpc: '2.0'
-  method: string
-  params?: JsonRpcParams
-  id: string | number
-}
-
-/**
- * JSON-RPC 2.0 response structure
- */
-export interface JsonRpcResponse {
-  jsonrpc: '2.0'
-  result?: JsonRpcResult
-  error?: JsonRpcError
-  id: string | number | null
-}
-
-/**
- * JSON-RPC 2.0 error structure
- */
-export interface JsonRpcError {
-  code: number
-  message: string
-  data?: JsonValue
-}
+export type { AgentCapabilities, JsonRpcError, JsonRpcRequest, JsonRpcResponse }
 
 /**
  * JSON-RPC 2.0 notification structure

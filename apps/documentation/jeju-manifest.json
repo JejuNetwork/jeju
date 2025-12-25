@@ -11,58 +11,104 @@
     "start": "bun run preview"
   },
   "ports": {
-    "main": 4004
+    "main": 4055
   },
   "dependencies": [],
   "optional": true,
   "enabled": true,
   "autoStart": true,
-  "tags": ["docs", "documentation", "vitepress"],
+  "tags": [
+    "docs",
+    "documentation",
+    "vitepress"
+  ],
   "jns": {
     "name": "docs.jeju",
     "description": "Network Documentation",
     "url": "https://docs.jejunetwork.org"
   },
   "healthCheck": {
-    "url": "http://localhost:4004",
+    "url": "http://localhost:4055",
     "interval": 30000
   },
   "agent": {
     "enabled": true,
     "a2aEndpoint": "/a2a",
     "mcpEndpoint": "/mcp",
-    "tags": ["jeju-app", "documentation"],
+    "tags": [
+      "jeju-app",
+      "documentation"
+    ],
     "metadata": {
       "category": "documentation",
       "provider": "jeju-network",
-      "features": ["search", "versioning"]
+      "features": [
+        "search",
+        "versioning"
+      ]
     },
-    "trustModels": ["open"],
+    "trustModels": [
+      "open"
+    ],
     "x402Support": false,
     "jnsName": "docs.jeju"
   },
   "dws": {
     "cdn": {
       "enabled": true,
-      "regions": ["global"],
-      "staticDir": ".vitepress/dist",
+      "regions": [
+        "global"
+      ],
+      "staticDir": "docs/dist",
       "cacheRules": [
-        { "pattern": "/assets/**", "ttl": 31536000, "immutable": true },
-        { "pattern": "/*.js", "ttl": 86400 },
-        { "pattern": "/*.css", "ttl": 86400 },
-        { "pattern": "/**/*.html", "ttl": 3600, "staleWhileRevalidate": 86400 }
+        {
+          "pattern": "/assets/**",
+          "ttl": 31536000,
+          "immutable": true
+        },
+        {
+          "pattern": "/*.js",
+          "ttl": 86400
+        },
+        {
+          "pattern": "/*.css",
+          "ttl": 86400
+        },
+        {
+          "pattern": "/**/*.html",
+          "ttl": 3600,
+          "staleWhileRevalidate": 86400
+        }
       ]
     }
   },
   "decentralization": {
     "cdn": {
       "enabled": true,
-      "regions": ["global"],
+      "regions": [
+        "global"
+      ],
       "cacheRules": [
-        { "pattern": "/assets/**", "ttl": 31536000, "immutable": true },
-        { "pattern": "/**/*.html", "ttl": 3600, "staleWhileRevalidate": 86400 },
-        { "pattern": "/**/*.js", "ttl": 31536000, "immutable": true },
-        { "pattern": "/**/*.css", "ttl": 31536000, "immutable": true }
+        {
+          "pattern": "/assets/**",
+          "ttl": 31536000,
+          "immutable": true
+        },
+        {
+          "pattern": "/**/*.html",
+          "ttl": 3600,
+          "staleWhileRevalidate": 86400
+        },
+        {
+          "pattern": "/**/*.js",
+          "ttl": 31536000,
+          "immutable": true
+        },
+        {
+          "pattern": "/**/*.css",
+          "ttl": 31536000,
+          "immutable": true
+        }
       ],
       "serviceWorker": true
     },
@@ -70,7 +116,7 @@
       "ipfs": true,
       "arweave": true,
       "jnsName": "docs.jeju",
-      "buildDir": ".vitepress/dist",
+      "buildDir": "docs/dist",
       "spa": false
     },
     "robustness": {
@@ -88,6 +134,15 @@
     "e2e": {
       "command": "bunx playwright test tests/e2e/",
       "timeout": 300000
+    }
+  },
+  "architecture": {
+    "type": "hybrid",
+    "frontend": {
+      "type": "spa",
+      "builder": "bun",
+      "entrypoint": "index.html",
+      "outputDir": "docs/dist"
     }
   }
 }

@@ -109,7 +109,9 @@ const RETRY_CONFIG = {
 /**
  * Check if error is retryable (network errors, 5xx, rate limits)
  */
-function isRetryableError(error: unknown): boolean {
+function isRetryableError(
+  error: Error | TypeError | string | Record<string, unknown>,
+): boolean {
   if (error instanceof TypeError) {
     return true // Network errors
   }
@@ -165,7 +167,7 @@ async function fetchWithRetry(
       lastError = error as Error
 
       if (
-        !isRetryableError(error) ||
+        !isRetryableError(lastError) ||
         attempt === RETRY_CONFIG.maxAttempts - 1
       ) {
         throw error
@@ -187,9 +189,6 @@ async function fetchWithRetry(
 
   throw lastError ?? new Error('API request failed after retries')
 }
-
-// ============ Arbitrage Detector ============
-
 export class ArbitrageDetector {
   private opportunities: Map<string, ArbOpportunity> = new Map()
   private minProfitBps: number
@@ -279,7 +278,7 @@ export class ArbitrageDetector {
 
         // Calculate profit after bridge costs
         const bridgeCost = this.getBridgeCost('solana', chainId)
-        const grossProfit = (Number(priceDiff.diffBps) / 10000) * 10000 // Assume $10k trade
+        const grossProfit = (priceDiff.diffBps / 10000) * 10000 // Assume $10k trade
         const netProfit = grossProfit - bridgeCost
 
         if (netProfit <= 0) continue

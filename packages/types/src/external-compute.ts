@@ -1,17 +1,9 @@
 /**
- * External Compute Provider Types
- *
- * Shared types for integrating external compute marketplaces (Akash, etc.)
- * into the compute network. These providers offer compute resources
- * that are wrapped and resold through the network with unified payment handling.
+ * External compute provider types for marketplace integrations.
  */
 
 import type { Address, Hex } from 'viem'
 import { GPUType } from './compute'
-
-// ============================================================================
-// Provider Types
-// ============================================================================
 
 export const ExternalProviderTypes = {
   AKASH: 'akash',
@@ -33,10 +25,6 @@ export const ProviderStatus = {
 
 export type ProviderStatusType =
   (typeof ProviderStatus)[keyof typeof ProviderStatus]
-
-// ============================================================================
-// Hardware Specifications
-// ============================================================================
 
 export function getGPUTypeName(gpuType: GPUType): string {
   const names: Record<GPUType, string> = {
@@ -77,12 +65,7 @@ export interface HardwareCapabilities extends HardwareRequirements {
   maxConcurrentDeployments: number
 }
 
-// ============================================================================
-// Pricing
-// ============================================================================
-
 export interface ExternalProviderPricing {
-  /** Price per hour in wei (ETH equivalent) */
   pricePerHourWei: bigint
   /** Minimum rental duration in hours */
   minimumHours: number
@@ -100,9 +83,7 @@ export interface ExternalProviderPricing {
   priceStalenessToleranceSec: number
 }
 
-// ============================================================================
 // Deployment Configuration
-// ============================================================================
 
 export interface ContainerConfig {
   /** Container image (from the network registry CID or external registry URL) */
@@ -154,9 +135,7 @@ export interface DeploymentConfig {
   }
 }
 
-// ============================================================================
 // Deployment State
-// ============================================================================
 
 export interface ExternalDeployment {
   /** Network deployment ID */
@@ -199,9 +178,7 @@ export interface ExternalDeployment {
   logsUrl?: string
 }
 
-// ============================================================================
 // Bridge Node (Operator)
-// ============================================================================
 
 export interface BridgeNodeConfig {
   /** Bridge node wallet address */
@@ -253,9 +230,7 @@ export interface BridgeNodeCredential {
   expiresAt?: number
 }
 
-// ============================================================================
 // Slashing & Reputation
-// ============================================================================
 
 export const SlashingReasons = {
   DEPLOYMENT_FAILURE: 'deployment_failure',
@@ -304,9 +279,7 @@ export interface SlashingEvent {
   resolution?: 'upheld' | 'reversed'
 }
 
-// ============================================================================
 // Provider Interface
-// ============================================================================
 
 export interface ExternalComputeProvider {
   /** Provider type identifier */
@@ -371,9 +344,7 @@ export interface ExternalComputeProvider {
   }>
 }
 
-// ============================================================================
 // Payment Integration
-// ============================================================================
 
 export interface ExternalPaymentConfig {
   /** Chain ID for payment source */
@@ -411,9 +382,7 @@ export interface PaymentResult {
   timestamp: number
 }
 
-// ============================================================================
 // Events
-// ============================================================================
 
 export interface ExternalComputeEvents {
   DeploymentCreated: {

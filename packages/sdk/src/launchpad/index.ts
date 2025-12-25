@@ -15,9 +15,7 @@ import { encodeFunctionData, parseEther } from 'viem'
 import { getContractAddresses } from '../config'
 import type { JejuWallet } from '../wallet'
 
-// ============================================================================
 // Types
-// ============================================================================
 
 export type LaunchType = 'STANDARD' | 'BONDING_CURVE' | 'PRESALE' | 'NFT'
 export type PresaleStatus =

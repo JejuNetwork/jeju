@@ -10,6 +10,6 @@ processor:
     - name: START_BLOCK
       value: "0"
     - name: CHAIN_ID
-      value: "1337"
+      value: "31337"
 
 

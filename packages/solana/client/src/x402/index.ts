@@ -23,9 +23,7 @@ export const X402_FACILITATOR_PROGRAM_ID = new PublicKey(
   'FEsMtN2PfdzMPYCFLDLth3VxjfrozuzHodV24znt22B7',
 )
 
-// ============================================================================
 // Zod Schemas for External Data Validation
-// ============================================================================
 
 // Maximum resource length to prevent oversized messages
 const MAX_RESOURCE_LENGTH = 256

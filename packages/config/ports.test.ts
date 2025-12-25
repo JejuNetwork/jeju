@@ -26,7 +26,7 @@ describe('Port Constants', () => {
   describe('CORE_PORTS', () => {
     it('should have correct default values', () => {
       expect(CORE_PORTS.EXPLORER.DEFAULT).toBe(4000)
-      expect(CORE_PORTS.GATEWAY.DEFAULT).toBe(4001)
+      expect(CORE_PORTS.GATEWAY.DEFAULT).toBe(4013)
       expect(CORE_PORTS.NODE_EXPLORER_API.DEFAULT).toBe(4002)
       expect(CORE_PORTS.NODE_EXPLORER_UI.DEFAULT).toBe(4003)
       expect(CORE_PORTS.DOCUMENTATION.DEFAULT).toBe(4004)
@@ -106,7 +106,7 @@ describe('Port Environment Overrides', () => {
   it('should fall back to default when env var not set', () => {
     delete process.env.GATEWAY_PORT
     delete process.env.PAYMASTER_DASHBOARD_PORT
-    expect(CORE_PORTS.GATEWAY.get()).toBe(4001)
+    expect(CORE_PORTS.GATEWAY.get()).toBe(4013)
   })
 
   it('should respect alternative env var names', () => {
@@ -145,7 +145,7 @@ describe('URL Builders', () => {
       delete process.env.PAYMASTER_DASHBOARD_PORT
 
       const url = getCoreAppUrl('GATEWAY')
-      expect(url).toBe('http://localhost:4001')
+      expect(url).toBe('http://localhost:4013')
     })
 
     it('should build ws URL when specified', () => {
@@ -169,7 +169,7 @@ describe('URL Builders', () => {
       delete process.env.PAYMASTER_DASHBOARD_PORT
 
       const url = getCoreAppUrl('GATEWAY')
-      expect(url).toBe('http://myhost.local:4001')
+      expect(url).toBe('http://myhost.local:4013')
     })
   })
 

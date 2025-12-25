@@ -7,11 +7,31 @@
   "main": "./index.ts",
   "types": "./index.ts",
   "exports": {
-    ".": "./index.ts",
-    "./ports": "./ports.ts"
+    ".": "./index.ts"
   },
-  "files": ["*.ts", "*.json", "chain"],
+  "files": [
+    "*.ts",
+    "*.json",
+    "chain"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/elizaos/jeju.git",
+    "directory": "packages/config"
+  },
+  "keywords": [
+    "jeju",
+    "config",
+    "network",
+    "node"
+  ],
   "publishConfig": {
     "access": "public"
+  },
+  "dependencies": {
+    "@jejunetwork/types": "workspace:*"
   }
 }

@@ -12,7 +12,7 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { existsSync } from 'node:fs'
 import { readdir, readFile, rm } from 'node:fs/promises'
-import { getCoreAppUrl, getL2RpcUrl } from '@jejunetwork/config/ports'
+import { getCoreAppUrl, getL2RpcUrl } from '@jejunetwork/config'
 import { type Subprocess, spawn } from 'bun'
 import { z } from 'zod'
 import {
@@ -254,10 +254,8 @@ describe('Worker Module', () => {
   })
 })
 
-// ============================================================================
 // DWS Integration Tests - Require DWS to be running
 // These test REAL deployment to DWS, not mocks.
-// ============================================================================
 
 describe('DWS Integration (Real Runtime)', () => {
   let dwsRunning = false
@@ -377,12 +375,12 @@ describe('DWS Integration (Real Runtime)', () => {
 
     // First test with a simple worker to verify workerd is working
     console.log('   Testing workerd with simple worker first...')
-    const simpleWorker = `export default { 
-      fetch(req) { 
+    const simpleWorker = `export default {
+      fetch(req) {
         return new Response(JSON.stringify({status: "ok", path: new URL(req.url).pathname}), {
           headers: {"Content-Type": "application/json"}
         })
-      } 
+      }
     }`
 
     const simpleDeployResponse = await fetch(`${DWS_URL}/workerd`, {

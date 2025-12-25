@@ -1,9 +1,9 @@
-/**
- * jeju dev - Start development environment
- */
+/** Start development environment */
 
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
+import { getCQLBlockProducerUrl, getFarcasterHubUrl } from '@jejunetwork/config'
+import { isValidAddress } from '@jejunetwork/types'
 import { Command } from 'commander'
 import { execa } from 'execa'
 import { bootstrapContracts, stopLocalnet } from '../lib/chain'
@@ -14,6 +14,10 @@ import {
   createInfrastructureService,
   type InfrastructureService,
 } from '../services/infrastructure'
+import {
+  createLocalDeployOrchestrator,
+  type LocalDeployOrchestrator,
+} from '../services/local-deploy-orchestrator'
 import {
   createOrchestrator,
   type ServicesOrchestrator,
@@ -36,10 +40,13 @@ const runningServices: RunningService[] = []
 let isShuttingDown = false
 let servicesOrchestrator: ServicesOrchestrator | null = null
 let infrastructureService: InfrastructureService | null = null
+let localDeployOrchestrator: LocalDeployOrchestrator | null = null
 let proxyEnabled = false
 
 export const devCommand = new Command('dev')
-  .description('Start development environment (localnet + apps)')
+  .description(
+    'Start development environment (localnet + apps deployed on-chain)',
+  )
   .option('--minimal', 'Localnet only (no apps)')
   .option(
     '--vendor-only',
@@ -131,50 +138,108 @@ async function startDev(options: {
   }
 
   if (options.minimal) {
-    printReady(l2RpcUrl, runningServices, servicesOrchestrator)
+    printReady(l2RpcUrl, runningServices, servicesOrchestrator, [])
     await waitForever()
     return
   }
 
-  // Start indexer
-  await startIndexer(rootDir, l2RpcUrl)
+  // Indexer is started by the orchestrator, no need to start again
 
-  // Discover and start apps
+  // Discover apps
   const apps = discoverApps(rootDir)
   const appsToStart = filterApps(apps, options)
 
-  // Get service environment variables (combine infrastructure + orchestrator)
-  // Infrastructure is always initialized at this point - no need for fallback
-  const infraEnv = infrastructureService.getEnvVars()
-  const orchestratorEnv = servicesOrchestrator?.getEnvVars() ?? {}
-  const serviceEnv = { ...infraEnv, ...orchestratorEnv }
+  // Deploy apps on-chain through DWS (like production)
+  await deployAppsOnchain(rootDir, l2RpcUrl, appsToStart)
 
-  logger.step(`Starting ${appsToStart.length} apps...`)
-  for (const app of appsToStart) {
-    await startApp(rootDir, app, l2RpcUrl, serviceEnv)
-  }
-
-  printReady(l2RpcUrl, runningServices, servicesOrchestrator)
+  printReady(l2RpcUrl, runningServices, servicesOrchestrator, appsToStart)
   await waitForever()
 }
 
-async function startLocalProxy(rootDir: string): Promise<void> {
-  const proxyScript = join(
+async function deployAppsOnchain(
+  rootDir: string,
+  rpcUrl: string,
+  apps: AppManifest[],
+): Promise<void> {
+  logger.step('Deploying apps on-chain through DWS...')
+
+  // Use the deployer private key
+  const deployerKey = WELL_KNOWN_KEYS.dev[0].privateKey as `0x${string}`
+
+  // Create the local deploy orchestrator
+  localDeployOrchestrator = createLocalDeployOrchestrator(
     rootDir,
-    'packages/deployment/scripts/shared/local-proxy.ts',
+    rpcUrl,
+    deployerKey,
   )
-  if (!existsSync(proxyScript)) {
-    logger.debug('Local proxy script not found, skipping')
-    return
+
+  let dwsContracts = localDeployOrchestrator.loadDWSContracts()
+
+  if (!dwsContracts) {
+    // Deploy DWS contracts
+    dwsContracts = await localDeployOrchestrator.deployDWSContracts()
+  } else {
+    logger.debug('DWS contracts already deployed')
   }
 
+  logger.step('Registering local DWS node...')
+  await localDeployOrchestrator.registerLocalNode()
+
+  logger.step('Starting DWS server...')
+  const dwsDir = join(rootDir, 'apps/dws')
+  if (existsSync(dwsDir)) {
+    const dwsProc = execa('bun', ['run', 'dev'], {
+      cwd: dwsDir,
+      env: {
+        ...process.env,
+        RPC_URL: rpcUrl,
+        WORKER_REGISTRY_ADDRESS: dwsContracts.workerRegistry,
+        STORAGE_MANAGER_ADDRESS: dwsContracts.storageManager,
+        CDN_REGISTRY_ADDRESS: dwsContracts.cdnRegistry,
+        JNS_REGISTRY_ADDRESS: dwsContracts.jnsRegistry,
+        JNS_RESOLVER_ADDRESS: dwsContracts.jnsResolver,
+        FARCASTER_HUB_URL: getFarcasterHubUrl(),
+      },
+      stdio: 'pipe',
+    })
+
+    runningServices.push({
+      name: 'DWS',
+      port: 4030,
+      process: dwsProc,
+    })
+
+    // Wait for DWS to start
+    await new Promise((r) => setTimeout(r, 5000))
+    logger.success('DWS server running on port 4030')
+  }
+
+  const appsWithDirs = apps.map((app) => ({
+    dir: join(rootDir, 'apps', app.name),
+    manifest: app,
+  }))
+
+  await localDeployOrchestrator.deployAllApps(appsWithDirs)
+
+  logger.step('Starting JNS Gateway...')
+  const { startLocalJNSGateway } = await import('../lib/jns-gateway-local')
+  // Use port 4303 for JNS Gateway (Caddy on 8080 will proxy to it)
+  // Port 4302 is used by the JNS resolution service
+  // Pass rootDir for local dev fallback (serving from build directories)
+  await startLocalJNSGateway(rpcUrl, dwsContracts.jnsRegistry, 4303, 4180, rootDir)
+
+  logger.success('Decentralized deployment complete')
+  logger.info(
+    'Apps are now accessible via JNS names at *.local.jejunetwork.org:8080',
+  )
+}
+
+async function startLocalProxy(_rootDir: string): Promise<void> {
   logger.step('Starting local domain proxy...')
 
-  // Dynamic import required: file is optional (may not exist) and TypeScript
-  // static imports require files to exist at compile time. The path itself
-  // is static ('packages/deployment/scripts/shared/local-proxy.ts' relative
-  // to monorepo root), but we need runtime import to handle missing file.
-  const { startProxy, isCaddyInstalled } = await import(proxyScript)
+  const { startProxy, isCaddyInstalled, ensureSudoAccess } = await import(
+    '../lib/local-proxy'
+  )
 
   // Check if Caddy is available
   const caddyInstalled = await isCaddyInstalled()
@@ -186,6 +251,9 @@ async function startLocalProxy(rootDir: string): Promise<void> {
     logger.info('  Apps available at localhost ports instead')
     return
   }
+
+  // Ensure sudo credentials are cached for port 80 before starting background processes
+  await ensureSudoAccess()
 
   const started = await startProxy()
   if (started) {
@@ -211,23 +279,11 @@ function setupSignalHandlers(): void {
     logger.newline()
     logger.step('Shutting down...')
 
-    // Stop local proxy
     if (proxyEnabled) {
-      const proxyScript = join(
-        process.cwd(),
-        'packages/deployment/scripts/shared/local-proxy.ts',
-      )
-      if (existsSync(proxyScript)) {
-        // Dynamic import required: file is optional (may not exist) and TypeScript
-        // static imports require files to exist at compile time. The path itself
-        // is static ('packages/deployment/scripts/shared/local-proxy.ts' relative
-        // to monorepo root), but we need runtime import to handle missing file.
-        const { stopProxy } = await import(proxyScript)
-        await stopProxy()
-      }
+      const { stopProxy } = await import('../lib/local-proxy')
+      await stopProxy()
     }
 
-    // Stop orchestrated services
     if (servicesOrchestrator) {
       await servicesOrchestrator.stopAll()
     }
@@ -238,7 +294,6 @@ function setupSignalHandlers(): void {
       }
     }
 
-    // Stop monitoring (ignore errors during cleanup)
     await execa('docker', ['compose', 'down'], {
       cwd: join(process.cwd(), 'apps/monitoring'),
       reject: false,
@@ -277,106 +332,71 @@ function filterApps(
   return filtered
 }
 
-async function startIndexer(rootDir: string, rpcUrl: string): Promise<void> {
-  const indexerDir = join(rootDir, 'apps/indexer')
-  if (!existsSync(indexerDir)) {
-    return
-  }
-
-  logger.step('Starting indexer...')
-
-  const proc = execa('bun', ['run', 'dev'], {
-    cwd: indexerDir,
-    env: {
-      ...process.env,
-      RPC_ETH_HTTP: rpcUrl,
-      START_BLOCK: '0',
-      CHAIN_ID: '1337',
-      GQL_PORT: String(DEFAULT_PORTS.indexerGraphQL),
-    },
-    stdio: 'pipe',
-  })
-
-  runningServices.push({
-    name: 'Indexer',
-    port: DEFAULT_PORTS.indexerGraphQL,
-    process: proc,
-  })
-
-  await new Promise((r) => setTimeout(r, 3000))
-}
-
-async function startApp(
-  rootDir: string,
-  app: AppManifest,
-  rpcUrl: string,
-  serviceEnv: Record<string, string> = {},
-): Promise<void> {
-  const appDir = join(rootDir, 'apps', app.name)
-  const vendorDir = join(rootDir, 'vendor', app.name)
-  const dir = existsSync(appDir) ? appDir : vendorDir
-
-  if (!existsSync(dir)) return
-
-  const devCommand = app.commands?.dev
-  if (!devCommand) return
-
-  const mainPort = app.ports?.main
-  const appEnv: Record<string, string> = {
-    ...(process.env as Record<string, string>),
-    ...serviceEnv, // Inject service URLs
-    JEJU_RPC_URL: rpcUrl,
-    RPC_URL: rpcUrl,
-    CHAIN_ID: '1337',
-  }
-
-  if (mainPort) {
-    appEnv.PORT = String(mainPort)
-  }
-
-  const [cmd, ...args] = devCommand.split(' ')
-  const proc = execa(cmd, args, {
-    cwd: dir,
-    env: appEnv,
-    stdio: 'pipe',
-  })
-
-  runningServices.push({
-    name: app.displayName || app.name,
-    port: mainPort,
-    process: proc,
-  })
-
-  // Prevent unhandled rejection on process termination
-  proc.catch(() => undefined)
-}
-
 async function startVendorOnly(): Promise<void> {
   const rootDir = findMonorepoRoot()
-  const scriptPath = join(
-    rootDir,
-    'packages/deployment/scripts/dev-with-vendor.ts',
-  )
 
-  if (!existsSync(scriptPath)) {
-    logger.error('Vendor-only script not found')
+  logger.header('DEPLOYING VENDOR APPS')
+  logger.info(
+    'Make sure the chain is running separately with DWS contracts deployed',
+  )
+  logger.newline()
+
+  const { discoverVendorApps } = await import('../lib/discover-apps')
+  const vendorApps = discoverVendorApps(rootDir)
+
+  if (vendorApps.length === 0) {
+    logger.warn('No vendor apps found in vendor/ directory')
+    logger.info('Add vendor apps with: jeju vendor add <repo-url>')
     return
   }
 
-  logger.header('STARTING VENDOR APPS ONLY')
-  logger.info('Make sure the chain is running separately')
+  logger.info(`Found ${vendorApps.length} vendor apps:`)
+  for (const app of vendorApps) {
+    logger.info(`  - ${app.name}`)
+  }
   logger.newline()
 
-  await execa('bun', ['run', scriptPath], {
-    cwd: rootDir,
-    stdio: 'inherit',
-  })
+  // Deploy vendor apps on-chain through DWS
+  const rpcUrl =
+    process.env.JEJU_RPC_URL || `http://127.0.0.1:${DEFAULT_PORTS.l2Rpc}`
+  const deployerKey = WELL_KNOWN_KEYS.dev[0].privateKey as `0x${string}`
+
+  localDeployOrchestrator = createLocalDeployOrchestrator(
+    rootDir,
+    rpcUrl,
+    deployerKey,
+  )
+
+  // Load existing DWS contracts (must be deployed already)
+  const dwsContracts = localDeployOrchestrator.loadDWSContracts()
+  if (!dwsContracts) {
+    logger.error(
+      'DWS contracts not found. Run `bun run dev` first to deploy contracts.',
+    )
+    process.exit(1)
+  }
+
+  // Deploy vendor apps on-chain
+  const appsWithDirs = vendorApps.map((app) => ({
+    dir: app.path,
+    manifest: app.manifest as AppManifest,
+  }))
+
+  await localDeployOrchestrator.deployAllApps(appsWithDirs)
+
+  logger.success('Vendor apps deployed on-chain')
+  logger.info('Access via JNS names at *.local.jejunetwork.org:8080')
+
+  // Setup signal handlers and wait
+  setupSignalHandlers()
+  await waitForever()
 }
 
 function printReady(
   rpcUrl: string,
   services: RunningService[],
   orchestrator: ServicesOrchestrator | null,
+  deployedApps: AppManifest[],
 ): void {
   console.clear()
 
@@ -389,7 +409,7 @@ function printReady(
     logger.table([
       {
         label: 'CovenantSQL',
-        value: 'http://127.0.0.1:4661',
+        value: getCQLBlockProducerUrl(),
         status: 'ok' as const,
       },
       {
@@ -429,39 +449,56 @@ function printReady(
     orchestrator.printStatus()
   }
 
-  if (services.length > 0) {
+  // Show all deployed apps with their local domain URLs
+  if (deployedApps.length > 0 || services.length > 0) {
     logger.subheader('Apps')
-    for (const svc of services) {
-      const port = svc.port
-      const portUrl = port ? `http://127.0.0.1:${port}` : 'running'
+    const proxyPort = 8080
 
-      // Show local domain URL if proxy is enabled
+    // Show deployed apps with frontends only
+    for (const app of deployedApps) {
+      // Only show apps that have frontend architecture
+      const hasFrontend = app.architecture?.frontend || app.architecture?.type === 'frontend'
+      if (!hasFrontend) continue
+
+      const displayName = app.displayName || app.name
+      const slug = app.name.toLowerCase().replace(/\s+/g, '-')
+      const localUrl = `http://${slug}.${DOMAIN_CONFIG.localDomain}:${proxyPort}`
+      logger.table([
+        {
+          label: displayName,
+          value: localUrl,
+          status: 'ok',
+        },
+      ])
+    }
+
+    // Then show any additional running services not in deployed apps
+    for (const svc of services) {
+      const alreadyShown = deployedApps.some(
+        (app) => app.name.toLowerCase() === svc.name.toLowerCase(),
+      )
+      if (alreadyShown) continue
+
+      const port = svc.port
+      const domainName = svc.name.toLowerCase().replace(/\s+/g, '-')
+
       if (proxyEnabled && port) {
-        const domainName = svc.name.toLowerCase().replace(/\s+/g, '-')
-        const localUrl = `http://${domainName}.${DOMAIN_CONFIG.localDomain}`
+        const localUrl = `http://${domainName}.${DOMAIN_CONFIG.localDomain}:${proxyPort}`
         logger.table([
           {
             label: svc.name,
-            value: `${localUrl} (port ${port})`,
+            value: localUrl,
             status: 'ok',
           },
         ])
+      } else if (port) {
+        logger.table([
+          { label: svc.name, value: `http://127.0.0.1:${port}`, status: 'ok' },
+        ])
       } else {
-        logger.table([{ label: svc.name, value: portUrl, status: 'ok' }])
+        logger.table([{ label: svc.name, value: 'running', status: 'ok' }])
       }
     }
-  }
-
-  // Show local domain info
-  if (proxyEnabled) {
-    logger.newline()
-    logger.subheader('Local Domains')
-    logger.info(`All apps accessible at *.${DOMAIN_CONFIG.localDomain}`)
-    logger.table([
-      { label: 'Gateway', value: DOMAIN_CONFIG.local.gateway, status: 'ok' },
-      { label: 'Bazaar', value: DOMAIN_CONFIG.local.bazaar, status: 'ok' },
-      { label: 'Docs', value: DOMAIN_CONFIG.local.docs, status: 'ok' },
-    ])
   }
 
   logger.subheader('Test Wallet')
@@ -476,3 +513,218 @@ async function waitForever(): Promise<void> {
     /* never resolves */
   })
 }
+
+devCommand
+  .command('sync')
+  .description('Sync localnet contract addresses to config')
+  .action(async () => {
+    const rootDir = findMonorepoRoot()
+
+    const deploymentFile = join(
+      rootDir,
+      'packages/contracts/deployments/localnet-complete.json',
+    )
+    const configFile = join(rootDir, 'packages/config/contracts.json')
+
+    if (!existsSync(deploymentFile)) {
+      logger.error('No deployment file found. Run bootstrap first: jeju dev')
+      process.exit(1)
+    }
+
+    if (!existsSync(configFile)) {
+      logger.error('Config file not found: packages/config/contracts.json')
+      process.exit(1)
+    }
+
+    const { readFileSync, writeFileSync } = await import('node:fs')
+
+    interface BootstrapContracts {
+      jeju?: string
+      usdc?: string
+      elizaOS?: string
+      weth?: string
+      creditManager?: string
+      universalPaymaster?: string
+      serviceRegistry?: string
+      priceOracle?: string
+      tokenRegistry?: string
+      paymasterFactory?: string
+      entryPoint?: string
+      identityRegistry?: string
+      reputationRegistry?: string
+      validationRegistry?: string
+      nodeStakingManager?: string
+      nodePerformanceOracle?: string
+      poolManager?: string
+      swapRouter?: string
+      positionManager?: string
+      quoterV4?: string
+      stateView?: string
+      futarchyGovernor?: string
+      fileStorageManager?: string
+      banManager?: string
+      reputationLabelManager?: string
+      computeRegistry?: string
+      ledgerManager?: string
+      inferenceServing?: string
+      computeStaking?: string
+      riskSleeve?: string
+      liquidityRouter?: string
+      multiServiceStakeManager?: string
+      liquidityVault?: string
+    }
+
+    interface BootstrapResult {
+      contracts: BootstrapContracts
+    }
+
+    const deployment: BootstrapResult = JSON.parse(
+      readFileSync(deploymentFile, 'utf-8'),
+    )
+    const config = JSON.parse(readFileSync(configFile, 'utf-8'))
+
+    logger.header('SYNC LOCALNET CONFIG')
+    logger.step('Syncing localnet addresses to contracts.json...')
+
+    const contracts = deployment.contracts
+
+    // Update tokens
+    if (isValidAddress(contracts.jeju)) {
+      config.localnet.tokens.jeju = contracts.jeju
+      logger.info(`  tokens.jeju: ${contracts.jeju}`)
+    }
+    if (isValidAddress(contracts.usdc)) {
+      config.localnet.tokens.usdc = contracts.usdc
+      logger.info(`  tokens.usdc: ${contracts.usdc}`)
+    }
+    if (isValidAddress(contracts.elizaOS)) {
+      config.localnet.tokens.elizaOS = contracts.elizaOS
+      logger.info(`  tokens.elizaOS: ${contracts.elizaOS}`)
+    }
+
+    // Update registry
+    if (isValidAddress(contracts.identityRegistry)) {
+      config.localnet.registry.identity = contracts.identityRegistry
+      logger.info(`  registry.identity: ${contracts.identityRegistry}`)
+    }
+    if (isValidAddress(contracts.reputationRegistry)) {
+      config.localnet.registry.reputation = contracts.reputationRegistry
+      logger.info(`  registry.reputation: ${contracts.reputationRegistry}`)
+    }
+    if (isValidAddress(contracts.validationRegistry)) {
+      config.localnet.registry.validation = contracts.validationRegistry
+      logger.info(`  registry.validation: ${contracts.validationRegistry}`)
+    }
+
+    // Update moderation
+    if (isValidAddress(contracts.banManager)) {
+      config.localnet.moderation.banManager = contracts.banManager
+      logger.info(`  moderation.banManager: ${contracts.banManager}`)
+    }
+    if (isValidAddress(contracts.reputationLabelManager)) {
+      config.localnet.moderation.reputationLabelManager =
+        contracts.reputationLabelManager
+      logger.info(
+        `  moderation.reputationLabelManager: ${contracts.reputationLabelManager}`,
+      )
+    }
+
+    // Update nodeStaking
+    if (isValidAddress(contracts.nodeStakingManager)) {
+      config.localnet.nodeStaking.manager = contracts.nodeStakingManager
+      logger.info(`  nodeStaking.manager: ${contracts.nodeStakingManager}`)
+    }
+    if (isValidAddress(contracts.nodePerformanceOracle)) {
+      config.localnet.nodeStaking.performanceOracle =
+        contracts.nodePerformanceOracle
+      logger.info(
+        `  nodeStaking.performanceOracle: ${contracts.nodePerformanceOracle}`,
+      )
+    }
+
+    // Update payments
+    if (isValidAddress(contracts.tokenRegistry)) {
+      config.localnet.payments.tokenRegistry = contracts.tokenRegistry
+      logger.info(`  payments.tokenRegistry: ${contracts.tokenRegistry}`)
+    }
+    if (isValidAddress(contracts.paymasterFactory)) {
+      config.localnet.payments.paymasterFactory = contracts.paymasterFactory
+      logger.info(`  payments.paymasterFactory: ${contracts.paymasterFactory}`)
+    }
+    if (isValidAddress(contracts.priceOracle)) {
+      config.localnet.payments.priceOracle = contracts.priceOracle
+      logger.info(`  payments.priceOracle: ${contracts.priceOracle}`)
+    }
+    if (isValidAddress(contracts.universalPaymaster)) {
+      config.localnet.payments.multiTokenPaymaster =
+        contracts.universalPaymaster
+      logger.info(
+        `  payments.multiTokenPaymaster: ${contracts.universalPaymaster}`,
+      )
+    }
+
+    // Update defi
+    if (isValidAddress(contracts.poolManager)) {
+      config.localnet.defi.poolManager = contracts.poolManager
+      logger.info(`  defi.poolManager: ${contracts.poolManager}`)
+    }
+    if (isValidAddress(contracts.swapRouter)) {
+      config.localnet.defi.swapRouter = contracts.swapRouter
+      logger.info(`  defi.swapRouter: ${contracts.swapRouter}`)
+    }
+    if (isValidAddress(contracts.positionManager)) {
+      config.localnet.defi.positionManager = contracts.positionManager
+      logger.info(`  defi.positionManager: ${contracts.positionManager}`)
+    }
+    if (isValidAddress(contracts.quoterV4)) {
+      config.localnet.defi.quoterV4 = contracts.quoterV4
+      logger.info(`  defi.quoterV4: ${contracts.quoterV4}`)
+    }
+    if (isValidAddress(contracts.stateView)) {
+      config.localnet.defi.stateView = contracts.stateView
+      logger.info(`  defi.stateView: ${contracts.stateView}`)
+    }
+
+    // Update compute
+    if (isValidAddress(contracts.computeRegistry)) {
+      config.localnet.compute.registry = contracts.computeRegistry
+      logger.info(`  compute.registry: ${contracts.computeRegistry}`)
+    }
+    if (isValidAddress(contracts.ledgerManager)) {
+      config.localnet.compute.ledgerManager = contracts.ledgerManager
+      logger.info(`  compute.ledgerManager: ${contracts.ledgerManager}`)
+    }
+    if (isValidAddress(contracts.inferenceServing)) {
+      config.localnet.compute.inferenceServing = contracts.inferenceServing
+      logger.info(`  compute.inferenceServing: ${contracts.inferenceServing}`)
+    }
+    if (isValidAddress(contracts.computeStaking)) {
+      config.localnet.compute.staking = contracts.computeStaking
+      logger.info(`  compute.staking: ${contracts.computeStaking}`)
+    }
+
+    // Update liquidity
+    if (isValidAddress(contracts.riskSleeve)) {
+      config.localnet.liquidity.riskSleeve = contracts.riskSleeve
+      logger.info(`  liquidity.riskSleeve: ${contracts.riskSleeve}`)
+    }
+    if (isValidAddress(contracts.liquidityRouter)) {
+      config.localnet.liquidity.liquidityRouter = contracts.liquidityRouter
+      logger.info(`  liquidity.liquidityRouter: ${contracts.liquidityRouter}`)
+    }
+    if (isValidAddress(contracts.multiServiceStakeManager)) {
+      config.localnet.liquidity.multiServiceStakeManager =
+        contracts.multiServiceStakeManager
+      logger.info(
+        `  liquidity.multiServiceStakeManager: ${contracts.multiServiceStakeManager}`,
+      )
+    }
+    if (isValidAddress(contracts.liquidityVault)) {
+      config.localnet.liquidity.liquidityVault = contracts.liquidityVault
+      logger.info(`  liquidity.liquidityVault: ${contracts.liquidityVault}`)
+    }
+
+    // Save updated config
+    writeFileSync(configFile, `${JSON.stringify(config, null, 2)}\n`)
+    logger.success('Config updated: packages/config/contracts.json')
+  })

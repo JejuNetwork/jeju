@@ -5,7 +5,7 @@
  * and proxies API requests to the worker or standalone API server.
  */
 
-import { CORE_PORTS, getCoreAppUrl } from '@jejunetwork/config/ports'
+import { CORE_PORTS, getCoreAppUrl } from '@jejunetwork/config'
 
 const PORT = Number(process.env.PORT) || CORE_PORTS.BAZAAR.get()
 const API_URL = process.env.API_URL || getCoreAppUrl('BAZAAR_API')

@@ -186,6 +186,18 @@ export const CQL_SCHEMA = {
     'CREATE INDEX IF NOT EXISTS idx_cache_agent ON cache(agent_id)',
     'CREATE INDEX IF NOT EXISTS idx_cache_expires ON cache(expires_at)',
   ],
+
+  // Vector search table (powered by sqlite-vec)
+  // This is a vec0 virtual table for fast KNN similarity search
+  memory_embeddings: `
+    CREATE VIRTUAL TABLE IF NOT EXISTS memory_embeddings USING vec0(
+      embedding float[1536],
+      +memory_id TEXT,
+      +room_id TEXT,
+      +entity_id TEXT,
+      +agent_id TEXT
+    )
+  `,
 }
 
 /**
@@ -227,6 +239,21 @@ export async function runCQLMigrations(
   // Create indexes
   for (const indexSql of CQL_SCHEMA.indexes) {
     await cql.exec(indexSql, [], dbId)
+  }
+
+  // Create vector search table (sqlite-vec)
+  // This may fail if sqlite-vec is not loaded, which is OK for non-production
+  try {
+    await cql.exec(CQL_SCHEMA.memory_embeddings, [], dbId)
+    logger.info(
+      { src: 'cql-migrations', databaseId: dbId },
+      'Vector search table created (sqlite-vec)',
+    )
+  } catch (error) {
+    logger.warn(
+      { src: 'cql-migrations', databaseId: dbId, error },
+      'Vector search table creation failed - sqlite-vec may not be loaded',
+    )
   }
 
   logger.info(

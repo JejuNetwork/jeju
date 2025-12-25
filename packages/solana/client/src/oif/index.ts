@@ -41,7 +41,7 @@ export interface OIFConfig {
   totalVolume: bigint
 }
 
-// Import consolidated IntentStatus from @jejunetwork/types (OIF standard)
+// Import IntentStatus from @jejunetwork/types (OIF standard)
 import type { IntentStatus } from '@jejunetwork/types'
 export type { IntentStatus }
 

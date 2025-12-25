@@ -71,7 +71,7 @@ describe.skipIf(!kurtosisAvailable)('Chain Integration Tests', () => {
   describe('Basic Chain Functionality', () => {
     test('should get chain ID', async () => {
       const chainId = await publicClient.getChainId()
-      expect(chainId).toBe(1337)
+      expect(chainId).toBe(31337)
     })
 
     test('should get latest block', async () => {

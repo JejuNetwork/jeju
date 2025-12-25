@@ -20,8 +20,6 @@ import {
 import { privateKeyToAccount } from 'viem/accounts'
 import { base, mode, optimism, zora } from 'viem/chains'
 
-// ============ OP Superchain L2s ============
-
 interface SuperchainL2 {
   name: string
   chainId: number
@@ -164,9 +162,6 @@ const SUPERCHAIN_L2S: SuperchainL2[] = [
     superchainMember: true,
   },
 ]
-
-// ============ Contract ABIs ============
-
 const SUPERCHAIN_ORACLE_ABI = [
   {
     type: 'function',
@@ -210,9 +205,6 @@ const SUPERCHAIN_ORACLE_ABI = [
     stateMutability: 'nonpayable',
   },
 ] as const
-
-// ============ Configuration ============
-
 interface ChainDeployment {
   chainId: number
   superchainOracle: Address
@@ -240,9 +232,6 @@ function loadDeployments(): Map<number, ChainDeployment> {
 
   return deployments
 }
-
-// ============ Main Configuration ============
-
 async function configureSuperchainInterop() {
   console.log('🔗 Configuring Superchain Interop...\n')
 
@@ -352,9 +341,6 @@ async function configureSuperchainInterop() {
     console.log(`   ${deployed ? '✓' : '○'} ${l2.name} (${l2.chainId})`)
   }
 }
-
-// ============ Generate Configuration JSON ============
-
 function generateSuperchainConfig() {
   const config = {
     version: '1.0.0',
@@ -379,9 +365,6 @@ function generateSuperchainConfig() {
 
   return config
 }
-
-// ============ CLI ============
-
 const args = process.argv.slice(2)
 const command = args[0]
 

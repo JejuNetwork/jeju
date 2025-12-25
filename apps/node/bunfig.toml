@@ -1,3 +1,5 @@
+# Bun Configuration for Node App
+
 [serve.static]
 plugins = ["bun-plugin-tailwind"]
 
@@ -5,3 +7,4 @@ plugins = ["bun-plugin-tailwind"]
 coverage = true
 coverageDir = "./test-results/coverage"
 timeout = 30000
+# Unit tests are co-located with source files in api/, lib/, web/

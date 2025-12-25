@@ -1,7 +1,5 @@
 /**
- * Base Tool Handler
- *
- * Abstract base class for implementing MCP tool handlers
+ * Abstract base class for type-safe MCP tool handlers with Zod validation.
  */
 
 import type { infer as ZodInfer, ZodObject, ZodRawShape } from 'zod'
@@ -18,29 +16,6 @@ import {
   createValidator,
 } from '../utils/tool-args-validation'
 
-/**
- * Abstract base class for tool handlers
- *
- * Extend this class to create type-safe tool handlers with validation.
- *
- * @example
- * ```typescript
- * const GetUserSchema = z.object({
- *   userId: z.string().min(1),
- * });
- *
- * class GetUserHandler extends BaseToolHandler<typeof GetUserSchema> {
- *   name = 'get_user';
- *   description = 'Get user by ID';
- *   schema = GetUserSchema;
- *
- *   async execute(args: z.infer<typeof GetUserSchema>, agent: AuthenticatedAgent) {
- *     // Implementation
- *     return { id: args.userId, name: 'User' };
- *   }
- * }
- * ```
- */
 export abstract class BaseToolHandler<
   TSchema extends ZodObject<ZodRawShape>,
   TResult = JsonValue,

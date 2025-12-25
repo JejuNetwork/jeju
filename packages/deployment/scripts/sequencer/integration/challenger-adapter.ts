@@ -5,16 +5,14 @@
 import {
   type Address,
   createPublicClient,
-  getBlock,
   http,
   type PublicClient,
   parseAbi,
-  readContract,
   type WalletClient,
-  waitForTransactionReceipt,
   zeroAddress,
   zeroHash,
 } from 'viem'
+import { waitForTransactionReceipt } from 'viem/actions'
 import { inferChainFromRpcUrl } from '../../shared/chain-utils'
 
 const DISPUTE_GAME_ABI = parseAbi([
@@ -78,7 +76,7 @@ export class ChallengerAdapter {
   }
 
   private async checkOutputs() {
-    const latest = await readContract(this.l1PublicClient, {
+    const latest = await this.l1PublicClient.readContract({
       address: this.l2OutputAddress,
       abi: L2_OUTPUT_ABI,
       functionName: 'latestOutputIndex',
@@ -86,7 +84,7 @@ export class ChallengerAdapter {
     if (latest <= this.lastChecked) return
 
     for (let i = this.lastChecked + 1n; i <= latest; i++) {
-      const output = await readContract(this.l1PublicClient, {
+      const output = await this.l1PublicClient.readContract({
         address: this.l2OutputAddress,
         abi: L2_OUTPUT_ABI,
         functionName: 'getL2Output',
@@ -111,14 +109,14 @@ export class ChallengerAdapter {
     l2Block: bigint,
   ): Promise<boolean> {
     // Compute expected state root from L2
-    const block = await getBlock(this.l2PublicClient, { blockNumber: l2Block })
+    const block = await this.l2PublicClient.getBlock({ blockNumber: l2Block })
     if (!block) return false
     // Simplified: just check block exists. Real impl would compute full output root.
     return block.stateRoot !== zeroHash
   }
 
   private async challenge(outputRoot: `0x${string}`, l2Block: bigint) {
-    const bond = await readContract(this.l1PublicClient, {
+    const bond = await this.l1PublicClient.readContract({
       address: this.disputeGameAddress,
       abi: DISPUTE_GAME_ABI,
       functionName: 'bondAmount',
@@ -128,7 +126,9 @@ export class ChallengerAdapter {
       abi: DISPUTE_GAME_ABI,
       functionName: 'createGame',
       args: [zeroAddress, outputRoot, l2Block],
-      value: bond,
+      value: bond as bigint,
+      chain: null,
+      account: null,
     })
     console.log(`   Tx: ${hash}`)
     await waitForTransactionReceipt(this.l1PublicClient, { hash })

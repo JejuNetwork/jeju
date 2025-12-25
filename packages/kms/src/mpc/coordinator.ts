@@ -2,6 +2,7 @@
  * MPC Coordinator - Shamir's Secret Sharing for t-of-n key management
  */
 
+import { getEnvOrDefault } from '@jejunetwork/shared'
 import { type Hex, keccak256, toBytes, toHex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import {
@@ -537,8 +538,10 @@ export function getMPCCoordinator(
   config?: Partial<MPCCoordinatorConfig>,
 ): MPCCoordinator {
   if (!globalCoordinator) {
-    const network = (process.env.MPC_NETWORK ??
-      'localnet') as MPCCoordinatorConfig['network']
+    const network = getEnvOrDefault(
+      'MPC_NETWORK',
+      'localnet',
+    ) as MPCCoordinatorConfig['network']
     globalCoordinator = new MPCCoordinator({
       ...getMPCConfig(network),
       ...config,

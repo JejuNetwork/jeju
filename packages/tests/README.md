@@ -173,7 +173,7 @@ export { test, expect, connectAndVerify, verifyAuth } from './fixtures/synpress-
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `L2_RPC_URL` | RPC URL for chain | `http://localhost:6546` |
-| `CHAIN_ID` | Chain ID | `1337` |
+| `CHAIN_ID` | Chain ID | `31337` |
 | `SKIP_TEST_LOCK` | Skip lock acquisition | `false` |
 | `SKIP_PREFLIGHT` | Skip chain validation | `false` |
 | `SKIP_WARMUP` | Skip app warmup | `false` |

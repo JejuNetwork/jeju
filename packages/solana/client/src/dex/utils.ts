@@ -6,9 +6,7 @@ import {
 } from '@solana/web3.js'
 import type { DexType, PoolInfo, SwapQuote, SwapTransaction } from './types'
 
-// ============================================================================
 // AMM Swap Calculation
-// ============================================================================
 
 export interface AMMSwapParams {
   inputAmount: bigint
@@ -90,9 +88,7 @@ export function buildSwapQuote(params: {
   }
 }
 
-// ============================================================================
 // Transaction Building
-// ============================================================================
 
 /**
  * Build an empty placeholder transaction
@@ -117,9 +113,7 @@ export async function buildPlaceholderTransaction(
   }
 }
 
-// ============================================================================
 // Pool Filtering
-// ============================================================================
 
 export interface PoolFilterParams {
   tokenA?: PublicKey
@@ -164,9 +158,7 @@ export function getSwapReserves(
   }
 }
 
-// ============================================================================
 // Price/Tick Utilities (for CLMM pools)
-// ============================================================================
 
 /**
  * Convert price to tick index (for concentrated liquidity)
@@ -226,9 +218,7 @@ export function binIdToPrice(binId: number, binStep: number): number {
   return (1 + binStep / 10000) ** binId
 }
 
-// ============================================================================
 // Decimal Inference
-// ============================================================================
 
 /**
  * Infer token decimals from raw and human-readable amounts
@@ -239,9 +229,7 @@ export function inferDecimals(humanAmount: number, rawAmount: string): number {
   return Math.round(Math.log10(ratio))
 }
 
-// ============================================================================
 // Hex/Bytes Conversion
-// ============================================================================
 
 /**
  * Convert hex string to Uint8Array
@@ -297,9 +285,7 @@ export function bytesToEvmAddress(bytes: Uint8Array): string {
   )
 }
 
-// ============================================================================
 // Bonding Curve Calculations
-// ============================================================================
 
 export interface BondingCurveReserves {
   virtualSolReserves: bigint

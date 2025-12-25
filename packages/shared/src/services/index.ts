@@ -8,7 +8,6 @@
  * - KMS (Key Management)
  * - Cron (Scheduled Tasks)
  * - JNS (Jeju Name Service)
- * - Deploy (Deployment utilities)
  */
 
 // Cache
@@ -19,6 +18,16 @@ export {
   createCacheService,
   resetCacheService,
 } from './cache'
+// Content Versioning (Dev/Preview/Staging/Production)
+export {
+  type ContentResolution,
+  type ContentVersioningConfig,
+  ContentVersioningService,
+  createContentVersioningService,
+  type DeploymentMode,
+  getCurrentDeploymentMode,
+  isDevModeActive,
+} from './content-versioning'
 // Cron
 export {
   type CronConfig,
@@ -39,14 +48,19 @@ export {
   resetDatabaseService,
   type TransactionClient,
 } from './database'
-// Deploy
+// IPNS (Preview Deployments)
 export {
-  type DeployConfig,
-  type DeployResult,
-  deployApp,
-  generateMigrationSQL,
-  type MigrationConfig,
-} from './deploy'
+  createIPNSClient,
+  createPreviewManager,
+  decodeIPNSContenthash,
+  encodeIPNSContenthash,
+  getIPNSKeyName,
+  IPNSClient,
+  type IPNSKey,
+  type IPNSPublishResult,
+  type IPNSResolution,
+  PreviewDeploymentManager,
+} from './ipns'
 // JNS
 export {
   createJNSService,

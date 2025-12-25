@@ -20,11 +20,10 @@ import {
   http,
   type PublicClient,
   parseAbi,
-  readContract,
   type WalletClient,
-  waitForTransactionReceipt,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
+import { waitForTransactionReceipt } from 'viem/actions'
 import { expectValid, SignResponseSchema } from '../../schemas'
 import { inferChainFromRpcUrl } from '../shared/chain-utils'
 
@@ -60,20 +59,25 @@ interface SignerProcess {
 class P2PSigningTest {
   private publicClient: PublicClient
   private walletClient: WalletClient
+  private chain: ReturnType<typeof inferChainFromRpcUrl>
+  private account: ReturnType<typeof privateKeyToAccount>
   private signers: SignerProcess[] = []
   private submitterContractAddress?: Address
   private submitterAbi: ReturnType<typeof parseAbi>
 
   constructor() {
-    const chain = inferChainFromRpcUrl(RPC_URL)
-    const account = privateKeyToAccount(ACCOUNTS[0].privateKey as `0x${string}`)
-    this.publicClient = createPublicClient({ chain, transport: http(RPC_URL) })
-    this.walletClient = createWalletClient({
-      chain,
+    this.chain = inferChainFromRpcUrl(RPC_URL)
+    this.account = privateKeyToAccount(ACCOUNTS[0].privateKey as `0x${string}`)
+    this.publicClient = createPublicClient({
+      chain: this.chain,
       transport: http(RPC_URL),
-      account,
     })
-    this.submitterAbi = parseAbi([])
+    this.walletClient = createWalletClient({
+      chain: this.chain,
+      transport: http(RPC_URL),
+      account: this.account,
+    })
+    this.submitterAbi = parseAbi(['function placeholder() view returns (bool)'])
   }
 
   async startSigners(): Promise<void> {
@@ -142,12 +146,16 @@ class P2PSigningTest {
       args: [batchInbox, owner, BigInt(THRESHOLD)],
     })
 
-    const hash = await this.walletClient.sendTransaction({ data: deployData })
+    const hash = await this.walletClient.sendTransaction({
+      account: this.account,
+      chain: this.chain,
+      data: deployData,
+    })
     const receipt = await waitForTransactionReceipt(this.publicClient, { hash })
     const contractAddress =
       receipt.contractAddress ??
       getContractAddress({
-        from: this.walletClient.account.address,
+        from: this.account.address,
         nonce: BigInt(0),
       })
     this.submitterContractAddress = contractAddress
@@ -155,15 +163,17 @@ class P2PSigningTest {
 
     // Register all sequencers
     console.log('  Registering sequencers...')
-    for (const account of ACCOUNTS) {
+    for (const acct of ACCOUNTS) {
       const hash = await this.walletClient.writeContract({
+        account: this.account,
+        chain: this.chain,
         address: contractAddress,
         abi: this.submitterAbi,
         functionName: 'addSequencer',
-        args: [account.address as Address],
+        args: [acct.address as Address],
       })
       await waitForTransactionReceipt(this.publicClient, { hash })
-      console.log(`    Added sequencer: ${account.address}`)
+      console.log(`    Added sequencer: ${acct.address}`)
     }
     console.log('')
   }
@@ -177,12 +187,12 @@ class P2PSigningTest {
     // Get the digest from the contract (matches the contract's _hashTypedData)
     const contractAddr = this.submitterContractAddress
     if (!contractAddr) throw new Error('Contract not deployed')
-    const nonce = await readContract(this.publicClient, {
+    const nonce = (await this.publicClient.readContract({
       address: contractAddr,
       abi: this.submitterAbi,
       functionName: 'getCurrentNonce',
-    })
-    const digest = (await readContract(this.publicClient, {
+    })) as bigint
+    const digest = (await this.publicClient.readContract({
       address: contractAddr,
       abi: this.submitterAbi,
       functionName: 'getBatchDigest',
@@ -223,6 +233,8 @@ class P2PSigningTest {
 
     console.log('Submitting batch...')
     const hash = await this.walletClient.writeContract({
+      account: this.account,
+      chain: this.chain,
       address: contractAddr,
       abi: this.submitterAbi,
       functionName: 'submitBatch',
@@ -236,7 +248,7 @@ class P2PSigningTest {
     console.log(`  Batch submitted in tx: ${hash}`)
     console.log(`  Gas used: ${receipt.gasUsed.toString()}\n`)
 
-    const newNonce = await readContract(this.publicClient, {
+    const newNonce = await this.publicClient.readContract({
       address: contractAddr,
       abi: this.submitterAbi,
       functionName: 'getCurrentNonce',

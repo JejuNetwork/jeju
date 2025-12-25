@@ -1,8 +1,4 @@
-/**
- * jeju bots - Trading bot operations
- *
- * Exposes trading bots functionality from packages/bots/src/cli.ts
- */
+/** Trading bot operations */
 
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'

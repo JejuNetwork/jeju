@@ -1,0 +1,574 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Jeju Auth - Decentralized Authentication</title>
+    <meta
+      name="description"
+      content="OAuth3 authentication gateway for Jeju Network. Secure, decentralized login with wallet, Farcaster, and social providers."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg-primary: #050508;
+        --bg-secondary: #0a0a0f;
+        --bg-card: rgba(15, 15, 25, 0.8);
+        --accent: #64ffda;
+        --accent-dim: rgba(100, 255, 218, 0.15);
+        --text-primary: #e8e8ec;
+        --text-secondary: #8888a0;
+        --border: rgba(100, 255, 218, 0.12);
+        --purple: #8a63d2;
+        --gradient: linear-gradient(135deg, #64ffda 0%, #00bcd4 100%);
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: 'Space Grotesk', sans-serif;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        min-height: 100vh;
+        overflow-x: hidden;
+      }
+
+      /* Animated background */
+      .bg-pattern {
+        position: fixed;
+        inset: 0;
+        background-image: radial-gradient(
+            circle at 25% 25%,
+            rgba(100, 255, 218, 0.03) 0%,
+            transparent 50%
+          ),
+          radial-gradient(
+            circle at 75% 75%,
+            rgba(138, 99, 210, 0.03) 0%,
+            transparent 50%
+          );
+        pointer-events: none;
+      }
+
+      .grid-lines {
+        position: fixed;
+        inset: 0;
+        background-image: linear-gradient(
+            rgba(100, 255, 218, 0.02) 1px,
+            transparent 1px
+          ),
+          linear-gradient(90deg, rgba(100, 255, 218, 0.02) 1px, transparent 1px);
+        background-size: 60px 60px;
+        pointer-events: none;
+      }
+
+      .container {
+        position: relative;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 24px;
+      }
+
+      /* Header */
+      header {
+        padding: 24px 0;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .header-content {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        text-decoration: none;
+      }
+
+      .logo-icon {
+        width: 40px;
+        height: 40px;
+        background: var(--gradient);
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+      }
+
+      .logo-text {
+        font-size: 24px;
+        font-weight: 700;
+        background: var(--gradient);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      .nav-links {
+        display: flex;
+        gap: 32px;
+      }
+
+      .nav-links a {
+        color: var(--text-secondary);
+        text-decoration: none;
+        font-size: 14px;
+        font-weight: 500;
+        transition: color 0.2s;
+      }
+
+      .nav-links a:hover {
+        color: var(--accent);
+      }
+
+      /* Hero */
+      .hero {
+        padding: 120px 0 80px;
+        text-align: center;
+      }
+
+      .hero h1 {
+        font-size: 56px;
+        font-weight: 700;
+        line-height: 1.1;
+        margin-bottom: 24px;
+      }
+
+      .hero h1 span {
+        background: var(--gradient);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      .hero p {
+        font-size: 20px;
+        color: var(--text-secondary);
+        max-width: 600px;
+        margin: 0 auto 40px;
+        line-height: 1.6;
+      }
+
+      .hero-buttons {
+        display: flex;
+        gap: 16px;
+        justify-content: center;
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 16px 32px;
+        border-radius: 12px;
+        font-size: 16px;
+        font-weight: 600;
+        text-decoration: none;
+        transition: all 0.2s;
+        cursor: pointer;
+        border: none;
+        font-family: inherit;
+      }
+
+      .btn-primary {
+        background: var(--gradient);
+        color: var(--bg-primary);
+      }
+
+      .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(100, 255, 218, 0.3);
+      }
+
+      .btn-secondary {
+        background: var(--bg-card);
+        color: var(--text-primary);
+        border: 1px solid var(--border);
+      }
+
+      .btn-secondary:hover {
+        border-color: var(--accent);
+        background: var(--accent-dim);
+      }
+
+      /* Features */
+      .features {
+        padding: 80px 0;
+      }
+
+      .features-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 24px;
+      }
+
+      .feature-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 32px;
+        transition: all 0.3s;
+      }
+
+      .feature-card:hover {
+        border-color: var(--accent);
+        transform: translateY(-4px);
+      }
+
+      .feature-icon {
+        width: 48px;
+        height: 48px;
+        background: var(--accent-dim);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        margin-bottom: 20px;
+      }
+
+      .feature-card h3 {
+        font-size: 20px;
+        font-weight: 600;
+        margin-bottom: 12px;
+      }
+
+      .feature-card p {
+        color: var(--text-secondary);
+        font-size: 15px;
+        line-height: 1.6;
+      }
+
+      /* Providers */
+      .providers {
+        padding: 80px 0;
+        text-align: center;
+      }
+
+      .providers h2 {
+        font-size: 36px;
+        margin-bottom: 16px;
+      }
+
+      .providers > p {
+        color: var(--text-secondary);
+        margin-bottom: 48px;
+      }
+
+      .provider-grid {
+        display: flex;
+        justify-content: center;
+        gap: 24px;
+        flex-wrap: wrap;
+      }
+
+      .provider-item {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 24px 32px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 16px;
+        font-weight: 500;
+        transition: all 0.2s;
+      }
+
+      .provider-item:hover {
+        border-color: var(--accent);
+      }
+
+      .provider-item span:first-child {
+        font-size: 24px;
+      }
+
+      /* Code example */
+      .code-section {
+        padding: 80px 0;
+      }
+
+      .code-section h2 {
+        font-size: 36px;
+        margin-bottom: 16px;
+        text-align: center;
+      }
+
+      .code-section > p {
+        color: var(--text-secondary);
+        text-align: center;
+        margin-bottom: 48px;
+      }
+
+      .code-block {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        overflow: hidden;
+        max-width: 800px;
+        margin: 0 auto;
+      }
+
+      .code-header {
+        background: rgba(0, 0, 0, 0.3);
+        padding: 12px 20px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .code-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+      }
+
+      .code-dot.red {
+        background: #ff5f56;
+      }
+      .code-dot.yellow {
+        background: #ffbd2e;
+      }
+      .code-dot.green {
+        background: #27c93f;
+      }
+
+      .code-content {
+        padding: 24px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 14px;
+        line-height: 1.7;
+        overflow-x: auto;
+      }
+
+      .code-content .comment {
+        color: #6a9955;
+      }
+      .code-content .keyword {
+        color: #c586c0;
+      }
+      .code-content .string {
+        color: #ce9178;
+      }
+      .code-content .function {
+        color: #dcdcaa;
+      }
+      .code-content .variable {
+        color: #9cdcfe;
+      }
+
+      /* Footer */
+      footer {
+        padding: 40px 0;
+        border-top: 1px solid var(--border);
+        text-align: center;
+        color: var(--text-secondary);
+        font-size: 14px;
+      }
+
+      footer a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+
+      @media (max-width: 768px) {
+        .hero h1 {
+          font-size: 36px;
+        }
+        .features-grid {
+          grid-template-columns: 1fr;
+        }
+        .hero-buttons {
+          flex-direction: column;
+        }
+        .nav-links {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="bg-pattern"></div>
+    <div class="grid-lines"></div>
+
+    <header>
+      <div class="container header-content">
+        <a href="/" class="logo">
+          <div class="logo-icon">🔐</div>
+          <span class="logo-text">JEJU AUTH</span>
+        </a>
+        <nav class="nav-links">
+          <a href="https://docs.jejunetwork.org/auth">Docs</a>
+          <a href="https://gateway.jejunetwork.org">Gateway</a>
+          <a href="https://github.com/jejunetwork">GitHub</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="container">
+          <h1>
+            Decentralized<br />
+            <span>Authentication</span>
+          </h1>
+          <p>
+            OAuth3 authentication gateway for Jeju Network. Connect with wallet,
+            Farcaster, or social providers. Secure, private, and fully
+            decentralized.
+          </p>
+          <div class="hero-buttons">
+            <a
+              href="/oauth/authorize?client_id=jeju-default&redirect_uri=https://gateway.jejunetwork.org/callback"
+              class="btn btn-primary"
+            >
+              Try Demo Login
+            </a>
+            <a href="https://docs.jejunetwork.org/auth" class="btn btn-secondary">
+              Read the Docs
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <section class="features">
+        <div class="container">
+          <div class="features-grid">
+            <div class="feature-card">
+              <div class="feature-icon">🔐</div>
+              <h3>Wallet Native</h3>
+              <p>
+                Sign in with any EVM wallet. No passwords, no accounts to manage.
+                Your keys, your identity.
+              </p>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon">🛡️</div>
+              <h3>MPC Security</h3>
+              <p>
+                Session keys secured by threshold signing across TEE nodes. No
+                single point of failure.
+              </p>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon">🌐</div>
+              <h3>Fully Decentralized</h3>
+              <p>
+                Running on DWS infrastructure. No central servers, no data silos,
+                censorship resistant.
+              </p>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon">⚡</div>
+              <h3>OAuth2 Compatible</h3>
+              <p>
+                Drop-in replacement for traditional OAuth. Works with existing
+                libraries and frameworks.
+              </p>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon">🎫</div>
+              <h3>Verifiable Credentials</h3>
+              <p>
+                Issue and verify W3C credentials. Prove attributes without
+                revealing unnecessary data.
+              </p>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon">🔗</div>
+              <h3>Cross-Chain</h3>
+              <p>
+                Works across EVM chains, Solana, and more. One identity,
+                everywhere.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="providers">
+        <div class="container">
+          <h2>Supported Providers</h2>
+          <p>Connect with the identity provider of your choice</p>
+          <div class="provider-grid">
+            <div class="provider-item">
+              <span>🔐</span>
+              <span>Wallet</span>
+            </div>
+            <div class="provider-item">
+              <span>🟣</span>
+              <span>Farcaster</span>
+            </div>
+            <div class="provider-item">
+              <span>🐙</span>
+              <span>GitHub</span>
+            </div>
+            <div class="provider-item">
+              <span>🔵</span>
+              <span>Google</span>
+            </div>
+            <div class="provider-item">
+              <span>🐦</span>
+              <span>Twitter</span>
+            </div>
+            <div class="provider-item">
+              <span>💬</span>
+              <span>Discord</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="code-section">
+        <div class="container">
+          <h2>Simple Integration</h2>
+          <p>Add Jeju Auth to your app in minutes</p>
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-dot red"></span>
+              <span class="code-dot yellow"></span>
+              <span class="code-dot green"></span>
+            </div>
+            <pre class="code-content"><span class="comment">// Redirect to Jeju Auth</span>
+<span class="keyword">const</span> <span class="variable">authUrl</span> = <span class="keyword">new</span> <span class="function">URL</span>(<span class="string">'https://auth.jejunetwork.org/oauth/authorize'</span>)
+<span class="variable">authUrl</span>.searchParams.<span class="function">set</span>(<span class="string">'client_id'</span>, <span class="variable">YOUR_CLIENT_ID</span>)
+<span class="variable">authUrl</span>.searchParams.<span class="function">set</span>(<span class="string">'redirect_uri'</span>, <span class="variable">YOUR_CALLBACK_URL</span>)
+<span class="variable">authUrl</span>.searchParams.<span class="function">set</span>(<span class="string">'response_type'</span>, <span class="string">'code'</span>)
+
+window.location.href = <span class="variable">authUrl</span>.<span class="function">toString</span>()
+
+<span class="comment">// Handle callback</span>
+<span class="keyword">const</span> <span class="variable">code</span> = <span class="keyword">new</span> <span class="function">URLSearchParams</span>(window.location.search).<span class="function">get</span>(<span class="string">'code'</span>)
+<span class="keyword">const</span> <span class="variable">tokens</span> = <span class="keyword">await</span> <span class="function">fetch</span>(<span class="string">'https://auth.jejunetwork.org/oauth/token'</span>, {
+  method: <span class="string">'POST'</span>,
+  body: <span class="function">JSON.stringify</span>({ grant_type: <span class="string">'authorization_code'</span>, code })
+}).<span class="function">then</span>(<span class="variable">r</span> => <span class="variable">r</span>.<span class="function">json</span>())</pre>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="container">
+        <p>
+          Built by <a href="https://jejunetwork.org">Jeju Network</a> •
+          <a href="https://github.com/jejunetwork">Open Source</a>
+        </p>
+      </div>
+    </footer>
+
+    <script src="app.js" type="module"></script>
+  </body>
+</html>

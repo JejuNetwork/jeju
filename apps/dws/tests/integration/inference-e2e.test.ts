@@ -40,15 +40,13 @@ async function waitForServer(maxWaitMs = 30000): Promise<boolean> {
   return false
 }
 
-// ============================================================================
 // Server Lifecycle
-// ============================================================================
 
 beforeAll(async () => {
   // Start the DWS server
   console.log('[E2E] Starting DWS server on port', DWS_PORT)
 
-  serverProcess = Bun.spawn(['bun', 'run', 'src/server/index.ts'], {
+  serverProcess = Bun.spawn(['bun', 'run', 'api/server/index.ts'], {
     cwd: new URL('../../', import.meta.url).pathname,
     env: {
       ...process.env,
@@ -74,9 +72,7 @@ afterAll(() => {
   }
 })
 
-// ============================================================================
 // Health & Discovery Tests
-// ============================================================================
 
 describe('Server Health', () => {
   test('should respond to health check', async () => {
@@ -105,9 +101,7 @@ describe('Server Health', () => {
   })
 })
 
-// ============================================================================
 // API Marketplace Discovery Tests
-// ============================================================================
 
 describe('API Marketplace Discovery', () => {
   test('should list all providers', async () => {
@@ -187,9 +181,7 @@ describe('API Marketplace Discovery', () => {
   })
 })
 
-// ============================================================================
 // Account Tests
-// ============================================================================
 
 describe('Account Management', () => {
   test('should get account info', async () => {
@@ -238,9 +230,7 @@ describe('Account Management', () => {
   })
 })
 
-// ============================================================================
 // Proxy Tests (with mock if no API keys)
-// ============================================================================
 
 describe('Proxy Flow', () => {
   test('should reject proxy without address header', async () => {
@@ -295,9 +285,7 @@ describe('Proxy Flow', () => {
   })
 })
 
-// ============================================================================
 // OpenAI Integration (if configured)
-// ============================================================================
 
 describe('OpenAI Integration', () => {
   const skip = !process.env.OPENAI_API_KEY
@@ -353,9 +341,7 @@ describe('OpenAI Integration', () => {
   )
 })
 
-// ============================================================================
 // Anthropic Integration (if configured)
-// ============================================================================
 
 describe('Anthropic Integration', () => {
   const skip = !process.env.ANTHROPIC_API_KEY
@@ -405,9 +391,7 @@ describe('Anthropic Integration', () => {
   )
 })
 
-// ============================================================================
 // Groq Integration (if configured)
-// ============================================================================
 
 describe('Groq Integration', () => {
   const skip = !process.env.GROQ_API_KEY
@@ -457,9 +441,7 @@ describe('Groq Integration', () => {
   )
 })
 
-// ============================================================================
 // Marketplace Stats
-// ============================================================================
 
 describe('Marketplace Stats', () => {
   test('should get marketplace health', async () => {
@@ -486,9 +468,7 @@ describe('Marketplace Stats', () => {
   })
 })
 
-// ============================================================================
 // Summary
-// ============================================================================
 
 describe('E2E Test Summary', () => {
   test('should print configured providers', async () => {

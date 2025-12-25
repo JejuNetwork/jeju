@@ -4,9 +4,9 @@
  * Types for A2A server configuration and dependencies
  */
 
+import type { JsonValue } from '@jejunetwork/types'
 import type { AgentCapabilities, AgentProfile } from './a2a'
 import type {
-  JsonValue,
   PaymentMetadata,
   PaymentVerificationParams,
   PaymentVerificationResult,

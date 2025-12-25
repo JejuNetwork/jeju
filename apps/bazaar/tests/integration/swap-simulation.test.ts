@@ -21,9 +21,7 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 
-// =============================================================================
 // CONFIGURATION
-// =============================================================================
 
 const RPC_URL = process.env.L2_RPC_URL || 'http://localhost:6546'
 const CHAIN_ID = 420691 // network localnet chain ID
@@ -40,9 +38,7 @@ const localnet = {
   rpcUrls: { default: { http: [RPC_URL] } },
 }
 
-// =============================================================================
 // ABIS
-// =============================================================================
 
 const WETH_ABI = parseAbi([
   'function deposit() payable',
@@ -51,9 +47,7 @@ const WETH_ABI = parseAbi([
   'function approve(address spender, uint256 amount) returns (bool)',
 ])
 
-// =============================================================================
 // SETUP
-// =============================================================================
 
 let publicClient: PublicClient
 let walletClient: WalletClient
@@ -64,17 +58,17 @@ let skipTests = false
 function loadDeployment(filename: string): Record<string, string> {
   // Map filename to rawDeployments key
   const deploymentMap: Record<string, Record<string, string>> = {
-    'uniswap-v4-1337.json': rawDeployments.uniswapV4_1337 as Record<
+    'uniswap-v4-31337.json': rawDeployments.uniswapV4_1337 as Record<
       string,
       string
     >,
-    'bazaar-marketplace-1337.json':
+    'bazaar-marketplace-31337.json':
       rawDeployments.bazaarMarketplace1337 as Record<string, string>,
-    'erc20-factory-1337.json': rawDeployments.erc20Factory1337 as Record<
+    'erc20-factory-31337.json': rawDeployments.erc20Factory1337 as Record<
       string,
       string
     >,
-    'multi-token-system-1337.json':
+    'multi-token-system-31337.json':
       rawDeployments.multiTokenSystem1337 as Record<string, string>,
   }
   return deploymentMap[filename] || {}
@@ -101,7 +95,7 @@ beforeAll(async () => {
   }
   console.log(`\n✅ Connected to localnet`)
 
-  const v4Deployment = loadDeployment('uniswap-v4-1337.json')
+  const v4Deployment = loadDeployment('uniswap-v4-31337.json')
   swapRouter = v4Deployment.swapRouter as Address
   positionManager = v4Deployment.positionManager as Address
 
@@ -109,9 +103,7 @@ beforeAll(async () => {
   console.log(`   PositionManager: ${positionManager || 'NOT DEPLOYED'}`)
 })
 
-// =============================================================================
 // TESTS: WETH OPERATIONS
-// =============================================================================
 
 describe('WETH Operations', () => {
   test('should verify WETH contract exists', async () => {
@@ -191,9 +183,7 @@ describe('WETH Operations', () => {
   })
 })
 
-// =============================================================================
 // TESTS: SWAP EXECUTION
-// =============================================================================
 
 describe('Swap Execution', () => {
   test('should verify swap router is callable', async () => {
@@ -230,9 +220,7 @@ describe('Swap Execution', () => {
   })
 })
 
-// =============================================================================
 // TESTS: FEE VERIFICATION
-// =============================================================================
 
 describe('Fee Verification', () => {
   test('should verify 0.3% fee tier', async () => {
@@ -288,9 +276,7 @@ describe('Fee Verification', () => {
   })
 })
 
-// =============================================================================
 // TESTS: SLIPPAGE PROTECTION
-// =============================================================================
 
 describe('Slippage Protection', () => {
   test('should calculate minimum output with 0.5% slippage', async () => {
@@ -322,9 +308,7 @@ describe('Slippage Protection', () => {
   })
 })
 
-// =============================================================================
 // TESTS: PRICE IMPACT
-// =============================================================================
 
 describe('Price Impact', () => {
   test('should estimate price impact for small trade', async () => {
@@ -359,9 +343,7 @@ describe('Price Impact', () => {
   })
 })
 
-// =============================================================================
 // SUMMARY
-// =============================================================================
 
 describe('Swap Simulation Summary', () => {
   test('print summary', async () => {

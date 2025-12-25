@@ -6,6 +6,7 @@
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
+import { JsonValueSchema } from '@jejunetwork/types'
 import { z } from 'zod'
 
 // Schema for jeju manifest validation
@@ -75,6 +76,36 @@ const AppManifestSchema = z
       .optional(),
     decentralization: z
       .object({
+        worker: z
+          .object({
+            name: z.string(),
+            entrypoint: z.string(),
+            runtime: z.enum(['workerd', 'bun', 'node', 'deno']).optional(),
+            memory: z.number().optional(),
+            timeout: z.number().optional(),
+            memoryMb: z.number().optional(),
+            timeoutMs: z.number().optional(),
+            compatibilityDate: z.string().optional(),
+            compatibilityFlags: z.array(z.string()).optional(),
+            bindings: z.record(z.string(), JsonValueSchema).optional(),
+            secrets: z.array(z.string()).optional(),
+            routes: z
+              .array(
+                z.object({
+                  pattern: z.string(),
+                  zone: z.string().optional(),
+                }),
+              )
+              .optional(),
+            tee: z
+              .object({
+                required: z.boolean().optional(),
+                preferred: z.boolean().optional(),
+                platforms: z.array(z.string()).optional(),
+              })
+              .optional(),
+          })
+          .optional(),
         cdn: z
           .object({
             enabled: z.boolean().optional(),
@@ -105,8 +136,19 @@ const AppManifestSchema = z
             arweave: z.boolean().optional(),
             jnsName: z.string().optional(),
             buildDir: z.string().optional(),
+            buildCommand: z.string().optional(),
             spa: z.boolean().optional(),
             fallbackOrigins: z.array(z.string()).optional(),
+            cacheRules: z
+              .array(
+                z.object({
+                  pattern: z.string(),
+                  ttl: z.number(),
+                  staleWhileRevalidate: z.number().optional(),
+                  immutable: z.boolean().optional(),
+                }),
+              )
+              .optional(),
           })
           .optional(),
         robustness: z
@@ -116,6 +158,7 @@ const AppManifestSchema = z
             p2pFallback: z.boolean().optional(),
             contentAddressed: z.boolean().optional(),
           })
+          .passthrough()
           .optional(),
       })
       .optional(),

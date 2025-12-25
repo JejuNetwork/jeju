@@ -7,7 +7,16 @@
  * - Device-bound credentials
  */
 
+import { getEnv } from '@jejunetwork/shared'
 import { toHex } from 'viem'
+import { z } from 'zod'
+
+// WebAuthn client data schema
+const ClientDataSchema = z.object({
+  type: z.string(),
+  challenge: z.string(),
+  origin: z.string(),
+})
 
 export interface PasskeyCredential {
   id: string
@@ -91,8 +100,8 @@ interface PublicKeyCredentialRequestOptions {
 }
 
 const CHALLENGE_EXPIRY = 5 * 60 * 1000 // 5 minutes
-const RP_NAME = process.env.OAUTH3_RP_NAME ?? 'OAuth3'
-const RP_ID = process.env.OAUTH3_RP_ID ?? 'localhost'
+const RP_NAME = getEnv('OAUTH3_RP_NAME') ?? 'OAuth3'
+const RP_ID = getEnv('OAUTH3_RP_ID') ?? 'localhost'
 
 export class PasskeyManager {
   private credentials = new Map<string, PasskeyCredential[]>()
@@ -195,9 +204,9 @@ export class PasskeyManager {
     }
 
     // Verify clientDataJSON
-    const clientData = JSON.parse(
-      new TextDecoder().decode(response.response.clientDataJSON),
-    ) as { type: string; challenge: string; origin: string }
+    const clientData = ClientDataSchema.parse(
+      JSON.parse(new TextDecoder().decode(response.response.clientDataJSON)),
+    )
 
     if (clientData.type !== 'webauthn.create') {
       return { success: false, error: 'Invalid client data type' }
@@ -355,9 +364,9 @@ export class PasskeyManager {
     }
 
     // Verify clientDataJSON
-    const clientData = JSON.parse(
-      new TextDecoder().decode(response.response.clientDataJSON),
-    ) as { type: string; challenge: string; origin: string }
+    const clientData = ClientDataSchema.parse(
+      JSON.parse(new TextDecoder().decode(response.response.clientDataJSON)),
+    )
 
     if (clientData.type !== 'webauthn.get') {
       return { success: false, error: 'Invalid client data type' }

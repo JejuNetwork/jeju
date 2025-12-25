@@ -1,6 +1,6 @@
 /**
  * Decentralized Secrets Loader
- * 
+ *
  * Loads secrets from the KMS SecretVault and injects them into the environment.
  * Supports app-specific secrets, automatic rotation detection, and audit logging.
  */
@@ -211,7 +211,7 @@ export interface AppSecretsConfig {
 // Validate that all required secrets are present
 export function validateSecrets(config: AppSecretsConfig, loaded: Record<string, string>): void {
   const missing = config.required.filter((name) => !loaded[name]);
-  
+
   if (missing.length > 0) {
     throw new Error(`Missing required secrets: ${missing.join(', ')}`);
   }
@@ -261,7 +261,7 @@ export function resetSecretsLoaders(): void {
 
 /**
  * Initialize app secrets from vault or environment
- * 
+ *
  * @param appName - The app name (e.g., 'leaderboard', 'council')
  * @param config - Required and optional secrets configuration
  * @returns Loaded secrets
@@ -272,22 +272,22 @@ export async function initializeSecrets(
 ): Promise<Record<string, string>> {
   // Check if vault is configured
   const vaultEndpoint = process.env.VAULT_ENDPOINT ?? process.env.DA_ENDPOINT;
-  
+
   if (vaultEndpoint && process.env.USE_VAULT !== 'false') {
     console.log(`[Secrets] Loading from vault for ${appName}`);
-    
+
     const loader = getSecretsLoader(appName);
     const secrets = await loader.loadAll();
     validateSecrets(config, secrets);
     await loader.inject();
-    
+
     return secrets;
   }
-  
+
   // Fall back to environment variables
   console.log(`[Secrets] Loading from environment for ${appName}`);
   const secrets = loadSecretsFromEnv(config);
   validateSecrets(config, secrets);
-  
+
   return secrets;
 }

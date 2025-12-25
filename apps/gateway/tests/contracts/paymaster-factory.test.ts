@@ -6,6 +6,13 @@
 import { beforeAll, describe, expect, test } from 'bun:test'
 import { getContractAddresses, getPublicClient } from '../fixtures/contracts'
 
+// Contract result types
+interface PaymasterDeployment {
+  paymaster: `0x${string}`
+  vault: `0x${string}`
+  distributor: `0x${string}`
+}
+
 describe('PaymasterFactory Contract', () => {
   const publicClient = getPublicClient()
   let addresses: Awaited<ReturnType<typeof getContractAddresses>>
@@ -149,11 +156,7 @@ describe('PaymasterFactory Contract', () => {
         ],
         functionName: 'getDeployment',
         args: [deployments[0]],
-      })) as {
-        paymaster: `0x${string}`
-        vault: `0x${string}`
-        distributor: `0x${string}`
-      }
+      })) as PaymasterDeployment
 
       // All three contracts should be deployed (non-zero addresses)
       expect(deployment.paymaster).not.toBe(

@@ -10,8 +10,8 @@
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import type { Address } from 'viem'
-import { resetConfig } from '../../src/x402/config'
-import { clearNonceCache } from '../../src/x402/services/nonce-manager'
+import { resetConfig } from '../../api/x402/config'
+import { clearNonceCache } from '../../api/x402/services/nonce-manager'
 import {
   calculateProtocolFee,
   cleanupStalePendingSettlements,
@@ -19,7 +19,7 @@ import {
   formatAmount,
   getPendingSettlementsCount,
   getRetryConfig,
-} from '../../src/x402/services/settler'
+} from '../../api/x402/services/settler'
 
 const USDC: Address = '0x0165878A594ca255338adfa4d48449f69242Eb8F'
 

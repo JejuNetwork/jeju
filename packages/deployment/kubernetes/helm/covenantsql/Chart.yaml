@@ -1,0 +1,19 @@
+apiVersion: v2
+name: covenantsql
+description: CovenantSQL Decentralized Database Cluster for Jeju Network
+type: application
+version: 1.0.0
+appVersion: "0.8.1"
+keywords:
+  - database
+  - decentralized
+  - sql
+  - cql
+  - jeju
+home: https://jejunetwork.org
+sources:
+  - https://github.com/elizaos/jeju
+maintainers:
+  - name: Jeju Network
+    email: infra@jejunetwork.org
+dependencies: []

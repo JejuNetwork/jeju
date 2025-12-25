@@ -14,6 +14,7 @@ import {
   useState,
 } from 'react'
 import type { Address, Hex } from 'viem'
+import { z } from 'zod'
 import {
   type AuthProvider,
   createOAuth3Client,
@@ -23,7 +24,14 @@ import {
   type OAuth3Event,
   type OAuth3Session,
   type VerifiableCredential,
-} from '../index.js'
+} from '../index'
+
+// Event data schema for extracting session
+const SessionEventDataSchema = z
+  .object({
+    session: z.unknown().optional(),
+  })
+  .optional()
 
 export interface OAuth3ProviderProps {
   children: ReactNode
@@ -110,10 +118,13 @@ export function OAuth3Provider({
   // Listen for client events
   useEffect(() => {
     const handleLogin = (event: OAuth3Event) => {
-      const data = event.data as { session?: OAuth3Session } | undefined
-      if (data?.session) {
-        setSession(data.session)
-        onSessionChange?.(data.session)
+      const parsed = SessionEventDataSchema.safeParse(event.data)
+      const session = parsed.success
+        ? (parsed.data?.session as OAuth3Session | undefined)
+        : undefined
+      if (session) {
+        setSession(session)
+        onSessionChange?.(session)
       }
     }
 
@@ -123,10 +134,13 @@ export function OAuth3Provider({
     }
 
     const handleSessionRefresh = (event: OAuth3Event) => {
-      const data = event.data as { session?: OAuth3Session } | undefined
-      if (data?.session) {
-        setSession(data.session)
-        onSessionChange?.(data.session)
+      const parsed = SessionEventDataSchema.safeParse(event.data)
+      const session = parsed.success
+        ? (parsed.data?.session as OAuth3Session | undefined)
+        : undefined
+      if (session) {
+        setSession(session)
+        onSessionChange?.(session)
       }
     }
 

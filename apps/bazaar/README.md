@@ -25,7 +25,7 @@ WALLETCONNECT_PROJECT_ID=your_project_id
 NETWORK=localnet
 
 # Override defaults (optional - uses centralized config by default)
-CHAIN_ID=1337
+CHAIN_ID=31337
 RPC_URL=http://localhost:6546
 INDEXER_URL=http://localhost:4350/graphql
 ```

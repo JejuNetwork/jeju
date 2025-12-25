@@ -1,6 +1,5 @@
 /**
- * Moderation Marketplace Types
- * Shared types for ban checking and moderation across all network apps
+ * Moderation marketplace types.
  */
 
 import { z } from 'zod'
@@ -11,13 +10,11 @@ import {
   MAX_STRING_LENGTH,
 } from './validation'
 
-// ============ Consts ============
-
 export const BanType = {
   NONE: 0,
-  ON_NOTICE: 1, // Immediate flag, pending market
-  CHALLENGED: 2, // Target staked, market active
-  PERMANENT: 3, // Market resolved, ban confirmed
+  ON_NOTICE: 1,
+  CHALLENGED: 2,
+  PERMANENT: 3,
 } as const
 export type BanType = (typeof BanType)[keyof typeof BanType]
 
@@ -25,6 +22,31 @@ export const BanTypeSchema = z.enum([...Object.values(BanType).map(String)] as [
   string,
   ...string[],
 ])
+
+export const ReportType = {
+  NETWORK_BAN: 0,
+  APP_BAN: 1,
+  LABEL_HACKER: 2,
+  LABEL_SCAMMER: 3,
+} as const
+export type ReportType = (typeof ReportType)[keyof typeof ReportType]
+
+export const SeverityLevel = {
+  LOW: 0,
+  MEDIUM: 1,
+  HIGH: 2,
+  CRITICAL: 3,
+} as const
+export type SeverityLevel = (typeof SeverityLevel)[keyof typeof SeverityLevel]
+
+export const ReportStatus = {
+  PENDING: 0,
+  VOTING: 1,
+  RESOLVED_YES: 2,
+  RESOLVED_NO: 3,
+  CANCELLED: 4,
+} as const
+export type ReportStatus = (typeof ReportStatus)[keyof typeof ReportStatus]
 
 export const BanStatus = {
   NONE: 'NONE',
@@ -76,9 +98,6 @@ export type ReputationTier =
 export const ReputationTierSchema = z.enum([
   ...Object.values(ReputationTier).map(String),
 ] as [string, ...string[]])
-
-// ============ Interfaces ============
-
 export const BanRecordSchema = z.object({
   isBanned: z.boolean(),
   banType: BanTypeSchema,
@@ -180,9 +199,6 @@ export const QuorumStatusSchema = z.object({
   reporters: z.array(AddressSchema).max(MAX_ARRAY_LENGTH),
 })
 export type QuorumStatus = z.infer<typeof QuorumStatusSchema>
-
-// ============ Contract ABIs ============
-
 export const BAN_MANAGER_ABI = [
   {
     name: 'isAddressBanned',
@@ -489,9 +505,6 @@ export const MODERATION_MARKETPLACE_ABI = [
     outputs: [],
   },
 ] as const
-
-// ============ Helper Functions ============
-
 /**
  * Convert app name to bytes32 appId
  */

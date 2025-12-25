@@ -14,12 +14,9 @@
  * - Visualization and reporting
  */
 
+export type { BacktestResult } from '../types'
 // Core simulation
-export {
-  type BacktestConfig,
-  Backtester,
-  type BacktestResult,
-} from './backtester'
+export { type BacktestConfig, Backtester } from './backtester'
 export { HistoricalDataFetcher, type PriceCandle } from './data-fetcher'
 // Economic modeling
 export {

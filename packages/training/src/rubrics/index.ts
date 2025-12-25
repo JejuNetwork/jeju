@@ -8,9 +8,7 @@
  * @packageDocumentation
  */
 
-// ============================================================================
 // Types
-// ============================================================================
 
 /**
  * LLM Judge Rubric Definition
@@ -52,9 +50,7 @@ export interface RubricRegistry {
   clear(): void
 }
 
-// ============================================================================
 // Default Rubric
-// ============================================================================
 
 /**
  * Default rubric for general agent evaluation
@@ -92,9 +88,7 @@ Score differences should reflect meaningful performance gaps.
   version: '1.0.0',
 }
 
-// ============================================================================
 // Registry Implementation
-// ============================================================================
 
 /** Internal registry storage */
 const registry = new Map<string, JudgeRubric>()
@@ -252,9 +246,7 @@ export function getAllRubrics(): JudgeRubric[] {
   return Array.from(registry.values())
 }
 
-// ============================================================================
 // Registry Object Export
-// ============================================================================
 
 /**
  * The global rubric registry instance
@@ -270,9 +262,7 @@ export const rubricRegistry: RubricRegistry = {
   clear: clearRubrics,
 }
 
-// ============================================================================
 // Initialize Default Rubric
-// ============================================================================
 
 // Register the default rubric on module load
 registerOrUpdateRubric(DEFAULT_RUBRIC)

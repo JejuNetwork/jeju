@@ -8,7 +8,7 @@
   
   "localnet": {
     "hub": {
-      "chainId": 1337,
+      "chainId": 31337,
       "name": "Jeju Localnet",
       "rpcUrl": "http://localhost:6546",
       "l1StakeManager": "",

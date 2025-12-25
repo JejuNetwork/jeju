@@ -1,6 +1,4 @@
-/**
- * Infrastructure deployment and management commands
- */
+/** Infrastructure deployment and management commands */
 
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
@@ -13,10 +11,6 @@ import { createInfrastructureService } from '../services/infrastructure'
 const infraCommand = new Command('infra')
   .description('Infrastructure deployment and management')
   .alias('infrastructure')
-
-// ============================================================================
-// Local Development Infrastructure
-// ============================================================================
 
 infraCommand
   .command('start')
@@ -127,9 +121,66 @@ infraCommand
     })
   })
 
-// ============================================================================
-// Cloud Infrastructure (Terraform/Helm)
-// ============================================================================
+infraCommand
+  .command('indexer')
+  .description('Start the blockchain indexer')
+  .option('--db-only', 'Only start the database')
+  .option('--rebuild', 'Rebuild from scratch (drop database)')
+  .option('--port <port>', 'GraphQL API port', '4350')
+  .action(async (options) => {
+    const rootDir = findMonorepoRoot()
+    const indexerPath = join(rootDir, 'apps/indexer')
+
+    if (!existsSync(indexerPath)) {
+      logger.error('Indexer app not found')
+      return
+    }
+
+    logger.header('INDEXER')
+
+    // Start database if needed
+    await execa('bun', ['run', 'db:up'], {
+      cwd: indexerPath,
+      stdio: 'inherit',
+    }).catch(() => {
+      logger.warn('Database may already be running')
+    })
+
+    if (options.dbOnly) {
+      logger.success('Database started')
+      return
+    }
+
+    if (options.rebuild) {
+      await execa('bun', ['run', 'db:drop'], {
+        cwd: indexerPath,
+        stdio: 'inherit',
+      }).catch(() => {})
+      await execa('bun', ['run', 'db:create'], {
+        cwd: indexerPath,
+        stdio: 'inherit',
+      })
+    }
+
+    logger.step('Running migrations...')
+    await execa('bun', ['run', 'db:migrate'], {
+      cwd: indexerPath,
+      stdio: 'inherit',
+    })
+
+    logger.step('Starting indexer...')
+    logger.keyValue('GraphQL API', `http://localhost:${options.port}/graphql`)
+    logger.newline()
+
+    await execa('bun', ['run', 'dev'], {
+      cwd: indexerPath,
+      stdio: 'inherit',
+      env: {
+        ...process.env,
+        GQL_PORT: options.port,
+      },
+    })
+  })
 
 infraCommand
   .command('validate')
@@ -285,10 +336,6 @@ infraCommand
     })
   })
 
-// ============================================================================
-// Docker Image Building
-// ============================================================================
-
 infraCommand
   .command('build-images')
   .description('Build Docker images for all apps')
@@ -355,10 +402,6 @@ infraCommand
     },
   )
 
-// ============================================================================
-// Monitoring & Observability
-// ============================================================================
-
 infraCommand
   .command('sync-alerts')
   .description('Sync Prometheus alerts to Kubernetes ConfigMap')
@@ -409,10 +452,6 @@ infraCommand
     })
   })
 
-// ============================================================================
-// Node Management
-// ============================================================================
-
 infraCommand
   .command('auto-update')
   .description('Start auto-update daemon for node management')
@@ -437,10 +476,6 @@ infraCommand
       stdio: 'inherit',
     })
   })
-
-// ============================================================================
-// Validation
-// ============================================================================
 
 infraCommand
   .command('validate-helm')

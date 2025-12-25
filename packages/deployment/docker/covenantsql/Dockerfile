@@ -1,5 +1,9 @@
-# CovenantSQL Multi-Architecture Build
+# CovenantSQL Multi-Architecture Build with sqlite-vec Vector Search
 # Builds for both amd64 and arm64 architectures
+#
+# Features:
+# - CovenantSQL distributed database
+# - sqlite-vec for vector similarity search (MIT/Apache-2.0)
 #
 # Build locally (single platform):
 #   docker buildx build --platform linux/arm64 -t covenantsql:latest --load .
@@ -8,6 +12,7 @@
 #   docker buildx build --platform linux/amd64,linux/arm64 -t $ECR_REPO:latest --push .
 
 ARG GO_VERSION=1.21
+ARG SQLITE_VEC_VERSION=v0.1.6
 
 # Build stage - use Debian for glibc compatibility (required for sqlite3)
 FROM golang:${GO_VERSION}-bookworm AS builder
@@ -18,14 +23,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     make \
     gcc \
     libc6-dev \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build
+
+# Clone sqlite-vec source for CGO integration
+ARG SQLITE_VEC_VERSION
+RUN git clone --depth 1 --branch ${SQLITE_VEC_VERSION} https://github.com/asg017/sqlite-vec.git /sqlite-vec || \
+    git clone --depth 1 https://github.com/asg017/sqlite-vec.git /sqlite-vec
 
 # Clone CovenantSQL source
 ARG CQL_VERSION=v0.8.1
 RUN git clone --depth 1 --branch ${CQL_VERSION} https://github.com/CovenantSQL/CovenantSQL.git . || \
     git clone --depth 1 https://github.com/CovenantSQL/CovenantSQL.git .
+
+# Add sqlite-vec Go bindings to dependencies
+RUN go get -u github.com/asg017/sqlite-vec-go-bindings/cgo@latest
 
 # Download Go modules first (separate layer for better caching)
 # Use multiple proxies for reliability
@@ -36,7 +50,8 @@ RUN go mod download || (sleep 5 && go mod download) || (sleep 10 && go mod downl
 # Build output directory
 RUN mkdir -p /out
 
-# Build with CGO enabled (required for secp256k1 and sqlite3)
+# Build with CGO enabled (required for secp256k1, sqlite3, and sqlite-vec)
+# sqlite-vec is statically linked via the Go bindings
 # Build each binary separately for better cache utilization
 RUN CGO_ENABLED=1 go build -ldflags="-s -w" -o /out/cql ./cmd/cql
 RUN CGO_ENABLED=1 go build -ldflags="-s -w" -o /out/cqld ./cmd/cqld

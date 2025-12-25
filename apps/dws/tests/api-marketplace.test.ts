@@ -67,9 +67,7 @@ import {
 const TEST_USER: Address = '0x1234567890123456789012345678901234567890'
 const TEST_SELLER: Address = '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd'
 
-// ============================================================================
 // Provider Tests
-// ============================================================================
 
 describe('Providers', () => {
   test('should have all expected providers', () => {
@@ -123,9 +121,7 @@ describe('Providers', () => {
   })
 })
 
-// ============================================================================
 // Registry Tests (require CQL)
-// ============================================================================
 
 describe.skipIf(!CQL_AVAILABLE)('Registry', () => {
   const testApiKey = 'sk-test-key-12345678901234567890'
@@ -224,9 +220,7 @@ describe.skipIf(!CQL_AVAILABLE)('Registry', () => {
   })
 })
 
-// ============================================================================
 // Account Tests (require CQL)
-// ============================================================================
 
 describe.skipIf(!CQL_AVAILABLE)('Accounts', () => {
   // Use unique addresses per test run to avoid accumulation issues
@@ -291,9 +285,7 @@ describe.skipIf(!CQL_AVAILABLE)('Accounts', () => {
   })
 })
 
-// ============================================================================
 // Key Vault Tests
-// ============================================================================
 
 describe('Key Vault', () => {
   const testApiKey = 'sk-real-test-key-abcdef1234567890'
@@ -382,9 +374,7 @@ describe('Key Vault', () => {
   })
 })
 
-// ============================================================================
 // Sanitizer Tests
-// ============================================================================
 
 describe('Sanitizer', () => {
   test('should sanitize OpenAI-style keys', () => {
@@ -473,9 +463,7 @@ describe('Sanitizer', () => {
   })
 })
 
-// ============================================================================
 // Access Control Tests
-// ============================================================================
 
 describe('Access Control', () => {
   describe('Domain Control', () => {
@@ -651,9 +639,7 @@ describe('Access Control', () => {
   })
 })
 
-// ============================================================================
 // Payment Tests (some require CQL)
-// ============================================================================
 
 describe('Payments', () => {
   test('should create 402 response', () => {
@@ -723,9 +709,7 @@ describe('Payments', () => {
   })
 })
 
-// ============================================================================
 // Integration Tests (require CQL)
-// ============================================================================
 
 describe.skipIf(!CQL_AVAILABLE)('Integration', () => {
   test('should perform full listing creation flow', async () => {

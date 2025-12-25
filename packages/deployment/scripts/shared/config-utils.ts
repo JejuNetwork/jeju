@@ -13,27 +13,21 @@
  * ```
  */
 
-import type { Account, Hex } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
 import {
   type EILChainConfig,
   getConfig,
   getCurrentNetwork,
+  getDeployerConfig,
   getEILChains,
+  getExplorerKeyForChain,
   getExternalRpc,
   type NetworkType,
-} from '../../packages/config'
-import { getExplorerKeyForChain } from '../../packages/config/api-keys'
-import { getActiveProvider, requireSecret } from '../../packages/config/secrets'
-import {
-  getTestKeys,
-  type KeyRole,
-  testnetKeysExist,
-} from '../../packages/config/test-keys'
+  TEST_ACCOUNTS,
+} from '@jejunetwork/config'
+import type { Account, Hex } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
 
-// ============================================================================
 // Script-Friendly Helpers
-// ============================================================================
 
 /**
  * Get network from CLI args or environment
@@ -87,22 +81,27 @@ export async function getDeployerAccount(
 ): Promise<Account> {
   const net = network ?? getNetworkFromArgs()
 
-  // For localnet, use test keys
+  // For localnet, use test accounts as fallback
   if (net === 'localnet') {
-    const keys = getTestKeys('localnet')
-    return privateKeyToAccount(keys.keys.deployer.privateKey as Hex)
+    const key =
+      process.env.DEPLOYER_PRIVATE_KEY ?? TEST_ACCOUNTS.DEPLOYER.privateKey
+    return privateKeyToAccount(key as Hex)
   }
 
-  // For testnet, check generated keys first, then env
-  if (net === 'testnet' && testnetKeysExist()) {
-    const keys = getTestKeys('testnet')
-    return privateKeyToAccount(keys.keys.deployer.privateKey as Hex)
-  }
-
-  // Fall back to environment/secrets
-  const privateKey = await requireSecret('DEPLOYER_PRIVATE_KEY')
-  return privateKeyToAccount(privateKey as Hex)
+  // For testnet/mainnet, use getDeployerConfig which requires explicit env vars
+  const config = getDeployerConfig()
+  return privateKeyToAccount(config.privateKey as Hex)
 }
+
+/** Role to private key mapping */
+type KeyRole =
+  | 'deployer'
+  | 'sequencer'
+  | 'batcher'
+  | 'proposer'
+  | 'challenger'
+  | 'user1'
+  | 'user2'
 
 /**
  * Get private key for a role
@@ -113,28 +112,31 @@ export async function getPrivateKeyForRole(
 ): Promise<Hex> {
   const net = network ?? getNetworkFromArgs()
 
-  if (net === 'localnet' || (net === 'testnet' && testnetKeysExist())) {
-    const keys = getTestKeys(net)
-    return keys.keys[role].privateKey as Hex
+  // For localnet, use test accounts for common roles
+  if (net === 'localnet') {
+    if (role === 'deployer') return TEST_ACCOUNTS.DEPLOYER.privateKey as Hex
+    if (role === 'user1') return TEST_ACCOUNTS.USER_1.privateKey as Hex
+    if (role === 'user2') return TEST_ACCOUNTS.USER_2.privateKey as Hex
   }
 
-  // Fall back to environment for specific roles
-  const envMapping: Partial<Record<KeyRole, string>> = {
+  // For all other cases, require explicit environment variables
+  const envMapping: Record<KeyRole, string> = {
     deployer: 'DEPLOYER_PRIVATE_KEY',
     sequencer: 'SEQUENCER_PRIVATE_KEY',
     batcher: 'BATCHER_PRIVATE_KEY',
     proposer: 'PROPOSER_PRIVATE_KEY',
     challenger: 'CHALLENGER_PRIVATE_KEY',
+    user1: 'USER1_PRIVATE_KEY',
+    user2: 'USER2_PRIVATE_KEY',
   }
 
   const envName = envMapping[role]
-  if (!envName) {
-    throw new Error(`No environment variable mapping for role: ${role}`)
+  const key = process.env[envName]
+  if (!key) {
+    throw new Error(`Missing ${envName} environment variable for role: ${role}`)
   }
 
-  return (await requireSecret(
-    envName as Parameters<typeof requireSecret>[0],
-  )) as Hex
+  return key as Hex
 }
 
 /**
@@ -218,7 +220,6 @@ export function isCI(): boolean {
 export function printDeploymentInfo(network?: NetworkType): void {
   const net = network ?? getNetworkFromArgs()
   const config = getDeployConfig(net)
-  const provider = getActiveProvider()
 
   console.log(`
 ╔══════════════════════════════════════════════════════════════════════════════╗
@@ -229,13 +230,10 @@ Network:     ${net}
 Chain ID:    ${config.chainId}
 RPC URL:     ${config.rpcUrl}
 Explorer:    ${config.explorerUrl}
-Secrets:     ${provider.toUpperCase()}
 `)
 }
 
-// ============================================================================
 // Validation
-// ============================================================================
 
 /**
  * Validate deployment prerequisites

@@ -21,7 +21,7 @@ export const CHAIN_TO_DOMAIN: Partial<Record<ChainId, number>> = {
   420690: 420690, // Jeju Testnet
   420691: 420691, // Jeju Mainnet
   // Local development (no Hyperlane, but domain ID = chain ID)
-  1337: 1337, // Localnet
+
   31337: 31337, // Local EVM
   // SVM
   'solana-mainnet': 1399811149,

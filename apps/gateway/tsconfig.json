@@ -5,15 +5,19 @@
     "noEmit": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],
+      "@/*": ["./api/*", "./web/*"],
       "@jejunetwork/shared": ["../../packages/shared/src/index.ts"],
-      "@jejunetwork/shared/*": ["../../packages/shared/src/*"]
+      "@jejunetwork/shared/*": ["../../packages/shared/src/*"],
+      "@jejunetwork/contracts": ["../../packages/contracts/ts/index.ts"],
+      "@jejunetwork/contracts/*": ["../../packages/contracts/ts/*"]
     },
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noImplicitReturns": false,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "strictNullChecks": false,
+    "types": ["bun", "react", "react-dom"]
   },
-  "include": ["src"],
-  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "node_modules", "../dws"]
+  "include": ["api/**/*", "web/**/*", "lib/**/*", "*.ts"],
+  "exclude": ["**/*.test.ts", "**/*.test.tsx", "node_modules", "tests/**/*"]
 }

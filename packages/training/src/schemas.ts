@@ -1,15 +1,8 @@
 /**
- * @fileoverview Zod validation schemas for training package
- * @module training/schemas
- *
- * Provides runtime validation for all training-related API requests and responses.
+ * Training API validation schemas.
  */
 
 import { z } from 'zod'
-
-// ============================================================================
-// Atropos Schemas
-// ============================================================================
 
 export const MessageSchema = z.object({
   role: z.enum(['system', 'user', 'assistant']),
@@ -17,7 +10,6 @@ export const MessageSchema = z.object({
   reward: z.number().optional(),
 })
 
-/** Parameter value type for generation/overrides */
 const ParamValueSchema = z.union([
   z.string().max(4096),
   z.number().finite(),
@@ -75,10 +67,6 @@ export const DisconnectEnvSchema = z
     env_id: z.number().int().nonnegative().max(65535),
   })
   .strict()
-
-// ============================================================================
-// DWS Client Response Schemas
-// ============================================================================
 
 export const JobIdResponseSchema = z
   .object({
@@ -193,9 +181,7 @@ export const JobsListResponseSchema = z
   })
   .strict()
 
-// ============================================================================
 // Inferred Types
-// ============================================================================
 
 export type Message = z.infer<typeof MessageSchema>
 export type ScoredData = z.infer<typeof ScoredDataSchema>
@@ -205,9 +191,7 @@ export type DisconnectEnv = z.infer<typeof DisconnectEnvSchema>
 export type DWSJobStatus = z.infer<typeof DWSJobStatusSchema>
 export type JudgeResult = z.infer<typeof JudgeResultSchema>
 
-// ============================================================================
 // External API Response Schemas
-// ============================================================================
 
 /** Valid external job status values */
 export const ExternalJobStatusSchema = z.enum([
@@ -329,9 +313,7 @@ export const CompletionResponseSchema = z
   })
   .strict()
 
-// ============================================================================
 // Atropos Server Response Schemas (for tests)
-// ============================================================================
 
 /** Health check status values */
 export const HealthStatusSchema = z.enum(['healthy', 'unhealthy', 'degraded'])

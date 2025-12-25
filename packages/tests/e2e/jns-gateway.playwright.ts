@@ -26,7 +26,7 @@ const JNS_GATEWAY_PORT = parseInt(process.env.JNS_GATEWAY_PORT || '4005', 10)
 const JNS_GATEWAY_URL = `http://localhost:${JNS_GATEWAY_PORT}`
 
 const chain = {
-  id: 1337,
+  id: 31337,
   name: 'Network Local',
   nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
   rpcUrls: { default: { http: [RPC_URL] } },

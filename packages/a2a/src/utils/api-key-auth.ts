@@ -125,9 +125,11 @@ export function validateApiKey(
   return { authenticated: true }
 }
 
+import { getEnv } from '@jejunetwork/shared'
+
 /**
  * Get the required API key from environment
  */
 export function getRequiredApiKey(): string | undefined {
-  return process.env.A2A_API_KEY
+  return getEnv('A2A_API_KEY')
 }

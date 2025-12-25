@@ -231,7 +231,7 @@ class StorageServiceImpl implements StorageService {
       headers,
       body: formData,
       signal: AbortSignal.timeout(60000),
-    }).catch((err: Error) => {
+    }).catch((err: Error): null => {
       console.error('[Storage] Upload failed:', err.message)
       this.available = false
       return null

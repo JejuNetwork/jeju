@@ -4,7 +4,7 @@
   "defaultCommunityVault": "0x0000000000000000000000000000000000000000",
   "xlpV2Factory": "0x0000000000000000000000000000000000000000",
   "weth": "0x4200000000000000000000000000000000000006",
-  "chainId": 1337,
+  "chainId": 31337,
   "_note": "TokenLaunchpad contracts - populate after deployment with scripts/deploy-launchpad.ts"
 }
 

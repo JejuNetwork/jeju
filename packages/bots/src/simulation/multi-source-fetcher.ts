@@ -15,11 +15,111 @@
  * - Stress test scenario data (2020 COVID, 2022 Terra/FTX)
  */
 
+import { z } from 'zod'
 import type { Token } from '../types'
+
+// External API response schemas
+const DefiLlamaPriceSchema = z.object({
+  coins: z
+    .record(
+      z.string(),
+      z.object({
+        prices: z.array(z.object({ timestamp: z.number(), price: z.number() })),
+      }),
+    )
+    .optional()
+    .default({}),
+})
+
+const DefiLlamaTVLSchema = z.object({
+  tvl: z
+    .array(z.object({ date: z.number(), totalLiquidityUSD: z.number() }))
+    .optional()
+    .default([]),
+})
+
+const DefiLlamaYieldSchema = z.object({
+  data: z
+    .array(
+      z.object({ timestamp: z.string(), apy: z.number(), tvlUsd: z.number() }),
+    )
+    .optional()
+    .default([]),
+})
+
+const HeliusTransactionSchema = z.array(
+  z.object({
+    timestamp: z.number(),
+    signature: z.string(),
+    fee: z.number(),
+    feePayer: z.string(),
+    type: z.string(),
+    slot: z.number(),
+    tokenTransfers: z
+      .array(
+        z.object({
+          mint: z.string(),
+          tokenAmount: z.number(),
+          fromUserAccount: z.string(),
+          toUserAccount: z.string(),
+        }),
+      )
+      .optional(),
+  }),
+)
+
+// JSON-RPC response schemas
+const RpcBlockResponseSchema = z.object({
+  result: z
+    .object({
+      timestamp: z.string(),
+      baseFeePerGas: z.string().optional(),
+      gasUsed: z.string(),
+      gasLimit: z.string(),
+    })
+    .optional(),
+})
+
+const RpcLogsResponseSchema = z.object({
+  result: z
+    .array(
+      z.object({
+        blockNumber: z.string(),
+        data: z.string(),
+        transactionHash: z.string(),
+      }),
+    )
+    .optional(),
+})
+
+const CodexMevResponseSchema = z.object({
+  data: z
+    .object({
+      mevTransactions: z
+        .object({
+          nodes: z.array(
+            z.object({
+              timestamp: z.number(),
+              type: z.string(),
+              profitUsd: z.number(),
+              gasUsed: z.string(),
+              gasPrice: z.string(),
+              txHash: z.string(),
+              successful: z.boolean(),
+              searcher: z.string(),
+            }),
+          ),
+        })
+        .optional(),
+    })
+    .optional(),
+})
+
+const DefiLlamaCurrentPriceSchema = z.object({
+  coins: z.record(z.string(), z.object({ price: z.number() })).optional(),
+})
+
 import type { PriceDataPoint } from './backtester'
-
-// ============ Types ============
-
 export interface GasDataPoint {
   timestamp: number
   chainId: number
@@ -73,9 +173,6 @@ export interface DataSourceConfig {
   codexApiKey?: string
   coingeckoApiKey?: string
 }
-
-// ============ Constants ============
-
 const DEFI_LLAMA_BASE = 'https://api.llama.fi'
 const DEFI_LLAMA_COINS = 'https://coins.llama.fi'
 const HELIUS_BASE = 'https://api.helius.xyz/v0'
@@ -183,9 +280,6 @@ export const STRESS_SCENARIOS: StressTestScenario[] = [
     ],
   },
 ]
-
-// ============ Multi-Source Fetcher ============
-
 // Cache entry type - stores arbitrary serializable data with expiration
 interface CacheEntry<T = Map<number, number> | number | object> {
   data: T
@@ -208,9 +302,6 @@ export class MultiSourceFetcher {
       coingeckoApiKey: config.coingeckoApiKey ?? process.env.COINGECKO_API_KEY,
     }
   }
-
-  // ============ DeFi Llama Integration ============
-
   /**
    * Fetch historical prices from DeFi Llama (free, no API key needed)
    */
@@ -284,15 +375,11 @@ export class MultiSourceFetcher {
       return new Map()
     }
 
-    const data = (await response.json()) as {
-      coins: Record<
-        string,
-        { prices: Array<{ timestamp: number; price: number }> }
-      >
-    }
+    const rawData: unknown = await response.json()
+    const data = DefiLlamaPriceSchema.parse(rawData)
     const priceMap = new Map<number, number>()
 
-    const coinData = data.coins?.[tokenId]
+    const coinData = data.coins[tokenId]
     if (coinData?.prices) {
       for (const point of coinData.prices) {
         priceMap.set(point.timestamp * 1000, point.price)
@@ -316,13 +403,12 @@ export class MultiSourceFetcher {
     const response = await this.fetchWithRateLimit('defillama', url)
     if (!response.ok) return []
 
-    const data = (await response.json()) as {
-      tvl: Array<{ date: number; totalLiquidityUSD: number }>
-    }
+    const rawData: unknown = await response.json()
+    const data = DefiLlamaTVLSchema.parse(rawData)
     const startTs = startDate.getTime() / 1000
     const endTs = endDate.getTime() / 1000
 
-    return (data.tvl ?? [])
+    return data.tvl
       .filter((p) => p.date >= startTs && p.date <= endTs)
       .map((p) => ({ timestamp: p.date * 1000, tvlUsd: p.totalLiquidityUSD }))
   }
@@ -338,19 +424,15 @@ export class MultiSourceFetcher {
     const response = await this.fetchWithRateLimit('defillama', url)
     if (!response.ok) return []
 
-    const data = (await response.json()) as {
-      data: Array<{ timestamp: string; apy: number; tvlUsd: number }>
-    }
+    const rawData: unknown = await response.json()
+    const data = DefiLlamaYieldSchema.parse(rawData)
 
-    return (data.data ?? []).map((p) => ({
+    return data.data.map((p) => ({
       timestamp: new Date(p.timestamp).getTime(),
       apy: p.apy,
       tvlUsd: p.tvlUsd,
     }))
   }
-
-  // ============ Helius Integration (Solana) ============
-
   /**
    * Fetch Solana historical transactions for MEV analysis
    */
@@ -369,20 +451,8 @@ export class MultiSourceFetcher {
     const response = await this.fetchWithRateLimit('helius', url)
     if (!response.ok) return []
 
-    const txs = (await response.json()) as Array<{
-      timestamp: number
-      signature: string
-      fee: number
-      feePayer: string
-      type: string
-      slot: number
-      tokenTransfers?: Array<{
-        mint: string
-        tokenAmount: number
-        fromUserAccount: string
-        toUserAccount: string
-      }>
-    }>
+    const rawData: unknown = await response.json()
+    const txs = HeliusTransactionSchema.parse(rawData)
     const startTs = startDate.getTime() / 1000
     const endTs = endDate.getTime() / 1000
 
@@ -433,9 +503,6 @@ export class MultiSourceFetcher {
 
     return prices
   }
-
-  // ============ Alchemy Integration (EVM) ============
-
   /**
    * Fetch historical gas prices from Alchemy
    */
@@ -475,17 +542,11 @@ export class MultiSourceFetcher {
 
       if (!response.ok) continue
 
-      const data = (await response.json()) as {
-        result?: {
-          timestamp: string
-          baseFeePerGas?: string
-          gasUsed: string
-          gasLimit: string
-        }
-      }
-      if (!data.result) continue
+      const rawData: unknown = await response.json()
+      const parseResult = RpcBlockResponseSchema.safeParse(rawData)
+      if (!parseResult.success || !parseResult.data.result) continue
 
-      const blockData = data.result
+      const blockData = parseResult.data.result
       gasData.push({
         timestamp: parseInt(blockData.timestamp, 16) * 1000,
         chainId,
@@ -540,16 +601,11 @@ export class MultiSourceFetcher {
 
     if (!response.ok) return []
 
-    const data = (await response.json()) as {
-      result?: Array<{
-        blockNumber: string
-        data: string
-        transactionHash: string
-      }>
-    }
-    if (!data.result) return []
+    const rawLogsData: unknown = await response.json()
+    const logsResult = RpcLogsResponseSchema.safeParse(rawLogsData)
+    if (!logsResult.success || !logsResult.data.result) return []
 
-    return data.result.map((log) => {
+    return logsResult.data.result.map((log) => {
       // Decode Sync event: reserve0, reserve1
       const reserve0 = BigInt(`0x${log.data.slice(2, 66)}`)
       const reserve1 = BigInt(`0x${log.data.slice(66, 130)}`)
@@ -568,9 +624,6 @@ export class MultiSourceFetcher {
       }
     })
   }
-
-  // ============ Codex Integration ============
-
   /**
    * Fetch MEV data from Codex indexed data
    */
@@ -621,24 +674,11 @@ export class MultiSourceFetcher {
 
     if (!response.ok) return []
 
-    const data = (await response.json()) as {
-      data?: {
-        mevTransactions?: {
-          nodes: Array<{
-            timestamp: number
-            txHash: string
-            type: string
-            profitUsd: number
-            gasUsed: string
-            gasPrice: string
-            successful: boolean
-            searcher: string
-          }>
-        }
-      }
-    }
+    const rawMevData: unknown = await response.json()
+    const mevResult = CodexMevResponseSchema.safeParse(rawMevData)
+    if (!mevResult.success) return []
 
-    return (data.data?.mevTransactions?.nodes ?? []).map((tx) => ({
+    return (mevResult.data.data?.mevTransactions?.nodes ?? []).map((tx) => ({
       timestamp: tx.timestamp * 1000,
       chainId,
       type: tx.type as 'arbitrage' | 'sandwich' | 'liquidation',
@@ -650,9 +690,6 @@ export class MultiSourceFetcher {
       successful: tx.successful,
     }))
   }
-
-  // ============ Stress Test Data ============
-
   /**
    * Fetch data for a specific stress test scenario
    */
@@ -686,9 +723,6 @@ export class MultiSourceFetcher {
   getStressScenarios(): StressTestScenario[] {
     return STRESS_SCENARIOS
   }
-
-  // ============ Multi-Chain Opportunity Scanner ============
-
   /**
    * Scan for arbitrage opportunities across all supported chains
    */
@@ -729,11 +763,12 @@ export class MultiSourceFetcher {
         const response = await this.fetchWithRateLimit('defillama', url)
         if (!response.ok) continue
 
-        const data = (await response.json()) as {
-          coins?: Record<string, { price: number }>
-        }
-        if (data.coins?.[llamaId]) {
-          pricesByChain.set(chainId, data.coins[llamaId].price)
+        const rawPriceData: unknown = await response.json()
+        const priceResult = DefiLlamaCurrentPriceSchema.safeParse(rawPriceData)
+        if (!priceResult.success) continue
+
+        if (priceResult.data.coins?.[llamaId]) {
+          pricesByChain.set(chainId, priceResult.data.coins[llamaId].price)
         }
       }
 
@@ -769,9 +804,6 @@ export class MultiSourceFetcher {
 
     return opportunities.sort((a, b) => b.spreadBps - a.spreadBps)
   }
-
-  // ============ Helpers ============
-
   private getTokenLlamaId(token: Token): string | null {
     const chainMap: Record<number, string> = {
       1: 'ethereum',
@@ -782,7 +814,10 @@ export class MultiSourceFetcher {
       56: 'bsc',
     }
 
-    const chainName = chainMap[token.chainId as number]
+    // Only EVM chain IDs (numbers) are supported by DeFi Llama
+    if (typeof token.chainId !== 'number') return null
+
+    const chainName = chainMap[token.chainId]
     if (!chainName) return null
 
     return `${chainName}:${token.address}`

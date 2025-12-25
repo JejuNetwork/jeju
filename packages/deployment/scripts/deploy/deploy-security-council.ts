@@ -25,17 +25,19 @@ import {
   type Address,
   createPublicClient,
   createWalletClient,
-  decodeEventLog,
   encodeFunctionData,
   formatEther,
   getContractAddress,
   http,
   isAddress,
   keccak256,
+  type PublicClient,
   parseAbi,
   toBytes,
+  type WalletClient,
   zeroAddress,
 } from 'viem'
+import type { PrivateKeyAccount } from 'viem/accounts'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import { inferChainFromRpcUrl } from '../shared/chain-utils'
 
@@ -87,8 +89,9 @@ async function encodeSafeSetup(config: SafeConfig): Promise<`0x${string}`> {
 }
 
 async function deploySafe(
-  publicClient: ReturnType<typeof createPublicClient>,
-  walletClient: ReturnType<typeof createWalletClient>,
+  publicClient: PublicClient,
+  walletClient: WalletClient,
+  account: PrivateKeyAccount,
   config: SafeConfig,
 ): Promise<Address> {
   const proxyFactoryAbi = parseAbi(SAFE_PROXY_FACTORY_ABI)
@@ -105,6 +108,8 @@ async function deploySafe(
     abi: proxyFactoryAbi,
     functionName: 'createProxyWithNonce',
     args: [SAFE_SINGLETON as Address, setupData, saltNonce],
+    chain: null,
+    account,
   })
   console.log(`  TX: ${hash}`)
 
@@ -120,19 +125,14 @@ async function deploySafe(
     throw new Error('ProxyCreation event not found')
   }
 
-  const decoded = decodeEventLog({
-    abi: proxyFactoryAbi,
-    eventName: 'ProxyCreation',
-    topics: logs[0].topics as [`0x${string}`, ...`0x${string}`[]],
-    data: logs[0].data,
-  })
-  const safeAddress = (decoded.args as { proxy: Address }).proxy
+  // Extract proxy address from indexed event parameter
+  const safeAddress = logs[0].topics[1] as Address
 
   return safeAddress
 }
 
 async function verifySafe(
-  publicClient: ReturnType<typeof createPublicClient>,
+  publicClient: PublicClient,
   safeAddress: Address,
   expectedConfig: SafeConfig,
 ): Promise<boolean> {
@@ -151,21 +151,24 @@ async function verifySafe(
     }),
   ])
 
+  const ownersResult = owners as Address[]
+  const thresholdResult = threshold as bigint
+
   console.log('Verifying Safe configuration...')
-  console.log(`  Owners: ${owners.length}`)
-  console.log(`  Threshold: ${threshold}`)
+  console.log(`  Owners: ${ownersResult.length}`)
+  console.log(`  Threshold: ${thresholdResult}`)
 
   // Verify threshold
-  if (Number(threshold) !== expectedConfig.threshold) {
+  if (Number(thresholdResult) !== expectedConfig.threshold) {
     console.log(
-      `  ❌ Threshold mismatch: expected ${expectedConfig.threshold}, got ${threshold}`,
+      `  ❌ Threshold mismatch: expected ${expectedConfig.threshold}, got ${thresholdResult}`,
     )
     return false
   }
 
   // Verify owners
   const expectedOwnersLower = expectedConfig.owners.map((o) => o.toLowerCase())
-  const actualOwnersLower = owners.map((o: Address) => o.toLowerCase())
+  const actualOwnersLower = ownersResult.map((o) => o.toLowerCase())
 
   for (const owner of expectedOwnersLower) {
     if (!actualOwnersLower.includes(owner)) {
@@ -323,7 +326,12 @@ async function main(): Promise<void> {
   }
 
   try {
-    const safeAddress = await deploySafe(publicClient, walletClient, config)
+    const safeAddress = await deploySafe(
+      publicClient,
+      walletClient,
+      deployerAccount,
+      config,
+    )
     console.log(`\n✅ Security Council Safe deployed: ${safeAddress}`)
 
     // Verify configuration

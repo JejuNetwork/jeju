@@ -4,18 +4,67 @@
  * Builds:
  * 1. Static frontend (dist/static/) - for IPFS/CDN deployment
  * 2. Worker bundle (dist/worker/) - for DWS serverless deployment
+ *
+ * Uses shared build utilities from @jejunetwork/shared
  */
 
 import { existsSync } from 'node:fs'
-import { cp, mkdir, rm } from 'node:fs/promises'
+import { rm } from 'node:fs/promises'
+import { resolve } from 'node:path'
+import type { BunPlugin } from 'bun'
+import { buildCSS } from './build-css'
 
 const DIST_DIR = './dist'
 const STATIC_DIR = `${DIST_DIR}/static`
 const WORKER_DIR = `${DIST_DIR}/worker`
 
+// Plugin to shim server-only modules, dedupe React, and resolve workspace packages
+const browserPlugin: BunPlugin = {
+  name: 'browser-plugin',
+  setup(build) {
+    // Shim pino
+    build.onResolve({ filter: /^pino(-pretty)?$/ }, () => ({
+      path: resolve('./scripts/shims/pino.ts'),
+    }))
+
+    // Dedupe React
+    const reactPath = require.resolve('react')
+    const reactDomPath = require.resolve('react-dom')
+    build.onResolve({ filter: /^react$/ }, () => ({ path: reactPath }))
+    build.onResolve({ filter: /^react\/jsx-runtime$/ }, () => ({
+      path: require.resolve('react/jsx-runtime'),
+    }))
+    build.onResolve({ filter: /^react\/jsx-dev-runtime$/ }, () => ({
+      path: require.resolve('react/jsx-dev-runtime'),
+    }))
+    build.onResolve({ filter: /^react-dom$/ }, () => ({ path: reactDomPath }))
+    build.onResolve({ filter: /^react-dom\/client$/ }, () => ({
+      path: require.resolve('react-dom/client'),
+    }))
+
+    // Resolve workspace packages to their source files to ensure proper bundling
+    build.onResolve({ filter: /^@jejunetwork\/oauth3$/ }, () => ({
+      path: resolve('../../packages/oauth3/src/index.ts'),
+    }))
+    build.onResolve({ filter: /^@jejunetwork\/oauth3\/(.*)$/ }, (args) => ({
+      path: resolve(`../../packages/oauth3/src/${args.path.split('/')[1]}.ts`),
+    }))
+    build.onResolve({ filter: /^@jejunetwork\/shared$/ }, () => ({
+      path: resolve('../../packages/shared/src/index.ts'),
+    }))
+    build.onResolve({ filter: /^@jejunetwork\/shared\/(.*)$/ }, (args) => ({
+      path: resolve(`../../packages/shared/src/${args.path.split('/')[1]}.ts`),
+    }))
+    build.onResolve({ filter: /^@jejunetwork\/types$/ }, () => ({
+      path: resolve('../../packages/types/src/index.ts'),
+    }))
+  },
+}
+
 // External packages that should not be bundled for browser
+// Only include Node.js-specific packages that truly cannot run in browser
 const BROWSER_EXTERNALS = [
-  // Node.js builtins
+  // Node.js builtins that have no browser equivalent
   'bun:sqlite',
   'child_process',
   'http2',
@@ -26,18 +75,24 @@ const BROWSER_EXTERNALS = [
   'dns',
   'stream',
   'crypto',
+  'module',
+  'worker_threads',
   'node:url',
   'node:fs',
   'node:path',
   'node:crypto',
   'node:events',
-  // Packages with Node.js-specific code
-  '@jejunetwork/config',
-  '@jejunetwork/shared',
-  '@jejunetwork/sdk',
-  '@jejunetwork/oauth3',
+  'node:module',
+  'node:worker_threads',
+  // Server-only packages
   '@jejunetwork/deployment',
-  '@jejunetwork/contracts',
+  '@jejunetwork/db',
+  '@jejunetwork/kms',
+  'elysia',
+  '@elysiajs/*',
+  'ioredis',
+  'pino',
+  'pino-pretty',
 ]
 
 // External packages for worker build
@@ -51,21 +106,46 @@ const WORKER_EXTERNALS = [
 ]
 
 async function buildFrontend(): Promise<void> {
-  console.log('📦 Building static frontend...')
+  console.log('Building static frontend...')
 
   const result = await Bun.build({
-    entrypoints: ['./src/client.tsx'],
+    entrypoints: ['./web/client.tsx'],
     outdir: STATIC_DIR,
     target: 'browser',
-    splitting: true,
+    splitting: false, // Disable splitting to ensure defines apply correctly
+    packages: 'bundle', // Bundle all packages
     minify: true,
     sourcemap: 'external',
     external: BROWSER_EXTERNALS,
+    plugins: [browserPlugin],
     define: {
       'process.env.NODE_ENV': JSON.stringify('production'),
       'process.env.PUBLIC_API_URL': JSON.stringify(
         process.env.PUBLIC_API_URL || '',
       ),
+      'process.browser': 'true',
+      'globalThis.process': JSON.stringify({
+        env: {
+          NODE_ENV: 'production',
+          PUBLIC_API_URL: process.env.PUBLIC_API_URL || '',
+        },
+        browser: true,
+      }),
+      process: JSON.stringify({
+        env: {
+          NODE_ENV: 'production',
+          PUBLIC_API_URL: process.env.PUBLIC_API_URL || '',
+        },
+        browser: true,
+      }),
+      // Vite-style environment variables
+      'import.meta.env': JSON.stringify({
+        VITE_NETWORK: 'localnet',
+        MODE: 'production',
+        DEV: false,
+        PROD: true,
+      }),
+      'import.meta.env.VITE_NETWORK': JSON.stringify('localnet'),
     },
     naming: {
       entry: '[name]-[hash].js',
@@ -75,7 +155,7 @@ async function buildFrontend(): Promise<void> {
   })
 
   if (!result.success) {
-    console.error('❌ Frontend build failed:')
+    console.error('Frontend build failed:')
     for (const log of result.logs) {
       console.error(log)
     }
@@ -88,11 +168,12 @@ async function buildFrontend(): Promise<void> {
   )
   const mainFileName = mainEntry ? mainEntry.path.split('/').pop() : 'client.js'
 
-  // Copy CSS
-  const css = await Bun.file('./src/globals.css').text()
-  await Bun.write(`${STATIC_DIR}/globals.css`, css)
+  // Build CSS with Tailwind (properly processed, no CDN)
+  console.log('Processing Tailwind CSS...')
+  const cssContent = await buildCSS()
+  await Bun.write(`${STATIC_DIR}/styles.css`, cssContent)
 
-  // Create index.html
+  // Create index.html (no Tailwind CDN - CSS is bundled)
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -100,27 +181,14 @@ async function buildFrontend(): Promise<void> {
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
   <meta name="theme-color" content="#0D0B14" media="(prefers-color-scheme: dark)">
   <meta name="theme-color" content="#FFFBF7" media="(prefers-color-scheme: light)">
-  <title>Bazaar - Agent Marketplace on the network</title>
+  <title>Bazaar - Agent Marketplace on the Network</title>
   <meta name="description" content="The fun, light-hearted marketplace for tokens, NFTs, prediction markets, and more.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/styles.css">
   <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            'bazaar-primary': '#FF6B35',
-            'bazaar-accent': '#00D9C0',
-            'bazaar-purple': '#7C3AED',
-          }
-        }
-      }
-    }
-  </script>
-  <script>
+    // Theme detection
     (function() {
       try {
         const savedTheme = localStorage.getItem('bazaar-theme');
@@ -131,8 +199,12 @@ async function buildFrontend(): Promise<void> {
         }
       } catch (e) {}
     })();
+    // Runtime config
+    window.__JEJU_CONFIG__ = ${JSON.stringify({
+      apiUrl: process.env.PUBLIC_API_URL || '',
+      network: process.env.NETWORK || 'localnet',
+    })};
   </script>
-  <link rel="stylesheet" href="/globals.css">
 </head>
 <body class="font-sans antialiased">
   <div id="root"></div>
@@ -144,19 +216,20 @@ async function buildFrontend(): Promise<void> {
 
   // Copy public assets
   if (existsSync('./public')) {
+    const { cp } = await import('node:fs/promises')
     await cp('./public', `${STATIC_DIR}/public`, { recursive: true })
   }
 
-  console.log(`✅ Frontend built to ${STATIC_DIR}/`)
+  console.log(`Frontend built to ${STATIC_DIR}/`)
 }
 
 async function buildWorker(): Promise<void> {
-  console.log('📦 Building API worker...')
+  console.log('Building API worker...')
 
   const result = await Bun.build({
     entrypoints: ['./api/worker.ts'],
     outdir: WORKER_DIR,
-    target: 'bun', // Use Bun target for workerd compatibility
+    target: 'bun',
     minify: true,
     sourcemap: 'external',
     external: WORKER_EXTERNALS,
@@ -166,20 +239,45 @@ async function buildWorker(): Promise<void> {
   })
 
   if (!result.success) {
-    console.error('❌ Worker build failed:')
+    console.error('Worker build failed:')
     for (const log of result.logs) {
       console.error(log)
     }
     throw new Error('Worker build failed')
   }
 
-  // Create worker metadata
+  // Get git info for metadata
+  let gitCommit = 'unknown'
+  let gitBranch = 'unknown'
+  try {
+    const commitResult = Bun.spawnSync(['git', 'rev-parse', '--short', 'HEAD'])
+    if (commitResult.success) {
+      gitCommit = new TextDecoder().decode(commitResult.stdout).trim()
+    }
+    const branchResult = Bun.spawnSync([
+      'git',
+      'rev-parse',
+      '--abbrev-ref',
+      'HEAD',
+    ])
+    if (branchResult.success) {
+      gitBranch = new TextDecoder().decode(branchResult.stdout).trim()
+    }
+  } catch {
+    // Git not available
+  }
+
   const metadata = {
     name: 'bazaar-api',
     version: '2.0.0',
     entrypoint: 'worker.js',
-    compatibilityDate: '2024-01-01',
+    compatibilityDate: '2025-06-01',
     buildTime: new Date().toISOString(),
+    git: {
+      commit: gitCommit,
+      branch: gitBranch,
+    },
+    runtime: 'workerd',
   }
 
   await Bun.write(
@@ -187,11 +285,11 @@ async function buildWorker(): Promise<void> {
     JSON.stringify(metadata, null, 2),
   )
 
-  console.log(`✅ Worker built to ${WORKER_DIR}/`)
+  console.log(`Worker built to ${WORKER_DIR}/`)
 }
 
 async function createDeploymentBundle(): Promise<void> {
-  console.log('📦 Creating deployment bundle...')
+  console.log('Creating deployment bundle...')
 
   // Create deployment manifest
   const deploymentManifest = {
@@ -208,6 +306,7 @@ async function createDeploymentBundle(): Promise<void> {
         type: 'elysia',
         path: 'worker',
         entrypoint: 'worker.js',
+        adapter: 'cloudflare',
         routes: ['/api/*', '/health', '/.well-known/*'],
       },
     },
@@ -219,6 +318,7 @@ async function createDeploymentBundle(): Promise<void> {
         migrations: 'migrations/',
       },
     },
+    compatibilityDate: '2025-06-01',
   }
 
   await Bun.write(
@@ -226,11 +326,11 @@ async function createDeploymentBundle(): Promise<void> {
     JSON.stringify(deploymentManifest, null, 2),
   )
 
-  console.log('✅ Deployment bundle created')
+  console.log('Deployment bundle created')
 }
 
 async function build(): Promise<void> {
-  console.log('🔨 Building Bazaar for decentralized deployment...\n')
+  console.log('Building Bazaar for decentralized deployment...\n')
 
   // Clean dist directory
   if (existsSync(DIST_DIR)) {
@@ -238,6 +338,7 @@ async function build(): Promise<void> {
   }
 
   // Create directories
+  const { mkdir } = await import('node:fs/promises')
   await mkdir(STATIC_DIR, { recursive: true })
   await mkdir(WORKER_DIR, { recursive: true })
 
@@ -247,10 +348,10 @@ async function build(): Promise<void> {
   // Create deployment bundle
   await createDeploymentBundle()
 
-  console.log('\n✅ Build complete!')
-  console.log('   📁 Static frontend: ./dist/static/')
-  console.log('   📁 API worker: ./dist/worker/')
-  console.log('   📄 Deployment manifest: ./dist/deployment.json')
+  console.log('\nBuild complete.')
+  console.log('   Static frontend: ./dist/static/')
+  console.log('   API worker: ./dist/worker/')
+  console.log('   Deployment manifest: ./dist/deployment.json')
 }
 
 build().catch((error) => {

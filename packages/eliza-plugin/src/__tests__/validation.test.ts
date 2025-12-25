@@ -3,6 +3,7 @@
  */
 
 import { describe, expect, test } from 'bun:test'
+import { isValidAddress } from '@jejunetwork/types'
 import { z } from 'zod'
 import {
   bountyContentSchema,
@@ -17,7 +18,6 @@ import {
   getMessageTextSecure,
   getOptionalMessageText,
   isUrlSafeToFetch,
-  isValidAddress,
   isValidHex,
   labelContentSchema,
   MAX_JSON_DEPTH,
@@ -34,8 +34,6 @@ import {
   validatePoolStats,
   validateProvider,
 } from '../validation'
-
-// ============ Message Extraction Tests ============
 
 describe('getMessageText', () => {
   test('should extract text from message', () => {
@@ -69,9 +67,6 @@ describe('getOptionalMessageText', () => {
     ).toBe('')
   })
 })
-
-// ============ Response Validation Tests ============
-
 describe('expectResponseData', () => {
   test('should return data if present', () => {
     expect(expectResponseData({ data: { value: 1 } })).toEqual({ value: 1 })
@@ -126,9 +121,6 @@ describe('expect function', () => {
     )
   })
 })
-
-// ============ Content Schema Tests ============
-
 describe('evidenceContentSchema', () => {
   test('should accept valid evidence content', () => {
     const content = {
@@ -194,9 +186,6 @@ describe('labelContentSchema', () => {
     expect(() => labelContentSchema.parse({ score: 20000 })).toThrow()
   })
 })
-
-// ============ Provider Validation Tests ============
-
 describe('validateProvider', () => {
   test('should validate complete provider', () => {
     const provider = {
@@ -230,9 +219,6 @@ describe('validateProvider', () => {
     expect(() => validateProvider(provider as never)).toThrow('missing pricing')
   })
 })
-
-// ============ API Response Validators ============
-
 describe('validatePoolStats', () => {
   test('should validate pool stats', () => {
     const data = {
@@ -302,9 +288,6 @@ describe('validateIntentInfo', () => {
     expect(validateIntentInfo(data).txHash).toBe('0xdef')
   })
 })
-
-// ============ Security Utility Tests ============
-
 describe('isUrlSafeToFetch', () => {
   test('should allow valid public URLs', () => {
     expect(isUrlSafeToFetch('https://example.com')).toBe(true)

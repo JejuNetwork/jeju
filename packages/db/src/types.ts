@@ -11,9 +11,12 @@
 
 import type { Address, Hex } from 'viem'
 
-// ============================================================================
+// Consistency Types
+
+/** Query consistency level for CovenantSQL */
+export type ConsistencyLevel = 'strong' | 'eventual'
+
 // Connection Types
-// ============================================================================
 
 /**
  * Minimal interface for code that only needs query and exec methods.
@@ -87,9 +90,7 @@ export interface CQLTransaction {
   rollback(): Promise<void>
 }
 
-// ============================================================================
 // Query Types
-// ============================================================================
 
 export type QueryParam = string | number | boolean | null | Uint8Array | bigint
 
@@ -137,9 +138,7 @@ export type CQLDataType =
   | 'TIMESTAMP'
   | 'JSON'
 
-// ============================================================================
 // Database Management
-// ============================================================================
 
 export interface DatabaseConfig {
   /** Number of miner nodes (minimum 1, default 3) */
@@ -184,9 +183,7 @@ export type DatabaseStatus =
   | 'migrating'
   | 'error'
 
-// ============================================================================
 // Access Control
-// ============================================================================
 
 export interface ACLRule {
   /** Grantee address or wildcard */
@@ -227,9 +224,7 @@ export interface RevokeRequest {
   permissions: ACLPermission[]
 }
 
-// ============================================================================
 // Rental & Billing
-// ============================================================================
 
 export interface RentalPlan {
   /** Plan ID */
@@ -280,9 +275,7 @@ export interface CreateRentalRequest {
   months?: number
 }
 
-// ============================================================================
 // Migration Types
-// ============================================================================
 
 export interface Migration {
   /** Migration version */
@@ -306,9 +299,7 @@ export interface MigrationResult {
   pending: string[]
 }
 
-// ============================================================================
 // Events
-// ============================================================================
 
 export interface QueryEventDetails {
   sql: string
@@ -360,23 +351,25 @@ export interface CQLEvent {
   txHash?: Hex
 }
 
-// ============================================================================
 // Block Producer Types
-// ============================================================================
 
 export interface BlockProducerInfo {
-  /** Block producer address */
-  address: Address
-  /** Endpoint URL */
-  endpoint: string
   /** Current block height */
   blockHeight: number
   /** Active databases */
   databases: number
-  /** Total stake */
-  stake: bigint
-  /** Status */
-  status: 'active' | 'syncing' | 'offline'
+  /** Status (e.g. 'running', 'active', 'syncing', 'offline') */
+  status: string
+  /** Block producer address (optional in dev mode) */
+  address?: Address
+  /** Endpoint URL (optional in dev mode) */
+  endpoint?: string
+  /** Total stake (optional in dev mode) */
+  stake?: bigint
+  /** Server type (e.g. 'sqlite', 'sqlite-dev') */
+  type?: string
+  /** Number of nodes */
+  nodeCount?: number
 }
 
 export interface MinerInfo {
@@ -392,4 +385,133 @@ export interface MinerInfo {
   blockHeight: number
   /** Status */
   status: 'active' | 'syncing' | 'offline'
+}
+
+// Vector Search Types (powered by sqlite-vec)
+
+/**
+ * Vector data types supported by sqlite-vec
+ * - float32: Standard 32-bit floats (4 bytes per element)
+ * - int8: Quantized 8-bit integers (1 byte per element)
+ * - bit: Binary vectors for hamming distance
+ */
+export type VectorType = 'float32' | 'int8' | 'bit'
+
+/**
+ * Distance metrics for vector similarity search
+ * - L2: Euclidean distance (default)
+ * - cosine: Cosine similarity (1 - cos_sim)
+ * - L1: Manhattan distance
+ */
+export type VectorDistanceMetric = 'L2' | 'cosine' | 'L1'
+
+/**
+ * Configuration for creating a vector index (vec0 virtual table)
+ */
+export interface VectorIndexConfig {
+  /** Name of the vector table */
+  tableName: string
+  /** Number of dimensions in the embedding */
+  dimensions: number
+  /** Vector data type (default: float32) */
+  vectorType?: VectorType
+  /** Distance metric (default: L2) */
+  distanceMetric?: VectorDistanceMetric
+  /** Metadata columns to include (prefixed with + in vec0) */
+  metadataColumns?: VectorMetadataColumn[]
+  /** Partition key column for filtering */
+  partitionKey?: string
+}
+
+/**
+ * Metadata column definition for vec0 tables
+ */
+export interface VectorMetadataColumn {
+  /** Column name */
+  name: string
+  /** SQLite data type */
+  type: 'TEXT' | 'INTEGER' | 'REAL' | 'BLOB'
+  /** Is this column nullable */
+  nullable?: boolean
+}
+
+/**
+ * Request for vector similarity search (KNN)
+ */
+export interface VectorSearchRequest {
+  /** Name of the vector table */
+  tableName: string
+  /** Query vector (will be serialized to BLOB) */
+  vector: number[]
+  /** Number of nearest neighbors to return */
+  k: number
+  /** Filter by partition key value */
+  partitionValue?: string | number
+  /** Additional WHERE clause for metadata filtering */
+  metadataFilter?: string
+  /** Include metadata columns in results */
+  includeMetadata?: boolean
+}
+
+/**
+ * Result from vector similarity search
+ */
+export interface VectorSearchResult {
+  /** Row ID of the matched vector */
+  rowid: number
+  /** Distance from query vector */
+  distance: number
+  /** Metadata values (if includeMetadata was true) */
+  metadata?: Record<string, string | number | boolean | null>
+}
+
+/**
+ * Request to insert a vector
+ */
+export interface VectorInsertRequest {
+  /** Name of the vector table */
+  tableName: string
+  /** Row ID (optional, auto-generated if not provided) */
+  rowid?: number
+  /** Vector embedding */
+  vector: number[]
+  /** Metadata values */
+  metadata?: Record<string, string | number | boolean | null>
+  /** Partition key value */
+  partitionValue?: string | number
+}
+
+/**
+ * Batch insert request for vectors
+ */
+export interface VectorBatchInsertRequest {
+  /** Name of the vector table */
+  tableName: string
+  /** Vectors to insert */
+  vectors: Array<{
+    rowid?: number
+    vector: number[]
+    metadata?: Record<string, string | number | boolean | null>
+    partitionValue?: string | number
+  }>
+}
+
+/**
+ * Vector index info returned by vec0
+ */
+export interface VectorIndexInfo {
+  /** Table name */
+  tableName: string
+  /** Number of vectors stored */
+  vectorCount: number
+  /** Dimensions of vectors */
+  dimensions: number
+  /** Vector type */
+  vectorType: VectorType
+  /** Distance metric */
+  distanceMetric: VectorDistanceMetric
+  /** Metadata column names */
+  metadataColumns: string[]
+  /** Partition key column (if any) */
+  partitionKey?: string
 }

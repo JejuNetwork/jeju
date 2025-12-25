@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { z } from 'zod'
-import { MFAMethod, type MFAStatus } from '../../mfa/index.js'
+import { MFAMethod, type MFAStatus } from '../../mfa/index'
 import {
   BackupCodesResponseSchema,
   expectEndpoint,
@@ -15,9 +15,11 @@ import {
   PasskeyListItemSchema,
   PasskeyOptionsResponseSchema,
   TOTPSetupResponseSchema,
+  toWebAuthnCreationOptions,
+  toWebAuthnRequestOptions,
   validateResponse,
-} from '../../validation.js'
-import { useOAuth3 } from '../provider.js'
+} from '../../validation'
+import { useOAuth3 } from '../provider'
 
 export interface UseMFAOptions {
   onSetupComplete?: (method: MFAMethod) => void
@@ -219,9 +221,12 @@ export function useMFA(options: UseMFAOptions = {}): UseMFAReturn {
         'passkey registration options',
       )
       const challengeId = optionsData.challengeId
-      // Server returns WebAuthn-compatible options - cast through unknown due to Record type
-      const publicKey =
-        optionsData.publicKey as unknown as PublicKeyCredentialCreationOptions
+      // Convert JSON-serialized options to WebAuthn-compatible format with proper ArrayBuffer types
+      const publicKey = toWebAuthnCreationOptions(
+        optionsData.publicKey as Parameters<
+          typeof toWebAuthnCreationOptions
+        >[0],
+      )
 
       // Create credential using WebAuthn
       const credential = (await navigator.credentials.create({
@@ -301,9 +306,12 @@ export function useMFA(options: UseMFAOptions = {}): UseMFAReturn {
       'passkey authentication options',
     )
     const challengeId = authOptionsData.challengeId
-    // Server returns WebAuthn-compatible options - cast through unknown due to Record type
-    const publicKey =
-      authOptionsData.publicKey as unknown as PublicKeyCredentialRequestOptions
+    // Convert JSON-serialized options to WebAuthn-compatible format with proper ArrayBuffer types
+    const publicKey = toWebAuthnRequestOptions(
+      authOptionsData.publicKey as Parameters<
+        typeof toWebAuthnRequestOptions
+      >[0],
+    )
 
     // Get credential using WebAuthn
     const credential = (await navigator.credentials.get({

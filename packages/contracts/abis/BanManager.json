@@ -134,6 +134,29 @@
     },
     {
       "type": "function",
+      "name": "applyTemporaryBan",
+      "inputs": [
+        {
+          "name": "target",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "duration",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "reason",
+          "type": "string",
+          "internalType": "string"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
       "name": "authorizedModerators",
       "inputs": [
         {
@@ -200,6 +223,25 @@
         }
       ],
       "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "checkAndClearExpiredBan",
+      "inputs": [
+        {
+          "name": "target",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bool",
+          "internalType": "bool"
+        }
+      ],
       "stateMutability": "nonpayable"
     },
     {
@@ -334,7 +376,7 @@
       ],
       "outputs": [
         {
-          "name": "ban",
+          "name": "",
           "type": "tuple",
           "internalType": "struct BanManager.BanRecord",
           "components": [
@@ -399,7 +441,7 @@
       ],
       "outputs": [
         {
-          "name": "reason",
+          "name": "",
           "type": "string",
           "internalType": "string"
         }
@@ -418,7 +460,7 @@
       ],
       "outputs": [
         {
-          "name": "ban",
+          "name": "",
           "type": "tuple",
           "internalType": "struct BanManager.BanRecord",
           "components": [
@@ -462,6 +504,42 @@
     },
     {
       "type": "function",
+      "name": "handle",
+      "inputs": [
+        {
+          "name": "origin",
+          "type": "uint32",
+          "internalType": "uint32"
+        },
+        {
+          "name": "sender",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        },
+        {
+          "name": "body",
+          "type": "bytes",
+          "internalType": "bytes"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "hyperlaneMailbox",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "contract IHyperlaneMailbox"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
       "name": "isAccessAllowed",
       "inputs": [
         {
@@ -477,7 +555,7 @@
       ],
       "outputs": [
         {
-          "name": "allowed",
+          "name": "",
           "type": "bool",
           "internalType": "bool"
         }
@@ -511,6 +589,25 @@
     {
       "type": "function",
       "name": "isAddressBanned",
+      "inputs": [
+        {
+          "name": "target",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bool",
+          "internalType": "bool"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "isAddressBannedActive",
       "inputs": [
         {
           "name": "target",
@@ -705,6 +802,25 @@
     },
     {
       "type": "function",
+      "name": "remoteBanManagers",
+      "inputs": [
+        {
+          "name": "",
+          "type": "uint32",
+          "internalType": "uint32"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
       "name": "removeAddressBan",
       "inputs": [
         {
@@ -738,6 +854,19 @@
     },
     {
       "type": "function",
+      "name": "setHyperlaneMailbox",
+      "inputs": [
+        {
+          "name": "_mailbox",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
       "name": "setModerator",
       "inputs": [
         {
@@ -753,6 +882,61 @@
       ],
       "outputs": [],
       "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "setRemoteBanManager",
+      "inputs": [
+        {
+          "name": "chainId",
+          "type": "uint32",
+          "internalType": "uint32"
+        },
+        {
+          "name": "manager",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "syncBanToChains",
+      "inputs": [
+        {
+          "name": "target",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "chainIds",
+          "type": "uint32[]",
+          "internalType": "uint32[]"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "payable"
+    },
+    {
+      "type": "function",
+      "name": "syncedBans",
+      "inputs": [
+        {
+          "name": "",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bool",
+          "internalType": "bool"
+        }
+      ],
+      "stateMutability": "view"
     },
     {
       "type": "function",
@@ -969,6 +1153,44 @@
     },
     {
       "type": "event",
+      "name": "BanExpired",
+      "inputs": [
+        {
+          "name": "target",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "timestamp",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "CrossChainBanSynced",
+      "inputs": [
+        {
+          "name": "chainId",
+          "type": "uint32",
+          "indexed": true,
+          "internalType": "uint32"
+        },
+        {
+          "name": "messageId",
+          "type": "bytes32",
+          "indexed": false,
+          "internalType": "bytes32"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
       "name": "GovernanceUpdated",
       "inputs": [
         {
@@ -1120,6 +1342,25 @@
     },
     {
       "type": "event",
+      "name": "RemoteBanManagerSet",
+      "inputs": [
+        {
+          "name": "chainId",
+          "type": "uint32",
+          "indexed": true,
+          "internalType": "uint32"
+        },
+        {
+          "name": "manager",
+          "type": "bytes32",
+          "indexed": false,
+          "internalType": "bytes32"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
       "name": "Unpaused",
       "inputs": [
         {
@@ -1173,6 +1414,11 @@
     },
     {
       "type": "error",
+      "name": "OnlyMailbox",
+      "inputs": []
+    },
+    {
+      "type": "error",
       "name": "OnlyModerator",
       "inputs": []
     },
@@ -1197,6 +1443,11 @@
           "internalType": "address"
         }
       ]
+    },
+    {
+      "type": "error",
+      "name": "UnauthorizedSender",
+      "inputs": []
     }
   ]
 }

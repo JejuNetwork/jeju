@@ -1,4 +1,4 @@
-# Gateway Portal - Protocol Infrastructure Hub
+# Gateway - Protocol Infrastructure Hub
 # Build from monorepo root to include workspace packages
 
 FROM oven/bun:latest AS base

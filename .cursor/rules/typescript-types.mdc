@@ -42,3 +42,9 @@ function parseApiResponse(json: string): ApiResponse {
 }
 ```
 
+Before making new types, check if the type already exists somewhere and can be shared
+While working, if you see a local type, check if it's a duplicate
+Make sure to use Zod for validation for anything unknown regarding input or output data
+Avoid ??, ?., [0]?, || 'default' when it will fail with no data
+Avoid optionals unless the data is truly optional. If it's not, go upstream and fix.
+REMEMBER: Strong type patterns, strong type assumptions, shared types!

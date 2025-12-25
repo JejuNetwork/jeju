@@ -84,6 +84,87 @@ interface ChatCompletionResponse {
   node?: string
 }
 
+interface ServiceListResponse {
+  services: string[]
+  endpoints: Record<string, string>
+}
+
+interface ExistsResponse {
+  exists: boolean
+  cid: string
+}
+
+interface JobsListResponse {
+  jobs: JobResponse[]
+  total: number
+}
+
+interface CacheStatsResponse {
+  entries: number
+  sizeBytes: number
+}
+
+interface KeysListResponse {
+  keys: KeyResponse[]
+}
+
+interface SecretIdResponse {
+  id: string
+}
+
+interface SecretValueResponse {
+  value: string
+}
+
+interface WorkersListResponse {
+  functions: Array<{ id: string; name: string }>
+}
+
+interface WorkerdHealthResponse {
+  status: string
+  runtime: string
+}
+
+interface WorkerdListResponse {
+  workers: WorkerResponse[]
+  runtime: string
+}
+
+interface ChainsListResponse {
+  chains: Array<{ chainId: number; name: string }>
+}
+
+interface ChainInfoResponse {
+  id: number
+  name: string
+}
+
+interface RegionsListResponse {
+  regions: Array<{ code: string; name: string }>
+}
+
+interface FetchResponse {
+  statusCode: number
+}
+
+interface A2ACapabilitiesResponse {
+  capabilities: string[]
+}
+
+interface McpInitResponse {
+  protocolVersion: string
+  serverInfo: { name: string }
+}
+
+interface McpToolsResponse {
+  tools: Array<{ name: string }>
+}
+
+interface AgentCardResponse {
+  name: string
+  capabilities: string[]
+}
+
 // Helper for external requests in E2E mode
 async function dwsRequest(
   path: string,
@@ -119,9 +200,7 @@ async function checkChainRunning(): Promise<boolean> {
   }
 }
 
-// =============================================================================
 // Core Health Tests
-// =============================================================================
 
 describe('Core Health', () => {
   test('main health check returns healthy', async () => {
@@ -155,10 +234,7 @@ describe('Core Health', () => {
     const res = await dwsRequest('/')
     expect(res.status).toBe(200)
 
-    const body = (await res.json()) as {
-      services: string[]
-      endpoints: Record<string, string>
-    }
+    const body = (await res.json()) as ServiceListResponse
     expect(body.services).toContain('storage')
     expect(body.services).toContain('compute')
     expect(body.services).toContain('cdn')
@@ -167,9 +243,7 @@ describe('Core Health', () => {
   })
 })
 
-// =============================================================================
 // Storage Tests
-// =============================================================================
 
 describe('Storage', () => {
   let uploadedCid: string
@@ -208,7 +282,7 @@ describe('Storage', () => {
     const res = await dwsRequest(`/storage/exists/${uploadedCid}`)
     expect(res.status).toBe(200)
 
-    const body = (await res.json()) as { exists: boolean; cid: string }
+    const body = (await res.json()) as ExistsResponse
     expect(body.exists).toBe(true)
     expect(body.cid).toBe(uploadedCid)
   })
@@ -246,9 +320,7 @@ describe('Storage', () => {
   })
 })
 
-// =============================================================================
 // Compute Tests
-// =============================================================================
 
 describe('Compute Jobs', () => {
   test('submit job requires authentication', async () => {
@@ -324,15 +396,13 @@ describe('Compute Jobs', () => {
     const res = await dwsRequest('/compute/jobs')
     expect(res.status).toBe(200)
 
-    const body = (await res.json()) as { jobs: JobResponse[]; total: number }
+    const body = (await res.json()) as JobsListResponse
     expect(body.jobs).toBeInstanceOf(Array)
     expect(body.total).toBeGreaterThanOrEqual(0)
   })
 })
 
-// =============================================================================
 // Inference Tests (requires API key)
-// =============================================================================
 
 describe.skipIf(!hasInferenceKey)('Inference', () => {
   test('chat completion with real provider', async () => {
@@ -353,16 +423,14 @@ describe.skipIf(!hasInferenceKey)('Inference', () => {
   })
 })
 
-// =============================================================================
 // CDN Tests
-// =============================================================================
 
 describe('CDN', () => {
   test('cache stats available', async () => {
     const res = await dwsRequest('/cdn/stats')
     expect(res.status).toBe(200)
 
-    const body = (await res.json()) as { entries: number; sizeBytes: number }
+    const body = (await res.json()) as CacheStatsResponse
     expect(typeof body.entries).toBe('number')
   })
 
@@ -383,9 +451,7 @@ describe('CDN', () => {
   })
 })
 
-// =============================================================================
 // KMS Tests
-// =============================================================================
 
 describe('KMS', () => {
   let _keyId: string
@@ -411,7 +477,7 @@ describe('KMS', () => {
     const res = await dwsRequest('/kms/keys')
     expect(res.status).toBe(200)
 
-    const body = (await res.json()) as { keys: KeyResponse[] }
+    const body = (await res.json()) as KeysListResponse
     expect(body.keys).toBeInstanceOf(Array)
   })
 
@@ -426,7 +492,7 @@ describe('KMS', () => {
     })
 
     expect(storeRes.status).toBe(201)
-    const { id } = (await storeRes.json()) as { id: string }
+    const { id } = (await storeRes.json()) as SecretIdResponse
 
     // Retrieve
     const revealRes = await dwsRequest(`/kms/vault/secrets/${id}/reveal`, {
@@ -434,7 +500,7 @@ describe('KMS', () => {
     })
 
     expect(revealRes.status).toBe(200)
-    const { value } = (await revealRes.json()) as { value: string }
+    const { value } = (await revealRes.json()) as SecretValueResponse
     expect(value).toBe(secretValue)
 
     // Cleanup
@@ -442,18 +508,14 @@ describe('KMS', () => {
   })
 })
 
-// =============================================================================
 // Workers Tests
-// =============================================================================
 
 describe('Workers', () => {
   test('list workers', async () => {
     const res = await dwsRequest('/workers')
     expect(res.status).toBe(200)
 
-    const body = (await res.json()) as {
-      functions: Array<{ id: string; name: string }>
-    }
+    const body = (await res.json()) as WorkersListResponse
     expect(body.functions).toBeInstanceOf(Array)
   })
 
@@ -467,16 +529,14 @@ describe('Workers', () => {
   })
 })
 
-// =============================================================================
 // Workerd Tests
-// =============================================================================
 
 describe('Workerd', () => {
   test('workerd health', async () => {
     const res = await dwsRequest('/workerd/health')
     expect(res.status).toBe(200)
 
-    const body = (await res.json()) as { status: string; runtime: string }
+    const body = (await res.json()) as WorkerdHealthResponse
     expect(body.status).toBe('healthy')
     expect(body.runtime).toBe('workerd')
   })
@@ -485,18 +545,13 @@ describe('Workerd', () => {
     const res = await dwsRequest('/workerd')
     expect(res.status).toBe(200)
 
-    const body = (await res.json()) as {
-      workers: WorkerResponse[]
-      runtime: string
-    }
+    const body = (await res.json()) as WorkerdListResponse
     expect(body.workers).toBeInstanceOf(Array)
     expect(body.runtime).toBe('workerd')
   })
 })
 
-// =============================================================================
 // Git Tests
-// =============================================================================
 
 describe('Git', () => {
   test('git health', async () => {
@@ -511,18 +566,14 @@ describe('Git', () => {
   })
 })
 
-// =============================================================================
 // RPC Tests
-// =============================================================================
 
 describe('RPC', () => {
   test('list supported chains', async () => {
     const res = await dwsRequest('/rpc/chains')
     expect(res.status).toBe(200)
 
-    const body = (await res.json()) as {
-      chains: Array<{ chainId: number; name: string }>
-    }
+    const body = (await res.json()) as ChainsListResponse
     expect(body.chains).toBeInstanceOf(Array)
     expect(body.chains.length).toBeGreaterThan(0)
   })
@@ -531,15 +582,13 @@ describe('RPC', () => {
     const res = await dwsRequest('/rpc/chains/1')
     expect(res.status).toBe(200)
 
-    const body = (await res.json()) as { id: number; name: string }
+    const body = (await res.json()) as ChainInfoResponse
     expect(body.name).toBe('Ethereum')
     expect(body.id).toBe(1)
   })
 })
 
-// =============================================================================
 // VPN Tests
-// =============================================================================
 
 describe('VPN', () => {
   test('vpn health', async () => {
@@ -551,17 +600,13 @@ describe('VPN', () => {
     const res = await dwsRequest('/vpn/regions')
     expect(res.status).toBe(200)
 
-    const body = (await res.json()) as {
-      regions: Array<{ code: string; name: string }>
-    }
+    const body = (await res.json()) as RegionsListResponse
     expect(body.regions).toBeInstanceOf(Array)
     expect(body.regions.length).toBeGreaterThan(0)
   })
 })
 
-// =============================================================================
 // Scraping Tests
-// =============================================================================
 
 describe('Scraping', () => {
   test('scraping health', async () => {
@@ -573,21 +618,19 @@ describe('Scraping', () => {
     const res = await dwsRequest('/scraping/fetch?url=https://example.com')
     expect(res.status).toBe(200)
 
-    const body = (await res.json()) as { statusCode: number }
+    const body = (await res.json()) as FetchResponse
     expect(body.statusCode).toBe(200)
   })
 })
 
-// =============================================================================
 // A2A / MCP Tests
-// =============================================================================
 
 describe('A2A / MCP', () => {
   test('a2a capabilities', async () => {
     const res = await dwsRequest('/a2a/capabilities')
     expect(res.status).toBe(200)
 
-    const body = (await res.json()) as { capabilities: string[] }
+    const body = (await res.json()) as A2ACapabilitiesResponse
     expect(body.capabilities).toContain('storage')
     expect(body.capabilities).toContain('compute')
   })
@@ -599,10 +642,7 @@ describe('A2A / MCP', () => {
     })
     expect(res.status).toBe(200)
 
-    const body = (await res.json()) as {
-      protocolVersion: string
-      serverInfo: { name: string }
-    }
+    const body = (await res.json()) as McpInitResponse
     expect(body.protocolVersion).toBe('2024-11-05')
     expect(body.serverInfo.name).toBe('dws-mcp')
   })
@@ -614,7 +654,7 @@ describe('A2A / MCP', () => {
     })
     expect(res.status).toBe(200)
 
-    const body = (await res.json()) as { tools: Array<{ name: string }> }
+    const body = (await res.json()) as McpToolsResponse
     expect(body.tools).toBeInstanceOf(Array)
     const toolNames = body.tools.map((t) => t.name)
     expect(toolNames).toContain('dws_upload')
@@ -622,9 +662,7 @@ describe('A2A / MCP', () => {
   })
 })
 
-// =============================================================================
 // CI Tests
-// =============================================================================
 
 describe('CI', () => {
   test('ci health', async () => {
@@ -634,24 +672,20 @@ describe('CI', () => {
   })
 })
 
-// =============================================================================
 // Agent Discovery
-// =============================================================================
 
 describe('Agent Discovery', () => {
   test('agent card available', async () => {
     const res = await dwsRequest('/.well-known/agent-card.json')
     expect(res.status).toBe(200)
 
-    const body = (await res.json()) as { name: string; capabilities: string[] }
+    const body = (await res.json()) as AgentCardResponse
     expect(body.name).toBe('DWS')
     expect(body.capabilities).toBeInstanceOf(Array)
   })
 })
 
-// =============================================================================
 // Live Chain Integration (E2E mode only)
-// =============================================================================
 
 describe.skipIf(!E2E_MODE)('Live Chain Integration', () => {
   let chainRunning = false
@@ -663,7 +697,7 @@ describe.skipIf(!E2E_MODE)('Live Chain Integration', () => {
   test.skipIf(!chainRunning)('chain is accessible', async () => {
     const client = createPublicClient({ transport: http(RPC_URL) })
     const chainId = await client.getChainId()
-    expect([1337, 31337, 420690]).toContain(chainId)
+    expect([31337, 31337, 420690]).toContain(chainId)
   })
 
   test.skipIf(!chainRunning)('on-chain node registry', async () => {
@@ -677,9 +711,7 @@ describe.skipIf(!E2E_MODE)('Live Chain Integration', () => {
   })
 })
 
-// =============================================================================
 // Cleanup
-// =============================================================================
 
 afterAll(() => {
   console.log('[Integration Tests] Complete')

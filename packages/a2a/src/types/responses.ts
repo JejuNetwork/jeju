@@ -4,7 +4,7 @@
  * Strongly typed response interfaces for all A2A protocol methods
  */
 
-import type { JsonValue } from './common'
+import type { JsonValue } from '@jejunetwork/types'
 
 /**
  * Balance information response
@@ -98,13 +98,18 @@ export interface A2APerpetualsResponse {
 }
 
 /**
- * Post author
+ * User reference (author, participant, etc.)
  */
-export interface A2APostAuthor {
+export interface A2AUserRef {
   id?: string
   username?: string
   displayName?: string
 }
+
+/**
+ * Post author (alias for A2AUserRef)
+ */
+export type A2APostAuthor = A2AUserRef
 
 /**
  * Social feed post
@@ -145,12 +150,10 @@ export interface A2ATrendingTagsResponse {
 }
 
 /**
- * Chat participant info
+ * Chat participant info (extends A2AUserRef with required id)
  */
-export interface A2AChatParticipant {
+export interface A2AChatParticipant extends A2AUserRef {
   id: string
-  username?: string
-  displayName?: string
 }
 
 /**

@@ -6,8 +6,9 @@
  */
 
 import { beforeAll, describe, expect, test } from 'bun:test'
-import { getIpfsApiUrl } from '@jejunetwork/config/ports'
+import { getIpfsApiUrl } from '@jejunetwork/config'
 import { Client } from 'pg'
+import { IpfsAddResponseSchema, IpfsIdResponseSchema } from '../shared/schemas'
 
 const POSTGRES_URL =
   process.env.DATABASE_URL || 'postgresql://jeju:jeju@127.0.0.1:5432/jeju'
@@ -110,7 +111,7 @@ describe('Infrastructure Services', () => {
       })
 
       expect(response.ok).toBe(true)
-      const data = (await response.json()) as { ID: string }
+      const data = IpfsIdResponseSchema.parse(await response.json())
       expect(data.ID).toBeDefined()
     })
 
@@ -128,7 +129,7 @@ describe('Infrastructure Services', () => {
       })
 
       expect(addResponse.ok).toBe(true)
-      const addData = (await addResponse.json()) as { Hash: string }
+      const addData = IpfsAddResponseSchema.parse(await addResponse.json())
       expect(addData.Hash).toBeDefined()
 
       // Retrieve content

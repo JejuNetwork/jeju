@@ -1,16 +1,4 @@
-/**
- * init command - Create a new dApp from template
- *
- * Scaffolds a new decentralized application with:
- * - Full service integration (CQL, IPFS, KMS, Cron)
- * - REST API, A2A, and MCP protocols
- * - x402 payment support
- * - Synpress tests
- *
- * Security notes:
- * - App names are validated against strict patterns
- * - Output directories are validated for path traversal
- */
+/** Create a new dApp from template */
 
 import {
   existsSync,
@@ -31,7 +19,6 @@ import { validateAppName } from '../lib/security'
 import { findMonorepoRoot } from '../lib/system'
 import { validate } from '../schemas'
 
-// Schema for template package.json
 const TemplatePackageJsonSchema = z
   .object({
     name: z.string(),
@@ -44,7 +31,6 @@ const TemplatePackageJsonSchema = z
   })
   .passthrough()
 
-// Schema for jeju-manifest.json in templates
 const TemplateManifestSchema = z
   .object({
     name: z.string(),
@@ -100,7 +86,6 @@ interface InitConfig {
 
 const TEMPLATE_PATH = join(import.meta.dir, '../../../../apps/example')
 
-// Vendor manifest subcommand
 const vendorSubcommand = new Command('vendor')
   .description('Create vendor app manifest')
   .argument('<app-name>', 'Vendor app name')
@@ -151,7 +136,6 @@ Examples:
     ) => {
       logger.header('CREATE NEW DAPP')
 
-      // Validate template exists
       if (!existsSync(TEMPLATE_PATH)) {
         logger.error(`Template not found at ${TEMPLATE_PATH}`)
         logger.info('Make sure example exists in apps/')
@@ -161,10 +145,8 @@ Examples:
       let config: InitConfig
 
       if (options.yes && nameArg) {
-        // Quick mode with defaults - validate app name
         const validName = validateAppName(nameArg)
 
-        // Validate and resolve output directory
         const outputDir = resolve(
           normalize(options.dir || join(process.cwd(), validName)),
         )
@@ -276,7 +258,6 @@ Examples:
         config = answers as InitConfig
       }
 
-      // Check if directory exists
       if (existsSync(config.outputDir)) {
         const files = readdirSync(config.outputDir)
         if (files.length > 0) {
@@ -296,13 +277,10 @@ Examples:
 
       logger.step(`Creating ${config.displayName}...`)
 
-      // Create output directory
       mkdirSync(config.outputDir, { recursive: true })
 
-      // Copy template files
       await copyTemplate(TEMPLATE_PATH, config.outputDir, config)
 
-      // Generate customized files
       await generateCustomFiles(config)
 
       logger.success(`\nCreated ${config.displayName} at ${config.outputDir}`)
@@ -352,7 +330,6 @@ async function copyTemplate(
 ): Promise<void> {
   const skipFiles = ['node_modules', '.git', 'dist', 'bun.lockb', '.turbo']
 
-  // Resolve paths to prevent traversal
   const resolvedTemplateDir = resolve(templateDir)
   const resolvedOutputDir = resolve(outputDir)
 
@@ -406,7 +383,7 @@ function transformContent(content: string, config: InitConfig): string {
   // Replace template placeholders
   return content
     .replace(/example/g, config.name)
-    .replace(/Decentralized App Template/g, config.displayName)
+    .replace(/Example/g, config.displayName)
     .replace(/template\.jeju/g, config.jnsName)
     .replace(/example-db/g, config.databaseId)
     .replace(/@jejunetwork\/example/g, `@jejunetwork/${config.name}`)
@@ -473,7 +450,7 @@ NETWORK=localnet
 L2_RPC_URL=http://localhost:6546
 
 # Services
-CQL_BLOCK_PRODUCER_ENDPOINT=http://localhost:4300
+CQL_BLOCK_PRODUCER_ENDPOINT=http://localhost:4661
 CQL_DATABASE_ID=${config.databaseId}
 COMPUTE_CACHE_ENDPOINT=http://localhost:4200/cache
 KMS_ENDPOINT=http://localhost:4400

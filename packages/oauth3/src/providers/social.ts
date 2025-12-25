@@ -107,7 +107,7 @@ abstract class OAuthProvider {
     this.config = config
   }
 
-  abstract getAuthorizationUrl(state: OAuthState): string
+  abstract getAuthorizationUrl(state: OAuthState): string | Promise<string>
   abstract exchangeCode(code: string, state?: OAuthState): Promise<OAuthToken>
   abstract getProfile(token: OAuthToken): Promise<OAuthProfile>
 
@@ -393,21 +393,12 @@ export class TwitterProvider extends OAuthProvider {
   }
 
   /**
-   * @deprecated Use getAuthorizationUrlAsync instead for proper PKCE SHA-256
-   * This sync version throws to prevent usage - Twitter OAuth requires async PKCE
-   */
-  getAuthorizationUrl(_state: OAuthState): string {
-    throw new Error(
-      'TwitterProvider.getAuthorizationUrl is not supported. ' +
-        'Use getAuthorizationUrlAsync() for proper SHA-256 PKCE code challenge generation.',
-    )
-  }
-
-  /**
    * Generate authorization URL with proper SHA-256 PKCE code challenge
    * SECURITY: Uses SHA-256 as required by RFC 7636 for PKCE
+   *
+   * Note: This is an async override because Twitter requires PKCE with SHA-256
    */
-  async getAuthorizationUrlAsync(state: OAuthState): Promise<string> {
+  async getAuthorizationUrl(state: OAuthState): Promise<string> {
     const codeVerifier = toHex(
       crypto.getRandomValues(new Uint8Array(32)),
     ).slice(2)

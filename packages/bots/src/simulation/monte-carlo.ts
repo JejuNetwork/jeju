@@ -8,9 +8,6 @@
  * - Walk-forward optimization
  * - Out-of-sample validation
  */
-
-// ============ Types ============
-
 export interface MonteCarloConfig {
   simulations: number
   confidenceLevel: number // 0.95 for 95%
@@ -91,9 +88,6 @@ interface WalkForwardPeriod {
   trainMetrics: BacktestMetrics
   testMetrics: BacktestMetrics
 }
-
-// ============ Random Number Generation ============
-
 class SeededRandom {
   private seed: number
 
@@ -133,9 +127,6 @@ class SeededRandom {
     return result
   }
 }
-
-// ============ Monte Carlo Simulator ============
-
 export class MonteCarloSimulator {
   private config: MonteCarloConfig
   private rng: SeededRandom
@@ -367,9 +358,6 @@ export class MonteCarloSimulator {
     return m4 - 3 // Excess kurtosis
   }
 }
-
-// ============ Statistical Tests ============
-
 export class StatisticalValidator {
   /**
    * Run comprehensive statistical tests
@@ -599,9 +587,6 @@ export class StatisticalValidator {
     return this.normalCDF(z / se)
   }
 }
-
-// ============ Walk-Forward Analyzer ============
-
 export class WalkForwardAnalyzer {
   /**
    * Perform walk-forward analysis
@@ -719,9 +704,6 @@ export class WalkForwardAnalyzer {
     }
   }
 }
-
-// ============ Full Validation Suite ============
-
 export class ValidationSuite {
   private monteCarlo: MonteCarloSimulator
   private statValidator: StatisticalValidator
@@ -868,9 +850,6 @@ export class ValidationSuite {
     }
   }
 }
-
-// ============ Exports ============
-
 export function createValidationSuite(
   config?: Partial<MonteCarloConfig>,
 ): ValidationSuite {

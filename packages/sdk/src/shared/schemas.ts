@@ -5,9 +5,9 @@
  * to ensure type safety at runtime.
  */
 
+import type { JsonRecord, JsonValue } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import { z } from 'zod'
-import type { JsonRecord, JsonValue } from './types'
 
 /**
  * Parse and validate JSON string against a schema
@@ -36,7 +36,7 @@ export function parseJson<T>(
  */
 export function safeParseJson<T>(json: string, schema: z.ZodType<T>): T | null {
   try {
-    const parsed: unknown = JSON.parse(json)
+    const parsed: JsonValue = JSON.parse(json) as JsonValue
     const result = schema.safeParse(parsed)
     return result.success ? result.data : null
   } catch {
@@ -107,7 +107,7 @@ export const UploadResultSchema = z.object({
   size: z.number(),
 })
 
-export const EnhancedStorageStatsSchema = z.object({
+export const MultiBackendStorageStatsSchema = z.object({
   totalPins: z.number(),
   totalSizeBytes: z.number(),
   totalSizeGB: z.number(),
@@ -957,7 +957,7 @@ export const KMSDecryptResponseSchema = z.object({
   plaintext: z.string(),
 })
 
-export const EnhancedUploadResultSchema = z.object({
+export const MultiBackendUploadResultSchema = z.object({
   cid: z.string(),
   size: z.number(),
   tier: z.enum(['system', 'popular', 'private']),

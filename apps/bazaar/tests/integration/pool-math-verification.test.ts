@@ -9,9 +9,7 @@
 
 import { describe, expect, test } from 'bun:test'
 
-// =============================================================================
 // CONSTANTS (Uniswap V4 specific)
-// =============================================================================
 
 // Q96 = 2^96 - used for fixed-point math in sqrtPriceX96
 const Q96 = 2n ** 96n
@@ -26,9 +24,7 @@ const FEE_TIER_LOW = 500 // 0.05%
 const FEE_TIER_MEDIUM = 3000 // 0.30%
 const FEE_TIER_HIGH = 10000 // 1.00%
 
-// =============================================================================
 // SQRT PRICE MATH
-// =============================================================================
 
 /**
  * Calculate sqrtPriceX96 from a price ratio
@@ -71,9 +67,7 @@ function tickToSqrtPriceX96(tick: number): bigint {
   return BigInt(Math.floor(sqrtPrice * Number(Q96)))
 }
 
-// =============================================================================
 // SWAP MATH
-// =============================================================================
 
 /**
  * Calculate output amount for a swap (no fees)
@@ -127,9 +121,7 @@ function getAmountIn(
   return numerator / denominator + 1n // +1 for rounding up
 }
 
-// =============================================================================
 // LIQUIDITY MATH
-// =============================================================================
 
 /**
  * Calculate liquidity from token amounts (simplified)
@@ -148,9 +140,7 @@ function getLiquidity(amount0: bigint, amount1: bigint): bigint {
   return x
 }
 
-// =============================================================================
 // TESTS: SQRT PRICE MATH
-// =============================================================================
 
 describe('sqrtPriceX96 Math', () => {
   test('should convert price 1.0 to sqrtPriceX96', () => {
@@ -212,9 +202,7 @@ describe('sqrtPriceX96 Math', () => {
   })
 })
 
-// =============================================================================
 // TESTS: TICK MATH
-// =============================================================================
 
 describe('Tick Math', () => {
   test('should calculate tick 0 for price 1.0', () => {
@@ -283,9 +271,7 @@ describe('Tick Math', () => {
   })
 })
 
-// =============================================================================
 // TESTS: SWAP MATH
-// =============================================================================
 
 describe('Swap Math', () => {
   test('should calculate correct output for swap (no fees)', () => {
@@ -392,9 +378,7 @@ describe('Swap Math', () => {
   })
 })
 
-// =============================================================================
 // TESTS: LIQUIDITY MATH
-// =============================================================================
 
 describe('Liquidity Math', () => {
   test('should calculate liquidity from reserves', () => {
@@ -428,9 +412,7 @@ describe('Liquidity Math', () => {
   })
 })
 
-// =============================================================================
 // TESTS: PRICE IMPACT
-// =============================================================================
 
 describe('Price Impact', () => {
   test('should calculate price impact for swap', () => {
@@ -501,9 +483,7 @@ describe('Price Impact', () => {
   })
 })
 
-// =============================================================================
 // TESTS: REAL WORLD SCENARIOS
-// =============================================================================
 
 describe('Real World Scenarios', () => {
   test('ETH/USDC pool - swap 1 ETH for USDC', () => {
@@ -576,9 +556,7 @@ describe('Real World Scenarios', () => {
   })
 })
 
-// =============================================================================
 // SUMMARY
-// =============================================================================
 
 describe('Pool Math Summary', () => {
   test('print verification summary', () => {

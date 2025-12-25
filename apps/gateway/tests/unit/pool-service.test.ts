@@ -6,6 +6,7 @@
  */
 
 import { beforeEach, describe, expect, test } from 'bun:test'
+import { ZERO_ADDRESS } from '@jejunetwork/types'
 import type { Address } from 'viem'
 
 // Dynamic import to handle missing dependencies gracefully
@@ -20,8 +21,6 @@ try {
 } catch (e) {
   moduleLoadError = e instanceof Error ? e : new Error(String(e))
 }
-
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address
 const TEST_ADDRESS_1 = '0x1111111111111111111111111111111111111111' as Address
 const TEST_ADDRESS_2 = '0x2222222222222222222222222222222222222222' as Address
 const TEST_PAIR_ADDRESS =

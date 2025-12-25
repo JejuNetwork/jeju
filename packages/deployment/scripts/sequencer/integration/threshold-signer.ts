@@ -1,4 +1,4 @@
-import { encodePacked, keccak256, recoverAddress, signMessage } from 'viem'
+import { encodePacked, keccak256, recoverAddress } from 'viem'
 import type { PrivateKeyAccount } from 'viem/accounts'
 
 interface SignatureShare {
@@ -75,8 +75,7 @@ export class ThresholdSigner {
     account: PrivateKeyAccount,
   ): Promise<SignatureShare> {
     const hash = this.getBatchHash(batch)
-    const signature = await signMessage({
-      account,
+    const signature = await account.signMessage({
       message: { raw: hash },
     })
     return {
@@ -148,10 +147,10 @@ export class ThresholdSigner {
     }
   }
 
-  verifyAggregatedSignature(
+  async verifyAggregatedSignature(
     batch: BatchData,
     agg: AggregatedSignature,
-  ): boolean {
+  ): Promise<boolean> {
     if (agg.signers.length < this.threshold) return false
 
     const hash = this.getBatchHash(batch)
@@ -169,10 +168,12 @@ export class ThresholdSigner {
 
       // Verify signature
       try {
-        const recovered = recoverAddress({
-          hash,
-          signature: agg.signatures[i] as `0x${string}`,
-        }).toLowerCase()
+        const recovered = (
+          await recoverAddress({
+            hash,
+            signature: agg.signatures[i] as `0x${string}`,
+          })
+        ).toLowerCase()
         if (recovered !== signer) {
           console.log(
             `Invalid signature from ${signer}, recovered ${recovered}`,

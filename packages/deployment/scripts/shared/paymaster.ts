@@ -5,33 +5,16 @@
  * Supports multi-token gas payments via PaymasterFactory.
  */
 
+import { readContract } from '@jejunetwork/shared'
 import {
   type Address,
   createPublicClient,
   encodePacked,
   formatEther,
   http,
-  type PublicClient,
   parseAbi,
   parseEther,
 } from 'viem'
-
-async function safeReadContract<T>(
-  client: PublicClient,
-  params: {
-    address: Address
-    abi: readonly unknown[]
-    functionName: string
-    args?: readonly unknown[]
-  },
-): Promise<T> {
-  return client.readContract(
-    params as Parameters<typeof client.readContract>[0],
-  ) as Promise<T>
-}
-
-// ============ Types ============
-
 export interface PaymasterInfo {
   address: Address
   token: Address
@@ -55,9 +38,6 @@ export interface PaymasterOption {
   estimatedCostFormatted: string
   isRecommended: boolean
 }
-
-// ============ ABIs ============
-
 const FACTORY_ABI = parseAbi([
   'function getAllPaymasters() view returns (address[])',
   'function getPaymasterInfo(address paymaster) view returns (address token, uint256 stakedEth, bool isActive)',
@@ -78,19 +58,13 @@ const ERC20_ABI = parseAbi([
   'function balanceOf(address account) view returns (uint256)',
   'function allowance(address owner, address spender) view returns (uint256)',
 ])
-
-// ============ Default Configuration ============
-
 const DEFAULT_CONFIG: PaymasterConfig = {
   factoryAddress: (process.env.PAYMASTER_FACTORY_ADDRESS ||
     '0x0000000000000000000000000000000000000000') as Address,
   minStakedEth: parseEther(process.env.MIN_PAYMASTER_STAKE || '1.0'),
   rpcUrl: process.env.JEJU_RPC_URL || 'http://127.0.0.1:6546',
-  chainId: Number(process.env.CHAIN_ID) || 1337,
+  chainId: Number(process.env.CHAIN_ID) || 31337,
 }
-
-// ============ Client Factory ============
-
 function getClient(config: PaymasterConfig = DEFAULT_CONFIG) {
   return createPublicClient({
     chain: {
@@ -102,9 +76,6 @@ function getClient(config: PaymasterConfig = DEFAULT_CONFIG) {
     transport: http(config.rpcUrl),
   })
 }
-
-// ============ Core Functions ============
-
 /**
  * Get all available paymasters meeting minimum stake
  */
@@ -121,7 +92,7 @@ export async function getAvailablePaymasters(
 
   const client = getClient(fullConfig)
 
-  const paymasterAddresses = await safeReadContract<Address[]>(client, {
+  const paymasterAddresses = await readContract(client, {
     address: fullConfig.factoryAddress,
     abi: FACTORY_ABI,
     functionName: 'getAllPaymasters',
@@ -130,9 +101,7 @@ export async function getAvailablePaymasters(
   const paymasters: PaymasterInfo[] = []
 
   for (const addr of paymasterAddresses) {
-    const [token, stakedEth, isActive] = await safeReadContract<
-      [Address, bigint, boolean]
-    >(client, {
+    const [token, stakedEth, isActive] = await readContract(client, {
       address: fullConfig.factoryAddress,
       abi: FACTORY_ABI,
       functionName: 'getPaymasterInfo',
@@ -142,17 +111,17 @@ export async function getAvailablePaymasters(
     if (stakedEth < fullConfig.minStakedEth || !isActive) continue
 
     const [tokenSymbol, tokenName, exchangeRate] = await Promise.all([
-      safeReadContract<string>(client, {
+      readContract(client, {
         address: token,
         abi: ERC20_ABI,
         functionName: 'symbol',
       }),
-      safeReadContract<string>(client, {
+      readContract(client, {
         address: token,
         abi: ERC20_ABI,
         functionName: 'name',
       }),
-      safeReadContract<bigint>(client, {
+      readContract(client, {
         address: addr,
         abi: PAYMASTER_ABI,
         functionName: 'getQuote',
@@ -208,7 +177,7 @@ export async function getPaymasterOptions(
   for (const pm of paymasters) {
     let tokenCost = ethCost
 
-    const quote = await safeReadContract<bigint>(client, {
+    const quote = await readContract(client, {
       address: pm.address,
       abi: PAYMASTER_ABI,
       functionName: 'getQuote',
@@ -270,7 +239,7 @@ export async function checkPaymasterApproval(
   const fullConfig = { ...DEFAULT_CONFIG, ...config }
   const client = getClient(fullConfig)
 
-  const allowance = await safeReadContract<bigint>(client, {
+  const allowance = await readContract(client, {
     address: tokenAddress,
     abi: ERC20_ABI,
     functionName: 'allowance',
@@ -291,16 +260,13 @@ export async function getTokenBalance(
   const fullConfig = { ...DEFAULT_CONFIG, ...config }
   const client = getClient(fullConfig)
 
-  return safeReadContract<bigint>(client, {
+  return readContract(client, {
     address: tokenAddress,
     abi: ERC20_ABI,
     functionName: 'balanceOf',
     args: [userAddress],
   })
 }
-
-// ============ Data Encoding ============
-
 /**
  * Prepare paymaster data for UserOperation
  */
@@ -347,9 +313,6 @@ export function getApprovalTxData(
 
   return { to: tokenAddress, data }
 }
-
-// ============ Configuration ============
-
 /**
  * Load paymaster config from environment
  */
@@ -364,6 +327,6 @@ export function loadPaymasterConfig(): PaymasterConfig {
         '1.0',
     ),
     rpcUrl: process.env.JEJU_RPC_URL || 'http://127.0.0.1:6546',
-    chainId: Number(process.env.CHAIN_ID) || 1337,
+    chainId: Number(process.env.CHAIN_ID) || 31337,
   }
 }

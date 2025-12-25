@@ -1,0 +1,203 @@
+/**
+ * RPC Chain Configuration
+ *
+ * Shared configuration for multi-chain RPC gateways.
+ * Defines supported chains with RPC endpoints, fallbacks, and metadata.
+ */
+
+export interface RpcChainConfig {
+  chainId: number
+  name: string
+  shortName: string
+  rpcUrl: string
+  fallbackRpcs: string[]
+  explorerUrl: string
+  isTestnet: boolean
+  nativeCurrency: {
+    name: string
+    symbol: string
+    decimals: number
+  }
+}
+
+// Browser-safe env access
+function getEnv(key: string, fallback: string): string {
+  if (typeof process !== 'undefined' && process.env) {
+    return process.env[key] || fallback
+  }
+  return fallback
+}
+
+const JEJU_RPC_BASE = getEnv('JEJU_RPC_BASE', 'https://rpc.jejunetwork.org')
+
+export const RPC_CHAINS: Record<number, RpcChainConfig> = {
+  // Jeju Networks
+  420691: {
+    chainId: 420691,
+    name: 'Network',
+    shortName: 'JEJU',
+    rpcUrl: getEnv('JEJU_RPC_URL', `${JEJU_RPC_BASE}/jeju`),
+    fallbackRpcs: [],
+    explorerUrl: 'https://explorer.jejunetwork.org',
+    isTestnet: false,
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  },
+  420690: {
+    chainId: 420690,
+    name: 'Testnet',
+    shortName: 'JEJU-TEST',
+    rpcUrl: getEnv('JEJU_TESTNET_RPC_URL', `${JEJU_RPC_BASE}/jeju-testnet`),
+    fallbackRpcs: [],
+    explorerUrl: 'https://testnet-explorer.jejunetwork.org',
+    isTestnet: true,
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  },
+
+  // Ethereum
+  1: {
+    chainId: 1,
+    name: 'Ethereum',
+    shortName: 'ETH',
+    rpcUrl: getEnv('ETHEREUM_RPC_URL', `${JEJU_RPC_BASE}/ethereum`),
+    fallbackRpcs: ['https://eth.llamarpc.com', 'https://rpc.ankr.com/eth'],
+    explorerUrl: 'https://etherscan.io',
+    isTestnet: false,
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  },
+  11155111: {
+    chainId: 11155111,
+    name: 'Sepolia',
+    shortName: 'SEP',
+    rpcUrl: getEnv('SEPOLIA_RPC_URL', `${JEJU_RPC_BASE}/sepolia`),
+    fallbackRpcs: [
+      'https://ethereum-sepolia-rpc.publicnode.com',
+      'https://rpc.sepolia.org',
+    ],
+    explorerUrl: 'https://sepolia.etherscan.io',
+    isTestnet: true,
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  },
+
+  // Base
+  8453: {
+    chainId: 8453,
+    name: 'Base',
+    shortName: 'BASE',
+    rpcUrl: getEnv('BASE_RPC_URL', `${JEJU_RPC_BASE}/base`),
+    fallbackRpcs: ['https://mainnet.base.org', 'https://base.llamarpc.com'],
+    explorerUrl: 'https://basescan.org',
+    isTestnet: false,
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  },
+  84532: {
+    chainId: 84532,
+    name: 'Base Sepolia',
+    shortName: 'BASE-SEP',
+    rpcUrl: getEnv('BASE_SEPOLIA_RPC_URL', `${JEJU_RPC_BASE}/base-sepolia`),
+    fallbackRpcs: ['https://sepolia.base.org'],
+    explorerUrl: 'https://sepolia.basescan.org',
+    isTestnet: true,
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  },
+
+  // Arbitrum
+  42161: {
+    chainId: 42161,
+    name: 'Arbitrum One',
+    shortName: 'ARB',
+    rpcUrl: getEnv('ARBITRUM_RPC_URL', `${JEJU_RPC_BASE}/arbitrum`),
+    fallbackRpcs: [
+      'https://arb1.arbitrum.io/rpc',
+      'https://arbitrum.llamarpc.com',
+    ],
+    explorerUrl: 'https://arbiscan.io',
+    isTestnet: false,
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  },
+  421614: {
+    chainId: 421614,
+    name: 'Arbitrum Sepolia',
+    shortName: 'ARB-SEP',
+    rpcUrl: getEnv(
+      'ARBITRUM_SEPOLIA_RPC_URL',
+      `${JEJU_RPC_BASE}/arbitrum-sepolia`,
+    ),
+    fallbackRpcs: ['https://sepolia-rollup.arbitrum.io/rpc'],
+    explorerUrl: 'https://sepolia.arbiscan.io',
+    isTestnet: true,
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  },
+
+  // Optimism
+  10: {
+    chainId: 10,
+    name: 'Optimism',
+    shortName: 'OP',
+    rpcUrl: getEnv('OPTIMISM_RPC_URL', `${JEJU_RPC_BASE}/optimism`),
+    fallbackRpcs: [
+      'https://mainnet.optimism.io',
+      'https://optimism.llamarpc.com',
+    ],
+    explorerUrl: 'https://optimistic.etherscan.io',
+    isTestnet: false,
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  },
+  11155420: {
+    chainId: 11155420,
+    name: 'Optimism Sepolia',
+    shortName: 'OP-SEP',
+    rpcUrl: getEnv(
+      'OPTIMISM_SEPOLIA_RPC_URL',
+      `${JEJU_RPC_BASE}/optimism-sepolia`,
+    ),
+    fallbackRpcs: ['https://sepolia.optimism.io'],
+    explorerUrl: 'https://sepolia-optimism.etherscan.io',
+    isTestnet: true,
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  },
+
+  // Localnet
+  31337: {
+    chainId: 31337,
+    name: 'Localnet',
+    shortName: 'LOCAL',
+    rpcUrl: getEnv('LOCALNET_RPC_URL', 'http://localhost:6546'),
+    fallbackRpcs: [],
+    explorerUrl: 'http://localhost:4000',
+    isTestnet: true,
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  },
+}
+
+export const SUPPORTED_RPC_CHAIN_IDS = Object.keys(RPC_CHAINS).map(Number)
+
+/**
+ * Get RPC chain configuration by chain ID
+ * @throws Error if chain is not supported
+ */
+export function getRpcChain(chainId: number): RpcChainConfig {
+  const chain = RPC_CHAINS[chainId]
+  if (!chain) throw new Error(`Unsupported chain: ${chainId}`)
+  return chain
+}
+
+/**
+ * Check if a chain ID is supported by the RPC gateway
+ */
+export function isRpcChainSupported(chainId: number): boolean {
+  return chainId in RPC_CHAINS
+}
+
+/**
+ * Get all mainnet chains
+ */
+export function getRpcMainnetChains(): RpcChainConfig[] {
+  return Object.values(RPC_CHAINS).filter((c) => !c.isTestnet)
+}
+
+/**
+ * Get all testnet chains
+ */
+export function getRpcTestnetChains(): RpcChainConfig[] {
+  return Object.values(RPC_CHAINS).filter((c) => c.isTestnet)
+}

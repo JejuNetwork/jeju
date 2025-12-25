@@ -1,7 +1,7 @@
 /**
  * CoW Protocol Market Maker Tests
  *
- * Tests for the enhanced CoW Protocol integration that enables
+ * Tests for the CoW Protocol integration that enables
  * market making without solver registration.
  */
 

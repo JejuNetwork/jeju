@@ -4,8 +4,7 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import { getNetworkName } from '@jejunetwork/config'
-import { getCoreAppUrl } from '@jejunetwork/config/ports'
+import { getCoreAppUrl, getNetworkName } from '@jejunetwork/config'
 
 const GOVERNANCE_CARD_URL = `${getCoreAppUrl('NODE_EXPLORER_UI')}/.well-known/governance-agent-card.json`
 

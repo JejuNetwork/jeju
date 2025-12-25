@@ -2,60 +2,24 @@
  * @fileoverview Network Configuration
  * @module config/network
  *
- * Network-specific utilities for checking availability and loading deployments.
- * Chain config loading is handled by the main index.ts module.
- *
- * Key principles:
- * - JSON files store network configs (chain/*.json)
- * - Contract addresses stored per-network in deployments/
- * - Only actual secrets (private keys, API keys) need .env
- * - Everything works out of the box for local development
+ * Network deployment data - all loaded via direct JSON imports.
+ * Browser-safe, no filesystem operations.
  */
 
-import { existsSync, readFileSync, statSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
-import {
-  type ChainConfig,
-  ChainConfigSchema,
-  type DeploymentFileData,
-  DeploymentFileDataSchema,
-  NetworkSchema,
-  type NetworkType,
-  RpcHexResultSchema,
-} from './schemas'
+// Direct JSON imports for deployment data
+import localnetDeployment from '../contracts/deployments/localnet/deployment.json'
+import mainnetDeployment from '../contracts/deployments/mainnet/deployment.json'
+import testnetDeployment from '../contracts/deployments/testnet/deployment.json'
+import { NetworkSchema, type NetworkType, RpcHexResultSchema } from './schemas'
 
-/** Maximum config file size (10MB) - prevents DoS via large files */
-const MAX_CONFIG_FILE_SIZE = 10 * 1024 * 1024
-
-/**
- * Safely read a file with size limit protection
- */
-function safeReadFile(path: string): string {
-  const stats = statSync(path)
-  if (stats.size > MAX_CONFIG_FILE_SIZE) {
-    throw new Error(
-      `Config file exceeds maximum size limit (${MAX_CONFIG_FILE_SIZE} bytes): ${path}`,
-    )
-  }
-  return readFileSync(path, 'utf-8')
-}
-
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
-
-const ROOT = join(__dirname, '..', '..')
-const CONFIG_DIR = __dirname
-const DEPLOYMENTS_DIR = join(ROOT, 'packages', 'contracts', 'deployments')
-
-// ============================================================================
 // Types
-// ============================================================================
 
 export interface DeployedContracts {
   // Tokens
   usdc?: string
   weth?: string
+  jeju?: string
+  elizaOS?: string
 
   // Core Infrastructure
   entryPoint?: string
@@ -77,8 +41,6 @@ export interface DeployedContracts {
   // DeFi
   liquidityVault?: string
   feeDistributor?: string
-
-  // Uniswap V4
   poolManager?: string
   swapRouter?: string
   positionManager?: string
@@ -117,21 +79,107 @@ export interface DeployedContracts {
   itemsNFT?: string
   predimarket?: string
 
+  // Bridge
+  l2CrossDomainMessenger?: string
+  l2StandardBridge?: string
+  l2ToL1MessagePasser?: string
+  l2ERC721Bridge?: string
+
   [key: string]: string | undefined
 }
 
 export interface NetworkInfo {
   network: NetworkType
-  chain: ChainConfig
   contracts: DeployedContracts
+  chainId: number
+  l1ChainId: number
   isAvailable: boolean
   rpcReachable: boolean
   hasBalance: boolean
 }
 
-// ============================================================================
+// Deployment Data
+
+interface DeploymentJson {
+  network: string
+  chainId: number
+  l1ChainId: number
+  tokens?: Record<string, string | null>
+  bridge?: Record<string, string | null>
+  infrastructure?: Record<string, string | null>
+  paymaster?: Record<string, string | null>
+  registry?: Record<string, string | null>
+  defi?: Record<string, string | null>
+  nodeStaking?: Record<string, string | null>
+  moderation?: Record<string, string | null>
+  compute?: Record<string, string | null>
+  oif?: Record<string, string | null>
+  games?: Record<string, string | null>
+}
+
+const deployments: Record<NetworkType, DeploymentJson> = {
+  localnet: localnetDeployment as DeploymentJson,
+  testnet: testnetDeployment as DeploymentJson,
+  mainnet: mainnetDeployment as DeploymentJson,
+}
+
+/**
+ * Extract all contract addresses from a deployment JSON
+ */
+function extractContracts(deployment: DeploymentJson): DeployedContracts {
+  const contracts: DeployedContracts = {}
+
+  // Categories that should be prefixed when flattening (e.g., jns.registrar -> jnsRegistrar)
+  const prefixedCategories = ['jns', 'payments', 'security'] as const
+
+  const categories = [
+    'tokens',
+    'bridge',
+    'infrastructure',
+    'paymaster',
+    'registry',
+    'defi',
+    'nodeStaking',
+    'moderation',
+    'compute',
+    'oif',
+    'games',
+    ...prefixedCategories,
+  ] as const
+
+  for (const category of categories) {
+    const data = (
+      deployment as unknown as Record<
+        string,
+        Record<string, string> | undefined
+      >
+    )[category]
+    if (!data) continue
+    const shouldPrefix = prefixedCategories.includes(
+      category as (typeof prefixedCategories)[number],
+    )
+    for (const [key, value] of Object.entries(data)) {
+      if (typeof value === 'string' && value.startsWith('0x')) {
+        // Prefix nested keys for certain categories (jns.registrar -> jnsRegistrar)
+        const contractKey = shouldPrefix
+          ? `${category}${key.charAt(0).toUpperCase()}${key.slice(1)}`
+          : key
+        contracts[contractKey] = value
+      }
+    }
+  }
+
+  return contracts
+}
+
+// Pre-computed contracts per network
+const contractsCache: Record<NetworkType, DeployedContracts> = {
+  localnet: extractContracts(deployments.localnet),
+  testnet: extractContracts(deployments.testnet),
+  mainnet: extractContracts(deployments.mainnet),
+}
+
 // Defaults
-// ============================================================================
 
 /**
  * Default test accounts from Anvil/Foundry - use for local development only.
@@ -172,137 +220,16 @@ export const L2_PREDEPLOYS = {
 /** Standard ERC-4337 EntryPoint */
 export const ENTRYPOINT_V07 = '0x0000000071727De22E5E9d8BAf0edAc6f37da032'
 
-// ============================================================================
 // Configuration Loading
-// ============================================================================
-
-/**
- * Load chain configuration from JSON file
- * Note: This is the canonical implementation - also exported from index.ts
- */
-export function loadChainConfig(network: NetworkType): ChainConfig {
-  const configPath = join(CONFIG_DIR, 'chain', `${network}.json`)
-
-  if (!existsSync(configPath)) {
-    throw new Error(`Chain config not found: ${configPath}`)
-  }
-
-  return ChainConfigSchema.parse(JSON.parse(safeReadFile(configPath)))
-}
-
-/**
- * Get chain config for current or specified network
- */
-export function getChainConfig(network?: NetworkType): ChainConfig {
-  return loadChainConfig(network ?? getCurrentNetwork())
-}
 
 /**
  * Load deployed contract addresses for a network
  */
 export function loadDeployedContracts(network: NetworkType): DeployedContracts {
-  const contracts: DeployedContracts = {
-    weth: L2_PREDEPLOYS.WETH,
-  }
-
-  // Try to load from various deployment files
-  const deploymentFiles = [
-    join(DEPLOYMENTS_DIR, `${network}`, 'deployment.json'),
-    join(DEPLOYMENTS_DIR, `${network}-complete.json`),
-    join(DEPLOYMENTS_DIR, `${network}-addresses.json`),
-    join(DEPLOYMENTS_DIR, network, 'liquidity-system.json'),
-    join(DEPLOYMENTS_DIR, network, 'multi-token-system.json'),
-    join(
-      DEPLOYMENTS_DIR,
-      `uniswap-v4-${network === 'mainnet' ? '420691' : network === 'testnet' ? '420690' : '1337'}.json`,
-    ),
-    join(
-      DEPLOYMENTS_DIR,
-      `bazaar-marketplace-${network === 'mainnet' ? '420691' : network === 'testnet' ? '420690' : '1337'}.json`,
-    ),
-    join(
-      DEPLOYMENTS_DIR,
-      `predimarket-${network === 'mainnet' ? '420691' : network === 'testnet' ? '420690' : '1337'}.json`,
-    ),
-    join(
-      DEPLOYMENTS_DIR,
-      `identity-system-${network === 'mainnet' ? '420691' : network === 'testnet' ? '420690' : '1337'}.json`,
-    ),
-  ]
-
-  for (const file of deploymentFiles) {
-    if (existsSync(file)) {
-      const data = DeploymentFileDataSchema.parse(
-        JSON.parse(safeReadFile(file)),
-      )
-      // Safely merge without Object.assign to avoid prototype pollution
-      const flattened = flattenContracts(data)
-      for (const [key, value] of Object.entries(flattened)) {
-        if (isSafeKey(key)) {
-          contracts[key] = value
-        }
-      }
-    }
-  }
-
-  return contracts
+  return { ...contractsCache[network], weth: L2_PREDEPLOYS.WETH }
 }
 
-// DeploymentFileData type is imported from schemas.ts
-
-/**
- * Check if a key is safe from prototype pollution attacks
- */
-function isSafeKey(key: string): boolean {
-  const dangerousKeys = ['__proto__', 'constructor', 'prototype']
-  return !dangerousKeys.includes(key)
-}
-
-/**
- * Flatten nested contract structures
- * Protected against prototype pollution by filtering dangerous keys
- */
-function flattenContracts(data: DeploymentFileData): DeployedContracts {
-  const result: DeployedContracts = {}
-
-  for (const [key, value] of Object.entries(data)) {
-    // Protect against prototype pollution
-    if (!isSafeKey(key)) continue
-
-    if (typeof value === 'string' && value.startsWith('0x')) {
-      result[key] = value
-    } else if (
-      typeof value === 'object' &&
-      value !== null &&
-      !Array.isArray(value) &&
-      'contracts' in value
-    ) {
-      // Type-safe: schema already validated this structure
-      const contractsValue = value.contracts
-      if (
-        typeof contractsValue === 'object' &&
-        contractsValue !== null &&
-        !Array.isArray(contractsValue)
-      ) {
-        const nestedResult = flattenContracts(
-          contractsValue as DeploymentFileData,
-        )
-        // Safely merge without Object.assign to avoid prototype pollution
-        for (const [nestedKey, nestedValue] of Object.entries(nestedResult)) {
-          if (isSafeKey(nestedKey)) {
-            result[nestedKey] = nestedValue
-          }
-        }
-      }
-    }
-  }
-
-  return result
-}
-
-// ============================================================================
 // Network Detection & Status
-// ============================================================================
 
 /**
  * Get the current network based on environment or default
@@ -329,32 +256,28 @@ export function getCurrentNetwork(): NetworkType {
  * Check if an RPC endpoint is reachable
  */
 export async function checkRpcReachable(rpcUrl: string): Promise<boolean> {
-  try {
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 5000)
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 5000)
 
-    const response = await fetch(rpcUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'eth_blockNumber',
-        params: [],
-        id: 1,
-      }),
-      signal: controller.signal,
-    })
+  const response = await fetch(rpcUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      method: 'eth_blockNumber',
+      params: [],
+      id: 1,
+    }),
+    signal: controller.signal,
+  }).catch((): null => null)
 
-    clearTimeout(timeout)
+  clearTimeout(timeout)
 
-    if (!response.ok) return false
+  if (!response?.ok) return false
 
-    const parseResult = RpcHexResultSchema.safeParse(await response.json())
-    if (!parseResult.success) return false
-    return parseResult.data.result !== undefined
-  } catch {
-    return false
-  }
+  const parseResult = RpcHexResultSchema.safeParse(await response.json())
+  if (!parseResult.success) return false
+  return parseResult.data.result !== undefined
 }
 
 /**
@@ -364,28 +287,24 @@ export async function checkHasBalance(
   rpcUrl: string,
   address: string,
 ): Promise<boolean> {
-  try {
-    const response = await fetch(rpcUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'eth_getBalance',
-        params: [address, 'latest'],
-        id: 1,
-      }),
-    })
+  const response = await fetch(rpcUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      method: 'eth_getBalance',
+      params: [address, 'latest'],
+      id: 1,
+    }),
+  }).catch((): null => null)
 
-    if (!response.ok) return false
+  if (!response?.ok) return false
 
-    const parseResult = RpcHexResultSchema.safeParse(await response.json())
-    if (!parseResult.success || !parseResult.data.result) return false
+  const parseResult = RpcHexResultSchema.safeParse(await response.json())
+  if (!parseResult.success || !parseResult.data.result) return false
 
-    const balance = BigInt(parseResult.data.result)
-    return balance > BigInt(0)
-  } catch {
-    return false
-  }
+  const balance = BigInt(parseResult.data.result)
+  return balance > BigInt(0)
 }
 
 /**
@@ -393,13 +312,12 @@ export async function checkHasBalance(
  */
 export async function getNetworkInfo(
   network: NetworkType,
+  rpcUrl: string,
 ): Promise<NetworkInfo> {
-  const chain = loadChainConfig(network)
+  const deployment = deployments[network]
   const contracts = loadDeployedContracts(network)
 
   // Check RPC availability
-  const rpcUrl =
-    process.env[`JEJU_${network.toUpperCase()}_RPC_URL`] || chain.rpcUrl
   const rpcReachable = await checkRpcReachable(rpcUrl)
 
   // Check if we have a funded account
@@ -412,40 +330,23 @@ export async function getNetworkInfo(
 
   return {
     network,
-    chain,
     contracts,
+    chainId: deployment.chainId,
+    l1ChainId: deployment.l1ChainId,
     isAvailable: rpcReachable && hasBalance,
     rpcReachable,
     hasBalance,
   }
 }
 
-// ============================================================================
 // Convenience Getters
-// ============================================================================
-
-/**
- * Get RPC URL for a network (with env override support)
- */
-export function getRpcUrl(network?: NetworkType): string {
-  const net = network || getCurrentNetwork()
-
-  // Environment variable overrides
-  const envUrl =
-    process.env.JEJU_RPC_URL || process.env[`JEJU_${net.toUpperCase()}_RPC_URL`]
-  if (envUrl) return envUrl
-
-  const chain = loadChainConfig(net)
-  return chain.rpcUrl
-}
 
 /**
  * Get chain ID for a network
  */
 export function getChainId(network?: NetworkType): number {
   const net = network || getCurrentNetwork()
-  const chain = loadChainConfig(net)
-  return chain.chainId
+  return deployments[net].chainId
 }
 
 /**
@@ -464,7 +365,7 @@ export function getContractAddress(
   const envAddress = process.env[envKey]
   if (envAddress) return envAddress
 
-  // Load from deployment files
+  // Load from deployment data
   const contracts = loadDeployedContracts(net)
   const address = contracts[contractName]
 
@@ -511,9 +412,3 @@ export function getDeployerConfig(): { address: string; privateKey: string } {
 
   return { address, privateKey }
 }
-
-// ============================================================================
-// Exports
-// ============================================================================
-
-// Types are exported from ./schemas via index.ts 'export * from ./schemas'

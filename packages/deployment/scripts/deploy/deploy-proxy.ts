@@ -17,6 +17,7 @@ import { join } from 'node:path'
 import {
   type Abi,
   type Address,
+  type Chain,
   createPublicClient,
   createWalletClient,
   encodeDeployData,
@@ -67,6 +68,7 @@ async function deployContract(
   publicClient: ReturnType<typeof createPublicClient>,
   walletClient: ReturnType<typeof createWalletClient>,
   account: PrivateKeyAccount,
+  chain: Chain,
   contractName: string,
   constructorArgs: ConstructorArg[],
 ): Promise<Address> {
@@ -83,6 +85,7 @@ async function deployContract(
   })
 
   const hash = await walletClient.sendTransaction({
+    chain,
     data: deployData,
     account,
   })
@@ -156,6 +159,7 @@ Deployer:   ${account.address}
     publicClient,
     walletClient,
     account,
+    chain,
     'ProxyRegistry',
     [account.address, treasury],
   )
@@ -167,6 +171,7 @@ Deployer:   ${account.address}
     publicClient,
     walletClient,
     account,
+    chain,
     'ProxyPayment',
     [account.address, registryAddress, treasury],
   )

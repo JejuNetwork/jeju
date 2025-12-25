@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@elysiajs/cors": "^1.4.0",
+    "@jejunetwork/shared": "workspace:*",
     "@jejunetwork/types": "workspace:*",
     "@noble/curves": "2.0.1",
     "@noble/ciphers": "1.2.1",
@@ -37,6 +38,11 @@
   },
   "peerDependencies": {
     "viem": ">=2.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/elizaos/jeju.git",
+    "directory": "packages/messaging"
   },
   "publishConfig": {
     "access": "public"

@@ -1,3 +1,7 @@
+/**
+ * DeFi protocol types for staking, swaps, and liquidity.
+ */
+
 import { z } from 'zod'
 import {
   AddressSchema,
@@ -7,26 +11,8 @@ import {
   MAX_SMALL_ARRAY_LENGTH,
 } from './validation'
 
-// ============================================================================
-// Staking Status Types
-// ============================================================================
+export type StakeStatus = 'idle' | 'pending' | 'complete' | 'error'
 
-/**
- * Staking operation status
- */
-export type StakeStatus =
-  | 'idle' // Not staked
-  | 'pending' // Stake transaction pending
-  | 'complete' // Successfully staked
-  | 'error' // Staking failed
-
-// ============================================================================
-// DEX Protocol Types
-// ============================================================================
-
-/**
- * Supported DEX protocols across the Jeju ecosystem
- */
 export type DexProtocol =
   | 'uniswap-v2'
   | 'uniswap-v3'
@@ -39,10 +25,6 @@ export type DexProtocol =
   | 'xlp-v3'
   | 'tfmm'
 
-// ============================================================================
-// Token Types
-// ============================================================================
-
 export const TokenSchema = z.object({
   address: AddressSchema,
   name: z.string(),
@@ -51,6 +33,20 @@ export const TokenSchema = z.object({
   chainId: z.number(),
 })
 export type Token = z.infer<typeof TokenSchema>
+
+/**
+ * Swap quote for token exchanges
+ */
+export interface SwapQuote {
+  tokenIn: `0x${string}`
+  tokenOut: `0x${string}`
+  amountIn: bigint
+  amountOut: bigint
+  amountOutMin: bigint
+  priceImpact: number
+  route: `0x${string}`[]
+  fee: bigint
+}
 
 export const UniswapV4PoolSchema = z.object({
   poolId: z.string(),

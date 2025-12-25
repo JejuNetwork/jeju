@@ -29,7 +29,7 @@ const NETWORK_CONFIGS: Record<
 > = {
   localnet: {
     rpcUrl: process.env.JEJU_RPC_URL || 'http://127.0.0.1:6546',
-    chainId: 1337,
+    chainId: 31337,
     name: getLocalnetChain().name,
   },
   testnet: {
@@ -67,14 +67,14 @@ async function checkRpc(rpcUrl: string): Promise<{
       signal: controller.signal,
     })
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
-    const dataRaw = await response.json()
+    const dataRaw: unknown = await response.json()
     const data = expectValid(
       JsonRpcResponseSchema,
       dataRaw,
       `${method} response`,
     )
     if (data.error) throw new Error(data.error.message)
-    return (data.result as JsonValue) ?? null
+    return data.result ?? null
   }
 
   try {

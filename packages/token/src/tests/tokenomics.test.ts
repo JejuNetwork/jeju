@@ -32,9 +32,7 @@ import type {
 } from '../types'
 import { ValidationError } from '../validation'
 
-// =============================================================================
 // TIME CONSTANTS
-// =============================================================================
 
 describe('Time Constants', () => {
   test('ONE_YEAR is correct in seconds', () => {
@@ -65,9 +63,7 @@ describe('Time Constants', () => {
   })
 })
 
-// =============================================================================
 // percentToTokens - CRITICAL MATH FUNCTION
-// =============================================================================
 
 describe('percentToTokens - Basic Calculations', () => {
   const totalSupply = 1_000_000_000n // 1 billion tokens
@@ -203,9 +199,7 @@ describe('percentToTokens - Property-Based Testing (Fuzzing)', () => {
   })
 })
 
-// =============================================================================
 // tokensToWei - DECIMAL CONVERSION
-// =============================================================================
 
 describe('tokensToWei - Standard Decimals', () => {
   test('1 token with 18 decimals', () => {
@@ -265,9 +259,7 @@ describe('tokensToWei - Edge Cases', () => {
   })
 })
 
-// =============================================================================
 // weiToTokens - REVERSE CONVERSION
-// =============================================================================
 
 describe('weiToTokens - Standard Conversions', () => {
   test('1e18 wei equals 1 token', () => {
@@ -350,9 +342,7 @@ describe('weiToTokens/tokensToWei - Round Trip', () => {
   })
 })
 
-// =============================================================================
 // formatTokens - DISPLAY FORMATTING
-// =============================================================================
 
 describe('formatTokens - Millions', () => {
   test('formats exactly 1 million', () => {
@@ -420,9 +410,7 @@ describe('formatTokens - Edge Cases', () => {
   })
 })
 
-// =============================================================================
 // formatWei - WEI DISPLAY FORMATTING
-// =============================================================================
 
 describe('formatWei - Standard Formatting', () => {
   test('formats 1 ETH (1e18 wei)', () => {
@@ -475,9 +463,7 @@ describe('formatWei - Various Token Decimals', () => {
   })
 })
 
-// =============================================================================
 // calculateVestingSchedule - COMPLEX FINANCIAL LOGIC
-// =============================================================================
 
 describe('calculateVestingSchedule - Basic Cases', () => {
   test('100% TGE unlock', () => {
@@ -698,9 +684,7 @@ describe('calculateVestingSchedule - Mathematical Properties', () => {
   })
 })
 
-// =============================================================================
 // FEE DISTRIBUTION VALIDATION
-// =============================================================================
 
 describe('validateFeeDistribution - Valid Cases', () => {
   test('accepts default fee distribution', () => {
@@ -789,9 +773,7 @@ describe('validateFeeDistribution - Invalid Cases', () => {
   })
 })
 
-// =============================================================================
 // TOKEN ALLOCATION VALIDATION
-// =============================================================================
 
 describe('validateAllocation - Valid Cases', () => {
   test('accepts valid allocation summing to 100', () => {
@@ -862,9 +844,7 @@ describe('validateAllocation - Invalid Cases', () => {
   })
 })
 
-// =============================================================================
 // createTokenEconomics
-// =============================================================================
 
 describe('createTokenEconomics - Factory Function', () => {
   const validAllocation: TokenAllocation = {
@@ -966,9 +946,7 @@ describe('createTokenEconomics - Factory Function', () => {
   })
 })
 
-// =============================================================================
 // validateTokenEconomicsConfig - FULL VALIDATION
-// =============================================================================
 
 describe('validateTokenEconomicsConfig', () => {
   const validConfig: TokenEconomics = {
@@ -1066,9 +1044,7 @@ describe('validateTokenEconomicsConfig', () => {
   })
 })
 
-// =============================================================================
 // DEFAULT_FEE_DISTRIBUTION
-// =============================================================================
 
 describe('DEFAULT_FEE_DISTRIBUTION', () => {
   test('sums to 100%', () => {

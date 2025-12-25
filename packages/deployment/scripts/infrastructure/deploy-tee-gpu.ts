@@ -17,11 +17,9 @@ import {
   GPUType,
   type TEEGPUProvider,
   TEEProvider,
-} from '../apps/dws/src/containers/tee-gpu-provider'
+} from '../../../../apps/dws/api/containers/tee-gpu-provider'
 
-// ============================================================================
 // Configuration
-// ============================================================================
 
 interface DeployConfig {
   gpuType: 'h200' | 'h100'
@@ -77,9 +75,7 @@ function getConfig(): DeployConfig {
   }
 }
 
-// ============================================================================
 // Deployment
-// ============================================================================
 
 async function deploy() {
   const config = getConfig()
@@ -260,9 +256,7 @@ async function deploy() {
   }
 }
 
-// ============================================================================
 // Main
-// ============================================================================
 
 deploy().catch((err) => {
   console.error('Deployment failed:', err)
