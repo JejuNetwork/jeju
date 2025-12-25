@@ -73,7 +73,7 @@
     "@types/chai": "5.2.3"
   },
   "scripts": {
-    "preinstall": "python3 -c 'import distutils' 2>/dev/null || (echo 'Python distutils not found - run: pip3 install --user --break-system-packages setuptools' && exit 1)",
+    "preinstall": "bash scripts/setup-tools.sh",
     "postinstall": "bun run build:packages && bun run packages/deployment/scripts/setup-apps.ts && bun run link:cli || echo 'Setup completed with warnings'",
     "build:packages": "cd packages/types && bun run build && cd ../contracts && bun run build",
     "link:cli": "cd packages/cli && bun run build && mkdir -p ~/.bun/bin && ln -sf $(pwd)/bin/jeju.js ~/.bun/bin/jeju && echo 'CLI linked: jeju command available'",
@@ -81,8 +81,8 @@
     "dev": "bun run jeju -- dev",
     "build": "bun run jeju -- build",
     "test": "bun run jeju -- test",
-    "typecheck": "turbo run typecheck --filter='!./vendor/*' --filter='!./vendor/*/packages/*' --filter='!./vendor/*/apps/*' && tsc --noEmit && python3 -m pyright packages/training/python apps/dws/api && cd apps/node/app/src-tauri && cargo check && cd ../../../vpn/app/src-tauri && cargo check && cd ../../../wallet/app/src-tauri && cargo check",
-    "lint": "biome check --write --unsafe packages apps && ruff check packages apps --fix && ruff format packages apps && cd apps/node/app/src-tauri && cargo fmt && cd ../../../vpn/app/src-tauri && cargo fmt && cd ../../../wallet/app/src-tauri && cargo fmt",
+    "typecheck": "turbo run typecheck --filter='!./vendor/*' --filter='!./vendor/*/packages/*' --filter='!./vendor/*/apps/*' && tsc --noEmit && python3 -m pyright packages/training/python apps/dws/api && bash -c '. \"$HOME/.cargo/env\" 2>/dev/null || true; cd apps/node/app/src-tauri && cargo check && cd ../../../vpn/app/src-tauri && cargo check && cd ../../../wallet/app/src-tauri && cargo check'",
+    "lint": "biome check --write --unsafe packages apps && ruff check packages apps --fix && ruff format packages apps && bash -c '. \"$HOME/.cargo/env\" 2>/dev/null || true; cd apps/node/app/src-tauri && cargo fmt && cd ../../../vpn/app/src-tauri && cargo fmt && cd ../../../wallet/app/src-tauri && cargo fmt'",
     "forge": "cd packages/contracts && forge",
     "localnet": "cd packages/deployment && bun run localnet:start",
     "localnet:stop": "cd packages/deployment && bun run localnet:stop",
