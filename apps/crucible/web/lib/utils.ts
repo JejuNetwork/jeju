@@ -19,20 +19,3 @@ export function formatDistanceToNow(timestamp: number): string {
   if (minutes > 0) return `${minutes}m ago`
   return 'Just now'
 }
-
-export function shortenAddress(address: string, chars = 4): string {
-  return `${address.slice(0, chars + 2)}...${address.slice(-chars)}`
-}
-
-export function formatNumber(num: number): string {
-  if (num >= 1e9) return `${(num / 1e9).toFixed(1)}B`
-  if (num >= 1e6) return `${(num / 1e6).toFixed(1)}M`
-  if (num >= 1e3) return `${(num / 1e3).toFixed(1)}K`
-  return num.toString()
-}
-
-export function classNames(
-  ...classes: (string | undefined | null | false)[]
-): string {
-  return classes.filter(Boolean).join(' ')
-}

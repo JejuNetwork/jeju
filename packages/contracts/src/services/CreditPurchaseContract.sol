@@ -8,16 +8,16 @@ import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {IPriceOracle} from "../interfaces/IPriceOracle.sol";
 
-interface IElizaOSToken {
+interface IJejuToken {
     function mint(address to, uint256 amount) external;
 }
 
 /**
  * @title CreditPurchaseContract
  * @author Jeju Network
- * @notice Enables direct crypto purchases of elizaOS credits with multiple payment tokens
- * @dev Users can purchase elizaOS tokens (cloud credits) by paying with ETH, USDC, USDT, or DAI.
- *      Prices are determined by oracle and converted to elizaOS at current rates.
+ * @notice Enables direct crypto purchases of JEJU credits with multiple payment tokens
+ * @dev Users can purchase JEJU tokens (cloud credits) by paying with ETH, USDC, USDT, or DAI.
+ *      Prices are determined by oracle and converted to JEJU at current rates.
  *
  * Purchase Flow:
  * 1. User calls getQuote() to see how many credits they'll receive
@@ -25,7 +25,7 @@ interface IElizaOSToken {
  * 3. User calls purchaseCredits() with payment
  * 4. Contract verifies oracle price freshness
  * 5. Contract transfers payment tokens to treasury
- * 6. Contract mints elizaOS tokens directly to user's wallet
+ * 6. Contract mints JEJU tokens directly to user's wallet
  * 7. Event emitted for indexing and analytics
  *
  * Supported Tokens:
@@ -48,8 +48,8 @@ contract CreditPurchaseContract is Ownable, Pausable, ReentrancyGuard {
 
     // ============ State Variables ============
 
-    /// @notice elizaOS token contract for minting credits
-    IElizaOSToken public immutable ElizaOSToken;
+    /// @notice JEJU token contract for minting credits
+    IJejuToken public immutable jejuToken;
 
     /// @notice Price oracle for getting token/USD rates
     IPriceOracle public priceOracle;
@@ -117,7 +117,7 @@ contract CreditPurchaseContract is Ownable, Pausable, ReentrancyGuard {
 
     error InvalidPriceOracle();
     error InvalidTreasury();
-    error InvalidElizaOSToken();
+    error InvalidJejuToken();
     error UnsupportedToken(address token);
     error StalePriceData(address token);
     error PurchaseAmountTooLow(uint256 amount, uint256 minimum);
@@ -130,12 +130,12 @@ contract CreditPurchaseContract is Ownable, Pausable, ReentrancyGuard {
 
     // ============ Constructor ============
 
-    constructor(IElizaOSToken _elizaOSToken, IPriceOracle _priceOracle, address _treasury) Ownable(msg.sender) {
-        if (address(_elizaOSToken) == address(0)) revert InvalidElizaOSToken();
+    constructor(IJejuToken _jejuToken, IPriceOracle _priceOracle, address _treasury) Ownable(msg.sender) {
+        if (address(_jejuToken) == address(0)) revert InvalidJejuToken();
         if (address(_priceOracle) == address(0)) revert InvalidPriceOracle();
         if (_treasury == address(0)) revert InvalidTreasury();
 
-        ElizaOSToken = _elizaOSToken;
+        jejuToken = _jejuToken;
         priceOracle = _priceOracle;
         treasury = _treasury;
 
@@ -152,7 +152,7 @@ contract CreditPurchaseContract is Ownable, Pausable, ReentrancyGuard {
      * @param paymentAmount Amount of payment token to spend
      * @param minCreditsOut Minimum credits to receive (slippage protection)
      * @param recipient Address to receive the minted credits
-     * @return creditsReceived Amount of elizaOS tokens minted
+     * @return creditsReceived Amount of JEJU tokens minted
      */
     function purchaseCredits(address paymentToken, uint256 paymentAmount, uint256 minCreditsOut, address recipient)
         external
@@ -195,7 +195,7 @@ contract CreditPurchaseContract is Ownable, Pausable, ReentrancyGuard {
         creditsReceived = creditsOut;
 
         // Mint tokens BEFORE external calls to untrusted addresses (reentrancy safe)
-        ElizaOSToken.mint(recipient, creditsOut);
+        jejuToken.mint(recipient, creditsOut);
 
         // EXTERNAL CALLS LAST (to treasury which could be malicious contract)
         if (paymentToken == ETH) {
@@ -233,7 +233,7 @@ contract CreditPurchaseContract is Ownable, Pausable, ReentrancyGuard {
      * @notice Get a purchase quote showing expected credits out
      * @param paymentToken Token to pay with
      * @param paymentAmount Amount of payment token
-     * @return creditsOut Expected elizaOS credits to receive
+     * @return creditsOut Expected JEJU credits to receive
      * @return pricePerCredit Price per credit in payment token
      * @return slippageBps Current slippage in basis points
      * @return totalCostUSD Total cost in USD (18 decimals)
@@ -364,10 +364,10 @@ contract CreditPurchaseContract is Ownable, Pausable, ReentrancyGuard {
             revert StalePriceData(paymentToken);
         }
 
-        // Get elizaOS price from oracle
-        (uint256 elizaPriceUSD,) = priceOracle.getPrice(address(ElizaOSToken));
-        if (!priceOracle.isPriceFresh(address(ElizaOSToken))) {
-            revert StalePriceData(address(ElizaOSToken));
+        // Get JEJU price from oracle
+        (uint256 jejuPriceUSD,) = priceOracle.getPrice(address(jejuToken));
+        if (!priceOracle.isPriceFresh(address(jejuToken))) {
+            revert StalePriceData(address(jejuToken));
         }
 
         // Calculate USD value of payment (normalize to 18 decimals)
@@ -378,9 +378,9 @@ contract CreditPurchaseContract is Ownable, Pausable, ReentrancyGuard {
         uint256 netUsdValue = usdValue - ((usdValue * platformFeeBps) / BASIS_POINTS);
 
         // Calculate credits out
-        // Note: both netUsdValue and elizaPriceUSD are in 18 decimals
-        // Result will be in elizaOS token decimals (18)
-        creditsOut = (netUsdValue * 1e18) / elizaPriceUSD;
+        // Note: both netUsdValue and jejuPriceUSD are in 18 decimals
+        // Result will be in JEJU token decimals (18)
+        creditsOut = (netUsdValue * 1e18) / jejuPriceUSD;
 
         // Calculate price per credit in payment token
         pricePerCredit = (paymentAmount * 1e18) / creditsOut;

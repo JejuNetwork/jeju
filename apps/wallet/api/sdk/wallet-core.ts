@@ -217,6 +217,7 @@ export class WalletCore {
           evmAccounts: [
             {
               address: account.address,
+              type: 'eoa',
               chainId: this.config.defaultChainId ?? 1,
             },
           ],

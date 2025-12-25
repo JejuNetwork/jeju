@@ -66,7 +66,7 @@ export interface AgentMetadata {
 export interface CloudService {
   name: string
   category: string // "ai", "compute", "storage", etc.
-  basePrice: bigint // In elizaOS tokens (18 decimals)
+  basePrice: bigint // In JEJU tokens (18 decimals)
   minPrice: bigint
   maxPrice: bigint
   x402Enabled: boolean
@@ -128,7 +128,7 @@ const SERVICE_REGISTRY_ABI = parseAbi([
 
 const CREDIT_MANAGER_ABI = parseAbi([
   'function getBalance(address user, address token) external view returns (uint256 balance)',
-  'function getAllBalances(address user) external view returns (uint256 usdcBalance, uint256 elizaBalance, uint256 ethBalance)',
+  'function getAllBalances(address user) external view returns (uint256 usdcBalance, uint256 jejuBalance, uint256 ethBalance)',
   'function hasSufficientCredit(address user, address token, uint256 amount) external view returns (bool sufficient, uint256 available)',
 ])
 
@@ -502,7 +502,7 @@ export const defaultCloudServices: CloudService[] = [
   {
     name: 'chat-completion',
     category: 'ai',
-    basePrice: parseEther('0.001'), // 0.001 elizaOS per request
+    basePrice: parseEther('0.001'), // 0.001 JEJU per request
     minPrice: parseEther('0.0001'),
     maxPrice: parseEther('0.01'),
     x402Enabled: true,

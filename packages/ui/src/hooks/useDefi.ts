@@ -3,8 +3,8 @@ import type {
   LiquidityPosition,
   PoolInfo,
   SwapParams,
-  SwapQuote,
 } from '@jejunetwork/sdk'
+import type { SwapQuote } from '@jejunetwork/types'
 import { useCallback } from 'react'
 import type { Address, Hex } from 'viem'
 import { useNetworkContext } from '../context'

@@ -997,6 +997,20 @@ export class ArbitrageExecutor {
     await clients.public.waitForTransactionReceipt({ hash })
     return hash
   }
+
+  private async executeEvmSwap(
+    chainId: number,
+    fromToken: Address,
+    toToken: Address,
+    amount: bigint,
+  ): Promise<string> {
+    const quote = await this.get1inchSwapQuote(chainId, fromToken, toToken, amount)
+    if (!quote) {
+      throw new Error(`Failed to get swap quote for ${fromToken} -> ${toToken} on chain ${chainId}`)
+    }
+    return this.execute1inchSwap(chainId, quote)
+  }
+
   private async bridgeSolanaToEvm(
     tokenMint: string,
     amount: bigint,

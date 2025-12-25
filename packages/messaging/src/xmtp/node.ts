@@ -1,13 +1,8 @@
-/**
- * XMTP Node Wrapper
- *
- * Wraps XMTP's MLS functionality with Jeju's relay infrastructure.
- * Messages are encrypted with XMTP/MLS, transported via Jeju relay nodes.
- */
-
-import { bytesToHex, randomBytes } from '@jejunetwork/shared'
+import { bytesToHex, createLogger, randomBytes } from '@jejunetwork/shared'
 import type { Address } from 'viem'
 import { z } from 'zod'
+
+const log = createLogger('xmtp-node')
 import { IPFSAddResponseSchema } from '../schemas'
 import type {
   SyncState,
@@ -17,13 +12,10 @@ import type {
   XMTPNodeStats,
 } from './types'
 
-// Maximum sizes to prevent DoS
 const MAX_CONNECTIONS = 10000
 const MAX_IDENTITIES = 100000
 const MAX_MESSAGE_HANDLERS = 100
-const MAX_ENVELOPE_SIZE = 1024 * 1024 // 1MB
-
-// WebSocket reconnection configuration
+const MAX_ENVELOPE_SIZE = 1024 * 1024
 const INITIAL_RECONNECT_DELAY_MS = 1000
 const MAX_RECONNECT_DELAY_MS = 30000
 const MAX_RECONNECT_ATTEMPTS = 10
@@ -52,15 +44,6 @@ export interface NodeConnectionState {
 
 export type MessageHandler = (envelope: XMTPEnvelope) => Promise<void>
 
-/**
- * JejuXMTPNode wraps XMTP functionality with Jeju relay infrastructure.
- *
- * Flow:
- * 1. Receives MLS-encrypted messages from XMTP clients
- * 2. Wraps in Jeju envelope for routing
- * 3. Forwards through Jeju relay network
- * 4. Persists to IPFS for durability
- */
 export class JejuXMTPNode {
   private config: XMTPNodeConfig
   private isRunning: boolean = false
@@ -87,76 +70,56 @@ export class JejuXMTPNode {
     }
   }
 
-  /**
-   * Start the XMTP node
-   */
   async start(): Promise<void> {
     if (this.isRunning) {
       throw new Error('Node already running')
     }
 
-    console.log(`[XMTP Node ${this.config.nodeId}] Starting...`)
+    log.info('Starting', { nodeId: this.config.nodeId })
 
-    // Connect to Jeju relay network (skip in test mode)
     if (!this.config.skipRelayConnection) {
       await this.connectToRelay().catch((err) => {
-        console.warn(
-          `[XMTP Node] Relay connection failed (continuing):`,
-          err instanceof Error ? err.message : 'Unknown error',
-        )
+        log.warn('Relay connection failed (continuing)', {
+          error: err instanceof Error ? err.message : 'Unknown error',
+        })
       })
     }
 
-    // Initialize MLS state
     await this.initializeMLS()
-
-    // Start sync process
     await this.startSync()
 
     this.isRunning = true
     this.startTime = Date.now()
 
-    console.log(`[XMTP Node ${this.config.nodeId}] Started successfully`)
+    log.info('Started successfully', { nodeId: this.config.nodeId })
   }
 
-  /**
-   * Stop the XMTP node
-   */
   async stop(): Promise<void> {
     if (!this.isRunning) return
 
-    console.log(`[XMTP Node ${this.config.nodeId}] Stopping...`)
+    log.info('Stopping', { nodeId: this.config.nodeId })
 
-    // Mark as not running to prevent reconnection attempts
     this.isRunning = false
 
-    // Cancel any pending reconnection
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout)
       this.reconnectTimeout = null
     }
 
-    // Close relay connection
     if (this.relayConnection) {
       this.relayConnection.close(1000, 'Node shutting down')
       this.relayConnection = null
     }
 
-    // Close all client connections
     for (const [, ws] of this.connections) {
       ws.close(1000, 'Node shutting down')
     }
     this.connections.clear()
-
-    // Flush pending messages
     await this.flushPendingMessages()
 
-    console.log(`[XMTP Node ${this.config.nodeId}] Stopped`)
+    log.info('Stopped', { nodeId: this.config.nodeId })
   }
 
-  /**
-   * Connect to Jeju relay network with automatic reconnection
-   */
   private async connectToRelay(): Promise<void> {
     if (this.connectionPromise) {
       return this.connectionPromise
@@ -168,13 +131,10 @@ export class JejuXMTPNode {
     })
   }
 
-  /**
-   * Establish WebSocket connection to relay
-   */
   private async establishRelayConnection(): Promise<void> {
     return new Promise((resolve, reject) => {
       const wsUrl = this.buildWebSocketUrl(this.config.jejuRelayUrl)
-      console.log(`[XMTP Node] Connecting to relay: ${wsUrl}`)
+      log.info('Connecting to relay', { wsUrl })
 
       const ws = new WebSocket(wsUrl)
 
@@ -187,17 +147,14 @@ export class JejuXMTPNode {
         clearTimeout(connectionTimeout)
         this.relayConnection = ws
         this.reconnectAttempts = 0
-        console.log(`[XMTP Node] Connected to relay`)
+        log.info('Connected to relay')
 
-        // Subscribe to messages for this node
         const subscribeMessage = JSON.stringify({
           type: 'subscribe',
           nodeId: this.config.nodeId,
           topics: ['xmtp/*'],
         })
         ws.send(subscribeMessage)
-
-        // Flush any pending envelopes
         this.flushPendingEnvelopes()
 
         resolve()
@@ -210,9 +167,7 @@ export class JejuXMTPNode {
       ws.onclose = (event) => {
         clearTimeout(connectionTimeout)
         this.relayConnection = null
-        console.log(
-          `[XMTP Node] Relay connection closed: ${event.code} ${event.reason}`,
-        )
+        log.info('Relay connection closed', { code: event.code, reason: event.reason })
 
         if (this.isRunning) {
           this.scheduleReconnect()
@@ -221,23 +176,16 @@ export class JejuXMTPNode {
 
       ws.onerror = (error) => {
         clearTimeout(connectionTimeout)
-        console.error(`[XMTP Node] WebSocket error:`, error)
-        // onclose will be called after onerror
+        log.error('WebSocket error', { error: String(error) })
       }
     })
   }
 
-  /**
-   * Build WebSocket URL from HTTP URL
-   */
   private buildWebSocketUrl(httpUrl: string): string {
     const url = httpUrl.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:')
     return url.endsWith('/') ? `${url}ws` : `${url}/ws`
   }
 
-  /**
-   * Handle incoming WebSocket message from relay
-   */
   private handleWebSocketMessage(event: MessageEvent): void {
     const data = event.data
     let bytes: Uint8Array
@@ -247,31 +195,27 @@ export class JejuXMTPNode {
     } else if (data instanceof ArrayBuffer) {
       bytes = new Uint8Array(data)
     } else if (data instanceof Blob) {
-      // Handle Blob asynchronously
       data.arrayBuffer().then((buffer) => {
         this.handleRelayMessage(new Uint8Array(buffer))
       })
       return
     } else {
-      console.error('[XMTP Node] Unknown message type from relay')
+      log.error('Unknown message type from relay')
       return
     }
 
     this.handleRelayMessage(bytes)
   }
 
-  /**
-   * Schedule reconnection with exponential backoff
-   */
   private scheduleReconnect(): void {
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout)
     }
 
     if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-      console.error(
-        `[XMTP Node] Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached`,
-      )
+      log.error('Max reconnect attempts reached', {
+        maxAttempts: MAX_RECONNECT_ATTEMPTS,
+      })
       return
     }
 
@@ -281,113 +225,82 @@ export class JejuXMTPNode {
     )
     this.reconnectAttempts++
 
-    console.log(
-      `[XMTP Node] Scheduling reconnect attempt ${this.reconnectAttempts} in ${delay}ms`,
-    )
+    log.info('Scheduling reconnect attempt', {
+      attempt: this.reconnectAttempts,
+      delayMs: delay,
+    })
 
     this.reconnectTimeout = setTimeout(() => {
       this.connectToRelay().catch((error) => {
-        console.error(`[XMTP Node] Reconnect failed:`, error)
+        log.error('Reconnect failed', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+        })
       })
     }, delay)
   }
 
-  /**
-   * Flush pending envelopes after reconnection
-   */
   private flushPendingEnvelopes(): void {
     if (this.pendingEnvelopes.length === 0) return
 
-    console.log(
-      `[XMTP Node] Flushing ${this.pendingEnvelopes.length} pending envelopes`,
-    )
+    log.info('Flushing pending envelopes', { count: this.pendingEnvelopes.length })
 
     const envelopes = [...this.pendingEnvelopes]
     this.pendingEnvelopes = []
 
     for (const envelope of envelopes) {
-      this.forwardToRelay(envelope).catch((error) => {
-        console.error(`[XMTP Node] Failed to flush envelope:`, error)
-        this.pendingEnvelopes.push(envelope)
-      })
+      this.forwardToRelay(envelope)
     }
   }
 
-  /**
-   * Handle incoming relay message from WebSocket
-   */
   async handleRelayMessage(data: Uint8Array): Promise<void> {
-    // Decode envelope
     const envelope = this.decodeEnvelope(data)
     if (!envelope) return
 
     this.messageCount++
 
-    // Forward to registered handlers
     for (const handler of this.messageHandlers) {
       await handler(envelope)
     }
 
-    // Route to connected clients
-    await this.routeToClients(envelope)
+    this.routeToClients(envelope)
   }
 
-  /**
-   * Process and forward an XMTP envelope
-   */
   async processEnvelope(envelope: XMTPEnvelope): Promise<void> {
-    this.messageCount++
-
-    // Validate envelope
     if (!this.validateEnvelope(envelope)) {
       throw new Error('Invalid envelope')
     }
 
-    // Persist to IPFS if configured
+    this.messageCount++
+
     if (this.config.ipfsUrl) {
       await this.persistToIPFS(envelope)
     }
 
-    // Forward through Jeju relay
-    await this.forwardToRelay(envelope)
+    this.forwardToRelay(envelope)
     this.forwardCount++
   }
 
-  /**
-   * Forward envelope to Jeju relay network
-   */
-  private async forwardToRelay(envelope: XMTPEnvelope): Promise<void> {
-    const payload = this.encodeEnvelope(envelope)
-
+  private forwardToRelay(envelope: XMTPEnvelope): void {
     if (this.relayConnection?.readyState === WebSocket.OPEN) {
-      this.relayConnection.send(payload)
+      this.relayConnection.send(this.encodeEnvelope(envelope))
     } else {
-      // Queue for later if not connected
       this.pendingEnvelopes.push(envelope)
       this.syncState.pendingMessages = this.pendingEnvelopes.length
     }
   }
 
-  /**
-   * Route envelope to connected clients
-   */
-  private async routeToClients(envelope: XMTPEnvelope): Promise<void> {
+  private routeToClients(envelope: XMTPEnvelope): void {
+    const payload = this.encodeEnvelope(envelope)
     for (const recipient of envelope.recipients) {
-      const connection = this.connections.get(recipient.toLowerCase())
-      if (connection?.readyState === WebSocket.OPEN) {
-        const payload = this.encodeEnvelope(envelope)
-        connection.send(payload)
+      const conn = this.connections.get(recipient.toLowerCase())
+      if (conn?.readyState === WebSocket.OPEN) {
+        conn.send(payload)
       }
     }
   }
 
-  /**
-   * Register an XMTP identity
-   */
   async registerIdentity(identity: XMTPIdentity): Promise<void> {
     const key = identity.address.toLowerCase()
-
-    // Check limit to prevent memory exhaustion
     if (
       !this.identityCache.has(key) &&
       this.identityCache.size >= MAX_IDENTITIES
@@ -396,24 +309,13 @@ export class JejuXMTPNode {
     }
 
     this.identityCache.set(key, identity)
-
-    // Store in Jeju key registry (would call contract)
-    // Log truncated address only
-    console.log(
-      `[XMTP Node] Registered identity for ${identity.address.slice(0, 10)}...`,
-    )
+    log.info('Registered identity', { address: identity.address.slice(0, 10) + '...' })
   }
 
-  /**
-   * Get identity by address
-   */
   async getIdentity(address: Address): Promise<XMTPIdentity | null> {
     return this.identityCache.get(address.toLowerCase()) ?? null
   }
 
-  /**
-   * Lookup multiple identities
-   */
   async lookupIdentities(
     addresses: Address[],
   ): Promise<Map<Address, XMTPIdentity>> {
@@ -429,85 +331,112 @@ export class JejuXMTPNode {
     return result
   }
 
-  /**
-   * Initialize MLS state
-   */
   private async initializeMLS(): Promise<void> {
-    console.log(`[XMTP Node] Initializing MLS state...`)
-    // MLS initialization would go here
-    // Using XMTP's @xmtp/mls-client in production
+    log.info('Initializing MLS state')
+    this.identityCache.clear()
+    this.messageHandlers.clear()
+
+    if (this.config.persistenceDir) {
+      await this.loadPersistedIdentities()
+    }
+
+    log.info('MLS state initialized')
   }
 
-  /**
-   * Start background sync
-   */
-  private async startSync(): Promise<void> {
-    this.syncState.isSyncing = true
-    console.log(
-      `[XMTP Node] Starting sync from block ${this.syncState.lastSyncedBlock}`,
-    )
+  private async loadPersistedIdentities(): Promise<void> {
+    if (!this.config.persistenceDir) return
 
-    // Sync would run in background
+    const identityFile = `${this.config.persistenceDir}/identities.json`
+    const file = Bun.file(identityFile)
+    const exists = await file.exists().catch(() => false)
+
+    if (!exists) return
+
+    const data: { identities: XMTPIdentity[] } = await file.json().catch(() => ({ identities: [] }))
+
+    for (const identity of data.identities) {
+      this.identityCache.set(identity.address.toLowerCase(), identity)
+    }
+
+    log.info('Loaded persisted identities', { count: data.identities.length })
+  }
+
+  private async startSync(): Promise<void> {
+    if (this.syncState.isSyncing) {
+      log.debug('Sync already in progress')
+      return
+    }
+
+    this.syncState.isSyncing = true
+    log.info('Starting sync', { fromTimestamp: this.syncState.lastSyncedAt })
+
+    if (this.config.jejuRelayUrl) {
+      const response = await fetch(
+        `${this.config.jejuRelayUrl}/api/sync?nodeId=${encodeURIComponent(this.config.nodeId)}&since=${this.syncState.lastSyncedAt}`,
+      ).catch(() => null)
+
+      if (response?.ok) {
+        const data: { messages: XMTPEnvelope[]; lastTimestamp: number } =
+          await response.json().catch(() => ({ messages: [], lastTimestamp: 0 }))
+
+        for (const envelope of data.messages) {
+          this.messageCount++
+          for (const handler of this.messageHandlers) {
+            await handler(envelope).catch((err) => {
+              log.error('Handler error', {
+                error: err instanceof Error ? err.message : 'Unknown error',
+              })
+            })
+          }
+        }
+
+        this.syncState.pendingMessages = this.pendingEnvelopes.length
+        if (data.lastTimestamp > this.syncState.lastSyncedAt) {
+          this.syncState.lastSyncedAt = data.lastTimestamp
+        }
+
+        log.info('Synced messages', { count: data.messages.length })
+      }
+    }
+
     this.syncState.isSyncing = false
     this.syncState.lastSyncedAt = Date.now()
   }
 
-  /**
-   * Get current sync state
-   */
   getSyncState(): SyncState {
     return { ...this.syncState }
   }
 
-  /**
-   * Persist envelope to IPFS
-   */
   private async persistToIPFS(envelope: XMTPEnvelope): Promise<string | null> {
     if (!this.config.ipfsUrl) return null
 
-    const data = this.encodeEnvelope(envelope)
-
-    // Call IPFS API - Buffer.from creates a Node.js Buffer with proper ArrayBuffer backing
     const response = await fetch(`${this.config.ipfsUrl}/api/v0/add`, {
       method: 'POST',
-      body: Buffer.from(data),
+      body: Buffer.from(this.encodeEnvelope(envelope)),
     })
 
     if (!response.ok) {
-      console.error(`[XMTP Node] IPFS persist failed: ${response.statusText}`)
+      log.error('IPFS persist failed', { status: response.statusText })
       return null
     }
 
-    const rawResult: unknown = await response.json()
-    const result = IPFSAddResponseSchema.parse(rawResult)
+    const result = IPFSAddResponseSchema.parse(await response.json())
     return result.Hash
   }
 
-  /**
-   * Register a message handler
-   */
   onMessage(handler: MessageHandler): void {
-    // Check limit to prevent handler accumulation attacks
     if (this.messageHandlers.size >= MAX_MESSAGE_HANDLERS) {
       throw new Error('Too many message handlers registered')
     }
     this.messageHandlers.add(handler)
   }
 
-  /**
-   * Remove a message handler
-   */
   offMessage(handler: MessageHandler): void {
     this.messageHandlers.delete(handler)
   }
 
-  /**
-   * Register a client connection
-   */
   registerClient(address: Address, ws: WebSocket): void {
     const key = address.toLowerCase()
-
-    // Check limit to prevent DoS
     if (
       !this.connections.has(key) &&
       this.connections.size >= MAX_CONNECTIONS
@@ -518,16 +447,10 @@ export class JejuXMTPNode {
     this.connections.set(key, ws)
   }
 
-  /**
-   * Unregister a client connection
-   */
   unregisterClient(address: Address): void {
     this.connections.delete(address.toLowerCase())
   }
 
-  /**
-   * Get node statistics
-   */
   getStats(): XMTPNodeStats {
     return {
       nodeId: this.config.nodeId,
@@ -538,20 +461,38 @@ export class JejuXMTPNode {
       messagesForwarded: this.forwardCount,
       activeConnections: this.connections.size,
       connectedPeers: Array.from(this.connections.keys()),
-      storageUsedBytes: 0, // Would be calculated from persistence
+      storageUsedBytes: this.calculateStorageUsed(),
     }
   }
 
-  /**
-   * Check if node is healthy
-   */
+  private calculateStorageUsed(): number {
+    let bytes = 0
+    for (const identity of this.identityCache.values()) {
+      bytes += identity.address.length * 2
+      bytes += identity.installationId.length
+      if (identity.keyBundle) {
+        bytes += identity.keyBundle.identityKey.length
+        bytes += identity.keyBundle.preKey.length
+        bytes += identity.keyBundle.preKeySignature.length
+      }
+    }
+    for (const envelope of this.pendingEnvelopes) {
+      bytes += envelope.ciphertext.length
+      bytes += envelope.signature.length
+      bytes += envelope.sender.length * 2
+      bytes += envelope.contentTopic.length * 2
+      for (const recipient of envelope.recipients) {
+        bytes += recipient.length * 2
+      }
+    }
+
+    return bytes
+  }
+
   isHealthy(): boolean {
     return this.isRunning
   }
 
-  /**
-   * Get relay connection state
-   */
   getConnectionState(): NodeConnectionState {
     return {
       isConnected: this.relayConnection?.readyState === WebSocket.OPEN,
@@ -561,9 +502,6 @@ export class JejuXMTPNode {
     }
   }
 
-  /**
-   * Force reconnection to relay
-   */
   async reconnect(): Promise<void> {
     if (this.relayConnection) {
       this.relayConnection.close(1000, 'Reconnecting')
@@ -573,26 +511,19 @@ export class JejuXMTPNode {
     await this.connectToRelay()
   }
 
-  /**
-   * Encode envelope to bytes
-   */
   private encodeEnvelope(envelope: XMTPEnvelope): Uint8Array {
-    // In production, use proper serialization (protobuf)
-    const json = JSON.stringify({
-      ...envelope,
-      ciphertext: Buffer.from(envelope.ciphertext).toString('base64'),
-      signature: Buffer.from(envelope.signature).toString('base64'),
-    })
-    return new TextEncoder().encode(json)
+    return new TextEncoder().encode(
+      JSON.stringify({
+        ...envelope,
+        ciphertext: Buffer.from(envelope.ciphertext).toString('base64'),
+        signature: Buffer.from(envelope.signature).toString('base64'),
+      }),
+    )
   }
 
-  /**
-   * Decode envelope from bytes with size limits and validation
-   */
   private decodeEnvelope(data: Uint8Array): XMTPEnvelope | null {
-    // Size limit check
     if (data.length > MAX_ENVELOPE_SIZE) {
-      console.error('[XMTP Node] Envelope too large, rejecting')
+      log.error('Envelope too large, rejecting', { size: data.length, maxSize: MAX_ENVELOPE_SIZE })
       return null
     }
 
@@ -603,7 +534,6 @@ export class JejuXMTPNode {
       return null
     }
 
-    // Safe JSON parsing
     let parsed: unknown
     try {
       parsed = JSON.parse(json)
@@ -611,13 +541,9 @@ export class JejuXMTPNode {
       return null
     }
 
-    // Validate envelope structure to prevent prototype pollution
     const result = XMTPEnvelopeSchema.safeParse(parsed)
     if (!result.success) {
-      console.error(
-        '[XMTP Node] Invalid envelope format:',
-        result.error.message,
-      )
+      log.error('Invalid envelope format', { error: result.error.message })
       return null
     }
 
@@ -635,40 +561,43 @@ export class JejuXMTPNode {
     }
   }
 
-  /**
-   * Validate envelope
-   */
   private validateEnvelope(envelope: XMTPEnvelope): boolean {
-    if (!envelope.id || !envelope.sender || !envelope.recipients.length) {
-      return false
-    }
-    if (!envelope.ciphertext || envelope.ciphertext.length === 0) {
-      return false
-    }
-    return true
-  }
-
-  /**
-   * Flush pending messages (during shutdown)
-   */
-  private async flushPendingMessages(): Promise<void> {
-    // Would flush any queued messages
-    console.log(
-      `[XMTP Node] Flushing ${this.syncState.pendingMessages} pending messages`,
+    return !!(
+      envelope.id &&
+      envelope.sender &&
+      envelope.recipients.length &&
+      envelope.ciphertext?.length
     )
   }
 
-  /**
-   * Generate a unique message ID
-   */
+  private async flushPendingMessages(): Promise<void> {
+    if (this.pendingEnvelopes.length === 0) {
+      log.debug('No pending messages to flush')
+      return
+    }
+
+    log.info('Flushing pending messages to persistence', { count: this.pendingEnvelopes.length })
+
+    if (this.config.persistenceDir) {
+      const pendingFile = `${this.config.persistenceDir}/pending-messages.json`
+      const pendingData = this.pendingEnvelopes.map((e) => ({
+        ...e,
+        ciphertext: Buffer.from(e.ciphertext).toString('base64'),
+        signature: Buffer.from(e.signature).toString('base64'),
+      }))
+
+      await Bun.write(pendingFile, JSON.stringify(pendingData, null, 2))
+      log.info('Persisted pending messages', { count: pendingData.length, file: pendingFile })
+    }
+    this.pendingEnvelopes = []
+    this.syncState.pendingMessages = 0
+  }
+
   static generateMessageId(): string {
     return bytesToHex(randomBytes(16))
   }
 }
 
-/**
- * Create and start an XMTP node
- */
 export async function createXMTPNode(
   config: XMTPNodeConfig,
 ): Promise<JejuXMTPNode> {

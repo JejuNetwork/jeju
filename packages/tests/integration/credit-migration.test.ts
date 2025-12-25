@@ -4,7 +4,7 @@
  * End-to-end test of credit migration from PostgreSQL to blockchain:
  * 1. User has traditional credit balance in database
  * 2. Migration is initiated by admin
- * 3. ElizaOS tokens are minted to user's wallet
+ * 3. JEJU tokens are minted to user's wallet
  * 4. Database records are updated
  * 5. Migration transaction is recorded on-chain
  *
@@ -56,7 +56,7 @@ const TEST_CONFIG = {
   rpcUrl: JEJU_LOCALNET.rpcUrl,
   chainId: JEJU_LOCALNET.chainId,
   contracts: {
-    ElizaOSToken: (process.env.ELIZAOS_TOKEN_ADDRESS ||
+    jejuToken: (process.env.JEJU_TOKEN_ADDRESS ||
       '0x5FbDB2315678afecb367f032d93F642f64180aa3') as Address,
   },
   adminAccount: privateKeyToAccount(
@@ -68,7 +68,7 @@ const TEST_CONFIG = {
       TEST_WALLETS.user1.privateKey) as `0x${string}`,
   ),
   // Migration parameters
-  exchangeRate: 10n, // 1 credit = 10 elizaOS tokens
+  exchangeRate: 10n, // 1 credit = 10 JEJU tokens
   testCreditBalance: 100, // 100 credits to migrate
 }
 
@@ -116,7 +116,7 @@ const ERC20_ABI = parseAbi([
 type TokenAccessType = 'access-control' | 'ownable' | 'open-mint'
 
 describe.skipIf(!localnetAvailable)('Credit Migration Integration', () => {
-  let initialElizaOSBalance: bigint
+  let initialJejuBalance: bigint
   let expectedMintAmount: bigint
   let tokenAccessType: TokenAccessType
 
@@ -127,9 +127,9 @@ describe.skipIf(!localnetAvailable)('Credit Migration Integration', () => {
       TEST_CONFIG.exchangeRate *
       parseEther('1')
 
-    // Get initial elizaOS balance
-    initialElizaOSBalance = await publicClient.readContract({
-      address: TEST_CONFIG.contracts.ElizaOSToken,
+    // Get initial JEJU balance
+    initialJejuBalance = await publicClient.readContract({
+      address: TEST_CONFIG.contracts.jejuToken,
       abi: ERC20_ABI,
       functionName: 'balanceOf',
       args: [TEST_CONFIG.userAccount.address],
@@ -139,19 +139,19 @@ describe.skipIf(!localnetAvailable)('Credit Migration Integration', () => {
     tokenAccessType = await detectTokenAccessType()
 
     console.log(`\nMigration Test Setup:`)
-    console.log(`  Token address: ${TEST_CONFIG.contracts.ElizaOSToken}`)
+    console.log(`  Token address: ${TEST_CONFIG.contracts.jejuToken}`)
     console.log(`  Token access type: ${tokenAccessType}`)
     console.log(`  Admin address: ${TEST_CONFIG.adminAccount.address}`)
     console.log(`  User address: ${TEST_CONFIG.userAccount.address}`)
     console.log(`  Credits to migrate: ${TEST_CONFIG.testCreditBalance}`)
     console.log(
-      `  Exchange rate: 1 credit = ${TEST_CONFIG.exchangeRate} elizaOS`,
+      `  Exchange rate: 1 credit = ${TEST_CONFIG.exchangeRate} JEJU`,
     )
     console.log(
-      `  Expected mint: ${formatUnits(expectedMintAmount, 18)} elizaOS`,
+      `  Expected mint: ${formatUnits(expectedMintAmount, 18)} JEJU`,
     )
     console.log(
-      `  Initial balance: ${formatUnits(initialElizaOSBalance, 18)} elizaOS\n`,
+      `  Initial balance: ${formatUnits(initialJejuBalance, 18)} JEJU\n`,
     )
   })
 
@@ -159,7 +159,7 @@ describe.skipIf(!localnetAvailable)('Credit Migration Integration', () => {
     // Try AccessControl first (OpenZeppelin style)
     try {
       await publicClient.readContract({
-        address: TEST_CONFIG.contracts.ElizaOSToken,
+        address: TEST_CONFIG.contracts.jejuToken,
         abi: ACCESS_CONTROL_ABI,
         functionName: 'MINTER_ROLE',
       })
@@ -171,7 +171,7 @@ describe.skipIf(!localnetAvailable)('Credit Migration Integration', () => {
     // Try Ownable
     try {
       await publicClient.readContract({
-        address: TEST_CONFIG.contracts.ElizaOSToken,
+        address: TEST_CONFIG.contracts.jejuToken,
         abi: OWNABLE_ABI,
         functionName: 'owner',
       })
@@ -191,7 +191,7 @@ describe.skipIf(!localnetAvailable)('Credit Migration Integration', () => {
 
     expect(calculatedAmount).toBe(expectedMintAmount)
     console.log(
-      `Calculated migration amount: ${formatUnits(calculatedAmount, 18)} elizaOS`,
+      `Calculated migration amount: ${formatUnits(calculatedAmount, 18)} JEJU`,
     )
   })
 
@@ -199,13 +199,13 @@ describe.skipIf(!localnetAvailable)('Credit Migration Integration', () => {
     if (tokenAccessType === 'access-control') {
       // Check AccessControl MINTER_ROLE
       const minterRole = await publicClient.readContract({
-        address: TEST_CONFIG.contracts.ElizaOSToken,
+        address: TEST_CONFIG.contracts.jejuToken,
         abi: ACCESS_CONTROL_ABI,
         functionName: 'MINTER_ROLE',
       })
 
       const hasRole = await publicClient.readContract({
-        address: TEST_CONFIG.contracts.ElizaOSToken,
+        address: TEST_CONFIG.contracts.jejuToken,
         abi: ACCESS_CONTROL_ABI,
         functionName: 'hasRole',
         args: [minterRole, TEST_CONFIG.adminAccount.address],
@@ -217,7 +217,7 @@ describe.skipIf(!localnetAvailable)('Credit Migration Integration', () => {
       if (!hasRole) {
         console.log('Granting MINTER_ROLE to admin...')
         const grantTx = await adminWalletClient.writeContract({
-          address: TEST_CONFIG.contracts.ElizaOSToken,
+          address: TEST_CONFIG.contracts.jejuToken,
           abi: ACCESS_CONTROL_ABI,
           functionName: 'grantRole',
           args: [minterRole, TEST_CONFIG.adminAccount.address],
@@ -226,7 +226,7 @@ describe.skipIf(!localnetAvailable)('Credit Migration Integration', () => {
 
         // Verify role was granted
         const nowHasRole = await publicClient.readContract({
-          address: TEST_CONFIG.contracts.ElizaOSToken,
+          address: TEST_CONFIG.contracts.jejuToken,
           abi: ACCESS_CONTROL_ABI,
           functionName: 'hasRole',
           args: [minterRole, TEST_CONFIG.adminAccount.address],
@@ -237,7 +237,7 @@ describe.skipIf(!localnetAvailable)('Credit Migration Integration', () => {
     } else if (tokenAccessType === 'ownable') {
       // Check if admin is owner
       const owner = await publicClient.readContract({
-        address: TEST_CONFIG.contracts.ElizaOSToken,
+        address: TEST_CONFIG.contracts.jejuToken,
         abi: OWNABLE_ABI,
         functionName: 'owner',
       })
@@ -255,7 +255,7 @@ describe.skipIf(!localnetAvailable)('Credit Migration Integration', () => {
   test('Should execute migration by minting tokens', async () => {
     // Execute migration (mint tokens to user)
     const mintTx = await adminWalletClient.writeContract({
-      address: TEST_CONFIG.contracts.ElizaOSToken,
+      address: TEST_CONFIG.contracts.jejuToken,
       abi: ERC20_ABI,
       functionName: 'mint',
       args: [TEST_CONFIG.userAccount.address, expectedMintAmount],
@@ -276,7 +276,7 @@ describe.skipIf(!localnetAvailable)('Credit Migration Integration', () => {
       .filter(
         (log) =>
           log.address.toLowerCase() ===
-          TEST_CONFIG.contracts.ElizaOSToken.toLowerCase(),
+          TEST_CONFIG.contracts.jejuToken.toLowerCase(),
       )
       .map((log) => {
         try {
@@ -303,30 +303,30 @@ describe.skipIf(!localnetAvailable)('Credit Migration Integration', () => {
     )
     expect(mintEvent.args.value).toBe(expectedMintAmount)
     console.log(
-      `Transfer event: ${formatUnits(mintEvent.args.value, 18)} elizaOS to ${mintEvent.args.to}`,
+      `Transfer event: ${formatUnits(mintEvent.args.value, 18)} JEJU to ${mintEvent.args.to}`,
     )
 
     // Verify balance increased
     const newBalance = await publicClient.readContract({
-      address: TEST_CONFIG.contracts.ElizaOSToken,
+      address: TEST_CONFIG.contracts.jejuToken,
       abi: ERC20_ABI,
       functionName: 'balanceOf',
       args: [TEST_CONFIG.userAccount.address],
     })
 
-    console.log(`New balance: ${formatUnits(newBalance, 18)} elizaOS`)
-    expect(newBalance).toBeGreaterThan(initialElizaOSBalance)
-    expect(newBalance - initialElizaOSBalance).toBe(expectedMintAmount)
+    console.log(`New balance: ${formatUnits(newBalance, 18)} JEJU`)
+    expect(newBalance).toBeGreaterThan(initialJejuBalance)
+    expect(newBalance - initialJejuBalance).toBe(expectedMintAmount)
   })
 
   test('Should verify total supply increased', async () => {
     const totalSupply = await publicClient.readContract({
-      address: TEST_CONFIG.contracts.ElizaOSToken,
+      address: TEST_CONFIG.contracts.jejuToken,
       abi: ERC20_ABI,
       functionName: 'totalSupply',
     })
 
-    console.log(`Total elizaOS supply: ${formatUnits(totalSupply, 18)}`)
+    console.log(`Total JEJU supply: ${formatUnits(totalSupply, 18)}`)
     expect(totalSupply).toBeGreaterThan(0n)
     expect(totalSupply).toBeGreaterThanOrEqual(expectedMintAmount)
   })
@@ -339,18 +339,18 @@ describe.skipIf(!localnetAvailable)('Credit Migration Integration', () => {
     })
 
     const balanceBefore = await publicClient.readContract({
-      address: TEST_CONFIG.contracts.ElizaOSToken,
+      address: TEST_CONFIG.contracts.jejuToken,
       abi: ERC20_ABI,
       functionName: 'balanceOf',
       args: [TEST_CONFIG.userAccount.address],
     })
 
-    // Transfer 1 elizaOS to verify tokens work
+    // Transfer 1 JEJU to verify tokens work
     const transferAmount = parseEther('1')
 
     if (balanceBefore >= transferAmount) {
       const transferTx = await userWalletClient.writeContract({
-        address: TEST_CONFIG.contracts.ElizaOSToken,
+        address: TEST_CONFIG.contracts.jejuToken,
         abi: ERC20_ABI,
         functionName: 'transfer',
         args: [TEST_CONFIG.adminAccount.address, transferAmount],
@@ -370,12 +370,12 @@ describe.skipIf(!localnetAvailable)('Credit Migration Integration', () => {
 
       expect(balanceAfter).toBe(balanceBefore - transferAmount)
       console.log(
-        `Successfully transferred ${formatUnits(transferAmount, 18)} elizaOS`,
+        `Successfully transferred ${formatUnits(transferAmount, 18)} JEJU`,
       )
     } else {
       // This shouldn't happen after minting, but handle gracefully
       throw new Error(
-        `Insufficient balance for transfer test: ${formatUnits(balanceBefore, 18)} elizaOS`,
+        `Insufficient balance for transfer test: ${formatUnits(balanceBefore, 18)} JEJU`,
       )
     }
   })
@@ -396,7 +396,7 @@ describe.skipIf(!localnetAvailable)('Credit Migration Integration', () => {
 
       // Get balance before
       const balanceBefore = await publicClient.readContract({
-        address: TEST_CONFIG.contracts.ElizaOSToken,
+        address: TEST_CONFIG.contracts.jejuToken,
         abi: ERC20_ABI,
         functionName: 'balanceOf',
         args: [userAddress],
@@ -404,7 +404,7 @@ describe.skipIf(!localnetAvailable)('Credit Migration Integration', () => {
 
       // Mint tokens
       const tx = await adminWalletClient.writeContract({
-        address: TEST_CONFIG.contracts.ElizaOSToken,
+        address: TEST_CONFIG.contracts.jejuToken,
         abi: ERC20_ABI,
         functionName: 'mint',
         args: [userAddress, mintAmount],
@@ -413,7 +413,7 @@ describe.skipIf(!localnetAvailable)('Credit Migration Integration', () => {
 
       // Verify balance increased
       const balanceAfter = await publicClient.readContract({
-        address: TEST_CONFIG.contracts.ElizaOSToken,
+        address: TEST_CONFIG.contracts.jejuToken,
         abi: ERC20_ABI,
         functionName: 'balanceOf',
         args: [userAddress],
@@ -421,7 +421,7 @@ describe.skipIf(!localnetAvailable)('Credit Migration Integration', () => {
 
       expect(balanceAfter - balanceBefore).toBe(mintAmount)
       console.log(
-        `  User ${i + 1}: ${credits} credits -> ${formatUnits(mintAmount, 18)} elizaOS`,
+        `  User ${i + 1}: ${credits} credits -> ${formatUnits(mintAmount, 18)} JEJU`,
       )
     }
   })
@@ -448,7 +448,7 @@ describe.skipIf(!localnetAvailable)('Credit Migration Integration', () => {
       }
 
       console.log(
-        `  ${credits} credits @ ${rate}x rate = ${formatUnits(amount, 18)} elizaOS`,
+        `  ${credits} credits @ ${rate}x rate = ${formatUnits(amount, 18)} JEJU`,
       )
     }
   })
@@ -478,13 +478,13 @@ describe.skipIf(!localnetAvailable)('Credit Migration Integration', () => {
 
   test('Should verify token metadata', async () => {
     const name = await publicClient.readContract({
-      address: TEST_CONFIG.contracts.ElizaOSToken,
+      address: TEST_CONFIG.contracts.jejuToken,
       abi: ERC20_ABI,
       functionName: 'name',
     })
 
     const symbol = await publicClient.readContract({
-      address: TEST_CONFIG.contracts.ElizaOSToken,
+      address: TEST_CONFIG.contracts.jejuToken,
       abi: ERC20_ABI,
       functionName: 'symbol',
     })

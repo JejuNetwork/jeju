@@ -7,8 +7,10 @@ import {
   VPNProtocolSchema,
 } from '@jejunetwork/types'
 import type { Address } from 'viem'
-import { VPNProtocolSchema, type VPNProtocol } from '@jejunetwork/types'
 import { z } from 'zod'
+import { expect, expectExists, expectValid, getExists } from '../lib/validation'
+
+export { expect, expectExists, expectValid, getExists }
 
 export const VPNNodeStatusSchema = z.enum(['online', 'busy', 'offline'])
 
