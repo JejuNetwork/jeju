@@ -73,7 +73,7 @@ export const agentsRoutes = new Elysia({ prefix: '/api/agents' })
         registeredAt: Date.now(),
         lastExecutedAt: 0,
         executionCount: 0,
-        capabilities: validated.capabilities || [],
+        capabilities: validated.capabilities ?? [],
         specializations: [],
         reputation: 0,
       }

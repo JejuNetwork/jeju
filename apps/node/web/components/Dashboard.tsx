@@ -16,8 +16,15 @@ import { formatEther } from '../utils'
 import { EarningsChart } from './EarningsChart'
 
 export function Dashboard() {
-  const { hardware, services, bots, earnings, projectedEarnings, staking } =
-    useAppStore()
+  const {
+    hardware,
+    services,
+    bots,
+    earnings,
+    projectedEarnings,
+    staking,
+    isLoading,
+  } = useAppStore()
 
   const runningServices = services.filter((s) => s.status.running)
   const runningBots = bots.filter((b) => b.status.running)
@@ -29,7 +36,7 @@ export function Dashboard() {
   const stats = [
     {
       label: "Today's Earnings",
-      value: formatUsd(earnings?.earnings_today_usd || 0),
+      value: isLoading ? null : formatUsd(earnings?.earnings_today_usd ?? 0),
       change: '+12%',
       icon: <DollarSign size={20} />,
       color: 'text-jeju-400',
@@ -48,7 +55,7 @@ export function Dashboard() {
     },
     {
       label: 'Projected Monthly',
-      value: formatUsd(projectedEarnings?.monthly_usd || 0),
+      value: isLoading ? null : formatUsd(projectedEarnings?.monthly_usd ?? 0),
       icon: <TrendingUp size={20} />,
       color: 'text-emerald-400',
     },
@@ -77,7 +84,11 @@ export function Dashboard() {
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-sm text-volcanic-400">{stat.label}</p>
-                <p className="text-2xl font-bold mt-1">{stat.value}</p>
+                <p className="text-2xl font-bold mt-1">
+                  {stat.value ?? (
+                    <span className="inline-block w-20 h-7 bg-volcanic-700 rounded animate-pulse" />
+                  )}
+                </p>
                 {stat.change && (
                   <p className="text-sm text-jeju-400 mt-1">{stat.change}</p>
                 )}
@@ -127,7 +138,13 @@ export function Dashboard() {
                   <Cpu size={14} />
                   CPU
                 </span>
-                <span>{hardware?.cpu.cores_physical || 0} cores</span>
+                <span>
+                  {hardware ? (
+                    `${hardware.cpu.cores_physical} cores`
+                  ) : (
+                    <span className="inline-block w-12 h-4 bg-volcanic-700 rounded animate-pulse" />
+                  )}
+                </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-volcanic-400 flex items-center gap-2">
@@ -135,7 +152,11 @@ export function Dashboard() {
                   Memory
                 </span>
                 <span>
-                  {((hardware?.memory.total_mb || 0) / 1024).toFixed(0)} GB
+                  {hardware ? (
+                    `${(hardware.memory.total_mb / 1024).toFixed(0)} GB`
+                  ) : (
+                    <span className="inline-block w-10 h-4 bg-volcanic-700 rounded animate-pulse" />
+                  )}
                 </span>
               </div>
               <div className="flex items-center justify-between">
@@ -143,7 +164,13 @@ export function Dashboard() {
                   <Zap size={14} />
                   GPUs
                 </span>
-                <span>{hardware?.gpus.length || 0} detected</span>
+                <span>
+                  {hardware ? (
+                    `${hardware.gpus.length} detected`
+                  ) : (
+                    <span className="inline-block w-14 h-4 bg-volcanic-700 rounded animate-pulse" />
+                  )}
+                </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-volcanic-400 flex items-center gap-2">
@@ -162,13 +189,21 @@ export function Dashboard() {
               <div className="flex items-center justify-between">
                 <span className="text-volcanic-400">Total Staked</span>
                 <span className="font-medium">
-                  {formatEther(staking?.total_staked_wei || '0')} ETH
+                  {staking ? (
+                    `${formatEther(staking.total_staked_wei ?? '0')} ETH`
+                  ) : (
+                    <span className="inline-block w-16 h-4 bg-volcanic-700 rounded animate-pulse" />
+                  )}
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-volcanic-400">Pending Rewards</span>
                 <span className="font-medium text-jeju-400">
-                  {formatEther(staking?.pending_rewards_wei || '0')} ETH
+                  {staking ? (
+                    `${formatEther(staking.pending_rewards_wei ?? '0')} ETH`
+                  ) : (
+                    <span className="inline-block w-16 h-4 bg-volcanic-700 rounded animate-pulse" />
+                  )}
                 </span>
               </div>
               {staking?.auto_claim_enabled && (

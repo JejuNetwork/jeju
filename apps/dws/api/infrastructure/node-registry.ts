@@ -544,22 +544,22 @@ export class NodeRegistry {
     }
 
     // Get endpoint
-    const endpoint = (await this.publicClient.readContract({
+    const endpoint = await this.publicClient.readContract({
       address: this.registryAddress,
       abi: NODE_REGISTRY_ABI,
       functionName: 'getA2AEndpoint',
       args: [agentId],
-    })) as string
+    })
 
     if (!endpoint) return null
 
     // Get capabilities from tags
-    const tags = (await this.publicClient.readContract({
+    const tags = await this.publicClient.readContract({
       address: this.registryAddress,
       abi: NODE_REGISTRY_ABI,
       functionName: 'getAgentTags',
       args: [agentId],
-    })) as string[]
+    })
 
     const capabilities: NodeCapability[] = []
     for (const tag of tags) {

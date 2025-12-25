@@ -81,11 +81,11 @@ export async function getMarketplaceStats(
     (p) => p.agentId && p.agentId > 0,
   )
   const totalComputeStake = computeProviders.reduce(
-    (sum, p) => sum + (p.stakeAmount || 0n),
+    (sum, p) => sum + (p.stakeAmount ?? 0n),
     0n,
   )
   const totalComputeEarnings = computeProviders.reduce(
-    (sum, p) => sum + (p.totalEarnings || 0n),
+    (sum, p) => sum + (p.totalEarnings ?? 0n),
     0n,
   )
 
@@ -97,15 +97,15 @@ export async function getMarketplaceStats(
     (p) => p.agentId && p.agentId > 0,
   )
   const totalStorageStake = storageProviders.reduce(
-    (sum, p) => sum + (p.stakeAmount || 0n),
+    (sum, p) => sum + (p.stakeAmount ?? 0n),
     0n,
   )
   const totalCapacity = storageProviders.reduce(
-    (sum, p) => sum + Number(p.totalCapacityGB || 0n),
+    (sum, p) => sum + Number(p.totalCapacityGB ?? 0n),
     0,
   )
   const usedCapacity = storageProviders.reduce(
-    (sum, p) => sum + Number(p.usedCapacityGB || 0n),
+    (sum, p) => sum + Number(p.usedCapacityGB ?? 0n),
     0,
   )
 
@@ -350,6 +350,6 @@ export async function getNetworkStats(
     contracts: contractCount,
     agents: agentCount,
     nodes: nodeCount,
-    latestBlock: latestBlock?.number || 0,
+    latestBlock: latestBlock?.number ?? 0,
   }
 }

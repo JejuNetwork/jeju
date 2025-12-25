@@ -665,7 +665,7 @@ class BridgeServiceImpl implements BridgeService {
       return { bundleId: '', landed: false }
     }
 
-    const bundleId = result.result || ''
+    const bundleId = result.result ?? ''
     this.stats.jitoBundlesSubmitted++
 
     // Check bundle status
@@ -1016,7 +1016,8 @@ class BridgeServiceImpl implements BridgeService {
       const parsed = JitoBundleStatusResponseSchema.safeParse(json)
       if (!parsed.success) continue
 
-      const status = parsed.data.result?.value?.[0]?.confirmation_status
+      const firstValue = parsed.data.result?.value[0]
+      const status = firstValue?.confirmation_status
       if (status === 'confirmed' || status === 'finalized') {
         return true
       }

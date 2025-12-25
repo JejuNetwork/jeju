@@ -31,6 +31,14 @@ export interface BanCheckConfig {
   rpcUrl?: string
 }
 
+/** Address ban data from BanManager contract */
+interface AddressBanData {
+  isBanned: boolean
+  banType: number
+  reason: string
+  caseId: `0x${string}`
+}
+
 // Get RPC URL with network-aware defaults
 function getDefaultRpcUrl(): string {
   const network =
@@ -125,12 +133,7 @@ export function useBanStatus(
       ])
 
       if (isAddressBanned || isOnNotice) {
-        const ban = addressBan as {
-          isBanned: boolean
-          banType: number
-          reason: string
-          caseId: `0x${string}`
-        } | null
+        const ban = addressBan as AddressBanData | null
 
         setStatus({
           isBanned: true,
@@ -141,7 +144,7 @@ export function useBanStatus(
             (isOnNotice
               ? 'Account on notice - pending review'
               : 'Banned from network'),
-          caseId: ban?.caseId || null,
+          caseId: ban?.caseId ?? null,
           canAppeal: ban?.banType === BanType.PERMANENT,
           loading: false,
           error: null,

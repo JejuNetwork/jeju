@@ -14,6 +14,21 @@ import { useState } from 'react'
 import { useAccount } from 'wagmi'
 import { useMailbox, useSendEmail } from '../../hooks'
 
+interface EmailEntry {
+  id: string
+  messageId?: string
+  subject: string
+  from: string
+  date: string
+  size: number
+  read: boolean
+  flags?: {
+    read?: boolean
+    starred?: boolean
+  }
+  snippet?: string
+}
+
 export default function EmailPage() {
   const { isConnected, address } = useAccount()
   const {
@@ -68,7 +83,7 @@ export default function EmailPage() {
       id: 'drafts',
       label: 'Drafts',
       icon: <Edit size={18} />,
-      count: index?.drafts?.length ?? 0,
+      count: index?.drafts.length ?? 0,
     },
     { id: 'starred', label: 'Starred', icon: <Star size={18} />, count: 0 },
     {
@@ -81,7 +96,7 @@ export default function EmailPage() {
       id: 'trash',
       label: 'Trash',
       icon: <Trash2 size={18} />,
-      count: index?.trash?.length ?? 0,
+      count: index?.trash.length ?? 0,
     },
   ]
 
@@ -106,7 +121,7 @@ export default function EmailPage() {
   }
 
   const emails = getCurrentEmails().filter(
-    (email) =>
+    (email: EmailEntry) =>
       !searchQuery ||
       email.subject?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       email.from?.toLowerCase().includes(searchQuery.toLowerCase()),
@@ -156,7 +171,13 @@ export default function EmailPage() {
           </div>
           <div className="stat-content">
             <div className="stat-label">Unread</div>
-            <div className="stat-value">{unreadCount}</div>
+            <div className="stat-value">
+              {mailboxLoading ? (
+                <span className="shimmer inline-block w-8 h-6 rounded" />
+              ) : (
+                unreadCount
+              )}
+            </div>
           </div>
         </div>
         <div className="stat-card">
@@ -166,7 +187,11 @@ export default function EmailPage() {
           <div className="stat-content">
             <div className="stat-label">Total Emails</div>
             <div className="stat-value">
-              {(index?.inbox?.length ?? 0) + (index?.sent?.length ?? 0)}
+              {mailboxLoading ? (
+                <span className="shimmer inline-block w-8 h-6 rounded" />
+              ) : (
+                (index?.inbox.length ?? 0) + (index?.sent.length ?? 0)
+              )}
             </div>
           </div>
         </div>
@@ -176,7 +201,13 @@ export default function EmailPage() {
           </div>
           <div className="stat-content">
             <div className="stat-label">Sent</div>
-            <div className="stat-value">{index?.sent?.length ?? 0}</div>
+            <div className="stat-value">
+              {mailboxLoading ? (
+                <span className="shimmer inline-block w-8 h-6 rounded" />
+              ) : (
+                (index?.sent.length ?? 0)
+              )}
+            </div>
           </div>
         </div>
         <div className="stat-card">
@@ -186,7 +217,13 @@ export default function EmailPage() {
           <div className="stat-content">
             <div className="stat-label">Storage Used</div>
             <div className="stat-value">
-              {mailbox ? formatBytes(Number(mailbox.quotaUsedBytes)) : '0 B'}
+              {mailboxLoading ? (
+                <span className="shimmer inline-block w-12 h-6 rounded" />
+              ) : mailbox ? (
+                formatBytes(Number(mailbox.quotaUsedBytes))
+              ) : (
+                '0 B'
+              )}
             </div>
           </div>
         </div>
@@ -245,7 +282,7 @@ export default function EmailPage() {
                 }}
               />
               <div style={{ display: 'grid', gap: '0.25rem' }}>
-                {Object.entries(index.folders).map(([name, emails]) => (
+                {Object.entries(index.folders).map(([name, folderEmails]) => (
                   <button
                     key={name}
                     type="button"
@@ -268,7 +305,9 @@ export default function EmailPage() {
                   >
                     <Mail size={18} />
                     <span style={{ flex: 1 }}>{name}</span>
-                    <span className="badge badge-neutral">{emails.length}</span>
+                    <span className="badge badge-neutral">
+                      {folderEmails.length}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -340,11 +379,11 @@ export default function EmailPage() {
             </div>
           ) : (
             <div style={{ display: 'grid', gap: '0' }}>
-              {emails.map((email) => (
+              {emails.map((email: EmailEntry) => (
                 <button
-                  key={email.messageId}
+                  key={email.id}
                   type="button"
-                  onClick={() => setSelectedEmail(email.messageId)}
+                  onClick={() => setSelectedEmail(email.id)}
                   style={{
                     display: 'flex',
                     alignItems: 'flex-start',
@@ -353,7 +392,7 @@ export default function EmailPage() {
                     borderBottom: '1px solid var(--border)',
                     cursor: 'pointer',
                     background:
-                      selectedEmail === email.messageId
+                      selectedEmail === email.id
                         ? 'var(--accent-soft)'
                         : 'transparent',
                     border: 'none',
@@ -366,9 +405,7 @@ export default function EmailPage() {
                       width: '8px',
                       height: '8px',
                       borderRadius: '50%',
-                      background: email.flags?.read
-                        ? 'transparent'
-                        : 'var(--accent)',
+                      background: email.read ? 'transparent' : 'var(--accent)',
                       marginTop: '0.5rem',
                       flexShrink: 0,
                     }}
@@ -383,13 +420,13 @@ export default function EmailPage() {
                     >
                       <span
                         style={{
-                          fontWeight: email.flags?.read ? 400 : 600,
+                          fontWeight: email.read ? 400 : 600,
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
                           whiteSpace: 'nowrap',
                         }}
                       >
-                        {email.from || 'Unknown sender'}
+                        {email.from ?? 'Unknown sender'}
                       </span>
                       <span
                         style={{
@@ -399,23 +436,21 @@ export default function EmailPage() {
                           marginLeft: '0.5rem',
                         }}
                       >
-                        {email.receivedAt
-                          ? new Date(email.receivedAt).toLocaleDateString()
-                          : email.sentAt
-                            ? new Date(email.sentAt).toLocaleDateString()
-                            : ''}
+                        {email.date
+                          ? new Date(email.date).toLocaleDateString()
+                          : ''}
                       </span>
                     </div>
                     <div
                       style={{
-                        fontWeight: email.flags?.read ? 400 : 500,
+                        fontWeight: email.read ? 400 : 500,
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
                         marginBottom: '0.25rem',
                       }}
                     >
-                      {email.subject || '(No subject)'}
+                      {email.subject ?? '(No subject)'}
                     </div>
                     {email.snippet && (
                       <div

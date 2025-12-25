@@ -80,13 +80,13 @@ async function fetchEILStats(): Promise<{
     return { stats: emptyStats(), chainStats: [] }
   }
 
-  const xlps = data.xlps || []
-  const requests = data.crossChainVoucherRequests || []
+  const xlps = data.xlps ?? []
+  const requests = data.crossChainVoucherRequests ?? []
 
   const activeXLPs = xlps.length
   const totalStakedWei = xlps.reduce(
     (sum: bigint, x: { totalStaked: string }) =>
-      sum + BigInt(x.totalStaked || '0'),
+      sum + BigInt(x.totalStaked ?? '0'),
     0n,
   )
   const totalStakedEth = (Number(totalStakedWei) / 1e18).toFixed(2)
@@ -106,7 +106,7 @@ async function fetchEILStats(): Promise<{
 
   const totalVolumeWei = requests.reduce(
     (sum: bigint, r: { sourceAmount: string }) =>
-      sum + BigInt(r.sourceAmount || '0'),
+      sum + BigInt(r.sourceAmount ?? '0'),
     0n,
   )
   const totalVolumeEth = (Number(totalVolumeWei) / 1e18).toFixed(2)
@@ -122,13 +122,13 @@ async function fetchEILStats(): Promise<{
       transfers: 0,
       xlps: new Set<string>(),
     }
-    current.volume += BigInt(req.sourceAmount || '0')
+    current.volume += BigInt(req.sourceAmount ?? '0')
     current.transfers += 1
     chainVolumes.set(chain, current)
   }
 
   for (const xlp of xlps) {
-    for (const chainId of xlp.supportedChains || []) {
+    for (const chainId of xlp.supportedChains ?? []) {
       const chain = Number(chainId)
       const current = chainVolumes.get(chain) || {
         volume: 0n,
@@ -181,8 +181,8 @@ export default function EILStats() {
     refetchInterval: 30000,
   })
 
-  const stats = data?.stats || null
-  const chainStats = data?.chainStats || []
+  const stats = data?.stats ?? null
+  const chainStats = data?.chainStats ?? []
 
   if (isLoading) {
     return (
@@ -292,7 +292,7 @@ export default function EILStats() {
               style={{ padding: '0.75rem' }}
             >
               <div style={{ fontSize: '1.25rem', marginBottom: '0.125rem' }}>
-                {CHAIN_ICONS[chain.chainId] || '🔗'}
+                {CHAIN_ICONS[chain.chainId] ?? '🔗'}
               </div>
               <div
                 style={{

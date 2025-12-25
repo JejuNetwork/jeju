@@ -20,7 +20,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@jejunetwork/oauth3": "workspace:*",
+    "@jejunetwork/auth": "workspace:*",
     "@jejunetwork/sdk": "workspace:*",
     "@jejunetwork/shared": "workspace:*",
     "elysia": "^1.4.19",

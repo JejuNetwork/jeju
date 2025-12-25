@@ -134,7 +134,7 @@ class HardwareWalletService {
     this.currentType = 'trezor'
     this.currentDevice = {
       type: 'trezor',
-      model: trezor.getModel() || 'Trezor',
+      model: trezor.getModel() ?? 'Trezor',
       connected: true,
     }
 

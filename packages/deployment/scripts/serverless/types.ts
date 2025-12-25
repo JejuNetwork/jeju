@@ -366,7 +366,7 @@ export function parseServerlessConfig(
         platforms: ['dstack', 'phala'],
       },
       regions: Array.isArray(backend.regions)
-        ? (backend.regions.filter((r) => typeof r === 'string') as string[])
+        ? backend.regions.filter((r): r is string => typeof r === 'string')
         : ['global'],
       compatibilityDate: '2024-01-01',
     }
@@ -392,9 +392,9 @@ export function parseServerlessConfig(
             ? 'arweave'
             : 'ipfs',
       fallbackOrigins: Array.isArray(frontend.fallbackOrigins)
-        ? (frontend.fallbackOrigins.filter(
-            (o) => typeof o === 'string',
-          ) as string[])
+        ? frontend.fallbackOrigins.filter(
+            (o): o is string => typeof o === 'string',
+          )
         : undefined,
     }
   }
@@ -433,7 +433,7 @@ export function parseServerlessConfig(
           ? database.consistency
           : 'strong',
       tables: Array.isArray(database.tables)
-        ? (database.tables.filter((t) => typeof t === 'string') as string[])
+        ? database.tables.filter((t): t is string => typeof t === 'string')
         : undefined,
     }
   }
@@ -457,7 +457,7 @@ export function parseServerlessConfig(
 
   // Parse dependencies
   const deps = Array.isArray(manifest.dependencies)
-    ? (manifest.dependencies.filter((d) => typeof d === 'string') as string[])
+    ? manifest.dependencies.filter((d): d is string => typeof d === 'string')
     : undefined
   if (deps) {
     config.dependencies = deps

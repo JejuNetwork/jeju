@@ -226,7 +226,7 @@ class LaunchpadDeployer {
 
     if (existsSync(localnetPath)) {
       const data = JSON.parse(readFileSync(localnetPath, 'utf-8'))
-      jejuToken = data.contracts?.jeju || ''
+      jejuToken = data.contracts?.jeju ?? ''
       console.log(`  ✅ JEJU Token: ${jejuToken || 'Not found'}`)
     }
 

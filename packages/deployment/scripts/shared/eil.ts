@@ -383,9 +383,9 @@ export class EILClient {
           // For now, we return empty string and the caller should fetch it if needed
           resolve({
             voucherId: log.args.voucherId || '0x',
-            requestId: log.args.requestId || requestId,
-            xlp: log.args.xlp || zeroAddress,
-            fee: log.args.fee || 0n,
+            requestId: log.args.requestId ?? requestId,
+            xlp: log.args.xlp ?? zeroAddress,
+            fee: log.args.fee ?? 0n,
             signature: '', // Signature not available from event - fetch separately if needed
           })
         },

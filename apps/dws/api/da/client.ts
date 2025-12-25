@@ -8,11 +8,47 @@
  * - On-chain verification
  */
 
-import { expectJson } from '@jejunetwork/types'
+import { AddressSchema, expectJson, HexSchema } from '@jejunetwork/types'
 import type { Address, Hex, PublicClient } from 'viem'
 import { createPublicClient, http, toBytes, toHex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import type { z } from 'zod'
+import { z } from 'zod'
+
+// Response schemas for DA API
+const ErrorResponseSchema = z.object({ error: z.string() })
+const BlobDataResponseSchema = z.object({
+  data: HexSchema,
+  verified: z.boolean(),
+})
+const OperatorSchema = z.object({
+  address: AddressSchema,
+  endpoint: z.string(),
+  region: z.string(),
+  status: z.string(),
+  capacityGB: z.number(),
+  usedGB: z.number(),
+})
+const OperatorsResponseSchema = z.object({ operators: z.array(OperatorSchema) })
+
+// Partial schemas for validation - use passthrough to allow extra fields
+const BlobSubmissionResultSchema = z
+  .object({
+    blobId: HexSchema,
+    commitment: z.object({}).passthrough(),
+    attestation: z.object({}).passthrough(),
+    operators: z.array(AddressSchema),
+    chunkAssignments: z.array(z.object({}).passthrough()),
+  })
+  .passthrough()
+
+const SampleVerificationResultSchema = z.object({
+  success: z.boolean(),
+  samplesVerified: z.number(),
+  samplesFailed: z.number(),
+  confidence: z.number(),
+  error: z.string().optional(),
+})
+
 import { computeBlobId } from './commitment'
 import type {
   AvailabilityAttestation,
@@ -93,11 +129,13 @@ export class DAClient {
     })
 
     if (!response.ok) {
-      const error = (await response.json()) as { error: string }
+      const error = ErrorResponseSchema.parse(await response.json())
       throw new Error(`Blob submission failed: ${error.error}`)
     }
 
-    return response.json() as Promise<BlobSubmissionResult>
+    const json = await response.json()
+    BlobSubmissionResultSchema.parse(json) // Validate structure
+    return json as BlobSubmissionResult
   }
 
   /**
@@ -170,10 +208,7 @@ export class DAClient {
       throw new Error('Failed to retrieve blob')
     }
 
-    const result = (await response.json()) as {
-      data: Hex
-      verified: boolean
-    }
+    const result = BlobDataResponseSchema.parse(await response.json())
 
     if (!result.verified) {
       throw new Error('Blob verification failed')
@@ -224,7 +259,7 @@ export class DAClient {
       throw new Error('Sampling request failed')
     }
 
-    return response.json() as Promise<SampleVerificationResult>
+    return SampleVerificationResultSchema.parse(await response.json())
   }
 
   /**
@@ -304,16 +339,7 @@ export class DAClient {
       throw new Error('Failed to get operators')
     }
 
-    const result = (await response.json()) as {
-      operators: Array<{
-        address: Address
-        endpoint: string
-        region: string
-        status: string
-        capacityGB: number
-        usedGB: number
-      }>
-    }
+    const result = OperatorsResponseSchema.parse(await response.json())
     return result.operators
   }
 

@@ -5,6 +5,7 @@
 import { getAutocratUrl, getDWSComputeUrl } from '@jejunetwork/config'
 import type { JsonRecord } from '@jejunetwork/sdk'
 import { expectValid } from '@jejunetwork/types'
+import { z } from 'zod'
 import {
   TriggerHistoryResponseSchema,
   TriggerListResponseSchema,
@@ -45,6 +46,16 @@ export interface TriggerExecutionResult {
   output?: Record<string, string | number | boolean | null | object>
   error?: string
 }
+
+const TriggerExecutionResultSchema = z.object({
+  executionId: z.string(),
+  triggerId: z.string(),
+  status: z.enum(['pending', 'running', 'success', 'failed']),
+  startedAt: z.coerce.date(),
+  finishedAt: z.coerce.date().optional(),
+  output: z.record(z.unknown()).optional(),
+  error: z.string().optional(),
+})
 
 export interface OrchestratorTriggerResult {
   cycleCount: number
@@ -174,7 +185,11 @@ export class ComputeTriggerClient {
       },
     )
     if (!r.ok) throw new Error(`Execute failed: ${r.status}`)
-    return (await r.json()) as TriggerExecutionResult
+    return expectValid(
+      TriggerExecutionResultSchema,
+      await r.json(),
+      'trigger execution result',
+    )
   }
 
   async list(filter?: { type?: string; active?: boolean }): Promise<Trigger[]> {

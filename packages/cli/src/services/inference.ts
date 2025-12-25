@@ -419,7 +419,7 @@ class LocalInferenceServer {
         headers,
         body: {
           model: request.model,
-          message: lastMessage?.content || '',
+          message: lastMessage?.content ?? '',
           chat_history: chatHistory,
           ...(systemMessage && { preamble: systemMessage.content }),
           ...(request.max_tokens && { max_tokens: request.max_tokens }),
@@ -462,7 +462,7 @@ class LocalInferenceServer {
             {
               message: {
                 role: 'assistant',
-                content: data.content[0]?.text || '',
+                content: data.content[0]?.text ?? '',
               },
               finish_reason:
                 data.stop_reason === 'end_turn' ? 'stop' : data.stop_reason,
@@ -495,16 +495,16 @@ class LocalInferenceServer {
             {
               message: {
                 role: 'assistant',
-                content: candidate?.content?.parts[0]?.text || '',
+                content: candidate?.content?.parts[0]?.text ?? '',
               },
               finish_reason:
                 candidate?.finishReason === 'STOP' ? 'stop' : 'length',
             },
           ],
           usage: {
-            prompt_tokens: usage?.promptTokenCount || 0,
-            completion_tokens: usage?.candidatesTokenCount || 0,
-            total_tokens: usage?.totalTokenCount || 0,
+            prompt_tokens: usage?.promptTokenCount ?? 0,
+            completion_tokens: usage?.candidatesTokenCount ?? 0,
+            total_tokens: usage?.totalTokenCount ?? 0,
           },
         }
       }
@@ -528,10 +528,10 @@ class LocalInferenceServer {
             },
           ],
           usage: {
-            prompt_tokens: tokens?.input_tokens || 0,
-            completion_tokens: tokens?.output_tokens || 0,
+            prompt_tokens: tokens?.input_tokens ?? 0,
+            completion_tokens: tokens?.output_tokens ?? 0,
             total_tokens:
-              (tokens?.input_tokens || 0) + (tokens?.output_tokens || 0),
+              (tokens?.input_tokens ?? 0) + (tokens?.output_tokens ?? 0),
           },
         }
       }

@@ -1,6 +1,7 @@
 /** Factory API Client */
 
 import { treaty } from '@elysiajs/eden'
+import { isPlainObject } from '@jejunetwork/types'
 import type { App } from '../../api/server'
 
 function getApiBase(): string {
@@ -42,13 +43,13 @@ interface EdenErrorValue {
 }
 
 function isEdenErrorValue(value: unknown): value is EdenErrorValue {
-  return value !== null && typeof value === 'object'
+  return isPlainObject(value)
 }
 
 function getErrorMessage(value: unknown): string {
   if (typeof value === 'string') return value
   if (isEdenErrorValue(value)) {
-    return value.message || value.summary || 'API Error'
+    return value.message ?? value.summary ?? 'API Error'
   }
   return 'API Error'
 }

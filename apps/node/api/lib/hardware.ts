@@ -318,7 +318,7 @@ export function detectGpus(): GpuInfo[] {
         parts
 
       if (name) {
-        const memoryTotalMb = parseInt(memTotal, 10) || 0
+        const memoryTotalMb = parseInt(memTotal, 10) ?? 0
         const computeCapability = computeCap || null
 
         let estimatedTflops = 0
@@ -355,7 +355,7 @@ export function detectGpus(): GpuInfo[] {
           name,
           vendor: 'NVIDIA',
           memoryTotalMb,
-          memoryFreeMb: parseInt(memFree, 10) || 0,
+          memoryFreeMb: parseInt(memFree, 10) ?? 0,
           suitableForInference: memoryTotalMb >= 4000, // 4GB minimum for basic inference
           cudaVersion,
           driverVersion: driver || null,

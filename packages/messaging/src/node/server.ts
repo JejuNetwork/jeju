@@ -529,7 +529,8 @@ export function handleWebSocket(ws: WebSocket, _request: Request): void {
   let subscribedAddress: string | null = null
 
   ws.addEventListener('message', (event) => {
-    subscribedAddress = processSubscription(event.data as string, ws, () => {
+    if (typeof event.data !== 'string') return
+    subscribedAddress = processSubscription(event.data, ws, () => {
       /* no-op callback for standard WebSocket handler */
     })
   })
@@ -563,13 +564,10 @@ export function startRelayServer(config: NodeConfig): void {
           readyState: WebSocket.OPEN,
         }
 
-        const address = processSubscription(
-          message as string,
-          wsWrapper,
-          (addr) => {
-            bunWsToAddress.set(ws, addr)
-          },
-        )
+        if (typeof message !== 'string') return
+        const address = processSubscription(message, wsWrapper, (addr) => {
+          bunWsToAddress.set(ws, addr)
+        })
 
         if (address) {
           // Update subscriber with wrapper

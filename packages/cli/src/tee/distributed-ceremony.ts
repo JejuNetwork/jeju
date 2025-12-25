@@ -98,6 +98,19 @@ const OPERATOR_ROLES = [
   'feeRecipient',
   'guardian',
 ] as const
+type OperatorRole = (typeof OPERATOR_ROLES)[number]
+type PublicKeysMap = Record<OperatorRole, string>
+
+function validatePublicKeys(
+  partial: Partial<PublicKeysMap>,
+): DistributedCeremonyResult['publicKeys'] {
+  for (const role of OPERATOR_ROLES) {
+    if (!partial[role]) {
+      throw new Error(`Missing public key for role: ${role}`)
+    }
+  }
+  return partial as DistributedCeremonyResult['publicKeys']
+}
 
 export async function runDistributedCeremony(
   network: 'testnet' | 'mainnet',
@@ -161,7 +174,7 @@ export async function runDistributedCeremony(
 
   console.log('Phase 2: Distributed Key Generation\n')
 
-  const publicKeys: Record<string, string> = {}
+  const publicKeys: Partial<PublicKeysMap> = {}
   const allShares: KeyShare[] = []
 
   for (const role of OPERATOR_ROLES) {
@@ -257,7 +270,7 @@ export async function runDistributedCeremony(
       total: n,
       algorithm: 'frost-secp256k1',
     },
-    publicKeys: publicKeys as DistributedCeremonyResult['publicKeys'],
+    publicKeys: validatePublicKeys(publicKeys),
     shares: allShares,
     attestations,
     verification: {

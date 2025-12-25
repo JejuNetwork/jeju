@@ -513,7 +513,7 @@ export function ChatInterface({
                       <Shield className="w-5 h-5 text-emerald-500" />
                     )}
                     <span className="font-semibold capitalize text-sm">
-                      {msg.metadata.riskLevel || 'safe'} Risk
+                      {msg.metadata.riskLevel ?? 'safe'} Risk
                     </span>
                   </div>
                   <div className="flex gap-2">

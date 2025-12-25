@@ -113,7 +113,14 @@ const STAKE_TIERS = [
   { label: 'Bronze', className: 'text-success' },
   { label: 'Silver', className: 'text-info' },
   { label: 'Gold', className: 'text-accent' },
-]
+] as const
+
+function getStakeTier(tier: number) {
+  if (tier < 0 || tier >= STAKE_TIERS.length) {
+    throw new Error(`Invalid stake tier: ${tier}`)
+  }
+  return STAKE_TIERS[tier]
+}
 
 interface FetchFilters {
   search?: string
@@ -163,35 +170,53 @@ async function fetchAgentsFromIndexer(
   const result = await response.json()
   if (result.errors) {
     console.error('GraphQL errors:', result.errors)
-    return []
+    throw new Error(`GraphQL query failed: ${result.errors[0]?.message}`)
   }
 
-  const agents = (result.data?.registeredAgents || []) as GraphQLAgentResponse[]
-  return agents.map((agent) => ({
-    agentId: String(agent.agentId || agent.id),
-    name: agent.name || `Agent #${agent.id}`,
-    description: agent.description,
-    owner: agent.owner?.address || '0x0',
-    tags: agent.tags || [],
-    stakeToken: agent.stakeToken || 'ETH',
-    stakeAmount: formatStake(agent.stakeAmount || '0'),
-    stakeTier: agent.stakeTier ?? 0,
-    registeredAt: agent.registeredAt || new Date().toISOString(),
-    metadataUri: agent.tokenURI,
-    active: agent.active !== false && !agent.isBanned,
-    a2aEndpoint: agent.a2aEndpoint,
-    mcpEndpoint: agent.mcpEndpoint,
-    serviceType: agent.serviceType || 'agent',
-    category: agent.category,
-    x402Support: agent.x402Support ?? false,
-    mcpTools: agent.mcpTools || [],
-    a2aSkills: agent.a2aSkills || [],
-    image: agent.image,
-  }))
+  const agents = result.data?.registeredAgents as
+    | GraphQLAgentResponse[]
+    | undefined
+  if (!agents) {
+    throw new Error('Invalid GraphQL response: missing registeredAgents')
+  }
+
+  return agents.map((agent) => {
+    // Validate required fields
+    const agentId = agent.agentId ?? agent.id
+    if (!agentId) {
+      throw new Error('Agent missing required agentId')
+    }
+    const ownerAddress = agent.owner?.address
+    if (!ownerAddress) {
+      throw new Error(`Agent ${agentId} missing required owner address`)
+    }
+
+    return {
+      agentId: String(agentId),
+      name: agent.name ?? `Agent #${agentId}`,
+      description: agent.description,
+      owner: ownerAddress,
+      tags: agent.tags ?? [],
+      stakeToken: agent.stakeToken ?? 'ETH',
+      stakeAmount: formatStake(agent.stakeAmount ?? '0'),
+      stakeTier: agent.stakeTier ?? 0,
+      registeredAt: agent.registeredAt ?? new Date().toISOString(),
+      metadataUri: agent.tokenURI,
+      active: agent.active !== false && !agent.isBanned,
+      a2aEndpoint: agent.a2aEndpoint,
+      mcpEndpoint: agent.mcpEndpoint,
+      serviceType: agent.serviceType ?? 'agent',
+      category: agent.category,
+      x402Support: agent.x402Support ?? false,
+      mcpTools: agent.mcpTools ?? [],
+      a2aSkills: agent.a2aSkills ?? [],
+      image: agent.image,
+    }
+  })
 }
 
 function formatStake(amount: string): string {
-  const value = BigInt(amount || '0')
+  const value = BigInt(amount)
   const eth = Number(value) / 1e18
   return eth < 0.001 ? '<0.001' : eth.toFixed(3)
 }
@@ -425,8 +450,8 @@ export default function RegisteredAppsList({
           }}
         >
           {apps.map((app) => {
-            const ServiceIcon = getServiceIcon(app.serviceType || 'agent')
-            const tier = STAKE_TIERS[app.stakeTier ?? 0]
+            const ServiceIcon = getServiceIcon(app.serviceType ?? 'agent')
+            const tier = getStakeTier(app.stakeTier ?? 0)
 
             return (
               <button
@@ -518,7 +543,7 @@ export default function RegisteredAppsList({
                           textTransform: 'uppercase',
                         }}
                       >
-                        {app.serviceType || 'agent'}
+                        {app.serviceType ?? 'agent'}
                       </span>
                       <code style={{ fontSize: '0.75rem' }}>
                         #{app.agentId}
@@ -607,7 +632,7 @@ export default function RegisteredAppsList({
                         <ServerIcon size={10} /> MCP
                       </span>
                     )}
-                    {(app.mcpTools?.length || 0) > 0 && (
+                    {(app.mcpTools?.length ?? 0) > 0 && (
                       <span
                         style={{
                           fontSize: '0.6875rem',

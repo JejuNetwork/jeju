@@ -3,7 +3,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { Command } from 'commander'
-import { createPublicClient, http } from 'viem'
+import { type Address, createPublicClient, http } from 'viem'
 import { logger } from '../lib/logger'
 import { findMonorepoRoot } from '../lib/system'
 import { CHAIN_CONFIG, type NetworkType } from '../types'
@@ -69,7 +69,7 @@ async function checkFraudProofs(network: NetworkType): Promise<CheckResult> {
       },
     ],
     functionName: 'mips',
-  })) as string
+  })) as Address
 
   // Test mode = zero address
   if (
@@ -155,7 +155,7 @@ async function checkOwnership(network: NetworkType): Promise<CheckResult> {
         },
       ],
       functionName: 'owner',
-    })) as string
+    })) as Address
 
     if (owner.toLowerCase() !== timelockAddress.toLowerCase()) {
       wrongOwners.push(contractName)

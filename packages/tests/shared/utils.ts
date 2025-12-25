@@ -79,7 +79,10 @@ export function findJejuWorkspaceRoot(
 
     if (existsSync(pkgPath)) {
       const content = readFileSync(pkgPath, 'utf-8')
-      const pkg = JSON.parse(content) as { name?: string }
+      interface PackageJson {
+        name?: string
+      }
+      const pkg: PackageJson = JSON.parse(content)
       if (pkg.name === 'jeju') {
         return dir
       }

@@ -427,6 +427,12 @@ export class WalletCore {
       throw new Error('Wallet not connected')
     }
 
+    const chain = chains[chainId]
+    if (!chain) {
+      throw new Error(`Unsupported chain: ${chainId}`)
+    }
+    const rpcUrl = getNetworkRpcUrl(chainId) ?? chain.rpcUrls.default.http[0]
+
     const hash = await this.walletClient.sendTransaction({
       account: this.walletClient.account,
       to: params.to,
@@ -434,9 +440,9 @@ export class WalletCore {
       data: params.data,
       chain: {
         id: chainId,
-        name: chains[chainId].name,
-        nativeCurrency: chains[chainId].nativeCurrency,
-        rpcUrls: { default: { http: [getNetworkRpcUrl(chainId) ?? ''] } },
+        name: chain.name,
+        nativeCurrency: chain.nativeCurrency,
+        rpcUrls: { default: { http: [rpcUrl] } },
       },
     })
 
@@ -567,22 +573,29 @@ export class WalletCore {
       }
 
       case 'personal_sign': {
-        const message = params[0] as string
-        expectNonEmpty(message, 'message')
+        const message = params[0]
+        if (typeof message !== 'string')
+          throw new Error('message must be string')
         return this.signMessage(message)
       }
 
       case 'eth_signTypedData_v4': {
-        const typedData = params[1] as string
-        expectNonEmpty(typedData, 'typedData')
+        const typedData = params[1]
+        if (typeof typedData !== 'string')
+          throw new Error('typedData must be string')
         return this.signTypedData(
           expectJson(typedData, TypedDataSchema, 'typedData'),
         )
       }
 
       case 'wallet_switchEthereumChain': {
-        const switchParams = params[0] as { chainId: string }
-        expectDefined(switchParams, 'switchParams')
+        const switchParams = params[0]
+        if (
+          typeof switchParams !== 'object' ||
+          !switchParams ||
+          !('chainId' in switchParams)
+        )
+          throw new Error('invalid switchParams')
         expectNonEmpty(switchParams.chainId, 'chainId')
         await this.switchChain(parseInt(switchParams.chainId, 16))
         return null

@@ -186,10 +186,10 @@ export class SearchManager {
     query: string,
     options: RepoSearchOptions = {},
   ): Promise<RepoSearchResult> {
-    const page = options.page || 1
-    const perPage = Math.min(options.perPage || 30, 100)
-    const sort = options.sort || 'best-match'
-    const order = options.order || 'desc'
+    const page = options.page ?? 1
+    const perPage = Math.min(options.perPage ?? 30, 100)
+    const sort = options.sort ?? 'best-match'
+    const order = options.order ?? 'desc'
 
     // Get all repositories (would be from database in production)
     const allRepos = await this.repoManager.getAllRepositories(0, 1000)
@@ -334,10 +334,10 @@ export class SearchManager {
     query: string,
     options: IssueSearchOptions = {},
   ): Promise<IssueSearchResult> {
-    const page = options.page || 1
-    const perPage = Math.min(options.perPage || 30, 100)
-    const sort = options.sort || 'best-match'
-    const order = options.order || 'desc'
+    const page = options.page ?? 1
+    const perPage = Math.min(options.perPage ?? 30, 100)
+    const sort = options.sort ?? 'best-match'
+    const order = options.order ?? 'desc'
 
     const qualifiers = this.parseQueryQualifiers(query)
     const searchTerms = qualifiers.text.toLowerCase()
@@ -375,9 +375,8 @@ export class SearchManager {
       filtered = filtered.filter((i) => i.state === 'closed')
     }
     if (qualifiers.label) {
-      filtered = filtered.filter((i) =>
-        i.labels.includes(qualifiers.label as string),
-      )
+      const label = qualifiers.label
+      filtered = filtered.filter((i) => i.labels.includes(label))
     }
 
     // Sort
@@ -418,7 +417,7 @@ export class SearchManager {
    * Index a repository for search
    */
   async indexRepository(repo: Repository): Promise<void> {
-    const text = `${repo.name} ${repo.description || ''}`.toLowerCase()
+    const text = `${repo.name} ${repo.description ?? ''}`.toLowerCase()
     this.repoIndex.set(repo.repoId, { repo, text })
   }
 

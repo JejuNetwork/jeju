@@ -12,6 +12,7 @@ import {
   decodeEventLog,
   type Hex,
   http,
+  isAddress,
   keccak256,
   type PublicClient,
   toBytes,
@@ -337,7 +338,7 @@ export class PkgRegistryManager {
    * Parse a package name into scope and name
    */
   parsePackageName(fullName: string): { name: string; scope: string } {
-    if (!fullName || typeof fullName !== 'string') {
+    if (!fullName) {
       throw new Error('Package name must be a non-empty string')
     }
 
@@ -469,7 +470,7 @@ export class PkgRegistryManager {
       name: this.getFullName(pkg.name, pkg.scope),
       description: pkg.description,
       'dist-tags': {
-        latest: latestVersion?.version || versions[0]?.version || '0.0.0',
+        latest: latestVersion?.version ?? versions[0]?.version ?? '0.0.0',
       },
       versions: versionRecords,
       time: timeRecords,
@@ -531,11 +532,7 @@ export class PkgRegistryManager {
       throw new Error('Wallet not configured for write operations')
     }
 
-    if (
-      !publisher ||
-      typeof publisher !== 'string' ||
-      !/^0x[a-fA-F0-9]{40}$/.test(publisher)
-    ) {
+    if (!publisher || !isAddress(publisher)) {
       throw new Error('Invalid publisher address')
     }
 
@@ -581,8 +578,8 @@ export class PkgRegistryManager {
             args: [
               name,
               scope,
-              manifest.description || '',
-              manifest.license || '',
+              manifest.description ?? '',
+              manifest.license ?? '',
               0n,
             ],
             account: publisher,
@@ -729,13 +726,13 @@ export class PkgRegistryManager {
       )
     }
 
-    // Type assertion for decoded args from VersionPublished event
-    const args = decoded.args as { versionId: Hex } | undefined
-    if (!args || !args.versionId) {
+    // Validate decoded args contain versionId
+    const args = decoded.args
+    if (!args || !('versionId' in args) || typeof args.versionId !== 'string') {
       throw new Error('VersionPublished event missing versionId')
     }
 
-    return { packageId: pkg.packageId, versionId: args.versionId }
+    return { packageId: pkg.packageId, versionId: args.versionId as Hex }
   }
 
   /**

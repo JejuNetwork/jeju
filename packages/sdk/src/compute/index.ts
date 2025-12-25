@@ -283,8 +283,7 @@ export function createComputeModule(
   async function listProviders(
     options?: ListProvidersOptions,
   ): Promise<ProviderInfo[]> {
-    const rawAddresses = await registry.read.getAllProviders()
-    const addresses = rawAddresses as Address[]
+    const addresses = await registry.read.getAllProviders()
     const providers: ProviderInfo[] = []
 
     for (const addr of addresses.slice(0, 50)) {
@@ -362,10 +361,10 @@ export function createComputeModule(
   }
 
   async function getQuote(provider: Address, durationHours: number) {
-    const cost = (await rental.read.calculateRentalCost([
+    const cost = await rental.read.calculateRentalCost([
       provider,
       BigInt(durationHours),
-    ])) as bigint
+    ])
     return { cost, costFormatted: formatEther(cost) }
   }
 
@@ -410,15 +409,14 @@ export function createComputeModule(
       totalCostFormatted: formatEther(r.totalCost),
       paidAmount: r.paidAmount,
       sshHost: r.sshHost || undefined,
-      sshPort: r.sshPort || undefined,
+      // sshPort is a number - use ?? to preserve 0 if it's valid
+      sshPort: r.sshPort ?? undefined,
       containerImage: r.containerImage || undefined,
     }
   }
 
   async function listMyRentals(): Promise<RentalInfo[]> {
-    const rentalIds = (await rental.read.getUserRentals([
-      wallet.address,
-    ])) as Hex[]
+    const rentalIds = await rental.read.getUserRentals([wallet.address])
     const rentals: RentalInfo[] = []
 
     for (const id of rentalIds.slice(-20)) {
@@ -541,9 +539,9 @@ export function createComputeModule(
   async function listTriggers(): Promise<TriggerInfo[]> {
     if (!triggerRegistry) return []
 
-    const triggerIds = (await triggerRegistry.read.getOwnerTriggers([
+    const triggerIds = await triggerRegistry.read.getOwnerTriggers([
       wallet.address,
-    ])) as Hex[]
+    ])
     const triggers: TriggerInfo[] = []
 
     for (const id of triggerIds) {
@@ -612,9 +610,7 @@ export function createComputeModule(
 
   async function getPrepaidBalance(): Promise<bigint> {
     if (!triggerRegistry) return 0n
-    return (await triggerRegistry.read.prepaidBalances([
-      wallet.address,
-    ])) as bigint
+    return triggerRegistry.read.prepaidBalances([wallet.address])
   }
 
   async function depositPrepaid(amount: bigint): Promise<Hex> {

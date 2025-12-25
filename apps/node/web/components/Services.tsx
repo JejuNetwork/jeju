@@ -53,7 +53,7 @@ const serviceIcons: Record<string, React.ReactNode> = {
 }
 
 export function Services() {
-  const { services, startService, stopService, hardware, wallet } =
+  const { services, startService, stopService, hardware, wallet, isLoading } =
     useAppStore()
   const [expandedService, setExpandedService] = useState<string | null>(null)
   const [confirmingSequencer, setConfirmingSequencer] = useState(false)
@@ -62,19 +62,19 @@ export function Services() {
     useState<ComputeConfig | null>(null)
   const [computeConfig, setComputeConfig] = useState<ComputeConfig>({
     type: 'both',
-    cpuCores: Math.floor((hardware?.cpu?.cores_physical || 4) / 2),
-    gpuIds: hardware?.gpus?.map((_, i) => i) || [],
+    cpuCores: Math.floor((hardware?.cpu.cores_physical ?? 4) / 2),
+    gpuIds: hardware?.gpus.map((_, i) => i) ?? [],
     useDocker: true,
     pricePerHour: '0.01',
   })
 
   // Check TEE availability
   const hasCpuTee =
-    hardware?.tee?.attestation_available &&
+    hardware?.tee.attestation_available &&
     (hardware.tee.has_intel_tdx ||
       hardware.tee.has_intel_sgx ||
       hardware.tee.has_amd_sev)
-  const hasGpuTee = hardware?.tee?.has_nvidia_cc
+  const hasGpuTee = hardware?.tee.has_nvidia_cc
 
   const isNonTeeCompute = (type: 'cpu' | 'gpu' | 'both') => {
     if (type === 'cpu') return !hasCpuTee
@@ -168,28 +168,42 @@ export function Services() {
           <div>
             <p className="text-sm text-volcanic-400">CPU Cores</p>
             <p className="text-xl font-bold">
-              {hardware?.cpu?.cores_physical || 0}
+              {isLoading && !hardware ? (
+                <span className="inline-block w-8 h-6 bg-volcanic-700 rounded animate-pulse" />
+              ) : (
+                (hardware?.cpu.cores_physical ?? 0)
+              )}
             </p>
           </div>
           <div>
             <p className="text-sm text-volcanic-400">Memory</p>
             <p className="text-xl font-bold">
-              {((hardware?.memory?.total_mb || 0) / 1024).toFixed(0)} GB
+              {isLoading && !hardware ? (
+                <span className="inline-block w-12 h-6 bg-volcanic-700 rounded animate-pulse" />
+              ) : (
+                `${((hardware?.memory.total_mb ?? 0) / 1024).toFixed(0)} GB`
+              )}
             </p>
           </div>
           <div>
             <p className="text-sm text-volcanic-400">GPUs</p>
-            <p className="text-xl font-bold">{hardware?.gpus?.length || 0}</p>
+            <p className="text-xl font-bold">
+              {isLoading && !hardware ? (
+                <span className="inline-block w-6 h-6 bg-volcanic-700 rounded animate-pulse" />
+              ) : (
+                (hardware?.gpus.length ?? 0)
+              )}
+            </p>
           </div>
           <div>
             <p className="text-sm text-volcanic-400">Docker</p>
             <p className="text-xl font-bold flex items-center gap-2">
-              {hardware?.docker?.runtime_available ? (
+              {hardware?.docker.runtime_available ? (
                 <>
                   <Container size={16} className="text-jeju-400" />
                   Ready
                 </>
-              ) : hardware?.docker?.available ? (
+              ) : hardware?.docker.available ? (
                 <span className="text-yellow-400">Stopped</span>
               ) : (
                 <span className="text-volcanic-500">Not installed</span>
@@ -199,7 +213,7 @@ export function Services() {
           <div>
             <p className="text-sm text-volcanic-400">TEE</p>
             <p className="text-xl font-bold flex items-center gap-2">
-              {hardware?.tee?.attestation_available ? (
+              {hardware?.tee.attestation_available ? (
                 <>
                   <Shield size={16} className="text-jeju-400" />
                   Available
@@ -267,11 +281,11 @@ export function Services() {
                 <TeeStatusIndicator
                   available={!!hasCpuTee}
                   type={
-                    hardware?.tee?.has_intel_tdx
+                    hardware?.tee.has_intel_tdx
                       ? 'Intel TDX'
-                      : hardware?.tee?.has_intel_sgx
+                      : hardware?.tee.has_intel_sgx
                         ? 'Intel SGX'
-                        : hardware?.tee?.has_amd_sev
+                        : hardware?.tee.has_amd_sev
                           ? 'AMD SEV'
                           : null
                   }
@@ -284,7 +298,9 @@ export function Services() {
 
               <div className="flex items-center gap-4 text-sm">
                 <span className="text-volcanic-500">
-                  {hardware?.cpu?.cores_physical || 0} cores available
+                  {hardware
+                    ? `${hardware.cpu.cores_physical} cores available`
+                    : '— cores available'}
                 </span>
                 <span className="text-jeju-400">~$0.05/hr per core</span>
               </div>
@@ -302,7 +318,7 @@ export function Services() {
                     id="cpu-cores"
                     type="range"
                     min="1"
-                    max={hardware?.cpu?.cores_physical || 4}
+                    max={hardware?.cpu.cores_physical ?? 4}
                     value={computeConfig.cpuCores}
                     onChange={(e) =>
                       setComputeConfig((c) => ({
@@ -318,7 +334,7 @@ export function Services() {
                     <span className="text-jeju-400 font-bold">
                       {computeConfig.cpuCores} cores
                     </span>
-                    <span>{hardware?.cpu?.cores_physical || 4} cores</span>
+                    <span>{hardware?.cpu.cores_physical ?? 4} cores</span>
                   </div>
                 </div>
               )}
@@ -333,10 +349,10 @@ export function Services() {
             {/* GPU Compute */}
             <button
               type="button"
-              disabled={(hardware?.gpus?.length || 0) === 0}
+              disabled={(hardware?.gpus.length ?? 0) === 0}
               className={clsx(
                 'p-4 rounded-xl border-2 transition-all text-left w-full',
-                (hardware?.gpus?.length || 0) === 0
+                (hardware?.gpus.length ?? 0) === 0
                   ? 'border-volcanic-800 bg-volcanic-900/50 opacity-50 cursor-not-allowed'
                   : computeConfig.type === 'gpu' ||
                       computeConfig.type === 'both'
@@ -344,7 +360,7 @@ export function Services() {
                     : 'border-volcanic-700 hover:border-volcanic-600 cursor-pointer',
               )}
               onClick={() => {
-                if ((hardware?.gpus?.length || 0) === 0) return
+                if ((hardware?.gpus.length ?? 0) === 0) return
                 setComputeConfig((c) => ({
                   ...c,
                   type:
@@ -361,7 +377,7 @@ export function Services() {
                   <Gauge size={18} />
                   <span className="font-semibold">GPU Compute</span>
                 </div>
-                {(hardware?.gpus?.length || 0) > 0 && (
+                {(hardware?.gpus.length ?? 0) > 0 && (
                   <TeeStatusIndicator
                     available={!!hasGpuTee}
                     type={hasGpuTee ? 'NVIDIA CC' : null}
@@ -373,12 +389,12 @@ export function Services() {
                 AI inference, machine learning, image generation
               </p>
 
-              {(hardware?.gpus?.length || 0) > 0 ? (
+              {(hardware?.gpus.length ?? 0) > 0 ? (
                 <>
                   <div className="flex items-center gap-4 text-sm">
                     <span className="text-volcanic-500">
-                      {hardware?.gpus?.length} GPU
-                      {(hardware?.gpus?.length || 0) > 1 ? 's' : ''} detected
+                      {hardware?.gpus.length} GPU
+                      {(hardware?.gpus.length ?? 0) > 1 ? 's' : ''} detected
                     </span>
                     <span className="text-jeju-400">~$0.50/hr per GPU</span>
                   </div>
@@ -453,9 +469,9 @@ export function Services() {
             </div>
 
             <div className="flex items-center gap-3">
-              {hardware?.docker?.runtime_available ? (
+              {hardware?.docker.runtime_available ? (
                 <span className="text-sm text-green-400">Docker Ready</span>
-              ) : hardware?.docker?.available ? (
+              ) : hardware?.docker.available ? (
                 <span className="text-sm text-yellow-400">
                   Docker not running
                 </span>
@@ -475,7 +491,7 @@ export function Services() {
                     }))
                   }
                   className="sr-only peer"
-                  disabled={!hardware?.docker?.runtime_available}
+                  disabled={!hardware?.docker.runtime_available}
                 />
                 <div className="w-11 h-6 bg-volcanic-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-jeju-500" />
               </label>
@@ -510,7 +526,7 @@ export function Services() {
               <p className="text-xl font-bold text-jeju-400">
                 $
                 {(
-                  parseFloat(computeConfig.pricePerHour || '0') *
+                  parseFloat(computeConfig.pricePerHour ?? '0') *
                   24 *
                   30 *
                   2500
@@ -730,7 +746,7 @@ export function Services() {
       <AnimatePresence>
         {showPrivacyWarning && (
           <PrivacyWarning
-            computeType={pendingComputeConfig?.type || 'both'}
+            computeType={pendingComputeConfig?.type ?? 'both'}
             teeAvailable={false}
             onAccept={handleAcceptNonTee}
             onCancel={() => {

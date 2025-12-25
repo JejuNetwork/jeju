@@ -108,7 +108,7 @@ export function useJobs(query?: {
     queryFn: () => fetchJobs(query),
     staleTime: 30000,
   })
-  return { jobs: jobs || [], isLoading, error, refetch }
+  return { jobs: jobs ?? [], isLoading, error, refetch }
 }
 
 export function useJob(jobId: string) {

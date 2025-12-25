@@ -44,7 +44,7 @@ export async function getTransactionByHash(
   if (!dataSource) {
     throw new Error('DataSource is required')
   }
-  if (!hash || typeof hash !== 'string' || hash.trim().length === 0) {
+  if (!hash || hash.trim().length === 0) {
     throw new Error('hash is required and must be a non-empty string')
   }
 

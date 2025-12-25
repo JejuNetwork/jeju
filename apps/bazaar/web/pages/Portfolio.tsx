@@ -5,9 +5,9 @@
 import { useAccount } from 'wagmi'
 
 export default function PortfolioPage() {
-  const { address, isConnected } = useAccount()
+  const { address } = useAccount()
 
-  if (!isConnected) {
+  if (!address) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
         <div className="text-6xl mb-4">📊</div>
@@ -37,7 +37,7 @@ export default function PortfolioPage() {
           className="text-sm font-mono"
           style={{ color: 'var(--text-tertiary)' }}
         >
-          {address?.slice(0, 10)}...{address?.slice(-8)}
+          {address.slice(0, 10)}...{address.slice(-8)}
         </p>
       </div>
 

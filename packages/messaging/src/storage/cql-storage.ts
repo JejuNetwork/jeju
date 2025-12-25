@@ -11,7 +11,6 @@ import {
   getCQL,
   type QueryParam,
 } from '@jejunetwork/db'
-import { logger } from '@jejunetwork/shared'
 import type { Address } from 'viem'
 import { z } from 'zod'
 
@@ -446,7 +445,8 @@ export class CQLMessageStorage {
 
 let storage: CQLMessageStorage | null = null
 
-export function createCQLStorage(config?: CQLConfig): CQLMessageStorage {
+export function createCQLStorage(_config?: CQLConfig): CQLMessageStorage {
+  // Config parameter reserved for future CQL connection customization
   return new CQLMessageStorage()
 }
 

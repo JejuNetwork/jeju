@@ -20,6 +20,13 @@ const simulateDbQuery = (ms: number = 10) =>
 const randomDelay = (min: number, max: number) =>
   Math.floor(Math.random() * (max - min + 1)) + min
 
+/** A2A-style JSON-RPC request body */
+interface A2ARequestBody {
+  jsonrpc?: string
+  method?: string
+  id?: number
+}
+
 // Metrics tracking with per-endpoint stats
 const metrics = {
   requests: 0,
@@ -218,7 +225,7 @@ const app = new Elysia()
   // A2A-style endpoint
   .post('/a2a', async ({ body }) => {
     await simulateDbQuery(randomDelay(10, 30))
-    const request = body as { jsonrpc?: string; method?: string; id?: number }
+    const request = body as A2ARequestBody
     return {
       jsonrpc: '2.0',
       id: request.id ?? 1,

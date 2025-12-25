@@ -56,12 +56,24 @@ import {
  * })
  * ```
  */
+/** Client interface for readContract operations */
+interface ReadableClient {
+  readContract: <T>(params: {
+    address: Address
+    abi: Abi | readonly unknown[]
+    functionName: string
+    args?: readonly unknown[]
+    blockNumber?: bigint
+    blockTag?: 'latest' | 'earliest' | 'pending' | 'safe' | 'finalized'
+  }) => Promise<T>
+}
+
 export async function readContract<
   const TAbi extends Abi | readonly unknown[],
   TFunctionName extends ContractFunctionName<TAbi, 'pure' | 'view'>,
   TArgs extends ContractFunctionArgs<TAbi, 'pure' | 'view', TFunctionName>,
 >(
-  client: PublicClient | unknown,
+  client: PublicClient | ReadableClient,
   params: {
     address: Address
     abi: TAbi
@@ -71,9 +83,7 @@ export async function readContract<
     blockTag?: 'latest' | 'earliest' | 'pending' | 'safe' | 'finalized'
   },
 ): Promise<ReadContractReturnType<TAbi, TFunctionName, TArgs>> {
-  const viemClient = client as {
-    readContract: (p: unknown) => Promise<unknown>
-  }
+  const viemClient = client as ReadableClient
   return viemClient.readContract(params) as Promise<
     ReadContractReturnType<TAbi, TFunctionName, TArgs>
   >

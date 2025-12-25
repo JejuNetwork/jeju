@@ -420,21 +420,23 @@ export function createAMMModule(
     },
 
     async getAmountsOutV2(amountIn, path) {
-      return (await wallet.publicClient.readContract({
+      const result = await wallet.publicClient.readContract({
         address: routerAddress,
         abi: XLP_ROUTER_ABI,
         functionName: 'getAmountsOutV2',
         args: [amountIn, path],
-      })) as bigint[]
+      })
+      return [...result]
     },
 
     async getAmountsInV2(amountOut, path) {
-      return (await wallet.publicClient.readContract({
+      const result = await wallet.publicClient.readContract({
         address: routerAddress,
         abi: XLP_ROUTER_ABI,
         functionName: 'getAmountsInV2',
         args: [amountOut, path],
-      })) as bigint[]
+      })
+      return [...result]
     },
 
     async swapExactTokensForTokensV2(params) {

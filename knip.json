@@ -43,7 +43,7 @@
       "entry": ["src/index.ts"],
       "project": ["src/**/*.ts"]
     },
-    "packages/oauth3": {
+    "packages/auth": {
       "entry": ["src/index.ts"],
       "project": ["src/**/*.ts", "src/**/*.tsx"]
     },
@@ -101,7 +101,7 @@
       "entry": ["src/index.ts"],
       "project": ["src/**/*.ts"]
     },
-    "apps/auth": {
+    "apps/oauth3": {
       "entry": ["api/index.ts", "web/app.ts", "lib/index.ts"],
       "project": ["api/**/*.ts", "web/**/*.ts", "lib/**/*.ts"],
       "ignore": ["**/synpress.config.ts", "**/playwright.config.ts", "**/tests/**"]
@@ -159,11 +159,6 @@
     "apps/node": {
       "entry": ["api/cli.ts", "api/app/index.ts", "web/main.tsx", "lib/index.ts", "scripts/dev.ts"],
       "project": ["api/**/*.ts", "web/**/*.ts", "web/**/*.tsx", "lib/**/*.ts", "scripts/**/*.ts"],
-      "ignore": ["**/synpress.config.ts", "**/playwright.config.ts", "**/tests/**"]
-    },
-    "apps/otto": {
-      "entry": ["api/server.ts", "api/index.ts", "lib/index.ts"],
-      "project": ["api/**/*.ts", "lib/**/*.ts"],
       "ignore": ["**/synpress.config.ts", "**/playwright.config.ts", "**/tests/**"]
     },
     "apps/vpn": {

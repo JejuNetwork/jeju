@@ -3,14 +3,16 @@
  * Supports both serverless (ephemeral) and dedicated (persistent) modes
  */
 
+import { expectValid } from '@jejunetwork/types'
 import type { Address, PublicClient } from 'viem'
 import { createPublicClient, http } from 'viem'
 import type { JSONValue } from '../shared/validation'
-import type {
-  DockerCreateResponse,
-  DockerExecCreateResponse,
-  DockerExecInspect,
-  DockerNetworkSettings,
+import {
+  DockerCreateResponseSchema,
+  DockerExecCreateResponseSchema,
+  DockerExecInspectSchema,
+  type DockerNetworkSettings,
+  DockerNetworkSettingsSchema,
 } from '../types'
 import * as cache from './image-cache'
 import type {
@@ -357,8 +359,11 @@ const runtime: ContainerRuntime = {
       throw new Error(`Failed to create container: ${error}`)
     }
 
-    const { Id: containerId } =
-      (await createResponse.json()) as DockerCreateResponse
+    const { Id: containerId } = expectValid(
+      DockerCreateResponseSchema,
+      await createResponse.json(),
+      'Docker create response',
+    )
 
     // Start the container
     const startResponse = await dockerRequest(
@@ -378,12 +383,15 @@ const runtime: ContainerRuntime = {
     const inspectResponse = await dockerRequest(
       `/v1.44/containers/${containerId}/json`,
     )
-    const inspectData = (await inspectResponse.json()) as DockerNetworkSettings
+    const inspectData = DockerNetworkSettingsSchema.parse(
+      await inspectResponse.json(),
+    ) as DockerNetworkSettings
 
-    const hostPort = parseInt(
-      inspectData.NetworkSettings.Ports['8080/tcp'][0].HostPort,
-      10,
-    )
+    const portBindings = inspectData.NetworkSettings.Ports['8080/tcp']
+    if (!portBindings?.[0]) {
+      throw new Error('Container port binding not found')
+    }
+    const hostPort = parseInt(portBindings[0].HostPort, 10)
 
     return {
       endpoint: `http://localhost:${hostPort}`,
@@ -440,8 +448,9 @@ const runtime: ContainerRuntime = {
       )
     }
 
-    const { Id: execId } =
-      (await createExecResponse.json()) as DockerExecCreateResponse
+    const { Id: execId } = DockerExecCreateResponseSchema.parse(
+      await createExecResponse.json(),
+    )
 
     // Start exec with detach=false to get output
     const startExecResponse = await dockerRequest(
@@ -463,7 +472,9 @@ const runtime: ContainerRuntime = {
     const inspectExecResponse = await dockerRequest(
       `/v1.44/exec/${execId}/json`,
     )
-    const execInfo = (await inspectExecResponse.json()) as DockerExecInspect
+    const execInfo = DockerExecInspectSchema.parse(
+      await inspectExecResponse.json(),
+    )
 
     const execOutput: JSONValue =
       input !== undefined

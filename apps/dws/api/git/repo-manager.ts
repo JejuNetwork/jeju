@@ -18,8 +18,6 @@ import {
 /** Transaction receipt log with topics for event decoding */
 type ReceiptLog = TransactionLog
 
-// Use shared viem utilities for type-safe contract interactions
-import { readContract } from '@jejunetwork/contracts'
 import { privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
 import type { BackendManager } from '../storage/backends'
@@ -303,7 +301,7 @@ export class GitRepoManager {
     functionName: string,
     args: readonly (Hex | Address | string | bigint)[],
   ): Promise<T> {
-    const result = await readContract(this.publicClient, {
+    const result = await this.publicClient.readContract({
       address: this.repoRegistryAddress,
       abi: REPO_REGISTRY_ABI as Abi,
       functionName,
@@ -378,7 +376,7 @@ export class GitRepoManager {
         functionName: 'createRepository',
         args: [
           request.name,
-          request.description || '',
+          request.description ?? '',
           '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex,
           agentId,
           visibility,

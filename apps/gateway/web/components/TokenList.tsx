@@ -160,10 +160,7 @@ function TokenCard({ tokenAddress }: { tokenAddress: `0x${string}` }) {
             <strong>Vault:</strong> {deployment.vault.slice(0, 10)}...
           </p>
           <p style={{ margin: '0.125rem 0' }}>
-            <strong>Fee:</strong>{' '}
-            {Number((deployment as { feeMargin?: number }).feeMargin ?? 0) /
-              100}
-            %
+            <strong>Fee:</strong> {deployment.feeMargin / 100}%
           </p>
         </div>
       )}

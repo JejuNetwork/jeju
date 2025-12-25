@@ -6,6 +6,7 @@
  */
 
 import type { Address, Hex } from 'viem'
+import { z } from 'zod'
 import type { JSONObject, JSONValue } from '../shared/validation'
 
 // Observation and Action Types
@@ -135,6 +136,82 @@ export interface JudgeScore {
   rubricId: string
   judgedAt: number
 }
+
+export const JudgeScoreSchema = z.object({
+  trajectoryId: z.string(),
+  score: z.number(),
+  reasoning: z.string(),
+  strengths: z.array(z.string()).optional(),
+  weaknesses: z.array(z.string()).optional(),
+  rubricId: z.string(),
+  judgedAt: z.number(),
+})
+
+export const TrajectoryManifestSchema = z.object({
+  cid: z.string(),
+  trajectoryCIDs: z.array(z.string()),
+  totalCount: z.number(),
+  environmentId: z.string(),
+  policyModelCID: z.string(),
+  createdAt: z.number(),
+  merkleRoot: z.string().regex(/^0x[a-fA-F0-9]+$/) as z.ZodType<Hex>,
+})
+
+// Re-export the JSON schema from shared validation for trajectory serialization
+import { JSONValueSchema as JsonValueSchema } from '../shared/validation'
+
+const TrajectoryMetadataSchema = z
+  .object({
+    startTime: z.number(),
+    endTime: z.number(),
+    episodeLength: z.number(),
+    scenarioId: z.string().optional(),
+    windowId: z.string().optional(),
+  })
+  .passthrough()
+
+export const TrajectorySchema = z.object({
+  id: z.string(),
+  environmentId: z.string(),
+  agentId: z.string(),
+  policyModelCID: z.string(),
+  steps: z.array(
+    z.object({
+      stepNumber: z.number(),
+      timestamp: z.number(),
+      observation: z.record(z.string(), JsonValueSchema),
+      action: z.object({
+        type: z.string(),
+        parameters: z.record(z.string(), JsonValueSchema),
+      }),
+      reward: z.number(),
+      done: z.boolean(),
+      logprobs: z.array(z.number()).optional(),
+      llmCalls: z
+        .array(
+          z.object({
+            model: z.string(),
+            systemPrompt: z.string(),
+            userPrompt: z.string(),
+            response: z.string(),
+            reasoning: z.string().optional(),
+            temperature: z.number(),
+            latencyMs: z.number(),
+            purpose: z.enum([
+              'action',
+              'reasoning',
+              'evaluation',
+              'response',
+              'other',
+            ]),
+          }),
+        )
+        .optional(),
+    }),
+  ),
+  totalReward: z.number(),
+  metadata: TrajectoryMetadataSchema,
+})
 
 export interface ScoredTrajectoryGroup {
   manifestCID: string

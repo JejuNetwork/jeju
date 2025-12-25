@@ -174,7 +174,7 @@ function getClientKeyFromHeaders(headers: HeadersMap): {
   if (agentId) return { key: `agent:${agentId}`, address: null }
 
   const forwarded = headers['x-forwarded-for']?.split(',')[0]?.trim()
-  const ip = forwarded || headers['x-real-ip'] || 'unknown'
+  const ip = forwarded ?? headers['x-real-ip'] ?? 'unknown'
   return { key: `ip:${ip}`, address: null }
 }
 

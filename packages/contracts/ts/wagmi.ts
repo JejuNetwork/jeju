@@ -20,9 +20,25 @@ export interface TypedWriteContractParams<TAbi extends Abi> {
   value?: bigint
 }
 
-// Accept any function and cast internally to bypass wagmi's complex types
-type AnyWriteContractFn = (...args: never[]) => void
-type AnyWriteContractAsyncFn = (...args: never[]) => Promise<`0x${string}`>
+/**
+ * WriteContract function signature that accepts our typed params.
+ * This matches wagmi's writeContract function signature.
+ */
+type WriteContractFn = (params: {
+  address: Address
+  abi: Abi
+  functionName: string
+  args?: readonly unknown[]
+  value?: bigint
+}) => void
+
+type WriteContractAsyncFn = (params: {
+  address: Address
+  abi: Abi
+  functionName: string
+  args?: readonly unknown[]
+  value?: bigint
+}) => Promise<`0x${string}`>
 
 /**
  * Create a typed write contract function from wagmi's useWriteContract.
@@ -43,52 +59,67 @@ type AnyWriteContractAsyncFn = (...args: never[]) => Promise<`0x${string}`>
  * })
  * ```
  */
-export function createTypedWriteContract<TFn extends AnyWriteContractFn>(
-  writeContract: TFn,
+export function createTypedWriteContract(
+  writeContract: WriteContractFn,
 ): <TAbi extends Abi>(params: TypedWriteContractParams<TAbi>) => void {
-  const fn = writeContract as unknown as (params: unknown) => void
-  return (params) => fn(params)
+  return <TAbi extends Abi>(params: TypedWriteContractParams<TAbi>) => {
+    writeContract({
+      address: params.address,
+      abi: params.abi,
+      functionName: params.functionName,
+      args: params.args,
+      value: params.value,
+    })
+  }
 }
 
 /**
  * Create a typed async write contract function from wagmi's useWriteContract.
  */
-export function createTypedWriteContractAsync<
-  TFn extends AnyWriteContractAsyncFn,
->(
-  writeContractAsync: TFn,
+export function createTypedWriteContractAsync(
+  writeContractAsync: WriteContractAsyncFn,
 ): <TAbi extends Abi>(
   params: TypedWriteContractParams<TAbi>,
 ) => Promise<`0x${string}`> {
-  const fn = writeContractAsync as unknown as (
-    params: unknown,
-  ) => Promise<`0x${string}`>
-  return (params) => fn(params)
+  return <TAbi extends Abi>(params: TypedWriteContractParams<TAbi>) => {
+    return writeContractAsync({
+      address: params.address,
+      abi: params.abi,
+      functionName: params.functionName,
+      args: params.args,
+      value: params.value,
+    })
+  }
 }
 
 /**
  * Helper function for typed write contract operations.
  */
-export function typedWriteContract<
-  TFn extends AnyWriteContractFn,
-  TAbi extends Abi,
->(writeContract: TFn, params: TypedWriteContractParams<TAbi>): void {
-  const fn = writeContract as unknown as (params: unknown) => void
-  fn(params)
+export function typedWriteContract<TAbi extends Abi>(
+  writeContract: WriteContractFn,
+  params: TypedWriteContractParams<TAbi>,
+): void {
+  writeContract({
+    address: params.address,
+    abi: params.abi,
+    functionName: params.functionName,
+    args: params.args,
+    value: params.value,
+  })
 }
 
 /**
  * Helper function for typed async write contract operations.
  */
-export function typedWriteContractAsync<
-  TFn extends AnyWriteContractAsyncFn,
-  TAbi extends Abi,
->(
-  writeContractAsync: TFn,
+export function typedWriteContractAsync<TAbi extends Abi>(
+  writeContractAsync: WriteContractAsyncFn,
   params: TypedWriteContractParams<TAbi>,
 ): Promise<`0x${string}`> {
-  const fn = writeContractAsync as unknown as (
-    params: unknown,
-  ) => Promise<`0x${string}`>
-  return fn(params)
+  return writeContractAsync({
+    address: params.address,
+    abi: params.abi,
+    functionName: params.functionName,
+    args: params.args,
+    value: params.value,
+  })
 }

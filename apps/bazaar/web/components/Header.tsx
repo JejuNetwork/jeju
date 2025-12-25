@@ -5,7 +5,7 @@ import { AuthButton } from './auth/AuthButton'
 
 export function Header() {
   const { pathname } = useLocation()
-  const { address, isConnected } = useAccount()
+  const { address } = useAccount()
   const { disconnect } = useDisconnect()
   const [showMobileMenu, setShowMobileMenu] = useState(false)
   const [showPortfolioDropdown, setShowPortfolioDropdown] = useState(false)
@@ -124,7 +124,7 @@ export function Header() {
 
               {/* Auth Button - Desktop */}
               <div className="relative hidden md:block">
-                {!isConnected ? (
+                {!address ? (
                   <AuthButton className="px-4 md:px-6" />
                 ) : (
                   <>
@@ -140,10 +140,10 @@ export function Header() {
                       }}
                     >
                       <div className="w-6 h-6 rounded-full bg-gradient-to-r from-bazaar-primary to-bazaar-accent flex items-center justify-center text-xs font-bold text-white">
-                        {address?.slice(2, 4).toUpperCase()}
+                        {address.slice(2, 4).toUpperCase()}
                       </div>
                       <span className="text-sm font-medium">
-                        {address?.slice(0, 6)}...{address?.slice(-4)}
+                        {address.slice(0, 6)}...{address.slice(-4)}
                       </span>
                       <svg
                         className={`w-4 h-4 transition-transform ${showPortfolioDropdown ? 'rotate-180' : ''}`}
@@ -322,7 +322,7 @@ export function Header() {
             className="p-4 border-t"
             style={{ borderColor: 'var(--border)' }}
           >
-            {!isConnected ? (
+            {!address ? (
               <AuthButton className="w-full" />
             ) : (
               <div className="space-y-3">
@@ -331,11 +331,11 @@ export function Header() {
                   style={{ backgroundColor: 'var(--bg-secondary)' }}
                 >
                   <div className="w-10 h-10 rounded-full bg-gradient-to-r from-bazaar-primary to-bazaar-accent flex items-center justify-center text-sm font-bold text-white">
-                    {address?.slice(2, 4).toUpperCase()}
+                    {address.slice(2, 4).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">
-                      {address?.slice(0, 10)}...{address?.slice(-6)}
+                      {address.slice(0, 10)}...{address.slice(-6)}
                     </p>
                     <p
                       className="text-xs"

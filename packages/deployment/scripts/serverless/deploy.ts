@@ -59,6 +59,8 @@ const WorkerRegistrationResponseSchema = z.object({
   workerId: z.string(),
 })
 
+const DeploymentAddressesSchema = z.record(z.string(), z.string())
+
 import { WorkerBuilder } from './worker-builder'
 
 // Types
@@ -689,8 +691,8 @@ class ServerlessDeployer {
       passed: response?.ok ?? false,
       message: response?.ok ? 'Frontend accessible' : 'Frontend not accessible',
       details: {
-        cid: app.frontend?.ipfsCid || '',
-        files: app.frontend?.files.length || 0,
+        cid: app.frontend?.ipfsCid ?? '',
+        files: app.frontend?.files.length ?? 0,
       },
       duration: Date.now() - start,
     }
@@ -897,18 +899,21 @@ Examples:
   }
 
   if (existsSync(deploymentsPath)) {
-    const deployments = JSON.parse(
-      readFileSync(deploymentsPath, 'utf-8'),
-    ) as Record<string, string>
-    contracts = {
-      jnsRegistry: (deployments.JNSRegistry ||
-        contracts.jnsRegistry) as Address,
-      jnsResolver: (deployments.JNSResolver ||
-        contracts.jnsResolver) as Address,
-      jnsRegistrar: (deployments.JNSRegistrar ||
-        contracts.jnsRegistrar) as Address,
-      identityRegistry: (deployments.IdentityRegistry ||
-        contracts.identityRegistry) as Address,
+    const parsed = DeploymentAddressesSchema.safeParse(
+      JSON.parse(readFileSync(deploymentsPath, 'utf-8')),
+    )
+    if (parsed.success) {
+      const deployments = parsed.data
+      contracts = {
+        jnsRegistry: (deployments.JNSRegistry ||
+          contracts.jnsRegistry) as Address,
+        jnsResolver: (deployments.JNSResolver ||
+          contracts.jnsResolver) as Address,
+        jnsRegistrar: (deployments.JNSRegistrar ||
+          contracts.jnsRegistrar) as Address,
+        identityRegistry: (deployments.IdentityRegistry ||
+          contracts.identityRegistry) as Address,
+      }
     }
   }
 

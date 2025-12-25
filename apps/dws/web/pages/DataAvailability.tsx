@@ -27,7 +27,11 @@ export default function DataAvailabilityPage() {
     isLoading: healthLoading,
     refetch: refetchHealth,
   } = useDAHealth()
-  const { data: stats, refetch: refetchStats } = useDAStats()
+  const {
+    data: stats,
+    isLoading: statsLoading,
+    refetch: refetchStats,
+  } = useDAStats()
   const { data: operatorsData, refetch: refetchOperators } = useDAOperators()
   const { data: blobsData, refetch: refetchBlobs } = useDABlobs()
   const submitBlob = useSubmitBlob()
@@ -122,7 +126,13 @@ export default function DataAvailabilityPage() {
           </div>
           <div className="stat-content">
             <div className="stat-label">Total Blobs</div>
-            <div className="stat-value">{stats?.blobs?.total ?? 0}</div>
+            <div className="stat-value">
+              {statsLoading ? (
+                <span className="shimmer inline-block w-8 h-6 rounded" />
+              ) : (
+                (stats?.blobs.total ?? 0)
+              )}
+            </div>
           </div>
         </div>
         <div className="stat-card">
@@ -131,7 +141,13 @@ export default function DataAvailabilityPage() {
           </div>
           <div className="stat-content">
             <div className="stat-label">Active Operators</div>
-            <div className="stat-value">{stats?.operators?.active ?? 0}</div>
+            <div className="stat-value">
+              {statsLoading ? (
+                <span className="shimmer inline-block w-8 h-6 rounded" />
+              ) : (
+                (stats?.operators.active ?? 0)
+              )}
+            </div>
           </div>
         </div>
         <div className="stat-card">
@@ -141,7 +157,11 @@ export default function DataAvailabilityPage() {
           <div className="stat-content">
             <div className="stat-label">Total Capacity</div>
             <div className="stat-value">
-              {stats?.operators?.totalCapacityGB ?? 0} GB
+              {statsLoading ? (
+                <span className="shimmer inline-block w-12 h-6 rounded" />
+              ) : (
+                `${stats?.operators.totalCapacityGB ?? 0} GB`
+              )}
             </div>
           </div>
         </div>
@@ -152,7 +172,11 @@ export default function DataAvailabilityPage() {
           <div className="stat-content">
             <div className="stat-label">Used Capacity</div>
             <div className="stat-value">
-              {stats?.operators?.usedCapacityGB?.toFixed(2) ?? '0'} GB
+              {statsLoading ? (
+                <span className="shimmer inline-block w-12 h-6 rounded" />
+              ) : (
+                `${stats?.operators.usedCapacityGB.toFixed(2) ?? '0'} GB`
+              )}
             </div>
           </div>
         </div>

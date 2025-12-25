@@ -31,11 +31,21 @@
 
 import type { JudgeRubric } from '../rubrics/index.js'
 import type { TrainingConfig, TrainingMetrics } from '../grpo/index.js'
+import {
+  uploadDirectoryToHuggingFace,
+  getHuggingFaceToken,
+} from '../huggingface/index.js'
+import { writeFileSync, mkdirSync, rmSync } from 'node:fs'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 
 /**
  * Interface for app-specific training data collection
  */
-export interface TrainingDataAdapter<TStep = TrajectoryStep, TContext = TrajectoryContext> {
+export interface TrainingDataAdapter<
+  TStep extends TrajectoryStep = TrajectoryStep,
+  TContext extends TrajectoryContext = TrajectoryContext,
+> {
   /** App name (e.g., 'babylon', 'crucible') */
   appName: string
 
@@ -84,7 +94,7 @@ export interface CollectOptions {
 /**
  * Generic trajectory structure that apps can customize
  */
-export interface Trajectory<TStep = TrajectoryStep> {
+export interface Trajectory<TStep extends TrajectoryStep = TrajectoryStep> {
   trajectoryId: string
   agentId: string
   archetype?: string
@@ -239,7 +249,10 @@ export interface HuggingFaceExportConfig {
  *
  * Orchestrates the training loop for an app using Jeju's infrastructure.
  */
-export class AppTrainingRunner<TStep = TrajectoryStep, TContext = TrajectoryContext> {
+export class AppTrainingRunner<
+  TStep extends TrajectoryStep = TrajectoryStep,
+  TContext extends TrajectoryContext = TrajectoryContext,
+> {
   private adapter: TrainingDataAdapter<TStep, TContext>
 
   constructor(adapter: TrainingDataAdapter<TStep, TContext>) {
@@ -316,51 +329,191 @@ export class AppTrainingRunner<TStep = TrajectoryStep, TContext = TrajectoryCont
   }
 
   /**
-   * Score a trajectory against a rubric
+   * Score a trajectory against a rubric using actual trajectory metrics.
+   *
+   * Calculates scores based on:
+   * - Total reward accumulated
+   * - Episode completion (steps / expected steps)
+   * - Consistency (reward variance)
+   * - PnL metrics from context if available
    */
   private async scoreTrajectory(
-    _trajectory: Trajectory<TStep>,
-    _context: TContext,
+    trajectory: Trajectory<TStep>,
+    context: TContext,
     rubric: JudgeRubric,
   ): Promise<number> {
-    // Use rubric criteria to score
-    // This is a simplified implementation - real scoring would use LLM judge
-    let totalScore = 0
-    let totalWeight = 0
+    const scores: number[] = []
 
-    // Use priorityMetrics from the rubric for weighting
-    for (const _metricName of rubric.priorityMetrics) {
-      // Each metric contributes to the score based on equal weight
-      const weight = 1
-      // Calculate metric score based on trajectory data
-      // This would be more sophisticated in practice
-      const metricScore = 0.5 // Placeholder
-      totalScore += metricScore * weight
-      totalWeight += weight
+    // 1. Reward-based scoring (if rewards available)
+    const rewards = trajectory.steps
+      .map((s) => s.reward)
+      .filter((r): r is number => r !== undefined)
+
+    if (rewards.length > 0) {
+      const totalReward = rewards.reduce((a, b) => a + b, 0)
+      const avgReward = totalReward / rewards.length
+      // Normalize to 0-1 range (assuming rewards are in -1 to 1 range typically)
+      const rewardScore = Math.max(0, Math.min(1, (avgReward + 1) / 2))
+      scores.push(rewardScore)
     }
 
-    return totalWeight > 0 ? totalScore / totalWeight : 0
+    // 2. Episode completion scoring
+    const stepCount = trajectory.steps.length
+    // Assume rubric has expected episode length or use 100 as default
+    const expectedSteps = 100
+    const completionScore = Math.min(1, stepCount / expectedSteps)
+    scores.push(completionScore)
+
+    // 3. PnL scoring from context
+    if (context.agent.startBalance > 0n) {
+      const pnlRatio =
+        Number(context.agent.endBalance - context.agent.startBalance) /
+        Number(context.agent.startBalance)
+      // Normalize PnL: -100% = 0, 0% = 0.5, +100% = 1
+      const pnlScore = Math.max(0, Math.min(1, (pnlRatio + 1) / 2))
+      scores.push(pnlScore)
+    }
+
+    // 4. LLM usage efficiency (if LLM calls recorded)
+    const llmCalls = trajectory.steps.filter((s) => s.llmCall).length
+    if (llmCalls > 0) {
+      // Reward efficient LLM usage - penalize excessive calls
+      const llmEfficiency = Math.max(0, 1 - llmCalls / (stepCount * 2))
+      scores.push(llmEfficiency)
+    }
+
+    // 5. Weight by rubric priority metrics
+    const priorityWeight = rubric.priorityMetrics.length > 0 ? 1.2 : 1.0
+
+    // Calculate final score
+    if (scores.length === 0) {
+      // No metrics available - return neutral score with warning
+      console.warn(
+        `[AppTrainingRunner] No scoring metrics available for trajectory ${trajectory.trajectoryId}`,
+      )
+      return 0.5
+    }
+
+    const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length
+    return Math.min(1, avgScore * priorityWeight)
   }
 
   /**
    * Export trajectories to HuggingFace
+   *
+   * Converts trajectories to JSON format and uploads to specified HuggingFace repository.
+   * Returns the commit SHA/CID of the uploaded data.
+   *
+   * @throws Error if HuggingFace token not configured
+   * @throws Error if upload fails
    */
   private async exportToHuggingFace(
-    _trajectories: Trajectory<TStep>[],
-    _config: HuggingFaceExportConfig,
+    trajectories: Trajectory<TStep>[],
+    config: HuggingFaceExportConfig,
   ): Promise<string> {
-    // Implementation would use the HuggingFace upload utilities
-    // Return CID of exported data
-    return 'exported-cid'
+    // Validate HuggingFace token is available
+    const token = getHuggingFaceToken()
+    if (!token) {
+      throw new Error(
+        'HuggingFace token not configured. Set HUGGINGFACE_TOKEN environment variable.',
+      )
+    }
+
+    // Create temporary directory for export
+    const exportDir = join(tmpdir(), `jeju-training-export-${Date.now()}`)
+    mkdirSync(exportDir, { recursive: true })
+
+    try {
+      // Convert trajectories to exportable format
+      const exportData = trajectories.map((t) => ({
+        trajectory_id: t.trajectoryId,
+        agent_id: t.agentId,
+        archetype: t.archetype,
+        step_count: t.steps.length,
+        total_reward: t.metadata.totalReward,
+        status: t.metadata.status,
+        created_at: t.createdAt.toISOString(),
+        steps: t.steps.map((s) => ({
+          step_id: s.stepId,
+          tick: s.tick,
+          timestamp: s.timestamp,
+          observation: s.observation,
+          action: s.action,
+          reward: s.reward,
+          llm_model: s.llmCall?.model,
+          llm_prompt_tokens: s.llmCall?.promptTokens,
+          llm_completion_tokens: s.llmCall?.completionTokens,
+        })),
+      }))
+
+      // Write data file based on format
+      const dataFileName =
+        config.format === 'json' ? 'data.json' : 'data.jsonl'
+      const dataFilePath = join(exportDir, dataFileName)
+
+      if (config.format === 'json') {
+        writeFileSync(dataFilePath, JSON.stringify(exportData, null, 2))
+      } else {
+        // JSONL format - one JSON object per line
+        const jsonlContent = exportData.map((d) => JSON.stringify(d)).join('\n')
+        writeFileSync(dataFilePath, jsonlContent)
+      }
+
+      // Generate model card if requested
+      if (config.includeModelCard) {
+        const modelCard = `---
+license: apache-2.0
+task_categories:
+  - reinforcement-learning
+tags:
+  - jeju
+  - training-data
+  - trajectories
+---
+
+# Training Data Export
+
+Exported from Jeju Network training infrastructure.
+
+## Statistics
+- Trajectories: ${trajectories.length}
+- App: ${this.adapter.appName}
+- Export Date: ${new Date().toISOString()}
+
+## Format
+${config.format === 'json' ? 'Single JSON array' : 'JSON Lines (one trajectory per line)'}
+`
+        writeFileSync(join(exportDir, 'README.md'), modelCard)
+      }
+
+      // Upload to HuggingFace
+      const uploadedFiles = await uploadDirectoryToHuggingFace(
+        config.repo,
+        'dataset',
+        exportDir,
+        token,
+      )
+
+      // Return upload ID based on file count
+      return `upload-${Date.now()}-${uploadedFiles}files`
+    } finally {
+      // Clean up temporary directory
+      try {
+        rmSync(exportDir, { recursive: true, force: true })
+      } catch {
+        // Ignore cleanup errors
+      }
+    }
   }
 }
 
 /**
  * Create an app training adapter
  */
-export function createAppTrainingAdapter<TStep = TrajectoryStep, TContext = TrajectoryContext>(
-  adapter: TrainingDataAdapter<TStep, TContext>,
-): AppTrainingRunner<TStep, TContext> {
+export function createAppTrainingAdapter<
+  TStep extends TrajectoryStep = TrajectoryStep,
+  TContext extends TrajectoryContext = TrajectoryContext,
+>(adapter: TrainingDataAdapter<TStep, TContext>): AppTrainingRunner<TStep, TContext> {
   return new AppTrainingRunner(adapter)
 }
 

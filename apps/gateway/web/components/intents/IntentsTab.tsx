@@ -26,7 +26,7 @@ type View = 'intents' | 'routes' | 'solvers' | 'stats'
 export function IntentsTab() {
   const [activeView, setActiveView] = useState<View>('intents')
   const [showCreate, setShowCreate] = useState(false)
-  const { data: stats } = useOIFStats()
+  const { data: stats, isLoading: statsLoading } = useOIFStats()
   const { isConnected } = useAccount()
 
   return (
@@ -91,14 +91,23 @@ export function IntentsTab() {
             className="hide-mobile"
             style={{ display: 'flex', gap: '1.25rem' }}
           >
-            <Stat label="Intents" value={stats?.totalIntents ?? 0} />
+            <Stat
+              label="Intents"
+              value={statsLoading ? '—' : (stats?.totalIntents ?? 0)}
+            />
             <Stat
               label="Solvers"
-              value={stats?.activeSolvers ?? stats?.totalSolvers ?? 0}
+              value={
+                statsLoading
+                  ? '—'
+                  : (stats?.activeSolvers ?? stats?.totalSolvers ?? 0)
+              }
             />
             <Stat
               label="Success"
-              value={`${(stats?.successRate ?? 0).toFixed(1)}%`}
+              value={
+                statsLoading ? '—' : `${(stats?.successRate ?? 0).toFixed(1)}%`
+              }
             />
           </div>
           <button

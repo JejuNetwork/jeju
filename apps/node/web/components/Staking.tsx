@@ -23,6 +23,7 @@ export function Staking() {
     claimRewards,
     config,
     updateConfig,
+    isLoading,
   } = useAppStore()
   const [stakingService, setStakingService] = useState<string | null>(null)
   const [stakeAmount, setStakeAmount] = useState('0.1')
@@ -83,10 +84,18 @@ export function Staking() {
             <div>
               <p className="text-sm text-volcanic-400">Total Staked</p>
               <p className="text-xl font-bold">
-                {formatEther(staking?.total_staked_wei || '0')} ETH
+                {isLoading && !staking ? (
+                  <span className="inline-block w-20 h-6 bg-volcanic-700 rounded animate-pulse" />
+                ) : (
+                  `${formatEther(staking?.total_staked_wei ?? '0')} ETH`
+                )}
               </p>
               <p className="text-xs text-volcanic-500">
-                ≈ {formatUsd(staking?.total_staked_usd || 0)}
+                {isLoading && !staking ? (
+                  <span className="inline-block w-12 h-4 bg-volcanic-700 rounded animate-pulse" />
+                ) : (
+                  `≈ ${formatUsd(staking?.total_staked_usd ?? 0)}`
+                )}
               </p>
             </div>
           </div>
@@ -100,10 +109,18 @@ export function Staking() {
             <div>
               <p className="text-sm text-volcanic-400">Pending Rewards</p>
               <p className="text-xl font-bold text-purple-400">
-                {formatEther(staking?.pending_rewards_wei || '0')} ETH
+                {isLoading && !staking ? (
+                  <span className="inline-block w-20 h-6 bg-volcanic-700 rounded animate-pulse" />
+                ) : (
+                  `${formatEther(staking?.pending_rewards_wei ?? '0')} ETH`
+                )}
               </p>
               <p className="text-xs text-volcanic-500">
-                ≈ {formatUsd(staking?.pending_rewards_usd || 0)}
+                {isLoading && !staking ? (
+                  <span className="inline-block w-12 h-4 bg-volcanic-700 rounded animate-pulse" />
+                ) : (
+                  `≈ ${formatUsd(staking?.pending_rewards_usd ?? 0)}`
+                )}
               </p>
             </div>
           </div>
@@ -142,13 +159,13 @@ export function Staking() {
       </div>
 
       {/* Claim All Button */}
-      {parseFloat(staking?.pending_rewards_wei || '0') > 0 && (
+      {parseFloat(staking?.pending_rewards_wei ?? '0') > 0 && (
         <div className="card bg-gradient-to-r from-purple-600/20 to-jeju-600/20 border-purple-500/30">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="font-semibold">Claim All Rewards</h3>
               <p className="text-sm text-volcanic-400">
-                {formatEther(staking?.pending_rewards_wei || '0')} ETH available
+                {formatEther(staking?.pending_rewards_wei ?? '0')} ETH available
               </p>
             </div>
             <button
@@ -171,9 +188,9 @@ export function Staking() {
             const stakeInfo = staking?.staked_by_service.find(
               (s) => s.service_id === service.metadata.id,
             )
-            const stakedAmount = parseFloat(stakeInfo?.staked_wei || '0')
+            const stakedAmount = parseFloat(stakeInfo?.staked_wei ?? '0')
             const pendingRewards = parseFloat(
-              stakeInfo?.pending_rewards_wei || '0',
+              stakeInfo?.pending_rewards_wei ?? '0',
             )
 
             return (
@@ -202,7 +219,7 @@ export function Staking() {
                       <span>Min: {service.metadata.min_stake_eth} ETH</span>
                       {stakedAmount > 0 && (
                         <span className="text-jeju-400">
-                          Staked: {formatEther(stakeInfo?.staked_wei || '0')}{' '}
+                          Staked: {formatEther(stakeInfo?.staked_wei ?? '0')}{' '}
                           ETH
                         </span>
                       )}
@@ -215,7 +232,7 @@ export function Staking() {
                     <div className="text-right mr-4">
                       <p className="text-sm text-volcanic-400">Rewards</p>
                       <p className="font-medium text-purple-400">
-                        {formatEther(stakeInfo?.pending_rewards_wei || '0')} ETH
+                        {formatEther(stakeInfo?.pending_rewards_wei ?? '0')} ETH
                       </p>
                     </div>
                   )}

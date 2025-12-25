@@ -14,10 +14,10 @@ export async function getAgentsByTag(
   if (!dataSource) {
     throw new Error('DataSource is required')
   }
-  if (!tag || typeof tag !== 'string' || tag.trim().length === 0) {
+  if (!tag || tag.trim().length === 0) {
     throw new Error('tag is required and must be a non-empty string')
   }
-  if (typeof limit !== 'number' || limit <= 0) {
+  if (limit <= 0) {
     throw new Error(`Invalid limit: ${limit}. Must be a positive number.`)
   }
 

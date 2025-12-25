@@ -165,14 +165,15 @@ export class RegistryClient {
       authorizationList: undefined,
     })
 
+    // Contract ABI guarantees these fields - trust the types
     return {
-      totalBets: Number(rep[0] || 0),
-      winningBets: Number(rep[1] || 0),
-      totalVolume: rep[2]?.toString() || '0',
-      profitLoss: Number(rep[3] || 0),
-      accuracyScore: Number(rep[4] || 0),
-      trustScore: Number(rep[5] || 0),
-      isBanned: rep[6] || false,
+      totalBets: Number(rep[0]),
+      winningBets: Number(rep[1]),
+      totalVolume: rep[2].toString(),
+      profitLoss: Number(rep[3]),
+      accuracyScore: Number(rep[4]),
+      trustScore: Number(rep[5]),
+      isBanned: rep[6],
     }
   }
 
@@ -264,28 +265,37 @@ export class RegistryClient {
     skills: string[]
     domains: string[]
   } {
-    let parsed: Record<string, unknown>
+    const emptyCapabilities = {
+      strategies: [] as string[],
+      markets: [] as string[],
+      actions: [] as string[],
+      version: '1.0.0',
+      skills: [] as string[],
+      domains: [] as string[],
+    }
+
+    let rawData: unknown
     try {
-      parsed = JSON.parse(metadata) as Record<string, unknown>
+      rawData = JSON.parse(metadata)
     } catch {
       // Invalid JSON - return empty capabilities
-      return {
-        strategies: [],
-        markets: [],
-        actions: [],
-        version: '1.0.0',
-        skills: [],
-        domains: [],
-      }
+      return emptyCapabilities
     }
-    const validation = AgentCapabilitiesSchema.safeParse(parsed)
+
+    const validation = AgentCapabilitiesSchema.safeParse(rawData)
+    if (!validation.success) {
+      // Schema validation failed - return empty capabilities
+      return emptyCapabilities
+    }
+
+    // Zod schema applies defaults, so these fields are guaranteed to exist
     return {
-      strategies: validation.data?.strategies ?? [],
-      markets: validation.data?.markets ?? [],
-      actions: validation.data?.actions ?? [],
-      version: validation.data?.version ?? '1.0.0',
-      skills: validation.data?.skills ?? [],
-      domains: validation.data?.domains ?? [],
+      strategies: validation.data.strategies,
+      markets: validation.data.markets,
+      actions: validation.data.actions,
+      version: validation.data.version,
+      skills: validation.data.skills,
+      domains: validation.data.domains,
     }
   }
 
@@ -355,8 +365,9 @@ export class RegistryClient {
         markets: profile.capabilities.markets,
         actions: profile.capabilities.actions,
         version: profile.capabilities.version,
-        skills: profile.capabilities.skills || [],
-        domains: profile.capabilities.domains || [],
+        // Zod schema guarantees these fields exist with defaults
+        skills: profile.capabilities.skills,
+        domains: profile.capabilities.domains,
       },
       reputation: {
         totalBets: profile.reputation.totalBets,

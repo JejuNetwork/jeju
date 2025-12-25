@@ -12,6 +12,27 @@ import type {
 
 let cachedPlatform: PlatformInfo | null = null
 
+/** Window with Capacitor mobile framework */
+interface WindowWithCapacitor {
+  Capacitor?: {
+    getPlatform?: () => string
+  }
+}
+
+/** Safari extension API */
+interface SafariExtension {
+  extension?: {
+    dispatchMessage?: (...args: string[]) => void
+  }
+}
+
+/** Firefox browser extension API */
+interface BrowserExtension {
+  runtime?: {
+    id?: string
+  }
+}
+
 /**
  * Detect the current browser type
  */
@@ -74,8 +95,7 @@ function detectPlatformType(): PlatformType {
 
   // Check Capacitor
   if ('Capacitor' in window) {
-    const cap = (window as { Capacitor?: { getPlatform?: () => string } })
-      .Capacitor
+    const cap = (window as WindowWithCapacitor).Capacitor
     const platform = cap?.getPlatform?.()
     if (platform === 'ios') return 'capacitor-ios'
     if (platform === 'android') return 'capacitor-android'
@@ -87,11 +107,7 @@ function detectPlatformType(): PlatformType {
   // Safari Web Extension
   if (
     typeof safari !== 'undefined' &&
-    (
-      safari as {
-        extension?: { dispatchMessage?: (...args: string[]) => void }
-      }
-    ).extension?.dispatchMessage
+    (safari as SafariExtension).extension?.dispatchMessage
   ) {
     return 'safari-extension'
   }
@@ -99,7 +115,7 @@ function detectPlatformType(): PlatformType {
   // Firefox extension
   if (
     typeof browser !== 'undefined' &&
-    (browser as { runtime?: { id?: string } }).runtime?.id
+    (browser as BrowserExtension).runtime?.id
   ) {
     return 'firefox-extension'
   }

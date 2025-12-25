@@ -424,12 +424,12 @@ export function createAgentsModule(
     },
 
     async getBalance(agentId) {
-      return (await wallet.publicClient.readContract({
+      return wallet.publicClient.readContract({
         address: agentVaultAddress,
         abi: AGENT_VAULT_ABI,
         functionName: 'getBalance',
         args: [agentId],
-      })) as bigint
+      })
     },
 
     async getVaultInfo(agentId) {
@@ -495,7 +495,7 @@ export function createAgentsModule(
         args: [agentId, BigInt(limit)],
       })
 
-      return result as SpendRecord[]
+      return result
     },
 
     async approveSpender(agentId, spender) {
@@ -525,12 +525,12 @@ export function createAgentsModule(
     },
 
     async isApprovedSpender(agentId, spender) {
-      return (await wallet.publicClient.readContract({
+      return wallet.publicClient.readContract({
         address: agentVaultAddress,
         abi: AGENT_VAULT_ABI,
         functionName: 'isApprovedSpender',
         args: [agentId, spender],
-      })) as boolean
+      })
     },
 
     async setSpendLimit(agentId, limit) {
@@ -651,12 +651,12 @@ export function createAgentsModule(
     async listRooms(owner) {
       if (!owner) return []
 
-      const roomIds = (await wallet.publicClient.readContract({
+      const roomIds = await wallet.publicClient.readContract({
         address: roomRegistryAddress,
         abi: ROOM_REGISTRY_ABI,
         functionName: 'getRoomsByOwner',
         args: [owner],
-      })) as Hex[]
+      })
 
       const rooms: Room[] = []
       for (const id of roomIds) {
@@ -671,28 +671,29 @@ export function createAgentsModule(
     },
 
     async getRoomMembers(roomId) {
-      return (await wallet.publicClient.readContract({
+      const members = await wallet.publicClient.readContract({
         address: roomRegistryAddress,
         abi: ROOM_REGISTRY_ABI,
         functionName: 'getRoomMembers',
         args: [roomId],
-      })) as Address[]
+      })
+      return [...members]
     },
 
     async getTotalVaults() {
-      return (await wallet.publicClient.readContract({
+      return wallet.publicClient.readContract({
         address: agentVaultAddress,
         abi: AGENT_VAULT_ABI,
         functionName: 'totalVaults',
-      })) as bigint
+      })
     },
 
     async getTotalValueLocked() {
-      return (await wallet.publicClient.readContract({
+      return wallet.publicClient.readContract({
         address: agentVaultAddress,
         abi: AGENT_VAULT_ABI,
         functionName: 'totalValueLocked',
-      })) as bigint
+      })
     },
   }
 }

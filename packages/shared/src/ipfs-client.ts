@@ -6,7 +6,6 @@
 import { expectValid } from '@jejunetwork/types'
 import type { z } from 'zod'
 import { IPFSPinCountResponseSchema, IPFSUploadResponseSchema } from './schemas'
-import type { ProtocolValue } from './types'
 
 export interface IPFSConfig {
   apiUrl: string
@@ -75,7 +74,11 @@ export async function uploadToIPFS(
     'IPFS upload response',
   )
   // Support both DWS style (cid) and IPFS API style (Hash)
-  return result.cid ?? result.Hash ?? ''
+  const cid = result.cid ?? result.Hash
+  if (!cid) {
+    throw new Error('IPFS upload response missing CID')
+  }
+  return cid
 }
 
 /**
@@ -128,9 +131,8 @@ export async function retrieveJSONFromIPFS<T>(
   const blob = await retrieveFromIPFS(gatewayUrl, cid)
   const text = await blob.text()
 
-  // Parse JSON - this is safe as JSON.parse doesn't execute code
-  // Use ProtocolValue which covers all valid JSON types
-  const parsed = JSON.parse(text) as ProtocolValue
+  // Parse JSON - result is unknown until validated
+  const parsed: unknown = JSON.parse(text)
 
   // If schema provided, validate the parsed data
   if (schema) {
@@ -144,6 +146,7 @@ export async function retrieveJSONFromIPFS<T>(
   }
 
   // Without schema, return as-is but log a warning in development
+  // Caller is responsible for type safety
   if (process.env.NODE_ENV !== 'production') {
     console.warn(
       `[IPFS] Retrieving JSON from CID ${cid} without schema validation - consider providing a Zod schema for security`,

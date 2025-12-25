@@ -3,6 +3,7 @@
  */
 
 import type { Address, Hex } from 'viem'
+import { z } from 'zod'
 export type GitObjectType = 'blob' | 'tree' | 'commit' | 'tag'
 
 export interface GitObject {
@@ -347,6 +348,31 @@ export interface ActivityPubActor {
     mediaType: string
   }
 }
+
+export const ActivityPubActorSchema = z.object({
+  '@context': z.array(z.string()),
+  id: z.string(),
+  type: z.enum(['Person', 'Organization', 'Application']),
+  preferredUsername: z.string(),
+  name: z.string().optional(),
+  summary: z.string().optional(),
+  inbox: z.string(),
+  outbox: z.string(),
+  followers: z.string().optional(),
+  following: z.string().optional(),
+  publicKey: z.object({
+    id: z.string(),
+    owner: z.string(),
+    publicKeyPem: z.string(),
+  }),
+  icon: z
+    .object({
+      type: z.literal('Image'),
+      url: z.string(),
+      mediaType: z.string(),
+    })
+    .optional(),
+})
 
 export interface ActivityPubActivity {
   '@context': string | string[]

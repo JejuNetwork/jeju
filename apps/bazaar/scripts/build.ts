@@ -58,14 +58,14 @@ const browserPlugin: BunPlugin = {
 
     // Resolve workspace packages to their source files to ensure proper bundling
     build.onResolve({ filter: /^@jejunetwork\/oauth3$/ }, () => ({
-      path: resolve('../../packages/oauth3/src/index.ts'),
+      path: resolve('../../packages/auth/src/index.ts'),
     }))
     build.onResolve({ filter: /^@jejunetwork\/oauth3\/react$/ }, () => ({
-      path: resolve('../../packages/oauth3/src/react/index.ts'),
+      path: resolve('../../packages/auth/src/react/index.ts'),
     }))
     build.onResolve({ filter: /^@jejunetwork\/oauth3\/(.*)$/ }, (args) => {
-      const subpath = args.path.replace('@jejunetwork/oauth3/', '')
-      return { path: resolve(`../../packages/oauth3/src/${subpath}.ts`) }
+      const subpath = args.path.replace('@jejunetwork/auth/', '')
+      return { path: resolve(`../../packages/auth/src/${subpath}.ts`) }
     })
     build.onResolve({ filter: /^@jejunetwork\/shared$/ }, () => ({
       path: resolve('../../packages/shared/src/index.ts'),

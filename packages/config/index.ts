@@ -587,12 +587,6 @@ export function getCrucibleUrl(network?: NetworkType): string {
   return getServicesConfig(network).crucible.api
 }
 
-/** Get Otto (multi-platform bot) API URL */
-export function getOttoUrl(network?: NetworkType): string {
-  const config = getServicesConfig(network)
-  return config.otto?.api ?? 'http://127.0.0.1:4042'
-}
-
 /** Get OAuth3 (decentralized identity) API URL */
 export function getOAuth3Url(network?: NetworkType): string {
   const config = getServicesConfig(network)

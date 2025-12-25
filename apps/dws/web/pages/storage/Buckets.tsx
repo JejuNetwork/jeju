@@ -52,10 +52,10 @@ export default function BucketsPage() {
     data: objectsData,
     isLoading: objectsLoading,
     refetch: refetchObjects,
-  } = useS3Objects(selectedBucket || '')
+  } = useS3Objects(selectedBucket ?? '')
 
-  const buckets = bucketsData?.Buckets || []
-  const objects = objectsData?.Contents || []
+  const buckets = bucketsData?.Buckets ?? []
+  const objects = objectsData?.Contents ?? []
 
   const handleCreateBucket = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -209,9 +209,7 @@ export default function BucketsPage() {
           </div>
           <div className="stat-content">
             <div className="stat-label">Backends</div>
-            <div className="stat-value">
-              {healthData?.backends?.length ?? 0}
-            </div>
+            <div className="stat-value">{healthData?.backends.length ?? 0}</div>
           </div>
         </div>
       </div>

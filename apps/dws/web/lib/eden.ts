@@ -60,7 +60,7 @@ export async function fetchApi<T>(
   if (!response.ok) {
     const error = await response.json()
     throw new APIError(
-      error.error || error.message || 'API request failed',
+      error.error ?? error.message ?? 'API request failed',
       response.status,
       error.code,
     )
@@ -106,7 +106,7 @@ export async function fetchValidated<T>(
   if (!response.ok) {
     const error = await response.json()
     throw new APIError(
-      error.error || error.message || 'API request failed',
+      error.error ?? error.message ?? 'API request failed',
       response.status,
       error.code,
     )
@@ -188,7 +188,7 @@ export async function uploadFile(
   if (!response.ok) {
     const error = await response.json()
     throw new APIError(
-      error.error || error.message || 'Upload failed',
+      error.error ?? error.message ?? 'Upload failed',
       response.status,
     )
   }
@@ -225,7 +225,7 @@ export async function uploadRaw(
   if (!response.ok) {
     const error = await response.json()
     throw new APIError(
-      error.error || error.message || 'Upload failed',
+      error.error ?? error.message ?? 'Upload failed',
       response.status,
     )
   }

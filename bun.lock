@@ -64,22 +64,6 @@
         "yaml-lint": "^1.7.0",
       },
     },
-    "apps/auth": {
-      "name": "@jejunetwork/auth",
-      "version": "1.0.0",
-      "dependencies": {
-        "@elysiajs/cors": "^1.2.0",
-        "@kitajs/html": "^4.2.0",
-        "elysia": "^1.2.25",
-        "viem": "^2.30.6",
-      },
-      "devDependencies": {
-        "@playwright/test": "^1.52.0",
-        "@synthetixio/synpress": "4.1.1",
-        "@types/bun": "^1.2.14",
-        "typescript": "^5.8.3",
-      },
-    },
     "apps/autocrat": {
       "name": "@jejunetwork/autocrat",
       "version": "1.0.0",
@@ -122,11 +106,11 @@
       "version": "1.0.0",
       "dependencies": {
         "@elysiajs/cors": "^1.4.0",
+        "@jejunetwork/auth": "workspace:*",
         "@jejunetwork/config": "workspace:*",
         "@jejunetwork/contracts": "workspace:*",
         "@jejunetwork/db": "workspace:*",
         "@jejunetwork/deployment": "workspace:*",
-        "@jejunetwork/oauth3": "workspace:*",
         "@jejunetwork/sdk": "workspace:*",
         "@jejunetwork/shared": "workspace:*",
         "@jejunetwork/types": "workspace:*",
@@ -223,11 +207,11 @@
         "@aws-sdk/client-bedrock-runtime": "^3.954.0",
         "@elysiajs/cors": "^1.4.0",
         "@elysiajs/eden": "^1.4.5",
+        "@jejunetwork/auth": "workspace:*",
         "@jejunetwork/config": "workspace:*",
         "@jejunetwork/contracts": "workspace:*",
         "@jejunetwork/db": "workspace:*",
         "@jejunetwork/kms": "workspace:*",
-        "@jejunetwork/oauth3": "workspace:*",
         "@jejunetwork/sdk": "workspace:*",
         "@jejunetwork/shared": "workspace:*",
         "@jejunetwork/training": "workspace:*",
@@ -264,9 +248,9 @@
       "dependencies": {
         "@elysiajs/cors": "^1.3.1",
         "@elysiajs/eden": "^1.2.3",
+        "@jejunetwork/auth": "workspace:*",
         "@jejunetwork/config": "workspace:*",
         "@jejunetwork/db": "workspace:*",
-        "@jejunetwork/oauth3": "workspace:*",
         "@jejunetwork/sdk": "workspace:*",
         "@jejunetwork/shared": "workspace:*",
         "@jejunetwork/types": "workspace:*",
@@ -332,13 +316,13 @@
       "dependencies": {
         "@elysiajs/cors": "^1.4.0",
         "@elysiajs/eden": "^1.4.0",
+        "@jejunetwork/auth": "workspace:*",
         "@jejunetwork/config": "workspace:*",
         "@jejunetwork/contracts": "workspace:*",
         "@jejunetwork/db": "workspace:*",
         "@jejunetwork/deployment": "workspace:*",
         "@jejunetwork/dws": "workspace:*",
         "@jejunetwork/kms": "workspace:*",
-        "@jejunetwork/oauth3": "workspace:*",
         "@jejunetwork/shared": "workspace:*",
         "@jejunetwork/types": "workspace:*",
         "@jejunetwork/ui": "workspace:*",
@@ -488,6 +472,23 @@
         "typescript": "5.9.3",
       },
     },
+    "apps/oauth3": {
+      "name": "@jejunetwork/oauth3",
+      "version": "1.0.0",
+      "dependencies": {
+        "@elysiajs/cors": "^1.2.0",
+        "@jejunetwork/auth": "workspace:*",
+        "@kitajs/html": "^4.2.0",
+        "elysia": "^1.2.25",
+        "viem": "^2.30.6",
+      },
+      "devDependencies": {
+        "@playwright/test": "^1.52.0",
+        "@synthetixio/synpress": "4.1.1",
+        "@types/bun": "^1.2.14",
+        "typescript": "^5.8.3",
+      },
+    },
     "apps/otto": {
       "name": "@jejunetwork/otto",
       "version": "1.0.0",
@@ -498,10 +499,10 @@
         "@elizaos/plugin-telegram": "^1.0.0",
         "@elizaos/plugin-twitter": "^1.0.0",
         "@elysiajs/cors": "^1.3.1",
+        "@jejunetwork/auth": "workspace:*",
         "@jejunetwork/config": "workspace:*",
         "@jejunetwork/db": "workspace:*",
         "@jejunetwork/kms": "workspace:*",
-        "@jejunetwork/oauth3": "workspace:*",
         "@jejunetwork/sdk": "workspace:*",
         "@jejunetwork/shared": "workspace:*",
         "@jejunetwork/types": "workspace:*",
@@ -526,9 +527,9 @@
       "version": "1.0.0",
       "dependencies": {
         "@elysiajs/cors": "^1.3.1",
+        "@jejunetwork/auth": "workspace:*",
         "@jejunetwork/config": "workspace:*",
         "@jejunetwork/contracts": "workspace:*",
-        "@jejunetwork/oauth3": "workspace:*",
         "@jejunetwork/sdk": "workspace:*",
         "@jejunetwork/shared": "workspace:*",
         "@jejunetwork/types": "workspace:*",
@@ -565,7 +566,7 @@
         "@elizaos/core": "^1.6.5",
         "@elysiajs/eden": "^1.3.0",
         "@ethereumjs/tx": "^10.1.0",
-        "@jejunetwork/oauth3": "workspace:*",
+        "@jejunetwork/auth": "workspace:*",
         "@jejunetwork/sdk": "workspace:*",
         "@jejunetwork/types": "workspace:*",
         "@ledgerhq/hw-app-eth": "^7.0.0",
@@ -686,6 +687,35 @@
         "elysia",
       ],
     },
+    "packages/auth": {
+      "name": "@jejunetwork/auth",
+      "version": "0.1.0",
+      "dependencies": {
+        "@elysiajs/cors": "1.3.1",
+        "@elysiajs/html": "1.3.0",
+        "@jejunetwork/config": "workspace:*",
+        "@jejunetwork/shared": "workspace:*",
+        "@jejunetwork/types": "workspace:*",
+        "@noble/curves": "1.9.7",
+        "@noble/hashes": "1.7.1",
+        "elysia": "1.3.3",
+        "viem": "2.43.3",
+        "zod": "4.2.1",
+      },
+      "devDependencies": {
+        "@types/bun": "latest",
+        "@types/react": "^19.2.3",
+        "@types/react-dom": "^19.2.3",
+        "typescript": "5.9.3",
+      },
+      "peerDependencies": {
+        "react": ">=18.0.0",
+        "viem": ">=2.0.0",
+      },
+      "optionalPeers": [
+        "react",
+      ],
+    },
     "packages/bots": {
       "name": "@jejunetwork/bots",
       "version": "0.1.0",
@@ -709,6 +739,7 @@
         "@elysiajs/cors": "1.3.1",
         "@jejunetwork/sdk": "workspace:*",
         "@jejunetwork/shared": "workspace:*",
+        "@jejunetwork/types": "workspace:*",
         "@noble/hashes": "1.7.1",
         "@solana/web3.js": "1.98.4",
         "elysia": "1.3.9",
@@ -876,7 +907,7 @@
       "name": "@jejunetwork/kms",
       "version": "0.1.0",
       "dependencies": {
-        "@jejunetwork/oauth3": "workspace:*",
+        "@jejunetwork/auth": "workspace:*",
         "@jejunetwork/sdk": "workspace:*",
         "@jejunetwork/shared": "workspace:*",
         "elysia": "^1.4.19",
@@ -910,6 +941,8 @@
       "version": "0.1.0",
       "dependencies": {
         "@elysiajs/cors": "^1.4.0",
+        "@jejunetwork/db": "workspace:*",
+        "@jejunetwork/farcaster": "workspace:*",
         "@jejunetwork/shared": "workspace:*",
         "@jejunetwork/types": "workspace:*",
         "@noble/ciphers": "1.2.1",
@@ -928,35 +961,6 @@
       "peerDependencies": {
         "viem": ">=2.0.0",
       },
-    },
-    "packages/oauth3": {
-      "name": "@jejunetwork/oauth3",
-      "version": "0.1.0",
-      "dependencies": {
-        "@elysiajs/cors": "1.3.1",
-        "@elysiajs/html": "1.3.0",
-        "@jejunetwork/config": "workspace:*",
-        "@jejunetwork/shared": "workspace:*",
-        "@jejunetwork/types": "workspace:*",
-        "@noble/curves": "1.9.7",
-        "@noble/hashes": "1.7.1",
-        "elysia": "1.3.3",
-        "viem": "2.43.3",
-        "zod": "4.2.1",
-      },
-      "devDependencies": {
-        "@types/bun": "latest",
-        "@types/react": "^19.2.3",
-        "@types/react-dom": "^19.2.3",
-        "typescript": "5.9.3",
-      },
-      "peerDependencies": {
-        "react": ">=18.0.0",
-        "viem": ">=2.0.0",
-      },
-      "optionalPeers": [
-        "react",
-      ],
     },
     "packages/sdk": {
       "name": "@jejunetwork/sdk",
@@ -1353,8 +1357,8 @@
       "version": "0.1.0",
       "dependencies": {
         "@babylon/shared": "workspace:*",
+        "@jejunetwork/auth": "workspace:*",
         "@jejunetwork/kms": "workspace:*",
-        "@jejunetwork/oauth3": "workspace:*",
         "arctic": "2.3.0",
         "jose": "5.10.0",
         "viem": "2.43.3",
@@ -3066,7 +3070,7 @@
 
     "@jejunetwork/api": ["@jejunetwork/api@workspace:packages/api"],
 
-    "@jejunetwork/auth": ["@jejunetwork/auth@workspace:apps/auth"],
+    "@jejunetwork/auth": ["@jejunetwork/auth@workspace:packages/auth"],
 
     "@jejunetwork/autocrat": ["@jejunetwork/autocrat@workspace:apps/autocrat"],
 
@@ -3112,7 +3116,7 @@
 
     "@jejunetwork/node": ["@jejunetwork/node@workspace:apps/node"],
 
-    "@jejunetwork/oauth3": ["@jejunetwork/oauth3@workspace:packages/oauth3"],
+    "@jejunetwork/oauth3": ["@jejunetwork/oauth3@workspace:apps/oauth3"],
 
     "@jejunetwork/otto": ["@jejunetwork/otto@workspace:apps/otto"],
 
@@ -3342,7 +3346,7 @@
 
     "@noble/ed25519": ["@noble/ed25519@2.3.0", "", {}, "sha512-M7dvXL2B92/M7dw9+gzuydL8qn/jiqNHaoR3Q+cb1q1GHV7uwE17WCyFMG+Y+TZb5izcaXk5TdJRrDUxHXL78A=="],
 
-    "@noble/hashes": ["@noble/hashes@2.0.1", "", {}, "sha512-XlOlEbQcE9fmuXxrVTXCTlG2nlRXa9Rj3rr5Ue/+tX+nmkgbX720YHh0VR3hBF9xDvwnb8D2shVGOwNx+ulArw=="],
+    "@noble/hashes": ["@noble/hashes@1.7.1", "", {}, "sha512-B8XBPsn4vT/KJAGqDzbwztd+6Yte3P4V7iafm24bxgDe/mlRuK6xmWPuCNrKt2vDafZ8MfJLlchDG/vYafQEjQ=="],
 
     "@noble/secp256k1": ["@noble/secp256k1@1.7.1", "", {}, "sha512-hOUk6AyBFmqVrv7k5WAw/LpszxVbj9gGN4JRkIX52fdFAj1UA61KXmZDvqVEm+pOyec3+fIeZB02LYa/pWOArw=="],
 
@@ -9704,6 +9708,10 @@
 
     "@jejunetwork/agents/@elizaos/core": ["@elizaos/core@1.7.0", "", { "dependencies": { "@langchain/core": "^1.0.0", "@langchain/textsplitters": "^1.0.0", "adze": "^2.2.5", "crypto-browserify": "^3.12.0", "dotenv": "^17.2.3", "fast-redact": "^3.5.0", "glob": "^13.0.0", "handlebars": "^4.7.8", "pdfjs-dist": "^5.2.133", "unique-names-generator": "^4.7.1", "uuid": "^13.0.0", "zod": "^4.1.13" } }, "sha512-/zlvok3Tn/8L8ehpRNyH63b8vzveepja3GI6IKrQufSCGD+vdzGx0EhcmXI87vaPP40SRSc4Qm93R24wXsG5HQ=="],
 
+    "@jejunetwork/auth/@elysiajs/cors": ["@elysiajs/cors@1.3.1", "", { "peerDependencies": { "elysia": ">= 1.3.0" } }, "sha512-JYfVDD1ndplEVw7tcZBYcpUcPzKfDTTZCyAuml1ld7uKS3r+yIzbySvGaJI2A9q1gWY/r9DsSwd0N86B2TPUQQ=="],
+
+    "@jejunetwork/auth/elysia": ["elysia@1.3.3", "", { "dependencies": { "cookie": "^1.0.2", "exact-mirror": "0.1.2", "fast-decode-uri-component": "^1.0.1" }, "optionalDependencies": { "@sinclair/typebox": "^0.34.33", "openapi-types": "^12.1.3" }, "peerDependencies": { "file-type": ">= 20.0.0", "typescript": ">= 5.0.0" } }, "sha512-x6a89d4h0xX9TB0CSGkUuKNqIK776HBJw0WHtK1B3ViQqZijsLnOor6be/7TwVl8MG6m59NHGHbmbBS6lnCXSw=="],
+
     "@jejunetwork/autocrat/@elizaos/core": ["@elizaos/core@1.7.0", "", { "dependencies": { "@langchain/core": "^1.0.0", "@langchain/textsplitters": "^1.0.0", "adze": "^2.2.5", "crypto-browserify": "^3.12.0", "dotenv": "^17.2.3", "fast-redact": "^3.5.0", "glob": "^13.0.0", "handlebars": "^4.7.8", "pdfjs-dist": "^5.2.133", "unique-names-generator": "^4.7.1", "uuid": "^13.0.0", "zod": "^4.1.13" } }, "sha512-/zlvok3Tn/8L8ehpRNyH63b8vzveepja3GI6IKrQufSCGD+vdzGx0EhcmXI87vaPP40SRSc4Qm93R24wXsG5HQ=="],
 
     "@jejunetwork/autocrat/lucide-react": ["lucide-react@0.513.0", "", { "peerDependencies": { "react": "^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0" } }, "sha512-CJZKq2g8Y8yN4Aq002GahSXbG2JpFv9kXwyiOAMvUBv7pxeOFHUWKB0mO7MiY4ZVFCV4aNjv2BJFq/z3DgKPQg=="],
@@ -9743,6 +9751,8 @@
     "@jejunetwork/crucible/postcss": ["postcss@8.5.3", "", { "dependencies": { "nanoid": "^3.3.8", "picocolors": "^1.1.1", "source-map-js": "^1.2.1" } }, "sha512-dle9A3yYxlBSrt8Fu+IpjGT8SY8hN0mlaA6GY8t0P5PjIOZemULz/E2Bnm/2dcUOena75OTNkHI76uZBNUUq3A=="],
 
     "@jejunetwork/crucible/tailwindcss": ["tailwindcss@3.4.17", "", { "dependencies": { "@alloc/quick-lru": "^5.2.0", "arg": "^5.0.2", "chokidar": "^3.6.0", "didyoumean": "^1.2.2", "dlv": "^1.1.3", "fast-glob": "^3.3.2", "glob-parent": "^6.0.2", "is-glob": "^4.0.3", "jiti": "^1.21.6", "lilconfig": "^3.1.3", "micromatch": "^4.0.8", "normalize-path": "^3.0.0", "object-hash": "^3.0.0", "picocolors": "^1.1.1", "postcss": "^8.4.47", "postcss-import": "^15.1.0", "postcss-js": "^4.0.1", "postcss-load-config": "^4.0.2", "postcss-nested": "^6.2.0", "postcss-selector-parser": "^6.1.2", "resolve": "^1.22.8", "sucrase": "^3.35.0" }, "bin": { "tailwind": "lib/cli.js", "tailwindcss": "lib/cli.js" } }, "sha512-w33E2aCvSDP0tW9RZuNXadXlkHXqFzSkQew/aIa2i/Sj8fThxwovwlXHSPXTbAHwEIhBFXAedUhP2tueAKP8Og=="],
+
+    "@jejunetwork/dws/@noble/hashes": ["@noble/hashes@2.0.1", "", {}, "sha512-XlOlEbQcE9fmuXxrVTXCTlG2nlRXa9Rj3rr5Ue/+tX+nmkgbX720YHh0VR3hBF9xDvwnb8D2shVGOwNx+ulArw=="],
 
     "@jejunetwork/dws/lucide-react": ["lucide-react@0.513.0", "", { "peerDependencies": { "react": "^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0" } }, "sha512-CJZKq2g8Y8yN4Aq002GahSXbG2JpFv9kXwyiOAMvUBv7pxeOFHUWKB0mO7MiY4ZVFCV4aNjv2BJFq/z3DgKPQg=="],
 
@@ -9792,8 +9802,6 @@
 
     "@jejunetwork/messaging/@noble/ciphers": ["@noble/ciphers@1.2.1", "", {}, "sha512-rONPWMC7PeExE077uLE4oqWrZ1IvAfz3oH9LibVAcVCopJiA9R62uavnbEzdkVmJYI6M6Zgkbeb07+tWjlq2XA=="],
 
-    "@jejunetwork/messaging/@noble/hashes": ["@noble/hashes@1.7.1", "", {}, "sha512-B8XBPsn4vT/KJAGqDzbwztd+6Yte3P4V7iafm24bxgDe/mlRuK6xmWPuCNrKt2vDafZ8MfJLlchDG/vYafQEjQ=="],
-
     "@jejunetwork/monitoring/@types/pg": ["@types/pg@8.11.13", "", { "dependencies": { "@types/node": "*", "pg-protocol": "*", "pg-types": "^4.0.1" } }, "sha512-6kXByGkvRvwXLuyaWzsebs2du6+XuAB2CuMsuzP7uaihQahshVgSmB22Pmh0vQMkQ1h5+PZU0d+Di1o+WpVWJg=="],
 
     "@jejunetwork/monitoring/lucide-react": ["lucide-react@0.546.0", "", { "peerDependencies": { "react": "^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0" } }, "sha512-Z94u6fKT43lKeYHiVyvyR8fT7pwCzDu7RyMPpTvh054+xahSgj4HFQ+NmflvzdXsoAjYGdCguGaFKYuvq0ThCQ=="],
@@ -9814,17 +9822,9 @@
 
     "@jejunetwork/node/lucide-react": ["lucide-react@0.562.0", "", { "peerDependencies": { "react": "^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0" } }, "sha512-82hOAu7y0dbVuFfmO4bYF1XEwYk/mEbM5E+b1jgci/udUBEE/R7LF5Ip0CCEmXe8AybRM8L+04eP+LGZeDvkiw=="],
 
-    "@jejunetwork/oauth3/@elysiajs/cors": ["@elysiajs/cors@1.3.1", "", { "peerDependencies": { "elysia": ">= 1.3.0" } }, "sha512-JYfVDD1ndplEVw7tcZBYcpUcPzKfDTTZCyAuml1ld7uKS3r+yIzbySvGaJI2A9q1gWY/r9DsSwd0N86B2TPUQQ=="],
-
-    "@jejunetwork/oauth3/@noble/hashes": ["@noble/hashes@1.7.1", "", {}, "sha512-B8XBPsn4vT/KJAGqDzbwztd+6Yte3P4V7iafm24bxgDe/mlRuK6xmWPuCNrKt2vDafZ8MfJLlchDG/vYafQEjQ=="],
-
-    "@jejunetwork/oauth3/elysia": ["elysia@1.3.3", "", { "dependencies": { "cookie": "^1.0.2", "exact-mirror": "0.1.2", "fast-decode-uri-component": "^1.0.1" }, "optionalDependencies": { "@sinclair/typebox": "^0.34.33", "openapi-types": "^12.1.3" }, "peerDependencies": { "file-type": ">= 20.0.0", "typescript": ">= 5.0.0" } }, "sha512-x6a89d4h0xX9TB0CSGkUuKNqIK776HBJw0WHtK1B3ViQqZijsLnOor6be/7TwVl8MG6m59NHGHbmbBS6lnCXSw=="],
-
     "@jejunetwork/otto/@elizaos/core": ["@elizaos/core@1.7.0", "", { "dependencies": { "@langchain/core": "^1.0.0", "@langchain/textsplitters": "^1.0.0", "adze": "^2.2.5", "crypto-browserify": "^3.12.0", "dotenv": "^17.2.3", "fast-redact": "^3.5.0", "glob": "^13.0.0", "handlebars": "^4.7.8", "pdfjs-dist": "^5.2.133", "unique-names-generator": "^4.7.1", "uuid": "^13.0.0", "zod": "^4.1.13" } }, "sha512-/zlvok3Tn/8L8ehpRNyH63b8vzveepja3GI6IKrQufSCGD+vdzGx0EhcmXI87vaPP40SRSc4Qm93R24wXsG5HQ=="],
 
     "@jejunetwork/sdk/@noble/hashes": ["@noble/hashes@1.8.0", "", {}, "sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A=="],
-
-    "@jejunetwork/shared/@noble/hashes": ["@noble/hashes@1.7.1", "", {}, "sha512-B8XBPsn4vT/KJAGqDzbwztd+6Yte3P4V7iafm24bxgDe/mlRuK6xmWPuCNrKt2vDafZ8MfJLlchDG/vYafQEjQ=="],
 
     "@jejunetwork/shared/@types/node": ["@types/node@22.15.30", "", { "dependencies": { "undici-types": "~6.21.0" } }, "sha512-6Q7lr06bEHdlfplU6YRbgG1SFBdlsfNC4/lX+SkhiTs0cpJkOElmWls8PxDFv4yY/xKb8Y6SO0OmSX4wgqTZbA=="],
 
@@ -9859,8 +9859,6 @@
     "@jejunetwork/wallet/lucide-react": ["lucide-react@0.562.0", "", { "peerDependencies": { "react": "^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0" } }, "sha512-82hOAu7y0dbVuFfmO4bYF1XEwYk/mEbM5E+b1jgci/udUBEE/R7LF5Ip0CCEmXe8AybRM8L+04eP+LGZeDvkiw=="],
 
     "@jejunetwork/zksolbridge/@elysiajs/cors": ["@elysiajs/cors@1.3.1", "", { "peerDependencies": { "elysia": ">= 1.3.0" } }, "sha512-JYfVDD1ndplEVw7tcZBYcpUcPzKfDTTZCyAuml1ld7uKS3r+yIzbySvGaJI2A9q1gWY/r9DsSwd0N86B2TPUQQ=="],
-
-    "@jejunetwork/zksolbridge/@noble/hashes": ["@noble/hashes@1.7.1", "", {}, "sha512-B8XBPsn4vT/KJAGqDzbwztd+6Yte3P4V7iafm24bxgDe/mlRuK6xmWPuCNrKt2vDafZ8MfJLlchDG/vYafQEjQ=="],
 
     "@jejunetwork/zksolbridge/elysia": ["elysia@1.3.9", "", { "dependencies": { "cookie": "^1.0.2", "exact-mirror": "^0.1.5", "fast-decode-uri-component": "^1.0.1" }, "optionalDependencies": { "@sinclair/typebox": "^0.34.33", "openapi-types": "^12.1.3" }, "peerDependencies": { "file-type": ">= 20.0.0", "typescript": ">= 5.0.0" } }, "sha512-gKj9CTdhrz7rBre5KW7bqghdSWjvDF6/1G7Xymp/s7qZpRsmBtYZnFqy97UKfx7aKbid2fLrmo0FHZojRhVYfA=="],
 
@@ -10415,8 +10413,6 @@
     "@walletconnect/universal-provider/es-toolkit": ["es-toolkit@1.33.0", "", {}, "sha512-X13Q/ZSc+vsO1q600bvNK4bxgXMkHcf//RxCmYDaRY5DAcT+eoXjY5hoAPGMdRnWQjvyLEcyauG3b6hz76LNqg=="],
 
     "@walletconnect/utils/@noble/ciphers": ["@noble/ciphers@1.2.1", "", {}, "sha512-rONPWMC7PeExE077uLE4oqWrZ1IvAfz3oH9LibVAcVCopJiA9R62uavnbEzdkVmJYI6M6Zgkbeb07+tWjlq2XA=="],
-
-    "@walletconnect/utils/@noble/hashes": ["@noble/hashes@1.7.1", "", {}, "sha512-B8XBPsn4vT/KJAGqDzbwztd+6Yte3P4V7iafm24bxgDe/mlRuK6xmWPuCNrKt2vDafZ8MfJLlchDG/vYafQEjQ=="],
 
     "@walletconnect/utils/uint8arrays": ["uint8arrays@3.1.0", "", { "dependencies": { "multiformats": "^9.4.2" } }, "sha512-ei5rfKtoRO8OyOIor2Rz5fhzjThwIHJZ3uyDPnDHTXbP0aMQ1RN/6AI5B5d9dBxJOU+BvOAk7ZQ1xphsX8Lrog=="],
 
@@ -11646,6 +11642,8 @@
 
     "@jejunetwork/agents/@elizaos/core/dotenv": ["dotenv@17.2.3", "", {}, "sha512-JVUnt+DUIzu87TABbhPmNfVdBDt18BLOWjMUFJMSi/Qqg7NTYtabbvSNJGOJ7afbRuv9D/lngizHtP7QyLQ+9w=="],
 
+    "@jejunetwork/auth/elysia/exact-mirror": ["exact-mirror@0.1.2", "", { "peerDependencies": { "@sinclair/typebox": "^0.34.15" }, "optionalPeers": ["@sinclair/typebox"] }, "sha512-wFCPCDLmHbKGUb8TOi/IS7jLsgR8WVDGtDK3CzcB4Guf/weq7G+I+DkXiRSZfbemBFOxOINKpraM6ml78vo8Zw=="],
+
     "@jejunetwork/autocrat/@elizaos/core/dotenv": ["dotenv@17.2.3", "", {}, "sha512-JVUnt+DUIzu87TABbhPmNfVdBDt18BLOWjMUFJMSi/Qqg7NTYtabbvSNJGOJ7afbRuv9D/lngizHtP7QyLQ+9w=="],
 
     "@jejunetwork/autocrat/tailwindcss/chokidar": ["chokidar@3.6.0", "", { "dependencies": { "anymatch": "~3.1.2", "braces": "~3.0.2", "glob-parent": "~5.1.2", "is-binary-path": "~2.1.0", "is-glob": "~4.0.1", "normalize-path": "~3.0.0", "readdirp": "~3.6.0" }, "optionalDependencies": { "fsevents": "~2.3.2" } }, "sha512-7VT13fmjotKpGipCW9JEQAusEPE+Ei8nl6/g4FBAmIm0GOOLMua9NDDo/DWp0ZAxCr3cPq5ZpBqmPAQgDda2Pw=="],
@@ -11663,8 +11661,6 @@
     "@jejunetwork/bazaar/tailwindcss/postcss": ["postcss@8.5.6", "", { "dependencies": { "nanoid": "^3.3.11", "picocolors": "^1.1.1", "source-map-js": "^1.2.1" } }, "sha512-3Ybi1tAuwAP9s0r1UQ2J4n5Y0G05bJkpUIO0/bI9MhwmD70S5aTWbXGBwxHrelT+XM1k6dM0pk+SwNkpTRN7Pg=="],
 
     "@jejunetwork/bazaar/tailwindcss/postcss-load-config": ["postcss-load-config@4.0.2", "", { "dependencies": { "lilconfig": "^3.0.0", "yaml": "^2.3.4" }, "peerDependencies": { "postcss": ">=8.0.9", "ts-node": ">=9.0.0" }, "optionalPeers": ["postcss", "ts-node"] }, "sha512-bSVhyJGL00wMVoPUzAVAnbEoWyqRxkjv64tUl427SKnPrENtq6hJwUojroMz2VB+Q1edmi4IfrAPpami5VVgMQ=="],
-
-    "@jejunetwork/cli/@phala/dstack-sdk/@noble/hashes": ["@noble/hashes@1.7.1", "", {}, "sha512-B8XBPsn4vT/KJAGqDzbwztd+6Yte3P4V7iafm24bxgDe/mlRuK6xmWPuCNrKt2vDafZ8MfJLlchDG/vYafQEjQ=="],
 
     "@jejunetwork/contracts/@types/node/undici-types": ["undici-types@6.21.0", "", {}, "sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ=="],
 
@@ -11743,8 +11739,6 @@
     "@jejunetwork/node/@tauri-apps/cli/@tauri-apps/cli-win32-ia32-msvc": ["@tauri-apps/cli-win32-ia32-msvc@2.0.0", "", { "os": "win32", "cpu": "ia32" }, "sha512-uD45cLZ/EBaT8o4a27tHW7t5UKFplnvDLt/uSUaCpJ3NyOTV6nMXOUrJBe+hH9hSBohqNAF7LEyYo1p932DWFg=="],
 
     "@jejunetwork/node/@tauri-apps/cli/@tauri-apps/cli-win32-x64-msvc": ["@tauri-apps/cli-win32-x64-msvc@2.0.0", "", { "os": "win32", "cpu": "x64" }, "sha512-oFlo14YMsvyhJHmmHgRuOpJ1L9w15193c1Nfj1DksS2LHj6tLzirI7YrAF9inY/XjHFjNHzYPmBpABibkf/9wQ=="],
-
-    "@jejunetwork/oauth3/elysia/exact-mirror": ["exact-mirror@0.1.2", "", { "peerDependencies": { "@sinclair/typebox": "^0.34.15" }, "optionalPeers": ["@sinclair/typebox"] }, "sha512-wFCPCDLmHbKGUb8TOi/IS7jLsgR8WVDGtDK3CzcB4Guf/weq7G+I+DkXiRSZfbemBFOxOINKpraM6ml78vo8Zw=="],
 
     "@jejunetwork/otto/@elizaos/core/dotenv": ["dotenv@17.2.3", "", {}, "sha512-JVUnt+DUIzu87TABbhPmNfVdBDt18BLOWjMUFJMSi/Qqg7NTYtabbvSNJGOJ7afbRuv9D/lngizHtP7QyLQ+9w=="],
 
@@ -12968,8 +12962,6 @@
 
     "@reown/appkit-controllers/@walletconnect/universal-provider/@walletconnect/utils/@noble/ciphers": ["@noble/ciphers@1.2.1", "", {}, "sha512-rONPWMC7PeExE077uLE4oqWrZ1IvAfz3oH9LibVAcVCopJiA9R62uavnbEzdkVmJYI6M6Zgkbeb07+tWjlq2XA=="],
 
-    "@reown/appkit-controllers/@walletconnect/universal-provider/@walletconnect/utils/@noble/hashes": ["@noble/hashes@1.7.1", "", {}, "sha512-B8XBPsn4vT/KJAGqDzbwztd+6Yte3P4V7iafm24bxgDe/mlRuK6xmWPuCNrKt2vDafZ8MfJLlchDG/vYafQEjQ=="],
-
     "@reown/appkit-controllers/@walletconnect/universal-provider/@walletconnect/utils/uint8arrays": ["uint8arrays@3.1.0", "", { "dependencies": { "multiformats": "^9.4.2" } }, "sha512-ei5rfKtoRO8OyOIor2Rz5fhzjThwIHJZ3uyDPnDHTXbP0aMQ1RN/6AI5B5d9dBxJOU+BvOAk7ZQ1xphsX8Lrog=="],
 
     "@reown/appkit-ui/qrcode/yargs/cliui": ["cliui@6.0.0", "", { "dependencies": { "string-width": "^4.2.0", "strip-ansi": "^6.0.0", "wrap-ansi": "^6.2.0" } }, "sha512-t6wbgtoCXvAzst7QgXxJYqPt0usEfbgQdftEPbLL/cvv6HPE5VgvqCuAIDR0NgU52ds6rFwqrgakNLrHEjCbrQ=="],
@@ -12986,15 +12978,11 @@
 
     "@reown/appkit-utils/@walletconnect/universal-provider/@walletconnect/utils/@noble/ciphers": ["@noble/ciphers@1.2.1", "", {}, "sha512-rONPWMC7PeExE077uLE4oqWrZ1IvAfz3oH9LibVAcVCopJiA9R62uavnbEzdkVmJYI6M6Zgkbeb07+tWjlq2XA=="],
 
-    "@reown/appkit-utils/@walletconnect/universal-provider/@walletconnect/utils/@noble/hashes": ["@noble/hashes@1.7.1", "", {}, "sha512-B8XBPsn4vT/KJAGqDzbwztd+6Yte3P4V7iafm24bxgDe/mlRuK6xmWPuCNrKt2vDafZ8MfJLlchDG/vYafQEjQ=="],
-
     "@reown/appkit-utils/@walletconnect/universal-provider/@walletconnect/utils/uint8arrays": ["uint8arrays@3.1.0", "", { "dependencies": { "multiformats": "^9.4.2" } }, "sha512-ei5rfKtoRO8OyOIor2Rz5fhzjThwIHJZ3uyDPnDHTXbP0aMQ1RN/6AI5B5d9dBxJOU+BvOAk7ZQ1xphsX8Lrog=="],
 
     "@reown/appkit/@walletconnect/universal-provider/@walletconnect/sign-client/@walletconnect/core": ["@walletconnect/core@2.21.0", "", { "dependencies": { "@walletconnect/heartbeat": "1.2.2", "@walletconnect/jsonrpc-provider": "1.0.14", "@walletconnect/jsonrpc-types": "1.0.4", "@walletconnect/jsonrpc-utils": "1.0.8", "@walletconnect/jsonrpc-ws-connection": "1.0.16", "@walletconnect/keyvaluestorage": "1.1.1", "@walletconnect/logger": "2.1.2", "@walletconnect/relay-api": "1.0.11", "@walletconnect/relay-auth": "1.1.0", "@walletconnect/safe-json": "1.0.2", "@walletconnect/time": "1.0.2", "@walletconnect/types": "2.21.0", "@walletconnect/utils": "2.21.0", "@walletconnect/window-getters": "1.0.1", "es-toolkit": "1.33.0", "events": "3.3.0", "uint8arrays": "3.1.0" } }, "sha512-o6R7Ua4myxR8aRUAJ1z3gT9nM+jd2B2mfamu6arzy1Cc6vi10fIwFWb6vg3bC8xJ6o9H3n/cN5TOW3aA9Y1XVw=="],
 
     "@reown/appkit/@walletconnect/universal-provider/@walletconnect/utils/@noble/ciphers": ["@noble/ciphers@1.2.1", "", {}, "sha512-rONPWMC7PeExE077uLE4oqWrZ1IvAfz3oH9LibVAcVCopJiA9R62uavnbEzdkVmJYI6M6Zgkbeb07+tWjlq2XA=="],
-
-    "@reown/appkit/@walletconnect/universal-provider/@walletconnect/utils/@noble/hashes": ["@noble/hashes@1.7.1", "", {}, "sha512-B8XBPsn4vT/KJAGqDzbwztd+6Yte3P4V7iafm24bxgDe/mlRuK6xmWPuCNrKt2vDafZ8MfJLlchDG/vYafQEjQ=="],
 
     "@reown/appkit/@walletconnect/universal-provider/@walletconnect/utils/uint8arrays": ["uint8arrays@3.1.0", "", { "dependencies": { "multiformats": "^9.4.2" } }, "sha512-ei5rfKtoRO8OyOIor2Rz5fhzjThwIHJZ3uyDPnDHTXbP0aMQ1RN/6AI5B5d9dBxJOU+BvOAk7ZQ1xphsX8Lrog=="],
 

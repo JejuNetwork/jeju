@@ -117,6 +117,20 @@ function createAccountFactory() {
 
 type AccountFactory = ReturnType<typeof createAccountFactory>
 
+/** Test helper for passing invalid inputs to factory.getOrCreate */
+function getOrCreateRaw(
+  factory: AccountFactory,
+  address: unknown,
+  blockNumber: unknown,
+  timestamp: unknown,
+): MockAccount {
+  return factory.getOrCreate(
+    address as string,
+    blockNumber as number,
+    timestamp as Date,
+  )
+}
+
 describe('Account Factory', () => {
   let factory: AccountFactory
 
@@ -240,15 +254,15 @@ describe('Account Factory', () => {
       })
 
       it('should throw on null address', () => {
-        expect(() =>
-          factory.getOrCreate(null as unknown as string, 1, new Date()),
-        ).toThrow('address is required')
+        expect(() => getOrCreateRaw(factory, null, 1, new Date())).toThrow(
+          'address is required',
+        )
       })
 
       it('should throw on undefined address', () => {
-        expect(() =>
-          factory.getOrCreate(undefined as unknown as string, 1, new Date()),
-        ).toThrow('address is required')
+        expect(() => getOrCreateRaw(factory, undefined, 1, new Date())).toThrow(
+          'address is required',
+        )
       })
 
       it('should throw on negative block number', () => {
@@ -283,9 +297,10 @@ describe('Account Factory', () => {
 
       it('should throw on string block number', () => {
         expect(() =>
-          factory.getOrCreate(
+          getOrCreateRaw(
+            factory,
             '0x1234567890abcdef1234567890abcdef12345678',
-            '100' as unknown as number,
+            '100',
             new Date(),
           ),
         ).toThrow('Invalid blockNumber')
@@ -303,10 +318,11 @@ describe('Account Factory', () => {
 
       it('should throw on non-date timestamp', () => {
         expect(() =>
-          factory.getOrCreate(
+          getOrCreateRaw(
+            factory,
             '0x1234567890abcdef1234567890abcdef12345678',
             1,
-            '2024-01-01' as unknown as Date,
+            '2024-01-01',
           ),
         ).toThrow('timestamp must be a valid Date object')
       })

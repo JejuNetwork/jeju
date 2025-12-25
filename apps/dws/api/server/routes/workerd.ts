@@ -31,6 +31,57 @@ const WorkerdBindingsSchema = z.array(
   }),
 )
 
+/** JSON body schema for worker deployment */
+interface DeployWorkerJsonBody {
+  name: string
+  code?: string
+  codeCid?: string
+  handler?: string
+  memoryMb?: number
+  timeoutMs?: number
+  cpuTimeMs?: number
+  compatibilityDate?: string
+  compatibilityFlags?: string[]
+  bindings?: Array<{
+    name: string
+    type: 'text' | 'json' | 'data' | 'service'
+    value?: string | Record<string, string>
+    service?: string
+  }>
+}
+
+/** JSON body schema for worker updates */
+interface UpdateWorkerBody {
+  code?: string
+  memoryMb?: number
+  timeoutMs?: number
+  cpuTimeMs?: number
+  bindings?: Array<{
+    name: string
+    type: 'text' | 'json' | 'data' | 'service'
+    value?: string | Record<string, string>
+    service?: string
+  }>
+}
+
+/** JSON body schema for worker invocation */
+interface InvokeWorkerBody {
+  method?: string
+  path?: string
+  headers?: Record<string, string>
+  body?: string
+}
+
+/** JSON body schema for replication */
+interface ReplicateWorkerBody {
+  targetCount?: number
+}
+
+/** JSON body schema for registry deployment */
+interface DeployFromRegistryBody {
+  agentId: string
+}
+
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -115,7 +166,7 @@ export function createWorkerdRouter(options: WorkerdRouterOptions) {
         }
         const owner = ownerHeader as Address
 
-        const contentType = headers['content-type'] || ''
+        const contentType = headers['content-type'] ?? ''
 
         let name: string
         let memoryMb = 128
@@ -156,24 +207,7 @@ export function createWorkerdRouter(options: WorkerdRouterOptions) {
             codeBuffer = Buffer.from(await codeFile.arrayBuffer())
           }
         } else {
-          const jsonBody = body as {
-            name: string
-            code?: string
-            codeCid?: string
-            handler?: string
-            memoryMb?: number
-            timeoutMs?: number
-            cpuTimeMs?: number
-            compatibilityDate?: string
-            compatibilityFlags?: string[]
-            bindings?: Array<{
-              name: string
-              type: 'text' | 'json' | 'data' | 'service'
-              value?: string | Record<string, string>
-              service?: string
-            }>
-          }
-
+          const jsonBody = body as DeployWorkerJsonBody
           name = jsonBody.name
           memoryMb = jsonBody.memoryMb ?? 128
           timeoutMs = jsonBody.timeoutMs ?? 30000
@@ -379,18 +413,7 @@ export function createWorkerdRouter(options: WorkerdRouterOptions) {
           return { error: 'Not authorized' }
         }
 
-        const updates = body as {
-          code?: string
-          memoryMb?: number
-          timeoutMs?: number
-          cpuTimeMs?: number
-          bindings?: Array<{
-            name: string
-            type: 'text' | 'json' | 'data' | 'service'
-            value?: string | Record<string, string>
-            service?: string
-          }>
-        }
+        const updates = body as UpdateWorkerBody
 
         // Update code if provided
         if (updates.code) {
@@ -501,19 +524,14 @@ export function createWorkerdRouter(options: WorkerdRouterOptions) {
     .post(
       '/:workerId/invoke',
       async ({ params, body }) => {
-        const request = body as {
-          method?: string
-          path?: string
-          headers?: Record<string, string>
-          body?: string
-        }
+        const request = body as InvokeWorkerBody
 
         // Use decentralized router if enabled (it checks local executor first)
         if (workerRouter && enableDecentralized) {
           const response = await workerRouter.route(params.workerId, {
             method: request.method ?? 'POST',
             url: request.path ?? '/',
-            headers: request.headers || {},
+            headers: request.headers ?? {},
             body: request.body,
           })
 
@@ -531,7 +549,7 @@ export function createWorkerdRouter(options: WorkerdRouterOptions) {
         const response = await executor.invoke(params.workerId, {
           method: request.method ?? 'POST',
           url: request.path ?? '/',
-          headers: request.headers || {},
+          headers: request.headers ?? {},
           body: request.body,
         })
 
@@ -574,7 +592,7 @@ export function createWorkerdRouter(options: WorkerdRouterOptions) {
 
         const url = new URL(request.url)
         const path =
-          url.pathname.replace(`/workerd/${params.workerId}/http`, '') || '/'
+          url.pathname.replace(`/workerd/${params.workerId}/http`, '') ?? '/'
 
         const requestHeaders: Record<string, string> = {}
         request.headers.forEach((value, key) => {
@@ -667,8 +685,7 @@ export function createWorkerdRouter(options: WorkerdRouterOptions) {
       .post(
         '/:workerId/replicate',
         async ({ params, body, set }) => {
-          const targetCount =
-            (body as { targetCount?: number }).targetCount ?? 3
+          const targetCount = (body as ReplicateWorkerBody).targetCount ?? 3
 
           const worker = await registry.getWorker(BigInt(params.workerId))
           if (!worker) {
@@ -700,7 +717,7 @@ export function createWorkerdRouter(options: WorkerdRouterOptions) {
       .post(
         '/deploy-from-registry',
         async ({ body, set }) => {
-          const agentId = BigInt((body as { agentId: string }).agentId)
+          const agentId = BigInt((body as DeployFromRegistryBody).agentId)
 
           const worker = await registry.getWorker(agentId)
           if (!worker) {

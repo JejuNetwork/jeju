@@ -1,6 +1,7 @@
 import { getNetworkName, getWebsiteUrl } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import type { Address } from 'viem'
+import { z } from 'zod'
 import type { A2AMessage, A2ASkillParams } from '../lib/schemas'
 import {
   a2AAgentCardSchema,
@@ -9,6 +10,13 @@ import {
   addressSchema,
   todoIdSchema,
 } from '../lib/schemas'
+
+const SkillIdSchema = z
+  .object({
+    skillId: z.string().min(1),
+  })
+  .passthrough()
+
 import type { A2AResponse, JsonRecord } from '../lib/types'
 import { getTopPriorities, prioritizeTodos } from '../lib/utils'
 import { getCronService } from './services/cron'
@@ -165,7 +173,7 @@ export function createA2AServer() {
         return response
       }
 
-      const message = validatedMessage.params?.message
+      const message = validatedMessage.params.message
       if (!message) {
         const response: A2AResponse = {
           jsonrpc: '2.0',
@@ -187,8 +195,8 @@ export function createA2AServer() {
         return response
       }
 
-      const skillId = dataPart.data?.skillId
-      if (!skillId || typeof skillId !== 'string') {
+      const skillIdResult = SkillIdSchema.safeParse(dataPart.data)
+      if (!skillIdResult.success) {
         const response: A2AResponse = {
           jsonrpc: '2.0',
           id: validatedMessage.id,
@@ -196,6 +204,7 @@ export function createA2AServer() {
         }
         return response
       }
+      const { skillId } = skillIdResult.data
 
       const params = expectValid(
         a2ASkillParamsSchema,

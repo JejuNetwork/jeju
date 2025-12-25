@@ -20,6 +20,12 @@ import type { FullConfig } from '@playwright/test'
 const DEFAULT_RPC = 'http://127.0.0.1:6546'
 const DEFAULT_CHAIN_ID = 31337
 
+/** JSON-RPC response with result */
+interface JsonRpcResponse {
+  result: string
+  error?: { code: number; message: string }
+}
+
 interface SetupOptions {
   rpcUrl?: string
   chainId?: number
@@ -75,7 +81,7 @@ export async function setupTestEnvironment(
         })
 
         if (response.ok) {
-          const data = (await response.json()) as { result: string }
+          const data: JsonRpcResponse = await response.json()
           const remoteChainId = parseInt(data.result, 16)
           if (remoteChainId === chainId) {
             chainReady = true
@@ -126,7 +132,7 @@ async function globalSetup(_config: FullConfig) {
       })
 
       if (response.ok) {
-        const data = (await response.json()) as { result: string }
+        const data: JsonRpcResponse = await response.json()
         const remoteChainId = parseInt(data.result, 16)
 
         if (remoteChainId === CHAIN_ID) {
@@ -166,7 +172,7 @@ async function globalSetup(_config: FullConfig) {
     }),
   })
 
-  const blockData = (await blockResponse.json()) as { result: string }
+  const blockData: JsonRpcResponse = await blockResponse.json()
   const blockNumber = parseInt(blockData.result, 16)
   console.log(`   Block: ${blockNumber}`)
 

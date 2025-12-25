@@ -11,4 +11,3 @@ export {
 export { MetricsExporter } from './metrics'
 export { createNodeConfig, OracleNode } from './node'
 export { PriceFetcher } from './price-fetcher'
-export * from './types'

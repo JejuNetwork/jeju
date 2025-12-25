@@ -7,11 +7,14 @@
 import { useQuery } from '@tanstack/react-query'
 import { useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { z } from 'zod'
 import { LoadingSpinner } from '../components/LoadingSpinner'
 
-interface ReferralCodeResponse {
-  referralCode: string | null
-}
+const ReferralCodeResponseSchema = z.object({
+  referralCode: z.string().nullable(),
+})
+
+type ReferralCodeResponse = z.infer<typeof ReferralCodeResponseSchema>
 
 async function fetchReferralCode(
   userId: string,
@@ -22,7 +25,8 @@ async function fetchReferralCode(
   if (!response.ok) {
     throw new Error(`Failed to fetch referral code: ${response.status}`)
   }
-  return response.json() as Promise<ReferralCodeResponse>
+  const json: unknown = await response.json()
+  return ReferralCodeResponseSchema.parse(json)
 }
 
 export default function ShareReferralPage() {

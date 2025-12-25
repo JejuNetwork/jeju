@@ -1,4 +1,3 @@
-import { readContract } from '@jejunetwork/shared'
 import { RATE_LIMITS, type RateTier } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import { LRUCache } from 'lru-cache'
@@ -120,7 +119,7 @@ const chain: Chain = {
 }
 
 const WHITELIST = new Set(
-  (process.env.INTERNAL_WHITELIST || '')
+  (process.env.INTERNAL_WHITELIST ?? '')
     .split(',')
     .filter(Boolean)
     .map((a) => a.toLowerCase()),
@@ -129,7 +128,7 @@ const client = createPublicClient({ chain, transport: http(RPC_URL) })
 
 const getContractRateLimit = async (addr: Address): Promise<number> => {
   if (!STAKING_ADDR) return RATE_LIMITS.FREE
-  const result = await readContract(client, {
+  const result = await client.readContract({
     address: STAKING_ADDR,
     abi: RPC_STAKING_ABI,
     functionName: 'getRateLimit',
@@ -140,7 +139,7 @@ const getContractRateLimit = async (addr: Address): Promise<number> => {
 
 const checkAccess = async (addr: Address): Promise<boolean> => {
   if (!STAKING_ADDR) return true
-  return readContract(client, {
+  return client.readContract({
     address: STAKING_ADDR,
     abi: RPC_STAKING_ABI,
     functionName: 'canAccess',

@@ -87,8 +87,8 @@ export const gitRoutes = new Elysia({ prefix: '/api/git' })
         query,
         'query params',
       )
-      const path = validatedParams['*'] || ''
-      const ref = validatedQuery.ref || 'main'
+      const path = validatedParams['*'] ?? ''
+      const ref = validatedQuery.ref ?? 'main'
       const files = await dwsClient.getRepoFiles(
         validatedParams.owner,
         validatedParams.repo,
@@ -118,8 +118,8 @@ export const gitRoutes = new Elysia({ prefix: '/api/git' })
         query,
         'query params',
       )
-      const path = validatedParams['*'] || ''
-      const ref = validatedQuery.ref || 'main'
+      const path = validatedParams['*'] ?? ''
+      const ref = validatedQuery.ref ?? 'main'
       const content = await dwsClient.getFileContent(
         validatedParams.owner,
         validatedParams.repo,
@@ -146,7 +146,7 @@ export const gitRoutes = new Elysia({ prefix: '/api/git' })
         query,
         'query params',
       )
-      const ref = validatedQuery.ref || 'main'
+      const ref = validatedQuery.ref ?? 'main'
       const commits = await dwsClient.getRepoCommits(
         validated.owner,
         validated.repo,

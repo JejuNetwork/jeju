@@ -64,7 +64,7 @@ export const restSearchParamsSchema = z.object({
 export const searchParamsSchema = z.object({
   query: z.string().optional(),
   endpointType: endpointTypeSchema.optional(),
-  tags: z.array(z.string()).optional(),
+  tags: z.array(z.string()).default([]),
   category: serviceCategorySchema.optional(),
   minStakeTier: z.number().int().min(0).optional(),
   verified: z.boolean().optional(),
@@ -74,9 +74,6 @@ export const searchParamsSchema = z.object({
 })
 
 export type SearchParams = z.infer<typeof searchParamsSchema>
-
-// Re-export types from @jejunetwork/types for consistency
-export type { EndpointType, ServiceCategory } from '@jejunetwork/types'
 
 export const agentIdSchema = z
   .string()
@@ -268,7 +265,7 @@ export const getTransactionSkillSchema = z.object({
 
 export const getLogsSkillSchema = z.object({
   address: AddressSchema.optional(),
-  topics: z.array(z.string()).optional(),
+  topics: z.array(z.string()).default([]),
   fromBlock: blockNumberSchema.optional(),
   toBlock: blockNumberSchema.optional(),
   limit: z.number().int().min(1).max(1000).optional(),
@@ -316,6 +313,20 @@ export const getProposalSkillSchema = z.object({
 export const getProposalsSkillSchema = z.object({
   status: z.string().optional(),
   limit: z.number().int().min(1).max(100).optional(),
+})
+
+// MCP tool-specific argument schemas
+export const queryGraphqlArgsSchema = z.object({
+  query: z.string().min(1),
+  variables: z.record(z.string(), JsonValueSchema).optional(),
+})
+
+export const getContractEventsArgsSchema = z.object({
+  address: AddressSchema,
+  eventName: z.string().optional(),
+  fromBlock: z.number().int().positive().optional(),
+  toBlock: z.number().int().positive().optional(),
+  limit: z.number().int().min(1).max(1000).optional(),
 })
 
 export const mcpResourceUriSchema = z.enum([
@@ -405,11 +416,11 @@ export function validateParams<T extends z.ZodTypeAny>(
 
 /**
  * Validates request body.
- * Request body is JSON-parsed, so it contains JsonValue types.
+ * Accepts unknown to avoid type casts at call sites - Zod validates the structure.
  */
 export function validateBody<T extends z.ZodTypeAny>(
   schema: T,
-  body: JsonValue,
+  body: unknown,
   context?: string,
 ): z.infer<T> {
   const result = schema.safeParse(body)

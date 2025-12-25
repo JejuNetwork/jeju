@@ -224,7 +224,7 @@ export class JNSGateway {
     this.app.get('/ipfs/:cid', async ({ params, request, set }) => {
       const cid = params.cid
       const url = new URL(request.url)
-      const path = url.pathname.replace(`/ipfs/${cid}`, '') || '/'
+      const path = url.pathname.replace(`/ipfs/${cid}`, '') ?? '/'
       return this.serveIpfsContent(cid, path, set)
     })
 

@@ -557,7 +557,7 @@ export async function processOracleEvents(
           'SOURCE_MANIPULATION',
           'OTHER',
         ]
-        const reason = reasonLabels[reasonCode] || 'UNKNOWN'
+        const reason = reasonLabels[reasonCode] ?? 'UNKNOWN'
 
         const report =
           reports.get(reportHash) ||

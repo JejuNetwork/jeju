@@ -19,15 +19,28 @@ const DWSHealthSchema = z.object({
 })
 
 const ComputeNodeStatsSchema = z.object({
-  totalNodes: z.number().nullable(),
-  activeNodes: z.number().nullable(),
-  avgLoad: z.number().nullable(),
-  // DWS also returns these in the response body
   inference: z
     .object({
+      totalNodes: z.number(),
       activeNodes: z.number(),
+      totalCapacity: z.number().optional(),
+      currentLoad: z.number().optional(),
+      providers: z.array(z.string()).optional(),
+      models: z.array(z.string()).optional(),
     })
-    .nullable(),
+    .optional(),
+  training: z
+    .object({
+      totalNodes: z.number(),
+      activeNodes: z.number(),
+      totalRuns: z.number().optional(),
+      activeRuns: z.number().optional(),
+    })
+    .optional(),
+  // Legacy fields for backward compatibility
+  totalNodes: z.number().optional(),
+  activeNodes: z.number().optional(),
+  avgLoad: z.number().optional(),
 })
 
 const ChatCompletionResponseSchema = z.object({

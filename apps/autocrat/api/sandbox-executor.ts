@@ -316,24 +316,20 @@ export async function executeInSandbox(
   job.completedAt = Date.now()
 
   if (result.status === 'success' || result.status === 'completed') {
-    // Extract metrics safely - these are expected for successful executions
-    const executionTimeMs = result.metrics?.executionTimeMs
-    const memoryUsedMb = result.metrics?.memoryUsedMb
-    const cpuUsagePercent = result.metrics?.cpuUsagePercent
-
     job.status = 'completed'
     job.result = {
       success: true,
-      exitCode: typeof result.exitCode === 'number' ? result.exitCode : 0,
-      exploitTriggered: result.output?.exploitTriggered === true,
-      exploitDetails: result.output?.exploitDetails ?? '',
-      stdout: result.output?.result ?? '',
-      stderr: result.logs ?? '',
+      exitCode: result.exitCode,
+      exploitTriggered: result.output.exploitTriggered,
+      exploitDetails: result.output.exploitDetails,
+      stdout: result.output.result,
+      stderr: result.logs,
       metrics: {
-        executionTimeMs: executionTimeMs ?? 0,
-        peakMemoryMb: memoryUsedMb ?? 0,
+        executionTimeMs: result.metrics.executionTimeMs,
+        peakMemoryMb: result.metrics.memoryUsedMb,
         cpuTimeMs: Math.floor(
-          ((cpuUsagePercent ?? 0) * (executionTimeMs ?? 0)) / 100,
+          (result.metrics.cpuUsagePercent * result.metrics.executionTimeMs) /
+            100,
         ),
       },
       artifacts: [],
@@ -355,17 +351,28 @@ export async function executeInSandbox(
       artifacts: [],
     }
   } else {
+    const metrics = result.metrics ?? {
+      executionTimeMs: 0,
+      memoryUsedMb: 0,
+      cpuUsagePercent: 0,
+    }
+    const output = result.output ?? {
+      exploitTriggered: false,
+      exploitDetails: '',
+      result: '',
+    }
+
     job.status = 'failed'
     job.result = {
       success: false,
-      exitCode: typeof result.exitCode === 'number' ? result.exitCode : -1,
+      exitCode: result.exitCode,
       exploitTriggered: false,
       exploitDetails: '',
-      stdout: result.output?.result ?? '',
-      stderr: result.logs ?? `Execution failed with status: ${result.status}`,
+      stdout: output.result,
+      stderr: result.logs || `Execution failed with status: ${result.status}`,
       metrics: {
-        executionTimeMs: result.metrics?.executionTimeMs ?? 0,
-        peakMemoryMb: result.metrics?.memoryUsedMb ?? 0,
+        executionTimeMs: metrics.executionTimeMs,
+        peakMemoryMb: metrics.memoryUsedMb,
         cpuTimeMs: 0,
       },
       artifacts: [],

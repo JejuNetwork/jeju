@@ -371,6 +371,14 @@ interface RegisteredApp {
   depositedAt: bigint
 }
 
+/** Stake info returned from the getStakeInfo contract call */
+interface StakeInfoData {
+  token: string
+  amount: bigint
+  depositedAt: bigint
+  withdrawn: boolean
+}
+
 export function useRegistryAppDetails(agentId: bigint) {
   const { data: owner } = useReadContract({
     address: REGISTRY_ADDRESS,
@@ -402,40 +410,17 @@ export function useRegistryAppDetails(agentId: bigint) {
 
   const isLoading = !owner
 
+  const stake = stakeInfo as StakeInfoData | undefined
   const app: RegisteredApp | null = owner
     ? {
         agentId,
         name: `Agent #${agentId}`,
-        owner: owner as string,
-        tags: tags ? (tags as string[]) : [],
-        a2aEndpoint: a2aEndpoint as string | undefined,
-        stakeToken: stakeInfo
-          ? (
-              stakeInfo as {
-                token: string
-                amount: bigint
-                depositedAt: bigint
-              }
-            ).token
-          : 'ETH',
-        stakeAmount: stakeInfo
-          ? (
-              stakeInfo as {
-                token: string
-                amount: bigint
-                depositedAt: bigint
-              }
-            ).amount.toString()
-          : '0',
-        depositedAt: stakeInfo
-          ? (
-              stakeInfo as {
-                token: string
-                amount: bigint
-                depositedAt: bigint
-              }
-            ).depositedAt
-          : 0n,
+        owner,
+        tags: tags ? [...tags] : [],
+        a2aEndpoint,
+        stakeToken: stake?.token ?? 'ETH',
+        stakeAmount: stake?.amount.toString() ?? '0',
+        depositedAt: stake?.depositedAt ?? 0n,
       }
     : null
 

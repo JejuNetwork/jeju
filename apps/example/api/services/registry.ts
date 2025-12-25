@@ -5,7 +5,7 @@ import {
   type TEEAttestation,
   type TEENodeInfo,
   TEEProvider,
-} from '@jejunetwork/oauth3'
+} from '@jejunetwork/auth'
 import { AddressSchema, expectAddress, expectHex } from '@jejunetwork/types'
 import {
   type Address,

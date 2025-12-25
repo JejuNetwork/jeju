@@ -153,7 +153,7 @@ export function Settings() {
           <div>
             <p className="text-sm text-volcanic-400">Memory</p>
             <p className="font-medium">
-              {((hardware?.memory.total_mb || 0) / 1024).toFixed(0)} GB
+              {((hardware?.memory.total_mb ?? 0) / 1024).toFixed(0)} GB
             </p>
           </div>
           <div>

@@ -66,15 +66,15 @@ export function StatsView() {
           icon={<ActivityIcon size={24} />}
           iconBg="linear-gradient(135deg, var(--chain-jeju), var(--accent-tertiary))"
           title="Total Intents"
-          value={stats?.totalIntents.toLocaleString() || '0'}
-          subtitle={`${stats?.last24hIntents || 0} in last 24h`}
+          value={stats?.totalIntents.toLocaleString() ?? '—'}
+          subtitle={`${stats?.last24hIntents ?? 0} in last 24h`}
         />
         <StatCard
           icon={<DollarSignIcon size={24} />}
           iconBg="linear-gradient(135deg, var(--accent-secondary), var(--warning))"
           title="Total Volume"
-          value={`$${formatLargeNumber(parseFloat(stats?.totalVolumeUsd || '0'))}`}
-          subtitle={`$${formatLargeNumber(parseFloat(stats?.last24hVolume || '0'))} in last 24h`}
+          value={`$${formatLargeNumber(parseFloat(stats?.totalVolumeUsd ?? '0'))}`}
+          subtitle={`$${formatLargeNumber(parseFloat(stats?.last24hVolume ?? '0'))} in last 24h`}
         />
         <StatCard
           icon={<UsersIcon size={24} />}
@@ -104,12 +104,12 @@ export function StatsView() {
         <MiniStat
           icon={<TrendingUpIcon size={18} />}
           label="Total Fees"
-          value={`$${formatLargeNumber(parseFloat(stats?.totalFeesUsd || '0'))}`}
+          value={`$${formatLargeNumber(parseFloat(stats?.totalFeesUsd ?? '0'))}`}
         />
         <MiniStat
           icon={<ClockIcon size={18} />}
           label="Avg Fill Time"
-          value={`${stats?.avgFillTimeSeconds || 0}s`}
+          value={`${stats?.avgFillTimeSeconds ?? 0}s`}
         />
         <MiniStat
           icon={<ActivityIcon size={18} />}
@@ -119,13 +119,13 @@ export function StatsView() {
         <MiniStat
           icon={<DollarSignIcon size={18} />}
           label="Solver Stake"
-          value={formatETH(stats?.totalSolverStake || '0')}
+          value={formatETH(stats?.totalSolverStake ?? '0')}
         />
       </div>
 
       {/* Chain Breakdown */}
       <ChainVolumeBreakdown
-        totalVolume={parseFloat(stats?.totalVolumeUsd || '0')}
+        totalVolume={parseFloat(stats?.totalVolumeUsd ?? '0')}
       />
     </div>
   )

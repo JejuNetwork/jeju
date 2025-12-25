@@ -10,6 +10,8 @@
  */
 
 import { treaty } from '@elysiajs/eden'
+import { isPlainObject, validateOrNull } from '@jejunetwork/types'
+import { z } from 'zod'
 // Type-only import for Eden type inference - no runtime dependency
 import type { App } from '../../api/server'
 import { AUTOCRAT_API_URL } from '../config/env'
@@ -26,24 +28,26 @@ const API_BASE = AUTOCRAT_API_URL
 export const api = treaty<App>(API_BASE)
 
 /**
- * Eden error value - possible structures from validation errors
+ * Zod schema for Eden error value - possible structures from validation errors
  */
-interface EdenErrorValue {
-  type?: string
-  on?: string
-  summary?: string
-  message?: string
-  error?: { message: string }
-}
+const EdenErrorValueSchema = z.object({
+  type: z.string().optional(),
+  on: z.string().optional(),
+  summary: z.string().optional(),
+  message: z.string().optional(),
+  error: z.object({ message: z.string() }).optional(),
+})
 
 /**
  * Extract error message from Eden Treaty error value
  */
 function getErrorMessage(value: unknown): string {
   if (typeof value === 'string') return value
-  if (value && typeof value === 'object') {
-    const v = value as EdenErrorValue
-    return v.message || v.summary || v.error?.message || 'API error'
+  if (isPlainObject(value)) {
+    const v = validateOrNull(EdenErrorValueSchema, value)
+    if (v) {
+      return v.message ?? v.summary ?? v.error?.message ?? 'API error'
+    }
   }
   return 'API error'
 }

@@ -75,7 +75,7 @@ export class BanChecker {
         config.moderationMarketplaceAddress || ('0x0' as Address),
       rpcUrl: config.rpcUrl || defaultRpc,
       network,
-      cacheTtlMs: config.cacheTtlMs || 10000,
+      cacheTtlMs: config.cacheTtlMs ?? 10000,
       failClosed: config.failClosed ?? true,
     }
 
@@ -190,7 +190,7 @@ export function createElysiaBanPlugin(config: BanCheckConfig) {
         set.status = 403
         return {
           error: 'BANNED',
-          message: result.status?.reason || 'User is banned from this service',
+          message: result.status?.reason ?? 'User is banned from this service',
           banType: result.status?.banType,
           caseId: result.status?.caseId,
           canAppeal: result.status?.canAppeal,

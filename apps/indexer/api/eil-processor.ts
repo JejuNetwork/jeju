@@ -297,7 +297,7 @@ async function processVoucherRequested(
     request,
     status: TransferStatus.PENDING,
     initiatedAt: timestamp,
-    sourceTxHash: log.transaction?.hash || '',
+    sourceTxHash: log.transaction?.hash ?? '',
   })
 
   transfers.set(transfer.id, transfer)
@@ -333,13 +333,13 @@ async function processVoucherIssued(
   const voucher = new CrossChainVoucher({
     id: voucherId,
     voucherId,
-    request: request || undefined,
+    request: request ?? undefined,
     xlp,
-    sourceChainId: request?.sourceChain || 420691,
-    destinationChainId: request?.destinationChain || 1,
-    sourceToken: request?.sourceToken || '',
-    destinationToken: request?.destinationToken || '',
-    amount: request?.amount || 0n,
+    sourceChainId: request?.sourceChain ?? 420691,
+    destinationChainId: request?.destinationChain ?? 1,
+    sourceToken: request?.sourceToken ?? '',
+    destinationToken: request?.destinationToken ?? '',
+    amount: request?.amount ?? 0n,
     fee,
     gasProvided: 0n,
     issuedAt: timestamp,

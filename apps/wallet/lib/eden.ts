@@ -6,14 +6,14 @@
  */
 
 import { treaty } from '@elysiajs/eden'
-import type { z } from 'zod'
+import { z } from 'zod'
 import { getEnv } from './env'
 
-/** JSON-RPC response structure */
-interface JsonRpcResponse<T> {
-  result?: T
-  error?: { code: number; message: string }
-}
+/** JSON-RPC response schema */
+const JsonRpcResponseSchema = z.object({
+  result: z.unknown().optional(),
+  error: z.object({ code: z.number(), message: z.string() }).optional(),
+})
 
 // Dynamic import types from backend services
 // In production, these would be imported from the actual server type exports
@@ -92,15 +92,15 @@ export interface EdenResponse<T> {
  * @throws Error if response contains an error or no data
  */
 // Type guard for error objects with message property
+/** Type guard for objects with a message property */
 function isErrorWithMessage(
   err: unknown,
 ): err is { message: string; value?: unknown; status?: number } {
-  return (
-    typeof err === 'object' &&
-    err !== null &&
-    'message' in err &&
-    typeof (err as { message: unknown }).message === 'string'
-  )
+  if (typeof err !== 'object' || err === null || !('message' in err)) {
+    return false
+  }
+  const errObj = err as Record<string, unknown>
+  return typeof errObj.message === 'string'
 }
 
 export function extractData<T>(response: {
@@ -113,10 +113,8 @@ export function extractData<T>(response: {
       throw new APIError(err.message, err.status || 500)
     }
     // Fallback for unknown error shapes
-    const errorValue =
-      typeof err === 'object' && err !== null && 'value' in err
-        ? (err as { value: unknown }).value
-        : err
+    const errObj = err as Record<string, unknown>
+    const errorValue = 'value' in errObj ? errObj.value : err
     throw new APIError(
       typeof errorValue === 'string' ? errorValue : 'API Error',
       500,
@@ -182,7 +180,7 @@ export async function fetchApi<T>(
   if (!response.ok) {
     const error = await response.json()
     throw new APIError(
-      error.error || error.message || 'API request failed',
+      error.error ?? error.message ?? 'API request failed',
       response.status,
       error.code,
     )
@@ -233,13 +231,18 @@ export async function jsonRpcRequest<T>(
     )
   }
 
-  const data = (await response.json()) as JsonRpcResponse<T>
+  const raw: unknown = await response.json()
+  const parsed = JsonRpcResponseSchema.safeParse(raw)
 
-  if (data.error) {
-    throw new APIError(data.error.message, data.error.code)
+  if (!parsed.success) {
+    throw new APIError('Invalid RPC response format', -32600)
   }
 
-  return data.result as T
+  if (parsed.data.error) {
+    throw new APIError(parsed.data.error.message, parsed.data.error.code)
+  }
+
+  return parsed.data.result as T
 }
 
 // Note: These use the treaty function but without the actual App types imported

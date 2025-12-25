@@ -2,11 +2,11 @@
  * KMS API Routes
  * Key Management Service integration for DWS
  *
- * Uses real FROST threshold signing from @jejunetwork/oauth3
+ * Uses real FROST threshold signing from @jejunetwork/auth
  */
 
 import crypto from 'node:crypto'
-import { FROSTCoordinator } from '@jejunetwork/oauth3'
+import { FROSTCoordinator } from '@jejunetwork/auth'
 import { expectValid } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import type { Address, Hex } from 'viem'
@@ -14,10 +14,12 @@ import { keccak256, toBytes, toHex } from 'viem'
 import { z } from 'zod'
 import {
   createKmsKeyRequestSchema,
+  createSecretStoreRequestSchema,
   decryptRequestSchema,
   encryptRequestSchema,
   kmsKeyParamsSchema,
   signRequestSchema,
+  updateKmsKeyRequestSchema,
 } from '../../shared'
 import { getAddressFromRequest } from '../../shared/utils/type-guards'
 
@@ -213,10 +215,11 @@ export function createKMSRouter() {
           throw new Error('Not authorized')
         }
 
-        const validBody = body as {
-          newThreshold?: number
-          newTotalParties?: number
-        }
+        const validBody = expectValid(
+          updateKmsKeyRequestSchema,
+          body,
+          'Update key request',
+        )
 
         key.threshold = validBody.newThreshold ?? key.threshold
         key.totalParties = validBody.newTotalParties ?? key.totalParties
@@ -379,17 +382,11 @@ export function createKMSRouter() {
           return { error: 'Missing x-jeju-address header' }
         }
 
-        const validBody = body as {
-          name: string
-          value: string
-          metadata?: Record<string, string>
-          expiresIn?: number // seconds
-        }
-
-        if (!validBody.name || !validBody.value) {
-          set.status = 400
-          return { error: 'Name and value required' }
-        }
+        const validBody = expectValid(
+          createSecretStoreRequestSchema,
+          body,
+          'Create secret request',
+        )
 
         const id = crypto.randomUUID()
 

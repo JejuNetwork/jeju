@@ -3,7 +3,9 @@
  * Syncs git contributions to the leaderboard system
  */
 
+import { expectValid } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
+import { z } from 'zod'
 import type { ContributionEvent, ContributionType } from './types'
 
 const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:4000'
@@ -32,10 +34,12 @@ interface ContributionScores {
   reviews: number
 }
 
-/** Wallet to username mappings response */
-interface WalletMappingsResponse {
-  mappings: Array<{ walletAddress: string; username: string }>
-}
+/** Wallet to username mappings response schema */
+const WalletMappingsResponseSchema = z.object({
+  mappings: z.array(
+    z.object({ walletAddress: z.string(), username: z.string() }),
+  ),
+})
 
 function calculateScores(contributions: GitContribution[]): ContributionScores {
   return contributions.reduce(
@@ -149,7 +153,11 @@ class LeaderboardIntegration {
       return
     }
 
-    const data = (await response.json()) as WalletMappingsResponse
+    const data = expectValid(
+      WalletMappingsResponseSchema,
+      await response.json(),
+      'wallet mappings response',
+    )
     for (const m of data.mappings) {
       this.walletMap.set(m.walletAddress.toLowerCase() as Address, m.username)
     }

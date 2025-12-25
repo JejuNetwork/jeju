@@ -7,8 +7,33 @@
 import { getDWSComputeUrl } from '@jejunetwork/config'
 import { expectValid } from '@jejunetwork/types'
 import { keccak256, stringToHex } from 'viem'
-import { ComputeInferenceResponseSchema, parseJson } from '../lib'
+import { z } from 'zod'
+import {
+  ComputeInferenceResponseSchema,
+  parseJson,
+  RecommendationSchema,
+  RiskLevelSchema,
+} from '../lib'
 import { checkDWSCompute, dwsGenerate } from './agents/runtime'
+
+/** Schema for validating AI-generated research report responses */
+const AIResearchReportSchema = z.object({
+  summary: z.string().min(1),
+  recommendation: RecommendationSchema,
+  confidenceLevel: z.number().int().min(0).max(100),
+  riskLevel: RiskLevelSchema,
+  keyFindings: z.array(z.string()),
+  concerns: z.array(z.string()),
+  alternatives: z.array(z.string()),
+  sections: z.array(
+    z.object({
+      title: z.string(),
+      content: z.string(),
+      confidence: z.number(),
+      sources: z.array(z.string()).optional(),
+    }),
+  ),
+})
 
 // DWS endpoint is resolved dynamically based on the current network
 function getComputeEndpoint(): string {
@@ -226,60 +251,24 @@ Return JSON:
       'Expert DAO researcher and governance analyst. Provide thorough, objective analysis. Return only valid JSON.',
     )
 
-    type ParsedReport = {
-      summary: string
-      recommendation: string
-      confidenceLevel: number
-      riskLevel: string
-      keyFindings: string[]
-      concerns: string[]
-      alternatives: string[]
-      sections: ResearchSection[]
-    }
-    const parsed = parseJson<ParsedReport>(content)
-    if (!parsed) {
+    const rawParsed = parseJson<z.input<typeof AIResearchReportSchema>>(content)
+    if (!rawParsed) {
       throw new Error(
         `Failed to parse compute marketplace response: ${content.slice(0, 200)}`,
       )
     }
 
+    const parsed = AIResearchReportSchema.parse(rawParsed)
     const completedAt = Date.now()
-
-    if (
-      !parsed.recommendation ||
-      !['proceed', 'reject', 'modify'].includes(parsed.recommendation)
-    ) {
-      throw new Error(
-        `Invalid recommendation in response: ${parsed.recommendation}`,
-      )
-    }
-    if (
-      !parsed.riskLevel ||
-      !['low', 'medium', 'high', 'critical'].includes(parsed.riskLevel)
-    ) {
-      throw new Error(`Invalid riskLevel in response: ${parsed.riskLevel}`)
-    }
-    if (
-      typeof parsed.confidenceLevel !== 'number' ||
-      parsed.confidenceLevel < 0 ||
-      parsed.confidenceLevel > 100
-    ) {
-      throw new Error(
-        `Invalid confidenceLevel in response: ${parsed.confidenceLevel}`,
-      )
-    }
-    if (!parsed.summary || parsed.summary.length === 0) {
-      throw new Error('Missing summary in response')
-    }
 
     return {
       proposalId: request.proposalId,
       requestHash,
       model: `compute:${getComputeModel()}`,
       sections: parsed.sections,
-      recommendation: parsed.recommendation as ResearchReport['recommendation'],
+      recommendation: parsed.recommendation,
       confidenceLevel: parsed.confidenceLevel,
-      riskLevel: parsed.riskLevel as ResearchReport['riskLevel'],
+      riskLevel: parsed.riskLevel,
       summary: parsed.summary,
       keyFindings: parsed.keyFindings,
       concerns: parsed.concerns,
@@ -312,68 +301,28 @@ Return JSON:
       'DAO research analyst. Thorough, objective. Return only valid JSON.',
     )
 
-    type ParsedReport = {
-      summary: string
-      recommendation: string
-      confidenceLevel: number
-      riskLevel: string
-      keyFindings: string[]
-      concerns: string[]
-      alternatives: string[]
-      sections: ResearchSection[]
-    }
-    const parsed = parseJson<ParsedReport>(response)
-
-    if (!parsed) {
+    const rawParsed =
+      parseJson<z.input<typeof AIResearchReportSchema>>(response)
+    if (!rawParsed) {
       return this.generateHeuristicReport(request, requestHash, startedAt)
     }
 
+    const result = AIResearchReportSchema.safeParse(rawParsed)
+    if (!result.success) {
+      return this.generateHeuristicReport(request, requestHash, startedAt)
+    }
+
+    const parsed = result.data
     const completedAt = Date.now()
-
-    // Validate required fields with fail-fast patterns
-    if (
-      !parsed.recommendation ||
-      !['proceed', 'reject', 'modify'].includes(parsed.recommendation)
-    ) {
-      return this.generateHeuristicReport(request, requestHash, startedAt)
-    }
-    if (
-      !parsed.riskLevel ||
-      !['low', 'medium', 'high', 'critical'].includes(parsed.riskLevel)
-    ) {
-      return this.generateHeuristicReport(request, requestHash, startedAt)
-    }
-    if (
-      typeof parsed.confidenceLevel !== 'number' ||
-      parsed.confidenceLevel < 0 ||
-      parsed.confidenceLevel > 100
-    ) {
-      return this.generateHeuristicReport(request, requestHash, startedAt)
-    }
-    if (!parsed.summary || parsed.summary.length === 0) {
-      return this.generateHeuristicReport(request, requestHash, startedAt)
-    }
-    if (!Array.isArray(parsed.sections)) {
-      return this.generateHeuristicReport(request, requestHash, startedAt)
-    }
-    if (!Array.isArray(parsed.keyFindings)) {
-      return this.generateHeuristicReport(request, requestHash, startedAt)
-    }
-    if (!Array.isArray(parsed.concerns)) {
-      return this.generateHeuristicReport(request, requestHash, startedAt)
-    }
-    if (!Array.isArray(parsed.alternatives)) {
-      return this.generateHeuristicReport(request, requestHash, startedAt)
-    }
 
     return {
       proposalId: request.proposalId,
       requestHash,
       model: 'dws-compute',
       sections: parsed.sections,
-      recommendation: parsed.recommendation as ResearchReport['recommendation'],
+      recommendation: parsed.recommendation,
       confidenceLevel: parsed.confidenceLevel,
-      riskLevel: parsed.riskLevel as ResearchReport['riskLevel'],
+      riskLevel: parsed.riskLevel,
       summary: parsed.summary,
       keyFindings: parsed.keyFindings,
       concerns: parsed.concerns,

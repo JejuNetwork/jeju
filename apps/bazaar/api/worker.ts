@@ -168,8 +168,8 @@ export function createBazaarApp(env?: Partial<BazaarEnv>) {
   app.get('/health', () => ({
     status: 'ok',
     service: 'bazaar-api',
-    teeMode: env?.TEE_MODE || 'simulated',
-    network: env?.NETWORK || 'localnet',
+    teeMode: env?.TEE_MODE ?? 'simulated',
+    network: env?.NETWORK ?? 'localnet',
   }))
 
   // Faucet API
@@ -252,7 +252,7 @@ export function createBazaarApp(env?: Partial<BazaarEnv>) {
       .post('/', async ({ request }) => {
         const url = new URL(request.url)
         const pathParts = url.pathname.split('/').filter(Boolean)
-        const endpoint = pathParts.slice(2).join('/') || 'initialize'
+        const endpoint = pathParts.slice(2).join('/') ?? 'initialize'
         return handleMCPRequest(request, endpoint)
       })
       .post('/initialize', async ({ request }) => {

@@ -20,7 +20,7 @@
     "@jejunetwork/deployment": "workspace:*",
     "@jejunetwork/dws": "workspace:*",
     "@jejunetwork/kms": "workspace:*",
-    "@jejunetwork/oauth3": "workspace:*",
+    "@jejunetwork/auth": "workspace:*",
     "@jejunetwork/shared": "workspace:*",
     "@jejunetwork/types": "workspace:*",
     "@jejunetwork/ui": "workspace:*",

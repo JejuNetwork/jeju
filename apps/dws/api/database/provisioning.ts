@@ -192,7 +192,9 @@ async function checkDatabaseAccess(
       : ['SELECT', 'ALL']
 
   for (const row of aclResult.rows) {
-    const permissions = JSON.parse(row.permissions) as string[]
+    const parsed: unknown = JSON.parse(row.permissions)
+    if (!Array.isArray(parsed)) continue
+    const permissions = parsed.filter((p): p is string => typeof p === 'string')
     if (permissions.some((p) => requiredPermissions.includes(p))) {
       return true
     }

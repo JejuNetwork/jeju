@@ -293,7 +293,7 @@ export class PerpsService {
     if (cached) {
       return cached
     }
-    const rpcUrl = getNetworkRpcUrl(this.chainId) || 'http://localhost:6546'
+    const rpcUrl = getNetworkRpcUrl(this.chainId) ?? 'http://localhost:6546'
     const client = createPublicClient({ transport: http(rpcUrl) })
     this.clientCache.set(this.chainId, client)
     return client
@@ -595,7 +595,7 @@ export class PerpsService {
       positionId: posId,
       trader,
       marketId,
-      symbol: market?.symbol || 'Unknown',
+      symbol: market?.symbol ?? 'Unknown',
       side,
       marginType,
       size,

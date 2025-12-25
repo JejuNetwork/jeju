@@ -18,6 +18,25 @@ interface A2APart {
   data?: JsonObject
 }
 
+interface A2AResult {
+  result?: { parts: A2APart[] }
+}
+
+function expectResult(response: A2AResult): { parts: A2APart[] } {
+  if (!response.result) {
+    throw new Error('Expected A2A result')
+  }
+  return response.result
+}
+
+function expectDataPart(result: { parts: A2APart[] }): JsonObject {
+  const dataPart = result.parts.find((p): p is A2ADataPart => p.kind === 'data')
+  if (!dataPart) {
+    throw new Error('Expected data part in result')
+  }
+  return dataPart.data
+}
+
 interface A2AJsonRpcRequest {
   jsonrpc: '2.0'
   id: number
@@ -35,11 +54,11 @@ const sendA2A = async (
     post: (
       url: string,
       options: { data: A2AJsonRpcRequest },
-    ) => Promise<{ json: () => Promise<{ result?: { parts: A2APart[] } }> }>
+    ) => Promise<{ json: () => Promise<A2AResult> }>
   },
   skillId: string,
   params?: JsonObject,
-) => {
+): Promise<A2AResult> => {
   const response = await request.post(`${AUTOCRAT_URL}/a2a`, {
     data: {
       jsonrpc: '2.0',
@@ -56,19 +75,13 @@ const sendA2A = async (
   return response.json()
 }
 
-const getDataPart = (
-  result: { parts: A2APart[] } | undefined,
-): A2ADataPart['data'] | undefined => {
-  return result?.parts.find((p): p is A2ADataPart => p.kind === 'data')?.data
-}
-
 test.describe('Full Proposal Lifecycle', () => {
   test('complete proposal flow: assess -> submit -> deliberate -> decision', async ({
     request,
   }) => {
     const proposalId = `LIFECYCLE-${Date.now()}`
 
-    const assessResult = await sendA2A(request, 'assess-proposal', {
+    const assessResponse = await sendA2A(request, 'assess-proposal', {
       title: 'Lifecycle Test: Treasury Optimization',
       summary:
         'A comprehensive test proposal covering all aspects of the lifecycle flow.',
@@ -100,22 +113,23 @@ Total: 75 ETH
 - Market risk: Diversified positions`,
     })
 
-    const assessData = getDataPart(assessResult.result)
-    expect(assessData?.overallScore).toBeDefined()
-    const qualityScore = assessData?.overallScore as number
+    const assessResult = expectResult(assessResponse)
+    const assessData = expectDataPart(assessResult)
+    expect(assessData.overallScore).toBeDefined()
+    const qualityScore = assessData.overallScore as number
 
     if (qualityScore >= 90) {
-      const submitResult = await sendA2A(request, 'submit-proposal', {
+      const submitResponse = await sendA2A(request, 'submit-proposal', {
         proposalType: 1,
         qualityScore,
         contentHash: `0x${proposalId.padEnd(64, '0').slice(0, 64)}`,
       })
 
-      const submitData = getDataPart(submitResult.result)
-      expect(submitData?.action).toBe('submitProposal')
+      const submitData = expectDataPart(expectResult(submitResponse))
+      expect(submitData.action).toBe('submitProposal')
     }
 
-    const deliberateResult = await sendA2A(request, 'deliberate', {
+    const deliberateResponse = await sendA2A(request, 'deliberate', {
       proposalId,
       title: 'Lifecycle Test: Treasury Optimization',
       description: 'Test proposal for lifecycle verification',
@@ -123,19 +137,20 @@ Total: 75 ETH
       submitter: '0x1234',
     })
 
-    const deliberateData = getDataPart(deliberateResult.result)
-    expect(deliberateData?.votes).toBeDefined()
-    expect((deliberateData?.votes as Array<unknown>).length).toBe(5)
-    expect(deliberateData?.recommendation).toBeDefined()
+    const deliberateData = expectDataPart(expectResult(deliberateResponse))
+    expect(deliberateData.votes).toBeDefined()
+    const votes = deliberateData.votes as unknown[]
+    expect(votes.length).toBe(5)
+    expect(deliberateData.recommendation).toBeDefined()
 
-    const decisionResult = await sendA2A(request, 'ceo-decision', {
+    const decisionResponse = await sendA2A(request, 'ceo-decision', {
       proposalId,
     })
 
-    const decisionData = getDataPart(decisionResult.result)
-    expect(typeof decisionData?.approved).toBe('boolean')
-    expect(decisionData?.reasoning).toBeDefined()
-    expect(Array.isArray(decisionData?.recommendations)).toBe(true)
+    const decisionData = expectDataPart(expectResult(decisionResponse))
+    expect(typeof decisionData.approved).toBe('boolean')
+    expect(decisionData.reasoning).toBeDefined()
+    expect(Array.isArray(decisionData.recommendations)).toBe(true)
   })
 })
 
@@ -289,9 +304,9 @@ test.describe('Real Blockchain Integration', () => {
   })
 
   test('governance stats reflect chain state', async ({ request }) => {
-    const result = await sendA2A(request, 'get-governance-stats')
-    const data = getDataPart(result.result)
-    expect(data?.totalProposals).toBeDefined()
+    const response = await sendA2A(request, 'get-governance-stats')
+    const data = expectDataPart(expectResult(response))
+    expect(data.totalProposals).toBeDefined()
   })
 })
 

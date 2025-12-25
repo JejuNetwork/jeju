@@ -102,38 +102,29 @@ let ListResourceRecordSetsCommandClass: ListResourceRecordSetsCommandConstructor
   null
 let DNSClass: CloudDNSConstructor | null = null
 
-/**
- * Type-safe cast for dynamically loaded SDK classes.
- * Used when optional SDK dependencies may or may not be installed.
- * The target interface defines only the methods we actually use.
- */
-function castSDKClass<T>(sdkExport: { new (...args: never[]): object }): T {
-  return sdkExport as T
-}
-
 // Optional SDK module names - stored as variables to avoid TypeScript module resolution
 const AWS_SDK_MODULE = '@aws-sdk/client-route-53'
 const GCP_SDK_MODULE = '@google-cloud/dns'
 
+/** Dynamic AWS SDK module shape - only methods we use */
+interface AWSSDKModule {
+  Route53Client: Route53ClientConstructor
+  ChangeResourceRecordSetsCommand: ChangeResourceRecordSetsCommandConstructor
+  ListResourceRecordSetsCommand: ListResourceRecordSetsCommandConstructor
+}
+
+/** Dynamic GCP SDK module shape - only methods we use */
+interface GCPSDKModule {
+  DNS: CloudDNSConstructor
+}
+
 // Conditional import: AWS SDK is optional - only loaded if Route53 provider is configured
 async function loadAWSSDK(): Promise<boolean> {
   try {
-    const aws = (await import(AWS_SDK_MODULE)) as {
-      Route53Client: { new (config: { region: string }): Route53ClientInstance }
-      ChangeResourceRecordSetsCommand: { new (input: object): Route53Command }
-      ListResourceRecordSetsCommand: { new (input: object): Route53Command }
-    }
-    Route53ClientClass = castSDKClass<Route53ClientConstructor>(
-      aws.Route53Client,
-    )
-    ChangeResourceRecordSetsCommandClass =
-      castSDKClass<ChangeResourceRecordSetsCommandConstructor>(
-        aws.ChangeResourceRecordSetsCommand,
-      )
-    ListResourceRecordSetsCommandClass =
-      castSDKClass<ListResourceRecordSetsCommandConstructor>(
-        aws.ListResourceRecordSetsCommand,
-      )
+    const aws = (await import(AWS_SDK_MODULE)) as AWSSDKModule
+    Route53ClientClass = aws.Route53Client
+    ChangeResourceRecordSetsCommandClass = aws.ChangeResourceRecordSetsCommand
+    ListResourceRecordSetsCommandClass = aws.ListResourceRecordSetsCommand
     return true
   } catch {
     console.warn('[DNSSync] AWS SDK not available - Route53 sync disabled')
@@ -144,10 +135,8 @@ async function loadAWSSDK(): Promise<boolean> {
 // Conditional import: GCP SDK is optional - only loaded if Cloud DNS provider is configured
 async function loadGCPSDK(): Promise<boolean> {
   try {
-    const gcp = (await import(GCP_SDK_MODULE)) as {
-      DNS: { new (config: { projectId: string }): CloudDNSInstance }
-    }
-    DNSClass = castSDKClass<CloudDNSConstructor>(gcp.DNS)
+    const gcp = (await import(GCP_SDK_MODULE)) as GCPSDKModule
+    DNSClass = gcp.DNS
     return true
   } catch {
     console.warn('[DNSSync] GCP SDK not available - Cloud DNS sync disabled')
@@ -501,7 +490,7 @@ export class DNSSyncService {
           ),
         this.config.retryAttempts,
         this.config.retryDelayMs,
-      )) as { ResourceRecordSets?: ResourceRecordSet[] }
+      )) as Route53Response
 
       const records: DNSRecord[] = []
 

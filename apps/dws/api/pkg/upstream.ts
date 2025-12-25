@@ -3,6 +3,7 @@
  * Caches and proxies packages from npmjs.org (for upstream compatibility)
  */
 
+import { z } from 'zod'
 import type { BackendManager } from '../storage/backends'
 import type {
   CacheConfig,
@@ -14,6 +15,22 @@ import type {
   UpstreamRegistryConfig,
   UpstreamSyncResult,
 } from './types'
+
+// Schema for validating upstream npm package metadata
+const PkgPackageMetadataSchema = z
+  .object({
+    _id: z.string(),
+    _rev: z.string().optional(),
+    name: z.string(),
+    description: z.string().default(''),
+    'dist-tags': z.record(z.string(), z.string()),
+    versions: z.record(z.string(), z.unknown()),
+    time: z.record(z.string(), z.string()),
+    maintainers: z.array(
+      z.object({ name: z.string(), email: z.string().optional() }),
+    ),
+  })
+  .passthrough()
 
 export interface UpstreamProxyConfig {
   backend: BackendManager
@@ -63,9 +80,13 @@ export class UpstreamProxy {
     if (record) {
       const result = await this.backend.download(record.manifestCid)
       if (result) {
-        const metadata = JSON.parse(
-          result.content.toString(),
-        ) as PkgPackageMetadata
+        const parsed = PkgPackageMetadataSchema.safeParse(
+          JSON.parse(result.content.toString()),
+        )
+        if (!parsed.success) {
+          return null
+        }
+        const metadata = parsed.data as PkgPackageMetadata
         this.setInCache(packageName, metadata)
         return metadata
       }
@@ -314,7 +335,8 @@ export class UpstreamProxy {
       clearTimeout(timeoutId)
 
       if (response?.ok) {
-        return response.json() as Promise<PkgPackageMetadata>
+        const json = await response.json()
+        return PkgPackageMetadataSchema.parse(json) as PkgPackageMetadata
       }
 
       if (response?.status === 404) {
@@ -423,7 +445,7 @@ export class UpstreamProxy {
       cid: result.cid,
       size: tarball.length,
       shasum: versionMetadata.dist.shasum,
-      integrity: versionMetadata.dist.integrity || '',
+      integrity: versionMetadata.dist.integrity ?? '',
       backend: 'local',
       uploadedAt: Date.now(),
     }
@@ -498,11 +520,11 @@ export class UpstreamProxy {
   private sortVersions(versions: string[]): string[] {
     // Simple version sort - in production would use semver
     return versions.sort((a, b) => {
-      const aParts = a.split('.').map((p) => parseInt(p, 10) || 0)
-      const bParts = b.split('.').map((p) => parseInt(p, 10) || 0)
+      const aParts = a.split('.').map((p) => parseInt(p, 10) ?? 0)
+      const bParts = b.split('.').map((p) => parseInt(p, 10) ?? 0)
 
       for (let i = 0; i < 3; i++) {
-        const diff = (bParts[i] || 0) - (aParts[i] || 0)
+        const diff = (bParts[i] ?? 0) - (aParts[i] ?? 0)
         if (diff !== 0) return diff
       }
 

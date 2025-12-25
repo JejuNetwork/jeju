@@ -16,15 +16,40 @@ import {
   expect,
   expectPositive,
   parseOptionalAddress,
+  validateOrNull,
 } from '@jejunetwork/types'
 import { useCallback, useEffect, useState } from 'react'
-import { type Address, isAddress, parseEther } from 'viem'
+import { type Address, parseEther } from 'viem'
 import {
   useAccount,
   useReadContract,
   useWaitForTransactionReceipt,
   useWriteContract,
 } from 'wagmi'
+import { z } from 'zod'
+
+// Zod schema for AppPreference contract return data
+const AppPreferenceDataSchema = z.tuple([
+  AddressSchema, // appAddress
+  AddressSchema, // preferredToken
+  z.string(), // tokenSymbol
+  z.number(), // tokenDecimals
+  z.boolean(), // allowFallback
+  z.bigint(), // minBalance
+  z.boolean(), // isActive
+  AddressSchema, // registrant
+  z.bigint(), // registrationTime
+])
+
+// Zod schema for getBestPaymentTokenForApp return data
+const BestPaymentTokenResultSchema = z.tuple([
+  AddressSchema, // bestToken
+  z.bigint(), // tokenCost
+  z.string(), // reason
+])
+
+// Zod schema for fallback tokens array
+const FallbackTokensSchema = z.array(AddressSchema)
 
 // Chain info type based on SUPPORTED_CHAINS elements
 export type ChainInfo = (typeof SUPPORTED_CHAINS)[number]
@@ -110,7 +135,7 @@ function getNetworkConfig(): EILNetworkConfig {
 
 export function useEILConfig() {
   const { chain } = useAccount()
-  const chainId = chain?.id?.toString() || '420691'
+  const chainId = chain?.id?.toString() ?? '420691'
 
   const networkConfig = getNetworkConfig()
   const chainConfig = networkConfig.chains[chainId]
@@ -270,41 +295,25 @@ export function useAppPreference(
     args: appAddress ? [appAddress] : undefined,
   })
 
-  const preference: AppPreference | null =
-    preferenceData &&
-    Array.isArray(preferenceData) &&
-    preferenceData.length >= 9 &&
-    typeof preferenceData[0] === 'string' &&
-    isAddress(preferenceData[0]) &&
-    typeof preferenceData[1] === 'string' &&
-    isAddress(preferenceData[1]) &&
-    typeof preferenceData[2] === 'string' &&
-    typeof preferenceData[3] === 'number' &&
-    typeof preferenceData[4] === 'boolean' &&
-    typeof preferenceData[5] === 'bigint' &&
-    typeof preferenceData[6] === 'boolean' &&
-    typeof preferenceData[7] === 'string' &&
-    isAddress(preferenceData[7]) &&
-    typeof preferenceData[8] === 'bigint'
-      ? {
-          appAddress: preferenceData[0],
-          preferredToken: preferenceData[1],
-          tokenSymbol: preferenceData[2],
-          tokenDecimals: preferenceData[3],
-          allowFallback: preferenceData[4],
-          minBalance: preferenceData[5],
-          isActive: preferenceData[6],
-          registrant: preferenceData[7],
-          registrationTime: preferenceData[8],
-        }
-      : null
+  // Validate preferenceData with Zod schema
+  const validatedData = validateOrNull(AppPreferenceDataSchema, preferenceData)
+  const preference: AppPreference | null = validatedData
+    ? {
+        appAddress: validatedData[0],
+        preferredToken: validatedData[1],
+        tokenSymbol: validatedData[2],
+        tokenDecimals: validatedData[3],
+        allowFallback: validatedData[4],
+        minBalance: validatedData[5],
+        isActive: validatedData[6],
+        registrant: validatedData[7],
+        registrationTime: validatedData[8],
+      }
+    : null
 
-  // Type-safe extraction of fallback tokens
-  const validFallbackTokens: Address[] = Array.isArray(fallbackTokens)
-    ? fallbackTokens.filter(
-        (t): t is Address => typeof t === 'string' && isAddress(t),
-      )
-    : []
+  // Validate fallback tokens with Zod
+  const validFallbackTokens: Address[] =
+    validateOrNull(FallbackTokensSchema, fallbackTokens) ?? []
 
   return {
     preference,
@@ -330,27 +339,13 @@ export function useBestGasToken(
         : undefined,
   })
 
-  const bestToken =
-    Array.isArray(result) &&
-    typeof result[0] === 'string' &&
-    isAddress(result[0])
-      ? result[0]
-      : undefined
-
-  const tokenCost =
-    Array.isArray(result) && typeof result[1] === 'bigint'
-      ? result[1]
-      : undefined
-
-  const reason =
-    Array.isArray(result) && typeof result[2] === 'string'
-      ? result[2]
-      : undefined
+  // Validate result with Zod schema
+  const validatedResult = validateOrNull(BestPaymentTokenResultSchema, result)
 
   return {
-    bestToken,
-    tokenCost,
-    reason,
+    bestToken: validatedResult?.[0],
+    tokenCost: validatedResult?.[1],
+    reason: validatedResult?.[2],
   }
 }
 
@@ -365,7 +360,10 @@ export function useTokenSupport(
     args: tokenAddress ? [tokenAddress] : undefined,
   })
 
+  // Contract returns boolean directly, validate with Zod
+  const validated = z.boolean().safeParse(isSupported)
+
   return {
-    isSupported: typeof isSupported === 'boolean' ? isSupported : undefined,
+    isSupported: validated.success ? validated.data : undefined,
   }
 }

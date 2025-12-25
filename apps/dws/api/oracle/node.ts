@@ -1,4 +1,8 @@
-import { readContract } from '@jejunetwork/contracts'
+import type {
+  NodeMetrics,
+  OracleNodeConfig,
+  PriceReport,
+} from '@jejunetwork/types'
 import {
   type Address,
   type Chain,
@@ -21,7 +25,6 @@ import {
   REPORT_VERIFIER_ABI,
 } from './abis'
 import { type PriceData, PriceFetcher } from './price-fetcher'
-import type { NodeMetrics, OracleNodeConfig, PriceReport } from './types'
 
 const ZERO_BYTES32 =
   '0x0000000000000000000000000000000000000000000000000000000000000000' as const
@@ -106,7 +109,7 @@ export class OracleNode {
   private async ensureRegistered(): Promise<void> {
     const workerAddress = this.account.address
 
-    const existingOperatorId = await readContract(this.publicClient, {
+    const existingOperatorId = await this.publicClient.readContract({
       address: this.config.networkConnector,
       abi: NETWORK_CONNECTOR_ABI,
       functionName: 'workerToOperator',
@@ -139,7 +142,7 @@ export class OracleNode {
 
     await this.publicClient.waitForTransactionReceipt({ hash })
 
-    this.operatorId = await readContract(this.publicClient, {
+    this.operatorId = await this.publicClient.readContract({
       address: this.config.networkConnector,
       abi: NETWORK_CONNECTOR_ABI,
       functionName: 'workerToOperator',
@@ -154,7 +157,7 @@ export class OracleNode {
     console.log('[OracleNode] Polling prices...')
 
     // Get active feeds
-    const feedIds = await readContract(this.publicClient, {
+    const feedIds = await this.publicClient.readContract({
       address: this.config.feedRegistry,
       abi: FEED_REGISTRY_ABI,
       functionName: 'getActiveFeeds',
@@ -165,11 +168,11 @@ export class OracleNode {
 
     // Submit reports for each feed
     for (const feedId of feedIds) {
-      const priceData = prices.get(feedId as Hex)
+      const priceData = prices.get(feedId)
       if (!priceData) continue
 
       // Check if we're a committee member for this feed
-      const isMember = await this.isCommitteeMember(feedId as Hex)
+      const isMember = await this.isCommitteeMember(feedId)
       if (!isMember) {
         console.log(
           `[OracleNode] Not a committee member for ${feedId}, skipping`,
@@ -177,14 +180,14 @@ export class OracleNode {
         continue
       }
 
-      await this.submitReport(feedId as Hex, priceData)
+      await this.submitReport(feedId, priceData)
     }
   }
 
   private async isCommitteeMember(feedId: Hex): Promise<boolean> {
     const workerAddress = this.account.address
 
-    return readContract(this.publicClient, {
+    return this.publicClient.readContract({
       address: this.config.committeeManager,
       abi: COMMITTEE_MANAGER_ABI,
       functionName: 'isCommitteeMember',
@@ -194,7 +197,7 @@ export class OracleNode {
 
   private async submitReport(feedId: Hex, priceData: PriceData): Promise<void> {
     // Get current round
-    const currentRound = await readContract(this.publicClient, {
+    const currentRound = await this.publicClient.readContract({
       address: this.config.reportVerifier,
       abi: REPORT_VERIFIER_ABI,
       functionName: 'getCurrentRound',

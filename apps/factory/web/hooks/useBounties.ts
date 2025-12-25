@@ -1,7 +1,8 @@
-import { hasArrayProperty, isRecord } from '@jejunetwork/types'
+import { hasArrayProperty, isPlainObject } from '@jejunetwork/types'
 import { useQuery } from '@tanstack/react-query'
 import type { Address } from 'viem'
 import { useReadContract } from 'wagmi'
+import { z } from 'zod'
 import { getContractAddressSafe } from '../config/contracts'
 import { api, extractDataSafe } from '../lib/client'
 
@@ -114,19 +115,35 @@ function isBountiesResponse(data: unknown): data is BountiesResponse {
   return hasArrayProperty(data, 'bounties')
 }
 
+// Zod schema for ApiBounty validation
+const ApiBountySchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  description: z.string(),
+  reward: z.string(),
+  currency: z.string(),
+  status: z.enum(['open', 'in_progress', 'review', 'completed', 'cancelled']),
+  skills: z.array(z.string()),
+  creator: z.string(),
+  deadline: z.number(),
+  milestones: z
+    .array(
+      z.object({
+        name: z.string(),
+        description: z.string(),
+        reward: z.string(),
+        currency: z.string(),
+        deadline: z.number(),
+      }),
+    )
+    .optional(),
+  submissions: z.number().optional(),
+  createdAt: z.number().optional(),
+  updatedAt: z.number().optional(),
+})
+
 function isApiBounty(data: unknown): data is ApiBounty {
-  return (
-    isRecord(data) &&
-    typeof data.id === 'string' &&
-    typeof data.title === 'string' &&
-    typeof data.description === 'string' &&
-    typeof data.reward === 'string' &&
-    typeof data.currency === 'string' &&
-    typeof data.status === 'string' &&
-    Array.isArray(data.skills) &&
-    typeof data.creator === 'string' &&
-    typeof data.deadline === 'number'
-  )
+  return ApiBountySchema.safeParse(data).success
 }
 
 function transformBounty(b: ApiBounty): Bounty {
@@ -137,15 +154,15 @@ function transformBounty(b: ApiBounty): Bounty {
     creator: b.creator,
     rewards: [
       {
-        token: b.currency || 'ETH',
+        token: b.currency ?? 'ETH',
         amount: b.reward,
       },
     ],
-    skills: b.skills || [],
+    skills: b.skills ?? [],
     deadline: b.deadline,
-    applicants: b.submissions || 0,
+    applicants: b.submissions ?? 0,
     status: b.status,
-    milestones: b.milestones?.length || 1,
+    milestones: b.milestones?.length ?? 1,
   }
 }
 
@@ -196,7 +213,7 @@ async function fetchBountyStats(): Promise<BountyStats> {
   const openBounties = bounties.filter((b) => b.status === 'open').length
   const completed = bounties.filter((b) => b.status === 'completed').length
   const totalValue = bounties.reduce(
-    (sum, b) => sum + Number.parseFloat(b.reward || '0'),
+    (sum, b) => sum + Number.parseFloat(b.reward ?? '0'),
     0,
   )
   const avgPayout = completed > 0 ? totalValue / completed : 0
@@ -237,7 +254,7 @@ export function useBounties(filter?: {
   })
 
   return {
-    bounties: apiBounties || [],
+    bounties: apiBounties ?? [],
     bountyIds,
     isLoading,
     error,
@@ -284,7 +301,7 @@ export function useBounty(bountyId: string) {
     queryFn: async (): Promise<Bounty | null> => {
       const response = await api.api.bounties({ id: bountyId }).get()
       const data = extractDataSafe(response)
-      if (!isRecord(data)) return null
+      if (!isPlainObject(data)) return null
       if ('error' in data) return null
       if (!isApiBounty(data)) return null
       return transformBounty(data)

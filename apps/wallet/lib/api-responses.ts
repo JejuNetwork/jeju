@@ -283,32 +283,37 @@ export const ModelsListResponseSchema = z.object({
 })
 
 export const ChatCompletionResponseSchema = z.object({
-  id: z.string().optional(),
-  model: z.string().optional(),
+  id: z.string().default(''),
+  model: z.string().default(''),
   choices: z
     .array(
       z.object({
         message: z.object({
-          content: z.string().optional(),
+          content: z.string().default(''),
         }),
+        delta: z
+          .object({
+            content: z.string().default(''),
+          })
+          .optional(),
       }),
     )
-    .optional(),
+    .default([]),
   usage: z
     .object({
-      prompt_tokens: z.number().optional(),
-      completion_tokens: z.number().optional(),
-      total_tokens: z.number().optional(),
+      prompt_tokens: z.number().default(0),
+      completion_tokens: z.number().default(0),
+      total_tokens: z.number().default(0),
     })
-    .optional(),
+    .default({ prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }),
   cost: z
     .object({
       amount: z.string(),
-      currency: z.string().optional(),
+      currency: z.string().default(''),
       txHash: z.string().optional(),
     })
     .optional(),
-  provider: z.string().optional(),
+  provider: z.string().default(''),
   tee_attestation: z.string().optional(),
 })
 

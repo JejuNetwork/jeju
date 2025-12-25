@@ -215,7 +215,7 @@ export function AgentsPage() {
               </div>
 
               <p className="text-factory-400 text-sm line-clamp-2 mb-4">
-                {agent.description || 'No description provided'}
+                {agent.description ?? 'No description provided'}
               </p>
 
               <div className="grid grid-cols-3 gap-4 text-center">

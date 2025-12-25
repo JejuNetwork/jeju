@@ -39,7 +39,6 @@ describe('isSupportedChainId', () => {
     11155420, // Optimism Sepolia
     421614, // Arbitrum Sepolia
     43114, // Avalanche
-    31337, // Local EVM
   ]
 
   test.each(

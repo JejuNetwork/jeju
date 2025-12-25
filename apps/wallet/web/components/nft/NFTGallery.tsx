@@ -230,7 +230,7 @@ function NFTCard({ nft, viewMode, onTransfer }: NFTCardProps) {
         <div className="flex-1 min-w-0">
           <div className="font-medium truncate">{nft.name}</div>
           <div className="text-sm text-muted-foreground truncate">
-            {nft.collectionName || 'Unknown Collection'}
+            {nft.collectionName ?? 'Unknown Collection'}
           </div>
         </div>
 
@@ -308,7 +308,7 @@ function NFTCard({ nft, viewMode, onTransfer }: NFTCardProps) {
       <div className="p-3">
         <div className="font-medium truncate">{nft.name}</div>
         <div className="text-sm text-muted-foreground truncate">
-          {nft.collectionName || 'Unknown'}
+          {nft.collectionName ?? 'Unknown'}
         </div>
         <div className="text-xs text-muted-foreground mt-1">{chain.name}</div>
       </div>

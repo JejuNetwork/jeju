@@ -151,7 +151,7 @@ function NodeCard({ nodeId }: NodeCardProps) {
               margin: 0,
             }}
           >
-            ≈ {formatUSD(Number(pendingRewardsUSD || 0n) / 1e18)}
+            ≈ {formatUSD(Number(pendingRewardsUSD ?? 0n) / 1e18)}
           </p>
         </div>
       </div>
@@ -249,7 +249,7 @@ function NodeCard({ nodeId }: NodeCardProps) {
         >
           {isClaiming
             ? 'Claiming...'
-            : `Claim ${rewardTokenInfo?.symbol || 'Rewards'}`}
+            : `Claim ${rewardTokenInfo?.symbol ?? 'Rewards'}`}
         </button>
         <button
           type="button"

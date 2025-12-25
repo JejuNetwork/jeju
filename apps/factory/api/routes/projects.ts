@@ -43,8 +43,8 @@ export const projectsRoutes = new Elysia({ prefix: '/api/projects' })
     '/',
     async ({ query }) => {
       const validated = expectValid(ProjectsQuerySchema, query, 'query params')
-      const page = Number.parseInt(validated.page || '1', 10)
-      const limit = Number.parseInt(validated.limit || '20', 10)
+      const page = Number.parseInt(validated.page ?? '1', 10)
+      const limit = Number.parseInt(validated.limit ?? '20', 10)
       const projects: Project[] = []
       return { projects, total: projects.length, page, limit }
     },
@@ -134,8 +134,8 @@ export const projectsRoutes = new Elysia({ prefix: '/api/projects' })
       const updates = expectValid(UpdateTaskBodySchema, body, 'request body')
       const task: ProjectTask = {
         id: params.taskId,
-        title: updates.title || 'Task',
-        status: updates.status || 'pending',
+        title: updates.title ?? 'Task',
+        status: updates.status ?? 'pending',
         assignee: updates.assignee,
         dueDate: updates.dueDate,
       }

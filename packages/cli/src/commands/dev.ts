@@ -462,12 +462,9 @@ function printReady(
 
     // Show all deployed apps (JNS gateway serves from local builds)
     for (const app of deployedApps) {
-      // Skip backend-only apps (backend enabled but no frontend)
-      const isBackendOnly =
-        (app.architecture?.backend && !app.architecture?.frontend) ||
-        app.name === 'otto' // Otto is a chatbot, no web UI
-
-      if (isBackendOnly) continue
+      // Only show apps that have frontend architecture
+      const hasFrontend = app.architecture?.frontend
+      if (!hasFrontend) continue
 
       const displayName = app.displayName || app.name
       const slug = app.name.toLowerCase().replace(/\s+/g, '-')

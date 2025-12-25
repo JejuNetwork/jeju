@@ -131,9 +131,9 @@ export class SocialManager {
       stars: userStars.size,
       followers: 0, // Would need follower tracking
       following: 0, // Would need following tracking
-      totalCommits: user.totalCommits || 0,
-      totalPRs: user.totalPRs || 0,
-      totalIssues: user.totalIssues || 0,
+      totalCommits: user.totalCommits ?? 0,
+      totalPRs: user.totalPRs ?? 0,
+      totalIssues: user.totalIssues ?? 0,
     }
   }
   /**
@@ -236,7 +236,7 @@ export class SocialManager {
 
     return {
       starred: false,
-      starCount: repoStars?.size || 0,
+      starCount: repoStars?.size ?? 0,
     }
   }
 
@@ -308,7 +308,7 @@ export class SocialManager {
    * Get star count for a repo
    */
   getStarCount(repoId: Hex): number {
-    return this.starsCache.get(repoId)?.size || 0
+    return this.starsCache.get(repoId)?.size ?? 0
   }
   /**
    * Fork a repository
@@ -328,7 +328,7 @@ export class SocialManager {
     }
 
     // Check if user already has a fork
-    const existingForks = this.forksCache.get(originalRepoId) || []
+    const existingForks = this.forksCache.get(originalRepoId) ?? []
     const userFork = existingForks.find(
       (f) => f.forkedBy.toLowerCase() === forker.toLowerCase(),
     )
@@ -392,7 +392,7 @@ export class SocialManager {
     repoId: Hex,
     options: { page?: number; perPage?: number } = {},
   ): Promise<{ forks: Array<Fork & { repo: Repository }>; total: number }> {
-    const allForks = this.forksCache.get(repoId) || []
+    const allForks = this.forksCache.get(repoId) ?? []
 
     const page = options.page || 1
     const perPage = options.perPage || 30
@@ -414,7 +414,7 @@ export class SocialManager {
    * Get fork count for a repo
    */
   getForkCount(repoId: Hex): number {
-    return this.forksCache.get(repoId)?.length || 0
+    return this.forksCache.get(repoId)?.length ?? 0
   }
 
   /**
@@ -497,8 +497,8 @@ export class SocialManager {
     forks: Fork[]
   }> {
     return {
-      stars: Array.from(this.starsCache.get(repoId) || []),
-      forks: this.forksCache.get(repoId) || [],
+      stars: Array.from(this.starsCache.get(repoId) ?? []),
+      forks: this.forksCache.get(repoId) ?? [],
     }
   }
 

@@ -274,7 +274,7 @@ export default function SettingsPage() {
                         color: 'var(--text-secondary)',
                       }}
                     >
-                      Reason: {banRecord.reason || 'No reason provided'}
+                      Reason: {banRecord.reason ?? 'Not specified'}
                     </div>
                   </div>
                 )}
