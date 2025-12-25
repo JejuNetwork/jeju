@@ -6,7 +6,7 @@ Decentralized agent orchestration platform for autonomous AI agents.
 
 Crucible provides **fully decentralized** agent deployment:
 
-- **CQL Database** - CovenantSQL for decentralized memory persistence (NO SQLITE, NO POSTGRES)
+- **CQL Database** - CovenantSQL for decentralized memory persistence
 - **DWS Compute** - Decentralized AI inference network
 - **@jejunetwork/eliza-plugin** - 60+ network actions for agents
 

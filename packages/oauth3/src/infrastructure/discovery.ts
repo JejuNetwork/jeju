@@ -2,7 +2,7 @@
  * OAuth3 Discovery - App and TEE node discovery via on-chain registries
  */
 
-import { ZERO_ADDRESS } from '@jejunetwork/types'
+import { toError, ZERO_ADDRESS } from '@jejunetwork/types'
 import {
   type Address,
   createPublicClient,
@@ -422,7 +422,7 @@ export class OAuth3DecentralizedDiscovery {
       blockNumber = await this.client.getBlockNumber()
       chainHealthy = blockNumber > 0n
     } catch (error) {
-      chainError = (error as Error).message
+      chainError = toError(error).message
     }
 
     let jnsHealthy = false
@@ -432,7 +432,7 @@ export class OAuth3DecentralizedDiscovery {
       await this.jns.isAvailable('health.jeju')
       jnsHealthy = true
     } catch (error) {
-      jnsError = (error as Error).message
+      jnsError = toError(error).message
     }
     const jnsLatency = Date.now() - jnsStart
 

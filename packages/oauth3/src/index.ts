@@ -12,12 +12,55 @@ import './polyfills'
  * - Decentralized storage (IPFS) for sessions and credentials
  * - Compute marketplace integration for TEE node discovery
  * - W3C Verifiable Credentials for identity attestations
+ * - DID (Decentralized Identity) management
+ * - Gas sponsorship via Paymaster
  *
  * Deployment modes:
  * - localnet: Local development with simulated TEE (chain 420691)
  * - testnet: Jeju Testnet with real TEE (chain 420690)
  * - mainnet: Jeju Mainnet production (chain 420692)
  */
+
+// DID (Decentralized Identity)
+export {
+  type AuthMethod,
+  type CreateIdentityResult,
+  createDID,
+  createDIDFromAddress,
+  type DID,
+  type DIDDocument,
+  didEquals,
+  DIDManager,
+  type DIDManagerConfig,
+  DIDNetwork,
+  extractAddressFromDID,
+  generateRandomDID,
+  getNetwork,
+  isLocalnet,
+  isMainnet,
+  isTestnet,
+  parseDID,
+  type ParsedDID,
+  validateDID,
+  type VerificationMethod,
+} from './did/index.js'
+
+// Paymaster (Gas Sponsorship)
+export {
+  createGasEstimator,
+  createTreasuryPaymaster,
+  type GasEstimate,
+  GasEstimator,
+  type GasEstimatorConfig,
+  type PaymasterConfig,
+  type PaymasterData,
+  type PaymasterDecision,
+  type SponsorshipPolicy,
+  type SponsorshipResult,
+  TreasuryPaymaster,
+  type UserOperation,
+  type UserSponsorshipState,
+} from './paymaster/index.js'
 
 // Multi-tenant Council
 export {

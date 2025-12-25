@@ -2,7 +2,7 @@
  * Decentralized State Management for DWS
  *
  * Persists compute jobs, storage pins, git repos, and package registrations to CovenantSQL.
- * CQL is REQUIRED - no fallbacks. Run infrastructure before starting DWS.
+ * CQL is required. Run infrastructure before starting DWS.
  */
 
 import {
@@ -1472,7 +1472,7 @@ export async function initializeDWSState(): Promise<void> {
   }
 }
 
-// Get state mode - always CQL, no fallbacks
+// Get state mode
 export function getStateMode(): 'cql' {
   return 'cql'
 }

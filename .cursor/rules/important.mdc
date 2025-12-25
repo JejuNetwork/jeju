@@ -25,3 +25,10 @@ If you are expecting something, you can use an expect/throw pattern. Always aim 
 - Ditto for types -- always search for existing types before making new ones
 - Prefer configuration files over environment variables for public, rarely reset information
 - Parse JSON with Zod validation, always validate all external inputs and outputs
+
+# VERY IMPORTANT
+
+- avoid all use of unknown, optional chaining, null coallescing, any kind of default type if the data is null or undefined, anything that could be a strong type
+- use shared types and avoid any local types that could be or should be shared or might already have a shared type to borrow
+- avoid any re-exports, just directly import from the actual file
+- avoid any use of 'as' that could just be stronger upstream types

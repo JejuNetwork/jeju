@@ -741,6 +741,38 @@ export class OAuth3Client {
   }
 
   /**
+   * Validate a session token and return the session if valid
+   * This is used by API servers to authenticate requests
+   *
+   * @param token Session token to validate (either sessionId or bearer token)
+   * @returns The validated session
+   * @throws Error if session is invalid or expired
+   */
+  async validateSession(token: string): Promise<OAuth3Session> {
+    const teeAgentUrl = this.getTeeAgentUrl()
+
+    const response = await fetch(`${teeAgentUrl}/session/validate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => 'Unknown error')
+      if (response.status === 401) {
+        throw new Error(`Session expired or invalid: ${errorText}`)
+      }
+      throw new Error(`Session validation failed: ${response.status} - ${errorText}`)
+    }
+
+    return validateResponse(
+      OAuth3SessionSchema,
+      await response.json(),
+      'session validation response',
+    )
+  }
+
+  /**
    * Get the discovered app details
    */
   getDiscoveredApp(): DiscoveredApp | null {

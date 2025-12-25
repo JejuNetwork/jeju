@@ -10,8 +10,6 @@
  * - Column-level ACL for privacy
  * - Multi-tenant database rental
  * - Integration with DWS for vector embeddings
- *
- * NO SQLITE. NO POSTGRES. CQL ONLY.
  */
 
 import {

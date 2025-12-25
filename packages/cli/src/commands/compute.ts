@@ -6,6 +6,7 @@ import { spawn } from 'bun'
 import { Command } from 'commander'
 import { getChainStatus } from '../lib/chain'
 import { logger } from '../lib/logger'
+import { toError } from '@jejunetwork/types'
 import {
   sanitizeErrorMessage,
   validateAddress,
@@ -389,7 +390,7 @@ async function submitJob(
     logger.info(`Track with: jeju compute job ${result.jobId}`)
   } catch (error) {
     logger.error(
-      `Failed to submit job: ${sanitizeErrorMessage(error as Error)}`,
+      `Failed to submit job: ${sanitizeErrorMessage(toError(error))}`,
     )
     process.exit(1)
   }

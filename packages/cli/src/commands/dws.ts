@@ -13,6 +13,7 @@ import { Command } from 'commander'
 import type { Address } from 'viem'
 import { bootstrapContracts, getChainStatus } from '../lib/chain'
 import { logger } from '../lib/logger'
+import { toError } from '@jejunetwork/types'
 import {
   sanitizeErrorMessage,
   validateAddress,
@@ -369,7 +370,7 @@ async function startDwsDev(options: {
     '╠══════════════════════════════════════════════════════════════╣',
   )
   console.log(
-    '║  All infrastructure required - no fallbacks.                 ║',
+    '║  All infrastructure required.                                 ║',
   )
   console.log(
     '╚══════════════════════════════════════════════════════════════╝\n',
@@ -550,7 +551,7 @@ async function uploadFile(filePath: string): Promise<void> {
     logger.newline()
     logger.info(`Download with: jeju dws download ${result.cid}`)
   } catch (error) {
-    logger.error(`Upload failed: ${sanitizeErrorMessage(error as Error)}`)
+    logger.error(`Upload failed: ${sanitizeErrorMessage(toError(error))}`)
     process.exit(1)
   }
 }
@@ -626,7 +627,7 @@ async function downloadFile(
     logger.keyValue('Size', `${content.length} bytes`)
     logger.keyValue('Saved to', outputPath)
   } catch (error) {
-    logger.error(`Download failed: ${sanitizeErrorMessage(error as Error)}`)
+    logger.error(`Download failed: ${sanitizeErrorMessage(toError(error))}`)
     process.exit(1)
   }
 }

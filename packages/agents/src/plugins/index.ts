@@ -1,0 +1,12 @@
+/**
+ * Agent Plugin System
+ *
+ * Extensible plugin architecture for agent capabilities.
+ *
+ * @packageDocumentation
+ */
+
+export * from './core'
+export * from './autonomy'
+export * from './experience'
+export * from './trajectory'

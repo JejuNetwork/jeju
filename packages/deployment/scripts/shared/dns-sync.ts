@@ -12,6 +12,7 @@
  */
 
 import * as http from 'node:http'
+import { toError } from '@jejunetwork/types'
 import { Counter, Gauge, Histogram, Registry } from 'prom-client'
 import {
   type Address,
@@ -470,7 +471,7 @@ export class DNSSyncService {
 
       console.log('[DNS Sync] Sync complete')
     } catch (error) {
-      this.logAudit('error', 'sync', { error: (error as Error).message })
+      this.logAudit('error', 'sync', { error: toError(error).message })
       console.error('[DNS Sync] Sync failed:', error)
     }
   }
@@ -569,7 +570,7 @@ export class DNSSyncService {
       console.log(`[DNS Sync] Route53: Updated ${changes.length} records`)
     } catch (error) {
       dnsSyncTotal.inc({ provider: 'route53', status: 'error' })
-      this.logAudit('error', 'route53', { error: (error as Error).message })
+      this.logAudit('error', 'route53', { error: toError(error).message })
       throw error
     } finally {
       timer()
@@ -613,7 +614,7 @@ export class DNSSyncService {
       console.log(`[DNS Sync] Cloud DNS: Updated ${records.length} records`)
     } catch (error) {
       dnsSyncTotal.inc({ provider: 'cloud-dns', status: 'error' })
-      this.logAudit('error', 'cloud-dns', { error: (error as Error).message })
+      this.logAudit('error', 'cloud-dns', { error: toError(error).message })
     } finally {
       timer()
     }
@@ -702,7 +703,7 @@ export class DNSSyncService {
       console.log(`[DNS Sync] Cloudflare: Updated ${records.length} records`)
     } catch (error) {
       dnsSyncTotal.inc({ provider: 'cloudflare', status: 'error' })
-      this.logAudit('error', 'cloudflare', { error: (error as Error).message })
+      this.logAudit('error', 'cloudflare', { error: toError(error).message })
     } finally {
       timer()
     }
@@ -765,7 +766,7 @@ export class DNSSyncService {
       console.log(`[DNS Sync] On-chain: Updated ${records.length} services`)
     } catch (error) {
       dnsSyncTotal.inc({ provider: 'on-chain', status: 'error' })
-      this.logAudit('error', 'on-chain', { error: (error as Error).message })
+      this.logAudit('error', 'on-chain', { error: toError(error).message })
     } finally {
       timer()
     }

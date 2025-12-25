@@ -4,6 +4,7 @@
  * Run with: cd apps/council && bun run tests/tee-verification.ts
  */
 
+import { toError } from '@jejunetwork/types'
 import {
   decryptReasoning,
   getTEEMode,
@@ -138,7 +139,7 @@ async function testEncryption() {
       console.log('  ❌ Decision mismatch')
     }
   } catch (error) {
-    console.log(`  ❌ Decryption failed: ${(error as Error).message}`)
+    console.log(`  ❌ Decryption failed: ${toError(error).message}`)
   }
   console.log()
 

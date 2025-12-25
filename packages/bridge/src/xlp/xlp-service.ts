@@ -768,7 +768,7 @@ export class XLPService extends EventEmitter {
 }
 
 export function createXLPService(config: Partial<XLPConfig>): XLPService {
-  // SECURITY: Private key is required - no fallbacks to invalid values
+  // SECURITY: Private key is required
   const privateKey = config.privateKey || process.env.XLP_PRIVATE_KEY
   if (!privateKey) {
     throw new Error(

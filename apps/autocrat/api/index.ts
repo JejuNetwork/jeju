@@ -1,7 +1,7 @@
 /**
  * Network Council - AI DAO Governance
  *
- * DECENTRALIZED ARCHITECTURE - NO FALLBACKS:
+ * DECENTRALIZED ARCHITECTURE:
  * 1. CovenantSQL (CQL) required for state persistence
  *    - Set CQL_BLOCK_PRODUCER_ENDPOINT or start: docker compose up -d
  *

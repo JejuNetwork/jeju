@@ -14,14 +14,11 @@ export {
   expect,
   HexSchema,
   isHex,
+  isValidAddress as isAddress,
   type JsonValue,
 } from '@jejunetwork/types'
 
 import { AddressSchema, HexSchema } from '@jejunetwork/types'
-
-export function isAddress(value: unknown): value is `0x${string}` {
-  return typeof value === 'string' && AddressSchema.safeParse(value).success
-}
 
 export const Bytes32Schema = z
   .string()
