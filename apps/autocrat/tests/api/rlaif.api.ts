@@ -53,7 +53,7 @@ test.describe('RLAIF Endpoints', () => {
       // First create a run
       const createResponse = await request.post(`${AUTOCRAT_URL}/rlaif/runs`, {
         data: {
-          environment: { id: 'babylon', type: 'game', configCID: 'QmConfig' },
+          environment: { id: 'test-env', type: 'game', configCID: 'QmConfig' },
           archetype: 'degen',
           baseModel: 'test-model',
           trainingConfig: { steps: 50, batchSize: 4, learningRate: 0.001 },
@@ -142,7 +142,7 @@ test.describe('RLAIF Endpoints', () => {
         `${AUTOCRAT_URL}/rlaif/trajectories`,
         {
           data: {
-            environment: 'babylon',
+            environment: 'test-env',
             archetype: 'trader',
             trajectories: [
               {
@@ -175,12 +175,12 @@ test.describe('RLAIF Endpoints', () => {
 
     test('can get trajectory stats', async ({ request }) => {
       const response = await request.get(
-        `${AUTOCRAT_URL}/rlaif/trajectories/stats?environment=babylon`,
+        `${AUTOCRAT_URL}/rlaif/trajectories/stats?environment=test-env`,
       )
       expect(response.ok()).toBeTruthy()
 
       const data = await response.json()
-      expect(data.environment).toBe('babylon')
+      expect(data.environment).toBe('test-env')
       expect(typeof data.totalTrajectories).toBe('number')
       expect(data.byArchetype).toBeDefined()
       expect(typeof data.readyForTraining).toBe('boolean')
@@ -189,12 +189,12 @@ test.describe('RLAIF Endpoints', () => {
 
     test('can get trajectories', async ({ request }) => {
       const response = await request.get(
-        `${AUTOCRAT_URL}/rlaif/trajectories?environment=babylon&archetype=trader`,
+        `${AUTOCRAT_URL}/rlaif/trajectories?environment=test-env&archetype=trader`,
       )
       expect(response.ok()).toBeTruthy()
 
       const data = await response.json()
-      expect(data.environment).toBe('babylon')
+      expect(data.environment).toBe('test-env')
       expect(data.archetype).toBe('trader')
       expect(typeof data.count).toBe('number')
       expect(Array.isArray(data.trajectories)).toBeTruthy()

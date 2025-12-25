@@ -735,7 +735,7 @@ async function runBunTests(
   try {
     // Intentionally run tests from `packages/tests` only.
     // Running `bun test` at repo root or across workspaces pulls in vendor workspaces
-    // (e.g. `vendor/babylon`) which is not part of Jeju’s CI surface.
+    // which are not part of Jeju's CI surface.
     const testsRoot = join(rootDir, 'packages', 'tests')
     if (!existsSync(testsRoot)) {
       return { name: type, passed: true, duration: 0, skipped: true }

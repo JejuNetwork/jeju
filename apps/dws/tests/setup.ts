@@ -116,7 +116,7 @@ async function startAnvil(): Promise<boolean> {
 
   console.log('[Test Setup] Starting Anvil...')
   _anvilProcess = Bun.spawn(
-    [anvil, '--port', String(ANVIL_PORT), '--chain-id', '1337', '--silent'],
+    [anvil, '--port', String(ANVIL_PORT), '--chain-id', '31337', '--silent'],
     {
       stdout: 'pipe',
       stderr: 'pipe',

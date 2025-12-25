@@ -530,18 +530,18 @@ describe('Full RLAIF Pipeline', () => {
   })
 })
 
-// Babylon Rubric Integration Tests
+// Custom Rubric Integration Tests
 
-describe('Babylon Rubric Integration', () => {
+describe('Custom Rubric Integration', () => {
   beforeEach(() => {
     clearRubrics()
     registerOrUpdateRubric(DEFAULT_RUBRIC)
   })
 
-  test('can register Babylon-style rubric', () => {
-    const babylonRubric: JudgeRubric = {
-      id: 'babylon-trader',
-      name: 'Babylon Trader',
+  test('can register custom rubric', () => {
+    const traderRubric: JudgeRubric = {
+      id: 'env-trader',
+      name: 'Trading Agent',
       description: 'LLM-as-judge rubric for trader archetype',
       criteria: `
 ## Trader Archetype Evaluation
@@ -561,10 +561,10 @@ Score from 0.0 to 1.0 based on overall trading competence.
       ],
     }
 
-    registerRubric(babylonRubric)
-    expect(hasRubric('babylon-trader')).toBe(true)
+    registerRubric(traderRubric)
+    expect(hasRubric('env-trader')).toBe(true)
 
-    const retrieved = getRubric('babylon-trader')
+    const retrieved = getRubric('env-trader')
     expect(retrieved?.priorityMetrics).toContain('behavior.pnlReturn')
   })
 
@@ -573,8 +573,8 @@ Score from 0.0 to 1.0 based on overall trading competence.
 
     for (const archetype of archetypes) {
       registerRubric({
-        id: `babylon-${archetype}`,
-        name: `Babylon ${archetype}`,
+        id: `env-${archetype}`,
+        name: `Agent ${archetype}`,
         description: `Rubric for ${archetype}`,
         criteria: `Evaluate ${archetype} behavior`,
         priorityMetrics: [`${archetype}.metric`],
@@ -582,9 +582,9 @@ Score from 0.0 to 1.0 based on overall trading competence.
     }
 
     const registered = listRubrics()
-    expect(registered).toContain('babylon-trader')
-    expect(registered).toContain('babylon-degen')
-    expect(registered).toContain('babylon-researcher')
+    expect(registered).toContain('env-trader')
+    expect(registered).toContain('env-degen')
+    expect(registered).toContain('env-researcher')
   })
 })
 

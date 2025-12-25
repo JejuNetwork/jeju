@@ -147,35 +147,6 @@ test.describe('Marketplace Contract Verification', () => {
   })
 })
 
-test.describe('Games with Wallet', () => {
-  test.beforeEach(async ({ context, page, metamaskPage, extensionId }) => {
-    await connectWallet(page, context, metamaskPage, extensionId)
-  })
-
-  test('displays games section', async ({ page }) => {
-    await page.goto('/games')
-    await expect(page.getByRole('heading', { name: /Games/i })).toBeVisible()
-  })
-
-  test('navigates to Hyperscape', async ({ page }) => {
-    await page.goto('/games')
-
-    const hyperscapeLink = page.getByRole('link', { name: /Hyperscape/i })
-    if (await hyperscapeLink.isVisible()) {
-      await hyperscapeLink.click()
-      await page.waitForURL('**/games/hyperscape')
-    }
-  })
-
-  test('shows Hyperscape player stats', async ({ page }) => {
-    await page.goto('/games/hyperscape')
-    await page.waitForTimeout(1000)
-
-    const body = await page.textContent('body')
-    expect(body).toBeTruthy()
-  })
-})
-
 test.describe('Pools with Wallet', () => {
   test.beforeEach(async ({ context, page, metamaskPage, extensionId }) => {
     await connectWallet(page, context, metamaskPage, extensionId)

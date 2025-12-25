@@ -9,7 +9,6 @@ interface IPredimarket {
         GENERIC,
         CALIGULAND,
         CONTEST,
-        HYPERSCAPE,
         CUSTOM
     }
 

@@ -21,8 +21,7 @@ export const GameType = {
   GENERIC: 0,
   CALIGULAND: 1,
   CONTEST: 2,
-  HYPERSCAPE: 3,
-  CUSTOM: 4,
+  CUSTOM: 3,
 } as const
 export type GameType = (typeof GameType)[keyof typeof GameType]
 

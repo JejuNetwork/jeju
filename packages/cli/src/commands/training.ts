@@ -461,7 +461,6 @@ export const trainingCommand = new Command('training')
         'Network: localnet, testnet, mainnet',
         'localnet',
       )
-      .option('--babylon', 'Verify Babylon RLAIF integration')
       .action(async (options) => {
         await verifyTraining(options)
       }),
@@ -472,9 +471,9 @@ export const trainingCommand = new Command('training')
       .description('Run full RLAIF training pipeline')
       .requiredOption(
         '--env <environment>',
-        'Environment: babylon, tictactoe, fundamental',
+        'Environment ID (e.g., simulation, game)',
       )
-      .option('--archetype <archetype>', 'Archetype for Babylon environment')
+      .option('--archetype <archetype>', 'Archetype for scoring rubric')
       .option(
         '--model <model>',
         'Base model CID or HuggingFace ID',
@@ -525,7 +524,7 @@ export const trainingCommand = new Command('training')
         await runBenchmark(modelCid, options)
       }),
   )
-  // RLAIF commands for Babylon/environment training
+  // RLAIF commands for environment training
   .addCommand(
     new Command('rlaif')
       .description('RLAIF training commands')
@@ -534,7 +533,7 @@ export const trainingCommand = new Command('training')
           .description('Create an RLAIF training run')
           .requiredOption(
             '--env <environment>',
-            'Environment ID (e.g., babylon)',
+            'Environment ID (e.g., simulation, game)',
           )
           .requiredOption('--model <model>', 'Base model CID or name')
           .option(
@@ -543,7 +542,7 @@ export const trainingCommand = new Command('training')
             'localnet',
           )
           .option('--iterations <n>', 'Target iterations', '10')
-          .option('--archetype <type>', 'Archetype for rubric (Babylon only)')
+          .option('--archetype <type>', 'Archetype for scoring rubric')
           .action(async (options) => {
             await createRLAIFRun(options)
           }),
@@ -586,54 +585,6 @@ export const trainingCommand = new Command('training')
           )
           .action(async (runId, options) => {
             await submitRLAIFTrajectories(runId, options)
-          }),
-      ),
-  )
-  // Babylon-specific training
-  .addCommand(
-    new Command('babylon')
-      .description('Babylon-specific training commands')
-      .addCommand(
-        new Command('generate')
-          .description('Generate trajectories for an archetype')
-          .requiredOption(
-            '--archetype <type>',
-            'Archetype: trader, degen, scammer, etc.',
-          )
-          .option('--agents <n>', 'Number of agents', '5')
-          .option('--ticks <n>', 'Ticks per agent', '20')
-          .action(async (options) => {
-            await babylonGenerate(options)
-          }),
-      )
-      .addCommand(
-        new Command('score')
-          .description('Score trajectories with RULER')
-          .option('--archetype <type>', 'Archetype to score')
-          .option('--limit <n>', 'Max trajectories to score', '100')
-          .action(async (options) => {
-            await babylonScore(options)
-          }),
-      )
-      .addCommand(
-        new Command('train')
-          .description('Run full training pipeline')
-          .requiredOption(
-            '--archetype <type>',
-            'Archetype: trader, degen, etc.',
-          )
-          .option('--model <model>', 'Base model', 'Qwen/Qwen2.5-3B-Instruct')
-          .option('--iterations <n>', 'Training iterations', '5')
-          .option('--use-jeju', 'Use Jeju RLAIF infrastructure', true)
-          .action(async (options) => {
-            await babylonTrain(options)
-          }),
-      )
-      .addCommand(
-        new Command('archetypes')
-          .description('List available archetypes')
-          .action(async () => {
-            await listArchetypes()
           }),
       ),
   )
@@ -1416,7 +1367,7 @@ async function createRLAIFRun(options: {
       body: JSON.stringify({
         environment: {
           id: options.env,
-          type: options.env === 'babylon' ? 'game' : 'custom',
+          type: 'custom',
           configCID: options.archetype
             ? `${options.env}-${options.archetype}`
             : options.env,
@@ -1429,7 +1380,7 @@ async function createRLAIFRun(options: {
         },
         judge: {
           rubricId: options.archetype
-            ? `babylon-${options.archetype}`
+            ? `${options.env}-${options.archetype}`
             : 'default',
         },
         targetIterations: parseInt(options.iterations, 10),
@@ -1583,7 +1534,7 @@ async function listRLAIFRuns(options: {
       logger.info('No RLAIF runs found')
       logger.newline()
       logger.info(
-        'Create a run with: jeju training rlaif create --env babylon --model Qwen/Qwen2.5-3B-Instruct',
+        'Create a run with: jeju training rlaif create --env <environment> --model Qwen/Qwen2.5-3B-Instruct',
       )
       return
     }
@@ -1673,251 +1624,18 @@ async function submitRLAIFTrajectories(
   }
 }
 
-// Babylon-specific commands
-async function babylonGenerate(options: {
-  archetype: string
-  agents: string
-  ticks: string
-}): Promise<void> {
-  logger.header('BABYLON TRAJECTORY GENERATION')
 
-  logger.keyValue('Archetype', options.archetype)
-  logger.keyValue('Agents', options.agents)
-  logger.keyValue('Ticks per agent', options.ticks)
-  logger.newline()
-
-  logger.step('Starting trajectory generation...')
-  logger.info('Run this command in the Babylon project:')
-  logger.newline()
-  console.log(
-    `  cd vendor/babylon && bun run train parallel --archetypes ${options.archetype} --num-agents ${options.agents} --ticks ${options.ticks}`,
-  )
-  logger.newline()
-  logger.info('Or use the Babylon CLI:')
-  console.log(
-    `  babylon train parallel -a ${options.archetype} -n ${options.agents} -t ${options.ticks}`,
-  )
-}
-
-async function babylonScore(options: {
-  archetype?: string
-  limit: string
-}): Promise<void> {
-  logger.header('BABYLON RULER SCORING')
-
-  if (options.archetype) {
-    logger.keyValue('Archetype', options.archetype)
-  }
-  logger.keyValue('Limit', options.limit)
-  logger.newline()
-
-  logger.step('Starting RULER scoring...')
-  logger.info('Run this command in the Babylon project:')
-  logger.newline()
-
-  if (options.archetype) {
-    console.log(
-      `  cd vendor/babylon && bun run train score --archetype ${options.archetype} --limit ${options.limit}`,
-    )
-  } else {
-    console.log(
-      `  cd vendor/babylon && bun run train score --limit ${options.limit}`,
-    )
-  }
-  logger.newline()
-  logger.info('Or use the Babylon CLI:')
-  console.log(
-    `  babylon train score${options.archetype ? ` --archetype ${options.archetype}` : ''}`,
-  )
-}
-
-async function babylonTrain(options: {
-  archetype: string
-  model: string
-  iterations: string
-  useJeju: boolean
-}): Promise<void> {
-  logger.header('BABYLON TRAINING')
-
-  logger.keyValue('Archetype', options.archetype)
-  logger.keyValue('Model', options.model)
-  logger.keyValue('Iterations', options.iterations)
-  logger.keyValue('Infrastructure', options.useJeju ? 'Jeju RLAIF' : 'Local')
-  logger.newline()
-
-  if (options.useJeju) {
-    logger.step('Creating Jeju RLAIF run...')
-
-    const dwsUrl = getDwsUrl()
-
-    try {
-      // Create RLAIF run
-      const response = await fetch(`${dwsUrl}/rlaif/runs`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          environment: {
-            id: 'babylon',
-            type: 'game',
-            configCID: `babylon-${options.archetype}`,
-          },
-          model: {
-            baseModelCID: options.model,
-            tokenizer: 'Qwen/Qwen2.5-3B-Instruct',
-          },
-          judge: {
-            rubricId: `babylon-${options.archetype}`,
-          },
-          targetIterations: parseInt(options.iterations, 10),
-          minTrajectoriesPerIteration: 20,
-        }),
-        signal: AbortSignal.timeout(30000),
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`)
-      }
-
-      const rawResult = await response.json()
-      const result = validate(
-        rawResult,
-        RLAIFRunCreateResponseSchema,
-        'RLAIF run create response',
-      )
-      logger.success(`Created RLAIF run: ${result.runId}`)
-
-      logger.newline()
-      logger.step('Next steps:')
-      logger.info('1. Generate trajectories:')
-      console.log(
-        `   babylon train parallel -a ${options.archetype} -n 10 -t 30`,
-      )
-      logger.info('2. Load trajectories to Jeju:')
-      console.log(
-        `   jeju training babylon score --archetype ${options.archetype}`,
-      )
-      logger.info('3. Start training:')
-      console.log(`   curl -X POST ${dwsUrl}/rlaif/runs/${result.runId}/start`)
-      logger.info('4. Monitor progress:')
-      console.log(`   jeju training rlaif status ${result.runId}`)
-    } catch (_error) {
-      logger.warn(`DWS not available, falling back to local training`)
-      logger.newline()
-      logger.info('Run local training:')
-      console.log(`  cd vendor/babylon/packages/training/python`)
-      console.log(`  python scripts/train_local.py --backend auto`)
-    }
-  } else {
-    logger.info('Run local training:')
-    logger.newline()
-    console.log(`  cd vendor/babylon/packages/training/python`)
-    console.log(`  source venv/bin/activate`)
-    console.log(`  python scripts/train_local.py --backend auto`)
-  }
-}
-
-async function listArchetypes(): Promise<void> {
-  logger.header('BABYLON ARCHETYPES')
-
-  const archetypes = [
-    {
-      id: 'trader',
-      desc: 'Disciplined profit-focused trader',
-      metrics: ['P&L', 'Win Rate', 'Risk Management'],
-    },
-    {
-      id: 'degen',
-      desc: 'High-risk YOLO trader',
-      metrics: ['Position Size', 'Leverage', 'Volatility'],
-    },
-    {
-      id: 'scammer',
-      desc: 'Manipulative, spreads misinformation',
-      metrics: ['Deception Success', 'Victim Count'],
-    },
-    {
-      id: 'researcher',
-      desc: 'Analytical, data-driven',
-      metrics: ['Analysis Depth', 'Prediction Accuracy'],
-    },
-    {
-      id: 'social-butterfly',
-      desc: 'Community engagement focused',
-      metrics: ['Connections', 'Engagement', 'Influence'],
-    },
-    {
-      id: 'information-trader',
-      desc: 'News/signal-based',
-      metrics: ['Signal Speed', 'Information Edge'],
-    },
-    {
-      id: 'perps-trader',
-      desc: 'Perpetual futures specialist',
-      metrics: ['Funding Rate', 'Leverage Efficiency'],
-    },
-    {
-      id: 'super-predictor',
-      desc: 'Prediction market expert',
-      metrics: ['Calibration', 'Brier Score'],
-    },
-    {
-      id: 'infosec',
-      desc: 'Security-conscious',
-      metrics: ['Security Score', 'Risk Avoidance'],
-    },
-    {
-      id: 'goody-twoshoes',
-      desc: 'Helpful, ethical',
-      metrics: ['Helpfulness', 'Ethical Score'],
-    },
-    {
-      id: 'ass-kisser',
-      desc: 'Follows crowd consensus',
-      metrics: ['Conformity', 'Social Proof'],
-    },
-    {
-      id: 'liar',
-      desc: 'Consistently misleading',
-      metrics: ['Deception Rate', 'Plausibility'],
-    },
-  ]
-
-  logger.info(`${archetypes.length} archetypes available:\n`)
-
-  for (const arch of archetypes) {
-    console.log(`  🎭 ${arch.id}`)
-    console.log(`     ${arch.desc}`)
-    console.log(`     Metrics: ${arch.metrics.join(', ')}`)
-    console.log('')
-  }
-
-  logger.newline()
-  logger.info(
-    'Generate data: jeju training babylon generate --archetype trader',
-  )
-  logger.info('Train model:   jeju training babylon train --archetype trader')
-}
-
-async function verifyTraining(options: {
-  network: string
-  babylon?: boolean
-}): Promise<void> {
+async function verifyTraining(options: { network: string }): Promise<void> {
   const rootDir = findMonorepoRoot()
 
-  const scriptName = options.babylon
-    ? 'verify-babylon-rlaif.ts'
-    : 'verify-training.ts'
-  const scriptPath = join(rootDir, 'scripts', scriptName)
+  const scriptPath = join(rootDir, 'scripts', 'verify-training.ts')
 
   if (!existsSync(scriptPath)) {
     logger.error(`Verification script not found: ${scriptPath}`)
     process.exit(1)
   }
 
-  const title = options.babylon
-    ? 'BABYLON RLAIF VERIFICATION'
-    : 'TRAINING VERIFICATION'
-  logger.header(title)
+  logger.header('TRAINING VERIFICATION')
   logger.keyValue('Network', options.network)
   logger.newline()
 
@@ -1985,10 +1703,9 @@ async function runFullRLAIFPipeline(options: {
   }
 
   // Determine rubric ID based on environment and archetype
-  const rubricId =
-    options.env === 'babylon' && options.archetype
-      ? `babylon-${options.archetype}`
-      : `${options.env}-default`
+  const rubricId = options.archetype
+    ? `${options.env}-${options.archetype}`
+    : `${options.env}-default`
 
   logger.step('Creating RLAIF run...')
 
@@ -1999,7 +1716,7 @@ async function runFullRLAIFPipeline(options: {
       body: JSON.stringify({
         environment: {
           id: options.env,
-          type: options.env === 'babylon' ? 'game' : 'simulation',
+          type: 'simulation',
           configCID: options.archetype
             ? `${options.env}-${options.archetype}`
             : options.env,
@@ -2032,13 +1749,7 @@ async function runFullRLAIFPipeline(options: {
 
     logger.info('Next steps:')
     logger.info('1. Generate trajectories:')
-    if (options.env === 'babylon' && options.archetype) {
-      console.log(
-        `   jeju training babylon generate --archetype ${options.archetype}`,
-      )
-    } else {
-      console.log('   # Submit trajectories via your environment')
-    }
+    console.log('   # Generate and submit trajectories via your environment')
 
     logger.info('2. Submit to the run:')
     console.log(

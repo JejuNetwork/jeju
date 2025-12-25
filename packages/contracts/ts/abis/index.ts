@@ -57,13 +57,6 @@ export {
 import type { Abi } from 'viem'
 import AppTokenPreferenceAbiJson from '../../abis/AppTokenPreference.json'
 import AutomationRegistryAbiJson from '../../abis/AutomationRegistry.json'
-import BabylonDiamondAbiJson from '../../abis/BabylonDiamond.json'
-import BabylonDiamondCutFacetAbiJson from '../../abis/BabylonDiamondCutFacet.json'
-import BabylonDiamondLoupeFacetAbiJson from '../../abis/BabylonDiamondLoupeFacet.json'
-import BabylonERC8004IdentityRegistryAbiJson from '../../abis/BabylonERC8004IdentityRegistry.json'
-import BabylonERC8004ReputationSystemAbiJson from '../../abis/BabylonERC8004ReputationSystem.json'
-import BabylonOracleFacetAbiJson from '../../abis/BabylonOracleFacet.json'
-import BabylonPredictionMarketFacetAbiJson from '../../abis/BabylonPredictionMarketFacet.json'
 import BanManagerAbiJson from '../../abis/BanManager.json'
 import BazaarAbiJson from '../../abis/Bazaar.json'
 import BondingCurveAbiJson from '../../abis/BondingCurve.json'
@@ -105,18 +98,6 @@ export const BazaarAbi = BazaarAbiJson.abi as Abi
 export const IdentityRegistryAbi = IdentityRegistryAbiJson.abi as Abi
 export const ReputationRegistryAbi = ReputationRegistryAbiJson.abi as Abi
 export const ValidationRegistryAbi = ValidationRegistryAbiJson.abi as Abi
-export const BabylonDiamondAbi = BabylonDiamondAbiJson.abi as Abi
-export const BabylonDiamondCutFacetAbi =
-  BabylonDiamondCutFacetAbiJson.abi as Abi
-export const BabylonDiamondLoupeFacetAbi =
-  BabylonDiamondLoupeFacetAbiJson.abi as Abi
-export const BabylonPredictionMarketFacetAbi =
-  BabylonPredictionMarketFacetAbiJson.abi as Abi
-export const BabylonOracleFacetAbi = BabylonOracleFacetAbiJson.abi as Abi
-export const BabylonERC8004IdentityRegistryAbi =
-  BabylonERC8004IdentityRegistryAbiJson.abi as Abi
-export const BabylonERC8004ReputationSystemAbi =
-  BabylonERC8004ReputationSystemAbiJson.abi as Abi
 export const InputSettlerAbi = InputSettlerAbiJson.abi as Abi
 export const OutputSettlerAbi = OutputSettlerAbiJson.abi as Abi
 export const SolverRegistryAbi = SolverRegistryAbiJson.abi as Abi
@@ -184,13 +165,6 @@ export {
   AutomationRegistryAbiJson,
   OracleRouterAbiJson,
   ChainlinkGovernanceAbiJson,
-  BabylonDiamondAbiJson,
-  BabylonDiamondCutFacetAbiJson,
-  BabylonDiamondLoupeFacetAbiJson,
-  BabylonPredictionMarketFacetAbiJson,
-  BabylonOracleFacetAbiJson,
-  BabylonERC8004IdentityRegistryAbiJson,
-  BabylonERC8004ReputationSystemAbiJson,
 }
 
 // ============================================================================

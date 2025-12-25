@@ -7,7 +7,8 @@
  * - OAuth3AppRegistry
  * - AccountFactory
  *
- * Also registers default OAuth3 apps for Jeju, Babylon, and Eliza councils.
+ * Also registers default OAuth3 apps for Jeju and Eliza councils.
+ * Vendor apps (like Babylon) should register their own OAuth3 apps.
  */
 
 import {
@@ -48,16 +49,6 @@ const DEFAULT_COUNCILS: Record<string, CouncilAppConfig> = {
       'https://jejunetwork.org/auth/callback',
       'https://council.jejunetwork.org/auth/callback',
       'http://localhost:3000/auth/callback',
-    ],
-  },
-  babylon: {
-    name: 'Babylon Game',
-    description: 'Official OAuth3 app for Babylon game platform',
-    council: '0x0000000000000000000000000000000000000000' as Address,
-    redirectUris: [
-      'https://babylon.jejunetwork.org/auth/callback',
-      'https://play.babylon.jejunetwork.org/auth/callback',
-      'http://localhost:3001/auth/callback',
     ],
   },
   eliza: {

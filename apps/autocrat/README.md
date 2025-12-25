@@ -129,7 +129,7 @@ cd ../../packages/contracts && forge test --match-contract "Council|QualityOracl
 
 ### RLAIF Integration
 
-For external training pipelines (e.g., Babylon) to use the RLAIF endpoint:
+For external training pipelines to use the RLAIF endpoint:
 
 ```bash
 # Set environment variable in your training service
@@ -144,7 +144,7 @@ const response = await fetch(`${JEJU_COMPUTE_API_URL}/rlaif/runs`, {
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
     environment: {
-      id: 'babylon',
+      id: 'my-game',
       type: 'game',
       configCID: 'QmConfig...',
     },

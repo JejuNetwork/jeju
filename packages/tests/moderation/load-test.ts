@@ -142,7 +142,7 @@ describe('Moderation Load Tests', () => {
   })
 
   test('Database can handle high write throughput', async () => {
-    // For Hyperscape: Many players logging in simultaneously
+    // Many users logging in simultaneously
     const concurrentLogins = 100
 
     // Each login checks ban status

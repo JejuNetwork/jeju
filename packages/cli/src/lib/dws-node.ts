@@ -133,43 +133,53 @@ export async function registerDWSNode(
 
   // Register as storage provider if contract is deployed
   if (hasStorage) {
-    logger.debug('Registering as storage provider...')
-    storageHash = await client.writeContract({
-      address: config.storageManagerAddress,
-      abi: STORAGE_MANAGER_ABI,
-      functionName: 'registerProvider',
-      args: [
-        StorageBackend.IPFS,
-        config.dwsEndpoint,
-        BigInt(1000), // 1 TB capacity
-        BigInt(0), // Free for localnet
-      ],
-    })
+    try {
+      logger.debug('Registering as storage provider...')
+      storageHash = await client.writeContract({
+        address: config.storageManagerAddress,
+        abi: STORAGE_MANAGER_ABI,
+        functionName: 'registerProvider',
+        args: [
+          StorageBackend.IPFS,
+          config.dwsEndpoint,
+          BigInt(1000), // 1 TB capacity
+          BigInt(0), // Free for localnet
+        ],
+      })
 
-    await client.waitForTransactionReceipt({ hash: storageHash })
-    logger.debug(`  Storage provider registered: ${storageHash}`)
+      await client.waitForTransactionReceipt({ hash: storageHash })
+      logger.debug(`  Storage provider registered: ${storageHash}`)
+    } catch (error) {
+      logger.warn('Storage registration failed (contract may be stale)')
+      logger.debug(`  Error: ${String(error)}`)
+    }
   }
 
   // Register as CDN edge node if contract is deployed
   if (hasCdn) {
-    // Get min stake for CDN node
-    const minStake = await client.readContract({
-      address: config.cdnRegistryAddress,
-      abi: CDN_REGISTRY_ABI,
-      functionName: 'minNodeStake',
-    })
+    try {
+      // Get min stake for CDN node
+      const minStake = await client.readContract({
+        address: config.cdnRegistryAddress,
+        abi: CDN_REGISTRY_ABI,
+        functionName: 'minNodeStake',
+      })
 
-    logger.debug('Registering as CDN edge node...')
-    cdnHash = await client.writeContract({
-      address: config.cdnRegistryAddress,
-      abi: CDN_REGISTRY_ABI,
-      functionName: 'registerEdgeNode',
-      args: [config.dwsEndpoint, Region.GLOBAL, ProviderType.DATACENTER],
-      value: minStake,
-    })
+      logger.debug('Registering as CDN edge node...')
+      cdnHash = await client.writeContract({
+        address: config.cdnRegistryAddress,
+        abi: CDN_REGISTRY_ABI,
+        functionName: 'registerEdgeNode',
+        args: [config.dwsEndpoint, Region.GLOBAL, ProviderType.DATACENTER],
+        value: minStake,
+      })
 
-    await client.waitForTransactionReceipt({ hash: cdnHash })
-    logger.debug(`  CDN node registered: ${cdnHash}`)
+      await client.waitForTransactionReceipt({ hash: cdnHash })
+      logger.debug(`  CDN node registered: ${cdnHash}`)
+    } catch (error) {
+      logger.warn('CDN registration failed (contract may be stale)')
+      logger.debug(`  Error: ${String(error)}`)
+    }
   }
 
   logger.success('DWS node registered on-chain')

@@ -257,25 +257,21 @@ describe('Multi-tenant Council', () => {
 
   test('initializes default councils', () => {
     const councils = manager.getAllCouncils()
-    expect(councils).toHaveLength(3)
+    expect(councils).toHaveLength(2)
 
     const councilTypes = councils.map((c) => c.councilType)
     expect(councilTypes).toContain('jeju')
-    expect(councilTypes).toContain('babylon')
     expect(councilTypes).toContain('eliza')
   })
 
   test('each council has unique config', () => {
     const jeju = manager.getCouncil('jeju' as const)
-    const babylon = manager.getCouncil('babylon' as const)
     const eliza = manager.getCouncil('eliza' as const)
 
     expect(jeju?.config.name).toBe('Jeju Network Council')
-    expect(babylon?.config.name).toBe('Babylon Game Council')
     expect(eliza?.config.name).toBe('ElizaOS Council')
 
-    expect(jeju?.config.councilId).not.toBe(babylon?.config.councilId)
-    expect(babylon?.config.councilId).not.toBe(eliza?.config.councilId)
+    expect(jeju?.config.councilId).not.toBe(eliza?.config.councilId)
   })
 
   test('each council has OAuth3 app', () => {

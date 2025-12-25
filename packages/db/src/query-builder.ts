@@ -3,7 +3,7 @@
  *
  * Provides helpers for building parameterized SQL queries from
  * ORM-style where/order/limit options. Used by both @jejunetwork/db
- * adapters and @babylon/db for consistent SQL generation.
+ * adapters for consistent SQL generation.
  *
  * @example
  * ```typescript

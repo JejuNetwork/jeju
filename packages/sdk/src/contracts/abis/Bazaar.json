@@ -9,7 +9,7 @@
           "internalType": "address"
         },
         {
-          "name": "_hyperscapeGold",
+          "name": "_gameToken",
           "type": "address",
           "internalType": "address"
         },
@@ -344,7 +344,7 @@
     },
     {
       "type": "function",
-      "name": "hyperscapeGold",
+      "name": "gameToken",
       "inputs": [],
       "outputs": [
         {

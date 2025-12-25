@@ -53,7 +53,6 @@ export * from './federation'
 // Social Feed (Farcaster)
 export * from './feed'
 // Extended modules
-export * from './games'
 // Developer tools
 export * from './git'
 export * from './governance'

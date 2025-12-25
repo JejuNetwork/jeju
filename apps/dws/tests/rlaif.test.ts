@@ -280,8 +280,8 @@ describe('RLAIF Config', () => {
       runId: 'test-run',
       creator: '0x0000000000000000000000000000000000000000',
       environment: {
-        id: 'babylon',
-        type: 'game',
+        id: 'test-env',
+        type: 'simulation',
         configCID: 'env-config-cid',
       },
       model: {
