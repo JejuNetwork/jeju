@@ -1,4 +1,4 @@
-import { safeReadContract } from '@jejunetwork/contracts'
+import { readContract } from '@jejunetwork/contracts'
 import {
   createPublicClient,
   createWalletClient,
@@ -328,7 +328,7 @@ export class SolverAgent {
         | `0x${string}`
         | undefined)
     if (oracleAddr) {
-      const attested = await safeReadContract(client.public, {
+      const attested = await readContract(client.public, {
         address: oracleAddr,
         abi: ORACLE_ABI,
         functionName: 'hasAttested',
@@ -355,7 +355,7 @@ export class SolverAgent {
     }
 
     // First check if settlement is possible (canSettle)
-    const canSettle = await safeReadContract(client.public, {
+    const canSettle = await readContract(client.public, {
       address: inputSettler,
       abi: INPUT_SETTLER_ABI,
       functionName: 'canSettle',
@@ -429,7 +429,7 @@ export class SolverAgent {
       (process.env[`OIF_OUTPUT_SETTLER_${e.destinationChain}`] as `0x${string}`)
 
     if (client && settler) {
-      const filled = await safeReadContract(client.public, {
+      const filled = await readContract(client.public, {
         address: settler,
         abi: OUTPUT_SETTLER_ABI,
         functionName: 'isFilled',

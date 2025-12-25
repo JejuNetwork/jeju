@@ -1,13 +1,9 @@
 import { Flame, type LucideProps, Shield, Zap } from 'lucide-react'
 import { type ComponentType, useState } from 'react'
 import { type Address, formatEther, parseEther } from 'viem'
-import {
-  useAccount,
-  useReadContract,
-  useWaitForTransactionReceipt,
-  useWriteContract,
-} from 'wagmi'
+import { useAccount, useReadContract } from 'wagmi'
 import { useEILConfig } from '../hooks/useEIL'
+import { useTypedWriteContract } from '../hooks/useTypedWriteContract'
 
 const ShieldIcon = Shield as ComponentType<LucideProps>
 const ZapIcon = Zap as ComponentType<LucideProps>
@@ -133,10 +129,12 @@ function TierCard({
   const [depositAmount, setDepositAmount] = useState('')
   const [withdrawAmount, setWithdrawAmount] = useState('')
 
-  const { writeContract, data: hash, isPending } = useWriteContract()
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
-    hash,
-  })
+  const {
+    write: writeContract,
+    isPending,
+    isConfirming,
+    isSuccess,
+  } = useTypedWriteContract()
 
   const isLoading = isPending || isConfirming
   const Icon = config.icon

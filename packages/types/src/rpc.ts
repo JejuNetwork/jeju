@@ -5,6 +5,21 @@
 import { z } from 'zod'
 import { HexSchema, type JsonValue } from './validation'
 
+/**
+ * String-keyed record of JSON values
+ */
+export type StringRecord<T = JsonValue> = Record<string, T>
+
+/**
+ * JSON-RPC params - either a named record or positional array
+ */
+export type JsonRpcParams = StringRecord<JsonValue> | JsonValue[]
+
+/**
+ * JSON-RPC result - any JSON value
+ */
+export type JsonRpcResult = JsonValue
+
 const JsonPrimitiveSchema = z.union([
   z.string(),
   z.number(),
@@ -35,7 +50,7 @@ export const EvmChainIdSchema = z.union([
   z.literal(421614),
   z.literal(420690),
   z.literal(420691),
-  z.literal(1337),
+  z.literal(31337),
   z.literal(31337),
 ])
 export type EvmChainId = z.infer<typeof EvmChainIdSchema>
@@ -130,6 +145,59 @@ export const GetBalanceResponseSchema = JsonRpcSuccessResponseSchema.extend({
   result: HexSchema,
 })
 export type GetBalanceResponse = z.infer<typeof GetBalanceResponseSchema>
+
+// Rate Limiting Types
+
+/**
+ * Rate limit tiers based on staking amount
+ */
+export const RATE_LIMITS = {
+  FREE: 10,
+  BASIC: 100,
+  PRO: 1000,
+  UNLIMITED: 0,
+} as const
+
+/**
+ * Rate limit tier names
+ */
+export type RateTier = keyof typeof RATE_LIMITS
+
+/**
+ * API key record stored in the database
+ */
+export interface ApiKeyRecord {
+  id: string
+  keyHash: string
+  address: `0x${string}`
+  name: string
+  tier: RateTier
+  createdAt: number
+  lastUsedAt: number
+  requestCount: number
+  isActive: boolean
+}
+
+// RPC Proxy Types
+
+/**
+ * Result from an RPC proxy request
+ */
+export interface ProxyResult {
+  response: JsonRpcResponse
+  latencyMs: number
+  endpoint: string
+  usedFallback: boolean
+}
+
+/**
+ * Health tracking for RPC endpoints
+ */
+export interface EndpointHealth {
+  failures: number
+  lastFailure: number
+  isHealthy: boolean
+}
 
 // Validation Helpers
 

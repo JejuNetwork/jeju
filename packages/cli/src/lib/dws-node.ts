@@ -3,7 +3,7 @@
 import type { Address, Hex } from 'viem'
 import { createWalletClient, http, publicActions } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { localhost } from 'viem/chains'
+import { localnetChain } from './chain'
 import { logger } from './logger'
 
 // Contract ABIs (minimal for registration)
@@ -98,58 +98,80 @@ interface RegistrationResult {
   cdnNodeId: Hex
 }
 
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
+
 /**
  * Register the local DWS node on-chain
  */
 export async function registerDWSNode(
   config: DWSNodeConfig,
 ): Promise<RegistrationResult> {
+  // Check if contracts are deployed
+  const hasStorage =
+    config.storageManagerAddress &&
+    config.storageManagerAddress !== ZERO_ADDRESS
+  const hasCdn =
+    config.cdnRegistryAddress && config.cdnRegistryAddress !== ZERO_ADDRESS
+
+  if (!hasStorage && !hasCdn) {
+    throw new Error(
+      'DWS contracts not deployed (storageManager and cdnRegistry are zero addresses)',
+    )
+  }
+
   const account = privateKeyToAccount(config.privateKey)
 
   const client = createWalletClient({
     account,
-    chain: localhost,
+    chain: localnetChain,
     transport: http(config.rpcUrl),
   }).extend(publicActions)
 
   logger.step('Registering DWS node on-chain...')
 
-  // Register as storage provider
-  logger.debug('Registering as storage provider...')
-  const storageHash = await client.writeContract({
-    address: config.storageManagerAddress,
-    abi: STORAGE_MANAGER_ABI,
-    functionName: 'registerProvider',
-    args: [
-      StorageBackend.IPFS,
-      config.dwsEndpoint,
-      BigInt(1000), // 1 TB capacity
-      BigInt(0), // Free for localnet
-    ],
-  })
+  let storageHash: Hex = '0x' as Hex
+  let cdnHash: Hex = '0x' as Hex
 
-  await client.waitForTransactionReceipt({ hash: storageHash })
-  logger.debug(`  Storage provider registered: ${storageHash}`)
+  // Register as storage provider if contract is deployed
+  if (hasStorage) {
+    logger.debug('Registering as storage provider...')
+    storageHash = await client.writeContract({
+      address: config.storageManagerAddress,
+      abi: STORAGE_MANAGER_ABI,
+      functionName: 'registerProvider',
+      args: [
+        StorageBackend.IPFS,
+        config.dwsEndpoint,
+        BigInt(1000), // 1 TB capacity
+        BigInt(0), // Free for localnet
+      ],
+    })
 
-  // Get min stake for CDN node
-  const minStake = await client.readContract({
-    address: config.cdnRegistryAddress,
-    abi: CDN_REGISTRY_ABI,
-    functionName: 'minNodeStake',
-  })
+    await client.waitForTransactionReceipt({ hash: storageHash })
+    logger.debug(`  Storage provider registered: ${storageHash}`)
+  }
 
-  // Register as CDN edge node
-  logger.debug('Registering as CDN edge node...')
-  const cdnHash = await client.writeContract({
-    address: config.cdnRegistryAddress,
-    abi: CDN_REGISTRY_ABI,
-    functionName: 'registerEdgeNode',
-    args: [config.dwsEndpoint, Region.GLOBAL, ProviderType.DATACENTER],
-    value: minStake,
-  })
+  // Register as CDN edge node if contract is deployed
+  if (hasCdn) {
+    // Get min stake for CDN node
+    const minStake = await client.readContract({
+      address: config.cdnRegistryAddress,
+      abi: CDN_REGISTRY_ABI,
+      functionName: 'minNodeStake',
+    })
 
-  await client.waitForTransactionReceipt({ hash: cdnHash })
-  logger.debug(`  CDN node registered: ${cdnHash}`)
+    logger.debug('Registering as CDN edge node...')
+    cdnHash = await client.writeContract({
+      address: config.cdnRegistryAddress,
+      abi: CDN_REGISTRY_ABI,
+      functionName: 'registerEdgeNode',
+      args: [config.dwsEndpoint, Region.GLOBAL, ProviderType.DATACENTER],
+      value: minStake,
+    })
+
+    await client.waitForTransactionReceipt({ hash: cdnHash })
+    logger.debug(`  CDN node registered: ${cdnHash}`)
+  }
 
   logger.success('DWS node registered on-chain')
 
@@ -169,7 +191,7 @@ export async function addWorkerEndpoint(
 
   const client = createWalletClient({
     account,
-    chain: localhost,
+    chain: localnetChain,
     transport: http(config.rpcUrl),
   }).extend(publicActions)
 

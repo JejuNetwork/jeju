@@ -1,4 +1,4 @@
-import { safeReadContract } from '@jejunetwork/contracts'
+import { readContract } from '@jejunetwork/contracts'
 import { createPublicClient, http } from 'viem'
 import { foundry } from 'viem/chains'
 import {
@@ -194,14 +194,11 @@ export class MetricsExporter {
     }
 
     // Query contract metrics
-    const feedIds = await safeReadContract<readonly `0x${string}`[]>(
-      this.client,
-      {
-        address: this.config.feedRegistry,
-        abi: FEED_REGISTRY_ABI,
-        functionName: 'getActiveFeeds',
-      },
-    )
+    const feedIds = await readContract(this.client, {
+      address: this.config.feedRegistry,
+      abi: FEED_REGISTRY_ABI,
+      functionName: 'getActiveFeeds',
+    })
 
     this.addMetric(
       metrics,
@@ -215,39 +212,26 @@ export class MetricsExporter {
     let totalActiveMembers = 0
 
     for (const feedId of feedIds) {
-      type FeedData = {
-        symbol: string
-        heartbeatSeconds: bigint
-        minOracles: bigint
-      }
-      type PriceData = [bigint, bigint, bigint, boolean]
-      type RoundData = bigint
-      type CommitteeData = {
-        isActive: boolean
-        members: readonly `0x${string}`[]
-        threshold: bigint
-        round: bigint
-      }
       const [feed, priceData, currentRound, committee] = await Promise.all([
-        safeReadContract<FeedData>(this.client, {
+        readContract(this.client, {
           address: this.config.feedRegistry,
           abi: FEED_REGISTRY_ABI,
           functionName: 'getFeed',
           args: [feedId],
         }),
-        safeReadContract<PriceData>(this.client, {
+        readContract(this.client, {
           address: this.config.reportVerifier,
           abi: REPORT_VERIFIER_ABI,
           functionName: 'getLatestPrice',
           args: [feedId],
         }),
-        safeReadContract<RoundData>(this.client, {
+        readContract(this.client, {
           address: this.config.reportVerifier,
           abi: REPORT_VERIFIER_ABI,
           functionName: 'getCurrentRound',
           args: [feedId],
         }),
-        safeReadContract<CommitteeData>(this.client, {
+        readContract(this.client, {
           address: this.config.committeeManager,
           abi: COMMITTEE_MANAGER_ABI,
           functionName: 'getCommittee',

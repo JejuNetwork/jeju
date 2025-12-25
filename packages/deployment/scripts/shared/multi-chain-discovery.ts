@@ -13,7 +13,7 @@
  * - Network Testnet (420690)
  */
 
-import { safeReadContract } from '@jejunetwork/shared'
+import { readContract } from '@jejunetwork/shared'
 import {
   type Address,
   createPublicClient,
@@ -260,7 +260,7 @@ export class MultiChainDiscovery {
           ) {
             balance = await client.getBalance({ address: user })
           } else {
-            balance = await safeReadContract<bigint>(client, {
+            balance = await readContract(client, {
               address: token.address,
               abi: ERC20_BALANCE_ABI,
               functionName: 'balanceOf',

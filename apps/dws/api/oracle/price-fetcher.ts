@@ -1,4 +1,5 @@
-import { safeReadContract } from '@jejunetwork/contracts'
+import { readContract } from '@jejunetwork/contracts'
+import type { PriceData } from '@jejunetwork/types'
 import {
   createPublicClient,
   encodePacked,
@@ -10,12 +11,7 @@ import { foundry } from 'viem/chains'
 import { CHAINLINK_AGGREGATOR_ABI, UNISWAP_V3_POOL_ABI } from './abis'
 import type { PriceSourceConfig } from './types'
 
-export interface PriceData {
-  price: bigint
-  confidence: bigint
-  timestamp: bigint
-  source: string
-}
+export type { PriceData }
 
 const now = () => BigInt(Math.floor(Date.now() / 1000))
 
@@ -67,14 +63,13 @@ export class PriceFetcher {
   private async fetchUniswapV3Price(
     source: PriceSourceConfig,
   ): Promise<PriceData> {
-    type Slot0Data = [bigint, number, number, number, number, number, boolean]
     const [slot0, liquidity] = await Promise.all([
-      safeReadContract<Slot0Data>(this.client, {
+      readContract(this.client, {
         address: source.address,
         abi: UNISWAP_V3_POOL_ABI,
         functionName: 'slot0',
       }),
-      safeReadContract<bigint>(this.client, {
+      readContract(this.client, {
         address: source.address,
         abi: UNISWAP_V3_POOL_ABI,
         functionName: 'liquidity',
@@ -108,14 +103,13 @@ export class PriceFetcher {
   private async fetchChainlinkPrice(
     source: PriceSourceConfig,
   ): Promise<PriceData> {
-    type RoundData = [bigint, bigint, bigint, bigint, bigint]
     const [roundData, decimals] = await Promise.all([
-      safeReadContract<RoundData>(this.client, {
+      readContract(this.client, {
         address: source.address,
         abi: CHAINLINK_AGGREGATOR_ABI,
         functionName: 'latestRoundData',
       }),
-      safeReadContract<number>(this.client, {
+      readContract(this.client, {
         address: source.address,
         abi: CHAINLINK_AGGREGATOR_ABI,
         functionName: 'decimals',

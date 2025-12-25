@@ -24,7 +24,7 @@ import { createX402Routes, getX402Middleware } from './x402'
 
 const envSchema = z.object({
   PORT: z.string().regex(/^\d+$/).default('4500').transform(Number),
-  APP_NAME: z.string().default('Decentralized App Template'),
+  APP_NAME: z.string().default('Example'),
   CORS_ORIGINS: z.string().optional(),
 })
 
@@ -385,7 +385,7 @@ const app = new Elysia()
     ],
   }))
   .get('/docs', () => ({
-    title: 'Decentralized App Template API',
+    title: 'Example API',
     version: VERSION,
     description: 'An application demonstrating all Jeju network services',
 

@@ -137,7 +137,7 @@ beforeAll(async () => {
   const blockNumber = await publicClient.getBlockNumber().catch(() => null)
   if (blockNumber === null) {
     console.error(`\n❌ Cannot connect to localnet at ${RPC_URL}`)
-    console.error('   Please start anvil: anvil --port 6546 --chain-id 1337')
+    console.error('   Please start anvil: anvil --port 6546 --chain-id 31337')
     skipTests = true
     return
   }

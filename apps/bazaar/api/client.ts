@@ -8,8 +8,11 @@ import { getCoreAppUrl } from '@jejunetwork/config'
 import type { Address } from 'viem'
 import type { z } from 'zod'
 import {
+  type FaucetClaimResult,
   FaucetClaimResultSchema,
+  type FaucetInfo,
   FaucetInfoSchema,
+  type FaucetStatus,
   FaucetStatusSchema,
 } from './faucet'
 
@@ -92,14 +95,12 @@ export const queryKeys = {
   },
 } as const
 
-// Response Types
-
-export type FaucetInfo = z.infer<typeof FaucetInfoSchema>
-export type FaucetStatus = z.infer<typeof FaucetStatusSchema>
-export type FaucetClaimResult = z.infer<typeof FaucetClaimResultSchema>
+// Response Types - import from faucet.ts to avoid duplication
+export type { FaucetClaimResult, FaucetInfo, FaucetStatus } from './faucet'
 
 // Import HealthResponse from lib/client.ts to avoid duplication
-export type { HealthResponse } from '../lib/client'
+import type { HealthResponse } from '../lib/client'
+export type { HealthResponse }
 
 export interface A2AInfoResponse {
   service: string

@@ -68,7 +68,7 @@ impl Service for OracleService {
         }
     }
 
-    async fn start(&mut self, config: &ServiceConfig) -> Result<(), String> {
+    async fn start(&mut self, _config: &ServiceConfig) -> Result<(), String> {
         if self.running.load(Ordering::SeqCst) {
             return Err("Service already running".to_string());
         }
@@ -83,9 +83,9 @@ impl Service for OracleService {
 
         let running = self.running.clone();
         let reports_submitted = self.reports_submitted.clone();
-        let reports_accepted = self.reports_accepted.clone();
-        let earnings_wei = self.earnings_wei.clone();
-        let rpc_url = self.rpc_url.clone();
+        let _reports_accepted = self.reports_accepted.clone();
+        let _earnings_wei = self.earnings_wei.clone();
+        let _rpc_url = self.rpc_url.clone();
 
         tokio::spawn(async move {
             tracing::info!("Oracle service started");

@@ -32,7 +32,7 @@ export const CHAIN_CONFIGS: Partial<
   11155111: { chainId: 11155111, blockTimeMs: 12000 },
   420690: { chainId: 420690, blockTimeMs: 1000 },
   420691: { chainId: 420691, blockTimeMs: 1000 },
-  1337: { chainId: 1337, blockTimeMs: 1000 },
+  31337: { chainId: 31337, blockTimeMs: 1000 },
 }
 
 export function getChainConfig(chainId: EVMChainId): ChainRpcConfig {

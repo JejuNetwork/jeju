@@ -10,10 +10,10 @@ export { ZERO_ADDRESS, isValidAddress }
 
 export type NetworkName = 'localnet' | 'testnet' | 'mainnet'
 
-export type ChainId = 1337 | 31337 | 420690 | 420691 | 11155111 | 1
+export type ChainId = 31337 | 420690 | 420691 | 11155111 | 1
 
 export const CHAIN_IDS = {
-  localnet: 1337,
+  localnet: 31337,
   anvil: 31337,
   testnet: 420690,
   testnetL2: 420691,
@@ -22,7 +22,6 @@ export const CHAIN_IDS = {
 } as const
 
 export const NETWORK_BY_CHAIN_ID: Record<ChainId, NetworkName> = {
-  1337: 'localnet',
   31337: 'localnet',
   420690: 'testnet',
   420691: 'testnet',
@@ -36,16 +35,16 @@ export interface ContractABI {
 }
 
 export type DeploymentFile =
-  | 'uniswap-v4-1337'
+  | 'uniswap-v4-31337'
   | 'uniswap-v4-420691'
-  | 'bazaar-marketplace-1337'
-  | 'erc20-factory-1337'
-  | 'identity-system-1337'
+  | 'bazaar-marketplace-31337'
+  | 'erc20-factory-31337'
+  | 'identity-system-31337'
   | 'localnet-addresses'
   | 'paymaster-system-localnet'
-  | 'multi-token-system-1337'
+  | 'multi-token-system-31337'
   | 'eil-localnet'
   | 'eil-testnet'
-  | 'eliza-token-1337'
-  | 'predimarket-1337'
-  | 'rpg-tokens-1337'
+  | 'eliza-token-31337'
+  | 'predimarket-31337'
+  | 'rpg-tokens-31337'

@@ -3,7 +3,7 @@
  * Used by Gateway and Bazaar for A2A/MCP endpoints
  */
 
-import { safeReadContract } from '@jejunetwork/contracts'
+import { readContract } from '@jejunetwork/contracts'
 import {
   type Address,
   type Chain,
@@ -534,24 +534,6 @@ const REPUTATION_LABEL_MANAGER_ABI = [
   },
 ] as const
 
-type StakeData = {
-  amount: bigint
-  stakedAt: bigint
-  stakedBlock: bigint
-  lastActivityBlock: bigint
-  isStaked: boolean
-}
-
-type ReputationData = {
-  successfulBans: bigint
-  unsuccessfulBans: bigint
-  totalSlashedFrom: bigint
-  totalSlashedOthers: bigint
-  reputationScore: bigint
-  lastReportTimestamp: bigint
-  reportCooldownUntil: bigint
-}
-
 type CaseData = {
   caseId: `0x${string}`
   reporter: `0x${string}`
@@ -569,23 +551,6 @@ type CaseData = {
   resolved: boolean
   outcome: number
   appealCount: bigint
-}
-
-type ReportData = {
-  reportId: bigint
-  reportType: number
-  severity: number
-  targetAgentId: bigint
-  sourceAppId: `0x${string}`
-  reporter: `0x${string}`
-  reporterAgentId: bigint
-  evidenceHash: `0x${string}`
-  details: string
-  marketId: `0x${string}`
-  reportBond: bigint
-  createdAt: bigint
-  votingEnds: bigint
-  status: number
 }
 
 export class ModerationAPI {
@@ -616,21 +581,19 @@ export class ModerationAPI {
     if (!this.config.banManagerAddress) return defaultResult
 
     const [isAddressBanned, isOnNotice, addressBan] = await Promise.all([
-      safeReadContract<boolean>(this.client, {
+      readContract(this.client, {
         address: this.config.banManagerAddress,
         abi: BAN_MANAGER_ABI,
         functionName: 'isAddressBanned',
         args: [address as Address],
       }).catch((): boolean => false),
-      safeReadContract<boolean>(this.client, {
+      readContract(this.client, {
         address: this.config.banManagerAddress,
         abi: BAN_MANAGER_ABI,
         functionName: 'isOnNotice',
         args: [address as Address],
       }).catch((): boolean => false),
-      safeReadContract<
-        readonly [number, string, `0x${string}`, Address, bigint]
-      >(this.client, {
+      readContract(this.client, {
         address: this.config.banManagerAddress,
         abi: BAN_MANAGER_ABI,
         functionName: 'getAddressBan',
@@ -640,14 +603,14 @@ export class ModerationAPI {
 
     if (!isAddressBanned && !isOnNotice) return defaultResult
 
-    // addressBan is a tuple: [banType, reason, caseId, reporter, bannedAt]
+    // addressBan has named properties
     const ban = addressBan
       ? {
-          banType: addressBan[0],
-          reason: addressBan[1],
-          caseId: addressBan[2],
-          reporter: addressBan[3],
-          bannedAt: addressBan[4],
+          banType: addressBan.banType,
+          reason: addressBan.reason,
+          caseId: addressBan.caseId,
+          reporter: addressBan.reporter,
+          bannedAt: addressBan.bannedAt,
         }
       : null
     const banType = ban ? getBanTypeName(ban.banType) : 'NONE'
@@ -678,43 +641,43 @@ export class ModerationAPI {
 
     const [stake, rep, pnl, tier, canReport, requiredStake, quorum] =
       await Promise.all([
-        safeReadContract<StakeData | null>(this.client, {
+        readContract(this.client, {
           address: this.config.moderationMarketplaceAddress,
           abi: MODERATION_MARKETPLACE_ABI,
           functionName: 'getStake',
           args: [address as Address],
         }).catch((): null => null),
-        safeReadContract<ReputationData | null>(this.client, {
+        readContract(this.client, {
           address: this.config.moderationMarketplaceAddress,
           abi: MODERATION_MARKETPLACE_ABI,
           functionName: 'getModeratorReputation',
           args: [address as Address],
         }).catch((): null => null),
-        safeReadContract<bigint>(this.client, {
+        readContract(this.client, {
           address: this.config.moderationMarketplaceAddress,
           abi: MODERATION_MARKETPLACE_ABI,
           functionName: 'getModeratorPnL',
           args: [address as Address],
         }).catch((): bigint => BigInt(0)),
-        safeReadContract<number>(this.client, {
+        readContract(this.client, {
           address: this.config.moderationMarketplaceAddress,
           abi: MODERATION_MARKETPLACE_ABI,
           functionName: 'getReputationTier',
           args: [address as Address],
         }).catch((): number => 2),
-        safeReadContract<boolean>(this.client, {
+        readContract(this.client, {
           address: this.config.moderationMarketplaceAddress,
           abi: MODERATION_MARKETPLACE_ABI,
           functionName: 'canReport',
           args: [address as Address],
         }).catch((): boolean => false),
-        safeReadContract<bigint>(this.client, {
+        readContract(this.client, {
           address: this.config.moderationMarketplaceAddress,
           abi: MODERATION_MARKETPLACE_ABI,
           functionName: 'getRequiredStakeForReporter',
           args: [address as Address],
         }).catch((): bigint => parseEther('0.01')),
-        safeReadContract<bigint>(this.client, {
+        readContract(this.client, {
           address: this.config.moderationMarketplaceAddress,
           abi: MODERATION_MARKETPLACE_ABI,
           functionName: 'getQuorumRequired',
@@ -754,14 +717,11 @@ export class ModerationAPI {
   }): Promise<ModerationCase[]> {
     if (!this.config.moderationMarketplaceAddress) return []
 
-    const caseIds = await safeReadContract<readonly `0x${string}`[]>(
-      this.client,
-      {
-        address: this.config.moderationMarketplaceAddress,
-        abi: MODERATION_MARKETPLACE_ABI,
-        functionName: 'getAllCaseIds',
-      },
-    ).catch((): readonly `0x${string}`[] => [])
+    const caseIds = await readContract(this.client, {
+      address: this.config.moderationMarketplaceAddress,
+      abi: MODERATION_MARKETPLACE_ABI,
+      functionName: 'getAllCaseIds',
+    }).catch((): readonly `0x${string}`[] => [])
     if (!caseIds.length) return []
 
     const limit = options?.limit || 50
@@ -771,15 +731,12 @@ export class ModerationAPI {
       caseIds.slice(0, limit).map(async (caseId: `0x${string}`) => {
         const address = this.config.moderationMarketplaceAddress
         if (!address) return null
-        const rawCaseData = await safeReadContract<CaseData | null>(
-          this.client,
-          {
-            address,
-            abi: MODERATION_MARKETPLACE_ABI,
-            functionName: 'getCase',
-            args: [caseId],
-          },
-        ).catch((): null => null)
+        const rawCaseData = await readContract(this.client, {
+          address,
+          abi: MODERATION_MARKETPLACE_ABI,
+          functionName: 'getCase',
+          args: [caseId],
+        }).catch((): null => null)
         if (!rawCaseData) return null
         const caseData = rawCaseData as CaseData
 
@@ -822,7 +779,7 @@ export class ModerationAPI {
   async getModerationCase(caseId: string): Promise<ModerationCase | null> {
     if (!this.config.moderationMarketplaceAddress) return null
 
-    const caseData = await safeReadContract<CaseData | null>(this.client, {
+    const caseData = await readContract(this.client, {
       address: this.config.moderationMarketplaceAddress,
       abi: MODERATION_MARKETPLACE_ABI,
       functionName: 'getCase',
@@ -864,7 +821,7 @@ export class ModerationAPI {
   }): Promise<Report[]> {
     if (!this.config.reportingSystemAddress) return []
 
-    const reportIds = await safeReadContract<readonly bigint[]>(this.client, {
+    const reportIds = await readContract(this.client, {
       address: this.config.reportingSystemAddress,
       abi: REPORTING_SYSTEM_ABI,
       functionName: 'getAllReports',
@@ -876,7 +833,7 @@ export class ModerationAPI {
       reportIds.slice(0, limit).map(async (reportId: bigint) => {
         const address = this.config.reportingSystemAddress
         if (!address) return null
-        const report = await safeReadContract<ReportData | null>(this.client, {
+        const report = await readContract(this.client, {
           address,
           abi: REPORTING_SYSTEM_ABI,
           functionName: 'getReport',
@@ -919,7 +876,7 @@ export class ModerationAPI {
     }
     if (!this.config.reputationLabelManagerAddress) return defaultResult
 
-    const labelIds = await safeReadContract<readonly number[]>(this.client, {
+    const labelIds = await readContract(this.client, {
       address: this.config.reputationLabelManagerAddress,
       abi: REPUTATION_LABEL_MANAGER_ABI,
       functionName: 'getLabels',
@@ -942,28 +899,28 @@ export class ModerationAPI {
   async getModerationStats(): Promise<ModerationStats> {
     const [caseIds, totalStaked, minStake, reportIds] = await Promise.all([
       this.config.moderationMarketplaceAddress
-        ? safeReadContract<readonly `0x${string}`[]>(this.client, {
+        ? readContract(this.client, {
             address: this.config.moderationMarketplaceAddress,
             abi: MODERATION_MARKETPLACE_ABI,
             functionName: 'getAllCaseIds',
           }).catch((): readonly `0x${string}`[] => [])
         : [],
       this.config.moderationMarketplaceAddress
-        ? safeReadContract<bigint>(this.client, {
+        ? readContract(this.client, {
             address: this.config.moderationMarketplaceAddress,
             abi: MODERATION_MARKETPLACE_ABI,
             functionName: 'totalStaked',
           }).catch(() => BigInt(0))
         : BigInt(0),
       this.config.moderationMarketplaceAddress
-        ? safeReadContract<bigint>(this.client, {
+        ? readContract(this.client, {
             address: this.config.moderationMarketplaceAddress,
             abi: MODERATION_MARKETPLACE_ABI,
             functionName: 'minReporterStake',
           }).catch(() => parseEther('0.01'))
         : parseEther('0.01'),
       this.config.reportingSystemAddress
-        ? safeReadContract<readonly bigint[]>(this.client, {
+        ? readContract(this.client, {
             address: this.config.reportingSystemAddress,
             abi: REPORTING_SYSTEM_ABI,
             functionName: 'getAllReports',

@@ -355,7 +355,7 @@ export class HyperliquidClient {
     const domain = {
       name: 'HyperliquidSignTransaction',
       version: '1',
-      chainId: 1337, // Hyperliquid uses chainId 1337 for L1 action signing (not 998 which is HyperEVM)
+      chainId: 31337, // Hyperliquid uses chainId 31337 for L1 action signing (not 998 which is HyperEVM)
       verifyingContract:
         '0x0000000000000000000000000000000000000000' as Address,
     } as const
@@ -376,7 +376,7 @@ export class HyperliquidClient {
     // Create the message to sign
     const message = {
       hyperliquidChain: 'Mainnet',
-      signatureChainId: BigInt(1337),
+      signatureChainId: BigInt(31337),
       nonce: BigInt(timestamp),
     }
 

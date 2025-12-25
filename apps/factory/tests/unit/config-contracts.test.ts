@@ -24,12 +24,12 @@ describe('Contract Address Selection Logic', () => {
 
   test('localnet chain IDs map to anvil addresses', () => {
     // Chain ID 31337 = Hardhat/Anvil default
-    // Chain ID 1337 = Alternative localnet
-    const localnetChainIds = [31337, 1337]
+    // Chain ID 31337 = Alternative localnet
+    const localnetChainIds = [31337, 31337]
 
     localnetChainIds.forEach((chainId) => {
       // Verify the logic: localnet chains should use deterministic addresses
-      expect([31337, 1337]).toContain(chainId)
+      expect([31337, 31337]).toContain(chainId)
     })
   })
 
@@ -168,7 +168,6 @@ describe('Switch Statement Chain Selection', () => {
   ): 'localnet' | 'testnet' | 'mainnet' {
     switch (chainId) {
       case 31337:
-      case 1337:
         return 'localnet'
       case 84532:
         return 'testnet'
@@ -183,8 +182,8 @@ describe('Switch Statement Chain Selection', () => {
     expect(selectAddressType(31337)).toBe('localnet')
   })
 
-  test('selects localnet for chainId 1337', () => {
-    expect(selectAddressType(1337)).toBe('localnet')
+  test('selects localnet for chainId 31337', () => {
+    expect(selectAddressType(31337)).toBe('localnet')
   })
 
   test('selects testnet for Base Sepolia', () => {

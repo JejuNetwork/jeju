@@ -8,42 +8,14 @@ import {
   getRpcChain as getChain,
   isRpcChainSupported as isChainSupported,
 } from '@jejunetwork/config'
+import type {
+  EndpointHealth,
+  JsonRpcRequest,
+  JsonRpcResponse,
+  ProxyResult,
+} from '@jejunetwork/types'
 
-// JSON-RPC param type - serializable values (limited depth to avoid infinite recursion)
-type JsonRpcParam = string | number | boolean | null | object
-
-export interface JsonRpcRequest {
-  jsonrpc: string
-  id: number | string
-  method: string
-  params?: JsonRpcParam[]
-}
-
-interface JsonRpcError {
-  code: number
-  message: string
-  data?: string | number | boolean | null | object
-}
-
-export interface JsonRpcResponse {
-  jsonrpc: string
-  id: number | string
-  result?: string | number | boolean | null | object
-  error?: JsonRpcError
-}
-
-interface ProxyResult {
-  response: JsonRpcResponse
-  latencyMs: number
-  endpoint: string
-  usedFallback: boolean
-}
-
-interface EndpointHealth {
-  failures: number
-  lastFailure: number
-  isHealthy: boolean
-}
+export type { JsonRpcRequest, JsonRpcResponse }
 
 const endpointHealth = new Map<string, EndpointHealth>()
 const FAILURE_THRESHOLD = 3

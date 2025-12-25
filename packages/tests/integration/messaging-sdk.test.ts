@@ -482,7 +482,9 @@ describe('Messaging SDK', () => {
       const response = await fetch(
         `http://127.0.0.1:${RELAY_PORT}/messages/${bobAddress}`,
       )
-      const { messages, count } = RelayMessagesSchema.parse(await response.json())
+      const { messages, count } = RelayMessagesSchema.parse(
+        await response.json(),
+      )
 
       expect(count).toBe(messagesToSend.length)
 

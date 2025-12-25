@@ -173,7 +173,7 @@ jobs:
 
       - name: Start Anvil (Jeju L2 on port 6546)
         run: |
-          anvil --chain-id 1337 --port 6546 --block-time 1 --accounts 10 --balance 10000 &
+          anvil --chain-id 31337 --port 6546 --block-time 1 --accounts 10 --balance 10000 &
           sleep 5
           curl -s -X POST http://127.0.0.1:6546 \
             -H "Content-Type: application/json" \
@@ -183,7 +183,7 @@ jobs:
         run: bun run test:preflight
         env:
           L2_RPC_URL: http://127.0.0.1:6546
-          CHAIN_ID: "1337"
+          CHAIN_ID: "31337"
 
       - name: Run E2E smoke test
         run: |
@@ -191,7 +191,7 @@ jobs:
           bunx playwright test smoke/chain-preflight.spec.ts --config smoke/playwright.config.ts
         env:
           L2_RPC_URL: http://127.0.0.1:6546
-          CHAIN_ID: "1337"
+          CHAIN_ID: "31337"
         continue-on-error: true
 
   # FINAL CHECK - ALL MUST PASS

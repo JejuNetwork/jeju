@@ -20,10 +20,13 @@
  * - JNS contenthash updates for production
  */
 
+import {
+  readContract,
+  writeContract as typedWriteContract,
+} from '@jejunetwork/contracts'
 import type { Address, Hex, PublicClient, WalletClient } from 'viem'
 import { namehash } from 'viem'
 import { z } from 'zod'
-import { safeReadContract } from '../viem/index'
 
 // IPFS API response schemas for content versioning
 const IPFSResolveResponseSchema = z.object({
@@ -203,15 +206,12 @@ export class ContentVersioningService {
     // Try to get dev endpoint from JNS text record
     if (this.publicClient) {
       const node = namehash(this.config.jnsName) as Hex
-      const jnsDevEndpoint = await safeReadContract<string | null>(
-        this.publicClient,
-        {
-          address: this.config.jnsResolver,
-          abi: JNS_RESOLVER_ABI,
-          functionName: 'text',
-          args: [node, 'dws.dev'],
-        },
-      ).catch((): null => null)
+      const jnsDevEndpoint = await readContract(this.publicClient, {
+        address: this.config.jnsResolver,
+        abi: JNS_RESOLVER_ABI,
+        functionName: 'text',
+        args: [node, 'dws.dev'],
+      }).catch((): null => null)
 
       if (jnsDevEndpoint && jnsDevEndpoint.length > 0) {
         return {
@@ -249,7 +249,7 @@ export class ContentVersioningService {
     const ipnsResponse = await fetch(
       `${this.config.ipfsApiUrl}/api/v0/name/resolve?arg=${ipnsKeyName}&nocache=true`,
       { method: 'POST' },
-    ).catch(() => null)
+    ).catch((): null => null)
 
     if (ipnsResponse?.ok) {
       const rawData: unknown = await ipnsResponse.json()
@@ -284,7 +284,7 @@ export class ContentVersioningService {
     }
 
     const node = namehash(this.config.jnsName) as Hex
-    const contenthash = await safeReadContract<Hex>(this.publicClient, {
+    const contenthash = await readContract(this.publicClient, {
       address: this.config.jnsResolver,
       abi: JNS_RESOLVER_ABI,
       functionName: 'contenthash',
@@ -382,16 +382,11 @@ export class ContentVersioningService {
     const node = namehash(this.config.jnsName) as Hex
     const contenthash = this.encodeContenthash(cid)
 
-    const hash = await this.walletClient.writeContract({
+    const hash = await typedWriteContract(this.walletClient, {
       address: this.config.jnsResolver,
       abi: JNS_RESOLVER_ABI,
       functionName: 'setContenthash',
       args: [node, contenthash],
-      chain: this.walletClient.chain ?? null,
-      account:
-        this.walletClient.account !== undefined
-          ? this.walletClient.account
-          : null,
     })
 
     return {

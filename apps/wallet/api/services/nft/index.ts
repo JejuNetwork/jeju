@@ -50,7 +50,7 @@ class NFTService {
       const nfts: NFT[] = indexed.map((nft) => ({
         contractAddress: nft.contractAddress as Address,
         tokenId: BigInt(nft.tokenId),
-        chainId: 1337 as SupportedChainId, // Default to localnet; indexer will provide actual chainId
+        chainId: 31337 as SupportedChainId, // Default to localnet; indexer will provide actual chainId
         name: nft.metadata?.name || `#${nft.tokenId}`,
         description: nft.metadata?.description || '',
         imageUrl: this.resolveImageUrl(nft.metadata?.image || ''),

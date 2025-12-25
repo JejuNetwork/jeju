@@ -8,7 +8,7 @@
  * All operations are on-chain reads (quoter) or swaps.
  */
 
-import { safeReadContract } from '@jejunetwork/contracts'
+import { readContract } from '@jejunetwork/contracts'
 import type { Address, PublicClient } from 'viem'
 
 // Uniswap V3 Quoter V2
@@ -207,7 +207,7 @@ export class DexAggregator {
     if (!router) return null
 
     try {
-      const result = await safeReadContract<readonly bigint[]>(client, {
+      const result = await readContract(client, {
         address: router,
         abi: V2_ROUTER_ABI,
         functionName: 'getAmountsOut',

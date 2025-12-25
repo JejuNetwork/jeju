@@ -33,7 +33,7 @@ import {
 const MCP_SERVER_INFO: MCPServerInfo = {
   name: 'jeju-todo-mcp',
   version: '1.0.0',
-  description: 'Decentralized Todo MCP Server - Manage todos with AI tools',
+  description: 'Example MCP Server - Manage todos with AI tools',
   capabilities: {
     resources: true,
     tools: true,

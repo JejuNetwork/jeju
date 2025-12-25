@@ -59,7 +59,7 @@ packages/contracts/lib/
 # Generated localnet deployment files (regenerated on each dev run)
 packages/contracts/deployments/localnet-complete.json
 packages/contracts/deployments/localnet-addresses.json
-packages/contracts/deployments/*-1337.json
+packages/contracts/deployments/*-31337.json
 !packages/contracts/deployments/localnet/
 !packages/contracts/deployments/testnet/
 !packages/contracts/deployments/mainnet/

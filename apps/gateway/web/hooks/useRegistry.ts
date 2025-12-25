@@ -1,13 +1,10 @@
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import { useState } from 'react'
 import type { Address } from 'viem'
-import {
-  useReadContract,
-  useWaitForTransactionReceipt,
-  useWriteContract,
-} from 'wagmi'
+import { useReadContract, useWaitForTransactionReceipt } from 'wagmi'
 import { CONTRACTS } from '../../lib/config'
 import { IERC20_ABI } from '../lib/constants'
+import { useTypedWriteContract } from './useTypedWriteContract'
 
 export const IDENTITY_REGISTRY_ADDRESS = CONTRACTS.identityRegistry
 const REGISTRY_ADDRESS = IDENTITY_REGISTRY_ADDRESS
@@ -246,7 +243,7 @@ export interface RegisterAppParams {
 export function useRegistry() {
   const [lastTx, setLastTx] = useState<`0x${string}` | undefined>()
   const { data: txReceipt } = useWaitForTransactionReceipt({ hash: lastTx })
-  const { writeContractAsync } = useWriteContract()
+  const { writeAsync } = useTypedWriteContract()
 
   async function registerApp(
     params: RegisterAppParams,
@@ -254,7 +251,7 @@ export function useRegistry() {
     const { tokenURI, tags, a2aEndpoint, stakeToken, stakeAmount } = params
 
     if (stakeToken !== ZERO_ADDRESS) {
-      await writeContractAsync({
+      await writeAsync({
         address: stakeToken,
         abi: IERC20_ABI,
         functionName: 'approve',
@@ -262,7 +259,7 @@ export function useRegistry() {
       })
     }
 
-    const hash = await writeContractAsync({
+    const hash = await writeAsync({
       address: REGISTRY_ADDRESS,
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'registerWithStake',
@@ -277,7 +274,7 @@ export function useRegistry() {
   async function withdrawStake(
     agentId: bigint,
   ): Promise<{ success: boolean; error?: string }> {
-    const hash = await writeContractAsync({
+    const hash = await writeAsync({
       address: REGISTRY_ADDRESS,
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'withdrawStake',
@@ -454,14 +451,14 @@ export function useRegistryAppDetails(agentId: bigint) {
 export function useRegistryMarketplaceActions() {
   const [lastTx, setLastTx] = useState<`0x${string}` | undefined>()
   const { data: txReceipt } = useWaitForTransactionReceipt({ hash: lastTx })
-  const { writeContractAsync } = useWriteContract()
+  const { writeAsync } = useTypedWriteContract()
 
   async function setEndpoints(
     agentId: bigint,
     a2aEndpoint: string,
     mcpEndpoint: string,
   ): Promise<{ success: boolean; error?: string }> {
-    const hash = await writeContractAsync({
+    const hash = await writeAsync({
       address: REGISTRY_ADDRESS,
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'setEndpoints',
@@ -475,7 +472,7 @@ export function useRegistryMarketplaceActions() {
     agentId: bigint,
     category: string,
   ): Promise<{ success: boolean; error?: string }> {
-    const hash = await writeContractAsync({
+    const hash = await writeAsync({
       address: REGISTRY_ADDRESS,
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'setCategory',
@@ -489,7 +486,7 @@ export function useRegistryMarketplaceActions() {
     agentId: bigint,
     supported: boolean,
   ): Promise<{ success: boolean; error?: string }> {
-    const hash = await writeContractAsync({
+    const hash = await writeAsync({
       address: REGISTRY_ADDRESS,
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'setX402Support',

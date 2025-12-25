@@ -59,7 +59,7 @@
       "regions": [
         "global"
       ],
-      "staticDir": ".vitepress/dist",
+      "staticDir": "docs/dist",
       "cacheRules": [
         {
           "pattern": "/assets/**",
@@ -116,7 +116,7 @@
       "ipfs": true,
       "arweave": true,
       "jnsName": "docs.jeju",
-      "buildDir": ".vitepress/dist",
+      "buildDir": "docs/dist",
       "spa": false
     },
     "robustness": {
@@ -142,7 +142,7 @@
       "type": "spa",
       "builder": "bun",
       "entrypoint": "index.html",
-      "outputDir": "dist"
+      "outputDir": "docs/dist"
     }
   }
 }

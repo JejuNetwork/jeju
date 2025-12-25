@@ -52,6 +52,7 @@ const GraphQLResponseSchema = z.object({
   data: z.record(z.unknown()).optional(),
   errors: z.array(z.object({ message: z.string() })).optional(),
 })
+
 import {
   APP_PORTS,
   APP_URLS,

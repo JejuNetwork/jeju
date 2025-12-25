@@ -21,7 +21,7 @@ import {
 
 const AGENT_CARD = {
   protocolVersion: '0.3.0',
-  name: 'Decentralized Todo Agent',
+  name: 'Example Agent',
   description: 'AI-integrated todo management with full decentralization',
   url: '/api/a2a',
   preferredTransport: 'http',

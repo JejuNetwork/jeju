@@ -75,7 +75,12 @@ export function Settings() {
   const networks = [
     { id: 'mainnet', name: 'Mainnet', chainId: 420690, color: 'bg-jeju-500' },
     { id: 'testnet', name: 'Testnet', chainId: 420691, color: 'bg-blue-500' },
-    { id: 'localnet', name: 'Localnet', chainId: 1337, color: 'bg-yellow-500' },
+    {
+      id: 'localnet',
+      name: 'Localnet',
+      chainId: 31337,
+      color: 'bg-yellow-500',
+    },
   ]
 
   return (

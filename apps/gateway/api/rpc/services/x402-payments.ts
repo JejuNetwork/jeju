@@ -1,35 +1,20 @@
-import type { X402Network } from '@jejunetwork/shared/x402'
+import type {
+  X402Network,
+  X402PaymentHeader,
+  X402PaymentOption,
+  X402PaymentRequirement,
+} from '@jejunetwork/shared'
 import { expectValid, ZERO_ADDRESS } from '@jejunetwork/types'
-
-export type { X402Network }
-
 import type { Address } from 'viem'
 import { hashMessage, recoverAddress } from 'viem'
 import { X402PaymentProofSchema } from '../../../lib/validation'
 import { initializeState, x402State } from '../../services/state'
 
-export interface X402PaymentRequirement {
-  x402Version: number
-  error: string
-  accepts: X402PaymentOption[]
-}
-
-export interface X402PaymentOption {
-  scheme: 'exact' | 'credit' | 'prepaid'
-  network: X402Network | string
-  maxAmountRequired: string
-  asset: Address
-  payTo: Address
-  resource: string
-  description: string
-}
-
-export interface X402PaymentHeader {
-  scheme: string
-  network: string
-  payload: string
-  asset: string
-  amount: string
+export type {
+  X402Network,
+  X402PaymentHeader,
+  X402PaymentOption,
+  X402PaymentRequirement,
 }
 
 const paymentRecipientEnv = process.env.RPC_PAYMENT_RECIPIENT

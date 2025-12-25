@@ -7,7 +7,11 @@ import {
 import { NETWORK_NAME } from '../config'
 import type { A2ARequest as A2ARequestType } from '../schemas/api'
 
-export type { SkillResult }
+// SkillResult type (defined locally to avoid importing @jejunetwork/shared which uses fs)
+export interface SkillResult<T = Record<string, unknown>> {
+  message: string
+  data: T
+}
 
 // Client-safe A2A helpers (avoiding @jejunetwork/shared which uses fs)
 function _getServiceName(service: string): string {

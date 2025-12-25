@@ -1,10 +1,10 @@
 //! Application state management
 
-use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tauri::AppHandle;
+use tokio::sync::RwLock;
 
 use crate::config::NodeConfig;
 use crate::earnings::EarningsTracker;
@@ -98,13 +98,14 @@ impl AppState {
     }
 
     pub fn initialize(&self, _handle: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
-        let mut state = self.inner.write();
+        let mut state = self.inner.blocking_write();
 
         // Load config from disk
         state.config = NodeConfig::load()?;
 
-        // Initialize services based on config
-        state.service_manager.initialize(&state.config)?;
+        // Initialize services based on config - clone to avoid borrow conflict
+        let config_clone = state.config.clone();
+        state.service_manager.initialize(&config_clone)?;
 
         // Load earnings history
         state.earnings_tracker.load()?;
@@ -116,7 +117,7 @@ impl AppState {
     }
 
     pub fn is_initialized(&self) -> bool {
-        self.inner.read().initialized
+        self.inner.blocking_read().initialized
     }
 }
 

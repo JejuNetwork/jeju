@@ -7,7 +7,11 @@ import { join } from 'node:path'
  * App Deployment Script
  */
 import { parseArgs } from 'node:util'
-import { getIpfsApiUrl } from '@jejunetwork/config'
+import {
+  getContractAddress,
+  getDeployerConfig,
+  getIpfsApiUrl,
+} from '@jejunetwork/config'
 import {
   type Address,
   createPublicClient,
@@ -448,21 +452,30 @@ async function main() {
 
   const config = await parseCliArgs()
 
-  // Validate environment
-  const privateKey = process.env.PRIVATE_KEY
-  if (!privateKey) {
-    console.error('Error: PRIVATE_KEY environment variable not set')
-    process.exit(1)
-  }
+  // Get deployer config (uses test accounts for localnet, requires env vars for testnet/mainnet)
+  const deployerConfig = getDeployerConfig()
+  const privateKey = deployerConfig.privateKey as Hex
 
   const rpcUrl = process.env.RPC_URL ?? 'http://localhost:6546'
   const ipfsApiUrl = getIpfsApiUrl()
-  const jnsRegistrar = (process.env.JNS_REGISTRAR ?? '0x0') as Address
-  const jnsResolver = (process.env.JNS_RESOLVER ?? '0x0') as Address
-  const keepaliveRegistry = (process.env.KEEPALIVE_REGISTRY ?? '0x0') as Address
+
+  // Get contract addresses from config (env vars can override)
+  const jnsRegistrar = (process.env.JNS_REGISTRAR ??
+    getContractAddress('jnsRegistrar')) as Address
+  const jnsResolver = (process.env.JNS_RESOLVER ??
+    getContractAddress('jnsResolver')) as Address
+
+  // Keepalive registry is optional
+  let keepaliveRegistry: Address | null = null
+  try {
+    keepaliveRegistry = (process.env.KEEPALIVE_REGISTRY ??
+      getContractAddress('keepaliveRegistry')) as Address
+  } catch {
+    console.log('⚠️  KeepaliveRegistry not deployed, skipping keepalive setup')
+  }
 
   // Setup clients
-  const account = privateKeyToAccount(privateKey as Hex)
+  const account = privateKeyToAccount(privateKey)
   const chain = rpcUrl.includes('sepolia') ? baseSepolia : base
 
   const publicClient = createPublicClient({
@@ -499,15 +512,19 @@ async function main() {
     jnsResolver,
   )
 
-  const keepaliveId = await setupKeepalive(
-    config,
-    jnsNode,
-    ipfsCid,
-    publicClient,
-    walletClient,
-    keepaliveRegistry,
-    account.address,
-  )
+  let keepaliveId = 'N/A (not configured)'
+  if (keepaliveRegistry) {
+    const registry = keepaliveRegistry
+    keepaliveId = await setupKeepalive(
+      config,
+      jnsNode,
+      ipfsCid,
+      publicClient,
+      walletClient,
+      registry,
+      account.address,
+    )
+  }
 
   const gatewayUrl = `https://${config.jnsName.replace('.jeju', '')}.jejunetwork.org`
 
@@ -521,11 +538,7 @@ async function main() {
 ║  Gateway URL:  ${gatewayUrl.padEnd(44)} ║
 ╚══════════════════════════════════════════════════════════════╝
 
-Your app is now live! As long as the keepalive has funds, it will
-automatically stay online and recover from any issues.
-
-To fund the keepalive:
-  Send ETH to your vault address: ${account.address}
+Your app is now live!${keepaliveRegistry ? ` As long as the keepalive has funds, it will\nautomatically stay online and recover from any issues.\n\nTo fund the keepalive:\n  Send ETH to your vault address: ${account.address}` : ''}
 `)
 }
 

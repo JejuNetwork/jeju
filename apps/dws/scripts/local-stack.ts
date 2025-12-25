@@ -323,22 +323,23 @@ async function main(): Promise<void> {
     verbose: args.verbose ?? false,
     dataDir: join(process.cwd(), '.local-stack'),
     rpcUrl: args.rpcUrl ?? process.env.RPC_URL ?? 'http://localhost:6546',
+    // Contract addresses - zero means feature disabled until deployed
     contracts: {
       identityRegistry:
         process.env.IDENTITY_REGISTRY_ADDRESS ??
-        '0x5FbDB2315678afecb367f032d93F642f64180aa3',
+        '0x0000000000000000000000000000000000000000',
       serviceRegistry:
         process.env.SERVICE_REGISTRY_ADDRESS ??
-        '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
+        '0x0000000000000000000000000000000000000000',
       agentVault:
         process.env.AGENT_VAULT_ADDRESS ??
-        '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
+        '0x0000000000000000000000000000000000000000',
       roomRegistry:
         process.env.ROOM_REGISTRY_ADDRESS ??
-        '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9',
+        '0x0000000000000000000000000000000000000000',
       triggerRegistry:
         process.env.TRIGGER_REGISTRY_ADDRESS ??
-        '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9',
+        '0x0000000000000000000000000000000000000000',
     },
   }
 

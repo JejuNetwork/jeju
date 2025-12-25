@@ -71,7 +71,7 @@ export interface ContractAddresses {
 }
 
 const CHAIN_IDS: Record<NetworkType, number> = {
-  localnet: 1337,
+  localnet: 31337,
   testnet: 420690,
   mainnet: 420691,
 }
@@ -161,11 +161,11 @@ export function getNetworkFromEnv(): NetworkType {
         `Invalid CHAIN_ID environment variable: ${chainId}. Must be a number.`,
       )
     }
-    if (id === 1337) return 'localnet'
+    if (id === 31337) return 'localnet'
     if (id === 420690) return 'testnet'
     if (id === 420691) return 'mainnet'
     throw new Error(
-      `Unsupported CHAIN_ID: ${id}. Supported chain IDs: 1337 (localnet), 420690 (testnet), 420691 (mainnet)`,
+      `Unsupported CHAIN_ID: ${id}. Supported chain IDs: 31337 (localnet), 420690 (testnet), 420691 (mainnet)`,
     )
   }
 
@@ -411,7 +411,7 @@ export function loadNetworkConfig(network?: NetworkType): NetworkConfig {
   if (net === 'localnet') {
     const identitySystem = loadDeploymentFile<IdentitySystemDeployment>(
       deploymentsPath,
-      'identity-system-1337.json',
+      'identity-system-31337.json',
     )
     if (identitySystem) {
       contracts.identityRegistry =
@@ -535,7 +535,7 @@ export function loadNetworkConfig(network?: NetworkType): NetworkConfig {
 
     const multiTokenSystem = loadDeploymentFile<MultiTokenSystemDeployment>(
       deploymentsPath,
-      'multi-token-system-1337.json',
+      'multi-token-system-31337.json',
     )
     if (multiTokenSystem) {
       contracts.priceOracle = multiTokenSystem.oracle || contracts.priceOracle
@@ -550,7 +550,7 @@ export function loadNetworkConfig(network?: NetworkType): NetworkConfig {
 
     const predimarket = loadDeploymentFile<PredimarketDeployment>(
       deploymentsPath,
-      'predimarket-1337.json',
+      'predimarket-31337.json',
     )
     if (predimarket) {
       contracts.predimarket = predimarket.predimarket || contracts.predimarket
@@ -561,7 +561,7 @@ export function loadNetworkConfig(network?: NetworkType): NetworkConfig {
 
     const bazaar = loadDeploymentFile<BazaarDeployment>(
       deploymentsPath,
-      'bazaar-marketplace-1337.json',
+      'bazaar-marketplace-31337.json',
     )
     if (bazaar) {
       contracts.bazaarMarketplace =

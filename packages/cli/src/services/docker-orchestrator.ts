@@ -280,7 +280,7 @@ export class DockerOrchestrator {
       L1_RPC_URL: 'http://127.0.0.1:6545',
       L2_RPC_URL: 'http://127.0.0.1:6546',
       JEJU_RPC_URL: 'http://127.0.0.1:6546',
-      CHAIN_ID: '1337',
+      CHAIN_ID: '31337',
       DATABASE_URL: 'postgresql://jeju:jeju@127.0.0.1:5432/jeju',
       REDIS_URL: 'redis://127.0.0.1:6379',
       IPFS_API_URL: `http://127.0.0.1:${CORE_PORTS.IPFS_API.DEFAULT}`,

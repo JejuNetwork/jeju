@@ -60,7 +60,7 @@ export interface JEJUDeployment {
 
 export const JEJU_LOCALNET_CONFIG = {
   homeChain: {
-    chainId: 1337,
+    chainId: 31337,
     chainType: 'evm' as const,
     name: 'Anvil Localnet',
     rpcUrl: 'http://localhost:6546',

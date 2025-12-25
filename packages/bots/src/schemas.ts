@@ -25,7 +25,7 @@ export const EVMChainIdSchema = z.union([
   z.literal(421614),
   z.literal(420690),
   z.literal(420691),
-  z.literal(1337),
+  z.literal(31337),
   z.literal(31337),
 ])
 

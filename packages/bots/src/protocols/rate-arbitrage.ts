@@ -7,6 +7,14 @@
 
 import { EventEmitter } from '@jejunetwork/shared'
 import { type Address, type PublicClient, parseAbi } from 'viem'
+import { z } from 'zod'
+
+// Aave reserve data schema
+const AaveReserveDataSchema = z.object({
+  currentLiquidityRate: z.bigint(),
+  currentVariableBorrowRate: z.bigint(),
+  liquidityIndex: z.bigint(),
+})
 
 export interface RateArbConfig {
   chainId: number
@@ -274,11 +282,7 @@ export class RateArbitrage extends EventEmitter {
         args: [asset],
       })
 
-      const reserveData = data as {
-        currentLiquidityRate: bigint
-        currentVariableBorrowRate: bigint
-        liquidityIndex: bigint
-      }
+      const reserveData = AaveReserveDataSchema.parse(data)
 
       // Convert from ray (1e27) to APY
       // APY = (1 + rate/secondsPerYear)^secondsPerYear - 1

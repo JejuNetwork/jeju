@@ -497,7 +497,10 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
 
     const keys = await getApiKeysForAddress(address)
     const activeKeys = keys.filter((k) => k.isActive)
-    const totalRequests = keys.reduce((sum, k) => sum + k.requestCount, 0)
+    const totalRequests = keys.reduce(
+      (sum, k) => sum + (k.requestCount ?? 0),
+      0,
+    )
     const tier = (set.headers['X-RateLimit-Tier'] ||
       'FREE') as keyof typeof RATE_LIMITS
     const remaining =
@@ -760,7 +763,10 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
         result = {
           address,
           apiKeys: keys.length,
-          totalRequests: keys.reduce((sum, k) => sum + k.requestCount, 0),
+          totalRequests: keys.reduce(
+            (sum, k) => sum + (k.requestCount ?? 0),
+            0,
+          ),
         }
         break
       }

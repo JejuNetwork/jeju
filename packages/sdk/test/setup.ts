@@ -180,7 +180,7 @@ async function startLocalnet(): Promise<void> {
       '--port',
       l2Port,
       '--chain-id',
-      '1337',
+      '31337',
       '--accounts',
       '10',
       '--balance',
@@ -295,7 +295,7 @@ async function startServices(): Promise<void> {
           ...process.env,
           PORT: String(svc.port),
           RPC_URL: TEST_RPC_URL,
-          CHAIN_ID: '1337',
+          CHAIN_ID: '31337',
         },
       })
       startedProcesses.push(proc)

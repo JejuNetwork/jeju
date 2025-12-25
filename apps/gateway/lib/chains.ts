@@ -36,12 +36,12 @@ export const jejuMainnet: Chain = {
 }
 
 export const localnet: Chain = {
-  id: 1337,
-  name: CHAIN_META[1337].name,
+  id: 31337,
+  name: CHAIN_META[31337].name,
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-  rpcUrls: { default: { http: [RPC_URLS[1337]] } },
+  rpcUrls: { default: { http: [RPC_URLS[31337]] } },
   blockExplorers: {
-    default: { name: 'Local Explorer', url: EXPLORER_URLS[1337] },
+    default: { name: 'Local Explorer', url: EXPLORER_URLS[31337] },
   },
 }
 
@@ -57,7 +57,7 @@ export const CHAINS: Record<number, Chain> = {
   84532: baseSepolia,
   420690: jejuTestnet,
   420691: jejuMainnet,
-  1337: localnet,
+  31337: localnet,
 }
 
 export function getChain(chainId: number): Chain {

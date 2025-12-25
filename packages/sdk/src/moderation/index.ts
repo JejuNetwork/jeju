@@ -10,11 +10,11 @@
  */
 
 import {
-  BanType,
+  type BanType,
   type NetworkType,
   ReportStatus,
-  ReportType,
-  SeverityLevel,
+  type ReportType,
+  type SeverityLevel,
 } from '@jejunetwork/types'
 import { type Address, encodeFunctionData, type Hex, parseEther } from 'viem'
 import { requireContract } from '../config'

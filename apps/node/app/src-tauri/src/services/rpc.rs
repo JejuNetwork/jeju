@@ -68,7 +68,7 @@ impl Service for RpcService {
         }
     }
 
-    async fn start(&mut self, config: &ServiceConfig) -> Result<(), String> {
+    async fn start(&mut self, _config: &ServiceConfig) -> Result<(), String> {
         if self.running.load(Ordering::SeqCst) {
             return Err("Service already running".to_string());
         }
@@ -82,9 +82,9 @@ impl Service for RpcService {
         *self.start_time.write().await = Some(Instant::now());
 
         let running = self.running.clone();
-        let requests_served = self.requests_served.clone();
-        let blocks_synced = self.blocks_synced.clone();
-        let earnings_wei = self.earnings_wei.clone();
+        let _requests_served = self.requests_served.clone();
+        let _blocks_synced = self.blocks_synced.clone();
+        let _earnings_wei = self.earnings_wei.clone();
 
         tokio::spawn(async move {
             tracing::info!("RPC service started");

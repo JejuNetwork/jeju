@@ -7,6 +7,7 @@ import { gql, request } from 'graphql-request'
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useAccount } from 'wagmi'
+import { INDEXER_URL } from '../../config'
 import {
   type ERC721TokenInput,
   type ERC1155BalanceInput,
@@ -16,8 +17,7 @@ import {
   type NFTSortOption,
   normalizeNFTQueryResult,
   sortNFTs,
-} from '../../api/nft'
-import { INDEXER_URL } from '../../config'
+} from '../../lib/nft'
 import type { NormalizedNFT } from '../../schemas/nft'
 import { LoadingSpinner } from '../components/LoadingSpinner'
 import { JEJU_CHAIN_ID } from '../config/chains'

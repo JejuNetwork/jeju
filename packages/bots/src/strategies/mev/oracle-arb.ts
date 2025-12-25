@@ -17,6 +17,12 @@ import {
   parseAbi,
   type WalletClient,
 } from 'viem'
+import { z } from 'zod'
+
+// Chainlink AnswerUpdated event args schema
+const AnswerUpdatedArgsSchema = z.object({
+  current: z.bigint(),
+})
 
 export interface OracleArbConfig {
   chainId: number
@@ -147,7 +153,7 @@ export class OracleArbStrategy extends EventEmitter {
   ): Promise<void> {
     if (!this.running) return
 
-    const { current: newPrice } = log.args as { current: bigint }
+    const { current: newPrice } = AnswerUpdatedArgsSchema.parse(log.args)
     const oldPrice = this.lastPrices.get(oracle) ?? newPrice
 
     // Calculate price change

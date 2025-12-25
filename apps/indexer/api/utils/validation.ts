@@ -74,8 +74,9 @@ export const searchParamsSchema = z.object({
 })
 
 export type SearchParams = z.infer<typeof searchParamsSchema>
-export type EndpointType = z.infer<typeof endpointTypeSchema>
-export type ServiceCategory = z.infer<typeof serviceCategorySchema>
+
+// Re-export types from @jejunetwork/types for consistency
+export type { EndpointType, ServiceCategory } from '@jejunetwork/types'
 
 export const agentIdSchema = z
   .string()

@@ -39,7 +39,7 @@ This generates everything you need: branding config, genesis, operator keys, Kub
 
 | Network | Chain ID | RPC |
 |---------|----------|-----|
-| Localnet | 1337 | http://127.0.0.1:6546 |
+| Localnet | 31337 | http://127.0.0.1:6546 |
 | Testnet | 420690 | https://testnet-rpc.jejunetwork.org |
 | Mainnet | 420691 | https://rpc.jejunetwork.org |
 

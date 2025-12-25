@@ -32,7 +32,7 @@ const MarketSchema = z.object({
   isActive: z.boolean(),
 })
 
-const FundingDataSchema = z.object({
+const _FundingDataSchema = z.object({
   fundingRate: z.bigint(),
   fundingIndex: z.bigint(),
   lastFundingTime: z.bigint(),

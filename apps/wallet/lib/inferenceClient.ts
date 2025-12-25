@@ -8,7 +8,7 @@
  * - Supports TEE for private inference
  */
 
-import { expectValid } from '@jejunetwork/types'
+import { type ChatMessage, expectValid } from '@jejunetwork/types'
 import type { Address } from 'viem'
 import { z } from 'zod'
 import {
@@ -18,13 +18,20 @@ import {
 import { API_URLS, fetchApi } from './eden'
 import { expectJson } from './validation'
 
-export interface Message {
-  role: 'system' | 'user' | 'assistant'
-  content: string
+/** Generate UUID with fallback for browsers that don't support crypto.randomUUID */
+function generateUUID(): string {
+  if (
+    typeof crypto !== 'undefined' &&
+    typeof crypto.randomUUID === 'function'
+  ) {
+    return generateUUID()
+  }
+  // Fallback: generate a UUID-like string
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 11)}-${Math.random().toString(36).slice(2, 11)}`
 }
 
 export interface ChatRequest {
-  messages: Message[]
+  messages: ChatMessage[]
   model?: string
   temperature?: number
   maxTokens?: number
@@ -119,7 +126,7 @@ Be helpful, clear, and security-conscious. Never execute transactions without us
 
 class InferenceClient {
   private config: ResolvedInferenceConfig
-  private conversationHistory: Message[] = []
+  private conversationHistory: ChatMessage[] = []
   private availableModels: AvailableModel[] = []
   private lastModelFetch = 0
   private modelCacheTTL = 5 * 60 * 1000 // 5 minutes
@@ -190,7 +197,7 @@ class InferenceClient {
     const model = request.model || this.config.preferredModel
 
     // Add user message to history
-    const userMessage: Message = {
+    const userMessage: ChatMessage = {
       role: 'user',
       content: request.messages[request.messages.length - 1].content,
     }
@@ -201,7 +208,7 @@ class InferenceClient {
 
     // Add wallet context if available
     if (this.config.walletAddress) {
-      const contextMessage: Message = {
+      const contextMessage: ChatMessage = {
         role: 'system',
         content: `Current user wallet address: ${this.config.walletAddress}`,
       }
@@ -272,7 +279,7 @@ class InferenceClient {
         }
 
         return {
-          id: data.id || crypto.randomUUID(),
+          id: data.id || generateUUID(),
           model: data.model || model,
           content: assistantContent,
           tokensUsed: {
@@ -313,7 +320,7 @@ class InferenceClient {
   async *chatStream(request: ChatRequest): AsyncGenerator<StreamChunk> {
     const model = request.model || this.config.preferredModel
 
-    const userMessage: Message = {
+    const userMessage: ChatMessage = {
       role: 'user',
       content: request.messages[request.messages.length - 1].content,
     }
@@ -372,7 +379,7 @@ class InferenceClient {
                 role: 'assistant',
                 content: fullContent,
               })
-              yield { id: crypto.randomUUID(), content: '', done: true }
+              yield { id: generateUUID(), content: '', done: true }
               return
             }
 
@@ -397,7 +404,7 @@ class InferenceClient {
               if (content) {
                 fullContent += content
                 yield {
-                  id: parsed.id || crypto.randomUUID(),
+                  id: parsed.id || generateUUID(),
                   content,
                   done: false,
                 }
@@ -410,10 +417,10 @@ class InferenceClient {
       }
 
       this.conversationHistory.push({ role: 'assistant', content: fullContent })
-      yield { id: crypto.randomUUID(), content: '', done: true }
+      yield { id: generateUUID(), content: '', done: true }
     } catch (error) {
       yield {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         content: error instanceof Error ? error.message : 'Stream failed',
         done: true,
       }
@@ -430,7 +437,7 @@ class InferenceClient {
   /**
    * Get current conversation history
    */
-  getHistory(): Message[] {
+  getHistory(): ChatMessage[] {
     return [...this.conversationHistory]
   }
 

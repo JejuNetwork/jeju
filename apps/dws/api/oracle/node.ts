@@ -1,4 +1,4 @@
-import { safeReadContract } from '@jejunetwork/contracts'
+import { readContract } from '@jejunetwork/contracts'
 import {
   type Address,
   type Chain,
@@ -106,7 +106,7 @@ export class OracleNode {
   private async ensureRegistered(): Promise<void> {
     const workerAddress = this.account.address
 
-    const existingOperatorId = await safeReadContract<Hex>(this.publicClient, {
+    const existingOperatorId = await readContract(this.publicClient, {
       address: this.config.networkConnector,
       abi: NETWORK_CONNECTOR_ABI,
       functionName: 'workerToOperator',
@@ -139,7 +139,7 @@ export class OracleNode {
 
     await this.publicClient.waitForTransactionReceipt({ hash })
 
-    this.operatorId = await safeReadContract<Hex>(this.publicClient, {
+    this.operatorId = await readContract(this.publicClient, {
       address: this.config.networkConnector,
       abi: NETWORK_CONNECTOR_ABI,
       functionName: 'workerToOperator',
@@ -154,7 +154,7 @@ export class OracleNode {
     console.log('[OracleNode] Polling prices...')
 
     // Get active feeds
-    const feedIds = await safeReadContract<readonly Hex[]>(this.publicClient, {
+    const feedIds = await readContract(this.publicClient, {
       address: this.config.feedRegistry,
       abi: FEED_REGISTRY_ABI,
       functionName: 'getActiveFeeds',
@@ -184,7 +184,7 @@ export class OracleNode {
   private async isCommitteeMember(feedId: Hex): Promise<boolean> {
     const workerAddress = this.account.address
 
-    return safeReadContract<boolean>(this.publicClient, {
+    return readContract(this.publicClient, {
       address: this.config.committeeManager,
       abi: COMMITTEE_MANAGER_ABI,
       functionName: 'isCommitteeMember',
@@ -194,7 +194,7 @@ export class OracleNode {
 
   private async submitReport(feedId: Hex, priceData: PriceData): Promise<void> {
     // Get current round
-    const currentRound = await safeReadContract<bigint>(this.publicClient, {
+    const currentRound = await readContract(this.publicClient, {
       address: this.config.reportVerifier,
       abi: REPORT_VERIFIER_ABI,
       functionName: 'getCurrentRound',
@@ -204,13 +204,16 @@ export class OracleNode {
     const newRound = currentRound + 1n
 
     // Build report
+    const sourcesHash = this.priceFetcher.computeSourcesHash([priceData.source])
     const report: PriceReport = {
       feedId,
       price: priceData.price,
       confidence: priceData.confidence,
       timestamp: priceData.timestamp,
       round: newRound,
-      sourcesHash: this.priceFetcher.computeSourcesHash([priceData.source]),
+      sourcesHash,
+      sources: [],
+      signatures: [],
     }
 
     // Sign the report
@@ -236,7 +239,7 @@ export class OracleNode {
             confidence: report.confidence,
             timestamp: report.timestamp,
             round: report.round,
-            sourcesHash: report.sourcesHash,
+            sourcesHash,
           },
           signatures: [signature],
         },
@@ -268,7 +271,7 @@ export class OracleNode {
           report.confidence,
           report.timestamp,
           report.round,
-          report.sourcesHash,
+          report.sourcesHash ?? ZERO_BYTES32,
         ],
       ),
     )
@@ -315,7 +318,6 @@ export class OracleNode {
         return base
       case 84532:
         return baseSepolia
-      case 1337:
       case 31337:
         return foundry
       default:
@@ -336,7 +338,7 @@ export function createNodeConfig(): OracleNodeConfig {
 
   return {
     rpcUrl: process.env.RPC_URL || 'http://localhost:6546',
-    chainId: parseInt(process.env.CHAIN_ID || '1337', 10),
+    chainId: parseInt(process.env.CHAIN_ID || '31337', 10),
     operatorPrivateKey: (process.env.OPERATOR_PRIVATE_KEY ||
       '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80') as Hex,
     workerPrivateKey: (process.env.WORKER_PRIVATE_KEY ||

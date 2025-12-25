@@ -32,7 +32,7 @@ const account = privateKeyToAccount(TEST_PRIVATE_KEY)
 
 const chain = {
   ...localhost,
-  id: 1337,
+  id: 31337,
 }
 
 const publicClient = createPublicClient({

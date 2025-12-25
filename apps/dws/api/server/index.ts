@@ -207,12 +207,14 @@ const backendManager = createBackendManager()
 
 // Environment validation - require addresses in production
 const isProduction = process.env.NODE_ENV === 'production'
+// Localnet defaults - contracts are deployed fresh on each chain restart
+// Zero addresses disable features until proper deployment
 const LOCALNET_DEFAULTS = {
-  rpcUrl: 'http://localhost:9545',
-  repoRegistry: '0x5FbDB2315678afecb367f032d93F642f64180aa3',
-  packageRegistry: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
-  triggerRegistry: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
-  identityRegistry: '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9', // ERC-8004 IdentityRegistry (shared with agents)
+  rpcUrl: 'http://localhost:6546',
+  repoRegistry: '0x0000000000000000000000000000000000000000',
+  packageRegistry: '0x0000000000000000000000000000000000000000',
+  triggerRegistry: '0x0000000000000000000000000000000000000000',
+  identityRegistry: '0x0000000000000000000000000000000000000000',
 }
 
 function getEnvOrDefault(key: string, defaultValue: string): string {

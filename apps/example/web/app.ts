@@ -343,7 +343,7 @@ function renderHeader(): string {
       <div class="flex items-center justify-between">
         <div>
           <h1 class="text-3xl font-bold text-gray-900 dark:text-white">
-            📝 Decentralized Todo
+            📝 Example
           </h1>
           <p class="text-gray-600 dark:text-gray-400 mt-1">
             Powered by Jeju Network • CQL • IPFS • KMS
@@ -381,7 +381,7 @@ function renderConnect(): string {
         Connect Your Wallet
       </h2>
       <p class="text-gray-600 dark:text-gray-400 mb-6">
-        Connect your wallet to access your decentralized todos
+        Connect your wallet to access your todos
       </p>
       <button id="connect" class="px-6 py-3 bg-jeju-600 text-white rounded-lg hover:bg-jeju-700 transition-colors">
         Connect Wallet

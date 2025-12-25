@@ -1,4 +1,7 @@
-import { safeReadContract } from '@jejunetwork/contracts'
+import {
+  readContract,
+  writeContract as typedWriteContract,
+} from '@jejunetwork/contracts'
 import {
   type Address,
   createPublicClient,
@@ -72,7 +75,7 @@ export class FederationClient {
     const account = this.walletClient.account
     if (!account) throw new Error('Wallet account not available')
 
-    const hash = await this.walletClient.writeContract({
+    const hash = await typedWriteContract(this.walletClient, {
       address: this.config.networkRegistryAddress,
       abi: NETWORK_REGISTRY_ABI,
       functionName: 'registerNetwork',
@@ -86,8 +89,6 @@ export class FederationClient {
         genesisHash,
       ],
       value: stake,
-      chain: null,
-      account,
     })
 
     return hash
@@ -104,7 +105,7 @@ export class FederationClient {
     const account = this.walletClient.account
     if (!account) throw new Error('Wallet account not available')
 
-    return this.walletClient.writeContract({
+    return typedWriteContract(this.walletClient, {
       address: this.config.networkRegistryAddress,
       abi: NETWORK_REGISTRY_ABI,
       functionName: 'updateNetwork',
@@ -115,7 +116,6 @@ export class FederationClient {
         explorerUrl,
         wsUrl,
       ],
-      chain: null,
       account,
     })
   }
@@ -136,12 +136,11 @@ export class FederationClient {
     const account = this.walletClient.account
     if (!account) throw new Error('Wallet account not available')
 
-    return this.walletClient.writeContract({
+    return typedWriteContract(this.walletClient, {
       address: this.config.networkRegistryAddress,
       abi: NETWORK_REGISTRY_ABI,
       functionName: 'updateContracts',
       args: [BigInt(this.config.localChainId), contractsTuple],
-      chain: null,
       account,
     })
   }
@@ -152,12 +151,11 @@ export class FederationClient {
     const account = this.walletClient.account
     if (!account) throw new Error('Wallet account not available')
 
-    return this.walletClient.writeContract({
+    return typedWriteContract(this.walletClient, {
       address: this.config.networkRegistryAddress,
       abi: NETWORK_REGISTRY_ABI,
       functionName: 'establishTrust',
       args: [BigInt(this.config.localChainId), BigInt(targetChainId)],
-      chain: null,
       account,
     })
   }
@@ -168,18 +166,17 @@ export class FederationClient {
     const account = this.walletClient.account
     if (!account) throw new Error('Wallet account not available')
 
-    return this.walletClient.writeContract({
+    return typedWriteContract(this.walletClient, {
       address: this.config.networkRegistryAddress,
       abi: NETWORK_REGISTRY_ABI,
       functionName: 'revokeTrust',
       args: [BigInt(this.config.localChainId), BigInt(targetChainId)],
-      chain: null,
       account,
     })
   }
 
   async getNetwork(chainId: number): Promise<NetworkInfo> {
-    const result = (await safeReadContract(this.hubClient, {
+    const result = (await readContract(this.hubClient, {
       address: this.config.networkRegistryAddress,
       abi: NETWORK_REGISTRY_ABI,
       functionName: 'getNetwork',
@@ -189,7 +186,7 @@ export class FederationClient {
   }
 
   async getActiveNetworks(): Promise<number[]> {
-    const result = (await safeReadContract(this.hubClient, {
+    const result = (await readContract(this.hubClient, {
       address: this.config.networkRegistryAddress,
       abi: NETWORK_REGISTRY_ABI,
       functionName: 'getActiveNetworks',
@@ -198,7 +195,7 @@ export class FederationClient {
   }
 
   async getVerifiedNetworks(): Promise<number[]> {
-    const result = (await safeReadContract(this.hubClient, {
+    const result = (await readContract(this.hubClient, {
       address: this.config.networkRegistryAddress,
       abi: NETWORK_REGISTRY_ABI,
       functionName: 'getVerifiedNetworks',
@@ -207,7 +204,7 @@ export class FederationClient {
   }
 
   async getTrustedPeers(chainId: number): Promise<number[]> {
-    const result = (await safeReadContract(this.hubClient, {
+    const result = (await readContract(this.hubClient, {
       address: this.config.networkRegistryAddress,
       abi: NETWORK_REGISTRY_ABI,
       functionName: 'getTrustedPeers',
@@ -220,7 +217,7 @@ export class FederationClient {
     sourceChainId: number,
     targetChainId: number,
   ): Promise<boolean> {
-    return safeReadContract(this.hubClient, {
+    return readContract(this.hubClient, {
       address: this.config.networkRegistryAddress,
       abi: NETWORK_REGISTRY_ABI,
       functionName: 'isTrusted',
@@ -229,7 +226,7 @@ export class FederationClient {
   }
 
   async isMutuallyTrusted(chainA: number, chainB: number): Promise<boolean> {
-    return safeReadContract(this.hubClient, {
+    return readContract(this.hubClient, {
       address: this.config.networkRegistryAddress,
       abi: NETWORK_REGISTRY_ABI,
       functionName: 'isMutuallyTrusted',
@@ -245,12 +242,11 @@ export class FederationClient {
     const account = this.walletClient.account
     if (!account) throw new Error('Wallet account not available')
 
-    return this.walletClient.writeContract({
+    return typedWriteContract(this.walletClient, {
       address: this.config.federatedIdentityAddress,
       abi: FEDERATED_IDENTITY_ABI,
       functionName: 'federateLocalAgent',
       args: [BigInt(localAgentId), signature],
-      chain: null,
       account,
     })
   }
@@ -263,7 +259,7 @@ export class FederationClient {
       throw new Error('FederatedIdentity not configured')
     }
 
-    const [isValid, federatedId, reputation] = (await safeReadContract(
+    const [isValid, federatedId, reputation] = (await readContract(
       this.localClient,
       {
         address: this.config.federatedIdentityAddress,
@@ -275,7 +271,7 @@ export class FederationClient {
 
     let attestedNetworks: number[] = []
     if (isValid) {
-      const attestations = (await safeReadContract(this.localClient, {
+      const attestations = (await readContract(this.localClient, {
         address: this.config.federatedIdentityAddress,
         abi: FEDERATED_IDENTITY_ABI,
         functionName: 'getAttestations',
@@ -300,12 +296,11 @@ export class FederationClient {
     const account = this.walletClient.account
     if (!account) throw new Error('Wallet account not available')
 
-    return this.walletClient.writeContract({
+    return typedWriteContract(this.walletClient, {
       address: this.config.federatedSolverAddress,
       abi: FEDERATED_SOLVER_ABI,
       functionName: 'federateLocalSolver',
       args: [supportedChains.map((c) => BigInt(c))],
-      chain: null,
       account,
     })
   }
@@ -318,7 +313,7 @@ export class FederationClient {
       throw new Error('FederatedSolver not configured')
     }
 
-    return safeReadContract(this.localClient, {
+    return readContract(this.localClient, {
       address: this.config.federatedSolverAddress,
       abi: FEDERATED_SOLVER_ABI,
       functionName: 'getSolversForRoute',
@@ -338,7 +333,7 @@ export class FederationClient {
       throw new Error('FederatedSolver not configured')
     }
 
-    const [solverId, stake, successRate] = (await safeReadContract(
+    const [solverId, stake, successRate] = (await readContract(
       this.localClient,
       {
         address: this.config.federatedSolverAddress,
@@ -363,12 +358,11 @@ export class FederationClient {
     const account = this.walletClient.account
     if (!account) throw new Error('Wallet account not available')
 
-    return this.walletClient.writeContract({
+    return typedWriteContract(this.walletClient, {
       address: this.config.federatedLiquidityAddress,
       abi: FEDERATED_LIQUIDITY_ABI,
       functionName: 'registerXLP',
       args: [supportedChains.map((c) => BigInt(c))],
-      chain: null,
       account,
     })
   }
@@ -381,7 +375,7 @@ export class FederationClient {
       throw new Error('FederatedLiquidity not configured')
     }
 
-    const [totalEth, totalToken] = (await safeReadContract(this.localClient, {
+    const [totalEth, totalToken] = (await readContract(this.localClient, {
       address: this.config.federatedLiquidityAddress,
       abi: FEDERATED_LIQUIDITY_ABI,
       functionName: 'getTotalFederatedLiquidity',
@@ -397,7 +391,7 @@ export class FederationClient {
       throw new Error('FederatedLiquidity not configured')
     }
 
-    const [chainId, available] = (await safeReadContract(this.localClient, {
+    const [chainId, available] = (await readContract(this.localClient, {
       address: this.config.federatedLiquidityAddress,
       abi: FEDERATED_LIQUIDITY_ABI,
       functionName: 'getBestNetworkForLiquidity',
@@ -421,13 +415,12 @@ export class FederationClient {
     const account = this.walletClient.account
     if (!account) throw new Error('Wallet account not available')
 
-    return this.walletClient.writeContract({
+    return typedWriteContract(this.walletClient, {
       address: this.config.federatedLiquidityAddress,
       abi: FEDERATED_LIQUIDITY_ABI,
       functionName: 'createRequest',
       args: [token, amount, BigInt(targetChainId)],
       value: isETH ? amount : 0n,
-      chain: null,
       account,
     })
   }
@@ -440,7 +433,7 @@ export class FederationClient {
       throw new Error('FederatedLiquidity not configured')
     }
 
-    return safeReadContract(this.localClient, {
+    return readContract(this.localClient, {
       address: this.config.federatedLiquidityAddress,
       abi: FEDERATED_LIQUIDITY_ABI,
       functionName: 'getXLPsForRoute',

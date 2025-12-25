@@ -34,7 +34,7 @@ pub async fn create_wallet(
     state: State<'_, AppState>,
     request: CreateWalletRequest,
 ) -> Result<WalletInfo, String> {
-    let mut inner = state.inner.write();
+    let mut inner = state.inner.write().await;
 
     let rpc_url = inner.config.network.rpc_url.clone();
     let chain_id = inner.config.network.chain_id;
@@ -57,7 +57,7 @@ pub async fn import_wallet(
     state: State<'_, AppState>,
     request: ImportWalletRequest,
 ) -> Result<WalletInfo, String> {
-    let mut inner = state.inner.write();
+    let mut inner = state.inner.write().await;
 
     let rpc_url = inner.config.network.rpc_url.clone();
     let chain_id = inner.config.network.chain_id;
@@ -84,7 +84,7 @@ pub async fn import_wallet(
 
 #[tauri::command]
 pub async fn get_wallet_info(state: State<'_, AppState>) -> Result<Option<WalletInfo>, String> {
-    let inner = state.inner.read();
+    let inner = state.inner.read().await;
 
     if let Some(ref manager) = inner.wallet_manager {
         Ok(manager.get_info())
@@ -95,9 +95,9 @@ pub async fn get_wallet_info(state: State<'_, AppState>) -> Result<Option<Wallet
 
 #[tauri::command]
 pub async fn get_balance(state: State<'_, AppState>) -> Result<BalanceInfo, String> {
-    let inner = state.inner.read();
+    let inner = state.inner.read().await;
 
-    let manager = inner
+    let _manager = inner
         .wallet_manager
         .as_ref()
         .ok_or("Wallet not initialized")?;
@@ -117,11 +117,11 @@ pub async fn get_balance(state: State<'_, AppState>) -> Result<BalanceInfo, Stri
 #[tauri::command]
 pub async fn sign_message(
     state: State<'_, AppState>,
-    request: SignMessageRequest,
+    _request: SignMessageRequest,
 ) -> Result<String, String> {
-    let inner = state.inner.read();
+    let inner = state.inner.read().await;
 
-    let manager = inner
+    let _manager = inner
         .wallet_manager
         .as_ref()
         .ok_or("Wallet not initialized")?;
@@ -133,11 +133,11 @@ pub async fn sign_message(
 #[tauri::command]
 pub async fn send_transaction(
     state: State<'_, AppState>,
-    request: SendTransactionRequest,
+    _request: SendTransactionRequest,
 ) -> Result<TransactionResult, String> {
-    let inner = state.inner.read();
+    let inner = state.inner.read().await;
 
-    let manager = inner
+    let _manager = inner
         .wallet_manager
         .as_ref()
         .ok_or("Wallet not initialized")?;

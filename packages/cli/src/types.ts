@@ -121,6 +121,12 @@ export interface AppManifest {
   autoStart?: boolean
   tags?: string[]
   testing?: AppTestConfig
+  /** JNS configuration for on-chain deployment */
+  jns?: {
+    name?: string
+    description?: string
+    url?: string
+  }
   /** Architecture configuration for on-chain deployment */
   architecture?: {
     frontend?: boolean | { outputDir?: string }
@@ -195,7 +201,7 @@ export const DEFAULT_PORTS = {
 
 export const CHAIN_CONFIG = {
   localnet: {
-    chainId: 1337,
+    chainId: 31337,
     name: 'Network Localnet',
     rpcUrl: `http://127.0.0.1:${CONFIG_INFRA_PORTS.L2_RPC.DEFAULT}`,
   },

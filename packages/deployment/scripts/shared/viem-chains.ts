@@ -64,7 +64,7 @@ export const jejuMainnet: Chain = {
 
 /** Jeju Localnet - for local development */
 export const jejuLocalnet: Chain = {
-  id: 1337,
+  id: 31337,
   name: 'Jeju Localnet',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
@@ -150,7 +150,7 @@ export function getL1RpcUrl(network: JejuNetwork): string {
 // Chain ID Constants
 
 export const JEJU_CHAIN_IDS = {
-  localnet: 1337,
+  localnet: 31337,
   testnet: 420690,
   mainnet: 420691,
 } as const

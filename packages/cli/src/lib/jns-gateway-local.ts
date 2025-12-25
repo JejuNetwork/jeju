@@ -1,12 +1,16 @@
 /**
  * Local JNS Gateway
  * Resolves JNS names to IPFS content for local development
+ * Falls back to serving from local app build directories
  */
 
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
+import type { JNSGatewayConfigBase } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import type { Address, Hex } from 'viem'
 import { createPublicClient, http, keccak256, stringToBytes } from 'viem'
-import { localhost } from 'viem/chains'
+import { localnetChain } from './chain'
 import { logger } from './logger'
 
 // ABI for JNS contracts
@@ -40,11 +44,9 @@ const JNS_RESOLVER_ABI = [
   },
 ] as const
 
-interface JNSGatewayConfig {
-  port: number
-  rpcUrl: string
-  jnsRegistryAddress: Address
+interface JNSGatewayConfig extends JNSGatewayConfigBase {
   ipfsGatewayUrl: string
+  rootDir: string // Monorepo root for serving local app builds
 }
 
 interface ContentResolution {
@@ -64,7 +66,7 @@ export class LocalJNSGateway {
   constructor(config: JNSGatewayConfig) {
     this.config = config
     this.client = createPublicClient({
-      chain: localhost,
+      chain: localnetChain,
       transport: http(config.rpcUrl),
     })
     this.app = this.createApp()
@@ -98,7 +100,8 @@ export class LocalJNSGateway {
             return { error: 'Not a JNS domain' }
           }
 
-          const name = `${match[1]}.jeju`
+          const appName = match[1]
+          const name = `${appName}.jeju`
           const resolution = await this.resolve(name)
 
           if (resolution.workerEndpoint && url.pathname.startsWith('/api')) {
@@ -109,6 +112,12 @@ export class LocalJNSGateway {
           if (resolution.ipfsCid) {
             // Serve from IPFS
             return this.serveFromIPFS(resolution.ipfsCid, url.pathname)
+          }
+
+          // Fallback: serve from local app build directory (for dev)
+          const localResponse = await this.serveFromLocal(appName, url.pathname)
+          if (localResponse) {
+            return localResponse
           }
 
           set.status = 404
@@ -329,6 +338,63 @@ export class LocalJNSGateway {
     })
   }
 
+  /**
+   * Serve content from local app build directory (dev fallback)
+   */
+  private async serveFromLocal(
+    appName: string,
+    path: string,
+  ): Promise<Response | null> {
+    // Try to find the app's build directory
+    const appDir = join(this.config.rootDir, 'apps', appName)
+    if (!existsSync(appDir)) {
+      return null
+    }
+
+    // Common build output directories
+    const buildDirs = ['dist', 'dist/web', 'build', 'out', '.next/static']
+
+    // Normalize path
+    let requestPath = path || '/'
+    if (requestPath === '/') requestPath = 'index.html'
+    if (requestPath.startsWith('/')) requestPath = requestPath.slice(1)
+
+    for (const buildDir of buildDirs) {
+      const fullBuildDir = join(appDir, buildDir)
+      if (!existsSync(fullBuildDir)) continue
+
+      // Try exact path
+      const filePath = join(fullBuildDir, requestPath)
+      if (existsSync(filePath)) {
+        const file = Bun.file(filePath)
+        const content = await file.arrayBuffer()
+        return new Response(content, {
+          headers: {
+            'Content-Type': this.guessContentType(requestPath),
+            'X-Served-From': 'local-dev',
+          },
+        })
+      }
+
+      // For SPA: try index.html for paths without extensions
+      if (!requestPath.includes('.')) {
+        const indexPath = join(fullBuildDir, 'index.html')
+        if (existsSync(indexPath)) {
+          const file = Bun.file(indexPath)
+          const content = await file.arrayBuffer()
+          return new Response(content, {
+            headers: {
+              'Content-Type': 'text/html; charset=utf-8',
+              'X-Served-From': 'local-dev',
+            },
+          })
+        }
+      }
+    }
+
+    return null
+  }
+
   private guessContentType(path: string): string {
     const ext = path.split('.').pop()?.toLowerCase()
     const types: Record<string, string> = {
@@ -381,12 +447,14 @@ export async function startLocalJNSGateway(
   jnsRegistryAddress: Address,
   port = 8080,
   ipfsGatewayPort = 4180, // Default IPFS gateway port from Docker (mapped 8080 -> 4180)
+  rootDir = process.cwd(), // Monorepo root for local dev fallback
 ): Promise<LocalJNSGateway> {
   const gateway = new LocalJNSGateway({
     port,
     rpcUrl,
     jnsRegistryAddress,
     ipfsGatewayUrl: `http://localhost:${ipfsGatewayPort}`,
+    rootDir,
   })
 
   await gateway.start()

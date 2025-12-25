@@ -10,7 +10,13 @@
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, relative } from 'node:path'
+import { z } from 'zod'
 import type { ServerlessWorkerConfig, WorkerBuildOutput } from './types'
+
+// Package.json schema
+const PackageJsonSchema = z.object({
+  dependencies: z.record(z.string(), z.string()).optional(),
+})
 
 // Constants
 
@@ -508,10 +514,10 @@ ${bindings.join(',\n')}
     while (dir !== '/') {
       const pkgPath = join(dir, 'package.json')
       if (existsSync(pkgPath)) {
-        const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8')) as {
-          dependencies?: Record<string, string>
-        }
-        return Object.keys(pkg.dependencies || {})
+        const pkg = PackageJsonSchema.parse(
+          JSON.parse(readFileSync(pkgPath, 'utf-8')),
+        )
+        return Object.keys(pkg.dependencies ?? {})
       }
       dir = dirname(dir)
     }

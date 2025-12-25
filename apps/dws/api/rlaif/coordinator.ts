@@ -14,7 +14,7 @@
  * - Optional Psyche for distributed training
  */
 
-import { safeWriteContract } from '@jejunetwork/contracts'
+import { writeContract } from '@jejunetwork/contracts'
 import { expectValid } from '@jejunetwork/types'
 import { type Address, createWalletClient, type Hex, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
@@ -190,7 +190,7 @@ export class RLAIFCoordinator {
 
     const runIdBytes = this.generateRunId(runConfig)
 
-    await safeWriteContract(this.walletClient, {
+    await writeContract(this.walletClient, {
       chain: this.chain,
       account: this.account,
       address: this.config.coordinatorAddress,
@@ -618,7 +618,7 @@ export class RLAIFCoordinator {
       `0x${Buffer.from(runId).toString('hex').padEnd(64, '0')}` as Hex
 
     if (iteration.trajectoryManifestCID) {
-      await safeWriteContract(this.walletClient, {
+      await writeContract(this.walletClient, {
         chain: this.chain,
         account: this.account,
         address: this.config.coordinatorAddress,
@@ -633,7 +633,7 @@ export class RLAIFCoordinator {
     }
 
     if (iteration.rewardsManifestCID) {
-      await safeWriteContract(this.walletClient, {
+      await writeContract(this.walletClient, {
         chain: this.chain,
         account: this.account,
         address: this.config.coordinatorAddress,
@@ -644,7 +644,7 @@ export class RLAIFCoordinator {
     }
 
     if (iteration.updatedPolicyCID) {
-      await safeWriteContract(this.walletClient, {
+      await writeContract(this.walletClient, {
         chain: this.chain,
         account: this.account,
         address: this.config.coordinatorAddress,
@@ -662,7 +662,7 @@ export class RLAIFCoordinator {
       const scoreScaled = BigInt(
         Math.floor((iteration.metrics?.evalScore ?? 0) * 1e18),
       )
-      await safeWriteContract(this.walletClient, {
+      await writeContract(this.walletClient, {
         chain: this.chain,
         account: this.account,
         address: this.config.coordinatorAddress,

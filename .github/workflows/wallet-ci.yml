@@ -87,7 +87,7 @@ jobs:
 
       - name: Start Jeju localnet (anvil on port 6546)
         run: |
-          anvil --chain-id 1337 --port 6546 --block-time 1 --accounts 10 --balance 10000 &
+          anvil --chain-id 31337 --port 6546 --block-time 1 --accounts 10 --balance 10000 &
           sleep 3
           curl -s -X POST http://localhost:6546 -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}' | grep -q "0x539" && echo "Localnet running"
         working-directory: .
@@ -176,7 +176,7 @@ jobs:
 
       - name: Start Jeju localnet (anvil on port 6546)
         run: |
-          anvil --chain-id 1337 --port 6546 --block-time 1 --accounts 10 --balance 10000 &
+          anvil --chain-id 31337 --port 6546 --block-time 1 --accounts 10 --balance 10000 &
           sleep 3
           curl -s -X POST http://localhost:6546 -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}' | grep -q "0x539" && echo "Localnet running"
         working-directory: .

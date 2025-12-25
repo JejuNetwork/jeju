@@ -1,10 +1,5 @@
 import type { Address } from 'viem'
-import {
-  useAccount,
-  useReadContract,
-  useWaitForTransactionReceipt,
-  useWriteContract,
-} from 'wagmi'
+import { useAccount, useReadContract } from 'wagmi'
 import {
   COMMITTEE_MANAGER_ABI,
   type Committee,
@@ -17,6 +12,7 @@ import {
   REPORT_VERIFIER_ABI,
   type Subscription,
 } from '../../lib/oracleNetwork'
+import { useTypedWriteContract } from './useTypedWriteContract'
 
 export function useFeedRegistry() {
   const { feedRegistry } = getOracleAddresses()
@@ -175,10 +171,12 @@ export function useOperatorCommittees(operator: Address | undefined) {
 export function useOracleSubscriptions() {
   const { address } = useAccount()
   const { feeRouter } = getOracleAddresses()
-  const { writeContract, data: hash, isPending } = useWriteContract()
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
-    hash,
-  })
+  const {
+    write: writeContract,
+    isPending,
+    isConfirming,
+    isSuccess,
+  } = useTypedWriteContract()
 
   const { data: subscriptionIds, refetch: refetchSubscription } =
     useReadContract({

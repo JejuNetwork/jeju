@@ -1,6 +1,5 @@
 /** CLI logger with formatting utilities */
 
-import { createLogger } from '@jejunetwork/shared'
 import chalk from 'chalk'
 
 export interface LoggerOptions {
@@ -11,7 +10,6 @@ export interface LoggerOptions {
 class Logger {
   private verbose = false
   private silent = false
-  private baseLogger = createLogger('cli')
 
   configure(options: LoggerOptions) {
     this.verbose = options.verbose ?? false
@@ -20,37 +18,37 @@ class Logger {
 
   info(message: string) {
     if (!this.silent) {
-      this.baseLogger.info(message)
+      console.log(chalk.white(message))
     }
   }
 
   success(message: string) {
     if (!this.silent) {
-      this.baseLogger.info(chalk.green('✓ ') + message)
+      console.log(chalk.green('  ✓ ') + message)
     }
   }
 
   warn(message: string) {
     if (!this.silent) {
-      this.baseLogger.warn(chalk.yellow('⚠ ') + message)
+      console.log(chalk.yellow('  ⚠ ') + message)
     }
   }
 
   error(message: string) {
     if (!this.silent) {
-      this.baseLogger.error(chalk.red('✗ ') + message)
+      console.error(chalk.red('  ✗ ') + message)
     }
   }
 
   debug(message: string) {
     if (this.verbose && !this.silent) {
-      this.baseLogger.debug(chalk.gray(`  ${message}`))
+      console.log(chalk.gray(`    ${message}`))
     }
   }
 
   step(message: string) {
     if (!this.silent) {
-      this.baseLogger.info(chalk.blue('→ ') + message)
+      console.log(chalk.blue('  → ') + message)
     }
   }
 

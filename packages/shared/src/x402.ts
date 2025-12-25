@@ -104,6 +104,33 @@ export interface X402PaymentConfig {
   serviceName: string
 }
 
+/** X402 payment requirement returned to clients (402 response) */
+export interface X402PaymentRequirement {
+  x402Version: number
+  error: string
+  accepts: X402PaymentOption[]
+}
+
+/** Payment option in X402 requirement */
+export interface X402PaymentOption {
+  scheme: 'exact' | 'credit' | 'prepaid'
+  network: X402Network | string
+  maxAmountRequired: string
+  asset: Address
+  payTo: Address
+  resource: string
+  description: string
+}
+
+/** Parsed X402 payment header from request */
+export interface X402PaymentHeader {
+  scheme: string
+  network: string
+  payload: string
+  asset: string
+  amount: string
+}
+
 export const CHAIN_IDS: Record<X402Network, number> = {
   sepolia: 11155111,
   'base-sepolia': 84532,

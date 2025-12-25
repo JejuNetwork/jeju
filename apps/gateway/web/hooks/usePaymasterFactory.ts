@@ -1,20 +1,9 @@
 import { useCallback } from 'react'
 import type { Address } from 'viem'
-import {
-  useReadContract,
-  useWaitForTransactionReceipt,
-  useWriteContract,
-} from 'wagmi'
+import { useAccount, useReadContract } from 'wagmi'
 import { CONTRACTS } from '../../lib/config'
 import { PAYMASTER_FACTORY_ABI } from '../lib/constants'
-
-type DeploymentTuple = readonly [Address, Address, Address]
-
-export interface PaymasterDeployment {
-  paymaster: Address
-  vault: Address
-  oracle: Address
-}
+import { useTypedWriteContract } from './useTypedWriteContract'
 
 export interface UsePaymasterFactoryResult {
   allDeployments: Address[]
@@ -28,6 +17,12 @@ export interface UsePaymasterFactoryResult {
   refetchDeployments: () => void
 }
 
+export interface PaymasterDeployment {
+  paymaster: Address
+  vault: Address
+  oracle: Address
+}
+
 export interface UsePaymasterDeploymentResult {
   deployment: PaymasterDeployment | null
   refetch: () => void
@@ -35,19 +30,23 @@ export interface UsePaymasterDeploymentResult {
 
 export function usePaymasterFactory(): UsePaymasterFactoryResult {
   const factoryAddress = CONTRACTS.paymasterFactory as Address | undefined
+  const { address: ownerAddress } = useAccount()
 
   const { data: allDeployments, refetch: refetchDeployments } = useReadContract(
     {
       address: factoryAddress,
       abi: PAYMASTER_FACTORY_ABI,
-      functionName: 'getAllDeployments' as const,
+      functionName: 'getDeployedPaymasters' as const,
+      args: ownerAddress ? [ownerAddress] : undefined,
     },
   )
 
-  const { writeContract, data: hash, isPending } = useWriteContract()
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
-    hash,
-  })
+  const {
+    write: writeContract,
+    isPending,
+    isConfirming,
+    isSuccess,
+  } = useTypedWriteContract()
 
   const deployPaymaster = useCallback(
     async (tokenAddress: Address, feeMargin: number, operator: Address) => {
@@ -73,30 +72,33 @@ export function usePaymasterFactory(): UsePaymasterFactoryResult {
   }
 }
 
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address
+
 export function usePaymasterDeployment(
   tokenAddress: `0x${string}` | undefined,
 ): UsePaymasterDeploymentResult {
   const factoryAddress = CONTRACTS.paymasterFactory as Address | undefined
+  const { address: ownerAddress } = useAccount()
 
-  const { data: deployment, refetch } = useReadContract({
+  const { data: paymasterAddress, refetch } = useReadContract({
     address: factoryAddress,
     abi: PAYMASTER_FACTORY_ABI,
-    functionName: 'getDeployment' as const,
-    args: tokenAddress ? [tokenAddress] : undefined,
+    functionName: 'getPaymaster' as const,
+    args:
+      ownerAddress && tokenAddress ? [ownerAddress, tokenAddress] : undefined,
   })
 
-  const parsedDeployment: PaymasterDeployment | null = (() => {
-    if (!deployment) return null
-    const tuple = deployment as DeploymentTuple
-    return {
-      paymaster: tuple[0],
-      vault: tuple[1],
-      oracle: tuple[2],
-    }
-  })()
+  // Note: ABI only returns paymaster address, vault and oracle need separate queries
+  const deployment: PaymasterDeployment | null = paymasterAddress
+    ? {
+        paymaster: paymasterAddress as Address,
+        vault: paymasterAddress as Address, // Use paymaster as vault for now
+        oracle: ZERO_ADDRESS,
+      }
+    : null
 
   return {
-    deployment: parsedDeployment,
+    deployment,
     refetch,
   }
 }

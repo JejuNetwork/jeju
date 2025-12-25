@@ -138,20 +138,30 @@ contract DeployDWS is Script {
         console.log("");
 
         // ============================================================
-        // Register Canonical App Names
+        // Register Canonical App Names (optional - may fail on testnet/mainnet)
         // ============================================================
         console.log("--- Registering Canonical Names ---");
         
         // Register core app names (1 year duration)
         // Pricing: 3-char=0.1 ETH, 4-char=0.01 ETH, 5+ char=0.001 ETH per year
-        uint256 oneYear = 365 days;
-        string[10] memory appNames = ["gateway", "bazaar", "compute", "storage", "indexer", "cloud", "docs", "monitoring", "crucible", "factory"];
+        // This is optional - names can be registered separately
+        bool skipNames = vm.envOr("SKIP_NAME_REGISTRATION", false);
         
-        for (uint256 i = 0; i < appNames.length; i++) {
-            uint256 nameLen = bytes(appNames[i]).length;
-            uint256 registrationPrice = nameLen == 3 ? 0.1 ether : (nameLen == 4 ? 0.01 ether : 0.001 ether);
-            jnsRegistrar.claimReserved{value: registrationPrice}(appNames[i], deployer, oneYear);
-            console.log("  Registered:", appNames[i], ".jeju");
+        if (!skipNames) {
+            uint256 oneYear = 365 days;
+            string[10] memory appNames = ["gateway", "bazaar", "compute", "storage", "indexer", "cloud", "docs", "monitoring", "crucible", "factory"];
+            
+            for (uint256 i = 0; i < appNames.length; i++) {
+                uint256 nameLen = bytes(appNames[i]).length;
+                uint256 registrationPrice = nameLen == 3 ? 0.1 ether : (nameLen == 4 ? 0.01 ether : 0.001 ether);
+                try jnsRegistrar.claimReserved{value: registrationPrice}(appNames[i], deployer, oneYear) {
+                    console.log("  Registered:", appNames[i], ".jeju");
+                } catch {
+                    console.log("  Skipped (already registered or not allowed):", appNames[i]);
+                }
+            }
+        } else {
+            console.log("  Skipping name registration (SKIP_NAME_REGISTRATION=true)");
         }
         console.log("");
 

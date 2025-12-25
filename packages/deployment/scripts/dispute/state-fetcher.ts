@@ -28,7 +28,25 @@ import {
   pad,
   toHex,
 } from 'viem'
+import { z } from 'zod'
 import { inferChainFromRpcUrl } from '../shared/chain-utils'
+
+// eth_getProof response schema
+const EthGetProofResponseSchema = z.object({
+  address: z.string().transform((s) => s as Address),
+  nonce: z.string().transform((s) => s as Hex),
+  balance: z.string().transform((s) => s as Hex),
+  storageHash: z.string().transform((s) => s as Hex),
+  codeHash: z.string().transform((s) => s as Hex),
+  accountProof: z.array(z.string().transform((s) => s as Hex)),
+  storageProof: z.array(
+    z.object({
+      key: z.string().transform((s) => s as Hex),
+      value: z.string().transform((s) => s as Hex),
+      proof: z.array(z.string().transform((s) => s as Hex)),
+    }),
+  ),
+})
 
 // L2ToL1MessagePasser address (standard OP Stack)
 const L2_TO_L1_MESSAGE_PASSER =
@@ -240,22 +258,11 @@ export class StateFetcher {
     storageKeys: Hex[],
     blockNumber: bigint,
   ): Promise<AccountProof> {
-    const result = (await this.client.request({
+    const rawResult = await this.client.request({
       method: 'eth_getProof',
       params: [address, storageKeys, toHex(blockNumber)],
-    })) as {
-      address: Address
-      nonce: Hex
-      balance: Hex
-      storageHash: Hex
-      codeHash: Hex
-      accountProof: Hex[]
-      storageProof: Array<{
-        key: Hex
-        value: Hex
-        proof: Hex[]
-      }>
-    }
+    })
+    const result = EthGetProofResponseSchema.parse(rawResult)
 
     return {
       address: result.address,

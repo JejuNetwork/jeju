@@ -73,10 +73,9 @@ const JNS_REGISTRY_ABI = [
   },
 ] as const
 
-interface JNSGatewayConfig {
-  port: number
-  rpcUrl: string
-  jnsRegistryAddress: Address
+import type { JNSGatewayConfigBase } from '@jejunetwork/types'
+
+interface JNSGatewayConfig extends JNSGatewayConfigBase {
   ipfsGatewayUrl: string
   defaultResolver?: Address
 }

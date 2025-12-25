@@ -12,7 +12,7 @@ test.describe('Frontend Page Load', () => {
     await expect(page.locator('#app')).toBeVisible()
 
     // Should show app title
-    await expect(page.getByText('Decentralized Todo')).toBeVisible()
+    await expect(page.getByText('Example')).toBeVisible()
   })
 
   test('shows connect wallet screen when not connected', async ({ page }) => {
@@ -40,7 +40,7 @@ test.describe('Frontend Page Load', () => {
     await page.waitForLoadState('domcontentloaded')
 
     // Check page title
-    await expect(page).toHaveTitle(/Decentralized Todo/i)
+    await expect(page).toHaveTitle(/Example/i)
 
     // Check main elements exist
     await expect(page.locator('header')).toBeVisible()

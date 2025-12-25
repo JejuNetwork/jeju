@@ -3,7 +3,7 @@
  */
 
 import { getCurrentNetwork, getPoCConfig } from '@jejunetwork/config'
-import { safeReadContract } from '@jejunetwork/contracts'
+import { readContract } from '@jejunetwork/contracts'
 import {
   type Address,
   type Chain,
@@ -203,7 +203,7 @@ export class PoCMonitor {
   }
 
   private async scanTEEAgents(): Promise<void> {
-    const totalAgents = await safeReadContract<bigint>(this.publicClient, {
+    const totalAgents = await readContract(this.publicClient, {
       address: this.config.identityRegistryAddress,
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'totalAgents',
@@ -223,7 +223,7 @@ export class PoCMonitor {
 
       await Promise.all(
         batch.map(async (agentId) => {
-          const exists = await safeReadContract<boolean>(this.publicClient, {
+          const exists = await readContract(this.publicClient, {
             address: this.config.identityRegistryAddress,
             abi: IDENTITY_REGISTRY_ABI,
             functionName: 'agentExists',
@@ -232,7 +232,7 @@ export class PoCMonitor {
 
           if (!exists) return
 
-          const tags = await safeReadContract<string[]>(this.publicClient, {
+          const tags = await readContract(this.publicClient, {
             address: this.config.identityRegistryAddress,
             abi: IDENTITY_REGISTRY_ABI,
             functionName: 'getAgentTags',
@@ -268,15 +268,12 @@ export class PoCMonitor {
   }
 
   private async checkAgent(agent: MonitoredAgent): Promise<void> {
-    const result = await safeReadContract<[boolean, number, Hex, bigint]>(
-      this.publicClient,
-      {
-        address: this.config.validatorAddress,
-        abi: POC_VALIDATOR_ABI,
-        functionName: 'getAgentStatus',
-        args: [agent.agentId],
-      },
-    )
+    const result = await readContract(this.publicClient, {
+      address: this.config.validatorAddress,
+      abi: POC_VALIDATOR_ABI,
+      functionName: 'getAgentStatus',
+      args: [agent.agentId],
+    })
 
     const [verified, level, hardwareIdHash, expiresAt] = result
 
@@ -291,9 +288,7 @@ export class PoCMonitor {
     ) {
       agent.status = 'unknown'
     } else if (!verified) {
-      const record = await safeReadContract<
-        [boolean, number, bigint, bigint, bigint, boolean, Hex]
-      >(this.publicClient, {
+      const record = await readContract(this.publicClient, {
         address: this.config.validatorAddress,
         abi: POC_VALIDATOR_ABI,
         functionName: 'getHardwareRecord',

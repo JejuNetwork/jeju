@@ -2,7 +2,7 @@
 //!
 //! Uses alloy (the Rust equivalent of viem) for wallet operations.
 
-use alloy::primitives::{Address, Bytes, U256, U64};
+use alloy::primitives::{Address, Bytes, U256};
 use alloy::signers::local::PrivateKeySigner;
 use alloy::signers::Signer;
 use serde::{Deserialize, Serialize};
@@ -58,7 +58,7 @@ impl WalletManager {
         let address = format!("{:?}", signer.address());
 
         // Encrypt private key with password
-        let encrypted = self.encrypt_private_key(&signer, password)?;
+        let _encrypted = self.encrypt_private_key(&signer, password)?;
 
         self.signer = Some(signer);
 

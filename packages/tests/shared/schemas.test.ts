@@ -412,7 +412,7 @@ describe('ChainIdResponseSchema - Chain ID Response Validation', () => {
   test('should accept valid chain ID response', () => {
     const result = ChainIdResponseSchema.safeParse({
       jsonrpc: '2.0',
-      result: '0x539', // 1337
+      result: '0x539', // 31337
       id: 1,
     })
     expect(result.success).toBe(true)
@@ -430,7 +430,7 @@ describe('ChainIdResponseSchema - Chain ID Response Validation', () => {
   test('should reject non-hex result', () => {
     const result = ChainIdResponseSchema.safeParse({
       jsonrpc: '2.0',
-      result: '1337',
+      result: '31337',
       id: 1,
     })
     expect(result.success).toBe(false)
@@ -489,13 +489,13 @@ describe('GetCodeResponseSchema - Get Code Response Validation', () => {
 // Validation Helper Tests
 
 describe('parseChainIdResponse - Chain ID Parsing', () => {
-  test('should parse chain ID 1337', () => {
+  test('should parse chain ID 31337', () => {
     const result = parseChainIdResponse({
       jsonrpc: '2.0',
       result: '0x539',
       id: 1,
     })
-    expect(result).toBe(1337)
+    expect(result).toBe(31337)
   })
 
   test('should parse chain ID 1', () => {
@@ -917,7 +917,7 @@ describe('TestAccountSchema - Test Account Validation', () => {
 describe('NetworkConfigSchema - Network Configuration Validation', () => {
   test('should accept valid network config', () => {
     const result = NetworkConfigSchema.safeParse({
-      chainId: 1337,
+      chainId: 31337,
       chainIdHex: '0x539',
       name: 'Localnet',
       rpcUrl: 'http://127.0.0.1:6546',

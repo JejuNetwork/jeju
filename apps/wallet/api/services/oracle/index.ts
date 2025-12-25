@@ -26,7 +26,7 @@ const NATIVE_SYMBOLS: Record<number, string> = {
   42161: 'ETH',
   10: 'ETH',
   56: 'BNB',
-  1337: 'ETH',
+  31337: 'ETH',
   420691: 'ETH',
 }
 

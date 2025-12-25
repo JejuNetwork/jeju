@@ -3,7 +3,7 @@
  *
  * Type-safe wrappers for viem that work with typed ABIs from this package.
  *
- * PREFERRED: Use typed ABIs with readContract/writeContract for full type inference:
+ * Use typed ABIs with readContract/writeContract for full type inference:
  * ```typescript
  * import { identityRegistryAbi, readContract } from '@jejunetwork/contracts'
  *
@@ -15,8 +15,6 @@
  * })
  * // result is typed as boolean
  * ```
- *
- * DEPRECATED: safeReadContract/safeWriteContract require manual type parameters.
  *
  * @module @jejunetwork/contracts/viem
  */
@@ -175,7 +173,7 @@ export interface PublicClientConfig {
  * @example
  * ```typescript
  * const client = createTypedPublicClient({
- *   chainId: 1337,
+ *   chainId: 31337,
  *   rpcUrl: 'http://localhost:8545',
  * })
  * ```
@@ -211,7 +209,7 @@ export interface WalletClientConfig extends PublicClientConfig {
  * @example
  * ```typescript
  * const client = createTypedWalletClient({
- *   chainId: 1337,
+ *   chainId: 31337,
  *   rpcUrl: 'http://localhost:8545',
  *   account: privateKeyToAccount('0x...'),
  * })
@@ -234,72 +232,4 @@ export function createTypedWalletClient(
     },
     transport: http(config.rpcUrl),
   })
-}
-
-/**
- * @deprecated Use `readContract` with typed ABIs instead.
- *
- * Simple contract read helper - requires manual type parameter.
- * Prefer using typed ABIs which provide automatic type inference.
- */
-export async function safeReadContract<TReturn>(
-  client: unknown,
-  params: {
-    address: Address
-    abi: Abi | readonly unknown[]
-    functionName: string
-    args?: readonly unknown[]
-  },
-): Promise<TReturn> {
-  const viemClient = client as {
-    readContract: (args: unknown) => Promise<unknown>
-  }
-  const result = await viemClient.readContract({
-    address: params.address,
-    abi: params.abi,
-    functionName: params.functionName,
-    args: params.args,
-  })
-  return result as TReturn
-}
-
-/**
- * @deprecated Use `writeContract` with typed ABIs instead.
- *
- * Simple contract write helper - no type inference on function names or args.
- * Prefer using typed ABIs which provide automatic type inference.
- */
-export async function safeWriteContract(
-  client:
-    | WalletClient
-    | { writeContract: (args: unknown) => Promise<`0x${string}`> },
-  params: {
-    address: Address
-    abi: Abi | readonly unknown[]
-    functionName: string
-    args?: readonly unknown[]
-    account?: Account | Address
-    chain?: Chain
-    value?: bigint
-  },
-): Promise<`0x${string}`> {
-  return (client as WalletClient).writeContract({
-    address: params.address,
-    abi: params.abi as Abi,
-    functionName: params.functionName as ContractFunctionName<
-      Abi,
-      'nonpayable' | 'payable'
-    >,
-    args: params.args as ContractFunctionArgs<
-      Abi,
-      'nonpayable' | 'payable',
-      ContractFunctionName<Abi, 'nonpayable' | 'payable'>
-    >,
-    account: params.account,
-    chain: params.chain,
-    value: params.value,
-  } as WriteContractParameters<
-    Abi,
-    ContractFunctionName<Abi, 'nonpayable' | 'payable'>
-  >)
 }

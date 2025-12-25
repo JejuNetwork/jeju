@@ -5,7 +5,6 @@
 
 import { Elysia } from 'elysia'
 import {
-  type Address,
   createPublicClient,
   type Hex,
   http,
@@ -13,6 +12,9 @@ import {
   type PublicClient,
 } from 'viem'
 import { mainnet } from 'viem/chains'
+import type { JNSGatewayConfig } from '../../../lib/types'
+
+export type { JNSGatewayConfig }
 
 // ABI for JNS Resolver contenthash function
 const JNS_RESOLVER_ABI = [
@@ -35,15 +37,7 @@ const JNS_RESOLVER_ABI = [
   },
 ] as const
 
-export interface JNSGatewayConfig {
-  port: number
-  rpcUrl: string
-  jnsRegistryAddress: Address
-  jnsResolverAddress: Address
-  ipfsGateway: string
-  arweaveGateway: string
-  domain: string
-}
+// JNSGatewayConfig imported from lib/types above
 
 export interface ContentHash {
   protocol: 'ipfs' | 'ipns' | 'arweave' | 'http' | 'https'
@@ -53,7 +47,7 @@ export interface ContentHash {
 export class JNSGateway {
   private config: JNSGatewayConfig
   private client: PublicClient
-  private app: Elysia
+  private app!: ReturnType<JNSGateway['createApp']>
   private contentHashCache = new Map<
     string,
     { hash: ContentHash | null; expiresAt: number }
@@ -308,7 +302,7 @@ export class JNSGateway {
   /**
    * Create the Elysia app for handling JNS requests
    */
-  private createApp(): Elysia {
+  private createApp() {
     return new Elysia()
       .get('/jns/:name', async ({ params, set }) => {
         const { name } = params
@@ -351,7 +345,7 @@ export class JNSGateway {
   /**
    * Get the Elysia app instance
    */
-  getApp(): Elysia {
+  getApp() {
     return this.app
   }
 

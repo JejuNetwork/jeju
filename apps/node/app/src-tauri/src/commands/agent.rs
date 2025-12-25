@@ -42,9 +42,9 @@ pub struct AppealBanRequest {
 #[tauri::command]
 pub async fn register_agent(
     state: State<'_, AppState>,
-    request: RegisterAgentRequest,
+    _request: RegisterAgentRequest,
 ) -> Result<AgentInfo, String> {
-    let inner = state.inner.read();
+    let inner = state.inner.read().await;
 
     // Verify wallet is connected
     if inner.wallet_manager.is_none() {
@@ -62,7 +62,7 @@ pub async fn register_agent(
 
 #[tauri::command]
 pub async fn get_agent_info(state: State<'_, AppState>) -> Result<Option<AgentInfo>, String> {
-    let inner = state.inner.read();
+    let inner = state.inner.read().await;
 
     let agent_id = inner.config.wallet.agent_id;
 
@@ -80,9 +80,9 @@ pub async fn get_agent_info(state: State<'_, AppState>) -> Result<Option<AgentIn
 
 #[tauri::command]
 pub async fn check_ban_status(state: State<'_, AppState>) -> Result<BanStatus, String> {
-    let inner = state.inner.read();
+    let inner = state.inner.read().await;
 
-    let agent_id = inner.config.wallet.agent_id.ok_or("No agent registered")?;
+    let _agent_id = inner.config.wallet.agent_id.ok_or("No agent registered")?;
 
     // TODO: Query BanManager for status
     // 1. Check isBanned()
@@ -104,11 +104,11 @@ pub async fn check_ban_status(state: State<'_, AppState>) -> Result<BanStatus, S
 #[tauri::command]
 pub async fn appeal_ban(
     state: State<'_, AppState>,
-    request: AppealBanRequest,
+    _request: AppealBanRequest,
 ) -> Result<String, String> {
-    let inner = state.inner.read();
+    let inner = state.inner.read().await;
 
-    let agent_id = inner.config.wallet.agent_id.ok_or("No agent registered")?;
+    let _agent_id = inner.config.wallet.agent_id.ok_or("No agent registered")?;
 
     // TODO: Submit appeal via RegistryGovernance
     // 1. Check if appeal is possible (within deadline, has stake)

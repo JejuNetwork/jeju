@@ -57,7 +57,7 @@ describe('Configuration Loaders', () => {
     it('should load localnet configuration', () => {
       const config = loadChainConfig('localnet')
 
-      expect(config.chainId).toBe(1337)
+      expect(config.chainId).toBe(31337)
       expect(config.name).toBe('Jeju Localnet')
       expect(config.rpcUrl).toBe('http://127.0.0.1:6546')
       expect(config.l1ChainId).toBe(31337) // Jeju L1 chain ID
@@ -87,7 +87,7 @@ describe('Configuration Loaders', () => {
       cleanEnv()
       const config = getChainConfig()
       // Default changed from mainnet to localnet for better dev experience
-      expect(config.chainId).toBe(1337)
+      expect(config.chainId).toBe(31337)
     })
 
     it('should respect explicit network parameter', () => {
@@ -256,7 +256,7 @@ describe('Configuration Loaders', () => {
 
     describe('getChainId', () => {
       it('should get chain ID for each network', () => {
-        expect(getChainId('localnet')).toBe(1337)
+        expect(getChainId('localnet')).toBe(31337)
         expect(getChainId('testnet')).toBe(420690)
         expect(getChainId('mainnet')).toBe(420691)
       })
@@ -305,7 +305,7 @@ describe('Configuration Loaders', () => {
 
       expect(mainnet.chainId).toBe(420691)
       expect(testnet.chainId).toBe(420690)
-      expect(localnet.chainId).toBe(1337)
+      expect(localnet.chainId).toBe(31337)
     })
 
     it('should have flashblocks enabled on all networks', () => {

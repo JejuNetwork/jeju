@@ -92,7 +92,12 @@ class ElizaClient {
   private getOrCreateUserId(): string {
     let userId = this.getStorage('eliza-user-id')
     if (!userId) {
-      userId = `user-${crypto.randomUUID()}`
+      // Use crypto.randomUUID if available, otherwise generate a fallback UUID
+      const uuid =
+        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 11)}-${Math.random().toString(36).slice(2, 11)}`
+      userId = `user-${uuid}`
       this.setStorage('eliza-user-id', userId)
     }
     return userId

@@ -9,6 +9,14 @@
 
 import { getEnv } from '@jejunetwork/shared'
 import { toHex } from 'viem'
+import { z } from 'zod'
+
+// WebAuthn client data schema
+const ClientDataSchema = z.object({
+  type: z.string(),
+  challenge: z.string(),
+  origin: z.string(),
+})
 
 export interface PasskeyCredential {
   id: string
@@ -196,9 +204,9 @@ export class PasskeyManager {
     }
 
     // Verify clientDataJSON
-    const clientData = JSON.parse(
-      new TextDecoder().decode(response.response.clientDataJSON),
-    ) as { type: string; challenge: string; origin: string }
+    const clientData = ClientDataSchema.parse(
+      JSON.parse(new TextDecoder().decode(response.response.clientDataJSON)),
+    )
 
     if (clientData.type !== 'webauthn.create') {
       return { success: false, error: 'Invalid client data type' }
@@ -356,9 +364,9 @@ export class PasskeyManager {
     }
 
     // Verify clientDataJSON
-    const clientData = JSON.parse(
-      new TextDecoder().decode(response.response.clientDataJSON),
-    ) as { type: string; challenge: string; origin: string }
+    const clientData = ClientDataSchema.parse(
+      JSON.parse(new TextDecoder().decode(response.response.clientDataJSON)),
+    )
 
     if (clientData.type !== 'webauthn.get') {
       return { success: false, error: 'Invalid client data type' }

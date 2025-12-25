@@ -11,7 +11,7 @@ import { ZERO_ADDRESS } from '@jejunetwork/types'
 // Network defaults - localnet for development
 // Production builds should use Bun.build with define option to replace these
 export const NETWORK: 'localnet' | 'testnet' | 'mainnet' = 'localnet'
-export const CHAIN_ID = 1337
+export const CHAIN_ID = 31337
 export const RPC_URL = 'http://localhost:6546'
 
 // External services - empty string means use relative URLs (same origin)

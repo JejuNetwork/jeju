@@ -1,4 +1,4 @@
-import { safeReadContract, safeWriteContract } from '@jejunetwork/shared'
+import { readContract, writeContract } from '@jejunetwork/shared'
 import { expectAddress, parseEnvHex, ZERO_ADDRESS } from '@jejunetwork/types'
 import { IERC20_ABI } from '@jejunetwork/ui'
 import {
@@ -98,7 +98,7 @@ async function isRegisteredAgent(address: Address): Promise<boolean> {
     return false
   }
 
-  const balance = await safeReadContract<bigint>(publicClient, {
+  const balance = await readContract(publicClient, {
     address: FAUCET_CONFIG.identityRegistryAddress,
     abi: IDENTITY_REGISTRY_ABI,
     functionName: 'balanceOf',
@@ -121,7 +121,7 @@ async function getFaucetBalance(): Promise<bigint> {
     return 0n
   }
   const account = privateKeyToAccount(FAUCET_CONFIG.faucetPrivateKey)
-  return await safeReadContract<bigint>(publicClient, {
+  return await readContract(publicClient, {
     address: FAUCET_CONFIG.jejuTokenAddress,
     abi: IERC20_ABI,
     functionName: 'balanceOf',
@@ -182,7 +182,7 @@ export async function claimFromFaucet(
   }
 
   const walletClient = getWalletClient()
-  const hash = await safeWriteContract(walletClient, {
+  const hash = await writeContract(walletClient, {
     address: FAUCET_CONFIG.jejuTokenAddress,
     abi: IERC20_ABI,
     functionName: 'transfer',

@@ -42,7 +42,7 @@ persistence:
 
 # Local L1 RPC
 l1_rpc_url: http://l1-geth:8545
-l1_chain_id: "1337"
+l1_chain_id: "31337"
 
 # Domains (not used in localnet)
 rpc_domain: localhost

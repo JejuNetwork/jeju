@@ -76,7 +76,7 @@ const DEFAULT_TRACKERS = [
   'wss://tracker.openwebtorrent.com',
   'wss://tracker.btorrent.xyz',
   'udp://tracker.openbittorrent.com:80',
-  'udp://tracker.opentrackr.org:1337',
+  'udp://tracker.opentrackr.org:31337',
   'udp://open.stealth.si:80/announce',
 ]
 

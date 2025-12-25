@@ -81,7 +81,7 @@ async function startLocalnet(): Promise<void> {
       '--port',
       '9545',
       '--chain-id',
-      '1337',
+      '31337',
       '--accounts',
       '10',
       '--balance',

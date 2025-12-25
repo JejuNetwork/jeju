@@ -1,4 +1,4 @@
-import { safeReadContract, safeWriteContract } from '@jejunetwork/shared'
+import { readContract, writeContract } from '@jejunetwork/shared'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import { useCallback, useState } from 'react'
 import { type Address, type Hash, namehash } from 'viem'
@@ -243,7 +243,7 @@ export function useJNSLookup() {
         return false
       }
 
-      const result = await safeReadContract<boolean>(publicClient, {
+      const result = await readContract(publicClient, {
         address: JNS_REGISTRAR,
         abi: JNS_REGISTRAR_ABI,
         functionName: 'available',
@@ -264,14 +264,14 @@ export function useJNSLookup() {
       const duration = BigInt(durationYears * 365 * 24 * 60 * 60)
 
       const [price, priceWithDiscount] = await Promise.all([
-        safeReadContract<bigint>(publicClient, {
+        readContract(publicClient, {
           address: JNS_REGISTRAR,
           abi: JNS_REGISTRAR_ABI,
           functionName: 'rentPrice',
           args: [name, duration],
         }),
         address
-          ? safeReadContract<bigint>(publicClient, {
+          ? readContract(publicClient, {
               address: JNS_REGISTRAR,
               abi: JNS_REGISTRAR_ABI,
               functionName: 'rentPriceWithDiscount',
@@ -298,25 +298,25 @@ export function useJNSLookup() {
       }
 
       const [isAvailable, owner, expires, inGracePeriod] = await Promise.all([
-        safeReadContract<boolean>(publicClient, {
+        readContract(publicClient, {
           address: JNS_REGISTRAR,
           abi: JNS_REGISTRAR_ABI,
           functionName: 'available',
           args: [name],
         }),
-        safeReadContract<Address>(publicClient, {
+        readContract(publicClient, {
           address: JNS_REGISTRAR,
           abi: JNS_REGISTRAR_ABI,
           functionName: 'ownerOf',
           args: [name],
         }),
-        safeReadContract<bigint>(publicClient, {
+        readContract(publicClient, {
           address: JNS_REGISTRAR,
           abi: JNS_REGISTRAR_ABI,
           functionName: 'nameExpires',
           args: [name],
         }),
-        safeReadContract<boolean>(publicClient, {
+        readContract(publicClient, {
           address: JNS_REGISTRAR,
           abi: JNS_REGISTRAR_ABI,
           functionName: 'inGracePeriod',
@@ -416,14 +416,14 @@ export function useJNSRegister() {
 
       // Get price
       if (!publicClient) throw new Error('Public client not available')
-      const price = await safeReadContract<bigint>(publicClient, {
+      const price = await readContract(publicClient, {
         address: JNS_REGISTRAR,
         abi: JNS_REGISTRAR_ABI,
         functionName: 'rentPriceWithDiscount',
         args: [name, duration, address],
       })
 
-      const hash = await safeWriteContract(walletClient, {
+      const hash = await writeContract(walletClient, {
         address: JNS_REGISTRAR,
         abi: JNS_REGISTRAR_ABI,
         functionName: 'register',
@@ -453,14 +453,14 @@ export function useJNSRegister() {
 
       // Get price
       if (!publicClient) throw new Error('Public client not available')
-      const price = await safeReadContract<bigint>(publicClient, {
+      const price = await readContract(publicClient, {
         address: JNS_REGISTRAR,
         abi: JNS_REGISTRAR_ABI,
         functionName: 'rentPrice',
         args: [name, duration],
       })
 
-      const hash = await safeWriteContract(walletClient, {
+      const hash = await writeContract(walletClient, {
         address: JNS_REGISTRAR,
         abi: JNS_REGISTRAR_ABI,
         functionName: 'renew',
@@ -495,7 +495,7 @@ export function useJNSResolver() {
       const fullName = name.endsWith('.jeju') ? name : `${name}.jeju`
       const node = namehash(fullName) as `0x${string}`
 
-      const addr = await safeReadContract<Address>(publicClient, {
+      const addr = await readContract(publicClient, {
         address: JNS_RESOLVER,
         abi: JNS_RESOLVER_ABI,
         functionName: 'addr',
@@ -516,7 +516,7 @@ export function useJNSResolver() {
       const fullName = name.endsWith('.jeju') ? name : `${name}.jeju`
       const node = namehash(fullName) as `0x${string}`
 
-      return await safeReadContract<string>(publicClient, {
+      return await readContract(publicClient, {
         address: JNS_RESOLVER,
         abi: JNS_RESOLVER_ABI,
         functionName: 'text',
@@ -535,9 +535,7 @@ export function useJNSResolver() {
       const fullName = name.endsWith('.jeju') ? name : `${name}.jeju`
       const node = namehash(fullName) as `0x${string}`
 
-      const result = await safeReadContract<
-        readonly [Address, `0x${string}`, bigint, string, string, `0x${string}`]
-      >(publicClient, {
+      const result = await readContract(publicClient, {
         address: JNS_RESOLVER,
         abi: JNS_RESOLVER_ABI,
         functionName: 'getAppInfo',
@@ -565,7 +563,7 @@ export function useJNSResolver() {
       const fullName = name.endsWith('.jeju') ? name : `${name}.jeju`
       const node = namehash(fullName) as `0x${string}`
 
-      return await safeWriteContract(walletClient, {
+      return await writeContract(walletClient, {
         address: JNS_RESOLVER,
         abi: JNS_RESOLVER_ABI,
         functionName: 'setAddr',
@@ -584,7 +582,7 @@ export function useJNSResolver() {
       const fullName = name.endsWith('.jeju') ? name : `${name}.jeju`
       const node = namehash(fullName) as `0x${string}`
 
-      return await safeWriteContract(walletClient, {
+      return await writeContract(walletClient, {
         address: JNS_RESOLVER,
         abi: JNS_RESOLVER_ABI,
         functionName: 'setText',
@@ -610,7 +608,7 @@ export function useJNSResolver() {
       const fullName = name.endsWith('.jeju') ? name : `${name}.jeju`
       const node = namehash(fullName) as `0x${string}`
 
-      return await safeWriteContract(walletClient, {
+      return await writeContract(walletClient, {
         address: JNS_RESOLVER,
         abi: JNS_RESOLVER_ABI,
         functionName: 'setAppConfig',
@@ -640,7 +638,7 @@ export function useJNSReverse() {
         return null
       }
 
-      const name = await safeReadContract<string>(publicClient, {
+      const name = await readContract(publicClient, {
         address: JNS_REVERSE_REGISTRAR,
         abi: JNS_REVERSE_REGISTRAR_ABI,
         functionName: 'nameOf',
@@ -660,7 +658,7 @@ export function useJNSReverse() {
 
       const fullName = name.endsWith('.jeju') ? name : `${name}.jeju`
 
-      return await safeWriteContract(walletClient, {
+      return await writeContract(walletClient, {
         address: JNS_REVERSE_REGISTRAR,
         abi: JNS_REVERSE_REGISTRAR_ABI,
         functionName: 'setName',

@@ -3077,6 +3077,7 @@ version = "0.1.0"
 dependencies = [
  "aes-gcm",
  "alloy",
+ "async-trait",
  "base64 0.21.7",
  "chrono",
  "dirs 5.0.1",

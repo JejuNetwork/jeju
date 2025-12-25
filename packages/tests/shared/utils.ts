@@ -18,7 +18,7 @@ export const PASSWORD = 'Tester@1234'
 export const TEST_WALLET_ADDRESS =
   '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as const
 
-export const JEJU_CHAIN_ID = 1337
+export const JEJU_CHAIN_ID = 31337
 export const JEJU_RPC_URL = 'http://127.0.0.1:6546'
 
 export const TEST_ACCOUNTS = {
@@ -366,7 +366,7 @@ export function getTestEnv(): Record<string, string> {
     L1_RPC_URL: process.env.L1_RPC_URL ?? 'http://127.0.0.1:6545',
     L2_RPC_URL: process.env.L2_RPC_URL ?? 'http://127.0.0.1:6546',
     JEJU_RPC_URL: process.env.JEJU_RPC_URL ?? 'http://127.0.0.1:6546',
-    CHAIN_ID: process.env.CHAIN_ID ?? '1337',
+    CHAIN_ID: process.env.CHAIN_ID ?? '31337',
     INDEXER_GRAPHQL_URL:
       process.env.INDEXER_GRAPHQL_URL ?? 'http://127.0.0.1:4350/graphql',
     ORACLE_URL: process.env.ORACLE_URL ?? 'http://127.0.0.1:4301',

@@ -78,7 +78,7 @@ export class AppOrchestrator {
       ...this.serviceEnv,
       JEJU_RPC_URL: rpcUrl,
       RPC_URL: rpcUrl,
-      CHAIN_ID: '1337',
+      CHAIN_ID: '31337',
     }
 
     if (mainPort) {

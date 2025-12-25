@@ -33,7 +33,7 @@ const NETWORK_CONFIG: Record<
   NetworkType,
   { chainId: number; rpcEnvVar: string; verifyApi?: string }
 > = {
-  localnet: { chainId: 1337, rpcEnvVar: 'RPC_URL' },
+  localnet: { chainId: 31337, rpcEnvVar: 'RPC_URL' },
   testnet: {
     chainId: 84532,
     rpcEnvVar: 'BASE_SEPOLIA_RPC_URL',

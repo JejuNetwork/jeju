@@ -8,7 +8,7 @@
  */
 
 import { EventEmitter } from 'node:events'
-import { safeReadContract } from '@jejunetwork/contracts'
+import { readContract } from '@jejunetwork/contracts'
 import type { Address, PublicClient, WalletClient } from 'viem'
 
 // Uniswap V3 NonfungiblePositionManager
@@ -142,14 +142,12 @@ export class JITLiquidityProvider extends EventEmitter {
 
     try {
       const [slot0, tickSpacing] = await Promise.all([
-        safeReadContract<
-          readonly [bigint, number, number, number, number, number, boolean]
-        >(client.public, {
+        readContract(client.public, {
           address: pool,
           abi: POOL_ABI,
           functionName: 'slot0',
         }),
-        safeReadContract<number>(client.public, {
+        readContract(client.public, {
           address: pool,
           abi: POOL_ABI,
           functionName: 'tickSpacing',

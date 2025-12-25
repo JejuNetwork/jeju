@@ -5,6 +5,7 @@ export default defineConfig({
   description: 'OP-Stack L2 for Agents',
   logoUrl: '/logo.svg',
   iconUrl: '/favicon.ico',
+  rootDir: 'docs',
 
   vite: {
     cacheDir: 'node_modules/.vite',

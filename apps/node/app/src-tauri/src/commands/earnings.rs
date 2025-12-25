@@ -1,7 +1,6 @@
 //! Earnings tracking commands
 
 use crate::state::AppState;
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
@@ -86,9 +85,7 @@ pub struct EarningsHistoryRequest {
 }
 
 #[tauri::command]
-pub async fn get_earnings_summary(state: State<'_, AppState>) -> Result<EarningsSummary, String> {
-    let inner = state.inner.read();
-
+pub async fn get_earnings_summary(_state: State<'_, AppState>) -> Result<EarningsSummary, String> {
     // TODO: Aggregate earnings from:
     // 1. On-chain claims history
     // 2. Pending rewards from staking contracts
@@ -113,11 +110,9 @@ pub async fn get_earnings_summary(state: State<'_, AppState>) -> Result<Earnings
 
 #[tauri::command]
 pub async fn get_earnings_history(
-    state: State<'_, AppState>,
-    request: EarningsHistoryRequest,
+    _state: State<'_, AppState>,
+    _request: EarningsHistoryRequest,
 ) -> Result<Vec<EarningsHistoryEntry>, String> {
-    let inner = state.inner.read();
-
     // TODO: Query earnings history from:
     // 1. Local database
     // 2. On-chain events if needed
@@ -129,7 +124,7 @@ pub async fn get_earnings_history(
 pub async fn get_projected_earnings(
     state: State<'_, AppState>,
 ) -> Result<ProjectedEarnings, String> {
-    let inner = state.inner.read();
+    let inner = state.inner.read().await;
 
     // Calculate projections based on:
     // 1. Current hardware capabilities
@@ -217,13 +212,11 @@ pub async fn get_projected_earnings(
 
 #[tauri::command]
 pub async fn export_earnings(
-    state: State<'_, AppState>,
-    format: String, // "csv" or "json"
-    start_timestamp: Option<i64>,
-    end_timestamp: Option<i64>,
+    _state: State<'_, AppState>,
+    _format: String, // "csv" or "json"
+    _start_timestamp: Option<i64>,
+    _end_timestamp: Option<i64>,
 ) -> Result<String, String> {
-    let inner = state.inner.read();
-
     // TODO: Export earnings data to file
     // 1. Query all earnings history
     // 2. Format as CSV or JSON

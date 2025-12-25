@@ -50,7 +50,7 @@ function getNetworkConfig(network: string): {
     default:
       return {
         rpcUrl: process.env.LOCAL_RPC_URL ?? 'http://localhost:6545',
-        chainId: 1337,
+        chainId: 31337,
       }
   }
 }

@@ -11,7 +11,7 @@
  */
 
 import { getCurrentNetwork, getPoCConfig } from '@jejunetwork/config'
-import { safeReadContract } from '@jejunetwork/contracts'
+import { readContract } from '@jejunetwork/contracts'
 import {
   type Address,
   type Chain,
@@ -93,17 +93,6 @@ interface RevocationFeed {
   lastTimestamp: number
 }
 
-interface OnChainHardwareRecord {
-  hardwareIdHash: Hex
-  level: number
-  agentId: bigint
-  verifiedAt: bigint
-  expiresAt: bigint
-  revoked: boolean
-  cloudProvider: string
-  region: string
-}
-
 interface RegistryClientConfig {
   chain?: Chain
   rpcUrl?: string
@@ -179,15 +168,12 @@ export class PoCRegistryClient {
   private async checkHardwareOnChain(
     hardwareIdHash: Hex,
   ): Promise<PoCRegistryEntry | null> {
-    const record = await safeReadContract<OnChainHardwareRecord>(
-      this.publicClient,
-      {
-        address: this.validatorAddress,
-        abi: VALIDATOR_ABI,
-        functionName: 'getHardwareRecord',
-        args: [hardwareIdHash as `0x${string}`],
-      },
-    )
+    const record = await readContract(this.publicClient, {
+      address: this.validatorAddress,
+      abi: VALIDATOR_ABI,
+      functionName: 'getHardwareRecord',
+      args: [hardwareIdHash as `0x${string}`],
+    })
 
     if (record.verifiedAt === 0n) {
       return null
@@ -257,14 +243,15 @@ export class PoCRegistryClient {
     hardwareIdHash: Hex
     expiresAt: number
   }> {
-    const [verified, level, hardwareIdHash, expiresAt] = await safeReadContract<
-      [boolean, number, Hex, bigint]
-    >(this.publicClient, {
-      address: this.validatorAddress,
-      abi: VALIDATOR_ABI,
-      functionName: 'getAgentStatus',
-      args: [agentId],
-    })
+    const [verified, level, hardwareIdHash, expiresAt] = await readContract(
+      this.publicClient,
+      {
+        address: this.validatorAddress,
+        abi: VALIDATOR_ABI,
+        functionName: 'getAgentStatus',
+        args: [agentId],
+      },
+    )
 
     return {
       verified,
@@ -275,7 +262,7 @@ export class PoCRegistryClient {
   }
 
   async needsReverification(agentId: bigint): Promise<boolean> {
-    return safeReadContract<boolean>(this.publicClient, {
+    return readContract(this.publicClient, {
       address: this.validatorAddress,
       abi: VALIDATOR_ABI,
       functionName: 'needsReverification',

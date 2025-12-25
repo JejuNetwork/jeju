@@ -105,7 +105,7 @@ class HistoryService {
 
         return {
           hash: txHash,
-          chainId: 1337 as SupportedChainId, // Default to localnet; indexer provides actual chainId
+          chainId: 31337 as SupportedChainId, // Default to localnet; indexer provides actual chainId
           type,
           status:
             tx.status === 'SUCCESS'

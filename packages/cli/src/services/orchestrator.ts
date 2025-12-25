@@ -541,16 +541,19 @@ class ServicesOrchestrator {
 
     await dbProc.exited
 
-    const proc = spawn(['bun', 'run', 'dev'], {
+    // Start full indexer stack (processor, graphql, frontend, api)
+    const proc = spawn(['bun', 'run', 'dev:full'], {
       cwd: indexerPath,
       stdout: 'inherit',
       stderr: 'inherit',
       env: {
         ...process.env,
         GQL_PORT: String(SERVICE_PORTS.indexer),
+        REST_PORT: '4352',
+        PORT: '4355',
         RPC_ETH_HTTP: this.rpcUrl,
         START_BLOCK: '0',
-        CHAIN_ID: '1337',
+        CHAIN_ID: '31337',
       },
     })
 
@@ -574,16 +577,19 @@ class ServicesOrchestrator {
     const indexerPath = join(this.rootDir, 'apps/indexer')
 
     if (existsSync(indexerPath)) {
-      const proc = spawn(['bun', 'run', 'dev'], {
+      // Start full indexer stack (processor, graphql, frontend, api)
+      const proc = spawn(['bun', 'run', 'dev:full'], {
         cwd: indexerPath,
         stdout: 'inherit',
         stderr: 'inherit',
         env: {
           ...process.env,
           GQL_PORT: String(port),
+          REST_PORT: '4352',
+          PORT: '4355',
           RPC_ETH_HTTP: this.rpcUrl,
           START_BLOCK: '0',
-          CHAIN_ID: '1337',
+          CHAIN_ID: '31337',
           DATABASE_URL: `sqlite://${join(this.rootDir, '.data/indexer.db')}`,
         },
       })
@@ -937,7 +943,7 @@ class ServicesOrchestrator {
         PORT: String(port),
         DWS_PORT: String(port),
         RPC_URL: this.rpcUrl,
-        CHAIN_ID: '1337',
+        CHAIN_ID: '31337',
         REPO_REGISTRY_ADDRESS: getContractAddr('repoRegistry'),
         PACKAGE_REGISTRY_ADDRESS: getContractAddr('packageRegistry'),
         TRIGGER_REGISTRY_ADDRESS: getContractAddr('triggerRegistry'),
@@ -990,7 +996,7 @@ class ServicesOrchestrator {
           type: 'server',
           port: dwsPort,
           url: `http://localhost:${dwsPort}/ci`,
-          healthCheck: '/health',
+          // No health check - DWS sub-route
         })
         logger.success(
           `Cron service available via DWS on port ${dwsPort} (CI workflow engine)`,
@@ -1153,7 +1159,7 @@ class ServicesOrchestrator {
           type: 'server',
           port: dwsPort,
           url: `http://localhost:${dwsPort}/compute`,
-          healthCheck: '/health',
+          // No health check - DWS sub-route
         })
         logger.success(
           `DWS Compute available via DWS on port ${dwsPort} (TEE LOCAL mode)`,
@@ -1222,172 +1228,38 @@ class ServicesOrchestrator {
     logger.info(`DWS Compute on port ${port} (standalone - DWS not available)`)
   }
 
+  /**
+   * Register JejuGit as a DWS route (git.local.jejunetwork.org -> DWS:4030/git)
+   * Git is part of DWS, not a separate service
+   */
   private async startGit(): Promise<void> {
-    const port = SERVICE_PORTS.git
-
-    if (await isPortInUse(port)) {
-      logger.info(`JejuGit already running on port ${port}`)
-      this.services.set('git', {
-        name: 'JejuGit',
-        type: 'server',
-        port,
-        url: `http://localhost:${port}`,
-        healthCheck: '/git/health',
-      })
-      return
-    }
-
     const dwsPort = SERVICE_PORTS.storage
-    if (await isPortInUse(dwsPort)) {
-      this.services.set('git', {
-        name: 'JejuGit (via DWS)',
-        type: 'server',
-        port: dwsPort,
-        url: `http://localhost:${dwsPort}/git`,
-        healthCheck: '/health',
-      })
-      logger.success(
-        `JejuGit available via DWS on port ${dwsPort} (on-chain repo registry)`,
-      )
-      return
-    }
 
-    logger.info(`Waiting for DWS to start for JejuGit...`)
-    let retries = 10
-    while (retries > 0) {
-      await new Promise((r) => setTimeout(r, 500))
-      if (await isPortInUse(dwsPort)) {
-        this.services.set('git', {
-          name: 'JejuGit (via DWS)',
-          type: 'server',
-          port: dwsPort,
-          url: `http://localhost:${dwsPort}/git`,
-          healthCheck: '/health',
-        })
-        logger.success(
-          `JejuGit available via DWS on port ${dwsPort} (on-chain repo registry)`,
-        )
-        return
-      }
-      retries--
-    }
-
-    const dwsPath = join(this.rootDir, 'apps/dws')
-    if (existsSync(dwsPath)) {
-      const contracts = this.loadContractAddresses()
-      const repoAddr =
-        typeof contracts.repoRegistry === 'string' ? contracts.repoRegistry : ''
-      const proc = spawn(['bun', 'run', 'api/server/routes/git.ts'], {
-        cwd: dwsPath,
-        stdout: 'inherit',
-        stderr: 'inherit',
-        env: {
-          ...process.env,
-          RPC_URL: this.rpcUrl,
-          GIT_PORT: String(port),
-          REPO_REGISTRY_ADDRESS: repoAddr,
-        },
-      })
-
-      this.services.set('git', {
-        name: 'JejuGit (On-Chain)',
-        type: 'process',
-        port,
-        process: proc,
-        url: `http://localhost:${port}`,
-        healthCheck: '/health',
-      })
-      logger.success(
-        `JejuGit starting on port ${port} (on-chain repo registry)`,
-      )
-    } else {
-      logger.warn('DWS app not found, JejuGit service unavailable')
-    }
+    // Git is always served by DWS - just register the route
+    this.services.set('git', {
+      name: 'JejuGit',
+      type: 'server',
+      port: dwsPort,
+      url: `http://localhost:${dwsPort}/git`,
+      // No health check - DWS sub-route
+    })
   }
 
+  /**
+   * Register JejuPkg as a DWS route (pkg.local.jejunetwork.org -> DWS:4030/pkg)
+   * Pkg is part of DWS, not a separate service
+   */
   private async startPkg(): Promise<void> {
-    const port = SERVICE_PORTS.pkg
-
-    if (await isPortInUse(port)) {
-      logger.info(`JejuPkg already running on port ${port}`)
-      this.services.set('pkg', {
-        name: 'JejuPkg',
-        type: 'server',
-        port,
-        url: `http://localhost:${port}`,
-        healthCheck: '/health',
-      })
-      return
-    }
-
     const dwsPort = SERVICE_PORTS.storage
-    if (await isPortInUse(dwsPort)) {
-      this.services.set('pkg', {
-        name: 'JejuPkg (via DWS)',
-        type: 'server',
-        port: dwsPort,
-        url: `http://localhost:${dwsPort}/pkg`,
-        healthCheck: '/health',
-      })
-      logger.success(
-        `JejuPkg available via DWS on port ${dwsPort} (on-chain package registry)`,
-      )
-      return
-    }
 
-    logger.info(`Waiting for DWS to start for JejuPkg...`)
-    let retries = 10
-    while (retries > 0) {
-      await new Promise((r) => setTimeout(r, 500))
-      if (await isPortInUse(dwsPort)) {
-        this.services.set('pkg', {
-          name: 'JejuPkg (via DWS)',
-          type: 'server',
-          port: dwsPort,
-          url: `http://localhost:${dwsPort}/pkg`,
-          healthCheck: '/health',
-        })
-        logger.success(
-          `JejuPkg available via DWS on port ${dwsPort} (on-chain package registry)`,
-        )
-        return
-      }
-      retries--
-    }
-
-    const dwsPath2 = join(this.rootDir, 'apps/dws')
-    if (existsSync(dwsPath2)) {
-      const contracts = this.loadContractAddresses()
-      const pkgAddr =
-        typeof contracts.packageRegistry === 'string'
-          ? contracts.packageRegistry
-          : ''
-      const proc = spawn(['bun', 'run', 'api/server/routes/pkg.ts'], {
-        cwd: dwsPath2,
-        stdout: 'inherit',
-        stderr: 'inherit',
-        env: {
-          ...process.env,
-          RPC_URL: this.rpcUrl,
-          PKG_PORT: String(port),
-          PACKAGE_REGISTRY_ADDRESS: pkgAddr,
-        },
-      })
-
-      this.services.set('pkg', {
-        name: 'JejuPkg (On-Chain)',
-        type: 'process',
-        port,
-        process: proc,
-        url: `http://localhost:${port}`,
-        healthCheck: '/health',
-      })
-      logger.success(
-        `JejuPkg starting on port ${port} (on-chain package registry)`,
-      )
-    } else {
-      logger.warn('DWS app not found, JejuPkg service unavailable')
-    }
+    // Pkg is always served by DWS - just register the route
+    this.services.set('pkg', {
+      name: 'JejuPkg',
+      type: 'server',
+      port: dwsPort,
+      url: `http://localhost:${dwsPort}/pkg`,
+      // No health check - DWS sub-route
+    })
   }
 
   private async waitForServices(): Promise<void> {
@@ -1423,31 +1295,27 @@ class ServicesOrchestrator {
     logger.newline()
     logger.subheader('Development Services')
 
-    const sortOrder = [
+    // Only show main services, not DWS sub-routes (cron, computeBridge, git, pkg)
+    const mainServices = [
       'inference',
       'cql',
       'oracle',
       'indexer',
       'jns',
-      'storage',
-      'cron',
-      'cvm',
-      'computeBridge',
-      'git',
-      'pkg',
+      'storage', // DWS is registered as 'storage'
     ]
-    const sorted = Array.from(this.services.entries()).sort(
-      ([a], [b]) => sortOrder.indexOf(a) - sortOrder.indexOf(b),
-    )
 
-    for (const [_key, service] of sorted) {
-      logger.table([
-        {
-          label: service.name,
-          value: service.url || 'running',
-          status: 'ok',
-        },
-      ])
+    for (const key of mainServices) {
+      const service = this.services.get(key)
+      if (service) {
+        logger.table([
+          {
+            label: service.name,
+            value: service.url || 'running',
+            status: 'ok',
+          },
+        ])
+      }
     }
   }
 

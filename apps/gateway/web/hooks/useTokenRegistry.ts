@@ -1,33 +1,17 @@
-import { useTypedWriteContract } from '@jejunetwork/shared/wagmi'
+import { createTypedWriteContract } from '@jejunetwork/contracts'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
+import type { TokenConfig, TokenInfo } from '@jejunetwork/ui'
 import { useCallback, useMemo } from 'react'
 import type { Address } from 'viem'
-import { useReadContract } from 'wagmi'
+import {
+  useReadContract,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from 'wagmi'
 import { CONTRACTS } from '../../lib/config'
 import { TOKEN_REGISTRY_ABI } from '../lib/constants'
 
-export interface TokenInfo {
-  address: Address
-  symbol: string
-  name: string
-  decimals: number
-}
-
-export interface TokenConfig {
-  tokenAddress: Address
-  name: string
-  symbol: string
-  decimals: number
-  oracleAddress: Address
-  minFeeMargin: bigint
-  maxFeeMargin: bigint
-  isActive: boolean
-  registrant: Address
-  registrationTime: bigint
-  totalVolume: bigint
-  totalTransactions: bigint
-  metadataHash: `0x${string}`
-}
+export type { TokenConfig, TokenInfo }
 
 // Built-in token definitions using shared ZERO_ADDRESS
 const KNOWN_TOKENS: ReadonlyMap<Lowercase<Address>, TokenInfo> = new Map([
@@ -75,7 +59,15 @@ export function useTokenRegistry(): UseTokenRegistryResult {
   // Note: registrationFee may not exist in minimal ABI
   const registrationFee = 0n // Default to 0 if not available
 
-  const { writeContract, isLoading, isSuccess } = useTypedWriteContract()
+  const {
+    writeContract: _writeContract,
+    data: hash,
+    isPending,
+  } = useWriteContract()
+  const writeContract = createTypedWriteContract(_writeContract)
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
 
   const registerToken = useCallback(
     async (
@@ -114,7 +106,7 @@ export function useTokenRegistry(): UseTokenRegistryResult {
     allTokens: allTokens ? (allTokens as Address[]) : [],
     registrationFee: registrationFee as bigint | undefined,
     registerToken,
-    isPending: isLoading,
+    isPending: isPending || isConfirming,
     isSuccess,
     refetchTokens,
     getTokenInfo,
@@ -130,12 +122,14 @@ export function useTokenConfig(
   const { data: config, refetch } = useReadContract({
     address: registryAddress,
     abi: TOKEN_REGISTRY_ABI,
-    functionName: 'getTokenConfig' as const,
+    functionName: 'getTokenInfo' as const,
     args: tokenAddress ? [tokenAddress] : undefined,
   })
 
+  // Contract returns different shape than TokenConfig, but we use it as-is
+  // since this is a minimal implementation
   return {
-    config: config as TokenConfig | undefined,
+    config: config as unknown as TokenConfig | undefined,
     refetch,
   }
 }

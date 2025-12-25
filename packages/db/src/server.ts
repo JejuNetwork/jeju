@@ -13,6 +13,16 @@ import { Elysia } from 'elysia'
 import pino from 'pino'
 import { z } from 'zod'
 
+// Request body schemas
+const CreateDatabaseBodySchema = z.object({
+  owner: z.string().optional(),
+})
+
+const CreateRentalBodySchema = z.object({
+  planId: z.string().optional(),
+  schema: z.string().optional(),
+})
+
 const log = pino({
   name: 'cql-server',
   level: process.env.LOG_LEVEL ?? 'info',
@@ -168,7 +178,7 @@ const app = new Elysia()
     })),
   }))
   .post('/api/v1/databases', ({ body, set }) => {
-    const bodyObj = body as { owner?: string }
+    const bodyObj = CreateDatabaseBodySchema.parse(body)
     const dbId = `db-${crypto.randomUUID()}`
     getDatabase(dbId) // Create the database
 
@@ -228,7 +238,7 @@ const app = new Elysia()
   }))
   // Create rental (creates a database)
   .post('/api/v1/rentals', ({ body, set }) => {
-    const bodyObj = body as { planId?: string; schema?: string }
+    const bodyObj = CreateRentalBodySchema.parse(body)
     const dbId = `db-${crypto.randomUUID()}`
     const db = getDatabase(dbId)
 

@@ -5,7 +5,7 @@
  * All reads are on-chain calls - no API keys required.
  */
 
-import { safeReadContract } from '@jejunetwork/contracts'
+import { readContract } from '@jejunetwork/contracts'
 import type { Address, PublicClient } from 'viem'
 
 // Chainlink Price Feed addresses on Ethereum mainnet
@@ -112,9 +112,7 @@ export class PriceOracle {
     if (!feed) return null
 
     try {
-      const result = await safeReadContract<
-        readonly [bigint, bigint, bigint, bigint, bigint]
-      >(this.client, {
+      const result = await readContract(this.client, {
         address: feed.address,
         abi: AGGREGATOR_ABI,
         functionName: 'latestRoundData',

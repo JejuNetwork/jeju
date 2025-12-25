@@ -152,7 +152,7 @@ test.describe('Page Header', () => {
     await page.goto('/')
     await page.waitForLoadState('domcontentloaded')
 
-    await expect(page.getByText('Decentralized Todo')).toBeVisible()
+    await expect(page.getByText('Example')).toBeVisible()
     await expect(page.getByText(/Powered by Jeju Network/i)).toBeVisible()
   })
 
@@ -164,7 +164,7 @@ test.describe('Page Header', () => {
   }) => {
     await connectWallet(page, context, metamaskPage, extensionId)
 
-    await expect(page.getByText('Decentralized Todo')).toBeVisible()
+    await expect(page.getByText('Example')).toBeVisible()
     await expect(page.getByText(/Powered by Jeju Network/i)).toBeVisible()
   })
 })

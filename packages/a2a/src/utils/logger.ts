@@ -5,18 +5,15 @@
  * Works in both browser and Node.js/Bun environments.
  */
 
-import type { JsonValue } from '@jejunetwork/types'
 import { getEnv } from '@jejunetwork/shared'
+import type { JsonValue, LogLevel } from '@jejunetwork/types'
 
 /**
  * Log data payload - structured data for logging
  */
 export type LogData = Record<string, JsonValue> | Error | JsonValue
 
-/**
- * Log level type
- */
-export type LogLevel = 'debug' | 'info' | 'warn' | 'error'
+export type { LogLevel }
 
 /**
  * Log entry structure

@@ -31,7 +31,7 @@ function loadDeployedAddresses(): Record<string, string> {
   const addresses: Record<string, string> = {}
 
   // Try identity-system deployment
-  const identityPath = resolve(deploymentsDir, 'identity-system-1337.json')
+  const identityPath = resolve(deploymentsDir, 'identity-system-31337.json')
   if (existsSync(identityPath)) {
     const data = JSON.parse(readFileSync(identityPath, 'utf-8')) as Record<
       string,
@@ -56,7 +56,7 @@ function loadDeployedAddresses(): Record<string, string> {
   }
 
   // Try cloud-integration deployment if it exists
-  const cloudPath = resolve(deploymentsDir, 'cloud-integration-1337.json')
+  const cloudPath = resolve(deploymentsDir, 'cloud-integration-31337.json')
   if (existsSync(cloudPath)) {
     const data = JSON.parse(readFileSync(cloudPath, 'utf-8')) as Record<
       string,

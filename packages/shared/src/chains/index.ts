@@ -25,7 +25,7 @@ export function getLocalnetChain(): Chain {
   const name = branding.network.name
 
   return {
-    id: 1337,
+    id: 31337,
     name: `${name} Localnet`,
     nativeCurrency: {
       name: branding.tokens.native.name,
@@ -204,7 +204,7 @@ export function inferChainFromRpcUrl(rpcUrl: string): Chain {
     rpcUrl.includes(':6547')
   ) {
     return {
-      id: 1337,
+      id: 31337,
       name: 'Local Network',
       nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
       rpcUrls: { default: { http: [rpcUrl] } },

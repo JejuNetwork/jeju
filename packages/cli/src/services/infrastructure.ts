@@ -395,7 +395,7 @@ export class InfrastructureService {
         return false
       }
 
-      execa('anvil', ['--port', String(LOCALNET_PORT), '--chain-id', '1337'], {
+      execa('anvil', ['--port', String(LOCALNET_PORT), '--chain-id', '31337'], {
         cwd: this.rootDir,
         stdio: 'ignore',
         detached: true,
@@ -599,7 +599,7 @@ export class InfrastructureService {
       DA_URL: 'http://127.0.0.1:4010',
       CACHE_URL: 'http://127.0.0.1:4115',
       FARCASTER_HUB_URL: getFarcasterHubUrl(),
-      CHAIN_ID: '1337',
+      CHAIN_ID: '31337',
     }
   }
 

@@ -32,7 +32,7 @@ interface NetworkConfig {
 
 const NETWORKS: Record<string, NetworkConfig> = {
   localnet: {
-    chainId: 1337,
+    chainId: 31337,
     rpcUrl: 'http://127.0.0.1:6546',
     explorerUrl: '',
   },

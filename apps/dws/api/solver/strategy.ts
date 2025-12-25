@@ -1,4 +1,4 @@
-import { safeReadContract } from '@jejunetwork/contracts'
+import { readContract } from '@jejunetwork/contracts'
 import {
   type Address,
   type Chain,
@@ -96,9 +96,7 @@ export class StrategyEngine {
     // Try Chainlink first (most reliable)
     const client = this.clients.get(1)
     if (client) {
-      const result = await safeReadContract<
-        readonly [bigint, bigint, bigint, bigint, bigint]
-      >(client, {
+      const result = await readContract(client, {
         address: CHAINLINK_ETH_USD[1],
         abi: AGGREGATOR_ABI,
         functionName: 'latestRoundData',

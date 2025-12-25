@@ -65,7 +65,7 @@ impl Service for StorageService {
         }
     }
 
-    async fn start(&mut self, config: &ServiceConfig) -> Result<(), String> {
+    async fn start(&mut self, _config: &ServiceConfig) -> Result<(), String> {
         if self.running.load(Ordering::SeqCst) {
             return Err("Service already running".to_string());
         }
@@ -79,10 +79,10 @@ impl Service for StorageService {
         *self.start_time.write().await = Some(Instant::now());
 
         let running = self.running.clone();
-        let bytes_stored = self.bytes_stored.clone();
-        let files_pinned = self.files_pinned.clone();
-        let earnings_wei = self.earnings_wei.clone();
-        let rpc_url = self.rpc_url.clone();
+        let _bytes_stored = self.bytes_stored.clone();
+        let _files_pinned = self.files_pinned.clone();
+        let _earnings_wei = self.earnings_wei.clone();
+        let _rpc_url = self.rpc_url.clone();
 
         tokio::spawn(async move {
             tracing::info!("Storage service started");

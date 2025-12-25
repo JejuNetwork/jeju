@@ -20,6 +20,36 @@ import { createMPCClient } from '@jejunetwork/kms'
 import { Elysia } from 'elysia'
 import type { Address, Hex } from 'viem'
 import { keccak256, toBytes, toHex } from 'viem'
+import { z } from 'zod'
+
+// Request body schemas
+const CreateSignerBodySchema = z.object({
+  fid: z.number(),
+  appName: z.string(),
+  appFid: z.number().optional(),
+})
+
+const SignMessageBodySchema = z.object({
+  message: z.string(),
+})
+
+const CastBodySchema = z.object({
+  signerId: z.string(),
+  text: z.string(),
+  parentUrl: z.string().optional(),
+  parentFid: z.number().optional(),
+  parentHash: z.string().optional(),
+  embeds: z.array(z.object({ url: z.string() })).optional(),
+  mentions: z.array(z.number()).optional(),
+  mentionsPositions: z.array(z.number()).optional(),
+})
+
+const ReactBodySchema = z.object({
+  signerId: z.string(),
+  targetFid: z.number(),
+  targetHash: z.string(),
+  reactionType: z.enum(['like', 'recast']),
+})
 
 // ============ Types ============
 
@@ -144,11 +174,7 @@ export function createFarcasterWorker(config: FarcasterWorkerConfig) {
       // ============ Signer Management ============
 
       .post('/signers', async ({ body }) => {
-        const params = body as {
-          fid: number
-          appName: string
-          appFid?: number
-        }
+        const params = CreateSignerBodySchema.parse(body)
 
         const signer = await createMPCSigner(params.fid, params.appName)
 
@@ -248,7 +274,7 @@ export function createFarcasterWorker(config: FarcasterWorkerConfig) {
           throw new Error('Signer not found')
         }
 
-        const { message } = body as { message: string }
+        const { message } = SignMessageBodySchema.parse(body)
         const messageBytes = toBytes(message as Hex)
 
         const signature = await signMessage(params.signerId, messageBytes)
@@ -263,16 +289,7 @@ export function createFarcasterWorker(config: FarcasterWorkerConfig) {
       // ============ Casting ============
 
       .post('/cast', async ({ body }) => {
-        const params = body as {
-          signerId: string
-          text: string
-          parentUrl?: string
-          parentFid?: number
-          parentHash?: string
-          embeds?: { url: string }[]
-          mentions?: number[]
-          mentionsPositions?: number[]
-        }
+        const params = CastBodySchema.parse(body)
 
         const signer = signers.get(params.signerId)
         if (!signer) {
@@ -339,12 +356,7 @@ export function createFarcasterWorker(config: FarcasterWorkerConfig) {
       // ============ Reactions ============
 
       .post('/react', async ({ body }) => {
-        const params = body as {
-          signerId: string
-          targetFid: number
-          targetHash: string
-          reactionType: 'like' | 'recast'
-        }
+        const params = ReactBodySchema.parse(body)
 
         const signer = signers.get(params.signerId)
         if (!signer) {

@@ -1,37 +1,23 @@
-import type { X402Network } from '@jejunetwork/shared'
+import type {
+  X402Network,
+  X402PaymentHeader,
+  X402PaymentOption,
+  X402PaymentRequirement,
+} from '@jejunetwork/shared'
 import { expectJson, ZERO_ADDRESS } from '@jejunetwork/types'
 import type { Address } from 'viem'
 import { hashMessage, recoverAddress } from 'viem'
 import { z } from 'zod'
 import { x402State } from '../../state.js'
 
-export type { X402Network }
+export type {
+  X402Network,
+  X402PaymentHeader,
+  X402PaymentOption,
+  X402PaymentRequirement,
+}
 
 // State initialization is handled by main server startup
-
-export interface X402PaymentRequirement {
-  x402Version: number
-  error: string
-  accepts: X402PaymentOption[]
-}
-
-export interface X402PaymentOption {
-  scheme: 'exact' | 'credit' | 'prepaid'
-  network: X402Network | string
-  maxAmountRequired: string
-  asset: Address
-  payTo: Address
-  resource: string
-  description: string
-}
-
-export interface X402PaymentHeader {
-  scheme: string
-  network: string
-  payload: string
-  asset: string
-  amount: string
-}
 
 const X402PaymentProofSchema = z.object({
   payTo: z.string().regex(/^0x[a-fA-F0-9]{40}$/),

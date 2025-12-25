@@ -1,7 +1,12 @@
-import { createTypedWriteContract } from '@jejunetwork/shared/wagmi'
+import { createTypedWriteContract } from '@jejunetwork/contracts'
+import {
+  type LPPosition,
+  parseLPPosition,
+  type RawPositionTuple,
+} from '@jejunetwork/ui'
 import { useCallback } from 'react'
 import type { Address } from 'viem'
-import { formatEther, parseEther } from 'viem'
+import { parseEther } from 'viem'
 import {
   useAccount,
   useReadContract,
@@ -10,55 +15,7 @@ import {
 } from 'wagmi'
 import { LIQUIDITY_VAULT_ABI } from '../lib/constants'
 
-export interface LPPosition {
-  ethShares: bigint
-  ethValue: bigint
-  tokenShares: bigint
-  tokenValue: bigint
-  pendingFees: bigint
-  lpTokenBalance: string
-  sharePercent: number
-}
-
-type RawPositionTuple = readonly [bigint, bigint, bigint, bigint, bigint]
-
-function calculateSharePercent(shares: bigint, totalSupply: bigint): number {
-  if (totalSupply <= 0n) return 0
-  return Number((shares * 10000n) / totalSupply) / 100
-}
-
-function parseLPPosition(
-  position: RawPositionTuple | undefined,
-  balance: bigint | undefined,
-  totalSupply: bigint | undefined,
-): LPPosition | null {
-  if (position && totalSupply !== undefined) {
-    const [ethShares, ethValue, tokenShares, tokenValue, pendingFees] = position
-    return {
-      ethShares,
-      ethValue,
-      tokenShares,
-      tokenValue,
-      pendingFees,
-      lpTokenBalance: formatEther(ethShares),
-      sharePercent: calculateSharePercent(ethShares, totalSupply),
-    }
-  }
-
-  if (balance !== undefined && totalSupply !== undefined && totalSupply > 0n) {
-    return {
-      ethShares: balance,
-      ethValue: balance,
-      tokenShares: 0n,
-      tokenValue: 0n,
-      pendingFees: 0n,
-      lpTokenBalance: formatEther(balance),
-      sharePercent: calculateSharePercent(balance, totalSupply),
-    }
-  }
-
-  return null
-}
+export type { LPPosition, RawPositionTuple }
 
 export interface UseLiquidityVaultResult {
   lpPosition: LPPosition | null
@@ -158,7 +115,16 @@ export function useLiquidityVault(
     console.warn('claimFees: Not supported in this vault implementation')
   }, [])
 
-  const position = lpPosition as RawPositionTuple | undefined
+  // Convert object format from ABI to tuple format expected by parseLPPosition
+  const position: RawPositionTuple | undefined = lpPosition
+    ? ([
+        (lpPosition as { shares: bigint }).shares,
+        (lpPosition as { depositedAssets: bigint }).depositedAssets,
+        (lpPosition as { withdrawableAssets: bigint }).withdrawableAssets,
+        (lpPosition as { pendingRewards: bigint }).pendingRewards,
+        (lpPosition as { lastDepositTime: bigint }).lastDepositTime,
+      ] as const)
+    : undefined
   const balance = lpBalance as bigint | undefined
   const supply = totalSupply as bigint | undefined
   const parsedPosition = parseLPPosition(position, balance, supply)

@@ -1,8 +1,0 @@
-{
-  "goldToken": "0x0000000000000000000000000000000000000000",
-  "itemsNFT": "0x0000000000000000000000000000000000000000",
-  "playerTradeEscrow": "0x0000000000000000000000000000000000000000",
-  "gameIntegration": "0x0000000000000000000000000000000000000000",
-  "chainId": 1337,
-  "_note": "Game system contracts - populated after deployment with scripts/deploy-game-system.ts"
-}

@@ -134,26 +134,10 @@ const brandingConfig: BrandingConfig =
   BrandingConfigSchema.parse(brandingJsonRaw)
 
 /**
- * Set custom config path (no-op for compatibility - config is now bundled)
- * @deprecated Config is now bundled via direct JSON import
- */
-export function setConfigPath(_path: string): void {
-  // No-op - config is bundled, not loaded from disk
-}
-
-/**
  * Get the full branding configuration
  */
 export function getBranding(): BrandingConfig {
   return brandingConfig
-}
-
-/**
- * Clear the branding cache (no-op for compatibility)
- * @deprecated Config is now bundled via direct JSON import
- */
-export function clearBrandingCache(): void {
-  // No-op - config is bundled
 }
 
 // Convenience Accessors
@@ -405,4 +389,24 @@ function generateAsciiBanner(name: string): string[] {
     `║${pad}${upper}${pad}${upper.length % 2 === 0 ? '' : ' '}║`,
     `╚${'═'.repeat(42)}╝`,
   ]
+}
+
+// Cache management
+
+/**
+ * Clear the branding cache (for testing purposes)
+ * Note: Since branding is loaded at module init, this is a no-op in production.
+ */
+export function clearBrandingCache(): void {
+  // No-op - branding is loaded at module initialization
+  // This exists for test compatibility
+}
+
+/**
+ * Set a custom config path (for testing purposes)
+ * Note: Since branding uses a static JSON import, this is a no-op.
+ */
+export function setConfigPath(_path: string): void {
+  // No-op - branding uses static JSON import
+  // This exists for test compatibility
 }

@@ -16,7 +16,7 @@ export type TEEMode = 'dstack' | 'phala' | 'simulated' | 'auto'
 
 export const CHAIN_IDS = {
   localnet: 420691,
-  localnetAnvil: 1337, // Standard anvil/hardhat chain ID
+  localnetAnvil: 31337, // Standard anvil/hardhat chain ID
   testnet: 420690,
   mainnet: 420692,
 } as const

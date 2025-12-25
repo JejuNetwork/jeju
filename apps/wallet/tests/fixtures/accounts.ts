@@ -36,7 +36,7 @@ export const TEST_ACCOUNTS = {
 export const TEST_NETWORKS = {
   // network localnet (default for E2E)
   jeju: {
-    chainId: 1337,
+    chainId: 31337,
     name: 'Jeju Localnet',
     rpcUrl: 'http://127.0.0.1:6546',
     symbol: 'ETH',

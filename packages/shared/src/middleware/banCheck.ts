@@ -5,7 +5,7 @@
  * Provides Elysia plugins and generic functions.
  */
 
-import { banManagerAbi } from '@jejunetwork/contracts'
+import { banManagerAbi, readContract } from '@jejunetwork/contracts'
 import { Elysia } from 'elysia'
 import type { Address, Chain, Hex, PublicClient, Transport } from 'viem'
 import { createPublicClient, http } from 'viem'
@@ -97,19 +97,19 @@ export class BanChecker {
     try {
       // Use typed ABI - viem infers return types automatically
       const [isBanned, isOnNotice, banRecord] = await Promise.all([
-        this.publicClient.readContract({
+        readContract(this.publicClient, {
           address: this.config.banManagerAddress,
           abi: banManagerAbi,
           functionName: 'isAddressBanned',
           args: [address],
         }),
-        this.publicClient.readContract({
+        readContract(this.publicClient, {
           address: this.config.banManagerAddress,
           abi: banManagerAbi,
           functionName: 'isOnNotice',
           args: [address],
         }),
-        this.publicClient.readContract({
+        readContract(this.publicClient, {
           address: this.config.banManagerAddress,
           abi: banManagerAbi,
           functionName: 'getAddressBan',

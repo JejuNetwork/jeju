@@ -16,6 +16,7 @@ import {
   findMonorepoRoot,
   getNetworkDir,
 } from '../lib/system'
+import { discoverApps } from '../lib/testing'
 import { CHAIN_CONFIG, type NetworkType } from '../types'
 import { keysCommand } from './keys'
 
@@ -70,6 +71,8 @@ interface DeployScriptOptions {
   name?: string
   backup?: string
   app?: string
+  dir?: string
+  jns?: string
 }
 
 function getConfigPath(): string {
@@ -1126,7 +1129,41 @@ deployCommand
     'localnet',
   )
   .action(async (appName, options) => {
-    await runDeployScript('deploy-app', options.network, { app: appName })
+    const rootDir = findMonorepoRoot()
+    const apps = discoverApps(rootDir)
+    const app = apps.find(
+      (a) =>
+        (a._folderName ?? a.slug ?? a.name) === appName || a.name === appName,
+    )
+
+    if (!app) {
+      logger.error(`App not found: ${appName}`)
+      process.exit(1)
+    }
+
+    const folderName = app._folderName ?? app.slug ?? appName
+    let appDir = join(rootDir, 'apps', folderName)
+    if (!existsSync(appDir)) {
+      appDir = join(rootDir, 'vendor', folderName)
+    }
+
+    // Extract manifest info for deploy script
+    const jnsName = app.jns?.name
+    const frontend = app.architecture?.frontend
+    const outputDir =
+      (typeof frontend === 'object' && frontend?.outputDir) || 'dist'
+    const frontendDir = join(appDir, outputDir)
+
+    if (!jnsName) {
+      logger.error(`App ${appName} does not have a JNS name configured`)
+      process.exit(1)
+    }
+
+    await runDeployScript('deploy-app', options.network, {
+      name: appName,
+      dir: frontendDir,
+      jns: jnsName,
+    })
   })
 
 deployCommand

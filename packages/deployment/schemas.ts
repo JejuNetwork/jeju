@@ -543,7 +543,7 @@ export type JsonRpcBlockNumberResponse = z.infer<
  */
 import { JsonValueSchema } from '@jejunetwork/types'
 
-export { JsonRpcResponse } from '@jejunetwork/types'
+export type { JsonRpcResponse } from '@jejunetwork/types'
 
 /**
  * Generic JSON-RPC response (for any method)

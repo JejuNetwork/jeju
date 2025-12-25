@@ -2,7 +2,8 @@
  * On-chain validation helpers for E2E tests.
  */
 
-import { safeReadContract } from '@jejunetwork/shared'
+import { readContract } from '@jejunetwork/shared'
+import type { TransactionLog } from '@jejunetwork/types'
 import {
   type Abi,
   type Address,
@@ -10,7 +11,6 @@ import {
   createPublicClient,
   formatEther,
   type Hash,
-  type Hex,
   http,
   keccak256,
   parseAbi,
@@ -18,22 +18,12 @@ import {
   toBytes,
 } from 'viem'
 
-// Extended log type with topics
-interface LogWithTopics {
-  address: Address
-  blockHash: Hex
-  blockNumber: bigint
-  data: Hex
-  logIndex: number
-  transactionHash: Hex
-  transactionIndex: number
-  removed: boolean
-  topics: readonly Hex[]
-}
+// Extended log type with topics - use shared type
+type LogWithTopics = TransactionLog
 
 const DEFAULT_RPC_URL =
   process.env.L2_RPC_URL || process.env.JEJU_RPC_URL || 'http://localhost:6546'
-const DEFAULT_CHAIN_ID = parseInt(process.env.CHAIN_ID || '1337', 10)
+const DEFAULT_CHAIN_ID = parseInt(process.env.CHAIN_ID || '31337', 10)
 const CLIENT_TTL_MS = 30_000 // Cached client TTL - balance staleness vs connection overhead
 
 const clientCache = new Map<
@@ -162,7 +152,7 @@ export async function verifyTokenBalanceChanged(
   } = {},
 ): Promise<{ balanceAfter: bigint; change: bigint }> {
   const { direction = 'any', rpcUrl } = options
-  const balanceAfter = await safeReadContract<bigint>(getPublicClient(rpcUrl), {
+  const balanceAfter = await readContract(getPublicClient(rpcUrl), {
     address: tokenAddress,
     abi: ERC20_ABI,
     functionName: 'balanceOf',
@@ -239,7 +229,7 @@ export async function verifyContractState<T>(
   expected: T,
   options: { rpcUrl?: string } = {},
 ): Promise<T> {
-  const actual = await safeReadContract<T>(getPublicClient(options.rpcUrl), {
+  const actual = await readContract(getPublicClient(options.rpcUrl), {
     address: contractAddress,
     abi,
     functionName,
@@ -265,7 +255,7 @@ export async function getTokenBalance(
   accountAddress: Address,
   options: { rpcUrl?: string } = {},
 ): Promise<bigint> {
-  return safeReadContract<bigint>(getPublicClient(options.rpcUrl), {
+  return readContract(getPublicClient(options.rpcUrl), {
     address: tokenAddress,
     abi: ERC20_ABI,
     functionName: 'balanceOf',
@@ -288,15 +278,12 @@ export async function verifyNFTOwnership(
   expectedOwner: Address,
   options: { rpcUrl?: string } = {},
 ): Promise<void> {
-  const owner = await safeReadContract<Address>(
-    getPublicClient(options.rpcUrl),
-    {
-      address: nftAddress,
-      abi: ERC721_ABI,
-      functionName: 'ownerOf',
-      args: [tokenId],
-    },
-  )
+  const owner = await readContract(getPublicClient(options.rpcUrl), {
+    address: nftAddress,
+    abi: ERC721_ABI,
+    functionName: 'ownerOf',
+    args: [tokenId],
+  })
 
   if (owner.toLowerCase() !== expectedOwner.toLowerCase()) {
     throw new Error(`NFT ${tokenId}: expected ${expectedOwner}, got ${owner}`)
@@ -323,7 +310,7 @@ export async function createAccountSnapshot(
   for (const token of tokenAddresses) {
     tokenBalances.set(
       token,
-      await safeReadContract<bigint>(client, {
+      await readContract(client, {
         address: token,
         abi: ERC20_ABI,
         functionName: 'balanceOf',

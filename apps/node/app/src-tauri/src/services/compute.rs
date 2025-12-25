@@ -80,10 +80,10 @@ impl Service for ComputeService {
 
         // Clone for async task
         let running = self.running.clone();
-        let requests_served = self.requests_served.clone();
-        let earnings_wei = self.earnings_wei.clone();
-        let last_error = self.last_error.clone();
-        let rpc_url = self.rpc_url.clone();
+        let _requests_served = self.requests_served.clone();
+        let _earnings_wei = self.earnings_wei.clone();
+        let _last_error = self.last_error.clone();
+        let _rpc_url = self.rpc_url.clone();
         let stake_amount = config.stake_amount.clone();
 
         // Spawn service task

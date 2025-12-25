@@ -15,8 +15,8 @@ import {
   stringToBytes,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { localhost } from 'viem/chains'
 import type { AppManifest } from '../types'
+import { localnetChain } from './chain'
 import { logger } from './logger'
 
 // Contract ABIs
@@ -162,7 +162,7 @@ export async function deployAppOnchain(
 
   const client = createWalletClient({
     account,
-    chain: localhost,
+    chain: localnetChain,
     transport: http(config.rpcUrl),
   }).extend(publicActions)
 
@@ -259,7 +259,7 @@ async function deployFrontend(
   const contentHash = keccak256(stringToBytes(cid))
   try {
     const hash = await client.writeContract({
-      chain: localhost,
+      chain: localnetChain,
       account,
       address: config.contracts.storageManager,
       abi: STORAGE_MANAGER_ABI,
@@ -319,7 +319,7 @@ async function deployWorker(
   // Register in WorkerRegistry
   try {
     const hash = await client.writeContract({
-      chain: localhost,
+      chain: localnetChain,
       account,
       address: config.contracts.workerRegistry,
       abi: WORKER_REGISTRY_ABI,
@@ -373,7 +373,7 @@ async function registerJNSName(
 
   // Create subnode for app
   const createHash = await client.writeContract({
-    chain: localhost,
+    chain: localnetChain,
     account,
     address: config.contracts.jnsRegistry,
     abi: JNS_REGISTRY_ABI,
@@ -387,7 +387,7 @@ async function registerJNSName(
 
   // Set resolver
   const resolverHash = await client.writeContract({
-    chain: localhost,
+    chain: localnetChain,
     account,
     address: config.contracts.jnsRegistry,
     abi: JNS_REGISTRY_ABI,
@@ -400,7 +400,7 @@ async function registerJNSName(
   if (frontendCid) {
     const contenthash = encodeIPFSContenthash(frontendCid)
     const contentHashTx = await client.writeContract({
-      chain: localhost,
+      chain: localnetChain,
       account,
       address: config.contracts.jnsResolver,
       abi: JNS_RESOLVER_ABI,
@@ -413,7 +413,7 @@ async function registerJNSName(
   // Set worker endpoint if backend deployed
   if (workerId) {
     const textHash = await client.writeContract({
-      chain: localhost,
+      chain: localnetChain,
       account,
       address: config.contracts.jnsResolver,
       abi: JNS_RESOLVER_ABI,
@@ -442,7 +442,7 @@ async function createCDNSite(
   try {
     // Create the site - siteId is derived from sender + domain + timestamp
     const createHash = await client.writeContract({
-      chain: localhost,
+      chain: localnetChain,
       account,
       address: config.contracts.cdnRegistry,
       abi: CDN_REGISTRY_ABI,
@@ -472,7 +472,7 @@ async function createCDNSite(
     // Update content hash using the actual siteId from the event
     const contentHash = keccak256(stringToBytes(contentCid))
     const updateHash = await client.writeContract({
-      chain: localhost,
+      chain: localnetChain,
       account,
       address: config.contracts.cdnRegistry,
       abi: CDN_REGISTRY_ABI,

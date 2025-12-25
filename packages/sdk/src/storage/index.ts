@@ -2,6 +2,7 @@
  * Storage Module - IPFS, multi-provider storage
  */
 
+import type { StorageTier } from '@jejunetwork/shared'
 import type { JsonValue, NetworkType } from '@jejunetwork/types'
 import { parseEther } from 'viem'
 import type { z } from 'zod'
@@ -17,7 +18,7 @@ import type { JejuWallet } from '../wallet'
 
 export * from './enhanced'
 
-export type StorageTier = 'hot' | 'warm' | 'cold' | 'permanent'
+export type { StorageTier }
 
 export interface StorageStats {
   totalPins: number

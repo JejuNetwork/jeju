@@ -697,7 +697,7 @@ describe.skipIf(!E2E_MODE)('Live Chain Integration', () => {
   test.skipIf(!chainRunning)('chain is accessible', async () => {
     const client = createPublicClient({ transport: http(RPC_URL) })
     const chainId = await client.getChainId()
-    expect([1337, 31337, 420690]).toContain(chainId)
+    expect([31337, 31337, 420690]).toContain(chainId)
   })
 
   test.skipIf(!chainRunning)('on-chain node registry', async () => {

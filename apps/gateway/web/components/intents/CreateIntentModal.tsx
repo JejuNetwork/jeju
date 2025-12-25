@@ -1,3 +1,4 @@
+import { ZERO_ADDRESS } from '@jejunetwork/types'
 import {
   AlertCircle,
   ArrowRight,
@@ -9,16 +10,10 @@ import {
 } from 'lucide-react'
 import { type ComponentType, useCallback, useEffect, useState } from 'react'
 import { parseEther } from 'viem'
-import {
-  useAccount,
-  useChainId,
-  useSwitchChain,
-  useWaitForTransactionReceipt,
-  useWriteContract,
-} from 'wagmi'
-import { ZERO_ADDRESS } from '@jejunetwork/types'
+import { useAccount, useChainId, useSwitchChain } from 'wagmi'
 import { useIntentQuote, useSupportedChains } from '../../hooks/useIntentAPI'
 import { useOIFConfig } from '../../hooks/useOIF'
+import { useTypedWriteContract } from '../../hooks/useTypedWriteContract'
 
 const XIcon = X as ComponentType<LucideProps>
 const ArrowRightIcon = ArrowRight as ComponentType<LucideProps>
@@ -83,9 +78,12 @@ export function CreateIntentModal({ onClose }: CreateIntentModalProps) {
 
   const { address, isConnected, chain } = useAccount()
   const { switchChain } = useSwitchChain()
-  const { writeContractAsync, data: txHash } = useWriteContract()
-  const { isLoading: isConfirming, isSuccess: isConfirmed } =
-    useWaitForTransactionReceipt({ hash: txHash })
+  const {
+    writeAsync: writeContractAsync,
+    hash: txHash,
+    isConfirming,
+    isSuccess: isConfirmed,
+  } = useTypedWriteContract()
 
   // Update status when transaction confirms
   useEffect(() => {

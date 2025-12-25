@@ -55,7 +55,7 @@ const NETWORK_CONFIGS: Record<string, NetworkConfig> = {
   localnet: {
     l1RpcUrl: 'http://127.0.0.1:6545',
     l2RpcUrl: 'http://127.0.0.1:6546',
-    l1ChainId: 1337,
+    l1ChainId: 31337,
     l2ChainId: 420690,
     l1CrossDomainMessenger: '0x0000000000000000000000000000000000000000',
     l2CrossDomainMessenger: '0x4200000000000000000000000000000000000007',

@@ -15,7 +15,7 @@ import {
 import { createNodeServices, type NodeServices } from '../../api/lib/services'
 
 const RPC_URL = process.env.JEJU_RPC_URL ?? 'http://127.0.0.1:6546'
-const CHAIN_ID = 1337
+const CHAIN_ID = 31337
 
 interface TestAccount {
   key: `0x${string}`

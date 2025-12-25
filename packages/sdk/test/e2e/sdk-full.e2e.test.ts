@@ -107,7 +107,7 @@ describe('JejuClient Core', () => {
   test('client has correct properties', () => {
     if (!env?.chainRunning || !deployer) return
     expect(deployer.network).toBe('localnet')
-    expect(deployer.chainId).toBe(1337)
+    expect(deployer.chainId).toBe(31337)
     expect(deployer.address).toMatch(/^0x[a-fA-F0-9]{40}$/)
     expect(deployer.isSmartAccount).toBe(false)
   })

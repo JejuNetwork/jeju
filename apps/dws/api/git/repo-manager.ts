@@ -3,6 +3,7 @@
  * Manages git repositories with on-chain registry integration
  */
 
+import type { TransactionLog } from '@jejunetwork/types'
 import {
   type Abi,
   type Address,
@@ -15,20 +16,10 @@ import {
 } from 'viem'
 
 /** Transaction receipt log with topics for event decoding */
-interface ReceiptLog {
-  address: Address
-  blockHash: Hex
-  blockNumber: bigint
-  data: Hex
-  logIndex: number
-  transactionHash: Hex
-  transactionIndex: number
-  removed: boolean
-  topics: readonly Hex[]
-}
+type ReceiptLog = TransactionLog
 
 // Use shared viem utilities for type-safe contract interactions
-import { safeReadContract } from '@jejunetwork/contracts'
+import { readContract } from '@jejunetwork/contracts'
 import { privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
 import type { BackendManager } from '../storage/backends'
@@ -312,12 +303,13 @@ export class GitRepoManager {
     functionName: string,
     args: readonly (Hex | Address | string | bigint)[],
   ): Promise<T> {
-    return safeReadContract<T>(this.publicClient, {
+    const result = await readContract(this.publicClient, {
       address: this.repoRegistryAddress,
       abi: REPO_REGISTRY_ABI as Abi,
       functionName,
       args,
     })
+    return result as T
   }
 
   /**

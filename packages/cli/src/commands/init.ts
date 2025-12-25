@@ -383,7 +383,7 @@ function transformContent(content: string, config: InitConfig): string {
   // Replace template placeholders
   return content
     .replace(/example/g, config.name)
-    .replace(/Decentralized App Template/g, config.displayName)
+    .replace(/Example/g, config.displayName)
     .replace(/template\.jeju/g, config.jnsName)
     .replace(/example-db/g, config.databaseId)
     .replace(/@jejunetwork\/example/g, `@jejunetwork/${config.name}`)

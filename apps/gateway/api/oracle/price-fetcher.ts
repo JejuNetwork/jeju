@@ -1,4 +1,5 @@
-import { safeReadContract } from '@jejunetwork/shared'
+import { readContract } from '@jejunetwork/shared'
+import type { PriceData } from '@jejunetwork/types'
 import {
   createPublicClient,
   encodePacked,
@@ -9,12 +10,7 @@ import {
 import { CHAINLINK_AGGREGATOR_ABI, UNISWAP_V3_POOL_ABI } from './abis'
 import type { PriceSourceConfig } from './types'
 
-export interface PriceData {
-  price: bigint
-  confidence: bigint
-  timestamp: bigint
-  source: string
-}
+export type { PriceData }
 
 const now = () => BigInt(Math.floor(Date.now() / 1000))
 
@@ -66,21 +62,21 @@ export class PriceFetcher {
     source: PriceSourceConfig,
   ): Promise<PriceData> {
     const [slot0, liquidity] = await Promise.all([
-      safeReadContract<
-        readonly [bigint, number, number, number, number, number, boolean]
-      >(this.client, {
+      readContract(this.client, {
         address: source.address,
         abi: UNISWAP_V3_POOL_ABI,
         functionName: 'slot0',
-      }),
-      safeReadContract<bigint>(this.client, {
+      }) as Promise<
+        readonly [bigint, number, number, number, number, number, boolean]
+      >,
+      readContract(this.client, {
         address: source.address,
         abi: UNISWAP_V3_POOL_ABI,
         functionName: 'liquidity',
-      }),
+      }) as Promise<bigint>,
     ])
 
-    const sqrtPriceX96 = BigInt(slot0[0])
+    const sqrtPriceX96 = slot0[0]
     const priceX192 = sqrtPriceX96 * sqrtPriceX96
     const price = (priceX192 * 10n ** BigInt(source.decimals)) >> 192n
 
@@ -106,15 +102,12 @@ export class PriceFetcher {
     source: PriceSourceConfig,
   ): Promise<PriceData> {
     const [roundData, decimals] = await Promise.all([
-      safeReadContract<readonly [bigint, bigint, bigint, bigint, bigint]>(
-        this.client,
-        {
-          address: source.address,
-          abi: CHAINLINK_AGGREGATOR_ABI,
-          functionName: 'latestRoundData',
-        },
-      ),
-      safeReadContract<number>(this.client, {
+      readContract(this.client, {
+        address: source.address,
+        abi: CHAINLINK_AGGREGATOR_ABI,
+        functionName: 'latestRoundData',
+      }),
+      readContract(this.client, {
         address: source.address,
         abi: CHAINLINK_AGGREGATOR_ABI,
         functionName: 'decimals',

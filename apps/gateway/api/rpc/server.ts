@@ -10,6 +10,7 @@ import {
   expectValid as expect,
   expectAddress,
   expectChainId,
+  type JsonRpcRequest,
 } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import { type Address, isAddress } from 'viem'
@@ -534,7 +535,11 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
             }
           }
 
-          const results = await proxyBatchRequest(chainId, validated)
+          // Type cast: RpcBatchRequestSchema produces optional params, but proxyBatchRequest handles this
+          const results = await proxyBatchRequest(
+            chainId,
+            validated as JsonRpcRequest[],
+          )
           return results.map((r) => r.response)
         }
 
@@ -560,7 +565,8 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
           }
         }
 
-        const result = await proxyRequest(chainId, rpcBody)
+        // Type cast: RpcRequestSchema produces optional params, but proxyRequest handles this
+        const result = await proxyRequest(chainId, rpcBody as JsonRpcRequest)
         set.headers['X-RPC-Latency-Ms'] = String(result.latencyMs)
         if (result.usedFallback) set.headers['X-RPC-Used-Fallback'] = 'true'
 

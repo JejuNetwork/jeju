@@ -3,12 +3,12 @@
  * Used across all network apps to check and display user ban status
  */
 
+import { readContract } from '@jejunetwork/contracts'
 import { BanType } from '@jejunetwork/types'
 import { useCallback, useEffect, useState } from 'react'
 import { type Address, createPublicClient, http, type PublicClient } from 'viem'
 import { baseSepolia } from 'viem/chains'
 import { BAN_MANAGER_ABI, MODERATION_MARKETPLACE_ABI } from '../api/abis'
-import { safeReadContract } from '../viem'
 
 export { BanType }
 
@@ -104,24 +104,19 @@ export function useBanStatus(
     try {
       // Check address-based ban
       const [isAddressBanned, isOnNotice, addressBan] = await Promise.all([
-        safeReadContract<boolean>(client, {
+        readContract(client, {
           address: mergedConfig.banManagerAddress,
           abi: BAN_MANAGER_ABI,
           functionName: 'isAddressBanned',
           args: [userAddress],
         }).catch((): boolean => false),
-        safeReadContract<boolean>(client, {
+        readContract(client, {
           address: mergedConfig.banManagerAddress,
           abi: BAN_MANAGER_ABI,
           functionName: 'isOnNotice',
           args: [userAddress],
         }).catch((): boolean => false),
-        safeReadContract<{
-          isBanned: boolean
-          banType: number
-          reason: string
-          caseId: `0x${string}`
-        } | null>(client, {
+        readContract(client, {
           address: mergedConfig.banManagerAddress,
           abi: BAN_MANAGER_ABI,
           functionName: 'getAddressBan',
@@ -156,7 +151,7 @@ export function useBanStatus(
 
       // Check ModerationMarketplace ban
       if (mergedConfig.moderationMarketplaceAddress) {
-        const marketplaceBanned = await safeReadContract<boolean>(client, {
+        const marketplaceBanned = await readContract(client, {
           address: mergedConfig.moderationMarketplaceAddress,
           abi: MODERATION_MARKETPLACE_ABI,
           functionName: 'isBanned',

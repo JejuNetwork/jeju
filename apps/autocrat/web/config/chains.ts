@@ -4,7 +4,7 @@ import { defineChain } from 'viem'
 const networkName = 'Jeju'
 
 export const jejuLocalnet = defineChain({
-  id: 1337,
+  id: 31337,
   name: `${networkName} Localnet`,
   nativeCurrency: {
     decimals: 18,

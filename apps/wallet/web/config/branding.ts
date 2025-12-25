@@ -110,7 +110,6 @@ export function getBrandingRpcUrl(chainId: number): string {
       return urls.rpc.testnet
 
     // Localnet
-    case 1337:
     case 31337:
       return urls.rpc.localnet
 
@@ -133,7 +132,7 @@ import type { Chain } from 'viem'
 export function getLocalnetChain(): Chain {
   const urls = getUrls()
   return {
-    id: 1337,
+    id: 31337,
     name: `${NETWORK_NAME} Localnet`,
     nativeCurrency: {
       name: 'Ether',

@@ -15,7 +15,7 @@ export const NETWORK: NetworkId =
 export const CHAIN_IDS = {
   mainnet: 420691,
   testnet: 420690,
-  localnet: 1337,
+  localnet: 31337,
 } as const
 
 export const JEJU_CHAIN_ID = CHAIN_IDS[NETWORK]
@@ -27,7 +27,7 @@ export const RPC_URLS = {
   420691: process.env.JEJU_RPC_URL || 'https://rpc.jejunetwork.org',
   420690:
     process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jejunetwork.org',
-  1337: process.env.LOCALNET_RPC_URL || getL2RpcUrl(),
+  31337: process.env.LOCALNET_RPC_URL || getL2RpcUrl(),
   // Mainnets
   1: process.env.ETHEREUM_RPC_URL || 'https://eth.llamarpc.com',
   42161: process.env.ARBITRUM_RPC_URL || 'https://arb1.arbitrum.io/rpc',
@@ -49,7 +49,7 @@ export const RPC_URLS = {
 export const EXPLORER_URLS = {
   420691: 'https://explorer.jejunetwork.org',
   420690: 'https://testnet-explorer.jejunetwork.org',
-  1337: getLocalnetExplorerUrl(),
+  31337: getLocalnetExplorerUrl(),
   1: 'https://etherscan.io',
   42161: 'https://arbiscan.io',
   10: 'https://optimistic.etherscan.io',
@@ -64,7 +64,7 @@ export const EXPLORER_URLS = {
 export const CHAINS = {
   420691: { name: 'Network', shortName: 'JEJU', isTestnet: false },
   420690: { name: 'Testnet', shortName: 'JEJU-TEST', isTestnet: true },
-  1337: { name: 'Localnet', shortName: 'LOCAL', isTestnet: true },
+  31337: { name: 'Localnet', shortName: 'LOCAL', isTestnet: true },
   1: { name: 'Ethereum', shortName: 'ETH', isTestnet: false },
   42161: { name: 'Arbitrum One', shortName: 'ARB', isTestnet: false },
   10: { name: 'Optimism', shortName: 'OP', isTestnet: false },
@@ -136,7 +136,7 @@ export const COMMON_TOKENS: Record<number, Record<string, Address>> = {
     ETH: ZERO_ADDRESS,
     WETH: '0x4200000000000000000000000000000000000006',
   },
-  1337: {
+  31337: {
     ETH: ZERO_ADDRESS,
     WETH: '0x4200000000000000000000000000000000000006',
   },

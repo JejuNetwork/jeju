@@ -30,7 +30,7 @@
  * ```
  */
 
-import { safeReadContract } from '@jejunetwork/shared'
+import { readContract } from '@jejunetwork/shared'
 import {
   type Account,
   type Address,
@@ -344,9 +344,7 @@ export class X402Client {
    * Get facilitator info
    */
   async getFacilitatorInfo(): Promise<FacilitatorInfo> {
-    const stats = await safeReadContract<
-      readonly [bigint, bigint, bigint, Address]
-    >(this.publicClient, {
+    const stats = await readContract(this.publicClient, {
       address: this.config.facilitatorAddress,
       abi: X402_FACILITATOR_ABI,
       functionName: 'getStats',
@@ -372,7 +370,7 @@ export class X402Client {
    * Check if token is supported
    */
   async isTokenSupported(token: Address): Promise<boolean> {
-    return safeReadContract<boolean>(this.publicClient, {
+    return readContract(this.publicClient, {
       address: this.config.facilitatorAddress,
       abi: X402_FACILITATOR_ABI,
       functionName: 'supportedTokens',
@@ -384,7 +382,7 @@ export class X402Client {
    * Check if a nonce has been used
    */
   async isNonceUsed(payer: Address, nonce: string): Promise<boolean> {
-    return safeReadContract<boolean>(this.publicClient, {
+    return readContract(this.publicClient, {
       address: this.config.facilitatorAddress,
       abi: X402_FACILITATOR_ABI,
       functionName: 'isNonceUsed',
@@ -464,7 +462,7 @@ export class X402Client {
       throw new Error('Wallet not connected')
     }
 
-    const currentAllowance = await safeReadContract<bigint>(this.publicClient, {
+    const currentAllowance = await readContract(this.publicClient, {
       address: token,
       abi: ERC20_ABI,
       functionName: 'allowance',
@@ -560,18 +558,18 @@ export class X402Client {
     if (!this.account) throw new Error('Wallet not connected')
 
     const [balance, symbol, decimals] = await Promise.all([
-      safeReadContract<bigint>(this.publicClient, {
+      readContract(this.publicClient, {
         address: token,
         abi: ERC20_ABI,
         functionName: 'balanceOf',
         args: [this.account.address],
       }),
-      safeReadContract<string>(this.publicClient, {
+      readContract(this.publicClient, {
         address: token,
         abi: ERC20_ABI,
         functionName: 'symbol',
       }),
-      safeReadContract<number>(this.publicClient, {
+      readContract(this.publicClient, {
         address: token,
         abi: ERC20_ABI,
         functionName: 'decimals',
@@ -617,7 +615,7 @@ export class X402Client {
     const authNonce = this.generateAuthNonce()
 
     // Get token name for EIP-712 domain
-    const tokenSymbol = await safeReadContract<string>(this.publicClient, {
+    const tokenSymbol = await readContract(this.publicClient, {
       address: token,
       abi: ERC20_ABI,
       functionName: 'symbol',
@@ -729,7 +727,7 @@ export async function discoverFacilitator(
     transport: http(rpcUrl),
   })
 
-  const exists = await safeReadContract<boolean>(client, {
+  const exists = await readContract(client, {
     address: registryAddress,
     abi: IDENTITY_REGISTRY_ABI,
     functionName: 'agentExists',
@@ -739,13 +737,13 @@ export async function discoverFacilitator(
   if (!exists) return null
 
   const [facilitatorData, endpointData] = await Promise.all([
-    safeReadContract<Hex>(client, {
+    readContract(client, {
       address: registryAddress,
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'getMetadata',
       args: [agentId, 'x402.facilitator'],
     }),
-    safeReadContract<Hex>(client, {
+    readContract(client, {
       address: registryAddress,
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'getMetadata',

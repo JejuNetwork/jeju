@@ -21,14 +21,14 @@ export const INFRA_PORTS = {
 } as const
 
 export const JEJU_LOCALNET = {
-  chainId: 1337,
+  chainId: 31337,
   name: 'Localnet',
   rpcUrl: getL2RpcUrl(),
   wsUrl: getL2WsUrl(),
 } as const
 
 export const L1_LOCALNET = {
-  chainId: 1337,
+  chainId: 31337,
   name: 'L1 Localnet',
   rpcUrl: getL1RpcUrl(),
 } as const

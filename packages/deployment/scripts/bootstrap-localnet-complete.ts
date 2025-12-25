@@ -1343,7 +1343,7 @@ class CompleteBootstrapper {
         'packages',
         'contracts',
         'deployments',
-        'uniswap-v4-1337.json',
+        'uniswap-v4-31337.json',
       )
       let v4Deployment: Record<string, string> = {}
 
@@ -1512,7 +1512,7 @@ class CompleteBootstrapper {
 # Network
 VITE_RPC_URL="${result.rpcUrl}"
 VITE_JEJU_RPC_URL="${result.rpcUrl}"
-VITE_CHAIN_ID="1337"
+VITE_CHAIN_ID="31337"
 
 # Tokens
 VITE_JEJU_TOKEN_ADDRESS="${result.contracts.jeju}"
@@ -1582,7 +1582,7 @@ VITE_CDN_REGISTRY_ADDRESS="${result.contracts.cdnRegistry || ''}"
 # Network
 JEJU_RPC_URL="${result.rpcUrl}"
 JEJU_NETWORK=localnet
-CHAIN_ID=1337
+CHAIN_ID=31337
 
 # Tokens
 JEJU_TOKEN_ADDRESS="${result.contracts.jeju}"

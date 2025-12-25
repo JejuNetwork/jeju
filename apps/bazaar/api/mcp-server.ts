@@ -10,13 +10,13 @@ import {
   MCP_TOOLS,
 } from './mcp/constants'
 import { readMCPResource } from './mcp/resources'
-import { callMCPTool } from './mcp/tools'
+import { callMCPTool, type ToolResult } from './mcp/tools'
 
 function jsonResponse(
-  data: Record<string, unknown>,
+  data: Record<string, unknown> | ToolResult,
   headers: Record<string, string>,
 ): Response {
-  return new Response(JSON.stringify(data), {
+  return new Response(JSON.stringify(data as Record<string, unknown>), {
     headers: { ...headers, 'Content-Type': 'application/json' },
   })
 }

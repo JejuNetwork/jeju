@@ -70,6 +70,12 @@ function buildServicesFromApps(): Record<string, number> {
   if (!services.ipfs) services.ipfs = CORE_PORTS.IPFS.get()
   if (!services.compute) services.compute = CORE_PORTS.COMPUTE.get()
 
+  // DWS services - git and pkg are DWS endpoints, all on port 4030
+  const dwsPort = 4030
+  services.dws = dwsPort
+  services.git = dwsPort
+  services.pkg = dwsPort
+
   return services
 }
 
@@ -366,6 +372,9 @@ const DIRECT_ROUTE_SERVICES = new Set([
   'ipfs',
   'compute',
   'indexer',
+  'git', // JejuGit - routes to DWS
+  'pkg', // JejuPkg - routes to DWS
+  'dws', // DWS main service
 ])
 
 export function generateCaddyfile(config: ProxyConfig = {}): string {
@@ -433,15 +442,28 @@ export function generateCaddyfile(config: ProxyConfig = {}): string {
   entries.push(`}`)
   entries.push('')
 
+  // DWS sub-services that need path rewriting
+  // git.local.jejunetwork.org/* -> localhost:4030/git/*
+  // pkg.local.jejunetwork.org/* -> localhost:4030/pkg/*
+  const DWS_PATH_SERVICES: Record<string, string> = {
+    git: '/git',
+    pkg: '/pkg',
+  }
+  const dwsPort = 4030
+
   // Service routes with proper reverse proxy config
   // Use http:// prefix to explicitly disable TLS for each route
   for (const [service, port] of Object.entries(services)) {
     entries.push(`# ${service}`)
     entries.push(`http://${service}.${domain}:${proxyPort} {`)
 
-    // Infrastructure services route directly to their ports
-    // App services route to JNS Gateway which serves from IPFS
-    if (DIRECT_ROUTE_SERVICES.has(service)) {
+    // DWS sub-services need path rewriting
+    if (DWS_PATH_SERVICES[service]) {
+      const basePath = DWS_PATH_SERVICES[service]
+      entries.push(`    rewrite * ${basePath}{uri}`)
+      entries.push(`    reverse_proxy localhost:${dwsPort}`)
+    } else if (DIRECT_ROUTE_SERVICES.has(service)) {
+      // Infrastructure services route directly to their ports
       entries.push(`    reverse_proxy localhost:${port}`)
     } else {
       // Route app subdomains to JNS Gateway for IPFS content

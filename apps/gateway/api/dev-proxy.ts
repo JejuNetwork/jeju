@@ -16,7 +16,7 @@
  * - Production: Immutable IPFS CID (on-chain contenthash)
  */
 
-import { safeReadContract } from '@jejunetwork/shared'
+import { readContract } from '@jejunetwork/shared'
 import type { Address, Chain, Hex, PublicClient, Transport } from 'viem'
 
 /** Dev proxy resolution result */
@@ -109,7 +109,7 @@ async function getJnsDevRecord(
   resolverAddress: Address,
   node: Hex,
 ): Promise<string | null> {
-  const devEndpoint = await safeReadContract<string>(client, {
+  const devEndpoint = await readContract(client, {
     address: resolverAddress,
     abi: JNS_RESOLVER_TEXT_ABI,
     functionName: 'text',

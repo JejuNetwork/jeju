@@ -3,9 +3,8 @@
  * Blockchain integration for agent identity and reputation
  */
 
-import { createPublicClient, http, type PublicClient } from 'viem'
-
 import type { JsonValue } from '@jejunetwork/types'
+import { createPublicClient, http, type PublicClient } from 'viem'
 import type { AgentProfile, AgentReputation } from '../types/a2a'
 import { AgentCapabilitiesSchema } from '../types/common'
 

@@ -8,7 +8,7 @@ import {
 
 describe('Multi-Chain Config', () => {
   test('should have chain IDs defined', () => {
-    expect(EvmChainIds.localnetChain).toBe(1337)
+    expect(EvmChainIds.localnetChain).toBe(31337)
     expect(EvmChainIds.testnetChain).toBe(420690)
     expect(EvmChainIds.mainnetChain).toBe(420691)
     expect(EvmChainIds.EthereumMainnet).toBe(1)

@@ -520,12 +520,5 @@ export interface ContentHash {
   hash: string
 }
 
-export interface JNSGatewayConfig {
-  port: number
-  rpcUrl: string
-  jnsRegistryAddress: Address
-  jnsResolverAddress: Address
-  ipfsGateway: string
-  arweaveGateway: string
-  domain: string
-}
+// Import JNSGatewayConfig from lib/types to avoid duplication
+export type { JNSGatewayConfig } from '../lib/types'

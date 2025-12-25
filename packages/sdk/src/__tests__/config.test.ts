@@ -14,7 +14,7 @@ import {
 describe('getChainConfig', () => {
   it('should return localnet config', () => {
     const config = getChainConfig('localnet')
-    expect(config.chainId).toBe(1337)
+    expect(config.chainId).toBe(31337)
     expect(config.rpcUrl).toBeDefined()
     expect(config.name).toBeDefined()
   })

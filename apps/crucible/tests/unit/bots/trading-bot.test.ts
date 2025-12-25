@@ -235,7 +235,7 @@ describe('TradingBot Configuration', () => {
           nativeSymbol: 'ETH',
         },
         {
-          chainId: 1337,
+          chainId: 31337,
           name: 'Localnet',
           rpcUrl: 'http://localhost:6546',
           blockTime: 1000,

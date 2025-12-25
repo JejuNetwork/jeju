@@ -3,7 +3,7 @@
  */
 
 import { HfInference } from '@huggingface/inference'
-import { expectValid } from '@jejunetwork/types'
+import { type ChatMessage, expectValid } from '@jejunetwork/types'
 import { z } from 'zod'
 import { CompletionResponseSchema } from '../schemas'
 
@@ -26,11 +26,6 @@ export interface APIServerConfig {
   baseUrl: string
   apiKey: string
   numRequestsForEval: number
-}
-
-export interface Message {
-  role: 'system' | 'user' | 'assistant'
-  content: string
 }
 
 export interface TrainingItem {
@@ -442,7 +437,7 @@ export class FundamentalPredictionEnv {
     scoredData: ScoredDataGroup | null
     backlog: TrainingItem[]
   }> {
-    const messages: Message[] = [
+    const messages: ChatMessage[] = [
       { role: 'system', content: SYSTEM_PROMPT },
       {
         role: 'user',
@@ -570,7 +565,7 @@ export class FundamentalPredictionEnv {
     const combinedScores: number[] = []
 
     for (const testItem of this.test) {
-      const messages: Message[] = [
+      const messages: ChatMessage[] = [
         { role: 'system', content: SYSTEM_PROMPT },
         {
           role: 'user',

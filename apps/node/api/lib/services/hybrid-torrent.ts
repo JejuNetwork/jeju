@@ -235,7 +235,7 @@ export class HybridTorrentService {
         'wss://tracker.btorrent.xyz',
         'wss://tracker.fastcast.nz',
         'udp://tracker.openbittorrent.com:80',
-        'udp://tracker.opentrackr.org:1337',
+        'udp://tracker.opentrackr.org:31337',
       ],
       seedingOracleUrl:
         config.seedingOracleUrl ?? process.env.SEEDING_ORACLE_URL,

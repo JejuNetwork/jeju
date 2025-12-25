@@ -17,7 +17,7 @@
  */
 
 import { RPC_CHAINS as CHAINS } from '@jejunetwork/config'
-import { safeReadContract } from '@jejunetwork/contracts'
+import { readContract } from '@jejunetwork/contracts'
 import {
   type Address,
   type Chain,
@@ -408,15 +408,12 @@ export class MultiChainPriceAggregator {
     feedAddress: Address,
   ): Promise<number> {
     const [roundData, decimals] = await Promise.all([
-      safeReadContract<readonly [bigint, bigint, bigint, bigint, bigint]>(
-        client,
-        {
-          address: feedAddress,
-          abi: CHAINLINK_ABI,
-          functionName: 'latestRoundData',
-        },
-      ),
-      safeReadContract<number>(client, {
+      readContract(client, {
+        address: feedAddress,
+        abi: CHAINLINK_ABI,
+        functionName: 'latestRoundData',
+      }),
+      readContract(client, {
         address: feedAddress,
         abi: CHAINLINK_ABI,
         functionName: 'decimals',
@@ -526,17 +523,17 @@ export class MultiChainPriceAggregator {
   ): Promise<PoolState | null> {
     if (version === 'v2') {
       const [reserves, token0, token1] = await Promise.all([
-        safeReadContract<readonly [bigint, bigint, bigint]>(client, {
+        readContract(client, {
           address: poolAddress,
           abi: UNISWAP_V2_PAIR_ABI,
           functionName: 'getReserves',
         }),
-        safeReadContract<Address>(client, {
+        readContract(client, {
           address: poolAddress,
           abi: UNISWAP_V2_PAIR_ABI,
           functionName: 'token0',
         }),
-        safeReadContract<Address>(client, {
+        readContract(client, {
           address: poolAddress,
           abi: UNISWAP_V2_PAIR_ABI,
           functionName: 'token1',
@@ -553,29 +550,27 @@ export class MultiChainPriceAggregator {
       }
     } else {
       const [slot0, token0, token1, liquidity, fee] = await Promise.all([
-        safeReadContract<
-          readonly [bigint, number, number, number, number, number, boolean]
-        >(client, {
+        readContract(client, {
           address: poolAddress,
           abi: UNISWAP_V3_POOL_ABI,
           functionName: 'slot0',
         }),
-        safeReadContract<Address>(client, {
+        readContract(client, {
           address: poolAddress,
           abi: UNISWAP_V3_POOL_ABI,
           functionName: 'token0',
         }),
-        safeReadContract<Address>(client, {
+        readContract(client, {
           address: poolAddress,
           abi: UNISWAP_V3_POOL_ABI,
           functionName: 'token1',
         }),
-        safeReadContract<bigint>(client, {
+        readContract(client, {
           address: poolAddress,
           abi: UNISWAP_V3_POOL_ABI,
           functionName: 'liquidity',
         }),
-        safeReadContract<number>(client, {
+        readContract(client, {
           address: poolAddress,
           abi: UNISWAP_V3_POOL_ABI,
           functionName: 'fee',
@@ -603,17 +598,17 @@ export class MultiChainPriceAggregator {
     tokenAddress: Address,
   ): Promise<{ symbol: string; decimals: number; name: string }> {
     const [symbol, decimals, name] = await Promise.all([
-      safeReadContract<string>(client, {
+      readContract(client, {
         address: tokenAddress,
         abi: ERC20_ABI,
         functionName: 'symbol',
       }),
-      safeReadContract<number>(client, {
+      readContract(client, {
         address: tokenAddress,
         abi: ERC20_ABI,
         functionName: 'decimals',
       }),
-      safeReadContract<string>(client, {
+      readContract(client, {
         address: tokenAddress,
         abi: ERC20_ABI,
         functionName: 'name',

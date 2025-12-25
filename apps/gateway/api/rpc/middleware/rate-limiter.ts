@@ -1,16 +1,11 @@
-import { safeReadContract } from '@jejunetwork/shared'
+import { readContract } from '@jejunetwork/shared'
+import { RATE_LIMITS, type RateTier } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import { LRUCache } from 'lru-cache'
 import { RateLimiterMemory, type RateLimiterRes } from 'rate-limiter-flexible'
 import { type Address, type Chain, createPublicClient, http } from 'viem'
 
-export const RATE_LIMITS = {
-  FREE: 10,
-  BASIC: 100,
-  PRO: 1000,
-  UNLIMITED: 0,
-} as const
-export type RateTier = keyof typeof RATE_LIMITS
+export { RATE_LIMITS, type RateTier }
 
 export function isPrivateIp(ip: string): boolean {
   if (
@@ -134,7 +129,7 @@ const client = createPublicClient({ chain, transport: http(RPC_URL) })
 
 const getContractRateLimit = async (addr: Address): Promise<number> => {
   if (!STAKING_ADDR) return RATE_LIMITS.FREE
-  const result = await safeReadContract<bigint>(client, {
+  const result = await readContract(client, {
     address: STAKING_ADDR,
     abi: RPC_STAKING_ABI,
     functionName: 'getRateLimit',
@@ -145,7 +140,7 @@ const getContractRateLimit = async (addr: Address): Promise<number> => {
 
 const checkAccess = async (addr: Address): Promise<boolean> => {
   if (!STAKING_ADDR) return true
-  return safeReadContract<boolean>(client, {
+  return readContract(client, {
     address: STAKING_ADDR,
     abi: RPC_STAKING_ABI,
     functionName: 'canAccess',

@@ -351,9 +351,9 @@ export const CORE_PORTS = {
 
   /** VPN API - Decentralized VPN backend */
   VPN_API: {
-    DEFAULT: 4021,
+    DEFAULT: 4023,
     ENV_VAR: 'VPN_API_PORT',
-    get: () => safeParsePort(process.env.VPN_API_PORT, 4021),
+    get: () => safeParsePort(process.env.VPN_API_PORT, 4023),
   },
 } as const
 
@@ -447,16 +447,16 @@ export const VENDOR_PORTS = {
 
   /** Caliguland Game Server */
   CALIGULAND_GAME: {
-    DEFAULT: 5008,
+    DEFAULT: 5011,
     ENV_VAR: 'VENDOR_CALIGULAND_GAME_PORT',
-    get: () => safeParsePort(process.env.VENDOR_CALIGULAND_GAME_PORT, 5008),
+    get: () => safeParsePort(process.env.VENDOR_CALIGULAND_GAME_PORT, 5011),
   },
 
   /** Caliguland Auth */
   CALIGULAND_AUTH: {
-    DEFAULT: 5009,
+    DEFAULT: 5012,
     ENV_VAR: 'VENDOR_CALIGULAND_AUTH_PORT',
-    get: () => safeParsePort(process.env.VENDOR_CALIGULAND_AUTH_PORT, 5009),
+    get: () => safeParsePort(process.env.VENDOR_CALIGULAND_AUTH_PORT, 5012),
   },
 
   /** redteam */

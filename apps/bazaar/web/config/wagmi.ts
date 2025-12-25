@@ -6,7 +6,7 @@ import { JEJU_RPC_URL, jeju } from './chains'
 import { NETWORK_NAME } from './index'
 
 const localnet = defineChain({
-  id: 1337,
+  id: 31337,
   name: `${NETWORK_NAME} Localnet`,
   nativeCurrency: {
     decimals: 18,
@@ -27,7 +27,7 @@ const localnet = defineChain({
   testnet: true,
 })
 
-const activeChain = process.env.PUBLIC_CHAIN_ID === '1337' ? localnet : jeju
+const activeChain = process.env.PUBLIC_CHAIN_ID === '31337' ? localnet : jeju
 
 export const wagmiConfig = createConfig({
   chains: [activeChain],

@@ -198,7 +198,7 @@ describe('GasAbstractionService', () => {
     })
 
     it('should return empty array for localnet', () => {
-      const tokens = service.getSupportedTokens(1337)
+      const tokens = service.getSupportedTokens(31337)
 
       expect(tokens).toEqual([])
     })

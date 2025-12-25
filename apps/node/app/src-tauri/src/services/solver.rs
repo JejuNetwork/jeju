@@ -68,7 +68,7 @@ impl Service for SolverService {
         }
     }
 
-    async fn start(&mut self, config: &ServiceConfig) -> Result<(), String> {
+    async fn start(&mut self, _config: &ServiceConfig) -> Result<(), String> {
         if self.running.load(Ordering::SeqCst) {
             return Err("Service already running".to_string());
         }
@@ -82,9 +82,9 @@ impl Service for SolverService {
         *self.start_time.write().await = Some(Instant::now());
 
         let running = self.running.clone();
-        let intents = self.intents_filled.clone();
-        let volume = self.volume_wei.clone();
-        let earnings = self.earnings_wei.clone();
+        let _intents = self.intents_filled.clone();
+        let _volume = self.volume_wei.clone();
+        let _earnings = self.earnings_wei.clone();
 
         tokio::spawn(async move {
             tracing::info!("Solver service started");

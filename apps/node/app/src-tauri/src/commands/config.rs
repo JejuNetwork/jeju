@@ -1,8 +1,6 @@
 //! Configuration management commands
 
-use crate::config::{
-    BotConfig, EarningsConfig, NetworkConfig, NodeConfig, ServiceConfig, WalletConfig,
-};
+use crate::config::{BotConfig, EarningsConfig, NetworkConfig, ServiceConfig};
 use crate::state::AppState;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -50,7 +48,7 @@ pub struct NetworkOption {
 
 #[tauri::command]
 pub async fn get_config(state: State<'_, AppState>) -> Result<AppConfig, String> {
-    let inner = state.inner.read();
+    let inner = state.inner.read().await;
 
     let wallet_type = match inner.config.wallet.wallet_type {
         crate::config::WalletType::None => "none",
@@ -81,7 +79,7 @@ pub async fn update_config(
     state: State<'_, AppState>,
     request: UpdateConfigRequest,
 ) -> Result<AppConfig, String> {
-    let mut inner = state.inner.write();
+    let mut inner = state.inner.write().await;
 
     if let Some(earnings) = request.earnings {
         inner.config.earnings = earnings;
@@ -140,7 +138,7 @@ pub async fn update_config(
 
 #[tauri::command]
 pub async fn get_network_config(state: State<'_, AppState>) -> Result<NetworkConfig, String> {
-    let inner = state.inner.read();
+    let inner = state.inner.read().await;
     Ok(inner.config.network.clone())
 }
 
@@ -149,7 +147,7 @@ pub async fn set_network(
     state: State<'_, AppState>,
     network: String,
 ) -> Result<NetworkConfig, String> {
-    let mut inner = state.inner.write();
+    let mut inner = state.inner.write().await;
 
     let network_config = match network.as_str() {
         "mainnet" => NetworkConfig {
@@ -168,7 +166,7 @@ pub async fn set_network(
         },
         "localnet" => NetworkConfig {
             network: "localnet".to_string(),
-            chain_id: 1337,
+            chain_id: 31337,
             rpc_url: "http://localhost:6546".to_string(),
             ws_url: Some("ws://localhost:6547".to_string()),
             explorer_url: "http://localhost:4000".to_string(),
@@ -179,10 +177,11 @@ pub async fn set_network(
     inner.config.network = network_config.clone();
     inner.config.save().map_err(|e| e.to_string())?;
 
-    // Re-initialize services with new network
+    // Re-initialize services with new network - clone config to avoid borrow conflict
+    let config_clone = inner.config.clone();
     inner
         .service_manager
-        .initialize(&inner.config)
+        .initialize(&config_clone)
         .map_err(|e| e.to_string())?;
 
     Ok(network_config)

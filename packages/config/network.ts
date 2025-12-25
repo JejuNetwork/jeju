@@ -129,6 +129,9 @@ const deployments: Record<NetworkType, DeploymentJson> = {
 function extractContracts(deployment: DeploymentJson): DeployedContracts {
   const contracts: DeployedContracts = {}
 
+  // Categories that should be prefixed when flattening (e.g., jns.registrar -> jnsRegistrar)
+  const prefixedCategories = ['jns', 'payments', 'security'] as const
+
   const categories = [
     'tokens',
     'bridge',
@@ -141,14 +144,27 @@ function extractContracts(deployment: DeploymentJson): DeployedContracts {
     'compute',
     'oif',
     'games',
+    ...prefixedCategories,
   ] as const
 
   for (const category of categories) {
-    const data = deployment[category]
+    const data = (
+      deployment as unknown as Record<
+        string,
+        Record<string, string> | undefined
+      >
+    )[category]
     if (!data) continue
+    const shouldPrefix = prefixedCategories.includes(
+      category as (typeof prefixedCategories)[number],
+    )
     for (const [key, value] of Object.entries(data)) {
       if (typeof value === 'string' && value.startsWith('0x')) {
-        contracts[key] = value
+        // Prefix nested keys for certain categories (jns.registrar -> jnsRegistrar)
+        const contractKey = shouldPrefix
+          ? `${category}${key.charAt(0).toUpperCase()}${key.slice(1)}`
+          : key
+        contracts[contractKey] = value
       }
     }
   }

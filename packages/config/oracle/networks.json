@@ -1,6 +1,6 @@
 {
   "localnet": {
-    "chainId": 1337,
+    "chainId": 31337,
     "rpcUrl": "http://localhost:6546",
     "contracts": {
       "feedRegistry": null,

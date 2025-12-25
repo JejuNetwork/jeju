@@ -1,5 +1,6 @@
 /** MCP Protocol Handler for VPN */
 
+import type { VPNConnectionResult } from '@jejunetwork/sdk'
 import { Elysia } from 'elysia'
 import type { Address } from 'viem'
 import { verifyAuth } from './auth'
@@ -128,12 +129,7 @@ type MCPResourceResult =
   | PricingResource
   | ErrorResource
 
-interface VPNConnectResult {
-  connectionId: string
-  endpoint: string
-  publicKey: string
-  countryCode: string
-}
+type VPNConnectResult = VPNConnectionResult
 
 interface VPNDisconnectResult {
   success: boolean

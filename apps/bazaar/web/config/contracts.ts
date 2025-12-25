@@ -89,9 +89,9 @@ function buildV4Contracts(chainId: ChainId): V4Contracts {
 }
 
 export const V4_CONTRACTS: Record<number, V4Contracts> = {
-  1337: buildV4Contracts(1337),
-  // Only build for JEJU_CHAIN_ID if it's different from 1337
-  ...(JEJU_CHAIN_ID !== 1337
+  31337: buildV4Contracts(31337),
+  // Only build for JEJU_CHAIN_ID if it's different from 31337
+  ...(JEJU_CHAIN_ID !== 31337
     ? { [JEJU_CHAIN_ID]: buildV4Contracts(JEJU_CHAIN_ID as ChainId) }
     : {}),
 }
@@ -108,8 +108,8 @@ function buildNFTContracts(chainId: ChainId): NFTContracts {
 }
 
 export const NFT_CONTRACTS: Record<number, NFTContracts> = {
-  1337: buildNFTContracts(1337),
-  ...(JEJU_CHAIN_ID !== 1337
+  31337: buildNFTContracts(31337),
+  ...(JEJU_CHAIN_ID !== 31337
     ? { [JEJU_CHAIN_ID]: buildNFTContracts(JEJU_CHAIN_ID as ChainId) }
     : {}),
 }
@@ -122,7 +122,7 @@ function buildTokenFactoryContracts(chainId: ChainId): TokenFactoryContracts {
 }
 
 export const TOKEN_FACTORY_CONTRACTS: Record<number, TokenFactoryContracts> = {
-  1337: buildTokenFactoryContracts(1337),
+  31337: buildTokenFactoryContracts(31337),
   [JEJU_CHAIN_ID]: buildTokenFactoryContracts(420691),
 }
 
@@ -138,8 +138,8 @@ function buildLaunchpadContracts(chainId: ChainId): LaunchpadContracts {
 }
 
 export const LAUNCHPAD_CONTRACTS: Record<number, LaunchpadContracts> = {
-  1337: buildLaunchpadContracts(1337),
-  ...(JEJU_CHAIN_ID !== 1337
+  31337: buildLaunchpadContracts(31337),
+  ...(JEJU_CHAIN_ID !== 31337
     ? { [JEJU_CHAIN_ID]: buildLaunchpadContracts(JEJU_CHAIN_ID as ChainId) }
     : {}),
 }
@@ -213,8 +213,8 @@ function buildXLPContracts(chainId: ChainId): XLPContracts {
 }
 
 export const XLP_CONTRACTS: Record<number, XLPContracts> = {
-  1337: buildXLPContracts(1337),
-  ...(JEJU_CHAIN_ID !== 1337
+  31337: buildXLPContracts(31337),
+  ...(JEJU_CHAIN_ID !== 31337
     ? { [JEJU_CHAIN_ID]: buildXLPContracts(JEJU_CHAIN_ID as ChainId) }
     : {}),
 }
@@ -252,8 +252,8 @@ function buildGameContracts(chainId: ChainId): GameContracts {
 }
 
 export const GAME_CONTRACTS: Record<number, GameContracts> = {
-  1337: buildGameContracts(1337),
-  ...(JEJU_CHAIN_ID !== 1337
+  31337: buildGameContracts(31337),
+  ...(JEJU_CHAIN_ID !== 31337
     ? { [JEJU_CHAIN_ID]: buildGameContracts(JEJU_CHAIN_ID as ChainId) }
     : {}),
 }

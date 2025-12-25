@@ -27,7 +27,7 @@ pub struct ServiceWithStatus {
 pub async fn get_available_services(
     state: State<'_, AppState>,
 ) -> Result<Vec<ServiceWithStatus>, String> {
-    let inner = state.inner.read();
+    let inner = state.inner.read().await;
 
     // Detect current hardware
     let mut detector = HardwareDetector::new();
@@ -98,7 +98,7 @@ pub async fn start_service(
     state: State<'_, AppState>,
     request: StartServiceRequest,
 ) -> Result<ServiceState, String> {
-    let mut inner = state.inner.write();
+    let mut inner = state.inner.write().await;
 
     // Parse service ID
     let service_id: ServiceId = request.service_id.parse()?;
@@ -117,11 +117,11 @@ pub async fn start_service(
         config.custom_settings = settings;
     }
 
+    // Clone config for service start before saving
+    let service_config = config.clone();
+
     // Save config
     inner.config.save().map_err(|e| e.to_string())?;
-
-    // Clone config for service start
-    let service_config = config.clone();
 
     // Start service
     inner
@@ -138,7 +138,7 @@ pub async fn stop_service(
     state: State<'_, AppState>,
     service_id: String,
 ) -> Result<ServiceState, String> {
-    let mut inner = state.inner.write();
+    let mut inner = state.inner.write().await;
 
     let id: ServiceId = service_id.parse()?;
 
@@ -160,7 +160,7 @@ pub async fn get_service_status(
     state: State<'_, AppState>,
     service_id: String,
 ) -> Result<ServiceState, String> {
-    let inner = state.inner.read();
+    let inner = state.inner.read().await;
 
     let id: ServiceId = service_id.parse()?;
     inner.service_manager.get_service_status(id).await
@@ -170,6 +170,6 @@ pub async fn get_service_status(
 pub async fn get_all_service_status(
     state: State<'_, AppState>,
 ) -> Result<HashMap<String, ServiceState>, String> {
-    let inner = state.inner.read();
+    let inner = state.inner.read().await;
     Ok(inner.service_manager.get_all_status().await)
 }

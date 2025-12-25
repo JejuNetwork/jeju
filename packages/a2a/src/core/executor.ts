@@ -18,9 +18,8 @@ import type {
   ExecutionEventBus,
   RequestContext,
 } from '@a2a-js/sdk/server'
-import { v4 as uuidv4 } from 'uuid'
-
 import type { JsonValue } from '@jejunetwork/types'
+import { v4 as uuidv4 } from 'uuid'
 
 /**
  * Command structure for executor operations

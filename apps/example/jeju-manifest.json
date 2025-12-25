@@ -1,7 +1,7 @@
 {
   "$schema": "../../packages/config/jeju-manifest.schema.json",
   "name": "example",
-  "displayName": "Decentralized App Template",
+  "displayName": "Example",
   "version": "1.0.0",
   "type": "app",
   "description": "A production-ready template for building applications on Jeju Network. Includes: CQL database, IPFS storage, KMS encryption, Cron triggers, JNS naming, REST API, A2A protocol, MCP tools, x402 payments, and OAuth3 authentication.",
@@ -42,7 +42,7 @@
   ],
   "jns": {
     "name": "example.jeju",
-    "description": "Decentralized App Template",
+    "description": "Example",
     "url": "https://example.jejunetwork.org"
   },
   "healthCheck": {

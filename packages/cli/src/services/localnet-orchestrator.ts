@@ -97,7 +97,7 @@ export class LocalnetOrchestrator {
       L1_RPC_URL: `http://127.0.0.1:${ports.l1Port}`,
       L2_RPC_URL: `http://127.0.0.1:${ports.l2Port}`,
       JEJU_RPC_URL: `http://127.0.0.1:${ports.l2Port}`,
-      CHAIN_ID: '1337',
+      CHAIN_ID: '31337',
     }
   }
 
@@ -116,7 +116,7 @@ export class LocalnetOrchestrator {
       running: this.started,
       l1Rpc: `http://127.0.0.1:${ports.l1Port}`,
       l2Rpc: `http://127.0.0.1:${ports.l2Port}`,
-      chainId: 1337,
+      chainId: 31337,
       bootstrapped: existsSync(bootstrapFile),
     }
   }

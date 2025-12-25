@@ -30,7 +30,7 @@ concurrency:
 
 env:
   CI: true
-  CHAIN_ID: "1337"
+  CHAIN_ID: "31337"
   L2_RPC_URL: "http://127.0.0.1:6546"
   JEJU_RPC_URL: "http://127.0.0.1:6546"
 
@@ -123,7 +123,7 @@ jobs:
 
       - name: Start Anvil (Jeju L2 on port 6546)
         run: |
-          anvil --chain-id 1337 --port 6546 --block-time 1 --accounts 10 --balance 10000 &
+          anvil --chain-id 31337 --port 6546 --block-time 1 --accounts 10 --balance 10000 &
           sleep 5
           curl -s -X POST http://127.0.0.1:6546 \
             -H "Content-Type: application/json" \
@@ -169,7 +169,7 @@ jobs:
 
       - name: Start Anvil (Jeju L2 on port 6546)
         run: |
-          anvil --chain-id 1337 --port 6546 --block-time 1 --accounts 10 --balance 10000 &
+          anvil --chain-id 31337 --port 6546 --block-time 1 --accounts 10 --balance 10000 &
           sleep 5
 
       - name: Bootstrap contracts
@@ -239,7 +239,7 @@ jobs:
 
       - name: Start Anvil
         run: |
-          anvil --chain-id 1337 --port 9545 --block-time 1 --accounts 10 --balance 10000 &
+          anvil --chain-id 31337 --port 9545 --block-time 1 --accounts 10 --balance 10000 &
           sleep 5
 
       - name: Start Bazaar
@@ -299,7 +299,7 @@ jobs:
 
       - name: Start Anvil (Jeju L2 on port 6546)
         run: |
-          anvil --chain-id 1337 --port 6546 --block-time 1 --accounts 10 --balance 10000 &
+          anvil --chain-id 31337 --port 6546 --block-time 1 --accounts 10 --balance 10000 &
           sleep 5
 
       - name: Build and start Wallet app
@@ -359,7 +359,7 @@ jobs:
 
       - name: Start Anvil (Jeju L2 on port 6546)
         run: |
-          anvil --chain-id 1337 --port 6546 --block-time 1 --accounts 10 --balance 10000 &
+          anvil --chain-id 31337 --port 6546 --block-time 1 --accounts 10 --balance 10000 &
           sleep 5
 
       - name: Start Crucible

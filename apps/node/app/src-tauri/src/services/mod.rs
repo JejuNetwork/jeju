@@ -192,7 +192,7 @@ impl ServiceManager {
                 let reqs = s.requirements();
 
                 // Check if hardware meets requirements
-                let mut detector = crate::hardware::HardwareDetector::new();
+                let detector = crate::hardware::HardwareDetector::new();
                 let (meets, issues) = detector.meets_requirements(hardware, &reqs);
 
                 if !meets {

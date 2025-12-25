@@ -1,10 +1,16 @@
 import { readContract } from '@jejunetwork/contracts'
+// BanCheckConfig is exported as HookBanCheckConfig from shared barrel
+import type {
+  HookBanCheckConfig as BanCheckConfig,
+  BanStatus,
+} from '@jejunetwork/shared'
 import { BanType } from '@jejunetwork/types'
 import { useCallback, useEffect, useState } from 'react'
 import { type Address, createPublicClient, http } from 'viem'
 import { baseSepolia } from 'viem/chains'
 
 export { BanType }
+export type { BanCheckConfig, BanStatus }
 
 const BAN_MANAGER_ABI = [
   {
@@ -50,25 +56,6 @@ const MODERATION_MARKETPLACE_ABI = [
     stateMutability: 'view',
   },
 ] as const
-
-export interface BanStatus {
-  isBanned: boolean
-  banType: BanType
-  isOnNotice: boolean
-  reason: string
-  caseId: `0x${string}` | null
-  canAppeal: boolean
-  loading: boolean
-  error: string | null
-}
-
-export interface BanCheckConfig {
-  banManagerAddress?: Address
-  moderationMarketplaceAddress?: Address
-  identityRegistryAddress?: Address
-  appId?: `0x${string}`
-  rpcUrl?: string
-}
 
 // Get RPC URL with network-aware defaults
 function getDefaultRpcUrl(): string {

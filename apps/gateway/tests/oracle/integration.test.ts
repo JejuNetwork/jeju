@@ -98,7 +98,7 @@ describe.skipIf(SKIP_INTEGRATION)('Oracle Integration', () => {
     beforeAll(async () => {
       const config: OracleNodeConfig = {
         rpcUrl: RPC_URL,
-        chainId: 1337,
+        chainId: 31337,
         operatorPrivateKey: TEST_PRIVATE_KEY,
         workerPrivateKey: WORKER_PRIVATE_KEY,
         feedRegistry: ZERO_ADDRESS,
@@ -127,7 +127,7 @@ describe.skipIf(SKIP_INTEGRATION)('Oracle Integration', () => {
       const data = await response.json()
       expect(data.status).toBe('healthy')
       expect(data.network).toBe('localnet')
-      expect(data.chainId).toBe(1337)
+      expect(data.chainId).toBe(31337)
     })
 
     test('should serve metrics endpoint with default values when no contracts deployed', async () => {

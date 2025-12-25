@@ -13,6 +13,7 @@
  */
 
 import { getRubricOrDefault } from '@jejunetwork/training'
+import type { ChatMessage } from '@jejunetwork/types'
 import { z } from 'zod'
 import type { JudgeRubric, JudgeScore, Trajectory } from './types'
 
@@ -30,10 +31,7 @@ const DEFAULT_RUBRIC = `
 - You may give some partial credit for a trajectory that makes progress towards its goal but does not complete it.
 `
 
-interface TrajectoryMessage {
-  role: 'system' | 'user' | 'assistant'
-  content: string
-}
+type TrajectoryMessage = ChatMessage
 
 interface JudgeResponse {
   scores: Array<{

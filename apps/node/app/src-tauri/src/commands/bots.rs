@@ -2,7 +2,6 @@
 
 use crate::state::AppState;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use tauri::State;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -94,7 +93,7 @@ pub struct StartBotRequest {
 
 #[tauri::command]
 pub async fn get_available_bots(state: State<'_, AppState>) -> Result<Vec<BotWithStatus>, String> {
-    let inner = state.inner.read();
+    let inner = state.inner.read().await;
 
     let bots: Vec<BotWithStatus> = BotType::all()
         .into_iter()
@@ -213,7 +212,7 @@ pub async fn start_bot(
     state: State<'_, AppState>,
     request: StartBotRequest,
 ) -> Result<BotStatus, String> {
-    let mut inner = state.inner.write();
+    let mut inner = state.inner.write().await;
 
     // Verify wallet
     if inner.wallet_manager.is_none() {
@@ -263,7 +262,7 @@ pub async fn start_bot(
 
 #[tauri::command]
 pub async fn stop_bot(state: State<'_, AppState>, bot_id: String) -> Result<BotStatus, String> {
-    let mut inner = state.inner.write();
+    let mut inner = state.inner.write().await;
 
     // Update config
     if let Some(config) = inner.config.bots.get_mut(&bot_id) {
@@ -293,7 +292,7 @@ pub async fn get_bot_status(
     state: State<'_, AppState>,
     bot_id: String,
 ) -> Result<BotStatus, String> {
-    let inner = state.inner.read();
+    let inner = state.inner.read().await;
 
     let bot_status = inner.bot_status.get(&bot_id);
 
@@ -318,12 +317,10 @@ pub async fn get_bot_status(
 
 #[tauri::command]
 pub async fn get_bot_earnings(
-    state: State<'_, AppState>,
-    bot_id: String,
-    days: Option<u32>,
+    _state: State<'_, AppState>,
+    _bot_id: String,
+    _days: Option<u32>,
 ) -> Result<Vec<OpportunityInfo>, String> {
-    let inner = state.inner.read();
-
     // TODO: Query bot earnings history
 
     Ok(vec![])

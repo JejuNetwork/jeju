@@ -34,6 +34,20 @@ export const TokenSchema = z.object({
 })
 export type Token = z.infer<typeof TokenSchema>
 
+/**
+ * Swap quote for token exchanges
+ */
+export interface SwapQuote {
+  tokenIn: `0x${string}`
+  tokenOut: `0x${string}`
+  amountIn: bigint
+  amountOut: bigint
+  amountOutMin: bigint
+  priceImpact: number
+  route: `0x${string}`[]
+  fee: bigint
+}
+
 export const UniswapV4PoolSchema = z.object({
   poolId: z.string(),
   token0: TokenSchema,

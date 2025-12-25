@@ -20,7 +20,48 @@
 import { Elysia } from 'elysia'
 import type { Address, Hex } from 'viem'
 import { keccak256, toBytes, verifyMessage } from 'viem'
+import { z } from 'zod'
 import { createMPCClient, MPCPartyDiscovery } from './mpc-discovery'
+
+// Request body schemas
+const CreateKeyBodySchema = z.object({
+  name: z.string(),
+  metadata: z.record(z.string(), z.string()).optional(),
+})
+
+const SignBodySchema = z.object({
+  keyId: z.string(),
+  message: z.string().optional(),
+  messageHash: z
+    .string()
+    .transform((s) => s as Hex)
+    .optional(),
+})
+
+const BatchSignBodySchema = z.object({
+  keyId: z.string(),
+  messages: z.array(
+    z.object({
+      id: z.string(),
+      message: z.string().optional(),
+      messageHash: z
+        .string()
+        .transform((s) => s as Hex)
+        .optional(),
+    }),
+  ),
+})
+
+const EncryptBodySchema = z.object({
+  keyId: z.string(),
+  plaintext: z.string(),
+})
+
+const DecryptBodySchema = z.object({
+  keyId: z.string(),
+  ciphertext: z.string(),
+  nonce: z.string(),
+})
 
 // ============ Types ============
 
@@ -162,10 +203,7 @@ export function createKMSAPIWorker(config: KMSAPIConfig) {
       // ============ Key Generation ============
 
       .post('/keys', async ({ body, request }) => {
-        const params = body as {
-          name: string
-          metadata?: Record<string, string>
-        }
+        const params = CreateKeyBodySchema.parse(body)
 
         const ownerSignature = request.headers.get(
           'x-jeju-signature',
@@ -214,7 +252,7 @@ export function createKMSAPIWorker(config: KMSAPIConfig) {
           createdAt: Date.now(),
           lastUsed: Date.now(),
           signaturesCount: 0,
-          metadata: params.metadata ?? {},
+          metadata: params.metadata ?? ({} as Record<string, string>),
         }
 
         keys.set(keyId, managedKey)
@@ -320,11 +358,7 @@ export function createKMSAPIWorker(config: KMSAPIConfig) {
       // ============ Signing ============
 
       .post('/sign', async ({ body, request }) => {
-        const params = body as {
-          keyId: string
-          message?: string
-          messageHash?: Hex
-        }
+        const params = SignBodySchema.parse(body)
 
         const requesterSignature = request.headers.get(
           'x-jeju-signature',
@@ -424,10 +458,7 @@ export function createKMSAPIWorker(config: KMSAPIConfig) {
       // ============ Batch Signing ============
 
       .post('/sign/batch', async ({ body, request }) => {
-        const params = body as {
-          keyId: string
-          messages: { id: string; message?: string; messageHash?: Hex }[]
-        }
+        const params = BatchSignBodySchema.parse(body)
 
         const requesterSignature = request.headers.get(
           'x-jeju-signature',
@@ -549,10 +580,7 @@ export function createKMSAPIWorker(config: KMSAPIConfig) {
       // ============ Encryption ============
 
       .post('/encrypt', async ({ body }) => {
-        const params = body as {
-          keyId: string
-          plaintext: string
-        }
+        const params = EncryptBodySchema.parse(body)
 
         const key = keys.get(params.keyId)
         if (!key) {
@@ -592,11 +620,7 @@ export function createKMSAPIWorker(config: KMSAPIConfig) {
       })
 
       .post('/decrypt', async ({ body, request }) => {
-        const params = body as {
-          keyId: string
-          ciphertext: string
-          nonce: string
-        }
+        const params = DecryptBodySchema.parse(body)
 
         const requesterSignature = request.headers.get(
           'x-jeju-signature',

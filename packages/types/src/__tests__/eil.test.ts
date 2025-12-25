@@ -26,7 +26,7 @@ describe('isSupportedChainId', () => {
     11155111, // Sepolia
     42161, // Arbitrum One
     10, // Optimism
-    1337, // Localnet
+    31337, // Localnet
     420691, // Network Mainnet
     420690, // Network Testnet
   ]
@@ -66,7 +66,7 @@ describe('isSupportedChainId', () => {
 
   test('all supported chains are included', () => {
     // Verify the list matches the schema
-    const schemaValues = [1, 11155111, 42161, 10, 1337, 420691, 420690]
+    const schemaValues = [1, 11155111, 42161, 10, 31337, 420691, 420690]
 
     for (const value of schemaValues) {
       expect(isSupportedChainId(value as EVMChainId)).toBe(true)
@@ -93,8 +93,8 @@ describe('SupportedChainIdSchema', () => {
     expect(SupportedChainIdSchema.safeParse(10).success).toBe(true)
   })
 
-  test('accepts Localnet (1337)', () => {
-    expect(SupportedChainIdSchema.safeParse(1337).success).toBe(true)
+  test('accepts Localnet (31337)', () => {
+    expect(SupportedChainIdSchema.safeParse(31337).success).toBe(true)
   })
 
   test('accepts Network Mainnet (420691)', () => {

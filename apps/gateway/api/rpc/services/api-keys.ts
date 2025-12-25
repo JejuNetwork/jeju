@@ -1,13 +1,13 @@
 import { createHash, randomBytes } from 'node:crypto'
+import type { RateTier } from '@jejunetwork/types'
 import { LRUCache } from 'lru-cache'
 import type { Address } from 'viem'
 import { apiKeyState, initializeState } from '../../services/state'
-import {
-  type RateTier,
-  registerApiKey,
-  revokeApiKey,
-} from '../middleware/rate-limiter'
+import { registerApiKey, revokeApiKey } from '../middleware/rate-limiter'
 
+/**
+ * API key record stored in the database
+ */
 export interface ApiKeyRecord {
   id: string
   keyHash: string

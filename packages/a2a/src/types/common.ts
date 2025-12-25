@@ -4,8 +4,8 @@
  * Common types for A2A protocol. For JSON types, import from @jejunetwork/types.
  */
 
-import { z } from 'zod'
 import type { JsonValue } from '@jejunetwork/types'
+import { z } from 'zod'
 
 /**
  * Generic key-value record with string keys

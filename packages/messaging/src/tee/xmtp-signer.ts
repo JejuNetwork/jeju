@@ -5,7 +5,7 @@
  * Private keys never leave the secure enclave.
  */
 
-import type { Address, Hex } from 'viem'
+import { type Address, type Hex, keccak256 } from 'viem'
 import { EncryptedBackupSchema } from '../schemas'
 import type { TEEXMTPKeyManager } from './key-manager'
 import type {
@@ -222,8 +222,6 @@ function hexToBytes(hex: Hex): Uint8Array {
  * Derive address from public key (simplified)
  */
 export function deriveAddressFromPublicKey(publicKey: Hex): Address {
-  const { keccak256 } = require('viem') as { keccak256: (input: Hex) => Hex }
-
   // For Ed25519, we use a simplified derivation
   // In production, would handle this properly per XMTP spec
   const hash = keccak256(publicKey)

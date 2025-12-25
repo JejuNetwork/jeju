@@ -1,9 +1,7 @@
 //! Hardware detection commands
 
 use crate::hardware::{HardwareDetector, HardwareInfo, TeeCapabilities};
-use crate::state::AppState;
 use serde::{Deserialize, Serialize};
-use tauri::State;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SystemInfo {

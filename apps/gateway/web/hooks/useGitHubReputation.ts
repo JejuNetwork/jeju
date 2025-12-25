@@ -6,9 +6,9 @@ import {
   useReadContract,
   useSignMessage,
   useWaitForTransactionReceipt,
-  useWriteContract,
 } from 'wagmi'
 import { CHAIN_ID, CONTRACTS, LEADERBOARD_API_URL } from '../../lib/config'
+import { useTypedWriteContract } from './useTypedWriteContract'
 
 const LEADERBOARD_API = LEADERBOARD_API_URL
 // Use CAIP-2 format for chain ID
@@ -142,7 +142,7 @@ export function useGitHubReputation() {
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>()
 
   const { signMessageAsync } = useSignMessage()
-  const { writeContractAsync } = useWriteContract()
+  const { writeAsync: writeContractAsync } = useTypedWriteContract()
   const { data: txReceipt } = useWaitForTransactionReceipt({ hash: txHash })
 
   // Query on-chain reputation (only if contract is configured)

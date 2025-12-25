@@ -333,7 +333,7 @@ function RouteCard({ route }: { route: RouteInfo }) {
     42161: 'Arbitrum',
     10: 'Optimism',
     137: 'Polygon',
-    1337: 'Network',
+    31337: 'Network',
   }
   const getChain = (id: number) => chains[id] || `${id}`
 

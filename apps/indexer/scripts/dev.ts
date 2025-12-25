@@ -89,6 +89,8 @@ console.log('Build complete.')
 const indexHtml = await Bun.file(join(rootDir, 'index.html')).text()
 const transformedHtml = indexHtml.replace('/web/main.tsx', '/dist/web/main.js')
 
+const REST_PORT = Number(process.env.REST_PORT) || 4352
+
 // Serve the frontend
 const server = Bun.serve({
   port: PORT,
@@ -96,8 +98,29 @@ const server = Bun.serve({
     const url = new URL(req.url)
     const path = url.pathname
 
+    // Proxy /api requests to REST server
+    if (path.startsWith('/api')) {
+      const restUrl = `http://localhost:${REST_PORT}${path}${url.search}`
+      try {
+        const response = await fetch(restUrl, {
+          method: req.method,
+          headers: req.headers,
+          body: req.body,
+        })
+        return new Response(response.body, {
+          status: response.status,
+          headers: response.headers,
+        })
+      } catch {
+        return new Response(JSON.stringify({ error: 'REST API unavailable' }), {
+          status: 503,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+    }
+
     // Serve index.html for root and SPA routes
-    if (path === '/' || (!path.includes('.') && !path.startsWith('/api'))) {
+    if (path === '/' || !path.includes('.')) {
       return new Response(transformedHtml, {
         headers: { 'Content-Type': 'text/html' },
       })

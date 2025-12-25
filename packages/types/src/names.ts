@@ -312,3 +312,12 @@ export function formatJNSName(label: JNSLabel): JNSName {
 export function parseJNSName(name: JNSName): JNSLabel {
   return name.replace('.jeju', '')
 }
+
+/**
+ * Base configuration for JNS Gateway implementations
+ */
+export interface JNSGatewayConfigBase {
+  port: number
+  rpcUrl: string
+  jnsRegistryAddress: `0x${string}`
+}

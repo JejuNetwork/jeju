@@ -12,7 +12,7 @@
  */
 
 import { EventEmitter } from 'node:events'
-import { safeReadContract } from '@jejunetwork/contracts'
+import { readContract } from '@jejunetwork/contracts'
 import {
   type Address,
   encodeAbiParameters,
@@ -240,7 +240,7 @@ export class AcrossAdapter extends EventEmitter {
 
     // Check if already filled
     const relayHash = this.computeRelayHash(deposit)
-    const fillStatus = await safeReadContract<bigint>(client.public, {
+    const fillStatus = await readContract(client.public, {
       address: spokePool,
       abi: IS_DEPOSIT_FILLED_ABI,
       functionName: 'fillStatuses',

@@ -1402,7 +1402,7 @@ async function showKeys(network: NetworkType, showPrivate: boolean) {
     logger.newline()
     logger.info('Network Name:   Network Localnet')
     logger.info('RPC URL:        http://127.0.0.1:6546')
-    logger.info('Chain ID:       1337')
+    logger.info('Chain ID:       31337')
     logger.info('Currency:       ETH')
     logger.newline()
     logger.info('Pre-funded Test Account:')

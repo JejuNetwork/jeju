@@ -9,7 +9,7 @@ import { formatUnits } from 'viem'
 import {
   fetchPredictionMarkets,
   type PredictionMarket,
-} from '../../api/data-client'
+} from '../../lib/data-client'
 import { LoadingSpinner } from '../components/LoadingSpinner'
 
 function formatVolume(volume: bigint): string {

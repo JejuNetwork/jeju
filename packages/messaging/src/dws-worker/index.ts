@@ -25,6 +25,22 @@ import { z } from 'zod'
 // IPFS response schema
 const IPFSAddResponseSchema = z.object({ Hash: z.string() })
 
+// Request body schemas
+const InitBodySchema = z.object({
+  address: z.string().transform((s) => s as Address),
+  signature: z.string().transform((s) => s as Hex),
+  message: z.string(),
+})
+
+const SubscribeBodySchema = z.object({
+  address: z.string().transform((s) => s as Address),
+  signature: z.string().transform((s) => s as Hex),
+})
+
+const UnsubscribeBodySchema = z.object({
+  address: z.string().transform((s) => s as Address),
+})
+
 // MPC client stub - mirrors @jejunetwork/kms but stubbed to avoid circular dep
 interface MPCSigningClient {
   requestSignature: (params: { keyId: string; messageHash: Hex }) => Promise<{
@@ -191,11 +207,7 @@ export function createMessagingWorker(config: MessagingWorkerConfig) {
       // ============ Key Derivation ============
 
       .post('/init', async ({ body }) => {
-        const params = body as {
-          address: Address
-          signature: Hex
-          message: string
-        }
+        const params = InitBodySchema.parse(body)
 
         // Verify ownership
         const isValid = await verifyMessage({
@@ -389,10 +401,7 @@ export function createMessagingWorker(config: MessagingWorkerConfig) {
       // ============ Subscriptions ============
 
       .post('/subscribe', async ({ body }) => {
-        const params = body as {
-          address: Address
-          signature: Hex
-        }
+        const params = SubscribeBodySchema.parse(body)
 
         // Verify ownership
         const isValid = await verifyMessage({
@@ -422,7 +431,7 @@ export function createMessagingWorker(config: MessagingWorkerConfig) {
       })
 
       .post('/unsubscribe', ({ body }) => {
-        const { address } = body as { address: Address }
+        const { address } = UnsubscribeBodySchema.parse(body)
         const deleted = subscriptions.delete(address.toLowerCase())
         return { unsubscribed: deleted }
       })

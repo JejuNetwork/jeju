@@ -90,7 +90,7 @@ const eilConfig: EILConfig = {
   },
   localnet: {
     hub: {
-      chainId: 1337,
+      chainId: 31337,
       name: 'Jeju Localnet',
       l1StakeManager: '',
       status: 'active',

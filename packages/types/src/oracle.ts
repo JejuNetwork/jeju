@@ -42,6 +42,14 @@ export interface PriceSourceConfig {
   decimals: number
 }
 
+/** Price data from oracle price fetcher */
+export interface PriceData {
+  price: bigint
+  confidence: bigint
+  timestamp: bigint
+  source: string
+}
+
 /** Signed price report from oracle nodes */
 export interface SignedReport {
   report: {
@@ -142,6 +150,7 @@ export const PriceReportSchema = z.object({
   confidence: z.bigint(),
   timestamp: z.bigint(),
   round: z.bigint(),
+  sourcesHash: HexSchema.optional(),
   sources: z.array(VenueSourceSchema).max(MAX_SMALL_ARRAY_LENGTH),
   signatures: z.array(OracleSignatureSchema).max(MAX_SMALL_ARRAY_LENGTH),
 })
@@ -660,10 +669,11 @@ export function validatePriceReport(
   const errors: ReportError[] = []
 
   // Check signature count
-  if (report.signatures.length < spec.quorumThreshold) {
+  const signatures = report.signatures ?? []
+  if (signatures.length < spec.quorumThreshold) {
     errors.push({
       type: 'INSUFFICIENT_QUORUM',
-      have: report.signatures.length,
+      have: signatures.length,
       need: spec.quorumThreshold,
     })
   }
@@ -680,7 +690,8 @@ export function validatePriceReport(
   }
 
   // Check sources liquidity
-  for (const source of report.sources) {
+  const sources = report.sources ?? []
+  for (const source of sources) {
     if (source.liquidity < spec.minLiquidityUSD) {
       errors.push({
         type: 'LOW_LIQUIDITY',
@@ -695,8 +706,8 @@ export function validatePriceReport(
     isValid: errors.length === 0,
     reportHash: `0x${'0'.repeat(64)}` as ReportHash,
     errors,
-    validSignerCount: report.signatures.length,
-    quorumMet: report.signatures.length >= spec.quorumThreshold,
+    validSignerCount: signatures.length,
+    quorumMet: signatures.length >= spec.quorumThreshold,
   }
 }
 

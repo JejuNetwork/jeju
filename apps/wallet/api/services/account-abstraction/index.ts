@@ -25,7 +25,7 @@ const JEJU_CONTRACTS: Record<
   number,
   { entryPoint: Address; factory: Address; sponsoredPaymaster?: Address }
 > = {
-  1337: {
+  31337: {
     entryPoint: ENTRY_POINT_V07,
     factory: '0x9406Cc6185a346906296840746125a0E44976454',
     sponsoredPaymaster: ZERO_ADDRESS,

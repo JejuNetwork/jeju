@@ -190,7 +190,7 @@ async function main(): Promise<void> {
   const portsConfig = PortsConfigSchema.parse({
     l1Rpc: `http://127.0.0.1:${l1Port}`,
     l2Rpc: `http://127.0.0.1:${l2Port}`,
-    chainId: 1337,
+    chainId: 31337,
     timestamp: new Date().toISOString(),
   })
 

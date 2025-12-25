@@ -9,7 +9,6 @@
  * - Client registration
  */
 
-import { safeReadContract } from '@jejunetwork/shared'
 import type { Keypair, PublicKey } from '@solana/web3.js'
 import { sign } from 'tweetnacl'
 import {
@@ -21,23 +20,14 @@ import {
   type Hex,
   http,
   keccak256,
+  type Log,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
 import type { CoordinatorState, PsycheClient } from './psyche-client'
 
-// Extended log type with topics
-interface LogWithTopics {
-  address: Address
-  blockHash: Hex
-  blockNumber: bigint
-  data: Hex
-  logIndex: number
-  transactionHash: Hex
-  transactionIndex: number
-  removed: boolean
-  topics: readonly Hex[]
-}
+// Extended log type with topics - use viem's Log type
+type LogWithTopics = Log
 
 // Constants
 
@@ -247,9 +237,7 @@ export class CrossChainTrainingBridge {
     const runIdBytes =
       `0x${Buffer.from(runId).toString('hex').padEnd(64, '0')}` as Hex
 
-    const evmResult = await safeReadContract<
-      [number, bigint, number, number, bigint]
-    >(this.evmPublicClient, {
+    const evmResult = await this.evmPublicClient.readContract({
       address: this.config.bridgeContractAddress,
       abi: BRIDGE_CONTRACT_ABI,
       functionName: 'getRunState',
@@ -419,7 +407,7 @@ export class CrossChainTrainingBridge {
     }
 
     // Fallback: query the contract for the client count
-    const clientCount = await safeReadContract<number>(this.evmPublicClient, {
+    const clientCount = await this.evmPublicClient.readContract({
       address: this.config.bridgeContractAddress,
       abi: [
         {
@@ -429,7 +417,7 @@ export class CrossChainTrainingBridge {
           stateMutability: 'view',
           type: 'function',
         },
-      ],
+      ] as const,
       functionName: 'clientCount',
     })
 
@@ -580,9 +568,7 @@ export class CrossChainTrainingBridge {
     stepsContributed: bigint
     rewardsClaimed: bigint
   }> {
-    const result = await safeReadContract<
-      [Address, Hex, string, number, number, bigint, bigint]
-    >(this.evmPublicClient, {
+    const result = await this.evmPublicClient.readContract({
       address: this.config.bridgeContractAddress,
       abi: BRIDGE_CONTRACT_ABI,
       functionName: 'getClientInfo',

@@ -31,7 +31,40 @@ const BROWSER_EXTERNALS = [
   'node:path',
   'node:crypto',
   'node:events',
+  'node:os',
+  'node:child_process',
+  'node:readline',
+  'node:util',
 ]
+
+// Browser plugin to shim server-only packages
+const browserPlugin = {
+  name: 'browser-shims',
+  setup(
+    build: Parameters<
+      Parameters<typeof Bun.build>[0]['plugins'][0]['setup']
+    >[0],
+  ) {
+    // Mock pino for browser builds
+    build.onResolve({ filter: /^pino$/ }, () => ({
+      path: 'pino-mock',
+      namespace: 'pino-mock',
+    }))
+    build.onResolve({ filter: /^pino-pretty$/ }, () => ({
+      path: 'pino-mock',
+      namespace: 'pino-mock',
+    }))
+    build.onLoad({ filter: /.*/, namespace: 'pino-mock' }, () => ({
+      contents: `
+        const noop = () => {};
+        const noopLogger = { trace: noop, debug: noop, info: noop, warn: noop, error: noop, fatal: noop, child: () => noopLogger };
+        export default () => noopLogger;
+        export const levels = { values: { trace: 10, debug: 20, info: 30, warn: 40, error: 50, fatal: 60 } };
+      `,
+      loader: 'js',
+    }))
+  },
+}
 
 async function build(): Promise<void> {
   console.log('Building wallet web app...')
@@ -49,12 +82,22 @@ async function build(): Promise<void> {
     minify: isProduction,
     sourcemap: isProduction ? 'external' : 'linked',
     target: 'browser',
-    splitting: true,
+    splitting: false,
+    packages: 'bundle',
     external: BROWSER_EXTERNALS,
+    plugins: [browserPlugin],
     define: {
       'process.env.NODE_ENV': JSON.stringify(
         isProduction ? 'production' : 'development',
       ),
+      'process.browser': JSON.stringify(true),
+      'process.env': JSON.stringify({
+        NODE_ENV: isProduction ? 'production' : 'development',
+      }),
+      process: JSON.stringify({
+        env: { NODE_ENV: isProduction ? 'production' : 'development' },
+        browser: true,
+      }),
     },
     naming: {
       entry: '[name]-[hash].js',

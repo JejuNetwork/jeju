@@ -104,11 +104,11 @@ impl Service for SequencerService {
         *self.start_time.write().await = Some(Instant::now());
 
         let running = self.running.clone();
-        let blocks_proposed = self.blocks_proposed.clone();
-        let blocks_missed = self.blocks_missed.clone();
-        let earnings = self.earnings_wei.clone();
-        let last_error = self.last_error.clone();
-        let rpc_url = self.rpc_url.clone();
+        let _blocks_proposed = self.blocks_proposed.clone();
+        let _blocks_missed = self.blocks_missed.clone();
+        let _earnings = self.earnings_wei.clone();
+        let _last_error = self.last_error.clone();
+        let _rpc_url = self.rpc_url.clone();
 
         tokio::spawn(async move {
             tracing::info!("Sequencer service started");

@@ -11,6 +11,15 @@
  */
 
 import { type Address, type Hex, toHex } from 'viem'
+import { z } from 'zod'
+
+// OAuth callback data schema
+const OAuthCallbackSchema = z.object({
+  code: z.string().optional(),
+  state: z.string().optional(),
+  error: z.string().optional(),
+})
+
 import { CHAIN_IDS, DEFAULT_RPC } from '../infrastructure/config.js'
 import {
   createDecentralizedDiscovery,
@@ -443,15 +452,9 @@ export class OAuth3Client {
       const handleMessage = async (event: MessageEvent) => {
         if (event.origin !== new URL(this.config.redirectUri).origin) return
 
-        const {
-          code,
-          state: returnedState,
-          error,
-        } = event.data as {
-          code?: string
-          state?: string
-          error?: string
-        }
+        const callbackResult = OAuthCallbackSchema.safeParse(event.data)
+        if (!callbackResult.success) return
+        const { code, state: returnedState, error } = callbackResult.data
 
         if (error) {
           window.removeEventListener('message', handleMessage)

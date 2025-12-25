@@ -487,7 +487,7 @@ describe('getTestEnv - Environment Config', () => {
 
     expect(env.L1_RPC_URL).toBe('http://127.0.0.1:6545')
     expect(env.L2_RPC_URL).toBe('http://127.0.0.1:6546')
-    expect(env.CHAIN_ID).toBe('1337')
+    expect(env.CHAIN_ID).toBe('31337')
   })
 
   test('should use env vars when set', () => {

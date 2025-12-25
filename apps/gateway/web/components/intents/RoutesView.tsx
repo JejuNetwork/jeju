@@ -21,7 +21,7 @@ const CHAIN_NAMES: Record<number, string> = {
   10: 'Optimism',
   420691: 'Network',
   420690: 'Testnet',
-  1337: 'Localnet',
+  31337: 'Localnet',
 }
 
 const CHAIN_COLORS: Record<number, string> = {
@@ -31,7 +31,7 @@ const CHAIN_COLORS: Record<number, string> = {
   10: 'var(--chain-optimism)',
   420691: 'var(--chain-jeju)',
   420690: 'var(--chain-jeju)',
-  1337: 'var(--accent-primary)',
+  31337: 'var(--accent-primary)',
 }
 
 export function RoutesView() {

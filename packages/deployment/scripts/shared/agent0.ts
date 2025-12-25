@@ -92,7 +92,7 @@ const NETWORK_CONFIG: Record<
   }
 > = {
   localnet: {
-    chainId: 1337,
+    chainId: 31337,
     rpcUrl: 'http://localhost:6546',
     registries: {
       IDENTITY: '',
@@ -130,8 +130,8 @@ function loadLocalnetAddresses(): void {
     '../../packages/contracts/deployments',
   )
 
-  // Try to load from identity-system-1337.json
-  const identityPath = resolve(deploymentsDir, 'identity-system-1337.json')
+  // Try to load from identity-system-31337.json
+  const identityPath = resolve(deploymentsDir, 'identity-system-31337.json')
   if (existsSync(identityPath)) {
     const deployments = JSON.parse(
       readFileSync(identityPath, 'utf-8'),
@@ -147,7 +147,7 @@ function loadLocalnetAddresses(): void {
       NETWORK_CONFIG.localnet.registries.VALIDATION =
         deployments.ValidationRegistry
     }
-    logger.info('Loaded localnet addresses from identity-system-1337.json')
+    logger.info('Loaded localnet addresses from identity-system-31337.json')
   }
 
   // Also check localnet-addresses.json for additional addresses

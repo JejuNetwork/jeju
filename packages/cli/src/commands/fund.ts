@@ -19,7 +19,7 @@ import { findMonorepoRoot } from '../lib/system'
 import { DEFAULT_PORTS, WELL_KNOWN_KEYS } from '../types'
 
 const localnetChain = {
-  id: 1337,
+  id: 31337,
   name: 'Network Localnet',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: { default: { http: [`http://127.0.0.1:${DEFAULT_PORTS.l2Rpc}`] } },

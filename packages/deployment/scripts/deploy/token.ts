@@ -41,7 +41,7 @@ const NETWORKS = {
   localnet: {
     chain: foundry,
     rpcUrl: 'http://localhost:6546',
-    chainId: 1337,
+    chainId: 31337,
     enableFaucet: true,
     requireMultiSig: false,
   },

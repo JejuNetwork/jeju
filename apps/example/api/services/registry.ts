@@ -122,7 +122,7 @@ class RegistryServiceImpl implements RegistryService {
 
     return {
       appId: hexAppId,
-      name: 'Decentralized App Template',
+      name: 'Example',
       description: 'A template for decentralized applications on Jeju Network',
       owner: MOCK_DEPLOYER_ADDRESS,
       council: MOCK_COUNCIL_ADDRESS,

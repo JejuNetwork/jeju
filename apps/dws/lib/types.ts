@@ -67,10 +67,9 @@ export interface ContentHash {
   hash: string
 }
 
-export interface JNSGatewayConfig {
-  port: number
-  rpcUrl: string
-  jnsRegistryAddress: Address
+import type { JNSGatewayConfigBase } from '@jejunetwork/types'
+
+export interface JNSGatewayConfig extends JNSGatewayConfigBase {
   jnsResolverAddress: Address
   ipfsGateway: string
   arweaveGateway: string

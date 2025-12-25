@@ -65,7 +65,7 @@ impl Service for CronService {
         }
     }
 
-    async fn start(&mut self, config: &ServiceConfig) -> Result<(), String> {
+    async fn start(&mut self, _config: &ServiceConfig) -> Result<(), String> {
         if self.running.load(Ordering::SeqCst) {
             return Err("Service already running".to_string());
         }
@@ -79,10 +79,10 @@ impl Service for CronService {
         *self.start_time.write().await = Some(Instant::now());
 
         let running = self.running.clone();
-        let triggers_executed = self.triggers_executed.clone();
-        let successful_executions = self.successful_executions.clone();
-        let earnings_wei = self.earnings_wei.clone();
-        let rpc_url = self.rpc_url.clone();
+        let _triggers_executed = self.triggers_executed.clone();
+        let _successful_executions = self.successful_executions.clone();
+        let _earnings_wei = self.earnings_wei.clone();
+        let _rpc_url = self.rpc_url.clone();
 
         tokio::spawn(async move {
             tracing::info!("Cron service started");

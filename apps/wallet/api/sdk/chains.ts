@@ -154,8 +154,8 @@ export const chains: Record<number, ChainConfig> = {
   },
 
   // Network Localnet
-  1337: {
-    id: 1337,
+  31337: {
+    id: 31337,
     name: `${networkName} Localnet`,
     network: 'localnet',
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
@@ -311,7 +311,7 @@ export const chainContracts: Record<number, ChainContracts> = {
     usdc: '0x953F6516E5d2864cE7f13186B45dE418EA665EB2',
   },
   // Localnet - requires local deployment
-  1337: {
+  31337: {
     entryPoint: ENTRY_POINT_V07,
   },
   // Network L2 Testnet
@@ -359,7 +359,7 @@ export function getChainContracts(chainId: number): ChainContracts {
 }
 
 export const DEFAULT_CHAINS = [1, 8453, 42161, 10, 137] as const
-export const DEFAULT_TESTNETS = [84532, 1337] as const
+export const DEFAULT_TESTNETS = [84532, 31337] as const
 
 // Popular tokens by chain
 export const POPULAR_TOKENS: Record<number, Address[]> = {

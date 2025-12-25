@@ -3,6 +3,30 @@
  * Common hooks, components, APIs, services, protocols and utilities used across all network apps
  */
 
+// Viem Utilities (EIP-7702 compatible)
+export {
+  // EIP-7702 authorization helpers
+  type Authorization,
+  BATCH_EXECUTOR_ABI,
+  type BatchCall,
+  // Core contract helpers
+  createTypedPublicClient,
+  createTypedWalletClient,
+  type EIP7702TransactionParams,
+  getContract,
+  hashAuthorizationMessage,
+  type PublicClientConfig,
+  prepareAuthorization,
+  readContract,
+  recoverAuthorizer,
+  requiresAuthorization,
+  type SignAuthorizationConfig,
+  type SignedAuthorization,
+  signAuthorization,
+  verifyAuthorizationSignature,
+  type WalletClientConfig,
+  writeContract,
+} from '@jejunetwork/contracts'
 // Moderation API
 export {
   type AgentLabels,
@@ -22,6 +46,8 @@ export {
   SEVERITY_LEVELS,
   type TransactionRequest,
 } from './api/moderation'
+// Auth Types
+export type { SIWEMessage, SIWFMessage } from './auth/types'
 // Branding
 export {
   applyBrandingToDocument,
@@ -357,6 +383,8 @@ export {
   retryWithCondition,
   sleep,
 } from './retry'
+// Schema Types
+export { type IPFSUploadResponse, IPFSUploadResponseSchema } from './schemas'
 // Security Middleware
 export {
   type RateLimitConfig,
@@ -489,33 +517,13 @@ export type {
   SqlRow,
   WebhookBody,
 } from './types'
-// Viem Utilities (EIP-7702 compatible)
+// Wagmi Utilities (see gateway's useTypedWriteContract hook for full solution)
 export {
-  // EIP-7702 authorization helpers
-  type Authorization,
-  BATCH_EXECUTOR_ABI,
-  type BatchCall,
-  // Core contract helpers
-  createTypedPublicClient,
-  createTypedWalletClient,
-  type EIP7702TransactionParams,
-  getContract,
-  hashAuthorizationMessage,
-  type PublicClientConfig,
-  prepareAuthorization,
-  readContract,
-  recoverAuthorizer,
-  requiresAuthorization,
-  type SignAuthorizationConfig,
-  type SignedAuthorization,
-  // Safe contract helpers (simplified API)
-  safeReadContract,
-  safeWriteContract,
-  signAuthorization,
-  verifyAuthorizationSignature,
-  type WalletClientConfig,
-  writeContract,
-} from './viem'
+  type WagmiWriteParams,
+  type WriteParamsInput,
+  writeParams,
+  writeParamsAsync,
+} from './wagmi'
 // x402 Payment Protocol
 export {
   CHAIN_IDS as X402_CHAIN_IDS,
@@ -540,4 +548,7 @@ export {
   verifyPayment,
   type X402Network,
   type X402PaymentConfig,
+  type X402PaymentHeader,
+  type X402PaymentOption,
+  type X402PaymentRequirement,
 } from './x402'

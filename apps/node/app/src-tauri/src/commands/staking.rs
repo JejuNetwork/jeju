@@ -59,7 +59,7 @@ pub struct ClaimResult {
 
 #[tauri::command]
 pub async fn get_staking_info(state: State<'_, AppState>) -> Result<StakingInfo, String> {
-    let inner = state.inner.read();
+    let inner = state.inner.read().await;
 
     // TODO: Query all staking contracts for current stake amounts
     // 1. NodeStakingManager for RPC nodes
@@ -84,9 +84,9 @@ pub async fn get_staking_info(state: State<'_, AppState>) -> Result<StakingInfo,
 #[tauri::command]
 pub async fn stake(
     state: State<'_, AppState>,
-    request: StakeRequest,
+    _request: StakeRequest,
 ) -> Result<StakeResult, String> {
-    let inner = state.inner.read();
+    let inner = state.inner.read().await;
 
     // Verify wallet
     if inner.wallet_manager.is_none() {
@@ -105,9 +105,9 @@ pub async fn stake(
 #[tauri::command]
 pub async fn unstake(
     state: State<'_, AppState>,
-    request: UnstakeRequest,
+    _request: UnstakeRequest,
 ) -> Result<StakeResult, String> {
-    let inner = state.inner.read();
+    let inner = state.inner.read().await;
 
     // Verify wallet
     if inner.wallet_manager.is_none() {
@@ -125,9 +125,9 @@ pub async fn unstake(
 #[tauri::command]
 pub async fn claim_rewards(
     state: State<'_, AppState>,
-    service_id: Option<String>,
+    _service_id: Option<String>,
 ) -> Result<ClaimResult, String> {
-    let inner = state.inner.read();
+    let inner = state.inner.read().await;
 
     // Verify wallet
     if inner.wallet_manager.is_none() {
@@ -149,7 +149,7 @@ pub async fn enable_auto_claim(
     threshold_wei: Option<String>,
     interval_hours: Option<u32>,
 ) -> Result<(), String> {
-    let mut inner = state.inner.write();
+    let mut inner = state.inner.write().await;
 
     inner.config.earnings.auto_claim = enabled;
 
@@ -168,10 +168,8 @@ pub async fn enable_auto_claim(
 
 #[tauri::command]
 pub async fn get_pending_rewards(
-    state: State<'_, AppState>,
+    _state: State<'_, AppState>,
 ) -> Result<Vec<ServiceStakeInfo>, String> {
-    let inner = state.inner.read();
-
     // TODO: Query all staking contracts for pending rewards
 
     Ok(vec![])

@@ -1,3 +1,4 @@
+import { readContract } from '@jejunetwork/contracts'
 import {
   Activity,
   AlertCircle,
@@ -9,9 +10,9 @@ import {
   Users,
 } from 'lucide-react'
 import { type ComponentType, useState } from 'react'
-import { useAccount } from 'wagmi'
+import { useAccount, usePublicClient } from 'wagmi'
 import {
-  readContract,
+  getAccount,
   waitForTransactionReceipt,
   writeContract,
 } from 'wagmi/actions'
@@ -205,6 +206,11 @@ function OperatorRegistrationForm({
         throw new Error('PUBLIC_ORACLE_NETWORK_CONNECTOR not configured')
       }
 
+      const account = getAccount(config)
+      if (!account.address || !account.chain) {
+        throw new Error('Wallet not connected')
+      }
+
       const hash = await writeContract(config, {
         address: contractAddress as `0x${string}`,
         abi: ORACLE_NETWORK_ABI,
@@ -215,6 +221,8 @@ function OperatorRegistrationForm({
             '0x0000000000000000000000000000000000000000000000000000000000000000') as `0x${string}`,
           BigInt(agentId || '0'),
         ],
+        chain: account.chain,
+        account: account.address,
       })
 
       // Wait for confirmation
@@ -348,6 +356,7 @@ function OperatorRegistrationForm({
 
 function PerformanceMetrics() {
   const { address } = useAccount()
+  const publicClient = usePublicClient()
   const [metrics, setMetrics] = useState({
     reportsSubmitted: 0,
     reportsAccepted: 0,
@@ -360,11 +369,10 @@ function PerformanceMetrics() {
 
   // Fetch operator metrics from contract
   useState(() => {
-    if (!address) return
+    if (!address || !publicClient) return
 
     const fetchMetrics = async () => {
       try {
-        const config = getConfig()
         const contractAddress = process.env.PUBLIC_ORACLE_NETWORK_CONNECTOR
 
         if (!contractAddress) {
@@ -395,17 +403,17 @@ function PerformanceMetrics() {
         ] as const
 
         const [operatorMetrics, currentEpoch] = await Promise.all([
-          readContract(config, {
+          readContract(publicClient, {
             address: contractAddress as `0x${string}`,
             abi: METRICS_ABI,
             functionName: 'getOperatorMetrics',
             args: [address],
-          }),
-          readContract(config, {
+          }) as Promise<readonly [bigint, bigint, bigint, bigint]>,
+          readContract(publicClient, {
             address: contractAddress as `0x${string}`,
             abi: METRICS_ABI,
             functionName: 'currentEpoch',
-          }),
+          }) as Promise<bigint>,
         ])
 
         const submitted = Number(operatorMetrics[0])

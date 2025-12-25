@@ -237,7 +237,7 @@ async function registerJNS(
     name: config.name,
     backendUrl: config.backendUrl,
     frontendCid: config.frontendCid,
-    description: 'Decentralized Todo Application',
+    description: 'Example Application',
   })
 
   console.log(`   Registered ${config.name}`)

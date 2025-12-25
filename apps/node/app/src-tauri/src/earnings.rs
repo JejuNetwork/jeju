@@ -1,6 +1,5 @@
 //! Earnings tracking and history
 
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -100,7 +99,7 @@ impl EarningsTracker {
         );
 
         // Update by day
-        let date = chrono::NaiveDateTime::from_timestamp_opt(entry.timestamp, 0)
+        let date = chrono::DateTime::from_timestamp(entry.timestamp, 0)
             .map(|dt| dt.format("%Y-%m-%d").to_string())
             .unwrap_or_default();
 

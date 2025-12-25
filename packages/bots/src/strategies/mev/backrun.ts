@@ -18,6 +18,15 @@ import {
   parseAbi,
   type WalletClient,
 } from 'viem'
+import { z } from 'zod'
+
+// Uniswap V2 Swap event args schema
+const SwapEventArgsSchema = z.object({
+  amount0In: z.bigint(),
+  amount1In: z.bigint(),
+  amount0Out: z.bigint(),
+  amount1Out: z.bigint(),
+})
 
 export interface BackrunConfig {
   chainId: number
@@ -117,12 +126,8 @@ export class BackrunStrategy extends EventEmitter {
   ): Promise<void> {
     if (!this.running) return
 
-    const { amount0In, amount1In, amount0Out, amount1Out } = log.args as {
-      amount0In: bigint
-      amount1In: bigint
-      amount0Out: bigint
-      amount1Out: bigint
-    }
+    const { amount0In, amount1In, amount0Out, amount1Out } =
+      SwapEventArgsSchema.parse(log.args)
 
     // Get pool tokens
     const [token0, token1] = await Promise.all([

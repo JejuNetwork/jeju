@@ -62,7 +62,7 @@ const CHAIN_NAMES: Record<number, string> = {
   10: 'Optimism',
   420691: 'Network',
   420690: 'Testnet',
-  1337: 'Localnet',
+  31337: 'Localnet',
 }
 
 export function IntentsView() {

@@ -138,13 +138,12 @@ async function startDev(options: {
   }
 
   if (options.minimal) {
-    printReady(l2RpcUrl, runningServices, servicesOrchestrator)
+    printReady(l2RpcUrl, runningServices, servicesOrchestrator, [])
     await waitForever()
     return
   }
 
-  // Start indexer
-  await startIndexer(rootDir, l2RpcUrl)
+  // Indexer is started by the orchestrator, no need to start again
 
   // Discover apps
   const apps = discoverApps(rootDir)
@@ -153,7 +152,7 @@ async function startDev(options: {
   // Deploy apps on-chain through DWS (like production)
   await deployAppsOnchain(rootDir, l2RpcUrl, appsToStart)
 
-  printReady(l2RpcUrl, runningServices, servicesOrchestrator)
+  printReady(l2RpcUrl, runningServices, servicesOrchestrator, appsToStart)
   await waitForever()
 }
 
@@ -215,8 +214,6 @@ async function deployAppsOnchain(
     logger.success('DWS server running on port 4030')
   }
 
-  logger.step(`Deploying ${apps.length} apps on-chain...`)
-
   const appsWithDirs = apps.map((app) => ({
     dir: join(rootDir, 'apps', app.name),
     manifest: app,
@@ -228,7 +225,8 @@ async function deployAppsOnchain(
   const { startLocalJNSGateway } = await import('../lib/jns-gateway-local')
   // Use port 4303 for JNS Gateway (Caddy on 8080 will proxy to it)
   // Port 4302 is used by the JNS resolution service
-  await startLocalJNSGateway(rpcUrl, dwsContracts.jnsRegistry, 4303)
+  // Pass rootDir for local dev fallback (serving from build directories)
+  await startLocalJNSGateway(rpcUrl, dwsContracts.jnsRegistry, 4303, 4180, rootDir)
 
   logger.success('Decentralized deployment complete')
   logger.info(
@@ -334,36 +332,6 @@ function filterApps(
   return filtered
 }
 
-async function startIndexer(rootDir: string, rpcUrl: string): Promise<void> {
-  const indexerDir = join(rootDir, 'apps/indexer')
-  if (!existsSync(indexerDir)) {
-    return
-  }
-
-  logger.step('Starting indexer...')
-
-  const proc = execa('bun', ['run', 'dev'], {
-    cwd: indexerDir,
-    env: {
-      ...process.env,
-      RPC_ETH_HTTP: rpcUrl,
-      START_BLOCK: '0',
-      CHAIN_ID: '1337',
-      GQL_PORT: String(DEFAULT_PORTS.indexerGraphQL),
-      FARCASTER_HUB_URL: getFarcasterHubUrl(),
-    },
-    stdio: 'pipe',
-  })
-
-  runningServices.push({
-    name: 'Indexer',
-    port: DEFAULT_PORTS.indexerGraphQL,
-    process: proc,
-  })
-
-  await new Promise((r) => setTimeout(r, 3000))
-}
-
 async function startVendorOnly(): Promise<void> {
   const rootDir = findMonorepoRoot()
 
@@ -411,7 +379,7 @@ async function startVendorOnly(): Promise<void> {
   // Deploy vendor apps on-chain
   const appsWithDirs = vendorApps.map((app) => ({
     dir: app.path,
-    manifest: app.manifest,
+    manifest: app.manifest as AppManifest,
   }))
 
   await localDeployOrchestrator.deployAllApps(appsWithDirs)
@@ -428,6 +396,7 @@ function printReady(
   rpcUrl: string,
   services: RunningService[],
   orchestrator: ServicesOrchestrator | null,
+  deployedApps: AppManifest[],
 ): void {
   console.clear()
 
@@ -480,14 +449,39 @@ function printReady(
     orchestrator.printStatus()
   }
 
-  if (services.length > 0) {
+  // Show all deployed apps with their local domain URLs
+  if (deployedApps.length > 0 || services.length > 0) {
     logger.subheader('Apps')
     const proxyPort = 8080
+
+    // Show deployed apps with frontends only
+    for (const app of deployedApps) {
+      // Only show apps that have frontend architecture
+      const hasFrontend = app.architecture?.frontend || app.architecture?.type === 'frontend'
+      if (!hasFrontend) continue
+
+      const displayName = app.displayName || app.name
+      const slug = app.name.toLowerCase().replace(/\s+/g, '-')
+      const localUrl = `http://${slug}.${DOMAIN_CONFIG.localDomain}:${proxyPort}`
+      logger.table([
+        {
+          label: displayName,
+          value: localUrl,
+          status: 'ok',
+        },
+      ])
+    }
+
+    // Then show any additional running services not in deployed apps
     for (const svc of services) {
+      const alreadyShown = deployedApps.some(
+        (app) => app.name.toLowerCase() === svc.name.toLowerCase(),
+      )
+      if (alreadyShown) continue
+
       const port = svc.port
       const domainName = svc.name.toLowerCase().replace(/\s+/g, '-')
 
-      // Show local domain URL with proxy port
       if (proxyEnabled && port) {
         const localUrl = `http://${domainName}.${DOMAIN_CONFIG.localDomain}:${proxyPort}`
         logger.table([

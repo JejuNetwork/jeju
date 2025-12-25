@@ -103,7 +103,7 @@ describe('Storage ABIs', () => {
 describe('Contract Addresses', () => {
   it('exports ContractAddresses interface with contentRegistry', () => {
     // Localnet should have all addresses
-    const addresses = getContractAddresses(1337)
+    const addresses = getContractAddresses(31337)
 
     expect(addresses.storageMarket).toBeDefined()
     expect(addresses.contentRegistry).toBeDefined()

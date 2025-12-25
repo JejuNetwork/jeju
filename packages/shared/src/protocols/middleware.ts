@@ -8,7 +8,7 @@
  * - Rate limiting with stake tiers
  */
 
-import { safeReadContract } from '@jejunetwork/contracts'
+import { readContract } from '@jejunetwork/contracts'
 import { Elysia } from 'elysia'
 import type { Address } from 'viem'
 import { createPublicClient, getAddress, http, verifyMessage } from 'viem'
@@ -158,14 +158,7 @@ export async function getAgentInfo(
     )
   }
 
-  const agent = await safeReadContract<{
-    agentId: bigint
-    owner: Address
-    name: string
-    active: boolean
-    a2aEndpoint: string
-    mcpEndpoint: string
-  }>(erc8004Client, {
+  const agent = await readContract(erc8004Client, {
     address: erc8004Config.identityRegistryAddress,
     abi: IDENTITY_REGISTRY_ABI,
     functionName: 'getAgentByAddress',
@@ -177,15 +170,12 @@ export async function getAgentInfo(
   }
 
   // Get tags
-  const tagsRaw = await safeReadContract<readonly `0x${string}`[]>(
-    erc8004Client,
-    {
-      address: erc8004Config.identityRegistryAddress,
-      abi: IDENTITY_REGISTRY_ABI,
-      functionName: 'getAgentTags',
-      args: [agent.agentId],
-    },
-  )
+  const tagsRaw = await readContract(erc8004Client, {
+    address: erc8004Config.identityRegistryAddress,
+    abi: IDENTITY_REGISTRY_ABI,
+    functionName: 'getAgentTags',
+    args: [agent.agentId],
+  })
   const tags = tagsRaw.map((t: `0x${string}`) => {
     const str = Buffer.from(t.slice(2), 'hex').toString('utf8')
     return str.replace(/\0/g, '')
@@ -196,10 +186,7 @@ export async function getAgentInfo(
   let banReason: string | undefined
 
   if (erc8004Config.banManagerAddress) {
-    const banInfo = await safeReadContract<{
-      isBanned: boolean
-      reason: string
-    }>(erc8004Client, {
+    const banInfo = await readContract(erc8004Client, {
       address: erc8004Config.banManagerAddress,
       abi: NETWORK_BAN_MANAGER_ABI,
       functionName: 'getNetworkBan',

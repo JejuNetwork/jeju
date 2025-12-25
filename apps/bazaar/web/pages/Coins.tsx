@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { formatUnits } from 'viem'
-import { fetchTokensWithMarketData, type Token } from '../../api/data-client'
+import { fetchTokensWithMarketData, type Token } from '../../lib/data-client'
 import { LoadingSpinner } from '../components/LoadingSpinner'
 import { JEJU_CHAIN_ID } from '../config/chains'
 

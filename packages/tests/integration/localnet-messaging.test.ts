@@ -349,7 +349,7 @@ describe('Blockchain Connection', () => {
     }
 
     const client = createPublicClient({
-      chain: { ...foundry, id: 1337 },
+      chain: { ...foundry, id: 31337 },
       transport: http(L2_RPC_URL),
     })
 
@@ -364,7 +364,7 @@ describe('Blockchain Connection', () => {
     }
 
     const client = createPublicClient({
-      chain: { ...foundry, id: 1337 },
+      chain: { ...foundry, id: 31337 },
       transport: http(L2_RPC_URL),
     })
 
@@ -383,7 +383,7 @@ describe('Blockchain Connection', () => {
     const account = privateKeyToAccount(TEST_ACCOUNTS.deployer.privateKey)
     const walletClient = createWalletClient({
       account,
-      chain: { ...foundry, id: 1337 },
+      chain: { ...foundry, id: 31337 },
       transport: http(L2_RPC_URL),
     })
 
@@ -582,7 +582,9 @@ describe('Farcaster Hub', () => {
     )
 
     expect(submitResponse.ok).toBe(true)
-    const submitResult = HubSubmitResultSchema.parse(await submitResponse.json())
+    const submitResult = HubSubmitResultSchema.parse(
+      await submitResponse.json(),
+    )
     expect(submitResult.hash).toMatch(/^0x[a-f0-9]+$/)
 
     // Retrieve

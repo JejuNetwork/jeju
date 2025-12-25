@@ -7,7 +7,9 @@
     "paths": {
       "@/*": ["./api/*", "./web/*"],
       "@jejunetwork/shared": ["../../packages/shared/src/index.ts"],
-      "@jejunetwork/shared/*": ["../../packages/shared/src/*"]
+      "@jejunetwork/shared/*": ["../../packages/shared/src/*"],
+      "@jejunetwork/contracts": ["../../packages/contracts/ts/index.ts"],
+      "@jejunetwork/contracts/*": ["../../packages/contracts/ts/*"]
     },
     "noUnusedLocals": false,
     "noUnusedParameters": false,

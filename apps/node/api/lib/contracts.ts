@@ -153,7 +153,7 @@ for (const [key, value] of Object.entries(LOCALNET_ADDRESSES)) {
 }
 
 export function getContractAddresses(chainId: number): ContractAddresses {
-  if (chainId === 1337) {
+  if (chainId === 31337) {
     return LOCALNET_ADDRESSES
   }
 
@@ -220,7 +220,7 @@ export function getChain(chainId: number): Chain {
       return mainnet
     case testnet.id:
       return testnet
-    case 1337:
+    case 31337:
       return networkLocalnet
     default:
       throw new Error(`Unknown chain ID: ${chainId}`)

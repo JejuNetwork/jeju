@@ -3,35 +3,13 @@ import {
   getRpcChain as getChain,
   isRpcChainSupported as isChainSupported,
 } from '@jejunetwork/config'
-import type { JsonRpcError, JsonValue } from '@jejunetwork/types'
+import type {
+  EndpointHealth,
+  JsonRpcRequest,
+  JsonRpcResponse,
+  ProxyResult,
+} from '@jejunetwork/types'
 import { JsonRpcResponseSchema } from '../../../lib/validation'
-
-interface JsonRpcRequest {
-  jsonrpc: string
-  id?: number | string
-  method: string
-  params?: JsonRpcParams
-}
-
-interface JsonRpcResponse {
-  jsonrpc: string
-  id?: number | string
-  result?: JsonValue
-  error?: JsonRpcError
-}
-
-interface ProxyResult {
-  response: JsonRpcResponse
-  latencyMs: number
-  endpoint: string
-  usedFallback: boolean
-}
-
-interface EndpointHealth {
-  failures: number
-  lastFailure: number
-  isHealthy: boolean
-}
 
 const endpointHealth = new Map<string, EndpointHealth>()
 const FAILURE_THRESHOLD = 3
@@ -97,7 +75,7 @@ async function makeRpcRequest(
   if (!parsed.success) {
     throw new Error(`Invalid JSON-RPC response: ${parsed.error.message}`)
   }
-  return parsed.data
+  return parsed.data as JsonRpcResponse
 }
 
 export async function proxyRequest(

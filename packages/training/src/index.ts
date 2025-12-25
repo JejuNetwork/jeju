@@ -28,7 +28,6 @@ export {
   createFundamentalPredictionEnv,
   createTicTacToeEnv,
   type FundamentalEnvConfig,
-  type FundamentalMessage,
   FundamentalPredictionEnv,
   type GameState,
   type GameStep,

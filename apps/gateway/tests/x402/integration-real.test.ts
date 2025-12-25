@@ -134,8 +134,8 @@ describe('Real RPC Integration', () => {
     // Accept various chain IDs depending on environment:
     // - 420691: Jeju mainnet
     // - 420690: Jeju testnet
-    // - 31337 or 1337: Local Anvil
-    const validChainIds = [420691, 420690, 31337, 1337]
+    // - 31337 or 31337: Local Anvil
+    const validChainIds = [420691, 420690, 31337, 31337]
     expect(validChainIds).toContain(Number(chainId))
   })
 
@@ -426,7 +426,7 @@ describe('Concurrent Real Operations', () => {
     }
 
     // Accept various chain IDs depending on environment
-    const validChainIds = [420691, 420690, 31337, 1337]
+    const validChainIds = [420691, 420690, 31337, 31337]
     expect(validChainIds).toContain(firstChainId)
   })
 

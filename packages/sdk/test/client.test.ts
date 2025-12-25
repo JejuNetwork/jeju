@@ -37,7 +37,7 @@ describe('JejuClient', () => {
   test('has correct network info', () => {
     if (skipTests || !client) return
     expect(client.network).toBe('localnet')
-    expect(client.chainId).toBe(1337)
+    expect(client.chainId).toBe(31337)
   })
 
   test('has all modules', () => {

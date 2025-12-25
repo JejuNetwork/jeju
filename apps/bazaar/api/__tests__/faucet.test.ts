@@ -72,7 +72,7 @@ describe('faucet schemas', () => {
       amountPerClaim: '100',
       cooldownHours: 12,
       requirements: ['Requirement 1', 'Requirement 2'],
-      chainId: 1337,
+      chainId: 31337,
       chainName: 'Localnet',
       explorerUrl: 'http://localhost:4000',
       isConfigured: true,

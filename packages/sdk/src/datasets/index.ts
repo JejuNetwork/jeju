@@ -11,12 +11,47 @@
 import type { NetworkType } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import { encodeFunctionData } from 'viem'
+import { z } from 'zod'
 import { getContractAddresses, getServicesConfig } from '../config'
 import {
   DatasetUploadResponseSchema,
   JsonRecordSchema,
 } from '../shared/schemas'
 import type { JejuWallet } from '../wallet'
+
+// Contract return type schemas
+const DatasetSchema = z.object({
+  datasetId: z.string().transform((s) => s as Hex),
+  name: z.string(),
+  organization: z.string(),
+  owner: z.string().transform((s) => s as Address),
+  description: z.string(),
+  format: z.number(),
+  license: z.number(),
+  licenseUri: z.string(),
+  accessLevel: z.number(),
+  tags: z.array(z.string()),
+  size: z.bigint(),
+  rowCount: z.bigint(),
+  columnCount: z.bigint(),
+  createdAt: z.bigint(),
+  updatedAt: z.bigint(),
+  downloadCount: z.bigint(),
+  isVerified: z.boolean(),
+})
+
+const DatasetVersionSchema = z.object({
+  versionId: z.string().transform((s) => s as Hex),
+  datasetId: z.string().transform((s) => s as Hex),
+  version: z.string(),
+  dataCid: z.string(),
+  dataHash: z.string().transform((s) => s as Hex),
+  size: z.bigint(),
+  rowCount: z.bigint(),
+  schemaCid: z.string(),
+  publishedAt: z.bigint(),
+  isLatest: z.boolean(),
+})
 
 export const DatasetFormat = {
   PARQUET: 0,
@@ -281,30 +316,13 @@ export function createDatasetsModule(
 
   return {
     async getDataset(datasetId) {
-      const data = (await wallet.publicClient.readContract({
+      const rawData = await wallet.publicClient.readContract({
         address: datasetRegistryAddress,
         abi: DATASET_REGISTRY_ABI,
         functionName: 'getDataset',
         args: [datasetId],
-      })) as {
-        datasetId: Hex
-        name: string
-        organization: string
-        owner: Address
-        description: string
-        format: number
-        license: number
-        licenseUri: string
-        accessLevel: number
-        tags: readonly string[]
-        size: bigint
-        rowCount: bigint
-        columnCount: bigint
-        createdAt: bigint
-        updatedAt: bigint
-        downloadCount: bigint
-        isVerified: boolean
-      }
+      })
+      const data = DatasetSchema.parse(rawData)
 
       if (!data || data.createdAt === 0n) return null
 
@@ -395,23 +413,13 @@ export function createDatasetsModule(
     },
 
     async getLatestVersion(datasetId) {
-      const v = (await wallet.publicClient.readContract({
+      const rawVersion = await wallet.publicClient.readContract({
         address: datasetRegistryAddress,
         abi: DATASET_REGISTRY_ABI,
         functionName: 'getLatestVersion',
         args: [datasetId],
-      })) as {
-        versionId: Hex
-        datasetId: Hex
-        version: string
-        dataCid: string
-        dataHash: Hex
-        size: bigint
-        rowCount: bigint
-        schemaCid: string
-        publishedAt: bigint
-        isLatest: boolean
-      }
+      })
+      const v = DatasetVersionSchema.parse(rawVersion)
 
       if (!v || v.publishedAt === 0n) return null
 

@@ -31,6 +31,48 @@ const AttestationResponseSchema = z.object({
   report_data: z.string(),
 })
 
+// Request body schemas for MPC operations
+const KeygenContributeBodySchema = z.object({
+  keyId: z.string(),
+  clusterId: z.string(),
+  threshold: z.number(),
+  totalParties: z.number(),
+  partyIndices: z.array(z.number()),
+  serviceAgentId: z.string(),
+})
+
+const KeygenFinalizeBodySchema = z.object({
+  keyId: z.string(),
+  clusterId: z.string(),
+  allPublicShares: z.array(z.string().transform((s) => s as Hex)),
+  allCommitments: z.array(z.string().transform((s) => s as Hex)),
+  serviceAgentId: z.string(),
+})
+
+const SignCommitBodySchema = z.object({
+  sessionId: z.string(),
+  keyId: z.string(),
+  messageHash: z.string().transform((s) => s as Hex),
+  serviceAgentId: z.string(),
+})
+
+const SignShareBodySchema = z.object({
+  sessionId: z.string(),
+  keyId: z.string(),
+  messageHash: z.string().transform((s) => s as Hex),
+  allCommitments: z.array(
+    z.object({
+      partyIndex: z.number(),
+      commitment: z.string().transform((s) => s as Hex),
+    }),
+  ),
+  serviceAgentId: z.string(),
+})
+
+const AuthorizeBodySchema = z.object({
+  serviceAgentId: z.string(),
+})
+
 // ============ Types ============
 
 export interface MPCPartyConfig {
@@ -381,50 +423,26 @@ export function createMPCPartyWorker(config: MPCPartyConfig) {
 
       // Key generation (distributed key generation protocol)
       .post('/keygen/contribute', async ({ body }) => {
-        const params = body as {
-          keyId: string
-          clusterId: string
-          threshold: number
-          totalParties: number
-          partyIndices: number[]
-          serviceAgentId: string
-        }
+        const params = KeygenContributeBodySchema.parse(body)
 
         return contributeToKeyGen(params)
       })
 
       .post('/keygen/finalize', async ({ body }) => {
-        const params = body as {
-          keyId: string
-          clusterId: string
-          allPublicShares: Hex[]
-          allCommitments: Hex[]
-          serviceAgentId: string
-        }
+        const params = KeygenFinalizeBodySchema.parse(body)
 
         return finalizeKeyGen(params)
       })
 
       // Signing (FROST threshold signing protocol)
       .post('/sign/commit', async ({ body }) => {
-        const params = body as {
-          sessionId: string
-          keyId: string
-          messageHash: Hex
-          serviceAgentId: string
-        }
+        const params = SignCommitBodySchema.parse(body)
 
         return generateSigningCommitment(params)
       })
 
       .post('/sign/share', async ({ body }) => {
-        const params = body as {
-          sessionId: string
-          keyId: string
-          messageHash: Hex
-          allCommitments: { partyIndex: number; commitment: Hex }[]
-          serviceAgentId: string
-        }
+        const params = SignShareBodySchema.parse(body)
 
         return generateSignatureShare(params)
       })
@@ -459,7 +477,7 @@ export function createMPCPartyWorker(config: MPCPartyConfig) {
       // Authorization management (called by coordinator)
       .post('/authorize', async ({ body }) => {
         // In production, verify this comes from registry contract or admin
-        const params = body as { serviceAgentId: string }
+        const params = AuthorizeBodySchema.parse(body)
         authorizedServices.add(params.serviceAgentId)
         return { authorized: true }
       })

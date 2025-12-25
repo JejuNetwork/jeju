@@ -14,13 +14,9 @@ type StakeStatus = 'idle' | 'pending' | 'complete' | 'error'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { type Address, parseEther } from 'viem'
-import {
-  useAccount,
-  useReadContract,
-  useWaitForTransactionReceipt,
-  useWriteContract,
-} from 'wagmi'
+import { useAccount, useReadContract } from 'wagmi'
 import { NETWORK } from '../../lib/config'
+import { useTypedWriteContract } from './useTypedWriteContract'
 
 type XLPStakeTuple = readonly [bigint, bigint, bigint, bigint, boolean, bigint]
 
@@ -175,14 +171,13 @@ export function useCrossChainSwap(paymasterAddress: Address | undefined) {
   const [error, setError] = useState<string | null>(null)
 
   const {
-    writeContract,
-    data: hash,
+    write: writeContract,
+    hash,
     isPending,
     error: writeError,
-  } = useWriteContract()
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
-    hash,
-  })
+    isConfirming,
+    isSuccess,
+  } = useTypedWriteContract()
 
   useEffect(() => {
     if (writeError) {
@@ -279,14 +274,13 @@ export function useXLPRegistration(stakeManagerAddress: Address | undefined) {
   const [error, setError] = useState<string | null>(null)
 
   const {
-    writeContract,
-    data: hash,
+    write: writeContract,
+    hash,
     isPending,
     error: writeError,
-  } = useWriteContract()
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
-    hash,
-  })
+    isConfirming,
+    isSuccess,
+  } = useTypedWriteContract()
 
   useEffect(() => {
     if (writeError) {
@@ -385,14 +379,13 @@ export function useXLPLiquidity(paymasterAddress: Address | undefined) {
   const [error, setError] = useState<string | null>(null)
 
   const {
-    writeContract,
-    data: hash,
+    write: writeContract,
+    hash,
     isPending,
     error: writeError,
-  } = useWriteContract()
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
-    hash,
-  })
+    isConfirming,
+    isSuccess,
+  } = useTypedWriteContract()
 
   const { data: ethBalance } = useReadContract({
     address: paymasterAddress,
@@ -481,10 +474,14 @@ export function useXLPLiquidity(paymasterAddress: Address | undefined) {
 }
 
 export function useAppTokenPreference(preferenceAddress: Address | undefined) {
-  const { writeContract, data: hash, isPending, error } = useWriteContract()
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+  const {
+    write: writeContract,
     hash,
-  })
+    isPending,
+    error,
+    isConfirming,
+    isSuccess,
+  } = useTypedWriteContract()
 
   const registerApp = useCallback(
     async (

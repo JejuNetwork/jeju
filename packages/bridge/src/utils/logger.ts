@@ -3,9 +3,10 @@
  */
 
 import { getEnv } from '@jejunetwork/shared'
+import type { LogLevel } from '@jejunetwork/types'
 import pino from 'pino'
 
-export type LogLevel = 'debug' | 'info' | 'warn' | 'error'
+export type { LogLevel }
 
 const isProduction = getEnv('NODE_ENV') === 'production'
 const logLevel = (getEnv('LOG_LEVEL')?.toLowerCase() as LogLevel) ?? 'info'

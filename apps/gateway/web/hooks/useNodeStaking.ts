@@ -1,10 +1,5 @@
 import type { Address } from 'viem'
-import {
-  useAccount,
-  useReadContract,
-  useWaitForTransactionReceipt,
-  useWriteContract,
-} from 'wagmi'
+import { useAccount, useReadContract } from 'wagmi'
 import {
   getNodeStakingAddress,
   NODE_STAKING_MANAGER_ABI,
@@ -13,6 +8,7 @@ import {
   type PerformanceMetrics,
   type Region,
 } from '../../lib/nodeStaking'
+import { useTypedWriteContract } from './useTypedWriteContract'
 
 export function useNodeStaking() {
   const stakingManager = getNodeStakingAddress()
@@ -39,12 +35,11 @@ export function useNodeStaking() {
   })
 
   const {
-    writeContract: register,
-    data: registerHash,
+    write: register,
     isPending: isRegistering,
-  } = useWriteContract()
-  const { isLoading: isConfirmingRegister, isSuccess: isRegisterSuccess } =
-    useWaitForTransactionReceipt({ hash: registerHash })
+    isConfirming: isConfirmingRegister,
+    isSuccess: isRegisterSuccess,
+  } = useTypedWriteContract()
 
   const registerNode = async (
     stakingToken: Address,
@@ -62,12 +57,11 @@ export function useNodeStaking() {
   }
 
   const {
-    writeContract: deregister,
-    data: deregisterHash,
+    write: deregister,
     isPending: isDeregistering,
-  } = useWriteContract()
-  const { isLoading: isConfirmingDeregister, isSuccess: isDeregisterSuccess } =
-    useWaitForTransactionReceipt({ hash: deregisterHash })
+    isConfirming: isConfirmingDeregister,
+    isSuccess: isDeregisterSuccess,
+  } = useTypedWriteContract()
 
   const deregisterNode = async (nodeId: string) => {
     deregister({
@@ -119,12 +113,11 @@ export function useNodeRewards(nodeId: string | undefined) {
   })
 
   const {
-    writeContract: claim,
-    data: claimHash,
+    write: claim,
     isPending: isClaiming,
-  } = useWriteContract()
-  const { isLoading: isConfirmingClaim, isSuccess: isClaimSuccess } =
-    useWaitForTransactionReceipt({ hash: claimHash })
+    isConfirming: isConfirmingClaim,
+    isSuccess: isClaimSuccess,
+  } = useTypedWriteContract()
 
   const claimRewards = async (nodeIdToClaim: string) => {
     claim({

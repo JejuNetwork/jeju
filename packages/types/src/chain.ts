@@ -30,7 +30,7 @@ export type EVMChainId =
   | 421614 // Arbitrum Sepolia (testnet)
   | 420690 // Jeju Testnet (L2 on Sepolia)
   | 420691 // Jeju Mainnet (L2 on Ethereum)
-  | 1337
+  | 31337
   | 31337
 
 export type SolanaNetwork =
@@ -197,3 +197,19 @@ export const RollupConfigSchema = z.object({
   l1SystemConfigAddress: z.string(),
 })
 export type RollupConfig = z.infer<typeof RollupConfigSchema>
+
+/**
+ * Transaction log from receipt - compatible with viem Log type.
+ * Use this for event decoding and log processing.
+ */
+export interface TransactionLog {
+  address: `0x${string}`
+  blockHash: `0x${string}`
+  blockNumber: bigint
+  data: `0x${string}`
+  logIndex: number
+  transactionHash: `0x${string}`
+  transactionIndex: number
+  removed: boolean
+  topics: readonly `0x${string}`[]
+}

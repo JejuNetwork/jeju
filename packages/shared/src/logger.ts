@@ -9,10 +9,10 @@
  *   import { createLogger, Logger } from '@jejunetwork/shared';
  */
 
-import type { JsonRecord } from '@jejunetwork/types'
+import type { JsonRecord, LogLevel } from '@jejunetwork/types'
 import { getEnv, isBrowser } from './env'
 
-export type LogLevel = 'debug' | 'info' | 'warn' | 'error'
+export type { LogLevel }
 
 const LOG_LEVELS: Record<LogLevel, number> = {
   debug: 0,

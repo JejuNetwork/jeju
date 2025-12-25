@@ -43,15 +43,12 @@ const BROWSER_EXTERNALS = [
   '@tauri-apps/plugin-process',
   '@tauri-apps/plugin-shell',
   '@tauri-apps/plugin-store',
-  // Server-only packages and packages with server code
-  '@jejunetwork/config',
-  '@jejunetwork/shared',
-  '@jejunetwork/db',
-  '@jejunetwork/sdk',
-  '@jejunetwork/types',
+  // Server-only packages
   'webtorrent',
   'ws',
   'prom-client',
+  'pino',
+  'pino-pretty',
 ]
 
 async function buildFrontend(): Promise<void> {
@@ -61,13 +58,12 @@ async function buildFrontend(): Promise<void> {
     entrypoints: ['./web/main.tsx'],
     outdir: STATIC_DIR,
     target: 'browser',
-    splitting: true,
     minify: true,
     sourcemap: 'external',
     external: BROWSER_EXTERNALS,
     plugins: [
       {
-        name: 'tauri-mock',
+        name: 'browser-shims',
         setup(build) {
           // Mock Tauri invoke for browser builds (won't be used in production Tauri app)
           build.onResolve({ filter: /@tauri-apps\/api\/core/ }, () => ({
@@ -83,11 +79,37 @@ async function buildFrontend(): Promise<void> {
             `,
             loader: 'js',
           }))
+          // Mock pino for browser builds
+          build.onResolve({ filter: /^pino$/ }, () => ({
+            path: 'pino-mock',
+            namespace: 'pino-mock',
+          }))
+          build.onResolve({ filter: /^pino-pretty$/ }, () => ({
+            path: 'pino-mock',
+            namespace: 'pino-mock',
+          }))
+          build.onLoad({ filter: /.*/, namespace: 'pino-mock' }, () => ({
+            contents: `
+              const noop = () => {};
+              const noopLogger = { trace: noop, debug: noop, info: noop, warn: noop, error: noop, fatal: noop, child: () => noopLogger };
+              export default () => noopLogger;
+              export const levels = { values: { trace: 10, debug: 20, info: 30, warn: 40, error: 50, fatal: 60 } };
+            `,
+            loader: 'js',
+          }))
         },
       },
     ],
+    packages: 'bundle',
+    splitting: false,
     define: {
       'process.env.NODE_ENV': JSON.stringify('production'),
+      'process.browser': JSON.stringify(true),
+      'process.env': JSON.stringify({ NODE_ENV: 'production' }),
+      process: JSON.stringify({
+        env: { NODE_ENV: 'production' },
+        browser: true,
+      }),
     },
     naming: {
       entry: '[name]-[hash].js',

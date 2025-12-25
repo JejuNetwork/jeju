@@ -33,7 +33,7 @@ async function build() {
     define: {
       'process.env.NODE_ENV': JSON.stringify('development'),
       'import.meta.env.VITE_NETWORK': JSON.stringify('localnet'),
-      'import.meta.env.VITE_CHAIN_ID': JSON.stringify('1337'),
+      'import.meta.env.VITE_CHAIN_ID': JSON.stringify('31337'),
       'import.meta.env.VITE_RPC_URL': JSON.stringify(getL2RpcUrl()),
       'import.meta.env.VITE_WS_URL': JSON.stringify(
         `ws://127.0.0.1:${INFRA_PORTS.L2_WS.get()}`,

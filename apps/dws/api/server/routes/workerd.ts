@@ -772,6 +772,8 @@ function getChainForNetwork(network: NetworkType) {
 }
 
 // Default contract addresses per network
+// Note: For localnet, contracts are deployed fresh on each chain restart
+// The identityRegistry address should come from config or env vars
 const NETWORK_DEFAULTS: Record<
   NetworkType,
   {
@@ -781,7 +783,9 @@ const NETWORK_DEFAULTS: Record<
 > = {
   localnet: {
     rpcUrl: 'http://localhost:6546',
-    identityRegistry: '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9',
+    // Default to zero address - decentralized mode disabled unless contract is deployed
+    identityRegistry: (process.env.IDENTITY_REGISTRY_ADDRESS ||
+      '0x0000000000000000000000000000000000000000') as Address,
   },
   testnet: {
     rpcUrl: process.env.BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org',

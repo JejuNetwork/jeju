@@ -59,7 +59,7 @@ async function seedOAuth3Registry() {
 
   const appTx = await registry.registerApp({
     appId: appIdHex,
-    name: 'Decentralized App Template',
+    name: 'Example',
     description:
       'A template for building fully decentralized applications on Jeju Network',
     owner: devWallets.deployer,

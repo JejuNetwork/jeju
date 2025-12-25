@@ -97,7 +97,7 @@ describe('Uniswap V4 Integration Tests', () => {
       expect(v4Deployment.weth).toBe(
         '0x4200000000000000000000000000000000000006',
       )
-      expect(v4Deployment.chainId).toBe(1337)
+      expect(v4Deployment.chainId).toBe(31337)
       expect(v4Deployment.network).toBe('localnet')
     })
 
@@ -298,7 +298,7 @@ describe('Uniswap V4 Integration Tests', () => {
   describe('Network Health', () => {
     test('should be connected to correct chain', async () => {
       const chainId = await publicClient.getChainId()
-      expect(chainId).toBe(1337)
+      expect(chainId).toBe(31337)
     })
 
     test('should have active block production', async () => {

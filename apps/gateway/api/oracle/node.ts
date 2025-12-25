@@ -1,4 +1,4 @@
-import { safeReadContract } from '@jejunetwork/shared'
+import { readContract } from '@jejunetwork/shared'
 import { expectHex, parseEnvAddress, ZERO_ADDRESS } from '@jejunetwork/types'
 import {
   type Chain,
@@ -103,7 +103,7 @@ export class OracleNode {
       throw new Error('Wallet client has no account')
     const workerAddress = this.walletClient.account.address
 
-    const existingOperatorId = await safeReadContract<Hex>(this.publicClient, {
+    const existingOperatorId = await readContract(this.publicClient, {
       address: this.config.networkConnector,
       abi: NETWORK_CONNECTOR_ABI,
       functionName: 'workerToOperator',
@@ -136,7 +136,7 @@ export class OracleNode {
 
     await this.publicClient.waitForTransactionReceipt({ hash })
 
-    this.operatorId = await safeReadContract<Hex>(this.publicClient, {
+    this.operatorId = await readContract(this.publicClient, {
       address: this.config.networkConnector,
       abi: NETWORK_CONNECTOR_ABI,
       functionName: 'workerToOperator',
@@ -150,7 +150,7 @@ export class OracleNode {
 
     console.log('[OracleNode] Polling prices...')
 
-    const feedIds = await safeReadContract<readonly Hex[]>(this.publicClient, {
+    const feedIds = await readContract(this.publicClient, {
       address: this.config.feedRegistry,
       abi: FEED_REGISTRY_ABI,
       functionName: 'getActiveFeeds',
@@ -181,7 +181,7 @@ export class OracleNode {
       throw new Error('Wallet client has no account')
     const workerAddress = this.walletClient.account.address
 
-    return safeReadContract<boolean>(this.publicClient, {
+    return readContract(this.publicClient, {
       address: this.config.committeeManager,
       abi: COMMITTEE_MANAGER_ABI,
       functionName: 'isCommitteeMember',
@@ -190,7 +190,7 @@ export class OracleNode {
   }
 
   private async submitReport(feedId: Hex, priceData: PriceData): Promise<void> {
-    const currentRound = await safeReadContract<bigint>(this.publicClient, {
+    const currentRound = await readContract(this.publicClient, {
       address: this.config.reportVerifier,
       abi: REPORT_VERIFIER_ABI,
       functionName: 'getCurrentRound',
@@ -310,7 +310,6 @@ export class OracleNode {
         return base
       case 84532:
         return baseSepolia
-      case 1337:
       case 31337:
         return foundry
       default:
@@ -335,7 +334,7 @@ const DEFAULT_WORKER_KEY: Hex =
 export function createNodeConfig(): OracleNodeConfig {
   return {
     rpcUrl: process.env.RPC_URL || 'http://localhost:6546',
-    chainId: parseInt(process.env.CHAIN_ID || '1337', 10),
+    chainId: parseInt(process.env.CHAIN_ID || '31337', 10),
     operatorPrivateKey: expectHex(
       process.env.OPERATOR_PRIVATE_KEY || DEFAULT_OPERATOR_KEY,
     ),

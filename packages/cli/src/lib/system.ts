@@ -6,7 +6,13 @@ import { arch, homedir, platform } from 'node:os'
 import { join, resolve } from 'node:path'
 import { execa } from 'execa'
 import which from 'which'
+import { z } from 'zod'
 import type { HealthCheckResult } from '../types'
+
+// GitHub release API schema
+const GitHubReleaseSchema = z.object({
+  tag_name: z.string(),
+})
 
 /** Allowlist of commands that can have their version checked */
 const ALLOWED_VERSION_COMMANDS = new Set([
@@ -207,9 +213,11 @@ export async function installKurtosis(): Promise<boolean> {
       const archStr = arch() === 'x64' ? 'amd64' : 'arm64'
       const releaseUrl =
         'https://api.github.com/repos/kurtosis-tech/kurtosis-cli-release-artifacts/releases/latest'
-      const releaseInfo = (await fetch(releaseUrl, {
-        signal: AbortSignal.timeout(10000),
-      }).then((r) => r.json())) as { tag_name: string }
+      const releaseInfo = GitHubReleaseSchema.parse(
+        await fetch(releaseUrl, {
+          signal: AbortSignal.timeout(10000),
+        }).then((r) => r.json()),
+      )
       const version = releaseInfo.tag_name
 
       // Validate version format to prevent injection

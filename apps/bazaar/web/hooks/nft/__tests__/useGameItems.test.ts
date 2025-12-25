@@ -210,19 +210,19 @@ describe('Deployment Configuration', () => {
   test('getGameItems helper works', () => {
     expect(typeof getGameItems).toBe('function')
     // Returns undefined if not deployed (which is fine for test)
-    const result = getGameItems(1337)
+    const result = getGameItems(31337)
     expect(result === undefined || typeof result === 'string').toBe(true)
   })
 
   test('getGameGold helper works', () => {
     expect(typeof getGameGold).toBe('function')
-    const result = getGameGold(1337)
+    const result = getGameGold(31337)
     expect(result === undefined || typeof result === 'string').toBe(true)
   })
 
   test('getGameIntegration helper works', () => {
     expect(typeof getGameIntegration).toBe('function')
-    const result = getGameIntegration(1337)
+    const result = getGameIntegration(31337)
     expect(result === undefined || typeof result === 'string').toBe(true)
   })
 })

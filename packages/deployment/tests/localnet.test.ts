@@ -163,7 +163,7 @@ describe('PortsConfigSchema', () => {
     const config: PortsConfig = {
       l1Rpc: 'http://localhost:6545',
       l2Rpc: 'http://127.0.0.1:6546',
-      chainId: 1337,
+      chainId: 31337,
       timestamp: new Date().toISOString(),
     }
     expect(validatePortsConfig(config)).toEqual(config)
@@ -174,7 +174,7 @@ describe('PortsConfigSchema', () => {
       validatePortsConfig({
         l1Rpc: 'not-a-url',
         l2Rpc: 'http://127.0.0.1:6546',
-        chainId: 1337,
+        chainId: 31337,
         timestamp: new Date().toISOString(),
       }),
     ).toThrow()
@@ -207,7 +207,7 @@ describe('PortsConfigSchema', () => {
       validatePortsConfig({
         l1Rpc: 'http://localhost:6545',
         l2Rpc: 'http://127.0.0.1:6546',
-        chainId: 1337,
+        chainId: 31337,
         timestamp: 'not-a-timestamp',
       }),
     ).toThrow()
@@ -217,7 +217,7 @@ describe('PortsConfigSchema', () => {
     expect(() =>
       validatePortsConfig({
         l1Rpc: 'http://localhost:6545',
-        chainId: 1337,
+        chainId: 31337,
       }),
     ).toThrow()
   })

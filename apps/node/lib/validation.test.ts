@@ -334,7 +334,7 @@ describe('RuntimeConfigSchema', () => {
     const valid = {
       network: 'localnet',
       rpcUrl: 'http://127.0.0.1:6546',
-      chainId: 1337,
+      chainId: 31337,
       autoClaim: false,
       autoStake: false,
       startMinimized: false,

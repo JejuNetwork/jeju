@@ -86,7 +86,7 @@ describe('Default Bots Configuration', () => {
       const bots = getDefaultBotsForNetwork('localnet')
       expect(bots.length).toBe(DEFAULT_BOTS.length)
       bots.forEach((bot) => {
-        expect(bot.chains).toEqual([1337])
+        expect(bot.chains).toEqual([31337])
         expect(bot.initialFunding).toBe('0.01')
       })
     })

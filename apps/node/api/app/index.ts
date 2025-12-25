@@ -325,7 +325,7 @@ async function cmdSetup(): Promise<void> {
       ? 420690
       : config.network === 'testnet'
         ? 420691
-        : 1337
+        : 31337
 
   if (!config.privateKey) {
     console.log(chalk.bold('\n  Wallet Setup'))
@@ -717,7 +717,7 @@ async function main(): Promise<void> {
         ? 420690
         : config.network === 'testnet'
           ? 420691
-          : 1337
+          : 31337
     saveConfig(config)
   }
 
@@ -776,7 +776,7 @@ ${chalk.bold('Quick Start:')}
         ? 420690
         : config.network === 'testnet'
           ? 420691
-          : 1337
+          : 31337
     saveConfig(config)
   }
 

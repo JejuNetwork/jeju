@@ -3,10 +3,30 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { execa } from 'execa'
+import type { Chain } from 'viem'
 import { createPublicClient, formatEther, http } from 'viem'
 import { z } from 'zod'
 import { CHAIN_CONFIG, DEFAULT_PORTS, type NetworkType } from '../types'
 import { logger } from './logger'
+
+/**
+ * Custom localnet chain definition with chain ID 31337 (Hardhat/Anvil default).
+ * NOTE: viem's built-in `localhost` chain uses chain ID 31337 (Foundry default),
+ * which causes "invalid chain id for signer" errors with our Anvil setup.
+ */
+export const localnetChain: Chain = {
+  id: 31337,
+  name: 'Jeju Localnet',
+  nativeCurrency: {
+    decimals: 18,
+    name: 'Ether',
+    symbol: 'ETH',
+  },
+  rpcUrls: {
+    default: { http: ['http://127.0.0.1:6546'] },
+  },
+}
+
 import {
   checkDocker,
   checkKurtosis,
@@ -212,7 +232,7 @@ export async function startLocalnet(
     l1Rpc: `http://127.0.0.1:${l1Port}`,
     l2Rpc: `http://127.0.0.1:${l2Port}`,
     cqlApi: cqlPort ? `http://127.0.0.1:${cqlPort}` : undefined,
-    chainId: 1337,
+    chainId: 31337,
     timestamp: new Date().toISOString(),
   }
   writeFileSync(
@@ -339,9 +359,24 @@ export async function bootstrapContracts(
     'packages/contracts/deployments/localnet-complete.json',
   )
 
+  // Check if bootstrap file exists AND has valid contract addresses
   if (existsSync(bootstrapFile)) {
-    logger.debug('Contracts already bootstrapped')
-    return
+    const data = JSON.parse(readFileSync(bootstrapFile, 'utf-8'))
+    const contracts = data?.contracts || {}
+    // Check if any key contracts are deployed (not zero addresses)
+    const hasValidContracts =
+      (contracts.jnsRegistry &&
+        contracts.jnsRegistry !== '0x0000000000000000000000000000000000000000') ||
+      (contracts.storageManager &&
+        contracts.storageManager !== '0x0000000000000000000000000000000000000000') ||
+      (contracts.identityRegistry &&
+        contracts.identityRegistry !== '0x0000000000000000000000000000000000000000')
+
+    if (hasValidContracts) {
+      logger.debug('Contracts already bootstrapped')
+      return
+    }
+    logger.debug('Bootstrap file has placeholder addresses, will redeploy')
   }
 
   logger.step('Bootstrapping contracts...')

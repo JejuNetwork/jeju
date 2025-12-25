@@ -2,6 +2,7 @@
  * IPFS Storage Integration for OAuth3
  */
 
+import type { StorageTier } from '@jejunetwork/shared'
 import { type Address, type Hex, toBytes, toHex } from 'viem'
 import type {
   OAuth3App,
@@ -20,7 +21,7 @@ import {
 } from '../validation.js'
 import { DEFAULT_IPFS_API, DEFAULT_IPFS_GATEWAY } from './config.js'
 
-export type StorageTier = 'hot' | 'warm' | 'cold' | 'permanent'
+export type { StorageTier }
 
 export interface StorageConfig {
   ipfsApiEndpoint?: string

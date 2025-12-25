@@ -20,7 +20,15 @@ export interface RpcChainConfig {
   }
 }
 
-const JEJU_RPC_BASE = process.env.JEJU_RPC_BASE || 'https://rpc.jejunetwork.org'
+// Browser-safe env access
+function getEnv(key: string, fallback: string): string {
+  if (typeof process !== 'undefined' && process.env) {
+    return process.env[key] || fallback
+  }
+  return fallback
+}
+
+const JEJU_RPC_BASE = getEnv('JEJU_RPC_BASE', 'https://rpc.jejunetwork.org')
 
 export const RPC_CHAINS: Record<number, RpcChainConfig> = {
   // Jeju Networks
@@ -28,7 +36,7 @@ export const RPC_CHAINS: Record<number, RpcChainConfig> = {
     chainId: 420691,
     name: 'Network',
     shortName: 'JEJU',
-    rpcUrl: process.env.JEJU_RPC_URL || `${JEJU_RPC_BASE}/jeju`,
+    rpcUrl: getEnv('JEJU_RPC_URL', `${JEJU_RPC_BASE}/jeju`),
     fallbackRpcs: [],
     explorerUrl: 'https://explorer.jejunetwork.org',
     isTestnet: false,
@@ -38,7 +46,7 @@ export const RPC_CHAINS: Record<number, RpcChainConfig> = {
     chainId: 420690,
     name: 'Testnet',
     shortName: 'JEJU-TEST',
-    rpcUrl: process.env.JEJU_TESTNET_RPC_URL || `${JEJU_RPC_BASE}/jeju-testnet`,
+    rpcUrl: getEnv('JEJU_TESTNET_RPC_URL', `${JEJU_RPC_BASE}/jeju-testnet`),
     fallbackRpcs: [],
     explorerUrl: 'https://testnet-explorer.jejunetwork.org',
     isTestnet: true,
@@ -50,7 +58,7 @@ export const RPC_CHAINS: Record<number, RpcChainConfig> = {
     chainId: 1,
     name: 'Ethereum',
     shortName: 'ETH',
-    rpcUrl: process.env.ETHEREUM_RPC_URL || `${JEJU_RPC_BASE}/ethereum`,
+    rpcUrl: getEnv('ETHEREUM_RPC_URL', `${JEJU_RPC_BASE}/ethereum`),
     fallbackRpcs: ['https://eth.llamarpc.com', 'https://rpc.ankr.com/eth'],
     explorerUrl: 'https://etherscan.io',
     isTestnet: false,
@@ -60,7 +68,7 @@ export const RPC_CHAINS: Record<number, RpcChainConfig> = {
     chainId: 11155111,
     name: 'Sepolia',
     shortName: 'SEP',
-    rpcUrl: process.env.SEPOLIA_RPC_URL || `${JEJU_RPC_BASE}/sepolia`,
+    rpcUrl: getEnv('SEPOLIA_RPC_URL', `${JEJU_RPC_BASE}/sepolia`),
     fallbackRpcs: [
       'https://ethereum-sepolia-rpc.publicnode.com',
       'https://rpc.sepolia.org',
@@ -75,7 +83,7 @@ export const RPC_CHAINS: Record<number, RpcChainConfig> = {
     chainId: 8453,
     name: 'Base',
     shortName: 'BASE',
-    rpcUrl: process.env.BASE_RPC_URL || `${JEJU_RPC_BASE}/base`,
+    rpcUrl: getEnv('BASE_RPC_URL', `${JEJU_RPC_BASE}/base`),
     fallbackRpcs: ['https://mainnet.base.org', 'https://base.llamarpc.com'],
     explorerUrl: 'https://basescan.org',
     isTestnet: false,
@@ -85,7 +93,7 @@ export const RPC_CHAINS: Record<number, RpcChainConfig> = {
     chainId: 84532,
     name: 'Base Sepolia',
     shortName: 'BASE-SEP',
-    rpcUrl: process.env.BASE_SEPOLIA_RPC_URL || `${JEJU_RPC_BASE}/base-sepolia`,
+    rpcUrl: getEnv('BASE_SEPOLIA_RPC_URL', `${JEJU_RPC_BASE}/base-sepolia`),
     fallbackRpcs: ['https://sepolia.base.org'],
     explorerUrl: 'https://sepolia.basescan.org',
     isTestnet: true,
@@ -97,7 +105,7 @@ export const RPC_CHAINS: Record<number, RpcChainConfig> = {
     chainId: 42161,
     name: 'Arbitrum One',
     shortName: 'ARB',
-    rpcUrl: process.env.ARBITRUM_RPC_URL || `${JEJU_RPC_BASE}/arbitrum`,
+    rpcUrl: getEnv('ARBITRUM_RPC_URL', `${JEJU_RPC_BASE}/arbitrum`),
     fallbackRpcs: [
       'https://arb1.arbitrum.io/rpc',
       'https://arbitrum.llamarpc.com',
@@ -110,9 +118,10 @@ export const RPC_CHAINS: Record<number, RpcChainConfig> = {
     chainId: 421614,
     name: 'Arbitrum Sepolia',
     shortName: 'ARB-SEP',
-    rpcUrl:
-      process.env.ARBITRUM_SEPOLIA_RPC_URL ||
+    rpcUrl: getEnv(
+      'ARBITRUM_SEPOLIA_RPC_URL',
       `${JEJU_RPC_BASE}/arbitrum-sepolia`,
+    ),
     fallbackRpcs: ['https://sepolia-rollup.arbitrum.io/rpc'],
     explorerUrl: 'https://sepolia.arbiscan.io',
     isTestnet: true,
@@ -124,7 +133,7 @@ export const RPC_CHAINS: Record<number, RpcChainConfig> = {
     chainId: 10,
     name: 'Optimism',
     shortName: 'OP',
-    rpcUrl: process.env.OPTIMISM_RPC_URL || `${JEJU_RPC_BASE}/optimism`,
+    rpcUrl: getEnv('OPTIMISM_RPC_URL', `${JEJU_RPC_BASE}/optimism`),
     fallbackRpcs: [
       'https://mainnet.optimism.io',
       'https://optimism.llamarpc.com',
@@ -137,9 +146,10 @@ export const RPC_CHAINS: Record<number, RpcChainConfig> = {
     chainId: 11155420,
     name: 'Optimism Sepolia',
     shortName: 'OP-SEP',
-    rpcUrl:
-      process.env.OPTIMISM_SEPOLIA_RPC_URL ||
+    rpcUrl: getEnv(
+      'OPTIMISM_SEPOLIA_RPC_URL',
       `${JEJU_RPC_BASE}/optimism-sepolia`,
+    ),
     fallbackRpcs: ['https://sepolia.optimism.io'],
     explorerUrl: 'https://sepolia-optimism.etherscan.io',
     isTestnet: true,
@@ -147,11 +157,11 @@ export const RPC_CHAINS: Record<number, RpcChainConfig> = {
   },
 
   // Localnet
-  1337: {
-    chainId: 1337,
+  31337: {
+    chainId: 31337,
     name: 'Localnet',
     shortName: 'LOCAL',
-    rpcUrl: process.env.LOCALNET_RPC_URL || 'http://localhost:6546',
+    rpcUrl: getEnv('LOCALNET_RPC_URL', 'http://localhost:6546'),
     fallbackRpcs: [],
     explorerUrl: 'http://localhost:4000',
     isTestnet: true,

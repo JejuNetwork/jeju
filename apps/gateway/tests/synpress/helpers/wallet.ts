@@ -75,7 +75,7 @@ export async function setupNetworkChain(metamask: MetaMask): Promise<void> {
   await metamask.addNetwork({
     networkName: 'Jeju Localnet',
     rpcUrl: 'http://127.0.0.1:6546',
-    chainId: 1337,
+    chainId: 31337,
     symbol: 'ETH',
   })
 

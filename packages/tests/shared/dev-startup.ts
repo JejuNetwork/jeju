@@ -36,7 +36,7 @@ async function startLocalnet(rootDir: string): Promise<boolean> {
 
   console.log('🔗 Starting localnet (anvil)...')
   localnetProcess = Bun.spawn(
-    [anvil, '--port', String(LOCALNET_PORT), '--chain-id', '1337'],
+    [anvil, '--port', String(LOCALNET_PORT), '--chain-id', '31337'],
     {
       cwd: rootDir,
       stdout: 'pipe',

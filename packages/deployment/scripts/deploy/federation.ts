@@ -68,7 +68,7 @@ const CHAIN_CONFIGS: Record<
   { local: ChainConfig; hub: ChainConfig }
 > = {
   localnet: {
-    local: { chainId: 1337, rpcUrl: 'http://localhost:6546' },
+    local: { chainId: 31337, rpcUrl: 'http://localhost:6546' },
     hub: { chainId: 31337, rpcUrl: 'http://localhost:6546' },
   },
   testnet: {

@@ -11,25 +11,12 @@ import {
   createHash,
   randomBytes,
 } from 'node:crypto'
+import type { ApiKeyRecord, RateTier } from '@jejunetwork/types'
 import type { Address } from 'viem'
 import { apiKeyState } from '../../state.js'
-import {
-  type RateTier,
-  registerApiKey,
-  revokeApiKey,
-} from '../middleware/rate-limiter.js'
+import { registerApiKey, revokeApiKey } from '../middleware/rate-limiter.js'
 
-export interface ApiKeyRecord {
-  id: string
-  keyHash: string
-  address: Address
-  name: string
-  tier: RateTier
-  createdAt: number
-  lastUsedAt: number
-  requestCount: number
-  isActive: boolean
-}
+export type { ApiKeyRecord }
 
 // Local cache for key -> id mapping (for fast validation without async)
 const localKeyCache = new Map<string, string>()
@@ -208,7 +195,11 @@ export async function revokeApiKeyById(
   address: Address,
 ): Promise<boolean> {
   const record = await getApiKeyById(id)
-  if (!record || record.address.toLowerCase() !== address.toLowerCase())
+  if (
+    !record ||
+    !record.address ||
+    record.address.toLowerCase() !== address.toLowerCase()
+  )
     return false
 
   const success = await apiKeyState.revoke(id)

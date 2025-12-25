@@ -68,7 +68,7 @@ impl Service for XlpService {
         }
     }
 
-    async fn start(&mut self, config: &ServiceConfig) -> Result<(), String> {
+    async fn start(&mut self, _config: &ServiceConfig) -> Result<(), String> {
         if self.running.load(Ordering::SeqCst) {
             return Err("Service already running".to_string());
         }
@@ -82,9 +82,9 @@ impl Service for XlpService {
         *self.start_time.write().await = Some(Instant::now());
 
         let running = self.running.clone();
-        let transfers = self.transfers_facilitated.clone();
-        let volume = self.volume_wei.clone();
-        let earnings = self.earnings_wei.clone();
+        let _transfers = self.transfers_facilitated.clone();
+        let _volume = self.volume_wei.clone();
+        let _earnings = self.earnings_wei.clone();
 
         tokio::spawn(async move {
             tracing::info!("XLP service started");

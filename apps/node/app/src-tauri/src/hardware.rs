@@ -168,7 +168,7 @@ impl HardwareDetector {
     }
 
     fn detect_gpus(&self) -> Vec<GpuInfo> {
-        let mut gpus = Vec::new();
+        let gpus = Vec::new();
 
         #[cfg(feature = "nvidia")]
         {
@@ -288,7 +288,7 @@ impl HardwareDetector {
     }
 
     fn detect_tee(&self) -> TeeCapabilities {
-        let mut caps = TeeCapabilities {
+        let caps = TeeCapabilities {
             has_intel_tdx: false,
             has_intel_sgx: false,
             has_amd_sev: false,

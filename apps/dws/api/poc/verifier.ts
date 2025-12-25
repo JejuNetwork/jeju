@@ -3,7 +3,7 @@
  */
 
 import { getCurrentNetwork, getPoCConfig } from '@jejunetwork/config'
-import { safeReadContract } from '@jejunetwork/contracts'
+import { readContract } from '@jejunetwork/contracts'
 import {
   type Address,
   type Chain,
@@ -284,15 +284,12 @@ export class PoCVerifier {
   }
 
   async getAgentStatus(agentId: bigint): Promise<AgentPoCStatus> {
-    const result = await safeReadContract<[boolean, number, Hex, bigint]>(
-      this.publicClient,
-      {
-        address: this.config.validatorAddress,
-        abi: POC_VALIDATOR_ABI,
-        functionName: 'getAgentStatus',
-        args: [agentId],
-      },
-    )
+    const result = await readContract(this.publicClient, {
+      address: this.config.validatorAddress,
+      abi: POC_VALIDATOR_ABI,
+      functionName: 'getAgentStatus',
+      args: [agentId],
+    })
 
     const [verified, level, hardwareIdHash, expiresAt] = result
 
@@ -309,7 +306,7 @@ export class PoCVerifier {
   }
 
   async needsReverification(agentId: bigint): Promise<boolean> {
-    return safeReadContract<boolean>(this.publicClient, {
+    return readContract(this.publicClient, {
       address: this.config.validatorAddress,
       abi: POC_VALIDATOR_ABI,
       functionName: 'needsReverification',
@@ -364,7 +361,7 @@ export class PoCVerifier {
   }
 
   private async checkAgentExists(agentId: bigint): Promise<boolean> {
-    return safeReadContract<boolean>(this.publicClient, {
+    return readContract(this.publicClient, {
       address: this.config.identityRegistryAddress,
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'agentExists',
@@ -390,7 +387,7 @@ export class PoCVerifier {
     result: PoCVerificationResult,
     _quote: TEEQuote,
   ): Promise<Hex> {
-    const nonce = await safeReadContract<bigint>(this.publicClient, {
+    const nonce = await readContract(this.publicClient, {
       address: this.config.validatorAddress,
       abi: POC_VALIDATOR_ABI,
       functionName: 'getNonce',

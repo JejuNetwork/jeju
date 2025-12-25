@@ -426,7 +426,7 @@ describe('Oracle Integration - All Sources', () => {
 
     test('should have empty mappings for testnet chains', () => {
       const testnetChains: EVMChainId[] = [
-        84532, 11155111, 420690, 420691, 1337,
+        84532, 11155111, 420690, 420691, 31337,
       ]
 
       for (const chainId of testnetChains) {

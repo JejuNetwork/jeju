@@ -416,7 +416,7 @@ program
     }
 
     let rpcUrl = 'http://127.0.0.1:6546'
-    let chainId = 1337
+    let chainId = 31337
 
     switch (options.network) {
       case 'mainnet':

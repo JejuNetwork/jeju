@@ -16,7 +16,7 @@ function getDefaultChainId(network: string): string {
     case 'testnet':
       return '420690'
     default:
-      return '1337'
+      return '31337'
   }
 }
 

@@ -103,7 +103,7 @@ const CHAINS: Record<number, ChainConfig> = {
     name: 'Mainnet',
     rpcUrl: process.env.JEJU_RPC_URL || 'https://rpc.jejunetwork.org',
   },
-  1337: { chainId: 1337, name: 'Anvil', rpcUrl: 'http://localhost:6546' },
+  31337: { chainId: 31337, name: 'Anvil', rpcUrl: 'http://localhost:6546' },
 }
 
 async function verifyContract(

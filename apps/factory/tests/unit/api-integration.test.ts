@@ -399,7 +399,7 @@ describe('Local Devnet Integration', () => {
 
     const data = await expectResponse(response, RpcResultResponseSchema)
     expect(data.result).toBeDefined()
-    // Accept any local chain ID (31337 = 0x7a69, 1337 = 0x539)
+    // Accept any local chain ID (31337 = 0x7a69, 31337 = 0x539)
     expect(['0x7a69', '0x539']).toContain(data.result)
   })
 

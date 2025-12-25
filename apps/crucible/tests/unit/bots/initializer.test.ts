@@ -75,7 +75,7 @@ describe('BotInitializer', () => {
     test('should return bots for localnet', () => {
       const bots = getDefaultBotsForNetwork('localnet')
       expect(bots.length).toBeGreaterThan(0)
-      expect(bots.every((b) => b.chains.includes(1337))).toBe(true)
+      expect(bots.every((b) => b.chains.includes(31337))).toBe(true)
       expect(bots.every((b) => b.initialFunding === '0.01')).toBe(true)
     })
 

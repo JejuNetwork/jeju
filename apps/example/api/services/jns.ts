@@ -236,7 +236,7 @@ export async function setupDAppJNS(
     description:
       config.description !== undefined
         ? config.description
-        : 'Decentralized Todo Application',
+        : 'Example Application',
   }
 
   if (!existing.address) {

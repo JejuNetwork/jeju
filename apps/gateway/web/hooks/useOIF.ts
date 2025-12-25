@@ -7,14 +7,9 @@ import {
   parseAbiParameters,
   parseEther,
 } from 'viem'
-import {
-  useAccount,
-  usePublicClient,
-  useReadContract,
-  useWaitForTransactionReceipt,
-  useWriteContract,
-} from 'wagmi'
+import { useAccount, usePublicClient, useReadContract } from 'wagmi'
 import { CONTRACTS } from '../../lib/config'
+import { useTypedWriteContract } from './useTypedWriteContract'
 
 const INPUT_SETTLER_ABI = [
   {
@@ -211,10 +206,14 @@ export function useCreateIntent(inputSettlerAddress: Address | undefined) {
   const publicClient = usePublicClient()
   const [intentId, setIntentId] = useState<`0x${string}` | null>(null)
 
-  const { writeContract, data: hash, isPending, error } = useWriteContract()
-  const { isSuccess, isLoading: isConfirming } = useWaitForTransactionReceipt({
+  const {
+    write: writeContract,
     hash,
-  })
+    isPending,
+    error,
+    isConfirming,
+    isSuccess,
+  } = useTypedWriteContract()
 
   const { data: nonce } = useReadContract({
     address: inputSettlerAddress,
@@ -340,10 +339,14 @@ export function useIntentStatus(
 }
 
 export function useRefundIntent(inputSettlerAddress: Address | undefined) {
-  const { writeContract, data: hash, isPending, error } = useWriteContract()
-  const { isSuccess, isLoading: isConfirming } = useWaitForTransactionReceipt({
+  const {
+    write: writeContract,
     hash,
-  })
+    isPending,
+    error,
+    isConfirming,
+    isSuccess,
+  } = useTypedWriteContract()
 
   const refund = useCallback(
     (intentId: `0x${string}`) => {
@@ -363,10 +366,14 @@ export function useRefundIntent(inputSettlerAddress: Address | undefined) {
 
 export function useSolverRegistration(registryAddress: Address | undefined) {
   const { address } = useAccount()
-  const { writeContract, data: hash, isPending, error } = useWriteContract()
-  const { isSuccess, isLoading: isConfirming } = useWaitForTransactionReceipt({
+  const {
+    write: writeContract,
     hash,
-  })
+    isPending,
+    error,
+    isConfirming,
+    isSuccess,
+  } = useTypedWriteContract()
 
   const register = useCallback(
     (supportedChains: number[], stakeAmount: bigint) => {

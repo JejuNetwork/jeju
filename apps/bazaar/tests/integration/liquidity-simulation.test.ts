@@ -82,17 +82,17 @@ let skipTests = false
 
 function loadDeployment(filename: string): Record<string, string> {
   const deploymentMap: Record<string, Record<string, string>> = {
-    'uniswap-v4-1337.json': rawDeployments.uniswapV4_1337 as Record<
+    'uniswap-v4-31337.json': rawDeployments.uniswapV4_1337 as Record<
       string,
       string
     >,
-    'bazaar-marketplace-1337.json':
+    'bazaar-marketplace-31337.json':
       rawDeployments.bazaarMarketplace1337 as Record<string, string>,
-    'erc20-factory-1337.json': rawDeployments.erc20Factory1337 as Record<
+    'erc20-factory-31337.json': rawDeployments.erc20Factory1337 as Record<
       string,
       string
     >,
-    'multi-token-system-1337.json':
+    'multi-token-system-31337.json':
       rawDeployments.multiTokenSystem1337 as Record<string, string>,
   }
   return deploymentMap[filename] || {}
@@ -120,7 +120,7 @@ beforeAll(async () => {
     return
   }
 
-  const v4 = loadDeployment('uniswap-v4-1337.json')
+  const v4 = loadDeployment('uniswap-v4-31337.json')
   poolManager = v4.poolManager as Address
   positionManager = v4.positionManager as Address
 
