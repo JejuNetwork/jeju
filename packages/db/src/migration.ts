@@ -5,6 +5,7 @@
  * Supports versioned migrations with up/down capabilities.
  */
 
+import { toError } from '@jejunetwork/types'
 import type { CQLClient } from './client.js'
 import type { Migration, MigrationResult } from './types.js'
 import {
@@ -131,7 +132,7 @@ export class MigrationManager {
       } catch (error) {
         await tx.rollback()
         throw new Error(
-          `Migration ${migration.version} failed: ${(error as Error).message}`,
+          `Migration ${migration.version} failed: ${toError(error).message}`,
         )
       } finally {
         this.client.getPool(this.databaseId).release(conn)
@@ -188,7 +189,7 @@ export class MigrationManager {
     } catch (error) {
       await tx.rollback()
       throw new Error(
-        `Rollback ${migration.version} failed: ${(error as Error).message}`,
+        `Rollback ${migration.version} failed: ${toError(error).message}`,
       )
     } finally {
       this.client.getPool(this.databaseId).release(conn)

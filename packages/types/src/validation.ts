@@ -198,10 +198,31 @@ export const ChainIdSchema = z.number().int().positive()
  *
  * Note: `unknown` is necessary here because JavaScript allows throwing
  * any value. This function provides a type-safe way to handle caught errors.
+ *
+ * Handles:
+ * - Error instances (returned as-is)
+ * - Strings (wrapped in Error)
+ * - Error-like objects with message property
+ * - Everything else (stringified)
  */
 export function toError(err: unknown): Error {
   if (err instanceof Error) {
     return err
+  }
+  if (typeof err === 'string') {
+    return new Error(err)
+  }
+  if (
+    typeof err === 'object' &&
+    err !== null &&
+    'message' in err &&
+    typeof err.message === 'string'
+  ) {
+    const error = new Error(err.message)
+    if ('name' in err && typeof err.name === 'string') {
+      error.name = err.name
+    }
+    return error
   }
   return new Error(String(err))
 }

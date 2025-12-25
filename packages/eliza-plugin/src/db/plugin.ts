@@ -4,8 +4,6 @@
  * Provides a decentralized database adapter using CovenantSQL.
  * Automatically initializes and runs migrations on startup.
  *
- * NO SQLITE. NO POSTGRES. CQL ONLY.
- *
  * @example
  * ```typescript
  * import { cqlDatabasePlugin } from '@jejunetwork/eliza-plugin';
@@ -43,12 +41,11 @@ function createCQLAdapter(agentId: string): CQLDatabaseAdapter {
  * This plugin provides:
  * - CovenantSQL-based database adapter
  * - Automatic schema migration on startup
- * - No fallbacks - CQL is required
  */
 export const cqlDatabasePlugin: Plugin = {
   name: '@jejunetwork/plugin-cql',
   description:
-    'Decentralized database adapter using CovenantSQL - NO SQLITE, NO POSTGRES',
+    'Decentralized database adapter using CovenantSQL',
   priority: 0, // Load first to ensure database is available
 
   init: async (_config: Record<string, string>, runtime: IAgentRuntime) => {

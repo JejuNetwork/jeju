@@ -858,14 +858,90 @@ deployCommand
 
 deployCommand
   .command('dao')
-  .description('Deploy DAO contracts')
+  .description('Deploy DAO from manifest configuration')
+  .argument('[name]', 'DAO name or path to manifest')
   .option(
     '--network <network>',
     'Network: localnet | testnet | mainnet',
     'localnet',
   )
-  .action(async (options) => {
-    await runDeployScript('dao', options.network, options)
+  .option('--manifest <path>', 'Path to jeju-manifest.json')
+  .option('--seed', 'Auto-seed packages and repos after deployment')
+  .option('--fund-treasury <amount>', 'Fund treasury with ETH (wei)')
+  .option('--fund-matching <amount>', 'Fund matching pool with ETH (wei)')
+  .option('--dry-run', 'Simulate without making changes')
+  .option('--skip-council', 'Skip council member setup')
+  .option('--skip-funding-config', 'Skip funding configuration')
+  .option('--list', 'List all discoverable DAOs')
+  .option('-v, --verbose', 'Verbose output')
+  .action(async (nameArg, options) => {
+    const rootDir = findMonorepoRoot()
+
+    // List mode
+    if (options.list) {
+      const { discoverDAOManifests } = await import('../lib/dao-deploy')
+      const manifests = await discoverDAOManifests(rootDir)
+      logger.header('DISCOVERABLE DAOS')
+      if (manifests.length === 0) {
+        logger.info('No DAO manifests found')
+        return
+      }
+      for (const m of manifests) {
+        logger.keyValue(m.displayName ?? m.name, m.governance.ceo.name)
+      }
+      return
+    }
+
+    // Resolve manifest path
+    let manifestPath: string
+    if (options.manifest) {
+      manifestPath = options.manifest
+    } else if (nameArg) {
+      // Check common locations
+      const candidates = [
+        join(rootDir, 'vendor', nameArg, 'dao', 'jeju-manifest.json'),
+        join(rootDir, 'vendor', nameArg, 'jeju-manifest.json'),
+        join(rootDir, 'apps', nameArg, 'jeju-manifest.json'),
+        join(rootDir, nameArg, 'jeju-manifest.json'),
+        nameArg, // Direct path
+      ]
+      const found = candidates.find((p) => existsSync(p))
+      if (!found) {
+        logger.error(`DAO manifest not found for: ${nameArg}`)
+        logger.info('Searched:')
+        for (const c of candidates.slice(0, -1)) {
+          logger.info(`  ${c}`)
+        }
+        logger.info('\nUse --manifest <path> to specify directly')
+        logger.info('Or use --list to see discoverable DAOs')
+        return
+      }
+      manifestPath = found
+    } else {
+      // Default to current directory
+      manifestPath = join(process.cwd(), 'jeju-manifest.json')
+      if (!existsSync(manifestPath)) {
+        logger.error('No DAO name or manifest specified')
+        logger.info('Usage: jeju deploy dao <name> [options]')
+        logger.info('       jeju deploy dao --manifest <path> [options]')
+        logger.info('       jeju deploy dao --list')
+        return
+      }
+    }
+
+    const { deployDAO } = await import('../lib/dao-deploy')
+    await deployDAO({
+      network: options.network as 'localnet' | 'testnet' | 'mainnet',
+      manifestPath,
+      rootDir,
+      seed: options.seed ?? false,
+      fundTreasury: options.fundTreasury,
+      fundMatching: options.fundMatching,
+      dryRun: options.dryRun ?? false,
+      skipCouncil: options.skipCouncil ?? false,
+      skipFundingConfig: options.skipFundingConfig ?? false,
+      verbose: options.verbose ?? false,
+    })
   })
 
 deployCommand
@@ -1105,6 +1181,38 @@ deployCommand
     await execa('bun', ['run', scriptPath, ...args], {
       cwd: rootDir,
       stdio: 'inherit',
+    })
+  })
+
+deployCommand
+  .command('dao-all')
+  .description('Deploy all discoverable DAOs and setup allocations')
+  .option(
+    '--network <network>',
+    'Network: localnet | testnet | mainnet',
+    'localnet',
+  )
+  .option('--seed', 'Auto-seed packages and repos')
+  .option('--setup-allocations', 'Setup allocations between DAOs', true)
+  .option('--dry-run', 'Simulate without making changes')
+  .option('-v, --verbose', 'Verbose output')
+  .action(async (options) => {
+    const rootDir = findMonorepoRoot()
+    const { deployMultipleDAOs } = await import('../lib/dao-deploy')
+
+    await deployMultipleDAOs({
+      network: options.network as 'localnet' | 'testnet' | 'mainnet',
+      manifestPath: '', // Not used for multi-DAO
+      rootDir,
+      seed: options.seed ?? false,
+      fundTreasury: undefined,
+      fundMatching: undefined,
+      dryRun: options.dryRun ?? false,
+      skipCouncil: false,
+      skipFundingConfig: false,
+      verbose: options.verbose ?? false,
+      all: true,
+      setupAllocations: options.setupAllocations ?? true,
     })
   })
 

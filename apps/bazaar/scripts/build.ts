@@ -18,7 +18,7 @@ const DIST_DIR = './dist'
 const STATIC_DIR = `${DIST_DIR}/static`
 const WORKER_DIR = `${DIST_DIR}/worker`
 
-// Plugin to shim server-only modules, dedupe React, and resolve workspace packages
+// Plugin to shim server-only modules, dedupe React/@noble/curves, and resolve workspace packages
 const browserPlugin: BunPlugin = {
   name: 'browser-plugin',
   setup(build) {
@@ -42,13 +42,31 @@ const browserPlugin: BunPlugin = {
       path: require.resolve('react-dom/client'),
     }))
 
+    // Dedupe @noble/curves to prevent duplicate exports
+    build.onResolve({ filter: /^@noble\/curves\/secp256k1$/ }, () => ({
+      path: require.resolve('@noble/curves/secp256k1'),
+    }))
+    build.onResolve({ filter: /^@noble\/curves\/p256$/ }, () => ({
+      path: require.resolve('@noble/curves/p256'),
+    }))
+    build.onResolve({ filter: /^@noble\/curves$/ }, () => ({
+      path: require.resolve('@noble/curves'),
+    }))
+    build.onResolve({ filter: /^@noble\/hashes/ }, (args) => ({
+      path: require.resolve(args.path),
+    }))
+
     // Resolve workspace packages to their source files to ensure proper bundling
     build.onResolve({ filter: /^@jejunetwork\/oauth3$/ }, () => ({
-      path: resolve('../../packages/oauth3/src/index.ts'),
+      path: resolve('../../packages/auth/src/index.ts'),
     }))
-    build.onResolve({ filter: /^@jejunetwork\/oauth3\/(.*)$/ }, (args) => ({
-      path: resolve(`../../packages/oauth3/src/${args.path.split('/')[1]}.ts`),
+    build.onResolve({ filter: /^@jejunetwork\/oauth3\/react$/ }, () => ({
+      path: resolve('../../packages/auth/src/react/index.ts'),
     }))
+    build.onResolve({ filter: /^@jejunetwork\/oauth3\/(.*)$/ }, (args) => {
+      const subpath = args.path.replace('@jejunetwork/auth/', '')
+      return { path: resolve(`../../packages/auth/src/${subpath}.ts`) }
+    })
     build.onResolve({ filter: /^@jejunetwork\/shared$/ }, () => ({
       path: resolve('../../packages/shared/src/index.ts'),
     }))

@@ -5,7 +5,7 @@ import type { BunPlugin } from 'bun'
 const outdir = './dist'
 mkdirSync(outdir, { recursive: true })
 
-// Plugin to shim server-only modules and dedupe React
+// Plugin to shim server-only modules and dedupe React + @noble/curves
 const browserPlugin: BunPlugin = {
   name: 'browser-plugin',
   setup(build) {
@@ -27,6 +27,20 @@ const browserPlugin: BunPlugin = {
     build.onResolve({ filter: /^react-dom$/ }, () => ({ path: reactDomPath }))
     build.onResolve({ filter: /^react-dom\/client$/ }, () => ({
       path: require.resolve('react-dom/client'),
+    }))
+
+    // Dedupe @noble/curves to prevent duplicate exports
+    build.onResolve({ filter: /^@noble\/curves\/secp256k1$/ }, () => ({
+      path: require.resolve('@noble/curves/secp256k1'),
+    }))
+    build.onResolve({ filter: /^@noble\/curves\/p256$/ }, () => ({
+      path: require.resolve('@noble/curves/p256'),
+    }))
+    build.onResolve({ filter: /^@noble\/curves$/ }, () => ({
+      path: require.resolve('@noble/curves'),
+    }))
+    build.onResolve({ filter: /^@noble\/hashes/ }, (args) => ({
+      path: require.resolve(args.path),
     }))
   },
 }

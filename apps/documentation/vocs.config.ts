@@ -80,7 +80,7 @@ export default defineConfig({
         items: [
           { text: 'SDK', link: '/packages/sdk' },
           { text: 'CLI', link: '/packages/cli' },
-          { text: 'OAuth3', link: '/packages/oauth3' },
+          { text: 'OAuth3', link: '/packages/auth' },
           { text: 'Contracts', link: '/packages/contracts' },
         ],
       },
@@ -149,7 +149,7 @@ export default defineConfig({
         items: [
           { text: 'SDK', link: '/packages/sdk' },
           { text: 'CLI', link: '/packages/cli' },
-          { text: 'OAuth3', link: '/packages/oauth3' },
+          { text: 'OAuth3', link: '/packages/auth' },
           { text: 'Contracts', link: '/packages/contracts' },
         ],
       },

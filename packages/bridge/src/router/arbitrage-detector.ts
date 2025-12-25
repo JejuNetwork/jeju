@@ -85,6 +85,7 @@ const SOLANA_TOKENS: Record<string, string> = {
   WETH: '7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs',
 }
 
+import { toError } from '@jejunetwork/types'
 import { createPublicClient, http } from 'viem'
 import { arbitrum, base, mainnet, optimism } from 'viem/chains'
 import { createLogger } from '../utils/logger.js'
@@ -486,7 +487,7 @@ export class ArbitrageDetector {
     } catch (error) {
       log.warn('Failed to get Jupiter price', {
         token,
-        error: (error as Error).message,
+        error: toError(error).message,
       })
       return null
     }
@@ -682,7 +683,7 @@ export class ArbitrageDetector {
     } catch (error) {
       log.warn('Failed to get Hyperliquid price', {
         pair,
-        error: (error as Error).message,
+        error: toError(error).message,
       })
       return null
     }

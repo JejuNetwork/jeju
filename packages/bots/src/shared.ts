@@ -1,9 +1,6 @@
 /** Shared utilities for Jeju bots. */
 
-import { generateId, delay as sleep } from '@jejunetwork/shared'
 import { WEIGHT_PRECISION } from './schemas'
-
-export { sleep, generateId }
 
 /** Convert weight (bigint, 18 decimals) to basis points */
 export function weightToBps(weight: bigint): number {

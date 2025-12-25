@@ -11,8 +11,6 @@
  * - Localnet (Anvil)
  * - DWS server
  *
- * No fallbacks - all infrastructure must be running.
- *
  * Usage in bunfig.toml:
  *   preload = ["@jejunetwork/tests/bun-global-setup"]
  *
@@ -263,7 +261,7 @@ export async function setup(): Promise<void> {
     '║                       Test Setup                             ║',
   )
   console.log(
-    '║  All infrastructure required - no fallbacks.                 ║',
+    '║  All infrastructure required.                                 ║',
   )
   console.log(
     '╚══════════════════════════════════════════════════════════════╝\n',

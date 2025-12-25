@@ -5,7 +5,7 @@
  * platforms and use cases.
  */
 
-import type { AgentCard } from '@a2a-js/sdk'
+import type { AgentCard } from '../types/server'
 
 /**
  * Skill definition for agent capabilities

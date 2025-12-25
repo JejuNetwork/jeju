@@ -2,8 +2,10 @@
  * DWS-specific Type Guards
  *
  * DWS-specific type guards for agents, CDN, and API operations.
+ * For base type guards, import from @jejunetwork/types.
  */
 
+import { isValidAddress, ZERO_ADDRESS } from '@jejunetwork/types'
 import { type Address, type Hex, isHex } from 'viem'
 import type {
   AgentCharacter,
@@ -24,16 +26,15 @@ export function isValidHex(value: string | null | undefined): value is Hex {
 
 /** Parse address from header or string, returns null if invalid */
 export function parseAddress(value: string | null | undefined): Address | null {
-  if (!value) return null
-  if (!/^0x[0-9a-fA-F]{40}$/.test(value)) return null
-  // Regex already validated the format, safe to assert type
-  return value as Address
+  if (!value || typeof value !== 'string') return null
+  if (!isValidAddress(value)) return null
+  return value
 }
 
 /** Parse address with fallback */
 export function parseAddressOrDefault(
   value: string | null | undefined,
-  defaultAddress: Address,
+  defaultAddress: Address = ZERO_ADDRESS,
 ): Address {
   return parseAddress(value) ?? defaultAddress
 }
@@ -290,10 +291,17 @@ export function isCqlQueryResponse<T>(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// JSON Type Aliases
+// JSON Type Aliases (re-exported from @jejunetwork/types)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type JSONPrimitive = string | number | boolean | null
-export type JSONArray = JSONValue[]
-export type JSONObject = { [key: string]: JSONValue }
-export type JSONValue = JSONPrimitive | JSONObject | JSONArray
+import type { JsonValue } from '@jejunetwork/types'
+
+export type {
+  JsonObject as JSONObject,
+  JsonPrimitive as JSONPrimitive,
+  JsonRecord,
+  JsonValue as JSONValue,
+} from '@jejunetwork/types'
+
+// Legacy type alias for backwards compatibility
+export type JSONArray = JsonValue[]

@@ -3,7 +3,7 @@
  * Simulates transactions and shows expected state changes
  */
 
-import { expectAddress } from '@jejunetwork/types'
+import { expectAddress, toError } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import { oracleService } from '../oracle'
 import { rpcService, type SupportedChainId } from '../rpc'
@@ -267,7 +267,7 @@ class SimulationService {
       return result
     } catch (error) {
       result.success = false
-      result.error = (error as Error).message
+      result.error = toError(error).message
       result.risk.level = 'high'
       result.risk.warnings.push(`Simulation failed: ${result.error}`)
       return result

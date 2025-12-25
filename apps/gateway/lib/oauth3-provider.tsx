@@ -1,4 +1,4 @@
-import { OAuth3Provider, type OAuth3ProviderProps } from '@jejunetwork/oauth3'
+import { OAuth3Provider, type OAuth3ProviderProps } from '@jejunetwork/auth'
 import type { ReactNode } from 'react'
 import { CHAIN_ID, OAUTH3_AGENT_URL, RPC_URL } from './config'
 

@@ -36,13 +36,11 @@ const DeploymentAddressesSchema = z
   .passthrough()
 
 /** Validate and return data, or null if invalid */
-function validateOrNull<T>(
-  schema: z.ZodType<T>,
-  data: unknown,
-): T | null {
+function validateOrNull<T>(schema: z.ZodType<T>, data: unknown): T | null {
   const result = schema.safeParse(data)
   return result.success ? result.data : null
 }
+
 import { Logger } from './logger'
 
 const logger = new Logger({ prefix: 'agent0' })

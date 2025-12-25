@@ -1,5 +1,5 @@
 import { readContract } from '@jejunetwork/contracts'
-import type { PriceData, PriceSourceConfig } from '@jejunetwork/types'
+import type { PriceData } from '@jejunetwork/types'
 import {
   createPublicClient,
   encodePacked,
@@ -9,6 +9,7 @@ import {
 } from 'viem'
 import { foundry } from 'viem/chains'
 import { CHAINLINK_AGGREGATOR_ABI, UNISWAP_V3_POOL_ABI } from './abis'
+import type { PriceSourceConfig } from '@jejunetwork/types'
 
 export type { PriceData }
 

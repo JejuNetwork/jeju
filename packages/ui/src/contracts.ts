@@ -1,7 +1,7 @@
-import type { Address, Hex } from 'viem'
+import { ZERO_ADDRESS } from '@jejunetwork/types'
+import type { Hex } from 'viem'
 
-export const ZERO_ADDRESS: Address =
-  '0x0000000000000000000000000000000000000000'
+export { ZERO_ADDRESS }
 
 export const ZERO_BYTES32: Hex =
   '0x0000000000000000000000000000000000000000000000000000000000000000'

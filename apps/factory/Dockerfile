@@ -12,7 +12,7 @@ COPY packages/config/package.json ./packages/config/
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/sdk/package.json ./packages/sdk/
 COPY packages/contracts/package.json ./packages/contracts/
-COPY packages/oauth3/package.json ./packages/oauth3/
+COPY packages/auth/package.json ./packages/auth/
 COPY apps/factory/package.json ./apps/factory/
 
 # Install dependencies (ignore preinstall scripts that may fail)
@@ -23,7 +23,7 @@ COPY packages/config ./packages/config
 COPY packages/shared ./packages/shared
 COPY packages/sdk ./packages/sdk
 COPY packages/contracts ./packages/contracts
-COPY packages/oauth3 ./packages/oauth3
+COPY packages/auth ./packages/auth
 COPY apps/factory ./apps/factory
 COPY tsconfig.json ./
 

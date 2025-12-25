@@ -195,7 +195,7 @@ async function createK3dCluster(
 
   // Parse API endpoint from kubeconfig
   const apiMatch = kubeconfig.match(/server:\s*(https?:\/\/[^\s]+)/)
-  cluster.apiEndpoint = apiMatch?.[1] || 'https://localhost:6443'
+  cluster.apiEndpoint = apiMatch?.[1] ?? 'https://localhost:6443'
 
   // List nodes
   cluster.nodes = await getK3dNodes(binary, config.name)
@@ -234,7 +234,7 @@ async function getK3dNodes(
       role: n.role.includes('server')
         ? ('server' as const)
         : ('agent' as const),
-      ip: n.IP?.IP || 'unknown',
+      ip: n.IP?.IP ?? 'unknown',
       status: n.state?.running ? ('ready' as const) : ('not-ready' as const),
       resources: {
         cpuCores: 2,
@@ -285,7 +285,7 @@ async function createK3sCluster(
   // Parse API endpoint
   const kubeconfig = await readFile(cluster.kubeconfig, 'utf-8')
   const apiMatch = kubeconfig.match(/server:\s*(https?:\/\/[^\s]+)/)
-  cluster.apiEndpoint = apiMatch?.[1] || 'https://127.0.0.1:6443'
+  cluster.apiEndpoint = apiMatch?.[1] ?? 'https://127.0.0.1:6443'
 
   // Wait for API server
   await waitForKubeApi(cluster.kubeconfig)
@@ -349,7 +349,7 @@ async function createMinikubeCluster(
   await writeFile(cluster.kubeconfig, kubeconfig)
 
   const apiMatch = kubeconfig.match(/server:\s*(https?:\/\/[^\s]+)/)
-  cluster.apiEndpoint = apiMatch?.[1] || 'https://192.168.49.2:8443'
+  cluster.apiEndpoint = apiMatch?.[1] ?? 'https://192.168.49.2:8443'
 
   cluster.nodes = [
     {
@@ -731,7 +731,7 @@ export function createK3sRouter() {
       async ({ body, set }) => {
         const cluster = await createCluster({
           name: body.name,
-          provider: body.provider || 'k3d',
+          provider: body.provider ?? 'k3d',
           nodes: body.nodes ?? 1,
           cpuCores: body.cpuCores,
           memoryMb: body.memoryMb,

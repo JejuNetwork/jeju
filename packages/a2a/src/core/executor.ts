@@ -7,19 +7,17 @@
  * @public
  */
 
-import type {
-  Message,
-  Task,
-  TaskArtifactUpdateEvent,
-  TaskStatusUpdateEvent,
-} from '@a2a-js/sdk'
+import type { JsonValue } from '@jejunetwork/types'
+import { v4 as uuidv4 } from 'uuid'
 import type {
   AgentExecutor,
   ExecutionEventBus,
+  Message,
   RequestContext,
-} from '@a2a-js/sdk/server'
-import type { JsonValue } from '@jejunetwork/types'
-import { v4 as uuidv4 } from 'uuid'
+  Task,
+  TaskArtifactUpdateEvent,
+  TaskStatusUpdateEvent,
+} from '../types/server'
 
 /**
  * Command structure for executor operations

@@ -460,11 +460,10 @@ function printReady(
     logger.subheader('Apps')
     const proxyPort = 8080
 
-    // Show deployed apps with frontends only
+    // Show all deployed apps (JNS gateway serves from local builds)
     for (const app of deployedApps) {
       // Only show apps that have frontend architecture
-      const hasFrontend =
-        app.architecture?.frontend || app.architecture?.type === 'frontend'
+      const hasFrontend = app.architecture?.frontend
       if (!hasFrontend) continue
 
       const displayName = app.displayName || app.name

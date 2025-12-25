@@ -3,6 +3,7 @@
  * Wallet settings and security options
  */
 
+import { toError } from '@jejunetwork/types'
 import {
   AlertCircle,
   Bell,
@@ -118,7 +119,7 @@ export function SettingsView() {
         }
         setHwDevice(device)
       } catch (error) {
-        setHwError((error as Error).message)
+        setHwError(toError(error).message)
       } finally {
         setHwConnecting(false)
       }

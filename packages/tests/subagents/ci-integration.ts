@@ -14,13 +14,7 @@
  *   jeju test ci-setup --generate
  */
 
-import {
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  writeFileSync,
-} from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
 
@@ -70,10 +64,7 @@ interface AppTestConfig {
 function findMonorepoRoot(): string {
   let dir = process.cwd()
   while (dir !== '/') {
-    if (
-      existsSync(join(dir, 'bun.lock')) &&
-      existsSync(join(dir, 'packages'))
-    ) {
+    if (existsSync(join(dir, 'bun.lock')) && existsSync(join(dir, 'packages'))) {
       return dir
     }
     dir = join(dir, '..')
@@ -84,48 +75,44 @@ function findMonorepoRoot(): string {
 function discoverAppTests(rootDir: string): AppTestConfig[] {
   const configs: AppTestConfig[] = []
   const appsDir = join(rootDir, 'apps')
-
+  
   if (!existsSync(appsDir)) return configs
-
+  
   const apps = readdirSync(appsDir, { withFileTypes: true })
     .filter((d) => d.isDirectory() && !d.name.startsWith('.'))
     .map((d) => d.name)
-
+  
   for (const app of apps) {
     const appPath = join(appsDir, app)
     const manifestPath = join(appPath, 'jeju-manifest.json')
-
+    
     if (!existsSync(join(appPath, 'package.json'))) continue
-
+    
     // Check for test directories
     const hasUnitTests = existsSync(join(appPath, 'tests', 'unit'))
-    const hasIntegrationTests = existsSync(
-      join(appPath, 'tests', 'integration'),
-    )
+    const hasIntegrationTests = existsSync(join(appPath, 'tests', 'integration'))
     const hasE2ETests = existsSync(join(appPath, 'tests', 'e2e'))
     const hasSynpressTests =
       existsSync(join(appPath, 'tests', 'synpress')) ||
       existsSync(join(appPath, 'tests', 'wallet'))
-
+    
     // Load manifest for requirements
     let requiresChain = false
     let requiresServices: string[] = []
     let timeout = 60000
-
+    
     if (existsSync(manifestPath)) {
       const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'))
-      const testing = manifest.testing as
-        | {
-            services?: string[]
-            e2e?: { requiresChain?: boolean; timeout?: number }
-          }
-        | undefined
-
+      const testing = manifest.testing as {
+        services?: string[]
+        e2e?: { requiresChain?: boolean; timeout?: number }
+      } | undefined
+      
       requiresChain = testing?.e2e?.requiresChain ?? false
       requiresServices = testing?.services ?? []
       timeout = testing?.e2e?.timeout ?? 60000
     }
-
+    
     if (hasUnitTests) {
       configs.push({
         name: app,
@@ -135,7 +122,7 @@ function discoverAppTests(rootDir: string): AppTestConfig[] {
         timeout: 30000,
       })
     }
-
+    
     if (hasIntegrationTests) {
       configs.push({
         name: app,
@@ -145,7 +132,7 @@ function discoverAppTests(rootDir: string): AppTestConfig[] {
         timeout: 120000,
       })
     }
-
+    
     if (hasE2ETests) {
       configs.push({
         name: app,
@@ -155,7 +142,7 @@ function discoverAppTests(rootDir: string): AppTestConfig[] {
         timeout,
       })
     }
-
+    
     if (hasSynpressTests) {
       configs.push({
         name: app,
@@ -166,7 +153,7 @@ function discoverAppTests(rootDir: string): AppTestConfig[] {
       })
     }
   }
-
+  
   return configs
 }
 
@@ -177,55 +164,52 @@ function validateCIConfig(rootDir: string): ValidationResult {
     warnings: [],
     suggestions: [],
   }
-
+  
   const workflowsDir = join(rootDir, '.github', 'workflows')
-
+  
   if (!existsSync(workflowsDir)) {
     result.errors.push('No .github/workflows directory found')
     result.valid = false
     return result
   }
-
-  const workflows = readdirSync(workflowsDir).filter(
-    (f) => f.endsWith('.yml') || f.endsWith('.yaml'),
-  )
-
+  
+  const workflows = readdirSync(workflowsDir)
+    .filter((f) => f.endsWith('.yml') || f.endsWith('.yaml'))
+  
   if (workflows.length === 0) {
     result.errors.push('No workflow files found')
     result.valid = false
     return result
   }
-
+  
   // Find test workflow
   const testWorkflow = workflows.find(
-    (w) => w.includes('test') || w.includes('ci'),
+    (w) => w.includes('test') || w.includes('ci')
   )
-
+  
   if (!testWorkflow) {
     result.warnings.push('No dedicated test workflow found')
-    result.suggestions.push(
-      'Create a test.yml workflow for comprehensive testing',
-    )
+    result.suggestions.push('Create a test.yml workflow for comprehensive testing')
   } else {
     const workflowPath = join(workflowsDir, testWorkflow)
     const content = readFileSync(workflowPath, 'utf-8')
     const config = parseYaml(content) as CIConfig
-
+    
     // Check for required jobs
     const jobs = Object.keys(config.jobs ?? {})
-
+    
     if (!jobs.some((j) => j.includes('unit'))) {
       result.warnings.push('No unit test job found')
     }
-
+    
     if (!jobs.some((j) => j.includes('integration'))) {
       result.warnings.push('No integration test job found')
     }
-
+    
     if (!jobs.some((j) => j.includes('e2e'))) {
       result.warnings.push('No E2E test job found')
     }
-
+    
     // Check for services
     for (const [jobName, job] of Object.entries(config.jobs ?? {})) {
       if (
@@ -233,42 +217,40 @@ function validateCIConfig(rootDir: string): ValidationResult {
         !job.services
       ) {
         result.suggestions.push(
-          `Job '${jobName}' might need services (postgres, redis, anvil)`,
+          `Job '${jobName}' might need services (postgres, redis, anvil)`
         )
       }
     }
-
+    
     // Check for anvil/chain
     const hasChain = content.includes('anvil') || content.includes('foundry')
     if (!hasChain) {
       result.suggestions.push('Consider adding Anvil for blockchain testing')
     }
-
+    
     // Check for proper caching
     if (!content.includes('cache')) {
       result.suggestions.push('Add dependency caching for faster CI runs')
     }
-
+    
     // Check for parallel execution
     if (!content.includes('matrix')) {
-      result.suggestions.push(
-        'Consider using matrix strategy for parallel test execution',
-      )
+      result.suggestions.push('Consider using matrix strategy for parallel test execution')
     }
   }
-
+  
   return result
 }
 
 function generateCIWorkflow(rootDir: string): string {
   const appTests = discoverAppTests(rootDir)
-
+  
   // Group tests by type
   const unitTests = appTests.filter((t) => t.type === 'unit')
   const integrationTests = appTests.filter((t) => t.type === 'integration')
   const e2eTests = appTests.filter((t) => t.type === 'e2e')
   const synpressTests = appTests.filter((t) => t.type === 'synpress')
-
+  
   const workflow: CIConfig = {
     name: 'Test Suite',
     on: {
@@ -277,7 +259,7 @@ function generateCIWorkflow(rootDir: string): string {
     },
     jobs: {},
   }
-
+  
   // Unit tests job
   if (unitTests.length > 0) {
     workflow.jobs.unit = {
@@ -301,7 +283,7 @@ function generateCIWorkflow(rootDir: string): string {
       ],
     }
   }
-
+  
   // Integration tests job
   if (integrationTests.length > 0) {
     workflow.jobs.integration = {
@@ -316,14 +298,12 @@ function generateCIWorkflow(rootDir: string): string {
             POSTGRES_DB: 'test',
           },
           ports: ['5432:5432'],
-          options:
-            '--health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5',
+          options: '--health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5',
         },
         redis: {
           image: 'redis:7-alpine',
           ports: ['6379:6379'],
-          options:
-            '--health-cmd "redis-cli ping" --health-interval 10s --health-timeout 5s --health-retries 5',
+          options: '--health-cmd "redis-cli ping" --health-interval 10s --health-timeout 5s --health-retries 5',
         },
       },
       steps: [
@@ -361,7 +341,7 @@ function generateCIWorkflow(rootDir: string): string {
       ],
     }
   }
-
+  
   // E2E tests job
   if (e2eTests.length > 0 || synpressTests.length > 0) {
     workflow.jobs.e2e = {
@@ -431,7 +411,7 @@ function generateCIWorkflow(rootDir: string): string {
       ],
     }
   }
-
+  
   // Contract tests job
   workflow.jobs.contracts = {
     name: 'Contract Tests',
@@ -448,63 +428,63 @@ function generateCIWorkflow(rootDir: string): string {
       },
     ],
   }
-
+  
   return stringifyYaml(workflow, { indent: 2 })
 }
 
 async function main(): Promise<void> {
   const rootDir = findMonorepoRoot()
   const args = process.argv.slice(2)
-
+  
   const shouldValidate = args.includes('--validate')
   const shouldGenerate = args.includes('--generate')
-
+  
   if (shouldValidate) {
     console.log('🔍 Validating CI configuration...\n')
-
+    
     const result = validateCIConfig(rootDir)
-
+    
     if (result.errors.length > 0) {
       console.log('❌ Errors:')
       for (const error of result.errors) {
         console.log(`  • ${error}`)
       }
     }
-
+    
     if (result.warnings.length > 0) {
       console.log('\n⚠️  Warnings:')
       for (const warning of result.warnings) {
         console.log(`  • ${warning}`)
       }
     }
-
+    
     if (result.suggestions.length > 0) {
       console.log('\n💡 Suggestions:')
       for (const suggestion of result.suggestions) {
         console.log(`  • ${suggestion}`)
       }
     }
-
+    
     if (result.valid && result.warnings.length === 0) {
       console.log('✅ CI configuration is valid')
     }
   }
-
+  
   if (shouldGenerate) {
     console.log('🔧 Generating CI workflow...\n')
-
+    
     const workflow = generateCIWorkflow(rootDir)
     const outputPath = join(rootDir, '.github', 'workflows', 'test.yml')
-
+    
     mkdirSync(join(rootDir, '.github', 'workflows'), { recursive: true })
     writeFileSync(outputPath, workflow)
-
+    
     console.log(`✅ Generated: ${outputPath}`)
     console.log('\nWorkflow preview:')
     console.log('='.repeat(60))
     console.log(workflow)
   }
-
+  
   if (!shouldValidate && !shouldGenerate) {
     console.log('Usage:')
     console.log('  jeju test ci-setup --validate   Validate existing CI config')
@@ -516,3 +496,5 @@ main().catch((error) => {
   console.error('CI integration failed:', error)
   process.exit(1)
 })
+
+

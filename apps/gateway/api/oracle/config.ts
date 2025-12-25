@@ -1,45 +1,6 @@
-import type {
-  NetworkType,
-  OracleNodeConfig,
-  PriceSourceConfig,
-} from '@jejunetwork/types'
 import { expectAddress, ZERO_ADDRESS } from '@jejunetwork/types'
 import { type Address, type Hex, isAddress, isHex } from 'viem'
-import { z } from 'zod'
-
-// Schema for validating network configuration file
-const NetworkConfigSchema = z.object({
-  chainId: z.number(),
-  rpcUrl: z.string(),
-  contracts: z.object({
-    feedRegistry: z.string().nullable(),
-    reportVerifier: z.string().nullable(),
-    committeeManager: z.string().nullable(),
-    feeRouter: z.string().nullable(),
-    networkConnector: z.string().nullable(),
-  }),
-  priceSources: z.record(
-    z.string(),
-    z.object({
-      type: z.enum(['uniswap_v3', 'chainlink', 'manual']),
-      address: z.string().optional(),
-      decimals: z.number(),
-      token0Decimals: z.number().optional(),
-      token1Decimals: z.number().optional(),
-    }),
-  ),
-  settings: z.object({
-    pollIntervalMs: z.number(),
-    heartbeatIntervalMs: z.number(),
-    metricsPort: z.number(),
-  }),
-})
-
-const ConfigFileDataSchema = z.object({
-  localnet: NetworkConfigSchema,
-  testnet: NetworkConfigSchema,
-  mainnet: NetworkConfigSchema,
-})
+import type { NetworkType, OracleNodeConfig, PriceSourceConfig } from '@jejunetwork/types'
 
 interface NetworkConfig {
   chainId: number
@@ -66,6 +27,12 @@ interface NetworkConfig {
     heartbeatIntervalMs: number
     metricsPort: number
   }
+}
+
+interface ConfigFileData {
+  localnet: NetworkConfig
+  testnet: NetworkConfig
+  mainnet: NetworkConfig
 }
 
 const REQUIRED_ENV_VARS = [
@@ -132,8 +99,7 @@ export async function loadNetworkConfig(
     throw new ConfigurationError(`Network config file not found: ${configPath}`)
   }
 
-  const rawConfig = await configFile.json()
-  const config = ConfigFileDataSchema.parse(rawConfig)
+  const config: ConfigFileData = await configFile.json()
   const networkConfig = config[network]
 
   if (!networkConfig) {
@@ -142,7 +108,7 @@ export async function loadNetworkConfig(
 
   networkConfig.rpcUrl = resolveEnvVar(networkConfig.rpcUrl)
 
-  return networkConfig as NetworkConfig
+  return networkConfig
 }
 
 export function loadContractAddresses(
@@ -161,7 +127,7 @@ export function loadContractAddresses(
   for (const key of REQUIRED_ADDRESSES) {
     const envAddr = envOverrides[key]
     const configAddr = networkConfig.contracts[key]
-    const addr = envAddr ?? configAddr
+    const addr = envAddr || configAddr
 
     addresses[key] = validateAddress(addr, key)
   }
@@ -270,13 +236,14 @@ export function validateConfig(config: OracleNodeConfig): void {
     errors.push('Heartbeat interval should be >= poll interval')
   }
 
-  if (config.feedRegistry === ZERO_ADDRESS) {
+  const zeroAddress = '0x0000000000000000000000000000000000000000'
+  if (config.feedRegistry === zeroAddress) {
     errors.push('Feed registry address not configured')
   }
-  if (config.reportVerifier === ZERO_ADDRESS) {
+  if (config.reportVerifier === zeroAddress) {
     errors.push('Report verifier address not configured')
   }
-  if (config.networkConnector === ZERO_ADDRESS) {
+  if (config.networkConnector === zeroAddress) {
     errors.push('Network connector address not configured')
   }
 

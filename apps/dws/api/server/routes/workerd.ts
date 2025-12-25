@@ -3,7 +3,12 @@
  * V8 isolate-based serverless worker deployment and invocation
  */
 
-import { expectJson, getFormInt, getFormString } from '@jejunetwork/types'
+import {
+  expectJson,
+  expectValid,
+  getFormInt,
+  getFormString,
+} from '@jejunetwork/types'
 import { Elysia, t } from 'elysia'
 import type { Address } from 'viem'
 import { base, baseSepolia, localhost } from 'viem/chains'
@@ -31,56 +36,51 @@ const WorkerdBindingsSchema = z.array(
   }),
 )
 
-/** JSON body schema for worker deployment */
-interface DeployWorkerJsonBody {
-  name: string
-  code?: string
-  codeCid?: string
-  handler?: string
-  memoryMb?: number
-  timeoutMs?: number
-  cpuTimeMs?: number
-  compatibilityDate?: string
-  compatibilityFlags?: string[]
-  bindings?: Array<{
-    name: string
-    type: 'text' | 'json' | 'data' | 'service'
-    value?: string | Record<string, string>
-    service?: string
-  }>
-}
+/** Zod schema for worker deployment */
+const DeployWorkerJsonBodySchema = z.object({
+  name: z.string().min(1),
+  code: z.string().optional(),
+  codeCid: z.string().optional(),
+  handler: z.string().optional(),
+  memoryMb: z.number().int().positive().optional(),
+  timeoutMs: z.number().int().positive().optional(),
+  cpuTimeMs: z.number().int().positive().optional(),
+  compatibilityDate: z.string().optional(),
+  compatibilityFlags: z.array(z.string()).optional(),
+  bindings: WorkerdBindingsSchema.optional(),
+})
+type DeployWorkerJsonBody = z.infer<typeof DeployWorkerJsonBodySchema>
 
-/** JSON body schema for worker updates */
-interface UpdateWorkerBody {
-  code?: string
-  memoryMb?: number
-  timeoutMs?: number
-  cpuTimeMs?: number
-  bindings?: Array<{
-    name: string
-    type: 'text' | 'json' | 'data' | 'service'
-    value?: string | Record<string, string>
-    service?: string
-  }>
-}
+/** Zod schema for worker updates */
+const UpdateWorkerBodySchema = z.object({
+  code: z.string().optional(),
+  memoryMb: z.number().int().positive().optional(),
+  timeoutMs: z.number().int().positive().optional(),
+  cpuTimeMs: z.number().int().positive().optional(),
+  bindings: WorkerdBindingsSchema.optional(),
+})
+type UpdateWorkerBody = z.infer<typeof UpdateWorkerBodySchema>
 
-/** JSON body schema for worker invocation */
-interface InvokeWorkerBody {
-  method?: string
-  path?: string
-  headers?: Record<string, string>
-  body?: string
-}
+/** Zod schema for worker invocation */
+const InvokeWorkerBodySchema = z.object({
+  method: z.string().optional(),
+  path: z.string().optional(),
+  headers: z.record(z.string(), z.string()).optional(),
+  body: z.string().optional(),
+})
+type InvokeWorkerBody = z.infer<typeof InvokeWorkerBodySchema>
 
-/** JSON body schema for replication */
-interface ReplicateWorkerBody {
-  targetCount?: number
-}
+/** Zod schema for replication */
+const ReplicateWorkerBodySchema = z.object({
+  targetCount: z.number().int().positive().optional(),
+})
+type ReplicateWorkerBody = z.infer<typeof ReplicateWorkerBodySchema>
 
-/** JSON body schema for registry deployment */
-interface DeployFromRegistryBody {
-  agentId: string
-}
+/** Zod schema for registry deployment */
+const DeployFromRegistryBodySchema = z.object({
+  agentId: z.string().min(1),
+})
+type DeployFromRegistryBody = z.infer<typeof DeployFromRegistryBodySchema>
 
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -207,7 +207,11 @@ export function createWorkerdRouter(options: WorkerdRouterOptions) {
             codeBuffer = Buffer.from(await codeFile.arrayBuffer())
           }
         } else {
-          const jsonBody = body as DeployWorkerJsonBody
+          const jsonBody = expectValid(
+            DeployWorkerJsonBodySchema,
+            body,
+            'Deploy worker body',
+          )
           name = jsonBody.name
           memoryMb = jsonBody.memoryMb ?? 128
           timeoutMs = jsonBody.timeoutMs ?? 30000
@@ -413,7 +417,11 @@ export function createWorkerdRouter(options: WorkerdRouterOptions) {
           return { error: 'Not authorized' }
         }
 
-        const updates = body as UpdateWorkerBody
+        const updates = expectValid(
+          UpdateWorkerBodySchema,
+          body,
+          'Update worker body',
+        )
 
         // Update code if provided
         if (updates.code) {
@@ -524,7 +532,11 @@ export function createWorkerdRouter(options: WorkerdRouterOptions) {
     .post(
       '/:workerId/invoke',
       async ({ params, body }) => {
-        const request = body as InvokeWorkerBody
+        const request = expectValid(
+          InvokeWorkerBodySchema,
+          body,
+          'Invoke worker body',
+        )
 
         // Use decentralized router if enabled (it checks local executor first)
         if (workerRouter && enableDecentralized) {

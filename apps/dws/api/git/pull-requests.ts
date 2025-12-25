@@ -153,8 +153,8 @@ export class PullRequestsManager {
     }
 
     // Sort
-    const sortField = options.sort || 'created'
-    const direction = options.direction || 'desc'
+    const sortField = options.sort ?? 'created'
+    const direction = options.direction ?? 'desc'
     prRefs.sort((a, b) => {
       const aVal = sortField === 'updated' ? a.updatedAt : a.createdAt
       const bVal = sortField === 'updated' ? b.updatedAt : b.createdAt
@@ -203,7 +203,7 @@ export class PullRequestsManager {
       repoId,
       request.sourceBranch,
     )
-    const targetBranchName = request.targetBranch || 'main'
+    const targetBranchName = request.targetBranch ?? 'main'
     const targetBranch = await this.repoManager.getBranch(
       repoId,
       targetBranchName,
@@ -230,7 +230,7 @@ export class PullRequestsManager {
       repoId,
       number: prNumber,
       title: request.title,
-      body: request.body || '',
+      body: request.body ?? '',
       state: 'open',
       author,
       sourceBranch: request.sourceBranch,

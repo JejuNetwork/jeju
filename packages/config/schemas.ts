@@ -301,12 +301,6 @@ export const ServicesNetworkConfigSchema = z.object({
     api: UrlString,
     mcp: UrlString,
   }),
-  otto: z
-    .object({
-      api: UrlString,
-      webhook: UrlString,
-    })
-    .optional(),
   oauth3: z
     .object({
       api: UrlString,

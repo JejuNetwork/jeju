@@ -63,12 +63,13 @@ export interface TrajectoryMetadata {
 export interface AgentTrajectory {
   agentId: string
   episodeId: string
-  steps: TrajectoryStep[]
+  steps: CrucibleTrajectoryStep[]
   totalReward: number
   metadata: TrajectoryMetadata
 }
 
-export interface TrajectoryStep {
+/** Simple trajectory step for Crucible integration */
+export interface CrucibleTrajectoryStep {
   stepNumber: number
   observation: string
   action: string

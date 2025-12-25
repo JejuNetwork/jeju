@@ -191,7 +191,7 @@ export class ReputationManager {
     metrics: MetricsInput,
   ): Promise<ReputationScore> {
     // Merge with existing metrics if any
-    const existing = this.pendingUpdates.get(entityId) || {}
+    const existing = this.pendingUpdates.get(entityId) ?? {}
     const merged: MetricsInput = { ...existing }
 
     // Accumulate counts - use type-safe assignment
@@ -389,7 +389,7 @@ export class ReputationManager {
     }> = []
 
     for (const [entityId, score] of this.cache) {
-      const metrics = this.pendingUpdates.get(entityId) || {}
+      const metrics = this.pendingUpdates.get(entityId) ?? {}
       data.push({ entityId, metrics, score })
     }
 

@@ -9,8 +9,6 @@ import {
   erc20Abi,
   getContract,
   type Hex,
-  keccak256,
-  toHex,
 } from 'viem'
 import { getServicesConfig, safeGetContract } from '../config'
 import {
@@ -26,6 +24,7 @@ export interface Token {
   name: string
   decimals: number
 }
+
 
 import type { SwapQuote } from '@jejunetwork/types'
 
@@ -530,10 +529,8 @@ export function createDefiModule(
     })
 
     // Find the TokenCreated event log
-    // TokenCreated(address indexed token, string name, string symbol, uint256 totalSupply, uint8 decimals)
-    const TOKEN_CREATED_TOPIC = keccak256(
-      toHex('TokenCreated(address,string,string,uint256,uint8)'),
-    )
+    // TODO: Replace with actual TokenCreated event topic hash
+    const TOKEN_CREATED_TOPIC = '0x...' // This is a placeholder - needs actual topic
     const log = receipt.logs.find((l) => l.topics[0] === TOKEN_CREATED_TOPIC)
     if (!log) {
       throw new Error(

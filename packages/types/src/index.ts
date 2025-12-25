@@ -2,6 +2,7 @@
  * Jeju Network shared types, schemas, and validation utilities.
  */
 
+export * from './agents'
 export * from './api'
 export * from './bridge'
 export * from './cdn'
@@ -13,6 +14,7 @@ export * from './eil'
 export * from './events'
 export * from './external-compute'
 export * from './funding'
+export * from './generics'
 export * from './governance'
 export * from './health'
 export * from './indexer'

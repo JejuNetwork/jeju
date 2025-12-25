@@ -5,30 +5,25 @@
  * Import common validators directly from @jejunetwork/types.
  */
 
-import { type Address, isAddress } from 'viem'
+import { expectAddress, expectHex } from '@jejunetwork/types'
+import type { Address, Hex } from 'viem'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Factory-specific Validators
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Validates and returns an Address type. Uses viem's isAddress for validation.
+ * Validates and returns an Address type.
  */
 export function validateAddress(value: string): Address {
-  if (!isAddress(value)) {
-    throw new Error(`Invalid Ethereum address: ${value}`)
-  }
-  return value
+  return expectAddress(value, 'address')
 }
 
 /**
  * Validates and returns a hex string. Throws if invalid.
  */
-export function validateHexString(value: string): `0x${string}` {
-  if (!value.startsWith('0x')) {
-    throw new Error(`Invalid hex string: ${value}`)
-  }
-  return value as `0x${string}`
+export function validateHexString(value: string): Hex {
+  return expectHex(value, 'hex string')
 }
 
 /**

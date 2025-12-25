@@ -12,6 +12,7 @@
  */
 
 import { parseArgs } from 'node:util'
+import { toError } from '@jejunetwork/types'
 import { type Address, toHex } from 'viem'
 import {
   getMPCConfig,
@@ -103,7 +104,7 @@ async function main() {
       console.log(`  [OK] Registered ${partyId} at ${party.endpoint}`)
     } catch (error) {
       console.error(
-        `  [FAIL] Failed to register ${partyId}: ${(error as Error).message}`,
+        `  [FAIL] Failed to register ${partyId}: ${toError(error).message}`,
       )
     }
   }
@@ -140,7 +141,7 @@ async function main() {
     console.log(`  Public Key: ${keyResult.publicKey.slice(0, 20)}...`)
     console.log(`  Version: ${keyResult.version}`)
   } catch (error) {
-    console.error(`  [FAIL] Key generation failed: ${(error as Error).message}`)
+    console.error(`  [FAIL] Key generation failed: ${toError(error).message}`)
     process.exit(1)
   }
 

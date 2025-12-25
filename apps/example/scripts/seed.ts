@@ -1,5 +1,5 @@
 import { getNetworkName } from '@jejunetwork/config'
-import { AuthProvider, TEEProvider } from '@jejunetwork/oauth3'
+import { AuthProvider, TEEProvider } from '@jejunetwork/auth'
 import { expectAddress, expectHex } from '@jejunetwork/types'
 import { getRegistryService } from '../api/services/registry'
 
@@ -137,7 +137,7 @@ async function seedOAuth3Registry() {
   console.log('\n🎉 OAuth3 Registry seeding complete!\n')
   console.log('Next steps:')
   console.log(
-    `  1. Start the TEE agent: bun run --cwd packages/oauth3 start:agent`,
+    `  1. Start the TEE agent: bun run --cwd packages/auth start:agent`,
   )
   console.log(`  2. Start the app: bun run dev`)
   console.log(`  3. Visit: http://localhost:${frontendPort}\n`)
