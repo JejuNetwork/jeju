@@ -580,6 +580,8 @@ export const ceoFeeSkills = [
       appShareBps: 'App developer share (0-10000)',
       lpShareBps: 'Liquidity provider share (0-10000)',
       contributorShareBps: 'Contributor pool share (0-10000)',
+      ethLpShareBps: 'ETH LP share (default 7000 = 70%)',
+      tokenLpShareBps: 'Token LP share (default 3000 = 30%)',
     },
   },
   {
@@ -753,8 +755,8 @@ export async function executeCEOFeeSkill(
           appShareBps: Number(params.appShareBps),
           lpShareBps: Number(params.lpShareBps),
           contributorShareBps: Number(params.contributorShareBps),
-          ethLpShareBps: Number(params.ethLpShareBps || 7000),
-          tokenLpShareBps: Number(params.tokenLpShareBps || 3000),
+          ethLpShareBps: Number(params.ethLpShareBps ?? 7000),
+          tokenLpShareBps: Number(params.tokenLpShareBps ?? 3000),
         })
         return { success: true, result: { txHash: hash } }
       }

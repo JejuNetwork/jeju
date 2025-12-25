@@ -518,7 +518,7 @@ class SelfHostingBootstrap {
       console.log(`  Uploaded to CID: ${cid}`)
 
       // Get dependencies
-      const dependencies = Object.keys(pkg.dependencies || {})
+      const dependencies = Object.keys(pkg.dependencies ?? {})
 
       // Publish to registry
       const hash = await this.walletClient.writeContract({

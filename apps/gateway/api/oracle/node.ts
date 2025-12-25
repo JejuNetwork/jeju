@@ -135,7 +135,7 @@ export class OracleNode {
 
     await this.publicClient.waitForTransactionReceipt({ hash })
 
-    this.operatorId = await readContract(this.publicClient, {
+    this.operatorId = await this.publicClient.readContract({
       address: this.config.networkConnector,
       abi: NETWORK_CONNECTOR_ABI,
       functionName: 'workerToOperator',
@@ -149,7 +149,7 @@ export class OracleNode {
 
     console.log('[OracleNode] Polling prices...')
 
-    const feedIds = await readContract(this.publicClient, {
+    const feedIds = await this.publicClient.readContract({
       address: this.config.feedRegistry,
       abi: FEED_REGISTRY_ABI,
       functionName: 'getActiveFeeds',

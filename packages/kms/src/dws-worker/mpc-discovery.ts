@@ -632,10 +632,7 @@ export class MPCSigningClient {
           throw new Error(`Party ${party.agentId} keygen finalize failed`)
         }
 
-        return response.json() as Promise<{
-          groupPublicKey: Hex
-          groupAddress: Address
-        }>
+        return KeygenFinalizeSchema.parse(await response.json())
       }),
     )
 

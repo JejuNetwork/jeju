@@ -75,22 +75,22 @@ function resolveEnvVar(value: string): string {
 }
 
 function validatePrivateKey(key: string, name: string): Hex {
-  if (!key || !key.startsWith('0x') || key.length !== 66) {
+  if (!key || !isHex(key) || key.length !== 66) {
     throw new ConfigurationError(
       `${name} must be a valid 32-byte hex string (0x + 64 chars)`,
     )
   }
-  return key as Hex
+  return key
 }
 
 function validateAddress(addr: string | null, name: string): Address {
-  if (!addr || addr === '0x0000000000000000000000000000000000000000') {
+  if (!addr || addr === ZERO_ADDRESS) {
     throw new ConfigurationError(`${name} address not configured`)
   }
   if (!isAddress(addr)) {
     throw new ConfigurationError(`${name} is not a valid address: ${addr}`)
   }
-  return addr as Address
+  return addr
 }
 
 export async function loadNetworkConfig(
@@ -158,8 +158,7 @@ export function buildPriceSources(
 
     sources.push({
       type: sourceConfig.type,
-      address: (sourceConfig.address ||
-        '0x0000000000000000000000000000000000000000') as Address,
+      address: sourceConfig.address ? expectAddress(sourceConfig.address) : ZERO_ADDRESS,
       feedId,
       decimals: sourceConfig.decimals,
     })

@@ -128,7 +128,7 @@ export class ThresholdSigner {
 
     if (!shares || shares.length < this.threshold) {
       throw new Error(
-        `Need ${this.threshold} signatures, have ${shares?.length || 0}`,
+        `Need ${this.threshold} signatures, have ${shares?.length ?? 0}`,
       )
     }
     if (!batch) throw new Error(`Batch ${batchNumber} not found`)

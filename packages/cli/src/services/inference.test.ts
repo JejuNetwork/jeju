@@ -414,11 +414,11 @@ describe('Response Normalization', () => {
         },
       ],
       usage: {
-        prompt_tokens: data.meta?.tokens?.input_tokens || 0,
-        completion_tokens: data.meta?.tokens?.output_tokens || 0,
+        prompt_tokens: data.meta?.tokens?.input_tokens ?? 0,
+        completion_tokens: data.meta?.tokens?.output_tokens ?? 0,
         total_tokens:
-          (data.meta?.tokens?.input_tokens || 0) +
-          (data.meta?.tokens?.output_tokens || 0),
+          (data.meta?.tokens?.input_tokens ?? 0) +
+          (data.meta?.tokens?.output_tokens ?? 0),
       },
     }
   }
