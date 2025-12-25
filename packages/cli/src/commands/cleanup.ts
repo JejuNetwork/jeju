@@ -35,7 +35,6 @@ export const cleanupCommand = new Command('cleanup')
       4002, // Node Explorer API
       4003, // Node Explorer UI
       4004, // Documentation
-      4005, // Predimarket
       4010, // Grafana
       4350, // Indexer GraphQL
       5001,

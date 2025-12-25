@@ -166,7 +166,7 @@ interface IPredictionOracle {
 
 /**
  * @notice Example external betting contract using IPredictionOracle
- * @dev This shows how Predimarket or any other contract can bet on Caliguland games
+ * @dev This shows how PredictionMarket (Bazaar) or any other contract can bet on Caliguland games
  */
 contract ExamplePredictionContract {
     IPredictionOracle public immutable oracle;

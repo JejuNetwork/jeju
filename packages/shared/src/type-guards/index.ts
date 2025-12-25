@@ -267,7 +267,8 @@ export function hasArrayProperty<K extends string>(
 // =============================================================================
 
 /**
- * Check if a value is a valid JsonValue (null, string, number, boolean, array, or object)
+ * Check if a value is a valid JsonValue (null, string, number, boolean, array, or plain object)
+ * Excludes special object types like Date, Map, Set, RegExp, Error, Promise, etc.
  */
 export function isJsonValue(value: unknown): value is JsonValue {
   if (value === null) return true
@@ -275,7 +276,8 @@ export function isJsonValue(value: unknown): value is JsonValue {
   if (typeof value === 'number') return true
   if (typeof value === 'boolean') return true
   if (Array.isArray(value)) return value.every(isJsonValue)
-  if (typeof value === 'object') {
+  // Must be a plain object - exclude Date, Map, Set, RegExp, Error, etc.
+  if (isPlainObject(value)) {
     return Object.values(value).every(isJsonValue)
   }
   return false

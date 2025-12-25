@@ -80,38 +80,38 @@ contract DeployDAORegistry is Script {
         console.log("Jeju DAO created:");
         console.logBytes32(jejuId);
 
-        // 5. Create Babylon DAO
-        IDAORegistry.CEOPersona memory babylonCEO = IDAORegistry.CEOPersona({
-            name: "Monkey King",
+        // 5. Create Apps DAO
+        IDAORegistry.CEOPersona memory appsCEO = IDAORegistry.CEOPersona({
+            name: "Apps Lead",
             pfpCid: "",
-            description: "The Great Sage Equal to Heaven, guiding Babylon through mischief and wisdom. A legendary figure who has journeyed to the West and back.",
-            personality: "Mischievous yet wise, powerful yet compassionate. Makes decisions with ancient wisdom and playful authority.",
+            description: "The governance leader for Jeju applications, overseeing app-specific economics and incentives.",
+            personality: "Innovative, user-focused, and pragmatic. Balances app growth with sustainable economics.",
             traits: new string[](4)
         });
-        babylonCEO.traits[0] = "playful";
-        babylonCEO.traits[1] = "powerful";
-        babylonCEO.traits[2] = "wise";
-        babylonCEO.traits[3] = "legendary";
+        appsCEO.traits[0] = "innovative";
+        appsCEO.traits[1] = "pragmatic";
+        appsCEO.traits[2] = "user-focused";
+        appsCEO.traits[3] = "growth-oriented";
 
-        IDAORegistry.GovernanceParams memory babylonParams = IDAORegistry.GovernanceParams({
-            minQualityScore: 60, // Lower threshold for game-related proposals
-            councilVotingPeriod: 2 days, // Faster for gaming
+        IDAORegistry.GovernanceParams memory appsParams = IDAORegistry.GovernanceParams({
+            minQualityScore: 60, // Lower threshold for app-related proposals
+            councilVotingPeriod: 2 days, // Faster for apps
             gracePeriod: 12 hours,
             minProposalStake: 0.005 ether,
             quorumBps: 4000 // 40%
         });
 
-        bytes32 babylonId = daoRegistry.createDAO(
-            "babylon",
-            "Babylon DAO",
-            "Governance for Babylon game engine - controls game fees, points, bonuses, airdrops, and game-specific economics",
+        bytes32 appsId = daoRegistry.createDAO(
+            "apps",
+            "Apps DAO",
+            "Governance for Jeju applications - controls app fees, points, bonuses, airdrops, and app-specific economics",
             deployer, // Treasury (should be multisig in production)
             "",
-            babylonCEO,
-            babylonParams
+            appsCEO,
+            appsParams
         );
-        console.log("Babylon DAO created:");
-        console.logBytes32(babylonId);
+        console.log("Apps DAO created:");
+        console.logBytes32(appsId);
 
         // 6. Set FeeConfig council and CEO
         feeConfig.setCouncil(address(daoRegistry));
@@ -129,8 +129,8 @@ contract DeployDAORegistry is Script {
         console.log("");
         console.log("JEJU_DAO_ID=");
         console.logBytes32(jejuId);
-        console.log("BABYLON_DAO_ID=");
-        console.logBytes32(babylonId);
+        console.log("APPS_DAO_ID=");
+        console.logBytes32(appsId);
     }
 }
 

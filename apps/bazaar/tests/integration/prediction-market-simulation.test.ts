@@ -84,7 +84,7 @@ class LMSR {
 
 let publicClient: PublicClient
 let skipTests = false
-let prediMarketAddress: Address | null = null
+let predictionMarketAddress: Address | null = null
 
 function loadDeployment(filename: string): Record<string, string> {
   const deploymentMap: Record<string, Record<string, string>> = {
@@ -94,10 +94,8 @@ function loadDeployment(filename: string): Record<string, string> {
     >,
     'bazaar-marketplace-31337.json':
       rawDeployments.bazaarMarketplace1337 as Record<string, string>,
-    'predimarket-31337.json': rawDeployments.predimarket1337 as Record<
-      string,
-      string
-    >,
+    'prediction-market-31337.json':
+      rawDeployments.predictionMarket1337 as Record<string, string>,
     'multi-token-system-31337.json':
       rawDeployments.multiTokenSystem1337 as Record<string, string>,
   }
@@ -119,10 +117,13 @@ beforeAll(async () => {
     return
   }
 
-  const prediMarket = loadDeployment('predimarket-31337.json')
-  prediMarketAddress = (prediMarket.at || prediMarket.prediMarket) as Address
+  const predictionMarket = loadDeployment('prediction-market-31337.json')
+  predictionMarketAddress = (predictionMarket.at ||
+    predictionMarket.predictionMarket) as Address
 
-  console.log(`   PrediMarket: ${prediMarketAddress || 'NOT DEPLOYED'}`)
+  console.log(
+    `   PredictionMarket: ${predictionMarketAddress || 'NOT DEPLOYED'}`,
+  )
 })
 
 // TESTS: LMSR PRICING
@@ -339,16 +340,18 @@ describe('Market Resolution', () => {
 
 // TESTS: CONTRACT VERIFICATION
 
-describe('PrediMarket Contract', () => {
-  test('should verify PrediMarket deployment', async () => {
-    if (skipTests || !prediMarketAddress) {
-      console.log('   ⚠️ PrediMarket not deployed')
+describe('PredictionMarket Contract', () => {
+  test('should verify PredictionMarket deployment', async () => {
+    if (skipTests || !predictionMarketAddress) {
+      console.log('   ⚠️ PredictionMarket not deployed')
       return
     }
 
-    const code = await publicClient.getCode({ address: prediMarketAddress })
+    const code = await publicClient.getCode({
+      address: predictionMarketAddress,
+    })
     expect(code).not.toBe('0x')
-    console.log(`   ✅ PrediMarket verified at ${prediMarketAddress}`)
+    console.log(`   ✅ PredictionMarket verified at ${predictionMarketAddress}`)
   })
 })
 

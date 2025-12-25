@@ -285,7 +285,8 @@ export interface CqlQueryResponse<T> {
 export function isCqlQueryResponse<T>(
   data: unknown,
 ): data is CqlQueryResponse<T> {
-  if (typeof data !== 'object' || data === null) return false
+  if (typeof data !== 'object' || data === null || Array.isArray(data))
+    return false
   const obj = data as Record<string, unknown>
   return obj.rows === undefined || Array.isArray(obj.rows)
 }

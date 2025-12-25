@@ -16,14 +16,13 @@ import {
   type WalletSignatureConfig,
 } from './types.js'
 
-/** Context derived by auth plugin */
-export interface AuthContext {
+/** Context derived by auth plugin - index signature required for Elysia derive compatibility */
+export interface AuthContext extends Record<string, Address | AuthUser | AuthMethod | string | boolean | undefined> {
   address?: Address
   authUser?: AuthUser
   authMethod?: AuthMethod
   oauth3SessionId?: string
   isAuthenticated: boolean
-  [key: string]: unknown
 }
 
 export interface AuthPluginConfig extends CombinedAuthConfig {
@@ -34,9 +33,7 @@ export interface AuthPluginConfig extends CombinedAuthConfig {
 }
 
 export function createAuthDerive(config: CombinedAuthConfig) {
-  return async function authDerive({
-    request,
-  }: Context): Promise<Record<string, unknown>> {
+  return async function authDerive({ request }: Context): Promise<AuthContext> {
     const headers = extractAuthHeaders(
       Object.fromEntries(request.headers.entries()),
     )
@@ -249,8 +246,9 @@ export function authErrorHandler({
 export function createElysiaAuth(options: {
   oauth3?: OAuth3Config
   walletSignature?: {
-    domain: string
+    domain?: string
     validityWindowMs?: number
+    messagePrefix?: string
   }
   apiKeys?: Map<
     string,
@@ -277,7 +275,7 @@ export function createElysiaAuth(options: {
     config.walletSignature = {
       domain: options.walletSignature.domain,
       validityWindowMs: options.walletSignature.validityWindowMs,
-      messagePrefix: 'jeju-dapp',
+      messagePrefix: options.walletSignature.messagePrefix,
     }
   }
 

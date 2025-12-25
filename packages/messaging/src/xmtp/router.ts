@@ -10,7 +10,8 @@
  * 4. Recipient decrypts with XMTP/MLS
  */
 
-import type { Address } from 'viem'
+import { createPublicClient, http, type Address, type Hex } from 'viem'
+import { MESSAGE_NODE_REGISTRY_ABI } from '../sdk/abis'
 import type { RouteConfig, RouteResult, XMTPEnvelope } from './types'
 
 export interface RelayNode {
@@ -67,6 +68,9 @@ export class XMTPMessageRouter {
       maxRetries: config?.maxRetries ?? 3,
       retryDelayMs: config?.retryDelayMs ?? 1000,
       timeoutMs: config?.timeoutMs ?? 10000,
+      rpcUrl: config?.rpcUrl,
+      nodeRegistryAddress: config?.nodeRegistryAddress,
+      useFallbackNodes: config?.useFallbackNodes ?? false,
     }
 
     this.stats = {

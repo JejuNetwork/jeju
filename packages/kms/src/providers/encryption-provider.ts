@@ -1,10 +1,12 @@
 /**
  * Encryption Provider - AES-256-GCM with policy-based access control
  *
- * Access conditions: 'timestamp' works locally; others require on-chain KeyRegistry
+ * Access conditions:
+ * - 'timestamp': Verified locally
+ * - 'balance', 'stake', 'role', 'agent', 'contract': Verified on-chain
  */
 
-import { getEnvBoolean, requireEnv } from '@jejunetwork/shared'
+import { getEnv, getEnvBoolean, requireEnv } from '@jejunetwork/shared'
 import type { Address, Hex } from 'viem'
 import { keccak256, toBytes, toHex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
@@ -21,11 +23,15 @@ import {
   unsealWithMasterKey,
 } from '../crypto.js'
 import { encLogger as log } from '../logger.js'
+import { getOnChainVerifier } from '../on-chain-verifier.js'
 import {
   type AccessCondition,
   type AccessControlPolicy,
+  type AgentCondition,
   type AuthSignature,
+  type BalanceCondition,
   ConditionOperator,
+  type ContractCondition,
   type DecryptRequest,
   type EncryptedPayload,
   type EncryptionConfig,
@@ -36,9 +42,11 @@ import {
   type KeyType,
   type KMSProvider,
   KMSProviderType,
+  type RoleCondition,
   type SessionKey,
   type SignedMessage,
   type SignRequest,
+  type StakeCondition,
 } from '../types.js'
 
 interface EncryptionKey {
@@ -218,9 +226,13 @@ export class EncryptionProvider implements KMSProvider {
   async decrypt(request: DecryptRequest): Promise<string> {
     await this.ensureConnected()
 
-    const { payload } = request
+    const { payload, authSig } = request
+    const requesterAddress = authSig?.address
 
-    const allowed = await this.checkAccessControl(payload.policy)
+    const allowed = await this.checkAccessControl(
+      payload.policy,
+      requesterAddress,
+    )
     if (!allowed) throw new Error('Access denied: policy conditions not met')
 
     const parsed = parseCiphertextPayload(payload.ciphertext)
@@ -382,9 +394,10 @@ export class EncryptionProvider implements KMSProvider {
 
   private async checkAccessControl(
     policy: AccessControlPolicy,
+    requesterAddress?: Address,
   ): Promise<boolean> {
     for (const condition of policy.conditions) {
-      const result = await this.evaluateCondition(condition)
+      const result = await this.evaluateCondition(condition, requesterAddress)
       if (policy.operator === 'and' && !result) return false
       if (policy.operator === 'or' && result) return true
     }
@@ -393,6 +406,7 @@ export class EncryptionProvider implements KMSProvider {
 
   private async evaluateCondition(
     condition: AccessCondition,
+    requesterAddress?: Address,
   ): Promise<boolean> {
     switch (condition.type) {
       case 'timestamp':
@@ -403,24 +417,68 @@ export class EncryptionProvider implements KMSProvider {
         )
       case 'balance':
         if (condition.value === '0') return true
-        log.debug('Balance condition requires on-chain check')
-        return false
+        if (!requesterAddress) {
+          log.warn('Balance condition requires requester address')
+          return false
+        }
+        return this.verifyOnChainCondition(
+          condition as BalanceCondition,
+          requesterAddress,
+        )
       case 'stake':
         if (condition.minStakeUSD === 0) return true
-        log.debug('Stake condition requires on-chain check')
-        return false
+        if (!requesterAddress) {
+          log.warn('Stake condition requires requester address')
+          return false
+        }
+        return this.verifyOnChainCondition(
+          condition as StakeCondition,
+          requesterAddress,
+        )
       case 'role':
-        log.debug('Role condition requires on-chain check')
-        return false
+        if (!requesterAddress) {
+          log.warn('Role condition requires requester address')
+          return false
+        }
+        return this.verifyOnChainCondition(
+          condition as RoleCondition,
+          requesterAddress,
+        )
       case 'agent':
-        log.debug('Agent condition requires on-chain check')
-        return false
+        if (!requesterAddress) {
+          log.warn('Agent condition requires requester address')
+          return false
+        }
+        return this.verifyOnChainCondition(
+          condition as AgentCondition,
+          requesterAddress,
+        )
       case 'contract':
-        log.debug('Contract condition requires on-chain check')
-        return false
+        if (!requesterAddress) {
+          log.warn('Contract condition requires requester address')
+          return false
+        }
+        return this.verifyOnChainCondition(
+          condition as ContractCondition,
+          requesterAddress,
+        )
       default:
         return false
     }
+  }
+
+  private async verifyOnChainCondition(
+    condition: AccessCondition,
+    address: Address,
+  ): Promise<boolean> {
+    const rpcUrl = getEnv('KMS_RPC_URL')
+    if (!rpcUrl) {
+      log.warn('KMS_RPC_URL not configured, on-chain verification disabled')
+      return false
+    }
+
+    const verifier = getOnChainVerifier({ defaultRpcUrl: rpcUrl })
+    return verifier.verifyAccessCondition(condition, address)
   }
 
   private compare(a: number, op: ConditionOperator, b: number): boolean {

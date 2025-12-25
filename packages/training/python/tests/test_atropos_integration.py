@@ -31,19 +31,19 @@ class TestImports:
     def test_import_models(self):
         from src.models import (
             AtroposScoredGroup,
-            BabylonTrajectory,
+            JejuTrajectory,
         )
 
-        assert BabylonTrajectory is not None
+        assert JejuTrajectory is not None
         assert AtroposScoredGroup is not None
 
     def test_import_converter(self):
         from src.data_bridge import (
-            BabylonToAtroposConverter,
+            JejuToAtroposConverter,
             ScoredGroupResult,
         )
 
-        assert BabylonToAtroposConverter is not None
+        assert JejuToAtroposConverter is not None
         assert ScoredGroupResult is not None
 
     def test_import_rewards(self):
@@ -60,18 +60,18 @@ class TestImports:
     @requires_torch
     def test_import_trainer(self):
         from src.training import (
-            BabylonAtroposTrainer,
+            JejuAtroposTrainer,
         )
 
-        assert BabylonAtroposTrainer is not None
+        assert JejuAtroposTrainer is not None
 
     @requires_torch
     def test_import_environment(self):
         from src.training import (
-            BabylonRLAIFEnv,
+            JejuRLAIFEnv,
         )
 
-        assert BabylonRLAIFEnv is not None
+        assert JejuRLAIFEnv is not None
 
 
 class TestRewardFunctions:
@@ -149,13 +149,13 @@ class TestRewardFunctions:
 
 
 class TestConverter:
-    """Test Babylon to Atropos conversion"""
+    """Test Jeju to Atropos conversion"""
 
     def create_sample_trajectory(self):
         """Create a sample trajectory for testing"""
         from src.models import (
             Action,
-            BabylonTrajectory,
+            JejuTrajectory,
             EnvironmentState,
             LLMCall,
             TrajectoryStep,
@@ -192,7 +192,7 @@ class TestConverter:
             )
             steps.append(step)
 
-        return BabylonTrajectory(
+        return JejuTrajectory(
             id="test-1",
             trajectory_id="traj-1",
             agent_id="agent-1",
@@ -208,9 +208,9 @@ class TestConverter:
         )
 
     def test_convert_trajectory(self):
-        from src.data_bridge import BabylonToAtroposConverter
+        from src.data_bridge import JejuToAtroposConverter
 
-        converter = BabylonToAtroposConverter()
+        converter = JejuToAtroposConverter()
         traj = self.create_sample_trajectory()
 
         result = converter.convert_trajectory(traj)
@@ -221,9 +221,9 @@ class TestConverter:
         assert result.metadata["final_pnl"] == 400.0
 
     def test_convert_window_group(self):
-        from src.data_bridge import BabylonToAtroposConverter
+        from src.data_bridge import JejuToAtroposConverter
 
-        converter = BabylonToAtroposConverter()
+        converter = JejuToAtroposConverter()
         trajs = [self.create_sample_trajectory() for _ in range(4)]
 
         # Modify trajectory IDs
@@ -269,18 +269,18 @@ class TestEnvironmentConfig:
     """Test environment configuration (requires torch)"""
 
     def test_default_config(self):
-        from src.training import BabylonEnvConfig
+        from src.training import JejuEnvConfig
 
-        config = BabylonEnvConfig()
+        config = JejuEnvConfig()
 
         assert config.group_size == 4
         assert config.lookback_hours == 72
         assert config.min_agents_per_window == 2
 
     def test_custom_config(self):
-        from src.training import BabylonEnvConfig
+        from src.training import JejuEnvConfig
 
-        config = BabylonEnvConfig(
+        config = JejuEnvConfig(
             group_size=8,
             lookback_hours=48,
             judge_model="gpt-4",

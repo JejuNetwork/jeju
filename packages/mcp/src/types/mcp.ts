@@ -5,14 +5,9 @@
  * @packageDocumentation
  */
 
-import type { JsonValue } from '@jejunetwork/types'
+import type { JsonValue, StringRecord } from '@jejunetwork/types'
 
-export type { JsonValue }
-
-/**
- * String-keyed record type for JSON objects
- */
-export type StringRecord<T> = Record<string, T>
+export type { JsonValue, StringRecord }
 
 /**
  * JSON-RPC 2.0 Error

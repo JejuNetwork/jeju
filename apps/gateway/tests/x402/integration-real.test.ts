@@ -29,6 +29,7 @@ async function request(
   const url = `http://localhost${path}`
   return server.handle(new Request(url, options))
 }
+
 import { clearNonceCache } from '../../api/x402/services/nonce-manager'
 import {
   createClients,

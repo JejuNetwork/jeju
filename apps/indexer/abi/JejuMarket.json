@@ -61,7 +61,7 @@
     "inputs": [
       {"name": "sessionId", "type": "bytes32"},
       {"name": "outcome", "type": "bool"},
-      {"name": "elizaOSAmount", "type": "uint256"},
+      {"name": "amount", "type": "uint256"},
       {"name": "minShares", "type": "uint256"}
     ],
     "name": "buy",

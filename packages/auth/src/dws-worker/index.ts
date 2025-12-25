@@ -18,6 +18,7 @@
  * - Calls MPC parties for all signing operations
  */
 
+import { createMPCClient } from '@jejunetwork/kms'
 import { Elysia } from 'elysia'
 import type { Address, Hex } from 'viem'
 import { keccak256, toBytes, verifyMessage } from 'viem'
@@ -71,48 +72,6 @@ const CredentialVerifyBodySchema = z.object({
     proofValue: z.string().transform((s) => s as Hex),
   }),
 })
-
-// MPC client stub - real implementation from kms package
-interface MPCKeyGenParams {
-  keyId: string
-  algorithm?: string
-  keyType?: string
-}
-
-interface MPCSignParams {
-  keyId: string
-  messageHash?: Hex
-}
-
-interface MPCSigningClient {
-  sign: (keyId: string, message: string) => Promise<{ signature: string }>
-  getKey: (keyId: string) => Promise<{ publicKey: string } | null>
-  requestKeyGen: (
-    params: MPCKeyGenParams,
-  ) => Promise<{ keyId: string; publicKey: Hex }>
-  requestSignature: (params: MPCSignParams) => Promise<{ signature: Hex }>
-}
-
-function createMPCClient(
-  _config: {
-    rpcUrl: string
-    mpcRegistryAddress: Address
-    identityRegistryAddress: Address
-  },
-  _serviceAgentId: string,
-): MPCSigningClient {
-  return {
-    sign: async (_keyId: string, _message: string) => ({ signature: '0x' }),
-    getKey: async (_keyId: string) => null,
-    requestKeyGen: async (_params: MPCKeyGenParams) => ({
-      keyId: '',
-      publicKey: '0x' as Hex,
-    }),
-    requestSignature: async (_params: MPCSignParams) => ({
-      signature: '0x' as Hex,
-    }),
-  }
-}
 
 // ============ Types ============
 

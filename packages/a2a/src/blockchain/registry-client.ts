@@ -114,7 +114,6 @@ export class RegistryClient {
       abi: IDENTITY_ABI,
       functionName: 'getAgentProfile',
       args: [BigInt(tokenId)],
-      authorizationList: undefined,
     })
     const reputation = await this.getAgentReputation(tokenId)
     const address = await this.client.readContract({
@@ -122,7 +121,6 @@ export class RegistryClient {
       abi: IDENTITY_ABI,
       functionName: 'ownerOf',
       args: [BigInt(tokenId)],
-      authorizationList: undefined,
     })
 
     return {
@@ -147,7 +145,6 @@ export class RegistryClient {
       abi: IDENTITY_ABI,
       functionName: 'getTokenId',
       args: [address as `0x${string}`],
-      authorizationList: undefined,
     })
     if (tokenId === 0n) return null
     return this.getAgentProfile(Number(tokenId))
@@ -162,7 +159,6 @@ export class RegistryClient {
       abi: REPUTATION_ABI,
       functionName: 'getReputation',
       args: [BigInt(tokenId)],
-      authorizationList: undefined,
     })
 
     // Contract ABI guarantees these fields - trust the types
@@ -193,7 +189,6 @@ export class RegistryClient {
         abi: REPUTATION_ABI,
         functionName: 'getAgentsByMinScore',
         args: [BigInt(filters.minReputation)],
-        authorizationList: undefined,
       })
     } else {
       tokenIds = await this.client.readContract({
@@ -201,7 +196,6 @@ export class RegistryClient {
         abi: IDENTITY_ABI,
         functionName: 'getAllActiveAgents',
         args: [],
-        authorizationList: undefined,
       })
     }
 
@@ -308,7 +302,6 @@ export class RegistryClient {
       abi: IDENTITY_ABI,
       functionName: 'ownerOf',
       args: [BigInt(tokenId)],
-      authorizationList: undefined,
     })
     return owner.toLowerCase() === address.toLowerCase()
   }
@@ -322,7 +315,6 @@ export class RegistryClient {
       abi: IDENTITY_ABI,
       functionName: 'isEndpointActive',
       args: [endpoint],
-      authorizationList: undefined,
     })
   }
 

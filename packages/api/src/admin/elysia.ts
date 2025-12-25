@@ -13,10 +13,10 @@ interface AuthDerivedContext {
   address?: string
 }
 
-export interface AdminContext {
+/** Admin context - index signature required for Elysia derive compatibility */
+export interface AdminContext extends Record<string, AdminUser | boolean | undefined> {
   admin?: AdminUser
   isAdmin: boolean
-  [key: string]: AdminUser | boolean | undefined
 }
 
 export interface AdminPluginConfig extends AdminConfig {

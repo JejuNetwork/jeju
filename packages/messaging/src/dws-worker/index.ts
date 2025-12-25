@@ -17,6 +17,7 @@
  * - E2E encryption means relays never see plaintext
  */
 
+import { createMPCClient } from '@jejunetwork/kms'
 import { Elysia } from 'elysia'
 import type { Address, Hex } from 'viem'
 import { keccak256, toBytes, toHex, verifyMessage } from 'viem'
@@ -40,28 +41,6 @@ const SubscribeBodySchema = z.object({
 const UnsubscribeBodySchema = z.object({
   address: z.string().transform((s) => s as Address),
 })
-
-// MPC client stub - mirrors @jejunetwork/kms but stubbed to avoid circular dep
-interface MPCSigningClient {
-  requestSignature: (params: { keyId: string; messageHash: Hex }) => Promise<{
-    signature: Hex
-  }>
-}
-
-function createMPCClient(
-  _config: {
-    rpcUrl: string
-    mpcRegistryAddress: Address
-    identityRegistryAddress: Address
-  },
-  _serviceAgentId: string,
-): MPCSigningClient {
-  return {
-    requestSignature: async (_params) => ({
-      signature: '0x' as Hex,
-    }),
-  }
-}
 
 // ============ Types ============
 

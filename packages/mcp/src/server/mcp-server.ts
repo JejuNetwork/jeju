@@ -2,10 +2,16 @@
  * Configurable MCP server with runtime tool registration.
  */
 
-import { MCPRequestHandler } from '../handlers/request-handler'
+import type { AgentAuthenticator } from '../auth/agent-auth'
+import {
+  type MCPPromptDefinition,
+  MCPRequestHandler,
+  type MCPResourceDefinition,
+} from '../handlers/request-handler'
 import type {
   Implementation,
   InitializeResult,
+  MCPAuthContext,
   MCPProtocolVersion,
   MCPServerConfig,
   MCPTool,
@@ -19,16 +25,26 @@ import { MCP_PROTOCOL_VERSIONS } from '../types/mcp'
  */
 export const DEFAULT_MCP_PROTOCOL_VERSION: MCPProtocolVersion = '2024-11-05'
 
+/**
+ * MCP Server configuration with authenticator
+ */
+export interface MCPServerOptions {
+  config: MCPServerConfig
+  authenticator: AgentAuthenticator
+}
+
 export class MCPServer {
   private config: MCPServerConfig
   private tools: Map<string, MCPToolDefinition> = new Map()
+  private resources: Map<string, MCPResourceDefinition> = new Map()
+  private prompts: Map<string, MCPPromptDefinition> = new Map()
   private requestHandler: MCPRequestHandler
 
-  constructor(config: MCPServerConfig) {
-    this.config = config
+  constructor(options: MCPServerOptions) {
+    this.config = options.config
     this.requestHandler = new MCPRequestHandler({
       getInitializeResult: this.getInitializeResult.bind(this),
-      requireAuth: true,
+      authenticator: options.authenticator,
     })
   }
 
@@ -70,7 +86,6 @@ export class MCPServer {
     const serverInfo = this.getServerInfo()
     const capabilities = this.getServerCapabilities()
 
-    // Validate protocol version - throw if unsupported
     if (!MCP_PROTOCOL_VERSIONS.includes(requestedVersion)) {
       throw new Error(`Unsupported MCP protocol version: ${requestedVersion}`)
     }
@@ -85,8 +100,6 @@ export class MCPServer {
 
   /**
    * Register a tool
-   *
-   * @param toolDef - Tool definition with handler
    */
   registerTool(toolDef: MCPToolDefinition): void {
     this.tools.set(toolDef.tool.name, toolDef)
@@ -95,8 +108,6 @@ export class MCPServer {
 
   /**
    * Register multiple tools
-   *
-   * @param tools - Array of tool definitions
    */
   registerTools(tools: MCPToolDefinition[]): void {
     for (const tool of tools) {
@@ -106,9 +117,6 @@ export class MCPServer {
 
   /**
    * Unregister a tool
-   *
-   * @param name - Tool name to unregister
-   * @returns true if tool was removed
    */
   unregisterTool(name: string): boolean {
     const deleted = this.tools.delete(name)
@@ -140,6 +148,22 @@ export class MCPServer {
   }
 
   /**
+   * Register a resource
+   */
+  registerResource(resourceDef: MCPResourceDefinition): void {
+    this.resources.set(resourceDef.resource.uri, resourceDef)
+    this.requestHandler.registerResource(resourceDef)
+  }
+
+  /**
+   * Register a prompt
+   */
+  registerPrompt(promptDef: MCPPromptDefinition): void {
+    this.prompts.set(promptDef.prompt.name, promptDef)
+    this.requestHandler.registerPrompt(promptDef)
+  }
+
+  /**
    * Get the request handler
    */
   getRequestHandler(): MCPRequestHandler {
@@ -150,40 +174,25 @@ export class MCPServer {
    * Handle a JSON-RPC request
    *
    * @param request - Raw JSON-RPC request
-   * @param authContext - Optional authentication context
+   * @param authContext - Authentication context (required)
    */
-  async handleRequest(
-    request: unknown,
-    authContext?: { apiKey?: string; userId?: string },
-  ) {
+  async handleRequest(request: unknown, authContext: MCPAuthContext) {
     return this.requestHandler.handle(request, authContext)
-  }
-
-  /**
-   * Set whether authentication is required for tool calls
-   */
-  setRequireAuth(require: boolean): void {
-    // Create a new request handler with updated config
-    this.requestHandler = new MCPRequestHandler({
-      getInitializeResult: this.getInitializeResult.bind(this),
-      tools: Array.from(this.tools.values()),
-      requireAuth: require,
-    })
   }
 }
 
 /**
  * Create an MCP server with tools
  *
- * @param config - Server configuration
+ * @param options - Server options with config and authenticator
  * @param tools - Initial tools to register
  * @returns Configured MCP server
  */
 export function createMCPServer(
-  config: MCPServerConfig,
+  options: MCPServerOptions,
   tools: MCPToolDefinition[] = [],
 ): MCPServer {
-  const server = new MCPServer(config)
+  const server = new MCPServer(options)
   server.registerTools(tools)
   return server
 }

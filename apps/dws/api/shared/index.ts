@@ -6,18 +6,13 @@
 
 // Schemas (heavily used by routes)
 export * from './schemas'
-
-// Validation utilities
-export * from './validation'
-
 // API Marketplace utilities
 export * from './utils/api-marketplace'
-
 // Common utilities
 export * from './utils/common'
-
 // Crypto utilities
 export * from './utils/crypto'
-
 // RPC utilities
 export * from './utils/rpc'
+// Validation utilities
+export * from './validation'

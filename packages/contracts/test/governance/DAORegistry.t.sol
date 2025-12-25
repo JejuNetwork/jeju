@@ -66,14 +66,14 @@ contract DAORegistryTest is Test {
         ceoPersona1.traits[0] = "strategic";
         
         IDAORegistry.CEOPersona memory ceoPersona2 = IDAORegistry.CEOPersona({
-            name: "Monkey King",
+            name: "Apps Lead",
             pfpCid: "",
-            description: "Babylon DAO leader",
-            personality: "Mischievous yet wise",
+            description: "Apps DAO leader",
+            personality: "Innovative yet pragmatic",
             traits: new string[](2)
         });
-        ceoPersona2.traits[0] = "playful";
-        ceoPersona2.traits[1] = "powerful";
+        ceoPersona2.traits[0] = "innovative";
+        ceoPersona2.traits[1] = "user-focused";
         
         IDAORegistry.GovernanceParams memory params = IDAORegistry.GovernanceParams({
             minQualityScore: 70,
@@ -95,12 +95,12 @@ contract DAORegistryTest is Test {
             params
         );
         
-        // Create Babylon DAO
+        // Create Apps DAO
         vm.prank(user2);
-        bytes32 babylonId = registry.createDAO(
-            "babylon",
-            "Babylon DAO",
-            "Babylon game engine governance",
+        bytes32 appsId = registry.createDAO(
+            "apps",
+            "Apps DAO",
+            "Jeju apps governance",
             address(5),
             "",
             ceoPersona2,
@@ -108,14 +108,14 @@ contract DAORegistryTest is Test {
         );
         
         assertEq(registry.getDAOCount(), 2, "Should have 2 DAOs");
-        assertTrue(jejuId != babylonId, "DAO IDs should be unique");
+        assertTrue(jejuId != appsId, "DAO IDs should be unique");
         
         // Check personas
         IDAORegistry.CEOPersona memory jejuPersona = registry.getCEOPersona(jejuId);
         assertEq(jejuPersona.name, "Jeju CEO");
         
-        IDAORegistry.CEOPersona memory babylonPersona = registry.getCEOPersona(babylonId);
-        assertEq(babylonPersona.name, "Monkey King");
+        IDAORegistry.CEOPersona memory appsPersona = registry.getCEOPersona(appsId);
+        assertEq(appsPersona.name, "Apps Lead");
     }
 
     function testGetActiveDAOs() public {

@@ -413,4 +413,3 @@ export const AuthHeadersSchema = z
     'x-jeju-signature': HexSchema,
   })
   .strict()
-

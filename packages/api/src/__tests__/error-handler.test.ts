@@ -4,6 +4,7 @@ import {
   APIError,
   assert,
   ConflictError,
+  createElysiaErrorHandler,
   expectDefined,
   expectValid,
   getStatusCode,
@@ -262,6 +263,71 @@ describe('Error Handler', () => {
         expect(error.statusCode).toBe(404)
         expect(error.code).toBe('NOT_FOUND')
       }
+    })
+  })
+
+  describe('createElysiaErrorHandler', () => {
+    test('handles APIError correctly', () => {
+      const handler = createElysiaErrorHandler(false)
+      const setObj = { status: 200 }
+
+      const error = new ValidationError('Invalid input', { field: 'email' })
+      const response = handler({ error, set: setObj })
+
+      expect(setObj.status).toBe(400)
+      expect(response.error).toBe('Invalid input')
+      expect(response.code).toBe('VALIDATION_ERROR')
+      expect(response.statusCode).toBe(400)
+      expect(response.stack).toBeUndefined()
+    })
+
+    test('handles ZodError correctly', () => {
+      const handler = createElysiaErrorHandler(false)
+      const setObj = { status: 200 }
+
+      const schema = z.object({ name: z.string() })
+      const result = schema.safeParse({ name: 123 })
+
+      if (result.success) {
+        throw new Error('Expected parse to fail')
+      }
+
+      const response = handler({ error: result.error, set: setObj })
+
+      expect(setObj.status).toBe(400)
+      expect(response.code).toBe('VALIDATION_ERROR')
+    })
+
+    test('handles generic error correctly', () => {
+      const handler = createElysiaErrorHandler(false)
+      const setObj = { status: 200 }
+
+      const error = new Error('Something went wrong')
+      const response = handler({ error, set: setObj })
+
+      expect(setObj.status).toBe(500)
+      expect(response.code).toBe('INTERNAL_ERROR')
+      expect(response.error).toBe('An unexpected error occurred')
+    })
+
+    test('includes stack trace in development mode', () => {
+      const handler = createElysiaErrorHandler(true)
+      const setObj = { status: 200 }
+
+      const error = new Error('Test error')
+      const response = handler({ error, set: setObj })
+
+      expect(response.stack).toBeDefined()
+    })
+
+    test('excludes stack trace in production mode', () => {
+      const handler = createElysiaErrorHandler(false)
+      const setObj = { status: 200 }
+
+      const error = new Error('Test error')
+      const response = handler({ error, set: setObj })
+
+      expect(response.stack).toBeUndefined()
     })
   })
 })

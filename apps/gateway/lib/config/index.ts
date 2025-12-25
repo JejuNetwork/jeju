@@ -30,14 +30,20 @@ const services = getServicesConfig(NETWORK)
 
 export const OAUTH3_AGENT_URL = services.oauth3?.api || getDefaultOAuth3Url()
 export const INDEXER_URL = services.indexer?.graphql || getDefaultIndexerUrl()
-export const INDEXER_REST_URL = services.indexer?.rest || getDefaultIndexerRestUrl()
-export const INDEXER_A2A_URL = services.gateway?.a2a || getDefaultIndexerA2AUrl()
-export const INDEXER_MCP_URL = services.gateway?.mcp || getDefaultIndexerMCPUrl()
+export const INDEXER_REST_URL =
+  services.indexer?.rest || getDefaultIndexerRestUrl()
+export const INDEXER_A2A_URL =
+  services.gateway?.a2a || getDefaultIndexerA2AUrl()
+export const INDEXER_MCP_URL =
+  services.gateway?.mcp || getDefaultIndexerMCPUrl()
 export const RPC_GATEWAY_URL = services.rpcGateway || getDefaultRpcGatewayUrl()
 export const IPFS_API_URL = services.storage?.api || getDefaultIpfsApiUrl()
-export const IPFS_GATEWAY_URL = services.storage?.ipfsGateway || getDefaultIpfsGatewayUrl()
-export const OIF_AGGREGATOR_URL = services.oif?.aggregator || getDefaultOifAggregatorUrl()
-export const LEADERBOARD_API_URL = services.leaderboard?.api || getDefaultLeaderboardUrl()
+export const IPFS_GATEWAY_URL =
+  services.storage?.ipfsGateway || getDefaultIpfsGatewayUrl()
+export const OIF_AGGREGATOR_URL =
+  services.oif?.aggregator || getDefaultOifAggregatorUrl()
+export const LEADERBOARD_API_URL =
+  services.leaderboard?.api || getDefaultLeaderboardUrl()
 export const EXPLORER_URL = services.explorer || getDefaultExplorerUrl()
 
 // Contract addresses from config
@@ -65,8 +71,10 @@ export const CONTRACTS = {
   moderationMarketplace: addr(contracts.moderation?.moderationMarketplace),
   reportingSystem: addr(contracts.moderation?.reportingSystem),
   reputationLabelManager: addr(contracts.moderation?.reputationLabelManager),
-  predimarket: addr(contracts.moderation?.predimarket),
   registryGovernance: addr(contracts.governance?.registryGovernance),
+
+  // Bazaar (Prediction Markets)
+  predictionMarket: addr(contracts.bazaar?.predictionMarket),
 
   // Node Staking
   nodeStakingManager: addr(contracts.nodeStaking?.manager),
@@ -134,31 +142,36 @@ function getDefaultOAuth3Url(): string {
 
 function getDefaultIndexerUrl(): string {
   if (NETWORK === 'mainnet') return 'https://indexer.jejunetwork.org/graphql'
-  if (NETWORK === 'testnet') return 'https://testnet-indexer.jejunetwork.org/graphql'
+  if (NETWORK === 'testnet')
+    return 'https://testnet-indexer.jejunetwork.org/graphql'
   return `http://127.0.0.1:${CORE_PORTS.INDEXER_GRAPHQL.DEFAULT}/graphql`
 }
 
 function getDefaultIndexerRestUrl(): string {
   if (NETWORK === 'mainnet') return 'https://indexer.jejunetwork.org/api'
-  if (NETWORK === 'testnet') return 'https://testnet-indexer.jejunetwork.org/api'
+  if (NETWORK === 'testnet')
+    return 'https://testnet-indexer.jejunetwork.org/api'
   return `http://127.0.0.1:${CORE_PORTS.INDEXER_REST.DEFAULT}/api`
 }
 
 function getDefaultIndexerA2AUrl(): string {
   if (NETWORK === 'mainnet') return 'https://indexer.jejunetwork.org/a2a'
-  if (NETWORK === 'testnet') return 'https://testnet-indexer.jejunetwork.org/a2a'
+  if (NETWORK === 'testnet')
+    return 'https://testnet-indexer.jejunetwork.org/a2a'
   return `http://127.0.0.1:${CORE_PORTS.INDEXER_A2A.DEFAULT}/api/a2a`
 }
 
 function getDefaultIndexerMCPUrl(): string {
   if (NETWORK === 'mainnet') return 'https://indexer.jejunetwork.org/mcp'
-  if (NETWORK === 'testnet') return 'https://testnet-indexer.jejunetwork.org/mcp'
+  if (NETWORK === 'testnet')
+    return 'https://testnet-indexer.jejunetwork.org/mcp'
   return `http://127.0.0.1:${CORE_PORTS.INDEXER_MCP.DEFAULT}`
 }
 
 function getDefaultRpcGatewayUrl(): string {
   if (NETWORK === 'mainnet') return 'https://rpc-gateway.jejunetwork.org'
-  if (NETWORK === 'testnet') return 'https://testnet-rpc-gateway.jejunetwork.org'
+  if (NETWORK === 'testnet')
+    return 'https://testnet-rpc-gateway.jejunetwork.org'
   return `http://127.0.0.1:${CORE_PORTS.RPC_GATEWAY.DEFAULT}`
 }
 

@@ -72,11 +72,11 @@ export interface DeployedContracts {
   outputSettler?: string
   oifOracle?: string
 
-  // Games
+  // Bazaar (Marketplace + Prediction Markets)
   bazaarMarketplace?: string
   goldToken?: string
   itemsNFT?: string
-  predimarket?: string
+  predictionMarket?: string
 
   // Bridge
   l2CrossDomainMessenger?: string

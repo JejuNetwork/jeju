@@ -167,13 +167,216 @@ export class HistoricalDataFetcher {
     return dataPoints
   }
 
+  /**
+   * Fetch OHLCV candle data from protocol-specific sources
+   */
   async fetchCandles(
-    _protocol: string,
-    _pool: string,
-    _startDate: Date,
-    _endDate: Date,
+    protocol: string,
+    pool: string,
+    startDate: Date,
+    endDate: Date,
+    intervalMinutes = 60,
   ): Promise<PriceCandle[]> {
-    return []
+    if (protocol === 'uniswap-v3' || protocol === 'uniswap-v2') {
+      return this.fetchUniswapCandles(pool, startDate, endDate, intervalMinutes)
+    }
+    if (protocol === 'coingecko') {
+      return this.fetchCoinGeckoCandles(pool, startDate, endDate)
+    }
+    throw new Error(`Unsupported protocol: ${protocol}`)
+  }
+
+  /**
+   * Fetch candles from Uniswap subgraph
+   */
+  private async fetchUniswapCandles(
+    poolAddress: string,
+    startDate: Date,
+    endDate: Date,
+    intervalMinutes: number,
+  ): Promise<PriceCandle[]> {
+    const UNISWAP_V3_SUBGRAPH =
+      'https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3'
+
+    const startTimestamp = Math.floor(startDate.getTime() / 1000)
+    const endTimestamp = Math.floor(endDate.getTime() / 1000)
+
+    // Query pool hour data
+    const query = `{
+      poolHourDatas(
+        where: {
+          pool: "${poolAddress.toLowerCase()}"
+          periodStartUnix_gte: ${startTimestamp}
+          periodStartUnix_lte: ${endTimestamp}
+        }
+        orderBy: periodStartUnix
+        orderDirection: asc
+        first: 1000
+      ) {
+        periodStartUnix
+        open
+        high
+        low
+        close
+        volumeUSD
+      }
+    }`
+
+    const response = await fetch(UNISWAP_V3_SUBGRAPH, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query }),
+    })
+
+    if (!response.ok) {
+      throw new Error(`Uniswap subgraph error: ${response.status}`)
+    }
+
+    const json = (await response.json()) as {
+      data?: {
+        poolHourDatas: Array<{
+          periodStartUnix: number
+          open: string
+          high: string
+          low: string
+          close: string
+          volumeUSD: string
+        }>
+      }
+    }
+
+    if (!json.data?.poolHourDatas) {
+      return []
+    }
+
+    const hourlyCandles = json.data.poolHourDatas.map((d) => ({
+      timestamp: d.periodStartUnix * 1000,
+      open: parseFloat(d.open),
+      high: parseFloat(d.high),
+      low: parseFloat(d.low),
+      close: parseFloat(d.close),
+      volume: parseFloat(d.volumeUSD),
+    }))
+
+    // Aggregate to requested interval if needed
+    if (intervalMinutes === 60) {
+      return hourlyCandles
+    }
+
+    return this.aggregateCandles(hourlyCandles, intervalMinutes)
+  }
+
+  /**
+   * Fetch candles from CoinGecko (uses token ID as pool)
+   */
+  private async fetchCoinGeckoCandles(
+    tokenId: string,
+    startDate: Date,
+    endDate: Date,
+  ): Promise<PriceCandle[]> {
+    const fromTimestamp = Math.floor(startDate.getTime() / 1000)
+    const toTimestamp = Math.floor(endDate.getTime() / 1000)
+
+    const url = `${this.baseUrl}/coins/${tokenId}/market_chart/range?vs_currency=usd&from=${fromTimestamp}&to=${toTimestamp}`
+
+    const response = await fetch(url)
+    if (!response.ok) {
+      throw new Error(`CoinGecko API error: ${response.status}`)
+    }
+
+    const data = expectValid(
+      CoinGeckoMarketChartSchema,
+      await response.json(),
+      `CoinGecko candle data for ${tokenId}`,
+    )
+
+    // CoinGecko returns price points, we need to construct OHLCV
+    // Group by day for daily candles
+    const dailyData = new Map<number, { prices: number[]; volumes: number[] }>()
+
+    for (const [timestamp, price] of data.prices) {
+      const dayStart = Math.floor(timestamp / 86400000) * 86400000
+      const existing = dailyData.get(dayStart)
+      if (existing) {
+        existing.prices.push(price)
+      } else {
+        dailyData.set(dayStart, { prices: [price], volumes: [] })
+      }
+    }
+
+    for (const [timestamp, volume] of data.total_volumes) {
+      const dayStart = Math.floor(timestamp / 86400000) * 86400000
+      const existing = dailyData.get(dayStart)
+      if (existing) {
+        existing.volumes.push(volume)
+      }
+    }
+
+    const candles: PriceCandle[] = []
+
+    for (const [timestamp, { prices, volumes }] of dailyData) {
+      if (prices.length === 0) continue
+
+      candles.push({
+        timestamp,
+        open: prices[0],
+        high: Math.max(...prices),
+        low: Math.min(...prices),
+        close: prices[prices.length - 1],
+        volume:
+          volumes.length > 0
+            ? volumes.reduce((a, b) => a + b, 0) / volumes.length
+            : 0,
+      })
+    }
+
+    return candles.sort((a, b) => a.timestamp - b.timestamp)
+  }
+
+  /**
+   * Aggregate hourly candles to larger intervals
+   */
+  private aggregateCandles(
+    hourlyCandles: PriceCandle[],
+    intervalMinutes: number,
+  ): PriceCandle[] {
+    if (hourlyCandles.length === 0) return []
+
+    const intervalMs = intervalMinutes * 60 * 1000
+    const aggregated: PriceCandle[] = []
+
+    let currentPeriodStart =
+      Math.floor(hourlyCandles[0].timestamp / intervalMs) * intervalMs
+    let currentCandles: PriceCandle[] = []
+
+    for (const candle of hourlyCandles) {
+      const periodStart = Math.floor(candle.timestamp / intervalMs) * intervalMs
+
+      if (periodStart !== currentPeriodStart && currentCandles.length > 0) {
+        aggregated.push(this.mergeCandles(currentPeriodStart, currentCandles))
+        currentCandles = []
+        currentPeriodStart = periodStart
+      }
+
+      currentCandles.push(candle)
+    }
+
+    if (currentCandles.length > 0) {
+      aggregated.push(this.mergeCandles(currentPeriodStart, currentCandles))
+    }
+
+    return aggregated
+  }
+
+  private mergeCandles(timestamp: number, candles: PriceCandle[]): PriceCandle {
+    return {
+      timestamp,
+      open: candles[0].open,
+      high: Math.max(...candles.map((c) => c.high)),
+      low: Math.min(...candles.map((c) => c.low)),
+      close: candles[candles.length - 1].close,
+      volume: candles.reduce((sum, c) => sum + c.volume, 0),
+    }
   }
 
   generateSyntheticData(

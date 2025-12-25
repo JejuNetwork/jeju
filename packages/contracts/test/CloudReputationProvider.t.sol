@@ -15,7 +15,7 @@ contract CloudReputationProviderTest is Test {
     IdentityRegistry public identityRegistry;
     ReputationRegistry public reputationRegistry;
     RegistryGovernance public registryGovernance;
-    PredictionMarket public predimarket;
+    PredictionMarket public predictionMarket;
     PredictionOracle public predictionOracle;
     MockToken public elizaToken;
 
@@ -35,12 +35,12 @@ contract CloudReputationProviderTest is Test {
         // Deploy prediction market infrastructure
         elizaToken = new MockToken("ElizaOS", "ELIZA", 18);
         predictionOracle = new PredictionOracle(owner);
-        predimarket = new PredictionMarket(address(elizaToken), address(predictionOracle), owner, owner);
+        predictionMarket = new PredictionMarket(address(elizaToken), address(predictionOracle), owner, owner);
 
         // Deploy registry governance
         registryGovernance = new RegistryGovernance(
             payable(address(identityRegistry)),
-            address(predimarket),
+            address(predictionMarket),
             owner,
             RegistryGovernance.Environment.LOCALNET,
             owner
@@ -49,8 +49,8 @@ contract CloudReputationProviderTest is Test {
         // Set governance in identity registry
         identityRegistry.setGovernance(address(registryGovernance));
 
-        // Authorize RegistryGovernance to create markets on Predimarket
-        predimarket.addAuthorizedCreator(address(registryGovernance));
+        // Authorize RegistryGovernance to create markets on PredictionMarket
+        predictionMarket.addAuthorizedCreator(address(registryGovernance));
 
         // Deploy CloudReputationProvider
         cloudProvider = new CloudReputationProvider(

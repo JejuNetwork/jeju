@@ -15,6 +15,13 @@ export interface TEEKeyConfig {
   attestationRequired: boolean
   /** Network for on-chain operations */
   network?: 'mainnet' | 'testnet'
+  /**
+   * Enable mock mode for development/testing.
+   * When true, keys are stored in-memory instead of real TEE hardware.
+   * MUST be false in production to use actual TEE infrastructure.
+   * @default false
+   */
+  mockMode: boolean
 }
 
 export interface TEEIdentityKey {

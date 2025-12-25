@@ -18,6 +18,10 @@ export interface PhoneAuthConfig {
   twilioAccountSid?: string
   twilioAuthToken?: string
   twilioPhoneNumber?: string
+  awsRegion?: string
+  awsAccessKeyId?: string
+  awsSecretAccessKey?: string
+  awsSenderId?: string
   smsProvider?: 'twilio' | 'aws-sns' | 'custom'
   otpExpiryMinutes?: number
   otpLength?: number

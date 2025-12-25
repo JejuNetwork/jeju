@@ -208,7 +208,7 @@ test.describe('Health Endpoint - Governance Features', () => {
     const data = await response.json()
     expect(data.futarchy).toBeDefined()
     expect(typeof data.futarchy.council).toBe('boolean')
-    expect(typeof data.futarchy.predimarket).toBe('boolean')
+    expect(typeof data.futarchy.predictionMarket).toBe('boolean')
   })
 
   test('health includes all endpoint groups', async ({ request }) => {

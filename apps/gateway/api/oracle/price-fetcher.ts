@@ -1,4 +1,8 @@
-import { readContract } from '@jejunetwork/shared'
+import {
+  CHAINLINK_AGGREGATOR_ABI,
+  readContract,
+  UNISWAP_V3_POOL_ABI,
+} from '@jejunetwork/shared'
 import type { PriceData, PriceSourceConfig } from '@jejunetwork/types'
 import {
   createPublicClient,
@@ -7,7 +11,6 @@ import {
   http,
   keccak256,
 } from 'viem'
-import { CHAINLINK_AGGREGATOR_ABI, UNISWAP_V3_POOL_ABI } from '@jejunetwork/shared'
 
 export type { PriceData }
 

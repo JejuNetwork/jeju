@@ -333,7 +333,10 @@ export class JejuGroup {
       this.messages.set(message.id, message)
       newMessages.push(message)
 
-      if (!this.state.lastMessageAt || message.timestamp > this.state.lastMessageAt) {
+      if (
+        !this.state.lastMessageAt ||
+        message.timestamp > this.state.lastMessageAt
+      ) {
         this.state.lastMessageAt = message.timestamp
       }
       if (message.senderAddress !== this.config.client.getAddress()) {

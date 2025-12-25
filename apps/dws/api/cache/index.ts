@@ -18,31 +18,8 @@
  * ```
  */
 
-// Types
-export * from './types'
-
 // Engine
 export { CacheEngine } from './engine'
-
-// TEE Provider
-export {
-  createTEECacheProvider,
-  TEECacheProvider,
-  type CreateTEECacheProviderConfig,
-  type TEECacheProviderConfig,
-} from './tee-provider'
-
-// Provisioning
-export {
-  CacheProvisioningManager,
-  getCacheProvisioningManager,
-  initializeCacheProvisioning,
-  resetCacheProvisioning,
-} from './provisioning'
-
-// Routes
-export { createCacheRoutes, createCacheService, getSharedEngine } from './routes'
-
 // Marketplace Integration
 export {
   CACHE_PROVIDERS,
@@ -57,3 +34,25 @@ export {
   planToListing,
   registerCacheProviders,
 } from './marketplace'
+// Provisioning
+export {
+  CacheProvisioningManager,
+  getCacheProvisioningManager,
+  initializeCacheProvisioning,
+  resetCacheProvisioning,
+} from './provisioning'
+// Routes
+export {
+  createCacheRoutes,
+  createCacheService,
+  getSharedEngine,
+} from './routes'
+// TEE Provider
+export {
+  type CreateTEECacheProviderConfig,
+  createTEECacheProvider,
+  TEECacheProvider,
+  type TEECacheProviderConfig,
+} from './tee-provider'
+// Types
+export * from './types'

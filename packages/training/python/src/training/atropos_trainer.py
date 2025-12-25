@@ -1,9 +1,9 @@
 """
-Babylon GRPO Trainer using Atropos
+Jeju GRPO Trainer using Atropos
 
 This trainer implements Group Relative Policy Optimization (GRPO) for
-training Babylon trading agents using trajectories collected and scored
-by the Babylon RLAIF Environment.
+training Jeju trading agents using trajectories collected and scored
+by the Jeju RLAIF Environment.
 
 Key features:
 - Pulls batches from Atropos API server
@@ -117,9 +117,9 @@ class AtroposTrainingConfig(BaseModel):
     log_file: str = Field(default="./logs/training_metrics.jsonl", description="Metrics log file")
 
 
-class BabylonAtroposTrainer:
+class JejuAtroposTrainer:
     """
-    GRPO Trainer for Babylon using Atropos
+    GRPO Trainer for Jeju using Atropos
 
     This trainer:
     1. Registers with Atropos API server
@@ -593,7 +593,7 @@ def main():
         level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
     )
 
-    parser = argparse.ArgumentParser(description="Babylon GRPO Trainer with Atropos")
+    parser = argparse.ArgumentParser(description="Jeju GRPO Trainer with Atropos")
     parser.add_argument("--model", default="Qwen/Qwen2.5-3B-Instruct", help="Model to train")
     parser.add_argument("--steps", type=int, default=100, help="Training steps")
     parser.add_argument("--batch-size", type=int, default=4, help="Batch size")
@@ -618,7 +618,7 @@ def main():
         log_file=args.log_file,
     )
 
-    trainer = BabylonAtroposTrainer(config)
+    trainer = JejuAtroposTrainer(config)
     trainer._train_sync()
 
 

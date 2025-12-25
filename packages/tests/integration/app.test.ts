@@ -19,7 +19,7 @@ const HOST = process.env.HOST || '127.0.0.1'
 const RPC_URL = process.env.RPC_URL ?? L1_LOCALNET.rpcUrl
 const IPFS_API_URL = getIpfsApiUrl()
 const JNS_GATEWAY_URL =
-  process.env.JNS_GATEWAY_URL ?? `http://${HOST}:${APP_PORTS.predimarket}`
+  process.env.JNS_GATEWAY_URL ?? `http://${HOST}:${APP_PORTS.predictionMarket}`
 
 // Contract addresses (from deployment)
 const JNS_REGISTRAR = (process.env.JNS_REGISTRAR ?? '0x0') as Address

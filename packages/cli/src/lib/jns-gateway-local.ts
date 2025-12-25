@@ -147,10 +147,15 @@ export class LocalJNSGateway {
       })
     } catch {
       // Registry call failed - name not registered or contract issue
-      logger.debug(`JNS resolver lookup failed for ${name}, falling back to local`)
+      logger.debug(
+        `JNS resolver lookup failed for ${name}, falling back to local`,
+      )
     }
 
-    if (!resolverAddress || resolverAddress === '0x0000000000000000000000000000000000000000') {
+    if (
+      !resolverAddress ||
+      resolverAddress === '0x0000000000000000000000000000000000000000'
+    ) {
       return {
         name,
         node,
@@ -355,7 +360,7 @@ export class LocalJNSGateway {
     // Try multiple possible app locations and build directories
     const appDirCandidates = [
       join(this.config.rootDir, 'apps', appName),
-      join(this.config.rootDir, 'vendor', appName, 'apps', 'web'), // Babylon structure
+      join(this.config.rootDir, 'vendor', appName, 'apps', 'web'), // vendor app structure
       join(this.config.rootDir, 'vendor', appName),
     ]
 

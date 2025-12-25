@@ -778,13 +778,79 @@ export class CrossChainArbitrage extends EventEmitter {
 export interface SolanaArbConfig {
   rpcUrl: string
   commitment: Commitment
-  dexes: {
-    name: string
-    programId: string
-  }[]
+  minProfitBps: number
+  minProfitUsd: number
+  ethPriceUsd: number
+  solPriceUsd: number
+  monitoredTokens: SolanaTokenConfig[]
 }
 
+interface SolanaTokenConfig {
+  symbol: string
+  mint: string
+  decimals: number
+}
+
+interface SolanaQuote {
+  dex: string
+  inputMint: string
+  outputMint: string
+  inputAmount: bigint
+  outputAmount: bigint
+  priceImpactPct: number
+}
+
+// Default tokens to monitor on Solana
+const DEFAULT_SOLANA_TOKENS: SolanaTokenConfig[] = [
+  {
+    symbol: 'SOL',
+    mint: 'So11111111111111111111111111111111111111112',
+    decimals: 9,
+  },
+  {
+    symbol: 'USDC',
+    mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+    decimals: 6,
+  },
+  {
+    symbol: 'USDT',
+    mint: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
+    decimals: 6,
+  },
+  {
+    symbol: 'JUP',
+    mint: 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN',
+    decimals: 6,
+  },
+  {
+    symbol: 'RAY',
+    mint: '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R',
+    decimals: 6,
+  },
+  {
+    symbol: 'BONK',
+    mint: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',
+    decimals: 5,
+  },
+]
+
 export class SolanaArbitrage {
+  private config: SolanaArbConfig
+
+  constructor(config: Partial<SolanaArbConfig> = {}) {
+    const tokens = config.monitoredTokens ?? DEFAULT_SOLANA_TOKENS
+    this.config = {
+      rpcUrl: config.rpcUrl ?? 'https://api.mainnet-beta.solana.com',
+      commitment: config.commitment ?? 'confirmed',
+      minProfitBps: config.minProfitBps ?? 30,
+      minProfitUsd: config.minProfitUsd ?? 5,
+      ethPriceUsd: config.ethPriceUsd ?? 3500,
+      solPriceUsd: config.solPriceUsd ?? 150,
+      monitoredTokens: tokens,
+    }
+    this.tokenMap = new Map(tokens.map((t) => [t.mint, t]))
+  }
+
   async getRaydiumQuote(
     inputMint: PublicKey,
     outputMint: PublicKey,
@@ -830,10 +896,175 @@ export class SolanaArbitrage {
   }
 
   /**
-   * Find Solana arbitrage opportunities
+   * Get quotes from multiple DEXes for a token pair
+   */
+  private async getMultiDexQuotes(
+    inputMint: string,
+    outputMint: string,
+    amount: bigint,
+  ): Promise<SolanaQuote[]> {
+    const JUPITER_API = 'https://quote-api.jup.ag/v6'
+    const dexes = ['Raydium', 'Orca', 'Meteora', 'Phoenix', 'Lifinity']
+    const quotes: SolanaQuote[] = []
+
+    for (const dex of dexes) {
+      const url = `${JUPITER_API}/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amount.toString()}&slippageBps=50&onlyDirectRoutes=true&dexes=${dex}`
+
+      const response = await fetch(url)
+      if (!response.ok) continue
+
+      const parsed = JupiterQuoteResponseSchema.safeParse(await response.json())
+      if (!parsed.success) continue
+
+      quotes.push({
+        dex,
+        inputMint,
+        outputMint,
+        inputAmount: amount,
+        outputAmount: BigInt(parsed.data.outAmount),
+        priceImpactPct: parseFloat(parsed.data.priceImpactPct),
+      })
+    }
+
+    return quotes
+  }
+
+  /**
+   * Find Solana arbitrage opportunities across DEXes
    */
   async findOpportunities(): Promise<CrossChainArbOpportunity[]> {
-    // Implementation would compare prices across Raydium, Orca, Jupiter, etc.
-    return []
+    const opportunities: CrossChainArbOpportunity[] = []
+    const tokens = this.config.monitoredTokens
+
+    // Check pairs between monitored tokens
+    for (let i = 0; i < tokens.length; i++) {
+      for (let j = i + 1; j < tokens.length; j++) {
+        const tokenA = tokens[i]
+        const tokenB = tokens[j]
+
+        // Standard trade size: 1000 units of the lower-decimal token
+        const baseAmount =
+          1000n * 10n ** BigInt(Math.min(tokenA.decimals, tokenB.decimals))
+
+        // Get quotes in both directions from all DEXes
+        const [quotesAtoB, quotesBtoA] = await Promise.all([
+          this.getMultiDexQuotes(tokenA.mint, tokenB.mint, baseAmount),
+          this.getMultiDexQuotes(tokenB.mint, tokenA.mint, baseAmount),
+        ])
+
+        if (quotesAtoB.length < 2 || quotesBtoA.length < 2) continue
+
+        // Find best buy and sell prices for A->B direction
+        const sortedAtoB = [...quotesAtoB].sort((a, b) =>
+          a.outputAmount > b.outputAmount ? -1 : 1,
+        )
+        const sortedBtoA = [...quotesBtoA].sort((a, b) =>
+          a.outputAmount > b.outputAmount ? -1 : 1,
+        )
+
+        // Check triangle arb: A -> B (best) -> A (best)
+        const bestAtoB = sortedAtoB[0]
+        const bestBtoA = sortedBtoA[0]
+
+        if (!bestAtoB || !bestBtoA) continue
+
+        // Simulate: start with baseAmount of A, swap to B, swap back to A
+        const bReceived = bestAtoB.outputAmount
+
+        // Get quote for swapping received B back to A
+        const returnQuotes = await this.getMultiDexQuotes(
+          tokenB.mint,
+          tokenA.mint,
+          bReceived,
+        )
+        if (returnQuotes.length === 0) continue
+
+        const bestReturn = returnQuotes.sort((a, b) =>
+          a.outputAmount > b.outputAmount ? -1 : 1,
+        )[0]
+        if (!bestReturn) continue
+
+        const aReturned = bestReturn.outputAmount
+        const profitRaw = aReturned - baseAmount
+
+        if (profitRaw <= 0n) continue
+
+        const profitBps = Number((profitRaw * 10000n) / baseAmount)
+
+        if (profitBps < this.config.minProfitBps) continue
+
+        // Calculate USD profit
+        const tokenAPrice =
+          tokenA.symbol === 'SOL'
+            ? this.config.solPriceUsd
+            : tokenA.symbol.includes('USD')
+              ? 1
+              : this.config.ethPriceUsd / 20 // Rough estimate for other tokens
+        const profitUsd =
+          (Number(profitRaw) / 10 ** tokenA.decimals) * tokenAPrice
+
+        if (profitUsd < this.config.minProfitUsd) continue
+
+        // Gas estimate for two swaps (~100k compute units each at 0.000005 SOL/CU)
+        const gasEstimateUsd = 0.0001 * this.config.solPriceUsd * 2
+
+        const netProfitUsd = profitUsd - gasEstimateUsd
+        if (netProfitUsd <= 0) continue
+
+        const opportunity: CrossChainArbOpportunity = {
+          id: `solana-${tokenA.symbol}-${tokenB.symbol}-${bestAtoB.dex}-${bestReturn.dex}-${Date.now()}`,
+          type: 'CROSS_CHAIN',
+          chainId: 1, // Placeholder, Solana uses network names
+          sourceChainId: 'solana-mainnet',
+          destChainId: 'solana-mainnet',
+          inputToken: {
+            address: tokenA.mint,
+            symbol: tokenA.symbol,
+            decimals: tokenA.decimals,
+            chainId: 'solana-mainnet',
+          },
+          outputToken: {
+            address: tokenA.mint,
+            symbol: tokenA.symbol,
+            decimals: tokenA.decimals,
+            chainId: 'solana-mainnet',
+          },
+          path: [],
+          inputAmount: (Number(baseAmount) / 10 ** tokenA.decimals).toString(),
+          expectedOutput: (
+            Number(aReturned) /
+            10 ** tokenA.decimals
+          ).toString(),
+          expectedProfit: (
+            Number(profitRaw) /
+            10 ** tokenA.decimals
+          ).toString(),
+          expectedProfitBps: profitBps,
+          gasEstimate: gasEstimateUsd.toFixed(4),
+          netProfitWei: profitRaw.toString(),
+          netProfitUsd: netProfitUsd.toFixed(2),
+          bridgeProtocol: `${bestAtoB.dex} -> ${bestReturn.dex}`,
+          bridgeFee: '0',
+          bridgeTime: 0,
+          detectedAt: Date.now(),
+          expiresAt: Date.now() + 10000, // 10 second validity for Solana (fast blocks)
+          status: 'DETECTED',
+        }
+
+        opportunities.push(opportunity)
+      }
+    }
+
+    return opportunities.sort(
+      (a, b) => parseFloat(b.netProfitUsd) - parseFloat(a.netProfitUsd),
+    )
+  }
+
+  /**
+   * Update price configuration
+   */
+  updatePrices(solPriceUsd: number, ethPriceUsd: number): void {
+    this.config.solPriceUsd = solPriceUsd
+    this.config.ethPriceUsd = ethPriceUsd
   }
 }

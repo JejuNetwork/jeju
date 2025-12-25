@@ -55,17 +55,6 @@ import {
  * })
  * ```
  */
-/** Client interface for readContract operations */
-export interface ReadableClient {
-  readContract: (params: {
-    address: Address
-    abi: Abi | readonly unknown[]
-    functionName: string
-    args?: readonly unknown[]
-    blockNumber?: bigint
-    blockTag?: 'latest' | 'earliest' | 'pending' | 'safe' | 'finalized'
-  }) => Promise<unknown>
-}
 
 /**
  * Typed readContract wrapper that accepts any viem-compatible client.

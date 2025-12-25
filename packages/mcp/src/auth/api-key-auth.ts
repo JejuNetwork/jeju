@@ -1,5 +1,7 @@
 /**
- * API key authentication interfaces and utilities.
+ * API key authentication for MCP requests.
+ *
+ * Provides typed integration with @jejunetwork/api auth system.
  */
 
 import type { JsonValue } from '../types/mcp'
@@ -9,46 +11,46 @@ import type { JsonValue } from '../types/mcp'
  */
 export interface ApiKeyValidationResult {
   userId: string
-  agentId?: string
+  agentId: string
   metadata?: Record<string, JsonValue>
 }
 
 /**
  * API Key validator function type
+ * Must be implemented by consumers - no default stub
  */
 export type ApiKeyValidator = (
   apiKey: string,
 ) => Promise<ApiKeyValidationResult | null>
 
 /**
- * Default validator that always returns null (no authentication)
- * Override this in your implementation
+ * Configuration for creating an API key validator
  */
-export const defaultApiKeyValidator: ApiKeyValidator = async () => null
+export interface ApiKeyValidatorConfig {
+  /** Map of API keys to validation results */
+  keys: Map<string, ApiKeyValidationResult>
+}
 
 /**
- * Create a simple in-memory API key validator for testing
+ * Create an API key validator from a static key map
  *
- * @param keys - Map of API keys to user IDs
+ * @param config - Validator configuration with key map
  * @returns API key validator function
  */
-export function createInMemoryApiKeyValidator(
-  keys: Map<string, string>,
+export function createApiKeyValidator(
+  config: ApiKeyValidatorConfig,
 ): ApiKeyValidator {
   return async (apiKey: string): Promise<ApiKeyValidationResult | null> => {
-    const userId = keys.get(apiKey)
-    if (!userId) {
-      return null
-    }
-    return { userId, agentId: userId }
+    const result = config.keys.get(apiKey)
+    return result ?? null
   }
 }
 
 /**
- * Create a hash-based API key validator
+ * Create a hash-based API key validator for secure key storage
  *
- * @param hashFn - Function to hash API keys
- * @param lookupFn - Function to lookup user by key hash
+ * @param hashFn - Function to hash API keys (e.g., SHA-256)
+ * @param lookupFn - Function to lookup user by key hash from database
  * @returns API key validator function
  */
 export function createHashBasedApiKeyValidator(
@@ -59,4 +61,16 @@ export function createHashBasedApiKeyValidator(
     const keyHash = hashFn(apiKey)
     return lookupFn(keyHash)
   }
+}
+
+/**
+ * Create a database-backed API key validator
+ *
+ * @param validateFn - Function that validates API key against database
+ * @returns API key validator function
+ */
+export function createDatabaseApiKeyValidator(
+  validateFn: (apiKey: string) => Promise<ApiKeyValidationResult | null>,
+): ApiKeyValidator {
+  return validateFn
 }

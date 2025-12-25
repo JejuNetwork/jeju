@@ -9,16 +9,47 @@
  * - ReputationLabelManager: Issue and revoke reputation labels
  */
 
-import {
-  type BanType,
-  type NetworkType,
-  ReportStatus,
-  type ReportType,
-  type SeverityLevel,
-} from '@jejunetwork/types'
+import type { NetworkType } from '@jejunetwork/types'
 import { type Address, encodeFunctionData, type Hex, parseEther } from 'viem'
 import { requireContract } from '../config'
 import type { JejuWallet } from '../wallet'
+
+// ═══════════════════════════════════════════════════════════════════════════
+//                              TYPES
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const BanType = {
+  NONE: 0,
+  ON_NOTICE: 1,
+  CHALLENGED: 2,
+  PERMANENT: 3,
+} as const
+export type BanType = (typeof BanType)[keyof typeof BanType]
+
+export const ReportType = {
+  NETWORK_BAN: 0,
+  APP_BAN: 1,
+  LABEL_HACKER: 2,
+  LABEL_SCAMMER: 3,
+} as const
+export type ReportType = (typeof ReportType)[keyof typeof ReportType]
+
+export const SeverityLevel = {
+  LOW: 0, // 7 day voting
+  MEDIUM: 1, // 3 day voting
+  HIGH: 2, // 24 hour voting
+  CRITICAL: 3, // Immediate temp ban + 24 hour voting
+} as const
+export type SeverityLevel = (typeof SeverityLevel)[keyof typeof SeverityLevel]
+
+export const ReportStatus = {
+  PENDING: 0,
+  VOTING: 1,
+  RESOLVED_YES: 2,
+  RESOLVED_NO: 3,
+  CANCELLED: 4,
+} as const
+export type ReportStatus = (typeof ReportStatus)[keyof typeof ReportStatus]
 
 export interface BanRecord {
   isBanned: boolean
@@ -1417,7 +1448,7 @@ export function createModerationModule(
 
     async voteOnReport(_reportId, _voteYes, _amount) {
       // Voting is handled via the futarchy market
-      // This would integrate with the Predimarket contract
+      // This would integrate with the PredictionMarket contract (part of Bazaar)
       throw new Error('Vote on reports via the futarchy market interface')
     },
 

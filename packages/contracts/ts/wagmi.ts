@@ -22,13 +22,23 @@ export interface TypedWriteContractParams<TAbi extends Abi> {
 
 /**
  * WriteContract function signature that accepts our typed params.
- * This is permissive to work with wagmi's writeContract function.
+ * Uses a generic function signature to work with wagmi's writeContract.
  */
-// biome-ignore lint/suspicious/noExplicitAny: Required for wagmi compatibility
-export type WriteContractFn = (params: any) => void
+export type WriteContractFn = (params: {
+  address: Address
+  abi: Abi
+  functionName: string
+  args?: readonly unknown[]
+  value?: bigint
+}) => void
 
-// biome-ignore lint/suspicious/noExplicitAny: Required for wagmi compatibility
-export type WriteContractAsyncFn = (params: any) => Promise<`0x${string}`>
+export type WriteContractAsyncFn = (params: {
+  address: Address
+  abi: Abi
+  functionName: string
+  args?: readonly unknown[]
+  value?: bigint
+}) => Promise<`0x${string}`>
 
 /**
  * Create a typed write contract function from wagmi's useWriteContract.

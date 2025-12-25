@@ -8,7 +8,7 @@ import "./BanManager.sol";
 import "./ReputationLabelManager.sol";
 import "../registry/interfaces/IIdentityRegistry.sol";
 
-interface IPredimarketReport {
+interface IPredictionMarketReport {
     function createMarket(bytes32 sessionId, string memory question, uint256 liquidityParameter) external;
     function getMarket(bytes32 sessionId)
         external
@@ -46,7 +46,7 @@ interface IPredimarketReport {
  *
  * Process Flow:
  * 1. User submits report with evidence (IPFS) and stake
- * 2. System creates futarchy market in Predimarket
+ * 2. System creates futarchy market in PredictionMarket (Bazaar)
  * 3. Community votes via market trading (7 days default)
  * 4. Market resolves YES/NO
  * 5. If YES: trigger ban/label via governance
@@ -93,7 +93,7 @@ contract ReportingSystem is Ownable, Pausable, ReentrancyGuard {
         uint256 reporterAgentId; // Reporter's agent ID (0 if none)
         bytes32 evidenceHash; // IPFS hash
         string details; // Additional context
-        bytes32 marketId; // Predimarket market
+        bytes32 marketId; // PredictionMarket market
         uint256 reportBond; // Stake amount
         uint256 createdAt;
         uint256 votingEnds;
@@ -104,7 +104,7 @@ contract ReportingSystem is Ownable, Pausable, ReentrancyGuard {
 
     BanManager public immutable banManager;
     ReputationLabelManager public immutable labelManager;
-    IPredimarketReport public immutable predimarket;
+    IPredictionMarketReport public immutable predictionMarket;
     IIdentityRegistry public immutable identityRegistry;
     address public governance;
 
@@ -190,20 +190,20 @@ contract ReportingSystem is Ownable, Pausable, ReentrancyGuard {
     constructor(
         address _banManager,
         address _labelManager,
-        address _predimarket,
+        address _predictionMarket,
         address _identityRegistry,
         address _governance,
         address initialOwner
     ) Ownable(initialOwner) {
         require(_banManager != address(0), "Invalid BanManager");
         require(_labelManager != address(0), "Invalid LabelManager");
-        require(_predimarket != address(0), "Invalid Predimarket");
+        require(_predictionMarket != address(0), "Invalid PredictionMarket");
         require(_identityRegistry != address(0), "Invalid IdentityRegistry");
         require(_governance != address(0), "Invalid governance");
 
         banManager = BanManager(_banManager);
         labelManager = ReputationLabelManager(payable(_labelManager));
-        predimarket = IPredimarketReport(_predimarket);
+        predictionMarket = IPredictionMarketReport(_predictionMarket);
         identityRegistry = IIdentityRegistry(_identityRegistry);
         governance = _governance;
 
@@ -256,7 +256,7 @@ contract ReportingSystem is Ownable, Pausable, ReentrancyGuard {
         marketId = bytes32(uint256(uint160(address(this))) | reportId);
 
         // Create futarchy market
-        predimarket.createMarket(marketId, question, defaultLiquidity);
+        predictionMarket.createMarket(marketId, question, defaultLiquidity);
 
         // Store report
         uint256 votingPeriod = votingPeriods[severity];
@@ -319,7 +319,7 @@ contract ReportingSystem is Ownable, Pausable, ReentrancyGuard {
      * @param reportId Report to resolve
      * @custom:security CEI pattern: Update all state before external calls
      * @dev Sends ETH to reporter (reward) and owner (treasury) - intentional design
-     *      Ignores return values from predimarket.getMarket() - only needs resolved/outcome
+     *      Ignores return values from predictionMarket.getMarket() - only needs resolved/outcome
      *      Uses timestamp for voting period check - intentional
      */
     // slither-disable-next-line arbitrary-send-eth,unused-return,timestamp,low-level-calls
@@ -330,7 +330,7 @@ contract ReportingSystem is Ownable, Pausable, ReentrancyGuard {
         if (block.timestamp < report.votingEnds) revert VotingNotEnded();
 
         // Get market outcome
-        (,,,,,,, bool resolved, bool outcome) = predimarket.getMarket(report.marketId);
+        (,,,,,,, bool resolved, bool outcome) = predictionMarket.getMarket(report.marketId);
         if (!resolved) revert ReportNotResolved();
 
         // Cache values before state changes

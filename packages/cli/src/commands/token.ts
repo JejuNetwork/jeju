@@ -1,8 +1,13 @@
-/** Deploy and manage cross-chain tokens */
+/** Check token deployment status and bridge tokens */
 
+import { existsSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { getRpcUrl, type NetworkType } from '@jejunetwork/config'
 import chalk from 'chalk'
 import { Command } from 'commander'
+import { createPublicClient, formatUnits, http } from 'viem'
 import { logger } from '../lib/logger'
+import { findMonorepoRoot } from '../lib/system'
 
 // Known token configurations
 const KNOWN_TOKENS: Record<
@@ -16,146 +21,78 @@ const KNOWN_TOKENS: Record<
   },
 }
 
+// ERC20 minimal ABI for balance/info checks
+const ERC20_ABI = [
+  {
+    name: 'name',
+    type: 'function',
+    inputs: [],
+    outputs: [{ name: '', type: 'string' }],
+    stateMutability: 'view',
+  },
+  {
+    name: 'symbol',
+    type: 'function',
+    inputs: [],
+    outputs: [{ name: '', type: 'string' }],
+    stateMutability: 'view',
+  },
+  {
+    name: 'decimals',
+    type: 'function',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint8' }],
+    stateMutability: 'view',
+  },
+  {
+    name: 'totalSupply',
+    type: 'function',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+] as const
+
+interface TokenDeployment {
+  address: string
+  name: string
+  symbol: string
+  decimals: number
+}
+
+interface NetworkDeployments {
+  token?: TokenDeployment
+  router?: string
+}
+
+function loadDeployments(
+  network: NetworkType,
+): Record<string, NetworkDeployments> {
+  const rootDir = findMonorepoRoot()
+  const deploymentPath = join(
+    rootDir,
+    'packages/contracts/deployments',
+    `token-${network}.json`,
+  )
+
+  if (!existsSync(deploymentPath)) {
+    return {}
+  }
+
+  const content = readFileSync(deploymentPath, 'utf-8')
+  return JSON.parse(content) as Record<string, NetworkDeployments>
+}
+
 export const tokenCommand = new Command('token')
-  .description('Deploy and manage cross-chain tokens')
+  .description('Check token deployment status and bridge tokens')
   .addHelpText(
     'after',
     `
 Examples:
-  ${chalk.cyan('jeju token deploy:jeju --network testnet')}        Deploy JEJU token to testnet
-  ${chalk.cyan('jeju token deploy:ecosystem --network testnet')}    Deploy full token ecosystem
-  ${chalk.cyan('jeju token deploy:testnet --cross-chain')}          Cross-chain testnet deployment
-  ${chalk.cyan('jeju token deploy:hyperlane --network testnet')}    Deploy Hyperlane infrastructure
-  ${chalk.cyan('jeju token deploy:solana --network devnet')}        Deploy SPL token to Solana
-  ${chalk.cyan('jeju token verify --network testnet')}              Verify testnet deployment
   ${chalk.cyan('jeju token status jeju --network testnet')}         Check JEJU deployment status
   ${chalk.cyan('jeju token bridge jeju 1000 --from jeju --to base')}  Bridge 1000 JEJU
 `,
   )
-
-// Deploy JEJU Command
-
-tokenCommand
-  .command('deploy:jeju')
-  .description('Deploy JEJU token to specified network')
-  .option(
-    '-n, --network <network>',
-    'Target network (localnet|testnet|mainnet)',
-    'testnet',
-  )
-  .option('--dry-run', 'Simulate deployment without executing')
-  .option('--verify', 'Verify contracts on block explorer', true)
-  .option('--step <step>', 'Run specific deployment step')
-  .action(
-    async (_options: {
-      network: string
-      dryRun?: boolean
-      verify?: boolean
-      step?: string
-    }) => {
-      logger.error('JEJU token deployment has been removed.')
-      logger.info('Token deployment scripts have been deleted.')
-      logger.info(
-        'Refer to packages/token/README.md for deployment instructions.',
-      )
-      process.exit(1)
-    },
-  )
-
-// Deploy Ecosystem Command
-
-tokenCommand
-  .command('deploy:ecosystem')
-  .description(
-    'Deploy full token ecosystem (Token, Vesting, Airdrop, FeeDistributor, CCALauncher)',
-  )
-  .option(
-    '-n, --network <network>',
-    'Target network (localnet|testnet|mainnet)',
-    'testnet',
-  )
-  .option('--dry-run', 'Simulate deployment without executing')
-  .action(async (_options: { network: string; dryRun?: boolean }) => {
-    logger.error('Token ecosystem deployment has been removed.')
-    logger.info('Token deployment scripts have been deleted.')
-    logger.info(
-      'Refer to packages/token/README.md for deployment instructions.',
-    )
-    process.exit(1)
-  })
-
-// Deploy Testnet Command
-
-tokenCommand
-  .command('deploy:testnet')
-  .description(
-    'Cross-chain token deployment to testnet (Sepolia, Base Sepolia, Arbitrum Sepolia)',
-  )
-  .option('--dry-run', 'Simulate deployment without executing')
-  .action(async (_options: { dryRun?: boolean }) => {
-    logger.error('Cross-chain testnet deployment has been removed.')
-    logger.info('Token deployment scripts have been deleted.')
-    logger.info(
-      'Refer to packages/token/README.md for deployment instructions.',
-    )
-    process.exit(1)
-  })
-
-// Deploy Hyperlane Command
-
-tokenCommand
-  .command('deploy:hyperlane')
-  .description(
-    'Deploy Hyperlane infrastructure (Mailbox, IGP, MultisigISM) to Jeju Testnet',
-  )
-  .option('-n, --network <network>', 'Target network (testnet)', 'testnet')
-  .option('--dry-run', 'Simulate deployment without executing')
-  .action(async (_options: { network: string; dryRun?: boolean }) => {
-    logger.error('Hyperlane deployment has been removed.')
-    logger.info('Token deployment scripts have been deleted.')
-    logger.info(
-      'Refer to packages/token/README.md for deployment instructions.',
-    )
-    process.exit(1)
-  })
-
-// Deploy Solana Command
-
-tokenCommand
-  .command('deploy:solana')
-  .description('Deploy SPL token to Solana')
-  .option(
-    '-n, --network <network>',
-    'Target network (devnet|mainnet)',
-    'devnet',
-  )
-  .option('--dry-run', 'Simulate deployment without executing')
-  .action(async (_options: { network: string; dryRun?: boolean }) => {
-    logger.error('Solana token deployment has been removed.')
-    logger.info('Token deployment scripts have been deleted.')
-    logger.info(
-      'Refer to packages/token/README.md for deployment instructions.',
-    )
-    process.exit(1)
-  })
-
-// Verify Command
-
-tokenCommand
-  .command('verify')
-  .description(
-    'Verify token deployment and cross-chain functionality on testnet',
-  )
-  .option('-n, --network <network>', 'Target network (testnet)', 'testnet')
-  .option('--dry-run', 'Simulate verification without executing')
-  .action(async (_options: { network: string; dryRun?: boolean }) => {
-    logger.error('Token verification has been removed.')
-    logger.info('Token deployment scripts have been deleted.')
-    logger.info(
-      'Refer to packages/token/README.md for verification instructions.',
-    )
-    process.exit(1)
-  })
 
 // Status Command
 
@@ -171,7 +108,7 @@ tokenCommand
     const tokenSymbol = token.toUpperCase()
     logger.info(`Checking ${tokenSymbol} status on ${options.network}...\n`)
 
-    // Token info
+    // Token info from known tokens
     const tokenInfo = KNOWN_TOKENS[tokenSymbol]
     console.log(chalk.bold('Token Info:'))
     console.log(`  Name:          ${tokenInfo?.name ?? tokenSymbol}`)
@@ -180,21 +117,82 @@ tokenCommand
     console.log(`  Total Supply:  ${tokenInfo?.totalSupply ?? 'Custom'}`)
     console.log()
 
-    // Deployment status
-    console.log(chalk.bold('Deployment Status:'))
+    // Load actual deployments
+    const deployments = loadDeployments(options.network)
     const chains = getNetworkConfig(options.network, tokenSymbol)
 
-    console.log(`  ${chalk.cyan(chains.homeChain)} (home):`)
-    console.log(`    Token:   ${chalk.dim('Not deployed')}`)
+    console.log(chalk.bold('Deployment Status:'))
 
-    for (const chain of chains.syntheticChains) {
-      console.log(`  ${chalk.dim(chain)} (synthetic):`)
+    // Check home chain
+    const homeDeployment = deployments[chains.homeChain]
+    console.log(`  ${chalk.cyan(chains.homeChain)} (home):`)
+    if (homeDeployment?.token?.address) {
+      console.log(
+        `    Token:   ${chalk.green(homeDeployment.token.address.slice(0, 10))}...`,
+      )
+
+      // Try to fetch on-chain data
+      const rpcUrl = getRpcUrl(options.network)
+      const client = createPublicClient({ transport: http(rpcUrl) })
+
+      const tokenAddress = homeDeployment.token.address as `0x${string}`
+      const [name, symbol, decimals, totalSupply] = await Promise.all([
+        client.readContract({
+          address: tokenAddress,
+          abi: ERC20_ABI,
+          functionName: 'name',
+        }),
+        client.readContract({
+          address: tokenAddress,
+          abi: ERC20_ABI,
+          functionName: 'symbol',
+        }),
+        client.readContract({
+          address: tokenAddress,
+          abi: ERC20_ABI,
+          functionName: 'decimals',
+        }),
+        client.readContract({
+          address: tokenAddress,
+          abi: ERC20_ABI,
+          functionName: 'totalSupply',
+        }),
+      ]).catch(() => [null, null, null, null])
+
+      if (name && symbol && decimals !== null && totalSupply !== null) {
+        console.log(`    On-chain: ${name} (${symbol})`)
+        console.log(
+          `    Supply:   ${formatUnits(totalSupply as bigint, decimals as number)}`,
+        )
+      }
+    } else {
       console.log(`    Token:   ${chalk.dim('Not deployed')}`)
-      console.log(`    Router:  ${chalk.dim('Not configured')}`)
+    }
+
+    // Check synthetic chains
+    for (const chain of chains.syntheticChains) {
+      const chainDeployment = deployments[chain]
+      console.log(`  ${chalk.dim(chain)} (synthetic):`)
+
+      if (chainDeployment?.token?.address) {
+        console.log(
+          `    Token:   ${chalk.green(chainDeployment.token.address.slice(0, 10))}...`,
+        )
+        if (chainDeployment.router) {
+          console.log(
+            `    Router:  ${chalk.green(chainDeployment.router.slice(0, 10))}...`,
+          )
+        } else {
+          console.log(`    Router:  ${chalk.dim('Not configured')}`)
+        }
+      } else {
+        console.log(`    Token:   ${chalk.dim('Not deployed')}`)
+        console.log(`    Router:  ${chalk.dim('Not configured')}`)
+      }
     }
     console.log()
 
-    // Fee configuration
+    // Fee configuration (static for now - could be fetched from contract)
     console.log(chalk.bold('Fee Configuration:'))
     console.log(`  XLP Reward:    80% of bridge fees`)
     console.log(`  Protocol:      10% of bridge fees`)
@@ -210,6 +208,7 @@ interface BridgeOptions {
   to: string
   recipient?: string
   zk?: boolean
+  confirm?: boolean
 }
 
 tokenCommand
@@ -219,6 +218,7 @@ tokenCommand
   .requiredOption('--to <chain>', 'Destination chain')
   .option('--recipient <address>', 'Recipient address (defaults to sender)')
   .option('--zk', 'Use ZK verification for lower fees')
+  .option('--confirm', 'Execute the bridge transaction')
   .action(async (token: string, amount: string, options: BridgeOptions) => {
     const tokenName = token.toUpperCase()
     logger.info(
@@ -246,30 +246,16 @@ tokenCommand
     )
     console.log()
 
-    logger.info('To proceed, run with --confirm flag')
-  })
-
-// Configure Routes Command
-
-tokenCommand
-  .command('configure-routes <token>')
-  .description('Configure Hyperlane warp routes for token')
-  .option('-n, --network <network>', 'Target network', 'testnet')
-  .action(async (token: string, options: { network: string }) => {
-    const tokenName = token.toUpperCase()
-    logger.info(
-      `Configuring warp routes for ${tokenName} on ${options.network}...`,
-    )
-
-    const chains = getNetworkConfig(options.network as 'testnet' | 'mainnet')
-
-    for (const chain of chains.syntheticChains) {
-      logger.info(`  Setting router for ${chain}...`)
-      await simulateDeploymentStep('set router')
-      logger.info(`    ${chalk.green('✓')} Router configured`)
+    if (!options.confirm) {
+      logger.info('To proceed, run with --confirm flag')
+      return
     }
 
-    logger.success('\nWarp routes configured successfully.')
+    // Execute bridge
+    logger.error('Bridge execution not yet implemented')
+    logger.info('Bridge contracts must be deployed first')
+    logger.info('Deploy with: jeju deploy token --network <network>')
+    process.exit(1)
   })
 
 // Helpers
@@ -300,10 +286,6 @@ function getNetworkConfig(network: string, tokenSymbol?: string) {
       ? ['sepolia', 'base-sepolia', 'arbitrum-sepolia', 'solana-devnet']
       : ['base-sepolia', 'arbitrum-sepolia', 'jeju-testnet', 'solana-devnet'],
   }
-}
-
-async function simulateDeploymentStep(_step: string): Promise<void> {
-  await new Promise((resolve) => setTimeout(resolve, 500))
 }
 
 function calculateFee(amount: string, zk?: boolean): string {

@@ -102,8 +102,8 @@ class ArchetypeTrainer:
         Returns:
             ArchetypeTrainingResult with training metrics and checkpoint path
         """
-        from .atropos_trainer import AtroposTrainingConfig, BabylonAtroposTrainer
-        from .babylon_env import BabylonEnvConfig
+        from .atropos_trainer import AtroposTrainingConfig, JejuAtroposTrainer
+        from .jeju_env import JejuEnvConfig
 
         logger.info(f"Starting training for archetype: {archetype}")
 
@@ -111,9 +111,9 @@ class ArchetypeTrainer:
         rubric = get_rubric(archetype)
 
         # Configure environment with archetype rubric
-        # Note: env_config is prepared for when the BabylonRLAIFEnv is started
+        # Note: env_config is prepared for when the JejuRLAIFEnv is started
         # In the full pipeline, this would be passed to the environment server
-        _ = BabylonEnvConfig(
+        _ = JejuEnvConfig(
             scoring_rubric=rubric,
             judge_model=self.config.judge_model,
             lookback_hours=self.config.lookback_hours,
@@ -130,7 +130,7 @@ class ArchetypeTrainer:
         )
 
         # Initialize trainer
-        trainer = BabylonAtroposTrainer(trainer_config)
+        trainer = JejuAtroposTrainer(trainer_config)
 
         # Run training
         result = await trainer.train()

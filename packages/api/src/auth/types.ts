@@ -68,8 +68,11 @@ export interface OAuth3Config {
  * Configuration for wallet signature validation
  */
 export interface WalletSignatureConfig {
-  domain: string
+  /** Domain used as message prefix if messagePrefix is not set */
+  domain?: string
+  /** Time window in ms for signature validity (default: 5 minutes) */
   validityWindowMs?: number
+  /** Message prefix for signing (takes precedence over domain) */
   messagePrefix?: string
 }
 

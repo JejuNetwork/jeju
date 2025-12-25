@@ -61,8 +61,8 @@ export const CONTRACTS = {
   // NFT Marketplace
   nftMarketplace: addr(contracts.nft?.marketplace),
 
-  // Payments
-  predimarket: addr(contracts.moderation?.predimarket),
+  // Prediction Markets (part of Bazaar)
+  predictionMarket: addr(contracts.bazaar?.predictionMarket),
 
   // Perpetuals
   perpetualMarket: addr(contracts.perpetuals?.market),
@@ -76,4 +76,5 @@ export const CONTRACTS = {
 } as const
 
 // WalletConnect Project ID - placeholder for local dev
-export const WALLETCONNECT_PROJECT_ID = NETWORK === 'localnet' ? '' : 'YOUR_PROJECT_ID'
+export const WALLETCONNECT_PROJECT_ID =
+  NETWORK === 'localnet' ? '' : 'YOUR_PROJECT_ID'

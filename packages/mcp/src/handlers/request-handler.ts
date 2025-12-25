@@ -2,8 +2,9 @@
  * JSON-RPC 2.0 request handler for MCP protocol methods.
  */
 
+import { JsonValueSchema } from '@jejunetwork/types'
 import { z } from 'zod'
-import { authenticateAgent } from '../auth/agent-auth'
+import type { AgentAuthenticator } from '../auth/agent-auth'
 import type {
   AuthenticatedAgent,
   InitializeResult,
@@ -19,7 +20,6 @@ import type {
   ToolsListResult,
 } from '../types/mcp'
 import { MCP_PROTOCOL_VERSIONS, MCPMethod } from '../types/mcp'
-import { JsonValueSchema } from '../utils/tool-args-validation'
 
 // JSON-RPC 2.0 Request Validation Schema
 const JsonRpcRequestSchema = z
@@ -85,6 +85,21 @@ const ToolCallParamsSchema = z
   })
   .strict()
 
+// Resource Read Params Validation Schema
+const ResourceReadParamsSchema = z
+  .object({
+    uri: z.string().min(1),
+  })
+  .strict()
+
+// Prompt Get Params Validation Schema
+const PromptGetParamsSchema = z
+  .object({
+    name: z.string().min(1),
+    arguments: z.record(z.string(), JsonValueSchema).optional(),
+  })
+  .strict()
+
 /**
  * Get initialize result generator type
  */
@@ -93,28 +108,90 @@ export type GetInitializeResultFn = (
 ) => InitializeResult
 
 /**
+ * MCP Resource definition
+ */
+export interface MCPResource {
+  uri: string
+  name: string
+  description?: string
+  mimeType?: string
+}
+
+/**
+ * MCP Resource handler
+ */
+export interface MCPResourceDefinition {
+  resource: MCPResource
+  handler: (uri: string, agent: AuthenticatedAgent) => Promise<string>
+}
+
+/**
+ * MCP Prompt definition
+ */
+export interface MCPPrompt {
+  name: string
+  description?: string
+  arguments?: Array<{
+    name: string
+    description?: string
+    required?: boolean
+  }>
+}
+
+/**
+ * MCP Prompt handler
+ */
+export interface MCPPromptDefinition {
+  prompt: MCPPrompt
+  handler: (
+    args: StringRecord<JsonValue>,
+    agent: AuthenticatedAgent,
+  ) => Promise<string>
+}
+
+/**
+ * MCP Request Handler Options
+ */
+export interface MCPRequestHandlerOptions {
+  getInitializeResult: GetInitializeResultFn
+  authenticator: AgentAuthenticator
+  tools?: MCPToolDefinition[]
+  resources?: MCPResourceDefinition[]
+  prompts?: MCPPromptDefinition[]
+}
+
+/**
  * MCP Request Handler
  *
  * Processes JSON-RPC 2.0 requests and routes to appropriate handlers.
- * This is a generalized handler that accepts tools as configuration.
+ * Authentication is required for all operations except initialize and ping.
  */
 export class MCPRequestHandler {
-  private authContext: MCPAuthContext | undefined
   private tools: Map<string, MCPToolDefinition> = new Map()
+  private resources: Map<string, MCPResourceDefinition> = new Map()
+  private prompts: Map<string, MCPPromptDefinition> = new Map()
   private getInitializeResult: GetInitializeResultFn
-  private requireAuth: boolean
+  private authenticator: AgentAuthenticator
 
-  constructor(options: {
-    getInitializeResult: GetInitializeResultFn
-    tools?: MCPToolDefinition[]
-    requireAuth?: boolean
-  }) {
+  constructor(options: MCPRequestHandlerOptions) {
     this.getInitializeResult = options.getInitializeResult
-    this.requireAuth = options.requireAuth ?? true
+    this.authenticator = options.authenticator
 
     if (options.tools) {
       for (const tool of options.tools) {
         this.registerTool(tool)
+      }
+    }
+
+    if (options.resources) {
+      for (const resource of options.resources) {
+        this.registerResource(resource)
+      }
+    }
+
+    if (options.prompts) {
+      for (const prompt of options.prompts) {
+        this.registerPrompt(prompt)
       }
     }
   }
@@ -150,24 +227,46 @@ export class MCPRequestHandler {
   }
 
   /**
+   * Register a resource
+   */
+  registerResource(resourceDef: MCPResourceDefinition): void {
+    this.resources.set(resourceDef.resource.uri, resourceDef)
+  }
+
+  /**
+   * Get all registered resources
+   */
+  getResources(): MCPResource[] {
+    return Array.from(this.resources.values()).map((r) => r.resource)
+  }
+
+  /**
+   * Register a prompt
+   */
+  registerPrompt(promptDef: MCPPromptDefinition): void {
+    this.prompts.set(promptDef.prompt.name, promptDef)
+  }
+
+  /**
+   * Get all registered prompts
+   */
+  getPrompts(): MCPPrompt[] {
+    return Array.from(this.prompts.values()).map((p) => p.prompt)
+  }
+
+  /**
    * Validate and handle JSON-RPC request
    *
    * @param rawRequest - The raw request object (before validation)
-   * @param authContext - Optional authentication context
+   * @param authContext - Authentication context (passed through, not stored)
    */
   async handle(
     rawRequest: unknown,
-    authContext?: MCPAuthContext,
+    authContext: MCPAuthContext,
   ): Promise<JsonRpcResponse> {
-    // Store auth context if provided
-    if (authContext !== undefined) {
-      this.authContext = authContext
-    }
-
     // Validate JSON-RPC request structure
     const parseResult = JsonRpcRequestSchema.safeParse(rawRequest)
     if (!parseResult.success) {
-      // Try to extract request ID for error response (per JSON-RPC spec)
       const requestId = this.extractRequestId(rawRequest)
       return this.createErrorResponse(
         requestId,
@@ -187,7 +286,15 @@ export class MCPRequestHandler {
       case MCPMethod.TOOLS_LIST:
         return this.handleToolsList(request)
       case MCPMethod.TOOLS_CALL:
-        return this.handleToolsCall(request)
+        return this.handleToolsCall(request, authContext)
+      case MCPMethod.RESOURCES_LIST:
+        return this.handleResourcesList(request)
+      case MCPMethod.RESOURCES_READ:
+        return this.handleResourcesRead(request, authContext)
+      case MCPMethod.PROMPTS_LIST:
+        return this.handlePromptsList(request)
+      case MCPMethod.PROMPTS_GET:
+        return this.handlePromptsGet(request, authContext)
       default:
         return this.createErrorResponse(
           request.id,
@@ -213,7 +320,6 @@ export class MCPRequestHandler {
 
     const params = parseResult.data
 
-    // Get initialize result with validated protocol version
     const result = this.getInitializeResult(
       params.protocolVersion as MCPProtocolVersion,
     )
@@ -255,13 +361,15 @@ export class MCPRequestHandler {
    */
   private async handleToolsCall(
     request: ValidatedJsonRpcRequest,
+    authContext: MCPAuthContext,
   ): Promise<JsonRpcResponse> {
-    // Require authentication for tool calls if configured
-    if (this.requireAuth && !this.authContext) {
+    // Authenticate agent - required for all tool calls
+    const agent = await this.authenticateRequest(authContext)
+    if (!agent) {
       return this.createErrorResponse(
         request.id,
-        -32000,
-        'Authentication required',
+        -32001,
+        'Authentication failed',
       )
     }
 
@@ -277,37 +385,6 @@ export class MCPRequestHandler {
 
     const params = parseResult.data
 
-    // Authenticate agent if auth context is present
-    let agent: AuthenticatedAgent | undefined
-    if (this.authContext?.apiKey) {
-      const authResult = await authenticateAgent({
-        apiKey: this.authContext.apiKey,
-      })
-
-      if (authResult) {
-        agent = authResult
-      } else if (this.requireAuth) {
-        return this.createErrorResponse(
-          request.id,
-          -32001,
-          'Authentication failed',
-        )
-      }
-    }
-
-    // For non-auth mode, create a dummy agent
-    if (agent === undefined && !this.requireAuth) {
-      agent = { userId: 'anonymous', agentId: 'anonymous' }
-    }
-
-    if (agent === undefined) {
-      return this.createErrorResponse(
-        request.id,
-        -32001,
-        'Authentication failed',
-      )
-    }
-
     // Find and execute tool
     const toolDef = this.tools.get(params.name)
     if (!toolDef) {
@@ -321,25 +398,14 @@ export class MCPRequestHandler {
     // Validate arguments if validator exists
     let validatedArgs: StringRecord<JsonValue> = params.arguments
     if (toolDef.validator) {
-      try {
-        validatedArgs = toolDef.validator(
-          params.arguments,
-        ) as StringRecord<JsonValue>
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : String(err)
-        return this.createErrorResponse(
-          request.id,
-          -32602,
-          `Invalid arguments for ${params.name}: ${errorMessage}`,
-        )
-      }
+      const validated = toolDef.validator(params.arguments)
+      validatedArgs = validated as StringRecord<JsonValue>
     }
 
     // Execute tool
     const toolResult = await toolDef.handler(validatedArgs, agent)
 
     // Convert tool result to MCP content format
-    // Tool results should be JSON-serializable by contract
     const content = this.convertToolResultToContent(toolResult as JsonValue)
 
     const result: ToolCallResult = {
@@ -355,29 +421,170 @@ export class MCPRequestHandler {
   }
 
   /**
+   * Handle resources/list request
+   */
+  private handleResourcesList(
+    request: ValidatedJsonRpcRequest,
+  ): JsonRpcResponse {
+    const resources = this.getResources()
+    return {
+      jsonrpc: '2.0',
+      id: request.id,
+      result: { resources },
+    }
+  }
+
+  /**
+   * Handle resources/read request
+   */
+  private async handleResourcesRead(
+    request: ValidatedJsonRpcRequest,
+    authContext: MCPAuthContext,
+  ): Promise<JsonRpcResponse> {
+    const agent = await this.authenticateRequest(authContext)
+    if (!agent) {
+      return this.createErrorResponse(
+        request.id,
+        -32001,
+        'Authentication failed',
+      )
+    }
+
+    const parseResult = ResourceReadParamsSchema.safeParse(request.params)
+    if (!parseResult.success) {
+      return this.createErrorResponse(
+        request.id,
+        -32602,
+        `Invalid resource read params: ${parseResult.error.message}`,
+      )
+    }
+
+    const { uri } = parseResult.data
+    const resourceDef = this.resources.get(uri)
+
+    if (!resourceDef) {
+      return this.createErrorResponse(
+        request.id,
+        -32602,
+        `Unknown resource: ${uri}`,
+      )
+    }
+
+    const content = await resourceDef.handler(uri, agent)
+
+    return {
+      jsonrpc: '2.0',
+      id: request.id,
+      result: {
+        contents: [
+          {
+            uri,
+            mimeType: resourceDef.resource.mimeType ?? 'text/plain',
+            text: content,
+          },
+        ],
+      },
+    }
+  }
+
+  /**
+   * Handle prompts/list request
+   */
+  private handlePromptsList(request: ValidatedJsonRpcRequest): JsonRpcResponse {
+    const prompts = this.getPrompts()
+    return {
+      jsonrpc: '2.0',
+      id: request.id,
+      result: { prompts },
+    }
+  }
+
+  /**
+   * Handle prompts/get request
+   */
+  private async handlePromptsGet(
+    request: ValidatedJsonRpcRequest,
+    authContext: MCPAuthContext,
+  ): Promise<JsonRpcResponse> {
+    const agent = await this.authenticateRequest(authContext)
+    if (!agent) {
+      return this.createErrorResponse(
+        request.id,
+        -32001,
+        'Authentication failed',
+      )
+    }
+
+    const parseResult = PromptGetParamsSchema.safeParse(request.params)
+    if (!parseResult.success) {
+      return this.createErrorResponse(
+        request.id,
+        -32602,
+        `Invalid prompt get params: ${parseResult.error.message}`,
+      )
+    }
+
+    const { name, arguments: args } = parseResult.data
+    const promptDef = this.prompts.get(name)
+
+    if (!promptDef) {
+      return this.createErrorResponse(
+        request.id,
+        -32602,
+        `Unknown prompt: ${name}`,
+      )
+    }
+
+    const content = await promptDef.handler(args ?? {}, agent)
+
+    return {
+      jsonrpc: '2.0',
+      id: request.id,
+      result: {
+        description: promptDef.prompt.description,
+        messages: [
+          {
+            role: 'user',
+            content: { type: 'text', text: content },
+          },
+        ],
+      },
+    }
+  }
+
+  /**
+   * Authenticate request using the configured authenticator
+   */
+  private async authenticateRequest(
+    authContext: MCPAuthContext,
+  ): Promise<AuthenticatedAgent | null> {
+    if (!authContext.apiKey) {
+      return null
+    }
+
+    return this.authenticator.authenticate({ apiKey: authContext.apiKey })
+  }
+
+  /**
    * Convert tool result to MCP content format
    */
   private convertToolResultToContent(
     toolResult: JsonValue,
   ): Array<{ type: 'text'; text: string }> {
-    // Handle different result types
     if (typeof toolResult === 'string') {
       return [{ type: 'text' as const, text: toolResult }]
     }
 
     if (typeof toolResult === 'object' && toolResult !== null) {
-      // Format object results as readable JSON
       const formatted = JSON.stringify(toolResult, null, 2)
       return [{ type: 'text' as const, text: formatted }]
     }
 
-    // Primitive types: convert to string representation
     return [{ type: 'text' as const, text: String(toolResult) }]
   }
 
   /**
    * Extract request ID from raw request for error responses
-   * Returns null if ID cannot be extracted (per JSON-RPC spec)
    */
   private extractRequestId(rawRequest: unknown): string | number | null {
     if (

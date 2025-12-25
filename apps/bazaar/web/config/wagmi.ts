@@ -71,7 +71,8 @@ const testnet = defineChain({
   testnet: true,
 })
 
-const activeChain = NETWORK === 'mainnet' ? mainnet : NETWORK === 'testnet' ? testnet : localnet
+const activeChain =
+  NETWORK === 'mainnet' ? mainnet : NETWORK === 'testnet' ? testnet : localnet
 
 export const wagmiConfig = createConfig({
   chains: [activeChain],

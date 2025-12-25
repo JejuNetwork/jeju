@@ -1,7 +1,8 @@
 /** Manage Jeju Federation membership */
 
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { type NetworkType } from '@jejunetwork/config'
 import chalk from 'chalk'
 import { Command } from 'commander'
 import { execa } from 'execa'
@@ -17,7 +18,6 @@ import { privateKeyToAccount } from 'viem/accounts'
 import { z } from 'zod'
 import { logger } from '../lib/logger'
 import { findMonorepoRoot } from '../lib/system'
-import '@jejunetwork/config'
 
 // Contract return types
 interface NetworkInfo {
@@ -131,11 +131,48 @@ const CHALLENGE_REASONS: Record<string, number> = {
 }
 
 const DEFAULT_HUB_RPC = 'https://eth.llamarpc.com'
-const DEFAULT_NETWORK_REGISTRY = '0x0000000000000000000000000000000000000000' // To be deployed
-const DEFAULT_REGISTRY_HUB = '0x0000000000000000000000000000000000000000' // To be deployed
-const DEFAULT_FEDERATION_GOVERNANCE =
-  '0x0000000000000000000000000000000000000000' // To be deployed
 const DEFAULT_INDEXER_URL = 'http://localhost:4352'
+
+interface FederationDeployment {
+  NetworkRegistry?: string
+  RegistryHub?: string
+  FederationGovernance?: string
+  IdentityRegistry?: string
+  SolverRegistry?: string
+}
+
+function loadFederationAddresses(network: NetworkType = 'mainnet'): FederationDeployment {
+  const rootDir = findMonorepoRoot()
+  const paths = [
+    join(rootDir, 'packages/contracts/deployments', `federation-${network}.json`),
+    join(rootDir, 'packages/contracts/deployments', `l1-${network}.json`),
+  ]
+
+  for (const path of paths) {
+    if (existsSync(path)) {
+      const content = readFileSync(path, 'utf-8')
+      const deployment = JSON.parse(content)
+      if (deployment.federation) {
+        return deployment.federation as FederationDeployment
+      }
+      return deployment as FederationDeployment
+    }
+  }
+
+  return {}
+}
+
+function getContractAddress(
+  overrideAddress: string | undefined,
+  deployedAddress: string | undefined,
+  contractName: string,
+): `0x${string}` | null {
+  const address = overrideAddress ?? deployedAddress
+  if (!address || address === '0x0000000000000000000000000000000000000000') {
+    return null
+  }
+  return address as `0x${string}`
+}
 
 const TRUST_TIERS = ['UNSTAKED', 'STAKED', 'VERIFIED']
 const REGISTRY_TYPES = [

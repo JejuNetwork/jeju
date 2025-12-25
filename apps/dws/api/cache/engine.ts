@@ -10,12 +10,12 @@
  */
 
 import {
+  type CacheConfig,
   CacheError,
   CacheErrorCode,
-  CacheEventType,
-  type CacheConfig,
   type CacheEvent,
   type CacheEventListener,
+  CacheEventType,
   type CacheNamespaceStats,
   type CacheScanOptions,
   type CacheScanResult,
@@ -253,7 +253,7 @@ export class CacheEngine {
   incr(namespace: string, key: string, by = 1): number {
     const value = this.get(namespace, key)
     const num = value ? parseInt(value, 10) : 0
-    if (isNaN(num)) {
+    if (Number.isNaN(num)) {
       throw new CacheError(
         CacheErrorCode.INVALID_OPERATION,
         'Value is not an integer',
@@ -410,7 +410,11 @@ export class CacheEngine {
   /**
    * Get multiple hash fields
    */
-  hmget(namespace: string, key: string, ...fields: string[]): (string | null)[] {
+  hmget(
+    namespace: string,
+    key: string,
+    ...fields: string[]
+  ): (string | null)[] {
     const hash = this.getHash(namespace, key)
     if (!hash) return fields.map(() => null)
     return fields.map((f) => hash[f] ?? null)
@@ -491,7 +495,7 @@ export class CacheEngine {
   hincrby(namespace: string, key: string, field: string, by: number): number {
     const current = this.hget(namespace, key, field)
     const num = current ? parseInt(current, 10) : 0
-    if (isNaN(num)) {
+    if (Number.isNaN(num)) {
       throw new CacheError(
         CacheErrorCode.INVALID_OPERATION,
         'Hash field is not an integer',
@@ -554,7 +558,12 @@ export class CacheEngine {
   /**
    * Get list range
    */
-  lrange(namespace: string, key: string, start: number, stop: number): string[] {
+  lrange(
+    namespace: string,
+    key: string,
+    start: number,
+    stop: number,
+  ): string[] {
     const list = this.getList(namespace, key)
     if (!list) return []
 
@@ -816,11 +825,7 @@ export class CacheEngine {
   /**
    * Add entry to stream
    */
-  xadd(
-    namespace: string,
-    key: string,
-    fields: Record<string, string>,
-  ): string {
+  xadd(namespace: string, key: string, fields: Record<string, string>): string {
     const stream = this.getOrCreateStream(namespace, key)
     const id = `${Date.now()}-${stream.length}`
     stream.push({ id, fields })

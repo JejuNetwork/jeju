@@ -23,8 +23,8 @@ export interface RateLimitPluginConfig extends RateLimiterConfig {
   perPath?: boolean
 }
 
-/** Context derived by rate limit plugin - extends Record for Elysia compatibility */
-export interface RateLimitContext extends Record<string, unknown> {
+/** Context derived by rate limit plugin - index signature required for Elysia derive compatibility */
+export interface RateLimitContext extends Record<string, RateLimitResult | string> {
   rateLimit: RateLimitResult
   rateLimitKey: string
 }

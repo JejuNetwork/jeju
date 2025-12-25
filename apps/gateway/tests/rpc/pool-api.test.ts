@@ -10,7 +10,7 @@ import { ZERO_ADDRESS } from '@jejunetwork/types'
 import type { Address } from 'viem'
 
 // Use URLs from test infrastructure env vars
-const RPC_URL = process.env.JEJU_RPC_URL ?? 'http://127.0.0.1:6546'
+const _RPC_URL = process.env.JEJU_RPC_URL ?? 'http://127.0.0.1:6546'
 const BASE_URL =
   process.env.GATEWAY_URL ??
   process.env.GATEWAY_A2A_URL ??
@@ -43,9 +43,15 @@ interface FetchResult {
   data: Record<string, unknown>
 }
 
-async function fetchJSON(url: string, options?: RequestInit): Promise<FetchResult> {
+async function fetchJSON(
+  url: string,
+  options?: RequestInit,
+): Promise<FetchResult> {
   const response = await fetch(url, options)
-  const data = (await response.json().catch(() => ({}))) as Record<string, unknown>
+  const data = (await response.json().catch(() => ({}))) as Record<
+    string,
+    unknown
+  >
   return { status: response.status, data }
 }
 
@@ -192,7 +198,9 @@ describe('Pool API - Edge Cases & Error Handling', () => {
       if (!serverAvailable) return
       const { status, data } = await fetchJSON(`${BASE_URL}/api/pools/tokens`)
       expect(status).toBe(200)
-      const eth = data.ETH as { address: string; symbol: string; decimals: number } | undefined
+      const eth = data.ETH as
+        | { address: string; symbol: string; decimals: number }
+        | undefined
       if (eth) {
         expect(eth.address).toBeDefined()
         expect(typeof eth.symbol).toBe('string')
@@ -204,7 +212,9 @@ describe('Pool API - Edge Cases & Error Handling', () => {
   describe('GET /api/pools/contracts', () => {
     test('returns contract addresses', async () => {
       if (!serverAvailable) return
-      const { status, data } = await fetchJSON(`${BASE_URL}/api/pools/contracts`)
+      const { status, data } = await fetchJSON(
+        `${BASE_URL}/api/pools/contracts`,
+      )
       expect(status).toBe(200)
       expect(data.v2Factory).toBeDefined()
       expect(data.v3Factory).toBeDefined()
@@ -215,7 +225,9 @@ describe('Pool API - Edge Cases & Error Handling', () => {
 
     test('addresses are valid format', async () => {
       if (!serverAvailable) return
-      const { status, data } = await fetchJSON(`${BASE_URL}/api/pools/contracts`)
+      const { status, data } = await fetchJSON(
+        `${BASE_URL}/api/pools/contracts`,
+      )
       expect(status).toBe(200)
       const addressRegex = /^0x[a-fA-F0-9]{40}$/
       expect(addressRegex.test(data.v2Factory as string)).toBe(true)

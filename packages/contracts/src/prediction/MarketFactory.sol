@@ -4,7 +4,7 @@ pragma solidity ^0.8.33;
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
-interface IPredimarket {
+interface IPredictionMarket {
     enum GameType {
         GENERIC,
         CALIGULAND,
@@ -56,7 +56,7 @@ interface IPredictionOracle {
  * - Custom: Any contract implementing IPredictionOracle
  */
 contract MarketFactory is Ownable, Pausable {
-    IPredimarket public immutable predimarket;
+    IPredictionMarket public immutable predictionMarket;
     IPredictionOracle public immutable oracle;
 
     uint256 public defaultLiquidity;
@@ -69,12 +69,12 @@ contract MarketFactory is Ownable, Pausable {
     error MarketAlreadyExists();
     error InvalidLiquidity();
 
-    constructor(address _predimarket, address _oracle, uint256 _defaultLiquidity, address _owner) Ownable(_owner) {
-        require(_predimarket != address(0), "Invalid market");
+    constructor(address _predictionMarket, address _oracle, uint256 _defaultLiquidity, address _owner) Ownable(_owner) {
+        require(_predictionMarket != address(0), "Invalid market");
         require(_oracle != address(0), "Invalid oracle");
         require(_defaultLiquidity > 0, "Invalid liquidity");
 
-        predimarket = IPredimarket(_predimarket);
+        predictionMarket = IPredictionMarket(_predictionMarket);
         oracle = IPredictionOracle(_oracle);
         defaultLiquidity = _defaultLiquidity;
     }
@@ -101,8 +101,8 @@ contract MarketFactory is Ownable, Pausable {
         emit MarketAutoCreated(sessionId, question);
 
         // INTERACTIONS: Create market LAST with CONTEST type
-        predimarket.createMarketWithType(
-            sessionId, question, defaultLiquidity, IPredimarket.GameType.CONTEST, address(oracle)
+        predictionMarket.createMarketWithType(
+            sessionId, question, defaultLiquidity, IPredictionMarket.GameType.CONTEST, address(oracle)
         );
     }
 
@@ -131,8 +131,8 @@ contract MarketFactory is Ownable, Pausable {
             emit MarketAutoCreated(sessionId, questions[i]);
 
             // INTERACTIONS: Create market LAST with CONTEST type
-            predimarket.createMarketWithType(
-                sessionId, questions[i], defaultLiquidity, IPredimarket.GameType.CONTEST, address(oracle)
+            predictionMarket.createMarketWithType(
+                sessionId, questions[i], defaultLiquidity, IPredictionMarket.GameType.CONTEST, address(oracle)
             );
         }
     }

@@ -1,6 +1,7 @@
 {
   "version": "1.0.0",
   "description": "Jeju Federation configuration for cross-network interoperability",
+  "_status": "Federation contracts are pending deployment. Network registry will be deployed on Sepolia first.",
   
   "hub": {
     "testnet": {
@@ -39,28 +40,7 @@
         "federatedLiquidity": ""
       },
       "isOrigin": true,
-      "status": "active"
-    },
-    "jeju-mainnet": {
-      "chainId": 420691,
-      "name": "Jeju Mainnet",
-      "rpcUrl": "https://rpc.jejunetwork.org",
-      "explorerUrl": "https://explorer.jejunetwork.org",
-      "wsUrl": "wss://ws.jejunetwork.org",
-      "contracts": {
-        "identityRegistry": "",
-        "solverRegistry": "",
-        "inputSettler": "",
-        "outputSettler": "",
-        "liquidityVault": "",
-        "governance": "",
-        "oracle": "",
-        "federatedIdentity": "",
-        "federatedSolver": "",
-        "federatedLiquidity": ""
-      },
-      "isOrigin": true,
-      "status": "planned"
+      "status": "pending"
     }
   },
 

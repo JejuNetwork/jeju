@@ -22,7 +22,8 @@ describe('MLS Client Edge Cases', () => {
   test('rejects double initialization', async () => {
     const client = createMLSClient({
       address: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as Address,
-      keyRegistryAddress: '0x1234567890123456789012345678901234567890' as Address,
+      keyRegistryAddress:
+        '0x1234567890123456789012345678901234567890' as Address,
       relayUrl: 'http://localhost:3000',
       rpcUrl: 'http://localhost:6545',
       network: 'testnet',
@@ -31,9 +32,9 @@ describe('MLS Client Edge Cases', () => {
 
     await client.initialize(`0x${'00'.repeat(65)}` as Hex)
 
-    await expect(client.initialize(`0x${'00'.repeat(65)}` as Hex)).rejects.toThrow(
-      'Client already initialized',
-    )
+    await expect(
+      client.initialize(`0x${'00'.repeat(65)}` as Hex),
+    ).rejects.toThrow('Client already initialized')
 
     await client.shutdown()
   })
@@ -41,7 +42,8 @@ describe('MLS Client Edge Cases', () => {
   test('event handlers respect max limit', async () => {
     const client = createMLSClient({
       address: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as Address,
-      keyRegistryAddress: '0x1234567890123456789012345678901234567890' as Address,
+      keyRegistryAddress:
+        '0x1234567890123456789012345678901234567890' as Address,
       relayUrl: 'http://localhost:3000',
       rpcUrl: 'http://localhost:6545',
       network: 'testnet',
@@ -56,7 +58,9 @@ describe('MLS Client Edge Cases', () => {
     }
 
     // 101st should throw
-    expect(() => client.on('message', () => {})).toThrow('maximum handlers limit')
+    expect(() => client.on('message', () => {})).toThrow(
+      'maximum handlers limit',
+    )
 
     await client.shutdown()
   })
@@ -64,7 +68,8 @@ describe('MLS Client Edge Cases', () => {
   test('shutdown cleans up all state', async () => {
     const client = createMLSClient({
       address: '0xcccccccccccccccccccccccccccccccccccccccc' as Address,
-      keyRegistryAddress: '0x1234567890123456789012345678901234567890' as Address,
+      keyRegistryAddress:
+        '0x1234567890123456789012345678901234567890' as Address,
       relayUrl: 'http://localhost:3000',
       rpcUrl: 'http://localhost:6545',
       network: 'testnet',
@@ -90,7 +95,8 @@ describe('MLS Client Edge Cases', () => {
   test('handles concurrent group creation', async () => {
     const client = createMLSClient({
       address: '0xdddddddddddddddddddddddddddddddddddddddd' as Address,
-      keyRegistryAddress: '0x1234567890123456789012345678901234567890' as Address,
+      keyRegistryAddress:
+        '0x1234567890123456789012345678901234567890' as Address,
       relayUrl: 'http://localhost:3000',
       rpcUrl: 'http://localhost:6545',
       network: 'testnet',
@@ -118,7 +124,8 @@ describe('MLS Client Edge Cases', () => {
   test('getGroup returns null for non-existent group', async () => {
     const client = createMLSClient({
       address: '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee' as Address,
-      keyRegistryAddress: '0x1234567890123456789012345678901234567890' as Address,
+      keyRegistryAddress:
+        '0x1234567890123456789012345678901234567890' as Address,
       relayUrl: 'http://localhost:3000',
       rpcUrl: 'http://localhost:6545',
       network: 'testnet',
@@ -136,7 +143,8 @@ describe('MLS Client Edge Cases', () => {
   test('leaveGroup handles non-existent group gracefully', async () => {
     const client = createMLSClient({
       address: '0xffffffffffffffffffffffffffffffffffffffffffff' as Address,
-      keyRegistryAddress: '0x1234567890123456789012345678901234567890' as Address,
+      keyRegistryAddress:
+        '0x1234567890123456789012345678901234567890' as Address,
       relayUrl: 'http://localhost:3000',
       rpcUrl: 'http://localhost:6545',
       network: 'testnet',
@@ -160,7 +168,8 @@ describe('MLS Group Edge Cases', () => {
   beforeAll(async () => {
     client = createMLSClient({
       address: testAddress,
-      keyRegistryAddress: '0x1234567890123456789012345678901234567890' as Address,
+      keyRegistryAddress:
+        '0x1234567890123456789012345678901234567890' as Address,
       relayUrl: 'http://localhost:3000',
       rpcUrl: 'http://localhost:6545',
       network: 'testnet',
@@ -183,7 +192,9 @@ describe('MLS Group Edge Cases', () => {
   test('rejects message exceeding max size', async () => {
     const hugeMessage = 'x'.repeat(100001) // > 100KB
 
-    await expect(group.send(hugeMessage)).rejects.toThrow('exceeds maximum size')
+    await expect(group.send(hugeMessage)).rejects.toThrow(
+      'exceeds maximum size',
+    )
   })
 
   test('message at exactly max size succeeds', async () => {
@@ -223,7 +234,8 @@ describe('MLS Group Edge Cases', () => {
     // Create a non-admin client
     const nonAdminClient = createMLSClient({
       address: '0x2222222222222222222222222222222222222222' as Address,
-      keyRegistryAddress: '0x1234567890123456789012345678901234567890' as Address,
+      keyRegistryAddress:
+        '0x1234567890123456789012345678901234567890' as Address,
       relayUrl: 'http://localhost:3000',
       rpcUrl: 'http://localhost:6545',
       network: 'testnet',
@@ -244,7 +256,9 @@ describe('MLS Group Edge Cases', () => {
     })
 
     await expect(
-      nonAdminGroup.addMembers(['0x3333333333333333333333333333333333333333' as Address]),
+      nonAdminGroup.addMembers([
+        '0x3333333333333333333333333333333333333333' as Address,
+      ]),
     ).rejects.toThrow('Only admins')
 
     await nonAdminClient.shutdown()
@@ -688,7 +702,8 @@ describe('Concurrent Operations', () => {
   test('handles concurrent group operations', async () => {
     const client = createMLSClient({
       address: '0x6666666666666666666666666666666666666666' as Address,
-      keyRegistryAddress: '0x1234567890123456789012345678901234567890' as Address,
+      keyRegistryAddress:
+        '0x1234567890123456789012345678901234567890' as Address,
       relayUrl: 'http://localhost:3000',
       rpcUrl: 'http://localhost:6545',
       network: 'testnet',
@@ -750,7 +765,8 @@ describe('Data Integrity', () => {
   test('group state mutations are atomic', async () => {
     const client = createMLSClient({
       address: '0x7777777777777777777777777777777777777777' as Address,
-      keyRegistryAddress: '0x1234567890123456789012345678901234567890' as Address,
+      keyRegistryAddress:
+        '0x1234567890123456789012345678901234567890' as Address,
       relayUrl: 'http://localhost:3000',
       rpcUrl: 'http://localhost:6545',
       network: 'testnet',
@@ -786,7 +802,8 @@ describe('Data Integrity', () => {
   test('metadata updates preserve other fields', async () => {
     const client = createMLSClient({
       address: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as Address,
-      keyRegistryAddress: '0x1234567890123456789012345678901234567890' as Address,
+      keyRegistryAddress:
+        '0x1234567890123456789012345678901234567890' as Address,
       relayUrl: 'http://localhost:3000',
       rpcUrl: 'http://localhost:6545',
       network: 'testnet',

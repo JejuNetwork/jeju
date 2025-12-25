@@ -35,7 +35,7 @@ const erc8004 = getERC8004Client(erc8004Config)
 const futarchyConfig: FutarchyConfig = {
   rpcUrl: config.rpcUrl,
   councilAddress: toAddress(config.contracts.council),
-  predimarketAddress: ZERO_ADDR,
+  predictionMarketAddress: ZERO_ADDR,
   operatorKey: process.env.OPERATOR_KEY ?? process.env.PRIVATE_KEY,
 }
 const futarchy = getFutarchyClient(futarchyConfig)
@@ -60,7 +60,7 @@ export const healthRoutes = new Elysia()
       },
       futarchy: {
         council: futarchy.councilDeployed,
-        predimarket: futarchy.predimarketDeployed,
+        predictionMarket: futarchy.predictionMarketDeployed,
       },
       registry: {
         integration:

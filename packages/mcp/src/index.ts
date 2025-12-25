@@ -5,5 +5,6 @@
 export * from './auth'
 export * from './handlers'
 export * from './server'
+export * from './transport'
 export * from './types'
 export * from './utils'

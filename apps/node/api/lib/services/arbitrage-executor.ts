@@ -1004,9 +1004,16 @@ export class ArbitrageExecutor {
     toToken: Address,
     amount: bigint,
   ): Promise<string> {
-    const quote = await this.get1inchSwapQuote(chainId, fromToken, toToken, amount)
+    const quote = await this.get1inchSwapQuote(
+      chainId,
+      fromToken,
+      toToken,
+      amount,
+    )
     if (!quote) {
-      throw new Error(`Failed to get swap quote for ${fromToken} -> ${toToken} on chain ${chainId}`)
+      throw new Error(
+        `Failed to get swap quote for ${fromToken} -> ${toToken} on chain ${chainId}`,
+      )
     }
     return this.execute1inchSwap(chainId, quote)
   }

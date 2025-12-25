@@ -3,8 +3,11 @@ import {
   createRateLimitHeaders,
   createRateLimitKey,
   extractClientIp,
+  getRateLimiter,
   InMemoryRateLimitStore,
+  initRateLimiter,
   RateLimiter,
+  resetRateLimiter,
 } from '../rate-limiting/core'
 import { type RateLimitTier, RateLimitTiers } from '../rate-limiting/types'
 
@@ -278,6 +281,127 @@ describe('Rate Limiting Core', () => {
 
     test('UNLIMITED has very high limit', () => {
       expect(RateLimitTiers.UNLIMITED.maxRequests).toBe(Number.MAX_SAFE_INTEGER)
+    })
+  })
+
+  describe('Named Tier Lookup', () => {
+    let limiter: RateLimiter
+
+    beforeEach(() => {
+      limiter = new RateLimiter({
+        defaultTier: RateLimitTiers.FREE,
+        tiers: {
+          FREE: RateLimitTiers.FREE,
+          BASIC: RateLimitTiers.BASIC,
+          PREMIUM: RateLimitTiers.PREMIUM,
+        },
+      })
+    })
+
+    afterEach(() => {
+      limiter.stop()
+    })
+
+    test('uses named tier by string', async () => {
+      const result = await limiter.check('test-key', 'PREMIUM')
+
+      expect(result.limit).toBe(RateLimitTiers.PREMIUM.maxRequests)
+    })
+
+    test('throws for unknown tier name', async () => {
+      await expect(limiter.check('test-key', 'UNKNOWN_TIER')).rejects.toThrow(
+        'Unknown rate limit tier: UNKNOWN_TIER',
+      )
+    })
+
+    test('uses default tier when no tier specified', async () => {
+      const result = await limiter.check('test-key')
+
+      expect(result.limit).toBe(RateLimitTiers.FREE.maxRequests)
+    })
+
+    test('uses tier object directly', async () => {
+      const customTier: RateLimitTier = { maxRequests: 42, windowMs: 1000 }
+      const result = await limiter.check('test-key', customTier)
+
+      expect(result.limit).toBe(42)
+    })
+  })
+
+  describe('Skip Configuration', () => {
+    let limiter: RateLimiter
+
+    beforeEach(() => {
+      limiter = new RateLimiter({
+        defaultTier: RateLimitTiers.FREE,
+        skipIps: ['127.0.0.1', '::1'],
+        skipPaths: ['/health', '/api/v1/docs'],
+      })
+    })
+
+    afterEach(() => {
+      limiter.stop()
+    })
+
+    test('skips configured IPs', () => {
+      expect(limiter.shouldSkipIp('127.0.0.1')).toBe(true)
+      expect(limiter.shouldSkipIp('::1')).toBe(true)
+      expect(limiter.shouldSkipIp('192.168.1.1')).toBe(false)
+    })
+
+    test('skips configured paths', () => {
+      expect(limiter.shouldSkipPath('/health')).toBe(true)
+      expect(limiter.shouldSkipPath('/api/v1/docs')).toBe(true)
+      expect(limiter.shouldSkipPath('/api/v1/docs/swagger')).toBe(true)
+      expect(limiter.shouldSkipPath('/api/v1/users')).toBe(false)
+    })
+  })
+
+  describe('Global Rate Limiter', () => {
+    afterEach(() => {
+      resetRateLimiter()
+    })
+
+    test('throws when not initialized', () => {
+      expect(() => getRateLimiter()).toThrow(
+        'Rate limiter not initialized. Call initRateLimiter first.',
+      )
+    })
+
+    test('initializes and returns rate limiter', () => {
+      const limiter = initRateLimiter({
+        defaultTier: RateLimitTiers.FREE,
+      })
+
+      expect(limiter).toBeInstanceOf(RateLimiter)
+      expect(getRateLimiter()).toBe(limiter)
+    })
+
+    test('replaces existing rate limiter on reinit', () => {
+      const limiter1 = initRateLimiter({
+        defaultTier: RateLimitTiers.FREE,
+      })
+
+      const limiter2 = initRateLimiter({
+        defaultTier: RateLimitTiers.PREMIUM,
+      })
+
+      expect(getRateLimiter()).toBe(limiter2)
+      expect(getRateLimiter()).not.toBe(limiter1)
+    })
+
+    test('reset clears the rate limiter', () => {
+      initRateLimiter({
+        defaultTier: RateLimitTiers.FREE,
+      })
+
+      resetRateLimiter()
+
+      expect(() => getRateLimiter()).toThrow()
+    })
+
+    test('reset is safe when not initialized', () => {
+      expect(() => resetRateLimiter()).not.toThrow()
     })
   })
 })

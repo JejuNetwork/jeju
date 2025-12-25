@@ -14,21 +14,21 @@ import { getCQL } from '@jejunetwork/db'
 import type { Address } from 'viem'
 import { keccak256, toBytes } from 'viem'
 import { CacheEngine } from './engine'
-import { createTEECacheProvider, TEECacheProvider } from './tee-provider'
+import { createTEECacheProvider, type TEECacheProvider } from './tee-provider'
 import {
   CacheError,
   CacheErrorCode,
-  CacheEventType,
-  CacheInstanceStatus,
-  CacheTEEProvider,
-  CacheTier,
   type CacheEvent,
   type CacheEventListener,
+  CacheEventType,
   type CacheInstance,
+  CacheInstanceStatus,
   type CacheNode,
   type CacheRentalPlan,
   type CacheStats,
   type CacheTEEAttestation,
+  CacheTEEProvider,
+  CacheTier,
 } from './types'
 
 const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? 'dws-cache'
@@ -744,7 +744,10 @@ export class CacheProvisioningManager {
     // Mark offline nodes
     const offlineThreshold = 120000 // 2 minutes
     for (const node of this.nodes.values()) {
-      if (node.status === 'online' && now - node.lastHeartbeat > offlineThreshold) {
+      if (
+        node.status === 'online' &&
+        now - node.lastHeartbeat > offlineThreshold
+      ) {
         node.status = 'offline'
         await this.saveNodeToCQL(node)
         this.emit({

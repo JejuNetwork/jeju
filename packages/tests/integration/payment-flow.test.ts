@@ -327,9 +327,7 @@ describe.skipIf(!localnetAvailable)('Payment Flow Integration', () => {
     console.log(`  Base price: ${formatUnits(basePriceJeju, 18)} JEJU`)
     console.log(`  Demand multiplier: ${demandMultiplier} bps`)
     console.log(`  Total usage: ${totalUsageCount}`)
-    console.log(
-      `  Total revenue: ${formatUnits(totalRevenueJeju, 18)} JEJU`,
-    )
+    console.log(`  Total revenue: ${formatUnits(totalRevenueJeju, 18)} JEJU`)
     console.log(`  Is active: ${isActive}`)
 
     expect(isActive).toBe(true)

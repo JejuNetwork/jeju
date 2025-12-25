@@ -116,6 +116,7 @@ export type ContractCategory =
   | 'security'
   | 'agents'
   | 'amm'
+  | 'bazaar'
   | 'bridge'
   | 'cdn'
   | 'chainlink'
@@ -150,6 +151,7 @@ const NetworkContractsSchema = z.object({
   security: ContractCategorySchema,
   agents: ContractCategorySchema.optional(),
   amm: ContractCategorySchema.optional(),
+  bazaar: ContractCategorySchema.optional(),
   bridge: ContractCategorySchema.optional(),
   cdn: ContractCategorySchema.optional(),
   chainlink: ContractCategorySchema.optional(),

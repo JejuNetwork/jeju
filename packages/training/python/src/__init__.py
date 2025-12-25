@@ -5,7 +5,7 @@ This package provides training infrastructure for Jeju agents:
 
 1. **Atropos Training** (Local GPU)
    - `atropos_trainer.py` - Local GRPO trainer with vLLM
-   - `babylon_env.py` - RLAIF environment with LLM-as-judge
+   - `jeju_env.py` - RLAIF environment with LLM-as-judge
 
 2. **Data & Utilities**
    - `rollout_generator.py` - Fast rollout generation

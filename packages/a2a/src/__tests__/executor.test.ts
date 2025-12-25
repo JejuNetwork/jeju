@@ -5,13 +5,17 @@
  */
 
 import { beforeEach, describe, expect, it } from 'bun:test'
-import type { Message, Task } from '@a2a-js/sdk'
-import type { ExecutionEventBus, RequestContext } from '@a2a-js/sdk/server'
 import {
   BaseAgentExecutor,
   type ExecutorCommand,
   type ExecutorResult,
 } from '../core/executor'
+import type {
+  ExecutionEventBus,
+  Message,
+  RequestContext,
+  Task,
+} from '../types/server'
 
 /**
  * Concrete implementation for testing

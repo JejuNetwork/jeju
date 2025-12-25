@@ -9,7 +9,9 @@
 
 import {
   type Address,
+  createPublicClient,
   type Hex,
+  http,
   keccak256,
   recoverMessageAddress,
   toBytes,
@@ -21,6 +23,29 @@ import type {
   CredentialProof,
   VerifiableCredential,
 } from '../types.js'
+
+// Credential Registry ABI for revocation checks
+const CREDENTIAL_REGISTRY_ABI = [
+  {
+    type: 'function',
+    name: 'isRevoked',
+    inputs: [{ name: 'credentialHash', type: 'bytes32' }],
+    outputs: [{ type: 'bool' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'getRevocationStatus',
+    inputs: [{ name: 'credentialHash', type: 'bytes32' }],
+    outputs: [
+      { name: 'revoked', type: 'bool' },
+      { name: 'revokedAt', type: 'uint256' },
+      { name: 'revoker', type: 'address' },
+      { name: 'reason', type: 'string' },
+    ],
+    stateMutability: 'view',
+  },
+] as const
 
 const VC_CONTEXT = 'https://www.w3.org/2018/credentials/v1'
 const OAUTH3_CONTEXT = 'https://jejunetwork.org/credentials/oauth3/v1'
@@ -259,11 +284,35 @@ export class VerifiableCredentialIssuer {
   }
 }
 
+export interface VerifierConfig {
+  chainId: number
+  rpcUrl?: string
+  credentialRegistryAddress?: Address
+  trustedIssuers?: string[]
+}
+
 export class VerifiableCredentialVerifier {
   private trustedIssuers: Set<string>
+  private chainId: number
+  private rpcUrl: string | null
+  private credentialRegistryAddress: Address | null
 
-  constructor(_chainId: number, trustedIssuers?: string[]) {
-    this.trustedIssuers = new Set(trustedIssuers ?? [])
+  constructor(
+    chainIdOrConfig: number | VerifierConfig,
+    trustedIssuers?: string[],
+  ) {
+    if (typeof chainIdOrConfig === 'number') {
+      this.chainId = chainIdOrConfig
+      this.rpcUrl = null
+      this.credentialRegistryAddress = null
+      this.trustedIssuers = new Set(trustedIssuers ?? [])
+    } else {
+      this.chainId = chainIdOrConfig.chainId
+      this.rpcUrl = chainIdOrConfig.rpcUrl ?? null
+      this.credentialRegistryAddress =
+        chainIdOrConfig.credentialRegistryAddress ?? null
+      this.trustedIssuers = new Set(chainIdOrConfig.trustedIssuers ?? [])
+    }
   }
 
   addTrustedIssuer(issuerDid: string): void {
@@ -419,9 +468,62 @@ export class VerifiableCredentialVerifier {
   }
 
   private async checkRevocation(
-    _credential: VerifiableCredential,
+    credential: VerifiableCredential,
   ): Promise<boolean> {
-    return true
+    // If no registry configured, skip revocation check (return valid)
+    if (!this.credentialRegistryAddress || !this.rpcUrl) {
+      return true
+    }
+
+    const credentialHash = createCredentialHash(credential)
+
+    const client = createPublicClient({
+      transport: http(this.rpcUrl),
+    })
+
+    const isRevoked = await client.readContract({
+      address: this.credentialRegistryAddress,
+      abi: CREDENTIAL_REGISTRY_ABI,
+      functionName: 'isRevoked',
+      args: [credentialHash],
+    })
+
+    // Return true if NOT revoked (credential is valid)
+    return !isRevoked
+  }
+
+  /**
+   * Get detailed revocation status for a credential
+   */
+  async getRevocationStatus(credential: VerifiableCredential): Promise<{
+    revoked: boolean
+    revokedAt: number
+    revoker: Address | null
+    reason: string
+  }> {
+    if (!this.credentialRegistryAddress || !this.rpcUrl) {
+      return { revoked: false, revokedAt: 0, revoker: null, reason: '' }
+    }
+
+    const credentialHash = createCredentialHash(credential)
+
+    const client = createPublicClient({
+      transport: http(this.rpcUrl),
+    })
+
+    const [revoked, revokedAt, revoker, reason] = await client.readContract({
+      address: this.credentialRegistryAddress,
+      abi: CREDENTIAL_REGISTRY_ABI,
+      functionName: 'getRevocationStatus',
+      args: [credentialHash],
+    })
+
+    return {
+      revoked,
+      revokedAt: Number(revokedAt),
+      revoker: revoked ? revoker : null,
+      reason,
+    }
   }
 
   private extractAddressFromDid(did: string): Address | null {

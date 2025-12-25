@@ -3,8 +3,8 @@
  * @module gateway/tests/contracts/node-staking
  */
 
-import { getContract } from '@jejunetwork/config'
 import { beforeAll, describe, expect, test } from 'bun:test'
+import { getContract } from '@jejunetwork/config'
 import {
   getContractAddresses,
   getPublicClient,

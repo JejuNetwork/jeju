@@ -31,8 +31,8 @@ export const FEES_DISTRIBUTED = eventSig(
 export const APP_CLAIMED = eventSig('AppClaimed(address,uint256)')
 export const ETH_ADDED = eventSig('ETHAdded(address,uint256,uint256)')
 export const ETH_REMOVED = eventSig('ETHRemoved(address,uint256,uint256)')
-export const ELIZA_ADDED = eventSig('ElizaAdded(address,uint256,uint256)')
-export const ELIZA_REMOVED = eventSig('ElizaRemoved(address,uint256,uint256)')
+export const TOKEN_ADDED = eventSig('TokenAdded(address,uint256,uint256)')
+export const TOKEN_REMOVED = eventSig('TokenRemoved(address,uint256,uint256)')
 export const FEES_CLAIMED = eventSig('FeesClaimed(address,uint256)')
 export const ENTRY_POINT_FUNDED = eventSig('EntryPointFunded(uint256)')
 
@@ -597,25 +597,25 @@ export const EVENT_REGISTRY: Record<string, EventCategory> = {
     signature: MARKET_CREATED,
     name: 'MarketCreated',
     category: 'prediction',
-    contract: 'Predimarket',
+    contract: 'PredictionMarket',
   },
   [SHARES_PURCHASED]: {
     signature: SHARES_PURCHASED,
     name: 'SharesPurchased',
     category: 'prediction',
-    contract: 'Predimarket',
+    contract: 'PredictionMarket',
   },
   [SHARES_SOLD]: {
     signature: SHARES_SOLD,
     name: 'SharesSold',
     category: 'prediction',
-    contract: 'Predimarket',
+    contract: 'PredictionMarket',
   },
   [MARKET_RESOLVED]: {
     signature: MARKET_RESOLVED,
     name: 'MarketResolved',
     category: 'prediction',
-    contract: 'Predimarket',
+    contract: 'PredictionMarket',
   },
   [GAME_COMMITTED]: {
     signature: GAME_COMMITTED,

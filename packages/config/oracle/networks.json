@@ -1,17 +1,13 @@
 {
+  "description": "Oracle network configuration. Contracts are pending deployment.",
+  "status": {
+    "localnet": "pending_deployment",
+    "testnet": "pending_deployment",
+    "mainnet": "pending_deployment"
+  },
   "localnet": {
     "chainId": 31337,
-    "rpcUrl": "http://localhost:6546",
-    "contracts": {
-      "feedRegistry": null,
-      "reportVerifier": null,
-      "committeeManager": null,
-      "feeRouter": null,
-      "networkConnector": null,
-      "vrfCoordinator": null,
-      "automationRegistry": null,
-      "oracleRouter": null
-    },
+    "rpcUrl": "http://127.0.0.1:6546",
     "priceSources": {
       "ETH-USD": {
         "type": "manual",
@@ -26,17 +22,7 @@
   },
   "testnet": {
     "chainId": 84532,
-    "rpcUrl": "${BASE_SEPOLIA_RPC_URL}",
-    "contracts": {
-      "feedRegistry": null,
-      "reportVerifier": null,
-      "committeeManager": null,
-      "feeRouter": null,
-      "networkConnector": null,
-      "vrfCoordinator": null,
-      "automationRegistry": null,
-      "oracleRouter": null
-    },
+    "rpcUrl": "https://sepolia.base.org",
     "priceSources": {
       "ETH-USD": {
         "type": "chainlink",
@@ -59,17 +45,7 @@
   },
   "mainnet": {
     "chainId": 8453,
-    "rpcUrl": "${BASE_MAINNET_RPC_URL}",
-    "contracts": {
-      "feedRegistry": null,
-      "reportVerifier": null,
-      "committeeManager": null,
-      "feeRouter": null,
-      "networkConnector": null,
-      "vrfCoordinator": null,
-      "automationRegistry": null,
-      "oracleRouter": null
-    },
+    "rpcUrl": "https://mainnet.base.org",
     "priceSources": {
       "ETH-USD": {
         "type": "chainlink",
@@ -110,7 +86,6 @@
       }
     },
     "settings": {
-      "_note": "Chainlink feed addresses are in chainlink/feeds.json",
       "pollIntervalMs": 60000,
       "heartbeatIntervalMs": 300000,
       "metricsPort": 9090,

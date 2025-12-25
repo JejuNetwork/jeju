@@ -82,8 +82,11 @@
   "games": {
     "bazaarMarketplace": null,
     "goldToken": null,
-    "itemsNFT": null,
-    "predimarket": null
+    "itemsNFT": null
+  },
+  
+  "bazaar": {
+    "predictionMarket": null
   },
   
   "_note": "null values indicate not yet deployed. Run deploy script to populate."

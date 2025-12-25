@@ -241,7 +241,17 @@
       "node": {
         "execution": "reth",
         "consensus": "op-node",
-        "isSequencer": true
+        "isSequencer": true,
+        "image": {
+          "execution": "ghcr.io/paradigmxyz/op-reth:latest",
+          "consensus": "us-docker.pkg.dev/oplabs-tools-artifacts/images/op-node:v1.9.4"
+        },
+        "storage": { "execution": "2Ti" },
+        "resources": { "cpu": "4000m", "memory": "16Gi" },
+        "syncTime": "24-48h"
+      },
+      "internal": {
+        "rpc": "http://reth-sequencer.execution.svc.cluster.local:8545"
       }
     }
   },

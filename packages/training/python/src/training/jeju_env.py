@@ -1,8 +1,8 @@
 """
-Babylon RLAIF Environment for Atropos
+Jeju RLAIF Environment for Atropos
 
 This environment implements Reinforcement Learning from AI Feedback (RLAIF)
-for training Babylon trading agents. It uses an LLM judge to score agent
+for training Jeju trading agents. It uses an LLM judge to score agent
 trajectories and provides the scored data to the Atropos training loop.
 
 Key features:
@@ -22,7 +22,7 @@ import random
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from .tinker_client import BabylonTinkerClient
+    from .tinker_client import JejuTinkerClient
 
 import asyncpg
 import openai
@@ -48,8 +48,8 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 
-class BabylonEnvConfig(BaseEnvConfig):
-    """Configuration for Babylon RLAIF environment"""
+class JejuEnvConfig(BaseEnvConfig):
+    """Configuration for Jeju RLAIF environment"""
 
     # Database settings
     database_url: str = Field(
@@ -98,9 +98,9 @@ If one trajectory is significantly better, reflect that in score differences."""
     )
 
 
-class BabylonRLAIFEnv(BaseEnv):
+class JejuRLAIFEnv(BaseEnv):
     """
-    Babylon RLAIF Environment for Atropos
+    Jeju RLAIF Environment for Atropos
 
     This environment:
     1. Loads trading agent trajectories from PostgreSQL
@@ -113,18 +113,18 @@ class BabylonRLAIFEnv(BaseEnv):
     instead of local vLLM, enabling cloud-based training.
     """
 
-    name = "babylon-rlaif"
-    env_config_cls = BabylonEnvConfig
+    name = "jeju-rlaif"
+    env_config_cls = JejuEnvConfig
 
     def __init__(
         self,
-        config: BabylonEnvConfig,
+        config: JejuEnvConfig,
         server_configs: list[APIServerConfig],
         slurm: bool = False,
         testing: bool = False,
     ):
         super().__init__(config, server_configs, slurm, testing)
-        self.config: BabylonEnvConfig = config
+        self.config: JejuEnvConfig = config
         self.db_pool: asyncpg.Pool | None = None
         self.trajectory_cache: list[dict] = []
         self.current_window_idx: int = 0
@@ -136,15 +136,15 @@ class BabylonRLAIFEnv(BaseEnv):
         self.judge_client = openai.AsyncOpenAI()
 
         # Optional Tinker client (set externally for Tinker-based training)
-        self._tinker_client: BabylonTinkerClient | None = None
+        self._tinker_client: JejuTinkerClient | None = None
 
     @property
-    def tinker_client(self) -> Optional["BabylonTinkerClient"]:
+    def tinker_client(self) -> Optional["JejuTinkerClient"]:
         """Get Tinker client if available"""
         return self._tinker_client
 
     @tinker_client.setter
-    def tinker_client(self, client: "BabylonTinkerClient") -> None:
+    def tinker_client(self, client: "JejuTinkerClient") -> None:
         """Set Tinker client for cloud-based inference"""
         self._tinker_client = client
         logger.info("Tinker client attached to environment")
@@ -155,9 +155,9 @@ class BabylonRLAIFEnv(BaseEnv):
         return self._tinker_client is not None and self._tinker_client.is_initialized
 
     @classmethod
-    def config_init(cls) -> tuple[BabylonEnvConfig, list[APIServerConfig]]:
+    def config_init(cls) -> tuple[JejuEnvConfig, list[APIServerConfig]]:
         """Initialize configuration with defaults"""
-        env_config = BabylonEnvConfig(
+        env_config = JejuEnvConfig(
             tokenizer_name="Qwen/Qwen2.5-3B-Instruct",
             group_size=4,  # Compare 4 trajectories at a time
             max_num_workers=64,
@@ -185,7 +185,7 @@ class BabylonRLAIFEnv(BaseEnv):
 
     async def setup(self):
         """Initialize database connection and load trajectories"""
-        logger.info("Setting up Babylon RLAIF Environment...")
+        logger.info("Setting up Jeju RLAIF Environment...")
 
         # Connect to database
         if not self.config.database_url:
@@ -401,7 +401,7 @@ class BabylonRLAIFEnv(BaseEnv):
 
     def _trajectory_to_messages(self, traj: dict) -> list[dict[str, str]]:
         """
-        Convert a Babylon trajectory to chat messages.
+        Convert a Jeju trajectory to chat messages.
 
         IMPORTANT: This captures the FULL agent tick including:
         - All LLM calls (reasoning, planning, action)
@@ -413,7 +413,7 @@ class BabylonRLAIFEnv(BaseEnv):
         messages = []
 
         # System message with full context
-        system_content = f"""You are a trading agent in Babylon prediction markets.
+        system_content = f"""You are a trading agent in Jeju prediction markets.
 
 Agent: {traj.get("agent_name", "Agent")}
 Window: {traj.get("window_id", "Unknown")}
@@ -651,4 +651,5 @@ You receive market updates and must analyze, reason, and then act."""
 
 # CLI entry point
 if __name__ == "__main__":
-    BabylonRLAIFEnv.cli()
+    JejuRLAIFEnv.cli()
+
