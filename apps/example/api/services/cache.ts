@@ -1,8 +1,12 @@
-import { treaty } from '@elysiajs/eden'
-import { Elysia, t } from 'elysia'
+/**
+ * Cache Service for Example App
+ *
+ * Uses the DWS serverless cache service for distributed caching.
+ */
 
-const COMPUTE_CACHE_ENDPOINT =
-  process.env.COMPUTE_CACHE_ENDPOINT || 'http://localhost:4200/cache'
+const DWS_CACHE_ENDPOINT =
+  process.env.DWS_CACHE_URL || 'http://localhost:4030/cache'
+const CACHE_NAMESPACE = process.env.CACHE_NAMESPACE || 'example'
 const CACHE_TIMEOUT = 5000
 
 type CacheValue =
@@ -31,75 +35,84 @@ export class CacheError extends Error {
   }
 }
 
-const cacheAppDef = new Elysia()
-  .post(
-    '/get',
-    () => ({
-      value: null as
-        | string
-        | number
-        | boolean
-        | null
-        | Record<string, string | number | boolean | null>
-        | Array<string | number | boolean | null>,
-    }),
-    {
-      body: t.Object({ key: t.String() }),
-    },
-  )
-  .post('/set', () => ({ success: true }), {
-    body: t.Object({
-      key: t.String(),
-      value: t.Any(),
-      ttlMs: t.Optional(t.Number()),
-    }),
-  })
-  .post('/delete', () => ({ success: true }), {
-    body: t.Object({ key: t.String() }),
-  })
-  .post('/clear', () => ({ success: true }))
-  .get('/health', () => ({ status: 'ok' as const }))
-
-type CacheApp = typeof cacheAppDef
-
-class ComputeCacheService implements CacheService {
-  private client: ReturnType<typeof treaty<CacheApp>>
+class DWSCacheService implements CacheService {
   private healthLastChecked = 0
   private healthy = false
 
-  constructor() {
-    this.client = treaty<CacheApp>(COMPUTE_CACHE_ENDPOINT, {
-      fetch: { signal: AbortSignal.timeout(CACHE_TIMEOUT) },
+  private async fetch<T>(
+    path: string,
+    options: RequestInit = {},
+  ): Promise<T> {
+    const response = await fetch(`${DWS_CACHE_ENDPOINT}${path}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+      signal: AbortSignal.timeout(CACHE_TIMEOUT),
     })
+
+    if (!response.ok) {
+      const text = await response.text()
+      throw new CacheError(`Cache request failed: ${text}`, response.status)
+    }
+
+    return response.json() as Promise<T>
   }
 
   async get(key: string): Promise<CacheValue | null> {
-    const { data, error } = await this.client.get.post({ key })
-    if (error) {
-      throw new CacheError(`Cache get failed: ${error}`, 500)
+    const params = new URLSearchParams({
+      key,
+      namespace: CACHE_NAMESPACE,
+    })
+    const result = await this.fetch<{ value: string | null; found: boolean }>(
+      `/get?${params}`,
+    )
+
+    if (!result.found || result.value === null) {
+      return null
     }
-    return data?.value ?? null
+
+    // Parse JSON if stored as JSON string
+    if (typeof result.value === 'string') {
+      try {
+        return JSON.parse(result.value) as CacheValue
+      } catch {
+        return result.value
+      }
+    }
+
+    return result.value
   }
 
   async set(key: string, value: CacheValue, ttlMs = 300000): Promise<void> {
-    const { error } = await this.client.set.post({ key, value, ttlMs })
-    if (error) {
-      throw new CacheError(`Cache set failed: ${error}`, 500)
-    }
+    const ttlSeconds = Math.ceil(ttlMs / 1000)
+    const stringValue =
+      typeof value === 'string' ? value : JSON.stringify(value)
+
+    await this.fetch<{ success: boolean }>('/set', {
+      method: 'POST',
+      body: JSON.stringify({
+        key,
+        value: stringValue,
+        ttl: ttlSeconds,
+        namespace: CACHE_NAMESPACE,
+      }),
+    })
   }
 
   async delete(key: string): Promise<void> {
-    const { error } = await this.client.delete.post({ key })
-    if (error) {
-      throw new CacheError(`Cache delete failed: ${error}`, 500)
-    }
+    await this.fetch<{ success: boolean }>(
+      `/delete?key=${encodeURIComponent(key)}&namespace=${CACHE_NAMESPACE}`,
+      { method: 'DELETE' },
+    )
   }
 
   async clear(): Promise<void> {
-    const { error } = await this.client.clear.post({})
-    if (error) {
-      throw new CacheError(`Cache clear failed: ${error}`, 500)
-    }
+    await this.fetch<{ success: boolean }>(
+      `/clear?namespace=${CACHE_NAMESPACE}`,
+      { method: 'DELETE' },
+    )
   }
 
   async isHealthy(): Promise<boolean> {
@@ -107,8 +120,13 @@ class ComputeCacheService implements CacheService {
       return this.healthy
     }
 
-    const { error } = await this.client.health.get()
-    this.healthy = !error
+    try {
+      await this.fetch<{ status: string }>('/health')
+      this.healthy = true
+    } catch {
+      this.healthy = false
+    }
+
     this.healthLastChecked = Date.now()
     return this.healthy
   }
@@ -118,7 +136,7 @@ let cacheService: CacheService | null = null
 
 export function getCache(): CacheService {
   if (!cacheService) {
-    cacheService = new ComputeCacheService()
+    cacheService = new DWSCacheService()
   }
   return cacheService
 }

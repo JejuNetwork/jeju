@@ -63,13 +63,13 @@ const ADDRESSES = {
 const CREDIT_MANAGER_ABI = [
   'function depositUSDC(uint256)',
   'function depositETH() payable',
-  'function depositElizaOS(uint256)',
+  'function depositJEJU(uint256)',
   'function getBalance(address, address) view returns (uint256)',
   'function hasSufficientCredit(address, address, uint256) view returns (bool, uint256)',
   'function getAllBalances(address) view returns (uint256, uint256, uint256)',
   'function withdraw(address, uint256)',
   'function usdc() view returns (address)',
-  'function elizaOS() view returns (address)',
+  'function jeju() view returns (address)',
 ]
 
 let publicClient: ReturnType<typeof createPublicClient>
@@ -306,16 +306,16 @@ describe.skipIf(!localnetAvailable)(
     test('should get all balances', async () => {
       logger.info('Testing multi-token balance query...')
 
-      const [usdcBalance, elizaBalance, ethBalance] =
+      const [usdcBalance, jejuBalance, ethBalance] =
         await creditManager.getAllBalances(user.address)
 
       logger.info(`USDC: ${formatUnits(usdcBalance, 6)}`)
-      logger.info(`elizaOS: ${formatEther(elizaBalance)}`)
+      logger.info(`JEJU: ${formatEther(jejuBalance)}`)
       logger.info(`ETH: ${formatEther(ethBalance)}`)
 
       // All should be valid bigints
       expect(typeof usdcBalance).toBe('bigint')
-      expect(typeof elizaBalance).toBe('bigint')
+      expect(typeof jejuBalance).toBe('bigint')
       expect(typeof ethBalance).toBe('bigint')
 
       logger.success('Multi-token balance query successful')

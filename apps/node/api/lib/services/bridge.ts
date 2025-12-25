@@ -244,6 +244,13 @@ class BridgeServiceImpl implements BridgeService {
 
   // Solver state
   private solverPollInterval: ReturnType<typeof setInterval> | null = null
+  private solverStats = {
+    totalFills: 0,
+    successfulFills: 0,
+    failedFills: 0,
+    pendingIntents: 0,
+  }
+  private pendingTransferIds: Set<string> = new Set()
 
   constructor(config: BridgeServiceConfig) {
     this.config = config

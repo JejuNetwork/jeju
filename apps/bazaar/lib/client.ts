@@ -43,7 +43,7 @@ async function get<T>(path: string, schema?: z.ZodType<T>): Promise<T> {
   return data
 }
 
-import type { JsonRecord } from '@jejunetwork/sdk'
+import type { JsonRecord } from '@jejunetwork/types'
 
 async function post<T>(
   path: string,

@@ -1,4 +1,4 @@
-import type { JsonRecord } from '@jejunetwork/sdk'
+import type { JsonRecord } from '@jejunetwork/types'
 import { getLogLevelEnv, type LogLevel } from '@jejunetwork/types'
 
 /**

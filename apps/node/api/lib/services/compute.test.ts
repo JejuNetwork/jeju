@@ -390,8 +390,6 @@ describe('Compute Offer Creation', () => {
 })
 
 describe('TEE Warning', () => {
-  const _NON_TEE_WARNING = 'NON-CONFIDENTIAL COMPUTE WARNING'
-
   function shouldShowNonTeeWarning(
     hardware: HardwareInfo,
     computeType: ComputeType,

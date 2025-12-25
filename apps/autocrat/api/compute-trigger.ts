@@ -3,7 +3,7 @@
  */
 
 import { getAutocratUrl, getDWSComputeUrl } from '@jejunetwork/config'
-import type { JsonRecord } from '@jejunetwork/sdk'
+import type { JsonRecord } from '@jejunetwork/types'
 import { expectValid } from '@jejunetwork/types'
 import { z } from 'zod'
 import {

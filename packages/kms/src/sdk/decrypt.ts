@@ -2,7 +2,7 @@
  * KMS SDK - Decryption utilities
  */
 
-import type { JsonValue } from '@jejunetwork/sdk'
+import type { JsonValue } from '@jejunetwork/types'
 import { type Address, type Hex, keccak256, toBytes } from 'viem'
 import type { z } from 'zod'
 import { getKMS } from '../kms.js'

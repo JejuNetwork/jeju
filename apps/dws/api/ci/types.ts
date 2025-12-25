@@ -2,7 +2,7 @@
  * CI/CD Types for Jeju Git
  */
 
-import type { JsonRecord } from '@jejunetwork/sdk'
+import type { JsonRecord } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 export interface Workflow {
   workflowId: Hex

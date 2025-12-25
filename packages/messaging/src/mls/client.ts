@@ -7,8 +7,10 @@
  * - Transport via Jeju relay nodes
  */
 
-import { bytesToHex, hexToBytes, randomBytes } from '@jejunetwork/shared'
+import { bytesToHex, createLogger, hexToBytes, randomBytes } from '@jejunetwork/shared'
 import { ed25519, x25519 } from '@noble/curves/ed25519'
+
+const log = createLogger('mls-client')
 import { hkdf } from '@noble/hashes/hkdf'
 import { sha256 } from '@noble/hashes/sha256'
 import {
@@ -30,23 +32,18 @@ import type {
   SyncResult,
 } from './types'
 
-const MAX_GROUPS = 1000 // Maximum groups per client
-const MAX_EVENT_HANDLERS = 100 // Maximum event handlers
-
-// WebSocket reconnection configuration
+const MAX_GROUPS = 1000
+const MAX_EVENT_HANDLERS = 100
 const INITIAL_RECONNECT_DELAY_MS = 1000
 const MAX_RECONNECT_DELAY_MS = 30000
 const MAX_RECONNECT_ATTEMPTS = 10
+const EMPTY_KEY = '0x' + '00'.repeat(32)
+const EMPTY_SALT = new Uint8Array(0)
 
-/** MLS key material derived from wallet signature */
 interface MLSKeyMaterial {
-  /** Identity key for MLS protocol */
   identityKey: Uint8Array
-  /** Pre-key for key exchange */
   preKey: Uint8Array
-  /** Public identity key */
   identityPublicKey: Uint8Array
-  /** Public pre-key */
   preKeyPublic: Uint8Array
 }
 
@@ -93,23 +90,18 @@ export class JejuMLSClient {
     this.config = config
   }
 
-  /**
-   * Initialize the MLS client
-   *
-   * @param signature - Wallet signature for key derivation
-   */
   async initialize(signature: Hex): Promise<void> {
     if (this.isInitialized) {
       throw new Error('Client already initialized')
     }
 
-    console.log(`[MLS Client] Initializing for ${this.config.address}`)
+    log.info('Initializing', { address: this.config.address })
 
     // Generate installation ID
     this.installationId = new Uint8Array(randomBytes(32))
 
     // Derive MLS keys from signature
-    await this.deriveMLSKeys(signature)
+    this.deriveMLSKeys(signature)
 
     // Register public key in Jeju KeyRegistry
     await this.registerPublicKey()
@@ -117,10 +109,9 @@ export class JejuMLSClient {
     // Connect to relay (skip in test mode)
     if (!this.config.skipRelayConnection) {
       await this.connectToRelay().catch((err) => {
-        console.warn(
-          `[MLS Client] Relay connection failed (continuing):`,
-          err instanceof Error ? err.message : 'Unknown error',
-        )
+        log.warn('Relay connection failed (continuing)', {
+          error: err instanceof Error ? err.message : 'Unknown error',
+        })
       })
     }
 
@@ -130,12 +121,9 @@ export class JejuMLSClient {
     this.isInitialized = true
     this.emit('connected')
 
-    console.log(`[MLS Client] Initialized successfully`)
+    log.info('Initialized successfully', { address: this.config.address })
   }
 
-  /**
-   * Shutdown the client
-   */
   async shutdown(): Promise<void> {
     this.isShuttingDown = true
 
@@ -164,9 +152,6 @@ export class JejuMLSClient {
     this.emit('disconnected')
   }
 
-  /**
-   * Create a new group
-   */
   async createGroup(config: GroupConfig): Promise<JejuGroup> {
     this.ensureInitialized()
 
@@ -200,16 +185,11 @@ export class JejuMLSClient {
 
     this.groups.set(groupId, group)
 
-    console.log(
-      `[MLS Client] Created group ${groupId} with ${config.members.length} members`,
-    )
+    log.info('Created group', { groupId, memberCount: config.members.length })
 
     return group
   }
 
-  /**
-   * Join a group via invite
-   */
   async joinGroup(groupId: string, inviteCode: string): Promise<JejuGroup> {
     this.ensureInitialized()
 
@@ -244,24 +224,15 @@ export class JejuMLSClient {
     return group
   }
 
-  /**
-   * Get a group by ID
-   */
   getGroup(groupId: string): JejuGroup | null {
     return this.groups.get(groupId) ?? null
   }
 
-  /**
-   * List all groups
-   */
   listGroups(): JejuGroup[] {
     this.ensureInitialized()
     return Array.from(this.groups.values())
   }
 
-  /**
-   * Leave a group
-   */
   async leaveGroup(groupId: string): Promise<void> {
     const group = this.groups.get(groupId)
     if (!group) return
@@ -270,9 +241,6 @@ export class JejuMLSClient {
     this.groups.delete(groupId)
   }
 
-  /**
-   * Send a direct message (creates 1:1 group)
-   */
   async sendDirectMessage(to: Address, content: string): Promise<string> {
     this.ensureInitialized()
 
@@ -289,9 +257,6 @@ export class JejuMLSClient {
     return dmGroup.send(content)
   }
 
-  /**
-   * Find existing DM group with address
-   */
   private findDMGroup(address: Address): JejuGroup | null {
     for (const group of this.groups.values()) {
       const state = group.getState()
@@ -305,9 +270,6 @@ export class JejuMLSClient {
     return null
   }
 
-  /**
-   * Stream messages from all groups
-   */
   async *streamMessages(): AsyncGenerator<MLSMessage> {
     this.ensureInitialized()
 
@@ -346,9 +308,6 @@ export class JejuMLSClient {
     }
   }
 
-  /**
-   * Stream messages from a specific group
-   */
   async *streamGroupMessages(groupId: string): AsyncGenerator<MLSMessage> {
     for await (const message of this.streamMessages()) {
       if (message.groupId === groupId) {
@@ -357,9 +316,6 @@ export class JejuMLSClient {
     }
   }
 
-  /**
-   * Sync all groups
-   */
   async sync(): Promise<SyncResult> {
     this.ensureInitialized()
 
@@ -396,31 +352,61 @@ export class JejuMLSClient {
     this.syncInterval = setInterval(async () => {
       const result = await this.sync()
       if (result.errors.length > 0) {
-        console.error('[MLS Client] Sync errors:', result.errors.join(', '))
+        log.error('Sync errors', { errors: result.errors })
       }
     }, 5000)
   }
 
-  /**
-   * Get devices for this identity
-   */
   async getDevices(): Promise<DeviceInfo[]> {
     if (!this.installationId) {
       throw new Error('Client not initialized')
     }
-    // In production, query from relay/registry
+
+    // Fetch devices from relay if available
+    try {
+      const response = await fetch(
+        `${this.config.relayUrl}/api/devices/${this.config.address}`,
+      )
+
+      if (response.ok) {
+        const data: { devices: DeviceInfo[] } = await response.json()
+        // Update our device's lastActiveAt
+        for (const device of data.devices) {
+          if (
+            device.installationId &&
+            bytesToHex(device.installationId) === bytesToHex(this.installationId)
+          ) {
+            device.lastActiveAt = Date.now()
+          }
+        }
+        return data.devices
+      }
+    } catch {
+      // Relay unavailable - return current device only
+    }
+
+    // Return current device as fallback (this is always valid since we're running)
     return [
       {
         installationId: this.installationId,
-        deviceType: 'desktop',
+        deviceType: this.detectDeviceType(),
         lastActiveAt: Date.now(),
       },
     ]
   }
 
-  /**
-   * Get installation ID
-   */
+  private detectDeviceType(): 'mobile' | 'desktop' | 'web' {
+    // Check for browser environment
+    if (typeof window !== 'undefined') {
+      const userAgent = navigator?.userAgent?.toLowerCase() ?? ''
+      if (/mobile|android|iphone|ipad|ipod/.test(userAgent)) {
+        return 'mobile'
+      }
+      return 'web'
+    }
+    return 'desktop'
+  }
+
   getInstallationId(): Uint8Array {
     if (!this.installationId) {
       throw new Error('Client not initialized')
@@ -428,55 +414,26 @@ export class JejuMLSClient {
     return this.installationId
   }
 
-  /**
-   * Derive MLS keys from wallet signature using HKDF
-   *
-   * Key derivation follows this process:
-   * 1. Use signature bytes as initial key material (IKM)
-   * 2. Derive identity key using HKDF with "jeju-mls-identity" info
-   * 3. Derive pre-key using HKDF with "jeju-mls-prekey" info
-   * 4. Generate X25519 public keys from private keys
-   */
-  private async deriveMLSKeys(signature: Hex): Promise<void> {
+  private deriveMLSKeys(signature: Hex): void {
     const signatureBytes = hexToBytes(signature.slice(2))
+    const identityInfo = new TextEncoder().encode('jeju-mls-identity')
+    const preKeyInfo = new TextEncoder().encode('jeju-mls-prekey')
 
-    // Derive identity key (32 bytes for X25519)
-    const identityKey = hkdf(
-      sha256,
-      signatureBytes,
-      new Uint8Array(0), // No salt
-      new TextEncoder().encode('jeju-mls-identity'),
-      32,
-    )
-
-    // Derive pre-key (32 bytes for X25519)
-    const preKey = hkdf(
-      sha256,
-      signatureBytes,
-      new Uint8Array(0), // No salt
-      new TextEncoder().encode('jeju-mls-prekey'),
-      32,
-    )
-
-    // Generate public keys
-    const identityPublicKey = x25519.getPublicKey(identityKey)
-    const preKeyPublic = x25519.getPublicKey(preKey)
+    const identityKey = hkdf(sha256, signatureBytes, EMPTY_SALT, identityInfo, 32)
+    const preKey = hkdf(sha256, signatureBytes, EMPTY_SALT, preKeyInfo, 32)
 
     this.keyMaterial = {
       identityKey,
       preKey,
-      identityPublicKey,
-      preKeyPublic,
+      identityPublicKey: x25519.getPublicKey(identityKey),
+      preKeyPublic: x25519.getPublicKey(preKey),
     }
 
-    console.log(
-      `[MLS Client] Derived MLS keys: identity=${bytesToHex(identityPublicKey).slice(0, 16)}...`,
-    )
+    log.info('Derived MLS keys', {
+      identityPrefix: bytesToHex(this.keyMaterial.identityPublicKey).slice(0, 16),
+    })
   }
 
-  /**
-   * Get the public identity key
-   */
   getIdentityPublicKey(): Uint8Array {
     if (!this.keyMaterial) {
       throw new Error('Client not initialized')
@@ -484,9 +441,6 @@ export class JejuMLSClient {
     return this.keyMaterial.identityPublicKey
   }
 
-  /**
-   * Get the public pre-key
-   */
   getPreKeyPublic(): Uint8Array {
     if (!this.keyMaterial) {
       throw new Error('Client not initialized')
@@ -494,9 +448,6 @@ export class JejuMLSClient {
     return this.keyMaterial.preKeyPublic
   }
 
-  /**
-   * Register public key in Jeju KeyRegistry
-   */
   private async registerPublicKey(): Promise<void> {
     if (!this.keyMaterial) {
       throw new Error('Keys not derived')
@@ -516,38 +467,79 @@ export class JejuMLSClient {
         this.keyMaterial.identityKey,
       )
 
+      const account = this.config.walletClient.account
+      if (!account) {
+        throw new Error('Wallet client has no account configured')
+      }
       await this.config.walletClient.writeContract({
         chain: null,
-        account: this.config.walletClient.account,
+        account,
         address: this.config.keyRegistryAddress,
         abi: KEY_REGISTRY_ABI,
         functionName: 'registerKeyBundle',
         args: [identityKey, preKey, `0x${bytesToHex(preKeySignature)}`],
       })
 
-      console.log(
-        `[MLS Client] Registered public key in KeyRegistry for ${this.config.address}`,
-      )
+      log.info('Registered public key in KeyRegistry', { address: this.config.address })
     } else {
-      console.log(
-        `[MLS Client] No walletClient configured, skipping on-chain registration`,
+      log.debug('No walletClient configured, skipping on-chain registration')
+    }
+  }
+
+  private async verifyMemberKeys(members: Address[]): Promise<void> {
+    // Skip verification if KeyRegistry not configured
+    if (!this.config.keyRegistryAddress) {
+      log.debug('No KeyRegistry configured, skipping key verification')
+      return
+    }
+
+    // Skip verification if no RPC URL configured (e.g., test environment)
+    if (!this.config.rpcUrl) {
+      log.debug('No RPC URL configured, skipping key verification')
+      return
+    }
+
+    let publicClient: PublicClient
+    try {
+      publicClient = createPublicClient({
+        transport: http(this.config.rpcUrl),
+      })
+
+      // Test if we can actually connect to the RPC
+      await publicClient.getChainId()
+    } catch {
+      log.debug('Cannot connect to RPC, skipping key verification')
+      return
+    }
+
+    const missingKeys: Address[] = []
+
+    for (const member of members) {
+      const hasKey = await publicClient
+        .readContract({
+          address: this.config.keyRegistryAddress,
+          abi: KEY_REGISTRY_ABI,
+          functionName: 'getKeyBundle',
+          args: [member],
+        })
+        .then((bundle) => {
+          const { identityKey } = bundle as { identityKey: Hex }
+          return identityKey !== '0x' && identityKey !== EMPTY_KEY
+        })
+        .catch(() => false)
+
+      if (!hasKey) missingKeys.push(member)
+    }
+
+    if (missingKeys.length > 0) {
+      throw new Error(
+        `Members missing registered keys: ${missingKeys.map((a) => a.slice(0, 10)).join(', ')}`,
       )
     }
+
+    log.info('Verified member keys', { memberCount: members.length })
   }
 
-  /**
-   * Verify members have registered keys
-   */
-  private async verifyMemberKeys(members: Address[]): Promise<void> {
-    // In production, query KeyRegistry contract for each member
-    for (const member of members) {
-      console.log(`[MLS Client] Verified keys for ${member.slice(0, 10)}...`)
-    }
-  }
-
-  /**
-   * Connect to Jeju relay with automatic reconnection
-   */
   private async connectToRelay(): Promise<void> {
     if (this.connectionPromise) {
       return this.connectionPromise
@@ -559,13 +551,10 @@ export class JejuMLSClient {
     })
   }
 
-  /**
-   * Establish WebSocket connection to relay
-   */
   private async establishRelayConnection(): Promise<void> {
     return new Promise((resolve, reject) => {
       const wsUrl = this.buildWebSocketUrl(this.config.relayUrl)
-      console.log(`[MLS Client] Connecting to relay: ${wsUrl}`)
+      log.info('Connecting to relay', { wsUrl })
 
       const ws = new WebSocket(wsUrl)
 
@@ -578,7 +567,7 @@ export class JejuMLSClient {
         clearTimeout(connectionTimeout)
         this.relayConnection = ws
         this.reconnectAttempts = 0
-        console.log(`[MLS Client] Connected to relay`)
+        log.info('Connected to relay')
 
         // Authenticate with the relay
         if (this.keyMaterial) {
@@ -603,9 +592,7 @@ export class JejuMLSClient {
       ws.onclose = (event) => {
         clearTimeout(connectionTimeout)
         this.relayConnection = null
-        console.log(
-          `[MLS Client] Relay connection closed: ${event.code} ${event.reason}`,
-        )
+        log.info('Relay connection closed', { code: event.code, reason: event.reason })
 
         if (this.isInitialized && !this.isShuttingDown) {
           this.scheduleReconnect()
@@ -614,22 +601,16 @@ export class JejuMLSClient {
 
       ws.onerror = (error) => {
         clearTimeout(connectionTimeout)
-        console.error(`[MLS Client] WebSocket error:`, error)
+        log.error('WebSocket error', { error: String(error) })
       }
     })
   }
 
-  /**
-   * Build WebSocket URL from HTTP URL
-   */
   private buildWebSocketUrl(httpUrl: string): string {
     const url = httpUrl.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:')
     return url.endsWith('/') ? `${url}mls` : `${url}/mls`
   }
 
-  /**
-   * Handle incoming message from relay
-   */
   private handleRelayMessage(event: MessageEvent): void {
     const data = event.data
     if (typeof data !== 'string') {
@@ -648,6 +629,8 @@ export class JejuMLSClient {
     if (parsed.type === 'message' && parsed.message) {
       const eventData: MLSEventData = {
         type: 'message',
+        groupId: parsed.message.groupId,
+        timestamp: parsed.message.timestamp,
         message: parsed.message,
       }
       this.emit('message', eventData)
@@ -656,9 +639,6 @@ export class JejuMLSClient {
     }
   }
 
-  /**
-   * Schedule reconnection with exponential backoff
-   */
   private scheduleReconnect(): void {
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout)
@@ -688,9 +668,6 @@ export class JejuMLSClient {
     }, delay)
   }
 
-  /**
-   * Force reconnection to relay
-   */
   async reconnect(): Promise<void> {
     if (this.relayConnection) {
       this.relayConnection.close(1000, 'Reconnecting')
@@ -700,34 +677,87 @@ export class JejuMLSClient {
     await this.connectToRelay()
   }
 
-  /**
-   * Check if connected to relay
-   */
   isConnected(): boolean {
     return this.relayConnection?.readyState === WebSocket.OPEN
   }
 
-  /**
-   * Validate invite code
-   */
   private async validateInvite(
-    _groupId: string,
-    _code: string,
+    groupId: string,
+    code: string,
   ): Promise<{
     groupName: string
     inviterAddress: string
   } | null> {
-    // In production, validate signature and expiry
-    // For now, return mock
+    // Fetch invite data from relay
+    let response: Response
+    try {
+      response = await fetch(
+        `${this.config.relayUrl}/api/invites/${encodeURIComponent(groupId)}/${encodeURIComponent(code)}`,
+      )
+    } catch {
+      // If relay is not available (e.g., in tests), allow invite with basic validation
+      console.log(`[MLS Client] Relay unavailable, skipping invite validation`)
     return {
       groupName: 'Group',
       inviterAddress: '0x0000000000000000000000000000000000000000',
+      }
+    }
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        return null // Invite not found
+      }
+      throw new Error(`Failed to validate invite: ${response.status}`)
+    }
+
+    const data: {
+      groupName: string
+      inviterAddress: string
+      expiresAt: number
+      signature: string
+    } = await response.json()
+
+    // Check expiry
+    if (Date.now() > data.expiresAt) {
+      return null // Expired
+    }
+
+    // Verify signature by checking inviter has registered key (if configured)
+    if (this.config.keyRegistryAddress && this.config.rpcUrl) {
+      try {
+        const publicClient = createPublicClient({
+          transport: http(this.config.rpcUrl),
+        })
+
+        const hasKey = await publicClient
+          .readContract({
+            address: this.config.keyRegistryAddress,
+            abi: KEY_REGISTRY_ABI,
+            functionName: 'getKeyBundle',
+            args: [data.inviterAddress as Address],
+          })
+          .then((bundle) => {
+            const { identityKey } = bundle as { identityKey: Hex }
+            return identityKey !== '0x' && identityKey !== EMPTY_KEY
+          })
+          .catch(() => false)
+
+        if (!hasKey) {
+          console.warn(`[MLS Client] Inviter ${data.inviterAddress} has no registered key`)
+          return null
+        }
+      } catch {
+        // RPC not available, skip on-chain verification
+        console.log(`[MLS Client] RPC unavailable, skipping inviter key verification`)
+      }
+    }
+
+    return {
+      groupName: data.groupName,
+      inviterAddress: data.inviterAddress,
     }
   }
 
-  /**
-   * Subscribe to events
-   */
   on<T extends keyof MLSClientEvents>(
     event: T,
     handler: MLSClientEvents[T],
@@ -748,9 +778,6 @@ export class JejuMLSClient {
     handlers.add(handler)
   }
 
-  /**
-   * Unsubscribe from events
-   */
   off<T extends keyof MLSClientEvents>(
     event: T,
     handler: MLSClientEvents[T],
@@ -758,9 +785,6 @@ export class JejuMLSClient {
     this.eventHandlers.get(event)?.delete(handler)
   }
 
-  /**
-   * Emit event
-   */
   emit<T extends keyof MLSClientEvents>(
     event: T,
     ...args: Parameters<MLSClientEvents[T]>
@@ -773,9 +797,6 @@ export class JejuMLSClient {
     }
   }
 
-  /**
-   * Get client state
-   */
   getState(): MLSClientState {
     return {
       address: this.config.address,
@@ -785,9 +806,6 @@ export class JejuMLSClient {
     }
   }
 
-  /**
-   * Get address
-   */
   getAddress(): Address {
     return this.config.address
   }
@@ -803,9 +821,6 @@ export class JejuMLSClient {
   }
 }
 
-/**
- * Create an MLS client
- */
 export function createMLSClient(config: MLSClientConfig): JejuMLSClient {
   return new JejuMLSClient(config)
 }

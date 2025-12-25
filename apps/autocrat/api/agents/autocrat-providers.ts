@@ -21,7 +21,7 @@ import {
   getAutocratUrl,
   getCoreAppUrl,
 } from '@jejunetwork/config'
-import type { JsonRecord } from '@jejunetwork/sdk'
+import type { JsonRecord } from '@jejunetwork/types'
 import { expectValid } from '@jejunetwork/types'
 import type { z } from 'zod'
 import {

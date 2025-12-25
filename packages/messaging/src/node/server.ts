@@ -11,6 +11,9 @@ import { sha256 } from '@noble/hashes/sha256'
 import { bytesToHex } from '@noble/hashes/utils'
 import type { Address } from 'viem'
 import { Elysia } from 'elysia'
+import { createLogger } from '@jejunetwork/shared'
+
+const log = createLogger('relay-server')
 import {
   CQLMessageStorage,
   type StoredMessage as CQLStoredMessage,
@@ -309,7 +312,7 @@ async function initializeCQLStorage(): Promise<void> {
   const storage = new CQLMessageStorage()
   await storage.initialize()
   cqlStorage = storage
-  console.log('[Relay Server] CQL storage initialized')
+  log.info('CQL storage initialized')
 }
 
 export function createRelayServer(config: NodeConfig) {
@@ -320,10 +323,9 @@ export function createRelayServer(config: NodeConfig) {
   // On failure, cqlStorage remains null and we use in-memory only
   initializeCQLStorage().catch((error) => {
     cqlStorage = null
-    console.warn(
-      '[Relay Server] CQL storage unavailable, using in-memory only:',
-      error instanceof Error ? error.message : 'Unknown error',
-    )
+    log.warn('CQL storage unavailable, using in-memory only', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
   })
 
   // CORS - restrict to known origins in production
@@ -423,10 +425,10 @@ export function createRelayServer(config: NodeConfig) {
             storedMessage.storedOnIPFS = true
           })
           .catch((err: Error) => {
-            console.error(
-              `IPFS storage failed for message ${envelope.id}:`,
-              err.message,
-            )
+            log.error('IPFS storage failed', {
+              messageId: envelope.id,
+              error: err.message,
+            })
           })
       }
 
@@ -560,6 +562,42 @@ export function createRelayServer(config: NodeConfig) {
       uptime: process.uptime(),
     }))
 
+    .get('/metrics', () => {
+      const metrics = [
+        '# HELP relay_messages_total Total messages relayed',
+        '# TYPE relay_messages_total counter',
+        `relay_messages_total{node_id="${config.nodeId}"} ${totalMessagesRelayed}`,
+        '',
+        '# HELP relay_bytes_total Total bytes relayed',
+        '# TYPE relay_bytes_total counter',
+        `relay_bytes_total{node_id="${config.nodeId}"} ${totalBytesRelayed}`,
+        '',
+        '# HELP relay_active_subscribers Current active WebSocket subscribers',
+        '# TYPE relay_active_subscribers gauge',
+        `relay_active_subscribers{node_id="${config.nodeId}"} ${subscribers.size}`,
+        '',
+        '# HELP relay_pending_messages Messages pending delivery',
+        '# TYPE relay_pending_messages gauge',
+        `relay_pending_messages{node_id="${config.nodeId}"} ${messageCache.size}`,
+        '',
+        '# HELP relay_rate_limit_entries Active rate limit entries',
+        '# TYPE relay_rate_limit_entries gauge',
+        `relay_rate_limit_entries{node_id="${config.nodeId}"} ${rateLimitMap.size}`,
+        '',
+        '# HELP relay_cql_available CQL storage availability (1=available, 0=unavailable)',
+        '# TYPE relay_cql_available gauge',
+        `relay_cql_available{node_id="${config.nodeId}"} ${cqlStorage ? 1 : 0}`,
+        '',
+        '# HELP relay_uptime_seconds Server uptime in seconds',
+        '# TYPE relay_uptime_seconds gauge',
+        `relay_uptime_seconds{node_id="${config.nodeId}"} ${process.uptime()}`,
+        '',
+      ]
+      return new Response(metrics.join('\n'), {
+        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+      })
+    })
+
   return app
 }
 
@@ -673,7 +711,9 @@ export function handleWebSocket(ws: WebSocket, _request: Request): void {
         subscribedAddress = address
       })
       .catch((error) => {
-        console.error('[Relay Server] Subscription error:', error)
+        log.error('Subscription error', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+        })
       })
   })
 
@@ -722,7 +762,9 @@ export function startRelayServer(config: NodeConfig): void {
             }
           })
           .catch((error) => {
-            console.error('[Relay Server] Subscription error:', error)
+            log.error('WebSocket subscription error', {
+              error: error instanceof Error ? error.message : 'Unknown error',
+            })
           })
       },
       close(ws) {
