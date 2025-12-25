@@ -89,8 +89,9 @@ export class AutonomousDMService {
 
   /**
    * Build DM response prompt
+   * @internal Reserved for future implementation
    */
-  private buildDMPrompt(
+  private _buildDMPrompt(
     config: AgentDMConfig,
     displayName: string,
     allMessages: ChatMessage[],
@@ -174,8 +175,8 @@ Generate ONLY the response text, nothing else.`
   ): Promise<number> {
     logger.debug(`Responding to DMs for agent ${agentId}`)
 
-    const config = await this.getAgentConfig(agentId)
-    const displayName = `Agent-${agentId.slice(0, 8)}`
+    const _config = await this.getAgentConfig(agentId) // Reserved for prompt building
+    const _displayName = `Agent-${agentId.slice(0, 8)}` // Reserved for prompt building
 
     const chatsWithUnread = await this.getChatsWithUnread(agentId)
     let responsesCreated = 0
@@ -217,7 +218,7 @@ Generate ONLY the response text, nothing else.`
       return { success: false, error: 'Content too short' }
     }
 
-    const cleanContent = content.trim()
+    const _cleanContent = content.trim() // Reserved for DB insert
 
     // In a full implementation, this would:
     // 1. Verify the chat exists

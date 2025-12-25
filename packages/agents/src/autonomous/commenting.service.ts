@@ -91,8 +91,9 @@ export class AutonomousCommentingService {
     logger.debug(`Getting uncommented posts for agent ${agentId}`)
 
     const commentedIds = await this.getCommentedPostIds(agentId)
-    const now = new Date()
-    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+    // Note: oneDayAgo filter not yet implemented
+    // const now = new Date()
+    // const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
 
     // In a full implementation, this would query the database for:
     // - Posts not authored by the agent
@@ -106,8 +107,9 @@ export class AutonomousCommentingService {
 
   /**
    * Build comment generation prompt
+   * @internal Reserved for future implementation
    */
-  private buildCommentPrompt(
+  private _buildCommentPrompt(
     config: AgentCommentingConfig,
     displayName: string,
     post: CommentablePost,
@@ -135,7 +137,7 @@ Generate ONLY the comment text, nothing else.`
   ): Promise<CommentDecision> {
     logger.debug(`Deciding on comment for agent ${agentId}`)
 
-    const config = await this.getAgentConfig(agentId)
+    const _config = await this.getAgentConfig(agentId) // Reserved for prompt building
     const uncommentedPosts = await this.getUncommentedPosts(agentId)
 
     if (uncommentedPosts.length === 0) {
@@ -216,7 +218,7 @@ Generate ONLY the comment text, nothing else.`
       return { success: false, error: 'Content too short' }
     }
 
-    const cleanContent = content.trim()
+    const _cleanContent = content.trim() // Reserved for DB insert
 
     // Check for duplicate comment
     const commentedPostIds = await this.getCommentedPostIds(agentId)

@@ -195,19 +195,6 @@ export function validateDAOManifest(data: unknown): DAOManifest {
 }
 
 /**
- * Safe validation that returns result object instead of throwing
- */
-export function safeValidateDAOManifest(
-  data: unknown,
-): { success: true; data: DAOManifest } | { success: false; error: z.ZodError } {
-  const result = DAOManifestSchema.safeParse(data)
-  if (result.success) {
-    return { success: true, data: result.data }
-  }
-  return { success: false, error: result.error }
-}
-
-/**
  * Validate council weights sum to expected total (usually 10000 bps = 100%)
  */
 export function validateCouncilWeights(

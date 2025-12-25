@@ -11,7 +11,7 @@ import { logger } from '@jejunetwork/shared'
 import { get_encoding } from 'tiktoken'
 
 // Model context limits (conservative estimates)
-const MODEL_LIMITS: Record<string, number> = {
+const MODEL_LIMITS = {
   'unsloth/Qwen3-4B-128K': 128000,
   'Qwen/Qwen2.5-3B-Instruct': 32768,
   'Qwen/Qwen2.5-7B-Instruct': 32768,
@@ -25,8 +25,10 @@ const MODEL_LIMITS: Record<string, number> = {
   'gpt-4-turbo': 128000,
   'claude-3-5-sonnet': 200000,
   'claude-3-opus': 200000,
-  'default': 32768,
-}
+  default: 32768,
+} as const satisfies Record<string, number>
+
+const DEFAULT_TOKEN_LIMIT = MODEL_LIMITS.default
 
 // Lazy-loaded encoder
 let encoder: ReturnType<typeof get_encoding> | null = null
@@ -49,7 +51,7 @@ export function countTokensSync(text: string): number {
  * Get the context limit for a model
  */
 export function getModelTokenLimit(model: string): number {
-  return MODEL_LIMITS[model] ?? MODEL_LIMITS['default']
+  return MODEL_LIMITS[model as keyof typeof MODEL_LIMITS] ?? DEFAULT_TOKEN_LIMIT
 }
 
 /**

@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "@jejunetwork/config": "workspace:*",
+    "@jejunetwork/kms": "workspace:*",
     "@jejunetwork/shared": "workspace:*",
     "@jejunetwork/types": "workspace:*",
     "@elysiajs/cors": "1.3.1",

@@ -68,7 +68,6 @@ const DEV_PORTS: Record<string, number> = {
   node: 4080,
   indexer: 4350,
   auth: 4060,
-  otto: 4042,
   vpn: 4021,
   wallet: 4100,
 }

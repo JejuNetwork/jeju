@@ -85,6 +85,9 @@ export default defineConfig({
 
         // Governance
         'DAORegistry.sol/DAORegistry.json',
+        'DAOFunding.sol/DAOFunding.json',
+        'PackageRegistry.sol/PackageRegistry.json',
+        'RepoRegistry.sol/RepoRegistry.json',
 
         // Prediction Markets
         'PredictionMarket.sol/PredictionMarket.json',

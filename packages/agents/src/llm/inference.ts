@@ -117,11 +117,11 @@ const MODEL_ALIASES: Record<string, string[]> = {
 /**
  * Gateway URLs by network
  */
-const GATEWAY_URLS: Record<string, string> = {
+const GATEWAY_URLS = {
   localnet: 'http://localhost:4200',
   testnet: 'https://gateway.testnet.jeju.network',
   mainnet: 'https://gateway.jeju.network',
-}
+} as const satisfies Record<string, string>
 
 /**
  * Get network from environment

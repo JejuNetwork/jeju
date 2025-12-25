@@ -274,7 +274,8 @@ export interface DAODeploymentResult {
   contracts: {
     daoRegistry: string
     daoFunding: string
-    council: string
+    /** Council contract address. Null when council is managed via DAORegistry directly */
+    council: string | null
     ceoAgent: string
     treasury: string
     feeConfig?: string

@@ -18,6 +18,10 @@
  * - Calls MPC parties for all signing operations
  */
 
+import {
+  createMPCClient as createKMSMPCClient,
+  type MPCDiscoveryConfig,
+} from '@jejunetwork/kms'
 import { Elysia } from 'elysia'
 import type { Address, Hex } from 'viem'
 import { keccak256, toBytes, verifyMessage } from 'viem'
@@ -72,48 +76,6 @@ const CredentialVerifyBodySchema = z.object({
   }),
 })
 
-// MPC client stub - real implementation from kms package
-interface MPCKeyGenParams {
-  keyId: string
-  algorithm?: string
-  keyType?: string
-}
-
-interface MPCSignParams {
-  keyId: string
-  messageHash?: Hex
-}
-
-interface MPCSigningClient {
-  sign: (keyId: string, message: string) => Promise<{ signature: string }>
-  getKey: (keyId: string) => Promise<{ publicKey: string } | null>
-  requestKeyGen: (
-    params: MPCKeyGenParams,
-  ) => Promise<{ keyId: string; publicKey: Hex }>
-  requestSignature: (params: MPCSignParams) => Promise<{ signature: Hex }>
-}
-
-function createMPCClient(
-  _config: {
-    rpcUrl: string
-    mpcRegistryAddress: Address
-    identityRegistryAddress: Address
-  },
-  _serviceAgentId: string,
-): MPCSigningClient {
-  return {
-    sign: async (_keyId: string, _message: string) => ({ signature: '0x' }),
-    getKey: async (_keyId: string) => null,
-    requestKeyGen: async (_params: MPCKeyGenParams) => ({
-      keyId: '',
-      publicKey: '0x' as Hex,
-    }),
-    requestSignature: async (_params: MPCSignParams) => ({
-      signature: '0x' as Hex,
-    }),
-  }
-}
-
 // ============ Types ============
 
 export interface OAuth3WorkerConfig {
@@ -152,15 +114,12 @@ interface PendingAuth {
 // ============ OAuth3 Worker ============
 
 export function createOAuth3Worker(config: OAuth3WorkerConfig) {
-  // MPC client for threshold signing
-  const mpcClient = createMPCClient(
-    {
-      rpcUrl: config.rpcUrl,
-      mpcRegistryAddress: config.mpcRegistryAddress,
-      identityRegistryAddress: config.identityRegistryAddress,
-    },
-    config.serviceAgentId,
-  )
+  const mpcConfig: MPCDiscoveryConfig = {
+    rpcUrl: config.rpcUrl,
+    mpcRegistryAddress: config.mpcRegistryAddress,
+    identityRegistryAddress: config.identityRegistryAddress,
+  }
+  const mpcClient = createKMSMPCClient(mpcConfig, config.serviceAgentId)
 
   // Session storage (in production, use distributed storage)
   const sessions = new Map<string, OAuth3Session>()
@@ -399,34 +358,27 @@ export function createOAuth3Worker(config: OAuth3WorkerConfig) {
         }
       })
 
-      // Validate session by token (from Authorization header or body)
       .post('/session/validate', ({ headers, body }) => {
-        // Extract token from Authorization header or body
         const authHeader = headers.authorization
         let token: string | undefined
-
         if (authHeader?.startsWith('Bearer ')) {
           token = authHeader.slice(7)
-        } else if (typeof body === 'object' && body !== null && 'token' in body) {
+        } else if (
+          typeof body === 'object' &&
+          body !== null &&
+          'token' in body
+        ) {
           token = (body as { token?: string }).token
         }
+        if (!token) throw new Error('No token provided')
 
-        if (!token) {
-          throw new Error('No token provided')
-        }
-
-        // Try to find session by token (which could be sessionId)
         const session = sessions.get(token)
-        if (!session) {
-          throw new Error('Session not found')
-        }
-
+        if (!session) throw new Error('Session not found')
         if (Date.now() > session.expiresAt) {
           sessions.delete(token)
           throw new Error('Session expired')
         }
 
-        // Return full session data for validation
         return {
           sessionId: session.sessionId,
           identityId: session.userId,

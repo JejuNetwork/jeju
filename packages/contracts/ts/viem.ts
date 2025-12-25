@@ -57,23 +57,27 @@ import {
  * ```
  */
 /** Client interface for readContract operations */
-interface ReadableClient {
-  readContract: <T>(params: {
+export interface ReadableClient {
+  readContract: (params: {
     address: Address
     abi: Abi | readonly unknown[]
     functionName: string
     args?: readonly unknown[]
     blockNumber?: bigint
     blockTag?: 'latest' | 'earliest' | 'pending' | 'safe' | 'finalized'
-  }) => Promise<T>
+  }) => Promise<unknown>
 }
 
+/**
+ * Typed readContract wrapper that accepts any viem-compatible client.
+ * Works with viem 2.43+ EIP-7702 types without requiring authorizationList.
+ */
 export async function readContract<
   const TAbi extends Abi | readonly unknown[],
   TFunctionName extends ContractFunctionName<TAbi, 'pure' | 'view'>,
   TArgs extends ContractFunctionArgs<TAbi, 'pure' | 'view', TFunctionName>,
 >(
-  client: PublicClient | ReadableClient,
+  client: { readContract: ReadableClient['readContract'] },
   params: {
     address: Address
     abi: TAbi
@@ -83,10 +87,15 @@ export async function readContract<
     blockTag?: 'latest' | 'earliest' | 'pending' | 'safe' | 'finalized'
   },
 ): Promise<ReadContractReturnType<TAbi, TFunctionName, TArgs>> {
-  const viemClient = client as ReadableClient
-  return viemClient.readContract(params) as Promise<
-    ReadContractReturnType<TAbi, TFunctionName, TArgs>
-  >
+  // Cast params to the expected interface - TArgs is compatible with readonly unknown[]
+  return client.readContract({
+    address: params.address,
+    abi: params.abi,
+    functionName: params.functionName as string,
+    args: params.args as readonly unknown[] | undefined,
+    blockNumber: params.blockNumber,
+    blockTag: params.blockTag,
+  }) as Promise<ReadContractReturnType<TAbi, TFunctionName, TArgs>>
 }
 
 /**

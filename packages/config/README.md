@@ -139,14 +139,14 @@ packages/config/
 
 | Secret | Description | Required For |
 |--------|-------------|--------------|
-| `DISCORD_BOT_TOKEN` | Discord bot auth | Otto Discord |
-| `TELEGRAM_BOT_TOKEN` | Telegram bot auth | Otto Telegram |
-| `TWITTER_API_KEY` | Twitter API access | Otto Twitter |
-| `TWITTER_API_SECRET` | Twitter API secret | Otto Twitter |
-| `TWITTER_ACCESS_TOKEN` | Twitter OAuth | Otto Twitter |
-| `TWITTER_ACCESS_SECRET` | Twitter OAuth secret | Otto Twitter |
-| `TWITTER_BEARER_TOKEN` | Twitter bearer | Otto Twitter |
-| `FARCASTER_SIGNER_UUID` | Farcaster signer | Otto Farcaster |
+| `DISCORD_BOT_TOKEN` | Discord bot auth | Discord bots |
+| `TELEGRAM_BOT_TOKEN` | Telegram bot auth | Telegram bots |
+| `TWITTER_API_KEY` | Twitter API access | Twitter bots |
+| `TWITTER_API_SECRET` | Twitter API secret | Twitter bots |
+| `TWITTER_ACCESS_TOKEN` | Twitter OAuth | Twitter bots |
+| `TWITTER_ACCESS_SECRET` | Twitter OAuth secret | Twitter bots |
+| `TWITTER_BEARER_TOKEN` | Twitter bearer | Twitter bots |
+| `FARCASTER_SIGNER_UUID` | Farcaster signer | Farcaster bots |
 
 ### Communication Services
 
@@ -262,7 +262,6 @@ Default ports for local development (all overridable via env):
 | Crucible | 4020 | `CRUCIBLE_PORT` |
 | DWS | 4030 | `DWS_PORT` |
 | Autocrat | 4040 | `AUTOCRAT_PORT` |
-| Otto | 4042 | `OTTO_PORT` |
 | KMS | 4050 | `KMS_PORT` |
 | OAuth3 | 4060 | `OAUTH3_PORT` |
 | Oracle | 4070 | `ORACLE_PORT` |

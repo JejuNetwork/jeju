@@ -251,13 +251,18 @@ export {
 export {
   type AppTrainingConfig,
   AppTrainingRunner,
+  type AppTrajectoryContext,
+  type AppTrajectoryStep,
   type CollectOptions,
   createAppTrainingAdapter,
   getDefaultAppTrainingConfig,
   type HuggingFaceExportConfig,
   type LLMCallRecord,
   type Trajectory,
-  // Note: TrajectoryContext, TrajectoryMetadata, TrajectoryStep already exported from ./integrations and ./schemas
+  // Note: TrajectoryContext exported from ./scoring for LLM judging
+  // Note: TrajectoryMetadata exported from ./integrations above
+  type TrajectoryStep as AppTrajectoryStepLegacy,
+  type TrajectoryContext as AppTrajectoryContextLegacy,
   type TrajectoryStatus,
   type TrainingDataAdapter,
   type TrainingLoopConfig,

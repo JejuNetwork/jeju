@@ -9,8 +9,7 @@
 
 import { logger } from '@jejunetwork/shared'
 import { ZERO_ADDRESS, type AgentCapabilities, type JsonValue } from '@jejunetwork/types'
-import type { Address, Hex } from 'viem'
-import type { Agent0Registration } from '../types/agent-registry'
+import type { Address } from 'viem'
 
 /**
  * Agent0 network types
@@ -443,7 +442,7 @@ export class Agent0Client {
   /**
    * Check if address is agent owner
    */
-  async isAgentOwner(agentId: string, address: string): Promise<boolean> {
+  async isAgentOwner(_agentId: string, _address: string): Promise<boolean> {
     await this.ensureInitialized()
 
     // In a full implementation, this would query the Agent0 SDK

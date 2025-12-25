@@ -281,9 +281,9 @@ export const CORE_PORTS = {
 
   /** OAuth3 API - Decentralized identity service */
   OAUTH3_API: {
-    DEFAULT: 4060,
+    DEFAULT: 4200,
     ENV_VAR: 'OAUTH3_PORT',
-    get: () => safeParsePort(process.env.OAUTH3_PORT, 4060),
+    get: () => safeParsePort(process.env.OAUTH3_PORT, 4200),
   },
 
   /** Oracle API - Price feed oracle */

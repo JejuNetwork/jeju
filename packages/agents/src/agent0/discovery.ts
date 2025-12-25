@@ -8,8 +8,7 @@
  */
 
 import { logger } from '@jejunetwork/shared'
-import type { JsonValue } from '@jejunetwork/types'
-import { AgentStatus, type Agent0Registration, type AgentRegistration } from '../types/agent-registry'
+import { AgentStatus, type AgentRegistration } from '../types/agent-registry'
 import { agentRegistry } from '../services/agent-registry.service'
 import { getAgent0Client, type SearchFilters, type SearchOptions, type SearchResult } from './client'
 import { reputationBridge, type ReputationData } from './reputation'
