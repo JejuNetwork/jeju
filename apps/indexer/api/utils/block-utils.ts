@@ -14,8 +14,8 @@ export type BlockIdentifier =
  * Parse and validate a block identifier (number or hash)
  */
 export function parseBlockIdentifier(numberOrHash: string): BlockIdentifier {
-  if (!numberOrHash || typeof numberOrHash !== 'string') {
-    throw new Error('Block identifier is required and must be a string')
+  if (!numberOrHash) {
+    throw new Error('Block identifier is required')
   }
 
   if (numberOrHash.startsWith('0x')) {

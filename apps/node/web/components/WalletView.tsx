@@ -37,7 +37,8 @@ const ImportWalletRequestSchema = z
 type WalletAction = 'create' | 'import' | 'external' | 'jeju' | null
 
 export function WalletView() {
-  const { wallet, balance, agent, fetchWallet, fetchBalance } = useAppStore()
+  const { wallet, balance, agent, fetchWallet, fetchBalance, isLoading } =
+    useAppStore()
   const [action, setAction] = useState<WalletAction>(null)
   const [password, setPassword] = useState('')
   const [privateKey, setPrivateKey] = useState('')
@@ -444,25 +445,41 @@ export function WalletView() {
           <div>
             <p className="text-sm text-volcanic-400">ETH Balance</p>
             <p className="text-xl font-bold">
-              {formatEther(balance?.eth || '0')}
+              {isLoading && !balance ? (
+                <span className="inline-block w-16 h-6 bg-volcanic-700 rounded animate-pulse" />
+              ) : (
+                formatEther(balance?.eth ?? '0')
+              )}
             </p>
           </div>
           <div>
             <p className="text-sm text-volcanic-400">JEJU Balance</p>
             <p className="text-xl font-bold">
-              {formatEther(balance?.jeju || '0')}
+              {isLoading && !balance ? (
+                <span className="inline-block w-16 h-6 bg-volcanic-700 rounded animate-pulse" />
+              ) : (
+                formatEther(balance?.jeju ?? '0')
+              )}
             </p>
           </div>
           <div>
             <p className="text-sm text-volcanic-400">Staked</p>
             <p className="text-xl font-bold">
-              {formatEther(balance?.staked || '0')}
+              {isLoading && !balance ? (
+                <span className="inline-block w-16 h-6 bg-volcanic-700 rounded animate-pulse" />
+              ) : (
+                formatEther(balance?.staked ?? '0')
+              )}
             </p>
           </div>
           <div>
             <p className="text-sm text-volcanic-400">Pending Rewards</p>
             <p className="text-xl font-bold text-jeju-400">
-              {formatEther(balance?.pending_rewards || '0')}
+              {isLoading && !balance ? (
+                <span className="inline-block w-16 h-6 bg-volcanic-700 rounded animate-pulse" />
+              ) : (
+                formatEther(balance?.pending_rewards ?? '0')
+              )}
             </p>
           </div>
         </div>

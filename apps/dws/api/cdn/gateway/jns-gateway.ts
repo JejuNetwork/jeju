@@ -178,12 +178,12 @@ export class JNSGateway {
     const node = namehash(normalized) as Hex
 
     try {
-      const text = (await this.client.readContract({
+      const text = await this.client.readContract({
         address: this.config.jnsResolverAddress,
         abi: JNS_RESOLVER_ABI,
         functionName: 'text',
         args: [node, key],
-      })) as string
+      })
 
       return text || null
     } catch {
@@ -296,7 +296,7 @@ export class JNSGateway {
       xml: 'application/xml',
       txt: 'text/plain',
     }
-    return types[ext || ''] || 'text/html' // Default to HTML for SPA routing
+    return types[ext ?? ''] ?? 'text/html' // Default to HTML for SPA routing
   }
 
   /**
@@ -319,7 +319,7 @@ export class JNSGateway {
         const { name } = params
         const url = new URL(request.url)
         const pathMatch = url.pathname.match(/\/jns\/[^/]+(.*)/)
-        const path = pathMatch?.[1] || '/'
+        const path = pathMatch?.[1] ?? '/'
 
         const contentHash = await this.resolveJNS(name)
         if (!contentHash) {

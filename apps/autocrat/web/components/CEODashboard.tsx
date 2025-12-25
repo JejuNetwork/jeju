@@ -178,7 +178,11 @@ export function CEODashboard({ compact = false }: CEODashboardProps) {
             <StatCard
               icon={<TrendingUp className="text-accent" />}
               label="Benchmark Score"
-              value={`${ceoStatus.currentModel.benchmarkScore || '92'}%`}
+              value={
+                ceoStatus.currentModel.benchmarkScore
+                  ? `${ceoStatus.currentModel.benchmarkScore}%`
+                  : 'N/A'
+              }
             />
           </div>
         </div>

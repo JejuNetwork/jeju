@@ -1,6 +1,6 @@
 export {
-  banManagerAbi as BAN_MANAGER_ABI,
-  identityRegistryAbi as IDENTITY_REGISTRY_ABI,
+  BanManagerAbi as BAN_MANAGER_ABI,
+  IdentityRegistryAbi as IDENTITY_REGISTRY_ABI,
 } from '@jejunetwork/contracts'
 
 export const NODE_STAKING_MANAGER_ABI = [

@@ -56,3 +56,21 @@ export const keyListQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(100).default(20),
   offset: z.coerce.number().int().nonnegative().default(0),
 })
+
+/**
+ * Update key request schema
+ */
+export const updateKmsKeyRequestSchema = z.object({
+  newThreshold: z.number().int().positive().optional(),
+  newTotalParties: z.number().int().positive().optional(),
+})
+
+/**
+ * Create secret request schema
+ */
+export const createSecretStoreRequestSchema = z.object({
+  name: nonEmptyStringSchema,
+  value: z.string(),
+  metadata: z.record(z.string(), z.string()).optional(),
+  expiresIn: z.number().int().positive().optional(),
+})

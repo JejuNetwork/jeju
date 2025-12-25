@@ -8,8 +8,13 @@
  * - Verify quorum
  */
 
+import { HexSchema } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import { keccak256, toBytes, toHex } from 'viem'
+import { z } from 'zod'
+
+const OperatorAttestationResponseSchema = z.object({ signature: HexSchema })
+
 import { BlobManager } from './blob'
 import { DASampler } from './sampling'
 import type {
@@ -343,7 +348,9 @@ export class Disperser {
       return null
     }
 
-    const result = (await response.json()) as { signature: Hex }
+    const result = OperatorAttestationResponseSchema.parse(
+      await response.json(),
+    )
 
     return {
       operator: operator.address,

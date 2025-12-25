@@ -318,7 +318,8 @@ export function createServer(config: ServerConfig) {
         }
       }
 
-      const skillId = dataPart.data.skillId as string
+      const skillId =
+        typeof dataPart.data.skillId === 'string' ? dataPart.data.skillId : null
       if (!skillId) {
         return {
           jsonrpc: '2.0',
@@ -409,7 +410,7 @@ export function createServer(config: ServerConfig) {
         contents: [
           {
             uri,
-            mimeType: resource?.mimeType || 'application/json',
+            mimeType: resource?.mimeType ?? 'application/json',
             text: JSON.stringify(contents, null, 2),
           },
         ],

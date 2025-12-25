@@ -2,6 +2,7 @@
  * Cache Service - Compute Redis Integration
  *
  * Provides decentralized caching via compute network.
+ * NO FALLBACKS - cache service must be available.
  */
 
 import { z } from 'zod'

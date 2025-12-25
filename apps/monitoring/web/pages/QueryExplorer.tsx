@@ -136,7 +136,7 @@ export function QueryExplorer() {
         ) : (
           <div className="space-y-3 max-h-[500px] overflow-y-auto">
             {data.map((result) => {
-              const resultKey = `${result.metric.__name__ || 'value'}-${JSON.stringify(result.metric)}-${result.value[0]}`
+              const resultKey = `${result.metric.__name__ ?? 'value'}-${JSON.stringify(result.metric)}-${result.value[0]}`
               return <ResultRow key={resultKey} result={result} />
             })}
           </div>
@@ -150,7 +150,7 @@ function ResultRow({ result }: { result: MetricResult }) {
   const labels = Object.entries(result.metric).filter(
     ([key]) => key !== '__name__',
   )
-  const metricName = result.metric.__name__ || 'value'
+  const metricName = result.metric.__name__ ?? 'value'
   const [timestamp, value] = result.value
 
   return (

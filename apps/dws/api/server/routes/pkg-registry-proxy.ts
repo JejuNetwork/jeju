@@ -11,8 +11,10 @@
  * - Fallback to direct registry if cache miss
  */
 
+import { expectValid } from '@jejunetwork/types'
 import { Elysia, t } from 'elysia'
 import { LRUCache } from 'lru-cache'
+import { z } from 'zod'
 
 interface PackageMetadata {
   name: string
@@ -26,48 +28,54 @@ interface PackageMetadata {
   devDependencies?: Record<string, string>
 }
 
-// Type guards for external API responses
-interface NpmPackageResponse {
-  name: string
-  version: string
-  description?: string
-  homepage?: string
-  repository?: string | { url?: string }
-  maintainers?: Array<{ name?: string }>
-  license?: string
-  dependencies?: Record<string, string>
-  devDependencies?: Record<string, string>
-}
+// Zod schemas for external API responses
+const NpmPackageResponseSchema = z.object({
+  name: z.string(),
+  version: z.string(),
+  description: z.string().optional(),
+  homepage: z.string().optional(),
+  repository: z
+    .union([z.string(), z.object({ url: z.string().optional() })])
+    .optional(),
+  maintainers: z.array(z.object({ name: z.string().optional() })).optional(),
+  license: z.string().optional(),
+  dependencies: z.record(z.string(), z.string()).optional(),
+  devDependencies: z.record(z.string(), z.string()).optional(),
+})
 
-interface PyPIPackageResponse {
-  info: {
-    name: string
-    version: string
-    summary?: string
-    home_page?: string
-    author?: string
-    maintainer?: string
-    license?: string
-    requires_dist?: string[]
-    project_urls?: Record<string, string>
-  }
-}
+const PyPIPackageResponseSchema = z.object({
+  info: z.object({
+    name: z.string(),
+    version: z.string(),
+    summary: z.string().optional(),
+    home_page: z.string().optional(),
+    author: z.string().optional(),
+    maintainer: z.string().optional(),
+    license: z.string().optional(),
+    requires_dist: z.array(z.string()).optional(),
+    project_urls: z.record(z.string(), z.string()).optional(),
+  }),
+})
 
-interface CargoPackageResponse {
-  crate: {
-    name: string
-    description?: string
-    homepage?: string
-    repository?: string
-    license?: string
-    owners?: Array<{ login: string }>
-  }
-  versions?: Array<{ num: string }>
-}
+const CargoPackageResponseSchema = z.object({
+  crate: z.object({
+    name: z.string(),
+    description: z.string().optional(),
+    homepage: z.string().optional(),
+    repository: z.string().optional(),
+    license: z.string().optional(),
+    owners: z.array(z.object({ login: z.string() })).optional(),
+  }),
+  versions: z.array(z.object({ num: z.string() })).optional(),
+})
 
-interface CargoDepsResponse {
-  dependencies?: Array<{ crate_id: string; req: string; kind: string }>
-}
+const CargoDepsResponseSchema = z.object({
+  dependencies: z
+    .array(
+      z.object({ crate_id: z.string(), req: z.string(), kind: z.string() }),
+    )
+    .optional(),
+})
 
 interface CacheEntry {
   data: PackageMetadata
@@ -90,7 +98,11 @@ async function fetchNpmPackage(packageName: string): Promise<PackageMetadata> {
     throw new Error(`NPM package not found: ${packageName}`)
   }
 
-  const data = (await response.json()) as NpmPackageResponse
+  const data = expectValid(
+    NpmPackageResponseSchema,
+    await response.json(),
+    'NPM package response',
+  )
   return {
     name: data.name,
     version: data.version,
@@ -100,7 +112,7 @@ async function fetchNpmPackage(packageName: string): Promise<PackageMetadata> {
       typeof data.repository === 'object' && data.repository !== null
         ? data.repository.url
         : undefined,
-    maintainers: data.maintainers?.map((m) => m.name || 'unknown') ?? [],
+    maintainers: data.maintainers?.map((m) => m.name ?? 'unknown') ?? [],
     license: data.license,
     dependencies: data.dependencies,
     devDependencies: data.devDependencies,
@@ -113,7 +125,11 @@ async function fetchPyPIPackage(packageName: string): Promise<PackageMetadata> {
     throw new Error(`PyPI package not found: ${packageName}`)
   }
 
-  const data = (await response.json()) as PyPIPackageResponse
+  const data = expectValid(
+    PyPIPackageResponseSchema,
+    await response.json(),
+    'PyPI package response',
+  )
   const info = data.info
 
   const maintainers: string[] = []
@@ -128,7 +144,7 @@ async function fetchPyPIPackage(packageName: string): Promise<PackageMetadata> {
     for (const req of info.requires_dist) {
       const match = req.match(/^([a-zA-Z0-9_-]+)(.*)$/)
       if (match) {
-        dependencies[match[1].toLowerCase()] = match[2] || '*'
+        dependencies[match[1].toLowerCase()] = match[2] ?? '*'
       }
     }
   }
@@ -138,7 +154,7 @@ async function fetchPyPIPackage(packageName: string): Promise<PackageMetadata> {
     version: info.version,
     description: info.summary,
     homepage: info.home_page,
-    repository: info.project_urls?.Source,
+    repository: info.project_urls?.Source ?? undefined,
     maintainers,
     license: info.license,
     dependencies,
@@ -153,9 +169,13 @@ async function fetchCargoPackage(
     throw new Error(`Cargo package not found: ${packageName}`)
   }
 
-  const data = (await response.json()) as CargoPackageResponse
+  const data = expectValid(
+    CargoPackageResponseSchema,
+    await response.json(),
+    'Cargo package response',
+  )
   const crate = data.crate
-  const latestVersion = data.versions?.[0]?.num || 'unknown'
+  const latestVersion = data.versions?.[0]?.num ?? 'unknown'
 
   // Fetch dependencies for latest version
   const dependencies: Record<string, string> = {}
@@ -163,8 +183,12 @@ async function fetchCargoPackage(
     `https://crates.io/api/v1/crates/${packageName}/${latestVersion}/dependencies`,
   )
   if (depsResponse.ok) {
-    const depsData = (await depsResponse.json()) as CargoDepsResponse
-    for (const dep of depsData.dependencies || []) {
+    const depsData = expectValid(
+      CargoDepsResponseSchema,
+      await depsResponse.json(),
+      'Cargo deps response',
+    )
+    for (const dep of depsData.dependencies ?? []) {
       if (dep.kind === 'normal') {
         dependencies[dep.crate_id] = dep.req
       }
@@ -193,7 +217,7 @@ async function fetchGoPackage(moduleName: string): Promise<PackageMetadata> {
   }
 
   const versions = (await versionResponse.text()).trim().split('\n')
-  const latestVersion = versions[versions.length - 1] || 'v0.0.0'
+  const latestVersion = versions[versions.length - 1] ?? 'v0.0.0'
 
   // Get module info
   const modResponse = await fetch(
@@ -387,7 +411,7 @@ export function createPkgRegistryProxyRouter() {
               return {
                 name: body.packages[i].name,
                 registry: body.packages[i].registry,
-                error: result.reason?.message || 'Unknown error',
+                error: result.reason?.message ?? 'Unknown error',
               }
             }),
           }

@@ -39,6 +39,26 @@ interface DAOCreateParams {
   ceoTraits: string[]
   ceoCommunicationTone: string
 }
+
+/** DAO data returned by getDAO contract call */
+interface DAOData {
+  name: string
+  displayName: string
+  description: string
+  status: number
+  treasury: Address
+  council: Address
+  ceoAgent: Address
+  createdAt: bigint
+}
+
+/** CEO persona data returned by getCEOPersona contract call */
+interface CEOPersonaData {
+  name: string
+  description: string
+  personality: string
+  traits: readonly string[]
+}
 const DAORegistryABI = [
   {
     type: 'function',
@@ -315,7 +335,8 @@ async function createDAO(
   console.log(`DAO created in block ${receipt.blockNumber}`)
 
   // Extract DAO ID from logs
-  const daoId = receipt.logs[0]?.topics?.[1] ?? 'unknown'
+  const firstLog = receipt.logs[0]
+  const daoId = firstLog?.topics[1] ?? 'unknown'
   console.log(`DAO ID: ${daoId}`)
 }
 
@@ -390,19 +411,14 @@ async function listDAOs(network: string): Promise<void> {
       abi: DAORegistryABI,
       functionName: 'getDAO',
       args: [daoId],
-    })) as {
-      name: string
-      displayName: string
-      status: number
-      treasury: Address
-    }
+    })) as DAOData
 
     const persona = (await publicClient.readContract({
       address: deployment.contracts.DAORegistry as `0x${string}`,
       abi: DAORegistryABI,
       functionName: 'getCEOPersona',
       args: [daoId],
-    })) as { name: string }
+    })) as CEOPersonaData
 
     const statusMap = ['Pending', 'Active', 'Paused', 'Archived']
     console.log(`  ${dao.displayName} (${dao.name})`)
@@ -433,28 +449,14 @@ async function getDAOStatus(daoId: string, network: string): Promise<void> {
     abi: DAORegistryABI,
     functionName: 'getDAO',
     args: [daoId as `0x${string}`],
-  })) as {
-    name: string
-    displayName: string
-    description: string
-    status: number
-    treasury: Address
-    council: Address
-    ceoAgent: Address
-    createdAt: bigint
-  }
+  })) as DAOData
 
   const persona = (await publicClient.readContract({
     address: deployment.contracts.DAORegistry as `0x${string}`,
     abi: DAORegistryABI,
     functionName: 'getCEOPersona',
     args: [daoId as `0x${string}`],
-  })) as {
-    name: string
-    description: string
-    personality: string
-    traits: readonly string[]
-  }
+  })) as CEOPersonaData
 
   const packages = (await publicClient.readContract({
     address: deployment.contracts.DAORegistry as `0x${string}`,

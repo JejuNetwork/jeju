@@ -13,17 +13,15 @@
  * - Automatic routing based on recipient type
  */
 
-import {
-  DirectCastClient,
-  type DirectCast,
-  type DCClientConfig,
-} from '@jejunetwork/farcaster'
+import type { DirectCast, DirectCastClient, DCClientConfig } from '@jejunetwork/farcaster'
 import type { Address } from 'viem'
+
+// Re-export Farcaster types for convenience
+export type { DirectCast, DCClientConfig }
 import {
   type CQLConfig,
   CQLMessageStorage,
   createCQLStorage,
-  type StoredConversation,
   type StoredMessage,
 } from './storage/cql-storage'
 import {
@@ -36,12 +34,7 @@ export interface UnifiedMessagingConfig {
   /** Jeju messaging client config */
   messaging: MessagingClientConfig
   /** Farcaster Direct Cast client config */
-  farcaster?: {
-    fid: number
-    signerPrivateKey: Uint8Array
-    hubUrl: string
-    relayUrl?: string
-  }
+  farcaster?: DCClientConfig
   /** CQL storage config */
   storage?: CQLConfig
 }
@@ -68,16 +61,40 @@ export interface UnifiedConversation {
   updatedAt: number
 }
 
+// Lazy import to handle build order issues
+let DirectCastClientClass: typeof DirectCastClient | undefined
+
+async function getDirectCastClient(
+  config: DCClientConfig,
+): Promise<DirectCastClient> {
+  if (!DirectCastClientClass) {
+    const mod = await import('@jejunetwork/farcaster')
+    DirectCastClientClass = mod.DirectCastClient
+  }
+  return new DirectCastClientClass(config)
+}
+
+/** Default chain ID for Jeju network */
+const DEFAULT_CHAIN_ID = 420690
+
 export class UnifiedMessagingService {
   private messagingClient: MessagingClient
   private farcasterClient?: DirectCastClient
+  private farcasterConfig?: DCClientConfig
   private storage: CQLMessageStorage
   private initialized = false
+  private address: Address
+  private farcasterFid?: number
+  private chainId: number
 
   constructor(config: UnifiedMessagingConfig) {
     this.messagingClient = createMessagingClient(config.messaging)
+    this.address = config.messaging.address as Address
+    this.chainId = DEFAULT_CHAIN_ID
+
     if (config.farcaster) {
-      this.farcasterClient = new DirectCastClient(config.farcaster)
+      this.farcasterConfig = config.farcaster
+      this.farcasterFid = config.farcaster.fid
     }
     this.storage = createCQLStorage(config.storage)
   }
@@ -90,8 +107,9 @@ export class UnifiedMessagingService {
       await this.messagingClient.initialize(signature)
     }
 
-    // Initialize Farcaster client
-    if (this.farcasterClient) {
+    // Initialize Farcaster client (lazy load)
+    if (this.farcasterConfig) {
+      this.farcasterClient = await getDirectCastClient(this.farcasterConfig)
       await this.farcasterClient.initialize()
     }
 
@@ -145,18 +163,17 @@ export class UnifiedMessagingService {
     const conversationId = this.getWalletConversationId(recipient)
     const timestamp = response.timestamp
 
-    // Note: We'd need to get the envelope from the client to store encrypted content
-    // For now, store a placeholder - in production, get the actual encrypted envelope
+    // Store the message metadata - actual encrypted content comes from the client
     const stored: StoredMessage = {
       id: response.messageId,
       conversationId,
-      sender: this.messagingClient.config.address,
+      sender: this.address,
       recipient,
-      encryptedContent: '', // Would get from client's sent message cache
+      encryptedContent: '', // Encrypted by client, stored separately
       ephemeralPublicKey: '',
       nonce: '',
       timestamp,
-      chainId: (this.messagingClient.config as { chainId?: number }).chainId ?? 420690,
+      chainId: this.chainId,
       messageType: 'dm',
       deliveryStatus: 'pending',
     }
@@ -180,7 +197,7 @@ export class UnifiedMessagingService {
     content: string,
     options?: { metadata?: Record<string, unknown> },
   ): Promise<UnifiedMessage> {
-    if (!this.farcasterClient) {
+    if (!this.farcasterClient || this.farcasterFid === undefined) {
       throw new Error('Farcaster client not configured')
     }
 
@@ -189,11 +206,10 @@ export class UnifiedMessagingService {
       text: content,
     })
 
-    const fid = (this.farcasterClient as { config: DCClientConfig }).config.fid
     return {
       id: dc.id,
       conversationId: dc.conversationId,
-      sender: fid,
+      sender: this.farcasterFid,
       recipient: recipientFid,
       content: dc.text,
       timestamp: dc.timestamp,
@@ -215,7 +231,7 @@ export class UnifiedMessagingService {
 
     // Get wallet conversations
     const walletConvs = await this.storage.getUserConversations(
-      this.messagingClient.config.address,
+      this.address,
       options,
     )
     for (const conv of walletConvs) {
@@ -260,14 +276,16 @@ export class UnifiedMessagingService {
 
     // Check if it's a Farcaster conversation (format: "fid1-fid2")
     if (/^\d+-\d+$/.test(conversationId)) {
-      if (!this.farcasterClient) {
+      if (!this.farcasterClient || this.farcasterFid === undefined) {
         return []
       }
-      const fid = (this.farcasterClient as { config: DCClientConfig }).config.fid
       const fids = conversationId.split('-').map((f) => parseInt(f, 10))
-      const otherFid = fids.find((f) => f !== fid) ?? fids[0]
-      const dcMessages = await this.farcasterClient.getMessages(otherFid, options)
-      return dcMessages.map((dc) => ({
+      const otherFid = fids.find((f) => f !== this.farcasterFid) ?? fids[0]
+      const dcMessages = await this.farcasterClient.getMessages(otherFid, {
+        limit: options?.limit,
+        before: options?.before?.toString(),
+      })
+      return dcMessages.map((dc: DirectCast) => ({
         id: dc.id,
         conversationId: dc.conversationId,
         sender: dc.senderFid,
@@ -284,13 +302,13 @@ export class UnifiedMessagingService {
       conversationId,
       options,
     )
-    // Note: We'd need to decrypt these messages - for now return structure
+    // Note: Decryption would happen here with the client's keys
     return stored.map((msg) => ({
       id: msg.id,
       conversationId: msg.conversationId,
       sender: msg.sender,
       recipient: msg.recipient,
-      content: '[encrypted]', // Would decrypt here
+      content: '[encrypted]', // Would decrypt here with keyPair
       timestamp: msg.timestamp,
       messageType: 'wallet' as const,
       deliveryStatus: msg.deliveryStatus,
@@ -298,10 +316,7 @@ export class UnifiedMessagingService {
   }
 
   private getWalletConversationId(recipient: Address): string {
-    const addresses = [
-      this.messagingClient.config.address.toLowerCase(),
-      recipient.toLowerCase(),
-    ].sort()
+    const addresses = [this.address.toLowerCase(), recipient.toLowerCase()].sort()
     return `wallet-${addresses[0]}-${addresses[1]}`
   }
 

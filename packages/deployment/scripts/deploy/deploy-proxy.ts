@@ -97,7 +97,7 @@ async function deployContract(
   }
 
   const address =
-    receipt.contractAddress ||
+    receipt.contractAddress ??
     getContractAddress({
       from: account.address,
       nonce: BigInt(nonce),

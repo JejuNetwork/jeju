@@ -17,6 +17,18 @@ import { LIQUIDITY_VAULT_ABI } from '../lib/constants'
 
 export type { LPPosition, RawPositionTuple }
 
+/**
+ * Raw position data returned from the vault contract's getPosition function.
+ * This matches the tuple structure defined in LIQUIDITY_VAULT_ABI.
+ */
+interface VaultPosition {
+  shares: bigint
+  depositedAssets: bigint
+  withdrawableAssets: bigint
+  pendingRewards: bigint
+  lastDepositTime: bigint
+}
+
 export interface UseLiquidityVaultResult {
   lpPosition: LPPosition | null
   addETHLiquidity: (amount: bigint | string) => Promise<void>
@@ -116,13 +128,14 @@ export function useLiquidityVault(
   }, [])
 
   // Convert object format from ABI to tuple format expected by parseLPPosition
-  const position: RawPositionTuple | undefined = lpPosition
+  const vaultPosition = lpPosition as VaultPosition | undefined
+  const position: RawPositionTuple | undefined = vaultPosition
     ? ([
-        (lpPosition as { shares: bigint }).shares,
-        (lpPosition as { depositedAssets: bigint }).depositedAssets,
-        (lpPosition as { withdrawableAssets: bigint }).withdrawableAssets,
-        (lpPosition as { pendingRewards: bigint }).pendingRewards,
-        (lpPosition as { lastDepositTime: bigint }).lastDepositTime,
+        vaultPosition.shares,
+        vaultPosition.depositedAssets,
+        vaultPosition.withdrawableAssets,
+        vaultPosition.pendingRewards,
+        vaultPosition.lastDepositTime,
       ] as const)
     : undefined
   const balance = lpBalance as bigint | undefined

@@ -60,7 +60,7 @@ export class DWSSDK {
     const formData = new FormData()
     const blob =
       file instanceof ArrayBuffer ? new Blob([new Uint8Array(file)]) : file
-    formData.append('file', blob, options?.filename || 'file')
+    formData.append('file', blob, options?.filename ?? 'file')
     if (options?.permanent) formData.append('permanent', 'true')
 
     const headers: Record<string, string> = {}

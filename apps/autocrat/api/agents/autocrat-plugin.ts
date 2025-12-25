@@ -382,7 +382,7 @@ const callMCPToolAction: Action = {
 
 Tool: ${toolName}
 Response:
-${result.content?.[0]?.text ?? 'No content returned'}`,
+${result.content[0]?.text ?? 'No content returned'}`,
         action: 'CALL_MCP_TOOL',
       })
     }

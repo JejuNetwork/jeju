@@ -12,6 +12,19 @@ import {
   generateWorkerdConfig,
 } from '../src/workers/workerd/app-adapter'
 
+/** Test helper for creating DWSApp with invalid config */
+interface RawDWSAppConfig {
+  name: string
+  port: number
+  handler: unknown
+}
+
+function createDWSAppRaw(config: RawDWSAppConfig): DWSApp {
+  return new DWSApp(
+    config as { name: string; port: number; handler: FetchHandler },
+  )
+}
+
 // DWS App Tests
 
 describe('DWSApp', () => {
@@ -56,11 +69,7 @@ describe('DWSApp', () => {
 
   it('should throw on missing handler', () => {
     expect(() => {
-      new DWSApp({
-        name: 'test',
-        port: 3000,
-        handler: undefined as unknown as FetchHandler,
-      })
+      createDWSAppRaw({ name: 'test', port: 3000, handler: undefined })
     }).toThrow('App handler is required')
   })
 

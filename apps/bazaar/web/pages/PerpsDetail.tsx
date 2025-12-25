@@ -14,22 +14,25 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useAccount } from 'wagmi'
+import { z } from 'zod'
 import { AuthButton } from '../components/auth/AuthButton'
 import { LoadingSpinner } from '../components/LoadingSpinner'
 
-interface PerpMarket {
-  ticker: string
-  name: string
-  currentPrice: number
-  change24h: number
-  changePercent24h: number
-  high24h: number
-  low24h: number
-  volume24h: number
-  minOrderSize: number
-  maxLeverage: number
-  fundingRate: { rate: number }
-}
+const PerpMarketSchema = z.object({
+  ticker: z.string(),
+  name: z.string(),
+  currentPrice: z.number(),
+  change24h: z.number(),
+  changePercent24h: z.number(),
+  high24h: z.number(),
+  low24h: z.number(),
+  volume24h: z.number(),
+  minOrderSize: z.number(),
+  maxLeverage: z.number(),
+  fundingRate: z.object({ rate: z.number() }),
+})
+
+type PerpMarket = z.infer<typeof PerpMarketSchema>
 
 export default function PerpsDetailPage() {
   const { ticker } = useParams<{ ticker?: string }>()
@@ -46,7 +49,8 @@ export default function PerpsDetailPage() {
     queryFn: async (): Promise<PerpMarket | null> => {
       const response = await fetch(`/api/markets/perps/${ticker}`)
       if (!response.ok) return null
-      return response.json() as Promise<PerpMarket>
+      const json: unknown = await response.json()
+      return PerpMarketSchema.parse(json)
     },
     enabled: !!ticker,
   })
@@ -85,9 +89,12 @@ export default function PerpsDetailPage() {
     return `$${(v / 1e3).toFixed(2)}K`
   }
 
-  const sizeNum = Number.parseFloat(size) || 0
+  const sizeNum = Number.parseFloat(size)
+  if (Number.isNaN(sizeNum)) {
+    throw new Error('Invalid size value')
+  }
   const baseMargin = sizeNum > 0 ? sizeNum / leverage : 0
-  const displayPrice = market?.currentPrice || 0
+  const displayPrice = market?.currentPrice ?? 0
   const liquidationPrice =
     side === 'long'
       ? displayPrice * (1 - 0.9 / leverage)

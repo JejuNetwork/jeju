@@ -34,7 +34,7 @@ function BanOverlay({
           Account Banned
         </h1>
         <p className="mb-4" style={{ color: 'var(--text-secondary)' }}>
-          {reason || 'Your account has been permanently banned from Bazaar.'}
+          {reason ?? 'Your account has been permanently banned from Bazaar.'}
         </p>
         <a href="/moderation" className="btn-secondary inline-block">
           Learn More
@@ -65,7 +65,7 @@ function BanBanner({
         <div className="flex items-center gap-2">
           <span>⚠️</span>
           <span className="text-sm font-medium">
-            {reason || 'Your account is on notice.'}
+            {reason ?? 'Your account is on notice.'}
           </span>
         </div>
         <a href="/moderation" className="text-sm font-semibold underline">
@@ -146,7 +146,7 @@ export function useCanPerformAction(): {
   if (banStatus.isBanned && banStatus.banType === BanType.PERMANENT) {
     return {
       canAct: false,
-      reason: banStatus.reason || 'Account banned',
+      reason: banStatus.reason ?? 'Account banned',
       loading: false,
     }
   }

@@ -217,7 +217,7 @@ export async function search(
   ])
 
   const agentResults = agents
-    .map((a) => mapAgentToResult(a, scores.get(a.id) || 0))
+    .map((a) => mapAgentToResult(a, scores.get(a.id) ?? 0))
     .sort((a, b) => b.score - a.score)
   providers.sort((a, b) => b.score - a.score)
 
@@ -264,7 +264,7 @@ export async function getAgentById(
   if (!dataSource) {
     throw new Error('DataSource is required')
   }
-  if (!agentId || typeof agentId !== 'string') {
+  if (!agentId) {
     throw new Error('agentId must be a non-empty string')
   }
   if (!/^\d+$/.test(agentId)) {

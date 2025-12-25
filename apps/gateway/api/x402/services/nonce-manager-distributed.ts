@@ -1,8 +1,18 @@
 import { readContract } from '@jejunetwork/contracts'
-import { ZERO_ADDRESS } from '@jejunetwork/types'
+import { validateOrNull, ZERO_ADDRESS } from '@jejunetwork/types'
 import type { Address, PublicClient } from 'viem'
+import { z } from 'zod'
 import { config } from '../config/index'
 import { X402_FACILITATOR_ABI } from '../lib/contracts'
+
+// Cache API response schemas
+const CacheSetResponseSchema = z.object({
+  success: z.boolean(),
+})
+
+const CacheGetResponseSchema = z.object({
+  value: z.string().optional(),
+})
 
 const CACHE_URL = process.env.CACHE_SERVICE_URL ?? 'http://localhost:4015'
 const CACHE_NS = process.env.NONCE_CACHE_NAMESPACE ?? 'facilitator-nonces'
@@ -38,8 +48,8 @@ async function cacheSet(
     body: JSON.stringify({ key, value, ttl, namespace: CACHE_NS }),
   })
   if (!res.ok) return false
-  const data = await res.json()
-  return typeof data?.success === 'boolean' && data.success
+  const data = validateOrNull(CacheSetResponseSchema, await res.json())
+  return data?.success ?? false
 }
 
 async function cacheGet(key: string): Promise<string | null> {
@@ -47,8 +57,8 @@ async function cacheGet(key: string): Promise<string | null> {
     `${CACHE_URL}/cache/get?namespace=${CACHE_NS}&key=${encodeURIComponent(key)}`,
   )
   if (!res.ok) return null
-  const data = await res.json()
-  return typeof data?.value === 'string' ? data.value : null
+  const data = validateOrNull(CacheGetResponseSchema, await res.json())
+  return data?.value ?? null
 }
 
 async function cacheDel(key: string): Promise<boolean> {
@@ -85,7 +95,7 @@ export async function isNonceUsedOnChain(
     abi: X402_FACILITATOR_ABI,
     functionName: 'isNonceUsed',
     args: [payer, nonce],
-  }) as Promise<boolean>
+  })
 }
 
 export async function isNonceUsed(

@@ -67,14 +67,14 @@ program
           `        VRAM: ${gpu.memoryTotalMb} MB (${gpu.memoryFreeMb} MB free)`,
         )
         console.log(
-          `        Compute: ${gpu.computeCapability || 'N/A'}, Est. ${gpu.estimatedTflops.toFixed(1)} TFLOPS`,
+          `        Compute: ${gpu.computeCapability ?? 'N/A'}, Est. ${gpu.estimatedTflops.toFixed(1)} TFLOPS`,
         )
         console.log(
-          `        Tensor Cores: ${gpu.tensorCores ? '✓' : '✗'}, CUDA: ${gpu.cudaVersion || 'N/A'}`,
+          `        Tensor Cores: ${gpu.tensorCores ? '✓' : '✗'}, CUDA: ${gpu.cudaVersion ?? 'N/A'}`,
         )
         if (gpu.temperatureCelsius) {
           console.log(
-            `        Temp: ${gpu.temperatureCelsius}°C, Power: ${gpu.powerWatts?.toFixed(0) || 'N/A'}W`,
+            `        Temp: ${gpu.temperatureCelsius}°C, Power: ${gpu.powerWatts?.toFixed(0) ?? 'N/A'}W`,
           )
         }
       }
@@ -256,7 +256,7 @@ program
     })
 
     daemon.on('exit', (code) => {
-      process.exit(code || 0)
+      process.exit(code ?? 0)
     })
   })
 
@@ -284,9 +284,9 @@ program
       console.log(`  ${'─'.repeat(50)}`)
       console.log(`  VRAM:              ${gpu.memoryTotalMb} MB`)
       console.log(`  Available VRAM:    ${gpu.memoryFreeMb} MB`)
-      console.log(`  Compute Cap:       ${gpu.computeCapability || 'Unknown'}`)
-      console.log(`  CUDA Version:      ${gpu.cudaVersion || 'Unknown'}`)
-      console.log(`  Driver:            ${gpu.driverVersion || 'Unknown'}`)
+      console.log(`  Compute Cap:       ${gpu.computeCapability ?? 'Unknown'}`)
+      console.log(`  CUDA Version:      ${gpu.cudaVersion ?? 'Unknown'}`)
+      console.log(`  Driver:            ${gpu.driverVersion ?? 'Unknown'}`)
       console.log(`  Tensor Cores:      ${gpu.tensorCores ? 'Yes' : 'No'}`)
       console.log(
         `  Est. Performance:  ${gpu.estimatedTflops.toFixed(1)} TFLOPS`,

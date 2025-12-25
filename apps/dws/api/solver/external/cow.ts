@@ -238,7 +238,7 @@ export class CowProtocolSolver extends EventEmitter {
       sellToken: params.sellToken,
       buyToken: params.buyToken,
       from: params.from,
-      kind: params.kind || 'sell',
+      kind: params.kind ?? 'sell',
       ...(params.sellAmountBeforeFee
         ? { sellAmountBeforeFee: params.sellAmountBeforeFee.toString() }
         : { buyAmountAfterFee: params.buyAmountAfterFee?.toString() }),
@@ -277,15 +277,16 @@ export class CowProtocolSolver extends EventEmitter {
   ): Promise<{ success: boolean; orderUid?: `0x${string}`; error?: string }> {
     const client = this.clients.get(chainId)
     const apiUrl = COW_API[chainId]
+    const account = client?.wallet?.account
 
-    if (!client?.wallet?.account) {
+    if (!account) {
       return { success: false, error: 'No wallet configured' }
     }
     if (!apiUrl) {
       return { success: false, error: 'Chain not supported' }
     }
 
-    const owner = client.wallet.account.address
+    const owner = account.address
     const receiver = params.receiver || owner
 
     // Default app data (can be customized for tracking)
@@ -303,13 +304,16 @@ export class CowProtocolSolver extends EventEmitter {
       validTo: params.validTo,
       appData,
       feeAmount: BigInt(0), // Fee is taken from output
-      kind: params.kind || 'sell',
+      kind: params.kind ?? 'sell',
       partiallyFillable: params.partiallyFillable ?? false,
       sellTokenBalance: 'erc20',
       buyTokenBalance: 'erc20',
     }
 
     // Sign the order using EIP-712
+    if (!client.wallet) {
+      return { success: false, error: 'Wallet client not initialized' }
+    }
     const signature = await this.signOrder(chainId, order, client.wallet)
     if (!signature) {
       return { success: false, error: 'Failed to sign order' }
@@ -356,17 +360,21 @@ export class CowProtocolSolver extends EventEmitter {
   ): Promise<{ success: boolean; error?: string }> {
     const client = this.clients.get(chainId)
     const apiUrl = COW_API[chainId]
+    const account = client?.wallet?.account
 
-    if (!client?.wallet?.account) {
+    if (!account) {
       return { success: false, error: 'No wallet configured' }
     }
     if (!apiUrl) {
       return { success: false, error: 'Chain not supported' }
     }
+    if (!client.wallet) {
+      return { success: false, error: 'Wallet client not initialized' }
+    }
 
     // Sign cancellation message
     const signature = await client.wallet.signMessage({
-      account: client.wallet.account,
+      account,
       message: { raw: hexToBytes(orderUid) },
     })
 
@@ -749,7 +757,7 @@ export class CowProtocolSolver extends EventEmitter {
         | 'eip1271',
       status: o.status as 'open' | 'fulfilled' | 'cancelled' | 'expired',
       createdAt: new Date(o.creationDate ?? Date.now()).getTime(),
-      filledAmount: BigInt(o.executedSellAmount || '0'),
+      filledAmount: BigInt(o.executedSellAmount ?? '0'),
     }))
   }
 

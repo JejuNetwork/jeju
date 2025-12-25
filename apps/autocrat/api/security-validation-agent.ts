@@ -167,11 +167,11 @@ async function executePoCInSandbox(
 
   return {
     success: result.status === 'success',
-    exploitTriggered: result.output?.exploitTriggered === true,
-    output: result.output?.result ?? '',
-    errorLogs: result.logs ?? '',
-    executionTime: result.metrics?.executionTimeMs ?? 0,
-    memoryUsed: result.metrics?.memoryUsedMb ?? 0,
+    exploitTriggered: result.output.exploitTriggered,
+    output: result.output.result,
+    errorLogs: result.logs,
+    executionTime: result.metrics.executionTimeMs,
+    memoryUsed: result.metrics.memoryUsedMb,
   }
 }
 
@@ -332,7 +332,7 @@ Proof of Concept:
 ${context.proofOfConcept ? context.proofOfConcept.slice(0, 2000) : 'Not provided'}
 
 Suggested Fix:
-${context.suggestedFix || 'Not provided'}
+${context.suggestedFix ?? 'Not provided'}
 
 Analyze this submission and provide your assessment.`
 

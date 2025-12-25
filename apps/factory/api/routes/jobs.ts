@@ -30,8 +30,8 @@ export const jobsRoutes = new Elysia({ prefix: '/api/jobs' })
     '/',
     async ({ query }) => {
       const validated = expectValid(JobsQuerySchema, query, 'query params')
-      const page = parseInt(validated.page || '1', 10)
-      const limit = parseInt(validated.limit || '20', 10)
+      const page = parseInt(validated.page ?? '1', 10)
+      const limit = parseInt(validated.limit ?? '20', 10)
 
       const jobs: Job[] = [
         {

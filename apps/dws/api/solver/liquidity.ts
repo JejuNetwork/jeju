@@ -38,7 +38,8 @@ export class LiquidityManager {
   async refresh(): Promise<void> {
     for (const chain of this.config.chains) {
       const client = this.clients.get(chain.chainId)
-      const account = client?.wallet?.account
+      if (!client?.wallet) continue
+      const account = client.wallet.account
       if (!account) continue
 
       const balance = await client.public.getBalance({
@@ -97,7 +98,8 @@ export class LiquidityManager {
 
   private async refreshChain(chainId: number): Promise<void> {
     const client = this.clients.get(chainId)
-    const account = client?.wallet?.account
+    if (!client?.wallet) return
+    const account = client.wallet.account
     if (!account) return
 
     const balance = await client.public.getBalance({ address: account.address })

@@ -32,14 +32,14 @@ function getNetworkFromRequest(
 
 export async function parseJsonBody<T>(
   request: Request,
-): Promise<{ body: T; error?: string }> {
+): Promise<{ body: T; error?: string } | { body: null; error: string }> {
   try {
-    const body = (await request.json()) as T
-    return { body }
+    const body: unknown = await request.json()
+    return { body: body as T }
   } catch (error) {
     const message =
       error instanceof Error ? error.message : 'Invalid JSON request body'
-    return { body: null as T, error: message }
+    return { body: null, error: message }
   }
 }
 

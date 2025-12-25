@@ -115,15 +115,15 @@ function transformRepository(r: ApiRepository): Repository {
   return {
     id: r.id,
     name: r.name,
-    owner: r.owner || '',
+    owner: r.owner ?? '',
     fullName: r.owner ? `${r.owner}/${r.name}` : r.name,
-    description: r.description || '',
+    description: r.description ?? '',
     isPrivate: r.isPrivate,
     language: 'TypeScript',
     stars: r.stars,
     forks: r.forks,
     watchers: r.stars,
-    issues: r.openIssues || 0,
+    issues: r.openIssues ?? 0,
     updatedAt: r.updatedAt,
     createdAt: r.createdAt,
     defaultBranch: r.defaultBranch,
@@ -230,7 +230,7 @@ async function fetchRepoCommits(
   name: string,
   options?: { branch?: string; limit?: number },
 ): Promise<GitCommit[]> {
-  const ref = options?.branch || 'main'
+  const ref = options?.branch ?? 'main'
   return fetchApi<GitCommit[]>(`/api/git/${owner}/${name}/commits?ref=${ref}`)
 }
 
@@ -269,7 +269,7 @@ export function useRepositories(query?: { owner?: string; search?: string }) {
   })
 
   return {
-    repositories: repositories || [],
+    repositories: repositories ?? [],
     isLoading,
     error,
     refetch,
@@ -359,7 +359,7 @@ export function useRepoFiles(
   })
 
   return {
-    files: files || [],
+    files: files ?? [],
     isLoading,
     error,
   }
@@ -382,7 +382,7 @@ export function useRepoCommits(
   })
 
   return {
-    commits: commits || [],
+    commits: commits ?? [],
     isLoading,
     error,
   }
@@ -401,7 +401,7 @@ export function useRepoBranches(owner: string, name: string) {
   })
 
   return {
-    branches: branches || [],
+    branches: branches ?? [],
     isLoading,
     error,
   }

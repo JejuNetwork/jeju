@@ -572,9 +572,9 @@ export async function fetchToken24hStats(address: Address): Promise<{
 
     const candle = candleData?.tokenCandles?.[0]
     return {
-      volume: BigInt(t.volume24h || '0'),
-      trades: t.txCount24h || 0,
-      priceChange: t.priceChange24h || 0,
+      volume: BigInt(t.volume24h ?? '0'),
+      trades: t.txCount24h ?? 0,
+      priceChange: t.priceChange24h ?? 0,
       high: candle ? parseFloat(candle.high) : 0,
       low: candle ? parseFloat(candle.low) : 0,
     }

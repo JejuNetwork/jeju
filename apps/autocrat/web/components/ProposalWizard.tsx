@@ -823,7 +823,9 @@ function SubmitStep({
           ) : (
             <AlertCircle className="text-red-500" size={18} />
           )}
-          <span>Quality Score: {assessment?.overallScore ?? 0}%</span>
+          <span>
+            Quality Score: {assessment ? assessment.overallScore : 0}%
+          </span>
         </div>
         <div className="flex items-center gap-3 text-sm">
           {!hasDuplicates ? (
@@ -836,12 +838,14 @@ function SubmitStep({
           </span>
         </div>
         <div className="flex items-center gap-3 text-sm">
-          {assessment?.blockers.length === 0 ? (
+          {assessment && assessment.blockers.length === 0 ? (
             <Check className="text-green-500" size={18} />
           ) : (
             <AlertCircle className="text-red-500" size={18} />
           )}
-          <span>No Blockers: {assessment?.blockers.length ?? 0} issues</span>
+          <span>
+            No Blockers: {assessment ? assessment.blockers.length : 0} issues
+          </span>
         </div>
       </div>
 

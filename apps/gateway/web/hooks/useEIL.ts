@@ -156,9 +156,11 @@ export function useEILConfig() {
     l1StakeManager: (networkConfig.hub.l1StakeManager || undefined) as
       | Address
       | undefined,
-    supportedTokens: (chainConfig?.tokens
-      ? Object.values(chainConfig.tokens).filter(Boolean)
-      : []) as Address[],
+    supportedTokens: chainConfig?.tokens
+      ? Object.values(chainConfig.tokens).filter((addr): addr is Address =>
+          Boolean(addr),
+        )
+      : [],
     riskSleeve: toAddress(riskSleeveAddr),
     liquidityRouter: toAddress(liquidityRouterAddr),
     multiServiceStakeManager: toAddress(multiServiceStakeManagerAddr),

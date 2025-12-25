@@ -229,7 +229,7 @@ describe.skipIf(!servicesAvailable)('Deep Integration E2E', () => {
     const result = await response.json()
 
     console.log(
-      `✅ Received ${result.result?.parts[1]?.data?.tokens?.length || 0} tokens`,
+      `✅ Received ${result.result?.parts[1]?.data?.tokens?.length ?? 0} tokens`,
     )
 
     if (!result.result) {

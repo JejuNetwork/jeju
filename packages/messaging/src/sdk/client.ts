@@ -386,7 +386,14 @@ export class MessagingClient {
       }
 
       ws.onmessage = (event) => {
-        this.handleWebSocketMessage(event.data as string)
+        // WebSocket text messages are strings - binary messages are not supported
+        if (typeof event.data !== 'string') {
+          console.warn(
+            '[MessagingClient] Received non-string message, ignoring',
+          )
+          return
+        }
+        this.handleWebSocketMessage(event.data)
       }
 
       ws.onclose = () => {

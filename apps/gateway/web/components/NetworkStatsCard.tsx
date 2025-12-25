@@ -27,7 +27,7 @@ export default function NetworkStatsCard() {
 
   const [totalNodes, totalStakedUSD, totalRewardsClaimedUSD] = networkStats
 
-  const operatorStakeUSD = Number(operatorStats?.totalStakedUSD || 0n) / 1e18
+  const operatorStakeUSD = Number(operatorStats?.totalStakedUSD ?? 0n) / 1e18
   const totalStakeUSD = Number(totalStakedUSD) / 1e18
   const operatorOwnershipPercent =
     totalStakeUSD > 0 ? (operatorStakeUSD / totalStakeUSD) * 100 : 0

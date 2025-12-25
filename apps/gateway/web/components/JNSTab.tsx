@@ -593,9 +593,9 @@ function NameManagerCard() {
       addr,
       url,
       description,
-      endpoint: appInfo?.endpoint || '',
-      a2aEndpoint: appInfo?.a2aEndpoint || '',
-      agentId: appInfo?.agentId || 0n,
+      endpoint: appInfo?.endpoint ?? '',
+      a2aEndpoint: appInfo?.a2aEndpoint ?? '',
+      agentId: appInfo?.agentId ?? 0n,
       appContract: appInfo?.appContract || zeroAddress,
     })
 
@@ -693,7 +693,7 @@ function NameManagerCard() {
                 id="resolver-address"
                 className="input"
                 type="text"
-                value={resolverData.addr || ''}
+                value={resolverData.addr ?? ''}
                 onChange={(e) =>
                   setResolverData({
                     ...resolverData,
@@ -710,7 +710,7 @@ function NameManagerCard() {
                   wordBreak: 'break-all',
                 }}
               >
-                {resolverData.addr || 'Not set'}
+                {resolverData.addr ?? 'Not set'}
               </p>
             )}
           </div>
@@ -741,7 +741,7 @@ function NameManagerCard() {
                 onChange={(e) =>
                   setResolverData({
                     ...resolverData,
-                    agentId: BigInt(e.target.value || '0'),
+                    agentId: BigInt(e.target.value ?? '0'),
                   })
                 }
                 style={{ fontFamily: 'var(--font-mono)' }}
@@ -826,7 +826,7 @@ function NameManagerCard() {
               />
             ) : (
               <p style={{ wordBreak: 'break-all' }}>
-                {resolverData.url || 'Not set'}
+                {resolverData.url ?? 'Not set'}
               </p>
             )}
           </div>
@@ -856,7 +856,7 @@ function NameManagerCard() {
                 style={{ minHeight: '80px', resize: 'vertical' }}
               />
             ) : (
-              <p>{resolverData.description || 'Not set'}</p>
+              <p>{resolverData.description ?? 'Not set'}</p>
             )}
           </div>
           <div>
@@ -884,7 +884,7 @@ function NameManagerCard() {
               />
             ) : (
               <p style={{ wordBreak: 'break-all' }}>
-                {resolverData.endpoint || 'Not set'}
+                {resolverData.endpoint ?? 'Not set'}
               </p>
             )}
           </div>
@@ -916,7 +916,7 @@ function NameManagerCard() {
               />
             ) : (
               <p style={{ wordBreak: 'break-all' }}>
-                {resolverData.a2aEndpoint || 'Not set'}
+                {resolverData.a2aEndpoint ?? 'Not set'}
               </p>
             )}
           </div>

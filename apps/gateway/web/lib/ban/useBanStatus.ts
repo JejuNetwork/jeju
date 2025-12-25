@@ -12,6 +12,14 @@ import { baseSepolia } from 'viem/chains'
 export { BanType }
 export type { BanCheckConfig, BanStatus }
 
+/** Contract return type for getAddressBan */
+interface AddressBanData {
+  isBanned: boolean
+  banType: number
+  reason: string
+  caseId: `0x${string}`
+}
+
 const BAN_MANAGER_ABI = [
   {
     type: 'function',
@@ -150,12 +158,7 @@ export function useBanStatus(
     ])
 
     if (isAddressBanned || isOnNotice) {
-      const ban = addressBan as {
-        isBanned: boolean
-        banType: number
-        reason: string
-        caseId: `0x${string}`
-      } | null
+      const ban = addressBan as AddressBanData | null
 
       setStatus({
         isBanned: true,

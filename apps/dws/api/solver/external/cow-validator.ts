@@ -11,8 +11,9 @@
  * - CoW matching: Orders we can match internally (best)
  */
 
+import { expectValid } from '@jejunetwork/types'
 import { type Address, formatEther } from 'viem'
-import type { CowAuctionResponse } from '../../types'
+import { CowAuctionResponseSchema } from '../../types'
 import type { CowAuction, CowProtocolSolver, CowSolution } from './cow'
 
 // CoW API for historical data
@@ -134,7 +135,11 @@ export class CowSolverValidator {
       }
     }
 
-    const auctionData = (await auctionResponse.json()) as CowAuctionResponse
+    const auctionData = expectValid(
+      CowAuctionResponseSchema,
+      await auctionResponse.json(),
+      'CoW auction response',
+    )
 
     // Convert to our auction format
     const auction: CowAuction = {

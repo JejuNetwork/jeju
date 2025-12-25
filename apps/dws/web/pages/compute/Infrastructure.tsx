@@ -265,7 +265,7 @@ function ClustersTab({
               <td
                 style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem' }}
               >
-                {cluster.apiEndpoint || '—'}
+                {cluster.apiEndpoint ?? '—'}
               </td>
               <td style={{ display: 'flex', gap: '0.25rem' }}>
                 <button

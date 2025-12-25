@@ -758,7 +758,7 @@ async function verifyTeeAttestation(attestationFile: string) {
     logger.subheader('TCB Info')
     for (const [key, value] of Object.entries(attestation.tcbInfo)) {
       if (typeof value === 'string' && value.length > 40) {
-        logger.keyValue(key, `${(value as string).slice(0, 40)}...`)
+        logger.keyValue(key, `${value.slice(0, 40)}...`)
       } else {
         logger.keyValue(key, String(value))
       }
@@ -1430,7 +1430,7 @@ async function showKeys(network: NetworkType, showPrivate: boolean) {
       const addresses = result.data
       for (const [role, address] of Object.entries(addresses)) {
         logger.info(role)
-        logger.keyValue('  Address', address as string)
+        logger.keyValue('  Address', address)
         logger.newline()
       }
 

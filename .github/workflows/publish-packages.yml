@@ -193,7 +193,7 @@ jobs:
             | @jejunetwork/types | ${{ steps.version.outputs.version }} |
             | @jejunetwork/config | ${{ steps.version.outputs.version }} |
             | @jejunetwork/contracts | ${{ steps.version.outputs.version }} |
-            | @jejunetwork/oauth3 | ${{ steps.version.outputs.version }} |
+            | @jejunetwork/auth | ${{ steps.version.outputs.version }} |
             | @jejunetwork/kms | ${{ steps.version.outputs.version }} |
             | @jejunetwork/db | ${{ steps.version.outputs.version }} |
             | @jejunetwork/api | ${{ steps.version.outputs.version }} |

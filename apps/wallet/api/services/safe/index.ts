@@ -175,20 +175,20 @@ class SafeService {
         }),
       ])
 
-    const guardAddress = (await client.readContract({
+    const guardAddress = await client.readContract({
       address: safeAddress,
       abi: SAFE_ABI,
       functionName: 'getGuard',
-    })) as Address
+    })
 
     return {
       address: safeAddress,
       chainId,
-      owners: owners as Address[],
+      owners: [...owners],
       threshold: Number(threshold),
       nonce: Number(nonce),
-      version: version as string,
-      modules: (modulesResult as [Address[], Address])[0],
+      version,
+      modules: [...modulesResult[0]],
       guard:
         guardAddress === '0x0000000000000000000000000000000000000000'
           ? undefined

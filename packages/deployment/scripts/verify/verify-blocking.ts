@@ -341,11 +341,11 @@ async function runIntegrationTests(
 
   // Test 5: Version check
   console.log('  Test 5: Version check...')
-  const version = (await publicClient.readContract({
+  const version = await publicClient.readContract({
     address: blockRegistry,
     abi: USER_BLOCK_REGISTRY_ABI,
     functionName: 'version',
-  })) as string
+  })
 
   if (version === '1.0.0') {
     results.push({ name: 'Version check', passed: true })

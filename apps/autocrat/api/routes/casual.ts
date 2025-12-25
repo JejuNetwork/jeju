@@ -3,7 +3,7 @@
  */
 
 import { Elysia, t } from 'elysia'
-import type { CasualProposalCategory } from '../../lib'
+import { CasualProposalCategorySchema, expectValid } from '../../lib'
 import {
   type CasualSubmission,
   getProposalAssistant,
@@ -17,7 +17,11 @@ export const casualRoutes = new Elysia({ prefix: '/api/v1' })
     async ({ params, body }) => {
       const submission: CasualSubmission = {
         daoId: params.daoId,
-        category: body.category as CasualProposalCategory,
+        category: expectValid(
+          CasualProposalCategorySchema,
+          body.category,
+          'category',
+        ),
         title: body.title,
         content: body.content,
       }
@@ -38,7 +42,11 @@ export const casualRoutes = new Elysia({ prefix: '/api/v1' })
   .post(
     '/dao/:daoId/casual/help',
     async ({ params, body }) => {
-      const category = body.category as CasualProposalCategory
+      const category = expectValid(
+        CasualProposalCategorySchema,
+        body.category,
+        'category',
+      )
       const help = await proposalAssistant.helpCraftSubmission(
         category,
         body.content ?? '',

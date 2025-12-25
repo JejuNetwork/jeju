@@ -76,7 +76,7 @@ export async function banCheckHandler({ request, set, path }: Context): Promise<
     set.status = 403
     return {
       error: 'BANNED',
-      message: result.status?.reason || 'User is banned from this application',
+      message: result.status?.reason ?? 'User is banned from this application',
       banType:
         result.status?.banType !== undefined
           ? String(result.status.banType)

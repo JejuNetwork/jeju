@@ -9,6 +9,8 @@ import {
   erc20Abi,
   getContract,
   type Hex,
+  keccak256,
+  toHex,
 } from 'viem'
 import { getServicesConfig, safeGetContract } from '../config'
 import {
@@ -24,8 +26,6 @@ export interface Token {
   name: string
   decimals: number
 }
-
-export type { SwapQuote } from '@jejunetwork/types'
 
 import type { SwapQuote } from '@jejunetwork/types'
 
@@ -249,9 +249,9 @@ export function createDefiModule(
     })
 
     const [name, symbol, decimals] = await Promise.all([
-      token.read.name() as Promise<string>,
-      token.read.symbol() as Promise<string>,
-      token.read.decimals() as Promise<number>,
+      token.read.name(),
+      token.read.symbol(),
+      token.read.decimals(),
     ])
 
     return { address, name, symbol, decimals }
@@ -269,7 +269,7 @@ export function createDefiModule(
       client: wallet.publicClient,
     })
 
-    return (await token.read.balanceOf([wallet.address])) as bigint
+    return token.read.balanceOf([wallet.address])
   }
 
   async function approve(
@@ -528,10 +528,20 @@ export function createDefiModule(
     const receipt = await wallet.publicClient.waitForTransactionReceipt({
       hash: txHash,
     })
-    const log = receipt.logs.find((l) => l.topics[0] === '0x...')
-    const tokenAddress = (log?.address ?? '0x0') as Address
 
-    return { tokenAddress, txHash }
+    // Find the TokenCreated event log
+    // TokenCreated(address indexed token, string name, string symbol, uint256 totalSupply, uint8 decimals)
+    const TOKEN_CREATED_TOPIC = keccak256(
+      toHex('TokenCreated(address,string,string,uint256,uint8)'),
+    )
+    const log = receipt.logs.find((l) => l.topics[0] === TOKEN_CREATED_TOPIC)
+    if (!log) {
+      throw new Error(
+        `TokenCreated event not found in transaction ${txHash}. Check if token factory emits the expected event.`,
+      )
+    }
+
+    return { tokenAddress: log.address, txHash }
   }
 
   return {

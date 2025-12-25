@@ -19,7 +19,7 @@ import type {
 import { getAutocratA2AUrl, getAutocratUrl } from '@jejunetwork/config'
 import type { JsonRecord } from '@jejunetwork/sdk'
 import { expectValid } from '@jejunetwork/types'
-import type { z } from 'zod'
+import { z } from 'zod'
 import {
   A2AJsonRpcResponseSchema,
   AutocratStatusDataSchema,
@@ -32,20 +32,24 @@ import {
   ProposalListDataSchema,
 } from '../../lib'
 
-/** Fee configuration response from the fees summary endpoint */
-interface FeeConfigResponse {
-  success: boolean
-  summary: {
-    distribution: Record<string, string>
-    compute: Record<string, string>
-    storage: Record<string, string>
-    defi: Record<string, string>
-    infrastructure: Record<string, string>
-    marketplace: Record<string, string>
-    token: Record<string, string>
-    governance: { treasury: string; council: string; ceo: string }
-  }
-}
+/** Zod schema for fee configuration response */
+const FeeConfigResponseSchema = z.object({
+  success: z.boolean(),
+  summary: z.object({
+    distribution: z.record(z.string(), z.string()),
+    compute: z.record(z.string(), z.string()),
+    storage: z.record(z.string(), z.string()),
+    defi: z.record(z.string(), z.string()),
+    infrastructure: z.record(z.string(), z.string()),
+    marketplace: z.record(z.string(), z.string()),
+    token: z.record(z.string(), z.string()),
+    governance: z.object({
+      treasury: z.string(),
+      council: z.string(),
+      ceo: z.string(),
+    }),
+  }),
+})
 
 function getAutocratA2A(): string {
   return process.env.AUTOCRAT_A2A_URL ?? getAutocratA2AUrl()
@@ -431,8 +435,8 @@ export const mcpResourcesProvider: Provider = {
     const response = await fetch(`${mcpUrl}/tools`)
     const data = response.ok
       ? expectValid(MCPToolsResponseSchema, await response.json(), 'MCP tools')
-      : { tools: [] }
-    const tools = data.tools ?? []
+      : { tools: [] as Array<{ name: string; description: string }> }
+    const tools = data.tools
 
     return {
       text: `🔧 AVAILABLE MCP TOOLS
@@ -484,11 +488,14 @@ export const feeConfigProvider: Provider = {
       }
     }
 
-    const data = (await response.json()) as FeeConfigResponse
+    const rawData: unknown = await response.json()
+    const parseResult = FeeConfigResponseSchema.safeParse(rawData)
 
-    if (!data.success) {
+    if (!parseResult.success || !parseResult.data.success) {
       return { text: '⚠️ Fee configuration unavailable.' }
     }
+
+    const data = parseResult.data
 
     const s = data.summary
 

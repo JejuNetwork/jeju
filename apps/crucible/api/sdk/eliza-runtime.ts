@@ -76,7 +76,8 @@ async function generateResponse(
       maxTokens: 1024,
     },
   )
-  return response.choices[0]?.message?.content ?? ''
+  const choice = response.choices[0]
+  return choice?.message?.content ?? ''
 }
 
 /**
@@ -145,8 +146,9 @@ export class CrucibleAgentRuntime {
       if (jejuPlugin?.actions) {
         jejuActions = (jejuPlugin.actions as Action[]).map((action) => ({
           name: action.name,
-          description: (action.description as string) ?? '',
-          similes: action.similes as string[] | undefined,
+          description:
+            typeof action.description === 'string' ? action.description : '',
+          similes: Array.isArray(action.similes) ? action.similes : undefined,
         }))
         this.log.info('Jeju plugin loaded', {
           actions: jejuActions.length,

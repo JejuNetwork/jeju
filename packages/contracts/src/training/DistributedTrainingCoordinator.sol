@@ -129,6 +129,10 @@ contract DistributedTrainingCoordinator is Ownable, ReentrancyGuard {
     /// @notice Authorized bridges for cross-chain updates
     mapping(address => bool) public authorizedBridges;
 
+    /// @notice Bridge Solana public keys for signature verification
+    /// @dev The bridge must verify Ed25519 signatures off-chain before submitting to EVM
+    mapping(address => bytes32) public bridgeSolanaPubkeys;
+
     // ============================================================================
     // Events
     // ============================================================================
@@ -223,6 +227,17 @@ contract DistributedTrainingCoordinator is Ownable, ReentrancyGuard {
 
     function authorizeBridge(address bridge, bool authorized) external onlyOwner {
         authorizedBridges[bridge] = authorized;
+    }
+
+    /**
+     * @notice Register a bridge's Solana public key for off-chain signature verification
+     * @dev The bridge must verify Ed25519 signatures before calling reportProgress
+     * @param bridge The bridge address
+     * @param solanaPubkey The 32-byte Solana public key used for signing
+     */
+    function setBridgeSolanaPubkey(address bridge, bytes32 solanaPubkey) external onlyOwner {
+        require(authorizedBridges[bridge], "Bridge not authorized");
+        bridgeSolanaPubkeys[bridge] = solanaPubkey;
     }
 
     // ============================================================================
@@ -382,6 +397,18 @@ contract DistributedTrainingCoordinator is Ownable, ReentrancyGuard {
     // Progress Tracking (Bridge Interface)
     // ============================================================================
 
+    /**
+     * @notice Report training progress from Solana coordinator
+     * @dev The calling bridge MUST verify the Ed25519 signature off-chain before calling this.
+     *      The signature should be over: runId || epoch || step || clientCount
+     *      using the Solana keypair registered for this bridge.
+     * @param runId The training run ID
+     * @param epoch Current epoch number
+     * @param step Current step number
+     * @param clientCount Number of participating clients
+     * @param modelHash Hash of current model state
+     * @param solanaSignature Ed25519 signature from Solana coordinator (verified off-chain)
+     */
     function reportProgress(
         bytes32 runId,
         uint32 epoch,
@@ -390,6 +417,10 @@ contract DistributedTrainingCoordinator is Ownable, ReentrancyGuard {
         bytes32 modelHash,
         bytes calldata solanaSignature
     ) external onlyBridge runExists(runId) {
+        // Require non-empty signature to prevent placeholder submissions
+        require(solanaSignature.length == 64, "Invalid signature length");
+        require(_isNonZeroSignature(solanaSignature), "Empty signature not allowed");
+        
         TrainingRun storage run = runs[runId];
 
         // Update run state if transitioning
@@ -583,6 +614,21 @@ contract DistributedTrainingCoordinator is Ownable, ReentrancyGuard {
 
         Checkpoint storage latest = runCheckpoints[runCheckpoints.length - 1];
         return (latest.epoch, latest.cid, latest.merkleRoot, latest.timestamp);
+    }
+
+    // ============================================================================
+    // Internal Functions
+    // ============================================================================
+
+    /**
+     * @notice Check if a signature contains non-zero bytes
+     * @dev Prevents submission of empty placeholder signatures
+     */
+    function _isNonZeroSignature(bytes calldata sig) internal pure returns (bool) {
+        for (uint256 i = 0; i < sig.length; i++) {
+            if (sig[i] != 0) return true;
+        }
+        return false;
     }
 }
 

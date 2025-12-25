@@ -34,6 +34,29 @@ export interface InferenceRequest {
   stream?: boolean
 }
 
+import { z } from 'zod'
+
+const InferenceResponseSchema = z.object({
+  id: z.string(),
+  object: z.string(),
+  created: z.number(),
+  model: z.string(),
+  provider: z.string().optional(),
+  node: z.string().optional(),
+  choices: z.array(
+    z.object({
+      index: z.number(),
+      message: z.object({ role: z.string(), content: z.string() }),
+      finish_reason: z.string(),
+    }),
+  ),
+  usage: z.object({
+    prompt_tokens: z.number(),
+    completion_tokens: z.number(),
+    total_tokens: z.number(),
+  }),
+})
+
 export interface InferenceResponse {
   id: string
   object: string
@@ -221,10 +244,14 @@ export async function routeInference(
       throw new Error(`Node ${node.address} returned error: ${error}`)
     }
 
-    const result = (await response.json()) as Omit<InferenceResponse, 'node'>
+    const raw: unknown = await response.json()
+    const parsed = InferenceResponseSchema.safeParse(raw)
+    if (!parsed.success) {
+      throw new Error(`Invalid inference response from node ${node.address}`)
+    }
 
     return {
-      ...result,
+      ...parsed.data,
       node: node.address,
       provider: node.provider,
     }

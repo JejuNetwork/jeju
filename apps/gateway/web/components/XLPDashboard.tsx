@@ -71,7 +71,7 @@ async function fetchXLPVoucherHistory(
   if (!response.ok) return []
 
   const { data } = await response.json()
-  const fulfillments = data?.voucherFulfillments || []
+  const fulfillments = data?.voucherFulfillments ?? []
 
   return fulfillments.map(
     (f: {
@@ -155,7 +155,7 @@ export default function XLPDashboard() {
   )
 
   const supportedChains = useMemo(
-    () => position?.supportedChains || [],
+    () => position?.supportedChains ?? [],
     [position],
   )
 
@@ -398,7 +398,7 @@ export default function XLPDashboard() {
               >
                 <span>Supported Chains</span>
                 <span style={{ fontWeight: '600' }}>
-                  {supportedChains?.length || 0}
+                  {supportedChains.length}
                 </span>
               </div>
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>

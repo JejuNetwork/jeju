@@ -35,6 +35,15 @@ interface TrezorSerializedState {
   hdPathType: TrezorHDPathType
 }
 
+/** Device features payload from Trezor DEVICE_EVENT */
+interface TrezorDeviceFeatures {
+  model?: string
+}
+
+interface TrezorDeviceEventPayload {
+  features?: TrezorDeviceFeatures
+}
+
 // Partial serialized state for deserialization from storage
 export interface PartialTrezorSerializedState {
   accounts?: Address[]
@@ -70,9 +79,9 @@ export class TrezorKeyring {
 
     // Listen for device events
     TrezorConnect.on('DEVICE_EVENT', (event) => {
-      const payload = event.payload as { features?: { model?: string } }
-      if (payload?.features) {
-        this.model = payload.features.model || 'Trezor'
+      const payload = event.payload as TrezorDeviceEventPayload
+      if (payload.features) {
+        this.model = payload.features.model ?? 'Trezor'
       }
     })
 
@@ -130,7 +139,7 @@ export class TrezorKeyring {
 
     if (!result.success) {
       throw new Error(
-        result.payload.error || 'Failed to get addresses from Trezor',
+        result.payload.error ?? 'Failed to get addresses from Trezor',
       )
     }
 
@@ -194,7 +203,7 @@ export class TrezorKeyring {
     const baseTx = {
       to: tx.to,
       value: toHex(tx.value),
-      data: tx.data || '0x',
+      data: tx.data ?? '0x',
       nonce: toHex(tx.nonce),
       gasLimit: toHex(tx.gasLimit),
       chainId: tx.chainId,
@@ -219,7 +228,7 @@ export class TrezorKeyring {
     })
 
     if (!result.success) {
-      throw new Error(result.payload.error || 'Failed to sign transaction')
+      throw new Error(result.payload.error ?? 'Failed to sign transaction')
     }
 
     const { v, r, s } = result.payload
@@ -243,7 +252,7 @@ export class TrezorKeyring {
     })
 
     if (!result.success) {
-      throw new Error(result.payload.error || 'Failed to sign message')
+      throw new Error(result.payload.error ?? 'Failed to sign message')
     }
 
     return `0x${result.payload.signature}` as Hex
@@ -285,7 +294,7 @@ export class TrezorKeyring {
     })
 
     if (!result.success) {
-      throw new Error(result.payload.error || 'Failed to sign typed data')
+      throw new Error(result.payload.error ?? 'Failed to sign typed data')
     }
 
     return `0x${result.payload.signature}` as Hex

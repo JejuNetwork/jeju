@@ -19,6 +19,26 @@ import type {
 
 const EnvRecordSchema = z.record(z.string(), z.string())
 
+/** JSON body for worker deployment */
+interface DeployWorkerJsonBody {
+  name?: string
+  runtime?: RuntimeType
+  handler?: string
+  code?: string | ArrayBuffer
+  memory?: number
+  timeout?: number
+  env?: Record<string, string>
+}
+
+/** JSON body for worker update */
+interface UpdateWorkerJsonBody {
+  code?: string | ArrayBuffer
+  memory?: number
+  timeout?: number
+  env?: Record<string, string>
+  handler?: string
+}
+
 export function createWorkersRouter(backend: BackendManager) {
   const runtime = new WorkerRuntime(backend)
 
@@ -46,7 +66,7 @@ export function createWorkersRouter(backend: BackendManager) {
             return { error: 'x-jeju-address header required' }
           }
 
-          const contentType = headers['content-type'] || ''
+          const contentType = headers['content-type'] ?? ''
           let params: DeployParams
 
           if (contentType.includes('multipart/form-data')) {
@@ -79,15 +99,7 @@ export function createWorkersRouter(backend: BackendManager) {
               ),
             }
           } else {
-            const jsonBody = body as {
-              name?: string
-              runtime?: RuntimeType
-              handler?: string
-              code?: string | ArrayBuffer
-              memory?: number
-              timeout?: number
-              env?: Record<string, string>
-            }
+            const jsonBody = body as DeployWorkerJsonBody
             params = {
               name: jsonBody.name ?? '',
               runtime: jsonBody.runtime,
@@ -236,13 +248,7 @@ export function createWorkersRouter(backend: BackendManager) {
             return { error: 'Not authorized' }
           }
 
-          const updates = body as {
-            code?: string | ArrayBuffer
-            memory?: number
-            timeout?: number
-            env?: Record<string, string>
-            handler?: string
-          }
+          const updates = body as UpdateWorkerJsonBody
 
           // If code is updated, upload new version
           if (updates.code) {
@@ -401,7 +407,7 @@ export function createWorkersRouter(backend: BackendManager) {
           }
 
           const url = new URL(request.url)
-          const path = url.pathname.replace(`/workers/${fn.id}/http`, '') || '/'
+          const path = url.pathname.replace(`/workers/${fn.id}/http`, '') ?? '/'
 
           const requestHeaders: Record<string, string> = {}
           request.headers.forEach((value, key) => {

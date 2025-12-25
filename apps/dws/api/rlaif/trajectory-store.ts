@@ -5,15 +5,23 @@
  * Uses Jeju Storage (IPFS) for decentralized persistence.
  */
 
+import { expectValid } from '@jejunetwork/types'
 import type { Hex } from 'viem'
 import { keccak256, toHex } from 'viem'
-import type { CidResponse } from '../types'
-import type { JudgeScore, Trajectory, TrajectoryManifest } from './types'
+import { z } from 'zod'
+import { CidResponseSchema } from '../types'
+import {
+  type JudgeScore,
+  JudgeScoreSchema,
+  type Trajectory,
+  type TrajectoryManifest,
+  TrajectoryManifestSchema,
+  TrajectorySchema,
+} from './types'
 
-/** Response containing judge scores array */
-interface JudgeScoresResponse {
-  scores: JudgeScore[]
-}
+const JudgeScoresResponseSchema = z.object({
+  scores: z.array(JudgeScoreSchema),
+})
 
 export interface TrajectoryStoreConfig {
   storageApiUrl: string
@@ -38,7 +46,11 @@ export class TrajectoryStore {
       throw new Error(`Failed to store trajectory: ${response.status}`)
     }
 
-    const result = (await response.json()) as CidResponse
+    const result = expectValid(
+      CidResponseSchema,
+      await response.json(),
+      'trajectory storage response',
+    )
     return result.cid
   }
 
@@ -75,7 +87,11 @@ export class TrajectoryStore {
       throw new Error(`Failed to store manifest: ${response.status}`)
     }
 
-    const result = (await response.json()) as CidResponse
+    const result = expectValid(
+      CidResponseSchema,
+      await response.json(),
+      'manifest storage response',
+    )
     manifest.cid = result.cid
 
     return manifest
@@ -86,7 +102,7 @@ export class TrajectoryStore {
     if (!response.ok) {
       throw new Error(`Failed to load trajectory ${cid}: ${response.status}`)
     }
-    return (await response.json()) as Trajectory
+    return expectValid(TrajectorySchema, await response.json(), 'trajectory')
   }
 
   async loadManifest(manifestCID: string): Promise<TrajectoryManifest> {
@@ -98,7 +114,11 @@ export class TrajectoryStore {
         `Failed to load manifest ${manifestCID}: ${response.status}`,
       )
     }
-    return (await response.json()) as TrajectoryManifest
+    return expectValid(
+      TrajectoryManifestSchema,
+      await response.json(),
+      'trajectory manifest',
+    )
   }
 
   async loadTrajectories(manifestCID: string): Promise<Trajectory[]> {
@@ -155,7 +175,11 @@ export class TrajectoryStore {
       throw new Error(`Failed to store rewards: ${response.status}`)
     }
 
-    const result = (await response.json()) as CidResponse
+    const result = expectValid(
+      CidResponseSchema,
+      await response.json(),
+      'rewards storage response',
+    )
     return result.cid
   }
 
@@ -164,7 +188,11 @@ export class TrajectoryStore {
     if (!response.ok) {
       throw new Error(`Failed to load rewards ${cid}: ${response.status}`)
     }
-    const data = (await response.json()) as JudgeScoresResponse
+    const data = expectValid(
+      JudgeScoresResponseSchema,
+      await response.json(),
+      'judge scores',
+    )
     return data.scores
   }
 
@@ -187,7 +215,11 @@ export class TrajectoryStore {
       throw new Error(`Failed to store model: ${response.status}`)
     }
 
-    const result = (await response.json()) as CidResponse
+    const result = expectValid(
+      CidResponseSchema,
+      await response.json(),
+      'model storage response',
+    )
     return result.cid
   }
 

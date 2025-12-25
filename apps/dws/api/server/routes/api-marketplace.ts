@@ -9,17 +9,26 @@ import { Elysia } from 'elysia'
 import { z } from 'zod'
 
 /** Error response from compute */
-interface ComputeErrorResponse {
-  error?: string
-}
+const ComputeErrorResponseSchema = z.object({
+  error: z.string().optional(),
+})
 
 /** Full inference response from compute */
-interface ComputeInferenceResponse {
-  choices: Array<{ message: { content: string } }>
-  model: string
-  usage: { prompt_tokens: number; completion_tokens: number }
-  provider?: string
-}
+const ComputeInferenceResponseSchema = z.object({
+  choices: z.array(z.object({ message: z.object({ content: z.string() }) })),
+  model: z.string(),
+  usage: z.object({ prompt_tokens: z.number(), completion_tokens: z.number() }),
+  provider: z.string().optional(),
+})
+
+/** Embedding response schema */
+const EmbeddingResponseSchema = z.object({
+  data: z.array(
+    z.object({
+      embedding: z.array(z.number()),
+    }),
+  ),
+})
 
 import {
   calculateAffordableRequests,
@@ -543,7 +552,7 @@ export function createAPIMarketplaceRouter() {
         )
 
         if (!result.success) {
-          throw new Error(result.error || 'Withdrawal failed')
+          throw new Error(result.error ?? 'Withdrawal failed')
         }
 
         return {
@@ -780,17 +789,23 @@ export function createAPIMarketplaceRouter() {
         )
 
         if (!computeResponse.ok) {
-          const errorData =
-            (await computeResponse.json()) as ComputeErrorResponse
+          const errorParsed = ComputeErrorResponseSchema.safeParse(
+            await computeResponse.json(),
+          )
           set.status = computeResponse.status as 400 | 401 | 500 | 503
-          return errorData
+          return errorParsed.success
+            ? errorParsed.data
+            : { error: 'Unknown compute error' }
         }
 
-        const responseData =
-          (await computeResponse.json()) as ComputeInferenceResponse
+        const responseData = expectValid(
+          ComputeInferenceResponseSchema,
+          await computeResponse.json(),
+        )
+        const choice = responseData.choices[0]
 
         return {
-          content: responseData.choices[0]?.message?.content ?? '',
+          content: choice?.message?.content ?? '',
           model: responseData.model,
           usage: responseData.usage,
           provider: responseData.provider,
@@ -867,13 +882,17 @@ export function createAPIMarketplaceRouter() {
           })
         }
 
-        const responseData = result.body as {
-          data: Array<{ embedding: number[] }>
-        }
+        const responseData = expectValid(
+          EmbeddingResponseSchema,
+          result.body,
+          'Embedding API response',
+        )
+        const embeddingData = responseData.data[0]
+        const embedding = embeddingData?.embedding ?? []
 
         return {
-          embedding: responseData.data[0]?.embedding ?? [],
-          dimensions: responseData.data[0]?.embedding?.length ?? 0,
+          embedding,
+          dimensions: embedding.length,
         }
       })
   )

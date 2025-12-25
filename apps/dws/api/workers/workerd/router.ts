@@ -3,9 +3,14 @@
  * Routes worker invocations across distributed nodes
  */
 
+import { expectValid } from '@jejunetwork/types'
 import type { WorkerdExecutor } from './executor'
 import type { WorkerNode, WorkerRegistration, WorkerRegistry } from './registry'
-import type { WorkerdRequest, WorkerdResponse } from './types'
+import {
+  WorkerdInvocationResultSchema,
+  type WorkerdRequest,
+  type WorkerdResponse,
+} from './types'
 
 // Types
 
@@ -31,11 +36,6 @@ export const DEFAULT_ROUTER_CONFIG: RouterConfig = {
   maxRetries: 2,
   timeoutMs: 30000,
   healthCheckIntervalMs: 30000,
-}
-
-/** Wrapped workerd response from invocation endpoint */
-interface WorkerdInvocationResult {
-  response: WorkerdResponse
 }
 
 interface NodeHealth {
@@ -334,7 +334,11 @@ export class WorkerRouter {
       throw new Error(`Local invocation failed: ${response.status}`)
     }
 
-    const result = (await response.json()) as WorkerdInvocationResult
+    const result = expectValid(
+      WorkerdInvocationResultSchema,
+      await response.json(),
+      'workerd invocation result',
+    )
     return result.response
   }
 
@@ -363,7 +367,11 @@ export class WorkerRouter {
       throw new Error(`Remote invocation failed: ${response.status}`)
     }
 
-    const result = (await response.json()) as WorkerdInvocationResult
+    const result = expectValid(
+      WorkerdInvocationResultSchema,
+      await response.json(),
+      'workerd invocation result',
+    )
     return result.response
   }
 
@@ -415,7 +423,7 @@ export class WorkerRouter {
     // Group by region
     const byRegion = new Map<string, WorkerNode[]>()
     for (const node of nodes) {
-      const regionNodes = byRegion.get(node.region) || []
+      const regionNodes = byRegion.get(node.region) ?? []
       regionNodes.push(node)
       byRegion.set(node.region, regionNodes)
     }
@@ -426,7 +434,7 @@ export class WorkerRouter {
 
     for (const region of regions) {
       if (selected.length >= count) break
-      const regionNodes = byRegion.get(region) || []
+      const regionNodes = byRegion.get(region) ?? []
       if (regionNodes.length > 0) {
         selected.push(regionNodes[0])
       }

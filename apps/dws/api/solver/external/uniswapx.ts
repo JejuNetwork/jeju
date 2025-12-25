@@ -12,8 +12,9 @@
  */
 
 import { EventEmitter } from 'node:events'
+import { expectValid } from '@jejunetwork/types'
 import type { Address, PublicClient, WalletClient } from 'viem'
-import type { UniswapXOrdersResponse } from '../../types'
+import { UniswapXOrdersResponseSchema } from '../../types'
 
 // UniswapX Reactor addresses
 export const UNISWAPX_REACTORS: Record<number, Address> = {
@@ -261,7 +262,11 @@ export class UniswapXAdapter extends EventEmitter {
       throw new Error(`UniswapX API returned ${response.status}`)
     }
 
-    const data = (await response.json()) as UniswapXOrdersResponse
+    const data = expectValid(
+      UniswapXOrdersResponseSchema,
+      await response.json(),
+      'UniswapX orders response',
+    )
 
     return data.orders.map((o) => ({
       orderHash: o.orderHash as `0x${string}`,

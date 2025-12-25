@@ -187,7 +187,7 @@ export function ModelsPage() {
               </div>
 
               <p className="text-factory-400 text-sm line-clamp-2 mb-4">
-                {model.description || 'No description provided'}
+                {model.description ?? 'No description provided'}
               </p>
 
               <div className="flex items-center justify-between text-sm">

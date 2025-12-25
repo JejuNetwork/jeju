@@ -12,7 +12,6 @@
  */
 
 import { EventEmitter } from 'node:events'
-import { readContract } from '@jejunetwork/contracts'
 import {
   type Address,
   encodeAbiParameters,
@@ -38,6 +37,23 @@ export const ACROSS_SPOKE_POOLS_TESTNET: Record<number, Address> = {
   421614: '0x7E63A5f1a8F0B4d0934B2f2327DAED3F6bb2ee75', // Arbitrum Sepolia
   84532: '0x82B564983aE7274c86695917BBf8C99ECb6F0F8F', // Base Sepolia
   11155420: '0x4e8E101E1C85DB23c021eD76c6E28f2fAd3b8cc8', // OP Sepolia
+}
+
+/** Event args from V3FundsDeposited log */
+interface V3FundsDepositedArgs {
+  inputToken: Address
+  outputToken: Address
+  inputAmount: bigint
+  outputAmount: bigint
+  destinationChainId: bigint
+  depositId: number
+  quoteTimestamp: number
+  fillDeadline: number
+  exclusivityDeadline: number
+  depositor: Address
+  recipient: Address
+  exclusiveRelayer: Address
+  message: `0x${string}`
 }
 
 export interface AcrossDeposit {
@@ -179,21 +195,7 @@ export class AcrossAdapter extends EventEmitter {
       transactionHash: `0x${string}`
     },
   ): void {
-    const args = log.args as {
-      inputToken: Address
-      outputToken: Address
-      inputAmount: bigint
-      outputAmount: bigint
-      destinationChainId: bigint
-      depositId: number
-      quoteTimestamp: number
-      fillDeadline: number
-      exclusivityDeadline: number
-      depositor: Address
-      recipient: Address
-      exclusiveRelayer: Address
-      message: `0x${string}`
-    }
+    const args = log.args as V3FundsDepositedArgs
 
     const deposit: AcrossDeposit = {
       depositId: args.depositId,
@@ -240,7 +242,7 @@ export class AcrossAdapter extends EventEmitter {
 
     // Check if already filled
     const relayHash = this.computeRelayHash(deposit)
-    const fillStatus = await readContract(client.public, {
+    const fillStatus = await client.public.readContract({
       address: spokePool,
       abi: IS_DEPOSIT_FILLED_ABI,
       functionName: 'fillStatuses',

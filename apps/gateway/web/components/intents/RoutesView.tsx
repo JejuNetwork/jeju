@@ -94,13 +94,13 @@ export function RoutesView() {
 
 function RouteCard({ route }: { route: IntentRoute }) {
   const sourceChain =
-    CHAIN_NAMES[route.sourceChainId] || `Chain ${route.sourceChainId}`
+    CHAIN_NAMES[route.sourceChainId] ?? `Chain ${route.sourceChainId}`
   const destChain =
-    CHAIN_NAMES[route.destinationChainId] || `Chain ${route.destinationChainId}`
+    CHAIN_NAMES[route.destinationChainId] ?? `Chain ${route.destinationChainId}`
   const sourceColor =
-    CHAIN_COLORS[route.sourceChainId] || 'var(--text-secondary)'
+    CHAIN_COLORS[route.sourceChainId] ?? 'var(--text-secondary)'
   const destColor =
-    CHAIN_COLORS[route.destinationChainId] || 'var(--text-secondary)'
+    CHAIN_COLORS[route.destinationChainId] ?? 'var(--text-secondary)'
 
   return (
     <div

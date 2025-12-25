@@ -122,7 +122,7 @@ async function checkAWSInfra() {
   if (rdsCheck.exitCode === 0) {
     try {
       const db = JSON.parse(rdsCheck.stdout.toString())
-      const status = db.DBInstances[0]?.DBInstanceStatus || 'unknown'
+      const status = db.DBInstances[0]?.DBInstanceStatus ?? 'unknown'
       addResult(
         category,
         'RDS Database',
@@ -401,7 +401,7 @@ async function checkL1Contracts() {
     // Fall back to checking chain config
     if (existsSync(CHAIN_CONFIG)) {
       const chainConfig = JSON.parse(readFileSync(CHAIN_CONFIG, 'utf-8'))
-      const l1Contracts = chainConfig.contracts?.l1 || {}
+      const l1Contracts = chainConfig.contracts?.l1 ?? {}
 
       const requiredContracts = [
         'OptimismPortal',
@@ -461,12 +461,7 @@ async function checkL1Contracts() {
           address: address as Address,
         })
         if (code !== '0x') {
-          addResult(
-            category,
-            name,
-            'pass',
-            `${(address as string).slice(0, 10)}...`,
-          )
+          addResult(category, name, 'pass', `${address.slice(0, 10)}...`)
         } else {
           addResult(category, name, 'fail', 'No code at address')
         }

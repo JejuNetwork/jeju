@@ -90,7 +90,7 @@ export function RegionSelector({
         <div className="flex items-center gap-3">
           <span className="text-2xl">
             {validatedSelectedNode
-              ? COUNTRY_FLAGS[validatedSelectedNode.country_code] || '🌍'
+              ? (COUNTRY_FLAGS[validatedSelectedNode.country_code] ?? '🌍')
               : '🌍'}
           </span>
           <div className="text-left">
@@ -158,11 +158,11 @@ export function RegionSelector({
                 >
                   <div className="flex items-center gap-3">
                     <span className="text-xl">
-                      {COUNTRY_FLAGS[countryCode] || '🌍'}
+                      {COUNTRY_FLAGS[countryCode] ?? '🌍'}
                     </span>
                     <div className="text-left">
                       <div className="font-medium">
-                        {COUNTRY_NAMES[countryCode] || countryCode}
+                        {COUNTRY_NAMES[countryCode] ?? countryCode}
                       </div>
                       <div className="text-xs text-[#606070]">
                         {countryNodes.length} server

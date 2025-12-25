@@ -42,17 +42,17 @@ function injectAuth(
 
   switch (provider.authType) {
     case 'bearer':
-      resultHeaders[provider.authConfig.headerName || 'Authorization'] =
-        `${provider.authConfig.prefix || 'Bearer '}${apiKey}`
+      resultHeaders[provider.authConfig.headerName ?? 'Authorization'] =
+        `${provider.authConfig.prefix ?? 'Bearer '}${apiKey}`
       break
 
     case 'header':
-      resultHeaders[provider.authConfig.headerName || 'X-API-Key'] =
-        `${provider.authConfig.prefix || ''}${apiKey}`
+      resultHeaders[provider.authConfig.headerName ?? 'X-API-Key'] =
+        `${provider.authConfig.prefix ?? ''}${apiKey}`
       break
 
     case 'query':
-      url.searchParams.set(provider.authConfig.queryParam || 'api_key', apiKey)
+      url.searchParams.set(provider.authConfig.queryParam ?? 'api_key', apiKey)
       break
 
     case 'basic': {
@@ -187,7 +187,7 @@ export async function proxyRequest(
   if (!accessCheck.allowed) {
     return createErrorResponse(
       accessCheck.retryAfter ? 429 : 403,
-      accessCheck.reason || 'Access denied',
+      accessCheck.reason ?? 'Access denied',
       requestId,
       startTime,
       accessCheck.retryAfter,
@@ -221,11 +221,11 @@ export async function proxyRequest(
 
   // 6. Build upstream request
   let url = buildUpstreamUrl(provider, request.endpoint, request.queryParams)
-  let headers = stripAuthHeaders(request.headers || {})
+  let headers = stripAuthHeaders(request.headers ?? {})
 
   // Set content type for POST/PUT/PATCH
   if (['POST', 'PUT', 'PATCH'].includes(request.method) && request.body) {
-    headers['Content-Type'] = headers['Content-Type'] || 'application/json'
+    headers['Content-Type'] = headers['Content-Type'] ?? 'application/json'
   }
 
   // 7. Inject authentication
@@ -257,11 +257,15 @@ export async function proxyRequest(
     })
 
     let responseBody: JsonValue | string
-    const contentType = response.headers.get('content-type') || ''
+    const contentType = response.headers.get('content-type') ?? ''
     if (contentType.includes('application/json')) {
       const parsed: unknown = await response.json()
       // Validate the parsed JSON is a valid JsonValue
-      responseBody = isJsonValue(parsed) ? parsed : JSON.stringify(parsed)
+      if (isJsonValue(parsed)) {
+        responseBody = parsed
+      } else {
+        responseBody = JSON.stringify(parsed)
+      }
     } else {
       responseBody = await response.text()
     }
@@ -460,7 +464,7 @@ export async function* proxyStreamingRequest(
 
   // Build and execute streaming request
   let url = buildUpstreamUrl(provider, request.endpoint, request.queryParams)
-  let headers = stripAuthHeaders(request.headers || {})
+  let headers = stripAuthHeaders(request.headers ?? {})
   headers['Content-Type'] = 'application/json'
   headers.Accept = 'text/event-stream'
 

@@ -58,9 +58,9 @@ export class PoCMetrics {
 
       if (event.level) this.levelCounts[event.level]++
 
-      const duration = (event.metadata as { durationMs?: number })?.durationMs
-      if (typeof duration === 'number') {
-        this.verificationDurations.push(duration)
+      const durationValue = event.metadata.durationMs
+      if (typeof durationValue === 'number') {
+        this.verificationDurations.push(durationValue)
         if (this.verificationDurations.length > 1000)
           this.verificationDurations.shift()
       }
@@ -69,7 +69,8 @@ export class PoCMetrics {
     } else if (event.type === 'revocation') {
       this.revocationsTotal++
     } else if (event.type === 'error') {
-      const code = (event.metadata as { code?: string })?.code ?? 'UNKNOWN'
+      const codeValue = event.metadata.code
+      const code = typeof codeValue === 'string' ? codeValue : 'UNKNOWN'
       this.errorCounts[code] = (this.errorCounts[code] ?? 0) + 1
     }
   }

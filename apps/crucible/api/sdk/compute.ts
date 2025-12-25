@@ -215,7 +215,8 @@ export class CrucibleCompute {
         )
       })
 
-    const content = result.choices[0]?.message?.content ?? ''
+    const choice = result.choices[0]
+    const content = choice?.message?.content ?? ''
     const promptTokens = result.usage?.prompt_tokens ?? 0
     const completionTokens = result.usage?.completion_tokens ?? 0
 

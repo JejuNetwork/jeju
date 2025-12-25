@@ -3,7 +3,16 @@ import {
   getOptionalNumber,
   getOptionalString,
   getString,
+  validateOrThrow,
 } from '@jejunetwork/types'
+import { z } from 'zod'
+
+const SkillIdSchema = z
+  .object({
+    skillId: z.string().min(1),
+  })
+  .passthrough()
+
 import { NETWORK_NAME } from '../config'
 import type { A2ARequest as A2ARequestType } from '../schemas/api'
 
@@ -34,13 +43,13 @@ function createAgentCard(options: {
     protocolVersion: '0.3.0',
     name: `${NETWORK_NAME} ${options.name}`,
     description: options.description,
-    url: options.url || '/api/a2a',
+    url: options.url ?? '/api/a2a',
     preferredTransport: 'http',
     provider: {
       organization: NETWORK_NAME,
       url: 'https://jejunetwork.org',
     },
-    version: options.version || '1.0.0',
+    version: options.version ?? '1.0.0',
     capabilities: {
       streaming: false,
       pushNotifications: false,
@@ -48,7 +57,7 @@ function createAgentCard(options: {
     },
     defaultInputModes: ['text'],
     defaultOutputModes: ['text'],
-    skills: options.skills || [],
+    skills: options.skills ?? [],
   }
 }
 
@@ -1036,11 +1045,7 @@ export async function handleA2ARequest(
   )
   const dataPartData = expect(dataPart.data, 'Data part data is required')
 
-  const rawSkillId = dataPartData.skillId
-  if (typeof rawSkillId !== 'string') {
-    throw new Error('skillId must be a string')
-  }
-  const skillId = rawSkillId
+  const { skillId } = validateOrThrow(SkillIdSchema, dataPartData, 'Skill data')
   const result = await executeSkill(skillId, dataPartData)
 
   return Response.json({

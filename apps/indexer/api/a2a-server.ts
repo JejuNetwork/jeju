@@ -5,6 +5,7 @@
 import { cors } from '@elysiajs/cors'
 import { validateOrThrow } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
+import { z } from 'zod'
 import {
   buildAccountQuery,
   buildAgentQuery,
@@ -36,9 +37,15 @@ import {
   getSolverSkillSchema,
   getTokenBalancesSkillSchema,
   getTransactionSkillSchema,
-  type JsonValue,
   validateBody,
 } from './utils/validation'
+
+// Schema for A2A skill data extraction
+const SkillDataSchema = z
+  .object({
+    skillId: z.string().min(1),
+  })
+  .passthrough()
 
 function createAgentCard(options: {
   name: string
@@ -77,13 +84,13 @@ function createAgentCard(options: {
     protocolVersion: '0.3.0',
     name: `Network ${options.name}`,
     description: options.description,
-    url: options.url || '/api/a2a',
+    url: options.url ?? '/api/a2a',
     preferredTransport: 'http',
     provider: {
       organization: 'Network',
       url: 'https://network.io',
     },
-    version: options.version || '1.0.0',
+    version: options.version ?? '1.0.0',
     capabilities: {
       streaming: false,
       pushNotifications: false,
@@ -91,7 +98,7 @@ function createAgentCard(options: {
     },
     defaultInputModes: ['text'],
     defaultOutputModes: ['text'],
-    skills: options.skills || [],
+    skills: options.skills ?? [],
   }
 }
 
@@ -590,7 +597,7 @@ export function createIndexerA2AServer() {
       const agentId = request.headers.get('x-agent-id')
       const clientKey = agentId
         ? `agent:${agentId}`
-        : `ip:${forwarded || 'unknown'}`
+        : `ip:${forwarded ?? 'unknown'}`
 
       const now = Date.now()
       let record = a2aRateLimitStore.get(clientKey)
@@ -620,11 +627,7 @@ export function createIndexerA2AServer() {
     })
     .get('/.well-known/agent-card.json', () => AGENT_CARD)
     .post('/', async ({ body }) => {
-      const validated = validateBody(
-        a2aRequestSchema,
-        body as Record<string, JsonValue>,
-        'A2A POST /',
-      )
+      const validated = validateBody(a2aRequestSchema, body, 'A2A POST /')
 
       const message = validated.params.message
       const dataPart = message.parts.find((p) => p.kind === 'data')
@@ -633,12 +636,13 @@ export function createIndexerA2AServer() {
         throw new BadRequestError('No data part found in message')
       }
 
-      const skillId = dataPart.data.skillId
-      if (typeof skillId !== 'string' || !skillId) {
-        throw new BadRequestError('skillId is required and must be a string')
-      }
+      const skillData = validateOrThrow(
+        SkillDataSchema,
+        dataPart.data,
+        'A2A skill data',
+      )
 
-      const result = await executeSkill(skillId, dataPart.data)
+      const result = await executeSkill(skillData.skillId, dataPart.data)
 
       return {
         jsonrpc: '2.0',

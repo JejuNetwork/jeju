@@ -362,7 +362,7 @@ export async function bootstrapContracts(
   // Check if bootstrap file exists AND has valid contract addresses
   if (existsSync(bootstrapFile)) {
     const data = JSON.parse(readFileSync(bootstrapFile, 'utf-8'))
-    const contracts = data?.contracts || {}
+    const contracts = data?.contracts ?? {}
     // Check if any key contracts are deployed (not zero addresses)
     const hasValidContracts =
       (contracts.jnsRegistry &&

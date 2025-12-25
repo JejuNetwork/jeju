@@ -13,8 +13,8 @@ import { config } from '../shared-state'
 const registryConfig: RegistryIntegrationConfig = {
   rpcUrl: config.rpcUrl,
   integrationContract: process.env.REGISTRY_INTEGRATION_ADDRESS,
-  identityRegistry: config.contracts.identityRegistry as string,
-  reputationRegistry: config.contracts.reputationRegistry as string,
+  identityRegistry: config.contracts.identityRegistry,
+  reputationRegistry: config.contracts.reputationRegistry,
   delegationRegistry: process.env.DELEGATION_REGISTRY_ADDRESS,
 }
 const registryIntegration = getRegistryIntegrationClient(registryConfig)

@@ -120,11 +120,8 @@ async function dwsGenerate(prompt: string, system: string): Promise<string> {
   if (!parseResult.success) {
     throw new Error(`Invalid DWS response format: ${parseResult.error.message}`)
   }
-  return (
-    parseResult.data.choices?.[0]?.message?.content ??
-    parseResult.data.content ??
-    ''
-  )
+  const choice = parseResult.data.choices?.[0]
+  return choice?.message?.content ?? parseResult.data.content ?? ''
 }
 
 export async function inference(request: InferenceRequest): Promise<string> {

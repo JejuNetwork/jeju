@@ -134,8 +134,8 @@ export default function PredictionDetailPage() {
 
     if (!market) return
 
-    const amountNum = Number.parseFloat(amount) || 0
-    if (amountNum < 1) {
+    const amountNum = Number.parseFloat(amount)
+    if (Number.isNaN(amountNum) || amountNum < 1) {
       toast.error('Minimum bet is $1')
       return
     }
@@ -160,7 +160,7 @@ export default function PredictionDetailPage() {
   const noPrice = noShares / totalShares
   const timeLeft = getTimeUntilResolution()
   const totalVolume = yesShares + noShares
-  const amountNum = Number.parseFloat(amount) || 0
+  const amountNum = Number.parseFloat(amount)
 
   return (
     <div className="max-w-4xl mx-auto">

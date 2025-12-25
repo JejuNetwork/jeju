@@ -10,7 +10,7 @@
 import { describe, expect, test } from 'bun:test'
 import type { Hex } from 'viem'
 import { PriceFetcher } from '../../src/oracle/price-fetcher'
-import type { PriceSourceConfig } from '../../src/oracle/types'
+import type { PriceSourceConfig } from '@jejunetwork/types'
 
 const RPC_URL = 'http://localhost:6546'
 

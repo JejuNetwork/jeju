@@ -35,10 +35,12 @@ import {
   type BountyGuardianVote,
   type BountyPoolStats,
   BountySeverity,
+  BountySeveritySchema,
   type BountySubmission,
   type BountySubmissionDraft,
   BountySubmissionSchema,
   BountySubmissionStatus,
+  BountySubmissionStatusSchema,
   KMSEncryptResponseSchema,
   type ResearcherStats,
   rowAddress,
@@ -53,8 +55,10 @@ import {
   StringArraySchema,
   toHex,
   ValidationResult,
+  ValidationResultSchema,
   VulnerabilityType,
   VulnerabilityTypeName,
+  VulnerabilityTypeSchema,
 } from '../lib'
 
 const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? 'autocrat'
@@ -1136,11 +1140,18 @@ export async function getResearcherStats(
   }
 }
 
+// SQL aggregate result type for pool stats query
+interface PoolStatsRow {
+  pending_payouts: number | null
+  total_paid: number | null
+  active_submissions: number | null
+}
+
 export async function getBountyPoolStats(): Promise<BountyPoolStats> {
   const client = await getCQLClient()
 
   // Query aggregates from CQL
-  const submissions = await client.query<Record<string, unknown>>(
+  const submissions = await client.query<PoolStatsRow>(
     `SELECT
        SUM(CASE WHEN status = ? THEN CAST(reward_amount AS INTEGER) ELSE 0 END) as pending_payouts,
        SUM(CASE WHEN status = ? THEN CAST(reward_amount AS INTEGER) ELSE 0 END) as total_paid,
@@ -1156,40 +1167,35 @@ export async function getBountyPoolStats(): Promise<BountyPoolStats> {
     CQL_DATABASE_ID,
   )
 
-  const row = submissions.rows[0] ?? {}
+  const row = submissions.rows[0] ?? {
+    pending_payouts: null,
+    total_paid: null,
+    active_submissions: null,
+  }
 
-  // Get pool stats from contract
+  // Get pool stats from contract - readContract returns bigint for uint256
   const publicClient = getPublicClient()
   const contractAddr = getContractAddressOrThrow()
 
-  const totalPoolResult = await publicClient.readContract({
+  const totalPool = (await publicClient.readContract({
     address: contractAddr,
     abi: SECURITY_BOUNTY_REGISTRY_ABI,
     functionName: 'getTotalPool',
-  })
-  const totalPool = typeof totalPoolResult === 'bigint' ? totalPoolResult : 0n
+  })) as bigint
 
-  const guardianCountResult = await publicClient.readContract({
-    address: contractAddr,
-    abi: SECURITY_BOUNTY_REGISTRY_ABI,
-    functionName: 'getGuardianCount',
-  })
-  const guardianCount =
-    typeof guardianCountResult === 'bigint' ? Number(guardianCountResult) : 0
-
-  // SQL aggregates return number | null - safely extract with defaults
-  const totalPaid = row.total_paid
-  const pendingPayoutsVal = row.pending_payouts
-  const activeSubmissionsVal = row.active_submissions
+  const guardianCount = Number(
+    (await publicClient.readContract({
+      address: contractAddr,
+      abi: SECURITY_BOUNTY_REGISTRY_ABI,
+      functionName: 'getGuardianCount',
+    })) as bigint,
+  )
 
   return {
     totalPool,
-    totalPaidOut: BigInt(typeof totalPaid === 'number' ? totalPaid : 0),
-    pendingPayouts: BigInt(
-      typeof pendingPayoutsVal === 'number' ? pendingPayoutsVal : 0,
-    ),
-    activeSubmissions:
-      typeof activeSubmissionsVal === 'number' ? activeSubmissionsVal : 0,
+    totalPaidOut: BigInt(row.total_paid ?? 0),
+    pendingPayouts: BigInt(row.pending_payouts ?? 0),
+    activeSubmissions: row.active_submissions ?? 0,
     guardianCount,
   }
 }
@@ -1198,8 +1204,8 @@ function rowToSubmission(row: Record<string, unknown>): BountySubmission {
     submissionId: rowString(row, 'submission_id'),
     researcher: rowAddress(row, 'researcher'),
     researcherAgentId: rowBigInt(row, 'researcher_agent_id'),
-    severity: rowNumber(row, 'severity') as BountySeverity,
-    vulnType: rowNumber(row, 'vuln_type') as VulnerabilityType,
+    severity: BountySeveritySchema.parse(rowNumber(row, 'severity')),
+    vulnType: VulnerabilityTypeSchema.parse(rowNumber(row, 'vuln_type')),
     title: rowString(row, 'title'),
     summary: rowString(row, 'summary'),
     description: rowString(row, 'description'),
@@ -1222,8 +1228,10 @@ function rowToSubmission(row: Record<string, unknown>): BountySubmission {
     submittedAt: rowNumber(row, 'submitted_at'),
     validatedAt: rowOptionalNumber(row, 'validated_at'),
     resolvedAt: rowOptionalNumber(row, 'resolved_at'),
-    status: rowNumber(row, 'status') as BountySubmissionStatus,
-    validationResult: rowNumber(row, 'validation_result') as ValidationResult,
+    status: BountySubmissionStatusSchema.parse(rowNumber(row, 'status')),
+    validationResult: ValidationResultSchema.parse(
+      rowNumber(row, 'validation_result'),
+    ),
     validationNotes: rowOptionalString(row, 'validation_notes'),
     rewardAmount: rowBigInt(row, 'reward_amount'),
     guardianApprovals: rowNumber(row, 'guardian_approvals'),

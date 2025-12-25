@@ -23,11 +23,21 @@ import {
   ceoAgent,
 } from './templates'
 
-/** DWS compute inference response format */
-interface DWSCompletionResponse {
-  choices?: Array<{ message?: { content: string } }>
-  content?: string
-}
+/** DWS compute inference response Zod schema */
+const DWSCompletionResponseSchema = z.object({
+  choices: z
+    .array(
+      z.object({
+        message: z
+          .object({
+            content: z.string(),
+          })
+          .optional(),
+      }),
+    )
+    .optional(),
+  content: z.string().optional(),
+})
 
 // ElizaOS runtime interface - subset used by autocrat
 interface AutocratAgentRuntime
@@ -137,8 +147,14 @@ export async function dwsGenerate(
       `DWS compute error (network: ${network}): ${r.status} - ${errorText}`,
     )
   }
-  const data = (await r.json()) as DWSCompletionResponse
-  return data.choices?.[0]?.message?.content ?? data.content ?? ''
+  const rawData: unknown = await r.json()
+  const parseResult = DWSCompletionResponseSchema.safeParse(rawData)
+  if (!parseResult.success) {
+    throw new Error(`Invalid DWS response format: ${parseResult.error.message}`)
+  }
+  const data = parseResult.data
+  const choice = data.choices?.[0]
+  return choice?.message?.content ?? data.content ?? ''
 }
 
 function buildCEOSystemPrompt(persona: CEOPersona): string {

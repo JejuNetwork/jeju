@@ -11,7 +11,7 @@ COPY packages/shared/package.json ./packages/shared/
 COPY packages/sdk/package.json ./packages/sdk/
 COPY packages/types/package.json ./packages/types/
 COPY packages/kms/package.json ./packages/kms/
-COPY packages/oauth3/package.json ./packages/oauth3/
+COPY packages/auth/package.json ./packages/auth/
 COPY apps/example/package.json ./apps/example/
 
 RUN bun install --frozen-lockfile --ignore-scripts || bun install --ignore-scripts
@@ -22,7 +22,7 @@ COPY packages/shared ./packages/shared
 COPY packages/sdk ./packages/sdk
 COPY packages/types ./packages/types
 COPY packages/kms ./packages/kms
-COPY packages/oauth3 ./packages/oauth3
+COPY packages/auth ./packages/auth
 COPY apps/example ./apps/example
 COPY tsconfig.json ./
 

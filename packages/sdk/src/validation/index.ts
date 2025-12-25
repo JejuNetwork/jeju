@@ -321,14 +321,14 @@ export function createValidationModule(
   }
 
   async function getAgentValidations(agentId: bigint): Promise<Hex[]> {
-    const result = (await client.readContract({
+    const result = await client.readContract({
       address: validationAddress,
       abi: VALIDATION_REGISTRY_ABI,
       functionName: 'getAgentValidations',
       args: [agentId],
-    })) as Hex[]
+    })
 
-    return result
+    return [...result]
   }
 
   async function getValidatorRequests(
@@ -336,25 +336,23 @@ export function createValidationModule(
   ): Promise<Hex[]> {
     if (!publicClient) throw new Error('Public client required for reads')
 
-    const result = (await publicClient.readContract({
+    const result = await publicClient.readContract({
       address: validationAddress,
       abi: VALIDATION_REGISTRY_ABI,
       functionName: 'getValidatorRequests',
       args: [validatorAddress],
-    })) as Hex[]
+    })
 
-    return result
+    return [...result]
   }
 
   async function requestExists(requestHash: Hex): Promise<boolean> {
-    const result = (await client.readContract({
+    return client.readContract({
       address: validationAddress,
       abi: VALIDATION_REGISTRY_ABI,
       functionName: 'requestExists',
       args: [requestHash],
-    })) as boolean
-
-    return result
+    })
   }
 
   return {

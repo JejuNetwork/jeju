@@ -24,7 +24,7 @@ export async function getOracleFeedDetail(
   if (!dataSource) {
     throw new Error('DataSource is required')
   }
-  if (!feedId || typeof feedId !== 'string' || feedId.trim().length === 0) {
+  if (!feedId || feedId.trim().length === 0) {
     throw new Error('feedId is required and must be a non-empty string')
   }
 

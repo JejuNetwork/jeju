@@ -311,7 +311,7 @@ export function createOracleModule(
         functionName: 'latestAnswer',
       })
 
-      return BigInt(result as bigint)
+      return result
     },
 
     async getLatestRoundData(feedAddress) {
@@ -354,19 +354,19 @@ export function createOracleModule(
     },
 
     async getDecimals(feedAddress) {
-      return (await wallet.publicClient.readContract({
+      return await wallet.publicClient.readContract({
         address: feedAddress,
         abi: CHAINLINK_AGGREGATOR_ABI,
         functionName: 'decimals',
-      })) as number
+      })
     },
 
     async getDescription(feedAddress) {
-      return (await wallet.publicClient.readContract({
+      return await wallet.publicClient.readContract({
         address: feedAddress,
         abi: CHAINLINK_AGGREGATOR_ABI,
         functionName: 'description',
-      })) as string
+      })
     },
 
     async getHistoricalPrices(feedAddress, startRound, count) {
@@ -394,16 +394,16 @@ export function createOracleModule(
         args: [BigInt(count)],
       })
 
-      return result as TWAPObservation[]
+      return result
     },
 
     async consultTWAP(poolAddress, tokenIn, amountIn, period) {
-      return (await wallet.publicClient.readContract({
+      return wallet.publicClient.readContract({
         address: poolAddress,
         abi: TWAP_ORACLE_ABI,
         functionName: 'consult',
         args: [tokenIn, amountIn, Number(period)],
-      })) as bigint
+      })
     },
 
     async getFeedInfo(feedAddress) {
@@ -428,11 +428,11 @@ export function createOracleModule(
     },
 
     async listFeeds() {
-      const addresses = (await wallet.publicClient.readContract({
+      const addresses = await wallet.publicClient.readContract({
         address: oracleRegistryAddress,
         abi: ORACLE_REGISTRY_ABI,
         functionName: 'getAllOracles',
-      })) as Address[]
+      })
 
       const feeds: PriceFeed[] = []
       for (const addr of addresses) {
@@ -499,11 +499,11 @@ export function createOracleModule(
     },
 
     async listOracles() {
-      const addresses = (await wallet.publicClient.readContract({
+      const addresses = await wallet.publicClient.readContract({
         address: oracleRegistryAddress,
         abi: ORACLE_REGISTRY_ABI,
         functionName: 'getAllOracles',
-      })) as Address[]
+      })
 
       const configs: OracleConfig[] = []
       for (const addr of addresses) {

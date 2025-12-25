@@ -331,9 +331,9 @@ export function createMonitoringA2AServer() {
         }
       }
 
-      const parts = parsedBody.params?.message?.parts ?? []
+      const parts = parsedBody.params.message.parts
       const dataPart = parts.find((p) => p.kind === 'data')
-      const skillId = dataPart?.data?.skillId ?? ''
+      const skillId = dataPart?.data.skillId ?? ''
       const skillParams: SkillParams = {
         service: dataPart?.data?.service,
         alertId: dataPart?.data?.alertId,

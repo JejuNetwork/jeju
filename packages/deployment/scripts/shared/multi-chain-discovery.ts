@@ -473,7 +473,7 @@ export class MultiChainDiscovery {
    */
   getSupportedTokens(chainId: number): TokenConfig[] {
     const chain = this.chains.find((c) => c.chainId === chainId)
-    return chain?.tokens || []
+    return chain?.tokens ?? []
   }
 }
 let globalDiscovery: MultiChainDiscovery | null = null

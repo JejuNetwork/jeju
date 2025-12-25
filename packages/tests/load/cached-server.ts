@@ -9,7 +9,7 @@
  * 4. Response memoization
  */
 
-import { Elysia } from 'elysia'
+import { Elysia, t } from 'elysia'
 
 const PORT = parseInt(process.env.PORT ?? '4098', 10)
 
@@ -377,60 +377,76 @@ const app = new Elysia()
   })
 
   // Items endpoint - cache list with coalescing
-  .get('/api/items', async ({ query }) => {
-    const start = performance.now()
-    const page = parseInt((query.page as string) ?? '1', 10)
-    const cacheKey = `items:${page}`
-    const cached = itemsCache.get(cacheKey)
+  .get(
+    '/api/items',
+    async ({ query }) => {
+      const start = performance.now()
+      const page = query.page ?? 1
+      const cacheKey = `items:${page}`
+      const cached = itemsCache.get(cacheKey)
 
-    if (cached.value) {
-      trackEndpoint('/api/items', performance.now() - start, true)
-      return { ...cached.value, cached: true, stale: cached.isStale }
-    }
+      if (cached.value) {
+        trackEndpoint('/api/items', performance.now() - start, true)
+        return { ...cached.value, cached: true, stale: cached.isStale }
+      }
 
-    // Coalesce requests for same page
-    const result = await coalesceRequest(cacheKey, async () => {
-      await simulateDbQuery(randomDelay(20, 80))
-      const items = Array.from({ length: 50 }, (_, i) => ({
-        id: (page - 1) * 50 + i + 1,
-        name: `Item ${(page - 1) * 50 + i + 1}`,
-        value: Math.random() * 1000,
-      }))
-      const data = { items, count: items.length, page }
-      itemsCache.set(cacheKey, data)
-      return data
-    })
-    trackEndpoint('/api/items', performance.now() - start, false)
-    return { ...result, cached: false }
-  })
+      // Coalesce requests for same page
+      const result = await coalesceRequest(cacheKey, async () => {
+        await simulateDbQuery(randomDelay(20, 80))
+        const items = Array.from({ length: 50 }, (_, i) => ({
+          id: (page - 1) * 50 + i + 1,
+          name: `Item ${(page - 1) * 50 + i + 1}`,
+          value: Math.random() * 1000,
+        }))
+        const data = { items, count: items.length, page }
+        itemsCache.set(cacheKey, data)
+        return data
+      })
+      trackEndpoint('/api/items', performance.now() - start, false)
+      return { ...result, cached: false }
+    },
+    {
+      query: t.Object({
+        page: t.Optional(t.Number({ default: 1 })),
+      }),
+    },
+  )
 
   // Search endpoint - cache with query-based coalescing
-  .get('/api/search', async ({ query }) => {
-    const start = performance.now()
-    const q = (query.q as string) ?? ''
-    const cacheKey = `search:${q.toLowerCase().trim()}`
-    const cached = searchCache.get(cacheKey)
+  .get(
+    '/api/search',
+    async ({ query }) => {
+      const start = performance.now()
+      const q = query.q ?? ''
+      const cacheKey = `search:${q.toLowerCase().trim()}`
+      const cached = searchCache.get(cacheKey)
 
-    if (cached.value) {
-      trackEndpoint('/api/search', performance.now() - start, true)
-      return { ...cached.value, cached: true, stale: cached.isStale }
-    }
+      if (cached.value) {
+        trackEndpoint('/api/search', performance.now() - start, true)
+        return { ...cached.value, cached: true, stale: cached.isStale }
+      }
 
-    // Coalesce requests for same search query
-    const result = await coalesceRequest(cacheKey, async () => {
-      await simulateDbQuery(randomDelay(30, 100))
-      const results = Array.from({ length: 10 }, (_, i) => ({
-        id: i + 1,
-        title: `Result ${i + 1} for "${q}"`,
-        score: Math.random(),
-      }))
-      const data = { query: q, results }
-      searchCache.set(cacheKey, data)
-      return data
-    })
-    trackEndpoint('/api/search', performance.now() - start, false)
-    return { ...result, cached: false }
-  })
+      // Coalesce requests for same search query
+      const result = await coalesceRequest(cacheKey, async () => {
+        await simulateDbQuery(randomDelay(30, 100))
+        const results = Array.from({ length: 10 }, (_, i) => ({
+          id: i + 1,
+          title: `Result ${i + 1} for "${q}"`,
+          score: Math.random(),
+        }))
+        const data = { query: q, results }
+        searchCache.set(cacheKey, data)
+        return data
+      })
+      trackEndpoint('/api/search', performance.now() - start, false)
+      return { ...result, cached: false }
+    },
+    {
+      query: t.Object({
+        q: t.Optional(t.String({ default: '' })),
+      }),
+    },
+  )
 
   // Stats endpoint - short cache for frequently changing data
   .get('/api/stats', async () => {

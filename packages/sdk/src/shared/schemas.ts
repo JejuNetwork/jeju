@@ -36,7 +36,7 @@ export function parseJson<T>(
  */
 export function safeParseJson<T>(json: string, schema: z.ZodType<T>): T | null {
   try {
-    const parsed: JsonValue = JSON.parse(json) as JsonValue
+    const parsed: unknown = JSON.parse(json)
     const result = schema.safeParse(parsed)
     return result.success ? result.data : null
   } catch {
@@ -577,6 +577,17 @@ export const InferenceResponseSchema = z.object({
 export const AgentsListSchema = z.object({
   agents: z.array(DiscoveredAgentSchema),
 })
+
+export const RegisteredAppSchema = z.object({
+  name: z.string(),
+  endpoint: z.string(),
+  jnsName: z.string().optional(),
+  metadata: JsonRecordSchema.optional(),
+})
+export const AppsListResponseSchema = z.object({
+  apps: z.array(RegisteredAppSchema),
+})
+
 export const ProposalsListSchema = z.object({
   proposals: z.array(ProposalInfoSchema),
 })

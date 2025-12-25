@@ -400,45 +400,32 @@ export default function PoolsPage() {
         pool.strategy.toLowerCase().includes(searchQuery.toLowerCase()),
     )
     .sort((a, b) => {
-      const parseValue = (val: string) => {
-        const num = parseFloat(val.replace(/[$%,KMB]/g, ''))
-        if (val.includes('B')) return num * 1e9
-        if (val.includes('M')) return num * 1e6
-        if (val.includes('K')) return num * 1e3
-        return num
+      // Name sorting uses string comparison
+      if (sortField === 'name') {
+        return sortDirection === 'asc'
+          ? a.name.localeCompare(b.name)
+          : b.name.localeCompare(a.name)
       }
 
-      let aVal: number | string = 0
-      let bVal: number | string = 0
-
+      // All other fields use numeric comparison
+      let aVal: number
+      let bVal: number
       switch (sortField) {
         case 'tvl':
-          aVal = parseValue(a.tvl)
-          bVal = parseValue(b.tvl)
+          aVal = a.metrics.tvlUsd
+          bVal = b.metrics.tvlUsd
           break
         case 'apy':
-          aVal = parseValue(a.apy)
-          bVal = parseValue(b.apy)
+          aVal = a.metrics.apyPercent
+          bVal = b.metrics.apyPercent
           break
         case 'volume':
-          aVal = parseValue(a.volume24h)
-          bVal = parseValue(b.volume24h)
-          break
-        case 'name':
-          aVal = a.name
-          bVal = b.name
+          aVal = a.metrics.volume24hUsd
+          bVal = b.metrics.volume24hUsd
           break
       }
 
-      if (typeof aVal === 'string' && typeof bVal === 'string') {
-        return sortDirection === 'asc'
-          ? aVal.localeCompare(bVal)
-          : bVal.localeCompare(aVal)
-      }
-
-      return sortDirection === 'asc'
-        ? (aVal as number) - (bVal as number)
-        : (bVal as number) - (aVal as number)
+      return sortDirection === 'asc' ? aVal - bVal : bVal - aVal
     })
 
   const toggleSort = (field: SortField) => {
@@ -450,26 +437,13 @@ export default function PoolsPage() {
     }
   }
 
-  // Calculate aggregate stats
-  const totalTVL = pools.reduce((sum, p) => {
-    const val = parseFloat(p.tvl.replace(/[$,KMB]/g, ''))
-    const mult = p.tvl.includes('M') ? 1e6 : p.tvl.includes('K') ? 1e3 : 1
-    return sum + val * mult
-  }, 0)
-
+  // Calculate aggregate stats from typed metrics
+  const totalTVL = pools.reduce((sum, p) => sum + p.metrics.tvlUsd, 0)
   const avgAPY =
-    pools.reduce((sum, p) => sum + parseFloat(p.apy.replace('%', '')), 0) /
-    (pools.length || 1)
-
-  const totalVolume = pools.reduce((sum, p) => {
-    const val = parseFloat(p.volume24h.replace(/[$,KMB]/g, ''))
-    const mult = p.volume24h.includes('M')
-      ? 1e6
-      : p.volume24h.includes('K')
-        ? 1e3
-        : 1
-    return sum + val * mult
-  }, 0)
+    pools.length > 0
+      ? pools.reduce((sum, p) => sum + p.metrics.apyPercent, 0) / pools.length
+      : 0
+  const totalVolume = pools.reduce((sum, p) => sum + p.metrics.volume24hUsd, 0)
 
   return (
     <div>

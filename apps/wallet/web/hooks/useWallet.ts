@@ -282,7 +282,7 @@ export function useMultiChainBalances(address?: Address) {
       if (query.data?.balance && query.data.balance > 0n) {
         const { chainId, chain, balance } = query.data
         const symbol = chain.nativeCurrency.symbol
-        const price = prices.get(symbol) || 0
+        const price = prices.get(symbol) ?? 0
         const amount = Number(balance) / 1e18
 
         result.push({

@@ -151,7 +151,7 @@ export class ComputeService {
   }
 
   getWarnings(): string[] {
-    return this.capabilities?.warnings || []
+    return this.capabilities?.warnings ?? []
   }
 
   isNonTeeMode(computeType: ComputeType): boolean {

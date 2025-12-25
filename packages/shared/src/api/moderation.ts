@@ -724,7 +724,7 @@ export class ModerationAPI {
     }).catch((): readonly `0x${string}`[] => [])
     if (!caseIds.length) return []
 
-    const limit = options?.limit || 50
+    const limit = options?.limit ?? 50
     const now = Math.floor(Date.now() / 1000)
 
     const cases = await Promise.all(
@@ -828,7 +828,7 @@ export class ModerationAPI {
     }).catch((): readonly bigint[] => [])
     if (!reportIds.length) return []
 
-    const limit = options?.limit || 50
+    const limit = options?.limit ?? 50
     const reports = await Promise.all(
       reportIds.slice(0, limit).map(async (reportId: bigint) => {
         const address = this.config.reportingSystemAddress

@@ -553,30 +553,6 @@ export const monitoringA2aConfig: AppLoadTestConfig = {
   },
 }
 
-export const ottoConfig: AppLoadTestConfig = {
-  name: 'otto',
-  description: 'Trading agent',
-  baseUrl: 'http://localhost:4025',
-  port: 4025,
-  healthEndpoint: '/health',
-  endpoints: [
-    { path: '/health', method: 'GET', weight: 0.2, expectedStatus: [200] },
-    { path: '/status', method: 'GET', weight: 0.2, expectedStatus: [200] },
-    { path: '/api/chains', method: 'GET', weight: 0.2, expectedStatus: [200] },
-    { path: '/api/info', method: 'GET', weight: 0.2, expectedStatus: [200] },
-    { path: '/miniapp', method: 'GET', weight: 0.2, expectedStatus: [200] },
-  ],
-  thresholds: {
-    p50Latency: 100,
-    p95Latency: 300,
-    p99Latency: 500,
-    errorRate: 0.05,
-    minRps: 40,
-  },
-  testnet: { baseUrl: 'https://otto.testnet.jejunetwork.org' },
-  mainnet: { baseUrl: 'https://otto.jejunetwork.org' },
-}
-
 export const walletConfig: AppLoadTestConfig = {
   name: 'wallet',
   description: 'Multi-platform wallet',
@@ -636,7 +612,6 @@ export const ALL_CONFIGS: AppLoadTestConfig[] = [
   factoryConfig,
   monitoringConfig,
   monitoringA2aConfig,
-  ottoConfig,
   walletConfig,
   documentationConfig,
   testServerConfig,
@@ -657,7 +632,6 @@ export const API_CONFIGS: AppLoadTestConfig[] = [
   indexerConfig,
   factoryConfig,
   monitoringA2aConfig,
-  ottoConfig,
 ]
 
 export function getConfigByName(name: string): AppLoadTestConfig | undefined {

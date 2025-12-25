@@ -74,7 +74,8 @@ export interface TEEDecisionResult {
   daBackupHash?: string
 }
 
-type TEEPlatform = 'intel_tdx' | 'amd_sev' | 'simulator' | 'none'
+const TEEPlatformSchema = z.enum(['intel_tdx', 'amd_sev', 'simulator', 'none'])
+type TEEPlatform = z.infer<typeof TEEPlatformSchema>
 type TEEMode = 'dstack' | 'local'
 
 // dstack endpoint - defaults to DWS compute which runs dstack
@@ -85,12 +86,10 @@ function getDStackEndpoint(): string {
 }
 
 function getTEEPlatform(): TEEPlatform {
-  const platform = process.env.TEE_PLATFORM as TEEPlatform | undefined
-  if (
-    platform &&
-    ['intel_tdx', 'amd_sev', 'simulator', 'none'].includes(platform)
-  ) {
-    return platform
+  const envPlatform = process.env.TEE_PLATFORM
+  const parsedPlatform = TEEPlatformSchema.safeParse(envPlatform)
+  if (parsedPlatform.success) {
+    return parsedPlatform.data
   }
 
   // Auto-detect based on network

@@ -1,15 +1,29 @@
-import { createSynpressConfig } from '@jejunetwork/tests'
+/**
+ * Example App Synpress Configuration
+ * Uses shared config from @jejunetwork/tests
+ */
+import {
+  createSynpressConfig,
+  createWalletSetup,
+  PASSWORD,
+} from '@jejunetwork/tests'
 
-const FRONTEND_PORT = parseInt(process.env.FRONTEND_PORT || '4501', 10)
+const EXAMPLE_PORT = parseInt(process.env.PORT || '4500', 10)
 
 export default createSynpressConfig({
   appName: 'example',
-  port: FRONTEND_PORT,
-  testDir: './tests/wallet',
+  port: EXAMPLE_PORT,
+  testDir: './tests/synpress',
+  timeout: 180000,
   overrides: {
-    timeout: 120000, // 2 minutes for wallet operations
-    webServer: undefined,
+    webServer: {
+      command: 'bun run src/server/index.ts',
+      url: `http://localhost:${EXAMPLE_PORT}/health`,
+      reuseExistingServer: true,
+      timeout: 60000,
+    },
   },
 })
 
-export { basicSetup, walletPassword } from '@jejunetwork/tests'
+export const basicSetup = createWalletSetup()
+export { PASSWORD }

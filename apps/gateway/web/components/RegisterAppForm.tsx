@@ -88,7 +88,7 @@ export default function RegisterAppForm() {
     const result = await registerApp({
       tokenURI,
       tags: selectedTags,
-      a2aEndpoint: a2aEndpoint.trim() || '',
+      a2aEndpoint: a2aEndpoint.trim() ?? '',
       stakeToken: selectedToken.address as `0x${string}`,
       stakeAmount: requiredStake,
     })
@@ -103,7 +103,7 @@ export default function RegisterAppForm() {
       setSelectedTags([])
       setSelectedToken(null)
     } else {
-      setError(result.error || 'Registration failed')
+      setError(result.error ?? 'Registration failed')
     }
   }
 

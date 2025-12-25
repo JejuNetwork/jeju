@@ -51,7 +51,10 @@ export function AutocratStatus({ status, loading }: AutocratStatusProps) {
       {/* On mobile: 2 column grid, on larger: vertical list */}
       <div className="grid grid-cols-2 sm:grid-cols-1 gap-1.5 sm:space-y-1.5 sm:gap-0">
         {status.agents.map((agent) => {
-          const Icon = ROLE_ICONS[agent.role] || Shield
+          const Icon = ROLE_ICONS[agent.role]
+          if (!Icon) {
+            throw new Error(`Unknown agent role: ${agent.role}`)
+          }
           return (
             <div
               key={agent.role}

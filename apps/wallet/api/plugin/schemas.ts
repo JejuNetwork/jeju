@@ -11,7 +11,7 @@ export const ContactSchema = z.object({
   address: z.string(),
   name: z.string(),
   label: z.string().optional(),
-  chainIds: z.array(z.number()).optional(),
+  chainIds: z.array(z.number()).default([]),
   createdAt: z.number(),
   updatedAt: z.number(),
   isFavorite: z.boolean(),

@@ -1,7 +1,7 @@
 /**
  * useAuth - OAuth3 Authentication Hook
  *
- * Uses the @jejunetwork/oauth3 SDK for decentralized authentication:
+ * Uses the @jejunetwork/auth SDK for decentralized authentication:
  * - Wallet (MetaMask, WalletConnect, etc.)
  * - Social (Google, Apple, Twitter, GitHub, Discord)
  * - Farcaster
@@ -14,7 +14,7 @@ import {
   AuthProvider as OAuth3AuthProvider,
   type OAuth3Client,
   type OAuth3Session,
-} from '@jejunetwork/oauth3'
+} from '@jejunetwork/auth'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Address, Hex } from 'viem'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
@@ -276,7 +276,7 @@ export function useAuth(options: UseAuthOptions = {}): UseAuthReturn {
         const refreshed = await client.refreshSession()
         const updatedSession = oauth3SessionToAuthSession(
           refreshed,
-          currentProvider || 'wallet',
+          currentProvider ?? 'wallet',
         )
         setSession(updatedSession)
       } catch (err) {

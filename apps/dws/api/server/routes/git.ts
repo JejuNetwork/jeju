@@ -92,22 +92,29 @@ function createFederationRoutes(
   socialManager: SocialManager,
 ) {
   return new Elysia({ name: 'git-federation' })
-    .get('/.well-known/webfinger', ({ query, set }) => {
-      const resource = query.resource as string | undefined
-      if (!resource) {
-        set.status = 400
-        return { error: 'resource parameter required' }
-      }
+    .get(
+      '/.well-known/webfinger',
+      ({ query, set }) => {
+        if (!query.resource) {
+          set.status = 400
+          return { error: 'resource parameter required' }
+        }
 
-      const result = federation.getWebFinger(resource)
-      if (!result) {
-        set.status = 404
-        return { error: 'Resource not found' }
-      }
+        const result = federation.getWebFinger(query.resource)
+        if (!result) {
+          set.status = 404
+          return { error: 'Resource not found' }
+        }
 
-      set.headers['Content-Type'] = 'application/jrd+json'
-      return result
-    })
+        set.headers['Content-Type'] = 'application/jrd+json'
+        return result
+      },
+      {
+        query: t.Object({
+          resource: t.Optional(t.String()),
+        }),
+      },
+    )
     .get('/.well-known/nodeinfo', () => {
       return federation.getNodeInfoLinks()
     })
@@ -122,7 +129,7 @@ function createFederationRoutes(
           params,
           'Username params',
         )
-        const acceptHeader = request.headers.get('accept') || ''
+        const acceptHeader = request.headers.get('accept') ?? ''
 
         if (
           !acceptHeader.includes('application/activity+json') &&
@@ -872,14 +879,15 @@ export function createGitRouter(ctx: GitContext) {
       '/:owner/:name/info/refs',
       async ({ params, query, request }) => {
         const { owner, name } = params
-        const service = query.service as string | undefined
 
         if (
-          !service ||
-          (service !== 'git-upload-pack' && service !== 'git-receive-pack')
+          !query.service ||
+          (query.service !== 'git-upload-pack' &&
+            query.service !== 'git-receive-pack')
         ) {
           return new Response('Service required', { status: 400 })
         }
+        const service = query.service
 
         const repo = await repoManager.getRepositoryByName(
           owner as Address,
@@ -917,7 +925,10 @@ export function createGitRouter(ctx: GitContext) {
           },
         )
       },
-      { params: t.Object({ owner: t.String(), name: t.String() }) },
+      {
+        params: t.Object({ owner: t.String(), name: t.String() }),
+        query: t.Object({ service: t.Optional(t.String()) }),
+      },
     )
     .post(
       '/:owner/:name/git-upload-pack',
@@ -1065,7 +1076,7 @@ export function createGitRouter(ctx: GitContext) {
           trackGitContribution(user, repo.repoId as Hex, name, 'commit', {
             branch: branchName,
             commitCount: commits.length,
-            message: commits[0]?.message.split('\n')[0] || 'Push',
+            message: commits[0]?.message.split('\n')[0] ?? 'Push',
           })
 
           results.push({ ref: update.refName, success: true })
@@ -1150,7 +1161,7 @@ export function createGitRouter(ctx: GitContext) {
           'Repo params',
         )
         const url = new URL(request.url)
-        const path = url.pathname.split('/contents/')[1] || ''
+        const path = url.pathname.split('/contents/')[1] ?? ''
         const { ref } = expectValid(
           contentsQuerySchema,
           query,

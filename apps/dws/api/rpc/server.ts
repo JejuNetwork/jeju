@@ -11,8 +11,10 @@ import {
   getRpcTestnetChains as getTestnetChains,
   isRpcChainSupported as isChainSupported,
 } from '@jejunetwork/config'
+import { AddressSchema, JsonValueSchema } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import { type Address, isAddress } from 'viem'
+import { z } from 'zod'
 import { getRateLimitStats, RATE_LIMITS } from './middleware/rate-limiter.js'
 import {
   getChainStats,
@@ -35,6 +37,34 @@ import {
   purchaseCredits,
 } from './services/x402-payments.js'
 
+// Zod schemas for request validation
+const RpcRequestBodySchema = z.object({
+  jsonrpc: z.string(),
+  id: z.union([z.number(), z.string()]).optional(),
+  method: z.string(),
+  params: z.array(JsonValueSchema).optional(),
+})
+
+const RpcBatchRequestSchema = z.array(RpcRequestBodySchema).min(1).max(100)
+
+const CreateApiKeyBodySchema = z.object({
+  name: z.string().max(100).optional(),
+})
+
+const MCPResourceReadSchema = z.object({
+  uri: z.string().min(1),
+})
+
+const MCPToolCallSchema = z.object({
+  name: z.string().min(1),
+  arguments: z.record(z.string(), JsonValueSchema).default({}),
+})
+
+const PurchaseCreditsSchema = z.object({
+  txHash: z.string().min(1),
+  amount: z.string().regex(/^\d+$/, 'Amount must be a numeric string'),
+})
+
 // MCP types
 interface ChainInfo {
   chainId: number
@@ -46,11 +76,6 @@ interface ChainInfo {
 interface TierInfo {
   stake: number
   limit: number | 'unlimited'
-}
-
-/** API key creation request body */
-interface CreateApiKeyBody {
-  name?: string
 }
 
 type MCPResourceContents =
@@ -305,46 +330,28 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
       }
     }
 
-    // JSON-RPC body can be a single request, batch array, or invalid structure
-    type RpcRequestBody = {
-      jsonrpc: string
-      id?: number | string
-      method: string
-      params?: (string | number | boolean | null | object)[]
-    }
-    const rpcBody:
-      | RpcRequestBody
-      | RpcRequestBody[]
-      | Record<string, string | number | boolean | null | object>
-      | null = body as typeof rpcBody
-
     // Get user address for x402 payment processing
-    const userAddress = request.headers.get('X-Wallet-Address') ?? undefined
+    const userAddressHeader = request.headers.get('X-Wallet-Address')
+    const userAddress =
+      userAddressHeader && isAddress(userAddressHeader)
+        ? userAddressHeader
+        : undefined
     const paymentHeader = request.headers.get('X-Payment') ?? undefined
 
-    if (Array.isArray(rpcBody)) {
-      if (rpcBody.length === 0) {
+    // Validate batch request
+    if (Array.isArray(body)) {
+      const batchResult = RpcBatchRequestSchema.safeParse(body)
+      if (!batchResult.success) {
         set.status = 400
         return {
           jsonrpc: '2.0',
           id: null,
-          error: { code: -32600, message: 'Invalid request: Empty batch' },
-        }
-      }
-      if (rpcBody.length > 100) {
-        set.status = 400
-        return {
-          jsonrpc: '2.0',
-          id: null,
-          error: {
-            code: -32600,
-            message: 'Invalid request: Batch too large (max 100)',
-          },
+          error: { code: -32600, message: 'Invalid batch request format' },
         }
       }
 
-      // Check x402 payment for batch (use first method as reference)
-      const firstMethod = rpcBody[0]?.method || 'eth_call'
+      const rpcBatch = batchResult.data
+      const firstMethod = rpcBatch[0].method
       const paymentResult = await processPayment(
         paymentHeader,
         chainId,
@@ -367,12 +374,14 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
 
       const results = await proxyBatchRequest(
         chainId,
-        rpcBody as JsonRpcRequest[],
+        rpcBatch as JsonRpcRequest[],
       )
       return results.map((r) => r.response)
     }
 
-    if (!rpcBody || typeof rpcBody !== 'object' || !('method' in rpcBody)) {
+    // Validate single request
+    const singleResult = RpcRequestBodySchema.safeParse(body)
+    if (!singleResult.success) {
       set.status = 400
       return {
         jsonrpc: '2.0',
@@ -381,7 +390,7 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
       }
     }
 
-    const singleRequest = rpcBody as JsonRpcRequest
+    const singleRequest = singleResult.data as JsonRpcRequest
 
     // Check x402 payment for single request
     const paymentResult = await processPayment(
@@ -450,8 +459,10 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
       }
     }
 
-    const bodyObj = (body || {}) as CreateApiKeyBody
-    const name = (bodyObj.name || 'Default').slice(0, 100)
+    const validated = CreateApiKeyBodySchema.safeParse(body ?? {})
+    const name = validated.success
+      ? (validated.data.name ?? 'Default')
+      : 'Default'
     const { key, record } = await createApiKey(address, name)
 
     set.status = 201
@@ -586,13 +597,13 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
       return { error: 'Valid X-Wallet-Address header required' }
     }
 
-    const bodyObj = body as { txHash?: string; amount?: string }
-    const { txHash, amount } = bodyObj
-    if (!txHash || !amount) {
+    const validated = PurchaseCreditsSchema.safeParse(body)
+    if (!validated.success) {
       set.status = 400
       return { error: 'txHash and amount required' }
     }
 
+    const { txHash, amount } = validated.data
     const result = await purchaseCredits(address, txHash, BigInt(amount))
     return {
       success: result.success,
@@ -602,8 +613,8 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
   })
 
   .get('/v1/payments/requirement', ({ query, set }) => {
-    const chainId = Number(query.chainId || '1')
-    const method = query.method || 'eth_blockNumber'
+    const chainId = Number(query.chainId ?? '1')
+    const method = query.method ?? 'eth_blockNumber'
     set.status = 402
     return generatePaymentRequirement(chainId, method)
   })
@@ -618,13 +629,13 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
   .post('/mcp/resources/list', () => ({ resources: MCP_RESOURCES }))
 
   .post('/mcp/resources/read', async ({ body, set }) => {
-    const bodyObj = body as { uri?: string }
-    const { uri } = bodyObj
-    if (!uri || typeof uri !== 'string') {
+    const validated = MCPResourceReadSchema.safeParse(body)
+    if (!validated.success) {
       set.status = 400
       return { error: 'Missing or invalid uri' }
     }
 
+    const { uri } = validated.data
     let contents: MCPResourceContents
     switch (uri) {
       case 'rpc://chains':
@@ -665,24 +676,35 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
   .post('/mcp/tools/list', () => ({ tools: MCP_TOOLS }))
 
   .post('/mcp/tools/call', async ({ body, set }) => {
-    interface MCPToolCallBody {
-      name: string
-      arguments: Record<string, string | number | boolean | undefined>
-    }
-    const bodyObj = body as MCPToolCallBody
-    const { name, arguments: args = {} } = bodyObj
-    if (!name || typeof name !== 'string') {
+    const validated = MCPToolCallSchema.safeParse(body)
+    if (!validated.success) {
       set.status = 400
       return { error: 'Missing or invalid tool name' }
     }
 
+    const { name, arguments: args } = validated.data
     let result: MCPToolResult
     let isError = false
 
+    // Zod schemas for tool arguments
+    const ListChainsArgsSchema = z.object({
+      testnet: z.boolean().optional(),
+    })
+    const GetChainArgsSchema = z.object({
+      chainId: z.coerce.number(),
+    })
+    const CreateApiKeyArgsSchema = z.object({
+      address: AddressSchema,
+      name: z.string().max(100).optional(),
+    })
+    const AddressArgsSchema = z.object({
+      address: AddressSchema,
+    })
+
     switch (name) {
       case 'list_chains': {
-        const testnet =
-          typeof args.testnet === 'boolean' ? args.testnet : undefined
+        const argsResult = ListChainsArgsSchema.safeParse(args)
+        const testnet = argsResult.success ? argsResult.data.testnet : undefined
         let chains = Object.values(CHAINS)
         if (testnet !== undefined)
           chains = chains.filter((ch) => ch.isTestnet === testnet)
@@ -696,9 +718,14 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
         break
       }
       case 'get_chain': {
-        const chainId =
-          typeof args.chainId === 'number' ? args.chainId : Number(args.chainId)
-        if (Number.isNaN(chainId) || !isChainSupported(chainId)) {
+        const argsResult = GetChainArgsSchema.safeParse(args)
+        if (!argsResult.success) {
+          result = { error: 'chainId is required' }
+          isError = true
+          break
+        }
+        const chainId = argsResult.data.chainId
+        if (!isChainSupported(chainId)) {
           result = { error: `Unsupported chain: ${chainId}` }
           isError = true
         } else {
@@ -717,13 +744,14 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
         break
       }
       case 'create_api_key': {
-        const address = typeof args.address === 'string' ? args.address : ''
-        if (!address || !isAddress(address)) {
+        const argsResult = CreateApiKeyArgsSchema.safeParse(args)
+        if (!argsResult.success) {
           result = { error: 'Invalid address' }
           isError = true
           break
         }
-        const existingKeys = await getApiKeysForAddress(address as Address)
+        const address = argsResult.data.address
+        const existingKeys = await getApiKeysForAddress(address)
         if (
           existingKeys.filter((k) => k.isActive).length >=
           MAX_API_KEYS_PER_ADDRESS
@@ -734,32 +762,32 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
           isError = true
           break
         }
-        const keyName = (
-          typeof args.name === 'string' ? args.name : 'MCP Generated'
-        ).slice(0, 100)
-        const { key, record } = await createApiKey(address as Address, keyName)
+        const keyName = argsResult.data.name ?? 'MCP Generated'
+        const { key, record } = await createApiKey(address, keyName)
         result = { key, id: record.id, tier: record.tier }
         break
       }
       case 'check_rate_limit': {
-        const address = typeof args.address === 'string' ? args.address : ''
-        if (!address || !isAddress(address)) {
+        const argsResult = AddressArgsSchema.safeParse(args)
+        if (!argsResult.success) {
           result = { error: 'Invalid address' }
           isError = true
           break
         }
-        const keys = await getApiKeysForAddress(address as Address)
+        const address = argsResult.data.address
+        const keys = await getApiKeysForAddress(address)
         result = { address, apiKeys: keys.length, tiers: RATE_LIMITS }
         break
       }
       case 'get_usage': {
-        const address = typeof args.address === 'string' ? args.address : ''
-        if (!address || !isAddress(address)) {
+        const argsResult = AddressArgsSchema.safeParse(args)
+        if (!argsResult.success) {
           result = { error: 'Invalid address' }
           isError = true
           break
         }
-        const keys = await getApiKeysForAddress(address as Address)
+        const address = argsResult.data.address
+        const keys = await getApiKeysForAddress(address)
         result = {
           address,
           apiKeys: keys.length,

@@ -52,7 +52,7 @@ export async function searchDocumentation(
       ) {
         filesProcessed++
         const content = await readFile(fullPath, 'utf-8')
-        const matches = (content.match(regex) || []).length
+        const matches = (content.match(regex) ?? []).length
         if (matches > 0) {
           results.push({ file: path.relative(DOCS_ROOT, fullPath), matches })
         }

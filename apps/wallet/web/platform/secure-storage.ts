@@ -2,7 +2,6 @@
  * Secure Storage Adapter
  */
 
-import type { JsonRecord } from '@jejunetwork/sdk'
 import { z } from 'zod'
 import { getPlatformInfo } from './detection'
 import type { SecureStorageAdapter, SecureStorageOptions } from './types'
@@ -90,7 +89,7 @@ class WebSecureStorage implements SecureStorageAdapter {
     // Validate JSON structure before using
     let parsed: z.infer<typeof EncryptedStorageSchema>
     try {
-      const rawParsed: JsonRecord = JSON.parse(stored) as JsonRecord
+      const rawParsed: unknown = JSON.parse(stored)
       const result = EncryptedStorageSchema.safeParse(rawParsed)
       if (!result.success) {
         throw new Error(`Invalid secure storage format for key: ${key}`)

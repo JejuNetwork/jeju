@@ -113,6 +113,19 @@ interface VolumeMount {
   readOnly?: boolean
 }
 
+/** Kubernetes Service spec */
+interface ServiceSpec {
+  selector?: Record<string, string>
+  ports?: Array<{ port: number; targetPort?: number; name?: string }>
+  type?: string
+}
+
+/** Kubernetes PersistentVolumeClaim spec */
+interface PVCSpec {
+  resources?: { requests?: { storage?: string } }
+  storageClassName?: string
+}
+
 interface Probe {
   httpGet?: { path: string; port: number }
   tcpSocket?: { port: number }
@@ -418,40 +431,33 @@ class ManifestParser {
   }
 
   private parseService(manifest: KubeManifest): DWSServiceConfig {
-    const spec = manifest.spec as {
-      selector?: Record<string, string>
-      ports?: Array<{ port: number; targetPort?: number; name?: string }>
-      type?: string
-    }
+    const spec = manifest.spec as ServiceSpec | undefined
 
     return {
       id: `svc-${manifest.metadata.name}-${Date.now()}`,
       name: manifest.metadata.name,
-      selector: spec.selector ?? {},
+      selector: spec?.selector ?? {},
       ports:
-        spec.ports?.map((p) => ({
+        spec?.ports?.map((p) => ({
           port: p.port,
           targetPort: p.targetPort ?? p.port,
           name: p.name,
         })) ?? [],
-      type: (spec.type as DWSServiceConfig['type']) ?? 'ClusterIP',
+      type: (spec?.type as DWSServiceConfig['type']) ?? 'ClusterIP',
     }
   }
 
   private parsePVC(manifest: KubeManifest): DWSStorage {
-    const spec = manifest.spec as {
-      resources?: { requests?: { storage?: string } }
-      storageClassName?: string
-    }
+    const spec = manifest.spec as PVCSpec | undefined
 
-    const sizeStr = spec.resources?.requests?.storage ?? '1Gi'
+    const sizeStr = spec?.resources?.requests?.storage ?? '1Gi'
     const sizeGb = this.parseStorage(sizeStr)
 
     return {
       id: `pvc-${manifest.metadata.name}-${Date.now()}`,
       name: manifest.metadata.name,
       sizeGb,
-      storageClass: spec.storageClassName ?? 'standard',
+      storageClass: spec?.storageClassName ?? 'standard',
     }
   }
 

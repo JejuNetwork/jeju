@@ -16,7 +16,6 @@ import { Elysia } from 'elysia'
 import { type Address, isAddress } from 'viem'
 import { z } from 'zod'
 import {
-  CreateApiKeyRequestSchema,
   JsonObjectSchema,
   KeyIdSchema,
   PaymentRequirementQuerySchema,
@@ -340,6 +339,21 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
     let result: RpcMcpToolResult
     let isError = false
 
+    // MCP tool argument schemas
+    const ListChainsArgsSchema = z.object({
+      testnet: z.boolean().optional(),
+    })
+    const GetChainArgsSchema = z.object({
+      chainId: z.number(),
+    })
+    const CreateApiKeyArgsSchema = z.object({
+      address: z.string(),
+      name: z.string().optional(),
+    })
+    const AddressArgsSchema = z.object({
+      address: z.string(),
+    })
+
     const validated = validateBody(
       z.object({
         name: z.string().min(1),
@@ -353,8 +367,8 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
 
     switch (name) {
       case 'list_chains': {
-        const testnet =
-          typeof args.testnet === 'boolean' ? args.testnet : undefined
+        const parsed = ListChainsArgsSchema.safeParse(args)
+        const testnet = parsed.success ? parsed.data.testnet : undefined
         let chains = Object.values(CHAINS)
         if (testnet !== undefined)
           chains = chains.filter((ch) => ch.isTestnet === testnet)
@@ -368,7 +382,8 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
         break
       }
       case 'get_chain': {
-        const chainId = expectChainId(args.chainId, 'chainId')
+        const parsed = expect(GetChainArgsSchema, args, 'get_chain arguments')
+        const chainId = expectChainId(parsed.chainId, 'chainId')
         if (!isChainSupported(chainId)) {
           result = { error: `Unsupported chain: ${chainId}` }
           isError = true
@@ -378,7 +393,12 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
         break
       }
       case 'create_api_key': {
-        const address = expectAddress(args.address, 'address')
+        const parsed = expect(
+          CreateApiKeyArgsSchema,
+          args,
+          'create_api_key arguments',
+        )
+        const address = expectAddress(parsed.address, 'address')
         const existingKeys = await getApiKeysForAddress(address)
         if (
           existingKeys.filter((k) => k.isActive).length >=
@@ -390,21 +410,25 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
           isError = true
           break
         }
-        const keyName = (
-          typeof args.name === 'string' ? args.name : 'MCP Generated'
-        ).slice(0, 100)
+        const keyName = (parsed.name ?? 'MCP Generated').slice(0, 100)
         const { key, record } = await createApiKey(address, keyName)
         result = { key, id: record.id, tier: record.tier }
         break
       }
       case 'check_rate_limit': {
-        const address = expectAddress(args.address, 'address')
+        const parsed = expect(
+          AddressArgsSchema,
+          args,
+          'check_rate_limit arguments',
+        )
+        const address = expectAddress(parsed.address, 'address')
         const keys = await getApiKeysForAddress(address)
         result = { address, apiKeys: keys.length, tiers: RATE_LIMITS }
         break
       }
       case 'get_usage': {
-        const address = expectAddress(args.address, 'address')
+        const parsed = expect(AddressArgsSchema, args, 'get_usage arguments')
+        const address = expectAddress(parsed.address, 'address')
         const keys = await getApiKeysForAddress(address)
         result = {
           address,
@@ -514,7 +538,7 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
             'RPC batch request',
           )
 
-          const firstMethod = validated[0]?.method || 'eth_call'
+          const firstMethod = validated[0]?.method ?? 'eth_call'
           const paymentResult = await processPayment(
             paymentHeader,
             chainId,
@@ -610,13 +634,12 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
           }
         }
 
-        const bodyObj = body && typeof body === 'object' ? body : {}
-        const validated = expect(
-          CreateApiKeyRequestSchema,
-          { ...bodyObj, address },
-          'create API key',
-        )
-        const name = (validated.name || 'Default').slice(0, 100)
+        // Body schema for API key creation - only name from body, address from header
+        const ApiKeyBodySchema = z
+          .object({ name: z.string().max(100).optional() })
+          .nullable()
+        const parsed = ApiKeyBodySchema.safeParse(body)
+        const name = (parsed.success ? parsed.data?.name : null) ?? 'Default'
         const { key, record } = await createApiKey(address, name)
 
         set.status = 201
@@ -656,7 +679,7 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
         const keys = await getApiKeysForAddress(address)
         const activeKeys = keys.filter((k) => k.isActive)
         const totalRequests = keys.reduce((sum, k) => sum + k.requestCount, 0)
-        const tier = (rateLimit?.tier || 'FREE') as keyof typeof RATE_LIMITS
+        const tier = (rateLimit?.tier ?? 'FREE') as keyof typeof RATE_LIMITS
         const remaining = rateLimit?.remaining ?? RATE_LIMITS.FREE
 
         return {
@@ -760,8 +783,8 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
           query,
           'payment requirement',
         )
-        const chainId = validated.chainId || 1
-        const method = validated.method || 'eth_blockNumber'
+        const chainId = validated.chainId ?? 1
+        const method = validated.method ?? 'eth_blockNumber'
         set.status = 402
         return generatePaymentRequirement(chainId, method)
       }),

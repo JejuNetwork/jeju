@@ -7,7 +7,9 @@
  */
 
 import { createHash } from 'node:crypto'
+import { expectValid } from '@jejunetwork/types'
 import { Elysia, t } from 'elysia'
+import { z } from 'zod'
 
 // Types
 interface EmailFlags {
@@ -50,6 +52,36 @@ interface Mailbox {
   archive: EmailIndexEntry[]
   folders: Record<string, EmailIndexEntry[]>
 }
+
+/** Request body for sending an email */
+const SendEmailBodySchema = z.object({
+  from: z.string().email(),
+  to: z.array(z.string().email()).min(1),
+  subject: z.string(),
+  bodyText: z.string(),
+  bodyHtml: z.string().optional(),
+  cc: z.array(z.string().email()).optional(),
+  bcc: z.array(z.string().email()).optional(),
+  replyTo: z.string().email().optional(),
+})
+
+/** Request body for updating email flags */
+const UpdateFlagsBodySchema = z.object({
+  flags: z.object({
+    read: z.boolean().optional(),
+    starred: z.boolean().optional(),
+    important: z.boolean().optional(),
+    answered: z.boolean().optional(),
+    forwarded: z.boolean().optional(),
+    deleted: z.boolean().optional(),
+    spam: z.boolean().optional(),
+  }),
+})
+
+/** Request body for moving email to folder */
+const MoveEmailBodySchema = z.object({
+  folder: z.string().min(1),
+})
 
 interface UserMailbox {
   mailbox: Mailbox
@@ -155,16 +187,7 @@ export function createEmailRouter() {
           }
 
           const { from, to, subject, bodyText, bodyHtml, cc, bcc, replyTo } =
-            body as {
-              from: string
-              to: string[]
-              subject: string
-              bodyText: string
-              bodyHtml?: string
-              cc?: string[]
-              bcc?: string[]
-              replyTo?: string
-            }
+            expectValid(SendEmailBodySchema, body, 'Send email request')
 
           const timestamp = Date.now()
           const messageId = generateMessageId(from, to, timestamp)
@@ -302,7 +325,11 @@ export function createEmailRouter() {
             return { error: 'Message not found' }
           }
 
-          const { flags } = body as { flags: Partial<EmailFlags> }
+          const { flags } = expectValid(
+            UpdateFlagsBodySchema,
+            body,
+            'Update flags request',
+          )
           Object.assign(email.flags, flags)
 
           // Update in index as well
@@ -355,7 +382,11 @@ export function createEmailRouter() {
             return { error: 'Message not found' }
           }
 
-          const { folder } = body as { folder: string }
+          const { folder } = expectValid(
+            MoveEmailBodySchema,
+            body,
+            'Move email request',
+          )
 
           // Remove from all folders
           const removeFromFolder = (entries: EmailIndexEntry[]) => {

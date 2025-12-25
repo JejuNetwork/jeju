@@ -119,8 +119,14 @@ async function deploy(network: string): Promise<DADeployment> {
       stdio: ['pipe', 'pipe', 'pipe'],
     })
   } catch (err) {
-    const error = err as { stdout?: string; stderr?: string; message: string }
-    console.error('Deployment failed:', error.stderr ?? error.message)
+    const stderr =
+      err instanceof Error && 'stderr' in err
+        ? (err as Error & { stderr?: string }).stderr
+        : undefined
+    console.error(
+      'Deployment failed:',
+      stderr ?? (err instanceof Error ? err.message : String(err)),
+    )
     throw err
   }
 

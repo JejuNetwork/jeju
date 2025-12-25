@@ -1,0 +1,29 @@
+{
+  "name": "@jejunetwork/oauth3",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --watch api/index.ts",
+    "dev:web": "bun run web/dev.ts",
+    "build": "bun run build.ts",
+    "start": "bun run api/index.ts",
+    "test": "bun test tests/",
+    "test:e2e": "bunx playwright test",
+    "lint": "biome check .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@elysiajs/cors": "^1.2.0",
+    "@jejunetwork/auth": "workspace:*",
+    "@kitajs/html": "^4.2.0",
+    "elysia": "^1.2.25",
+    "viem": "^2.30.6"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.52.0",
+    "@synthetixio/synpress": "4.1.1",
+    "@types/bun": "^1.2.14",
+    "typescript": "^5.8.3"
+  }
+}

@@ -14,25 +14,31 @@ import type {
   State,
 } from '@elizaos/core'
 import { getDWSComputeUrl } from '@jejunetwork/config'
+import { validateOrNull } from '@jejunetwork/types'
+import { z } from 'zod'
 import { getOptionalMessageText } from '../validation'
 
-interface TrainingJobResponse {
-  jobId: string
-  status: string
-  modelName: string
-}
+const TrainingJobResponseSchema = z.object({
+  jobId: z.string(),
+  status: z.string(),
+  modelName: z.string(),
+})
 
-interface TrainingStatusResponse {
-  jobs: Array<{
-    id: string
-    status: string
-    metrics?: {
-      loss?: number
-      step?: number
-      totalSteps?: number
-    }
-  }>
-}
+const TrainingStatusResponseSchema = z.object({
+  jobs: z.array(
+    z.object({
+      id: z.string(),
+      status: z.string(),
+      metrics: z
+        .object({
+          loss: z.number().optional(),
+          step: z.number().optional(),
+          totalSteps: z.number().optional(),
+        })
+        .optional(),
+    }),
+  ),
+})
 
 interface TrajectorySubmission {
   agentId: string
@@ -207,7 +213,14 @@ export const checkTrainingStatus: Action = {
       return
     }
 
-    const data = (await response.json()) as TrainingStatusResponse
+    const data = validateOrNull(
+      TrainingStatusResponseSchema,
+      await response.json(),
+    )
+    if (!data) {
+      callback?.({ text: 'Unable to parse training status response.' })
+      return
+    }
 
     const activeJobs = data.jobs.filter(
       (j) => j.status === 'running' || j.status === 'pending',
@@ -305,7 +318,13 @@ export const startTrainingJob: Action = {
       return
     }
 
-    const job = (await response.json()) as TrainingJobResponse
+    const job = validateOrNull(TrainingJobResponseSchema, await response.json())
+    if (!job) {
+      callback?.({
+        text: 'Training job started but received invalid response.',
+      })
+      return
+    }
 
     callback?.({
       text: `Started training job ${job.jobId} for ${environment} environment using ${job.modelName}. The job is now ${job.status}.`,
