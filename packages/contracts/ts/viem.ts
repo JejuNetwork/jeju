@@ -85,9 +85,14 @@ export async function readContract<
   },
 ): Promise<ReadContractReturnType<TAbi, TFunctionName, TArgs>> {
   const viemClient = client as ReadableClient
-  return viemClient.readContract(params) as Promise<
-    ReadContractReturnType<TAbi, TFunctionName, TArgs>
-  >
+  return viemClient.readContract({
+    address: params.address,
+    abi: params.abi as Abi,
+    functionName: params.functionName as string,
+    args: params.args as readonly unknown[],
+    blockNumber: params.blockNumber,
+    blockTag: params.blockTag,
+  }) as Promise<ReadContractReturnType<TAbi, TFunctionName, TArgs>>
 }
 
 /**

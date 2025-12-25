@@ -195,7 +195,7 @@ export async function processOIFEvents(
       if (!eventSig || !isEventInSet(eventSig, OIF_EVENT_SIGNATURES)) continue
 
       const txHash =
-        log.transaction?.hash || `${header.hash}-${log.transactionIndex}`
+        log.transaction?.hash ?? `${header.hash}-${log.transactionIndex}`
 
       // Process each event type
       if (eventSig === ORDER_CREATED) {

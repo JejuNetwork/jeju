@@ -435,7 +435,7 @@ ${
       (r) =>
         `[[routes]]\npattern = "${r.pattern}"${r.zone ? `\nzone_name = "${r.zone}"` : ''}`,
     )
-    .join('\n\n') || '# No routes configured'
+    .join('\n\n') ?? '# No routes configured'
 }
 `
 

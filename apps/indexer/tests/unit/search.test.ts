@@ -451,8 +451,8 @@ describe('Agent Search Result Transformation', () => {
     const result: AgentSearchResult = {
       agentId: mockAgent.agentId.toString(),
       owner: mockAgent.owner?.address ?? '',
-      name: mockAgent.name || 'Unnamed Agent',
-      metadataUri: mockAgent.tokenURI || '',
+      name: mockAgent.name ?? 'Unnamed Agent',
+      metadataUri: mockAgent.tokenURI ?? '',
       active: mockAgent.active,
       registeredAt: mockAgent.registeredAt.toISOString(),
       totalExecutions: 0,
@@ -478,8 +478,8 @@ describe('Agent Search Result Transformation', () => {
     const result: AgentSearchResult = {
       agentId: mockAgent.agentId.toString(),
       owner: mockAgent.owner?.address ?? '',
-      name: mockAgent.name || 'Unnamed Agent',
-      metadataUri: mockAgent.tokenURI || '',
+      name: mockAgent.name ?? 'Unnamed Agent',
+      metadataUri: mockAgent.tokenURI ?? '',
       active: mockAgent.active,
       registeredAt: mockAgent.registeredAt.toISOString(),
       totalExecutions: 0,

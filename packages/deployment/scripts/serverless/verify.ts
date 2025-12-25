@@ -328,7 +328,7 @@ IPFS:        ${this.ipfsGateway}
       })
 
       if (response.ok) {
-        const size = parseInt(response.headers.get('content-length') || '0', 10)
+        const size = parseInt(response.headers.get('content-length') ?? '0', 10)
         return { accessible: true, size }
       }
     }

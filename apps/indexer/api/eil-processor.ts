@@ -110,7 +110,7 @@ export async function processEILEvents(
       if (!eventSig || !isEventInSet(eventSig, EIL_EVENT_SIGNATURES)) continue
 
       const txHash =
-        log.transaction?.hash || `${header.hash}-${log.transactionIndex}`
+        log.transaction?.hash ?? `${header.hash}-${log.transactionIndex}`
 
       // Process CrossChainPaymaster events
       if (eventSig === VOUCHER_REQUESTED) {
