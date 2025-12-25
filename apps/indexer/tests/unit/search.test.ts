@@ -94,7 +94,7 @@ interface ServiceSearchResult {
 function validateSearchParams(raw: SearchParams): ValidatedSearchParams {
   const validEndpointTypes = ['a2a', 'mcp', 'rest', 'graphql', 'all']
 
-  const endpointType = validEndpointTypes.includes(raw.endpointType || '')
+  const endpointType = validEndpointTypes.includes(raw.endpointType ?? '')
     ? (raw.endpointType as ValidatedSearchParams['endpointType'])
     : 'all'
 
@@ -110,13 +110,13 @@ function validateSearchParams(raw: SearchParams): ValidatedSearchParams {
 
   const minStakeTier = Math.max(
     0,
-    Math.min(4, parseInt(String(raw.minStakeTier || '0'), 10) || 0),
+    Math.min(4, parseInt(String(raw.minStakeTier ?? '0'), 10) ?? 0),
   )
   const limit = Math.max(
     1,
-    Math.min(1000, parseInt(String(raw.limit || '50'), 10) || 50),
+    Math.min(1000, parseInt(String(raw.limit ?? '50'), 10) ?? 50),
   )
-  const offset = Math.max(0, parseInt(String(raw.offset || '0'), 10) || 0)
+  const offset = Math.max(0, parseInt(String(raw.offset ?? '0'), 10) ?? 0)
 
   const parseBoolean = (
     val: string | boolean | undefined,
@@ -450,9 +450,9 @@ describe('Agent Search Result Transformation', () => {
 
     const result: AgentSearchResult = {
       agentId: mockAgent.agentId.toString(),
-      owner: mockAgent.owner?.address || '',
-      name: mockAgent.name || 'Unnamed Agent',
-      metadataUri: mockAgent.tokenURI || '',
+      owner: mockAgent.owner?.address ?? '',
+      name: mockAgent.name ?? 'Unnamed Agent',
+      metadataUri: mockAgent.tokenURI ?? '',
       active: mockAgent.active,
       registeredAt: mockAgent.registeredAt.toISOString(),
       totalExecutions: 0,
@@ -477,9 +477,9 @@ describe('Agent Search Result Transformation', () => {
 
     const result: AgentSearchResult = {
       agentId: mockAgent.agentId.toString(),
-      owner: mockAgent.owner?.address || '',
-      name: mockAgent.name || 'Unnamed Agent',
-      metadataUri: mockAgent.tokenURI || '',
+      owner: mockAgent.owner?.address ?? '',
+      name: mockAgent.name ?? 'Unnamed Agent',
+      metadataUri: mockAgent.tokenURI ?? '',
       active: mockAgent.active,
       registeredAt: mockAgent.registeredAt.toISOString(),
       totalExecutions: 0,
@@ -514,10 +514,10 @@ describe('Agent Search Result Transformation', () => {
 
     const result = {
       agentId: agent.agentId.toString(),
-      name: agent.name || 'Unnamed Agent',
-      description: agent.description || null,
-      tags: agent.tags || [],
-      owner: agent.owner?.address || '',
+      name: agent.name ?? 'Unnamed Agent',
+      description: agent.description ?? null,
+      tags: agent.tags ?? [],
+      owner: agent.owner?.address ?? '',
     }
 
     expect(result.name).toBe('Unnamed Agent')
@@ -811,8 +811,8 @@ describe('Facet Aggregation', () => {
     ]
 
     for (const agent of agents) {
-      for (const tag of agent.tags || []) {
-        tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1)
+      for (const tag of agent.tags ?? []) {
+        tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1)
       }
     }
 

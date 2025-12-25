@@ -87,7 +87,6 @@ export async function readContract<
     blockTag?: 'latest' | 'earliest' | 'pending' | 'safe' | 'finalized'
   },
 ): Promise<ReadContractReturnType<TAbi, TFunctionName, TArgs>> {
-  // Cast params to the expected interface - TArgs is compatible with readonly unknown[]
   return client.readContract({
     address: params.address,
     abi: params.abi,

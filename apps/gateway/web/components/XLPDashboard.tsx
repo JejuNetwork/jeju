@@ -226,19 +226,6 @@ export default function XLPDashboard() {
     }
   }
 
-  if (!isConnected) {
-    return (
-      <div className="card">
-        <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem' }}>
-          XLP Dashboard
-        </h2>
-        <p style={{ color: 'var(--text-secondary)' }}>
-          Connect your wallet to manage XLP liquidity
-        </p>
-      </div>
-    )
-  }
-
   if (!crossChainPaymaster || !l1StakeManager) {
     return (
       <div className="card">

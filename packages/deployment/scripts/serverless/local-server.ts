@@ -76,7 +76,7 @@ class DWSClient {
     } = {},
   ): Promise<{ functionId: string }> {
     // Map workerd runtime to DWS supported runtimes (bun, node, deno)
-    let runtime = config.runtime || 'bun'
+    let runtime = config.runtime ?? 'bun'
     if (runtime === 'workerd') {
       runtime = 'bun' // DWS uses bun for local dev
     }
@@ -91,10 +91,10 @@ class DWSClient {
         name,
         code: code.toString('base64'),
         runtime,
-        handler: config.handler || 'default',
-        memory: config.memory || 256,
-        timeout: config.timeout || 30000,
-        env: config.env || {},
+        handler: config.handler ?? 'default',
+        memory: config.memory ?? 256,
+        timeout: config.timeout ?? 30000,
+        env: config.env ?? {},
       }),
     })
 
@@ -118,7 +118,7 @@ class DWSClient {
     }
 
     const data = await response.json()
-    return data.functions || []
+    return data.functions ?? []
   }
 
   async deleteWorker(functionId: string): Promise<void> {
@@ -307,7 +307,7 @@ class LocalServerManager {
     // Deploy to DWS
     console.log('   Deploying to DWS...')
     const result = await this.dws.deployWorker(config.name, code, {
-      runtime: config.worker.runtime || 'bun',
+      runtime: config.worker.runtime ?? 'bun',
       memory: config.worker.memoryMb,
       timeout: config.worker.timeoutMs,
       handler: 'default',

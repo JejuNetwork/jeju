@@ -5,6 +5,6 @@
  */
 
 export * from './agent.service'
-export * from './agent-registry.service'
 export * from './agent-pnl.service'
+export * from './agent-registry.service'
 export * from './lock.service'

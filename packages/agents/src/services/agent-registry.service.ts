@@ -9,16 +9,12 @@
 
 import { logger } from '@jejunetwork/shared'
 import type { AgentCapabilities } from '@jejunetwork/types'
-import {
-  AgentStatus,
-  AgentType,
-  TrustLevel,
-} from '../types'
 import type {
   AgentDiscoveryFilter,
   AgentRegistration,
   ExternalAgentConnectionParams,
 } from '../types'
+import { AgentStatus, AgentType, TrustLevel } from '../types'
 
 /**
  * Parameters for registering a user-controlled agent
@@ -149,7 +145,8 @@ export class AgentRegistryService {
     }
 
     if (filter.minTrustLevel !== undefined) {
-      results = results.filter((a) => a.trustLevel >= filter.minTrustLevel!)
+      const minTrust = filter.minTrustLevel
+      results = results.filter((a) => a.trustLevel >= minTrust)
     }
 
     if (filter.search) {

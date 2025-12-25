@@ -123,14 +123,14 @@ export class OAuth3JNSService {
       fullName,
       owner,
       council: council as Address | undefined,
-      redirectUris: redirectUris?.split(',').filter(Boolean) || [],
+      redirectUris: redirectUris?.split(',').filter(Boolean) ?? [],
       authEndpoint: authEndpoint || (endpoint ? `${endpoint}/auth` : ''),
       callbackEndpoint:
         callbackEndpoint || (endpoint ? `${endpoint}/callback` : ''),
       metadata: {
-        logoUri: avatar || '',
-        policyUri: policyUri || '',
-        termsUri: termsUri || '',
+        logoUri: avatar ?? '',
+        policyUri: policyUri ?? '',
+        termsUri: termsUri ?? '',
       },
     }
   }
@@ -164,9 +164,9 @@ export class OAuth3JNSService {
       fullName,
       owner,
       smartAccount: (smartAccount as Address) || owner,
-      avatar: avatar || '',
-      linkedProviders: linkedProviders?.split(',').filter(Boolean) || [],
-      publicKey: (publicKey as Hex) || '0x',
+      avatar: avatar ?? '',
+      linkedProviders: linkedProviders?.split(',').filter(Boolean) ?? [],
+      publicKey: (publicKey as Hex) ?? '0x',
     }
   }
 
@@ -206,11 +206,11 @@ export class OAuth3JNSService {
       name: nodeName.replace('.tee.jeju', '').replace('.tee', ''),
       fullName,
       operator,
-      endpoint: endpoint || '',
-      publicKey: (publicKey as Hex) || '0x',
-      attestationType: attestationType || 'dstack',
-      supportedProviders: supportedProviders?.split(',').filter(Boolean) || [],
-      stake: BigInt(stake || '0'),
+      endpoint: endpoint ?? '',
+      publicKey: (publicKey as Hex) ?? '0x',
+      attestationType: attestationType ?? 'dstack',
+      supportedProviders: supportedProviders?.split(',').filter(Boolean) ?? [],
+      stake: BigInt(stake ?? '0'),
       active: active !== 'false',
     }
   }

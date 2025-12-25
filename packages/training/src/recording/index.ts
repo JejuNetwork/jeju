@@ -9,6 +9,27 @@
  * @packageDocumentation
  */
 
+// Trajectory recorder
+export {
+  // Types
+  type Action,
+  type ActiveTrajectory,
+  // Instances
+  defaultStorage,
+  type EndTrajectoryOptions,
+  type EnvironmentState,
+  // Classes
+  InMemoryTrajectoryStorage,
+  type LLMCall,
+  type LLMCallLogRecord,
+  type ProviderAccess,
+  type StartTrajectoryOptions,
+  type TrajectoryRecord,
+  TrajectoryRecorder,
+  type TrajectoryStep,
+  type TrajectoryStorage,
+  trajectoryRecorder,
+} from './trajectory-recorder'
 // Window utilities
 export {
   generateWindowIds,
@@ -18,29 +39,7 @@ export {
   getWindowRange,
   isTimestampInWindow,
   isWindowComplete,
-  parseWindowId,
   type ParsedWindowId,
+  parseWindowId,
   type WindowRange,
 } from './window-utils'
-
-// Trajectory recorder
-export {
-  // Types
-  type Action,
-  type ActiveTrajectory,
-  type EndTrajectoryOptions,
-  type EnvironmentState,
-  type LLMCall,
-  type LLMCallLogRecord,
-  type ProviderAccess,
-  type StartTrajectoryOptions,
-  type TrajectoryRecord,
-  type TrajectoryStep,
-  type TrajectoryStorage,
-  // Classes
-  InMemoryTrajectoryStorage,
-  TrajectoryRecorder,
-  // Instances
-  defaultStorage,
-  trajectoryRecorder,
-} from './trajectory-recorder'

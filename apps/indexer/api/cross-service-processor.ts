@@ -92,7 +92,7 @@ export async function processCrossServiceEvents(
         continue
 
       const txHash =
-        log.transaction?.hash || `${header.hash}-${log.transactionIndex}`
+        log.transaction?.hash ?? `${header.hash}-${log.transactionIndex}`
 
       // ContainerStored(string cid, address uploader, address storageProvider, uint256 sizeBytes)
       if (eventSig === EVENT_SIGNATURES.ContainerStored) {

@@ -37,7 +37,9 @@ export class TemplateLoader {
    */
   register(template: AgentTemplate): void {
     this.customTemplates.set(template.archetype.toLowerCase(), template)
-    logger.debug('Custom template registered', { archetype: template.archetype })
+    logger.debug('Custom template registered', {
+      archetype: template.archetype,
+    })
   }
 
   /**
@@ -54,10 +56,7 @@ export class TemplateLoader {
    */
   has(name: string): boolean {
     const normalized = name.toLowerCase()
-    return (
-      this.customTemplates.has(normalized) ||
-      normalized in AGENT_TEMPLATES
-    )
+    return this.customTemplates.has(normalized) || normalized in AGENT_TEMPLATES
   }
 
   /**

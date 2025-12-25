@@ -104,6 +104,25 @@ const SendEmailResponseSchema = z.object({
   messageId: z.string(),
 })
 
+// Common error response schemas
+const S3ErrorSchema = z.object({
+  Error: z.object({ Message: z.string().optional() }).optional(),
+})
+
+const SimpleErrorSchema = z.object({
+  error: z.string().optional(),
+})
+
+function parseS3Error(json: unknown, fallback: string): string {
+  const parsed = S3ErrorSchema.safeParse(json)
+  return parsed.success ? (parsed.data.Error?.Message ?? fallback) : fallback
+}
+
+function parseSimpleError(json: unknown, fallback: string): string {
+  const parsed = SimpleErrorSchema.safeParse(json)
+  return parsed.success ? (parsed.data.error ?? fallback) : fallback
+}
+
 // Health and status hooks
 
 export function useHealth() {
@@ -354,8 +373,9 @@ export function useCreateS3Bucket() {
       )
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.Error?.Message ?? 'Failed to create bucket')
+        throw new Error(
+          parseS3Error(await response.json(), 'Failed to create bucket'),
+        )
       }
 
       return { name: params.name }
@@ -379,8 +399,9 @@ export function useDeleteS3Bucket() {
       )
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.Error?.Message ?? 'Failed to delete bucket')
+        throw new Error(
+          parseS3Error(await response.json(), 'Failed to delete bucket'),
+        )
       }
 
       return { name: bucketName }
@@ -403,8 +424,9 @@ export function useS3Objects(bucketName: string, prefix?: string) {
       )
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.Error?.Message ?? 'Failed to list objects')
+        throw new Error(
+          parseS3Error(await response.json(), 'Failed to list objects'),
+        )
       }
 
       return S3ListObjectsResponseSchema.parse(await response.json())
@@ -435,8 +457,9 @@ export function useUploadS3Object() {
       )
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.Error?.Message ?? 'Failed to upload object')
+        throw new Error(
+          parseS3Error(await response.json(), 'Failed to upload object'),
+        )
       }
 
       return { etag: response.headers.get('ETag') }
@@ -462,8 +485,9 @@ export function useDeleteS3Object() {
       )
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.Error?.Message ?? 'Failed to delete object')
+        throw new Error(
+          parseS3Error(await response.json(), 'Failed to delete object'),
+        )
       }
 
       return { key: params.key }
@@ -1043,8 +1067,9 @@ export function useCreateScrapingSession() {
         },
       )
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error ?? 'Failed to create session')
+        throw new Error(
+          parseSimpleError(await response.json(), 'Failed to create session'),
+        )
       }
       return ScrapingSessionCreateResponseSchema.parse(await response.json())
     },
@@ -1106,8 +1131,9 @@ export function useMailbox() {
         },
       )
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error ?? 'Failed to fetch mailbox')
+        throw new Error(
+          parseSimpleError(await response.json(), 'Failed to fetch mailbox'),
+        )
       }
       return MailboxResponseSchema.parse(await response.json())
     },

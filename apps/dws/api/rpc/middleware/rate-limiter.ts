@@ -82,10 +82,13 @@ const getUserKey = (
   if (apiKey && apiKeyCache.has(apiKey))
     return {
       key: `key:${apiKey}`,
-      address: apiKeyCache.get(apiKey)?.address || null,
+      address: apiKeyCache.get(apiKey)?.address ?? null,
     }
-  const wallet = request.headers.get('X-Wallet-Address') as Address | undefined
-  if (wallet) return { key: `addr:${wallet.toLowerCase()}`, address: wallet }
+  const walletHeader = request.headers.get('X-Wallet-Address')
+  if (walletHeader) {
+    const wallet = walletHeader as Address
+    return { key: `addr:${wallet.toLowerCase()}`, address: wallet }
+  }
   const ip =
     request.headers.get('X-Forwarded-For')?.split(',')[0]?.trim() ||
     request.headers.get('X-Real-IP') ||

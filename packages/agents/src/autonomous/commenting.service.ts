@@ -7,8 +7,8 @@
  * @packageDocumentation
  */
 
-import { logger } from '@jejunetwork/shared'
 import type { IAgentRuntime } from '@elizaos/core'
+import { logger } from '@jejunetwork/shared'
 
 /**
  * Comment decision
@@ -52,18 +52,15 @@ interface AgentCommentingConfig {
 }
 
 /**
- * Maximum characters for comment content
- */
-const MAX_COMMENT_CHARS = 200
-
-/**
  * Autonomous Commenting Service
  */
 export class AutonomousCommentingService {
   /**
    * Get agent configuration for commenting
    */
-  private async getAgentConfig(agentId: string): Promise<AgentCommentingConfig> {
+  private async getAgentConfig(
+    agentId: string,
+  ): Promise<AgentCommentingConfig> {
     logger.debug(`Getting commenting config for agent ${agentId}`)
 
     // In a full implementation, this would fetch from database
@@ -87,13 +84,12 @@ export class AutonomousCommentingService {
   /**
    * Get recent posts that agent can comment on
    */
-  private async getUncommentedPosts(agentId: string): Promise<CommentablePost[]> {
+  private async getUncommentedPosts(
+    agentId: string,
+  ): Promise<CommentablePost[]> {
     logger.debug(`Getting uncommented posts for agent ${agentId}`)
 
     const commentedIds = await this.getCommentedPostIds(agentId)
-    // Note: oneDayAgo filter not yet implemented
-    // const now = new Date()
-    // const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
 
     // In a full implementation, this would query the database for:
     // - Posts not authored by the agent
@@ -106,28 +102,6 @@ export class AutonomousCommentingService {
   }
 
   /**
-   * Build comment generation prompt
-   * @internal Reserved for future implementation
-   */
-  private _buildCommentPrompt(
-    config: AgentCommentingConfig,
-    displayName: string,
-    post: CommentablePost,
-  ): string {
-    return `${config.systemPrompt ?? 'You are an AI agent on Jeju.'}
-
-You are ${displayName}, viewing this post:
-
-"${post.content}"
-
-Task: Write a brief, engaging comment (1-2 sentences, under ${MAX_COMMENT_CHARS} characters).
-Be authentic to your personality and trading expertise.
-If mentioning markets, use SHORT SUMMARIES (e.g., "the TeslAI bet") not full questions.
-
-Generate ONLY the comment text, nothing else.`
-  }
-
-  /**
    * Decide whether to comment and on what
    */
   async decideComment(
@@ -137,7 +111,8 @@ Generate ONLY the comment text, nothing else.`
   ): Promise<CommentDecision> {
     logger.debug(`Deciding on comment for agent ${agentId}`)
 
-    const _config = await this.getAgentConfig(agentId) // Reserved for prompt building
+    // Get config for potential future use in LLM prompts
+    await this.getAgentConfig(agentId)
     const uncommentedPosts = await this.getUncommentedPosts(agentId)
 
     if (uncommentedPosts.length === 0) {
@@ -160,7 +135,9 @@ Generate ONLY the comment text, nothing else.`
 
     // If no runtime provided, we can't make LLM calls
     if (!runtime) {
-      logger.warn(`No runtime provided for agent ${agentId}, cannot generate comment`)
+      logger.warn(
+        `No runtime provided for agent ${agentId}, cannot generate comment`,
+      )
       return {
         shouldComment: false,
         postId: post.id,
@@ -189,14 +166,22 @@ Generate ONLY the comment text, nothing else.`
     const decision = await this.decideComment(agentId, {}, runtime)
 
     if (!decision.shouldComment || !decision.postId || !decision.content) {
-      logger.info(`Agent ${agentId} decided not to comment: ${decision.reasoning}`)
+      logger.info(
+        `Agent ${agentId} decided not to comment: ${decision.reasoning}`,
+      )
       return null
     }
 
-    const result = await this.createComment(agentId, decision.postId, decision.content)
+    const result = await this.createComment(
+      agentId,
+      decision.postId,
+      decision.content,
+    )
 
     if (!result.success) {
-      logger.warn(`Failed to create comment for agent ${agentId}: ${result.error}`)
+      logger.warn(
+        `Failed to create comment for agent ${agentId}: ${result.error}`,
+      )
       return null
     }
 
@@ -218,8 +203,6 @@ Generate ONLY the comment text, nothing else.`
       return { success: false, error: 'Content too short' }
     }
 
-    const _cleanContent = content.trim() // Reserved for DB insert
-
     // Check for duplicate comment
     const commentedPostIds = await this.getCommentedPostIds(agentId)
 
@@ -229,7 +212,9 @@ Generate ONLY the comment text, nothing else.`
       const hasReplied = false // Placeholder
 
       if (hasReplied) {
-        logger.info(`Agent ${agentId} already replied to comment ${parentCommentId}`)
+        logger.info(
+          `Agent ${agentId} already replied to comment ${parentCommentId}`,
+        )
         return { success: false, error: 'Already replied to this comment' }
       }
     } else {

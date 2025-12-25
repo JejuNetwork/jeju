@@ -191,8 +191,6 @@ export function hasCombatStats(item: GameItem): boolean {
   return item.attack > 0 || item.defense > 0 || item.strength > 0
 }
 
-export { formatAddress } from '@jejunetwork/shared'
-
 /**
  * Format timestamp for display
  */

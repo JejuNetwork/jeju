@@ -99,7 +99,7 @@ async function runScenario(config: LoadTestConfig): Promise<TestResult> {
       const p99 = results.latency.p99
       const totalRequests = results.requests.total
       const errorCount =
-        results.errors + results.timeouts + (results.non2xx || 0)
+        results.errors + results.timeouts + (results.non2xx ?? 0)
       const errorRate = totalRequests > 0 ? errorCount / totalRequests : 0
 
       const errors: string[] = []

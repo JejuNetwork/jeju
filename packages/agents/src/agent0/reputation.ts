@@ -165,7 +165,9 @@ export class ReputationBridge {
     }
 
     // Weighted average
-    return local.accuracyScore * localWeight + agent0.accuracyScore * agent0Weight
+    return (
+      local.accuracyScore * localWeight + agent0.accuracyScore * agent0Weight
+    )
   }
 
   /**

@@ -50,7 +50,9 @@ export class AgentService {
     agentId: string,
     managerId?: string,
   ): Promise<AgentConfig | null> {
-    logger.info(`Getting agent ${agentId}${managerId ? ` for manager ${managerId}` : ''}`)
+    logger.info(
+      `Getting agent ${agentId}${managerId ? ` for manager ${managerId}` : ''}`,
+    )
     throw new Error('Not implemented - requires database integration')
   }
 
@@ -71,7 +73,9 @@ export class AgentService {
     managerId: string,
     filters?: { autonomousTrading?: boolean },
   ): Promise<AgentConfig[]> {
-    logger.info(`Listing agents for user ${managerId}${filters ? ` with filters: ${JSON.stringify(filters)}` : ''}`)
+    logger.info(
+      `Listing agents for user ${managerId}${filters ? ` with filters: ${JSON.stringify(filters)}` : ''}`,
+    )
     throw new Error('Not implemented - requires database integration')
   }
 
@@ -98,7 +102,9 @@ export class AgentService {
       a2aEnabled: boolean
     }>,
   ): Promise<AgentConfig> {
-    logger.info(`Updating agent ${agentId} by ${managerId}: ${JSON.stringify(updates)}`)
+    logger.info(
+      `Updating agent ${agentId} by ${managerId}: ${JSON.stringify(updates)}`,
+    )
     throw new Error('Not implemented - requires database integration')
   }
 
@@ -118,7 +124,9 @@ export class AgentService {
     managerId: string,
     amount: number,
   ): Promise<AgentConfig> {
-    logger.info(`Depositing ${amount} points to agent ${agentId} from ${managerId}`)
+    logger.info(
+      `Depositing ${amount} points to agent ${agentId} from ${managerId}`,
+    )
     throw new Error('Not implemented - requires database integration')
   }
 
@@ -130,7 +138,9 @@ export class AgentService {
     managerId: string,
     amount: number,
   ): Promise<AgentConfig> {
-    logger.info(`Withdrawing ${amount} points from agent ${agentId} to ${managerId}`)
+    logger.info(
+      `Withdrawing ${amount} points from agent ${agentId} to ${managerId}`,
+    )
     throw new Error('Not implemented - requires database integration')
   }
 
@@ -143,7 +153,9 @@ export class AgentService {
     reason: string,
     relatedId?: string,
   ): Promise<number> {
-    logger.debug(`Deducting ${amount} points from ${agentId}: ${reason}${relatedId ? ` (${relatedId})` : ''}`)
+    logger.debug(
+      `Deducting ${amount} points from ${agentId}: ${reason}${relatedId ? ` (${relatedId})` : ''}`,
+    )
     throw new Error('Not implemented - requires database integration')
   }
 

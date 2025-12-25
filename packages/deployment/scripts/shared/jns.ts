@@ -407,7 +407,7 @@ export class JNSClient {
    */
   async resolveAddress(name: string): Promise<Address | null> {
     const record = await this.resolve(name)
-    return record?.address || null
+    return record?.address ?? null
   }
 
   /**
@@ -423,7 +423,7 @@ export class JNSClient {
    */
   async getAppInfo(name: string): Promise<JNSResolvedRecord['app'] | null> {
     const record = await this.resolve(name)
-    return record?.app || null
+    return record?.app ?? null
   }
 }
 /**

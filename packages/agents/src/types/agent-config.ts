@@ -4,8 +4,8 @@
  * Core type definitions for agent configuration and runtime state.
  */
 
-import type { JsonValue } from '@jejunetwork/types'
 import type { Character } from '@elizaos/core'
+import type { JsonValue } from '@jejunetwork/types'
 
 /**
  * Agent configuration
@@ -68,7 +68,15 @@ export interface AgentMessage {
 export interface AgentLog {
   id: string
   agentId: string
-  type: 'chat' | 'tick' | 'trade' | 'error' | 'system' | 'post' | 'comment' | 'dm'
+  type:
+    | 'chat'
+    | 'tick'
+    | 'trade'
+    | 'error'
+    | 'system'
+    | 'post'
+    | 'comment'
+    | 'dm'
   level: 'info' | 'warn' | 'error' | 'debug'
   message: string
   prompt?: string

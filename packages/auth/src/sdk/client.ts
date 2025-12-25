@@ -764,7 +764,9 @@ export class OAuth3Client {
       if (response.status === 401) {
         throw new Error(`Session expired or invalid: ${errorText}`)
       }
-      throw new Error(`Session validation failed: ${response.status} - ${errorText}`)
+      throw new Error(
+        `Session validation failed: ${response.status} - ${errorText}`,
+      )
     }
 
     return validateResponse(

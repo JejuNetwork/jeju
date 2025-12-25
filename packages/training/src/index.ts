@@ -259,10 +259,6 @@ export {
   type HuggingFaceExportConfig,
   type LLMCallRecord,
   type Trajectory,
-  // Note: TrajectoryContext exported from ./scoring for LLM judging
-  // Note: TrajectoryMetadata exported from ./integrations above
-  type TrajectoryStep as AppTrajectoryStepLegacy,
-  type TrajectoryContext as AppTrajectoryContextLegacy,
   type TrajectoryStatus,
   type TrainingDataAdapter,
   type TrainingLoopConfig,

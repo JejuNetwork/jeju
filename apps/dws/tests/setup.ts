@@ -15,8 +15,8 @@
 import { afterAll, beforeAll } from 'bun:test'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import type { Subprocess } from 'bun'
 import { toError } from '@jejunetwork/types'
+import type { Subprocess } from 'bun'
 
 // Configuration
 const ANVIL_PORT = parseInt(process.env.ANVIL_PORT ?? '9545', 10)

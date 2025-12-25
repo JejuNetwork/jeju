@@ -44,8 +44,7 @@ function createCQLAdapter(agentId: string): CQLDatabaseAdapter {
  */
 export const cqlDatabasePlugin: Plugin = {
   name: '@jejunetwork/plugin-cql',
-  description:
-    'Decentralized database adapter using CovenantSQL',
+  description: 'Decentralized database adapter using CovenantSQL',
   priority: 0, // Load first to ensure database is available
 
   init: async (_config: Record<string, string>, runtime: IAgentRuntime) => {

@@ -495,7 +495,7 @@ export function createAgentsModule(
         args: [agentId, BigInt(limit)],
       })
 
-      return result
+      return [...result]
     },
 
     async approveSpender(agentId, spender) {

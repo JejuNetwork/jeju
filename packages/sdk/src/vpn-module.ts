@@ -169,12 +169,12 @@ export function createVPNModule(
   async function refreshNodesCache(): Promise<void> {
     if (Date.now() - lastFetch < CACHE_TTL && nodesCache.length > 0) return
 
-    const activeAddresses = await wallet.publicClient.readContract({
+    const activeAddresses = (await wallet.publicClient.readContract({
       address: vpnRegistryAddress,
       abi: VPN_REGISTRY_ABI,
       functionName: 'getActiveExitNodes',
       args: [],
-    })
+    })) as Address[]
 
     const nodes: VPNNodeInfo[] = []
     for (const addr of activeAddresses) {

@@ -208,12 +208,12 @@ This signature will not trigger any blockchain transaction or cost any gas fees.
           status.className = 'status success';
           window.location.href = result.redirectUrl;
         } else {
-          throw new Error(result.error || 'Verification failed');
+          throw new Error(result.error ?? 'Verification failed');
         }
         
       } catch (err) {
         console.error(err);
-        status.textContent = err.message || 'Connection failed';
+        status.textContent = err.message ?? 'Connection failed';
         status.className = 'status error';
         btn.disabled = false;
         btn.textContent = 'Try Again';

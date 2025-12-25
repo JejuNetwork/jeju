@@ -5,9 +5,12 @@
  * Supports localnet, testnet, and mainnet deployments.
  */
 
-import { type Address, type Hex, isAddress, isHex } from 'viem'
-import type { NetworkType, OracleNodeConfig, PriceSourceConfig } from '@jejunetwork/types'
-import { ZERO_ADDRESS, expectAddress } from '@jejunetwork/types'
+import type {
+  NetworkType,
+  OracleNodeConfig,
+  PriceSourceConfig,
+} from '@jejunetwork/types'
+import { type Address, type Hex, isAddress } from 'viem'
 
 interface NetworkConfig {
   chainId: number
@@ -75,22 +78,22 @@ function resolveEnvVar(value: string): string {
 }
 
 function validatePrivateKey(key: string, name: string): Hex {
-  if (!key || !isHex(key) || key.length !== 66) {
+  if (!key || !key.startsWith('0x') || key.length !== 66) {
     throw new ConfigurationError(
       `${name} must be a valid 32-byte hex string (0x + 64 chars)`,
     )
   }
-  return key
+  return key as Hex
 }
 
 function validateAddress(addr: string | null, name: string): Address {
-  if (!addr || addr === ZERO_ADDRESS) {
+  if (!addr || addr === '0x0000000000000000000000000000000000000000') {
     throw new ConfigurationError(`${name} address not configured`)
   }
   if (!isAddress(addr)) {
     throw new ConfigurationError(`${name} is not a valid address: ${addr}`)
   }
-  return addr
+  return addr as Address
 }
 
 export async function loadNetworkConfig(
@@ -158,7 +161,8 @@ export function buildPriceSources(
 
     sources.push({
       type: sourceConfig.type,
-      address: sourceConfig.address ? expectAddress(sourceConfig.address) : ZERO_ADDRESS,
+      address: (sourceConfig.address ||
+        '0x0000000000000000000000000000000000000000') as Address,
       feedId,
       decimals: sourceConfig.decimals,
     })

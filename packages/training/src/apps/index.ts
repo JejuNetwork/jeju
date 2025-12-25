@@ -15,8 +15,8 @@ import {
 import type { JudgeRubric } from '../rubrics/index.js'
 
 export interface TrainingDataAdapter<
-  TStep extends TrajectoryStep = TrajectoryStep,
-  TContext extends TrajectoryContext = TrajectoryContext,
+  TStep extends AppTrajectoryStep = AppTrajectoryStep,
+  TContext extends AppTrajectoryContext = AppTrajectoryContext,
 > {
   appName: string
   collectTrajectories(options: CollectOptions): Promise<Trajectory<TStep>[]>
@@ -25,6 +25,7 @@ export interface TrainingDataAdapter<
   markProcessed(trajectoryId: string): Promise<void>
   storeTrainingResult(result: TrainingResult): Promise<void>
   getRubrics(): JudgeRubric[]
+  /** Optional: Custom scoring logic */
   customScoring?(
     trajectory: Trajectory<TStep>,
     context: TContext,
@@ -41,7 +42,7 @@ export interface CollectOptions {
   until?: Date
 }
 
-export interface Trajectory<TStep extends TrajectoryStep = TrajectoryStep> {
+export interface Trajectory<TStep extends AppTrajectoryStep = AppTrajectoryStep> {
   trajectoryId: string
   agentId: string
   archetype?: string
@@ -52,8 +53,10 @@ export interface Trajectory<TStep extends TrajectoryStep = TrajectoryStep> {
 }
 
 /**
- * Base trajectory step for app adapters.
- * Different from the Zod schema TrajectoryStep which is for storage.
+ * Trajectory step for app adapters.
+ *
+ * Note: This is a simplified step type for app integrations.
+ * For Zod-validated storage types, use TrajectoryStep from @jejunetwork/training schemas.
  */
 export interface AppTrajectoryStep {
   stepId: string
@@ -64,9 +67,6 @@ export interface AppTrajectoryStep {
   reward?: number
   llmCall?: LLMCallRecord
 }
-
-/** @deprecated Use AppTrajectoryStep instead */
-export type TrajectoryStep = AppTrajectoryStep
 
 export interface LLMCallRecord {
   model: string
@@ -95,7 +95,9 @@ export type TrajectoryStatus =
 
 /**
  * Trajectory context for app adapters.
- * Different from the scoring TrajectoryContext which is for LLM judging.
+ *
+ * Note: This is for app integrations. For LLM judging context,
+ * use TrajectoryContext from @jejunetwork/training scoring module.
  */
 export interface AppTrajectoryContext {
   agent: {
@@ -108,9 +110,6 @@ export interface AppTrajectoryContext {
   finalState: Record<string, unknown>
   appContext?: Record<string, unknown>
 }
-
-/** @deprecated Use AppTrajectoryContext instead */
-export type TrajectoryContext = AppTrajectoryContext
 
 export interface TrainingResult {
   trajectoryId: string
@@ -166,8 +165,8 @@ const DEFAULT_SCORING: Required<ScoringConfig> = {
 }
 
 export class AppTrainingRunner<
-  TStep extends TrajectoryStep = TrajectoryStep,
-  TContext extends TrajectoryContext = TrajectoryContext,
+  TStep extends AppTrajectoryStep = AppTrajectoryStep,
+  TContext extends AppTrajectoryContext = AppTrajectoryContext,
 > {
   private adapter: TrainingDataAdapter<TStep, TContext>
   private scoringConfig: Required<ScoringConfig>
@@ -180,6 +179,9 @@ export class AppTrainingRunner<
     this.scoringConfig = { ...DEFAULT_SCORING, ...scoringConfig }
   }
 
+  /**
+   * Run the training loop
+   */
   async runTrainingLoop(
     config: TrainingLoopConfig,
   ): Promise<TrainingLoopResult> {
@@ -392,8 +394,8 @@ tags: [jeju, training-data]
 }
 
 export function createAppTrainingAdapter<
-  TStep extends TrajectoryStep = TrajectoryStep,
-  TContext extends TrajectoryContext = TrajectoryContext,
+  TStep extends AppTrajectoryStep = AppTrajectoryStep,
+  TContext extends AppTrajectoryContext = AppTrajectoryContext,
 >(
   adapter: TrainingDataAdapter<TStep, TContext>,
   scoringConfig?: ScoringConfig,
@@ -411,6 +413,9 @@ export interface AppTrainingConfig {
   mpc?: { parties: number; threshold: number }
 }
 
+/**
+ * Get default app training configuration
+ */
 export function getDefaultAppTrainingConfig(
   appName: string,
 ): AppTrainingConfig {

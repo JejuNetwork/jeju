@@ -7,13 +7,13 @@
  * @packageDocumentation
  */
 
-import { logger } from '@jejunetwork/shared'
 import type { IAgentRuntime } from '@elizaos/core'
-import { autonomousTradingService } from './trading.service'
-import { autonomousPostingService } from './posting.service'
+import { logger } from '@jejunetwork/shared'
 import { autonomousCommentingService } from './commenting.service'
 import { autonomousDMService } from './dm.service'
 import { autonomousGroupChatService } from './group-chat.service'
+import { autonomousPostingService } from './posting.service'
+import { autonomousTradingService } from './trading.service'
 
 /**
  * Coordinator configuration
@@ -89,7 +89,9 @@ export class AutonomousCoordinator {
    */
   async start(agent: { id: string; runtime?: IAgentRuntime }): Promise<void> {
     if (this.running) {
-      throw new Error(`Coordinator already running for agent ${this.currentAgent?.id}`)
+      throw new Error(
+        `Coordinator already running for agent ${this.currentAgent?.id}`,
+      )
     }
 
     this.currentAgent = agent
@@ -103,7 +105,10 @@ export class AutonomousCoordinator {
     // Set up periodic ticks (every 60 seconds)
     this.tickInterval = setInterval(async () => {
       if (this.running && this.currentAgent) {
-        await this.executeAutonomousTick(this.currentAgent.id, this.currentAgent.runtime)
+        await this.executeAutonomousTick(
+          this.currentAgent.id,
+          this.currentAgent.runtime,
+        )
       }
     }, 60000)
   }
@@ -116,7 +121,9 @@ export class AutonomousCoordinator {
       return
     }
 
-    logger.info(`Stopping autonomous coordinator for agent ${this.currentAgent?.id}`)
+    logger.info(
+      `Stopping autonomous coordinator for agent ${this.currentAgent?.id}`,
+    )
 
     this.running = false
 
@@ -160,29 +167,34 @@ export class AutonomousCoordinator {
       duration: 0,
     }
 
-    logger.info(
-      `Starting autonomous tick for agent ${agentId}`,
-      {
-        autonomousTrading: effectiveConfig.autonomousTrading ?? false,
-        autonomousPosting: effectiveConfig.autonomousPosting ?? false,
-        autonomousCommenting: effectiveConfig.autonomousCommenting ?? false,
-        planningHorizon: effectiveConfig.planningHorizon ?? 'single',
-      },
-    )
+    logger.info(`Starting autonomous tick for agent ${agentId}`, {
+      autonomousTrading: effectiveConfig.autonomousTrading ?? false,
+      autonomousPosting: effectiveConfig.autonomousPosting ?? false,
+      autonomousCommenting: effectiveConfig.autonomousCommenting ?? false,
+      planningHorizon: effectiveConfig.planningHorizon ?? 'single',
+    })
 
     // Execute trading if enabled
     if (effectiveConfig.autonomousTrading) {
-      const tradingResult = await autonomousTradingService.executeTrades(agentId, runtime)
+      const tradingResult = await autonomousTradingService.executeTrades(
+        agentId,
+        runtime,
+      )
       result.actionsExecuted.trades = tradingResult.tradesExecuted
 
       if (tradingResult.tradesExecuted > 0) {
-        logger.info(`Agent ${agentId} executed ${tradingResult.tradesExecuted} trade(s)`)
+        logger.info(
+          `Agent ${agentId} executed ${tradingResult.tradesExecuted} trade(s)`,
+        )
       }
     }
 
     // Execute posting if enabled
     if (effectiveConfig.autonomousPosting) {
-      const postId = await autonomousPostingService.createAgentPost(agentId, runtime)
+      const postId = await autonomousPostingService.createAgentPost(
+        agentId,
+        runtime,
+      )
       if (postId) {
         result.actionsExecuted.posts = 1
         logger.info(`Agent ${agentId} created post ${postId}`)
@@ -191,7 +203,10 @@ export class AutonomousCoordinator {
 
     // Execute commenting if enabled
     if (effectiveConfig.autonomousCommenting) {
-      const commentId = await autonomousCommentingService.createAgentComment(agentId, runtime)
+      const commentId = await autonomousCommentingService.createAgentComment(
+        agentId,
+        runtime,
+      )
       if (commentId) {
         result.actionsExecuted.comments = 1
         logger.info(`Agent ${agentId} created comment ${commentId}`)
@@ -200,7 +215,10 @@ export class AutonomousCoordinator {
 
     // Execute DM responses if enabled
     if (effectiveConfig.autonomousDMs) {
-      const dmResponses = await autonomousDMService.respondToDMs(agentId, runtime)
+      const dmResponses = await autonomousDMService.respondToDMs(
+        agentId,
+        runtime,
+      )
       result.actionsExecuted.messages = dmResponses
 
       if (dmResponses > 0) {
@@ -210,7 +228,11 @@ export class AutonomousCoordinator {
 
     // Execute group chat participation if enabled
     if (effectiveConfig.autonomousGroupChats) {
-      const groupMessages = await autonomousGroupChatService.participateInGroupChats(agentId, runtime)
+      const groupMessages =
+        await autonomousGroupChatService.participateInGroupChats(
+          agentId,
+          runtime,
+        )
       result.actionsExecuted.groupMessages = groupMessages
 
       if (groupMessages > 0) {
@@ -219,17 +241,19 @@ export class AutonomousCoordinator {
     }
 
     result.duration = Date.now() - startTime
-    result.success = Object.values(result.actionsExecuted).some((count) => count > 0)
-    result.method = effectiveConfig.planningHorizon === 'multi' ? 'planning_coordinator' : 'database'
-
-    logger.info(
-      `Autonomous tick completed for agent ${agentId}`,
-      {
-        duration: result.duration,
-        actions: result.actionsExecuted,
-        method: result.method,
-      },
+    result.success = Object.values(result.actionsExecuted).some(
+      (count) => count > 0,
     )
+    result.method =
+      effectiveConfig.planningHorizon === 'multi'
+        ? 'planning_coordinator'
+        : 'database'
+
+    logger.info(`Autonomous tick completed for agent ${agentId}`, {
+      duration: result.duration,
+      actions: result.actionsExecuted,
+      method: result.method,
+    })
 
     return result
   }
@@ -255,7 +279,11 @@ export class AutonomousCoordinator {
 
     for (const agentId of agentIds) {
       try {
-        const tickResult = await this.executeAutonomousTick(agentId, runtime, config)
+        const tickResult = await this.executeAutonomousTick(
+          agentId,
+          runtime,
+          config,
+        )
         results.push({ agentId, result: tickResult })
 
         if (tickResult.success) {
@@ -270,10 +298,9 @@ export class AutonomousCoordinator {
         await new Promise((resolve) => setTimeout(resolve, 1000))
       } catch (error) {
         errors++
-        logger.error(
-          `Error processing agent ${agentId}`,
-          { error: error instanceof Error ? error.message : String(error) },
-        )
+        logger.error(`Error processing agent ${agentId}`, {
+          error: error instanceof Error ? error.message : String(error),
+        })
       }
     }
 
@@ -303,7 +330,9 @@ export class AutonomousCoordinator {
 /**
  * Create a new autonomous coordinator
  */
-export function createAutonomousCoordinator(config?: CoordinatorConfig): AutonomousCoordinator {
+export function createAutonomousCoordinator(
+  config?: CoordinatorConfig,
+): AutonomousCoordinator {
   return new AutonomousCoordinator(config)
 }
 

@@ -50,7 +50,7 @@ export const discussionsRoutes = new Elysia({ prefix: '/api/discussions' })
         query,
         'query params',
       )
-      const page = Number.parseInt(validated.page || '1', 10)
+      const page = Number.parseInt(validated.page ?? '1', 10)
 
       const discussions: Discussion[] = []
 
@@ -88,7 +88,7 @@ export const discussionsRoutes = new Elysia({ prefix: '/api/discussions' })
         title: validated.title,
         content: validated.content,
         category: validated.category,
-        tags: validated.tags || [],
+        tags: validated.tags ?? [],
         author: {
           id: authResult.address,
           name: authResult.address.slice(0, 8),

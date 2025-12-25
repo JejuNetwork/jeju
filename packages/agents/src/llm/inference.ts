@@ -68,15 +68,21 @@ export interface InferenceProvider {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const ProvidersResponseSchema = z.object({
-  providers: z.array(z.object({
-    address: z.string(),
-    endpoint: z.string(),
-    models: z.array(z.string()),
-    pricePerInputToken: z.union([z.number(), z.string()]).transform(v => BigInt(v)),
-    pricePerOutputToken: z.union([z.number(), z.string()]).transform(v => BigInt(v)),
-    latency: z.number(),
-    active: z.boolean(),
-  })),
+  providers: z.array(
+    z.object({
+      address: z.string(),
+      endpoint: z.string(),
+      models: z.array(z.string()),
+      pricePerInputToken: z
+        .union([z.number(), z.string()])
+        .transform((v) => BigInt(v)),
+      pricePerOutputToken: z
+        .union([z.number(), z.string()])
+        .transform((v) => BigInt(v)),
+      latency: z.number(),
+      active: z.boolean(),
+    }),
+  ),
 })
 
 const ModelsResponseSchema = z.object({
@@ -86,19 +92,23 @@ const ModelsResponseSchema = z.object({
 const ChatCompletionResponseSchema = z.object({
   id: z.string(),
   model: z.string(),
-  choices: z.array(z.object({
-    message: z.object({ content: z.string() }),
-  })),
+  choices: z.array(
+    z.object({
+      message: z.object({ content: z.string() }),
+    }),
+  ),
   usage: z.object({
     prompt_tokens: z.number(),
     completion_tokens: z.number(),
     total_tokens: z.number(),
   }),
-  settlement: z.object({
-    provider: z.string(),
-    requestHash: z.string(),
-    signature: z.string(),
-  }).optional(),
+  settlement: z
+    .object({
+      provider: z.string(),
+      requestHash: z.string(),
+      signature: z.string(),
+    })
+    .optional(),
 })
 
 /**
@@ -128,7 +138,11 @@ const GATEWAY_URLS = {
  */
 function getNetwork(): 'localnet' | 'testnet' | 'mainnet' {
   const network = process.env.JEJU_NETWORK ?? 'localnet'
-  if (network === 'localnet' || network === 'testnet' || network === 'mainnet') {
+  if (
+    network === 'localnet' ||
+    network === 'testnet' ||
+    network === 'mainnet'
+  ) {
     return network
   }
   return 'localnet'
@@ -176,7 +190,8 @@ export class LLMInferenceService {
    * Get user address for billing
    */
   private getUserAddress(): Address {
-    const address = process.env.JEJU_USER_ADDRESS ?? process.env.AGENT_WALLET_ADDRESS
+    const address =
+      process.env.JEJU_USER_ADDRESS ?? process.env.AGENT_WALLET_ADDRESS
     if (address && isValidAddress(address)) {
       return address
     }
@@ -332,14 +347,15 @@ export class LLMInferenceService {
       'llama-3.1-8b-instant': { input: 0.05, output: 0.08 },
       'llama-3.1-70b-versatile': { input: 0.59, output: 0.79 },
       'Qwen/Qwen2.5-3B-Instruct': { input: 0.03, output: 0.05 },
-      'Qwen/Qwen2.5-7B-Instruct': { input: 0.07, output: 0.10 },
-      'Qwen/Qwen2.5-14B-Instruct': { input: 0.15, output: 0.20 },
+      'Qwen/Qwen2.5-7B-Instruct': { input: 0.07, output: 0.1 },
+      'Qwen/Qwen2.5-14B-Instruct': { input: 0.15, output: 0.2 },
     }
 
     const modelPricing = pricing[model] ?? pricing['llama-3.1-8b-instant']
 
     const inputCost = (promptTokens / 1000) * (modelPricing?.input ?? 0.05)
-    const outputCost = (completionTokens / 1000) * (modelPricing?.output ?? 0.08)
+    const outputCost =
+      (completionTokens / 1000) * (modelPricing?.output ?? 0.08)
 
     return (inputCost + outputCost) / 100 // Convert cents to dollars
   }

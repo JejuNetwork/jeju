@@ -172,7 +172,7 @@ export function findNodeForModel(model: string): InferenceNode | null {
   // Find nodes that can serve this model
   const modelPrefix = model.split('-')[0].toLowerCase()
   const compatibleProviders =
-    MODEL_PROVIDERS[modelPrefix] || MODEL_PROVIDERS[model.toLowerCase()] || []
+    MODEL_PROVIDERS[modelPrefix] ?? MODEL_PROVIDERS[model.toLowerCase()] ?? []
 
   const compatibleNodes = activeNodes.filter((node) => {
     // Check if node's provider is compatible
@@ -305,9 +305,9 @@ export function registerLocalDevNode(config: {
 }): InferenceNode {
   return registerNode({
     address: 'local-dev-node',
-    endpoint: config.endpoint || 'http://localhost:4031',
+    endpoint: config.endpoint ?? 'http://localhost:4031',
     capabilities: ['inference', 'embeddings'],
-    models: config.models || ['*'],
+    models: config.models ?? ['*'],
     provider: config.provider,
     region: 'local',
     gpuTier: 0,

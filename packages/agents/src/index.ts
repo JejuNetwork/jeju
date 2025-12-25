@@ -27,20 +27,18 @@ export type {
   ChatResponse,
   CreateAgentParams,
 } from './types/agent-config'
-
+export type {
+  Agent0Registration,
+  AgentCard,
+  AgentDiscoveryFilter,
+  AgentRegistration,
+  ExternalAgentConnectionParams,
+  OnChainRegistration,
+} from './types/agent-registry'
 export {
   AgentStatus,
   AgentType,
   TrustLevel,
-} from './types/agent-registry'
-
-export type {
-  AgentCard,
-  AgentDiscoveryFilter,
-  Agent0Registration,
-  AgentRegistration,
-  ExternalAgentConnectionParams,
-  OnChainRegistration,
 } from './types/agent-registry'
 
 export type { AgentTemplate } from './types/agent-template'
@@ -62,21 +60,19 @@ export type {
 
 export {
   AgentService,
-  agentService,
   type AgentWithConfig,
+  agentService,
 } from './services/agent.service'
-
+export {
+  AgentPnLService,
+  type AgentPnLSummary,
+  agentPnLService,
+} from './services/agent-pnl.service'
 export {
   AgentRegistryService,
   agentRegistry,
   type UserAgentRegistrationParams,
 } from './services/agent-registry.service'
-
-export {
-  AgentPnLService,
-  agentPnLService,
-  type AgentPnLSummary,
-} from './services/agent-pnl.service'
 
 export {
   AgentLockService,
@@ -90,12 +86,47 @@ export {
 // =============================================================================
 
 export {
+  type A2AMessage as AutonomousA2AMessage,
+  type A2AResponse,
+  AutonomousA2AService,
+  autonomousA2AService,
+} from './autonomous/a2a.service'
+export {
+  AutonomousCommentingService,
+  autonomousCommentingService,
+  type CommentDecision,
+  type CommentResult,
+} from './autonomous/commenting.service'
+export {
   AutonomousCoordinator,
-  createAutonomousCoordinator,
   type CoordinatorConfig,
+  createAutonomousCoordinator,
   type TickResult,
 } from './autonomous/coordinator'
-
+export {
+  AutonomousDMService,
+  autonomousDMService,
+  type DMDecision,
+  type DMResult,
+} from './autonomous/dm.service'
+export {
+  AutonomousGroupChatService,
+  autonomousGroupChatService,
+  type GroupChatDecision,
+  type GroupChatResult,
+} from './autonomous/group-chat.service'
+export {
+  type AgentPlan,
+  AutonomousPlanningCoordinator,
+  autonomousPlanningCoordinator,
+  type PlanStep,
+} from './autonomous/planning.service'
+export {
+  AutonomousPostingService,
+  autonomousPostingService,
+  type PostDecision,
+  type PostResult,
+} from './autonomous/posting.service'
 export {
   AutonomousTradingService,
   autonomousTradingService,
@@ -103,56 +134,14 @@ export {
   type TradeResult,
 } from './autonomous/trading.service'
 
-export {
-  AutonomousPostingService,
-  autonomousPostingService,
-  type PostDecision,
-  type PostResult,
-} from './autonomous/posting.service'
-
-export {
-  AutonomousCommentingService,
-  autonomousCommentingService,
-  type CommentDecision,
-  type CommentResult,
-} from './autonomous/commenting.service'
-
-export {
-  AutonomousDMService,
-  autonomousDMService,
-  type DMDecision,
-  type DMResult,
-} from './autonomous/dm.service'
-
-export {
-  AutonomousGroupChatService,
-  autonomousGroupChatService,
-  type GroupChatDecision,
-  type GroupChatResult,
-} from './autonomous/group-chat.service'
-
-export {
-  AutonomousA2AService,
-  autonomousA2AService,
-  type A2AMessage as AutonomousA2AMessage,
-  type A2AResponse,
-} from './autonomous/a2a.service'
-
-export {
-  AutonomousPlanningCoordinator,
-  autonomousPlanningCoordinator,
-  type AgentPlan,
-  type PlanStep,
-} from './autonomous/planning.service'
-
 // =============================================================================
 // IDENTITY & WALLET
 // =============================================================================
 
 export {
+  type AgentIdentity,
   AgentIdentityService,
   agentIdentityService,
-  type AgentIdentity,
   type IdentitySetupOptions,
 } from './identity/identity.service'
 
@@ -168,11 +157,11 @@ export {
 // =============================================================================
 
 export {
+  type InferenceRequest,
+  type InferenceResponse,
   LLMInferenceService,
   llmInferenceService,
   runInference,
-  type InferenceRequest,
-  type InferenceResponse,
 } from './llm/inference'
 
 export {
@@ -199,25 +188,37 @@ export {
 
 export {
   ReputationBridge,
-  reputationBridge,
   type ReputationData,
+  reputationBridge,
 } from './agent0/reputation'
 
 // =============================================================================
 // PLUGINS
 // =============================================================================
 
-export { corePlugin, createCorePlugin, type CorePluginConfig } from './plugins/core'
-export { autonomyPlugin, createAutonomyPlugin, type AutonomyPluginConfig } from './plugins/autonomy'
-export { experiencePlugin, createExperiencePlugin, type ExperiencePluginConfig } from './plugins/experience'
 export {
-  trajectoryPlugin,
+  type AutonomyPluginConfig,
+  autonomyPlugin,
+  createAutonomyPlugin,
+} from './plugins/autonomy'
+export {
+  type CorePluginConfig,
+  corePlugin,
+  createCorePlugin,
+} from './plugins/core'
+export {
+  createExperiencePlugin,
+  type ExperiencePluginConfig,
+  experiencePlugin,
+} from './plugins/experience'
+export {
   createTrajectoryPlugin,
   type TrajectoryActionParams,
   type TrajectoryActionResult,
   type TrajectoryEntry,
   type TrajectoryObservation,
   type TrajectoryPluginConfig,
+  trajectoryPlugin,
 } from './plugins/trajectory'
 
 // =============================================================================
@@ -234,13 +235,12 @@ export {
 // RUNTIME
 // =============================================================================
 
-export { AgentRuntimeManager, agentRuntimeManager } from './runtime/manager'
-
 export {
   AgentRuntimeFactory,
   agentRuntimeFactory,
   type RuntimeCreationOptions,
 } from './runtime/factory'
+export { AgentRuntimeManager, agentRuntimeManager } from './runtime/manager'
 
 // =============================================================================
 // COMMUNICATION
@@ -248,16 +248,16 @@ export {
 
 export {
   A2ACommunicationClient,
-  createA2AClient,
   type A2AMessage,
   type A2AMessageResponse,
   type A2AMessageType,
   type A2APayload,
+  createA2AClient,
 } from './communication/a2a'
 
 export {
-  MCPCommunicationClient,
   createMCPClient,
+  MCPCommunicationClient,
   type MCPResource,
   type MCPTool,
 } from './communication/mcp'
@@ -287,7 +287,7 @@ export {
   buildSafePrompt,
   countTokensSync,
   getModelTokenLimit,
+  type PromptSection,
   truncateToTokenLimitSync,
   willPromptFit,
-  type PromptSection,
 } from './utils/prompt-builder'

@@ -497,7 +497,10 @@ export interface SimulationTrajectoryStep {
   observation: {
     markets: SimulationPredictionMarket[]
     perpMarkets: SimulationPerpetualMarket[]
-    portfolio: { balance: number; positions: Array<{ marketId: string; shares: number }> }
+    portfolio: {
+      balance: number
+      positions: Array<{ marketId: string; shares: number }>
+    }
     socialFeed?: SimulationFeedPost[]
   }
   /** Action taken by the agent */
@@ -516,7 +519,12 @@ export type ModelTier = 'lite' | 'standard' | 'pro'
 /**
  * Model provider
  */
-export type ModelProvider = 'groq' | 'openai' | 'anthropic' | 'together' | 'local'
+export type ModelProvider =
+  | 'groq'
+  | 'openai'
+  | 'anthropic'
+  | 'together'
+  | 'local'
 
 /**
  * Model configuration for benchmarking

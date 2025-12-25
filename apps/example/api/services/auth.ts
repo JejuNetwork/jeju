@@ -8,9 +8,8 @@ import {
   type OAuth3Config,
   type OAuth3Identity,
   type OAuth3Session,
-} from '@jejunetwork/auth'
+} from '@jejunetwork/oauth3'
 import type { Address, Hex } from 'viem'
-
 
 export interface OAuth3Service {
   initialize(): Promise<{ app: DiscoveredApp; nodes: DiscoveredNode[] }>

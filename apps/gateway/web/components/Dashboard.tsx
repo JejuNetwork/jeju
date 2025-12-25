@@ -106,59 +106,47 @@ export default function Dashboard() {
       </header>
 
       <div className="container" style={{ paddingTop: '1.5rem' }}>
-        {!isConnected ? (
-          <div className="card hero-card animate-fade-in">
-            <div className="hero-icon">
-              <WalletIcon size={36} />
-            </div>
-            <h2 className="hero-title">Connect Wallet</h2>
-            <ConnectButton />
-          </div>
-        ) : (
-          <>
-            <MultiTokenBalanceDisplay />
-            <nav className="nav-tab-container">
-              {TABS.map(({ id, icon: Icon, label }) => (
-                <button
-                  type="button"
-                  key={id}
-                  className={`button nav-tab ${activeTab === id ? '' : 'button-secondary'}`}
-                  onClick={() => setActiveTab(id)}
-                >
-                  <Icon size={16} />
-                  {label}
-                </button>
-              ))}
-            </nav>
-            <div className="animate-fade-in">
-              {activeTab === 'tokens' && (
-                <>
-                  <TokenList />
-                  <div style={{ marginTop: '1.5rem' }}>
-                    <RegisterToken />
-                  </div>
-                </>
-              )}
-              {activeTab === 'transfer' && (
-                <>
-                  <EILStats />
-                  <CrossChainTransfer />
-                </>
-              )}
-              {activeTab === 'xlp' && <XLPDashboard />}
-              {activeTab === 'deploy' && <DeployPaymaster />}
-              {activeTab === 'liquidity' && <AddLiquidity />}
-              {activeTab === 'earnings' && <LPDashboard />}
-              {activeTab === 'nodes' && <NodeStakingTab />}
-              {activeTab === 'registry' && <RegistryTab />}
-              {activeTab === 'intents' && <IntentsTab />}
-              {activeTab === 'names' && <JNSTab />}
-              {activeTab === 'faucet' && <FaucetTab />}
-              {activeTab === 'oracle' && <OracleTab />}
-              {activeTab === 'risk' && <RiskAllocationDashboard />}
-            </div>
-          </>
-        )}
+        {isConnected && <MultiTokenBalanceDisplay />}
+        <nav className="nav-tab-container">
+          {TABS.map(({ id, icon: Icon, label }) => (
+            <button
+              type="button"
+              key={id}
+              className={`button nav-tab ${activeTab === id ? '' : 'button-secondary'}`}
+              onClick={() => setActiveTab(id)}
+            >
+              <Icon size={16} />
+              {label}
+            </button>
+          ))}
+        </nav>
+        <div className="animate-fade-in">
+          {activeTab === 'tokens' && (
+            <>
+              <TokenList />
+              <div style={{ marginTop: '1.5rem' }}>
+                <RegisterToken />
+              </div>
+            </>
+          )}
+          {activeTab === 'transfer' && (
+            <>
+              <EILStats />
+              <CrossChainTransfer />
+            </>
+          )}
+          {activeTab === 'xlp' && <XLPDashboard />}
+          {activeTab === 'deploy' && <DeployPaymaster />}
+          {activeTab === 'liquidity' && <AddLiquidity />}
+          {activeTab === 'earnings' && <LPDashboard />}
+          {activeTab === 'nodes' && <NodeStakingTab />}
+          {activeTab === 'registry' && <RegistryTab />}
+          {activeTab === 'intents' && <IntentsTab />}
+          {activeTab === 'names' && <JNSTab />}
+          {activeTab === 'faucet' && <FaucetTab />}
+          {activeTab === 'oracle' && <OracleTab />}
+          {activeTab === 'risk' && <RiskAllocationDashboard />}
+        </div>
       </div>
     </div>
   )

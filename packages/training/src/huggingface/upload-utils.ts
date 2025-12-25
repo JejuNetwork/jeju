@@ -117,7 +117,10 @@ export async function ensureHuggingFaceRepository(
     ) {
       return { created: false }
     }
-    return { created: false, error: error instanceof Error ? error.message : String(error) }
+    return {
+      created: false,
+      error: error instanceof Error ? error.message : String(error),
+    }
   }
 }
 
@@ -266,7 +269,9 @@ export function generateModelCard(config: {
   lines.push('from transformers import AutoModelForCausalLM, AutoTokenizer')
   lines.push('')
   lines.push(`tokenizer = AutoTokenizer.from_pretrained("${config.modelName}")`)
-  lines.push(`model = AutoModelForCausalLM.from_pretrained("${config.modelName}")`)
+  lines.push(
+    `model = AutoModelForCausalLM.from_pretrained("${config.modelName}")`,
+  )
   lines.push('```')
   lines.push('')
 

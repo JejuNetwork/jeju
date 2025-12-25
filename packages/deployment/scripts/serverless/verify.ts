@@ -184,7 +184,7 @@ IPFS:        ${this.ipfsGateway}
       message: codeResult.accessible
         ? `Code accessible (${codeResult.size} bytes)`
         : `Code not accessible: ${codeResult.error}`,
-      details: { cid: worker.codeCid, size: codeResult.size || 0 },
+      details: { cid: worker.codeCid, size: codeResult.size ?? 0 },
       duration: Date.now() - start,
     })
 
@@ -328,7 +328,7 @@ IPFS:        ${this.ipfsGateway}
       })
 
       if (response.ok) {
-        const size = parseInt(response.headers.get('content-length') || '0', 10)
+        const size = parseInt(response.headers.get('content-length') ?? '0', 10)
         return { accessible: true, size }
       }
     }

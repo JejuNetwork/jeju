@@ -9,11 +9,11 @@ import {
 } from 'node:fs'
 import { join, normalize, resolve } from 'node:path'
 import { getCQLBlockProducerUrl } from '@jejunetwork/config'
+import { toError } from '@jejunetwork/types'
 import { Command } from 'commander'
 import type { Address } from 'viem'
 import { bootstrapContracts, getChainStatus } from '../lib/chain'
 import { logger } from '../lib/logger'
-import { toError } from '@jejunetwork/types'
 import {
   sanitizeErrorMessage,
   validateAddress,

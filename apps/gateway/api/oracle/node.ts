@@ -1,3 +1,4 @@
+import { readContract } from '@jejunetwork/shared'
 import type { NodeMetrics, OracleNodeConfig } from '@jejunetwork/types'
 import { expectHex, parseEnvAddress, ZERO_ADDRESS } from '@jejunetwork/types'
 import {
@@ -102,7 +103,7 @@ export class OracleNode {
       throw new Error('Wallet client has no account')
     const workerAddress = this.walletClient.account.address
 
-    const existingOperatorId = await this.publicClient.readContract({
+    const existingOperatorId = await readContract(this.publicClient, {
       address: this.config.networkConnector,
       abi: NETWORK_CONNECTOR_ABI,
       functionName: 'workerToOperator',
@@ -135,7 +136,7 @@ export class OracleNode {
 
     await this.publicClient.waitForTransactionReceipt({ hash })
 
-    this.operatorId = await this.publicClient.readContract({
+    this.operatorId = await readContract(this.publicClient, {
       address: this.config.networkConnector,
       abi: NETWORK_CONNECTOR_ABI,
       functionName: 'workerToOperator',
@@ -149,7 +150,7 @@ export class OracleNode {
 
     console.log('[OracleNode] Polling prices...')
 
-    const feedIds = await this.publicClient.readContract({
+    const feedIds = await readContract(this.publicClient, {
       address: this.config.feedRegistry,
       abi: FEED_REGISTRY_ABI,
       functionName: 'getActiveFeeds',

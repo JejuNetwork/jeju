@@ -7,8 +7,8 @@
  * @packageDocumentation
  */
 
-import { logger } from '@jejunetwork/shared'
 import type { IAgentRuntime } from '@elizaos/core'
+import { logger } from '@jejunetwork/shared'
 import { z } from 'zod'
 
 /**
@@ -77,22 +77,24 @@ export interface MarketInfo {
 /**
  * Zod schema for trade decision parsing
  */
-const TradeDecisionSchema = z.object({
+const _TradeDecisionSchema = z.object({
   action: z.enum(['trade', 'hold']),
-  trade: z.object({
-    type: z.enum(['prediction', 'perp']),
-    market: z.string(),
-    action: z.enum(['buy_yes', 'buy_no', 'open_long', 'open_short']),
-    amount: z.number(),
-    reasoning: z.string().optional(),
-  }).optional(),
+  trade: z
+    .object({
+      type: z.enum(['prediction', 'perp']),
+      market: z.string(),
+      action: z.enum(['buy_yes', 'buy_no', 'open_long', 'open_short']),
+      amount: z.number(),
+      reasoning: z.string().optional(),
+    })
+    .optional(),
   reasoning: z.string().optional(),
 })
 
 /**
  * Parse LLM response with Zod validation
  */
-function parseLLMResponse<T>(
+function _parseLLMResponse<T>(
   response: string,
   schema: z.ZodType<T>,
 ): T | null {
@@ -171,7 +173,9 @@ export class AutonomousTradingService {
     agentId: string,
     marketId: string,
   ): Promise<MarketInfo | null> {
-    logger.debug(`Getting market analysis for agent ${agentId} on market ${marketId}`)
+    logger.debug(
+      `Getting market analysis for agent ${agentId} on market ${marketId}`,
+    )
     return null
   }
 
@@ -196,24 +200,32 @@ Current Status:
 - Open Positions: ${portfolio.positions.length}
 
 Available Prediction Markets:
-${predictionMarkets.length > 0
-  ? predictionMarkets.slice(0, 5).map((m) => {
-      const yesPrice = m.yesPrice ?? 0.5
-      const noPrice = m.noPrice ?? 0.5
-      return `- ${m.question ?? m.id} (YES: ${(yesPrice * 100).toFixed(1)}%, NO: ${(noPrice * 100).toFixed(1)}%)`
-    }).join('\n')
-  : '(None available)'
+${
+  predictionMarkets.length > 0
+    ? predictionMarkets
+        .slice(0, 5)
+        .map((m) => {
+          const yesPrice = m.yesPrice ?? 0.5
+          const noPrice = m.noPrice ?? 0.5
+          return `- ${m.question ?? m.id} (YES: ${(yesPrice * 100).toFixed(1)}%, NO: ${(noPrice * 100).toFixed(1)}%)`
+        })
+        .join('\n')
+    : '(None available)'
 }
 
 Available Perp Markets:
-${perpMarkets.length > 0
-  ? perpMarkets.slice(0, 5).map((m) => {
-      const current = m.currentPrice ?? 100
-      const change = m.priceChange24h ?? 0
-      const trend = change > 0 ? '📈' : change < 0 ? '📉' : '➡️'
-      return `- ${m.ticker}: $${current.toFixed(2)} ${trend} ${(change * 100).toFixed(1)}%`
-    }).join('\n')
-  : '(None available)'
+${
+  perpMarkets.length > 0
+    ? perpMarkets
+        .slice(0, 5)
+        .map((m) => {
+          const current = m.currentPrice ?? 100
+          const change = m.priceChange24h ?? 0
+          const trend = change > 0 ? '📈' : change < 0 ? '📉' : '➡️'
+          return `- ${m.ticker}: $${current.toFixed(2)} ${trend} ${(change * 100).toFixed(1)}%`
+        })
+        .join('\n')
+    : '(None available)'
 }
 
 Strategy: ${config.tradingStrategy ?? 'Balanced risk/reward seeking alpha'}
@@ -248,7 +260,7 @@ Now analyze and decide:`
       return null
     }
 
-    const prompt = this.buildTradingPrompt(
+    const _prompt = this.buildTradingPrompt(
       config,
       `Agent-${agentId.slice(0, 8)}`,
       portfolio,
@@ -300,7 +312,9 @@ Now analyze and decide:`
     const result = await this.executeTrade(agentId, decision)
 
     if (!result.success) {
-      logger.warn(`Trade execution failed for agent ${agentId}: ${result.error}`)
+      logger.warn(
+        `Trade execution failed for agent ${agentId}: ${result.error}`,
+      )
       return {
         tradesExecuted: 0,
         marketId: undefined,
@@ -326,7 +340,9 @@ Now analyze and decide:`
     agentId: string,
     decision: TradeDecision,
   ): Promise<TradeResult> {
-    logger.debug(`Executing trade for agent ${agentId}: ${decision.action} ${decision.amount}`)
+    logger.debug(
+      `Executing trade for agent ${agentId}: ${decision.action} ${decision.amount}`,
+    )
 
     // Validate decision
     if (decision.action === 'hold') {
@@ -341,7 +357,10 @@ Now analyze and decide:`
     const portfolio = await this.getPortfolio(agentId)
 
     if (decision.amount > portfolio.balance) {
-      return { success: false, error: `Insufficient balance: $${portfolio.balance.toFixed(2)}` }
+      return {
+        success: false,
+        error: `Insufficient balance: $${portfolio.balance.toFixed(2)}`,
+      }
     }
 
     // In a full implementation, this would execute the actual trade

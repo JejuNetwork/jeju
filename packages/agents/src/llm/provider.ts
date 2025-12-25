@@ -6,8 +6,8 @@
  * @packageDocumentation
  */
 
-import { logger } from '@jejunetwork/shared'
 import type { IAgentRuntime } from '@elizaos/core'
+import { logger } from '@jejunetwork/shared'
 
 /**
  * Provider config
@@ -35,13 +35,15 @@ export function createJejuProvider(config: JejuProviderConfig = {}) {
 
   return {
     name: 'jeju-compute',
-    
+
     async generateText(
       _runtime: IAgentRuntime,
       prompt: string,
       options: GenerateTextOptions = {},
     ): Promise<string> {
-      logger.debug(`Generating text via Jeju Compute: model=${options.model ?? defaultModel}, promptLength=${prompt.length}`)
+      logger.debug(
+        `Generating text via Jeju Compute: model=${options.model ?? defaultModel}, promptLength=${prompt.length}`,
+      )
 
       // TODO: Integrate with Jeju Compute SDK
       throw new Error('Not implemented - requires Jeju Compute integration')

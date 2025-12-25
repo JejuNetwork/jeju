@@ -1,6 +1,10 @@
+import type {
+  NetworkType,
+  OracleNodeConfig,
+  PriceSourceConfig,
+} from '@jejunetwork/types'
 import { expectAddress, ZERO_ADDRESS } from '@jejunetwork/types'
 import { type Address, type Hex, isAddress, isHex } from 'viem'
-import type { NetworkType, OracleNodeConfig, PriceSourceConfig } from '@jejunetwork/types'
 
 interface NetworkConfig {
   chainId: number
@@ -127,7 +131,7 @@ export function loadContractAddresses(
   for (const key of REQUIRED_ADDRESSES) {
     const envAddr = envOverrides[key]
     const configAddr = networkConfig.contracts[key]
-    const addr = envAddr ?? configAddr
+    const addr = envAddr || configAddr
 
     addresses[key] = validateAddress(addr, key)
   }
@@ -236,13 +240,14 @@ export function validateConfig(config: OracleNodeConfig): void {
     errors.push('Heartbeat interval should be >= poll interval')
   }
 
-  if (config.feedRegistry === ZERO_ADDRESS) {
+  const zeroAddress = '0x0000000000000000000000000000000000000000'
+  if (config.feedRegistry === zeroAddress) {
     errors.push('Feed registry address not configured')
   }
-  if (config.reportVerifier === ZERO_ADDRESS) {
+  if (config.reportVerifier === zeroAddress) {
     errors.push('Report verifier address not configured')
   }
-  if (config.networkConnector === ZERO_ADDRESS) {
+  if (config.networkConnector === zeroAddress) {
     errors.push('Network connector address not configured')
   }
 

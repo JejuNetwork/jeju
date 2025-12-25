@@ -1,7 +1,29 @@
 import { getRpcGatewayUrl } from '@jejunetwork/config'
 import { expectValid, type JsonValue } from '@jejunetwork/types'
 import { type Chain, createPublicClient, http, type PublicClient } from 'viem'
+import { z } from 'zod'
 import { RpcChainsResponseSchema, type RpcParamValue } from './validation'
+
+// Validation schemas for RPC responses
+const JsonRpcResponseSchema = z.object({
+  jsonrpc: z.string(),
+  id: z.union([z.number(), z.string()]),
+  result: z.unknown().optional(),
+  error: z
+    .object({
+      code: z.number(),
+      message: z.string(),
+      data: z.unknown().optional(),
+    })
+    .optional(),
+})
+
+const RateLimitInfoSchema = z.object({
+  tier: z.string(),
+  limit: z.union([z.number(), z.string()]),
+  remaining: z.union([z.number(), z.string()]),
+  resetAt: z.union([z.number(), z.string()]).optional(),
+})
 
 export interface RPCClientConfig {
   gatewayUrl?: string
@@ -112,7 +134,7 @@ export class RPCClient {
       throw new Error(`Gateway error: ${response.status}`)
     }
 
-    const data = await response.json()
+    const data = JsonRpcResponseSchema.parse(await response.json())
     return data as JsonRpcResponse<T>
   }
 
@@ -137,8 +159,7 @@ export class RPCClient {
       headers,
     })
     if (!response.ok) throw new Error('Failed to fetch rate limits')
-    const data = await response.json()
-    return data as RateLimitInfo
+    return RateLimitInfoSchema.parse(await response.json())
   }
 
   createClient(chainId: number): PublicClient {

@@ -440,7 +440,7 @@ export class PkgRegistryManager {
       versionRecords[ver.version] = {
         name: this.getFullName(pkg.name, pkg.scope),
         version: ver.version,
-        description: manifest?.description || pkg.description,
+        description: manifest?.description ?? pkg.description,
         main: manifest?.main,
         scripts: manifest?.scripts,
         dependencies: manifest?.dependencies,
@@ -448,7 +448,7 @@ export class PkgRegistryManager {
         peerDependencies: manifest?.peerDependencies,
         engines: manifest?.engines,
         keywords: manifest?.keywords,
-        license: manifest?.license || pkg.license,
+        license: manifest?.license ?? pkg.license,
         dist: {
           shasum: ver.integrityHash.slice(2, 42),
           tarball: tarballUrl,

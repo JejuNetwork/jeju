@@ -8,9 +8,9 @@
  */
 
 import { describe, expect, test } from 'bun:test'
+import type { PriceSourceConfig } from '@jejunetwork/types'
 import type { Hex } from 'viem'
 import { PriceFetcher } from '../../src/oracle/price-fetcher'
-import type { PriceSourceConfig } from '@jejunetwork/types'
 
 const RPC_URL = 'http://localhost:6546'
 

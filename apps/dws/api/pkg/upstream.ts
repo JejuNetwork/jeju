@@ -173,7 +173,7 @@ export class UpstreamProxy {
     options: { versions?: number } = {},
   ): Promise<UpstreamSyncResult> {
     const startTime = Date.now()
-    const versionsToCache = options.versions || 5
+    const versionsToCache = options.versions ?? 5
 
     const metadata = await this.fetchFromUpstream(packageName)
     if (!metadata) {

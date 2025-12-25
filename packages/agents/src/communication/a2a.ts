@@ -99,7 +99,8 @@ export class A2ACommunicationClient {
   private config: A2AClientConfig
   private connected = false
   private agentCards: Map<string, A2AAgentCard> = new Map()
-  private pendingMessages: Map<string, (response: A2AMessageResponse) => void> = new Map()
+  private pendingMessages: Map<string, (response: A2AMessageResponse) => void> =
+    new Map()
 
   constructor(config: A2AClientConfig) {
     this.config = config
@@ -183,7 +184,7 @@ export class A2ACommunicationClient {
 
     const messageId = `msg-${Date.now()}-${Math.random().toString(36).slice(2)}`
 
-    const message: A2AMessage = {
+    const _message: A2AMessage = {
       id: messageId,
       type: payload.type,
       from: this.config.agentId,
@@ -340,6 +341,8 @@ export class A2ACommunicationClient {
 /**
  * Create a new A2A client
  */
-export function createA2AClient(config: A2AClientConfig): A2ACommunicationClient {
+export function createA2AClient(
+  config: A2AClientConfig,
+): A2ACommunicationClient {
   return new A2ACommunicationClient(config)
 }

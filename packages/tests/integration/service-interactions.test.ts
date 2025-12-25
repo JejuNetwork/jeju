@@ -36,7 +36,7 @@ import { APP_URLS, JEJU_LOCALNET, TEST_WALLETS } from '../shared/constants'
 
 // GraphQL response schema
 const GraphQLResponseSchema = z.object({
-  data: z.record(z.unknown()).optional(),
+  data: z.record(z.string(), z.unknown()).optional(),
   errors: z.array(z.object({ message: z.string() })).optional(),
 })
 

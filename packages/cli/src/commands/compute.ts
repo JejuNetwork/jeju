@@ -2,11 +2,11 @@
 
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
+import { toError } from '@jejunetwork/types'
 import { spawn } from 'bun'
 import { Command } from 'commander'
 import { getChainStatus } from '../lib/chain'
 import { logger } from '../lib/logger'
-import { toError } from '@jejunetwork/types'
 import {
   sanitizeErrorMessage,
   validateAddress,

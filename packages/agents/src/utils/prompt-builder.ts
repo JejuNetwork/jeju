@@ -74,7 +74,7 @@ export function truncateToTokenLimitSync(
   let truncatedText = new TextDecoder().decode(enc.decode(truncatedTokens))
 
   if (options.ellipsis) {
-    truncatedText = truncatedText.trimEnd() + '...'
+    truncatedText = `${truncatedText.trimEnd()}...`
   }
 
   return {

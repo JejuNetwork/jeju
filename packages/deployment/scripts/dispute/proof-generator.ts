@@ -375,7 +375,7 @@ export class FraudProofGenerator {
 
     // Execute one more step from last valid state to get the diverging instruction
     this.cannonInterface.executeStep(lastValidState, memory, preimages)
-    const instruction = memory.get(lastValidState.pc) || 0
+    const instruction = memory.get(lastValidState.pc) ?? 0
 
     return {
       step: low + 1n,
@@ -529,7 +529,7 @@ export class FraudProofGenerator {
           witness.memProof,
           snapshotPreimages.map((p) => p.key),
           Array.from(snapshot.accountProofs.values()).map((p) =>
-            keccak256(p.accountProof[0] || '0x'),
+            keccak256(p.accountProof[0] ?? '0x'),
           ),
         ],
       )

@@ -10,6 +10,7 @@
  * - NFTProvenance: Provenance tracking for minted items
  */
 
+import { ZERO_ADDRESS } from '@jejunetwork/types'
 import type { Store } from '@subsquid/typeorm-store'
 import { formatEther, keccak256, parseAbi, stringToHex } from 'viem'
 import {
@@ -118,8 +119,6 @@ const itemsInterface = parseAbi([
   'event TransferSingle(address indexed operator, address indexed from, address indexed to, uint256 id, uint256 value)',
   'event TransferBatch(address indexed operator, address indexed from, address indexed to, uint256[] ids, uint256[] values)',
 ])
-
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 interface MintedItem {
   minter: string
@@ -353,7 +352,7 @@ export async function processGameTokenEvents(
 
         const rarityNames = ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary']
         ctx.log.info(
-          `Item minted: ${minter} minted ${amount}x item #${itemId} (${rarityNames[rarity] || 'Unknown'}, ${stackable ? 'stackable' : 'unique'})`,
+          `Item minted: ${minter} minted ${amount}x item #${itemId} (${rarityNames[rarity] ?? 'Unknown'}, ${stackable ? 'stackable' : 'unique'})`,
         )
       } else if (eventSig === ITEM_BURNED) {
         const decoded = decodeLog({

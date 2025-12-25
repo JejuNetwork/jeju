@@ -74,7 +74,9 @@ export class AgentLockService {
     }
 
     const holder = this.locks.get(key)?.lockId ?? null
-    logger.debug(`Failed to acquire lock for ${agentId}:${operation}, held by ${holder ?? 'unknown'}`)
+    logger.debug(
+      `Failed to acquire lock for ${agentId}:${operation}, held by ${holder ?? 'unknown'}`,
+    )
     return { acquired: false, lockId: null, holder: holder ?? undefined }
   }
 
@@ -95,7 +97,9 @@ export class AgentLockService {
       return true
     }
 
-    logger.warn(`Lock release failed for ${agentId}:${operation} - wrong lockId ${lockId} or not held (current: ${existing?.lockId ?? 'none'})`)
+    logger.warn(
+      `Lock release failed for ${agentId}:${operation} - wrong lockId ${lockId} or not held (current: ${existing?.lockId ?? 'none'})`,
+    )
     return false
   }
 

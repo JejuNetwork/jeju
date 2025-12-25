@@ -1,13 +1,21 @@
 {
   "name": "@jejunetwork/messaging",
   "version": "0.1.0",
-  "description": "Decentralized private messaging protocol for Jeju L2",
+  "description": "Unified messaging protocol for Jeju Network - public (Farcaster) and private (XMTP) messaging",
   "license": "MIT",
   "type": "module",
-  "main": "dist/sdk/index.js",
-  "types": "dist/sdk/index.d.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./farcaster": {
+      "types": "./dist/farcaster/index.d.ts",
+      "import": "./dist/farcaster/index.js"
+    },
+    "./sdk": {
       "types": "./dist/sdk/index.d.ts",
       "import": "./dist/sdk/index.js"
     }
@@ -22,12 +30,12 @@
   "dependencies": {
     "@elysiajs/cors": "^1.4.0",
     "@jejunetwork/db": "workspace:*",
-    "@jejunetwork/farcaster": "workspace:*",
+    "@jejunetwork/kms": "workspace:*",
     "@jejunetwork/shared": "workspace:*",
     "@jejunetwork/types": "workspace:*",
-    "@noble/curves": "2.0.1",
-    "@noble/ciphers": "1.2.1",
-    "@noble/hashes": "1.7.1",
+    "@noble/ciphers": "^1.2.1",
+    "@noble/curves": "^1.8.1",
+    "@noble/hashes": "^1.7.1",
     "elysia": "^1.4.19",
     "viem": "2.43.3",
     "ws": "8.18.3",

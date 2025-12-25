@@ -264,7 +264,7 @@ Resources:
             nonce: '${nonce}',
             message,
             signature,
-            fid: parseInt(fid),
+            fid: parseInt(fid, 10),
             custody
           })
         });
@@ -276,12 +276,12 @@ Resources:
           status.className = 'status success';
           window.location.href = result.redirectUrl;
         } else {
-          throw new Error(result.error || 'Verification failed');
+          throw new Error(result.error ?? 'Verification failed');
         }
         
       } catch (err) {
         console.error(err);
-        status.textContent = err.message || 'Sign-in failed';
+        status.textContent = err.message ?? 'Sign-in failed';
         status.className = 'status error';
       }
     });

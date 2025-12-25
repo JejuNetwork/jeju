@@ -200,11 +200,11 @@ function mapContractResponse(contract: MockContract) {
   if (!contract) throw new Error('Contract is required')
   return {
     address: contract.address,
-    contractType: contract.contractType || null,
+    contractType: contract.contractType ?? null,
     isERC20: contract.isERC20,
     isERC721: contract.isERC721,
     isERC1155: contract.isERC1155,
-    creator: contract.creator?.address || null,
+    creator: contract.creator?.address ?? null,
     firstSeenAt: contract.firstSeenAt.toISOString(),
   }
 }
@@ -213,11 +213,11 @@ function mapTokenTransferResponse(transfer: MockTokenTransfer) {
   if (!transfer) throw new Error('TokenTransfer is required')
   return {
     id: transfer.id,
-    token: transfer.token?.address || null,
-    from: transfer.from?.address || null,
-    to: transfer.to?.address || null,
-    value: transfer.value?.toString() || null,
-    tokenId: transfer.tokenId || null,
+    token: transfer.token?.address ?? null,
+    from: transfer.from?.address ?? null,
+    to: transfer.to?.address ?? null,
+    value: transfer.value?.toString() ?? null,
+    tokenId: transfer.tokenId ?? null,
     tokenStandard: transfer.tokenStandard,
     timestamp: transfer.timestamp.toISOString(),
   }
@@ -401,18 +401,18 @@ function mapOracleReportResponse(report: MockOracleReport) {
   if (!report) throw new Error('OracleReport is required')
   return {
     reportId: report.reportId,
-    feedId: report.feed?.feedId || null,
-    symbol: report.feed?.symbol || null,
+    feedId: report.feed?.feedId ?? null,
+    symbol: report.feed?.symbol ?? null,
     round: report.round.toString(),
     price: report.price.toString(),
     confidence: report.confidence.toString(),
     timestamp: report.timestamp.toISOString(),
     isDisputed: report.isDisputed,
     isValid: report.isValid,
-    submittedBy: report.submittedBy?.address || null,
+    submittedBy: report.submittedBy?.address ?? null,
     submittedAt: report.submittedAt.toISOString(),
-    txHash: report.txHash || null,
-    blockNumber: report.blockNumber || null,
+    txHash: report.txHash ?? null,
+    blockNumber: report.blockNumber ?? null,
   }
 }
 
@@ -420,21 +420,21 @@ function mapOracleDisputeResponse(dispute: MockOracleDispute) {
   if (!dispute) throw new Error('OracleDispute is required')
   return {
     disputeId: dispute.disputeId,
-    reportId: dispute.report?.reportId || null,
-    feedId: dispute.feed?.feedId || null,
-    disputer: dispute.disputer?.address || null,
+    reportId: dispute.report?.reportId ?? null,
+    feedId: dispute.feed?.feedId ?? null,
+    disputer: dispute.disputer?.address ?? null,
     bond: dispute.bond.toString(),
     reason: dispute.reason,
     status: dispute.status,
-    challenger: dispute.challenger?.address || null,
-    challengeBond: dispute.challengeBond?.toString() || null,
-    outcome: dispute.outcome || null,
-    slashedAmount: dispute.slashedAmount?.toString() || null,
+    challenger: dispute.challenger?.address ?? null,
+    challengeBond: dispute.challengeBond?.toString() ?? null,
+    outcome: dispute.outcome ?? null,
+    slashedAmount: dispute.slashedAmount?.toString() ?? null,
     openedAt: dispute.openedAt.toISOString(),
     challengeDeadline: dispute.challengeDeadline.toISOString(),
-    resolvedAt: dispute.resolvedAt?.toISOString() || null,
-    txHash: dispute.txHash || null,
-    blockNumber: dispute.blockNumber || null,
+    resolvedAt: dispute.resolvedAt?.toISOString() ?? null,
+    txHash: dispute.txHash ?? null,
+    blockNumber: dispute.blockNumber ?? null,
   }
 }
 
@@ -442,20 +442,20 @@ function mapCrossServiceRequestResponse(request: MockCrossServiceRequest) {
   if (!request) throw new Error('CrossServiceRequest is required')
   return {
     requestId: request.requestId,
-    requester: request.requester?.address || null,
+    requester: request.requester?.address ?? null,
     type: request.requestType,
     sourceCid: request.sourceCid,
-    sourceProvider: request.sourceProvider?.address || null,
-    destinationProvider: request.destinationProvider?.address || null,
+    sourceProvider: request.sourceProvider?.address ?? null,
+    destinationProvider: request.destinationProvider?.address ?? null,
     status: request.status,
     createdAt: request.createdAt.toISOString(),
-    completedAt: request.completedAt?.toISOString() || null,
+    completedAt: request.completedAt?.toISOString() ?? null,
     storageCost: request.storageCost.toString(),
     bandwidthCost: request.bandwidthCost.toString(),
     totalCost: request.totalCost.toString(),
-    error: request.error || null,
-    txHash: request.txHash || null,
-    blockNumber: request.blockNumber || null,
+    error: request.error ?? null,
+    txHash: request.txHash ?? null,
+    blockNumber: request.blockNumber ?? null,
   }
 }
 

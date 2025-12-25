@@ -13,22 +13,27 @@
  * - Automatic routing based on recipient type
  */
 
-import type { DirectCast, DirectCastClient, DCClientConfig } from '@jejunetwork/farcaster'
+import type {
+  DCClientConfig,
+  DirectCast,
+  DirectCastClient,
+} from './farcaster'
 import type { Address } from 'viem'
 
 // Re-export Farcaster types for convenience
 export type { DirectCast, DCClientConfig }
+
+import {
+  createMessagingClient,
+  type MessagingClient,
+  type MessagingClientConfig,
+} from './sdk'
 import {
   type CQLConfig,
-  CQLMessageStorage,
+  type CQLMessageStorage,
   createCQLStorage,
   type StoredMessage,
 } from './storage/cql-storage'
-import {
-  type MessagingClient,
-  type MessagingClientConfig,
-  createMessagingClient,
-} from './sdk'
 
 export interface UnifiedMessagingConfig {
   /** Jeju messaging client config */
@@ -68,7 +73,7 @@ async function getDirectCastClient(
   config: DCClientConfig,
 ): Promise<DirectCastClient> {
   if (!DirectCastClientClass) {
-    const mod = await import('@jejunetwork/farcaster')
+    const mod = await import('./farcaster')
     DirectCastClientClass = mod.DirectCastClient
   }
   return new DirectCastClientClass(config)
@@ -316,7 +321,10 @@ export class UnifiedMessagingService {
   }
 
   private getWalletConversationId(recipient: Address): string {
-    const addresses = [this.address.toLowerCase(), recipient.toLowerCase()].sort()
+    const addresses = [
+      this.address.toLowerCase(),
+      recipient.toLowerCase(),
+    ].sort()
     return `wallet-${addresses[0]}-${addresses[1]}`
   }
 

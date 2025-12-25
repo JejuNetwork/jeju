@@ -6,8 +6,8 @@
  * @packageDocumentation
  */
 
-import { logger } from '@jejunetwork/shared'
 import type { IAgentRuntime } from '@elizaos/core'
+import { logger } from '@jejunetwork/shared'
 
 /**
  * Runtime cache entry

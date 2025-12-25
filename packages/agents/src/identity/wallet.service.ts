@@ -55,7 +55,9 @@ export class AgentWalletService {
     value: bigint,
     _data?: string,
   ): Promise<TransactionResult> {
-    logger.info(`Sending transaction from agent ${agentId} to ${to}: ${value.toString()} wei`)
+    logger.info(
+      `Sending transaction from agent ${agentId} to ${to}: ${value.toString()} wei`,
+    )
     throw new Error('Not implemented')
   }
 

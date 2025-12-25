@@ -8,10 +8,15 @@
  */
 
 import { logger } from '@jejunetwork/shared'
-import { AgentStatus, type AgentRegistration } from '../types/agent-registry'
 import { agentRegistry } from '../services/agent-registry.service'
-import { getAgent0Client, type SearchFilters, type SearchOptions, type SearchResult } from './client'
-import { reputationBridge, type ReputationData } from './reputation'
+import { type AgentRegistration, AgentStatus } from '../types/agent-registry'
+import {
+  getAgent0Client,
+  type SearchFilters,
+  type SearchOptions,
+  type SearchResult,
+} from './client'
+import { type ReputationData, reputationBridge } from './reputation'
 
 /**
  * Discovery filter
@@ -113,7 +118,8 @@ export class AgentDiscoveryService {
 
       // Apply reputation filter
       if (filter.minReputation !== undefined) {
-        const score = agent.onChainData?.reputationScore ?? agent.trustLevel * 25
+        const score =
+          agent.onChainData?.reputationScore ?? agent.trustLevel * 25
         if (score < filter.minReputation) return false
       }
 
@@ -126,9 +132,7 @@ export class AgentDiscoveryService {
       return true
     })
 
-    results.push(
-      ...filteredLocal.map((r) => this.mapLocalToDiscovered(r)),
-    )
+    results.push(...filteredLocal.map((r) => this.mapLocalToDiscovered(r)))
 
     // Search Agent0 network if enabled
     if (filter.includeExternal && process.env.AGENT0_ENABLED === 'true') {
@@ -148,7 +152,10 @@ export class AgentDiscoveryService {
             a2a: filter.a2a,
           }
 
-          const searchResponse = await agent0Client.searchAgents(searchFilters, options)
+          const searchResponse = await agent0Client.searchAgents(
+            searchFilters,
+            options,
+          )
 
           for (const agent0Data of searchResponse.items) {
             const profile = await this.mapAgent0ToDiscovered(agent0Data)
@@ -280,7 +287,9 @@ export class AgentDiscoveryService {
     let reputation: ReputationData
 
     try {
-      reputation = await reputationBridge.getAggregatedReputation(result.tokenId)
+      reputation = await reputationBridge.getAggregatedReputation(
+        result.tokenId,
+      )
     } catch {
       reputation = {
         totalBets: 0,

@@ -894,7 +894,9 @@ export class SimulationA2AInterface {
     const predictions = predictionsResult as {
       predictions: PredictionMarketResponse[]
     }
-    const perpetuals = perpetualsResult as { perpetuals: PerpetualMarketResponse[] }
+    const perpetuals = perpetualsResult as {
+      perpetuals: PerpetualMarketResponse[]
+    }
 
     return {
       predictions: predictions.predictions ?? [],

@@ -6,8 +6,8 @@
  * @packageDocumentation
  */
 
-import { logger } from '@jejunetwork/shared'
 import type { IAgentRuntime } from '@elizaos/core'
+import { logger } from '@jejunetwork/shared'
 
 /**
  * Group chat decision
@@ -82,7 +82,9 @@ export class AutonomousGroupChatService {
   /**
    * Get group chats the agent is part of with recent activity
    */
-  private async getGroupChatsWithActivity(agentId: string): Promise<GroupChatWithActivity[]> {
+  private async getGroupChatsWithActivity(
+    agentId: string,
+  ): Promise<GroupChatWithActivity[]> {
     logger.debug(`Getting group chats with activity for agent ${agentId}`)
 
     // In a full implementation, this would:
@@ -107,38 +109,6 @@ export class AutonomousGroupChatService {
         content.includes(displayName.toLowerCase())
       )
     })
-  }
-
-  /**
-   * Build group chat response prompt
-   */
-  private buildGroupChatPrompt(
-    config: AgentGroupChatConfig,
-    displayName: string,
-    messages: GroupMessage[],
-    agentId: string,
-  ): string {
-    return `${config.systemPrompt ?? 'You are an AI agent on Jeju.'}
-
-You are ${displayName} in a group chat.
-
-Recent conversation:
-${messages
-  .slice(-10)
-  .map((m) => `${m.senderId === agentId ? 'You' : m.senderName ?? 'User'}: ${m.content}`)
-  .join('\n')
-}
-
-Task: Generate a helpful, engaging message (1-2 sentences) that contributes to the conversation.
-Be authentic to your personality and expertise.
-Keep it under 200 characters.
-Only respond if you have something valuable to add.
-
-IMPORTANT: If mentioning prediction markets, use SHORT SUMMARIES not full questions.
-❌ BAD: "the 'Will TeslAI achieve full self-driving readiness by Q1 2025?' prediction"
-✅ GOOD: "the TeslAI readiness bet" or "the BitcAIn drop prediction"
-
-Generate ONLY the message text, or "SKIP" if you shouldn't respond.`
   }
 
   /**
@@ -168,7 +138,11 @@ Generate ONLY the message text, or "SKIP" if you shouldn't respond.`
       // Check if agent was mentioned
       const username = config.username ?? `agent-${agentId.slice(0, 8)}`
       const displayName = config.displayName ?? `Agent ${agentId.slice(0, 8)}`
-      const wasMentioned = this.wasAgentMentioned(chat.messages, username, displayName)
+      const wasMentioned = this.wasAgentMentioned(
+        chat.messages,
+        username,
+        displayName,
+      )
 
       // Check if agent already responded recently
       const agentLastMessage = chat.messages.find((m) => m.senderId === agentId)
@@ -180,7 +154,9 @@ Generate ONLY the message text, or "SKIP" if you shouldn't respond.`
 
       // If no runtime provided, we can't make LLM calls
       if (!runtime) {
-        logger.warn(`No runtime provided for agent ${agentId}, cannot generate group chat response`)
+        logger.warn(
+          `No runtime provided for agent ${agentId}, cannot generate group chat response`,
+        )
         return {
           shouldRespond: false,
           chatId: chat.chatId,
@@ -189,7 +165,9 @@ Generate ONLY the message text, or "SKIP" if you shouldn't respond.`
       }
 
       // In a full implementation, this would call the LLM
-      logger.info(`Agent ${agentId} would respond to group chat ${chat.chatId} (no LLM call made)`)
+      logger.info(
+        `Agent ${agentId} would respond to group chat ${chat.chatId} (no LLM call made)`,
+      )
       return {
         shouldRespond: false,
         chatId: chat.chatId,
@@ -217,13 +195,17 @@ Generate ONLY the message text, or "SKIP" if you shouldn't respond.`
     const username = config.username ?? `agent-${agentId.slice(0, 8)}`
 
     const groupChats = await this.getGroupChatsWithActivity(agentId)
-    let messagesCreated = 0
+    const messagesCreated = 0
 
     for (const chat of groupChats) {
       if (!chat) continue
 
       // Check if agent was mentioned or should respond
-      const wasMentioned = this.wasAgentMentioned(chat.messages, username, displayName)
+      const wasMentioned = this.wasAgentMentioned(
+        chat.messages,
+        username,
+        displayName,
+      )
       const agentLastMessage = chat.messages.find((m) => m.senderId === agentId)
 
       // Don't spam - only respond if mentioned or if it's been a while
@@ -233,12 +215,16 @@ Generate ONLY the message text, or "SKIP" if you shouldn't respond.`
 
       // If no runtime, skip LLM generation
       if (!runtime) {
-        logger.warn(`No runtime for agent ${agentId}, skipping group chat response`)
+        logger.warn(
+          `No runtime for agent ${agentId}, skipping group chat response`,
+        )
         continue
       }
 
       // In a full implementation, this would call the LLM
-      logger.debug(`Would respond to group chat ${chat.chatId} (no LLM call made)`)
+      logger.debug(
+        `Would respond to group chat ${chat.chatId} (no LLM call made)`,
+      )
 
       // Only respond to one group per tick to avoid spam
       break
@@ -264,8 +250,6 @@ Generate ONLY the message text, or "SKIP" if you shouldn't respond.`
     if (content.trim() === 'SKIP') {
       return { success: false, error: 'Agent chose to skip' }
     }
-
-    const cleanContent = content.trim()
 
     // In a full implementation, this would:
     // 1. Verify the chat exists and is a group chat

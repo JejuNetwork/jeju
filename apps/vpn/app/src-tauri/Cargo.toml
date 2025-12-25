@@ -26,8 +26,11 @@ uuid = { version = "1", features = ["v4"] }
 # HTTP client for DWS
 reqwest = { version = "0.12", features = ["json"] }
 
-# WireGuard (userspace implementation)
-boringtun = "0.6"
+# WireGuard (userspace implementation via Cloudflare boringtun)
+boringtun = { version = "0.6", default-features = false }
+
+# TUN interface (cross-platform)
+tun = { version = "0.6", features = ["async"] }
 
 # WebSocket for node discovery
 tokio-tungstenite = { version = "0.21", features = ["native-tls"] }
@@ -41,12 +44,16 @@ auto-launch = "0.5"
 
 # Networking
 hickory-resolver = "0.24"
+socket2 = { version = "0.5", features = ["all"] }
+parking_lot = "0.12"
 
-# Crypto
+# Crypto - use boringtun's x25519 for key generation
 base64 = "0.22"
 rand = "0.8"
 hex = "0.4"
-# Note: x25519-dalek is provided by boringtun
+
+# IP packet parsing
+etherparse = "0.15"
 
 # Ethereum
 alloy = { version = "0.1", features = ["full"] }
@@ -60,4 +67,8 @@ windows = { version = "0.52", features = [
     "Win32_Networking_WinSock",
     "Win32_System_Threading",
 ] }
+wintun = "0.4"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+nix = { version = "0.28", features = ["net", "ioctl"] }
 

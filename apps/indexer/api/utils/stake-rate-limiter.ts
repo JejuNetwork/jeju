@@ -195,7 +195,7 @@ export interface RateLimitOptions {
  * Elysia plugin for stake-based rate limiting
  */
 export function stakeRateLimiter(options: RateLimitOptions = {}) {
-  const skipPaths = options.skipPaths || ['/health', '/.well-known']
+  const skipPaths = options.skipPaths ?? ['/health', '/.well-known']
 
   return new Elysia({ name: 'stake-rate-limiter' })
     .derive({ as: 'global' }, ({ request, headers }) => {

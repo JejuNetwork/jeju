@@ -6,5 +6,5 @@
  * @packageDocumentation
  */
 
-export * from './manager'
 export * from './factory'
+export * from './manager'

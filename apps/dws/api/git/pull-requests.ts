@@ -153,8 +153,8 @@ export class PullRequestsManager {
     }
 
     // Sort
-    const sortField = options.sort || 'created'
-    const direction = options.direction || 'desc'
+    const sortField = options.sort ?? 'created'
+    const direction = options.direction ?? 'desc'
     prRefs.sort((a, b) => {
       const aVal = sortField === 'updated' ? a.updatedAt : a.createdAt
       const bVal = sortField === 'updated' ? b.updatedAt : b.createdAt
@@ -203,7 +203,7 @@ export class PullRequestsManager {
       repoId,
       request.sourceBranch,
     )
-    const targetBranchName = request.targetBranch || 'main'
+    const targetBranchName = request.targetBranch ?? 'main'
     const targetBranch = await this.repoManager.getBranch(
       repoId,
       targetBranchName,
@@ -230,7 +230,7 @@ export class PullRequestsManager {
       repoId,
       number: prNumber,
       title: request.title,
-      body: request.body || '',
+      body: request.body ?? '',
       state: 'open',
       author,
       sourceBranch: request.sourceBranch,
@@ -239,13 +239,13 @@ export class PullRequestsManager {
       headCommit,
       baseCommit,
       commits: commitOids,
-      reviewers: request.reviewers || [],
+      reviewers: request.reviewers ?? [],
       reviews: [],
-      labels: request.labels || [],
+      labels: request.labels ?? [],
       createdAt: now,
       updatedAt: now,
       cid: '', // Will be set after upload
-      draft: request.draft || false,
+      draft: request.draft ?? false,
       mergeable: true, // Will be computed when checking
       linkedIssues: [],
     }
@@ -395,7 +395,7 @@ export class PullRequestsManager {
     const now = Date.now()
     const reviewId = `${repoId}!${prNumber}-review-${pr.reviews.length + 1}`
 
-    const reviewComments: PRReviewComment[] = (comments || []).map((c, i) => ({
+    const reviewComments: PRReviewComment[] = (comments ?? []).map((c, i) => ({
       id: `${reviewId}-comment-${i + 1}`,
       author: reviewer,
       body: c.body,

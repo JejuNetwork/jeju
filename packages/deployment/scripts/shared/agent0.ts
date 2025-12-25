@@ -16,11 +16,31 @@ import {
 } from 'viem'
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
 import { readContract, waitForTransactionReceipt } from 'viem/actions'
+import { z } from 'zod'
 import {
   AgentRegistrationFileSchema,
   expectValid,
   IPFSAddResponseLineSchema,
 } from '../../schemas'
+
+// Schema for deployment addresses JSON files
+const DeploymentAddressesSchema = z
+  .object({
+    IdentityRegistry: z.string().optional(),
+    ReputationRegistry: z.string().optional(),
+    ValidationRegistry: z.string().optional(),
+    identityRegistry: z.string().optional(),
+    reputationRegistry: z.string().optional(),
+    validationRegistry: z.string().optional(),
+  })
+  .passthrough()
+
+/** Validate and return data, or null if invalid */
+function validateOrNull<T>(schema: z.ZodType<T>, data: unknown): T | null {
+  const result = schema.safeParse(data)
+  return result.success ? result.data : null
+}
+
 import { Logger } from './logger'
 
 const logger = new Logger({ prefix: 'agent0' })
@@ -250,7 +270,7 @@ export function buildRegistrationFile(
     name: manifest.name,
     description: manifest.description,
     endpoints: [],
-    trustModels: manifest.agent?.trustModels || ['open'],
+    trustModels: manifest.agent?.trustModels ?? ['open'],
     owners: [ownerAddress],
     operators: [],
     active: true,
@@ -349,7 +369,7 @@ export async function registerApp(
   const ownerAddress = account.address
 
   // Use provided tokenURI or empty string (can be set later)
-  const finalTokenURI = tokenURI || ''
+  const finalTokenURI = tokenURI ?? ''
 
   logger.info(`Registering agent: ${manifest.name}`)
   logger.info(
@@ -533,14 +553,14 @@ export async function getAgentInfo(
   }
 
   // Extract endpoints
-  const endpoints = registrationFile.endpoints || []
+  const endpoints = registrationFile.endpoints ?? []
   const a2aEndpoint = endpoints.find((e) => e.type === 'a2a')?.value
   const mcpEndpoint = endpoints.find((e) => e.type === 'mcp')?.value
 
   return {
     agentId: `${networkConfig.chainId}:${tokenId}`,
-    name: registrationFile.name || '',
-    description: registrationFile.description || '',
+    name: registrationFile.name ?? '',
+    description: registrationFile.description ?? '',
     a2aEndpoint,
     mcpEndpoint,
     tags: [...tags],

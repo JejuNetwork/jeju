@@ -72,7 +72,7 @@ export function validateBodyDirect<T>(
   body: unknown,
   context?: string,
 ): T {
-  return expectValid(schema, body ?? {}, context || 'Request body')
+  return expectValid(schema, body ?? {}, context ?? 'Request body')
 }
 
 /**
@@ -83,7 +83,7 @@ export function validateBody<T>(
   ctx: ElysiaContext,
   context?: string,
 ): T {
-  return expectValid(schema, ctx.body ?? {}, context || 'Request body')
+  return expectValid(schema, ctx.body ?? {}, context ?? 'Request body')
 }
 
 export function validateQuery<T>(
@@ -95,7 +95,7 @@ export function validateQuery<T>(
   for (const [key, value] of Object.entries(ctx.query)) {
     if (value !== undefined) query[key] = value
   }
-  return expectValid(schema, query, context || 'Query parameters')
+  return expectValid(schema, query, context ?? 'Query parameters')
 }
 
 export function validateQueryFromObj<T>(
@@ -107,7 +107,7 @@ export function validateQueryFromObj<T>(
   for (const [key, value] of Object.entries(queryObj)) {
     if (value !== undefined) query[key] = value
   }
-  return expectValid(schema, query, context || 'Query parameters')
+  return expectValid(schema, query, context ?? 'Query parameters')
 }
 
 /**
@@ -118,7 +118,7 @@ export function validateParams<T>(
   ctx: ElysiaContext,
   context?: string,
 ): T {
-  return expectValid(schema, ctx.params, context || 'Path parameters')
+  return expectValid(schema, ctx.params, context ?? 'Path parameters')
 }
 
 export function validateHeaders<T>(
@@ -130,7 +130,7 @@ export function validateHeaders<T>(
   for (const [key, value] of Object.entries(ctx.headers)) {
     if (value) headers[key.toLowerCase()] = value
   }
-  return expectValid(schema, headers, context || 'Headers')
+  return expectValid(schema, headers, context ?? 'Headers')
 }
 
 export function createValidationDerive<

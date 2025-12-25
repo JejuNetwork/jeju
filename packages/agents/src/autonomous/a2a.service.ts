@@ -7,20 +7,25 @@
  */
 
 import { logger } from '@jejunetwork/shared'
-import type { A2AMessage as BaseA2AMessage, A2AMessageResponse } from '../communication/a2a'
+import type {
+  A2AMessageResponse,
+  A2AMessage as BaseA2AMessage,
+} from '../communication/a2a'
 
 /**
  * A2A message for autonomous service
  * Extends base A2A message with autonomous-specific fields
  */
-export interface A2AMessage extends Omit<BaseA2AMessage, 'id' | 'payload' | 'signature'> {
+export interface A2AMessage
+  extends Omit<BaseA2AMessage, 'id' | 'payload' | 'signature'> {
   content: BaseA2AMessage['payload']
 }
 
 /**
  * A2A response
  */
-export interface A2AResponse extends Pick<A2AMessageResponse, 'success' | 'error'> {
+export interface A2AResponse
+  extends Pick<A2AMessageResponse, 'success' | 'error'> {
   response?: A2AMessageResponse['response']
 }
 

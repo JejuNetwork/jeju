@@ -5,10 +5,7 @@
  * For base type guards, import from @jejunetwork/types.
  */
 
-import {
-  isValidAddress,
-  ZERO_ADDRESS,
-} from '@jejunetwork/types'
+import { isValidAddress, ZERO_ADDRESS } from '@jejunetwork/types'
 import { type Address, type Hex, isHex } from 'viem'
 import type {
   AgentCharacter,
@@ -300,10 +297,10 @@ export function isCqlQueryResponse<T>(
 import type { JsonValue } from '@jejunetwork/types'
 
 export type {
-  JsonPrimitive as JSONPrimitive,
-  JsonValue as JSONValue,
   JsonObject as JSONObject,
+  JsonPrimitive as JSONPrimitive,
   JsonRecord,
+  JsonValue as JSONValue,
 } from '@jejunetwork/types'
 
 // Legacy type alias for backwards compatibility

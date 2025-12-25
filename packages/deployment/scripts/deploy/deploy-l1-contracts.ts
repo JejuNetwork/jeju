@@ -56,7 +56,7 @@ async function checkPrerequisites(): Promise<boolean> {
   // Check op-deployer
   const opDeployerCheck = await $`which op-deployer`.quiet().nothrow()
   if (opDeployerCheck.exitCode !== 0) {
-    const errorMsg = opDeployerCheck.stderr.toString() || 'Command not found'
+    const errorMsg = opDeployerCheck.stderr.toString() ?? 'Command not found'
     console.log('❌ op-deployer not found')
     if (process.env.DEBUG) {
       console.log(`   Error: ${errorMsg.split('\n')[0]}`)
@@ -187,19 +187,19 @@ async function deployManually(_privateKey: string): Promise<DeploymentResult> {
 
 function extractAddresses(state: OpDeployerState): DeploymentResult {
   // Extract addresses from op-deployer state
-  const addresses = state.addresses || {}
+  const addresses = state.addresses ?? {}
 
   return {
-    OptimismPortal: addresses.OptimismPortalProxy || '',
-    L2OutputOracle: addresses.L2OutputOracleProxy || '',
-    L1CrossDomainMessenger: addresses.L1CrossDomainMessengerProxy || '',
-    L1StandardBridge: addresses.L1StandardBridgeProxy || '',
-    SystemConfig: addresses.SystemConfigProxy || '',
-    AddressManager: addresses.AddressManager || '',
-    ProxyAdmin: addresses.ProxyAdmin || '',
-    L1ERC721Bridge: addresses.L1ERC721BridgeProxy || '',
+    OptimismPortal: addresses.OptimismPortalProxy ?? '',
+    L2OutputOracle: addresses.L2OutputOracleProxy ?? '',
+    L1CrossDomainMessenger: addresses.L1CrossDomainMessengerProxy ?? '',
+    L1StandardBridge: addresses.L1StandardBridgeProxy ?? '',
+    SystemConfig: addresses.SystemConfigProxy ?? '',
+    AddressManager: addresses.AddressManager ?? '',
+    ProxyAdmin: addresses.ProxyAdmin ?? '',
+    L1ERC721Bridge: addresses.L1ERC721BridgeProxy ?? '',
     OptimismMintableERC20Factory:
-      addresses.OptimismMintableERC20FactoryProxy || '',
+      addresses.OptimismMintableERC20FactoryProxy ?? '',
   }
 }
 
@@ -217,7 +217,7 @@ async function updateChainConfig(addresses: DeploymentResult) {
     contracts: { l1: Record<string, string> }
   }
 
-  mutableConfig.contracts = mutableConfig.contracts || { l1: {}, l2: {} }
+  mutableConfig.contracts = mutableConfig.contracts ?? { l1: {}, l2: {} }
   mutableConfig.contracts.l1 = {
     OptimismPortal: addresses.OptimismPortal,
     L2OutputOracle: addresses.L2OutputOracle,

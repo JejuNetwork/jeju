@@ -132,12 +132,14 @@ export class StrategyEngine {
     })
 
     if (res?.ok) {
-      interface CoinGeckoResponse {
-        ethereum: { usd: number }
+      const rawData: unknown = await res.json()
+      const parsed = CoinGeckoResponseSchema.safeParse(rawData)
+      if (parsed.success) {
+        this.ethPriceUsd = parsed.data.ethereum.usd
+        this.priceUpdatedAt = now
+      } else {
+        console.warn('[strategy] CoinGecko response validation failed')
       }
-      const data: CoinGeckoResponse = await res.json()
-      this.ethPriceUsd = data.ethereum.usd
-      this.priceUpdatedAt = now
     } else if (res?.status === 429) {
       this.lastCoinGecko429At = now
       console.warn(

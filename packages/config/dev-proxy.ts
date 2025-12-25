@@ -164,7 +164,7 @@ export function getDevProxyTarget(jnsName: string): DevProxyTarget | null {
     const urlObj = new URL(envUrl)
     return {
       url: envUrl,
-      port: parseInt(urlObj.port || '80', 10),
+      port: parseInt(urlObj.port ?? '80', 10),
       hasBackend: false,
     }
   }

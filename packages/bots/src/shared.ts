@@ -2,10 +2,6 @@
 
 import { WEIGHT_PRECISION } from './schemas'
 
-import { delay as sleep, generateId } from '@jejunetwork/shared'
-
-export { sleep, generateId }
-
 /** Convert weight (bigint, 18 decimals) to basis points */
 export function weightToBps(weight: bigint): number {
   return Number((weight * 10000n) / WEIGHT_PRECISION)
@@ -53,7 +49,6 @@ export function parseBigInt(value: string, decimals: number): bigint {
   const paddedFrac = frac.padEnd(decimals, '0').slice(0, decimals)
   return BigInt(whole + paddedFrac)
 }
-
 
 /** Simple mutex for async operations */
 export class Mutex {

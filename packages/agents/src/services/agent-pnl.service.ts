@@ -48,7 +48,9 @@ export class AgentPnLService {
     tradeId: string,
     pnl: number,
   ): Promise<void> {
-    logger.debug(`Recording trade result for ${agentId}: trade ${tradeId} = ${pnl}`)
+    logger.debug(
+      `Recording trade result for ${agentId}: trade ${tradeId} = ${pnl}`,
+    )
     throw new Error('Not implemented - requires database integration')
   }
 

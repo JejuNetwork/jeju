@@ -10,8 +10,8 @@
  * @packageDocumentation
  */
 
-import type { JsonValue } from '@jejunetwork/types'
 import { generateSnowflakeId, logger } from '@jejunetwork/shared'
+import type { JsonValue } from '@jejunetwork/types'
 import type {
   Action,
   EnvironmentState,

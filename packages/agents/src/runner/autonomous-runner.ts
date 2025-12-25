@@ -7,9 +7,9 @@
  */
 
 import { logger } from '@jejunetwork/shared'
-import type { AgentConfig } from '../types'
 import { AutonomousCoordinator } from '../autonomous/coordinator'
 import { agentLockService } from '../services/lock.service'
+import type { AgentConfig } from '../types'
 
 /**
  * Runner status
@@ -45,10 +45,11 @@ export class AutonomousAgentRunner {
       timeout: 60000,
     })
 
-    if (!lock.acquired) {
+    if (!lock.acquired || !lock.lockId) {
       throw new Error(`Failed to acquire runner lock for agent ${agent.id}`)
     }
 
+    const lockId = lock.lockId
     try {
       const coordinator = new AutonomousCoordinator()
       this.coordinators.set(agent.id, coordinator)
@@ -62,7 +63,7 @@ export class AutonomousAgentRunner {
       await coordinator.start(agent)
       logger.info('Agent runner started', { agentId: agent.id })
     } catch (error) {
-      await agentLockService.releaseLock(agent.id, 'runner', lock.lockId!)
+      await agentLockService.releaseLock(agent.id, 'runner', lockId)
       throw error
     }
   }

@@ -468,9 +468,7 @@ program.action(() => {
       '     Check all apps/packages for circular deps',
   )
   console.log(
-    '  ' +
-      chalk.cyan(`${cliName} circular app <n>`) +
-      '   Check specific app',
+    `  ${chalk.cyan(`${cliName} circular app <n>`)}   Check specific app`,
   )
   console.log(
     '  ' +

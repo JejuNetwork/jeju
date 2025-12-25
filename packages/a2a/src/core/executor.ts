@@ -8,6 +8,7 @@
  */
 
 import type { JsonValue } from '@jejunetwork/types'
+import { v4 as uuidv4 } from 'uuid'
 import type {
   AgentExecutor,
   ExecutionEventBus,
@@ -17,7 +18,6 @@ import type {
   TaskArtifactUpdateEvent,
   TaskStatusUpdateEvent,
 } from '../types/server'
-import { v4 as uuidv4 } from 'uuid'
 
 /**
  * Command structure for executor operations

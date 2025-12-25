@@ -13,6 +13,7 @@
 
 import { beforeAll, describe, expect, test } from 'bun:test'
 import { rawDeployments } from '@jejunetwork/contracts'
+import { ZERO_ADDRESS } from '@jejunetwork/types'
 import {
   type Address,
   createPublicClient,
@@ -61,8 +62,6 @@ const TOKEN_FACTORY_ABI = parseAbi([
   'function getCreatorTokens(address creator) view returns (address[])',
   'function tokenCount() view returns (uint256)',
 ])
-
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 function isDeployed(address: string | undefined): address is Address {
   return !!address && address !== ZERO_ADDRESS

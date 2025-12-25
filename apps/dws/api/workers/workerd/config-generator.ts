@@ -303,7 +303,7 @@ export default {
     // Parse body if present
     let body = null;
     if (request.method !== 'GET' && request.method !== 'HEAD') {
-      const contentType = request.headers.get('content-type') || '';
+      const contentType = request.headers.get('content-type') ?? '';
       if (contentType.includes('application/json')) {
         body = await request.json();
       } else {
@@ -327,11 +327,11 @@ export default {
     const result = await ${handlerName}(event, env);
 
     // Convert response
-    const statusCode = result.statusCode || 200;
-    const headers = result.headers || { 'Content-Type': 'application/json' };
+    const statusCode = result.statusCode ?? 200;
+    const headers = result.headers ?? { 'Content-Type': 'application/json' };
     const responseBody = typeof result.body === 'string'
       ? result.body
-      : JSON.stringify(result.body || result);
+      : JSON.stringify(result.body ?? result);
 
     return new Response(responseBody, { status: statusCode, headers });
   }

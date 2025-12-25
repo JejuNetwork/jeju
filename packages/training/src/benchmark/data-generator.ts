@@ -18,8 +18,8 @@ import type {
   BenchmarkGameSnapshot,
   BenchmarkGameState,
   CausalEventType,
-  GroupChat,
   GroundTruth,
+  GroupChat,
   HiddenNarrativeFact,
   PerpetualMarket,
   Post,
@@ -259,13 +259,13 @@ const PERP_BASE_PRICES = [120000, 4000, 200, 450, 520] as const
  * Insider message templates for group chats
  */
 const INSIDER_MESSAGES = [
-  '🤫 Between us, I\'m loading up on YES for Q1. My sources say it\'s happening.',
+  "🤫 Between us, I'm loading up on YES for Q1. My sources say it's happening.",
   'Just went heavy SHORT on $PERP-0. Trust me on this one.',
-  'Get out of Q2 NOW. I know something the market doesn\'t.',
+  "Get out of Q2 NOW. I know something the market doesn't.",
   'Real talk: market is wrong about Q0. Should be trading at 80%+',
   'Insider tip: $PERP-1 announcement coming. Load up before it drops.',
   'My actual position: 500 shares YES on Q1. Public says otherwise 😉',
-  'Don\'t tell anyone but I\'m shorting $PERP-2 hard right now.',
+  "Don't tell anyone but I'm shorting $PERP-2 hard right now.",
   'We should coordinate on Q0 - push it to YES, then dump.',
   'Anyone else seeing the weakness in $PERP-0? Time to short?',
   'Ignore what I posted publicly. Q2 is a buy.',
@@ -915,7 +915,8 @@ export class BenchmarkDataGenerator {
 
           const messageId = `msg-${i}-${groupId}-${Math.floor(this.rng.next() * 1000000)}`
           const msgIdx = Math.floor(this.rng.next() * INSIDER_MESSAGES.length)
-          const randomInsiderMsg = INSIDER_MESSAGES[msgIdx] ?? INSIDER_MESSAGES[0]
+          const randomInsiderMsg =
+            INSIDER_MESSAGES[msgIdx] ?? INSIDER_MESSAGES[0]
           const message = {
             id: messageId,
             authorId: senderId,

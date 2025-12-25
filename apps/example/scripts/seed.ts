@@ -1,5 +1,5 @@
-import { getNetworkName } from '@jejunetwork/config'
 import { AuthProvider, TEEProvider } from '@jejunetwork/auth'
+import { getNetworkName } from '@jejunetwork/config'
 import { expectAddress, expectHex } from '@jejunetwork/types'
 import { getRegistryService } from '../api/services/registry'
 

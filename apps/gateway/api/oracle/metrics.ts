@@ -1,3 +1,4 @@
+import { readContract } from '@jejunetwork/shared'
 import type { NodeMetrics, OracleNodeConfig } from '@jejunetwork/types'
 import { createPublicClient, http } from 'viem'
 import {
@@ -188,7 +189,7 @@ export class MetricsExporter {
       return metrics
     }
 
-    const feedIds = await this.client.readContract({
+    const feedIds = await readContract(this.client, {
       address: this.config.feedRegistry,
       abi: FEED_REGISTRY_ABI,
       functionName: 'getActiveFeeds',
@@ -207,25 +208,25 @@ export class MetricsExporter {
 
     for (const feedId of feedIds) {
       const [feed, priceData, currentRound, committee] = await Promise.all([
-        this.client.readContract({
+        readContract(this.client, {
           address: this.config.feedRegistry,
           abi: FEED_REGISTRY_ABI,
           functionName: 'getFeed',
           args: [feedId],
         }),
-        this.client.readContract({
+        readContract(this.client, {
           address: this.config.reportVerifier,
           abi: REPORT_VERIFIER_ABI,
           functionName: 'getLatestPrice',
           args: [feedId],
         }),
-        this.client.readContract({
+        readContract(this.client, {
           address: this.config.reportVerifier,
           abi: REPORT_VERIFIER_ABI,
           functionName: 'getCurrentRound',
           args: [feedId],
         }),
-        this.client.readContract({
+        readContract(this.client, {
           address: this.config.committeeManager,
           abi: COMMITTEE_MANAGER_ABI,
           functionName: 'getCommittee',

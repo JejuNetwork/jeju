@@ -38,7 +38,9 @@ export class AgentIdentityService {
     agentId: string,
     options: IdentitySetupOptions = {},
   ): Promise<AgentIdentity> {
-    logger.info(`Setting up agent identity for ${agentId} (options: ${JSON.stringify(options)})`)
+    logger.info(
+      `Setting up agent identity for ${agentId} (options: ${JSON.stringify(options)})`,
+    )
     throw new Error('Not implemented')
   }
 
@@ -64,7 +66,9 @@ export class AgentIdentityService {
     agentId: string,
     walletAddress: string,
   ): Promise<string> {
-    logger.info(`Registering agent ${agentId} on-chain with wallet ${walletAddress}`)
+    logger.info(
+      `Registering agent ${agentId} on-chain with wallet ${walletAddress}`,
+    )
     throw new Error('Not implemented')
   }
 

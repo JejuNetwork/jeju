@@ -6,11 +6,11 @@
  * @packageDocumentation
  */
 
-export * from './coordinator'
-export * from './trading.service'
-export * from './posting.service'
+export * from './a2a.service'
 export * from './commenting.service'
+export * from './coordinator'
 export * from './dm.service'
 export * from './group-chat.service'
-export * from './a2a.service'
 export * from './planning.service'
+export * from './posting.service'
+export * from './trading.service'

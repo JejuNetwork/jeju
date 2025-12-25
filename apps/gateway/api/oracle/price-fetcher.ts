@@ -1,3 +1,4 @@
+import { readContract } from '@jejunetwork/shared'
 import type { PriceData, PriceSourceConfig } from '@jejunetwork/types'
 import {
   createPublicClient,

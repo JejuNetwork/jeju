@@ -5,6 +5,7 @@
  * spot and perp positions in opposite directions.
  */
 
+import { delay as sleep } from '@jejunetwork/shared'
 import type { EVMChainId } from '@jejunetwork/types'
 import {
   type Address,
@@ -15,7 +16,7 @@ import {
   type WalletClient,
 } from 'viem'
 import type { OracleAggregator } from '../../oracles'
-import { NonceManager, sleep } from '../../shared'
+import { NonceManager } from '../../shared'
 
 export interface FundingArbConfig {
   chainId: EVMChainId

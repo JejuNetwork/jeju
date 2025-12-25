@@ -1259,7 +1259,7 @@ deployCommand
     const jnsName = app.jns?.name
     const frontend = app.architecture?.frontend
     const outputDir =
-      (typeof frontend === 'object' && frontend?.outputDir) || 'dist'
+      (typeof frontend === 'object' && frontend?.outputDir) ?? 'dist'
     const frontendDir = join(appDir, outputDir)
 
     if (!jnsName) {

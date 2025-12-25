@@ -15,8 +15,8 @@ export {
 export {
   type AgentTrajectory,
   CrucibleTrainingClient,
-  createCrucibleTrainingClient,
   type CrucibleTrajectoryStep,
+  createCrucibleTrainingClient,
   type TrainingAgentConfig,
   type TrainingEnvironment,
   type TrainingMetrics as CrucibleTrainingMetrics,

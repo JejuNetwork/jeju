@@ -529,11 +529,12 @@ function getMockEarnings() {
   }
 }
 
-import { isPlainObject } from '@jejunetwork/types'
 import type { JsonRecord, JsonValue } from '@jejunetwork/sdk'
+import { isPlainObject } from '@jejunetwork/types'
 
 /** Type guard for JSON records - delegates to shared implementation */
-const isJsonRecord = (value: unknown): value is JsonRecord => isPlainObject(value)
+const isJsonRecord = (value: unknown): value is JsonRecord =>
+  isPlainObject(value)
 
 // Handle Tauri invoke calls
 function handleInvoke(cmd: string, _args: JsonRecord): Promise<JsonValue> {

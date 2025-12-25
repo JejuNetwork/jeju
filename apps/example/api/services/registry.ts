@@ -1,4 +1,3 @@
-import { getNetworkName } from '@jejunetwork/config'
 import {
   AuthProvider,
   type OAuth3App,
@@ -6,6 +5,7 @@ import {
   type TEENodeInfo,
   TEEProvider,
 } from '@jejunetwork/auth'
+import { getNetworkName } from '@jejunetwork/config'
 import { AddressSchema, expectAddress, expectHex } from '@jejunetwork/types'
 import {
   type Address,

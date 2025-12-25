@@ -16,11 +16,7 @@ import type {
   SimulationResult,
 } from './types'
 
-export type {
-  SimulationConfig,
-  SimulationEngineState,
-  SimulationResult,
-}
+export type { SimulationConfig, SimulationEngineState, SimulationResult }
 
 /**
  * Simulation Engine Stub
@@ -114,7 +110,9 @@ export class SimulationEngine {
     }
   }
 
-  async runWithAgent(_agent: BenchmarkableAgentRuntime): Promise<SimulationResult> {
+  async runWithAgent(
+    _agent: BenchmarkableAgentRuntime,
+  ): Promise<SimulationResult> {
     return this.run()
   }
 

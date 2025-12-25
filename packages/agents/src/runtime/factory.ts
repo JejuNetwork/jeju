@@ -6,8 +6,8 @@
  * @packageDocumentation
  */
 
+import type { Character, IAgentRuntime } from '@elizaos/core'
 import { logger } from '@jejunetwork/shared'
-import type { IAgentRuntime, Character } from '@elizaos/core'
 import type { AgentConfig, AgentTemplate } from '../types'
 
 /**

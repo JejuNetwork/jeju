@@ -23,7 +23,9 @@ export interface AutonomyPluginConfig {
 /**
  * Create the autonomy plugin for ElizaOS
  */
-export function createAutonomyPlugin(_config: AutonomyPluginConfig = {}): Plugin {
+export function createAutonomyPlugin(
+  _config: AutonomyPluginConfig = {},
+): Plugin {
   return {
     name: 'jeju-agent-autonomy',
     description: 'Autonomous agent behaviors - trading, posting, commenting',

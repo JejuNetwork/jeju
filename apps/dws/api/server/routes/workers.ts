@@ -3,7 +3,12 @@
  * Serverless function deployment and invocation
  */
 
-import { expectJson, getFormInt, getFormString } from '@jejunetwork/types'
+import {
+  expectJson,
+  expectValid,
+  getFormInt,
+  getFormString,
+} from '@jejunetwork/types'
 import { Elysia, t } from 'elysia'
 import type { Address } from 'viem'
 import { z } from 'zod'
@@ -18,26 +23,27 @@ import type {
 } from '../../workers/types'
 
 const EnvRecordSchema = z.record(z.string(), z.string())
+const RuntimeTypeSchema = z.enum(['bun', 'node', 'deno'])
 
-/** JSON body for worker deployment */
-interface DeployWorkerJsonBody {
-  name?: string
-  runtime?: RuntimeType
-  handler?: string
-  code?: string | ArrayBuffer
-  memory?: number
-  timeout?: number
-  env?: Record<string, string>
-}
+/** Zod schema for worker deployment */
+const DeployWorkerJsonBodySchema = z.object({
+  name: z.string().optional(),
+  runtime: RuntimeTypeSchema.optional(),
+  handler: z.string().optional(),
+  code: z.string().optional(),
+  memory: z.number().int().positive().optional(),
+  timeout: z.number().int().positive().optional(),
+  env: EnvRecordSchema.optional(),
+})
 
-/** JSON body for worker update */
-interface UpdateWorkerJsonBody {
-  code?: string | ArrayBuffer
-  memory?: number
-  timeout?: number
-  env?: Record<string, string>
-  handler?: string
-}
+/** Zod schema for worker update */
+const UpdateWorkerJsonBodySchema = z.object({
+  code: z.string().optional(),
+  memory: z.number().int().positive().optional(),
+  timeout: z.number().int().positive().optional(),
+  env: EnvRecordSchema.optional(),
+  handler: z.string().optional(),
+})
 
 export function createWorkersRouter(backend: BackendManager) {
   const runtime = new WorkerRuntime(backend)
@@ -99,7 +105,11 @@ export function createWorkersRouter(backend: BackendManager) {
               ),
             }
           } else {
-            const jsonBody = body as DeployWorkerJsonBody
+            const jsonBody = expectValid(
+              DeployWorkerJsonBodySchema,
+              body,
+              'Deploy worker body',
+            )
             params = {
               name: jsonBody.name ?? '',
               runtime: jsonBody.runtime,
@@ -248,7 +258,11 @@ export function createWorkersRouter(backend: BackendManager) {
             return { error: 'Not authorized' }
           }
 
-          const updates = body as UpdateWorkerJsonBody
+          const updates = expectValid(
+            UpdateWorkerJsonBodySchema,
+            body,
+            'Update worker body',
+          )
 
           // If code is updated, upload new version
           if (updates.code) {

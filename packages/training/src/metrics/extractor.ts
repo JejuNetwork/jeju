@@ -71,7 +71,10 @@ function isObject(value: unknown): value is Record<string, unknown> {
 /**
  * Safely get a numeric value from an object
  */
-function getNumericValue(obj: Record<string, unknown>, ...keys: string[]): number {
+function getNumericValue(
+  obj: Record<string, unknown>,
+  ...keys: string[]
+): number {
   for (const key of keys) {
     const value = obj[key]
     if (typeof value === 'number') return value
@@ -289,13 +292,17 @@ export class TrajectoryMetricsExtractor {
         }
 
         // Track position size
-        const size = Number(params.amount ?? params.size ?? params.quantity ?? 0)
+        const size = Number(
+          params.amount ?? params.size ?? params.quantity ?? 0,
+        )
         if (size > 0) {
           positionSizes.push(size)
         }
 
         // Track P&L from result
-        const tradePnL = Number(result.pnl ?? result.profit ?? result.return ?? 0)
+        const tradePnL = Number(
+          result.pnl ?? result.profit ?? result.return ?? 0,
+        )
         if (tradePnL !== 0) {
           tradePnLs.push(tradePnL)
           runningPnL += tradePnL
@@ -386,7 +393,11 @@ export class TrajectoryMetricsExtractor {
       if (!envState) continue
 
       // Track reputation changes (environmentState uses passthrough so can have extra fields)
-      const reputation = getNumericValue(envState, 'reputation', 'agentReputation')
+      const reputation = getNumericValue(
+        envState,
+        'reputation',
+        'agentReputation',
+      )
       if (reputation !== 0) {
         if (startReputation === null) {
           startReputation = reputation
@@ -417,8 +428,16 @@ export class TrajectoryMetricsExtractor {
       if (action?.result) {
         const result = action.result
         metrics.positiveReactions += getNumericValue(result, 'likes', 'upvotes')
-        metrics.negativeReactions += getNumericValue(result, 'dislikes', 'downvotes')
-        metrics.informationSpread += getNumericValue(result, 'shares', 'reshares')
+        metrics.negativeReactions += getNumericValue(
+          result,
+          'dislikes',
+          'downvotes',
+        )
+        metrics.informationSpread += getNumericValue(
+          result,
+          'shares',
+          'reshares',
+        )
       }
     }
 
@@ -575,7 +594,8 @@ export class TrajectoryMetricsExtractor {
         // Check various places where prediction correctness might be stored
         const isPredictionCorrect =
           result?.predictionCorrect === true ||
-          (isObject(result?.correctness) && result.correctness.predictionCorrect === true)
+          (isObject(result?.correctness) &&
+            result.correctness.predictionCorrect === true)
 
         if (isPredictionCorrect) {
           metrics.correctPredictions++
@@ -605,9 +625,7 @@ export class TrajectoryMetricsExtractor {
     const steps = parseTrajectorySteps(params.stepsJson)
 
     if (steps.length === 0) {
-      throw new Error(
-        `Empty steps array for trajectory ${params.trajectoryId}`,
-      )
+      throw new Error(`Empty steps array for trajectory ${params.trajectoryId}`)
     }
 
     // Get start/end balance from environment state

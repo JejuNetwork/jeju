@@ -21,47 +21,6 @@ import './polyfills'
  * - mainnet: Jeju Mainnet production (chain 420692)
  */
 
-// DID (Decentralized Identity)
-export {
-  type AuthMethod,
-  type CreateIdentityResult,
-  createDID,
-  createDIDFromAddress,
-  type DID,
-  type DIDDocument,
-  didEquals,
-  DIDManager,
-  type DIDManagerConfig,
-  DIDNetwork,
-  extractAddressFromDID,
-  generateRandomDID,
-  getNetwork,
-  isLocalnet,
-  isMainnet,
-  isTestnet,
-  parseDID,
-  type ParsedDID,
-  validateDID,
-  type VerificationMethod,
-} from './did/index.js'
-
-// Paymaster (Gas Sponsorship)
-export {
-  createGasEstimator,
-  createTreasuryPaymaster,
-  type GasEstimate,
-  GasEstimator,
-  type GasEstimatorConfig,
-  type PaymasterConfig,
-  type PaymasterData,
-  type PaymasterDecision,
-  type SponsorshipPolicy,
-  type SponsorshipResult,
-  TreasuryPaymaster,
-  type UserOperation,
-  type UserSponsorshipState,
-} from './paymaster/index.js'
-
 // Multi-tenant Council
 export {
   type CEOConfig,
@@ -82,6 +41,29 @@ export {
   VerifiableCredentialIssuer,
   VerifiableCredentialVerifier,
 } from './credentials/verifiable-credentials.js'
+// DID (Decentralized Identity)
+export {
+  type AuthMethod,
+  type CreateIdentityResult,
+  createDID,
+  createDIDFromAddress,
+  type DID,
+  type DIDDocument,
+  DIDManager,
+  type DIDManagerConfig,
+  DIDNetwork,
+  didEquals,
+  extractAddressFromDID,
+  generateRandomDID,
+  getNetwork,
+  isLocalnet,
+  isMainnet,
+  isTestnet,
+  type ParsedDID,
+  parseDID,
+  type VerificationMethod,
+  validateDID,
+} from './did/index.js'
 // DWS Worker (decentralized deployment)
 export {
   createOAuth3Worker,
@@ -242,6 +224,22 @@ export {
   publicKeyToAddress,
   verifySignature,
 } from './mpc/frost-signing.js'
+// Paymaster (Gas Sponsorship)
+export {
+  createGasEstimator,
+  createTreasuryPaymaster,
+  type GasEstimate,
+  GasEstimator,
+  type GasEstimatorConfig,
+  type PaymasterConfig,
+  type PaymasterData,
+  type PaymasterDecision,
+  type SponsorshipPolicy,
+  type SponsorshipResult,
+  TreasuryPaymaster,
+  type UserOperation,
+  type UserSponsorshipState,
+} from './paymaster/index.js'
 // Email Authentication Provider
 export {
   createEmailProvider,

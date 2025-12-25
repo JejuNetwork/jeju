@@ -383,11 +383,12 @@ export function createComputeRouter() {
       .post(
         '/jobs',
         async ({ body, request, set }) => {
-          const submitter = request.headers.get('x-jeju-address') as Address
-          if (!submitter) {
+          const submitterHeader = request.headers.get('x-jeju-address')
+          if (!submitterHeader) {
             set.status = 401
             return { error: 'x-jeju-address header required' }
           }
+          const submitter = submitterHeader as Address
 
           const jobId = crypto.randomUUID()
           const job: ComputeJob = {

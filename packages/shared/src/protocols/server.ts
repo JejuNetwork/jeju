@@ -208,7 +208,7 @@ export function createServer(config: ServerConfig) {
 
   const mcpServerInfo = {
     name: config.name,
-    version: config.version || '1.0.0',
+    version: config.version ?? '1.0.0',
     description: config.description,
     capabilities: {
       resources: (config.resources?.length ?? 0) > 0,
@@ -519,14 +519,14 @@ export function createServer(config: ServerConfig) {
     .get('/health', () => ({
       status: 'ok',
       service: config.name,
-      version: config.version || '1.0.0',
+      version: config.version ?? '1.0.0',
       timestamp: Date.now(),
     }))
 
     .get('/', () => ({
       name: getServiceName(config.name),
       description: config.description,
-      version: config.version || '1.0.0',
+      version: config.version ?? '1.0.0',
       endpoints: {
         a2a: '/a2a',
         mcp: '/mcp',
@@ -578,7 +578,7 @@ function createAgentCard(config: ServerConfig): GeneratedAgentCard {
     url: '/a2a',
     preferredTransport: 'http',
     provider,
-    version: config.version || '1.0.0',
+    version: config.version ?? '1.0.0',
     capabilities: {
       streaming: false,
       pushNotifications: true,
@@ -603,7 +603,7 @@ export async function startServer(
   config: ServerConfig,
 ): Promise<ServerInstance> {
   const app = createServer(config)
-  const port = config.port || 4000
+  const port = config.port ?? 4000
 
   const server = app.listen(port)
 

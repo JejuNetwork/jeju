@@ -7,8 +7,8 @@
  * @packageDocumentation
  */
 
-import { logger } from '@jejunetwork/shared'
 import type { IAgentRuntime } from '@elizaos/core'
+import { logger } from '@jejunetwork/shared'
 
 /**
  * Post decision
@@ -119,9 +119,12 @@ Your recent activity:
 - Your P&L: ${config.lifetimePnL >= 0 ? '+' : ''}$${config.lifetimePnL.toFixed(2)}
 
 YOUR RECENT POSTS (avoid repeating themes/openings):
-${config.recentPosts.length > 0
-  ? config.recentPosts.map((p, i) => `[${i + 1}] "${p.content}" (${getTimeAgo(p.createdAt)})`).join('\n')
-  : 'No recent posts'
+${
+  config.recentPosts.length > 0
+    ? config.recentPosts
+        .map((p, i) => `[${i + 1}] "${p.content}" (${getTimeAgo(p.createdAt)})`)
+        .join('\n')
+    : 'No recent posts'
 }
 
 IMPORTANT RULES:
@@ -155,30 +158,6 @@ To skip (if you've recently covered this topic or have nothing new to add):
   }
 
   /**
-   * Parse XML response from LLM
-   */
-  private parseXMLResponse(response: string): {
-    action: string
-    text?: string
-    reason?: string
-  } | null {
-    const responseMatch = response.match(/<response>([\s\S]*?)<\/response>/i)
-    if (!responseMatch) return null
-
-    const actionMatch = responseMatch[0].match(/<action>([\s\S]*?)<\/action>/i)
-    const textMatch = responseMatch[0].match(/<text>([\s\S]*?)<\/text>/i)
-    const reasonMatch = responseMatch[0].match(/<reason>([\s\S]*?)<\/reason>/i)
-
-    if (!actionMatch) return null
-
-    return {
-      action: actionMatch[1]?.trim() ?? '',
-      text: textMatch?.[1]?.trim(),
-      reason: reasonMatch?.[1]?.trim(),
-    }
-  }
-
-  /**
    * Validate content for diversity issues
    */
   private validateContentDiversity(
@@ -190,7 +169,11 @@ To skip (if you've recently covered this topic or have nothing new to add):
     // Check for repeated openings
     const firstWords = content.split(' ').slice(0, 3).join(' ').toLowerCase()
     for (const post of recentPosts) {
-      const postFirstWords = post.content.split(' ').slice(0, 3).join(' ').toLowerCase()
+      const postFirstWords = post.content
+        .split(' ')
+        .slice(0, 3)
+        .join(' ')
+        .toLowerCase()
       if (firstWords === postFirstWords) {
         issues.push('Repeated opening from recent post')
         break
@@ -230,7 +213,7 @@ To skip (if you've recently covered this topic or have nothing new to add):
     const config = await this.getAgentConfig(agentId)
     config.recentPosts = await this.getRecentPosts(agentId)
 
-    const prompt = this.buildPostPrompt(
+    const _prompt = this.buildPostPrompt(
       config,
       `Agent-${agentId.slice(0, 8)}`,
       '',
@@ -238,7 +221,9 @@ To skip (if you've recently covered this topic or have nothing new to add):
 
     // If no runtime provided, we can't make LLM calls
     if (!runtime) {
-      logger.warn(`No runtime provided for agent ${agentId}, cannot generate post`)
+      logger.warn(
+        `No runtime provided for agent ${agentId}, cannot generate post`,
+      )
       return {
         shouldPost: false,
         reasoning: 'No runtime available for LLM generation',
@@ -282,10 +267,7 @@ To skip (if you've recently covered this topic or have nothing new to add):
   /**
    * Create and publish a post
    */
-  async createPost(
-    agentId: string,
-    content: string,
-  ): Promise<PostResult> {
+  async createPost(agentId: string, content: string): Promise<PostResult> {
     logger.debug(`Creating post for agent ${agentId} (${content.length} chars)`)
 
     if (!content || content.trim().length < 5) {
@@ -296,11 +278,19 @@ To skip (if you've recently covered this topic or have nothing new to add):
 
     // Validate diversity
     const recentPosts = await this.getRecentPosts(agentId)
-    const diversityIssues = this.validateContentDiversity(cleanContent, recentPosts)
+    const diversityIssues = this.validateContentDiversity(
+      cleanContent,
+      recentPosts,
+    )
 
     if (diversityIssues.length > 0) {
-      logger.warn(`Post rejected for diversity issues: ${diversityIssues.join(', ')}`)
-      return { success: false, error: `Content rejected: ${diversityIssues[0]}` }
+      logger.warn(
+        `Post rejected for diversity issues: ${diversityIssues.join(', ')}`,
+      )
+      return {
+        success: false,
+        error: `Content rejected: ${diversityIssues[0]}`,
+      }
     }
 
     // In a full implementation, this would insert into database

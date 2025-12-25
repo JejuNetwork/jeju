@@ -3,6 +3,7 @@
  */
 
 import { beforeEach, describe, expect, test } from 'bun:test'
+import { ZERO_ADDRESS } from '@jejunetwork/types'
 import {
   type Address,
   type Hash,
@@ -41,7 +42,6 @@ const CHAIN_AVAILABLE =
 
 // Well-known test addresses
 const TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address
 
 describe('verifyTransactionMined - Transaction Verification', () => {
   test('should throw on invalid tx hash format', async () => {

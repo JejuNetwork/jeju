@@ -317,6 +317,18 @@ export {
   type NotificationConfig,
   type Subscriber,
 } from './notifications/moderation-events'
+// Nullable Utilities (undefined/null conversion)
+export {
+  first,
+  isNotNullish,
+  isNullish,
+  last,
+  mapGet,
+  toDate,
+  toDateOrNull,
+  toNull,
+  toUndefined,
+} from './nullable'
 // Paymaster
 export {
   checkPaymasterApproval,
@@ -478,6 +490,22 @@ export {
   type UploadOptions,
   type UploadResult,
 } from './services'
+// Errors
+export {
+  AuthenticationError,
+  AuthorizationError,
+  BadRequestError,
+  BusinessLogicError,
+  ConflictError,
+  DatabaseError,
+  ExternalServiceError,
+  InternalServerError,
+  JejuError,
+  NotFoundError,
+  RateLimitError,
+  ServiceUnavailableError,
+  ValidationError,
+} from './errors'
 // Singleton Utilities
 export {
   createGlobalSingleton,
@@ -524,18 +552,6 @@ export {
   writeParams,
   writeParamsAsync,
 } from './wagmi'
-// Nullable Utilities (undefined/null conversion)
-export {
-  first,
-  isNotNullish,
-  isNullish,
-  last,
-  mapGet,
-  toDate,
-  toDateOrNull,
-  toNull,
-  toUndefined,
-} from './nullable'
 // x402 Payment Protocol
 export {
   CHAIN_IDS as X402_CHAIN_IDS,

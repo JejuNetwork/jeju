@@ -106,9 +106,9 @@ export class ModerationNotificationService extends EventEmitter {
       banManagerAddress: config.banManagerAddress,
       moderationMarketplaceAddress: config.moderationMarketplaceAddress,
       reportingSystemAddress: config.reportingSystemAddress,
-      webhookUrls: config.webhookUrls || [],
-      wsPort: config.wsPort || 8081,
-      pollInterval: config.pollInterval || 5000,
+      webhookUrls: config.webhookUrls ?? [],
+      wsPort: config.wsPort ?? 8081,
+      pollInterval: config.pollInterval ?? 5000,
     }
 
     this.publicClient = createPublicClient({
@@ -285,7 +285,7 @@ export class ModerationNotificationService extends EventEmitter {
         event.data.target,
         event.data.reporter,
         event.data.voter,
-      ].filter(Boolean) as Address[]
+      ].filter((addr): addr is Address => Boolean(addr))
 
       if (
         !eventAddresses.some((addr) =>
@@ -365,7 +365,7 @@ export function createBanNotification(event: ModerationEvent): {
     case 'BAN_APPLIED':
       return {
         title: 'Account Banned',
-        body: `Address ${event.data.target?.slice(0, 10)}... has been banned. Reason: ${event.data.reason || 'N/A'}`,
+        body: `Address ${event.data.target?.slice(0, 10)}... has been banned. Reason: ${event.data.reason ?? 'N/A'}`,
         priority: 'high',
         action: `/moderation/case/${event.data.caseId}`,
       }

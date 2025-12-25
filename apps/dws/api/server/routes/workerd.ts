@@ -3,7 +3,12 @@
  * V8 isolate-based serverless worker deployment and invocation
  */
 
-import { expectJson, getFormInt, getFormString } from '@jejunetwork/types'
+import {
+  expectJson,
+  expectValid,
+  getFormInt,
+  getFormString,
+} from '@jejunetwork/types'
 import { Elysia, t } from 'elysia'
 import type { Address } from 'viem'
 import { base, baseSepolia, localhost } from 'viem/chains'
@@ -31,56 +36,46 @@ const WorkerdBindingsSchema = z.array(
   }),
 )
 
-/** JSON body schema for worker deployment */
-interface DeployWorkerJsonBody {
-  name: string
-  code?: string
-  codeCid?: string
-  handler?: string
-  memoryMb?: number
-  timeoutMs?: number
-  cpuTimeMs?: number
-  compatibilityDate?: string
-  compatibilityFlags?: string[]
-  bindings?: Array<{
-    name: string
-    type: 'text' | 'json' | 'data' | 'service'
-    value?: string | Record<string, string>
-    service?: string
-  }>
-}
+/** Zod schema for worker deployment */
+const DeployWorkerJsonBodySchema = z.object({
+  name: z.string().min(1),
+  code: z.string().optional(),
+  codeCid: z.string().optional(),
+  handler: z.string().optional(),
+  memoryMb: z.number().int().positive().optional(),
+  timeoutMs: z.number().int().positive().optional(),
+  cpuTimeMs: z.number().int().positive().optional(),
+  compatibilityDate: z.string().optional(),
+  compatibilityFlags: z.array(z.string()).optional(),
+  bindings: WorkerdBindingsSchema.optional(),
+})
 
-/** JSON body schema for worker updates */
-interface UpdateWorkerBody {
-  code?: string
-  memoryMb?: number
-  timeoutMs?: number
-  cpuTimeMs?: number
-  bindings?: Array<{
-    name: string
-    type: 'text' | 'json' | 'data' | 'service'
-    value?: string | Record<string, string>
-    service?: string
-  }>
-}
+/** Zod schema for worker updates */
+const UpdateWorkerBodySchema = z.object({
+  code: z.string().optional(),
+  memoryMb: z.number().int().positive().optional(),
+  timeoutMs: z.number().int().positive().optional(),
+  cpuTimeMs: z.number().int().positive().optional(),
+  bindings: WorkerdBindingsSchema.optional(),
+})
 
-/** JSON body schema for worker invocation */
-interface InvokeWorkerBody {
-  method?: string
-  path?: string
-  headers?: Record<string, string>
-  body?: string
-}
+/** Zod schema for worker invocation */
+const InvokeWorkerBodySchema = z.object({
+  method: z.string().optional(),
+  path: z.string().optional(),
+  headers: z.record(z.string(), z.string()).optional(),
+  body: z.string().optional(),
+})
 
-/** JSON body schema for replication */
-interface ReplicateWorkerBody {
-  targetCount?: number
-}
+/** Zod schema for replication */
+const ReplicateWorkerBodySchema = z.object({
+  targetCount: z.number().int().positive().optional(),
+})
 
-/** JSON body schema for registry deployment */
-interface DeployFromRegistryBody {
-  agentId: string
-}
+/** Zod schema for registry deployment */
+const DeployFromRegistryBodySchema = z.object({
+  agentId: z.string().min(1),
+})
 
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -207,7 +202,11 @@ export function createWorkerdRouter(options: WorkerdRouterOptions) {
             codeBuffer = Buffer.from(await codeFile.arrayBuffer())
           }
         } else {
-          const jsonBody = body as DeployWorkerJsonBody
+          const jsonBody = expectValid(
+            DeployWorkerJsonBodySchema,
+            body,
+            'Deploy worker body',
+          )
           name = jsonBody.name
           memoryMb = jsonBody.memoryMb ?? 128
           timeoutMs = jsonBody.timeoutMs ?? 30000
@@ -288,7 +287,7 @@ export function createWorkerdRouter(options: WorkerdRouterOptions) {
         // Register on-chain if decentralized
         if (registry && enableDecentralized) {
           const endpoint =
-            routerConfig?.localEndpoint || DEFAULT_ROUTER_CONFIG.localEndpoint
+            routerConfig?.localEndpoint ?? DEFAULT_ROUTER_CONFIG.localEndpoint
           await registry
             .registerWorker(worker, endpoint)
             .catch((err: Error) => {
@@ -413,7 +412,11 @@ export function createWorkerdRouter(options: WorkerdRouterOptions) {
           return { error: 'Not authorized' }
         }
 
-        const updates = body as UpdateWorkerBody
+        const updates = expectValid(
+          UpdateWorkerBodySchema,
+          body,
+          'Update worker body',
+        )
 
         // Update code if provided
         if (updates.code) {
@@ -524,7 +527,11 @@ export function createWorkerdRouter(options: WorkerdRouterOptions) {
     .post(
       '/:workerId/invoke',
       async ({ params, body }) => {
-        const request = body as InvokeWorkerBody
+        const request = expectValid(
+          InvokeWorkerBodySchema,
+          body,
+          'Invoke worker body',
+        )
 
         // Use decentralized router if enabled (it checks local executor first)
         if (workerRouter && enableDecentralized) {
@@ -685,7 +692,12 @@ export function createWorkerdRouter(options: WorkerdRouterOptions) {
       .post(
         '/:workerId/replicate',
         async ({ params, body, set }) => {
-          const targetCount = (body as ReplicateWorkerBody).targetCount ?? 3
+          const validatedBody = expectValid(
+            ReplicateWorkerBodySchema,
+            body,
+            'Replicate worker body',
+          )
+          const targetCount = validatedBody.targetCount ?? 3
 
           const worker = await registry.getWorker(BigInt(params.workerId))
           if (!worker) {
@@ -717,7 +729,12 @@ export function createWorkerdRouter(options: WorkerdRouterOptions) {
       .post(
         '/deploy-from-registry',
         async ({ body, set }) => {
-          const agentId = BigInt((body as DeployFromRegistryBody).agentId)
+          const validatedBody = expectValid(
+            DeployFromRegistryBodySchema,
+            body,
+            'Deploy from registry body',
+          )
+          const agentId = BigInt(validatedBody.agentId)
 
           const worker = await registry.getWorker(agentId)
           if (!worker) {

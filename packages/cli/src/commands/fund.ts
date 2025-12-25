@@ -2,6 +2,7 @@
 
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
+import { toError } from '@jejunetwork/types'
 import { Command } from 'commander'
 import { execa } from 'execa'
 import {
@@ -12,7 +13,6 @@ import {
   parseEther,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { toError } from '@jejunetwork/types'
 import { checkRpcHealth } from '../lib/chain'
 import { logger } from '../lib/logger'
 import { sanitizeErrorMessage, validateAddress } from '../lib/security'

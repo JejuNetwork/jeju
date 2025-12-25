@@ -6,7 +6,7 @@
  * @packageDocumentation
  */
 
-export * from './core'
 export * from './autonomy'
+export * from './core'
 export * from './experience'
 export * from './trajectory'

@@ -1,3 +1,4 @@
+import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   AlertCircle,
@@ -168,18 +169,6 @@ export default function FaucetTab() {
   } = useFaucet()
   const [showApiDocs, setShowApiDocs] = useState(false)
 
-  if (!isConnected) {
-    return (
-      <div className="card">
-        <div className="card-header">
-          <DropletIcon size={20} />
-          <h3>JEJU Faucet</h3>
-        </div>
-        <p className="text-secondary">Connect your wallet to use the faucet.</p>
-      </div>
-    )
-  }
-
   const isRegistered = status?.isRegistered ?? false
 
   return (
@@ -223,63 +212,65 @@ export default function FaucetTab() {
           </div>
         </div>
 
-        {/* Status Checklist */}
-        <div className="space-y-3 mb-4">
-          {/* Registration Check */}
-          <div className="flex items-center justify-between p-3 rounded-lg bg-surface">
-            <div className="flex items-center gap-2">
-              {loading ? (
-                <RefreshCwIcon
-                  size={18}
-                  className="animate-spin text-gray-400"
-                />
-              ) : isRegistered ? (
-                <CheckCircle2Icon size={18} className="text-green-500" />
-              ) : (
-                <AlertCircleIcon size={18} className="text-yellow-500" />
-              )}
-              <span className="text-sm">ERC-8004 Registry</span>
+        {/* Status Checklist - only show when connected */}
+        {isConnected && (
+          <div className="space-y-3 mb-4">
+            {/* Registration Check */}
+            <div className="flex items-center justify-between p-3 rounded-lg bg-surface">
+              <div className="flex items-center gap-2">
+                {loading ? (
+                  <RefreshCwIcon
+                    size={18}
+                    className="animate-spin text-gray-400"
+                  />
+                ) : isRegistered ? (
+                  <CheckCircle2Icon size={18} className="text-green-500" />
+                ) : (
+                  <AlertCircleIcon size={18} className="text-yellow-500" />
+                )}
+                <span className="text-sm">ERC-8004 Registry</span>
+              </div>
+              <span
+                className={`text-sm font-medium ${loading ? 'text-gray-400' : isRegistered ? 'text-green-500' : 'text-yellow-500'}`}
+              >
+                {loading
+                  ? 'Checking...'
+                  : isRegistered
+                    ? 'Registered'
+                    : 'Not Registered'}
+              </span>
             </div>
-            <span
-              className={`text-sm font-medium ${loading ? 'text-gray-400' : isRegistered ? 'text-green-500' : 'text-yellow-500'}`}
-            >
-              {loading
-                ? 'Checking...'
-                : isRegistered
-                  ? 'Registered'
-                  : 'Not Registered'}
-            </span>
-          </div>
 
-          {/* Cooldown Check */}
-          <div className="flex items-center justify-between p-3 rounded-lg bg-surface">
-            <div className="flex items-center gap-2">
-              {loading ? (
-                <RefreshCwIcon
-                  size={18}
-                  className="animate-spin text-gray-400"
-                />
-              ) : status && status.cooldownRemaining === 0 ? (
-                <CheckCircle2Icon size={18} className="text-green-500" />
-              ) : (
-                <ClockIcon size={18} className="text-yellow-500" />
-              )}
-              <span className="text-sm">Cooldown</span>
+            {/* Cooldown Check */}
+            <div className="flex items-center justify-between p-3 rounded-lg bg-surface">
+              <div className="flex items-center gap-2">
+                {loading ? (
+                  <RefreshCwIcon
+                    size={18}
+                    className="animate-spin text-gray-400"
+                  />
+                ) : status && status.cooldownRemaining === 0 ? (
+                  <CheckCircle2Icon size={18} className="text-green-500" />
+                ) : (
+                  <ClockIcon size={18} className="text-yellow-500" />
+                )}
+                <span className="text-sm">Cooldown</span>
+              </div>
+              <span
+                className={`text-sm font-medium ${loading ? 'text-gray-400' : status?.cooldownRemaining === 0 ? 'text-green-500' : 'text-yellow-500'}`}
+              >
+                {loading
+                  ? 'Checking...'
+                  : status?.cooldownRemaining
+                    ? formatTime(status.cooldownRemaining)
+                    : 'Ready'}
+              </span>
             </div>
-            <span
-              className={`text-sm font-medium ${loading ? 'text-gray-400' : status?.cooldownRemaining === 0 ? 'text-green-500' : 'text-yellow-500'}`}
-            >
-              {loading
-                ? 'Checking...'
-                : status?.cooldownRemaining
-                  ? formatTime(status.cooldownRemaining)
-                  : 'Ready'}
-            </span>
           </div>
-        </div>
+        )}
 
-        {/* Registration CTA */}
-        {!loading && !isRegistered && (
+        {/* Registration CTA - only when connected and not registered */}
+        {isConnected && !loading && !isRegistered && (
           <div className="p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/20 mb-4">
             <div className="flex items-start gap-3">
               <AlertCircleIcon
@@ -329,26 +320,48 @@ export default function FaucetTab() {
         )}
 
         {/* Claim Button */}
-        <button
-          type="button"
-          className="button w-full"
-          onClick={claim}
-          disabled={!status?.eligible || claiming || loading}
-        >
-          {claiming ? (
-            <>
-              <RefreshCwIcon size={16} className="animate-spin" />
-              Claiming...
-            </>
-          ) : (
-            <>
-              <DropletIcon size={16} />
-              {status?.eligible
-                ? `Claim ${status.amountPerClaim} JEJU`
-                : 'Claim JEJU'}
-            </>
-          )}
-        </button>
+        {isConnected ? (
+          <button
+            type="button"
+            className="button w-full"
+            onClick={claim}
+            disabled={!status?.eligible || claiming || loading}
+          >
+            {claiming ? (
+              <>
+                <RefreshCwIcon size={16} className="animate-spin" />
+                Claiming...
+              </>
+            ) : (
+              <>
+                <DropletIcon size={16} />
+                {status?.eligible
+                  ? `Claim ${status.amountPerClaim} JEJU`
+                  : 'Claim JEJU'}
+              </>
+            )}
+          </button>
+        ) : (
+          <div
+            style={{
+              padding: '1rem',
+              background: 'var(--surface-hover)',
+              borderRadius: 'var(--radius-md)',
+              textAlign: 'center',
+            }}
+          >
+            <p
+              style={{
+                color: 'var(--text-secondary)',
+                marginBottom: '0.75rem',
+                fontSize: '0.875rem',
+              }}
+            >
+              Connect your wallet to claim tokens
+            </p>
+            <ConnectButton />
+          </div>
+        )}
 
         {/* Claim Result */}
         {claimResult && (

@@ -138,7 +138,7 @@ class LocalInferenceServer {
   ): { baseUrl: string; type: string } | null {
     const custom = this.customProviders.find((p) => p.name === provider)
     if (custom)
-      return { baseUrl: custom.baseUrl, type: custom.type || 'openai' }
+      return { baseUrl: custom.baseUrl, type: custom.type ?? 'openai' }
     return PROVIDER_ENDPOINTS[provider] || null
   }
 
@@ -183,7 +183,7 @@ class LocalInferenceServer {
       }> = []
 
       for (const provider of this.customProviders) {
-        for (const model of provider.knownModels || []) {
+        for (const model of provider.knownModels ?? []) {
           models.push({
             id: model,
             object: 'model',
@@ -362,7 +362,7 @@ class LocalInferenceServer {
     }
 
     if (provider.type === 'anthropic') {
-      headers['x-api-key'] = provider.apiKey || ''
+      headers['x-api-key'] = provider.apiKey ?? ''
       headers['anthropic-version'] = '2023-06-01'
       const systemMessage = request.messages.find((m) => m.role === 'system')
       const otherMessages = request.messages.filter((m) => m.role !== 'system')
@@ -371,7 +371,7 @@ class LocalInferenceServer {
         headers,
         body: {
           model: request.model,
-          max_tokens: request.max_tokens || 4096,
+          max_tokens: request.max_tokens ?? 4096,
           messages: otherMessages,
           ...(systemMessage && { system: systemMessage.content }),
           ...(request.temperature !== undefined && {
@@ -392,7 +392,7 @@ class LocalInferenceServer {
             parts: [{ text: m.content }],
           })),
           generationConfig: {
-            maxOutputTokens: request.max_tokens || 4096,
+            maxOutputTokens: request.max_tokens ?? 4096,
             ...(request.temperature !== undefined && {
               temperature: request.temperature,
             }),
@@ -523,7 +523,7 @@ class LocalInferenceServer {
           model,
           choices: [
             {
-              message: { role: 'assistant', content: data.text || '' },
+              message: { role: 'assistant', content: data.text ?? '' },
               finish_reason: 'stop',
             },
           ],

@@ -14,7 +14,8 @@ import type { AgentTemplate } from '../types'
 export const TRADER_TEMPLATE: AgentTemplate = {
   archetype: 'trader',
   name: 'Trader',
-  description: 'A disciplined trader focused on profitable, risk-managed positions',
+  description:
+    'A disciplined trader focused on profitable, risk-managed positions',
   bio: 'Professional trader with focus on risk management and consistent returns',
   system: `You are a professional trader. Your primary goal is to generate consistent profits while managing risk.
 
@@ -40,7 +41,8 @@ Key behaviors:
 export const DEGEN_TEMPLATE: AgentTemplate = {
   archetype: 'degen',
   name: 'Degen',
-  description: 'High-risk trader seeking maximum gains through aggressive positions',
+  description:
+    'High-risk trader seeking maximum gains through aggressive positions',
   bio: 'Full send. No fear. Maximum leverage.',
   system: `You are a degen trader. You live for the thrill of high-risk trades and massive gains.
 

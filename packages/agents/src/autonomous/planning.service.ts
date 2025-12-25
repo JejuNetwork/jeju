@@ -7,19 +7,19 @@
  * @packageDocumentation
  */
 
-import { logger } from '@jejunetwork/shared'
 import type { IAgentRuntime } from '@elizaos/core'
-import { z } from 'zod'
+import { logger } from '@jejunetwork/shared'
 import type { JsonValue } from '@jejunetwork/types'
+import { z } from 'zod'
 import type {
-  AgentGoal,
-  AgentDirective,
   AgentConstraints,
+  AgentDirective,
+  AgentGoal,
 } from '../types/goals'
-import { autonomousTradingService } from './trading.service'
-import { autonomousPostingService } from './posting.service'
 import { autonomousCommentingService } from './commenting.service'
 import { autonomousDMService } from './dm.service'
+import { autonomousPostingService } from './posting.service'
+import { autonomousTradingService } from './trading.service'
 
 /**
  * Planned action definition
@@ -97,7 +97,7 @@ interface ExecutionResult {
 /**
  * Zod schema for action plan response
  */
-const ActionPlanResponseSchema = z.object({
+const _ActionPlanResponseSchema = z.object({
   reasoning: z.string(),
   actions: z.array(
     z.object({
@@ -190,22 +190,26 @@ export class AutonomousPlanningCoordinator {
     config: PlanningAgentConfig,
     context: PlanningContext,
   ): string {
-    const goalsText = context.goals.active.length > 0
-      ? context.goals.active.map((g, i) => {
-          const targetInfo = g.target
-            ? `Target: ${g.target.metric} = ${g.target.value}${g.target.unit ?? ''}`
-            : ''
-          return `${i + 1}. ${g.name} (Priority: ${g.priority}/10) - ${(g.progress * 100).toFixed(0)}% complete
+    const goalsText =
+      context.goals.active.length > 0
+        ? context.goals.active
+            .map((g, i) => {
+              const targetInfo = g.target
+                ? `Target: ${g.target.metric} = ${g.target.value}${g.target.unit ?? ''}`
+                : ''
+              return `${i + 1}. ${g.name} (Priority: ${g.priority}/10) - ${(g.progress * 100).toFixed(0)}% complete
    ${g.description}
    ${targetInfo}`
-        }).join('\n\n')
-      : 'No goals configured'
+            })
+            .join('\n\n')
+        : 'No goals configured'
 
-    const directivesText = [
-      ...context.directives.always.map((d) => `✓ ALWAYS: ${d.rule}`),
-      ...context.directives.never.map((d) => `✗ NEVER: ${d.rule}`),
-      ...context.directives.prefer.map((d) => `+ PREFER: ${d.rule}`),
-    ].join('\n') || 'No directives'
+    const directivesText =
+      [
+        ...context.directives.always.map((d) => `✓ ALWAYS: ${d.rule}`),
+        ...context.directives.never.map((d) => `✗ NEVER: ${d.rule}`),
+        ...context.directives.prefer.map((d) => `+ PREFER: ${d.rule}`),
+      ].join('\n') || 'No directives'
 
     const constraintsText = context.constraints
       ? `- Max actions this tick: ${context.constraints.general.maxActionsPerTick}
@@ -214,12 +218,16 @@ export class AutonomousPlanningCoordinator {
 - Risk tolerance: ${context.constraints.general.riskTolerance}`
       : 'No specific constraints'
 
-    const pendingText = context.pending.length > 0
-      ? context.pending
-          .slice(0, 5)
-          .map((p) => `- ${p.type}: "${p.content.substring(0, 60)}..." by ${p.author}`)
-          .join('\n')
-      : 'None'
+    const pendingText =
+      context.pending.length > 0
+        ? context.pending
+            .slice(0, 5)
+            .map(
+              (p) =>
+                `- ${p.type}: "${p.content.substring(0, 60)}..." by ${p.author}`,
+            )
+            .join('\n')
+        : 'None'
 
     return `${config.systemPrompt}
 
@@ -250,10 +258,12 @@ Pending interactions (${context.pending.length}):
 ${pendingText}
 
 Recent actions (last 10):
-${context.recentActions
-  .slice(0, 10)
-  .map((a) => `- ${a.type}: ${a.success ? 'success' : 'failed'}`)
-  .join('\n') || 'None'}
+${
+  context.recentActions
+    .slice(0, 10)
+    .map((a) => `- ${a.type}: ${a.success ? 'success' : 'failed'}`)
+    .join('\n') || 'None'
+}
 
 === YOUR TASK ===
 Plan ${config.maxActionsPerTick} or fewer actions for this tick to make maximum progress toward your goals.
@@ -274,78 +284,6 @@ Respond in JSON format:
 }
 
 Your action plan (JSON only):`
-  }
-
-  /**
-   * Parse action plan from LLM response
-   */
-  private parseActionPlan(response: string, context: PlanningContext): AgentPlan {
-    const jsonMatch = response.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) {
-      logger.warn('No JSON found in planning response')
-      return {
-        actions: [],
-        totalActions: 0,
-        reasoning: 'No valid plan generated',
-        goalsAddressed: [],
-        estimatedCost: 0,
-      }
-    }
-
-    try {
-      const parsed: unknown = JSON.parse(jsonMatch[0])
-      const result = ActionPlanResponseSchema.safeParse(parsed)
-
-      if (!result.success) {
-        logger.warn('Invalid action plan response', {
-          errorCount: result.error.issues.length,
-          firstError: result.error.issues[0]?.message ?? 'Unknown error',
-        })
-        return {
-          actions: [],
-          totalActions: 0,
-          reasoning: 'Invalid plan format',
-          goalsAddressed: [],
-          estimatedCost: 0,
-        }
-      }
-
-      const actions: PlanStep[] = result.data.actions.map((a) => ({
-        type: a.type,
-        priority: a.priority,
-        goalId: a.goalId ?? undefined,
-        reasoning: a.reasoning,
-        estimatedImpact: a.estimatedImpact,
-        params: a.params as Record<string, JsonValue>,
-      }))
-
-      const goalsAddressed = [
-        ...new Set(
-          actions
-            .map((a) => a.goalId)
-            .filter((id): id is string => typeof id === 'string'),
-        ),
-      ]
-
-      return {
-        actions,
-        totalActions: actions.length,
-        reasoning: result.data.reasoning,
-        goalsAddressed,
-        estimatedCost: actions.length,
-      }
-    } catch (err) {
-      logger.error('Failed to parse action plan', {
-        message: err instanceof Error ? err.message : String(err),
-      })
-      return {
-        actions: [],
-        totalActions: 0,
-        reasoning: 'Failed to parse plan',
-        goalsAddressed: [],
-        estimatedCost: 0,
-      }
-    }
   }
 
   /**
@@ -400,48 +338,6 @@ Your action plan (JSON only):`
   }
 
   /**
-   * Validate plan against constraints
-   */
-  private validatePlan(
-    plan: AgentPlan,
-    config: PlanningAgentConfig,
-    constraints: AgentConstraints | null,
-  ): AgentPlan {
-    let validActions = [...plan.actions]
-
-    // Enforce max actions per tick
-    const maxActions = constraints?.general.maxActionsPerTick ?? config.maxActionsPerTick
-    if (validActions.length > maxActions) {
-      validActions = validActions
-        .sort((a, b) => b.priority - a.priority)
-        .slice(0, maxActions)
-    }
-
-    // Filter by enabled capabilities
-    validActions = validActions.filter((action) => {
-      switch (action.type) {
-        case 'trade':
-          return config.autonomousTrading
-        case 'post':
-          return config.autonomousPosting
-        case 'comment':
-        case 'respond':
-          return config.autonomousCommenting
-        case 'message':
-          return config.autonomousDMs
-        default:
-          return true
-      }
-    })
-
-    return {
-      ...plan,
-      actions: validActions,
-      totalActions: validActions.length,
-    }
-  }
-
-  /**
    * Generate a comprehensive action plan
    */
   async generateActionPlan(
@@ -460,7 +356,7 @@ Your action plan (JSON only):`
     }
 
     // Build prompt for LLM planning
-    const prompt = this.buildPlanningPrompt(config, context)
+    const _prompt = this.buildPlanningPrompt(config, context)
 
     // If no runtime, fall back to simple planning
     if (!runtime) {
@@ -482,11 +378,17 @@ Your action plan (JSON only):`
     action: PlanStep,
     runtime?: IAgentRuntime,
   ): Promise<{ success: boolean; data?: JsonValue; error?: string }> {
-    logger.info(`Executing ${action.type} action`, { agentId, priority: action.priority })
+    logger.info(`Executing ${action.type} action`, {
+      agentId,
+      priority: action.priority,
+    })
 
     switch (action.type) {
       case 'trade': {
-        const tradeResult = await autonomousTradingService.executeTrades(agentId, runtime)
+        const tradeResult = await autonomousTradingService.executeTrades(
+          agentId,
+          runtime,
+        )
         return {
           success: tradeResult.tradesExecuted > 0,
           data: { trades: tradeResult.tradesExecuted },
@@ -494,18 +396,27 @@ Your action plan (JSON only):`
       }
 
       case 'post': {
-        const postId = await autonomousPostingService.createAgentPost(agentId, runtime)
+        const postId = await autonomousPostingService.createAgentPost(
+          agentId,
+          runtime,
+        )
         return { success: !!postId, data: { postId } }
       }
 
       case 'comment':
       case 'respond': {
-        const commentId = await autonomousCommentingService.createAgentComment(agentId, runtime)
+        const commentId = await autonomousCommentingService.createAgentComment(
+          agentId,
+          runtime,
+        )
         return { success: !!commentId, data: { commentId } }
       }
 
       case 'message': {
-        const dmResponses = await autonomousDMService.respondToDMs(agentId, runtime)
+        const dmResponses = await autonomousDMService.respondToDMs(
+          agentId,
+          runtime,
+        )
         return { success: dmResponses > 0, data: { responses: dmResponses } }
       }
 
@@ -528,7 +439,9 @@ Your action plan (JSON only):`
     logger.info(`Executing plan with ${plan.totalActions} actions`, { agentId })
 
     // Sort by priority
-    const sortedActions = [...plan.actions].sort((a, b) => b.priority - a.priority)
+    const sortedActions = [...plan.actions].sort(
+      (a, b) => b.priority - a.priority,
+    )
 
     for (const action of sortedActions) {
       const result = await this.executeAction(agentId, action, runtime)

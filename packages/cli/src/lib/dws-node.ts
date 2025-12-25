@@ -1,5 +1,6 @@
 /** DWS node on-chain registration */
 
+import { ZERO_ADDRESS } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import { createWalletClient, http, publicActions } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
@@ -97,8 +98,6 @@ interface RegistrationResult {
   storageProviderId: Hex
   cdnNodeId: Hex
 }
-
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 /**
  * Register the local DWS node on-chain
