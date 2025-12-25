@@ -200,11 +200,11 @@ function mapContractResponse(contract: MockContract) {
   if (!contract) throw new Error('Contract is required')
   return {
     address: contract.address,
-    contractType: contract.contractType || null,
+    contractType: contract.contractType ?? null,
     isERC20: contract.isERC20,
     isERC721: contract.isERC721,
     isERC1155: contract.isERC1155,
-    creator: contract.creator?.address || null,
+    creator: contract.creator?.address ?? null,
     firstSeenAt: contract.firstSeenAt.toISOString(),
   }
 }
@@ -213,11 +213,11 @@ function mapTokenTransferResponse(transfer: MockTokenTransfer) {
   if (!transfer) throw new Error('TokenTransfer is required')
   return {
     id: transfer.id,
-    token: transfer.token?.address || null,
-    from: transfer.from?.address || null,
-    to: transfer.to?.address || null,
-    value: transfer.value?.toString() || null,
-    tokenId: transfer.tokenId || null,
+    token: transfer.token?.address ?? null,
+    from: transfer.from?.address ?? null,
+    to: transfer.to?.address ?? null,
+    value: transfer.value?.toString() ?? null,
+    tokenId: transfer.tokenId ?? null,
     tokenStandard: transfer.tokenStandard,
     timestamp: transfer.timestamp.toISOString(),
   }

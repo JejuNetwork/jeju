@@ -169,7 +169,7 @@ export function useBanStatus(
           (isOnNotice
             ? 'Account on notice - pending review'
             : 'Banned from network'),
-        caseId: ban?.caseId || null,
+        caseId: ban?.caseId ?? null,
         canAppeal: ban?.banType === BanType.PERMANENT,
         loading: false,
         error: null,

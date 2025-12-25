@@ -1,3 +1,4 @@
+import type { Address } from 'viem'
 import {
   type AgentLabels,
   type BanStatus,
@@ -22,14 +23,25 @@ export type {
   TransactionRequest,
 }
 
+const ZERO_ADDRESS: Address = '0x0000000000000000000000000000000000000000'
+
+/** Convert zero address to undefined for optional contract addresses */
+function toOptionalAddress(addr: Address): Address | undefined {
+  return addr === ZERO_ADDRESS ? undefined : addr
+}
+
 // Bazaar-specific configuration from centralized config
 const config: ModerationConfig = {
   chain: jeju,
   rpcUrl: RPC_URL,
-  banManagerAddress: CONTRACTS.banManager || undefined,
-  moderationMarketplaceAddress: CONTRACTS.moderationMarketplace || undefined,
-  reportingSystemAddress: CONTRACTS.reportingSystem || undefined,
-  reputationLabelManagerAddress: CONTRACTS.reputationLabelManager || undefined,
+  banManagerAddress: toOptionalAddress(CONTRACTS.banManager),
+  moderationMarketplaceAddress: toOptionalAddress(
+    CONTRACTS.moderationMarketplace,
+  ),
+  reportingSystemAddress: toOptionalAddress(CONTRACTS.reportingSystem),
+  reputationLabelManagerAddress: toOptionalAddress(
+    CONTRACTS.reputationLabelManager,
+  ),
 }
 
 const moderationAPI = new ModerationAPI(config)

@@ -277,7 +277,7 @@ export class MultiChainDiscovery {
               decimals: token.decimals,
               balance,
               balanceFormatted: this.formatBalance(balance, token.decimals),
-              isNative: token.isNative || false,
+              isNative: token.isNative ?? false,
             }
           }
         } catch (e) {
@@ -306,12 +306,12 @@ export class MultiChainDiscovery {
         balances.push(balance)
 
         // Group by chain
-        const chainList = byChain.get(balance.chainId) || []
+        const chainList = byChain.get(balance.chainId) ?? []
         chainList.push(balance)
         byChain.set(balance.chainId, chainList)
 
         // Group by token symbol
-        const tokenList = byToken.get(balance.symbol) || []
+        const tokenList = byToken.get(balance.symbol) ?? []
         tokenList.push(balance)
         byToken.set(balance.symbol, tokenList)
       }
@@ -341,7 +341,7 @@ export class MultiChainDiscovery {
     chainId: number,
   ): Promise<TokenBalance[]> {
     const all = await this.discoverBalances(user)
-    return all.byChain.get(chainId) || []
+    return all.byChain.get(chainId) ?? []
   }
 
   /**
@@ -352,7 +352,7 @@ export class MultiChainDiscovery {
     symbol: string,
   ): Promise<TokenBalance[]> {
     const all = await this.discoverBalances(user)
-    return all.byToken.get(symbol) || []
+    return all.byToken.get(symbol) ?? []
   }
 
   /**
@@ -418,7 +418,7 @@ export class MultiChainDiscovery {
 
     for (const [symbol, balances] of all.byToken) {
       const totalBalance = balances.reduce((sum, b) => sum + b.balance, 0n)
-      const decimals = balances[0]?.decimals || 18
+      const decimals = balances[0]?.decimals ?? 18
 
       topTokens.push({
         symbol,

@@ -327,11 +327,11 @@ export default {
     const result = await ${handlerName}(event, env);
 
     // Convert response
-    const statusCode = result.statusCode || 200;
-    const headers = result.headers || { 'Content-Type': 'application/json' };
+    const statusCode = result.statusCode ?? 200;
+    const headers = result.headers ?? { 'Content-Type': 'application/json' };
     const responseBody = typeof result.body === 'string'
       ? result.body
-      : JSON.stringify(result.body || result);
+      : JSON.stringify(result.body ?? result);
 
     return new Response(responseBody, { status: statusCode, headers });
   }

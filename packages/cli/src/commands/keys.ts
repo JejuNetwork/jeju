@@ -899,7 +899,7 @@ async function runGenesis(network: NetworkType) {
     const timingEntropy = await collectTimingEntropy()
 
     const combinedEntropy = combineEntropy([
-      userEntropy || '',
+      userEntropy ?? '',
       timingEntropy,
       randomBytes(32).toString('hex'),
       Date.now().toString(),

@@ -91,8 +91,8 @@ class CronServiceImpl implements CronService {
       const remainingEntries = Array.from(this.localJobs.entries()).sort(
         (a, b) => {
           // Extract timestamp from job id format: "cron-{timestamp}-{random}"
-          const tsA = parseInt(a[0].split('-')[1] || '0', 10)
-          const tsB = parseInt(b[0].split('-')[1] || '0', 10)
+          const tsA = parseInt(a[0].split('-')[1] ?? '0', 10)
+          const tsB = parseInt(b[0].split('-')[1] ?? '0', 10)
           return tsA - tsB
         },
       )

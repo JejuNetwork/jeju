@@ -1,3 +1,4 @@
+import { ZERO_ADDRESS } from '@jejunetwork/types'
 import type { PublicClient, WalletClient } from 'viem'
 import { isNativeToken } from './contracts'
 
@@ -6,8 +7,6 @@ interface LiquidityConfig {
   refreshIntervalMs?: number
   verbose?: boolean
 }
-
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 export class LiquidityManager {
   private config: LiquidityConfig

@@ -261,8 +261,8 @@ export class SocialManager {
       return { users: [], total: 0 }
     }
 
-    const page = options.page || 1
-    const perPage = options.perPage || 30
+    const page = options.page ?? 1
+    const perPage = options.perPage ?? 30
     const allStargazers = Array.from(repoStars)
     const start = (page - 1) * perPage
     const paginatedAddresses = allStargazers.slice(start, start + perPage)
@@ -289,8 +289,8 @@ export class SocialManager {
       return { repos: [], total: 0 }
     }
 
-    const page = options.page || 1
-    const perPage = options.perPage || 30
+    const page = options.page ?? 1
+    const perPage = options.perPage ?? 30
     const allRepoIds = Array.from(userStars)
     const start = (page - 1) * perPage
     const paginatedRepoIds = allRepoIds.slice(start, start + perPage)
@@ -394,8 +394,8 @@ export class SocialManager {
   ): Promise<{ forks: Array<Fork & { repo: Repository }>; total: number }> {
     const allForks = this.forksCache.get(repoId) ?? []
 
-    const page = options.page || 1
-    const perPage = options.perPage || 30
+    const page = options.page ?? 1
+    const perPage = options.perPage ?? 30
     const start = (page - 1) * perPage
     const paginatedForks = allForks.slice(start, start + perPage)
 

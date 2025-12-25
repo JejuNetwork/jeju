@@ -1,4 +1,5 @@
 import { getNetworkName } from '@jejunetwork/config'
+import { AuthProvider } from '@jejunetwork/oauth3'
 import { isValidAddress } from '@jejunetwork/types'
 import { type Context, Elysia } from 'elysia'
 import type { Address } from 'viem'
@@ -9,7 +10,6 @@ import {
   type OAuth3AuthHeaders,
   oauth3AuthHeadersSchema,
 } from '../lib/schemas'
-import { AuthProvider } from '@jejunetwork/oauth3'
 import { getOAuth3Service } from './services/auth'
 import {
   expectDefined,

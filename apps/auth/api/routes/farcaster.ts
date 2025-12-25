@@ -264,7 +264,7 @@ Resources:
             nonce: '${nonce}',
             message,
             signature,
-            fid: parseInt(fid),
+            fid: parseInt(fid, 10),
             custody
           })
         });

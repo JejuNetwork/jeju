@@ -238,7 +238,7 @@ export function createValidationModule(
       args: [
         params.requestHash,
         params.response,
-        params.responseUri || '',
+        params.responseUri ?? '',
         responseHash,
         tag,
       ],
@@ -308,7 +308,7 @@ export function createValidationModule(
       address: validationAddress,
       abi: VALIDATION_REGISTRY_ABI,
       functionName: 'getSummary',
-      args: [agentId, validatorAddresses || [], tag || ZERO_BYTES32],
+      args: [agentId, validatorAddresses ?? [], tag ?? ZERO_BYTES32],
     })) as [bigint, number]
 
     const [count, avgResponse] = result

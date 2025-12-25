@@ -492,7 +492,7 @@ export const PROVIDERS_BY_ID = new Map<string, APIProvider>(
 export const PROVIDERS_BY_CATEGORY = new Map<ProviderCategory, APIProvider[]>()
 for (const provider of ALL_PROVIDERS) {
   for (const category of provider.categories) {
-    const existing = PROVIDERS_BY_CATEGORY.get(category) || []
+    const existing = PROVIDERS_BY_CATEGORY.get(category) ?? []
     existing.push(provider)
     PROVIDERS_BY_CATEGORY.set(category, existing)
   }
@@ -511,7 +511,7 @@ export function getProvider(id: string): APIProvider | undefined {
 export function getProvidersByCategory(
   category: ProviderCategory,
 ): APIProvider[] {
-  return PROVIDERS_BY_CATEGORY.get(category) || []
+  return PROVIDERS_BY_CATEGORY.get(category) ?? []
 }
 
 /**

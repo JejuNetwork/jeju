@@ -99,7 +99,7 @@ export function MFASetup({
       e.preventDefault()
       setLocalError(null)
 
-      const success = await setupPasskey(passkeyName || 'My Device')
+      const success = await setupPasskey(passkeyName ?? 'My Device')
       if (success) {
         setPasskeyName('')
         await listPasskeys().then(setPasskeys)

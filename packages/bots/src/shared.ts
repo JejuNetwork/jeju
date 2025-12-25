@@ -1,8 +1,7 @@
 /** Shared utilities for Jeju bots. */
 
+import { generateId, delay as sleep } from '@jejunetwork/shared'
 import { WEIGHT_PRECISION } from './schemas'
-
-import { delay as sleep, generateId } from '@jejunetwork/shared'
 
 export { sleep, generateId }
 
@@ -53,7 +52,6 @@ export function parseBigInt(value: string, decimals: number): bigint {
   const paddedFrac = frac.padEnd(decimals, '0').slice(0, decimals)
   return BigInt(whole + paddedFrac)
 }
-
 
 /** Simple mutex for async operations */
 export class Mutex {

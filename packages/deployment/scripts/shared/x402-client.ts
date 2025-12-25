@@ -705,8 +705,8 @@ export class X402Client {
 
     return {
       success: result.success,
-      paymentId: (result.paymentId || '0x') as Hex,
-      txHash: (result.txHash || '0x') as Hex,
+      paymentId: (result.paymentId ?? '0x') as Hex,
+      txHash: (result.txHash ?? '0x') as Hex,
       payer: signedPayment.payer,
       recipient: signedPayment.recipient,
       amount: signedPayment.amount,
@@ -884,7 +884,7 @@ export async function discoverHttpFacilitator(
   network: string,
   options?: { timeoutMs?: number; skipHealthCheck?: boolean },
 ): Promise<HttpFacilitatorConfig | null> {
-  const { timeoutMs = 3000, skipHealthCheck = false } = options || {}
+  const { timeoutMs = 3000, skipHealthCheck = false } = options ?? {}
 
   // Filter facilitators that support the network
   const candidates = HTTP_FACILITATOR_REGISTRY.filter((f) =>
@@ -1059,7 +1059,7 @@ export function decodePaymentHeader(header: string): SignedPayment | null {
   try {
     const decoded = JSON.parse(Buffer.from(header, 'base64').toString())
     return {
-      payer: decoded.from || '0x0000000000000000000000000000000000000000',
+      payer: decoded.from ?? '0x0000000000000000000000000000000000000000',
       recipient: decoded.payTo,
       token: decoded.asset,
       amount: BigInt(decoded.amount),

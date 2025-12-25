@@ -1,5 +1,6 @@
 import type { NodeMetrics, OracleNodeConfig } from '@jejunetwork/types'
 import { expectHex, parseEnvAddress, ZERO_ADDRESS } from '@jejunetwork/types'
+import type { Abi } from 'abitype'
 import {
   type Chain,
   createPublicClient,
@@ -102,12 +103,12 @@ export class OracleNode {
       throw new Error('Wallet client has no account')
     const workerAddress = this.walletClient.account.address
 
-    const existingOperatorId = await this.publicClient.readContract({
+    const existingOperatorId = (await this.publicClient.readContract({
       address: this.config.networkConnector,
-      abi: NETWORK_CONNECTOR_ABI,
+      abi: NETWORK_CONNECTOR_ABI as Abi,
       functionName: 'workerToOperator',
       args: [workerAddress],
-    })
+    })) as Hex
 
     if (existingOperatorId !== ZERO_BYTES32) {
       this.operatorId = existingOperatorId
@@ -135,12 +136,12 @@ export class OracleNode {
 
     await this.publicClient.waitForTransactionReceipt({ hash })
 
-    this.operatorId = await this.publicClient.readContract({
+    this.operatorId = (await this.publicClient.readContract({
       address: this.config.networkConnector,
-      abi: NETWORK_CONNECTOR_ABI,
+      abi: NETWORK_CONNECTOR_ABI as Abi,
       functionName: 'workerToOperator',
       args: [workerAddress],
-    })
+    })) as Hex
     console.log(`[OracleNode] Operator ID: ${this.operatorId}`)
   }
 
@@ -149,11 +150,11 @@ export class OracleNode {
 
     console.log('[OracleNode] Polling prices...')
 
-    const feedIds = await this.publicClient.readContract({
+    const feedIds = (await this.publicClient.readContract({
       address: this.config.feedRegistry,
-      abi: FEED_REGISTRY_ABI,
+      abi: FEED_REGISTRY_ABI as Abi,
       functionName: 'getActiveFeeds',
-    })
+    })) as Hex[]
 
     const prices = await this.priceFetcher.fetchAllPrices()
 
@@ -180,21 +181,21 @@ export class OracleNode {
       throw new Error('Wallet client has no account')
     const workerAddress = this.walletClient.account.address
 
-    return readContract(this.publicClient, {
+    return this.publicClient.readContract({
       address: this.config.committeeManager,
-      abi: COMMITTEE_MANAGER_ABI,
+      abi: COMMITTEE_MANAGER_ABI as Abi,
       functionName: 'isCommitteeMember',
       args: [feedId, workerAddress],
-    })
+    }) as Promise<boolean>
   }
 
   private async submitReport(feedId: Hex, priceData: PriceData): Promise<void> {
-    const currentRound = await readContract(this.publicClient, {
+    const currentRound = (await this.publicClient.readContract({
       address: this.config.reportVerifier,
-      abi: REPORT_VERIFIER_ABI,
+      abi: REPORT_VERIFIER_ABI as Abi,
       functionName: 'getCurrentRound',
       args: [feedId],
-    })
+    })) as bigint
 
     const newRound = currentRound + 1n
 

@@ -1207,11 +1207,11 @@ export function createArbitrageExecutor(
       10: process.env.RPC_URL_10 || 'https://mainnet.optimism.io',
       8453: process.env.RPC_URL_8453 || 'https://mainnet.base.org',
     },
-    solanaRpcUrl: config.solanaRpcUrl || process.env.SOLANA_RPC_URL,
-    zkBridgeEndpoint: config.zkBridgeEndpoint || process.env.ZK_BRIDGE_ENDPOINT,
-    oneInchApiKey: config.oneInchApiKey || process.env.ONEINCH_API_KEY,
-    maxSlippageBps: config.maxSlippageBps || 50,
-    jitoTipLamports: config.jitoTipLamports || BigInt(10000),
+    solanaRpcUrl: config.solanaRpcUrl ?? process.env.SOLANA_RPC_URL,
+    zkBridgeEndpoint: config.zkBridgeEndpoint ?? process.env.ZK_BRIDGE_ENDPOINT,
+    oneInchApiKey: config.oneInchApiKey ?? process.env.ONEINCH_API_KEY,
+    maxSlippageBps: config.maxSlippageBps ?? 50,
+    jitoTipLamports: config.jitoTipLamports ?? BigInt(10000),
   }
 
   return new ArbitrageExecutor(fullConfig)

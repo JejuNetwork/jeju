@@ -61,7 +61,7 @@ export class BanChecker {
   private publicClient: PublicClient<Transport, Chain>
 
   constructor(config: BanCheckConfig) {
-    const network = config.network || 'testnet'
+    const network = config.network ?? 'testnet'
     const defaultRpc =
       network === 'mainnet'
         ? 'https://mainnet.base.org'
@@ -121,7 +121,7 @@ export class BanChecker {
         isBanned,
         isOnNotice,
         banType: banRecord.banType,
-        reason: banRecord.reason || '',
+        reason: banRecord.reason ?? '',
         caseId: banRecord.caseId || null,
         canAppeal: banRecord.banType === 3,
       }

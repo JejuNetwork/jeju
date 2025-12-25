@@ -4,6 +4,7 @@
 
 import './init'
 
+import { ZERO_ADDRESS } from '@jejunetwork/types'
 import { type Store, TypeormDatabase } from '@subsquid/typeorm-store'
 import { processComputeEvents } from './compute-processor'
 import {
@@ -43,8 +44,6 @@ import { processRegistryEvents } from './registry-game-processor'
 import { processStorageEvents } from './storage-processor'
 import { getCQLSync } from './utils/cql-sync'
 import { getDataSource } from './utils/db'
-
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 const cqlSync = getCQLSync()
 let cqlInitialized = false

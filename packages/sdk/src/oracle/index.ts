@@ -394,7 +394,7 @@ export function createOracleModule(
         args: [BigInt(count)],
       })
 
-      return result
+      return [...result]
     },
 
     async consultTWAP(poolAddress, tokenIn, amountIn, period) {

@@ -172,7 +172,7 @@ export class FederationManager {
       type: 'Person',
       preferredUsername: username,
       name: user.username || `User ${user.address.slice(0, 8)}`,
-      summary: user.bio || '',
+      summary: user.bio ?? '',
       inbox: `${actorUrl}/inbox`,
       outbox: `${actorUrl}/outbox`,
       followers: `${actorUrl}/followers`,
@@ -204,7 +204,7 @@ export class FederationManager {
       type: 'Application',
       preferredUsername: `${ownerUsername}/${repo.name}`,
       name: repo.name,
-      summary: repo.description || '',
+      summary: repo.description ?? '',
       inbox: `${actorUrl}/inbox`,
       outbox: `${actorUrl}/outbox`,
       followers: `${actorUrl}/followers`,
@@ -447,8 +447,8 @@ export class FederationManager {
     totalItems: number
     orderedItems: ActivityPubActivity[]
   } {
-    const page = options.page || 1
-    const perPage = options.perPage || 20
+    const page = options.page ?? 1
+    const perPage = options.perPage ?? 20
 
     // Get activities for this actor from queue
     const actorActivities = this.outboxQueue.filter((a) => a.actor === actorId)
@@ -616,7 +616,7 @@ export class FederationManager {
       parts[key.trim()] = valueParts.join('=').replace(/^"|"$/g, '')
     }
 
-    const signedHeaders = parts.headers?.split(' ') || []
+    const signedHeaders = parts.headers?.split(' ') ?? []
     const signingLines: string[] = []
 
     for (const header of signedHeaders) {

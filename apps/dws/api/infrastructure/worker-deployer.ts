@@ -127,7 +127,7 @@ export class WorkerDeployer {
 
     // 5. Request deployment from nodes
     const deploymentPromises = nodes
-      .slice(0, config.scaling.minInstances || 1)
+      .slice(0, config.scaling.minInstances ?? 1)
       .map((node) => this.requestNodeDeployment(node, worker))
 
     const results = await Promise.allSettled(deploymentPromises)

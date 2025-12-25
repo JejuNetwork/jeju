@@ -574,7 +574,7 @@ export class PerpsService {
       margin > 0n ? Number((notionalValue * 100n) / margin) / 100 : 0
 
     // Calculate liquidation price
-    const maintenanceMarginBps = market?.maintenanceMarginBps || 500
+    const maintenanceMarginBps = market?.maintenanceMarginBps ?? 500
     const maintenanceMargin =
       (notionalValue * BigInt(maintenanceMarginBps)) / BPS_DENOMINATOR
     const marginBuffer = margin - maintenanceMargin

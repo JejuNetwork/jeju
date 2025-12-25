@@ -11,6 +11,7 @@
  */
 
 import { getCoreAppUrl } from '@jejunetwork/config'
+import { ZERO_ADDRESS } from '@jejunetwork/types'
 import type { Address } from 'viem'
 import { z } from 'zod'
 import type { TokenBalance } from './multi-chain-discovery'
@@ -140,8 +141,8 @@ export class OIFClient {
   constructor(config: OIFConfig) {
     this.config = {
       aggregatorUrl: config.aggregatorUrl,
-      defaultTimeout: config.defaultTimeout || 30000,
-      maxRetries: config.maxRetries || 3,
+      defaultTimeout: config.defaultTimeout ?? 30000,
+      maxRetries: config.maxRetries ?? 3,
     }
   }
 
@@ -354,7 +355,6 @@ export class OIFClient {
   }
 
   private parseIntent(data: OIFIntentResponse): Intent {
-    const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address
     return {
       intentId: data.intentId,
       user: data.user as Address,

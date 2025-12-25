@@ -46,7 +46,7 @@ export function createSIWEMessage(params: {
   return {
     domain: params.domain,
     address: params.address,
-    statement: params.statement || 'Sign in with Ethereum to authenticate.',
+    statement: params.statement ?? 'Sign in with Ethereum to authenticate.',
     uri: params.uri,
     version: '1',
     chainId: params.chainId,

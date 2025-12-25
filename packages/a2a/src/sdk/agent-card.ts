@@ -158,10 +158,10 @@ export class AgentCardGenerator {
   generate(agent: AgentData): AgentCard {
     const agentUrl = `${this.config.baseUrl}/api/agents/${agent.id}/a2a`
 
-    const securitySchemeName = this.config.securitySchemeName || 'apiKey'
+    const securitySchemeName = this.config.securitySchemeName ?? 'apiKey'
 
     return {
-      protocolVersion: this.config.protocolVersion || '0.3.0',
+      protocolVersion: this.config.protocolVersion ?? '0.3.0',
       name: agent.name,
       description: agent.description,
       url: agentUrl,
@@ -179,12 +179,12 @@ export class AgentCardGenerator {
       },
 
       iconUrl:
-        agent.iconUrl ||
-        this.config.defaultIconUrl ||
+        agent.iconUrl ??
+        this.config.defaultIconUrl ??
         `${this.config.baseUrl}/logo.svg`,
-      version: agent.version || '1.0.0',
+      version: agent.version ?? '1.0.0',
       documentationUrl:
-        this.config.documentationUrl || `${this.config.baseUrl}/docs`,
+        this.config.documentationUrl ?? `${this.config.baseUrl}/docs`,
 
       capabilities: {
         streaming: this.config.enableStreaming ?? false,
@@ -197,9 +197,9 @@ export class AgentCardGenerator {
         [securitySchemeName]: {
           type: 'apiKey',
           in: 'header',
-          name: this.config.securityHeaderName || 'X-API-Key',
+          name: this.config.securityHeaderName ?? 'X-API-Key',
           description:
-            this.config.securityDescription || 'API key for authentication',
+            this.config.securityDescription ?? 'API key for authentication',
         },
       },
       security: [{ [securitySchemeName]: [] }],
@@ -207,7 +207,7 @@ export class AgentCardGenerator {
       defaultInputModes: ['text/plain', 'application/json'],
       defaultOutputModes: ['application/json'],
 
-      skills: agent.skills || this.config.defaultSkills || [],
+      skills: agent.skills ?? this.config.defaultSkills ?? [],
 
       supportsAuthenticatedExtendedCard: false,
     }
@@ -224,7 +224,7 @@ export class AgentCardGenerator {
    * Create a card with custom skills merged with defaults
    */
   generateWithSkills(agent: AgentData, additionalSkills: Skill[]): AgentCard {
-    const baseSkills = agent.skills || this.config.defaultSkills || []
+    const baseSkills = agent.skills ?? this.config.defaultSkills ?? []
     return this.generate({
       ...agent,
       skills: [...baseSkills, ...additionalSkills],

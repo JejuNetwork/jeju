@@ -251,12 +251,12 @@ export class FederationDiscovery {
       transport: http(localRpcUrl),
     }) as PublicClient
 
-    const solverIds = (await readContract(localClient, {
+    const solverIds = await readContract(localClient, {
       address: federatedSolverAddress,
       abi: FEDERATED_SOLVER_ABI,
       functionName: 'getSolversForRoute',
       args: [BigInt(sourceChainId), BigInt(destChainId)],
-    })) as `0x${string}`[]
+    })
 
     const solvers: FederatedSolver[] = []
 

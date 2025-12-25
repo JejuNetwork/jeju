@@ -293,7 +293,7 @@ export async function connectWallet(
   },
 ) {
   const walletName = options?.walletName || 'MetaMask'
-  const timeout = options?.timeout || 10000
+  const timeout = options?.timeout ?? 10000
 
   console.log(`Connecting ${walletName} wallet...`)
 
@@ -366,7 +366,7 @@ export async function waitForTransaction(
     successText?: string
   },
 ) {
-  const timeout = options?.timeout || 60000
+  const timeout = options?.timeout ?? 60000
   const successText = options?.successText || 'success|confirmed|completed'
 
   console.log(`Waiting for transaction confirmation...`)

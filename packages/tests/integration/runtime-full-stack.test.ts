@@ -49,7 +49,7 @@ import { z } from 'zod'
 
 // GraphQL response schema
 const GraphQLResponseSchema = z.object({
-  data: z.record(z.unknown()).optional(),
+  data: z.record(z.string(), z.unknown()).optional(),
   errors: z.array(z.object({ message: z.string() })).optional(),
 })
 
@@ -424,7 +424,7 @@ describe.skipIf(!servicesAvailable)('Runtime Full Stack Integration', () => {
         }
       }`)
 
-        const indexerBlockNum = indexerData.blocks[0]?.number || 0
+        const indexerBlockNum = indexerData.blocks[0]?.number ?? 0
 
         console.log(`   📊 RPC block: ${rpcBlockNum}`)
         console.log(`   📊 Indexer block: ${indexerBlockNum}`)

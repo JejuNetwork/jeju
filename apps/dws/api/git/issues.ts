@@ -194,11 +194,11 @@ export class IssuesManager {
       repoId,
       number: issueNumber,
       title: request.title,
-      body: request.body || '',
+      body: request.body ?? '',
       state: 'open',
       author,
-      assignees: request.assignees || [],
-      labels: request.labels || [],
+      assignees: request.assignees ?? [],
+      labels: request.labels ?? [],
       createdAt: now,
       updatedAt: now,
       comments: [],
@@ -411,14 +411,14 @@ export class IssuesManager {
       if (!comment) {
         throw new Error(`Comment ${commentId} not found`)
       }
-      comment.reactions = comment.reactions || {}
-      comment.reactions[reaction] = comment.reactions[reaction] || []
+      comment.reactions = comment.reactions ?? {}
+      comment.reactions[reaction] = comment.reactions[reaction] ?? []
       if (!comment.reactions[reaction].includes(user)) {
         comment.reactions[reaction].push(user)
       }
     } else {
-      issue.reactions = issue.reactions || {}
-      issue.reactions[reaction] = issue.reactions[reaction] || []
+      issue.reactions = issue.reactions ?? {}
+      issue.reactions[reaction] = issue.reactions[reaction] ?? []
       if (!issue.reactions[reaction].includes(user)) {
         issue.reactions[reaction].push(user)
       }

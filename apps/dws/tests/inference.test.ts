@@ -79,7 +79,7 @@ describe('Inference E2E', () => {
           const body = (await req.json()) as ChatRequestBody
           const userMessage =
             body.messages?.find((m) => (m as { role: string }).role === 'user')
-              ?.content || ''
+              ?.content ?? ''
 
           // Parse math questions for mock responses
           let content = `Mock response to: ${userMessage}`

@@ -154,7 +154,7 @@ const getUserKey = (
   if (apiKey && apiKeyCache.has(apiKey))
     return {
       key: `key:${apiKey}`,
-      address: apiKeyCache.get(apiKey)?.address || null,
+      address: apiKeyCache.get(apiKey)?.address ?? null,
     }
   const walletHeader = request.headers.get('X-Wallet-Address')
   const wallet: Address | undefined =

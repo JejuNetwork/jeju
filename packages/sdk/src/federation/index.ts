@@ -456,8 +456,8 @@ export async function createFederationClient(
           BigInt(params.chainId),
           params.name,
           params.rpcUrl,
-          params.explorerUrl || '',
-          params.wsUrl || '',
+          params.explorerUrl ?? '',
+          params.wsUrl ?? '',
           contracts,
           '0x0000000000000000000000000000000000000000000000000000000000000000',
         ],
@@ -503,8 +503,8 @@ export async function createFederationClient(
           params.registryType,
           addressBytes32,
           params.name,
-          params.version || '1.0.0',
-          params.metadataUri || '',
+          params.version ?? '1.0.0',
+          params.metadataUri ?? '',
         ],
         chain: null,
       })
@@ -541,7 +541,7 @@ export function registryTypeToString(type: RegistryType): string {
     'REPUTATION',
     'OTHER',
   ]
-  return types[type] || 'UNKNOWN'
+  return types[type] ?? 'UNKNOWN'
 }
 
 export function chainTypeToString(type: ChainType): string {

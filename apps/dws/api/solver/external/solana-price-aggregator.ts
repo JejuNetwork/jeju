@@ -290,7 +290,7 @@ export class SolanaPriceAggregator {
 
     if (!poolState) {
       console.warn('Failed to fetch SOL/USDC pool state')
-      return this.solPrice || 0
+      return this.solPrice ?? 0
     }
 
     // Calculate price from reserves

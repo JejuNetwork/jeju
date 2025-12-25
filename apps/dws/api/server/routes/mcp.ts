@@ -454,7 +454,7 @@ export function createMCPRouter(_ctx: MCPContext = {}) {
               body: JSON.stringify({
                 command: body.arguments.command,
                 shell: body.arguments.shell ?? 'bash',
-                timeout: body.arguments.timeout || 60000,
+                timeout: body.arguments.timeout ?? 60000,
               }),
             })
             const result = await response.json()
@@ -509,8 +509,8 @@ export function createMCPRouter(_ctx: MCPContext = {}) {
                 name: body.arguments.name,
                 code: body.arguments.code,
                 entrypoint: body.arguments.entrypoint ?? 'worker.js',
-                memoryMb: body.arguments.memoryMb || 128,
-                timeoutMs: body.arguments.timeoutMs || 30000,
+                memoryMb: body.arguments.memoryMb ?? 128,
+                timeoutMs: body.arguments.timeoutMs ?? 30000,
               }),
             })
             const result = await response.json()
@@ -556,7 +556,7 @@ export function createMCPRouter(_ctx: MCPContext = {}) {
               body: JSON.stringify({
                 name: body.arguments.name,
                 provider: body.arguments.provider ?? 'k3d',
-                nodes: body.arguments.nodes || 1,
+                nodes: body.arguments.nodes ?? 1,
               }),
             })
             const result = await response.json()

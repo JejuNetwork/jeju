@@ -328,11 +328,11 @@ describe('Marketplace Stats Calculation', () => {
     const active = providers.filter((p) => p.isActive)
     const agentLinked = providers.filter((p) => p.agentId && p.agentId > 0)
     const totalStake = providers.reduce(
-      (sum, p) => sum + (p.stakeAmount || 0n),
+      (sum, p) => sum + (p.stakeAmount ?? 0n),
       0n,
     )
     const totalEarnings = providers.reduce(
-      (sum, p) => sum + (p.totalEarnings || 0n),
+      (sum, p) => sum + (p.totalEarnings ?? 0n),
       0n,
     )
 
@@ -349,15 +349,15 @@ describe('Marketplace Stats Calculation', () => {
     const active = providers.filter((p) => p.isActive)
     const agentLinked = providers.filter((p) => p.agentId && p.agentId > 0)
     const totalStake = providers.reduce(
-      (sum, p) => sum + (p.stakeAmount || 0n),
+      (sum, p) => sum + (p.stakeAmount ?? 0n),
       0n,
     )
     const totalCapacity = providers.reduce(
-      (sum, p) => sum + Number(p.totalCapacityGB || 0n),
+      (sum, p) => sum + Number(p.totalCapacityGB ?? 0n),
       0,
     )
     const usedCapacity = providers.reduce(
-      (sum, p) => sum + Number(p.usedCapacityGB || 0n),
+      (sum, p) => sum + Number(p.usedCapacityGB ?? 0n),
       0,
     )
 

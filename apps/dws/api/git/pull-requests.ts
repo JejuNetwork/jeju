@@ -239,13 +239,13 @@ export class PullRequestsManager {
       headCommit,
       baseCommit,
       commits: commitOids,
-      reviewers: request.reviewers || [],
+      reviewers: request.reviewers ?? [],
       reviews: [],
-      labels: request.labels || [],
+      labels: request.labels ?? [],
       createdAt: now,
       updatedAt: now,
       cid: '', // Will be set after upload
-      draft: request.draft || false,
+      draft: request.draft ?? false,
       mergeable: true, // Will be computed when checking
       linkedIssues: [],
     }
@@ -395,7 +395,7 @@ export class PullRequestsManager {
     const now = Date.now()
     const reviewId = `${repoId}!${prNumber}-review-${pr.reviews.length + 1}`
 
-    const reviewComments: PRReviewComment[] = (comments || []).map((c, i) => ({
+    const reviewComments: PRReviewComment[] = (comments ?? []).map((c, i) => ({
       id: `${reviewId}-comment-${i + 1}`,
       author: reviewer,
       body: c.body,

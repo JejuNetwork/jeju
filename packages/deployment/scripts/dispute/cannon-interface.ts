@@ -220,9 +220,9 @@ export class CannonInterface {
     const possiblePaths = [
       'cannon', // In PATH
       '/usr/local/bin/cannon',
-      join(process.env.HOME || '', 'go/bin/cannon'),
-      join(process.env.HOME || '', '.foundry/bin/cannon'),
-      join(process.env.HOME || '', '.local/bin/cannon'),
+      join(process.env.HOME ?? '', 'go/bin/cannon'),
+      join(process.env.HOME ?? '', '.foundry/bin/cannon'),
+      join(process.env.HOME ?? '', '.local/bin/cannon'),
     ]
 
     for (const path of possiblePaths) {
@@ -246,7 +246,7 @@ export class CannonInterface {
     const possiblePaths = [
       'op-program',
       '/usr/local/bin/op-program',
-      join(process.env.HOME || '', 'go/bin/op-program'),
+      join(process.env.HOME ?? '', 'go/bin/op-program'),
     ]
 
     for (const path of possiblePaths) {
@@ -454,7 +454,7 @@ export class CannonInterface {
     const newState = { ...state, registers: [...state.registers] }
 
     // Read instruction from memory
-    const instruction = memory.get(state.pc) || 0
+    const instruction = memory.get(state.pc) ?? 0
     const decoded = this.decodeInstruction(instruction)
 
     // Execute based on opcode
@@ -479,7 +479,7 @@ export class CannonInterface {
       }
     } else if (decoded.opcode === MIPS_OPCODES.LW) {
       const addr = state.registers[decoded.rs] + signExtend16(decoded.imm)
-      const value = memory.get(addr) || 0
+      const value = memory.get(addr) ?? 0
       newState.registers[decoded.rt] = value
       // Convert to unsigned for hex encoding
       const unsignedValue = BigInt(value) & 0xffffffffn
@@ -661,7 +661,7 @@ export class CannonInterface {
     }
 
     // Get the instruction at divergence point
-    const instructionRaw = memory.get(currentState.pc) || 0
+    const instructionRaw = memory.get(currentState.pc) ?? 0
     const instruction = this.decodeInstruction(instructionRaw)
 
     return {
@@ -683,7 +683,7 @@ export class CannonInterface {
     const preStateHash = this.computeStateHash(state)
 
     // Build proof data (memory access proofs)
-    const instruction = memory.get(state.pc) || 0
+    const instruction = memory.get(state.pc) ?? 0
 
     // Encode proof data with memory access information
     const proofData = encodeAbiParameters(
@@ -1102,18 +1102,18 @@ export class CannonInterface {
     const state = trace as RawTraceState
 
     return {
-      memRoot: (state.memRoot || pad('0x00', { size: 32 })) as Hex,
-      preimageKey: (state.preimageKey || pad('0x00', { size: 32 })) as Hex,
-      preimageOffset: state.preimageOffset || 0,
-      pc: state.pc || 0,
-      nextPC: state.nextPC || 4,
-      lo: state.lo || 0,
-      hi: state.hi || 0,
-      heap: state.heap || HEAP_START,
-      exitCode: state.exitCode || 0,
-      exited: state.exited || false,
-      step: BigInt(state.step || '0'),
-      registers: state.registers || new Array(32).fill(0),
+      memRoot: (state.memRoot ?? pad('0x00', { size: 32 })) as Hex,
+      preimageKey: (state.preimageKey ?? pad('0x00', { size: 32 })) as Hex,
+      preimageOffset: state.preimageOffset ?? 0,
+      pc: state.pc ?? 0,
+      nextPC: state.nextPC ?? 4,
+      lo: state.lo ?? 0,
+      hi: state.hi ?? 0,
+      heap: state.heap ?? HEAP_START,
+      exitCode: state.exitCode ?? 0,
+      exited: state.exited ?? false,
+      step: BigInt(state.step ?? '0'),
+      registers: state.registers ?? new Array(32).fill(0),
     }
   }
 
