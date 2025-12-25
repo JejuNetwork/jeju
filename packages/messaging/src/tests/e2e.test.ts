@@ -267,6 +267,23 @@ describe('Relay Server', () => {
     expect(stats.nodeId).toBe('test-node')
     expect(typeof stats.totalMessagesRelayed).toBe('number')
   })
+
+  test('returns prometheus metrics', async () => {
+    const response = await fetch(`${BASE_URL}/metrics`)
+    expect(response.ok).toBe(true)
+    expect(response.headers.get('content-type')).toContain('text/plain')
+
+    const metricsText = await response.text()
+    
+    // Verify Prometheus format
+    expect(metricsText).toContain('# HELP relay_messages_total')
+    expect(metricsText).toContain('# TYPE relay_messages_total counter')
+    expect(metricsText).toContain('relay_messages_total{node_id="test-node"}')
+    expect(metricsText).toContain('relay_bytes_total')
+    expect(metricsText).toContain('relay_active_subscribers')
+    expect(metricsText).toContain('relay_pending_messages')
+    expect(metricsText).toContain('relay_uptime_seconds')
+  })
 })
 describe('E2E Flow', () => {
   let server: ReturnType<typeof Bun.serve>

@@ -5,6 +5,7 @@
  * via the decentralized relay network.
  */
 
+import { createLogger } from '@jejunetwork/shared'
 import {
   type Address,
   createPublicClient,
@@ -14,6 +15,8 @@ import {
   type PublicClient,
   type WalletClient,
 } from 'viem'
+
+const log = createLogger('messaging-client')
 import { privateKeyToAccount } from 'viem/accounts'
 import {
   MessagingClientConfigBaseSchema,
@@ -267,6 +270,9 @@ export class MessagingClient {
     // Sort by latency and return best
     healthyNodes.sort((a, b) => a.latency - b.latency)
     const best = healthyNodes[0]
+    if (!best) {
+      throw new Error('No healthy nodes available')
+    }
     best.node.latency = best.latency
 
     return best.node
@@ -388,9 +394,7 @@ export class MessagingClient {
       ws.onmessage = (event) => {
         // WebSocket text messages are strings - binary messages are not supported
         if (typeof event.data !== 'string') {
-          console.warn(
-            '[MessagingClient] Received non-string message, ignoring',
-          )
+          log.warn('Received non-string message, ignoring')
           return
         }
         this.handleWebSocketMessage(event.data)

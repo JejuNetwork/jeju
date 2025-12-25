@@ -5,10 +5,13 @@
  * Signers are delegated from the custody wallet and registered on-chain.
  */
 
+import { createLogger } from '@jejunetwork/shared'
 import { randomBytes } from '@noble/ciphers/webcrypto'
 import { ed25519 } from '@noble/curves/ed25519'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils'
 import type { Hex } from 'viem'
+
+const log = createLogger('signer-manager')
 export type SignerStatus = 'pending' | 'active' | 'revoked'
 
 export interface SignerInfo {
@@ -264,10 +267,7 @@ export class FarcasterSignerManager {
       throw new Error(`Signer not found: ${keyId}`)
     }
 
-    console.warn(
-      `[SignerManager] SECURITY: Exporting private key for signer ${keyId}. ` +
-        `Ensure proper key handling and storage.`,
-    )
+    log.warn('SECURITY: Exporting private key - ensure proper key handling', { keyId })
 
     return {
       publicKey: stored.info.publicKey,

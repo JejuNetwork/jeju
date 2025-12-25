@@ -292,7 +292,12 @@ export class AppleProvider extends OAuthProvider {
     }
 
     // SECURITY: Validate header is valid JSON and uses expected algorithm
-    const headerStr = this.base64UrlDecode(parts[0])
+    const headerPart = parts[0]
+    const payloadPart = parts[1]
+    if (!headerPart || !payloadPart) {
+      throw new Error('Invalid Apple ID token: missing header or payload')
+    }
+    const headerStr = this.base64UrlDecode(headerPart)
     let header: { alg?: string; typ?: string }
     try {
       header = JSON.parse(headerStr)
@@ -305,7 +310,7 @@ export class AppleProvider extends OAuthProvider {
     }
 
     // SECURITY: Validate payload structure with Zod before using
-    const payloadStr = this.base64UrlDecode(parts[1])
+    const payloadStr = this.base64UrlDecode(payloadPart)
     let rawPayload: unknown
     try {
       rawPayload = JSON.parse(payloadStr)

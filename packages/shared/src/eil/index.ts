@@ -687,7 +687,9 @@ export function selectBestGasToken(
   viableOptions.sort((a, b) => a.costUsd - b.costUsd)
 
   // Return the cheapest option
-  return { ...viableOptions[0], isRecommended: true }
+  const cheapestOption = viableOptions[0]
+  if (!cheapestOption) return null
+  return { ...cheapestOption, isRecommended: true }
 }
 
 /**
@@ -753,7 +755,9 @@ export function getBestGasTokenForApp(
 
   // Priority 3: Cheapest available
   viable.sort((a, b) => a.costUsd - b.costUsd)
-  return { ...viable[0], isRecommended: true }
+  const cheapest = viable[0]
+  if (!cheapest) return null
+  return { ...cheapest, isRecommended: true }
 }
 
 /**

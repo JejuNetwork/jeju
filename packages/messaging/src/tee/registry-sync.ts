@@ -4,6 +4,7 @@
  * Syncs TEE-managed keys with on-chain KeyRegistry contract.
  */
 
+import { createLogger } from '@jejunetwork/shared'
 import {
   type Address,
   createPublicClient,
@@ -14,6 +15,8 @@ import {
   type WalletClient,
 } from 'viem'
 import { base, baseSepolia } from 'viem/chains'
+
+const log = createLogger('key-registry-sync')
 import type { TEEXMTPKeyManager } from './key-manager'
 import type {
   KeyRegistration,
@@ -167,7 +170,7 @@ export class KeyRegistrySync {
       data,
     })
 
-    console.log(`[KeyRegistrySync] Registered key ${keyId}, tx: ${txHash}`)
+    log.info('Registered key', { keyId, txHash: txHash.slice(0, 18) })
 
     // Wait for confirmation
     const receipt = await this.publicClient.waitForTransactionReceipt({
@@ -260,10 +263,7 @@ export class KeyRegistrySync {
       data,
     })
 
-    // Log truncated identifiers
-    console.log(
-      `[KeyRegistrySync] Rotated pre-key for ${keyId.slice(0, 20)}..., tx: ${txHash.slice(0, 18)}...`,
-    )
+    log.info('Rotated pre-key', { keyId: keyId.slice(0, 20), txHash: txHash.slice(0, 18) })
 
     // Wait for confirmation
     const receipt = await this.publicClient.waitForTransactionReceipt({

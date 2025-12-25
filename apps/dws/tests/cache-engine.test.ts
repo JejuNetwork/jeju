@@ -253,7 +253,13 @@ describe('CacheEngine', () => {
         field1: 'value1',
         field2: 'value2',
       })
-      const results = engine.hmget('test', 'hash1', 'field1', 'field2', 'nonexistent')
+      const results = engine.hmget(
+        'test',
+        'hash1',
+        'field1',
+        'field2',
+        'nonexistent',
+      )
       expect(results).toEqual(['value1', 'value2', null])
     })
 
@@ -272,7 +278,13 @@ describe('CacheEngine', () => {
         field2: 'value2',
         field3: 'value3',
       })
-      const count = engine.hdel('test', 'hash1', 'field1', 'field2', 'nonexistent')
+      const count = engine.hdel(
+        'test',
+        'hash1',
+        'field1',
+        'field2',
+        'nonexistent',
+      )
       expect(count).toBe(2)
       expect(engine.hget('test', 'hash1', 'field3')).toBe('value3')
     })
@@ -437,7 +449,9 @@ describe('CacheEngine', () => {
 
   describe('Sorted Set Operations', () => {
     test('ZADD and ZRANGE', () => {
-      engine.zadd('test', 'zset1',
+      engine.zadd(
+        'test',
+        'zset1',
         { member: 'a', score: 1 },
         { member: 'b', score: 2 },
         { member: 'c', score: 3 },
@@ -447,7 +461,9 @@ describe('CacheEngine', () => {
     })
 
     test('ZRANGE with scores', () => {
-      engine.zadd('test', 'zset1',
+      engine.zadd(
+        'test',
+        'zset1',
         { member: 'a', score: 1 },
         { member: 'b', score: 2 },
       )
@@ -467,7 +483,9 @@ describe('CacheEngine', () => {
     })
 
     test('ZRANGEBYSCORE', () => {
-      engine.zadd('test', 'zset1',
+      engine.zadd(
+        'test',
+        'zset1',
         { member: 'a', score: 1 },
         { member: 'b', score: 2 },
         { member: 'c', score: 3 },
@@ -484,7 +502,9 @@ describe('CacheEngine', () => {
     })
 
     test('ZCARD', () => {
-      engine.zadd('test', 'zset1',
+      engine.zadd(
+        'test',
+        'zset1',
         { member: 'a', score: 1 },
         { member: 'b', score: 2 },
       )
@@ -492,7 +512,9 @@ describe('CacheEngine', () => {
     })
 
     test('ZREM', () => {
-      engine.zadd('test', 'zset1',
+      engine.zadd(
+        'test',
+        'zset1',
         { member: 'a', score: 1 },
         { member: 'b', score: 2 },
         { member: 'c', score: 3 },

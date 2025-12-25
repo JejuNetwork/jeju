@@ -281,6 +281,7 @@
       "version": "1.0.0",
       "dependencies": {
         "@elysiajs/cors": "^1.4.0",
+        "@jejunetwork/auth": "workspace:*",
         "@jejunetwork/config": "workspace:*",
         "@jejunetwork/contracts": "workspace:*",
         "@jejunetwork/db": "workspace:*",

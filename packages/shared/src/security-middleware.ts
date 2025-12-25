@@ -271,7 +271,8 @@ export function rateLimitMiddleware(
       // Get IP from various headers (in order of preference)
       const forwarded = request.headers.get('x-forwarded-for')
       if (forwarded) {
-        return forwarded.split(',')[0].trim()
+        const firstIp = forwarded.split(',')[0]
+        return firstIp ? firstIp.trim() : 'unknown'
       }
       const realIp = request.headers.get('x-real-ip')
       if (realIp) {

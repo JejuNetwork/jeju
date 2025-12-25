@@ -4,31 +4,31 @@
  * Serverless cache instance lifecycle management:
  * - Instance creation/deletion
  * - Resource allocation
- * - Billing integration (x402)
  * - Node assignment
  * - Health monitoring
+ *
+ * TODO: Billing integration with x402 payment protocol
  */
 
-import { getCQLMinerUrl, getCQLUrl } from '@jejunetwork/config'
 import { getCQL } from '@jejunetwork/db'
 import type { Address } from 'viem'
 import { keccak256, toBytes } from 'viem'
 import { CacheEngine } from './engine'
-import { createTEECacheProvider, TEECacheProvider } from './tee-provider'
+import { createTEECacheProvider, type TEECacheProvider } from './tee-provider'
 import {
   CacheError,
   CacheErrorCode,
-  CacheEventType,
-  CacheInstanceStatus,
-  CacheTEEProvider,
-  CacheTier,
   type CacheEvent,
   type CacheEventListener,
+  CacheEventType,
   type CacheInstance,
+  CacheInstanceStatus,
   type CacheNode,
   type CacheRentalPlan,
   type CacheStats,
   type CacheTEEAttestation,
+  CacheTEEProvider,
+  CacheTier,
 } from './types'
 
 const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? 'dws-cache'
@@ -58,7 +58,7 @@ const DEFAULT_PLANS: CacheRentalPlan[] = [
     pricePerHour: 100000000000000n, // 0.0001 ETH
     pricePerMonth: 50000000000000000n, // 0.05 ETH
     teeRequired: false,
-    features: ['namespace-isolation', 'basic-eviction', 'persistence'],
+    features: ['namespace-isolation', 'lru-eviction', 'extended-ttl'],
   },
   {
     id: 'premium-1024',
@@ -72,9 +72,9 @@ const DEFAULT_PLANS: CacheRentalPlan[] = [
     teeRequired: false,
     features: [
       'dedicated-resources',
-      'sla-guarantee',
-      'persistence',
-      'replication',
+      'lru-eviction',
+      'extended-ttl',
+      'higher-memory',
     ],
   },
   {
@@ -169,16 +169,7 @@ export class CacheProvisioningManager {
     console.log('[Cache Provisioning] Initializing...')
 
     // Initialize CQL client
-    const blockProducerEndpoint = getCQLUrl()
-    const minerEndpoint = getCQLMinerUrl()
-
-    this.cqlClient = getCQL({
-      blockProducerEndpoint,
-      minerEndpoint,
-      databaseId: CQL_DATABASE_ID,
-      timeout: 30000,
-      debug: process.env.NODE_ENV !== 'production',
-    })
+    this.cqlClient = getCQL()
 
     // Create tables
     await this.ensureTablesExist()
@@ -226,31 +217,14 @@ export class CacheProvisioningManager {
     return this.initialized
   }
 
-  // ============================================================================
-  // Plans
-  // ============================================================================
-
-  /**
-   * Get all available plans
-   */
   getPlans(): CacheRentalPlan[] {
     return this.plans
   }
 
-  /**
-   * Get a specific plan
-   */
   getPlan(planId: string): CacheRentalPlan | null {
     return this.plans.find((p) => p.id === planId) ?? null
   }
 
-  // ============================================================================
-  // Instance Management
-  // ============================================================================
-
-  /**
-   * Create a new cache instance
-   */
   async createInstance(
     owner: Address,
     planId: string,
@@ -270,8 +244,13 @@ export class CacheProvisioningManager {
     const now = Date.now()
     const expiresAt = now + durationHours * 60 * 60 * 1000
 
-    // Find suitable node
+    // Find suitable node (may be null in development without registered nodes)
     const node = await this.findNodeForInstance(plan.tier, plan.maxMemoryMb)
+    if (!node) {
+      console.warn(
+        `[Cache Provisioning] No node found for tier ${plan.tier}, instance ${instanceId} will be local-only`,
+      )
+    }
 
     // Create engine or TEE provider based on tier
     if (plan.tier === CacheTier.TEE) {
@@ -321,8 +300,6 @@ export class CacheProvisioningManager {
       defaultTtlSeconds: 3600,
       maxTtlSeconds: plan.maxTtlSeconds,
       evictionPolicy: 'lru',
-      persistenceEnabled: plan.tier === CacheTier.PREMIUM,
-      replicationFactor: plan.tier === CacheTier.PREMIUM ? 2 : 1,
     })
 
     const instance: CacheInstance = {
@@ -361,16 +338,10 @@ export class CacheProvisioningManager {
     return instance
   }
 
-  /**
-   * Get an instance
-   */
   getInstance(instanceId: string): CacheInstance | null {
     return this.instances.get(instanceId) ?? null
   }
 
-  /**
-   * Get instances by owner
-   */
   getInstancesByOwner(owner: Address): CacheInstance[] {
     const ownerLower = owner.toLowerCase()
     return Array.from(this.instances.values()).filter(
@@ -378,16 +349,10 @@ export class CacheProvisioningManager {
     )
   }
 
-  /**
-   * Get all instances
-   */
   getAllInstances(): CacheInstance[] {
     return Array.from(this.instances.values())
   }
 
-  /**
-   * Delete an instance
-   */
   async deleteInstance(instanceId: string, owner: Address): Promise<boolean> {
     const instance = this.instances.get(instanceId)
     if (!instance) return false
@@ -434,9 +399,6 @@ export class CacheProvisioningManager {
     return true
   }
 
-  /**
-   * Extend instance duration
-   */
   async extendInstance(
     instanceId: string,
     owner: Address,
@@ -460,13 +422,6 @@ export class CacheProvisioningManager {
     return instance
   }
 
-  // ============================================================================
-  // Node Management
-  // ============================================================================
-
-  /**
-   * Register a cache node
-   */
   async registerNode(
     nodeId: string,
     address: Address,
@@ -505,9 +460,6 @@ export class CacheProvisioningManager {
     return node
   }
 
-  /**
-   * Update node heartbeat
-   */
   async updateNodeHeartbeat(
     nodeId: string,
     attestation?: CacheTEEAttestation,
@@ -531,43 +483,24 @@ export class CacheProvisioningManager {
     return true
   }
 
-  /**
-   * Get a node
-   */
   getNode(nodeId: string): CacheNode | null {
     return this.nodes.get(nodeId) ?? null
   }
 
-  /**
-   * Get all nodes
-   */
   getAllNodes(): CacheNode[] {
     return Array.from(this.nodes.values())
   }
 
-  /**
-   * Get online nodes by tier
-   */
   getNodesByTier(tier: CacheTier): CacheNode[] {
     return Array.from(this.nodes.values()).filter(
       (n) => n.tier === tier && n.status === 'online',
     )
   }
 
-  // ============================================================================
-  // Cache Operations
-  // ============================================================================
-
-  /**
-   * Get the engine for an instance
-   */
   getEngine(instanceId: string): CacheEngine | null {
     return this.engines.get(instanceId) ?? null
   }
 
-  /**
-   * Get the TEE provider for an instance
-   */
   getTEEProvider(instanceId: string): TEECacheProvider | null {
     return this.teeProviders.get(instanceId) ?? null
   }
@@ -633,13 +566,6 @@ export class CacheProvisioningManager {
     }
   }
 
-  // ============================================================================
-  // Statistics
-  // ============================================================================
-
-  /**
-   * Get global stats
-   */
   getGlobalStats(): {
     totalInstances: number
     totalNodes: number
@@ -674,13 +600,6 @@ export class CacheProvisioningManager {
     }
   }
 
-  // ============================================================================
-  // Events
-  // ============================================================================
-
-  /**
-   * Subscribe to events
-   */
   on(listener: CacheEventListener): () => void {
     this.listeners.add(listener)
     return () => this.listeners.delete(listener)
@@ -691,10 +610,6 @@ export class CacheProvisioningManager {
       listener(event)
     }
   }
-
-  // ============================================================================
-  // Internal Helpers
-  // ============================================================================
 
   private generateInstanceId(owner: Address, namespace?: string): string {
     const data = `${owner}:${namespace ?? ''}:${Date.now()}:${Math.random()}`
@@ -744,7 +659,10 @@ export class CacheProvisioningManager {
     // Mark offline nodes
     const offlineThreshold = 120000 // 2 minutes
     for (const node of this.nodes.values()) {
-      if (node.status === 'online' && now - node.lastHeartbeat > offlineThreshold) {
+      if (
+        node.status === 'online' &&
+        now - node.lastHeartbeat > offlineThreshold
+      ) {
         node.status = 'offline'
         await this.saveNodeToCQL(node)
         this.emit({
@@ -756,12 +674,13 @@ export class CacheProvisioningManager {
     }
   }
 
-  // ============================================================================
-  // CQL Persistence
-  // ============================================================================
-
   private async ensureTablesExist(): Promise<void> {
-    if (!this.cqlClient) return
+    if (!this.cqlClient) {
+      console.warn(
+        '[Cache Provisioning] CQL client not initialized, skipping table creation',
+      )
+      return
+    }
 
     const tables = [
       `CREATE TABLE IF NOT EXISTS cache_instances (
@@ -813,7 +732,12 @@ export class CacheProvisioningManager {
   }
 
   private async loadFromCQL(): Promise<void> {
-    if (!this.cqlClient) return
+    if (!this.cqlClient) {
+      console.warn(
+        '[Cache Provisioning] CQL client not initialized, skipping data load',
+      )
+      return
+    }
 
     // Load instances
     const instancesResult = await this.cqlClient.query<CacheInstanceRow>(
@@ -841,8 +765,34 @@ export class CacheProvisioningManager {
 
       this.instances.set(instance.id, instance)
 
-      // Create engine for non-TEE instances
-      if (instance.tier !== CacheTier.TEE) {
+      // Recreate engine/provider based on tier
+      if (instance.tier === CacheTier.TEE) {
+        // TEE instances need their provider recreated
+        const teeProvider = createTEECacheProvider({
+          provider: instance.teeProvider ?? CacheTEEProvider.DSTACK,
+          maxMemoryMb: instance.maxMemoryMb,
+          encryptionEnabled: true,
+          nodeId: instance.id,
+        })
+        // Initialize in background - don't block loading
+        teeProvider
+          .initialize()
+          .then((attestation) => {
+            instance.teeAttestation = attestation
+            console.log(
+              `[Cache Provisioning] TEE provider reinitialized for ${instance.id}`,
+            )
+          })
+          .catch((err) => {
+            console.error(
+              `[Cache Provisioning] Failed to reinitialize TEE provider for ${instance.id}:`,
+              err,
+            )
+            instance.status = CacheInstanceStatus.ERROR
+          })
+        this.teeProviders.set(instance.id, teeProvider)
+      } else {
+        // Standard/Premium instances use regular engine
         const engine = new CacheEngine({
           maxMemoryMb: instance.maxMemoryMb,
           defaultTtlSeconds: 3600,
@@ -883,7 +833,12 @@ export class CacheProvisioningManager {
   }
 
   private async saveInstanceToCQL(instance: CacheInstance): Promise<void> {
-    if (!this.cqlClient) return
+    if (!this.cqlClient) {
+      console.warn(
+        `[Cache Provisioning] CQL unavailable, instance ${instance.id} not persisted`,
+      )
+      return
+    }
 
     await this.cqlClient.exec(
       `INSERT INTO cache_instances (id, owner, namespace, tier, max_memory_mb, used_memory_mb, key_count, created_at, expires_at, status, tee_provider, node_id, endpoint)
@@ -913,7 +868,12 @@ export class CacheProvisioningManager {
   }
 
   private async deleteInstanceFromCQL(instanceId: string): Promise<void> {
-    if (!this.cqlClient) return
+    if (!this.cqlClient) {
+      console.warn(
+        `[Cache Provisioning] CQL unavailable, instance ${instanceId} deletion not persisted`,
+      )
+      return
+    }
 
     await this.cqlClient.exec(
       'DELETE FROM cache_instances WHERE id = ?',
@@ -923,7 +883,12 @@ export class CacheProvisioningManager {
   }
 
   private async saveNodeToCQL(node: CacheNode): Promise<void> {
-    if (!this.cqlClient) return
+    if (!this.cqlClient) {
+      console.warn(
+        `[Cache Provisioning] CQL unavailable, node ${node.nodeId} not persisted`,
+      )
+      return
+    }
 
     await this.cqlClient.exec(
       `INSERT INTO cache_nodes (node_id, address, endpoint, region, tier, tee_provider, max_memory_mb, used_memory_mb, instance_count, status, last_heartbeat)
