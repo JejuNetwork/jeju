@@ -4,8 +4,11 @@
  * Submits signed messages to Farcaster hubs via HTTP API.
  */
 
+import { createLogger } from '@jejunetwork/shared'
 import { expectValid } from '@jejunetwork/types'
 import type { Hex } from 'viem'
+
+const log = createLogger('hub-submitter')
 import type { Message } from './message-builder'
 import { messageBytesToHex, serializeMessage } from './message-builder'
 import {
@@ -284,11 +287,10 @@ export async function selectBestHub(
         return hub
       }
     } catch (error) {
-      // Hub unavailable, try next one
-      console.debug(
-        `[HubSubmitter] Hub ${hub.url} unavailable:`,
-        error instanceof Error ? error.message : 'Unknown error',
-      )
+      log.debug('Hub unavailable, trying next', {
+        hubUrl: hub.url,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      })
     }
   }
 
@@ -316,6 +318,7 @@ export class FailoverHubSubmitter {
 
     for (let i = this.currentIndex; i < this.hubs.length; i++) {
       const hub = this.hubs[i]
+      if (!hub) continue
       const submitter = new HubSubmitter({
         hubUrl: hub.url,
         timeoutMs: this.timeout,
@@ -327,11 +330,10 @@ export class FailoverHubSubmitter {
         this.currentIndex = i
         return submitter
       } catch (error) {
-        // Hub unavailable, try next one
-        console.debug(
-          `[FailoverHubSubmitter] Hub ${hub.url} unavailable:`,
-          error instanceof Error ? error.message : 'Unknown error',
-        )
+        log.debug('Failover hub unavailable, trying next', {
+          hubUrl: hub.url,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        })
       }
     }
 

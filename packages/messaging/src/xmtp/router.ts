@@ -10,7 +10,10 @@
  * 4. Recipient decrypts with XMTP/MLS
  */
 
+import { createLogger } from '@jejunetwork/shared'
 import type { Address } from 'viem'
+
+const log = createLogger('xmtp-router')
 import type { RouteConfig, RouteResult, XMTPEnvelope } from './types'
 
 export interface RelayNode {
@@ -82,7 +85,7 @@ export class XMTPMessageRouter {
    * Initialize the router
    */
   async initialize(): Promise<void> {
-    console.log('[XMTP Router] Initializing...')
+    log.info('Initializing')
 
     // Discover relay nodes
     await this.discoverNodes()
@@ -90,7 +93,7 @@ export class XMTPMessageRouter {
     // Start health check loop
     this.startHealthChecks()
 
-    console.log(`[XMTP Router] Initialized with ${this.relayNodes.size} nodes`)
+    log.info('Initialized', { nodeCount: this.relayNodes.size })
   }
 
   /**
@@ -108,7 +111,7 @@ export class XMTPMessageRouter {
     // Flush pending messages
     await this.flushPending()
 
-    console.log('[XMTP Router] Shutdown complete')
+    log.info('Shutdown complete')
   }
 
   /**
@@ -267,7 +270,8 @@ export class XMTPMessageRouter {
     )
 
     for (let i = 0; i < count && i < sorted.length; i++) {
-      this.pendingMessages.delete(sorted[i][0])
+      const entry = sorted[i]
+      if (entry) this.pendingMessages.delete(entry[0])
     }
   }
 
@@ -416,9 +420,7 @@ export class XMTPMessageRouter {
    * Flush pending messages
    */
   private async flushPending(): Promise<void> {
-    console.log(
-      `[XMTP Router] Flushing ${this.pendingMessages.size} pending messages`,
-    )
+    log.info('Flushing pending messages', { count: this.pendingMessages.size })
     await this.retryPending()
   }
 

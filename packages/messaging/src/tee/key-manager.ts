@@ -7,6 +7,7 @@
 
 import {
   bytesToHex,
+  createLogger,
   decryptAesGcm,
   deriveKeyScrypt,
   encryptAesGcm,
@@ -16,6 +17,8 @@ import {
   randomBytes,
   toHex,
 } from '@jejunetwork/shared'
+
+const log = createLogger('tee-key-manager')
 import { ed25519, x25519 } from '@noble/curves/ed25519'
 import { hkdf } from '@noble/hashes/hkdf'
 import { sha256 } from '@noble/hashes/sha256'
@@ -115,10 +118,10 @@ export class TEEXMTPKeyManager {
 
     this.keys.set(keyId, identityKey)
 
-    // Log without exposing full key ID or address (use truncated versions)
-    console.log(
-      `[TEE] Generated identity key ${keyId.slice(0, 20)}... for ${address.slice(0, 10)}...`,
-    )
+    log.info('Generated identity key', {
+      keyId: keyId.slice(0, 20),
+      address: address.slice(0, 10),
+    })
 
     return identityKey
   }
@@ -184,7 +187,7 @@ export class TEEXMTPKeyManager {
 
     this.preKeys.set(preKeyId, preKey)
 
-    console.log(`[TEE] Generated pre-key ${preKeyId}`)
+    log.info('Generated pre-key', { preKeyId })
 
     return preKey
   }
@@ -240,10 +243,7 @@ export class TEEXMTPKeyManager {
 
     this.installationKeys.set(installationKeyId, installationKey)
 
-    // Log truncated device ID only
-    console.log(
-      `[TEE] Derived installation key for device ${deviceId.slice(0, 8)}...`,
-    )
+    log.info('Derived installation key', { deviceId: deviceId.slice(0, 8) })
 
     return installationKey
   }

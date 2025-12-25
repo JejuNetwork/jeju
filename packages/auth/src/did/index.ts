@@ -112,10 +112,12 @@ export function isLocalnet(did: DID): boolean {
 export function extractAddressFromDID(did: string): Address | null {
   if (!did?.startsWith('did:')) return null
   const parts = did.split(':')
-  if (parts[1] === 'jeju' && parts.length >= 4 && isHexAddress(parts[3]))
-    return parts[3] as Address
-  if (parts[1] === 'pkh' && parts.length >= 5 && isHexAddress(parts[4]))
-    return parts[4] as Address
+  const part3 = parts[3]
+  const part4 = parts[4]
+  if (parts[1] === 'jeju' && parts.length >= 4 && part3 && isHexAddress(part3))
+    return part3 as Address
+  if (parts[1] === 'pkh' && parts.length >= 5 && part4 && isHexAddress(part4))
+    return part4 as Address
   return null
 }
 

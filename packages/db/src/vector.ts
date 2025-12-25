@@ -29,7 +29,7 @@ export function serializeFloat32Vector(vector: number[]): Uint8Array {
   const buffer = new ArrayBuffer(vector.length * 4)
   const view = new DataView(buffer)
   for (let i = 0; i < vector.length; i++) {
-    view.setFloat32(i * 4, vector[i], true) // little-endian
+    view.setFloat32(i * 4, vector[i] ?? 0, true) // little-endian
   }
   return new Uint8Array(buffer)
 }
@@ -52,7 +52,7 @@ export function deserializeFloat32Vector(blob: Uint8Array): number[] {
 export function serializeInt8Vector(vector: number[]): Uint8Array {
   const buffer = new Int8Array(vector.length)
   for (let i = 0; i < vector.length; i++) {
-    buffer[i] = Math.max(-128, Math.min(127, Math.round(vector[i])))
+    buffer[i] = Math.max(-128, Math.min(127, Math.round(vector[i] ?? 0)))
   }
   return new Uint8Array(buffer.buffer)
 }
@@ -74,7 +74,8 @@ export function serializeBitVector(vector: number[]): Uint8Array {
   const buffer = new Uint8Array(byteLength)
   for (let i = 0; i < vector.length; i++) {
     if (vector[i]) {
-      buffer[Math.floor(i / 8)] |= 1 << (i % 8)
+      const byteIndex = Math.floor(i / 8)
+      buffer[byteIndex] = (buffer[byteIndex] ?? 0) | (1 << (i % 8))
     }
   }
   return buffer
@@ -89,7 +90,7 @@ export function deserializeBitVector(
 ): number[] {
   const vector: number[] = []
   for (let i = 0; i < dimensions; i++) {
-    const byte = blob[Math.floor(i / 8)]
+    const byte = blob[Math.floor(i / 8)] ?? 0
     vector.push((byte >> (i % 8)) & 1)
   }
   return vector
@@ -262,7 +263,7 @@ export function normalizeVector(vector: number[]): number[] {
 export function l2Distance(a: number[], b: number[]): number {
   let sum = 0
   for (let i = 0; i < a.length; i++) {
-    const diff = a[i] - b[i]
+    const diff = (a[i] ?? 0) - (b[i] ?? 0)
     sum += diff * diff
   }
   return Math.sqrt(sum)
@@ -278,9 +279,11 @@ export function cosineDistance(a: number[], b: number[]): number {
   let normB = 0
 
   for (let i = 0; i < a.length; i++) {
-    dotProduct += a[i] * b[i]
-    normA += a[i] * a[i]
-    normB += b[i] * b[i]
+    const ai = a[i] ?? 0
+    const bi = b[i] ?? 0
+    dotProduct += ai * bi
+    normA += ai * ai
+    normB += bi * bi
   }
 
   const similarity = dotProduct / (Math.sqrt(normA) * Math.sqrt(normB))
@@ -293,7 +296,7 @@ export function cosineDistance(a: number[], b: number[]): number {
 export function l1Distance(a: number[], b: number[]): number {
   let sum = 0
   for (let i = 0; i < a.length; i++) {
-    sum += Math.abs(a[i] - b[i])
+    sum += Math.abs((a[i] ?? 0) - (b[i] ?? 0))
   }
   return sum
 }
@@ -325,7 +328,8 @@ export function parseVectorSearchResults(
     if (metadataColumns.length > 0) {
       result.metadata = {}
       for (const col of metadataColumns) {
-        result.metadata[col] = row[col]
+        const value = row[col]
+        result.metadata[col] = value ?? null
       }
     }
 

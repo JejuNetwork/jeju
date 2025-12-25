@@ -232,7 +232,9 @@ export function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
   if (a.length !== b.length) return false
   let result = 0
   for (let i = 0; i < a.length; i++) {
-    result |= a[i] ^ b[i]
+    const aVal = a[i] ?? 0
+    const bVal = b[i] ?? 0
+    result |= aVal ^ bVal
   }
   return result === 0
 }
@@ -243,8 +245,10 @@ export function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
 export function generateUUID(): string {
   const bytes = randomBytes(16)
   // Set version (4) and variant (RFC 4122)
-  bytes[6] = (bytes[6] & 0x0f) | 0x40
-  bytes[8] = (bytes[8] & 0x3f) | 0x80
+  const byte6 = bytes[6] ?? 0
+  const byte8 = bytes[8] ?? 0
+  bytes[6] = (byte6 & 0x0f) | 0x40
+  bytes[8] = (byte8 & 0x3f) | 0x80
 
   const hex = bytesToHex(bytes)
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`

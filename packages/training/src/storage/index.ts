@@ -4,6 +4,7 @@
  * Provides storage infrastructure for training:
  * - Encrypted trajectory storage
  * - IPFS-based model/dataset storage
+ * - Static file storage for trajectory batches
  */
 
 export {
@@ -12,6 +13,16 @@ export {
   getEncryptedTrajectoryStorage,
   resetEncryptedTrajectoryStorage,
 } from './encrypted-storage'
+
+export {
+  createStaticTrajectoryStorage,
+  downloadTrajectoryBatch,
+  getStaticTrajectoryStorage,
+  shutdownAllStaticStorage,
+  type StaticStorageConfig,
+  StaticTrajectoryStorage,
+  type TrajectoryBatchReference,
+} from './static-storage'
 
 export {
   getStorage,

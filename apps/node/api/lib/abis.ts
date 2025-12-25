@@ -1,6 +1,7 @@
+// Use typed ABIs for full type inference
 export {
-  BanManagerAbi as BAN_MANAGER_ABI,
-  IdentityRegistryAbi as IDENTITY_REGISTRY_ABI,
+  banManagerAbi as BAN_MANAGER_ABI,
+  identityRegistryAbi as IDENTITY_REGISTRY_ABI,
 } from '@jejunetwork/contracts'
 
 export const NODE_STAKING_MANAGER_ABI = [

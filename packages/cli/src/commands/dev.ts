@@ -212,12 +212,69 @@ async function deployAppsOnchain(
     logger.success('DWS server running on port 4030')
   }
 
-  const appsWithDirs = apps.map((app) => ({
-    dir: join(rootDir, 'apps', app.name),
-    manifest: app,
-  }))
+  const appsWithDirs = apps.map((app) => {
+    // Determine app directory - vendor apps are in vendor/, core apps in apps/
+    const folderName = app._folderName || app.name
+    const isVendor = app.type === 'vendor'
+    const dir = isVendor
+      ? join(rootDir, 'vendor', folderName)
+      : join(rootDir, 'apps', folderName)
+    return { dir, manifest: app }
+  })
 
   await localDeployOrchestrator.deployAllApps(appsWithDirs)
+
+  // Start vendor app backend workers (run as separate processes)
+  logger.step('Starting vendor app backends...')
+  for (const { dir, manifest } of appsWithDirs) {
+    if (manifest.type !== 'vendor') continue
+    if (!manifest.architecture?.backend) continue
+
+    const backend = manifest.architecture.backend
+    const commands = manifest.commands as Record<string, string> | undefined
+    const startCmd =
+      typeof backend === 'object' && 'startCmd' in backend
+        ? (backend.startCmd as string)
+        : commands?.['start:worker']
+
+    if (!startCmd) {
+      logger.debug(`  ${manifest.name}: No backend start command found`)
+      continue
+    }
+
+    // Get the API port from manifest
+    const apiPort = manifest.ports?.api ?? manifest.ports?.main ?? 5009
+
+    logger.debug(`  Starting ${manifest.name} backend on port ${apiPort}...`)
+
+    const workerProc = execa('bun', ['run', startCmd.replace('bun run ', '')], {
+      cwd: dir,
+      env: {
+        ...process.env,
+        PORT: String(apiPort),
+        BABYLON_API_PORT: String(apiPort),
+        JEJU_RPC_URL: rpcUrl,
+        JEJU_DWS_ENDPOINT: 'http://localhost:4030',
+        JEJU_NETWORK: 'localnet',
+        TEE_PROVIDER: 'local',
+        CQL_BLOCK_PRODUCER_ENDPOINT: getCQLBlockProducerUrl(),
+        WORKER_REGISTRY_ADDRESS: dwsContracts.workerRegistry,
+        STORAGE_MANAGER_ADDRESS: dwsContracts.storageManager,
+        CDN_REGISTRY_ADDRESS: dwsContracts.cdnRegistry,
+        JNS_REGISTRY_ADDRESS: dwsContracts.jnsRegistry,
+        JNS_RESOLVER_ADDRESS: dwsContracts.jnsResolver,
+      },
+      stdio: 'pipe',
+    })
+
+    runningServices.push({
+      name: `${manifest.displayName || manifest.name} API`,
+      port: apiPort,
+      process: workerProc,
+    })
+
+    logger.success(`  ${manifest.displayName || manifest.name} backend started on port ${apiPort}`)
+  }
 
   logger.step('Starting JNS Gateway...')
   const { startLocalJNSGateway } = await import('../lib/jns-gateway-local')

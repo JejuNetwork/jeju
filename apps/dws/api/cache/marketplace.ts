@@ -18,7 +18,7 @@ import {
   getCacheProvisioningManager,
   initializeCacheProvisioning,
 } from './provisioning'
-import { CacheTier, type CacheInstance, type CacheRentalPlan } from './types'
+import { type CacheInstance, type CacheRentalPlan, CacheTier } from './types'
 
 // Cache Provider Definitions for API Marketplace
 
@@ -59,7 +59,8 @@ export const CACHE_PROVIDERS: APIProvider[] = [
   {
     id: 'jeju-cache-premium',
     name: 'Jeju Cache Premium',
-    description: 'Serverless Redis-compatible cache - dedicated resources with SLA',
+    description:
+      'Serverless Redis-compatible cache - dedicated resources with SLA',
     baseUrl: process.env.DWS_CACHE_ENDPOINT ?? 'https://cache.dws.jeju.network',
     authType: 'bearer',
     authConfig: { headerName: 'Authorization', prefix: 'Bearer ' },

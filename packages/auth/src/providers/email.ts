@@ -574,7 +574,9 @@ export class EmailProvider {
     // XOR all bytes and accumulate result - compare all bytes regardless of mismatches
     let result = 0
     for (let i = 0; i < derivedArray.length; i++) {
-      result |= derivedArray[i] ^ expectedHash[i]
+      const a = derivedArray[i] ?? 0
+      const b = expectedHash[i] ?? 0
+      result |= a ^ b
     }
 
     return result === 0
