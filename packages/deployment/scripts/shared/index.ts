@@ -3,38 +3,6 @@
  * @notice Central export for all shared utilities (browser-safe)
  */
 
-// EIL Hooks (browser-safe) - re-export from @jejunetwork/shared
-export {
-  APP_TOKEN_PREFERENCE_ABI,
-  type AppPreference,
-  buildAppAwarePaymentData,
-  buildLiquidityDepositTransaction,
-  buildSwapTransaction,
-  buildTokenPaymentData,
-  buildXLPStakeTransaction,
-  type ChainInfo,
-  CROSS_CHAIN_PAYMASTER_ABI,
-  type CrossChainSwapParams,
-  calculateSwapFee,
-  canPayGasWithToken,
-  DEFAULT_EIL_CONFIG,
-  type EILConfig,
-  type EILStats,
-  estimateSwapTime,
-  formatGasPaymentOption,
-  formatSwapRoute,
-  formatXLPPosition,
-  type GasPaymentOption,
-  getBestGasTokenForApp,
-  getChainById,
-  isCrossChainSwap,
-  L1_STAKE_MANAGER_ABI,
-  SUPPORTED_CHAINS,
-  type SwapStatus,
-  selectBestGasToken,
-  validateSwapParams,
-  type XLPPosition,
-} from '@jejunetwork/shared'
 export * from './agent0'
 export * from './chain-utils'
 // Chain utilities

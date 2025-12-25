@@ -21,13 +21,3 @@ export * from './utils/crypto'
 
 // RPC utilities
 export * from './utils/rpc'
-
-// Re-export commonly needed types from validation
-export {
-  type JSONArray,
-  type JSONObject,
-  type JSONPrimitive,
-  type JSONValue,
-  jejuAddressHeaderSchema,
-  strictHexSchema,
-} from './validation'
