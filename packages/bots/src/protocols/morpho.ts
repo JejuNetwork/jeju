@@ -139,12 +139,11 @@ export class MorphoIntegration extends EventEmitter {
   constructor(
     config: MorphoConfig,
     client: PublicClient,
-    wallet: WalletClient,
+    _wallet: WalletClient,
   ) {
     super()
     this.config = config
     this.client = client
-    this.wallet = wallet
   }
 
   async start(): Promise<void> {

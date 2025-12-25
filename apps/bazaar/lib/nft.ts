@@ -4,6 +4,7 @@
  * Extracted from hooks and pages for testability and reuse.
  */
 
+import { formatAddress } from '@jejunetwork/shared'
 import {
   AddressSchema,
   BigIntSchema,
@@ -13,6 +14,8 @@ import {
 import { formatEther, parseEther } from 'viem'
 import { z } from 'zod'
 import type { NormalizedNFT } from '../schemas/nft'
+
+export { formatAddress }
 
 export const ListingParamsSchema = z.object({
   nftContract: AddressSchema,

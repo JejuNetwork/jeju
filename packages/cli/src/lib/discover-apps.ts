@@ -17,6 +17,8 @@ const AppManifestSchema = z
       .default('core'),
     description: z.string().optional(),
     category: z.string().optional(),
+    slug: z.string().optional(),
+    _folderName: z.string().optional(),
     commands: z
       .object({
         dev: z.string().optional(),
@@ -49,6 +51,21 @@ const AppManifestSchema = z
         name: z.string().optional(),
         description: z.string().optional(),
         url: z.string().optional(),
+      })
+      .optional(),
+    architecture: z
+      .object({
+        frontend: z
+          .object({
+            outputDir: z.string().optional(),
+            framework: z.string().optional(),
+          })
+          .optional(),
+        backend: z
+          .object({
+            runtime: z.string().optional(),
+          })
+          .optional(),
       })
       .optional(),
     agent: z

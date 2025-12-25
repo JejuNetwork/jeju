@@ -237,7 +237,7 @@ async function deployFrontend(
 ): Promise<{ cid: string; uploadId: Hex }> {
   const frontend = manifest.architecture?.frontend
   const outputDir =
-    (typeof frontend === 'object' && frontend?.outputDir) ?? 'dist/static'
+    (typeof frontend === 'object' && frontend?.outputDir) || 'dist/static'
   const frontendPath = join(appDir, outputDir)
 
   if (!existsSync(frontendPath)) {
