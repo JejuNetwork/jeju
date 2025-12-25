@@ -1,6 +1,8 @@
 [test]
 coverage = true
 coverageDir = "./test-results/coverage"
+# Use shared test infrastructure for setup/teardown
+preload = ["@jejunetwork/tests/bun-global-setup"]
 
 # Mark server-only packages as external for browser builds
 [serve.static]

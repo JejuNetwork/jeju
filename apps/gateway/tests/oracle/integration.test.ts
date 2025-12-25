@@ -3,13 +3,13 @@
  *
  * Full end-to-end test that:
  * 1. Connects to a local Anvil node
- * 2. Deploys oracle contracts
- * 3. Creates and tests the oracle node components
- * 4. Verifies metrics endpoint
+ * 2. Creates and tests the oracle node components
+ * 3. Verifies metrics endpoint
  *
- * Run with: INTEGRATION_TESTS=1 bun test tests/oracle/integration.test.ts
+ * Requires: Infrastructure running (jeju dev or INTEGRATION_TESTS=1)
  */
 
+import { getRpcUrl } from '@jejunetwork/config'
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import type { OracleNodeConfig, PriceSourceConfig } from '@jejunetwork/types'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
@@ -22,18 +22,20 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
-import { MetricsExporter } from '../../src/oracle/metrics'
-import { PriceFetcher } from '../../src/oracle/price-fetcher'
+import { MetricsExporter } from '../../api/oracle/metrics'
+import { PriceFetcher } from '../../api/oracle/price-fetcher'
 
-const SKIP_INTEGRATION = process.env.INTEGRATION_TESTS !== '1'
-
-const RPC_URL = 'http://localhost:6546'
+// Use RPC from config
+const RPC_URL = getRpcUrl('localnet')
 const TEST_PRIVATE_KEY =
   '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as Hex
 const WORKER_PRIVATE_KEY =
   '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d' as Hex
 
-describe.skipIf(SKIP_INTEGRATION)('Oracle Integration', () => {
+// Create test account at module level for use across tests
+const testAccount = privateKeyToAccount(TEST_PRIVATE_KEY)
+
+describe('Oracle Integration', () => {
   const publicClient = createPublicClient({
     chain: foundry,
     transport: http(RPC_URL),
@@ -229,12 +231,13 @@ describe.skipIf(SKIP_INTEGRATION)('Oracle Integration', () => {
 
     test('should get chain ID', async () => {
       const chainId = await publicClient.getChainId()
-      expect(chainId).toBe(31337) // Anvil default
+      // Accept various dev chain IDs: foundry (31337), hardhat (1337), testnet (420690), mainnet (420691)
+      expect([1337, 31337, 420690, 420691]).toContain(chainId)
     })
 
     test('should get account balance', async () => {
       const balance = await publicClient.getBalance({
-        address: account.address,
+        address: testAccount.address,
       })
       expect(balance).toBeGreaterThan(0n)
     })

@@ -7,7 +7,17 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import type { Address } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { resetConfig } from '../../api/x402/config'
-import { createServer } from '../../api/x402/server'
+import { createServer, type X402App } from '../../api/x402/server'
+
+// Helper to make requests to the app (wraps Elysia .handle method)
+async function request(
+  server: X402App,
+  path: string,
+  options?: RequestInit,
+): Promise<Response> {
+  const url = `http://localhost${path}`
+  return server.handle(new Request(url, options))
+}
 import {
   clearNonceCache,
   isNonceUsedLocally,
@@ -101,7 +111,7 @@ describe('Concurrent Payment Verification', () => {
     // Submit all concurrently
     const results = await Promise.all(
       payments.map((paymentHeader) =>
-        app.request('/verify', {
+        request(app, '/verify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -134,7 +144,7 @@ describe('Concurrent Payment Verification', () => {
     // Submit same payment multiple times concurrently
     const results = await Promise.all(
       Array.from({ length: 5 }, () =>
-        app.request('/verify', {
+        request(app, '/verify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -167,7 +177,7 @@ describe('Concurrent Payment Verification', () => {
 
     for (let i = 0; i < 20; i++) {
       const paymentHeader = await createSignedPayment()
-      const res = await app.request('/verify', {
+      const res = await request(app, '/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -220,7 +230,7 @@ describe('Nonce Pending State', () => {
 
     const paymentHeader = await createSignedPayment({ nonce })
 
-    const res = await app.request('/verify', {
+    const res = await request(app, '/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -246,7 +256,7 @@ describe('Nonce Pending State', () => {
 describe('Concurrent Health Checks', () => {
   test('should handle concurrent health check requests', async () => {
     const results = await Promise.all(
-      Array.from({ length: 20 }, () => app.request('/')),
+      Array.from({ length: 20 }, () => request(app, '/')),
     )
 
     // All should return valid responses
@@ -260,7 +270,7 @@ describe('Concurrent Health Checks', () => {
 
   test('should handle concurrent supported checks', async () => {
     const results = await Promise.all(
-      Array.from({ length: 20 }, () => app.request('/supported')),
+      Array.from({ length: 20 }, () => request(app, '/supported')),
     )
 
     for (const res of results) {
@@ -284,10 +294,10 @@ describe('Mixed Concurrent Requests', () => {
     const payment2 = await createSignedPayment()
 
     const requests = [
-      app.request('/'),
-      app.request('/supported'),
-      app.request('/health'),
-      app.request('/verify', {
+      request(app, '/'),
+      request(app, '/supported'),
+      request(app, '/health'),
+      request(app, '/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -303,8 +313,8 @@ describe('Mixed Concurrent Requests', () => {
           },
         }),
       }),
-      app.request('/supported/networks'),
-      app.request('/verify', {
+      request(app, '/supported/networks'),
+      request(app, '/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -354,7 +364,7 @@ describe('Load Testing', () => {
 
     const results = await Promise.all(
       payments.map((paymentHeader) =>
-        app.request('/verify', {
+        request(app, '/verify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

@@ -7,7 +7,17 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import type { Address } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { resetConfig } from '../../api/x402/config'
-import { createServer } from '../../api/x402/server'
+import { createServer, type X402App } from '../../api/x402/server'
+
+// Helper to make requests to the app (wraps Elysia .handle method)
+async function request(
+  server: X402App,
+  path: string,
+  options?: RequestInit,
+): Promise<Response> {
+  const url = `http://localhost${path}`
+  return server.handle(new Request(url, options))
+}
 import { clearNonceCache } from '../../api/x402/services/nonce-manager'
 import {
   calculateProtocolFee,
@@ -96,7 +106,7 @@ describe('Amount Boundary Conditions', () => {
   test('should handle minimum amount (1 wei)', async () => {
     const paymentHeader = await createSignedPayment({ amount: '1' })
 
-    const res = await app.request('/verify', {
+    const res = await request(app, '/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -123,7 +133,7 @@ describe('Amount Boundary Conditions', () => {
       '115792089237316195423570985008687907853269984665640564039457584007913129639935' // 2^256 - 1
     const paymentHeader = await createSignedPayment({ amount: maxAmount })
 
-    const res = await app.request('/verify', {
+    const res = await request(app, '/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -151,7 +161,7 @@ describe('Amount Boundary Conditions', () => {
       amount: '2000000',
     })
 
-    const res = await app.request('/verify', {
+    const res = await request(app, '/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -178,7 +188,7 @@ describe('Amount Boundary Conditions', () => {
       amount: '1999999',
     })
 
-    const res = await app.request('/verify', {
+    const res = await request(app, '/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -205,7 +215,7 @@ describe('Amount Boundary Conditions', () => {
       amount: '2000001',
     })
 
-    const res = await app.request('/verify', {
+    const res = await request(app, '/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -240,7 +250,7 @@ describe('Timestamp Boundary Conditions', () => {
     const now = Math.floor(Date.now() / 1000)
     const paymentHeader = await createSignedPayment({ timestamp: now })
 
-    const res = await app.request('/verify', {
+    const res = await request(app, '/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -264,7 +274,7 @@ describe('Timestamp Boundary Conditions', () => {
   test('should reject payment at timestamp 0 as expired', async () => {
     const paymentHeader = await createSignedPayment({ timestamp: 0 })
 
-    const res = await app.request('/verify', {
+    const res = await request(app, '/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -296,7 +306,7 @@ describe('Timestamp Boundary Conditions', () => {
     const maxTimestamp = 2147483647 // Max 32-bit signed int
     const paymentHeader = await createSignedPayment({ timestamp: maxTimestamp })
 
-    const res = await app.request('/verify', {
+    const res = await request(app, '/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -404,7 +414,7 @@ describe('Network Case Sensitivity', () => {
   test('should handle network with different case', async () => {
     const paymentHeader = await createSignedPayment()
 
-    const res = await app.request('/verify', {
+    const res = await request(app, '/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -440,7 +450,7 @@ describe('Address Case Sensitivity', () => {
   test('should handle addresses with different case', async () => {
     const paymentHeader = await createSignedPayment()
 
-    const res = await app.request('/verify', {
+    const res = await request(app, '/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -480,7 +490,7 @@ describe('Concurrent Boundary Conditions', () => {
 
     const results = await Promise.all(
       payments.map((paymentHeader) =>
-        app.request('/verify', {
+        request(app, '/verify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -515,7 +525,7 @@ describe('Concurrent Boundary Conditions', () => {
 
     // Submit both requests concurrently
     const [res1, res2] = await Promise.all([
-      app.request('/verify', {
+      request(app, '/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -531,7 +541,7 @@ describe('Concurrent Boundary Conditions', () => {
           },
         }),
       }),
-      app.request('/verify', {
+      request(app, '/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -572,7 +582,7 @@ describe('Response Data Validation', () => {
   test('verify response should contain all required fields', async () => {
     const paymentHeader = await createSignedPayment()
 
-    const res = await app.request('/verify', {
+    const res = await request(app, '/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -609,7 +619,7 @@ describe('Response Data Validation', () => {
   })
 
   test('supported endpoint should return valid structure', async () => {
-    const res = await app.request('/supported')
+    const res = await request(app, '/supported')
     const body = await res.json()
 
     expect(body).toHaveProperty('kinds')
@@ -631,7 +641,7 @@ describe('Response Data Validation', () => {
   })
 
   test('stats endpoint should return valid structure', async () => {
-    const res = await app.request('/stats')
+    const res = await request(app, '/stats')
     const body = await res.json()
 
     expect(body).toHaveProperty('totalSettlements')
