@@ -103,7 +103,7 @@ export class CISecretsStore {
     _owner: Address,
     environment?: string,
   ): Promise<CISecret> {
-    const secretId = `${repoId}-${environment || 'repo'}-${name}`
+    const secretId = `${repoId}-${environment ?? 'repo'}-${name}`
 
     const partyIds = ['party-1', 'party-2', 'party-3']
     for (const id of partyIds) {

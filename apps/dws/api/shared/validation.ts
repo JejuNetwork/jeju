@@ -130,7 +130,7 @@ export function validateHeaders<T>(
   for (const [key, value] of Object.entries(ctx.headers)) {
     if (value) headers[key.toLowerCase()] = value
   }
-  return expectValid(schema, headers, context || 'Headers')
+  return expectValid(schema, headers, context ?? 'Headers')
 }
 
 export function createValidationDerive<

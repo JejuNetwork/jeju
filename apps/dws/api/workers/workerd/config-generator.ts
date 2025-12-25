@@ -303,7 +303,7 @@ export default {
     // Parse body if present
     let body = null;
     if (request.method !== 'GET' && request.method !== 'HEAD') {
-      const contentType = request.headers.get('content-type') || '';
+      const contentType = request.headers.get('content-type') ?? '';
       if (contentType.includes('application/json')) {
         body = await request.json();
       } else {

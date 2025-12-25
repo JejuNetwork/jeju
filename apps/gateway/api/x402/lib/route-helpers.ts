@@ -1,4 +1,6 @@
 import type { JsonObject } from '@jejunetwork/types'
+import { expectValid } from '@jejunetwork/types'
+import type { z } from 'zod'
 import {
   validateSettleRequest,
   validateVerifyRequest,
@@ -32,10 +34,15 @@ function getNetworkFromRequest(
 
 export async function parseJsonBody<T>(
   request: Request,
+  schema?: z.ZodType<T>,
 ): Promise<{ body: T; error?: string } | { body: null; error: string }> {
   try {
-    const body: unknown = await request.json()
-    return { body: body as T }
+    const rawBody: unknown = await request.json()
+    if (schema) {
+      const body = expectValid(schema, rawBody, 'Request body')
+      return { body }
+    }
+    return { body: rawBody as T }
   } catch (error) {
     const message =
       error instanceof Error ? error.message : 'Invalid JSON request body'

@@ -154,7 +154,7 @@ export function parsePaymentProof(ctx: ElysiaContext): PaymentProof | null {
     amount,
     asset: parseAddressOrDefault(asset, ZERO_ADDRESS),
     payer: parseAddressOrDefault(payer, ZERO_ADDRESS),
-    timestamp: parseInt(timestamp || '0', 10),
+    timestamp: parseInt(timestamp ?? '0', 10),
   }
 }
 

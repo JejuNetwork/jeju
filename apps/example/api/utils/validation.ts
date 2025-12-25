@@ -56,7 +56,7 @@ export function expectDefined<T>(
   message?: string,
 ): T {
   if (value === null || value === undefined) {
-    throw new ValidationError(message || 'Expected value to be defined')
+    throw new ValidationError(message ?? 'Expected value to be defined')
   }
   return value
 }
@@ -66,7 +66,7 @@ export function expectTruthy<T>(
   message?: string,
 ): T {
   if (!value) {
-    throw new ValidationError(message || 'Expected value to be truthy')
+    throw new ValidationError(message ?? 'Expected value to be truthy')
   }
   return value
 }

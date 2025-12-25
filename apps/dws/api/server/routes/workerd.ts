@@ -697,7 +697,12 @@ export function createWorkerdRouter(options: WorkerdRouterOptions) {
       .post(
         '/:workerId/replicate',
         async ({ params, body, set }) => {
-          const targetCount = (body as ReplicateWorkerBody).targetCount ?? 3
+          const validatedBody = expectValid(
+            ReplicateWorkerBodySchema,
+            body,
+            'Replicate worker body',
+          )
+          const targetCount = validatedBody.targetCount ?? 3
 
           const worker = await registry.getWorker(BigInt(params.workerId))
           if (!worker) {
@@ -729,7 +734,12 @@ export function createWorkerdRouter(options: WorkerdRouterOptions) {
       .post(
         '/deploy-from-registry',
         async ({ body, set }) => {
-          const agentId = BigInt((body as DeployFromRegistryBody).agentId)
+          const validatedBody = expectValid(
+            DeployFromRegistryBodySchema,
+            body,
+            'Deploy from registry body',
+          )
+          const agentId = BigInt(validatedBody.agentId)
 
           const worker = await registry.getWorker(agentId)
           if (!worker) {

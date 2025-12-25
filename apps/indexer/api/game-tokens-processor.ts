@@ -352,7 +352,7 @@ export async function processGameTokenEvents(
 
         const rarityNames = ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary']
         ctx.log.info(
-          `Item minted: ${minter} minted ${amount}x item #${itemId} (${rarityNames[rarity] || 'Unknown'}, ${stackable ? 'stackable' : 'unique'})`,
+          `Item minted: ${minter} minted ${amount}x item #${itemId} (${rarityNames[rarity] ?? 'Unknown'}, ${stackable ? 'stackable' : 'unique'})`,
         )
       } else if (eventSig === ITEM_BURNED) {
         const decoded = decodeLog({
