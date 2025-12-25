@@ -283,7 +283,7 @@ contract LiquidityVault is ReentrancyGuard, Ownable, Pausable {
     /**
      * @notice Calculate total pending fees for an LP across both pools
      * @param account Address of the liquidity provider
-     * @return Total claimable fees in elizaOS tokens
+     * @return Total claimable fees in JEJU tokens
      */
     function pendingFees(address account) public view returns (uint256) {
         uint256 ethFees = _calculatePendingETHFees(account);

@@ -354,40 +354,6 @@ describe('discoverDAOManifests', () => {
 })
 
 // ============================================================================
-// Real Filesystem Integration Tests
-// ============================================================================
-
-describe('Real Babylon DAO Discovery', () => {
-  // Navigate from packages/cli/src/lib to repo root
-  const rootDir = join(__dirname, '../../../..')
-
-  test('discovers babylon DAO from real filesystem', () => {
-    const manifests = discoverDAOManifests(rootDir)
-    const babylonDao = manifests.find((m) => m.name === 'babylon-dao')
-    expect(babylonDao).toBeDefined()
-    expect(babylonDao?.displayName).toBe('Babylon DAO')
-  })
-
-  test('babylon DAO has Monkey King CEO', () => {
-    const manifests = discoverDAOManifests(rootDir)
-    const babylonDao = manifests.find((m) => m.name === 'babylon-dao')
-    expect(babylonDao?.governance.ceo.name).toBe('Monkey King')
-  })
-
-  test('babylon DAO has 4 council members', () => {
-    const manifests = discoverDAOManifests(rootDir)
-    const babylonDao = manifests.find((m) => m.name === 'babylon-dao')
-    expect(babylonDao?.governance.council.members).toHaveLength(4)
-  })
-
-  test('babylon DAO has seeded packages', () => {
-    const manifests = discoverDAOManifests(rootDir)
-    const babylonDao = manifests.find((m) => m.name === 'babylon-dao')
-    expect(babylonDao?.packages?.seeded.length).toBeGreaterThan(0)
-  })
-})
-
-// ============================================================================
 // Deployment Options Validation
 // ============================================================================
 

@@ -1,5 +1,3 @@
-/** Start development environment */
-
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import {
@@ -147,13 +145,9 @@ async function startDev(options: {
     return
   }
 
-  // Indexer is started by the orchestrator, no need to start again
-
-  // Discover apps
-  const apps = discoverApps(rootDir)
+  const apps = discoverApps(rootDir, true)
   const appsToStart = filterApps(apps, options)
 
-  // Deploy apps on-chain through DWS (like production)
   await deployAppsOnchain(rootDir, l2RpcUrl, appsToStart)
 
   printReady(l2RpcUrl, runningServices, servicesOrchestrator, appsToStart)
@@ -550,7 +544,6 @@ devCommand
     interface BootstrapContracts {
       jeju?: string
       usdc?: string
-      elizaOS?: string
       weth?: string
       creditManager?: string
       universalPaymaster?: string
@@ -605,10 +598,6 @@ devCommand
     if (isValidAddress(contracts.usdc)) {
       config.localnet.tokens.usdc = contracts.usdc
       logger.info(`  tokens.usdc: ${contracts.usdc}`)
-    }
-    if (isValidAddress(contracts.elizaOS)) {
-      config.localnet.tokens.elizaOS = contracts.elizaOS
-      logger.info(`  tokens.elizaOS: ${contracts.elizaOS}`)
     }
 
     // Update registry

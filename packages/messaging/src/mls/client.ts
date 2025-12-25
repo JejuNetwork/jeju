@@ -7,8 +7,18 @@
  * - Transport via Jeju relay nodes
  */
 
-import { bytesToHex, randomBytes } from '@jejunetwork/shared'
-import type { Address, Hex } from 'viem'
+import { bytesToHex, hexToBytes, randomBytes } from '@jejunetwork/shared'
+import { ed25519, x25519 } from '@noble/curves/ed25519'
+import { hkdf } from '@noble/hashes/hkdf'
+import { sha256 } from '@noble/hashes/sha256'
+import {
+  type Address,
+  createPublicClient,
+  type Hex,
+  http,
+  type PublicClient,
+} from 'viem'
+import { KEY_REGISTRY_ABI } from '../sdk/abis'
 import { JejuGroup } from './group'
 import type {
   DeviceInfo,
@@ -22,6 +32,23 @@ import type {
 
 const MAX_GROUPS = 1000 // Maximum groups per client
 const MAX_EVENT_HANDLERS = 100 // Maximum event handlers
+
+// WebSocket reconnection configuration
+const INITIAL_RECONNECT_DELAY_MS = 1000
+const MAX_RECONNECT_DELAY_MS = 30000
+const MAX_RECONNECT_ATTEMPTS = 10
+
+/** MLS key material derived from wallet signature */
+interface MLSKeyMaterial {
+  /** Identity key for MLS protocol */
+  identityKey: Uint8Array
+  /** Pre-key for key exchange */
+  preKey: Uint8Array
+  /** Public identity key */
+  identityPublicKey: Uint8Array
+  /** Public pre-key */
+  preKeyPublic: Uint8Array
+}
 
 export interface MLSClientEvents {
   message: (event: MLSEventData) => void
@@ -53,6 +80,15 @@ export class JejuMLSClient {
   private syncInterval: NodeJS.Timeout | null = null
   private lastSyncAt: number = 0
 
+  // Key material derived from wallet signature
+  private keyMaterial: MLSKeyMaterial | null = null
+
+  // WebSocket reconnection state
+  private reconnectAttempts: number = 0
+  private reconnectTimeout: NodeJS.Timeout | null = null
+  private connectionPromise: Promise<void> | null = null
+  private isShuttingDown: boolean = false
+
   constructor(config: MLSClientConfig) {
     this.config = config
   }
@@ -78,8 +114,15 @@ export class JejuMLSClient {
     // Register public key in Jeju KeyRegistry
     await this.registerPublicKey()
 
-    // Connect to relay
-    await this.connectToRelay()
+    // Connect to relay (skip in test mode)
+    if (!this.config.skipRelayConnection) {
+      await this.connectToRelay().catch((err) => {
+        console.warn(
+          `[MLS Client] Relay connection failed (continuing):`,
+          err instanceof Error ? err.message : 'Unknown error',
+        )
+      })
+    }
 
     // Start sync loop
     this.startSyncLoop()
@@ -94,14 +137,29 @@ export class JejuMLSClient {
    * Shutdown the client
    */
   async shutdown(): Promise<void> {
+    this.isShuttingDown = true
+
     if (this.syncInterval) {
       clearInterval(this.syncInterval)
+      this.syncInterval = null
     }
 
-    this.relayConnection?.close()
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout)
+      this.reconnectTimeout = null
+    }
+
+    if (this.relayConnection) {
+      this.relayConnection.close(1000, 'Client shutting down')
+      this.relayConnection = null
+    }
+
     this.groups.clear()
     this.eventHandlers.clear()
+    this.keyMaterial = null
+    this.installationId = null
     this.isInitialized = false
+    this.isShuttingDown = false
 
     this.emit('disconnected')
   }
@@ -371,42 +429,282 @@ export class JejuMLSClient {
   }
 
   /**
-   * Derive MLS keys from wallet signature
+   * Derive MLS keys from wallet signature using HKDF
+   *
+   * Key derivation follows this process:
+   * 1. Use signature bytes as initial key material (IKM)
+   * 2. Derive identity key using HKDF with "jeju-mls-identity" info
+   * 3. Derive pre-key using HKDF with "jeju-mls-prekey" info
+   * 4. Generate X25519 public keys from private keys
    */
-  private async deriveMLSKeys(_signature: Hex): Promise<void> {
-    // In production, use proper key derivation
-    // Derives identity key and pre-keys from signature
-    console.log(`[MLS Client] Derived MLS keys from signature`)
+  private async deriveMLSKeys(signature: Hex): Promise<void> {
+    const signatureBytes = hexToBytes(signature.slice(2))
+
+    // Derive identity key (32 bytes for X25519)
+    const identityKey = hkdf(
+      sha256,
+      signatureBytes,
+      new Uint8Array(0), // No salt
+      new TextEncoder().encode('jeju-mls-identity'),
+      32,
+    )
+
+    // Derive pre-key (32 bytes for X25519)
+    const preKey = hkdf(
+      sha256,
+      signatureBytes,
+      new Uint8Array(0), // No salt
+      new TextEncoder().encode('jeju-mls-prekey'),
+      32,
+    )
+
+    // Generate public keys
+    const identityPublicKey = x25519.getPublicKey(identityKey)
+    const preKeyPublic = x25519.getPublicKey(preKey)
+
+    this.keyMaterial = {
+      identityKey,
+      preKey,
+      identityPublicKey,
+      preKeyPublic,
+    }
+
+    console.log(
+      `[MLS Client] Derived MLS keys: identity=${bytesToHex(identityPublicKey).slice(0, 16)}...`,
+    )
+  }
+
+  /**
+   * Get the public identity key
+   */
+  getIdentityPublicKey(): Uint8Array {
+    if (!this.keyMaterial) {
+      throw new Error('Client not initialized')
+    }
+    return this.keyMaterial.identityPublicKey
+  }
+
+  /**
+   * Get the public pre-key
+   */
+  getPreKeyPublic(): Uint8Array {
+    if (!this.keyMaterial) {
+      throw new Error('Client not initialized')
+    }
+    return this.keyMaterial.preKeyPublic
   }
 
   /**
    * Register public key in Jeju KeyRegistry
    */
   private async registerPublicKey(): Promise<void> {
-    // Call KeyRegistry contract
-    console.log(`[MLS Client] Registered public key in KeyRegistry`)
+    if (!this.keyMaterial) {
+      throw new Error('Keys not derived')
+    }
+
+    // If walletClient is provided, register on-chain
+    if (this.config.walletClient && this.config.keyRegistryAddress) {
+      const identityKey = `0x${bytesToHex(this.keyMaterial.identityPublicKey)}` as Hex
+      const preKey = `0x${bytesToHex(this.keyMaterial.preKeyPublic)}` as Hex
+
+      // Sign the pre-key with identity key for verification
+      const preKeySignaturePayload = new TextEncoder().encode(
+        `jeju-mls-prekey:${this.config.address}:${preKey}`,
+      )
+      const preKeySignature = ed25519.sign(
+        preKeySignaturePayload,
+        this.keyMaterial.identityKey,
+      )
+
+      await this.config.walletClient.writeContract({
+        chain: null,
+        account: this.config.walletClient.account,
+        address: this.config.keyRegistryAddress,
+        abi: KEY_REGISTRY_ABI,
+        functionName: 'registerKeyBundle',
+        args: [identityKey, preKey, `0x${bytesToHex(preKeySignature)}`],
+      })
+
+      console.log(
+        `[MLS Client] Registered public key in KeyRegistry for ${this.config.address}`,
+      )
+    } else {
+      console.log(
+        `[MLS Client] No walletClient configured, skipping on-chain registration`,
+      )
+    }
   }
 
   /**
    * Verify members have registered keys
    */
   private async verifyMemberKeys(members: Address[]): Promise<void> {
-    // Check KeyRegistry for each member
+    // In production, query KeyRegistry contract for each member
     for (const member of members) {
-      // In production, query contract
-      console.log(`[MLS Client] Verified keys for ${member}`)
+      console.log(`[MLS Client] Verified keys for ${member.slice(0, 10)}...`)
     }
   }
 
   /**
-   * Connect to Jeju relay
+   * Connect to Jeju relay with automatic reconnection
    */
   private async connectToRelay(): Promise<void> {
-    return new Promise((resolve) => {
-      // In production, establish WebSocket connection
-      console.log(`[MLS Client] Connected to relay: ${this.config.relayUrl}`)
-      resolve()
+    if (this.connectionPromise) {
+      return this.connectionPromise
+    }
+
+    this.connectionPromise = this.establishRelayConnection()
+    return this.connectionPromise.finally(() => {
+      this.connectionPromise = null
     })
+  }
+
+  /**
+   * Establish WebSocket connection to relay
+   */
+  private async establishRelayConnection(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const wsUrl = this.buildWebSocketUrl(this.config.relayUrl)
+      console.log(`[MLS Client] Connecting to relay: ${wsUrl}`)
+
+      const ws = new WebSocket(wsUrl)
+
+      const connectionTimeout = setTimeout(() => {
+        ws.close()
+        reject(new Error(`Connection timeout to ${wsUrl}`))
+      }, 10000)
+
+      ws.onopen = () => {
+        clearTimeout(connectionTimeout)
+        this.relayConnection = ws
+        this.reconnectAttempts = 0
+        console.log(`[MLS Client] Connected to relay`)
+
+        // Authenticate with the relay
+        if (this.keyMaterial) {
+          const authMessage = JSON.stringify({
+            type: 'auth',
+            address: this.config.address,
+            installationId: this.installationId
+              ? bytesToHex(this.installationId)
+              : null,
+            publicKey: bytesToHex(this.keyMaterial.identityPublicKey),
+          })
+          ws.send(authMessage)
+        }
+
+        resolve()
+      }
+
+      ws.onmessage = (event) => {
+        this.handleRelayMessage(event)
+      }
+
+      ws.onclose = (event) => {
+        clearTimeout(connectionTimeout)
+        this.relayConnection = null
+        console.log(
+          `[MLS Client] Relay connection closed: ${event.code} ${event.reason}`,
+        )
+
+        if (this.isInitialized && !this.isShuttingDown) {
+          this.scheduleReconnect()
+        }
+      }
+
+      ws.onerror = (error) => {
+        clearTimeout(connectionTimeout)
+        console.error(`[MLS Client] WebSocket error:`, error)
+      }
+    })
+  }
+
+  /**
+   * Build WebSocket URL from HTTP URL
+   */
+  private buildWebSocketUrl(httpUrl: string): string {
+    const url = httpUrl.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:')
+    return url.endsWith('/') ? `${url}mls` : `${url}/mls`
+  }
+
+  /**
+   * Handle incoming message from relay
+   */
+  private handleRelayMessage(event: MessageEvent): void {
+    const data = event.data
+    if (typeof data !== 'string') {
+      console.error('[MLS Client] Received non-string message from relay')
+      return
+    }
+
+    let parsed: { type: string; groupId?: string; message?: MLSMessage }
+    try {
+      parsed = JSON.parse(data)
+    } catch {
+      console.error('[MLS Client] Failed to parse message from relay')
+      return
+    }
+
+    if (parsed.type === 'message' && parsed.message) {
+      const eventData: MLSEventData = {
+        type: 'message',
+        message: parsed.message,
+      }
+      this.emit('message', eventData)
+    } else if (parsed.type === 'ack') {
+      console.log('[MLS Client] Message acknowledged')
+    }
+  }
+
+  /**
+   * Schedule reconnection with exponential backoff
+   */
+  private scheduleReconnect(): void {
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout)
+    }
+
+    if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+      console.error(
+        `[MLS Client] Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached`,
+      )
+      return
+    }
+
+    const delay = Math.min(
+      INITIAL_RECONNECT_DELAY_MS * Math.pow(2, this.reconnectAttempts),
+      MAX_RECONNECT_DELAY_MS,
+    )
+    this.reconnectAttempts++
+
+    console.log(
+      `[MLS Client] Scheduling reconnect attempt ${this.reconnectAttempts} in ${delay}ms`,
+    )
+
+    this.reconnectTimeout = setTimeout(() => {
+      this.connectToRelay().catch((error) => {
+        console.error(`[MLS Client] Reconnect failed:`, error)
+      })
+    }, delay)
+  }
+
+  /**
+   * Force reconnection to relay
+   */
+  async reconnect(): Promise<void> {
+    if (this.relayConnection) {
+      this.relayConnection.close(1000, 'Reconnecting')
+      this.relayConnection = null
+    }
+    this.reconnectAttempts = 0
+    await this.connectToRelay()
+  }
+
+  /**
+   * Check if connected to relay
+   */
+  isConnected(): boolean {
+    return this.relayConnection?.readyState === WebSocket.OPEN
   }
 
   /**

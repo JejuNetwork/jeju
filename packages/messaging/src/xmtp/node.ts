@@ -23,6 +23,11 @@ const MAX_IDENTITIES = 100000
 const MAX_MESSAGE_HANDLERS = 100
 const MAX_ENVELOPE_SIZE = 1024 * 1024 // 1MB
 
+// WebSocket reconnection configuration
+const INITIAL_RECONNECT_DELAY_MS = 1000
+const MAX_RECONNECT_DELAY_MS = 30000
+const MAX_RECONNECT_ATTEMPTS = 10
+
 // Schema for validating decoded envelopes
 const XMTPEnvelopeSchema = z.object({
   version: z.number().optional(),
@@ -67,6 +72,10 @@ export class JejuXMTPNode {
   private syncState: SyncState
   private identityCache: Map<string, XMTPIdentity> = new Map()
   private relayConnection: WebSocket | null = null
+  private reconnectAttempts: number = 0
+  private reconnectTimeout: NodeJS.Timeout | null = null
+  private pendingEnvelopes: XMTPEnvelope[] = []
+  private connectionPromise: Promise<void> | null = null
 
   constructor(config: XMTPNodeConfig) {
     this.config = config
@@ -88,8 +97,15 @@ export class JejuXMTPNode {
 
     console.log(`[XMTP Node ${this.config.nodeId}] Starting...`)
 
-    // Connect to Jeju relay network
-    await this.connectToRelay()
+    // Connect to Jeju relay network (skip in test mode)
+    if (!this.config.skipRelayConnection) {
+      await this.connectToRelay().catch((err) => {
+        console.warn(
+          `[XMTP Node] Relay connection failed (continuing):`,
+          err instanceof Error ? err.message : 'Unknown error',
+        )
+      })
+    }
 
     // Initialize MLS state
     await this.initializeMLS()
@@ -111,40 +127,190 @@ export class JejuXMTPNode {
 
     console.log(`[XMTP Node ${this.config.nodeId}] Stopping...`)
 
+    // Mark as not running to prevent reconnection attempts
+    this.isRunning = false
+
+    // Cancel any pending reconnection
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout)
+      this.reconnectTimeout = null
+    }
+
     // Close relay connection
-    this.relayConnection?.close()
+    if (this.relayConnection) {
+      this.relayConnection.close(1000, 'Node shutting down')
+      this.relayConnection = null
+    }
 
     // Close all client connections
     for (const [, ws] of this.connections) {
-      ws.close()
+      ws.close(1000, 'Node shutting down')
     }
     this.connections.clear()
 
     // Flush pending messages
     await this.flushPendingMessages()
 
-    this.isRunning = false
-
     console.log(`[XMTP Node ${this.config.nodeId}] Stopped`)
   }
 
   /**
-   * Connect to Jeju relay network
+   * Connect to Jeju relay network with automatic reconnection
    */
   private async connectToRelay(): Promise<void> {
-    return new Promise((resolve) => {
-      const wsUrl = `${this.config.jejuRelayUrl.replace('http', 'ws')}/ws`
+    if (this.connectionPromise) {
+      return this.connectionPromise
+    }
 
-      // In production, use actual WebSocket
-      // For now, simulate connection
+    this.connectionPromise = this.establishRelayConnection()
+    return this.connectionPromise.finally(() => {
+      this.connectionPromise = null
+    })
+  }
+
+  /**
+   * Establish WebSocket connection to relay
+   */
+  private async establishRelayConnection(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const wsUrl = this.buildWebSocketUrl(this.config.jejuRelayUrl)
       console.log(`[XMTP Node] Connecting to relay: ${wsUrl}`)
 
-      // Simulated connection for type safety
-      setTimeout(() => {
+      const ws = new WebSocket(wsUrl)
+
+      const connectionTimeout = setTimeout(() => {
+        ws.close()
+        reject(new Error(`Connection timeout to ${wsUrl}`))
+      }, 10000)
+
+      ws.onopen = () => {
+        clearTimeout(connectionTimeout)
+        this.relayConnection = ws
+        this.reconnectAttempts = 0
         console.log(`[XMTP Node] Connected to relay`)
+
+        // Subscribe to messages for this node
+        const subscribeMessage = JSON.stringify({
+          type: 'subscribe',
+          nodeId: this.config.nodeId,
+          topics: ['xmtp/*'],
+        })
+        ws.send(subscribeMessage)
+
+        // Flush any pending envelopes
+        this.flushPendingEnvelopes()
+
         resolve()
-      }, 100)
+      }
+
+      ws.onmessage = (event) => {
+        this.handleWebSocketMessage(event)
+      }
+
+      ws.onclose = (event) => {
+        clearTimeout(connectionTimeout)
+        this.relayConnection = null
+        console.log(
+          `[XMTP Node] Relay connection closed: ${event.code} ${event.reason}`,
+        )
+
+        if (this.isRunning) {
+          this.scheduleReconnect()
+        }
+      }
+
+      ws.onerror = (error) => {
+        clearTimeout(connectionTimeout)
+        console.error(`[XMTP Node] WebSocket error:`, error)
+        // onclose will be called after onerror
+      }
     })
+  }
+
+  /**
+   * Build WebSocket URL from HTTP URL
+   */
+  private buildWebSocketUrl(httpUrl: string): string {
+    const url = httpUrl.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:')
+    return url.endsWith('/') ? `${url}ws` : `${url}/ws`
+  }
+
+  /**
+   * Handle incoming WebSocket message from relay
+   */
+  private handleWebSocketMessage(event: MessageEvent): void {
+    const data = event.data
+    let bytes: Uint8Array
+
+    if (typeof data === 'string') {
+      bytes = new TextEncoder().encode(data)
+    } else if (data instanceof ArrayBuffer) {
+      bytes = new Uint8Array(data)
+    } else if (data instanceof Blob) {
+      // Handle Blob asynchronously
+      data.arrayBuffer().then((buffer) => {
+        this.handleRelayMessage(new Uint8Array(buffer))
+      })
+      return
+    } else {
+      console.error('[XMTP Node] Unknown message type from relay')
+      return
+    }
+
+    this.handleRelayMessage(bytes)
+  }
+
+  /**
+   * Schedule reconnection with exponential backoff
+   */
+  private scheduleReconnect(): void {
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout)
+    }
+
+    if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+      console.error(
+        `[XMTP Node] Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached`,
+      )
+      return
+    }
+
+    const delay = Math.min(
+      INITIAL_RECONNECT_DELAY_MS * Math.pow(2, this.reconnectAttempts),
+      MAX_RECONNECT_DELAY_MS,
+    )
+    this.reconnectAttempts++
+
+    console.log(
+      `[XMTP Node] Scheduling reconnect attempt ${this.reconnectAttempts} in ${delay}ms`,
+    )
+
+    this.reconnectTimeout = setTimeout(() => {
+      this.connectToRelay().catch((error) => {
+        console.error(`[XMTP Node] Reconnect failed:`, error)
+      })
+    }, delay)
+  }
+
+  /**
+   * Flush pending envelopes after reconnection
+   */
+  private flushPendingEnvelopes(): void {
+    if (this.pendingEnvelopes.length === 0) return
+
+    console.log(
+      `[XMTP Node] Flushing ${this.pendingEnvelopes.length} pending envelopes`,
+    )
+
+    const envelopes = [...this.pendingEnvelopes]
+    this.pendingEnvelopes = []
+
+    for (const envelope of envelopes) {
+      this.forwardToRelay(envelope).catch((error) => {
+        console.error(`[XMTP Node] Failed to flush envelope:`, error)
+        this.pendingEnvelopes.push(envelope)
+      })
+    }
   }
 
   /**
@@ -193,12 +359,12 @@ export class JejuXMTPNode {
   private async forwardToRelay(envelope: XMTPEnvelope): Promise<void> {
     const payload = this.encodeEnvelope(envelope)
 
-    // Send via relay connection
     if (this.relayConnection?.readyState === WebSocket.OPEN) {
       this.relayConnection.send(payload)
     } else {
       // Queue for later if not connected
-      this.syncState.pendingMessages++
+      this.pendingEnvelopes.push(envelope)
+      this.syncState.pendingMessages = this.pendingEnvelopes.length
     }
   }
 
@@ -381,6 +547,30 @@ export class JejuXMTPNode {
    */
   isHealthy(): boolean {
     return this.isRunning
+  }
+
+  /**
+   * Get relay connection state
+   */
+  getConnectionState(): NodeConnectionState {
+    return {
+      isConnected: this.relayConnection?.readyState === WebSocket.OPEN,
+      connectedAt: this.startTime,
+      relayUrl: this.config.jejuRelayUrl,
+      peerCount: this.connections.size,
+    }
+  }
+
+  /**
+   * Force reconnection to relay
+   */
+  async reconnect(): Promise<void> {
+    if (this.relayConnection) {
+      this.relayConnection.close(1000, 'Reconnecting')
+      this.relayConnection = null
+    }
+    this.reconnectAttempts = 0
+    await this.connectToRelay()
   }
 
   /**

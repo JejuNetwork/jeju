@@ -147,14 +147,14 @@ describe('Gas Intent Routing Validation', () => {
     const mockBalances = {
       ETH: parseEther('1.5'),
       USDC: parseUnits('500', 6),
-      elizaOS: parseEther('10000'),
+      JEJU: parseEther('10000'),
     }
 
     // Mock paymaster liquidity
     const mockLiquidity = {
       ETH: parseEther('100'),
       USDC: parseUnits('50000', 6),
-      elizaOS: parseEther('1000000'),
+      JEJU: parseEther('1000000'),
     }
 
     // Router should prefer token with highest relative availability
@@ -169,7 +169,7 @@ describe('Gas Intent Routing Validation', () => {
       }))
       .sort((a, b) => b.score - a.score)
 
-    expect(sortedOptions[0].token).toBe('elizaOS') // Highest combined score
+    expect(sortedOptions[0].token).toBe('JEJU') // Highest combined score
 
     recordValidation({
       test: 'Gas intent routing optimization',

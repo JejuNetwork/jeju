@@ -1,8 +1,8 @@
 /**
  * Multi-tenant Council Integration
  *
- * Enables multiple independent councils (Jeju, Babylon, Eliza) to each have
- * their own OAuth3 apps, CEOs, and governance while sharing the same infrastructure.
+ * Enables multiple independent councils to each have their own OAuth3 apps,
+ * CEOs, and governance while sharing the same infrastructure.
  */
 
 import { type Address, type Hex, keccak256, toBytes } from 'viem'
@@ -93,57 +93,6 @@ Consider technical feasibility, community benefit, and economic sustainability.`
         address: '0x0000000000000000000000000000000000000000' as Address,
         specialization: 'Security audits and risk assessment',
         votingWeight: 25,
-      },
-    ],
-  },
-  babylon: {
-    councilType: 'babylon' as CouncilType,
-    config: {
-      councilId: keccak256(toBytes('babylon-council')),
-      name: 'Babylon Game Council',
-      treasury: '0x0000000000000000000000000000000000000000' as Address,
-      ceoAgent: '0x0000000000000000000000000000000000000000' as Address,
-      councilAgents: [],
-      oauth3App: '0x' as Hex,
-      jnsName: 'council.babylon.jeju',
-    },
-    ceo: {
-      name: 'Babylon CEO',
-      address: '0x0000000000000000000000000000000000000000' as Address,
-      modelProvider: 'anthropic',
-      modelId: 'claude-sonnet-4-20250514',
-      systemPrompt: `You are the AI CEO of Babylon, the flagship game on Jeju Network.
-Your role is to make decisions about game economy, content updates, and player experience.
-Balance player engagement, economic sustainability, and competitive fairness.`,
-    },
-    agents: [
-      {
-        role: 'Economy',
-        name: 'Game Economy Agent',
-        address: '0x0000000000000000000000000000000000000000' as Address,
-        specialization: 'In-game economy and token management',
-        votingWeight: 30,
-      },
-      {
-        role: 'Content',
-        name: 'Content Agent',
-        address: '0x0000000000000000000000000000000000000000' as Address,
-        specialization: 'Game content and feature development',
-        votingWeight: 30,
-      },
-      {
-        role: 'Player',
-        name: 'Player Advocate Agent',
-        address: '0x0000000000000000000000000000000000000000' as Address,
-        specialization: 'Player feedback and community management',
-        votingWeight: 20,
-      },
-      {
-        role: 'Balance',
-        name: 'Balance Agent',
-        address: '0x0000000000000000000000000000000000000000' as Address,
-        specialization: 'Game balance and competitive integrity',
-        votingWeight: 20,
       },
     ],
   },

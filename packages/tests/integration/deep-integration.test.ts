@@ -80,11 +80,11 @@ describe.skipIf(!servicesAvailable)('Deep Integration E2E', () => {
     console.log('✅ Registry contract verified')
   })
 
-  it('should register Bazaar in registry with elizaOS stake', async () => {
+  it('should register Bazaar in registry with JEJU stake', async () => {
     console.log('\n📱 Registering Bazaar...')
 
     // TODO: Implement when registry contracts are deployed
-    // This would approve elizaOS tokens and register Bazaar
+    // This would approve JEJU tokens and register Bazaar
 
     bazaarAgentId = 1n // Would get from tx receipt
 

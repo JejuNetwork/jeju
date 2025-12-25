@@ -42,7 +42,7 @@ interface IModerationMarketplace {
  * @dev Accepts any paymaster token, swaps to JEJU, and stakes in one transaction
  *
  * User Flow:
- * 1. User approves this contract for their token (USDC, elizaOS, etc.)
+ * 1. User approves this contract for their token (USDC, JEJU, etc.)
  * 2. User calls swapAndStake(token, amount) or stakeWithETH()
  * 3. Helper swaps their token → JEJU via XLP router
  * 4. Helper stakes JEJU in ModerationMarketplace ON USER'S BEHALF

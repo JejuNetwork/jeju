@@ -41,16 +41,6 @@ import {
 } from './actions/containers'
 import { crossChainTransferAction } from './actions/crosschain'
 import { addLiquidityAction, swapTokensAction } from './actions/defi'
-// Extended Actions - Games (Babylon/Hyperscape)
-import {
-  getGameStatsAction,
-  getGoldBalanceAction,
-  getItemBalanceAction,
-  getPlayerInfoAction,
-  linkAgentAction,
-  transferGoldAction,
-  transferItemAction,
-} from './actions/games'
 import { createProposalAction, voteAction } from './actions/governance'
 import { registerAgentAction } from './actions/identity'
 import { runInferenceAction } from './actions/inference'
@@ -233,14 +223,6 @@ export const jejuPlugin: Plugin = {
 
     callAgentAction,
     discoverAgentsAction,
-
-    getPlayerInfoAction,
-    getGoldBalanceAction,
-    transferGoldAction,
-    getItemBalanceAction,
-    transferItemAction,
-    linkAgentAction,
-    getGameStatsAction,
 
     createRepoAction,
     getRepoInfoAction,

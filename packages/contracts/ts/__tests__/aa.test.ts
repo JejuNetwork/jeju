@@ -170,11 +170,11 @@ describe('aa.ts - Account Abstraction Utilities', () => {
       ).toBe(true)
     })
 
-    test('builds correct paymasterAndData for elizaOS payment', () => {
+    test('builds correct paymasterAndData for JEJU payment', () => {
       const config: MultiTokenPaymasterConfig = {
         paymaster: PAYMASTER_ADDRESS,
         serviceName: 'compute-job',
-        paymentToken: 1, // elizaOS
+        paymentToken: 0, // JEJU
       }
 
       const result = getMultiTokenPaymasterData(config)

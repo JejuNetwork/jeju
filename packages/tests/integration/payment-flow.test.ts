@@ -58,7 +58,7 @@ const TEST_CONFIG = {
   rpcUrl: JEJU_LOCALNET.rpcUrl,
   chainId: JEJU_LOCALNET.chainId,
   contracts: {
-    ElizaOSToken: (process.env.ELIZAOS_TOKEN_ADDRESS ||
+    jejuToken: (process.env.JEJU_TOKEN_ADDRESS ||
       '0x5FbDB2315678afecb367f032d93F642f64180aa3') as Address,
     cloudServiceRegistry: (process.env.CLOUD_SERVICE_REGISTRY_ADDRESS ||
       '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512') as Address,
@@ -110,7 +110,7 @@ const SERVICE_REGISTRY_ABI = parseAbi([
   'function recordUsage(address user, string calldata serviceName, uint256 actualCost, bytes32 sessionId) external',
   'function userUsage(address user, string calldata serviceName) external view returns (uint256 totalSpent, uint256 requestCount, uint256 lastUsedBlock, uint256 volumeDiscount)',
   'function getUserVolumeDiscount(address user, string calldata serviceName) external view returns (uint256)',
-  'function services(string calldata serviceName) external view returns (uint256 basePriceElizaOS, uint256 demandMultiplier, uint256 totalUsageCount, uint256 totalRevenueElizaOS, bool isActive, uint256 minPrice, uint256 maxPrice)',
+  'function services(string calldata serviceName) external view returns (uint256 basePriceJeju, uint256 demandMultiplier, uint256 totalUsageCount, uint256 totalRevenueJeju, bool isActive, uint256 minPrice, uint256 maxPrice)',
   'function authorizedCallers(address caller) external view returns (bool)',
   'function addAuthorizedCaller(address caller) external',
   'event ServiceUsageRecorded(address indexed user, string serviceName, uint256 cost, bytes32 sessionId, uint256 volumeDiscount)',
@@ -127,15 +127,15 @@ describe.skipIf(!localnetAvailable)('Payment Flow Integration', () => {
   let isTestAccountAuthorized: boolean
 
   beforeAll(async () => {
-    // Get initial elizaOS token balance
+    // Get initial JEJU token balance
     initialBalance = await publicClient.readContract({
-      address: TEST_CONFIG.contracts.ElizaOSToken,
+      address: TEST_CONFIG.contracts.jejuToken,
       abi: ERC20_ABI,
       functionName: 'balanceOf',
       args: [TEST_CONFIG.testAccount.address],
     })
 
-    console.log(`Initial balance: ${formatUnits(initialBalance, 18)} elizaOS`)
+    console.log(`Initial balance: ${formatUnits(initialBalance, 18)} JEJU`)
 
     // Get service cost for chat-completion
     serviceCost = await publicClient.readContract({
@@ -145,7 +145,7 @@ describe.skipIf(!localnetAvailable)('Payment Flow Integration', () => {
       args: ['chat-completion', TEST_CONFIG.testAccount.address],
     })
 
-    console.log(`Service cost: ${formatUnits(serviceCost, 18)} elizaOS`)
+    console.log(`Service cost: ${formatUnits(serviceCost, 18)} JEJU`)
 
     // Check if test account is authorized to call recordUsage
     isTestAccountAuthorized = await publicClient.readContract({
@@ -167,13 +167,13 @@ describe.skipIf(!localnetAvailable)('Payment Flow Integration', () => {
     })
 
     expect(cost).toBeGreaterThan(0n)
-    expect(cost).toBeLessThan(parseEther('1000')) // Sanity check: cost < 1000 elizaOS
+    expect(cost).toBeLessThan(parseEther('1000')) // Sanity check: cost < 1000 JEJU
   })
 
   test('Should record service usage with direct payment', async () => {
-    // First, approve ServiceRegistry to spend elizaOS tokens
+    // First, approve ServiceRegistry to spend JEJU tokens
     const approveTx = await walletClient.writeContract({
-      address: TEST_CONFIG.contracts.ElizaOSToken,
+      address: TEST_CONFIG.contracts.jejuToken,
       abi: ERC20_ABI,
       functionName: 'approve',
       args: [TEST_CONFIG.contracts.cloudServiceRegistry, serviceCost * 2n],
@@ -235,14 +235,14 @@ describe.skipIf(!localnetAvailable)('Payment Flow Integration', () => {
 
     // Check balance was debited
     const newBalance = await publicClient.readContract({
-      address: TEST_CONFIG.contracts.ElizaOSToken,
+      address: TEST_CONFIG.contracts.jejuToken,
       abi: ERC20_ABI,
       functionName: 'balanceOf',
       args: [TEST_CONFIG.testAccount.address],
     })
 
     expect(newBalance).toBeLessThan(initialBalance)
-    console.log(`Balance after usage: ${formatUnits(newBalance, 18)} elizaOS`)
+    console.log(`Balance after usage: ${formatUnits(newBalance, 18)} JEJU`)
   })
 
   test('Should track user usage statistics', async () => {
@@ -256,7 +256,7 @@ describe.skipIf(!localnetAvailable)('Payment Flow Integration', () => {
     const [totalSpent, requestCount, _lastUsedBlock, volumeDiscount] = usage
 
     console.log(`User stats:`)
-    console.log(`  Total spent: ${formatUnits(totalSpent, 18)} elizaOS`)
+    console.log(`  Total spent: ${formatUnits(totalSpent, 18)} JEJU`)
     console.log(`  Request count: ${requestCount}`)
     console.log(`  Volume discount: ${volumeDiscount} bps`)
 
@@ -314,26 +314,26 @@ describe.skipIf(!localnetAvailable)('Payment Flow Integration', () => {
     })
 
     const [
-      basePriceElizaOS,
+      basePriceJeju,
       demandMultiplier,
       totalUsageCount,
-      totalRevenueElizaOS,
+      totalRevenueJeju,
       isActive,
       minPrice,
       maxPrice,
     ] = service
 
     console.log(`Chat-completion service:`)
-    console.log(`  Base price: ${formatUnits(basePriceElizaOS, 18)} elizaOS`)
+    console.log(`  Base price: ${formatUnits(basePriceJeju, 18)} JEJU`)
     console.log(`  Demand multiplier: ${demandMultiplier} bps`)
     console.log(`  Total usage: ${totalUsageCount}`)
     console.log(
-      `  Total revenue: ${formatUnits(totalRevenueElizaOS, 18)} elizaOS`,
+      `  Total revenue: ${formatUnits(totalRevenueJeju, 18)} JEJU`,
     )
     console.log(`  Is active: ${isActive}`)
 
     expect(isActive).toBe(true)
-    expect(basePriceElizaOS).toBeGreaterThan(0n)
+    expect(basePriceJeju).toBeGreaterThan(0n)
     expect(minPrice).toBeGreaterThan(0n)
     expect(maxPrice).toBeGreaterThan(minPrice)
   })

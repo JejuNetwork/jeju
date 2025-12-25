@@ -5,6 +5,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
+import { bytesToHex } from '@noble/hashes/utils'
 import type { Address, Hex } from 'viem'
 import { createMLSClient, type JejuMLSClient } from '../mls/client'
 import {
@@ -33,6 +34,7 @@ describe('MLS Client', () => {
       relayUrl: 'http://localhost:3000',
       rpcUrl: 'http://localhost:6545',
       network: 'testnet',
+      skipRelayConnection: true,
     })
 
     const signature = `0x${'00'.repeat(65)}` as Hex
@@ -103,11 +105,131 @@ describe('MLS Client', () => {
       relayUrl: 'http://localhost:3000',
       rpcUrl: 'http://localhost:6545',
       network: 'testnet',
+      skipRelayConnection: true,
     })
 
     expect(() => uninitializedClient.listGroups()).toThrow(
       'Client not initialized',
     )
+  })
+})
+
+describe('MLS Key Derivation', () => {
+  test('derives deterministic keys from same signature', async () => {
+    const testAddress = '0x6666666666666666666666666666666666666666' as Address
+    const signature = `0x${'ab'.repeat(65)}` as Hex
+
+    const client1 = createMLSClient({
+      address: testAddress,
+      keyRegistryAddress:
+        '0x1234567890123456789012345678901234567890' as Address,
+      relayUrl: 'http://localhost:3000',
+      rpcUrl: 'http://localhost:6545',
+      network: 'testnet',
+      skipRelayConnection: true,
+    })
+
+    const client2 = createMLSClient({
+      address: testAddress,
+      keyRegistryAddress:
+        '0x1234567890123456789012345678901234567890' as Address,
+      relayUrl: 'http://localhost:3000',
+      rpcUrl: 'http://localhost:6545',
+      network: 'testnet',
+      skipRelayConnection: true,
+    })
+
+    await client1.initialize(signature)
+    await client2.initialize(signature)
+
+    // Same signature should derive same identity keys
+    const pubKey1 = client1.getIdentityPublicKey()
+    const pubKey2 = client2.getIdentityPublicKey()
+
+    expect(bytesToHex(pubKey1)).toBe(bytesToHex(pubKey2))
+
+    await client1.shutdown()
+    await client2.shutdown()
+  })
+
+  test('derives different keys from different signatures', async () => {
+    const testAddress = '0x7777777777777777777777777777777777777777' as Address
+
+    const client1 = createMLSClient({
+      address: testAddress,
+      keyRegistryAddress:
+        '0x1234567890123456789012345678901234567890' as Address,
+      relayUrl: 'http://localhost:3000',
+      rpcUrl: 'http://localhost:6545',
+      network: 'testnet',
+      skipRelayConnection: true,
+    })
+
+    const client2 = createMLSClient({
+      address: testAddress,
+      keyRegistryAddress:
+        '0x1234567890123456789012345678901234567890' as Address,
+      relayUrl: 'http://localhost:3000',
+      rpcUrl: 'http://localhost:6545',
+      network: 'testnet',
+      skipRelayConnection: true,
+    })
+
+    await client1.initialize(`0x${'aa'.repeat(65)}` as Hex)
+    await client2.initialize(`0x${'bb'.repeat(65)}` as Hex)
+
+    // Different signatures should derive different identity keys
+    const pubKey1 = client1.getIdentityPublicKey()
+    const pubKey2 = client2.getIdentityPublicKey()
+
+    expect(bytesToHex(pubKey1)).not.toBe(bytesToHex(pubKey2))
+
+    await client1.shutdown()
+    await client2.shutdown()
+  })
+
+  test('derives valid X25519 public keys', async () => {
+    const testAddress = '0x8888888888888888888888888888888888888888' as Address
+    const signature = `0x${'cd'.repeat(65)}` as Hex
+
+    const client = createMLSClient({
+      address: testAddress,
+      keyRegistryAddress:
+        '0x1234567890123456789012345678901234567890' as Address,
+      relayUrl: 'http://localhost:3000',
+      rpcUrl: 'http://localhost:6545',
+      network: 'testnet',
+      skipRelayConnection: true,
+    })
+
+    await client.initialize(signature)
+
+    const identityKey = client.getIdentityPublicKey()
+    const preKey = client.getPreKeyPublic()
+
+    // X25519 keys should be 32 bytes
+    expect(identityKey.length).toBe(32)
+    expect(preKey.length).toBe(32)
+
+    // Keys should be different
+    expect(bytesToHex(identityKey)).not.toBe(bytesToHex(preKey))
+
+    await client.shutdown()
+  })
+
+  test('throws when accessing keys before initialization', () => {
+    const client = createMLSClient({
+      address: '0x9999999999999999999999999999999999999999' as Address,
+      keyRegistryAddress:
+        '0x1234567890123456789012345678901234567890' as Address,
+      relayUrl: 'http://localhost:3000',
+      rpcUrl: 'http://localhost:6545',
+      network: 'testnet',
+      skipRelayConnection: true,
+    })
+
+    expect(() => client.getIdentityPublicKey()).toThrow('Client not initialized')
+    expect(() => client.getPreKeyPublic()).toThrow('Client not initialized')
   })
 })
 describe('MLS Group', () => {
@@ -123,6 +245,7 @@ describe('MLS Group', () => {
       relayUrl: 'http://localhost:3000',
       rpcUrl: 'http://localhost:6545',
       network: 'testnet',
+      skipRelayConnection: true,
     })
 
     await client.initialize(`0x${'00'.repeat(65)}` as Hex)
@@ -241,6 +364,7 @@ describe('MLS Group', () => {
       relayUrl: 'http://localhost:3000',
       rpcUrl: 'http://localhost:6545',
       network: 'testnet',
+      skipRelayConnection: true,
     })
 
     await nonAdminClient.initialize(`0x${'00'.repeat(65)}` as Hex)
@@ -375,6 +499,7 @@ describe('Member Removal with Key Rotation', () => {
       relayUrl: 'http://localhost:3000',
       rpcUrl: 'http://localhost:6545',
       network: 'testnet',
+      skipRelayConnection: true,
     })
 
     client2 = createMLSClient({
@@ -384,6 +509,7 @@ describe('Member Removal with Key Rotation', () => {
       relayUrl: 'http://localhost:3000',
       rpcUrl: 'http://localhost:6545',
       network: 'testnet',
+      skipRelayConnection: true,
     })
 
     await Promise.all([
@@ -426,6 +552,7 @@ describe('Message Sync Across Devices', () => {
       rpcUrl: 'http://localhost:6545',
       network: 'testnet',
       persistenceEnabled: true,
+      skipRelayConnection: true,
     })
 
     await client.initialize(`0x${'00'.repeat(65)}` as Hex)
@@ -449,6 +576,7 @@ describe('Offline/Online Transitions', () => {
       relayUrl: 'http://localhost:3000',
       rpcUrl: 'http://localhost:6545',
       network: 'testnet',
+      skipRelayConnection: true,
     })
 
     await client.initialize(`0x${'00'.repeat(65)}` as Hex)
@@ -477,6 +605,7 @@ describe('Large Group Support', () => {
       relayUrl: 'http://localhost:3000',
       rpcUrl: 'http://localhost:6545',
       network: 'testnet',
+      skipRelayConnection: true,
     })
 
     await client.initialize(`0x${'00'.repeat(65)}` as Hex)

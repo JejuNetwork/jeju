@@ -71,6 +71,10 @@ export interface MLSClientConfig {
   persistenceEnabled?: boolean
   /** Persistence directory */
   persistenceDir?: string
+  /** Wallet client for on-chain operations */
+  walletClient?: object
+  /** Skip relay connection (for testing) */
+  skipRelayConnection?: boolean
 }
 
 export interface MLSClientState {

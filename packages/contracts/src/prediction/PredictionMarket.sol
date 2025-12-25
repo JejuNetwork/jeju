@@ -74,7 +74,6 @@ contract PredictionMarket is ReentrancyGuard, Pausable, Ownable {
         GENERIC, // Generic prediction market
         CALIGULAND, // Caliguland social deduction game
         CONTEST, // Contest oracle (eHorse, tournaments, etc.)
-        HYPERSCAPE, // Hyperscape RPG battles
         CUSTOM // Custom oracle game
 
     }
@@ -151,7 +150,7 @@ contract PredictionMarket is ReentrancyGuard, Pausable, Ownable {
         bool hasClaimed;
     }
 
-    IERC20 public immutable paymentToken; // Default payment token (was elizaOS)
+    IERC20 public immutable paymentToken; // Default payment token (JEJU)
     IPredictionOracle public immutable oracle;
     address public immutable treasury;
 
@@ -222,7 +221,7 @@ contract PredictionMarket is ReentrancyGuard, Pausable, Ownable {
         emit TokenSupportUpdated(token, supported);
     }
 
-    function elizaOS() external view returns (address) {
+    function paymentTokenAddress() external view returns (address) {
         return address(paymentToken);
     }
 
@@ -310,7 +309,7 @@ contract PredictionMarket is ReentrancyGuard, Pausable, Ownable {
      * @param outcome true for YES, false for NO
      * @param tokenAmount Amount of tokens to spend
      * @param minShares Minimum shares to receive (slippage protection)
-     * @param token Payment token (elizaOS, CLANKER, VIRTUAL, or CLANKERMON)
+     * @param token Payment token (JEJU, CLANKER, VIRTUAL, or CLANKERMON)
      * @return shares Number of shares purchased
      */
     function buy(bytes32 sessionId, bool outcome, uint256 tokenAmount, uint256 minShares, address token)
@@ -570,7 +569,7 @@ contract PredictionMarket is ReentrancyGuard, Pausable, Ownable {
         emit PayoutClaimed(sessionId, msg.sender, payout);
     }
 
-    function calculateSharesReceived(bytes32 sessionId, bool outcome, uint256 elizaOSAmount)
+    function calculateSharesReceived(bytes32 sessionId, bool outcome, uint256 tokenAmount)
         public
         view
         returns (uint256 shares)
@@ -583,8 +582,8 @@ contract PredictionMarket is ReentrancyGuard, Pausable, Ownable {
         uint256 costBefore = _costFunction(qYes, qNo, b);
 
         uint256 low = 0;
-        uint256 high = elizaOSAmount * 10; // Upper bound estimate
-        uint256 targetCost = costBefore + elizaOSAmount;
+        uint256 high = tokenAmount * 10; // Upper bound estimate
+        uint256 targetCost = costBefore + tokenAmount;
 
         while (low < high) {
             uint256 mid = (low + high + 1) / 2;

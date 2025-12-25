@@ -23,7 +23,7 @@ import {ICreditManager, IServiceRegistry, ICloudServiceRegistry} from "../interf
  * Payment Flow (SLOW PATH - initial payment or top-up):
  * 1. User has insufficient balance
  * 2. Paymaster requires payment in UserOp
- * 3. User includes USDC/elizaOS/JEJU transfer in UserOp
+ * 3. User includes USDC/JEJU transfer in UserOp
  * 4. Overpayment amount credited to user's balance
  * 5. Future calls use fast path
  *
@@ -57,11 +57,8 @@ contract MultiTokenPaymaster is BasePaymaster {
     /// @notice USDC token contract
     IERC20 public immutable usdc;
 
-    /// @notice elizaOS token contract
-    IERC20 public immutable elizaOS;
-
     /// @notice JEJU token contract
-    IERC20 public jeju;
+    IERC20 public immutable jeju;
 
     /// @notice Credit manager for prepaid balances
     ICreditManager public creditManager;
@@ -88,8 +85,7 @@ contract MultiTokenPaymaster is BasePaymaster {
     enum PaymentToken {
         JEJU, // 0
         USDC, // 1
-        ElizaOS, // 2
-        ETH // 3
+        ETH // 2
     }
 
     /// @notice ETH address constant
@@ -123,7 +119,7 @@ contract MultiTokenPaymaster is BasePaymaster {
     constructor(
         IEntryPoint _entryPoint,
         address _usdc,
-        address _elizaOS,
+        address _jeju,
         address _creditManager,
         address _serviceRegistry,
         address _priceOracle,
@@ -134,14 +130,14 @@ contract MultiTokenPaymaster is BasePaymaster {
             _transferOwnership(_owner);
         }
         require(_usdc != address(0), "Invalid USDC");
-        require(_elizaOS != address(0), "Invalid elizaOS");
+        require(_jeju != address(0), "Invalid JEJU");
         require(_creditManager != address(0), "Invalid credit manager"); 
         require(_serviceRegistry != address(0), "Invalid service registry");
         require(_priceOracle != address(0), "Invalid price oracle");
         require(_revenueWallet != address(0), "Invalid revenue wallet");
 
         usdc = IERC20(_usdc);
-        elizaOS = IERC20(_elizaOS);
+        jeju = IERC20(_jeju);
         creditManager = ICreditManager(_creditManager);
         serviceRegistry = IServiceRegistry(_serviceRegistry);
         priceOracle = IPriceOracle(_priceOracle);
@@ -261,21 +257,20 @@ contract MultiTokenPaymaster is BasePaymaster {
         uint256 gasCostWithMargin = (gasCost * (BASIS_POINTS + feeMargin)) / BASIS_POINTS;
 
         if (tokenAddr == ETH_ADDRESS) {
-            uint256 serviceCostInETH = priceOracle.convertAmount(address(elizaOS), ETH_ADDRESS, serviceCost);
+            uint256 serviceCostInETH = priceOracle.convertAmount(address(jeju), ETH_ADDRESS, serviceCost);
             totalCost = serviceCostInETH + gasCostWithMargin;
         } else {
             uint256 gasCostInToken = priceOracle.convertAmount(ETH_ADDRESS, tokenAddr, gasCostWithMargin);
-            uint256 serviceCostInToken = tokenAddr == address(elizaOS) 
+            uint256 serviceCostInToken = tokenAddr == address(jeju) 
                 ? serviceCost 
-                : priceOracle.convertAmount(address(elizaOS), tokenAddr, serviceCost);
+                : priceOracle.convertAmount(address(jeju), tokenAddr, serviceCost);
             totalCost = serviceCostInToken + gasCostInToken;
         }
     }
 
     function _getTokenAddress(PaymentToken token) internal view returns (address) {
-        if (token == PaymentToken.JEJU && address(jeju) != address(0)) return address(jeju);
+        if (token == PaymentToken.JEJU) return address(jeju);
         if (token == PaymentToken.USDC) return address(usdc);
-        if (token == PaymentToken.ElizaOS) return address(elizaOS);
         return ETH_ADDRESS;
     }
 
@@ -293,11 +288,6 @@ contract MultiTokenPaymaster is BasePaymaster {
         emit ServiceRegistryUpdated(oldRegistry, newRegistry);
     }
 
-    function setNetworkToken(address _jeju) external onlyOwner {
-        address oldToken = address(jeju);
-        jeju = IERC20(_jeju);
-        emit NativeTokenUpdated(oldToken, _jeju);
-    }
 
     function setRevenueWallet(address newWallet) external onlyOwner {
         if (newWallet == address(0)) revert InvalidRevenueWallet();

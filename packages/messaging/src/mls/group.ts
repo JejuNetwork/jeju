@@ -398,11 +398,52 @@ export class JejuGroup {
    * Sync messages from relay
    */
   async sync(): Promise<MLSMessage[]> {
-    // In production, fetch new messages from relay
-    // Decrypt with MLS
-    // Update local cache
+    const response = await fetch(
+      `${this.config.relayUrl}/api/messages?groupId=${encodeURIComponent(this.state.id)}&since=${this.state.lastMessageAt ?? 0}`,
+    )
 
-    return []
+    if (!response.ok) {
+      throw new Error(`Sync failed: ${response.status} ${response.statusText}`)
+    }
+
+    const data: { messages: unknown[] } = await response.json()
+    const newMessages: MLSMessage[] = []
+
+    for (const raw of data.messages) {
+      const parseResult = MLSMessageSchema.safeParse(raw)
+      if (!parseResult.success) {
+        console.warn(
+          `[MLS Group] Skipping invalid message: ${parseResult.error.message}`,
+        )
+        continue
+      }
+
+      const message = parseResult.data
+
+      // Skip if already have this message
+      if (this.messages.has(message.id)) continue
+
+      // Enforce message cache limit
+      if (this.messages.size >= MAX_MESSAGES_PER_GROUP) {
+        const oldestKey = this.messages.keys().next().value
+        if (oldestKey) this.messages.delete(oldestKey)
+      }
+
+      this.messages.set(message.id, message)
+      newMessages.push(message)
+
+      // Update last message timestamp
+      if (!this.state.lastMessageAt || message.timestamp > this.state.lastMessageAt) {
+        this.state.lastMessageAt = message.timestamp
+      }
+
+      // Update unread count for messages not from self
+      if (message.senderAddress !== this.config.client.getAddress()) {
+        this.state.unreadCount++
+      }
+    }
+
+    return newMessages
   }
 
   /**
@@ -465,11 +506,11 @@ export class JejuGroup {
         groupId: this.state.id,
         message,
       }),
-    }).catch(() => null)
+    })
 
-    if (response && !response.ok) {
-      console.error(
-        `[MLS Group] Failed to send to relay: ${response.status} ${response.statusText}`,
+    if (!response.ok) {
+      throw new Error(
+        `Failed to send message to relay: ${response.status} ${response.statusText}`,
       )
     }
   }
@@ -482,11 +523,11 @@ export class JejuGroup {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ event, data }),
-    }).catch(() => null)
+    })
 
-    if (response && !response.ok) {
-      console.error(
-        `[MLS Group] Failed to notify relay of ${event}: ${response.status}`,
+    if (!response.ok) {
+      throw new Error(
+        `Failed to notify relay of ${event}: ${response.status} ${response.statusText}`,
       )
     }
   }

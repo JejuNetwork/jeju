@@ -57,7 +57,7 @@ let deploymentAddresses: {
   creditManager: string
   cloudReputationProvider: string
   usdc: string
-  elizaOS: string
+  jeju: string
   priceOracle: string
 }
 
@@ -377,7 +377,7 @@ describe('Cloud Integration E2E - Service Registration', () => {
         user1.address,
       ])) as bigint
       expect(chatCost).toBeGreaterThan(0n)
-      logger.info(`✓ Chat completion cost: ${Number(chatCost) / 1e18} elizaOS`)
+      logger.info(`✓ Chat completion cost: ${Number(chatCost) / 1e18} JEJU`)
 
       const imageCost = (await serviceRegistry.read.getServiceCost([
         'image-generation',
@@ -385,7 +385,7 @@ describe('Cloud Integration E2E - Service Registration', () => {
       ])) as bigint
       expect(imageCost).toBeGreaterThan(0n)
       logger.info(
-        `✓ Image generation cost: ${Number(imageCost) / 1e18} elizaOS`,
+        `✓ Image generation cost: ${Number(imageCost) / 1e18} JEJU`,
       )
     },
     TEST_CONFIG.testTimeout,
@@ -916,7 +916,7 @@ interface DeploymentAddresses {
   creditManager?: string
   cloudReputationProvider?: string
   usdc?: string
-  elizaOS?: string
+  jeju?: string
   priceOracle?: string
 }
 
@@ -990,7 +990,7 @@ async function deployContractsFallback(): Promise<{
       creditManager: '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9',
       cloudReputationProvider: '0x5FC8d32690cc91D4c39d9d3abcBD16989F875707',
       usdc: '0x0165878A594ca255338adfa4d48449f69242Eb8F',
-      elizaOS: '0xa513E6E4b8f2a923D98304ec87F64353C4D5C853',
+      jeju: '0xa513E6E4b8f2a923D98304ec87F64353C4D5C853',
       priceOracle: '0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6',
     },
   }

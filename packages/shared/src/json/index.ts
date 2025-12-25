@@ -47,9 +47,9 @@ export async function parseJsonResponse<T = unknown>(
     const errorMessage =
       error instanceof Error ? error.message : 'Failed to parse JSON'
     logger.warn('JSON parse failed', {
-      context,
+      context: context ?? 'unknown',
       status: response.status,
-      contentType: response.headers.get('content-type'),
+      contentType: response.headers.get('content-type') ?? 'unknown',
       error: errorMessage,
     })
     return { success: false, error: errorMessage }
@@ -91,7 +91,7 @@ export function parseJsonString<T = unknown>(
     const errorMessage =
       error instanceof Error ? error.message : 'Failed to parse JSON'
     logger.warn('JSON string parse failed', {
-      context,
+      context: context ?? 'unknown',
       preview: jsonString.substring(0, 100),
       error: errorMessage,
     })

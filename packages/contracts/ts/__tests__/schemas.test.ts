@@ -11,20 +11,17 @@ import {
   BazaarMarketplaceDeploymentSchema,
   ContractAddressesSchema,
   ERC20FactoryDeploymentSchema,
-  GameSystemDeploymentSchema,
   IdentitySystemDeploymentSchema,
   LaunchpadDeploymentSchema,
   OptionalAddressSchema,
   PaymasterSystemDeploymentSchema,
   parseBazaarMarketplaceDeployment,
   parseERC20FactoryDeployment,
-  parseGameSystemDeployment,
   parseIdentitySystemDeployment,
   parseLaunchpadDeployment,
   parsePaymasterSystemDeployment,
   parseUniswapV4Deployment,
   parseXLPDeployment,
-  safeParseGameSystemDeployment,
   safeParseUniswapV4Deployment,
   UniswapV4DeploymentSchema,
   XLPDeploymentSchema,
@@ -187,7 +184,6 @@ describe('schemas.ts - Zod Schema Validation', () => {
         serviceRegistry: VALID_ADDRESS_2,
         creditManager: VALID_ADDRESS,
         usdc: VALID_ADDRESS_2,
-        elizaOS: VALID_ADDRESS,
       }
 
       const result = IdentitySystemDeploymentSchema.parse(data)
@@ -255,40 +251,6 @@ describe('schemas.ts - Zod Schema Validation', () => {
     })
   })
 
-  describe('GameSystemDeploymentSchema', () => {
-    test('parses valid deployment', () => {
-      const data = {
-        goldToken: VALID_ADDRESS,
-        itemsNFT: VALID_ADDRESS_2,
-        gameIntegration: VALID_ADDRESS,
-        playerTradeEscrow: VALID_ADDRESS_2,
-        gameAgentId: 'agent-123',
-        gameSigner: VALID_ADDRESS,
-        mudWorld: VALID_ADDRESS_2,
-        jejuIntegrationSystem: VALID_ADDRESS,
-        appId: 'app-123',
-        gameName: 'Test Game',
-        baseURI: 'https://example.com/metadata/',
-        deployedAt: '2024-01-01',
-        chainId: 31337,
-      }
-
-      const result = GameSystemDeploymentSchema.parse(data)
-      expect(result.gameName).toBe('Test Game')
-    })
-
-    test('allows undefined values for optional fields', () => {
-      const data = {
-        goldToken: undefined,
-        itemsNFT: undefined,
-        gameAgentId: undefined,
-      }
-
-      const result = GameSystemDeploymentSchema.parse(data)
-      expect(result.goldToken).toBeUndefined()
-    })
-  })
-
   describe('LaunchpadDeploymentSchema', () => {
     test('parses valid deployment', () => {
       const data = {
@@ -318,7 +280,6 @@ describe('schemas.ts - Zod Schema Validation', () => {
         marketplace: VALID_ADDRESS,
         erc20Factory: VALID_ADDRESS_2,
         usdc: VALID_ADDRESS,
-        elizaOS: VALID_ADDRESS_2,
         tokenLaunchpad: VALID_ADDRESS,
       }
 
@@ -392,14 +353,6 @@ describe('schemas.ts - Zod Schema Validation', () => {
       })
     })
 
-    describe('parseGameSystemDeployment', () => {
-      test('parses valid data', () => {
-        const data = { goldToken: VALID_ADDRESS }
-        const result = parseGameSystemDeployment(data)
-        expect(result.goldToken).toBe(VALID_ADDRESS)
-      })
-    })
-
     describe('parseLaunchpadDeployment', () => {
       test('parses valid data', () => {
         const data = { tokenLaunchpad: VALID_ADDRESS }
@@ -429,19 +382,6 @@ describe('schemas.ts - Zod Schema Validation', () => {
       })
     })
 
-    describe('safeParseGameSystemDeployment', () => {
-      test('returns data on valid input', () => {
-        const data = { goldToken: VALID_ADDRESS }
-        const result = safeParseGameSystemDeployment(data)
-        expect(result).toBeDefined()
-        expect(result?.goldToken).toBe(VALID_ADDRESS)
-      })
-
-      test('returns undefined on invalid input', () => {
-        const result = safeParseGameSystemDeployment({ goldToken: 'invalid' })
-        expect(result).toBeUndefined()
-      })
-    })
   })
 
   describe('Property-based tests', () => {
@@ -469,7 +409,6 @@ describe('schemas.ts - Zod Schema Validation', () => {
       expect(() => IdentitySystemDeploymentSchema.parse({})).not.toThrow()
       expect(() => PaymasterSystemDeploymentSchema.parse({})).not.toThrow()
       expect(() => XLPDeploymentSchema.parse({})).not.toThrow()
-      expect(() => GameSystemDeploymentSchema.parse({})).not.toThrow()
       expect(() => LaunchpadDeploymentSchema.parse({})).not.toThrow()
       expect(() => ContractAddressesSchema.parse({})).not.toThrow()
     })

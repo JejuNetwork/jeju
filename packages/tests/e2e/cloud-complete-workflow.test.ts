@@ -509,13 +509,13 @@ describe('Service Discovery and Cost E2E', () => {
         args: [serviceName, testUserAccount.address],
       })) as bigint
 
-      logger.info(`  ${serviceName}: ${formatEther(cost)} elizaOS`)
+      logger.info(`  ${serviceName}: ${formatEther(cost)} JEJU`)
 
       // Check user credit
       const credit = await integration.checkUserCredit(
         testUserAccount.address,
         serviceName,
-        '0xa513E6E4b8f2a923D98304ec87F64353C4D5C853' as Address, // elizaOS token
+        '0xa513E6E4b8f2a923D98304ec87F64353C4D5C853' as Address, // JEJU token
       )
 
       logger.info(

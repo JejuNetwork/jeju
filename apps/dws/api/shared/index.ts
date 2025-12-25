@@ -1,14 +1,14 @@
 /**
  * Shared utilities for DWS
  *
- * Note: Validation utilities (addressSchema, validateBody, etc.) are available
- * by importing directly from ./validation
- *
  * Note: x402 payment utilities are available by importing from ./x402
  */
 
 // Schemas (heavily used by routes)
 export * from './schemas'
+
+// Validation utilities
+export * from './validation'
 
 // API Marketplace utilities
 export * from './utils/api-marketplace'

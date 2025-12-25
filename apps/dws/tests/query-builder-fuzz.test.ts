@@ -2,7 +2,7 @@
  * Query Builder Fuzz Tests
  *
  * Comprehensive fuzzing and edge case testing for all SQL query builder functions.
- * Tests both @jejunetwork/db and @babylon/db query builders.
+ * Tests @jejunetwork/db query builder.
  *
  * Coverage:
  * - buildWhereClause: all operators, nested conditions, edge cases

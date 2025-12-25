@@ -39,7 +39,7 @@ export const cleanupCommand = new Command('cleanup')
       4010, // Grafana
       4350, // Indexer GraphQL
       5001,
-      5002, // Hyperscape
+      5002,
       5003,
       5004, // Launchpad
       5005, // TheDesk

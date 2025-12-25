@@ -832,7 +832,7 @@ export async function fetchRLAIFHealth() {
   return extractData(response)
 }
 
-export async function fetchTrajectoryStats(environment = 'babylon') {
+export async function fetchTrajectoryStats(environment = 'default') {
   const response = await api.rlaif.trajectories.stats.get({
     query: { environment },
   })

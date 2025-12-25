@@ -77,10 +77,9 @@ try {
 const CREDIT_MANAGER_ABI = [
   'function balanceOf(address account) external view returns (uint256)',
   'function depositUSDC(uint256 amount) external',
-  'function depositElizaOS(uint256 amount) external',
   'function depositETH() external payable',
   'function getBalance(address user, address token) external view returns (uint256)',
-  'function getAllBalances(address user) external view returns (uint256 usdcBalance, uint256 elizaBalance, uint256 ethBalance)',
+  'function getAllBalances(address user) external view returns (uint256 usdcBalance, uint256 ethBalance)',
   'function hasSufficientCredit(address user, address token, uint256 amount) external view returns (bool sufficient, uint256 available)',
   'function deductCredit(address user, address token, uint256 amount) external',
   'function tryDeductCredit(address user, address token, uint256 amount) external returns (bool success, uint256 remaining)',
@@ -242,7 +241,7 @@ describe.skipIf(!localnetAvailable)(
       })) as bigint
       expect(cost).toBeGreaterThan(0n)
 
-      logger.info(`${serviceName}: ${formatEther(cost)} elizaOS`)
+      logger.info(`${serviceName}: ${formatEther(cost)} JEJU`)
     })
 
     test('should get cost for all cloud services', async () => {
@@ -277,7 +276,7 @@ describe.skipIf(!localnetAvailable)(
           functionName: 'getServiceCost',
           args: [serviceName, userAccount.address],
         })) as bigint
-        logger.info(`  ${serviceName}: ${formatEther(cost)} elizaOS`)
+        logger.info(`  ${serviceName}: ${formatEther(cost)} JEJU`)
         registeredCount++
       }
 
@@ -638,7 +637,7 @@ describe.skipIf(!localnetAvailable)('Cloud x402 E2E - Volume Discounts', () => {
       functionName: 'getServiceCost',
       args: [serviceName, userAccount.address],
     })) as bigint
-    logger.info(`  Base cost: ${formatEther(baseCost)} elizaOS`)
+    logger.info(`  Base cost: ${formatEther(baseCost)} JEJU`)
 
     // Get current volume discount
     const discount = (await readContract(publicClient, {
@@ -663,7 +662,7 @@ describe.skipIf(!localnetAvailable)('Cloud x402 E2E - Volume Discounts', () => {
       usageResult
 
     logger.info(`  User stats:`)
-    logger.info(`    Total spent: ${formatEther(totalSpent)} elizaOS`)
+    logger.info(`    Total spent: ${formatEther(totalSpent)} JEJU`)
     logger.info(`    Request count: ${requestCount}`)
     logger.info(`    Volume discount: ${volumeDiscount} bps`)
 
@@ -676,7 +675,7 @@ describe.skipIf(!localnetAvailable)('Cloud x402 E2E - Volume Discounts', () => {
       const effectiveCost = baseCost - (baseCost * discount) / 10000n
       expect(effectiveCost).toBeLessThan(baseCost)
       logger.info(
-        `  Effective cost with discount: ${formatEther(effectiveCost)} elizaOS`,
+        `  Effective cost with discount: ${formatEther(effectiveCost)} JEJU`,
       )
     }
 
@@ -715,7 +714,7 @@ describe.skipIf(!localnetAvailable)('Cloud x402 E2E - Volume Discounts', () => {
     const [initialTotalSpent, initialRequestCount] = usageResult
 
     logger.info(`  Initial usage:`)
-    logger.info(`    Total spent: ${formatEther(initialTotalSpent)} elizaOS`)
+    logger.info(`    Total spent: ${formatEther(initialTotalSpent)} JEJU`)
     logger.info(`    Request count: ${initialRequestCount}`)
 
     // Usage tracking is verified - the ServiceRegistry records usage when services are called

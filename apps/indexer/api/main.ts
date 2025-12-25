@@ -17,8 +17,6 @@ import {
 import { processCrossServiceEvents } from './cross-service-processor'
 import { processDEXEvents } from './dex-processor'
 import { processEILEvents } from './eil-processor'
-import { processGameFeedEvents } from './game-feed-processor'
-import { processGameTokenEvents } from './game-tokens-processor'
 import { processMarketEvents } from './market-processor'
 import {
   Account,
@@ -620,8 +618,6 @@ processor.run(
     await ctx.store.upsert([...tokenBalances.values()])
     await ctx.store.insert(traces)
 
-    await processGameFeedEvents(ctx)
-    await processGameTokenEvents(ctx)
     await processNodeStakingEvents(ctx)
     await processMarketEvents(ctx)
     await processRegistryEvents(ctx)

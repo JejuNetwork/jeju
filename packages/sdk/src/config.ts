@@ -54,7 +54,6 @@ export interface ContractAddresses {
   nodeStakingManager?: Address
 
   // Extended module contracts
-  gameIntegration?: Address
   containerRegistry?: Address
   tokenLaunchpad?: Address
   bondingCurve?: Address
@@ -129,7 +128,6 @@ export function getContractAddresses(network: NetworkType): ContractAddresses {
     nodeStakingManager: safeGetContract('nodeStaking', 'manager', network),
 
     // Extended module contracts
-    gameIntegration: safeGetContract('registry', 'gameIntegration', network),
     containerRegistry: safeGetContract('registry', 'container', network),
     tokenLaunchpad: safeGetContract('defi', 'launchpad', network),
     bondingCurve: safeGetContract('defi', 'bondingCurve', network),

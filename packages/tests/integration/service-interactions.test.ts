@@ -241,7 +241,7 @@ describe('Service Interaction Tests', () => {
       console.log('       1. Oracle bot reads prices from Ethereum')
       console.log('       2. Bot calls updatePrices() on the network oracle')
       console.log('       3. Paymaster reads updated prices')
-      console.log('       4. Paymaster calculates elizaOS fees')
+      console.log('       4. Paymaster calculates JEJU fees')
       console.log('   ℹ️  See scripts/oracle-updater.ts for bot implementation')
     })
   })
@@ -261,10 +261,10 @@ describe('Service Interaction Tests', () => {
   describe('Distributor → Vault Fee Flow', () => {
     it('should test fee distribution and LP earnings', async () => {
       console.log('   ℹ️  Fee distribution flow:')
-      console.log('       1. Paymaster collects elizaOS from user')
+      console.log('       1. Paymaster collects JEJU from user')
       console.log('       2. Paymaster calls distributor.distributeFees()')
       console.log('       3. Distributor splits: 50% app, 50% LPs')
-      console.log('       4. LP portion splits: 70% ETH LPs, 30% elizaOS LPs')
+      console.log('       4. LP portion splits: 70% ETH LPs, 30% JEJU LPs')
       console.log('       5. Fees update per-share accumulators in vault')
       console.log('       6. LPs can claim proportional fees')
       console.log('   ℹ️  See contracts/test/FeeDistributor.t.sol')

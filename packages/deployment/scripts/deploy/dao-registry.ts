@@ -226,7 +226,6 @@ Commands:
   list [network]                List all DAOs
   status <daoId> [network]      Get DAO status
   jeju [network]                Create Jeju DAO
-  babylon [network]             Create Babylon DAO
 
 Networks:
   localnet (default), testnet, mainnet
@@ -238,7 +237,6 @@ Environment:
 Examples:
   bun run scripts/deploy/dao-registry.ts deploy localnet
   bun run scripts/deploy/dao-registry.ts jeju localnet
-  bun run scripts/deploy/dao-registry.ts babylon testnet
   bun run scripts/deploy/dao-registry.ts list mainnet
 `)
 }
@@ -358,28 +356,6 @@ async function createJejuDAO(network: string): Promise<void> {
       'community-focused',
     ],
     ceoCommunicationTone: 'professional',
-  })
-}
-
-async function createBabylonDAO(network: string): Promise<void> {
-  await createDAO('babylon', network, {
-    displayName: 'Babylon DAO',
-    description:
-      'Babylon Game Engine governance - led by the Monkey King, controls game-level fees, rewards, and ecosystem',
-    ceoName: 'Monkey King',
-    ceoDescription:
-      'The Great Sage Equal to Heaven, Sun Wukong, guides Babylon DAO with ancient wisdom and playful authority',
-    ceoPersonality:
-      'Mischievous yet wise, confident and powerful, playful with friends but fierce against threats',
-    ceoTraits: [
-      'wise',
-      'playful',
-      'powerful',
-      'loyal',
-      'mischievous',
-      'decisive',
-    ],
-    ceoCommunicationTone: 'playful',
   })
 }
 
@@ -530,10 +506,6 @@ async function main(): Promise<void> {
 
     case 'jeju':
       await createJejuDAO(args[1] ?? 'localnet')
-      break
-
-    case 'babylon':
-      await createBabylonDAO(args[1] ?? 'localnet')
       break
 
     case 'list':

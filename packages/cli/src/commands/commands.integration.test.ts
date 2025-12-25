@@ -22,7 +22,7 @@ const ROOT_DIR = join(__dirname, '..', '..', '..', '..')
 
 // Test configuration
 const RPC_URL = process.env.L2_RPC_URL || 'http://127.0.0.1:6546'
-const CHAIN_ID = process.env.CHAIN_ID || '1337'
+const CHAIN_ID = process.env.CHAIN_ID || '31337'
 
 async function runCLI(
   args: string[],

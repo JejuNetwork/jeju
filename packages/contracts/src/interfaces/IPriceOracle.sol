@@ -45,7 +45,7 @@ interface ISimplePriceOracle {
 
 /**
  * @title IElizaOSPriceOracle
- * @notice Specialized oracle for elizaOS/ETH rate (ManualPriceOracle compatibility)
+ * @notice Specialized oracle for JEJU/ETH rate (ManualPriceOracle compatibility)
  */
 interface IElizaOSPriceOracle {
     function getElizaOSPerETH() external view returns (uint256);

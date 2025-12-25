@@ -22,7 +22,7 @@ describe('RLAIF Service', () => {
   describe('Run Management', () => {
     it('should create a run with correct initial state', () => {
       const request: CreateRunRequest = {
-        environment: { id: 'babylon', type: 'game', configCID: 'QmTest' },
+        environment: { id: 'test-env', type: 'game', configCID: 'QmTest' },
         archetype: 'trader',
         baseModel: 'test-model',
         trainingConfig: { steps: 100, batchSize: 8, learningRate: 0.0001 },
@@ -32,7 +32,7 @@ describe('RLAIF Service', () => {
 
       expect(run.runId).toMatch(/^rlaif-/)
       expect(run.status).toBe(RunStatus.PENDING)
-      expect(run.environment.id).toBe('babylon')
+      expect(run.environment.id).toBe('test-env')
       expect(run.archetype).toBe('trader')
       expect(run.baseModel).toBe('test-model')
       expect(run.progress).toBe(0)
@@ -156,7 +156,7 @@ describe('RLAIF Service', () => {
 
   describe('Trajectory Management', () => {
     it('should submit trajectories', () => {
-      const result = service.submitTrajectories('babylon', 'trader', [
+      const result = service.submitTrajectories('test-env', 'trader', [
         {
           agentId: 'agent-001',
           steps: [
@@ -181,14 +181,14 @@ describe('RLAIF Service', () => {
     })
 
     it('should accumulate trajectories', () => {
-      service.submitTrajectories('babylon', 'trader', [
+      service.submitTrajectories('test-env', 'trader', [
         {
           agentId: 'agent-001',
           steps: [{ observation: 's', action: 'a', reward: 1, metadata: {} }],
         },
       ])
 
-      const result = service.submitTrajectories('babylon', 'trader', [
+      const result = service.submitTrajectories('test-env', 'trader', [
         {
           agentId: 'agent-002',
           steps: [{ observation: 's', action: 'a', reward: 1, metadata: {} }],
@@ -204,13 +204,13 @@ describe('RLAIF Service', () => {
     })
 
     it('should get trajectory stats', () => {
-      service.submitTrajectories('babylon', 'trader', [
+      service.submitTrajectories('test-env', 'trader', [
         {
           agentId: 'agent-001',
           steps: [{ observation: 's', action: 'a', reward: 1, metadata: {} }],
         },
       ])
-      service.submitTrajectories('babylon', 'degen', [
+      service.submitTrajectories('test-env', 'degen', [
         {
           agentId: 'agent-002',
           steps: [{ observation: 's', action: 'a', reward: 1, metadata: {} }],
@@ -221,9 +221,9 @@ describe('RLAIF Service', () => {
         },
       ])
 
-      const stats = service.getTrajectoryStats('babylon')
+      const stats = service.getTrajectoryStats('test-env')
 
-      expect(stats.environment).toBe('babylon')
+      expect(stats.environment).toBe('test-env')
       expect(stats.totalTrajectories).toBe(3)
       expect(stats.byArchetype.trader).toBe(1)
       expect(stats.byArchetype.degen).toBe(2)
@@ -237,29 +237,29 @@ describe('RLAIF Service', () => {
         steps: [{ observation: 's', action: 'a', reward: 1, metadata: {} }],
       }))
 
-      service.submitTrajectories('babylon', 'trader', trajectories)
+      service.submitTrajectories('test-env', 'trader', trajectories)
 
-      const stats = service.getTrajectoryStats('babylon')
+      const stats = service.getTrajectoryStats('test-env')
 
       expect(stats.readyForTraining).toBe(true)
     })
 
     it('should get trajectories by environment and archetype', () => {
-      service.submitTrajectories('babylon', 'trader', [
+      service.submitTrajectories('test-env', 'trader', [
         {
           agentId: 'agent-001',
           steps: [{ observation: 's1', action: 'a1', reward: 1, metadata: {} }],
         },
       ])
-      service.submitTrajectories('babylon', 'degen', [
+      service.submitTrajectories('test-env', 'degen', [
         {
           agentId: 'agent-002',
           steps: [{ observation: 's2', action: 'a2', reward: 2, metadata: {} }],
         },
       ])
 
-      const traderTrajectories = service.getTrajectories('babylon', 'trader')
-      const degenTrajectories = service.getTrajectories('babylon', 'degen')
+      const traderTrajectories = service.getTrajectories('test-env', 'trader')
+      const degenTrajectories = service.getTrajectories('test-env', 'degen')
 
       expect(traderTrajectories.length).toBe(1)
       expect(traderTrajectories[0]?.agentId).toBe('agent-001')
@@ -271,7 +271,7 @@ describe('RLAIF Service', () => {
   describe('Run with Rollouts', () => {
     it('should submit rollouts to a run', () => {
       const run = service.createRun({
-        environment: { id: 'babylon', type: 'game', configCID: 'Qm' },
+        environment: { id: 'test-env', type: 'game', configCID: 'Qm' },
         archetype: 'trader',
         baseModel: 'model',
         trainingConfig: { steps: 10, batchSize: 1, learningRate: 0.01 },
@@ -283,7 +283,7 @@ describe('RLAIF Service', () => {
           steps: [{ observation: 's', action: 'a', reward: 1, metadata: {} }],
           totalReward: 1,
           archetype: 'trader',
-          environment: 'babylon',
+          environment: 'test-env',
           createdAt: Date.now(),
         },
       ]

@@ -10,7 +10,7 @@
 
 import { beforeAll, describe, expect, test } from 'bun:test'
 import { rawDeployments } from '@jejunetwork/contracts'
-import { createPublicClient, formatEther, http, type PublicClient } from 'viem'
+import { createPublicClient, http, type PublicClient } from 'viem'
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
 import { getLocalnetRpcUrl } from '../../packages/deployment/scripts/shared/get-localnet-rpc'
 import { TEST_ACCOUNTS } from '../shared/utils'
@@ -28,22 +28,11 @@ interface V4Deployment {
   deployedAt: string
 }
 
-interface TokenDeployment {
-  address: string
-  name: string
-  symbol: string
-  totalSupply: string
-  decimals: number
-  deployer: string
-  chainId: number
-}
-
 describe('Uniswap V4 Integration Tests', () => {
   let rpcUrl: string
   let publicClient: PublicClient
   let _account: PrivateKeyAccount
   let v4Deployment: V4Deployment
-  let tokenDeployment: TokenDeployment
 
   beforeAll(async () => {
     // Get RPC URL
@@ -59,7 +48,6 @@ describe('Uniswap V4 Integration Tests', () => {
 
     // Load deployments from @jejunetwork/contracts
     v4Deployment = rawDeployments.uniswapV4_1337 as V4Deployment
-    tokenDeployment = rawDeployments.elizaToken1337 as TokenDeployment
 
     if (!v4Deployment?.poolManager) {
       throw new Error(
@@ -67,14 +55,7 @@ describe('Uniswap V4 Integration Tests', () => {
       )
     }
 
-    if (!tokenDeployment?.address && !tokenDeployment?.token) {
-      throw new Error(
-        'Token deployment not found. Run: bun run scripts/deploy-eliza-token.ts',
-      )
-    }
-
     console.log(`✅ PoolManager: ${v4Deployment.poolManager}`)
-    console.log(`✅ elizaOS Token: ${tokenDeployment.address}`)
   })
 
   describe('Deployment Verification', () => {
@@ -98,15 +79,6 @@ describe('Uniswap V4 Integration Tests', () => {
       expect(code?.length).toBeGreaterThan(100)
 
       console.log(`   Bytecode size: ${code?.length} bytes`)
-    })
-
-    test('should have elizaOS token deployed', async () => {
-      const code = await publicClient.getBytecode({
-        address: tokenDeployment.address as `0x${string}`,
-      })
-
-      expect(code).toBeDefined()
-      expect(code).not.toBe('0x')
     })
 
     test('should have correct deployment metadata', () => {
@@ -180,105 +152,6 @@ describe('Uniswap V4 Integration Tests', () => {
       expect(Number(minTickSpacing)).toBeGreaterThan(0)
 
       console.log(`   MIN_TICK_SPACING: ${minTickSpacing}`)
-    })
-  })
-
-  describe('elizaOS Token Functions', () => {
-    const ERC20_ABI = [
-      {
-        name: 'name',
-        type: 'function',
-        stateMutability: 'view',
-        inputs: [],
-        outputs: [{ type: 'string' }],
-      },
-      {
-        name: 'symbol',
-        type: 'function',
-        stateMutability: 'view',
-        inputs: [],
-        outputs: [{ type: 'string' }],
-      },
-      {
-        name: 'decimals',
-        type: 'function',
-        stateMutability: 'view',
-        inputs: [],
-        outputs: [{ type: 'uint8' }],
-      },
-      {
-        name: 'totalSupply',
-        type: 'function',
-        stateMutability: 'view',
-        inputs: [],
-        outputs: [{ type: 'uint256' }],
-      },
-      {
-        name: 'balanceOf',
-        type: 'function',
-        stateMutability: 'view',
-        inputs: [{ name: 'account', type: 'address' }],
-        outputs: [{ type: 'uint256' }],
-      },
-    ]
-
-    test('should have correct token name', async () => {
-      const name = await publicClient.readContract({
-        address: tokenDeployment.address as `0x${string}`,
-        abi: ERC20_ABI,
-        functionName: 'name',
-      })
-
-      expect(name).toBe('elizaOS Token')
-    })
-
-    test('should have correct token symbol', async () => {
-      const symbol = await publicClient.readContract({
-        address: tokenDeployment.address as `0x${string}`,
-        abi: ERC20_ABI,
-        functionName: 'symbol',
-      })
-
-      expect(symbol).toBe('elizaOS')
-    })
-
-    test('should have 18 decimals', async () => {
-      const decimals = await publicClient.readContract({
-        address: tokenDeployment.address as `0x${string}`,
-        abi: ERC20_ABI,
-        functionName: 'decimals',
-      })
-
-      expect(decimals).toBe(18)
-    })
-
-    test('should have initial supply', async () => {
-      const totalSupply = await publicClient.readContract({
-        address: tokenDeployment.address as `0x${string}`,
-        abi: ERC20_ABI,
-        functionName: 'totalSupply',
-      })
-
-      expect(totalSupply).toBeDefined()
-      expect(totalSupply).toBeGreaterThan(0n)
-
-      const supplyInTokens = formatEther(totalSupply as bigint)
-      console.log(`   Total Supply: ${supplyInTokens} elizaOS`)
-    })
-
-    test('deployer should have initial balance', async () => {
-      const balance = await publicClient.readContract({
-        address: tokenDeployment.address as `0x${string}`,
-        abi: ERC20_ABI,
-        functionName: 'balanceOf',
-        args: [v4Deployment.deployer],
-      })
-
-      expect(balance).toBeDefined()
-      expect(balance).toBeGreaterThan(0n)
-
-      const balanceInTokens = formatEther(balance as bigint)
-      console.log(`   Deployer Balance: ${balanceInTokens} elizaOS`)
     })
   })
 

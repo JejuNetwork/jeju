@@ -12,7 +12,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
  * @notice Simple on-chain tracking and payment for IPFS file storage
  *
  * Features:
- * - Multi-token payment support (USDC, elizaOS, ETH)
+ * - Multi-token payment support (USDC, JEJU, ETH)
  * - Duration-based pricing (1 month, 6 months, 1 year)
  * - File expiry tracking
  * - Revenue distribution
