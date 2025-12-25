@@ -34,6 +34,7 @@ describe('MLS Client', () => {
       relayUrl: 'http://localhost:3000',
       rpcUrl: 'http://localhost:6545',
       network: 'testnet',
+      skipRelayConnection: true,
     })
 
     const signature = `0x${'00'.repeat(65)}` as Hex
@@ -104,6 +105,7 @@ describe('MLS Client', () => {
       relayUrl: 'http://localhost:3000',
       rpcUrl: 'http://localhost:6545',
       network: 'testnet',
+      skipRelayConnection: true,
     })
 
     expect(() => uninitializedClient.listGroups()).toThrow(
@@ -124,6 +126,7 @@ describe('MLS Key Derivation', () => {
       relayUrl: 'http://localhost:3000',
       rpcUrl: 'http://localhost:6545',
       network: 'testnet',
+      skipRelayConnection: true,
     })
 
     const client2 = createMLSClient({
@@ -133,6 +136,7 @@ describe('MLS Key Derivation', () => {
       relayUrl: 'http://localhost:3000',
       rpcUrl: 'http://localhost:6545',
       network: 'testnet',
+      skipRelayConnection: true,
     })
 
     await client1.initialize(signature)
@@ -158,6 +162,7 @@ describe('MLS Key Derivation', () => {
       relayUrl: 'http://localhost:3000',
       rpcUrl: 'http://localhost:6545',
       network: 'testnet',
+      skipRelayConnection: true,
     })
 
     const client2 = createMLSClient({
@@ -167,6 +172,7 @@ describe('MLS Key Derivation', () => {
       relayUrl: 'http://localhost:3000',
       rpcUrl: 'http://localhost:6545',
       network: 'testnet',
+      skipRelayConnection: true,
     })
 
     await client1.initialize(`0x${'aa'.repeat(65)}` as Hex)
@@ -193,6 +199,7 @@ describe('MLS Key Derivation', () => {
       relayUrl: 'http://localhost:3000',
       rpcUrl: 'http://localhost:6545',
       network: 'testnet',
+      skipRelayConnection: true,
     })
 
     await client.initialize(signature)
@@ -218,6 +225,7 @@ describe('MLS Key Derivation', () => {
       relayUrl: 'http://localhost:3000',
       rpcUrl: 'http://localhost:6545',
       network: 'testnet',
+      skipRelayConnection: true,
     })
 
     expect(() => client.getIdentityPublicKey()).toThrow('Client not initialized')
@@ -237,6 +245,7 @@ describe('MLS Group', () => {
       relayUrl: 'http://localhost:3000',
       rpcUrl: 'http://localhost:6545',
       network: 'testnet',
+      skipRelayConnection: true,
     })
 
     await client.initialize(`0x${'00'.repeat(65)}` as Hex)
@@ -355,6 +364,7 @@ describe('MLS Group', () => {
       relayUrl: 'http://localhost:3000',
       rpcUrl: 'http://localhost:6545',
       network: 'testnet',
+      skipRelayConnection: true,
     })
 
     await nonAdminClient.initialize(`0x${'00'.repeat(65)}` as Hex)
@@ -489,6 +499,7 @@ describe('Member Removal with Key Rotation', () => {
       relayUrl: 'http://localhost:3000',
       rpcUrl: 'http://localhost:6545',
       network: 'testnet',
+      skipRelayConnection: true,
     })
 
     client2 = createMLSClient({
@@ -498,6 +509,7 @@ describe('Member Removal with Key Rotation', () => {
       relayUrl: 'http://localhost:3000',
       rpcUrl: 'http://localhost:6545',
       network: 'testnet',
+      skipRelayConnection: true,
     })
 
     await Promise.all([
@@ -540,6 +552,7 @@ describe('Message Sync Across Devices', () => {
       rpcUrl: 'http://localhost:6545',
       network: 'testnet',
       persistenceEnabled: true,
+      skipRelayConnection: true,
     })
 
     await client.initialize(`0x${'00'.repeat(65)}` as Hex)
@@ -563,6 +576,7 @@ describe('Offline/Online Transitions', () => {
       relayUrl: 'http://localhost:3000',
       rpcUrl: 'http://localhost:6545',
       network: 'testnet',
+      skipRelayConnection: true,
     })
 
     await client.initialize(`0x${'00'.repeat(65)}` as Hex)
@@ -591,6 +605,7 @@ describe('Large Group Support', () => {
       relayUrl: 'http://localhost:3000',
       rpcUrl: 'http://localhost:6545',
       network: 'testnet',
+      skipRelayConnection: true,
     })
 
     await client.initialize(`0x${'00'.repeat(65)}` as Hex)

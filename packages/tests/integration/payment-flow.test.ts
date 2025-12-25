@@ -127,7 +127,7 @@ describe.skipIf(!localnetAvailable)('Payment Flow Integration', () => {
   let isTestAccountAuthorized: boolean
 
   beforeAll(async () => {
-    // Get initial elizaOS token balance
+    // Get initial JEJU token balance
     initialBalance = await publicClient.readContract({
       address: TEST_CONFIG.contracts.ElizaOSToken,
       abi: ERC20_ABI,
@@ -135,7 +135,7 @@ describe.skipIf(!localnetAvailable)('Payment Flow Integration', () => {
       args: [TEST_CONFIG.testAccount.address],
     })
 
-    console.log(`Initial balance: ${formatUnits(initialBalance, 18)} elizaOS`)
+    console.log(`Initial balance: ${formatUnits(initialBalance, 18)} JEJU`)
 
     // Get service cost for chat-completion
     serviceCost = await publicClient.readContract({
@@ -145,7 +145,7 @@ describe.skipIf(!localnetAvailable)('Payment Flow Integration', () => {
       args: ['chat-completion', TEST_CONFIG.testAccount.address],
     })
 
-    console.log(`Service cost: ${formatUnits(serviceCost, 18)} elizaOS`)
+    console.log(`Service cost: ${formatUnits(serviceCost, 18)} JEJU`)
 
     // Check if test account is authorized to call recordUsage
     isTestAccountAuthorized = await publicClient.readContract({
@@ -167,11 +167,11 @@ describe.skipIf(!localnetAvailable)('Payment Flow Integration', () => {
     })
 
     expect(cost).toBeGreaterThan(0n)
-    expect(cost).toBeLessThan(parseEther('1000')) // Sanity check: cost < 1000 elizaOS
+    expect(cost).toBeLessThan(parseEther('1000')) // Sanity check: cost < 1000 JEJU
   })
 
   test('Should record service usage with direct payment', async () => {
-    // First, approve ServiceRegistry to spend elizaOS tokens
+    // First, approve ServiceRegistry to spend JEJU tokens
     const approveTx = await walletClient.writeContract({
       address: TEST_CONFIG.contracts.ElizaOSToken,
       abi: ERC20_ABI,
@@ -242,7 +242,7 @@ describe.skipIf(!localnetAvailable)('Payment Flow Integration', () => {
     })
 
     expect(newBalance).toBeLessThan(initialBalance)
-    console.log(`Balance after usage: ${formatUnits(newBalance, 18)} elizaOS`)
+    console.log(`Balance after usage: ${formatUnits(newBalance, 18)} JEJU`)
   })
 
   test('Should track user usage statistics', async () => {
@@ -256,7 +256,7 @@ describe.skipIf(!localnetAvailable)('Payment Flow Integration', () => {
     const [totalSpent, requestCount, _lastUsedBlock, volumeDiscount] = usage
 
     console.log(`User stats:`)
-    console.log(`  Total spent: ${formatUnits(totalSpent, 18)} elizaOS`)
+    console.log(`  Total spent: ${formatUnits(totalSpent, 18)} JEJU`)
     console.log(`  Request count: ${requestCount}`)
     console.log(`  Volume discount: ${volumeDiscount} bps`)
 
@@ -324,11 +324,11 @@ describe.skipIf(!localnetAvailable)('Payment Flow Integration', () => {
     ] = service
 
     console.log(`Chat-completion service:`)
-    console.log(`  Base price: ${formatUnits(basePriceElizaOS, 18)} elizaOS`)
+    console.log(`  Base price: ${formatUnits(basePriceJeju, 18)} JEJU`)
     console.log(`  Demand multiplier: ${demandMultiplier} bps`)
     console.log(`  Total usage: ${totalUsageCount}`)
     console.log(
-      `  Total revenue: ${formatUnits(totalRevenueElizaOS, 18)} elizaOS`,
+      `  Total revenue: ${formatUnits(totalRevenueJeju, 18)} JEJU`,
     )
     console.log(`  Is active: ${isActive}`)
 

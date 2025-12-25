@@ -75,7 +75,7 @@ export const IdentitySystemDeploymentSchema = z.object({
   creditManager: AddressSchema.optional(),
   cloudReputationProvider: AddressSchema.optional(),
   usdc: AddressSchema.optional(),
-  elizaOS: AddressSchema.optional(),
+  jeju: AddressSchema.optional(),
 })
 export type IdentitySystemDeployment = z.infer<
   typeof IdentitySystemDeploymentSchema
@@ -106,7 +106,7 @@ export const MultiTokenSystemDeploymentSchema = z
     tokenRegistry: AddressSchema.optional(),
     usdc: AddressSchema.optional(),
     weth: AddressSchema.optional(),
-    elizaOS: AddressSchema.optional(),
+    jeju: AddressSchema.optional(),
   })
   .passthrough()
 export type MultiTokenSystemDeployment = z.infer<
@@ -184,23 +184,6 @@ export const LaunchpadDeploymentSchema = z.object({
 })
 export type LaunchpadDeployment = z.infer<typeof LaunchpadDeploymentSchema>
 
-export const GameSystemDeploymentSchema = z.object({
-  goldToken: AddressSchema.optional(),
-  itemsNFT: AddressSchema.optional(),
-  gameIntegration: AddressSchema.optional(),
-  playerTradeEscrow: AddressSchema.optional(),
-  gameAgentId: z.string().min(1).optional(),
-  gameSigner: AddressSchema.optional(),
-  mudWorld: AddressSchema.optional(),
-  jejuIntegrationSystem: AddressSchema.optional(),
-  appId: z.string().min(1).optional(),
-  gameName: z.string().min(1).optional(),
-  baseURI: z.string().url().optional(),
-  deployedAt: z.string().optional(),
-  chainId: z.number().int().positive().optional(),
-})
-export type GameSystemDeployment = z.infer<typeof GameSystemDeploymentSchema>
-
 export const ContractAddressesSchema = z.object({
   identityRegistry: AddressSchema.optional(),
   reputationRegistry: AddressSchema.optional(),
@@ -224,7 +207,6 @@ export const ContractAddressesSchema = z.object({
   tokenRegistry: AddressSchema.optional(),
   priceOracle: AddressSchema.optional(),
   usdc: AddressSchema.optional(),
-  elizaOS: AddressSchema.optional(),
   goldToken: AddressSchema.optional(),
   jeju: AddressSchema.optional(),
   tokenLaunchpad: AddressSchema.optional(),
@@ -264,10 +246,6 @@ export function parseXLPDeployment(data: unknown): XLPDeployment {
   return XLPDeploymentSchema.parse(data)
 }
 
-export function parseGameSystemDeployment(data: unknown): GameSystemDeployment {
-  return GameSystemDeploymentSchema.parse(data)
-}
-
 export function parseLaunchpadDeployment(data: unknown): LaunchpadDeployment {
   return LaunchpadDeploymentSchema.parse(data)
 }
@@ -279,9 +257,3 @@ export function safeParseUniswapV4Deployment(
   return result.success ? result.data : undefined
 }
 
-export function safeParseGameSystemDeployment(
-  data: unknown,
-): GameSystemDeployment | undefined {
-  const result = GameSystemDeploymentSchema.safeParse(data)
-  return result.success ? result.data : undefined
-}

@@ -8,7 +8,7 @@
  * ONE SCRIPT TO RULE THEM ALL
  *
  * This script:
- * 1. Deploys all tokens (USDC, elizaOS, WETH)
+ * 1. Deploys all tokens (USDC, JEJU, WETH)
  * 2. Deploys credit & paymaster system
  * 3. Sets up Uniswap V4 pools
  * 4. Distributes tokens to test wallets
@@ -40,7 +40,6 @@ interface BootstrapResult {
     // Tokens
     jeju: string
     usdc: string
-    elizaOS: string
     weth: string
     // Core Infrastructure
     creditManager: string
@@ -92,8 +91,8 @@ interface BootstrapResult {
   }
   pools: {
     'USDC-ETH'?: string
-    'USDC-elizaOS'?: string
-    'ETH-elizaOS'?: string
+    'USDC-JEJU'?: string
+    'ETH-JEJU'?: string
   }
   testWallets: Array<{
     name: string
@@ -169,7 +168,6 @@ class CompleteBootstrapper {
     console.log('📝 STEP 1: Deploying Tokens')
     console.log('-'.repeat(70))
     result.contracts.usdc = await this.deployUSDC()
-    result.contracts.elizaOS = await this.deployElizaOS()
     result.contracts.weth = '0x4200000000000000000000000000000000000006'
     console.log('')
 
@@ -178,10 +176,6 @@ class CompleteBootstrapper {
     console.log('-'.repeat(70))
     result.contracts.priceOracle = await this.deployPriceOracle()
     result.contracts.serviceRegistry = await this.deployServiceRegistry()
-    result.contracts.creditManager = await this.deployCreditManager(
-      result.contracts.usdc,
-      result.contracts.elizaOS,
-    )
     result.contracts.entryPoint = await this.deployEntryPoint()
     console.log('')
 
@@ -194,27 +188,11 @@ class CompleteBootstrapper {
     result.contracts.validationRegistry = registries.validation
     console.log('')
 
-    // Step 3: Deploy MultiTokenPaymaster
-    console.log('💳 STEP 3: Deploying MultiTokenPaymaster')
-    console.log('-'.repeat(70))
-    result.contracts.universalPaymaster = await this.deployMultiTokenPaymaster(
-      result.contracts.entryPoint,
-      result.contracts.usdc,
-      result.contracts.elizaOS,
-      result.contracts.creditManager,
-      result.contracts.serviceRegistry,
-      result.contracts.priceOracle,
-    )
+    // Step 3: Deploy CreditManager (uses JEJU after it's deployed in Step 5.6)
+    // Note: We'll deploy credit manager later after JEJU is deployed
     console.log('')
 
-    // Step 4: Initialize Oracle Prices
-    console.log('📊 STEP 4: Setting Oracle Prices')
-    console.log('-'.repeat(70))
-    await this.setOraclePrices(
-      result.contracts.priceOracle,
-      result.contracts.usdc,
-      result.contracts.elizaOS,
-    )
+    // Step 4: Initialize Oracle Prices (will be done after JEJU is deployed)
     console.log('')
 
     // Step 5: Deploy Paymaster System
@@ -238,6 +216,38 @@ class CompleteBootstrapper {
     console.log('-'.repeat(70))
     result.contracts.jeju = await this.deployNetworkToken(
       result.contracts.banManager,
+    )
+    console.log('')
+
+    // Step 5.6.1: Deploy CreditManager (now that JEJU exists)
+    console.log('💳 STEP 5.6.1: Deploying CreditManager')
+    console.log('-'.repeat(70))
+    result.contracts.creditManager = await this.deployCreditManager(
+      result.contracts.usdc,
+      result.contracts.jeju,
+    )
+    console.log('')
+
+    // Step 5.6.2: Deploy MultiTokenPaymaster
+    console.log('💳 STEP 5.6.2: Deploying MultiTokenPaymaster')
+    console.log('-'.repeat(70))
+    result.contracts.universalPaymaster = await this.deployMultiTokenPaymaster(
+      result.contracts.entryPoint,
+      result.contracts.usdc,
+      result.contracts.jeju,
+      result.contracts.creditManager,
+      result.contracts.serviceRegistry,
+      result.contracts.priceOracle,
+    )
+    console.log('')
+
+    // Step 5.6.3: Initialize Oracle Prices
+    console.log('📊 STEP 5.6.3: Setting Oracle Prices')
+    console.log('-'.repeat(70))
+    await this.setOraclePrices(
+      result.contracts.priceOracle,
+      result.contracts.usdc,
+      result.contracts.jeju,
     )
     console.log('')
 
@@ -299,7 +309,6 @@ class CompleteBootstrapper {
     console.log('-'.repeat(70))
     result.testWallets = await this.fundTestWallets(
       result.contracts.usdc,
-      result.contracts.elizaOS,
       result.contracts.jeju,
     )
     console.log('')
@@ -409,56 +418,6 @@ class CompleteBootstrapper {
     )
   }
 
-  private async deployElizaOS(): Promise<string> {
-    // Check environment variable first
-    const envAddr = process.env.ELIZAOS_TOKEN_ADDRESS
-    if (envAddr) {
-      console.log(`  ✅ elizaOS (env): ${envAddr}`)
-      return envAddr
-    }
-
-    // Check deployment files
-    const existingFile = join(
-      process.cwd(),
-      'packages',
-      'contracts',
-      'deployments',
-      'localnet-addresses.json',
-    )
-    if (existsSync(existingFile)) {
-      try {
-        const addressesRaw = await Bun.file(existingFile).json()
-        const addresses = expectValid(
-          AddressRecordSchema,
-          addressesRaw,
-          'localnet addresses',
-        )
-        if (addresses.elizaOS) {
-          console.log(`  ✅ elizaOS (existing): ${addresses.elizaOS}`)
-          return addresses.elizaOS
-        }
-      } catch (err) {
-        // File doesn't exist or is invalid, continue to deploy
-        if (process.env.DEBUG) {
-          const errorMsg = err instanceof Error ? err.message : String(err)
-          console.warn(`Failed to read existing addresses file: ${errorMsg}`)
-        }
-      }
-    }
-
-    return this.deployContract(
-      'src/tokens/Token.sol:Token',
-      [
-        'elizaOS',
-        'elizaOS',
-        '100000000000000000000000000',
-        this.deployerAddress,
-        '0',
-        'true',
-      ],
-      'elizaOS Token',
-    )
-  }
 
   private async deployPriceOracle(): Promise<string> {
     return this.deployContract(
@@ -484,11 +443,11 @@ class CompleteBootstrapper {
 
   private async deployCreditManager(
     usdc: string,
-    elizaOS: string,
+    jeju: string,
   ): Promise<string> {
     const address = this.deployContract(
       'src/services/CreditManager.sol:CreditManager',
-      [usdc, elizaOS],
+      [usdc, jeju],
       'CreditManager (Prepaid Balance System)',
     )
 
@@ -499,18 +458,18 @@ class CompleteBootstrapper {
   private async deployMultiTokenPaymaster(
     entryPoint: string,
     usdc: string,
-    elizaOS: string,
+    jeju: string,
     creditManager: string,
     serviceRegistry: string,
     priceOracle: string,
   ): Promise<string> {
-    // Constructor: (entryPoint, usdc, elizaOS, creditManager, serviceRegistry, priceOracle, revenueWallet, owner)
+    // Constructor: (entryPoint, usdc, jeju, creditManager, serviceRegistry, priceOracle, revenueWallet, owner)
     const address = this.deployContract(
       'src/services/MultiTokenPaymaster.sol:MultiTokenPaymaster',
       [
         entryPoint,
         usdc,
-        elizaOS,
+        jeju,
         creditManager,
         serviceRegistry,
         priceOracle,
@@ -605,13 +564,6 @@ class CompleteBootstrapper {
         name: 'USD Coin',
         minFee: 50,
         maxFee: 200,
-      },
-      {
-        address: contracts.elizaOS,
-        symbol: 'elizaOS',
-        name: 'elizaOS Token',
-        minFee: 100,
-        maxFee: 300,
       },
       {
         address: contracts.weth,
@@ -1180,7 +1132,7 @@ class CompleteBootstrapper {
   private async setOraclePrices(
     oracle: string,
     usdc: string,
-    elizaOS: string,
+    jeju: string,
   ): Promise<void> {
     const ETH_ADDRESS = '0x0000000000000000000000000000000000000000'
 
@@ -1200,8 +1152,8 @@ class CompleteBootstrapper {
     this.sendTx(
       oracle,
       'setPrice(address,uint256,uint256)',
-      [elizaOS, '100000000000000000', '18'],
-      'elizaOS = $0.10',
+      [jeju, '100000000000000000', '18'],
+      'JEJU = $0.10',
     )
 
     console.log('  ✅ Oracle prices initialized')
@@ -1239,8 +1191,7 @@ class CompleteBootstrapper {
 
   private async fundTestWallets(
     usdc: string,
-    elizaOS: string,
-    jeju?: string,
+    jeju: string,
   ): Promise<Array<{ name: string; address: string; privateKey: string }>> {
     const wallets = []
 
@@ -1254,14 +1205,6 @@ class CompleteBootstrapper {
         usdc,
         'transfer(address,uint256)',
         [address, '10000000000'],
-        null,
-      )
-
-      // elizaOS: 100,000 elizaOS
-      this.sendTx(
-        elizaOS,
-        'transfer(address,uint256)',
-        [address, '100000000000000000000000'],
         null,
       )
 
@@ -1291,7 +1234,7 @@ class CompleteBootstrapper {
         address.toLowerCase() !== this.deployerAddress.toLowerCase()
           ? ', 100 ETH'
           : ' (deployer has remaining ETH)'
-      console.log(`    ✅ 10,000 USDC, 100,000 elizaOS${jejuStr}${ethStr}`)
+      console.log(`    ✅ 10,000 USDC${jejuStr}${ethStr}`)
       console.log('')
 
       wallets.push({
@@ -1418,8 +1361,8 @@ class CompleteBootstrapper {
       console.log('  ✅ Uniswap pools initialized')
       return {
         'USDC-ETH': '0x...', // Would be computed from pool key
-        'USDC-elizaOS': '0x...',
-        'ETH-elizaOS': '0x...',
+        'USDC-JEJU': '0x...',
+        'ETH-JEJU': '0x...',
       }
     } catch {
       console.log('  ⚠️  Pool initialization skipped')
@@ -1517,7 +1460,6 @@ PUBLIC_CHAIN_ID="31337"
 
 # Tokens
 PUBLIC_JEJU_TOKEN_ADDRESS="${result.contracts.jeju}"
-PUBLIC_ELIZAOS_TOKEN_ADDRESS="${result.contracts.elizaOS}"
 PUBLIC_USDC_ADDRESS="${result.contracts.usdc}"
 PUBLIC_WETH_ADDRESS="${result.contracts.weth}"
 
@@ -1589,7 +1531,6 @@ CHAIN_ID=31337
 JEJU_TOKEN_ADDRESS="${result.contracts.jeju}"
 JEJU_USDC_ADDRESS="${result.contracts.usdc}"
 JEJU_LOCALNET_USDC_ADDRESS="${result.contracts.usdc}"
-ELIZAOS_TOKEN_ADDRESS="${result.contracts.elizaOS}"
 
 # Infrastructure
 CREDIT_MANAGER_ADDRESS="${result.contracts.creditManager}"
@@ -1665,7 +1606,6 @@ ${result.testWallets.map((w, i) => `TEST_ACCOUNT_${i + 1}_KEY="${w.privateKey}"`
     console.log('📦 Core Contracts:')
     console.log(`   JEJU:                ${result.contracts.jeju}`)
     console.log(`   USDC:                ${result.contracts.usdc}`)
-    console.log(`   elizaOS:             ${result.contracts.elizaOS}`)
     console.log(`   CreditManager:       ${result.contracts.creditManager}`)
     console.log(
       `   MultiTokenPaymaster: ${result.contracts.universalPaymaster}`,
@@ -1681,7 +1621,7 @@ ${result.testWallets.map((w, i) => `TEST_ACCOUNT_${i + 1}_KEY="${w.privateKey}"`
     console.log('   ✅ JEJU token')
     console.log('   ✅ x402 payments with USDC on the network')
     console.log('   ✅ Prepaid credit system (zero-latency!)')
-    console.log('   ✅ Multi-token support (JEJU, USDC, elizaOS, ETH)')
+    console.log('   ✅ Multi-token support (JEJU, USDC, ETH)')
     console.log('   ✅ Account abstraction (gasless transactions)')
     console.log('   ✅ Paymaster system with all tokens registered')
     console.log('   ✅ Compute marketplace (AI inference on-chain settlement)')
@@ -1718,7 +1658,7 @@ ${result.testWallets.map((w, i) => `TEST_ACCOUNT_${i + 1}_KEY="${w.privateKey}"`
     console.log('   http://localhost:4001')
     console.log('')
     console.log('3. Test paymaster:')
-    console.log('   All local tokens (USDC, elizaOS, WETH) are registered')
+    console.log('   All local tokens (USDC, JEJU, WETH) are registered')
     console.log('   Apps can now deploy paymasters for any token')
     console.log('')
     console.log('4. Test agent payments:')
@@ -1726,7 +1666,7 @@ ${result.testWallets.map((w, i) => `TEST_ACCOUNT_${i + 1}_KEY="${w.privateKey}"`
     console.log('')
     console.log('💡 Payment System Features:')
     console.log('   • JEJU preferred if in wallet (ban-enforced)')
-    console.log('   • Multi-token support (JEJU, USDC, elizaOS, ETH)')
+    console.log('   • Multi-token support (JEJU, USDC, ETH)')
     console.log('   • Gasless transactions (account abstraction)')
     console.log('   • Zero-latency credit system')
     console.log('   • Permissionless token registration')

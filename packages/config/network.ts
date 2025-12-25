@@ -19,7 +19,6 @@ export interface DeployedContracts {
   usdc?: string
   weth?: string
   jeju?: string
-  elizaOS?: string
 
   // Core Infrastructure
   entryPoint?: string

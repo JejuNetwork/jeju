@@ -21,7 +21,6 @@ interface BootstrapResult {
   contracts: {
     jeju?: string
     usdc?: string
-    elizaOS?: string
     weth?: string
     creditManager?: string
     universalPaymaster?: string
@@ -76,10 +75,6 @@ function main() {
   if (isValidAddress(deployment.contracts.usdc)) {
     config.localnet.tokens.usdc = deployment.contracts.usdc
     console.log(`  tokens.usdc: ${deployment.contracts.usdc}`)
-  }
-  if (isValidAddress(deployment.contracts.elizaOS)) {
-    config.localnet.tokens.elizaOS = deployment.contracts.elizaOS
-    console.log(`  tokens.elizaOS: ${deployment.contracts.elizaOS}`)
   }
 
   // Update registry

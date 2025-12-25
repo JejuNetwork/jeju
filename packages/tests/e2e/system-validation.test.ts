@@ -169,7 +169,7 @@ describe('Gas Intent Routing Validation', () => {
       }))
       .sort((a, b) => b.score - a.score)
 
-    expect(sortedOptions[0].token).toBe('elizaOS') // Highest combined score
+    expect(sortedOptions[0].token).toBe('JEJU') // Highest combined score
 
     recordValidation({
       test: 'Gas intent routing optimization',

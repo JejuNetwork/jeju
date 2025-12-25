@@ -64,13 +64,10 @@ import ChainlinkGovernanceAbiJson from '../../abis/ChainlinkGovernance.json'
 import CreditManagerAbiJson from '../../abis/CreditManager.json'
 import ERC20AbiJson from '../../abis/ERC20.json'
 import ERC20FactoryAbiJson from '../../abis/ERC20Factory.json'
-import GameIntegrationAbiJson from '../../abis/GameIntegration.json'
-import GoldAbiJson from '../../abis/Gold.json'
 import HyperlaneOracleAbiJson from '../../abis/HyperlaneOracle.json'
 import ICOPresaleAbiJson from '../../abis/ICOPresale.json'
 import IdentityRegistryAbiJson from '../../abis/IdentityRegistry.json'
 import InputSettlerAbiJson from '../../abis/InputSettler.json'
-import ItemsAbiJson from '../../abis/Items.json'
 import LaunchpadTokenAbiJson from '../../abis/LaunchpadToken.json'
 import LiquidityVaultAbiJson from '../../abis/LiquidityVault.json'
 import LPLockerAbiJson from '../../abis/LPLocker.json'
@@ -113,9 +110,6 @@ export const TokenRegistryAbi = TokenRegistryAbiJson.abi as Abi
 export const PaymasterFactoryAbi = PaymasterFactoryAbiJson.abi as Abi
 export const LiquidityVaultAbi = LiquidityVaultAbiJson.abi as Abi
 export const AppTokenPreferenceAbi = AppTokenPreferenceAbiJson.abi as Abi
-export const GoldAbi = GoldAbiJson.abi as Abi
-export const ItemsAbi = ItemsAbiJson.abi as Abi
-export const GameIntegrationAbi = GameIntegrationAbiJson.abi as Abi
 export const PlayerTradeEscrowAbi = PlayerTradeEscrowAbiJson.abi as Abi
 export const SponsoredPaymasterAbi = SponsoredPaymasterAbiJson.abi as Abi
 export const TokenLaunchpadAbi = TokenLaunchpadAbiJson.abi as Abi
@@ -151,9 +145,6 @@ export {
   PaymasterFactoryAbiJson,
   LiquidityVaultAbiJson,
   AppTokenPreferenceAbiJson,
-  GoldAbiJson,
-  ItemsAbiJson,
-  GameIntegrationAbiJson,
   PlayerTradeEscrowAbiJson,
   SponsoredPaymasterAbiJson,
   TokenLaunchpadAbiJson,

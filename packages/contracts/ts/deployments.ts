@@ -10,8 +10,6 @@ import {
   type ContractAddresses,
   type ERC20FactoryDeployment,
   ERC20FactoryDeploymentSchema,
-  type GameSystemDeployment,
-  GameSystemDeploymentSchema,
   type IdentitySystemDeployment,
   IdentitySystemDeploymentSchema,
   type LaunchpadDeployment,
@@ -33,15 +31,12 @@ function toAddress(address: string | undefined): Address | undefined {
 import bazaarMarketplace1337_raw from '../deployments/bazaar-marketplace-31337.json'
 import eilLocalnet_raw from '../deployments/eil-localnet.json'
 import eilTestnet_raw from '../deployments/eil-testnet.json'
-import elizaToken1337_raw from '../deployments/eliza-token-31337.json'
 import erc20Factory1337_raw from '../deployments/erc20-factory-31337.json'
-import gameSystem1337_raw from '../deployments/game-system-31337.json'
 import identitySystem1337_raw from '../deployments/identity-system-31337.json'
 import launchpadLocalnet_raw from '../deployments/launchpad-localnet.json'
 import localnetAddresses_raw from '../deployments/localnet-addresses.json'
 import paymasterSystemLocalnet_raw from '../deployments/paymaster-system-localnet.json'
 import predimarket1337_raw from '../deployments/predimarket-31337.json'
-import rpgTokens1337_raw from '../deployments/rpg-tokens-31337.json'
 import uniswapV4_1337_raw from '../deployments/uniswap-v4-31337.json'
 import uniswapV4_420691_raw from '../deployments/uniswap-v4-420691.json'
 import xlpAmmLocalnet_raw from '../deployments/xlp-amm-localnet.json'
@@ -62,7 +57,6 @@ const localnetAddresses = IdentitySystemDeploymentSchema.partial().parse(
 const paymasterSystemLocalnet = PaymasterSystemDeploymentSchema.parse(
   paymasterSystemLocalnet_raw,
 )
-const gameSystem1337 = GameSystemDeploymentSchema.parse(gameSystem1337_raw)
 const xlpAmmLocalnet = XLPDeploymentSchema.parse(xlpAmmLocalnet_raw)
 const launchpadLocalnet = LaunchpadDeploymentSchema.parse(launchpadLocalnet_raw)
 
@@ -104,13 +98,6 @@ export const paymasterDeployments: Partial<
 export const xlpDeployments: Partial<Record<ChainId, XLPDeployment>> = {
   31337: xlpAmmLocalnet,
   420691: xlpAmmLocalnet,
-}
-
-export const gameSystemDeployments: Partial<
-  Record<ChainId, GameSystemDeployment>
-> = {
-  31337: gameSystem1337,
-  420691: gameSystem1337,
 }
 
 export const launchpadDeployments: Partial<
@@ -189,42 +176,6 @@ export function getTokenLaunchpad(chainId: ChainId): Address | undefined {
 }
 
 /**
- * Get Game System deployment for a chain
- * @throws Error if chain is not supported
- */
-export function getGameSystem(chainId: ChainId): GameSystemDeployment {
-  const deployment = gameSystemDeployments[chainId]
-  if (!deployment) {
-    throw new Error(`Game system not deployed on chain ${chainId}`)
-  }
-  return deployment
-}
-
-/**
- * Get Game Gold token address for a chain
- */
-export function getGameGold(chainId: ChainId): Address | undefined {
-  const deployment = gameSystemDeployments[chainId]
-  return toAddress(deployment?.goldToken)
-}
-
-/**
- * Get Game Items NFT address for a chain
- */
-export function getGameItems(chainId: ChainId): Address | undefined {
-  const deployment = gameSystemDeployments[chainId]
-  return toAddress(deployment?.itemsNFT)
-}
-
-/**
- * Get Game Integration contract address for a chain
- */
-export function getGameIntegration(chainId: ChainId): Address | undefined {
-  const deployment = gameSystemDeployments[chainId]
-  return toAddress(deployment?.gameIntegration)
-}
-
-/**
  * Get Paymaster System deployment
  * @throws Error if chain is not supported
  */
@@ -285,7 +236,7 @@ export function getContractAddresses(chainId: ChainId): ContractAddresses {
 
     // Tokens
     usdc: toAddress(identity?.usdc),
-    elizaOS: toAddress(identity?.elizaOS),
+    jeju: toAddress(identity?.jeju),
     goldToken: toAddress(marketplace?.goldToken),
 
     // Launchpad
@@ -325,10 +276,7 @@ export const rawDeployments = {
   paymasterSystemLocalnet: paymasterSystemLocalnet_raw,
   eilLocalnet: eilLocalnet_raw,
   eilTestnet: eilTestnet_raw,
-  gameSystem1337: gameSystem1337_raw,
   predimarket1337: predimarket1337_raw,
-  rpgTokens1337: rpgTokens1337_raw,
-  elizaToken1337: elizaToken1337_raw,
   xlpAmmLocalnet: xlpAmmLocalnet_raw,
   launchpadLocalnet: launchpadLocalnet_raw,
 } as const

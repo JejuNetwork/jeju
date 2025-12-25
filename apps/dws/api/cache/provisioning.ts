@@ -9,13 +9,9 @@
  * - Health monitoring
  */
 
-import {
-  getCQL,
-  getCQLMinerUrl,
-  getCQLUrl,
-  type QueryResult,
-} from '@jejunetwork/db'
-import type { Address, Hex } from 'viem'
+import { getCQLMinerUrl, getCQLUrl } from '@jejunetwork/config'
+import { getCQL } from '@jejunetwork/db'
+import type { Address } from 'viem'
 import { keccak256, toBytes } from 'viem'
 import { CacheEngine } from './engine'
 import { createTEECacheProvider, TEECacheProvider } from './tee-provider'
@@ -221,6 +217,13 @@ export class CacheProvisioningManager {
 
     this.initialized = false
     console.log('[Cache Provisioning] Stopped')
+  }
+
+  /**
+   * Check if the manager is initialized
+   */
+  isInitialized(): boolean {
+    return this.initialized
   }
 
   // ============================================================================

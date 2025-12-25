@@ -5,6 +5,7 @@
       "name": "jeju",
       "dependencies": {
         "@noble/curves": "1.9.7",
+        "@noble/hashes": "1.7.1",
         "@solana/web3.js": "^1.98.4",
         "merkletreejs": "^0.6.0",
         "pino": "^10.1.0",
@@ -426,6 +427,20 @@
         "@synthetixio/synpress": "4.1.1",
         "@types/bun": "^1.2.14",
         "typescript": "^5.8.3",
+      },
+    },
+    "apps/storage/cache-service": {
+      "name": "@jeju/cache-service",
+      "version": "0.0.1",
+      "dependencies": {
+        "elysia": "^1.2.25",
+      },
+    },
+    "apps/storage/da-server": {
+      "name": "@jeju/da-server",
+      "version": "0.0.1",
+      "dependencies": {
+        "elysia": "^1.2.25",
       },
     },
     "apps/vpn": {
@@ -1540,6 +1555,10 @@
     "@isaacs/fs-minipass": ["@isaacs/fs-minipass@4.0.1", "", { "dependencies": { "minipass": "^7.0.4" } }, "sha512-wgm9Ehl2jpeqP3zw/7mo3kRHFp5MEDhqAdwy1fTGkHAwnkGOVsgpvQhL8B5n1qlb01jV3n/bI0ZfZp5lWA1k4w=="],
 
     "@isaacs/string-locale-compare": ["@isaacs/string-locale-compare@1.1.0", "", {}, "sha512-SQ7Kzhh9+D+ZW9MA0zkYv3VXhIDNx+LzM6EJ+/65I3QY+enU6Itte7E5XX7EWrqLW2FN4n06GWzBnPoC3th2aQ=="],
+
+    "@jeju/cache-service": ["@jeju/cache-service@workspace:apps/storage/cache-service"],
+
+    "@jeju/da-server": ["@jeju/da-server@workspace:apps/storage/da-server"],
 
     "@jejunetwork/a2a": ["@jejunetwork/a2a@workspace:packages/a2a"],
 

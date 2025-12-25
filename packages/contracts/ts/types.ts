@@ -45,6 +45,4 @@ export type DeploymentFile =
   | 'multi-token-system-31337'
   | 'eil-localnet'
   | 'eil-testnet'
-  | 'eliza-token-31337'
   | 'predimarket-31337'
-  | 'rpg-tokens-31337'

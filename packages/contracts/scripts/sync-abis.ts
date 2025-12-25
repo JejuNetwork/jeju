@@ -57,12 +57,6 @@ const CONTRACTS_TO_EXTRACT = [
   'AppTokenPreference',
   'SponsoredPaymaster',
 
-  // Game Infrastructure
-  'Gold',
-  'Items',
-  'GameIntegration',
-  'PlayerTradeEscrow',
-
   // Launchpad
   'TokenLaunchpad',
   'BondingCurve',

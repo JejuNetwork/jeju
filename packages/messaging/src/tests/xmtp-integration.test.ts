@@ -48,6 +48,7 @@ describe('XMTP Node', () => {
       jejuRelayUrl: 'http://localhost:3000',
       persistenceDir: '/tmp/xmtp-test',
       network: 'testnet',
+      skipRelayConnection: true,
     })
     await node.start()
   })
@@ -230,6 +231,7 @@ describe('XMTP End-to-End Flow', () => {
       jejuRelayUrl: 'http://localhost:3000',
       persistenceDir: '/tmp/xmtp-e2e-test',
       network: 'testnet',
+      skipRelayConnection: true,
     })
 
     await node.start()
@@ -285,6 +287,7 @@ describe('XMTP End-to-End Flow', () => {
       jejuRelayUrl: 'http://localhost:3000',
       persistenceDir: '/tmp/xmtp-multi-device-test',
       network: 'testnet',
+      skipRelayConnection: true,
     })
 
     await node.start()
@@ -309,6 +312,7 @@ describe('XMTP End-to-End Flow', () => {
       jejuRelayUrl: 'http://localhost:3000',
       persistenceDir: persistPath,
       network: 'testnet',
+      skipRelayConnection: true,
     })
 
     await node1.start()
@@ -329,6 +333,7 @@ describe('XMTP End-to-End Flow', () => {
       jejuRelayUrl: 'http://localhost:3000',
       persistenceDir: persistPath, // Same path
       network: 'testnet',
+      skipRelayConnection: true,
     })
 
     await node2.start()
@@ -352,6 +357,7 @@ describe('XMTP Group Chat', () => {
       jejuRelayUrl: 'http://localhost:3000',
       persistenceDir: '/tmp/xmtp-group-test',
       network: 'testnet',
+      skipRelayConnection: true,
     })
 
     await node.start()
