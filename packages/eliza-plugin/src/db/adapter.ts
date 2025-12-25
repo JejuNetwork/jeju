@@ -37,8 +37,7 @@ import {
   type QueryParam,
   serializeFloat32Vector,
 } from '@jejunetwork/db'
-import type { JsonRecord } from '@jejunetwork/sdk'
-import type { JsonValue } from '@jejunetwork/types'
+import type { JsonRecord, JsonValue } from '@jejunetwork/types'
 import { v4 as uuidv4 } from 'uuid'
 import type { ZodType } from 'zod'
 import { z } from 'zod'

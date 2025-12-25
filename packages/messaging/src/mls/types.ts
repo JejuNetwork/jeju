@@ -4,7 +4,7 @@
  * Type definitions for MLS-based group messaging.
  */
 
-import type { Address, Hex } from 'viem'
+import type { Address, Hex, WalletClient } from 'viem'
 import { z } from 'zod'
 
 /** Primitive types allowed in message metadata */
@@ -72,7 +72,7 @@ export interface MLSClientConfig {
   /** Persistence directory */
   persistenceDir?: string
   /** Wallet client for on-chain operations */
-  walletClient?: object
+  walletClient?: WalletClient
   /** Skip relay connection (for testing) */
   skipRelayConnection?: boolean
 }

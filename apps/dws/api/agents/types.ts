@@ -3,7 +3,7 @@
  * First-class agent management in DWS
  */
 
-import type { JsonRecord } from '@jejunetwork/sdk'
+import type { JsonRecord } from '@jejunetwork/types'
 import type { Address } from 'viem'
 
 // Character & Personality

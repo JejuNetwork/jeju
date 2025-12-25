@@ -188,8 +188,7 @@ export async function getPaymasterOptions(
 
     const isRecommended =
       pm.tokenSymbol === 'JEJU' ||
-      pm.tokenSymbol === 'USDC' ||
-      pm.tokenSymbol.includes('eliza')
+      pm.tokenSymbol === 'USDC'
 
     options.push({
       paymaster: pm,

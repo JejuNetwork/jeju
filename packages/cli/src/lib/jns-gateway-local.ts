@@ -136,15 +136,21 @@ export class LocalJNSGateway {
 
     const node = this.namehash(name)
 
-    // Get resolver
-    const resolverAddress = await this.client.readContract({
-      address: this.config.jnsRegistryAddress,
-      abi: JNS_REGISTRY_ABI,
-      functionName: 'resolver',
-      args: [node],
-    })
+    // Get resolver - catch errors for unregistered names
+    let resolverAddress: `0x${string}` | null = null
+    try {
+      resolverAddress = await this.client.readContract({
+        address: this.config.jnsRegistryAddress,
+        abi: JNS_REGISTRY_ABI,
+        functionName: 'resolver',
+        args: [node],
+      })
+    } catch {
+      // Registry call failed - name not registered or contract issue
+      logger.debug(`JNS resolver lookup failed for ${name}, falling back to local`)
+    }
 
-    if (resolverAddress === '0x0000000000000000000000000000000000000000') {
+    if (!resolverAddress || resolverAddress === '0x0000000000000000000000000000000000000000') {
       return {
         name,
         node,
@@ -345,19 +351,21 @@ export class LocalJNSGateway {
     appName: string,
     path: string,
   ): Promise<Response | null> {
-    // Try to find the app's build directory
-    const appDir = join(this.config.rootDir, 'apps', appName)
-    if (!existsSync(appDir)) {
-      return null
-    }
+    // Try to find the app's build directory (check both apps/ and vendor/)
+    // Try multiple possible app locations and build directories
+    const appDirCandidates = [
+      join(this.config.rootDir, 'apps', appName),
+      join(this.config.rootDir, 'vendor', appName, 'apps', 'web'), // Babylon structure
+      join(this.config.rootDir, 'vendor', appName),
+    ]
 
     // Common build output directories (order matters - more specific first)
     const buildDirs = [
-      'dist/web', // auth, crucible, example, indexer
-      'dist/client', // factory
-      'dist/static', // bazaar, node
-      'docs/dist', // documentation (vocs)
-      'dist', // autocrat, dws, gateway, monitoring, vpn, wallet
+      'dist', // Most common
+      'dist/web',
+      'dist/client',
+      'dist/static',
+      'docs/dist',
       'build',
       'out',
       '.next/static',
@@ -368,35 +376,42 @@ export class LocalJNSGateway {
     if (requestPath === '/') requestPath = 'index.html'
     if (requestPath.startsWith('/')) requestPath = requestPath.slice(1)
 
-    for (const buildDir of buildDirs) {
-      const fullBuildDir = join(appDir, buildDir)
-      if (!existsSync(fullBuildDir)) continue
+    // Try each app dir + build dir combination
+    for (const appDir of appDirCandidates) {
+      if (!existsSync(appDir)) continue
 
-      // Try exact path
-      const filePath = join(fullBuildDir, requestPath)
-      if (existsSync(filePath)) {
-        const file = Bun.file(filePath)
-        const content = await file.arrayBuffer()
-        return new Response(content, {
-          headers: {
-            'Content-Type': this.guessContentType(requestPath),
-            'X-Served-From': 'local-dev',
-          },
-        })
-      }
+      for (const buildDir of buildDirs) {
+        const fullBuildDir = join(appDir, buildDir)
+        if (!existsSync(fullBuildDir)) continue
 
-      // For SPA: try index.html for paths without extensions
-      if (!requestPath.includes('.')) {
-        const indexPath = join(fullBuildDir, 'index.html')
-        if (existsSync(indexPath)) {
-          const file = Bun.file(indexPath)
+        // Try exact path
+        const filePath = join(fullBuildDir, requestPath)
+        if (existsSync(filePath)) {
+          const file = Bun.file(filePath)
           const content = await file.arrayBuffer()
           return new Response(content, {
             headers: {
-              'Content-Type': 'text/html; charset=utf-8',
+              'Content-Type': this.guessContentType(requestPath),
               'X-Served-From': 'local-dev',
+              'X-App-Dir': appDir,
             },
           })
+        }
+
+        // For SPA: try index.html for paths without extensions
+        if (!requestPath.includes('.')) {
+          const indexPath = join(fullBuildDir, 'index.html')
+          if (existsSync(indexPath)) {
+            const file = Bun.file(indexPath)
+            const content = await file.arrayBuffer()
+            return new Response(content, {
+              headers: {
+                'Content-Type': 'text/html; charset=utf-8',
+                'X-Served-From': 'local-dev',
+                'X-App-Dir': appDir,
+              },
+            })
+          }
         }
       }
     }

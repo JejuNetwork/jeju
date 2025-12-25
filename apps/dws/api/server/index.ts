@@ -47,6 +47,7 @@ import { PkgRegistryManager } from '../pkg/registry-manager'
 import { createBackendManager } from '../storage/backends'
 import type { ServiceHealth } from '../types'
 import { WorkerdExecutor } from '../workers/workerd/executor'
+import { createCacheRoutes, getSharedEngine, initializeCacheProvisioning } from '../cache'
 import { createA2ARouter } from './routes/a2a'
 import { createAPIMarketplaceRouter } from './routes/api-marketplace'
 import { createCDNRouter } from './routes/cdn'
@@ -325,6 +326,7 @@ app
         scraping: { status: 'healthy' },
         rpc: { status: 'healthy' },
         da: { status: 'healthy', description: 'Data Availability layer' },
+        cache: { status: 'healthy', description: 'Decentralized serverless cache' },
       },
       backends: { available: backends, health: backendHealth },
     }
@@ -359,6 +361,7 @@ app
       'helm',
       'terraform',
       'mesh',
+      'cache',
     ],
     endpoints: {
       storage: '/storage/*',
@@ -388,6 +391,7 @@ app
       terraform: '/terraform/*',
       ingress: '/ingress/*',
       mesh: '/mesh/*',
+      cache: '/cache/*',
     },
   }))
 
@@ -613,15 +617,44 @@ app.get('/.well-known/agent-card.json', () => {
         endpoint: `${baseUrl}/da`,
         description: 'Data Availability layer',
       },
+      {
+        name: 'cache',
+        endpoint: `${baseUrl}/cache`,
+        description: 'Decentralized serverless cache with TEE support',
+      },
     ],
     a2aEndpoint: `${baseUrl}/a2a`,
     mcpEndpoint: `${baseUrl}/mcp`,
   }
 })
 
+// DWS Cache Service routes (decentralized cache with TEE support)
+app.use(createCacheRoutes())
+
+// Root-level /stats endpoint for Babylon compatibility
+// Returns cache stats in the format expected by Babylon cache client
+app.get('/stats', () => {
+  const engine = getSharedEngine()
+  const cacheStats = engine.getStats()
+  return {
+    stats: {
+      totalKeys: cacheStats.totalKeys,
+      usedMemoryMb: cacheStats.usedMemoryBytes / (1024 * 1024),
+      hits: cacheStats.hits,
+      misses: cacheStats.misses,
+      hitRate: cacheStats.hitRate,
+    },
+  }
+})
+
 // Initialize services
 initializeMarketplace()
 initializeContainerSystem()
+
+// Initialize DWS cache provisioning
+initializeCacheProvisioning().catch((err) => {
+  console.warn('[DWS] Cache provisioning init failed:', err.message)
+})
 
 // Initialize agent system
 const CQL_URL = getCQLBlockProducerUrl()

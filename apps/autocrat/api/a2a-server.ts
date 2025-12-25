@@ -4,7 +4,7 @@
 
 import cors from '@elysiajs/cors'
 import { getNetworkName, getWebsiteUrl } from '@jejunetwork/config'
-import type { JsonRecord, JsonValue } from '@jejunetwork/sdk'
+import type { JsonRecord, JsonValue } from '@jejunetwork/types'
 import {
   expect,
   expectDefined,

@@ -635,7 +635,7 @@ export {
   isStringArray,
   isStringRecord,
   isUint8Array,
-  type JsonValue as TypeGuardJsonValue,
+  type JsonValue,
   parseJson,
   parseJsonAs,
   responseJson,

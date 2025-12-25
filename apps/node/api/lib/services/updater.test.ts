@@ -296,9 +296,11 @@ describe('Update Strategy', () => {
       }
     }
 
-    // Check for mandatory updates
-    const mandatoryUpdates = updates.filter((u) => u.mandatory)
-    // Note: mandatoryUpdates.length > 0 would indicate mandatory updates
+    // Check for mandatory updates (presence indicates required update)
+    const hasMandatory = updates.some((u) => u.mandatory)
+    if (hasMandatory) {
+      console.log('Mandatory update available')
+    }
 
     // Get the latest version
     const latestUpdate = updates[updates.length - 1]

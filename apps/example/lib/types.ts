@@ -1,4 +1,4 @@
-import type { JsonRecord } from '@jejunetwork/sdk'
+import type { JsonRecord } from '@jejunetwork/types'
 import { expectAddress } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 

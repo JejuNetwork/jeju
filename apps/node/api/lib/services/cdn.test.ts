@@ -239,7 +239,7 @@ describe('CDN Service Validation', () => {
 })
 
 describe('CDN Region Validation', () => {
-  const validRegions = [
+  const validRegions: CDNServiceConfig['region'][] = [
     'us-east-1',
     'us-east-2',
     'us-west-1',
@@ -258,7 +258,7 @@ describe('CDN Region Validation', () => {
   ]
 
   test.each(validRegions)('accepts valid region: %s', (region) => {
-    const config = {
+    const config: Parameters<typeof validateCDNServiceConfig>[0] = {
       endpoint: 'https://cdn.example.com',
       region,
       maxCacheSizeMB: 1024,
