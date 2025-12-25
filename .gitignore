@@ -142,3 +142,7 @@ test-ledger/
 **/src-tauri/target/
 .ruff_cache
 training_output
+
+# Generated validation reports
+*-validation-report.html
+validation-report.html

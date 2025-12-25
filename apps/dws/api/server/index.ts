@@ -734,6 +734,21 @@ if (import.meta.main) {
     error?: () => void
   }
 
+  /** WebSocket data for price streaming */
+  interface PriceWebSocketData {
+    type: 'prices'
+    handlers: WebSocketHandlers
+  }
+
+  /** WebSocket data for edge coordination */
+  interface EdgeWebSocketData {
+    type: 'edge'
+    handlers: WebSocketHandlers
+  }
+
+  /** WebSocket data attached to each connection */
+  type WebSocketData = PriceWebSocketData | EdgeWebSocketData
+
   server = Bun.serve({
     port: PORT,
     fetch(req, server) {
@@ -764,7 +779,7 @@ if (import.meta.main) {
     },
     websocket: {
       open(ws) {
-        const data = ws.data as { type: string; handlers: WebSocketHandlers }
+        const data = ws.data as WebSocketData
         if (data.type === 'prices') {
           // Set up price subscription service
           const service = getPriceService()
@@ -789,7 +804,7 @@ if (import.meta.main) {
         }
       },
       message(ws, message) {
-        const data = ws.data as { handlers: WebSocketHandlers }
+        const data = ws.data as WebSocketData
         const msgStr =
           typeof message === 'string'
             ? message
@@ -797,7 +812,7 @@ if (import.meta.main) {
         data.handlers.message?.(msgStr)
       },
       close(ws) {
-        const data = ws.data as { handlers: WebSocketHandlers }
+        const data = ws.data as WebSocketData
         data.handlers.close?.()
       },
     },

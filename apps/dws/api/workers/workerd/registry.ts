@@ -450,24 +450,24 @@ export class WorkerRegistry {
       return null
     }
 
-    const endpoint = (await this.publicClient.readContract({
+    const endpoint = await this.publicClient.readContract({
       address: this.registryAddress,
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'getA2AEndpoint',
       args: [agentId],
-    })) as string
+    })
 
     const codeCid = await this.getMetadataString(agentId, WORKER_CODE_CID_KEY)
     const version = parseInt(
-      (await this.getMetadataString(agentId, WORKER_VERSION_KEY)) || '1',
+      (await this.getMetadataString(agentId, WORKER_VERSION_KEY)) ?? '1',
       10,
     )
     const memoryMb = parseInt(
-      (await this.getMetadataString(agentId, WORKER_MEMORY_KEY)) || '128',
+      (await this.getMetadataString(agentId, WORKER_MEMORY_KEY)) ?? '128',
       10,
     )
     const timeoutMs = parseInt(
-      (await this.getMetadataString(agentId, WORKER_TIMEOUT_KEY)) || '30000',
+      (await this.getMetadataString(agentId, WORKER_TIMEOUT_KEY)) ?? '30000',
       10,
     )
 
@@ -475,7 +475,7 @@ export class WorkerRegistry {
       workerId: agentId.toString(),
       agentId,
       owner: agent.owner,
-      codeCid: codeCid || '',
+      codeCid: codeCid ?? '',
       version,
       memoryMb,
       timeoutMs,
@@ -633,15 +633,15 @@ export class WorkerRegistry {
       return null
     }
 
-    const endpoint = (await this.publicClient.readContract({
+    const endpoint = await this.publicClient.readContract({
       address: this.registryAddress,
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'getA2AEndpoint',
       args: [agentId],
-    })) as string
+    })
 
     const region =
-      (await this.getMetadataString(agentId, WORKER_REGION_KEY)) || 'global'
+      (await this.getMetadataString(agentId, WORKER_REGION_KEY)) ?? 'global'
     const capabilitiesStr = await this.getMetadataString(
       agentId,
       WORKER_CAPABILITIES_KEY,

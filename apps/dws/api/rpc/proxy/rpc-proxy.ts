@@ -8,11 +8,12 @@ import {
   getRpcChain as getChain,
   isRpcChainSupported as isChainSupported,
 } from '@jejunetwork/config'
-import type {
-  EndpointHealth,
-  JsonRpcRequest,
-  JsonRpcResponse,
-  ProxyResult,
+import {
+  type EndpointHealth,
+  type JsonRpcRequest,
+  type JsonRpcResponse,
+  JsonRpcResponseSchema,
+  type ProxyResult,
 } from '@jejunetwork/types'
 
 export type { JsonRpcRequest, JsonRpcResponse }
@@ -76,7 +77,7 @@ async function makeRpcRequest(
   clearTimeout(timeoutId)
   if (!response.ok)
     throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-  return response.json() as Promise<JsonRpcResponse>
+  return JsonRpcResponseSchema.parse(await response.json())
 }
 
 export async function proxyRequest(

@@ -21,6 +21,7 @@ export interface PaymasterDeployment {
   paymaster: Address
   vault: Address
   oracle: Address
+  feeMargin: number
 }
 
 export interface UsePaymasterDeploymentResult {
@@ -64,7 +65,7 @@ export function usePaymasterFactory(): UsePaymasterFactoryResult {
   )
 
   return {
-    allDeployments: allDeployments ? (allDeployments as Address[]) : [],
+    allDeployments: allDeployments ? [...allDeployments] : [],
     deployPaymaster,
     isPending: isPending || isConfirming,
     isSuccess,
@@ -74,28 +75,62 @@ export function usePaymasterFactory(): UsePaymasterFactoryResult {
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address
 
+const GET_DEPLOYMENT_ABI = [
+  {
+    type: 'function',
+    name: 'getDeployment',
+    inputs: [{ name: 'token', type: 'address' }],
+    outputs: [
+      {
+        name: 'deployment',
+        type: 'tuple',
+        components: [
+          { name: 'paymaster', type: 'address' },
+          { name: 'vault', type: 'address' },
+          { name: 'distributor', type: 'address' },
+          { name: 'token', type: 'address' },
+          { name: 'operator', type: 'address' },
+          { name: 'deployedAt', type: 'uint256' },
+          { name: 'feeMargin', type: 'uint256' },
+        ],
+      },
+    ],
+    stateMutability: 'view',
+  },
+] as const
+
+interface DeploymentResult {
+  paymaster: Address
+  vault: Address
+  distributor: Address
+  token: Address
+  operator: Address
+  deployedAt: bigint
+  feeMargin: bigint
+}
+
 export function usePaymasterDeployment(
   tokenAddress: `0x${string}` | undefined,
 ): UsePaymasterDeploymentResult {
   const factoryAddress = CONTRACTS.paymasterFactory as Address | undefined
-  const { address: ownerAddress } = useAccount()
 
-  const { data: paymasterAddress, refetch } = useReadContract({
+  const { data: deploymentData, refetch } = useReadContract({
     address: factoryAddress,
-    abi: PAYMASTER_FACTORY_ABI,
-    functionName: 'getPaymaster' as const,
-    args:
-      ownerAddress && tokenAddress ? [ownerAddress, tokenAddress] : undefined,
+    abi: GET_DEPLOYMENT_ABI,
+    functionName: 'getDeployment',
+    args: tokenAddress ? [tokenAddress] : undefined,
   })
 
-  // Note: ABI only returns paymaster address, vault and oracle need separate queries
-  const deployment: PaymasterDeployment | null = paymasterAddress
-    ? {
-        paymaster: paymasterAddress as Address,
-        vault: paymasterAddress as Address, // Use paymaster as vault for now
-        oracle: ZERO_ADDRESS,
-      }
-    : null
+  const deployment: PaymasterDeployment | null =
+    deploymentData &&
+    (deploymentData as DeploymentResult).paymaster !== ZERO_ADDRESS
+      ? {
+          paymaster: (deploymentData as DeploymentResult).paymaster,
+          vault: (deploymentData as DeploymentResult).vault,
+          oracle: ZERO_ADDRESS, // Oracle not in contract response
+          feeMargin: Number((deploymentData as DeploymentResult).feeMargin),
+        }
+      : null
 
   return {
     deployment,

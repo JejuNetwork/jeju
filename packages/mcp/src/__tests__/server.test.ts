@@ -250,9 +250,13 @@ describe('MCPServer', () => {
         id: 3,
       })
 
-      const result = response.result as { tools: Array<{ name: string }> }
-      expect(result.tools).toHaveLength(1)
-      expect(result.tools[0].name).toBe('echo')
+      const result = response.result
+      if (!result || typeof result !== 'object' || !('tools' in result)) {
+        throw new Error('Expected result with tools array')
+      }
+      const tools = result.tools as Array<{ name: string }>
+      expect(tools).toHaveLength(1)
+      expect(tools[0].name).toBe('echo')
     })
 
     it('should handle tools/call request', async () => {
@@ -269,9 +273,14 @@ describe('MCPServer', () => {
             required: ['a', 'b'],
           },
         },
-        handler: async (args: Record<string, JsonValue>) => ({
-          sum: (args.a as number) + (args.b as number),
-        }),
+        handler: async (args: Record<string, JsonValue>) => {
+          const a = args.a
+          const b = args.b
+          if (typeof a !== 'number' || typeof b !== 'number') {
+            throw new Error('Expected numeric arguments')
+          }
+          return { sum: a + b }
+        },
       })
 
       const response = await server.handleRequest({
@@ -284,11 +293,13 @@ describe('MCPServer', () => {
         id: 4,
       })
 
-      const result = response.result as {
-        content: Array<{ type: string; text: string }>
+      const result = response.result
+      if (!result || typeof result !== 'object' || !('content' in result)) {
+        throw new Error('Expected result with content array')
       }
-      expect(result.content[0].type).toBe('text')
-      expect(JSON.parse(result.content[0].text)).toEqual({ sum: 8 })
+      const content = result.content as Array<{ type: string; text: string }>
+      expect(content[0].type).toBe('text')
+      expect(JSON.parse(content[0].text)).toEqual({ sum: 8 })
     })
 
     it('should return error for unknown method', async () => {

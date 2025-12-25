@@ -52,7 +52,7 @@ const SEVERITY_CONFIG = [
     textColor: 'text-red-500',
     range: '$25,000 - $50,000',
   },
-]
+] as const
 
 const STATUS_CONFIG = [
   { label: 'Pending', color: 'bg-gray-500' },
@@ -65,7 +65,21 @@ const STATUS_CONFIG = [
   { label: 'Duplicate', color: 'bg-orange-500' },
   { label: 'Disputed', color: 'bg-yellow-500' },
   { label: 'Withdrawn', color: 'bg-gray-400' },
-]
+] as const
+
+function getSeverityConfig(severity: number) {
+  if (severity < 0 || severity >= SEVERITY_CONFIG.length) {
+    throw new Error(`Invalid severity index: ${severity}`)
+  }
+  return SEVERITY_CONFIG[severity]
+}
+
+function getStatusConfig(status: number) {
+  if (status < 0 || status >= STATUS_CONFIG.length) {
+    throw new Error(`Invalid status index: ${status}`)
+  }
+  return STATUS_CONFIG[status]
+}
 
 const VULN_TYPES = [
   {
@@ -127,7 +141,7 @@ export default function BugBountyPage() {
   }, [])
 
   const formatPoolValue = (value: string) => {
-    const parsed = parseEther(value || '0')
+    const parsed = parseEther(value)
     return `${formatEther(parsed)} ETH`
   }
 
@@ -192,13 +206,13 @@ export default function BugBountyPage() {
             <StatCard
               icon={Bug}
               label="Active Reports"
-              value={stats?.activeSubmissions?.toString() ?? '---'}
+              value={stats ? String(stats.activeSubmissions) : '---'}
               loading={loading}
             />
             <StatCard
               icon={Users}
               label="Guardians"
-              value={stats?.guardianCount?.toString() ?? '---'}
+              value={stats ? String(stats.guardianCount) : '---'}
               loading={loading}
             />
           </div>
@@ -497,17 +511,17 @@ export default function BugBountyPage() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
                         <div
-                          className={`px-2 py-1 rounded text-xs font-medium text-white ${SEVERITY_CONFIG[sub.severity]?.color ?? 'bg-gray-500'}`}
+                          className={`px-2 py-1 rounded text-xs font-medium text-white ${getSeverityConfig(sub.severity).color}`}
                         >
-                          {SEVERITY_CONFIG[sub.severity]?.label ?? 'Unknown'}
+                          {getSeverityConfig(sub.severity).label}
                         </div>
                         <h3 className="font-medium text-white">{sub.title}</h3>
                       </div>
                       <div className="flex items-center gap-4">
                         <div
-                          className={`px-2 py-1 rounded text-xs ${STATUS_CONFIG[sub.status]?.color ?? 'bg-gray-500'} text-white`}
+                          className={`px-2 py-1 rounded text-xs ${getStatusConfig(sub.status).color} text-white`}
                         >
-                          {STATUS_CONFIG[sub.status]?.label ?? 'Unknown'}
+                          {getStatusConfig(sub.status).label}
                         </div>
                         {BigInt(sub.rewardAmount) > 0n && (
                           <span className="text-green-400 font-medium">

@@ -192,12 +192,13 @@ export async function verifySIWESignature(params: {
 
     return { valid: true, address: siweMessage.address as Address }
   } catch (error) {
-    const siweError = error as { type?: SiweErrorType }
-    const errorMessage = siweError.type
-      ? `SIWE error: ${siweError.type}`
-      : error instanceof Error
-        ? error.message
-        : 'Verification failed'
+    // SIWE library throws errors with type property
+    const errorMessage =
+      error instanceof Error && 'type' in error
+        ? `SIWE error: ${(error as Error & { type: SiweErrorType }).type}`
+        : error instanceof Error
+          ? error.message
+          : 'Verification failed'
     return {
       valid: false,
       address: siweMessage.address as Address,

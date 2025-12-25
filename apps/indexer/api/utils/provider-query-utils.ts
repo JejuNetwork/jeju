@@ -54,7 +54,7 @@ export async function getProviders(
       ...compute.map((p) => ({
         type: 'compute' as const,
         address: p.address,
-        name: p.name || 'Compute Provider',
+        name: p.name ?? 'Compute Provider',
         endpoint: p.endpoint,
         agentId: p.agentId ?? null,
         isActive: p.isActive,

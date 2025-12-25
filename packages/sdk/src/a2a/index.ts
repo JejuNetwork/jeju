@@ -9,6 +9,7 @@ import {
   A2AStreamMessageSchema,
   AgentCardSchema,
   AgentsListSchema,
+  AppsListResponseSchema,
   JNSRecordsResponseSchema,
 } from '../shared/schemas'
 import type { JejuWallet } from '../wallet'

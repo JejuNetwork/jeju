@@ -50,7 +50,7 @@ export function useCanPerformAction(): {
   if (banStatus.isBanned && banStatus.banType === BanType.PERMANENT) {
     return {
       canAct: false,
-      reason: banStatus.reason || 'Account banned',
+      reason: banStatus.reason ?? 'Account banned',
       loading: false,
     }
   }

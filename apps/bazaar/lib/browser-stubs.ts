@@ -261,8 +261,8 @@ export function createIPFSClient(config: {
   gatewayUrl?: string
   pinataJwt?: string
 }): IPFSClient {
-  const gatewayUrl = config.gatewayUrl || 'https://ipfs.io/ipfs'
-  const apiUrl = config.apiUrl || 'https://api.pinata.cloud'
+  const gatewayUrl = config.gatewayUrl ?? 'https://ipfs.io/ipfs'
+  const apiUrl = config.apiUrl ?? 'https://api.pinata.cloud'
   const envJwt =
     typeof import.meta.env !== 'undefined'
       ? import.meta.env.VITE_PINATA_JWT

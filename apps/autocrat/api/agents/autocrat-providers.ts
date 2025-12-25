@@ -26,6 +26,7 @@ import { expectValid } from '@jejunetwork/types'
 import type { z } from 'zod'
 import {
   A2AJsonRpcResponseSchema,
+  type AgentCard,
   AgentCardSchema,
   AutocratVotesDataSchema,
   CEOStatusDataSchema,
@@ -107,20 +108,12 @@ async function callA2ATyped<T>(
   return expectValid(schema, data, `A2A ${skillId} data`)
 }
 
-interface AgentCard {
-  protocolVersion: string
-  name: string
-  description: string
-  url: string
-  skills: Array<{ id: string; name: string; description: string }>
-}
-
 async function fetchAgentCard(baseUrl: string): Promise<AgentCard | null> {
   const cardUrl = `${baseUrl.replace('/a2a', '')}/.well-known/agent-card.json`
   const response = await fetch(cardUrl)
   if (!response.ok) return null
   const result = AgentCardSchema.safeParse(await response.json())
-  return result.success ? (result.data as AgentCard) : null
+  return result.success ? result.data : null
 }
 
 /**
@@ -150,7 +143,7 @@ export const serviceDiscoveryProvider: Provider = {
       if (isA2A) {
         const card = await fetchAgentCard(service.url)
         if (card) {
-          const skills = card.skills?.map((s) => s.id) ?? []
+          const skills = card.skills.map((s) => s.id)
           services.push({ name, url: service.url, status: 'online', skills })
         } else {
           services.push({ name, url: service.url, status: 'offline' })
@@ -335,7 +328,7 @@ Status: ${proposal.status}
 Proposer: ${proposal.proposer}
 Type: ${proposal.proposalType}
 Quality Score: ${proposal.qualityScore}/100
-Content Hash: ${proposal.contentHash?.slice(0, 20)}...
+Content Hash: ${proposal.contentHash.slice(0, 20)}...
 Research Available: ${proposal.hasResearch ? 'Yes' : 'No'}
 
 Use this information to inform your deliberation vote.`,
@@ -401,7 +394,7 @@ export const mcpToolsProvider: Provider = {
         await autocratResponse.json(),
         'Autocrat MCP tools',
       )
-      for (const tool of autocratData.tools ?? []) {
+      for (const tool of autocratData.tools) {
         tools.push({ source: 'autocrat', ...tool })
       }
     }
@@ -414,7 +407,7 @@ export const mcpToolsProvider: Provider = {
         await ceoResponse.json(),
         'CEO MCP tools',
       )
-      for (const tool of ceoData.tools ?? []) {
+      for (const tool of ceoData.tools) {
         tools.push({ source: 'ceo', ...tool })
       }
     }
@@ -469,7 +462,7 @@ export const a2aSkillsProvider: Provider = {
 
     // Fetch from autocrat
     const autocratCard = await fetchAgentCard(getAutocratA2A())
-    if (autocratCard?.skills) {
+    if (autocratCard) {
       for (const skill of autocratCard.skills) {
         skills.push({ agent: 'autocrat', ...skill })
       }
@@ -477,7 +470,7 @@ export const a2aSkillsProvider: Provider = {
 
     // Fetch from CEO
     const ceoCard = await fetchAgentCard(getCEOA2A())
-    if (ceoCard?.skills) {
+    if (ceoCard) {
       for (const skill of ceoCard.skills) {
         skills.push({ agent: 'ceo', ...skill })
       }

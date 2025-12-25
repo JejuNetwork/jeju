@@ -1,4 +1,3 @@
-import { readContract } from '@jejunetwork/contracts'
 import {
   type Address,
   type Chain,
@@ -7,6 +6,11 @@ import {
   type PublicClient,
 } from 'viem'
 import { arbitrum, mainnet, optimism, sepolia } from 'viem/chains'
+import { z } from 'zod'
+
+const CoinGeckoResponseSchema = z.object({
+  ethereum: z.object({ usd: z.number() }),
+})
 
 interface StrategyConfig {
   minProfitBps: number

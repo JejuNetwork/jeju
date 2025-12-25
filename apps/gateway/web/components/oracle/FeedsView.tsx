@@ -143,7 +143,12 @@ function FeedCard({ feedId, isSelected, onSelect }: FeedCardProps) {
                 )}
               </div>
               <div className="flex items-center justify-end gap-2 text-xs text-gray-500">
-                <span>±{formatConfidence(confidence ?? 0n)}</span>
+                <span>
+                  ±
+                  {confidence !== undefined
+                    ? formatConfidence(confidence)
+                    : '—'}
+                </span>
                 <span>•</span>
                 <ClockIcon size={12} />
                 <span>{timestamp ? formatTimeAgo(timestamp) : 'never'}</span>
@@ -203,12 +208,16 @@ function FeedDetailsPanel({ feedId, onClose }: FeedDetailsPanelProps) {
         </div>
         <div>
           <div className="text-xs text-gray-500 mb-1">Current Round</div>
-          <div className="font-mono">{currentRound?.toString() ?? '0'}</div>
+          <div className="font-mono">
+            {currentRound !== undefined ? currentRound.toString() : '—'}
+          </div>
         </div>
         <div>
           <div className="text-xs text-gray-500 mb-1">Oracle Count</div>
           <div className="font-mono">
-            {consensusPrice?.oracleCount?.toString() ?? '0'}
+            {consensusPrice?.oracleCount !== undefined
+              ? consensusPrice.oracleCount.toString()
+              : '—'}
           </div>
         </div>
         <div>

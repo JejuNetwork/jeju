@@ -370,7 +370,7 @@ class SimulationService {
     return {
       address,
       name: knownName,
-      method: method || 'unknown',
+      method: method ?? 'unknown',
       verified: !!knownName, // In production, check etherscan API
       isProxy: false, // In production, detect proxy patterns
       riskLevel: knownName ? 'safe' : 'low',
@@ -394,10 +394,10 @@ class SimulationService {
           inputs: [],
           outputs: [{ type: 'string' }],
         },
-      ],
+      ] as const,
       functionName: 'symbol',
     })
-    return symbol as string
+    return symbol
   }
 
   /**

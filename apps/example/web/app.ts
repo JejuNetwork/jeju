@@ -209,7 +209,7 @@ async function getAuthenticatedClient(): Promise<ApiClient> {
 }
 
 function validateTitle(title: string): string {
-  if (!title || typeof title !== 'string' || title.trim().length === 0) {
+  if (!title || title.trim().length === 0) {
     throw new Error('Title is required and cannot be empty')
   }
   if (title.length > 500) {
@@ -260,11 +260,8 @@ async function createTodo(
 }
 
 async function toggleTodo(id: string, completed: boolean): Promise<void> {
-  if (!id || typeof id !== 'string' || id.trim().length === 0) {
+  if (!id || id.trim().length === 0) {
     throw new Error('Todo ID is required')
-  }
-  if (typeof completed !== 'boolean') {
-    throw new Error('Completed must be a boolean')
   }
 
   const client = await getAuthenticatedClient()
@@ -273,7 +270,7 @@ async function toggleTodo(id: string, completed: boolean): Promise<void> {
 }
 
 async function deleteTodo(id: string): Promise<void> {
-  if (!id || typeof id !== 'string' || id.trim().length === 0) {
+  if (!id || id.trim().length === 0) {
     throw new Error('Todo ID is required')
   }
 
@@ -283,7 +280,7 @@ async function deleteTodo(id: string): Promise<void> {
 }
 
 async function encryptTodo(id: string): Promise<void> {
-  if (!id || typeof id !== 'string' || id.trim().length === 0) {
+  if (!id || id.trim().length === 0) {
     throw new Error('Todo ID is required')
   }
 

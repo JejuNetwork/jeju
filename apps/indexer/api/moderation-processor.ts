@@ -12,7 +12,39 @@ import {
   ReportStatus,
   ReportType,
 } from './model'
-import { decodeLog } from './utils/hex'
+import { decodeEventArgs } from './utils/hex'
+
+// Decoded event argument types
+interface NetworkBanAppliedArgs {
+  agentId: bigint
+  reason: string
+  proposalId: Hex
+}
+
+interface NetworkBanRemovedArgs {
+  agentId: bigint
+}
+
+interface AppBanAppliedArgs {
+  agentId: bigint
+  appId: Hex
+  reason: string
+  proposalId: Hex
+}
+
+interface ReportSubmittedArgs {
+  reportId: bigint
+  reportType: number
+  severity: number
+  targetAgentId: bigint
+  sourceAppId: Hex
+  reporter: Address
+}
+
+interface ReportResolvedArgs {
+  reportId: bigint
+  status: number
+}
 
 // Subsquid log type for compatibility
 interface SubsquidLog {
@@ -191,19 +223,12 @@ export async function processNetworkBanApplied(
   timestamp: Date,
   txHash: string,
 ): Promise<void> {
-  const decoded = decodeLog({
-    abi: BAN_MANAGER_ABI,
-    data: log.data,
-    topics: log.topics,
-  })
-
-  if (decoded.eventName !== 'NetworkBanApplied') return
-
-  const { agentId, reason, proposalId } = decoded.args as {
-    agentId: bigint
-    reason: string
-    proposalId: Hex
-  }
+  const { agentId, reason, proposalId } =
+    decodeEventArgs<NetworkBanAppliedArgs>(
+      BAN_MANAGER_ABI,
+      log.data,
+      log.topics,
+    )
 
   // Update agent ban status
   const agent = await store.get(RegisteredAgent, { where: { agentId } })
@@ -237,15 +262,11 @@ export async function processNetworkBanRemoved(
   timestamp: Date,
   txHash: string,
 ): Promise<void> {
-  const decoded = decodeLog({
-    abi: BAN_MANAGER_ABI,
-    data: log.data,
-    topics: log.topics,
-  })
-
-  if (decoded.eventName !== 'NetworkBanRemoved') return
-
-  const { agentId } = decoded.args as { agentId: bigint }
+  const { agentId } = decodeEventArgs<NetworkBanRemovedArgs>(
+    BAN_MANAGER_ABI,
+    log.data,
+    log.topics,
+  )
 
   // Update agent ban status
   const agent = await store.get(RegisteredAgent, { where: { agentId } })
@@ -277,20 +298,8 @@ export async function processAppBanApplied(
   timestamp: Date,
   txHash: string,
 ): Promise<void> {
-  const decoded = decodeLog({
-    abi: BAN_MANAGER_ABI,
-    data: log.data,
-    topics: log.topics,
-  })
-
-  if (decoded.eventName !== 'AppBanApplied') return
-
-  const { agentId, appId, reason, proposalId } = decoded.args as {
-    agentId: bigint
-    appId: Hex
-    reason: string
-    proposalId: Hex
-  }
+  const { agentId, appId, reason, proposalId } =
+    decodeEventArgs<AppBanAppliedArgs>(BAN_MANAGER_ABI, log.data, log.topics)
 
   const agent = await store.get(RegisteredAgent, { where: { agentId } })
   if (!agent) {
@@ -320,23 +329,12 @@ export async function processReportSubmitted(
   timestamp: Date,
   _txHash: string,
 ): Promise<void> {
-  const decoded = decodeLog({
-    abi: REPORTING_SYSTEM_ABI,
-    data: log.data,
-    topics: log.topics,
-  })
-
-  if (decoded.eventName !== 'ReportSubmitted') return
-
   const { reportId, reportType, severity, targetAgentId, reporter } =
-    decoded.args as {
-      reportId: bigint
-      reportType: number
-      severity: number
-      targetAgentId: bigint
-      sourceAppId: Hex
-      reporter: Address
-    }
+    decodeEventArgs<ReportSubmittedArgs>(
+      REPORTING_SYSTEM_ABI,
+      log.data,
+      log.topics,
+    )
 
   const report = new ModerationReport()
   report.id = reportId.toString()
@@ -359,18 +357,11 @@ export async function processReportResolved(
   _timestamp: Date,
   _txHash: string,
 ): Promise<void> {
-  const decoded = decodeLog({
-    abi: REPORTING_SYSTEM_ABI,
-    data: log.data,
-    topics: log.topics,
-  })
-
-  if (decoded.eventName !== 'ReportResolved') return
-
-  const { reportId, status } = decoded.args as {
-    reportId: bigint
-    status: number
-  }
+  const { reportId, status } = decodeEventArgs<ReportResolvedArgs>(
+    REPORTING_SYSTEM_ABI,
+    log.data,
+    log.topics,
+  )
 
   const report = await store.get(ModerationReport, reportId.toString())
   if (report) {

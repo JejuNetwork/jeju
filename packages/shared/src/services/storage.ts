@@ -8,7 +8,6 @@ import { expectValid } from '@jejunetwork/types'
 import type { Address } from 'viem'
 import { z } from 'zod'
 import { StorageUploadResponseSchema } from '../schemas'
-import type { ProtocolValue } from '../types'
 
 export type StorageTier = 'hot' | 'warm' | 'cold' | 'permanent'
 
@@ -145,9 +144,8 @@ class StorageServiceImpl implements StorageService {
     const data = await this.retrieve(cid)
     const text = new TextDecoder().decode(data)
 
-    // Parse JSON - safe as JSON.parse doesn't execute code
-    // Use ProtocolValue which covers all valid JSON types
-    const parsed = JSON.parse(text) as ProtocolValue
+    // Parse JSON - result is unknown until validated
+    const parsed: unknown = JSON.parse(text)
 
     // If schema provided, validate the parsed data
     if (schema) {
@@ -161,6 +159,7 @@ class StorageServiceImpl implements StorageService {
     }
 
     // Without schema, return as-is but warn in development
+    // Caller is responsible for type safety
     if (process.env.NODE_ENV !== 'production') {
       console.warn(
         `[Storage] Retrieving JSON from CID ${cid} without schema validation - consider providing a Zod schema for security`,

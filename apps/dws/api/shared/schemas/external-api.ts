@@ -114,6 +114,48 @@ export const ArweaveUploadResponseSchema = z.object({
   id: z.string(),
   timestamp: z.number().optional(),
 })
+
+export const ArweaveStatusResponseSchema = z.object({
+  number_of_confirmations: z.number().optional(),
+  block_height: z.number().optional(),
+})
+
+export const ArweaveGraphqlResponseSchema = z.object({
+  data: z
+    .object({
+      transactions: z
+        .object({
+          edges: z
+            .array(
+              z.object({
+                node: z.object({
+                  id: z.string(),
+                  tags: z
+                    .array(z.object({ name: z.string(), value: z.string() }))
+                    .optional(),
+                }),
+              }),
+            )
+            .optional(),
+        })
+        .optional(),
+    })
+    .optional(),
+})
+
+export const ArweaveRateResponseSchema = z.object({
+  arweave: z.object({ usd: z.number().optional() }).optional(),
+})
+
+export const ArweaveTransactionSchema = z.object({
+  id: z.string(),
+  owner: z.string(),
+  target: z.string(),
+  quantity: z.string(),
+  data: z.string(),
+  tags: z.array(z.object({ name: z.string(), value: z.string() })),
+  signature: z.string(),
+})
 export const ActivityPubActorSchema = z.object({
   '@context': z.union([z.string(), z.array(z.string())]),
   id: z.string(),

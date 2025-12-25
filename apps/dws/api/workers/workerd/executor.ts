@@ -142,7 +142,7 @@ export class WorkerdExecutor implements IWorkerdExecutor {
       await this.extractTarball(result.content, codeDir)
     } else {
       // Single file, write as main module
-      const mainFile = worker.mainModule || 'worker.js'
+      const mainFile = worker.mainModule ?? 'worker.js'
       let code = Buffer.from(result.content).toString('utf-8')
 
       // Wrap if needed
@@ -274,7 +274,7 @@ export class WorkerdExecutor implements IWorkerdExecutor {
       workerdProcess.status = 'error'
       instance.status = 'error'
       worker.status = 'error'
-      const errorMsg = stderrChunks.join('').trim() || 'Unknown error'
+      const errorMsg = stderrChunks.join('').trim() ?? 'Unknown error'
       worker.error = `Failed to start workerd process: ${errorMsg}`
       console.error(`[WorkerdExecutor] Failed to start: ${errorMsg}`)
       throw new Error(`Workerd process failed to start: ${errorMsg}`)
@@ -549,7 +549,7 @@ export class WorkerdExecutor implements IWorkerdExecutor {
     durationMs: number,
     isError = false,
   ): void {
-    const durations = this.metrics.get(workerId) || []
+    const durations = this.metrics.get(workerId) ?? []
     durations.push(durationMs)
     if (durations.length > 1000) {
       durations.shift()
@@ -613,7 +613,7 @@ export class WorkerdExecutor implements IWorkerdExecutor {
   }
 
   getMetrics(workerId: string): WorkerdMetrics {
-    const durations = this.metrics.get(workerId) || []
+    const durations = this.metrics.get(workerId) ?? []
     const sorted = [...durations].sort((a, b) => a - b)
     const instance = this.instances.get(workerId)
     const errors = this.errorMetrics.get(workerId) ?? 0
@@ -626,15 +626,15 @@ export class WorkerdExecutor implements IWorkerdExecutor {
         durations.length > 0
           ? durations.reduce((a, b) => a + b, 0) / durations.length
           : 0,
-      p50DurationMs: sorted[Math.floor(sorted.length * 0.5)] || 0,
-      p95DurationMs: sorted[Math.floor(sorted.length * 0.95)] || 0,
-      p99DurationMs: sorted[Math.floor(sorted.length * 0.99)] || 0,
+      p50DurationMs: sorted[Math.floor(sorted.length * 0.5)] ?? 0,
+      p95DurationMs: sorted[Math.floor(sorted.length * 0.95)] ?? 0,
+      p99DurationMs: sorted[Math.floor(sorted.length * 0.99)] ?? 0,
       avgCpuTimeMs: 0,
       coldStarts: 0,
       warmStarts: durations.length,
       wallTimeMs: instance ? Date.now() - instance.startedAt : 0,
-      cpuTimeMs: instance?.cpuTimeMs || 0,
-      memoryUsedMb: instance?.memoryUsedMb || 0,
+      cpuTimeMs: instance?.cpuTimeMs ?? 0,
+      memoryUsedMb: instance?.memoryUsedMb ?? 0,
     }
   }
 

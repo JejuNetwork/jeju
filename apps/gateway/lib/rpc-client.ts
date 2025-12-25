@@ -53,8 +53,8 @@ export class RPCClient {
   constructor(config: RPCClientConfig = {}) {
     this.config = {
       gatewayUrl: config.gatewayUrl || DEFAULT_GATEWAY_URL,
-      apiKey: config.apiKey || '',
-      walletAddress: config.walletAddress || '',
+      apiKey: config.apiKey ?? '',
+      walletAddress: config.walletAddress ?? '',
       timeout: config.timeout || DEFAULT_TIMEOUT,
       maxRetries: config.maxRetries || DEFAULT_MAX_RETRIES,
     }

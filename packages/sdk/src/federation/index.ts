@@ -365,15 +365,15 @@ export async function createFederationClient(
     },
 
     async canParticipateInConsensus(chainId: number): Promise<boolean> {
-      return networkRegistry.read.canParticipateInConsensus([
+      return (await networkRegistry.read.canParticipateInConsensus([
         BigInt(chainId),
-      ]) as Promise<boolean>
+      ])) as boolean
     },
 
     async isSequencerEligible(chainId: number): Promise<boolean> {
-      return networkRegistry.read.isSequencerEligible([
+      return (await networkRegistry.read.isSequencerEligible([
         BigInt(chainId),
-      ]) as Promise<boolean>
+      ])) as boolean
     },
 
     // Registry Hub methods
@@ -461,7 +461,7 @@ export async function createFederationClient(
           contracts,
           '0x0000000000000000000000000000000000000000000000000000000000000000',
         ],
-        value: params.stake || 0n,
+        value: params.stake ?? 0n,
         chain: null,
       })
 

@@ -46,8 +46,9 @@ export class JejuService extends Service {
     // Get configuration - support both JEJU_ and NETWORK_ prefixes
     const privateKey = (runtime.getSetting('NETWORK_PRIVATE_KEY') ||
       runtime.getSetting('JEJU_PRIVATE_KEY')) as Hex | undefined
-    const mnemonic = (runtime.getSetting('NETWORK_MNEMONIC') ||
-      runtime.getSetting('JEJU_MNEMONIC')) as string | undefined
+    const mnemonic =
+      runtime.getSetting('NETWORK_MNEMONIC') ||
+      runtime.getSetting('JEJU_MNEMONIC')
     const networkSetting =
       runtime.getSetting('NETWORK_TYPE') || runtime.getSetting('JEJU_NETWORK')
     const network: NetworkType =

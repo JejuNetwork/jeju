@@ -52,8 +52,8 @@ class NFTService {
         tokenId: BigInt(nft.tokenId),
         chainId: 31337 as SupportedChainId, // Default to localnet; indexer will provide actual chainId
         name: nft.metadata?.name || `#${nft.tokenId}`,
-        description: nft.metadata?.description || '',
-        imageUrl: this.resolveImageUrl(nft.metadata?.image || ''),
+        description: nft.metadata?.description ?? '',
+        imageUrl: this.resolveImageUrl(nft.metadata?.image ?? ''),
         tokenUri: nft.tokenUri || undefined,
         standard: 'ERC721',
         balance: 1n,
@@ -86,7 +86,7 @@ class NFTService {
         collections.set(key, {
           address: nft.contractAddress,
           chainId: nft.chainId,
-          name: nft.collectionName || 'Unknown',
+          name: nft.collectionName ?? 'Unknown',
           symbol: '',
           nfts: [nft],
         })

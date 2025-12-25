@@ -16,7 +16,7 @@ COPY packages/shared/package.json ./packages/shared/
 COPY packages/db/package.json ./packages/db/
 COPY packages/kms/package.json ./packages/kms/
 COPY packages/sdk/package.json ./packages/sdk/
-COPY packages/oauth3/package.json ./packages/oauth3/
+COPY packages/auth/package.json ./packages/auth/
 COPY apps/dws/package.json ./apps/dws/
 
 # Install all dependencies (not using --frozen-lockfile because we're copying a subset of the monorepo)
@@ -29,7 +29,7 @@ COPY packages/shared/ ./packages/shared/
 COPY packages/db/ ./packages/db/
 COPY packages/kms/ ./packages/kms/
 COPY packages/sdk/ ./packages/sdk/
-COPY packages/oauth3/ ./packages/oauth3/
+COPY packages/auth/ ./packages/auth/
 COPY apps/dws/ ./apps/dws/
 COPY tsconfig.json ./
 

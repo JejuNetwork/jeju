@@ -365,7 +365,7 @@ export function useJNSLookup() {
       }
 
       const { data } = await response.json()
-      const names = data?.jnsNames || []
+      const names = data?.jnsNames ?? []
 
       return names.map(
         (n: { name: string; owner: string; expiresAt: string }) => ({

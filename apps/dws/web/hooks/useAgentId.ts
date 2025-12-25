@@ -87,7 +87,7 @@ export function useAgentId() {
   return {
     hasAgent,
     agentId: agentId !== undefined ? Number(agentId) : null,
-    tokenURI: tokenURI as string | undefined,
+    tokenURI,
     isLoading,
   }
 }

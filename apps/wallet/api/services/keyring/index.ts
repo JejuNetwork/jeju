@@ -262,7 +262,7 @@ class KeyringService {
     const watchAccount: WatchAccount = {
       address,
       type: 'watch',
-      name: name || 'Watch Account',
+      name: name ?? 'Watch Account',
       createdAt: Date.now(),
     }
 

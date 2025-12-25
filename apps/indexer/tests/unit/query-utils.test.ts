@@ -167,6 +167,21 @@ function validateCrossServiceRequestsQueryOptions(
   }
 }
 
+// Test helpers for passing invalid inputs
+interface RawQueryOptions {
+  limit?: unknown
+  offset?: unknown
+  [key: string]: unknown
+}
+
+function validateContractsQueryOptionsRaw(options: RawQueryOptions): void {
+  validateContractsQueryOptions(options as ContractsQueryOptions)
+}
+
+function validateOracleFeedsQueryOptionsRaw(options: RawQueryOptions): void {
+  validateOracleFeedsQueryOptions(options as OracleFeedsQueryOptions)
+}
+
 describe('Contracts Query Options Validation', () => {
   describe('limit validation', () => {
     it('should accept valid positive limits', () => {
@@ -192,16 +207,14 @@ describe('Contracts Query Options Validation', () => {
     })
 
     it('should reject non-number limit', () => {
+      expect(() => validateContractsQueryOptionsRaw({ limit: 'abc' })).toThrow(
+        'Invalid limit',
+      )
+      expect(() => validateContractsQueryOptionsRaw({ limit: null })).toThrow(
+        'Invalid limit',
+      )
       expect(() =>
-        validateContractsQueryOptions({ limit: 'abc' as unknown as number }),
-      ).toThrow('Invalid limit')
-      expect(() =>
-        validateContractsQueryOptions({ limit: null as unknown as number }),
-      ).toThrow('Invalid limit')
-      expect(() =>
-        validateContractsQueryOptions({
-          limit: undefined as unknown as number,
-        }),
+        validateContractsQueryOptionsRaw({ limit: undefined }),
       ).toThrow('Invalid limit')
     })
 
@@ -667,46 +680,31 @@ describe('Pagination Edge Cases', () => {
 describe('Type Coercion Scenarios', () => {
   it('should reject string numbers as limit', () => {
     expect(() =>
-      validateOracleFeedsQueryOptions({
-        limit: '10' as unknown as number,
-        offset: 0,
-      }),
+      validateOracleFeedsQueryOptionsRaw({ limit: '10', offset: 0 }),
     ).toThrow('Invalid limit')
   })
 
   it('should reject string numbers as offset', () => {
     expect(() =>
-      validateOracleFeedsQueryOptions({
-        limit: 10,
-        offset: '0' as unknown as number,
-      }),
+      validateOracleFeedsQueryOptionsRaw({ limit: 10, offset: '0' }),
     ).toThrow('Invalid offset')
   })
 
   it('should reject boolean as limit', () => {
     expect(() =>
-      validateOracleFeedsQueryOptions({
-        limit: true as unknown as number,
-        offset: 0,
-      }),
+      validateOracleFeedsQueryOptionsRaw({ limit: true, offset: 0 }),
     ).toThrow('Invalid limit')
   })
 
   it('should reject object as limit', () => {
     expect(() =>
-      validateOracleFeedsQueryOptions({
-        limit: {} as unknown as number,
-        offset: 0,
-      }),
+      validateOracleFeedsQueryOptionsRaw({ limit: {}, offset: 0 }),
     ).toThrow('Invalid limit')
   })
 
   it('should reject array as limit', () => {
     expect(() =>
-      validateOracleFeedsQueryOptions({
-        limit: [10] as unknown as number,
-        offset: 0,
-      }),
+      validateOracleFeedsQueryOptionsRaw({ limit: [10], offset: 0 }),
     ).toThrow('Invalid limit')
   })
 })

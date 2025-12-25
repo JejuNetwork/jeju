@@ -138,13 +138,12 @@ function updateEnvFile(_network: string, state: DeploymentState): void {
 
   // Update contract addresses
   const updates: Record<string, string> = {
-    SEQUENCER_REGISTRY_ADDRESS: (state.sequencerRegistry as string) || '',
-    THRESHOLD_BATCH_SUBMITTER_ADDRESS:
-      (state.thresholdBatchSubmitter as string) || '',
-    DISPUTE_GAME_FACTORY_ADDRESS: (state.disputeGameFactory as string) || '',
-    PROVER_ADDRESS: (state.prover as string) || '',
-    PROXY_REGISTRY_ADDRESS: (state.proxyRegistry as string) || '',
-    PROXY_PAYMENT_ADDRESS: (state.proxyPayment as string) || '',
+    SEQUENCER_REGISTRY_ADDRESS: state.sequencerRegistry ?? '',
+    THRESHOLD_BATCH_SUBMITTER_ADDRESS: state.thresholdBatchSubmitter ?? '',
+    DISPUTE_GAME_FACTORY_ADDRESS: state.disputeGameFactory ?? '',
+    PROVER_ADDRESS: state.prover ?? '',
+    PROXY_REGISTRY_ADDRESS: state.proxyRegistry ?? '',
+    PROXY_PAYMENT_ADDRESS: state.proxyPayment ?? '',
   }
 
   // Update or add each address

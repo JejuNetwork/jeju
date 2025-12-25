@@ -459,6 +459,23 @@ function mapCrossServiceRequestResponse(request: MockCrossServiceRequest) {
   }
 }
 
+// Test helpers for passing invalid inputs to mappers
+function mapAccountResponseRaw(value: unknown) {
+  return mapAccountResponse(value as MockAccount)
+}
+function mapContractResponseRaw(value: unknown) {
+  return mapContractResponse(value as MockContract)
+}
+function mapTokenTransferResponseRaw(value: unknown) {
+  return mapTokenTransferResponse(value as MockTokenTransfer)
+}
+function mapAgentSummaryRaw(value: unknown) {
+  return mapAgentSummary(value as MockAgent)
+}
+function mapProviderSummaryRaw(value: unknown, type: 'compute' | 'storage') {
+  return mapProviderSummary(value as MockProvider, type)
+}
+
 // Account Mapper Tests
 
 describe('Account Mappers', () => {
@@ -495,9 +512,7 @@ describe('Account Mappers', () => {
   })
 
   it('should throw on null account', () => {
-    expect(() => mapAccountResponse(null as unknown as MockAccount)).toThrow(
-      'Account is required',
-    )
+    expect(() => mapAccountResponseRaw(null)).toThrow('Account is required')
   })
 })
 
@@ -529,9 +544,7 @@ describe('Contract Mappers', () => {
   })
 
   it('should throw on null contract', () => {
-    expect(() => mapContractResponse(null as unknown as MockContract)).toThrow(
-      'Contract is required',
-    )
+    expect(() => mapContractResponseRaw(null)).toThrow('Contract is required')
   })
 })
 
@@ -574,9 +587,9 @@ describe('Token Transfer Mappers', () => {
   })
 
   it('should throw on null transfer', () => {
-    expect(() =>
-      mapTokenTransferResponse(null as unknown as MockTokenTransfer),
-    ).toThrow('TokenTransfer is required')
+    expect(() => mapTokenTransferResponseRaw(null)).toThrow(
+      'TokenTransfer is required',
+    )
   })
 })
 
@@ -623,9 +636,7 @@ describe('Agent Mappers', () => {
     })
 
     it('should throw on null agent', () => {
-      expect(() => mapAgentSummary(null as unknown as MockAgent)).toThrow(
-        'Agent is required',
-      )
+      expect(() => mapAgentSummaryRaw(null)).toThrow('Agent is required')
     })
   })
 
@@ -770,9 +781,9 @@ describe('Provider Mappers', () => {
   })
 
   it('should throw on null provider', () => {
-    expect(() =>
-      mapProviderSummary(null as unknown as MockProvider, 'compute'),
-    ).toThrow('Provider is required')
+    expect(() => mapProviderSummaryRaw(null, 'compute')).toThrow(
+      'Provider is required',
+    )
   })
 
   it('should throw on invalid type', () => {

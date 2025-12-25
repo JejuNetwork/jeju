@@ -124,9 +124,7 @@ export function asTradeAction(value: string): TradeAction {
 // ============================================================================
 
 function hasNameProperty(value: object): value is object & { name: string } {
-  return (
-    'name' in value && typeof (value as { name?: unknown }).name === 'string'
-  )
+  return 'name' in value && typeof value.name === 'string'
 }
 
 function isAgentCharacter(value: unknown): value is AgentCharacter {

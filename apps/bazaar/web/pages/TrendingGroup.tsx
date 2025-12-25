@@ -6,6 +6,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { z } from 'zod'
 import { LoadingSpinner } from '../components/LoadingSpinner'
 
 interface PostData {
@@ -15,8 +16,8 @@ interface PostData {
   authorName: string
   authorUsername?: string | null
   timestamp: string
-  likeCount?: number
-  commentCount?: number
+  likeCount: number
+  commentCount: number
 }
 
 interface TagInfo {
@@ -25,16 +26,33 @@ interface TagInfo {
   category: string | null
 }
 
-interface TrendingGroupResponse {
-  success: boolean
-  posts: PostData[]
-  tags: TagInfo[]
-}
+const TrendingGroupResponseSchema = z.object({
+  success: z.boolean(),
+  posts: z.array(
+    z.object({
+      id: z.string(),
+      content: z.string(),
+      authorId: z.string(),
+      authorName: z.string(),
+      authorUsername: z.string().nullable().optional(),
+      timestamp: z.string(),
+      likeCount: z.number(),
+      commentCount: z.number(),
+    }),
+  ),
+  tags: z.array(
+    z.object({
+      id: z.string(),
+      displayName: z.string(),
+      category: z.string().nullable(),
+    }),
+  ),
+})
 
 export default function TrendingGroupPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
-  const tagsParam = searchParams.get('tags') || ''
+  const tagsParam = searchParams.get('tags') ?? ''
 
   const { data, isLoading: loading } = useQuery({
     queryKey: ['trending', 'group', tagsParam],
@@ -51,13 +69,12 @@ export default function TrendingGroupPage() {
         return { posts: [], tags: [] }
       }
 
-      const result = (await response.json()) as TrendingGroupResponse
+      const result = TrendingGroupResponseSchema.parse(await response.json())
 
-      if (result.success) {
-        return { posts: result.posts || [], tags: result.tags || [] }
+      if (!result.success) {
+        throw new Error('API request failed')
       }
-
-      return { posts: [], tags: [] }
+      return { posts: result.posts, tags: result.tags }
     },
     enabled: !!tagsParam,
   })
@@ -131,8 +148,8 @@ export default function TrendingGroupPage() {
                 className="flex gap-4 mt-2 text-sm"
                 style={{ color: 'var(--text-tertiary)' }}
               >
-                <span>{post.likeCount || 0} likes</span>
-                <span>{post.commentCount || 0} comments</span>
+                <span>{post.likeCount} likes</span>
+                <span>{post.commentCount} comments</span>
               </div>
             </div>
           ))}

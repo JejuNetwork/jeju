@@ -476,16 +476,17 @@ export async function assessProposalFull(
   })
   // Validate structure matches QualityAssessment
   const data = extractData(response) as QualityAssessmentApiResponse
+  const criteria = data.criteria ?? {}
   return {
     overallScore: data.overallScore ?? 0,
     criteria: {
-      clarity: data.criteria?.clarity ?? 0,
-      completeness: data.criteria?.completeness ?? 0,
-      feasibility: data.criteria?.feasibility ?? 0,
-      alignment: data.criteria?.alignment ?? 0,
-      impact: data.criteria?.impact ?? 0,
-      riskAssessment: data.criteria?.riskAssessment ?? 0,
-      costBenefit: data.criteria?.costBenefit ?? 0,
+      clarity: criteria.clarity ?? 0,
+      completeness: criteria.completeness ?? 0,
+      feasibility: criteria.feasibility ?? 0,
+      alignment: criteria.alignment ?? 0,
+      impact: criteria.impact ?? 0,
+      riskAssessment: criteria.riskAssessment ?? 0,
+      costBenefit: criteria.costBenefit ?? 0,
     },
     feedback: data.feedback ?? [],
     suggestions: data.suggestions ?? [],

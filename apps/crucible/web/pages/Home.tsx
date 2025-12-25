@@ -79,14 +79,16 @@ export default function HomePage() {
             >
               {isLoading ? (
                 <span className="shimmer inline-block w-16 h-7 rounded" />
+              ) : !info ? (
+                '—'
               ) : stat.key === 'dwsAvailable' ? (
-                info?.dwsAvailable ? (
+                info.dwsAvailable ? (
                   '✓ Online'
                 ) : (
                   '✗ Offline'
                 )
               ) : (
-                String(info?.[stat.key] ?? '-')
+                String(info[stat.key])
               )}
             </p>
           </div>

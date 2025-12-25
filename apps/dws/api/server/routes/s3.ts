@@ -3,7 +3,9 @@
  * AWS S3 API compatibility layer for DWS storage
  */
 
+import { expectValid } from '@jejunetwork/types'
 import { Elysia, t } from 'elysia'
+import { completeMultipartXmlSchema } from '../../shared'
 import type { BackendManager } from '../../storage/backends'
 import { NotModifiedError, S3Backend, S3Error } from '../../storage/s3-backend'
 
@@ -87,7 +89,7 @@ export function createS3Router(backend: BackendManager) {
             Name: b.name,
             CreationDate: b.creationDate.toISOString(),
           })),
-          Owner: { ID: owner || 'anonymous' },
+          Owner: { ID: owner ?? 'anonymous' },
         }
       },
       {
@@ -103,8 +105,8 @@ export function createS3Router(backend: BackendManager) {
     .put(
       '/:bucket',
       async ({ params, headers }) => {
-        const owner = headers['x-jeju-address'] || 'anonymous'
-        const region = headers['x-amz-bucket-region'] || 'us-east-1'
+        const owner = headers['x-jeju-address'] ?? 'anonymous'
+        const region = headers['x-amz-bucket-region'] ?? 'us-east-1'
 
         await s3.createBucket(params.bucket, owner, region)
         return null
@@ -230,8 +232,11 @@ export function createS3Router(backend: BackendManager) {
         // Parse metadata headers
         const metadata: Record<string, string> = {}
         for (const [headerKey, value] of Object.entries(headers)) {
-          if (headerKey.toLowerCase().startsWith('x-amz-meta-')) {
-            metadata[headerKey.slice(11)] = value as string
+          if (
+            headerKey.toLowerCase().startsWith('x-amz-meta-') &&
+            typeof value === 'string'
+          ) {
+            metadata[headerKey.slice(11)] = value
           }
         }
 
@@ -431,11 +436,11 @@ export function createS3Router(backend: BackendManager) {
           typeof body === 'object' &&
           'CompleteMultipartUpload' in body
         ) {
-          const completeBody = body as {
-            CompleteMultipartUpload: {
-              Part: Array<{ PartNumber: number; ETag: string }>
-            }
-          }
+          const completeBody = expectValid(
+            completeMultipartXmlSchema,
+            body,
+            'Complete multipart upload body',
+          )
 
           const parts = completeBody.CompleteMultipartUpload.Part.map((p) => ({
             partNumber: p.PartNumber,

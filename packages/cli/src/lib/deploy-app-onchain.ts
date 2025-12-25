@@ -217,7 +217,7 @@ export async function deployAppOnchain(
 }
 
 async function buildApp(appDir: string, manifest: AppManifest): Promise<void> {
-  const buildCmd = manifest.commands?.build || 'bun run build'
+  const buildCmd = manifest.commands?.build ?? 'bun run build'
   logger.debug(`Building ${manifest.name}: ${buildCmd}`)
 
   try {

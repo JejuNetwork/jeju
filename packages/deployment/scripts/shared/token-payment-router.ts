@@ -307,10 +307,10 @@ export class TokenPaymentRouter {
 
     return {
       appAddress,
-      preferredToken: preference[1] as Address,
-      tokenSymbol: preference[2] as string,
-      allowFallback: preference[4] as boolean,
-      fallbackTokens: fallbacks as Address[],
+      preferredToken: preference[1],
+      tokenSymbol: preference[2],
+      allowFallback: preference[4],
+      fallbackTokens: fallbacks,
     }
   }
 

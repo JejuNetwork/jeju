@@ -274,7 +274,7 @@ export function PerpsView({ address }: PerpsViewProps) {
                     <span className="font-medium">
                       $
                       {perpsService.formatPrice(
-                        selectedMarketData.markPrice || 0n,
+                        selectedMarketData.markPrice ?? 0n,
                       )}
                     </span>
                   </div>
@@ -283,7 +283,7 @@ export function PerpsView({ address }: PerpsViewProps) {
                       Funding Rate (8h)
                     </span>
                     <span
-                      className={`font-medium ${Number(selectedMarketData.fundingRate || 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}
+                      className={`font-medium ${Number(selectedMarketData.fundingRate ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}
                     >
                       {selectedMarketData.fundingRate
                         ? (
@@ -460,10 +460,10 @@ export function PerpsView({ address }: PerpsViewProps) {
                   <tr key={market.marketId} className="hover:bg-secondary/30">
                     <td className="p-4 font-medium">{market.symbol}</td>
                     <td className="p-4 text-right">
-                      ${perpsService.formatPrice(market.markPrice || 0n)}
+                      ${perpsService.formatPrice(market.markPrice ?? 0n)}
                     </td>
                     <td
-                      className={`p-4 text-right ${Number(market.fundingRate || 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}
+                      className={`p-4 text-right ${Number(market.fundingRate ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}
                     >
                       {market.fundingRate
                         ? ((Number(market.fundingRate) / 1e18) * 100).toFixed(4)

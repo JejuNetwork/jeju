@@ -6,12 +6,13 @@
 
 import { Elysia, t } from 'elysia'
 import {
-  type BountySeverity,
+  BountySeveritySchema,
   type BountySubmissionDraft,
-  type BountySubmissionStatus,
+  BountySubmissionStatusSchema,
+  expectValid,
   toAddress,
-  type ValidationResult,
-  type VulnerabilityType,
+  ValidationResultSchema,
+  VulnerabilityTypeSchema,
 } from '../../lib'
 import { assessSubmission, getBugBountyService } from '../bug-bounty-service'
 import { getSandboxStats } from '../sandbox-executor'
@@ -61,7 +62,11 @@ export const bugBountyRoutes = new Elysia({ prefix: '/api/v1/bug-bounty' })
     async ({ query }) => {
       const service = getBugBountyService()
       const status = query.status
-        ? (parseInt(query.status, 10) as BountySubmissionStatus)
+        ? expectValid(
+            BountySubmissionStatusSchema,
+            parseInt(query.status, 10),
+            'submission status',
+          )
         : undefined
       const limit = query.limit ? parseInt(query.limit, 10) : 50
       const researcher = query.researcher
@@ -134,8 +139,12 @@ export const bugBountyRoutes = new Elysia({ prefix: '/api/v1/bug-bounty' })
         title: body.title,
         summary: body.summary,
         description: body.description,
-        severity: body.severity as BountySeverity,
-        vulnType: body.vulnType as VulnerabilityType,
+        severity: expectValid(BountySeveritySchema, body.severity, 'severity'),
+        vulnType: expectValid(
+          VulnerabilityTypeSchema,
+          body.vulnType,
+          'vulnerability type',
+        ),
         affectedComponents: body.affectedComponents,
         stepsToReproduce: body.stepsToReproduce,
         proofOfConcept: body.proofOfConcept,
@@ -173,8 +182,12 @@ export const bugBountyRoutes = new Elysia({ prefix: '/api/v1/bug-bounty' })
         title: body.title,
         summary: body.summary,
         description: body.description,
-        severity: body.severity as BountySeverity,
-        vulnType: body.vulnType as VulnerabilityType,
+        severity: expectValid(BountySeveritySchema, body.severity, 'severity'),
+        vulnType: expectValid(
+          VulnerabilityTypeSchema,
+          body.vulnType,
+          'vulnerability type',
+        ),
         affectedComponents: body.affectedComponents,
         stepsToReproduce: body.stepsToReproduce,
         proofOfConcept: body.proofOfConcept,
@@ -236,7 +249,7 @@ export const bugBountyRoutes = new Elysia({ prefix: '/api/v1/bug-bounty' })
 
       const submission = await service.completeValidation(
         params.id,
-        body.result as ValidationResult,
+        expectValid(ValidationResultSchema, body.result, 'validation result'),
         body.notes ?? '',
       )
 

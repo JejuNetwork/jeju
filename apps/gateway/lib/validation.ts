@@ -376,6 +376,20 @@ export const LeaderboardQuerySchema = z.object({
 })
 export type LeaderboardQuery = z.infer<typeof LeaderboardQuerySchema>
 
+// A2A Skill Params Schemas
+
+export const GetLeaderboardSkillParamsSchema = z
+  .object({
+    limit: z.coerce.number().int().min(1).max(100).default(10),
+  })
+  .passthrough()
+
+export const GetContributorProfileSkillParamsSchema = z
+  .object({
+    username: z.string().min(1),
+  })
+  .passthrough()
+
 export const A2AMessagePartSchema = z.object({
   kind: z.string(),
   text: z.string().nullable(),
@@ -1079,13 +1093,12 @@ export function toResponseData(data: unknown): JsonObject {
       'from' in data.transaction ||
       'data' in data.transaction)
   ) {
-    const txData = data as {
-      transaction: import('viem').TransactionRequest<bigint, number>
-      [key: string]: unknown
-    }
+    const dataObj = data as Record<string, unknown>
+    const transaction =
+      dataObj.transaction as import('viem').TransactionRequest<bigint, number>
     const serialized = serializeBigInts({
-      ...txData,
-      transaction: serializeTransactionRequest(txData.transaction),
+      ...dataObj,
+      transaction: serializeTransactionRequest(transaction),
     })
     return expectValid(JsonObjectSchema, serialized, 'response data')
   }

@@ -11,7 +11,6 @@
  */
 
 import { getCurrentNetwork, getPoCConfig } from '@jejunetwork/config'
-import { readContract } from '@jejunetwork/contracts'
 import {
   type Address,
   type Chain,
@@ -168,7 +167,7 @@ export class PoCRegistryClient {
   private async checkHardwareOnChain(
     hardwareIdHash: Hex,
   ): Promise<PoCRegistryEntry | null> {
-    const record = await readContract(this.publicClient, {
+    const record = await this.publicClient.readContract({
       address: this.validatorAddress,
       abi: VALIDATOR_ABI,
       functionName: 'getHardwareRecord',
@@ -243,15 +242,13 @@ export class PoCRegistryClient {
     hardwareIdHash: Hex
     expiresAt: number
   }> {
-    const [verified, level, hardwareIdHash, expiresAt] = await readContract(
-      this.publicClient,
-      {
+    const [verified, level, hardwareIdHash, expiresAt] =
+      await this.publicClient.readContract({
         address: this.validatorAddress,
         abi: VALIDATOR_ABI,
         functionName: 'getAgentStatus',
         args: [agentId],
-      },
-    )
+      })
 
     return {
       verified,
@@ -262,7 +259,7 @@ export class PoCRegistryClient {
   }
 
   async needsReverification(agentId: bigint): Promise<boolean> {
-    return readContract(this.publicClient, {
+    return this.publicClient.readContract({
       address: this.validatorAddress,
       abi: VALIDATOR_ABI,
       functionName: 'needsReverification',
@@ -289,9 +286,7 @@ export class PoCRegistryClient {
 
       const result = await this.request<RevocationFeed>(url, { method: 'GET' })
       if (!result.ok) {
-        errors.push(
-          `${endpoint}: ${(result as { ok: false; error: string }).error}`,
-        )
+        errors.push(`${endpoint}: ${result.error}`)
         continue
       }
       this.currentEndpointIndex = endpointIndex

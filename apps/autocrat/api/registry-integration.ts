@@ -1043,7 +1043,7 @@ export class RegistryIntegrationClient {
     if (banned) return 0
 
     // Normalize stake (max 100 ETH)
-    const stakedNum = typeof staked === 'bigint' ? Number(staked) : staked
+    const stakedNum = Number(staked)
     const oneEth = Number(parseEther('1'))
     const stakeScore = Math.min(100, stakedNum / oneEth)
 
@@ -1051,8 +1051,7 @@ export class RegistryIntegrationClient {
     const repScore = Number(reputation)
 
     // Activity score
-    const lastActivityNum =
-      typeof lastActivity === 'bigint' ? Number(lastActivity) : lastActivity
+    const lastActivityNum = Number(lastActivity)
     const daysSince = (Date.now() / 1000 - lastActivityNum) / 86400
     const activityScore = daysSince < 30 ? 100 : daysSince < 90 ? 50 : 10
 

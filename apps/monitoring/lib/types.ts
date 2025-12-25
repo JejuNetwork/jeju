@@ -238,8 +238,8 @@ export type A2ARequest = z.infer<typeof A2ARequestSchema>
 export type A2AResponse = z.infer<typeof A2AResponseSchema>
 
 const MCPRequestDataSchema = z.object({
-  skillId: z.string().optional(),
-  query: z.string().optional(),
+  skillId: z.string().default(''),
+  query: z.string().default(''),
   service: z.string().optional(),
   alertId: z.string().optional(),
 })
@@ -251,17 +251,22 @@ export const MCPRequestSchema = z.object({
     .object({
       message: z
         .object({
-          parts: z.array(
-            z.object({
-              kind: z.string(),
-              data: MCPRequestDataSchema.optional(),
-            }),
-          ),
+          parts: z
+            .array(
+              z.object({
+                kind: z.string(),
+                data: MCPRequestDataSchema.default({
+                  skillId: '',
+                  query: '',
+                }),
+              }),
+            )
+            .default([]),
           messageId: z.string().optional(),
         })
-        .optional(),
+        .default({ parts: [] }),
     })
-    .optional(),
+    .default({ message: { parts: [] } }),
 })
 
 export const MCPResourceReadSchema = z.object({

@@ -264,7 +264,7 @@ async function main() {
   let allOk = true
   for (const chainId of chainIds) {
     const chainData = chains[chainId.toString()]
-    const contracts = chainData?.contracts || {}
+    const contracts = chainData?.contracts ?? {}
 
     console.log(`--- ${CHAINS[chainId]?.name || `Chain ${chainId}`} ---`)
 

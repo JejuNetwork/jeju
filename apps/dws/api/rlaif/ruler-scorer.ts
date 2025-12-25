@@ -41,6 +41,75 @@ interface JudgeResponse {
   }>
 }
 
+const ManifestResponseSchema = z.object({
+  trajectoryCIDs: z.array(z.string()),
+})
+
+const ContentResponseSchema = z.object({
+  content: z.string(),
+})
+
+// JSON value schemas for complex nested types
+const JsonValueSchema: z.ZodType<unknown> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(JsonValueSchema),
+    z.record(z.string(), JsonValueSchema),
+  ]),
+)
+const JsonObjectSchema = z.record(z.string(), JsonValueSchema)
+
+const RLActionSchema = z.object({
+  type: z.string(),
+  parameters: JsonObjectSchema,
+  reasoning: z.string().optional(),
+})
+
+const LLMCallSchema = z.object({
+  model: z.string(),
+  systemPrompt: z.string(),
+  userPrompt: z.string(),
+  response: z.string(),
+  reasoning: z.string().optional(),
+  temperature: z.number(),
+  latencyMs: z.number(),
+  purpose: z.enum(['action', 'reasoning', 'evaluation', 'response', 'other']),
+})
+
+const TrajectoryStepSchema = z.object({
+  stepNumber: z.number(),
+  timestamp: z.number(),
+  observation: JsonObjectSchema,
+  action: RLActionSchema,
+  reward: z.number(),
+  done: z.boolean(),
+  logprobs: z.array(z.number()).optional(),
+  llmCalls: z.array(LLMCallSchema).optional(),
+})
+
+const RLTrajectoryMetadataSchema = z.object({
+  startTime: z.number(),
+  endTime: z.number(),
+  episodeLength: z.number(),
+  scenarioId: z.string().optional(),
+  windowId: z.string().optional(),
+  finalPnL: z.number().optional(),
+  archetype: z.string().optional(),
+})
+
+const TrajectorySchema = z.object({
+  id: z.string(),
+  environmentId: z.string(),
+  agentId: z.string(),
+  policyModelCID: z.string(),
+  steps: z.array(TrajectoryStepSchema),
+  totalReward: z.number(),
+  metadata: RLTrajectoryMetadataSchema,
+})
+
 const JudgeResponseSchema = z.object({
   scores: z.array(
     z.object({
@@ -106,7 +175,7 @@ export class RulerScorer {
       throw new Error(`Failed to load manifest: ${response.status}`)
     }
 
-    const manifest = (await response.json()) as { trajectoryCIDs: string[] }
+    const manifest = ManifestResponseSchema.parse(await response.json())
     const trajectories: Trajectory[] = []
 
     for (const cid of manifest.trajectoryCIDs) {
@@ -114,7 +183,10 @@ export class RulerScorer {
         `${this.config.computeApiUrl}/storage/get/${cid}`,
       )
       if (trajResponse.ok) {
-        trajectories.push((await trajResponse.json()) as Trajectory)
+        const parsed = TrajectorySchema.safeParse(await trajResponse.json())
+        if (parsed.success) {
+          trajectories.push(parsed.data as Trajectory)
+        }
       }
     }
 
@@ -371,7 +443,7 @@ ${rubric.description ? `Context: ${rubric.description}` : ''}`
       return null
     }
 
-    const result = (await response.json()) as { content: string }
+    const result = ContentResponseSchema.parse(await response.json())
     return this.parseJudgeResponse(result.content)
   }
 

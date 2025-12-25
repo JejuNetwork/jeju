@@ -17,7 +17,7 @@
  */
 
 import { createMPCClient } from '@jejunetwork/kms'
-import { Elysia } from 'elysia'
+import { Elysia, t } from 'elysia'
 import type { Address, Hex } from 'viem'
 import { keccak256, toBytes, toHex } from 'viem'
 import { z } from 'zod'
@@ -28,6 +28,9 @@ const CreateSignerBodySchema = z.object({
   appName: z.string(),
   appFid: z.number().optional(),
 })
+
+// Hub response schemas
+const FidResponseSchema = z.object({ fid: z.number().optional() })
 
 const SignMessageBodySchema = z.object({
   message: z.string(),
@@ -194,26 +197,32 @@ export function createFarcasterWorker(config: FarcasterWorkerConfig) {
         }
       })
 
-      .get('/signers', ({ query }) => {
-        const fid = query.fid ? parseInt(query.fid as string, 10) : undefined
+      .get(
+        '/signers',
+        ({ query }) => {
+          let signerList = Array.from(signers.values())
+          if (query.fid) {
+            signerList = signerList.filter((s) => s.fid === query.fid)
+          }
 
-        let signerList = Array.from(signers.values())
-        if (fid) {
-          signerList = signerList.filter((s) => s.fid === fid)
-        }
-
-        return {
-          signers: signerList.map((s) => ({
-            signerId: s.signerId,
-            fid: s.fid,
-            publicKey: s.publicKey,
-            appName: s.appName,
-            status: s.status,
-            createdAt: s.createdAt,
-            approvedAt: s.approvedAt,
-          })),
-        }
-      })
+          return {
+            signers: signerList.map((s) => ({
+              signerId: s.signerId,
+              fid: s.fid,
+              publicKey: s.publicKey,
+              appName: s.appName,
+              status: s.status,
+              createdAt: s.createdAt,
+              approvedAt: s.approvedAt,
+            })),
+          }
+        },
+        {
+          query: t.Object({
+            fid: t.Optional(t.Number()),
+          }),
+        },
+      )
 
       .get('/signers/:signerId', ({ params }) => {
         const signer = signers.get(params.signerId)
@@ -331,21 +340,33 @@ export function createFarcasterWorker(config: FarcasterWorkerConfig) {
         })
 
         // Submit to hub
-        const hubResponse = await fetch(`${hubUrl}/v1/submitMessage`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            data: messageData,
-            hash: messageHash,
-            hashScheme: 1, // HASH_SCHEME_BLAKE3
-            signature: signatureResult.signature,
-            signatureScheme: 1, // SIGNATURE_SCHEME_ED25519 (need to adapt for secp256k1)
-            signer: signer.publicKey,
-          }),
-        }).catch(() => null)
+        let hubSuccess = false
+        let hubError: string | undefined
+        try {
+          const hubResponse = await fetch(`${hubUrl}/v1/submitMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              data: messageData,
+              hash: messageHash,
+              hashScheme: 1, // HASH_SCHEME_BLAKE3
+              signature: signatureResult.signature,
+              signatureScheme: 1, // SIGNATURE_SCHEME_ED25519 (need to adapt for secp256k1)
+              signer: signer.publicKey,
+            }),
+          })
+          hubSuccess = hubResponse.ok
+          if (!hubResponse.ok) {
+            hubError = `Hub returned ${hubResponse.status}: ${hubResponse.statusText}`
+          }
+        } catch (error) {
+          hubError =
+            error instanceof Error ? error.message : 'Hub request failed'
+        }
 
         return {
-          success: hubResponse?.ok ?? false,
+          success: hubSuccess,
+          error: hubError,
           hash: messageHash,
           signerId: signer.signerId,
           fid: signer.fid,
@@ -402,16 +423,27 @@ export function createFarcasterWorker(config: FarcasterWorkerConfig) {
 
       .get('/fid/:address', async ({ params: { address } }) => {
         // Look up FID for an address via hub
-        const response = await fetch(
-          `${hubUrl}/v1/custodyAddressByFid?address=${address}`,
-        ).catch(() => null)
+        try {
+          const response = await fetch(
+            `${hubUrl}/v1/custodyAddressByFid?address=${address}`,
+          )
 
-        if (!response?.ok) {
-          return { fid: null }
+          if (!response.ok) {
+            return { fid: null, error: `Hub returned ${response.status}` }
+          }
+
+          const parsed = FidResponseSchema.safeParse(await response.json())
+          if (!parsed.success || typeof parsed.data.fid !== 'number') {
+            return { fid: null }
+          }
+          return { fid: parsed.data.fid }
+        } catch (error) {
+          return {
+            fid: null,
+            error:
+              error instanceof Error ? error.message : 'Hub request failed',
+          }
         }
-
-        const data = await response.json()
-        return { fid: data.fid ?? null }
       })
   )
 }

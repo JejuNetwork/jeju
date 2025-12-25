@@ -2,13 +2,14 @@
  * Proposal Routes
  */
 
-import { expectValid } from '@jejunetwork/types'
 import { Elysia, t } from 'elysia'
 import {
   A2AJsonRpcResponseSchema,
-  type CasualProposalCategory,
+  CasualProposalCategorySchema,
+  expectValid,
   extractA2AData,
-  type ProposalType,
+  ProposalTypeSchema,
+  QualityCriterionKeySchema,
   toHex,
 } from '../../lib'
 import { createAutocratA2AServer } from '../a2a-server'
@@ -36,8 +37,18 @@ function toProposalDraft(raw: {
     title: raw.title,
     summary: raw.summary,
     description: raw.description,
-    proposalType: raw.proposalType as ProposalType,
-    casualCategory: raw.casualCategory as CasualProposalCategory | undefined,
+    proposalType: expectValid(
+      ProposalTypeSchema,
+      raw.proposalType,
+      'proposal type',
+    ),
+    casualCategory: raw.casualCategory
+      ? expectValid(
+          CasualProposalCategorySchema,
+          raw.casualCategory,
+          'casual category',
+        )
+      : undefined,
     targetContract: raw.targetContract,
     callData: raw.calldata,
     value: raw.value,
@@ -111,7 +122,7 @@ export const proposalsRoutes = new Elysia({ prefix: '/api/v1/proposals' })
     async ({ body }) => {
       const draft = toProposalDraft({
         ...body,
-        proposalType: body.proposalType as ProposalType,
+        proposalType: body.proposalType,
         targetContract: body.targetContract
           ? toHex(body.targetContract)
           : undefined,
@@ -143,7 +154,7 @@ export const proposalsRoutes = new Elysia({ prefix: '/api/v1/proposals' })
     async ({ body }) => {
       const draft = toProposalDraft({
         ...body,
-        proposalType: body.proposalType as ProposalType,
+        proposalType: body.proposalType,
       })
       const duplicates = await proposalAssistant.checkDuplicates(draft)
       return { duplicates }
@@ -164,20 +175,14 @@ export const proposalsRoutes = new Elysia({ prefix: '/api/v1/proposals' })
     async ({ body }) => {
       const draft = toProposalDraft({
         ...body.draft,
-        proposalType: body.draft.proposalType as ProposalType,
+        proposalType: body.draft.proposalType,
       })
-      type QualityCriterion =
-        | 'clarity'
-        | 'completeness'
-        | 'feasibility'
-        | 'alignment'
-        | 'impact'
-        | 'riskAssessment'
-        | 'costBenefit'
-      const improved = await proposalAssistant.improveProposal(
-        draft,
-        body.criterion as QualityCriterion,
+      const criterion = expectValid(
+        QualityCriterionKeySchema,
+        body.criterion,
+        'criterion',
       )
+      const improved = await proposalAssistant.improveProposal(draft, criterion)
       return { improved }
     },
     {
@@ -219,7 +224,7 @@ export const proposalsRoutes = new Elysia({ prefix: '/api/v1/proposals' })
     async ({ body }) => {
       const draft = toProposalDraft({
         ...body,
-        proposalType: body.proposalType as ProposalType,
+        proposalType: body.proposalType,
       })
       const score = proposalAssistant.quickScore(draft)
       const contentHash = proposalAssistant.getContentHash(draft)

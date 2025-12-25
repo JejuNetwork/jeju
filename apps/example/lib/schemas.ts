@@ -119,7 +119,7 @@ export const listTodosQuerySchema = z.object({
     .optional(),
   offset: z
     .string()
-    .transform((val) => Math.max(parseInt(val, 10) || 0, 0))
+    .transform((val) => Math.max(parseInt(val, 10) ?? 0, 0))
     .optional(),
 })
 
@@ -251,34 +251,36 @@ export const a2AMessageSchema = z.object({
     .object({
       message: z
         .object({
-          messageId: z.string(),
-          parts: z.array(
-            z.union([
-              z.object({
-                kind: z.literal('text'),
-                text: z.string(),
-              }),
-              z.object({
-                kind: z.literal('data'),
-                data: z.record(
-                  z
-                    .string()
-                    .refine(
-                      (key) =>
-                        !['__proto__', 'constructor', 'prototype'].includes(
-                          key,
-                        ),
-                      { message: 'Invalid property name' },
-                    ),
-                  safeArgumentValueSchema,
-                ),
-              }),
-            ]),
-          ),
+          messageId: z.string().default(''),
+          parts: z
+            .array(
+              z.union([
+                z.object({
+                  kind: z.literal('text'),
+                  text: z.string(),
+                }),
+                z.object({
+                  kind: z.literal('data'),
+                  data: z.record(
+                    z
+                      .string()
+                      .refine(
+                        (key) =>
+                          !['__proto__', 'constructor', 'prototype'].includes(
+                            key,
+                          ),
+                        { message: 'Invalid property name' },
+                      ),
+                    safeArgumentValueSchema,
+                  ),
+                }),
+              ]),
+            )
+            .default([]),
         })
         .optional(),
     })
-    .optional(),
+    .default({ message: undefined }),
   id: z.union([z.string(), z.number()]),
 })
 

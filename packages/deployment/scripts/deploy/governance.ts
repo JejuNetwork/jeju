@@ -113,6 +113,12 @@ const SAFE_FACTORY_ABI = parseAbi([
   'event ProxyCreation(address proxy, address singleton)',
 ])
 
+/** ProxyCreation event args shape */
+interface ProxyCreationArgs {
+  proxy: Address
+  singleton: Address
+}
+
 const SAFE_ABI = parseAbi([
   'function setup(address[] calldata owners, uint256 threshold, address to, bytes calldata data, address fallbackHandler, address paymentToken, uint256 payment, address payable paymentReceiver)',
   'function enableModule(address module)',
@@ -285,8 +291,9 @@ async function main() {
           data: logs[0].data,
           topics: logs[0].topics,
         })
-        if (decoded.eventName === 'ProxyCreation' && 'proxy' in decoded.args) {
-          deployedAddresses.safe = getAddress(decoded.args.proxy as string)
+        if (decoded.eventName === 'ProxyCreation' && decoded.args) {
+          const args = decoded.args as ProxyCreationArgs
+          deployedAddresses.safe = getAddress(args.proxy)
         }
       }
 
@@ -326,7 +333,7 @@ async function main() {
     const receipt = await waitForTransactionReceipt(publicClient, { hash })
 
     const address =
-      receipt.contractAddress ||
+      receipt.contractAddress ??
       getContractAddress({ from: account.address, nonce: BigInt(nonce) })
     deployedAddresses.delegationRegistry = address
     console.log(
@@ -362,7 +369,7 @@ async function main() {
     const receipt = await waitForTransactionReceipt(publicClient, { hash })
 
     const address =
-      receipt.contractAddress ||
+      receipt.contractAddress ??
       getContractAddress({ from: account.address, nonce: BigInt(nonce) })
     deployedAddresses.circuitBreaker = address
     console.log(`  ✅ CircuitBreaker: ${deployedAddresses.circuitBreaker}`)
@@ -414,7 +421,7 @@ async function main() {
     const receipt = await waitForTransactionReceipt(publicClient, { hash })
 
     const address =
-      receipt.contractAddress ||
+      receipt.contractAddress ??
       getContractAddress({ from: account.address, nonce: BigInt(nonce) })
     deployedAddresses.councilSafeModule = address
     console.log(

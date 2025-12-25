@@ -20,6 +20,7 @@
  */
 
 import { feeConfigAbi } from '@jejunetwork/contracts'
+import { toBigInt } from '@jejunetwork/types'
 import type {
   Address,
   createPublicClient,
@@ -579,6 +580,8 @@ export const ceoFeeSkills = [
       appShareBps: 'App developer share (0-10000)',
       lpShareBps: 'Liquidity provider share (0-10000)',
       contributorShareBps: 'Contributor pool share (0-10000)',
+      ethLpShareBps: 'ETH LP share (default 7000 = 70%)',
+      tokenLpShareBps: 'Token LP share (default 3000 = 30%)',
     },
   },
   {
@@ -716,10 +719,21 @@ type SkillParams = {
   changeId?: Hex
 }
 
-type SkillResult = {
+export interface TxHashResult {
+  txHash: Hash
+}
+
+export type SkillResult = {
   success: boolean
-  result: FeeConfigState | { txHash: Hash } | null
+  result: FeeConfigState | TxHashResult | null
   error?: string
+}
+
+/** Type guard for transaction hash result */
+export function isTxHashResult(
+  result: SkillResult['result'],
+): result is TxHashResult {
+  return result !== null && 'txHash' in result
 }
 
 export async function executeCEOFeeSkill(
@@ -741,8 +755,8 @@ export async function executeCEOFeeSkill(
           appShareBps: Number(params.appShareBps),
           lpShareBps: Number(params.lpShareBps),
           contributorShareBps: Number(params.contributorShareBps),
-          ethLpShareBps: Number(params.ethLpShareBps || 7000),
-          tokenLpShareBps: Number(params.tokenLpShareBps || 3000),
+          ethLpShareBps: Number(params.ethLpShareBps ?? 7000),
+          tokenLpShareBps: Number(params.tokenLpShareBps ?? 3000),
         })
         return { success: true, result: { txHash: hash } }
       }
@@ -795,15 +809,11 @@ export async function executeCEOFeeSkill(
       }
 
       case 'set-names-fees': {
-        const baseRegistrationPrice = params.baseRegistrationPrice
-        if (baseRegistrationPrice === undefined) {
+        if (params.baseRegistrationPrice === undefined) {
           throw new Error('baseRegistrationPrice is required')
         }
         const hash = await ceoSetNamesFees({
-          baseRegistrationPrice:
-            typeof baseRegistrationPrice === 'bigint'
-              ? baseRegistrationPrice
-              : BigInt(baseRegistrationPrice),
+          baseRegistrationPrice: toBigInt(params.baseRegistrationPrice),
           agentDiscountBps: Number(params.agentDiscountBps),
           renewalDiscountBps: Number(params.renewalDiscountBps),
         })
@@ -815,11 +825,11 @@ export async function executeCEOFeeSkill(
           xlpRewardShareBps: Number(params.xlpRewardShareBps),
           protocolShareBps: Number(params.protocolShareBps),
           burnShareBps: Number(params.burnShareBps),
-          transferFeeBps: Number(params.transferFeeBps || 0),
-          bridgeFeeMinBps: Number(params.bridgeFeeMinBps || 5),
-          bridgeFeeMaxBps: Number(params.bridgeFeeMaxBps || 100),
-          xlpMinStakeBps: Number(params.xlpMinStakeBps || 1000),
-          zkProofDiscountBps: Number(params.zkProofDiscountBps || 2000),
+          transferFeeBps: Number(params.transferFeeBps ?? 0),
+          bridgeFeeMinBps: Number(params.bridgeFeeMinBps ?? 5),
+          bridgeFeeMaxBps: Number(params.bridgeFeeMaxBps ?? 100),
+          xlpMinStakeBps: Number(params.xlpMinStakeBps ?? 1000),
+          zkProofDiscountBps: Number(params.zkProofDiscountBps ?? 2000),
         })
         return { success: true, result: { txHash: hash } }
       }
@@ -833,11 +843,11 @@ export async function executeCEOFeeSkill(
           xlpRewardShareBps: Number(params.xlpRewardShareBps),
           protocolShareBps: Number(params.protocolShareBps),
           burnShareBps: Number(params.burnShareBps),
-          transferFeeBps: Number(params.transferFeeBps || 0),
-          bridgeFeeMinBps: Number(params.bridgeFeeMinBps || 5),
-          bridgeFeeMaxBps: Number(params.bridgeFeeMaxBps || 100),
-          xlpMinStakeBps: Number(params.xlpMinStakeBps || 1000),
-          zkProofDiscountBps: Number(params.zkProofDiscountBps || 2000),
+          transferFeeBps: Number(params.transferFeeBps ?? 0),
+          bridgeFeeMinBps: Number(params.bridgeFeeMinBps ?? 5),
+          bridgeFeeMaxBps: Number(params.bridgeFeeMaxBps ?? 100),
+          xlpMinStakeBps: Number(params.xlpMinStakeBps ?? 1000),
+          zkProofDiscountBps: Number(params.zkProofDiscountBps ?? 2000),
         })
         return { success: true, result: { txHash: hash } }
       }

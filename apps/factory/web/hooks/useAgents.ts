@@ -83,7 +83,7 @@ function transformAgent(apiAgent: ApiAgent): Agent {
     type: isValidAgentType(apiAgent.botType) ? apiAgent.botType : 'compute',
     status: apiAgent.active ? 'active' : 'offline',
     owner: apiAgent.owner,
-    description: apiAgent.specializations.join(', ') || '',
+    description: apiAgent.specializations.join(', '),
     capabilities: apiAgent.capabilities.map((c) => ({
       name: c,
       version: '1.0.0',
@@ -183,7 +183,7 @@ export function useAgents(query?: {
     staleTime: 30000,
     refetchInterval: 60000,
   })
-  return { agents: agents || [], isLoading, error, refetch }
+  return { agents: agents ?? [], isLoading, error, refetch }
 }
 
 export function useAgent(agentId: string) {

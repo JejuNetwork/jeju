@@ -129,7 +129,9 @@ export default function AnalyticsPage() {
           <div className="stat-content">
             <div className="stat-label">Total Requests</div>
             <div className="stat-value">
-              {parseInt(account?.totalRequests ?? '0', 10).toLocaleString()}
+              {account
+                ? parseInt(account.totalRequests, 10).toLocaleString()
+                : '—'}
             </div>
             <div className="stat-change positive">
               <TrendingUp size={14} /> This {timeRange}
@@ -143,7 +145,9 @@ export default function AnalyticsPage() {
           <div className="stat-content">
             <div className="stat-label">Total Spent</div>
             <div className="stat-value">
-              {(parseFloat(account?.totalSpent ?? '0') / 1e18).toFixed(4)} ETH
+              {account
+                ? `${(parseFloat(account.totalSpent) / 1e18).toFixed(4)} ETH`
+                : '—'}
             </div>
           </div>
         </div>
@@ -316,7 +320,11 @@ export default function AnalyticsPage() {
                   Used Storage
                 </span>
                 <span style={{ fontFamily: 'var(--font-mono)' }}>
-                  {formatBytes(storageHealth?.stats?.sizeBytes ?? 0)}
+                  {storageHealth ? (
+                    formatBytes(storageHealth.stats?.sizeBytes ?? 0)
+                  ) : (
+                    <span className="shimmer inline-block w-12 h-5 rounded" />
+                  )}
                 </span>
               </div>
               <div
@@ -331,7 +339,7 @@ export default function AnalyticsPage() {
                   style={{
                     height: '100%',
                     width: `${
-                      storageHealth?.stats?.maxSizeBytes
+                      storageHealth?.stats.maxSizeBytes
                         ? (
                             (storageHealth.stats.sizeBytes ?? 0) /
                               storageHealth.stats.maxSizeBytes
@@ -348,13 +356,21 @@ export default function AnalyticsPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: 'var(--text-secondary)' }}>Objects</span>
               <span style={{ fontFamily: 'var(--font-mono)' }}>
-                {storageHealth?.stats?.entries ?? 0}
+                {storageHealth ? (
+                  (storageHealth.stats?.entries ?? 0)
+                ) : (
+                  <span className="shimmer inline-block w-8 h-5 rounded" />
+                )}
               </span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: 'var(--text-secondary)' }}>Backends</span>
               <span style={{ fontFamily: 'var(--font-mono)' }}>
-                {storageHealth?.backends?.length ?? 0}
+                {storageHealth ? (
+                  (storageHealth.backends?.length ?? 0)
+                ) : (
+                  <span className="shimmer inline-block w-6 h-5 rounded" />
+                )}
               </span>
             </div>
           </div>
@@ -373,13 +389,21 @@ export default function AnalyticsPage() {
                 Cache Entries
               </span>
               <span style={{ fontFamily: 'var(--font-mono)' }}>
-                {cdnStats?.entries ?? 0}
+                {cdnStats ? (
+                  (cdnStats.entries ?? 0)
+                ) : (
+                  <span className="shimmer inline-block w-8 h-5 rounded" />
+                )}
               </span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: 'var(--text-secondary)' }}>Cache Size</span>
               <span style={{ fontFamily: 'var(--font-mono)' }}>
-                {formatBytes(cdnStats?.sizeBytes ?? 0)}
+                {cdnStats ? (
+                  formatBytes(cdnStats.sizeBytes ?? 0)
+                ) : (
+                  <span className="shimmer inline-block w-12 h-5 rounded" />
+                )}
               </span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -387,13 +411,18 @@ export default function AnalyticsPage() {
               <span
                 style={{
                   fontFamily: 'var(--font-mono)',
-                  color:
-                    (cdnStats?.hitRate ?? 0) > 0.8
+                  color: cdnStats
+                    ? (cdnStats.hitRate ?? 0) > 0.8
                       ? 'var(--success)'
-                      : 'var(--warning)',
+                      : 'var(--warning)'
+                    : 'var(--text-muted)',
                 }}
               >
-                {((cdnStats?.hitRate ?? 0) * 100).toFixed(1)}%
+                {cdnStats ? (
+                  `${((cdnStats.hitRate ?? 0) * 100).toFixed(1)}%`
+                ) : (
+                  <span className="shimmer inline-block w-10 h-5 rounded" />
+                )}
               </span>
             </div>
           </div>
@@ -412,7 +441,7 @@ export default function AnalyticsPage() {
                 Inference Requests
               </span>
               <span style={{ fontFamily: 'var(--font-mono)' }}>
-                {health?.services?.compute?.status === 'healthy'
+                {health?.services.compute?.status === 'healthy'
                   ? 'Active'
                   : '—'}
               </span>

@@ -144,7 +144,7 @@ class ContactsService {
       case 'name':
         return contacts.sort((a, b) => a.name.localeCompare(b.name))
       case 'recent':
-        return contacts.sort((a, b) => (b.lastUsed || 0) - (a.lastUsed || 0))
+        return contacts.sort((a, b) => (b.lastUsed ?? 0) - (a.lastUsed ?? 0))
       case 'frequent':
         return contacts.sort((a, b) => b.transactionCount - a.transactionCount)
       case 'favorite':

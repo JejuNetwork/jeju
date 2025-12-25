@@ -7,6 +7,7 @@ import { useInfiniteQuery } from '@tanstack/react-query'
 import { ArrowLeft } from 'lucide-react'
 import { useEffect, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { z } from 'zod'
 import { LoadingSpinner } from '../components/LoadingSpinner'
 
 interface PostData {
@@ -16,8 +17,8 @@ interface PostData {
   authorName: string
   authorUsername?: string | null
   timestamp: string
-  likeCount?: number
-  commentCount?: number
+  likeCount: number
+  commentCount: number
 }
 
 interface TagInfo {
@@ -26,11 +27,28 @@ interface TagInfo {
   category?: string | null
 }
 
-interface TrendingResponse {
-  success: boolean
-  tag?: TagInfo
-  posts: PostData[]
-}
+const TrendingResponseSchema = z.object({
+  success: z.boolean(),
+  tag: z
+    .object({
+      name: z.string(),
+      displayName: z.string(),
+      category: z.string().nullable().optional(),
+    })
+    .optional(),
+  posts: z.array(
+    z.object({
+      id: z.string(),
+      content: z.string(),
+      authorId: z.string(),
+      authorName: z.string(),
+      authorUsername: z.string().nullable().optional(),
+      timestamp: z.string(),
+      likeCount: z.number(),
+      commentCount: z.number(),
+    }),
+  ),
+})
 
 const PAGE_SIZE = 20
 
@@ -48,19 +66,19 @@ export default function TrendingTagPage() {
     queryKey: ['trending', tag],
     queryFn: async ({ pageParam = 0 }) => {
       const response = await fetch(
-        `/api/trending/${encodeURIComponent(tag || '')}?limit=${PAGE_SIZE}&offset=${pageParam}`,
+        `/api/trending/${encodeURIComponent(tag ?? '')}?limit=${PAGE_SIZE}&offset=${pageParam}`,
       )
 
       if (!response.ok) {
         throw new Error('Failed to fetch posts')
       }
 
-      const responseData = (await response.json()) as TrendingResponse
+      const responseData = TrendingResponseSchema.parse(await response.json())
       return {
-        posts: responseData.posts || [],
+        posts: responseData.posts,
         tag: responseData.tag,
-        nextOffset: pageParam + (responseData.posts?.length || 0),
-        hasMore: (responseData.posts?.length || 0) === PAGE_SIZE,
+        nextOffset: pageParam + responseData.posts.length,
+        hasMore: responseData.posts.length === PAGE_SIZE,
       }
     },
     getNextPageParam: (lastPage) =>
@@ -187,8 +205,8 @@ export default function TrendingTagPage() {
                 className="flex gap-4 mt-2 text-sm"
                 style={{ color: 'var(--text-tertiary)' }}
               >
-                <span>{post.likeCount || 0} likes</span>
-                <span>{post.commentCount || 0} comments</span>
+                <span>{post.likeCount} likes</span>
+                <span>{post.commentCount} comments</span>
               </div>
             </div>
           ))}

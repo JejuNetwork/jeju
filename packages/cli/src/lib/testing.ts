@@ -8,15 +8,30 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { join } from 'node:path'
+import { validateOrNull } from '@jejunetwork/types'
 import { execa } from 'execa'
-import type {
-  AppManifest,
-  AppTestConfig,
-  TestPhase,
-  TestResult,
-} from '../types'
+import type { AppTestConfig, TestPhase, TestResult } from '../types'
 import { checkRpcHealth } from './chain'
+import { type AppManifest, AppManifestSchema } from './discover-apps'
 import { logger } from './logger'
+
+/** Command execution error with output streams */
+interface CommandError {
+  stdout?: string
+  stderr?: string
+  message?: string
+}
+
+/** Extract useful output from a command error */
+function extractErrorOutput(error: unknown): string {
+  if (error instanceof Error) {
+    const cmdError = error as Error & CommandError
+    return (
+      cmdError.stderr || cmdError.stdout || cmdError.message || 'Unknown error'
+    )
+  }
+  return String(error)
+}
 
 /**
  * Generates a playwright or synpress config file from manifest settings.
@@ -306,7 +321,7 @@ export async function runTestPhase(
     }
   } catch (error) {
     const duration = Date.now() - startTime
-    const err = error as { stdout?: string; stderr?: string; message?: string }
+    const errorOutput = extractErrorOutput(error)
 
     if (phase.required) {
       logger.error(`${phase.name} failed (required)`)
@@ -318,7 +333,7 @@ export async function runTestPhase(
       name: phase.name,
       passed: false,
       duration,
-      output: err.stderr || err.stdout || err.message || 'Unknown error',
+      output: errorOutput,
     }
   }
 }
@@ -354,14 +369,18 @@ export async function runAppTests(
     throw new Error(`No package.json found in ${appDir}`)
   }
 
-  const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8')) as {
+  interface PackageJson {
     scripts?: Record<string, string>
   }
+  const pkg: PackageJson = JSON.parse(readFileSync(pkgPath, 'utf-8'))
 
   // Load manifest for config generation
   const manifestPath = join(appDir, 'jeju-manifest.json')
   const manifest: AppManifest | undefined = existsSync(manifestPath)
-    ? (JSON.parse(readFileSync(manifestPath, 'utf-8')) as AppManifest)
+    ? (validateOrNull(
+        AppManifestSchema,
+        JSON.parse(readFileSync(manifestPath, 'utf-8')),
+      ) ?? undefined)
     : undefined
 
   // Run unit tests if available

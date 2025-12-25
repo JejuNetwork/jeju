@@ -197,6 +197,16 @@ contract ContributorRegistry is Ownable, Pausable, ReentrancyGuard {
     error AlreadyVerified();
     error InvalidProof();
     error VerificationExpired();
+    error BatchSizeExceeded(uint256 provided, uint256 maximum);
+    error InvalidPaginationParams();
+
+    // ============ DDoS Protection Constants ============
+    
+    uint256 public constant MAX_SOCIAL_LINKS = 20;
+    uint256 public constant MAX_REPO_CLAIMS = 100;
+    uint256 public constant MAX_DEP_CLAIMS = 100;
+    uint256 public constant MAX_BATCH_SIZE = 50;
+    uint256 public constant MAX_PAGE_SIZE = 100;
     error AgentAlreadyLinked();
     error NotAuthorizedRecorder();
 
@@ -602,19 +612,89 @@ contract ContributorRegistry is Ownable, Pausable, ReentrancyGuard {
         return _socialLinks[contributorId];
     }
 
+    /**
+     * @notice Get repository claims with pagination
+     * @param contributorId Contributor ID
+     * @param offset Starting index
+     * @param limit Maximum items to return
+     * @return claims Array of claims
+     * @return total Total number of claims
+     */
+    function getRepositoryClaimsPaginated(
+        bytes32 contributorId,
+        uint256 offset,
+        uint256 limit
+    ) external view returns (RepositoryClaim[] memory claims, uint256 total) {
+        bytes32[] storage claimIds = _contributorRepoClaims[contributorId];
+        total = claimIds.length;
+        
+        if (offset >= total) {
+            return (new RepositoryClaim[](0), total);
+        }
+        
+        uint256 remaining = total - offset;
+        uint256 count = remaining < limit ? remaining : limit;
+        if (count > MAX_PAGE_SIZE) count = MAX_PAGE_SIZE;
+        
+        claims = new RepositoryClaim[](count);
+        for (uint256 i = 0; i < count; i++) {
+            claims[i] = _repoClaims[claimIds[offset + i]];
+        }
+    }
+
+    /**
+     * @notice Get repository claims (backwards compatible, limited to MAX_PAGE_SIZE)
+     */
     function getRepositoryClaims(bytes32 contributorId) external view returns (RepositoryClaim[] memory) {
-        bytes32[] memory claimIds = _contributorRepoClaims[contributorId];
-        RepositoryClaim[] memory claims = new RepositoryClaim[](claimIds.length);
-        for (uint256 i = 0; i < claimIds.length; i++) {
+        bytes32[] storage claimIds = _contributorRepoClaims[contributorId];
+        uint256 count = claimIds.length > MAX_PAGE_SIZE ? MAX_PAGE_SIZE : claimIds.length;
+        
+        RepositoryClaim[] memory claims = new RepositoryClaim[](count);
+        for (uint256 i = 0; i < count; i++) {
             claims[i] = _repoClaims[claimIds[i]];
         }
         return claims;
     }
 
+    /**
+     * @notice Get dependency claims with pagination
+     * @param contributorId Contributor ID
+     * @param offset Starting index
+     * @param limit Maximum items to return
+     * @return claims Array of claims
+     * @return total Total number of claims
+     */
+    function getDependencyClaimsPaginated(
+        bytes32 contributorId,
+        uint256 offset,
+        uint256 limit
+    ) external view returns (DependencyClaim[] memory claims, uint256 total) {
+        bytes32[] storage claimIds = _contributorDepClaims[contributorId];
+        total = claimIds.length;
+        
+        if (offset >= total) {
+            return (new DependencyClaim[](0), total);
+        }
+        
+        uint256 remaining = total - offset;
+        uint256 count = remaining < limit ? remaining : limit;
+        if (count > MAX_PAGE_SIZE) count = MAX_PAGE_SIZE;
+        
+        claims = new DependencyClaim[](count);
+        for (uint256 i = 0; i < count; i++) {
+            claims[i] = _depClaims[claimIds[offset + i]];
+        }
+    }
+
+    /**
+     * @notice Get dependency claims (backwards compatible, limited to MAX_PAGE_SIZE)
+     */
     function getDependencyClaims(bytes32 contributorId) external view returns (DependencyClaim[] memory) {
-        bytes32[] memory claimIds = _contributorDepClaims[contributorId];
-        DependencyClaim[] memory claims = new DependencyClaim[](claimIds.length);
-        for (uint256 i = 0; i < claimIds.length; i++) {
+        bytes32[] storage claimIds = _contributorDepClaims[contributorId];
+        uint256 count = claimIds.length > MAX_PAGE_SIZE ? MAX_PAGE_SIZE : claimIds.length;
+        
+        DependencyClaim[] memory claims = new DependencyClaim[](count);
+        for (uint256 i = 0; i < count; i++) {
             claims[i] = _depClaims[claimIds[i]];
         }
         return claims;
@@ -643,8 +723,43 @@ contract ContributorRegistry is Ownable, Pausable, ReentrancyGuard {
         return _depToContributor[depHash];
     }
 
+    /**
+     * @notice Get all contributors with pagination
+     * @param offset Starting index
+     * @param limit Maximum items to return
+     * @return ids Array of contributor IDs
+     * @return total Total number of contributors
+     */
+    function getContributorsPaginated(
+        uint256 offset,
+        uint256 limit
+    ) external view returns (bytes32[] memory ids, uint256 total) {
+        total = _allContributorIds.length;
+        
+        if (offset >= total) {
+            return (new bytes32[](0), total);
+        }
+        
+        uint256 remaining = total - offset;
+        uint256 count = remaining < limit ? remaining : limit;
+        if (count > MAX_PAGE_SIZE) count = MAX_PAGE_SIZE;
+        
+        ids = new bytes32[](count);
+        for (uint256 i = 0; i < count; i++) {
+            ids[i] = _allContributorIds[offset + i];
+        }
+    }
+
+    /**
+     * @notice Get all contributors (backwards compatible, limited to MAX_PAGE_SIZE)
+     */
     function getAllContributors() external view returns (bytes32[] memory) {
-        return _allContributorIds;
+        uint256 count = _allContributorIds.length > MAX_PAGE_SIZE ? MAX_PAGE_SIZE : _allContributorIds.length;
+        bytes32[] memory ids = new bytes32[](count);
+        for (uint256 i = 0; i < count; i++) {
+            ids[i] = _allContributorIds[i];
+        }
+        return ids;
     }
 
     function getContributorCount() external view returns (uint256) {

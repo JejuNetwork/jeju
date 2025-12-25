@@ -8,8 +8,10 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { validateOrNull } from '@jejunetwork/types'
 import { Command } from 'commander'
 import { type ExecaError, execa } from 'execa'
+import { z } from 'zod'
 import { logger } from '../lib/logger'
 import { discoverApps } from '../lib/testing'
 import { EthChainIdResponseSchema, validate } from '../schemas'
@@ -72,6 +74,35 @@ interface AppManifestTesting {
   name?: string
   testing?: ManifestTesting
 }
+
+const ManifestTestingSchema = z.object({
+  unit: z
+    .object({ command: z.string().optional(), timeout: z.number().optional() })
+    .optional(),
+  e2e: z
+    .object({
+      command: z.string().optional(),
+      config: z.string().optional(),
+      timeout: z.number().optional(),
+      requiresChain: z.boolean().optional(),
+      requiresWallet: z.boolean().optional(),
+    })
+    .optional(),
+  integration: z
+    .object({
+      command: z.string().optional(),
+      timeout: z.number().optional(),
+      requiresServices: z.boolean().optional(),
+    })
+    .optional(),
+  services: z.array(z.string()).optional(),
+  dependencies: z.array(z.string()).optional(),
+})
+
+const AppManifestTestingSchema = z.object({
+  name: z.string().optional(),
+  testing: ManifestTestingSchema.optional(),
+})
 
 export const testCommand = new Command('test')
   .description(
@@ -671,8 +702,7 @@ async function runForgeTests(
   try {
     const args = ['test']
     if (options.verbose) args.push('-vvv')
-    if (options.forgeOpts)
-      args.push(...(options.forgeOpts as string).split(' '))
+    if (options.forgeOpts) args.push(...options.forgeOpts.split(' '))
     if (options.ci) args.push('--fail-fast')
     if (options.coverage) args.push('--coverage')
 
@@ -1717,7 +1747,7 @@ async function runSynpressTests(
     logger.step(`Running Synpress tests for ${options.app}...`)
     const result = await runAppSynpressTests(
       rootDir,
-      options.app as string,
+      options.app,
       testEnv,
       options,
     )
@@ -1888,7 +1918,12 @@ function loadManifest(appPath: string): AppManifestTesting | undefined {
   const manifestPath = join(appPath, 'jeju-manifest.json')
   if (!existsSync(manifestPath)) return undefined
   try {
-    return JSON.parse(readFileSync(manifestPath, 'utf-8')) as AppManifestTesting
+    return (
+      validateOrNull(
+        AppManifestTestingSchema,
+        JSON.parse(readFileSync(manifestPath, 'utf-8')),
+      ) ?? undefined
+    )
   } catch {
     return undefined
   }

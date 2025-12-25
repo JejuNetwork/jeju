@@ -44,7 +44,7 @@ export async function getFullStackProviders(
   const computeByAgent = new Map<number, ComputeProvider[]>()
   for (const p of computeWithAgent) {
     if (p.agentId) {
-      const existing = computeByAgent.get(p.agentId) || []
+      const existing = computeByAgent.get(p.agentId) ?? []
       existing.push(p)
       computeByAgent.set(p.agentId, existing)
     }
@@ -54,7 +54,7 @@ export async function getFullStackProviders(
 
   for (const storage of storageWithAgent) {
     if (storage.agentId && computeByAgent.has(storage.agentId)) {
-      const computeProviders = computeByAgent.get(storage.agentId) || []
+      const computeProviders = computeByAgent.get(storage.agentId) ?? []
 
       // Check if we already have this agent
       let existing = fullStackProviders.find(
@@ -65,7 +65,7 @@ export async function getFullStackProviders(
           agentId: storage.agentId,
           compute: computeProviders.map((c) => ({
             address: c.address,
-            name: c.name || 'Compute Provider',
+            name: c.name ?? 'Compute Provider',
             endpoint: c.endpoint,
           })),
           storage: [],
@@ -131,7 +131,7 @@ export async function getContainerDetail(
   if (!dataSource) {
     throw new Error('DataSource is required')
   }
-  if (!cid || typeof cid !== 'string' || cid.trim().length === 0) {
+  if (!cid || cid.trim().length === 0) {
     throw new Error('cid is required and must be a non-empty string')
   }
 
@@ -183,7 +183,7 @@ export async function getContainerDetail(
     },
     compatibleProviders: compatibleProviders.map((p) => ({
       address: p.address,
-      name: p.name || 'Compute Provider',
+      name: p.name ?? 'Compute Provider',
       endpoint: p.endpoint,
       agentId: p.agentId ?? null,
       isActive: p.isActive,

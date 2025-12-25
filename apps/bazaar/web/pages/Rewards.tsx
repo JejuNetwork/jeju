@@ -7,14 +7,17 @@ import { useQuery } from '@tanstack/react-query'
 import { Award, Check, Copy, TrendingUp, Users } from 'lucide-react'
 import { useState } from 'react'
 import { useAccount } from 'wagmi'
+import { z } from 'zod'
 import { AuthButton } from '../components/auth/AuthButton'
 import { LoadingSpinner } from '../components/LoadingSpinner'
 
-interface ReferralStats {
-  totalReferrals: number
-  totalPointsEarned: number
-  referralCode: string | null
-}
+const ReferralStatsSchema = z.object({
+  totalReferrals: z.number(),
+  totalPointsEarned: z.number(),
+  referralCode: z.string(),
+})
+
+type ReferralStats = z.infer<typeof ReferralStatsSchema>
 
 export default function RewardsPage() {
   const { address, isConnected } = useAccount()
@@ -25,7 +28,8 @@ export default function RewardsPage() {
     queryFn: async (): Promise<ReferralStats> => {
       const response = await fetch(`/api/users/${address}/referrals`)
       if (!response.ok) throw new Error('Failed to fetch referral data')
-      return response.json() as Promise<ReferralStats>
+      const json: unknown = await response.json()
+      return ReferralStatsSchema.parse(json)
     },
     enabled: isConnected && !!address,
   })
@@ -94,7 +98,7 @@ export default function RewardsPage() {
             className="text-3xl font-bold"
             style={{ color: 'var(--text-primary)' }}
           >
-            {stats?.totalPointsEarned?.toLocaleString() || 0}
+            {stats?.totalPointsEarned.toLocaleString() ?? '—'}
           </div>
         </div>
 
@@ -112,7 +116,7 @@ export default function RewardsPage() {
             className="text-3xl font-bold"
             style={{ color: 'var(--text-primary)' }}
           >
-            {stats?.totalReferrals || 0}
+            {stats?.totalReferrals ?? '—'}
           </div>
         </div>
       </div>

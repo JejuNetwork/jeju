@@ -215,9 +215,9 @@ export class MPCProvider implements KMSProvider {
     if (!key) throw new Error(`Key ${request.keyId} not found`)
 
     const messageBytes =
-      typeof request.message === 'string'
-        ? toBytes(request.message as Hex)
-        : request.message
+      request.message instanceof Uint8Array
+        ? request.message
+        : toBytes(request.message)
     const messageHash =
       request.hashAlgorithm === 'none'
         ? toHex(messageBytes)
@@ -275,9 +275,9 @@ export class MPCProvider implements KMSProvider {
     if (!key) throw new Error(`Key ${request.keyId} not found`)
 
     const messageBytes =
-      typeof request.message === 'string'
-        ? toBytes(request.message as Hex)
-        : request.message
+      request.message instanceof Uint8Array
+        ? request.message
+        : toBytes(request.message)
     const session = await this.coordinator.requestSignature({
       keyId: key.mpcKeyId,
       message: toHex(messageBytes),

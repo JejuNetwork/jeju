@@ -34,18 +34,10 @@ export function createAccountFactory() {
       blockNumber: number,
       timestamp: Date,
     ): Account {
-      if (
-        !address ||
-        typeof address !== 'string' ||
-        address.trim().length === 0
-      ) {
+      if (!address || address.trim().length === 0) {
         throw new Error('address is required and must be a non-empty string')
       }
-      if (
-        typeof blockNumber !== 'number' ||
-        blockNumber < 0 ||
-        !Number.isInteger(blockNumber)
-      ) {
+      if (blockNumber < 0 || !Number.isInteger(blockNumber)) {
         throw new Error(
           `Invalid blockNumber: ${blockNumber}. Must be a non-negative integer.`,
         )

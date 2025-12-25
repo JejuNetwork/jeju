@@ -96,7 +96,7 @@ export function LinkedAccounts() {
     )
   }
 
-  const linkedProviders = session.linkedProviders || []
+  const linkedProviders = session.linkedProviders ?? []
   const linkedProviderIds = new Set(linkedProviders.map((p) => p.provider))
   const availableProviders = (
     Object.keys(PROVIDER_INFO) as AuthProvider[]

@@ -1,8 +1,8 @@
 import { timingSafeEqual } from 'node:crypto'
 import { cors } from '@elysiajs/cors'
+import { AddressSchema, validateOrThrow } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
-import type { Address } from 'viem'
-import { isAddress } from 'viem'
+import { z } from 'zod'
 import {
   A2ARequestSchema,
   AgentLinkQuerySchema,
@@ -11,6 +11,8 @@ import {
   CreateAttestationRequestSchema,
   expect,
   GetAttestationQuerySchema,
+  GetContributorProfileSkillParamsSchema,
+  GetLeaderboardSkillParamsSchema,
   LeaderboardQuerySchema,
   UsernameSchema,
   validateBody,
@@ -42,6 +44,50 @@ import {
 const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',').filter(Boolean)
 const isProduction = process.env.NODE_ENV === 'production'
 const MAX_BODY_SIZE = 1024 * 1024
+
+/** Jeju-git contribution request body schema */
+const GitContributionBodySchema = z.object({
+  username: z.string().optional(),
+  walletAddress: AddressSchema.optional(),
+  source: z.string().min(1),
+  scores: z.object({
+    commits: z.number().int().nonnegative(),
+    prs: z.number().int().nonnegative(),
+    issues: z.number().int().nonnegative(),
+    reviews: z.number().int().nonnegative(),
+  }),
+  contributions: z.array(
+    z.object({
+      type: z.string(),
+      repoId: z.string(),
+      timestamp: z.number().int().positive(),
+      metadata: z.record(z.string(), z.unknown()),
+    }),
+  ),
+  timestamp: z.number().int().positive(),
+})
+
+/** Jeju-npm contribution request body schema */
+const NpmContributionBodySchema = z.object({
+  walletAddress: AddressSchema,
+  source: z.string().min(1),
+  score: z.number().nonnegative(),
+  contribution: z.object({
+    type: z.string(),
+    packageId: z.string(),
+    packageName: z.string(),
+    timestamp: z.number().int().positive(),
+    metadata: z.record(z.string(), z.unknown()),
+  }),
+})
+
+/** Package download stats request body schema */
+const PackageDownloadBodySchema = z.object({
+  packageId: z.string().min(1),
+  packageName: z.string().min(1),
+  downloadCount: z.number().int().nonnegative(),
+  timestamp: z.number().int().positive(),
+})
 
 function timingSafeCompare(a: string | undefined | null, b: string): boolean {
   if (!a) return false
@@ -270,7 +316,7 @@ const app = new Elysia()
     const timestamp = Math.floor(Date.now() / 1000)
     const attestation = await createAttestation(
       walletAddress,
-      agentId || 0,
+      agentId ?? 0,
       reputation,
       timestamp,
     )
@@ -281,7 +327,7 @@ const app = new Elysia()
       chainId,
       reputation,
       attestation,
-      agentId || null,
+      agentId ?? null,
     )
 
     const message =
@@ -297,7 +343,7 @@ const app = new Elysia()
         signature: attestation.signature,
         normalizedScore: attestation.normalizedScore,
         timestamp,
-        agentId: agentId || 0,
+        agentId: agentId ?? 0,
         onChainParams: attestation.onChainParams,
       },
       message,
@@ -825,15 +871,18 @@ const app = new Elysia()
     const message = validated.params.message
     const dataPart = message.parts.find((p) => p.kind === 'data')
     const skillId = dataPart?.data?.skillId
-    const params = dataPart?.data || {}
+    const params = dataPart?.data ?? {}
 
     let result: { message: string; data: Record<string, unknown> }
 
     switch (skillId) {
       case 'get-leaderboard': {
-        const contributors = await getTopContributors(
-          Number(params.limit) || 10,
+        const validatedParams = validateOrThrow(
+          GetLeaderboardSkillParamsSchema,
+          params,
+          'get-leaderboard params',
         )
+        const contributors = await getTopContributors(validatedParams.limit)
         result = {
           message: `Top ${contributors.length} contributors on the Network leaderboard`,
           data: { contributors, totalContributors: contributors.length },
@@ -841,29 +890,27 @@ const app = new Elysia()
         break
       }
       case 'get-contributor-profile': {
-        const username =
-          typeof params.username === 'string' ? params.username : undefined
-        if (!username) {
-          result = {
-            message: 'Username required',
-            data: { error: 'Missing username parameter' },
-          }
-          break
-        }
+        const validatedParams = validateOrThrow(
+          GetContributorProfileSkillParamsSchema,
+          params,
+          'get-contributor-profile params',
+        )
         const users = await query<{ username: string; avatar_url: string }>(
           'SELECT username, avatar_url FROM users WHERE username = ?',
-          [username],
+          [validatedParams.username],
         )
         if (users.length === 0) {
           result = {
-            message: `User ${username} not found`,
+            message: `User ${validatedParams.username} not found`,
             data: { error: 'User not found' },
           }
           break
         }
-        const reputation = await calculateUserReputation(username)
+        const reputation = await calculateUserReputation(
+          validatedParams.username,
+        )
         result = {
-          message: `Profile for ${username}`,
+          message: `Profile for ${validatedParams.username}`,
           data: {
             profile: {
               username: users[0].username,
@@ -913,36 +960,11 @@ const app = new Elysia()
       return { error: 'Invalid service header' }
     }
 
-    const typedBody = body as {
-      username?: string
-      walletAddress?: Address
-      source: string
-      scores: { commits: number; prs: number; issues: number; reviews: number }
-      contributions: Array<{
-        type: string
-        repoId: string
-        timestamp: number
-        metadata: Record<string, unknown>
-      }>
-      timestamp: number
-    }
-
-    if (!typedBody.source || typeof typedBody.source !== 'string') {
-      set.status = 400
-      return { error: 'source is required' }
-    }
-    if (!typedBody.scores || typeof typedBody.scores !== 'object') {
-      set.status = 400
-      return { error: 'scores is required' }
-    }
-    if (!Array.isArray(typedBody.contributions)) {
-      set.status = 400
-      return { error: 'contributions must be an array' }
-    }
-    if (typeof typedBody.timestamp !== 'number') {
-      set.status = 400
-      return { error: 'timestamp is required' }
-    }
+    const typedBody = validateOrThrow(
+      GitContributionBodySchema,
+      body,
+      'Git contribution body',
+    )
 
     let username = typedBody.username
     if (!username && typedBody.walletAddress) {
@@ -993,10 +1015,10 @@ const app = new Elysia()
         username,
         date,
         totalScore,
-        (typedBody.scores?.prs || 0) * 50,
-        (typedBody.scores?.issues || 0) * 20,
-        (typedBody.scores?.reviews || 0) * 30,
-        (typedBody.scores?.commits || 0) * 5,
+        (typedBody.scores?.prs ?? 0) * 50,
+        (typedBody.scores?.issues ?? 0) * 20,
+        (typedBody.scores?.reviews ?? 0) * 30,
+        (typedBody.scores?.commits ?? 0) * 5,
         JSON.stringify({
           contributions: typedBody.contributions.length,
           source: 'jeju-git',
@@ -1016,35 +1038,11 @@ const app = new Elysia()
       return { error: 'Invalid service header' }
     }
 
-    const typedBody = body as {
-      walletAddress: Address
-      source: string
-      score: number
-      contribution: {
-        type: string
-        packageId: string
-        packageName: string
-        timestamp: number
-        metadata: Record<string, unknown>
-      }
-    }
-
-    if (!typedBody.walletAddress || !isAddress(typedBody.walletAddress)) {
-      set.status = 400
-      return { error: 'Invalid walletAddress' }
-    }
-    if (!typedBody.source || typeof typedBody.source !== 'string') {
-      set.status = 400
-      return { error: 'source is required' }
-    }
-    if (typeof typedBody.score !== 'number') {
-      set.status = 400
-      return { error: 'score is required' }
-    }
-    if (!typedBody.contribution || typeof typedBody.contribution !== 'object') {
-      set.status = 400
-      return { error: 'contribution is required' }
-    }
+    const typedBody = validateOrThrow(
+      NpmContributionBodySchema,
+      body,
+      'NPM contribution body',
+    )
 
     const mapping = await query<{ username: string }>(
       'SELECT username FROM wallet_mappings WHERE wallet_address = ?',
@@ -1089,29 +1087,11 @@ const app = new Elysia()
       return { error: 'Invalid service header' }
     }
 
-    const typedBody = body as {
-      packageId: string
-      packageName: string
-      downloadCount: number
-      timestamp: number
-    }
-
-    if (!typedBody.packageId || typeof typedBody.packageId !== 'string') {
-      set.status = 400
-      return { error: 'packageId is required' }
-    }
-    if (!typedBody.packageName || typeof typedBody.packageName !== 'string') {
-      set.status = 400
-      return { error: 'packageName is required' }
-    }
-    if (typeof typedBody.downloadCount !== 'number') {
-      set.status = 400
-      return { error: 'downloadCount is required' }
-    }
-    if (typeof typedBody.timestamp !== 'number') {
-      set.status = 400
-      return { error: 'timestamp is required' }
-    }
+    const typedBody = validateOrThrow(
+      PackageDownloadBodySchema,
+      body,
+      'Package download body',
+    )
 
     await exec(
       `INSERT INTO package_stats (package_id, package_name, download_count, last_updated)

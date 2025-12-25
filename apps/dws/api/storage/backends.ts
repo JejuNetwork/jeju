@@ -74,7 +74,7 @@ class IPFSBackend implements StorageBackend {
   ): Promise<{ cid: string; url: string }> {
     const formData = new FormData()
     // Flatten path to avoid IPFS creating directories (which returns multiple JSON lines)
-    const filename = (options?.filename || 'file').replace(/\//g, '_')
+    const filename = (options?.filename ?? 'file').replace(/\//g, '_')
     formData.append('file', new Blob([new Uint8Array(content)]), filename)
 
     const response = await fetch(`${this.apiUrl}/api/v0/add`, {

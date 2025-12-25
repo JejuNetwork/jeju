@@ -5,6 +5,7 @@
  */
 
 import type { Memory } from '@elizaos/core'
+import { hasKey, isPlainObject } from '@jejunetwork/types'
 import type { Hex } from 'viem'
 
 /** Empty calldata constant */
@@ -23,8 +24,8 @@ export function getMessageText(message: Memory): string {
   if (typeof content === 'string') {
     return content
   }
-  if (content && typeof content === 'object' && 'text' in content) {
-    const text = (content as { text: unknown }).text
+  if (isPlainObject(content) && hasKey(content, 'text')) {
+    const text = content.text
     return typeof text === 'string' ? text : ''
   }
   return ''

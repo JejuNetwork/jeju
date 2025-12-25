@@ -78,7 +78,7 @@ export async function handleMCPRequest(
         'MCP tool call request',
       )
 
-      const result = await callMCPTool(name, args || {})
+      const result = await callMCPTool(name, args ?? {})
       return jsonResponse(result, headers)
     }
 

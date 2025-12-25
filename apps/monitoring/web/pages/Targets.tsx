@@ -42,7 +42,7 @@ export function Targets() {
 
   const initialTargetsByJob: Record<string, Target[]> = {}
   const targetsByJob = filteredTargets.reduce((acc, target) => {
-    const job = target.labels.job || 'unknown'
+    const job = target.labels.job ?? 'unknown'
     if (!acc[job]) acc[job] = []
     acc[job].push(target)
     return acc
@@ -275,7 +275,7 @@ function TargetRow({ target }: { target: Target }) {
           className="font-medium truncate"
           style={{ color: 'var(--text-primary)' }}
         >
-          {target.labels.instance || scrapeUrl || 'Unknown'}
+          {target.labels.instance ?? scrapeUrl ?? 'Unknown'}
         </p>
         {safeHref ? (
           <a

@@ -25,6 +25,9 @@ import {
   jejuAddressHeaderSchema,
   logEntrySchema,
   logsQuerySchema,
+  pullRequestWebhookBodySchema,
+  pushWebhookBodySchema,
+  releaseWebhookBodySchema,
   runIdParamsSchema,
   runnerParamsSchema,
   runnerRegistrationRequestSchema,
@@ -181,7 +184,7 @@ export function createCIRouter(ctx: CIContext) {
             triggeredBy,
             branch,
             decodeBytes32ToOid(branchData.tipCommitCid),
-            validBody.inputs || {},
+            validBody.inputs ?? {},
           )
 
           return {
@@ -282,7 +285,7 @@ export function createCIRouter(ctx: CIContext) {
         const logs = [
           `=== Workflow Run: ${run.runId} ===`,
           `Status: ${run.status}`,
-          `Conclusion: ${run.conclusion || 'pending'}`,
+          `Conclusion: ${run.conclusion ?? 'pending'}`,
           `Branch: ${run.branch}`,
           `Commit: ${run.commitSha}`,
           '',
@@ -290,7 +293,7 @@ export function createCIRouter(ctx: CIContext) {
             .filter((j) => !jobId || j.jobId === jobId)
             .flatMap((job) => [
               `--- Job: ${job.name} (${job.status}) ---`,
-              job.logs || '(no logs)',
+              job.logs ?? '(no logs)',
               '',
             ]),
         ]
@@ -342,7 +345,7 @@ export function createCIRouter(ctx: CIContext) {
                 controller.enqueue(
                   encoder.encode(
                     `event: complete\ndata: ${JSON.stringify({
-                      status: currentRun?.status || 'unknown',
+                      status: currentRun?.status ?? 'unknown',
                       conclusion: currentRun?.conclusion,
                     })}\n\n`,
                   ),
@@ -786,43 +789,44 @@ export function createCIRouter(ctx: CIContext) {
 
         if (!event) throw new Error('Missing event header')
 
-        const validBody = expectValid(z.record(z.string(), z.unknown()), body)
-
         let ciEvent: CIEvent
 
         switch (event) {
-          case 'push':
+          case 'push': {
+            const pushBody = expectValid(pushWebhookBodySchema, body)
             ciEvent = {
               type: 'push',
               repoId,
-              branch: (validBody.ref as string).replace('refs/heads/', ''),
-              commitSha: validBody.after as string,
-              pusher: (validBody.pusher as { email: string }).email as Address,
+              branch: pushBody.ref.replace('refs/heads/', ''),
+              commitSha: pushBody.after,
+              pusher: pushBody.pusher.email as Address,
             }
             break
-          case 'pull_request':
+          }
+          case 'pull_request': {
+            const prBody = expectValid(pullRequestWebhookBodySchema, body)
             ciEvent = {
               type: 'pull_request',
               repoId,
-              action: validBody.action as string,
-              prNumber: (validBody.pull_request as { number: number }).number,
-              headSha: (validBody.pull_request as { head: { sha: string } })
-                .head.sha,
-              baseBranch: (validBody.pull_request as { base: { ref: string } })
-                .base.ref,
-              author: (validBody.pull_request as { user: { login: string } })
-                .user.login as Address,
+              action: prBody.action,
+              prNumber: prBody.pull_request.number,
+              headSha: prBody.pull_request.head.sha,
+              baseBranch: prBody.pull_request.base.ref,
+              author: prBody.pull_request.user.login as Address,
             }
             break
-          case 'release':
+          }
+          case 'release': {
+            const releaseBody = expectValid(releaseWebhookBodySchema, body)
             ciEvent = {
               type: 'release',
               repoId,
-              action: validBody.action as string,
-              tagName: (validBody.release as { tag_name: string }).tag_name,
-              author: (validBody.sender as { login: string }).login as Address,
+              action: releaseBody.action,
+              tagName: releaseBody.release.tag_name,
+              author: releaseBody.sender.login as Address,
             }
             break
+          }
           default:
             throw new Error(`Unsupported event: ${event}`)
         }

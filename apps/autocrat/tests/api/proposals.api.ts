@@ -17,6 +17,10 @@ interface A2APart {
   data?: JsonObject
 }
 
+interface A2AResult {
+  result?: { parts: A2APart[] }
+}
+
 interface A2AJsonRpcRequest {
   jsonrpc: '2.0'
   id: number
@@ -29,16 +33,31 @@ interface A2AJsonRpcRequest {
   }
 }
 
+function expectResult(response: A2AResult): { parts: A2APart[] } {
+  if (!response.result) {
+    throw new Error('Expected A2A result')
+  }
+  return response.result
+}
+
+function expectDataPart(result: { parts: A2APart[] }): JsonObject {
+  const dataPart = result.parts.find((p): p is A2ADataPart => p.kind === 'data')
+  if (!dataPart) {
+    throw new Error('Expected data part in result')
+  }
+  return dataPart.data
+}
+
 const sendA2AMessage = async (
   request: {
     post: (
       url: string,
       options: { data: A2AJsonRpcRequest },
-    ) => Promise<{ json: () => Promise<{ result?: { parts: A2APart[] } }> }>
+    ) => Promise<{ json: () => Promise<A2AResult> }>
   },
   skillId: string,
   params: JsonObject,
-) => {
+): Promise<A2AResult> => {
   const response = await request.post(`${AUTOCRAT_URL}/a2a`, {
     data: {
       jsonrpc: '2.0',
@@ -55,28 +74,22 @@ const sendA2AMessage = async (
   return response.json()
 }
 
-const getDataPart = (
-  result: { parts: A2APart[] } | undefined,
-): A2ADataPart['data'] | undefined => {
-  return result?.parts.find((p): p is A2ADataPart => p.kind === 'data')?.data
-}
-
 test.describe('Proposal Quality Assessment', () => {
   test('low quality proposal gets low score', async ({ request }) => {
-    const result = await sendA2AMessage(request, 'assess-proposal', {
+    const response = await sendA2AMessage(request, 'assess-proposal', {
       title: 'Bad',
       summary: 'Short',
       description: 'Not enough detail',
       proposalType: 'GRANT',
     })
 
-    const data = getDataPart(result.result)
-    expect(data?.overallScore as number).toBeLessThan(90)
-    expect(data?.readyToSubmit).toBe(false)
+    const data = expectDataPart(expectResult(response))
+    expect(data.overallScore as number).toBeLessThan(90)
+    expect(data.readyToSubmit).toBe(false)
   })
 
   test('comprehensive proposal gets better score', async ({ request }) => {
-    const result = await sendA2AMessage(request, 'assess-proposal', {
+    const response = await sendA2AMessage(request, 'assess-proposal', {
       title: 'Implement Cross-Chain Bridge Integration for Ecosystem Growth',
       summary:
         'This proposal integrates cross-chain bridge functionality to enable seamless asset transfers across multiple blockchain networks.',
@@ -114,14 +127,15 @@ Implement a secure cross-chain bridge with support for major networks.
       proposalType: 'CODE_UPGRADE',
     })
 
-    const data = getDataPart(result.result)
-    expect(data?.overallScore as number).toBeGreaterThanOrEqual(70)
-    expect(data?.criteria).toBeDefined()
-    expect((data?.criteria as { clarity: number }).clarity).toBeGreaterThan(50)
+    const data = expectDataPart(expectResult(response))
+    expect(data.overallScore as number).toBeGreaterThanOrEqual(70)
+    expect(data.criteria).toBeDefined()
+    const criteria = data.criteria as { clarity: number }
+    expect(criteria.clarity).toBeGreaterThan(50)
   })
 
   test('assessment returns all quality criteria', async ({ request }) => {
-    const result = await sendA2AMessage(request, 'assess-proposal', {
+    const response = await sendA2AMessage(request, 'assess-proposal', {
       title: 'Test Proposal',
       summary: 'A test proposal with enough content to be evaluated properly.',
       description:
@@ -129,15 +143,15 @@ Implement a secure cross-chain bridge with support for major networks.
       proposalType: 'GRANT',
     })
 
-    const data = getDataPart(result.result)
-    const criteria = data?.criteria as Record<string, number>
-    expect(criteria?.clarity).toBeDefined()
-    expect(criteria?.completeness).toBeDefined()
-    expect(criteria?.feasibility).toBeDefined()
-    expect(criteria?.alignment).toBeDefined()
-    expect(criteria?.impact).toBeDefined()
-    expect(criteria?.riskAssessment).toBeDefined()
-    expect(criteria?.costBenefit).toBeDefined()
+    const data = expectDataPart(expectResult(response))
+    const criteria = data.criteria as Record<string, number>
+    expect(criteria.clarity).toBeDefined()
+    expect(criteria.completeness).toBeDefined()
+    expect(criteria.feasibility).toBeDefined()
+    expect(criteria.alignment).toBeDefined()
+    expect(criteria.impact).toBeDefined()
+    expect(criteria.riskAssessment).toBeDefined()
+    expect(criteria.costBenefit).toBeDefined()
   })
 })
 

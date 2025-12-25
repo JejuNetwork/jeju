@@ -7,6 +7,14 @@ import { Link, useParams } from 'react-router-dom'
 export default function CoinDetailPage() {
   const { chainId, address } = useParams<{ chainId: string; address: string }>()
 
+  if (!chainId || !address) {
+    return (
+      <div className="text-center py-12">
+        <p style={{ color: 'var(--text-secondary)' }}>Invalid token URL</p>
+      </div>
+    )
+  }
+
   return (
     <div>
       <Link
@@ -33,7 +41,7 @@ export default function CoinDetailPage() {
               className="text-sm font-mono"
               style={{ color: 'var(--text-tertiary)' }}
             >
-              {address?.slice(0, 10)}...{address?.slice(-8)}
+              {address.slice(0, 10)}...{address.slice(-8)}
             </p>
             <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
               Chain ID: {chainId}

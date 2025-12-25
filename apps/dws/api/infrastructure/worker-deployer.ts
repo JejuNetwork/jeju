@@ -10,7 +10,9 @@
  * 6. Payment flows via x402 or prepaid vault
  */
 
+import { expectValid } from '@jejunetwork/types'
 import { type Address, type Hex, keccak256 } from 'viem'
+import { z } from 'zod'
 import type { BackendManager } from '../storage/backends'
 import type { WorkerdExecutor } from '../workers/workerd/executor'
 import type { NodeRegistry } from './node-registry'
@@ -23,10 +25,10 @@ import type {
   WorkerInstance,
 } from './types'
 
-/** Instance creation response */
-interface InstanceCreateResponse {
-  instanceId: string
-}
+/** Instance creation response schema */
+const InstanceCreateResponseSchema = z.object({
+  instanceId: z.string(),
+})
 
 // Worker Deployer
 
@@ -185,7 +187,11 @@ export class WorkerDeployer {
       throw new Error(`Node ${node.agentId} deployment failed: ${error}`)
     }
 
-    const result = (await response.json()) as InstanceCreateResponse
+    const result = expectValid(
+      InstanceCreateResponseSchema,
+      await response.json(),
+      'instance create response',
+    )
 
     const instance: WorkerInstance = {
       id: result.instanceId,

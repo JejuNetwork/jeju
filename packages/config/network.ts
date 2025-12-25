@@ -100,21 +100,27 @@ export interface NetworkInfo {
 
 // Deployment Data
 
+type ContractCategory = Record<string, string | null>
+
 interface DeploymentJson {
   network: string
   chainId: number
   l1ChainId: number
-  tokens?: Record<string, string | null>
-  bridge?: Record<string, string | null>
-  infrastructure?: Record<string, string | null>
-  paymaster?: Record<string, string | null>
-  registry?: Record<string, string | null>
-  defi?: Record<string, string | null>
-  nodeStaking?: Record<string, string | null>
-  moderation?: Record<string, string | null>
-  compute?: Record<string, string | null>
-  oif?: Record<string, string | null>
-  games?: Record<string, string | null>
+  tokens?: ContractCategory
+  bridge?: ContractCategory
+  infrastructure?: ContractCategory
+  paymaster?: ContractCategory
+  registry?: ContractCategory
+  defi?: ContractCategory
+  nodeStaking?: ContractCategory
+  moderation?: ContractCategory
+  compute?: ContractCategory
+  oif?: ContractCategory
+  games?: ContractCategory
+  jns?: ContractCategory
+  payments?: ContractCategory
+  security?: ContractCategory
+  [key: string]: string | number | ContractCategory | null | undefined
 }
 
 const deployments: Record<NetworkType, DeploymentJson> = {
@@ -148,13 +154,8 @@ function extractContracts(deployment: DeploymentJson): DeployedContracts {
   ] as const
 
   for (const category of categories) {
-    const data = (
-      deployment as unknown as Record<
-        string,
-        Record<string, string> | undefined
-      >
-    )[category]
-    if (!data) continue
+    const data = deployment[category]
+    if (!data || typeof data !== 'object') continue
     const shouldPrefix = prefixedCategories.includes(
       category as (typeof prefixedCategories)[number],
     )

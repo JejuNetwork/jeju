@@ -133,10 +133,10 @@ class InferenceClient {
 
   constructor(config?: Partial<InferenceConfig>) {
     this.config = {
-      gatewayUrl: config?.gatewayUrl || DEFAULT_GATEWAY,
-      rpcUrl: config?.rpcUrl || 'https://rpc.jejunetwork.org',
+      gatewayUrl: config?.gatewayUrl ?? DEFAULT_GATEWAY,
+      rpcUrl: config?.rpcUrl ?? 'https://rpc.jejunetwork.org',
       walletAddress: config?.walletAddress,
-      preferredModel: config?.preferredModel || DEFAULT_MODEL,
+      preferredModel: config?.preferredModel ?? DEFAULT_MODEL,
       requireTEE: config?.requireTEE ?? false,
       maxRetries: config?.maxRetries ?? 3,
       timeoutMs: config?.timeoutMs ?? 30000,
@@ -261,7 +261,8 @@ class InferenceClient {
         const latencyMs = Date.now() - startTime
 
         // Extract response content
-        const assistantContent = data.choices?.[0]?.message?.content ?? ''
+        const choice = data.choices?.[0]
+        const assistantContent = choice?.message?.content ?? ''
 
         // Add assistant response to history
         this.conversationHistory.push({
@@ -279,22 +280,22 @@ class InferenceClient {
         }
 
         return {
-          id: data.id || generateUUID(),
-          model: data.model || model,
+          id: data.id ?? generateUUID(),
+          model: data.model ?? model,
           content: assistantContent,
           tokensUsed: {
-            input: data.usage?.prompt_tokens || 0,
-            output: data.usage?.completion_tokens || 0,
-            total: data.usage?.total_tokens || 0,
+            input: data.usage?.prompt_tokens ?? 0,
+            output: data.usage?.completion_tokens ?? 0,
+            total: data.usage?.total_tokens ?? 0,
           },
           cost: data.cost
             ? {
                 amount: data.cost.amount,
-                currency: data.cost.currency || 'JEJU',
+                currency: data.cost.currency ?? 'JEJU',
                 txHash: data.cost.txHash,
               }
             : undefined,
-          provider: data.provider || 'jeju-network',
+          provider: data.provider ?? 'jeju-network',
           latencyMs,
           teeAttestation: data.tee_attestation,
         }
@@ -369,7 +370,7 @@ class InferenceClient {
 
         buffer += decoder.decode(value, { stream: true })
         const lines = buffer.split('\n')
-        buffer = lines.pop() || ''
+        buffer = lines.pop() ?? ''
 
         for (const line of lines) {
           if (line.startsWith('data: ')) {
@@ -385,26 +386,27 @@ class InferenceClient {
 
             try {
               const ChunkSchema = z.object({
-                id: z.string().optional(),
+                id: z.string().default(''),
                 choices: z
                   .array(
                     z.object({
                       delta: z
                         .object({
-                          content: z.string().optional(),
+                          content: z.string().default(''),
                         })
-                        .optional(),
+                        .default({ content: '' }),
                     }),
                   )
-                  .optional(),
+                  .default([]),
               })
 
               const parsed = expectJson(data, ChunkSchema, 'stream chunk')
-              const content = parsed.choices?.[0]?.delta?.content || ''
+              const deltaChoice = parsed.choices[0]
+              const content = deltaChoice?.delta.content ?? ''
               if (content) {
                 fullContent += content
                 yield {
-                  id: parsed.id || generateUUID(),
+                  id: parsed.id ?? generateUUID(),
                   content,
                   done: false,
                 }

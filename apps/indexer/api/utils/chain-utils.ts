@@ -1,7 +1,7 @@
 import type { Chain } from 'viem'
 
 export function inferChainFromRpcUrl(rpcUrl: string): Chain {
-  if (!rpcUrl || typeof rpcUrl !== 'string' || rpcUrl.trim().length === 0) {
+  if (!rpcUrl || rpcUrl.trim().length === 0) {
     throw new Error('rpcUrl is required and must be a non-empty string')
   }
 

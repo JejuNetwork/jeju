@@ -74,7 +74,7 @@ export function useCIRuns(query?: {
     refetchInterval: 30000,
   })
 
-  return { runs: runs || [], isLoading, error, refetch }
+  return { runs: runs ?? [], isLoading, error, refetch }
 }
 
 export function useCIStats() {

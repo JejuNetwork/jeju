@@ -3,7 +3,8 @@
  */
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { isNativeToken } from '@jejunetwork/types'
+import { isNativeToken, validateOrNull } from '@jejunetwork/types'
+import { z } from 'zod'
 
 export { isNativeToken }
 
@@ -114,6 +115,23 @@ type OifContracts = {
 }
 type OifContractKey = keyof OifContracts
 
+const OifContractsSchema = z.object({
+  inputSettler: z.string().optional(),
+  outputSettler: z.string().optional(),
+  oracle: z.string().optional(),
+  solverRegistry: z.string().optional(),
+})
+
+const DeploymentChainEntrySchema = z.object({
+  chainId: z.number(),
+  status: z.string(),
+  contracts: OifContractsSchema.optional(),
+})
+
+const DeploymentJsonSchema = z.object({
+  chains: z.record(z.string(), DeploymentChainEntrySchema).optional(),
+})
+
 // Load once, cache forever
 const deploymentCache: Record<number, OifContracts> = (() => {
   const out: Record<number, OifContracts> = {}
@@ -127,13 +145,13 @@ const deploymentCache: Record<number, OifContracts> = (() => {
   for (const p of paths) {
     const path = resolve(process.cwd(), p)
     if (!existsSync(path)) continue
-    const data = JSON.parse(readFileSync(path, 'utf-8'))
-    for (const chain of Object.values(data.chains || {})) {
-      const c = chain as {
-        chainId: number
-        status: string
-        contracts?: OifContracts
-      }
+    const data = validateOrNull(
+      DeploymentJsonSchema,
+      JSON.parse(readFileSync(path, 'utf-8')),
+    )
+    if (!data) continue
+    const chains = data.chains ?? {}
+    for (const c of Object.values(chains)) {
       if (c.status === 'deployed' && c.contracts) out[c.chainId] = c.contracts
     }
   }

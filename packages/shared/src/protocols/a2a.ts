@@ -150,7 +150,17 @@ export function createA2AServer(config: A2AConfig) {
             error: { code: -32602, message: 'No data part found in message' },
           }
         }
-        const skillId = dataPart.data.skillId as string
+        const skillId =
+          typeof dataPart.data.skillId === 'string'
+            ? dataPart.data.skillId
+            : null
+        if (!skillId) {
+          return {
+            jsonrpc: '2.0',
+            id: requestBody.id,
+            error: { code: -32602, message: 'No skillId specified' },
+          }
+        }
         const params = dataPart.data as ProtocolData
 
         const result = await config.executeSkill(skillId, params, address)

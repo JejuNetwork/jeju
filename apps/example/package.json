@@ -18,7 +18,7 @@
     "@elysiajs/eden": "^1.2.3",
     "@jejunetwork/config": "workspace:*",
     "@jejunetwork/db": "workspace:*",
-    "@jejunetwork/oauth3": "workspace:*",
+    "@jejunetwork/auth": "workspace:*",
     "@jejunetwork/sdk": "workspace:*",
     "@jejunetwork/shared": "workspace:*",
     "@jejunetwork/types": "workspace:*",

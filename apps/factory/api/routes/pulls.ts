@@ -45,7 +45,7 @@ export const pullsRoutes = new Elysia({ prefix: '/api/pulls' })
     '/',
     async ({ query }) => {
       const validated = expectValid(PullsQuerySchema, query, 'query params')
-      const page = Number.parseInt(validated.page || '1', 10)
+      const page = Number.parseInt(validated.page ?? '1', 10)
       const pulls: PullRequest[] = []
       return { pulls, total: pulls.length, page }
     },
@@ -111,7 +111,7 @@ export const pullsRoutes = new Elysia({ prefix: '/api/pulls' })
       return {
         success: true,
         prNumber: params.prNumber,
-        method: validated.method || 'merge',
+        method: validated.method ?? 'merge',
         sha: `sha-${Date.now()}`,
       }
     },

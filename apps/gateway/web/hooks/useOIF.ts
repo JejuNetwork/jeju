@@ -255,7 +255,7 @@ export function useCreateIntent(inputSettlerAddress: Address | undefined) {
           parseAbiParameters('address, uint256, uint256, address, uint256'),
           [
             address,
-            nonce || 0n,
+            nonce ?? 0n,
             params.inputAmount,
             params.inputToken,
             BigInt(Date.now()),
@@ -267,7 +267,7 @@ export function useCreateIntent(inputSettlerAddress: Address | undefined) {
       const order = {
         originSettler: inputSettlerAddress,
         user: address,
-        nonce: nonce || 0n,
+        nonce: nonce ?? 0n,
         originChainId: BigInt(await publicClient.getChainId()),
         openDeadline,
         fillDeadline,

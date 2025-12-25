@@ -113,7 +113,7 @@ export function createMCPServer(config: MCPConfig) {
           contents: [
             {
               uri,
-              mimeType: resource?.mimeType || 'application/json',
+              mimeType: resource?.mimeType ?? 'application/json',
               text: JSON.stringify(contents),
             },
           ],

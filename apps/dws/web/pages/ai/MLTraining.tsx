@@ -100,8 +100,10 @@ export default function MLTrainingPage() {
           <div className="stat-content">
             <div className="stat-label">GPU Nodes</div>
             <div className="stat-value">
-              {nodesData?.nodes?.filter((n) => n.resources.totalCpu > 4)
-                .length ?? 0}
+              {
+                (nodesData?.nodes ?? []).filter((n) => n.resources.totalCpu > 4)
+                  .length
+              }
             </div>
           </div>
         </div>

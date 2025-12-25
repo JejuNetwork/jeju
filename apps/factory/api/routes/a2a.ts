@@ -2,6 +2,7 @@
 
 import type { JsonRecord } from '@jejunetwork/sdk'
 import { Elysia } from 'elysia'
+import { z } from 'zod'
 import { A2ARequestBodySchema, expectValid } from '../schemas'
 
 interface A2ADataPart {
@@ -16,17 +17,26 @@ function isDataPart(part: {
   return part.kind === 'data' && part.data !== undefined
 }
 
+const QueryParamsSchema = z
+  .object({
+    query: z.string().default('all'),
+  })
+  .passthrough()
+
+const SkillDataSchema = z
+  .object({
+    skillId: z.string().min(1),
+  })
+  .passthrough()
+
 function getQueryString(params: JsonRecord): string {
-  const query = params.query
-  if (typeof query === 'string') {
-    return query
-  }
-  return 'all'
+  const result = QueryParamsSchema.safeParse(params)
+  return result.success ? result.data.query : 'all'
 }
 
 function getSkillId(data: JsonRecord): string | undefined {
-  const skillId = data.skillId
-  return typeof skillId === 'string' ? skillId : undefined
+  const result = SkillDataSchema.safeParse(data)
+  return result.success ? result.data.skillId : undefined
 }
 
 const NETWORK_NAME = 'Jeju'

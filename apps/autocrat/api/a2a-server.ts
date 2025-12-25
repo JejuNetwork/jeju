@@ -134,7 +134,7 @@ export class AutocratA2AServer {
         if (!skillId) {
           throw new Error('Missing skillId in data part')
         }
-        const params = dataPart.data.params || {}
+        const params = dataPart.data.params ?? {}
 
         const result = await this.executeSkill(skillId, params)
 
@@ -310,11 +310,11 @@ export class AutocratA2AServer {
   ): Promise<SkillResult> {
     // Helper to extract proposalId with validation
     const getProposalIdParam = (): string => {
-      const id = params.proposalId
-      if (typeof id !== 'string') {
-        throw new Error('proposalId must be a string')
-      }
-      return id
+      return validateOrThrow(
+        z.object({ proposalId: ProposalIdSchema }).passthrough(),
+        params,
+        'proposalId params',
+      ).proposalId
     }
 
     switch (skillId) {
@@ -506,9 +506,9 @@ Return ONLY JSON:
           proposalType: validated.proposalType,
           qualityScore,
           contentHash: validated.contentHash,
-          targetContract: validated.targetContract || ZERO_ADDRESS,
-          callData: validated.callData || '0x',
-          value: validated.value || '0',
+          targetContract: validated.targetContract ?? ZERO_ADDRESS,
+          callData: validated.callData ?? '0x',
+          value: validated.value ?? '0',
         },
         bond: formatEther(parseEther('0.001')),
       },
@@ -556,8 +556,8 @@ Return ONLY JSON:
         contract: councilAddress,
         params: {
           proposalId: validated.proposalId,
-          stakeAmount: validated.stakeAmount || '0',
-          reputationWeight: validated.reputationWeight || 0,
+          stakeAmount: validated.stakeAmount ?? '0',
+          reputationWeight: validated.reputationWeight ?? 0,
         },
       },
     }
@@ -613,8 +613,8 @@ Return ONLY JSON:
     await storeVote(proposalId, {
       role: agentId.toUpperCase(),
       vote,
-      reasoning: reasoning || 'No reasoning',
-      confidence: confidence || 75,
+      reasoning: reasoning ?? 'No reasoning',
+      confidence: confidence ?? 75,
     })
 
     return {
@@ -623,8 +623,8 @@ Return ONLY JSON:
         proposalId,
         agentId,
         vote,
-        reasoning: reasoning || 'No reasoning',
-        confidence: confidence || 75,
+        reasoning: reasoning ?? 'No reasoning',
+        confidence: confidence ?? 75,
         timestamp: new Date().toISOString(),
         status: 'stored',
       },
@@ -732,7 +732,7 @@ Return ONLY JSON:
 
   private async listModels(): Promise<SkillResult> {
     if (!this.blockchain.ceoDeployed) {
-      const ceoModel = this.config.agents?.ceo?.model ?? 'local'
+      const ceoModel = this.config.agents?.ceo.model ?? 'local'
       return {
         message: 'Contract not deployed',
         data: { models: [ceoModel], currentModel: ceoModel },
@@ -829,7 +829,7 @@ Return ONLY JSON:
       type: 'commentary',
       proposalId,
       content,
-      sentiment: sentiment || 'neutral',
+      sentiment: sentiment ?? 'neutral',
       timestamp: Date.now(),
     })
 
@@ -838,7 +838,7 @@ Return ONLY JSON:
       data: {
         proposalId,
         content,
-        sentiment: sentiment || 'neutral',
+        sentiment: sentiment ?? 'neutral',
         timestamp: new Date().toISOString(),
         hash,
       },

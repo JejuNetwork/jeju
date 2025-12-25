@@ -123,7 +123,7 @@ export default function MultiTokenBalanceDisplay() {
         }}
       >
         {sortedTokens.map((token) => {
-          const balance = balances[token.symbol] || 0n
+          const balance = balances[token.symbol] ?? 0n
           const usdValue = calculateUSDValue(
             balance,
             token.decimals,

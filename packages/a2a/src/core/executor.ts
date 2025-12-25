@@ -102,7 +102,12 @@ export abstract class BaseAgentExecutor implements AgentExecutor {
     const command = this.parseCommand(requestContext.userMessage)
     const result = await this.executeOperation(command, requestContext)
 
-    // Create artifact with result
+    // Create artifact with result - ensure result is a valid JsonValue record
+    const resultData: Record<string, JsonValue> =
+      result !== null && typeof result === 'object' && !Array.isArray(result)
+        ? (result as Record<string, JsonValue>)
+        : { value: result ?? null }
+
     const artifactUpdate: TaskArtifactUpdateEvent = {
       kind: 'artifact-update',
       taskId,
@@ -113,7 +118,7 @@ export abstract class BaseAgentExecutor implements AgentExecutor {
         parts: [
           {
             kind: 'data',
-            data: (result ?? {}) as { [k: string]: JsonValue },
+            data: resultData,
           },
         ],
       },

@@ -9,11 +9,12 @@
  */
 
 import { createHash } from 'node:crypto'
+import { expectValid } from '@jejunetwork/types'
 import { keccak256 } from 'viem'
-import type {
-  IpfsAddResponse,
-  KmsDecryptResponse,
-  KmsEncryptResponse,
+import {
+  IpfsAddResponseSchema,
+  KmsDecryptResponseSchema,
+  KmsEncryptResponseSchema,
 } from '../types'
 import { type ArweaveBackend, getArweaveBackend } from './arweave-backend'
 import type {
@@ -158,7 +159,11 @@ export class MultiBackendManager {
 
           if (!response.ok)
             throw new Error(`IPFS upload failed: ${response.statusText}`)
-          const data = (await response.json()) as IpfsAddResponse
+          const data = expectValid(
+            IpfsAddResponseSchema,
+            await response.json(),
+            'IPFS add response',
+          )
           return { cid: data.Hash, url: `${ipfsGatewayUrl}/ipfs/${data.Hash}` }
         },
         async download(cid: string): Promise<Buffer> {
@@ -622,7 +627,11 @@ export class MultiBackendManager {
       throw new Error(`KMS encryption failed: ${response.statusText}`)
     }
 
-    const result = (await response.json()) as KmsEncryptResponse
+    const result = expectValid(
+      KmsEncryptResponseSchema,
+      await response.json(),
+      'KMS encrypt response',
+    )
     return {
       data: Buffer.from(result.ciphertext, 'base64'),
       keyId: result.keyId,
@@ -650,7 +659,11 @@ export class MultiBackendManager {
       throw new Error(`KMS decryption failed: ${response.statusText}`)
     }
 
-    const result = (await response.json()) as KmsDecryptResponse
+    const result = expectValid(
+      KmsDecryptResponseSchema,
+      await response.json(),
+      'KMS decrypt response',
+    )
     return Buffer.from(result.plaintext, 'base64')
   }
 

@@ -28,10 +28,11 @@ export default function InferencePage() {
       messages: newMessages.map((m) => ({ role: m.role, content: m.content })),
     })
 
-    if (result.choices[0]?.message?.content) {
+    const choice = result.choices[0]
+    if (choice?.message?.content) {
       setMessages([
         ...newMessages,
-        { role: 'assistant', content: result.choices[0].message.content },
+        { role: 'assistant', content: choice.message.content },
       ])
     }
   }

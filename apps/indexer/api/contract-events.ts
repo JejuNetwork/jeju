@@ -1293,5 +1293,5 @@ export function getContractInfo(address: string): ContractInfo | undefined {
 
 export function getEventName(topic0: string): string {
   const category = EVENT_REGISTRY[topic0]
-  return category?.name || 'Unknown'
+  return category?.name ?? 'Unknown'
 }

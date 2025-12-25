@@ -15,7 +15,7 @@ import {
   PlayerStats,
 } from './model'
 import type { ProcessorContext } from './processor'
-import { decodeLog } from './utils/hex'
+import { decodeEventArgs } from './utils/hex'
 
 /** Event decoded args types */
 interface FeedPostArgs {
@@ -150,11 +150,11 @@ export async function processGameFeedEvents(
       const txHash = log.transaction.hash
 
       if (eventSig === FEED_POST) {
-        const { args } = decodeLog({
-          abi: gameFeedInterface,
-          data: log.data,
-          topics: log.topics,
-        }) as { args: FeedPostArgs }
+        const args = decodeEventArgs<FeedPostArgs>(
+          gameFeedInterface,
+          log.data,
+          log.topics,
+        )
 
         feedPosts.push(
           new GameFeedPost({
@@ -171,11 +171,11 @@ export async function processGameFeedEvents(
           }),
         )
       } else if (eventSig === MARKET_UPDATE) {
-        const { args } = decodeLog({
-          abi: gameFeedInterface,
-          data: log.data,
-          topics: log.topics,
-        }) as { args: MarketUpdateArgs }
+        const args = decodeEventArgs<MarketUpdateArgs>(
+          gameFeedInterface,
+          log.data,
+          log.topics,
+        )
 
         marketUpdates.push(
           new GameMarketUpdate({
@@ -191,11 +191,11 @@ export async function processGameFeedEvents(
           }),
         )
       } else if (eventSig === PHASE_CHANGE) {
-        const { args } = decodeLog({
-          abi: gameFeedInterface,
-          data: log.data,
-          topics: log.topics,
-        }) as { args: PhaseChangeArgs }
+        const args = decodeEventArgs<PhaseChangeArgs>(
+          gameFeedInterface,
+          log.data,
+          log.topics,
+        )
 
         phaseChanges.push(
           new GamePhaseChange({
@@ -209,11 +209,11 @@ export async function processGameFeedEvents(
           }),
         )
       } else if (eventSig === SKILL_EVENT) {
-        const { args } = decodeLog({
-          abi: gameFeedInterface,
-          data: log.data,
-          topics: log.topics,
-        }) as { args: SkillEventArgs }
+        const args = decodeEventArgs<SkillEventArgs>(
+          gameFeedInterface,
+          log.data,
+          log.topics,
+        )
 
         const player = args.player.toLowerCase()
 
@@ -242,11 +242,11 @@ export async function processGameFeedEvents(
         }
         stats.lastActive = blockTimestamp
       } else if (eventSig === DEATH_EVENT) {
-        const { args } = decodeLog({
-          abi: gameFeedInterface,
-          data: log.data,
-          topics: log.topics,
-        }) as { args: DeathEventArgs }
+        const args = decodeEventArgs<DeathEventArgs>(
+          gameFeedInterface,
+          log.data,
+          log.topics,
+        )
 
         const player = args.player.toLowerCase()
         const killerAddr = args.killer
@@ -272,11 +272,11 @@ export async function processGameFeedEvents(
         stats.totalDeaths++
         stats.lastActive = blockTimestamp
       } else if (eventSig === KILL_EVENT) {
-        const { args } = decodeLog({
-          abi: gameFeedInterface,
-          data: log.data,
-          topics: log.topics,
-        }) as { args: KillEventArgs }
+        const args = decodeEventArgs<KillEventArgs>(
+          gameFeedInterface,
+          log.data,
+          log.topics,
+        )
 
         const killer = args.killer.toLowerCase()
 
@@ -300,11 +300,11 @@ export async function processGameFeedEvents(
         stats.totalKills++
         stats.lastActive = blockTimestamp
       } else if (eventSig === ACHIEVEMENT) {
-        const { args } = decodeLog({
-          abi: gameFeedInterface,
-          data: log.data,
-          topics: log.topics,
-        }) as { args: AchievementEventArgs }
+        const args = decodeEventArgs<AchievementEventArgs>(
+          gameFeedInterface,
+          log.data,
+          log.topics,
+        )
 
         const player = args.player.toLowerCase()
 

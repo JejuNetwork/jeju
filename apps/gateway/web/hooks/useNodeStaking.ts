@@ -73,7 +73,7 @@ export function useNodeStaking() {
   }
 
   return {
-    operatorNodeIds: operatorNodeIds ? (operatorNodeIds as string[]) : [],
+    operatorNodeIds: operatorNodeIds ? [...operatorNodeIds] : [],
     operatorStats: operatorStats as OperatorStats | undefined,
     networkStats: networkStats as [bigint, bigint, bigint] | undefined,
     registerNode,

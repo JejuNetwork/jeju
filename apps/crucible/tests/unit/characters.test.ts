@@ -22,6 +22,7 @@ describe('Character Definitions', () => {
     it('should list all available characters', () => {
       const ids = listCharacters()
 
+      // Core team
       expect(ids).toContain('project-manager')
       expect(ids).toContain('community-manager')
       expect(ids).toContain('devrel')

@@ -368,7 +368,7 @@ export class AutocratOrchestrator {
         address: councilAddress,
         abi: COUNCIL_WRITE_ABI,
         functionName: 'getActiveProposals',
-      })) as string[]
+      })) as readonly `0x${string}`[]
 
       if (activeIds.length === 0) return
 
@@ -377,10 +377,10 @@ export class AutocratOrchestrator {
           address: councilAddress,
           abi: COUNCIL_WRITE_ABI,
           functionName: 'getProposal',
-          args: [toHex(proposalId)],
+          args: [proposalId],
         })) as ProposalFromContract
 
-        await this.processProposal(state, proposalId as string, proposal)
+        await this.processProposal(state, proposalId, proposal)
         state.processedCount++
         this.totalProcessed++
       }
@@ -444,7 +444,7 @@ export class AutocratOrchestrator {
         proposalId,
         title: `Proposal ${shortId}`,
         summary: `Type: ${proposal.proposalType}, Quality: ${proposal.qualityScore}`,
-        description: proposal.contentHash || 'No description',
+        description: proposal.contentHash ?? 'No description',
         proposalType: String(proposal.proposalType),
         submitter: proposal.proposer,
         daoId: state.daoId,
@@ -522,7 +522,7 @@ export class AutocratOrchestrator {
     const researchRequest: ResearchRequest = {
       proposalId,
       title: `Proposal ${proposalId.slice(0, 10)}`,
-      description: `${proposal.contentHash || 'No description'}\n\nType: ${proposal.proposalType}, Quality: ${proposal.qualityScore}`,
+      description: `${proposal.contentHash ?? 'No description'}\n\nType: ${proposal.proposalType}, Quality: ${proposal.qualityScore}`,
       proposalType: String(proposal.proposalType),
       depth: 'standard',
       daoId: state.daoId,

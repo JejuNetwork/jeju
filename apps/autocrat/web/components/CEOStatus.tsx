@@ -38,9 +38,7 @@ export function CEOStatus({ status, loading }: CEOStatusProps) {
       </div>
 
       <div className="mb-2 sm:mb-3">
-        <div className="font-medium text-sm">
-          {status.currentModel.name || 'Eliza'}
-        </div>
+        <div className="font-medium text-sm">{status.currentModel.name}</div>
         <div
           className="text-xs truncate"
           style={{ color: 'var(--text-tertiary)' }}

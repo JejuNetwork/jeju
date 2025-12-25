@@ -187,7 +187,7 @@ export function Alerts() {
       ) : (
         <div className="space-y-4">
           {filteredAlerts.map((alert: Alert) => {
-            const alertKey = `${alert.labels.alertname || 'unknown'}-${alert.labels.instance || ''}-${alert.labels.job || ''}`
+            const alertKey = `${alert.labels.alertname ?? 'unknown'}-${alert.labels.instance ?? ''}-${alert.labels.job ?? ''}`
             return <AlertCard key={alertKey} alert={alert} />
           })}
         </div>

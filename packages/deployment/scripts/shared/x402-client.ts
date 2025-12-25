@@ -311,11 +311,11 @@ export class X402Client {
     this.config = config
     const chainConfig = CHAIN_CONFIGS[config.chainId]
     const rpcUrl =
-      config.rpcUrl || chainConfig?.rpcUrl || 'http://127.0.0.1:6546'
+      config.rpcUrl ?? chainConfig?.rpcUrl ?? 'http://127.0.0.1:6546'
 
     const chain: Chain = {
       id: config.chainId,
-      name: chainConfig?.name || 'Unknown',
+      name: chainConfig?.name ?? 'Unknown',
       nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
       rpcUrls: { default: { http: [rpcUrl] } },
     }

@@ -76,8 +76,7 @@ export default function Dashboard({ viewMode }: DashboardProps) {
         {banRecord && (
           <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
             <p>
-              <strong>Reason:</strong>{' '}
-              {banRecord.reason || 'No reason provided'}
+              <strong>Reason:</strong> {banRecord.reason ?? 'Not specified'}
             </p>
             {banRecord.expiresAt > 0n && (
               <p>
@@ -92,14 +91,13 @@ export default function Dashboard({ viewMode }: DashboardProps) {
   }
 
   const runningContainers =
-    containersData?.executions?.filter((e) => e.status === 'running').length ??
-    0
+    containersData?.executions.filter((e) => e.status === 'running').length ?? 0
   const activeWorkers =
-    workersData?.functions?.filter((f) => f.status === 'active').length ?? 0
+    workersData?.functions.filter((f) => f.status === 'active').length ?? 0
   const runningJobs =
-    jobsData?.jobs?.filter((j) => j.status === 'running').length ?? 0
+    jobsData?.jobs.filter((j) => j.status === 'running').length ?? 0
   const onlineNodes =
-    nodesData?.nodes?.filter((n) => n.status === 'online').length ?? 0
+    nodesData?.nodes.filter((n) => n.status === 'online').length ?? 0
 
   return (
     <div>
@@ -382,18 +380,22 @@ function RecentActivity() {
   }> = []
 
   // Add containers
-  containersData?.executions?.forEach((c) => {
+  containersData?.executions.forEach((c) => {
+    const imageParts = c.image.split('/')
+    const lastPart = imageParts[imageParts.length - 1]
+    const namePart = lastPart.split(':')[0]
+    const name = namePart && namePart.length > 0 ? namePart : c.image
     activities.push({
       id: c.executionId,
       type: 'container',
-      name: c.image.split('/').pop()?.split(':')[0] || c.image,
+      name,
       status: c.status,
-      timestamp: c.startedAt || c.submittedAt,
+      timestamp: c.startedAt ?? c.submittedAt,
     })
   })
 
   // Add workers
-  workersData?.functions?.forEach((w) => {
+  workersData?.functions.forEach((w) => {
     activities.push({
       id: w.id,
       type: 'worker',
@@ -404,13 +406,14 @@ function RecentActivity() {
   })
 
   // Add jobs
-  jobsData?.jobs?.forEach((j) => {
+  jobsData?.jobs.forEach((j) => {
+    if (j.startedAt === null) return // Skip jobs that haven't started
     activities.push({
       id: j.jobId,
       type: 'job',
       name: j.command.slice(0, 30) + (j.command.length > 30 ? '...' : ''),
       status: j.status,
-      timestamp: j.startedAt || Date.now(),
+      timestamp: j.startedAt,
     })
   })
 
@@ -548,14 +551,13 @@ interface ProviderDashboardProps {
 
 function ProviderDashboard({ onlineNodes, nodesData }: ProviderDashboardProps) {
   const totalCpu =
-    nodesData?.nodes?.reduce((sum, n) => sum + n.resources.totalCpu, 0) ?? 0
+    nodesData?.nodes.reduce((sum, n) => sum + n.resources.totalCpu, 0) ?? 0
   const availableCpu =
-    nodesData?.nodes?.reduce((sum, n) => sum + n.resources.availableCpu, 0) ?? 0
+    nodesData?.nodes.reduce((sum, n) => sum + n.resources.availableCpu, 0) ?? 0
   const totalMemory =
-    nodesData?.nodes?.reduce((sum, n) => sum + n.resources.totalMemoryMb, 0) ??
-    0
+    nodesData?.nodes.reduce((sum, n) => sum + n.resources.totalMemoryMb, 0) ?? 0
   const availableMemory =
-    nodesData?.nodes?.reduce(
+    nodesData?.nodes.reduce(
       (sum, n) => sum + n.resources.availableMemoryMb,
       0,
     ) ?? 0

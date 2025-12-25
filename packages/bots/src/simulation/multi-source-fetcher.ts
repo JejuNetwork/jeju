@@ -68,6 +68,13 @@ const HeliusTransactionSchema = z.array(
   }),
 )
 
+const HeliusTokenMetadataSchema = z.array(
+  z.object({
+    account: z.string(),
+    onChainData: z.object({ price: z.number().optional() }).optional(),
+  }),
+)
+
 // JSON-RPC response schemas
 const RpcBlockResponseSchema = z.object({
   result: z
@@ -489,13 +496,11 @@ export class MultiSourceFetcher {
 
     if (!response.ok) return {}
 
-    const data = (await response.json()) as Array<{
-      account: string
-      onChainData?: { price?: number }
-    }>
-    const prices: Record<string, number> = {}
+    const parsed = HeliusTokenMetadataSchema.safeParse(await response.json())
+    if (!parsed.success) return {}
 
-    for (const token of data) {
+    const prices: Record<string, number> = {}
+    for (const token of parsed.data) {
       if (token.onChainData?.price) {
         prices[token.account] = token.onChainData.price
       }

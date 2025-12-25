@@ -36,8 +36,8 @@ export function useFeedRegistry() {
   })
 
   return {
-    allFeedIds: (allFeedIds as `0x${string}`[]) || [],
-    activeFeedIds: (activeFeedIds as `0x${string}`[]) || [],
+    allFeedIds: (allFeedIds as `0x${string}`[]) ?? [],
+    activeFeedIds: (activeFeedIds as `0x${string}`[]) ?? [],
     totalFeeds: totalFeeds as bigint | undefined,
     refetchFeeds,
   }
@@ -162,8 +162,8 @@ export function useOperatorCommittees(operator: Address | undefined) {
   })
 
   return {
-    assignedFeeds: (feedIds as `0x${string}`[]) || [],
-    feedIds: (feedIds as `0x${string}`[]) || [],
+    assignedFeeds: (feedIds as `0x${string}`[]) ?? [],
+    feedIds: (feedIds as `0x${string}`[]) ?? [],
     refetch,
   }
 }
@@ -208,7 +208,7 @@ export function useOracleSubscriptions() {
   }
 
   return {
-    subscriptionIds: (subscriptionIds as `0x${string}`[]) || [],
+    subscriptionIds: (subscriptionIds as `0x${string}`[]) ?? [],
     feeConfig: feeConfig as FeeConfig | undefined,
     subscribe,
     isSubscribing: isPending || isConfirming,

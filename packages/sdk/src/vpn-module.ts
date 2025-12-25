@@ -87,6 +87,22 @@ export interface VPNModule {
   withdrawStake(): Promise<{ txHash: Hex }>
 }
 
+/** Raw node data from VPN registry contract */
+interface VPNRegistryNodeData {
+  operator: Address
+  countryCode: Hex
+  regionHash: Hex
+  endpoint: string
+  wireguardPubKey: string
+  stake: bigint
+  registeredAt: bigint
+  lastSeen: bigint
+  active: boolean
+  totalBytesServed: bigint
+  totalSessions: bigint
+  successfulSessions: bigint
+}
+
 const VPN_REGISTRY_ABI = [
   'function getNode(address operator) external view returns (tuple(address operator, bytes2 countryCode, bytes32 regionHash, string endpoint, string wireguardPubKey, uint256 stake, uint256 registeredAt, uint256 lastSeen, bool active, uint256 totalBytesServed, uint256 totalSessions, uint256 successfulSessions))',
   'function getActiveExitNodes() external view returns (address[])',
@@ -122,20 +138,7 @@ export function createVPNModule(
       abi: VPN_REGISTRY_ABI,
       functionName: 'getNode',
       args: [operator],
-    })) as {
-      operator: Address
-      countryCode: Hex
-      regionHash: Hex
-      endpoint: string
-      wireguardPubKey: string
-      stake: bigint
-      registeredAt: bigint
-      lastSeen: bigint
-      active: boolean
-      totalBytesServed: bigint
-      totalSessions: bigint
-      successfulSessions: bigint
-    }
+    })) as VPNRegistryNodeData
 
     if (!nodeData || nodeData.registeredAt === 0n) return null
 
@@ -166,12 +169,12 @@ export function createVPNModule(
   async function refreshNodesCache(): Promise<void> {
     if (Date.now() - lastFetch < CACHE_TTL && nodesCache.length > 0) return
 
-    const activeAddresses = (await wallet.publicClient.readContract({
+    const activeAddresses = await wallet.publicClient.readContract({
       address: vpnRegistryAddress,
       abi: VPN_REGISTRY_ABI,
       functionName: 'getActiveExitNodes',
       args: [],
-    })) as Address[]
+    })
 
     const nodes: VPNNodeInfo[] = []
     for (const addr of activeAddresses) {

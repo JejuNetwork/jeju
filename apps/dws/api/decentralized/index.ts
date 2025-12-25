@@ -13,9 +13,12 @@
  * - A2A Endpoint: same as dwsEndpoint
  */
 
+import { validateOrNull } from '@jejunetwork/types'
 import { type Address, createPublicClient, http } from 'viem'
+import { z } from 'zod'
 import type { BackendManager } from '../storage/backends'
-import type { CountResponse } from '../types'
+
+const CountResponseSchema = z.object({ count: z.number().optional() })
 
 // ERC-8004 IdentityRegistry ABI - Unified agent/node registry
 
@@ -128,6 +131,15 @@ export interface DWSNode {
   latency?: number
 }
 
+/** Contract return type for getAgent */
+interface AgentContractResult {
+  agentId: bigint
+  owner: Address
+  tier: number
+  stakedAmount: bigint
+  isBanned: boolean
+}
+
 export interface Config {
   rpcUrl: string
   identityRegistryAddress: Address // ERC-8004 IdentityRegistry
@@ -217,13 +229,7 @@ export class NodeDiscovery {
       return null
     }
 
-    const agent = agentResult as {
-      agentId: bigint
-      owner: Address
-      tier: number
-      stakedAmount: bigint
-      isBanned: boolean
-    }
+    const agent = agentResult as AgentContractResult
 
     if (agent.owner === '0x0000000000000000000000000000000000000000') {
       return null
@@ -605,8 +611,11 @@ export class DistributedRateLimiter {
         )
 
         if (response.ok) {
-          const data = (await response.json()) as CountResponse
-          totalPeerCount += data.count ?? 0
+          const data = validateOrNull(
+            CountResponseSchema,
+            await response.json(),
+          )
+          totalPeerCount += data?.count ?? 0
         }
       }),
     )

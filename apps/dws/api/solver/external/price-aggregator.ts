@@ -17,7 +17,6 @@
  */
 
 import { RPC_CHAINS as CHAINS } from '@jejunetwork/config'
-import { readContract } from '@jejunetwork/contracts'
 import {
   type Address,
   type Chain,

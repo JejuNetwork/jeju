@@ -26,7 +26,7 @@ import { PriceFetcher } from '../../src/oracle/price-fetcher'
 import type {
   OracleNodeConfig,
   PriceSourceConfig,
-} from '../../src/oracle/types'
+} from '@jejunetwork/types'
 
 const SKIP_INTEGRATION = process.env.INTEGRATION_TESTS !== '1'
 

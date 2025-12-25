@@ -3,8 +3,9 @@
 import { execSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { ZERO_ADDRESS } from '@jejunetwork/types'
+import { AddressSchema, validateOrNull, ZERO_ADDRESS } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
+import { z } from 'zod'
 import {
   type DeployConfig,
   type DWSContractAddresses,
@@ -13,6 +14,16 @@ import {
 import { registerDWSNode } from '../lib/dws-node'
 import { logger } from '../lib/logger'
 import type { AppManifest } from '../types'
+
+const DWSContractAddressesSchema = z.object({
+  storageManager: AddressSchema,
+  workerRegistry: AddressSchema,
+  cdnRegistry: AddressSchema,
+  jnsRegistry: AddressSchema,
+  jnsResolver: AddressSchema,
+  jnsRegistrar: AddressSchema,
+  jnsReverseRegistrar: AddressSchema,
+})
 
 /**
  * Check if DWS contracts are valid (not all zero addresses)
@@ -79,14 +90,15 @@ export class LocalDeployOrchestrator {
       return null
     }
 
-    const data = JSON.parse(
-      readFileSync(deploymentFile, 'utf-8'),
-    ) as DWSContractAddresses
+    const data = validateOrNull(
+      DWSContractAddressesSchema,
+      JSON.parse(readFileSync(deploymentFile, 'utf-8')),
+    )
 
     // Validate that the deployment has actual addresses, not placeholders
-    if (!isValidDWSDeployment(data)) {
+    if (!data || !isValidDWSDeployment(data)) {
       logger.debug(
-        'DWS deployment file has placeholder addresses, will redeploy',
+        'DWS deployment file has placeholder or invalid addresses, will redeploy',
       )
       return null
     }

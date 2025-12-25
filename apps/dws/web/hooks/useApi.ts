@@ -1,6 +1,7 @@
 import type { JsonRecord } from '@jejunetwork/sdk'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAccount } from 'wagmi'
+import { z } from 'zod'
 import { fetchApi, postApi, uploadFile } from '../lib/eden'
 import type {
   APIListing,
@@ -13,14 +14,10 @@ import type {
   HelmDeployment,
   K3sCluster,
   KMSKey,
-  MailboxResponse,
   MeshService,
   Package,
   Repository,
   RPCChain,
-  S3ListObjectsResponse,
-  ScrapingSessionCreateResponse,
-  ScrapingSessionsResponse,
   Secret,
   TrainingRun,
   UserAccount,
@@ -29,16 +26,83 @@ import type {
   WorkerFunction,
 } from '../types'
 
-// Response types for mutation hooks
-interface PresignedUrlResponse {
-  url: string
-  expiresAt: number
-}
+// Zod schemas for runtime validation of fetch responses
+const S3ListObjectsResponseSchema = z.object({
+  Name: z.string(),
+  Prefix: z.string(),
+  KeyCount: z.number(),
+  MaxKeys: z.number(),
+  IsTruncated: z.boolean(),
+  Contents: z
+    .array(
+      z.object({
+        Key: z.string(),
+        LastModified: z.string(),
+        ETag: z.string(),
+        Size: z.number(),
+        StorageClass: z.string().optional(),
+      }),
+    )
+    .optional(),
+})
 
-interface SendEmailResponse {
-  success: boolean
-  messageId: string
-}
+const ScrapingSessionSchema = z.object({
+  id: z.string(),
+  browserType: z.string(),
+  createdAt: z.number(),
+  expiresAt: z.number(),
+  status: z.string(),
+  pageLoads: z.number().optional(),
+})
+
+const ScrapingSessionsResponseSchema = z.object({
+  sessions: z.array(ScrapingSessionSchema),
+})
+
+const ScrapingSessionCreateResponseSchema = z.object({
+  sessionId: z.string(),
+  browserType: z.string(),
+  wsEndpoint: z.string(),
+  httpEndpoint: z.string(),
+  expiresAt: z.number(),
+})
+
+const EmailIndexEntrySchema = z.object({
+  id: z.string(),
+  subject: z.string(),
+  from: z.string(),
+  date: z.string(),
+  size: z.number(),
+  read: z.boolean(),
+})
+
+const MailboxResponseSchema = z.object({
+  mailbox: z.object({
+    quotaUsedBytes: z.string(),
+    quotaLimitBytes: z.string(),
+  }),
+  index: z.object({
+    inbox: z.array(EmailIndexEntrySchema),
+    sent: z.array(EmailIndexEntrySchema),
+    drafts: z.array(EmailIndexEntrySchema),
+    trash: z.array(EmailIndexEntrySchema),
+    spam: z.array(EmailIndexEntrySchema),
+    archive: z.array(EmailIndexEntrySchema).optional(),
+    folders: z.record(z.string(), z.array(EmailIndexEntrySchema)).optional(),
+  }),
+  unreadCount: z.number().optional(),
+})
+
+// Zod schemas for mutation response validation
+const PresignedUrlResponseSchema = z.object({
+  url: z.string(),
+  expiresAt: z.number(),
+})
+
+const SendEmailResponseSchema = z.object({
+  success: z.boolean(),
+  messageId: z.string(),
+})
 
 // Health and status hooks
 
@@ -291,7 +355,7 @@ export function useCreateS3Bucket() {
 
       if (!response.ok) {
         const error = await response.json()
-        throw new Error(error.Error?.Message || 'Failed to create bucket')
+        throw new Error(error.Error?.Message ?? 'Failed to create bucket')
       }
 
       return { name: params.name }
@@ -316,7 +380,7 @@ export function useDeleteS3Bucket() {
 
       if (!response.ok) {
         const error = await response.json()
-        throw new Error(error.Error?.Message || 'Failed to delete bucket')
+        throw new Error(error.Error?.Message ?? 'Failed to delete bucket')
       }
 
       return { name: bucketName }
@@ -340,10 +404,10 @@ export function useS3Objects(bucketName: string, prefix?: string) {
 
       if (!response.ok) {
         const error = await response.json()
-        throw new Error(error.Error?.Message || 'Failed to list objects')
+        throw new Error(error.Error?.Message ?? 'Failed to list objects')
       }
 
-      return (await response.json()) as S3ListObjectsResponse
+      return S3ListObjectsResponseSchema.parse(await response.json())
     },
     enabled: !!bucketName,
   })
@@ -372,7 +436,7 @@ export function useUploadS3Object() {
 
       if (!response.ok) {
         const error = await response.json()
-        throw new Error(error.Error?.Message || 'Failed to upload object')
+        throw new Error(error.Error?.Message ?? 'Failed to upload object')
       }
 
       return { etag: response.headers.get('ETag') }
@@ -399,7 +463,7 @@ export function useDeleteS3Object() {
 
       if (!response.ok) {
         const error = await response.json()
-        throw new Error(error.Error?.Message || 'Failed to delete object')
+        throw new Error(error.Error?.Message ?? 'Failed to delete object')
       }
 
       return { key: params.key }
@@ -431,17 +495,20 @@ export function useS3Presign() {
       )
 
       if (!response.ok) {
-        interface ErrorResponse {
-          Error?: { Message?: string }
-        }
-        const error: ErrorResponse = await response.json()
+        const errorJson: unknown = await response.json()
+        const parsed = z
+          .object({
+            Error: z.object({ Message: z.string().optional() }).optional(),
+          })
+          .safeParse(errorJson)
         throw new Error(
-          error.Error?.Message || 'Failed to generate presigned URL',
+          parsed.success
+            ? (parsed.data.Error?.Message ?? 'Failed to generate presigned URL')
+            : 'Failed to generate presigned URL',
         )
       }
 
-      const result: PresignedUrlResponse = await response.json()
-      return result
+      return PresignedUrlResponseSchema.parse(await response.json())
     },
   })
 }
@@ -948,7 +1015,7 @@ export function useScrapingSessions() {
         },
       )
       if (!response.ok) return { sessions: [] }
-      return (await response.json()) as ScrapingSessionsResponse
+      return ScrapingSessionsResponseSchema.parse(await response.json())
     },
     enabled: !!address,
   })
@@ -977,9 +1044,9 @@ export function useCreateScrapingSession() {
       )
       if (!response.ok) {
         const error = await response.json()
-        throw new Error(error.error || 'Failed to create session')
+        throw new Error(error.error ?? 'Failed to create session')
       }
-      return (await response.json()) as ScrapingSessionCreateResponse
+      return ScrapingSessionCreateResponseSchema.parse(await response.json())
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['scraping-sessions'] })
@@ -1012,14 +1079,17 @@ export function useSendEmail() {
         },
       )
       if (!response.ok) {
-        interface ErrorResponse {
-          error?: string
-        }
-        const error: ErrorResponse = await response.json()
-        throw new Error(error.error || 'Failed to send email')
+        const errorJson: unknown = await response.json()
+        const parsed = z
+          .object({ error: z.string().optional() })
+          .safeParse(errorJson)
+        throw new Error(
+          parsed.success
+            ? (parsed.data.error ?? 'Failed to send email')
+            : 'Failed to send email',
+        )
       }
-      const result: SendEmailResponse = await response.json()
-      return result
+      return SendEmailResponseSchema.parse(await response.json())
     },
   })
 }
@@ -1037,9 +1107,9 @@ export function useMailbox() {
       )
       if (!response.ok) {
         const error = await response.json()
-        throw new Error(error.error || 'Failed to fetch mailbox')
+        throw new Error(error.error ?? 'Failed to fetch mailbox')
       }
-      return (await response.json()) as MailboxResponse
+      return MailboxResponseSchema.parse(await response.json())
     },
     enabled: !!address,
   })

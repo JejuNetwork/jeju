@@ -284,7 +284,7 @@ function SolverCard({ solver }: { solver: Solver }) {
       <div className="flex items-center gap-4">
         <div className="flex-1 min-w-0">
           <h3 className="font-bold" style={{ color: 'var(--text-primary)' }}>
-            {solver.name || 'Unnamed'}
+            {solver.name ?? 'Unnamed'}
           </h3>
           <p
             className="text-xs font-mono truncate"

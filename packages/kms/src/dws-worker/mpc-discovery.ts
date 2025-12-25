@@ -25,6 +25,16 @@ const PartialSignatureResponseSchema = z.object({
   partyIndex: z.number(),
 })
 
+const KeygenContributionSchema = z.object({
+  publicShare: z.string().transform((s) => s as Hex),
+  commitment: z.string().transform((s) => s as Hex),
+})
+
+const KeygenFinalizeSchema = z.object({
+  groupPublicKey: z.string().transform((s) => s as Hex),
+  groupAddress: z.string().transform((s) => s as Address),
+})
+
 // ============ Types ============
 
 export interface MPCPartyNode {
@@ -596,7 +606,7 @@ export class MPCSigningClient {
           throw new Error(`Party ${party.agentId} keygen contribution failed`)
         }
 
-        return response.json() as Promise<{ publicShare: Hex; commitment: Hex }>
+        return KeygenContributionSchema.parse(await response.json())
       }),
     )
 
@@ -622,10 +632,7 @@ export class MPCSigningClient {
           throw new Error(`Party ${party.agentId} keygen finalize failed`)
         }
 
-        return response.json() as Promise<{
-          groupPublicKey: Hex
-          groupAddress: Address
-        }>
+        return KeygenFinalizeSchema.parse(await response.json())
       }),
     )
 

@@ -3,7 +3,7 @@ import { mainnet as viemMainnet } from 'viem/chains'
 
 viemMainnet.id // Force initialization
 
-import { OAuth3Provider } from '@jejunetwork/oauth3'
+import { OAuth3Provider } from '@jejunetwork/auth'
 import {
   darkTheme,
   getDefaultConfig,

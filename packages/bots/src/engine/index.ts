@@ -84,10 +84,7 @@ export class BotEngine extends EventEmitter {
       })
 
       this.crossChainArb.on('completed', (opp) => {
-        this.onTradeComplete(
-          'cross-chain-arbitrage',
-          opp as { netProfitUsd: string; id: string },
-        )
+        this.onTradeComplete('cross-chain-arbitrage', opp as TradeResult)
       })
     }
   }

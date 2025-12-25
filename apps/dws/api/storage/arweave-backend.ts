@@ -6,14 +6,15 @@
  */
 
 import { createHash } from 'node:crypto'
-import { expectJson } from '@jejunetwork/types'
+import { expectJson, validateOrNull } from '@jejunetwork/types'
 import { z } from 'zod'
-import type {
-  ArweaveGraphqlResponse,
-  ArweaveRateResponse,
-  ArweaveStatusResponse,
-  ArweaveUploadResponse,
-} from '../types'
+import {
+  ArweaveGraphqlResponseSchema,
+  ArweaveRateResponseSchema,
+  ArweaveStatusResponseSchema,
+  ArweaveTransactionSchema,
+  ArweaveUploadResponseSchema,
+} from '../shared/schemas/external-api'
 import type { ContentCategory, ContentTier, StorageBackendType } from './types'
 
 // Types
@@ -191,12 +192,12 @@ export class ArweaveBackend {
       return null
     }
 
-    const result = (await response.json()) as ArweaveUploadResponse
+    const result = ArweaveUploadResponseSchema.parse(await response.json())
 
     return {
       txId: result.id,
       url: `${this.gateway}/${result.id}`,
-      cost: result.price ?? '0',
+      cost: '0', // Bundler doesn't return price
     }
   }
 
@@ -270,8 +271,11 @@ export class ArweaveBackend {
     )
     if (!response?.ok) return false
 
-    const status = (await response.json()) as ArweaveStatusResponse
-    return (status.number_of_confirmations ?? 0) > 0
+    const status = validateOrNull(
+      ArweaveStatusResponseSchema,
+      await response.json(),
+    )
+    return (status?.number_of_confirmations ?? 0) > 0
   }
 
   /**
@@ -287,12 +291,15 @@ export class ArweaveBackend {
       return { confirmed: false, confirmations: 0 }
     }
 
-    const status = (await response.json()) as ArweaveStatusResponse
+    const status = validateOrNull(
+      ArweaveStatusResponseSchema,
+      await response.json(),
+    )
 
     return {
-      confirmed: (status.number_of_confirmations ?? 0) > 0,
-      confirmations: status.number_of_confirmations ?? 0,
-      blockHeight: status.block_height,
+      confirmed: (status?.number_of_confirmations ?? 0) > 0,
+      confirmations: status?.number_of_confirmations ?? 0,
+      blockHeight: status?.block_height,
     }
   }
 
@@ -309,7 +316,8 @@ export class ArweaveBackend {
     const response = await fetch(`${this.gateway}/tx/${txId}`)
     if (!response.ok) return null
 
-    const tx = (await response.json()) as ArweaveTransaction
+    const tx = validateOrNull(ArweaveTransactionSchema, await response.json())
+    if (!tx) return null
 
     const tags: Record<string, string> = {}
     for (const tag of tx.tags) {
@@ -356,10 +364,13 @@ export class ArweaveBackend {
 
     if (!response.ok) return null
 
-    const result = (await response.json()) as ArweaveGraphqlResponse
+    const result = validateOrNull(
+      ArweaveGraphqlResponseSchema,
+      await response.json(),
+    )
 
-    const edges = result.data?.transactions?.edges
-    if (edges && edges.length > 0 && edges[0]) {
+    const edges = result?.data?.transactions?.edges ?? []
+    if (edges.length > 0 && edges[0]) {
       return edges[0].node.id
     }
 
@@ -405,9 +416,13 @@ export class ArweaveBackend {
 
     if (!response.ok) return []
 
-    const result = (await response.json()) as ArweaveGraphqlResponse
+    const result = validateOrNull(
+      ArweaveGraphqlResponseSchema,
+      await response.json(),
+    )
 
-    return (result.data?.transactions?.edges ?? []).map((edge) => {
+    const edges = result?.data?.transactions?.edges ?? []
+    return edges.map((edge) => {
       const tags: Record<string, string> = {}
       for (const tag of edge.node.tags ?? []) {
         const name = Buffer.from(tag.name, 'base64').toString()
@@ -438,8 +453,11 @@ export class ArweaveBackend {
 
     let usdPrice = '0'
     if (rateResponse.ok) {
-      const rates = (await rateResponse.json()) as ArweaveRateResponse
-      const arUsd = rates.arweave?.usd ?? 0
+      const rates = validateOrNull(
+        ArweaveRateResponseSchema,
+        await rateResponse.json(),
+      )
+      const arUsd = rates?.arweave?.usd ?? 0
       usdPrice = (parseFloat(arPrice) * arUsd).toFixed(4)
     }
 

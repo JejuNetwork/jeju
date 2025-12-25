@@ -102,7 +102,7 @@ export default function RPCGatewayPage() {
             <div className="stat-label">Avg Latency</div>
             <div className="stat-value">
               {chains.filter((c) => c.avgLatency).length > 0
-                ? `${Math.round(chains.reduce((sum, c) => sum + (c.avgLatency || 0), 0) / chains.filter((c) => c.avgLatency).length)}ms`
+                ? `${Math.round(chains.reduce((sum, c) => sum + (c.avgLatency ?? 0), 0) / chains.filter((c) => c.avgLatency).length)}ms`
                 : '—'}
             </div>
           </div>

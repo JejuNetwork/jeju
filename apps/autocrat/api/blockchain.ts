@@ -407,8 +407,9 @@ export class AutocratBlockchain {
     }
   }> {
     if (!this.ceoDeployed) {
-      const ceoModel = this.config.agents?.ceo?.model ?? 'local'
-      const ceoName = this.config.agents?.ceo?.name ?? 'Local CEO'
+      const ceo = this.config.agents?.ceo
+      const ceoModel = ceo?.model ?? 'local'
+      const ceoName = ceo?.name ?? 'Local CEO'
       return {
         currentModel: { modelId: ceoModel, name: ceoName, provider: 'local' },
         stats: {
@@ -608,13 +609,18 @@ export class AutocratBlockchain {
     }
   }> {
     if (!this.councilDeployed || !this.ceoDeployed) {
-      const ceoModel = this.config.agents?.ceo?.model ?? 'local'
-      const minQuality = this.config.parameters?.minQualityScore ?? 70
-      const votingPeriod = this.config.parameters?.autocratVotingPeriod ?? 86400
-      const gracePeriod = this.config.parameters?.gracePeriod ?? 172800
+      const ceo = this.config.agents?.ceo
+      const params = this.config.parameters
+      const minQuality = params?.minQualityScore ?? 70
+      const votingPeriod = params?.autocratVotingPeriod ?? 86400
+      const gracePeriod = params?.gracePeriod ?? 172800
       return {
         totalProposals: '0',
-        ceo: { model: ceoModel, decisions: '0', approvalRate: '0%' },
+        ceo: {
+          model: ceo?.model ?? 'local',
+          decisions: '0',
+          approvalRate: '0%',
+        },
         parameters: {
           minQualityScore: minQuality.toString(),
           autocratVotingPeriod: `${votingPeriod} seconds`,

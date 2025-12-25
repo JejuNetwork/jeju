@@ -136,7 +136,7 @@ export function createX402Middleware(ctx: VPNServiceContext) {
       )
 
       if (!result.valid) {
-        throw new Error(result.error || 'Payment verification failed')
+        throw new Error(result.error ?? 'Payment verification failed')
       }
       if (!result.receipt) {
         throw new Error('Payment receipt missing after verification')

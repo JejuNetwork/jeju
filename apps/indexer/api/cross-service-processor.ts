@@ -286,7 +286,7 @@ export async function processCrossServiceEvents(
         crossServiceRequests.set(requestId, crossServiceRequest)
 
         ctx.log.debug(
-          `Container pulled: ${cid.slice(0, 16)}... for rental ${rentalId?.slice(0, 10) || 'N/A'}...`,
+          `Container pulled: ${cid.slice(0, 16)}... for rental ${rentalId?.slice(0, 10) ?? 'N/A'}...`,
         )
       }
 

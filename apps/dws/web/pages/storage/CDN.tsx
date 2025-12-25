@@ -204,7 +204,7 @@ export default function CDNPage() {
                         </button>
                       </div>
                     </td>
-                    <td>{endpoint.customDomain || '—'}</td>
+                    <td>{endpoint.customDomain ?? '—'}</td>
                     <td>
                       <span
                         className={`badge ${
@@ -285,8 +285,11 @@ export default function CDNPage() {
           >
             <span style={{ color: 'var(--text-secondary)' }}>Cache Usage</span>
             <span style={{ fontFamily: 'var(--font-mono)' }}>
-              {formatBytes(statsData?.sizeBytes ?? 0)} /{' '}
-              {formatBytes(statsData?.maxSizeBytes ?? 0)}
+              {isLoading ? (
+                <span className="shimmer inline-block w-24 h-5 rounded" />
+              ) : (
+                `${formatBytes(statsData?.sizeBytes ?? 0)} / ${formatBytes(statsData?.maxSizeBytes ?? 0)}`
+              )}
             </span>
           </div>
           <div

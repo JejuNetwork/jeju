@@ -33,9 +33,15 @@ interface ProposalCardProps {
 }
 
 export function ProposalCard({ proposal }: ProposalCardProps) {
-  const statusConfig = STATUS_CONFIG[proposal.status] || STATUS_CONFIG.SUBMITTED
+  const statusConfig = STATUS_CONFIG[proposal.status]
+  if (!statusConfig) {
+    throw new Error(`Unknown proposal status: ${proposal.status}`)
+  }
   const StatusIcon = statusConfig.icon
-  const emoji = TYPE_EMOJI[proposal.proposalType] || '📋'
+  const emoji = TYPE_EMOJI[proposal.proposalType]
+  if (!emoji) {
+    throw new Error(`Unknown proposal type: ${proposal.proposalType}`)
+  }
 
   return (
     <Link to={`/proposals/${proposal.proposalId}`}>

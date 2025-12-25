@@ -1,19 +1,8 @@
 /**
- * Oracle types - re-exported from @jejunetwork/types
+ * Oracle types
  */
 
 import type { Hex } from 'viem'
-
-export type {
-  Committee,
-  FeedSpec,
-  NetworkType,
-  NodeMetrics,
-  OracleNodeConfig,
-  PriceReport as BasePriceReport,
-  PriceSourceConfig,
-  SignedReport,
-} from '@jejunetwork/types'
 
 /**
  * Extended PriceReport with sourcesHash for on-chain submission

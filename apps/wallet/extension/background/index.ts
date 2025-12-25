@@ -543,6 +543,11 @@ interface PopupResult {
   intentId?: Hex
 }
 
+/** Message with type field for runtime checks */
+interface TypedMessage {
+  type: unknown
+}
+
 // Track pending popup requests to prevent reentrancy
 const pendingPopupRequests = new Map<
   string,
@@ -635,7 +640,8 @@ async function openPopupWithResult(
     const listener = (msg: unknown) => {
       // Only process if it matches the expected schema and request ID
       if (!msg || typeof msg !== 'object' || !('type' in msg)) return
-      if ((msg as { type: string }).type !== 'popup_response') return
+      const typed = msg as TypedMessage
+      if (typed.type !== 'popup_response') return
 
       const validated = expectSchema(msg, PopupResponseSchema, 'popup_response')
       if (validated.requestId === requestId) {

@@ -1,4 +1,6 @@
-/** Build commands for Docker images, apps, and artifacts */
+/**
+ * Build commands for Docker images, apps, and other artifacts
+ */
 
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
@@ -28,7 +30,7 @@ const BROWSER_EXTERNALS = [
   '@jejunetwork/config',
   '@jejunetwork/shared',
   '@jejunetwork/sdk',
-  '@jejunetwork/oauth3',
+  '@jejunetwork/auth',
   '@jejunetwork/deployment',
   '@jejunetwork/contracts',
 ]
@@ -176,9 +178,7 @@ async function buildApp(rootDir: string, appName: string): Promise<void> {
     const mainEntry = result.outputs.find(
       (o) => o.kind === 'entry-point' && o.path.includes('client'),
     )
-    const mainFileName = mainEntry
-      ? (mainEntry.path.split('/').pop() ?? 'client.js')
-      : 'client.js'
+    const mainFileName = mainEntry?.path.split('/').pop() ?? 'client.js'
 
     // Copy CSS if exists
     const cssPath = join(appDir, 'src/globals.css')
@@ -200,13 +200,11 @@ async function buildApp(rootDir: string, appName: string): Promise<void> {
   logger.step('Building API worker...')
   const workerEntry = existsSync(join(appDir, 'api/worker.ts'))
     ? join(appDir, 'api/worker.ts')
-    : existsSync(join(appDir, 'api/server/index.ts'))
-      ? join(appDir, 'api/server/index.ts')
-      : existsSync(join(appDir, 'src/worker/index.ts'))
-        ? join(appDir, 'src/worker/index.ts')
-        : existsSync(join(appDir, 'src/server.ts'))
-          ? join(appDir, 'src/server.ts')
-          : null
+    : existsSync(join(appDir, 'src/worker/index.ts'))
+      ? join(appDir, 'src/worker/index.ts')
+      : existsSync(join(appDir, 'src/server.ts'))
+        ? join(appDir, 'src/server.ts')
+        : null
 
   if (workerEntry) {
     const result = await Bun.build({
@@ -414,7 +412,6 @@ buildCommand
       return (
         existsSync(join(appDir, 'src/client.tsx')) ||
         existsSync(join(appDir, 'api/worker.ts')) ||
-        existsSync(join(appDir, 'api/server/index.ts')) ||
         existsSync(join(appDir, 'src/server.ts'))
       )
     })
@@ -526,13 +523,11 @@ buildCommand
 
     const workerEntry = existsSync(join(appDir, 'api/worker.ts'))
       ? join(appDir, 'api/worker.ts')
-      : existsSync(join(appDir, 'api/server/index.ts'))
-        ? join(appDir, 'api/server/index.ts')
-        : existsSync(join(appDir, 'src/worker/index.ts'))
-          ? join(appDir, 'src/worker/index.ts')
-          : existsSync(join(appDir, 'src/server.ts'))
-            ? join(appDir, 'src/server.ts')
-            : null
+      : existsSync(join(appDir, 'src/worker/index.ts'))
+        ? join(appDir, 'src/worker/index.ts')
+        : existsSync(join(appDir, 'src/server.ts'))
+          ? join(appDir, 'src/server.ts')
+          : null
 
     if (!workerEntry) {
       logger.error(`No worker entry found in ${appName}`)

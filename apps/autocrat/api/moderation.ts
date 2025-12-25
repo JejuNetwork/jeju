@@ -17,6 +17,25 @@ export const FlagType = {
 } as const
 export type FlagType = (typeof FlagType)[keyof typeof FlagType]
 
+export const FlagTypeSchema = z.enum([
+  'DUPLICATE',
+  'SPAM',
+  'HARMFUL',
+  'INFEASIBLE',
+  'MISALIGNED',
+  'LOW_QUALITY',
+  'NEEDS_WORK',
+])
+
+/** Validate a flag type value */
+export function expectFlagType(value: string): FlagType {
+  const result = FlagTypeSchema.safeParse(value)
+  if (!result.success) {
+    throw new Error(`Invalid flag type: ${value}`)
+  }
+  return result.data
+}
+
 export interface ProposalFlag {
   flagId: string
   proposalId: string

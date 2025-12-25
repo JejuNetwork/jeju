@@ -356,12 +356,12 @@ export function createModelsModule(
     },
 
     async listModels(offset = 0, limit = 100): Promise<Model[]> {
-      const modelIds = (await wallet.publicClient.readContract({
+      const modelIds = await wallet.publicClient.readContract({
         address: modelRegistryAddress,
         abi: MODEL_REGISTRY_ABI,
         functionName: 'getAllModelIds',
         args: [BigInt(offset), BigInt(limit)],
-      })) as Hex[]
+      })
 
       const models: Model[] = []
       for (const id of modelIds) {
@@ -372,12 +372,12 @@ export function createModelsModule(
     },
 
     async getOrganizationModels(organization: string): Promise<Model[]> {
-      const modelIds = (await wallet.publicClient.readContract({
+      const modelIds = await wallet.publicClient.readContract({
         address: modelRegistryAddress,
         abi: MODEL_REGISTRY_ABI,
         functionName: 'getOrganizationModels',
         args: [organization],
-      })) as Hex[]
+      })
 
       const models: Model[] = []
       for (const id of modelIds) {
@@ -555,21 +555,23 @@ export function createModelsModule(
     },
 
     async hasAccess(modelId: Hex, user?: Address): Promise<boolean> {
-      return (await wallet.publicClient.readContract({
+      const result = await wallet.publicClient.readContract({
         address: modelRegistryAddress,
         abi: MODEL_REGISTRY_ABI,
         functionName: 'hasAccess',
         args: [modelId, user ?? wallet.address],
-      })) as boolean
+      })
+      return result as boolean
     },
 
     async hasStarred(modelId: Hex, user?: Address): Promise<boolean> {
-      return (await wallet.publicClient.readContract({
+      const result = await wallet.publicClient.readContract({
         address: modelRegistryAddress,
         abi: MODEL_REGISTRY_ABI,
         functionName: 'hasStarred',
         args: [modelId, user ?? wallet.address],
-      })) as boolean
+      })
+      return result as boolean
     },
 
     async createModel(

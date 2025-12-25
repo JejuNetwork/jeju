@@ -1,6 +1,6 @@
 import { createTypedWriteContract } from '@jejunetwork/contracts'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
-import type { TokenConfig, TokenInfo } from '@jejunetwork/ui'
+import type { TokenInfo } from '@jejunetwork/ui'
 import { useCallback, useMemo } from 'react'
 import type { Address } from 'viem'
 import {
@@ -11,7 +11,17 @@ import {
 import { CONTRACTS } from '../../lib/config'
 import { TOKEN_REGISTRY_ABI } from '../lib/constants'
 
-export type { TokenConfig, TokenInfo }
+/** Token info returned from gateway's getTokenInfo contract call */
+export interface GatewayTokenInfo {
+  token: Address
+  symbol: string
+  name: string
+  decimals: number
+  priceOracle: Address
+  enabled: boolean
+}
+
+export type { TokenInfo }
 
 // Built-in token definitions using shared ZERO_ADDRESS
 const KNOWN_TOKENS: ReadonlyMap<Lowercase<Address>, TokenInfo> = new Map([
@@ -43,7 +53,7 @@ export interface UseTokenRegistryResult {
 }
 
 export interface UseTokenConfigResult {
-  config: TokenConfig | undefined
+  config: GatewayTokenInfo | undefined
   refetch: () => void
 }
 
@@ -103,8 +113,8 @@ export function useTokenRegistry(): UseTokenRegistryResult {
   const tokens = useMemo(() => Array.from(KNOWN_TOKENS.values()), [])
 
   return {
-    allTokens: allTokens ? (allTokens as Address[]) : [],
-    registrationFee: registrationFee as bigint | undefined,
+    allTokens: allTokens ? [...allTokens] : [],
+    registrationFee,
     registerToken,
     isPending: isPending || isConfirming,
     isSuccess,
@@ -126,10 +136,8 @@ export function useTokenConfig(
     args: tokenAddress ? [tokenAddress] : undefined,
   })
 
-  // Contract returns different shape than TokenConfig, but we use it as-is
-  // since this is a minimal implementation
   return {
-    config: config as unknown as TokenConfig | undefined,
+    config: config as GatewayTokenInfo | undefined,
     refetch,
   }
 }
