@@ -17,6 +17,7 @@ import { Command } from 'commander'
 import { appsCommand } from './commands/apps'
 import { botsCommand } from './commands/bots'
 import { buildCommand } from './commands/build'
+import { circularCommand } from './commands/circular'
 import { cleanCommand } from './commands/clean'
 import { cleanupCommand } from './commands/cleanup'
 import { computeCommand } from './commands/compute'
@@ -105,6 +106,7 @@ program.addCommand(initCommand)
 program.addCommand(appsCommand)
 program.addCommand(portsCommand)
 program.addCommand(buildCommand)
+program.addCommand(circularCommand)
 program.addCommand(cleanCommand)
 program.addCommand(cleanupCommand)
 program.addCommand(serviceCommand)
@@ -457,6 +459,28 @@ program.action(() => {
     '  ' +
       chalk.cyan(`${cliName} validate config`) +
       '    Validate all configuration files\n',
+  )
+
+  console.log(chalk.bold('Code Quality:\n'))
+  console.log(
+    '  ' +
+      chalk.cyan(`${cliName} circular check`) +
+      '     Check all apps/packages for circular deps',
+  )
+  console.log(
+    '  ' +
+      chalk.cyan(`${cliName} circular app <n>`) +
+      '   Check specific app',
+  )
+  console.log(
+    '  ' +
+      chalk.cyan(`${cliName} circular package <n>`) +
+      ' Check specific package',
+  )
+  console.log(
+    '  ' +
+      chalk.cyan(`${cliName} circular cross`) +
+      '     Check cross-package circular deps\n',
   )
 
   console.log(chalk.bold('Superchain:\n'))

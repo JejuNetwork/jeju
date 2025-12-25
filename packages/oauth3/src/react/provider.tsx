@@ -16,15 +16,17 @@ import {
 import type { Address, Hex } from 'viem'
 import { z } from 'zod'
 import {
-  type AuthProvider,
   createOAuth3Client,
   type LoginOptions,
   type OAuth3Client,
   type OAuth3Config,
   type OAuth3Event,
-  type OAuth3Session,
-  type VerifiableCredential,
-} from '../index'
+} from '../sdk/client.js'
+import type {
+  AuthProvider,
+  OAuth3Session,
+  VerifiableCredential,
+} from '../types.js'
 
 // Event data schema for extracting session
 const SessionEventDataSchema = z

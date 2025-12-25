@@ -39,6 +39,8 @@
     "cookie": ">=0.7.0",
     "path-to-regexp": "0.1.12",
     "express>path-to-regexp": "0.1.12",
+    "express": "4.21.2",
+    "mime-types": "2.1.35",
     "send": ">=0.19.0",
     "fresh": ">=0.5.2",
     "debug": ">=2.6.9",

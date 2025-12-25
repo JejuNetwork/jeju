@@ -226,7 +226,13 @@ async function deployAppsOnchain(
   // Use port 4303 for JNS Gateway (Caddy on 8080 will proxy to it)
   // Port 4302 is used by the JNS resolution service
   // Pass rootDir for local dev fallback (serving from build directories)
-  await startLocalJNSGateway(rpcUrl, dwsContracts.jnsRegistry, 4303, 4180, rootDir)
+  await startLocalJNSGateway(
+    rpcUrl,
+    dwsContracts.jnsRegistry,
+    4303,
+    4180,
+    rootDir,
+  )
 
   logger.success('Decentralized deployment complete')
   logger.info(
@@ -454,11 +460,14 @@ function printReady(
     logger.subheader('Apps')
     const proxyPort = 8080
 
-    // Show deployed apps with frontends only
+    // Show all deployed apps (JNS gateway serves from local builds)
     for (const app of deployedApps) {
-      // Only show apps that have frontend architecture
-      const hasFrontend = app.architecture?.frontend || app.architecture?.type === 'frontend'
-      if (!hasFrontend) continue
+      // Skip backend-only apps (backend enabled but no frontend)
+      const isBackendOnly =
+        (app.architecture?.backend && !app.architecture?.frontend) ||
+        app.name === 'otto' // Otto is a chatbot, no web UI
+
+      if (isBackendOnly) continue
 
       const displayName = app.displayName || app.name
       const slug = app.name.toLowerCase().replace(/\s+/g, '-')

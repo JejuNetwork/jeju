@@ -374,8 +374,45 @@ const DIRECT_ROUTE_SERVICES = new Set([
   'indexer',
   'git', // JejuGit - routes to DWS
   'pkg', // JejuPkg - routes to DWS
-  'dws', // DWS main service
+  // Note: 'dws' is NOT here - it has a frontend served via JNS Gateway
 ])
+
+// Services that need hybrid routing (frontend + API on same domain)
+// Frontend served from JNS Gateway, API paths routed to backend
+const HYBRID_SERVICES: Record<string, { port: number; apiPaths: string[] }> = {
+  dws: {
+    port: 4030,
+    apiPaths: [
+      '/storage/*',
+      '/compute/*',
+      '/cdn/*',
+      '/git/*',
+      '/pkg/*',
+      '/ci/*',
+      '/oauth3/*',
+      '/api/*',
+      '/a2a/*',
+      '/mcp/*',
+      '/s3/*',
+      '/workers/*',
+      '/workerd/*',
+      '/kms/*',
+      '/vpn/*',
+      '/scraping/*',
+      '/rpc/*',
+      '/edge/*',
+      '/da/*',
+      '/funding/*',
+      '/registry/*',
+      '/k3s/*',
+      '/helm/*',
+      '/terraform/*',
+      '/ingress/*',
+      '/mesh/*',
+      '/containers/*',
+    ],
+  },
+}
 
 export function generateCaddyfile(config: ProxyConfig = {}): string {
   const domain = config.domain || DOMAIN
@@ -462,6 +499,17 @@ export function generateCaddyfile(config: ProxyConfig = {}): string {
       const basePath = DWS_PATH_SERVICES[service]
       entries.push(`    rewrite * ${basePath}{uri}`)
       entries.push(`    reverse_proxy localhost:${dwsPort}`)
+    } else if (HYBRID_SERVICES[service]) {
+      // Hybrid services: API paths to backend, everything else to JNS Gateway
+      const hybrid = HYBRID_SERVICES[service]
+      for (const apiPath of hybrid.apiPaths) {
+        entries.push(`    handle ${apiPath} {`)
+        entries.push(`        reverse_proxy localhost:${hybrid.port}`)
+        entries.push(`    }`)
+      }
+      entries.push(`    handle {`)
+      entries.push(`        reverse_proxy localhost:${jnsGatewayPort}`)
+      entries.push(`    }`)
     } else if (DIRECT_ROUTE_SERVICES.has(service)) {
       // Infrastructure services route directly to their ports
       entries.push(`    reverse_proxy localhost:${port}`)
