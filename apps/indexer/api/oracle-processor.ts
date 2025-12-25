@@ -284,7 +284,7 @@ export async function processOracleEvents(
 
       if (!eventSig || !isEventInSet(eventSig, ORACLE_EVENT_SET)) continue
       const txHash =
-        log.transaction?.hash || `${header.hash}-${log.transactionIndex}`
+        log.transaction?.hash ?? `${header.hash}-${log.transactionIndex}`
 
       // Feed Events
       if (eventSig === EVENTS.FEED_CREATED) {

@@ -297,8 +297,8 @@ async function createK3sCluster(
       ip: '127.0.0.1',
       status: 'ready',
       resources: {
-        cpuCores: config.cpuCores || 4,
-        memoryMb: config.memoryMb || 4096,
+        cpuCores: config.cpuCores ?? 4,
+        memoryMb: config.memoryMb ?? 4096,
         storageMb: 102400,
       },
     },

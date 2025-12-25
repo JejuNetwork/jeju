@@ -76,7 +76,6 @@ const ReplicateWorkerBodySchema = z.object({
 const DeployFromRegistryBodySchema = z.object({
   agentId: z.string().min(1),
 })
-type DeployFromRegistryBody = z.infer<typeof DeployFromRegistryBodySchema>
 
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
