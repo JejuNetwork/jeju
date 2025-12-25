@@ -80,7 +80,7 @@ export class OAuth3StorageService {
     this.encryptionKey = config.encryptionKey
       ? toBytes(config.encryptionKey)
       : null
-    this.defaultTier = config.defaultTier || 'hot'
+    this.defaultTier = config.defaultTier ?? 'hot'
   }
 
   async storeSession(session: OAuth3Session): Promise<StoredSession> {

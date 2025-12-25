@@ -578,7 +578,7 @@ export async function installDWSAgent(
                 { name: 'DWS_NODE_ENDPOINT', value: params.nodeEndpoint },
                 {
                   name: 'DWS_CAPABILITIES',
-                  value: (params.capabilities || ['compute']).join(','),
+                  value: (params.capabilities ?? ['compute']).join(','),
                 },
                 ...(params.privateKey
                   ? [{ name: 'DWS_PRIVATE_KEY', value: params.privateKey }]

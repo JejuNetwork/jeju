@@ -280,7 +280,7 @@ export function generateForkBranding(options: {
   const displayName = options.displayName || `${name} Network`
   const domain =
     options.domain || `${name.toLowerCase().replace(/\s+/g, '')}.network`
-  const tokenSymbol = options.tokenSymbol || 'ETH'
+  const tokenSymbol = options.tokenSymbol ?? 'ETH'
   const govName = options.governanceTokenName || `${name} Token`
   const govSymbol =
     options.governanceTokenSymbol || name.toUpperCase().slice(0, 4)

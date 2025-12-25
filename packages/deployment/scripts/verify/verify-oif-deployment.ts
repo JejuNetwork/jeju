@@ -249,11 +249,11 @@ async function main() {
   const deployment = JSON.parse(readFileSync(deploymentFile, 'utf-8'))
   console.log(`Deployment file: ${deploymentFile}`)
   console.log(`Status: ${deployment.status}`)
-  console.log(`Timestamp: ${deployment.timestamp || 'N/A'}`)
+  console.log(`Timestamp: ${deployment.timestamp ?? 'N/A'}`)
   console.log('')
 
   // Verify each chain
-  const chains = deployment.chains || {}
+  const chains = deployment.chains ?? {}
   const chainIds = Object.keys(chains).map(Number)
 
   if (chainIds.length === 0) {

@@ -309,7 +309,7 @@ export class MonteCarloSimulator {
 
   private calculateKelly(returns: number[]): number {
     const winRate = returns.filter((r) => r > 0).length / returns.length
-    const avgWin = this.mean(returns.filter((r) => r > 0)) || 0
+    const avgWin = this.mean(returns.filter((r) => r > 0)) ?? 0
     const avgLoss = Math.abs(this.mean(returns.filter((r) => r < 0))) || 1
 
     if (avgLoss === 0) return 0

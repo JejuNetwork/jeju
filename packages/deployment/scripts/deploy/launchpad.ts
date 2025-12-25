@@ -131,7 +131,7 @@ class LaunchpadDeployer {
     const existing = await this.loadExistingContracts()
     result.contracts.jejuToken = existing.jejuToken
     result.contracts.xlpV2Factory = existing.xlpV2Factory
-    result.contracts.xlpV2Router = existing.xlpV2Router || ''
+    result.contracts.xlpV2Router = existing.xlpV2Router ?? ''
     console.log('')
 
     // Step 2: Deploy NetworkPresale
@@ -227,14 +227,14 @@ class LaunchpadDeployer {
     if (existsSync(localnetPath)) {
       const data = JSON.parse(readFileSync(localnetPath, 'utf-8'))
       jejuToken = data.contracts?.jeju ?? ''
-      console.log(`  ✅ JEJU Token: ${jejuToken || 'Not found'}`)
+      console.log(`  ✅ JEJU Token: ${jejuToken ?? 'Not found'}`)
     }
 
     if (existsSync(addressesPath)) {
       const data = JSON.parse(readFileSync(addressesPath, 'utf-8'))
-      xlpV2Factory = data.xlpV2Factory || ''
-      xlpV2Router = data.xlpV2Router || ''
-      console.log(`  ✅ XLP V2 Factory: ${xlpV2Factory || 'Not found'}`)
+      xlpV2Factory = data.xlpV2Factory ?? ''
+      xlpV2Router = data.xlpV2Router ?? ''
+      console.log(`  ✅ XLP V2 Factory: ${xlpV2Factory ?? 'Not found'}`)
     }
 
     // If not found, deploy

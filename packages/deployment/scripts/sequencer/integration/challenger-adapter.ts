@@ -67,7 +67,7 @@ export class ChallengerAdapter {
 
     while (this.running) {
       await this.checkOutputs()
-      await new Promise((r) => setTimeout(r, this.config.pollInterval || 12000))
+      await new Promise((r) => setTimeout(r, this.config.pollInterval ?? 12000))
     }
   }
 

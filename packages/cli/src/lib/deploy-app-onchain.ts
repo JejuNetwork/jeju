@@ -237,7 +237,7 @@ async function deployFrontend(
 ): Promise<{ cid: string; uploadId: Hex }> {
   const frontend = manifest.architecture?.frontend
   const outputDir =
-    (typeof frontend === 'object' && frontend?.outputDir) || 'dist/static'
+    (typeof frontend === 'object' && frontend?.outputDir) ?? 'dist/static'
   const frontendPath = join(appDir, outputDir)
 
   if (!existsSync(frontendPath)) {
@@ -299,7 +299,7 @@ async function deployWorker(
 ): Promise<{ cid: string; workerId: Hex }> {
   const backend = manifest.architecture?.backend
   const outputDir =
-    (typeof backend === 'object' && backend?.outputDir) || 'dist/worker'
+    (typeof backend === 'object' && backend?.outputDir) ?? 'dist/worker'
   const workerPath = join(appDir, outputDir)
 
   if (!existsSync(workerPath)) {

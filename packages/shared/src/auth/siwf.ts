@@ -91,7 +91,7 @@ export function parseSIWFMessage(messageString: string): SIWFMessage {
   const domainMatch = lines[0].match(
     /^(.+) wants you to sign in with your Farcaster account:$/,
   )
-  const domain = domainMatch?.[1] || ''
+  const domain = domainMatch?.[1] ?? ''
 
   const message: Partial<SIWFMessage> = { domain }
 
@@ -228,7 +228,7 @@ export async function createAuthChannel(params: {
   nonce: string
   relay?: string
 }): Promise<{ channelToken: string; url: string }> {
-  const relay = params.relay || 'https://relay.farcaster.xyz'
+  const relay = params.relay ?? 'https://relay.farcaster.xyz'
 
   const response = await fetch(`${relay}/v1/channel`, {
     method: 'POST',
@@ -269,7 +269,7 @@ export async function pollAuthChannel(params: {
   timeoutMs?: number
   pollIntervalMs?: number
 }): Promise<FarcasterAuthResult | null> {
-  const relay = params.relay || 'https://relay.farcaster.xyz'
+  const relay = params.relay ?? 'https://relay.farcaster.xyz'
   const timeoutMs = params.timeoutMs || 300000 // 5 minutes
   const pollIntervalMs = params.pollIntervalMs || 1500
 
@@ -309,9 +309,9 @@ export async function pollAuthChannel(params: {
     ) {
       return {
         fid: data.fid,
-        username: data.username || '',
-        displayName: data.displayName || '',
-        pfpUrl: data.pfpUrl || '',
+        username: data.username ?? '',
+        displayName: data.displayName ?? '',
+        pfpUrl: data.pfpUrl ?? '',
         custodyAddress: data.custodyAddress,
         signature: data.signature,
         message: data.message,
@@ -332,7 +332,7 @@ export async function getFarcasterUser(params: {
   fid: number
   hubUrl?: string
 }): Promise<FarcasterUser | null> {
-  const hubUrl = params.hubUrl || 'https://hub.pinata.cloud'
+  const hubUrl = params.hubUrl ?? 'https://hub.pinata.cloud'
 
   const response = await fetch(
     `${hubUrl}/v1/userDataByFid?fid=${params.fid}`,

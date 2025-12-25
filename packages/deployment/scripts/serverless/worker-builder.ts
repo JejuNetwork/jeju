@@ -157,10 +157,10 @@ const env = {
   TEE_MODE: process.env.TEE_MODE || 'simulated',
   TEE_PLATFORM: process.env.TEE_PLATFORM || 'local',
   TEE_REGION: process.env.TEE_REGION || 'local',
-  RPC_URL: process.env.RPC_URL || '',
-  DWS_URL: process.env.DWS_URL || '',
-  FUNCTION_ID: process.env.FUNCTION_ID || '',
-  INSTANCE_ID: process.env.INSTANCE_ID || '',
+  RPC_URL: process.env.RPC_URL ?? '',
+  DWS_URL: process.env.DWS_URL ?? '',
+  FUNCTION_ID: process.env.FUNCTION_ID ?? '',
+  INSTANCE_ID: process.env.INSTANCE_ID ?? '',
 };
 
 const handler = async (request: Request) => {
@@ -242,7 +242,7 @@ const env = {
   TEE_MODE: process.env.TEE_MODE || 'simulated',
   TEE_PLATFORM: process.env.TEE_PLATFORM || 'local',
   TEE_REGION: process.env.TEE_REGION || 'local',
-  FUNCTION_ID: process.env.FUNCTION_ID || '',
+  FUNCTION_ID: process.env.FUNCTION_ID ?? '',
 };
 
 // Use the app's handle or fetch method

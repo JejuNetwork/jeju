@@ -67,7 +67,7 @@ export interface MCPPromptResult {
 export function createMCPServer(config: MCPConfig) {
   const serverInfo = {
     name: config.name,
-    version: config.version || '1.0.0',
+    version: config.version ?? '1.0.0',
     description: config.description,
     capabilities: {
       resources: true,

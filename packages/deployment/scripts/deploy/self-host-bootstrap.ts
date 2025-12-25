@@ -624,7 +624,7 @@ class SelfHostingBootstrap {
           'jeju',
           manifest.description || `Jeju ${app} service`,
           0, // PUBLIC
-          manifest.tags || [],
+          manifest.tags ?? [],
         ],
         value: 0n,
       })
@@ -709,10 +709,10 @@ class SelfHostingBootstrap {
 
       if (!frontendConfig) continue
 
-      const buildDir = join(appsDir, app, frontendConfig.buildDir || 'dist')
+      const buildDir = join(appsDir, app, frontendConfig.buildDir ?? 'dist')
       if (!existsSync(buildDir)) {
         console.log(
-          `Skipping ${app}: build directory not found (${frontendConfig.buildDir || 'dist'})`,
+          `Skipping ${app}: build directory not found (${frontendConfig.buildDir ?? 'dist'})`,
         )
         console.log(`  Run: cd apps/${app} && bun run build`)
         continue
@@ -800,7 +800,7 @@ class SelfHostingBootstrap {
       txt: 'text/plain',
       md: 'text/markdown',
     }
-    return mimeTypes[ext || ''] || 'application/octet-stream'
+    return mimeTypes[ext ?? ''] ?? 'application/octet-stream'
   }
 
   // Step 5: Register JNS Names

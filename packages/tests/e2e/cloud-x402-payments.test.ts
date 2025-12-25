@@ -372,7 +372,7 @@ describe.skipIf(!localnetAvailable)('Cloud x402 E2E - Payment Flow', () => {
 
     // Step 3: Create payment authorization with EIP-712 signature
     logger.info('  Step 3: Creating payment auth...')
-    const chainId = publicClient.chain?.id || 31337
+    const chainId = publicClient.chain?.id ?? 31337
     const domain = {
       name: 'CreditManager',
       version: '1',

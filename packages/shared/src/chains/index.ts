@@ -173,13 +173,13 @@ export function createAgentCard(options: {
     protocolVersion: '0.3.0',
     name: `${branding.network.name} ${options.name}`,
     description: options.description,
-    url: options.url || '/api/a2a',
+    url: options.url ?? '/api/a2a',
     preferredTransport: 'http',
     provider: {
       organization: branding.legal.companyName,
       url: branding.urls.website,
     },
-    version: options.version || '1.0.0',
+    version: options.version ?? '1.0.0',
     capabilities: {
       streaming: false,
       pushNotifications: false,

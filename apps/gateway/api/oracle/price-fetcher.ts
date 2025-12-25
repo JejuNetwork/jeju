@@ -1,4 +1,5 @@
 import type { PriceData, PriceSourceConfig } from '@jejunetwork/types'
+import type { Abi } from 'abitype'
 import {
   createPublicClient,
   encodePacked,
@@ -60,16 +61,16 @@ export class PriceFetcher {
     source: PriceSourceConfig,
   ): Promise<PriceData> {
     const [slot0, liquidity] = await Promise.all([
-      readContract(this.client, {
+      this.client.readContract({
         address: source.address,
-        abi: UNISWAP_V3_POOL_ABI,
+        abi: UNISWAP_V3_POOL_ABI as Abi,
         functionName: 'slot0',
       }) as Promise<
         readonly [bigint, number, number, number, number, number, boolean]
       >,
-      readContract(this.client, {
+      this.client.readContract({
         address: source.address,
-        abi: UNISWAP_V3_POOL_ABI,
+        abi: UNISWAP_V3_POOL_ABI as Abi,
         functionName: 'liquidity',
       }) as Promise<bigint>,
     ])
@@ -100,14 +101,14 @@ export class PriceFetcher {
     source: PriceSourceConfig,
   ): Promise<PriceData> {
     const [roundData, decimals] = await Promise.all([
-      readContract(this.client, {
+      this.client.readContract({
         address: source.address,
-        abi: CHAINLINK_AGGREGATOR_ABI,
+        abi: CHAINLINK_AGGREGATOR_ABI as Abi,
         functionName: 'latestRoundData',
       }),
-      readContract(this.client, {
+      this.client.readContract({
         address: source.address,
-        abi: CHAINLINK_AGGREGATOR_ABI,
+        abi: CHAINLINK_AGGREGATOR_ABI as Abi,
         functionName: 'decimals',
       }),
     ])

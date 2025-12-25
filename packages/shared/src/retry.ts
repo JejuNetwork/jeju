@@ -141,8 +141,8 @@ export async function retryIfRetryable<T>(
     }
   }
 
-  // This should be unreachable - if we exhaust attempts, we throw on the last iteration
-  throw lastError as Error
+  // Unreachable: throw if we somehow exit the loop without returning/throwing
+  throw lastError ?? new Error('Retry loop exited unexpectedly')
 }
 
 /**
@@ -206,6 +206,6 @@ export async function retryWithCondition<T>(
     }
   }
 
-  // This should be unreachable - if we exhaust attempts, we throw on the last iteration
-  throw lastError as Error
+  // Unreachable: throw if we somehow exit the loop without returning/throwing
+  throw lastError ?? new Error('Retry loop exited unexpectedly')
 }

@@ -57,16 +57,6 @@ const WALLET_PATTERNS = {
   switch_network: [/switchNetwork/, /useSwitchNetwork/, /switchChain/],
 }
 
-// Patterns to detect forms
-const _FORM_PATTERNS = [/<form/gi, /useForm\(/, /handleSubmit/, /onSubmit/]
-
-// Patterns to detect buttons and actions
-const _ACTION_PATTERNS = [
-  /<button[^>]*onClick/gi,
-  /<Button[^>]*onClick/gi,
-  /onClick\s*=\s*\{/g,
-]
-
 function findMonorepoRoot(): string {
   let dir = process.cwd()
   while (dir !== '/') {
@@ -131,9 +121,9 @@ function analyzePage(filePath: string): PageInfo | null {
       filePath
         .split('/pages/')[1]
         ?.replace(/\.tsx?$/, '')
-        .replace(/index$/, '') || '/'
+        .replace(/index$/, '') ?? '/'
   } else if (filePath.includes('/app/')) {
-    const appPart = filePath.split('/app/')[1] || ''
+    const appPart = filePath.split('/app/')[1] ?? ''
     route = `/${appPart.replace(/\/page\.tsx?$/, '').replace(/\(.*?\)\//g, '')}`
   }
 
@@ -151,18 +141,18 @@ function analyzePage(filePath: string): PageInfo | null {
 
   // Detect forms
   const forms: FormInfo[] = []
-  const formMatches = content.match(/<form[^>]*>[\s\S]*?<\/form>/gi) || []
+  const formMatches = content.match(/<form[^>]*>[\s\S]*?<\/form>/gi) ?? []
   for (const formMatch of formMatches) {
     const nameMatch = formMatch.match(/name=['"]([^'"]+)['"]/i)
     const inputMatches =
-      formMatch.match(/<input[^>]*name=['"]([^'"]+)['"]/gi) || []
+      formMatch.match(/<input[^>]*name=['"]([^'"]+)['"]/gi) ?? []
     const fields = inputMatches.map((m) => {
       const fieldName = m.match(/name=['"]([^'"]+)['"]/i)?.[1]
-      return fieldName || 'unknown'
+      return fieldName ?? 'unknown'
     })
 
     forms.push({
-      name: nameMatch?.[1] || 'form',
+      name: nameMatch?.[1] ?? 'form',
       fields,
       submitAction: 'submit',
       validationRules: [],
@@ -173,7 +163,7 @@ function analyzePage(filePath: string): PageInfo | null {
   // Detect button actions
   const actions: PageAction[] = []
   const buttonMatches =
-    content.match(/<[Bb]utton[^>]*>[\s\S]*?<\/[Bb]utton>/gi) || []
+    content.match(/<[Bb]utton[^>]*>[\s\S]*?<\/[Bb]utton>/gi) ?? []
   for (const buttonMatch of buttonMatches) {
     const textMatch = buttonMatch.match(/>([^<]+)</)?.[1]?.trim()
     if (textMatch && textMatch.length < 50) {
@@ -209,7 +199,6 @@ function analyzePage(filePath: string): PageInfo | null {
 
 function generateTestCode(page: PageInfo, _appName: string): string {
   const hasWallet = page.walletInteractions.length > 0
-  const _hasForms = page.forms.length > 0
 
   let imports = `import { expect } from '@playwright/test'
 `
@@ -353,7 +342,7 @@ export default defineWalletSetup(PASSWORD, async (context, walletPage) => {
     rpcUrl: JEJU_CHAIN.rpcUrl,
     chainId: JEJU_CHAIN.chainId,
     symbol: JEJU_CHAIN.symbol,
-    blockExplorerUrl: JEJU_CHAIN.blockExplorerUrl || '',
+    blockExplorerUrl: JEJU_CHAIN.blockExplorerUrl ?? '',
   })
   await metamask.switchNetwork(JEJU_CHAIN.name)
 })
@@ -446,7 +435,7 @@ async function generateTests(config: GeneratorConfig): Promise<void> {
         ? JSON.parse(readFileSync(join(appPath, 'jeju-manifest.json'), 'utf-8'))
         : { ports: { main: 3000 } }
 
-      const port = manifest.ports?.main || 3000
+      const port = manifest.ports?.main ?? 3000
       const configCode = `import { createSynpressConfig, createWalletSetup } from '@jejunetwork/tests'
 
 const PORT = parseInt(process.env.${appName.toUpperCase().replace(/-/g, '_')}_PORT || '${port}', 10)

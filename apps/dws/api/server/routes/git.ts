@@ -895,9 +895,8 @@ export function createGitRouter(ctx: GitContext) {
         )
         if (!repo) return new Response('Repository not found', { status: 404 })
 
-        const user = request.headers.get('x-jeju-address') as
-          | Address
-          | undefined
+        const userHeader = request.headers.get('x-jeju-address')
+        const user = userHeader ? (userHeader as Address) : undefined
 
         if (service === 'git-receive-pack') {
           if (!user)
@@ -941,11 +940,10 @@ export function createGitRouter(ctx: GitContext) {
         if (!repo) return new Response('Repository not found', { status: 404 })
 
         if (repo.visibility === 1) {
-          const user = request.headers.get('x-jeju-address') as
-            | Address
-            | undefined
-          if (!user)
+          const userHeader = request.headers.get('x-jeju-address')
+          if (!userHeader)
             return new Response('Authentication required', { status: 401 })
+          const user = userHeader as Address
           const hasRead = await repoManager.hasReadAccess(repo.repoId, user)
           if (!hasRead)
             return new Response('Read access denied', { status: 403 })

@@ -1,6 +1,45 @@
+import type {
+  NetworkType,
+  OracleNodeConfig,
+  PriceSourceConfig,
+} from '@jejunetwork/types'
 import { expectAddress, ZERO_ADDRESS } from '@jejunetwork/types'
 import { type Address, type Hex, isAddress, isHex } from 'viem'
-import type { NetworkType, OracleNodeConfig, PriceSourceConfig } from '@jejunetwork/types'
+import { z } from 'zod'
+
+// Schema for validating network configuration file
+const NetworkConfigSchema = z.object({
+  chainId: z.number(),
+  rpcUrl: z.string(),
+  contracts: z.object({
+    feedRegistry: z.string().nullable(),
+    reportVerifier: z.string().nullable(),
+    committeeManager: z.string().nullable(),
+    feeRouter: z.string().nullable(),
+    networkConnector: z.string().nullable(),
+  }),
+  priceSources: z.record(
+    z.string(),
+    z.object({
+      type: z.enum(['uniswap_v3', 'chainlink', 'manual']),
+      address: z.string().optional(),
+      decimals: z.number(),
+      token0Decimals: z.number().optional(),
+      token1Decimals: z.number().optional(),
+    }),
+  ),
+  settings: z.object({
+    pollIntervalMs: z.number(),
+    heartbeatIntervalMs: z.number(),
+    metricsPort: z.number(),
+  }),
+})
+
+const ConfigFileDataSchema = z.object({
+  localnet: NetworkConfigSchema,
+  testnet: NetworkConfigSchema,
+  mainnet: NetworkConfigSchema,
+})
 
 interface NetworkConfig {
   chainId: number
@@ -27,12 +66,6 @@ interface NetworkConfig {
     heartbeatIntervalMs: number
     metricsPort: number
   }
-}
-
-interface ConfigFileData {
-  localnet: NetworkConfig
-  testnet: NetworkConfig
-  mainnet: NetworkConfig
 }
 
 const REQUIRED_ENV_VARS = [
@@ -99,7 +132,8 @@ export async function loadNetworkConfig(
     throw new ConfigurationError(`Network config file not found: ${configPath}`)
   }
 
-  const config: ConfigFileData = await configFile.json()
+  const rawConfig = await configFile.json()
+  const config = ConfigFileDataSchema.parse(rawConfig)
   const networkConfig = config[network]
 
   if (!networkConfig) {
@@ -108,7 +142,7 @@ export async function loadNetworkConfig(
 
   networkConfig.rpcUrl = resolveEnvVar(networkConfig.rpcUrl)
 
-  return networkConfig
+  return networkConfig as NetworkConfig
 }
 
 export function loadContractAddresses(

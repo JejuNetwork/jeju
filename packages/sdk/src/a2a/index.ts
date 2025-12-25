@@ -282,17 +282,13 @@ export function createA2AModule(
       params: tags ? { tags } : {},
     })
 
-    if (!response.data || !Array.isArray(response.data.apps)) {
+    const parsed = AppsListResponseSchema.safeParse(response.data)
+    if (!parsed.success) {
       throw new Error(
         'Invalid response from list-registered-apps: expected apps array',
       )
     }
-    const apps = response.data.apps as Array<{
-      name: string
-      endpoint: string
-      jnsName?: string
-      metadata?: JsonRecord
-    }>
+    const apps = parsed.data.apps
 
     // Discover agent cards for each app
     const agents: DiscoveredAgent[] = []

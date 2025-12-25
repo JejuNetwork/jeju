@@ -22,10 +22,9 @@ import {
   type VenueSource,
   validatePriceReport,
 } from '../oracle'
+import { ZERO_ADDRESS } from '../validation'
 
 // Test Fixtures
-
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address
 const TEST_ADDRESS_1 = '0x1111111111111111111111111111111111111111' as Address
 const TEST_ADDRESS_2 = '0x2222222222222222222222222222222222222222' as Address
 const TEST_FEED_ID = `0x${'a'.repeat(64)}` as Hex
@@ -529,8 +528,8 @@ describe('formatPrice', () => {
       const [wholePart, fracPart = ''] = formatted.split('.')
 
       const reconstructed =
-        BigInt(wholePart || '0') * 10n ** BigInt(decimals) +
-        BigInt(fracPart.padEnd(decimals, '0') || '0')
+        BigInt(wholePart ?? '0') * 10n ** BigInt(decimals) +
+        BigInt(fracPart.padEnd(decimals, '0') ?? '0')
 
       expect(reconstructed).toBe(rawPrice)
     }
