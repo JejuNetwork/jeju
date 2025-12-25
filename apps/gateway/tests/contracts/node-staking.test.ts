@@ -3,12 +3,16 @@
  * @module gateway/tests/contracts/node-staking
  */
 
+import { getContract } from '@jejunetwork/config'
 import { beforeAll, describe, expect, test } from 'bun:test'
 import {
   getContractAddresses,
   getPublicClient,
   TEST_WALLET,
 } from '../fixtures/contracts'
+
+// Contract address from config
+const JEJU_TOKEN = getContract('tokens', 'jeju', 'localnet') as `0x${string}`
 
 describe('NodeStakingManager Contract', () => {
   const publicClient = getPublicClient()
@@ -254,8 +258,8 @@ describe('NodeStakingManager Contract', () => {
       return
     }
 
-    // Get JEJU token address
-    const jejuAddress = process.env.PUBLIC_JEJU_TOKEN_ADDRESS as `0x${string}`
+    // Get JEJU token address from config
+    const jejuAddress = JEJU_TOKEN
 
     if (
       jejuAddress &&

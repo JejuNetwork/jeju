@@ -1,10 +1,9 @@
 /**
  * Ban Status Hook
  *
- * Uses @jejunetwork/config for defaults with PUBLIC_ env overrides.
+ * Uses @jejunetwork/config for all configuration.
  */
 
-// BanCheckConfig is exported as HookBanCheckConfig from shared barrel
 import {
   getContractsConfig,
   getCurrentNetwork,
@@ -76,29 +75,15 @@ const MODERATION_MARKETPLACE_ABI = [
   },
 ] as const
 
-/** Get env var from import.meta.env (browser) */
-function getEnv(key: string): string | undefined {
-  if (typeof import.meta?.env === 'object') {
-    return import.meta.env[key as keyof ImportMetaEnv] as string | undefined
-  }
-  return undefined
-}
-
-// Get config defaults
+// Get config defaults from @jejunetwork/config
 const network = getCurrentNetwork()
 const contracts = getContractsConfig(network)
 
 const DEFAULT_CONFIG: BanCheckConfig = {
-  banManagerAddress:
-    (getEnv('PUBLIC_BAN_MANAGER_ADDRESS') as Address | undefined) ||
-    (contracts.moderation?.BanManager as Address | undefined),
-  moderationMarketplaceAddress:
-    (getEnv('PUBLIC_MODERATION_MARKETPLACE_ADDRESS') as Address | undefined) ||
-    (contracts.moderation?.ModerationMarketplace as Address | undefined),
-  identityRegistryAddress:
-    (getEnv('PUBLIC_IDENTITY_REGISTRY_ADDRESS') as Address | undefined) ||
-    (contracts.registry?.IdentityRegistry as Address | undefined),
-  rpcUrl: getEnv('PUBLIC_RPC_URL') || getRpcUrl(network),
+  banManagerAddress: contracts.moderation?.banManager as Address | undefined,
+  moderationMarketplaceAddress: contracts.moderation?.moderationMarketplace as Address | undefined,
+  identityRegistryAddress: contracts.registry?.identity as Address | undefined,
+  rpcUrl: getRpcUrl(network),
 }
 
 /**

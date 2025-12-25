@@ -83,7 +83,7 @@ export class AppOrchestrator {
 
     if (mainPort) {
       appEnv.PORT = String(mainPort)
-      appEnv.VITE_PORT = String(mainPort)
+      appEnv.PUBLIC_PORT = String(mainPort)
     }
 
     const [cmd, ...args] = devCommand.split(' ')

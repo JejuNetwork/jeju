@@ -1356,7 +1356,7 @@ class ServicesOrchestrator {
     const inference = this.services.get('inference')
     if (inference?.url) {
       env.JEJU_INFERENCE_URL = inference.url
-      env.VITE_JEJU_GATEWAY_URL = inference.url
+      env.PUBLIC_JEJU_GATEWAY_URL = inference.url
     }
 
     const cql = this.services.get('cql')

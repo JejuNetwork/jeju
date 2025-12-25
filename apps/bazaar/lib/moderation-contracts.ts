@@ -1,30 +1,12 @@
 /**
  * Moderation contract addresses for browser
  *
- * Uses @jejunetwork/config for defaults with PUBLIC_ env overrides.
+ * Uses @jejunetwork/config for all configuration.
  */
 
 import { getContractsConfig, getCurrentNetwork } from '@jejunetwork/config'
-import { isHexString } from '@jejunetwork/types'
+import { ZERO_ADDRESS } from '@jejunetwork/types'
 import type { Address } from 'viem'
-
-const ZERO_ADDRESS: Address = '0x0000000000000000000000000000000000000000'
-
-/** Get env var from import.meta.env (browser) */
-function getEnv(key: string): string | undefined {
-  if (typeof import.meta?.env === 'object') {
-    return import.meta.env[key] as string | undefined
-  }
-  return undefined
-}
-
-/** Parse env var as Address or return zero address */
-function parseEnvAddress(value: string | undefined): Address {
-  if (!value || !isHexString(value)) {
-    return ZERO_ADDRESS
-  }
-  return value
-}
 
 interface ModerationContractAddresses {
   moderationMarketplace: Address
@@ -39,17 +21,11 @@ function getContractsForNetwork(
 
   return {
     moderationMarketplace:
-      parseEnvAddress(getEnv('PUBLIC_MODERATION_MARKETPLACE_ADDRESS')) ||
-      (contracts.moderation?.ModerationMarketplace as Address) ||
-      ZERO_ADDRESS,
+      (contracts.moderation?.moderationMarketplace as Address) || ZERO_ADDRESS,
     banManager:
-      parseEnvAddress(getEnv('PUBLIC_BAN_MANAGER_ADDRESS')) ||
-      (contracts.moderation?.BanManager as Address) ||
-      ZERO_ADDRESS,
+      (contracts.moderation?.banManager as Address) || ZERO_ADDRESS,
     identityRegistry:
-      parseEnvAddress(getEnv('PUBLIC_IDENTITY_REGISTRY_ADDRESS')) ||
-      (contracts.registry?.IdentityRegistry as Address) ||
-      ZERO_ADDRESS,
+      (contracts.registry?.identity as Address) || ZERO_ADDRESS,
   }
 }
 
@@ -63,18 +39,6 @@ export const MODERATION_CONTRACTS: {
   localnet: getContractsForNetwork('localnet'),
 }
 
-function getCurrentNetworkType(): 'mainnet' | 'testnet' | 'localnet' {
-  const envNetwork = getEnv('PUBLIC_NETWORK')
-  if (
-    envNetwork === 'mainnet' ||
-    envNetwork === 'testnet' ||
-    envNetwork === 'localnet'
-  ) {
-    return envNetwork
-  }
-  return getCurrentNetwork()
-}
-
 export function getContracts(): ModerationContractAddresses {
-  return MODERATION_CONTRACTS[getCurrentNetworkType()]
+  return MODERATION_CONTRACTS[getCurrentNetwork()]
 }

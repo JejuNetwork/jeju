@@ -9,13 +9,15 @@
  * - PriceOracle with correct prices
  */
 
+import { getContract } from '@jejunetwork/config'
+import { ZERO_ADDRESS } from '@jejunetwork/types'
 import { describe, expect, test } from 'bun:test'
 
-// Contract addresses (loaded from env or deployment file)
-const NODE_STAKING_MANAGER = (process.env.PUBLIC_NODE_STAKING_MANAGER_ADDRESS ||
-  '0x0000000000000000000000000000000000000000') as `0x${string}`
-const JEJU_TOKEN = (process.env.PUBLIC_JEJU_TOKEN_ADDRESS ||
-  '0x0000000000000000000000000000000000000000') as `0x${string}`
+// Contract addresses from config
+const NODE_STAKING_MANAGER = (getContract('nodeStaking', 'manager', 'localnet') ||
+  ZERO_ADDRESS) as `0x${string}`
+const JEJU_TOKEN = (getContract('tokens', 'jeju', 'localnet') ||
+  ZERO_ADDRESS) as `0x${string}`
 
 describe('Node Registration - On-Chain Validation', () => {
   test('should validate node registration requirements', () => {

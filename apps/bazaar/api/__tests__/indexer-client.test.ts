@@ -1,3 +1,4 @@
+import { getServicesConfig, getCurrentNetwork } from '@jejunetwork/config'
 import { beforeAll, describe, expect, test } from 'bun:test'
 import {
   getNetworkTokens,
@@ -8,11 +9,14 @@ import {
 // Check if indexer is available
 let indexerAvailable = false
 
+// Get indexer URL from config
+const services = getServicesConfig(getCurrentNetwork())
+const INDEXER_URL = services.indexer?.graphql || 'http://localhost:4350/graphql'
+
 describe('Indexer Client', () => {
   beforeAll(async () => {
     // Try to connect to indexer
-    const indexerUrl =
-      process.env.PUBLIC_INDEXER_URL || 'http://localhost:4350/graphql'
+    const indexerUrl = INDEXER_URL
     try {
       const response = await fetch(indexerUrl, {
         method: 'POST',

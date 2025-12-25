@@ -9,12 +9,17 @@
  * This is a SMOKE TEST for the complete user flow
  */
 
+import { getContract, getServicesConfig, getCurrentNetwork } from '@jejunetwork/config'
+import { ZERO_ADDRESS } from '@jejunetwork/types'
 import { expect, test } from '@playwright/test'
 
+const services = getServicesConfig(getCurrentNetwork())
+const predimarketAddress = getContract('moderation', 'predimarket', 'localnet')
+
 const INFRASTRUCTURE_READY =
-  process.env.PUBLIC_PREDIMARKET_ADDRESS &&
-  process.env.PUBLIC_PREDIMARKET_ADDRESS !== '0x0' &&
-  process.env.PUBLIC_INDEXER_URL
+  predimarketAddress &&
+  predimarketAddress !== ZERO_ADDRESS &&
+  services.indexer?.graphql
 
 test.describe('Complete Trading Journey', () => {
   test.skip(!INFRASTRUCTURE_READY, 'Infrastructure not deployed')

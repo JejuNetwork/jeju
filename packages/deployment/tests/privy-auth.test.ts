@@ -36,12 +36,8 @@ interface MockPrivyUser {
   email?: { address: string }
   farcaster?: { fid: number }
 }
-// Privy credentials - check both common env var names
-function getPrivyAppId(): string | undefined {
-  return process.env.PRIVY_APP_ID ?? process.env.PUBLIC_PRIVY_APP_ID
-}
-
-const PRIVY_APP_ID = getPrivyAppId()
+// Privy credentials - these are intentional env overrides for API keys
+const PRIVY_APP_ID = process.env.PRIVY_APP_ID
 const PRIVY_APP_SECRET = process.env.PRIVY_APP_SECRET
 
 function isPrivyConfigured(): boolean {

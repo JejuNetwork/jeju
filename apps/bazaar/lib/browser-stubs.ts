@@ -1,7 +1,7 @@
 /**
  * Browser-compatible implementations for Bazaar
  *
- * Uses @jejunetwork/config for defaults with PUBLIC_ env overrides.
+ * Uses @jejunetwork/config for all configuration.
  */
 
 import {
@@ -9,7 +9,7 @@ import {
   getCurrentNetwork,
   getRpcUrl,
 } from '@jejunetwork/config'
-import { asTuple, BanType, isHexString } from '@jejunetwork/types'
+import { asTuple, BanType } from '@jejunetwork/types'
 import { useCallback, useEffect, useState } from 'react'
 import {
   type Address,
@@ -22,22 +22,6 @@ import { base, baseSepolia } from 'viem/chains'
 
 export { BanType }
 export type { BanType as BanTypeValue }
-
-/** Get env var from import.meta.env (browser) */
-function getEnv(key: string): string | undefined {
-  if (typeof import.meta?.env === 'object') {
-    return import.meta.env[key] as string | undefined
-  }
-  return undefined
-}
-
-/** Parse env var as Address or return null */
-function parseEnvAsAddress(value: string | undefined): Address | null {
-  if (!value || !isHexString(value)) {
-    return null
-  }
-  return value
-}
 
 function toBanType(value: number): BanType {
   if (value < 0 || value > 3) throw new Error(`Invalid BanType: ${value}`)
@@ -55,42 +39,28 @@ export interface BanStatus {
   error: string | null
 }
 
-// Contract Configuration using config package
-
-function getNetworkConfig(): {
-  chain: typeof base | typeof baseSepolia
-  rpcUrl: string
-  banManager: Address | null
-  moderationMarketplace: Address | null
-} {
-  const networkEnv = getEnv('PUBLIC_NETWORK')
-  const network =
-    networkEnv === 'mainnet' ||
-    networkEnv === 'testnet' ||
-    networkEnv === 'localnet'
-      ? networkEnv
-      : getCurrentNetwork()
-
-  const isMainnet = network === 'mainnet'
-  const contracts = getContractsConfig(network)
-
-  const rpcUrl =
-    getEnv('PUBLIC_RPC_URL') ||
-    getRpcUrl(network) ||
-    (isMainnet ? 'https://mainnet.base.org' : 'https://sepolia.base.org')
-
-  return {
-    chain: isMainnet ? base : baseSepolia,
-    rpcUrl,
-    banManager:
-      parseEnvAsAddress(getEnv('PUBLIC_BAN_MANAGER_ADDRESS')) ||
-      (contracts.moderation?.BanManager as Address | undefined) ||
-      null,
-    moderationMarketplace:
-      parseEnvAsAddress(getEnv('PUBLIC_MODERATION_MARKETPLACE_ADDRESS')) ||
-      (contracts.moderation?.ModerationMarketplace as Address | undefined) ||
-      null,
+/** Get env var from import.meta.env (browser) - only for API keys */
+function getEnv(key: string): string | undefined {
+  if (typeof import.meta?.env === 'object') {
+    return import.meta.env[key] as string | undefined
   }
+  return undefined
+}
+
+// Contract Configuration from @jejunetwork/config
+const network = getCurrentNetwork()
+const contracts = getContractsConfig(network)
+const isMainnet = network === 'mainnet'
+
+const NETWORK_CONFIG = {
+  chain: isMainnet ? base : baseSepolia,
+  rpcUrl: getRpcUrl(network),
+  banManager: (contracts.moderation?.banManager as Address) || null,
+  moderationMarketplace: (contracts.moderation?.moderationMarketplace as Address) || null,
+} as const
+
+function getNetworkConfig() {
+  return NETWORK_CONFIG
 }
 
 const BAN_MANAGER_FRAGMENT = parseAbiItem(

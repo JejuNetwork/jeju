@@ -3,6 +3,7 @@
  * Tests ERC20 token creation with MetaMask confirmation
  */
 
+import { getChainId, getContract, getRpcUrl } from '@jejunetwork/config'
 import type { BrowserContext, Page } from '@playwright/test'
 import { testWithSynpress } from '@synthetixio/synpress'
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright'
@@ -12,9 +13,10 @@ import { basicSetup } from '../../synpress.config'
 const test = testWithSynpress(metaMaskFixtures(basicSetup))
 const { expect } = test
 
-const RPC_URL = process.env.L2_RPC_URL ?? 'http://localhost:6546'
-const CHAIN_ID = parseInt(process.env.CHAIN_ID ?? '31337', 10)
+const RPC_URL = getRpcUrl('localnet')
+const CHAIN_ID = getChainId('localnet')
 const TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
+const ERC20_FACTORY_ADDRESS = getContract('tokens', 'factory', 'localnet') as `0x${string}` | undefined
 
 const publicClient = createPublicClient({
   chain: {
@@ -154,8 +156,8 @@ test.describe('Token Creation', () => {
       extensionId,
     )
 
-    const factoryAddress = process.env.PUBLIC_ERC20_FACTORY_ADDRESS
-    if (!factoryAddress || factoryAddress === '0x0') {
+    const factoryAddress = ERC20_FACTORY_ADDRESS
+    if (!factoryAddress || factoryAddress === '0x0000000000000000000000000000000000000000') {
       console.log('Skipping: Factory not deployed')
       return
     }

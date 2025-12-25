@@ -9,6 +9,7 @@
  *   bunx playwright test packages/tests/smoke/chain-preflight.spec.ts
  */
 
+import { getChainId, getContract, getRpcUrl } from '@jejunetwork/config'
 import { expect, test } from '@playwright/test'
 import {
   type Address,
@@ -19,11 +20,12 @@ import {
   parseEther,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { JEJU_CHAIN_ID, JEJU_RPC_URL, TEST_ACCOUNTS } from '../shared/utils'
+import { TEST_ACCOUNTS } from '../shared/utils'
 
-const RPC_URL =
-  process.env.L2_RPC_URL || process.env.JEJU_RPC_URL || JEJU_RPC_URL
-const CHAIN_ID = parseInt(process.env.CHAIN_ID || String(JEJU_CHAIN_ID), 10)
+const RPC_URL = getRpcUrl('localnet')
+const CHAIN_ID = getChainId('localnet')
+const ERC20_FACTORY_ADDRESS = getContract('tokens', 'factory', 'localnet') as Address | undefined
+const NFT_MARKETPLACE_ADDRESS = getContract('nft', 'marketplace', 'localnet') as Address | undefined
 
 // Use shared test accounts (Anvil defaults)
 const TEST_PRIVATE_KEY = TEST_ACCOUNTS.deployer.privateKey
@@ -135,11 +137,9 @@ test.describe('Transaction Verification', () => {
 
 test.describe('Contract Deployment Check', () => {
   test('Can verify ERC20 Factory deployment', async () => {
-    const factoryAddress = process.env.PUBLIC_ERC20_FACTORY_ADDRESS as
-      | Address
-      | undefined
+    const factoryAddress = ERC20_FACTORY_ADDRESS
 
-    if (!factoryAddress || factoryAddress === '0x0') {
+    if (!factoryAddress || factoryAddress === '0x0000000000000000000000000000000000000000') {
       test.skip()
       return
     }
@@ -150,11 +150,9 @@ test.describe('Contract Deployment Check', () => {
   })
 
   test('Can verify NFT Marketplace deployment', async () => {
-    const marketplaceAddress = process.env.PUBLIC_NFT_MARKETPLACE_ADDRESS as
-      | Address
-      | undefined
+    const marketplaceAddress = NFT_MARKETPLACE_ADDRESS
 
-    if (!marketplaceAddress || marketplaceAddress === '0x0') {
+    if (!marketplaceAddress || marketplaceAddress === '0x0000000000000000000000000000000000000000') {
       test.skip()
       return
     }

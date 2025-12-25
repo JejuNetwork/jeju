@@ -7,12 +7,9 @@ describe('useClaim Hook', () => {
   })
 
   test('should handle missing contract address', () => {
-    const originalEnv = process.env.PUBLIC_PREDIMARKET_ADDRESS
-    process.env.PUBLIC_PREDIMARKET_ADDRESS = '0x0'
-
+    // Contract address comes from @jejunetwork/config, so this test
+    // just validates the hook works regardless of configuration
     expect(typeof useClaim).toBe('function')
-
-    process.env.PUBLIC_PREDIMARKET_ADDRESS = originalEnv
   })
 
   test('should accept sessionId parameter', () => {

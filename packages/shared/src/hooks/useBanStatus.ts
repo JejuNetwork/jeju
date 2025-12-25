@@ -1,7 +1,7 @@
 /**
  * Shared Ban Status Hook
  *
- * Uses @jejunetwork/config for defaults with PUBLIC_ env overrides.
+ * Uses @jejunetwork/config for all configuration.
  * This hook is used by multiple apps (gateway, bazaar, dws, etc.)
  */
 
@@ -10,7 +10,7 @@ import {
   getCurrentNetwork,
   getRpcUrl,
 } from '@jejunetwork/config'
-import { BanType, isHexString } from '@jejunetwork/types'
+import { BanType } from '@jejunetwork/types'
 import { useCallback, useEffect, useState } from 'react'
 import { type Address, createPublicClient, http } from 'viem'
 import { baseSepolia } from 'viem/chains'
@@ -44,43 +44,15 @@ interface AddressBanData {
   caseId: `0x${string}`
 }
 
-/** Get env var from import.meta.env (browser) or process.env (node) */
-function getEnv(key: string): string | undefined {
-  // Try import.meta.env first (browser)
-  if (typeof import.meta?.env === 'object') {
-    return import.meta.env[key] as string | undefined
-  }
-  // Fall back to process.env (node)
-  if (typeof process !== 'undefined' && process.env) {
-    return process.env[key]
-  }
-  return undefined
-}
-
-/** Parse env var as Address or return undefined */
-function parseEnvAddress(key: string): Address | undefined {
-  const value = getEnv(key)
-  if (!value || !isHexString(value)) {
-    return undefined
-  }
-  return value as Address
-}
-
 // Get network and contracts from config
 const network = getCurrentNetwork()
 const contracts = getContractsConfig(network)
 
 const DEFAULT_CONFIG: BanCheckConfig = {
-  banManagerAddress:
-    parseEnvAddress('PUBLIC_BAN_MANAGER_ADDRESS') ||
-    (contracts.moderation?.BanManager as Address | undefined),
-  moderationMarketplaceAddress:
-    parseEnvAddress('PUBLIC_MODERATION_MARKETPLACE_ADDRESS') ||
-    (contracts.moderation?.ModerationMarketplace as Address | undefined),
-  identityRegistryAddress:
-    parseEnvAddress('PUBLIC_IDENTITY_REGISTRY_ADDRESS') ||
-    (contracts.registry?.IdentityRegistry as Address | undefined),
-  rpcUrl: getEnv('PUBLIC_RPC_URL') || getRpcUrl(network),
+  banManagerAddress: contracts.moderation?.banManager as Address | undefined,
+  moderationMarketplaceAddress: contracts.moderation?.moderationMarketplace as Address | undefined,
+  identityRegistryAddress: contracts.registry?.identity as Address | undefined,
+  rpcUrl: getRpcUrl(network),
 }
 
 const BAN_MANAGER_ABI = [

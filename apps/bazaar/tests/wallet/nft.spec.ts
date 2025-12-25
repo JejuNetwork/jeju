@@ -3,6 +3,7 @@
  * Tests NFT minting, listing, and purchasing with MetaMask
  */
 
+import { getChainId, getContract, getRpcUrl } from '@jejunetwork/config'
 import type { BrowserContext, Page } from '@playwright/test'
 import { testWithSynpress } from '@synthetixio/synpress'
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright'
@@ -12,8 +13,9 @@ import { basicSetup } from '../../synpress.config'
 const test = testWithSynpress(metaMaskFixtures(basicSetup))
 const { expect } = test
 
-const RPC_URL = process.env.L2_RPC_URL ?? 'http://localhost:6546'
-const CHAIN_ID = parseInt(process.env.CHAIN_ID ?? '31337', 10)
+const RPC_URL = getRpcUrl('localnet')
+const CHAIN_ID = getChainId('localnet')
+const NFT_MARKETPLACE_ADDRESS = getContract('nft', 'marketplace', 'localnet') as `0x${string}` | undefined
 
 const publicClient = createPublicClient({
   chain: {
@@ -113,8 +115,8 @@ test.describe('Items Page with Wallet', () => {
 
 test.describe('Marketplace Contract Verification', () => {
   test('verifies marketplace listing state', async () => {
-    const marketplaceAddress = process.env.PUBLIC_NFT_MARKETPLACE_ADDRESS
-    if (!marketplaceAddress || marketplaceAddress === '0x0') {
+    const marketplaceAddress = NFT_MARKETPLACE_ADDRESS
+    if (!marketplaceAddress || marketplaceAddress === '0x0000000000000000000000000000000000000000') {
       console.log('Skipping: Marketplace not deployed')
       return
     }
@@ -130,8 +132,8 @@ test.describe('Marketplace Contract Verification', () => {
   })
 
   test('verifies marketplace auction state', async () => {
-    const marketplaceAddress = process.env.PUBLIC_NFT_MARKETPLACE_ADDRESS
-    if (!marketplaceAddress || marketplaceAddress === '0x0') {
+    const marketplaceAddress = NFT_MARKETPLACE_ADDRESS
+    if (!marketplaceAddress || marketplaceAddress === '0x0000000000000000000000000000000000000000') {
       console.log('Skipping: Marketplace not deployed')
       return
     }
