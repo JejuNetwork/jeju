@@ -520,7 +520,7 @@ async function uploadFile(filePath: string): Promise<void> {
   const dwsUrl = getDwsUrl()
   const content = readFileSync(resolvedPath)
 
-  const rawFilename = resolvedPath.split('/').pop() || 'file'
+  const rawFilename = resolvedPath.split('/').pop() ?? 'file'
   const filename = rawFilename.replace(/[^a-zA-Z0-9._-]/g, '_')
 
   logger.keyValue('File', resolvedPath)
@@ -756,7 +756,7 @@ async function createRepo(
       },
       body: JSON.stringify({
         name,
-        description: options.description || '',
+        description: options.description ?? '',
         visibility: options.private ? 1 : 0,
       }),
       signal: AbortSignal.timeout(30000),

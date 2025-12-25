@@ -471,7 +471,7 @@ describe('Dependency Scanner', () => {
         },
       }
 
-      const deps = Object.entries(packageJson.dependencies || {}).map(
+      const deps = Object.entries(packageJson.dependencies ?? {}).map(
         ([name, version]) => ({
           name,
           version,

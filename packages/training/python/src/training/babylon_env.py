@@ -348,8 +348,9 @@ class BabylonRLAIFEnv(BaseEnv):
                     > self.config.max_token_length - 512
                 ):
                     # Keep system + last N messages
-                    messages = [messages[0]] + messages[
-                        -(self.config.max_steps_per_trajectory * 2) :
+                    messages = [
+                        messages[0],
+                        *messages[-(self.config.max_steps_per_trajectory * 2) :],
                     ]
 
                 # Generate completion from training model

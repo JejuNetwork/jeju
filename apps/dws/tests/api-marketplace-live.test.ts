@@ -649,7 +649,7 @@ describe('Test Summary', () => {
     console.log('\n=== API Marketplace Live Test Summary ===')
     console.log(
       `Configured providers (${configured.length}):`,
-      configured.join(', ') || 'none',
+      configured.join(', ') ?? 'none',
     )
     console.log(
       `Not configured (${notConfigured.length}):`,

@@ -358,8 +358,8 @@ async function createMinikubeCluster(
       ip: '192.168.49.2',
       status: 'ready',
       resources: {
-        cpuCores: config.cpuCores || 2,
-        memoryMb: config.memoryMb || 2048,
+        cpuCores: config.cpuCores ?? 2,
+        memoryMb: config.memoryMb ?? 2048,
         storageMb: 20480,
       },
     },

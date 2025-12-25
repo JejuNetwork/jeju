@@ -114,7 +114,7 @@ beforeAll(async () => {
   const options: WorkerdRouterOptions = {
     backend,
     workerdConfig: {
-      binaryPath: WORKERD_PATH || '/usr/local/bin/workerd',
+      binaryPath: WORKERD_PATH ?? '/usr/local/bin/workerd',
       workDir: '/tmp/dws-workerd-test',
       portRange: { min: 40000, max: 45000 },
     },

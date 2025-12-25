@@ -15,7 +15,6 @@
 import { afterAll, beforeAll } from 'bun:test'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { toError } from '@jejunetwork/types'
 import type { Subprocess } from 'bun'
 
 // Configuration
@@ -33,7 +32,9 @@ let dwsProcess: Subprocess | null = null
 let mockInferenceServer: { stop: () => void } | null = null
 let isSetup = false
 
+// =============================================================================
 // Utility Functions
+// =============================================================================
 
 function findMonorepoRoot(): string {
   let dir = import.meta.dir
@@ -93,7 +94,9 @@ async function waitForAnvil(): Promise<boolean> {
   return false
 }
 
+// =============================================================================
 // Service Management
+// =============================================================================
 
 async function startAnvil(): Promise<boolean> {
   console.log('[Test Setup] Checking Anvil...')
@@ -113,7 +116,7 @@ async function startAnvil(): Promise<boolean> {
 
   console.log('[Test Setup] Starting Anvil...')
   _anvilProcess = Bun.spawn(
-    [anvil, '--port', String(ANVIL_PORT), '--chain-id', '31337', '--silent'],
+    [anvil, '--port', String(ANVIL_PORT), '--chain-id', '1337', '--silent'],
     {
       stdout: 'pipe',
       stderr: 'pipe',
@@ -195,14 +198,14 @@ async function startMockInferenceServer(): Promise<boolean> {
           id: `chatcmpl-test-${Date.now()}`,
           object: 'chat.completion',
           created: Math.floor(Date.now() / 1000),
-          model: body.model || 'mock-model',
+          model: body.model ?? 'mock-model',
           provider: 'mock',
           choices: [
             {
               index: 0,
               message: {
                 role: 'assistant',
-                content: `Mock response to: ${body.messages?.[0]?.content || 'test'}`,
+                content: `Mock response to: ${body.messages?.[0]?.content ?? 'test'}`,
               },
               finish_reason: 'stop',
             },
@@ -243,7 +246,7 @@ async function startDWS(): Promise<boolean> {
   const dwsDir = join(rootDir, 'apps', 'dws')
 
   console.log('[Test Setup] Starting DWS...')
-  dwsProcess = Bun.spawn(['bun', 'run', 'api/server/index.ts'], {
+  dwsProcess = Bun.spawn(['bun', 'run', 'src/server/index.ts'], {
     cwd: dwsDir,
     stdout: 'pipe',
     stderr: 'pipe',
@@ -297,13 +300,15 @@ async function registerMockInferenceNode(): Promise<boolean> {
   } catch (error) {
     console.warn(
       '[Test Setup] Could not register mock node:',
-      toError(error).message,
+      (error as Error).message,
     )
     return false
   }
 }
 
+// =============================================================================
 // Public API
+// =============================================================================
 
 export async function setup(): Promise<void> {
   if (isSetup) return

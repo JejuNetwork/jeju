@@ -8,6 +8,7 @@
  * All operations are on-chain reads (quoter) or swaps.
  */
 
+import { readContract } from '@jejunetwork/contracts'
 import type { Address, PublicClient } from 'viem'
 
 // Uniswap V3 Quoter V2

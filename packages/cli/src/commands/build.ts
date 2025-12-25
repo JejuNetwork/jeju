@@ -230,7 +230,7 @@ async function buildApp(rootDir: string, appName: string): Promise<void> {
     // Create worker metadata
     const metadata = {
       name: `${appName}-api`,
-      version: app.version || '1.0.0',
+      version: app.version ?? '1.0.0',
       entrypoint: 'worker.js',
       compatibilityDate: new Date().toISOString().split('T')[0],
       buildTime: new Date().toISOString(),
@@ -248,7 +248,7 @@ async function buildApp(rootDir: string, appName: string): Promise<void> {
   // Create deployment manifest
   const deploymentManifest = {
     name: appName,
-    version: app.version || '1.0.0',
+    version: app.version ?? '1.0.0',
     architecture: {
       frontend: clientEntry
         ? {

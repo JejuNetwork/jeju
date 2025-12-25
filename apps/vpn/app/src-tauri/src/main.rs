@@ -107,6 +107,7 @@ fn main() {
             commands::vpn::get_nodes,
             commands::vpn::select_node,
             commands::vpn::get_connection_stats,
+            commands::vpn::get_public_key,
             commands::contribution::get_contribution_status,
             commands::contribution::set_contribution_settings,
             commands::contribution::get_contribution_stats,

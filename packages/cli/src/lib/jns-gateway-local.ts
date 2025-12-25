@@ -301,7 +301,7 @@ export class LocalJNSGateway {
 
   private async serveFromIPFS(cid: string, path: string): Promise<Response> {
     // Normalize path
-    let requestPath = path || '/'
+    let requestPath = path ?? '/'
     if (requestPath === '/') requestPath = '/index.html'
     if (requestPath.startsWith('/')) requestPath = requestPath.slice(1)
 
@@ -364,7 +364,7 @@ export class LocalJNSGateway {
     ]
 
     // Normalize path
-    let requestPath = path || '/'
+    let requestPath = path ?? '/'
     if (requestPath === '/') requestPath = 'index.html'
     if (requestPath.startsWith('/')) requestPath = requestPath.slice(1)
 

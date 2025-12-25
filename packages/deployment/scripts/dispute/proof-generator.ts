@@ -868,7 +868,7 @@ async function main(): Promise<void> {
 
   console.log(`\nChallenger: ${account.address}`)
   console.log(`L1 RPC: ${l1Rpc}`)
-  console.log(`L2 RPC: ${l2Rpc || 'not configured'}`)
+  console.log(`L2 RPC: ${l2Rpc ?? 'not configured'}`)
 
   // Demo: Generate a fraud proof
   const preState = keccak256(

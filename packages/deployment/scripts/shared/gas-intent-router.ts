@@ -204,7 +204,7 @@ export class GasIntentRouter {
     const allBalances: TokenBalance[] = []
 
     // Get balances from main chain
-    const mainTokens = tokensByChain.get(this.config.chainId) || []
+    const mainTokens = tokensByChain.get(this.config.chainId) ?? []
     if (mainTokens.length > 0) {
       const mainBalances = await this.getUserTokenBalances(
         userAddress,
@@ -215,7 +215,7 @@ export class GasIntentRouter {
 
     // Get balances from cross-chain clients
     for (const [chainId, client] of this.crossChainClients) {
-      const tokens = tokensByChain.get(chainId) || []
+      const tokens = tokensByChain.get(chainId) ?? []
       if (tokens.length === 0) continue
 
       for (const tokenAddress of tokens) {
@@ -521,7 +521,7 @@ export class GasIntentRouter {
     )
 
     // Get options from cross-chain paymaster
-    const mainChainTokens = tokensByChain.get(this.config.chainId) || []
+    const mainChainTokens = tokensByChain.get(this.config.chainId) ?? []
     const crossChainOptions = await this.getCrossChainPaymasterOptions(
       gasEstimate,
       mainChainTokens,

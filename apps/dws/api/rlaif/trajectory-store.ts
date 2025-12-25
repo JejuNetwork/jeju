@@ -102,7 +102,11 @@ export class TrajectoryStore {
     if (!response.ok) {
       throw new Error(`Failed to load trajectory ${cid}: ${response.status}`)
     }
-    return expectValid(TrajectorySchema, await response.json(), 'trajectory')
+    return expectValid(
+      TrajectorySchema,
+      await response.json(),
+      'trajectory',
+    ) as Trajectory
   }
 
   async loadManifest(manifestCID: string): Promise<TrajectoryManifest> {

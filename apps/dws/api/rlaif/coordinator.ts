@@ -14,6 +14,7 @@
  * - Optional Psyche for distributed training
  */
 
+import { writeContract } from '@jejunetwork/contracts'
 import { expectValid } from '@jejunetwork/types'
 import { type Address, createWalletClient, type Hex, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'

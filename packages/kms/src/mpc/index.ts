@@ -8,4 +8,5 @@
 
 export * from './coordinator.js'
 export * from './frost-coordinator.js'
+export * from './frost-signing.js'
 export * from './types.js'

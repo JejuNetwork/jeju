@@ -3,7 +3,6 @@
 //! Enables the VPN app to start automatically with the system.
 
 use auto_launch::{AutoLaunch, AutoLaunchBuilder};
-use std::path::PathBuf;
 
 /// Auto-start manager
 pub struct AutoStartManager {
@@ -20,7 +19,7 @@ impl AutoStartManager {
     fn create_launcher() -> Option<AutoLaunch> {
         // Get the current executable path
         let exe_path = std::env::current_exe().ok()?;
-        let exe_name = exe_path.file_name()?.to_str()?;
+        let _ = exe_path.file_name()?.to_str()?; // Validate path is valid UTF-8
 
         // Build the auto-launcher
         let exe_path_str = exe_path.to_string_lossy().to_string();

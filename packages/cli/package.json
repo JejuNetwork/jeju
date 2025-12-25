@@ -18,7 +18,7 @@
   },
   "files": ["dist", "bin", "templates"],
   "scripts": {
-    "build": "bun build src/index.ts --outdir dist --target bun --external electron --external playwright-core",
+    "build": "bun build src/index.ts --outdir dist --target bun --external electron --external playwright-core --external @vue/compiler-sfc",
     "dev": "bun run src/index.ts",
     "test": "bun test",
     "typecheck": "tsc --noEmit"

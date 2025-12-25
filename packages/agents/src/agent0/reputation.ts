@@ -198,8 +198,8 @@ export class ReputationBridge {
    * Sum two volume strings (wei amounts)
    */
   private sumVolumes(volume1: string, volume2: string): string {
-    const v1 = BigInt(volume1 || '0')
-    const v2 = BigInt(volume2 || '0')
+    const v1 = BigInt(volume1 ?? '0')
+    const v2 = BigInt(volume2 ?? '0')
     return (v1 + v2).toString()
   }
 

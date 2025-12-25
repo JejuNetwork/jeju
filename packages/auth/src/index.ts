@@ -209,7 +209,7 @@ export {
   type TOTPSetupResult,
   type TOTPVerifyResult,
 } from './mfa/totp.js'
-// MPC/FROST Signing
+// MPC/FROST Signing (re-exported from @jejunetwork/kms)
 export {
   aggregateSignatures,
   type FROSTCluster,
@@ -223,7 +223,7 @@ export {
   generateSigningCommitment,
   publicKeyToAddress,
   verifySignature,
-} from './mpc/frost-signing.js'
+} from '@jejunetwork/kms'
 // Paymaster (Gas Sponsorship)
 export {
   createGasEstimator,

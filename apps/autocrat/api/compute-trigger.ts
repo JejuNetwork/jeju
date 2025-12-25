@@ -43,7 +43,7 @@ export interface TriggerExecutionResult {
   status: 'pending' | 'running' | 'success' | 'failed'
   startedAt: Date
   finishedAt?: Date
-  output?: Record<string, string | number | boolean | null | object>
+  output?: Record<string, unknown>
   error?: string
 }
 
@@ -53,7 +53,7 @@ const TriggerExecutionResultSchema = z.object({
   status: z.enum(['pending', 'running', 'success', 'failed']),
   startedAt: z.coerce.date(),
   finishedAt: z.coerce.date().optional(),
-  output: z.record(z.unknown()).optional(),
+  output: z.record(z.string(), z.unknown()).optional(),
   error: z.string().optional(),
 })
 

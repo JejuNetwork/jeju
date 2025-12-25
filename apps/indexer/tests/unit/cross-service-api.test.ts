@@ -448,7 +448,7 @@ describe('Full-Stack Provider Detection', () => {
     const computeByAgent = new Map<number, ComputeProvider[]>()
     for (const p of computeProviders) {
       if (p.agentId && p.isActive) {
-        const existing = computeByAgent.get(p.agentId) || []
+        const existing = computeByAgent.get(p.agentId) ?? []
         existing.push(p)
         computeByAgent.set(p.agentId, existing)
       }
@@ -471,7 +471,7 @@ describe('Full-Stack Provider Detection', () => {
           seen.add(storage.agentId)
           fullStack.push({
             agentId: storage.agentId,
-            compute: computeByAgent.get(storage.agentId) || [],
+            compute: computeByAgent.get(storage.agentId) ?? [],
             storage: [],
           })
         }

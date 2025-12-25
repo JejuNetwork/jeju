@@ -299,7 +299,7 @@ The metrics provided are CONTEXT to inform your judgment. Use them to understand
       `- Consistency Score: ${(metrics.behavior.consistencyScore * 100).toFixed(1)}%`,
     )
     lines.push(
-      `- Dominant Action: ${metrics.behavior.dominantActionType || 'none'}`,
+      `- Dominant Action: ${metrics.behavior.dominantActionType ?? 'none'}`,
     )
     lines.push('')
 
@@ -419,7 +419,7 @@ The metrics provided are CONTEXT to inform your judgment. Use them to understand
       )
     }
 
-    return lines.join('\n') || 'No actions recorded'
+    return lines.join('\n') ?? 'No actions recorded'
   }
 }
 

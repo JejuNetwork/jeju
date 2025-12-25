@@ -439,12 +439,12 @@ async function main() {
     }
 
     mainDeployment.tokens = {
-      ...((mainDeployment.tokens as Record<string, unknown>) || {}),
+      ...((mainDeployment.tokens as Record<string, unknown>) ?? {}),
       jeju: jejuTokenAddress,
     }
 
     mainDeployment.moderation = {
-      ...((mainDeployment.moderation as Record<string, unknown>) || {}),
+      ...((mainDeployment.moderation as Record<string, unknown>) ?? {}),
       banManager: banManagerAddress,
     }
 

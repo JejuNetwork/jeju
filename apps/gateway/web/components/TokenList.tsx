@@ -1,4 +1,3 @@
-import { formatEther } from 'viem'
 import { usePaymasterDeployment } from '../hooks/usePaymasterFactory'
 import { useTokenConfig, useTokenRegistry } from '../hooks/useTokenRegistry'
 
@@ -33,7 +32,7 @@ function TokenCard({ tokenAddress }: { tokenAddress: `0x${string}` }) {
             {config.symbol} • {config.decimals} decimals
           </p>
         </div>
-        {config.isActive ? (
+        {config.enabled ? (
           <span className="badge badge-success">Active</span>
         ) : (
           <span className="badge badge-error">Inactive</span>
@@ -65,8 +64,7 @@ function TokenCard({ tokenAddress }: { tokenAddress: `0x${string}` }) {
               margin: '0.125rem 0',
             }}
           >
-            {Number(config.minFeeMargin) / 100}% -{' '}
-            {Number(config.maxFeeMargin) / 100}%
+            0.1% - 5%
           </p>
         </div>
         <div>
@@ -86,7 +84,7 @@ function TokenCard({ tokenAddress }: { tokenAddress: `0x${string}` }) {
               margin: '0.125rem 0',
             }}
           >
-            {formatEther(config.totalVolume)} ETH
+            — ETH
           </p>
         </div>
         <div>
@@ -106,7 +104,7 @@ function TokenCard({ tokenAddress }: { tokenAddress: `0x${string}` }) {
               margin: '0.125rem 0',
             }}
           >
-            {config.totalTransactions.toString()}
+            —
           </p>
         </div>
         <div>

@@ -1,3 +1,4 @@
+import { readContract } from '@jejunetwork/contracts'
 import {
   type Address,
   type Chain,

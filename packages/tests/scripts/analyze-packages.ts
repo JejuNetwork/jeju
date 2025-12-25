@@ -99,17 +99,17 @@ function analyzeComplexity(content: string): 'low' | 'medium' | 'high' {
   let score = 0
 
   // Async operations
-  score += (content.match(/async\s+function|async\s*\(/g) || []).length * 2
+  score += (content.match(/async\s+function|async\s*\(/g) ?? []).length * 2
 
   // Control flow complexity
-  score += (content.match(/if\s*\(|switch\s*\(|for\s*\(|while\s*\(/g) || [])
+  score += (content.match(/if\s*\(|switch\s*\(|for\s*\(|while\s*\(/g) ?? [])
     .length
 
   // Error handling
-  score += (content.match(/try\s*{|catch\s*\(/g) || []).length
+  score += (content.match(/try\s*{|catch\s*\(/g) ?? []).length
 
   // Callbacks and promises
-  score += (content.match(/\.then\(|\.catch\(|Promise\./g) || []).length
+  score += (content.match(/\.then\(|\.catch\(|Promise\./g) ?? []).length
 
   // External API calls (viem patterns)
   score +=
@@ -120,11 +120,11 @@ function analyzeComplexity(content: string): 'low' | 'medium' | 'high' {
 
   // Crypto operations
   score +=
-    (content.match(/sign|encrypt|decrypt|hash|verify/gi) || []).length * 2
+    (content.match(/sign|encrypt|decrypt|hash|verify/gi) ?? []).length * 2
 
   // Contract interactions
   score +=
-    (content.match(/writeContract|readContract|simulateContract/g) || [])
+    (content.match(/writeContract|readContract|simulateContract/g) ?? [])
       .length * 3
 
   if (score > 30 || lines > 300) return 'high'

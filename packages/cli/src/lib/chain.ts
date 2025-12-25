@@ -145,7 +145,7 @@ export async function startLocalnet(
   if (socatResult.status !== 'ok') {
     throw new Error(
       'Socat is required for port forwarding. ' +
-        (socatResult.details?.install || 'Please install socat.'),
+        (socatResult.details?.install ?? 'Please install socat.'),
     )
   }
   logger.success('Socat available')

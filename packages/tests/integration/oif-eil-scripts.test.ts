@@ -71,7 +71,7 @@ function loadOIFDeployments(
     `packages/contracts/deployments/oif-${network}.json`,
   )
   if (!existsSync(path)) return {}
-  return JSON.parse(readFileSync(path, 'utf-8')).chains || {}
+  return JSON.parse(readFileSync(path, 'utf-8')).chains ?? {}
 }
 
 function loadEILConfig(network: 'testnet' | 'mainnet'): EILConfig | null {

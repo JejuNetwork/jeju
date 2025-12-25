@@ -8,6 +8,7 @@
  */
 
 import { EventEmitter } from 'node:events'
+import { readContract } from '@jejunetwork/contracts'
 import type { Address, PublicClient, WalletClient } from 'viem'
 
 // Uniswap V3 NonfungiblePositionManager

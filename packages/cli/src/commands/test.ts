@@ -317,7 +317,7 @@ testCommand
       const testing = manifest?.testing as ManifestTesting | undefined
       const hasTests = !!(testing?.unit || testing?.e2e || testing?.integration)
       console.log(
-        `  ${folderName.padEnd(14)} ${hasTests ? '✓' : '○'} ${app.displayName || ''}`,
+        `  ${folderName.padEnd(14)} ${hasTests ? '✓' : '○'} ${app.displayName ?? ''}`,
       )
     }
 
@@ -718,7 +718,7 @@ async function runForgeTests(
       name: 'contracts',
       passed: false,
       duration: Date.now() - start,
-      output: String(err.stderr || ''),
+      output: String(err.stderr ?? ''),
     }
   }
 }
@@ -760,7 +760,7 @@ async function runBunTests(
       name: type,
       passed: false,
       duration: Date.now() - start,
-      output: String(err.stderr || ''),
+      output: String(err.stderr ?? ''),
     }
   }
 }
@@ -792,7 +792,7 @@ async function runIntegrationTests(
       name: 'integration',
       passed: false,
       duration: Date.now() - start,
-      output: String(err.stderr || ''),
+      output: String(err.stderr ?? ''),
     }
   }
 }
@@ -849,7 +849,7 @@ async function runComputeTests(
       name: 'compute',
       passed: false,
       duration: Date.now() - start,
-      output: String(err.stderr || ''),
+      output: String(err.stderr ?? ''),
     }
   }
 }
@@ -881,7 +881,7 @@ async function runE2ETests(
       name: 'e2e',
       passed: false,
       duration: Date.now() - start,
-      output: String(err.stderr || ''),
+      output: String(err.stderr ?? ''),
     }
   }
 }
@@ -919,7 +919,7 @@ async function runWalletTests(
       name: 'wallet-e2e',
       passed: false,
       duration: Date.now() - start,
-      output: String(err.stderr || ''),
+      output: String(err.stderr ?? ''),
     }
   }
 }
@@ -969,7 +969,7 @@ async function runCrossChainTests(
         name: 'cross-chain',
         passed: false,
         duration: Date.now() - start,
-        output: String(err.stderr || ''),
+        output: String(err.stderr ?? ''),
       }
     }
   }
@@ -988,7 +988,7 @@ async function runCrossChainTests(
       name: 'cross-chain',
       passed: false,
       duration: Date.now() - start,
-      output: String(err.stderr || ''),
+      output: String(err.stderr ?? ''),
     }
   }
 }
@@ -1024,7 +1024,7 @@ async function runSmokeTests(
       name: 'smoke',
       passed: false,
       duration: Date.now() - start,
-      output: String(err.stderr || ''),
+      output: String(err.stderr ?? ''),
     }
   }
 }
@@ -1209,7 +1209,7 @@ async function runAppTests(
       name: appName,
       passed: false,
       duration: Date.now() - start,
-      output: String(err.stderr || ''),
+      output: String(err.stderr ?? ''),
     }
   }
 }
@@ -1250,7 +1250,7 @@ async function runPackageTests(
       name: pkgName,
       passed: false,
       duration: Date.now() - start,
-      output: String(err.stderr || ''),
+      output: String(err.stderr ?? ''),
     }
   }
 }
@@ -1830,7 +1830,7 @@ async function runSynpressSmokeTests(
       name: 'smoke',
       passed: false,
       duration: Date.now() - start,
-      output: String(err.stderr || ''),
+      output: String(err.stderr ?? ''),
     }
   }
 }
@@ -1893,7 +1893,7 @@ async function runAppSynpressTests(
       name: appName,
       passed: false,
       duration: Date.now() - start,
-      output: String(err.stderr || ''),
+      output: String(err.stderr ?? ''),
     }
   }
 }

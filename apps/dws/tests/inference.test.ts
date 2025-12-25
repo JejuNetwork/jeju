@@ -92,7 +92,7 @@ describe('Inference E2E', () => {
             id: `chatcmpl-test-${Date.now()}`,
             object: 'chat.completion',
             created: Math.floor(Date.now() / 1000),
-            model: body.model || 'mock-model',
+            model: body.model ?? 'mock-model',
             provider: 'mock',
             choices: [
               {

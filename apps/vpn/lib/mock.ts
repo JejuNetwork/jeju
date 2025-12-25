@@ -204,6 +204,7 @@ type HandlerResult =
   | VPNConnection
   | null
   | boolean
+  | string
   | {
       bytes_up: number
       bytes_down: number
@@ -490,6 +491,11 @@ const handlers: Record<string, MockHandler> = {
   toggle_autostart: async (): Promise<boolean> => {
     mockState.autoStart = !mockState.autoStart
     return mockState.autoStart
+  },
+
+  get_public_key: async (): Promise<string> => {
+    // Mock WireGuard public key (base64 encoded 32 bytes)
+    return 'dGVzdC1wdWJsaWMta2V5LWZvci1kZXZlbG9wbWVudA=='
   },
 }
 

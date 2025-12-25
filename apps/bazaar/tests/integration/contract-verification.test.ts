@@ -121,7 +121,7 @@ function loadDeployment(filename: string): Record<string, string> {
     'multi-token-system-31337.json':
       rawDeployments.multiTokenSystem1337 as Record<string, string>,
   }
-  return deploymentMap[filename] || {}
+  return deploymentMap[filename] ?? {}
 }
 
 beforeAll(async () => {

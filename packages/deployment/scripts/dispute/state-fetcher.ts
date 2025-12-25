@@ -686,7 +686,7 @@ export class StateFetcher {
 
     // Batch requests for efficiency
     const proofPromises = addresses.map((addr) =>
-      this.getAccountProof(addr, storageKeysMap.get(addr) || [], blockNumber),
+      this.getAccountProof(addr, storageKeysMap.get(addr) ?? [], blockNumber),
     )
 
     const proofs = await Promise.all(proofPromises)

@@ -23,45 +23,6 @@ import {
 } from '../src/compute/inference-node'
 import { app } from '../src/server'
 
-// Test response types
-interface ChatRequestBody {
-  model?: string
-  messages?: Array<{ content: string }>
-}
-
-interface ChatCompletionResponse {
-  id: string
-  object: string
-  model: string
-  provider?: string
-  node?: string
-  choices: Array<{ message: { role: string; content: string } }>
-  usage: {
-    prompt_tokens: number
-    completion_tokens: number
-    total_tokens: number
-  }
-}
-
-interface JobIdResponse {
-  jobId: string
-}
-
-interface JobStatusResponse {
-  jobId: string
-  status: string
-  output?: string | null
-  exitCode?: number
-}
-
-interface ErrorResponse {
-  error: string
-}
-
-interface StatusResponse {
-  status: string
-}
-
 setDefaultTimeout(10000)
 
 const TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
@@ -89,19 +50,22 @@ describe.skipIf(SKIP)('Compute Service', () => {
         }
 
         if (url.pathname === '/v1/chat/completions' && req.method === 'POST') {
-          const body = (await req.json()) as ChatRequestBody
+          const body = (await req.json()) as {
+            model?: string
+            messages?: Array<{ content: string }>
+          }
           return Response.json({
             id: `chatcmpl-test-${Date.now()}`,
             object: 'chat.completion',
             created: Math.floor(Date.now() / 1000),
-            model: body.model || 'mock-model',
+            model: body.model ?? 'mock-model',
             provider: 'mock',
             choices: [
               {
                 index: 0,
                 message: {
                   role: 'assistant',
-                  content: `Mock response to: ${body.messages?.[0]?.content || 'test'}`,
+                  content: `Mock response to: ${body.messages?.[0]?.content ?? 'test'}`,
                 },
                 finish_reason: 'stop',
               },
@@ -170,7 +134,12 @@ describe.skipIf(SKIP)('Compute Service', () => {
 
       expect(res.status).toBe(200)
 
-      const body = (await res.json()) as ChatCompletionResponse
+      const body = (await res.json()) as {
+        object: string
+        choices: Array<{ message: { role: string; content: string } }>
+        provider?: string
+        node?: string
+      }
       expect(body.object).toBe('chat.completion')
       expect(body.choices).toBeDefined()
       expect(body.choices[0].message.role).toBe('assistant')
@@ -191,7 +160,7 @@ describe.skipIf(SKIP)('Compute Service', () => {
 
       expect(res.status).toBe(200)
 
-      const body = (await res.json()) as ChatCompletionResponse
+      const body = (await res.json()) as { id: string; model: string }
       expect(body.id).toMatch(/^chatcmpl-/)
       expect(body.model).toBeDefined()
     })
@@ -208,7 +177,7 @@ describe.skipIf(SKIP)('Compute Service', () => {
 
       expect(res.status).toBe(200)
 
-      const body = (await res.json()) as ChatCompletionResponse
+      const body = (await res.json()) as { usage: { total_tokens: number } }
       expect(body).toHaveProperty('usage')
       expect(body.usage.total_tokens).toBeGreaterThan(0)
     })
@@ -237,7 +206,7 @@ describe.skipIf(SKIP)('Compute Service', () => {
 
       expect(res.status).toBe(400)
 
-      const body = (await res.json()) as ErrorResponse
+      const body = (await res.json()) as { error: string }
       expect(body.error).toContain('command')
     })
 
@@ -303,13 +272,13 @@ describe.skipIf(SKIP)('Compute Service', () => {
         body: JSON.stringify({ command: 'echo hello' }),
       })
 
-      const { jobId } = (await submitRes.json()) as JobIdResponse
+      const { jobId } = (await submitRes.json()) as { jobId: string }
 
       // Get job status
       const statusRes = await app.request(`/compute/jobs/${jobId}`)
       expect(statusRes.status).toBe(200)
 
-      const body = (await statusRes.json()) as JobStatusResponse
+      const body = (await statusRes.json()) as { jobId: string; status: string }
       expect(body.jobId).toBe(jobId)
       expect(body.status).toBeDefined()
     })
@@ -333,7 +302,7 @@ describe.skipIf(SKIP)('Compute Service', () => {
         body: JSON.stringify({ command: 'echo "expected output"' }),
       })
 
-      const { jobId } = (await submitRes.json()) as JobIdResponse
+      const { jobId } = (await submitRes.json()) as { jobId: string }
 
       // Wait for completion (up to 5 seconds)
       let status = 'queued'
@@ -370,7 +339,7 @@ describe.skipIf(SKIP)('Compute Service', () => {
         body: JSON.stringify({ command: 'exit 42' }),
       })
 
-      const { jobId } = (await submitRes.json()) as JobIdResponse
+      const { jobId } = (await submitRes.json()) as { jobId: string }
 
       // Wait for completion (up to 5 seconds)
       let status = 'queued'
@@ -408,7 +377,7 @@ describe.skipIf(SKIP)('Compute Service', () => {
         body: JSON.stringify({ command: 'sleep 60' }),
       })
 
-      const { jobId } = (await submitRes.json()) as JobIdResponse
+      const { jobId } = (await submitRes.json()) as { jobId: string }
 
       // Cancel immediately (job is likely still queued)
       const cancelRes = await app.request(`/compute/jobs/${jobId}/cancel`, {
@@ -417,7 +386,7 @@ describe.skipIf(SKIP)('Compute Service', () => {
 
       expect(cancelRes.status).toBe(200)
 
-      const body = (await cancelRes.json()) as StatusResponse
+      const body = (await cancelRes.json()) as { status: string }
       expect(body.status).toBe('cancelled')
     })
 
@@ -432,7 +401,7 @@ describe.skipIf(SKIP)('Compute Service', () => {
         body: JSON.stringify({ command: 'echo done' }),
       })
 
-      const { jobId } = (await submitRes.json()) as JobIdResponse
+      const { jobId } = (await submitRes.json()) as { jobId: string }
 
       // Wait for potential completion (requires runner)
       await new Promise((r) => setTimeout(r, 500))
@@ -573,7 +542,10 @@ echo "line 3"`,
 
       // Verify job was created (execution requires compute runner)
       const statusRes = await app.request(`/compute/jobs/${jobId}`)
-      const body = (await statusRes.json()) as JobStatusResponse
+      const body = (await statusRes.json()) as {
+        status: string
+        output: string | null
+      }
       expect(['queued', 'running', 'completed', 'failed']).toContain(
         body.status,
       )
@@ -602,7 +574,10 @@ echo "line 3"`,
 
       // Verify job was created (execution requires compute runner)
       const statusRes = await app.request(`/compute/jobs/${jobId}`)
-      const body = (await statusRes.json()) as JobStatusResponse
+      const body = (await statusRes.json()) as {
+        status: string
+        output: string | null
+      }
       expect(['queued', 'running', 'completed', 'failed']).toContain(
         body.status,
       )
@@ -630,7 +605,10 @@ echo "line 3"`,
 
       // Verify job was created (execution requires compute runner)
       const statusRes = await app.request(`/compute/jobs/${jobId}`)
-      const body = (await statusRes.json()) as JobStatusResponse
+      const body = (await statusRes.json()) as {
+        status: string
+        output: string | null
+      }
       expect(['queued', 'running', 'completed', 'failed']).toContain(
         body.status,
       )

@@ -993,7 +993,7 @@ export class CannonInterface {
 
     // Build memory Merkle proof for PC address
     const { proofs } = this.buildMemoryTree(memory)
-    const pcProof = proofs.get(state.pc) || []
+    const pcProof = proofs.get(state.pc) ?? []
     const memProof = encodeAbiParameters(
       [
         { type: 'uint32', name: 'address' },

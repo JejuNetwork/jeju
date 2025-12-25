@@ -53,7 +53,7 @@ export async function connectAndVerify(
     walletOptionText = 'MetaMask',
     expectedAddress = TEST_WALLET_ADDRESS,
     timeout = 15000,
-  } = options || {}
+  } = options ?? {}
 
   // Find and click connect button
   const connectButton =
@@ -95,7 +95,7 @@ export async function verifyAuth(
   },
 ): Promise<string> {
   const { expectedAddress = TEST_WALLET_ADDRESS, timeout = 15000 } =
-    options || {}
+    options ?? {}
 
   // Look for truncated wallet address (common pattern: 0xf39F...2266)
   const truncatedPrefix = expectedAddress.slice(0, 6)
@@ -168,7 +168,7 @@ export async function connectWallet(
     connectButtonText = /Connect/i,
     walletOptionText = 'MetaMask',
     timeout = 10000,
-  } = options || {}
+  } = options ?? {}
 
   const connectButton = page.getByRole('button', { name: connectButtonText })
   await connectButton.click({ timeout })

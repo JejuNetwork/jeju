@@ -117,8 +117,8 @@ export function createWorkersRouter(backend: BackendManager) {
               code:
                 typeof jsonBody.code === 'string'
                   ? Buffer.from(jsonBody.code, 'base64')
-                  : jsonBody.code instanceof ArrayBuffer
-                    ? Buffer.from(jsonBody.code)
+                  : ArrayBuffer.isView(jsonBody.code)
+                    ? Buffer.from(jsonBody.code as ArrayBufferLike)
                     : (jsonBody.code ?? Buffer.alloc(0)),
               memory: jsonBody.memory,
               timeout: jsonBody.timeout,

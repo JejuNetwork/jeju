@@ -599,7 +599,7 @@ ${
   Object.entries(API_KEY_VARS)
     .filter(([_, v]) => process.env[v])
     .map(([p]) => `- ${p}`)
-    .join('\n') || '(none configured)'
+    .join('\n') ?? '(none configured)'
 }`
     }
 
@@ -629,7 +629,7 @@ Any model works - the system routes by pattern or explicit prefix.`
     logger.success(`Inference server running on http://localhost:${this.port}`)
     logger.info(`Default provider: ${this.defaultProvider}`)
     logger.info(
-      `Configured: ${configured.join(', ') || 'none (set any *_API_KEY)'}`,
+      `Configured: ${configured.join(', ') ?? 'none (set any *_API_KEY)'}`,
     )
     if (this.customProviders.length > 0) {
       logger.info(

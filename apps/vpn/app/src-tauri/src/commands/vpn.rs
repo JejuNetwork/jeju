@@ -1,10 +1,13 @@
 //! VPN-related Tauri commands
+//!
+//! These commands expose VPN functionality to the frontend via Tauri IPC.
+//! The underlying implementation uses Cloudflare's boringtun for WireGuard.
 
 use crate::state::AppState;
 use crate::vpn::{ConnectionStats, ConnectionStatus, VPNConnection, VPNNode};
 use tauri::State;
 
-/// Connect to VPN
+/// Connect to VPN using boringtun WireGuard tunnel
 #[tauri::command]
 pub async fn connect(
     state: State<'_, AppState>,
@@ -21,6 +24,13 @@ pub async fn connect(
     };
 
     vpn.connect(node).await.map_err(|e| e.to_string())
+}
+
+/// Get our WireGuard public key (for peer configuration)
+#[tauri::command]
+pub async fn get_public_key(state: State<'_, AppState>) -> Result<String, String> {
+    let vpn = state.vpn.read().await;
+    Ok(vpn.public_key().to_string())
 }
 
 /// Disconnect from VPN

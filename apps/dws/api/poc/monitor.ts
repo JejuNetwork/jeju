@@ -3,6 +3,7 @@
  */
 
 import { getCurrentNetwork, getPoCConfig } from '@jejunetwork/config'
+import { readContract } from '@jejunetwork/contracts'
 import {
   type Address,
   type Chain,

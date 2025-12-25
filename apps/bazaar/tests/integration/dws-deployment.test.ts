@@ -593,7 +593,7 @@ describe('Static Assets', () => {
       const content = await readFile(`${STATIC_DIR}/${jsFile}`, 'utf-8')
       // Should be minified (no excessive whitespace)
       const whitespaceRatio =
-        (content.match(/\s/g) || []).length / content.length
+        (content.match(/\s/g) ?? []).length / content.length
       expect(whitespaceRatio).toBeLessThan(0.3)
     }
   })

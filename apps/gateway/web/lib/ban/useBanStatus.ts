@@ -1,9 +1,9 @@
-import { readContract } from '@jejunetwork/contracts'
 // BanCheckConfig is exported as HookBanCheckConfig from shared barrel
 import type {
   HookBanCheckConfig as BanCheckConfig,
   BanStatus,
 } from '@jejunetwork/shared'
+import { readContract } from '@jejunetwork/shared'
 import { BanType } from '@jejunetwork/types'
 import { useCallback, useEffect, useState } from 'react'
 import { type Address, createPublicClient, http } from 'viem'

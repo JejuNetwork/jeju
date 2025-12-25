@@ -224,7 +224,7 @@ describe('Accounts and Tokens Dashboard', () => {
 
   test('should track token balances', () => {
     const queries = dashboard.panels
-      .flatMap((p) => p.targets?.map((t) => t.rawSql || '') || [])
+      .flatMap((p) => p.targets?.map((t) => t.rawSql ?? '') ?? [])
       .join(' ')
     expect(
       queries.includes('token_balance') || queries.includes('token_transfer'),
@@ -337,7 +337,7 @@ describe('Events and Logs Dashboard', () => {
 
   test('should categorize events by type', () => {
     const panelQueries = dashboard.panels
-      .flatMap((p) => p.targets?.map((t) => t.rawSql || t.expr || '') || [])
+      .flatMap((p) => p.targets?.map((t) => t.rawSql ?? t.expr ?? '') ?? [])
       .join(' ')
 
     expect(
@@ -380,7 +380,7 @@ describe('Prediction Markets Dashboard', () => {
 
   test('should track market trades', () => {
     const queries = dashboard.panels
-      .flatMap((p) => p.targets?.map((t) => t.rawSql || '') || [])
+      .flatMap((p) => p.targets?.map((t) => t.rawSql ?? '') ?? [])
       .join(' ')
     expect(
       queries.includes('market_trade') || queries.includes('prediction_market'),
@@ -453,7 +453,7 @@ describe('OP Stack Dashboard', () => {
 
   test('should monitor sequencer health', () => {
     const queries = dashboard.panels
-      .flatMap((p) => p.targets?.map((t) => t.expr || '') || [])
+      .flatMap((p) => p.targets?.map((t) => t.expr ?? '') ?? [])
       .join(' ')
     expect(queries.includes('op-node') || queries.includes('op_node')).toBe(
       true,
@@ -488,7 +488,7 @@ describe('OP Stack Dashboard', () => {
 
   test('should monitor Jeju DA', () => {
     const queries = dashboard.panels
-      .flatMap((p) => p.targets?.map((t) => t.expr || '') || [])
+      .flatMap((p) => p.targets?.map((t) => t.expr ?? '') ?? [])
       .join(' ')
     expect(queries.includes('jeju_da')).toBe(true)
   })
@@ -508,7 +508,7 @@ describe('Subsquid Indexer Dashboard', () => {
 
   test('should monitor processor status', () => {
     const queries = dashboard.panels
-      .flatMap((p) => p.targets?.map((t) => t.expr || '') || [])
+      .flatMap((p) => p.targets?.map((t) => t.expr ?? '') ?? [])
       .join(' ')
     expect(queries.includes('subsquid') || queries.includes('processor')).toBe(
       true,

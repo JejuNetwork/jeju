@@ -1,4 +1,9 @@
 //! VPN core functionality
+//!
+//! This module provides the complete VPN implementation using:
+//! - boringtun: Cloudflare's userspace WireGuard implementation
+//! - Cross-platform TUN interface management
+//! - Node discovery via WebSocket coordinator
 
 mod node_discovery;
 mod tunnel;
@@ -9,8 +14,6 @@ pub use tunnel::*;
 pub use wireguard::*;
 
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use tokio::sync::RwLock;
 
 /// VPN connection status
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -76,7 +79,7 @@ pub struct VPNManager {
     /// Current connection (if any)
     connection: Option<VPNConnection>,
 
-    /// WireGuard tunnel
+    /// WireGuard tunnel (using boringtun)
     tunnel: Option<WireGuardTunnel>,
 
     /// Node discovery
@@ -87,17 +90,31 @@ pub struct VPNManager {
 
     /// Selected node ID
     selected_node_id: Option<String>,
+
+    /// Our keypair (persisted across connections)
+    private_key: String,
+    public_key: String,
 }
 
 impl VPNManager {
     pub fn new() -> Self {
+        // Generate a keypair for this client using boringtun's x25519
+        let (private_key, public_key) = generate_keypair();
+
         Self {
             connection: None,
             tunnel: None,
             discovery: NodeDiscovery::new(),
             nodes: Vec::new(),
             selected_node_id: None,
+            private_key,
+            public_key,
         }
+    }
+
+    /// Get our public key (for sharing with peers)
+    pub fn public_key(&self) -> &str {
+        &self.public_key
     }
 
     /// Connect to VPN
@@ -125,9 +142,9 @@ impl VPNManager {
             target_node.country_code
         );
 
-        // Create WireGuard config
+        // Create WireGuard config using our persistent private key
         let wg_config = WireGuardConfig {
-            private_key: generate_private_key(),
+            private_key: self.private_key.clone(),
             peer_pubkey: target_node.wireguard_pubkey.clone(),
             endpoint: target_node.endpoint.clone(),
             allowed_ips: vec!["0.0.0.0/0".to_string(), "::/0".to_string()],
@@ -135,8 +152,8 @@ impl VPNManager {
             keepalive: 25,
         };
 
-        // Create and start tunnel
-        let tunnel = WireGuardTunnel::new(wg_config).await?;
+        // Create and start tunnel using boringtun
+        let mut tunnel = WireGuardTunnel::new(wg_config).await?;
         tunnel.start().await?;
 
         // Get assigned IP
@@ -150,7 +167,7 @@ impl VPNManager {
             connected_at: Some(
                 std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
+                    .expect("Time went backwards")
                     .as_secs(),
             ),
             local_ip: Some(local_ip),
@@ -163,7 +180,7 @@ impl VPNManager {
         self.tunnel = Some(tunnel);
         self.connection = Some(connection.clone());
 
-        tracing::info!("VPN connected successfully");
+        tracing::info!("VPN connected successfully via boringtun");
         Ok(connection)
     }
 
@@ -199,16 +216,12 @@ impl VPNManager {
         let (bytes_up, bytes_down) = tunnel.get_transfer_stats().await.ok()?;
         let (packets_up, packets_down) = tunnel.get_packet_stats().await.ok()?;
 
-        let connected_seconds = conn
-            .connected_at
-            .map(|t| {
-                std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
-                    .as_secs()
-                    - t
-            })
-            .unwrap_or(0);
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("Time went backwards")
+            .as_secs();
+
+        let connected_seconds = conn.connected_at.map(|t| now - t).unwrap_or(0);
 
         Some(ConnectionStats {
             bytes_up,
@@ -282,12 +295,4 @@ pub enum VPNError {
 
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
-}
-
-/// Generate a new WireGuard private key
-fn generate_private_key() -> String {
-    use rand::RngCore;
-    let mut key = [0u8; 32];
-    rand::thread_rng().fill_bytes(&mut key);
-    base64::Engine::encode(&base64::engine::general_purpose::STANDARD, key)
 }

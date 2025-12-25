@@ -20,8 +20,8 @@ const JsonRpcResponseSchema = z.object({
 
 const RateLimitInfoSchema = z.object({
   tier: z.string(),
-  limit: z.union([z.number(), z.string()]),
-  remaining: z.union([z.number(), z.string()]),
+  limit: z.union([z.number(), z.string()]).optional(),
+  remaining: z.union([z.number(), z.string()]).optional(),
   resetAt: z.union([z.number(), z.string()]).optional(),
 })
 
@@ -59,9 +59,9 @@ export interface ChainInfo {
 
 export interface RateLimitInfo {
   tier: string
-  limit: number | string
-  remaining: number | string
-  resetAt: number
+  limit?: number | string
+  remaining?: number | string
+  resetAt?: number | string
 }
 
 const DEFAULT_GATEWAY_URL = getRpcGatewayUrl()

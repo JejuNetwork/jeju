@@ -46,7 +46,7 @@ function calculateScores(contributions: GitContribution[]): ContributionScores {
     (scores, c) => {
       switch (c.type) {
         case 'commit':
-          scores.commits += c.metadata.commitCount || 1
+          scores.commits += c.metadata.commitCount ?? 1
           break
         case 'merge':
         case 'pr_merge':

@@ -161,7 +161,7 @@ export const modelsRoutes = new Elysia({ prefix: '/api/models' })
         output: `Inference result for ${validatedParams.org}/${validatedParams.name}: "${validatedBody.prompt.slice(0, 50)}..."`,
         usage: {
           promptTokens: Math.ceil(validatedBody.prompt.length / 4),
-          completionTokens: validatedBody.maxTokens || 100,
+          completionTokens: validatedBody.maxTokens ?? 100,
         },
         model: `${validatedParams.org}/${validatedParams.name}`,
         temperature: validatedBody.temperature ?? 0.7,

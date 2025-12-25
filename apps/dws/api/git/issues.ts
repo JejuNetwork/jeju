@@ -143,8 +143,8 @@ export class IssuesManager {
     })
 
     // Paginate
-    const page = options.page || 1
-    const perPage = options.perPage || 30
+    const page = options.page ?? 1
+    const perPage = options.perPage ?? 30
     const start = (page - 1) * perPage
     const paginatedRefs = issueRefs.slice(start, start + perPage)
 

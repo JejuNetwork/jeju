@@ -1,7 +1,7 @@
 //! Authentication-related Tauri commands
 
 use crate::state::{AppState, UserSession};
-use alloy::primitives::{Address, Bytes, FixedBytes};
+use alloy::primitives::Address;
 use alloy::signers::k256::ecdsa::{RecoveryId, Signature, VerifyingKey};
 use alloy::signers::k256::elliptic_curve::sec1::ToEncodedPoint;
 use tauri::State;

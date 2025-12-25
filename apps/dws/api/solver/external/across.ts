@@ -195,7 +195,7 @@ export class AcrossAdapter extends EventEmitter {
       transactionHash: `0x${string}`
     },
   ): void {
-    const args = log.args as V3FundsDepositedArgs
+    const args = log.args as unknown as V3FundsDepositedArgs
 
     const deposit: AcrossDeposit = {
       depositId: args.depositId,

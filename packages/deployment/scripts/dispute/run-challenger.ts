@@ -672,7 +672,7 @@ async function main(): Promise<void> {
   console.log(`Network: ${network}`)
   console.log(`L1 RPC: ${l1RpcUrl}`)
   console.log(
-    `L2 RPC: ${l2RpcUrl || 'not configured (state verification disabled)'}`,
+    `L2 RPC: ${l2RpcUrl ?? 'not configured (state verification disabled)'}`,
   )
 
   const challenger = new ChallengerService({

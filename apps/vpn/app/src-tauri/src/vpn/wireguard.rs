@@ -37,10 +37,11 @@ pub enum TunnelState {
     Error,
 }
 
-/// Maximum transmission unit
+/// Maximum transmission unit for WireGuard packets
+#[allow(dead_code)]
 const MTU: usize = 1420;
 
-/// Buffer size for packet handling
+/// Buffer size for packet handling (must be > MTU + overhead)
 const BUFFER_SIZE: usize = 2048;
 
 /// WireGuard tunnel manager using boringtun
@@ -195,10 +196,7 @@ impl WireGuardTunnel {
 
     /// Get assigned local IP
     pub async fn get_local_ip(&self) -> Result<String, VPNError> {
-        self.local_ip
-            .lock()
-            .clone()
-            .ok_or(VPNError::NotConnected)
+        self.local_ip.lock().clone().ok_or(VPNError::NotConnected)
     }
 
     /// Get transfer statistics (bytes up, bytes down)
@@ -439,8 +437,8 @@ pub fn derive_public_key(private_key: &str) -> Result<String, VPNError> {
     use base64::Engine;
 
     let private_bytes = parse_base64_key(private_key)?;
-    let static_secret =
-        StaticSecret::try_from(private_bytes).map_err(|_| VPNError::TunnelError("Invalid private key".to_string()))?;
+    let static_secret = StaticSecret::try_from(private_bytes)
+        .map_err(|_| VPNError::TunnelError("Invalid private key".to_string()))?;
 
     let public_key = PublicKey::from(&static_secret);
     Ok(base64::engine::general_purpose::STANDARD.encode(public_key.as_bytes()))
@@ -615,7 +613,10 @@ mod tests {
         for _ in 0..10 {
             let (private_key, public_key) = generate_keypair();
             let derived = derive_public_key(&private_key).expect("Should derive");
-            assert_eq!(derived, public_key, "Public key derivation should be consistent");
+            assert_eq!(
+                derived, public_key,
+                "Public key derivation should be consistent"
+            );
         }
     }
 }
