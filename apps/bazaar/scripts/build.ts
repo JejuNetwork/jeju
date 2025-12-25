@@ -6,6 +6,7 @@
  * 2. Worker bundle (dist/worker/) - for DWS serverless deployment
  *
  * Uses shared build utilities from @jejunetwork/shared
+ * All public env vars use PUBLIC_ prefix (not VITE_).
  */
 
 import { existsSync } from 'node:fs'
@@ -18,6 +19,8 @@ import { buildCSS } from './build-css'
 const DIST_DIR = './dist'
 const STATIC_DIR = `${DIST_DIR}/static`
 const WORKER_DIR = `${DIST_DIR}/worker`
+
+const network = getCurrentNetwork()
 
 // Plugin to shim server-only modules, dedupe React/@noble/curves, and resolve workspace packages
 const browserPlugin: BunPlugin = {
@@ -157,14 +160,14 @@ async function buildFrontend(): Promise<void> {
         },
         browser: true,
       }),
-      // Vite-style environment variables
+      // Public environment variables (using PUBLIC_ prefix)
       'import.meta.env': JSON.stringify({
-        VITE_NETWORK: 'localnet',
+        PUBLIC_NETWORK: network,
         MODE: 'production',
         DEV: false,
         PROD: true,
       }),
-      'import.meta.env.VITE_NETWORK': JSON.stringify('localnet'),
+      'import.meta.env.PUBLIC_NETWORK': JSON.stringify(network),
     },
     naming: {
       entry: '[name]-[hash].js',
@@ -221,7 +224,7 @@ async function buildFrontend(): Promise<void> {
     // Runtime config
     window.__JEJU_CONFIG__ = ${JSON.stringify({
       apiUrl: process.env.PUBLIC_API_URL || '',
-      network: getCurrentNetwork(),
+      network,
     })};
   </script>
 </head>
