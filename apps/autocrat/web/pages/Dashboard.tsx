@@ -48,20 +48,26 @@ export default function DashboardPage() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
         <div className="stat-card">
           <span className="stat-label">Proposals</span>
-          <div className="stat-value">{stats?.totalProposals ?? '0'}</div>
+          <div className="stat-value">
+            {loading || !stats ? '—' : stats.totalProposals}
+          </div>
         </div>
         <div className="stat-card">
           <span className="stat-label">Decisions</span>
-          <div className="stat-value">{stats?.ceo.decisions ?? '0'}</div>
+          <div className="stat-value">
+            {loading || !stats ? '—' : stats.ceo.decisions}
+          </div>
         </div>
         <div className="stat-card">
           <span className="stat-label">Approval</span>
-          <div className="stat-value">{stats?.ceo.approvalRate ?? '0%'}</div>
+          <div className="stat-value">
+            {loading || !stats ? '—' : stats.ceo.approvalRate}
+          </div>
         </div>
         <div className="stat-card">
           <span className="stat-label">Min Score</span>
           <div className="stat-value">
-            {stats?.parameters.minQualityScore ?? '90'}%
+            {loading || !stats ? '—' : `${stats.parameters.minQualityScore}%`}
           </div>
         </div>
       </div>

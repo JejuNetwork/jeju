@@ -10,17 +10,23 @@
  * Full implementation with Flashbots bundle submission.
  */
 
-import { EventEmitter } from '@jejunetwork/shared'
+import { EventEmitter } from 'node:events'
 import {
-  type PublicClient,
-  type WalletClient,
   type Address,
+  encodeFunctionData,
   type Hash,
   type Hex,
+  type PublicClient,
   parseAbi,
-  encodeFunctionData,
-  decodeAbiParameters,
+  type WalletClient,
 } from 'viem'
+import { z } from 'zod'
+
+// Zod schema for Flashbots bundle response
+const FlashbotsBundleResponseSchema = z.object({
+  result: z.object({ bundleHash: z.string() }).optional(),
+  error: z.object({ message: z.string() }).optional(),
+})
 
 export interface JITConfig {
   chainId: number
@@ -80,7 +86,7 @@ const NFT_POSITION_MANAGER_ABI = parseAbi([
   'function burn(uint256 tokenId)',
 ])
 
-const ERC20_ABI = parseAbi([
+const _ERC20_ABI = parseAbi([
   'function approve(address spender, uint256 amount) returns (bool)',
   'function balanceOf(address) view returns (uint256)',
 ])
@@ -101,11 +107,7 @@ export class JITLiquidityStrategy extends EventEmitter {
   private pendingSwaps: Map<Hash, PendingSwap> = new Map()
   private stats = { attempts: 0, successes: 0, totalFees: 0n, totalGas: 0n }
 
-  constructor(
-    config: JITConfig,
-    client: PublicClient,
-    wallet: WalletClient
-  ) {
+  constructor(config: JITConfig, client: PublicClient, wallet: WalletClient) {
     super()
     this.config = config
     this.client = client
@@ -115,7 +117,9 @@ export class JITLiquidityStrategy extends EventEmitter {
   async start(): Promise<void> {
     if (this.running) return
     this.running = true
-    console.log(`🎯 JIT Liquidity: monitoring for swaps > $${this.config.minSwapSizeUsd}`)
+    console.log(
+      `🎯 JIT Liquidity: monitoring for swaps > $${this.config.minSwapSizeUsd}`,
+    )
   }
 
   stop(): void {
@@ -137,7 +141,9 @@ export class JITLiquidityStrategy extends EventEmitter {
       return { success: false, error: 'Not profitable' }
     }
 
-    console.log(`🎯 JIT opportunity: ${opportunity.expectedProfitBps}bps on ${swap.hash}`)
+    console.log(
+      `🎯 JIT opportunity: ${opportunity.expectedProfitBps}bps on ${swap.hash}`,
+    )
 
     // Execute JIT via Flashbots bundle
     const result = await this.executeJIT(swap, opportunity)
@@ -166,7 +172,7 @@ export class JITLiquidityStrategy extends EventEmitter {
     liquidity: bigint
   }> {
     // Get current pool state
-    const [slot0, token0, token1, poolFee] = await Promise.all([
+    const [slot0, _token0, _token1, poolFee] = await Promise.all([
       this.client.readContract({
         address: swap.pool,
         abi: UNISWAP_V3_POOL_ABI,
@@ -190,23 +196,25 @@ export class JITLiquidityStrategy extends EventEmitter {
     ])
 
     const currentTick = slot0[1]
-    const sqrtPriceX96 = slot0[0]
+    const _sqrtPriceX96 = slot0[0]
 
     // Calculate tick range (tight range around current price)
     const tickSpacing = this.config.tickSpacing
-    const tickLower = Math.floor(currentTick / tickSpacing) * tickSpacing - tickSpacing
-    const tickUpper = Math.ceil(currentTick / tickSpacing) * tickSpacing + tickSpacing
+    const tickLower =
+      Math.floor(currentTick / tickSpacing) * tickSpacing - tickSpacing
+    const tickUpper =
+      Math.ceil(currentTick / tickSpacing) * tickSpacing + tickSpacing
 
     // Calculate how much liquidity to provide
     // We want to capture fees from the swap
-    const swapSizeUsd = Number(swap.amountIn) / 1e18 * this.config.ethPriceUsd
+    const swapSizeUsd = (Number(swap.amountIn) / 1e18) * this.config.ethPriceUsd
 
     // Fee revenue = swap size * pool fee
     const feeRevenue = swapSizeUsd * (Number(poolFee) / 1e6)
 
     // Gas cost (mint + burn + collect = ~500k gas on L2)
     const gasCostGwei = Number(swap.gasPrice) / 1e9
-    const gasCostUsd = (500000 * gasCostGwei * 1e-9) * this.config.ethPriceUsd
+    const gasCostUsd = 500000 * gasCostGwei * 1e-9 * this.config.ethPriceUsd
 
     // Net profit
     const netProfitUsd = feeRevenue - gasCostUsd
@@ -214,12 +222,18 @@ export class JITLiquidityStrategy extends EventEmitter {
 
     // Calculate liquidity amounts
     // We need to provide both tokens in the ratio determined by current price
-    const maxPositionUsd = Math.min(swapSizeUsd * 0.5, this.config.maxPositionSizeUsd)
-    const amount0 = BigInt(Math.floor(maxPositionUsd / 2 / this.config.ethPriceUsd * 1e18))
-    const amount1 = BigInt(Math.floor(maxPositionUsd / 2 * 1e6)) // Assuming USDC
+    const maxPositionUsd = Math.min(
+      swapSizeUsd * 0.5,
+      this.config.maxPositionSizeUsd,
+    )
+    const amount0 = BigInt(
+      Math.floor((maxPositionUsd / 2 / this.config.ethPriceUsd) * 1e18),
+    )
+    const amount1 = BigInt(Math.floor((maxPositionUsd / 2) * 1e6)) // Assuming USDC
 
     return {
-      profitable: expectedProfitBps > this.config.minProfitBps && netProfitUsd > 0,
+      profitable:
+        expectedProfitBps > this.config.minProfitBps && netProfitUsd > 0,
       expectedProfitBps: Math.floor(expectedProfitBps),
       tickLower,
       tickUpper,
@@ -237,7 +251,7 @@ export class JITLiquidityStrategy extends EventEmitter {
       amount0: bigint
       amount1: bigint
       liquidity: bigint
-    }
+    },
   ): Promise<JITResult> {
     const [account] = await this.wallet.getAddresses()
     const deadline = BigInt(Math.floor(Date.now() / 1000) + 300)
@@ -275,19 +289,21 @@ export class JITLiquidityStrategy extends EventEmitter {
       const mintCallData = encodeFunctionData({
         abi: NFT_POSITION_MANAGER_ABI,
         functionName: 'mint',
-        args: [{
-          token0,
-          token1,
-          fee: poolFee,
-          tickLower: opportunity.tickLower,
-          tickUpper: opportunity.tickUpper,
-          amount0Desired: opportunity.amount0,
-          amount1Desired: opportunity.amount1,
-          amount0Min: 0n,
-          amount1Min: 0n,
-          recipient: account,
-          deadline,
-        }],
+        args: [
+          {
+            token0,
+            token1,
+            fee: poolFee,
+            tickLower: opportunity.tickLower,
+            tickUpper: opportunity.tickUpper,
+            amount0Desired: opportunity.amount0,
+            amount1Desired: opportunity.amount1,
+            amount0Min: 0n,
+            amount1Min: 0n,
+            recipient: account,
+            deadline,
+          },
+        ],
       })
 
       // For the remove step, we'd need the tokenId from mint
@@ -295,12 +311,14 @@ export class JITLiquidityStrategy extends EventEmitter {
       const collectCallData = encodeFunctionData({
         abi: NFT_POSITION_MANAGER_ABI,
         functionName: 'collect',
-        args: [{
-          tokenId: 0n, // Would be filled in after mint
-          recipient: account,
-          amount0Max: BigInt('0xffffffffffffffffffffffffffffffff'),
-          amount1Max: BigInt('0xffffffffffffffffffffffffffffffff'),
-        }],
+        args: [
+          {
+            tokenId: 0n, // Would be filled in after mint
+            recipient: account,
+            amount0Max: BigInt('0xffffffffffffffffffffffffffffffff'),
+            amount1Max: BigInt('0xffffffffffffffffffffffffffffffff'),
+          },
+        ],
       })
 
       // Submit bundle to Flashbots
@@ -363,26 +381,31 @@ export class JITLiquidityStrategy extends EventEmitter {
       body: JSON.stringify({
         jsonrpc: '2.0',
         method: 'eth_sendBundle',
-        params: [{
-          txs: signedTxs,
-          blockNumber: `0x${targetBlock.toString(16)}`,
-        }],
+        params: [
+          {
+            txs: signedTxs,
+            blockNumber: `0x${targetBlock.toString(16)}`,
+          },
+        ],
         id: 1,
       }),
     })
 
-    const result = await response.json() as {
-      result?: { bundleHash: string }
-      error?: { message: string }
+    const parsed = FlashbotsBundleResponseSchema.safeParse(
+      await response.json(),
+    )
+
+    if (!parsed.success) {
+      return { success: false, error: 'Invalid response from Flashbots RPC' }
     }
 
-    if (result.error) {
-      return { success: false, error: result.error.message }
+    if (parsed.data.error) {
+      return { success: false, error: parsed.data.error.message }
     }
 
     return {
       success: true,
-      bundleHash: result.result?.bundleHash,
+      bundleHash: parsed.data.result?.bundleHash,
     }
   }
 
@@ -399,7 +422,10 @@ export class JITLiquidityStrategy extends EventEmitter {
       positions: this.positions.size,
       pendingSwaps: this.pendingSwaps.size,
       ...this.stats,
-      successRate: this.stats.attempts > 0 ? this.stats.successes / this.stats.attempts : 0,
+      successRate:
+        this.stats.attempts > 0
+          ? this.stats.successes / this.stats.attempts
+          : 0,
     }
   }
 }

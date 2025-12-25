@@ -11,15 +11,20 @@
 
 import { EventEmitter } from 'node:events'
 import {
-  type PublicClient,
-  type WalletClient,
   type Address,
-  type Hash,
-  type Hex,
-  parseAbi,
   encodeFunctionData,
   formatUnits,
+  type Hash,
+  type PublicClient,
+  parseAbi,
+  type WalletClient,
 } from 'viem'
+import { z } from 'zod'
+
+const FlashbotsResponseSchema = z.object({
+  result: z.string().optional(),
+  error: z.object({ message: z.string() }).optional(),
+})
 
 export interface BackrunConfig {
   chainId: number
@@ -61,6 +66,16 @@ interface BackrunResult {
   error?: string
 }
 
+/** Uniswap V2 Swap event args */
+interface UniswapV2SwapArgs {
+  sender: Address
+  amount0In: bigint
+  amount1In: bigint
+  amount0Out: bigint
+  amount1Out: bigint
+  to: Address
+}
+
 const UNISWAP_V2_PAIR_ABI = parseAbi([
   'event Swap(address indexed sender, uint amount0In, uint amount1In, uint amount0Out, uint amount1Out, address indexed to)',
   'function getReserves() view returns (uint112, uint112, uint32)',
@@ -73,7 +88,7 @@ const UNISWAP_V2_ROUTER_ABI = parseAbi([
   'function getAmountsOut(uint256 amountIn, address[] path) view returns (uint256[])',
 ])
 
-const ERC20_ABI = parseAbi([
+const _ERC20_ABI = parseAbi([
   'function approve(address spender, uint256 amount) returns (bool)',
   'function balanceOf(address) view returns (uint256)',
   'function decimals() view returns (uint8)',
@@ -105,7 +120,7 @@ export class BackrunStrategy extends EventEmitter {
   constructor(
     config: BackrunConfig,
     client: PublicClient,
-    wallet: WalletClient
+    wallet: WalletClient,
   ) {
     super()
     this.config = config
@@ -116,7 +131,9 @@ export class BackrunStrategy extends EventEmitter {
   async start(): Promise<void> {
     if (this.running) return
     this.running = true
-    console.log(`🔙 Backrun: monitoring ${this.config.targetPools.length} pools`)
+    console.log(
+      `🔙 Backrun: monitoring ${this.config.targetPools.length} pools`,
+    )
     this.watchSwaps()
   }
 
@@ -132,10 +149,15 @@ export class BackrunStrategy extends EventEmitter {
         eventName: 'Swap',
         onLogs: (logs) => {
           for (const log of logs) {
-            const args = log.args as { amount0In: bigint; amount1In: bigint; amount0Out: bigint; amount1Out: bigint }
+            const args = log.args as UniswapV2SwapArgs
             if (args.amount0In !== undefined) {
               this.onSwap(pool, {
-                args,
+                args: {
+                  amount0In: args.amount0In,
+                  amount1In: args.amount1In,
+                  amount0Out: args.amount0Out,
+                  amount1Out: args.amount1Out,
+                },
                 transactionHash: log.transactionHash,
                 blockNumber: log.blockNumber,
               })
@@ -149,10 +171,15 @@ export class BackrunStrategy extends EventEmitter {
   private async onSwap(
     pool: Address,
     log: {
-      args: { amount0In: bigint; amount1In: bigint; amount0Out: bigint; amount1Out: bigint }
+      args: {
+        amount0In: bigint
+        amount1In: bigint
+        amount0Out: bigint
+        amount1Out: bigint
+      }
       transactionHash: Hash
       blockNumber: bigint
-    }
+    },
   ): Promise<void> {
     if (!this.running) return
 
@@ -160,9 +187,21 @@ export class BackrunStrategy extends EventEmitter {
 
     // Get pool tokens
     const [token0, token1, reserves] = await Promise.all([
-      this.client.readContract({ address: pool, abi: UNISWAP_V2_PAIR_ABI, functionName: 'token0' }),
-      this.client.readContract({ address: pool, abi: UNISWAP_V2_PAIR_ABI, functionName: 'token1' }),
-      this.client.readContract({ address: pool, abi: UNISWAP_V2_PAIR_ABI, functionName: 'getReserves' }),
+      this.client.readContract({
+        address: pool,
+        abi: UNISWAP_V2_PAIR_ABI,
+        functionName: 'token0',
+      }),
+      this.client.readContract({
+        address: pool,
+        abi: UNISWAP_V2_PAIR_ABI,
+        functionName: 'token1',
+      }),
+      this.client.readContract({
+        address: pool,
+        abi: UNISWAP_V2_PAIR_ABI,
+        functionName: 'getReserves',
+      }),
     ])
 
     const isToken0In = amount0In > 0n
@@ -194,7 +233,9 @@ export class BackrunStrategy extends EventEmitter {
       this.recentTrades.shift()
     }
 
-    console.log(`🔙 Large swap detected: ${(priceImpact * 100).toFixed(2)}% impact on ${pool}`)
+    console.log(
+      `🔙 Large swap detected: ${(priceImpact * 100).toFixed(2)}% impact on ${pool}`,
+    )
 
     // Find backrun opportunity
     const opportunity = await this.findOpportunity(trade)
@@ -204,12 +245,14 @@ export class BackrunStrategy extends EventEmitter {
     }
   }
 
-  private async findOpportunity(trade: TradeEvent): Promise<BackrunOpportunity | null> {
+  private async findOpportunity(
+    trade: TradeEvent,
+  ): Promise<BackrunOpportunity | null> {
     const routers = ROUTERS[this.config.chainId]
     if (!routers) return null
 
     // Look for arbitrage on other DEXes
-    for (const [dexName, routerAddress] of Object.entries(routers)) {
+    for (const [_dexName, routerAddress] of Object.entries(routers)) {
       // Get quote from this router for the reverse trade
       const reversePath = [trade.tokenOut, trade.tokenIn]
 
@@ -237,12 +280,13 @@ export class BackrunStrategy extends EventEmitter {
         // Price difference indicates arbitrage opportunity
         const priceDiff = (currentPrice - originalPrice) / originalPrice
 
-        if (priceDiff > 0.001) { // 0.1% minimum spread
+        if (priceDiff > 0.001) {
+          // 0.1% minimum spread
           // Calculate optimal trade size
           const optimalAmount = this.calculateOptimalSize(
             trade.amountOut,
             priceDiff,
-            await this.client.getGasPrice()
+            await this.client.getGasPrice(),
           )
 
           // Get actual quote for optimal size
@@ -258,11 +302,13 @@ export class BackrunStrategy extends EventEmitter {
           // Calculate profit
           // We're converting tokenOut back to tokenIn
           // Profit = (what we get in tokenIn) - (what it cost us in tokenIn equivalent)
-          const costInTokenIn = optimalAmount * BigInt(Math.floor(1 / originalPrice * 1e18)) / BigInt(1e18)
+          const costInTokenIn =
+            (optimalAmount * BigInt(Math.floor((1 / originalPrice) * 1e18))) /
+            BigInt(1e18)
           const profit = expectedOutput - costInTokenIn
 
           if (profit > 0n) {
-            const profitUsd = Number(profit) / 1e18 * this.config.ethPriceUsd
+            const profitUsd = (Number(profit) / 1e18) * this.config.ethPriceUsd
 
             if (profitUsd >= this.config.minProfitUsd) {
               return {
@@ -279,9 +325,7 @@ export class BackrunStrategy extends EventEmitter {
             }
           }
         }
-      } catch {
-        continue
-      }
+      } catch {}
     }
 
     return null
@@ -290,7 +334,7 @@ export class BackrunStrategy extends EventEmitter {
   private calculateOptimalSize(
     maxAmount: bigint,
     spreadPct: number,
-    gasPrice: bigint
+    _gasPrice: bigint,
   ): bigint {
     // Optimal size balances:
     // - Larger trades = more profit but more slippage
@@ -299,12 +343,12 @@ export class BackrunStrategy extends EventEmitter {
     // Simple heuristic: use 5-20% of available liquidity based on spread
     const sizePct = Math.min(0.2, Math.max(0.05, spreadPct * 10))
 
-    return maxAmount * BigInt(Math.floor(sizePct * 1000)) / 1000n
+    return (maxAmount * BigInt(Math.floor(sizePct * 1000))) / 1000n
   }
 
   private async execute(
     opportunity: BackrunOpportunity,
-    trade: TradeEvent
+    trade: TradeEvent,
   ): Promise<BackrunResult> {
     this.stats.attempts++
 
@@ -334,13 +378,21 @@ export class BackrunStrategy extends EventEmitter {
         account,
       })
 
-      const actualOutput = simulationResult.result[simulationResult.result.length - 1]
+      const _actualOutput =
+        simulationResult.result[simulationResult.result.length - 1]
 
       // 2. Submit via Flashbots as backrun bundle
-      const txHash = await this.submitBackrun(opportunity, account, deadline, trade.txHash)
+      const txHash = await this.submitBackrun(
+        opportunity,
+        account,
+        deadline,
+        trade.txHash,
+      )
 
       // 3. Wait for confirmation
-      const receipt = await this.client.waitForTransactionReceipt({ hash: txHash })
+      const receipt = await this.client.waitForTransactionReceipt({
+        hash: txHash,
+      })
 
       if (receipt.status === 'success') {
         this.stats.successes++
@@ -348,7 +400,9 @@ export class BackrunStrategy extends EventEmitter {
         this.stats.totalGas += receipt.gasUsed
 
         console.log(`✅ Backrun executed: ${txHash}`)
-        console.log(`   Profit: ${formatUnits(opportunity.expectedProfit, 18)} tokens`)
+        console.log(
+          `   Profit: ${formatUnits(opportunity.expectedProfit, 18)} tokens`,
+        )
 
         return {
           success: true,
@@ -370,7 +424,7 @@ export class BackrunStrategy extends EventEmitter {
     opportunity: BackrunOpportunity,
     account: Address,
     deadline: bigint,
-    targetTxHash: Hash
+    _targetTxHash: Hash,
   ): Promise<Hash> {
     const router = opportunity.targetPool
 
@@ -407,20 +461,19 @@ export class BackrunStrategy extends EventEmitter {
       body: JSON.stringify({
         jsonrpc: '2.0',
         method: 'eth_sendBundle',
-        params: [{
-          txs: [signedTx],
-          blockNumber: `0x${targetBlock.toString(16)}`,
-          // Note: In a real implementation, we'd include the target tx hash
-          // to ensure our tx comes after it in the block
-        }],
+        params: [
+          {
+            txs: [signedTx],
+            blockNumber: `0x${targetBlock.toString(16)}`,
+            // Note: In a real implementation, we'd include the target tx hash
+            // to ensure our tx comes after it in the block
+          },
+        ],
         id: 1,
       }),
     })
 
-    const result = await response.json() as {
-      result?: Hash
-      error?: { message: string }
-    }
+    const result = FlashbotsResponseSchema.parse(await response.json())
 
     if (result.error) {
       throw new Error(result.error.message)
@@ -428,7 +481,7 @@ export class BackrunStrategy extends EventEmitter {
 
     // For Flashbots Protect, we get back the tx hash directly
     // For bundle submission, we'd need to wait and check inclusion
-    return result.result ?? (signedTx.slice(0, 66) as Hash)
+    return (result.result ?? signedTx.slice(0, 66)) as Hash
   }
 
   getStats(): {
@@ -442,7 +495,10 @@ export class BackrunStrategy extends EventEmitter {
     return {
       recentTrades: this.recentTrades.length,
       ...this.stats,
-      successRate: this.stats.attempts > 0 ? this.stats.successes / this.stats.attempts : 0,
+      successRate:
+        this.stats.attempts > 0
+          ? this.stats.successes / this.stats.attempts
+          : 0,
     }
   }
 }

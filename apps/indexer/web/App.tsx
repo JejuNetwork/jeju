@@ -82,11 +82,11 @@ export default function App() {
       }
 
       if (blocksResult.status === 'fulfilled') {
-        setBlocks(blocksResult.value.blocks || [])
+        setBlocks(blocksResult.value.blocks ?? [])
       }
 
       if (txsResult.status === 'fulfilled') {
-        setTransactions(txsResult.value.transactions || [])
+        setTransactions(txsResult.value.transactions ?? [])
       }
 
       if (results.every((r) => r.status === 'rejected')) {
@@ -434,7 +434,7 @@ export default function App() {
                         <td>{formatTime(block.timestamp)}</td>
                         <td>{block.transactionCount}</td>
                         <td>
-                          {formatNumber(parseInt(block.gasUsed || '0', 10))}
+                          {formatNumber(parseInt(block.gasUsed ?? '0', 10))}
                         </td>
                       </tr>
                     ))

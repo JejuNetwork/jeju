@@ -7,11 +7,13 @@ import { verifyAuth } from './auth'
 import {
   expect,
   expectValid,
+  GetNodesArgsSchema,
   MCPPromptGetSchema,
   MCPResourceReadSchema,
   MCPToolCallSchema,
   ProxyRequestSchema,
-  parseProtocol,
+  VPNConnectArgsSchema,
+  VPNDisconnectArgsSchema,
 } from './schemas'
 import type { VPNServiceContext } from './types'
 import {
@@ -515,16 +517,19 @@ async function callTool(
         throw new Error('Authentication required for VPN connection')
       }
 
-      const countryCode =
-        typeof args.countryCode === 'string' ? args.countryCode : undefined
-      const protocol = parseProtocol(args.protocol)
+      const validated = expectValid(VPNConnectArgsSchema, args, 'vpn_connect')
 
-      const node = findBestNode(ctx, countryCode)
+      const node = findBestNode(ctx, validated.countryCode)
       if (!node) {
         throw new Error('No available nodes matching criteria')
       }
 
-      const session = createSession(ctx, address, node.nodeId, protocol)
+      const session = createSession(
+        ctx,
+        address,
+        node.nodeId,
+        validated.protocol ?? 'wireguard',
+      )
 
       return {
         result: {
@@ -542,16 +547,16 @@ async function callTool(
         throw new Error('Authentication required for disconnect')
       }
 
-      const connectionId =
-        typeof args.connectionId === 'string' ? args.connectionId : null
-      if (!connectionId || connectionId.length === 0) {
-        throw new Error('connectionId must be a non-empty string')
-      }
+      const validated = expectValid(
+        VPNDisconnectArgsSchema,
+        args,
+        'vpn_disconnect',
+      )
 
-      const session = getSession(ctx, connectionId)
+      const session = getSession(ctx, validated.connectionId)
       verifySessionOwnership(session, address)
 
-      deleteSession(ctx, connectionId)
+      deleteSession(ctx, validated.connectionId)
       return {
         result: {
           success: true,
@@ -562,12 +567,11 @@ async function callTool(
     }
 
     case 'get_vpn_nodes': {
-      const countryCode =
-        typeof args.countryCode === 'string' ? args.countryCode : undefined
+      const validated = expectValid(GetNodesArgsSchema, args, 'get_vpn_nodes')
 
       let nodes = Array.from(ctx.nodes.values())
-      if (countryCode) {
-        nodes = filterNodesByCountry(nodes, countryCode)
+      if (validated.countryCode) {
+        nodes = filterNodesByCountry(nodes, validated.countryCode)
       }
 
       return {
@@ -586,7 +590,7 @@ async function callTool(
     case 'proxy_request': {
       const paymentHeader = request.headers.get('x-payment')
       const paymentResult = await verifyX402Payment(
-        paymentHeader || '',
+        paymentHeader ?? '',
         BigInt(ctx.config.pricing.pricePerRequest),
         'vpn:proxy',
         ctx.config,

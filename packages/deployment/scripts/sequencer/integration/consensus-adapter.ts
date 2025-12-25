@@ -55,9 +55,9 @@ export class ConsensusAdapter {
     config?: Partial<ConsensusConfig>,
   ) {
     this.config = {
-      signerUrls: config?.signerUrls || [
-        process.env.SIGNER_1_URL || 'http://signer-1:4100',
-        process.env.SIGNER_2_URL || 'http://signer-2:4100',
+      signerUrls: config?.signerUrls ?? [
+        process.env.SIGNER_1_URL ?? 'http://signer-1:4100',
+        process.env.SIGNER_2_URL ?? 'http://signer-2:4100',
         process.env.SIGNER_3_URL || 'http://signer-3:4100',
       ],
       // SECURITY: API key must be provided via config or environment
@@ -67,7 +67,7 @@ export class ConsensusAdapter {
         (() => {
           throw new Error('SIGNER_API_KEY required')
         })(),
-      requestTimeout: config?.requestTimeout || 5000,
+      requestTimeout: config?.requestTimeout ?? 5000,
     }
   }
 

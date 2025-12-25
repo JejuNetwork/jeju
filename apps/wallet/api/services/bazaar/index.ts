@@ -178,7 +178,7 @@ export class BazaarService {
     if (cached) {
       return cached
     }
-    const rpcUrl = getNetworkRpcUrl(this.chainId) || 'http://localhost:6546'
+    const rpcUrl = getNetworkRpcUrl(this.chainId) ?? 'http://localhost:6546'
     const client = createPublicClient({ transport: http(rpcUrl) })
     this.clientCache.set(this.chainId, client)
     return client

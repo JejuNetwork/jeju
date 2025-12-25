@@ -322,4 +322,5 @@ export function isNFTOwner(nft: NormalizedNFT, address: string): boolean {
   return Number(nft.balance) > 0
 }
 
-export { formatAddress } from '@jejunetwork/shared'
+import { formatAddress } from '@jejunetwork/shared'
+export { formatAddress }

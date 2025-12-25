@@ -4,7 +4,7 @@
 
 import { Elysia, t } from 'elysia'
 import { toAddress } from '../../lib'
-import { type FlagType, getModerationSystem } from '../moderation'
+import { expectFlagType, getModerationSystem } from '../moderation'
 
 const moderation = getModerationSystem()
 
@@ -17,7 +17,7 @@ export const moderationRoutes = new Elysia({ prefix: '/api/v1/moderation' })
       const flag = moderation.submitFlag(
         body.proposalId,
         body.flagger,
-        body.flagType as FlagType,
+        expectFlagType(body.flagType),
         body.reason,
         body.stake ?? 10,
         evidenceStr,

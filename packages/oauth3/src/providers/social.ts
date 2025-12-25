@@ -205,14 +205,19 @@ export class GoogleProvider extends OAuthProvider {
       'Google user info',
     )
 
+    const userId = response.id ?? response.sub
+    if (!userId) {
+      throw new Error('Google OAuth response missing user ID (id or sub)')
+    }
+
     return {
-      id: response.id ?? response.sub ?? '',
+      id: userId,
       email: response.email,
       name: response.name,
       avatar: response.picture,
       verified: response.verified_email ?? response.email_verified ?? false,
       raw: {
-        id: response.id ?? response.sub ?? '',
+        id: userId,
         email: response.email,
         name: response.name,
         picture: response.picture,

@@ -8,6 +8,11 @@ import { ALL_CHAINS, MAINNET_CHAINS, TESTNET_CHAINS } from '../config/chains'
 import { CHAIN_TO_DOMAIN, getDomainId } from '../config/domains'
 import type { ChainId } from '../types'
 
+/** Test helper for passing invalid inputs to getDomainId */
+function getDomainIdRaw(value: unknown): number {
+  return getDomainId(value as ChainId)
+}
+
 describe('Domain ID Mapping - Data Integrity', () => {
   test('every chain in ALL_CHAINS has a domain mapping', () => {
     for (const chain of ALL_CHAINS) {
@@ -45,11 +50,11 @@ describe('Domain ID Mapping - Data Integrity', () => {
 
 describe('getDomainId - Error Handling', () => {
   test('throws for undefined chain ID', () => {
-    expect(() => getDomainId(undefined as unknown as ChainId)).toThrow()
+    expect(() => getDomainIdRaw(undefined)).toThrow()
   })
 
   test('throws for null chain ID', () => {
-    expect(() => getDomainId(null as unknown as ChainId)).toThrow()
+    expect(() => getDomainIdRaw(null)).toThrow()
   })
 
   test('throws for negative chain ID', () => {

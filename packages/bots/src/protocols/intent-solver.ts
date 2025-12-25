@@ -5,14 +5,40 @@
  * Implements actual API integration with Cowswap and UniswapX.
  */
 
-import { EventEmitter } from '@jejunetwork/shared'
+import { EventEmitter } from 'node:events'
 import { type Address, type PublicClient, parseAbi } from 'viem'
-import {
-  type CowswapOrder,
-  CowswapOrdersResponseSchema,
-  type UniswapXOrder,
-  UniswapXOrdersResponseSchema,
-} from '../schemas'
+import { z } from 'zod'
+
+// Zod schemas for API responses
+const CowswapOrderSchema = z.object({
+  uid: z.string(),
+  sellToken: z.string(),
+  buyToken: z.string(),
+  sellAmount: z.string(),
+  buyAmount: z.string(),
+  validTo: z.number(),
+  appData: z.string(),
+  feeAmount: z.string(),
+  kind: z.enum(['sell', 'buy']),
+  partiallyFillable: z.boolean(),
+  receiver: z.string(),
+  owner: z.string(),
+})
+const CowswapOrdersSchema = z.array(CowswapOrderSchema)
+
+const UniswapXOrderSchema = z.object({
+  orderHash: z.string(),
+  chainId: z.number(),
+  swapper: z.string(),
+  input: z.object({ token: z.string(), amount: z.string() }),
+  outputs: z.array(
+    z.object({ token: z.string(), amount: z.string(), recipient: z.string() }),
+  ),
+  deadline: z.number(),
+})
+const UniswapXResponseSchema = z.object({
+  orders: z.array(UniswapXOrderSchema),
+})
 
 export interface IntentSolverConfig {
   chainId: number
@@ -20,6 +46,30 @@ export interface IntentSolverConfig {
   minProfitBps: number
   solverAddress: Address
   privateKey: string
+}
+
+interface CowswapOrder {
+  uid: string
+  sellToken: Address
+  buyToken: Address
+  sellAmount: string
+  buyAmount: string
+  validTo: number
+  appData: string
+  feeAmount: string
+  kind: 'sell' | 'buy'
+  partiallyFillable: boolean
+  receiver: Address
+  owner: Address
+}
+
+interface UniswapXOrder {
+  orderHash: string
+  chainId: number
+  swapper: Address
+  input: { token: Address; amount: string }
+  outputs: Array<{ token: Address; amount: string; recipient: Address }>
+  deadline: number
 }
 
 interface Intent {
@@ -130,10 +180,10 @@ export class IntentSolver extends EventEmitter {
       const response = await fetch(`${apiUrl}/orders?status=open&limit=50`)
       if (!response.ok) return []
 
-      const rawData: unknown = await response.json()
-      const orders = CowswapOrdersResponseSchema.parse(rawData)
+      const parsed = CowswapOrdersSchema.safeParse(await response.json())
+      if (!parsed.success) return []
 
-      return orders.map((order) => ({
+      return parsed.data.map((order) => ({
         id: order.uid,
         protocol: 'cowswap' as const,
         tokenIn: order.sellToken as Address,
@@ -161,20 +211,22 @@ export class IntentSolver extends EventEmitter {
       )
       if (!response.ok) return []
 
-      const rawData: unknown = await response.json()
-      const data = UniswapXOrdersResponseSchema.parse(rawData)
+      const parsed = UniswapXResponseSchema.safeParse(await response.json())
+      if (!parsed.success) return []
 
-      return data.orders.map((order) => ({
-        id: order.orderHash,
-        protocol: 'uniswapx' as const,
-        tokenIn: order.input.token as Address,
-        tokenOut: order.outputs[0]?.token as Address,
-        amountIn: BigInt(order.input.amount),
-        minAmountOut: BigInt(order.outputs[0]?.amount ?? '0'),
-        deadline: BigInt(order.deadline),
-        user: order.swapper as Address,
-        rawOrder: order,
-      }))
+      return parsed.data.orders
+        .filter((order) => order.outputs.length > 0)
+        .map((order) => ({
+          id: order.orderHash,
+          protocol: 'uniswapx' as const,
+          tokenIn: order.input.token,
+          tokenOut: order.outputs[0].token,
+          amountIn: BigInt(order.input.amount),
+          minAmountOut: BigInt(order.outputs[0].amount),
+          deadline: BigInt(order.deadline),
+          user: order.swapper,
+          rawOrder: order,
+        }))
     } catch (error) {
       console.warn('Failed to fetch UniswapX orders:', error)
       return []
@@ -266,15 +318,15 @@ export class IntentSolver extends EventEmitter {
     const quoterV3 = '0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6' as Address
 
     for (const fee of feeTiers) {
-      const result = await this.client
-        .simulateContract({
+      try {
+        const result = await this.client.simulateContract({
           address: quoterV3,
           abi: QUOTER_ABI,
           functionName: 'quoteExactInputSingle',
           args: [tokenIn, tokenOut, fee, amountIn, 0n],
         })
-        .catch(() => null)
-      if (result) return result.result
+        return result.result
+      } catch {}
     }
     return 0n
   }

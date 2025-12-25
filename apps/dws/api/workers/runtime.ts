@@ -154,7 +154,7 @@ export class WorkerRuntime {
     try {
       // Forward the HTTP request directly to the worker
       const url = `http://localhost:${instance.port}${event.path}`
-      const queryString = new URLSearchParams(event.query || {}).toString()
+      const queryString = new URLSearchParams(event.query ?? {}).toString()
       const fullUrl = queryString ? `${url}?${queryString}` : url
 
       const response = await fetch(fullUrl, {
@@ -392,7 +392,7 @@ export class WorkerRuntime {
     }
 
     if (instance.process) {
-      ;(instance.process as { kill: () => void }).kill()
+      instance.process.kill()
     }
 
     instance.status = 'stopped'

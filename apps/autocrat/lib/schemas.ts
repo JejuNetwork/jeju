@@ -12,7 +12,17 @@ import {
   HashSchema,
   HexSchema,
 } from '@jejunetwork/types'
+
+// Re-export validation utility
+export { expectValid }
+
 import { z } from 'zod'
+import {
+  BountySeverity,
+  BountySubmissionStatus,
+  ValidationResult,
+  VulnerabilityType,
+} from './types'
 
 export const HexStringSchema = HexSchema
 export const ProposalIdSchema = HashSchema // 0x + 64 hex chars (32-byte hash)
@@ -142,42 +152,14 @@ export const ExecutionStepStatusSchema = z.enum([
   'failed',
 ])
 
-export const BountySeveritySchema = z.nativeEnum({
-  LOW: 0,
-  MEDIUM: 1,
-  HIGH: 2,
-  CRITICAL: 3,
-})
+// Use the const objects from types.ts so that Zod infers the exact same types
+export const BountySeveritySchema = z.nativeEnum(BountySeverity)
 
-export const VulnerabilityTypeSchema = z.nativeEnum({
-  FUNDS_AT_RISK: 0,
-  WALLET_DRAIN: 1,
-  REMOTE_CODE_EXECUTION: 2,
-  TEE_BYPASS: 3,
-  CONSENSUS_ATTACK: 4,
-  MPC_KEY_EXPOSURE: 5,
-  PRIVILEGE_ESCALATION: 6,
-  DENIAL_OF_SERVICE: 7,
-  INFORMATION_DISCLOSURE: 8,
-  OTHER: 9,
-})
+export const VulnerabilityTypeSchema = z.nativeEnum(VulnerabilityType)
 
-export const BountySubmissionStatusSchema = z.nativeEnum({
-  PENDING: 0,
-  VALIDATING: 1,
-  GUARDIAN_REVIEW: 2,
-  CEO_REVIEW: 3,
-  APPROVED: 4,
-  REJECTED: 5,
-  PAID: 6,
-  WITHDRAWN: 7,
-})
+export const BountySubmissionStatusSchema = z.nativeEnum(BountySubmissionStatus)
 
-export const ValidationResultSchema = z.nativeEnum({
-  VALID: 0,
-  INVALID: 1,
-  NEEDS_REVIEW: 2,
-})
+export const ValidationResultSchema = z.nativeEnum(ValidationResult)
 
 export const CEOPersonaSchema = z.object({
   name: z.string().min(1).max(100),
@@ -305,6 +287,17 @@ export const QualityCriteriaSchema = z.object({
   riskAssessment: z.number().int().min(0).max(100),
   costBenefit: z.number().int().min(0).max(100),
 })
+
+export const QualityCriterionKeySchema = z.enum([
+  'clarity',
+  'completeness',
+  'feasibility',
+  'alignment',
+  'impact',
+  'riskAssessment',
+  'costBenefit',
+])
+export type QualityCriterionKey = z.infer<typeof QualityCriterionKeySchema>
 
 export const QualityAssessmentSchema = z.object({
   overallScore: z.number().int().min(0).max(100),
@@ -950,20 +943,20 @@ export const SandboxExecutionResponseSchema = z.object({
   status: z.string(),
   output: z
     .object({
-      exploitTriggered: z.boolean().optional(),
-      exploitDetails: z.string().optional(),
-      result: z.string().optional(),
+      exploitTriggered: z.boolean().default(false),
+      exploitDetails: z.string().default(''),
+      result: z.string().default(''),
     })
-    .optional(),
-  logs: z.string().optional(),
-  exitCode: z.number().optional(),
+    .default({ exploitTriggered: false, exploitDetails: '', result: '' }),
+  logs: z.string().default(''),
+  exitCode: z.number().default(-1),
   metrics: z
     .object({
-      executionTimeMs: z.number().optional(),
-      memoryUsedMb: z.number().optional(),
-      cpuUsagePercent: z.number().optional(),
+      executionTimeMs: z.number().default(0),
+      memoryUsedMb: z.number().default(0),
+      cpuUsagePercent: z.number().default(0),
     })
-    .optional(),
+    .default({ executionTimeMs: 0, memoryUsedMb: 0, cpuUsagePercent: 0 }),
 })
 
 export type SandboxExecutionResponse = z.infer<
@@ -1105,37 +1098,39 @@ export const MCPToolsResponseSchema = z.object({
         description: z.string(),
       }),
     )
-    .optional(),
+    .default([]),
 })
 
 export const MCPToolCallResponseSchema = z.object({
   content: z
     .array(
       z.object({
-        type: z.string().optional(),
-        text: z.string().optional(),
+        type: z.string().default(''),
+        text: z.string().default(''),
       }),
     )
-    .optional(),
+    .default([]),
 })
 
 // --- Agent Card Response Schema ---
 
 export const AgentCardSchema = z.object({
-  protocolVersion: z.string().optional(),
-  name: z.string().optional(),
-  description: z.string().optional(),
-  url: z.string().optional(),
+  protocolVersion: z.string().default(''),
+  name: z.string().default(''),
+  description: z.string().default(''),
+  url: z.string().default(''),
   skills: z
     .array(
       z.object({
         id: z.string(),
-        name: z.string().optional(),
-        description: z.string().optional(),
+        name: z.string().default(''),
+        description: z.string().default(''),
       }),
     )
-    .optional(),
+    .default([]),
 })
+
+export type AgentCard = z.infer<typeof AgentCardSchema>
 
 /**
  * Safely parse response.json() and validate against schema
@@ -1187,7 +1182,8 @@ export function extractLLMContent(
 ): string {
   // Check for OpenAI-style response
   if (response.choices && response.choices.length > 0) {
-    const content = response.choices[0]?.message?.content
+    const choice = response.choices[0]
+    const content = choice.message?.content
     if (content && content.length > 0) {
       return content
     }

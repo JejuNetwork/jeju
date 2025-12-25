@@ -142,6 +142,22 @@ export interface MIPSState {
   registers: number[] // 32 general purpose registers
 }
 
+/** Raw trace state from Cannon output (all fields optional) */
+interface RawTraceState {
+  memRoot?: string
+  preimageKey?: string
+  preimageOffset?: number
+  pc?: number
+  nextPC?: number
+  lo?: number
+  hi?: number
+  heap?: number
+  exitCode?: number
+  exited?: boolean
+  step?: string
+  registers?: number[]
+}
+
 export interface MIPSInstruction {
   raw: number // Raw 32-bit instruction
   opcode: number // 6-bit opcode
@@ -1083,20 +1099,7 @@ export class CannonInterface {
    * Parse MIPS state from Cannon trace output
    */
   private parseTraceState(trace: Record<string, unknown>): MIPSState {
-    const state = trace as {
-      memRoot?: string
-      preimageKey?: string
-      preimageOffset?: number
-      pc?: number
-      nextPC?: number
-      lo?: number
-      hi?: number
-      heap?: number
-      exitCode?: number
-      exited?: boolean
-      step?: string
-      registers?: number[]
-    }
+    const state = trace as RawTraceState
 
     return {
       memRoot: (state.memRoot || pad('0x00', { size: 32 })) as Hex,

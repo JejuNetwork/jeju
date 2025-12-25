@@ -9,7 +9,8 @@ import {
   type OAuth3AuthHeaders,
   oauth3AuthHeadersSchema,
 } from '../lib/schemas'
-import { AuthProvider, getOAuth3Service } from './services/auth'
+import { AuthProvider } from '@jejunetwork/oauth3'
+import { getOAuth3Service } from './services/auth'
 import {
   expectDefined,
   expectValid,

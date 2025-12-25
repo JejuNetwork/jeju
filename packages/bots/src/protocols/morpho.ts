@@ -10,14 +10,23 @@
  * - Supply/borrow optimization
  */
 
-import { EventEmitter } from '@jejunetwork/shared'
+import { EventEmitter } from 'node:events'
 import {
   type Address,
   type PublicClient,
-  type WalletClient,
   parseAbi,
-  formatUnits,
+  type WalletClient,
 } from 'viem'
+import { z } from 'zod'
+
+// Zod schema for Morpho subgraph response
+const MorphoPositionsResponseSchema = z.object({
+  data: z
+    .object({
+      positions: z.array(z.object({ user: z.string() })),
+    })
+    .optional(),
+})
 
 export interface MorphoConfig {
   chainId: number
@@ -85,9 +94,7 @@ const MORPHO_IRM_ABI = parseAbi([
   'function borrowRate(bytes32 id, (uint128 totalSupplyAssets, uint128 totalSupplyShares, uint128 totalBorrowAssets, uint128 totalBorrowShares, uint128 lastUpdate, uint128 fee) market) view returns (uint256)',
 ])
 
-const ORACLE_ABI = parseAbi([
-  'function price() view returns (uint256)',
-])
+const ORACLE_ABI = parseAbi(['function price() view returns (uint256)'])
 
 const AAVE_POOL_ABI = parseAbi([
   'function getReserveData(address asset) view returns ((uint256 configuration, uint128 liquidityIndex, uint128 currentLiquidityRate, uint128 variableBorrowIndex, uint128 currentVariableBorrowRate, uint128 currentStableBorrowRate, uint40 lastUpdateTimestamp, uint16 id, address aTokenAddress, address stableDebtTokenAddress, address variableDebtTokenAddress, address interestRateStrategyAddress, uint128 accruedToTreasury, uint128 unbacked, uint128 isolationModeTotalDebt))',
@@ -123,7 +130,6 @@ const AAVE_V3_POOL: Record<number, Address> = {
 export class MorphoIntegration extends EventEmitter {
   private config: MorphoConfig
   private client: PublicClient
-  private wallet: WalletClient
   private running = false
   private marketStates: Map<string, MarketState> = new Map()
   private watchedBorrowers: Map<string, Set<Address>> = new Map()
@@ -152,7 +158,7 @@ export class MorphoIntegration extends EventEmitter {
     // Start monitoring loop
     this.checkInterval = setInterval(
       () => this.checkAll(),
-      this.config.checkIntervalMs
+      this.config.checkIntervalMs,
     )
   }
 
@@ -229,11 +235,21 @@ export class MorphoIntegration extends EventEmitter {
         args: [
           market.id,
           {
-            totalSupplyAssets: state.totalSupplyAssets as bigint & { readonly brand: unique symbol },
-            totalSupplyShares: state.totalSupplyShares as bigint & { readonly brand: unique symbol },
-            totalBorrowAssets: state.totalBorrowAssets as bigint & { readonly brand: unique symbol },
-            totalBorrowShares: state.totalBorrowShares as bigint & { readonly brand: unique symbol },
-            lastUpdate: state.lastUpdate as bigint & { readonly brand: unique symbol },
+            totalSupplyAssets: state.totalSupplyAssets as bigint & {
+              readonly brand: unique symbol
+            },
+            totalSupplyShares: state.totalSupplyShares as bigint & {
+              readonly brand: unique symbol
+            },
+            totalBorrowAssets: state.totalBorrowAssets as bigint & {
+              readonly brand: unique symbol
+            },
+            totalBorrowShares: state.totalBorrowShares as bigint & {
+              readonly brand: unique symbol
+            },
+            lastUpdate: state.lastUpdate as bigint & {
+              readonly brand: unique symbol
+            },
             fee: state.fee as bigint & { readonly brand: unique symbol },
           },
         ],
@@ -255,24 +271,26 @@ export class MorphoIntegration extends EventEmitter {
   private estimateBorrowRate(state: MarketState): number {
     if (state.totalSupplyAssets === 0n) return 0
 
-    const utilization = Number(state.totalBorrowAssets) / Number(state.totalSupplyAssets)
+    const utilization =
+      Number(state.totalBorrowAssets) / Number(state.totalSupplyAssets)
 
     // Morpho Blue typically uses adaptive curve IRM
     // Base: 1%, target utilization: 90%, max: 100%
     if (utilization < 0.9) {
-      return 0.01 + (0.03 * utilization / 0.9)
+      return 0.01 + (0.03 * utilization) / 0.9
     } else {
-      return 0.04 + (0.96 * (utilization - 0.9) / 0.1)
+      return 0.04 + (0.96 * (utilization - 0.9)) / 0.1
     }
   }
 
   /**
    * Calculate supply APY
    */
-  calculateSupplyApy(market: MorphoMarket, state: MarketState): number {
+  calculateSupplyApy(_market: MorphoMarket, state: MarketState): number {
     if (state.totalSupplyAssets === 0n) return 0
 
-    const utilization = Number(state.totalBorrowAssets) / Number(state.totalSupplyAssets)
+    const utilization =
+      Number(state.totalBorrowAssets) / Number(state.totalSupplyAssets)
     const borrowRate = this.estimateBorrowRate(state)
     const fee = Number(state.fee) / 1e18
 
@@ -297,15 +315,17 @@ export class MorphoIntegration extends EventEmitter {
   /**
    * Find rate arbitrage opportunities between Morpho and Aave
    */
-  async findRateArbitrage(): Promise<Array<{
-    market: MorphoMarket
-    morphoSupplyApy: number
-    morphoBorrowApy: number
-    aaveSupplyApy: number
-    aaveBorrowApy: number
-    supplySpread: number
-    borrowSpread: number
-  }>> {
+  async findRateArbitrage(): Promise<
+    Array<{
+      market: MorphoMarket
+      morphoSupplyApy: number
+      morphoBorrowApy: number
+      aaveSupplyApy: number
+      aaveBorrowApy: number
+      supplySpread: number
+      borrowSpread: number
+    }>
+  > {
     const opportunities = []
     const aavePool = AAVE_V3_POOL[this.config.chainId]
 
@@ -340,7 +360,10 @@ export class MorphoIntegration extends EventEmitter {
       const supplySpread = morphoSupplyApy - aaveSupplyApy
       const borrowSpread = aaveBorrowApy - morphoBorrowApy
 
-      if (supplySpread > this.config.minSupplyApy || borrowSpread > this.config.minBorrowSavings) {
+      if (
+        supplySpread > this.config.minSupplyApy ||
+        borrowSpread > this.config.minBorrowSavings
+      ) {
         this.stats.rateArbs++
         opportunities.push({
           market,
@@ -391,16 +414,20 @@ export class MorphoIntegration extends EventEmitter {
 
         // Calculate debt value
         // debtAssets = borrowShares * totalBorrowAssets / totalBorrowShares
-        const debtAssets = state.totalBorrowShares > 0n
-          ? (position.borrowShares * state.totalBorrowAssets) / state.totalBorrowShares
-          : 0n
+        const debtAssets =
+          state.totalBorrowShares > 0n
+            ? (position.borrowShares * state.totalBorrowAssets) /
+              state.totalBorrowShares
+            : 0n
 
         // Calculate collateral value in loan token terms
         // collateralValue = collateral * oraclePrice / 1e36 (oracle price is 1e36 scaled)
-        const collateralValue = (position.collateral * oraclePrice) / BigInt(1e36)
+        const collateralValue =
+          (position.collateral * oraclePrice) / BigInt(1e36)
 
         // Calculate LTV
-        const ltv = debtAssets > 0n ? Number(debtAssets) / Number(collateralValue) : 0
+        const ltv =
+          debtAssets > 0n ? Number(debtAssets) / Number(collateralValue) : 0
 
         // Compare to LLTV (liquidation threshold)
         const lltv = Number(market.lltv) / 1e18
@@ -413,8 +440,12 @@ export class MorphoIntegration extends EventEmitter {
 
           // Liquidation incentive is typically 5-15%
           const liquidationIncentive = 0.05
-          const profitColl = (seizableColl * BigInt(Math.floor(liquidationIncentive * 1e18))) / BigInt(1e18)
-          const profitUsd = Number(profitColl) / (10 ** market.collateralTokenDecimals) * this.config.ethPriceUsd
+          const profitColl =
+            (seizableColl * BigInt(Math.floor(liquidationIncentive * 1e18))) /
+            BigInt(1e18)
+          const profitUsd =
+            (Number(profitColl) / 10 ** market.collateralTokenDecimals) *
+            this.config.ethPriceUsd
 
           if (profitUsd >= this.config.minLiquidationProfitUsd) {
             this.stats.liquidations++
@@ -444,7 +475,9 @@ export class MorphoIntegration extends EventEmitter {
     return liquidatable.sort((a, b) => b.profitUsd - a.profitUsd)
   }
 
-  private async fetchBorrowersFromSubgraph(market: MorphoMarket): Promise<Address[]> {
+  private async fetchBorrowersFromSubgraph(
+    market: MorphoMarket,
+  ): Promise<Address[]> {
     if (!this.config.subgraphUrl) return []
 
     try {
@@ -460,11 +493,14 @@ export class MorphoIntegration extends EventEmitter {
         }),
       })
 
-      const data = await response.json() as {
-        data?: { positions: Array<{ user: string }> }
-      }
+      const parsed = MorphoPositionsResponseSchema.safeParse(
+        await response.json(),
+      )
 
-      return data.data?.positions.map(p => p.user as Address) ?? []
+      if (!parsed.success || !parsed.data.data) {
+        return []
+      }
+      return parsed.data.data.positions.map((p) => p.user as Address)
     } catch {
       return []
     }
@@ -475,7 +511,7 @@ export class MorphoIntegration extends EventEmitter {
       try {
         const state = await this.getMarketState(market.id)
         this.marketStates.set(market.id, state)
-      } catch (error) {
+      } catch (_error) {
         console.warn(`Failed to update state for market ${market.id}`)
       }
     }

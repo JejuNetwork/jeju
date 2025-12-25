@@ -75,7 +75,7 @@ class HistoryService {
       // Build transfer map by tx hash
       const transferMap = new Map<string, typeof transfers>()
       for (const t of transfers) {
-        const existing = transferMap.get(t.txHash) || []
+        const existing = transferMap.get(t.txHash) ?? []
         existing.push(t)
         transferMap.set(t.txHash, existing)
       }
@@ -191,7 +191,7 @@ class HistoryService {
     if (!chain) {
       throw new Error(`Chain ${tx.chainId} not supported`)
     }
-    const symbol = chain.nativeCurrency?.symbol || 'ETH'
+    const symbol = chain.nativeCurrency?.symbol ?? 'ETH'
 
     let title = ''
     let subtitle = ''
@@ -219,7 +219,7 @@ class HistoryService {
           const outToken = tx.tokenTransfers.find(
             (t) => t.from.toLowerCase() === userAddress.toLowerCase(),
           )
-          subtitle = `${outToken?.symbol || '?'} → ${inToken?.symbol || '?'}`
+          subtitle = `${outToken?.symbol ?? '?'} → ${inToken?.symbol ?? '?'}`
           amount = inToken
             ? `+${(Number(inToken.value) / 1e18).toFixed(4)} ${inToken.symbol}`
             : ''

@@ -5,6 +5,10 @@
 import type { JobStatus } from '@jejunetwork/types'
 import { Elysia, t } from 'elysia'
 import type { Address } from 'viem'
+import { z } from 'zod'
+
+const EnvSchema = z.record(z.string(), z.string())
+
 import {
   getActiveNodes,
   getNodeStats,
@@ -45,10 +49,10 @@ const SHELL_CONFIG: Record<
 }
 
 /** Bedrock embedding response */
-interface BedrockEmbeddingResponse {
-  embedding: number[]
-  inputTextTokenCount: number
-}
+const BedrockEmbeddingResponseSchema = z.object({
+  embedding: z.array(z.number()),
+  inputTextTokenCount: z.number(),
+})
 
 async function processQueue(): Promise<void> {
   if (activeJobs.size >= MAX_CONCURRENT) return
@@ -61,7 +65,7 @@ async function processQueue(): Promise<void> {
     jobId: next.job_id,
     command: next.command,
     shell: next.shell,
-    env: JSON.parse(next.env),
+    env: EnvSchema.parse(JSON.parse(next.env)),
     workingDir: next.working_dir ?? undefined,
     timeout: next.timeout,
     status: 'in_progress',
@@ -79,7 +83,7 @@ async function processQueue(): Promise<void> {
 }
 
 async function executeJob(job: ComputeJob): Promise<void> {
-  const config = SHELL_CONFIG[job.shell] || SHELL_CONFIG.bash
+  const config = SHELL_CONFIG[job.shell] ?? SHELL_CONFIG.bash
   const output: string[] = []
 
   const proc = Bun.spawn([config.path, ...config.args(job.command)], {
@@ -208,9 +212,11 @@ export function createComputeRouter() {
             }
           }
 
-          const result = (await response.json()) as Record<string, unknown>
+          const result: unknown = await response.json()
+          const resultObj =
+            typeof result === 'object' && result !== null ? result : {}
           return {
-            ...result,
+            ...(resultObj as Record<string, unknown>),
             node: selectedNode.address,
             provider: selectedNode.provider,
           }
@@ -320,9 +326,9 @@ export function createComputeRouter() {
               })
 
               const response = await client.send(command)
-              const responseBody = JSON.parse(
-                new TextDecoder().decode(response.body),
-              ) as BedrockEmbeddingResponse
+              const responseBody = BedrockEmbeddingResponseSchema.parse(
+                JSON.parse(new TextDecoder().decode(response.body)),
+              )
 
               embeddings.push(responseBody.embedding)
               totalTokens += responseBody.inputTextTokenCount
@@ -454,7 +460,7 @@ export function createComputeRouter() {
           jobId: row.job_id,
           command: row.command,
           shell: row.shell,
-          env: JSON.parse(row.env),
+          env: EnvSchema.parse(JSON.parse(row.env)),
           workingDir: row.working_dir ?? undefined,
           timeout: row.timeout,
           status: 'cancelled',
@@ -472,28 +478,36 @@ export function createComputeRouter() {
       })
 
       // List jobs
-      .get('/jobs', async ({ query, request }) => {
-        const submitter = request.headers.get('x-jeju-address')
-        const statusFilter = query.status as string | undefined
-        const limit = parseInt((query.limit as string) ?? '100', 10)
+      .get(
+        '/jobs',
+        async ({ query, request }) => {
+          const submitter = request.headers.get('x-jeju-address')
+          const limit = query.limit ?? 100
 
-        const rows = await computeJobState.list({
-          submittedBy: submitter ?? undefined,
-          status: statusFilter,
-          limit,
-        })
+          const rows = await computeJobState.list({
+            submittedBy: submitter ?? undefined,
+            status: query.status,
+            limit,
+          })
 
-        return {
-          jobs: rows.map((j) => ({
-            jobId: j.job_id,
-            status: j.status,
-            exitCode: j.exit_code,
-            startedAt: j.started_at,
-            completedAt: j.completed_at,
-          })),
-          total: rows.length,
-        }
-      })
+          return {
+            jobs: rows.map((j) => ({
+              jobId: j.job_id,
+              status: j.status,
+              exitCode: j.exit_code,
+              startedAt: j.started_at,
+              completedAt: j.completed_at,
+            })),
+            total: rows.length,
+          }
+        },
+        {
+          query: t.Object({
+            status: t.Optional(t.String()),
+            limit: t.Optional(t.Number({ default: 100 })),
+          }),
+        },
+      )
 
       // Training runs
       .get('/training/runs', async ({ query }) => {
@@ -600,12 +614,12 @@ export function createComputeRouter() {
             registerNode({
               address,
               endpoint: body.endpoint,
-              capabilities: body.capabilities || ['inference'],
-              models: body.models || ['*'],
-              provider: body.provider || 'local',
-              region: body.region || 'unknown',
+              capabilities: body.capabilities ?? ['inference'],
+              models: body.models ?? ['*'],
+              provider: body.provider ?? 'local',
+              region: body.region ?? 'unknown',
               gpuTier: body.gpuTier,
-              maxConcurrent: body.maxConcurrent || 10,
+              maxConcurrent: body.maxConcurrent ?? 10,
               isActive: true,
               teeProvider: body.teeProvider,
             })

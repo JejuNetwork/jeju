@@ -17,7 +17,7 @@
  */
 
 import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
-import { Elysia } from 'elysia'
+import { Elysia, t } from 'elysia'
 
 const PORT = parseInt(process.env.PORT ?? '4097', 10)
 const CACHE_NAMESPACE = 'worker-test'
@@ -43,7 +43,9 @@ async function trackRequest(path: string): Promise<void> {
   await cache.set(key, count.toString(), 3600)
 }
 
+// ============================================================================
 // Worker-Compatible Server
+// ============================================================================
 
 const app = new Elysia()
   // Health check - fails if cache is unavailable
@@ -51,7 +53,7 @@ const app = new Elysia()
     // Check cache connectivity - fail fast if unavailable
     await cache.set('health-check', Date.now().toString(), 60)
     const val = await cache.get('health-check')
-    
+
     if (!val) {
       set.status = 503
       throw new Error('Cache service not responding correctly')
@@ -85,7 +87,9 @@ const app = new Elysia()
     },
   }))
 
+  // ============================================================================
   // Cached Endpoints (using distributed cache)
+  // ============================================================================
 
   // Fast endpoint - distributed cache
   .get('/api/fast', async () => {
@@ -215,52 +219,68 @@ const app = new Elysia()
   })
 
   // Items endpoint - paginated with cache
-  .get('/api/items', async ({ query }) => {
-    const page = parseInt((query.page as string) ?? '1', 10)
-    const cacheKey = `items:${page}`
-    const cached = await cache.get(cacheKey)
+  .get(
+    '/api/items',
+    async ({ query }) => {
+      const page = query.page ?? 1
+      const cacheKey = `items:${page}`
+      const cached = await cache.get(cacheKey)
 
-    if (cached) {
+      if (cached) {
+        await trackRequest('/api/items')
+        return { ...JSON.parse(cached), cached: true, source: 'distributed' }
+      }
+
+      await simulateDbQuery(randomDelay(20, 80))
+      const items = Array.from({ length: 50 }, (_, i) => ({
+        id: (page - 1) * 50 + i + 1,
+        name: `Item ${(page - 1) * 50 + i + 1}`,
+        value: Math.random() * 1000,
+      }))
+
+      const result = { items, count: items.length, page }
+      await cache.set(cacheKey, JSON.stringify(result), 60)
       await trackRequest('/api/items')
-      return { ...JSON.parse(cached), cached: true, source: 'distributed' }
-    }
-
-    await simulateDbQuery(randomDelay(20, 80))
-    const items = Array.from({ length: 50 }, (_, i) => ({
-      id: (page - 1) * 50 + i + 1,
-      name: `Item ${(page - 1) * 50 + i + 1}`,
-      value: Math.random() * 1000,
-    }))
-
-    const result = { items, count: items.length, page }
-    await cache.set(cacheKey, JSON.stringify(result), 60)
-    await trackRequest('/api/items')
-    return { ...result, cached: false, source: 'origin' }
-  })
+      return { ...result, cached: false, source: 'origin' }
+    },
+    {
+      query: t.Object({
+        page: t.Optional(t.Number({ default: 1 })),
+      }),
+    },
+  )
 
   // Search endpoint - query-based cache
-  .get('/api/search', async ({ query }) => {
-    const q = (query.q as string) ?? ''
-    const cacheKey = `search:${q.toLowerCase().trim()}`
-    const cached = await cache.get(cacheKey)
+  .get(
+    '/api/search',
+    async ({ query }) => {
+      const q = query.q ?? ''
+      const cacheKey = `search:${q.toLowerCase().trim()}`
+      const cached = await cache.get(cacheKey)
 
-    if (cached) {
+      if (cached) {
+        await trackRequest('/api/search')
+        return { ...JSON.parse(cached), cached: true, source: 'distributed' }
+      }
+
+      await simulateDbQuery(randomDelay(30, 100))
+      const results = Array.from({ length: 10 }, (_, i) => ({
+        id: i + 1,
+        title: `Result ${i + 1} for "${q}"`,
+        score: Math.random(),
+      }))
+
+      const result = { query: q, results }
+      await cache.set(cacheKey, JSON.stringify(result), 60)
       await trackRequest('/api/search')
-      return { ...JSON.parse(cached), cached: true, source: 'distributed' }
-    }
-
-    await simulateDbQuery(randomDelay(30, 100))
-    const results = Array.from({ length: 10 }, (_, i) => ({
-      id: i + 1,
-      title: `Result ${i + 1} for "${q}"`,
-      score: Math.random(),
-    }))
-
-    const result = { query: q, results }
-    await cache.set(cacheKey, JSON.stringify(result), 60)
-    await trackRequest('/api/search')
-    return { ...result, cached: false, source: 'origin' }
-  })
+      return { ...result, cached: false, source: 'origin' }
+    },
+    {
+      query: t.Object({
+        q: t.Optional(t.String({ default: '' })),
+      }),
+    },
+  )
 
   // Stats endpoint - short TTL for frequently changing data
   .get('/api/stats', async () => {
@@ -285,7 +305,9 @@ const app = new Elysia()
     return { ...result, cached: false, source: 'origin' }
   })
 
+  // ============================================================================
   // Cache Management
+  // ============================================================================
 
   .get('/cache/stats', async () => {
     const stats = await cache.getStats()
@@ -297,7 +319,9 @@ const app = new Elysia()
     return { success: true, message: 'Cache cleared' }
   })
 
+  // ============================================================================
   // Metrics (from distributed cache)
+  // ============================================================================
 
   .get('/metrics', async () => {
     const keys = await cache.keys('metrics:*')

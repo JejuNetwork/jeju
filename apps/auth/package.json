@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@elysiajs/cors": "^1.2.0",
+    "@jejunetwork/oauth3": "workspace:*",
     "@kitajs/html": "^4.2.0",
     "elysia": "^1.2.25",
     "viem": "^2.30.6"

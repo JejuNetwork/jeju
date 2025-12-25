@@ -2,7 +2,11 @@
  * Monitoring App Synpress Configuration
  * Uses shared config from @jejunetwork/tests
  */
-import { createSynpressConfig, createWalletSetup, PASSWORD } from '@jejunetwork/tests'
+import {
+  createSynpressConfig,
+  createWalletSetup,
+  PASSWORD,
+} from '@jejunetwork/tests'
 
 const MONITORING_PORT = parseInt(process.env.PORT || '9091', 10)
 
@@ -23,5 +27,3 @@ export default createSynpressConfig({
 
 export const basicSetup = createWalletSetup()
 export { PASSWORD }
-
-

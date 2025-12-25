@@ -469,12 +469,18 @@ export class EmailClient {
       }
 
       this.ws.onmessage = (event) => {
+        // WebSocket text messages are strings - binary not supported
+        if (typeof event.data !== 'string') {
+          console.error('Non-string WebSocket message, ignoring')
+          return
+        }
+
         // Validate message size to prevent DoS
-        const messageData = event.data as string
-        if (messageData.length > MAX_WS_MESSAGE_SIZE) {
+        if (event.data.length > MAX_WS_MESSAGE_SIZE) {
           console.error('WebSocket message too large, ignoring')
           return
         }
+        const messageData = event.data
 
         // Safely parse JSON with validation
         let parsed: unknown
@@ -569,8 +575,15 @@ export class EmailClient {
 
   /**
    * Get IMAP configuration for desktop clients
+   * @throws Error if session token is not set
    */
   getIMAPConfig(email: string): IMAPConfig {
+    if (!this.config.sessionToken) {
+      throw new Error(
+        'Session token required for IMAP config. Call setSessionToken() first.',
+      )
+    }
+
     const baseHost = new URL(this.config.apiEndpoint).hostname.replace(
       'mail.',
       'imap.',
@@ -583,15 +596,22 @@ export class EmailClient {
       auth: {
         type: 'XOAUTH2',
         user: email,
-        accessToken: this.config.sessionToken ?? '',
+        accessToken: this.config.sessionToken,
       },
     }
   }
 
   /**
    * Get SMTP configuration for desktop clients
+   * @throws Error if session token is not set
    */
   getSMTPConfig(email: string): SMTPConfig {
+    if (!this.config.sessionToken) {
+      throw new Error(
+        'Session token required for SMTP config. Call setSessionToken() first.',
+      )
+    }
+
     const baseHost = new URL(this.config.apiEndpoint).hostname.replace(
       'mail.',
       'smtp.',
@@ -604,7 +624,7 @@ export class EmailClient {
       auth: {
         type: 'XOAUTH2',
         user: email,
-        accessToken: this.config.sessionToken ?? '',
+        accessToken: this.config.sessionToken,
       },
     }
   }

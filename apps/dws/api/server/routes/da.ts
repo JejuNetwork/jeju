@@ -9,7 +9,7 @@
  */
 
 import { expectValid } from '@jejunetwork/types'
-import { Elysia } from 'elysia'
+import { Elysia, t } from 'elysia'
 import type { Address, Hex } from 'viem'
 import { toBytes, toHex } from 'viem'
 import {
@@ -393,46 +393,56 @@ export function createDARouter(ctx: DARouterContext = {}) {
             : null,
         }
       })
-      .get('/blobs', ({ query, set }) => {
-        if (!disperser) {
-          set.status = 503
-          return { error: 'DA layer not initialized' }
-        }
+      .get(
+        '/blobs',
+        ({ query, set }) => {
+          if (!disperser) {
+            set.status = 503
+            return { error: 'DA layer not initialized' }
+          }
 
-        const status = query.status as string | undefined
-        const submitter = query.submitter as Address | undefined
-        const limit = parseInt((query.limit as string) ?? '100', 10)
+          const limit = query.limit ?? 100
 
-        let blobs = status
-          ? disperser
-              .getBlobManager()
-              .listByStatus(
-                status as
-                  | 'pending'
-                  | 'dispersing'
-                  | 'available'
-                  | 'expired'
-                  | 'unavailable',
-              )
-          : submitter
-            ? disperser.getBlobManager().listBySubmitter(submitter)
-            : []
+          let blobs = query.status
+            ? disperser
+                .getBlobManager()
+                .listByStatus(
+                  query.status as
+                    | 'pending'
+                    | 'dispersing'
+                    | 'available'
+                    | 'expired'
+                    | 'unavailable',
+                )
+            : query.submitter
+              ? disperser
+                  .getBlobManager()
+                  .listBySubmitter(query.submitter as `0x${string}`)
+              : []
 
-        // Apply limit
-        blobs = blobs.slice(0, limit)
+          // Apply limit
+          blobs = blobs.slice(0, limit)
 
-        return {
-          count: blobs.length,
-          blobs: blobs.map((b) => ({
-            id: b.id,
-            status: b.status,
-            size: b.size,
-            submitter: b.submitter,
-            submittedAt: b.submittedAt,
-            expiresAt: b.expiresAt,
-          })),
-        }
-      })
+          return {
+            count: blobs.length,
+            blobs: blobs.map((b) => ({
+              id: b.id,
+              status: b.status,
+              size: b.size,
+              submitter: b.submitter,
+              submittedAt: b.submittedAt,
+              expiresAt: b.expiresAt,
+            })),
+          }
+        },
+        {
+          query: t.Object({
+            status: t.Optional(t.String()),
+            submitter: t.Optional(t.String()),
+            limit: t.Optional(t.Number({ default: 100 })),
+          }),
+        },
+      )
   )
 }
 

@@ -11,17 +11,45 @@
  * Full implementation with subgraph integration.
  */
 
-import { EventEmitter } from '@jejunetwork/shared'
+import { EventEmitter } from 'node:events'
 import {
-  type PublicClient,
-  type WalletClient,
   type Address,
+  encodeFunctionData,
   type Hash,
   type Hex,
+  type PublicClient,
   parseAbi,
-  encodeFunctionData,
-  formatUnits,
+  type WalletClient,
 } from 'viem'
+import { z } from 'zod'
+
+// Zod schemas for subgraph responses
+const AaveUserReserveSchema = z.object({
+  currentATokenBalance: z.string(),
+  currentVariableDebt: z.string(),
+  reserve: z.object({
+    symbol: z.string(),
+    underlyingAsset: z.string(),
+    liquidationBonus: z.string(),
+    price: z.object({ priceInEth: z.string() }),
+  }),
+})
+
+const AaveUserSchema = z.object({
+  id: z.string(),
+  healthFactor: z.string(),
+  totalBorrowsUSD: z.string(),
+  totalCollateralUSD: z.string(),
+  reserves: z.array(AaveUserReserveSchema),
+})
+
+const AaveSubgraphResponseSchema = z.object({
+  data: z
+    .object({
+      users: z.array(AaveUserSchema),
+    })
+    .optional(),
+})
 
 export interface LiquidatorConfig {
   chainId: number
@@ -88,7 +116,7 @@ const BALANCER_VAULT_ABI = parseAbi([
   'function flashLoan(address recipient, address[] tokens, uint256[] amounts, bytes userData)',
 ])
 
-const ERC20_ABI = parseAbi([
+const _ERC20_ABI = parseAbi([
   'function balanceOf(address) view returns (uint256)',
   'function decimals() view returns (uint8)',
   'function symbol() view returns (string)',
@@ -142,13 +170,20 @@ export class AtomicLiquidator extends EventEmitter {
   private wallet: WalletClient
   private running = false
   private watchedPositions: Map<string, LiquidatablePosition> = new Map()
-  private stats = { checks: 0, found: 0, attempts: 0, successes: 0, totalProfit: 0n, totalGas: 0n }
+  private stats = {
+    checks: 0,
+    found: 0,
+    attempts: 0,
+    successes: 0,
+    totalProfit: 0n,
+    totalGas: 0n,
+  }
   private checkInterval: ReturnType<typeof setInterval> | null = null
 
   constructor(
     config: LiquidatorConfig,
     client: PublicClient,
-    wallet: WalletClient
+    wallet: WalletClient,
   ) {
     super()
     this.config = config
@@ -160,12 +195,14 @@ export class AtomicLiquidator extends EventEmitter {
     if (this.running) return
     this.running = true
 
-    console.log(`⚡ Atomic Liquidator: monitoring ${this.config.protocols.length} protocols`)
+    console.log(
+      `⚡ Atomic Liquidator: monitoring ${this.config.protocols.length} protocols`,
+    )
 
     // Start monitoring loop
     this.checkInterval = setInterval(
       () => this.checkPositions(),
-      this.config.checkIntervalMs
+      this.config.checkIntervalMs,
     )
 
     // Initial check
@@ -205,7 +242,9 @@ export class AtomicLiquidator extends EventEmitter {
     }
   }
 
-  private async getAtRiskPositions(protocol: LiquidationProtocol): Promise<LiquidatablePosition[]> {
+  private async getAtRiskPositions(
+    protocol: LiquidationProtocol,
+  ): Promise<LiquidatablePosition[]> {
     const positions: LiquidatablePosition[] = []
 
     if (protocol.type === 'aave') {
@@ -222,41 +261,33 @@ export class AtomicLiquidator extends EventEmitter {
             }),
           })
 
-          const data = await response.json() as {
-            data?: {
-              users: Array<{
-                id: string
-                healthFactor: string
-                totalBorrowsUSD: string
-                totalCollateralUSD: string
-                reserves: Array<{
-                  currentATokenBalance: string
-                  currentVariableDebt: string
-                  reserve: {
-                    symbol: string
-                    underlyingAsset: string
-                    liquidationBonus: string
-                    price: { priceInEth: string }
-                  }
-                }>
-              }>
-            }
-          }
+          const parsed = AaveSubgraphResponseSchema.safeParse(
+            await response.json(),
+          )
 
-          if (data.data?.users) {
-            for (const user of data.data.users) {
+          if (parsed.success && parsed.data.data?.users) {
+            for (const user of parsed.data.data.users) {
               const healthFactor = parseFloat(user.healthFactor)
 
-              if (healthFactor < 1.05) { // Check positions close to liquidation
+              if (healthFactor < 1.05) {
+                // Check positions close to liquidation
                 // Find the largest debt position
                 const debtReserve = user.reserves
-                  .filter(r => parseFloat(r.currentVariableDebt) > 0)
-                  .sort((a, b) => parseFloat(b.currentVariableDebt) - parseFloat(a.currentVariableDebt))[0]
+                  .filter((r) => parseFloat(r.currentVariableDebt) > 0)
+                  .sort(
+                    (a, b) =>
+                      parseFloat(b.currentVariableDebt) -
+                      parseFloat(a.currentVariableDebt),
+                  )[0]
 
                 // Find the largest collateral position
                 const collateralReserve = user.reserves
-                  .filter(r => parseFloat(r.currentATokenBalance) > 0)
-                  .sort((a, b) => parseFloat(b.currentATokenBalance) - parseFloat(a.currentATokenBalance))[0]
+                  .filter((r) => parseFloat(r.currentATokenBalance) > 0)
+                  .sort(
+                    (a, b) =>
+                      parseFloat(b.currentATokenBalance) -
+                      parseFloat(a.currentATokenBalance),
+                  )[0]
 
                 if (debtReserve && collateralReserve) {
                   positions.push({
@@ -264,13 +295,29 @@ export class AtomicLiquidator extends EventEmitter {
                     protocol: protocol.name,
                     user: user.id as Address,
                     debtToken: debtReserve.reserve.underlyingAsset as Address,
-                    collateralToken: collateralReserve.reserve.underlyingAsset as Address,
-                    debtAmount: BigInt(Math.floor(parseFloat(debtReserve.currentVariableDebt) * 1e18)),
-                    collateralAmount: BigInt(Math.floor(parseFloat(collateralReserve.currentATokenBalance) * 1e18)),
+                    collateralToken: collateralReserve.reserve
+                      .underlyingAsset as Address,
+                    debtAmount: BigInt(
+                      Math.floor(
+                        parseFloat(debtReserve.currentVariableDebt) * 1e18,
+                      ),
+                    ),
+                    collateralAmount: BigInt(
+                      Math.floor(
+                        parseFloat(collateralReserve.currentATokenBalance) *
+                          1e18,
+                      ),
+                    ),
                     healthFactor,
-                    liquidationBonus: parseFloat(collateralReserve.reserve.liquidationBonus) / 10000,
-                    debtTokenPrice: parseFloat(debtReserve.reserve.price.priceInEth),
-                    collateralTokenPrice: parseFloat(collateralReserve.reserve.price.priceInEth),
+                    liquidationBonus:
+                      parseFloat(collateralReserve.reserve.liquidationBonus) /
+                      10000,
+                    debtTokenPrice: parseFloat(
+                      debtReserve.reserve.price.priceInEth,
+                    ),
+                    collateralTokenPrice: parseFloat(
+                      collateralReserve.reserve.price.priceInEth,
+                    ),
                   })
                 }
               }
@@ -312,23 +359,37 @@ export class AtomicLiquidator extends EventEmitter {
     return positions
   }
 
-  private async createBundle(position: LiquidatablePosition): Promise<LiquidationBundle | null> {
+  private async createBundle(
+    position: LiquidatablePosition,
+  ): Promise<LiquidationBundle | null> {
     // Calculate liquidation amount (max 50% of debt)
     const maxLiquidation = position.debtAmount / 2n
 
     // Calculate expected collateral received
-    const collateralValue = Number(maxLiquidation) * position.debtTokenPrice / position.collateralTokenPrice
-    const expectedCollateral = BigInt(Math.floor(collateralValue * (1 + position.liquidationBonus)))
+    const collateralValue =
+      (Number(maxLiquidation) * position.debtTokenPrice) /
+      position.collateralTokenPrice
+    const expectedCollateral = BigInt(
+      Math.floor(collateralValue * (1 + position.liquidationBonus)),
+    )
 
     // Calculate profit
-    const collateralValueUsd = Number(expectedCollateral) / 1e18 * position.collateralTokenPrice * this.config.ethPriceUsd
-    const debtValueUsd = Number(maxLiquidation) / 1e18 * position.debtTokenPrice * this.config.ethPriceUsd
+    const collateralValueUsd =
+      (Number(expectedCollateral) / 1e18) *
+      position.collateralTokenPrice *
+      this.config.ethPriceUsd
+    const debtValueUsd =
+      (Number(maxLiquidation) / 1e18) *
+      position.debtTokenPrice *
+      this.config.ethPriceUsd
 
     const profitUsd = collateralValueUsd - debtValueUsd
 
     // Estimate gas (flash loan + liquidation + swap = ~600k)
     const gasEstimate = 600000n
-    const gasCostUsd = Number(gasEstimate) * Number(await this.client.getGasPrice()) / 1e18 * this.config.ethPriceUsd
+    const gasCostUsd =
+      ((Number(gasEstimate) * Number(await this.client.getGasPrice())) / 1e18) *
+      this.config.ethPriceUsd
 
     const netProfitUsd = profitUsd - gasCostUsd
 
@@ -349,7 +410,10 @@ export class AtomicLiquidator extends EventEmitter {
     }
   }
 
-  private buildLiquidationCallData(position: LiquidatablePosition, amount: bigint): Hex {
+  private buildLiquidationCallData(
+    position: LiquidatablePosition,
+    amount: bigint,
+  ): Hex {
     // Encode the liquidation call that our contract will execute
     // The contract needs to:
     // 1. Receive flash loan
@@ -373,7 +437,9 @@ export class AtomicLiquidator extends EventEmitter {
     return liquidationParams
   }
 
-  private async executeLiquidation(bundle: LiquidationBundle): Promise<LiquidationResult> {
+  private async executeLiquidation(
+    bundle: LiquidationBundle,
+  ): Promise<LiquidationResult> {
     this.stats.attempts++
 
     const [account] = await this.wallet.getAddresses()
@@ -384,7 +450,9 @@ export class AtomicLiquidator extends EventEmitter {
       return { success: false, error: 'Gas price too high' }
     }
 
-    const protocol = this.config.protocols.find(p => p.name === bundle.position.protocol)
+    const protocol = this.config.protocols.find(
+      (p) => p.name === bundle.position.protocol,
+    )
     if (!protocol) {
       return { success: false, error: 'Protocol not found' }
     }
@@ -434,7 +502,9 @@ export class AtomicLiquidator extends EventEmitter {
           gas: bundle.gasEstimate,
         })
 
-        const receipt = await this.client.waitForTransactionReceipt({ hash: txHash })
+        const receipt = await this.client.waitForTransactionReceipt({
+          hash: txHash,
+        })
 
         if (receipt.status === 'success') {
           this.stats.successes++
@@ -474,7 +544,9 @@ export class AtomicLiquidator extends EventEmitter {
           gas: bundle.gasEstimate,
         })
 
-        const receipt = await this.client.waitForTransactionReceipt({ hash: txHash })
+        const receipt = await this.client.waitForTransactionReceipt({
+          hash: txHash,
+        })
 
         if (receipt.status === 'success') {
           this.stats.successes++
@@ -511,7 +583,10 @@ export class AtomicLiquidator extends EventEmitter {
     return {
       watchedPositions: this.watchedPositions.size,
       ...this.stats,
-      successRate: this.stats.attempts > 0 ? this.stats.successes / this.stats.attempts : 0,
+      successRate:
+        this.stats.attempts > 0
+          ? this.stats.successes / this.stats.attempts
+          : 0,
     }
   }
 }

@@ -43,7 +43,7 @@ export const PlatformMessageSchema = z.object({
   timestamp: z.number().int().nonnegative(),
   isCommand: z.boolean(),
   replyToId: z.string().optional(),
-  attachments: z.array(MessageAttachmentSchema).optional(),
+  attachments: z.array(MessageAttachmentSchema).default([]),
 })
 
 export const PlatformChannelSchema = z.object({
@@ -70,7 +70,7 @@ export const UserSettingsSchema = z.object({
   defaultChainId: ChainIdSchema,
   notifications: z.boolean(),
   maxTradeAmount: z.string().optional(),
-  preferredTokens: z.array(AddressSchema).optional(),
+  preferredTokens: z.array(AddressSchema).default([]),
 })
 
 export const OttoUserSchema = z.object({
@@ -271,7 +271,7 @@ export const MessageEmbedSchema = z.object({
   title: z.string().optional(),
   description: z.string().optional(),
   color: z.number().int().optional(),
-  fields: z.array(EmbedFieldSchema).optional(),
+  fields: z.array(EmbedFieldSchema).default([]),
   footer: z.string().optional(),
   timestamp: z.number().int().nonnegative().optional(),
   imageUrl: z.string().url().optional(),
@@ -298,7 +298,7 @@ export const CommandResultSchema = z.object({
   success: z.boolean(),
   message: z.string(),
   embed: MessageEmbedSchema.optional(),
-  buttons: z.array(MessageButtonSchema).optional(),
+  buttons: z.array(MessageButtonSchema).default([]),
   error: z.string().optional(),
   data: CommandResultDataSchema.optional(),
 })
@@ -579,7 +579,7 @@ export const AwaitingConfirmationSchema = z.discriminatedUnion('type', [
 
 export const SessionContextSchema = z.object({
   awaitingConfirmation: AwaitingConfirmationSchema.optional(),
-  recentTokens: z.array(AddressSchema).optional(),
+  recentTokens: z.array(AddressSchema).default([]),
   conversationHistory: z
     .array(
       z.object({
@@ -587,7 +587,7 @@ export const SessionContextSchema = z.object({
         content: z.string(),
       }),
     )
-    .optional(),
+    .default([]),
 })
 
 export const UserSessionSchema = z.object({
@@ -627,7 +627,7 @@ export const ChatMessageSchema = z.object({
   content: z.string(),
   timestamp: z.number().int().nonnegative(),
   embed: MessageEmbedSchema.optional(),
-  buttons: z.array(MessageButtonSchema).optional(),
+  buttons: z.array(MessageButtonSchema).default([]),
 })
 
 export const ChatSessionSchema = z.object({
@@ -712,9 +712,9 @@ export const ExternalTokenInfoResponseSchema = z.object({
 export const ExternalBalancesResponseSchema = z.object({
   data: z
     .object({
-      balances: z.array(BalanceSchema).optional(),
+      balances: z.array(BalanceSchema).default([]),
     })
-    .optional(),
+    .default({ balances: [] }),
 })
 
 export const ExternalSwapExecuteResponseSchema = z.object({

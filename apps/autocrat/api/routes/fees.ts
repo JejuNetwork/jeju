@@ -11,6 +11,7 @@ import {
   executeCEOFeeSkill,
   getFeeConfigState,
   initializeFeeActions,
+  isTxHashResult,
 } from '../ceo-fee-actions'
 import { getSharedState } from '../shared-state'
 
@@ -237,7 +238,9 @@ export const feesRoutes = new Elysia({ prefix: '/fees' })
         success: true,
         category,
         reason,
-        txHash: (result.result as { txHash?: string } | null)?.txHash,
+        txHash: isTxHashResult(result.result)
+          ? result.result.txHash
+          : undefined,
       }
     },
     {

@@ -565,8 +565,13 @@ export function handlePriceWebSocket(ws: BrowserWebSocket): void {
   const service = getPriceService()
 
   ws.addEventListener('message', (event) => {
+    // WebSocket text messages are always strings - binary ArrayBuffer is not supported for JSON
+    if (typeof event.data !== 'string') {
+      console.warn('[PriceService] Received binary message, expected JSON text')
+      return
+    }
     const parseResult = SubscriptionMessageSchema.safeParse(
-      JSON.parse(event.data as string),
+      JSON.parse(event.data),
     )
     if (!parseResult.success) {
       console.warn(

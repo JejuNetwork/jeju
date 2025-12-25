@@ -246,7 +246,7 @@ export default function CrossChainTransfer() {
               id="transfer-recipient"
               className="input"
               type="text"
-              placeholder={userAddress || '0x...'}
+              placeholder={userAddress ?? '0x...'}
               value={recipient}
               onChange={(e) => setRecipient(e.target.value)}
               disabled={isLoading}

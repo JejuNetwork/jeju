@@ -85,10 +85,14 @@ async function checkRpc(rpcUrl: string): Promise<{
 
     clearTimeout(timeout)
 
+    if (typeof chainIdHex !== 'string' || typeof blockNumberHex !== 'string') {
+      return { reachable: false, chainId: null, blockNumber: null }
+    }
+
     return {
       reachable: true,
-      chainId: parseInt(chainIdHex as string, 16),
-      blockNumber: parseInt(blockNumberHex as string, 16),
+      chainId: parseInt(chainIdHex, 16),
+      blockNumber: parseInt(blockNumberHex, 16),
     }
   } catch (err) {
     clearTimeout(timeout)

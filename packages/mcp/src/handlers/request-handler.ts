@@ -379,15 +379,13 @@ export class MCPRequestHandler {
    * Extract request ID from raw request for error responses
    * Returns null if ID cannot be extracted (per JSON-RPC spec)
    */
-  private extractRequestId(
-    rawRequest: Record<string, unknown> | unknown,
-  ): string | number | null {
+  private extractRequestId(rawRequest: unknown): string | number | null {
     if (
       typeof rawRequest === 'object' &&
       rawRequest !== null &&
       'id' in rawRequest
     ) {
-      const idValue = (rawRequest as { id: unknown }).id
+      const idValue = (rawRequest as Record<string, unknown>).id
       if (typeof idValue === 'string' || typeof idValue === 'number') {
         return idValue
       }

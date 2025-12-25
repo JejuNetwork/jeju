@@ -62,8 +62,8 @@ export function BountiesPage() {
     })
     .sort((a, b) => {
       if (sortBy === 'reward') {
-        const aAmount = Number.parseFloat(a.rewards[0]?.amount || '0')
-        const bAmount = Number.parseFloat(b.rewards[0]?.amount || '0')
+        const aAmount = Number.parseFloat(a.rewards[0]?.amount ?? '0')
+        const bAmount = Number.parseFloat(b.rewards[0]?.amount ?? '0')
         return bAmount - aAmount
       }
       if (sortBy === 'deadline') {

@@ -217,8 +217,13 @@ async function claim() {
         data: log.data,
         topics: log.topics,
       })
-      if (decoded.eventName === 'RewardClaimed') {
-        claimedAmount = (decoded.args as { amount: bigint }).amount
+      if (
+        decoded.eventName === 'RewardClaimed' &&
+        decoded.args !== undefined &&
+        typeof decoded.args === 'object' &&
+        'amount' in decoded.args
+      ) {
+        claimedAmount = decoded.args.amount as bigint
       }
     }
   }

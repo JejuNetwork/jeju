@@ -8,8 +8,10 @@
  * - Compatible with PeerDAS sampling patterns
  */
 
+import { HexSchema } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import { bytesToHex, keccak256, toBytes } from 'viem'
+import { z } from 'zod'
 import { verifyProof } from './commitment'
 import type {
   BlobCommitment,
@@ -20,6 +22,16 @@ import type {
   SampleVerificationResult,
   SamplingConfig,
 } from './types'
+
+// Response validation schema - use passthrough to allow extra fields
+const SampleResponseSchema = z
+  .object({
+    request: z.object({}).passthrough(),
+    chunks: z.array(z.object({}).passthrough()),
+    signature: HexSchema,
+    timestamp: z.number(),
+  })
+  .passthrough()
 
 // Default Configuration
 
@@ -270,7 +282,9 @@ export class DASampler {
       clearTimeout(timeout)
 
       if (response.ok) {
-        return response.json() as Promise<SampleResponse>
+        const json = await response.json()
+        SampleResponseSchema.parse(json) // Validate structure
+        return json as SampleResponse
       }
 
       // Wait before retry

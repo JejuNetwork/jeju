@@ -84,6 +84,18 @@ const GITHUB_REPUTATION_PROVIDER_ABI = [
   },
 ] as const
 
+/**
+ * GitHub profile data returned from the getProfile contract function.
+ * This matches the tuple structure defined in GITHUB_REPUTATION_PROVIDER_ABI.
+ */
+interface GitHubProfileData {
+  username: string
+  currentScore: number
+  lastUpdated: bigint
+  attestationCount: bigint
+  isLinked: boolean
+}
+
 export interface LeaderboardReputation {
   username: string
   avatarUrl: string
@@ -131,7 +143,7 @@ async function fetchLeaderboardReputationApi(
   )
   if (!response.ok) {
     const errorData = await response.json()
-    throw new Error(errorData.error || 'Failed to fetch reputation')
+    throw new Error(errorData.error ?? 'Failed to fetch reputation')
   }
   return response.json()
 }
@@ -223,7 +235,7 @@ export function useGitHubReputation() {
 
       if (!messageResponse.ok) {
         const errorData = await messageResponse.json()
-        throw new Error(errorData.error || 'Failed to get verification message')
+        throw new Error(errorData.error ?? 'Failed to get verification message')
       }
 
       const { message, timestamp } = await messageResponse.json()
@@ -250,7 +262,7 @@ export function useGitHubReputation() {
 
       if (!verifyResponse.ok) {
         const errorData = await verifyResponse.json()
-        throw new Error(errorData.error || 'Verification failed')
+        throw new Error(errorData.error ?? 'Verification failed')
       }
 
       return true
@@ -295,7 +307,7 @@ export function useGitHubReputation() {
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to request attestation')
+        throw new Error(errorData.error ?? 'Failed to request attestation')
       }
 
       return response.json()
@@ -452,7 +464,7 @@ export function useGitHubReputation() {
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to link agent')
+        throw new Error(errorData.error ?? 'Failed to link agent')
       }
 
       return true
@@ -488,13 +500,13 @@ export function useGitHubReputation() {
 
   const gitHubProfile = useMemo(() => {
     if (!onChainProfile) return null
+    const profile = onChainProfile as GitHubProfileData
     return {
-      username: (onChainProfile as { username: string }).username,
-      currentScore: (onChainProfile as { currentScore: number }).currentScore,
-      lastUpdated: (onChainProfile as { lastUpdated: bigint }).lastUpdated,
-      attestationCount: (onChainProfile as { attestationCount: bigint })
-        .attestationCount,
-      isLinked: (onChainProfile as { isLinked: boolean }).isLinked,
+      username: profile.username,
+      currentScore: profile.currentScore,
+      lastUpdated: profile.lastUpdated,
+      attestationCount: profile.attestationCount,
+      isLinked: profile.isLinked,
     }
   }, [onChainProfile])
 

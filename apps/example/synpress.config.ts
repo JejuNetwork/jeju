@@ -2,7 +2,11 @@
  * Example App Synpress Configuration
  * Uses shared config from @jejunetwork/tests
  */
-import { createSynpressConfig, createWalletSetup, PASSWORD } from '@jejunetwork/tests'
+import {
+  createSynpressConfig,
+  createWalletSetup,
+  PASSWORD,
+} from '@jejunetwork/tests'
 
 const EXAMPLE_PORT = parseInt(process.env.PORT || '4500', 10)
 
@@ -23,5 +27,3 @@ export default createSynpressConfig({
 
 export const basicSetup = createWalletSetup()
 export { PASSWORD }
-
-

@@ -5,8 +5,9 @@
  * Supports localnet, testnet, and mainnet deployments.
  */
 
-import { type Address, type Hex, isAddress } from 'viem'
-import type { NetworkType, OracleNodeConfig, PriceSourceConfig } from './types'
+import { type Address, type Hex, isAddress, isHex } from 'viem'
+import type { NetworkType, OracleNodeConfig, PriceSourceConfig } from '@jejunetwork/types'
+import { ZERO_ADDRESS, expectAddress } from '@jejunetwork/types'
 
 interface NetworkConfig {
   chainId: number

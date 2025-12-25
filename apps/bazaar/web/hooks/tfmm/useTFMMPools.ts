@@ -81,13 +81,24 @@ export interface TFMMPoolState {
   totalSupply: bigint
 }
 
+export interface TFMMPoolMetrics {
+  tvlUsd: number
+  apyPercent: number
+  volume24hUsd: number
+}
+
 export interface TFMMPool {
   address: Address
   name: string
   strategy: string
+  /** Formatted TVL string for display (e.g., "$1.2M") */
   tvl: string
+  /** Formatted APY string for display (e.g., "12.5%") */
   apy: string
+  /** Formatted 24h volume string for display (e.g., "$450K") */
   volume24h: string
+  /** Raw numeric metrics for sorting/calculations */
+  metrics: TFMMPoolMetrics
   state: TFMMPoolState | null
   userBalance: bigint
 }
@@ -101,6 +112,7 @@ const DEFAULT_POOLS: Omit<TFMMPool, 'state' | 'userBalance'>[] = [
     tvl: '$1.2M',
     apy: '12.5%',
     volume24h: '$450K',
+    metrics: { tvlUsd: 1_200_000, apyPercent: 12.5, volume24hUsd: 450_000 },
   },
   {
     address: '0x0000000000000000000000000000000000000002' as Address,
@@ -109,6 +121,7 @@ const DEFAULT_POOLS: Omit<TFMMPool, 'state' | 'userBalance'>[] = [
     tvl: '$890K',
     apy: '8.3%',
     volume24h: '$320K',
+    metrics: { tvlUsd: 890_000, apyPercent: 8.3, volume24hUsd: 320_000 },
   },
   {
     address: '0x0000000000000000000000000000000000000003' as Address,
@@ -117,6 +130,7 @@ const DEFAULT_POOLS: Omit<TFMMPool, 'state' | 'userBalance'>[] = [
     tvl: '$2.1M',
     apy: '15.2%',
     volume24h: '$780K',
+    metrics: { tvlUsd: 2_100_000, apyPercent: 15.2, volume24hUsd: 780_000 },
   },
 ]
 
@@ -151,11 +165,11 @@ export function useTFMMPoolState(poolAddress: Address | null) {
 
   const poolState: TFMMPoolState | null = data
     ? {
-        tokens: data[0] as Address[],
-        balances: data[1] as bigint[],
-        weights: data[2] as bigint[],
-        swapFee: data[3] as bigint,
-        totalSupply: data[4] as bigint,
+        tokens: [...data[0]],
+        balances: [...data[1]],
+        weights: [...data[2]],
+        swapFee: data[3],
+        totalSupply: data[4],
       }
     : null
 

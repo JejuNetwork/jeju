@@ -14,8 +14,14 @@
  *   jeju test generate --app gateway
  */
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { basename, dirname, join } from 'node:path'
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs'
+import { basename, join } from 'node:path'
 import type { FormInfo, PageAction, PageInfo, WalletInteraction } from './types'
 
 interface GeneratorConfig {
@@ -40,12 +46,7 @@ const WALLET_PATTERNS = {
     /ConnectButton/,
     /RainbowKitProvider/,
   ],
-  sign: [
-    /signMessage/,
-    /signTypedData/,
-    /useSignMessage/,
-    /useSignTypedData/,
-  ],
+  sign: [/signMessage/, /signTypedData/, /useSignMessage/, /useSignTypedData/],
   transaction: [
     /sendTransaction/,
     /writeContract/,
@@ -53,23 +54,14 @@ const WALLET_PATTERNS = {
     /useWriteContract/,
     /useContractWrite/,
   ],
-  switch_network: [
-    /switchNetwork/,
-    /useSwitchNetwork/,
-    /switchChain/,
-  ],
+  switch_network: [/switchNetwork/, /useSwitchNetwork/, /switchChain/],
 }
 
 // Patterns to detect forms
-const FORM_PATTERNS = [
-  /<form/gi,
-  /useForm\(/,
-  /handleSubmit/,
-  /onSubmit/,
-]
+const _FORM_PATTERNS = [/<form/gi, /useForm\(/, /handleSubmit/, /onSubmit/]
 
 // Patterns to detect buttons and actions
-const ACTION_PATTERNS = [
+const _ACTION_PATTERNS = [
   /<button[^>]*onClick/gi,
   /<Button[^>]*onClick/gi,
   /onClick\s*=\s*\{/g,
@@ -78,7 +70,10 @@ const ACTION_PATTERNS = [
 function findMonorepoRoot(): string {
   let dir = process.cwd()
   while (dir !== '/') {
-    if (existsSync(join(dir, 'bun.lock')) && existsSync(join(dir, 'packages'))) {
+    if (
+      existsSync(join(dir, 'bun.lock')) &&
+      existsSync(join(dir, 'packages'))
+    ) {
       return dir
     }
     dir = join(dir, '..')
@@ -88,12 +83,12 @@ function findMonorepoRoot(): string {
 
 function findPageFiles(dir: string, files: string[] = []): string[] {
   if (!existsSync(dir)) return files
-  
+
   const entries = readdirSync(dir, { withFileTypes: true })
-  
+
   for (const entry of entries) {
     const fullPath = join(dir, entry.name)
-    
+
     if (entry.isDirectory()) {
       if (
         entry.name !== 'node_modules' &&
@@ -111,14 +106,14 @@ function findPageFiles(dir: string, files: string[] = []): string[] {
       files.push(fullPath)
     }
   }
-  
+
   return files
 }
 
 function analyzePage(filePath: string): PageInfo | null {
   const content = readFileSync(filePath, 'utf-8')
   const fileName = basename(filePath, '.tsx')
-  
+
   // Skip non-page components
   const isPage =
     filePath.includes('/pages/') ||
@@ -126,18 +121,22 @@ function analyzePage(filePath: string): PageInfo | null {
     filePath.includes('Page.tsx') ||
     filePath.includes('page.tsx') ||
     PAGE_PATTERNS.some((p) => p.test(content))
-  
+
   if (!isPage) return null
-  
+
   // Extract route from file path
   let route = '/'
   if (filePath.includes('/pages/')) {
-    route = filePath.split('/pages/')[1]?.replace(/\.tsx?$/, '').replace(/index$/, '') || '/'
+    route =
+      filePath
+        .split('/pages/')[1]
+        ?.replace(/\.tsx?$/, '')
+        .replace(/index$/, '') || '/'
   } else if (filePath.includes('/app/')) {
     const appPart = filePath.split('/app/')[1] || ''
-    route = '/' + appPart.replace(/\/page\.tsx?$/, '').replace(/\(.*?\)\//g, '')
+    route = `/${appPart.replace(/\/page\.tsx?$/, '').replace(/\(.*?\)\//g, '')}`
   }
-  
+
   // Detect wallet interactions
   const walletInteractions: WalletInteraction[] = []
   for (const [type, patterns] of Object.entries(WALLET_PATTERNS)) {
@@ -149,18 +148,19 @@ function analyzePage(filePath: string): PageInfo | null {
       })
     }
   }
-  
+
   // Detect forms
   const forms: FormInfo[] = []
   const formMatches = content.match(/<form[^>]*>[\s\S]*?<\/form>/gi) || []
   for (const formMatch of formMatches) {
     const nameMatch = formMatch.match(/name=['"]([^'"]+)['"]/i)
-    const inputMatches = formMatch.match(/<input[^>]*name=['"]([^'"]+)['"]/gi) || []
+    const inputMatches =
+      formMatch.match(/<input[^>]*name=['"]([^'"]+)['"]/gi) || []
     const fields = inputMatches.map((m) => {
       const fieldName = m.match(/name=['"]([^'"]+)['"]/i)?.[1]
       return fieldName || 'unknown'
     })
-    
+
     forms.push({
       name: nameMatch?.[1] || 'form',
       fields,
@@ -169,10 +169,11 @@ function analyzePage(filePath: string): PageInfo | null {
       testCovered: false,
     })
   }
-  
+
   // Detect button actions
   const actions: PageAction[] = []
-  const buttonMatches = content.match(/<[Bb]utton[^>]*>[\s\S]*?<\/[Bb]utton>/gi) || []
+  const buttonMatches =
+    content.match(/<[Bb]utton[^>]*>[\s\S]*?<\/[Bb]utton>/gi) || []
   for (const buttonMatch of buttonMatches) {
     const textMatch = buttonMatch.match(/>([^<]+)</)?.[1]?.trim()
     if (textMatch && textMatch.length < 50) {
@@ -184,7 +185,7 @@ function analyzePage(filePath: string): PageInfo | null {
       })
     }
   }
-  
+
   // Add wallet-specific actions
   if (walletInteractions.some((w) => w.type === 'connect')) {
     actions.push({
@@ -194,7 +195,7 @@ function analyzePage(filePath: string): PageInfo | null {
       testCovered: false,
     })
   }
-  
+
   return {
     path: filePath,
     route,
@@ -206,13 +207,13 @@ function analyzePage(filePath: string): PageInfo | null {
   }
 }
 
-function generateTestCode(page: PageInfo, appName: string): string {
+function generateTestCode(page: PageInfo, _appName: string): string {
   const hasWallet = page.walletInteractions.length > 0
-  const hasForms = page.forms.length > 0
-  
+  const _hasForms = page.forms.length > 0
+
   let imports = `import { expect } from '@playwright/test'
 `
-  
+
   if (hasWallet) {
     imports = `import { test, expect, connectAndVerify, approveTransaction, signMessage } from '@jejunetwork/tests'
 import { MetaMask } from '@synthetixio/synpress/playwright'
@@ -222,7 +223,7 @@ import basicSetup from '../../wallet-setup/basic.setup'
     imports = `import { test, expect } from '@playwright/test'
 `
   }
-  
+
   let testCode = `${imports}
 /**
  * E2E Tests for ${page.component}
@@ -240,13 +241,13 @@ test.describe('${page.component}', () => {
     // TODO: Add more specific assertions
   })
 `
-  
+
   // Generate wallet tests
   if (hasWallet) {
     const hasConnect = page.walletInteractions.some((w) => w.type === 'connect')
     const hasSign = page.walletInteractions.some((w) => w.type === 'sign')
     const hasTx = page.walletInteractions.some((w) => w.type === 'transaction')
-    
+
     if (hasConnect) {
       testCode += `
   test('should connect wallet', async ({ context, page, metamaskPage, extensionId }) => {
@@ -258,7 +259,7 @@ test.describe('${page.component}', () => {
   })
 `
     }
-    
+
     if (hasSign) {
       testCode += `
   test('should sign message', async ({ context, page, metamaskPage, extensionId }) => {
@@ -274,7 +275,7 @@ test.describe('${page.component}', () => {
   })
 `
     }
-    
+
     if (hasTx) {
       testCode += `
   test('should send transaction', async ({ context, page, metamaskPage, extensionId }) => {
@@ -292,7 +293,7 @@ test.describe('${page.component}', () => {
 `
     }
   }
-  
+
   // Generate form tests
   for (const form of page.forms) {
     testCode += `
@@ -316,7 +317,7 @@ ${form.fields.map((field) => `    await page.fill('input[name="${field}"]', 'tes
   })
 `
   }
-  
+
   // Generate action tests
   for (const action of page.actions.filter((a) => a.type === 'click')) {
     testCode += `
@@ -328,10 +329,10 @@ ${form.fields.map((field) => `    await page.fill('input[name="${field}"]', 'tes
   })
 `
   }
-  
+
   testCode += `})
 `
-  
+
   return testCode
 }
 
@@ -364,70 +365,70 @@ export { PASSWORD }
 async function generateTests(config: GeneratorConfig): Promise<void> {
   const rootDir = config.rootDir
   const appsDir = join(rootDir, 'apps')
-  
+
   // Get target apps
   const appNames = config.targetApp
     ? [config.targetApp]
     : readdirSync(appsDir, { withFileTypes: true })
         .filter((d) => d.isDirectory() && !d.name.startsWith('.'))
         .map((d) => d.name)
-  
+
   console.log(`🔧 Generating E2E tests for ${appNames.length} apps...\n`)
-  
+
   for (const appName of appNames) {
     const appPath = join(appsDir, appName)
     if (!existsSync(join(appPath, 'package.json'))) continue
-    
+
     console.log(`📱 Processing ${appName}...`)
-    
+
     // Find pages
     const pageFiles = findPageFiles(join(appPath, 'src'))
       .concat(findPageFiles(join(appPath, 'app')))
       .concat(findPageFiles(join(appPath, 'pages')))
-    
+
     const pages = pageFiles
       .map(analyzePage)
       .filter((p): p is PageInfo => p !== null)
-    
+
     if (pages.length === 0) {
       console.log(`  No pages found in ${appName}`)
       continue
     }
-    
+
     console.log(`  Found ${pages.length} pages`)
-    
+
     // Create test directory
     const testDir = config.outputDir || join(appPath, 'tests', 'synpress')
     const walletSetupDir = join(appPath, 'tests', 'wallet-setup')
-    
+
     mkdirSync(testDir, { recursive: true })
     mkdirSync(walletSetupDir, { recursive: true })
-    
+
     // Check for existing tests
     const existingTests = new Set(
       existsSync(testDir)
         ? readdirSync(testDir).filter((f) => f.endsWith('.spec.ts'))
-        : []
+        : [],
     )
-    
+
     let generated = 0
     let skipped = 0
-    
+
     for (const page of pages) {
       const testFileName = `${page.component.replace(/Page$/, '').toLowerCase()}.spec.ts`
       const testPath = join(testDir, testFileName)
-      
+
       if (existingTests.has(testFileName) && !config.force) {
         skipped++
         continue
       }
-      
+
       const testCode = generateTestCode(page, appName)
       writeFileSync(testPath, testCode)
       generated++
       console.log(`  ✅ Generated ${testFileName}`)
     }
-    
+
     // Generate wallet setup if any page has wallet interactions
     const hasWalletPages = pages.some((p) => p.walletInteractions.length > 0)
     if (hasWalletPages) {
@@ -437,14 +438,14 @@ async function generateTests(config: GeneratorConfig): Promise<void> {
         console.log(`  ✅ Generated wallet-setup/basic.setup.ts`)
       }
     }
-    
+
     // Generate synpress.config.ts if missing
     const synpressConfigPath = join(appPath, 'synpress.config.ts')
     if (!existsSync(synpressConfigPath)) {
       const manifest = existsSync(join(appPath, 'jeju-manifest.json'))
         ? JSON.parse(readFileSync(join(appPath, 'jeju-manifest.json'), 'utf-8'))
         : { ports: { main: 3000 } }
-      
+
       const port = manifest.ports?.main || 3000
       const configCode = `import { createSynpressConfig, createWalletSetup } from '@jejunetwork/tests'
 
@@ -464,10 +465,10 @@ export const basicSetup = createWalletSetup()
       writeFileSync(synpressConfigPath, configCode)
       console.log(`  ✅ Generated synpress.config.ts`)
     }
-    
+
     console.log(`  Summary: ${generated} generated, ${skipped} skipped\n`)
   }
-  
+
   console.log('✅ E2E test generation complete')
 }
 
@@ -485,5 +486,3 @@ generateTests(config).catch((error) => {
   console.error('Test generation failed:', error)
   process.exit(1)
 })
-
-

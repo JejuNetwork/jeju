@@ -1,6 +1,6 @@
+import { JEJU_CHAIN, PASSWORD, SEED_PHRASE } from '@jejunetwork/tests'
 import { defineWalletSetup } from '@synthetixio/synpress'
 import { MetaMask } from '@synthetixio/synpress/playwright'
-import { JEJU_CHAIN, PASSWORD, SEED_PHRASE } from '@jejunetwork/tests'
 
 export default defineWalletSetup(PASSWORD, async (context, walletPage) => {
   const metamask = new MetaMask(context, walletPage, PASSWORD)
@@ -20,5 +20,3 @@ export default defineWalletSetup(PASSWORD, async (context, walletPage) => {
 })
 
 export { PASSWORD }
-
-

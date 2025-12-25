@@ -93,244 +93,240 @@ interface StrategyComparison {
 
 // ============ Statistical Functions ============
 
-class Statistics {
-  /**
-   * Calculate mean
-   */
-  static mean(data: number[]): number {
-    if (data.length === 0) return 0
-    return data.reduce((a, b) => a + b, 0) / data.length
-  }
+/** Calculate mean */
+function statMean(data: number[]): number {
+  if (data.length === 0) return 0
+  return data.reduce((a, b) => a + b, 0) / data.length
+}
 
-  /**
-   * Calculate standard deviation (sample)
-   */
-  static std(data: number[]): number {
-    if (data.length < 2) return 0
-    const avg = this.mean(data)
-    const squareDiffs = data.map(x => (x - avg) ** 2)
-    return Math.sqrt(squareDiffs.reduce((a, b) => a + b, 0) / (data.length - 1))
-  }
+/** Calculate standard deviation (sample) */
+function statStd(data: number[]): number {
+  if (data.length < 2) return 0
+  const avg = statMean(data)
+  const squareDiffs = data.map((x) => (x - avg) ** 2)
+  return Math.sqrt(squareDiffs.reduce((a, b) => a + b, 0) / (data.length - 1))
+}
 
-  /**
-   * Calculate standard error of the mean
-   */
-  static sem(data: number[]): number {
-    return this.std(data) / Math.sqrt(data.length)
-  }
+/** Calculate standard error of the mean */
+function statSem(data: number[]): number {
+  return statStd(data) / Math.sqrt(data.length)
+}
 
-  /**
-   * Calculate percentile
-   */
-  static percentile(data: number[], p: number): number {
-    if (data.length === 0) return 0
-    const sorted = [...data].sort((a, b) => a - b)
-    const idx = (p / 100) * (sorted.length - 1)
-    const lower = Math.floor(idx)
-    const upper = Math.ceil(idx)
-    if (lower === upper) return sorted[lower]
-    return sorted[lower] + (sorted[upper] - sorted[lower]) * (idx - lower)
-  }
+/** Calculate percentile */
+function statPercentile(data: number[], p: number): number {
+  if (data.length === 0) return 0
+  const sorted = [...data].sort((a, b) => a - b)
+  const idx = (p / 100) * (sorted.length - 1)
+  const lower = Math.floor(idx)
+  const upper = Math.ceil(idx)
+  if (lower === upper) return sorted[lower]
+  return sorted[lower] + (sorted[upper] - sorted[lower]) * (idx - lower)
+}
 
-  /**
-   * Calculate max drawdown
-   */
-  static maxDrawdown(returns: number[]): number {
-    let peak = 0
-    let maxDd = 0
-    let cumulative = 0
+/** Calculate max drawdown */
+function statMaxDrawdown(returns: number[]): number {
+  let peak = 0
+  let maxDd = 0
+  let cumulative = 0
 
-    for (const r of returns) {
-      cumulative += r
-      if (cumulative > peak) {
-        peak = cumulative
-      }
-      const dd = (peak - cumulative) / Math.max(peak, 1)
-      if (dd > maxDd) {
-        maxDd = dd
-      }
+  for (const r of returns) {
+    cumulative += r
+    if (cumulative > peak) {
+      peak = cumulative
     }
-
-    return maxDd
-  }
-
-  /**
-   * Calculate Sharpe ratio (annualized)
-   */
-  static sharpeRatio(returns: number[], riskFreeRate: number, periodsPerYear: number = 365): number {
-    if (returns.length < 2) return 0
-
-    const mean = this.mean(returns)
-    const std = this.std(returns)
-
-    if (std === 0) return mean > 0 ? Infinity : mean < 0 ? -Infinity : 0
-
-    const dailyRf = riskFreeRate / periodsPerYear
-    const excessReturn = mean - dailyRf
-    const annualizationFactor = Math.sqrt(periodsPerYear)
-
-    return (excessReturn / std) * annualizationFactor
-  }
-
-  /**
-   * Calculate Sortino ratio (using downside deviation)
-   */
-  static sortinoRatio(returns: number[], riskFreeRate: number, periodsPerYear: number = 365): number {
-    if (returns.length < 2) return 0
-
-    const mean = this.mean(returns)
-    const dailyRf = riskFreeRate / periodsPerYear
-    const excessReturn = mean - dailyRf
-
-    // Downside deviation
-    const negativeReturns = returns.filter(r => r < 0)
-    if (negativeReturns.length === 0) return Infinity
-
-    const downsideDeviation = Math.sqrt(
-      negativeReturns.map(r => r ** 2).reduce((a, b) => a + b, 0) / returns.length
-    )
-
-    if (downsideDeviation === 0) return excessReturn > 0 ? Infinity : 0
-
-    const annualizationFactor = Math.sqrt(periodsPerYear)
-    return (excessReturn / downsideDeviation) * annualizationFactor
-  }
-
-  /**
-   * Calculate Calmar ratio (return / max drawdown)
-   */
-  static calmarRatio(returns: number[], periodsPerYear: number = 365): number {
-    const annualReturn = this.mean(returns) * periodsPerYear
-    const maxDd = this.maxDrawdown(returns)
-    if (maxDd === 0) return annualReturn > 0 ? Infinity : 0
-    return annualReturn / maxDd
-  }
-
-  /**
-   * One-sample t-test (test if mean is significantly different from 0)
-   */
-  static tTest(data: number[]): { tStat: number; pValue: number } {
-    if (data.length < 2) return { tStat: 0, pValue: 1 }
-
-    const mean = this.mean(data)
-    const sem = this.sem(data)
-
-    if (sem === 0) return { tStat: mean > 0 ? Infinity : -Infinity, pValue: 0 }
-
-    const tStat = mean / sem
-    const df = data.length - 1
-
-    // Approximate p-value using t-distribution CDF
-    const pValue = this.tDistPValue(Math.abs(tStat), df) * 2 // Two-tailed
-    return { tStat, pValue }
-  }
-
-  /**
-   * Two-sample t-test (compare two strategies)
-   */
-  static twoSampleTTest(data1: number[], data2: number[]): { tStat: number; pValue: number } {
-    if (data1.length < 2 || data2.length < 2) return { tStat: 0, pValue: 1 }
-
-    const mean1 = this.mean(data1)
-    const mean2 = this.mean(data2)
-    const var1 = this.std(data1) ** 2
-    const var2 = this.std(data2) ** 2
-    const n1 = data1.length
-    const n2 = data2.length
-
-    const pooledSE = Math.sqrt(var1 / n1 + var2 / n2)
-    if (pooledSE === 0) return { tStat: 0, pValue: 1 }
-
-    const tStat = (mean1 - mean2) / pooledSE
-
-    // Welch-Satterthwaite degrees of freedom
-    const df = Math.floor(
-      (var1 / n1 + var2 / n2) ** 2 /
-      ((var1 / n1) ** 2 / (n1 - 1) + (var2 / n2) ** 2 / (n2 - 1))
-    )
-
-    const pValue = this.tDistPValue(Math.abs(tStat), df) * 2
-    return { tStat, pValue }
-  }
-
-  /**
-   * Approximate t-distribution p-value using normal approximation for large df
-   */
-  private static tDistPValue(t: number, df: number): number {
-    // For df > 30, approximate with normal distribution
-    if (df > 30) {
-      return this.normalCDF(-Math.abs(t))
+    const dd = (peak - cumulative) / Math.max(peak, 1)
+    if (dd > maxDd) {
+      maxDd = dd
     }
-
-    // Beta function approximation for smaller df
-    const x = df / (df + t * t)
-    return 0.5 * this.incompleteBeta(df / 2, 0.5, x)
   }
 
-  /**
-   * Standard normal CDF
-   */
-  private static normalCDF(x: number): number {
-    const a1 = 0.254829592
-    const a2 = -0.284496736
-    const a3 = 1.421413741
-    const a4 = -1.453152027
-    const a5 = 1.061405429
-    const p = 0.3275911
+  return maxDd
+}
 
-    const sign = x < 0 ? -1 : 1
-    x = Math.abs(x) / Math.sqrt(2)
-    const t = 1 / (1 + p * x)
-    const y = 1 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x)
+/** Calculate Sharpe ratio (annualized) */
+function statSharpeRatio(
+  returns: number[],
+  riskFreeRate: number,
+  periodsPerYear: number = 365,
+): number {
+  if (returns.length < 2) return 0
 
-    return 0.5 * (1 + sign * y)
+  const mean = statMean(returns)
+  const std = statStd(returns)
+
+  if (std === 0) return mean > 0 ? Infinity : mean < 0 ? -Infinity : 0
+
+  const dailyRf = riskFreeRate / periodsPerYear
+  const excessReturn = mean - dailyRf
+  const annualizationFactor = Math.sqrt(periodsPerYear)
+
+  return (excessReturn / std) * annualizationFactor
+}
+
+/** Calculate Sortino ratio (using downside deviation) */
+function statSortinoRatio(
+  returns: number[],
+  riskFreeRate: number,
+  periodsPerYear: number = 365,
+): number {
+  if (returns.length < 2) return 0
+
+  const mean = statMean(returns)
+  const dailyRf = riskFreeRate / periodsPerYear
+  const excessReturn = mean - dailyRf
+
+  const negativeReturns = returns.filter((r) => r < 0)
+  if (negativeReturns.length === 0) return Infinity
+
+  const downsideDeviation = Math.sqrt(
+    negativeReturns.map((r) => r ** 2).reduce((a, b) => a + b, 0) /
+      returns.length,
+  )
+
+  if (downsideDeviation === 0) return excessReturn > 0 ? Infinity : 0
+
+  const annualizationFactor = Math.sqrt(periodsPerYear)
+  return (excessReturn / downsideDeviation) * annualizationFactor
+}
+
+/** Calculate Calmar ratio (return / max drawdown) */
+function statCalmarRatio(
+  returns: number[],
+  periodsPerYear: number = 365,
+): number {
+  const annualReturn = statMean(returns) * periodsPerYear
+  const maxDd = statMaxDrawdown(returns)
+  if (maxDd === 0) return annualReturn > 0 ? Infinity : 0
+  return annualReturn / maxDd
+}
+
+/** Standard normal CDF */
+function normalCDF(x: number): number {
+  const a1 = 0.254829592
+  const a2 = -0.284496736
+  const a3 = 1.421413741
+  const a4 = -1.453152027
+  const a5 = 1.061405429
+  const p = 0.3275911
+
+  const sign = x < 0 ? -1 : 1
+  const absX = Math.abs(x) / Math.sqrt(2)
+  const t = 1 / (1 + p * absX)
+  const y =
+    1 -
+    ((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t * Math.exp(-absX * absX)
+
+  return 0.5 * (1 + sign * y)
+}
+
+/** Incomplete beta function (simplified) */
+function incompleteBeta(a: number, b: number, x: number): number {
+  const maxIterations = 100
+  const epsilon = 1e-10
+
+  let result = 0
+  let term = 1
+
+  for (let n = 0; n < maxIterations; n++) {
+    term *= (x * (a + n)) / (a + b + n)
+    result += term
+    if (Math.abs(term) < epsilon) break
   }
 
-  /**
-   * Incomplete beta function (simplified)
-   */
-  private static incompleteBeta(a: number, b: number, x: number): number {
-    // Simplified continued fraction approximation
-    const maxIterations = 100
-    const epsilon = 1e-10
+  return (x ** a * (1 - x) ** b * result) / a
+}
 
-    let result = 0
-    let term = 1
+/** Approximate t-distribution p-value using normal approximation for large df */
+function tDistPValue(t: number, df: number): number {
+  if (df > 30) {
+    return normalCDF(-Math.abs(t))
+  }
+  const x = df / (df + t * t)
+  return 0.5 * incompleteBeta(df / 2, 0.5, x)
+}
 
-    for (let n = 0; n < maxIterations; n++) {
-      term *= x * (a + n) / (a + b + n)
-      result += term
-      if (Math.abs(term) < epsilon) break
-    }
+/** One-sample t-test (test if mean is significantly different from 0) */
+function statTTest(data: number[]): { tStat: number; pValue: number } {
+  if (data.length < 2) return { tStat: 0, pValue: 1 }
 
-    return Math.pow(x, a) * Math.pow(1 - x, b) * result / a
+  const mean = statMean(data)
+  const sem = statSem(data)
+
+  if (sem === 0) return { tStat: mean > 0 ? Infinity : -Infinity, pValue: 0 }
+
+  const tStat = mean / sem
+  const df = data.length - 1
+
+  const pValue = tDistPValue(Math.abs(tStat), df) * 2
+  return { tStat, pValue }
+}
+
+/** Two-sample t-test (compare two strategies) */
+function statTwoSampleTTest(
+  data1: number[],
+  data2: number[],
+): { tStat: number; pValue: number } {
+  if (data1.length < 2 || data2.length < 2) return { tStat: 0, pValue: 1 }
+
+  const mean1 = statMean(data1)
+  const mean2 = statMean(data2)
+  const var1 = statStd(data1) ** 2
+  const var2 = statStd(data2) ** 2
+  const n1 = data1.length
+  const n2 = data2.length
+
+  const pooledSE = Math.sqrt(var1 / n1 + var2 / n2)
+  if (pooledSE === 0) return { tStat: 0, pValue: 1 }
+
+  const tStat = (mean1 - mean2) / pooledSE
+
+  const df = Math.floor(
+    (var1 / n1 + var2 / n2) ** 2 /
+      ((var1 / n1) ** 2 / (n1 - 1) + (var2 / n2) ** 2 / (n2 - 1)),
+  )
+
+  const pValue = tDistPValue(Math.abs(tStat), df) * 2
+  return { tStat, pValue }
+}
+
+/** Confidence interval for the mean */
+function statConfidenceInterval(
+  data: number[],
+  confidence: number,
+): [number, number] {
+  if (data.length < 2) return [0, 0]
+
+  const mean = statMean(data)
+  const sem = statSem(data)
+  const df = data.length - 1
+
+  let tCritical: number
+  if (confidence >= 0.99) tCritical = 2.576
+  else if (confidence >= 0.95) tCritical = 1.96
+  else if (confidence >= 0.9) tCritical = 1.645
+  else tCritical = 1.28
+
+  if (df < 30) {
+    tCritical *= 1 + 1 / df
   }
 
-  /**
-   * Confidence interval for the mean
-   */
-  static confidenceInterval(data: number[], confidence: number): [number, number] {
-    if (data.length < 2) return [0, 0]
+  const margin = tCritical * sem
+  return [mean - margin, mean + margin]
+}
 
-    const mean = this.mean(data)
-    const sem = this.sem(data)
-    const df = data.length - 1
-
-    // t-critical value (approximation for common confidence levels)
-    let tCritical: number
-    if (confidence >= 0.99) tCritical = 2.576
-    else if (confidence >= 0.95) tCritical = 1.96
-    else if (confidence >= 0.90) tCritical = 1.645
-    else tCritical = 1.28
-
-    // Adjust for small samples
-    if (df < 30) {
-      tCritical *= 1 + 1 / df
-    }
-
-    const margin = tCritical * sem
-    return [mean - margin, mean + margin]
-  }
+/** Statistics namespace for backward compatibility */
+const Statistics = {
+  mean: statMean,
+  std: statStd,
+  sem: statSem,
+  percentile: statPercentile,
+  maxDrawdown: statMaxDrawdown,
+  sharpeRatio: statSharpeRatio,
+  sortinoRatio: statSortinoRatio,
+  calmarRatio: statCalmarRatio,
+  tTest: statTTest,
+  twoSampleTTest: statTwoSampleTTest,
+  confidenceInterval: statConfidenceInterval,
 }
 
 // ============ Benchmark Engine ============
@@ -372,9 +368,11 @@ export class ScientificBenchmark {
    * Calculate metrics for a strategy
    */
   calculateMetrics(strategyName: string): StrategyMetrics {
-    const strategyTrades = this.trades.filter(t => t.strategy === strategyName)
-    const pnls = strategyTrades.map(t => t.netProfit)
-    const successfulTrades = strategyTrades.filter(t => t.success).length
+    const strategyTrades = this.trades.filter(
+      (t) => t.strategy === strategyName,
+    )
+    const pnls = strategyTrades.map((t) => t.netProfit)
+    const successfulTrades = strategyTrades.filter((t) => t.success).length
 
     const totalPnl = pnls.reduce((a, b) => a + b, 0)
     const avgPnl = Statistics.mean(pnls)
@@ -385,26 +383,37 @@ export class ScientificBenchmark {
     const calmarRatio = Statistics.calmarRatio(pnls)
 
     // Profit factor
-    const gains = pnls.filter(p => p > 0).reduce((a, b) => a + b, 0)
-    const losses = Math.abs(pnls.filter(p => p < 0).reduce((a, b) => a + b, 0))
+    const gains = pnls.filter((p) => p > 0).reduce((a, b) => a + b, 0)
+    const losses = Math.abs(
+      pnls.filter((p) => p < 0).reduce((a, b) => a + b, 0),
+    )
     const profitFactor = losses > 0 ? gains / losses : gains > 0 ? Infinity : 0
 
     // Statistical significance
     const { pValue } = Statistics.tTest(pnls)
-    const isSignificant = pValue < (1 - this.config.confidenceLevel) &&
+    const isSignificant =
+      pValue < 1 - this.config.confidenceLevel &&
       strategyTrades.length >= this.config.minTradesForSignificance
 
     // Confidence interval
-    const confidenceInterval = Statistics.confidenceInterval(pnls, this.config.confidenceLevel)
+    const confidenceInterval = Statistics.confidenceInterval(
+      pnls,
+      this.config.confidenceLevel,
+    )
 
     // Average execution time
-    const avgExecutionTime = Statistics.mean(strategyTrades.map(t => t.executionTime))
+    const avgExecutionTime = Statistics.mean(
+      strategyTrades.map((t) => t.executionTime),
+    )
 
     return {
       name: strategyName,
       totalTrades: strategyTrades.length,
       successfulTrades,
-      winRate: strategyTrades.length > 0 ? successfulTrades / strategyTrades.length : 0,
+      winRate:
+        strategyTrades.length > 0
+          ? successfulTrades / strategyTrades.length
+          : 0,
       totalPnl,
       avgPnl,
       stdPnl,
@@ -425,7 +434,7 @@ export class ScientificBenchmark {
    */
   runWalkForward(strategyName: string): WalkForwardResult {
     const strategyTrades = this.trades
-      .filter(t => t.strategy === strategyName)
+      .filter((t) => t.strategy === strategyName)
       .sort((a, b) => a.timestamp - b.timestamp)
 
     if (strategyTrades.length < 50) {
@@ -437,16 +446,23 @@ export class ScientificBenchmark {
     const outOfSampleTrades = strategyTrades.slice(cutoffIdx)
 
     // Calculate metrics for each period
-    const inSamplePnls = inSampleTrades.map(t => t.netProfit)
-    const outOfSamplePnls = outOfSampleTrades.map(t => t.netProfit)
+    const _inSamplePnls = inSampleTrades.map((t) => t.netProfit)
+    const _outOfSamplePnls = outOfSampleTrades.map((t) => t.netProfit)
 
-    const inSampleMetrics = this.calculateMetricsFromPnls(strategyName, inSampleTrades)
-    const outOfSampleMetrics = this.calculateMetricsFromPnls(strategyName, outOfSampleTrades)
+    const inSampleMetrics = this.calculateMetricsFromPnls(
+      strategyName,
+      inSampleTrades,
+    )
+    const outOfSampleMetrics = this.calculateMetricsFromPnls(
+      strategyName,
+      outOfSampleTrades,
+    )
 
     // Overfit ratio: how much worse is out-of-sample vs in-sample
-    const overfitRatio = inSampleMetrics.avgPnl > 0
-      ? outOfSampleMetrics.avgPnl / inSampleMetrics.avgPnl
-      : 0
+    const overfitRatio =
+      inSampleMetrics.avgPnl > 0
+        ? outOfSampleMetrics.avgPnl / inSampleMetrics.avgPnl
+        : 0
 
     // Strategy is robust if out-of-sample performance is at least 50% of in-sample
     const isRobust = overfitRatio >= 0.5 && outOfSampleMetrics.isSignificant
@@ -463,8 +479,10 @@ export class ScientificBenchmark {
    * Run Monte Carlo simulation
    */
   runMonteCarlo(strategyName: string): MonteCarloResult {
-    const strategyTrades = this.trades.filter(t => t.strategy === strategyName)
-    const pnls = strategyTrades.map(t => t.netProfit)
+    const strategyTrades = this.trades.filter(
+      (t) => t.strategy === strategyName,
+    )
+    const pnls = strategyTrades.map((t) => t.netProfit)
 
     if (pnls.length === 0) {
       return {
@@ -498,7 +516,8 @@ export class ScientificBenchmark {
     const p5Pnl = Statistics.percentile(simulations, 5)
     const p95Pnl = Statistics.percentile(simulations, 95)
 
-    const probabilityOfProfit = simulations.filter(s => s > 0).length / simulations.length
+    const probabilityOfProfit =
+      simulations.filter((s) => s > 0).length / simulations.length
 
     // VaR: 5th percentile loss
     const valueAtRisk = -p5Pnl
@@ -528,7 +547,12 @@ export class ScientificBenchmark {
 
     for (const strategy of this.strategies) {
       metrics.set(strategy, this.calculateMetrics(strategy))
-      pnlsByStrategy.set(strategy, this.trades.filter(t => t.strategy === strategy).map(t => t.netProfit))
+      pnlsByStrategy.set(
+        strategy,
+        this.trades
+          .filter((t) => t.strategy === strategy)
+          .map((t) => t.netProfit),
+      )
     }
 
     // Rank strategies by risk-adjusted return (Sharpe ratio)
@@ -537,7 +561,10 @@ export class ScientificBenchmark {
       .sort((a, b) => b.score - a.score)
 
     // Pairwise t-tests
-    const pairwiseTests = new Map<string, Map<string, { tStat: number; pValue: number }>>()
+    const pairwiseTests = new Map<
+      string,
+      Map<string, { tStat: number; pValue: number }>
+    >()
 
     for (const s1 of this.strategies) {
       pairwiseTests.set(s1, new Map())
@@ -580,7 +607,11 @@ export class ScientificBenchmark {
     }
 
     const comparison = this.compareStrategies()
-    const recommendations = this.generateRecommendations(strategies, walkForward, monteCarlo)
+    const recommendations = this.generateRecommendations(
+      strategies,
+      walkForward,
+      monteCarlo,
+    )
 
     return {
       timestamp: new Date(),
@@ -599,52 +630,76 @@ export class ScientificBenchmark {
   printReport(): void {
     const report = this.generateReport()
 
-    console.log('\n' + '═'.repeat(80))
+    console.log(`\n${'═'.repeat(80)}`)
     console.log('                    SCIENTIFIC BENCHMARK REPORT')
     console.log('═'.repeat(80))
     console.log(`  Generated: ${report.timestamp.toISOString()}`)
     console.log(`  Trades analyzed: ${this.trades.length}`)
     console.log(`  Strategies: ${this.strategies.size}`)
 
-    console.log('\n' + '─'.repeat(80))
+    console.log(`\n${'─'.repeat(80)}`)
     console.log('  STRATEGY METRICS')
     console.log('─'.repeat(80))
 
     for (const [name, metrics] of report.strategies) {
       console.log(`\n  📊 ${name}`)
-      console.log(`     Trades: ${metrics.totalTrades} | Win Rate: ${(metrics.winRate * 100).toFixed(1)}%`)
-      console.log(`     Total PnL: $${metrics.totalPnl.toFixed(2)} | Avg: $${metrics.avgPnl.toFixed(2)}`)
-      console.log(`     Sharpe: ${metrics.sharpeRatio.toFixed(2)} | Sortino: ${metrics.sortinRatio.toFixed(2)}`)
-      console.log(`     Max Drawdown: ${(metrics.maxDrawdown * 100).toFixed(1)}%`)
-      console.log(`     95% CI: [$${metrics.confidenceInterval[0].toFixed(2)}, $${metrics.confidenceInterval[1].toFixed(2)}]`)
-      console.log(`     p-value: ${metrics.pValue.toFixed(4)} | Significant: ${metrics.isSignificant ? '✅' : '❌'}`)
+      console.log(
+        `     Trades: ${metrics.totalTrades} | Win Rate: ${(metrics.winRate * 100).toFixed(1)}%`,
+      )
+      console.log(
+        `     Total PnL: $${metrics.totalPnl.toFixed(2)} | Avg: $${metrics.avgPnl.toFixed(2)}`,
+      )
+      console.log(
+        `     Sharpe: ${metrics.sharpeRatio.toFixed(2)} | Sortino: ${metrics.sortinRatio.toFixed(2)}`,
+      )
+      console.log(
+        `     Max Drawdown: ${(metrics.maxDrawdown * 100).toFixed(1)}%`,
+      )
+      console.log(
+        `     95% CI: [$${metrics.confidenceInterval[0].toFixed(2)}, $${metrics.confidenceInterval[1].toFixed(2)}]`,
+      )
+      console.log(
+        `     p-value: ${metrics.pValue.toFixed(4)} | Significant: ${metrics.isSignificant ? '✅' : '❌'}`,
+      )
     }
 
-    console.log('\n' + '─'.repeat(80))
+    console.log(`\n${'─'.repeat(80)}`)
     console.log('  WALK-FORWARD VALIDATION')
     console.log('─'.repeat(80))
 
     for (const [name, wf] of report.walkForward) {
       console.log(`\n  📈 ${name}`)
-      console.log(`     In-sample Sharpe: ${wf.inSampleMetrics.sharpeRatio.toFixed(2)}`)
-      console.log(`     Out-of-sample Sharpe: ${wf.outOfSampleMetrics.sharpeRatio.toFixed(2)}`)
+      console.log(
+        `     In-sample Sharpe: ${wf.inSampleMetrics.sharpeRatio.toFixed(2)}`,
+      )
+      console.log(
+        `     Out-of-sample Sharpe: ${wf.outOfSampleMetrics.sharpeRatio.toFixed(2)}`,
+      )
       console.log(`     Overfit Ratio: ${(wf.overfitRatio * 100).toFixed(1)}%`)
       console.log(`     Robust: ${wf.isRobust ? '✅' : '❌'}`)
     }
 
-    console.log('\n' + '─'.repeat(80))
+    console.log(`\n${'─'.repeat(80)}`)
     console.log('  MONTE CARLO ANALYSIS')
     console.log('─'.repeat(80))
 
     for (const [name, mc] of report.monteCarlo) {
       console.log(`\n  🎲 ${name}`)
-      console.log(`     Mean PnL: $${mc.meanPnl.toFixed(2)} | Median: $${mc.medianPnl.toFixed(2)}`)
-      console.log(`     5th-95th percentile: [$${mc.p5Pnl.toFixed(2)}, $${mc.p95Pnl.toFixed(2)}]`)
-      console.log(`     Probability of Profit: ${(mc.probabilityOfProfit * 100).toFixed(1)}%`)
-      console.log(`     95% VaR: $${mc.valueAtRisk.toFixed(2)} | CVaR: $${mc.conditionalVaR.toFixed(2)}`)
+      console.log(
+        `     Mean PnL: $${mc.meanPnl.toFixed(2)} | Median: $${mc.medianPnl.toFixed(2)}`,
+      )
+      console.log(
+        `     5th-95th percentile: [$${mc.p5Pnl.toFixed(2)}, $${mc.p95Pnl.toFixed(2)}]`,
+      )
+      console.log(
+        `     Probability of Profit: ${(mc.probabilityOfProfit * 100).toFixed(1)}%`,
+      )
+      console.log(
+        `     95% VaR: $${mc.valueAtRisk.toFixed(2)} | CVaR: $${mc.conditionalVaR.toFixed(2)}`,
+      )
     }
 
-    console.log('\n' + '─'.repeat(80))
+    console.log(`\n${'─'.repeat(80)}`)
     console.log('  STRATEGY RANKINGS')
     console.log('─'.repeat(80))
 
@@ -653,7 +708,7 @@ export class ScientificBenchmark {
       console.log(`  ${i + 1}. ${r.strategy}: Sharpe = ${r.score.toFixed(2)}`)
     }
 
-    console.log('\n' + '─'.repeat(80))
+    console.log(`\n${'─'.repeat(80)}`)
     console.log('  RECOMMENDATIONS')
     console.log('─'.repeat(80))
 
@@ -661,12 +716,15 @@ export class ScientificBenchmark {
       console.log(`  • ${rec}`)
     }
 
-    console.log('\n' + '═'.repeat(80))
+    console.log(`\n${'═'.repeat(80)}`)
   }
 
-  private calculateMetricsFromPnls(name: string, trades: TradeRecord[]): StrategyMetrics {
-    const pnls = trades.map(t => t.netProfit)
-    const successfulTrades = trades.filter(t => t.success).length
+  private calculateMetricsFromPnls(
+    name: string,
+    trades: TradeRecord[],
+  ): StrategyMetrics {
+    const pnls = trades.map((t) => t.netProfit)
+    const successfulTrades = trades.filter((t) => t.success).length
     const totalPnl = pnls.reduce((a, b) => a + b, 0)
     const { pValue } = Statistics.tTest(pnls)
 
@@ -683,53 +741,71 @@ export class ScientificBenchmark {
       sortinRatio: Statistics.sortinoRatio(pnls, this.config.riskFreeRate),
       calmarRatio: Statistics.calmarRatio(pnls),
       profitFactor: this.calculateProfitFactor(pnls),
-      avgExecutionTime: Statistics.mean(trades.map(t => t.executionTime)),
-      confidenceInterval: Statistics.confidenceInterval(pnls, this.config.confidenceLevel),
+      avgExecutionTime: Statistics.mean(trades.map((t) => t.executionTime)),
+      confidenceInterval: Statistics.confidenceInterval(
+        pnls,
+        this.config.confidenceLevel,
+      ),
       pValue,
-      isSignificant: pValue < (1 - this.config.confidenceLevel) &&
+      isSignificant:
+        pValue < 1 - this.config.confidenceLevel &&
         trades.length >= this.config.minTradesForSignificance,
     }
   }
 
   private calculateProfitFactor(pnls: number[]): number {
-    const gains = pnls.filter(p => p > 0).reduce((a, b) => a + b, 0)
-    const losses = Math.abs(pnls.filter(p => p < 0).reduce((a, b) => a + b, 0))
+    const gains = pnls.filter((p) => p > 0).reduce((a, b) => a + b, 0)
+    const losses = Math.abs(
+      pnls.filter((p) => p < 0).reduce((a, b) => a + b, 0),
+    )
     return losses > 0 ? gains / losses : gains > 0 ? Infinity : 0
   }
 
   private generateRecommendations(
     strategies: Map<string, StrategyMetrics>,
     walkForward: Map<string, WalkForwardResult>,
-    monteCarlo: Map<string, MonteCarloResult>
+    monteCarlo: Map<string, MonteCarloResult>,
   ): string[] {
     const recommendations: string[] = []
 
     for (const [name, metrics] of strategies) {
       if (!metrics.isSignificant) {
-        recommendations.push(`${name}: Need more trades (${metrics.totalTrades} < ${this.config.minTradesForSignificance}) for statistical significance`)
+        recommendations.push(
+          `${name}: Need more trades (${metrics.totalTrades} < ${this.config.minTradesForSignificance}) for statistical significance`,
+        )
       }
 
       if (metrics.sharpeRatio < 1) {
-        recommendations.push(`${name}: Sharpe ratio < 1 indicates poor risk-adjusted returns`)
+        recommendations.push(
+          `${name}: Sharpe ratio < 1 indicates poor risk-adjusted returns`,
+        )
       }
 
       if (metrics.maxDrawdown > 0.2) {
-        recommendations.push(`${name}: High max drawdown (${(metrics.maxDrawdown * 100).toFixed(1)}%) - consider position sizing`)
+        recommendations.push(
+          `${name}: High max drawdown (${(metrics.maxDrawdown * 100).toFixed(1)}%) - consider position sizing`,
+        )
       }
 
       const wf = walkForward.get(name)
       if (wf && !wf.isRobust) {
-        recommendations.push(`${name}: Strategy may be overfit (${(wf.overfitRatio * 100).toFixed(1)}% out-of-sample performance)`)
+        recommendations.push(
+          `${name}: Strategy may be overfit (${(wf.overfitRatio * 100).toFixed(1)}% out-of-sample performance)`,
+        )
       }
 
       const mc = monteCarlo.get(name)
       if (mc && mc.probabilityOfProfit < 0.6) {
-        recommendations.push(`${name}: Low probability of profit (${(mc.probabilityOfProfit * 100).toFixed(1)}%)`)
+        recommendations.push(
+          `${name}: Low probability of profit (${(mc.probabilityOfProfit * 100).toFixed(1)}%)`,
+        )
       }
     }
 
     if (recommendations.length === 0) {
-      recommendations.push('All strategies show statistically significant positive returns')
+      recommendations.push(
+        'All strategies show statistically significant positive returns',
+      )
     }
 
     return recommendations
@@ -768,7 +844,7 @@ async function main() {
       case 'liquidation':
         meanProfit = 200
         stdProfit = 300
-        successRate = 0.40
+        successRate = 0.4
         break
       case 'backrun':
         meanProfit = 30
@@ -778,7 +854,7 @@ async function main() {
       case 'jit':
         meanProfit = 20
         stdProfit = 50
-        successRate = 0.70
+        successRate = 0.7
         break
       default:
         meanProfit = 0
@@ -816,5 +892,3 @@ if (import.meta.main) {
 }
 
 export { Statistics }
-
-

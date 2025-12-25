@@ -12,6 +12,7 @@
 
 import { getCoreAppUrl } from '@jejunetwork/config'
 import type { Address } from 'viem'
+import { z } from 'zod'
 import type { TokenBalance } from './multi-chain-discovery'
 
 export interface CrossChainQuote {
@@ -81,6 +82,22 @@ interface OIFQuoteResponse {
   validUntil: number
 }
 
+const OIFQuoteResponseSchema = z.object({
+  quoteId: z.string(),
+  sourceChainId: z.number(),
+  destinationChainId: z.number(),
+  sourceToken: z.string(),
+  destinationToken: z.string(),
+  inputAmount: z.string(),
+  outputAmount: z.string(),
+  fee: z.string(),
+  feePercent: z.number(),
+  estimatedFillTimeSeconds: z.number(),
+  solver: z.string(),
+  solverReputation: z.number(),
+  validUntil: z.number(),
+})
+
 interface OIFIntentResponse {
   intentId: string
   user: string
@@ -94,6 +111,28 @@ interface OIFIntentResponse {
   createdAt: number
   filledAt?: number
 }
+
+const OIFIntentResponseSchema = z.object({
+  intentId: z.string(),
+  user: z.string(),
+  sourceChainId: z.number(),
+  destinationChainId: z.number(),
+  inputs: z.array(z.object({ token: z.string(), amount: z.string() })),
+  outputs: z.array(z.object({ token: z.string(), amount: z.string() })),
+  status: z.enum(['pending', 'open', 'filled', 'cancelled', 'expired']),
+  solver: z.string().optional(),
+  fillTxHash: z.string().optional(),
+  createdAt: z.number(),
+  filledAt: z.number().optional(),
+})
+
+const OIFRouteResponseSchema = z.object({
+  sourceChain: z.number(),
+  destChain: z.number(),
+  supportedTokens: z.array(z.string()),
+  avgFeePercent: z.number(),
+  avgFillTime: z.number(),
+})
 
 export class OIFClient {
   private config: Required<OIFConfig>
@@ -130,8 +169,9 @@ export class OIFClient {
     }
 
     // OIF API returns array directly, not wrapped in { quotes: [...] }
-    const data = (await response.json()) as OIFQuoteResponse[]
-    const quotes = Array.isArray(data) ? data : []
+    const rawData: unknown = await response.json()
+    const parsed = z.array(OIFQuoteResponseSchema).safeParse(rawData)
+    const quotes = parsed.success ? parsed.data : []
     return quotes.map((q) => this.parseQuote(q))
   }
 
@@ -174,7 +214,7 @@ export class OIFClient {
       throw new Error(`Failed to create intent: ${response.statusText}`)
     }
 
-    const data = (await response.json()) as OIFIntentResponse
+    const data = OIFIntentResponseSchema.parse(await response.json())
     return this.parseIntent(data)
   }
 
@@ -190,7 +230,7 @@ export class OIFClient {
       throw new Error(`Failed to get intent: ${response.statusText}`)
     }
 
-    const data = (await response.json()) as OIFIntentResponse
+    const data = OIFIntentResponseSchema.parse(await response.json())
     return this.parseIntent(data)
   }
 
@@ -206,8 +246,9 @@ export class OIFClient {
     }
 
     // OIF API returns array directly
-    const data = (await response.json()) as OIFIntentResponse[]
-    const intents = Array.isArray(data) ? data : []
+    const rawData: unknown = await response.json()
+    const parsed = z.array(OIFIntentResponseSchema).safeParse(rawData)
+    const intents = parsed.success ? parsed.data : []
     return intents.map((i) => this.parseIntent(i))
   }
 
@@ -253,8 +294,13 @@ export class OIFClient {
     }
 
     // OIF API returns array directly
-    const data = await response.json()
-    return Array.isArray(data) ? data : []
+    const rawData: unknown = await response.json()
+    const parsed = z.array(OIFRouteResponseSchema).safeParse(rawData)
+    if (!parsed.success) return []
+    return parsed.data.map((route) => ({
+      ...route,
+      supportedTokens: route.supportedTokens as Address[],
+    }))
   }
   private async fetchWithRetry(
     url: string,
@@ -314,10 +360,10 @@ export class OIFClient {
       user: data.user as Address,
       sourceChain: data.sourceChainId,
       destinationChain: data.destinationChainId,
-      inputToken: (data.inputs[0]?.token as Address) || ZERO_ADDRESS,
-      inputAmount: BigInt(data.inputs[0]?.amount || '0'),
-      outputToken: (data.outputs[0]?.token as Address) || ZERO_ADDRESS,
-      outputAmount: BigInt(data.outputs[0]?.amount || '0'),
+      inputToken: (data.inputs[0]?.token as Address) ?? ZERO_ADDRESS,
+      inputAmount: BigInt(data.inputs[0]?.amount ?? '0'),
+      outputToken: (data.outputs[0]?.token as Address) ?? ZERO_ADDRESS,
+      outputAmount: BigInt(data.outputs[0]?.amount ?? '0'),
       status: data.status,
       solver: data.solver as Address | undefined,
       fillTxHash: data.fillTxHash,

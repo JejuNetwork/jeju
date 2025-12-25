@@ -9,8 +9,10 @@ import {
   A2ASkillDataSchema,
   expect,
   expectValid,
+  GetNodesArgsSchema,
   ProxyRequestSchema,
-  parseProtocol,
+  VPNConnectArgsSchema,
+  VPNDisconnectArgsSchema,
 } from './schemas'
 import type { VPNServiceContext } from './types'
 import {
@@ -140,16 +142,19 @@ async function handleConnect(
     throw new Error('Authentication required for VPN connection')
   }
 
-  const countryCode =
-    typeof params.countryCode === 'string' ? params.countryCode : undefined
-  const protocol = parseProtocol(params.protocol)
+  const validated = expectValid(VPNConnectArgsSchema, params, 'vpn_connect')
 
-  const node = findBestNode(ctx, countryCode)
+  const node = findBestNode(ctx, validated.countryCode)
   if (!node) {
     throw new Error('No available nodes matching criteria')
   }
 
-  const session = createSession(ctx, address, node.nodeId, protocol)
+  const session = createSession(
+    ctx,
+    address,
+    node.nodeId,
+    validated.protocol ?? 'wireguard',
+  )
 
   return {
     jsonrpc: '2.0',
@@ -180,21 +185,21 @@ async function handleDisconnect(
   params: Record<string, unknown>,
   address: Address | null,
 ) {
-  const connectionId =
-    typeof params.connectionId === 'string' ? params.connectionId : null
-  if (!connectionId || connectionId.length === 0) {
-    throw new Error('connectionId must be a non-empty string')
-  }
-
   if (!address) {
     throw new Error('Authentication required for disconnect')
   }
 
-  const session = getSession(ctx, connectionId)
+  const validated = expectValid(
+    VPNDisconnectArgsSchema,
+    params,
+    'vpn_disconnect',
+  )
+
+  const session = getSession(ctx, validated.connectionId)
   verifySessionOwnership(session, address)
 
   const bytesTransferred = getSessionBytesTransferred(session)
-  deleteSession(ctx, connectionId)
+  deleteSession(ctx, validated.connectionId)
 
   return {
     jsonrpc: '2.0',
@@ -223,12 +228,11 @@ async function handleGetNodes(
   a2aRequest: A2ARequest,
   params: Record<string, unknown>,
 ) {
-  const countryCode =
-    typeof params.countryCode === 'string' ? params.countryCode : undefined
+  const validated = expectValid(GetNodesArgsSchema, params, 'get_vpn_nodes')
 
   let nodes = filterNodesByStatus(Array.from(ctx.nodes.values()), 'online')
-  if (countryCode) {
-    nodes = filterNodesByCountry(nodes, countryCode)
+  if (validated.countryCode) {
+    nodes = filterNodesByCountry(nodes, validated.countryCode)
   }
 
   return {
@@ -264,7 +268,7 @@ async function handleProxyRequest(
 ) {
   const paymentHeader = request.headers.get('x-payment')
   const paymentResult = await verifyX402Payment(
-    paymentHeader || '',
+    paymentHeader ?? '',
     BigInt(ctx.config.pricing.pricePerRequest),
     'vpn:proxy',
     ctx.config,

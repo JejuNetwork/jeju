@@ -164,7 +164,7 @@ export const modelsRoutes = new Elysia({ prefix: '/api/models' })
           completionTokens: validatedBody.maxTokens || 100,
         },
         model: `${validatedParams.org}/${validatedParams.name}`,
-        temperature: validatedBody.temperature || 0.7,
+        temperature: validatedBody.temperature ?? 0.7,
       }
     },
     { detail: { tags: ['models'], summary: 'Run inference' } },

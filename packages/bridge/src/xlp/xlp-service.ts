@@ -584,7 +584,7 @@ export class XLPService extends EventEmitter {
     // Would parse actual fee amount from logs
     // For now, return estimated
     const position = this.positions.get(`${chainId}-${token}`)
-    const fees = position?.pendingFees || 0n
+    const fees = position?.pendingFees ?? 0n
 
     if (position) {
       position.pendingFees = 0n
@@ -731,8 +731,8 @@ export class XLPService extends EventEmitter {
       chainId,
       token,
       balance,
-      pendingFees: existing?.pendingFees || 0n,
-      utilizationRate: existing?.utilizationRate || 0,
+      pendingFees: existing?.pendingFees ?? 0n,
+      utilizationRate: existing?.utilizationRate ?? 0,
     })
   }
 

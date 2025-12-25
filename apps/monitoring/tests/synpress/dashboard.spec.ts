@@ -8,7 +8,7 @@
  * - Real-time updates work
  */
 
-import { test, expect } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 
 test.describe('Monitoring Dashboard', () => {
   test('should load dashboard', async ({ page }) => {
@@ -25,7 +25,9 @@ test.describe('Monitoring Dashboard', () => {
     })
 
     // Verify some metrics are visible
-    const metricsVisible = await page.locator('.metric, [data-testid="metric"]').count()
+    const metricsVisible = await page
+      .locator('.metric, [data-testid="metric"]')
+      .count()
     expect(metricsVisible).toBeGreaterThan(0)
   })
 
@@ -93,17 +95,21 @@ test.describe('Real-time Updates', () => {
     const metricSelector = '.metric-value, [data-testid="metric-value"]'
     await page.waitForSelector(metricSelector, { timeout: 10000 })
 
-    const initialValue = await page.locator(metricSelector).first().textContent()
+    const _initialValue = await page
+      .locator(metricSelector)
+      .first()
+      .textContent()
 
     // Wait for update (metrics typically refresh every 5-15 seconds)
     await page.waitForTimeout(15000)
 
     // Check if value changed (or at least page is still responsive)
-    const currentValue = await page.locator(metricSelector).first().textContent()
+    const currentValue = await page
+      .locator(metricSelector)
+      .first()
+      .textContent()
 
     // Value might be same or different, but should be valid
     expect(currentValue).toBeDefined()
   })
 })
-
-

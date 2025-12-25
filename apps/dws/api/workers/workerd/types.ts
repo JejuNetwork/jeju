@@ -4,6 +4,7 @@
  */
 
 import type { Address } from 'viem'
+import { z } from 'zod'
 
 // Workerd Configuration Types
 
@@ -186,6 +187,18 @@ export interface WorkerdResponse {
   headers: Record<string, string>
   body: string | Uint8Array
 }
+
+/** Schema for JSON-parsed WorkerdResponse (body always string from JSON) */
+export const WorkerdResponseSchema = z.object({
+  status: z.number(),
+  headers: z.record(z.string(), z.string()),
+  body: z.string(),
+})
+
+/** Schema for wrapped invocation result */
+export const WorkerdInvocationResultSchema = z.object({
+  response: WorkerdResponseSchema,
+})
 
 export interface WorkerdInvocation {
   id: string

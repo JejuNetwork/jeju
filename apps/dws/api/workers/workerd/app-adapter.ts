@@ -157,14 +157,14 @@ export function adaptAppForWorkerd(
       ctx: WorkerdContext,
     ): Promise<Response> {
       // Inject TEE context into request
-      const teeMode = env.TEE_MODE || 'simulated'
-      const teeRegion = env.TEE_REGION || options?.region || 'local'
+      const teeMode = env.TEE_MODE ?? 'simulated'
+      const teeRegion = env.TEE_REGION ?? options?.region ?? 'local'
 
       // Add Jeju headers
       const headers = new Headers(request.headers)
       headers.set('x-tee-mode', teeMode)
       headers.set('x-tee-region', teeRegion)
-      headers.set('x-network', env.NETWORK || 'localnet')
+      headers.set('x-network', env.NETWORK ?? 'localnet')
 
       if (options?.name) {
         headers.set('x-dws-app', options.name)
@@ -183,7 +183,7 @@ export function adaptAppForWorkerd(
       Object.defineProperty(modifiedRequest, 'tee', {
         value: {
           mode: teeMode,
-          platform: env.TEE_PLATFORM || 'simulator',
+          platform: env.TEE_PLATFORM ?? 'simulator',
           region: teeRegion,
         },
       })
@@ -228,14 +228,14 @@ import { ${exportName} } from '${appPath}';
 export default {
   async fetch(request, env, ctx) {
     // Add TEE context
-    const teeMode = env.TEE_MODE || 'simulated';
-    const teeRegion = env.TEE_REGION || '${options?.region || 'local'}';
+    const teeMode = env.TEE_MODE ?? 'simulated';
+    const teeRegion = env.TEE_REGION ?? '${options?.region ?? 'local'}';
 
     // Clone request with extra headers
     const headers = new Headers(request.headers);
     headers.set('x-tee-mode', teeMode);
     headers.set('x-tee-region', teeRegion);
-    headers.set('x-network', env.NETWORK || 'localnet');
+    headers.set('x-network', env.NETWORK ?? 'localnet');
     ${options?.name ? `headers.set('x-dws-app', '${options.name}');` : ''}
 
     const modifiedRequest = new Request(request.url, {
@@ -328,9 +328,9 @@ export function teeContextPlugin(env?: JejuEnv) {
   return new Elysia({ name: 'tee-context' }).onBeforeHandle(
     ({ request, set }) => {
       const teeMode =
-        env?.TEE_MODE || request.headers.get('x-tee-mode') || 'simulated'
+        env?.TEE_MODE ?? request.headers.get('x-tee-mode') ?? 'simulated'
       const teeRegion =
-        env?.TEE_REGION || request.headers.get('x-tee-region') || 'local'
+        env?.TEE_REGION ?? request.headers.get('x-tee-region') ?? 'local'
 
       set.headers['x-tee-mode'] = teeMode
       set.headers['x-tee-region'] = teeRegion

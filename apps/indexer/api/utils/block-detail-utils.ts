@@ -14,11 +14,7 @@ export async function getBlockByIdentifier(
   if (!dataSource) {
     throw new Error('DataSource is required')
   }
-  if (
-    !numberOrHash ||
-    typeof numberOrHash !== 'string' ||
-    numberOrHash.trim().length === 0
-  ) {
+  if (!numberOrHash || numberOrHash.trim().length === 0) {
     throw new Error('numberOrHash is required and must be a non-empty string')
   }
 

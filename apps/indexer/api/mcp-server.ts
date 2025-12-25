@@ -3,7 +3,7 @@
  */
 
 import { cors } from '@elysiajs/cors'
-import { AddressSchema, HashSchema, validateOrThrow } from '@jejunetwork/types'
+import { validateOrThrow } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import {
   buildAccountQuery,
@@ -19,12 +19,20 @@ import {
 import { BadRequestError, NotFoundError } from './utils/types'
 import {
   analyzeTransactionPromptArgsSchema,
-  blockNumberSchema,
   explainProposalPromptArgsSchema,
-  type JsonValue,
+  getAccountSkillSchema,
+  getAgentSkillSchema,
+  getAgentsSkillSchema,
+  getBlockSkillSchema,
+  getContractEventsArgsSchema,
+  getIntentSkillSchema,
+  getProposalSkillSchema,
+  getTokenBalancesSkillSchema,
+  getTransactionSkillSchema,
   mcpPromptGetSchema,
   mcpResourceReadSchema,
   mcpToolCallSchema,
+  queryGraphqlArgsSchema,
   summarizeAgentActivityPromptArgsSchema,
   validateBody,
 } from './utils/validation'
@@ -320,7 +328,7 @@ export function createIndexerMCPServer() {
       const apiKey = request.headers.get('x-api-key')
       const clientKey = apiKey
         ? `apikey:${apiKey}`
-        : `ip:${forwarded || 'unknown'}`
+        : `ip:${forwarded ?? 'unknown'}`
 
       const now = Date.now()
       let record = mcpRateLimitStore.get(clientKey)
@@ -353,7 +361,7 @@ export function createIndexerMCPServer() {
     .post('/resources/read', ({ body }) => {
       const { uri } = validateBody(
         mcpResourceReadSchema,
-        body as Record<string, JsonValue>,
+        body,
         'MCP POST /resources/read',
       )
       let contents: MCPResourceContents
@@ -425,7 +433,7 @@ export function createIndexerMCPServer() {
     .post('/tools/call', ({ body }) => {
       const { name, arguments: args } = validateBody(
         mcpToolCallSchema,
-        body as Record<string, JsonValue>,
+        body,
         'MCP POST /tools/call',
       )
       let result: MCPToolResult
@@ -433,172 +441,129 @@ export function createIndexerMCPServer() {
 
       switch (name) {
         case 'query_graphql': {
-          if (typeof args.query !== 'string' || !args.query) {
-            throw new BadRequestError(
-              'query is required and must be a non-empty string',
-            )
-          }
-          const variables =
-            args.variables &&
-            typeof args.variables === 'object' &&
-            !Array.isArray(args.variables)
-              ? (args.variables as Record<string, unknown>)
-              : undefined
+          const validated = validateOrThrow(
+            queryGraphqlArgsSchema,
+            args,
+            'MCP tool query_graphql',
+          )
           result = {
             endpoint: '/graphql',
             method: 'POST',
             body: {
-              query: args.query,
-              variables,
+              query: validated.query,
+              variables: validated.variables,
             },
           }
           break
         }
 
         case 'get_block': {
-          const blockNumber =
-            typeof args.blockNumber === 'number' ? args.blockNumber : undefined
-          const blockHash =
-            typeof args.blockHash === 'string' ? args.blockHash : undefined
-          if (!blockNumber && !blockHash) {
-            throw new BadRequestError(
-              'Either blockNumber or blockHash must be provided',
-            )
-          }
-          if (blockNumber) {
-            validateOrThrow(
-              blockNumberSchema,
-              blockNumber,
-              'MCP tool get_block blockNumber',
-            )
-          }
-          if (blockHash) {
-            validateOrThrow(
-              HashSchema,
-              blockHash,
-              'MCP tool get_block blockHash',
-            )
-          }
-          const query = buildBlockQuery(blockNumber, blockHash)
+          const validated = validateOrThrow(
+            getBlockSkillSchema,
+            args,
+            'MCP tool get_block',
+          )
+          const query = buildBlockQuery(
+            validated.blockNumber,
+            validated.blockHash,
+          )
           result = { query: query.query }
           break
         }
 
         case 'get_transaction': {
-          if (typeof args.hash !== 'string') {
-            throw new BadRequestError('hash is required and must be a string')
-          }
-          validateOrThrow(
-            HashSchema,
-            args.hash,
-            'MCP tool get_transaction hash',
+          const validated = validateOrThrow(
+            getTransactionSkillSchema,
+            args,
+            'MCP tool get_transaction',
           )
-          const query = buildTransactionQuery(args.hash)
+          const query = buildTransactionQuery(validated.hash)
           result = { query: query.query }
           break
         }
 
         case 'get_account': {
-          if (typeof args.address !== 'string') {
-            throw new BadRequestError(
-              'address is required and must be a string',
-            )
-          }
-          validateOrThrow(
-            AddressSchema,
-            args.address,
-            'MCP tool get_account address',
+          const validated = validateOrThrow(
+            getAccountSkillSchema,
+            args,
+            'MCP tool get_account',
           )
-          const query = buildAccountQuery(args.address)
+          const query = buildAccountQuery(validated.address)
           result = { query: query.query }
           break
         }
 
         case 'get_token_balances': {
-          if (typeof args.address !== 'string') {
-            throw new BadRequestError(
-              'address is required and must be a string',
-            )
-          }
-          validateOrThrow(
-            AddressSchema,
-            args.address,
-            'MCP tool get_token_balances address',
+          const validated = validateOrThrow(
+            getTokenBalancesSkillSchema,
+            args,
+            'MCP tool get_token_balances',
           )
-          const query = buildTokenBalancesQuery(args.address)
+          const query = buildTokenBalancesQuery(validated.address)
           result = { query: query.query }
           break
         }
 
         case 'get_agent': {
-          if (
-            typeof args.agentId !== 'string' &&
-            typeof args.agentId !== 'number'
-          ) {
-            throw new BadRequestError(
-              'agentId is required and must be a string or number',
-            )
-          }
-          const query = buildAgentQuery(String(args.agentId))
+          const validated = validateOrThrow(
+            getAgentSkillSchema,
+            args,
+            'MCP tool get_agent',
+          )
+          const query = buildAgentQuery(validated.agentId)
           result = { query: query.query }
           break
         }
 
         case 'search_agents': {
-          const role = typeof args.role === 'string' ? args.role : undefined
-          const active = typeof args.active === 'boolean' ? args.active : true
-          const limit = typeof args.limit === 'number' ? args.limit : 50
-          const query = buildAgentsQuery({ role, active, limit })
+          const validated = validateOrThrow(
+            getAgentsSkillSchema,
+            args,
+            'MCP tool search_agents',
+          )
+          const query = buildAgentsQuery({
+            role: validated.role,
+            active: validated.active ?? true,
+            limit: validated.limit ?? 50,
+          })
           result = { query: query.query }
           break
         }
 
         case 'get_intent': {
-          if (typeof args.intentId !== 'string' || !args.intentId) {
-            throw new BadRequestError(
-              'intentId is required and must be a non-empty string',
-            )
-          }
-          const query = buildIntentQuery(args.intentId)
+          const validated = validateOrThrow(
+            getIntentSkillSchema,
+            args,
+            'MCP tool get_intent',
+          )
+          const query = buildIntentQuery(validated.intentId)
           result = { query: query.query }
           break
         }
 
         case 'get_proposal': {
-          if (typeof args.proposalId !== 'string' || !args.proposalId) {
-            throw new BadRequestError(
-              'proposalId is required and must be a non-empty string',
-            )
-          }
-          const query = buildProposalQuery(args.proposalId)
+          const validated = validateOrThrow(
+            getProposalSkillSchema,
+            args,
+            'MCP tool get_proposal',
+          )
+          const query = buildProposalQuery(validated.proposalId)
           result = { query: query.query }
           break
         }
 
         case 'get_contract_events': {
-          if (typeof args.address !== 'string') {
-            throw new BadRequestError(
-              'address is required and must be a string',
-            )
-          }
-          validateOrThrow(
-            AddressSchema,
-            args.address,
-            'MCP tool get_contract_events address',
+          const validated = validateOrThrow(
+            getContractEventsArgsSchema,
+            args,
+            'MCP tool get_contract_events',
           )
-          const limit = typeof args.limit === 'number' ? args.limit : 100
-          const eventName =
-            typeof args.eventName === 'string' ? args.eventName : undefined
-          const fromBlock =
-            typeof args.fromBlock === 'number' ? args.fromBlock : undefined
-          const toBlock =
-            typeof args.toBlock === 'number' ? args.toBlock : undefined
           const query = buildLogsQuery({
-            address: args.address,
-            topic0: eventName,
-            fromBlock,
-            toBlock,
-            limit,
+            address: validated.address,
+            topic0: validated.eventName,
+            fromBlock: validated.fromBlock,
+            toBlock: validated.toBlock,
+            limit: validated.limit ?? 100,
           })
           result = { query: query.query }
           break
@@ -619,7 +584,7 @@ export function createIndexerMCPServer() {
     .post('/prompts/get', ({ body }) => {
       const { name, arguments: args } = validateBody(
         mcpPromptGetSchema,
-        body as Record<string, JsonValue>,
+        body,
         'MCP POST /prompts/get',
       )
 

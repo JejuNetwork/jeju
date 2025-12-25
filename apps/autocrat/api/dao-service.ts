@@ -1275,40 +1275,40 @@ export class DAOService {
       daoId.length > 0 && daoId.length <= 100,
       `DAO ID must be 1-100 characters, got ${daoId.length}`,
     )
-    return (await this.publicClient.readContract({
+    return this.publicClient.readContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
       functionName: 'daoExists',
       args: [toHex(daoId)],
-    })) as boolean
+    })
   }
 
   async getDAOCount(): Promise<number> {
-    const result = (await this.publicClient.readContract({
+    const result = await this.publicClient.readContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
       functionName: 'getDAOCount',
-    })) as bigint
+    })
 
     return Number(result)
   }
 
   async isDAOAdmin(daoId: string, admin: Address): Promise<boolean> {
-    return (await this.publicClient.readContract({
+    return this.publicClient.readContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
       functionName: 'isDAOAdmin',
       args: [toHex(daoId), admin],
-    })) as boolean
+    })
   }
 
   async isCouncilMember(daoId: string, member: Address): Promise<boolean> {
-    return (await this.publicClient.readContract({
+    return this.publicClient.readContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
       functionName: 'isCouncilMember',
       args: [toHex(daoId), member],
-    })) as boolean
+    })
   }
   async createDAO(params: {
     name: string

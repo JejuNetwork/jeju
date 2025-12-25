@@ -8,6 +8,16 @@
 import { describe, expect, test } from 'bun:test'
 import { formatEther, parseEther } from 'viem'
 
+/** Test helper for passing invalid inputs to parseSwapParams */
+function parseSwapParamsRaw(value: unknown) {
+  return parseSwapParams(value as string)
+}
+
+/** Test helper for passing invalid inputs to parseTransferParams */
+function parseTransferParamsRaw(value: unknown) {
+  return parseTransferParams(value as string)
+}
+
 // =============================================================================
 // Inline Parsing Functions (copied from source to avoid SDK dependency)
 // These should be kept in sync with the actual implementations
@@ -656,7 +666,8 @@ describe('Amount parsing property tests', () => {
       const result = parseSwapParams(`swap ${amount} ETH for USDC`)
       expect(result.amountIn).toBe(parseEther(amount))
       // Verify round-trip (check for undefined, not falsy, since 0n is valid)
-      if (result.amountIn === undefined) throw new Error('amountIn is undefined')
+      if (result.amountIn === undefined)
+        throw new Error('amountIn is undefined')
       expect(formatEther(result.amountIn)).toBe(amount)
     }
   })
@@ -666,9 +677,10 @@ describe('Amount parsing property tests', () => {
       const result = parseTransferParams(
         `bridge ${amount} ETH from jeju to base`,
       )
-      expect(result.amount).toBe(parseEther(amount))
       expect(result.amount).toBeDefined()
-      expect(formatEther(result.amount ?? 0n)).toBe(amount)
+      expect(result.amount).toBe(parseEther(amount))
+      // Verify round-trip conversion works
+      expect(formatEther(result.amount)).toBe(amount)
     }
   })
 })
@@ -719,12 +731,10 @@ describe('Parser robustness tests', () => {
   // Note: null/undefined inputs will throw since these are internal functions
   // that expect string input. Callers (action handlers) should validate first.
   test('parseSwapParams throws on null input', () => {
-    // @ts-expect-error Testing runtime behavior with invalid null input
-    expect(() => parseSwapParams(null)).toThrow()
+    expect(() => parseSwapParamsRaw(null)).toThrow()
   })
 
   test('parseTransferParams throws on null input', () => {
-    // @ts-expect-error Testing runtime behavior with invalid null input
-    expect(() => parseTransferParams(null)).toThrow()
+    expect(() => parseTransferParamsRaw(null)).toThrow()
   })
 })

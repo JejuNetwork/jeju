@@ -46,7 +46,13 @@ export interface CoverageInfo {
 
 export interface TestIssue {
   severity: 'error' | 'warning' | 'info'
-  type: 'missing_tests' | 'mock_usage' | 'no_chain' | 'popup_blocker' | 'config_missing' | 'outdated'
+  type:
+    | 'missing_tests'
+    | 'mock_usage'
+    | 'no_chain'
+    | 'popup_blocker'
+    | 'config_missing'
+    | 'outdated'
   message: string
   file?: string
   line?: number
@@ -130,5 +136,3 @@ export interface SubagentConfig {
   fix?: boolean
   dryRun?: boolean
 }
-
-

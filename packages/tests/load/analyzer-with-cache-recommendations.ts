@@ -14,6 +14,12 @@ interface EndpointMetrics {
   cacheHitRate?: number | string
 }
 
+/** Metrics response from the server */
+interface MetricsResponse {
+  slowest: EndpointMetrics[]
+  allEndpoints: EndpointMetrics[]
+}
+
 interface CacheRecommendation {
   endpoint: string
   issue: string
@@ -253,10 +259,7 @@ async function analyzeServer(baseUrl: string): Promise<CacheRecommendation[]> {
     throw new Error(`Failed to fetch metrics from ${baseUrl}`)
   }
 
-  const metrics = (await response.json()) as {
-    slowest: EndpointMetrics[]
-    allEndpoints: EndpointMetrics[]
-  }
+  const metrics = (await response.json()) as MetricsResponse
 
   const recommendations: CacheRecommendation[] = []
 

@@ -25,11 +25,11 @@
 import { cors } from '@elysiajs/cors'
 import { getNetworkName } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
-import type { Address } from 'viem'
-import type {
-  CasualProposalCategory,
-  CouncilConfig,
-  ProposalType,
+import type { CouncilConfig } from '../lib'
+import {
+  CasualProposalCategorySchema,
+  expectValid,
+  ProposalTypeSchema,
 } from '../lib'
 import { createAutocratA2AServer } from './a2a-server'
 import { autocratAgentRuntime } from './agents'
@@ -47,7 +47,7 @@ import { type FutarchyConfig, getFutarchyClient } from './futarchy'
 import { initLocalServices } from './local-services'
 import { createAutocratMCPServer } from './mcp-server'
 import {
-  type FlagType,
+  expectFlagType,
   getModerationSystem,
   initModeration,
 } from './moderation'
@@ -83,8 +83,18 @@ function toProposalDraft(raw: {
     title: raw.title,
     summary: raw.summary,
     description: raw.description,
-    proposalType: raw.proposalType as ProposalType,
-    casualCategory: raw.casualCategory as CasualProposalCategory | undefined,
+    proposalType: expectValid(
+      ProposalTypeSchema,
+      raw.proposalType,
+      'proposal type',
+    ),
+    casualCategory: raw.casualCategory
+      ? expectValid(
+          CasualProposalCategorySchema,
+          raw.casualCategory,
+          'casual category',
+        )
+      : undefined,
     targetContract: raw.targetContract,
     callData: raw.calldata,
     value: raw.value,
@@ -94,7 +104,7 @@ function toProposalDraft(raw: {
   }
 }
 
-import { expect, expectValid, ZERO_ADDRESS } from '@jejunetwork/types'
+import { expect, ZERO_ADDRESS } from '@jejunetwork/types'
 import { z } from 'zod'
 import {
   A2AJsonRpcResponseSchema,
@@ -262,13 +272,15 @@ const erc8004Config: ERC8004Config = {
 const erc8004 = getERC8004Client(erc8004Config)
 
 // Futarchy API
+const predimarketAddr =
+  'predimarket' in config.contracts ? config.contracts.predimarket : undefined
 const futarchyConfig: FutarchyConfig = {
   rpcUrl: config.rpcUrl,
   councilAddress: toAddress(config.contracts.council),
   predimarketAddress:
-    ('predimarket' in config.contracts
-      ? (config.contracts as Record<string, Address>).predimarket
-      : undefined) ?? ZERO_ADDRESS,
+    typeof predimarketAddr === 'string'
+      ? toAddress(predimarketAddr)
+      : ZERO_ADDRESS,
   operatorKey: process.env.OPERATOR_KEY ?? process.env.PRIVATE_KEY,
 }
 const futarchy = getFutarchyClient(futarchyConfig)
@@ -590,7 +602,7 @@ const app = new Elysia()
     const flag = moderation.submitFlag(
       parsed.proposalId,
       parsed.flagger,
-      parsed.flagType as FlagType,
+      expectFlagType(parsed.flagType),
       parsed.reason,
       parsed.stake ?? 10,
       parsed.evidence,
@@ -776,7 +788,7 @@ const app = new Elysia()
     const parsed = CasualAssessRequestSchema.parse(body)
     const submission: CasualSubmission = {
       daoId,
-      category: parsed.category as CasualProposalCategory,
+      category: parsed.category,
       title: parsed.title,
       content: parsed.content,
     }
@@ -787,9 +799,8 @@ const app = new Elysia()
   .post('/api/v1/dao/:daoId/casual/help', async ({ params, body }) => {
     const daoId = z.string().min(1).max(100).parse(params.daoId)
     const parsed = CasualHelpRequestSchema.parse(body)
-    const category = parsed.category as CasualProposalCategory
     const help = await proposalAssistant.helpCraftSubmission(
-      category,
+      parsed.category,
       parsed.content ?? '',
       daoId,
     )

@@ -491,7 +491,7 @@ export default function BillingPage({ viewMode }: BillingProps) {
                     >
                       {(
                         parseFloat(formatEth(account?.balance ?? '0')) +
-                        parseFloat(depositAmount || '0')
+                        parseFloat(depositAmount ?? '0')
                       ).toFixed(4)}{' '}
                       ETH
                     </span>

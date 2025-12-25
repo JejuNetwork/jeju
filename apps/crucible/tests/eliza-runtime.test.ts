@@ -84,7 +84,8 @@ describe('Crucible Agent Runtime', () => {
       expect(response).toBeDefined()
       expect(typeof response.text).toBe('string')
       // Response can be text or action
-      const hasContent = response.text.length > 0 || response.action !== undefined
+      const hasContent =
+        response.text.length > 0 || response.action !== undefined
       expect(hasContent).toBe(true)
 
       console.log('[Test] Response:', response.text.slice(0, 200))
@@ -116,7 +117,8 @@ describe('Crucible Agent Runtime', () => {
       console.log('[Test] Actions:', response.actions)
 
       // Response can be text or action
-      const hasContent = response.text.length > 0 || response.action !== undefined
+      const hasContent =
+        response.text.length > 0 || response.action !== undefined
       expect(hasContent).toBe(true)
     }, 60000)
   })

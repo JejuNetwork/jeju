@@ -534,14 +534,18 @@ export class MPCCoordinator {
 
 let globalCoordinator: MPCCoordinator | undefined
 
+function isValidNetwork(
+  value: string,
+): value is MPCCoordinatorConfig['network'] {
+  return value === 'localnet' || value === 'testnet' || value === 'mainnet'
+}
+
 export function getMPCCoordinator(
   config?: Partial<MPCCoordinatorConfig>,
 ): MPCCoordinator {
   if (!globalCoordinator) {
-    const network = getEnvOrDefault(
-      'MPC_NETWORK',
-      'localnet',
-    ) as MPCCoordinatorConfig['network']
+    const networkEnv = getEnvOrDefault('MPC_NETWORK', 'localnet')
+    const network = isValidNetwork(networkEnv) ? networkEnv : 'localnet'
     globalCoordinator = new MPCCoordinator({
       ...getMPCConfig(network),
       ...config,

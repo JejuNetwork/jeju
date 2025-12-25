@@ -219,7 +219,7 @@ function OperatorRegistrationForm({
           workerKey as `0x${string}`,
           (stakingOracleId ||
             '0x0000000000000000000000000000000000000000000000000000000000000000') as `0x${string}`,
-          BigInt(agentId || '0'),
+          BigInt(agentId ?? '0'),
         ],
         chain: account.chain,
         account: account.address,

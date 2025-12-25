@@ -55,6 +55,14 @@ const STATUS_CONFIG: Record<
   },
 }
 
+function getStatusConfig(status: string) {
+  const config = STATUS_CONFIG[status]
+  if (!config) {
+    throw new Error(`Unknown intent status: ${status}`)
+  }
+  return config
+}
+
 const CHAIN_NAMES: Record<number, string> = {
   1: 'Ethereum',
   11155111: 'Sepolia',
@@ -89,7 +97,7 @@ export function IntentsView() {
             onClick={() => setStatusFilter(status)}
             className={`pill ${statusFilter === status ? 'pill-active' : ''}`}
           >
-            {status || 'All'}
+            {status === '' ? 'All' : status}
           </button>
         ))}
       </div>
@@ -115,7 +123,7 @@ export function IntentsView() {
 }
 
 function IntentCard({ intent }: { intent: Intent }) {
-  const status = STATUS_CONFIG[intent.status]
+  const status = getStatusConfig(intent.status)
   const sourceChain =
     CHAIN_NAMES[intent.sourceChainId] || `Chain ${intent.sourceChainId}`
   const destChain = intent.outputs[0]

@@ -68,7 +68,7 @@ class DWSClient {
     identityRegistryAddress?: Address
   }): Promise<void> {
     const rpcUrl =
-      config?.rpcUrl || process.env.RPC_URL || 'http://localhost:6546'
+      config?.rpcUrl ?? process.env.RPC_URL ?? 'http://localhost:6546'
     this.registryAddress = getRegistryAddress(config?.identityRegistryAddress)
 
     this.publicClient = createPublicClient({

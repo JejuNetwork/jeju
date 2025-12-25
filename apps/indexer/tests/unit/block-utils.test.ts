@@ -37,6 +37,11 @@ function parseBlockIdentifier(numberOrHash: string): BlockIdentifier {
   }
 }
 
+/** Test helper for passing invalid inputs to parseBlockIdentifier */
+function parseBlockIdentifierRaw(value: unknown): BlockIdentifier {
+  return parseBlockIdentifier(value as string)
+}
+
 function buildBlockWhereClause(identifier: BlockIdentifier): {
   hash?: string
   number?: number
@@ -164,19 +169,19 @@ describe('parseBlockIdentifier', () => {
     })
 
     it('should throw on null', () => {
-      expect(() => parseBlockIdentifier(null as unknown as string)).toThrow(
+      expect(() => parseBlockIdentifierRaw(null)).toThrow(
         'Block identifier is required',
       )
     })
 
     it('should throw on undefined', () => {
-      expect(() =>
-        parseBlockIdentifier(undefined as unknown as string),
-      ).toThrow('Block identifier is required')
+      expect(() => parseBlockIdentifierRaw(undefined)).toThrow(
+        'Block identifier is required',
+      )
     })
 
     it('should throw on non-string type', () => {
-      expect(() => parseBlockIdentifier(123 as unknown as string)).toThrow(
+      expect(() => parseBlockIdentifierRaw(123)).toThrow(
         'Block identifier is required',
       )
     })

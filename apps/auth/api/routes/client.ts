@@ -111,11 +111,12 @@ export function createClientRouter(_config: AuthConfig) {
           return { error: 'client_not_found' }
         }
 
-        if (body.name) client.name = body.name
-        if (body.redirectUris) client.redirectUris = body.redirectUris
-        if (body.allowedProviders)
+        if (body.name !== undefined) client.name = body.name
+        if (body.redirectUris !== undefined)
+          client.redirectUris = body.redirectUris
+        if (body.allowedProviders !== undefined)
           client.allowedProviders = body.allowedProviders
-        if (typeof body.active === 'boolean') client.active = body.active
+        if (body.active !== undefined) client.active = body.active
 
         clients.set(params.clientId, client)
 

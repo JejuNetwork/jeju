@@ -13,7 +13,7 @@ export async function getOracleOperatorByAddress(
   if (!dataSource) {
     throw new Error('DataSource is required')
   }
-  if (!address || typeof address !== 'string' || address.trim().length === 0) {
+  if (!address || address.trim().length === 0) {
     throw new Error('address is required and must be a non-empty string')
   }
 

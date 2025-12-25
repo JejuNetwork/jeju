@@ -24,8 +24,9 @@ export function isValidHex(value: string | null | undefined): value is Hex {
 
 /** Parse address from header or string, returns null if invalid */
 export function parseAddress(value: string | null | undefined): Address | null {
-  if (!value || typeof value !== 'string') return null
+  if (!value) return null
   if (!/^0x[0-9a-fA-F]{40}$/.test(value)) return null
+  // Regex already validated the format, safe to assert type
   return value as Address
 }
 

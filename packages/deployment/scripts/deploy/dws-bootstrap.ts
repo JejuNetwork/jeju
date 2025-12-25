@@ -518,12 +518,12 @@ async function deployApp(
 
   // Step 1: Build the app
   console.log('   📦 Building...')
-  const buildCmd = manifest.commands?.build || 'bun run build'
+  const buildCmd = manifest.commands?.build ?? 'bun run build'
   execSync(buildCmd, { cwd: appDir, stdio: 'inherit' })
 
   // Step 2: Deploy frontend to IPFS
   const frontendConfig =
-    manifest.decentralization?.frontend || manifest.architecture?.frontend
+    manifest.decentralization?.frontend ?? manifest.architecture?.frontend
   if (frontendConfig) {
     const outputDir =
       typeof frontendConfig === 'object' && 'buildDir' in frontendConfig

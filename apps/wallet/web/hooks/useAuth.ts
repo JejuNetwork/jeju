@@ -276,7 +276,7 @@ export function useAuth(options: UseAuthOptions = {}): UseAuthReturn {
         const refreshed = await client.refreshSession()
         const updatedSession = oauth3SessionToAuthSession(
           refreshed,
-          currentProvider || 'wallet',
+          currentProvider ?? 'wallet',
         )
         setSession(updatedSession)
       } catch (err) {

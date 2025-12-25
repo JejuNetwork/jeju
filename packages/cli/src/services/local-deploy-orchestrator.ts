@@ -3,8 +3,9 @@
 import { execSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { ZERO_ADDRESS } from '@jejunetwork/types'
+import { AddressSchema, validateOrNull, ZERO_ADDRESS } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
+import { z } from 'zod'
 import {
   type DeployConfig,
   type DWSContractAddresses,
@@ -14,12 +15,23 @@ import { registerDWSNode } from '../lib/dws-node'
 import { logger } from '../lib/logger'
 import type { AppManifest } from '../types'
 
+const DWSContractAddressesSchema = z.object({
+  storageManager: AddressSchema,
+  workerRegistry: AddressSchema,
+  cdnRegistry: AddressSchema,
+  jnsRegistry: AddressSchema,
+  jnsResolver: AddressSchema,
+  jnsRegistrar: AddressSchema,
+  jnsReverseRegistrar: AddressSchema,
+})
+
 /**
  * Check if DWS contracts are valid (not all zero addresses)
  */
 function isValidDWSDeployment(contracts: DWSContractAddresses): boolean {
   // Must have at least storageManager or cdnRegistry deployed
-  const hasStorage = contracts.storageManager && contracts.storageManager !== ZERO_ADDRESS
+  const hasStorage =
+    contracts.storageManager && contracts.storageManager !== ZERO_ADDRESS
   const hasCdn = contracts.cdnRegistry && contracts.cdnRegistry !== ZERO_ADDRESS
   const hasJns = contracts.jnsRegistry && contracts.jnsRegistry !== ZERO_ADDRESS
   return hasStorage || hasCdn || hasJns
@@ -78,11 +90,16 @@ export class LocalDeployOrchestrator {
       return null
     }
 
-    const data = JSON.parse(readFileSync(deploymentFile, 'utf-8')) as DWSContractAddresses
+    const data = validateOrNull(
+      DWSContractAddressesSchema,
+      JSON.parse(readFileSync(deploymentFile, 'utf-8')),
+    )
 
     // Validate that the deployment has actual addresses, not placeholders
-    if (!isValidDWSDeployment(data)) {
-      logger.debug('DWS deployment file has placeholder addresses, will redeploy')
+    if (!data || !isValidDWSDeployment(data)) {
+      logger.debug(
+        'DWS deployment file has placeholder or invalid addresses, will redeploy',
+      )
       return null
     }
 
@@ -92,7 +109,9 @@ export class LocalDeployOrchestrator {
 
   async registerLocalNode(): Promise<void> {
     if (!this.dwsContracts) {
-      throw new Error('DWS contracts not deployed - call deployDWSContracts() first')
+      throw new Error(
+        'DWS contracts not deployed - call deployDWSContracts() first',
+      )
     }
 
     const dwsEndpoint = `http://localhost:${this.config.dwsPort}`
@@ -109,7 +128,9 @@ export class LocalDeployOrchestrator {
 
   async deployApp(appDir: string, manifest: AppManifest): Promise<void> {
     if (!this.dwsContracts) {
-      throw new Error('DWS contracts not deployed - call deployDWSContracts() first')
+      throw new Error(
+        'DWS contracts not deployed - call deployDWSContracts() first',
+      )
     }
 
     const deployConfig: DeployConfig = {
@@ -161,10 +182,17 @@ export class LocalDeployOrchestrator {
     }
 
     // Validate required contracts were deployed
-    const required = ['JNSRegistry', 'StorageManager', 'WorkerRegistry', 'CDNRegistry']
+    const required = [
+      'JNSRegistry',
+      'StorageManager',
+      'WorkerRegistry',
+      'CDNRegistry',
+    ]
     const missing = required.filter((name) => !addresses[name])
     if (missing.length > 0) {
-      throw new Error(`Missing required contracts in deployment output: ${missing.join(', ')}`)
+      throw new Error(
+        `Missing required contracts in deployment output: ${missing.join(', ')}`,
+      )
     }
 
     return {

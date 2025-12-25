@@ -36,7 +36,7 @@ export const issuesRoutes = new Elysia({ prefix: '/api/issues' })
     '/',
     async ({ query }) => {
       const validated = expectValid(IssuesQuerySchema, query, 'query params')
-      const page = Number.parseInt(validated.page || '1', 10)
+      const page = Number.parseInt(validated.page ?? '1', 10)
       const issues: Issue[] = []
       return { issues, total: issues.length, page }
     },
@@ -57,8 +57,8 @@ export const issuesRoutes = new Elysia({ prefix: '/api/issues' })
         repo: validated.repo,
         title: validated.title,
         body: validated.body,
-        labels: validated.labels || [],
-        assignees: (validated.assignees || []).map((addr) => ({ name: addr })),
+        labels: validated.labels ?? [],
+        assignees: (validated.assignees ?? []).map((addr) => ({ name: addr })),
         status: 'open',
         author: { name: authResult.address },
         comments: 0,

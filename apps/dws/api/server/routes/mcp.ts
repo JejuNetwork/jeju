@@ -4,19 +4,26 @@
  */
 
 import { getDWSUrl } from '@jejunetwork/config'
-import { getOptionalString, getString } from '@jejunetwork/types'
+import {
+  getOptionalString,
+  getString,
+  validateOrNull,
+} from '@jejunetwork/types'
 import { Elysia, t } from 'elysia'
+import { z } from 'zod'
 import type { BackendManager } from '../../storage/backends'
-import type { CidResponse } from '../../types'
 
 interface MCPContext {
   backend?: BackendManager
 }
 
-/** LLM inference response */
-interface InferenceChoicesResponse {
-  choices: Array<{ message: { content: string } }>
-}
+const CidResponseSchema = z.object({ cid: z.string() })
+
+const InferenceChoicesResponseSchema = z.object({
+  choices: z.array(z.object({ message: z.object({ content: z.string() }) })),
+})
+
+const HelmManifestsSchema = z.array(z.record(z.string(), z.unknown()))
 
 function getStringOr(
   args: Record<string, unknown>,
@@ -385,12 +392,18 @@ export function createMCPRouter(_ctx: MCPContext = {}) {
               method: 'POST',
               body: formData,
             })
-            const result = (await response.json()) as CidResponse
+            const result = validateOrNull(
+              CidResponseSchema,
+              await response.json(),
+            )
             return {
               content: [
                 {
                   type: 'text',
-                  text: JSON.stringify({ success: true, cid: result.cid }),
+                  text: JSON.stringify({
+                    success: true,
+                    cid: result?.cid ?? 'unknown',
+                  }),
                 },
               ],
             }
@@ -423,8 +436,8 @@ export function createMCPRouter(_ctx: MCPContext = {}) {
               },
               body: JSON.stringify({
                 name: body.arguments.name,
-                description: body.arguments.description || '',
-                visibility: body.arguments.visibility || 'public',
+                description: body.arguments.description ?? '',
+                visibility: body.arguments.visibility ?? 'public',
               }),
             })
             const result = await response.json()
@@ -440,7 +453,7 @@ export function createMCPRouter(_ctx: MCPContext = {}) {
               },
               body: JSON.stringify({
                 command: body.arguments.command,
-                shell: body.arguments.shell || 'bash',
+                shell: body.arguments.shell ?? 'bash',
                 timeout: body.arguments.timeout || 60000,
               }),
             })
@@ -455,7 +468,7 @@ export function createMCPRouter(_ctx: MCPContext = {}) {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                  model: body.arguments.model || 'default',
+                  model: body.arguments.model ?? 'default',
                   messages: [
                     ...(body.arguments.systemPrompt
                       ? [
@@ -470,12 +483,16 @@ export function createMCPRouter(_ctx: MCPContext = {}) {
                 }),
               },
             )
-            const result = (await response.json()) as InferenceChoicesResponse
+            const result = validateOrNull(
+              InferenceChoicesResponseSchema,
+              await response.json(),
+            )
+            const choice = result?.choices[0]
             return {
               content: [
                 {
                   type: 'text',
-                  text: result.choices[0]?.message.content || '',
+                  text: choice?.message.content ?? '',
                 },
               ],
             }
@@ -491,7 +508,7 @@ export function createMCPRouter(_ctx: MCPContext = {}) {
               body: JSON.stringify({
                 name: body.arguments.name,
                 code: body.arguments.code,
-                entrypoint: body.arguments.entrypoint || 'worker.js',
+                entrypoint: body.arguments.entrypoint ?? 'worker.js',
                 memoryMb: body.arguments.memoryMb || 128,
                 timeoutMs: body.arguments.timeoutMs || 30000,
               }),
@@ -538,7 +555,7 @@ export function createMCPRouter(_ctx: MCPContext = {}) {
               },
               body: JSON.stringify({
                 name: body.arguments.name,
-                provider: body.arguments.provider || 'k3d',
+                provider: body.arguments.provider ?? 'k3d',
                 nodes: body.arguments.nodes || 1,
               }),
             })
@@ -555,7 +572,9 @@ export function createMCPRouter(_ctx: MCPContext = {}) {
           }
 
           case 'dws_helm_deploy': {
-            const manifests = JSON.parse(getString(body.arguments, 'manifests'))
+            const manifests = HelmManifestsSchema.parse(
+              JSON.parse(getString(body.arguments, 'manifests')),
+            )
             const response = await fetch(`${baseUrl}/helm/apply`, {
               method: 'POST',
               headers: {
@@ -564,7 +583,7 @@ export function createMCPRouter(_ctx: MCPContext = {}) {
               },
               body: JSON.stringify({
                 release: body.arguments.release,
-                namespace: body.arguments.namespace || 'default',
+                namespace: body.arguments.namespace ?? 'default',
                 manifests,
               }),
             })

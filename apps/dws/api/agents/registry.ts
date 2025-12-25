@@ -4,10 +4,16 @@
  */
 
 import type { JsonRecord } from '@jejunetwork/sdk'
-import { isValidAddress } from '@jejunetwork/types'
+import { isValidAddress, validateOrNull } from '@jejunetwork/types'
 import type { Address } from 'viem'
+import { z } from 'zod'
 import { isAgentStatus, isCronAction } from '../shared/utils/type-guards'
-import type { CqlRowsResponse } from '../types'
+
+// Generic CQL rows response schema
+const CqlRowsResponseSchema = z.object({
+  rows: z.array(z.record(z.string(), z.unknown())).optional(),
+})
+
 import type {
   AgentConfig,
   AgentCronTrigger,
@@ -513,8 +519,8 @@ async function cqlQuery<T>(sql: string, params: SqlParam[] = []): Promise<T[]> {
       return []
     }
 
-    const data = (await response.json()) as CqlRowsResponse<T>
-    return data.rows ?? []
+    const data = validateOrNull(CqlRowsResponseSchema, await response.json())
+    return (data?.rows as T[]) ?? []
   } catch (e) {
     console.warn('[AgentRegistry] CQL query failed:', e)
     throw e

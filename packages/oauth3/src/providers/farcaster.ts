@@ -540,11 +540,20 @@ export class FarcasterProvider {
 
     profile.verifiedAddresses = verifications.messages
       .filter(
-        (m) =>
-          m.data.verificationAddAddressBody?.protocol !== 'PROTOCOL_SOLANA',
+        (
+          m,
+        ): m is typeof m & {
+          data: {
+            verificationAddAddressBody: NonNullable<
+              typeof m.data.verificationAddAddressBody
+            >
+          }
+        } =>
+          m.data.verificationAddAddressBody != null &&
+          m.data.verificationAddAddressBody.protocol !== 'PROTOCOL_SOLANA' &&
+          m.data.verificationAddAddressBody.address != null,
       )
-      .map((m) => m.data.verificationAddAddressBody?.address as Address)
-      .filter(Boolean)
+      .map((m) => m.data.verificationAddAddressBody.address as Address)
 
     return profile
   }

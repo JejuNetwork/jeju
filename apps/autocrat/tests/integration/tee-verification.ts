@@ -4,12 +4,19 @@
  * Run with: cd apps/council && bun run tests/tee-verification.ts
  */
 
+import { z } from 'zod'
 import {
   decryptReasoning,
   getTEEMode,
   makeTEEDecision,
   type TEEDecisionContext,
 } from '../src/tee'
+
+const EncryptedDataSchema = z.object({
+  ciphertext: z.string(),
+  iv: z.string(),
+  tag: z.string(),
+})
 
 async function testEncryption() {
   console.log('='.repeat(60))
@@ -97,11 +104,9 @@ async function testEncryption() {
   console.log(`  Encrypted Hash: ${result.encryptedHash.slice(0, 40)}...`)
 
   // Parse encrypted data to show structure
-  const encryptedData = JSON.parse(result.encryptedReasoning) as {
-    ciphertext: string
-    iv: string
-    tag: string
-  }
+  const encryptedData = EncryptedDataSchema.parse(
+    JSON.parse(result.encryptedReasoning),
+  )
   console.log(
     `  Ciphertext Length: ${encryptedData.ciphertext.length} hex chars`,
   )
@@ -146,11 +151,9 @@ async function testEncryption() {
   console.log('Tamper Detection Test:')
   try {
     // Modify ciphertext slightly
-    const tampered = JSON.parse(result.encryptedReasoning) as {
-      ciphertext: string
-      iv: string
-      tag: string
-    }
+    const tampered = EncryptedDataSchema.parse(
+      JSON.parse(result.encryptedReasoning),
+    )
     tampered.ciphertext = `ff${tampered.ciphertext.slice(2)}` // Change first byte
 
     decryptReasoning(JSON.stringify(tampered))

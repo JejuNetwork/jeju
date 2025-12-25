@@ -248,7 +248,7 @@ export function Dashboard() {
         ) : (
           <div className="space-y-3">
             {firingAlerts.slice(0, 5).map((alert: Alert) => {
-              const alertKey = `${alert.labels.alertname || 'unknown'}-${alert.labels.instance || ''}-${alert.labels.job || ''}`
+              const alertKey = `${alert.labels.alertname ?? 'unknown'}-${alert.labels.instance ?? ''}-${alert.labels.job ?? ''}`
               return (
                 <div
                   key={alertKey}

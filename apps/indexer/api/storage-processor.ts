@@ -5,6 +5,7 @@
 import type { Store } from '@subsquid/typeorm-store'
 import type { Hex } from 'viem'
 import { keccak256, parseAbi, stringToHex } from 'viem'
+
 import {
   StorageDeal,
   StorageDealStatus,
@@ -162,7 +163,7 @@ export async function processStorageEvents(
   }
 
   for (const block of ctx.blocks) {
-    const header = block.header as { height: number; timestamp: number }
+    const header = block.header
     const timestamp = new Date(header.timestamp)
 
     for (const log of block.logs) {

@@ -137,7 +137,7 @@ export default function FaucetPage() {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <span className="text-2xl">💧</span>
-            <h1 className="text-xl font-bold">{info?.name || 'JEJU Faucet'}</h1>
+            <h1 className="text-xl font-bold">{info?.name ?? 'JEJU Faucet'}</h1>
           </div>
           <button
             type="button"
@@ -153,7 +153,7 @@ export default function FaucetPage() {
         </div>
 
         <p className="mb-4" style={{ color: 'var(--text-secondary)' }}>
-          {info?.description || 'Get JEJU tokens for testing on the network.'}
+          {info?.description ?? 'Get JEJU tokens for testing on the network.'}
         </p>
 
         <div className="grid grid-cols-2 gap-4 mb-4">
@@ -168,7 +168,7 @@ export default function FaucetPage() {
               Amount per claim
             </span>
             <div className="font-bold">
-              {status?.amountPerClaim || info?.amountPerClaim || '100'} JEJU
+              {status?.amountPerClaim ?? info?.amountPerClaim ?? '100'} JEJU
             </div>
           </div>
           <div
@@ -181,7 +181,7 @@ export default function FaucetPage() {
             >
               Cooldown
             </span>
-            <div className="font-bold">{info?.cooldownHours || 12} hours</div>
+            <div className="font-bold">{info?.cooldownHours ?? 12} hours</div>
           </div>
         </div>
 

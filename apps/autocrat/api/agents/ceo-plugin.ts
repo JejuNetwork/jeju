@@ -19,7 +19,12 @@ import type {
 } from '@elizaos/core'
 import { getAutocratA2AUrl, getAutocratUrl } from '@jejunetwork/config'
 import { expectValid } from '@jejunetwork/types'
-import { A2AJsonRpcResponseSchema } from '../../lib'
+import { z } from 'zod'
+import {
+  A2AJsonRpcResponseSchema,
+  type AutocratVote,
+  AutocratVoteDataSchema,
+} from '../../lib'
 import { makeTEEDecision } from '../tee'
 import { ceoProviders } from './ceo-providers'
 
@@ -30,32 +35,42 @@ interface FeeChangeRequest {
   params: Record<string, number>
 }
 
-/** Response from fee execution endpoint */
-interface FeeExecuteResponse {
-  success: boolean
-  data?: { txHash: string }
-  error?: string
-}
+/** Schema for fee execute response */
+const FeeExecuteResponseSchema = z.union([
+  z.object({
+    success: z.literal(true),
+    data: z.object({ txHash: z.string() }),
+    error: z.undefined(),
+  }),
+  z.object({
+    success: z.literal(false),
+    data: z.undefined(),
+    error: z.string().optional(),
+  }),
+])
 
-/** Response from fee summary endpoint */
-interface FeeSummaryResponse {
-  success: boolean
-  summary: {
-    distribution: Record<string, string>
-    compute: Record<string, string>
-    storage: Record<string, string>
-    defi: Record<string, string>
-    infrastructure: Record<string, string>
-    marketplace: Record<string, string>
-    token: Record<string, string>
-  }
-}
+/** Schema for fee summary response */
+const FeeSummaryResponseSchema = z.object({
+  success: z.boolean(),
+  summary: z.object({
+    distribution: z.record(z.string(), z.string()),
+    compute: z.record(z.string(), z.string()),
+    storage: z.record(z.string(), z.string()),
+    defi: z.record(z.string(), z.string()),
+    infrastructure: z.record(z.string(), z.string()),
+    marketplace: z.record(z.string(), z.string()),
+    token: z.record(z.string(), z.string()),
+  }),
+})
 
-/** Autocrat vote structure */
-interface AutocratVote {
-  role: string
-  vote: string
-  reasoning: string
+/** Schema for autocrat votes response data */
+const AutocratVotesResponseSchema = z.object({
+  votes: z.array(AutocratVoteDataSchema).optional(),
+})
+
+/** Type guard for autocrat vote using Zod schema */
+function isAutocratVote(value: unknown): value is AutocratVote {
+  return AutocratVoteDataSchema.safeParse(value).success
 }
 
 /**
@@ -117,20 +132,6 @@ const makeDecisionAction: Action = {
 
     const proposalId = proposalIdMatch[0]
 
-    // Type guard for autocrat vote
-    function isAutocratVote(value: unknown): value is AutocratVote {
-      return (
-        typeof value === 'object' &&
-        value !== null &&
-        'role' in value &&
-        'vote' in value &&
-        'reasoning' in value &&
-        typeof (value as { role: unknown }).role === 'string' &&
-        typeof (value as { vote: unknown }).vote === 'string' &&
-        typeof (value as { reasoning: unknown }).reasoning === 'string'
-      )
-    }
-
     // Get council votes from state or fetch
     const autocratVotes: AutocratVote[] = Array.isArray(state?.autocratVotes)
       ? state.autocratVotes.filter(isAutocratVote)
@@ -166,7 +167,7 @@ DAO Alignment: ${decision.alignmentScore}%
 📝 Recommendations:
 ${decision.recommendations.map((r) => `• ${r}`).join('\n')}
 
-🔐 Attestation: ${decision.attestation?.provider ?? 'none'} (${decision.attestation?.verified ? 'verified' : 'unverified'})`,
+🔐 Attestation: ${decision.attestation.provider} (${decision.attestation.verified ? 'verified' : 'unverified'})`,
         action: 'MAKE_CEO_DECISION',
       })
     }
@@ -309,12 +310,11 @@ const getDeliberationAction: Action = {
       await response.json(),
       'autocrat votes A2A response',
     )
-    const dataPart = result.result?.parts?.find(
-      (p: { kind: string }) => p.kind === 'data',
-    )
-    const votesData =
+    const dataPart = result.result?.parts?.find((p) => p.kind === 'data')
+    const rawVotesData =
       dataPart?.kind === 'data' && dataPart.data ? dataPart.data : {}
-    const votes = (votesData as { votes?: AutocratVote[] }).votes ?? []
+    const parsedVotes = AutocratVotesResponseSchema.safeParse(rawVotesData)
+    const votes = parsedVotes.success ? (parsedVotes.data.votes ?? []) : []
 
     if (votes.length === 0) {
       if (callback) {
@@ -568,12 +568,16 @@ Current fees can be viewed using the fee configuration provider.`,
       }),
     })
 
-    const result = (await response.json()) as FeeExecuteResponse
-
-    if (!result.success) {
+    const parsedResult = FeeExecuteResponseSchema.safeParse(
+      await response.json(),
+    )
+    if (!parsedResult.success || !parsedResult.data.success) {
+      const errorMsg = parsedResult.success
+        ? (parsedResult.data.error ?? 'Unknown error')
+        : 'Invalid response format'
       if (callback) {
         await callback({
-          text: `❌ Fee change failed: ${result.error ?? 'Unknown error'}`,
+          text: `❌ Fee change failed: ${errorMsg}`,
           action: 'MODIFY_FEES',
         })
       }
@@ -591,7 +595,7 @@ Current fees can be viewed using the fee configuration provider.`,
 📊 Category: ${request.category.toUpperCase()}
 🔧 Changes: ${paramStr}
 
-📝 Transaction: ${result.data?.txHash?.slice(0, 16)}...
+📝 Transaction: ${parsedResult.data.data.txHash.slice(0, 16)}...
 
 The fee changes are now active across the network. All contracts reading from FeeConfig will use the new values.`,
         action: 'MODIFY_FEES',
@@ -662,9 +666,18 @@ const viewFeesAction: Action = {
       return
     }
 
-    const data = (await response.json()) as FeeSummaryResponse
+    const parsedData = FeeSummaryResponseSchema.safeParse(await response.json())
+    if (!parsedData.success) {
+      if (callback) {
+        await callback({
+          text: '⚠️ Invalid fee configuration response.',
+          action: 'VIEW_FEES',
+        })
+      }
+      return
+    }
 
-    const s = data.summary
+    const s = parsedData.data.summary
 
     if (callback) {
       await callback({

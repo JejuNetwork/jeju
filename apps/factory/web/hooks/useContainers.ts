@@ -115,7 +115,7 @@ async function fetchImages(query?: {
     size: formatBytes(c.size),
     digest: c.digest,
     createdAt: c.createdAt,
-    pulls: c.downloads || 0,
+    pulls: c.downloads ?? 0,
     isPublic: true,
     description: 'description' in c ? String(c.description) : undefined,
   }))
@@ -123,7 +123,7 @@ async function fetchImages(query?: {
 
 async function fetchInstances(): Promise<ContainerInstance[]> {
   const data = await fetchApi<InstancesResponse>('/api/containers/instances')
-  return data?.instances || []
+  return data?.instances ?? []
 }
 
 async function fetchContainerStats(): Promise<ContainerStats> {
@@ -176,7 +176,7 @@ export function useContainerImages(query?: { search?: string }) {
     queryFn: () => fetchImages(query),
     staleTime: 60000,
   })
-  return { images: images || [], isLoading, error, refetch }
+  return { images: images ?? [], isLoading, error, refetch }
 }
 
 export function useContainerInstances() {
@@ -191,7 +191,7 @@ export function useContainerInstances() {
     staleTime: 10000,
     refetchInterval: 30000,
   })
-  return { instances: instances || [], isLoading, error, refetch }
+  return { instances: instances ?? [], isLoading, error, refetch }
 }
 
 export function useContainerStats() {

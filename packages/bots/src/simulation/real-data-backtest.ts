@@ -26,6 +26,15 @@ const DefiLlamaPriceResponseSchema = z.object({
   coins: z.record(z.string(), z.object({ price: z.number() })),
 })
 
+// DeFi Llama protocols response schema
+const DefiLlamaProtocolsSchema = z.array(
+  z.object({
+    name: z.string(),
+    tvl: z.number(),
+    category: z.string(),
+  }),
+)
+
 interface ChainConfig {
   chainId: number
   name: string
@@ -399,12 +408,9 @@ class RealDataFetcher {
     try {
       const response = await fetch('https://api.llama.fi/protocols')
       if (response.ok) {
-        const protocols = (await response.json()) as Array<{
-          name: string
-          tvl: number
-          category: string
-        }>
-        for (const protocol of protocols) {
+        const parsed = DefiLlamaProtocolsSchema.safeParse(await response.json())
+        if (!parsed.success) return tvl
+        for (const protocol of parsed.data) {
           if (protocol.category === 'Dexes') {
             tvl[protocol.name.toLowerCase()] = protocol.tvl
           }

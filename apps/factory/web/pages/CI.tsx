@@ -218,7 +218,7 @@ export function CIPage() {
                       </span>
                     </div>
                     <p className="text-factory-400 text-sm mb-2 truncate">
-                      {run.commitMessage || 'No commit message'}
+                      {run.commitMessage ?? 'No commit message'}
                     </p>
                     <div className="flex items-center gap-4 text-sm text-factory-500">
                       <span className="flex items-center gap-1">

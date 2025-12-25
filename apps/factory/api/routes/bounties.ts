@@ -37,8 +37,8 @@ export const bountiesRoutes = new Elysia({ prefix: '/api/bounties' })
     '/',
     async ({ query }) => {
       const validated = expectValid(BountiesQuerySchema, query, 'query params')
-      const page = parseInt(validated.page || '1', 10)
-      const limit = parseInt(validated.limit || '20', 10)
+      const page = parseInt(validated.page ?? '1', 10)
+      const limit = parseInt(validated.limit ?? '20', 10)
 
       const bounties: Bounty[] = []
 

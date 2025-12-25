@@ -62,7 +62,10 @@ async function checkJejuLocalnet(): Promise<boolean> {
 
     if (!response.ok) return false
 
-    const data = (await response.json()) as { result?: string }
+    const RpcBlockNumberResponseSchema = z.object({
+      result: z.string().optional(),
+    })
+    const data = RpcBlockNumberResponseSchema.parse(await response.json())
     if (data.result) {
       const blockNumber = parseInt(data.result, 16)
       console.log(`[E2E Setup] Jeju localnet running at block ${blockNumber}`)

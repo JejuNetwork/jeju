@@ -47,10 +47,10 @@ export interface Pool {
   dex: DexProtocol
   token0: Token
   token1: Token
-  reserve0?: string
-  reserve1?: string
+  reserve0: string
+  reserve1: string
   fee: number
-  lastUpdate?: number
+  lastUpdate: number
 }
 
 import type { DexProtocol } from '@jejunetwork/types'

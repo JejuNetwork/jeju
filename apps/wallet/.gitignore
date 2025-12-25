@@ -47,7 +47,7 @@ synpress-report*/
 # Tauri
 app/src-tauri/target/
 
-# Mobile builds
+# Mobile builds - app/android
 app/android/app/build/
 app/android/.gradle/
 app/android/build/
@@ -55,9 +55,25 @@ app/android/local.properties
 app/android/keystore.properties
 app/android/*.jks
 app/android/*.keystore
+app/android/app/src/main/assets/
+
+# Mobile builds - android (root level)
+android/app/build/
+android/.gradle/
+android/build/
+android/local.properties
+android/keystore.properties
+android/*.jks
+android/*.keystore
+android/app/src/main/assets/
+
+# iOS
 app/ios/App/Pods/
 app/ios/App/build/
 app/ios/App/*.xcuserdata/
+ios/App/Pods/
+ios/App/build/
+ios/App/*.xcuserdata/
 
 # bun.lock (only at monorepo root)
 bun.lock

@@ -38,18 +38,23 @@ interface AppConfig {
 // Test configuration
 const RPC_URL = process.env.L2_RPC_URL || 'http://127.0.0.1:6546'
 const CHAIN_ID = process.env.CHAIN_ID || '1337'
-const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://test:test@localhost:5432/test'
+const DATABASE_URL =
+  process.env.DATABASE_URL || 'postgresql://test:test@localhost:5432/test'
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379'
 const CQL_URL = process.env.CQL_URL || 'http://127.0.0.1:4661'
 
 // Standard test accounts (Anvil defaults)
-const DEPLOYER_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
+const DEPLOYER_KEY =
+  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
 const TEST_WALLET = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
 
 function findMonorepoRoot(): string {
   let dir = process.cwd()
   while (dir !== '/') {
-    if (existsSync(join(dir, 'bun.lock')) && existsSync(join(dir, 'packages'))) {
+    if (
+      existsSync(join(dir, 'bun.lock')) &&
+      existsSync(join(dir, 'packages'))
+    ) {
       return dir
     }
     dir = join(dir, '..')
@@ -79,11 +84,14 @@ async function checkRpc(): Promise<boolean> {
 async function startAnvil(rootDir: string): Promise<() => void> {
   console.log('🔗 Starting Anvil...')
 
-  const proc = Bun.spawn(['anvil', '--chain-id', CHAIN_ID, '--port', '6546', '--block-time', '1'], {
-    cwd: rootDir,
-    stdout: 'pipe',
-    stderr: 'pipe',
-  })
+  const proc = Bun.spawn(
+    ['anvil', '--chain-id', CHAIN_ID, '--port', '6546', '--block-time', '1'],
+    {
+      cwd: rootDir,
+      stdout: 'pipe',
+      stderr: 'pipe',
+    },
+  )
 
   // Wait for Anvil to start
   for (let i = 0; i < 30; i++) {
@@ -102,17 +110,22 @@ async function startAnvil(rootDir: string): Promise<() => void> {
 async function deployContracts(rootDir: string): Promise<boolean> {
   console.log('📜 Deploying contracts...')
 
-  const bootstrapPath = join(rootDir, 'packages/deployment/scripts/bootstrap-localnet-complete.ts')
+  const bootstrapPath = join(
+    rootDir,
+    'packages/deployment/scripts/bootstrap-localnet-complete.ts',
+  )
   if (!existsSync(bootstrapPath)) {
     console.log('  Skipping - bootstrap script not found')
     return true
   }
 
   try {
-    await $`bun run ${bootstrapPath}`.env({
-      L2_RPC_URL: RPC_URL,
-      DEPLOYER_PRIVATE_KEY: DEPLOYER_KEY,
-    }).cwd(rootDir)
+    await $`bun run ${bootstrapPath}`
+      .env({
+        L2_RPC_URL: RPC_URL,
+        DEPLOYER_PRIVATE_KEY: DEPLOYER_KEY,
+      })
+      .cwd(rootDir)
     console.log('✅ Contracts deployed')
     return true
   } catch (error) {
@@ -142,8 +155,7 @@ function discoverApps(rootDir: string): AppConfig[] {
     }
 
     const hasTests =
-      existsSync(join(appPath, 'tests')) ||
-      existsSync(join(appPath, 'test'))
+      existsSync(join(appPath, 'tests')) || existsSync(join(appPath, 'test'))
 
     apps.push({
       name: entry.name,
@@ -162,13 +174,27 @@ async function runForgeTests(rootDir: string): Promise<TestResult> {
   const start = Date.now()
 
   const contractsPath = join(rootDir, 'packages/contracts')
-  if (!existsSync(contractsPath) || !existsSync(join(contractsPath, 'foundry.toml'))) {
-    return { name: 'contracts', type: 'forge', passed: true, duration: 0, skipped: true }
+  if (
+    !existsSync(contractsPath) ||
+    !existsSync(join(contractsPath, 'foundry.toml'))
+  ) {
+    return {
+      name: 'contracts',
+      type: 'forge',
+      passed: true,
+      duration: 0,
+      skipped: true,
+    }
   }
 
   try {
     await $`forge test -vvv`.cwd(contractsPath)
-    return { name: 'contracts', type: 'forge', passed: true, duration: Date.now() - start }
+    return {
+      name: 'contracts',
+      type: 'forge',
+      passed: true,
+      duration: Date.now() - start,
+    }
   } catch (error) {
     return {
       name: 'contracts',
@@ -180,7 +206,10 @@ async function runForgeTests(rootDir: string): Promise<TestResult> {
   }
 }
 
-async function runBunTests(rootDir: string, type: 'unit' | 'integration'): Promise<TestResult> {
+async function runBunTests(
+  rootDir: string,
+  type: 'unit' | 'integration',
+): Promise<TestResult> {
   console.log(`\n🧪 Running Bun ${type} tests...`)
   const start = Date.now()
 
@@ -190,13 +219,15 @@ async function runBunTests(rootDir: string, type: 'unit' | 'integration'): Promi
   }
 
   try {
-    await $`bun test ${type}/`.env({
-      L2_RPC_URL: RPC_URL,
-      CHAIN_ID,
-      DATABASE_URL,
-      REDIS_URL,
-      CQL_URL,
-    }).cwd(join(rootDir, 'packages/tests'))
+    await $`bun test ${type}/`
+      .env({
+        L2_RPC_URL: RPC_URL,
+        CHAIN_ID,
+        DATABASE_URL,
+        REDIS_URL,
+        CQL_URL,
+      })
+      .cwd(join(rootDir, 'packages/tests'))
 
     return { name: type, type, passed: true, duration: Date.now() - start }
   } catch (error) {
@@ -210,7 +241,10 @@ async function runBunTests(rootDir: string, type: 'unit' | 'integration'): Promi
   }
 }
 
-async function runAppTests(rootDir: string, app: AppConfig): Promise<TestResult[]> {
+async function runAppTests(
+  rootDir: string,
+  app: AppConfig,
+): Promise<TestResult[]> {
   const results: TestResult[] = []
   const appPath = join(rootDir, 'apps', app.name)
 
@@ -243,12 +277,14 @@ async function runAppTests(rootDir: string, app: AppConfig): Promise<TestResult[
     console.log(`\n🎭 Running ${app.name} Synpress tests...`)
     const start = Date.now()
     try {
-      await $`bunx playwright test --config synpress.config.ts`.env({
-        L2_RPC_URL: RPC_URL,
-        CHAIN_ID,
-        CI: 'true',
-        TEST_WALLET_ADDRESS: TEST_WALLET,
-      }).cwd(appPath)
+      await $`bunx playwright test --config synpress.config.ts`
+        .env({
+          L2_RPC_URL: RPC_URL,
+          CHAIN_ID,
+          CI: 'true',
+          TEST_WALLET_ADDRESS: TEST_WALLET,
+        })
+        .cwd(appPath)
 
       results.push({
         name: `${app.name}-synpress`,
@@ -276,20 +312,33 @@ async function runE2ETests(rootDir: string): Promise<TestResult> {
 
   const testsPath = join(rootDir, 'packages/tests/e2e')
   if (!existsSync(testsPath)) {
-    return { name: 'e2e', type: 'e2e', passed: true, duration: 0, skipped: true }
+    return {
+      name: 'e2e',
+      type: 'e2e',
+      passed: true,
+      duration: 0,
+      skipped: true,
+    }
   }
 
   try {
-    await $`bunx playwright test`.env({
-      L2_RPC_URL: RPC_URL,
-      CHAIN_ID,
-      DATABASE_URL,
-      REDIS_URL,
-      CQL_URL,
-      CI: 'true',
-    }).cwd(join(rootDir, 'packages/tests'))
+    await $`bunx playwright test`
+      .env({
+        L2_RPC_URL: RPC_URL,
+        CHAIN_ID,
+        DATABASE_URL,
+        REDIS_URL,
+        CQL_URL,
+        CI: 'true',
+      })
+      .cwd(join(rootDir, 'packages/tests'))
 
-    return { name: 'e2e', type: 'e2e', passed: true, duration: Date.now() - start }
+    return {
+      name: 'e2e',
+      type: 'e2e',
+      passed: true,
+      duration: Date.now() - start,
+    }
   } catch (error) {
     return {
       name: 'e2e',
@@ -302,7 +351,7 @@ async function runE2ETests(rootDir: string): Promise<TestResult> {
 }
 
 function printSummary(results: TestResult[]): void {
-  console.log('\n' + '='.repeat(60))
+  console.log(`\n${'='.repeat(60)}`)
   console.log('📊 TEST RESULTS')
   console.log('='.repeat(60))
 
@@ -313,11 +362,15 @@ function printSummary(results: TestResult[]): void {
   for (const result of results) {
     const status = result.skipped ? '⏭️' : result.passed ? '✅' : '❌'
     const duration = result.duration > 0 ? `(${result.duration}ms)` : ''
-    console.log(`  ${status} ${result.name.padEnd(30)} ${result.type.padEnd(12)} ${duration}`)
+    console.log(
+      `  ${status} ${result.name.padEnd(30)} ${result.type.padEnd(12)} ${duration}`,
+    )
   }
 
-  console.log('\n' + '='.repeat(60))
-  console.log(`SUMMARY: ${passed.length} passed, ${failed.length} failed, ${skipped.length} skipped`)
+  console.log(`\n${'='.repeat(60)}`)
+  console.log(
+    `SUMMARY: ${passed.length} passed, ${failed.length} failed, ${skipped.length} skipped`,
+  )
   console.log('='.repeat(60))
 
   if (failed.length > 0) {
@@ -325,7 +378,13 @@ function printSummary(results: TestResult[]): void {
     for (const result of failed) {
       console.log(`\n  ${result.name}:`)
       if (result.output) {
-        console.log(result.output.split('\n').slice(0, 10).map((l) => `    ${l}`).join('\n'))
+        console.log(
+          result.output
+            .split('\n')
+            .slice(0, 10)
+            .map((l) => `    ${l}`)
+            .join('\n'),
+        )
       }
     }
   }

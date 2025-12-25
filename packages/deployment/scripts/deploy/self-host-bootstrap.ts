@@ -573,7 +573,7 @@ class SelfHostingBootstrap {
 
       let manifest: JejuManifest = {
         name: app,
-        tags: [] as string[],
+        tags: [],
       }
       if (existsSync(manifestPath)) {
         const manifestContent = readFileSync(manifestPath, 'utf-8')

@@ -231,11 +231,10 @@ export class OAuth3Client {
     }
 
     // Discover the app
-    const appId = this.config.appId as string
-    this.discoveredApp = await this.discovery.discoverApp(appId)
+    this.discoveredApp = await this.discovery.discoverApp(this.config.appId)
 
     if (!this.discoveredApp) {
-      throw new Error(`App not found: ${appId}`)
+      throw new Error(`App not found: ${this.config.appId}`)
     }
 
     // Get available TEE nodes
@@ -327,9 +326,12 @@ export class OAuth3Client {
 
     const accounts = (await window.ethereum.request({
       method: 'eth_requestAccounts',
-    })) as string[]
+    })) as Address[]
 
-    const address = accounts[0] as Address
+    if (!accounts[0]) {
+      throw new Error('No accounts returned from wallet')
+    }
+    const address = accounts[0]
     const nonce = crypto.randomUUID()
 
     const message = this.createSignInMessage(address, nonce)

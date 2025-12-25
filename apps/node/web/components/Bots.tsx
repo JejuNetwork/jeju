@@ -97,7 +97,7 @@ export function Bots() {
   }
 
   const totalProfit = bots.reduce((acc, bot) => {
-    const profit = parseFloat(bot.status.net_profit_wei) || 0
+    const profit = parseFloat(bot.status.net_profit_wei) ?? 0
     return acc + profit
   }, 0)
 
@@ -336,7 +336,7 @@ export function Bots() {
                     step="0.01"
                     min={
                       bots.find((b) => b.metadata.id === startingBot)?.metadata
-                        .min_capital_eth || 0
+                        .min_capital_eth ?? 0
                     }
                   />
                   {error ? (

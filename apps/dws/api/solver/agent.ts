@@ -1,4 +1,3 @@
-import { readContract } from '@jejunetwork/contracts'
 import {
   createPublicClient,
   createWalletClient,
@@ -293,7 +292,7 @@ export class SolverAgent {
         this.pendingSettlements.delete(orderId)
         recordSettlementFailed(
           settlement.sourceChain,
-          result.reason || 'unknown',
+          result.reason ?? 'unknown',
         )
         console.log(`[Agent] Settlement failed: ${result.reason}`)
       }
@@ -328,17 +327,19 @@ export class SolverAgent {
         | `0x${string}`
         | undefined)
     if (oracleAddr) {
-      const attested = await readContract(client.public, {
-        address: oracleAddr,
-        abi: ORACLE_ABI,
-        functionName: 'hasAttested',
-        args: [settlement.orderId as `0x${string}`],
-      }).catch((err: Error) => {
-        console.warn(
-          `Oracle check failed for ${settlement.sourceChain}: ${err.message}`,
-        )
-        return false
-      })
+      const attested = await client.public
+        .readContract({
+          address: oracleAddr,
+          abi: ORACLE_ABI,
+          functionName: 'hasAttested',
+          args: [settlement.orderId as `0x${string}`],
+        })
+        .catch((err: Error) => {
+          console.warn(
+            `Oracle check failed for ${settlement.sourceChain}: ${err.message}`,
+          )
+          return false
+        })
 
       if (!attested) {
         return {
@@ -355,7 +356,7 @@ export class SolverAgent {
     }
 
     // First check if settlement is possible (canSettle)
-    const canSettle = await readContract(client.public, {
+    const canSettle = await client.public.readContract({
       address: inputSettler,
       abi: INPUT_SETTLER_ABI,
       functionName: 'canSettle',
@@ -429,7 +430,7 @@ export class SolverAgent {
       (process.env[`OIF_OUTPUT_SETTLER_${e.destinationChain}`] as `0x${string}`)
 
     if (client && settler) {
-      const filled = await readContract(client.public, {
+      const filled = await client.public.readContract({
         address: settler,
         abi: OUTPUT_SETTLER_ABI,
         functionName: 'isFilled',
@@ -456,7 +457,7 @@ export class SolverAgent {
 
     if (!result.profitable) {
       console.log(`[Agent] ${result.reason}`)
-      recordIntentSkipped(e.sourceChain, result.reason || 'unprofitable')
+      recordIntentSkipped(e.sourceChain, result.reason ?? 'unprofitable')
       return
     }
     console.log(`[Agent] Profitable: ${result.expectedProfitBps} bps`)
@@ -482,7 +483,7 @@ export class SolverAgent {
         e.sourceChain,
         e.destinationChain,
         fillDurationMs,
-        fill.gasUsed || 0n,
+        fill.gasUsed ?? 0n,
       )
       console.log(`[Agent] Filled: ${fill.txHash}`)
       const now = Date.now()
@@ -498,7 +499,7 @@ export class SolverAgent {
       })
       updatePendingSettlements(this.pendingSettlements.size)
     } else {
-      recordIntentSkipped(e.destinationChain, fill.error || 'fill_failed')
+      recordIntentSkipped(e.destinationChain, fill.error ?? 'fill_failed')
       console.log(`[Agent] ${fill.error}`)
     }
   }

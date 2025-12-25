@@ -116,7 +116,7 @@ export async function getNetworkTokens(filter?: {
   }
 
   const limit = sanitizeLimit(filter?.limit)
-  const offset = filter?.offset || 0
+  const offset = filter?.offset ?? 0
   if (offset < 0) throw new Error('Offset must be non-negative')
 
   const result = await graphqlQuery<QueryResult>(query, {

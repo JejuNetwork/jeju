@@ -9,13 +9,14 @@ import { EarningsChart } from './EarningsChart'
 type TimeRange = '24h' | '7d' | '30d' | 'all'
 
 export function Earnings() {
-  const { earnings, projectedEarnings, services, bots } = useAppStore()
+  const { earnings, projectedEarnings, services, bots, isLoading } =
+    useAppStore()
   const [timeRange, setTimeRange] = useState<TimeRange>('7d')
 
-  const totalEarningsUsd = earnings?.total_earnings_usd || 0
-  const todayEarningsUsd = earnings?.earnings_today_usd || 0
-  const weekEarningsUsd = earnings?.earnings_this_week_usd || 0
-  const monthEarningsUsd = earnings?.earnings_this_month_usd || 0
+  const totalEarningsUsd = earnings?.total_earnings_usd ?? 0
+  const todayEarningsUsd = earnings?.earnings_today_usd ?? 0
+  const weekEarningsUsd = earnings?.earnings_this_week_usd ?? 0
+  const monthEarningsUsd = earnings?.earnings_this_month_usd ?? 0
 
   const timeRangeOptions: { value: TimeRange; label: string }[] = [
     { value: '24h', label: '24 Hours' },
@@ -52,10 +53,18 @@ export function Earnings() {
             </div>
           </div>
           <p className="text-2xl font-bold mt-2">
-            {formatUsd(todayEarningsUsd)}
+            {isLoading ? (
+              <span className="inline-block w-20 h-7 bg-volcanic-700 rounded animate-pulse" />
+            ) : (
+              formatUsd(todayEarningsUsd)
+            )}
           </p>
           <p className="text-xs text-volcanic-500 mt-1">
-            {formatEther(earnings?.earnings_today_wei || '0')} ETH
+            {isLoading ? (
+              <span className="inline-block w-16 h-4 bg-volcanic-700 rounded animate-pulse" />
+            ) : (
+              `${formatEther(earnings?.earnings_today_wei ?? '0')} ETH`
+            )}
           </p>
         </div>
 
@@ -68,10 +77,18 @@ export function Earnings() {
             </div>
           </div>
           <p className="text-2xl font-bold mt-2">
-            {formatUsd(weekEarningsUsd)}
+            {isLoading ? (
+              <span className="inline-block w-20 h-7 bg-volcanic-700 rounded animate-pulse" />
+            ) : (
+              formatUsd(weekEarningsUsd)
+            )}
           </p>
           <p className="text-xs text-volcanic-500 mt-1">
-            {formatEther(earnings?.earnings_this_week_wei || '0')} ETH
+            {isLoading ? (
+              <span className="inline-block w-16 h-4 bg-volcanic-700 rounded animate-pulse" />
+            ) : (
+              `${formatEther(earnings?.earnings_this_week_wei ?? '0')} ETH`
+            )}
           </p>
         </div>
 
@@ -80,20 +97,36 @@ export function Earnings() {
             <p className="text-sm text-volcanic-400">This Month</p>
           </div>
           <p className="text-2xl font-bold mt-2">
-            {formatUsd(monthEarningsUsd)}
+            {isLoading ? (
+              <span className="inline-block w-20 h-7 bg-volcanic-700 rounded animate-pulse" />
+            ) : (
+              formatUsd(monthEarningsUsd)
+            )}
           </p>
           <p className="text-xs text-volcanic-500 mt-1">
-            {formatEther(earnings?.earnings_this_month_wei || '0')} ETH
+            {isLoading ? (
+              <span className="inline-block w-16 h-4 bg-volcanic-700 rounded animate-pulse" />
+            ) : (
+              `${formatEther(earnings?.earnings_this_month_wei ?? '0')} ETH`
+            )}
           </p>
         </div>
 
         <div className="card bg-gradient-to-br from-jeju-600/20 to-jeju-700/10 border-jeju-500/30">
           <p className="text-sm text-jeju-300">Total Earnings</p>
           <p className="text-2xl font-bold mt-2 text-jeju-400">
-            {formatUsd(totalEarningsUsd)}
+            {isLoading ? (
+              <span className="inline-block w-20 h-7 bg-volcanic-700 rounded animate-pulse" />
+            ) : (
+              formatUsd(totalEarningsUsd)
+            )}
           </p>
           <p className="text-xs text-jeju-400/70 mt-1">
-            {formatEther(earnings?.total_earnings_wei || '0')} ETH
+            {isLoading ? (
+              <span className="inline-block w-16 h-4 bg-volcanic-700 rounded animate-pulse" />
+            ) : (
+              `${formatEther(earnings?.total_earnings_wei ?? '0')} ETH`
+            )}
           </p>
         </div>
       </div>
@@ -154,7 +187,7 @@ export function Earnings() {
                     </div>
                     <div className="text-right">
                       <p className="font-medium">
-                        {formatUsd(serviceEarnings?.today_usd || 0)}
+                        {formatUsd(serviceEarnings?.today_usd ?? 0)}
                       </p>
                       <p className="text-xs text-volcanic-500">today</p>
                     </div>
@@ -196,10 +229,10 @@ export function Earnings() {
                     </div>
                     <div className="text-right">
                       <p className="font-medium text-jeju-400">
-                        {formatEther(botEarnings?.net_profit_wei || '0')} ETH
+                        {formatEther(botEarnings?.net_profit_wei ?? '0')} ETH
                       </p>
                       <p className="text-xs text-purple-400">
-                        {formatEther(botEarnings?.treasury_share_wei || '0')} to
+                        {formatEther(botEarnings?.treasury_share_wei ?? '0')} to
                         treasury
                       </p>
                     </div>

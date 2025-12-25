@@ -660,20 +660,22 @@ Return JSON: {"title":"...","summary":"...","description":"..."}`
         daoId,
       }
 
-    let description = parsed.description
-    if (typeof description === 'object' && description !== null) {
-      description = Object.entries(description)
+    let description: string
+    if (typeof parsed.description === 'object' && parsed.description !== null) {
+      description = Object.entries(parsed.description)
         .map(
           ([k, v]) =>
             `## ${k.replace(/([A-Z])/g, ' $1').trim()}\n${typeof v === 'object' ? JSON.stringify(v, null, 2) : v}`,
         )
         .join('\n\n')
+    } else {
+      description = parsed.description
     }
 
     return {
       title: parsed.title,
       summary: parsed.summary,
-      description: description as string,
+      description,
       proposalType,
       daoId,
     }

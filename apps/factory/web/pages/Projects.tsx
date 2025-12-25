@@ -194,7 +194,7 @@ export function ProjectsPage() {
               </div>
 
               <p className="text-factory-400 text-sm line-clamp-2 mb-4">
-                {project.description || 'No description provided'}
+                {project.description ?? 'No description provided'}
               </p>
 
               <div className="mb-4">

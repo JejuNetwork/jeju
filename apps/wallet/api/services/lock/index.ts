@@ -287,7 +287,7 @@ class LockService {
       // but we know it will fail
       let xor = 1
       for (let i = 0; i < a.length; i++) {
-        xor |= a.charCodeAt(i) ^ (b.charCodeAt(i % b.length) || 0)
+        xor |= a.charCodeAt(i) ^ (b.charCodeAt(i % b.length) ?? 0)
       }
       return xor === 0 && false // Always false for length mismatch
     }

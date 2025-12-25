@@ -40,7 +40,9 @@ const ProposalSchema = z.object({
 })
 
 export type ProposalStatus = z.infer<typeof ProposalStatusSchema>
-export type ModerationTargetType = 'proposal' | 'user' | 'research'
+
+const ModerationTargetTypeSchema = z.enum(['proposal', 'user', 'research'])
+export type ModerationTargetType = z.infer<typeof ModerationTargetTypeSchema>
 
 interface ProposalRow {
   id: string
@@ -294,7 +296,7 @@ export const proposalState = {
     const row = result.rows[0]
     if (row) {
       const autocratVotes = AutocratVotesRecordSchema.parse(
-        JSON.parse(row.council_votes || '{}'),
+        JSON.parse(row.council_votes ?? '{}'),
       )
       const proposal: Proposal = {
         id: row.id,
@@ -372,7 +374,7 @@ export const proposalState = {
       status: ProposalStatusSchema.parse(row.status),
       qualityScore: row.quality_score,
       autocratVotes: AutocratVotesRecordSchema.parse(
-        JSON.parse(row.council_votes || '{}'),
+        JSON.parse(row.council_votes ?? '{}'),
       ),
       futarchyMarketId: row.futarchy_market_id ?? undefined,
       createdAt: row.created_at,
@@ -413,7 +415,7 @@ export const researchState = {
       proposalId: row.proposal_id,
       topic: row.topic,
       summary: row.summary,
-      sources: SourcesArraySchema.parse(JSON.parse(row.sources || '[]')),
+      sources: SourcesArraySchema.parse(JSON.parse(row.sources ?? '[]')),
       confidence: row.confidence,
       createdAt: row.created_at,
     }))
@@ -450,7 +452,7 @@ export const moderationState = {
     return result.rows.map((row) => ({
       id: row.id,
       targetId: row.target_id,
-      targetType: row.target_type as ModerationTargetType,
+      targetType: ModerationTargetTypeSchema.parse(row.target_type),
       flagType: row.flag_type,
       reason: row.reason,
       reporterId: row.reporter_id,

@@ -115,11 +115,11 @@ export class ThresholdSigner {
 
   hasThreshold(batchNumber: number): boolean {
     const shares = this.signatureShares.get(batchNumber)
-    return (shares?.length || 0) >= this.threshold
+    return (shares?.length ?? 0) >= this.threshold
   }
 
   getSignatureCount(batchNumber: number): number {
-    return this.signatureShares.get(batchNumber)?.length || 0
+    return this.signatureShares.get(batchNumber)?.length ?? 0
   }
 
   combineSignatures(batchNumber: number): AggregatedSignature {

@@ -71,12 +71,12 @@ function transformPackage(p: ApiPackage): PackageListItem {
   const parts = p.name.split('/')
   return {
     name: parts.length > 1 ? parts[1] : p.name,
-    scope: parts.length > 1 ? parts[0] : p.scope || '',
+    scope: parts.length > 1 ? parts[0] : (p.scope ?? ''),
     version: p.version,
     description: p.description,
     downloads: p.downloads,
-    updatedAt: p.updatedAt || Date.now(),
-    verified: p.verified || false,
+    updatedAt: p.updatedAt ?? Date.now(),
+    verified: p.verified ?? false,
   }
 }
 
@@ -145,7 +145,7 @@ async function fetchPackageVersions(
 ): Promise<PackageVersion[]> {
   // Fetch package and extract versions
   const pkg = await fetchPackage(scope, name)
-  return pkg?.versions || []
+  return pkg?.versions ?? []
 }
 
 async function fetchPackageReadme(
@@ -154,7 +154,7 @@ async function fetchPackageReadme(
 ): Promise<string> {
   // Fetch package and extract readme
   const pkg = await fetchPackage(scope, name)
-  return pkg?.readme || ''
+  return pkg?.readme ?? ''
 }
 
 export function usePackages(query?: { search?: string }) {
@@ -170,7 +170,7 @@ export function usePackages(query?: { search?: string }) {
   })
 
   return {
-    packages: packages || [],
+    packages: packages ?? [],
     isLoading,
     error,
     refetch,
@@ -211,7 +211,7 @@ export function usePackageVersions(scope: string, name: string) {
   })
 
   return {
-    versions: versions || [],
+    versions: versions ?? [],
     isLoading,
     error,
   }
@@ -230,7 +230,7 @@ export function usePackageReadme(scope: string, name: string) {
   })
 
   return {
-    readme: readme || '',
+    readme: readme ?? '',
     isLoading,
     error,
   }

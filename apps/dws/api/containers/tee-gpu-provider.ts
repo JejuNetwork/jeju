@@ -11,9 +11,11 @@
  * 4. Results are signed by the enclave for verification
  */
 
+import { expectValid, HexSchema } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import { keccak256, toBytes } from 'viem'
-import type { TeeGpuAttestationResponse } from '../types'
+import { z } from 'zod'
+import { TeeGpuAttestationResponseSchema } from '../types'
 import {
   registerNode,
   updateNodeResources,
@@ -110,6 +112,35 @@ export interface GPUJobResult {
   }
   error?: string
 }
+
+// Validation schemas
+const TEEProviderSchema = z.enum(['phala', 'intel-tdx', 'amd-sev', 'local'])
+
+const TEEAttestationSchema = z.object({
+  quote: HexSchema,
+  mrEnclave: HexSchema,
+  mrSigner: HexSchema,
+  reportData: HexSchema,
+  timestamp: z.number(),
+  provider: TEEProviderSchema,
+})
+
+const GPUJobResultSchema = z.object({
+  jobId: z.string(),
+  status: z.enum(['completed', 'failed']),
+  outputCID: z.string().optional(),
+  attestation: TEEAttestationSchema.optional(),
+  metrics: z
+    .object({
+      trainingLoss: z.number(),
+      evalScore: z.number().optional(),
+      gpuUtilization: z.number(),
+      vramUsedGb: z.number(),
+      durationSeconds: z.number(),
+    })
+    .optional(),
+  error: z.string().optional(),
+})
 
 // TEE GPU Provider
 
@@ -349,7 +380,7 @@ export class TEEGPUProvider {
       )
     }
 
-    return response.json() as Promise<GPUJobResult>
+    return GPUJobResultSchema.parse(await response.json())
   }
 
   /**
@@ -393,7 +424,11 @@ export class TEEGPUProvider {
       throw new Error(`Failed to generate attestation: ${response.status}`)
     }
 
-    const data = (await response.json()) as TeeGpuAttestationResponse
+    const data = expectValid(
+      TeeGpuAttestationResponseSchema,
+      await response.json(),
+      'TEE GPU attestation response',
+    )
 
     return {
       quote: data.quote as Hex,

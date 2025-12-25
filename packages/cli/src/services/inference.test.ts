@@ -369,6 +369,10 @@ describe('Response Normalization', () => {
     },
     model: string,
   ): OpenAIResponse {
+    const candidate = data.candidates[0]
+    const firstPart = candidate?.content?.parts[0]
+    const usage = data.usageMetadata
+
     return {
       id: `gemini-${Date.now()}`,
       object: 'chat.completion',
@@ -377,16 +381,15 @@ describe('Response Normalization', () => {
         {
           message: {
             role: 'assistant',
-            content: data.candidates[0]?.content?.parts[0]?.text || '',
+            content: firstPart?.text ?? '',
           },
-          finish_reason:
-            data.candidates[0]?.finishReason === 'STOP' ? 'stop' : 'length',
+          finish_reason: candidate?.finishReason === 'STOP' ? 'stop' : 'length',
         },
       ],
       usage: {
-        prompt_tokens: data.usageMetadata?.promptTokenCount || 0,
-        completion_tokens: data.usageMetadata?.candidatesTokenCount || 0,
-        total_tokens: data.usageMetadata?.totalTokenCount || 0,
+        prompt_tokens: usage?.promptTokenCount ?? 0,
+        completion_tokens: usage?.candidatesTokenCount ?? 0,
+        total_tokens: usage?.totalTokenCount ?? 0,
       },
     }
   }

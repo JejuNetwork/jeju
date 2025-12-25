@@ -59,9 +59,9 @@ export default function ScrapingPage() {
 
   const nodes = nodesData?.nodes ?? []
   const activeSessions =
-    sessionsData?.sessions?.filter((s) => s.status === 'active').length ?? 0
-  const totalCapacity = healthData?.nodes?.capacity ?? 0
-  const inUse = healthData?.nodes?.inUse ?? 0
+    sessionsData?.sessions.filter((s) => s.status === 'active').length ?? 0
+  const totalCapacity = healthData?.nodes.capacity ?? 0
+  const inUse = healthData?.nodes.inUse ?? 0
 
   return (
     <div>
@@ -107,7 +107,7 @@ export default function ScrapingPage() {
           </div>
           <div className="stat-content">
             <div className="stat-label">Total Nodes</div>
-            <div className="stat-value">{healthData?.nodes?.total ?? 0}</div>
+            <div className="stat-value">{healthData?.nodes.total ?? 0}</div>
           </div>
         </div>
         <div className="stat-card">
@@ -343,7 +343,7 @@ export default function ScrapingPage() {
                   }}
                 >
                   <span style={{ fontWeight: 500 }}>
-                    {scrapeResult.title || 'No title'}
+                    {scrapeResult.title ?? '(Untitled)'}
                   </span>
                   <span className="badge badge-success">
                     {scrapeResult.statusCode}

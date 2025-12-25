@@ -146,7 +146,7 @@ export function ContainersPage() {
                     )}
                   </div>
                   <p className="text-factory-400 text-sm line-clamp-2 mb-3">
-                    {image.description || 'No description provided'}
+                    {image.description ?? 'No description provided'}
                   </p>
                   <div className="flex items-center gap-4 text-sm text-factory-500">
                     <span className="flex items-center gap-1">

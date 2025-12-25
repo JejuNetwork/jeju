@@ -312,3 +312,46 @@ export const badgeParamsSchema = z.object({
 export const badgeQuerySchema = z.object({
   branch: z.string().optional(),
 })
+
+/**
+ * GitHub webhook push event body schema
+ */
+export const pushWebhookBodySchema = z.object({
+  ref: z.string(),
+  after: z.string(),
+  pusher: z.object({
+    email: z.string(),
+  }),
+})
+
+/**
+ * GitHub webhook pull_request event body schema
+ */
+export const pullRequestWebhookBodySchema = z.object({
+  action: z.string(),
+  pull_request: z.object({
+    number: z.number(),
+    head: z.object({
+      sha: z.string(),
+    }),
+    base: z.object({
+      ref: z.string(),
+    }),
+    user: z.object({
+      login: z.string(),
+    }),
+  }),
+})
+
+/**
+ * GitHub webhook release event body schema
+ */
+export const releaseWebhookBodySchema = z.object({
+  action: z.string(),
+  release: z.object({
+    tag_name: z.string(),
+  }),
+  sender: z.object({
+    login: z.string(),
+  }),
+})

@@ -71,6 +71,37 @@ export interface ForcedInclusionParams {
   gasLimit?: bigint
 }
 
+/** Raw sequencer data from contract read */
+interface RawSequencerData {
+  sequencerAddress: Address
+  operator: Address
+  stake: bigint
+  status: number
+  blocksProduced: bigint
+  lastBlockTime: bigint
+  registeredAt: bigint
+  jailedUntil: bigint
+  slashCount: bigint
+}
+
+/** Parse raw contract data into typed Sequencer */
+function parseSequencerData(raw: RawSequencerData): Sequencer | null {
+  if (raw.sequencerAddress === '0x0000000000000000000000000000000000000000') {
+    return null
+  }
+  return {
+    sequencerAddress: raw.sequencerAddress,
+    operator: raw.operator,
+    stake: raw.stake,
+    status: raw.status as SequencerStatus,
+    blocksProduced: raw.blocksProduced,
+    lastBlockTime: raw.lastBlockTime,
+    registeredAt: raw.registeredAt,
+    jailedUntil: raw.jailedUntil,
+    slashCount: Number(raw.slashCount),
+  }
+}
+
 export interface SequencerModule {
   // Sequencer Registration
   registerSequencer(params: RegisterSequencerParams): Promise<Hex>
@@ -371,37 +402,15 @@ export function createSequencerModule(
         args: [addr],
       })
 
-      const seq = result as {
-        sequencerAddress: Address
-        operator: Address
-        stake: bigint
-        status: number
-        blocksProduced: bigint
-        lastBlockTime: bigint
-        registeredAt: bigint
-        jailedUntil: bigint
-        slashCount: bigint
-      }
-
-      if (
-        seq.sequencerAddress === '0x0000000000000000000000000000000000000000'
-      ) {
-        return null
-      }
-
-      return {
-        ...seq,
-        status: seq.status as SequencerStatus,
-        slashCount: Number(seq.slashCount),
-      }
+      return parseSequencerData(result as RawSequencerData)
     },
 
     async getActiveSequencers() {
-      const addresses = (await wallet.publicClient.readContract({
+      const addresses = await wallet.publicClient.readContract({
         address: sequencerRegistryAddress,
         abi: SEQUENCER_REGISTRY_ABI,
         functionName: 'getActiveSequencers',
-      })) as Address[]
+      })
 
       const sequencers: Sequencer[] = []
       for (const addr of addresses) {
@@ -412,11 +421,11 @@ export function createSequencerModule(
     },
 
     async getAllSequencers() {
-      const addresses = (await wallet.publicClient.readContract({
+      const addresses = await wallet.publicClient.readContract({
         address: sequencerRegistryAddress,
         abi: SEQUENCER_REGISTRY_ABI,
         functionName: 'getAllSequencers',
-      })) as Address[]
+      })
 
       const sequencers: Sequencer[] = []
       for (const addr of addresses) {
@@ -508,12 +517,12 @@ export function createSequencerModule(
     },
 
     async getMyForcedInclusionRequests() {
-      const requestIds = (await wallet.publicClient.readContract({
+      const requestIds = await wallet.publicClient.readContract({
         address: forcedInclusionAddress,
         abi: FORCED_INCLUSION_ABI,
         functionName: 'getRequestsBySender',
         args: [wallet.address],
-      })) as Hex[]
+      })
 
       const requests: ForcedInclusionRequest[] = []
       for (const id of requestIds) {
@@ -549,11 +558,11 @@ export function createSequencerModule(
     },
 
     async getSlotDuration() {
-      return (await wallet.publicClient.readContract({
+      return wallet.publicClient.readContract({
         address: sequencerRegistryAddress,
         abi: SEQUENCER_REGISTRY_ABI,
         functionName: 'slotDuration',
-      })) as bigint
+      })
     },
 
     async reportMissedBlock(_sequencer, _blockNumber) {

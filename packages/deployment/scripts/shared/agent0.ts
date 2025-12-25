@@ -133,17 +133,18 @@ function loadLocalnetAddresses(): void {
   // Try to load from identity-system-31337.json
   const identityPath = resolve(deploymentsDir, 'identity-system-31337.json')
   if (existsSync(identityPath)) {
-    const deployments = JSON.parse(
-      readFileSync(identityPath, 'utf-8'),
-    ) as Record<string, string>
-    if (deployments.IdentityRegistry) {
+    const deployments = validateOrNull(
+      DeploymentAddressesSchema,
+      JSON.parse(readFileSync(identityPath, 'utf-8')),
+    )
+    if (deployments?.IdentityRegistry) {
       NETWORK_CONFIG.localnet.registries.IDENTITY = deployments.IdentityRegistry
     }
-    if (deployments.ReputationRegistry) {
+    if (deployments?.ReputationRegistry) {
       NETWORK_CONFIG.localnet.registries.REPUTATION =
         deployments.ReputationRegistry
     }
-    if (deployments.ValidationRegistry) {
+    if (deployments?.ValidationRegistry) {
       NETWORK_CONFIG.localnet.registries.VALIDATION =
         deployments.ValidationRegistry
     }
@@ -153,17 +154,18 @@ function loadLocalnetAddresses(): void {
   // Also check localnet-addresses.json for additional addresses
   const localnetPath = resolve(deploymentsDir, 'localnet-addresses.json')
   if (existsSync(localnetPath)) {
-    const deployments = JSON.parse(
-      readFileSync(localnetPath, 'utf-8'),
-    ) as Record<string, string>
-    if (deployments.identityRegistry) {
+    const deployments = validateOrNull(
+      DeploymentAddressesSchema,
+      JSON.parse(readFileSync(localnetPath, 'utf-8')),
+    )
+    if (deployments?.identityRegistry) {
       NETWORK_CONFIG.localnet.registries.IDENTITY = deployments.identityRegistry
     }
-    if (deployments.reputationRegistry) {
+    if (deployments?.reputationRegistry) {
       NETWORK_CONFIG.localnet.registries.REPUTATION =
         deployments.reputationRegistry
     }
-    if (deployments.validationRegistry) {
+    if (deployments?.validationRegistry) {
       NETWORK_CONFIG.localnet.registries.VALIDATION =
         deployments.validationRegistry
     }
@@ -252,10 +254,10 @@ export function buildRegistrationFile(
     owners: [ownerAddress],
     operators: [],
     active: true,
-    x402support: manifest.agent?.x402Support || false,
+    x402support: manifest.agent?.x402Support ?? false,
     metadata: {
-      version: manifest.version || '1.0.0',
-      ...(manifest.agent?.metadata || {}),
+      version: manifest.version ?? '1.0.0',
+      ...(manifest.agent?.metadata ?? {}),
     },
     updatedAt: Math.floor(Date.now() / 1000),
   }
@@ -541,8 +543,8 @@ export async function getAgentInfo(
     description: registrationFile.description || '',
     a2aEndpoint,
     mcpEndpoint,
-    tags: tags as string[],
-    active: (registrationFile.active as boolean) || false,
+    tags: [...tags],
+    active: registrationFile.active ?? false,
     chainId: networkConfig.chainId,
   }
 }

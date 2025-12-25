@@ -11,7 +11,7 @@
  *   jeju test --mode integration --package cli
  */
 
-import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
+import { beforeAll, describe, expect, test } from 'bun:test'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -112,7 +112,7 @@ describe('CLI Integration Tests', () => {
         return
       }
 
-      const { stdout, exitCode } = await runCLI([
+      const { stdout } = await runCLI([
         'fund',
         '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
         '--dry-run',
@@ -129,7 +129,7 @@ describe('CLI Integration Tests', () => {
         return
       }
 
-      const { stdout, exitCode } = await runCLI(['deploy', 'check', 'localnet'])
+      const { stdout } = await runCLI(['deploy', 'check', 'localnet'])
       // Should complete without crashing
       expect(stdout).toBeDefined()
     }, 60000)
@@ -146,7 +146,7 @@ describe('CLI Integration Tests', () => {
     })
 
     test('test analyze runs subagent', async () => {
-      const { stdout, exitCode } = await runCLI(['test', 'analyze', '--json'])
+      const { stdout } = await runCLI(['test', 'analyze', '--json'])
       // Should complete without error (may fail if subagent not present)
       expect(stdout).toBeDefined()
     }, 60000)
@@ -211,10 +211,8 @@ describe('CLI Error Handling', () => {
   })
 
   test('missing required args shows help', async () => {
-    const { stdout, stderr, exitCode } = await runCLI(['deploy', 'token'])
+    const { stdout, stderr } = await runCLI(['deploy', 'token'])
     // Should either show help or error about missing args
     expect(stdout.length + stderr.length).toBeGreaterThan(0)
   })
 })
-
-

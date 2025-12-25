@@ -10,16 +10,24 @@ const VerifyQuerySchema = t.Object({
   token: t.Optional(t.String()),
 })
 
+interface CookieValue {
+  value?: string
+}
+
+/** Extract session ID from cookie or authorization header */
+function getSessionId(
+  cookie: { jeju_session?: CookieValue } | undefined,
+  authHeader: string | null | undefined,
+): string | undefined {
+  const sessionCookie = cookie?.jeju_session?.value
+  const authToken = extractBearerToken(authHeader)
+  return sessionCookie ?? authToken ?? undefined
+}
+
 export function createSessionRouter(config: AuthConfig) {
   return new Elysia({ name: 'session', prefix: '/session' })
     .get('/', async ({ headers, set, cookie }) => {
-      // Check for session cookie or Authorization header
-      const sessionCookie = cookie?.jeju_session?.value
-      const authToken = extractBearerToken(headers.authorization)
-      const sessionId =
-        typeof sessionCookie === 'string'
-          ? sessionCookie
-          : (authToken ?? undefined)
+      const sessionId = getSessionId(cookie, headers.authorization)
 
       if (!sessionId) {
         set.status = 401
@@ -76,12 +84,7 @@ export function createSessionRouter(config: AuthConfig) {
     )
 
     .delete('/', async ({ headers, set, cookie }) => {
-      const sessionCookie = cookie?.jeju_session?.value
-      const authToken = extractBearerToken(headers.authorization)
-      const sessionId =
-        typeof sessionCookie === 'string'
-          ? sessionCookie
-          : (authToken ?? undefined)
+      const sessionId = getSessionId(cookie, headers.authorization)
 
       if (!sessionId) {
         set.status = 400
@@ -103,12 +106,7 @@ export function createSessionRouter(config: AuthConfig) {
     })
 
     .post('/refresh', async ({ headers, set, cookie }) => {
-      const sessionCookie = cookie?.jeju_session?.value
-      const authToken = extractBearerToken(headers.authorization)
-      const sessionId =
-        typeof sessionCookie === 'string'
-          ? sessionCookie
-          : (authToken ?? undefined)
+      const sessionId = getSessionId(cookie, headers.authorization)
 
       if (!sessionId) {
         set.status = 401

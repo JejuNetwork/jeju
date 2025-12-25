@@ -21,9 +21,9 @@ export default function TrainingPage() {
 
   const runs = runsData ?? []
   const activeRuns = runs.filter((r) => r.state >= 1 && r.state <= 5).length
-  const totalNodes = nodesData?.nodes?.length ?? 0
-  const gpuNodes =
-    nodesData?.nodes?.filter((n) => n.resources.totalCpu > 4).length ?? 0
+  const nodes = nodesData?.nodes ?? []
+  const totalNodes = nodes.length
+  const gpuNodes = nodes.filter((n) => n.resources.totalCpu > 4).length
 
   return (
     <div>

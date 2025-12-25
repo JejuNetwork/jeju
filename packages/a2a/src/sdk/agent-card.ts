@@ -187,8 +187,8 @@ export class AgentCardGenerator {
         this.config.documentationUrl || `${this.config.baseUrl}/docs`,
 
       capabilities: {
-        streaming: this.config.enableStreaming || false,
-        pushNotifications: this.config.enablePushNotifications || false,
+        streaming: this.config.enableStreaming ?? false,
+        pushNotifications: this.config.enablePushNotifications ?? false,
         stateTransitionHistory:
           this.config.enableStateTransitionHistory !== false,
       },

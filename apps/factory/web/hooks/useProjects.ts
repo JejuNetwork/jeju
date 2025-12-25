@@ -73,7 +73,7 @@ async function fetchProjectTasks(projectId: string): Promise<ProjectTask[]> {
   const data = await fetchApi<{ tasks: ProjectTask[] }>(
     `/api/projects/${projectId}/tasks`,
   )
-  return data?.tasks || []
+  return data?.tasks ?? []
 }
 
 async function updateTask(
@@ -111,7 +111,7 @@ export function useProjects(query?: {
     queryFn: () => fetchProjects(query),
     staleTime: 30000,
   })
-  return { projects: projects || [], isLoading, error, refetch }
+  return { projects: projects ?? [], isLoading, error, refetch }
 }
 
 export function useProject(projectId: string) {
@@ -141,7 +141,7 @@ export function useProjectTasks(projectId: string) {
     enabled: !!projectId,
     staleTime: 30000,
   })
-  return { tasks: tasks || [], isLoading, error, refetch }
+  return { tasks: tasks ?? [], isLoading, error, refetch }
 }
 
 export function useUpdateTask(projectId: string) {

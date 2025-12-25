@@ -16,28 +16,28 @@ export function StatusBadge({
       case 'online':
         return {
           dotClass: 'status-online',
-          label: label || 'Online',
+          label: label ?? 'Online',
           bgColor: 'rgba(16, 185, 129, 0.15)',
           textColor: 'var(--color-success)',
         }
       case 'offline':
         return {
           dotClass: 'status-offline',
-          label: label || 'Offline',
+          label: label ?? 'Offline',
           bgColor: 'rgba(239, 68, 68, 0.15)',
           textColor: 'var(--color-error)',
         }
       case 'warning':
         return {
           dotClass: 'status-warning',
-          label: label || 'Warning',
+          label: label ?? 'Warning',
           bgColor: 'rgba(245, 158, 11, 0.15)',
           textColor: 'var(--color-warning)',
         }
       default:
         return {
           dotClass: 'bg-gray-400',
-          label: label || 'Unknown',
+          label: label ?? 'Unknown',
           bgColor: 'var(--bg-secondary)',
           textColor: 'var(--text-tertiary)',
         }

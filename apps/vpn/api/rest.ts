@@ -125,7 +125,7 @@ export function createRESTRouter(ctx: VPNServiceContext) {
     })
     .post('/connect', async ({ request, body }) => {
       const auth = await verifyAuth(request)
-      expect(auth.valid, auth.error || 'Authentication required')
+      expect(auth.valid, auth.error ?? 'Authentication required')
       if (!auth.address) {
         throw new Error('Authentication address missing')
       }
@@ -149,7 +149,7 @@ export function createRESTRouter(ctx: VPNServiceContext) {
         ctx,
         auth.address,
         targetNode.nodeId,
-        validatedBody.protocol || 'wireguard',
+        validatedBody.protocol ?? 'wireguard',
       )
 
       return {
@@ -184,7 +184,7 @@ export function createRESTRouter(ctx: VPNServiceContext) {
 
     .post('/disconnect', async ({ request, body }) => {
       const auth = await verifyAuth(request)
-      expect(auth.valid, auth.error || 'Authentication required')
+      expect(auth.valid, auth.error ?? 'Authentication required')
       if (!auth.address) {
         throw new Error('Authentication address missing')
       }
@@ -209,7 +209,7 @@ export function createRESTRouter(ctx: VPNServiceContext) {
 
     .get('/session/:sessionId', async ({ request, params }) => {
       const auth = await verifyAuth(request)
-      expect(auth.valid, auth.error || 'Authentication required')
+      expect(auth.valid, auth.error ?? 'Authentication required')
       if (!auth.address) {
         throw new Error('Authentication address missing')
       }
@@ -238,7 +238,7 @@ export function createRESTRouter(ctx: VPNServiceContext) {
       const paymentHeader = request.headers.get('x-payment')
 
       const paymentResult = await verifyX402Payment(
-        paymentHeader || '',
+        paymentHeader ?? '',
         BigInt(ctx.config.pricing.pricePerRequest),
         'vpn:proxy',
         ctx.config,
@@ -304,7 +304,7 @@ export function createRESTRouter(ctx: VPNServiceContext) {
 
     .get('/contribution', async ({ request }) => {
       const auth = await verifyAuth(request)
-      expect(auth.valid, auth.error || 'Authentication required')
+      expect(auth.valid, auth.error ?? 'Authentication required')
       if (!auth.address) {
         throw new Error('Authentication address missing')
       }
@@ -348,7 +348,7 @@ export function createRESTRouter(ctx: VPNServiceContext) {
 
     .post('/contribution/settings', async ({ request, body }) => {
       const auth = await verifyAuth(request)
-      expect(auth.valid, auth.error || 'Authentication required')
+      expect(auth.valid, auth.error ?? 'Authentication required')
       if (!auth.address) {
         throw new Error('Authentication address missing')
       }

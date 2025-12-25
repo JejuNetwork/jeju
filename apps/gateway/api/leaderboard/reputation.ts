@@ -77,14 +77,14 @@ export async function calculateUserReputation(
   const prCounts = prCountResult[0] || { total_prs: 0, merged_prs: 0 }
   const commitCounts = commitCountResult[0] || { total_commits: 0 }
 
-  const totalScore = Number(scores.total_score) || 0
-  const prScore = Number(scores.pr_score) || 0
-  const issueScore = Number(scores.issue_score) || 0
-  const reviewScore = Number(scores.review_score) || 0
-  const commitScore = Number(scores.comment_score) || 0
-  const mergedPrCount = Number(prCounts.merged_prs) || 0
-  const totalPrCount = Number(prCounts.total_prs) || 0
-  const totalCommits = Number(commitCounts.total_commits) || 0
+  const totalScore = Number(scores.total_score) ?? 0
+  const prScore = Number(scores.pr_score) ?? 0
+  const issueScore = Number(scores.issue_score) ?? 0
+  const reviewScore = Number(scores.review_score) ?? 0
+  const commitScore = Number(scores.comment_score) ?? 0
+  const mergedPrCount = Number(prCounts.merged_prs) ?? 0
+  const totalPrCount = Number(prCounts.total_prs) ?? 0
+  const totalCommits = Number(commitCounts.total_commits) ?? 0
 
   let normalizedScore: number
   if (totalScore <= 0) {

@@ -187,7 +187,7 @@ class ElizaClient {
       }
       return {
         id: response[0].id || `eliza-${Date.now()}`,
-        content: response.map((r) => r.content || r.text || '').join('\n'),
+        content: response.map((r) => r.content ?? r.text ?? '').join('\n'),
         agentId: this.agentId,
         metadata: response[0].metadata,
       }
@@ -196,7 +196,7 @@ class ElizaClient {
     // Handle single response (TypeScript narrows to ElizaApiResponse after Array.isArray check)
     return {
       id: response.id || `eliza-${Date.now()}`,
-      content: response.text || response.content || '',
+      content: response.text ?? response.content ?? '',
       agentId: this.agentId,
     }
   }

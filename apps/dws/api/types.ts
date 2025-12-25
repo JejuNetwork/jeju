@@ -3,6 +3,7 @@
  */
 
 import type { Address, Hash, Hex } from 'viem'
+import { z } from 'zod'
 
 // ============================================================================
 // Common JSON Response Types
@@ -13,12 +14,20 @@ export interface CidResponse {
   cid: string
 }
 
+export const CidResponseSchema = z.object({ cid: z.string() })
+
 /** IPFS add response */
 export interface IpfsAddResponse {
   Hash: string
   Name?: string
   Size?: string
 }
+
+export const IpfsAddResponseSchema = z.object({
+  Hash: z.string(),
+  Name: z.string().optional(),
+  Size: z.string().optional(),
+})
 
 /** Generic JSON-RPC response */
 export interface JsonRpcResponse<T> {
@@ -53,14 +62,28 @@ export interface DockerCreateResponse {
   Warnings?: string[]
 }
 
+export const DockerCreateResponseSchema = z.object({
+  Id: z.string(),
+  Warnings: z.array(z.string()).optional(),
+})
+
 export interface DockerExecCreateResponse {
   Id: string
 }
+
+export const DockerExecCreateResponseSchema = z.object({
+  Id: z.string(),
+})
 
 export interface DockerExecInspect {
   ExitCode: number
   Running?: boolean
 }
+
+export const DockerExecInspectSchema = z.object({
+  ExitCode: z.number(),
+  Running: z.boolean().optional(),
+})
 
 export interface DockerInspectResponse {
   State: {
@@ -144,9 +167,18 @@ export interface KmsEncryptResponse {
   keyId: string
 }
 
+export const KmsEncryptResponseSchema = z.object({
+  ciphertext: z.string(),
+  keyId: z.string(),
+})
+
 export interface KmsDecryptResponse {
   plaintext: string
 }
+
+export const KmsDecryptResponseSchema = z.object({
+  plaintext: z.string(),
+})
 
 /** CDN invalidation request response */
 export interface InvalidationRequestResponse {
@@ -284,9 +316,28 @@ export interface DockerNetworkSettings {
   NetworkSettings: { Ports: Record<string, Array<{ HostPort: string }>> }
 }
 
+export const DockerNetworkSettingsSchema = z.object({
+  NetworkSettings: z.object({
+    Ports: z.record(z.string(), z.array(z.object({ HostPort: z.string() }))),
+  }),
+})
+
 /** Simple count response */
 export interface CountResponse {
   count: number
+}
+
+export const CountResponseSchema = z.object({
+  count: z.number(),
+})
+
+/** CQL query rows response schema factory */
+export function createCqlRowsResponseSchema<T extends z.ZodTypeAny>(
+  rowSchema: T,
+) {
+  return z.object({
+    rows: z.array(rowSchema).optional(),
+  })
 }
 
 /** CQL query rows response */
@@ -335,6 +386,29 @@ export interface CowAuctionResponse {
   }>
 }
 
+export const CowAuctionResponseSchema = z.object({
+  auctionId: z.number(),
+  orders: z.array(
+    z.object({
+      uid: z.string(),
+      sellToken: z.string(),
+      buyToken: z.string(),
+      sellAmount: z.string(),
+      buyAmount: z.string(),
+      kind: z.string(),
+      partiallyFillable: z.boolean(),
+    }),
+  ),
+  solutions: z.array(
+    z.object({
+      solver: z.string(),
+      score: z.string(),
+      ranking: z.number(),
+      orders: z.array(z.object({ id: z.string(), executedAmount: z.string() })),
+    }),
+  ),
+})
+
 /** UniswapX orders response */
 export interface UniswapXOrdersResponse {
   orders: Array<{
@@ -361,6 +435,40 @@ export interface UniswapXOrdersResponse {
     orderStatus: string
   }>
 }
+
+export const UniswapXOrdersResponseSchema = z.object({
+  orders: z.array(
+    z.object({
+      orderHash: z.string(),
+      chainId: z.number(),
+      swapper: z.string(),
+      reactor: z.string(),
+      deadline: z.number(),
+      input: z.object({
+        token: z.string(),
+        startAmount: z.string(),
+        endAmount: z.string(),
+      }),
+      outputs: z.array(
+        z.object({
+          token: z.string(),
+          startAmount: z.string(),
+          endAmount: z.string(),
+          recipient: z.string(),
+        }),
+      ),
+      decayStartTime: z.number(),
+      decayEndTime: z.number(),
+      exclusiveFiller: z.string().optional(),
+      exclusivityOverrideBps: z.number().optional(),
+      nonce: z.string(),
+      encodedOrder: z.string(),
+      signature: z.string(),
+      createdAt: z.number(),
+      orderStatus: z.string(),
+    }),
+  ),
+})
 
 /** Workerd router response */
 export interface WorkerdRouterResponse {
@@ -392,6 +500,14 @@ export interface TeeGpuAttestationResponse {
   report_data: string
   timestamp: number
 }
+
+export const TeeGpuAttestationResponseSchema = z.object({
+  quote: z.string(),
+  mr_enclave: z.string(),
+  mr_signer: z.string(),
+  report_data: z.string(),
+  timestamp: z.number(),
+})
 
 /** TEE quote response */
 export interface TeeQuoteResponse {

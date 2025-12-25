@@ -5,7 +5,6 @@
  * All reads are on-chain calls - no API keys required.
  */
 
-import { readContract } from '@jejunetwork/contracts'
 import type { Address, PublicClient } from 'viem'
 
 // Chainlink Price Feed addresses on Ethereum mainnet

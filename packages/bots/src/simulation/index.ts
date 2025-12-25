@@ -17,6 +17,16 @@
 export type { BacktestResult } from '../types'
 // Core simulation
 export { type BacktestConfig, Backtester } from './backtester'
+// Critical Review & Audit
+export {
+  LARP_AUDIT,
+  printAuditReport,
+  VALIDATED_BRIDGE_COSTS,
+  VALIDATED_GAS_COSTS,
+  VALIDATED_GAS_PRICES,
+  VALIDATED_MARKET_IMPACT,
+  VALIDATED_MEV_PARAMS,
+} from './critical-review'
 export { HistoricalDataFetcher, type PriceCandle } from './data-fetcher'
 // Economic modeling
 export {
@@ -79,7 +89,6 @@ export {
   WalkForwardAnalyzer,
   type WalkForwardResult,
 } from './monte-carlo'
-
 // Multi-chain scanning
 export {
   type ChainPrice,
@@ -114,6 +123,11 @@ export {
   RiskAnalyzer,
   type RiskMetrics,
 } from './risk-analyzer'
+// Scientific Benchmarking
+export {
+  ScientificBenchmark,
+  Statistics,
+} from './scientific-benchmark'
 // Stress testing
 export {
   runStressTests,
@@ -135,20 +149,3 @@ export {
   type ReportConfig,
   TerminalReport,
 } from './visualizer'
-
-// Scientific Benchmarking
-export {
-  ScientificBenchmark,
-  Statistics,
-} from './scientific-benchmark'
-
-// Critical Review & Audit
-export {
-  LARP_AUDIT,
-  printAuditReport,
-  VALIDATED_BRIDGE_COSTS,
-  VALIDATED_GAS_COSTS,
-  VALIDATED_GAS_PRICES,
-  VALIDATED_MARKET_IMPACT,
-  VALIDATED_MEV_PARAMS,
-} from './critical-review'

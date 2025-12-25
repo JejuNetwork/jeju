@@ -308,9 +308,18 @@ export function parseVectorSearchResults(
   metadataColumns: string[] = [],
 ): VectorSearchResult[] {
   return rows.map((row) => {
+    const rowid = row.rowid
+    const distance = row.distance
+    if (typeof rowid !== 'number') {
+      throw new Error(`Expected rowid to be number, got ${typeof rowid}`)
+    }
+    if (typeof distance !== 'number') {
+      throw new Error(`Expected distance to be number, got ${typeof distance}`)
+    }
+
     const result: VectorSearchResult = {
-      rowid: row.rowid as number,
-      distance: row.distance as number,
+      rowid,
+      distance,
     }
 
     if (metadataColumns.length > 0) {

@@ -308,7 +308,9 @@ export default function JobsPage() {
                     whiteSpace: 'pre-wrap',
                   }}
                 >
-                  {selectedJobData.output || 'No output yet'}
+                  {selectedJobData.output.length > 0
+                    ? selectedJobData.output
+                    : '(No output yet)'}
                 </pre>
               </div>
             </div>

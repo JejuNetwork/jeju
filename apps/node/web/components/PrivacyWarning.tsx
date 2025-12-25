@@ -207,7 +207,7 @@ export function TeeStatusIndicator({
       )}
     >
       <Shield className="w-3 h-3" />
-      <span>{available ? type || 'TEE Available' : 'Non-confidential'}</span>
+      <span>{available ? (type ?? 'TEE Available') : 'Non-confidential'}</span>
     </div>
   )
 }

@@ -12,14 +12,19 @@
 import { EventEmitter } from 'node:events'
 import {
   type Address,
-  type Hash,
-  type Hex,
-  type PublicClient,
-  type WalletClient,
-  parseAbi,
   encodeFunctionData,
+  type Hash,
+  type PublicClient,
+  parseAbi,
   parseEther,
+  type WalletClient,
 } from 'viem'
+import { z } from 'zod'
+
+const RpcSendTxResponseSchema = z.object({
+  result: z.string().optional(),
+  error: z.object({ message: z.string() }).optional(),
+})
 
 export interface OracleArbConfig {
   chainId: number
@@ -62,6 +67,13 @@ interface ExecutionResult {
   profit?: bigint
   gasUsed?: bigint
   error?: string
+}
+
+/** AnswerUpdated event args from Chainlink oracle */
+interface AnswerUpdatedArgs {
+  current: bigint
+  roundId: bigint
+  updatedAt: bigint
 }
 
 const CHAINLINK_AGGREGATOR_ABI = parseAbi([
@@ -119,9 +131,15 @@ export class OracleArbStrategy extends EventEmitter {
   private client: PublicClient
   private wallet: WalletClient
   private running = false
-  private lastPrices: Map<Address, { price: bigint; decimals: number }> = new Map()
+  private lastPrices: Map<Address, { price: bigint; decimals: number }> =
+    new Map()
   private recentUpdates: OracleUpdate[] = []
-  private executionStats = { attempts: 0, successes: 0, totalProfit: 0n, totalGas: 0n }
+  private executionStats = {
+    attempts: 0,
+    successes: 0,
+    totalProfit: 0n,
+    totalGas: 0n,
+  }
 
   constructor(
     config: OracleArbConfig,
@@ -167,7 +185,7 @@ export class OracleArbStrategy extends EventEmitter {
         ])
 
         this.lastPrices.set(oracle, { price: roundData[1], decimals })
-      } catch (error) {
+      } catch (_error) {
         console.warn(`Failed to initialize price for oracle ${oracle}`)
       }
     }
@@ -191,14 +209,14 @@ export class OracleArbStrategy extends EventEmitter {
   private async onOracleUpdate(
     oracle: Address,
     log: {
-      args: Record<string, bigint>
+      args: AnswerUpdatedArgs
       transactionHash: Hash
       blockNumber: bigint
     },
   ): Promise<void> {
     if (!this.running) return
 
-    const { current: newPrice } = log.args as { current: bigint }
+    const { current: newPrice } = log.args
     const lastData = this.lastPrices.get(oracle)
     const oldPrice = lastData?.price ?? newPrice
     const decimals = lastData?.decimals ?? 8
@@ -238,7 +256,10 @@ export class OracleArbStrategy extends EventEmitter {
     if (Math.abs(priceDelta) < 0.002) return // 0.2% minimum
 
     const opportunity = await this.findOpportunity(update, priceDelta)
-    if (opportunity && opportunity.expectedProfitUsd >= this.config.minProfitUsd) {
+    if (
+      opportunity &&
+      opportunity.expectedProfitUsd >= this.config.minProfitUsd
+    ) {
       const result = await this.execute(opportunity)
       this.emit('execution', { opportunity, result })
     }
@@ -293,15 +314,17 @@ export class OracleArbStrategy extends EventEmitter {
     }
 
     // Calculate expected profit
-    const expectedProfitBps = Math.floor(expectedLag * 10000)
-    const minAmountOut = amountOut * BigInt(10000 - this.config.maxSlippageBps) / 10000n
+    const _expectedProfitBps = Math.floor(expectedLag * 10000)
+    const minAmountOut =
+      (amountOut * BigInt(10000 - this.config.maxSlippageBps)) / 10000n
 
     // Estimate gas (swap + some buffer)
     const gasEstimate = 200000n
 
     // Calculate profit in USD
     const priceUsd = Number(update.newPrice) / 10 ** update.decimals
-    const expectedProfitUsd = Number(tradeSize) / 1e18 * priceUsd * expectedLag
+    const expectedProfitUsd =
+      (Number(tradeSize) / 1e18) * priceUsd * expectedLag
 
     if (expectedProfitUsd < this.config.minProfitUsd) {
       return null
@@ -321,7 +344,9 @@ export class OracleArbStrategy extends EventEmitter {
     }
   }
 
-  private async execute(opportunity: OracleArbOpportunity): Promise<ExecutionResult> {
+  private async execute(
+    opportunity: OracleArbOpportunity,
+  ): Promise<ExecutionResult> {
     this.executionStats.attempts++
     console.log(
       `📊 Oracle arb: ${opportunity.direction} ${opportunity.asset}, ${opportunity.expectedProfitUsd.toFixed(2)} USD expected`,
@@ -353,7 +378,8 @@ export class OracleArbStrategy extends EventEmitter {
       })
 
       // 2. Check if simulation shows profit
-      const actualOutput = simulationResult.result[simulationResult.result.length - 1]
+      const actualOutput =
+        simulationResult.result[simulationResult.result.length - 1]
       if (actualOutput < opportunity.minAmountOut) {
         return { success: false, error: 'Simulation shows insufficient output' }
       }
@@ -384,7 +410,9 @@ export class OracleArbStrategy extends EventEmitter {
       }
 
       // 4. Wait for confirmation
-      const receipt = await this.client.waitForTransactionReceipt({ hash: txHash })
+      const receipt = await this.client.waitForTransactionReceipt({
+        hash: txHash,
+      })
 
       if (receipt.status === 'success') {
         this.executionStats.successes++
@@ -414,7 +442,7 @@ export class OracleArbStrategy extends EventEmitter {
   private async submitViaFlashbots(
     opportunity: OracleArbOpportunity,
     account: Address,
-    deadline: bigint
+    deadline: bigint,
   ): Promise<Hash> {
     // Build the transaction
     const callData = encodeFunctionData({
@@ -438,22 +466,27 @@ export class OracleArbStrategy extends EventEmitter {
       chain: null,
     })
 
-    const response = await fetch(this.config.flashbotsRpc ?? 'https://protect.flashbots.net', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'eth_sendRawTransaction',
-        params: [signedTx],
-        id: 1,
-      }),
-    })
+    const response = await fetch(
+      this.config.flashbotsRpc ?? 'https://protect.flashbots.net',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'eth_sendRawTransaction',
+          params: [signedTx],
+          id: 1,
+        }),
+      },
+    )
 
-    const result = await response.json() as { result?: Hash; error?: { message: string } }
+    const result = RpcSendTxResponseSchema.parse(await response.json())
     if (result.error) {
       throw new Error(result.error.message)
     }
-
+    if (!result.result) {
+      throw new Error('No transaction hash in response')
+    }
     return result.result as Hash
   }
 
@@ -470,9 +503,10 @@ export class OracleArbStrategy extends EventEmitter {
       recentUpdates: this.recentUpdates.length,
       trackedOracles: this.config.oracleAddresses.length,
       ...this.executionStats,
-      successRate: this.executionStats.attempts > 0
-        ? this.executionStats.successes / this.executionStats.attempts
-        : 0,
+      successRate:
+        this.executionStats.attempts > 0
+          ? this.executionStats.successes / this.executionStats.attempts
+          : 0,
     }
   }
 }

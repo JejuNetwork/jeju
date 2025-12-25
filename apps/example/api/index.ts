@@ -1,7 +1,16 @@
 import { cors } from '@elysiajs/cors'
 import { getNetworkName } from '@jejunetwork/config'
+import { validateOrNull } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import { z } from 'zod'
+
+// Zod schema for OAuth3 health check result
+const OAuth3HealthSchema = z.object({
+  jns: z.boolean(),
+  storage: z.boolean(),
+  teeNode: z.boolean(),
+})
+
 import type { HealthResponse, ServiceStatus } from '../lib/schemas'
 import { createA2AServer } from './a2a'
 import { createAuthRoutes } from './auth'
@@ -299,22 +308,8 @@ const app = new Elysia()
     })
     if (!registryHealthy) degradedCount++
 
-    // Type guard for OAuth3 health check result
-    const isOAuth3Health = (
-      value: unknown,
-    ): value is { jns: boolean; storage: boolean; teeNode: boolean } => {
-      if (!value || typeof value !== 'object') return false
-      const obj = value as Record<string, unknown>
-      return (
-        typeof obj.jns === 'boolean' &&
-        typeof obj.storage === 'boolean' &&
-        typeof obj.teeNode === 'boolean'
-      )
-    }
-
-    const oauth3Health = isOAuth3Health(oauth3Check.result)
-      ? oauth3Check.result
-      : null
+    // Validate OAuth3 health check result with Zod
+    const oauth3Health = validateOrNull(OAuth3HealthSchema, oauth3Check.result)
     const oauth3Healthy =
       oauth3Health?.jns && oauth3Health?.storage && oauth3Health?.teeNode
     services.push({

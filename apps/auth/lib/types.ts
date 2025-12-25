@@ -5,8 +5,6 @@
 import type { AuthProvider } from '@jejunetwork/oauth3'
 import type { Address, Hex } from 'viem'
 
-export type { AuthProvider }
-
 // ============ Session Types ============
 
 export interface AuthSession {

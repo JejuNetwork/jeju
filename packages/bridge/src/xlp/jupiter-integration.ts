@@ -3,7 +3,7 @@
  * Enables instant Solana swaps as part of cross-chain liquidity operations
  */
 
-import { EventEmitter } from '@jejunetwork/shared'
+import { EventEmitter } from 'node:events'
 import { Connection, Keypair, VersionedTransaction } from '@solana/web3.js'
 import { createLogger } from '../utils/logger.js'
 import {
@@ -29,9 +29,7 @@ const RETRY_CONFIG = {
 /**
  * Check if error is retryable (network errors, 5xx, rate limits)
  */
-function isRetryableError(
-  error: Error | TypeError | string | Record<string, unknown>,
-): boolean {
+function isRetryableError(error: unknown): boolean {
   if (error instanceof TypeError) {
     return true // Network errors (fetch failed, connection refused)
   }
@@ -89,7 +87,7 @@ async function fetchWithRetry(
       lastError = error as Error
 
       if (
-        !isRetryableError(lastError) ||
+        !isRetryableError(error) ||
         attempt === RETRY_CONFIG.maxAttempts - 1
       ) {
         throw error
@@ -185,8 +183,8 @@ export class JupiterClient extends EventEmitter {
   constructor(config: JupiterConfig) {
     super()
     this.connection = new Connection(config.rpcUrl, 'confirmed')
-    this.defaultSlippageBps = config.slippageBps || 50 // 0.5% default
-    this.priorityFeeLamports = config.priorityFeeLamports || 10000
+    this.defaultSlippageBps = config.slippageBps ?? 50 // 0.5% default
+    this.priorityFeeLamports = config.priorityFeeLamports ?? 10000
     this.dynamicComputeUnitLimit = config.dynamicComputeUnitLimit ?? true
 
     if (config.keypair) {
@@ -213,8 +211,8 @@ export class JupiterClient extends EventEmitter {
       amount: params.amount,
       slippageBps: (params.slippageBps || this.defaultSlippageBps).toString(),
       swapMode: params.swapMode || 'ExactIn',
-      onlyDirectRoutes: (params.onlyDirectRoutes || false).toString(),
-      asLegacyTransaction: (params.asLegacyTransaction || false).toString(),
+      onlyDirectRoutes: (params.onlyDirectRoutes ?? false).toString(),
+      asLegacyTransaction: (params.asLegacyTransaction ?? false).toString(),
     })
 
     if (params.maxAccounts) {

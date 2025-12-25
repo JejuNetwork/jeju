@@ -4,9 +4,9 @@
  */
 
 import { beforeEach, describe, expect, test } from 'bun:test'
+import type { EVMChainId } from '@jejunetwork/types'
 import { Keypair, PublicKey } from '@solana/web3.js'
 import { SolanaAdapter } from '../bridge/solana-adapter'
-import type { ChainId } from '../types'
 
 describe('SolanaAdapter - Construction', () => {
   test('creates mainnet adapter with default RPC', () => {
@@ -185,9 +185,9 @@ describe('SolanaAdapter - Domain ID Mapping', () => {
   })
 
   test('quotes for all supported EVM destinations', async () => {
-    const evmChains: ChainId[] = [1, 10, 56, 137, 8453, 42161, 43114]
+    const evmChains: EVMChainId[] = [1, 10, 56, 137, 8453, 42161, 43114]
     for (const chainId of evmChains) {
-      const quote = await adapter.quoteTransfer(chainId as number, 1000000n)
+      const quote = await adapter.quoteTransfer(chainId, 1000000n)
       expect(quote.totalFee).toBeGreaterThan(0n)
     }
   })

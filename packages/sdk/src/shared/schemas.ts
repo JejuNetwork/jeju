@@ -36,7 +36,7 @@ export function parseJson<T>(
  */
 export function safeParseJson<T>(json: string, schema: z.ZodType<T>): T | null {
   try {
-    const parsed: JsonValue = JSON.parse(json) as JsonValue
+    const parsed: unknown = JSON.parse(json)
     const result = schema.safeParse(parsed)
     return result.success ? result.data : null
   } catch {

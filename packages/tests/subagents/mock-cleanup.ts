@@ -118,7 +118,10 @@ const redis = new Redis({ host: '127.0.0.1', port: 6379 })`,
 function findMonorepoRoot(): string {
   let dir = process.cwd()
   while (dir !== '/') {
-    if (existsSync(join(dir, 'bun.lock')) && existsSync(join(dir, 'packages'))) {
+    if (
+      existsSync(join(dir, 'bun.lock')) &&
+      existsSync(join(dir, 'packages'))
+    ) {
       return dir
     }
     dir = join(dir, '..')
@@ -128,12 +131,12 @@ function findMonorepoRoot(): string {
 
 function findTestFiles(dir: string, files: string[] = []): string[] {
   if (!existsSync(dir)) return files
-  
+
   const entries = readdirSync(dir, { withFileTypes: true })
-  
+
   for (const entry of entries) {
     const fullPath = join(dir, entry.name)
-    
+
     if (entry.isDirectory()) {
       if (entry.name !== 'node_modules' && !entry.name.startsWith('.')) {
         findTestFiles(fullPath, files)
@@ -147,7 +150,7 @@ function findTestFiles(dir: string, files: string[] = []): string[] {
       files.push(fullPath)
     }
   }
-  
+
   return files
 }
 
@@ -155,19 +158,19 @@ function findMocksInFile(filePath: string): MockLocation[] {
   const content = readFileSync(filePath, 'utf-8')
   const lines = content.split('\n')
   const mocks: MockLocation[] = []
-  
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
-    
+
     for (const { pattern, type, extractor } of MOCK_PATTERNS) {
       // Reset regex lastIndex
       pattern.lastIndex = 0
-      
-      let match: RegExpExecArray | null
-      while ((match = pattern.exec(line)) !== null) {
+
+      let match: RegExpExecArray | null = pattern.exec(line)
+      while (match !== null) {
         const target = extractor(match)
         const shouldKeep = KEEP_MOCKS.some((k) => target.includes(k))
-        
+
         // Find replacement
         let replacement: string | undefined
         for (const [key, value] of Object.entries(MOCK_REPLACEMENTS)) {
@@ -176,7 +179,7 @@ function findMocksInFile(filePath: string): MockLocation[] {
             break
           }
         }
-        
+
         mocks.push({
           file: filePath,
           line: i + 1,
@@ -186,65 +189,68 @@ function findMocksInFile(filePath: string): MockLocation[] {
           fullMatch: match[0],
           canReplace: !shouldKeep,
           replacement,
-          reason: shouldKeep ? 'System-level mock (keep)' : 'Can be replaced with real service',
+          reason: shouldKeep
+            ? 'System-level mock (keep)'
+            : 'Can be replaced with real service',
         })
+        match = pattern.exec(line)
       }
     }
   }
-  
+
   return mocks
 }
 
 function cleanupFile(
   filePath: string,
   mocks: MockLocation[],
-  dryRun: boolean
+  dryRun: boolean,
 ): CleanupResult {
   const content = readFileSync(filePath, 'utf-8')
   const lines = content.split('\n')
   const changes: MockChange[] = []
-  
+
   const replaceable = mocks.filter((m) => m.canReplace)
-  
+
   for (const mock of replaceable) {
     const lineIndex = mock.line - 1
     const originalLine = lines[lineIndex]
-    
+
     if (mock.replacement) {
       // Add TODO comment instead of removing
       const commentedLine = `// TODO: Replace mock with real service:\n// ${mock.replacement.split('\n')[0]}\n${originalLine}`
-      
+
       changes.push({
         line: mock.line,
         before: originalLine,
         after: commentedLine,
         reason: `Replace ${mock.target} mock with real service`,
       })
-      
+
       if (!dryRun) {
         lines[lineIndex] = commentedLine
       }
     } else {
       // Just add a warning comment
       const warningLine = `// TODO: Review this mock - consider using real service\n${originalLine}`
-      
+
       changes.push({
         line: mock.line,
         before: originalLine,
         after: warningLine,
         reason: `Review mock for ${mock.target}`,
       })
-      
+
       if (!dryRun) {
         lines[lineIndex] = warningLine
       }
     }
   }
-  
+
   if (!dryRun && changes.length > 0) {
     writeFileSync(filePath, lines.join('\n'))
   }
-  
+
   return {
     file: filePath,
     mocksFound: mocks.length,
@@ -261,13 +267,13 @@ async function runCleanup(config: {
   apply: boolean
 }): Promise<void> {
   const { rootDir, targetApp, dryRun } = config
-  
+
   console.log('🧹 Mock Cleanup Analysis\n')
   console.log(dryRun ? '(DRY RUN - no changes will be made)\n' : '')
-  
+
   // Find directories to scan
   const directories: string[] = []
-  
+
   if (targetApp) {
     const appPath = join(rootDir, 'apps', targetApp)
     if (existsSync(appPath)) {
@@ -277,44 +283,44 @@ async function runCleanup(config: {
     // Scan all apps and packages
     const appsDir = join(rootDir, 'apps')
     const packagesDir = join(rootDir, 'packages')
-    
+
     if (existsSync(appsDir)) {
       directories.push(
         ...readdirSync(appsDir, { withFileTypes: true })
           .filter((d) => d.isDirectory() && !d.name.startsWith('.'))
-          .map((d) => join(appsDir, d.name))
+          .map((d) => join(appsDir, d.name)),
       )
     }
-    
+
     if (existsSync(packagesDir)) {
       directories.push(
         ...readdirSync(packagesDir, { withFileTypes: true })
           .filter((d) => d.isDirectory() && !d.name.startsWith('.'))
-          .map((d) => join(packagesDir, d.name))
+          .map((d) => join(packagesDir, d.name)),
       )
     }
   }
-  
+
   let totalMocks = 0
   let totalReplaceable = 0
   let totalKept = 0
   const allResults: CleanupResult[] = []
-  
+
   for (const dir of directories) {
     const testFiles = findTestFiles(dir)
     const dirName = dir.split('/').pop() || dir
-    
+
     let dirMocks = 0
-    
+
     for (const file of testFiles) {
       const mocks = findMocksInFile(file)
-      
+
       if (mocks.length > 0) {
         dirMocks += mocks.length
         totalMocks += mocks.length
         totalReplaceable += mocks.filter((m) => m.canReplace).length
         totalKept += mocks.filter((m) => !m.canReplace).length
-        
+
         if (config.apply || dryRun) {
           const result = cleanupFile(file, mocks, dryRun)
           if (result.changes.length > 0) {
@@ -323,29 +329,29 @@ async function runCleanup(config: {
         }
       }
     }
-    
+
     if (dirMocks > 0) {
       console.log(`📁 ${dirName}: ${dirMocks} mocks found`)
     }
   }
-  
+
   // Print summary
-  console.log('\n' + '='.repeat(60))
+  console.log(`\n${'='.repeat(60)}`)
   console.log('📊 SUMMARY')
   console.log('='.repeat(60))
   console.log(`Total mocks found: ${totalMocks}`)
   console.log(`Replaceable: ${totalReplaceable}`)
   console.log(`Keep (system-level): ${totalKept}`)
-  
+
   if (allResults.length > 0) {
-    console.log('\n' + '='.repeat(60))
-    console.log('📝 CHANGES' + (dryRun ? ' (DRY RUN)' : ''))
+    console.log(`\n${'='.repeat(60)}`)
+    console.log(`📝 CHANGES${dryRun ? ' (DRY RUN)' : ''}`)
     console.log('='.repeat(60))
-    
+
     for (const result of allResults) {
       const relativePath = result.file.replace(rootDir, '')
       console.log(`\n${relativePath}:`)
-      
+
       for (const change of result.changes) {
         console.log(`  Line ${change.line}: ${change.reason}`)
         if (config.apply) {
@@ -355,9 +361,9 @@ async function runCleanup(config: {
       }
     }
   }
-  
+
   // Print recommendations
-  console.log('\n' + '='.repeat(60))
+  console.log(`\n${'='.repeat(60)}`)
   console.log('📋 NEXT STEPS')
   console.log('='.repeat(60))
   console.log(`
@@ -370,7 +376,7 @@ async function runCleanup(config: {
 4. Run tests with: jeju test integration
 5. Verify all tests pass against real services
 `)
-  
+
   console.log('\n✅ Mock cleanup analysis complete')
 }
 
@@ -390,5 +396,3 @@ runCleanup(config).catch((error) => {
   console.error('Mock cleanup failed:', error)
   process.exit(1)
 })
-
-

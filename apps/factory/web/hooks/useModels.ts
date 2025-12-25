@@ -135,7 +135,7 @@ async function fetchModels(query?: {
     organization: m.organization,
     description: m.description,
     type: isValidModelType(m.type) ? m.type : 'llm',
-    parameters: m.size || 'Unknown',
+    parameters: m.size ?? 'Unknown',
     downloads: m.downloads,
     stars: m.stars,
     lastUpdated: m.updatedAt,
@@ -171,24 +171,24 @@ function transformModelDetail(m: ApiModelDetail): ModelData {
     organization: m.organization,
     description: m.description,
     type: validModelType(m.type) ? m.type : 'llm',
-    task: m.task || '',
-    framework: m.framework || '',
-    parameters: m.size || 'Unknown',
-    precision: m.precision || '',
-    license: m.license || '',
+    task: m.task ?? '',
+    framework: m.framework ?? '',
+    parameters: m.size ?? 'Unknown',
+    precision: m.precision ?? '',
+    license: m.license ?? '',
     downloads: m.downloads,
     stars: m.stars,
-    forks: m.forks || 0,
-    lastUpdated: m.lastUpdated || m.updatedAt,
+    forks: m.forks ?? 0,
+    lastUpdated: m.lastUpdated ?? m.updatedAt,
     createdAt: m.createdAt,
     isVerified: m.status === 'ready',
-    tags: m.tags || [],
-    hasInference: m.hasInference || m.status === 'ready',
+    tags: m.tags ?? [],
+    hasInference: m.hasInference ?? m.status === 'ready',
     inferenceEndpoint: m.inferenceEndpoint,
-    files: m.files || [],
-    readme: m.readme || '',
-    versions: m.versions || [],
-    computeRequirements: m.computeRequirements || {
+    files: m.files ?? [],
+    readme: m.readme ?? '',
+    versions: m.versions ?? [],
+    computeRequirements: m.computeRequirements ?? {
       minVram: '',
       recommendedVram: '',
       architecture: [],
@@ -227,7 +227,7 @@ async function fetchModelStats(): Promise<ModelStats> {
 
 async function fetchModelReadme(org: string, name: string): Promise<string> {
   const model = await fetchModel(org, name)
-  return model?.readme || ''
+  return model?.readme ?? ''
 }
 
 async function fetchModelVersions(
@@ -235,7 +235,7 @@ async function fetchModelVersions(
   name: string,
 ): Promise<ModelVersion[]> {
   const model = await fetchModel(org, name)
-  return model?.versions || []
+  return model?.versions ?? []
 }
 
 async function runInference(
@@ -289,7 +289,7 @@ export function useModels(query?: {
   })
 
   return {
-    models: models || [],
+    models: models ?? [],
     isLoading,
     error,
     refetch,
@@ -353,7 +353,7 @@ export function useModelReadme(org: string, name: string) {
   })
 
   return {
-    readme: readme || '',
+    readme: readme ?? '',
     isLoading,
     error,
   }
@@ -372,7 +372,7 @@ export function useModelVersions(org: string, name: string) {
   })
 
   return {
-    versions: versions || [],
+    versions: versions ?? [],
     isLoading,
     error,
   }

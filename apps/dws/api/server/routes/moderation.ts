@@ -383,13 +383,20 @@ export function createModerationRouter() {
           'banned',
           'cleared',
           'appealing',
-        ]
+        ] as const
+
+        const statusIndex =
+          typeof banStatus === 'number'
+            ? banStatus
+            : typeof banStatus === 'bigint'
+              ? Number(banStatus)
+              : 0
 
         return {
           address,
           isBanned,
-          status: statusNames[banStatus as number] ?? 'unknown',
-          statusCode: banStatus,
+          status: statusNames[statusIndex] ?? 'unknown',
+          statusCode: statusIndex,
         }
       },
       {

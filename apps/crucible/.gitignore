@@ -40,3 +40,4 @@ synpress-report*/
 
 # bun.lock (only at monorepo root)
 bun.lock
+.crucible-data/

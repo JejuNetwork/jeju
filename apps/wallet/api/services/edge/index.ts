@@ -47,6 +47,12 @@ interface WebTorrentConstructor {
   }): WebTorrentInstance
 }
 
+/** Cached data entry stored in IndexedDB */
+interface CacheEntry {
+  key: string
+  data: Uint8Array
+}
+
 export interface EdgeConfig {
   enabled: boolean
   maxCacheSizeBytes: number
@@ -514,14 +520,10 @@ export class WalletEdgeService {
     } else if (typeof indexedDB !== 'undefined') {
       const db = await this.getIndexedDB()
       const tx = db.transaction('cache', 'readonly')
-      const result = await new Promise<
-        { key: string; data: Uint8Array } | undefined
-      >((resolve) => {
+      const result = await new Promise<CacheEntry | undefined>((resolve) => {
         const request = tx.objectStore('cache').get(key)
         request.onsuccess = () =>
-          resolve(
-            request.result as { key: string; data: Uint8Array } | undefined,
-          )
+          resolve(request.result as CacheEntry | undefined)
         request.onerror = () => resolve(undefined)
       })
       return result?.data ?? null
@@ -650,8 +652,9 @@ export class WalletEdgeService {
     }
 
     this.coordinatorWs.onmessage = (event) => {
+      if (typeof event.data !== 'string') return
       const msg = expectJson(
-        event.data as string,
+        event.data,
         CoordinatorMessageSchema,
         'coordinator message',
       ) as CoordinatorMessage

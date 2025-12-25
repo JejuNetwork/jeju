@@ -150,17 +150,15 @@ export class EventMonitor extends EventEmitter {
     const args = log.args as EventArgs
 
     // Validate required struct
-    if (
-      !args.orderId ||
-      !args.order?.maxSpent?.[0] ||
-      !args.order?.minReceived?.[0]
-    ) {
+    const maxSpent = args.order?.maxSpent
+    const minReceived = args.order?.minReceived
+    if (!args.orderId || !maxSpent?.[0] || !minReceived?.[0]) {
       console.warn('[Monitor] Malformed event, skipping')
       return null
     }
 
-    const spent = args.order.maxSpent[0]
-    const received = args.order.minReceived[0]
+    const spent = maxSpent[0]
+    const received = minReceived[0]
 
     // Validate amounts and addresses
     if (
@@ -177,17 +175,23 @@ export class EventMonitor extends EventEmitter {
       return null
     }
 
+    const order = args.order
+    if (!order) {
+      console.warn('[Monitor] Missing order data, skipping')
+      return null
+    }
+
     return {
       orderId: args.orderId,
-      user: args.order.user || '0x',
+      user: order.user ?? '0x',
       sourceChain: chainId,
-      destinationChain: Number(received.chainId || 0),
+      destinationChain: Number(received.chainId ?? 0),
       inputToken: bytes32ToAddress(spent.token),
       inputAmount: spent.amount.toString(),
       outputToken: bytes32ToAddress(received.token),
       outputAmount: received.amount.toString(),
       recipient: bytes32ToAddress(received.recipient),
-      deadline: args.order.fillDeadline || 0,
+      deadline: order.fillDeadline ?? 0,
       blockNumber: log.blockNumber,
       transactionHash: log.transactionHash,
     }

@@ -350,14 +350,14 @@ export default function IPFSPage() {
             <code
               style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
             >
-              {healthData?.backends?.[0] ?? 'Not available'}
-              {healthData?.backends?.[0] && (
+              {healthData?.backends[0] ?? 'Not available'}
+              {healthData?.backends[0] && (
                 <button
                   type="button"
                   className="btn btn-ghost btn-icon"
                   style={{ padding: '0.25rem' }}
                   onClick={() =>
-                    handleCopy(healthData?.backends?.[0] ?? '', 'api')
+                    handleCopy(healthData.backends[0] ?? '', 'api')
                   }
                 >
                   {copied === 'api' ? <Check size={14} /> : <Copy size={14} />}

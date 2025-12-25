@@ -39,6 +39,14 @@ const AlchemyTransferResponseSchema = z.object({
   }),
 })
 
+const HeliusAddressTransactionsSchema = z.array(
+  z.object({
+    signature: z.string(),
+    slot: z.number(),
+    description: z.string(),
+  }),
+)
+
 interface HistoricalSwap {
   blockNumber: bigint
   txHash: string
@@ -638,12 +646,11 @@ export class RealOpportunityFetcher {
           `https://api.helius.xyz/v0/addresses/${jupiterProgram}/transactions?api-key=${this.heliusKey}&limit=${limit}`,
         )
         if (response.ok) {
-          const txs = (await response.json()) as Array<{
-            signature: string
-            slot: number
-            description: string
-          }>
-          for (const tx of txs) {
+          const parsed = HeliusAddressTransactionsSchema.safeParse(
+            await response.json(),
+          )
+          if (!parsed.success) return swaps
+          for (const tx of parsed.data) {
             swaps.push({
               blockNumber: BigInt(tx.slot),
               txHash: tx.signature,

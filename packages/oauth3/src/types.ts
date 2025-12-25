@@ -7,7 +7,8 @@
 
 import type { Address, Hex } from 'viem'
 
-export type { JsonRecord, JsonValue } from '@jejunetwork/types'
+/** Generic JSON record type for OAuth state */
+export type JsonRecord = Record<string, unknown>
 
 export const AuthProvider = {
   WALLET: 'wallet',

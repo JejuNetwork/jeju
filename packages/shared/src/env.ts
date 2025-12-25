@@ -26,6 +26,11 @@ export function isServer(): boolean {
   return typeof process !== 'undefined' && !!process.env
 }
 
+/** Worker global scope with importScripts function */
+interface WorkerGlobalScope {
+  importScripts?: (...urls: string[]) => void
+}
+
 /**
  * Check if running in a worker environment (Web Worker, Service Worker)
  */
@@ -34,8 +39,13 @@ export function isWorker(): boolean {
     typeof self !== 'undefined' &&
     typeof window === 'undefined' &&
     // Check for importScripts which exists in Web Workers
-    typeof (self as { importScripts?: unknown }).importScripts === 'function'
+    typeof (self as WorkerGlobalScope).importScripts === 'function'
   )
+}
+
+/** Global scope with ENV config injection */
+interface GlobalWithEnv {
+  ENV?: Record<string, string>
 }
 
 /**
@@ -56,7 +66,7 @@ export function getEnv(key: string): string | undefined {
   }
 
   // Browser/Worker: check globalThis.ENV for injected config
-  const g = globalThis as { ENV?: Record<string, string> }
+  const g = globalThis as GlobalWithEnv
   return g.ENV?.[key]
 }
 
@@ -127,7 +137,7 @@ export function getEnvBoolean(key: string, defaultValue: boolean): boolean {
  * @param value The value to set
  */
 export function setEnv(key: string, value: string): void {
-  const g = globalThis as { ENV?: Record<string, string> }
+  const g = globalThis as GlobalWithEnv
   if (!g.ENV) {
     g.ENV = {}
   }
@@ -142,6 +152,6 @@ export function setEnv(key: string, value: string): void {
  * @param config Object with environment variable key-value pairs
  */
 export function initEnv(config: Record<string, string>): void {
-  const g = globalThis as { ENV?: Record<string, string> }
+  const g = globalThis as GlobalWithEnv
   g.ENV = { ...g.ENV, ...config }
 }

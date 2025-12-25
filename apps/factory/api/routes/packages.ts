@@ -16,7 +16,7 @@ export const packagesRoutes = new Elysia({ prefix: '/api/packages' })
     '/',
     async ({ query }) => {
       const validated = expectValid(PackagesQuerySchema, query, 'query params')
-      const packages = await dwsClient.searchPackages(validated.q || '')
+      const packages = await dwsClient.searchPackages(validated.q ?? '')
       return packages
     },
     {

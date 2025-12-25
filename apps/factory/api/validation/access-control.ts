@@ -73,7 +73,7 @@ export async function requireAuth(
     return { success: false, error: 'Authentication required' }
   }
 
-  const nonce = headers['x-jeju-nonce'] || ''
+  const nonce = headers['x-jeju-nonce'] ?? ''
   const expectedMessage = `Factory Auth\nTimestamp: ${auth.timestamp}\nNonce: ${nonce}`
 
   const isValid = await verifyAuthentication(auth, expectedMessage)

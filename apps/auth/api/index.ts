@@ -16,8 +16,23 @@ import { createOAuthRouter } from './routes/oauth'
 import { createSessionRouter } from './routes/session'
 import { createWalletRouter } from './routes/wallet'
 
-function parseAddress(value: string | undefined, fallback: Address): Address {
-  if (!value) return fallback
+const isDev = process.env.NODE_ENV !== 'production'
+
+function requireEnv(name: string, devDefault?: string): string {
+  const value = process.env[name]
+  if (value) return value
+  if (isDev && devDefault !== undefined) return devDefault
+  throw new Error(`Required environment variable ${name} is not set`)
+}
+
+function parseAddress(
+  value: string | undefined,
+  devFallback: Address,
+): Address {
+  if (!value) {
+    if (isDev) return devFallback
+    throw new Error('Address environment variable is required in production')
+  }
   if (!isAddress(value)) {
     throw new Error(`Invalid address: ${value}`)
   }
@@ -27,7 +42,7 @@ function parseAddress(value: string | undefined, fallback: Address): Address {
 const ZERO_ADDRESS: Address = '0x0000000000000000000000000000000000000000'
 
 const config: AuthConfig = {
-  rpcUrl: process.env.RPC_URL ?? 'http://localhost:8545',
+  rpcUrl: requireEnv('RPC_URL', 'http://localhost:8545'),
   mpcRegistryAddress: parseAddress(
     process.env.MPC_REGISTRY_ADDRESS,
     ZERO_ADDRESS,
@@ -36,10 +51,10 @@ const config: AuthConfig = {
     process.env.IDENTITY_REGISTRY_ADDRESS,
     ZERO_ADDRESS,
   ),
-  serviceAgentId: process.env.SERVICE_AGENT_ID ?? 'auth.jeju',
-  jwtSecret: process.env.JWT_SECRET ?? 'dev-secret-change-in-production',
+  serviceAgentId: requireEnv('SERVICE_AGENT_ID', 'auth.jeju'),
+  jwtSecret: requireEnv('JWT_SECRET', 'dev-secret-change-in-production'),
   sessionDuration: 24 * 60 * 60 * 1000, // 24 hours
-  allowedOrigins: (process.env.ALLOWED_ORIGINS ?? '*').split(','),
+  allowedOrigins: requireEnv('ALLOWED_ORIGINS', '*').split(','),
 }
 
 const app = new Elysia()

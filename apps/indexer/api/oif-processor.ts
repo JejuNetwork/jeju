@@ -300,7 +300,7 @@ export async function processOIFEvents(
             outputToken: intent.outputToken,
             inputAmount: intent.inputAmount,
             outputAmount: intent.outputAmount,
-            fee: intent.actualFee || 0n,
+            fee: intent.actualFee ?? 0n,
             status: OIFSettlementStatus.PENDING,
             createdAt: blockTimestamp,
             inputSettlerTx: intent.inputSettlerTx,

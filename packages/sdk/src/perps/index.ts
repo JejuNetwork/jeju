@@ -531,11 +531,11 @@ export function createPerpsModule(
     },
 
     async getAllMarkets() {
-      const marketIds = (await wallet.publicClient.readContract({
+      const marketIds = await wallet.publicClient.readContract({
         address: perpsMarketAddress,
         abi: PERPS_MARKET_ABI,
         functionName: 'getAllMarkets',
-      })) as Hex[]
+      })
 
       // Limit to prevent DoS from large arrays
       const MAX_MARKETS = 100
@@ -549,48 +549,39 @@ export function createPerpsModule(
     },
 
     async getMarkPrice(marketId) {
-      return (await wallet.publicClient.readContract({
+      return wallet.publicClient.readContract({
         address: perpsMarketAddress,
         abi: PERPS_MARKET_ABI,
         functionName: 'getMarkPrice',
         args: [marketId],
-      })) as bigint
+      })
     },
 
     async getIndexPrice(marketId) {
-      return (await wallet.publicClient.readContract({
+      return wallet.publicClient.readContract({
         address: perpsMarketAddress,
         abi: PERPS_MARKET_ABI,
         functionName: 'getIndexPrice',
         args: [marketId],
-      })) as bigint
+      })
     },
 
     async getFundingRate(marketId) {
-      return (await wallet.publicClient.readContract({
+      return wallet.publicClient.readContract({
         address: perpsMarketAddress,
         abi: PERPS_MARKET_ABI,
         functionName: 'getFundingRate',
         args: [marketId],
-      })) as bigint
+      })
     },
 
     async getFundingData(marketId) {
-      const result = await wallet.publicClient.readContract({
+      return wallet.publicClient.readContract({
         address: perpsMarketAddress,
         abi: PERPS_MARKET_ABI,
         functionName: 'getFundingData',
         args: [marketId],
       })
-
-      const data = result as {
-        fundingRate: bigint
-        fundingIndex: bigint
-        lastFundingTime: bigint
-        nextFundingTime: bigint
-      }
-
-      return data
     },
 
     async getOpenInterest(marketId) {
@@ -717,12 +708,12 @@ export function createPerpsModule(
 
     async getTraderPositions(trader) {
       const address = trader ?? wallet.address
-      const positionIds = (await wallet.publicClient.readContract({
+      const positionIds = await wallet.publicClient.readContract({
         address: perpsMarketAddress,
         abi: PERPS_MARKET_ABI,
         functionName: 'getTraderPositions',
         args: [address],
-      })) as Hex[]
+      })
 
       // Limit to prevent DoS from large arrays
       const MAX_POSITIONS = 100
@@ -736,24 +727,23 @@ export function createPerpsModule(
     },
 
     async getPositionPnl(positionId) {
-      const result = await wallet.publicClient.readContract({
-        address: perpsMarketAddress,
-        abi: PERPS_MARKET_ABI,
-        functionName: 'getPositionPnl',
-        args: [positionId],
-      })
-
-      const [unrealizedPnl, fundingPnl] = result as [bigint, bigint]
+      const [unrealizedPnl, fundingPnl] =
+        await wallet.publicClient.readContract({
+          address: perpsMarketAddress,
+          abi: PERPS_MARKET_ABI,
+          functionName: 'getPositionPnl',
+          args: [positionId],
+        })
       return { unrealizedPnl, fundingPnl }
     },
 
     async getLiquidationPrice(positionId) {
-      return (await wallet.publicClient.readContract({
+      return wallet.publicClient.readContract({
         address: perpsMarketAddress,
         abi: PERPS_MARKET_ABI,
         functionName: 'getLiquidationPrice',
         args: [positionId],
-      })) as bigint
+      })
     },
 
     async isLiquidatable(positionId) {

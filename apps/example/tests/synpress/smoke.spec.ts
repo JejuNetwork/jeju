@@ -8,7 +8,12 @@
  * - Database operations work
  */
 
-import { test, expect, connectAndVerify, approveTransaction } from '@jejunetwork/tests'
+import {
+  approveTransaction,
+  connectAndVerify,
+  expect,
+  test,
+} from '@jejunetwork/tests'
 import { MetaMask } from '@synthetixio/synpress/playwright'
 import basicSetup from '../wallet-setup/basic.setup'
 
@@ -18,8 +23,18 @@ test.describe('Example App Smoke Tests', () => {
     await expect(page).toHaveTitle(/Example|Jeju/i)
   })
 
-  test('should connect wallet', async ({ context, page, metamaskPage, extensionId }) => {
-    const metamask = new MetaMask(context, metamaskPage, basicSetup.walletPassword, extensionId)
+  test('should connect wallet', async ({
+    context,
+    page,
+    metamaskPage,
+    extensionId,
+  }) => {
+    const metamask = new MetaMask(
+      context,
+      metamaskPage,
+      basicSetup.walletPassword,
+      extensionId,
+    )
 
     await page.goto('/')
     await connectAndVerify(page, metamask)
@@ -44,8 +59,18 @@ test.describe('Example App Smoke Tests', () => {
 })
 
 test.describe('Database Operations', () => {
-  test('should create and read data', async ({ context, page, metamaskPage, extensionId }) => {
-    const metamask = new MetaMask(context, metamaskPage, basicSetup.walletPassword, extensionId)
+  test('should create and read data', async ({
+    context,
+    page,
+    metamaskPage,
+    extensionId,
+  }) => {
+    const metamask = new MetaMask(
+      context,
+      metamaskPage,
+      basicSetup.walletPassword,
+      extensionId,
+    )
 
     await page.goto('/')
     await connectAndVerify(page, metamask)
@@ -68,8 +93,18 @@ test.describe('Database Operations', () => {
 })
 
 test.describe('Wallet Transactions', () => {
-  test('should sign message', async ({ context, page, metamaskPage, extensionId }) => {
-    const metamask = new MetaMask(context, metamaskPage, basicSetup.walletPassword, extensionId)
+  test('should sign message', async ({
+    context,
+    page,
+    metamaskPage,
+    extensionId,
+  }) => {
+    const metamask = new MetaMask(
+      context,
+      metamaskPage,
+      basicSetup.walletPassword,
+      extensionId,
+    )
 
     await page.goto('/')
     await connectAndVerify(page, metamask)
@@ -82,22 +117,34 @@ test.describe('Wallet Transactions', () => {
     }
   })
 
-  test('should handle transaction', async ({ context, page, metamaskPage, extensionId }) => {
-    const metamask = new MetaMask(context, metamaskPage, basicSetup.walletPassword, extensionId)
+  test('should handle transaction', async ({
+    context,
+    page,
+    metamaskPage,
+    extensionId,
+  }) => {
+    const metamask = new MetaMask(
+      context,
+      metamaskPage,
+      basicSetup.walletPassword,
+      extensionId,
+    )
 
     await page.goto('/')
     await connectAndVerify(page, metamask)
 
     // Find and click transaction button
-    const txButton = page.locator('button:has-text(/send|submit|confirm|mint/i)')
+    const txButton = page.locator(
+      'button:has-text(/send|submit|confirm|mint/i)',
+    )
     if (await txButton.isVisible({ timeout: 2000 })) {
       await txButton.click()
       await approveTransaction(metamask)
 
       // Wait for transaction confirmation
-      await expect(page.getByText(/success|confirmed|complete/i)).toBeVisible({ timeout: 30000 })
+      await expect(page.getByText(/success|confirmed|complete/i)).toBeVisible({
+        timeout: 30000,
+      })
     }
   })
 })
-
-

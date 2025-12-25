@@ -28,6 +28,21 @@ const DEFAULT_OPTIONS: Required<Omit<RetryOptions, 'onRetry'>> = {
   backoffMultiplier: 2,
 }
 
+/** Error with HTTP status code */
+interface ErrorWithStatus {
+  status: number
+}
+
+/** Type guard to check if error has a status property */
+function hasStatus(error: unknown): error is ErrorWithStatus {
+  return (
+    error !== null &&
+    typeof error === 'object' &&
+    'status' in error &&
+    typeof (error as ErrorWithStatus).status === 'number'
+  )
+}
+
 /**
  * Check if error is retryable (network errors, 5xx, rate limits)
  *
@@ -43,10 +58,9 @@ export function isRetryableError(error: unknown): boolean {
     return true // Network errors
   }
 
-  if (error && typeof error === 'object' && 'status' in error) {
-    const status = (error as { status: number }).status
+  if (hasStatus(error)) {
     // Retry on 5xx errors and 429 (rate limit)
-    return status >= 500 || status === 429
+    return error.status >= 500 || error.status === 429
   }
 
   return false
@@ -90,6 +104,12 @@ export async function retryIfRetryable<T>(
   options: RetryOptions = {},
 ): Promise<T> {
   const opts = { ...DEFAULT_OPTIONS, ...options }
+
+  // Edge case: if maxAttempts is 0, just run once without retries
+  if (opts.maxAttempts <= 0) {
+    return operation()
+  }
+
   let lastError: Error | undefined
 
   for (let attempt = 0; attempt < opts.maxAttempts; attempt++) {
@@ -121,7 +141,8 @@ export async function retryIfRetryable<T>(
     }
   }
 
-  throw lastError ?? new Error('Operation failed with unknown error')
+  // This should be unreachable - if we exhaust attempts, we throw on the last iteration
+  throw lastError as Error
 }
 
 /**
@@ -151,6 +172,12 @@ export async function retryWithCondition<T>(
   options: RetryOptions = {},
 ): Promise<T> {
   const opts = { ...DEFAULT_OPTIONS, ...options }
+
+  // Edge case: if maxAttempts is 0, just run once without retries
+  if (opts.maxAttempts <= 0) {
+    return operation()
+  }
+
   let lastError: Error | undefined
 
   for (let attempt = 0; attempt < opts.maxAttempts; attempt++) {
@@ -179,5 +206,6 @@ export async function retryWithCondition<T>(
     }
   }
 
-  throw lastError ?? new Error('Operation failed with unknown error')
+  // This should be unreachable - if we exhaust attempts, we throw on the last iteration
+  throw lastError as Error
 }

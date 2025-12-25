@@ -66,12 +66,12 @@ export const NativeCurrencySchema = z.object({
 export const RpcUrlsSchema = z.object({
   default: z.object({
     http: z.array(z.string().url()).min(1),
-    webSocket: z.array(z.string().url()).optional(),
+    webSocket: z.array(z.string().url()).default([]),
   }),
   jeju: z
     .object({
       http: z.array(z.string().url()).min(1),
-      webSocket: z.array(z.string().url()).optional(),
+      webSocket: z.array(z.string().url()).default([]),
     })
     .optional(),
 })

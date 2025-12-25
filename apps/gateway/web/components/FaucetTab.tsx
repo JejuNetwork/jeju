@@ -188,7 +188,7 @@ export default function FaucetTab() {
       <div className="card">
         <div className="card-header">
           <DropletIcon size={20} />
-          <h3>{info?.name || 'JEJU Testnet Faucet'}</h3>
+          <h3>{info?.name ?? 'JEJU Testnet Faucet'}</h3>
           <button
             type="button"
             className="button button-secondary"
@@ -204,7 +204,7 @@ export default function FaucetTab() {
         </div>
 
         <p className="text-secondary mb-4">
-          {info?.description || 'Get JEJU tokens for testing on the testnet.'}
+          {info?.description ?? 'Get JEJU tokens for testing on the testnet.'}
         </p>
 
         {/* Stats Grid */}
@@ -212,13 +212,13 @@ export default function FaucetTab() {
           <div className="stat-card">
             <span className="stat-label">Amount per claim</span>
             <span className="stat-value">
-              {status?.amountPerClaim || info?.amountPerClaim || '100'} JEJU
+              {status?.amountPerClaim ?? info?.amountPerClaim ?? '100'} JEJU
             </span>
           </div>
           <div className="stat-card">
             <span className="stat-label">Cooldown</span>
             <span className="stat-value">
-              {info?.cooldownHours || 12} hours
+              {info?.cooldownHours ?? 12} hours
             </span>
           </div>
         </div>

@@ -66,7 +66,7 @@ export default function RegisterNodeForm() {
     stakingToken &&
     rewardToken
 
-  const currentNodes = Number(operatorStats?.totalNodesActive || 0n)
+  const currentNodes = Number(operatorStats?.totalNodesActive ?? 0n)
   const maxNodes = 5
   const canAddMore = currentNodes < maxNodes
 

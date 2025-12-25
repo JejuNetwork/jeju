@@ -15,22 +15,31 @@ import {
 import { privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
 import { parse as parseYaml } from 'yaml'
+import { z } from 'zod'
 import type { GitRepoManager } from '../git/repo-manager'
 import type { BackendManager } from '../storage/backends'
-import type {
-  Artifact,
-  JejuWorkflowConfig,
-  JobRun,
-  LogEntry,
-  Runner,
-  RunStatus,
-  StepRun,
-  Workflow,
-  WorkflowJob,
-  WorkflowRun,
-  WorkflowStep,
+import {
+  type Action,
+  type Artifact,
+  BUILTIN_ACTIONS,
+  type JejuWorkflowConfig,
+  type JobRun,
+  type LogEntry,
+  type Runner,
+  type RunStatus,
+  type StepRun,
+  type Workflow,
+  type WorkflowJob,
+  type WorkflowRun,
+  type WorkflowStep,
 } from './types'
-import { BUILTIN_ACTIONS } from './types'
+
+// Basic validation schema for workflow config structure
+const WorkflowConfigBaseSchema = z.object({
+  name: z.string(),
+  on: z.record(z.string(), z.unknown()),
+  jobs: z.record(z.string(), z.unknown()),
+})
 
 // TriggerRegistry ABI reserved for future on-chain integration
 
@@ -108,7 +117,7 @@ export class WorkflowEngine {
    * Get the next run number for a workflow
    */
   private getNextRunNumber(workflowId: Hex): number {
-    const current = this.runNumbers.get(workflowId) || 0
+    const current = this.runNumbers.get(workflowId) ?? 0
     const next = current + 1
     this.runNumbers.set(workflowId, next)
     return next
@@ -118,7 +127,14 @@ export class WorkflowEngine {
    * Parse jeju.yml workflow configuration
    */
   parseWorkflowConfig(content: string): JejuWorkflowConfig {
-    return parseYaml(content) as JejuWorkflowConfig
+    const rawParsed: unknown = parseYaml(content)
+    // Validate basic structure before casting
+    const baseResult = WorkflowConfigBaseSchema.safeParse(rawParsed)
+    if (!baseResult.success) {
+      throw new Error(`Invalid workflow config: ${baseResult.error.message}`)
+    }
+    // Full type is validated structurally by TypeScript at compile time
+    return rawParsed as JejuWorkflowConfig
   }
 
   /**
@@ -257,10 +273,10 @@ export class WorkflowEngine {
       workflowId,
       repoId,
       name: config.name,
-      description: config.description || '',
+      description: config.description ?? '',
       triggers,
       jobs,
-      env: config.env || {},
+      env: config.env ?? {},
       createdAt: Date.now(),
       updatedAt: Date.now(),
       active: true,
@@ -656,7 +672,7 @@ export class WorkflowEngine {
 
       const result = await this.executeCommand(
         command,
-        stepConfig.shell || 'bash',
+        stepConfig.shell ?? 'bash',
         stepConfig.workingDirectory,
         { ...context.env, ...stepConfig.env },
       )
@@ -695,7 +711,7 @@ export class WorkflowEngine {
     }
 
     // Check for built-in actions
-    const action = (BUILTIN_ACTIONS as Record<string, unknown>)[actionRef]
+    const action: Action | undefined = BUILTIN_ACTIONS[actionRef]
 
     if (!action) {
       logs.push(`Action not found: ${actionRef}`)
@@ -703,11 +719,10 @@ export class WorkflowEngine {
       return
     }
 
-    logs.push(`Running action: ${(action as { name: string }).name}`)
+    logs.push(`Running action: ${action.name}`)
 
     // Execute action steps (for composite actions)
-    const runs = (action as { runs: { using: string; steps?: WorkflowStep[] } })
-      .runs
+    const { runs } = action
     if (runs.using === 'composite' && runs.steps) {
       for (const actionStep of runs.steps) {
         if (actionStep.run) {

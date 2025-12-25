@@ -213,7 +213,7 @@ export function createPaymentsModule(
       client: wallet.publicClient,
     })
 
-    return (await tokenContract.read.balanceOf([wallet.address])) as bigint
+    return tokenContract.read.balanceOf([wallet.address])
   }
 
   async function getTokenBalances(
@@ -374,10 +374,10 @@ export function createPaymentsModule(
       client: wallet.publicClient,
     })
 
-    const balance = (await creditManager.read.balanceOf([
+    const balance = await creditManager.read.balanceOf([
       wallet.address,
       SERVICE_IDS[service],
-    ])) as bigint
+    ])
 
     return {
       service,

@@ -146,7 +146,7 @@ export function PackagesPage() {
                     )}
                   </div>
                   <p className="text-factory-400 text-sm line-clamp-2">
-                    {pkg.description || 'No description provided'}
+                    {pkg.description ?? 'No description provided'}
                   </p>
                 </div>
                 <div className="text-right flex-shrink-0">

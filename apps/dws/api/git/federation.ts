@@ -9,17 +9,19 @@ import {
   createVerify,
   generateKeyPairSync,
 } from 'node:crypto'
+import { validateOrNull } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import type { GitRepoManager } from './repo-manager'
 import type { SocialManager } from './social'
-import type {
-  ActivityPubActivity,
-  ActivityPubActor,
-  ActivityType,
-  GitUser,
-  NodeInfo,
-  Repository,
-  WebFingerResponse,
+import {
+  type ActivityPubActivity,
+  type ActivityPubActor,
+  ActivityPubActorSchema,
+  type ActivityType,
+  type GitUser,
+  type NodeInfo,
+  type Repository,
+  type WebFingerResponse,
 } from './types'
 
 export interface FederationManagerConfig {
@@ -553,12 +555,13 @@ export class FederationManager {
 
     if (!response.ok) return null
 
-    const actor = (await response.json()) as ActivityPubActor
+    const actor = validateOrNull(ActivityPubActorSchema, await response.json())
+    if (!actor) return null
 
     const remoteActor: RemoteActor = {
       url: actorUrl,
       inbox: actor.inbox,
-      publicKey: actor.publicKey?.publicKeyPem || '',
+      publicKey: actor.publicKey.publicKeyPem,
       lastFetched: Date.now(),
     }
 

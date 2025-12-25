@@ -1,4 +1,4 @@
-import { expectHex, isPlainObject } from '@jejunetwork/types'
+import { expectHex } from '@jejunetwork/types'
 import {
   type Address,
   type Chain,
@@ -15,6 +15,7 @@ import {
 } from 'viem'
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
 import { arbitrum, base, mainnet, optimism } from 'viem/chains'
+import { z } from 'zod'
 
 // Client types with generic chain/transport to avoid strict type checking issues
 interface EVMClientPair {
@@ -120,25 +121,27 @@ interface SwapQuote {
   txData?: Hex
 }
 
-interface JupiterQuote {
-  inputMint: string
-  outputMint: string
-  inAmount: string
-  outAmount: string
-  priceImpactPct: number
-  routePlan: Array<{ swapInfo: { ammKey: string; label: string } }>
-}
+// Zod schema for JupiterQuote validation
+const JupiterQuoteSchema = z.object({
+  inputMint: z.string(),
+  outputMint: z.string(),
+  inAmount: z.string(),
+  outAmount: z.string(),
+  priceImpactPct: z.number(),
+  routePlan: z.array(
+    z.object({
+      swapInfo: z.object({
+        ammKey: z.string(),
+        label: z.string(),
+      }),
+    }),
+  ),
+})
+
+type JupiterQuote = z.infer<typeof JupiterQuoteSchema>
 
 function isJupiterQuote(data: unknown): data is JupiterQuote {
-  if (!isPlainObject(data)) return false
-  return (
-    typeof data.inputMint === 'string' &&
-    typeof data.outputMint === 'string' &&
-    typeof data.inAmount === 'string' &&
-    typeof data.outAmount === 'string' &&
-    typeof data.priceImpactPct === 'number' &&
-    Array.isArray(data.routePlan)
-  )
+  return JupiterQuoteSchema.safeParse(data).success
 }
 
 // JupiterSwapResponse type from validation.ts
@@ -703,7 +706,7 @@ export class ArbitrageExecutor {
     }
 
     // Wait for bundle confirmation
-    const bundleId = result.result || ''
+    const bundleId = result.result ?? ''
     await this.waitForJitoBundle(bundleId)
 
     // Get the main transaction signature
@@ -730,7 +733,8 @@ export class ArbitrageExecutor {
       const parsed = JitoBundleStatusResponseSchema.safeParse(json)
       if (!parsed.success) continue
 
-      const status = parsed.data.result?.value?.[0]?.confirmation_status
+      const firstValue = parsed.data.result?.value[0]
+      const status = firstValue?.confirmation_status
       if (status === 'confirmed' || status === 'finalized') {
         return
       }
@@ -1087,7 +1091,7 @@ export class ArbitrageExecutor {
       return { success: false, error: 'Invalid Hyperliquid prices response' }
     }
     const prices = pricesParsed.data
-    const price = parseFloat(prices[symbol] || '')
+    const price = parseFloat(prices[symbol] ?? '')
     if (!price) {
       return { success: false, error: `No price for ${symbol}` }
     }

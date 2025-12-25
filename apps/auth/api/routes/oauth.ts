@@ -4,12 +4,20 @@
 
 import { Elysia, t } from 'elysia'
 import { keccak256, toBytes } from 'viem'
+import { z } from 'zod'
 import type {
   AuthConfig,
   AuthSession,
   AuthToken,
   RegisteredClient,
 } from '../../lib/types'
+
+// Zod schema for JWT payload validation
+const JwtPayloadSchema = z.object({
+  sub: z.string(),
+  iat: z.number(),
+  exp: z.number(),
+})
 
 const AuthorizeQuerySchema = t.Object({
   client_id: t.Optional(t.String()),
@@ -422,23 +430,7 @@ function generateToken(userId: string, secret: string): string {
   return `${header}.${payload}.${signature}`
 }
 
-interface JwtPayload {
-  sub: string
-  iat: number
-  exp: number
-}
-
-function isJwtPayload(value: {
-  sub?: string
-  iat?: number
-  exp?: number
-}): value is JwtPayload {
-  return (
-    typeof value.sub === 'string' &&
-    typeof value.iat === 'number' &&
-    typeof value.exp === 'number'
-  )
-}
+type JwtPayload = z.infer<typeof JwtPayloadSchema>
 
 function verifyToken(token: string, secret: string): string | null {
   const parts = token.split('.')
@@ -449,10 +441,10 @@ function verifyToken(token: string, secret: string): string | null {
   ).slice(0, 32)
   if (parts[2] !== expectedSig) return null
 
-  const decoded: { sub?: string; iat?: number; exp?: number } = JSON.parse(
-    atob(parts[1]),
-  )
-  if (!isJwtPayload(decoded)) return null
+  const parseResult = JwtPayloadSchema.safeParse(JSON.parse(atob(parts[1])))
+  if (!parseResult.success) return null
+
+  const decoded: JwtPayload = parseResult.data
   if (decoded.exp < Math.floor(Date.now() / 1000)) return null
 
   return decoded.sub

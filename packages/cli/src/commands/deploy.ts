@@ -951,7 +951,7 @@ deployCommand
     }
 
     const network = options.network as NetworkType
-    const rpcUrl = CHAIN_CONFIG[network]?.rpcUrl || 'http://127.0.0.1:6546'
+    const rpcUrl = CHAIN_CONFIG[network]?.rpcUrl ?? 'http://127.0.0.1:6546'
 
     logger.step('Deploying liquidity contracts...')
     await execa(

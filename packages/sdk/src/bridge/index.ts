@@ -517,21 +517,21 @@ export function createBridgeModule(
       const recipientBytes32 = ('0x' +
         wallet.address.slice(2).padStart(64, '0')) as Hex
 
-      return (await wallet.publicClient.readContract({
+      return wallet.publicClient.readContract({
         address: hyperlaneMailboxAddress,
         abi: HYPERLANE_MAILBOX_ABI,
         functionName: 'quoteDispatch',
         args: [destDomain, recipientBytes32, message],
-      })) as bigint
+      })
     },
 
     async getHyperlaneMessageStatus(messageId) {
-      return (await wallet.publicClient.readContract({
+      return wallet.publicClient.readContract({
         address: hyperlaneMailboxAddress,
         abi: HYPERLANE_MAILBOX_ABI,
         functionName: 'delivered',
         args: [messageId],
-      })) as boolean
+      })
     },
 
     async submitZKProof(_proofData, _publicInputs) {

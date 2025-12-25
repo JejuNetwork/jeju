@@ -176,13 +176,18 @@ export interface LoggerConfig {
 let syncPinoLogger: PinoLogger | null = null
 let syncLoggerInitialized = false
 
+/** Pino module shape for require() */
+interface PinoModule {
+  default: typeof pino
+}
+
 function initSyncPinoLogger(): void {
   if (syncLoggerInitialized || isBrowser()) return
   syncLoggerInitialized = true
 
   // Synchronous pino initialization for Node.js/Bun
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const pinoMod = require('pino') as { default: typeof pino }
+  const pinoMod = require('pino') as PinoModule
   const pinoFn = pinoMod.default
   const logLevel = getLogLevel()
 

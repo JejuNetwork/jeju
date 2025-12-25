@@ -132,28 +132,28 @@ export class ReputationManager {
     let longevityScore = 0
 
     // Activity score
-    activityScore += (metrics.commitCount || 0) * WEIGHTS.commit
-    activityScore += (metrics.prMergeRate || 0) * 100 * WEIGHTS.prMerge
-    activityScore += (metrics.issueCloseRate || 0) * 100 * WEIGHTS.issueClose
-    activityScore += (metrics.reviewCount || 0) * WEIGHTS.review
-    activityScore += (metrics.publishFrequency || 0) * WEIGHTS.publish
+    activityScore += (metrics.commitCount ?? 0) * WEIGHTS.commit
+    activityScore += (metrics.prMergeRate ?? 0) * 100 * WEIGHTS.prMerge
+    activityScore += (metrics.issueCloseRate ?? 0) * 100 * WEIGHTS.issueClose
+    activityScore += (metrics.reviewCount ?? 0) * WEIGHTS.review
+    activityScore += (metrics.publishFrequency ?? 0) * WEIGHTS.publish
 
     // Quality score
-    qualityScore += (metrics.documentationScore || 0) * WEIGHTS.documentation
-    qualityScore += (metrics.testCoverage || 0) * WEIGHTS.testCoverage
-    qualityScore += (metrics.securityScore || 0) * WEIGHTS.security
-    qualityScore += (metrics.codeQualityScore || 0) * WEIGHTS.codeQuality
+    qualityScore += (metrics.documentationScore ?? 0) * WEIGHTS.documentation
+    qualityScore += (metrics.testCoverage ?? 0) * WEIGHTS.testCoverage
+    qualityScore += (metrics.securityScore ?? 0) * WEIGHTS.security
+    qualityScore += (metrics.codeQualityScore ?? 0) * WEIGHTS.codeQuality
 
     // Community score
-    communityScore += (metrics.starCount || 0) * WEIGHTS.star
-    communityScore += (metrics.forkCount || 0) * WEIGHTS.fork
-    communityScore += (metrics.downloadCount || 0) * WEIGHTS.download
-    communityScore += (metrics.dependentCount || 0) * WEIGHTS.dependent
+    communityScore += (metrics.starCount ?? 0) * WEIGHTS.star
+    communityScore += (metrics.forkCount ?? 0) * WEIGHTS.fork
+    communityScore += (metrics.downloadCount ?? 0) * WEIGHTS.download
+    communityScore += (metrics.dependentCount ?? 0) * WEIGHTS.dependent
 
     // Longevity score (based on contributors and version history)
-    longevityScore += (metrics.contributorCount || 0) * 2
-    longevityScore += (metrics.versionCount || 0) * 1
-    longevityScore += (metrics.activeContributors || 0) * 5
+    longevityScore += (metrics.contributorCount ?? 0) * 2
+    longevityScore += (metrics.versionCount ?? 0) * 1
+    longevityScore += (metrics.activeContributors ?? 0) * 5
 
     const totalScore =
       activityScore + qualityScore + communityScore + longevityScore
