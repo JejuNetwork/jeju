@@ -8,41 +8,77 @@ import {
   Shield,
   Zap,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { z } from 'zod'
 import { invoke } from '../../lib'
 
 const BooleanResponseSchema = z.boolean()
 
+/** Settings schema matching Rust VPNConfig */
+const VPNConfigSchema = z.object({
+  rpc_url: z.string(),
+  chain_id: z.number(),
+  vpn_registry: z.string(),
+  coordinator_url: z.string(),
+  dns_servers: z.array(z.string()),
+  kill_switch: z.boolean(),
+  auto_connect: z.boolean(),
+  auto_start: z.boolean(),
+  minimize_to_tray: z.boolean(),
+  show_notifications: z.boolean(),
+  adaptive_bandwidth: z.boolean(),
+  contribution: z.object({
+    enabled: z.boolean(),
+    max_bandwidth_percent: z.number(),
+    share_cdn: z.boolean(),
+    share_vpn_relay: z.boolean(),
+    earning_mode: z.boolean(),
+    earning_bandwidth_percent: z.number(),
+    schedule_enabled: z.boolean(),
+    schedule_start: z.string(),
+    schedule_end: z.string(),
+  }),
+})
+
+type VPNConfig = z.infer<typeof VPNConfigSchema>
+
 export function SettingsPanel() {
-  const [killSwitch, setKillSwitch] = useState(true)
-  const [autoConnect, setAutoConnect] = useState(false)
-  const [autoStart, setAutoStart] = useState(false)
-
-  useEffect(() => {
-    invoke('get_autostart_enabled', {}, BooleanResponseSchema).then(
-      setAutoStart,
-    )
-  }, [])
-
-  const [minimizeToTray, setMinimizeToTray] = useState(true)
-  const [adaptiveMode, setAdaptiveMode] = useState(true)
+  const [config, setConfig] = useState<VPNConfig | null>(null)
   const [dwsEnabled, setDwsEnabled] = useState(true)
 
-  const updateSetting = async (key: string, value: boolean) => {
-    await invoke('update_settings', { key, value })
-  }
+  useEffect(() => {
+    invoke('get_settings', {}, VPNConfigSchema).then(setConfig)
+  }, [])
+
+  const updateConfig = useCallback(
+    async (updates: Partial<VPNConfig>) => {
+      if (!config) return
+      const newConfig = { ...config, ...updates }
+      setConfig(newConfig)
+      await invoke('update_settings', { settings: newConfig })
+    },
+    [config],
+  )
 
   const toggleAdaptive = async () => {
-    const newValue = !adaptiveMode
-    setAdaptiveMode(newValue)
-    await invoke('set_adaptive_mode', { enabled: newValue })
+    await updateConfig({ adaptive_bandwidth: !config?.adaptive_bandwidth })
+    await invoke('set_adaptive_mode', {
+      enabled: !config?.adaptive_bandwidth,
+    })
   }
 
   const toggleDws = async () => {
     const newValue = !dwsEnabled
     setDwsEnabled(newValue)
     await invoke('set_dws_enabled', { enabled: newValue })
+  }
+
+  if (!config) {
+    return (
+      <div className="p-6 flex items-center justify-center">
+        <div className="text-[#606070]">Loading settings...</div>
+      </div>
+    )
   }
 
   return (
@@ -70,14 +106,14 @@ export function SettingsPanel() {
             </div>
             <button
               type="button"
-              onClick={() => setKillSwitch(!killSwitch)}
+              onClick={() => updateConfig({ kill_switch: !config.kill_switch })}
               className={`w-12 h-6 rounded-full transition-colors ${
-                killSwitch ? 'bg-[#00ff88]' : 'bg-[#2a2a35]'
+                config.kill_switch ? 'bg-[#00ff88]' : 'bg-[#2a2a35]'
               }`}
             >
               <div
                 className={`w-5 h-5 bg-white rounded-full transition-transform ${
-                  killSwitch ? 'translate-x-6' : 'translate-x-0.5'
+                  config.kill_switch ? 'translate-x-6' : 'translate-x-0.5'
                 }`}
               />
             </button>
@@ -92,17 +128,16 @@ export function SettingsPanel() {
             </div>
             <button
               type="button"
-              onClick={() => {
-                setAutoConnect(!autoConnect)
-                updateSetting('auto_connect', !autoConnect)
-              }}
+              onClick={() =>
+                updateConfig({ auto_connect: !config.auto_connect })
+              }
               className={`w-12 h-6 rounded-full transition-colors ${
-                autoConnect ? 'bg-[#00ff88]' : 'bg-[#2a2a35]'
+                config.auto_connect ? 'bg-[#00ff88]' : 'bg-[#2a2a35]'
               }`}
             >
               <div
                 className={`w-5 h-5 bg-white rounded-full transition-transform ${
-                  autoConnect ? 'translate-x-6' : 'translate-x-0.5'
+                  config.auto_connect ? 'translate-x-6' : 'translate-x-0.5'
                 }`}
               />
             </button>
@@ -127,20 +162,17 @@ export function SettingsPanel() {
             <button
               type="button"
               onClick={async () => {
-                const result = await invoke(
-                  'toggle_autostart',
-                  {},
-                  BooleanResponseSchema,
-                )
-                setAutoStart(result)
+                const newValue = !config.auto_start
+                await updateConfig({ auto_start: newValue })
+                await invoke('toggle_autostart', {}, BooleanResponseSchema)
               }}
               className={`w-12 h-6 rounded-full transition-colors ${
-                autoStart ? 'bg-[#00ff88]' : 'bg-[#2a2a35]'
+                config.auto_start ? 'bg-[#00ff88]' : 'bg-[#2a2a35]'
               }`}
             >
               <div
                 className={`w-5 h-5 bg-white rounded-full transition-transform ${
-                  autoStart ? 'translate-x-6' : 'translate-x-0.5'
+                  config.auto_start ? 'translate-x-6' : 'translate-x-0.5'
                 }`}
               />
             </button>
@@ -155,17 +187,16 @@ export function SettingsPanel() {
             </div>
             <button
               type="button"
-              onClick={() => {
-                setMinimizeToTray(!minimizeToTray)
-                updateSetting('minimize_to_tray', !minimizeToTray)
-              }}
+              onClick={() =>
+                updateConfig({ minimize_to_tray: !config.minimize_to_tray })
+              }
               className={`w-12 h-6 rounded-full transition-colors ${
-                minimizeToTray ? 'bg-[#00ff88]' : 'bg-[#2a2a35]'
+                config.minimize_to_tray ? 'bg-[#00ff88]' : 'bg-[#2a2a35]'
               }`}
             >
               <div
                 className={`w-5 h-5 bg-white rounded-full transition-transform ${
-                  minimizeToTray ? 'translate-x-6' : 'translate-x-0.5'
+                  config.minimize_to_tray ? 'translate-x-6' : 'translate-x-0.5'
                 }`}
               />
             </button>
@@ -221,12 +252,14 @@ export function SettingsPanel() {
               type="button"
               onClick={toggleAdaptive}
               className={`w-12 h-6 rounded-full transition-colors ${
-                adaptiveMode ? 'bg-[#00ff88]' : 'bg-[#2a2a35]'
+                config.adaptive_bandwidth ? 'bg-[#00ff88]' : 'bg-[#2a2a35]'
               }`}
             >
               <div
                 className={`w-5 h-5 bg-white rounded-full transition-transform ${
-                  adaptiveMode ? 'translate-x-6' : 'translate-x-0.5'
+                  config.adaptive_bandwidth
+                    ? 'translate-x-6'
+                    : 'translate-x-0.5'
                 }`}
               />
             </button>

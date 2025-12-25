@@ -271,7 +271,7 @@ export interface PoCConfig {
 /** Get PoC configuration for the default chain (Base Sepolia for testnet) */
 export function getPoCConfig(network?: NetworkType): PoCConfig {
   const net = network ?? getCurrentNetwork()
-  const chain = net === 'mainnet' ? 'base' : 'baseSepolia'
+  const chain = net === 'mainnet' ? 'base' : 'base-sepolia'
   const contracts = loadContracts()
   const chainConfig = contracts.external[chain]
 
@@ -621,6 +621,84 @@ export function getFarcasterHubUrl(network?: NetworkType): string {
 export function getFarcasterApiUrl(network?: NetworkType): string {
   const config = getServicesConfig(network)
   return config.external?.farcaster?.api ?? 'https://api.neynar.com/v2'
+}
+
+// TEE Configuration
+
+export type TeeMode = 'simulated' | 'phala' | 'gcp' | 'aws'
+export type TeePlatform = 'local' | 'phala' | 'gcp-confidential' | 'aws-nitro'
+
+export interface TeeConfig {
+  mode: TeeMode
+  platform: TeePlatform
+  region: string
+  endpoint?: string
+}
+
+/** Get TEE configuration for current network */
+export function getTeeConfig(network?: NetworkType): TeeConfig {
+  const config = getServicesConfig(network)
+  const tee = config.tee ?? { mode: 'simulated', platform: 'local' }
+
+  // Allow env overrides
+  const mode =
+    (process.env.TEE_MODE as TeeMode | undefined) ?? tee.mode ?? 'simulated'
+  const platform =
+    (process.env.TEE_PLATFORM as TeePlatform | undefined) ??
+    tee.platform ??
+    'local'
+  const region = process.env.TEE_REGION ?? tee.region ?? 'local'
+  const endpoint = process.env.TEE_ENDPOINT ?? tee.endpoint
+
+  return { mode, platform, region, endpoint }
+}
+
+/** Get TEE mode - simulated, phala, gcp, or aws */
+export function getTeeMode(network?: NetworkType): TeeMode {
+  return getTeeConfig(network).mode
+}
+
+/** Get TEE platform - local, phala, gcp-confidential, or aws-nitro */
+export function getTeePlatform(network?: NetworkType): TeePlatform {
+  return getTeeConfig(network).platform
+}
+
+/** Get TEE endpoint URL */
+export function getTeeEndpoint(network?: NetworkType): string | undefined {
+  return getTeeConfig(network).endpoint
+}
+
+/** Check if TEE is in simulated mode */
+export function isTeeSimulated(network?: NetworkType): boolean {
+  return getTeeConfig(network).mode === 'simulated'
+}
+
+/** Check if real TEE attestation is required */
+export function requiresTeeAttestation(network?: NetworkType): boolean {
+  const config = getTeeConfig(network)
+  return config.mode !== 'simulated' && config.platform !== 'local'
+}
+
+// Environment Helpers
+
+/** Check if running in production (mainnet) */
+export function isProduction(network?: NetworkType): boolean {
+  return (network ?? getCurrentNetwork()) === 'mainnet'
+}
+
+/** Check if running in testnet */
+export function isTestnet(network?: NetworkType): boolean {
+  return (network ?? getCurrentNetwork()) === 'testnet'
+}
+
+/** Check if running in localnet (development) */
+export function isLocalnet(network?: NetworkType): boolean {
+  return (network ?? getCurrentNetwork()) === 'localnet'
+}
+
+/** Check if NODE_ENV is production */
+export function isProductionEnv(): boolean {
+  return process.env.NODE_ENV === 'production'
 }
 
 /** Get SecurityBountyRegistry contract address */

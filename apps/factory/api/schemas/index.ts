@@ -170,6 +170,7 @@ export const CreateModelBodySchema = z.object({
     .regex(/^[a-zA-Z0-9._-]+$/),
   description: z.string().min(10),
   type: ModelTypeSchema,
+  fileUri: z.string().optional(),
 })
 
 export const ModelParamsSchema = z.object({
@@ -267,6 +268,14 @@ export const CreateIssueBodySchema = z.object({
   repo: z.string().min(1),
   title: z.string().min(1).max(200),
   body: z.string().min(10),
+  labels: z.array(z.string()).optional(),
+  assignees: z.array(z.string()).optional(),
+})
+
+export const UpdateIssueBodySchema = z.object({
+  title: z.string().min(1).max(200).optional(),
+  body: z.string().min(1).optional(),
+  status: z.enum(['open', 'closed']).optional(),
   labels: z.array(z.string()).optional(),
   assignees: z.array(z.string()).optional(),
 })

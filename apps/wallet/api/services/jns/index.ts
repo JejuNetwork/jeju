@@ -207,22 +207,10 @@ export class JNSService {
     const duration = durationYears * ONE_YEAR
 
     if (!registrar) {
-      // Return estimated price based on name length
-      const len = name.length
-      let pricePerYear: bigint
-      if (len === 3)
-        pricePerYear = BigInt(0.1e18) // 0.1 ETH
-      else if (len === 4)
-        pricePerYear = BigInt(0.01e18) // 0.01 ETH
-      else pricePerYear = BigInt(0.001e18) // 0.001 ETH
-
-      return {
-        name,
-        duration,
-        price: pricePerYear * BigInt(durationYears),
-        pricePerYear,
-        available: true,
-      }
+      throw new Error(
+        `JNS registrar not configured for chain ${this.chainId}. ` +
+          `Cannot get pricing. Deploy JNS contracts and update chainContracts.`,
+      )
     }
 
     const client = this.getClient()

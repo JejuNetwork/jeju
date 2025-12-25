@@ -22,7 +22,7 @@ import type {
   ExecutionResult,
   RoomMessage,
 } from '../../lib/types'
-import { expect } from '../schemas'
+import { expect, expectTrue } from '../schemas'
 import type { AgentSDK } from './agent'
 import type { CrucibleCompute } from './compute'
 import { createLogger, type Logger } from './logger'
@@ -73,7 +73,6 @@ const DEFAULT_COSTS: ExecutorCostConfig = {
 
 export class ExecutorSDK {
   private config: CrucibleConfig
-  private storage: CrucibleStorage
   private compute: CrucibleCompute
   private agentSdk: AgentSDK
   private roomSdk: RoomSDK
@@ -85,7 +84,6 @@ export class ExecutorSDK {
 
   constructor(cfg: ExecutorConfig) {
     this.config = cfg.crucibleConfig
-    this.storage = cfg.storage
     this.compute = cfg.compute
     this.agentSdk = cfg.agentSdk
     this.roomSdk = cfg.roomSdk
@@ -98,22 +96,22 @@ export class ExecutorSDK {
 
   async execute(request: ExecutionRequest): Promise<ExecutionResult> {
     expect(request, 'Execution request is required')
-    expect(request.agentId > 0n, 'Agent ID must be greater than 0')
+    expectTrue(request.agentId > 0n, 'Agent ID must be greater than 0')
     expect(request.input, 'Execution input is required')
     if (request.options?.maxTokens != null) {
-      expect(
+      expectTrue(
         request.options.maxTokens > 0 && request.options.maxTokens <= 100000,
         'Max tokens must be between 1 and 100000',
       )
     }
     if (request.options?.temperature != null) {
-      expect(
+      expectTrue(
         request.options.temperature >= 0 && request.options.temperature <= 2,
         'Temperature must be between 0 and 2',
       )
     }
     if (request.options?.timeout != null) {
-      expect(
+      expectTrue(
         request.options.timeout > 0 && request.options.timeout <= 300,
         'Timeout must be between 1 and 300 seconds',
       )
@@ -282,24 +280,50 @@ export class ExecutorSDK {
 
   private async executeTradingBot(
     request: ExecutionRequest,
-    _agent: AgentDefinition,
+    agent: AgentDefinition,
     executionId: string,
     startTime: number,
   ): Promise<ExecutionResult> {
     this.log.info('Trading bot execution requested', {
       agentId: request.agentId.toString(),
     })
+
+    // Trading bots run continuously - this endpoint returns their current status
+    // and can be used to trigger manual evaluation or configuration updates
+    const message = request.input.message ?? ''
+    let responseMessage = 'Trading bot status: '
+    const actions: AgentAction[] = []
+
+    // Parse command from message if provided
+    if (message.toLowerCase().includes('status')) {
+      responseMessage += `Bot ${agent.name} is ${agent.active ? 'active' : 'inactive'}. `
+      responseMessage += `Registered at ${new Date(agent.registeredAt).toISOString()}.`
+    } else if (message.toLowerCase().includes('balance')) {
+      const balance = await this.agentSdk.getVaultBalance(request.agentId)
+      responseMessage += `Vault balance: ${balance.toString()} wei`
+    } else if (
+      message.toLowerCase().includes('strategies') &&
+      agent.strategies
+    ) {
+      responseMessage += `Active strategies: ${agent.strategies.map((s) => s.type).join(', ')}`
+    } else {
+      // Default status
+      responseMessage = `Trading bot ${agent.name} is running continuously. `
+      responseMessage +=
+        'Use "status", "balance", or "strategies" commands for details.'
+    }
+
     const completedAt = Date.now()
     return {
       executionId,
       agentId: request.agentId,
       status: 'completed',
-      output: { response: 'Trading bot is running continuously', actions: [] },
+      output: { response: responseMessage, actions },
       cost: {
-        total: 0n,
+        total: this.costs.executionFeeWei,
         inference: 0n,
         storage: 0n,
-        executionFee: 0n,
+        executionFee: this.costs.executionFeeWei,
         currency: 'ETH',
       },
       metadata: {
@@ -362,7 +386,7 @@ export class ExecutorSDK {
 
   async executeTrigger(triggerId: string): Promise<ExecutionResult> {
     expect(triggerId, 'Trigger ID is required')
-    expect(triggerId.length > 0, 'Trigger ID cannot be empty')
+    expectTrue(triggerId.length > 0, 'Trigger ID cannot be empty')
 
     this.log.info('Executing trigger', { triggerId })
 
@@ -395,13 +419,13 @@ export class ExecutorSDK {
     cronExpression: string,
     options?: { pricePerExecution?: bigint },
   ): Promise<string> {
-    expect(agentId > 0n, 'Agent ID must be greater than 0')
+    expectTrue(agentId > 0n, 'Agent ID must be greater than 0')
     expect(name, 'Trigger name is required')
-    expect(name.length > 0, 'Trigger name cannot be empty')
+    expectTrue(name.length > 0, 'Trigger name cannot be empty')
     expect(cronExpression, 'Cron expression is required')
-    expect(cronExpression.length > 0, 'Cron expression cannot be empty')
+    expectTrue(cronExpression.length > 0, 'Cron expression cannot be empty')
     if (options?.pricePerExecution !== undefined) {
-      expect(
+      expectTrue(
         options.pricePerExecution >= 0n,
         'Price per execution must be non-negative',
       )
@@ -447,7 +471,7 @@ export class ExecutorSDK {
   }
 
   async getAgentTriggers(agentId: bigint): Promise<AgentTrigger[]> {
-    expect(agentId > 0n, 'Agent ID must be greater than 0')
+    expectTrue(agentId > 0n, 'Agent ID must be greater than 0')
     const triggerIds = (await this.publicClient.readContract({
       address: this.config.contracts.triggerRegistry,
       abi: TRIGGER_REGISTRY_ABI,
@@ -603,8 +627,8 @@ export class ExecutorSDK {
   }
 
   private estimateCost(maxTokens: number = 2048): bigint {
-    expect(maxTokens > 0, 'Max tokens must be greater than 0')
-    expect(
+    expectTrue(maxTokens > 0, 'Max tokens must be greater than 0')
+    expectTrue(
       maxTokens <= 100000,
       'Max tokens must be less than or equal to 100000',
     )
@@ -616,10 +640,10 @@ export class ExecutorSDK {
     amount: bigint,
     reason: string,
   ): Promise<void> {
-    expect(agentId > 0n, 'Agent ID must be greater than 0')
-    expect(amount > 0n, 'Amount must be greater than 0')
+    expectTrue(agentId > 0n, 'Agent ID must be greater than 0')
+    expectTrue(amount > 0n, 'Amount must be greater than 0')
     expect(reason, 'Reason is required')
-    expect(reason.length > 0, 'Reason cannot be empty')
+    expectTrue(reason.length > 0, 'Reason cannot be empty')
     this.log.debug('Paying from vault', {
       agentId: agentId.toString(),
       amount: amount.toString(),
@@ -640,9 +664,9 @@ export class ExecutorSDK {
     executionId: string,
   ): Promise<void> {
     expect(triggerId, 'Trigger ID is required')
-    expect(triggerId.length > 0, 'Trigger ID cannot be empty')
+    expectTrue(triggerId.length > 0, 'Trigger ID cannot be empty')
     expect(executionId, 'Execution ID is required')
-    expect(executionId.length > 0, 'Execution ID cannot be empty')
+    expectTrue(executionId.length > 0, 'Execution ID cannot be empty')
     const outputHash = asHex(
       `0x${Buffer.from(executionId).toString('hex').padStart(64, '0')}`,
     )

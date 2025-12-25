@@ -120,7 +120,7 @@ class ApprovalService {
             spenderName: KNOWN_SPENDERS[spender.toLowerCase()],
             allowance,
             isUnlimited,
-            chainId: 31337, // Default to localnet; indexer provides actual chainId
+            chainId: a.chainId,
             riskLevel: isUnlimited ? 'high' : 'low',
             lastUpdated: timestamp,
           })

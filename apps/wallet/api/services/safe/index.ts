@@ -153,37 +153,40 @@ class SafeService {
   ): Promise<SafeInfo> {
     const client = rpcService.getClient(chainId)
 
-    const owners = await client.readContract({
-      address: safeAddress,
-      abi: SAFE_ABI,
-      functionName: 'getOwners',
-    })
-    const threshold = await client.readContract({
-      address: safeAddress,
-      abi: SAFE_ABI,
-      functionName: 'getThreshold',
-    })
-    const nonce = await client.readContract({
-      address: safeAddress,
-      abi: SAFE_ABI,
-      functionName: 'nonce',
-    })
-    const version = await client.readContract({
-      address: safeAddress,
-      abi: SAFE_ABI,
-      functionName: 'VERSION',
-    })
-    const modulesResult = await client.readContract({
-      address: safeAddress,
-      abi: SAFE_ABI,
-      functionName: 'getModulesPaginated',
-      args: ['0x0000000000000000000000000000000000000001' as Address, 10n],
-    })
-    const guardAddress = await client.readContract({
-      address: safeAddress,
-      abi: SAFE_ABI,
-      functionName: 'getGuard',
-    })
+    const [owners, threshold, nonce, version, modulesResult, guardAddress] =
+      await Promise.all([
+        client.readContract({
+          address: safeAddress,
+          abi: SAFE_ABI,
+          functionName: 'getOwners',
+        }) as Promise<readonly Address[]>,
+        client.readContract({
+          address: safeAddress,
+          abi: SAFE_ABI,
+          functionName: 'getThreshold',
+        }) as Promise<bigint>,
+        client.readContract({
+          address: safeAddress,
+          abi: SAFE_ABI,
+          functionName: 'nonce',
+        }) as Promise<bigint>,
+        client.readContract({
+          address: safeAddress,
+          abi: SAFE_ABI,
+          functionName: 'VERSION',
+        }) as Promise<string>,
+        client.readContract({
+          address: safeAddress,
+          abi: SAFE_ABI,
+          functionName: 'getModulesPaginated',
+          args: ['0x0000000000000000000000000000000000000001' as Address, 10n],
+        }) as Promise<readonly [readonly Address[], Address]>,
+        client.readContract({
+          address: safeAddress,
+          abi: SAFE_ABI,
+          functionName: 'getGuard',
+        }) as Promise<Address>,
+      ])
 
     return {
       address: safeAddress,

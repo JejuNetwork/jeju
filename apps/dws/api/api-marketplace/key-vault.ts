@@ -30,6 +30,11 @@ const accessLog: Array<{
 // System keys loaded from environment
 const systemKeys = new Map<string, string>()
 
+/** Response from TEE attestation endpoint */
+interface AttestationResponse {
+  attestation: string
+}
+
 // Start cleanup interval for old access log entries (older than 24 hours)
 const ACCESS_LOG_CLEANUP_INTERVAL_MS = 60 * 60 * 1000 // 1 hour
 const ACCESS_LOG_MAX_AGE_MS = 24 * 60 * 60 * 1000 // 24 hours
@@ -43,6 +48,9 @@ setInterval(() => {
 
 // Encryption Helpers (AES-256-GCM)
 
+/** Track if we've warned about missing secret */
+let warnedAboutMissingSecret = false
+
 /**
  * Derive encryption key from server secret + keyId
  * SECURITY: VAULT_ENCRYPTION_SECRET MUST be set in production
@@ -50,6 +58,7 @@ setInterval(() => {
 function deriveKey(keyId: string): Buffer {
   const serverSecret = process.env.VAULT_ENCRYPTION_SECRET
   const isProduction = process.env.NODE_ENV === 'production'
+  const isTest = process.env.NODE_ENV === 'test'
 
   if (!serverSecret) {
     if (isProduction) {
@@ -57,13 +66,18 @@ function deriveKey(keyId: string): Buffer {
         'CRITICAL: VAULT_ENCRYPTION_SECRET must be set in production. API keys cannot be secured without it.',
       )
     }
-    console.warn(
-      '[Key Vault] WARNING: VAULT_ENCRYPTION_SECRET not set. API keys are NOT properly secured.',
-    )
+    if (!isTest && !warnedAboutMissingSecret) {
+      warnedAboutMissingSecret = true
+      console.warn(
+        '[Key Vault] WARNING: VAULT_ENCRYPTION_SECRET not set. Using development-only key. Set VAULT_ENCRYPTION_SECRET for production.',
+      )
+    }
+    // Development-only fallback - keys are ephemeral and insecure
+    return createHash('sha256')
+      .update(`DEV_ONLY_INSECURE_KEY:${keyId}`)
+      .digest()
   }
-  return createHash('sha256')
-    .update(`${serverSecret ?? 'INSECURE_VAULT_SECRET'}:${keyId}`)
-    .digest()
+  return createHash('sha256').update(`${serverSecret}:${keyId}`).digest()
 }
 
 /**
@@ -105,11 +119,11 @@ function decryptApiKey(encryptedKey: string, keyId: string): string {
  * Store a key in the vault (encrypted)
  * Uses AES-256-GCM encryption with server secret
  */
-export function storeKey(
+export async function storeKey(
   providerId: string,
   owner: Address,
   apiKey: string,
-): VaultKey {
+): Promise<VaultKey> {
   const id = crypto.randomUUID()
 
   // Encrypt the API key with AES-256-GCM
@@ -120,7 +134,7 @@ export function storeKey(
     providerId,
     owner,
     encryptedKey,
-    attestation: generateAttestation(id),
+    attestation: await generateAttestation(id),
     createdAt: Date.now(),
   }
 
@@ -292,16 +306,52 @@ export function getAccessLogByRequester(requester: Address): typeof accessLog {
 
 // TEE Attestation
 
+const TEE_ENDPOINT = process.env.TEE_ATTESTATION_ENDPOINT
+const TEE_API_KEY = process.env.TEE_ATTESTATION_API_KEY
+
 /**
  * Generate a TEE attestation for a key
- * In production, this would be a real SGX/TDX attestation
+ * Uses real TEE attestation service when TEE_ATTESTATION_ENDPOINT is configured
  */
-function generateAttestation(keyId: string): string {
+async function generateAttestation(keyId: string): Promise<string> {
   const timestamp = Date.now()
+
+  // Use real TEE attestation if endpoint is configured
+  if (TEE_ENDPOINT && TEE_API_KEY) {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'X-API-Key': TEE_API_KEY,
+    }
+
+    const response = await fetch(`${TEE_ENDPOINT}/attestation/generate`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        keyId,
+        timestamp,
+        operation: 'key-access',
+      }),
+    })
+
+    if (!response.ok) {
+      throw new Error(`TEE attestation failed: ${response.status}`)
+    }
+
+    const result = (await response.json()) as AttestationResponse
+    return result.attestation
+  }
+
+  // Development mode - log warning
+  if (process.env.NODE_ENV === 'production') {
+    console.warn(
+      '[KeyVault] TEE attestation endpoint not configured - using local attestation',
+    )
+  }
+
   const attestationData = {
     keyId,
     timestamp,
-    enclave: 'simulated-tee',
+    enclave: process.env.TEE_ENCLAVE_ID ?? 'development',
     version: '1.0.0',
   }
   return Buffer.from(JSON.stringify(attestationData)).toString('base64')
@@ -334,11 +384,11 @@ export function verifyAttestation(attestation: string): {
 /**
  * Rotate a key (store new, delete old)
  */
-export function rotateKey(
+export async function rotateKey(
   oldKeyId: string,
   owner: Address,
   newApiKey: string,
-): VaultKey | null {
+): Promise<VaultKey | null> {
   const oldKey = vault.get(oldKeyId)
   if (!oldKey) return null
 
@@ -348,7 +398,7 @@ export function rotateKey(
   }
 
   // Store new key
-  const newKey = storeKey(oldKey.providerId, owner, newApiKey)
+  const newKey = await storeKey(oldKey.providerId, owner, newApiKey)
 
   // Delete old key
   vault.delete(oldKeyId)

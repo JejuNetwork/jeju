@@ -55,7 +55,7 @@ export const wagmiConfig = getDefaultConfig({
   projectId,
   chains,
   ssr: false,
-})
+}) as ReturnType<typeof getDefaultConfig>
 
 export const CHAIN_ID = chainConfig.chainId
 export const RPC_URL = chainConfig.rpcUrl

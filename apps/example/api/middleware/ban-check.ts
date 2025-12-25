@@ -1,3 +1,4 @@
+import { getCurrentNetwork } from '@jejunetwork/config'
 import {
   type BanCheckConfig,
   BanChecker,
@@ -6,7 +7,6 @@ import {
 import { isValidAddress } from '@jejunetwork/types'
 import type { Context } from 'elysia'
 import type { Address } from 'viem'
-import { getNetworkFromEnv } from '../../lib/schemas'
 
 // Get optional address from environment with type guard
 function getOptionalAddress(envVar: string | undefined): Address | undefined {
@@ -19,7 +19,7 @@ const MODERATION_MARKETPLACE_ADDRESS = getOptionalAddress(
   process.env.MODERATION_MARKETPLACE_ADDRESS,
 )
 const RPC_URL = process.env.RPC_URL || 'http://localhost:6545'
-const NETWORK = getNetworkFromEnv(process.env.NETWORK)
+const NETWORK = getCurrentNetwork()
 
 // Skip paths that don't need ban checking
 const SKIP_PATHS = ['/health', '/docs', '/.well-known']

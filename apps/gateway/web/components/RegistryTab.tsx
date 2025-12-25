@@ -1,4 +1,4 @@
-import { Grid3x3, type LucideProps, Plus, Sparkles } from 'lucide-react'
+import { Grid3x3, type LucideProps, Plus } from 'lucide-react'
 import { type ComponentType, useEffect, useState } from 'react'
 import { useAccount } from 'wagmi'
 import AppDetailModal from './AppDetailModal'
@@ -6,7 +6,6 @@ import { ConnectPrompt } from './ConnectPrompt'
 import RegisterAppForm from './RegisterAppForm'
 import RegisteredAppsList from './RegisteredAppsList'
 
-const _SparklesIcon = Sparkles as ComponentType<LucideProps>
 const PlusIcon = Plus as ComponentType<LucideProps>
 const Grid3x3Icon = Grid3x3 as ComponentType<LucideProps>
 

@@ -10,6 +10,7 @@
 
 import { promises as fs } from 'node:fs'
 import * as path from 'node:path'
+import { getCurrentNetwork, getServiceUrl } from '@jejunetwork/config'
 import { logger } from '@jejunetwork/shared'
 import { isIPFSUploadResult } from './type-guards'
 import type { IPFSUploadResult, ModelMetadata, StorageOptions } from './types'
@@ -24,19 +25,7 @@ const STORAGE_PROVIDER = process.env.STORAGE_PROVIDER || 'auto'
  * Jeju Storage endpoint based on network
  */
 function getJejuStorageEndpoint(): string {
-  if (process.env.JEJU_STORAGE_ENDPOINT) {
-    return process.env.JEJU_STORAGE_ENDPOINT
-  }
-
-  const network = process.env.JEJU_NETWORK
-  if (network === 'mainnet') {
-    return 'https://storage.jeju.io'
-  }
-  if (network === 'testnet') {
-    return 'https://storage.testnet.jeju.io'
-  }
-
-  return 'http://localhost:5004'
+  return getServiceUrl('storage')
 }
 
 /**
@@ -50,7 +39,8 @@ export function shouldUseStorage(): boolean {
     return true
   }
   // Auto mode: use IPFS if Jeju network is configured
-  return !!(process.env.JEJU_NETWORK || process.env.JEJU_STORAGE_ENDPOINT)
+  const network = getCurrentNetwork()
+  return network !== 'localnet'
 }
 
 /**
@@ -250,7 +240,7 @@ export class StorageUtil {
    * Get gateway URL for a CID
    */
   getGatewayUrl(cid: string): string {
-    const network = process.env.JEJU_NETWORK
+    const network = getCurrentNetwork()
     if (network === 'mainnet') {
       return `https://ipfs.jeju.network/ipfs/${cid}`
     }

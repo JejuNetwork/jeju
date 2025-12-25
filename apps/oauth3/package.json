@@ -17,7 +17,9 @@
     "@elysiajs/cors": "^1.2.0",
     "@jejunetwork/auth": "workspace:*",
     "@kitajs/html": "^4.2.0",
+    "@types/qrcode": "^1.5.6",
     "elysia": "^1.2.25",
+    "qrcode": "^1.5.4",
     "viem": "^2.30.6"
   },
   "devDependencies": {

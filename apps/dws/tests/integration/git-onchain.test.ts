@@ -7,17 +7,11 @@
  */
 
 import { beforeAll, describe, expect, setDefaultTimeout, test } from 'bun:test'
-import {
-  type Address,
-  createPublicClient,
-  createWalletClient,
-  type Hex,
-  http,
-} from 'viem'
+import { type Address, createPublicClient, type Hex, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
-import { GitRepoManager } from '../../src/git/repo-manager'
-import { createBackendManager } from '../../src/storage/backends'
+import { GitRepoManager } from '../../api/git/repo-manager'
+import { createBackendManager } from '../../api/storage/backends'
 
 setDefaultTimeout(30000)
 
@@ -28,7 +22,6 @@ const SKIP = process.env.SKIP_INTEGRATION === 'true'
 
 describe.skipIf(SKIP)('Git Registry On-Chain Integration', () => {
   let publicClient: ReturnType<typeof createPublicClient>
-  let _walletClient: ReturnType<typeof createWalletClient>
   let repoManager: GitRepoManager
   let repoRegistryAddress: Address
   let testAccount: Address
@@ -45,12 +38,6 @@ describe.skipIf(SKIP)('Git Registry On-Chain Integration', () => {
     }
 
     publicClient = createPublicClient({
-      chain,
-      transport: http(RPC_URL),
-    })
-
-    _walletClient = createWalletClient({
-      account,
       chain,
       transport: http(RPC_URL),
     })

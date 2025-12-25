@@ -39,43 +39,8 @@ export default function GamesPage() {
           </p>
           <div className="mt-4 flex items-center gap-2">
             <span className="badge badge-success">Live</span>
-            <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-              1,234 players
-            </span>
           </div>
         </Link>
-
-        <div className="card p-5 opacity-60">
-          <div className="text-4xl mb-3">🎰</div>
-          <h3
-            className="text-lg font-bold mb-2"
-            style={{ color: 'var(--text-primary)' }}
-          >
-            Lottery
-          </h3>
-          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-            Win big with daily draws
-          </p>
-          <div className="mt-4">
-            <span className="badge badge-warning">Coming Soon</span>
-          </div>
-        </div>
-
-        <div className="card p-5 opacity-60">
-          <div className="text-4xl mb-3">🎯</div>
-          <h3
-            className="text-lg font-bold mb-2"
-            style={{ color: 'var(--text-primary)' }}
-          >
-            Prediction Battles
-          </h3>
-          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-            Compete head-to-head in predictions
-          </p>
-          <div className="mt-4">
-            <span className="badge badge-warning">Coming Soon</span>
-          </div>
-        </div>
       </div>
     </div>
   )

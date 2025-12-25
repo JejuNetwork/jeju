@@ -2,6 +2,11 @@
 
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
+import {
+  getRpcUrl as getConfigRpcUrl,
+  getDWSUrl,
+  type NetworkType,
+} from '@jejunetwork/config'
 import { Command } from 'commander'
 import { execa } from 'execa'
 import {
@@ -34,16 +39,12 @@ import {
 } from '../schemas'
 import { DEFAULT_PORTS } from '../types'
 
-const DWS_PORT = parseInt(process.env.DWS_PORT || '4030', 10)
-
 function getDwsUrl(): string {
-  return process.env.DWS_URL || `http://localhost:${DWS_PORT}`
+  return getDWSUrl()
 }
 
 function getRpcUrl(network: string): string {
-  if (network === 'localnet') return `http://localhost:${DEFAULT_PORTS.l2Rpc}`
-  if (network === 'testnet') return 'https://testnet-rpc.jejunetwork.org'
-  return 'https://rpc.jejunetwork.org'
+  return getConfigRpcUrl(network as NetworkType)
 }
 
 // Well-known Anvil test private key - ONLY for localnet

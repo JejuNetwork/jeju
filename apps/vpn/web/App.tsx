@@ -6,13 +6,20 @@ import {
   Shield,
   Users,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { invoke, isTauri } from '../lib'
+import { formatBytes } from '../lib/utils'
 import { ConnectionStats } from './components/ConnectionStats'
 import { ContributionPanel } from './components/ContributionPanel'
 import { RegionSelector } from './components/RegionSelector'
 import { SettingsPanel } from './components/SettingsPanel'
 import { VPNToggle } from './components/VPNToggle'
-import { useVPNConnection, useVPNNodes, useVPNStatus } from './hooks'
+import {
+  useContribution,
+  useVPNConnection,
+  useVPNNodes,
+  useVPNStatus,
+} from './hooks'
 
 type Tab = 'vpn' | 'contribution' | 'settings'
 
@@ -21,16 +28,77 @@ function App() {
   const { status: vpnStatus } = useVPNStatus()
   const { nodes, selectedNode, selectNode: handleSelectNode } = useVPNNodes()
   const { connect, disconnect, isLoading } = useVPNConnection()
+  const { stats, dws } = useContribution()
 
-  const handleConnect = async () => {
+  const isConnected = vpnStatus.status === 'Connected'
+
+  const handleConnect = useCallback(async () => {
     if (vpnStatus.status === 'Connected') {
       await disconnect()
     } else {
       await connect(selectedNode)
     }
-  }
+  }, [vpnStatus.status, disconnect, connect, selectedNode])
 
-  const isConnected = vpnStatus.status === 'Connected'
+  // Sync tray state with VPN status
+  useEffect(() => {
+    if (!isTauri()) return
+
+    const location = selectedNode
+      ? `${selectedNode.region}, ${selectedNode.country_code}`
+      : undefined
+
+    invoke('update_tray_state', {
+      connected: isConnected,
+      location,
+      contributionPercent: 10,
+    }).catch((err) => {
+      console.warn('Failed to update tray state:', err)
+    })
+  }, [isConnected, selectedNode])
+
+  // Listen for tray events
+  useEffect(() => {
+    if (!isTauri()) return
+
+    let cleanup: (() => void) | undefined
+
+    const setupListeners = async () => {
+      const { listen } = await import('@tauri-apps/api/event')
+
+      // Listen for tray toggle VPN event
+      const unlistenToggle = await listen('tray_toggle_vpn', () => {
+        handleConnect()
+      })
+
+      // Listen for navigation events from tray
+      const unlistenNavigate = await listen<string>('navigate', (event) => {
+        if (event.payload === 'settings') {
+          setActiveTab('settings')
+        } else if (event.payload === 'locations') {
+          setActiveTab('vpn')
+        }
+      })
+
+      // Listen for app quit event
+      const unlistenQuit = await listen('app_quit', async () => {
+        // Disconnect VPN before quitting
+        if (isConnected) {
+          await disconnect()
+        }
+      })
+
+      cleanup = () => {
+        unlistenToggle()
+        unlistenNavigate()
+        unlistenQuit()
+      }
+    }
+
+    setupListeners()
+
+    return () => cleanup?.()
+  }, [handleConnect, isConnected, disconnect])
 
   return (
     <div className="h-full flex flex-col bg-[#0a0a0f]">
@@ -89,12 +157,16 @@ function App() {
               </div>
               <div className="card text-center">
                 <Users className="w-5 h-5 mx-auto mb-2 text-[#00cc6a]" />
-                <div className="text-lg font-semibold">1.2K</div>
-                <div className="text-xs text-[#606070]">Users</div>
+                <div className="text-lg font-semibold">
+                  {stats?.users_helped ?? 0}
+                </div>
+                <div className="text-xs text-[#606070]">Users Helped</div>
               </div>
               <div className="card text-center">
                 <HardDrive className="w-5 h-5 mx-auto mb-2 text-[#00aa55]" />
-                <div className="text-lg font-semibold">42 TB</div>
+                <div className="text-lg font-semibold">
+                  {dws ? `${dws.cache_used_mb} MB` : formatBytes(0)}
+                </div>
                 <div className="text-xs text-[#606070]">CDN Cache</div>
               </div>
             </div>

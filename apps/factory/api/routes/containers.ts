@@ -2,6 +2,15 @@
 
 import { Elysia } from 'elysia'
 import {
+  type ContainerInstanceRow,
+  type ContainerRow,
+  createContainer as dbCreateContainer,
+  createContainerInstance as dbCreateInstance,
+  listContainers as dbListContainers,
+  listContainerInstances,
+  updateContainerInstanceStatus,
+} from '../db/client'
+import {
   ContainersQuerySchema,
   CreateContainerBodySchema,
   CreateContainerInstanceBodySchema,
@@ -9,7 +18,7 @@ import {
 } from '../schemas'
 import { requireAuth } from '../validation/access-control'
 
-interface ContainerImage {
+export interface ContainerImage {
   id: string
   name: string
   tag: string
@@ -22,7 +31,7 @@ interface ContainerImage {
   updatedAt: number
 }
 
-interface ContainerInstance {
+export interface ContainerInstance {
   id: string
   name: string
   image: string
@@ -36,25 +45,53 @@ interface ContainerInstance {
   startedAt?: number
 }
 
+function transformContainer(row: ContainerRow): ContainerImage {
+  return {
+    id: row.id,
+    name: row.name,
+    tag: row.tag,
+    digest: row.digest,
+    size: row.size,
+    platform: row.platform,
+    labels: row.labels
+      ? (JSON.parse(row.labels) as Record<string, string>)
+      : undefined,
+    downloads: row.downloads,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
+function transformInstance(row: ContainerInstanceRow): ContainerInstance {
+  return {
+    id: row.id,
+    name: row.name,
+    image: row.container_id,
+    status: row.status,
+    cpu: row.cpu,
+    memory: row.memory,
+    gpu: row.gpu ?? undefined,
+    port: row.port ?? undefined,
+    endpoint: row.endpoint ?? undefined,
+    createdAt: row.created_at,
+    startedAt: row.started_at ?? undefined,
+  }
+}
+
 export const containersRoutes = new Elysia({ prefix: '/api/containers' })
   .get(
     '/',
     async ({ query }) => {
-      expectValid(ContainersQuerySchema, query, 'query params')
-      const containers: ContainerImage[] = [
-        {
-          id: '1',
-          name: 'jeju/protocol',
-          tag: 'latest',
-          digest:
-            'sha256:abc123def4567890123456789012345678901234567890123456789012345678',
-          size: 156000000,
-          platform: 'linux/amd64',
-          downloads: 8420,
-          createdAt: Date.now() - 7 * 24 * 60 * 60 * 1000,
-          updatedAt: Date.now() - 7 * 24 * 60 * 60 * 1000,
-        },
-      ]
+      const validated = expectValid(
+        ContainersQuerySchema,
+        query,
+        'query params',
+      )
+      const containerRows = dbListContainers({
+        org: validated.org,
+        name: validated.q,
+      })
+      const containers = containerRows.map(transformContainer)
       return { containers, total: containers.length }
     },
     { detail: { tags: ['containers'], summary: 'List containers' } },
@@ -72,28 +109,33 @@ export const containersRoutes = new Elysia({ prefix: '/api/containers' })
         body,
         'request body',
       )
-      const container: ContainerImage = {
-        id: `container-\${Date.now()}`,
+
+      const row = dbCreateContainer({
         name: validated.name,
         tag: validated.tag,
         digest: validated.digest,
         size: validated.size,
         platform: validated.platform,
         labels: validated.labels,
-        downloads: 0,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      }
+        owner: authResult.address,
+      })
+
       set.status = 201
-      return container
+      return transformContainer(row)
     },
     { detail: { tags: ['containers'], summary: 'Push container' } },
   )
   .get(
     '/instances',
-    async () => {
-      const instances: ContainerInstance[] = []
-      return { instances, total: 0 }
+    async ({ headers, set }) => {
+      const authResult = await requireAuth(headers)
+      if (!authResult.success) {
+        set.status = 401
+        return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
+      }
+      const instanceRows = listContainerInstances({ owner: authResult.address })
+      const instances = instanceRows.map(transformInstance)
+      return { instances, total: instances.length }
     },
     { detail: { tags: ['containers'], summary: 'List running instances' } },
   )
@@ -110,21 +152,28 @@ export const containersRoutes = new Elysia({ prefix: '/api/containers' })
         body,
         'request body',
       )
-      const instance: ContainerInstance = {
-        id: `instance-\${Date.now()}`,
+
+      const row = dbCreateInstance({
+        containerId: validated.imageId,
         name: validated.name,
-        image: validated.imageId,
-        status: 'running',
         cpu: validated.cpu,
         memory: validated.memory,
         gpu: validated.gpu,
+        owner: authResult.address,
+      })
+
+      // Simulate endpoint assignment on creation
+      const endpoint = `https://${validated.name}.containers.jeju.network`
+      updateContainerInstanceStatus(row.id, 'running', endpoint)
+
+      set.status = 201
+      return {
+        ...transformInstance(row),
+        status: 'running' as const,
+        endpoint,
         port: 8080,
-        endpoint: `https://\${validated.name}.containers.jeju.local`,
-        createdAt: Date.now(),
         startedAt: Date.now(),
       }
-      set.status = 201
-      return instance
     },
     { detail: { tags: ['containers'], summary: 'Start container instance' } },
   )
@@ -136,6 +185,21 @@ export const containersRoutes = new Elysia({ prefix: '/api/containers' })
         set.status = 401
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
       }
+
+      const success = updateContainerInstanceStatus(
+        params.instanceId,
+        'stopped',
+      )
+      if (!success) {
+        set.status = 404
+        return {
+          error: {
+            code: 'NOT_FOUND',
+            message: `Instance ${params.instanceId} not found`,
+          },
+        }
+      }
+
       return { success: true, instanceId: params.instanceId, status: 'stopped' }
     },
     { detail: { tags: ['containers'], summary: 'Stop container instance' } },
@@ -148,6 +212,10 @@ export const containersRoutes = new Elysia({ prefix: '/api/containers' })
         set.status = 401
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
       }
+
+      // Mark as stopped/deleted (we don't hard delete)
+      updateContainerInstanceStatus(params.instanceId, 'stopped')
+
       return { success: true, instanceId: params.instanceId }
     },
     { detail: { tags: ['containers'], summary: 'Delete container instance' } },

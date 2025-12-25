@@ -18,6 +18,7 @@ import {
   OIFSolver,
   OIFStats,
 } from './model'
+import { getChainId } from './network-config'
 import type { ProcessorContext } from './processor'
 import { createAccountFactory } from './utils/entities'
 import { decodeLogData, isEventInSet } from './utils/hex'
@@ -220,7 +221,7 @@ export async function processOIFEvents(
           header.height,
           blockTimestamp,
         )
-        const sourceChainId = 420691 // Network mainnet
+        const sourceChainId = getChainId()
         const destChainId = Number(decoded[2])
 
         const intent = new OIFIntent({
@@ -430,7 +431,7 @@ export async function processOIFEvents(
             solver,
             intentId,
             orderId: intentId,
-            chainId: 420691,
+            chainId: getChainId(),
             amount,
             victim: '',
             reason: 'Failed to fulfill intent',
@@ -582,7 +583,7 @@ function updateChainStats(
   _blockNumber: number,
   chainStats: Map<number, OIFChainStats>,
 ): void {
-  const chainId = 420691 // Default to the network mainnet
+  const chainId = getChainId()
 
   let stats = chainStats.get(chainId)
   if (!stats) {

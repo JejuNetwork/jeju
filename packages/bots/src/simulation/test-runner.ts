@@ -1,5 +1,6 @@
 /** Bot testing pipeline. */
 
+import { getExternalRpc } from '@jejunetwork/config'
 import type { Token } from '../types'
 import { type BacktestConfig, Backtester } from './backtester'
 import { type FlashLoanTestConfig, runFlashLoanTests } from './flashloan-tests'
@@ -624,7 +625,7 @@ async function main() {
 
     // Chain
     chainId: 1,
-    rpcUrl: process.env.RPC_URL ?? 'https://eth.llamarpc.com',
+    rpcUrl: getExternalRpc('ethereum'),
     testPrivateKey: process.env.TEST_PRIVATE_KEY,
   }
 

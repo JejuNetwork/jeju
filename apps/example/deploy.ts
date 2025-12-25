@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
-import { getCQLBlockProducerUrl } from '@jejunetwork/config'
+import { getCQLBlockProducerUrl, getCurrentNetwork } from '@jejunetwork/config'
 import { expectHex } from '@jejunetwork/types'
 import type { Hex } from 'viem'
 import type { PrivateKeyAccount } from 'viem/accounts'
@@ -14,7 +14,7 @@ import {
 } from './lib/schemas'
 import type { DeployResult } from './lib/types'
 
-const NETWORK = process.env.NETWORK || 'localnet'
+const NETWORK = getCurrentNetwork()
 const DWS_URL = process.env.DWS_URL || 'http://localhost:4030'
 const COMPUTE_API = process.env.COMPUTE_API || `${DWS_URL}/compute`
 const CQL_ENDPOINT = process.env.CQL_ENDPOINT || getCQLBlockProducerUrl()

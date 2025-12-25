@@ -15,7 +15,7 @@ import {
   createReedSolomonCodec,
   defaultCodec,
   ReedSolomonCodec,
-} from '../src/da/erasure'
+} from '../api/da/erasure'
 
 const TEST_BLOB_ID =
   '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as Hex

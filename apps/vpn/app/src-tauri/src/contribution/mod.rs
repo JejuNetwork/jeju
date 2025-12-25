@@ -337,10 +337,82 @@ impl ContributionManager {
     }
 
     /// Check if current time is within scheduled contribution window
+    ///
+    /// Parses schedule_start and schedule_end times (HH:MM format)
+    /// and checks if current local time falls within the window.
+    /// Handles overnight windows (e.g., 22:00 - 06:00).
     fn is_within_schedule(&self) -> bool {
-        // TODO: Implement schedule checking
-        // For now, return true
-        true
+        if !self.settings.schedule_enabled {
+            return true;
+        }
+
+        // Parse start time
+        let start_parts: Vec<&str> = self.settings.schedule_start.split(':').collect();
+        let end_parts: Vec<&str> = self.settings.schedule_end.split(':').collect();
+
+        if start_parts.len() != 2 || end_parts.len() != 2 {
+            tracing::warn!(
+                "Invalid schedule format: {} - {}, allowing contribution",
+                self.settings.schedule_start,
+                self.settings.schedule_end
+            );
+            return true;
+        }
+
+        let start_hour: u32 = match start_parts[0].parse() {
+            Ok(h) => h,
+            Err(_) => return true,
+        };
+        let start_min: u32 = match start_parts[1].parse() {
+            Ok(m) => m,
+            Err(_) => return true,
+        };
+        let end_hour: u32 = match end_parts[0].parse() {
+            Ok(h) => h,
+            Err(_) => return true,
+        };
+        let end_min: u32 = match end_parts[1].parse() {
+            Ok(m) => m,
+            Err(_) => return true,
+        };
+
+        // Get current local time
+        // Using system time and calculating hours/minutes from midnight
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        // Get seconds since midnight in local time (approximation using UTC)
+        // For proper timezone support, would need chrono crate
+        let seconds_today = now % 86400;
+        let current_hour = (seconds_today / 3600) as u32;
+        let current_min = ((seconds_today % 3600) / 60) as u32;
+
+        let current_mins = current_hour * 60 + current_min;
+        let start_mins = start_hour * 60 + start_min;
+        let end_mins = end_hour * 60 + end_min;
+
+        // Handle overnight windows (e.g., 22:00 - 06:00)
+        let within = if start_mins <= end_mins {
+            // Same-day window (e.g., 09:00 - 17:00)
+            current_mins >= start_mins && current_mins < end_mins
+        } else {
+            // Overnight window (e.g., 22:00 - 06:00)
+            current_mins >= start_mins || current_mins < end_mins
+        };
+
+        tracing::debug!(
+            "Schedule check: {} ({:02}:{:02}) within {} - {} = {}",
+            current_mins,
+            current_hour,
+            current_min,
+            self.settings.schedule_start,
+            self.settings.schedule_end,
+            within
+        );
+
+        within
     }
 
     /// Update contribution ratio stat

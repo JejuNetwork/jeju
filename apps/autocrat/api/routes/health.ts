@@ -2,6 +2,7 @@
  * Health and Metrics Routes
  */
 
+import { getContract } from '@jejunetwork/config'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import { toAddress } from '../../lib'
@@ -13,13 +14,20 @@ import { getTEEMode } from '../tee'
 
 const ZERO_ADDR = ZERO_ADDRESS
 
+// Helper to safely get contract addresses
+const getContractAddr = (category: string, name: string) => {
+  try {
+    return getContract(category as 'governance' | 'registry', name)
+  } catch {
+    return '0x0000000000000000000000000000000000000000'
+  }
+}
+
 const erc8004Config: ERC8004Config = {
   rpcUrl: config.rpcUrl,
   identityRegistry: config.contracts.identityRegistry,
   reputationRegistry: config.contracts.reputationRegistry,
-  validationRegistry:
-    process.env.VALIDATION_REGISTRY_ADDRESS ??
-    '0x0000000000000000000000000000000000000000',
+  validationRegistry: getContractAddr('registry', 'validation'),
   operatorKey: process.env.OPERATOR_KEY ?? process.env.PRIVATE_KEY,
 }
 const erc8004 = getERC8004Client(erc8004Config)
@@ -55,8 +63,10 @@ export const healthRoutes = new Elysia()
         predimarket: futarchy.predimarketDeployed,
       },
       registry: {
-        integration: !!process.env.REGISTRY_INTEGRATION_ADDRESS,
-        delegation: !!process.env.DELEGATION_REGISTRY_ADDRESS,
+        integration:
+          getContractAddr('governance', 'registryIntegration') !== ZERO_ADDR,
+        delegation:
+          getContractAddr('governance', 'delegationRegistry') !== ZERO_ADDR,
       },
       endpoints: {
         a2a: '/a2a',

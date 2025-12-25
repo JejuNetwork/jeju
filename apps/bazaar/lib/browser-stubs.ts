@@ -1,7 +1,14 @@
 /**
  * Browser-compatible implementations for Bazaar
+ *
+ * Uses @jejunetwork/config for defaults with PUBLIC_ env overrides.
  */
 
+import {
+  getContractsConfig,
+  getCurrentNetwork,
+  getRpcUrl,
+} from '@jejunetwork/config'
 import { asTuple, BanType, isHexString } from '@jejunetwork/types'
 import { useCallback, useEffect, useState } from 'react'
 import {
@@ -15,6 +22,14 @@ import { base, baseSepolia } from 'viem/chains'
 
 export { BanType }
 export type { BanType as BanTypeValue }
+
+/** Get env var from import.meta.env (browser) */
+function getEnv(key: string): string | undefined {
+  if (typeof import.meta?.env === 'object') {
+    return import.meta.env[key] as string | undefined
+  }
+  return undefined
+}
 
 /** Parse env var as Address or return null */
 function parseEnvAsAddress(value: string | undefined): Address | null {
@@ -40,7 +55,7 @@ export interface BanStatus {
   error: string | null
 }
 
-// Contract Configuration
+// Contract Configuration using config package
 
 function getNetworkConfig(): {
   chain: typeof base | typeof baseSepolia
@@ -48,26 +63,33 @@ function getNetworkConfig(): {
   banManager: Address | null
   moderationMarketplace: Address | null
 } {
-  const networkEnv =
-    typeof window !== 'undefined' ? import.meta.env?.VITE_NETWORK : undefined
-  const network = typeof networkEnv === 'string' ? networkEnv : 'testnet'
+  const networkEnv = getEnv('PUBLIC_NETWORK')
+  const network =
+    networkEnv === 'mainnet' ||
+    networkEnv === 'testnet' ||
+    networkEnv === 'localnet'
+      ? networkEnv
+      : getCurrentNetwork()
 
   const isMainnet = network === 'mainnet'
-  const rpcEnv = import.meta.env?.VITE_RPC_URL
+  const contracts = getContractsConfig(network)
+
   const rpcUrl =
-    typeof rpcEnv === 'string'
-      ? rpcEnv
-      : isMainnet
-        ? 'https://mainnet.base.org'
-        : 'https://sepolia.base.org'
+    getEnv('PUBLIC_RPC_URL') ||
+    getRpcUrl(network) ||
+    (isMainnet ? 'https://mainnet.base.org' : 'https://sepolia.base.org')
 
   return {
     chain: isMainnet ? base : baseSepolia,
     rpcUrl,
-    banManager: parseEnvAsAddress(import.meta.env?.VITE_BAN_MANAGER_ADDRESS),
-    moderationMarketplace: parseEnvAsAddress(
-      import.meta.env?.VITE_MODERATION_MARKETPLACE_ADDRESS,
-    ),
+    banManager:
+      parseEnvAsAddress(getEnv('PUBLIC_BAN_MANAGER_ADDRESS')) ||
+      (contracts.moderation?.BanManager as Address | undefined) ||
+      null,
+    moderationMarketplace:
+      parseEnvAsAddress(getEnv('PUBLIC_MODERATION_MARKETPLACE_ADDRESS')) ||
+      (contracts.moderation?.ModerationMarketplace as Address | undefined) ||
+      null,
   }
 }
 
@@ -263,12 +285,8 @@ export function createIPFSClient(config: {
 }): IPFSClient {
   const gatewayUrl = config.gatewayUrl ?? 'https://ipfs.io/ipfs'
   const apiUrl = config.apiUrl ?? 'https://api.pinata.cloud'
-  const envJwt =
-    typeof import.meta.env !== 'undefined'
-      ? import.meta.env.VITE_PINATA_JWT
-      : undefined
-  const pinataJwt =
-    config.pinataJwt || (typeof envJwt === 'string' ? envJwt : undefined)
+  const envJwt = getEnv('PUBLIC_PINATA_JWT')
+  const pinataJwt = config.pinataJwt || envJwt
 
   return {
     async upload(
@@ -277,7 +295,7 @@ export function createIPFSClient(config: {
     ): Promise<string> {
       if (!pinataJwt) {
         throw new Error(
-          'IPFS upload requires VITE_PINATA_JWT environment variable',
+          'IPFS upload requires PUBLIC_PINATA_JWT environment variable',
         )
       }
 
@@ -306,7 +324,7 @@ export function createIPFSClient(config: {
     ): Promise<string> {
       if (!pinataJwt) {
         throw new Error(
-          'IPFS upload requires VITE_PINATA_JWT environment variable',
+          'IPFS upload requires PUBLIC_PINATA_JWT environment variable',
         )
       }
 

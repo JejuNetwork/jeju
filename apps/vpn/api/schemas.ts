@@ -414,9 +414,3 @@ export const AuthHeadersSchema = z
   })
   .strict()
 
-export {
-  expect,
-  expectExists,
-  expectValid,
-  getExists,
-} from '../lib'

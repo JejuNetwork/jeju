@@ -6,13 +6,13 @@
  */
 
 import { beforeEach, describe, expect, setDefaultTimeout, test } from 'bun:test'
-import { GitObjectStore } from '../src/git/object-store'
-import { PackfileReader, PackfileWriter } from '../src/git/pack'
-import { app } from '../src/server'
+import { GitObjectStore } from '../api/git/object-store'
+import { PackfileReader, PackfileWriter } from '../api/git/pack'
+import { app } from '../api/server'
 import {
   type BackendManager,
   createBackendManager,
-} from '../src/storage/backends'
+} from '../api/storage/backends'
 
 setDefaultTimeout(10000)
 

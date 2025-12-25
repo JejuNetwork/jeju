@@ -4,7 +4,7 @@ import {
   createPricesRouter,
   getPriceService,
   PriceStreamingService,
-} from '../src/server/routes/prices'
+} from '../api/server/routes/prices'
 
 describe('Price Service', () => {
   describe('Router', () => {

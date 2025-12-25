@@ -2,11 +2,27 @@
  * CQL sync layer
  */
 
-import { type CQLClient, getCQL, toQueryParam } from '@jejunetwork/db'
+import type { QueryParam } from '@jejunetwork/db'
+import { type CQLClient, getCQL } from '@jejunetwork/db'
 import type { DataSource, EntityMetadata } from 'typeorm'
 
 type SqlPrimitive = string | number | boolean | null | bigint | Date
 type SqlParam = SqlPrimitive | SqlPrimitive[]
+
+/** Convert our SqlParam to QueryParam for the CQL layer */
+function convertToQueryParam(value: SqlParam): QueryParam {
+  if (Array.isArray(value)) {
+    // Convert array to JSON string for storage
+    return JSON.stringify(
+      value.map((v) => (v instanceof Date ? v.toISOString() : v)),
+    )
+  }
+  if (value instanceof Date) {
+    return value.toISOString()
+  }
+  // primitives including bigint pass through
+  return value as QueryParam
+}
 type SqlRowValue = string | number | boolean | null
 type SqlRow = Record<string, SqlRowValue>
 
@@ -259,7 +275,11 @@ export class CQLSyncService {
       DO UPDATE SET ${updateSet}
     `.trim()
 
-    await this.client.exec(sql, params.map(toQueryParam), CQL_DATABASE_ID)
+    await this.client.exec(
+      sql,
+      params.map(convertToQueryParam),
+      CQL_DATABASE_ID,
+    )
   }
 
   private async createCQLTables(): Promise<void> {
@@ -396,7 +416,7 @@ export class CQLSyncService {
     ]
 
     await this.client
-      .exec(sql, params.map(toQueryParam), CQL_DATABASE_ID)
+      .exec(sql, params.map(convertToQueryParam), CQL_DATABASE_ID)
       .catch((err: Error) => {
         console.log(
           `[CQLSync] Saving sync state for ${state.entity}: ${err.message}`,
@@ -421,7 +441,7 @@ export class CQLSyncService {
     }
     const result = await this.client.query<T>(
       sql,
-      params?.map(toQueryParam),
+      params?.map(convertToQueryParam),
       CQL_DATABASE_ID,
     )
     return { rows: result.rows, rowCount: result.rowCount }

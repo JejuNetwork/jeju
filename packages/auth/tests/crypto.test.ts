@@ -6,9 +6,6 @@
  */
 
 import { beforeEach, describe, expect, test } from 'bun:test'
-import { secp256k1 } from '@noble/curves/secp256k1'
-import { type Hex, keccak256, toBytes, toHex } from 'viem'
-
 import {
   computeBindingFactor,
   computeChallenge,
@@ -21,7 +18,9 @@ import {
   publicKeyToAddress,
   randomScalar,
   verifySignature,
-} from '../src/mpc/frost-signing.js'
+} from '@jejunetwork/kms'
+import { secp256k1 } from '@noble/curves/secp256k1'
+import { type Hex, keccak256, toBytes, toHex } from 'viem'
 
 const CURVE_ORDER = secp256k1.CURVE.n
 const GENERATOR = secp256k1.ProjectivePoint.BASE
@@ -543,8 +542,10 @@ describe('TOTP - Code Generation and Verification', () => {
     await totp.generateSecret('user789', 'user@test.com')
     const code = await totp.getCurrentCode('user789')
 
-    expect(code).not.toBeNull()
-    expect(code?.length).toBe(6)
+    if (!code) {
+      throw new Error('Expected code to be generated')
+    }
+    expect(code.length).toBe(6)
     expect(code).toMatch(/^\d{6}$/)
   })
 
@@ -606,8 +607,11 @@ describe('TOTP - Code Generation and Verification', () => {
     await totp.generateSecret('spacetest', 'space@test.com')
     const code = await totp.getCurrentCode('spacetest')
 
+    if (!code) {
+      throw new Error('Expected code to be generated')
+    }
     // Add spaces
-    const spacedCode = `${code?.slice(0, 3)} ${code?.slice(3)}`
+    const spacedCode = `${code.slice(0, 3)} ${code.slice(3)}`
     const result = await totp.verify('spacetest', spacedCode)
     expect(result.valid).toBe(true)
   })
@@ -898,8 +902,10 @@ describe('Backup Codes - Status and Management', () => {
     manager.verify('exportuser', codes[2])
 
     const exported = manager.exportCodes('exportuser')
-    expect(exported).not.toBeNull()
-    expect(exported?.length).toBe(3)
+    if (!exported) {
+      throw new Error('Expected exported codes to be defined')
+    }
+    expect(exported.length).toBe(3)
     expect(exported).not.toContain(codes[0])
     expect(exported).not.toContain(codes[2])
   })
@@ -1038,8 +1044,11 @@ describe('Passkeys - Challenge Management', () => {
       displayName: 'Multi User',
     })
 
-    // Since no actual credential was registered, excludeCredentials should be empty
-    expect(regOptions2.publicKey.excludeCredentials?.length ?? 0).toBe(0)
+    // Since no actual credential was registered, excludeCredentials should be empty or undefined
+    const excludeLength = regOptions2.publicKey.excludeCredentials
+      ? regOptions2.publicKey.excludeCredentials.length
+      : 0
+    expect(excludeLength).toBe(0)
   })
 })
 

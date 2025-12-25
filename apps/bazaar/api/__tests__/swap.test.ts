@@ -7,19 +7,16 @@ import { parseEther } from 'viem'
 import {
   BASE_NETWORK_FEE,
   CROSS_CHAIN_PREMIUM,
-  calculateOutputAmount,
   calculateSwapFees,
   DEFAULT_FEE_BPS,
   formatRate,
   formatSwapAmount,
-  generateSwapQuote,
   getExchangeRate,
   getSwapButtonText,
   getTokenByAddress,
   getTokenBySymbol,
   isCrossChain,
   isSwapButtonDisabled,
-  PRICE_PAIRS,
   parseSwapAmount,
   SWAP_TOKENS,
   validateSwap,
@@ -28,19 +25,9 @@ import {
 
 describe('swap lib', () => {
   describe('constants', () => {
-    it('has required swap tokens', () => {
-      expect(SWAP_TOKENS.length).toBeGreaterThanOrEqual(3)
+    it('has ETH token', () => {
+      expect(SWAP_TOKENS.length).toBeGreaterThanOrEqual(1)
       expect(getTokenBySymbol('ETH')).toBeDefined()
-      expect(getTokenBySymbol('USDC')).toBeDefined()
-      expect(getTokenBySymbol('JEJU')).toBeDefined()
-    })
-
-    it('has ETH/USDC price pair', () => {
-      const pair = PRICE_PAIRS.find(
-        (p) => p.baseToken === 'ETH' && p.quoteToken === 'USDC',
-      )
-      expect(pair).toBeDefined()
-      expect(pair?.rate).toBe(3000)
     })
 
     it('has correct fee constants', () => {
@@ -73,13 +60,6 @@ describe('swap lib', () => {
       expect(token?.symbol).toBe('ETH')
     })
 
-    it('handles case insensitive address', () => {
-      const token = getTokenByAddress(
-        '0x0000000000000000000000000000000000000001',
-      )
-      expect(token?.symbol).toBe('USDC')
-    })
-
     it('returns undefined for unknown address', () => {
       const token = getTokenByAddress(
         '0xdead000000000000000000000000000000000000',
@@ -93,17 +73,10 @@ describe('swap lib', () => {
       expect(getExchangeRate('ETH', 'ETH')).toBe(1)
     })
 
-    it('returns correct rate for ETH/USDC', () => {
-      expect(getExchangeRate('ETH', 'USDC')).toBe(3000)
-    })
-
-    it('returns inverse rate for USDC/ETH', () => {
-      const rate = getExchangeRate('USDC', 'ETH')
-      expect(rate).toBeCloseTo(1 / 3000, 10)
-    })
-
-    it('returns 1 for unknown pair', () => {
-      expect(getExchangeRate('UNKNOWN', 'OTHER')).toBe(1)
+    it('throws for unknown pairs (oracle not integrated)', () => {
+      expect(() => getExchangeRate('ETH', 'USDC')).toThrow(
+        'Exchange rate not available',
+      )
     })
   })
 
@@ -157,64 +130,6 @@ describe('swap lib', () => {
       const fees = calculateSwapFees(0n, 1, 1)
       expect(fees.xlpFee).toBe(0n)
       expect(fees.networkFee).toBe(BASE_NETWORK_FEE)
-    })
-  })
-
-  describe('calculateOutputAmount', () => {
-    it('returns 0 for zero input', () => {
-      const fees = calculateSwapFees(0n, 1, 1)
-      const output = calculateOutputAmount(0n, 'ETH', 'USDC', fees)
-      expect(output).toBe(0n)
-    })
-
-    it('calculates output for ETH to USDC', () => {
-      const input = parseEther('1')
-      const fees = calculateSwapFees(input, 1, 1)
-      const output = calculateOutputAmount(input, 'ETH', 'USDC', fees)
-
-      // Output should be positive and less than input * rate (due to fees)
-      expect(output).toBeGreaterThan(0n)
-      expect(output).toBeLessThan(parseEther('3000'))
-    })
-
-    it('calculates output for same token (1:1)', () => {
-      const input = parseEther('1')
-      const fees = calculateSwapFees(input, 1, 1)
-      const output = calculateOutputAmount(input, 'ETH', 'ETH', fees)
-
-      // Should be slightly less than input due to fees
-      expect(output).toBeGreaterThan(0n)
-      expect(output).toBeLessThan(input)
-    })
-
-    it('returns 0 when fees exceed amount', () => {
-      const input = parseEther('0.0001') // Very small amount
-      const fees = calculateSwapFees(input, 1, 42161) // Cross-chain for higher fees
-      const output = calculateOutputAmount(input, 'ETH', 'USDC', fees)
-
-      expect(output).toBe(0n)
-    })
-  })
-
-  describe('generateSwapQuote', () => {
-    it('generates complete quote', () => {
-      const input = parseEther('1')
-      const quote = generateSwapQuote(input, 'ETH', 'USDC', 1, 1)
-
-      expect(quote.inputAmount).toBe(input)
-      expect(quote.outputAmount).toBeGreaterThan(0n)
-      expect(quote.rate).toBe(3000)
-      expect(quote.rateDisplay).toContain('ETH')
-      expect(quote.feePercent).toBe(0.3)
-      expect(quote.isCrossChain).toBe(false)
-    })
-
-    it('marks cross-chain quotes correctly', () => {
-      const input = parseEther('1')
-      const quote = generateSwapQuote(input, 'ETH', 'USDC', 1, 42161)
-
-      expect(quote.isCrossChain).toBe(true)
-      expect(quote.fees.estimatedTime).toBe(10)
     })
   })
 

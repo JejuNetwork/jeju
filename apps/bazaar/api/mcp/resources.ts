@@ -36,7 +36,7 @@ export async function readMCPResource(uri: string): Promise<unknown | null> {
       return { pools: [], note: 'Query Uniswap V4 for pool data' }
 
     case 'bazaar://nfts':
-      return { nfts: [], note: 'NFT indexing coming soon' }
+      return { nfts: [], note: 'Query indexer for NFT data' }
 
     default:
       return null

@@ -1,16 +1,18 @@
 import {
   CORE_PORTS,
   getCoreAppUrl,
+  getCurrentNetwork,
+  getExternalRpc,
+  getRpcUrl as getJejuRpcUrl,
   getL2RpcUrl,
   getExplorerUrl as getLocalnetExplorerUrl,
 } from '@jejunetwork/config'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import type { Address } from 'viem'
 
-// Network selection: NETWORK env var or default to testnet
+// Network selection: NETWORK env var or config default
 export type NetworkId = 'mainnet' | 'testnet' | 'localnet'
-export const NETWORK: NetworkId =
-  (process.env.NETWORK as NetworkId) || 'testnet'
+export const NETWORK: NetworkId = getCurrentNetwork()
 
 export const CHAIN_IDS = {
   mainnet: 420691,
@@ -21,23 +23,21 @@ export const CHAIN_IDS = {
 export const JEJU_CHAIN_ID = CHAIN_IDS[NETWORK]
 export const IS_TESTNET = NETWORK === 'testnet' || NETWORK === 'localnet'
 
-// Public RPC endpoints (defaults, can be overridden with *_RPC_URL env vars)
+// Public RPC endpoints (from config package)
 export const RPC_URLS = {
   // Network
-  420691: process.env.JEJU_RPC_URL || 'https://rpc.jejunetwork.org',
+  420691: getJejuRpcUrl(),
   420690:
     process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jejunetwork.org',
-  31337: process.env.LOCALNET_RPC_URL || getL2RpcUrl(),
+  31337: getL2RpcUrl(),
   // Mainnets
-  1: process.env.ETHEREUM_RPC_URL || 'https://eth.llamarpc.com',
-  42161: process.env.ARBITRUM_RPC_URL || 'https://arb1.arbitrum.io/rpc',
-  10: process.env.OPTIMISM_RPC_URL || 'https://mainnet.optimism.io',
-  8453: process.env.BASE_RPC_URL || 'https://mainnet.base.org',
+  1: getExternalRpc('ethereum'),
+  42161: getExternalRpc('arbitrum'),
+  10: getExternalRpc('optimism'),
+  8453: getExternalRpc('base'),
   // Testnets
-  11155111:
-    process.env.SEPOLIA_RPC_URL ||
-    'https://ethereum-sepolia-rpc.publicnode.com',
-  84532: process.env.BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org',
+  11155111: getExternalRpc('sepolia'),
+  84532: getExternalRpc('base-sepolia'),
   11155420:
     process.env.OPTIMISM_SEPOLIA_RPC_URL || 'https://sepolia.optimism.io',
   421614:

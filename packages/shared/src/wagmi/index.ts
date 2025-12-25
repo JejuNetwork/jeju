@@ -42,6 +42,3 @@ export function writeParamsAsync<TAbi extends Abi>(
 ): WriteParamsInput {
   return params
 }
-
-// Re-export viem types for convenience
-export type { Abi, Address }

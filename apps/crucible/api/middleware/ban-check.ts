@@ -3,6 +3,7 @@
  * Uses @jejunetwork/shared for ban checking
  */
 
+import { getCurrentNetwork } from '@jejunetwork/config'
 import {
   type BanCheckConfig,
   BanChecker,
@@ -28,10 +29,7 @@ const BAN_MANAGER_ADDRESS = process.env.BAN_MANAGER_ADDRESS as
 const MODERATION_MARKETPLACE_ADDRESS = process.env
   .MODERATION_MARKETPLACE_ADDRESS as Address | undefined
 const RPC_URL = process.env.RPC_URL || 'http://localhost:6545'
-const NETWORK = (process.env.NETWORK || 'localnet') as
-  | 'mainnet'
-  | 'testnet'
-  | 'localnet'
+const NETWORK = getCurrentNetwork()
 
 // Skip paths that don't need ban checking
 const SKIP_PATHS = ['/health', '/info', '/metrics', '/.well-known']

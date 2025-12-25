@@ -5,7 +5,6 @@
 
 import { parseEther } from 'viem'
 
-const _ONE_SHARE = parseEther('1')
 const MIN_TRADE_AMOUNT = parseEther('0.001')
 const MAX_SLIPPAGE_BPS = 5000n // 50%
 

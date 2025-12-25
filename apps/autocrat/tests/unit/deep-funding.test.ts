@@ -4,40 +4,10 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import { createPublicClient, createWalletClient, http, parseEther } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
-import { foundry } from 'viem/chains'
+import { parseEther } from 'viem'
 
-const TEST_PRIVATE_KEY =
-  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
-const RPC_URL = process.env.RPC_URL || 'http://localhost:6545'
-
-// Mock addresses (would be deployed contracts in real tests)
-const _MOCK_ADDRESSES = {
-  contributorRegistry: '0x5FbDB2315678afecb367f032d93F642f64180aa3',
-  paymentRequestRegistry: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
-  workAgreementRegistry: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
-  deepFundingDistributor: '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9',
-  daoRegistry: '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9',
-}
-const TEST_DAO_ID = `0x${'a'.repeat(64)}`
-const TEST_CONTRIBUTOR_ID = `0x${'b'.repeat(64)}`
-function _createTestClients() {
-  const account = privateKeyToAccount(TEST_PRIVATE_KEY)
-
-  const publicClient = createPublicClient({
-    chain: foundry,
-    transport: http(RPC_URL),
-  })
-
-  const walletClient = createWalletClient({
-    account,
-    chain: foundry,
-    transport: http(RPC_URL),
-  })
-
-  return { publicClient, walletClient, account }
-}
+const TEST_DAO_ID: `0x${string}` = `0x${'a'.repeat(64)}`
+const TEST_CONTRIBUTOR_ID: `0x${string}` = `0x${'b'.repeat(64)}`
 describe('Deep Funding System', () => {
   describe('Fee Distribution Configuration', () => {
     test('default config sums to 100%', () => {

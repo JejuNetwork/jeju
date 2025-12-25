@@ -144,40 +144,41 @@ const BAN_MANAGER_ABI = [
   },
 ] as const
 
-const _MODERATION_MARKETPLACE_ABI = [
-  {
-    type: 'event',
-    name: 'CaseCreated',
-    inputs: [
-      { name: 'caseId', type: 'bytes32', indexed: true },
-      { name: 'reporter', type: 'address', indexed: true },
-      { name: 'target', type: 'address', indexed: true },
-      { name: 'reason', type: 'string', indexed: false },
-      { name: 'evidenceHash', type: 'bytes32', indexed: false },
-      { name: 'status', type: 'uint8', indexed: false },
-    ],
-  },
-  {
-    type: 'event',
-    name: 'CaseResolved',
-    inputs: [
-      { name: 'caseId', type: 'bytes32', indexed: true },
-      { name: 'outcome', type: 'uint8', indexed: false },
-      { name: 'yesVotes', type: 'uint256', indexed: false },
-      { name: 'noVotes', type: 'uint256', indexed: false },
-    ],
-  },
-  {
-    type: 'event',
-    name: 'VoteCast',
-    inputs: [
-      { name: 'caseId', type: 'bytes32', indexed: true },
-      { name: 'voter', type: 'address', indexed: true },
-      { name: 'position', type: 'uint8', indexed: false },
-      { name: 'weight', type: 'uint256', indexed: false },
-    ],
-  },
-] as const
+// Marketplace ABI for future use - used when marketplace moderation is enabled
+// const MODERATION_MARKETPLACE_ABI = [
+//   {
+//     type: 'event',
+//     name: 'CaseCreated',
+//     inputs: [
+//       { name: 'caseId', type: 'bytes32', indexed: true },
+//       { name: 'reporter', type: 'address', indexed: true },
+//       { name: 'target', type: 'address', indexed: true },
+//       { name: 'reason', type: 'string', indexed: false },
+//       { name: 'evidenceHash', type: 'bytes32', indexed: false },
+//       { name: 'status', type: 'uint8', indexed: false },
+//     ],
+//   },
+//   {
+//     type: 'event',
+//     name: 'CaseResolved',
+//     inputs: [
+//       { name: 'caseId', type: 'bytes32', indexed: true },
+//       { name: 'outcome', type: 'uint8', indexed: false },
+//       { name: 'yesVotes', type: 'uint256', indexed: false },
+//       { name: 'noVotes', type: 'uint256', indexed: false },
+//     ],
+//   },
+//   {
+//     type: 'event',
+//     name: 'VoteCast',
+//     inputs: [
+//       { name: 'caseId', type: 'bytes32', indexed: true },
+//       { name: 'voter', type: 'address', indexed: true },
+//       { name: 'position', type: 'uint8', indexed: false },
+//       { name: 'weight', type: 'uint256', indexed: false },
+//     ],
+//   },
+// ] as const
 
 const REPORTING_SYSTEM_ABI = [
   {

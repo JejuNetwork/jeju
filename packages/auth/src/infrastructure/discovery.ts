@@ -2,6 +2,7 @@
  * OAuth3 Discovery - App and TEE node discovery via on-chain registries
  */
 
+import { getRpcUrl } from '@jejunetwork/config'
 import { toError, ZERO_ADDRESS } from '@jejunetwork/types'
 import {
   type Address,
@@ -23,12 +24,7 @@ import {
   createOAuth3ComputeService,
   type OAuth3ComputeService,
 } from './compute-integration.js'
-import {
-  CACHE_EXPIRY_MS,
-  CHAIN_IDS,
-  DEFAULT_RPC,
-  getContracts,
-} from './config.js'
+import { CACHE_EXPIRY_MS, CHAIN_IDS, getContracts } from './config.js'
 import {
   createOAuth3JNSService,
   type OAuth3AppJNS,
@@ -102,7 +98,7 @@ export class OAuth3DecentralizedDiscovery {
   constructor(config: DecentralizedConfig = {}) {
     this.chainId = config.chainId ?? CHAIN_IDS.localnet
     const contracts = getContracts(this.chainId)
-    const rpcUrl = config.rpcUrl ?? process.env.JEJU_RPC_URL ?? DEFAULT_RPC
+    const rpcUrl = config.rpcUrl ?? getRpcUrl()
 
     this.client = createPublicClient({ transport: http(rpcUrl) })
     this.appRegistryAddress = config.appRegistryAddress ?? contracts.appRegistry

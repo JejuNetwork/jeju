@@ -54,6 +54,7 @@ export function Header() {
           borderColor: 'var(--border)',
           backdropFilter: 'blur(12px)',
         }}
+        data-testid="header"
       >
         <div className="container-app">
           <div className="flex items-center justify-between h-14 md:h-16">
@@ -91,6 +92,7 @@ export function Header() {
                 onClick={toggleTheme}
                 className="p-2 rounded-xl"
                 style={{ backgroundColor: 'var(--bg-secondary)' }}
+                data-testid="theme-toggle"
               >
                 {isDark ? (
                   <Sun

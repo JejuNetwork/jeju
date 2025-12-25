@@ -16,6 +16,7 @@
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { getCurrentNetwork, type NetworkType } from '@jejunetwork/config'
 import { $ } from 'bun'
 import {
   type Address,
@@ -37,11 +38,9 @@ import type { ConstructorArg } from '../shared/contract-types'
 const ROOT = join(import.meta.dir, '../..')
 const CONTRACTS_DIR = join(ROOT, 'packages/contracts')
 
-type NetworkType = 'localnet' | 'testnet' | 'mainnet'
-
-const NETWORK = (process.env.NETWORK ||
-  process.argv[2] ||
-  'localnet') as NetworkType
+// Allow CLI arg override, otherwise use config
+const cliNetwork = process.argv[2] as NetworkType | undefined
+const NETWORK: NetworkType = cliNetwork ?? getCurrentNetwork()
 
 interface ChainConfig {
   chainId: number

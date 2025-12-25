@@ -1,9 +1,12 @@
 import { cpSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
+import { getCurrentNetwork } from '@jejunetwork/config'
 import type { BunPlugin } from 'bun'
 
 const outdir = './dist'
 mkdirSync(outdir, { recursive: true })
+
+const network = getCurrentNetwork()
 
 // Plugin to shim server-only modules and dedupe React + @noble/curves
 const browserPlugin: BunPlugin = {
@@ -103,15 +106,14 @@ const result = await Bun.build({
       env: { NODE_ENV: process.env.NODE_ENV || 'development' },
       browser: true,
     }),
-    // Vite-style environment variables
+    // Public environment variables (using PUBLIC_ prefix)
     'import.meta.env': JSON.stringify({
-      VITE_NETWORK: 'localnet',
+      PUBLIC_NETWORK: network,
       MODE: process.env.NODE_ENV || 'development',
       DEV: process.env.NODE_ENV !== 'production',
       PROD: process.env.NODE_ENV === 'production',
     }),
-    'import.meta.env.VITE_NETWORK': JSON.stringify('localnet'),
-    'import.meta.env.PUBLIC_NETWORK': JSON.stringify('localnet'),
+    'import.meta.env.PUBLIC_NETWORK': JSON.stringify(network),
   },
 })
 

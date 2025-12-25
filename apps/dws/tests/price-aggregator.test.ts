@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import type { Address } from 'viem'
-import { getPriceAggregator } from '../src/solver/external/price-aggregator'
+import { getPriceAggregator } from '../api/solver/external/price-aggregator'
 
 /**
  * Price Aggregator Tests

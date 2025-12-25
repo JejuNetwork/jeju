@@ -16,6 +16,7 @@ export function MobileNav() {
         backgroundColor: 'var(--surface)',
         borderColor: 'var(--border)',
       }}
+      data-testid="mobile-nav"
     >
       <div className="grid grid-cols-5 h-16">
         {NAV_ITEMS.map((item) => {
@@ -30,6 +31,7 @@ export function MobileNav() {
               style={{
                 color: active ? 'var(--color-primary)' : 'var(--text-tertiary)',
               }}
+              data-testid={`mobile-nav-${item.label.toLowerCase()}`}
             >
               <div
                 className={`p-1.5 rounded-xl transition-all ${active ? 'scale-110' : ''}`}

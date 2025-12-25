@@ -155,6 +155,7 @@ function getMimeType(filePath: string): string {
 
 export class StaticAssetService {
   private config: StaticAssetConfig
+  private client: NodeClient | null
   private torrent: HybridTorrentService | null = null
   private server: http.Server | null = null
   private metricsServer: http.Server | null = null
@@ -177,10 +178,10 @@ export class StaticAssetService {
   private manifestRefreshInterval: ReturnType<typeof setInterval> | null = null
 
   constructor(
-    _client: NodeClient | null,
+    client: NodeClient | null,
     config: Partial<StaticAssetConfig> = {},
   ) {
-    // Note: client parameter reserved for future on-chain manifest support
+    this.client = client
     this.config = StaticAssetConfigSchema.parse({
       ...config,
       cachePath: config.cachePath ?? './cache/assets',
@@ -481,14 +482,59 @@ export class StaticAssetService {
       }
     }
 
-    // Note: On-chain manifest support requires ContentRegistry to have getNetworkManifest()
-    // This is not yet implemented - when added, use:
-    // const manifestHash = await this.client.publicClient.readContract({
-    //   address: this.client.addresses.contentRegistry,
-    //   abi: CONTENT_REGISTRY_ABI,
-    //   functionName: 'getNetworkManifest',
-    //   args: [],
-    // }) as string;
+    // Try on-chain manifest if client is available
+    if (this.client) {
+      const manifestData = await this.fetchOnChainManifest()
+      if (manifestData) {
+        this.manifest = manifestData
+        console.log(
+          `[StaticAssets] Loaded manifest v${this.manifest.version} from on-chain`,
+        )
+        return
+      }
+    }
+  }
+
+  private async fetchOnChainManifest(): Promise<AssetManifest | null> {
+    if (!this.client) return null
+
+    const CONTENT_REGISTRY_ABI = [
+      {
+        name: 'getNetworkManifest',
+        type: 'function',
+        stateMutability: 'view',
+        inputs: [],
+        outputs: [{ name: 'manifestHash', type: 'string' }],
+      },
+    ] as const
+
+    // Fetch manifest hash from on-chain registry
+    const manifestHash = await this.client.publicClient.readContract({
+      address: this.client.addresses.contentRegistry,
+      abi: CONTENT_REGISTRY_ABI,
+      functionName: 'getNetworkManifest',
+      args: [],
+    })
+
+    if (!manifestHash) return null
+
+    // Fetch actual manifest from DWS using the hash
+    const dwsUrl = `https://dws.jejunetwork.org/storage/download/${manifestHash}`
+    const data = await this.fetchFromCDN(dwsUrl)
+    if (!data) return null
+
+    const parseResult = AssetManifestSchema.safeParse(
+      JSON.parse(data.toString()),
+    )
+    if (!parseResult.success) {
+      console.warn(
+        '[StaticAssets] Invalid on-chain manifest format:',
+        parseResult.error.message,
+      )
+      return null
+    }
+
+    return parseResult.data
   }
 
   // Public API

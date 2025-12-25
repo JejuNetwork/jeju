@@ -5,7 +5,8 @@
  */
 
 import type { Address, Hex } from 'viem'
-import type { SupportedChainId } from '../rpc'
+import { API_URLS, fetchApi } from '../../../lib/eden'
+import { rpcService, type SupportedChainId } from '../rpc'
 
 // Risk levels
 export type RiskLevel = 'safe' | 'low' | 'medium' | 'high' | 'critical'
@@ -37,7 +38,11 @@ interface RuleResult {
   triggered: boolean
   level: RiskLevel
   message: string
-  details?: Record<string, unknown>
+  details?: {
+    value?: string
+    chainId?: number
+    gasCost?: string
+  }
 }
 
 interface SimulationResult {
@@ -158,10 +163,11 @@ const DEFAULT_RULES: SecurityRule[] = [
   },
 ]
 
-// Known scam addresses (would be fetched from the network API in production)
-const SCAM_ADDRESSES = new Set<string>([
-  // Example scam addresses - in production, fetch from the network security API
-])
+// Scam address response from security API
+interface ScamAddressResponse {
+  addresses: string[]
+  lastUpdated: string
+}
 
 // User blacklist/whitelist
 interface UserSecurityData {
@@ -181,12 +187,18 @@ class SecurityEngine {
     contractWhitelist: [],
     trustedDapps: [],
   }
+  private scamAddresses = new Set<string>()
+  private scamAddressesLastFetched = 0
+  private readonly SCAM_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
   async analyzeTransaction(
     tx: TransactionToAnalyze,
   ): Promise<SecurityAnalysis> {
     const results: RuleResult[] = []
     const recommendations: string[] = []
+
+    // Refresh scam addresses if needed
+    await this.refreshScamAddresses()
 
     // Check each rule
     for (const rule of this.rules) {
@@ -199,7 +211,7 @@ class SecurityEngine {
       }
     }
 
-    // Simulate transaction
+    // Simulate transaction using real RPC
     let simulation: SimulationResult | undefined
     try {
       simulation = await this.simulateTransaction(tx)
@@ -212,7 +224,6 @@ class SecurityEngine {
         })
       }
     } catch (simError) {
-      // Log simulation failure but continue analysis - simulation may be unavailable
       console.warn('Transaction simulation failed:', simError)
       results.push({
         ruleId: 'simulation_failed',
@@ -233,6 +244,26 @@ class SecurityEngine {
       simulation,
       recommendations,
       approvedForExecution,
+    }
+  }
+
+  private async refreshScamAddresses(): Promise<void> {
+    if (Date.now() - this.scamAddressesLastFetched < this.SCAM_CACHE_TTL) {
+      return
+    }
+
+    try {
+      const response = await fetchApi<ScamAddressResponse>(
+        API_URLS.gateway,
+        '/security/scam-addresses',
+      )
+      this.scamAddresses = new Set(
+        response.addresses.map((a) => a.toLowerCase()),
+      )
+      this.scamAddressesLastFetched = Date.now()
+    } catch (error) {
+      // If API fails, keep existing cache and try again later
+      console.warn('Failed to refresh scam addresses:', error)
     }
   }
 
@@ -263,7 +294,7 @@ class SecurityEngine {
 
   private checkScamAddress(address: Address): RuleResult {
     const isScam =
-      SCAM_ADDRESSES.has(address.toLowerCase()) ||
+      this.scamAddresses.has(address.toLowerCase()) ||
       this.userData.addressBlacklist.some(
         (a) => a.toLowerCase() === address.toLowerCase(),
       )
@@ -301,7 +332,7 @@ class SecurityEngine {
   }
 
   private checkHighValue(value: bigint, chainId: SupportedChainId): RuleResult {
-    // Consider > 1 ETH as high value (would use oracle for USD value in production)
+    // Consider > 1 ETH as high value
     const oneEth = 1000000000000000000n
     const isHigh = value > oneEth
     return {
@@ -326,7 +357,6 @@ class SecurityEngine {
   }
 
   private checkGasCost(tx: TransactionToAnalyze): RuleResult {
-    // Check if gas * gasPrice > 0.1 ETH (would be more sophisticated in production)
     if (tx.gasLimit && tx.gasPrice) {
       const gasCost = tx.gasLimit * tx.gasPrice
       const threshold = 100000000000000000n // 0.1 ETH
@@ -351,14 +381,58 @@ class SecurityEngine {
   private async simulateTransaction(
     tx: TransactionToAnalyze,
   ): Promise<SimulationResult> {
-    // In production, call network simulation API
-    // For now, return mock success
-    return {
-      success: true,
-      gasUsed: tx.gasLimit || 21000n,
-      logs: [],
-      stateChanges: [],
+    const client = rpcService.getClient(tx.chainId)
+
+    // Use eth_call to simulate the transaction
+    try {
+      await client.call({
+        account: tx.from,
+        to: tx.to,
+        data: tx.data,
+        value: tx.value,
+        gas: tx.gasLimit,
+        gasPrice: tx.gasPrice,
+      })
+
+      // If call succeeds, estimate gas for accurate gas usage
+      const gasUsed = await client.estimateGas({
+        account: tx.from,
+        to: tx.to,
+        data: tx.data,
+        value: tx.value,
+      })
+
+      return {
+        success: true,
+        gasUsed,
+        logs: [],
+        stateChanges: [],
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error'
+      return {
+        success: false,
+        gasUsed: 0n,
+        logs: [],
+        stateChanges: [],
+        error: this.parseRevertReason(errorMessage),
+      }
     }
+  }
+
+  private parseRevertReason(error: string): string {
+    if (error.includes('insufficient funds')) return 'Insufficient balance'
+    if (error.includes('transfer amount exceeds balance'))
+      return 'Transfer amount exceeds balance'
+    if (error.includes('allowance')) return 'Insufficient allowance'
+    if (error.includes('only owner')) return 'Only owner can call this function'
+    if (error.includes('paused')) return 'Contract is paused'
+    if (error.includes('execution reverted')) {
+      const match = error.match(/execution reverted: (.+)/)
+      if (match) return match[1]
+    }
+    return error
   }
 
   private calculateOverallRisk(results: RuleResult[]): RiskLevel {

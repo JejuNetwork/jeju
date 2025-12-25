@@ -46,10 +46,6 @@ const UNISWAP_V2_ROUTER_ABI = parseAbi([
   'function getAmountsOut(uint256 amountIn, address[] path) view returns (uint256[])',
 ])
 
-const _UNISWAP_V3_QUOTER_ABI = parseAbi([
-  'function quoteExactInputSingle(address tokenIn, address tokenOut, uint24 fee, uint256 amountIn, uint160 sqrtPriceLimitX96) returns (uint256 amountOut)',
-])
-
 const ERC20_ABI = parseAbi([
   'function balanceOf(address) view returns (uint256)',
   'function allowance(address owner, address spender) view returns (uint256)',

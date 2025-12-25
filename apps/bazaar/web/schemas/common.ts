@@ -7,6 +7,6 @@
 
 import { z } from 'zod'
 
-// App-specific: Chain type enum
+/** Chain type - EVM or Solana */
 export const ChainTypeSchema = z.enum(['evm', 'solana'])
 export type ChainType = z.infer<typeof ChainTypeSchema>

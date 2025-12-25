@@ -71,8 +71,7 @@ describe('Compute Marketplace Integration', () => {
   })
 
   test('ResearchAgent uses compute for deep research', async () => {
-    process.env.COMPUTE_URL = MOCK_URL
-    process.env.COMPUTE_ENABLED = 'true'
+    process.env.DWS_COMPUTE_URL = MOCK_URL
     process.env.COMPUTE_MODEL = 'claude-3-opus'
 
     const report = await new ResearchAgent().conductResearch({

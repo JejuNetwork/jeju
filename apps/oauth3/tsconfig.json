@@ -3,11 +3,8 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": ".",
-    "types": ["bun"],
     "jsx": "react-jsx",
-    "jsxImportSource": "@kitajs/html",
-    "noUnusedLocals": false,
-    "noUnusedParameters": false
+    "jsxImportSource": "@kitajs/html"
   },
   "include": ["api/**/*", "web/**/*", "lib/**/*", "tests/**/*"],
   "exclude": ["node_modules", "dist"]

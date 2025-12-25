@@ -17,6 +17,7 @@
 import { execSync } from 'node:child_process'
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { getCurrentNetwork } from '@jejunetwork/config'
 
 const ROOT = join(import.meta.dir, '../..')
 const DEPLOYMENTS_DIR = join(ROOT, 'packages/contracts/deployments')
@@ -41,7 +42,7 @@ async function main() {
     console.error('❌ PRIVATE_KEY environment variable required')
     process.exit(1)
   }
-  const network = process.env.NETWORK || 'localnet'
+  const network = getCurrentNetwork()
   const treasury =
     process.env.TREASURY_ADDRESS ||
     process.env.DEPLOYER_ADDRESS ||

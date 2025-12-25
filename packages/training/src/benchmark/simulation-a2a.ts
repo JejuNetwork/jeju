@@ -188,17 +188,32 @@ interface FeedPostResponse {
   marketId?: string
 }
 
+/** Response from a2a.getPredictions */
+interface PredictionsResponse {
+  predictions: PredictionMarketResponse[]
+}
+
+/** Response from a2a.getPerpetuals */
+interface PerpetualsResponse {
+  perpetuals: PerpetualMarketResponse[]
+}
+
+/** Response from a2a.getFeed */
+interface FeedResponse {
+  posts: FeedPostResponse[]
+}
+
 /**
  * Union type for all A2A response types
  */
 export type A2AResponse =
-  | { predictions: PredictionMarketResponse[] }
+  | PredictionsResponse
   | BuySharesResult
   | SellSharesResult
-  | { perpetuals: PerpetualMarketResponse[] }
+  | PerpetualsResponse
   | OpenPositionResult
   | ClosePositionResult
-  | { posts: FeedPostResponse[] }
+  | FeedResponse
   | CreatePostResult
   | CreateCommentResult
   | { chats: ChatEntry[] }
@@ -891,12 +906,8 @@ export class SimulationA2AInterface {
     })
     const perpetualsResult = await this.sendRequest('a2a.getPerpetuals', {})
 
-    const predictions = predictionsResult as {
-      predictions: PredictionMarketResponse[]
-    }
-    const perpetuals = perpetualsResult as {
-      perpetuals: PerpetualMarketResponse[]
-    }
+    const predictions = predictionsResult as PredictionsResponse
+    const perpetuals = perpetualsResult as PerpetualsResponse
 
     return {
       predictions: predictions.predictions ?? [],
@@ -909,6 +920,6 @@ export class SimulationA2AInterface {
    */
   async getFeed(limit = 20): Promise<{ posts: FeedPostResponse[] }> {
     const result = await this.sendRequest('a2a.getFeed', { limit, offset: 0 })
-    return result as { posts: FeedPostResponse[] }
+    return result as FeedResponse
   }
 }

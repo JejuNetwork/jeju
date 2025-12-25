@@ -87,10 +87,7 @@ export interface FaucetInfo {
 }
 
 async function isRegisteredAgent(address: Address): Promise<boolean> {
-  if (
-    process.env.NODE_ENV === 'test' ||
-    process.env.FAUCET_SKIP_REGISTRY === 'true'
-  ) {
+  if (process.env.NODE_ENV === 'test') {
     return true
   }
 

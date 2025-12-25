@@ -1,3 +1,4 @@
+import { getChainId, getRpcUrl } from '@jejunetwork/config'
 import { readContract } from '@jejunetwork/shared'
 import { RATE_LIMITS, type RateTier } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
@@ -109,8 +110,8 @@ const STAKING_ADDR: Address | undefined =
   stakingAddrEnv?.startsWith('0x') && stakingAddrEnv.length === 42
     ? (stakingAddrEnv as Address)
     : undefined
-const RPC_URL = process.env.JEJU_RPC_URL || 'http://localhost:6546'
-const CHAIN_ID = Number(process.env.JEJU_CHAIN_ID || 420690)
+const RPC_URL = getRpcUrl()
+const CHAIN_ID = getChainId()
 
 const chain: Chain = {
   id: CHAIN_ID,

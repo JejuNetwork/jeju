@@ -6,7 +6,13 @@
 import LedgerEth from '@ledgerhq/hw-app-eth'
 import type Transport from '@ledgerhq/hw-transport'
 import TransportWebHID from '@ledgerhq/hw-transport-webhid'
-import { type Address, type Hex, toHex } from 'viem'
+import {
+  type Address,
+  type Hex,
+  serializeTransaction,
+  type TransactionSerializable,
+  toHex,
+} from 'viem'
 import { stringToHex } from '../../../lib/buffer'
 
 export type LedgerHDPathType = 'LedgerLive' | 'BIP44' | 'Legacy'
@@ -208,9 +214,32 @@ export class LedgerKeyring {
       rawTxHex.slice(2), // Remove 0x prefix
     )
 
+    // Build the serializable transaction object for viem
+    const serializableTx: TransactionSerializable = isEIP1559
+      ? {
+          type: 'eip1559',
+          to: tx.to,
+          value: tx.value,
+          data: tx.data,
+          nonce: tx.nonce,
+          gas: tx.gasLimit,
+          maxFeePerGas: tx.maxFeePerGas,
+          maxPriorityFeePerGas: tx.maxPriorityFeePerGas,
+          chainId: tx.chainId,
+        }
+      : {
+          type: 'legacy',
+          to: tx.to,
+          value: tx.value,
+          data: tx.data,
+          nonce: tx.nonce,
+          gas: tx.gasLimit,
+          gasPrice: tx.gasPrice,
+          chainId: tx.chainId,
+        }
+
     // Combine transaction with signature
-    const signedTx = this.buildSignedTx(rawTxHex, signature)
-    return signedTx
+    return this.buildSignedTx(serializableTx, signature)
   }
 
   async signMessage(address: Address, message: string): Promise<Hex> {
@@ -337,14 +366,16 @@ export class LedgerKeyring {
   }
 
   private buildSignedTx(
-    rawTx: string,
+    tx: TransactionSerializable,
     signature: { v: string; r: string; s: string },
   ): Hex {
-    // Build signed transaction from raw tx and signature
+    // Convert signature components to proper hex format
+    const r = `0x${signature.r}` as Hex
+    const s = `0x${signature.s}` as Hex
+    const v = BigInt(`0x${signature.v}`)
 
-    // For simplicity, return concatenated signature
-    // In production, properly encode the signed transaction
-    return `${rawTx}${signature.r}${signature.s}${signature.v}` as Hex
+    // Use viem's serializeTransaction with the signature
+    return serializeTransaction(tx, { r, s, v })
   }
 
   private getEIP712DomainType(

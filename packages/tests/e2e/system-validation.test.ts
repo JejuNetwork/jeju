@@ -38,7 +38,6 @@ const TEST_CONFIG = {
 
 // Test state
 let publicClient: PublicClient
-let _deployerAccount: Account
 let user1Account: Account
 
 // Validation tracking
@@ -71,7 +70,6 @@ beforeAll(async () => {
     transport: http(TEST_CONFIG.rpcUrl),
   })
 
-  _deployerAccount = privateKeyToAccount(TEST_ACCOUNTS.deployer.privateKey)
   user1Account = privateKeyToAccount(TEST_ACCOUNTS.user1.privateKey)
 })
 

@@ -18,7 +18,7 @@ import {
   it,
   setDefaultTimeout,
 } from 'bun:test'
-import { Connection, Keypair } from '@solana/web3.js'
+import { Connection } from '@solana/web3.js'
 import { type Subprocess, spawn } from 'bun'
 import { createPublicClient, type Hex, http, parseEther } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
@@ -52,8 +52,6 @@ let solanaAvailable = false
 describe('End-to-End Bridge Flow', () => {
   let anvilProcess: Subprocess | null = null
   let solanaProcess: Subprocess | null = null
-  let _evmClient: ReturnType<typeof createEVMClient>
-  let _solanaKeypair: Keypair
 
   beforeAll(async () => {
     console.log('\n🚀 Setting up E2E test environment...\n')
@@ -87,17 +85,6 @@ describe('End-to-End Bridge Flow', () => {
     } else {
       console.log('✅ Solana validator already running')
     }
-
-    // Initialize clients
-    _evmClient = createEVMClient({
-      chainId: ChainId.LOCAL_EVM,
-      rpcUrl: TEST_CONFIG.evmRpc,
-      privateKey: EVM_PRIVATE_KEY,
-      bridgeAddress: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
-      lightClientAddress: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
-    })
-
-    _solanaKeypair = Keypair.generate()
 
     console.log('\n✅ E2E environment ready\n')
   })

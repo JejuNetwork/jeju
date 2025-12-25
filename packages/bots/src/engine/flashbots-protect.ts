@@ -55,7 +55,7 @@ interface PendingBundle {
   submittedAt: number
   status: 'pending' | 'included' | 'failed'
 }
-const _FLASHBOTS_RPC = 'https://rpc.flashbots.net'
+
 const FLASHBOTS_PROTECT = 'https://protect.flashbots.net'
 const FLASHBOTS_RELAY = 'https://relay.flashbots.net'
 
@@ -111,8 +111,6 @@ export class FlashbotsProtect extends EventEmitter {
    * Submit a single transaction via Flashbots Protect
    */
   async submitTransaction(tx: TransactionRequest): Promise<Hash> {
-    const _protectEndpoint = PROTECT_ENDPOINTS[this.config.chainId]
-
     if (this.config.chainId === 1) {
       // Mainnet uses Flashbots Protect RPC
       return this.submitToFlashbotsProtect(tx)

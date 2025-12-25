@@ -130,7 +130,6 @@ const AAVE_V3_POOL: Record<number, Address> = {
 export class MorphoIntegration extends EventEmitter {
   private config: MorphoConfig
   private client: PublicClient
-  private wallet: WalletClient
   private running = false
   private marketStates: Map<string, MarketState> = new Map()
   private watchedBorrowers: Map<string, Set<Address>> = new Map()
@@ -140,12 +139,11 @@ export class MorphoIntegration extends EventEmitter {
   constructor(
     config: MorphoConfig,
     client: PublicClient,
-    wallet: WalletClient,
+    _wallet: WalletClient,
   ) {
     super()
     this.config = config
     this.client = client
-    this.wallet = wallet
   }
 
   async start(): Promise<void> {

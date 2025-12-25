@@ -5,11 +5,22 @@
  */
 
 // Access Control
-export { getRateLimitUsage } from './access-control'
+export {
+  accessControl,
+  checkAccess,
+  checkRateLimit,
+  getRateLimitUsage,
+  incrementRateLimit,
+  isDomainAllowed,
+  isEndpointAllowed,
+  isMethodAllowed,
+} from './access-control'
 
 // Key Vault
 export {
+  decryptKeyForRequest,
   deleteKey,
+  getKeyMetadata,
   getKeysByOwner,
   getVaultStats,
   storeKey,
@@ -18,9 +29,12 @@ export {
 // Payments
 export {
   calculateAffordableRequests,
+  calculateRevenueShare,
+  create402Response,
   getAccountInfo,
   getBalance,
   getMinimumDeposit,
+  meetsMinimumDeposit,
   parsePaymentProof,
   processDeposit,
   processWithdraw,
@@ -31,13 +45,18 @@ export {
   getAllProviders,
   getConfiguredProviders,
   getProviderById,
+  getProvidersByCategory,
 } from './providers'
 
 // Proxy Router
 export { checkProviderHealth, proxyRequest } from './proxy-router'
+
 // Registry
 export {
+  canAfford,
+  chargeUser,
   createListing,
+  deposit,
   findCheapestListing,
   getAllListings,
   getAllProviderHealth,
@@ -45,12 +64,24 @@ export {
   getListingsByProvider,
   getListingsBySeller,
   getMarketplaceStats,
+  getOrCreateAccount,
+  initializeSystemListings,
   updateListing,
+  withdraw,
 } from './registry'
-// Types
-export type { APIProvider, ProxyRequest, ProxyResponse } from './types'
+// Sanitizer
+export {
+  checkForLeaks,
+  createSanitizationConfig,
+  extractPotentialKeys,
+  mightContainKey,
+  sanitizeObject,
+  sanitizeResponse,
+  sanitizeString,
+} from './sanitizer'
 
 // Types
+export type { APIProvider, ProxyRequest, ProxyResponse } from './types'
 export * from './types'
 
 // Initialize

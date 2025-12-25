@@ -1,15 +1,16 @@
 /**
  * Swap Page
+ *
+ * Token swaps require oracle integration for price discovery.
+ * Currently only same-token swaps (ETH to ETH cross-chain) are supported.
  */
 
 import { SUPPORTED_CHAINS } from '@jejunetwork/shared'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { toast } from 'sonner'
 import { formatEther, parseEther } from 'viem'
 import { useAccount } from 'wagmi'
 import {
-  formatSwapAmount,
-  generateSwapQuote,
   getSwapButtonText,
   getTokenBySymbol,
   isSwapButtonDisabled,
@@ -28,9 +29,8 @@ import {
 export default function SwapPage() {
   const { isConnected, chain, address } = useAccount()
   const [inputAmount, setInputAmount] = useState('')
-  const [outputAmount, setOutputAmount] = useState('')
   const [inputToken, setInputToken] = useState('ETH')
-  const [outputToken, setOutputToken] = useState('USDC')
+  const [outputToken, setOutputToken] = useState('ETH')
   const [sourceChainId, setSourceChainId] = useState(JEJU_CHAIN_ID)
   const [destChainId, setDestChainId] = useState(JEJU_CHAIN_ID)
 
@@ -55,22 +55,13 @@ export default function SwapPage() {
     (c: ChainInfo) => c.id === destChainId,
   )
 
-  useEffect(() => {
-    if (!inputAmount || parseFloat(inputAmount) <= 0) {
-      setOutputAmount('')
-      return
-    }
-
-    const quote = generateSwapQuote(
-      parseEther(inputAmount),
-      inputToken,
-      outputToken,
-      sourceChainId,
-      destChainId,
-    )
-
-    setOutputAmount(formatSwapAmount(quote.outputAmount))
-  }, [inputAmount, inputToken, outputToken, sourceChainId, destChainId])
+  // Calculate output - for same token, output equals input minus fees
+  const outputAmount =
+    inputAmount && inputToken === outputToken
+      ? formatEther(
+          amount > feeEstimate.totalFee ? amount - feeEstimate.totalFee : 0n,
+        )
+      : ''
 
   const handleSwap = async () => {
     const validation = validateSwap(
@@ -92,7 +83,10 @@ export default function SwapPage() {
     const sourceTokenInfo = getTokenBySymbol(inputToken)
     const destTokenInfo = getTokenBySymbol(outputToken)
 
-    if (!sourceTokenInfo || !destTokenInfo) return
+    if (!sourceTokenInfo || !destTokenInfo) {
+      toast.error('Token not supported')
+      return
+    }
 
     if (isCrossChainSwap) {
       await executeCrossChainSwap({
@@ -147,6 +141,15 @@ export default function SwapPage() {
       >
         🔄 Swap
       </h1>
+
+      {!eilAvailable && (
+        <div className="card p-4 mb-4 border-yellow-500/30 bg-yellow-500/10">
+          <p className="text-yellow-400 text-sm text-center">
+            Cross-chain swaps require EIL integration. Only same-chain ETH
+            transfers are available.
+          </p>
+        </div>
+      )}
 
       {isConnected && !isCorrectChain && !isCrossChainSwap && (
         <div className="card p-4 mb-4 border-red-500/30 bg-red-500/10">
@@ -298,7 +301,7 @@ export default function SwapPage() {
                 className="font-medium"
                 style={{ color: 'var(--text-primary)' }}
               >
-                Cross-Chain Swap
+                Cross-Chain Transfer
               </span>
             </div>
             <div className="space-y-1.5">
@@ -326,7 +329,7 @@ export default function SwapPage() {
           </div>
         )}
 
-        {/* Swap Summary */}
+        {/* Swap Summary for same-chain */}
         {inputAmount && outputAmount && !isCrossChainSwap && (
           <div
             className="mb-4 p-3 rounded-xl text-sm space-y-1.5"
@@ -335,13 +338,14 @@ export default function SwapPage() {
             <div className="flex justify-between">
               <span style={{ color: 'var(--text-tertiary)' }}>Rate</span>
               <span style={{ color: 'var(--text-primary)' }}>
-                1 {inputToken} = {inputToken === 'ETH' ? '3,000' : '0.00033'}{' '}
-                {outputToken}
+                1:1 (same token)
               </span>
             </div>
             <div className="flex justify-between">
-              <span style={{ color: 'var(--text-tertiary)' }}>Fee</span>
-              <span style={{ color: 'var(--text-primary)' }}>0.3%</span>
+              <span style={{ color: 'var(--text-tertiary)' }}>Network Fee</span>
+              <span style={{ color: 'var(--text-primary)' }}>
+                {formatEther(feeEstimate.totalFee)} ETH
+              </span>
             </div>
           </div>
         )}
@@ -360,7 +364,7 @@ export default function SwapPage() {
         {swapStatus === 'complete' && hash && (
           <div className="mt-4 p-3 rounded-xl border border-green-500/30 bg-green-500/10 text-center">
             <span className="text-sm text-green-400">
-              ✓ Swap initiated successfully
+              ✓ Transfer initiated successfully
             </span>
           </div>
         )}

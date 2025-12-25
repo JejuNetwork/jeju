@@ -5,6 +5,7 @@
  * Uses pluggable encryption providers (KMS, local, etc.)
  */
 
+import { getChainId, getServicesConfig } from '@jejunetwork/config'
 import { generateSnowflakeId, logger } from '@jejunetwork/shared'
 import type { Address } from 'viem'
 import type { TrajectoryStep } from '../schemas'
@@ -50,8 +51,8 @@ export interface EncryptionProvider {
 // ============================================================================
 
 const defaultConfig: StorageConfig = {
-  storageEndpoint: process.env.JEJU_STORAGE_ENDPOINT ?? 'http://localhost:4400',
-  chainId: process.env.CHAIN_ID ?? '420691',
+  storageEndpoint: getServicesConfig().storage.api,
+  chainId: String(getChainId()),
   trainingOrchestratorAddress: (process.env.TRAINING_ORCHESTRATOR_ADDRESS ??
     '0x0000000000000000000000000000000000000000') as Address,
   aiCEOAddress: (process.env.AI_CEO_ADDRESS ??

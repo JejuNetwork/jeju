@@ -90,12 +90,26 @@ export function resetConfig(): void {
 export function validateConfig(): { valid: boolean; errors: string[] } {
   const cfg = config()
   const errors: string[] = []
-  if (cfg.facilitatorAddress === ZERO_ADDRESS)
+
+  if (cfg.facilitatorAddress === ZERO_ADDRESS) {
     errors.push('X402_FACILITATOR_ADDRESS not configured')
+  }
+
   if (!cfg.privateKey && !cfg.kmsEnabled && cfg.environment === 'production') {
     errors.push('FACILITATOR_PRIVATE_KEY or KMS_ENABLED required in production')
   }
-  if (cfg.protocolFeeBps > 1000) errors.push('Protocol fee cannot exceed 10%')
+
+  if (cfg.protocolFeeBps > 1000) {
+    errors.push('Protocol fee cannot exceed 10%')
+  }
+
+  // Fee recipient must be configured in production to collect protocol fees
+  if (cfg.environment === 'production' && cfg.feeRecipient === ZERO_ADDRESS) {
+    errors.push(
+      'FEE_RECIPIENT_ADDRESS must be configured in production to collect protocol fees',
+    )
+  }
+
   return { valid: errors.length === 0, errors }
 }
 

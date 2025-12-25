@@ -1,11 +1,11 @@
 /** Factory DWS Deployment */
 
 import { rmSync } from 'node:fs'
-import { getCoreAppUrl } from '@jejunetwork/config'
+import { getCoreAppUrl, getCurrentNetwork } from '@jejunetwork/config'
 import { z } from 'zod'
 
 const DWS_URL = process.env.DWS_URL || getCoreAppUrl('DWS_API')
-const NETWORK = process.env.NETWORK || 'localnet'
+const NETWORK = getCurrentNetwork()
 
 function expectValid<T>(schema: z.ZodType<T>, data: unknown, name: string): T {
   const result = schema.safeParse(data)

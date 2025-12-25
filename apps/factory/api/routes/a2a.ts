@@ -3,7 +3,9 @@
 import type { JsonRecord } from '@jejunetwork/sdk'
 import { Elysia } from 'elysia'
 import { z } from 'zod'
+import { listAgents, listBounties, listCIRuns, listModels } from '../db/client'
 import { A2ARequestBodySchema, expectValid } from '../schemas'
+import { dwsClient } from '../services/dws'
 
 interface A2ADataPart {
   kind: 'data'
@@ -20,6 +22,9 @@ function isDataPart(part: {
 const QueryParamsSchema = z
   .object({
     query: z.string().default('all'),
+    owner: z.string().optional(),
+    name: z.string().optional(),
+    org: z.string().optional(),
   })
   .passthrough()
 
@@ -29,9 +34,9 @@ const SkillDataSchema = z
   })
   .passthrough()
 
-function getQueryString(params: JsonRecord): string {
-  const result = QueryParamsSchema.safeParse(params)
-  return result.success ? result.data.query : 'all'
+function getParams(data: JsonRecord): z.infer<typeof QueryParamsSchema> {
+  const result = QueryParamsSchema.safeParse(data)
+  return result.success ? result.data : { query: 'all' }
 }
 
 function getSkillId(data: JsonRecord): string | undefined {
@@ -188,12 +193,15 @@ const FACTORY_AGENT_CARD = {
 
 const ALLOWED_SKILL_IDS = new Set(FACTORY_SKILLS.map((s) => s.id))
 
-interface ExecuteSkillResult {
+export interface ExecuteSkillResult {
   message: string
   data: JsonRecord
 }
 
-function executeSkill(skillId: string, params: JsonRecord): ExecuteSkillResult {
+async function executeSkill(
+  skillId: string,
+  params: JsonRecord,
+): Promise<ExecuteSkillResult> {
   if (!ALLOWED_SKILL_IDS.has(skillId)) {
     return {
       message: 'Unknown skill',
@@ -204,68 +212,134 @@ function executeSkill(skillId: string, params: JsonRecord): ExecuteSkillResult {
     }
   }
 
+  const p = getParams(params)
+
   switch (skillId) {
-    case 'list-repos':
+    case 'list-repos': {
+      const repos = await dwsClient.listRepositories(p.owner)
       return {
-        message: 'Git repositories',
+        message: `Found ${repos.length} repositories`,
         data: {
-          repositories: [],
-          total: 0,
+          repositories: repos.map((r) => JSON.parse(JSON.stringify(r))),
+          total: repos.length,
         },
       }
+    }
 
-    case 'search-packages':
-      return {
-        message: `Packages matching "${getQueryString(params)}"`,
-        data: {
-          packages: [],
-        },
+    case 'get-repo': {
+      if (!p.owner || !p.name) {
+        return { message: 'Error', data: { error: 'owner and name required' } }
       }
+      const repo = await dwsClient.getRepository(p.owner, p.name)
+      return {
+        message: `Repository: ${repo.name}`,
+        data: JSON.parse(JSON.stringify(repo)),
+      }
+    }
 
-    case 'search-models':
+    case 'search-packages': {
+      const packages = await dwsClient.searchPackages(p.query)
       return {
-        message: 'AI models',
+        message: `Found ${packages.length} packages matching "${p.query}"`,
         data: {
-          models: [],
+          packages: packages.map((pkg) => JSON.parse(JSON.stringify(pkg))),
         },
       }
+    }
 
-    case 'list-bounties':
-      return {
-        message: 'Open bounties',
-        data: {
-          bounties: [],
-        },
+    case 'get-package': {
+      if (!p.name) {
+        return { message: 'Error', data: { error: 'name required' } }
       }
+      const pkg = await dwsClient.getPackage(p.name)
+      return {
+        message: `Package: ${pkg.name}`,
+        data: JSON.parse(JSON.stringify(pkg)),
+      }
+    }
 
-    case 'list-ci-runs':
+    case 'search-models': {
+      const models = listModels({
+        type: p.query !== 'all' ? p.query : undefined,
+        org: p.org,
+      })
       return {
-        message: 'CI/CD runs',
+        message: `Found ${models.length} models`,
         data: {
-          runs: [],
+          models: models.map((m) => ({
+            id: m.id,
+            name: m.name,
+            organization: m.organization,
+            type: m.type,
+            downloads: m.downloads,
+            stars: m.stars,
+          })),
         },
       }
+    }
 
-    case 'list-agents':
+    case 'list-bounties': {
+      const result = listBounties({ status: 'open' })
       return {
-        message: 'Deployed agents',
+        message: `Found ${result.total} open bounties`,
         data: {
-          agents: [],
+          bounties: result.bounties.map((b) => ({
+            id: b.id,
+            title: b.title,
+            reward: b.reward,
+            currency: b.currency,
+            status: b.status,
+            deadline: b.deadline,
+          })),
+          total: result.total,
         },
       }
+    }
+
+    case 'list-ci-runs': {
+      const result = listCIRuns({})
+      return {
+        message: `Found ${result.total} CI runs`,
+        data: {
+          runs: result.runs.map((r) => ({
+            id: r.id,
+            workflow: r.workflow,
+            status: r.status,
+            branch: r.branch,
+            started_at: r.started_at,
+          })),
+          total: result.total,
+        },
+      }
+    }
+
+    case 'list-agents': {
+      const agents = listAgents({ active: true })
+      return {
+        message: `Found ${agents.length} active agents`,
+        data: {
+          agents: agents.map((a) => ({
+            agentId: a.agent_id,
+            name: a.name,
+            botType: a.bot_type,
+            reputation: a.reputation,
+            executionCount: a.execution_count,
+          })),
+        },
+      }
+    }
 
     case 'get-feed':
+      // Feed data would come from Farcaster integration
       return {
         message: 'Developer feed',
-        data: {
-          posts: [],
-        },
+        data: { posts: [], total: 0 },
       }
 
     default:
       return {
-        message: `Skill ${skillId} executed`,
-        data: { skillId, params },
+        message: `Skill ${skillId} requires action parameters`,
+        data: { skillId, requiredParams: 'See skill documentation' },
       }
   }
 }
@@ -318,7 +392,7 @@ export const a2aRoutes = new Elysia({ prefix: '/api/a2a' })
         }
       }
 
-      const result = executeSkill(skillId, dataPart.data)
+      const result = await executeSkill(skillId, dataPart.data)
 
       return {
         jsonrpc: '2.0',

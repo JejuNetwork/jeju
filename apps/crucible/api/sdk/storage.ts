@@ -7,6 +7,7 @@ import {
   AgentCharacterSchema,
   AgentStateSchema,
   expect,
+  expectTrue,
   RoomStateSchema,
   StorageUploadResponseSchema,
 } from '../schemas'
@@ -43,14 +44,14 @@ export class CrucibleStorage {
       `character-${character.id}.json`,
     )
     expect(cid, 'CID is required')
-    expect(cid.length > 0, 'CID cannot be empty')
+    expectTrue(cid.length > 0, 'CID cannot be empty')
     this.log.info('Character stored', { id: character.id, cid })
     return cid
   }
 
   async loadCharacter(cid: string): Promise<AgentCharacter> {
     expect(cid, 'CID is required')
-    expect(cid.length > 0, 'CID cannot be empty')
+    expectTrue(cid.length > 0, 'CID cannot be empty')
     this.log.debug('Loading character', { cid })
     const content = await this.fetch(cid)
     expect(content, 'Character content is required')
@@ -61,7 +62,7 @@ export class CrucibleStorage {
   async storeAgentState(state: AgentState): Promise<string> {
     expect(state, 'Agent state is required')
     expect(state.agentId, 'Agent ID is required')
-    expect(state.version >= 0, 'Version must be non-negative')
+    expectTrue(state.version >= 0, 'Version must be non-negative')
     this.log.debug('Storing agent state', {
       agentId: state.agentId,
       version: state.version,
@@ -76,7 +77,7 @@ export class CrucibleStorage {
 
   async loadAgentState(cid: string): Promise<AgentState> {
     expect(cid, 'CID is required')
-    expect(cid.length > 0, 'CID cannot be empty')
+    expectTrue(cid.length > 0, 'CID cannot be empty')
     this.log.debug('Loading agent state', { cid })
     const content = await this.fetch(cid)
     expect(content, 'State content is required')
@@ -88,7 +89,7 @@ export class CrucibleStorage {
 
   createInitialState(agentId: string): AgentState {
     expect(agentId, 'Agent ID is required')
-    expect(agentId.length > 0, 'Agent ID cannot be empty')
+    expectTrue(agentId.length > 0, 'Agent ID cannot be empty')
     return {
       agentId,
       version: 0,
@@ -123,7 +124,7 @@ export class CrucibleStorage {
   async storeRoomState(state: RoomState): Promise<string> {
     expect(state, 'Room state is required')
     expect(state.roomId, 'Room ID is required')
-    expect(state.version >= 0, 'Version must be non-negative')
+    expectTrue(state.version >= 0, 'Version must be non-negative')
     this.log.debug('Storing room state', {
       roomId: state.roomId,
       version: state.version,
@@ -138,7 +139,7 @@ export class CrucibleStorage {
 
   async loadRoomState(cid: string): Promise<RoomState> {
     expect(cid, 'CID is required')
-    expect(cid.length > 0, 'CID cannot be empty')
+    expectTrue(cid.length > 0, 'CID cannot be empty')
     this.log.debug('Loading room state', { cid })
     const content = await this.fetch(cid)
     expect(content, 'Room state content is required')
@@ -150,7 +151,7 @@ export class CrucibleStorage {
 
   createInitialRoomState(roomId: string): RoomState {
     expect(roomId, 'Room ID is required')
-    expect(roomId.length > 0, 'Room ID cannot be empty')
+    expectTrue(roomId.length > 0, 'Room ID cannot be empty')
     return {
       roomId,
       version: 0,
@@ -164,7 +165,7 @@ export class CrucibleStorage {
 
   async exists(cid: string): Promise<boolean> {
     expect(cid, 'CID is required')
-    expect(cid.length > 0, 'CID cannot be empty')
+    expectTrue(cid.length > 0, 'CID cannot be empty')
     return (
       await fetch(`${this.config.ipfsGateway}/ipfs/${cid}`, { method: 'HEAD' })
     ).ok
@@ -172,20 +173,20 @@ export class CrucibleStorage {
 
   async pin(cid: string): Promise<void> {
     expect(cid, 'CID is required')
-    expect(cid.length > 0, 'CID cannot be empty')
+    expectTrue(cid.length > 0, 'CID cannot be empty')
     this.log.debug('Pinning CID', { cid })
     const r = await fetch(`${this.config.apiUrl}/api/v1/pin`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ cid }),
     })
-    expect(r.ok, `Failed to pin CID: ${r.statusText}`)
+    expectTrue(r.ok, `Failed to pin CID: ${r.statusText}`)
   }
 
   private async upload(content: string, filename: string): Promise<string> {
     expect(content, 'Content is required')
     expect(filename, 'Filename is required')
-    expect(filename.length > 0, 'Filename cannot be empty')
+    expectTrue(filename.length > 0, 'Filename cannot be empty')
     const r = await fetch(`${this.config.apiUrl}/api/v1/add`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -201,7 +202,7 @@ export class CrucibleStorage {
 
   private async fetch(cid: string): Promise<string> {
     expect(cid, 'CID is required')
-    expect(cid.length > 0, 'CID cannot be empty')
+    expectTrue(cid.length > 0, 'CID cannot be empty')
 
     const maxSize = this.config.maxContentSize ?? DEFAULT_MAX_CONTENT_SIZE
 
@@ -219,7 +220,7 @@ export class CrucibleStorage {
     }
 
     const r = await fetch(`${this.config.ipfsGateway}/ipfs/${cid}`)
-    expect(r.ok, `Failed to fetch from IPFS: ${r.statusText}`)
+    expectTrue(r.ok, `Failed to fetch from IPFS: ${r.statusText}`)
 
     // Read content with size limit using streaming
     const reader = r.body?.getReader()

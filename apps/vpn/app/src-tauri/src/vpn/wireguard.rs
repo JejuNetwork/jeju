@@ -439,110 +439,243 @@ pub fn derive_public_key(private_key: &str) -> Result<String, VPNError> {
     Ok(base64::engine::general_purpose::STANDARD.encode(public_key.as_bytes()))
 }
 
-// Platform-specific TUN interface handling
+// Platform-specific TUN interface handling using the `tun` crate for Linux/macOS
+// and `wintun` crate for Windows.
 
 #[cfg(target_os = "linux")]
 mod platform {
     use super::*;
+    use std::io::{Read, Write};
+    use std::sync::Arc;
+    use tokio::sync::Mutex;
 
     pub struct TunDevice {
         pub name: String,
-        // In a real implementation, this would hold the tun fd
+        device: Arc<Mutex<tun::platform::Device>>,
     }
 
+    /// Create a TUN interface on Linux using the tun crate
     pub async fn create_tun_interface() -> Result<TunDevice, VPNError> {
         tracing::info!("Creating TUN interface on Linux");
 
-        // In production, use the tun crate:
-        // let mut config = tun::Configuration::default();
-        // config.name("jeju0").mtu(MTU as i32).up();
-        // let dev = tun::create_as_async(&config)?;
+        let mut config = tun::Configuration::default();
+        config
+            .name("jeju0")
+            .mtu(MTU as i32)
+            .address((10, 0, 0, 2))
+            .netmask((255, 255, 255, 0))
+            .up();
+
+        #[cfg(target_os = "linux")]
+        config.platform(|config| {
+            config.packet_information(true);
+        });
+
+        let device = tun::create(&config)
+            .map_err(|e| VPNError::TunnelError(format!("Failed to create TUN device: {}", e)))?;
+
+        let name = device
+            .name()
+            .map_err(|e| VPNError::TunnelError(format!("Failed to get TUN device name: {}", e)))?;
+
+        tracing::info!("Created TUN interface: {}", name);
 
         Ok(TunDevice {
-            name: "jeju0".to_string(),
+            name,
+            device: Arc::new(Mutex::new(device)),
         })
     }
 
+    /// Write data to the TUN device
     pub async fn write_to_tun(device: &TunDevice, data: &[u8]) -> Result<(), VPNError> {
-        tracing::trace!("Writing {} bytes to TUN {}", data.len(), device.name);
-        // In production: device.write(data).await?;
+        let mut dev = device.device.lock().await;
+        dev.write_all(data)
+            .map_err(|e| VPNError::TunnelError(format!("Failed to write to TUN: {}", e)))?;
+        tracing::trace!("Wrote {} bytes to TUN {}", data.len(), device.name);
         Ok(())
     }
 
+    /// Read data from the TUN device
     pub async fn read_from_tun<'a>(
         device: &TunDevice,
         buf: &'a mut [u8],
     ) -> Result<&'a [u8], VPNError> {
-        let _ = (device, buf);
-        // In production: let n = device.read(buf).await?;
-        // return Ok(&buf[..n]);
-        Ok(&[])
+        let mut dev = device.device.lock().await;
+
+        // Use non-blocking read
+        match dev.read(buf) {
+            Ok(n) if n > 0 => {
+                tracing::trace!("Read {} bytes from TUN {}", n, device.name);
+                Ok(&buf[..n])
+            }
+            Ok(_) => Ok(&[]),
+            Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => Ok(&[]),
+            Err(e) => Err(VPNError::TunnelError(format!(
+                "Failed to read from TUN: {}",
+                e
+            ))),
+        }
     }
 }
 
 #[cfg(target_os = "macos")]
 mod platform {
     use super::*;
+    use std::io::{Read, Write};
+    use std::sync::Arc;
+    use tokio::sync::Mutex;
 
     pub struct TunDevice {
         pub name: String,
+        device: Arc<Mutex<tun::platform::Device>>,
     }
 
+    /// Create a TUN interface on macOS using the tun crate (utun)
     pub async fn create_tun_interface() -> Result<TunDevice, VPNError> {
         tracing::info!("Creating TUN interface on macOS (utun)");
 
-        // macOS uses utun interfaces
-        // In production, use the tun crate with macOS support
+        let mut config = tun::Configuration::default();
+        config
+            .mtu(MTU as i32)
+            .address((10, 0, 0, 2))
+            .netmask((255, 255, 255, 0))
+            .up();
+
+        let device = tun::create(&config)
+            .map_err(|e| VPNError::TunnelError(format!("Failed to create utun device: {}", e)))?;
+
+        let name = device
+            .name()
+            .map_err(|e| VPNError::TunnelError(format!("Failed to get utun device name: {}", e)))?;
+
+        tracing::info!("Created utun interface: {}", name);
 
         Ok(TunDevice {
-            name: "utun99".to_string(),
+            name,
+            device: Arc::new(Mutex::new(device)),
         })
     }
 
+    /// Write data to the utun device
     pub async fn write_to_tun(device: &TunDevice, data: &[u8]) -> Result<(), VPNError> {
-        tracing::trace!("Writing {} bytes to TUN {}", data.len(), device.name);
+        let mut dev = device.device.lock().await;
+        dev.write_all(data)
+            .map_err(|e| VPNError::TunnelError(format!("Failed to write to utun: {}", e)))?;
+        tracing::trace!("Wrote {} bytes to utun {}", data.len(), device.name);
         Ok(())
     }
 
+    /// Read data from the utun device
     pub async fn read_from_tun<'a>(
         device: &TunDevice,
         buf: &'a mut [u8],
     ) -> Result<&'a [u8], VPNError> {
-        let _ = (device, buf);
-        Ok(&[])
+        let mut dev = device.device.lock().await;
+
+        match dev.read(buf) {
+            Ok(n) if n > 0 => {
+                tracing::trace!("Read {} bytes from utun {}", n, device.name);
+                Ok(&buf[..n])
+            }
+            Ok(_) => Ok(&[]),
+            Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => Ok(&[]),
+            Err(e) => Err(VPNError::TunnelError(format!(
+                "Failed to read from utun: {}",
+                e
+            ))),
+        }
     }
 }
 
 #[cfg(target_os = "windows")]
 mod platform {
     use super::*;
+    use std::sync::Arc;
 
     pub struct TunDevice {
         pub name: String,
+        session: Arc<wintun::Session>,
     }
 
+    /// Create a TUN interface on Windows using the wintun crate
     pub async fn create_tun_interface() -> Result<TunDevice, VPNError> {
         tracing::info!("Creating TUN interface on Windows (WinTun)");
 
-        // Windows requires WinTun driver
-        // In production, use wintun crate
+        // Load the WinTun DLL
+        let wintun = unsafe { wintun::load() }
+            .map_err(|e| VPNError::TunnelError(format!("Failed to load WinTun: {}", e)))?;
+
+        // Create adapter
+        let adapter =
+            wintun::Adapter::create(&wintun, "JejuVPN", "JejuVPN", None).map_err(|e| {
+                VPNError::TunnelError(format!("Failed to create WinTun adapter: {}", e))
+            })?;
+
+        // Set IP address using netsh (WinTun doesn't do this automatically)
+        let output = std::process::Command::new("netsh")
+            .args([
+                "interface",
+                "ip",
+                "set",
+                "address",
+                "name=JejuVPN",
+                "static",
+                "10.0.0.2",
+                "255.255.255.0",
+            ])
+            .output();
+
+        if let Err(e) = output {
+            tracing::warn!("Failed to set IP address: {}", e);
+        }
+
+        // Start session
+        let session = adapter
+            .start_session(wintun::MAX_RING_CAPACITY)
+            .map_err(|e| VPNError::TunnelError(format!("Failed to start WinTun session: {}", e)))?;
+
+        tracing::info!("Created WinTun interface: JejuVPN");
 
         Ok(TunDevice {
             name: "JejuVPN".to_string(),
+            session: Arc::new(session),
         })
     }
 
+    /// Write data to the WinTun device
     pub async fn write_to_tun(device: &TunDevice, data: &[u8]) -> Result<(), VPNError> {
-        tracing::trace!("Writing {} bytes to TUN {}", data.len(), device.name);
+        let mut packet = device
+            .session
+            .allocate_send_packet(data.len() as u16)
+            .map_err(|e| {
+                VPNError::TunnelError(format!("Failed to allocate WinTun packet: {}", e))
+            })?;
+
+        packet.bytes_mut().copy_from_slice(data);
+        device.session.send_packet(packet);
+
+        tracing::trace!("Wrote {} bytes to WinTun {}", data.len(), device.name);
         Ok(())
     }
 
+    /// Read data from the WinTun device
     pub async fn read_from_tun<'a>(
         device: &TunDevice,
         buf: &'a mut [u8],
     ) -> Result<&'a [u8], VPNError> {
-        let _ = (device, buf);
-        Ok(&[])
+        match device.session.try_receive() {
+            Ok(Some(packet)) => {
+                let len = packet.bytes().len().min(buf.len());
+                buf[..len].copy_from_slice(&packet.bytes()[..len]);
+                tracing::trace!("Read {} bytes from WinTun {}", len, device.name);
+                Ok(&buf[..len])
+            }
+            Ok(None) => Ok(&[]),
+            Err(e) => Err(VPNError::TunnelError(format!(
+                "Failed to read from WinTun: {}",
+                e
+            ))),
+        }
     }
 }
 

@@ -6,6 +6,7 @@
 import { expectValid } from '@jejunetwork/types'
 import type { Address, PublicClient } from 'viem'
 import { createPublicClient, http } from 'viem'
+import { z } from 'zod'
 import type { JSONValue } from '../shared/validation'
 import {
   DockerCreateResponseSchema,
@@ -286,7 +287,7 @@ async function pullImage(image: ContainerImage): Promise<number> {
   return Date.now() - startTime
 }
 
-// Container Creation (simulated)
+// Container Runtime
 
 interface ContainerRuntime {
   create(
@@ -488,6 +489,65 @@ const runtime: ContainerRuntime = {
   },
 }
 
+// Container Stats
+
+interface ContainerStats {
+  cpuPercent: number
+  memoryUsedMb: number
+}
+
+const ContainerStatsResponseSchema = z.object({
+  cpu_stats: z.object({
+    cpu_usage: z.object({
+      total_usage: z.number(),
+    }),
+    system_cpu_usage: z.number().optional(),
+    online_cpus: z.number().optional(),
+  }),
+  precpu_stats: z.object({
+    cpu_usage: z.object({
+      total_usage: z.number(),
+    }),
+    system_cpu_usage: z.number().optional(),
+  }),
+  memory_stats: z.object({
+    usage: z.number(),
+    limit: z.number(),
+  }),
+})
+
+async function getContainerStats(instanceId: string): Promise<ContainerStats> {
+  const response = await dockerRequest(
+    `/v1.44/containers/${instanceId}/stats?stream=false`,
+  )
+
+  if (!response.ok) {
+    // Return zeros if stats unavailable
+    return { cpuPercent: 0, memoryUsedMb: 0 }
+  }
+
+  const data = ContainerStatsResponseSchema.parse(await response.json())
+
+  // Calculate CPU percentage
+  const cpuDelta =
+    data.cpu_stats.cpu_usage.total_usage -
+    data.precpu_stats.cpu_usage.total_usage
+  const systemDelta =
+    (data.cpu_stats.system_cpu_usage ?? 0) -
+    (data.precpu_stats.system_cpu_usage ?? 0)
+  const cpuCount = data.cpu_stats.online_cpus ?? 1
+
+  let cpuPercent = 0
+  if (systemDelta > 0 && cpuDelta > 0) {
+    cpuPercent = (cpuDelta / systemDelta) * cpuCount * 100
+  }
+
+  // Calculate memory in MB
+  const memoryUsedMb = Math.round(data.memory_stats.usage / (1024 * 1024))
+
+  return { cpuPercent: Math.round(cpuPercent), memoryUsedMb }
+}
+
 // Main Execution Functions
 
 export async function executeContainer(
@@ -583,10 +643,11 @@ export async function executeContainer(
   metrics.queueTimeMs =
     (pending.startedAt ?? startTime) - startTime - metrics.pullTimeMs
   metrics.totalTimeMs = Date.now() - startTime
-  metrics.cpuUsagePercent = 30 + Math.random() * 40 // Simulated
-  metrics.memoryUsedMb = Math.floor(
-    request.resources.memoryMb * (0.3 + Math.random() * 0.4),
-  )
+
+  // Get real container stats from Docker
+  const containerStats = await getContainerStats(instance.instanceId)
+  metrics.cpuUsagePercent = containerStats.cpuPercent
+  metrics.memoryUsedMb = containerStats.memoryUsedMb
 
   // Build result
   const result: ExecutionResult = {

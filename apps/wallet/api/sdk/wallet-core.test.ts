@@ -5,6 +5,41 @@
 
 import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test'
 import type { Address } from 'viem'
+
+// Mock localStorage for Node/Bun environment
+const mockStorage = new Map<string, string>()
+globalThis.localStorage = {
+  getItem: (key: string) => mockStorage.get(key) ?? null,
+  setItem: (key: string, value: string) => {
+    mockStorage.set(key, value)
+  },
+  removeItem: (key: string) => {
+    mockStorage.delete(key)
+  },
+  clear: () => mockStorage.clear(),
+  key: (index: number) => Array.from(mockStorage.keys())[index] ?? null,
+  get length() {
+    return mockStorage.size
+  },
+} as Storage
+
+// Mock secure storage
+mock.module('../../web/platform/secure-storage', () => ({
+  secureStorage: {
+    get: mock((key: string) =>
+      Promise.resolve(mockStorage.get(`wallet_${key}`) ?? null),
+    ),
+    set: mock((key: string, value: string) => {
+      mockStorage.set(`wallet_${key}`, value)
+      return Promise.resolve()
+    }),
+    remove: mock((key: string) => {
+      mockStorage.delete(`wallet_${key}`)
+      return Promise.resolve()
+    }),
+  },
+}))
+
 import { createWalletCore, WalletCore } from './wallet-core'
 
 // Test addresses

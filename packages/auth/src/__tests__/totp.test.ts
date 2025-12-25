@@ -209,9 +209,11 @@ describe('TOTPManager.getCurrentCode', () => {
     await manager.generateSecret('user', 'account')
 
     const code = await manager.getCurrentCode('user')
-    expect(code).not.toBeNull()
+    if (!code) {
+      throw new Error('Expected code to be generated')
+    }
     expect(code).toHaveLength(6)
-    expect(/^\d{6}$/.test(code as string)).toBe(true)
+    expect(/^\d{6}$/.test(code)).toBe(true)
   })
 })
 

@@ -204,9 +204,8 @@ function generateTestCode(page: PageInfo, _appName: string): string {
 `
 
   if (hasWallet) {
-    imports = `import { test, expect, connectAndVerify, approveTransaction, signMessage } from '@jejunetwork/tests'
+    imports = `import { test, expect, connectAndVerify, approveTransaction, signMessage, basicSetup, walletPassword } from '@jejunetwork/tests'
 import { MetaMask } from '@synthetixio/synpress/playwright'
-import basicSetup from '../../wallet-setup/basic.setup'
 `
   } else {
     imports = `import { test, expect } from '@playwright/test'
@@ -240,7 +239,7 @@ test.describe('${page.component}', () => {
     if (hasConnect) {
       testCode += `
   test('should connect wallet', async ({ context, page, metamaskPage, extensionId }) => {
-    const metamask = new MetaMask(context, metamaskPage, basicSetup.walletPassword, extensionId)
+    const metamask = new MetaMask(context, metamaskPage, walletPassword, extensionId)
     await connectAndVerify(page, metamask)
     
     // Verify connected state
@@ -252,7 +251,7 @@ test.describe('${page.component}', () => {
     if (hasSign) {
       testCode += `
   test('should sign message', async ({ context, page, metamaskPage, extensionId }) => {
-    const metamask = new MetaMask(context, metamaskPage, basicSetup.walletPassword, extensionId)
+    const metamask = new MetaMask(context, metamaskPage, walletPassword, extensionId)
     await connectAndVerify(page, metamask)
     
     // Trigger sign action (update selector)
@@ -268,7 +267,7 @@ test.describe('${page.component}', () => {
     if (hasTx) {
       testCode += `
   test('should send transaction', async ({ context, page, metamaskPage, extensionId }) => {
-    const metamask = new MetaMask(context, metamaskPage, basicSetup.walletPassword, extensionId)
+    const metamask = new MetaMask(context, metamaskPage, walletPassword, extensionId)
     await connectAndVerify(page, metamask)
     
     // Trigger transaction (update selector)

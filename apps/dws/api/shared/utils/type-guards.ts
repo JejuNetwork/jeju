@@ -289,19 +289,3 @@ export function isCqlQueryResponse<T>(
   const obj = data as Record<string, unknown>
   return obj.rows === undefined || Array.isArray(obj.rows)
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// JSON Type Aliases (re-exported from @jejunetwork/types)
-// ─────────────────────────────────────────────────────────────────────────────
-
-import type { JsonValue } from '@jejunetwork/types'
-
-export type {
-  JsonObject as JSONObject,
-  JsonPrimitive as JSONPrimitive,
-  JsonRecord,
-  JsonValue as JSONValue,
-} from '@jejunetwork/types'
-
-// Legacy type alias for backwards compatibility
-export type JSONArray = JsonValue[]

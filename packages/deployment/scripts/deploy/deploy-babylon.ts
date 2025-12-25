@@ -17,6 +17,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
+import { getCurrentNetwork } from '@jejunetwork/config'
 import { $ } from 'bun'
 
 const ROOT = join(import.meta.dir, '../..')
@@ -74,7 +75,7 @@ async function main(): Promise<void> {
       network: {
         type: 'string',
         short: 'n',
-        default: process.env.NETWORK || 'localnet',
+        default: getCurrentNetwork(),
       },
       verify: {
         type: 'boolean',

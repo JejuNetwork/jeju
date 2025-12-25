@@ -6,7 +6,7 @@ import { Elysia, t } from 'elysia'
 import type { Address, Hex } from 'viem'
 import { isAddress, isHex, verifyMessage } from 'viem'
 import type { AuthConfig, WalletAuthChallenge } from '../../lib/types'
-import { authorizationCodes, sessions } from './oauth'
+import { authCodeState, sessionState } from '../services/state'
 
 const ChallengeQuerySchema = t.Object({
   client_id: t.String(),
@@ -20,11 +20,21 @@ const VerifyBodySchema = t.Object({
   signature: t.String({ pattern: '^0x[a-fA-F0-9]+$' }),
 })
 
-// Challenge store
+// Challenge store (short-lived, in-memory is OK)
 const challenges = new Map<
   string,
   WalletAuthChallenge & { clientId: string; redirectUri: string; state: string }
 >()
+
+// Clean up expired challenges periodically
+setInterval(() => {
+  const now = Date.now()
+  for (const [key, challenge] of challenges) {
+    if (challenge.expiresAt < now) {
+      challenges.delete(key)
+    }
+  }
+}, 60 * 1000) // Every minute
 
 export function createWalletRouter(_config: AuthConfig) {
   return new Elysia({ name: 'wallet', prefix: '/wallet' })
@@ -142,7 +152,7 @@ This signature will not trigger any blockchain transaction or cost any gas fees.
 </head>
 <body>
   <div class="container">
-    <div class="logo">🔐 Connect Wallet</div>
+    <div class="logo">Connect Wallet</div>
     
     <div class="message-box">${message}</div>
     
@@ -208,12 +218,12 @@ This signature will not trigger any blockchain transaction or cost any gas fees.
           status.className = 'status success';
           window.location.href = result.redirectUrl;
         } else {
-          throw new Error(result.error ?? 'Verification failed');
+          throw new Error(result.error || 'Verification failed');
         }
         
       } catch (err) {
         console.error(err);
-        status.textContent = err.message ?? 'Connection failed';
+        status.textContent = err.message || 'Connection failed';
         status.className = 'status error';
         btn.disabled = false;
         btn.textContent = 'Try Again';
@@ -224,9 +234,7 @@ This signature will not trigger any blockchain transaction or cost any gas fees.
   </script>
 </body>
 </html>`,
-          {
-            headers: { 'Content-Type': 'text/html' },
-          },
+          { headers: { 'Content-Type': 'text/html' } },
         )
       },
       { query: ChallengeQuerySchema },
@@ -278,7 +286,7 @@ This signature will not trigger any blockchain transaction or cost any gas fees.
         const code = crypto.randomUUID()
         const userId = `wallet:${address.toLowerCase()}`
 
-        authorizationCodes.set(code, {
+        await authCodeState.save(code, {
           clientId: challenge.clientId,
           redirectUri: challenge.redirectUri,
           userId,
@@ -288,7 +296,7 @@ This signature will not trigger any blockchain transaction or cost any gas fees.
 
         // Create session
         const sessionId = crypto.randomUUID()
-        sessions.set(sessionId, {
+        await sessionState.save({
           sessionId,
           userId,
           provider: 'wallet',

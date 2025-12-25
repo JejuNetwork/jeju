@@ -1,4 +1,14 @@
-/** Mock Tauri API for web development */
+/**
+ * Mock Tauri API for web development ONLY.
+ *
+ * This module provides fake implementations of Tauri commands for developing
+ * and testing the frontend without the full Rust backend. All data is simulated.
+ *
+ * IMPORTANT: This code ONLY runs when not in Tauri (isTauri() returns false).
+ * In production Tauri builds, the real Rust backend handles all commands.
+ *
+ * @module mock
+ */
 
 import { z } from 'zod'
 import type { VPNConnection, VPNNode, VPNStatus } from './schemas'

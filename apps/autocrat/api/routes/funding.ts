@@ -2,6 +2,7 @@
  * Deep Funding Routes
  */
 
+import { getChainId } from '@jejunetwork/config'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import { Elysia, t } from 'elysia'
 import { createDAOService, type DAOService } from '../dao-service'
@@ -17,7 +18,7 @@ function initServices() {
   if (!daoService && config.contracts.daoRegistry !== ZERO_ADDR) {
     daoService = createDAOService({
       rpcUrl: config.rpcUrl,
-      chainId: parseInt(process.env.CHAIN_ID ?? '31337', 10),
+      chainId: getChainId(),
       daoRegistryAddress: config.contracts.daoRegistry,
       daoFundingAddress: config.contracts.daoFunding,
       privateKey: process.env.OPERATOR_KEY ?? process.env.PRIVATE_KEY,

@@ -76,16 +76,6 @@ function generatePolynomial(secret: bigint, degree: number): bigint[] {
   return coefficients
 }
 
-function _evaluatePolynomial(coefficients: bigint[], x: bigint): bigint {
-  let result = ZERO
-  for (let i = coefficients.length - 1; i >= 0; i--) {
-    result =
-      (((result * x + coefficients[i]) % CURVE_ORDER) + CURVE_ORDER) %
-      CURVE_ORDER
-  }
-  return result
-}
-
 function bigintToBytes32(value: bigint): Uint8Array {
   const hex = value.toString(16).padStart(64, '0')
   return toBytes(`0x${hex}` as Hex)

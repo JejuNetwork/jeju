@@ -108,6 +108,7 @@ export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
     name: 'Jeju',
     network: 'jeju',
     rpcUrl: getRpcUrl('JEJU_RPC_URL', 'http://127.0.0.1:6546'),
+    blockExplorer: null,
     usdc: getAddressEnvOrConfig(
       'JEJU_USDC_ADDRESS',
       ['mainnet', 'tokens', 'usdc'],
@@ -128,6 +129,7 @@ export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
       'JEJU_TESTNET_RPC_URL',
       'https://testnet-rpc.jejunetwork.org',
     ),
+    blockExplorer: null,
     usdc: getAddressEnvOrConfig(
       'JEJU_TESTNET_USDC_ADDRESS',
       ['testnet', 'tokens', 'usdc'],

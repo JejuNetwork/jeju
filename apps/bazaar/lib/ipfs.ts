@@ -5,16 +5,13 @@
  * For full IPFS client, import from api/ipfs.ts
  */
 
+import { getIpfsApiUrl, getIpfsUrl } from '@jejunetwork/config'
 import { cidToBytes32, createIPFSClient } from '@jejunetwork/shared'
 
-// Config from environment
-const IPFS_API_URL = process.env.IPFS_API_URL ?? 'https://ipfs.jeju.gg/api'
-const IPFS_GATEWAY_URL = process.env.IPFS_GATEWAY_URL ?? 'https://ipfs.jeju.gg'
-
-// Create singleton client
+// Create singleton client with config-managed URLs
 const ipfsClient = createIPFSClient({
-  apiUrl: IPFS_API_URL,
-  gatewayUrl: IPFS_GATEWAY_URL,
+  apiUrl: getIpfsApiUrl(),
+  gatewayUrl: getIpfsUrl(),
 })
 
 export async function uploadToIPFS(file: File): Promise<string> {

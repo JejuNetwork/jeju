@@ -32,10 +32,7 @@ import type {
   UploadOptions,
   UploadResult,
 } from './types'
-import {
-  getWebTorrentBackend,
-  type WebTorrentBackend,
-} from './webtorrent-backend'
+import type { WebTorrentBackend } from './webtorrent-backend'
 
 // Types
 
@@ -85,7 +82,7 @@ export class MultiBackendManager {
 
   // Specialized backends
   private arweaveBackend: ArweaveBackend
-  private webtorrentBackend: WebTorrentBackend
+  private webtorrentBackend: WebTorrentBackend | null = null
 
   // Popularity tracking
   private popularityScores: Map<string, PopularityScore> = new Map()
@@ -100,13 +97,33 @@ export class MultiBackendManager {
 
     // Initialize specialized backends
     this.arweaveBackend = getArweaveBackend()
-    this.webtorrentBackend = getWebTorrentBackend()
+    // WebTorrent is lazy-loaded to avoid native module issues
 
     // Initialize basic backends
     this.initializeBackends()
 
     // KMS endpoint
     this.kmsEndpoint = config.kmsEndpoint ?? process.env.KMS_ENDPOINT ?? null
+  }
+
+  /**
+   * Get WebTorrent backend (lazy loaded)
+   */
+  private async getWebTorrent(): Promise<WebTorrentBackend | null> {
+    if (!this.webtorrentBackend) {
+      try {
+        const { getWebTorrentBackend } = await import('./webtorrent-backend')
+        this.webtorrentBackend = getWebTorrentBackend()
+      } catch (e) {
+        // WebTorrent native modules not available (e.g., in test environment)
+        console.warn(
+          '[MultiBackend] WebTorrent not available:',
+          e instanceof Error ? e.message : String(e),
+        )
+        return null
+      }
+    }
+    return this.webtorrentBackend
   }
 
   private initializeBackends(): void {
@@ -202,13 +219,15 @@ export class MultiBackendManager {
       healthCheck: () => this.arweaveBackend.healthCheck(),
     })
 
-    // WebTorrent wrapper
+    // WebTorrent wrapper (lazy loaded)
     this.backends.set('webtorrent', {
       name: 'webtorrent',
       type: 'webtorrent',
       upload: async (content: Buffer, options?: { filename?: string }) => {
+        const wt = await this.getWebTorrent()
+        if (!wt) throw new Error('WebTorrent not available')
         const cid = keccak256(new Uint8Array(content)).slice(2, 50)
-        const torrent = await this.webtorrentBackend.createTorrent(content, {
+        const torrent = await wt.createTorrent(content, {
           name: options?.filename ?? 'file',
           cid,
           tier: 'popular',
@@ -216,10 +235,21 @@ export class MultiBackendManager {
         })
         return { cid, url: torrent.magnetUri }
       },
-      download: (cid: string) => this.webtorrentBackend.download(cid),
-      exists: (cid: string) =>
-        Promise.resolve(this.webtorrentBackend.hasTorrent(cid)),
-      healthCheck: () => this.webtorrentBackend.healthCheck(),
+      download: async (cid: string) => {
+        const wt = await this.getWebTorrent()
+        if (!wt) throw new Error('WebTorrent not available')
+        return wt.download(cid)
+      },
+      exists: async (cid: string) => {
+        const wt = await this.getWebTorrent()
+        if (!wt) return false
+        return wt.hasTorrent(cid)
+      },
+      healthCheck: async () => {
+        const wt = await this.getWebTorrent()
+        if (!wt) return false
+        return wt.healthCheck()
+      },
     })
   }
 
@@ -282,7 +312,8 @@ export class MultiBackendManager {
 
         // Set type-specific addresses
         if (backendType === 'webtorrent') {
-          const torrent = this.webtorrentBackend.getTorrent(result.cid)
+          const wt = await this.getWebTorrent()
+          const torrent = wt?.getTorrent(result.cid)
           addresses.magnetUri = torrent?.magnetUri
         } else if (backendType === 'arweave') {
           addresses.arweaveTxId = result.cid
@@ -318,16 +349,16 @@ export class MultiBackendManager {
 
     // Create WebTorrent for popular/system content
     if ((tier === 'system' || tier === 'popular') && !addresses.magnetUri) {
-      const torrent = await this.webtorrentBackend.createTorrent(
-        uploadContent,
-        {
+      const wt = await this.getWebTorrent()
+      if (wt) {
+        const torrent = await wt.createTorrent(uploadContent, {
           name: options.filename ?? primaryCid,
           cid: primaryCid,
           tier,
           category,
-        },
-      )
-      addresses.magnetUri = torrent.magnetUri
+        })
+        addresses.magnetUri = torrent.magnetUri
+      }
     }
 
     return {
@@ -524,10 +555,14 @@ export class MultiBackendManager {
     const regions = new Set(accesses.map((a) => a.region))
 
     // Get seeder count from WebTorrent
-    const torrent = this.webtorrentBackend.getTorrent(cid)
-    const seederCount = torrent
-      ? (this.webtorrentBackend.getTorrentStats(torrent.infoHash)?.seeds ?? 0)
-      : 0
+    let seederCount = 0
+    const wt = this.webtorrentBackend
+    if (wt) {
+      const torrent = wt.getTorrent(cid)
+      seederCount = torrent
+        ? (wt.getTorrentStats(torrent.infoHash)?.seeds ?? 0)
+        : 0
+    }
 
     // Calculate score
     const recencyWeight = access24h * 10 + access7d * 3 + access30d
@@ -722,7 +757,7 @@ export class MultiBackendManager {
    * Get aggregated node stats
    */
   getNodeStats(): Partial<NodeStorageStats> {
-    const webtorrentStats = this.webtorrentBackend.getNodeStats()
+    const webtorrentStats = this.webtorrentBackend?.getNodeStats() ?? {}
 
     let totalSize = 0
     for (const metadata of this.contentRegistry.values()) {

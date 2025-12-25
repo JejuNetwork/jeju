@@ -6,6 +6,7 @@
  * @packageDocumentation
  */
 
+import { getCurrentNetwork, getServiceUrl } from '@jejunetwork/config'
 import { logger } from '@jejunetwork/shared'
 import {
   type ChatMessage,
@@ -137,45 +138,22 @@ const MODEL_ALIASES: Record<string, string[]> = {
 }
 
 /**
- * Gateway URLs by network
- */
-const GATEWAY_URLS = {
-  localnet: 'http://localhost:4200',
-  testnet: 'https://gateway.testnet.jeju.network',
-  mainnet: 'https://gateway.jeju.network',
-} as const satisfies Record<string, string>
-
-/**
- * Get network from environment
- */
-function getNetwork(): 'localnet' | 'testnet' | 'mainnet' {
-  const network = process.env.JEJU_NETWORK ?? 'localnet'
-  if (
-    network === 'localnet' ||
-    network === 'testnet' ||
-    network === 'mainnet'
-  ) {
-    return network
-  }
-  return 'localnet'
-}
-
-/**
- * Get gateway URL
+ * Get gateway URL from config
  */
 function getGatewayUrl(): string {
+  // Check for custom URL override first
   const customUrl = process.env.JEJU_COMPUTE_API_URL
   if (customUrl) return customUrl
 
-  const network = getNetwork()
-  return GATEWAY_URLS[network]
+  // Use config service URL
+  return getServiceUrl('compute')
 }
 
 /**
  * Check if Jeju Compute is configured
  */
 function isJejuComputeAvailable(): boolean {
-  return !!(process.env.JEJU_NETWORK ?? process.env.JEJU_COMPUTE_API_URL)
+  return getCurrentNetwork() !== 'localnet' || !!getServiceUrl('compute')
 }
 
 /**
@@ -389,7 +367,7 @@ export class LLMInferenceService {
     modelsAvailable: number
     error?: string
   }> {
-    const network = getNetwork()
+    const network = getCurrentNetwork()
     const gatewayUrl = getGatewayUrl()
 
     if (!isJejuComputeAvailable()) {
@@ -452,7 +430,7 @@ export class JejuInference {
 
   constructor(config: JejuInferenceConfig) {
     this.config = config
-    this.gatewayUrl = config.gatewayUrl ?? GATEWAY_URLS[config.network]
+    this.gatewayUrl = config.gatewayUrl ?? getServiceUrl('compute')
   }
 
   /**
@@ -576,7 +554,7 @@ export class JejuInference {
 export function createJejuInference(
   config: Omit<JejuInferenceConfig, 'network'> & { network?: string },
 ): JejuInference {
-  const network = (config.network ?? process.env.JEJU_NETWORK ?? 'localnet') as
+  const network = (config.network ?? getCurrentNetwork()) as
     | 'localnet'
     | 'testnet'
     | 'mainnet'

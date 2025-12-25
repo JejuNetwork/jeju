@@ -1,10 +1,10 @@
+import { getCurrentNetwork } from '@jejunetwork/config'
 import { SolverAgent } from './agent'
 import { LiquidityManager } from './liquidity'
 import { EventMonitor } from './monitor'
 import { StrategyEngine } from './strategy'
 
-const IS_TESTNET =
-  process.env.NETWORK === 'testnet' || process.env.NETWORK === 'localnet'
+const IS_TESTNET = getCurrentNetwork() !== 'mainnet'
 
 const CHAIN_NAMES: Record<number, string> = {
   1: 'Ethereum',

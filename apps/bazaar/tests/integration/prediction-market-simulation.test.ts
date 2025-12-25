@@ -8,22 +8,12 @@
 
 import { beforeAll, describe, expect, test } from 'bun:test'
 import { rawDeployments } from '@jejunetwork/contracts'
-import {
-  type Address,
-  createPublicClient,
-  createWalletClient,
-  http,
-  type PublicClient,
-  type WalletClient,
-} from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
+import { type Address, createPublicClient, http, type PublicClient } from 'viem'
 
 // CONFIGURATION
 
 const RPC_URL = process.env.L2_RPC_URL || 'http://localhost:6546'
 const CHAIN_ID = 420691 // network localnet chain ID
-const DEPLOYER_KEY =
-  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as `0x${string}`
 
 const localnet = {
   id: CHAIN_ID,
@@ -93,7 +83,6 @@ class LMSR {
 // SETUP
 
 let publicClient: PublicClient
-let _walletClient: WalletClient
 let skipTests = false
 let prediMarketAddress: Address | null = null
 
@@ -117,13 +106,6 @@ function loadDeployment(filename: string): Record<string, string> {
 
 beforeAll(async () => {
   publicClient = createPublicClient({
-    chain: localnet,
-    transport: http(RPC_URL),
-  })
-
-  const account = privateKeyToAccount(DEPLOYER_KEY)
-  _walletClient = createWalletClient({
-    account,
     chain: localnet,
     transport: http(RPC_URL),
   })

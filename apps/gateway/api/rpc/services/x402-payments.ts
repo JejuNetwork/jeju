@@ -1,3 +1,4 @@
+import { getRpcUrl } from '@jejunetwork/config'
 import type {
   X402Network,
   X402PaymentHeader,
@@ -5,8 +6,8 @@ import type {
   X402PaymentRequirement,
 } from '@jejunetwork/shared'
 import { expectValid, ZERO_ADDRESS } from '@jejunetwork/types'
-import type { Address } from 'viem'
-import { hashMessage, recoverAddress } from 'viem'
+import type { Address, Hex } from 'viem'
+import { createPublicClient, hashMessage, http, recoverAddress } from 'viem'
 import { X402PaymentProofSchema } from '../../../lib/validation'
 import { initializeState, x402State } from '../../services/state'
 
@@ -174,11 +175,88 @@ export function getPaymentInfo() {
   }
 }
 
+const RPC_URL = getRpcUrl()
+
+interface CreditPurchaseResult {
+  success: boolean
+  newBalance: bigint
+  error?: string
+}
+
+/**
+ * Verify and process a credit purchase by checking the transaction on-chain.
+ * This prevents fake credit claims by verifying:
+ * 1. Transaction exists and succeeded
+ * 2. Transaction was sent by the claimed address
+ * 3. CreditsPurchased event was emitted with matching amount
+ */
 export async function purchaseCredits(
   addr: string,
-  _txHash: string,
-  amount: bigint,
-) {
-  const newBalance = await addCredits(addr, amount)
+  txHash: Hex,
+  expectedAmount: bigint,
+): Promise<CreditPurchaseResult> {
+  const client = createPublicClient({
+    transport: http(RPC_URL),
+  })
+
+  // Get transaction receipt to verify it succeeded
+  const receipt = await client.getTransactionReceipt({ hash: txHash })
+
+  if (receipt.status !== 'success') {
+    return {
+      success: false,
+      newBalance: await getCredits(addr),
+      error: 'Transaction failed on-chain',
+    }
+  }
+
+  // Get the original transaction to verify sender
+  const tx = await client.getTransaction({ hash: txHash })
+  if (tx.from.toLowerCase() !== addr.toLowerCase()) {
+    return {
+      success: false,
+      newBalance: await getCredits(addr),
+      error: `Transaction sender mismatch: expected ${addr}, got ${tx.from}`,
+    }
+  }
+
+  // Parse logs to find CreditsPurchased event
+  let purchasedAmount: bigint | null = null
+  for (const log of receipt.logs) {
+    // Check for CreditsPurchased event signature
+    const eventSignature =
+      '0x' +
+      Buffer.from('CreditsPurchased(address,uint256,bytes32)').toString('hex')
+    if (log.topics[0]?.startsWith(eventSignature.slice(0, 10))) {
+      // Decode the amount from the log data
+      const amountHex = log.data.slice(0, 66) // First 32 bytes
+      purchasedAmount = BigInt(amountHex)
+      break
+    }
+  }
+
+  // Fallback: check if tx value matches expected amount (for simple ETH transfers)
+  if (purchasedAmount === null && tx.value > 0n) {
+    purchasedAmount = tx.value
+  }
+
+  if (purchasedAmount === null) {
+    return {
+      success: false,
+      newBalance: await getCredits(addr),
+      error: 'No credit purchase event found in transaction',
+    }
+  }
+
+  if (purchasedAmount < expectedAmount) {
+    return {
+      success: false,
+      newBalance: await getCredits(addr),
+      error: `Insufficient amount: got ${purchasedAmount}, expected ${expectedAmount}`,
+    }
+  }
+
+  // All checks passed - add credits
+  const newBalance = await addCredits(addr, purchasedAmount)
   return { success: true, newBalance }
 }

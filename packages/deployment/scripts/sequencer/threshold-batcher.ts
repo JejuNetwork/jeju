@@ -24,6 +24,7 @@
 
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { getCurrentNetwork } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import {
   type Address,
@@ -392,7 +393,7 @@ class ThresholdBatcherProxy {
 async function main(): Promise<void> {
   console.log('🔐 Threshold Batch Submitter Proxy\n')
 
-  const network = process.env.NETWORK || 'localnet'
+  const network = getCurrentNetwork()
   const rpcUrl = process.env.L1_RPC_URL || 'http://127.0.0.1:6545'
   const port = parseInt(process.env.BATCHER_PROXY_PORT || '4200', 10)
 

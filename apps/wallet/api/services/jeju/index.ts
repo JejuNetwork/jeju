@@ -50,6 +50,7 @@ async function api<T>(
 
 const GraphQLTransactionResponseSchema = z.object({
   hash: z.string(),
+  chainId: z.number().optional(),
   from: z.object({ address: z.string() }),
   to: z.object({ address: z.string() }).nullable(),
   value: z.string(),
@@ -92,8 +93,10 @@ const TokenBalancesDataSchema = z.object({
 const NFTTokenSchema = z.object({
   contractAddress: z.string().optional(),
   tokenId: z.string(),
+  chainId: z.number(),
   owner: z.string().optional(),
   tokenUri: z.string().nullable(),
+  collectionName: z.string().optional(),
   metadata: z
     .object({
       name: z.string().optional(),
@@ -117,6 +120,7 @@ const ApprovalEventSchema = z.object({
   value: z.string(),
   txHash: z.string().default(''),
   timestamp: z.string(),
+  chainId: z.number().optional(),
 })
 
 const ApprovalsDataSchema = z.object({
@@ -171,6 +175,7 @@ const SolversDataSchema = z.object({
 
 export interface IndexedTransaction {
   hash: string
+  chainId: number
   from: string
   to: string | null
   value: string
@@ -211,6 +216,7 @@ export async function getAccountHistory(
         limit: $limit
       ) {
         hash
+        chainId
         from { address }
         to { address }
         value
@@ -228,6 +234,7 @@ export async function getAccountHistory(
 
   return data.transactions.map((tx) => ({
     hash: tx.hash,
+    chainId: tx.chainId ?? 420691, // Default to Jeju mainnet
     from: tx.from.address,
     to: tx.to?.address ?? null,
     value: tx.value,
@@ -292,8 +299,10 @@ export async function getTokenBalances(
 export interface IndexedNFT {
   contractAddress: string
   tokenId: string
+  chainId: number
   owner: string
   tokenUri: string | null
+  collectionName?: string
   metadata: {
     name?: string
     description?: string
@@ -307,7 +316,7 @@ export async function getNFTs(address: Address): Promise<IndexedNFT[]> {
     `
     query GetNFTs($address: String!) {
       nftTokens(where: { owner: { address_eq: $address } }) {
-        contract { address }
+        contract { address chainId name }
         tokenId
         owner { address }
         tokenUri
@@ -323,10 +332,69 @@ export async function getNFTs(address: Address): Promise<IndexedNFT[]> {
   return data.nftTokens.map((nft) => ({
     contractAddress: nft.contractAddress ?? '',
     tokenId: nft.tokenId,
+    chainId: nft.chainId,
     owner: nft.owner ?? '',
     tokenUri: nft.tokenUri,
+    collectionName: nft.collectionName,
     metadata: nft.metadata,
   }))
+}
+
+const SingleNFTDataSchema = z.object({
+  nftToken: z
+    .object({
+      contractAddress: z.string().optional(),
+      tokenId: z.string(),
+      chainId: z.number(),
+      owner: z.string().optional(),
+      tokenUri: z.string().nullable(),
+      collectionName: z.string().optional(),
+      metadata: z
+        .object({
+          name: z.string().optional(),
+          description: z.string().optional(),
+          image: z.string().optional(),
+          attributes: z
+            .array(z.object({ trait_type: z.string(), value: z.string() }))
+            .optional(),
+        })
+        .nullable(),
+    })
+    .nullable(),
+})
+
+export async function getNFT(
+  contractAddress: Address,
+  tokenId: string,
+): Promise<IndexedNFT | null> {
+  const data = await graphql(
+    `
+    query GetNFT($contractAddress: String!, $tokenId: String!) {
+      nftToken(where: { contract_address_eq: $contractAddress, tokenId_eq: $tokenId }) {
+        contract { address chainId name }
+        tokenId
+        owner { address }
+        tokenUri
+        metadata
+      }
+    }
+  `,
+    SingleNFTDataSchema,
+    'getNFT',
+    { contractAddress: contractAddress.toLowerCase(), tokenId },
+  )
+
+  if (!data.nftToken) return null
+
+  return {
+    contractAddress: data.nftToken.contractAddress ?? '',
+    tokenId: data.nftToken.tokenId,
+    chainId: data.nftToken.chainId,
+    owner: data.nftToken.owner ?? '',
+    tokenUri: data.nftToken.tokenUri,
+    collectionName: data.nftToken.collectionName,
+    metadata: data.nftToken.metadata,
+  }
 }
 
 export interface IndexedApproval {
@@ -336,6 +404,7 @@ export interface IndexedApproval {
   value: string
   txHash: string
   timestamp: string
+  chainId: number
 }
 
 export async function getApprovals(
@@ -348,7 +417,7 @@ export async function getApprovals(
         where: { owner: { address_eq: $address } }
         orderBy: timestamp_DESC
       ) {
-        token { address symbol }
+        token { address symbol chainId }
         spender { address }
         value
         transaction { hash }
@@ -361,7 +430,10 @@ export async function getApprovals(
     { address: address.toLowerCase() },
   )
 
-  return data.approvalEvents
+  return data.approvalEvents.map((a) => ({
+    ...a,
+    chainId: a.chainId ?? 420691, // Default to Jeju mainnet
+  }))
 }
 
 export interface OraclePrice {

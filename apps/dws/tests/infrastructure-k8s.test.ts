@@ -12,7 +12,7 @@
 
 import { afterAll, describe, expect, setDefaultTimeout, test } from 'bun:test'
 import type { Address } from 'viem'
-import { app } from '../src/server'
+import { app } from '../api/server'
 
 setDefaultTimeout(60000)
 

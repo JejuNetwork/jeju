@@ -52,7 +52,10 @@ function inferChain(rpcUrl: string) {
 }
 
 import type { AutocratVoteFromContract, ProposalFromContract } from '../lib'
-import { autocratAgentRuntime, type DeliberationRequest } from './agents'
+import {
+  autocratAgentRuntime,
+  type DeliberationRequest,
+} from './agents/runtime'
 import { initLocalServices, store, storeVote } from './local-services'
 import { getResearchAgent, type ResearchRequest } from './research-agent'
 import { makeTEEDecision } from './tee'

@@ -9,6 +9,7 @@
 
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { getCurrentNetwork } from '@jejunetwork/config'
 import { type Address, createPublicClient, http, parseAbi } from 'viem'
 import { inferChainFromRpcUrl } from '../shared/chain-utils'
 import { ConsensusAdapter } from './integration/consensus-adapter'
@@ -19,7 +20,7 @@ const DEPLOYMENTS_DIR = join(ROOT, 'packages/contracts/deployments')
 async function main() {
   console.log('🔄 Decentralized Consensus Coordinator\n')
 
-  const network = process.env.NETWORK || 'localnet'
+  const network = getCurrentNetwork()
   const rpcUrl = process.env.L1_RPC_URL || 'http://127.0.0.1:6545'
   const blockInterval = parseInt(process.env.BLOCK_INTERVAL || '2000', 10)
   const deploymentFile = join(DEPLOYMENTS_DIR, `${network}.json`)

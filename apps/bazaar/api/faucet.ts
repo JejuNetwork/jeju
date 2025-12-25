@@ -203,11 +203,8 @@ const IDENTITY_REGISTRY_ABI = [
 ] as const
 
 async function isRegisteredAgent(address: Address): Promise<boolean> {
-  // Skip registry check in test mode or if explicitly skipped
-  if (
-    process.env.NODE_ENV === 'test' ||
-    process.env.FAUCET_SKIP_REGISTRY === 'true'
-  ) {
+  // Skip registry check in test mode
+  if (process.env.NODE_ENV === 'test') {
     return true
   }
 

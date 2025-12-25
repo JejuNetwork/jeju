@@ -148,15 +148,30 @@ export async function verifyPayment(
 ): Promise<VerificationResult> {
   const payload = decodePaymentHeader(paymentHeader)
   if (!payload)
-    return { valid: false, error: 'Invalid payment header encoding' }
+    return {
+      valid: false,
+      error: 'Invalid payment header encoding',
+      signer: null,
+      decodedPayment: null,
+    }
 
   const timestampResult = validateTimestamp(payload.timestamp)
   if (!timestampResult.valid)
-    return { valid: false, error: timestampResult.error }
+    return {
+      valid: false,
+      error: timestampResult.error ?? null,
+      signer: null,
+      decodedPayment: null,
+    }
 
   const chainConfig = getChainConfig(payload.network)
   if (!chainConfig)
-    return { valid: false, error: `Unsupported network: ${payload.network}` }
+    return {
+      valid: false,
+      error: `Unsupported network: ${payload.network}`,
+      signer: null,
+      decodedPayment: null,
+    }
 
   const cfg = config()
   if (
@@ -166,6 +181,8 @@ export async function verifyPayment(
     return {
       valid: false,
       error: 'Facilitator contract not deployed - verification unavailable',
+      signer: null,
+      decodedPayment: null,
     }
   }
 
@@ -176,17 +193,32 @@ export async function verifyPayment(
     return {
       valid: false,
       error: `Invalid signature: ${e instanceof Error ? e.message : String(e)}`,
+      signer: null,
+      decodedPayment: null,
     }
   }
 
   const reqResult = validateAgainstRequirements(payload, requirements)
-  if (!reqResult.valid) return { valid: false, error: reqResult.error }
+  if (!reqResult.valid)
+    return {
+      valid: false,
+      error: reqResult.error ?? null,
+      signer: null,
+      decodedPayment: null,
+    }
 
   const nonceUsed = await isNonceUsed(publicClient, signer, payload.nonce)
-  if (nonceUsed) return { valid: false, error: 'Nonce has already been used' }
+  if (nonceUsed)
+    return {
+      valid: false,
+      error: 'Nonce has already been used',
+      signer: null,
+      decodedPayment: null,
+    }
 
   return {
     valid: true,
+    error: null,
     signer,
     decodedPayment: {
       payer: signer,
