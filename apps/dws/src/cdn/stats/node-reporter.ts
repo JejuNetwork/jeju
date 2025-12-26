@@ -7,6 +7,7 @@
  * - Regional coordinator (for routing decisions)
  */
 
+import { getRpcUrl } from '@jejunetwork/config'
 import {
   type Address,
   createPublicClient,
@@ -195,7 +196,7 @@ export class NodeStatsReporter {
       nodeId:
         config.nodeId ?? `node-${Math.random().toString(36).slice(2, 10)}`,
       region: config.region ?? 'us-east-1',
-      rpcUrl: config.rpcUrl ?? process.env.RPC_URL ?? 'http://localhost:6546',
+      rpcUrl: config.rpcUrl ?? process.env.RPC_URL ?? getRpcUrl(),
       privateKey: config.privateKey ?? process.env.NODE_PRIVATE_KEY,
       statsContractAddress:
         config.statsContractAddress ?? process.env.CDN_STATS_CONTRACT,
@@ -209,6 +210,9 @@ export class NodeStatsReporter {
       this.config.privateKey &&
       this.config.statsContractAddress
     ) {
+      if (!this.config.privateKey.startsWith('0x')) {
+        throw new Error('privateKey must be a hex string starting with 0x')
+      }
       this.publicClient = createPublicClient({
         chain: base,
         transport: viemHttp(this.config.rpcUrl),

@@ -20,10 +20,12 @@ import {
   parseEther,
 } from 'viem'
 
-// CONFIGURATION
+import { getChainId, getRpcUrl } from '@jejunetwork/config'
 
-const RPC_URL = process.env.L2_RPC_URL || 'http://localhost:6546'
-const CHAIN_ID = 420691 // network localnet chain ID
+// CONFIGURATION - from centralized config
+
+const RPC_URL = getRpcUrl('localnet')
+const CHAIN_ID = getChainId('localnet')
 const WETH_ADDRESS = '0x4200000000000000000000000000000000000006' as Address
 
 const localnet = {

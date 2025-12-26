@@ -34,7 +34,11 @@ import type {
   VectorSearchRequest,
   VectorSearchResult,
 } from './types.js'
-import { parseTimeout } from './utils.js'
+import {
+  parseTimeout,
+  validateSQLIdentifier,
+  validateSQLIdentifiers,
+} from './utils.js'
 import {
   generateCreateVectorTableSQL,
   generateVectorInsertSQL,
@@ -825,6 +829,17 @@ export class CQLClient {
       includeMetadata,
     } = request
 
+    // Validate inputs to prevent SQL injection
+    validateSQLIdentifier(tableName, 'table')
+    if (metadataColumns.length > 0) {
+      validateSQLIdentifiers(metadataColumns, 'column')
+    }
+    if (!Number.isInteger(k) || k <= 0 || k > 10000) {
+      throw new Error(
+        `Invalid k value: ${k}, must be positive integer <= 10000`,
+      )
+    }
+
     validateVectorValues(vector)
 
     const blob = serializeVector(vector, 'float32')
@@ -853,6 +868,7 @@ WHERE embedding MATCH ?
     }
 
     if (metadataFilter) {
+      // Note: metadataFilter is caller-constructed SQL - callers must use parameters
       sql += `\n  AND ${metadataFilter}`
     }
 
@@ -881,6 +897,16 @@ WHERE embedding MATCH ?
     rowids: number[],
     dbId?: string,
   ): Promise<ExecResult> {
+    validateSQLIdentifier(tableName, 'table')
+    if (rowids.length === 0) {
+      // No-op: nothing to delete
+      return {
+        rowsAffected: 0,
+        txHash: '0x' as Hex,
+        blockHeight: 0,
+        gasUsed: 0n,
+      }
+    }
     const placeholders = rowids.map(() => '?').join(', ')
     const sql = `DELETE FROM ${tableName} WHERE rowid IN (${placeholders})`
     return this.exec(sql, rowids, dbId)
@@ -890,12 +916,17 @@ WHERE embedding MATCH ?
    * Get vector count in a vec0 table
    */
   async getVectorCount(tableName: string, dbId?: string): Promise<number> {
+    validateSQLIdentifier(tableName, 'table')
     const result = await this.query<{ count: number }>(
       `SELECT COUNT(*) as count FROM ${tableName}`,
       undefined,
       dbId,
     )
-    return result.rows[0]?.count ?? 0
+    const count = result.rows[0]?.count
+    if (typeof count !== 'number') {
+      throw new Error('Unexpected COUNT(*) result structure')
+    }
+    return count
   }
 
   /**

@@ -196,24 +196,24 @@ describe('FROSTCoordinator', () => {
   describe('signature aggregation', () => {
     test('aggregates signature shares', () => {
       const messageHash = keccak256(toBytes('aggregate test'))
-      const groupPublicKey = `0x${'01'.repeat(33)}` // Dummy pubkey
+      const groupPublicKey = `0x${'01'.repeat(33)}` as `0x${string}`
 
       const commitments = [
         {
           partyIndex: 1,
-          D: `0x${'02'.repeat(33)}`,
-          E: `0x${'03'.repeat(33)}`,
-        } as const,
+          D: `0x${'02'.repeat(33)}` as `0x${string}`,
+          E: `0x${'03'.repeat(33)}` as `0x${string}`,
+        },
         {
           partyIndex: 2,
-          D: `0x${'04'.repeat(33)}`,
-          E: `0x${'05'.repeat(33)}`,
-        } as const,
+          D: `0x${'04'.repeat(33)}` as `0x${string}`,
+          E: `0x${'05'.repeat(33)}` as `0x${string}`,
+        },
       ]
 
       const shares = [
-        { partyIndex: 1, share: `0x${'11'.repeat(32)}` as const },
-        { partyIndex: 2, share: `0x${'22'.repeat(32)}` as const },
+        { partyIndex: 1, share: `0x${'11'.repeat(32)}` as `0x${string}` },
+        { partyIndex: 2, share: `0x${'22'.repeat(32)}` as `0x${string}` },
       ]
 
       const result = FROSTCoordinator.aggregateSignatures(
@@ -231,7 +231,7 @@ describe('FROSTCoordinator', () => {
 
     test('handles single share (degenerate case)', () => {
       const messageHash = keccak256(toBytes('single'))
-      const groupPublicKey = `0x${'01'.repeat(33)}`
+      const groupPublicKey = `0x${'01'.repeat(33)}` as `0x${string}`
 
       const result = FROSTCoordinator.aggregateSignatures(
         messageHash,
@@ -239,11 +239,11 @@ describe('FROSTCoordinator', () => {
         [
           {
             partyIndex: 1,
-            D: `0x${'02'.repeat(33)}`,
-            E: `0x${'03'.repeat(33)}`,
+            D: `0x${'02'.repeat(33)}` as `0x${string}`,
+            E: `0x${'03'.repeat(33)}` as `0x${string}`,
           },
         ],
-        [{ partyIndex: 1, share: `0x${'11'.repeat(32)}` }],
+        [{ partyIndex: 1, share: `0x${'11'.repeat(32)}` as `0x${string}` }],
       )
 
       expect(result.r).toBeDefined()

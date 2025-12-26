@@ -2,13 +2,15 @@
  * Autonomous Commenting Service
  *
  * Handles agents commenting on posts autonomously with deduplication
- * to prevent spam and repetition.
+ * and LLM-based content generation.
  *
  * @packageDocumentation
  */
 
 import type { IAgentRuntime } from '@elizaos/core'
 import { logger } from '@jejunetwork/shared'
+import { z } from 'zod'
+import { llmInferenceService } from '../llm/inference'
 
 /**
  * Comment decision
@@ -46,10 +48,20 @@ export interface CommentablePost {
  * Agent commenting configuration
  */
 interface AgentCommentingConfig {
-  systemPrompt?: string
-  personality?: string
+  systemPrompt: string
+  personality: string
   commentedPostIds: string[]
 }
+
+/**
+ * Comment decision schema for LLM output
+ */
+const CommentDecisionSchema = z.object({
+  shouldComment: z.boolean(),
+  postId: z.string().optional(),
+  content: z.string().optional(),
+  reasoning: z.string(),
+})
 
 /**
  * Autonomous Commenting Service
@@ -58,12 +70,10 @@ export class AutonomousCommentingService {
   /**
    * Get agent configuration for commenting
    */
-  private async getAgentConfig(
-    agentId: string,
-  ): Promise<AgentCommentingConfig> {
+  private async getAgentConfig(agentId: string): Promise<AgentCommentingConfig> {
     logger.debug(`Getting commenting config for agent ${agentId}`)
 
-    // In a full implementation, this would fetch from database
+    // In production, fetch from database
     return {
       systemPrompt: 'You are an AI agent on Jeju Network.',
       personality: 'engaging and insightful',
@@ -77,32 +87,73 @@ export class AutonomousCommentingService {
   private async getCommentedPostIds(agentId: string): Promise<string[]> {
     logger.debug(`Getting commented posts for agent ${agentId}`)
 
-    // In a full implementation, this would query the database
+    // In production, query from database
     return []
   }
 
   /**
    * Get recent posts that agent can comment on
    */
-  private async getUncommentedPosts(
-    agentId: string,
-  ): Promise<CommentablePost[]> {
+  private async getUncommentedPosts(agentId: string): Promise<CommentablePost[]> {
     logger.debug(`Getting uncommented posts for agent ${agentId}`)
 
     const commentedIds = await this.getCommentedPostIds(agentId)
 
-    // In a full implementation, this would query the database for:
+    // In production, query database for:
     // - Posts not authored by the agent
     // - Posts created in the last 24 hours
     // - Posts the agent hasn't commented on
-
-    // Filter out posts already commented on
     const posts: CommentablePost[] = []
     return posts.filter((p) => !commentedIds.includes(p.id))
   }
 
   /**
-   * Decide whether to comment and on what
+   * Build commenting prompt for LLM
+   */
+  private buildCommentingPrompt(
+    config: AgentCommentingConfig,
+    posts: CommentablePost[],
+  ): string {
+    let prompt = `You are a ${config.personality} AI agent on Jeju Network.
+
+Your task is to decide if any of these posts warrant a thoughtful comment from you.
+
+Guidelines:
+- Only comment if you have something valuable to add
+- Be authentic and engaging, not generic
+- Keep comments between 20-150 characters
+- Don't be sycophantic or overly agreeable
+- Add insights, ask questions, or share relevant experiences
+
+`
+
+    if (posts.length === 0) {
+      prompt += 'No posts available to comment on.\n'
+    } else {
+      prompt += 'Available posts:\n\n'
+      for (const post of posts.slice(0, 5)) {
+        prompt += `Post ID: ${post.id}\n`
+        prompt += `Author: ${post.authorName ?? post.authorId}\n`
+        prompt += `Content: "${post.content}"\n`
+        prompt += `Engagement: ${post.likeCount ?? 0} likes, ${post.commentCount ?? 0} comments\n\n`
+      }
+    }
+
+    prompt += `Respond with a JSON object:
+{
+  "shouldComment": true/false,
+  "postId": "the post ID to comment on (if shouldComment is true)",
+  "content": "your comment content (if shouldComment is true)",
+  "reasoning": "why you chose to comment or not"
+}
+
+Only respond with the JSON object, no other text.`
+
+    return prompt
+  }
+
+  /**
+   * Decide whether to comment and on what using LLM
    */
   async decideComment(
     agentId: string,
@@ -111,8 +162,7 @@ export class AutonomousCommentingService {
   ): Promise<CommentDecision> {
     logger.debug(`Deciding on comment for agent ${agentId}`)
 
-    // Get config for potential future use in LLM prompts
-    await this.getAgentConfig(agentId)
+    const config = await this.getAgentConfig(agentId)
     const uncommentedPosts = await this.getUncommentedPosts(agentId)
 
     if (uncommentedPosts.length === 0) {
@@ -122,35 +172,73 @@ export class AutonomousCommentingService {
       }
     }
 
-    // Pick a random post to comment on
-    const randomIndex = Math.floor(Math.random() * uncommentedPosts.length)
-    const post = uncommentedPosts[randomIndex]
-
-    if (!post) {
+    // Check if LLM service is available
+    if (!llmInferenceService.isAvailable()) {
+      logger.warn(`LLM service not available for agent ${agentId}`)
       return {
         shouldComment: false,
-        reasoning: 'No post selected',
+        reasoning: 'LLM service not available',
       }
     }
 
-    // If no runtime provided, we can't make LLM calls
-    if (!runtime) {
-      logger.warn(
-        `No runtime provided for agent ${agentId}, cannot generate comment`,
-      )
+    // Build prompt
+    const prompt = this.buildCommentingPrompt(config, uncommentedPosts)
+    const systemPrompt = runtime?.character?.system ?? config.systemPrompt
+
+    try {
+      // Call LLM
+      const response = await llmInferenceService.inference({
+        model: 'Qwen/Qwen2.5-3B-Instruct',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.7,
+        maxTokens: 250,
+      })
+
+      // Parse response
+      let jsonStr = response.content.trim()
+      if (jsonStr.startsWith('```json')) {
+        jsonStr = jsonStr.slice(7)
+      }
+      if (jsonStr.startsWith('```')) {
+        jsonStr = jsonStr.slice(3)
+      }
+      if (jsonStr.endsWith('```')) {
+        jsonStr = jsonStr.slice(0, -3)
+      }
+      jsonStr = jsonStr.trim()
+
+      const parsed = JSON.parse(jsonStr) as unknown
+      const result = CommentDecisionSchema.safeParse(parsed)
+
+      if (!result.success) {
+        logger.warn(`Invalid comment decision from LLM`, {
+          errors: result.error.errors,
+        })
+        return {
+          shouldComment: false,
+          reasoning: 'Failed to parse LLM response',
+        }
+      }
+
+      logger.info(`Agent ${agentId} comment decision`, {
+        shouldComment: result.data.shouldComment,
+        postId: result.data.postId,
+        contentLength: result.data.content?.length,
+      })
+
+      return result.data
+    } catch (error) {
+      logger.error(`Failed to get comment decision from LLM`, {
+        agentId,
+        error: error instanceof Error ? error.message : String(error),
+      })
       return {
         shouldComment: false,
-        postId: post.id,
-        reasoning: 'No runtime available for LLM generation',
+        reasoning: `LLM error: ${error instanceof Error ? error.message : 'Unknown'}`,
       }
-    }
-
-    // In a full implementation, this would call the LLM
-    logger.info(`Agent ${agentId} decided not to comment (no LLM call made)`)
-    return {
-      shouldComment: false,
-      postId: post.id,
-      reasoning: 'LLM generation not implemented',
     }
   }
 
@@ -166,9 +254,7 @@ export class AutonomousCommentingService {
     const decision = await this.decideComment(agentId, {}, runtime)
 
     if (!decision.shouldComment || !decision.postId || !decision.content) {
-      logger.info(
-        `Agent ${agentId} decided not to comment: ${decision.reasoning}`,
-      )
+      logger.info(`Agent ${agentId} decided not to comment: ${decision.reasoning}`)
       return null
     }
 
@@ -179,9 +265,7 @@ export class AutonomousCommentingService {
     )
 
     if (!result.success) {
-      logger.warn(
-        `Failed to create comment for agent ${agentId}: ${result.error}`,
-      )
+      logger.warn(`Failed to create comment for agent ${agentId}: ${result.error}`)
       return null
     }
 
@@ -207,14 +291,12 @@ export class AutonomousCommentingService {
     const commentedPostIds = await this.getCommentedPostIds(agentId)
 
     if (parentCommentId) {
-      // Reply to a specific comment - check if agent already replied
-      // In a full implementation, this would query the database
-      const hasReplied = false // Placeholder
+      // Reply to a specific comment - would check if agent already replied
+      // In production, query database
+      const hasReplied = false
 
       if (hasReplied) {
-        logger.info(
-          `Agent ${agentId} already replied to comment ${parentCommentId}`,
-        )
+        logger.info(`Agent ${agentId} already replied to comment ${parentCommentId}`)
         return { success: false, error: 'Already replied to this comment' }
       }
     } else {
@@ -225,7 +307,7 @@ export class AutonomousCommentingService {
       }
     }
 
-    // In a full implementation, this would insert into database
+    // In production, insert into database
     const commentId = `comment-${Date.now()}`
 
     logger.info(`Comment created: ${commentId}`)

@@ -157,6 +157,8 @@ export interface JoinFederationParams {
   explorerUrl?: string
   wsUrl?: string
   stake?: bigint
+  contracts?: NetworkContracts
+  genesisHash?: `0x${string}`
 }
 
 export interface RegisterRegistryParams {
@@ -437,16 +439,32 @@ export async function createFederationClient(
       if (!walletClient)
         throw new Error('Private key required for write operations')
 
-      const contracts = [
-        '0x0000000000000000000000000000000000000000',
-        '0x0000000000000000000000000000000000000000',
-        '0x0000000000000000000000000000000000000000',
-        '0x0000000000000000000000000000000000000000',
-        '0x0000000000000000000000000000000000000000',
-        '0x0000000000000000000000000000000000000000',
-        '0x0000000000000000000000000000000000000000',
-        '0x0000000000000000000000000000000000000000',
-      ] as const
+      const zeroAddress = '0x0000000000000000000000000000000000000000'
+      const zeroHash =
+        '0x0000000000000000000000000000000000000000000000000000000000000000' as `0x${string}`
+
+      // Use provided contracts or default to zero addresses
+      const contractsTuple = params.contracts
+        ? [
+            params.contracts.identityRegistry,
+            params.contracts.solverRegistry,
+            params.contracts.inputSettler,
+            params.contracts.outputSettler,
+            params.contracts.liquidityVault,
+            params.contracts.governance,
+            params.contracts.oracle,
+            params.contracts.registryHub,
+          ]
+        : [
+            zeroAddress,
+            zeroAddress,
+            zeroAddress,
+            zeroAddress,
+            zeroAddress,
+            zeroAddress,
+            zeroAddress,
+            zeroAddress,
+          ]
 
       const hash = await walletClient.writeContract({
         address: config.networkRegistry as `0x${string}`,
@@ -458,8 +476,8 @@ export async function createFederationClient(
           params.rpcUrl,
           params.explorerUrl ?? '',
           params.wsUrl ?? '',
-          contracts,
-          '0x0000000000000000000000000000000000000000000000000000000000000000',
+          contractsTuple,
+          params.genesisHash ?? zeroHash,
         ],
         value: params.stake ?? 0n,
         chain: null,

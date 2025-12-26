@@ -75,7 +75,7 @@ export class TEEProvider implements KMSProvider {
       : 'local'
     this.attestationVerifier = createAttestationVerifier({
       teeType,
-      allowLocalMode: !this.remoteMode || getEnvBoolean('TEE_ALLOW_LOCAL'),
+      allowLocalMode: !this.remoteMode || getEnvBoolean('TEE_ALLOW_LOCAL', false),
       iasApiKey: getEnv('INTEL_IAS_API_KEY'),
       maxAttestationAgeMs: 60 * 60 * 1000, // 1 hour
     })

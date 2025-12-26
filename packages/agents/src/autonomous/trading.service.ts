@@ -300,7 +300,7 @@ Only respond with the JSON object, no other text.`
 
       if (!result.success) {
         logger.warn(`Invalid trade decision from LLM`, {
-          errors: result.error.errors,
+          errors: result.error.issues,
         })
         return null
       }

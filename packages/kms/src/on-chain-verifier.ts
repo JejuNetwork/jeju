@@ -5,8 +5,8 @@
  * Used by EncryptionProvider and SecretVault for policy enforcement.
  */
 
-import type { Address, Hex, PublicClient } from 'viem'
-import { createPublicClient, erc20Abi, http, parseAbi } from 'viem'
+import type { Address, Hex } from 'viem'
+import { createPublicClient, erc20Abi, http, keccak256, parseAbi, toBytes } from 'viem'
 import { base, baseSepolia, mainnet } from 'viem/chains'
 import type {
   AgentCondition,
@@ -60,7 +60,8 @@ interface CacheEntry {
  */
 export class OnChainVerifier {
   private config: Required<OnChainVerifierConfig>
-  private clients = new Map<string, PublicClient>()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private clients = new Map<string, any>()
   private cache = new Map<string, CacheEntry>()
 
   constructor(config: OnChainVerifierConfig = {}) {
@@ -71,7 +72,8 @@ export class OnChainVerifier {
     }
   }
 
-  private getClient(chain: string): PublicClient {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private getClient(chain: string): any {
     const cached = this.clients.get(chain)
     if (cached) return cached
 
@@ -361,7 +363,8 @@ export class OnChainVerifier {
       return p
     })
 
-    const returnValue = await client.readContract({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const returnValue = await (client as any).readContract({
       address: condition.contractAddress,
       abi: methodAbi,
       functionName: condition.method,
@@ -416,26 +419,18 @@ export class OnChainVerifier {
   }
 
   private roleNameToHash(role: string): Hex {
-    // Standard role hashing (keccak256 of role name)
-    // Well-known roles
-    if (role === 'DEFAULT_ADMIN_ROLE')
-      return '0x0000000000000000000000000000000000000000000000000000000000000000'
-    if (role === 'ADMIN')
-      return '0xa49807205ce4d355092ef5a8a18f56e8913cf4a201fbe287825b095693c21775'
-    if (role === 'OPERATOR')
-      return '0x97667070c54ef182b0f5858b034beac1b6f3089aa2d3188bb1e8929f4fa9b929'
-    if (role === 'MINTER')
-      return '0x9f2df0fed2c77648de5860a4cc508cd0818c85b8b8a1ab4ceeef8d981c8956a6'
-
-    // Hash custom role names
-    const encoder = new TextEncoder()
-    const bytes = encoder.encode(role)
-    // Simple hash - in production use keccak256
-    let hash = 0n
-    for (const byte of bytes) {
-      hash = (hash * 256n + BigInt(byte)) % 2n ** 256n
+    // If role is already a bytes32 hash, return as-is
+    if (role.startsWith('0x') && role.length === 66) {
+      return role as Hex
     }
-    return `0x${hash.toString(16).padStart(64, '0')}` as Hex
+
+    // Well-known roles (OpenZeppelin AccessControl compatible)
+    if (role === 'DEFAULT_ADMIN_ROLE') {
+      return '0x0000000000000000000000000000000000000000000000000000000000000000'
+    }
+
+    // Hash role name using keccak256 (standard AccessControl pattern)
+    return keccak256(toBytes(role))
   }
 
   /**

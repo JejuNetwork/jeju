@@ -106,6 +106,9 @@ export class EdgeNodeServer {
     this.originFetcher = getOriginFetcher(config.origins)
 
     // Initialize wallet and contract
+    if (!config.privateKey.startsWith('0x')) {
+      throw new Error('privateKey must be a hex string starting with 0x')
+    }
     this.account = privateKeyToAccount(config.privateKey as `0x${string}`)
     this.chain = inferChainFromRpcUrl(config.rpcUrl)
     this.publicClient = createPublicClient({

@@ -5,7 +5,17 @@
  * Uses pluggable encryption providers (KMS, local, etc.)
  */
 
-import { getChainId, getServicesConfig } from '@jejunetwork/config'
+import {
+  getAiCeoAddress,
+  getChainId,
+  getMinTeeStakeUsd,
+  getMpcParties,
+  getMpcThreshold,
+  getServicesConfig,
+  getTeeRegistryAddress,
+  getTrainingOrchestratorAddress,
+  isUseMpcEncryption,
+} from '@jejunetwork/config'
 import { generateSnowflakeId, logger } from '@jejunetwork/shared'
 import type { Address } from 'viem'
 import type { TrajectoryStep } from '../schemas'
@@ -53,16 +63,13 @@ export interface EncryptionProvider {
 const defaultConfig: StorageConfig = {
   storageEndpoint: getServicesConfig().storage.api,
   chainId: String(getChainId()),
-  trainingOrchestratorAddress: (process.env.TRAINING_ORCHESTRATOR_ADDRESS ??
-    '0x0000000000000000000000000000000000000000') as Address,
-  aiCEOAddress: (process.env.AI_CEO_ADDRESS ??
-    '0x0000000000000000000000000000000000000000') as Address,
-  teeRegistryAddress: (process.env.TEE_REGISTRY_ADDRESS ??
-    '0x0000000000000000000000000000000000000000') as Address,
-  minTEEStakeUSD: parseFloat(process.env.MIN_TEE_STAKE_USD ?? '1000'),
-  useMPC: process.env.USE_MPC_ENCRYPTION === 'true',
-  mpcThreshold: parseInt(process.env.MPC_THRESHOLD ?? '3', 10),
-  mpcParties: parseInt(process.env.MPC_PARTIES ?? '5', 10),
+  trainingOrchestratorAddress: getTrainingOrchestratorAddress() as Address,
+  aiCEOAddress: getAiCeoAddress() as Address,
+  teeRegistryAddress: getTeeRegistryAddress() as Address,
+  minTEEStakeUSD: getMinTeeStakeUsd(),
+  useMPC: isUseMpcEncryption(),
+  mpcThreshold: getMpcThreshold(),
+  mpcParties: getMpcParties(),
 }
 
 // ============================================================================

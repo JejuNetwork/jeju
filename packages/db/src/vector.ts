@@ -13,6 +13,7 @@ import type {
   VectorSearchResult,
   VectorType,
 } from './types.js'
+import { validateSQLIdentifier, validateSQLIdentifiers } from './utils.js'
 
 // Vector Serialization
 
@@ -29,7 +30,7 @@ export function serializeFloat32Vector(vector: number[]): Uint8Array {
   const buffer = new ArrayBuffer(vector.length * 4)
   const view = new DataView(buffer)
   for (let i = 0; i < vector.length; i++) {
-    view.setFloat32(i * 4, vector[i] ?? 0, true) // little-endian
+    view.setFloat32(i * 4, vector[i], true) // little-endian
   }
   return new Uint8Array(buffer)
 }
@@ -52,7 +53,7 @@ export function deserializeFloat32Vector(blob: Uint8Array): number[] {
 export function serializeInt8Vector(vector: number[]): Uint8Array {
   const buffer = new Int8Array(vector.length)
   for (let i = 0; i < vector.length; i++) {
-    buffer[i] = Math.max(-128, Math.min(127, Math.round(vector[i] ?? 0)))
+    buffer[i] = Math.max(-128, Math.min(127, Math.round(vector[i])))
   }
   return new Uint8Array(buffer.buffer)
 }
@@ -71,11 +72,11 @@ export function deserializeInt8Vector(blob: Uint8Array): number[] {
  */
 export function serializeBitVector(vector: number[]): Uint8Array {
   const byteLength = Math.ceil(vector.length / 8)
-  const buffer = new Uint8Array(byteLength)
+  const buffer = new Uint8Array(byteLength) // Initialized to zeros
   for (let i = 0; i < vector.length; i++) {
     if (vector[i]) {
       const byteIndex = Math.floor(i / 8)
-      buffer[byteIndex] = (buffer[byteIndex] ?? 0) | (1 << (i % 8))
+      buffer[byteIndex] = buffer[byteIndex] | (1 << (i % 8))
     }
   }
   return buffer
@@ -88,9 +89,15 @@ export function deserializeBitVector(
   blob: Uint8Array,
   dimensions: number,
 ): number[] {
+  const requiredBytes = Math.ceil(dimensions / 8)
+  if (blob.length < requiredBytes) {
+    throw new Error(
+      `Bit vector blob too small: got ${blob.length} bytes, need ${requiredBytes} for ${dimensions} dimensions`,
+    )
+  }
   const vector: number[] = []
   for (let i = 0; i < dimensions; i++) {
-    const byte = blob[Math.floor(i / 8)] ?? 0
+    const byte = blob[Math.floor(i / 8)]
     vector.push((byte >> (i % 8)) & 1)
   }
   return vector
@@ -138,6 +145,17 @@ export function serializeVector(
 export function generateCreateVectorTableSQL(
   config: VectorIndexConfig,
 ): string {
+  // Validate identifiers to prevent SQL injection
+  validateSQLIdentifier(config.tableName, 'table')
+  if (config.metadataColumns) {
+    for (const col of config.metadataColumns) {
+      validateSQLIdentifier(col.name, 'column')
+    }
+  }
+  if (config.partitionKey) {
+    validateSQLIdentifier(config.partitionKey, 'column')
+  }
+
   const vectorType = config.vectorType ?? 'float32'
   const typeStr = vectorType === 'float32' ? 'float' : vectorType
 
@@ -167,6 +185,15 @@ export function generateVectorInsertSQL(
   metadataColumns: string[] = [],
   partitionKey?: string,
 ): string {
+  // Validate identifiers to prevent SQL injection
+  validateSQLIdentifier(tableName, 'table')
+  if (metadataColumns.length > 0) {
+    validateSQLIdentifiers(metadataColumns, 'column')
+  }
+  if (partitionKey) {
+    validateSQLIdentifier(partitionKey, 'column')
+  }
+
   const columns: string[] = []
   const placeholders: string[] = []
 
@@ -216,6 +243,15 @@ export function generateVectorSearchSQL(
   const { tableName, k, partitionValue, metadataFilter, includeMetadata } =
     request
 
+  // Validate identifiers to prevent SQL injection
+  validateSQLIdentifier(tableName, 'table')
+  if (metadataColumns.length > 0) {
+    validateSQLIdentifiers(metadataColumns, 'column')
+  }
+  if (!Number.isInteger(k) || k <= 0 || k > 10000) {
+    throw new Error(`Invalid k value: ${k}, must be positive integer <= 10000`)
+  }
+
   // Build SELECT columns
   const selectCols = ['v.rowid', 'v.distance']
   if (includeMetadata && metadataColumns.length > 0) {
@@ -236,7 +272,7 @@ WHERE e.embedding MATCH ?
     sql += `\n  AND e.${request.partitionValue} = ?`
   }
 
-  // Add metadata filter
+  // Add metadata filter - callers must use parameters for filter values
   if (metadataFilter) {
     sql += `\n  AND ${metadataFilter}`
   }
@@ -261,9 +297,12 @@ export function normalizeVector(vector: number[]): number[] {
  * Calculate L2 (Euclidean) distance between two vectors
  */
 export function l2Distance(a: number[], b: number[]): number {
+  if (a.length !== b.length) {
+    throw new Error(`Vector dimension mismatch: ${a.length} vs ${b.length}`)
+  }
   let sum = 0
   for (let i = 0; i < a.length; i++) {
-    const diff = (a[i] ?? 0) - (b[i] ?? 0)
+    const diff = a[i] - b[i]
     sum += diff * diff
   }
   return Math.sqrt(sum)
@@ -274,16 +313,17 @@ export function l2Distance(a: number[], b: number[]): number {
  * Returns 1 - cosine_similarity (0 = identical, 2 = opposite)
  */
 export function cosineDistance(a: number[], b: number[]): number {
+  if (a.length !== b.length) {
+    throw new Error(`Vector dimension mismatch: ${a.length} vs ${b.length}`)
+  }
   let dotProduct = 0
   let normA = 0
   let normB = 0
 
   for (let i = 0; i < a.length; i++) {
-    const ai = a[i] ?? 0
-    const bi = b[i] ?? 0
-    dotProduct += ai * bi
-    normA += ai * ai
-    normB += bi * bi
+    dotProduct += a[i] * b[i]
+    normA += a[i] * a[i]
+    normB += b[i] * b[i]
   }
 
   const similarity = dotProduct / (Math.sqrt(normA) * Math.sqrt(normB))
@@ -294,9 +334,12 @@ export function cosineDistance(a: number[], b: number[]): number {
  * Calculate L1 (Manhattan) distance between two vectors
  */
 export function l1Distance(a: number[], b: number[]): number {
+  if (a.length !== b.length) {
+    throw new Error(`Vector dimension mismatch: ${a.length} vs ${b.length}`)
+  }
   let sum = 0
   for (let i = 0; i < a.length; i++) {
-    sum += Math.abs((a[i] ?? 0) - (b[i] ?? 0))
+    sum += Math.abs(a[i] - b[i])
   }
   return sum
 }

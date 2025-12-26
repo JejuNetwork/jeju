@@ -120,6 +120,16 @@
       "registry": "",
       "billing": "",
       "nodeRegistry": ""
+    },
+    "training": {
+      "coordinator": "",
+      "rewards": "",
+      "modelRegistry": "",
+      "teeRegistry": "",
+      "aiCeo": ""
+    },
+    "agents": {
+      "agent0Registry": ""
     }
   },
   "testnet": {
@@ -227,6 +237,16 @@
       "registry": "",
       "billing": "",
       "nodeRegistry": ""
+    },
+    "training": {
+      "coordinator": "",
+      "rewards": "",
+      "modelRegistry": "",
+      "teeRegistry": "",
+      "aiCeo": ""
+    },
+    "agents": {
+      "agent0Registry": ""
     }
   },
   "mainnet": {
@@ -334,6 +354,16 @@
       "registry": "",
       "billing": "",
       "nodeRegistry": ""
+    },
+    "training": {
+      "coordinator": "",
+      "rewards": "",
+      "modelRegistry": "",
+      "teeRegistry": "",
+      "aiCeo": ""
+    },
+    "agents": {
+      "agent0Registry": ""
     }
   },
   "external": {

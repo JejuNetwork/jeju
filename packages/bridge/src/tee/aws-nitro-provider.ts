@@ -15,6 +15,12 @@
  */
 
 import { existsSync } from 'node:fs'
+import {
+  getAwsEnclaveId,
+  getAwsRegion,
+  isAwsNitroSimulate,
+  isTestMode,
+} from '@jejunetwork/config'
 import { keccak256, toBytes } from 'viem'
 import type { TEEAttestation } from '../types/index.js'
 import { toHash32 } from '../types/index.js'
@@ -86,7 +92,7 @@ export class AWSNitroProvider implements ITEEProvider {
     if (!this.initialized) {
       await this.initialize()
     }
-    return this.inNitroEnvironment || process.env.AWS_NITRO_SIMULATE === 'true'
+    return this.inNitroEnvironment || isAwsNitroSimulate()
   }
 
   async requestAttestation(
@@ -171,7 +177,7 @@ export class AWSNitroProvider implements ITEEProvider {
 
   private async detectNitroEnvironment(): Promise<boolean> {
     // Fast path: check environment variables first (no I/O)
-    if (process.env.AWS_ENCLAVE_ID) {
+    if (getAwsEnclaveId()) {
       return true
     }
 
@@ -183,10 +189,7 @@ export class AWSNitroProvider implements ITEEProvider {
       }
 
       // Skip IMDS check in test environment to avoid slow timeouts
-      if (
-        process.env.NODE_ENV === 'test' ||
-        process.env.AWS_NITRO_SIMULATE === 'true'
-      ) {
+      if (isTestMode() || isAwsNitroSimulate()) {
         return false
       }
 
@@ -261,8 +264,7 @@ export class AWSNitroProvider implements ITEEProvider {
     // 3. Get enclave ID and public key
 
     // In real Nitro environment, AWS_ENCLAVE_ID should be set
-    this.enclaveId =
-      process.env.AWS_ENCLAVE_ID ?? `enclave-${Date.now().toString(36)}`
+    this.enclaveId = getAwsEnclaveId() ?? `enclave-${Date.now().toString(36)}`
 
     // Generate key pair in enclave
     this.publicKey = new Uint8Array(33)
@@ -417,7 +419,7 @@ export function createAWSNitroProvider(
   config?: Partial<AWSNitroConfig>,
 ): AWSNitroProvider {
   // Region has a sensible default for AWS services
-  const region = config?.region ?? process.env.AWS_REGION ?? 'us-east-1'
+  const region = config?.region ?? getAwsRegion()
 
   return new AWSNitroProvider({
     region,

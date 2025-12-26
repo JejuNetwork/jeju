@@ -1,6 +1,6 @@
+import { getRpcUrl } from '@jejunetwork/config'
 import { defineChain } from 'viem'
 
-// Network name - can't import from @jejunetwork/config in client code (uses fs)
 const networkName = 'Jeju'
 
 export const jejuLocalnet = defineChain({
@@ -12,7 +12,7 @@ export const jejuLocalnet = defineChain({
     symbol: 'ETH',
   },
   rpcUrls: {
-    default: { http: ['http://localhost:6546'] },
+    default: { http: [getRpcUrl('localnet')] },
   },
 })
 

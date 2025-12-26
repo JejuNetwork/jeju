@@ -13,6 +13,7 @@ import type { Address, Hex } from 'viem'
 import { encodeFunctionData } from 'viem'
 import { z } from 'zod'
 import { getContractAddresses, getServicesConfig } from '../config'
+import { parseIdFromLogs } from '../shared/api'
 import {
   DatasetUploadResponseSchema,
   JsonRecordSchema,
@@ -604,7 +605,14 @@ export function createDatasetsModule(
         }),
       })
 
-      const datasetId = `0x${'0'.repeat(64)}` as Hex
+      // Parse datasetId from DatasetCreated event
+      const datasetId = await parseIdFromLogs(
+        wallet.publicClient,
+        txHash,
+        'DatasetCreated(bytes32,string,string,address)',
+        'datasetId',
+      )
+
       return { txHash, datasetId }
     },
 
@@ -626,7 +634,14 @@ export function createDatasetsModule(
         }),
       })
 
-      const versionId = `0x${'0'.repeat(64)}` as Hex
+      // Parse versionId from VersionPublished event
+      const versionId = await parseIdFromLogs(
+        wallet.publicClient,
+        txHash,
+        'VersionPublished(bytes32,bytes32,string)',
+        'versionId',
+      )
+
       return { txHash, versionId }
     },
 

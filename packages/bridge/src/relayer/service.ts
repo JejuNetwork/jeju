@@ -2,6 +2,12 @@
  * Cross-Chain Relayer Service - orchestrates bridge flow between Solana and EVM
  */
 
+import {
+  getEvmChainId,
+  getHomeDir,
+  getRelayerPort,
+  isProduction as isProductionMode,
+} from '@jejunetwork/config'
 import { cors } from '@elysiajs/cors'
 import {
   Keypair,
@@ -35,17 +41,13 @@ import {
 
 const log = createLogger('relayer')
 
-// Strict check: NODE_ENV must be exactly 'production', not empty/undefined/typo
-const nodeEnv = (process.env.NODE_ENV ?? '').trim().toLowerCase()
-const isProduction = nodeEnv === 'production'
-const isLocalDev = nodeEnv === 'development' || nodeEnv === ''
+const isProduction = isProductionMode()
+const isLocalDev = !isProduction
 
 if (isProduction) {
   log.info('Starting in PRODUCTION mode')
 } else {
-  log.warn('Starting in DEVELOPMENT mode - some defaults will be used', {
-    nodeEnv,
-  })
+  log.warn('Starting in DEVELOPMENT mode - some defaults will be used')
 }
 
 /**
@@ -1059,7 +1061,7 @@ export class RelayerService {
   private async loadSolanaKeypair(): Promise<Keypair> {
     const keypairPath = this.config.solanaConfig.keypairPath.replace(
       '~',
-      process.env.HOME ?? '',
+      getHomeDir(),
     )
 
     // Check file exists first
@@ -1106,10 +1108,10 @@ export function createRelayerService(config: RelayerConfig): RelayerService {
 
 if (import.meta.main) {
   const config: RelayerConfig = {
-    port: parseInt(process.env.RELAYER_PORT ?? '8081', 10),
+    port: getRelayerPort(),
     evmChains: [
       {
-        chainId: parseInt(process.env.EVM_CHAIN_ID ?? '31337', 10) as ChainId,
+        chainId: getEvmChainId() as ChainId,
         rpcUrl: requireEnv('EVM_RPC_URL', 'http://127.0.0.1:6545'),
         bridgeAddress: requireEnv('BRIDGE_ADDRESS'),
         lightClientAddress: requireEnv('LIGHT_CLIENT_ADDRESS'),

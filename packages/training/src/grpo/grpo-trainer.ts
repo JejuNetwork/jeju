@@ -2,6 +2,15 @@
  * GRPO trainer with Atropos API integration.
  */
 
+import {
+  getAtroposLocalUrl,
+  getModelName,
+  getRunGroup,
+  getRunProject,
+  getTrainingEndpoint,
+  getTrainingSteps,
+  getVllmRestartInterval,
+} from '@jejunetwork/config'
 import { expectValid } from '@jejunetwork/types'
 import { type Subprocess, spawn } from 'bun'
 import { z } from 'zod'
@@ -336,8 +345,7 @@ export class GRPOTrainer {
     batches: ReturnType<typeof padToGoodOffset>,
   ): Promise<TrainingMetrics> {
     // Send training batch to Python process via HTTP or subprocess
-    const trainingEndpoint =
-      process.env.TRAINING_ENDPOINT ?? 'http://localhost:8001/train_step'
+    const trainingEndpoint = getTrainingEndpoint()
 
     let totalLoss = 0
     let totalPosLogp = 0
@@ -596,12 +604,12 @@ export function createDistributedGRPOTrainer(
 
 if (import.meta.main) {
   const config: Partial<TrainingConfig> = {
-    modelName: process.env.MODEL_NAME ?? 'Qwen/Qwen2.5-1.5B-Instruct',
-    trainingSteps: parseInt(process.env.TRAINING_STEPS ?? '20', 10),
-    vllmRestartInterval: parseInt(process.env.VLLM_RESTART_INTERVAL ?? '3', 10),
-    runProject: process.env.RUN_PROJECT,
-    runGroup: process.env.RUN_GROUP,
-    atroposUrl: process.env.ATROPOS_URL ?? 'http://localhost:8000',
+    modelName: getModelName(),
+    trainingSteps: getTrainingSteps(),
+    vllmRestartInterval: getVllmRestartInterval(),
+    runProject: getRunProject(),
+    runGroup: getRunGroup(),
+    atroposUrl: getAtroposLocalUrl(),
   }
 
   const trainer = createGRPOTrainer(config)

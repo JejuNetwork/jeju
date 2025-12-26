@@ -7,7 +7,17 @@
  * @packageDocumentation
  */
 
-import { getExternalRpc } from '@jejunetwork/config'
+import {
+  getAgent0IpfsProvider,
+  getAgent0PrivateKey,
+  getAgent0SubgraphUrl,
+  getCurrentNetwork,
+  getExternalRpc,
+  getFilecoinPrivateKey,
+  getIpfsApiUrl,
+  getPinataJwt,
+  getRpcUrl,
+} from '@jejunetwork/config'
 import { logger } from '@jejunetwork/shared'
 import {
   type AgentCapabilities,
@@ -230,7 +240,7 @@ export class Agent0Client {
    * Check if client is available (has write access)
    */
   isAvailable(): boolean {
-    return !!(this.config.privateKey ?? process.env.AGENT0_PRIVATE_KEY)
+    return !!(this.config.privateKey ?? getAgent0PrivateKey())
   }
 
   /**
@@ -465,50 +475,37 @@ function isAgent0Network(value: string): value is Agent0Network {
   return value === 'sepolia' || value === 'mainnet' || value === 'localnet'
 }
 
-/**
- * Type guard for IPFS providers
- */
-function isIpfsProvider(
-  value: string,
-): value is 'node' | 'filecoinPin' | 'pinata' {
-  return value === 'node' || value === 'filecoinPin' || value === 'pinata'
-}
-
 export function createAgent0Client(): Agent0Client {
-  const networkEnv = process.env.AGENT0_NETWORK ?? 'localnet'
-  const network: Agent0Network = isAgent0Network(networkEnv)
-    ? networkEnv
-    : 'localnet'
-
-  // Get RPC URL from config (which supports env overrides)
-  let rpcUrl = process.env.AGENT0_RPC_URL
-  if (!rpcUrl) {
-    if (network === 'localnet') {
-      rpcUrl = 'http://localhost:6545'
-    } else if (network === 'sepolia') {
-      rpcUrl = getExternalRpc('sepolia')
-    } else {
-      rpcUrl = getExternalRpc('ethereum')
-    }
+  // Map Jeju network to Agent0 network
+  const jejuNetwork = getCurrentNetwork()
+  let network: Agent0Network
+  if (jejuNetwork === 'localnet') {
+    network = 'localnet'
+  } else if (jejuNetwork === 'testnet') {
+    network = 'sepolia'
+  } else {
+    network = 'mainnet'
   }
 
-  const privateKey = process.env.AGENT0_PRIVATE_KEY
-  const ipfsEnv = process.env.AGENT0_IPFS_PROVIDER ?? 'node'
-  const ipfsProvider: 'node' | 'filecoinPin' | 'pinata' = isIpfsProvider(
-    ipfsEnv,
-  )
-    ? ipfsEnv
-    : 'node'
+  // Get RPC URL from config (supports env overrides)
+  let rpcUrl: string
+  if (network === 'localnet') {
+    rpcUrl = getRpcUrl('localnet')
+  } else if (network === 'sepolia') {
+    rpcUrl = getExternalRpc('sepolia')
+  } else {
+    rpcUrl = getExternalRpc('ethereum')
+  }
 
   return new Agent0Client({
     network,
     rpcUrl,
-    privateKey,
-    ipfsProvider,
-    ipfsNodeUrl: process.env.AGENT0_IPFS_API,
-    pinataJwt: process.env.PINATA_JWT,
-    filecoinPrivateKey: process.env.FILECOIN_PRIVATE_KEY,
-    subgraphUrl: process.env.AGENT0_SUBGRAPH_URL,
+    privateKey: getAgent0PrivateKey(),
+    ipfsProvider: getAgent0IpfsProvider(),
+    ipfsNodeUrl: getIpfsApiUrl(),
+    pinataJwt: getPinataJwt(),
+    filecoinPrivateKey: getFilecoinPrivateKey(),
+    subgraphUrl: getAgent0SubgraphUrl(),
   })
 }
 

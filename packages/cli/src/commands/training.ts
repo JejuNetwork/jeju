@@ -1,6 +1,6 @@
 /** Distributed training operations (Psyche-compatible) */
 
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   getRpcUrl as getConfigRpcUrl,
@@ -281,14 +281,70 @@ const TRAINING_REWARDS_ABI = [
   },
 ] as const
 
-// Contract addresses (localnet defaults)
-const CONTRACTS = {
-  trainingCoordinator: (process.env.TRAINING_COORDINATOR_ADDRESS ||
-    '0x59b670e9fA9D0A427751Af201D676719a970857b') as `0x${string}`,
-  trainingRewards: (process.env.TRAINING_REWARDS_ADDRESS ||
-    '0x4ed7c70F96B99c776995fB64377f0d4aB3B0e1C1') as `0x${string}`,
-  nodePerformanceOracle: (process.env.NODE_PERFORMANCE_ADDRESS ||
-    '0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f') as `0x${string}`,
+interface TrainingContracts {
+  trainingCoordinator: `0x${string}`
+  trainingRewards: `0x${string}`
+  nodePerformanceOracle: `0x${string}`
+}
+
+function loadTrainingContracts(network: string): TrainingContracts {
+  const rootDir = findMonorepoRoot()
+  const paths = [
+    join(rootDir, 'packages/contracts/deployments', `training-${network}.json`),
+    join(rootDir, 'packages/contracts/deployments', `dws-${network}.json`),
+    join(rootDir, 'packages/contracts/deployments', `${network}.json`),
+  ]
+
+  for (const path of paths) {
+    if (existsSync(path)) {
+      const content = readFileSync(path, 'utf-8')
+      const deployment = JSON.parse(content)
+      
+      // Check for training-specific deployment
+      if (deployment.TrainingCoordinator) {
+        return {
+          trainingCoordinator: deployment.TrainingCoordinator as `0x${string}`,
+          trainingRewards: deployment.TrainingRewards as `0x${string}`,
+          nodePerformanceOracle: deployment.NodePerformanceOracle as `0x${string}`,
+        }
+      }
+      
+      // Check for nested structure
+      if (deployment.training?.TrainingCoordinator) {
+        return {
+          trainingCoordinator: deployment.training.TrainingCoordinator as `0x${string}`,
+          trainingRewards: deployment.training.TrainingRewards as `0x${string}`,
+          nodePerformanceOracle: deployment.training.NodePerformanceOracle as `0x${string}`,
+        }
+      }
+    }
+  }
+
+  // Fall back to environment variables if set
+  if (process.env.TRAINING_COORDINATOR_ADDRESS) {
+    return {
+      trainingCoordinator: process.env.TRAINING_COORDINATOR_ADDRESS as `0x${string}`,
+      trainingRewards: (process.env.TRAINING_REWARDS_ADDRESS ?? '0x0000000000000000000000000000000000000000') as `0x${string}`,
+      nodePerformanceOracle: (process.env.NODE_PERFORMANCE_ADDRESS ?? '0x0000000000000000000000000000000000000000') as `0x${string}`,
+    }
+  }
+
+  // Return null addresses to indicate contracts not deployed
+  return {
+    trainingCoordinator: '0x0000000000000000000000000000000000000000' as `0x${string}`,
+    trainingRewards: '0x0000000000000000000000000000000000000000' as `0x${string}`,
+    nodePerformanceOracle: '0x0000000000000000000000000000000000000000' as `0x${string}`,
+  }
+}
+
+function requireTrainingContracts(network: string): TrainingContracts {
+  const contracts = loadTrainingContracts(network)
+  if (contracts.trainingCoordinator === '0x0000000000000000000000000000000000000000') {
+    logger.error('Training contracts not deployed on this network')
+    logger.info(`Deploy with: jeju deploy training --network ${network}`)
+    process.exit(1)
+  }
+  return contracts
 }
 
 const RLAIF_STATES = [
@@ -649,25 +705,38 @@ async function checkStatus(network: string): Promise<void> {
 
   // Check contract status
   if (chain.running) {
+    const contracts = loadTrainingContracts(network)
     const publicClient = createPublicClient({
       chain: foundry,
       transport: http(getRpcUrl(network)),
     })
 
-    try {
-      const code = await publicClient.getBytecode({
-        address: CONTRACTS.trainingCoordinator,
-      })
+    if (contracts.trainingCoordinator === '0x0000000000000000000000000000000000000000') {
       logger.newline()
       logger.table([
         {
           label: 'TrainingCoordinator',
-          value: code ? 'Deployed' : 'Not deployed',
-          status: code ? 'ok' : 'error',
+          value: 'Not deployed',
+          status: 'error',
         },
       ])
-    } catch {
-      logger.warn('Could not check contract status')
+      logger.info(`Deploy with: jeju deploy training --network ${network}`)
+    } else {
+      try {
+        const code = await publicClient.getBytecode({
+          address: contracts.trainingCoordinator,
+        })
+        logger.newline()
+        logger.table([
+          {
+            label: 'TrainingCoordinator',
+            value: code ? 'Deployed' : 'Not deployed',
+            status: code ? 'ok' : 'error',
+          },
+        ])
+      } catch {
+        logger.warn('Could not check contract status')
+      }
     }
   }
 
@@ -753,6 +822,7 @@ async function createRun(options: {
 }): Promise<void> {
   logger.header('CREATE TRAINING RUN')
 
+  const contracts = requireTrainingContracts(options.network)
   const privateKey = getPrivateKey(options.network)
   const account = privateKeyToAccount(privateKey)
 
@@ -813,7 +883,7 @@ async function createRun(options: {
 
   try {
     const hash = await walletClient.writeContract({
-      address: CONTRACTS.trainingCoordinator,
+      address: contracts.trainingCoordinator,
       abi: TRAINING_COORDINATOR_ABI,
       functionName: 'createRun',
       args: [
@@ -850,6 +920,7 @@ async function createRun(options: {
 async function joinRun(runId: string, network: string): Promise<void> {
   logger.header('JOIN TRAINING RUN')
 
+  const contracts = requireTrainingContracts(network)
   const privateKey = getPrivateKey(network)
   const account = privateKeyToAccount(privateKey)
 
@@ -875,7 +946,7 @@ async function joinRun(runId: string, network: string): Promise<void> {
   try {
     logger.step('Joining run...')
     const hash = await walletClient.writeContract({
-      address: CONTRACTS.trainingCoordinator,
+      address: contracts.trainingCoordinator,
       abi: TRAINING_COORDINATOR_ABI,
       functionName: 'joinRun',
       args: [runId as `0x${string}`, p2pEndpointId],
@@ -899,6 +970,7 @@ async function joinRun(runId: string, network: string): Promise<void> {
 async function getRunInfo(runId: string, network: string): Promise<void> {
   logger.header('TRAINING RUN INFO')
 
+  const contracts = requireTrainingContracts(network)
   const publicClient = createPublicClient({
     chain: foundry,
     transport: http(getRpcUrl(network)),
@@ -907,31 +979,31 @@ async function getRunInfo(runId: string, network: string): Promise<void> {
   try {
     const [state, config, clientCount, step, epoch] = await Promise.all([
       publicClient.readContract({
-        address: CONTRACTS.trainingCoordinator,
+        address: contracts.trainingCoordinator,
         abi: TRAINING_COORDINATOR_ABI,
         functionName: 'getRunState',
         args: [runId as `0x${string}`],
       }),
       publicClient.readContract({
-        address: CONTRACTS.trainingCoordinator,
+        address: contracts.trainingCoordinator,
         abi: TRAINING_COORDINATOR_ABI,
         functionName: 'getRunConfig',
         args: [runId as `0x${string}`],
       }),
       publicClient.readContract({
-        address: CONTRACTS.trainingCoordinator,
+        address: contracts.trainingCoordinator,
         abi: TRAINING_COORDINATOR_ABI,
         functionName: 'getClientCount',
         args: [runId as `0x${string}`],
       }),
       publicClient.readContract({
-        address: CONTRACTS.trainingCoordinator,
+        address: contracts.trainingCoordinator,
         abi: TRAINING_COORDINATOR_ABI,
         functionName: 'getStep',
         args: [runId as `0x${string}`],
       }),
       publicClient.readContract({
-        address: CONTRACTS.trainingCoordinator,
+        address: contracts.trainingCoordinator,
         abi: TRAINING_COORDINATOR_ABI,
         functionName: 'getEpoch',
         args: [runId as `0x${string}`],
@@ -993,6 +1065,7 @@ async function getRunInfo(runId: string, network: string): Promise<void> {
 async function pauseRun(runId: string, network: string): Promise<void> {
   logger.header('PAUSE TRAINING RUN')
 
+  const contracts = getContracts(network)
   const privateKey = getPrivateKey(network)
   const account = privateKeyToAccount(privateKey)
 
@@ -1010,7 +1083,7 @@ async function pauseRun(runId: string, network: string): Promise<void> {
   try {
     logger.step('Pausing run...')
     const hash = await walletClient.writeContract({
-      address: CONTRACTS.trainingCoordinator,
+      address: contracts.trainingCoordinator,
       abi: TRAINING_COORDINATOR_ABI,
       functionName: 'pauseRun',
       args: [runId as `0x${string}`],
@@ -1034,6 +1107,7 @@ async function pauseRun(runId: string, network: string): Promise<void> {
 async function resumeRun(runId: string, network: string): Promise<void> {
   logger.header('RESUME TRAINING RUN')
 
+  const contracts = getContracts(network)
   const privateKey = getPrivateKey(network)
   const account = privateKeyToAccount(privateKey)
 
@@ -1051,7 +1125,7 @@ async function resumeRun(runId: string, network: string): Promise<void> {
   try {
     logger.step('Resuming run...')
     const hash = await walletClient.writeContract({
-      address: CONTRACTS.trainingCoordinator,
+      address: contracts.trainingCoordinator,
       abi: TRAINING_COORDINATOR_ABI,
       functionName: 'resumeRun',
       args: [runId as `0x${string}`],
@@ -1075,6 +1149,7 @@ async function resumeRun(runId: string, network: string): Promise<void> {
 async function withdrawFromRun(runId: string, network: string): Promise<void> {
   logger.header('WITHDRAW FROM RUN')
 
+  const contracts = getContracts(network)
   const privateKey = getPrivateKey(network)
   const account = privateKeyToAccount(privateKey)
 
@@ -1092,7 +1167,7 @@ async function withdrawFromRun(runId: string, network: string): Promise<void> {
   try {
     logger.step('Withdrawing from run...')
     const hash = await walletClient.writeContract({
-      address: CONTRACTS.trainingCoordinator,
+      address: contracts.trainingCoordinator,
       abi: TRAINING_COORDINATOR_ABI,
       functionName: 'withdrawFromRun',
       args: [runId as `0x${string}`],
@@ -1116,6 +1191,7 @@ async function withdrawFromRun(runId: string, network: string): Promise<void> {
 async function claimRewards(runId: string, network: string): Promise<void> {
   logger.header('CLAIM REWARDS')
 
+  const contracts = getContracts(network)
   const privateKey = getPrivateKey(network)
   const account = privateKeyToAccount(privateKey)
 
@@ -1133,7 +1209,7 @@ async function claimRewards(runId: string, network: string): Promise<void> {
   // Check claimable first
   try {
     const [claimableAmount, claimablePoints] = await publicClient.readContract({
-      address: CONTRACTS.trainingRewards,
+      address: contracts.trainingRewards,
       abi: TRAINING_REWARDS_ABI,
       functionName: 'claimable',
       args: [runId as `0x${string}`, account.address],
@@ -1150,7 +1226,7 @@ async function claimRewards(runId: string, network: string): Promise<void> {
 
     logger.step('Claiming rewards...')
     const hash = await walletClient.writeContract({
-      address: CONTRACTS.trainingRewards,
+      address: contracts.trainingRewards,
       abi: TRAINING_REWARDS_ABI,
       functionName: 'claim',
       args: [runId as `0x${string}`],
@@ -1178,6 +1254,7 @@ async function listNodes(options: {
 }): Promise<void> {
   logger.header('COMPUTE NODES')
 
+  const contracts = getContracts(options.network)
   const publicClient = createPublicClient({
     chain: foundry,
     transport: http(getRpcUrl(options.network)),
@@ -1187,7 +1264,7 @@ async function listNodes(options: {
 
   try {
     const nodes = await publicClient.readContract({
-      address: CONTRACTS.nodePerformanceOracle,
+      address: contracts.nodePerformanceOracle,
       abi: NODE_PERFORMANCE_ABI,
       functionName: 'getOptimalNodes',
       args: [
@@ -1208,13 +1285,13 @@ async function listNodes(options: {
     for (const nodeAddr of nodes) {
       const [score, metrics] = await Promise.all([
         publicClient.readContract({
-          address: CONTRACTS.nodePerformanceOracle,
+          address: contracts.nodePerformanceOracle,
           abi: NODE_PERFORMANCE_ABI,
           functionName: 'getNodeScore',
           args: [nodeAddr],
         }),
         publicClient.readContract({
-          address: CONTRACTS.nodePerformanceOracle,
+          address: contracts.nodePerformanceOracle,
           abi: NODE_PERFORMANCE_ABI,
           functionName: 'getNodeMetrics',
           args: [nodeAddr],

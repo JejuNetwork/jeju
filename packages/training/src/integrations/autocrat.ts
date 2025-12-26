@@ -5,6 +5,7 @@
  * Model deployments require DAO approval.
  */
 
+import { getDeployerAddress } from '@jejunetwork/config'
 import { expectValid } from '@jejunetwork/types'
 import type { Address } from 'viem'
 import {
@@ -101,7 +102,7 @@ ${proposal.description}
 
     const submitterAddress =
       proposal.submitter ??
-      ((process.env.DEPLOYER_ADDRESS ??
+      ((getDeployerAddress() ??
         '0x0000000000000000000000000000000000000000') as Address)
 
     const result: TrainingProposal = {
@@ -149,7 +150,7 @@ ${proposal.description}
       trainingMetrics: deployment.trainingMetrics,
       submitter:
         deployment.submitter ??
-        ((process.env.DEPLOYER_ADDRESS ??
+        ((getDeployerAddress() ??
           '0x0000000000000000000000000000000000000000') as Address),
       status: 'pending',
       createdAt: Date.now(),

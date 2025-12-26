@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.954.0",
+    "cockatiel": "^3.2.1",
     "@elysiajs/cors": "^1.4.0",
     "@elysiajs/eden": "^1.4.5",
     "@jejunetwork/auth": "workspace:*",

@@ -27,13 +27,69 @@ import type {
   OAuth3Session,
   VerifiableCredential,
 } from '../types.js'
+import { SessionCapability, TEEProvider } from '../types.js'
 
-// Event data schema for extracting session
+// Hex string schema - validates 0x-prefixed hex strings
+const HexSchema = z.string().regex(/^0x[0-9a-fA-F]*$/, 'Invalid hex string') as z.ZodType<Hex>
+
+// Address schema - validates Ethereum addresses (0x + 40 hex chars)
+const AddressSchema = z.string().regex(/^0x[0-9a-fA-F]{40}$/, 'Invalid address') as z.ZodType<Address>
+
+// Session capability schema
+const SessionCapabilitySchema = z.enum([
+  SessionCapability.SIGN_TRANSACTION,
+  SessionCapability.SIGN_MESSAGE,
+  SessionCapability.MANAGE_IDENTITY,
+  SessionCapability.DELEGATE,
+])
+
+// TEE provider schema
+const TEEProviderSchema = z.enum([
+  TEEProvider.DSTACK,
+  TEEProvider.PHALA,
+  TEEProvider.SIMULATED,
+])
+
+// TEE attestation schema
+const TEEAttestationSchema = z.object({
+  quote: HexSchema,
+  measurement: HexSchema,
+  reportData: HexSchema,
+  timestamp: z.number().int().positive(),
+  provider: TEEProviderSchema,
+  verified: z.boolean(),
+})
+
+// Full OAuth3Session schema with proper validation
+const OAuth3SessionSchema = z.object({
+  sessionId: HexSchema,
+  identityId: HexSchema,
+  smartAccount: AddressSchema,
+  expiresAt: z.number().int().positive(),
+  capabilities: z.array(SessionCapabilitySchema),
+  signingPublicKey: HexSchema,
+  attestation: TEEAttestationSchema,
+})
+
+// Event data schema for extracting session with proper validation
 const SessionEventDataSchema = z
   .object({
-    session: z.unknown().optional(),
+    session: OAuth3SessionSchema.optional(),
   })
   .optional()
+
+/**
+ * Validates and parses session data from events
+ * @throws if session data is invalid
+ */
+function parseSessionFromEvent(event: OAuth3Event): OAuth3Session | undefined {
+  const parsed = SessionEventDataSchema.safeParse(event.data)
+  if (!parsed.success) {
+    console.error('Invalid session data in event:', parsed.error.issues)
+    return undefined
+  }
+  return parsed.data?.session
+}
 
 export interface OAuth3ProviderProps {
   children: ReactNode
@@ -120,13 +176,10 @@ export function OAuth3Provider({
   // Listen for client events
   useEffect(() => {
     const handleLogin = (event: OAuth3Event) => {
-      const parsed = SessionEventDataSchema.safeParse(event.data)
-      const session = parsed.success
-        ? (parsed.data?.session as OAuth3Session | undefined)
-        : undefined
-      if (session) {
-        setSession(session)
-        onSessionChange?.(session)
+      const newSession = parseSessionFromEvent(event)
+      if (newSession) {
+        setSession(newSession)
+        onSessionChange?.(newSession)
       }
     }
 
@@ -136,21 +189,20 @@ export function OAuth3Provider({
     }
 
     const handleSessionRefresh = (event: OAuth3Event) => {
-      const parsed = SessionEventDataSchema.safeParse(event.data)
-      const session = parsed.success
-        ? (parsed.data?.session as OAuth3Session | undefined)
-        : undefined
-      if (session) {
-        setSession(session)
-        onSessionChange?.(session)
+      const newSession = parseSessionFromEvent(event)
+      if (newSession) {
+        setSession(newSession)
+        onSessionChange?.(newSession)
       }
     }
 
     const handleError = (event: OAuth3Event) => {
-      const data = event.data as
-        | { message?: string; error?: string }
-        | undefined
-      setError(data?.message ?? data?.error ?? 'An error occurred')
+      const errorData = event.data as { message?: string; error?: string } | undefined
+      if (errorData) {
+        setError(errorData.message ?? errorData.error ?? 'An error occurred')
+      } else {
+        setError('An error occurred')
+      }
     }
 
     const unsubLogin = client.on('login', handleLogin)
