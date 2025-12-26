@@ -13,6 +13,10 @@ import { logger } from '../lib/logger'
 import { findMonorepoRoot } from '../lib/system'
 import { discoverApps } from '../lib/testing'
 import {
+  createDWSLocalProvisioner,
+  type DWSLocalProvisioner,
+} from '../services/dws-local-provisioner'
+import {
   createInfrastructureService,
   type InfrastructureService,
 } from '../services/infrastructure'
@@ -43,6 +47,7 @@ let isShuttingDown = false
 let servicesOrchestrator: ServicesOrchestrator | null = null
 let infrastructureService: InfrastructureService | null = null
 let localDeployOrchestrator: LocalDeployOrchestrator | null = null
+let dwsLocalProvisioner: DWSLocalProvisioner | null = null
 let proxyEnabled = false
 
 export const devCommand = new Command('dev')
@@ -97,7 +102,24 @@ async function startDev(options: {
   const rootDir = process.cwd()
   setupSignalHandlers()
 
-  // Step 1: Ensure all infrastructure is running (Docker, services, localnet)
+  // Step 1: On-chain provisioning for infrastructure services
+  // ALL services go through DWS contracts, even locally
+  dwsLocalProvisioner = createDWSLocalProvisioner(rootDir)
+
+  // Fast path: if already fully provisioned, just verify and continue
+  const requiredServices = ['ipfs'] // Core services needed for dev
+  const alreadyProvisioned = await dwsLocalProvisioner.isFullyProvisioned(requiredServices)
+
+  if (alreadyProvisioned && !options.bootstrap) {
+    logger.success('Using cached on-chain provisions (fast startup)')
+    const endpoints = dwsLocalProvisioner.getCachedEndpoints()
+    logger.debug(`  IPFS: ${endpoints.ipfs || 'not provisioned'}`)
+  } else {
+    // Full provisioning through on-chain contracts
+    await dwsLocalProvisioner.ensureAllProvisioned(requiredServices)
+  }
+
+  // Step 2: Start remaining infrastructure (CQL, cache, DA - native services)
   infrastructureService = createInfrastructureService(rootDir)
   const infraReady = await infrastructureService.ensureRunning()
 
@@ -108,9 +130,9 @@ async function startDev(options: {
 
   const l2RpcUrl = `http://127.0.0.1:${DEFAULT_PORTS.l2Rpc}`
 
-  // Bootstrap contracts (if needed or forced)
+  // Bootstrap app contracts (if needed or forced)
   if (options.bootstrap) {
-    logger.step('Bootstrapping contracts...')
+    logger.step('Bootstrapping app contracts...')
     await bootstrapContracts(rootDir, l2RpcUrl)
   } else {
     // Check if already bootstrapped
@@ -119,10 +141,10 @@ async function startDev(options: {
       'packages/contracts/deployments/localnet-complete.json',
     )
     if (!existsSync(bootstrapFile)) {
-      logger.step('Bootstrapping contracts...')
+      logger.step('Bootstrapping app contracts...')
       await bootstrapContracts(rootDir, l2RpcUrl)
     } else {
-      logger.debug('Contracts already bootstrapped')
+      logger.debug('App contracts already bootstrapped')
     }
   }
 
@@ -337,6 +359,12 @@ async function startLocalProxy(_rootDir: string): Promise<void> {
 async function stopDev(): Promise<void> {
   logger.header('STOPPING')
 
+  const rootDir = process.cwd()
+
+  // Full cleanup of DWS provisions
+  const dwsProvisioner = createDWSLocalProvisioner(rootDir)
+  await dwsProvisioner.cleanup()
+
   logger.step('Stopping localnet...')
   await stopLocalnet()
   logger.success('Stopped')
@@ -365,12 +393,15 @@ function setupSignalHandlers(): void {
       }
     }
 
+    // Note: We don't cleanup DWS provisions on shutdown - they persist for fast restart
+    // Use `jeju dev --stop` to fully cleanup
+
     await execa('docker', ['compose', 'down'], {
       cwd: join(process.cwd(), 'apps/monitoring'),
       reject: false,
     }).catch(() => undefined)
 
-    logger.success('Stopped')
+    logger.success('Stopped (DWS provisions cached for fast restart)')
     process.exit(0)
   }
 
