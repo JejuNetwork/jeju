@@ -18,7 +18,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'bun run dev',
+    command: 'bun run start',
     url: 'http://localhost:4200/health',
     reuseExistingServer: !process.env.CI,
   },

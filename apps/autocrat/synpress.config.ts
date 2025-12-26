@@ -23,7 +23,7 @@ export default createSynpressConfig({
       baseURL: BASE_URL,
     },
     webServer: {
-      command: 'bun run dev:web',
+      command: 'bun run start:web',
       url: BASE_URL,
       reuseExistingServer: true,
       timeout: 60000,
