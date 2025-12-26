@@ -45,9 +45,6 @@
         "digestAlgorithm": "sha256",
         "timestampUrl": "",
         "wix": null
-      },
-      "iOS": {
-        "developmentTeam": null
       }
     },
     "security": {
@@ -75,7 +72,7 @@
       }
     ],
     "systemTray": {
-      "iconPath": "icons/icon-disconnected.png",
+      "iconPath": "icons/32x32.png",
       "iconAsTemplate": true,
       "menuOnLeftClick": false,
       "title": "Jeju VPN"

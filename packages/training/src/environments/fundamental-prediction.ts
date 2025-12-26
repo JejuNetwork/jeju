@@ -2,11 +2,11 @@
  * Fundamental prediction environment for financial metric training.
  */
 
+import { HfInference } from '@huggingface/inference'
 import {
   getFundamentalDatasetUrl,
   getHuggingFaceToken,
 } from '@jejunetwork/config'
-import { HfInference } from '@huggingface/inference'
 import { type ChatMessage, expectValid } from '@jejunetwork/types'
 import { z } from 'zod'
 import { CompletionResponseSchema } from '../schemas'

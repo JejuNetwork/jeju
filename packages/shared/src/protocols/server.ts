@@ -9,8 +9,8 @@
  * Supports both server mode (Bun.serve) and serverless mode (export fetch handler).
  */
 
-import { isProductionEnv } from '@jejunetwork/config'
 import { cors } from '@elysiajs/cors'
+import { isProductionEnv } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import type { Address } from 'viem'
 import { z } from 'zod'
@@ -246,7 +246,7 @@ export function createServer(config: ServerConfig) {
           if (allowedOrigins.includes(origin)) return true
           // In development, also allow any localhost
           if (
-            !isProduction &&
+            !isProductionEnv() &&
             (origin.startsWith('http://localhost:') ||
               origin.startsWith('http://127.0.0.1:'))
           ) {

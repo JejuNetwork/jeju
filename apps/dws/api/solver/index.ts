@@ -1,7 +1,7 @@
 import {
-  getExternalRpc,
-  getCurrentNetwork,
   getRpcUrl as getConfigRpcUrl,
+  getCurrentNetwork,
+  getExternalRpc,
 } from '@jejunetwork/config'
 import { SolverAgent } from './agent'
 import { LiquidityManager } from './liquidity'

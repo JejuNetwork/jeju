@@ -101,7 +101,10 @@ export class AutonomousPostingService {
   /**
    * Get recent posts for context
    */
-  async getRecentPosts(agentId: string, limit: number = 5): Promise<RecentPost[]> {
+  async getRecentPosts(
+    agentId: string,
+    limit: number = 5,
+  ): Promise<RecentPost[]> {
     logger.debug(`Getting recent posts for agent ${agentId}, limit: ${limit}`)
 
     // In production, fetch from database
@@ -120,7 +123,11 @@ export class AutonomousPostingService {
     // Check for repeated openings
     const firstWords = content.split(' ').slice(0, 3).join(' ').toLowerCase()
     for (const post of recentPosts) {
-      const postFirstWords = post.content.split(' ').slice(0, 3).join(' ').toLowerCase()
+      const postFirstWords = post.content
+        .split(' ')
+        .slice(0, 3)
+        .join(' ')
+        .toLowerCase()
       if (firstWords === postFirstWords) {
         issues.push('Repeated opening from recent post')
         break
@@ -183,7 +190,10 @@ Your task is to create an engaging social post that:
     }
 
     if (config.lifetimePnL !== 0) {
-      const pnlStr = config.lifetimePnL > 0 ? `+$${config.lifetimePnL.toFixed(2)}` : `-$${Math.abs(config.lifetimePnL).toFixed(2)}`
+      const pnlStr =
+        config.lifetimePnL > 0
+          ? `+$${config.lifetimePnL.toFixed(2)}`
+          : `-$${Math.abs(config.lifetimePnL).toFixed(2)}`
       prompt += `Your trading P&L: ${pnlStr}\n\n`
     }
 
@@ -258,7 +268,7 @@ Only respond with the JSON object, no other text.`
 
       if (!result.success) {
         logger.warn(`Invalid post decision from LLM`, {
-          errors: result.error.errors,
+          errors: JSON.stringify(result.error.issues),
         })
         return {
           shouldPost: false,
@@ -270,21 +280,26 @@ Only respond with the JSON object, no other text.`
 
       // Validate content diversity if posting
       if (decision.shouldPost && decision.content) {
-        const issues = this.validateContentDiversity(decision.content, config.recentPosts)
-        if (issues.length > 0) {
-          logger.info(`Post rejected for diversity issues: ${issues.join(', ')}`)
+        const contentIssues = this.validateContentDiversity(
+          decision.content,
+          config.recentPosts,
+        )
+        if (contentIssues.length > 0) {
+          logger.info(
+            `Post rejected for diversity issues: ${contentIssues.join(', ')}`,
+          )
           return {
             shouldPost: false,
             content: decision.content,
-            reasoning: `Content rejected: ${issues[0]}`,
+            reasoning: `Content rejected: ${contentIssues[0]}`,
           }
         }
       }
 
       logger.info(`Agent ${agentId} post decision`, {
         shouldPost: decision.shouldPost,
-        topic: decision.topic,
-        contentLength: decision.content?.length,
+        topic: decision.topic ?? null,
+        contentLength: decision.content?.length ?? 0,
       })
 
       return decision
@@ -340,10 +355,15 @@ Only respond with the JSON object, no other text.`
 
     // Validate diversity
     const recentPosts = await this.getRecentPosts(agentId)
-    const diversityIssues = this.validateContentDiversity(cleanContent, recentPosts)
+    const diversityIssues = this.validateContentDiversity(
+      cleanContent,
+      recentPosts,
+    )
 
     if (diversityIssues.length > 0) {
-      logger.warn(`Post rejected for diversity issues: ${diversityIssues.join(', ')}`)
+      logger.warn(
+        `Post rejected for diversity issues: ${diversityIssues.join(', ')}`,
+      )
       return {
         success: false,
         error: `Content rejected: ${diversityIssues[0]}`,

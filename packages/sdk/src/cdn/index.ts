@@ -515,9 +515,7 @@ export function createCDNModule(
         args: [nodeId],
       })
 
-      if (
-        result.operator === '0x0000000000000000000000000000000000000000'
-      ) {
+      if (result.operator === '0x0000000000000000000000000000000000000000') {
         return null
       }
 

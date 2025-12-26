@@ -30,10 +30,14 @@ import type {
 import { SessionCapability, TEEProvider } from '../types.js'
 
 // Hex string schema - validates 0x-prefixed hex strings
-const HexSchema = z.string().regex(/^0x[0-9a-fA-F]*$/, 'Invalid hex string') as z.ZodType<Hex>
+const HexSchema = z
+  .string()
+  .regex(/^0x[0-9a-fA-F]*$/, 'Invalid hex string') as z.ZodType<Hex>
 
 // Address schema - validates Ethereum addresses (0x + 40 hex chars)
-const AddressSchema = z.string().regex(/^0x[0-9a-fA-F]{40}$/, 'Invalid address') as z.ZodType<Address>
+const AddressSchema = z
+  .string()
+  .regex(/^0x[0-9a-fA-F]{40}$/, 'Invalid address') as z.ZodType<Address>
 
 // Session capability schema
 const SessionCapabilitySchema = z.enum([
@@ -197,7 +201,9 @@ export function OAuth3Provider({
     }
 
     const handleError = (event: OAuth3Event) => {
-      const errorData = event.data as { message?: string; error?: string } | undefined
+      const errorData = event.data as
+        | { message?: string; error?: string }
+        | undefined
       if (errorData) {
         setError(errorData.message ?? errorData.error ?? 'An error occurred')
       } else {

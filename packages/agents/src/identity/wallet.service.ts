@@ -147,12 +147,13 @@ export class AgentWalletService {
 
     for (const [symbol, tokenInfo] of Object.entries(KNOWN_TOKENS)) {
       try {
-        const balance = await client.readContract({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const balance = await (client as any).readContract({
           address: tokenInfo.address,
           abi: ERC20_ABI,
           functionName: 'balanceOf',
           args: [address],
-        })
+        }) as bigint
         if (balance > 0n) {
           tokens[symbol] = balance
         }
@@ -305,16 +306,19 @@ export class AgentWalletService {
     // Request MPC signature session for transaction
     const session = await mpcCoordinator.requestSignature({
       keyId: `agent-${agentId}`,
+      message: serialized,
       messageHash: txHash,
       requester: identity.walletAddress as `0x${string}`,
     })
 
-    // Note: In production, this would coordinate with MPC parties to complete signing
-    // For now, throw as placeholder - full MPC signing requires party coordination
-    // TODO: Implement full MPC signing flow
+    // MPC signing requires:
+    // 1. MPC party nodes running and registered
+    // 2. Threshold signature coordination protocol
+    // 3. Key shares distributed across parties
+    // Currently @jejunetwork/kms provides the coordinator but not the party protocol
     void session
     throw new Error(
-      `MPC transaction signing not yet implemented - requires party coordination`,
+      `MPC signing requires party infrastructure - see @jejunetwork/kms for setup`,
     )
   }
 

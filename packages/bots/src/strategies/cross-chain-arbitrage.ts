@@ -845,7 +845,9 @@ const DEFAULT_SOLANA_TOKENS: SolanaTokenConfig[] = [
 
 export class SolanaArbitrage {
   private config: SolanaArbConfig
-  private tokenMap: Map<string, SolanaTokenConfig>
+  private useDWS: boolean
+  private dwsClient: DWSClient | null
+  private tokenMap!: Map<string, SolanaTokenConfig>
 
   constructor(config: Partial<SolanaArbConfig> = {}) {
     const tokens = config.monitoredTokens ?? DEFAULT_SOLANA_TOKENS
@@ -860,7 +862,6 @@ export class SolanaArbitrage {
       useDWS: config.useDWS ?? false,
       dwsClient: config.dwsClient ?? null,
     }
-    this.tokenMap = new Map(tokens.map((t) => [t.mint, t]))
     this.useDWS = config.useDWS ?? false
     this.dwsClient = config.dwsClient ?? null
   }

@@ -35,7 +35,7 @@ const RawTrajectorySchema = z.object({
         .object({
           timestamp: z.number(),
           actionType: z.string(),
-          parameters: z.record(z.unknown()).optional(),
+          parameters: z.record(z.string(), z.unknown()).optional(),
           success: z.boolean(),
         })
         .nullable()
@@ -335,7 +335,7 @@ export class TrajectoryBatchProcessor {
       const trajResult = RawTrajectorySchema.safeParse(t.raw)
       if (!trajResult.success) {
         logger.warn('[BatchProcessor] Invalid trajectory data, skipping', {
-          trajectoryId: t.raw.trajectoryId,
+          trajectoryId: String(t.raw.trajectoryId ?? 'unknown'),
           error: trajResult.error.message,
         })
         continue

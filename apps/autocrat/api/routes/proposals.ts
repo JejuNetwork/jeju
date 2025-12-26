@@ -2,11 +2,11 @@
  * Proposal Routes
  */
 
+import { expectValid } from '@jejunetwork/types'
 import { Elysia, t } from 'elysia'
 import {
   A2AJsonRpcResponseSchema,
   CasualProposalCategorySchema,
-  expectValid,
   extractA2AData,
   ProposalTypeSchema,
   QualityCriterionKeySchema,

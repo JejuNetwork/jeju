@@ -584,15 +584,8 @@ async function runDistributedCeremony(options: DistributedCeremonyOptions) {
     const { runDistributedCeremony: runCeremony, registerCeremonyOnChain } =
       await import('../tee/distributed-ceremony')
 
-    // Only enable simulation mode for localnet - production networks use real TEE attestation
-    if (network === 'localnet') {
-      process.env.CEREMONY_SIMULATION = 'true'
-      logger.warn(
-        'Running in SIMULATION MODE - not suitable for production use',
-      )
-    } else {
-      delete process.env.CEREMONY_SIMULATION
-    }
+    // Production networks use real TEE attestation (localnet returns early above)
+    delete process.env.CEREMONY_SIMULATION
 
     const result = await runCeremony(
       network,
@@ -805,24 +798,10 @@ async function verifyTeeAttestation(attestationFile: string) {
     }
   }
 
-  // Try to verify with @phala/dcap-qvl if available
+  // DCAP-QVL verification is optional - skip if library not available
   logger.newline()
   logger.subheader('Cryptographic Verification')
-
-  try {
-    const dcapQvl = await import('@aspect-build/esbuild-utils')
-      .catch(() => null)
-      .then(() => import('@aspect-build/esbuild-utils').catch(() => null))
-
-    if (dcapQvl) {
-      logger.info('DCAP-QVL verification available')
-    } else {
-      logger.warn('DCAP-QVL library not available')
-      logger.info('Install @aspect-build/esbuild-utils for local verification')
-    }
-  } catch {
-    // Library not available
-  }
+  logger.info('DCAP-QVL verification skipped (optional dependency)')
 
   // Verify MRENCLAVE/MRSIGNER if present in quote
   if (quoteBytes.length >= 432) {

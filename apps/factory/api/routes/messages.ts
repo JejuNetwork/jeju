@@ -8,7 +8,11 @@
 import { Elysia, t } from 'elysia'
 import type { Address } from 'viem'
 import * as dcService from '../services/direct-cast'
-import { isFarcasterConnected, getUser, getLinkedFid } from '../services/farcaster'
+import {
+  getLinkedFid,
+  getUser,
+  isFarcasterConnected,
+} from '../services/farcaster'
 
 const SendMessageBodySchema = t.Object({
   recipientFid: t.Number({ minimum: 1 }),
@@ -171,7 +175,10 @@ export const messagesRoutes = new Elysia({ prefix: '/api/messages' })
       }
 
       const recipientFid = parseInt(params.fid, 10)
-      const conversation = await dcService.getConversation(address, recipientFid)
+      const conversation = await dcService.getConversation(
+        address,
+        recipientFid,
+      )
 
       if (!conversation) {
         set.status = 404

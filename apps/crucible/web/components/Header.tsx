@@ -20,6 +20,7 @@ export function Header() {
     { href: '/chat', label: 'Chat', icon: '💬' },
     { href: '/rooms', label: 'Rooms', icon: '🏛️' },
     { href: '/autonomous', label: 'Autonomous', icon: '⚡' },
+    { href: '/feed', label: 'Feed', icon: '📣' },
   ]
 
   useEffect(() => {

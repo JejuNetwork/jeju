@@ -7,9 +7,9 @@
  * Usage: bun run packages/db/src/mock-cql-server.ts
  */
 
-import { getCqlDataDir, getCqlPort } from '@jejunetwork/config'
 import { Database } from 'bun:sqlite'
 import { cors } from '@elysiajs/cors'
+import { getCqlDataDir, getCqlPort } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import { z } from 'zod'
 import { parsePort, sanitizeRows } from './utils.js'

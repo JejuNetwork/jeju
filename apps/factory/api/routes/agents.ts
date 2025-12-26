@@ -62,22 +62,22 @@ export const agentsRoutes = new Elysia({ prefix: '/api/agents' })
       const validated = expectValid(CreateAgentBodySchema, body, 'request body')
 
       // Call Crucible API to actually register the agent
-      const crucibleUrl = process.env.CRUCIBLE_URL || getServiceUrl('compute', 'nodeApi') || 'http://localhost:4020'
-      const response = await fetch(
-        `${crucibleUrl}/api/v1/agents`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-jeju-address': authResult.address,
-          },
-          body: JSON.stringify({
-            name: validated.name,
-            type: validated.type,
-            capabilities: validated.capabilities ?? [],
-          }),
+      const crucibleUrl =
+        process.env.CRUCIBLE_URL ||
+        getServiceUrl('compute', 'nodeApi') ||
+        'http://localhost:4020'
+      const response = await fetch(`${crucibleUrl}/api/v1/agents`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-jeju-address': authResult.address,
         },
-      )
+        body: JSON.stringify({
+          name: validated.name,
+          type: validated.type,
+          capabilities: validated.capabilities ?? [],
+        }),
+      })
 
       if (!response.ok) {
         const errorText = await response.text()

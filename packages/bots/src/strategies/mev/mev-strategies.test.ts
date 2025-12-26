@@ -47,17 +47,20 @@ describe('AtomicLiquidator', () => {
         minProfitUsd: 50,
         maxGasPrice: 100000000000n,
         flashLoanProvider: 'aave',
-        liquidatorContract: '0x1234567890123456789012345678901234567890' as Address,
+        liquidatorContract:
+          '0x1234567890123456789012345678901234567890' as Address,
         protocols: [
           {
             name: 'Aave V3',
-            poolAddress: '0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2' as Address,
+            poolAddress:
+              '0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2' as Address,
             type: 'aave',
             subgraphName: 'aave-v3-ethereum',
           },
         ],
         subgraphUrls: {
-          'aave-v3-ethereum': 'https://api.thegraph.com/subgraphs/name/aave/protocol-v3',
+          'aave-v3-ethereum':
+            'https://api.thegraph.com/subgraphs/name/aave/protocol-v3',
         },
         ethPriceUsd: 3000,
         checkIntervalMs: 10000,
@@ -86,10 +89,10 @@ describe('AtomicLiquidator', () => {
     })
 
     await liquidator.start()
-    expect(liquidator['running']).toBe(true)
+    expect(liquidator.running).toBe(true)
 
     liquidator.stop()
-    expect(liquidator['running']).toBe(false)
+    expect(liquidator.running).toBe(false)
   })
 
   it('should emit events on liquidation attempts', () => {
@@ -135,10 +138,10 @@ describe('BackrunStrategy', () => {
 
   it('should start and stop correctly', async () => {
     await backrun.start()
-    expect(backrun['running']).toBe(true)
+    expect(backrun.running).toBe(true)
 
     backrun.stop()
-    expect(backrun['running']).toBe(false)
+    expect(backrun.running).toBe(false)
   })
 
   it('should emit events on backrun attempts', () => {
@@ -155,7 +158,7 @@ describe('BackrunStrategy', () => {
 
   it('should track recent trades', () => {
     // Access internal state
-    const trades = backrun['recentTrades']
+    const trades = backrun.recentTrades
     expect(trades).toBeDefined()
     expect(Array.isArray(trades)).toBe(true)
   })
@@ -195,10 +198,10 @@ describe('JITLiquidityStrategy', () => {
 
   it('should start and stop correctly', async () => {
     await jit.start()
-    expect(jit['running']).toBe(true)
+    expect(jit.running).toBe(true)
 
     jit.stop()
-    expect(jit['running']).toBe(false)
+    expect(jit.running).toBe(false)
   })
 
   it('should reject swaps when not running', async () => {
@@ -249,7 +252,7 @@ describe('JITLiquidityStrategy', () => {
     }
 
     // Access private method
-    const analyzeOpp = jit['analyzeOpportunity'].bind(jit)
+    const analyzeOpp = jit.analyzeOpportunity.bind(jit)
     const result = await analyzeOpp(swap)
 
     expect(result).toBeDefined()
@@ -310,10 +313,10 @@ describe('OracleArbStrategy', () => {
       .mockResolvedValueOnce(8) // decimals
 
     await oracleArb.start()
-    expect(oracleArb['running']).toBe(true)
+    expect(oracleArb.running).toBe(true)
 
     oracleArb.stop()
-    expect(oracleArb['running']).toBe(false)
+    expect(oracleArb.running).toBe(false)
   })
 
   it('should track oracle prices correctly', async () => {
@@ -324,7 +327,7 @@ describe('OracleArbStrategy', () => {
 
     await oracleArb.start()
 
-    const prices = oracleArb['lastPrices']
+    const prices = oracleArb.lastPrices
     expect(prices).toBeDefined()
     expect(prices instanceof Map).toBe(true)
     expect(prices.size).toBe(1)
@@ -344,13 +347,10 @@ describe('OracleArbStrategy', () => {
     await oracleArb.start()
 
     // Access private method
-    const findOpp = oracleArb['findOpportunity'].bind(oracleArb)
+    const findOpp = oracleArb.findOpportunity.bind(oracleArb)
 
     // Mock getAmountsOut for finding opportunity
-    mockReadContract.mockResolvedValueOnce([
-      10n ** 17n,
-      200n * 10n ** 6n,
-    ])
+    mockReadContract.mockResolvedValueOnce([10n ** 17n, 200n * 10n ** 6n])
 
     const update = {
       oracle: oracleConfig.oracleAddresses[0],
@@ -391,8 +391,8 @@ describe('OracleArbStrategy', () => {
     await oracleArb.start()
 
     // Manually set stats for testing
-    oracleArb['executionStats'].attempts = 10
-    oracleArb['executionStats'].successes = 3
+    oracleArb.executionStats.attempts = 10
+    oracleArb.executionStats.successes = 3
 
     const stats = oracleArb.getStats()
     expect(stats.successRate).toBe(0.3)

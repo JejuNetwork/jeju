@@ -5,16 +5,16 @@
  * Production uses the full CovenantSQL network, but this allows offline dev.
  */
 
+import { Database as SqliteDatabase } from 'bun:sqlite'
+import { existsSync, mkdirSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { cors } from '@elysiajs/cors'
 import {
   getCqlDataDir,
   getCqlPort,
   getLogLevel,
   isProductionEnv,
 } from '@jejunetwork/config'
-import { Database as SqliteDatabase } from 'bun:sqlite'
-import { existsSync, mkdirSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { cors } from '@elysiajs/cors'
 import { Elysia } from 'elysia'
 import pino from 'pino'
 import { z } from 'zod'

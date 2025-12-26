@@ -461,12 +461,12 @@ export function createContentVersioningService(
       appName,
       jnsName: `${appName}.jeju`,
       jnsResolver:
-        options.jnsResolver ??
-        (getJnsResolverAddressEnv() as Address) ??
-        '0x0',
+        options.jnsResolver ?? (getJnsResolverAddressEnv() as Address) ?? '0x0',
       ipfsApiUrl: options.ipfsApiUrl ?? getIpfsApiUrlEnv(),
       ipfsGatewayUrl:
-        options.ipfsGatewayUrl ?? getIpfsGatewayUrlEnv() ?? 'http://localhost:4180',
+        options.ipfsGatewayUrl ??
+        getIpfsGatewayUrlEnv() ??
+        'http://localhost:4180',
     },
     options.publicClient,
     options.walletClient,

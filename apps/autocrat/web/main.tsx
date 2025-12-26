@@ -15,6 +15,7 @@ import CEOPage from './pages/CEO'
 import CreatePage from './pages/Create'
 // Pages
 import DashboardPage from './pages/Dashboard'
+import FeedPage from './pages/Feed'
 import ModerationPage from './pages/Moderation'
 import ProposalDetailPage from './pages/ProposalDetail'
 import ProposalsPage from './pages/Proposals'
@@ -52,6 +53,7 @@ function App() {
                   element={<BugBountyDetailPage />}
                 />
                 <Route path="/admin" element={<AdminPage />} />
+                <Route path="/feed" element={<FeedPage />} />
                 <Route path="/auth/callback" element={<AuthCallbackPage />} />
               </Route>
             </Routes>

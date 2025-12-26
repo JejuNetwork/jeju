@@ -68,10 +68,12 @@ const AccountReviewSchema = z.object({
       z.object({
         type: z.string(),
         count: z.number(),
-        severity: z.number(),
+        severity: z.enum(['low', 'medium', 'high', 'critical']),
+        description: z.string(),
       }),
     ),
     overallAssessment: z.string(),
+    llmReasoning: z.string(),
   }),
   recommendation: z.enum(['allow', 'warn', 'suspend', 'ban']),
   confidence: z.number().min(0).max(1),
@@ -79,6 +81,9 @@ const AccountReviewSchema = z.object({
 })
 
 const ModerationQueueSchema = z.array(AccountReviewSchema)
+
+// Use the Zod-inferred type for internal queue operations
+type AccountReviewData = z.infer<typeof AccountReviewSchema>
 
 // ============ Configuration ============
 
@@ -592,7 +597,7 @@ Return ONLY valid JSON:
       process.env.MODERATION_QUEUE_FILE ?? '/tmp/email-moderation-queue.json'
 
     try {
-      let queue: AccountReview[] = []
+      let queue: AccountReviewData[] = []
 
       try {
         const existing = await readFile(queueFile, 'utf-8')
@@ -600,13 +605,23 @@ Return ONLY valid JSON:
           JSON.parse(existing),
         )
         if (parseResult.success) {
-          queue = parseResult.data as AccountReview[]
+          queue = parseResult.data
         }
       } catch {
         // File doesn't exist yet
       }
 
-      queue.push(review)
+      // Convert AccountReview to AccountReviewData for queue storage
+      const reviewData: AccountReviewData = {
+        account: review.account,
+        emailAddress: review.emailAddress,
+        reviewReason: review.reviewReason,
+        contentAnalysis: review.contentAnalysis,
+        recommendation: review.recommendation,
+        confidence: review.confidence,
+        timestamp: review.timestamp,
+      }
+      queue.push(reviewData)
       await writeFile(queueFile, JSON.stringify(queue, null, 2))
       console.log(`[ContentScreening] Review queued locally: ${queueFile}`)
     } catch (error) {
@@ -691,6 +706,7 @@ Return ONLY valid JSON:
     flags: ContentFlag[],
     action: ScreeningAction,
     reviewRequired: boolean,
+    _processingTimeMs?: number,
   ): ScreeningResult {
     return {
       messageId,

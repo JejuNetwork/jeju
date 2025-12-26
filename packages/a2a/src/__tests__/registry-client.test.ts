@@ -161,7 +161,6 @@ describe('RegistryClient', () => {
     })
   })
 
-
   describe('discoverAgents', () => {
     it('should filter agents by minReputation', async () => {
       // Mock getAgentsByMinScore

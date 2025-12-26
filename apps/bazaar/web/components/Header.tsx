@@ -22,6 +22,7 @@ export function Header() {
     { href: '/coins', label: 'Coins', icon: '🪙' },
     { href: '/markets', label: 'Predict', icon: '🎯' },
     { href: '/items', label: 'NFTs', icon: '🖼️' },
+    { href: '/feed', label: 'Feed', icon: '📣' },
   ]
 
   useEffect(() => {

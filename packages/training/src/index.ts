@@ -370,8 +370,8 @@ export {
   type AuthSignature,
   type CIDResponse,
   createStaticTrajectoryStorage,
-  type DatasetReference,
   DATASET_REFERENCE_SCHEMA,
+  type DatasetReference,
   downloadTrajectoryBatch,
   type EncryptedPayload,
   type EncryptedTrajectory,
@@ -398,10 +398,10 @@ export {
   shouldUseStorage,
   shutdownAllStaticStorage,
   TRAJECTORY_BATCH_SCHEMA,
-  type TrajectoryBatch,
-  type TrajectoryBatchReference,
   type TrainingDbClient,
   TrainingDbPersistence,
+  type TrajectoryBatch,
+  type TrajectoryBatchReference,
 } from './storage'
 
 // TEE training workers

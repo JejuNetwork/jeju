@@ -148,7 +148,7 @@ export const testCommand = new Command('test')
 
     // Fail fast on invalid app selection (before any setup)
     if (options.targetApp) {
-      const apps = discoverApps(rootDir)
+      const apps = discoverApps(rootDir, true)
       const exists = apps.some(
         (a) =>
           (a._folderName ?? a.slug ?? a.name) === options.targetApp ||
@@ -310,10 +310,13 @@ testCommand
     console.log('  smoke         Quick health checks')
 
     logger.subheader('Apps')
-    const apps = discoverApps(rootDir)
+    const apps = discoverApps(rootDir, true)
     for (const app of apps) {
       const folderName = app._folderName ?? app.slug ?? app.name
-      const manifest = loadManifest(join(rootDir, 'apps', folderName))
+      const appPath = app.type === 'vendor' 
+        ? join(rootDir, 'vendor', folderName)
+        : join(rootDir, 'apps', folderName)
+      const manifest = loadManifest(appPath)
       const testing = manifest?.testing as ManifestTesting | undefined
       const hasTests = !!(testing?.unit || testing?.e2e || testing?.integration)
       console.log(
@@ -360,7 +363,7 @@ testCommand
       testEnv = { ...testOrchestrator.getEnvVars(), NODE_ENV: 'test' }
     }
 
-    const apps = discoverApps(rootDir)
+    const apps = discoverApps(rootDir, true)
 
     for (const app of apps) {
       // Use folder name for file system lookup (falls back to manifest name if not set)
@@ -1560,7 +1563,7 @@ async function setupE2EInfra(
 
   if (options.app && typeof options.app === 'string') {
     const appName = options.app
-    const apps = discoverApps(rootDir)
+    const apps = discoverApps(rootDir, true)
     const appManifest = apps.find(
       (a) =>
         (a._folderName ?? a.slug ?? a.name) === appName || a.name === appName,
@@ -1568,7 +1571,9 @@ async function setupE2EInfra(
 
     if (appManifest) {
       const folderName = appManifest._folderName ?? appManifest.slug ?? appName
-      const appDir = join(rootDir, 'apps', folderName)
+      const appDir = appManifest.type === 'vendor'
+        ? join(rootDir, 'vendor', folderName)
+        : join(rootDir, 'apps', folderName)
       const devCommand = appManifest.commands?.dev
       const mainPort = appManifest.ports?.main
 

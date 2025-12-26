@@ -1,12 +1,5 @@
 /**
- * Cache Instance Provisioning
- *
- * Serverless cache instance lifecycle management:
- * - Instance creation/deletion
- * - Resource allocation
- * - Node assignment
- * - Health monitoring
- * - x402 billing integration (see billing.ts)
+ * Cache instance provisioning and lifecycle management
  */
 
 import { getCQL } from '@jejunetwork/db'
@@ -31,8 +24,6 @@ import {
 } from './types'
 
 const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? 'dws-cache'
-
-// Rental Plans
 
 const DEFAULT_PLANS: CacheRentalPlan[] = [
   {
@@ -113,8 +104,6 @@ const DEFAULT_PLANS: CacheRentalPlan[] = [
   },
 ]
 
-// CQL Row types
-
 interface CacheInstanceRow {
   id: string
   owner: string
@@ -145,11 +134,6 @@ interface CacheNodeRow {
   last_heartbeat: number
 }
 
-/**
- * Cache Provisioning Manager
- *
- * Manages serverless cache instance lifecycle.
- */
 export class CacheProvisioningManager {
   private instances: Map<string, CacheInstance> = new Map()
   private nodes: Map<string, CacheNode> = new Map()
@@ -161,22 +145,11 @@ export class CacheProvisioningManager {
   private cqlClient: ReturnType<typeof getCQL> | null = null
   private initialized = false
 
-  /**
-   * Initialize the provisioning manager
-   */
   async initialize(): Promise<void> {
     console.log('[Cache Provisioning] Initializing...')
-
-    // Initialize CQL client
     this.cqlClient = getCQL()
-
-    // Create tables
     await this.ensureTablesExist()
-
-    // Load existing instances and nodes from CQL
     await this.loadFromCQL()
-
-    // Start cleanup interval
     this.cleanupInterval = setInterval(
       () => this.cleanupExpiredInstances(),
       60000,
@@ -186,32 +159,20 @@ export class CacheProvisioningManager {
     console.log('[Cache Provisioning] Initialized')
   }
 
-  /**
-   * Stop the provisioning manager
-   */
   async stop(): Promise<void> {
     if (this.cleanupInterval) {
       clearInterval(this.cleanupInterval)
       this.cleanupInterval = null
     }
-
-    // Stop all engines
     for (const engine of this.engines.values()) {
       engine.stop()
     }
-
-    // Stop all TEE providers
     for (const provider of this.teeProviders.values()) {
       await provider.stop()
     }
-
     this.initialized = false
-    console.log('[Cache Provisioning] Stopped')
   }
 
-  /**
-   * Check if the manager is initialized
-   */
   isInitialized(): boolean {
     return this.initialized
   }

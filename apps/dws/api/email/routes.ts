@@ -2,17 +2,35 @@
  * Email Routes
  * Decentralized email service for DWS
  *
- * DEVELOPMENT ONLY: Uses in-memory storage that is NOT persistent.
- * For production, this module needs to be integrated with CQL/IPFS.
+ * DEVELOPMENT/TESTING ONLY: Uses in-memory storage.
+ * For production, use EmailRelayService with MailboxStorage (DWS-backed).
+ * 
+ * This module is a lightweight API for local development and testing.
+ * Production traffic should use the full email system at /email/* routes
+ * which integrates with:
+ * - DWS Storage (IPFS/Arweave)
+ * - EmailRegistry contract
+ * - Content screening
+ * - Encryption
  */
 
 import { createHash } from 'node:crypto'
+import { getMetrics } from '../../src/email/metrics'
+
+const IN_MEMORY_STORAGE_WARNING = `
+╔══════════════════════════════════════════════════════════════════╗
+║  WARNING: Email routes using IN-MEMORY storage                   ║
+║  Data will be LOST on restart. This is for development only.     ║
+║  Set NODE_ENV=production with proper DWS config for persistence. ║
+╚══════════════════════════════════════════════════════════════════╝
+`
 
 // Warn about in-memory storage at module load
 if (process.env.NODE_ENV === 'production') {
-  console.warn(
-    '[Email Routes] WARNING: Running in production with in-memory storage. Emails will be lost on restart.',
-  )
+  console.error(IN_MEMORY_STORAGE_WARNING)
+  console.error('[Email Routes] CRITICAL: Production with in-memory storage is misconfigured')
+} else {
+  console.warn('[Email Routes] Using in-memory storage (development mode)')
 }
 
 import { expectValid } from '@jejunetwork/types'
@@ -153,6 +171,11 @@ export function createEmailRouter() {
         activeMailboxes: mailboxes.size,
       }))
 
+      .get('/metrics', async ({ set }) => {
+        set.headers['Content-Type'] = 'text/plain'
+        return getMetrics()
+      })
+
       // Get mailbox overview
       .get('/mailbox', ({ headers, set }) => {
         const address = headers['x-wallet-address']
@@ -194,8 +217,13 @@ export function createEmailRouter() {
             return { error: 'Wallet address required' }
           }
 
-          const { from, to, subject, bodyText, bodyHtml, cc, bcc, replyTo } =
-            expectValid(SendEmailBodySchema, body, 'Send email request')
+          const parseResult = SendEmailBodySchema.safeParse(body)
+          if (!parseResult.success) {
+            set.status = 400
+            const errors = parseResult.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join(', ')
+            return { error: `Invalid email request: ${errors}` }
+          }
+          const { from, to, subject, bodyText, bodyHtml, cc, bcc, replyTo } = parseResult.data
 
           const timestamp = Date.now()
           const messageId = generateMessageId(from, to, timestamp)

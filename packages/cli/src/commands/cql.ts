@@ -527,18 +527,6 @@ async function checkMiner(
   return { id, running, endpoint: running ? endpoint : undefined }
 }
 
-function getRpcUrl(network: string): string {
-  switch (network) {
-    case 'localnet':
-      return 'http://localhost:6546'
-    case 'testnet':
-      return 'https://sepolia.base.org'
-    case 'mainnet':
-      return 'https://mainnet.base.org'
-    default:
-      throw new Error(`Unknown network: ${network}`)
-  }
-}
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))

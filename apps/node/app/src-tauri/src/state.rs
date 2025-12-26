@@ -63,9 +63,9 @@ pub struct AppStateInner {
     pub wallet_manager: Option<WalletManager>,
     pub service_manager: ServiceManager,
     pub earnings_tracker: EarningsTracker,
-    pub service_status: HashMap<String, ServiceStatus>,
+    pub _service_status: HashMap<String, ServiceStatus>,
     pub bot_status: HashMap<String, BotStatus>,
-    pub network_info: NetworkInfo,
+    pub _network_info: NetworkInfo,
     pub initialized: bool,
 }
 
@@ -82,9 +82,9 @@ impl AppState {
                 wallet_manager: None,
                 service_manager: ServiceManager::new(),
                 earnings_tracker: EarningsTracker::new(),
-                service_status: HashMap::new(),
+                _service_status: HashMap::new(),
                 bot_status: HashMap::new(),
-                network_info: NetworkInfo {
+                _network_info: NetworkInfo {
                     network: "mainnet".to_string(),
                     chain_id: 420690,
                     rpc_url: "https://rpc.jejunetwork.org".to_string(),
@@ -116,6 +116,7 @@ impl AppState {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn is_initialized(&self) -> bool {
         self.inner.blocking_read().initialized
     }

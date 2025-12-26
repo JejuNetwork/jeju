@@ -1,37 +1,32 @@
 /**
- * Cache Service Types
- *
- * Types for the serverless decentralized cache service.
- * Supports standard, premium, and TEE-backed cache tiers.
+ * Cache service types
  */
 
 import type { Address, Hex } from 'viem'
 
-// Cache Tiers
-
 export const CacheTier = {
-  /** Shared multi-tenant cache - best effort */
   STANDARD: 'standard',
-  /** Dedicated single-tenant cache - SLA guarantees */
   PREMIUM: 'premium',
-  /** TEE-backed cache in CVM - encrypted memory with attestation */
   TEE: 'tee',
 } as const
 export type CacheTier = (typeof CacheTier)[keyof typeof CacheTier]
 
-// TEE Providers for cache
-
+/**
+ * TEE providers for cache encryption.
+ * WARNING: LOCAL and DSTACK modes use SIMULATED encryption (base64 encoding).
+ * For production with sensitive data, use PHALA, INTEL_TDX, or AMD_SEV.
+ */
 export const CacheTEEProvider = {
   PHALA: 'phala',
   INTEL_TDX: 'intel-tdx',
   AMD_SEV: 'amd-sev',
+  /** Simulated - NOT SECURE for production */
   DSTACK: 'dstack',
+  /** Simulated - NOT SECURE for production */
   LOCAL: 'local',
 } as const
 export type CacheTEEProvider =
   (typeof CacheTEEProvider)[keyof typeof CacheTEEProvider]
-
-// Cache Instance Status
 
 export const CacheInstanceStatus = {
   CREATING: 'creating',
@@ -43,8 +38,6 @@ export const CacheInstanceStatus = {
 export type CacheInstanceStatus =
   (typeof CacheInstanceStatus)[keyof typeof CacheInstanceStatus]
 
-// Cache Entry
-
 export interface CacheEntry<T = string> {
   value: T
   createdAt: number
@@ -53,8 +46,6 @@ export interface CacheEntry<T = string> {
   lastAccessedAt: number
   sizeBytes: number
 }
-
-// Cache Instance
 
 export interface CacheInstance {
   id: string
@@ -73,8 +64,6 @@ export interface CacheInstance {
   endpoint?: string
 }
 
-// TEE Attestation for cache
-
 export interface CacheTEEAttestation {
   quote: Hex
   mrEnclave: Hex
@@ -84,8 +73,6 @@ export interface CacheTEEAttestation {
   provider: CacheTEEProvider
   simulated: boolean
 }
-
-// Cache Plans (for rental/provisioning)
 
 export interface CacheRentalPlan {
   id: string

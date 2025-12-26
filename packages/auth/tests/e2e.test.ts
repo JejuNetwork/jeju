@@ -23,12 +23,12 @@ import {
   CrossChainIdentityManager,
   computeIntentHash,
 } from '../src/intents/cross-chain-identity.js'
-import { ChainId } from '../src/types.js'
 import type {
   AuthProvider,
   OAuth3Identity,
   OAuth3Session,
 } from '../src/types.js'
+import { ChainId } from '../src/types.js'
 
 const TEST_CHAIN_ID = 420691
 

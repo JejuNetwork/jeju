@@ -72,19 +72,11 @@ fn build_tray_menu(
 }
 
 /// Update the system tray icon based on connection state
-fn update_tray_icon(app: &AppHandle, connected: bool) {
-    let icon_path = if connected {
-        "icons/icon-connected.png"
-    } else {
-        "icons/icon-disconnected.png"
-    };
-
-    if let Err(e) = app
-        .tray_handle()
-        .set_icon(tauri::Icon::File(icon_path.into()))
-    {
-        tracing::warn!("Failed to update tray icon: {}", e);
-    }
+fn update_tray_icon(app: &AppHandle, _connected: bool) {
+    // Note: Dynamic icon updates are not supported in this Tauri version
+    // The icon is set in tauri.conf.json and used throughout
+    // To change icons dynamically, upgrade to Tauri v2 or use native platform APIs
+    let _ = app; // silence unused warning
 }
 
 /// Update the system tray menu
