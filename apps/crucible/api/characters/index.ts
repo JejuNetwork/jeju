@@ -53,7 +53,7 @@ export const characters: Record<string, AgentCharacter> = {
 }
 
 // Red team character IDs (for adversarial testing)
-const _RED_TEAM_CHARACTERS = [
+export const RED_TEAM_CHARACTERS = [
   'red-team',
   'scammer',
   'security-researcher',
@@ -62,12 +62,30 @@ const _RED_TEAM_CHARACTERS = [
 ] as const
 
 // Blue team character IDs (for defense/moderation)
-const _BLUE_TEAM_CHARACTERS = [
+export const BLUE_TEAM_CHARACTERS = [
   'blue-team',
   'moderator',
   'network-guardian',
   'contracts-auditor',
 ] as const
+
+/**
+ * Load all blue team characters
+ */
+export async function loadBlueTeamCharacters(): Promise<AgentCharacter[]> {
+  return BLUE_TEAM_CHARACTERS.map((id) => characters[id]).filter(
+    (c): c is AgentCharacter => c !== undefined,
+  )
+}
+
+/**
+ * Load all red team characters
+ */
+export async function loadRedTeamCharacters(): Promise<AgentCharacter[]> {
+  return RED_TEAM_CHARACTERS.map((id) => characters[id]).filter(
+    (c): c is AgentCharacter => c !== undefined,
+  )
+}
 
 /**
  * Get character by ID

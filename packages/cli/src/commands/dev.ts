@@ -263,6 +263,15 @@ async function deployAppsOnchain(
         CDN_REGISTRY_ADDRESS: dwsContracts.cdnRegistry,
         JNS_REGISTRY_ADDRESS: dwsContracts.jnsRegistry,
         JNS_RESOLVER_ADDRESS: dwsContracts.jnsResolver,
+        // Public RPC fallbacks for external chain queries
+        ETHEREUM_RPC_URL:
+          process.env.ETHEREUM_RPC_URL || 'https://eth.llamarpc.com',
+        SEPOLIA_RPC_URL:
+          process.env.SEPOLIA_RPC_URL ||
+          'https://ethereum-sepolia-rpc.publicnode.com',
+        BASE_RPC_URL: process.env.BASE_RPC_URL || 'https://mainnet.base.org',
+        BASE_SEPOLIA_RPC_URL:
+          process.env.BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org',
       },
       stdio: 'pipe',
     })

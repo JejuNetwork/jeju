@@ -37,7 +37,7 @@ const ComputeNodeStatsSchema = z.object({
       activeRuns: z.number().optional(),
     })
     .optional(),
-  // Legacy fields for backward compatibility
+  // Flat response fields (alternative format from some DWS versions)
   totalNodes: z.number().optional(),
   activeNodes: z.number().optional(),
   avgLoad: z.number().optional(),

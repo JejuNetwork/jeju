@@ -168,7 +168,7 @@ describe('LedgerKeyring', () => {
         ],
       },
       {
-        type: 'Legacy',
+        type: 'MEW',
         expectedPaths: ["m/44'/60'/0'/0", "m/44'/60'/0'/1", "m/44'/60'/0'/2"],
       },
     ]

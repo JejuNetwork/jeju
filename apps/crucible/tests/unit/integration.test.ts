@@ -10,6 +10,7 @@
  */
 
 import { beforeAll, describe, expect, test } from 'bun:test'
+import { getServicesConfig } from '@jejunetwork/config'
 import { createPublicClient, createWalletClient, http, parseEther } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { localhost } from 'viem/chains'
@@ -24,12 +25,15 @@ import type { CrucibleConfig } from '../../lib/types'
 const TEST_PRIVATE_KEY =
   '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' // anvil default
 
+// Get services config (handles env var overrides internally)
+const servicesConfig = getServicesConfig()
+
 // DWS provides storage, compute, and CDN from a single endpoint
-const DWS_URL = process.env.DWS_URL ?? 'http://127.0.0.1:4030'
+const DWS_URL = servicesConfig.dws.api
 
 // Read contract addresses from env or use defaults
 const config: CrucibleConfig = {
-  rpcUrl: process.env.RPC_URL ?? 'http://127.0.0.1:6546',
+  rpcUrl: servicesConfig.rpc.l2,
   privateKey: TEST_PRIVATE_KEY,
   contracts: {
     agentVault: (process.env.AGENT_VAULT_ADDRESS ??
@@ -45,12 +49,10 @@ const config: CrucibleConfig = {
   },
   services: {
     dwsUrl: DWS_URL,
-    computeMarketplace:
-      process.env.COMPUTE_MARKETPLACE_URL ?? `${DWS_URL}/compute`,
-    storageApi: process.env.STORAGE_API_URL ?? `${DWS_URL}/storage`,
-    ipfsGateway: process.env.IPFS_GATEWAY ?? `${DWS_URL}/cdn`,
-    indexerGraphql:
-      process.env.INDEXER_GRAPHQL_URL ?? 'http://127.0.0.1:4350/graphql',
+    computeMarketplace: servicesConfig.compute.marketplace,
+    storageApi: servicesConfig.storage.api,
+    ipfsGateway: servicesConfig.storage.ipfsGateway,
+    indexerGraphql: servicesConfig.indexer.graphql,
   },
   network: 'localnet',
 }

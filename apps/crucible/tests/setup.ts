@@ -11,10 +11,7 @@
  */
 
 import { afterAll, beforeAll } from 'bun:test'
-
-// Default ports
-const DWS_PORT = 4030
-const RPC_PORT = 9545
+import { getServicesConfig } from '@jejunetwork/config'
 
 interface TestEnv {
   dwsUrl: string
@@ -25,7 +22,7 @@ interface TestEnv {
 
 // Check if DWS is available
 async function checkDWS(): Promise<boolean> {
-  const dwsUrl = process.env.DWS_URL ?? `http://127.0.0.1:${DWS_PORT}`
+  const dwsUrl = getServicesConfig().dws.api
   const result = await fetch(`${dwsUrl}/health`, {
     signal: AbortSignal.timeout(2000),
   })
@@ -34,10 +31,7 @@ async function checkDWS(): Promise<boolean> {
 
 // Check if RPC is available
 async function checkRPC(): Promise<boolean> {
-  const rpcUrl =
-    process.env.L2_RPC_URL ??
-    process.env.JEJU_RPC_URL ??
-    `http://127.0.0.1:${RPC_PORT}`
+  const rpcUrl = getServicesConfig().rpc.l2
   const result = await fetch(rpcUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -89,19 +83,16 @@ async function waitForInfra(_maxAttempts = 5): Promise<boolean> {
 }
 
 /**
- * Get test environment
+ * Get test environment using config (handles env var overrides internally)
  */
 export function getTestEnv(): TestEnv {
-  const dwsUrl = process.env.DWS_URL ?? `http://127.0.0.1:${DWS_PORT}`
+  const servicesConfig = getServicesConfig()
 
   return {
-    dwsUrl,
-    rpcUrl:
-      process.env.L2_RPC_URL ??
-      process.env.JEJU_RPC_URL ??
-      `http://127.0.0.1:${RPC_PORT}`,
-    storageUrl: process.env.STORAGE_API_URL ?? `${dwsUrl}/storage`,
-    computeUrl: process.env.COMPUTE_MARKETPLACE_URL ?? `${dwsUrl}/compute`,
+    dwsUrl: servicesConfig.dws.api,
+    rpcUrl: servicesConfig.rpc.l2,
+    storageUrl: servicesConfig.storage.api,
+    computeUrl: servicesConfig.compute.marketplace,
   }
 }
 

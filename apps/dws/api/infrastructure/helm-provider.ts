@@ -517,7 +517,7 @@ const deployments = new Map<string, DWSDeployment>()
 export function createHelmProviderRouter() {
   const parser = new ManifestParser()
 
-  return new Elysia({ prefix: '' })
+  return new Elysia({ prefix: '/helm' })
     .get('/health', () => ({ status: 'healthy', provider: 'dws-helm' }))
     .post(
       '/apply',

@@ -561,7 +561,7 @@ const IngressRuleBody = t.Object({
 })
 
 export function createIngressRouter(controller: IngressController) {
-  return new Elysia({ prefix: '' })
+  return new Elysia({ prefix: '/ingress' })
     .get('/health', () => ({ status: 'healthy', rules: ingressRules.size }))
     .post(
       '/rules',
