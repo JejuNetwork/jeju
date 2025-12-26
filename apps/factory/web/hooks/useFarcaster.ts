@@ -72,6 +72,14 @@ export interface LookupFidResult {
   user?: FarcasterUser
 }
 
+export interface QuickConnectResult {
+  registrationRequired: boolean
+  registration?: {
+    message: string
+    signerPublicKey: string
+  }
+}
+
 // ============================================================================
 // CONNECTION HOOKS
 // ============================================================================
