@@ -28,7 +28,7 @@
 import { createHash } from 'node:crypto'
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { join, relative } from 'node:path'
-import { getDWSUrl, getIpfsGatewayEnv, getRpcUrl, getStorageApiEndpoint } from '@jejunetwork/config'
+import { getIpfsGatewayEnv, getRpcUrl, getStorageApiEndpoint } from '@jejunetwork/config'
 import { z } from 'zod'
 import type {
   CacheConfig,

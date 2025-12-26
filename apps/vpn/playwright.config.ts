@@ -1,49 +1,37 @@
+/**
+ * Vpn Playwright Configuration
+ */
+import { CORE_PORTS } from '@jejunetwork/config/ports'
 import { defineConfig, devices } from '@playwright/test'
 
-const VPN_PORT = parseInt(process.env.VPN_PORT ?? '1421', 10)
-const BASE_URL = `http://localhost:${VPN_PORT}`
+const PORT = CORE_PORTS.VPN_WEB.get()
 
 export default defineConfig({
   testDir: './tests/e2e',
-  fullyParallel: !process.env.CI,
+  fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
+  reporter: 'html',
   timeout: 120000,
 
-  expect: {
-    timeout: 30000,
-  },
-
-  reporter: [
-    ['list'],
-    ['html', { outputFolder: 'playwright-report' }],
-    ['json', { outputFile: 'test-results.json' }],
-  ],
-
   use: {
-    baseURL: BASE_URL,
-    trace: 'retain-on-failure',
+    baseURL: `http://localhost:${PORT}`,
+    trace: 'on-first-retry',
     screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
-    actionTimeout: 30000,
-    navigationTimeout: 30000,
   },
 
   projects: [
     {
       name: 'chromium',
-      use: {
-        ...devices['Desktop Chrome'],
-        viewport: { width: 1280, height: 720 },
-      },
+      use: { ...devices['Desktop Chrome'] },
     },
   ],
 
-  webServer: {
-    command: 'bun run dev:web',
-    url: BASE_URL,
-    reuseExistingServer: !process.env.CI,
-    timeout: 60000,
+  webServer: process.env.SKIP_WEBSERVER ? undefined : {
+    command: 'bun run dev',
+    url: `http://localhost:${PORT}`,
+    reuseExistingServer: true,
+    timeout: 120000,
   },
 })

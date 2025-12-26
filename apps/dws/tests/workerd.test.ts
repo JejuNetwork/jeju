@@ -96,6 +96,7 @@ function findWorkerd(): string | null {
 // Detect workerd at module load time (required for test.skipIf to work correctly)
 const WORKERD_PATH = findWorkerd()
 const WORKERD_AVAILABLE = WORKERD_PATH !== null
+const SKIP_INTEGRATION = process.env.SKIP_INTEGRATION === 'true'
 
 if (!WORKERD_AVAILABLE) {
   console.log(
@@ -206,6 +207,8 @@ describe('Workerd API', () => {
   })
 
   describe('Input Validation', () => {
+    // TODO: Production code should validate before storage operations to return 400
+    // Currently returns 500 when storage backend fails first
     test('validates worker name', async () => {
       const res = await request('/workerd', {
         method: 'POST',
@@ -219,7 +222,7 @@ describe('Workerd API', () => {
         }),
       })
 
-      // 400 for validation error, 500 if storage unavailable
+      // Should be 400 (validation error), may be 500 if storage fails first
       expect([400, 500]).toContain(res.status)
     })
 
@@ -333,10 +336,10 @@ describe('Types', () => {
   })
 })
 
-// Integration Tests - require workerd to be installed
+// Integration Tests - require workerd to be installed and full stack running
 
 describe('Workerd Integration', () => {
-  const skipIntegration = !WORKERD_AVAILABLE
+  const skipIntegration = !WORKERD_AVAILABLE || SKIP_INTEGRATION
 
   test.skipIf(skipIntegration)(
     'deploy and invoke a simple worker',
@@ -370,8 +373,6 @@ export default {
         }),
       })
 
-      // 201 for success, 500 if storage unavailable
-      if (deployRes.status === 500) return // Skip if storage unavailable
       expect(deployRes.status).toBe(201)
       const deployData = (await deployRes.json()) as WorkerDeployResponse
       expect(deployData.workerId).toBeDefined()
@@ -443,7 +444,6 @@ export default {
     })
 
     // 201 for success, 500 if storage unavailable
-    if (deployRes.status === 500) return // Skip if storage unavailable
     expect(deployRes.status).toBe(201)
     const deployData = (await deployRes.json()) as WorkerIdResponse
 
@@ -494,7 +494,6 @@ export default {
     })
 
     // 201 for success, 500 if storage unavailable
-    if (deployRes.status === 500) return // Skip if storage unavailable
     expect(deployRes.status).toBe(201)
     const deployData = (await deployRes.json()) as WorkerIdResponse
 

@@ -11,7 +11,7 @@
  * Content is NEVER stored if flagged as CSAM.
  */
 
-import { getDWSComputeUrl } from '@jejunetwork/config'
+import { getDWSComputeUrl, getDWSUrl } from '@jejunetwork/config'
 import type { Address, Hex } from 'viem'
 import { z } from 'zod'
 import {
@@ -556,9 +556,7 @@ Return ONLY valid JSON:
    * Submit account review to decentralized moderation system via DWS
    */
   private async submitToModerationSystem(review: AccountReview): Promise<void> {
-    const moderationEndpoint = process.env.DWS_ENDPOINT
-      ? `${process.env.DWS_ENDPOINT}/moderation`
-      : 'http://localhost:4000/moderation'
+    const moderationEndpoint = `${getDWSUrl()}/moderation`
 
     try {
       const response = await fetch(`${moderationEndpoint}/submit-review`, {

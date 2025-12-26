@@ -1,6 +1,10 @@
 import { basicSetup } from '@jejunetwork/tests'
 import type { BrowserContext, Page } from '@playwright/test'
+// Must import zod-compat before synpress for Zod 4 compatibility
+import '@jejunetwork/tests/zod-compat'
 import { testWithSynpress } from '@synthetixio/synpress'
+// Must import zod-compat before synpress for Zod 4 compatibility
+import '@jejunetwork/tests/zod-compat'
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright'
 
 const test = testWithSynpress(metaMaskFixtures(basicSetup))

@@ -1,39 +1,37 @@
 /**
- * Playwright Configuration for Autocrat E2E Tests
- *
- * Runs standard Playwright tests (no wallet required)
- * For wallet tests, use synpress.config.ts
+ * Autocrat Playwright Configuration
  */
-
-import { CORE_PORTS } from '@jejunetwork/config'
+import { CORE_PORTS } from '@jejunetwork/config/ports'
 import { defineConfig, devices } from '@playwright/test'
 
-const AUTOCRAT_PORT = CORE_PORTS.AUTOCRAT_WEB.get()
-const BASE_URL = `http://localhost:${AUTOCRAT_PORT}`
+const PORT = CORE_PORTS.AUTOCRAT_API.get()
 
 export default defineConfig({
   testDir: './tests/e2e',
-  testMatch: '**/*.e2e.ts',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: [['html', { outputFolder: 'playwright-report' }], ['list']],
+  reporter: 'html',
+  timeout: 120000,
+
   use: {
-    baseURL: BASE_URL,
+    baseURL: `http://localhost:${PORT}`,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
+
   projects: [
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-  webServer: {
-    command: 'bun run dev:web',
-    url: BASE_URL,
-    reuseExistingServer: !process.env.CI,
-    timeout: 60000,
+
+  webServer: process.env.SKIP_WEBSERVER ? undefined : {
+    command: 'bun run dev',
+    url: `http://localhost:${PORT}`,
+    reuseExistingServer: true,
+    timeout: 120000,
   },
 })

@@ -4,8 +4,8 @@ import { Elysia } from 'elysia'
 import type { Address } from 'viem'
 import { cidResponseSchema, parseJsonResponse } from '../../lib/schemas'
 
-const STORAGE_ENDPOINT = getStorageApiEndpoint()
-const IPFS_GATEWAY = getIpfsGatewayEnv()
+const STORAGE_ENDPOINT = getStorageApiEndpoint() ?? 'http://localhost:4010'
+const IPFS_GATEWAY = getIpfsGatewayEnv() ?? 'http://localhost:4180'
 const STORAGE_TIMEOUT = 30000
 
 interface StorageService {

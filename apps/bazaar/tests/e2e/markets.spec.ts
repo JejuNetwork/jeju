@@ -3,7 +3,7 @@
  * Tests prediction markets listing, filtering, search, and data verification
  */
 
-import { assertNoPageErrors } from '@jejunetwork/tests'
+import { assertNoPageErrors } from '@jejunetwork/tests/playwright-only'
 import { expect, test } from '@playwright/test'
 
 test.describe('Markets Page', () => {

@@ -320,6 +320,20 @@ export const CORE_PORTS = {
     ENV_VAR: 'VPN_API_PORT',
     get: () => safeParsePort(process.env.VPN_API_PORT, 4023),
   },
+
+  /** Wallet - Agentic multi-chain wallet */
+  WALLET: {
+    DEFAULT: 4015,
+    ENV_VAR: 'WALLET_PORT',
+    get: () => safeParsePort(process.env.WALLET_PORT, 4015),
+  },
+
+  /** Example App - Demo/example application */
+  EXAMPLE: {
+    DEFAULT: 4500,
+    ENV_VAR: 'EXAMPLE_PORT',
+    get: () => safeParsePort(process.env.EXAMPLE_PORT, 4500),
+  },
 } as const
 
 // Vendor Apps (5000-5999 range)

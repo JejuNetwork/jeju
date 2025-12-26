@@ -211,13 +211,15 @@ async function runAppTests(
     const hasPlaywright = existsSync(join(appPath, 'playwright.config.ts'))
     const hasE2ETests = existsSync(join(appPath, 'tests', 'e2e'))
 
+    // Run only full-coverage tests with --no-deps to avoid port conflicts
+    const baseCmd = 'bunx playwright test tests/e2e/full-coverage.spec.ts --reporter=list'
+
     if (hasPlaywright && hasE2ETests) {
-      testCommand = 'bunx playwright test tests/e2e/ --reporter=list'
+      testCommand = baseCmd
     } else if (hasPlaywright) {
-      testCommand = 'bunx playwright test --reporter=list'
+      testCommand = baseCmd
     } else if (hasE2ETests) {
-      // Use default playwright config
-      testCommand = 'bunx playwright test tests/e2e/ --reporter=list'
+      testCommand = baseCmd
     } else {
       // Skip apps without test directories
       console.log(`  No E2E test directory found for ${appName}`)

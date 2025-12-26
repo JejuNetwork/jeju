@@ -3,7 +3,7 @@
  * Tests NFT listing, filtering, and minting interface (without wallet)
  */
 
-import { assertNoPageErrors } from '@jejunetwork/tests'
+import { assertNoPageErrors } from '@jejunetwork/tests/playwright-only'
 import { expect, type Page, test } from '@playwright/test'
 
 async function navigateTo(page: Page, url: string): Promise<void> {

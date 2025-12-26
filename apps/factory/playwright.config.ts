@@ -1,17 +1,37 @@
 /**
  * Factory Playwright Configuration
- * Uses shared config from @jejunetwork/tests
  */
-import { createAppConfig } from '@jejunetwork/tests'
+import { CORE_PORTS } from '@jejunetwork/config/ports'
+import { defineConfig, devices } from '@playwright/test'
 
-const FACTORY_PORT = parseInt(process.env.PORT || '4009', 10)
+const PORT = CORE_PORTS.FACTORY.get()
 
-export default createAppConfig({
-  name: 'factory',
-  port: FACTORY_PORT,
+export default defineConfig({
   testDir: './tests/e2e',
-  webServer: {
+  fullyParallel: true,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 2 : 0,
+  workers: process.env.CI ? 1 : undefined,
+  reporter: 'html',
+  timeout: 120000,
+
+  use: {
+    baseURL: `http://localhost:${PORT}`,
+    trace: 'on-first-retry',
+    screenshot: 'only-on-failure',
+  },
+
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+    },
+  ],
+
+  webServer: process.env.SKIP_WEBSERVER ? undefined : {
     command: 'bun run dev',
+    url: `http://localhost:${PORT}`,
+    reuseExistingServer: true,
     timeout: 120000,
   },
 })

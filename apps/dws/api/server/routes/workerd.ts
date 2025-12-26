@@ -850,7 +850,7 @@ export function createDefaultWorkerdRouter(backend: BackendManager) {
   const defaults = NETWORK_DEFAULTS[network]
   const chain = getChainForNetwork(network)
 
-  const rpcUrl = process.env.RPC_URL || defaults.rpcUrl
+  const rpcUrl = getRpcUrl() || defaults.rpcUrl
   const registryAddress = (process.env.IDENTITY_REGISTRY_ADDRESS ||
     defaults.identityRegistry) as Address
   const privateKey = process.env.PRIVATE_KEY as `0x${string}` | undefined

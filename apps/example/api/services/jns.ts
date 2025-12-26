@@ -15,7 +15,7 @@ import {
 import { normalizeJNSName } from '../../lib/utils'
 import { expectValid } from '../utils/validation'
 
-const GATEWAY_API = getGatewayApiEndpoint()
+const GATEWAY_API = getGatewayApiEndpoint() ?? 'http://localhost:4020'
 const JNS_NAME = process.env.JNS_NAME || 'todo.jeju'
 const JNS_TIMEOUT = 10000
 

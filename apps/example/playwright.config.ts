@@ -1,6 +1,10 @@
+/**
+ * Example Playwright Configuration
+ */
+import { CORE_PORTS } from '@jejunetwork/config/ports'
 import { defineConfig, devices } from '@playwright/test'
 
-const FRONTEND_PORT = parseInt(process.env.FRONTEND_PORT || '4501', 10)
+const PORT = CORE_PORTS.EXAMPLE.get()
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -8,17 +12,12 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
-  timeout: 60000,
-
-  reporter: [
-    ['list'],
-    ['html', { outputFolder: 'test-results/playwright-report' }],
-    ['json', { outputFile: 'test-results/playwright-results.json' }],
-  ],
+  reporter: 'html',
+  timeout: 120000,
 
   use: {
-    baseURL: `http://localhost:${FRONTEND_PORT}`,
-    trace: 'retain-on-failure',
+    baseURL: `http://localhost:${PORT}`,
+    trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
 
@@ -29,5 +28,10 @@ export default defineConfig({
     },
   ],
 
-  webServer: undefined,
+  webServer: process.env.SKIP_WEBSERVER ? undefined : {
+    command: 'bun run dev',
+    url: `http://localhost:${PORT}`,
+    reuseExistingServer: true,
+    timeout: 120000,
+  },
 })

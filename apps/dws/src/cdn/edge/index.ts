@@ -4,7 +4,7 @@
 
 export { EdgeNodeServer } from './server'
 
-import { getRpcUrl } from '@jejunetwork/config'
+import { getIpfsGatewayEnv, getRpcUrl } from '@jejunetwork/config'
 import type { EdgeNodeConfig } from '../types'
 import { EdgeNodeServer } from './server'
 
@@ -29,7 +29,7 @@ export async function startEdgeNode(): Promise<EdgeNodeServer> {
       '0x0000000000000000000000000000000000000000') as `0x${string}`,
     billingAddress: (process.env.CDN_BILLING_ADDRESS ??
       '0x0000000000000000000000000000000000000000') as `0x${string}`,
-    rpcUrl: process.env.RPC_URL ?? getRpcUrl(),
+    rpcUrl: getRpcUrl(),
 
     maxCacheSizeMB: parseInt(process.env.CDN_CACHE_SIZE_MB ?? '512', 10),
     maxCacheEntries: parseInt(
@@ -46,7 +46,7 @@ export async function startEdgeNode(): Promise<EdgeNodeServer> {
       10,
     ),
 
-    ipfsGateway: process.env.IPFS_GATEWAY_URL,
+    ipfsGateway: getIpfsGatewayEnv(),
     enableCompression: process.env.CDN_ENABLE_COMPRESSION !== 'false',
     enableHTTP2: process.env.CDN_ENABLE_HTTP2 !== 'false',
   }
@@ -63,11 +63,12 @@ function parseOrigins(): EdgeNodeConfig['origins'] {
   const origins: EdgeNodeConfig['origins'] = []
 
   // IPFS origin
-  if (process.env.IPFS_GATEWAY_URL) {
+  const ipfsGateway = getIpfsGatewayEnv()
+  if (ipfsGateway) {
     origins.push({
       name: 'ipfs',
       type: 'ipfs',
-      endpoint: process.env.IPFS_GATEWAY_URL,
+      endpoint: ipfsGateway,
       timeout: 30000,
       retries: 2,
     })

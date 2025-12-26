@@ -3,8 +3,14 @@
  * Tests CI/CD dashboard with wallet integration
  */
 
+// Must import zod-compat before synpress for Zod 4 compatibility
+import '@jejunetwork/tests/zod-compat'
 import { testWithSynpress } from '@synthetixio/synpress'
+// Must import zod-compat before synpress for Zod 4 compatibility
+import '@jejunetwork/tests/zod-compat'
 import { metaMaskFixtures } from '@synthetixio/synpress/playwright'
+// Must import zod-compat before synpress for Zod 4 compatibility
+import '@jejunetwork/tests/zod-compat'
 import { basicSetup } from '../../synpress.config'
 
 const test = testWithSynpress(metaMaskFixtures(basicSetup))

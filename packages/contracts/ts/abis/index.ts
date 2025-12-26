@@ -56,38 +56,38 @@ export {
 // Use camelCase typed exports from '../generated' instead
 // ============================================================================
 import type { Abi } from 'viem'
-import AppTokenPreferenceAbiJson from '../../abis/AppTokenPreference.json'
-import AutomationRegistryAbiJson from '../../abis/AutomationRegistry.json'
-import BanManagerAbiJson from '../../abis/BanManager.json'
-import BazaarAbiJson from '../../abis/Bazaar.json'
-import BondingCurveAbiJson from '../../abis/BondingCurve.json'
-import ChainlinkGovernanceAbiJson from '../../abis/ChainlinkGovernance.json'
-import CreditManagerAbiJson from '../../abis/CreditManager.json'
-import ERC20AbiJson from '../../abis/ERC20.json'
-import ERC20FactoryAbiJson from '../../abis/ERC20Factory.json'
-import HyperlaneOracleAbiJson from '../../abis/HyperlaneOracle.json'
-import ICOPresaleAbiJson from '../../abis/ICOPresale.json'
-import IdentityRegistryAbiJson from '../../abis/IdentityRegistry.json'
-import InputSettlerAbiJson from '../../abis/InputSettler.json'
-import LaunchpadTokenAbiJson from '../../abis/LaunchpadToken.json'
-import LiquidityVaultAbiJson from '../../abis/LiquidityVault.json'
-import LPLockerAbiJson from '../../abis/LPLocker.json'
-import ModerationMarketplaceAbiJson from '../../abis/ModerationMarketplace.json'
-import MultiTokenPaymasterAbiJson from '../../abis/MultiTokenPaymaster.json'
-import NetworkTokenAbiJson from '../../abis/NetworkToken.json'
-import OracleRouterAbiJson from '../../abis/OracleRouter.json'
-import OutputSettlerAbiJson from '../../abis/OutputSettler.json'
-import PaymasterFactoryAbiJson from '../../abis/PaymasterFactory.json'
-import PlayerTradeEscrowAbiJson from '../../abis/PlayerTradeEscrow.json'
-import ReputationRegistryAbiJson from '../../abis/ReputationRegistry.json'
-import SimpleOracleAbiJson from '../../abis/SimpleOracle.json'
-import SolverRegistryAbiJson from '../../abis/SolverRegistry.json'
-import SponsoredPaymasterAbiJson from '../../abis/SponsoredPaymaster.json'
-import SuperchainOracleAbiJson from '../../abis/SuperchainOracle.json'
-import TokenLaunchpadAbiJson from '../../abis/TokenLaunchpad.json'
-import TokenRegistryAbiJson from '../../abis/TokenRegistry.json'
-import ValidationRegistryAbiJson from '../../abis/ValidationRegistry.json'
-import VRFCoordinatorV2_5AbiJson from '../../abis/VRFCoordinatorV2_5.json'
+import AppTokenPreferenceAbiJson from '../../abis/AppTokenPreference.json' with { type: 'json' }
+import AutomationRegistryAbiJson from '../../abis/AutomationRegistry.json' with { type: 'json' }
+import BanManagerAbiJson from '../../abis/BanManager.json' with { type: 'json' }
+import BazaarAbiJson from '../../abis/Bazaar.json' with { type: 'json' }
+import BondingCurveAbiJson from '../../abis/BondingCurve.json' with { type: 'json' }
+import ChainlinkGovernanceAbiJson from '../../abis/ChainlinkGovernance.json' with { type: 'json' }
+import CreditManagerAbiJson from '../../abis/CreditManager.json' with { type: 'json' }
+import ERC20AbiJson from '../../abis/ERC20.json' with { type: 'json' }
+import ERC20FactoryAbiJson from '../../abis/ERC20Factory.json' with { type: 'json' }
+import HyperlaneOracleAbiJson from '../../abis/HyperlaneOracle.json' with { type: 'json' }
+import ICOPresaleAbiJson from '../../abis/ICOPresale.json' with { type: 'json' }
+import IdentityRegistryAbiJson from '../../abis/IdentityRegistry.json' with { type: 'json' }
+import InputSettlerAbiJson from '../../abis/InputSettler.json' with { type: 'json' }
+import LaunchpadTokenAbiJson from '../../abis/LaunchpadToken.json' with { type: 'json' }
+import LiquidityVaultAbiJson from '../../abis/LiquidityVault.json' with { type: 'json' }
+import LPLockerAbiJson from '../../abis/LPLocker.json' with { type: 'json' }
+import ModerationMarketplaceAbiJson from '../../abis/ModerationMarketplace.json' with { type: 'json' }
+import MultiTokenPaymasterAbiJson from '../../abis/MultiTokenPaymaster.json' with { type: 'json' }
+import NetworkTokenAbiJson from '../../abis/NetworkToken.json' with { type: 'json' }
+import OracleRouterAbiJson from '../../abis/OracleRouter.json' with { type: 'json' }
+import OutputSettlerAbiJson from '../../abis/OutputSettler.json' with { type: 'json' }
+import PaymasterFactoryAbiJson from '../../abis/PaymasterFactory.json' with { type: 'json' }
+import PlayerTradeEscrowAbiJson from '../../abis/PlayerTradeEscrow.json' with { type: 'json' }
+import ReputationRegistryAbiJson from '../../abis/ReputationRegistry.json' with { type: 'json' }
+import SimpleOracleAbiJson from '../../abis/SimpleOracle.json' with { type: 'json' }
+import SolverRegistryAbiJson from '../../abis/SolverRegistry.json' with { type: 'json' }
+import SponsoredPaymasterAbiJson from '../../abis/SponsoredPaymaster.json' with { type: 'json' }
+import SuperchainOracleAbiJson from '../../abis/SuperchainOracle.json' with { type: 'json' }
+import TokenLaunchpadAbiJson from '../../abis/TokenLaunchpad.json' with { type: 'json' }
+import TokenRegistryAbiJson from '../../abis/TokenRegistry.json' with { type: 'json' }
+import ValidationRegistryAbiJson from '../../abis/ValidationRegistry.json' with { type: 'json' }
+import VRFCoordinatorV2_5AbiJson from '../../abis/VRFCoordinatorV2_5.json' with { type: 'json' }
 
 // Legacy PascalCase exports (cast to Abi, loses type inference)
 // @deprecated Use camelCase typed exports from '../generated' instead

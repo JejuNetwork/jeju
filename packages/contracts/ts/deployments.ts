@@ -28,18 +28,18 @@ function toAddress(address: string | undefined): Address | undefined {
   return isValidAddress(address) ? address : undefined
 }
 
-import bazaarMarketplace1337_raw from '../deployments/bazaar-marketplace-31337.json'
-import eilLocalnet_raw from '../deployments/eil-localnet.json'
-import eilTestnet_raw from '../deployments/eil-testnet.json'
-import erc20Factory1337_raw from '../deployments/erc20-factory-31337.json'
-import identitySystem1337_raw from '../deployments/identity-system-31337.json'
-import launchpadLocalnet_raw from '../deployments/launchpad-localnet.json'
-import localnetAddresses_raw from '../deployments/localnet-addresses.json'
-import paymasterSystemLocalnet_raw from '../deployments/paymaster-system-localnet.json'
-import predictionMarket1337_raw from '../deployments/prediction-market-31337.json'
-import uniswapV4_1337_raw from '../deployments/uniswap-v4-31337.json'
-import uniswapV4_420691_raw from '../deployments/uniswap-v4-420691.json'
-import xlpAmmLocalnet_raw from '../deployments/xlp-amm-localnet.json'
+import bazaarMarketplace1337_raw from '../deployments/bazaar-marketplace-31337.json' with { type: 'json' }
+import eilLocalnet_raw from '../deployments/eil-localnet.json' with { type: 'json' }
+import eilTestnet_raw from '../deployments/eil-testnet.json' with { type: 'json' }
+import erc20Factory1337_raw from '../deployments/erc20-factory-31337.json' with { type: 'json' }
+import identitySystem1337_raw from '../deployments/identity-system-31337.json' with { type: 'json' }
+import launchpadLocalnet_raw from '../deployments/launchpad-localnet.json' with { type: 'json' }
+import localnetAddresses_raw from '../deployments/localnet-addresses.json' with { type: 'json' }
+import paymasterSystemLocalnet_raw from '../deployments/paymaster-system-localnet.json' with { type: 'json' }
+import predictionMarket1337_raw from '../deployments/prediction-market-31337.json' with { type: 'json' }
+import uniswapV4_1337_raw from '../deployments/uniswap-v4-31337.json' with { type: 'json' }
+import uniswapV4_420691_raw from '../deployments/uniswap-v4-420691.json' with { type: 'json' }
+import xlpAmmLocalnet_raw from '../deployments/xlp-amm-localnet.json' with { type: 'json' }
 
 const uniswapV4_1337 = UniswapV4DeploymentSchema.parse(uniswapV4_1337_raw)
 const uniswapV4_420691 = UniswapV4DeploymentSchema.parse(uniswapV4_420691_raw)

@@ -1,16 +1,18 @@
 /**
- * Playwright-only exports for synpress configs
+ * Playwright-only exports for E2E testing
  *
  * This file provides exports that work with Playwright's ESM loader
- * without pulling in @jejunetwork/config (which uses JSON imports
- * that require type assertions not yet supported by Playwright).
+ * without pulling in @jejunetwork/config or @jejunetwork/contracts
+ * (which use JSON imports that require type assertions not yet
+ * supported by Playwright's Node ESM loader).
  *
- * Use this for synpress.config.ts files:
+ * Usage:
  * ```typescript
- * import { createSynpressConfig, createWalletSetup } from '@jejunetwork/tests/playwright-only'
+ * import { assertNoPageErrors, captureScreenshot } from '@jejunetwork/tests/playwright-only'
  * ```
  */
 
+// Synpress config exports
 export {
   createSmokeTestConfig,
   createSynpressConfig,
@@ -23,13 +25,14 @@ export {
   type WalletSetupResult,
 } from './shared/synpress.config.base'
 
+// Playwright config exports
 export {
   type AppConfigOptions,
   createAppConfig,
   createPlaywrightConfig,
 } from './shared/playwright.config.base'
 
-// Re-export test utilities that don't use @jejunetwork/config
+// Test utilities that don't use @jejunetwork/config
 export {
   findJejuWorkspaceRoot,
   JEJU_CHAIN,
@@ -40,4 +43,34 @@ export {
   TEST_ACCOUNTS,
   TEST_WALLET_ADDRESS,
 } from './shared/utils'
+
+// Error detection helpers
+export {
+  assertNoPageErrors,
+  detectPageErrors,
+} from './shared/helpers/error-detection'
+
+// Screenshot helpers
+export {
+  captureScreenshot,
+  captureScreenshots,
+  captureUserFlow,
+  getScreenshotPath,
+} from './shared/helpers/screenshots'
+
+// Navigation helpers
+export {
+  cooldownBetweenTests,
+  getCurrentRoute,
+  hideNextDevOverlay,
+  isAtRoute,
+  navigateTo,
+  navigateToRoute,
+  waitForPageLoad,
+  waitForRoute,
+  waitForServerHealthy,
+} from './shared/helpers/navigation'
+
+// Constants
+export * from './shared/constants'
 

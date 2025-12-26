@@ -1,6 +1,10 @@
+/**
+ * Gateway Playwright Configuration
+ */
+import { CORE_PORTS } from '@jejunetwork/config/ports'
 import { defineConfig, devices } from '@playwright/test'
 
-const GATEWAY_PORT = parseInt(process.env.GATEWAY_PORT || '4013', 10)
+const PORT = CORE_PORTS.GATEWAY.get()
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -9,10 +13,10 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
-  timeout: 60000,
+  timeout: 120000,
 
   use: {
-    baseURL: `http://localhost:${GATEWAY_PORT}`,
+    baseURL: `http://localhost:${PORT}`,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
@@ -24,11 +28,10 @@ export default defineConfig({
     },
   ],
 
-  webServer: {
+  webServer: process.env.SKIP_WEBSERVER ? undefined : {
     command: 'bun run dev',
-    url: `http://localhost:${GATEWAY_PORT}`,
-    reuseExistingServer: !process.env.CI,
+    url: `http://localhost:${PORT}`,
+    reuseExistingServer: true,
     timeout: 120000,
   },
 })
-
