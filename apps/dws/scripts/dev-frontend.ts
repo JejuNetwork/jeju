@@ -36,6 +36,18 @@ const browserShimPlugin: BunPlugin = {
     build.onResolve({ filter: /^@jejunetwork\/types$/ }, () => ({
       path: resolve('../../packages/types/src/index.ts'),
     }))
+    build.onResolve({ filter: /^@jejunetwork\/sdk$/ }, () => ({
+      path: resolve('../../packages/sdk/src/index.ts'),
+    }))
+    build.onResolve({ filter: /^@jejunetwork\/ui$/ }, () => ({
+      path: resolve('../../packages/ui/src/index.ts'),
+    }))
+    build.onResolve({ filter: /^@jejunetwork\/config$/ }, () => ({
+      path: resolve('../../packages/config/index.ts'),
+    }))
+    build.onResolve({ filter: /^@jejunetwork\/token$/ }, () => ({
+      path: resolve('../../packages/token/src/index.ts'),
+    }))
 
     // Ensure React and ReactDOM resolve to the same instance
     build.onResolve({ filter: /^react$/ }, () => ({
@@ -89,7 +101,7 @@ const EXTERNALS = [
   'pino',
   'pino-pretty',
   'croner',
-  'opossum',
+  'cockatiel',
   'ws',
   'generic-pool',
   'c-kzg',

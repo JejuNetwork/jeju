@@ -153,8 +153,6 @@ const IndexerListingsResponseSchema = z.object({
   listings: z.array(IndexerListingDataSchema),
 })
 
-type IndexerListingData = z.infer<typeof IndexerListingDataSchema>
-
 export interface CreateListingParams {
   assetType: AssetType
   assetContract: Address

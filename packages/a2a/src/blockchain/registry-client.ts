@@ -180,7 +180,9 @@ export class RegistryClient implements IBlockchainRegistry {
   /**
    * Discover agents by filters
    */
-  async discoverAgents(filters?: AgentDiscoveryFilters): Promise<AgentProfile[]> {
+  async discoverAgents(
+    filters?: AgentDiscoveryFilters,
+  ): Promise<AgentProfile[]> {
     let tokenIds: readonly bigint[]
 
     if (filters?.minReputation) {

@@ -1,6 +1,14 @@
 /**
  * RPC Proxy Service
- * Forwards JSON-RPC requests to appropriate chain endpoints with failover
+ *
+ * Routes JSON-RPC requests to appropriate chain endpoints.
+ *
+ * Priority Order:
+ * 1. DWS-provisioned nodes (fully decentralized)
+ * 2. Configured external RPCs (fallback only if DWS nodes unavailable)
+ *
+ * The goal is to be fully permissionless - DWS nodes are provisioned on-demand
+ * and registered on-chain. External RPCs are only used as bootstrap/fallback.
  */
 
 import {
@@ -15,6 +23,7 @@ import {
   JsonRpcResponseSchema,
   type ProxyResult,
 } from '@jejunetwork/types'
+import { getExternalRPCNodeService } from '../../external-chains'
 
 export type { JsonRpcRequest, JsonRpcResponse }
 
@@ -80,6 +89,32 @@ async function makeRpcRequest(
   return JsonRpcResponseSchema.parse(await response.json())
 }
 
+/**
+ * Get available endpoints for a chain, prioritizing DWS-provisioned nodes
+ */
+function getEndpointsForChain(chainId: number): string[] {
+  const chain = getChain(chainId)
+  const endpoints: string[] = []
+
+  // Priority 1: DWS-provisioned nodes (fully decentralized)
+  const externalNodes = getExternalRPCNodeService()
+  const dwsEndpoint = externalNodes.getRpcEndpointByChainId(chainId)
+  if (dwsEndpoint && isEndpointHealthy(dwsEndpoint)) {
+    endpoints.push(dwsEndpoint)
+  }
+
+  // Priority 2: Configured external RPCs (fallback)
+  // Only used if DWS nodes are not available
+  if (endpoints.length === 0) {
+    const fallbackEndpoints = [chain.rpcUrl, ...chain.fallbackRpcs].filter(
+      isEndpointHealthy,
+    )
+    endpoints.push(...fallbackEndpoints)
+  }
+
+  return endpoints
+}
+
 export async function proxyRequest(
   chainId: number,
   request: JsonRpcRequest,
@@ -98,14 +133,31 @@ export async function proxyRequest(
   }
 
   const chain = getChain(chainId)
-  const endpoints = [chain.rpcUrl, ...chain.fallbackRpcs].filter(
-    isEndpointHealthy,
-  )
+  const endpoints = getEndpointsForChain(chainId)
+
   if (endpoints.length === 0) {
-    throw new Error(`No healthy RPC endpoints available for ${chain.name}`)
+    // No endpoints available - return error
+    // This is intentional: we don't want to silently fall back
+    console.warn(
+      `[RPC Proxy] No endpoints available for ${chain.name} (chainId: ${chainId})`,
+    )
+    return {
+      response: {
+        jsonrpc: '2.0',
+        id: request.id,
+        error: {
+          code: -32603,
+          message: `No RPC nodes available for ${chain.name}. Provision nodes via DWS.`,
+        },
+      },
+      latencyMs: 0,
+      endpoint: '',
+      usedFallback: false,
+    }
   }
 
   let lastError: Error | null = null
+  const usedDWS = endpoints[0]?.includes('localhost') ?? false
 
   for (let i = 0; i < endpoints.length; i++) {
     const endpoint = endpoints[i]
@@ -117,7 +169,7 @@ export async function proxyRequest(
         response,
         latencyMs: Date.now() - startTime,
         endpoint,
-        usedFallback: i > 0,
+        usedFallback: i > 0 || !usedDWS,
       }
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error))
@@ -186,5 +238,37 @@ export function getChainStats(): {
       name: c.name,
       isTestnet: c.isTestnet,
     })),
+  }
+}
+
+/**
+ * Get DWS-provisioned node status for all chains
+ */
+export function getDWSNodeStatus(): {
+  evmNodesReady: boolean
+  chains: Record<
+    number,
+    { hasDWSNode: boolean; endpoint: string | null; healthy: boolean }
+  >
+} {
+  const externalNodes = getExternalRPCNodeService()
+  const evmChainIds = [1, 42161, 10, 8453] // ETH, ARB, OP, BASE
+  const chains: Record<
+    number,
+    { hasDWSNode: boolean; endpoint: string | null; healthy: boolean }
+  > = {}
+
+  for (const chainId of evmChainIds) {
+    const endpoint = externalNodes.getRpcEndpointByChainId(chainId)
+    chains[chainId] = {
+      hasDWSNode: !!endpoint,
+      endpoint,
+      healthy: endpoint ? isEndpointHealthy(endpoint) : false,
+    }
+  }
+
+  return {
+    evmNodesReady: externalNodes.areEVMNodesReady(),
+    chains,
   }
 }

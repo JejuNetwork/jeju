@@ -172,30 +172,96 @@ export default function TokenList() {
   if (!allTokens || allTokens.length === 0) {
     return (
       <div className="card">
-        <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem' }}>
+        <h2
+          style={{
+            fontSize: '1.25rem',
+            marginBottom: '1.5rem',
+            fontWeight: 700,
+          }}
+        >
           Registered Tokens
         </h2>
         <div
           style={{
-            padding: '2rem',
-            background: 'var(--surface-hover)',
-            borderRadius: '8px',
+            padding: '2.5rem',
+            background:
+              'linear-gradient(135deg, var(--surface-hover) 0%, var(--surface) 100%)',
+            borderRadius: '16px',
             textAlign: 'center',
+            border: '1px solid var(--border)',
           }}
         >
-          <p style={{ color: 'var(--text-secondary)' }}>
-            No tokens registered yet.
-          </p>
-          <p
+          <div
             style={{
-              fontSize: '0.875rem',
-              color: 'var(--text-muted)',
-              marginTop: '0.5rem',
+              width: '80px',
+              height: '80px',
+              margin: '0 auto 1.5rem',
+              borderRadius: '50%',
+              background:
+                'linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(6, 182, 212, 0.2) 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
-            Deploy contracts first:{' '}
-            <code>bun run scripts/deploy-paymaster-system.ts</code>
+            <span style={{ fontSize: '2.5rem' }}>🪙</span>
+          </div>
+          <h3
+            style={{
+              fontSize: '1.25rem',
+              fontWeight: 700,
+              marginBottom: '0.75rem',
+              color: 'var(--text-primary)',
+            }}
+          >
+            No Tokens Registered
+          </h3>
+          <p
+            style={{
+              color: 'var(--text-secondary)',
+              fontSize: '0.9375rem',
+              marginBottom: '1.5rem',
+              maxWidth: '400px',
+              margin: '0 auto 1.5rem',
+              lineHeight: 1.6,
+            }}
+          >
+            Register tokens to enable gas sponsorship and multi-token payments.
+            Deploy the paymaster system to get started.
           </p>
+          <div
+            style={{
+              display: 'inline-flex',
+              flexDirection: 'column',
+              gap: '0.75rem',
+              padding: '1rem 1.5rem',
+              background: 'var(--surface)',
+              borderRadius: '12px',
+              border: '1px solid var(--border)',
+            }}
+          >
+            <span
+              style={{
+                fontSize: '0.75rem',
+                color: 'var(--text-muted)',
+                fontWeight: 500,
+              }}
+            >
+              Deploy contracts with:
+            </span>
+            <code
+              style={{
+                fontSize: '0.8125rem',
+                fontFamily: 'monospace',
+                color: 'var(--primary)',
+                background: 'var(--primary-soft)',
+                padding: '0.5rem 1rem',
+                borderRadius: '6px',
+              }}
+            >
+              bun run scripts/deploy-paymaster-system.ts
+            </code>
+          </div>
         </div>
       </div>
     )

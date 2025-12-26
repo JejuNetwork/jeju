@@ -1,3 +1,4 @@
+import { getRpcUrl } from '@jejunetwork/config'
 import { expectValid } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import {
@@ -9,7 +10,7 @@ import {
   parseAbiItem,
 } from 'viem'
 import { z } from 'zod'
-import { validateQueryFromObj } from '../shared/validation'
+import { validateQueryFromObj } from '../../api/shared/validation'
 import { emailsSentTotal, getMetrics, mailboxOperationsTotal } from './metrics'
 import { getEmailRelayService } from './relay'
 import { getMailboxStorage } from './storage'
@@ -43,8 +44,13 @@ type JsonPrimitive = string | number | boolean | null
 type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue }
 type JsonReplacerValue = JsonValue | bigint | undefined
 
-function bigIntReplacer(_key: string, value: JsonReplacerValue): JsonValue | undefined {
-  return typeof value === 'bigint' ? value.toString() : (value as JsonValue | undefined)
+function bigIntReplacer(
+  _key: string,
+  value: JsonReplacerValue,
+): JsonValue | undefined {
+  return typeof value === 'bigint'
+    ? value.toString()
+    : (value as JsonValue | undefined)
 }
 
 const EMAIL_REGISTRY_ABI = [
@@ -169,7 +175,7 @@ async function getAuthenticatedUser(request: Request): Promise<{
     }
   }
 
-  const rpcUrl = process.env.JEJU_RPC_URL ?? 'http://localhost:6545'
+  const rpcUrl = getRpcUrl()
   const registryAddress = process.env.EMAIL_REGISTRY_ADDRESS as
     | Address
     | undefined
@@ -217,10 +223,7 @@ async function getAuthenticatedUser(request: Request): Promise<{
   return { address, email, tier }
 }
 
-// Request body type - JSON values from HTTP requests
-type RequestBody = JsonValue | null | undefined
-
-function parseBody<T>(schema: z.ZodType<T>, body: RequestBody): T {
+function parseBody<T>(schema: z.ZodType<T>, body: unknown): T {
   return expectValid(schema, body, 'Request body')
 }
 
@@ -548,7 +551,7 @@ export function createEmailRouter() {
       }
 
       index.inbox.push(...index.folders[name])
-      Reflect.deleteProperty(index.folders, name)
+      delete index.folders[name]
 
       await storage.saveIndex(user.address, index)
 

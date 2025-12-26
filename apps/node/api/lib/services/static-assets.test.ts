@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { createHash } from 'node:crypto'
+import { createHash } from '@jejunetwork/shared'
 import { z } from 'zod'
 
 // Static Asset Config Schema
@@ -192,7 +192,7 @@ describe('Static Asset Configuration', () => {
 
 describe('Content Hashing', () => {
   function computeHash(data: Uint8Array): string {
-    return createHash('sha256').update(data).digest('hex')
+    return createHash('sha256').update(data).digestHex()
   }
 
   function verifyHash(data: Uint8Array, expectedHash: string): boolean {

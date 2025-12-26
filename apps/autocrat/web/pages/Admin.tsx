@@ -171,7 +171,7 @@ export default function AdminPage() {
     setActionLoading(true)
     await createRLAIFRun({
       environment: { id: 'default', type: 'simulation', configCID: '' },
-      baseModel: 'gpt-4o-mini',
+      baseModel: 'gpt-5.2',
       trainingConfig: { steps: 1000, batchSize: 32, learningRate: 0.0001 },
     }).catch(() => null)
     await loadRLAIF()

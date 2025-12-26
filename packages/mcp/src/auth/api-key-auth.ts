@@ -63,4 +63,3 @@ export function createHashBasedApiKeyValidator(
     return lookupFn(keyHash)
   }
 }
-

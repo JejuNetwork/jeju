@@ -16,6 +16,8 @@ import {
   LaunchpadDeploymentSchema,
   type PaymasterSystemDeployment,
   PaymasterSystemDeploymentSchema,
+  type SimpleCollectibleDeployment,
+  SimpleCollectibleDeploymentSchema,
   type UniswapV4Deployment,
   UniswapV4DeploymentSchema,
   type XLPDeployment,
@@ -37,6 +39,7 @@ import launchpadLocalnet_raw from '../deployments/launchpad-localnet.json'
 import localnetAddresses_raw from '../deployments/localnet-addresses.json'
 import paymasterSystemLocalnet_raw from '../deployments/paymaster-system-localnet.json'
 import predictionMarket1337_raw from '../deployments/prediction-market-31337.json'
+import simpleCollectible1337_raw from '../deployments/simple-collectible-31337.json'
 import uniswapV4_1337_raw from '../deployments/uniswap-v4-31337.json'
 import uniswapV4_420691_raw from '../deployments/uniswap-v4-420691.json'
 import xlpAmmLocalnet_raw from '../deployments/xlp-amm-localnet.json'
@@ -45,6 +48,9 @@ const uniswapV4_1337 = UniswapV4DeploymentSchema.parse(uniswapV4_1337_raw)
 const uniswapV4_420691 = UniswapV4DeploymentSchema.parse(uniswapV4_420691_raw)
 const bazaarMarketplace1337 = BazaarMarketplaceDeploymentSchema.parse(
   bazaarMarketplace1337_raw,
+)
+const simpleCollectible1337 = SimpleCollectibleDeploymentSchema.parse(
+  simpleCollectible1337_raw,
 )
 const erc20Factory1337 =
   ERC20FactoryDeploymentSchema.parse(erc20Factory1337_raw)
@@ -72,6 +78,12 @@ export const bazaarMarketplaceDeployments: Partial<
 > = {
   31337: bazaarMarketplace1337,
   420691: bazaarMarketplace1337,
+}
+
+export const simpleCollectibleDeployments: Partial<
+  Record<ChainId, SimpleCollectibleDeployment>
+> = {
+  31337: simpleCollectible1337,
 }
 
 export const erc20FactoryDeployments: Partial<
@@ -121,6 +133,15 @@ export function getUniswapV4(chainId: ChainId): UniswapV4Deployment {
 export function getBazaarMarketplace(chainId: ChainId): Address | undefined {
   const deployment = bazaarMarketplaceDeployments[chainId]
   const address = deployment?.marketplace ?? deployment?.at
+  return isValidAddress(address) ? address : undefined
+}
+
+/**
+ * Get SimpleCollectible address for a chain
+ */
+export function getSimpleCollectible(chainId: ChainId): Address | undefined {
+  const deployment = simpleCollectibleDeployments[chainId]
+  const address = deployment?.simpleCollectible ?? deployment?.at
   return isValidAddress(address) ? address : undefined
 }
 

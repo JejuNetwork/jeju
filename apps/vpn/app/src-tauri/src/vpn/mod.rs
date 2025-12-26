@@ -10,7 +10,6 @@ mod tunnel;
 mod wireguard;
 
 pub use node_discovery::*;
-pub use tunnel::*;
 pub use wireguard::*;
 
 use serde::{Deserialize, Serialize};
@@ -283,12 +282,6 @@ pub enum VPNError {
 
     #[error("Failed to create tunnel: {0}")]
     TunnelError(String),
-
-    #[error("Connection failed: {0}")]
-    ConnectionFailed(String),
-
-    #[error("Discovery failed: {0}")]
-    DiscoveryError(String),
 
     #[error("Not connected")]
     NotConnected,

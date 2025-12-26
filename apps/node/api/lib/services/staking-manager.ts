@@ -13,8 +13,8 @@
  * - Protocol Fee: 5% (to treasury)
  */
 
-import { type Address, formatEther, type Hex, parseEther } from 'viem'
-import type { NodeClient } from '../contracts'
+import { type Address, formatEther, type Hex } from 'viem'
+import { getChain, type NodeClient } from '../contracts'
 
 // Contract ABI for DelegatedNodeStaking
 const DELEGATED_NODE_STAKING_ABI = [
@@ -287,9 +287,13 @@ export function createStakingManagerService(
 
     const contractAddr = getContractAddress()
 
-    console.log(`[Staking] Registering node with ${formatEther(selfStake)} ETH stake...`)
+    console.log(
+      `[Staking] Registering node with ${formatEther(selfStake)} ETH stake...`,
+    )
 
     const hash = await client.walletClient.writeContract({
+      chain: getChain(client.chainId),
+      account: client.walletClient.account,
       address: contractAddr,
       abi: DELEGATED_NODE_STAKING_ABI,
       functionName: 'registerOperator',
@@ -311,7 +315,9 @@ export function createStakingManagerService(
       value: selfStake,
     })
 
-    const receipt = await client.publicClient.waitForTransactionReceipt({ hash })
+    const receipt = await client.publicClient.waitForTransactionReceipt({
+      hash,
+    })
     console.log(`[Staking] Node registered in tx: ${receipt.transactionHash}`)
 
     // Get the node ID from contract
@@ -331,12 +337,14 @@ export function createStakingManagerService(
   }
 
   async function setCommission(bps: number): Promise<Hex> {
-    if (!client.walletClient) {
+    if (!client.walletClient?.account) {
       throw new Error('Wallet client required')
     }
 
     if (bps < 500 || bps > 5000) {
-      throw new Error('Commission must be between 5% (500) and 50% (5000) basis points')
+      throw new Error(
+        'Commission must be between 5% (500) and 50% (5000) basis points',
+      )
     }
 
     const contractAddr = getContractAddress()
@@ -345,20 +353,26 @@ export function createStakingManagerService(
     console.log(`[Staking] Note: 7-day delay before commission takes effect`)
 
     const hash = await client.walletClient.writeContract({
+      chain: getChain(client.chainId),
+      account: client.walletClient.account,
       address: contractAddr,
       abi: DELEGATED_NODE_STAKING_ABI,
       functionName: 'initiateCommissionChange',
       args: [BigInt(bps)],
     })
 
-    const receipt = await client.publicClient.waitForTransactionReceipt({ hash })
-    console.log(`[Staking] Commission change initiated in tx: ${receipt.transactionHash}`)
+    const receipt = await client.publicClient.waitForTransactionReceipt({
+      hash,
+    })
+    console.log(
+      `[Staking] Commission change initiated in tx: ${receipt.transactionHash}`,
+    )
 
     return receipt.transactionHash
   }
 
   async function addSelfStake(amount: bigint): Promise<Hex> {
-    if (!client.walletClient) {
+    if (!client.walletClient?.account) {
       throw new Error('Wallet client required')
     }
 
@@ -367,6 +381,8 @@ export function createStakingManagerService(
     console.log(`[Staking] Adding ${formatEther(amount)} ETH self-stake...`)
 
     const hash = await client.walletClient.writeContract({
+      chain: getChain(client.chainId),
+      account: client.walletClient.account,
       address: contractAddr,
       abi: DELEGATED_NODE_STAKING_ABI,
       functionName: 'addSelfStake',
@@ -374,7 +390,9 @@ export function createStakingManagerService(
       value: amount,
     })
 
-    const receipt = await client.publicClient.waitForTransactionReceipt({ hash })
+    const receipt = await client.publicClient.waitForTransactionReceipt({
+      hash,
+    })
     console.log(`[Staking] Self-stake added in tx: ${receipt.transactionHash}`)
 
     state.selfStake += amount
@@ -384,7 +402,7 @@ export function createStakingManagerService(
   }
 
   async function claimRewards(): Promise<Hex> {
-    if (!client.walletClient) {
+    if (!client.walletClient?.account) {
       throw new Error('Wallet client required')
     }
 
@@ -397,13 +415,17 @@ export function createStakingManagerService(
     console.log('[Staking] Claiming rewards...')
 
     const hash = await client.walletClient.writeContract({
+      chain: getChain(client.chainId),
+      account: client.walletClient.account,
       address: contractAddr,
       abi: DELEGATED_NODE_STAKING_ABI,
       functionName: 'claimRewards',
       args: [fullConfig.nodeId],
     })
 
-    const receipt = await client.publicClient.waitForTransactionReceipt({ hash })
+    const receipt = await client.publicClient.waitForTransactionReceipt({
+      hash,
+    })
     console.log(`[Staking] Rewards claimed in tx: ${receipt.transactionHash}`)
 
     state.claimedRewards += state.pendingRewards
@@ -561,9 +583,10 @@ export function createStakingManagerService(
 
     return {
       totalStake: state.totalStake,
-      selfStakeRatio: state.totalStake > 0n
-        ? Number((state.selfStake * 10000n) / state.totalStake) / 100
-        : 0,
+      selfStakeRatio:
+        state.totalStake > 0n
+          ? Number((state.selfStake * 10000n) / state.totalStake) / 100
+          : 0,
       delegatorAPY,
       operatorAPY,
       commission: fullConfig.commissionBps / 100,

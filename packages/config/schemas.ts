@@ -107,6 +107,8 @@ export type ContractCategory =
   | 'moderation'
   | 'nodeStaking'
   | 'jns'
+  | 'oauth3'
+  | 'dws'
   | 'payments'
   | 'defi'
   | 'compute'
@@ -142,6 +144,8 @@ const NetworkContractsSchema = z.object({
   moderation: ContractCategorySchema,
   nodeStaking: ContractCategorySchema,
   jns: ContractCategorySchema,
+  oauth3: ContractCategorySchema.optional(),
+  dws: ContractCategorySchema.optional(),
   payments: ContractCategorySchema,
   defi: ContractCategorySchema,
   compute: ContractCategorySchema,
@@ -240,6 +244,7 @@ export const ServicesNetworkConfigSchema = z.object({
     graphql: UrlString,
     websocket: UrlString,
     rest: UrlString.optional(),
+    dws: UrlString.optional(),
   }),
   gateway: z.object({
     ui: UrlString,

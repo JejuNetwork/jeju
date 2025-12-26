@@ -10,31 +10,13 @@ const features = [
     href: '/agents',
     icon: '🤖',
     title: 'Agents',
-    description: 'View and manage your AI agents',
-  },
-  {
-    href: '/characters',
-    icon: '👤',
-    title: 'Characters',
-    description: 'Browse agent templates',
+    description: 'View, create, and manage your AI agents',
   },
   {
     href: '/chat',
     icon: '💬',
     title: 'Chat',
-    description: 'Interact with agents',
-  },
-  {
-    href: '/rooms',
-    icon: '🏛️',
-    title: 'Rooms',
-    description: 'Coordinate multi-agent rooms',
-  },
-  {
-    href: '/autonomous',
-    icon: '⚡',
-    title: 'Autonomous',
-    description: 'Run agents autonomously',
+    description: 'Interact with agents and manage rooms',
   },
 ]
 
@@ -96,20 +78,20 @@ export default function HomePage() {
       </div>
 
       {/* Feature Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full max-w-4xl">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full max-w-2xl">
         {features.map((feature) => (
           <Link key={feature.href} to={feature.href} className="group">
-            <div className="card p-6 h-full">
-              <div className="text-4xl mb-4 group-hover:scale-110 transition-transform">
+            <div className="card p-8 h-full">
+              <div className="text-5xl mb-4 group-hover:scale-110 transition-transform">
                 {feature.icon}
               </div>
               <h3
-                className="text-lg font-bold mb-2"
+                className="text-xl font-bold mb-2"
                 style={{ color: 'var(--text-primary)' }}
               >
                 {feature.title}
               </h3>
-              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+              <p style={{ color: 'var(--text-secondary)' }}>
                 {feature.description}
               </p>
             </div>
@@ -118,7 +100,7 @@ export default function HomePage() {
       </div>
 
       {/* Quick Start */}
-      <div className="mt-12 w-full max-w-4xl">
+      <div className="mt-12 w-full max-w-3xl">
         <div className="card-static p-6">
           <h2
             className="text-xl font-bold mb-4"
@@ -139,13 +121,13 @@ export default function HomePage() {
                   className="font-medium"
                   style={{ color: 'var(--text-primary)' }}
                 >
-                  Browse Characters
+                  Create an Agent
                 </p>
                 <p
                   className="text-sm"
                   style={{ color: 'var(--text-tertiary)' }}
                 >
-                  Choose from pre-built agent templates
+                  Select a template and deploy your agent
                 </p>
               </div>
             </div>
@@ -161,13 +143,13 @@ export default function HomePage() {
                   className="font-medium"
                   style={{ color: 'var(--text-primary)' }}
                 >
-                  Start an Agent
+                  Start Chatting
                 </p>
                 <p
                   className="text-sm"
                   style={{ color: 'var(--text-tertiary)' }}
                 >
-                  Deploy your agent on the network
+                  Interact with your agents in real-time
                 </p>
               </div>
             </div>
@@ -183,13 +165,13 @@ export default function HomePage() {
                   className="font-medium"
                   style={{ color: 'var(--text-primary)' }}
                 >
-                  Chat or Go Autonomous
+                  Create Rooms
                 </p>
                 <p
                   className="text-sm"
                   style={{ color: 'var(--text-tertiary)' }}
                 >
-                  Interact or let it run independently
+                  Multi-agent collaboration and debate
                 </p>
               </div>
             </div>

@@ -6,8 +6,8 @@
  * with Psyche integration for decentralized model training.
  */
 
-import { getAtroposPort } from '@jejunetwork/config'
 import { cors } from '@elysiajs/cors'
+import { getAtroposPort } from '@jejunetwork/config'
 import { expectValid } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import {

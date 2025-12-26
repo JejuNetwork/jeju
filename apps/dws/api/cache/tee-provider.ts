@@ -1,23 +1,6 @@
 /**
- * TEE Cache Provider
- *
- * Provides TEE-backed cache instances with:
- * - Memory encryption via CVM
- * - Attestation for cache operations
- * - Key escrow with TEE-protected key vault
- * - Audit logging
- *
- * Supports: Phala, Intel TDX, AMD SEV, dstack, LOCAL (simulator)
- *
- * ⚠️ SECURITY WARNING ⚠️
- * LOCAL and DSTACK modes use SIMULATED encryption (base64 encoding).
- * This is NOT cryptographically secure and is ONLY for testing/development.
- * For production deployments with sensitive data, you MUST use a real TEE
- * provider (Phala, TDX, or SEV) with proper encryption.
- *
- * To check if running in simulated mode:
- *   provider.isSimulated() // returns true if LOCAL mode
- *   provider.getAttestation()?.simulated // returns true if attestation is simulated
+ * TEE-backed cache with attestation and encryption.
+ * ⚠️ LOCAL/DSTACK modes use simulated encryption (NOT secure) for dev only.
  */
 
 import { HexSchema } from '@jejunetwork/types'
@@ -39,8 +22,6 @@ import {
   type SortedSetMember,
 } from './types'
 
-// Validation schemas for TEE responses
-
 const TEEAttestationResponseSchema = z.object({
   quote: HexSchema,
   mr_enclave: HexSchema,
@@ -59,8 +40,6 @@ const TEEDecryptResponseSchema = z.object({
   plaintext: z.string(),
 })
 
-// TEE Provider Configuration
-
 export interface TEECacheProviderConfig {
   provider: CacheTEEProvider
   endpoint?: string
@@ -70,8 +49,6 @@ export interface TEECacheProviderConfig {
   maxMemoryMb: number
 }
 
-// Encrypted cache entry wrapper
-
 const EncryptedEntrySchema = z.object({
   ciphertext: z.string(),
   nonce: z.string(),
@@ -80,11 +57,6 @@ const EncryptedEntrySchema = z.object({
 })
 type EncryptedEntry = z.infer<typeof EncryptedEntrySchema>
 
-/**
- * TEE-backed cache provider
- *
- * Wraps CacheEngine with TEE attestation and optional encryption.
- */
 export class TEECacheProvider {
   private config: TEECacheProviderConfig
   private engine: CacheEngine
@@ -923,11 +895,14 @@ export class TEECacheProvider {
   private async decrypt(encrypted: string): Promise<string> {
     const parseResult = EncryptedEntrySchema.safeParse(
       (() => {
-        try { return JSON.parse(encrypted) }
-        catch { return null }
-      })()
+        try {
+          return JSON.parse(encrypted)
+        } catch {
+          return null
+        }
+      })(),
     )
-    
+
     // Not encrypted or invalid format, return as-is
     if (!parseResult.success) {
       return encrypted

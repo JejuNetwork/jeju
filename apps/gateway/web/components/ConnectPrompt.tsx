@@ -1,4 +1,4 @@
-import { ConnectButton } from '@rainbow-me/rainbowkit'
+import { useWallet, WalletButton } from '@jejunetwork/ui'
 import { type LucideProps, Wallet } from 'lucide-react'
 import type { ComponentType } from 'react'
 
@@ -61,7 +61,7 @@ export function ConnectPrompt({
           {action}
         </p>
       )}
-      <ConnectButton />
+      <WalletButton />
     </div>
   )
 }
@@ -74,21 +74,19 @@ export function ConnectButtonInline({
 }: {
   label?: string
 }) {
+  const { connect } = useWallet()
+
   return (
     <div style={{ display: 'flex', justifyContent: 'center' }}>
-      <ConnectButton.Custom>
-        {({ openConnectModal }) => (
-          <button
-            type="button"
-            className="button"
-            onClick={openConnectModal}
-            style={{ gap: '0.5rem' }}
-          >
-            <WalletIcon size={16} />
-            {label}
-          </button>
-        )}
-      </ConnectButton.Custom>
+      <button
+        type="button"
+        className="button"
+        onClick={connect}
+        style={{ gap: '0.5rem' }}
+      >
+        <WalletIcon size={16} />
+        {label}
+      </button>
     </div>
   )
 }

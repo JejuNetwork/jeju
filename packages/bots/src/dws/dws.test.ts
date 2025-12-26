@@ -213,4 +213,3 @@ describe('getDWSClient singleton', () => {
     expect(client.getRpcUrl(1)).toBe('https://custom.dws.com/rpc/1')
   })
 })
-

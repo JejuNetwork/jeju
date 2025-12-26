@@ -37,7 +37,7 @@ const RawTrajectorySchema = z.object({
         .object({
           timestamp: z.number(),
           actionType: z.string(),
-          parameters: z.record(z.unknown()).optional(),
+          parameters: z.record(z.string(), z.unknown()).optional(),
           success: z.boolean(),
         })
         .nullable()
@@ -95,7 +95,7 @@ const ScoredTrajectorySchema = z.object({
       action: z
         .object({
           actionType: z.string(),
-          parameters: z.record(z.unknown()).optional(),
+          parameters: z.record(z.string(), z.unknown()).optional(),
           success: z.boolean(),
         })
         .nullable(),
@@ -364,7 +364,7 @@ export class TrajectoryBatchProcessor {
       const trajResult = RawTrajectorySchema.safeParse(t.raw)
       if (!trajResult.success) {
         logger.warn('[BatchProcessor] Invalid trajectory data, skipping', {
-          trajectoryId: t.raw.trajectoryId,
+          trajectoryId: String(t.raw.trajectoryId ?? 'unknown'),
           error: trajResult.error.message,
         })
         continue
@@ -684,7 +684,8 @@ export async function downloadScoredDataset(
         trajectories.push(result.data)
       } else {
         logger.warn('[BatchProcessor] Invalid scored trajectory, skipping', {
-          trajectoryId: (rest as { trajectoryId?: string }).trajectoryId,
+          trajectoryId:
+            (rest as { trajectoryId?: string }).trajectoryId ?? 'unknown',
           error: result.error.message,
         })
       }

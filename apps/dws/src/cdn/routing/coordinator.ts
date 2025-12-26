@@ -3,7 +3,7 @@
  */
 
 import { cors } from '@elysiajs/cors'
-import { getRpcUrl } from '@jejunetwork/config'
+import { getRpcUrl, isProductionEnv } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import {
   type Address,
@@ -73,7 +73,8 @@ export class CDNCoordinator {
 
     const privateKey = process.env.PRIVATE_KEY
     if (!privateKey) throw new Error('PRIVATE_KEY required')
-    if (!privateKey.startsWith('0x')) throw new Error('PRIVATE_KEY must start with 0x')
+    if (!privateKey.startsWith('0x'))
+      throw new Error('PRIVATE_KEY must start with 0x')
     this.account = privateKeyToAccount(privateKey as `0x${string}`)
     this.chain = inferChainFromRpcUrl(config.rpcUrl)
     this.registryAddress = config.registryAddress
@@ -95,7 +96,7 @@ export class CDNCoordinator {
 
   private setupRoutes(): void {
     const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',').filter(Boolean)
-    const isProduction = process.env.NODE_ENV === 'production'
+    const isProduction = isProductionEnv()
 
     this.elysiaApp.use(
       cors({
@@ -130,9 +131,20 @@ export class CDNCoordinator {
         args: [nodeIdBytes as `0x${string}`],
       })
 
-      // Result is a tuple: [nodeId, operator, endpoint, region, providerType, status, stake, registeredAt, lastSeen, agentId]
-      const nodeData = onChainNode as readonly [string, Address, string, number, number, number, bigint, bigint, bigint, bigint]
-      const operator = nodeData[1]
+      // Result is an object with named fields
+      const nodeData = onChainNode as {
+        nodeId: `0x${string}`
+        operator: `0x${string}`
+        endpoint: string
+        region: number
+        providerType: number
+        status: number
+        stake: bigint
+        registeredAt: bigint
+        lastSeen: bigint
+        agentId: bigint
+      }
+      const operator = nodeData.operator
 
       if (
         !onChainNode ||
@@ -398,7 +410,7 @@ export async function startCoordinator(): Promise<CDNCoordinator> {
       '0x0000000000000000000000000000000000000000') as Address,
     billingAddress: (process.env.CDN_BILLING_ADDRESS ??
       '0x0000000000000000000000000000000000000000') as Address,
-    rpcUrl: process.env.RPC_URL ?? getRpcUrl(),
+    rpcUrl: getRpcUrl(),
     healthCheckInterval: parseInt(
       process.env.CDN_HEALTH_CHECK_INTERVAL ?? '60000',
       10,

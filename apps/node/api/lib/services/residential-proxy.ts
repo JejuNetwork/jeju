@@ -1,8 +1,8 @@
-import { createHash, randomBytes } from 'node:crypto'
 import * as http from 'node:http'
 import * as https from 'node:https'
 import * as net from 'node:net'
 import type { Duplex } from 'node:stream'
+import { bytesToHex, hash256, randomHex } from '@jejunetwork/shared'
 import {
   expectAddress,
   expectHex,
@@ -264,7 +264,7 @@ export class ResidentialProxyService {
 
     // Hash region code (e.g., "US" -> keccak256("US"))
     const region = regionCode ?? process.env.PROXY_REGION ?? 'GLOBAL'
-    const regionHash: Hex = `0x${createHash('sha256').update(region).digest('hex')}`
+    const regionHash = `0x${bytesToHex(hash256(region))}` as Hex
 
     // Get endpoint URL for callback
     const endpoint = `http://localhost:${this.config.localPort}`
@@ -510,7 +510,7 @@ export class ResidentialProxyService {
     req: http.IncomingMessage,
     res: http.ServerResponse,
   ): Promise<void> {
-    const requestId = randomBytes(8).toString('hex')
+    const requestId = randomHex(8).slice(2)
     const timer = proxyRequestDuration.startTimer({ method: 'http' })
 
     // Check if draining
@@ -626,7 +626,7 @@ export class ResidentialProxyService {
     clientSocket: Duplex,
     head: Buffer,
   ): Promise<void> {
-    const requestId = randomBytes(8).toString('hex')
+    const requestId = randomHex(8).slice(2)
     const timer = proxyRequestDuration.startTimer({ method: 'connect' })
 
     // Validate authentication

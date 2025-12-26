@@ -2,7 +2,7 @@
  * Contract ABIs and utilities
  *
  * Provides canonical ABIs for all Jeju Network contracts.
- * Projects building on Jeju (including Babylon) should import ABIs from here
+ * Projects building on Jeju should import ABIs from here
  * rather than maintaining separate contract packages.
  */
 

@@ -11,7 +11,7 @@ export default function InferencePage() {
   const inference = useInference()
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
-  const [model, setModel] = useState('gpt-4')
+  const [model, setModel] = useState('gpt-5.2')
   const [copied, setCopied] = useState<number | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -72,11 +72,10 @@ export default function InferencePage() {
             onChange={(e) => setModel(e.target.value)}
             style={{ width: 'auto' }}
           >
-            <option value="gpt-4">GPT-4</option>
-            <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-            <option value="claude-3-opus">Claude 3 Opus</option>
-            <option value="claude-3-sonnet">Claude 3 Sonnet</option>
-            <option value="llama-3-70b">Llama 3 70B</option>
+            <option value="gpt-5.2">GPT-5.2</option>
+            <option value="claude-sonnet-4-5">Claude Sonnet 4.5</option>
+            <option value="claude-opus-4-1">Claude Opus 4.1</option>
+            <option value="llama-3.3-70b">Llama 3.3 70B</option>
             <option value="mixtral-8x7b">Mixtral 8x7B</option>
           </select>
           <button

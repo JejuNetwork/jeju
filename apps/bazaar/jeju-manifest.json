@@ -93,7 +93,7 @@
       "type": "covenantsql",
       "name": "bazaar-db",
       "consistency": "strong",
-      "tables": ["faucet_claims", "market_cache", "user_preferences"]
+      "tables": ["market_cache", "user_preferences"]
     },
     "cdn": {
       "enabled": true,

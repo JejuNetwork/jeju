@@ -154,3 +154,38 @@ export const agentsRoutes = new Elysia({ prefix: '/api/v1/agents' })
       detail: { tags: ['agents'], summary: 'Get recent CEO decisions' },
     },
   )
+  .post(
+    '/ceo/nominate',
+    async ({ body }) => {
+      // When contract is deployed, this would call the contract
+      // For now, return success with the nominated model info
+      const { modelId, modelName, provider, benchmarkScore } = body
+      return {
+        success: true,
+        nominated: {
+          modelId,
+          modelName,
+          provider,
+          benchmarkScore: benchmarkScore ?? 0,
+          totalStaked: '0',
+          totalReputation: '0',
+          decisionsCount: 0,
+          isActive: false,
+          nominatedAt: Date.now(),
+        },
+        message: `Model ${modelName} nominated for CEO election`,
+      }
+    },
+    {
+      body: t.Object({
+        modelId: t.String(),
+        modelName: t.String(),
+        provider: t.String(),
+        benchmarkScore: t.Optional(t.Number()),
+      }),
+      detail: {
+        tags: ['agents'],
+        summary: 'Nominate a model for CEO election',
+      },
+    },
+  )

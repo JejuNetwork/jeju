@@ -12,6 +12,7 @@ type JsonValue =
   | boolean
   | JsonValue[]
   | { [key: string]: JsonValue }
+
 import type { z } from 'zod'
 import { getKMS } from '../kms.js'
 import type { AuthSignature, EncryptedPayload } from '../types.js'

@@ -1,11 +1,11 @@
 /** Factory API Server */
 
+import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { cors } from '@elysiajs/cors'
 import { openapi } from '@elysiajs/openapi'
-import { staticPlugin } from '@elysiajs/static'
 import { CORE_PORTS } from '@jejunetwork/config'
-import { type Context, Elysia } from 'elysia'
+import { Elysia } from 'elysia'
 import { a2aRoutes } from './routes/a2a'
 import { agentsRoutes } from './routes/agents'
 import { bountiesRoutes } from './routes/bounties'
@@ -32,9 +32,32 @@ import { repoSettingsRoutes } from './routes/repo-settings'
 const PORT = Number(process.env.PORT) || CORE_PORTS.FACTORY.get()
 const isDev = process.env.NODE_ENV !== 'production'
 
-/** Use env var to control static file serving - set at build time */
-const staticPath = process.env.FACTORY_SERVE_STATIC === 'true' ? 'dist/client' : null
-const hasStaticFiles = staticPath !== null
+/** Auto-detect static files from dist/client if they exist */
+const STATIC_DIR = 'dist/client'
+const hasStaticFiles = existsSync(join(STATIC_DIR, 'index.html'))
+
+/** MIME type mapping */
+const MIME_TYPES: Record<string, string> = {
+  '.html': 'text/html',
+  '.css': 'text/css',
+  '.js': 'application/javascript',
+  '.json': 'application/json',
+  '.map': 'application/json',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf',
+}
+
+function getMimeType(path: string): string {
+  const ext = path.substring(path.lastIndexOf('.'))
+  return MIME_TYPES[ext] ?? 'application/octet-stream'
+}
 
 function createApp() {
   const baseApp = new Elysia()
@@ -110,37 +133,46 @@ function createApp() {
 export const app = createApp()
 
 if (import.meta.main) {
-  if (hasStaticFiles && staticPath) {
-    app.use(
-      staticPlugin({
-        assets: staticPath,
-        prefix: '/',
-        indexHTML: true,
-      }),
-    )
-    app.get('*', (ctx: Context) => {
-      const path = ctx.path
-      if (
-        path.startsWith('/api') ||
-        path.startsWith('/swagger') ||
-        path.startsWith('/a2a') ||
-        path.startsWith('/mcp')
-      ) {
-        ctx.set.status = 404
-        return { error: 'Not found' }
+  // Serve static files if dist/client exists
+  // Note: This is registered after API routes so API routes take precedence
+  if (hasStaticFiles) {
+    // Catch-all for static files and SPA routes
+    // Elysia registers routes in order, API routes are already registered above
+    app.onError(({ code, set, request }) => {
+      // Only handle NOT_FOUND errors
+      if (code !== 'NOT_FOUND') return
+
+      const url = new URL(request.url)
+      const path = url.pathname
+
+      // Check if this looks like a static file request
+      const hasExtension = /\.[a-zA-Z0-9]+$/.test(path)
+      if (hasExtension) {
+        const filePath = join(STATIC_DIR, path)
+        const file = Bun.file(filePath)
+        // Can't use async here, so just try to return the file
+        if (existsSync(filePath)) {
+          return new Response(file, {
+            headers: { 'Content-Type': getMimeType(path) },
+          })
+        }
+        set.status = 404
+        return { error: 'File not found' }
       }
-      ctx.set.headers['content-type'] = 'text/html'
-      return Bun.file(join(staticPath, 'index.html'))
+
+      // SPA fallback - serve index.html for routes without extensions
+      const indexFile = Bun.file(join(STATIC_DIR, 'index.html'))
+      return new Response(indexFile, {
+        headers: { 'Content-Type': 'text/html' },
+      })
     })
   }
 
   app.listen(PORT, () => {
     console.log(`🏭 Factory API running at http://localhost:${PORT}`)
     console.log(`📚 API docs at http://localhost:${PORT}/swagger`)
-    if (!hasStaticFiles) {
-      console.log(
-        `📦 Run "bun run dev:client" in another terminal for the frontend`,
-      )
+    if (hasStaticFiles) {
+      console.log(`📁 Serving static files from ${STATIC_DIR}`)
     }
   })
 }

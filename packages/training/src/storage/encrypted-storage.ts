@@ -19,7 +19,7 @@ import {
 import { generateSnowflakeId, logger } from '@jejunetwork/shared'
 import type { Address } from 'viem'
 import { z } from 'zod'
-import { TrajectoryStepSchema, type TrajectoryStep } from '../schemas'
+import { type TrajectoryStep, TrajectoryStepSchema } from '../schemas'
 import { validateCIDResponse, validateEncryptedPayload } from './type-guards'
 import type {
   AccessCondition,

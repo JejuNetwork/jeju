@@ -583,7 +583,7 @@ ${error}
 Check your API key for ${provider.toUpperCase()}_API_KEY or try a different model/provider.
 
 **Usage:** Specify models as "model-name" or "provider/model-name"
-Examples: "gpt-4o", "anthropic/claude-3-opus", "groq/llama-3.3-70b-versatile"`
+Examples: "gpt-5.2", "anthropic/claude-opus-4-5", "groq/llama-3.3-70b-versatile"`
     }
 
     if (provider) {
@@ -610,8 +610,8 @@ Set any provider API key. Examples:
 - ANTHROPIC_API_KEY
 
 **Model Format:** "model-name" or "provider/model-name"
-- "gpt-4o" → routes to OpenAI
-- "claude-3-opus" → routes to Anthropic
+- "gpt-5.2" → routes to OpenAI
+- "claude-opus-4-5" → routes to Anthropic
 - "groq/llama-3.3-70b-versatile" → explicit Groq
 - "openrouter/meta-llama/llama-3.1-405b" → OpenRouter
 

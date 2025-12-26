@@ -1,148 +1,65 @@
 [
   {
-    "type": "function",
-    "name": "createListing",
+    "type": "constructor",
     "inputs": [
-      { "name": "nftContract", "type": "address" },
-      { "name": "tokenId", "type": "uint256" },
-      { "name": "price", "type": "uint256" },
-      { "name": "duration", "type": "uint256" }
-    ],
-    "outputs": [
-      { "name": "listingId", "type": "uint256" }
+      { "name": "initialOwner", "type": "address" },
+      { "name": "_gameGold", "type": "address" },
+      { "name": "_usdc", "type": "address" },
+      { "name": "_feeRecipient", "type": "address" }
     ],
     "stateMutability": "nonpayable"
   },
   {
     "type": "function",
-    "name": "cancelListing",
+    "name": "createListing",
     "inputs": [
-      { "name": "listingId", "type": "uint256" }
+      { "name": "assetType", "type": "uint8" },
+      { "name": "assetContract", "type": "address" },
+      { "name": "tokenId", "type": "uint256" },
+      { "name": "amount", "type": "uint256" },
+      { "name": "currency", "type": "uint8" },
+      { "name": "customCurrencyAddress", "type": "address" },
+      { "name": "price", "type": "uint256" },
+      { "name": "duration", "type": "uint256" }
     ],
-    "outputs": [],
+    "outputs": [{ "name": "", "type": "uint256" }],
     "stateMutability": "nonpayable"
   },
   {
     "type": "function",
     "name": "buyListing",
-    "inputs": [
-      { "name": "listingId", "type": "uint256" }
-    ],
+    "inputs": [{ "name": "listingId", "type": "uint256" }],
     "outputs": [],
     "stateMutability": "payable"
   },
   {
     "type": "function",
-    "name": "createAuction",
-    "inputs": [
-      { "name": "nftContract", "type": "address" },
-      { "name": "tokenId", "type": "uint256" },
-      { "name": "reservePrice", "type": "uint256" },
-      { "name": "duration", "type": "uint256" },
-      { "name": "buyoutPrice", "type": "uint256" }
-    ],
-    "outputs": [
-      { "name": "auctionId", "type": "uint256" }
-    ],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "placeBid",
-    "inputs": [
-      { "name": "auctionId", "type": "uint256" }
-    ],
-    "outputs": [],
-    "stateMutability": "payable"
-  },
-  {
-    "type": "function",
-    "name": "settleAuction",
-    "inputs": [
-      { "name": "auctionId", "type": "uint256" }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "makeOffer",
-    "inputs": [
-      { "name": "nftContract", "type": "address" },
-      { "name": "tokenId", "type": "uint256" },
-      { "name": "price", "type": "uint256" }
-    ],
-    "outputs": [
-      { "name": "offerId", "type": "uint256" }
-    ],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "acceptOffer",
-    "inputs": [
-      { "name": "offerId", "type": "uint256" }
-    ],
+    "name": "cancelListing",
+    "inputs": [{ "name": "listingId", "type": "uint256" }],
     "outputs": [],
     "stateMutability": "nonpayable"
   },
   {
     "type": "function",
     "name": "getListing",
-    "inputs": [
-      { "name": "listingId", "type": "uint256" }
-    ],
+    "inputs": [{ "name": "listingId", "type": "uint256" }],
     "outputs": [
       {
         "type": "tuple",
         "components": [
+          { "name": "listingId", "type": "uint256" },
           { "name": "seller", "type": "address" },
-          { "name": "nftContract", "type": "address" },
+          { "name": "assetType", "type": "uint8" },
+          { "name": "assetContract", "type": "address" },
           { "name": "tokenId", "type": "uint256" },
-          { "name": "price", "type": "uint256" },
-          { "name": "active", "type": "bool" },
-          { "name": "endTime", "type": "uint256" }
-        ]
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "getAuction",
-    "inputs": [
-      { "name": "auctionId", "type": "uint256" }
-    ],
-    "outputs": [
-      {
-        "type": "tuple",
-        "components": [
-          { "name": "seller", "type": "address" },
-          { "name": "nftContract", "type": "address" },
-          { "name": "tokenId", "type": "uint256" },
-          { "name": "reservePrice", "type": "uint256" },
-          { "name": "highestBid", "type": "uint256" },
-          { "name": "highestBidder", "type": "address" },
-          { "name": "endTime", "type": "uint256" },
-          { "name": "settled", "type": "bool" }
-        ]
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "getBids",
-    "inputs": [
-      { "name": "auctionId", "type": "uint256" }
-    ],
-    "outputs": [
-      {
-        "type": "tuple[]",
-        "components": [
-          { "name": "bidder", "type": "address" },
           { "name": "amount", "type": "uint256" },
-          { "name": "timestamp", "type": "uint256" }
+          { "name": "currency", "type": "uint8" },
+          { "name": "customCurrencyAddress", "type": "address" },
+          { "name": "price", "type": "uint256" },
+          { "name": "listingType", "type": "uint8" },
+          { "name": "status", "type": "uint8" },
+          { "name": "createdAt", "type": "uint256" },
+          { "name": "expiresAt", "type": "uint256" }
         ]
       }
     ],
@@ -150,38 +67,282 @@
   },
   {
     "type": "function",
-    "name": "getUserListings",
+    "name": "getTokenListing",
     "inputs": [
-      { "name": "user", "type": "address" }
+      { "name": "assetContract", "type": "address" },
+      { "name": "tokenId", "type": "uint256" }
     ],
+    "outputs": [{ "name": "", "type": "uint256" }],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "listings",
+    "inputs": [{ "name": "listingId", "type": "uint256" }],
     "outputs": [
-      { "name": "", "type": "uint256[]" }
+      { "name": "listingId", "type": "uint256" },
+      { "name": "seller", "type": "address" },
+      { "name": "assetType", "type": "uint8" },
+      { "name": "assetContract", "type": "address" },
+      { "name": "tokenId", "type": "uint256" },
+      { "name": "amount", "type": "uint256" },
+      { "name": "currency", "type": "uint8" },
+      { "name": "customCurrencyAddress", "type": "address" },
+      { "name": "price", "type": "uint256" },
+      { "name": "listingType", "type": "uint8" },
+      { "name": "status", "type": "uint8" },
+      { "name": "createdAt", "type": "uint256" },
+      { "name": "expiresAt", "type": "uint256" }
     ],
     "stateMutability": "view"
   },
   {
     "type": "function",
-    "name": "getActiveListings",
+    "name": "tokenListings",
     "inputs": [
-      { "name": "offset", "type": "uint256" },
-      { "name": "limit", "type": "uint256" }
+      { "name": "assetContract", "type": "address" },
+      { "name": "tokenId", "type": "uint256" }
     ],
+    "outputs": [{ "name": "", "type": "uint256" }],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "platformFeeBps",
+    "inputs": [],
+    "outputs": [{ "name": "", "type": "uint256" }],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "feeRecipient",
+    "inputs": [],
+    "outputs": [{ "name": "", "type": "address" }],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "gameGold",
+    "inputs": [],
+    "outputs": [{ "name": "", "type": "address" }],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "usdc",
+    "inputs": [],
+    "outputs": [{ "name": "", "type": "address" }],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getEffectivePlatformFee",
+    "inputs": [],
+    "outputs": [{ "name": "", "type": "uint256" }],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getPlatformFeeStats",
+    "inputs": [],
     "outputs": [
-      { "name": "", "type": "uint256[]" }
+      { "name": "_totalPlatformFeesCollected", "type": "uint256" },
+      { "name": "_currentFeeBps", "type": "uint256" },
+      { "name": "_recipient", "type": "address" }
     ],
     "stateMutability": "view"
   },
   {
     "type": "function",
-    "name": "getActiveAuctions",
-    "inputs": [
-      { "name": "offset", "type": "uint256" },
-      { "name": "limit", "type": "uint256" }
-    ],
-    "outputs": [
-      { "name": "", "type": "uint256[]" }
-    ],
+    "name": "isUserBanned",
+    "inputs": [{ "name": "user", "type": "address" }],
+    "outputs": [{ "name": "", "type": "bool" }],
     "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isUserBlocked",
+    "inputs": [
+      { "name": "source", "type": "address" },
+      { "name": "target", "type": "address" }
+    ],
+    "outputs": [{ "name": "", "type": "bool" }],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "linkListingToAgent",
+    "inputs": [
+      { "name": "listingId", "type": "uint256" },
+      { "name": "agentId", "type": "uint256" }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "getListingsByAgent",
+    "inputs": [{ "name": "agentId", "type": "uint256" }],
+    "outputs": [{ "name": "", "type": "uint256[]" }],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isVerifiedSeller",
+    "inputs": [{ "name": "listingId", "type": "uint256" }],
+    "outputs": [{ "name": "", "type": "bool" }],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getListingAgentId",
+    "inputs": [{ "name": "listingId", "type": "uint256" }],
+    "outputs": [{ "name": "", "type": "uint256" }],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "version",
+    "inputs": [],
+    "outputs": [{ "name": "", "type": "string" }],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "event",
+    "name": "ListingCreated",
+    "inputs": [
+      { "name": "listingId", "type": "uint256", "indexed": true },
+      { "name": "seller", "type": "address", "indexed": true },
+      { "name": "assetType", "type": "uint8", "indexed": false },
+      { "name": "assetContract", "type": "address", "indexed": true },
+      { "name": "tokenId", "type": "uint256", "indexed": false },
+      { "name": "amount", "type": "uint256", "indexed": false },
+      { "name": "currency", "type": "uint8", "indexed": false },
+      { "name": "price", "type": "uint256", "indexed": false }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "ListingSold",
+    "inputs": [
+      { "name": "listingId", "type": "uint256", "indexed": true },
+      { "name": "buyer", "type": "address", "indexed": true },
+      { "name": "seller", "type": "address", "indexed": true },
+      { "name": "assetType", "type": "uint8", "indexed": false },
+      { "name": "amount", "type": "uint256", "indexed": false },
+      { "name": "price", "type": "uint256", "indexed": false },
+      { "name": "currency", "type": "uint8", "indexed": false }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "ListingCancelled",
+    "inputs": [
+      { "name": "listingId", "type": "uint256", "indexed": true },
+      { "name": "seller", "type": "address", "indexed": true },
+      { "name": "assetType", "type": "uint8", "indexed": false }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "PlatformFeeCollected",
+    "inputs": [
+      { "name": "listingId", "type": "uint256", "indexed": true },
+      { "name": "amount", "type": "uint256", "indexed": false },
+      { "name": "feeBps", "type": "uint256", "indexed": false }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "SellerAgentLinked",
+    "inputs": [
+      { "name": "listingId", "type": "uint256", "indexed": true },
+      { "name": "agentId", "type": "uint256", "indexed": true }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidPrice",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidAmount",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidCurrency",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidAssetContract",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidAssetType",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotAssetOwner",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InsufficientBalance",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "AssetNotApproved",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ListingNotFound",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ListingNotActive",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CannotBuyOwnListing",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InsufficientPayment",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidFee",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TransferFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "AlreadyListed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "UserIsBanned",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "UserBlocked",
+    "inputs": []
   }
 ]
-

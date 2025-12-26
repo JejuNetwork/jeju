@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Jeju Auth - Decentralized Authentication</title>
+    <title>OAuth3 - Decentralized Authentication | Jeju Network</title>
     <meta
       name="description"
       content="OAuth3 authentication gateway for Jeju Network. Secure, decentralized login with wallet, Farcaster, and social providers."
@@ -11,76 +11,79 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
       rel="stylesheet"
     />
     <style>
       :root {
-        --bg-primary: #050508;
-        --bg-secondary: #0a0a0f;
-        --bg-card: rgba(15, 15, 25, 0.8);
-        --accent: #64ffda;
-        --accent-dim: rgba(100, 255, 218, 0.15);
-        --text-primary: #e8e8ec;
-        --text-secondary: #8888a0;
-        --border: rgba(100, 255, 218, 0.12);
-        --purple: #8a63d2;
-        --gradient: linear-gradient(135deg, #64ffda 0%, #00bcd4 100%);
+        --bg-deep: #030305;
+        --bg-primary: #080810;
+        --bg-card: rgba(12, 12, 20, 0.95);
+        --bg-elevated: rgba(20, 20, 35, 0.9);
+        --accent-cyan: #00e5cc;
+        --accent-cyan-dim: rgba(0, 229, 204, 0.12);
+        --accent-purple: #9d4edd;
+        --accent-orange: #ff6b35;
+        --text-primary: #f0f0f5;
+        --text-secondary: #7a7a90;
+        --text-muted: #4a4a60;
+        --border: rgba(0, 229, 204, 0.08);
+        --border-hover: rgba(0, 229, 204, 0.25);
+        --gradient-accent: linear-gradient(135deg, #00e5cc 0%, #00b4d8 50%, #9d4edd 100%);
+        --gradient-warm: linear-gradient(135deg, #ff6b35 0%, #f72585 100%);
       }
 
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
 
       body {
-        font-family: 'Instrument Sans', sans-serif;
-        background: var(--bg-primary);
+        font-family: 'DM Sans', sans-serif;
+        background: var(--bg-deep);
         color: var(--text-primary);
         min-height: 100vh;
         overflow-x: hidden;
+        line-height: 1.6;
       }
 
-      /* Animated background */
-      .bg-pattern {
+      /* Animated mesh gradient background */
+      .bg-mesh {
         position: fixed;
         inset: 0;
-        background-image: radial-gradient(
-            circle at 25% 25%,
-            rgba(100, 255, 218, 0.03) 0%,
-            transparent 50%
-          ),
-          radial-gradient(
-            circle at 75% 75%,
-            rgba(138, 99, 210, 0.03) 0%,
-            transparent 50%
-          );
+        background: 
+          radial-gradient(ellipse 80% 50% at 20% 20%, rgba(0, 229, 204, 0.08) 0%, transparent 50%),
+          radial-gradient(ellipse 60% 60% at 80% 80%, rgba(157, 78, 221, 0.06) 0%, transparent 50%),
+          radial-gradient(ellipse 40% 40% at 50% 50%, rgba(255, 107, 53, 0.04) 0%, transparent 50%);
         pointer-events: none;
+        animation: meshFloat 20s ease-in-out infinite;
       }
 
-      .grid-lines {
+      @keyframes meshFloat {
+        0%, 100% { transform: scale(1) translateY(0); }
+        50% { transform: scale(1.02) translateY(-10px); }
+      }
+
+      .noise {
         position: fixed;
         inset: 0;
-        background-image: linear-gradient(
-            rgba(100, 255, 218, 0.02) 1px,
-            transparent 1px
-          ),
-          linear-gradient(90deg, rgba(100, 255, 218, 0.02) 1px, transparent 1px);
-        background-size: 60px 60px;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+        opacity: 0.02;
         pointer-events: none;
       }
 
       .container {
         position: relative;
-        max-width: 1200px;
+        max-width: 1280px;
         margin: 0 auto;
         padding: 0 24px;
       }
 
       /* Header */
       header {
-        padding: 24px 0;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        padding: 16px 0;
+        background: rgba(3, 3, 5, 0.8);
+        backdrop-filter: blur(20px);
         border-bottom: 1px solid var(--border);
       }
 
@@ -97,28 +100,45 @@
         text-decoration: none;
       }
 
-      .logo-icon {
-        width: 40px;
-        height: 40px;
-        background: var(--gradient);
-        border-radius: 10px;
+      .logo-mark {
+        width: 44px;
+        height: 44px;
+        background: var(--gradient-accent);
+        border-radius: 12px;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 20px;
+        font-size: 22px;
+        font-weight: 700;
+        color: var(--bg-deep);
       }
 
       .logo-text {
-        font-size: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+      }
+
+      .logo-text span:first-child {
+        font-size: 20px;
         font-weight: 700;
-        background: var(--gradient);
+        background: var(--gradient-accent);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
+        letter-spacing: -0.5px;
+      }
+
+      .logo-text span:last-child {
+        font-size: 11px;
+        color: var(--text-muted);
+        letter-spacing: 1px;
+        text-transform: uppercase;
       }
 
       .nav-links {
         display: flex;
-        gap: 32px;
+        align-items: center;
+        gap: 8px;
       }
 
       .nav-links a {
@@ -126,28 +146,69 @@
         text-decoration: none;
         font-size: 14px;
         font-weight: 500;
-        transition: color 0.2s;
+        padding: 10px 16px;
+        border-radius: 8px;
+        transition: all 0.2s;
       }
 
       .nav-links a:hover {
-        color: var(--accent);
+        color: var(--accent-cyan);
+        background: var(--accent-cyan-dim);
       }
 
-      /* Hero */
+      .nav-links .btn-config {
+        background: var(--gradient-accent);
+        color: var(--bg-deep);
+        font-weight: 600;
+      }
+
+      .nav-links .btn-config:hover {
+        opacity: 0.9;
+        transform: translateY(-1px);
+      }
+
+      /* Hero Section */
       .hero {
-        padding: 120px 0 80px;
+        padding: 100px 0 80px;
         text-align: center;
       }
 
-      .hero h1 {
-        font-size: 56px;
-        font-weight: 700;
-        line-height: 1.1;
-        margin-bottom: 24px;
+      .hero-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 16px;
+        background: var(--bg-elevated);
+        border: 1px solid var(--border);
+        border-radius: 100px;
+        font-size: 13px;
+        color: var(--text-secondary);
+        margin-bottom: 32px;
       }
 
-      .hero h1 span {
-        background: var(--gradient);
+      .hero-badge .dot {
+        width: 8px;
+        height: 8px;
+        background: var(--accent-cyan);
+        border-radius: 50%;
+        animation: pulse 2s ease-in-out infinite;
+      }
+
+      @keyframes pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.5; transform: scale(0.9); }
+      }
+
+      .hero h1 {
+        font-size: clamp(48px, 8vw, 72px);
+        font-weight: 700;
+        line-height: 1.05;
+        margin-bottom: 24px;
+        letter-spacing: -2px;
+      }
+
+      .hero h1 .gradient {
+        background: var(--gradient-accent);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
       }
@@ -156,53 +217,54 @@
         font-size: 20px;
         color: var(--text-secondary);
         max-width: 600px;
-        margin: 0 auto 40px;
-        line-height: 1.6;
+        margin: 0 auto 48px;
+        line-height: 1.7;
       }
 
-      .hero-buttons {
+      .hero-actions {
         display: flex;
         gap: 16px;
         justify-content: center;
+        flex-wrap: wrap;
       }
 
       .btn {
         display: inline-flex;
         align-items: center;
-        gap: 8px;
-        padding: 16px 32px;
+        gap: 10px;
+        padding: 16px 28px;
         border-radius: 12px;
         font-size: 16px;
         font-weight: 600;
         text-decoration: none;
-        transition: all 0.2s;
+        transition: all 0.25s;
         cursor: pointer;
         border: none;
         font-family: inherit;
       }
 
       .btn-primary {
-        background: var(--gradient);
-        color: var(--bg-primary);
+        background: var(--gradient-accent);
+        color: var(--bg-deep);
       }
 
       .btn-primary:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 24px rgba(100, 255, 218, 0.3);
+        transform: translateY(-3px);
+        box-shadow: 0 12px 40px rgba(0, 229, 204, 0.3);
       }
 
       .btn-secondary {
-        background: var(--bg-card);
+        background: var(--bg-elevated);
         color: var(--text-primary);
         border: 1px solid var(--border);
       }
 
       .btn-secondary:hover {
-        border-color: var(--accent);
-        background: var(--accent-dim);
+        border-color: var(--border-hover);
+        background: rgba(0, 229, 204, 0.08);
       }
 
-      /* Profile Section */
+      /* Profile Section (shown when logged in) */
       #profile-section {
         display: none;
       }
@@ -210,50 +272,93 @@
       .profile-card {
         background: var(--bg-card);
         border: 1px solid var(--border);
-        border-radius: 16px;
-        padding: 32px;
-        max-width: 480px;
+        border-radius: 20px;
+        padding: 40px;
+        max-width: 500px;
         margin: 0 auto;
       }
 
       .profile-header {
         display: flex;
         align-items: center;
-        gap: 16px;
-        margin-bottom: 24px;
-        padding-bottom: 24px;
+        gap: 20px;
+        margin-bottom: 28px;
+        padding-bottom: 28px;
         border-bottom: 1px solid var(--border);
       }
 
       .provider-icon {
-        font-size: 48px;
+        font-size: 52px;
+      }
+
+      .user-info {
+        flex: 1;
       }
 
       .user-id {
-        font-family: 'JetBrains Mono', monospace;
+        font-family: 'IBM Plex Mono', monospace;
         font-size: 18px;
-        color: var(--accent);
+        color: var(--accent-cyan);
+        margin-bottom: 4px;
+      }
+
+      .user-provider {
+        font-size: 14px;
+        color: var(--text-secondary);
       }
 
       .profile-details {
-        color: var(--text-secondary);
+        display: grid;
+        gap: 12px;
         font-size: 14px;
-        line-height: 2;
       }
 
-      .profile-details strong {
+      .profile-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 12px 0;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .profile-row:last-child {
+        border-bottom: none;
+      }
+
+      .profile-row .label {
+        color: var(--text-secondary);
+      }
+
+      .profile-row .value {
+        font-family: 'IBM Plex Mono', monospace;
         color: var(--text-primary);
       }
 
       .profile-actions {
-        margin-top: 24px;
-        padding-top: 24px;
-        border-top: 1px solid var(--border);
+        margin-top: 28px;
       }
 
-      /* Features */
+      /* Features Grid */
       .features {
         padding: 80px 0;
+      }
+
+      .section-header {
+        text-align: center;
+        margin-bottom: 64px;
+      }
+
+      .section-header h2 {
+        font-size: 40px;
+        font-weight: 700;
+        margin-bottom: 16px;
+        letter-spacing: -1px;
+      }
+
+      .section-header p {
+        color: var(--text-secondary);
+        font-size: 18px;
+        max-width: 500px;
+        margin: 0 auto;
       }
 
       .features-grid {
@@ -265,26 +370,26 @@
       .feature-card {
         background: var(--bg-card);
         border: 1px solid var(--border);
-        border-radius: 16px;
+        border-radius: 20px;
         padding: 32px;
         transition: all 0.3s;
       }
 
       .feature-card:hover {
-        border-color: var(--accent);
+        border-color: var(--border-hover);
         transform: translateY(-4px);
       }
 
       .feature-icon {
-        width: 48px;
-        height: 48px;
-        background: var(--accent-dim);
-        border-radius: 12px;
+        width: 56px;
+        height: 56px;
+        background: var(--accent-cyan-dim);
+        border-radius: 14px;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 24px;
-        margin-bottom: 20px;
+        font-size: 28px;
+        margin-bottom: 24px;
       }
 
       .feature-card h3 {
@@ -296,85 +401,124 @@
       .feature-card p {
         color: var(--text-secondary);
         font-size: 15px;
-        line-height: 1.6;
+        line-height: 1.7;
       }
 
-      /* Providers */
+      /* Providers Section */
       .providers {
         padding: 80px 0;
-        text-align: center;
-      }
-
-      .providers h2 {
-        font-size: 36px;
-        margin-bottom: 16px;
-      }
-
-      .providers > p {
-        color: var(--text-secondary);
-        margin-bottom: 48px;
+        background: var(--bg-primary);
+        border-top: 1px solid var(--border);
+        border-bottom: 1px solid var(--border);
       }
 
       .provider-grid {
         display: flex;
         justify-content: center;
-        gap: 24px;
+        gap: 20px;
         flex-wrap: wrap;
       }
 
       .provider-item {
-        background: var(--bg-card);
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        padding: 24px 32px;
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 14px;
+        padding: 20px 28px;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
         font-size: 16px;
         font-weight: 500;
         transition: all 0.2s;
       }
 
       .provider-item:hover {
-        border-color: var(--accent);
+        border-color: var(--border-hover);
+        transform: translateY(-2px);
       }
 
-      .provider-item span:first-child {
-        font-size: 24px;
+      .provider-item .icon {
+        font-size: 28px;
       }
 
-      /* Code example */
-      .code-section {
-        padding: 80px 0;
+      /* Configuration Section */
+      .config-section {
+        padding: 100px 0;
       }
 
-      .code-section h2 {
-        font-size: 36px;
-        margin-bottom: 16px;
-        text-align: center;
-      }
-
-      .code-section > p {
-        color: var(--text-secondary);
-        text-align: center;
-        margin-bottom: 48px;
-      }
-
-      .code-block {
+      .config-card {
         background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        padding: 60px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 60px;
+        align-items: center;
+      }
+
+      .config-content h2 {
+        font-size: 36px;
+        font-weight: 700;
+        margin-bottom: 20px;
+        letter-spacing: -1px;
+      }
+
+      .config-content p {
+        color: var(--text-secondary);
+        font-size: 17px;
+        margin-bottom: 32px;
+        line-height: 1.7;
+      }
+
+      .config-steps {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        margin-bottom: 32px;
+      }
+
+      .config-step {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 16px;
+        background: var(--bg-elevated);
+        border-radius: 12px;
+      }
+
+      .step-num {
+        width: 32px;
+        height: 32px;
+        background: var(--gradient-accent);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--bg-deep);
+        flex-shrink: 0;
+      }
+
+      .step-text {
+        font-size: 15px;
+        color: var(--text-primary);
+      }
+
+      .config-code {
+        background: var(--bg-deep);
         border: 1px solid var(--border);
         border-radius: 16px;
         overflow: hidden;
-        max-width: 800px;
-        margin: 0 auto;
       }
 
       .code-header {
-        background: rgba(0, 0, 0, 0.3);
-        padding: 12px 20px;
+        background: rgba(0, 0, 0, 0.4);
+        padding: 14px 20px;
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 10px;
         border-bottom: 1px solid var(--border);
       }
 
@@ -384,84 +528,80 @@
         border-radius: 50%;
       }
 
-      .code-dot.red {
-        background: #ff5f56;
-      }
-      .code-dot.yellow {
-        background: #ffbd2e;
-      }
-      .code-dot.green {
-        background: #27c93f;
-      }
+      .code-dot.red { background: #ff5f56; }
+      .code-dot.yellow { background: #ffbd2e; }
+      .code-dot.green { background: #27c93f; }
 
       .code-content {
         padding: 24px;
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 14px;
-        line-height: 1.7;
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 13px;
+        line-height: 1.8;
         overflow-x: auto;
+        color: var(--text-secondary);
       }
 
-      .code-content .comment {
-        color: #6a9955;
-      }
-      .code-content .keyword {
-        color: #c586c0;
-      }
-      .code-content .string {
-        color: #ce9178;
-      }
-      .code-content .function {
-        color: #dcdcaa;
-      }
-      .code-content .variable {
-        color: #9cdcfe;
-      }
+      .code-content .comment { color: #6a9955; }
+      .code-content .keyword { color: #c586c0; }
+      .code-content .string { color: #ce9178; }
+      .code-content .function { color: #dcdcaa; }
+      .code-content .variable { color: #9cdcfe; }
 
       /* Footer */
       footer {
-        padding: 40px 0;
+        padding: 48px 0;
         border-top: 1px solid var(--border);
         text-align: center;
-        color: var(--text-secondary);
+      }
+
+      footer p {
+        color: var(--text-muted);
         font-size: 14px;
       }
 
       footer a {
-        color: var(--accent);
+        color: var(--accent-cyan);
         text-decoration: none;
       }
 
-      @media (max-width: 768px) {
-        .hero h1 {
-          font-size: 36px;
-        }
-        .features-grid {
+      footer a:hover {
+        text-decoration: underline;
+      }
+
+      @media (max-width: 1024px) {
+        .config-card {
           grid-template-columns: 1fr;
+          padding: 40px;
         }
-        .hero-buttons {
-          flex-direction: column;
-        }
-        .nav-links {
-          display: none;
-        }
+      }
+
+      @media (max-width: 768px) {
+        .hero h1 { font-size: 36px; letter-spacing: -1px; }
+        .features-grid { grid-template-columns: 1fr; }
+        .hero-actions { flex-direction: column; align-items: center; }
+        .nav-links { display: none; }
+        .config-card { padding: 32px; gap: 40px; }
       }
     </style>
   </head>
   <body>
-    <div class="bg-pattern"></div>
-    <div class="grid-lines"></div>
+    <div class="bg-mesh"></div>
+    <div class="noise"></div>
 
     <header>
       <div class="container header-content">
         <a href="/" class="logo">
-          <div class="logo-icon">🔐</div>
-          <span class="logo-text">JEJU AUTH</span>
+          <div class="logo-mark">J</div>
+          <div class="logo-text">
+            <span>OAuth3</span>
+            <span>Jeju Network</span>
+          </div>
         </a>
         <nav class="nav-links">
-          <a href="https://docs.jejunetwork.org/auth">Docs</a>
-          <a href="https://gateway.jejunetwork.org">Gateway</a>
+          <a href="https://documentation.local.jejunetwork.org:8080/auth">Docs</a>
+          <a href="https://gateway.local.jejunetwork.org:8080">Gateway</a>
           <a href="https://github.com/jejunetwork">GitHub</a>
+          <a href="http://dws.local.jejunetwork.org:8080/oauth3" class="btn-config">Configure in DWS</a>
         </nav>
       </div>
     </header>
@@ -470,21 +610,27 @@
       <!-- Login Section -->
       <section id="login-section" class="hero">
         <div class="container">
+          <div class="hero-badge">
+            <span class="dot"></span>
+            <span>Authentication Infrastructure</span>
+          </div>
           <h1>
-            Decentralized<br />
-            <span>Authentication</span>
+            <span class="gradient">OAuth3</span><br />
+            Authentication
           </h1>
           <p>
-            OAuth3 authentication gateway for Jeju Network. Connect with wallet,
-            Farcaster, or social providers. Secure, private, and fully
-            decentralized.
+            Decentralized authentication gateway for Jeju Network. Connect with 
+            wallet, Farcaster, or traditional social providers. Self-sovereign 
+            identity for web3.
           </p>
-          <div class="hero-buttons">
+          <div class="hero-actions">
             <button id="demo-login-btn" class="btn btn-primary">
+              <span>🔐</span>
               Try Demo Login
             </button>
-            <a href="https://docs.jejunetwork.org/auth" class="btn btn-secondary">
-              Read the Docs
+            <a href="http://dws.local.jejunetwork.org:8080/oauth3" class="btn btn-secondary">
+              <span>⚙️</span>
+              Configure OAuth3
             </a>
           </div>
         </div>
@@ -493,6 +639,10 @@
       <!-- Profile Section (shown when logged in) -->
       <section id="profile-section" class="hero">
         <div class="container">
+          <div class="hero-badge">
+            <span class="dot"></span>
+            <span>Authenticated</span>
+          </div>
           <h1>Welcome Back</h1>
           <div class="profile-card">
             <div id="profile-content"></div>
@@ -507,6 +657,10 @@
 
       <section class="features">
         <div class="container">
+          <div class="section-header">
+            <h2>Why OAuth3</h2>
+            <p>Built for the decentralized web with privacy-first principles</p>
+          </div>
           <div class="features-grid">
             <div class="feature-card">
               <div class="feature-icon">🔐</div>
@@ -520,7 +674,7 @@
               <div class="feature-icon">🛡️</div>
               <h3>Secure Sessions</h3>
               <p>
-                Database-backed session management with automatic expiration and
+                CQL-backed session management with automatic expiration and
                 refresh token support.
               </p>
             </div>
@@ -528,8 +682,8 @@
               <div class="feature-icon">🌐</div>
               <h3>Decentralized</h3>
               <p>
-                Running on DWS infrastructure. Deploy anywhere with CovenantSQL
-                for distributed state.
+                Running on DWS infrastructure. Deploy anywhere with distributed
+                state management.
               </p>
             </div>
             <div class="feature-card">
@@ -562,48 +716,74 @@
 
       <section class="providers">
         <div class="container">
-          <h2>Supported Providers</h2>
-          <p>Connect with the identity provider of your choice</p>
+          <div class="section-header">
+            <h2>Supported Providers</h2>
+            <p>Connect with the identity provider of your choice</p>
+          </div>
           <div class="provider-grid">
             <div class="provider-item">
-              <span>🔐</span>
+              <span class="icon">🔐</span>
               <span>Wallet</span>
             </div>
             <div class="provider-item">
-              <span>🟣</span>
+              <span class="icon">🟣</span>
               <span>Farcaster</span>
             </div>
             <div class="provider-item">
-              <span>🐙</span>
+              <span class="icon">🐙</span>
               <span>GitHub</span>
             </div>
             <div class="provider-item">
-              <span>🔵</span>
+              <span class="icon">🔵</span>
               <span>Google</span>
             </div>
             <div class="provider-item">
-              <span>🐦</span>
+              <span class="icon">🐦</span>
               <span>Twitter</span>
             </div>
             <div class="provider-item">
-              <span>💬</span>
+              <span class="icon">💬</span>
               <span>Discord</span>
             </div>
           </div>
         </div>
       </section>
 
-      <section class="code-section">
+      <section class="config-section">
         <div class="container">
-          <h2>Simple Integration</h2>
-          <p>Add Jeju Auth to your app in minutes</p>
-          <div class="code-block">
-            <div class="code-header">
-              <span class="code-dot red"></span>
-              <span class="code-dot yellow"></span>
-              <span class="code-dot green"></span>
+          <div class="config-card">
+            <div class="config-content">
+              <h2>Configure via DWS</h2>
+              <p>
+                OAuth3 clients and credentials are managed through the DWS control plane. 
+                Register your application, configure callback URLs, and manage access tokens 
+                all in one place.
+              </p>
+              <div class="config-steps">
+                <div class="config-step">
+                  <span class="step-num">1</span>
+                  <span class="step-text">Open DWS Dashboard</span>
+                </div>
+                <div class="config-step">
+                  <span class="step-num">2</span>
+                  <span class="step-text">Navigate to OAuth3 section</span>
+                </div>
+                <div class="config-step">
+                  <span class="step-num">3</span>
+                  <span class="step-text">Register your application</span>
+                </div>
+              </div>
+              <a href="http://dws.local.jejunetwork.org:8080/oauth3" class="btn btn-primary">
+                Open DWS Configuration
+              </a>
             </div>
-            <pre class="code-content"><span class="comment">// Redirect to Jeju Auth</span>
+            <div class="config-code">
+              <div class="code-header">
+                <span class="code-dot red"></span>
+                <span class="code-dot yellow"></span>
+                <span class="code-dot green"></span>
+              </div>
+              <pre class="code-content"><span class="comment">// Redirect to OAuth3</span>
 <span class="keyword">const</span> <span class="variable">authUrl</span> = <span class="keyword">new</span> <span class="function">URL</span>(<span class="string">'https://auth.jejunetwork.org/oauth/authorize'</span>)
 <span class="variable">authUrl</span>.searchParams.<span class="function">set</span>(<span class="string">'client_id'</span>, <span class="variable">YOUR_CLIENT_ID</span>)
 <span class="variable">authUrl</span>.searchParams.<span class="function">set</span>(<span class="string">'redirect_uri'</span>, <span class="variable">YOUR_CALLBACK_URL</span>)
@@ -612,11 +792,16 @@
 window.location.href = <span class="variable">authUrl</span>.<span class="function">toString</span>()
 
 <span class="comment">// Handle callback</span>
-<span class="keyword">const</span> <span class="variable">code</span> = <span class="keyword">new</span> <span class="function">URLSearchParams</span>(window.location.search).<span class="function">get</span>(<span class="string">'code'</span>)
-<span class="keyword">const</span> <span class="variable">tokens</span> = <span class="keyword">await</span> <span class="function">fetch</span>(<span class="string">'https://auth.jejunetwork.org/oauth/token'</span>, {
+<span class="keyword">const</span> <span class="variable">code</span> = <span class="keyword">new</span> <span class="function">URLSearchParams</span>(location.search).<span class="function">get</span>(<span class="string">'code'</span>)
+<span class="keyword">const</span> <span class="variable">tokens</span> = <span class="keyword">await</span> <span class="function">fetch</span>(<span class="string">'/oauth/token'</span>, {
   method: <span class="string">'POST'</span>,
-  body: <span class="function">JSON.stringify</span>({ grant_type: <span class="string">'authorization_code'</span>, code })
+  body: <span class="function">JSON.stringify</span>({
+    grant_type: <span class="string">'authorization_code'</span>,
+    code,
+    client_id: <span class="variable">YOUR_CLIENT_ID</span>
+  })
 }).<span class="function">then</span>(<span class="variable">r</span> => <span class="variable">r</span>.<span class="function">json</span>())</pre>
+            </div>
           </div>
         </div>
       </section>
@@ -625,8 +810,9 @@ window.location.href = <span class="variable">authUrl</span>.<span class="functi
     <footer>
       <div class="container">
         <p>
-          Built by <a href="https://jejunetwork.org">Jeju Network</a> •
-          <a href="https://github.com/jejunetwork">Open Source</a>
+          Built by <a href="https://jejunetwork.org">Jeju Network</a> · 
+          <a href="https://github.com/jejunetwork">Open Source</a> · 
+          <a href="http://dws.local.jejunetwork.org:8080">DWS Dashboard</a>
         </p>
       </div>
     </footer>

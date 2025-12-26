@@ -103,7 +103,7 @@ export class AgentExecutor {
   // Agent Deployment
 
   async deployAgent(agentId: string): Promise<void> {
-    const agent = registry.getAgent(agentId)
+    const agent = await registry.getAgent(agentId)
     if (!agent) {
       throw new Error(`Agent ${agentId} not found`)
     }
@@ -253,7 +253,7 @@ export class AgentExecutor {
     agentId: string,
     message: AgentMessage,
   ): Promise<AgentResponse> {
-    const agent = registry.getAgent(agentId)
+    const agent = await registry.getAgent(agentId)
     if (!agent) {
       throw new Error(`Agent ${agentId} not found`)
     }
@@ -435,7 +435,7 @@ export class AgentExecutor {
 
     // Scale up if needed
     if (instances.length < this.config.warmPool.maxWarmInstances) {
-      const agent = registry.getAgent(agentId)
+      const agent = await registry.getAgent(agentId)
       if (!agent) return null
       const workerId = `eliza-agent-${agentId}`
       const instance = await this.createInstance(agent, workerId)
@@ -457,15 +457,15 @@ export class AgentExecutor {
     this.requestTimes.set(agentId, times)
   }
 
-  private shouldKeepWarm(agentId: string): boolean {
-    const agent = registry.getAgent(agentId)
+  private async shouldKeepWarm(agentId: string): Promise<boolean> {
+    const agent = await registry.getAgent(agentId)
     if (!agent) return false
 
     // Always keep warm if configured
     if (agent.runtime.keepWarm) return true
 
     // Keep warm if has cron trigger
-    const triggers = registry.getCronTriggers(agentId)
+    const triggers = await registry.getCronTriggers(agentId)
     if (triggers.length > 0) return true
 
     // Check request frequency
@@ -484,7 +484,7 @@ export class AgentExecutor {
     const now = Date.now()
 
     for (const [agentId, instances] of this.instances) {
-      const keepWarm = this.shouldKeepWarm(agentId)
+      const keepWarm = await this.shouldKeepWarm(agentId)
       const toRemove: AgentInstance[] = []
 
       for (const instance of instances) {

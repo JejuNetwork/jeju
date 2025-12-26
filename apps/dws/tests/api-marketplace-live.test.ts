@@ -175,7 +175,7 @@ describe('Anthropic Live', () => {
         endpoint: '/messages',
         method: 'POST',
         body: {
-          model: 'claude-3-haiku-20240307',
+          model: 'claude-sonnet-4-5',
           max_tokens: 10,
           messages: [{ role: 'user', content: 'Say "test"' }],
         },
@@ -392,7 +392,7 @@ describe('AWS Bedrock Live', () => {
     const response = await proxyRequest(
       {
         listingId: listing?.id,
-        endpoint: '/model/anthropic.claude-3-haiku-20240307-v1:0/invoke',
+        endpoint: '/model/anthropic.claude-sonnet-4-5-v1:0/invoke',
         method: 'POST',
         body: {
           anthropic_version: 'bedrock-2023-05-31',

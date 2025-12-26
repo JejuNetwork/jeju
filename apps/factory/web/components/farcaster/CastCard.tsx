@@ -5,23 +5,23 @@
  */
 
 import {
+  Copy,
+  ExternalLink,
   Heart,
   MessageCircle,
-  Repeat2,
   MoreHorizontal,
-  ExternalLink,
+  Repeat2,
   Trash2,
-  Copy,
 } from 'lucide-react'
 import { useState } from 'react'
 import type { Cast } from '../../hooks/useFarcaster'
 import {
-  useLikeCast,
-  useUnlikeCast,
-  useRecastCast,
-  useUnrecastCast,
   useDeleteCast,
   useFarcasterStatus,
+  useLikeCast,
+  useRecastCast,
+  useUnlikeCast,
+  useUnrecastCast,
 } from '../../hooks/useFarcaster'
 
 interface CastCardProps {
@@ -31,7 +31,12 @@ interface CastCardProps {
   compact?: boolean
 }
 
-export function CastCard({ cast, onReply, onViewProfile, compact }: CastCardProps) {
+export function CastCard({
+  cast,
+  onReply,
+  onViewProfile,
+  compact,
+}: CastCardProps) {
   const { data: status } = useFarcasterStatus()
   const [showMenu, setShowMenu] = useState(false)
 
@@ -263,7 +268,11 @@ export function CastCard({ cast, onReply, onViewProfile, compact }: CastCardProp
                   : 'text-factory-500 hover:text-green-400'
               }`}
               onClick={handleRecast}
-              disabled={!isConnected || recastMutation.isPending || unrecastMutation.isPending}
+              disabled={
+                !isConnected ||
+                recastMutation.isPending ||
+                unrecastMutation.isPending
+              }
             >
               <Repeat2
                 className={`w-4 h-4 group-hover:scale-110 transition-transform ${
@@ -282,7 +291,11 @@ export function CastCard({ cast, onReply, onViewProfile, compact }: CastCardProp
                   : 'text-factory-500 hover:text-red-400'
               }`}
               onClick={handleLike}
-              disabled={!isConnected || likeMutation.isPending || unlikeMutation.isPending}
+              disabled={
+                !isConnected ||
+                likeMutation.isPending ||
+                unlikeMutation.isPending
+              }
             >
               <Heart
                 className={`w-4 h-4 group-hover:scale-110 transition-transform ${

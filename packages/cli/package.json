@@ -28,6 +28,7 @@
     "@jejunetwork/config": "workspace:*",
     "@jejunetwork/shared": "workspace:*",
     "@jejunetwork/types": "workspace:*",
+    "@vue/compiler-sfc": "3.5.26",
     "chalk": "5.4.1",
     "commander": "12.1.0",
     "elysia": "^1.4.19",

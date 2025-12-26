@@ -137,8 +137,8 @@ export default function RegisterAppForm() {
             </p>
             <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
               Register your identity to access the <strong>JEJU Faucet</strong>,
-              participate in governance, and list your apps in the Bazaar. Your
-              stake is refundable when you unregister.
+              participate in governance, and list your apps. Your stake is
+              refundable when you unregister.
             </p>
           </div>
         </div>

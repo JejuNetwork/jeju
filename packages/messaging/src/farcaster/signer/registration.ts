@@ -9,14 +9,35 @@ import { ed25519 } from '@noble/curves/ed25519'
 import {
   type Address,
   createPublicClient,
+  encodeAbiParameters,
   encodeFunctionData,
   type Hex,
   http,
   keccak256,
   type PublicClient,
-  toBytes,
 } from 'viem'
 import { optimism } from 'viem/chains'
+
+/**
+ * EIP-712 domain for Farcaster Signed Key Request
+ */
+export const SIGNED_KEY_REQUEST_DOMAIN = {
+  name: 'Farcaster SignedKeyRequestValidator',
+  version: '1',
+  chainId: 10, // Optimism
+  verifyingContract: '0x00000000Fc1237824fb747aBDE0FF18990E59b7e' as Address,
+} as const
+
+/**
+ * EIP-712 type for Signed Key Request
+ */
+export const SIGNED_KEY_REQUEST_TYPE = {
+  SignedKeyRequest: [
+    { name: 'requestFid', type: 'uint256' },
+    { name: 'key', type: 'bytes' },
+    { name: 'deadline', type: 'uint256' },
+  ],
+} as const
 export const FARCASTER_CONTRACTS = {
   ID_GATEWAY: '0x00000000Fc25870C6eD6b6c7E41Fb078b7656f69' as Address,
   ID_REGISTRY: '0x00000000Fc6c5F01Fc30151999387Bb99A9f489b' as Address,
@@ -255,40 +276,88 @@ export class SignerRegistration {
   }
 
   /**
-   * Build message to sign for signed key request
+   * Build EIP-712 typed data for signed key request.
+   * This returns the struct hash that should be signed using wallet.signTypedData().
+   */
+  buildSignedKeyRequestTypedData(params: {
+    publicKey: Hex
+    requestFid: number
+    deadline: number
+  }): {
+    domain: typeof SIGNED_KEY_REQUEST_DOMAIN
+    types: typeof SIGNED_KEY_REQUEST_TYPE
+    primaryType: 'SignedKeyRequest'
+    message: { requestFid: bigint; key: Hex; deadline: bigint }
+  } {
+    return {
+      domain: SIGNED_KEY_REQUEST_DOMAIN,
+      types: SIGNED_KEY_REQUEST_TYPE,
+      primaryType: 'SignedKeyRequest',
+      message: {
+        requestFid: BigInt(params.requestFid),
+        key: params.publicKey,
+        deadline: BigInt(params.deadline),
+      },
+    }
+  }
+
+  /**
+   * Build message hash for signed key request (for manual signing)
+   * @deprecated Use buildSignedKeyRequestTypedData with wallet.signTypedData() instead
    */
   buildSignedKeyRequestMessage(params: {
     publicKey: Hex
     requestFid: number
     deadline: number
   }): Hex {
-    // For now, return a simple hash - in production use proper EIP-712
-    return keccak256(
-      toBytes(
-        JSON.stringify({
-          requestFid: params.requestFid,
-          key: params.publicKey,
-          deadline: params.deadline,
-        }),
+    // Compute EIP-712 struct hash
+    const structHash = keccak256(
+      encodeAbiParameters(
+        [
+          { type: 'bytes32' }, // type hash
+          { type: 'uint256' }, // requestFid
+          { type: 'bytes32' }, // keccak256(key)
+          { type: 'uint256' }, // deadline
+        ],
+        [
+          keccak256(
+            new TextEncoder().encode(
+              'SignedKeyRequest(uint256 requestFid,bytes key,uint256 deadline)',
+            ),
+          ),
+          BigInt(params.requestFid),
+          keccak256(params.publicKey),
+          BigInt(params.deadline),
+        ],
       ),
     )
+    return structHash
   }
 
   /**
-   * Encode signed key request metadata for on-chain submission
+   * Encode signed key request metadata for on-chain submission using proper ABI encoding
    */
   private encodeSignedKeyRequestMetadata(params: {
     requestFid: number
     deadline: number
     signature: Hex
   }): Hex {
-    // ABI encode: (uint256 requestFid, bytes signature, uint256 deadline)
-    // Simplified encoding - in production use proper ABI encoding
-    const fid = params.requestFid.toString(16).padStart(64, '0')
-    const deadline = params.deadline.toString(16).padStart(64, '0')
-    const sig = params.signature.slice(2)
-
-    return `0x${fid}${deadline}${sig}` as Hex
+    // ABI encode per Farcaster spec: (uint256 requestFid, address requestSigner, bytes signature, uint256 deadline)
+    // Note: requestSigner is derived from signature in the contract, so we pass zero address
+    return encodeAbiParameters(
+      [
+        { type: 'uint256' }, // requestFid
+        { type: 'address' }, // requestSigner (will be recovered from sig)
+        { type: 'bytes' }, // signature
+        { type: 'uint256' }, // deadline
+      ],
+      [
+        BigInt(params.requestFid),
+        '0x0000000000000000000000000000000000000000' as Address,
+        params.signature,
+        BigInt(params.deadline),
+      ],
+    )
   }
 }
 /**

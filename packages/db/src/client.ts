@@ -6,11 +6,11 @@
  */
 
 import {
+  getCQLMinerUrl,
+  getCQLUrl,
   getCqlDatabaseId,
   getCqlPrivateKey,
   getCqlTimeout,
-  getCQLMinerUrl,
-  getCQLUrl,
   getLogLevel,
   isCqlDebug,
   isProductionEnv,
@@ -981,8 +981,7 @@ export function getCQL(config?: Partial<CQLConfig>): CQLClient {
     const resolvedConfig = {
       blockProducerEndpoint,
       minerEndpoint,
-      privateKey:
-        config?.privateKey ?? (getCqlPrivateKey() as Hex | undefined),
+      privateKey: config?.privateKey ?? (getCqlPrivateKey() as Hex | undefined),
       databaseId: config?.databaseId ?? getCqlDatabaseId(),
       timeout:
         config?.timeout ?? parseTimeout(getCqlTimeout(), DEFAULT_TIMEOUT),

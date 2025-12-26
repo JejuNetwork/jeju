@@ -1,5 +1,5 @@
 import { watch } from 'node:fs'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import {
   CORE_PORTS,
   getChainId,
@@ -7,8 +7,24 @@ import {
   getRpcUrl,
   getWsUrl,
 } from '@jejunetwork/config'
+import type { BunPlugin } from 'bun'
 
 const PORT = Number(process.env.PORT) || 4014
+
+// Plugin to shim server-only modules for browser builds
+const browserPlugin: BunPlugin = {
+  name: 'browser-plugin',
+  setup(build) {
+    // Shim node:crypto for browser compatibility (used by @noble/hashes)
+    build.onResolve({ filter: /^node:crypto$/ }, () => ({
+      path: resolve('./web/shims/node-crypto.ts'),
+    }))
+    // Shim @jejunetwork/sdk for browser (UI package imports types from it)
+    build.onResolve({ filter: /^@jejunetwork\/sdk$/ }, () => ({
+      path: resolve('./web/shims/sdk.ts'),
+    }))
+  },
+}
 
 async function build() {
   const result = await Bun.build({
@@ -17,6 +33,7 @@ async function build() {
     target: 'browser',
     minify: false,
     sourcemap: 'external',
+    plugins: [browserPlugin],
     external: [
       '@google-cloud/*',
       '@grpc/*',
@@ -30,10 +47,38 @@ async function build() {
       'node:*',
       'typeorm',
       '@jejunetwork/db',
+      '@jejunetwork/dws',
+      '@jejunetwork/kms',
+      '@jejunetwork/deployment',
+      '@jejunetwork/training',
+      '@jejunetwork/messaging',
+      'elysia',
+      '@elysiajs/*',
+      'ioredis',
+      'croner',
+      'opossum',
+      'ws',
+      'generic-pool',
+      'c-kzg',
+      'kzg-wasm',
+      '@aws-sdk/*',
+      '@huggingface/*',
+      '@solana/*',
+      'borsh',
+      'tweetnacl',
+      'p-retry',
+      'yaml',
+      'prom-client',
     ],
     define: {
-      'process.env.NODE_ENV': JSON.stringify('development'),
-      // Use PUBLIC_ prefix for all public env vars
+      // Shim process.env for browser - @jejunetwork/config accesses process.env directly
+      'process.env': JSON.stringify({
+        NODE_ENV: 'development',
+        JEJU_NETWORK: 'localnet',
+      }),
+      // VITE_NETWORK is what @jejunetwork/config looks for in browser
+      'import.meta.env.VITE_NETWORK': JSON.stringify('localnet'),
+      // Also define PUBLIC_ prefix for other env vars
       'import.meta.env.PUBLIC_NETWORK': JSON.stringify('localnet'),
       'import.meta.env.PUBLIC_CHAIN_ID': JSON.stringify(
         String(getChainId('localnet')),
@@ -81,11 +126,32 @@ console.log('Build complete.')
 const indexHtml = await Bun.file('./index.html').text()
 const transformedHtml = indexHtml.replace('/web/main.tsx', '/dist/web/main.js')
 
+const API_PORT = Number(process.env.GATEWAY_API_PORT) || 4013
+
 const server = Bun.serve({
   port: PORT,
   async fetch(req: Request) {
     const url = new URL(req.url)
     const path = url.pathname
+
+    // Proxy API requests to the backend server
+    if (path.startsWith('/api/')) {
+      const apiUrl = `http://localhost:${API_PORT}${path}${url.search}`
+      const response = await fetch(apiUrl, {
+        method: req.method,
+        headers: req.headers,
+        body: req.method !== 'GET' && req.method !== 'HEAD' ? req.body : undefined,
+      }).catch(() => null)
+
+      if (!response) {
+        return new Response(JSON.stringify({ error: 'API server unavailable' }), {
+          status: 503,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+
+      return response
+    }
 
     if (path === '/' || (!path.includes('.') && !path.startsWith('/api'))) {
       return new Response(transformedHtml, {

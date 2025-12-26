@@ -21,7 +21,7 @@ import {
   registerNode,
   unregisterNode,
 } from '../api/compute/inference-node'
-import { app } from '../api/server'
+import { dwsRequest } from './setup'
 
 setDefaultTimeout(10000)
 
@@ -82,7 +82,6 @@ describe.skipIf(SKIP)('Compute Service', () => {
     })
 
     ;(globalThis as Record<string, unknown>)._testMockServer = mockServer
-    _mockServerStarted = true
 
     // Register mock inference node
     registerNode({
@@ -107,7 +106,7 @@ describe.skipIf(SKIP)('Compute Service', () => {
   })
   describe('Health Check', () => {
     test('GET /compute/health should return healthy status', async () => {
-      const res = await app.request('/compute/health')
+      const res = await dwsRequest('/compute/health')
       expect(res.status).toBe(200)
 
       const body = await res.json()
@@ -122,7 +121,7 @@ describe.skipIf(SKIP)('Compute Service', () => {
   describe('Chat Completions API', () => {
     test('POST /compute/chat/completions routes through inference node', async () => {
       // With mock node registered, routes through it
-      const res = await app.request('/compute/chat/completions', {
+      const res = await dwsRequest('/compute/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -148,11 +147,11 @@ describe.skipIf(SKIP)('Compute Service', () => {
     })
 
     test('POST /compute/chat/completions returns valid structure', async () => {
-      const res = await app.request('/compute/chat/completions', {
+      const res = await dwsRequest('/compute/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'gpt-4o',
+          model: 'gpt-5.2',
           messages: [{ role: 'user', content: 'Test' }],
         }),
       })
@@ -165,7 +164,7 @@ describe.skipIf(SKIP)('Compute Service', () => {
     })
 
     test('POST /compute/chat/completions returns usage stats', async () => {
-      const res = await app.request('/compute/chat/completions', {
+      const res = await dwsRequest('/compute/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -184,7 +183,7 @@ describe.skipIf(SKIP)('Compute Service', () => {
 
   describe('Job Submission', () => {
     test('POST /compute/jobs without auth should return 401', async () => {
-      const res = await app.request('/compute/jobs', {
+      const res = await dwsRequest('/compute/jobs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ command: 'echo hello' }),
@@ -194,7 +193,7 @@ describe.skipIf(SKIP)('Compute Service', () => {
     })
 
     test('POST /compute/jobs without command should return 400', async () => {
-      const res = await app.request('/compute/jobs', {
+      const res = await dwsRequest('/compute/jobs', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -210,7 +209,7 @@ describe.skipIf(SKIP)('Compute Service', () => {
     })
 
     test('POST /compute/jobs should submit and queue a job', async () => {
-      const res = await app.request('/compute/jobs', {
+      const res = await dwsRequest('/compute/jobs', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -227,7 +226,7 @@ describe.skipIf(SKIP)('Compute Service', () => {
     })
 
     test('POST /compute/jobs with custom shell should work', async () => {
-      const res = await app.request('/compute/jobs', {
+      const res = await dwsRequest('/compute/jobs', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -243,7 +242,7 @@ describe.skipIf(SKIP)('Compute Service', () => {
     })
 
     test('POST /compute/jobs with environment variables should work', async () => {
-      const res = await app.request('/compute/jobs', {
+      const res = await dwsRequest('/compute/jobs', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -262,7 +261,7 @@ describe.skipIf(SKIP)('Compute Service', () => {
   describe('Job Status', () => {
     test('GET /compute/jobs/:jobId should return job details', async () => {
       // Submit a job first
-      const submitRes = await app.request('/compute/jobs', {
+      const submitRes = await dwsRequest('/compute/jobs', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -274,7 +273,7 @@ describe.skipIf(SKIP)('Compute Service', () => {
       const { jobId } = (await submitRes.json()) as { jobId: string }
 
       // Get job status
-      const statusRes = await app.request(`/compute/jobs/${jobId}`)
+      const statusRes = await dwsRequest(`/compute/jobs/${jobId}`)
       expect(statusRes.status).toBe(200)
 
       const body = (await statusRes.json()) as { jobId: string; status: string }
@@ -283,7 +282,7 @@ describe.skipIf(SKIP)('Compute Service', () => {
     })
 
     test('GET /compute/jobs/:jobId for non-existent job should return 404', async () => {
-      const res = await app.request(
+      const res = await dwsRequest(
         '/compute/jobs/00000000-0000-0000-0000-000000000000',
       )
       expect(res.status).toBe(404)
@@ -292,7 +291,7 @@ describe.skipIf(SKIP)('Compute Service', () => {
     // Job execution tests - these require the compute runner to be active
     // In CI without runner, jobs stay queued which is expected behavior
     test('Job should complete with output (requires runner)', async () => {
-      const submitRes = await app.request('/compute/jobs', {
+      const submitRes = await dwsRequest('/compute/jobs', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -314,7 +313,7 @@ describe.skipIf(SKIP)('Compute Service', () => {
 
       while (status !== 'completed' && status !== 'failed' && attempts < 50) {
         await new Promise((r) => setTimeout(r, 100))
-        const res = await app.request(`/compute/jobs/${jobId}`)
+        const res = await dwsRequest(`/compute/jobs/${jobId}`)
         body = await res.json()
         status = body.status
         attempts++
@@ -329,7 +328,7 @@ describe.skipIf(SKIP)('Compute Service', () => {
     })
 
     test('Job with failing command should report failure (requires runner)', async () => {
-      const submitRes = await app.request('/compute/jobs', {
+      const submitRes = await dwsRequest('/compute/jobs', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -350,7 +349,7 @@ describe.skipIf(SKIP)('Compute Service', () => {
 
       while (status !== 'completed' && status !== 'failed' && attempts < 50) {
         await new Promise((r) => setTimeout(r, 100))
-        const res = await app.request(`/compute/jobs/${jobId}`)
+        const res = await dwsRequest(`/compute/jobs/${jobId}`)
         body = await res.json()
         status = body.status
         attempts++
@@ -367,7 +366,7 @@ describe.skipIf(SKIP)('Compute Service', () => {
   describe('Job Cancellation', () => {
     test('POST /compute/jobs/:jobId/cancel should cancel a queued or running job', async () => {
       // Submit a long-running job
-      const submitRes = await app.request('/compute/jobs', {
+      const submitRes = await dwsRequest('/compute/jobs', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -379,7 +378,7 @@ describe.skipIf(SKIP)('Compute Service', () => {
       const { jobId } = (await submitRes.json()) as { jobId: string }
 
       // Cancel immediately (job is likely still queued)
-      const cancelRes = await app.request(`/compute/jobs/${jobId}/cancel`, {
+      const cancelRes = await dwsRequest(`/compute/jobs/${jobId}/cancel`, {
         method: 'POST',
       })
 
@@ -391,7 +390,7 @@ describe.skipIf(SKIP)('Compute Service', () => {
 
     test('POST /compute/jobs/:jobId/cancel for completed job should fail (requires runner)', async () => {
       // Submit quick job
-      const submitRes = await app.request('/compute/jobs', {
+      const submitRes = await dwsRequest('/compute/jobs', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -406,7 +405,7 @@ describe.skipIf(SKIP)('Compute Service', () => {
       await new Promise((r) => setTimeout(r, 500))
 
       // Try to cancel - will succeed if still queued, fail if completed
-      const cancelRes = await app.request(`/compute/jobs/${jobId}/cancel`, {
+      const cancelRes = await dwsRequest(`/compute/jobs/${jobId}/cancel`, {
         method: 'POST',
       })
 
@@ -415,7 +414,7 @@ describe.skipIf(SKIP)('Compute Service', () => {
     })
 
     test('POST /compute/jobs/:jobId/cancel for non-existent job should return 404', async () => {
-      const res = await app.request(
+      const res = await dwsRequest(
         '/compute/jobs/00000000-0000-0000-0000-000000000000/cancel',
         {
           method: 'POST',
@@ -429,7 +428,7 @@ describe.skipIf(SKIP)('Compute Service', () => {
   describe('Job Listing', () => {
     test('GET /compute/jobs should return list of jobs', async () => {
       // Submit a job first
-      await app.request('/compute/jobs', {
+      await dwsRequest('/compute/jobs', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -438,7 +437,7 @@ describe.skipIf(SKIP)('Compute Service', () => {
         body: JSON.stringify({ command: 'echo list-test' }),
       })
 
-      const res = await app.request('/compute/jobs')
+      const res = await dwsRequest('/compute/jobs')
       expect(res.status).toBe(200)
 
       const body = await res.json()
@@ -447,7 +446,7 @@ describe.skipIf(SKIP)('Compute Service', () => {
     })
 
     test('GET /compute/jobs with status filter should filter jobs', async () => {
-      const res = await app.request('/compute/jobs?status=completed')
+      const res = await dwsRequest('/compute/jobs?status=completed')
       expect(res.status).toBe(200)
 
       const body = await res.json()
@@ -458,7 +457,7 @@ describe.skipIf(SKIP)('Compute Service', () => {
     })
 
     test('GET /compute/jobs with limit should respect limit', async () => {
-      const res = await app.request('/compute/jobs?limit=5')
+      const res = await dwsRequest('/compute/jobs?limit=5')
       expect(res.status).toBe(200)
 
       const body = await res.json()
@@ -466,7 +465,7 @@ describe.skipIf(SKIP)('Compute Service', () => {
     })
 
     test('GET /compute/jobs with x-jeju-address should filter by submitter', async () => {
-      const res = await app.request('/compute/jobs', {
+      const res = await dwsRequest('/compute/jobs', {
         headers: { 'x-jeju-address': TEST_ADDRESS },
       })
 
@@ -481,7 +480,7 @@ describe.skipIf(SKIP)('Compute Service', () => {
   describe('Concurrent Jobs', () => {
     test('should handle multiple concurrent job submissions', async () => {
       const submissions = Array.from({ length: 10 }, (_, i) =>
-        app.request('/compute/jobs', {
+        dwsRequest('/compute/jobs', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -507,7 +506,7 @@ describe.skipIf(SKIP)('Compute Service', () => {
 
   describe('Job Edge Cases', () => {
     test('should handle command with special characters', async () => {
-      const res = await app.request('/compute/jobs', {
+      const res = await dwsRequest('/compute/jobs', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -522,7 +521,7 @@ describe.skipIf(SKIP)('Compute Service', () => {
     })
 
     test('should handle multi-line commands', async () => {
-      const res = await app.request('/compute/jobs', {
+      const res = await dwsRequest('/compute/jobs', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -540,7 +539,7 @@ echo "line 3"`,
       expect(jobId).toBeDefined()
 
       // Verify job was created (execution requires compute runner)
-      const statusRes = await app.request(`/compute/jobs/${jobId}`)
+      const statusRes = await dwsRequest(`/compute/jobs/${jobId}`)
       const body = (await statusRes.json()) as {
         status: string
         output: string | null
@@ -558,7 +557,7 @@ echo "line 3"`,
     })
 
     test('should capture stderr in output', async () => {
-      const res = await app.request('/compute/jobs', {
+      const res = await dwsRequest('/compute/jobs', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -572,7 +571,7 @@ echo "line 3"`,
       expect(jobId).toBeDefined()
 
       // Verify job was created (execution requires compute runner)
-      const statusRes = await app.request(`/compute/jobs/${jobId}`)
+      const statusRes = await dwsRequest(`/compute/jobs/${jobId}`)
       const body = (await statusRes.json()) as {
         status: string
         output: string | null
@@ -587,7 +586,7 @@ echo "line 3"`,
     })
 
     test('job should include CI environment variables', async () => {
-      const res = await app.request('/compute/jobs', {
+      const res = await dwsRequest('/compute/jobs', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -603,7 +602,7 @@ echo "line 3"`,
       expect(jobId).toBeDefined()
 
       // Verify job was created (execution requires compute runner)
-      const statusRes = await app.request(`/compute/jobs/${jobId}`)
+      const statusRes = await dwsRequest(`/compute/jobs/${jobId}`)
       const body = (await statusRes.json()) as {
         status: string
         output: string | null

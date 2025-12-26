@@ -721,7 +721,7 @@ export function useUserAccount() {
   const { address } = useAccount()
   return useQuery({
     queryKey: ['user-account', address],
-    queryFn: () => fetchApi<UserAccount>('/api/account', { address }),
+    queryFn: () => fetchApi<UserAccount>('/api-marketplace/account', { address }),
     enabled: !!address,
   })
 }
@@ -733,7 +733,7 @@ export function useDeposit() {
   return useMutation({
     mutationFn: (amount: string) =>
       postApi<{ success: boolean; newBalance: string }>(
-        '/api/account/deposit',
+        '/api-marketplace/account/deposit',
         { amount },
         { address },
       ),

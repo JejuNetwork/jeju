@@ -8,7 +8,7 @@
  * - Popularity tracking and regional caching
  */
 
-import { createHash } from 'node:crypto'
+import { bytesToHex, hash256 } from '@jejunetwork/shared'
 import { expectValid } from '@jejunetwork/types'
 import { keccak256 } from 'viem'
 import {
@@ -281,7 +281,7 @@ export class MultiBackendManager {
       options.replicationFactor ?? this.config.replicationFactor
 
     // Calculate content hash
-    const sha256 = createHash('sha256').update(content).digest('hex')
+    const sha256 = bytesToHex(hash256(new Uint8Array(content))).slice(2)
 
     // Upload to backends
     const addresses: ContentAddress = {
@@ -641,10 +641,7 @@ export class MultiBackendManager {
   ): Promise<{ data: Buffer; keyId: string }> {
     if (!this.kmsEndpoint) {
       // Fallback: simple AES encryption
-      const keyId = createHash('sha256')
-        .update(crypto.randomUUID())
-        .digest('hex')
-        .slice(0, 32)
+      const keyId = bytesToHex(hash256(crypto.randomUUID())).slice(2, 34)
       // In production, use actual KMS encryption
       return { data: content, keyId }
     }
@@ -732,7 +729,7 @@ export class MultiBackendManager {
       tier: 'popular',
       category: 'data',
       createdAt: Date.now(),
-      sha256: createHash('sha256').update(content).digest('hex'),
+      sha256: bytesToHex(hash256(new Uint8Array(content))).slice(2),
       addresses: { cid, backends: [] },
       accessCount: 1,
     }

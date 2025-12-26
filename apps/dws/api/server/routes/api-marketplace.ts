@@ -613,25 +613,25 @@ export function createAPIMarketplaceRouter() {
 
       // Keys (for sellers)
 
-      .get('/keys', ({ request }) => {
+      .get('/keys', async ({ request }) => {
         const headers = extractHeaders(request)
         const { 'x-jeju-address': userAddress } = expectValid(
           jejuAddressHeaderSchema,
           headers,
         )
 
-        const keys = getKeysByOwner(userAddress)
+        const keys = await getKeysByOwner(userAddress)
         return { keys, total: keys.length }
       })
 
-      .delete('/keys/:keyId', ({ params, request }) => {
+      .delete('/keys/:keyId', async ({ params, request }) => {
         const headers = extractHeaders(request)
         const { 'x-jeju-address': userAddress } = expectValid(
           jejuAddressHeaderSchema,
           headers,
         )
         const { keyId } = expectValid(apiKeyParamsSchema, params)
-        const deleted = deleteKey(keyId, userAddress)
+        const deleted = await deleteKey(keyId, userAddress)
         if (!deleted) {
           throw new Error('Key not found or unauthorized')
         }
@@ -658,61 +658,32 @@ export function createAPIMarketplaceRouter() {
 
         for (const p of providers) {
           if (p.id === 'openai') {
-            models.push(
-              {
-                id: 'gpt-4o',
-                name: 'GPT-4o',
-                provider: 'openai',
-                pricePerInputToken: '2500000000000',
-                pricePerOutputToken: '10000000000000',
-                maxContextLength: 128000,
-                capabilities: ['chat', 'vision', 'function-calling'],
-              },
-              {
-                id: 'gpt-4o-mini',
-                name: 'GPT-4o Mini',
-                provider: 'openai',
-                pricePerInputToken: '150000000000',
-                pricePerOutputToken: '600000000000',
-                maxContextLength: 128000,
-                capabilities: ['chat', 'vision', 'function-calling'],
-              },
-              {
-                id: 'gpt-4-turbo',
-                name: 'GPT-4 Turbo',
-                provider: 'openai',
-                pricePerInputToken: '10000000000000',
-                pricePerOutputToken: '30000000000000',
-                maxContextLength: 128000,
-                capabilities: ['chat', 'vision', 'function-calling'],
-              },
-            )
+            models.push({
+              id: 'gpt-5.2',
+              name: 'GPT-5.2',
+              provider: 'openai',
+              pricePerInputToken: '2500000000000',
+              pricePerOutputToken: '10000000000000',
+              maxContextLength: 128000,
+              capabilities: ['chat', 'vision', 'function-calling'],
+            })
           } else if (p.id === 'anthropic') {
             models.push(
               {
-                id: 'claude-3-5-sonnet-latest',
-                name: 'Claude 3.5 Sonnet',
-                provider: 'anthropic',
-                pricePerInputToken: '3000000000000',
-                pricePerOutputToken: '15000000000000',
-                maxContextLength: 200000,
-                capabilities: ['chat', 'vision'],
-              },
-              {
-                id: 'claude-3-5-haiku-latest',
-                name: 'Claude 3.5 Haiku',
-                provider: 'anthropic',
-                pricePerInputToken: '250000000000',
-                pricePerOutputToken: '1250000000000',
-                maxContextLength: 200000,
-                capabilities: ['chat', 'vision'],
-              },
-              {
-                id: 'claude-3-opus-latest',
-                name: 'Claude 3 Opus',
+                id: 'claude-opus-4-5',
+                name: 'Claude 4.5 Opus',
                 provider: 'anthropic',
                 pricePerInputToken: '15000000000000',
                 pricePerOutputToken: '75000000000000',
+                maxContextLength: 200000,
+                capabilities: ['chat', 'vision'],
+              },
+              {
+                id: 'claude-sonnet-4-5',
+                name: 'Claude 4.5 Sonnet',
+                provider: 'anthropic',
+                pricePerInputToken: '3000000000000',
+                pricePerOutputToken: '15000000000000',
                 maxContextLength: 200000,
                 capabilities: ['chat', 'vision'],
               },

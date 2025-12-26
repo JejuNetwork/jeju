@@ -4,8 +4,7 @@
  * Provides infrastructure for deterministic agent benchmarking:
  * - Data generation with reproducible scenarios
  * - Model registry for comparison
- * - Simulation engine integration
- * - A2A interface for agent interaction
+ * - Type definitions for simulation state
  *
  * @packageDocumentation
  */
@@ -27,27 +26,6 @@ export {
 } from './model-registry'
 // Seeded random number generator
 export { SeededRandom } from './seeded-random'
-// A2A interface
-export type {
-  A2AMethodParams,
-  A2AResponse,
-  BuySharesParams,
-  BuySharesResult,
-  ChatEntry,
-  ClosePositionResult,
-  CreateCommentResult,
-  CreatePostResult,
-  DashboardResult,
-  JoinGroupResult,
-  OpenPositionResult,
-  PortfolioPosition,
-  PortfolioResult,
-  SellSharesResult,
-  TrendingTagEntry,
-} from './simulation-a2a'
-export { SimulationA2AInterface } from './simulation-a2a'
-// Simulation engine
-export { SimulationEngine } from './simulation-engine'
 // Core types
 export type {
   AgentAction,

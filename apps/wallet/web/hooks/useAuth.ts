@@ -24,7 +24,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Address, Hex } from 'viem'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
-import { getEnvOrDefault, isDev } from '../../lib/env'
+import { getEnvOrDefault } from '../../lib/env'
 import { secureStorage } from '../platform/secure-storage'
 
 // Key for storing private key in secure storage
@@ -94,8 +94,14 @@ export interface UseAuthReturn {
 }
 
 const NETWORK = getCurrentNetwork()
-const OAUTH3_TEE_URL = getEnvOrDefault('PUBLIC_OAUTH3_TEE_URL', getOAuth3Url(NETWORK))
-const OAUTH3_APP_ID = getEnvOrDefault('PUBLIC_OAUTH3_APP_ID', 'wallet.apps.jeju')
+const OAUTH3_TEE_URL = getEnvOrDefault(
+  'PUBLIC_OAUTH3_TEE_URL',
+  getOAuth3Url(NETWORK),
+)
+const OAUTH3_APP_ID = getEnvOrDefault(
+  'PUBLIC_OAUTH3_APP_ID',
+  'wallet.apps.jeju',
+)
 const RPC_URL = getEnvOrDefault('PUBLIC_RPC_URL', getRpcUrl(NETWORK))
 const CHAIN_ID = Number.parseInt(
   getEnvOrDefault('PUBLIC_CHAIN_ID', String(getChainId(NETWORK))),

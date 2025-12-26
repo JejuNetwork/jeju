@@ -14,9 +14,9 @@
  */
 
 import { execSync } from 'node:child_process'
-import { createHash } from 'node:crypto'
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
+import { bytesToHex, hash256 } from '@jejunetwork/shared'
 import {
   type Address,
   createPublicClient,
@@ -505,9 +505,7 @@ class SelfHostingBootstrap {
 
       // Read tarball and compute hash
       const tarballContent = readFileSync(tarballPath)
-      const integrityHash = createHash('sha256')
-        .update(tarballContent)
-        .digest('hex')
+      const integrityHash = bytesToHex(hash256(new Uint8Array(tarballContent)))
 
       // Upload tarball to DWS
       const cid = await this.uploadToDWS(

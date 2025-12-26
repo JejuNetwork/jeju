@@ -130,6 +130,7 @@ export interface CEOStatus {
     approvalRate: string
     overrideRate: string
   }
+  decisionsThisPeriod?: number
 }
 
 export interface GovernanceStats {
@@ -592,6 +593,33 @@ export async function fetchRecentDecisions(limit = 10): Promise<Decision[]> {
     decisions: [],
   })
   return data.decisions
+}
+
+export interface NominateModelRequest {
+  modelId: string
+  modelName: string
+  provider: string
+  benchmarkScore?: number
+}
+
+interface NominateModelResponse {
+  success: boolean
+  nominated: ModelCandidate & { nominatedAt: number }
+  message: string
+}
+
+export async function nominateModel(
+  request: NominateModelRequest,
+): Promise<NominateModelResponse> {
+  const response = await fetch(`${API_BASE}/api/v1/agents/ceo/nominate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  })
+  if (!response.ok) {
+    throw new Error(`Failed to nominate model: ${response.statusText}`)
+  }
+  return response.json()
 }
 
 export async function fetchGovernanceStats(): Promise<GovernanceStats> {

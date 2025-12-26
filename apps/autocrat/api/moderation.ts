@@ -102,14 +102,6 @@ const ModeratorStatsSchema = z.object({
   trustScore: z.number(),
 })
 
-const TrustRelationSchema = z.object({
-  from: z.string(),
-  to: z.string(),
-  score: z.number(),
-  context: z.enum(['MODERATION', 'PROPOSAL', 'VOTING', 'GENERAL']),
-  updatedAt: z.number(),
-})
-
 // Database row types
 interface FlagRow {
   flag_id: string
@@ -166,8 +158,7 @@ const WEIGHT: Record<FlagType, number> = {
   NEEDS_WORK: 10,
 }
 
-// In-memory caches for computed scores (not persisted)
-const scores = new Map<string, ModerationScore>()
+// No in-memory state - use CQL cache for computed scores
 
 // CQL/Cache clients
 let cqlClient: CQLClient | null = null
@@ -281,7 +272,6 @@ function rowToStats(row: StatsRow): ModeratorStats {
   })
 }
 
-
 export class ModerationSystem {
   async init(): Promise<void> {
     await ensureTablesExist()
@@ -352,7 +342,11 @@ export class ModerationSystem {
     return flag
   }
 
-  async voteOnFlag(flagId: string, voter: string, upvote: boolean): Promise<void> {
+  async voteOnFlag(
+    flagId: string,
+    voter: string,
+    upvote: boolean,
+  ): Promise<void> {
     const client = await getCQLClient()
     const result = await client.query<FlagRow>(
       `SELECT * FROM moderation_proposal_flags WHERE flag_id = ?`,
@@ -418,23 +412,21 @@ export class ModerationSystem {
     await this.updateScore(row.proposal_id)
   }
 
-  async getProposalModerationScore(proposalId: string): Promise<ModerationScore> {
-    const cached = scores.get(proposalId)
-    if (cached) return cached
+  async getProposalModerationScore(
+    proposalId: string,
+  ): Promise<ModerationScore> {
+    const cache = getCache()
+    const cacheKey = `mod_score:${proposalId}`
+    const cached = await cache.get(cacheKey)
+    if (cached) {
+      const parsed = JSON.parse(cached) as ModerationScore
+      return parsed
+    }
 
-    await this.updateScore(proposalId)
-    return (
-      scores.get(proposalId) ?? {
-        proposalId,
-        visibilityScore: 100,
-        flags: [],
-        trustWeightedFlags: 0,
-        recommendation: 'VISIBLE',
-      }
-    )
+    return this.updateScore(proposalId)
   }
 
-  private async updateScore(proposalId: string): Promise<void> {
+  private async updateScore(proposalId: string): Promise<ModerationScore> {
     const active = await this.getProposalFlags(proposalId)
     const unresolvedFlags = active.filter((f) => !f.resolved)
 
@@ -450,13 +442,18 @@ export class ModerationSystem {
     const vis = Math.max(0, 100 - weighted)
     const rec: ModerationScore['recommendation'] =
       vis < 30 ? 'HIDDEN' : vis < 70 ? 'REVIEW' : 'VISIBLE'
-    scores.set(proposalId, {
+    const score: ModerationScore = {
       proposalId,
       visibilityScore: vis,
       flags: unresolvedFlags,
       trustWeightedFlags: weighted,
       recommendation: rec,
-    })
+    }
+
+    // Cache the computed score for 60 seconds
+    const cache = getCache()
+    await cache.set(`mod_score:${proposalId}`, JSON.stringify(score), 60)
+    return score
   }
 
   async getModeratorStats(address: string): Promise<ModeratorStats> {

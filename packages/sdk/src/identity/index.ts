@@ -3,7 +3,13 @@
  */
 
 import type { NetworkType } from '@jejunetwork/types'
-import { type Address, encodeFunctionData, type Hex, keccak256, toHex } from 'viem'
+import {
+  type Address,
+  encodeFunctionData,
+  type Hex,
+  keccak256,
+  toHex,
+} from 'viem'
 import { z } from 'zod'
 import { getServicesConfig, requireContract } from '../config'
 import { parseIdFromLogs } from '../shared/api'
@@ -195,7 +201,7 @@ export function createIdentityModule(
       'AgentRegistered(uint256,address,string)',
       'agentId',
     )
-    
+
     // Convert bytes32 hex to bigint
     const agentId = BigInt(agentIdHex)
 

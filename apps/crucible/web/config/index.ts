@@ -2,19 +2,35 @@
  * Crucible Web Config
  */
 
-import {
-  CORE_PORTS,
-  getCurrentNetwork,
-  getServiceUrl,
-} from '@jejunetwork/config'
+import { CORE_PORTS, getCurrentNetwork } from '@jejunetwork/config'
 
 export const NETWORK_NAME = 'Jeju Network'
 
 const NETWORK = getCurrentNetwork()
 
-// API URL - use config, fall back to empty for proxied dev
-export const API_URL = getServiceUrl('compute', 'nodeApi', NETWORK) || ''
+// Crucible API runs on the executor port (4021)
+export const CRUCIBLE_PORT = CORE_PORTS.CRUCIBLE_API.DEFAULT
+export const CRUCIBLE_API_PORT = CORE_PORTS.CRUCIBLE_EXECUTOR.DEFAULT
 
-// Default ports from config
-export const CRUCIBLE_PORT = CORE_PORTS.CRUCIBLE.DEFAULT
-export const CRUCIBLE_API_PORT = CORE_PORTS.CRUCIBLE_API.DEFAULT
+// API URL - crucible API server runs on executor port
+const getApiBaseUrl = (): string => {
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname
+    if (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname.endsWith('.local.jejunetwork.org')
+    ) {
+      return `http://127.0.0.1:${CRUCIBLE_API_PORT}`
+    }
+  }
+  if (NETWORK === 'mainnet') {
+    return 'https://crucible-api.jejunetwork.org'
+  }
+  if (NETWORK === 'testnet') {
+    return 'https://crucible-api-testnet.jejunetwork.org'
+  }
+  return `http://127.0.0.1:${CRUCIBLE_API_PORT}`
+}
+
+export const API_URL = getApiBaseUrl()

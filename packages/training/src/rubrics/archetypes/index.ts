@@ -7,7 +7,7 @@
  * @packageDocumentation
  */
 
-import { createHash } from 'node:crypto'
+import { bytesToHex, hash256 } from '@jejunetwork/shared'
 import type { JudgeRubric } from '../index'
 import { registerOrUpdateRubric } from '../index'
 import { ASS_KISSER_PRIORITY_METRICS, ASS_KISSER_RUBRIC } from './ass-kisser'
@@ -184,7 +184,7 @@ export const ARCHETYPE_RUBRICS_VERSION = '1.0.0'
  */
 export function getArchetypeRubricHash(archetype: string): string {
   const rubric = getArchetypeRubric(archetype)
-  return createHash('sha256').update(rubric).digest('hex').substring(0, 16)
+  return bytesToHex(hash256(rubric)).substring(0, 16)
 }
 
 /**
@@ -194,7 +194,7 @@ export function getArchetypeRubricHash(archetype: string): string {
 export function getAllArchetypeRubricsHash(): string {
   const allRubrics =
     Object.values(ARCHETYPE_RUBRICS).join('::') + DEFAULT_ARCHETYPE_RUBRIC
-  return createHash('sha256').update(allRubrics).digest('hex').substring(0, 16)
+  return bytesToHex(hash256(allRubrics)).substring(0, 16)
 }
 
 /**

@@ -1,16 +1,14 @@
 /** TEE genesis ceremony with hardware-rooted key derivation */
 
 import {
-  createCipheriv,
-  createDecipheriv,
-  createHash,
+  bytesToHex,
+  decryptAesGcm,
+  deriveKeyScrypt,
+  encryptAesGcm,
+  hash256,
   randomBytes,
-  scrypt,
-} from 'node:crypto'
-import { promisify } from 'node:util'
+} from '@jejunetwork/shared'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
-
-const scryptAsync = promisify(scrypt)
 
 export interface TeeKeyConfig {
   name: string
@@ -196,9 +194,7 @@ export async function runTeeCeremony(
     timestamp,
     addresses,
   })
-  const measurementHash = createHash('sha256')
-    .update(measurementData)
-    .digest('hex')
+  const measurementHash = bytesToHex(hash256(measurementData))
 
   let quote: { quote: string; event_log: string }
 
@@ -280,9 +276,7 @@ async function runSimulatedCeremony(
   }
 
   const measurementData = JSON.stringify({ network, timestamp, addresses })
-  const measurementHash = createHash('sha256')
-    .update(measurementData)
-    .digest('hex')
+  const measurementHash = bytesToHex(hash256(measurementData))
 
   const encryptedBundle = await encryptKeys(keys, passwordHash)
 
@@ -294,7 +288,7 @@ async function runSimulatedCeremony(
     network,
     timestamp,
     attestation: {
-      quote: `SIMULATED_QUOTE_${randomBytes(32).toString('hex')}`,
+      quote: `SIMULATED_QUOTE_${bytesToHex(randomBytes(32))}`,
       eventLog: JSON.stringify([{ event: 'simulated', data: 'test' }]),
       tcbInfo: { simulated: 'true' },
       measurementHash,
@@ -320,23 +314,24 @@ async function encryptKeys(
   passwordHash: string,
 ): Promise<string> {
   const salt = randomBytes(32)
-  const iv = randomBytes(16)
-  const encryptionKey = (await scryptAsync(passwordHash, salt, 32)) as Buffer
+  const encryptionKey = await deriveKeyScrypt(passwordHash, salt, { dkLen: 32 })
 
-  const cipher = createCipheriv('aes-256-gcm', encryptionKey, iv)
   const keysJson = JSON.stringify(keys)
-  const encrypted = Buffer.concat([
-    cipher.update(keysJson, 'utf8'),
-    cipher.final(),
-  ])
-  const authTag = cipher.getAuthTag()
+  const data = new TextEncoder().encode(keysJson)
+  const { ciphertext, iv, tag } = await encryptAesGcm(data, encryptionKey)
 
   // Combine: salt + iv + authTag + encrypted
-  const bundle = Buffer.concat([salt, iv, authTag, encrypted])
+  const bundle = new Uint8Array(
+    salt.length + iv.length + tag.length + ciphertext.length,
+  )
+  bundle.set(salt, 0)
+  bundle.set(iv, salt.length)
+  bundle.set(tag, salt.length + iv.length)
+  bundle.set(ciphertext, salt.length + iv.length + tag.length)
 
   encryptionKey.fill(0)
 
-  return bundle.toString('base64')
+  return btoa(String.fromCharCode(...bundle))
 }
 
 export async function verifyAttestation(result: TeeCeremonyResult): Promise<{
@@ -355,15 +350,15 @@ export async function verifyAttestation(result: TeeCeremonyResult): Promise<{
   }
 
   // Verify measurement hash matches addresses
-  const expectedMeasurement = createHash('sha256')
-    .update(
+  const expectedMeasurement = bytesToHex(
+    hash256(
       JSON.stringify({
         network: result.network,
         timestamp: result.timestamp,
         addresses: result.publicAddresses,
       }),
-    )
-    .digest('hex')
+    ),
+  )
 
   if (result.attestation.measurementHash !== expectedMeasurement) {
     return { valid: false, details: 'Measurement hash mismatch' }
@@ -379,24 +374,25 @@ export async function decryptCeremonyKeys(
   encryptedKeys: string,
   password: string,
 ): Promise<TeeKeyConfig[]> {
-  const passwordHash = createHash('sha256').update(password).digest('hex')
-  const encrypted = Buffer.from(encryptedKeys, 'base64')
+  const passwordHash = bytesToHex(hash256(password))
+  const encrypted = new Uint8Array(
+    atob(encryptedKeys)
+      .split('')
+      .map((c) => c.charCodeAt(0)),
+  )
 
   const salt = encrypted.subarray(0, 32)
   const iv = encrypted.subarray(32, 48)
-  const authTag = encrypted.subarray(48, 64)
+  const tag = encrypted.subarray(48, 64)
   const data = encrypted.subarray(64)
 
-  const key = (await scryptAsync(passwordHash, salt, 32)) as Buffer
+  const key = await deriveKeyScrypt(passwordHash, salt, { dkLen: 32 })
 
-  const decipher = createDecipheriv('aes-256-gcm', key, iv)
-  decipher.setAuthTag(authTag)
-
-  const decrypted = Buffer.concat([decipher.update(data), decipher.final()])
+  const decrypted = await decryptAesGcm(data, key, iv, tag)
 
   key.fill(0)
 
-  return JSON.parse(decrypted.toString('utf8'))
+  return JSON.parse(new TextDecoder().decode(decrypted))
 }
 
 export const TEE_COMPOSE_TEMPLATE = `

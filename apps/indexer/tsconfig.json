@@ -9,6 +9,6 @@
     "types": ["node", "bun"],
     "jsx": "react-jsx"
   },
-  "include": ["api", "web"],
+  "include": ["api", "web", "src"],
   "exclude": ["node_modules", "dist"]
 }

@@ -106,7 +106,7 @@ class AtroposTrainingConfig(BaseModel):
     api_url: str = Field(default="http://localhost:8000", description="Atropos API URL")
 
     # Judge model for RLAIF scoring
-    judge_model: str = Field(default="gpt-4o-mini", description="LLM model for scoring")
+    judge_model: str = Field(default="gpt-5.2", description="LLM model for scoring")
 
     # Data collection settings
     min_agents_per_window: int = Field(default=2, description="Minimum agents per window")

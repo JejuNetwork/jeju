@@ -5,11 +5,7 @@
  * Uses the shared cache service for distributed price storage.
  */
 
-import {
-  type CacheClient,
-  type CacheStats,
-  getCacheClient,
-} from '@jejunetwork/shared'
+import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 import { expectJson } from '@jejunetwork/types'
 import { Elysia, t } from 'elysia'
 import type { Address } from 'viem'
@@ -21,17 +17,12 @@ import {
 import type { SolanaTokenPrice } from '../../solver/external/solana-price-aggregator'
 import { getSolanaPriceAggregator as createSolanaPriceAggregator } from '../../solver/external/solana-price-aggregator'
 
-// Optional/conditional: Solana aggregator may fail due to buffer-layout compatibility issues
-let _solanaAggregator: ReturnType<typeof createSolanaPriceAggregator> | null =
-  null
-async function getSolanaAggregator() {
+let _solanaAggregator:
+  | ReturnType<typeof createSolanaPriceAggregator>
+  | undefined
+function getSolanaAggregator(): ReturnType<typeof createSolanaPriceAggregator> {
   if (!_solanaAggregator) {
-    try {
-      _solanaAggregator = createSolanaPriceAggregator()
-    } catch (err) {
-      console.warn('[PriceService] Solana aggregator unavailable:', err)
-      return null
-    }
+    _solanaAggregator = createSolanaPriceAggregator()
   }
   return _solanaAggregator
 }
@@ -107,82 +98,8 @@ function chainPricesKey(chainId: number): string {
 function ethPriceKey(chainId: number): string {
   return `price:eth:${chainId}`
 }
-class InMemoryCache implements CacheClient {
-  private store = new Map<string, { value: string; expires: number }>()
-
-  async get(key: string): Promise<string | null> {
-    const item = this.store.get(key)
-    if (!item) return null
-    if (Date.now() > item.expires) {
-      this.store.delete(key)
-      return null
-    }
-    return item.value
-  }
-
-  async set(key: string, value: string, ttl = 3600): Promise<void> {
-    this.store.set(key, { value, expires: Date.now() + ttl * 1000 })
-  }
-
-  async delete(key: string): Promise<boolean> {
-    return this.store.delete(key)
-  }
-
-  async mget(keys: string[]): Promise<Map<string, string | null>> {
-    const result = new Map<string, string | null>()
-    for (const key of keys) {
-      result.set(key, await this.get(key))
-    }
-    return result
-  }
-
-  async mset(
-    entries: Array<{ key: string; value: string; ttl?: number }>,
-  ): Promise<void> {
-    for (const entry of entries) {
-      await this.set(entry.key, entry.value, entry.ttl)
-    }
-  }
-
-  async keys(_pattern?: string): Promise<string[]> {
-    return Array.from(this.store.keys())
-  }
-
-  async ttl(key: string): Promise<number> {
-    const item = this.store.get(key)
-    if (!item) return -2
-    const remaining = Math.floor((item.expires - Date.now()) / 1000)
-    return remaining > 0 ? remaining : -1
-  }
-
-  async expire(key: string, ttl: number): Promise<boolean> {
-    const item = this.store.get(key)
-    if (!item) return false
-    item.expires = Date.now() + ttl * 1000
-    return true
-  }
-
-  async clear(): Promise<void> {
-    this.store.clear()
-  }
-
-  async getStats(): Promise<CacheStats> {
-    return {
-      totalKeys: this.store.size,
-      namespaces: 1,
-      usedMemoryMb: 0,
-      totalMemoryMb: 0,
-      hits: 0,
-      misses: 0,
-      hitRate: 0,
-      totalInstances: 1,
-    }
-  }
-}
 class PriceStreamingService {
   private cache: CacheClient
-  private fallbackCache = new InMemoryCache()
-  private cacheAvailable = true
   private evmAggregator = getPriceAggregator()
   private subscribers = new Map<SubscribableWebSocket, Set<string>>()
   private updateInterval: Timer | null = null
@@ -190,23 +107,6 @@ class PriceStreamingService {
 
   constructor() {
     this.cache = getCacheClient(CACHE_NAMESPACE)
-    this.checkCacheAvailability()
-  }
-
-  private async checkCacheAvailability(): Promise<void> {
-    try {
-      await this.getCache().get('__health_check__')
-      this.cacheAvailable = true
-    } catch {
-      console.warn(
-        '[PriceService] Cache service unavailable, using in-memory fallback',
-      )
-      this.cacheAvailable = false
-    }
-  }
-
-  private getCache(): CacheClient {
-    return this.cacheAvailable ? this.cache : this.fallbackCache
   }
 
   start(): void {
@@ -231,34 +131,21 @@ class PriceStreamingService {
   }
 
   private async pollPrices(): Promise<void> {
-    // In development mode without network access, skip external chain price polling
-    const isDev = process.env.NODE_ENV !== 'production'
     const chains = [1, 42161, 10, 8453]
 
     for (const chainId of chains) {
-      try {
-        const ethPrice = await this.evmAggregator.getETHPrice(chainId)
-        if (ethPrice > 0) {
-          await this.getCache().set(
-            ethPriceKey(chainId),
-            JSON.stringify({ price: ethPrice, timestamp: Date.now() }),
-            ETH_PRICE_TTL,
-          )
-        }
-      } catch (error) {
-        if (isDev) {
-          // Silently skip in dev mode
-        } else {
-          console.warn(
-            `[PriceService] Failed to get ETH price for chain ${chainId}:`,
-            error,
-          )
-        }
+      const ethPrice = await this.evmAggregator.getETHPrice(chainId)
+      if (ethPrice > 0) {
+        await this.cache.set(
+          ethPriceKey(chainId),
+          JSON.stringify({ price: ethPrice, timestamp: Date.now() }),
+          ETH_PRICE_TTL,
+        )
       }
     }
 
     for (const chainId of chains) {
-      const tokensJson = await this.getCache().get(chainPricesKey(chainId))
+      const tokensJson = await this.cache.get(chainPricesKey(chainId))
       if (!tokensJson) continue
 
       const tokenAddresses = expectJson(
@@ -285,7 +172,7 @@ class PriceStreamingService {
     price: TokenPrice,
   ): Promise<void> {
     const key = priceKey(chainId, address)
-    const cached = await this.getCache().get(key)
+    const cached = await this.cache.get(key)
 
     let priceChange24h = 0
     if (cached) {
@@ -300,7 +187,7 @@ class PriceStreamingService {
       }
     }
 
-    await this.getCache().set(key, JSON.stringify(price), PRICE_TTL)
+    await this.cache.set(key, JSON.stringify(price), PRICE_TTL)
 
     const update: PriceUpdate = {
       type: 'price_update',
@@ -330,18 +217,20 @@ class PriceStreamingService {
     }
   }
 
-  async getPrice(chainId: number, address: string): Promise<TokenPrice | null> {
-    const cached = await this.getCache().get(priceKey(chainId, address))
-    return cached
-      ? (expectJson(cached, CachedPriceSchema, 'price cache') as TokenPrice)
-      : null
+  async getPrice(
+    chainId: number,
+    address: string,
+  ): Promise<TokenPrice | undefined> {
+    const cached = await this.cache.get(priceKey(chainId, address))
+    if (!cached) return undefined
+    return expectJson(cached, CachedPriceSchema, 'price cache') as TokenPrice
   }
 
   async getPrices(
     tokens: Array<{ chainId: number; address: string }>,
   ): Promise<Map<string, TokenPrice>> {
     const keys = tokens.map((t) => priceKey(t.chainId, t.address))
-    const results = await this.getCache().mget(keys)
+    const results = await this.cache.mget(keys)
 
     const prices = new Map<string, TokenPrice>()
     for (const [key, value] of results) {
@@ -356,7 +245,7 @@ class PriceStreamingService {
   }
 
   async getETHPrice(chainId: number): Promise<number> {
-    const cached = await this.getCache().get(ethPriceKey(chainId))
+    const cached = await this.cache.get(ethPriceKey(chainId))
     if (cached) {
       const data = expectJson(cached, EthPriceSchema, 'ETH price cache')
       return data.price
@@ -366,14 +255,14 @@ class PriceStreamingService {
 
   async trackToken(chainId: number, address: string): Promise<void> {
     const key = chainPricesKey(chainId)
-    const existing = await this.getCache().get(key)
-    const tokens = existing
+    const existing = await this.cache.get(key)
+    const tokens: string[] = existing
       ? expectJson(existing, TokenAddressArraySchema, 'tracked tokens')
       : []
 
     if (!tokens.includes(address.toLowerCase())) {
       tokens.push(address.toLowerCase())
-      await this.getCache().set(key, JSON.stringify(tokens))
+      await this.cache.set(key, JSON.stringify(tokens))
     }
   }
 
@@ -418,10 +307,10 @@ class PriceStreamingService {
     this.subscribers.delete(ws)
   }
 
-  async getSolanaPrice(mint: string): Promise<SolanaTokenPrice | null> {
-    const aggregator = await getSolanaAggregator()
-    if (!aggregator) return null
-    return aggregator.getPrice(mint)
+  async getSolanaPrice(mint: string): Promise<SolanaTokenPrice | undefined> {
+    const aggregator = getSolanaAggregator()
+    const price = await aggregator.getPrice(mint)
+    return price ?? undefined
   }
 
   getSubscriberCount(): number {

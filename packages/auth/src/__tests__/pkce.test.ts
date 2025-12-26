@@ -9,7 +9,7 @@ import {
   generateNonce,
   generatePKCE,
   generateState,
-  PKCEUtils,
+  validatePKCEState,
 } from '../utils/pkce'
 
 describe('PKCE Utils', () => {
@@ -88,10 +88,10 @@ describe('PKCE Utils', () => {
     })
   })
 
-  describe('PKCEUtils', () => {
+  describe('validatePKCEState', () => {
     it('should validate matching states', () => {
-      expect(PKCEUtils.validateState('abc123', 'abc123')).toBe(true)
-      expect(PKCEUtils.validateState('abc123', 'xyz789')).toBe(false)
+      expect(validatePKCEState('abc123', 'abc123')).toBe(true)
+      expect(validatePKCEState('abc123', 'xyz789')).toBe(false)
     })
   })
 })

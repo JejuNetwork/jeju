@@ -9,11 +9,11 @@ export { getCrossChainArbConfig, getTFMMConfig } from './config'
 // DWS Integration
 export {
   DWSClient,
-  getDWSClient,
-  resetDWSClient,
   type DWSClientConfig,
   type DWSRequestOptions,
   type DWSResponse,
+  getDWSClient,
+  resetDWSClient,
 } from './dws'
 // Engine
 export { BotEngine, type BotEngineConfig, type StrategyStats } from './engine'

@@ -11,8 +11,10 @@ import type { Task } from '../types/server'
 describe('ExtendedTaskStore', () => {
   let store: ExtendedTaskStore
 
-  beforeEach(() => {
+  beforeEach(async () => {
     store = new ExtendedTaskStore()
+    // Clear any leftover data from previous tests - CQL database is shared
+    await store.clear()
   })
 
   function createTask(
@@ -73,9 +75,17 @@ describe('ExtendedTaskStore', () => {
   })
 
   describe('list', () => {
+    // Track when each task is saved for sorting/filter tests
+    let taskSaveTimes: Record<string, number>
+
     beforeEach(async () => {
-      // Create test data with different timestamps
+      taskSaveTimes = {}
+
+      // Create test data - save order determines updated_at order
+      // Note: status.timestamp is metadata, updated_at is actual save time
       const now = Date.now()
+      
+      taskSaveTimes['task-1'] = Date.now()
       await store.save(
         createTask(
           'task-1',
@@ -84,6 +94,11 @@ describe('ExtendedTaskStore', () => {
           new Date(now - 3000).toISOString(),
         ),
       )
+      
+      // Small delay to ensure different updated_at values
+      await new Promise(r => setTimeout(r, 5))
+      
+      taskSaveTimes['task-2'] = Date.now()
       await store.save(
         createTask(
           'task-2',
@@ -92,6 +107,10 @@ describe('ExtendedTaskStore', () => {
           new Date(now - 2000).toISOString(),
         ),
       )
+      
+      await new Promise(r => setTimeout(r, 5))
+      
+      taskSaveTimes['task-3'] = Date.now()
       await store.save(
         createTask(
           'task-3',
@@ -100,6 +119,10 @@ describe('ExtendedTaskStore', () => {
           new Date(now - 1000).toISOString(),
         ),
       )
+      
+      await new Promise(r => setTimeout(r, 5))
+      
+      taskSaveTimes['task-4'] = Date.now()
       await store.save(
         createTask('task-4', 'ctx-b', 'failed', new Date(now).toISOString()),
       )
@@ -163,12 +186,15 @@ describe('ExtendedTaskStore', () => {
     })
 
     it('should filter by lastUpdatedAfter', async () => {
-      const now = Date.now()
-      const result = await store.list({ lastUpdatedAfter: now - 1500 })
+      // Use the save time of task-3 to filter - should get task-3 and task-4
+      const cutoffTime = taskSaveTimes['task-3']! - 1 // Just before task-3 was saved
+      const result = await store.list({ lastUpdatedAfter: cutoffTime })
 
-      // Should only include tasks updated in the last 1.5 seconds
-      expect(result.tasks.length).toBeGreaterThanOrEqual(1)
-      expect(result.tasks.length).toBeLessThanOrEqual(2)
+      // Should include task-3 and task-4 (saved after cutoff)
+      expect(result.tasks.length).toBe(2)
+      const taskIds = result.tasks.map(t => t.id)
+      expect(taskIds).toContain('task-3')
+      expect(taskIds).toContain('task-4')
     })
 
     it('should trim history when historyLength is specified', async () => {

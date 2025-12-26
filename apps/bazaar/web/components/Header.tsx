@@ -17,11 +17,9 @@ export function Header() {
     { href: '/swap', label: 'Swap', icon: '🔄' },
     { href: '/pools', label: 'Pools', icon: '💧' },
     { href: '/perps', label: 'Perps', icon: '📈' },
-    { href: '/charts', label: 'Charts', icon: '📊' },
-    { href: '/intel', label: 'Intel', icon: '🔮' },
     { href: '/coins', label: 'Coins', icon: '🪙' },
-    { href: '/markets', label: 'Predict', icon: '🎯' },
-    { href: '/items', label: 'NFTs', icon: '🖼️' },
+    { href: '/markets', label: 'Predictions', icon: '🎯' },
+    { href: '/items', label: 'Items', icon: '🖼️' },
   ]
 
   useEffect(() => {

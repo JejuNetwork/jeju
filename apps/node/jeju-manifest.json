@@ -21,7 +21,7 @@
   "dependencies": ["contracts", "config", "dws"],
   "optional": false,
   "enabled": true,
-  "autoStart": false,
+  "autoStart": true,
   "tags": ["node", "infrastructure", "operator", "cdn", "storage", "compute", "proxy", "rewards"],
   "jns": {
     "name": "node.jeju",

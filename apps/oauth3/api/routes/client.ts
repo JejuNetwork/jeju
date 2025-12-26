@@ -2,11 +2,14 @@
  * Client registration routes
  */
 
-import type { AuthProvider } from '@jejunetwork/auth'
 import { Elysia, t } from 'elysia'
 import type { Address, Hex } from 'viem'
 import { isAddress, keccak256, toBytes, toHex } from 'viem'
-import type { AuthConfig, RegisteredClient } from '../../lib/types'
+import type {
+  AuthConfig,
+  AuthProvider,
+  RegisteredClient,
+} from '../../lib/types'
 import { clientState } from '../services/state'
 
 const AuthProviderValues = [

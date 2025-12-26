@@ -158,7 +158,9 @@ class MultiCloudCoordinator {
     try {
       const awsCluster = this.getAWSCluster()
       if (awsCluster) {
-        console.log(`   ✅ AWS: ${awsCluster.clusterName} in ${awsCluster.region}`)
+        console.log(
+          `   ✅ AWS: ${awsCluster.clusterName} in ${awsCluster.region}`,
+        )
         clouds.push(awsCluster)
       }
     } catch {
@@ -169,7 +171,9 @@ class MultiCloudCoordinator {
     try {
       const gcpCluster = this.getGCPCluster()
       if (gcpCluster) {
-        console.log(`   ✅ GCP: ${gcpCluster.clusterName} in ${gcpCluster.region}`)
+        console.log(
+          `   ✅ GCP: ${gcpCluster.clusterName} in ${gcpCluster.region}`,
+        )
         clouds.push(gcpCluster)
       }
     } catch {
@@ -272,13 +276,19 @@ class MultiCloudCoordinator {
 
         if (cloud.healthy) {
           healthyNodes += nodeCount
-          console.log(`   ✅ ${cloud.provider.toUpperCase()} (${cloud.region}): ${nodeCount} nodes, healthy`)
+          console.log(
+            `   ✅ ${cloud.provider.toUpperCase()} (${cloud.region}): ${nodeCount} nodes, healthy`,
+          )
         } else {
-          console.log(`   ❌ ${cloud.provider.toUpperCase()} (${cloud.region}): ${nodeCount} nodes, unhealthy`)
+          console.log(
+            `   ❌ ${cloud.provider.toUpperCase()} (${cloud.region}): ${nodeCount} nodes, unhealthy`,
+          )
         }
-      } catch (error) {
+      } catch (_error) {
         cloud.healthy = false
-        console.log(`   ❌ ${cloud.provider.toUpperCase()} (${cloud.region}): unreachable`)
+        console.log(
+          `   ❌ ${cloud.provider.toUpperCase()} (${cloud.region}): unreachable`,
+        )
       }
     }
 
@@ -360,9 +370,13 @@ class MultiCloudCoordinator {
         })
 
         await publicClient.waitForTransactionReceipt({ hash })
-        console.log(`   ✅ ${cloud.provider.toUpperCase()}: Registered on-chain`)
-      } catch (error) {
-        console.log(`   ⏭️  ${cloud.provider.toUpperCase()}: Already registered or error`)
+        console.log(
+          `   ✅ ${cloud.provider.toUpperCase()}: Registered on-chain`,
+        )
+      } catch (_error) {
+        console.log(
+          `   ⏭️  ${cloud.provider.toUpperCase()}: Already registered or error`,
+        )
       }
     }
   }
@@ -385,12 +399,8 @@ class MultiCloudCoordinator {
         network: this.network,
         clouds: JSON.stringify(this.state.clouds),
         primaryCloud: this.state.primaryCloud,
-        rpcEndpoints: this.state.clouds
-          .map((c) => c.endpoints.rpc)
-          .join(','),
-        dwsEndpoints: this.state.clouds
-          .map((c) => c.endpoints.dws)
-          .join(','),
+        rpcEndpoints: this.state.clouds.map((c) => c.endpoints.rpc).join(','),
+        dwsEndpoints: this.state.clouds.map((c) => c.endpoints.dws).join(','),
       },
     }
 
@@ -412,7 +422,9 @@ ${JSON.stringify(configMap, null, 2)
         )
         console.log(`   ✅ ${cloud.provider.toUpperCase()}: ConfigMap applied`)
       } catch {
-        console.log(`   ⏭️  ${cloud.provider.toUpperCase()}: Could not apply ConfigMap`)
+        console.log(
+          `   ⏭️  ${cloud.provider.toUpperCase()}: Could not apply ConfigMap`,
+        )
       }
     }
   }
@@ -474,7 +486,7 @@ ${JSON.stringify(configMap, null, 2)
           { stdio: 'inherit' },
         )
         console.log(`   ✅ ${cloud.provider.toUpperCase()}: Synced`)
-      } catch (error) {
+      } catch (_error) {
         console.log(`   ❌ ${cloud.provider.toUpperCase()}: Sync failed`)
       }
     }
@@ -575,7 +587,6 @@ Environment:
       await coordinator.deploySharedInfrastructure()
       await coordinator.setupFailover()
       break
-    case 'status':
     default:
       coordinator.printStatus()
   }
@@ -585,4 +596,3 @@ main().catch((error) => {
   console.error('❌ Error:', error)
   process.exit(1)
 })
-

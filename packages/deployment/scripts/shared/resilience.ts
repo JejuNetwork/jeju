@@ -294,8 +294,12 @@ export class ResilienceManager {
     if (existsSync(this.stateFile)) {
       try {
         const data = JSON.parse(readFileSync(this.stateFile, 'utf-8'))
-        this.circuitBreakers = new Map(Object.entries(data.circuitBreakers ?? {}))
-        this.healthyEndpoints = new Map(Object.entries(data.healthyEndpoints ?? {}))
+        this.circuitBreakers = new Map(
+          Object.entries(data.circuitBreakers ?? {}),
+        )
+        this.healthyEndpoints = new Map(
+          Object.entries(data.healthyEndpoints ?? {}),
+        )
         console.log('[Resilience] Loaded state from disk')
       } catch {
         console.log('[Resilience] Could not load state, starting fresh')
@@ -345,7 +349,12 @@ export class ResilienceManager {
           method: endpoint.includes('rpc') ? 'POST' : 'GET',
           headers: { 'Content-Type': 'application/json' },
           body: endpoint.includes('rpc')
-            ? JSON.stringify({ jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 })
+            ? JSON.stringify({
+                jsonrpc: '2.0',
+                method: 'eth_blockNumber',
+                params: [],
+                id: 1,
+              })
             : undefined,
           signal: controller.signal,
         })
@@ -424,10 +433,7 @@ export class ResilienceManager {
   /**
    * Execute with circuit breaker
    */
-  async withCircuitBreaker<T>(
-    key: string,
-    fn: () => Promise<T>,
-  ): Promise<T> {
+  async withCircuitBreaker<T>(key: string, fn: () => Promise<T>): Promise<T> {
     if (!this.config.circuitBreaker.enabled) {
       return fn()
     }
@@ -460,7 +466,10 @@ export class ResilienceManager {
       // Success
       if (state.state === CircuitState.HalfOpen) {
         state.successesSinceHalfOpen++
-        if (state.successesSinceHalfOpen >= this.config.circuitBreaker.halfOpenRequests) {
+        if (
+          state.successesSinceHalfOpen >=
+          this.config.circuitBreaker.halfOpenRequests
+        ) {
           state.state = CircuitState.Closed
           state.failures = 0
         }
@@ -500,7 +509,7 @@ export class ResilienceManager {
         if (attempt === maxAttempts) break
 
         const delay = Math.min(
-          initialDelay * Math.pow(backoffMultiplier, attempt - 1),
+          initialDelay * backoffMultiplier ** (attempt - 1),
           maxDelay,
         )
         console.log(
@@ -541,4 +550,3 @@ export function createResilienceManager(
 
 // Export types
 export type { CircuitBreakerState }
-

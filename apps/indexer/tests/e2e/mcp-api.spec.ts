@@ -1,5 +1,5 @@
 /**
- * Network Indexer - MCP API E2E Tests
+ * Indexer - MCP API E2E Tests
  *
  * Comprehensive tests for Model Context Protocol endpoints:
  * - Server initialization

@@ -1,0 +1,403 @@
+/**
+ * Bazaar Messaging Service
+ *
+ * Provides Farcaster feed integration for the Bazaar marketplace.
+ * Each entity type (coin, item, collection, perp, prediction) has its own channel.
+ */
+
+import {
+  createPoster,
+  type FarcasterCast,
+  FarcasterClient,
+  type FarcasterProfile,
+  type PostedCast,
+} from '@jejunetwork/messaging'
+import type { Address, Hex } from 'viem'
+
+const HUB_URL = process.env.FARCASTER_HUB_URL ?? 'https://hub.pinata.cloud'
+
+/**
+ * Channel types for different Bazaar entities
+ */
+export type BazaarChannelType =
+  | 'coin'
+  | 'item'
+  | 'collection'
+  | 'perp'
+  | 'prediction'
+
+/**
+ * Channel identifier for a specific entity
+ */
+export interface BazaarChannel {
+  type: BazaarChannelType
+  id: string
+  name: string
+  url: string
+  warpcastUrl: string
+}
+
+/**
+ * Generate channel URL for a Bazaar entity
+ * Channels follow the format: https://warpcast.com/~/channel/bazaar-{type}-{id}
+ */
+export function getChannelUrl(type: BazaarChannelType, id: string): string {
+  const channelId = `bazaar-${type}-${id.toLowerCase().replace(/[^a-z0-9]/g, '-')}`
+  return `https://warpcast.com/~/channel/${channelId}`
+}
+
+/**
+ * Generate channel info for a Bazaar entity
+ */
+export function getChannel(
+  type: BazaarChannelType,
+  id: string,
+  name: string,
+): BazaarChannel {
+  const channelId = `bazaar-${type}-${id.toLowerCase().replace(/[^a-z0-9]/g, '-')}`
+  return {
+    type,
+    id,
+    name,
+    url: `https://warpcast.com/~/channel/${channelId}`,
+    warpcastUrl: `https://warpcast.com/~/channel/${channelId}`,
+  }
+}
+
+/**
+ * Get channel for a coin by chain ID and address
+ */
+export function getCoinChannel(
+  chainId: number,
+  address: Address,
+  name: string,
+): BazaarChannel {
+  return getChannel('coin', `${chainId}-${address.slice(0, 10)}`, name)
+}
+
+/**
+ * Get channel for an NFT item
+ */
+export function getItemChannel(
+  collectionAddress: Address,
+  tokenId: string,
+  name: string,
+): BazaarChannel {
+  return getChannel(
+    'item',
+    `${collectionAddress.slice(0, 10)}-${tokenId}`,
+    name,
+  )
+}
+
+/**
+ * Get channel for an NFT collection
+ */
+export function getCollectionChannel(
+  address: Address,
+  name: string,
+): BazaarChannel {
+  return getChannel('collection', address.slice(0, 10), name)
+}
+
+/**
+ * Get channel for a perp market
+ */
+export function getPerpChannel(ticker: string): BazaarChannel {
+  return getChannel('perp', ticker.toLowerCase(), `$${ticker} Perp`)
+}
+
+/**
+ * Get channel for a prediction market
+ */
+export function getPredictionChannel(
+  marketId: string,
+  question: string,
+): BazaarChannel {
+  const shortQuestion =
+    question.length > 30 ? `${question.slice(0, 30)}...` : question
+  return getChannel('prediction', marketId, shortQuestion)
+}
+
+// Cache for profiles
+const profileCache = new Map<
+  number,
+  { profile: FarcasterProfile; cachedAt: number }
+>()
+const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+
+export interface BazaarFeedCast {
+  hash: string
+  author: {
+    fid: number
+    username: string
+    displayName: string
+    pfpUrl: string
+  }
+  text: string
+  timestamp: number
+  embeds: Array<{ url: string }>
+  parentHash?: string
+}
+
+export interface MarketplaceNotification {
+  type:
+    | 'listing_sold'
+    | 'bid_received'
+    | 'auction_ended'
+    | 'collection_trending'
+    | 'price_alert'
+  title: string
+  body: string
+  data?: Record<string, string | number>
+}
+
+class BazaarMessagingService {
+  private hubClient: FarcasterClient
+
+  constructor() {
+    this.hubClient = new FarcasterClient({ hubUrl: HUB_URL })
+  }
+
+  /**
+   * Get feed for a specific channel
+   */
+  async getChannelFeed(
+    channelUrl: string,
+    options?: {
+      limit?: number
+      cursor?: string
+    },
+  ): Promise<{ casts: BazaarFeedCast[]; cursor?: string }> {
+    const response = await this.hubClient.getCastsByChannel(channelUrl, {
+      pageSize: options?.limit ?? 20,
+      pageToken: options?.cursor,
+    })
+
+    const casts = await this.enrichCasts(response.messages)
+
+    return {
+      casts,
+      cursor: response.nextPageToken,
+    }
+  }
+
+  /**
+   * Get feed for a Bazaar entity channel
+   */
+  async getEntityFeed(
+    type: BazaarChannelType,
+    id: string,
+    options?: {
+      limit?: number
+      cursor?: string
+    },
+  ): Promise<{ casts: BazaarFeedCast[]; cursor?: string }> {
+    const channelUrl = getChannelUrl(type, id)
+    return this.getChannelFeed(channelUrl, options)
+  }
+
+  /**
+   * Post to a channel (requires signer)
+   */
+  async postToChannel(params: {
+    channelUrl: string
+    text: string
+    fid: number
+    signerPrivateKey: Hex
+    embeds?: string[]
+  }): Promise<PostedCast> {
+    const poster = createPoster(params.fid, params.signerPrivateKey, HUB_URL)
+    return poster.castToChannel(params.text, params.channelUrl, {
+      embeds: params.embeds,
+    })
+  }
+
+  /**
+   * Post to a Bazaar entity channel
+   */
+  async postToEntityChannel(params: {
+    type: BazaarChannelType
+    id: string
+    text: string
+    fid: number
+    signerPrivateKey: Hex
+    embeds?: string[]
+  }): Promise<PostedCast> {
+    const channelUrl = getChannelUrl(params.type, params.id)
+    return this.postToChannel({
+      channelUrl,
+      text: params.text,
+      fid: params.fid,
+      signerPrivateKey: params.signerPrivateKey,
+      embeds: params.embeds,
+    })
+  }
+
+  /**
+   * Get a user's profile
+   */
+  async getProfile(fid: number): Promise<FarcasterProfile | null> {
+    const cached = profileCache.get(fid)
+    if (cached && Date.now() - cached.cachedAt < CACHE_TTL) {
+      return cached.profile
+    }
+
+    const profile = await this.hubClient.getProfile(fid).catch(() => null)
+    if (profile) {
+      profileCache.set(fid, { profile, cachedAt: Date.now() })
+    }
+    return profile
+  }
+
+  /**
+   * Lookup FID by verified address
+   */
+  async getFidByAddress(address: Address): Promise<number | null> {
+    const profile = await this.hubClient.getProfileByVerifiedAddress(address)
+    return profile?.fid ?? null
+  }
+
+  /**
+   * Enrich casts with profile data
+   */
+  private async enrichCasts(casts: FarcasterCast[]): Promise<BazaarFeedCast[]> {
+    const fids = [...new Set(casts.map((c) => c.fid))]
+    const profiles = await Promise.all(fids.map((fid) => this.getProfile(fid)))
+    const profileMap = new Map<number, FarcasterProfile>()
+    for (let i = 0; i < fids.length; i++) {
+      const profile = profiles[i]
+      if (profile) {
+        profileMap.set(fids[i], profile)
+      }
+    }
+
+    return casts.map((cast) => {
+      const profile = profileMap.get(cast.fid)
+      return {
+        hash: cast.hash,
+        author: {
+          fid: cast.fid,
+          username: profile?.username ?? '',
+          displayName: profile?.displayName ?? '',
+          pfpUrl: profile?.pfpUrl ?? '',
+        },
+        text: cast.text,
+        timestamp: cast.timestamp,
+        embeds: cast.embeds
+          .filter((e) => e.url)
+          .map((e) => ({ url: e.url as string })),
+        parentHash: cast.parentHash ?? undefined,
+      }
+    })
+  }
+
+  /**
+   * Create marketplace notification
+   */
+  createNotification(
+    payload: MarketplaceNotification,
+    channel: BazaarChannel,
+  ): {
+    type: string
+    title: string
+    body: string
+    data: Record<string, string | number>
+    channel: string
+    channelUrl: string
+  } {
+    return {
+      type: payload.type,
+      title: payload.title,
+      body: payload.body,
+      data: payload.data ?? {},
+      channel: channel.name,
+      channelUrl: channel.url,
+    }
+  }
+
+  /**
+   * Generate NFT sale notification
+   */
+  listingSoldNotification(params: {
+    nftName: string
+    price: string
+    buyer: string
+    collection: string
+  }): MarketplaceNotification {
+    return {
+      type: 'listing_sold',
+      title: 'Item Sold',
+      body: `${params.nftName} sold for ${params.price} to ${params.buyer}`,
+      data: {
+        nftName: params.nftName,
+        price: params.price,
+        buyer: params.buyer,
+        collection: params.collection,
+      },
+    }
+  }
+
+  /**
+   * Generate bid received notification
+   */
+  bidReceivedNotification(params: {
+    nftName: string
+    bidAmount: string
+    bidder: string
+  }): MarketplaceNotification {
+    return {
+      type: 'bid_received',
+      title: 'New Bid Received',
+      body: `${params.bidder} bid ${params.bidAmount} on ${params.nftName}`,
+      data: {
+        nftName: params.nftName,
+        bidAmount: params.bidAmount,
+        bidder: params.bidder,
+      },
+    }
+  }
+
+  /**
+   * Generate auction ended notification
+   */
+  auctionEndedNotification(params: {
+    nftName: string
+    winner: string
+    finalPrice: string
+  }): MarketplaceNotification {
+    return {
+      type: 'auction_ended',
+      title: 'Auction Ended',
+      body: `${params.winner} won ${params.nftName} for ${params.finalPrice}`,
+      data: {
+        nftName: params.nftName,
+        winner: params.winner,
+        finalPrice: params.finalPrice,
+      },
+    }
+  }
+
+  /**
+   * Generate collection trending notification
+   */
+  collectionTrendingNotification(params: {
+    collectionName: string
+    volumeChange: string
+    floorChange: string
+  }): MarketplaceNotification {
+    return {
+      type: 'collection_trending',
+      title: 'Collection Trending',
+      body: `${params.collectionName} volume ${params.volumeChange}, floor ${params.floorChange}`,
+      data: {
+        collectionName: params.collectionName,
+        volumeChange: params.volumeChange,
+        floorChange: params.floorChange,
+      },
+    }
+  }
+}
+
+export const bazaarMessaging = new BazaarMessagingService()
+export { BazaarMessagingService }

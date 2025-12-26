@@ -23,8 +23,9 @@ const JsonValueSchema: z.ZodType<unknown> = z.lazy(() =>
     z.null(),
     z.array(JsonValueSchema),
     z.record(z.string(), JsonValueSchema),
-  ])
+  ]),
 )
+
 import { extractClientRegion } from '../../shared/utils/common'
 import type { BackendManager } from '../../storage/backends'
 import { getMultiBackendManager } from '../../storage/multi-backend'
@@ -245,7 +246,9 @@ export function createStorageRouter(backend?: BackendManager) {
           return { error: 'Not found' }
         }
 
-        return JsonValueSchema.parse(JSON.parse(result.content.toString('utf-8')))
+        return JsonValueSchema.parse(
+          JSON.parse(result.content.toString('utf-8')),
+        )
       })
 
       // Get content metadata

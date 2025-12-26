@@ -17,7 +17,6 @@
  * - Verifies ownership after replacement to handle races
  */
 
-import { randomBytes } from 'node:crypto'
 import {
   existsSync,
   mkdirSync,
@@ -28,6 +27,7 @@ import {
 } from 'node:fs'
 import { hostname } from 'node:os'
 import { join } from 'node:path'
+import { randomHex } from '@jejunetwork/shared'
 import {
   type LockManagerOptions,
   type LockMetadata,
@@ -157,7 +157,7 @@ export class LockManager {
   }
 
   private tryAtomicReplace(metadata: LockMetadata): boolean {
-    const tempPath = `${this.lockPath}.${randomBytes(8).toString('hex')}`
+    const tempPath = `${this.lockPath}.${randomHex(8).slice(2)}`
 
     // Ensure directory exists
     const lockDir = join(this.lockPath, '..')

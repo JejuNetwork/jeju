@@ -101,7 +101,9 @@ interface ApiErrorResponse {
   code?: string
 }
 
-const API_URL = 'http://localhost:4500'
+// Use relative URL - works both through dev server proxy (port 4501) and JNS gateway (port 8080)
+// When running standalone dev, the dev.ts server proxies /api/* to localhost:4500
+const API_URL = ''
 
 const state: AppState = {
   address: null,

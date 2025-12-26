@@ -1,5 +1,5 @@
-import { timingSafeEqual } from 'node:crypto'
 import { cors } from '@elysiajs/cors'
+import { constantTimeEqual } from '@jejunetwork/shared'
 import { AddressSchema, validateOrThrow } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import { z } from 'zod'
@@ -91,13 +91,11 @@ const PackageDownloadBodySchema = z.object({
 
 function timingSafeCompare(a: string | undefined | null, b: string): boolean {
   if (!a) return false
-  const aLen = Buffer.from(a).length
-  const bLen = Buffer.from(b).length
-  const aBuf = Buffer.alloc(Math.max(aLen, bLen))
-  const bBuf = Buffer.alloc(Math.max(aLen, bLen))
-  Buffer.from(a).copy(aBuf)
-  Buffer.from(b).copy(bBuf)
-  return aLen === bLen && timingSafeEqual(aBuf, bBuf)
+  const encoder = new TextEncoder()
+  const aBuf = encoder.encode(a)
+  const bBuf = encoder.encode(b)
+  if (aBuf.length !== bBuf.length) return false
+  return constantTimeEqual(aBuf, bBuf)
 }
 
 let dbInitialized = false
@@ -129,7 +127,7 @@ const app = new Elysia()
   .onBeforeHandle(async () => {
     await ensureDbInitialized()
   })
-  .onParse(async ({ request, contentType }) => {
+  .onParse(async ({ request, contentType }): Promise<unknown> => {
     if (contentType === 'application/json') {
       const text = await request.text()
       if (text.length > MAX_BODY_SIZE) {
@@ -144,10 +142,11 @@ const app = new Elysia()
           z.null(),
           z.array(JsonValueSchema),
           z.record(z.string(), JsonValueSchema),
-        ])
+        ]),
       )
       return JsonValueSchema.parse(JSON.parse(text))
     }
+    return undefined
   })
   .get('/health', () => ({ status: 'ok', service: 'leaderboard' }))
 

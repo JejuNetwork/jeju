@@ -299,8 +299,7 @@ Only respond with the JSON object, no other text.`
       const result = TradeDecisionSchema.safeParse(parsed)
 
       if (!result.success) {
-        logger.warn(`Invalid trade decision from LLM`, {
-        })
+        logger.warn(`Invalid trade decision from LLM`, {})
         return null
       }
 

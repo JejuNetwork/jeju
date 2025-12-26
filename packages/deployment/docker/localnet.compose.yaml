@@ -2,10 +2,10 @@
 #
 # Docker services for local development (excludes CQL which runs natively):
 # - IPFS: Decentralized storage
-# - Cache Service: Redis-compatible cache
-# - DA Server: Data availability with vault integration
 # - JNS Gateway: Name resolution and frontend serving
 # - PostgreSQL: For Indexer (Subsquid requirement only)
+#
+# NOTE: Cache and DA services are now provided by DWS at /cache and /da endpoints
 #
 # CQL (CovenantSQL) runs NATIVELY via the CLI for faster dev:
 #   jeju dev  # Starts CQL + these Docker services + localnet
@@ -128,68 +128,6 @@ services:
     restart: unless-stopped
 
   # ============================================================================
-  # Cache Service - Decentralized Redis-compatible Cache
-  # ============================================================================
-  cache-service:
-    build:
-      context: ../../../apps/storage/cache-service
-      dockerfile: Dockerfile
-    container_name: jeju-cache
-    hostname: cache
-    ports:
-      - "4015:4015"  # Standard cache port for vendor app compatibility
-    environment:
-      - CACHE_SERVICE_PORT=4015
-      - CACHE_DEFAULT_TTL=3600
-      - CACHE_MAX_MEMORY_MB=512
-      - LOG_LEVEL=info
-    volumes:
-      - cache-data:/data
-    networks:
-      - jeju
-    healthcheck:
-      test: ["CMD", "wget", "-q", "-O-", "http://localhost:4015/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-    restart: unless-stopped
-
-  # ============================================================================
-  # DA Server - Data Availability with Vault
-  # ============================================================================
-  da-server:
-    build:
-      context: ../../../apps/storage/da-server
-      dockerfile: Dockerfile
-    container_name: jeju-da
-    hostname: da
-    ports:
-      - "4010:4010"
-    environment:
-      - PORT=4010
-      - IPFS_API_URL=http://ipfs:5001
-      - IPFS_GATEWAY_URL=http://ipfs:8080
-      - DATA_DIR=/data
-      # SECURITY: Vault secret MUST be set via environment variable
-      # Generate a secure secret: openssl rand -hex 32
-      # LOCALNET: Use a fixed secret for local development
-      - VAULT_ENCRYPTION_SECRET=${VAULT_ENCRYPTION_SECRET:-localnet_dev_only_vault_secret_32}
-      - LOG_LEVEL=info
-    depends_on:
-      ipfs:
-        condition: service_healthy
-    volumes:
-      - da-data:/data
-    networks:
-      - jeju
-    healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:4010/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-    restart: unless-stopped
-
-  # ============================================================================
   # JNS Gateway - Frontend Serving via JNS
   # ============================================================================
   jns-gateway:
@@ -206,7 +144,8 @@ services:
       - JNS_REGISTRY_ADDRESS=${JNS_REGISTRY_ADDRESS:-0x0000000000000000000000000000000000000000}
       - JNS_RESOLVER_ADDRESS=${JNS_RESOLVER_ADDRESS:-0x0000000000000000000000000000000000000000}
       - IPFS_GATEWAY_URL=http://ipfs:8080
-      - CACHE_SERVICE_URL=http://cache:4015
+      # Cache is provided by DWS at /cache endpoint
+      - CACHE_SERVICE_URL=http://host.docker.internal:4030/cache
     depends_on:
       ipfs:
         condition: service_healthy
@@ -338,8 +277,6 @@ networks:
 
 volumes:
   ipfs-data:
-  cache-data:
-  da-data:
   postgres-data:
   cql-bp-data:      # Docker-based CQL (production profile)
   cql-miner-data:   # Docker-based CQL miner (production profile)

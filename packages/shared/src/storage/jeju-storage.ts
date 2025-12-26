@@ -7,6 +7,7 @@
  * @module @jejunetwork/shared/storage
  */
 
+import * as path from 'node:path'
 import {
   getJejuStorageApiKey,
   getJejuStorageEndpoint,
@@ -15,7 +16,6 @@ import {
   isProduction,
   isTestnet,
 } from '@jejunetwork/config'
-import * as path from 'node:path'
 import type { ZodType } from 'zod'
 import { z } from 'zod'
 import { logger } from '../logger'

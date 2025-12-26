@@ -189,5 +189,25 @@
       "entrypoint": "index.html",
       "outputDir": "dist"
     }
+  },
+  "testing": {
+    "unit": {
+      "command": "bun test tests/ --preload ./tests/preload.ts",
+      "timeout": 120000
+    },
+    "integration": {
+      "command": "bun test tests/",
+      "timeout": 300000,
+      "requiresServices": true
+    },
+    "e2e": {
+      "command": "bunx playwright test --config synpress.config.ts",
+      "config": "synpress.config.ts",
+      "timeout": 600000,
+      "requiresChain": true,
+      "requiresWallet": true
+    },
+    "services": ["cql", "anvil", "ipfs"],
+    "dependencies": ["contracts"]
   }
 }

@@ -133,7 +133,7 @@
       "ipfs": true,
       "arweave": true,
       "jnsName": "crucible.jeju",
-      "buildDir": "dist",
+      "buildDir": "dist/web",
       "spa": true,
       "fallbackOrigins": [
         "https://crucible.jejunetwork.org"

@@ -1,13 +1,13 @@
 /**
- * Image Cache - Layer-level caching for fast container pulls
+ * Image Cache - CQL-backed layer-level caching for fast container pulls
  * Implements content-addressed deduplication across images
  */
 
+import { getCQLMinerUrl, getCQLUrl } from '@jejunetwork/config'
+import { getCQL, resetCQL } from '@jejunetwork/db'
 import type { ContainerImage, ImageCache, LayerCache } from './types'
 
-// In-memory cache (production would use disk + distributed cache)
-const layerCache = new Map<string, LayerCache>()
-const imageCache = new Map<string, ImageCache>()
+const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? 'dws'
 
 // Cache configuration
 const MAX_CACHE_SIZE_MB = parseInt(
@@ -15,93 +15,317 @@ const MAX_CACHE_SIZE_MB = parseInt(
   10,
 ) // 10GB default
 const CACHE_EVICTION_THRESHOLD = 0.9 // Evict when 90% full
-let currentCacheSizeMb = 0
+
+// CQL Client singleton
+let cqlClient: ReturnType<typeof getCQL> | null = null
+
+async function getCQLClient() {
+  if (!cqlClient) {
+    resetCQL()
+    const blockProducerEndpoint = getCQLUrl()
+    const minerEndpoint = getCQLMinerUrl()
+
+    cqlClient = getCQL({
+      blockProducerEndpoint,
+      minerEndpoint,
+      databaseId: CQL_DATABASE_ID,
+      timeout: 30000,
+      debug: process.env.NODE_ENV !== 'production',
+    })
+
+    await ensureTablesExist()
+  }
+  return cqlClient
+}
+
+async function ensureTablesExist(): Promise<void> {
+  if (!cqlClient) return
+
+  const tables = [
+    `CREATE TABLE IF NOT EXISTS container_layers (
+      digest TEXT PRIMARY KEY,
+      cid TEXT NOT NULL,
+      size INTEGER NOT NULL,
+      local_path TEXT NOT NULL,
+      cached_at INTEGER NOT NULL,
+      last_accessed_at INTEGER NOT NULL,
+      hit_count INTEGER NOT NULL DEFAULT 0
+    )`,
+    `CREATE TABLE IF NOT EXISTS container_images (
+      digest TEXT PRIMARY KEY,
+      repo_id TEXT NOT NULL,
+      cached_at INTEGER NOT NULL,
+      last_accessed_at INTEGER NOT NULL,
+      hit_count INTEGER NOT NULL DEFAULT 0,
+      layers TEXT NOT NULL,
+      total_size INTEGER NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS container_cache_stats (
+      id TEXT PRIMARY KEY DEFAULT 'global',
+      current_size_mb REAL NOT NULL DEFAULT 0,
+      cache_hits INTEGER NOT NULL DEFAULT 0,
+      cache_misses INTEGER NOT NULL DEFAULT 0
+    )`,
+    `CREATE TABLE IF NOT EXISTS prewarm_queue (
+      id TEXT PRIMARY KEY,
+      image_digests TEXT NOT NULL,
+      priority TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    )`,
+  ]
+
+  const indexes = [
+    'CREATE INDEX IF NOT EXISTS idx_layers_last_accessed ON container_layers(last_accessed_at)',
+    'CREATE INDEX IF NOT EXISTS idx_images_repo ON container_images(repo_id)',
+    'CREATE INDEX IF NOT EXISTS idx_prewarm_priority ON prewarm_queue(priority, created_at)',
+  ]
+
+  for (const ddl of tables) {
+    await cqlClient.exec(ddl, [], CQL_DATABASE_ID)
+  }
+
+  for (const idx of indexes) {
+    await cqlClient.exec(idx, [], CQL_DATABASE_ID)
+  }
+
+  // Initialize stats row if not exists
+  await cqlClient.exec(
+    `INSERT INTO container_cache_stats (id, current_size_mb, cache_hits, cache_misses)
+     VALUES ('global', 0, 0, 0)
+     ON CONFLICT(id) DO NOTHING`,
+    [],
+    CQL_DATABASE_ID,
+  )
+}
+
+// Row types
+interface LayerRow {
+  digest: string
+  cid: string
+  size: number
+  local_path: string
+  cached_at: number
+  last_accessed_at: number
+  hit_count: number
+}
+
+interface ImageRow {
+  digest: string
+  repo_id: string
+  cached_at: number
+  last_accessed_at: number
+  hit_count: number
+  layers: string
+  total_size: number
+}
+
+interface StatsRow {
+  id: string
+  current_size_mb: number
+  cache_hits: number
+  cache_misses: number
+}
+
+interface PrewarmRow {
+  id: string
+  image_digests: string
+  priority: string
+  created_at: number
+}
 
 // Layer Cache Operations
 
-export function getCachedLayer(digest: string): LayerCache | null {
-  const layer = layerCache.get(digest)
-  if (layer) {
-    layer.lastAccessedAt = Date.now()
-    layer.hitCount++
-    return layer
+export async function getCachedLayer(
+  digest: string,
+): Promise<LayerCache | null> {
+  const client = await getCQLClient()
+  const result = await client.query<LayerRow>(
+    'SELECT * FROM container_layers WHERE digest = ?',
+    [digest],
+    CQL_DATABASE_ID,
+  )
+
+  const row = result.rows[0]
+  if (!row) return null
+
+  // Update access stats
+  const now = Date.now()
+  await client.exec(
+    'UPDATE container_layers SET last_accessed_at = ?, hit_count = hit_count + 1 WHERE digest = ?',
+    [now, digest],
+    CQL_DATABASE_ID,
+  )
+
+  return {
+    digest: row.digest,
+    cid: row.cid,
+    size: row.size,
+    localPath: row.local_path,
+    cachedAt: row.cached_at,
+    lastAccessedAt: now,
+    hitCount: row.hit_count + 1,
   }
-  return null
 }
 
-export function cacheLayer(
+export async function cacheLayer(
   digest: string,
   cid: string,
   size: number,
   localPath: string,
-): LayerCache {
-  // Check if eviction needed
+): Promise<LayerCache> {
+  const client = await getCQLClient()
   const sizeMb = size / (1024 * 1024)
+
+  // Check current cache size
+  const stats = await getStatsRow()
   if (
-    currentCacheSizeMb + sizeMb >
+    stats.current_size_mb + sizeMb >
     MAX_CACHE_SIZE_MB * CACHE_EVICTION_THRESHOLD
   ) {
-    evictLRULayers(sizeMb)
+    await evictLRULayers(sizeMb)
   }
 
+  const now = Date.now()
   const layer: LayerCache = {
     digest,
     cid,
     size,
     localPath,
-    cachedAt: Date.now(),
-    lastAccessedAt: Date.now(),
+    cachedAt: now,
+    lastAccessedAt: now,
     hitCount: 0,
   }
 
-  layerCache.set(digest, layer)
-  currentCacheSizeMb += sizeMb
+  await client.exec(
+    `INSERT INTO container_layers (digest, cid, size, local_path, cached_at, last_accessed_at, hit_count)
+     VALUES (?, ?, ?, ?, ?, ?, 0)
+     ON CONFLICT(digest) DO UPDATE SET
+     cid = excluded.cid, local_path = excluded.local_path, last_accessed_at = excluded.last_accessed_at`,
+    [digest, cid, size, localPath, now, now],
+    CQL_DATABASE_ID,
+  )
+
+  // Update cache size
+  await client.exec(
+    'UPDATE container_cache_stats SET current_size_mb = current_size_mb + ? WHERE id = ?',
+    [sizeMb, 'global'],
+    CQL_DATABASE_ID,
+  )
 
   return layer
 }
 
-export function invalidateLayer(digest: string): boolean {
-  const layer = layerCache.get(digest)
-  if (layer) {
-    currentCacheSizeMb -= layer.size / (1024 * 1024)
-    layerCache.delete(digest)
-    return true
-  }
-  return false
+export async function invalidateLayer(digest: string): Promise<boolean> {
+  const client = await getCQLClient()
+
+  // Get layer size first
+  const result = await client.query<LayerRow>(
+    'SELECT size FROM container_layers WHERE digest = ?',
+    [digest],
+    CQL_DATABASE_ID,
+  )
+
+  if (!result.rows[0]) return false
+
+  const sizeMb = result.rows[0].size / (1024 * 1024)
+
+  // Delete layer
+  await client.exec(
+    'DELETE FROM container_layers WHERE digest = ?',
+    [digest],
+    CQL_DATABASE_ID,
+  )
+
+  // Update cache size
+  await client.exec(
+    'UPDATE container_cache_stats SET current_size_mb = current_size_mb - ? WHERE id = ?',
+    [sizeMb, 'global'],
+    CQL_DATABASE_ID,
+  )
+
+  return true
 }
 
 // Image Cache Operations
 
-export function getCachedImage(digest: string): ImageCache | null {
-  const image = imageCache.get(digest)
-  if (image) {
-    image.lastAccessedAt = Date.now()
-    image.hitCount++
-    return image
+export async function getCachedImage(
+  digest: string,
+): Promise<ImageCache | null> {
+  const client = await getCQLClient()
+  const result = await client.query<ImageRow>(
+    'SELECT * FROM container_images WHERE digest = ?',
+    [digest],
+    CQL_DATABASE_ID,
+  )
+
+  const row = result.rows[0]
+  if (!row) return null
+
+  // Update access stats
+  const now = Date.now()
+  await client.exec(
+    'UPDATE container_images SET last_accessed_at = ?, hit_count = hit_count + 1 WHERE digest = ?',
+    [now, digest],
+    CQL_DATABASE_ID,
+  )
+
+  const layers: LayerCache[] = JSON.parse(row.layers) as LayerCache[]
+
+  return {
+    digest: row.digest,
+    repoId: row.repo_id,
+    cachedAt: row.cached_at,
+    lastAccessedAt: now,
+    hitCount: row.hit_count + 1,
+    layers,
+    totalSize: row.total_size,
   }
-  return null
 }
 
-export function cacheImage(
+export async function cacheImage(
   image: ContainerImage,
   layers: LayerCache[],
-): ImageCache {
+): Promise<ImageCache> {
+  const client = await getCQLClient()
+  const now = Date.now()
+
   const cached: ImageCache = {
     digest: image.digest,
     repoId: image.repoId,
-    cachedAt: Date.now(),
-    lastAccessedAt: Date.now(),
+    cachedAt: now,
+    lastAccessedAt: now,
     hitCount: 0,
     layers,
     totalSize: layers.reduce((sum, l) => sum + l.size, 0),
   }
 
-  imageCache.set(image.digest, cached)
+  await client.exec(
+    `INSERT INTO container_images (digest, repo_id, cached_at, last_accessed_at, hit_count, layers, total_size)
+     VALUES (?, ?, ?, ?, 0, ?, ?)
+     ON CONFLICT(digest) DO UPDATE SET
+     last_accessed_at = excluded.last_accessed_at, layers = excluded.layers`,
+    [
+      image.digest,
+      image.repoId,
+      now,
+      now,
+      JSON.stringify(layers),
+      cached.totalSize,
+    ],
+    CQL_DATABASE_ID,
+  )
+
   return cached
 }
 
-export function invalidateImage(digest: string): boolean {
-  return imageCache.delete(digest)
+export async function invalidateImage(digest: string): Promise<boolean> {
+  const client = await getCQLClient()
+  const result = await client.exec(
+    'DELETE FROM container_images WHERE digest = ?',
+    [digest],
+    CQL_DATABASE_ID,
+  )
+  return result.rowsAffected > 0
 }
 
 // Cache Statistics
@@ -119,75 +343,144 @@ export interface CacheStats {
   oldestLayerAge: number
 }
 
-let cacheHits = 0
-let cacheMisses = 0
-
-export function recordCacheHit(): void {
-  cacheHits++
+async function getStatsRow(): Promise<StatsRow> {
+  const client = await getCQLClient()
+  const result = await client.query<StatsRow>(
+    'SELECT * FROM container_cache_stats WHERE id = ?',
+    ['global'],
+    CQL_DATABASE_ID,
+  )
+  return (
+    result.rows[0] ?? {
+      id: 'global',
+      current_size_mb: 0,
+      cache_hits: 0,
+      cache_misses: 0,
+    }
+  )
 }
 
-export function recordCacheMiss(): void {
-  cacheMisses++
+export async function recordCacheHit(): Promise<void> {
+  const client = await getCQLClient()
+  await client.exec(
+    'UPDATE container_cache_stats SET cache_hits = cache_hits + 1 WHERE id = ?',
+    ['global'],
+    CQL_DATABASE_ID,
+  )
 }
 
-export function getCacheStats(): CacheStats {
-  const layers = [...layerCache.values()]
-  const now = Date.now()
+export async function recordCacheMiss(): Promise<void> {
+  const client = await getCQLClient()
+  await client.exec(
+    'UPDATE container_cache_stats SET cache_misses = cache_misses + 1 WHERE id = ?',
+    ['global'],
+    CQL_DATABASE_ID,
+  )
+}
 
-  const oldestLayer = layers.reduce(
-    (oldest, l) => (l.cachedAt < oldest ? l.cachedAt : oldest),
-    now,
+export async function getCacheStats(): Promise<CacheStats> {
+  const client = await getCQLClient()
+
+  const layerCount = await client.query<{ count: number }>(
+    'SELECT COUNT(*) as count FROM container_layers',
+    [],
+    CQL_DATABASE_ID,
   )
 
+  const imageCount = await client.query<{ count: number }>(
+    'SELECT COUNT(*) as count FROM container_images',
+    [],
+    CQL_DATABASE_ID,
+  )
+
+  const layerStats = await client.query<{ total_size: number; oldest: number }>(
+    'SELECT COALESCE(SUM(size), 0) as total_size, COALESCE(MIN(cached_at), 0) as oldest FROM container_layers',
+    [],
+    CQL_DATABASE_ID,
+  )
+
+  const stats = await getStatsRow()
+  const totalLayers = layerCount.rows[0]?.count ?? 0
+  const totalHits = stats.cache_hits
+  const totalMisses = stats.cache_misses
+  const totalRequests = totalHits + totalMisses
+  const now = Date.now()
+  const oldestCachedAt = layerStats.rows[0]?.oldest ?? now
+  const totalLayerSize = layerStats.rows[0]?.total_size ?? 0
+
   return {
-    totalLayers: layerCache.size,
-    totalImages: imageCache.size,
-    cacheSizeMb: Math.round(currentCacheSizeMb * 100) / 100,
+    totalLayers,
+    totalImages: imageCount.rows[0]?.count ?? 0,
+    cacheSizeMb: Math.round(stats.current_size_mb * 100) / 100,
     maxCacheSizeMb: MAX_CACHE_SIZE_MB,
     cacheUtilization:
-      Math.round((currentCacheSizeMb / MAX_CACHE_SIZE_MB) * 10000) / 100,
-    totalHits: cacheHits,
-    totalMisses: cacheMisses,
+      Math.round((stats.current_size_mb / MAX_CACHE_SIZE_MB) * 10000) / 100,
+    totalHits,
+    totalMisses,
     hitRate:
-      cacheHits + cacheMisses > 0
-        ? Math.round((cacheHits / (cacheHits + cacheMisses)) * 10000) / 100
+      totalRequests > 0
+        ? Math.round((totalHits / totalRequests) * 10000) / 100
         : 0,
     avgLayerSizeMb:
-      layers.length > 0
-        ? Math.round(
-            (layers.reduce((sum, l) => sum + l.size, 0) /
-              layers.length /
-              (1024 * 1024)) *
-              100,
-          ) / 100
+      totalLayers > 0
+        ? Math.round((totalLayerSize / totalLayers / (1024 * 1024)) * 100) / 100
         : 0,
-    oldestLayerAge: now - oldestLayer,
+    oldestLayerAge: now - oldestCachedAt,
   }
 }
 
 // Cache Eviction (LRU)
 
-function evictLRULayers(requiredSpaceMb: number): void {
-  const layers = [...layerCache.entries()].sort(
-    (a, b) => a[1].lastAccessedAt - b[1].lastAccessedAt,
+async function evictLRULayers(requiredSpaceMb: number): Promise<void> {
+  const client = await getCQLClient()
+
+  // Get layers sorted by LRU
+  const layers = await client.query<LayerRow>(
+    'SELECT digest, size FROM container_layers ORDER BY last_accessed_at ASC',
+    [],
+    CQL_DATABASE_ID,
   )
 
   let freedMb = 0
-  for (const [digest, layer] of layers) {
+  for (const layer of layers.rows) {
     if (freedMb >= requiredSpaceMb) break
 
     const sizeMb = layer.size / (1024 * 1024)
-    layerCache.delete(digest)
-    currentCacheSizeMb -= sizeMb
-    freedMb += sizeMb
 
-    // Also remove from any image caches
-    for (const [imageDigest, image] of imageCache) {
-      if (image.layers.some((l) => l.digest === digest)) {
-        imageCache.delete(imageDigest)
+    // Delete from layers
+    await client.exec(
+      'DELETE FROM container_layers WHERE digest = ?',
+      [layer.digest],
+      CQL_DATABASE_ID,
+    )
+
+    // Also remove from any image caches that reference this layer
+    const images = await client.query<ImageRow>(
+      'SELECT digest, layers FROM container_images',
+      [],
+      CQL_DATABASE_ID,
+    )
+
+    for (const image of images.rows) {
+      const imageLayers: LayerCache[] = JSON.parse(image.layers) as LayerCache[]
+      if (imageLayers.some((l) => l.digest === layer.digest)) {
+        await client.exec(
+          'DELETE FROM container_images WHERE digest = ?',
+          [image.digest],
+          CQL_DATABASE_ID,
+        )
       }
     }
+
+    freedMb += sizeMb
   }
+
+  // Update cache size
+  await client.exec(
+    'UPDATE container_cache_stats SET current_size_mb = current_size_mb - ? WHERE id = ?',
+    [freedMb, 'global'],
+    CQL_DATABASE_ID,
+  )
 }
 
 // Pre-warming
@@ -197,27 +490,55 @@ export interface PrewarmRequest {
   priority: 'low' | 'normal' | 'high'
 }
 
-const prewarmQueue: PrewarmRequest[] = []
-let isPrewarming = false
-
-export function queuePrewarm(request: PrewarmRequest): void {
-  prewarmQueue.push(request)
-  prewarmQueue.sort((a, b) => {
-    const priority = { high: 0, normal: 1, low: 2 }
-    return priority[a.priority] - priority[b.priority]
-  })
+export async function queuePrewarm(request: PrewarmRequest): Promise<void> {
+  const client = await getCQLClient()
+  const id = crypto.randomUUID()
+  await client.exec(
+    `INSERT INTO prewarm_queue (id, image_digests, priority, created_at) VALUES (?, ?, ?, ?)`,
+    [id, JSON.stringify(request.imageDigests), request.priority, Date.now()],
+    CQL_DATABASE_ID,
+  )
 }
 
-export function getPrewarmQueue(): PrewarmRequest[] {
-  return [...prewarmQueue]
+export async function getPrewarmQueue(): Promise<PrewarmRequest[]> {
+  const client = await getCQLClient()
+  const result = await client.query<PrewarmRow>(
+    'SELECT * FROM prewarm_queue ORDER BY CASE priority WHEN ? THEN 0 WHEN ? THEN 1 ELSE 2 END, created_at ASC',
+    ['high', 'normal'],
+    CQL_DATABASE_ID,
+  )
+
+  return result.rows.map((row) => ({
+    imageDigests: JSON.parse(row.image_digests) as string[],
+    priority: row.priority as 'low' | 'normal' | 'high',
+  }))
 }
 
-export function setPrewarmingStatus(status: boolean): void {
-  isPrewarming = status
+export async function clearPrewarmQueue(): Promise<void> {
+  const client = await getCQLClient()
+  await client.exec('DELETE FROM prewarm_queue', [], CQL_DATABASE_ID)
 }
 
-export function isCurrentlyPrewarming(): boolean {
-  return isPrewarming
+// Prewarm status tracking via CQL
+export async function setPrewarmingStatus(status: boolean): Promise<void> {
+  const client = await getCQLClient()
+  await client.exec(
+    `INSERT INTO container_cache_stats (id, current_size_mb, cache_hits, cache_misses)
+     VALUES ('prewarm_status', ?, 0, 0)
+     ON CONFLICT(id) DO UPDATE SET current_size_mb = ?`,
+    [status ? 1 : 0, status ? 1 : 0],
+    CQL_DATABASE_ID,
+  )
+}
+
+export async function isCurrentlyPrewarming(): Promise<boolean> {
+  const client = await getCQLClient()
+  const result = await client.query<StatsRow>(
+    'SELECT current_size_mb FROM container_cache_stats WHERE id = ?',
+    ['prewarm_status'],
+    CQL_DATABASE_ID,
+  )
+  return (result.rows[0]?.current_size_mb ?? 0) > 0
 }
 
 // Deduplication Analysis
@@ -234,11 +555,21 @@ export interface DeduplicationStats {
   }>
 }
 
-export function analyzeDeduplication(): DeduplicationStats {
+export async function analyzeDeduplication(): Promise<DeduplicationStats> {
+  const client = await getCQLClient()
+
+  // Get all images with their layers
+  const images = await client.query<ImageRow>(
+    'SELECT digest, layers FROM container_images',
+    [],
+    CQL_DATABASE_ID,
+  )
+
   const layerUsage = new Map<string, { count: number; size: number }>()
 
-  for (const image of imageCache.values()) {
-    for (const layer of image.layers) {
+  for (const image of images.rows) {
+    const layers: LayerCache[] = JSON.parse(image.layers) as LayerCache[]
+    for (const layer of layers) {
       const existing = layerUsage.get(layer.digest)
       if (existing) {
         existing.count++
@@ -285,17 +616,53 @@ export function analyzeDeduplication(): DeduplicationStats {
 
 // Export cache contents (for debugging/sync)
 
-export function exportCache(): { layers: LayerCache[]; images: ImageCache[] } {
+export async function exportCache(): Promise<{
+  layers: LayerCache[]
+  images: ImageCache[]
+}> {
+  const client = await getCQLClient()
+
+  const layerResult = await client.query<LayerRow>(
+    'SELECT * FROM container_layers',
+    [],
+    CQL_DATABASE_ID,
+  )
+
+  const imageResult = await client.query<ImageRow>(
+    'SELECT * FROM container_images',
+    [],
+    CQL_DATABASE_ID,
+  )
+
   return {
-    layers: [...layerCache.values()],
-    images: [...imageCache.values()],
+    layers: layerResult.rows.map((row) => ({
+      digest: row.digest,
+      cid: row.cid,
+      size: row.size,
+      localPath: row.local_path,
+      cachedAt: row.cached_at,
+      lastAccessedAt: row.last_accessed_at,
+      hitCount: row.hit_count,
+    })),
+    images: imageResult.rows.map((row) => ({
+      digest: row.digest,
+      repoId: row.repo_id,
+      cachedAt: row.cached_at,
+      lastAccessedAt: row.last_accessed_at,
+      hitCount: row.hit_count,
+      layers: JSON.parse(row.layers) as LayerCache[],
+      totalSize: row.total_size,
+    })),
   }
 }
 
-export function clearCache(): void {
-  layerCache.clear()
-  imageCache.clear()
-  currentCacheSizeMb = 0
-  cacheHits = 0
-  cacheMisses = 0
+export async function clearCache(): Promise<void> {
+  const client = await getCQLClient()
+  await client.exec('DELETE FROM container_layers', [], CQL_DATABASE_ID)
+  await client.exec('DELETE FROM container_images', [], CQL_DATABASE_ID)
+  await client.exec(
+    'UPDATE container_cache_stats SET current_size_mb = 0, cache_hits = 0, cache_misses = 0 WHERE id = ?',
+    ['global'],
+    CQL_DATABASE_ID,
+  )
 }

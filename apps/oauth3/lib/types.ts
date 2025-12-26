@@ -2,8 +2,21 @@
  * Auth app types
  */
 
-import type { AuthProvider } from '@jejunetwork/auth'
 import type { Address, Hex } from 'viem'
+
+// Local definition of AuthProvider to avoid importing React components from @jejunetwork/auth
+export const AuthProvider = {
+  WALLET: 'wallet',
+  FARCASTER: 'farcaster',
+  GOOGLE: 'google',
+  APPLE: 'apple',
+  TWITTER: 'twitter',
+  GITHUB: 'github',
+  DISCORD: 'discord',
+  EMAIL: 'email',
+  PHONE: 'phone',
+} as const
+export type AuthProvider = (typeof AuthProvider)[keyof typeof AuthProvider]
 
 // ============ Session Types ============
 

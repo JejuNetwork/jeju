@@ -72,7 +72,7 @@ export async function warmContainers(
   _resources: ExecutionRequest['resources'],
   _owner: Address,
 ): Promise<void> {
-  cache.queuePrewarm({
+  await cache.queuePrewarm({
     imageDigests: [imageRef],
     priority: 'high',
   })
@@ -81,14 +81,14 @@ export async function warmContainers(
 /**
  * Get system-wide statistics
  */
-export function getSystemStats(): {
+export async function getSystemStats(): Promise<{
   executor: executor.ExecutorStats
   scheduler: scheduler.SchedulerStats
   cache: cache.CacheStats
-} {
+}> {
   return {
-    executor: executor.getExecutorStats(),
+    executor: await executor.getExecutorStats(),
     scheduler: scheduler.getSchedulerStats(),
-    cache: cache.getCacheStats(),
+    cache: await cache.getCacheStats(),
   }
 }

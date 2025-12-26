@@ -13,14 +13,11 @@ import {
   getCoreAppUrl,
   getCQLBlockProducerUrl,
   getCurrentNetwork,
+  getIndexerGraphqlUrl,
   getL2RpcUrl,
 } from '@jejunetwork/config'
 import { type CQLClient, createTable, getCQL } from '@jejunetwork/db'
-import {
-  AddressSchema,
-  expect as expectExists,
-  expectValid,
-} from '@jejunetwork/types'
+import { expect as expectExists, expectValid } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import {
   A2ARequestSchema,
@@ -28,15 +25,7 @@ import {
   TFMMPostRequestSchema,
 } from '../schemas/api'
 import { handleA2ARequest, handleAgentCard } from './a2a-server'
-import {
-  ClaimRequestSchema,
-  claimFromFaucet,
-  FaucetClaimResultSchema,
-  FaucetInfoSchema,
-  FaucetStatusSchema,
-  getFaucetInfo,
-  getFaucetStatus,
-} from './faucet'
+import { createIntelRouter } from './intel'
 import { handleMCPInfo, handleMCPRequest } from './mcp-server'
 import {
   createTFMMPool,
@@ -109,23 +98,6 @@ function getDatabase(env: BazaarEnv): CQLClient {
 // Database Schemas
 
 async function initializeDatabase(db: CQLClient): Promise<void> {
-  // Faucet claims table
-  const faucetTable = createTable('faucet_claims', [
-    { name: 'id', type: 'TEXT', primaryKey: true, notNull: true },
-    { name: 'address', type: 'TEXT', notNull: true },
-    { name: 'amount', type: 'TEXT', notNull: true },
-    { name: 'tx_hash', type: 'TEXT' },
-    { name: 'claimed_at', type: 'TIMESTAMP', notNull: true },
-    { name: 'ip_hash', type: 'TEXT' },
-  ])
-  await db.exec(faucetTable.up)
-  await db.exec(
-    'CREATE INDEX IF NOT EXISTS idx_faucet_address ON faucet_claims(address)',
-  )
-  await db.exec(
-    'CREATE INDEX IF NOT EXISTS idx_faucet_claimed_at ON faucet_claims(claimed_at)',
-  )
-
   // Market cache table
   const cacheTable = createTable('market_cache', [
     { name: 'key', type: 'TEXT', primaryKey: true, notNull: true },
@@ -172,59 +144,6 @@ export function createBazaarApp(env?: Partial<BazaarEnv>) {
     teeMode: env?.TEE_MODE ?? 'simulated',
     network: env?.NETWORK ?? 'localnet',
   }))
-
-  // Faucet API
-  app.group('/api/faucet', (app) =>
-    app
-      .get('/info', () => {
-        const info = getFaucetInfo()
-        return FaucetInfoSchema.parse(info)
-      })
-      .get('/status/:address', async ({ params }) => {
-        const parseResult = AddressSchema.safeParse(params.address)
-        if (!parseResult.success) {
-          return new Response(
-            JSON.stringify({ error: 'Invalid address format' }),
-            {
-              status: 400,
-              headers: { 'Content-Type': 'application/json' },
-            },
-          )
-        }
-        const status = await getFaucetStatus(parseResult.data)
-        return FaucetStatusSchema.parse(status)
-      })
-      .post('/claim', async ({ body }) => {
-        const parseResult = ClaimRequestSchema.safeParse(body)
-        if (!parseResult.success) {
-          return new Response(
-            JSON.stringify({
-              success: false,
-              error: `Invalid request: ${parseResult.error.issues[0].message}`,
-            }),
-            { status: 400, headers: { 'Content-Type': 'application/json' } },
-          )
-        }
-
-        const result = await claimFromFaucet(parseResult.data.address).catch(
-          (error: Error) => ({
-            success: false as const,
-            error: error.message,
-          }),
-        )
-
-        const validated = FaucetClaimResultSchema.parse(result)
-
-        if (!validated.success) {
-          return new Response(JSON.stringify(validated), {
-            status: 400,
-            headers: { 'Content-Type': 'application/json' },
-          })
-        }
-
-        return validated
-      }),
-  )
 
   // A2A API
   app.group('/api/a2a', (app) =>
@@ -280,6 +199,122 @@ export function createBazaarApp(env?: Partial<BazaarEnv>) {
         return handleMCPRequest(request, endpoint)
       }),
   )
+
+  // GraphQL Proxy - proxies indexer requests from browser to avoid CORS issues
+  app.post('/api/graphql', async ({ body }) => {
+    const indexerUrl = env?.INDEXER_URL || getIndexerGraphqlUrl()
+
+    try {
+      const response = await fetch(indexerUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(30000),
+      })
+
+      if (response.ok) {
+        const data: unknown = await response.json()
+        return data
+      }
+
+      // Return the error from the indexer
+      const errorText = await response.text().catch(() => '')
+      console.error(
+        `[Bazaar] Indexer error (${indexerUrl}): ${response.status} - ${errorText}`,
+      )
+
+      return new Response(
+        JSON.stringify({
+          errors: [
+            {
+              message: `Indexer error (${response.status}): ${response.statusText}. ${errorText}`,
+            },
+          ],
+        }),
+        {
+          status: response.status,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      )
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      console.error(
+        `[Bazaar] Indexer connection failed (${indexerUrl}): ${message}`,
+      )
+
+      return new Response(
+        JSON.stringify({
+          errors: [
+            { message: `Indexer unavailable (${indexerUrl}): ${message}` },
+          ],
+        }),
+        {
+          status: 503,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      )
+    }
+  })
+
+  // RPC Proxy - proxies JSON-RPC requests to the L2 RPC endpoint from browser
+  app.post('/api/rpc', async ({ body }) => {
+    const rpcUrl = env?.RPC_URL || getL2RpcUrl()
+    const requestId = (body as { id?: number }).id || 1
+
+    try {
+      const response = await fetch(rpcUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(30000),
+      })
+
+      if (!response.ok) {
+        console.warn(
+          `[Bazaar] RPC proxy error: ${response.status} ${response.statusText}`,
+        )
+        return new Response(
+          JSON.stringify({
+            jsonrpc: '2.0',
+            id: requestId,
+            error: {
+              code: -32603,
+              message: `RPC error: ${response.status} ${response.statusText}`,
+            },
+          }),
+          {
+            status: response.status,
+            headers: { 'Content-Type': 'application/json' },
+          },
+        )
+      }
+
+      const data = await response.json()
+      return data
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      console.warn(`[Bazaar] RPC proxy fetch failed: ${message}`)
+      return new Response(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          id: requestId,
+          error: {
+            code: -32603,
+            message: `RPC unavailable: ${message}`,
+          },
+        }),
+        {
+          status: 503,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      )
+    }
+  })
 
   // TFMM API
   app.group('/api/tfmm', (app) =>
@@ -344,6 +379,9 @@ export function createBazaarApp(env?: Partial<BazaarEnv>) {
 
   // Agent card endpoint
   app.get('/.well-known/agent-card.json', () => handleAgentCard())
+
+  // Intel API - AI-powered market intelligence
+  app.group('/api', (apiGroup) => apiGroup.use(createIntelRouter()))
 
   return app
 }
@@ -411,7 +449,7 @@ if (isMainModule) {
     RPC_URL: getL2RpcUrl(),
     DWS_URL: getCoreAppUrl('DWS_API'),
     GATEWAY_URL: getCoreAppUrl('NODE_EXPLORER_API'),
-    INDEXER_URL: getCoreAppUrl('NODE_EXPLORER_UI'),
+    INDEXER_URL: getIndexerGraphqlUrl(),
     COVENANTSQL_NODES: getCQLBlockProducerUrl(),
     COVENANTSQL_DATABASE_ID: process.env.COVENANTSQL_DATABASE_ID || '',
     COVENANTSQL_PRIVATE_KEY: process.env.COVENANTSQL_PRIVATE_KEY || '',

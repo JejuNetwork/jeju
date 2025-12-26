@@ -5,6 +5,7 @@
  */
 
 import { mkdir } from 'node:fs/promises'
+import { $ } from 'bun'
 
 const BROWSER_EXTERNALS = [
   'bun:sqlite',
@@ -17,11 +18,16 @@ const BROWSER_EXTERNALS = [
   'dns',
   'stream',
   'crypto',
+  'module',
+  'worker_threads',
   'node:url',
   'node:fs',
   'node:path',
   'node:crypto',
   'node:events',
+  'node:module',
+  'pino',
+  'pino-pretty',
 ]
 
 async function buildApi(): Promise<void> {
@@ -53,6 +59,16 @@ async function buildFrontend(): Promise<void> {
 
   await mkdir('./dist/web', { recursive: true })
 
+  // Build CSS with Tailwind CLI
+  console.log('  Compiling CSS with Tailwind...')
+  const cssResult =
+    await $`bunx tailwindcss -i ./web/globals.css -o ./dist/web/globals.css --minify`.nothrow()
+  if (cssResult.exitCode !== 0) {
+    console.error('CSS build failed:', cssResult.stderr.toString())
+    process.exit(1)
+  }
+
+  // Build JS bundle
   const result = await Bun.build({
     entrypoints: ['./web/client.tsx'],
     outdir: './dist/web',
@@ -63,7 +79,6 @@ async function buildFrontend(): Promise<void> {
     external: BROWSER_EXTERNALS,
     define: {
       'process.env.NODE_ENV': JSON.stringify('production'),
-      'process.env.PUBLIC_API_URL': JSON.stringify(''),
     },
   })
 
@@ -75,7 +90,7 @@ async function buildFrontend(): Promise<void> {
     process.exit(1)
   }
 
-  // Copy index.html
+  // Generate index.html - use relative paths so app works at any base path
   const indexHtml = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -89,6 +104,12 @@ async function buildFrontend(): Promise<void> {
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script>
+    // Node.js process polyfill for browser
+    if (typeof process === 'undefined') {
+      window.process = { env: { NODE_ENV: 'production' }, browser: true, version: '', platform: 'browser' };
+    }
+  </script>
+  <script>
     (function() {
       try {
         const savedTheme = localStorage.getItem('crucible-theme');
@@ -100,8 +121,8 @@ async function buildFrontend(): Promise<void> {
       } catch (e) {}
     })();
   </script>
-  <link rel="stylesheet" href="/globals.css">
-  <script type="module" src="/client.js"></script>
+  <link rel="stylesheet" href="./globals.css">
+  <script type="module" src="./client.js"></script>
 </head>
 <body class="font-sans antialiased">
   <div id="root"></div>
@@ -109,10 +130,6 @@ async function buildFrontend(): Promise<void> {
 </html>`
 
   await Bun.write('./dist/web/index.html', indexHtml)
-
-  // Copy CSS
-  const css = await Bun.file('./web/globals.css').text()
-  await Bun.write('./dist/web/globals.css', css)
 
   console.log(`Frontend built in ${Date.now() - startTime}ms`)
 }

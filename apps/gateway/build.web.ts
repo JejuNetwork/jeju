@@ -12,6 +12,11 @@ const network = getCurrentNetwork()
 const browserPlugin: BunPlugin = {
   name: 'browser-plugin',
   setup(build) {
+    // Shim node:crypto for browser compatibility (used by @noble/hashes)
+    build.onResolve({ filter: /^node:crypto$/ }, () => ({
+      path: resolve('./web/shims/node-crypto.ts'),
+    }))
+
     // Shim pino
     build.onResolve({ filter: /^pino(-pretty)?$/ }, () => ({
       path: resolve('./web/shims/pino.ts'),
@@ -44,6 +49,26 @@ const browserPlugin: BunPlugin = {
     }))
     build.onResolve({ filter: /^@noble\/hashes/ }, (args) => ({
       path: require.resolve(args.path),
+    }))
+
+    // Resolve workspace packages to their source for proper bundling
+    build.onResolve({ filter: /^@jejunetwork\/shared$/ }, () => ({
+      path: resolve('../../packages/shared/src/index.ts'),
+    }))
+    build.onResolve({ filter: /^@jejunetwork\/types$/ }, () => ({
+      path: resolve('../../packages/types/src/index.ts'),
+    }))
+    build.onResolve({ filter: /^@jejunetwork\/sdk$/ }, () => ({
+      path: resolve('../../packages/sdk/src/index.ts'),
+    }))
+    build.onResolve({ filter: /^@jejunetwork\/ui$/ }, () => ({
+      path: resolve('../../packages/ui/src/index.ts'),
+    }))
+    build.onResolve({ filter: /^@jejunetwork\/config$/ }, () => ({
+      path: resolve('../../packages/config/index.ts'),
+    }))
+    build.onResolve({ filter: /^@jejunetwork\/token$/ }, () => ({
+      path: resolve('../../packages/token/src/index.ts'),
     }))
   },
 }
@@ -99,15 +124,24 @@ const result = await Bun.build({
     ),
     'process.browser': 'true',
     'globalThis.process': JSON.stringify({
-      env: { NODE_ENV: process.env.NODE_ENV || 'development' },
+      env: {
+        NODE_ENV: process.env.NODE_ENV || 'development',
+        JEJU_NETWORK: network,
+      },
       browser: true,
     }),
     process: JSON.stringify({
-      env: { NODE_ENV: process.env.NODE_ENV || 'development' },
+      env: {
+        NODE_ENV: process.env.NODE_ENV || 'development',
+        JEJU_NETWORK: network,
+      },
       browser: true,
     }),
+    // VITE_NETWORK is what @jejunetwork/config looks for in browser
+    'import.meta.env.VITE_NETWORK': JSON.stringify(network),
     // Public environment variables (using PUBLIC_ prefix)
     'import.meta.env': JSON.stringify({
+      VITE_NETWORK: network,
       PUBLIC_NETWORK: network,
       MODE: process.env.NODE_ENV || 'development',
       DEV: process.env.NODE_ENV !== 'production',

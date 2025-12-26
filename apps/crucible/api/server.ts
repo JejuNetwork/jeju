@@ -7,12 +7,12 @@
  */
 
 import { cors } from '@elysiajs/cors'
+import type { ContractCategoryName } from '@jejunetwork/config'
 import {
-  getContract,
   getCurrentNetwork,
   getRpcUrl,
-  getServiceUrl,
   getServicesConfig,
+  getServiceUrl,
 } from '@jejunetwork/config'
 import type { JsonObject } from '@jejunetwork/types'
 import { isHexString, isValidAddress } from '@jejunetwork/types'
@@ -61,6 +61,24 @@ import { createRoomSDK } from './sdk/room'
 import { createStorage } from './sdk/storage'
 
 const log = createLogger('Server')
+
+/**
+ * Safely get contract address, returning undefined if not configured.
+ * Used for optional contracts that may not be deployed yet.
+ */
+function getContractSafe(
+  category: ContractCategoryName,
+  name: string,
+  _network: 'localnet' | 'testnet' | 'mainnet',
+): `0x${string}` | undefined {
+  // Check env var first
+  const envKey = `${category.toUpperCase()}_${name.replace(/([A-Z])/g, '_$1').toUpperCase()}`
+  const envVal = process.env[envKey]
+  if (envVal && /^0x[a-fA-F0-9]{40}$/.test(envVal)) {
+    return envVal as `0x${string}`
+  }
+  return undefined
+}
 
 /**
  * Constant-time string comparison to prevent timing attacks.
@@ -135,17 +153,15 @@ function getPrivateKey(): `0x${string}` | undefined {
   return pk
 }
 
-function getRequiredAddress(
+function getOptionalAddress(
   key: string,
-  defaultValue?: `0x${string}`,
+  defaultValue: `0x${string}`,
 ): `0x${string}` {
-  const value = getRequiredEnv(key, defaultValue)
-  if (!isValidAddress(value)) {
-    throw new Error(
-      `Environment variable ${key} must be a valid Ethereum address`,
-    )
+  const value = process.env[key]
+  if (value && /^0x[a-fA-F0-9]{40}$/.test(value)) {
+    return value as `0x${string}`
   }
-  return value
+  return defaultValue
 }
 
 function getNetwork(): 'localnet' | 'testnet' | 'mainnet' {
@@ -162,23 +178,23 @@ function getNetwork(): 'localnet' | 'testnet' | 'mainnet' {
   return network
 }
 
-// Localnet default addresses (from centralized config)
+// Localnet default addresses - uses env vars or placeholder zeros
 const LOCALNET_DEFAULTS = {
   rpcUrl: getRpcUrl('localnet'),
   agentVault:
-    (getContract('agents', 'vault', 'localnet') as `0x${string}`) ||
+    getContractSafe('agents', 'vault', 'localnet') ||
     '0x0000000000000000000000000000000000000000',
   roomRegistry:
-    (getContract('agents', 'roomRegistry', 'localnet') as `0x${string}`) ||
+    getContractSafe('agents', 'roomRegistry', 'localnet') ||
     '0x0000000000000000000000000000000000000000',
   triggerRegistry:
-    (getContract('agents', 'triggerRegistry', 'localnet') as `0x${string}`) ||
+    getContractSafe('agents', 'triggerRegistry', 'localnet') ||
     '0x0000000000000000000000000000000000000000',
   identityRegistry:
-    (getContract('registry', 'identity', 'localnet') as `0x${string}`) ||
+    getContractSafe('registry', 'identity', 'localnet') ||
     '0x0000000000000000000000000000000000000000',
   serviceRegistry:
-    (getContract('registry', 'service', 'localnet') as `0x${string}`) ||
+    getContractSafe('registry', 'service', 'localnet') ||
     '0x0000000000000000000000000000000000000000',
   computeMarketplace: getServiceUrl('compute', 'marketplace', 'localnet'),
   storageApi: getServiceUrl('storage', 'api', 'localnet'),
@@ -203,23 +219,23 @@ const config: CrucibleConfig = {
   rpcUrl: getRequiredEnv('RPC_URL', LOCALNET_DEFAULTS.rpcUrl),
   privateKey: validatedPrivateKey,
   contracts: {
-    agentVault: getRequiredAddress(
+    agentVault: getOptionalAddress(
       'AGENT_VAULT_ADDRESS',
       LOCALNET_DEFAULTS.agentVault,
     ),
-    roomRegistry: getRequiredAddress(
+    roomRegistry: getOptionalAddress(
       'ROOM_REGISTRY_ADDRESS',
       LOCALNET_DEFAULTS.roomRegistry,
     ),
-    triggerRegistry: getRequiredAddress(
+    triggerRegistry: getOptionalAddress(
       'TRIGGER_REGISTRY_ADDRESS',
       LOCALNET_DEFAULTS.triggerRegistry,
     ),
-    identityRegistry: getRequiredAddress(
+    identityRegistry: getOptionalAddress(
       'IDENTITY_REGISTRY_ADDRESS',
       LOCALNET_DEFAULTS.identityRegistry,
     ),
-    serviceRegistry: getRequiredAddress(
+    serviceRegistry: getOptionalAddress(
       'SERVICE_REGISTRY_ADDRESS',
       LOCALNET_DEFAULTS.serviceRegistry,
     ),
@@ -299,6 +315,25 @@ const roomSdk = createRoomSDK({
 let botInitializer: BotInitializer | null = null
 let tradingBots: Map<bigint, TradingBot> = new Map()
 
+// Seed DWS infrastructure (external chain nodes + bots) on startup
+async function seedDWSInfrastructure(): Promise<void> {
+  const treasuryAddress = config.contracts.autocratTreasury ??
+    (account?.address ?? '0x0000000000000000000000000000000000000001')
+
+  try {
+    // Dynamic import to avoid circular dependency
+    const dws = await import('@jejunetwork/dws')
+    const result = await dws.seedInfrastructure(treasuryAddress as `0x${string}`)
+    log.info('DWS infrastructure seeded', {
+      nodesReady: result.nodesReady,
+      botsRunning: result.botsRunning,
+    })
+  } catch (err) {
+    // Log but don't fail - infrastructure seeding is optional
+    log.warn('DWS infrastructure seeding failed', { error: String(err) })
+  }
+}
+
 if (config.privateKey && walletClient) {
   botInitializer = new BotInitializer({
     crucibleConfig: config,
@@ -308,17 +343,21 @@ if (config.privateKey && walletClient) {
     treasuryAddress: config.contracts.autocratTreasury,
   })
 
-  if (process.env.BOTS_ENABLED !== 'false') {
-    botInitializer
-      .initializeDefaultBots()
-      .then((bots) => {
-        tradingBots = bots
-        log.info('Default bots initialized', { count: bots.size })
-      })
-      .catch((err) =>
-        log.error('Failed to initialize default bots', { error: String(err) }),
-      )
-  }
+  // Seed DWS infrastructure, then initialize bots
+  seedDWSInfrastructure()
+    .then(() => {
+      if (process.env.BOTS_ENABLED !== 'false' && botInitializer) {
+        return botInitializer.initializeDefaultBots()
+      }
+      return new Map<bigint, TradingBot>()
+    })
+    .then((bots) => {
+      tradingBots = bots
+      log.info('Default bots initialized', { count: bots.size })
+    })
+    .catch((err) =>
+      log.error('Failed to initialize bots', { error: String(err) }),
+    )
 }
 
 const app = new Elysia()

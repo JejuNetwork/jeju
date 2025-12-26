@@ -163,9 +163,9 @@ async function resolveImage(imageRef: string): Promise<ResolvedImage> {
     ? tagOrDigest
     : `${namespace}/${name}:${tagOrDigest}`
 
-  const cachedImage = cache.getCachedImage(cacheKey)
+  const cachedImage = await cache.getCachedImage(cacheKey)
   if (cachedImage) {
-    cache.recordCacheHit()
+    await cache.recordCacheHit()
     return {
       image: {
         repoId: cachedImage.repoId,
@@ -184,7 +184,7 @@ async function resolveImage(imageRef: string): Promise<ResolvedImage> {
     }
   }
 
-  cache.recordCacheMiss()
+  await cache.recordCacheMiss()
 
   // Fetch from ContainerRegistry contract
   if (!CONTAINER_REGISTRY_ADDRESS) {
@@ -250,7 +250,9 @@ async function resolveImage(imageRef: string): Promise<ResolvedImage> {
 // Image Pulling
 
 const STORAGE_ENDPOINT =
-  process.env.DWS_STORAGE_URL || getServiceUrl('storage', 'api') || `${getDWSUrl()}/storage`
+  process.env.DWS_STORAGE_URL ||
+  getServiceUrl('storage', 'api') ||
+  `${getDWSUrl()}/storage`
 
 async function pullImage(image: ContainerImage): Promise<number> {
   const startTime = Date.now()
@@ -260,7 +262,7 @@ async function pullImage(image: ContainerImage): Promise<number> {
 
   for (const layerCid of image.layerCids) {
     // Check if layer is already cached (deduplication)
-    let cachedLayer = cache.getCachedLayer(layerCid)
+    let cachedLayer = await cache.getCachedLayer(layerCid)
     if (!cachedLayer) {
       // Fetch layer from storage
       const response = await fetch(`${STORAGE_ENDPOINT}/download/${layerCid}`)
@@ -271,7 +273,7 @@ async function pullImage(image: ContainerImage): Promise<number> {
       const layerData = await response.arrayBuffer()
       const layerSize = layerData.byteLength
 
-      cachedLayer = cache.cacheLayer(
+      cachedLayer = await cache.cacheLayer(
         layerCid,
         layerCid,
         layerSize,
@@ -283,7 +285,7 @@ async function pullImage(image: ContainerImage): Promise<number> {
   }
 
   // Cache the full image
-  cache.cacheImage(image, cachedLayers)
+  await cache.cacheImage(image, cachedLayers)
 
   return Date.now() - startTime
 }
@@ -808,7 +810,7 @@ export interface ExecutorStats {
   poolStats: WarmPoolStats[]
 }
 
-export function getExecutorStats(): ExecutorStats {
+export async function getExecutorStats(): Promise<ExecutorStats> {
   const completed = [...executionResults.values()]
   const withMetrics = completed.filter((r) => r.metrics)
 
@@ -834,16 +836,16 @@ export function getExecutorStats(): ExecutorStats {
       withMetrics.length > 0
         ? Math.round((coldStarts.length / withMetrics.length) * 100)
         : 0,
-    cacheStats: cache.getCacheStats(),
+    cacheStats: await cache.getCacheStats(),
     poolStats: warmPool.getAllPoolStats(),
   }
 }
 
 // Cleanup
 
-export function cleanup(): void {
+export async function cleanup(): Promise<void> {
   executions.clear()
   executionResults.clear()
   warmPool.cleanupAllPools()
-  cache.clearCache()
+  await cache.clearCache()
 }

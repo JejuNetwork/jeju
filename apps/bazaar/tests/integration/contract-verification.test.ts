@@ -6,6 +6,7 @@
  */
 
 import { beforeAll, describe, expect, test } from 'bun:test'
+import { getChainId, getRpcUrl } from '@jejunetwork/config'
 import { rawDeployments } from '@jejunetwork/contracts'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import {
@@ -20,8 +21,6 @@ import {
   type WalletClient,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-
-import { getChainId, getRpcUrl } from '@jejunetwork/config'
 
 // CONFIGURATION - from centralized config
 

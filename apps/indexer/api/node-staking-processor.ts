@@ -10,7 +10,7 @@ import {
   NodeStake,
   PerformanceUpdate,
   RewardClaim,
-} from './model'
+} from '../src/model'
 import type { ProcessorContext } from './processor'
 import { decodeEventArgs } from './utils/hex'
 

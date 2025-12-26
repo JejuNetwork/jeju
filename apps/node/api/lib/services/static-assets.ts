@@ -1,8 +1,8 @@
-import { createHash } from 'node:crypto'
 import * as fs from 'node:fs'
 import * as http from 'node:http'
 import * as https from 'node:https'
 import * as path from 'node:path'
+import { bytesToHex, hash256 } from '@jejunetwork/shared'
 import { LRUCache } from 'lru-cache'
 import { Counter, Gauge, Histogram, Registry } from 'prom-client'
 import { z } from 'zod'
@@ -399,8 +399,8 @@ export class StaticAssetService {
       const data = await this.torrent.getContent(stats.infohash)
 
       // Verify content hash
-      const hash = createHash('sha256').update(data).digest('hex')
-      if (hash !== contentHash && `0x${hash}` !== contentHash) {
+      const hash = bytesToHex(hash256(new Uint8Array(data)))
+      if (hash.slice(2) !== contentHash && hash !== contentHash) {
         console.warn(`[StaticAssets] Content hash mismatch for ${assetPath}`)
         return null
       }
@@ -540,7 +540,7 @@ export class StaticAssetService {
   // Public API
 
   async addAsset(assetPath: string, data: Buffer): Promise<string> {
-    const contentHash = createHash('sha256').update(data).digest('hex')
+    const contentHash = bytesToHex(hash256(new Uint8Array(data))).slice(2)
     const mimeType = getMimeType(assetPath)
 
     const asset: CachedAsset = {
@@ -592,7 +592,7 @@ export class StaticAssetService {
     }
 
     // Generate hash from path for lookup
-    return createHash('sha256').update(urlPath).digest('hex')
+    return bytesToHex(hash256(urlPath)).slice(2)
   }
 
   private updateCacheMetrics(): void {

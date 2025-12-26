@@ -2,13 +2,9 @@
  * CI Secrets Store - MPC-backed secrets for CI/CD
  */
 
-import {
-  createCipheriv,
-  createDecipheriv,
-  createHash,
-  randomBytes,
-} from 'node:crypto'
+import { isProductionEnv } from '@jejunetwork/config'
 import { getMPCCoordinator } from '@jejunetwork/kms'
+import { decryptAesGcm, encryptAesGcm, hash256 } from '@jejunetwork/shared'
 import type { Address, Hex } from 'viem'
 import type {
   CISecret,
@@ -44,9 +40,9 @@ export class CISecretsStore {
    * Derive encryption key from server secret + secretId
    * SECURITY: CI_ENCRYPTION_SECRET MUST be set in production
    */
-  private deriveKey(secretId: string): Buffer {
+  private deriveKey(secretId: string): Uint8Array {
     const serverSecret = process.env.CI_ENCRYPTION_SECRET
-    const isProduction = process.env.NODE_ENV === 'production'
+    const isProduction = isProductionEnv()
 
     if (!serverSecret) {
       if (isProduction) {
@@ -58,42 +54,45 @@ export class CISecretsStore {
         '[CISecretsStore] WARNING: CI_ENCRYPTION_SECRET not set. Secrets are NOT properly secured.',
       )
     }
-    return createHash('sha256')
-      .update(`${serverSecret ?? 'INSECURE_CI_SECRET'}:${secretId}`)
-      .digest()
+    return hash256(`${serverSecret ?? 'INSECURE_CI_SECRET'}:${secretId}`)
   }
 
   /**
    * Encrypt a secret value with AES-256-GCM
    */
-  private encryptSecret(value: string, secretId: string): string {
+  private async encryptSecret(
+    value: string,
+    secretId: string,
+  ): Promise<string> {
     const key = this.deriveKey(secretId)
-    const iv = randomBytes(12)
-    const cipher = createCipheriv('aes-256-gcm', key, iv)
-    const encrypted = Buffer.concat([
-      cipher.update(value, 'utf8'),
-      cipher.final(),
-    ])
-    const authTag = cipher.getAuthTag()
-    // Format: iv (12) + authTag (16) + ciphertext, base64 encoded
-    return Buffer.concat([iv, authTag, encrypted]).toString('base64')
+    const valueBytes = new TextEncoder().encode(value)
+    const { ciphertext, iv, tag } = await encryptAesGcm(valueBytes, key)
+    // Format: iv (12) + tag (16) + ciphertext, base64 encoded
+    const combined = new Uint8Array(iv.length + tag.length + ciphertext.length)
+    combined.set(iv, 0)
+    combined.set(tag, 12)
+    combined.set(ciphertext, 28)
+    return btoa(String.fromCharCode(...combined))
   }
 
   /**
    * Decrypt a secret value with AES-256-GCM
    */
-  private decryptSecret(encryptedValue: string, secretId: string): string {
+  private async decryptSecret(
+    encryptedValue: string,
+    secretId: string,
+  ): Promise<string> {
     const key = this.deriveKey(secretId)
-    const data = Buffer.from(encryptedValue, 'base64')
+    const binaryStr = atob(encryptedValue)
+    const data = new Uint8Array(binaryStr.length)
+    for (let i = 0; i < binaryStr.length; i++) {
+      data[i] = binaryStr.charCodeAt(i)
+    }
     const iv = data.subarray(0, 12)
-    const authTag = data.subarray(12, 28)
+    const tag = data.subarray(12, 28)
     const ciphertext = data.subarray(28)
-    const decipher = createDecipheriv('aes-256-gcm', key, iv)
-    decipher.setAuthTag(authTag)
-    return Buffer.concat([
-      decipher.update(ciphertext),
-      decipher.final(),
-    ]).toString('utf8')
+    const decrypted = await decryptAesGcm(ciphertext, key, iv, tag)
+    return new TextDecoder().decode(decrypted)
   }
 
   async createSecret(
@@ -130,7 +129,7 @@ export class CISecretsStore {
     })
 
     // Encrypt the value with AES-256-GCM using server secret
-    const encryptedValue = this.encryptSecret(value, secretId)
+    const encryptedValue = await this.encryptSecret(value, secretId)
 
     const secret: CISecret = {
       secretId,
@@ -159,7 +158,7 @@ export class CISecretsStore {
     if (!encryptedValue) throw new Error(`Secret value not found: ${secretId}`)
 
     // Decrypt the value with AES-256-GCM
-    return this.decryptSecret(encryptedValue, secretId)
+    return await this.decryptSecret(encryptedValue, secretId)
   }
 
   async getSecretsForRun(
@@ -202,7 +201,7 @@ export class CISecretsStore {
     await this.mpc.rotateKey({ keyId: secret.mpcKeyId, preserveAddress: true })
 
     // Encrypt the value with AES-256-GCM using server secret
-    const encryptedValue = this.encryptSecret(value, secretId)
+    const encryptedValue = await this.encryptSecret(value, secretId)
 
     const storageKey = `secret:${secretId}:value`
     secretStorage.set(storageKey, encryptedValue)

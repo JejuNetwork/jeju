@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test'
 test.describe('Playground Page Load', () => {
   test('should load the playground page', async ({ page }) => {
     await page.goto('/playground')
-    await expect(page).toHaveTitle(/Network Indexer/)
+    await expect(page).toHaveTitle(/Indexer/)
   })
 
   test('should display the branding', async ({ page }) => {
@@ -11,7 +11,7 @@ test.describe('Playground Page Load', () => {
     const logo = page.locator('.jeju-logo')
     await expect(logo).toBeVisible()
     const title = page.locator('.jeju-logo-title')
-    await expect(title).toContainText('Network Indexer')
+    await expect(title).toContainText('Indexer')
   })
 
   test('should load GraphiQL', async ({ page }) => {
@@ -234,7 +234,7 @@ test.describe('Viewport Tests', () => {
 test.describe('Accessibility', () => {
   test('should have proper page title', async ({ page }) => {
     await page.goto('/playground')
-    await expect(page).toHaveTitle(/Network Indexer/)
+    await expect(page).toHaveTitle(/Indexer/)
   })
 
   test('theme toggle should have title attribute', async ({ page }) => {

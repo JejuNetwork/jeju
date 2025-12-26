@@ -9,7 +9,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
-import * as crypto from 'node:crypto'
+import { bytesToHex, hash160, hash256 } from '@jejunetwork/shared'
 import { EdgeCoordinator } from '../../../apps/node/src/lib/services/edge-coordinator'
 
 // HybridTorrentService requires native modules (node-datachannel) that may not be available
@@ -118,7 +118,7 @@ describe('EdgeCoordinator', () => {
 describe('Content Verification', () => {
   it('should verify SHA256 hash', async () => {
     const data = Buffer.from('Test data for hashing')
-    const hash = crypto.createHash('sha256').update(data).digest('hex')
+    const hash = bytesToHex(hash256(new Uint8Array(data)))
 
     expect(await verifyContentHash(data, `0x${hash}`)).toBe(true)
     expect(await verifyContentHash(data, `0x${'00'.repeat(32)}`)).toBe(false)
@@ -133,7 +133,7 @@ describe('Content Verification', () => {
 
   it('should handle infohash format', async () => {
     const data = Buffer.from('BitTorrent content')
-    const hash = crypto.createHash('sha1').update(data).digest('hex')
+    const hash = bytesToHex(hash160(new Uint8Array(data)))
 
     expect(await verifyContentHash(data, hash)).toBe(true)
   })
@@ -145,17 +145,17 @@ async function verifyContentHash(
   expectedHash: string,
 ): Promise<boolean> {
   if (expectedHash.startsWith('0x')) {
-    const hash = crypto.createHash('sha256').update(data).digest('hex')
+    const hash = bytesToHex(hash256(new Uint8Array(data)))
     return `0x${hash}` === expectedHash
   }
 
   if (expectedHash.startsWith('Qm') || expectedHash.startsWith('bafy')) {
-    const hash = crypto.createHash('sha256').update(data).digest('hex')
+    const hash = bytesToHex(hash256(new Uint8Array(data)))
     return expectedHash.includes(hash.slice(0, 16))
   }
 
   if (expectedHash.length === 40) {
-    const hash = crypto.createHash('sha1').update(data).digest('hex')
+    const hash = bytesToHex(hash160(new Uint8Array(data)))
     return hash === expectedHash
   }
 

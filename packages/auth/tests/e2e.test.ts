@@ -23,12 +23,12 @@ import {
   CrossChainIdentityManager,
   computeIntentHash,
 } from '../src/intents/cross-chain-identity.js'
-import { ChainId } from '../src/types.js'
 import type {
   AuthProvider,
   OAuth3Identity,
   OAuth3Session,
 } from '../src/types.js'
+import { ChainId } from '../src/types.js'
 
 const TEST_CHAIN_ID = 420691
 
@@ -325,7 +325,7 @@ describe('Multi-tenant Council', () => {
 
   test('updates council CEO', async () => {
     await manager.updateCouncilCEO('jeju' as const, {
-      modelId: 'claude-sonnet-4-20250514',
+      modelId: 'claude-opus-4-5',
     })
 
     const jeju = manager.getCouncil('jeju' as const)

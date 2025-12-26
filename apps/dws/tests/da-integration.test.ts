@@ -2,12 +2,18 @@
  * DA Layer Integration Tests
  *
  * Tests the full DA layer integration with DWS server
+ *
+ * Requires: Full infrastructure (CQL, IPFS, Anvil)
  */
 
 import { describe, expect, it } from 'bun:test'
 import type { Address, Hex } from 'viem'
 import { keccak256, toBytes, toHex } from 'viem'
-import { app } from '../api/server'
+import { app, dwsRequest } from './setup'
+import { SKIP } from './infra-check'
+
+// Skip if infrastructure not available
+const skipAll = SKIP.NO_DISTRIBUTED
 
 // Test response types
 interface DAHealthResponse {
@@ -61,9 +67,9 @@ interface AgentCardResponse {
 const TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address
 const TEST_DATA = 'Hello, DA Layer!'
 
-describe('DA Layer HTTP API', () => {
+describe.skipIf(skipAll)('DA Layer HTTP API', () => {
   it('should return health status', async () => {
-    const response = await app.request('/da/health')
+    const response = await dwsRequest('/da/health')
     expect(response.status).toBe(200)
 
     const data = (await response.json()) as DAHealthResponse
@@ -81,7 +87,7 @@ describe('DA Layer HTTP API', () => {
       usedGB: 0,
     }
 
-    await app.request('/da/operators', {
+    await dwsRequest('/da/operators', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(operator),
@@ -89,7 +95,7 @@ describe('DA Layer HTTP API', () => {
 
     const blobData = toHex(new TextEncoder().encode(TEST_DATA))
 
-    const response = await app.request('/da/blob', {
+    const response = await dwsRequest('/da/blob', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -113,7 +119,7 @@ describe('DA Layer HTTP API', () => {
     }
   })
   it('should list operators', async () => {
-    const response = await app.request('/da/operators')
+    const response = await dwsRequest('/da/operators')
     expect(response.status).toBe(200)
 
     const data = (await response.json()) as OperatorsListResponse
@@ -131,7 +137,7 @@ describe('DA Layer HTTP API', () => {
       usedGB: 0,
     }
 
-    const response = await app.request('/da/operators', {
+    const response = await dwsRequest('/da/operators', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(operator),
@@ -144,7 +150,7 @@ describe('DA Layer HTTP API', () => {
     expect(result.address).toBe(TEST_ADDRESS)
   })
   it('should return stats', async () => {
-    const response = await app.request('/da/stats')
+    const response = await dwsRequest('/da/stats')
     expect(response.status).toBe(200)
 
     const data = (await response.json()) as DAStatsResponse
@@ -155,12 +161,12 @@ describe('DA Layer HTTP API', () => {
   })
   it('should return 404 for non-existent blob', async () => {
     const fakeBlobId = keccak256(toBytes('nonexistent'))
-    const response = await app.request(`/da/blob/${fakeBlobId}`)
+    const response = await dwsRequest(`/da/blob/${fakeBlobId}`)
 
     expect(response.status).toBe(404)
   })
   it('should list blobs', async () => {
-    const response = await app.request('/da/blobs?status=available&limit=10')
+    const response = await dwsRequest('/da/blobs?status=available&limit=10')
     expect(response.status).toBe(200)
 
     const data = (await response.json()) as BlobsListResponse
@@ -177,7 +183,7 @@ import {
   RollupDAAdapter,
 } from '../api/da/integrations'
 
-describe('DA Layer Rollup Integration', () => {
+describe.skipIf(skipAll)('DA Layer Rollup Integration', () => {
   it('should import rollup adapters', () => {
     expect(RollupDAAdapter).toBeDefined()
     expect(createRollupDAAdapter).toBeDefined()
@@ -201,9 +207,9 @@ describe('DA Layer Rollup Integration', () => {
   })
 })
 
-describe('DA Layer DWS Server Integration', () => {
+describe.skipIf(skipAll)('DA Layer DWS Server Integration', () => {
   it('should include DA in health check', async () => {
-    const response = await app.request('/health')
+    const response = await dwsRequest('/health')
     expect(response.status).toBe(200)
 
     const data = (await response.json()) as HealthServicesResponse
@@ -213,7 +219,7 @@ describe('DA Layer DWS Server Integration', () => {
   })
 
   it('should list DA in services', async () => {
-    const response = await app.request('/')
+    const response = await dwsRequest('/')
     expect(response.status).toBe(200)
 
     const data = (await response.json()) as ServiceListResponse
@@ -223,7 +229,7 @@ describe('DA Layer DWS Server Integration', () => {
   })
 
   it('should advertise DA in agent card', async () => {
-    const response = await app.request('/.well-known/agent-card.json')
+    const response = await dwsRequest('/.well-known/agent-card.json')
     expect(response.status).toBe(200)
 
     const data = (await response.json()) as AgentCardResponse

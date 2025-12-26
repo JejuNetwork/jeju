@@ -38,9 +38,9 @@
  */
 
 import { execSync } from 'node:child_process'
-import * as crypto from 'node:crypto'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import { hash256 } from '@jejunetwork/shared'
 
 const CIRCUIT_PATH = 'packages/bridge/circuits/ethereum'
 const OUTPUT_PATH =
@@ -209,20 +209,20 @@ async function main() {
     size: number,
   ): Uint8Array {
     // Create initial seed hash
-    const seedHash = crypto.createHash('sha256')
-    seedHash.update(seed)
-    seedHash.update(Buffer.from([index]))
-    let currentSeed = seedHash.digest()
+    const combined = new Uint8Array(seed.length + 1)
+    combined.set(seed, 0)
+    combined[seed.length] = index
+    let currentSeed = hash256(combined)
 
     const result = new Uint8Array(size)
     let offset = 0
 
     while (offset < size) {
       // Generate next chunk
-      const iterHash = crypto.createHash('sha256')
-      iterHash.update(currentSeed)
-      iterHash.update(Buffer.from([offset]))
-      const chunk = iterHash.digest()
+      const iterInput = new Uint8Array(currentSeed.length + 1)
+      iterInput.set(currentSeed, 0)
+      iterInput[currentSeed.length] = offset
+      const chunk = hash256(iterInput)
 
       const copySize = Math.min(size - offset, chunk.length)
       result.set(chunk.subarray(0, copySize), offset)

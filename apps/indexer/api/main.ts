@@ -6,18 +6,6 @@ import './init'
 
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import { type Store, TypeormDatabase } from '@subsquid/typeorm-store'
-import { processComputeEvents } from './compute-processor'
-import {
-  ERC20_TRANSFER,
-  ERC1155_TRANSFER_BATCH,
-  ERC1155_TRANSFER_SINGLE,
-  getEventCategory,
-  getEventName,
-} from './contract-events'
-import { processCrossServiceEvents } from './cross-service-processor'
-import { processDEXEvents } from './dex-processor'
-import { processEILEvents } from './eil-processor'
-import { processMarketEvents } from './market-processor'
 import {
   Account,
   Block as BlockEntity,
@@ -32,7 +20,19 @@ import {
   TraceType,
   Transaction as TransactionEntity,
   TransactionStatus,
-} from './model'
+} from '../src/model'
+import { processComputeEvents } from './compute-processor'
+import {
+  ERC20_TRANSFER,
+  ERC1155_TRANSFER_BATCH,
+  ERC1155_TRANSFER_SINGLE,
+  getEventCategory,
+  getEventName,
+} from './contract-events'
+import { processCrossServiceEvents } from './cross-service-processor'
+import { processDEXEvents } from './dex-processor'
+import { processEILEvents } from './eil-processor'
+import { processMarketEvents } from './market-processor'
 import { processModerationEvent } from './moderation-processor'
 import { processNodeStakingEvents } from './node-staking-processor'
 import { processOIFEvents } from './oif-processor'
@@ -56,7 +56,10 @@ processor.run(
     ) {
       cqlInitialized = true
       getDataSource()
-        .then((dataSource) => cqlSync.initialize(dataSource))
+        .then((dataSource) => {
+          if (!dataSource) throw new Error('DataSource not available')
+          return cqlSync.initialize(dataSource)
+        })
         .then(() => cqlSync.start())
         .catch((err: Error) => {
           ctx.log.error(

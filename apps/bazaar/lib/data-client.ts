@@ -13,7 +13,57 @@ import {
   type PublicClient,
 } from 'viem'
 import { z } from 'zod'
-import { INDEXER_URL, RPC_URL } from '../config'
+import {
+  INDEXER_URL as CONFIG_INDEXER_URL,
+  PREDICTION_MARKET_ADDRESS,
+  RPC_URL,
+} from '../config'
+
+// Minimal ABI for reading PredictionMarket contract directly
+const predictionMarketAbi = [
+  {
+    inputs: [],
+    name: 'getMarketCount',
+    outputs: [{ type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [{ name: 'index', type: 'uint256' }],
+    name: 'getMarketIdAt',
+    outputs: [{ type: 'bytes32' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [{ name: 'sessionId', type: 'bytes32' }],
+    name: 'markets',
+    outputs: [
+      { name: 'sessionId', type: 'bytes32' },
+      { name: 'question', type: 'string' },
+      { name: 'yesShares', type: 'uint256' },
+      { name: 'noShares', type: 'uint256' },
+      { name: 'liquidityParameter', type: 'uint256' },
+      { name: 'totalVolume', type: 'uint256' },
+      { name: 'createdAt', type: 'uint256' },
+      { name: 'resolved', type: 'bool' },
+      { name: 'outcome', type: 'bool' },
+      { name: 'gameType', type: 'uint8' },
+      { name: 'gameContract', type: 'address' },
+      { name: 'category', type: 'uint8' },
+      { name: 'usesTWAP', type: 'bool' },
+      { name: 'twapStartTime', type: 'uint256' },
+      { name: 'twapEndTime', type: 'uint256' },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+] as const
+
+// In browser, use the proxy endpoint to avoid CORS issues
+// The browser can't reach 127.0.0.1 from a different hostname like bazaar.local.jejunetwork.org
+const INDEXER_URL =
+  typeof window !== 'undefined' ? '/api/graphql' : CONFIG_INDEXER_URL
 
 // GraphQL response schema for runtime validation
 const GraphQLResponseSchema = z.object({
@@ -83,7 +133,9 @@ export interface PriceCandle {
 let rpcClient: PublicClient | null = null
 const getRpcClient = (): PublicClient => {
   if (!rpcClient) {
-    rpcClient = createPublicClient({ transport: http(RPC_URL) })
+    // In browser, use the RPC proxy to avoid CORS issues
+    const rpcUrl = typeof window !== 'undefined' ? '/api/rpc' : RPC_URL
+    rpcClient = createPublicClient({ transport: http(rpcUrl) })
   }
   return rpcClient
 }
@@ -112,20 +164,33 @@ export async function checkIndexerHealth(): Promise<boolean> {
     return indexerHealthy
   }
 
+  if (!INDEXER_URL) {
+    indexerHealthy = false
+    healthCheckTime = Date.now()
+    return false
+  }
+
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), 3000)
 
-  const response = await fetch(INDEXER_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query: '{ __typename }' }),
-    signal: controller.signal,
-  })
+  try {
+    const response = await fetch(INDEXER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: '{ __typename }' }),
+      signal: controller.signal,
+    })
 
-  clearTimeout(timeoutId)
-  indexerHealthy = response.ok
-  healthCheckTime = Date.now()
-  return indexerHealthy
+    clearTimeout(timeoutId)
+    indexerHealthy = response.ok
+    healthCheckTime = Date.now()
+    return indexerHealthy
+  } catch {
+    clearTimeout(timeoutId)
+    indexerHealthy = false
+    healthCheckTime = Date.now()
+    return false
+  }
 }
 
 async function gql<T>(
@@ -364,6 +429,113 @@ export async function fetchTokenDetails(address: Address): Promise<Token> {
   }
 }
 
+/**
+ * Fetch prediction markets directly from the blockchain (RPC fallback)
+ * Used when the indexer is unavailable
+ */
+async function fetchPredictionMarketsFromRPC(options: {
+  limit?: number
+  offset?: number
+  resolved?: boolean
+}): Promise<PredictionMarket[]> {
+  const { offset = 0, resolved } = options
+  const limit = sanitizeLimit(options.limit)
+
+  // No prediction market address configured - return empty (not an error)
+  if (
+    !PREDICTION_MARKET_ADDRESS ||
+    PREDICTION_MARKET_ADDRESS === '0x0000000000000000000000000000000000000000'
+  ) {
+    console.log('[data-client] No prediction market address configured')
+    return []
+  }
+
+  const client = getRpcClient()
+  const markets: PredictionMarket[] = []
+
+  // Get total market count - let errors propagate (fail-fast)
+  const marketCount = (await client.readContract({
+    address: PREDICTION_MARKET_ADDRESS,
+    abi: predictionMarketAbi,
+    functionName: 'getMarketCount',
+  })) as bigint
+
+  const totalCount = Number(marketCount)
+  if (totalCount === 0) return []
+
+  // Calculate range to fetch (most recent first)
+  const startIndex = Math.max(0, totalCount - offset - limit)
+  const endIndex = Math.max(0, totalCount - offset)
+
+  // Fetch market IDs
+  const marketIds: `0x${string}`[] = []
+  for (let i = endIndex - 1; i >= startIndex; i--) {
+    const sessionId = (await client.readContract({
+      address: PREDICTION_MARKET_ADDRESS,
+      abi: predictionMarketAbi,
+      functionName: 'getMarketIdAt',
+      args: [BigInt(i)],
+    })) as `0x${string}`
+    marketIds.push(sessionId)
+  }
+
+  // Fetch market details for each ID
+  for (const sessionId of marketIds) {
+    const marketData = (await client.readContract({
+      address: PREDICTION_MARKET_ADDRESS,
+      abi: predictionMarketAbi,
+      functionName: 'markets',
+      args: [sessionId],
+    })) as readonly [
+      `0x${string}`, // sessionId
+      string, // question
+      bigint, // yesShares
+      bigint, // noShares
+      bigint, // liquidityParameter
+      bigint, // totalVolume
+      bigint, // createdAt
+      boolean, // resolved
+      boolean, // outcome
+      number, // gameType
+      Address, // gameContract
+      number, // category
+      boolean, // usesTWAP
+      bigint, // twapStartTime
+      bigint, // twapEndTime
+    ]
+
+    // Filter by resolved status if specified
+    const isResolved = marketData[7]
+    if (resolved !== undefined && isResolved !== resolved) {
+      continue
+    }
+
+    const yesShares = Number(marketData[2])
+    const noShares = Number(marketData[3])
+    const b = Number(marketData[4]) || 1
+
+    // Calculate LMSR prices
+    const yesExp = Math.exp(yesShares / b)
+    const noExp = Math.exp(noShares / b)
+    const total = yesExp + noExp
+
+    markets.push({
+      id: sessionId,
+      question: marketData[1],
+      yesPrice: yesExp / total,
+      noPrice: noExp / total,
+      totalVolume: marketData[5],
+      liquidity: marketData[4],
+      resolved: isResolved,
+      outcome: isResolved ? marketData[8] : undefined,
+      createdAt: new Date(Number(marketData[6]) * 1000),
+      resolutionTime: undefined,
+    })
+  }
+
+  return markets
+}
+
 export async function fetchPredictionMarkets(options: {
   limit?: number
   offset?: number
@@ -371,52 +543,74 @@ export async function fetchPredictionMarkets(options: {
 }): Promise<PredictionMarket[]> {
   const { offset = 0, resolved } = options
   const limit = sanitizeLimit(options.limit)
-  if (!(await checkIndexerHealth())) return []
 
-  const whereClause =
-    resolved !== undefined ? `where: { resolved_eq: ${resolved} }` : ''
-  const data = await gql<{
-    predictionMarkets: Array<{
-      id: string
-      question: string
-      yesShares: string
-      noShares: string
-      liquidityB: string
-      totalVolume: string
-      resolved: boolean
-      outcome: boolean | null
-      createdAt: string
-      resolutionTime?: string
-    }>
-  }>(
-    `
-    query($limit: Int!, $offset: Int!) {
-      predictionMarkets(${whereClause} limit: $limit offset: $offset orderBy: createdAt_DESC) {
-        id question yesShares noShares liquidityB totalVolume resolved outcome createdAt resolutionTime
+  // First try the indexer
+  const indexerHealthy = await checkIndexerHealth()
+
+  if (indexerHealthy) {
+    const whereClause =
+      resolved !== undefined ? `where: { resolved_eq: ${resolved} }` : ''
+
+    try {
+      const data = await gql<{
+        predictionMarkets: Array<{
+          id: string
+          question: string
+          yesShares: string
+          noShares: string
+          liquidityB: string
+          totalVolume: string
+          resolved: boolean
+          outcome: boolean | null
+          createdAt: string
+          resolutionTime?: string
+        }>
+      }>(
+        `
+        query($limit: Int!, $offset: Int!) {
+          predictionMarkets(${whereClause} limit: $limit offset: $offset orderBy: createdAt_DESC) {
+            id question yesShares noShares liquidityB totalVolume resolved outcome createdAt resolutionTime
+          }
+        }
+      `,
+        { limit, offset },
+      )
+
+      if (data.predictionMarkets && data.predictionMarkets.length > 0) {
+        return data.predictionMarkets.map((m) => {
+          const b = Number(m.liquidityB) || 1
+          const yesExp = Math.exp(Number(m.yesShares) / b)
+          const noExp = Math.exp(Number(m.noShares) / b)
+          const total = yesExp + noExp
+          return {
+            id: m.id,
+            question: m.question,
+            yesPrice: yesExp / total,
+            noPrice: noExp / total,
+            totalVolume: BigInt(m.totalVolume),
+            liquidity: BigInt(m.liquidityB),
+            resolved: m.resolved,
+            outcome: m.outcome ?? undefined,
+            createdAt: new Date(m.createdAt),
+            resolutionTime: m.resolutionTime
+              ? new Date(m.resolutionTime)
+              : undefined,
+          }
+        })
       }
+      // Indexer returned no markets, fall through to RPC
+    } catch (indexerError) {
+      // Indexer failed (schema mismatch, etc) - fall through to RPC
+      console.log(
+        '[data-client] Indexer query failed, trying RPC fallback:',
+        indexerError,
+      )
     }
-  `,
-    { limit, offset },
-  )
+  }
 
-  return data.predictionMarkets.map((m) => {
-    const b = Number(m.liquidityB) || 1
-    const yesExp = Math.exp(Number(m.yesShares) / b)
-    const noExp = Math.exp(Number(m.noShares) / b)
-    const total = yesExp + noExp
-    return {
-      id: m.id,
-      question: m.question,
-      yesPrice: yesExp / total,
-      noPrice: noExp / total,
-      totalVolume: BigInt(m.totalVolume),
-      liquidity: BigInt(m.liquidityB),
-      resolved: m.resolved,
-      outcome: m.outcome ?? undefined,
-      createdAt: new Date(m.createdAt),
-      resolutionTime: m.resolutionTime ? new Date(m.resolutionTime) : undefined,
-    }
-  })
+  // Fallback to direct RPC when indexer is unavailable or returns no data
+  console.log('[data-client] Using RPC fallback for prediction markets')
+  return fetchPredictionMarketsFromRPC(options)
 }
 
 // Map interval string to GraphQL enum

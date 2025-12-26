@@ -30,6 +30,7 @@ async function existsSyncSafe(path: string): Promise<boolean> {
     return false
   }
 }
+
 import { keccak256, toBytes } from 'viem'
 import type { TEEAttestation } from '../types/index.js'
 import { toHash32 } from '../types/index.js'

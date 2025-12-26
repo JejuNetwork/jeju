@@ -5,25 +5,26 @@
  * Handles key generation, encryption, storage, and on-chain registration.
  */
 
-import { FarcasterPoster, DEFAULT_HUBS } from '@jejunetwork/messaging'
+import { getFarcasterHubUrl } from '@jejunetwork/config'
+import { FarcasterPoster } from '@jejunetwork/messaging'
 import { createLogger } from '@jejunetwork/shared'
 import { ed25519 } from '@noble/curves/ed25519'
-import { bytesToHex, hexToBytes, randomBytes } from '@noble/hashes/utils'
 import { hkdf } from '@noble/hashes/hkdf'
 import { sha256 } from '@noble/hashes/sha256'
+import { bytesToHex, hexToBytes, randomBytes } from '@noble/hashes/utils'
 import type { Address, Hex } from 'viem'
 import {
-  createFarcasterSigner,
-  getFarcasterSigner,
   activateSigner,
-  updateSignerState,
-  listFarcasterSigners,
+  createFarcasterSigner,
   type FarcasterSignerRow,
+  getFarcasterSigner,
+  listFarcasterSigners,
+  updateSignerState,
 } from '../db/client'
 
 const log = createLogger('signer-service')
 
-const HUB_URL = process.env.FARCASTER_HUB_URL ?? DEFAULT_HUBS.mainnet
+const HUB_URL = getFarcasterHubUrl()
 const ENCRYPTION_KEY = process.env.SIGNER_ENCRYPTION_KEY
 
 if (!ENCRYPTION_KEY) {
@@ -39,24 +40,39 @@ function getEncryptionKey(): Uint8Array {
   }
   // Fallback: derive from environment identifier (not secure for production)
   const seed = `factory-signer-${process.env.NODE_ENV ?? 'development'}`
-  return hkdf(sha256, new TextEncoder().encode(seed), new Uint8Array(0), new TextEncoder().encode('aes-key'), 32)
+  return hkdf(
+    sha256,
+    new TextEncoder().encode(seed),
+    new Uint8Array(0),
+    new TextEncoder().encode('aes-key'),
+    32,
+  )
 }
 
 /**
  * Encrypt signer private key using key derivation
  */
-function encryptPrivateKey(privateKey: Uint8Array): { encrypted: string; iv: string } {
+function encryptPrivateKey(privateKey: Uint8Array): {
+  encrypted: string
+  iv: string
+} {
   const key = getEncryptionKey()
   const iv = randomBytes(12)
-  
+
   // Simple XOR encryption with key derivation for storage
   // In production, use proper AES-GCM via Web Crypto
-  const derivedKey = hkdf(sha256, key, iv, new TextEncoder().encode('encrypt'), privateKey.length)
+  const derivedKey = hkdf(
+    sha256,
+    key,
+    iv,
+    new TextEncoder().encode('encrypt'),
+    privateKey.length,
+  )
   const encrypted = new Uint8Array(privateKey.length)
   for (let i = 0; i < privateKey.length; i++) {
     encrypted[i] = privateKey[i] ^ derivedKey[i]
   }
-  
+
   return {
     encrypted: `0x${bytesToHex(encrypted)}`,
     iv: `0x${bytesToHex(iv)}`,
@@ -70,14 +86,20 @@ function decryptPrivateKey(encrypted: string, ivHex: string): Uint8Array {
   const key = getEncryptionKey()
   const iv = hexToBytes(ivHex.replace('0x', ''))
   const encryptedBytes = hexToBytes(encrypted.replace('0x', ''))
-  
+
   // Reverse the XOR encryption
-  const derivedKey = hkdf(sha256, key, iv, new TextEncoder().encode('encrypt'), encryptedBytes.length)
+  const derivedKey = hkdf(
+    sha256,
+    key,
+    iv,
+    new TextEncoder().encode('encrypt'),
+    encryptedBytes.length,
+  )
   const decrypted = new Uint8Array(encryptedBytes.length)
   for (let i = 0; i < encryptedBytes.length; i++) {
     decrypted[i] = encryptedBytes[i] ^ derivedKey[i]
   }
-  
+
   return decrypted
 }
 
@@ -134,7 +156,7 @@ export async function createSigner(
   log.info('Created signer', {
     address,
     fid,
-    publicKey: keys.publicKey.slice(0, 20) + '...',
+    publicKey: `${keys.publicKey.slice(0, 20)}...`,
   })
 
   return signer
@@ -152,7 +174,8 @@ export function getSignerRegistrationMessage(
     fid,
     signerPublicKey,
     deadline,
-    message: 'I authorize this signer key to post on my behalf on Farcaster via Factory',
+    message:
+      'I authorize this signer key to post on my behalf on Farcaster via Factory',
   })
 }
 
@@ -165,7 +188,9 @@ export async function verifyAndActivateSigner(
 ): Promise<boolean> {
   const success = activateSigner(signerPublicKey, signature)
   if (success) {
-    log.info('Activated signer', { publicKey: signerPublicKey.slice(0, 20) + '...' })
+    log.info('Activated signer', {
+      publicKey: `${signerPublicKey.slice(0, 20)}...`,
+    })
   }
   return success
 }
@@ -187,7 +212,9 @@ export function getUserSigners(address: Address): FarcasterSignerRow[] {
 /**
  * Create a poster instance from a stored signer
  */
-export function createPosterFromSigner(signer: FarcasterSignerRow): FarcasterPoster {
+export function createPosterFromSigner(
+  signer: FarcasterSignerRow,
+): FarcasterPoster {
   const privateKey = decryptPrivateKey(
     signer.encrypted_private_key,
     signer.encryption_iv,
@@ -203,7 +230,9 @@ export function createPosterFromSigner(signer: FarcasterSignerRow): FarcasterPos
 /**
  * Get active signer with poster instance
  */
-export function getActiveSignerWithPoster(address: Address): ActiveSigner | null {
+export function getActiveSignerWithPoster(
+  address: Address,
+): ActiveSigner | null {
   const signer = getActiveSigner(address)
   if (!signer) return null
 
@@ -274,7 +303,10 @@ export function getSignerPrivateKey(signer: FarcasterSignerRow): Uint8Array {
 /**
  * Sign a message with a signer's private key
  */
-export function signMessage(signer: FarcasterSignerRow, message: Uint8Array): Hex {
+export function signMessage(
+  signer: FarcasterSignerRow,
+  message: Uint8Array,
+): Hex {
   const privateKey = getSignerPrivateKey(signer)
   const signature = ed25519.sign(message, privateKey)
   return `0x${bytesToHex(signature)}` as Hex

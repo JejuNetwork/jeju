@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <!-- Tailwind CDN for development - production builds use PostCSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -23,6 +24,11 @@
               accent: {
                 500: '#3b82f6', 600: '#2563eb'
               }
+            },
+            fontFamily: {
+              sans: ['JetBrains Mono', 'Fira Code', 'monospace'],
+              mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
+              display: ['Geist', 'system-ui', 'sans-serif'],
             }
           }
         }

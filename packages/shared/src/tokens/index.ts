@@ -172,9 +172,7 @@ export const MODEL_TOKEN_LIMITS: Record<string, number> = {
   'gpt-5-nano': 128000,
   'gpt-5.1-turbo': 128000,
   'gpt-4': 8192,
-  'gpt-4-turbo': 128000,
-  'gpt-4o': 128000,
-  'gpt-4o-mini': 128000,
+  'gpt-5.2': 128000,
   'gpt-3.5-turbo': 16385,
   'gpt-3.5-turbo-16k': 16385,
 
@@ -199,18 +197,9 @@ export const MODEL_TOKEN_LIMITS: Record<string, number> = {
   'moonshotai/kimi-k2-instruct-0905': 262144,
   'mixtral-8x7b-32768': 32768,
 
-  // Anthropic Claude 4.5+
+  // Anthropic Claude 4.5
+  'claude-opus-4-5': 200000,
   'claude-sonnet-4-5': 200000,
-  'claude-sonnet-4-5-20250929': 200000,
-  'claude-haiku-4-5': 200000,
-  'claude-haiku-4-5-20251001': 200000,
-  'claude-opus-4-1': 200000,
-  'claude-opus-4-1-20250805': 200000,
-
-  // Anthropic Claude 3
-  'claude-3-opus': 200000,
-  'claude-3-sonnet': 200000,
-  'claude-3-haiku': 200000,
 
   // Google
   'gemini-1.5-pro': 1000000,

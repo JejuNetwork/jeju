@@ -12,50 +12,72 @@
   "localnet": {
     "chainId": 31337,
     "tokens": {
-      "jeju": "0xCD8a1C3ba11CF5ECfa6267617243239504a98d90",
-      "usdc": "0x851356ae760d987E095750cCeb3bC6014560891C",
+      "jeju": "0x9Be48cB9Eb443E850316DD09cdF1c2E150b09245",
+      "usdc": "0x407DD50f9c614f773E62f6c4041418186ad4b2a9",
       "weth": "0x4200000000000000000000000000000000000006"
     },
     "registry": {
-      "identity": "0x99bbA657f2BbC93c02D617f8bA121cB8Fc104Acf",
+      "identity": "0x455DE73b2Ddf008E53b4D274A0F0b065bB3C7023",
       "app": "",
       "node": "",
-      "token": "",
-      "reputation": "0x0E801D84Fa97b50751Dbf25036d067dCf18858bF",
-      "validation": "0x8f86403A4DE0BB5791fa46B8e795C547942fE4Cf"
+      "token": "0xDf951d2061b12922BFbF22cb17B17f3b39183570",
+      "reputation": "0x387534CcCc6073c98aB343B6D261ef9598e659AB",
+      "validation": "0xA07d7e04b13f71e8E8a094B2477c405f255F750e",
+      "githubReputationProvider": "0x07bf260a44CEADfad215cc8e20c5b0398D25b1FA"
+    },
+    "rpc": {
+      "staking": "0x7bdd3b028C4796eF0EAf07d11394d0d9d8c24139"
     },
     "moderation": {
-      "banManager": "",
+      "banManager": "0x8233369E29653b70E50E93d1276a50B8f2122a01",
       "moderationMarketplace": "",
-      "reportingSystem": "",
-      "reputationLabelManager": ""
+      "reportingSystem": "0xEbFE59025761DB00993d75C33C58271aABA88E4E",
+      "reputationLabelManager": "0x874B971cBE686566FCc9437A12E5418301Cd60AA"
     },
     "bazaar": {
-      "marketplace": "",
-      "predictionMarket": ""
+      "marketplace": "0x4D62B7e8aeAA2d6edAAdd7D533843520aB4304c2",
+      "predictionMarket": "0x56D13Eb21a625EdA8438F55DF2C31dC3632034f5",
+      "simpleCollectible": "0x394b07B5c9A19a553E49eC95A2aF1c4a56eA634B",
+      "tokenFactory": "0x5f246ADDCF057E0f778CD422e20e413be70f9a0c",
+      "featuredToken": "0x5e62f2d76ecdef71807016ac1efbbffc5ca7d0bd"
+    },
+    "perps": {
+      "market": "",
+      "marginManager": "",
+      "insuranceFund": "",
+      "priceOracle": ""
     },
     "security": {
-      "bountyRegistry": ""
+      "bountyRegistry": "0x0B36Ef2cb78859C20c8C1380CeAdB75043aA92b3"
     },
     "nodeStaking": {
-      "manager": "0x7bc06c482DEAd17c0e297aFbC32f6e63d3846650",
-      "performanceOracle": "0x7969c5eD335650692Bc04293B07F5BF2e7A673C0"
+      "manager": "0xa00F03Ea2d0a6e4961CaAFcA61A78334049c1848",
+      "performanceOracle": "0x998D98e9480A8f52A5252Faf316d129765773294"
     },
     "jns": {
-      "registry": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
-      "resolver": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
+      "registry": "0x9C07ab0E706fab71113b27dAFd8a51261453a46f",
+      "resolver": "0x7a6E91C3C4fCB9157A27EB901210Aa1Df9D05B45",
       "registrar": "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0",
       "reverseRegistrar": "0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9"
     },
+    "oauth3": {
+      "teeVerifier": "",
+      "identityRegistry": "",
+      "appRegistry": ""
+    },
+    "dws": {
+      "storageManager": "0xaAdA8236e22D0877159De81BDE5441Ad0C103d42",
+      "workerRegistry": "0x3dCe73fF914a4F844159A4B2dD9170d9499a783e"
+    },
     "payments": {
-      "paymasterFactory": "0x5f3f1dBD7B74C6B46e8c44f98792A1dAf8d69154",
-      "priceOracle": "0x95401dc811bb5740090279Ba06cfA8fcF6113778",
-      "creditManager": "",
-      "serviceRegistry": "",
-      "multiTokenPaymaster": "0x9d4454B023096f34B160D6B654540c56A1F81688",
-      "x402Facilitator": "",
+      "paymasterFactory": "0x6D02ABC5fa967B0b085083F5Cf36c24502447244",
+      "priceOracle": "0x5d67Aa374909D7Fadf88389ba4f635469f1c12BF",
+      "creditManager": "0x78F7ddBB09D77f08b8E6a3Df94E79fe606966d82",
+      "serviceRegistry": "0x8e86cDD6b5252b45305106071db047563F00e0a8",
+      "multiTokenPaymaster": "0xC0939333007bD49D9f454dc81B4429740A74E475",
+      "x402Facilitator": "0xFe44FF05D7C06E792D6eF4762B2441e82Bc602a5",
       "x402IntentBridge": "",
-      "tokenRegistry": "0x1291Be112d480055DaFd8a610b7d1e203891C274"
+      "tokenRegistry": "0x76F1BB25627d47c30A5a6fCb62B2Af4ff97b4702"
     },
     "commerce": {
       "authCaptureEscrow": "",
@@ -69,20 +91,22 @@
       "stateView": ""
     },
     "compute": {
-      "registry": "",
-      "ledgerManager": "",
-      "inferenceServing": "",
-      "staking": ""
+      "registry": "0x53AAfBd184086d72fA233AE83e1a7B1339B5415C",
+      "ledgerManager": "0xcb65A63B74F009A1C724AC221601d7DDD90f67C2",
+      "inferenceServing": "0x08A90aF9A6eBBe11c322AD9930CC58E122231B5A",
+      "staking": "0x7bdd3b028C4796eF0EAf07d11394d0d9d8c24139",
+      "workerRegistry": ""
     },
     "governance": {
       "governor": "",
       "timelock": "",
       "futarchyGovernor": "",
-      "registryGovernance": ""
+      "registryGovernance": "0x7E6C94173C264aaE66Bf36ce047b0Aef585C2181",
+      "autocrat": ""
     },
     "oif": {
-      "solverRegistry": "",
-      "inputSettler": "",
+      "solverRegistry": "0x13D5bd265A9FC5454e81bC05a5643fa4809A584b",
+      "inputSettler": "0x0B7108B29ad73097cF7E549D542915348d885e5f",
       "outputSettler": "",
       "oracleAdapter": ""
     },
@@ -107,7 +131,8 @@
       "feedRegistry": "",
       "reportVerifier": "",
       "attestationVerifier": "",
-      "rewardManager": ""
+      "rewardManager": "",
+      "oracleNetworkConnector": "0xDb2f554A333D189ed59eA36020a83F7d6De14328"
     },
     "chainlink": {
       "vrfCoordinator": "",
@@ -117,7 +142,7 @@
       "linkToken": ""
     },
     "cdn": {
-      "registry": "",
+      "registry": "0x68F5621191A75aa1212dbC49d7A8512Af059fb7F",
       "billing": "",
       "nodeRegistry": ""
     },
@@ -155,7 +180,8 @@
     },
     "bazaar": {
       "marketplace": "",
-      "predictionMarket": ""
+      "predictionMarket": "",
+      "simpleCollectible": ""
     },
     "security": {
       "bountyRegistry": ""
@@ -189,13 +215,15 @@
       "registry": "",
       "ledgerManager": "",
       "inferenceServing": "",
-      "staking": ""
+      "staking": "",
+      "workerRegistry": ""
     },
     "governance": {
       "governor": "",
       "timelock": "",
       "futarchyGovernor": "",
-      "registryGovernance": ""
+      "registryGovernance": "",
+      "autocrat": ""
     },
     "oif": {
       "solverRegistry": "",
@@ -272,7 +300,8 @@
     },
     "bazaar": {
       "marketplace": "",
-      "predictionMarket": ""
+      "predictionMarket": "",
+      "simpleCollectible": ""
     },
     "security": {
       "bountyRegistry": ""
@@ -306,13 +335,15 @@
       "registry": "",
       "ledgerManager": "",
       "inferenceServing": "",
-      "staking": ""
+      "staking": "",
+      "workerRegistry": ""
     },
     "governance": {
       "governor": "",
       "timelock": "",
       "futarchyGovernor": "",
-      "registryGovernance": ""
+      "registryGovernance": "",
+      "autocrat": ""
     },
     "oif": {
       "solverRegistry": "",

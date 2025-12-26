@@ -342,7 +342,10 @@ export class FarcasterSignerManager {
     })
 
     // Encrypt the data
-    const { ciphertext, iv, tag } = await encryptAesGcm(plaintext, encryptionKey)
+    const { ciphertext, iv, tag } = await encryptAesGcm(
+      plaintext,
+      encryptionKey,
+    )
 
     // Combine: salt (32) + iv (12) + tag (16) + ciphertext
     const combined = new Uint8Array(

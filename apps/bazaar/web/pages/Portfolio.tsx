@@ -72,7 +72,7 @@ export default function PortfolioPage() {
         </div>
         <div className="card p-4">
           <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-            NFTs
+            Items
           </p>
           <p
             className="text-2xl font-bold"
@@ -102,11 +102,13 @@ export default function PortfolioPage() {
             className="text-lg font-bold mb-4"
             style={{ color: 'var(--text-primary)' }}
           >
-            🖼️ NFTs
+            🖼️ Collectibles
           </h2>
           <div className="text-center py-8">
             <div className="text-4xl mb-2">🖼️</div>
-            <p style={{ color: 'var(--text-tertiary)' }}>No NFTs found</p>
+            <p style={{ color: 'var(--text-tertiary)' }}>
+              No collectibles found
+            </p>
           </div>
         </div>
       </div>

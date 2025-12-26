@@ -17,7 +17,14 @@ import { ensureServices } from '../setup'
 let dwsComputeWorking = false
 
 beforeAll(async () => {
-  await ensureServices({ dws: true })
+  const env = await ensureServices({ dws: true })
+
+  // If contracts aren't deployed, skip DWS compute tests
+  if (!env.contractsDeployed) {
+    console.log('⚠️  Contracts not deployed - DWS tests will be skipped')
+    dwsComputeWorking = false
+    return
+  }
 
   // Verify DWS compute actually works (not just health)
   try {
@@ -27,9 +34,7 @@ beforeAll(async () => {
       console.log('✅ DWS compute verified')
     }
   } catch (err) {
-    console.log(
-      '⚠️  DWS health OK but inference failed - some tests will be skipped',
-    )
+    console.log('⚠️  DWS health OK but inference failed - some tests will be skipped')
     console.log(`   Error: ${err instanceof Error ? err.message : 'Unknown'}`)
     dwsComputeWorking = false
   }

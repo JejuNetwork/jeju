@@ -3,16 +3,16 @@
  */
 
 import {
-  AuthProvider,
   createOAuthProvider,
   type OAuthConfig,
   type OAuthState,
-} from '@jejunetwork/auth'
+} from '@jejunetwork/auth/providers'
 import { Elysia, t } from 'elysia'
 import type { Hex } from 'viem'
 import { keccak256, toBytes, toHex } from 'viem'
 import { z } from 'zod'
 import type { AuthConfig, AuthSession, AuthToken } from '../../lib/types'
+import { AuthProvider } from '../../lib/types'
 import {
   authCodeState,
   clientState,

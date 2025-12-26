@@ -708,7 +708,25 @@ Return ONLY JSON:
 
   private async getCEOStatus(): Promise<SkillResult> {
     const status = await this.blockchain.getCEOStatus()
-    return { message: `CEO: ${status.currentModel.name}`, data: status }
+    // Transform to match CEOStatusDataSchema expected by providers
+    const approvalRate = parseFloat(status.stats.approvalRate.replace('%', ''))
+    const decisionsThisPeriod =
+      status.decisionsThisPeriod ?? parseInt(status.stats.totalDecisions, 10)
+    return {
+      message: `CEO: ${status.currentModel.name}`,
+      data: {
+        currentModel: {
+          name: status.currentModel.name,
+          modelId: status.currentModel.modelId,
+          provider: status.currentModel.provider,
+          totalStaked: status.currentModel.totalStaked,
+          benchmarkScore: status.currentModel.benchmarkScore,
+        },
+        decisionsThisPeriod,
+        approvalRate,
+        stats: status.stats,
+      },
+    }
   }
 
   private async getDecision(proposalId: string): Promise<SkillResult> {

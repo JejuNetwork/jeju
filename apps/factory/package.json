@@ -6,7 +6,7 @@
   "type": "module",
   "main": "api/server.ts",
   "scripts": {
-    "dev": "concurrently \"bun web/index.html\" \"bun --watch api/server.ts\"",
+    "dev": "concurrently \"bun run dev-server.ts\" \"bun --watch api/server.ts\"",
     "build": "bun scripts/build-client.ts && bun build api/server.ts --outdir dist --target bun",
     "start": "bun dist/server.js",
     "test": "bun test tests/ && bunx playwright test tests/e2e/ && bunx playwright test --config synpress.config.ts tests/synpress/",
@@ -24,7 +24,7 @@
     "@jejunetwork/sdk": "workspace:*",
     "@jejunetwork/shared": "workspace:*",
     "@jejunetwork/types": "workspace:*",
-    "@rainbow-me/rainbowkit": "2.2.9",
+    "@jejunetwork/ui": "workspace:*",
     "@tanstack/react-query": "5.90.12",
     "clsx": "2.1.1",
     "elysia": "^1.4.19",

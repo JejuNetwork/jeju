@@ -30,7 +30,11 @@ export function serializeFloat32Vector(vector: number[]): Uint8Array {
   const buffer = new ArrayBuffer(vector.length * 4)
   const view = new DataView(buffer)
   for (let i = 0; i < vector.length; i++) {
-    view.setFloat32(i * 4, vector[i], true) // little-endian
+    const value = vector[i]
+    if (value === undefined) {
+      throw new Error(`Vector element at index ${i} is undefined`)
+    }
+    view.setFloat32(i * 4, value, true) // little-endian
   }
   return new Uint8Array(buffer)
 }
@@ -53,7 +57,11 @@ export function deserializeFloat32Vector(blob: Uint8Array): number[] {
 export function serializeInt8Vector(vector: number[]): Uint8Array {
   const buffer = new Int8Array(vector.length)
   for (let i = 0; i < vector.length; i++) {
-    buffer[i] = Math.max(-128, Math.min(127, Math.round(vector[i])))
+    const value = vector[i]
+    if (value === undefined) {
+      throw new Error(`Vector element at index ${i} is undefined`)
+    }
+    buffer[i] = Math.max(-128, Math.min(127, Math.round(value)))
   }
   return new Uint8Array(buffer.buffer)
 }
@@ -76,7 +84,8 @@ export function serializeBitVector(vector: number[]): Uint8Array {
   for (let i = 0; i < vector.length; i++) {
     if (vector[i]) {
       const byteIndex = Math.floor(i / 8)
-      buffer[byteIndex] = buffer[byteIndex] | (1 << (i % 8))
+      const currentByte = buffer[byteIndex] ?? 0
+      buffer[byteIndex] = currentByte | (1 << (i % 8))
     }
   }
   return buffer
@@ -98,6 +107,9 @@ export function deserializeBitVector(
   const vector: number[] = []
   for (let i = 0; i < dimensions; i++) {
     const byte = blob[Math.floor(i / 8)]
+    if (byte === undefined) {
+      throw new Error(`Blob byte at index ${Math.floor(i / 8)} is undefined`)
+    }
     vector.push((byte >> (i % 8)) & 1)
   }
   return vector
@@ -302,7 +314,12 @@ export function l2Distance(a: number[], b: number[]): number {
   }
   let sum = 0
   for (let i = 0; i < a.length; i++) {
-    const diff = a[i] - b[i]
+    const aVal = a[i]
+    const bVal = b[i]
+    if (aVal === undefined || bVal === undefined) {
+      throw new Error(`Vector element at index ${i} is undefined`)
+    }
+    const diff = aVal - bVal
     sum += diff * diff
   }
   return Math.sqrt(sum)
@@ -321,9 +338,14 @@ export function cosineDistance(a: number[], b: number[]): number {
   let normB = 0
 
   for (let i = 0; i < a.length; i++) {
-    dotProduct += a[i] * b[i]
-    normA += a[i] * a[i]
-    normB += b[i] * b[i]
+    const aVal = a[i]
+    const bVal = b[i]
+    if (aVal === undefined || bVal === undefined) {
+      throw new Error(`Vector element at index ${i} is undefined`)
+    }
+    dotProduct += aVal * bVal
+    normA += aVal * aVal
+    normB += bVal * bVal
   }
 
   const similarity = dotProduct / (Math.sqrt(normA) * Math.sqrt(normB))
@@ -339,7 +361,12 @@ export function l1Distance(a: number[], b: number[]): number {
   }
   let sum = 0
   for (let i = 0; i < a.length; i++) {
-    sum += Math.abs(a[i] - b[i])
+    const aVal = a[i]
+    const bVal = b[i]
+    if (aVal === undefined || bVal === undefined) {
+      throw new Error(`Vector element at index ${i} is undefined`)
+    }
+    sum += Math.abs(aVal - bVal)
   }
   return sum
 }

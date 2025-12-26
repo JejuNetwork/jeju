@@ -20,6 +20,7 @@ import {
 
 // Schema for container labels
 const LabelsRecordSchema = z.record(z.string(), z.string())
+
 import { requireAuth } from '../validation/access-control'
 
 export interface ContainerImage {

@@ -2,6 +2,15 @@
  * Indexer initialization and contract registry
  */
 
+import 'reflect-metadata'
+// Preload core models in correct order to avoid circular import issues
+import '../src/model/generated/block.model'
+import '../src/model/generated/transaction.model'
+import '../src/model/generated/account.model'
+import '../src/model/generated/contract.model'
+import '../src/model/generated/log.model'
+import '../src/model/generated/decodedEvent.model'
+
 import { type ContractInfo, registerContract } from './contract-events'
 import { getContractAddressSet, loadNetworkConfig } from './network-config'
 
@@ -96,6 +105,23 @@ export function initializeIndexer(): void {
     )
   }
 
+  // Validate critical contracts are configured - fail fast
+  const c = config.contracts
+  const missingContracts: string[] = []
+  
+  // Check moderation contracts
+  if (!c.banManager) missingContracts.push('moderation.banManager')
+  if (!c.reportingSystem) missingContracts.push('moderation.reportingSystem')
+  if (!c.reputationLabelManager) missingContracts.push('moderation.reputationLabelManager')
+  
+  if (missingContracts.length > 0) {
+    throw new Error(
+      `Required contracts not configured for ${config.network}: ${missingContracts.join(', ')}. ` +
+      `Add them to packages/config/contracts.json`
+    )
+  }
+
+  console.log('All required contracts configured')
   initialized = true
 }
 

@@ -39,6 +39,16 @@ import {
   type ResidentialProxyService,
 } from './residential-proxy'
 import {
+  createSequencerService,
+  type SequencerConfig,
+  type SequencerService,
+} from './sequencer'
+import {
+  createStakingManagerService,
+  type StakingConfig,
+  type StakingManagerService,
+} from './staking-manager'
+import {
   createStaticAssetService,
   type StaticAssetConfig,
   type StaticAssetService,
@@ -49,16 +59,6 @@ import {
   type VPNExitConfig,
   type VPNExitService,
 } from './vpn-exit'
-import {
-  createSequencerService,
-  type SequencerConfig,
-  type SequencerService,
-} from './sequencer'
-import {
-  createStakingManagerService,
-  type StakingConfig,
-  type StakingManagerService,
-} from './staking-manager'
 
 export interface NodeServices {
   compute: ComputeService

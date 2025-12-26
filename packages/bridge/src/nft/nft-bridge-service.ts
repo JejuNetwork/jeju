@@ -816,7 +816,7 @@ export class NFTBridgeService extends EventEmitter {
     }
 
     // Development mode: generate deterministic test proof
-    if (isProduction) {
+    if (isProduction()) {
       throw new Error(
         'ZK proof generation requires SP1 prover in production. ' +
           'Configure SP1_PROVER_URL or SUCCINCT_API_KEY environment variable.',

@@ -5,7 +5,12 @@
  * No API keys required - uses Arweave wallets for payment.
  */
 
-import { createHash } from 'node:crypto'
+import {
+  bytesToHex,
+  createHash,
+  hash256,
+  signRSAPSS,
+} from '@jejunetwork/shared'
 import { expectJson, validateOrNull } from '@jejunetwork/types'
 import { z } from 'zod'
 import {
@@ -107,7 +112,7 @@ export class ArweaveBackend {
     },
   ): Promise<{ txId: string; url: string; cost: string }> {
     // Calculate content hash for deduplication
-    const contentHash = createHash('sha256').update(content).digest('hex')
+    const contentHash = bytesToHex(hash256(new Uint8Array(content))).slice(2)
 
     // Check if content already exists
     const existing = await this.findByHash(contentHash)
@@ -512,11 +517,8 @@ export class ArweaveBackend {
     })
     const dataHash = createHash('sha384').update(txData).digest()
 
-    // Import the private key and sign with RSA-PSS
-    const { createPrivateKey, sign } = await import('node:crypto')
-
-    // Reconstruct JWK for Node.js crypto
-    const privateKeyJwk = {
+    // Reconstruct JWK for Web Crypto API
+    const privateKeyJwk: JsonWebKey = {
       kty: this.wallet.kty,
       n: this.wallet.n,
       e: this.wallet.e,
@@ -526,25 +528,25 @@ export class ArweaveBackend {
       dp: this.wallet.dp,
       dq: this.wallet.dq,
       qi: this.wallet.qi,
+      alg: 'PS256',
     }
 
-    const privateKey = createPrivateKey({
-      key: privateKeyJwk,
-      format: 'jwk',
-    })
-
     // Sign with RSA-PSS SHA-256 (Arweave's signature scheme)
-    const signature = sign('sha256', dataHash, {
-      key: privateKey,
-      padding: 6, // RSA_PKCS1_PSS_PADDING
-      saltLength: 32,
-    })
+    const signature = await signRSAPSS(dataHash, privateKeyJwk, 32)
 
-    tx.signature = signature.toString('base64url')
+    // Convert to base64url
+    tx.signature = btoa(String.fromCharCode(...signature))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=/g, '')
 
     // Calculate transaction ID (SHA-256 of signature)
     const idHash = createHash('sha256').update(signature).digest()
-    tx.id = idHash.toString('base64url').slice(0, 43)
+    tx.id = btoa(String.fromCharCode(...idHash))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=/g, '')
+      .slice(0, 43)
 
     return tx
   }

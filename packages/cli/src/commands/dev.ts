@@ -9,13 +9,10 @@ import { isValidAddress } from '@jejunetwork/types'
 import { Command } from 'commander'
 import { execa } from 'execa'
 import { bootstrapContracts, stopLocalnet } from '../lib/chain'
+import { isPortForwardingActive } from '../lib/local-proxy'
 import { logger } from '../lib/logger'
 import { findMonorepoRoot } from '../lib/system'
 import { discoverApps } from '../lib/testing'
-import {
-  createDWSLocalProvisioner,
-  type DWSLocalProvisioner,
-} from '../services/dws-local-provisioner'
 import {
   createInfrastructureService,
   type InfrastructureService,
@@ -47,12 +44,11 @@ let isShuttingDown = false
 let servicesOrchestrator: ServicesOrchestrator | null = null
 let infrastructureService: InfrastructureService | null = null
 let localDeployOrchestrator: LocalDeployOrchestrator | null = null
-let dwsLocalProvisioner: DWSLocalProvisioner | null = null
 let proxyEnabled = false
 
 export const devCommand = new Command('dev')
   .description(
-    'Start development environment (localnet + apps deployed on-chain)',
+    'Start development environment with HMR (bootstraps contracts + deploys apps)',
   )
   .option('--minimal', 'Localnet only (no apps)')
   .option(
@@ -66,7 +62,8 @@ export const devCommand = new Command('dev')
   .option('--no-services', 'Skip all simulated services')
   .option('--no-apps', 'Skip starting apps (same as --minimal)')
   .option('--no-proxy', 'Skip starting local domain proxy')
-  .option('--bootstrap', 'Force contract bootstrap even if already deployed')
+  .option('--no-bootstrap', 'Skip contract bootstrap (use existing deployment)')
+  .option('--seed', 'Run app seed scripts after bootstrap (deploys test data)')
   .action(async (options) => {
     if (options.stop) {
       await stopDev()
@@ -96,30 +93,15 @@ async function startDev(options: {
   bootstrap?: boolean
   noApps?: boolean
   proxy?: boolean
+  seed?: boolean
 }): Promise<void> {
   logger.header('JEJU DEV')
+  logger.info('Development mode with HMR\n')
 
   const rootDir = process.cwd()
   setupSignalHandlers()
 
-  // Step 1: On-chain provisioning for infrastructure services
-  // ALL services go through DWS contracts, even locally
-  dwsLocalProvisioner = createDWSLocalProvisioner(rootDir)
-
-  // Fast path: if already fully provisioned, just verify and continue
-  const requiredServices = ['ipfs'] // Core services needed for dev
-  const alreadyProvisioned = await dwsLocalProvisioner.isFullyProvisioned(requiredServices)
-
-  if (alreadyProvisioned && !options.bootstrap) {
-    logger.success('Using cached on-chain provisions (fast startup)')
-    const endpoints = dwsLocalProvisioner.getCachedEndpoints()
-    logger.debug(`  IPFS: ${endpoints.ipfs || 'not provisioned'}`)
-  } else {
-    // Full provisioning through on-chain contracts
-    await dwsLocalProvisioner.ensureAllProvisioned(requiredServices)
-  }
-
-  // Step 2: Start remaining infrastructure (CQL, cache, DA - native services)
+  // Start infrastructure (CQL, Docker services, localnet) - parallelized for speed
   infrastructureService = createInfrastructureService(rootDir)
   const infraReady = await infrastructureService.ensureRunning()
 
@@ -130,39 +112,44 @@ async function startDev(options: {
 
   const l2RpcUrl = `http://127.0.0.1:${DEFAULT_PORTS.l2Rpc}`
 
-  // Bootstrap app contracts (if needed or forced)
-  if (options.bootstrap) {
-    logger.step('Bootstrapping app contracts...')
+  // Bootstrap contracts (default: always, unless --no-bootstrap)
+  let didBootstrap = false
+  if (options.bootstrap !== false) {
+    logger.step('Bootstrapping contracts...')
     await bootstrapContracts(rootDir, l2RpcUrl)
+    didBootstrap = true
   } else {
-    // Check if already bootstrapped
-    const bootstrapFile = join(
-      rootDir,
-      'packages/contracts/deployments/localnet-complete.json',
-    )
-    if (!existsSync(bootstrapFile)) {
-      logger.step('Bootstrapping app contracts...')
-      await bootstrapContracts(rootDir, l2RpcUrl)
-    } else {
-      logger.debug('App contracts already bootstrapped')
-    }
+    logger.debug('Skipping bootstrap (--no-bootstrap)')
+  }
+
+  // Start proxy and services in parallel - they're independent
+  const parallelStartTasks: Promise<void>[] = []
+
+  // Run app seed scripts if --seed or first bootstrap (can run in parallel)
+  if (options.seed || didBootstrap) {
+    parallelStartTasks.push(runAppSeeds(rootDir, l2RpcUrl))
   }
 
   // Start local domain proxy (unless disabled)
   if (options.proxy !== false) {
-    await startLocalProxy(rootDir)
+    parallelStartTasks.push(startLocalProxy(rootDir))
   }
 
   // Start development services (inference, storage, etc.)
   if (options.services !== false) {
     servicesOrchestrator = createOrchestrator(rootDir)
-    await servicesOrchestrator.startAll({
-      inference: options.inference !== false,
-    })
+    parallelStartTasks.push(
+      servicesOrchestrator.startAll({
+        inference: options.inference !== false,
+      }),
+    )
   }
 
+  // Wait for all parallel startup tasks
+  await Promise.all(parallelStartTasks)
+
   if (options.minimal) {
-    printReady(l2RpcUrl, runningServices, servicesOrchestrator, [])
+    await printReady(l2RpcUrl, runningServices, servicesOrchestrator, [])
     await waitForever()
     return
   }
@@ -172,7 +159,7 @@ async function startDev(options: {
 
   await deployAppsOnchain(rootDir, l2RpcUrl, appsToStart)
 
-  printReady(l2RpcUrl, runningServices, servicesOrchestrator, appsToStart)
+  await printReady(l2RpcUrl, runningServices, servicesOrchestrator, appsToStart)
   await waitForever()
 }
 
@@ -234,6 +221,32 @@ async function deployAppsOnchain(
     logger.success('DWS server running on port 4030')
   }
 
+  // Start OAuth3 authentication gateway (required for auth flows)
+  logger.step('Starting OAuth3 authentication gateway...')
+  const oauth3Dir = join(rootDir, 'apps/oauth3')
+  if (existsSync(oauth3Dir)) {
+    const oauth3Proc = execa('bun', ['run', 'dev'], {
+      cwd: oauth3Dir,
+      env: {
+        ...process.env,
+        PORT: '4200',
+        RPC_URL: rpcUrl,
+        NODE_ENV: 'development',
+      },
+      stdio: 'pipe',
+    })
+
+    runningServices.push({
+      name: 'OAuth3',
+      port: 4200,
+      process: oauth3Proc,
+    })
+
+    // Give OAuth3 a moment to start
+    await new Promise((r) => setTimeout(r, 1000))
+    logger.success('OAuth3 gateway running on port 4200')
+  }
+
   const appsWithDirs = apps.map((app) => {
     // Determine app directory - vendor apps are in vendor/, core apps in apps/
     const folderName = app._folderName || app.name
@@ -246,13 +259,15 @@ async function deployAppsOnchain(
 
   await localDeployOrchestrator.deployAllApps(appsWithDirs)
 
-  // Start vendor app backend workers (run as separate processes)
-  logger.step('Starting vendor app backends...')
-  for (const { dir, manifest } of appsWithDirs) {
-    if (manifest.type !== 'vendor') continue
-    if (!manifest.architecture?.backend) continue
+  // Start vendor app backend workers in parallel
+  logger.step('Starting vendor app backends in parallel...')
+  const vendorAppsWithBackend = appsWithDirs.filter(
+    ({ manifest }) =>
+      manifest.type === 'vendor' && manifest.architecture?.backend,
+  )
 
-    const backend = manifest.architecture.backend
+  const backendStartTasks = vendorAppsWithBackend.map(({ dir, manifest }) => {
+    const backend = manifest.architecture?.backend
     const commands = manifest.commands as Record<string, string> | undefined
     const startCmd =
       typeof backend === 'object' && 'startCmd' in backend
@@ -261,7 +276,7 @@ async function deployAppsOnchain(
 
     if (!startCmd) {
       logger.debug(`  ${manifest.name}: No backend start command found`)
-      continue
+      return null
     }
 
     // Get the API port from manifest
@@ -303,9 +318,15 @@ async function deployAppsOnchain(
       process: workerProc,
     })
 
-    logger.success(
-      `  ${manifest.displayName || manifest.name} backend started on port ${apiPort}`,
-    )
+    return { name: manifest.displayName || manifest.name, port: apiPort }
+  })
+
+  // Filter out nulls and log started backends
+  const startedBackends = backendStartTasks.filter(Boolean)
+  for (const backend of startedBackends) {
+    if (backend) {
+      logger.success(`  ${backend.name} backend started on port ${backend.port}`)
+    }
   }
 
   logger.step('Starting JNS Gateway...')
@@ -359,12 +380,6 @@ async function startLocalProxy(_rootDir: string): Promise<void> {
 async function stopDev(): Promise<void> {
   logger.header('STOPPING')
 
-  const rootDir = process.cwd()
-
-  // Full cleanup of DWS provisions
-  const dwsProvisioner = createDWSLocalProvisioner(rootDir)
-  await dwsProvisioner.cleanup()
-
   logger.step('Stopping localnet...')
   await stopLocalnet()
   logger.success('Stopped')
@@ -393,15 +408,12 @@ function setupSignalHandlers(): void {
       }
     }
 
-    // Note: We don't cleanup DWS provisions on shutdown - they persist for fast restart
-    // Use `jeju dev --stop` to fully cleanup
-
     await execa('docker', ['compose', 'down'], {
       cwd: join(process.cwd(), 'apps/monitoring'),
       reject: false,
     }).catch(() => undefined)
 
-    logger.success('Stopped (DWS provisions cached for fast restart)')
+    logger.success('Stopped')
     process.exit(0)
   }
 
@@ -493,12 +505,26 @@ async function startVendorOnly(): Promise<void> {
   await waitForever()
 }
 
-function printReady(
+/**
+ * Format URL with or without port - port 80 is omitted (standard HTTP)
+ */
+function formatLocalUrl(
+  subdomain: string,
+  domain: string,
+  port: number,
+): string {
+  if (port === 80) {
+    return `http://${subdomain}.${domain}`
+  }
+  return `http://${subdomain}.${domain}:${port}`
+}
+
+async function printReady(
   rpcUrl: string,
   services: RunningService[],
   orchestrator: ServicesOrchestrator | null,
   deployedApps: AppManifest[],
-): void {
+): Promise<void> {
   console.clear()
 
   logger.header('READY')
@@ -518,14 +544,13 @@ function printReady(
         value: `http://127.0.0.1:${DEFAULT_PORTS.ipfs}`,
         status: 'ok' as const,
       },
-      { label: 'Cache', value: 'http://127.0.0.1:4115', status: 'ok' as const },
-      {
-        label: 'DA Server',
-        value: 'http://127.0.0.1:4010',
-        status: 'ok' as const,
-      },
+      { label: 'DWS', value: 'http://127.0.0.1:4030', status: 'ok' as const },
     ])
   }
+
+  // Check port forwarding once for all URL displays
+  const portForwardingActive = await isPortForwardingActive()
+  const displayPort = portForwardingActive ? 80 : 8080
 
   logger.subheader('Chain')
   const chainRows = [
@@ -537,9 +562,11 @@ function printReady(
     { label: 'L2 RPC', value: rpcUrl, status: 'ok' as const },
   ]
   if (proxyEnabled) {
+    // Build RPC URL dynamically with actual port (omit :80)
+    const rpcDomainUrl = formatLocalUrl('rpc', DOMAIN_CONFIG.localDomain, displayPort)
     chainRows.push({
       label: 'L2 RPC (domain)',
-      value: DOMAIN_CONFIG.local.rpc,
+      value: rpcDomainUrl,
       status: 'ok' as const,
     })
   }
@@ -553,7 +580,6 @@ function printReady(
   // Show all deployed apps with their local domain URLs
   if (deployedApps.length > 0 || services.length > 0) {
     logger.subheader('Apps')
-    const proxyPort = 8080
 
     // Show all deployed apps (JNS gateway serves from local builds)
     for (const app of deployedApps) {
@@ -563,7 +589,7 @@ function printReady(
 
       const displayName = app.displayName || app.name
       const slug = app.name.toLowerCase().replace(/\s+/g, '-')
-      const localUrl = `http://${slug}.${DOMAIN_CONFIG.localDomain}:${proxyPort}`
+      const localUrl = formatLocalUrl(slug, DOMAIN_CONFIG.localDomain, displayPort)
       logger.table([
         {
           label: displayName,
@@ -584,7 +610,7 @@ function printReady(
       const domainName = svc.name.toLowerCase().replace(/\s+/g, '-')
 
       if (proxyEnabled && port) {
-        const localUrl = `http://${domainName}.${DOMAIN_CONFIG.localDomain}:${proxyPort}`
+        const localUrl = formatLocalUrl(domainName, DOMAIN_CONFIG.localDomain, displayPort)
         logger.table([
           {
             label: svc.name,
@@ -607,6 +633,37 @@ function printReady(
   logger.keyValue('Address', deployer.address)
   logger.keyValue('Key', `${deployer.privateKey.slice(0, 20)}...`)
   logger.warn('Well-known test key - DO NOT use on mainnet')
+}
+
+async function runAppSeeds(rootDir: string, rpcUrl: string): Promise<void> {
+  logger.step('Running app seed scripts...')
+
+  // List of apps with seed scripts
+  const seedApps = ['bazaar']
+
+  for (const appName of seedApps) {
+    const seedScript = join(rootDir, 'apps', appName, 'scripts/seed.ts')
+    if (!existsSync(seedScript)) {
+      logger.debug(`No seed script for ${appName}`)
+      continue
+    }
+
+    logger.debug(`Seeding ${appName}...`)
+    try {
+      await execa('bun', ['run', seedScript], {
+        cwd: join(rootDir, 'apps', appName),
+        env: {
+          ...process.env,
+          JEJU_RPC_URL: rpcUrl,
+        },
+        stdio: 'pipe',
+      })
+      logger.success(`Seeded ${appName}`)
+    } catch (_error) {
+      // Don't fail if seed has issues - it might have already been run
+      logger.debug(`Seed ${appName} completed (may have existing data)`)
+    }
+  }
 }
 
 async function waitForever(): Promise<void> {

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { createHash } from 'node:crypto'
+import { createHash } from '@jejunetwork/shared'
 
 // Base58 encoding implementation (from hybrid-torrent.ts)
 const BASE58_ALPHABET =
@@ -44,7 +44,7 @@ function verifyContentHash(data: Buffer, expectedHash: string): boolean {
   // Support multiple hash formats
   if (expectedHash.startsWith('0x')) {
     // Ethereum-style sha256
-    const hash = createHash('sha256').update(data).digest('hex')
+    const hash = createHash('sha256').update(data).digestHex()
     return `0x${hash}` === expectedHash || expectedHash.includes(hash)
   }
 
@@ -60,13 +60,13 @@ function verifyContentHash(data: Buffer, expectedHash: string): boolean {
   if (expectedHash.startsWith('bafy')) {
     // IPFS CIDv1 - extract hash and compare
     // Simplified: just verify sha256 portion matches
-    const hash = createHash('sha256').update(data).digest('hex')
+    const hash = createHash('sha256').update(data).digestHex()
     return expectedHash.includes(hash.slice(0, 16))
   }
 
   // BitTorrent infohash (sha1 of info dict)
   if (expectedHash.length === 40) {
-    const hash = createHash('sha1').update(data).digest('hex')
+    const hash = createHash('sha1').update(data).digestHex()
     return hash === expectedHash
   }
 
@@ -130,7 +130,7 @@ describe('Base58 Encoding', () => {
 describe('Content Hash Verification - Ethereum Format', () => {
   test('verifies correct Ethereum-style hash', () => {
     const data = Buffer.from('test content')
-    const hash = createHash('sha256').update(data).digest('hex')
+    const hash = createHash('sha256').update(data).digestHex()
     const ethHash = `0x${hash}`
 
     expect(verifyContentHash(data, ethHash)).toBe(true)
@@ -145,7 +145,7 @@ describe('Content Hash Verification - Ethereum Format', () => {
 
   test('handles partial hash matching', () => {
     const data = Buffer.from('test content')
-    const hash = createHash('sha256').update(data).digest('hex')
+    const hash = createHash('sha256').update(data).digestHex()
     // Hash embedded in longer string
     const containsHash = `0xprefix${hash}suffix`
 
@@ -187,7 +187,7 @@ describe('Content Hash Verification - IPFS CIDv0', () => {
 describe('Content Hash Verification - IPFS CIDv1', () => {
   test('verifies CIDv1 hash containing sha256 prefix', () => {
     const data = Buffer.from('test content')
-    const hash = createHash('sha256').update(data).digest('hex')
+    const hash = createHash('sha256').update(data).digestHex()
     // CIDv1 format: bafyb... contains hash portion
     const cidv1 = `bafybei${hash.slice(0, 16)}restofcid`
 
@@ -205,7 +205,7 @@ describe('Content Hash Verification - IPFS CIDv1', () => {
 describe('Content Hash Verification - BitTorrent Infohash', () => {
   test('verifies correct SHA1 infohash', () => {
     const data = Buffer.from('torrent info dict content')
-    const hash = createHash('sha1').update(data).digest('hex')
+    const hash = createHash('sha1').update(data).digestHex()
 
     expect(hash.length).toBe(40)
     expect(verifyContentHash(data, hash)).toBe(true)
@@ -281,7 +281,7 @@ describe('Hash Format Detection', () => {
 describe('Edge Cases', () => {
   test('empty buffer verification', () => {
     const emptyBuffer = Buffer.alloc(0)
-    const hash = createHash('sha256').update(emptyBuffer).digest('hex')
+    const hash = createHash('sha256').update(emptyBuffer).digestHex()
     const ethHash = `0x${hash}`
 
     expect(verifyContentHash(emptyBuffer, ethHash)).toBe(true)
@@ -290,7 +290,7 @@ describe('Edge Cases', () => {
   test('large buffer verification', () => {
     const largeBuffer = Buffer.alloc(1024 * 1024) // 1MB
     largeBuffer.fill(0x42) // Fill with 'B'
-    const hash = createHash('sha256').update(largeBuffer).digest('hex')
+    const hash = createHash('sha256').update(largeBuffer).digestHex()
     const ethHash = `0x${hash}`
 
     expect(verifyContentHash(largeBuffer, ethHash)).toBe(true)

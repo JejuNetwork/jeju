@@ -27,7 +27,7 @@ const JsonValueSchema: z.ZodType<unknown> = z.lazy(() =>
     z.null(),
     z.array(JsonValueSchema),
     z.record(z.string(), JsonValueSchema),
-  ])
+  ]),
 )
 const TriggerResponseSchema = z.record(z.string(), JsonValueSchema)
 
@@ -246,7 +246,9 @@ export class TrainingCronOrchestrator {
       try {
         const responseText = await response.text()
         if (responseText.trim()) {
-          result.response = TriggerResponseSchema.parse(JSON.parse(responseText))
+          result.response = TriggerResponseSchema.parse(
+            JSON.parse(responseText),
+          )
         } else {
           result.response = {}
         }
@@ -502,7 +504,10 @@ export async function initializeTrainingOrchestrator(
   const orchestrator = getTrainingCronOrchestrator()
 
   // Service URLs from environment
-  const crucibleUrl = process.env.CRUCIBLE_API_URL ?? getServiceUrl('compute', 'nodeApi') ?? 'http://localhost:4021'
+  const crucibleUrl =
+    process.env.CRUCIBLE_API_URL ??
+    getServiceUrl('compute', 'nodeApi') ??
+    'http://localhost:4021'
   const dwsUrl = process.env.DWS_API_URL ?? getDWSUrl()
 
   // Register Crucible triggers

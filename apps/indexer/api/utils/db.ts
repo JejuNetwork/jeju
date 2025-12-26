@@ -8,11 +8,12 @@ function requireEnv(name: string): string {
 }
 
 const IS_PRODUCTION = process.env.NODE_ENV === 'production'
+const IS_CQL_ONLY_MODE = process.env.INDEXER_MODE === 'cql-only'
 
-function parsePort(portStr: string, _defaultPort: number): number {
+function parsePort(portStr: string, defaultPort: number): number {
   const port = parseInt(portStr, 10)
   if (Number.isNaN(port) || port <= 0 || port > 65535) {
-    throw new Error(`Invalid port: ${portStr}. Must be between 1 and 65535.`)
+    return defaultPort
   }
   return port
 }
@@ -25,29 +26,48 @@ function parsePositiveInt(
   const parsed = parseInt(value, 10)
   if (Number.isNaN(parsed) || parsed <= 0) {
     if (value !== undefined && value !== '') {
-      throw new Error(`Invalid ${name}: ${value}. Must be a positive integer.`)
+      console.warn(`Invalid ${name}: ${value}. Using default: ${defaultValue}`)
     }
     return defaultValue
   }
   return parsed
 }
 
-const DB_CONFIG = {
-  host: IS_PRODUCTION
-    ? requireEnv('DB_HOST')
-    : process.env.DB_HOST || 'localhost',
-  port: IS_PRODUCTION
-    ? parsePort(requireEnv('DB_PORT'), 23798)
-    : parsePort(process.env.DB_PORT || '23798', 23798),
-  database: IS_PRODUCTION
-    ? requireEnv('DB_NAME')
-    : process.env.DB_NAME || 'indexer',
-  username: IS_PRODUCTION
-    ? requireEnv('DB_USER')
-    : process.env.DB_USER || 'postgres',
-  password: IS_PRODUCTION
-    ? requireEnv('DB_PASS')
-    : process.env.DB_PASS || 'postgres',
+function getDBConfig(): {
+  host: string
+  port: number
+  database: string
+  username: string
+  password: string
+} {
+  if (IS_CQL_ONLY_MODE) {
+    // Return dummy config - won't be used but needed for TypeORM initialization
+    return {
+      host: 'localhost',
+      port: 5432,
+      database: 'indexer',
+      username: 'postgres',
+      password: 'postgres',
+    }
+  }
+
+  return {
+    host: IS_PRODUCTION
+      ? requireEnv('DB_HOST')
+      : process.env.DB_HOST || 'localhost',
+    port: IS_PRODUCTION
+      ? parsePort(requireEnv('DB_PORT'), 23798)
+      : parsePort(process.env.DB_PORT || '23798', 23798),
+    database: IS_PRODUCTION
+      ? requireEnv('DB_NAME')
+      : process.env.DB_NAME || 'indexer',
+    username: IS_PRODUCTION
+      ? requireEnv('DB_USER')
+      : process.env.DB_USER || 'postgres',
+    password: IS_PRODUCTION
+      ? requireEnv('DB_PASS')
+      : process.env.DB_PASS || 'postgres',
+  }
 }
 
 const POOL_CONFIG = {
@@ -108,8 +128,45 @@ class SnakeNamingStrategy extends DefaultNamingStrategy {
 }
 
 let dataSource: DataSource | null = null
+let postgresAvailable = false
+let schemaVerified = false
 
-export async function getDataSource(): Promise<DataSource> {
+/**
+ * Get the database mode the indexer is running in
+ */
+export function getIndexerMode(): 'postgres' | 'cql-only' | 'unavailable' {
+  if (IS_CQL_ONLY_MODE) return 'cql-only'
+  if (postgresAvailable) return 'postgres'
+  return 'unavailable'
+}
+
+/**
+ * Check if PostgreSQL is available
+ */
+export function isPostgresAvailable(): boolean {
+  return postgresAvailable && dataSource?.isInitialized === true
+}
+
+/**
+ * Check if database schema has been verified as ready
+ */
+export function isSchemaReady(): boolean {
+  return schemaVerified
+}
+
+/**
+ * Mark schema as verified (called after verifyDatabaseSchema succeeds)
+ */
+export function setSchemaVerified(verified: boolean): void {
+  schemaVerified = verified
+}
+
+/**
+ * Initialize and return the DataSource connection.
+ * In CQL-only mode, returns null without attempting PostgreSQL connection.
+ */
+export async function getDataSource(): Promise<DataSource | null> {
+  if (IS_CQL_ONLY_MODE) return null
   if (dataSource?.isInitialized) return dataSource
 
   const entities = Object.values(models).filter(
@@ -119,9 +176,11 @@ export async function getDataSource(): Promise<DataSource> {
     ...args: never[]
   ) => object)[]
 
+  const dbConfig = getDBConfig()
+
   dataSource = new DataSource({
     type: 'postgres',
-    ...DB_CONFIG,
+    ...dbConfig,
     entities,
     namingStrategy: new SnakeNamingStrategy(),
     synchronize: false,
@@ -134,16 +193,79 @@ export async function getDataSource(): Promise<DataSource> {
   })
 
   await dataSource.initialize()
+  postgresAvailable = true
   console.log(
-    `Database connected: ${DB_CONFIG.host}:${DB_CONFIG.port}/${DB_CONFIG.database} (pool: ${POOL_CONFIG.poolSize})`,
+    `[DB] Connected: ${dbConfig.host}:${dbConfig.port}/${dbConfig.database}`,
   )
   return dataSource
+}
+
+/**
+ * Connect to PostgreSQL with retry logic.
+ * Returns DataSource if successful, null if all retries fail.
+ */
+export async function getDataSourceWithRetry(
+  maxRetries = 3,
+  retryDelayMs = 2000,
+): Promise<DataSource | null> {
+  if (IS_CQL_ONLY_MODE) {
+    console.log('[DB] CQL-only mode - PostgreSQL disabled')
+    return null
+  }
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await getDataSource()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      console.warn(`[DB] Attempt ${attempt}/${maxRetries} failed: ${message}`)
+      if (attempt < maxRetries) {
+        await new Promise((r) => setTimeout(r, retryDelayMs))
+      }
+    }
+  }
+
+  console.error('[DB] All connection attempts failed')
+  postgresAvailable = false
+  return null
 }
 
 export async function closeDataSource(): Promise<void> {
   if (dataSource?.isInitialized) {
     await dataSource.destroy()
     dataSource = null
+    postgresAvailable = false
+  }
+}
+
+/**
+ * Verify the database schema exists by checking for required tables.
+ * Returns true if schema is ready, false if tables are missing.
+ */
+export async function verifyDatabaseSchema(ds: DataSource): Promise<boolean> {
+  const requiredTables = ['block', 'transaction', 'registered_agent', 'account']
+
+  try {
+    for (const table of requiredTables) {
+      const result = await ds.query(
+        `SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_schema = 'public' AND table_name = $1
+        )`,
+        [table],
+      )
+      const exists = result[0]?.exists === true
+      if (!exists) {
+        console.warn(`[DB] Required table missing: ${table}`)
+        return false
+      }
+    }
+    console.log('[DB] Database schema verified')
+    return true
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    console.warn(`[DB] Schema verification failed: ${message}`)
+    return false
   }
 }
 

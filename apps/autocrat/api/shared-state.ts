@@ -97,6 +97,8 @@ export function getConfig(): CouncilConfig {
       communicationTone: 'professional',
       specialties: ['governance', 'strategy'],
     },
+    // Default CEO model - can be overridden by DAO creator or governance vote
+    ceoModelId: process.env.CEO_MODEL_ID ?? 'claude-opus-4-5',
     fundingConfig: {
       minStake: BigInt('1000000000000000'),
       maxStake: BigInt('100000000000000000000'),

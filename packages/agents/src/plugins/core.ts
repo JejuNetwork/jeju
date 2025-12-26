@@ -148,7 +148,7 @@ const a2aMessageAction: Action = {
 
     return {
       success: response.success,
-      data: response.response ?? undefined,
+      data: response.response as Record<string, unknown> | undefined,
       error: response.error,
     }
   },

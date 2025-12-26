@@ -270,6 +270,7 @@ export {
 export {
   ConnectedAccount,
   type ConnectedAccountProps,
+  type LinkedAccount,
   LoginButton,
   type LoginButtonProps,
   LoginModal,
@@ -278,14 +279,19 @@ export {
   type MFASetupProps,
   type OAuth3ContextValue,
   OAuth3Provider,
+  OAuth3Provider as JejuAuthProvider,
   type OAuth3ProviderProps,
   type UseCredentialsReturn,
+  type UseJejuAuthReturn,
+  type UseJejuWalletReturn,
   type UseLoginOptions,
   type UseLoginReturn,
   type UseMFAOptions,
   type UseMFAReturn,
   type UseSessionReturn,
   useCredentials,
+  useJejuAuth,
+  useJejuWallet,
   useLogin,
   useMFA,
   useOAuth3,
@@ -295,7 +301,6 @@ export {
 // SDK Client
 export {
   createOAuth3Client,
-  getOAuth3Client,
   type LinkOptions,
   type LoginOptions,
   OAuth3Client,
@@ -303,7 +308,6 @@ export {
   type OAuth3Event,
   type OAuth3EventHandler,
   type OAuth3EventType,
-  resetOAuth3Client,
   type SignMessageOptions,
   type TransactionOptions,
 } from './sdk/client.js'

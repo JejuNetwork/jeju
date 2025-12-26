@@ -1,0 +1,11 @@
+{
+  "network": "localnet",
+  "chain": "solana",
+  "mode": "local",
+  "endpoints": {
+    "rpc": "http://localhost:8899",
+    "ws": "ws://localhost:8900"
+  },
+  "tee": false,
+  "deployedAt": "2025-12-26T19:38:56.041Z"
+}

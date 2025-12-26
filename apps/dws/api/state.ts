@@ -19,7 +19,6 @@ import {
 } from '@jejunetwork/db'
 import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 import type { Address } from 'viem'
-import { ZERO_HASH } from './shared/utils/crypto'
 
 const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? 'dws'
 
@@ -42,209 +41,15 @@ let cacheClient: CacheClient | null = null
 let initialized = false
 let initPromise: Promise<void> | null = null
 
-// Union type for all test store row types
-type TestStoreRow =
-  | ComputeJobRow
-  | StoragePinRow
-  | GitRepoRow
-  | PackageRow
-  | ApiListingRow
-  | ApiUserAccountRow
-  | ApiKeyRow
-  | TrainingRunRow
-  | TrainingNodeRow
-
-// In-memory store for tests
-const testStore = new Map<string, Map<string, TestStoreRow>>()
-
-function getTestStore(table: string): Map<string, TestStoreRow> {
-  const existing = testStore.get(table)
-  if (existing) {
-    return existing
-  }
-  const newStore = new Map<string, TestStoreRow>()
-  testStore.set(table, newStore)
-  return newStore
-}
-
-// Type-safe param extractors for mock CQL client
-function paramAsString(params: QueryParam[], index: number): string {
-  const value = params[index]
-  if (typeof value === 'string') return value
-  if (value === null || value === undefined) return ''
-  return String(value)
-}
-
-function paramAsNumber(params: QueryParam[], index: number): number {
-  const value = params[index]
-  if (typeof value === 'number') return value
-  if (typeof value === 'bigint') return Number(value)
-  if (typeof value === 'string') return parseFloat(value)
-  return 0
-}
-
-function paramAsNumberOrNull(
-  params: QueryParam[],
-  index: number,
-): number | null {
-  const value = params[index]
-  if (value === null || value === undefined) return null
-  if (typeof value === 'number') return value
-  if (typeof value === 'bigint') return Number(value)
-  if (typeof value === 'string') return parseFloat(value)
-  return null
-}
-
-function paramAsStringOrNull(
-  params: QueryParam[],
-  index: number,
-): string | null {
-  const value = params[index]
-  if (value === null || value === undefined) return null
-  if (typeof value === 'string') return value
-  return String(value)
-}
+// CQL is always required - no in-memory fallback for serverless compatibility
 
 async function getCQLClient(): Promise<MinimalCQLClient> {
-  const isTestEnv =
-    process.env.NODE_ENV === 'test' || process.env.BUN_ENV === 'test'
-
   // Wait for initialization if in progress
   if (initPromise) {
     await initPromise
   }
 
   if (!cqlClient) {
-    // Use in-memory store in test environment
-    if (isTestEnv) {
-      const mockExecResult: ExecResult = {
-        rowsAffected: 0,
-        txHash: ZERO_HASH,
-        blockHeight: 1,
-        gasUsed: 0n,
-      }
-
-      cqlClient = {
-        isHealthy: () => Promise.resolve(true),
-        query: <T>(
-          sql: string,
-          params: QueryParam[],
-        ): Promise<QueryResult<T>> => {
-          // Parse table name from SELECT
-          const tableMatch = sql.match(/FROM\s+(\w+)/i)
-          if (!tableMatch) {
-            const emptyResult: QueryResult<T> = {
-              rows: [],
-              rowCount: 0,
-              columns: [],
-              executionTime: 0,
-              blockHeight: 1,
-            }
-            return Promise.resolve(emptyResult)
-          }
-          const table = tableMatch[1]
-          const store = getTestStore(table)
-
-          // Parse WHERE clause for job_id
-          const whereMatch = sql.match(/WHERE\s+job_id\s*=\s*\?/i)
-          if (whereMatch && params[0]) {
-            const key = paramAsString(params, 0)
-            const row = store.get(key)
-            const matchedRows = row ? [row] : []
-            return Promise.resolve({
-              rows: matchedRows as T[],
-              rowCount: matchedRows.length,
-              columns: [],
-              executionTime: 0,
-              blockHeight: 1,
-            })
-          }
-
-          // Handle status filter
-          const statusMatch = sql.match(/WHERE\s+status\s*=\s*\?/i)
-          if (statusMatch && params[0]) {
-            const statusValue = paramAsString(params, 0)
-            const filteredRows = Array.from(store.values()).filter(
-              (r) => 'status' in r && r.status === statusValue,
-            )
-            return Promise.resolve({
-              rows: filteredRows as T[],
-              rowCount: filteredRows.length,
-              columns: [],
-              executionTime: 0,
-              blockHeight: 1,
-            })
-          }
-
-          // Handle LIMIT
-          let allRows = Array.from(store.values())
-          const limitMatch = sql.match(/LIMIT\s+\?/i)
-          if (limitMatch) {
-            const limitIdx = params.length - 1
-            const limit = paramAsNumber(params, limitIdx)
-            if (limit > 0) {
-              allRows = allRows.slice(0, limit)
-            }
-          }
-
-          return Promise.resolve({
-            rows: allRows as T[],
-            rowCount: allRows.length,
-            columns: [],
-            executionTime: 0,
-            blockHeight: 1,
-          })
-        },
-        exec: (sql: string, params: QueryParam[]): Promise<ExecResult> => {
-          // Parse table name from INSERT/UPDATE/DELETE
-          const insertMatch = sql.match(/INSERT\s+INTO\s+(\w+)/i)
-          const updateMatch = sql.match(/UPDATE\s+(\w+)/i)
-          const deleteMatch = sql.match(/DELETE\s+FROM\s+(\w+)/i)
-
-          const table = insertMatch?.[1] ?? updateMatch?.[1] ?? deleteMatch?.[1]
-          if (!table)
-            return Promise.resolve({ ...mockExecResult, rowsAffected: 0 })
-
-          const store = getTestStore(table)
-
-          if (insertMatch) {
-            // Handle INSERT for compute_jobs
-            if (table === 'compute_jobs' && params.length >= 13) {
-              const row: ComputeJobRow = {
-                job_id: paramAsString(params, 0),
-                command: paramAsString(params, 1),
-                shell: paramAsString(params, 2),
-                env: paramAsString(params, 3),
-                working_dir: paramAsStringOrNull(params, 4),
-                timeout: paramAsNumber(params, 5),
-                status: paramAsString(params, 6),
-                output: paramAsString(params, 7),
-                exit_code: paramAsNumberOrNull(params, 8),
-                submitted_by: paramAsString(params, 9),
-                started_at: paramAsNumberOrNull(params, 10),
-                completed_at: paramAsNumberOrNull(params, 11),
-                created_at: paramAsNumber(params, 12),
-              }
-              store.set(row.job_id, row)
-              return Promise.resolve({ ...mockExecResult, rowsAffected: 1 })
-            }
-          }
-
-          if (deleteMatch && params[0]) {
-            const key = paramAsString(params, 0)
-            const deleted = store.delete(key)
-            return Promise.resolve({
-              ...mockExecResult,
-              rowsAffected: deleted ? 1 : 0,
-            })
-          }
-
-          return Promise.resolve({ ...mockExecResult, rowsAffected: 0 })
-        },
-      }
-      return cqlClient
-    }
-
     // Reset any existing client to ensure fresh config
     resetCQL()
 
@@ -1452,6 +1257,9 @@ export const x402State = {
   },
 }
 
+// Track if we're in memory-only mode (no CQL)
+let memoryOnlyMode = false
+
 // Initialize state - uses promise to prevent race conditions
 export async function initializeDWSState(): Promise<void> {
   if (initialized) return
@@ -1464,14 +1272,24 @@ export async function initializeDWSState(): Promise<void> {
 
   // Start initialization and store the promise
   initPromise = (async () => {
-    const client = await getCQLClient()
-    initialized = true
-    if (client) {
+    try {
+      await getCQLClient()
+      initialized = true
       console.log('[DWS State] Initialized with CovenantSQL')
-    } else {
-      console.log(
-        '[DWS State] Initialized without CovenantSQL (development mode)',
-      )
+    } catch (error) {
+      // For local development, allow running without CQL
+      if (process.env.NODE_ENV !== 'production') {
+        memoryOnlyMode = true
+        initialized = true
+        console.warn(
+          '[DWS State] CQL unavailable - running in memory-only mode (local dev)',
+        )
+        console.warn(
+          '[DWS State] Some features will be limited. Start CQL for full functionality.',
+        )
+      } else {
+        throw error
+      }
     }
   })()
 
@@ -1483,6 +1301,6 @@ export async function initializeDWSState(): Promise<void> {
 }
 
 // Get state mode
-export function getStateMode(): 'cql' {
-  return 'cql'
+export function getStateMode(): 'cql' | 'memory' {
+  return memoryOnlyMode ? 'memory' : 'cql'
 }

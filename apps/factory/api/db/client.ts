@@ -2343,9 +2343,7 @@ export type FidLinkRow = z.infer<typeof FidLinkRowSchema>
 export function getFidLink(address: string): FidLinkRow | null {
   const db = getDB()
   const row = db
-    .query<FidLinkRow, [string]>(
-      'SELECT * FROM fid_links WHERE address = ?',
-    )
+    .query<FidLinkRow, [string]>('SELECT * FROM fid_links WHERE address = ?')
     .get(address.toLowerCase())
   return row ? FidLinkRowSchema.parse(row) : null
 }
@@ -2353,9 +2351,7 @@ export function getFidLink(address: string): FidLinkRow | null {
 export function getFidLinkByFid(fid: number): FidLinkRow | null {
   const db = getDB()
   const row = db
-    .query<FidLinkRow, [number]>(
-      'SELECT * FROM fid_links WHERE fid = ?',
-    )
+    .query<FidLinkRow, [number]>('SELECT * FROM fid_links WHERE fid = ?')
     .get(fid)
   return row ? FidLinkRowSchema.parse(row) : null
 }
@@ -2400,7 +2396,9 @@ export function createFidLink(link: {
 
 export function deleteFidLink(address: string): boolean {
   const db = getDB()
-  const result = db.run('DELETE FROM fid_links WHERE address = ?', [address.toLowerCase()])
+  const result = db.run('DELETE FROM fid_links WHERE address = ?', [
+    address.toLowerCase(),
+  ])
   return result.changes > 0
 }
 
@@ -2430,7 +2428,9 @@ export function getFarcasterSigner(address: string): FarcasterSignerRow | null {
   return row ? FarcasterSignerRowSchema.parse(row) : null
 }
 
-export function getFarcasterSignerByPublicKey(publicKey: string): FarcasterSignerRow | null {
+export function getFarcasterSignerByPublicKey(
+  publicKey: string,
+): FarcasterSignerRow | null {
   const db = getDB()
   const row = db
     .query<FarcasterSignerRow, [string]>(
@@ -2546,13 +2546,16 @@ export function setProjectChannel(
   )
 
   const created = getProjectChannel(projectId)
-  if (!created) throw new Error(`Failed to set channel for project ${projectId}`)
+  if (!created)
+    throw new Error(`Failed to set channel for project ${projectId}`)
   return created
 }
 
 export function deleteProjectChannel(projectId: string): boolean {
   const db = getDB()
-  const result = db.run('DELETE FROM project_channels WHERE project_id = ?', [projectId])
+  const result = db.run('DELETE FROM project_channels WHERE project_id = ?', [
+    projectId,
+  ])
   return result.changes > 0
 }
 
@@ -2620,7 +2623,11 @@ export function createCastReaction(reaction: {
     ],
   )
 
-  const row = getCastReaction(reaction.address, reaction.castHash, reaction.reactionType)
+  const row = getCastReaction(
+    reaction.address,
+    reaction.castHash,
+    reaction.reactionType,
+  )
   if (!row) throw new Error('Failed to create cast reaction')
   return row
 }

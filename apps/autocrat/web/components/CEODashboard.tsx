@@ -8,10 +8,12 @@ import {
   Clock,
   Coins,
   Crown,
+  Plus,
   RefreshCw,
   TrendingDown,
   TrendingUp,
   Users,
+  X,
   XCircle,
 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
@@ -22,7 +24,40 @@ import {
   fetchModelCandidates,
   fetchRecentDecisions,
   type ModelCandidate,
+  type NominateModelRequest,
+  nominateModel,
 } from '../config/api'
+
+// Available providers for nomination
+const INFERENCE_PROVIDERS = [
+  {
+    id: 'anthropic',
+    name: 'Anthropic',
+    models: ['claude-opus-4-5', 'claude-sonnet-4-5'],
+  },
+  {
+    id: 'openai',
+    name: 'OpenAI',
+    models: ['gpt-5.2'],
+  },
+  {
+    id: 'google',
+    name: 'Google',
+    models: ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-2.0-flash'],
+  },
+  {
+    id: 'groq',
+    name: 'Groq',
+    models: ['llama-3.3-70b', 'mixtral-8x7b', 'gemma-7b'],
+  },
+  {
+    id: 'together',
+    name: 'Together AI',
+    models: ['llama-3.2-90b', 'qwen-72b', 'deepseek-v3'],
+  },
+  { id: 'cerebras', name: 'Cerebras', models: ['llama-3.3-70b'] },
+  { id: 'openrouter', name: 'OpenRouter', models: ['auto'] },
+] as const
 
 interface CEODashboardProps {
   compact?: boolean
@@ -34,6 +69,8 @@ export function CEODashboard({ compact = false }: CEODashboardProps) {
   const [decisions, setDecisions] = useState<Decision[]>([])
   const [loading, setLoading] = useState(true)
   const [expandedModel, setExpandedModel] = useState<string | null>(null)
+  const [showNominateModal, setShowNominateModal] = useState(false)
+  const [nominating, setNominating] = useState(false)
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -55,6 +92,18 @@ export function CEODashboard({ compact = false }: CEODashboardProps) {
   useEffect(() => {
     loadData()
   }, [loadData])
+
+  const handleNominate = async (request: NominateModelRequest) => {
+    setNominating(true)
+    try {
+      await nominateModel(request)
+      setShowNominateModal(false)
+      await loadData()
+    } catch (err) {
+      console.error('Failed to nominate model:', err)
+    }
+    setNominating(false)
+  }
 
   if (loading) {
     return (
@@ -98,7 +147,7 @@ export function CEODashboard({ compact = false }: CEODashboardProps) {
             <div className="grid grid-cols-2 gap-3 text-center">
               <div className="p-2 bg-gray-50 dark:bg-gray-800 rounded">
                 <div className="text-lg font-bold text-green-500">
-                  {ceoStatus.stats.approvalRate}%
+                  {ceoStatus.stats.approvalRate}
                 </div>
                 <div className="text-xs text-gray-500">Approval Rate</div>
               </div>
@@ -160,7 +209,7 @@ export function CEODashboard({ compact = false }: CEODashboardProps) {
             <StatCard
               icon={<CheckCircle className="text-green-500" />}
               label="Approval Rate"
-              value={`${ceoStatus.stats.approvalRate}%`}
+              value={ceoStatus.stats.approvalRate}
               trend={+2.3}
             />
             <StatCard
@@ -171,7 +220,7 @@ export function CEODashboard({ compact = false }: CEODashboardProps) {
             <StatCard
               icon={<AlertTriangle className="text-yellow-500" />}
               label="Override Rate"
-              value={`${ceoStatus.stats.overrideRate}%`}
+              value={ceoStatus.stats.overrideRate}
               trend={-1.5}
               trendGood="down"
             />
@@ -200,9 +249,9 @@ export function CEODashboard({ compact = false }: CEODashboardProps) {
         {models.length === 0 && (
           <div className="text-center py-8 text-gray-500">
             <Brain className="mx-auto mb-2 opacity-50" size={32} />
-            <p className="text-sm">No model candidates registered</p>
+            <p className="text-sm">No model candidates registered yet</p>
             <p className="text-xs mt-1">
-              CEOAgent contract may not be deployed
+              Nominate AI models to participate in CEO election
             </p>
           </div>
         )}
@@ -321,10 +370,25 @@ export function CEODashboard({ compact = false }: CEODashboardProps) {
           ))}
         </div>
 
-        <button type="button" className="btn-accent text-sm w-full mt-4">
-          + Nominate New Model
+        <button
+          type="button"
+          onClick={() => setShowNominateModal(true)}
+          className="btn-accent text-sm w-full mt-4 flex items-center justify-center gap-2"
+        >
+          <Plus size={16} />
+          Nominate New Model
         </button>
       </div>
+
+      {/* Nomination Modal */}
+      {showNominateModal && (
+        <NominateModelModal
+          onClose={() => setShowNominateModal(false)}
+          onNominate={handleNominate}
+          nominating={nominating}
+          existingModels={models.map((m) => m.modelId)}
+        />
+      )}
 
       {/* Recent Decisions */}
       <div className="card-static p-6">
@@ -439,6 +503,206 @@ const formatTimeAgo = (ts: number): string => {
   if (s < 3600) return `${Math.floor(s / 60)}m ago`
   if (s < 86400) return `${Math.floor(s / 3600)}h ago`
   return `${Math.floor(s / 86400)}d ago`
+}
+
+function NominateModelModal({
+  onClose,
+  onNominate,
+  nominating,
+  existingModels,
+}: {
+  onClose: () => void
+  onNominate: (request: NominateModelRequest) => void
+  nominating: boolean
+  existingModels: string[]
+}) {
+  const [selectedProvider, setSelectedProvider] = useState<string>('')
+  const [selectedModel, setSelectedModel] = useState<string>('')
+  const [customModel, setCustomModel] = useState('')
+  const [benchmarkScore, setBenchmarkScore] = useState(80)
+
+  const provider = INFERENCE_PROVIDERS.find((p) => p.id === selectedProvider)
+  const availableModels =
+    provider?.models.filter((m) => !existingModels.includes(m)) ?? []
+
+  const getModelName = (modelId: string) => {
+    const names: Record<string, string> = {
+      'claude-opus-4-5': 'Claude 4.5 Opus',
+      'claude-sonnet-4-5': 'Claude 4.5 Sonnet',
+      'gpt-5.2': 'GPT-5.2',
+      'gemini-1.5-pro': 'Gemini 1.5 Pro',
+      'gemini-1.5-flash': 'Gemini 1.5 Flash',
+      'gemini-2.0-flash': 'Gemini 2.0 Flash',
+      'llama-3.3-70b': 'Llama 3.3 70B',
+      'llama-3.2-90b': 'Llama 3.2 90B',
+      'mixtral-8x7b': 'Mixtral 8x7B',
+      'gemma-7b': 'Gemma 7B',
+      'qwen-72b': 'Qwen 72B',
+      'deepseek-v3': 'DeepSeek V3',
+      auto: 'Auto (Best Available)',
+    }
+    return names[modelId] ?? modelId
+  }
+
+  const handleSubmit = () => {
+    const modelId = selectedModel || customModel
+    if (!modelId || !selectedProvider) return
+
+    onNominate({
+      modelId,
+      modelName: getModelName(modelId),
+      provider: provider?.name ?? selectedProvider,
+      benchmarkScore,
+    })
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-gray-900 rounded-xl max-w-lg w-full shadow-2xl">
+        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800">
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            <Brain className="text-accent" size={20} />
+            Nominate AI Model
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="p-4 space-y-4">
+          {/* Provider Selection */}
+          <div>
+            <label
+              htmlFor="ceo-provider"
+              className="block text-sm font-medium mb-2"
+            >
+              Provider
+            </label>
+            <select
+              id="ceo-provider"
+              value={selectedProvider}
+              onChange={(e) => {
+                setSelectedProvider(e.target.value)
+                setSelectedModel('')
+              }}
+              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800"
+            >
+              <option value="">Select a provider...</option>
+              {INFERENCE_PROVIDERS.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Model Selection */}
+          {selectedProvider && (
+            <div>
+              <label
+                htmlFor="ceo-model"
+                className="block text-sm font-medium mb-2"
+              >
+                Model
+              </label>
+              <select
+                id="ceo-model"
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800"
+              >
+                <option value="">Select a model...</option>
+                {availableModels.map((m) => (
+                  <option key={m} value={m}>
+                    {getModelName(m)}
+                  </option>
+                ))}
+                <option value="custom">Custom Model ID...</option>
+              </select>
+            </div>
+          )}
+
+          {/* Custom Model Input */}
+          {selectedModel === 'custom' && (
+            <div>
+              <label
+                htmlFor="ceo-custom-model"
+                className="block text-sm font-medium mb-2"
+              >
+                Custom Model ID
+              </label>
+              <input
+                id="ceo-custom-model"
+                type="text"
+                value={customModel}
+                onChange={(e) => setCustomModel(e.target.value)}
+                placeholder="e.g., claude-3-5-sonnet-20241022"
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800"
+              />
+            </div>
+          )}
+
+          {/* Benchmark Score */}
+          <div>
+            <label
+              htmlFor="ceo-benchmark"
+              className="block text-sm font-medium mb-2"
+            >
+              Estimated Benchmark Score: {benchmarkScore}%
+            </label>
+            <input
+              id="ceo-benchmark"
+              type="range"
+              min="50"
+              max="100"
+              value={benchmarkScore}
+              onChange={(e) => setBenchmarkScore(parseInt(e.target.value, 10))}
+              className="w-full"
+            />
+            <div className="flex justify-between text-xs text-gray-500 mt-1">
+              <span>50%</span>
+              <span>100%</span>
+            </div>
+          </div>
+
+          {/* Info */}
+          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 text-sm">
+            <p className="text-blue-700 dark:text-blue-300">
+              Nominated models participate in the CEO election. Token holders
+              can stake on their preferred model. The model with the most stake
+              becomes the active CEO.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex gap-3 p-4 border-t border-gray-200 dark:border-gray-800">
+          <button
+            type="button"
+            onClick={onClose}
+            className="btn-secondary flex-1"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={
+              nominating ||
+              (!selectedModel && !customModel) ||
+              !selectedProvider
+            }
+            className="btn-primary flex-1 disabled:opacity-50"
+          >
+            {nominating ? 'Nominating...' : 'Nominate Model'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export default CEODashboard

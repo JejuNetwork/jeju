@@ -8,9 +8,9 @@
  * - DKIM signing for outbound
  */
 
-import { createHash, createSign } from 'node:crypto'
 import { createServer, type Server, type Socket } from 'node:net'
 import { createServer as createTLSServer, TLSSocket } from 'node:tls'
+import { createHash, signRSA } from '@jejunetwork/shared'
 import {
   type Address,
   createPublicClient,
@@ -822,7 +822,7 @@ export class SMTPServer {
    * Sign message with DKIM (DomainKeys Identified Mail)
    * Uses RSA-SHA256 signature algorithm with relaxed/relaxed canonicalization
    */
-  signDKIM(message: string): string {
+  async signDKIM(message: string): Promise<string> {
     if (!this.config.dkimPrivateKey || !this.config.dkimSelector) {
       console.warn('[SMTP] DKIM not configured - sending unsigned')
       return message
@@ -837,9 +837,10 @@ export class SMTPServer {
     const canonicalizedBody = this.canonicalizeBodyForDKIM(body)
 
     // Hash the body
-    const bodyHash = createHash('sha256')
+    const bodyHashBytes = createHash('sha256')
       .update(canonicalizedBody)
-      .digest('base64')
+      .digest()
+    const bodyHash = btoa(String.fromCharCode(...bodyHashBytes))
 
     // Headers to sign
     const headersToSign = [
@@ -879,15 +880,14 @@ export class SMTPServer {
     const dataToSign = `${canonicalizedHeaders}\r\n${dkimHeaderWithoutSig}`
 
     // Sign with RSA-SHA256
-    const sign = createSign('RSA-SHA256')
-    sign.update(dataToSign)
-
     let privateKey = this.config.dkimPrivateKey
     if (!privateKey.includes('-----BEGIN')) {
       privateKey = `-----BEGIN RSA PRIVATE KEY-----\n${privateKey}\n-----END RSA PRIVATE KEY-----`
     }
 
-    const signature = sign.sign(privateKey, 'base64')
+    const dataToSignBytes = new TextEncoder().encode(dataToSign)
+    const signatureBytes = await signRSA(dataToSignBytes, privateKey)
+    const signature = btoa(String.fromCharCode(...signatureBytes))
     dkimParams.b = signature
 
     // Build final DKIM-Signature header
