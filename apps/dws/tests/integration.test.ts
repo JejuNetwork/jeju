@@ -21,8 +21,8 @@ import {
 } from 'bun:test'
 import type { Address, Hex } from 'viem'
 import { createPublicClient, http } from 'viem'
-import { app } from '../api/server'
 import { SKIP } from './infra-check'
+import { getApp } from './setup'
 
 setDefaultTimeout(30000)
 
@@ -188,6 +188,7 @@ async function dwsRequest(
   if (E2E_MODE) {
     return fetch(request)
   }
+  const app = await getApp()
   return app.handle(request)
 }
 

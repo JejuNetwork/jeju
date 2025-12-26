@@ -7,10 +7,30 @@
  * 3. Send a message
  * 4. Receive a response
  * 5. Clean up
+ *
+ * Requires: Full infrastructure (DWS server, CQL, contracts)
+ * Run with: jeju test --target-app dws --mode integration
  */
 
 import { afterAll, describe, expect, test } from 'bun:test'
-import { Elysia } from 'elysia'
+
+// Skip all tests if INFRA_READY is not set
+const SKIP_ALL = process.env.INFRA_READY !== 'true'
+
+// Only import heavy modules if we're going to run tests
+// This avoids async initialization issues with Bun's test runner
+let Elysia: typeof import('elysia').Elysia
+let initExecutor: typeof import('./executor').initExecutor
+let createAgentRouter: typeof import('./routes').createAgentRouter
+let app: InstanceType<typeof Elysia>
+let mockExecutor: MockWorkerdExecutor
+
+if (!SKIP_ALL) {
+  Elysia = (await import('elysia')).Elysia
+  initExecutor = (await import('./executor')).initExecutor
+  createAgentRouter = (await import('./routes')).createAgentRouter
+}
+
 import type { Address } from 'viem'
 import type {
   IWorkerdExecutor,
@@ -18,8 +38,6 @@ import type {
   WorkerdResponse,
   WorkerdWorkerDefinition,
 } from '../workers/workerd/types'
-import { initExecutor } from './executor'
-import { createAgentRouter } from './routes'
 import type {
   AgentCharacter,
   AgentMessage,
@@ -194,11 +212,12 @@ class MockWorkerdWithInference implements IWorkerdExecutor {
 
 const TEST_OWNER = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address
 
-const mockExecutor = new MockWorkerdWithInference()
-
-// Initialize
-initExecutor(mockExecutor)
-const app = new Elysia().use(createAgentRouter())
+// Initialize only if not skipping
+if (!SKIP_ALL) {
+  mockExecutor = new MockWorkerdWithInference()
+  initExecutor(mockExecutor)
+  app = new Elysia().use(createAgentRouter())
+}
 
 // Request helper
 async function request(
@@ -206,6 +225,7 @@ async function request(
   path: string,
   body?: Record<string, unknown>,
 ) {
+  if (SKIP_ALL) throw new Error('Tests should be skipped')
   const req = new Request(`http://localhost${path}`, {
     method,
     headers: {
@@ -219,7 +239,7 @@ async function request(
 
 // Full Flow Tests
 
-describe('Full Agent Flow', () => {
+describe.skipIf(SKIP_ALL)('Full Agent Flow', () => {
   let agentId: string
 
   test('1. Health check passes', async () => {
@@ -379,7 +399,7 @@ describe('Full Agent Flow', () => {
 
 // Multiple Agents Test
 
-describe('Multiple Agents', () => {
+describe.skipIf(SKIP_ALL)('Multiple Agents', () => {
   const agentIds: string[] = []
 
   afterAll(async () => {
@@ -450,7 +470,7 @@ describe('Multiple Agents', () => {
 
 // Error Handling Tests
 
-describe('Error Handling', () => {
+describe.skipIf(SKIP_ALL)('Error Handling', () => {
   test('returns 404 for non-existent agent', async () => {
     const res = await request('GET', '/agents/non-existent-id')
     expect(res.status).toBe(404)

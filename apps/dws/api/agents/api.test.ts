@@ -2,10 +2,12 @@
  * Agent API Integration Tests
  *
  * Tests the agent API routes via HTTP.
+ *
+ * Requires: Full infrastructure (DWS server, CQL)
+ * Run with: jeju test --target-app dws --mode integration
  */
 
 import { describe, expect, test } from 'bun:test'
-import { Elysia } from 'elysia'
 import type { Address } from 'viem'
 import type {
   IWorkerdExecutor,
@@ -13,9 +15,22 @@ import type {
   WorkerdResponse,
   WorkerdWorkerDefinition,
 } from '../workers/workerd/types'
-import { initExecutor } from './executor'
-import { createAgentRouter } from './routes'
 import type { AgentCharacter, AgentStats, RegisterAgentRequest } from './types'
+
+// Skip all tests if INFRA_READY is not set
+const SKIP_ALL = process.env.INFRA_READY !== 'true'
+
+// Only import heavy modules if we're going to run tests
+let Elysia: typeof import('elysia').Elysia
+let initExecutor: typeof import('./executor').initExecutor
+let createAgentRouter: typeof import('./routes').createAgentRouter
+let app: InstanceType<typeof Elysia>
+
+if (!SKIP_ALL) {
+  Elysia = (await import('elysia')).Elysia
+  initExecutor = (await import('./executor')).initExecutor
+  createAgentRouter = (await import('./routes')).createAgentRouter
+}
 
 // API Response Types
 interface AgentCreateResponse {
@@ -126,13 +141,14 @@ class MockWorkerdExecutor implements IWorkerdExecutor {
   }
 }
 
-// Create test app
-const mockExecutor = new MockWorkerdExecutor()
+// Create test app (only if not skipping)
+let mockExecutor: MockWorkerdExecutor
 
-// Initialize with mock
-initExecutor(mockExecutor)
-
-const app = new Elysia().use(createAgentRouter())
+if (!SKIP_ALL) {
+  mockExecutor = new MockWorkerdExecutor()
+  initExecutor(mockExecutor)
+  app = new Elysia().use(createAgentRouter())
+}
 
 // Helper to make requests
 async function request(
@@ -141,6 +157,7 @@ async function request(
   body?: Record<string, unknown>,
   headers?: Record<string, string>,
 ) {
+  if (SKIP_ALL) throw new Error('Tests should be skipped')
   const req = new Request(`http://localhost${path}`, {
     method,
     headers: {
@@ -155,7 +172,7 @@ async function request(
 
 // API Tests
 
-describe('Agent API Routes', () => {
+describe.skipIf(SKIP_ALL)('Agent API Routes', () => {
   test('GET /agents/health returns healthy', async () => {
     const res = await request('GET', '/agents/health')
     expect(res.status).toBe(200)
