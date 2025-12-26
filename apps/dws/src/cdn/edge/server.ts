@@ -267,7 +267,7 @@ export class EdgeNodeServer {
 
   private async handleRequest(
     request: Request,
-    set: { status?: number | string; headers?: Record<string, string> },
+    set: { status?: number | string; headers?: Record<string, unknown> },
   ): Promise<Response> {
     const startTime = Date.now()
     const parsedRequest = this.parseRequest(request)

@@ -5,7 +5,7 @@
 
 import {
   BrokenCircuitError,
-  CircuitBreakerPolicy,
+  type CircuitBreakerPolicy,
   CircuitState as CockatielState,
   ConsecutiveBreaker,
   circuitBreaker,

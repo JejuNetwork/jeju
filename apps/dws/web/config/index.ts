@@ -25,10 +25,6 @@ export const RPC_URL = getRpcUrl(NETWORK)
 export const DWS_API_URL = getDWSUrl(NETWORK)
 export const OAUTH3_AGENT_URL = getOAuth3Url(NETWORK)
 
-// WalletConnect project ID - placeholder for local dev
-export const WALLETCONNECT_PROJECT_ID =
-  NETWORK === 'localnet' ? '' : 'YOUR_PROJECT_ID'
-
 // Contract addresses from config
 const contracts = getContractsConfig(NETWORK)
 

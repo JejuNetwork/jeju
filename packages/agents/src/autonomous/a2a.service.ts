@@ -115,7 +115,7 @@ export class AutonomousA2AService {
     // Get agents API base URL from config
     const network = getCurrentNetwork()
     const agentsConfig = getAgentsConfig(network)
-    
+
     this.cardGenerator = new AgentCardGenerator({
       baseUrl: agentsConfig.api,
       organization: 'Jeju Network',

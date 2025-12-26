@@ -1,13 +1,9 @@
 import { type ChildProcess, spawn } from 'node:child_process'
-import {
-  createCipheriv,
-  createDecipheriv,
-  createHash,
-  randomBytes,
-} from 'node:crypto'
+import { createCipheriv, createDecipheriv } from 'node:crypto'
 import * as dgram from 'node:dgram'
 import { EventEmitter } from 'node:events'
 import * as net from 'node:net'
+import { bytesToHex, createHash, randomBytes } from '@jejunetwork/shared'
 import { expectAddress, isPlainObject } from '@jejunetwork/types'
 import { Counter, Gauge, Histogram, Registry } from 'prom-client'
 import type { Address, Hex } from 'viem'
@@ -1577,7 +1573,7 @@ export class VPNExitService {
 
     const ZERO_HASH: Hex = `0x${'00'.repeat(32)}`
     const regionHash: Hex = this.config.regionCode
-      ? `0x${createHash('sha256').update(this.config.regionCode).digest('hex')}`
+      ? `0x${createHash('sha256').update(this.config.regionCode).digestHex()}`
       : ZERO_HASH
 
     const capabilities = {
@@ -2304,7 +2300,7 @@ export class VPNExitService {
     vpnClientsTotal.set(this.clients.size)
 
     const session: VPNSession = {
-      sessionId: randomBytes(16).toString('hex'),
+      sessionId: bytesToHex(randomBytes(16)),
       clientId,
       nodeId: this.client.walletClient?.account?.address ?? 'unknown',
       startTime: Date.now(),
@@ -2324,7 +2320,7 @@ export class VPNExitService {
     const publicKey = new Uint8Array(Buffer.from(publicKeyBase64, 'base64'))
     const clientId = createHash('sha256')
       .update(publicKey)
-      .digest('hex')
+      .digestHex()
       .slice(0, 16)
 
     const existingClient = this.clients.get(clientId)
@@ -2358,7 +2354,7 @@ export class VPNExitService {
     vpnClientsTotal.set(this.clients.size)
 
     const session: VPNSession = {
-      sessionId: randomBytes(16).toString('hex'),
+      sessionId: bytesToHex(randomBytes(16)),
       clientId,
       nodeId: this.client.walletClient?.account?.address ?? 'unknown',
       startTime: Date.now(),

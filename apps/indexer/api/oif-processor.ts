@@ -17,7 +17,7 @@ import {
   OIFSlashEvent,
   OIFSolver,
   OIFStats,
-} from './model'
+} from '../src/model'
 import { getChainId } from './network-config'
 import type { ProcessorContext } from './processor'
 import { createAccountFactory } from './utils/entities'

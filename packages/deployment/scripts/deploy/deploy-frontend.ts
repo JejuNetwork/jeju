@@ -328,7 +328,7 @@ async function updateJNS(
       ? base
       : config.network === 'testnet'
         ? baseSepolia
-        : { ...localhost, id: 9545 }
+        : { ...localhost, id: 31337 }
 
   const account = privateKeyToAccount(config.privateKey)
 
@@ -388,6 +388,7 @@ async function deploy(config: DeployConfig): Promise<DeployResult> {
 
   // Check for build directory (static files for IPFS/CDN)
   const possibleBuildDirs = [
+    'dist/web', // Web apps with separate frontend
     'dist/static', // Bun/Elysia apps (preferred)
     'dist',
     'build',

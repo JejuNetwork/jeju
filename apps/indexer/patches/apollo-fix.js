@@ -1,16 +1,19 @@
 #!/usr/bin/env node
 /**
- * Patches @subsquid/apollo-server-core to fix URL handling with Express 5 + node-fetch 3.x
+ * Patches for Express/Apollo compatibility with Bun
+ * 1. Apollo server URL handling
+ * 2. Send/mime symlink fixes for Bun's incorrect module resolution
  */
 
-import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, unlinkSync, symlinkSync, lstatSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = join(__dirname, '..', '..', '..');
 
-// Find the apollo-server-core dist file
+// --- Part 1: Apollo server patch ---
+
 const possiblePaths = [
   join(rootDir, 'node_modules', '@subsquid', 'apollo-server-core', 'dist', 'nodeHttpToRequest.js'),
   join(rootDir, 'node_modules', '.bun', '@subsquid+apollo-server-core@3.14.0+6316f085bf5f4404', 'node_modules', '@subsquid', 'apollo-server-core', 'dist', 'nodeHttpToRequest.js'),
@@ -25,39 +28,76 @@ for (const p of possiblePaths) {
 }
 
 if (!filePath) {
-  // Try glob pattern
-  const { execSync } = await import('child_process');
-  const result = execSync('find node_modules -path "*/@subsquid/apollo-server-core/dist/nodeHttpToRequest.js" 2>/dev/null | head -1', {
-    cwd: rootDir,
-    encoding: 'utf-8'
-  }).trim();
-  
-  if (result) {
-    filePath = join(rootDir, result);
-  }
+  try {
+    const { execSync } = await import('child_process');
+    const result = execSync('find node_modules -path "*/@subsquid/apollo-server-core/dist/nodeHttpToRequest.js" 2>/dev/null | head -1', {
+      cwd: rootDir,
+      encoding: 'utf-8'
+    }).trim();
+    if (result) filePath = join(rootDir, result);
+  } catch {}
 }
 
-if (!filePath || !existsSync(filePath)) {
-  console.log('⚠️  Could not find nodeHttpToRequest.js to patch');
-  process.exit(0);
-}
-
-const original = readFileSync(filePath, 'utf-8');
-
-// Check if already patched
-if (original.includes('// PATCHED for Express 5')) {
-  console.log('✓ Apollo server already patched');
-  process.exit(0);
-}
-
-const patched = original.replace(
-  'return new apollo_server_env_1.Request(req.url, {',
-  `// PATCHED for Express 5 + node-fetch 3.x compatibility
+if (filePath && existsSync(filePath)) {
+  const original = readFileSync(filePath, 'utf-8');
+  if (!original.includes('// PATCHED for Express 5')) {
+    const patched = original.replace(
+      'return new apollo_server_env_1.Request(req.url, {',
+      `// PATCHED for Express 5 + node-fetch 3.x compatibility
     const protocol = req.protocol || 'http';
     const host = req.headers.host || 'localhost';
     const fullUrl = protocol + '://' + host + req.url;
     return new apollo_server_env_1.Request(fullUrl, {`
-);
+    );
+    writeFileSync(filePath, patched);
+    console.log('✓ Patched Apollo server for Express 5 compatibility');
+  } else {
+    console.log('✓ Apollo server already patched');
+  }
+} else {
+  console.log('⚠️  Could not find nodeHttpToRequest.js to patch');
+}
 
-writeFileSync(filePath, patched);
-console.log('✓ Patched Apollo server for Express 5 compatibility');
+// --- Part 2: Fix Bun's incorrect send/mime symlinks ---
+// Express/serve-static need send@0.19.0 which exports .mime with .lookup()
+// But Bun incorrectly links to send@1.2.1 which doesn't exist after override
+
+const bunDir = join(rootDir, 'node_modules', '.bun');
+const sendTarget = '../../send@0.19.0/node_modules/send';
+const mimeTarget = '../../mime@1.6.0/node_modules/mime';
+
+let fixedCount = 0;
+
+// Fix send symlinks in express and serve-static
+for (const pkg of ['express@4.21.2', 'serve-static@1.16.2', 'serve-static@1.16.3']) {
+  const sendPath = join(bunDir, pkg, 'node_modules', 'send');
+  if (existsSync(join(bunDir, pkg))) {
+    try {
+      const stat = lstatSync(sendPath);
+      if (stat.isSymbolicLink()) {
+        unlinkSync(sendPath);
+        symlinkSync(sendTarget, sendPath);
+        fixedCount++;
+      }
+    } catch {}
+  }
+}
+
+// Fix mime symlink in send@0.19.0
+const sendMimePath = join(bunDir, 'send@0.19.0', 'node_modules', 'mime');
+if (existsSync(join(bunDir, 'send@0.19.0'))) {
+  try {
+    const stat = lstatSync(sendMimePath);
+    if (stat.isSymbolicLink()) {
+      unlinkSync(sendMimePath);
+      symlinkSync(mimeTarget, sendMimePath);
+      fixedCount++;
+    }
+  } catch {}
+}
+
+if (fixedCount > 0) {
+  console.log(`✓ Fixed ${fixedCount} send/mime symlinks for Express compatibility`);
+} else {
+  console.log('✓ Send/mime symlinks OK');
+}

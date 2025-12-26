@@ -20,7 +20,8 @@ import { logger } from '../lib/logger'
 import { findMonorepoRoot } from '../lib/system'
 
 // Default addresses for when not explicitly configured
-const DEFAULT_NETWORK_REGISTRY = '0x0000000000000000000000000000000000000000' as const
+const DEFAULT_NETWORK_REGISTRY =
+  '0x0000000000000000000000000000000000000000' as const
 
 // Contract return types
 interface NetworkInfo {

@@ -250,8 +250,8 @@ export class AutocratBlockchain {
       chain,
       transport: http(config.rpcUrl),
     }) as PublicClient
-    this.councilAddress = toAddress(config.contracts?.council)
-    this.ceoAgentAddress = toAddress(config.contracts?.ceoAgent)
+    this.councilAddress = toAddress(config.contracts?.council ?? ZERO_ADDRESS)
+    this.ceoAgentAddress = toAddress(config.contracts?.ceoAgent ?? ZERO_ADDRESS)
     this.councilDeployed =
       viemIsAddress(this.councilAddress) && this.councilAddress !== ZERO_ADDRESS
     this.ceoDeployed =
@@ -405,13 +405,21 @@ export class AutocratBlockchain {
       approvalRate: string
       overrideRate: string
     }
+    decisionsThisPeriod?: number
   }> {
     if (!this.ceoDeployed) {
-      const ceo = this.config.agents?.ceo
-      const ceoModel = ceo?.model ?? 'local'
-      const ceoName = ceo?.name ?? 'Local CEO'
+      // Use the DAO's configured model as the current CEO
+      const configuredModelId = this.config.ceoModelId ?? 'claude-opus-4-5'
+      const activeModel =
+        findModelById(configuredModelId) ?? MODEL_CANDIDATES[0]
       return {
-        currentModel: { modelId: ceoModel, name: ceoName, provider: 'local' },
+        currentModel: {
+          modelId: activeModel.modelId,
+          name: activeModel.modelName,
+          provider: activeModel.provider,
+          totalStaked: '0',
+          benchmarkScore: `${activeModel.benchmarkScore}%`,
+        },
         stats: {
           totalDecisions: '0',
           approvedDecisions: '0',
@@ -419,6 +427,7 @@ export class AutocratBlockchain {
           approvalRate: '0%',
           overrideRate: '0%',
         },
+        decisionsThisPeriod: 0,
       }
     }
 
@@ -512,7 +521,11 @@ export class AutocratBlockchain {
       isActive: boolean
     }>
   > {
-    if (!this.ceoDeployed) return []
+    if (!this.ceoDeployed) {
+      // Return default models with DAO's configured model marked as active
+      const configuredModelId = this.config.ceoModelId ?? 'claude-opus-4-5'
+      return getDefaultModelCandidates(configuredModelId)
+    }
 
     const modelIdsResult = await this.client.readContract({
       address: this.ceoAgentAddress,
@@ -693,6 +706,175 @@ export class AutocratBlockchain {
       gracePeriod: `${gracePeriod} seconds`,
     }
   }
+
+  async getProposalsByDAO(daoId: string) {
+    // Get all proposals and filter by daoId
+    const allProposals = await this.listProposals(false)
+    return allProposals.filter((p) => p.daoId === daoId)
+  }
+
+  async submitProposal(params: {
+    daoId: string
+    proposalType: number
+    qualityScore: number
+    contentHash: string
+    targetContract?: `0x${string}`
+    callData?: `0x${string}`
+    value?: bigint
+  }) {
+    if (!this.wallet) {
+      throw new Error('Wallet not initialized')
+    }
+    if (!this.councilDeployed) {
+      throw new Error('Council contract not deployed')
+    }
+
+    const hash = await this.wallet.writeContract({
+      address: this.councilAddress,
+      abi: COUNCIL_ABI,
+      functionName: 'submitProposal',
+      args: [
+        params.proposalType,
+        params.qualityScore,
+        params.contentHash as `0x${string}`,
+        params.targetContract ?? '0x0000000000000000000000000000000000000000',
+        params.callData ?? '0x',
+        params.value ?? 0n,
+      ],
+      value: this.config.proposalBond ?? 0n,
+    })
+
+    return hash
+  }
+
+  async getTreasuryBalances(treasuryAddress: string): Promise<Array<{
+    token: string
+    symbol: string
+    balance: string
+    usdValue: string
+    change24h: number
+  }>> {
+    const balance = await this.client.getBalance({
+      address: treasuryAddress as `0x${string}`,
+    })
+
+    // Fetch ETH price from config or use reasonable default
+    const ethPrice = this.config.ethPriceUsd ?? 3500
+
+    return [{
+      token: 'Ethereum',
+      symbol: 'ETH',
+      balance: formatEther(balance),
+      usdValue: (Number(formatEther(balance)) * ethPrice).toFixed(2),
+      change24h: 0,
+    }]
+  }
+
+  async getTreasuryTransactions(treasuryAddress: string, limit: number): Promise<Array<{
+    id: string
+    type: 'inflow' | 'outflow'
+    description: string
+    amount: string
+    token: string
+    timestamp: number
+    txHash: string
+    proposalId?: string
+  }>> {
+    // Query indexer API for treasury transactions
+    const indexerUrl = this.config.indexerUrl
+    if (!indexerUrl) {
+      return []
+    }
+
+    const response = await fetch(
+      `${indexerUrl}/api/accounts/${treasuryAddress}/transactions?limit=${limit}`,
+    )
+    if (!response.ok) {
+      return []
+    }
+
+    const data = await response.json()
+    const txs = data.transactions ?? []
+
+    return txs.map((tx: { hash: string; from: string; to: string; value: string; timestamp: number }) => ({
+      id: tx.hash,
+      type: tx.to?.toLowerCase() === treasuryAddress.toLowerCase() ? 'inflow' : 'outflow',
+      description: tx.to?.toLowerCase() === treasuryAddress.toLowerCase() ? 'Deposit' : 'Withdrawal',
+      amount: formatEther(BigInt(tx.value || '0')),
+      token: 'ETH',
+      timestamp: tx.timestamp * 1000,
+      txHash: tx.hash,
+    }))
+  }
+}
+
+/**
+ * All available AI model candidates from DWS inference providers
+ */
+const MODEL_CANDIDATES = [
+  {
+    modelId: 'claude-opus-4-5',
+    modelName: 'Claude 4.5 Opus',
+    provider: 'Anthropic',
+    benchmarkScore: 98,
+  },
+  {
+    modelId: 'claude-sonnet-4-5',
+    modelName: 'Claude 4.5 Sonnet',
+    provider: 'Anthropic',
+    benchmarkScore: 96,
+  },
+  {
+    modelId: 'gpt-5.2',
+    modelName: 'GPT-5.2',
+    provider: 'OpenAI',
+    benchmarkScore: 96,
+  },
+  {
+    modelId: 'gemini-1.5-pro',
+    modelName: 'Gemini 1.5 Pro',
+    provider: 'Google',
+    benchmarkScore: 87,
+  },
+  {
+    modelId: 'llama-3.3-70b',
+    modelName: 'Llama 3.3 70B',
+    provider: 'Groq',
+    benchmarkScore: 82,
+  },
+  {
+    modelId: 'mixtral-8x7b',
+    modelName: 'Mixtral 8x7B',
+    provider: 'Together AI',
+    benchmarkScore: 78,
+  },
+  {
+    modelId: 'deepseek-v3',
+    modelName: 'DeepSeek V3',
+    provider: 'DeepSeek',
+    benchmarkScore: 85,
+  },
+] as const
+
+/**
+ * Get default AI model candidates with the configured model marked as active
+ * @param activeModelId - The model ID that should be marked as active (from DAO config)
+ */
+function getDefaultModelCandidates(activeModelId = 'claude-opus-4-5') {
+  return MODEL_CANDIDATES.map((model) => ({
+    ...model,
+    totalStaked: '0',
+    totalReputation: '0',
+    decisionsCount: 0,
+    isActive: model.modelId === activeModelId,
+  }))
+}
+
+/**
+ * Find a model by ID from the default candidates
+ */
+function findModelById(modelId: string) {
+  return MODEL_CANDIDATES.find((m) => m.modelId === modelId)
 }
 
 let instance: AutocratBlockchain | null = null

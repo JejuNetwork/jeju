@@ -21,7 +21,9 @@ const CastReactionBodySchema = t.Object({
 
 const FeedTypeQuerySchema = t.Object({
   channel: t.Optional(t.String()),
-  feedType: t.Optional(t.Union([t.Literal('channel'), t.Literal('trending'), t.Literal('user')])),
+  feedType: t.Optional(
+    t.Union([t.Literal('channel'), t.Literal('trending'), t.Literal('user')]),
+  ),
   fid: t.Optional(t.String()),
   cursor: t.Optional(t.String()),
   limit: t.Optional(t.String()),
@@ -37,10 +39,12 @@ const PaginationQuerySchema = t.Object({
 // ============================================================================
 
 /** Extract viewer FID from authorization header */
-function getViewerFid(headers: Record<string, string | undefined>): number | undefined {
+function getViewerFid(
+  headers: Record<string, string | undefined>,
+): number | undefined {
   const authHeader = headers.authorization
   if (!authHeader?.startsWith('Bearer ')) return undefined
-  
+
   const address = authHeader.slice(7) as Address
   const link = farcasterService.getLinkedFid(address)
   return link?.fid
@@ -55,7 +59,9 @@ function getPagination(query: { cursor?: string; limit?: string }) {
 }
 
 /** Require wallet address from headers, throw 401 if missing */
-function requireWalletAddress(headers: Record<string, string | null>): Address {
+function requireWalletAddress(
+  headers: Record<string, string | undefined>,
+): Address {
   const address = headers['x-wallet-address'] as Address | undefined
   if (!address) {
     throw new Error('UNAUTHORIZED')
@@ -85,14 +91,26 @@ export const feedRoutes = new Elysia({ prefix: '/api/feed' })
       }
 
       if (feedType === 'user' && query.fid) {
-        return farcasterService.getUserFeed(parseInt(query.fid, 10), { limit, cursor, viewerFid })
+        return farcasterService.getUserFeed(parseInt(query.fid, 10), {
+          limit,
+          cursor,
+          viewerFid,
+        })
       }
 
-      return farcasterService.getChannelFeed(channel, { limit, cursor, viewerFid })
+      return farcasterService.getChannelFeed(channel, {
+        limit,
+        cursor,
+        viewerFid,
+      })
     },
     {
       query: FeedTypeQuerySchema,
-      detail: { tags: ['feed'], summary: 'Get feed', description: 'Get Farcaster feed (channel, trending, or user)' },
+      detail: {
+        tags: ['feed'],
+        summary: 'Get feed',
+        description: 'Get Farcaster feed (channel, trending, or user)',
+      },
     },
   )
 
@@ -109,7 +127,11 @@ export const feedRoutes = new Elysia({ prefix: '/api/feed' })
     },
     {
       query: PaginationQuerySchema,
-      detail: { tags: ['feed'], summary: 'Get channel feed', description: 'Get casts from a specific Farcaster channel' },
+      detail: {
+        tags: ['feed'],
+        summary: 'Get channel feed',
+        description: 'Get casts from a specific Farcaster channel',
+      },
     },
   )
 
@@ -126,7 +148,11 @@ export const feedRoutes = new Elysia({ prefix: '/api/feed' })
     },
     {
       query: PaginationQuerySchema,
-      detail: { tags: ['feed'], summary: 'Get user feed', description: 'Get casts from a specific user' },
+      detail: {
+        tags: ['feed'],
+        summary: 'Get user feed',
+        description: 'Get casts from a specific user',
+      },
     },
   )
 
@@ -139,12 +165,19 @@ export const feedRoutes = new Elysia({ prefix: '/api/feed' })
         address = requireWalletAddress(headers)
       } catch {
         set.status = 401
-        return { error: { code: 'UNAUTHORIZED', message: 'Wallet address required' } }
+        return {
+          error: { code: 'UNAUTHORIZED', message: 'Wallet address required' },
+        }
       }
 
       if (!farcasterService.isFarcasterConnected(address)) {
         set.status = 401
-        return { error: { code: 'NOT_CONNECTED', message: 'Please connect your Farcaster account first' } }
+        return {
+          error: {
+            code: 'NOT_CONNECTED',
+            message: 'Please connect your Farcaster account first',
+          },
+        }
       }
 
       const validated = expectValid(CreateCastBodySchema, body, 'request body')
@@ -157,10 +190,21 @@ export const feedRoutes = new Elysia({ prefix: '/api/feed' })
       set.status = 201
       return {
         success: true,
-        cast: { hash: cast.hash, fid: cast.fid, text: cast.text, timestamp: cast.timestamp },
+        cast: {
+          hash: cast.hash,
+          fid: cast.fid,
+          text: cast.text,
+          timestamp: cast.timestamp,
+        },
       }
     },
-    { detail: { tags: ['feed'], summary: 'Publish cast', description: 'Publish a new cast to Farcaster' } },
+    {
+      detail: {
+        tags: ['feed'],
+        summary: 'Publish cast',
+        description: 'Publish a new cast to Farcaster',
+      },
+    },
   )
 
   // Delete a cast
@@ -172,13 +216,21 @@ export const feedRoutes = new Elysia({ prefix: '/api/feed' })
         address = requireWalletAddress(headers)
       } catch {
         set.status = 401
-        return { error: { code: 'UNAUTHORIZED', message: 'Wallet address required' } }
+        return {
+          error: { code: 'UNAUTHORIZED', message: 'Wallet address required' },
+        }
       }
 
       await farcasterService.deleteCast(address, params.castHash as Hex)
       return { success: true }
     },
-    { detail: { tags: ['feed'], summary: 'Delete cast', description: 'Delete a cast you authored' } },
+    {
+      detail: {
+        tags: ['feed'],
+        summary: 'Delete cast',
+        description: 'Delete a cast you authored',
+      },
+    },
   )
 
   // Like a cast
@@ -190,15 +242,24 @@ export const feedRoutes = new Elysia({ prefix: '/api/feed' })
         address = requireWalletAddress(headers)
       } catch {
         set.status = 401
-        return { error: { code: 'UNAUTHORIZED', message: 'Wallet address required' } }
+        return {
+          error: { code: 'UNAUTHORIZED', message: 'Wallet address required' },
+        }
       }
 
-      await farcasterService.likeCast(address, { fid: body.castFid, hash: body.castHash as Hex })
+      await farcasterService.likeCast(address, {
+        fid: body.castFid,
+        hash: body.castHash as Hex,
+      })
       return { success: true }
     },
     {
       body: CastReactionBodySchema,
-      detail: { tags: ['feed'], summary: 'Like cast', description: 'Like a cast' },
+      detail: {
+        tags: ['feed'],
+        summary: 'Like cast',
+        description: 'Like a cast',
+      },
     },
   )
 
@@ -211,15 +272,24 @@ export const feedRoutes = new Elysia({ prefix: '/api/feed' })
         address = requireWalletAddress(headers)
       } catch {
         set.status = 401
-        return { error: { code: 'UNAUTHORIZED', message: 'Wallet address required' } }
+        return {
+          error: { code: 'UNAUTHORIZED', message: 'Wallet address required' },
+        }
       }
 
-      await farcasterService.unlikeCast(address, { fid: body.castFid, hash: body.castHash as Hex })
+      await farcasterService.unlikeCast(address, {
+        fid: body.castFid,
+        hash: body.castHash as Hex,
+      })
       return { success: true }
     },
     {
       body: CastReactionBodySchema,
-      detail: { tags: ['feed'], summary: 'Unlike cast', description: 'Remove like from a cast' },
+      detail: {
+        tags: ['feed'],
+        summary: 'Unlike cast',
+        description: 'Remove like from a cast',
+      },
     },
   )
 
@@ -232,15 +302,24 @@ export const feedRoutes = new Elysia({ prefix: '/api/feed' })
         address = requireWalletAddress(headers)
       } catch {
         set.status = 401
-        return { error: { code: 'UNAUTHORIZED', message: 'Wallet address required' } }
+        return {
+          error: { code: 'UNAUTHORIZED', message: 'Wallet address required' },
+        }
       }
 
-      await farcasterService.recastCast(address, { fid: body.castFid, hash: body.castHash as Hex })
+      await farcasterService.recastCast(address, {
+        fid: body.castFid,
+        hash: body.castHash as Hex,
+      })
       return { success: true }
     },
     {
       body: CastReactionBodySchema,
-      detail: { tags: ['feed'], summary: 'Recast', description: 'Recast a cast' },
+      detail: {
+        tags: ['feed'],
+        summary: 'Recast',
+        description: 'Recast a cast',
+      },
     },
   )
 
@@ -253,15 +332,24 @@ export const feedRoutes = new Elysia({ prefix: '/api/feed' })
         address = requireWalletAddress(headers)
       } catch {
         set.status = 401
-        return { error: { code: 'UNAUTHORIZED', message: 'Wallet address required' } }
+        return {
+          error: { code: 'UNAUTHORIZED', message: 'Wallet address required' },
+        }
       }
 
-      await farcasterService.unrecastCast(address, { fid: body.castFid, hash: body.castHash as Hex })
+      await farcasterService.unrecastCast(address, {
+        fid: body.castFid,
+        hash: body.castHash as Hex,
+      })
       return { success: true }
     },
     {
       body: CastReactionBodySchema,
-      detail: { tags: ['feed'], summary: 'Remove recast', description: 'Remove recast from a cast' },
+      detail: {
+        tags: ['feed'],
+        summary: 'Remove recast',
+        description: 'Remove recast from a cast',
+      },
     },
   )
 
@@ -275,7 +363,13 @@ export const feedRoutes = new Elysia({ prefix: '/api/feed' })
       }
       return { user }
     },
-    { detail: { tags: ['feed'], summary: 'Get user profile', description: 'Get Farcaster user profile by FID' } },
+    {
+      detail: {
+        tags: ['feed'],
+        summary: 'Get user profile',
+        description: 'Get Farcaster user profile by FID',
+      },
+    },
   )
 
   // Follow a user
@@ -287,13 +381,21 @@ export const feedRoutes = new Elysia({ prefix: '/api/feed' })
         address = requireWalletAddress(headers)
       } catch {
         set.status = 401
-        return { error: { code: 'UNAUTHORIZED', message: 'Wallet address required' } }
+        return {
+          error: { code: 'UNAUTHORIZED', message: 'Wallet address required' },
+        }
       }
 
       await farcasterService.followUser(address, parseInt(params.fid, 10))
       return { success: true }
     },
-    { detail: { tags: ['feed'], summary: 'Follow user', description: 'Follow a Farcaster user' } },
+    {
+      detail: {
+        tags: ['feed'],
+        summary: 'Follow user',
+        description: 'Follow a Farcaster user',
+      },
+    },
   )
 
   // Unfollow a user
@@ -305,13 +407,21 @@ export const feedRoutes = new Elysia({ prefix: '/api/feed' })
         address = requireWalletAddress(headers)
       } catch {
         set.status = 401
-        return { error: { code: 'UNAUTHORIZED', message: 'Wallet address required' } }
+        return {
+          error: { code: 'UNAUTHORIZED', message: 'Wallet address required' },
+        }
       }
 
       await farcasterService.unfollowUser(address, parseInt(params.fid, 10))
       return { success: true }
     },
-    { detail: { tags: ['feed'], summary: 'Unfollow user', description: 'Unfollow a Farcaster user' } },
+    {
+      detail: {
+        tags: ['feed'],
+        summary: 'Unfollow user',
+        description: 'Unfollow a Farcaster user',
+      },
+    },
   )
 
   // Check if Neynar is configured
@@ -321,7 +431,11 @@ export const feedRoutes = new Elysia({ prefix: '/api/feed' })
       neynarConfigured: farcasterService.isNeynarConfigured(),
       factoryChannelId: farcasterService.getFactoryChannelId(),
     }),
-    { detail: { tags: ['feed'], summary: 'Feed status', description: 'Get feed service status' } },
-  )
-
+    {
+      detail: {
+        tags: ['feed'],
+        summary: 'Feed status',
+        description: 'Get feed service status',
+      },
+    },
   )

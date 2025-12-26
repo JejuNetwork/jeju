@@ -5,8 +5,8 @@
  */
 
 import type { Address } from 'viem'
-import { z } from 'zod'
 import { isAddress } from 'viem'
+import { z } from 'zod'
 
 const AddressSchema = z.custom<Address>(
   (val): val is Address => typeof val === 'string' && isAddress(val),

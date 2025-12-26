@@ -8,7 +8,7 @@
       "build": {
         "description": "Build the squid project",
         "deps": ["clean"],
-        "cmd": ["tsc"]
+        "cmd": ["bash", "-c", "tsc && cp -r lib/src/model lib/model"]
       },
       "up": {
         "description": "Start a PG database",
@@ -47,18 +47,18 @@
       "process": {
         "description": "Load .env and start the squid processor",
         "deps": ["build", "migration:apply"],
-        "cmd": ["bun", "lib/main.js"]
+        "cmd": ["bun", "lib/api/main.js"]
       },
       "process:prod": {
         "description": "Start the squid processor",
         "deps": ["migration:apply"],
-        "cmd": ["bun", "lib/main.js"],
+        "cmd": ["bun", "lib/api/main.js"],
         "hidden": true
       },
       "process:dev": {
         "description": "Start the squid processor (dev mode, builds first)",
         "deps": ["build"],
-        "cmd": ["bun", "lib/main.js"]
+        "cmd": ["bun", "lib/api/main.js"]
       },
       "serve": {
         "description": "Start the GraphQL API server",

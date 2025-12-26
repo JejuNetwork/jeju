@@ -225,7 +225,7 @@ describe('Inference E2E', () => {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              model: 'gpt-4o-mini',
+              model: 'gpt-5.2',
               messages: [
                 {
                   role: 'user',
@@ -284,7 +284,7 @@ describe('Inference E2E', () => {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              model: 'claude-3-5-haiku-latest',
+              model: 'claude-sonnet-4-5',
               messages: [
                 {
                   role: 'user',

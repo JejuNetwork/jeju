@@ -4,7 +4,7 @@
  * Tests the core cryptographic primitives for FROST
  */
 
-import { describe, test, expect, beforeEach } from 'bun:test'
+import { beforeEach, describe, expect, test } from 'bun:test'
 import { keccak256, toBytes } from 'viem'
 import {
   aggregateSignatures,
@@ -12,13 +12,13 @@ import {
   computeChallenge,
   computeGroupCommitment,
   FROSTCoordinator,
+  type FROSTKeyShare,
+  type FROSTSignatureShare,
   generateKeyShares,
   generateSignatureShare,
   generateSigningCommitment,
   publicKeyToAddress,
   randomScalar,
-  type FROSTKeyShare,
-  type FROSTSignatureShare,
 } from './frost-signing'
 
 describe('FROST Signing Primitives', () => {
@@ -147,8 +147,16 @@ describe('FROST Signing Primitives', () => {
       const commitments = shares.map((s) => generateSigningCommitment(s))
       const message = toBytes(keccak256(toBytes('binding test')))
 
-      const factor1 = computeBindingFactor(message, commitments, shares[0].index)
-      const factor2 = computeBindingFactor(message, commitments, shares[1].index)
+      const factor1 = computeBindingFactor(
+        message,
+        commitments,
+        shares[0].index,
+      )
+      const factor2 = computeBindingFactor(
+        message,
+        commitments,
+        shares[1].index,
+      )
 
       expect(factor1).not.toBe(factor2)
     })
@@ -158,8 +166,16 @@ describe('FROST Signing Primitives', () => {
       const commitments = shares.map((s) => generateSigningCommitment(s))
       const message = toBytes(keccak256(toBytes('deterministic test')))
 
-      const factor1 = computeBindingFactor(message, commitments, shares[0].index)
-      const factor2 = computeBindingFactor(message, commitments, shares[0].index)
+      const factor1 = computeBindingFactor(
+        message,
+        commitments,
+        shares[0].index,
+      )
+      const factor2 = computeBindingFactor(
+        message,
+        commitments,
+        shares[0].index,
+      )
 
       expect(factor1).toBe(factor2)
     })
@@ -174,10 +190,16 @@ describe('FROST Signing Primitives', () => {
       // First compute binding factors
       const bindingFactors = new Map<number, bigint>()
       for (const c of commitments) {
-        bindingFactors.set(c.index, computeBindingFactor(message, commitments, c.index))
+        bindingFactors.set(
+          c.index,
+          computeBindingFactor(message, commitments, c.index),
+        )
       }
 
-      const groupCommitment = computeGroupCommitment(commitments, bindingFactors)
+      const groupCommitment = computeGroupCommitment(
+        commitments,
+        bindingFactors,
+      )
 
       expect(groupCommitment).toBeDefined()
       // Should be an elliptic curve point
@@ -194,8 +216,14 @@ describe('FROST Signing Primitives', () => {
       const bindingFactors1 = new Map<number, bigint>()
       const bindingFactors2 = new Map<number, bigint>()
       for (const c of commitments) {
-        bindingFactors1.set(c.index, computeBindingFactor(msg1, commitments, c.index))
-        bindingFactors2.set(c.index, computeBindingFactor(msg2, commitments, c.index))
+        bindingFactors1.set(
+          c.index,
+          computeBindingFactor(msg1, commitments, c.index),
+        )
+        bindingFactors2.set(
+          c.index,
+          computeBindingFactor(msg2, commitments, c.index),
+        )
       }
 
       const gc1 = computeGroupCommitment(commitments, bindingFactors1)
@@ -213,9 +241,15 @@ describe('FROST Signing Primitives', () => {
 
       const bindingFactors = new Map<number, bigint>()
       for (const c of commitments) {
-        bindingFactors.set(c.index, computeBindingFactor(message, commitments, c.index))
+        bindingFactors.set(
+          c.index,
+          computeBindingFactor(message, commitments, c.index),
+        )
       }
-      const groupCommitment = computeGroupCommitment(commitments, bindingFactors)
+      const groupCommitment = computeGroupCommitment(
+        commitments,
+        bindingFactors,
+      )
 
       const challenge = computeChallenge(
         groupCommitment,
@@ -234,9 +268,15 @@ describe('FROST Signing Primitives', () => {
 
       const bindingFactors = new Map<number, bigint>()
       for (const c of commitments) {
-        bindingFactors.set(c.index, computeBindingFactor(message, commitments, c.index))
+        bindingFactors.set(
+          c.index,
+          computeBindingFactor(message, commitments, c.index),
+        )
       }
-      const groupCommitment = computeGroupCommitment(commitments, bindingFactors)
+      const groupCommitment = computeGroupCommitment(
+        commitments,
+        bindingFactors,
+      )
 
       const challenge1 = computeChallenge(
         groupCommitment,
@@ -496,7 +536,9 @@ describe('FROST Signing Primitives', () => {
 
       // Commitments should be different each time (due to random nonces)
       for (let i = 0; i < shares.length; i++) {
-        expect(commitments1[i].hidingNonce).not.toBe(commitments2[i].hidingNonce)
+        expect(commitments1[i].hidingNonce).not.toBe(
+          commitments2[i].hidingNonce,
+        )
         expect(commitments1[i].bindingNonce).not.toBe(
           commitments2[i].bindingNonce,
         )
@@ -526,4 +568,3 @@ describe('FROST Signing Primitives', () => {
     })
   })
 })
-

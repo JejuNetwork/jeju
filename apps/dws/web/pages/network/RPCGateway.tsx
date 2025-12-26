@@ -1,3 +1,4 @@
+import { getRpcGatewayUrl } from '@jejunetwork/config'
 import {
   Activity,
   Check,
@@ -11,6 +12,8 @@ import {
 import { useState } from 'react'
 import { useAccount } from 'wagmi'
 import { useCreateRPCKey, useRPCChains } from '../../hooks'
+
+const RPC_GATEWAY_URL = getRpcGatewayUrl()
 
 export default function RPCGatewayPage() {
   const { isConnected } = useAccount()
@@ -142,13 +145,13 @@ export default function RPCGatewayPage() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <code style={{ flex: 1, fontSize: '0.9rem' }}>
-              https://rpc.jejunetwork.org/v1/rpc/{'{chainId}'}
+              {RPC_GATEWAY_URL}/v1/rpc/{'{chainId}'}
             </code>
             <button
               type="button"
               className="btn btn-ghost btn-sm"
               onClick={() =>
-                handleCopy('https://rpc.jejunetwork.org/v1/rpc/', 'base')
+                handleCopy(`${RPC_GATEWAY_URL}/v1/rpc/`, 'base')
               }
             >
               {copied === 'base' ? <Check size={14} /> : <Copy size={14} />}
@@ -241,7 +244,7 @@ export default function RPCGatewayPage() {
                           style={{ padding: '0.25rem' }}
                           onClick={() =>
                             handleCopy(
-                              `https://rpc.jejunetwork.org/v1/rpc/${chain.chainId}`,
+                              `${RPC_GATEWAY_URL}/v1/rpc/${chain.chainId}`,
                               `chain-${chain.chainId}`,
                             )
                           }

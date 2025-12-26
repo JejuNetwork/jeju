@@ -6,7 +6,7 @@ import {
   createSynpressConfig,
   createWalletSetup,
   PASSWORD,
-} from '@jejunetwork/tests'
+} from '@jejunetwork/tests/playwright-only'
 
 const FACTORY_PORT = parseInt(process.env.PORT || '4009', 10)
 

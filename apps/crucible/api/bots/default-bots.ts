@@ -28,21 +28,12 @@ export interface TradingBotOptions {
   contractAddresses?: Record<string, Address>
 }
 
-// Helper to safely get external RPC with fallback
-function safeGetExternalRpc(chain: string, fallback: string): string {
-  try {
-    return getExternalRpc(chain)
-  } catch {
-    return fallback
-  }
-}
-
 // Default chain configurations - uses centralized config
 export const DEFAULT_CHAINS: Record<string, TradingBotChain> = {
   mainnet: {
     chainId: 1,
     name: 'Ethereum',
-    rpcUrl: safeGetExternalRpc('ethereum', 'https://eth.llamarpc.com'),
+    rpcUrl: getExternalRpc('ethereum'),
     blockTime: 12000,
     isL2: false,
     nativeSymbol: 'ETH',
@@ -51,7 +42,7 @@ export const DEFAULT_CHAINS: Record<string, TradingBotChain> = {
   arbitrum: {
     chainId: 42161,
     name: 'Arbitrum One',
-    rpcUrl: safeGetExternalRpc('arbitrum', 'https://arb1.arbitrum.io/rpc'),
+    rpcUrl: getExternalRpc('arbitrum'),
     blockTime: 250,
     isL2: true,
     nativeSymbol: 'ETH',
@@ -60,7 +51,7 @@ export const DEFAULT_CHAINS: Record<string, TradingBotChain> = {
   optimism: {
     chainId: 10,
     name: 'Optimism',
-    rpcUrl: safeGetExternalRpc('optimism', 'https://mainnet.optimism.io'),
+    rpcUrl: getExternalRpc('optimism'),
     blockTime: 2000,
     isL2: true,
     nativeSymbol: 'ETH',
@@ -69,7 +60,7 @@ export const DEFAULT_CHAINS: Record<string, TradingBotChain> = {
   base: {
     chainId: 8453,
     name: 'Base',
-    rpcUrl: safeGetExternalRpc('base', 'https://mainnet.base.org'),
+    rpcUrl: getExternalRpc('base'),
     blockTime: 2000,
     isL2: true,
     nativeSymbol: 'ETH',
@@ -78,7 +69,7 @@ export const DEFAULT_CHAINS: Record<string, TradingBotChain> = {
   bsc: {
     chainId: 56,
     name: 'BNB Smart Chain',
-    rpcUrl: safeGetExternalRpc('bsc', 'https://bsc-dataseed.binance.org'),
+    rpcUrl: getExternalRpc('bsc'),
     blockTime: 3000,
     isL2: false,
     nativeSymbol: 'BNB',
@@ -105,7 +96,7 @@ export const DEFAULT_CHAINS: Record<string, TradingBotChain> = {
   sepolia: {
     chainId: 11155111,
     name: 'Sepolia',
-    rpcUrl: safeGetExternalRpc('sepolia', 'https://rpc.sepolia.org'),
+    rpcUrl: getExternalRpc('sepolia'),
     blockTime: 12000,
     isL2: false,
     nativeSymbol: 'ETH',
@@ -114,7 +105,7 @@ export const DEFAULT_CHAINS: Record<string, TradingBotChain> = {
   baseSepolia: {
     chainId: 84532,
     name: 'Base Sepolia',
-    rpcUrl: safeGetExternalRpc('baseSepolia', 'https://sepolia.base.org'),
+    rpcUrl: getExternalRpc('baseSepolia'),
     blockTime: 2000,
     isL2: true,
     nativeSymbol: 'ETH',
@@ -123,10 +114,7 @@ export const DEFAULT_CHAINS: Record<string, TradingBotChain> = {
   arbitrumSepolia: {
     chainId: 421614,
     name: 'Arbitrum Sepolia',
-    rpcUrl: safeGetExternalRpc(
-      'arbitrumSepolia',
-      'https://sepolia-rollup.arbitrum.io/rpc',
-    ),
+    rpcUrl: getExternalRpc('arbitrumSepolia'),
     blockTime: 250,
     isL2: true,
     nativeSymbol: 'ETH',

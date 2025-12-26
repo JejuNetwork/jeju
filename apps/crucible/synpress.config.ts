@@ -2,7 +2,7 @@
  * Crucible Synpress Configuration
  * Uses shared config from @jejunetwork/tests
  */
-import { createSynpressConfig } from '@jejunetwork/tests'
+import { createSynpressConfig } from '@jejunetwork/tests/playwright-only'
 
 const CRUCIBLE_PORT = parseInt(process.env.PORT || '4020', 10)
 

@@ -9,6 +9,7 @@
  */
 
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useAccount, useConnect, useDisconnect, useSignMessage } from 'wagmi'
 import { injected, walletConnect } from 'wagmi/connectors'
 
@@ -376,215 +377,220 @@ export function AuthButton({
         {variant === 'icon' ? '🔐' : 'Sign In'}
       </button>
 
-      {/* Auth Modal */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm cursor-default"
-            onClick={() => setShowModal(false)}
-            aria-label="Close modal"
-          />
+      {/* Auth Modal - rendered via portal to escape header stacking context */}
+      {showModal &&
+        createPortal(
+          <div className="fixed inset-0 z-[100] flex items-center justify-center">
+            <button
+              type="button"
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm cursor-default"
+              onClick={() => setShowModal(false)}
+              aria-label="Close modal"
+            />
 
-          <div
-            className="relative w-full max-w-md mx-4 rounded-2xl border shadow-2xl overflow-hidden"
-            style={{
-              backgroundColor: 'var(--surface)',
-              borderColor: 'var(--border)',
-            }}
-          >
-            {/* Header */}
             <div
-              className="flex items-center justify-between p-6 border-b"
-              style={{ borderColor: 'var(--border)' }}
+              className="relative w-full max-w-md mx-4 rounded-2xl border shadow-2xl overflow-hidden"
+              style={{
+                backgroundColor: 'var(--surface)',
+                borderColor: 'var(--border)',
+              }}
             >
-              <div className="flex items-center gap-3">
-                <span className="text-2xl">🏝️</span>
-                <div>
-                  <h2 className="text-lg font-semibold">Sign In</h2>
-                  <p
-                    className="text-sm"
-                    style={{ color: 'var(--text-secondary)' }}
-                  >
-                    to Bazaar
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowModal(false)}
-                className="p-2 rounded-lg hover:bg-[var(--bg-secondary)] transition-colors"
+              {/* Header */}
+              <div
+                className="flex items-center justify-between p-6 border-b"
+                style={{ borderColor: 'var(--border)' }}
               >
-                ✕
-              </button>
-            </div>
-
-            {/* Error */}
-            {error && (
-              <div className="mx-6 mt-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
-                {error}
-              </div>
-            )}
-
-            {/* Content */}
-            <div className="p-6 space-y-4">
-              {/* Wallet Options */}
-              <div className="space-y-2">
-                <p
-                  className="text-xs font-medium uppercase tracking-wide"
-                  style={{ color: 'var(--text-secondary)' }}
-                >
-                  Wallet
-                </p>
-                <button
-                  type="button"
-                  onClick={() => handleWalletConnect('injected')}
-                  disabled={isLoading}
-                  className="w-full flex items-center gap-4 p-4 rounded-xl border transition-all hover:bg-[var(--bg-secondary)]"
-                  style={{ borderColor: 'var(--border)' }}
-                >
-                  <span className="text-2xl">🦊</span>
-                  <div className="flex-1 text-left">
-                    <p className="font-medium">MetaMask</p>
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">🏝️</span>
+                  <div>
+                    <h2 className="text-lg font-semibold">Sign In</h2>
                     <p
-                      className="text-xs"
+                      className="text-sm"
                       style={{ color: 'var(--text-secondary)' }}
                     >
-                      Browser extension
+                      to Bazaar
                     </p>
                   </div>
-                  {activeMethod === 'wallet' && <Spinner />}
-                </button>
-
-                {WALLETCONNECT_PROJECT_ID && (
-                  <button
-                    type="button"
-                    onClick={() => handleWalletConnect('walletConnect')}
-                    disabled={isLoading}
-                    className="w-full flex items-center gap-4 p-4 rounded-xl border transition-all hover:bg-[var(--bg-secondary)]"
-                    style={{ borderColor: 'var(--border)' }}
-                  >
-                    <span className="text-2xl">🔗</span>
-                    <div className="flex-1 text-left">
-                      <p className="font-medium">WalletConnect</p>
-                      <p
-                        className="text-xs"
-                        style={{ color: 'var(--text-secondary)' }}
-                      >
-                        Mobile & desktop wallets
-                      </p>
-                    </div>
-                  </button>
-                )}
-              </div>
-
-              {/* Farcaster */}
-              <div className="space-y-2">
-                <p
-                  className="text-xs font-medium uppercase tracking-wide"
-                  style={{ color: 'var(--text-secondary)' }}
-                >
-                  Social
-                </p>
-                <button
-                  type="button"
-                  onClick={handleFarcasterConnect}
-                  disabled={isLoading}
-                  className="w-full flex items-center gap-4 p-4 rounded-xl border transition-all hover:bg-purple-500/10 hover:border-purple-500/30"
-                  style={{ borderColor: 'var(--border)' }}
-                >
-                  <div className="w-8 h-8 rounded-lg bg-purple-500 flex items-center justify-center">
-                    <span className="text-white font-bold text-sm">FC</span>
-                  </div>
-                  <div className="flex-1 text-left">
-                    <p className="font-medium">Farcaster</p>
-                    <p
-                      className="text-xs"
-                      style={{ color: 'var(--text-secondary)' }}
-                    >
-                      Sign in with Warpcast
-                    </p>
-                  </div>
-                  {activeMethod === 'farcaster' && <Spinner />}
-                </button>
-
-                {/* Other social providers */}
-                <div className="grid grid-cols-4 gap-2">
-                  {(['google', 'github', 'twitter', 'discord'] as const).map(
-                    (provider) => (
-                      <button
-                        key={provider}
-                        type="button"
-                        onClick={() => handleSocialConnect(provider)}
-                        disabled={isLoading}
-                        className="flex items-center justify-center p-3 rounded-xl border transition-all hover:bg-[var(--bg-secondary)]"
-                        style={{ borderColor: 'var(--border)' }}
-                        title={
-                          provider.charAt(0).toUpperCase() + provider.slice(1)
-                        }
-                      >
-                        {activeMethod === provider ? (
-                          <Spinner />
-                        ) : (
-                          getSocialIcon(provider)
-                        )}
-                      </button>
-                    ),
-                  )}
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="p-2 rounded-lg hover:bg-[var(--bg-secondary)] transition-colors"
+                >
+                  ✕
+                </button>
               </div>
 
-              {/* Passkey */}
-              {hasPasskeys && (
+              {/* Error */}
+              {error && (
+                <div className="mx-6 mt-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+                  {error}
+                </div>
+              )}
+
+              {/* Content */}
+              <div className="p-6 space-y-4">
+                {/* Wallet Options */}
                 <div className="space-y-2">
                   <p
                     className="text-xs font-medium uppercase tracking-wide"
                     style={{ color: 'var(--text-secondary)' }}
                   >
-                    Passkey
+                    Wallet
                   </p>
                   <button
                     type="button"
-                    onClick={handlePasskeyConnect}
+                    onClick={() => handleWalletConnect('injected')}
                     disabled={isLoading}
-                    className="w-full flex items-center gap-4 p-4 rounded-xl border transition-all hover:bg-emerald-500/10 hover:border-emerald-500/30"
+                    className="w-full flex items-center gap-4 p-4 rounded-xl border transition-all hover:bg-[var(--bg-secondary)]"
                     style={{ borderColor: 'var(--border)' }}
                   >
-                    <span className="text-2xl">🔐</span>
+                    <span className="text-2xl">🦊</span>
                     <div className="flex-1 text-left">
-                      <p className="font-medium">Passkey</p>
+                      <p className="font-medium">MetaMask</p>
                       <p
                         className="text-xs"
                         style={{ color: 'var(--text-secondary)' }}
                       >
-                        Face ID, Touch ID, or security key
+                        Browser extension
                       </p>
                     </div>
-                    {activeMethod === 'passkey' && <Spinner />}
+                    {activeMethod === 'wallet' && <Spinner />}
                   </button>
-                </div>
-              )}
-            </div>
 
-            {/* Footer */}
-            <div className="px-6 pb-6">
-              <p
-                className="text-xs text-center"
-                style={{ color: 'var(--text-secondary)' }}
-              >
-                By signing in, you agree to Jeju's{' '}
-                <a href="/terms" className="text-emerald-400 hover:underline">
-                  Terms
-                </a>{' '}
-                and{' '}
-                <a href="/privacy" className="text-emerald-400 hover:underline">
-                  Privacy Policy
-                </a>
-              </p>
+                  {WALLETCONNECT_PROJECT_ID && (
+                    <button
+                      type="button"
+                      onClick={() => handleWalletConnect('walletConnect')}
+                      disabled={isLoading}
+                      className="w-full flex items-center gap-4 p-4 rounded-xl border transition-all hover:bg-[var(--bg-secondary)]"
+                      style={{ borderColor: 'var(--border)' }}
+                    >
+                      <span className="text-2xl">🔗</span>
+                      <div className="flex-1 text-left">
+                        <p className="font-medium">WalletConnect</p>
+                        <p
+                          className="text-xs"
+                          style={{ color: 'var(--text-secondary)' }}
+                        >
+                          Mobile & desktop wallets
+                        </p>
+                      </div>
+                    </button>
+                  )}
+                </div>
+
+                {/* Farcaster */}
+                <div className="space-y-2">
+                  <p
+                    className="text-xs font-medium uppercase tracking-wide"
+                    style={{ color: 'var(--text-secondary)' }}
+                  >
+                    Social
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleFarcasterConnect}
+                    disabled={isLoading}
+                    className="w-full flex items-center gap-4 p-4 rounded-xl border transition-all hover:bg-purple-500/10 hover:border-purple-500/30"
+                    style={{ borderColor: 'var(--border)' }}
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-purple-500 flex items-center justify-center">
+                      <span className="text-white font-bold text-sm">FC</span>
+                    </div>
+                    <div className="flex-1 text-left">
+                      <p className="font-medium">Farcaster</p>
+                      <p
+                        className="text-xs"
+                        style={{ color: 'var(--text-secondary)' }}
+                      >
+                        Sign in with Warpcast
+                      </p>
+                    </div>
+                    {activeMethod === 'farcaster' && <Spinner />}
+                  </button>
+
+                  {/* Other social providers */}
+                  <div className="grid grid-cols-4 gap-2">
+                    {(['google', 'github', 'twitter', 'discord'] as const).map(
+                      (provider) => (
+                        <button
+                          key={provider}
+                          type="button"
+                          onClick={() => handleSocialConnect(provider)}
+                          disabled={isLoading}
+                          className="flex items-center justify-center p-3 rounded-xl border transition-all hover:bg-[var(--bg-secondary)]"
+                          style={{ borderColor: 'var(--border)' }}
+                          title={
+                            provider.charAt(0).toUpperCase() + provider.slice(1)
+                          }
+                        >
+                          {activeMethod === provider ? (
+                            <Spinner />
+                          ) : (
+                            getSocialIcon(provider)
+                          )}
+                        </button>
+                      ),
+                    )}
+                  </div>
+                </div>
+
+                {/* Passkey */}
+                {hasPasskeys && (
+                  <div className="space-y-2">
+                    <p
+                      className="text-xs font-medium uppercase tracking-wide"
+                      style={{ color: 'var(--text-secondary)' }}
+                    >
+                      Passkey
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handlePasskeyConnect}
+                      disabled={isLoading}
+                      className="w-full flex items-center gap-4 p-4 rounded-xl border transition-all hover:bg-emerald-500/10 hover:border-emerald-500/30"
+                      style={{ borderColor: 'var(--border)' }}
+                    >
+                      <span className="text-2xl">🔐</span>
+                      <div className="flex-1 text-left">
+                        <p className="font-medium">Passkey</p>
+                        <p
+                          className="text-xs"
+                          style={{ color: 'var(--text-secondary)' }}
+                        >
+                          Face ID, Touch ID, or security key
+                        </p>
+                      </div>
+                      {activeMethod === 'passkey' && <Spinner />}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="px-6 pb-6">
+                <p
+                  className="text-xs text-center"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  By signing in, you agree to Jeju's{' '}
+                  <a href="/terms" className="text-emerald-400 hover:underline">
+                    Terms
+                  </a>{' '}
+                  and{' '}
+                  <a
+                    href="/privacy"
+                    className="text-emerald-400 hover:underline"
+                  >
+                    Privacy Policy
+                  </a>
+                </p>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </>
   )
 }

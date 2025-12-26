@@ -11,7 +11,7 @@ import {
   ReportSeverity,
   ReportStatus,
   ReportType,
-} from './model'
+} from '../src/model'
 import { decodeEventArgs } from './utils/hex'
 
 // Decoded event argument types
@@ -203,18 +203,35 @@ const REPORTING_SYSTEM_ABI = [
   },
 ] as const
 
+import { getNetworkConfig } from './network-config'
+
 interface ModerationContracts {
   banManager: Address
-  moderationMarketplace: Address
-  evidenceRegistry: Address
   reportingSystem: Address
   reputationLabelManager: Address
 }
 
-let contracts: ModerationContracts | null = null
-
-export function initModerationContracts(config: ModerationContracts): void {
-  contracts = config
+function getContracts(): ModerationContracts {
+  const config = getNetworkConfig()
+  const c = config.contracts
+  
+  if (!c.banManager || !c.reportingSystem || !c.reputationLabelManager) {
+    throw new Error(
+      `Moderation contracts not configured for ${config.network}. ` +
+      `Missing: ${[
+        !c.banManager && 'banManager',
+        !c.reportingSystem && 'reportingSystem',
+        !c.reputationLabelManager && 'reputationLabelManager'
+      ].filter(Boolean).join(', ')}. ` +
+      `Add them to packages/config/contracts.json`
+    )
+  }
+  
+  return {
+    banManager: c.banManager as Address,
+    reportingSystem: c.reportingSystem as Address,
+    reputationLabelManager: c.reputationLabelManager as Address,
+  }
 }
 
 export async function processNetworkBanApplied(
@@ -423,11 +440,7 @@ export async function processModerationEvent(
   timestamp: Date,
   txHash: string,
 ): Promise<void> {
-  if (!contracts) {
-    console.warn('Moderation contracts not initialized')
-    return
-  }
-
+  const contracts = getContracts()
   const address = log.address?.toLowerCase()
 
   // Route to appropriate handler based on contract address

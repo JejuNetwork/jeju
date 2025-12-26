@@ -1,4 +1,4 @@
-import { ConnectButton } from '@rainbow-me/rainbowkit'
+import { WalletButton } from '@jejunetwork/ui'
 import { useState } from 'react'
 import { formatEther } from 'viem'
 import { useAccount } from 'wagmi'
@@ -231,7 +231,7 @@ export default function RegisterToken() {
             >
               Connect your wallet to register a token
             </p>
-            <ConnectButton />
+            <WalletButton />
           </div>
         )}
       </form>

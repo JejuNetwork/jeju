@@ -9,7 +9,7 @@
  * Additional content screening for external traffic.
  */
 
-import { createHash, createHmac, createSign } from 'node:crypto'
+import { createHash, createHmac, signRSA } from '@jejunetwork/shared'
 import type { Address, Hex } from 'viem'
 import { getContentScreeningPipeline } from './content-screening'
 import { bridgeOperationsTotal } from './metrics'
@@ -244,7 +244,7 @@ export class Web2Bridge {
     // Create canonical request
     const canonicalUri = path || '/'
     const canonicalQuerystring = ''
-    const payloadHash = createHash('sha256').update(payload).digest('hex')
+    const payloadHash = createHash('sha256').update(payload).digestHex()
 
     const canonicalHeaders = `${[
       `host:${host}`,
@@ -268,7 +268,7 @@ export class Web2Bridge {
     const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`
     const canonicalRequestHash = createHash('sha256')
       .update(canonicalRequest)
-      .digest('hex')
+      .digestHex()
 
     const stringToSign = [
       algorithm,
@@ -283,7 +283,7 @@ export class Web2Bridge {
       date: string,
       regionName: string,
       serviceName: string,
-    ): Buffer => {
+    ): Uint8Array => {
       const kDate = createHmac('sha256', `AWS4${key}`).update(date).digest()
       const kRegion = createHmac('sha256', kDate).update(regionName).digest()
       const kService = createHmac('sha256', kRegion)
@@ -300,7 +300,7 @@ export class Web2Bridge {
     )
     const signature = createHmac('sha256', signingKey)
       .update(stringToSign)
-      .digest('hex')
+      .digestHex()
 
     // Build authorization header
     const authorizationHeader = `${algorithm} Credential=${accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`
@@ -416,9 +416,10 @@ export class Web2Bridge {
     const canonicalizedBody = this.canonicalizeBody(body)
 
     // Hash the body
-    const bodyHash = createHash('sha256')
+    const bodyHashBytes = createHash('sha256')
       .update(canonicalizedBody)
-      .digest('base64')
+      .digest()
+    const bodyHash = btoa(String.fromCharCode(...bodyHashBytes))
 
     // Headers to sign (in order of importance)
     const headersToSign = [
@@ -457,17 +458,16 @@ export class Web2Bridge {
 
     const dataToSign = `${canonicalizedHeaders}\r\n${dkimHeaderWithoutSig}`
 
-    // Sign with RSA-SHA256
-    const sign = createSign('RSA-SHA256')
-    sign.update(dataToSign)
-
     // Parse private key (handle both PEM format and raw base64)
     let privateKey = this.config.dkimPrivateKey
     if (!privateKey.includes('-----BEGIN')) {
       privateKey = `-----BEGIN RSA PRIVATE KEY-----\n${privateKey}\n-----END RSA PRIVATE KEY-----`
     }
 
-    const signature = sign.sign(privateKey, 'base64')
+    // Sign with RSA-SHA256
+    const dataToSignBytes = new TextEncoder().encode(dataToSign)
+    const signatureBytes = await signRSA(dataToSignBytes, privateKey)
+    const signature = btoa(String.fromCharCode(...signatureBytes))
     dkimParams.b = signature
 
     // Build final DKIM-Signature header

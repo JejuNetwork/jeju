@@ -19,38 +19,65 @@ const CONFIG_FILE = join(ROOT, 'packages/config/contracts.json')
 
 interface BootstrapResult {
   contracts: {
+    // Tokens
     jeju?: string
     usdc?: string
     weth?: string
+    // Services
     creditManager?: string
     universalPaymaster?: string
     serviceRegistry?: string
     priceOracle?: string
+    // Paymaster System
     tokenRegistry?: string
     paymasterFactory?: string
     entryPoint?: string
+    // Registry System
     identityRegistry?: string
     reputationRegistry?: string
     validationRegistry?: string
+    // Node Staking
     nodeStakingManager?: string
     nodePerformanceOracle?: string
+    // DeFi / Uniswap V4
     poolManager?: string
     swapRouter?: string
     positionManager?: string
     quoterV4?: string
     stateView?: string
+    // Governance
     futarchyGovernor?: string
+    // Storage
     fileStorageManager?: string
+    storageManager?: string
+    // Moderation
     banManager?: string
     reputationLabelManager?: string
+    // Compute
     computeRegistry?: string
     ledgerManager?: string
     inferenceServing?: string
     computeStaking?: string
+    workerRegistry?: string
+    // Liquidity
     riskSleeve?: string
     liquidityRouter?: string
     multiServiceStakeManager?: string
     liquidityVault?: string
+    // Bazaar
+    nftMarketplace?: string
+    simpleCollectible?: string
+    // JNS
+    jnsRegistry?: string
+    jnsResolver?: string
+    // CDN
+    cdnRegistry?: string
+    // Security
+    securityBountyRegistry?: string
+    // OAuth3
+    oauth3TeeVerifier?: string
+    oauth3IdentityRegistry?: string
+    oauth3AppRegistry?: string
   }
 }
 
@@ -151,6 +178,19 @@ function main() {
       `  payments.multiTokenPaymaster: ${deployment.contracts.universalPaymaster}`,
     )
   }
+  if (isValidAddress(deployment.contracts.creditManager)) {
+    config.localnet.payments.creditManager = deployment.contracts.creditManager
+    console.log(
+      `  payments.creditManager: ${deployment.contracts.creditManager}`,
+    )
+  }
+  if (isValidAddress(deployment.contracts.serviceRegistry)) {
+    config.localnet.payments.serviceRegistry =
+      deployment.contracts.serviceRegistry
+    console.log(
+      `  payments.serviceRegistry: ${deployment.contracts.serviceRegistry}`,
+    )
+  }
 
   // Update defi
   if (isValidAddress(deployment.contracts.poolManager)) {
@@ -223,6 +263,84 @@ function main() {
       deployment.contracts.liquidityVault
     console.log(
       `  liquidity.liquidityVault: ${deployment.contracts.liquidityVault}`,
+    )
+  }
+
+  // Update bazaar
+  if (isValidAddress(deployment.contracts.nftMarketplace)) {
+    config.localnet.bazaar.marketplace = deployment.contracts.nftMarketplace
+    console.log(`  bazaar.marketplace: ${deployment.contracts.nftMarketplace}`)
+  }
+  if (isValidAddress(deployment.contracts.simpleCollectible)) {
+    config.localnet.bazaar.simpleCollectible =
+      deployment.contracts.simpleCollectible
+    console.log(
+      `  bazaar.simpleCollectible: ${deployment.contracts.simpleCollectible}`,
+    )
+  }
+
+  // Update security
+  if (isValidAddress(deployment.contracts.securityBountyRegistry)) {
+    config.localnet.security.bountyRegistry =
+      deployment.contracts.securityBountyRegistry
+    console.log(
+      `  security.bountyRegistry: ${deployment.contracts.securityBountyRegistry}`,
+    )
+  }
+
+  // Update JNS
+  if (isValidAddress(deployment.contracts.jnsRegistry)) {
+    config.localnet.jns.registry = deployment.contracts.jnsRegistry
+    console.log(`  jns.registry: ${deployment.contracts.jnsRegistry}`)
+  }
+  if (isValidAddress(deployment.contracts.jnsResolver)) {
+    config.localnet.jns.resolver = deployment.contracts.jnsResolver
+    console.log(`  jns.resolver: ${deployment.contracts.jnsResolver}`)
+  }
+
+  // Update CDN
+  if (!config.localnet.cdn) {
+    config.localnet.cdn = {}
+  }
+  if (isValidAddress(deployment.contracts.cdnRegistry)) {
+    config.localnet.cdn.registry = deployment.contracts.cdnRegistry
+    console.log(`  cdn.registry: ${deployment.contracts.cdnRegistry}`)
+  }
+
+  // Update DWS (Decentralized Web Services)
+  if (!config.localnet.dws) {
+    config.localnet.dws = {}
+  }
+  if (isValidAddress(deployment.contracts.storageManager)) {
+    config.localnet.dws.storageManager = deployment.contracts.storageManager
+    console.log(`  dws.storageManager: ${deployment.contracts.storageManager}`)
+  }
+  if (isValidAddress(deployment.contracts.workerRegistry)) {
+    config.localnet.dws.workerRegistry = deployment.contracts.workerRegistry
+    console.log(`  dws.workerRegistry: ${deployment.contracts.workerRegistry}`)
+  }
+
+  // Update OAuth3
+  if (!config.localnet.oauth3) {
+    config.localnet.oauth3 = {}
+  }
+  if (isValidAddress(deployment.contracts.oauth3TeeVerifier)) {
+    config.localnet.oauth3.teeVerifier = deployment.contracts.oauth3TeeVerifier
+    console.log(
+      `  oauth3.teeVerifier: ${deployment.contracts.oauth3TeeVerifier}`,
+    )
+  }
+  if (isValidAddress(deployment.contracts.oauth3IdentityRegistry)) {
+    config.localnet.oauth3.identityRegistry =
+      deployment.contracts.oauth3IdentityRegistry
+    console.log(
+      `  oauth3.identityRegistry: ${deployment.contracts.oauth3IdentityRegistry}`,
+    )
+  }
+  if (isValidAddress(deployment.contracts.oauth3AppRegistry)) {
+    config.localnet.oauth3.appRegistry = deployment.contracts.oauth3AppRegistry
+    console.log(
+      `  oauth3.appRegistry: ${deployment.contracts.oauth3AppRegistry}`,
     )
   }
 

@@ -41,7 +41,6 @@ export {
   validateICOLaunch,
 } from '../lib/launchpad'
 export {
-  claimFaucet,
   createTFMMPool,
   getA2AInfo,
   getAgentCard,
@@ -60,26 +59,12 @@ export {
   ApiError,
   api,
   type BazaarClient,
-  type FaucetClaimResult,
-  type FaucetInfo,
-  type FaucetStatus,
   type HealthResponse,
   type TFMMPool,
   type TFMMPoolsResponse,
 } from './client'
 export * from './crosschain'
 export * from './erc8004'
-export {
-  ClaimRequestSchema,
-  FaucetClaimResultSchema,
-  FaucetInfoSchema,
-  FaucetStatusSchema,
-  faucetService,
-  faucetState,
-  formatCooldownTime,
-  isFaucetConfigured,
-  parseJsonResponse,
-} from './faucet'
 export * from './indexer-client'
 export * from './markets'
 export {

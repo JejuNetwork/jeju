@@ -3,9 +3,9 @@
  * Stores and retrieves git objects from the DWS storage backend
  */
 
-import { createHash } from 'node:crypto'
 import { promisify } from 'node:util'
 import { deflate, inflate } from 'node:zlib'
+import { createHash } from '@jejunetwork/shared'
 import type { BackendManager } from '../storage/backends'
 import type {
   GitBlob,
@@ -37,7 +37,7 @@ export class GitObjectStore {
   hashObject(type: GitObjectType, content: Buffer): string {
     const header = Buffer.from(`${type} ${content.length}\0`)
     const full = Buffer.concat([header, content])
-    return createHash('sha1').update(full).digest('hex')
+    return createHash('sha1').update(full).digestHex()
   }
 
   /**

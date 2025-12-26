@@ -82,8 +82,6 @@ export const bazaarCacheKeys = {
   tfmmStats: () => 'tfmm:stats',
   tfmmStrategies: () => 'tfmm:strategies',
   oracleStatus: () => 'oracle:status',
-  faucetStatus: (address: string) => `faucet:status:${address.toLowerCase()}`,
-  faucetInfo: () => 'faucet:info',
   marketPrice: (chainId: number, token: string) =>
     `market:price:${chainId}:${token.toLowerCase()}`,
   userPreferences: (address: string) => `user:prefs:${address.toLowerCase()}`,

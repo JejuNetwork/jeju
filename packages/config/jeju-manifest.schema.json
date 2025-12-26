@@ -253,12 +253,75 @@
         },
         "database": {
           "type": "object",
-          "description": "CovenantSQL database configuration",
+          "description": "Database configuration - supports CovenantSQL (decentralized) or Postgres (container)",
           "properties": {
-            "type": { "type": "string", "enum": ["covenantsql", "d1", "none"] },
-            "name": { "type": "string" },
+            "type": { 
+              "type": "string", 
+              "enum": ["covenantsql", "postgres", "d1", "none"],
+              "description": "Database type: covenantsql (decentralized), postgres (Docker container), d1, or none"
+            },
+            "name": { "type": "string", "description": "Database name/identifier" },
             "consistency": { "type": "string", "enum": ["strong", "eventual"] },
-            "tables": { "type": "array", "items": { "type": "string" } }
+            "tables": { "type": "array", "items": { "type": "string" } },
+            "version": { "type": "string", "description": "Database version (for postgres)" },
+            "resources": {
+              "type": "object",
+              "description": "Resource allocation for containerized databases",
+              "properties": {
+                "cpuCores": { "type": "number", "minimum": 0.25, "default": 1 },
+                "memoryMb": { "type": "integer", "minimum": 128, "default": 512 },
+                "storageMb": { "type": "integer", "minimum": 256, "default": 5120 }
+              }
+            }
+          }
+        },
+        "services": {
+          "type": "array",
+          "description": "Infrastructure services to provision (postgres, redis, rabbitmq, minio)",
+          "items": {
+            "type": "object",
+            "required": ["type", "name"],
+            "properties": {
+              "type": { 
+                "type": "string", 
+                "enum": ["postgres", "redis", "rabbitmq", "minio"],
+                "description": "Service type to provision"
+              },
+              "name": { "type": "string", "description": "Service name (used in container name)" },
+              "version": { "type": "string", "description": "Service version" },
+              "port": { "type": "integer", "description": "Host port to expose" },
+              "env": { 
+                "type": "object", 
+                "additionalProperties": { "type": "string" },
+                "description": "Environment variables for the service"
+              },
+              "resources": {
+                "type": "object",
+                "properties": {
+                  "cpuCores": { "type": "number", "minimum": 0.25, "default": 1 },
+                  "memoryMb": { "type": "integer", "minimum": 128, "default": 512 },
+                  "storageMb": { "type": "integer", "minimum": 256, "default": 5120 }
+                }
+              }
+            }
+          }
+        },
+        "tee": {
+          "type": "object",
+          "description": "TEE (Trusted Execution Environment) configuration for dstack",
+          "properties": {
+            "enabled": { "type": "boolean", "default": false },
+            "required": { "type": "boolean", "default": false, "description": "Require TEE even in production" },
+            "platforms": { 
+              "type": "array", 
+              "items": { "type": "string", "enum": ["dstack", "intel_tdx", "amd_sev", "simulator"] },
+              "description": "Supported TEE platforms"
+            },
+            "attestation": { 
+              "type": "boolean", 
+              "default": true,
+              "description": "Require attestation verification" 
+            }
           }
         },
         "cdn": {

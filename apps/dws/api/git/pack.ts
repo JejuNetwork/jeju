@@ -3,9 +3,9 @@
  * Handles pack/unpack of git objects for network transfer
  */
 
-import { createHash } from 'node:crypto'
 import { promisify } from 'node:util'
 import { deflate, inflate } from 'node:zlib'
+import { createHash } from '@jejunetwork/shared'
 import type { GitObjectStore } from './object-store'
 import type { GitObjectType, PackedObject } from './types'
 
@@ -65,7 +65,7 @@ export class PackfileWriter {
 
     // Compute SHA-1 of everything
     const content = Buffer.concat(parts)
-    const checksum = createHash('sha1').update(content).digest()
+    const checksum = Buffer.from(createHash('sha1').update(content).digest())
 
     return Buffer.concat([content, checksum])
   }

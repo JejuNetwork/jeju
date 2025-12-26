@@ -1,32 +1,31 @@
 import { describe, expect, it } from 'bun:test'
 import {
-  CountryCodeSchema,
-  CountryLegalStatusSchema,
-  VPN_LEGAL_COUNTRIES,
-  VPNNodeTypeSchema,
-  VPNCapabilitySchema,
-  VPNNodeStatusSchema,
-  VPNNodeSchema,
-  VPNNodeInfoSchema,
   ContributionQuotaSchema,
   ContributionSettingsSchema,
+  CountryCodeSchema,
+  CountryLegalStatusSchema,
   DEFAULT_CONTRIBUTION_SETTINGS,
-  VPNProtocolSchema,
+  DEFAULT_VPN_CONNECT_OPTIONS,
+  DEFAULT_VPN_PRICING,
+  VPN_LEGAL_COUNTRIES,
+  VPNCapabilitySchema,
+  VPNClientConfigSchema,
   VPNConnectionStatusSchema,
   VPNConnectOptionsSchema,
-  DEFAULT_VPN_CONNECT_OPTIONS,
-  VPNConnectionSchema,
-  WireGuardPeerSchema,
-  WireGuardConfigSchema,
-  VPNClientConfigSchema,
+  VPNNodeInfoSchema,
   VPNNodeQuerySchema,
-  VPNPricingSchema,
-  DEFAULT_VPN_PRICING,
-  VPNProviderEarningsSchema,
   VPNNodeRegisteredEventSchema,
-  VPNSessionStartedEventSchema,
-  VPNSessionEndedEventSchema,
+  VPNNodeSchema,
+  VPNNodeStatusSchema,
+  VPNNodeTypeSchema,
   VPNPaymentEventSchema,
+  VPNPricingSchema,
+  VPNProtocolSchema,
+  VPNProviderEarningsSchema,
+  VPNSessionEndedEventSchema,
+  VPNSessionStartedEventSchema,
+  WireGuardConfigSchema,
+  WireGuardPeerSchema,
 } from '../vpn'
 
 describe('VPN Types', () => {
@@ -34,14 +33,14 @@ describe('VPN Types', () => {
     it('validates common country codes', () => {
       const codes = ['US', 'CA', 'GB', 'DE', 'FR', 'JP', 'SG', 'AU', 'NL', 'CH']
       for (const code of codes) {
-        expect(CountryCodeSchema.parse(code)).toBe(code)
+        expect(CountryCodeSchema.parse(code)).toEqual(code)
       }
     })
 
     it('validates blocked country codes', () => {
       const blocked = ['CN', 'RU', 'IR', 'AE', 'BY', 'OM', 'TM', 'KP']
       for (const code of blocked) {
-        expect(CountryCodeSchema.parse(code)).toBe(code)
+        expect(CountryCodeSchema.parse(code)).toEqual(code)
       }
     })
   })
@@ -63,7 +62,7 @@ describe('VPN Types', () => {
   describe('VPN_LEGAL_COUNTRIES', () => {
     it('contains expected legal countries', () => {
       const legalCodes = VPN_LEGAL_COUNTRIES.filter((c) => c.vpnLegal).map(
-        (c) => c.countryCode
+        (c) => c.countryCode,
       )
       expect(legalCodes).toContain('NL')
       expect(legalCodes).toContain('CH')
@@ -73,7 +72,7 @@ describe('VPN Types', () => {
 
     it('contains expected blocked countries', () => {
       const blockedCodes = VPN_LEGAL_COUNTRIES.filter((c) => !c.vpnLegal).map(
-        (c) => c.countryCode
+        (c) => c.countryCode,
       )
       expect(blockedCodes).toContain('CN')
       expect(blockedCodes).toContain('RU')
@@ -85,7 +84,7 @@ describe('VPN Types', () => {
     it('validates all node types', () => {
       const types = ['residential', 'datacenter', 'mobile']
       for (const type of types) {
-        expect(VPNNodeTypeSchema.parse(type)).toBe(type)
+        expect(VPNNodeTypeSchema.parse(type)).toEqual(type)
       }
     })
   })
@@ -94,7 +93,7 @@ describe('VPN Types', () => {
     it('validates all capabilities', () => {
       const caps = ['wireguard', 'socks5', 'http_connect', 'cdn']
       for (const cap of caps) {
-        expect(VPNCapabilitySchema.parse(cap)).toBe(cap)
+        expect(VPNCapabilitySchema.parse(cap)).toEqual(cap)
       }
     })
   })
@@ -103,7 +102,7 @@ describe('VPN Types', () => {
     it('validates all statuses', () => {
       const statuses = ['online', 'busy', 'offline', 'suspended']
       for (const status of statuses) {
-        expect(VPNNodeStatusSchema.parse(status)).toBe(status)
+        expect(VPNNodeStatusSchema.parse(status)).toEqual(status)
       }
     })
   })
@@ -111,7 +110,8 @@ describe('VPN Types', () => {
   describe('VPNNodeSchema', () => {
     it('validates VPN node', () => {
       const node = {
-        nodeId: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+        nodeId:
+          '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
         operator: '0x1234567890123456789012345678901234567890',
         agentId: 12345n,
         countryCode: 'NL',
@@ -140,7 +140,8 @@ describe('VPN Types', () => {
     it('validates VPN node info', () => {
       const info = {
         node: {
-          nodeId: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+          nodeId:
+            '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
           operator: '0x1234567890123456789012345678901234567890',
           countryCode: 'US',
           regionCode: 'us-east-1',
@@ -207,7 +208,7 @@ describe('VPN Types', () => {
   describe('DEFAULT_CONTRIBUTION_SETTINGS', () => {
     it('is a valid ContributionSettings', () => {
       expect(() =>
-        ContributionSettingsSchema.parse(DEFAULT_CONTRIBUTION_SETTINGS)
+        ContributionSettingsSchema.parse(DEFAULT_CONTRIBUTION_SETTINGS),
       ).not.toThrow()
     })
 
@@ -222,16 +223,22 @@ describe('VPN Types', () => {
     it('validates all protocols', () => {
       const protocols = ['wireguard', 'socks5', 'http']
       for (const protocol of protocols) {
-        expect(VPNProtocolSchema.parse(protocol)).toBe(protocol)
+        expect(VPNProtocolSchema.parse(protocol)).toEqual(protocol)
       }
     })
   })
 
   describe('VPNConnectionStatusSchema', () => {
     it('validates all connection statuses', () => {
-      const statuses = ['disconnected', 'connecting', 'connected', 'reconnecting', 'error']
+      const statuses = [
+        'disconnected',
+        'connecting',
+        'connected',
+        'reconnecting',
+        'error',
+      ]
       for (const status of statuses) {
-        expect(VPNConnectionStatusSchema.parse(status)).toBe(status)
+        expect(VPNConnectionStatusSchema.parse(status)).toEqual(status)
       }
     })
   })
@@ -239,7 +246,8 @@ describe('VPN Types', () => {
   describe('VPNConnectOptionsSchema', () => {
     it('validates connect options', () => {
       const options = {
-        nodeId: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+        nodeId:
+          '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
         countryCode: 'NL',
         regionCode: 'eu-west-1',
         protocol: 'wireguard',
@@ -256,7 +264,7 @@ describe('VPN Types', () => {
   describe('DEFAULT_VPN_CONNECT_OPTIONS', () => {
     it('is valid VPNConnectOptions', () => {
       expect(() =>
-        VPNConnectOptionsSchema.parse(DEFAULT_VPN_CONNECT_OPTIONS)
+        VPNConnectOptionsSchema.parse(DEFAULT_VPN_CONNECT_OPTIONS),
       ).not.toThrow()
     })
 
@@ -384,7 +392,8 @@ describe('VPN Types', () => {
   describe('VPNNodeRegisteredEventSchema', () => {
     it('validates node registered event', () => {
       const event = {
-        nodeId: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+        nodeId:
+          '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
         operator: '0x1234567890123456789012345678901234567890',
         countryCode: 'NL',
         stake: 10000000000000000000000n,
@@ -434,4 +443,3 @@ describe('VPN Types', () => {
     })
   })
 })
-

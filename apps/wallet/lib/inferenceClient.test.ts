@@ -69,6 +69,7 @@ describe('InferenceClient', () => {
     globalThis.fetch = mockFetch as typeof fetch
     client = new InferenceClient({
       gatewayUrl: 'https://test-gateway.example.com',
+      preferredModel: 'test-model',
       maxRetries: 1, // Fast retries for tests
       retryDelayMs: 10,
     })
@@ -132,6 +133,7 @@ describe('InferenceClient', () => {
       // Create fresh client for this test
       const cacheClient = new InferenceClient({
         gatewayUrl: 'https://cache-test.example.com',
+        preferredModel: 'test-model',
       })
 
       mockFetch.mockImplementationOnce(() =>
@@ -254,6 +256,7 @@ describe('InferenceClient', () => {
       mockFetch.mockImplementation(() => Promise.reject(new Error('Offline')))
       errorClient = new InferenceClient({
         gatewayUrl: 'https://offline.example.com',
+        preferredModel: 'test-model',
         maxRetries: 1,
         retryDelayMs: 1,
       })
@@ -270,6 +273,7 @@ describe('InferenceClient', () => {
     it('should throw after all retries exhausted', async () => {
       const multiRetryClient = new InferenceClient({
         gatewayUrl: 'https://offline.example.com',
+        preferredModel: 'test-model',
         maxRetries: 2,
         retryDelayMs: 1,
       })

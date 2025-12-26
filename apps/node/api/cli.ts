@@ -2,6 +2,7 @@
 
 import { spawn } from 'node:child_process'
 import {
+  getChainId,
   getCliBranding,
   getNetworkName,
   getRpcUrl,
@@ -408,19 +409,8 @@ program
       process.exit(1)
     }
 
-    let rpcUrl = 'http://127.0.0.1:6546'
-    let chainId = 31337
-
-    switch (options.network) {
-      case 'mainnet':
-        rpcUrl = 'https://rpc.jejunetwork.org'
-        chainId = 420690
-        break
-      case 'testnet':
-        rpcUrl = 'https://testnet-rpc.jejunetwork.org'
-        chainId = 420691
-        break
-    }
+    const rpcUrl = getRpcUrl(options.network as NetworkType)
+    const chainId = getChainId(options.network as NetworkType)
 
     console.log(`  Network: ${options.network}`)
     console.log(

@@ -5,12 +5,14 @@
  * Keys are hashed with SHA-256 before storage - plaintext keys are NEVER stored.
  */
 
+import { isProductionEnv, isTestMode } from '@jejunetwork/config'
 import {
-  createCipheriv,
-  createDecipheriv,
-  createHash,
+  bytesToHex,
+  decryptAesGcm,
+  encryptAesGcm,
+  hash256,
   randomBytes,
-} from 'node:crypto'
+} from '@jejunetwork/shared'
 import type { ApiKeyRecord, RateTier } from '@jejunetwork/types'
 import type { Address } from 'viem'
 import { apiKeyState } from '../../state.js'
@@ -25,7 +27,13 @@ const localKeyCache = new Map<string, string>()
  * Generate a cryptographically secure API key
  */
 function generateKey(): string {
-  return `jrpc_${randomBytes(24).toString('base64url')}`
+  const bytes = randomBytes(24)
+  // Convert to base64url
+  const base64 = btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '')
+  return `jrpc_${base64}`
 }
 
 /**
@@ -33,18 +41,17 @@ function generateKey(): string {
  * The plaintext key is NEVER stored - only the hash
  */
 function hashKey(key: string): string {
-  return createHash('sha256').update(key).digest('hex')
+  return bytesToHex(hash256(key))
 }
 
 /**
  * Derive encryption key for metadata encryption
  * SECURITY: API_KEY_ENCRYPTION_SECRET MUST be set in production
  */
-function deriveEncryptionKey(): Buffer {
+function deriveEncryptionKey(): Uint8Array {
   const secret = process.env.API_KEY_ENCRYPTION_SECRET
-  const isProduction = process.env.NODE_ENV === 'production'
-  const isTest =
-    process.env.NODE_ENV === 'test' || process.env.BUN_TEST === 'true'
+  const isProduction = isProductionEnv()
+  const isTest = isTestMode() || process.env.BUN_TEST === 'true'
 
   if (!secret) {
     if (isProduction) {
@@ -59,42 +66,43 @@ function deriveEncryptionKey(): Buffer {
       )
     }
     // Use a deterministic dev-only key derived from a constant - NEVER use in production
-    return createHash('sha256')
-      .update('DEV_ONLY_EPHEMERAL_KEY_DO_NOT_USE_IN_PRODUCTION')
-      .digest()
+    return hash256('DEV_ONLY_EPHEMERAL_KEY_DO_NOT_USE_IN_PRODUCTION')
   }
-  return createHash('sha256').update(secret).digest()
+  return hash256(secret)
 }
 
 /**
  * Encrypt sensitive metadata (address binding) with AES-256-GCM
  * Exported for use by other services that need metadata encryption
  */
-export function encryptMetadata(data: string): string {
+export async function encryptMetadata(data: string): Promise<string> {
   const key = deriveEncryptionKey()
-  const iv = randomBytes(12)
-  const cipher = createCipheriv('aes-256-gcm', key, iv)
-  const encrypted = Buffer.concat([cipher.update(data, 'utf8'), cipher.final()])
-  const authTag = cipher.getAuthTag()
-  return Buffer.concat([iv, authTag, encrypted]).toString('base64')
+  const dataBytes = new TextEncoder().encode(data)
+  const { ciphertext, iv, tag } = await encryptAesGcm(dataBytes, key)
+  // Format: iv (12) + tag (16) + ciphertext, base64 encoded
+  const combined = new Uint8Array(iv.length + tag.length + ciphertext.length)
+  combined.set(iv, 0)
+  combined.set(tag, 12)
+  combined.set(ciphertext, 28)
+  return btoa(String.fromCharCode(...combined))
 }
 
 /**
  * Decrypt sensitive metadata with AES-256-GCM
  * Exported for use by other services that need metadata decryption
  */
-export function decryptMetadata(encryptedData: string): string {
+export async function decryptMetadata(encryptedData: string): Promise<string> {
   const key = deriveEncryptionKey()
-  const data = Buffer.from(encryptedData, 'base64')
+  const binaryStr = atob(encryptedData)
+  const data = new Uint8Array(binaryStr.length)
+  for (let i = 0; i < binaryStr.length; i++) {
+    data[i] = binaryStr.charCodeAt(i)
+  }
   const iv = data.subarray(0, 12)
-  const authTag = data.subarray(12, 28)
+  const tag = data.subarray(12, 28)
   const ciphertext = data.subarray(28)
-  const decipher = createDecipheriv('aes-256-gcm', key, iv)
-  decipher.setAuthTag(authTag)
-  return Buffer.concat([
-    decipher.update(ciphertext),
-    decipher.final(),
-  ]).toString('utf8')
+  const decrypted = await decryptAesGcm(ciphertext, key, iv, tag)
+  return new TextDecoder().decode(decrypted)
 }
 
 export async function createApiKey(
@@ -102,7 +110,7 @@ export async function createApiKey(
   name: string,
   tier: RateTier = 'FREE',
 ): Promise<{ key: string; record: ApiKeyRecord }> {
-  const id = randomBytes(16).toString('hex')
+  const id = bytesToHex(randomBytes(16))
   const key = generateKey()
   const keyHash = hashKey(key)
 

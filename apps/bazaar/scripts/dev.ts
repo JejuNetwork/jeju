@@ -11,6 +11,7 @@ import {
   CORE_PORTS,
   getCoreAppUrl,
   getCQLBlockProducerUrl,
+  getIndexerGraphqlUrl,
   getRpcUrl,
 } from '@jejunetwork/config'
 import { createBazaarApp } from '../api/worker'
@@ -118,6 +119,30 @@ async function buildFrontend(): Promise<void> {
           build.onResolve({ filter: /^react\/jsx-dev-runtime$/ }, () => ({
             path: reactJsxDevPath,
           }))
+
+          // Resolve workspace packages to source files
+          const { resolve } = require('node:path')
+          build.onResolve({ filter: /^@jejunetwork\/auth$/ }, () => ({
+            path: resolve(process.cwd(), '../../packages/auth/src/index.ts'),
+          }))
+          build.onResolve({ filter: /^@jejunetwork\/auth\/react$/ }, () => ({
+            path: resolve(
+              process.cwd(),
+              '../../packages/auth/src/react/index.ts',
+            ),
+          }))
+          build.onResolve(
+            { filter: /^@jejunetwork\/auth\/(.*)$/ },
+            (args: { path: string }) => {
+              const subpath = args.path.replace('@jejunetwork/auth/', '')
+              return {
+                path: resolve(
+                  process.cwd(),
+                  `../../packages/auth/src/${subpath}.ts`,
+                ),
+              }
+            },
+          )
         },
       },
     ],
@@ -150,7 +175,7 @@ async function startApiServer(): Promise<void> {
     RPC_URL: getRpcUrl('localnet'),
     DWS_URL: DWS_URL,
     GATEWAY_URL: getCoreAppUrl('NODE_EXPLORER_API'),
-    INDEXER_URL: getCoreAppUrl('INDEXER_API'),
+    INDEXER_URL: getIndexerGraphqlUrl(),
     COVENANTSQL_NODES: getCQLBlockProducerUrl(),
     COVENANTSQL_DATABASE_ID:
       process.env.COVENANTSQL_DATABASE_ID || 'dev-bazaar',

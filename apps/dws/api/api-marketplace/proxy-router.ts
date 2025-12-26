@@ -205,7 +205,7 @@ export async function proxyRequest(
   }
 
   // 5. Decrypt API key (in TEE context)
-  const apiKey = decryptKeyForRequest({
+  const apiKey = await decryptKeyForRequest({
     keyId: listing.keyVaultId,
     requester: options.userAddress,
     requestContext: {
@@ -447,7 +447,7 @@ export async function* proxyStreamingRequest(
     return
   }
 
-  const apiKey = decryptKeyForRequest({
+  const apiKey = await decryptKeyForRequest({
     keyId: listing.keyVaultId,
     requester: options.userAddress,
     requestContext: {

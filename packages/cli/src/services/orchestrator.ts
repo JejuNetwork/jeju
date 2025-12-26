@@ -193,19 +193,33 @@ class ServicesOrchestrator {
       pkg: config.pkg ?? true,
     }
 
-    logger.step('Starting development services...')
+    logger.step('Starting development services in parallel...')
 
-    if (enabledServices.inference) await this.startInference()
-    if (enabledServices.cql) await this.startCQL()
-    if (enabledServices.oracle) await this.startOracle()
-    if (enabledServices.indexer) await this.startIndexer()
-    if (enabledServices.jns) await this.startJNS()
-    if (enabledServices.storage) await this.startStorage()
-    if (enabledServices.cron) await this.startCron()
-    if (enabledServices.cvm) await this.startCVM()
-    if (enabledServices.computeBridge) await this.startComputeBridge()
-    if (enabledServices.git) await this.startGit()
-    if (enabledServices.pkg) await this.startPkg()
+    // Phase 1: Start core services in parallel (inference, cql, oracle, storage/DWS)
+    const phase1Tasks: Promise<void>[] = []
+    if (enabledServices.inference) phase1Tasks.push(this.startInference())
+    if (enabledServices.cql) phase1Tasks.push(this.startCQL())
+    if (enabledServices.oracle) phase1Tasks.push(this.startOracle())
+    if (enabledServices.storage) phase1Tasks.push(this.startStorage())
+
+    await Promise.all(phase1Tasks)
+
+    // Wait for DWS to be ready before starting services that depend on it
+    if (enabledServices.storage) {
+      await this.waitForDWSReady()
+    }
+
+    // Phase 2: Start DWS-dependent services in parallel
+    const phase2Tasks: Promise<void>[] = []
+    if (enabledServices.indexer) phase2Tasks.push(this.startIndexer())
+    if (enabledServices.jns) phase2Tasks.push(this.startJNS())
+    if (enabledServices.cron) phase2Tasks.push(this.startCron())
+    if (enabledServices.computeBridge) phase2Tasks.push(this.startComputeBridge())
+    if (enabledServices.git) phase2Tasks.push(this.startGit())
+    if (enabledServices.pkg) phase2Tasks.push(this.startPkg())
+    if (enabledServices.cvm) phase2Tasks.push(this.startCVM())
+
+    await Promise.all(phase2Tasks)
 
     await this.waitForServices()
     this.printStatus()
@@ -517,29 +531,39 @@ class ServicesOrchestrator {
       return
     }
 
-    try {
-      const result = await Bun.spawn(['docker', 'info'], {
-        stdout: 'ignore',
-        stderr: 'ignore',
-      }).exited
-      if (result !== 0) {
-        logger.info('Docker not available, starting local indexer')
-        await this.startLocalIndexer()
-        return
-      }
-    } catch {
-      logger.info('Docker not available, starting local indexer')
-      await this.startLocalIndexer()
+    // Check if Docker is available
+    const dockerAvailable = await this.isDockerAvailable()
+    if (!dockerAvailable) {
+      logger.info('Docker not available, starting CQL-only indexer')
+      await this.startCQLOnlyIndexer()
       return
     }
 
-    const dbProc = spawn(['docker', 'compose', 'up', '-d', 'db'], {
-      cwd: indexerPath,
-      stdout: 'pipe',
-      stderr: 'pipe',
-    })
+    // Provision postgres container - with retries and proper wait
+    const dbReady = await this.provisionPostgresWithRetry(3)
+    if (!dbReady) {
+      logger.warn(
+        'Failed to provision PostgreSQL after retries, starting CQL-only indexer',
+      )
+      await this.startCQLOnlyIndexer()
+      return
+    }
 
-    await dbProc.exited
+    // Verify we can actually connect to the database before starting indexer
+    const connectionVerified = await this.verifyPostgresConnection()
+    if (!connectionVerified) {
+      logger.warn(
+        'PostgreSQL connection verification failed, starting CQL-only indexer',
+      )
+      await this.startCQLOnlyIndexer()
+      return
+    }
+
+    // Run migrations to ensure schema exists before starting API servers
+    const migrationsApplied = await this.applyIndexerMigrations(indexerPath)
+    if (!migrationsApplied) {
+      logger.warn('Failed to apply migrations, continuing anyway...')
+    }
 
     // Start full indexer stack (processor, graphql, frontend, api)
     const proc = spawn(['bun', 'run', 'dev:full'], {
@@ -548,12 +572,23 @@ class ServicesOrchestrator {
       stderr: 'inherit',
       env: {
         ...process.env,
+        DB_HOST: 'localhost',
+        DB_PORT: '23798',
+        DB_NAME: 'indexer',
+        DB_USER: 'postgres',
+        DB_PASS: 'postgres',
         GQL_PORT: String(SERVICE_PORTS.indexer),
         REST_PORT: '4352',
         PORT: '4355',
         RPC_ETH_HTTP: this.rpcUrl,
         START_BLOCK: '0',
         CHAIN_ID: '31337',
+        JEJU_NETWORK: 'localnet',
+        NODE_ENV: 'development',
+        // Enable CQL sync for decentralized reads
+        CQL_SYNC_ENABLED: this.services.has('cql') ? 'true' : 'false',
+        CQL_DATABASE_ID: 'indexer-sync',
+        CQL_SYNC_INTERVAL: '30000',
       },
     })
 
@@ -562,23 +597,273 @@ class ServicesOrchestrator {
       type: 'process',
       port: SERVICE_PORTS.indexer,
       process: proc,
-      url: `http://localhost:${SERVICE_PORTS.indexer}/graphql`,
+      url: `http://localhost:${SERVICE_PORTS.indexer}`,
       healthCheck: '/graphql',
     })
 
-    logger.success(
-      `Indexer starting on port ${SERVICE_PORTS.indexer} (indexing blockchain events)`,
-    )
+    // Wait for the indexer to be ready before reporting success
+    const indexerReady = await this.waitForIndexerHealth()
+    if (indexerReady) {
+      logger.success(
+        `Indexer running on port ${SERVICE_PORTS.indexer} (indexing blockchain events)`,
+      )
+    } else {
+      logger.warn(
+        `Indexer may not be fully ready on port ${SERVICE_PORTS.indexer}`,
+      )
+    }
   }
 
-  private async startLocalIndexer(): Promise<void> {
-    const port = SERVICE_PORTS.indexer
+  private async waitForIndexerHealth(): Promise<boolean> {
+    const healthUrl = `http://localhost:${SERVICE_PORTS.indexer}/graphql`
+    const maxAttempts = 30 // 30 seconds timeout
 
+    for (let i = 0; i < maxAttempts; i++) {
+      try {
+        const response = await fetch(healthUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: '{ __typename }' }),
+          signal: AbortSignal.timeout(2000),
+        })
+        if (response.ok) {
+          return true
+        }
+      } catch {
+        // Indexer not ready yet
+      }
+      await new Promise((r) => setTimeout(r, 1000))
+      if (i > 0 && i % 5 === 0) {
+        logger.debug(`  Waiting for indexer... (${i}s)`)
+      }
+    }
+    return false
+  }
+
+  private async provisionPostgresWithRetry(
+    maxRetries: number,
+  ): Promise<boolean> {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      logger.step(
+        `Provisioning PostgreSQL (attempt ${attempt}/${maxRetries})...`,
+      )
+
+      const result = await this.provisionPostgresContainer()
+      if (result) {
+        return true
+      }
+
+      if (attempt < maxRetries) {
+        const backoffMs = Math.min(1000 * 2 ** (attempt - 1), 10000)
+        logger.debug(`Retrying in ${backoffMs}ms...`)
+        await new Promise((r) => setTimeout(r, backoffMs))
+      }
+    }
+
+    return false
+  }
+
+  private async verifyPostgresConnection(): Promise<boolean> {
+    const containerName = await this.findPostgresContainer()
+    if (!containerName) {
+      logger.debug('No PostgreSQL container found for connection verification')
+      return false
+    }
+
+    logger.debug('Verifying PostgreSQL connection...')
+
+    // Try to connect to the indexer database specifically
+    for (let i = 0; i < 10; i++) {
+      const result = await Bun.spawn(
+        [
+          'docker',
+          'exec',
+          containerName,
+          'psql',
+          '-U',
+          'postgres',
+          '-d',
+          'indexer',
+          '-c',
+          'SELECT 1',
+        ],
+        { stdout: 'pipe', stderr: 'pipe' },
+      ).exited
+
+      if (result === 0) {
+        logger.success('PostgreSQL connection verified')
+        return true
+      }
+
+      await new Promise((r) => setTimeout(r, 1000))
+    }
+
+    logger.error('Failed to verify PostgreSQL connection after 10 attempts')
+    return false
+  }
+
+  private async applyIndexerMigrations(indexerPath: string): Promise<boolean> {
+    logger.step('Applying indexer database migrations...')
+
+    const dbEnv = {
+      ...process.env,
+      DB_HOST: 'localhost',
+      DB_PORT: '23798',
+      DB_NAME: 'indexer',
+      DB_USER: 'postgres',
+      DB_PASS: 'postgres',
+    }
+
+    // Check if migrations directory exists and has migrations
+    const migrationsDir = join(indexerPath, 'db/migrations')
+    const hasMigrations =
+      existsSync(migrationsDir) &&
+      (await Bun.spawn(['ls', migrationsDir], { stdout: 'pipe' })
+        .exited.then(() => true)
+        .catch(() => false))
+
+    // Generate migrations if none exist
+    if (!hasMigrations) {
+      logger.debug('No migrations found, generating from schema...')
+
+      // First build the project to ensure models are compiled
+      const buildResult = await Bun.spawn(['bun', 'run', 'build'], {
+        cwd: indexerPath,
+        stdout: 'pipe',
+        stderr: 'pipe',
+        env: dbEnv,
+      }).exited
+
+      if (buildResult !== 0) {
+        logger.warn('Build failed, trying migration anyway...')
+      }
+
+      // Generate migrations
+      const genResult = await Bun.spawn(
+        ['bunx', 'sqd', 'migration:generate'],
+        {
+          cwd: indexerPath,
+          stdout: 'pipe',
+          stderr: 'pipe',
+          env: dbEnv,
+        },
+      ).exited
+
+      if (genResult !== 0) {
+        logger.debug('Migration generation failed, will try direct TypeORM sync')
+      }
+    }
+
+    // Run sqd migration:apply to create tables
+    const migrationProc = Bun.spawn(['bunx', 'sqd', 'migration:apply'], {
+      cwd: indexerPath,
+      stdout: 'pipe',
+      stderr: 'pipe',
+      env: dbEnv,
+    })
+    const migrationResult = await migrationProc.exited
+    const migrationStderr = await new Response(migrationProc.stderr).text()
+
+    if (migrationResult !== 0) {
+      logger.warn(`Migration apply failed: ${migrationStderr.slice(0, 200)}`)
+      logger.warn(
+        'Run manually: cd apps/indexer && bunx sqd migration:apply',
+      )
+      return false
+    }
+
+    // Verify tables were created
+    const containerName = await this.findPostgresContainer()
+    if (containerName) {
+      const checkResult = await Bun.spawn(
+        [
+          'docker',
+          'exec',
+          containerName,
+          'psql',
+          '-U',
+          'postgres',
+          '-d',
+          'indexer',
+          '-c',
+          "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public'",
+        ],
+        { stdout: 'pipe', stderr: 'pipe' },
+      )
+      const checkOutput = await new Response(checkResult.stdout).text()
+      const tableCount = parseInt(checkOutput.match(/\d+/)?.[0] ?? '0', 10)
+      if (tableCount > 50) {
+        logger.success(`Migrations applied (${tableCount} tables)`)
+        return true
+      }
+    }
+
+    logger.success('Migrations applied')
+    return true
+  }
+
+  private async verifyIndexerSchema(indexerPath: string): Promise<boolean> {
+    const containerName = await this.findPostgresContainer()
+    if (!containerName) return false
+
+    const checkResult = await Bun.spawn(
+      [
+        'docker',
+        'exec',
+        containerName,
+        'psql',
+        '-U',
+        'postgres',
+        '-d',
+        'indexer',
+        '-c',
+        "SELECT 1 FROM information_schema.tables WHERE table_name = 'block'",
+      ],
+      { stdout: 'pipe', stderr: 'pipe' },
+    )
+    const output = await new Response(checkResult.stdout).text()
+
+    if (output.includes('1')) {
+      logger.success('Schema synchronized')
+      return true
+    }
+
+    logger.warn('Schema synchronization may have failed')
+    return false
+  }
+
+  private async findPostgresContainer(): Promise<string | null> {
+    const containerNames = ['dws-postgres-indexer', 'squid-db-1']
+
+    for (const name of containerNames) {
+      const checkResult = await Bun.spawn(
+        ['docker', 'ps', '-q', '-f', `name=${name}`],
+        { stdout: 'pipe', stderr: 'pipe' },
+      )
+      const output = await new Response(checkResult.stdout).text()
+      if (output.trim()) {
+        return name
+      }
+    }
+
+    return null
+  }
+
+  private async startCQLOnlyIndexer(): Promise<void> {
+    const port = SERVICE_PORTS.indexer
     const indexerPath = join(this.rootDir, 'apps/indexer')
 
+    // Check if CQL is available for read-only mode
+    const cqlService = this.services.get('cql')
+    const cqlAvailable = cqlService !== undefined
+
+    if (!cqlAvailable) {
+      logger.warn('CQL not available - indexer will run in mock mode')
+    }
+
     if (existsSync(indexerPath)) {
-      // Start full indexer stack (processor, graphql, frontend, api)
-      const proc = spawn(['bun', 'run', 'dev:full'], {
+      // Start indexer in CQL-only mode (no PostgreSQL)
+      const proc = spawn(['bun', 'run', 'api/api-server.ts'], {
         cwd: indexerPath,
         stdout: 'inherit',
         stderr: 'inherit',
@@ -588,39 +873,44 @@ class ServicesOrchestrator {
           REST_PORT: '4352',
           PORT: '4355',
           RPC_ETH_HTTP: this.rpcUrl,
-          START_BLOCK: '0',
-          CHAIN_ID: '31337',
-          DATABASE_URL: `sqlite://${join(this.rootDir, '.data/indexer.db')}`,
+          JEJU_NETWORK: 'localnet',
+          NODE_ENV: 'development',
+          // CQL-only mode - no PostgreSQL
+          INDEXER_MODE: 'cql-only',
+          CQL_SYNC_ENABLED: 'false', // Don't sync, just read
+          CQL_READ_ENABLED: cqlAvailable ? 'true' : 'false',
+          CQL_DATABASE_ID: 'indexer-sync',
         },
       })
 
       this.services.set('indexer', {
-        name: 'Indexer (On-Chain)',
+        name: 'Indexer (CQL-only)',
         type: 'process',
         port,
         process: proc,
-        url: `http://localhost:${port}/graphql`,
+        url: `http://localhost:${port}`,
         healthCheck: '/health',
       })
 
       logger.success(
-        `Indexer starting on port ${port} (indexing blockchain events)`,
+        `Indexer starting on port ${port} (CQL-only mode${cqlAvailable ? '' : ' - mock data'})`,
       )
       return
     }
 
+    // Fallback to mock server if indexer app doesn't exist
     const server = Bun.serve({
       port,
       async fetch(req) {
         const url = new URL(req.url)
 
         if (url.pathname === '/health') {
-          return Response.json({ status: 'ok', mode: 'rpc-direct' })
+          return Response.json({ status: 'ok', mode: 'mock' })
         }
 
         if (url.pathname === '/graphql') {
           if (req.method === 'GET') {
-            return Response.json({ status: 'ok', mode: 'rpc-direct' })
+            return Response.json({ status: 'ok', mode: 'mock' })
           }
           return Response.json({
             data: {
@@ -628,7 +918,7 @@ class ServicesOrchestrator {
               transactions: [],
               accounts: [],
               message:
-                'Indexer running in RPC-direct mode. Deploy apps/indexer for full indexing.',
+                'Indexer running in mock mode. Install apps/indexer for full functionality.',
             },
           })
         }
@@ -638,17 +928,434 @@ class ServicesOrchestrator {
     })
 
     this.services.set('indexer', {
-      name: 'Indexer (RPC Direct)',
+      name: 'Indexer (Mock)',
       type: 'server',
       port,
       server: { stop: async () => server.stop() },
-      url: `http://localhost:${port}/graphql`,
+      url: `http://localhost:${port}`,
       healthCheck: '/health',
     })
 
-    logger.info(
-      `Indexer on port ${port} (RPC-direct mode - deploy apps/indexer for full indexing)`,
+    logger.info(`Indexer mock server started on port ${port}`)
+  }
+
+  private async isDWSAvailable(): Promise<boolean> {
+    try {
+      const response = await fetch('http://localhost:4030/services/health', {
+        signal: AbortSignal.timeout(2000),
+      })
+      return response.ok
+    } catch {
+      return false
+    }
+  }
+
+  private async waitForDWSReady(maxWaitMs: number = 30000): Promise<boolean> {
+    const startTime = Date.now()
+    let attempts = 0
+
+    while (Date.now() - startTime < maxWaitMs) {
+      attempts++
+      if (await this.isDWSAvailable()) {
+        logger.debug(`DWS ready after ${attempts} attempts`)
+        return true
+      }
+      await new Promise((r) => setTimeout(r, 500))
+    }
+
+    logger.warn('DWS did not become ready within timeout')
+    return false
+  }
+
+  /**
+   * Deploy an app through DWS using its jeju-manifest.json
+   * This is the Heroku/EKS-like deployment experience
+   */
+  async deployAppViaDWS(appPath: string): Promise<{
+    success: boolean
+    services: Array<{
+      type: string
+      name: string
+      status: string
+      port?: number
+    }>
+    database?: { type: string; name: string; connectionString?: string }
+    errors: string[]
+  }> {
+    const manifestPath = join(appPath, 'jeju-manifest.json')
+
+    if (!existsSync(manifestPath)) {
+      return {
+        success: false,
+        services: [],
+        errors: [`No jeju-manifest.json found at ${appPath}`],
+      }
+    }
+
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'))
+
+    // Wait for DWS to be ready
+    const dwsReady = await this.waitForDWSReady(10000)
+    if (!dwsReady) {
+      return {
+        success: false,
+        services: [],
+        errors: ['DWS server not available'],
+      }
+    }
+
+    logger.step(`Deploying ${manifest.name} via DWS...`)
+
+    try {
+      const response = await fetch('http://localhost:4030/deploy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ manifest }),
+        signal: AbortSignal.timeout(60000),
+      })
+
+      if (!response.ok) {
+        const error = await response.text()
+        return {
+          success: false,
+          services: [],
+          errors: [`DWS deployment failed: ${error}`],
+        }
+      }
+
+      const result = (await response.json()) as {
+        appName: string
+        status: 'success' | 'partial' | 'failed'
+        services: Array<{
+          type: string
+          name: string
+          status: string
+          port?: number
+        }>
+        database?: { type: string; name: string; connectionString?: string }
+        tee?: { enabled: boolean; platform: string }
+        errors: string[]
+      }
+
+      if (result.status === 'success') {
+        logger.success(`${manifest.name} deployed successfully via DWS`)
+        if (result.tee?.enabled) {
+          logger.info(`TEE enabled: ${result.tee.platform}`)
+        }
+      } else if (result.status === 'partial') {
+        logger.warn(
+          `${manifest.name} partially deployed: ${result.errors.join(', ')}`,
+        )
+      } else {
+        logger.error(
+          `${manifest.name} deployment failed: ${result.errors.join(', ')}`,
+        )
+      }
+
+      return {
+        success: result.status !== 'failed',
+        services: result.services,
+        database: result.database,
+        errors: result.errors,
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      return {
+        success: false,
+        services: [],
+        errors: [`DWS deployment error: ${message}`],
+      }
+    }
+  }
+
+  /**
+   * Get TEE status from DWS
+   */
+  async getTEEStatus(): Promise<{
+    available: boolean
+    platform: string
+    mode: string
+  }> {
+    try {
+      const response = await fetch('http://localhost:4030/deploy/tee/status', {
+        signal: AbortSignal.timeout(5000),
+      })
+
+      if (!response.ok) {
+        return { available: false, platform: 'none', mode: 'unavailable' }
+      }
+
+      return (await response.json()) as {
+        available: boolean
+        platform: string
+        mode: string
+      }
+    } catch {
+      return { available: false, platform: 'none', mode: 'unavailable' }
+    }
+  }
+
+  private async isDockerAvailable(): Promise<boolean> {
+    try {
+      const result = await Bun.spawn(['docker', 'info'], {
+        stdout: 'ignore',
+        stderr: 'ignore',
+      }).exited
+      return result === 0
+    } catch {
+      return false
+    }
+  }
+
+  private async provisionPostgresContainer(): Promise<boolean> {
+    // First check if postgres is already running (reuse existing)
+    const existingContainer = await this.findPostgresContainer()
+    if (existingContainer) {
+      const healthy = await this.isPostgresHealthy(existingContainer)
+      if (healthy) {
+        logger.debug('Existing PostgreSQL container is healthy')
+        await this.ensureIndexerDatabaseDirect()
+        return true
+      }
+    }
+
+    // All provisioning MUST go through DWS interfaces for decentralized experience
+    // DWS handles Docker locally, k8s in production
+    if (await this.isDWSAvailable()) {
+      const result = await this.provisionPostgresViaDWS()
+      if (result) return true
+      logger.warn('DWS provisioning failed - check DWS server logs')
+    } else {
+      // If DWS is not running, use direct Docker provisioning
+      // This ensures local dev works even without DWS server running
+      logger.info('DWS not available, provisioning directly via Docker')
+      return this.provisionPostgresDirect()
+    }
+
+    // If DWS was available but provisioning failed, try direct fallback
+    // This handles edge cases during local development
+    logger.debug('Attempting direct Docker provisioning as fallback...')
+    return this.provisionPostgresDirect()
+  }
+
+  private async isPostgresHealthy(containerName: string): Promise<boolean> {
+    const result = await Bun.spawn(
+      ['docker', 'exec', containerName, 'pg_isready', '-U', 'postgres'],
+      { stdout: 'pipe', stderr: 'pipe' },
+    ).exited
+    return result === 0
+  }
+
+  private async provisionPostgresViaDWS(): Promise<boolean> {
+    const dwsUrl = 'http://localhost:4030'
+
+    logger.step('Provisioning postgres via DWS services...')
+
+    try {
+      // Provision postgres service via DWS
+      const provisionResponse = await fetch(`${dwsUrl}/services/provision`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'postgres',
+          name: 'indexer',
+          version: '15',
+          resources: {
+            cpuCores: 1,
+            memoryMb: 512,
+            storageMb: 5120,
+          },
+          ports: [{ container: 5432, host: 23798 }],
+          env: {
+            POSTGRES_PASSWORD: 'postgres',
+            POSTGRES_DB: 'squid',
+          },
+        }),
+      })
+
+      if (!provisionResponse.ok) {
+        const error = await provisionResponse.text()
+        logger.error(`DWS postgres provisioning failed: ${error}`)
+        return false
+      }
+
+      const service = (await provisionResponse.json()) as {
+        id: string
+        status: string
+        healthStatus: string
+        ports: { container: number; host: number }[]
+      }
+
+      if (service.status !== 'running' || service.healthStatus !== 'healthy') {
+        logger.error(
+          `Postgres service not healthy: ${service.status}/${service.healthStatus}`,
+        )
+        return false
+      }
+
+      logger.success('Postgres service provisioned via DWS')
+
+      // Create indexer database via DWS
+      const dbResponse = await fetch(
+        `${dwsUrl}/services/${service.id}/databases`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ databaseName: 'indexer' }),
+        },
+      )
+
+      if (!dbResponse.ok) {
+        logger.warn('Failed to create indexer database via DWS API')
+        // Try direct fallback
+        await this.ensureIndexerDatabaseDirect()
+      } else {
+        logger.success('Indexer database created via DWS')
+      }
+
+      return true
+    } catch (error) {
+      logger.error(`DWS provisioning error: ${error}`)
+      return false
+    }
+  }
+
+  private async provisionPostgresDirect(): Promise<boolean> {
+    const containerName = 'dws-postgres-indexer'
+    const postgresPort = 23798
+
+    // Check if container already exists and is running
+    const existingResult = await Bun.spawn(
+      ['docker', 'ps', '-q', '-f', `name=${containerName}`],
+      { stdout: 'pipe', stderr: 'pipe' },
     )
+    const existingOutput = await new Response(existingResult.stdout).text()
+
+    if (existingOutput.trim()) {
+      logger.debug('Postgres container already running')
+      await this.ensureIndexerDatabaseDirect()
+      return true
+    }
+
+    // Check if container exists but is stopped
+    const stoppedResult = await Bun.spawn(
+      ['docker', 'ps', '-aq', '-f', `name=${containerName}`],
+      { stdout: 'pipe', stderr: 'pipe' },
+    )
+    const stoppedOutput = await new Response(stoppedResult.stdout).text()
+
+    if (stoppedOutput.trim()) {
+      logger.step('Starting existing postgres container...')
+      const startResult = await Bun.spawn(['docker', 'start', containerName], {
+        stdout: 'pipe',
+        stderr: 'pipe',
+      }).exited
+      if (startResult !== 0) {
+        logger.error('Failed to start postgres container')
+        return false
+      }
+    } else {
+      logger.step('Provisioning postgres container...')
+      const createResult = await Bun.spawn(
+        [
+          'docker',
+          'run',
+          '-d',
+          '--name',
+          containerName,
+          '-e',
+          'POSTGRES_PASSWORD=postgres',
+          '-e',
+          'POSTGRES_DB=squid',
+          '-p',
+          `${postgresPort}:5432`,
+          '--shm-size=256m',
+          '--memory=512m',
+          '--cpus=1',
+          'postgres:15',
+        ],
+        { stdout: 'pipe', stderr: 'pipe' },
+      ).exited
+
+      if (createResult !== 0) {
+        logger.error('Failed to create postgres container')
+        return false
+      }
+    }
+
+    // Wait for postgres to be ready
+    logger.debug('Waiting for postgres to be ready...')
+    for (let i = 0; i < 30; i++) {
+      const healthResult = await Bun.spawn(
+        ['docker', 'exec', containerName, 'pg_isready', '-U', 'postgres'],
+        { stdout: 'pipe', stderr: 'pipe' },
+      ).exited
+
+      if (healthResult === 0) {
+        logger.success('Postgres container ready')
+        await this.ensureIndexerDatabaseDirect()
+        return true
+      }
+      await new Promise((r) => setTimeout(r, 1000))
+    }
+
+    logger.error('Postgres failed to become ready within 30 seconds')
+    return false
+  }
+
+  private async ensureIndexerDatabaseDirect(): Promise<void> {
+    // Try both container names (legacy and new)
+    const containerNames = ['dws-postgres-indexer', 'squid-db-1']
+    let containerName: string | null = null
+
+    for (const name of containerNames) {
+      const checkResult = await Bun.spawn(
+        ['docker', 'ps', '-q', '-f', `name=${name}`],
+        { stdout: 'pipe', stderr: 'pipe' },
+      )
+      const output = await new Response(checkResult.stdout).text()
+      if (output.trim()) {
+        containerName = name
+        break
+      }
+    }
+
+    if (!containerName) {
+      logger.warn('No postgres container found for database creation')
+      return
+    }
+
+    // Check if indexer database exists
+    const checkResult = await Bun.spawn(
+      ['docker', 'exec', containerName, 'psql', '-U', 'postgres', '-lqt'],
+      { stdout: 'pipe', stderr: 'pipe' },
+    )
+    const databases = await new Response(checkResult.stdout).text()
+
+    if (!databases.includes('indexer')) {
+      logger.step('Creating indexer database...')
+      const createResult = await Bun.spawn(
+        [
+          'docker',
+          'exec',
+          containerName,
+          'psql',
+          '-U',
+          'postgres',
+          '-c',
+          'CREATE DATABASE indexer;',
+        ],
+        { stdout: 'pipe', stderr: 'pipe' },
+      ).exited
+
+      if (createResult === 0) {
+        logger.success('Indexer database created')
+      } else {
+        logger.warn('Failed to create indexer database (may already exist)')
+      }
+    } else {
+      logger.debug('Indexer database already exists')
+    }
   }
 
   private async startJNS(): Promise<void> {
@@ -944,6 +1651,8 @@ class ServicesOrchestrator {
         DWS_PORT: String(port),
         RPC_URL: this.rpcUrl,
         CHAIN_ID: '31337',
+        JEJU_NETWORK: 'localnet',
+        NODE_ENV: 'development',
         REPO_REGISTRY_ADDRESS: getContractAddr('repoRegistry'),
         PACKAGE_REGISTRY_ADDRESS: getContractAddr('packageRegistry'),
         TRIGGER_REGISTRY_ADDRESS: getContractAddr('triggerRegistry'),
@@ -1266,25 +1975,31 @@ class ServicesOrchestrator {
     const maxWait = 30000
     const startTime = Date.now()
 
-    for (const [name, service] of this.services) {
-      if (!service.healthCheck || !service.url) continue
+    // Wait for all services in parallel
+    const healthChecks = Array.from(this.services.entries())
+      .filter(([_, service]) => service.healthCheck && service.url)
+      .map(async ([name, service]) => {
+        const healthUrl = `${service.url}${service.healthCheck}`
 
-      const healthUrl = `${service.url}${service.healthCheck}`
-      let ready = false
-
-      while (Date.now() - startTime < maxWait && !ready) {
-        try {
-          const response = await fetch(healthUrl, {
-            signal: AbortSignal.timeout(2000),
-          })
-          if (response.ok) {
-            ready = true
+        while (Date.now() - startTime < maxWait) {
+          try {
+            const response = await fetch(healthUrl, {
+              signal: AbortSignal.timeout(2000),
+            })
+            if (response.ok) {
+              return { name, ready: true }
+            }
+          } catch {
+            // Service not ready yet
           }
-        } catch {
           await new Promise((r) => setTimeout(r, 500))
         }
-      }
 
+        return { name, ready: false }
+      })
+
+    const results = await Promise.all(healthChecks)
+    for (const { name, ready } of results) {
       if (!ready) {
         logger.warn(`Service ${name} health check failed`)
       }
@@ -1308,10 +2023,15 @@ class ServicesOrchestrator {
     for (const key of mainServices) {
       const service = this.services.get(key)
       if (service) {
+        // For indexer, show the GraphQL endpoint for user-friendliness
+        let displayUrl = service.url || 'running'
+        if (key === 'indexer' && service.url) {
+          displayUrl = `${service.url}/graphql`
+        }
         logger.table([
           {
             label: service.name,
-            value: service.url || 'running',
+            value: displayUrl,
             status: 'ok',
           },
         ])

@@ -2,22 +2,97 @@
  * Email Routes
  * Decentralized email service for DWS
  *
- * DEVELOPMENT ONLY: Uses in-memory storage that is NOT persistent.
- * For production, this module needs to be integrated with CQL/IPFS.
+ * Lightweight API for local development and testing.
+ * Uses CQL for persistence. Production traffic should use the full email system
+ * at /email/* routes which integrates with:
+ * - DWS Storage (IPFS/Arweave)
+ * - EmailRegistry contract
+ * - Content screening
+ * - Encryption
  */
 
-import { createHash } from 'node:crypto'
-
-// Warn about in-memory storage at module load
-if (process.env.NODE_ENV === 'production') {
-  console.warn(
-    '[Email Routes] WARNING: Running in production with in-memory storage. Emails will be lost on restart.',
-  )
-}
-
+import { getCQLMinerUrl, getCQLUrl } from '@jejunetwork/config'
+import { getCQL, resetCQL } from '@jejunetwork/db'
+import { bytesToHex, hash256 } from '@jejunetwork/shared'
 import { expectValid } from '@jejunetwork/types'
 import { Elysia, t } from 'elysia'
 import { z } from 'zod'
+import { getMetrics } from '../../src/email/metrics'
+
+const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? 'dws'
+
+// CQL Client singleton
+let cqlClient: ReturnType<typeof getCQL> | null = null
+
+async function getCQLClient() {
+  if (!cqlClient) {
+    resetCQL()
+    const blockProducerEndpoint = getCQLUrl()
+    const minerEndpoint = getCQLMinerUrl()
+
+    cqlClient = getCQL({
+      blockProducerEndpoint,
+      minerEndpoint,
+      databaseId: CQL_DATABASE_ID,
+      timeout: 30000,
+      debug: process.env.NODE_ENV !== 'production',
+    })
+
+    await ensureTablesExist()
+  }
+  return cqlClient
+}
+
+async function ensureTablesExist(): Promise<void> {
+  if (!cqlClient) return
+
+  const tables = [
+    `CREATE TABLE IF NOT EXISTS email_mailboxes (
+      address TEXT PRIMARY KEY,
+      quota_used_bytes INTEGER NOT NULL DEFAULT 0,
+      quota_limit_bytes INTEGER NOT NULL DEFAULT 104857600,
+      created_at INTEGER NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS email_messages (
+      message_id TEXT PRIMARY KEY,
+      owner_address TEXT NOT NULL,
+      folder TEXT NOT NULL,
+      from_addr TEXT NOT NULL,
+      to_addr TEXT NOT NULL,
+      subject TEXT NOT NULL,
+      body_text TEXT NOT NULL,
+      body_html TEXT,
+      snippet TEXT NOT NULL,
+      cc TEXT,
+      bcc TEXT,
+      reply_to TEXT,
+      in_reply_to TEXT,
+      sent_at INTEGER,
+      received_at INTEGER NOT NULL,
+      flag_read INTEGER NOT NULL DEFAULT 0,
+      flag_starred INTEGER NOT NULL DEFAULT 0,
+      flag_important INTEGER NOT NULL DEFAULT 0,
+      flag_answered INTEGER NOT NULL DEFAULT 0,
+      flag_forwarded INTEGER NOT NULL DEFAULT 0,
+      flag_deleted INTEGER NOT NULL DEFAULT 0,
+      flag_spam INTEGER NOT NULL DEFAULT 0
+    )`,
+  ]
+
+  const indexes = [
+    'CREATE INDEX IF NOT EXISTS idx_email_owner ON email_messages(owner_address)',
+    'CREATE INDEX IF NOT EXISTS idx_email_folder ON email_messages(owner_address, folder)',
+    'CREATE INDEX IF NOT EXISTS idx_email_received ON email_messages(received_at DESC)',
+  ]
+
+  for (const ddl of tables) {
+    await cqlClient.exec(ddl, [], CQL_DATABASE_ID)
+  }
+
+  for (const idx of indexes) {
+    await cqlClient.exec(idx, [], CQL_DATABASE_ID)
+  }
+}
 
 // Types
 interface EmailFlags {
@@ -51,14 +126,36 @@ interface Email extends EmailIndexEntry {
   references?: string[]
 }
 
-interface Mailbox {
-  inbox: EmailIndexEntry[]
-  sent: EmailIndexEntry[]
-  drafts: EmailIndexEntry[]
-  trash: EmailIndexEntry[]
-  spam: EmailIndexEntry[]
-  archive: EmailIndexEntry[]
-  folders: Record<string, EmailIndexEntry[]>
+interface MailboxRow {
+  address: string
+  quota_used_bytes: number
+  quota_limit_bytes: number
+  created_at: number
+}
+
+interface EmailRow {
+  message_id: string
+  owner_address: string
+  folder: string
+  from_addr: string
+  to_addr: string
+  subject: string
+  body_text: string
+  body_html: string | null
+  snippet: string
+  cc: string | null
+  bcc: string | null
+  reply_to: string | null
+  in_reply_to: string | null
+  sent_at: number | null
+  received_at: number
+  flag_read: number
+  flag_starred: number
+  flag_important: number
+  flag_answered: number
+  flag_forwarded: number
+  flag_deleted: number
+  flag_spam: number
 }
 
 /** Request body for sending an email */
@@ -91,37 +188,94 @@ const MoveEmailBodySchema = z.object({
   folder: z.string().min(1),
 })
 
-interface UserMailbox {
-  mailbox: Mailbox
-  emails: Map<string, Email>
-  quotaUsedBytes: number
-  quotaLimitBytes: number
+async function getOrCreateMailbox(address: string): Promise<MailboxRow> {
+  const normalized = address.toLowerCase()
+  const client = await getCQLClient()
+
+  const result = await client.query<MailboxRow>(
+    'SELECT * FROM email_mailboxes WHERE address = ?',
+    [normalized],
+    CQL_DATABASE_ID,
+  )
+
+  if (result.rows[0]) return result.rows[0]
+
+  const newMailbox: MailboxRow = {
+    address: normalized,
+    quota_used_bytes: 0,
+    quota_limit_bytes: 100 * 1024 * 1024, // 100MB
+    created_at: Date.now(),
+  }
+
+  await client.exec(
+    `INSERT INTO email_mailboxes (address, quota_used_bytes, quota_limit_bytes, created_at)
+     VALUES (?, ?, ?, ?)`,
+    [
+      newMailbox.address,
+      newMailbox.quota_used_bytes,
+      newMailbox.quota_limit_bytes,
+      newMailbox.created_at,
+    ],
+    CQL_DATABASE_ID,
+  )
+
+  return newMailbox
 }
 
-// In-memory storage (per wallet address)
-const mailboxes = new Map<string, UserMailbox>()
+async function getMailboxEmails(
+  address: string,
+  folder: string,
+): Promise<EmailRow[]> {
+  const client = await getCQLClient()
+  const result = await client.query<EmailRow>(
+    'SELECT * FROM email_messages WHERE owner_address = ? AND folder = ? ORDER BY received_at DESC',
+    [address.toLowerCase(), folder],
+    CQL_DATABASE_ID,
+  )
+  return result.rows
+}
 
-function getOrCreateMailbox(address: string): UserMailbox {
-  const normalized = address.toLowerCase()
-  let mailbox = mailboxes.get(normalized)
-  if (!mailbox) {
-    mailbox = {
-      mailbox: {
-        inbox: [],
-        sent: [],
-        drafts: [],
-        trash: [],
-        spam: [],
-        archive: [],
-        folders: {},
-      },
-      emails: new Map(),
-      quotaUsedBytes: 0,
-      quotaLimitBytes: 100 * 1024 * 1024, // 100MB default quota
-    }
-    mailboxes.set(normalized, mailbox)
+async function getMailboxCount(_address: string): Promise<number> {
+  const client = await getCQLClient()
+  const result = await client.query<{ count: number }>(
+    'SELECT COUNT(*) as count FROM email_mailboxes',
+    [],
+    CQL_DATABASE_ID,
+  )
+  return result.rows[0]?.count ?? 0
+}
+
+function rowToIndexEntry(row: EmailRow): EmailIndexEntry {
+  return {
+    messageId: row.message_id,
+    from: row.from_addr,
+    to: row.to_addr,
+    subject: row.subject,
+    snippet: row.snippet,
+    receivedAt: row.received_at,
+    sentAt: row.sent_at ?? undefined,
+    flags: {
+      read: row.flag_read === 1,
+      starred: row.flag_starred === 1,
+      important: row.flag_important === 1,
+      answered: row.flag_answered === 1,
+      forwarded: row.flag_forwarded === 1,
+      deleted: row.flag_deleted === 1,
+      spam: row.flag_spam === 1,
+    },
   }
-  return mailbox
+}
+
+function rowToEmail(row: EmailRow): Email {
+  return {
+    ...rowToIndexEntry(row),
+    bodyText: row.body_text,
+    bodyHtml: row.body_html ?? undefined,
+    cc: row.cc ? (JSON.parse(row.cc) as string[]) : undefined,
+    bcc: row.bcc ? (JSON.parse(row.bcc) as string[]) : undefined,
+    replyTo: row.reply_to ?? undefined,
+    inReplyTo: row.in_reply_to ?? undefined,
+  }
 }
 
 function generateMessageId(
@@ -130,7 +284,7 @@ function generateMessageId(
   timestamp: number,
 ): string {
   const data = `${from}:${to.join(',')}:${timestamp}:${Math.random()}`
-  return createHash('sha256').update(data).digest('hex').slice(0, 32)
+  return bytesToHex(hash256(data)).slice(0, 32)
 }
 
 function createSnippet(text: string, maxLength = 150): string {
@@ -147,38 +301,48 @@ function calculateEmailSize(email: Email): number {
 export function createEmailRouter() {
   return (
     new Elysia({ prefix: '/email' })
-      .get('/health', () => ({
+      .get('/health', async () => ({
         status: 'healthy' as const,
         service: 'email',
-        activeMailboxes: mailboxes.size,
+        activeMailboxes: await getMailboxCount(''),
       }))
 
+      .get('/metrics', async ({ set }) => {
+        set.headers['Content-Type'] = 'text/plain'
+        return getMetrics()
+      })
+
       // Get mailbox overview
-      .get('/mailbox', ({ headers, set }) => {
+      .get('/mailbox', async ({ headers, set }) => {
         const address = headers['x-wallet-address']
         if (!address) {
           set.status = 401
           return { error: 'Wallet address required' }
         }
 
-        const userMailbox = getOrCreateMailbox(address)
-        const unreadCount = userMailbox.mailbox.inbox.filter(
-          (e) => !e.flags.read,
-        ).length
+        const mailbox = await getOrCreateMailbox(address)
+        const inbox = await getMailboxEmails(address, 'inbox')
+        const sent = await getMailboxEmails(address, 'sent')
+        const drafts = await getMailboxEmails(address, 'drafts')
+        const trash = await getMailboxEmails(address, 'trash')
+        const spam = await getMailboxEmails(address, 'spam')
+        const archive = await getMailboxEmails(address, 'archive')
+
+        const unreadCount = inbox.filter((e) => e.flag_read === 0).length
 
         return {
           mailbox: {
-            quotaUsedBytes: String(userMailbox.quotaUsedBytes),
-            quotaLimitBytes: String(userMailbox.quotaLimitBytes),
+            quotaUsedBytes: String(mailbox.quota_used_bytes),
+            quotaLimitBytes: String(mailbox.quota_limit_bytes),
           },
           index: {
-            inbox: userMailbox.mailbox.inbox,
-            sent: userMailbox.mailbox.sent,
-            drafts: userMailbox.mailbox.drafts,
-            trash: userMailbox.mailbox.trash,
-            spam: userMailbox.mailbox.spam,
-            archive: userMailbox.mailbox.archive,
-            folders: userMailbox.mailbox.folders,
+            inbox: inbox.map(rowToIndexEntry),
+            sent: sent.map(rowToIndexEntry),
+            drafts: drafts.map(rowToIndexEntry),
+            trash: trash.map(rowToIndexEntry),
+            spam: spam.map(rowToIndexEntry),
+            archive: archive.map(rowToIndexEntry),
+            folders: {},
           },
           unreadCount,
         }
@@ -187,15 +351,23 @@ export function createEmailRouter() {
       // Send email
       .post(
         '/send',
-        ({ body, headers, set }) => {
+        async ({ body, headers, set }) => {
           const address = headers['x-wallet-address']
           if (!address) {
             set.status = 401
             return { error: 'Wallet address required' }
           }
 
+          const parseResult = SendEmailBodySchema.safeParse(body)
+          if (!parseResult.success) {
+            set.status = 400
+            const errors = parseResult.error.issues
+              .map((i) => `${i.path.join('.')}: ${i.message}`)
+              .join(', ')
+            return { error: `Invalid email request: ${errors}` }
+          }
           const { from, to, subject, bodyText, bodyHtml, cc, bcc, replyTo } =
-            expectValid(SendEmailBodySchema, body, 'Send email request')
+            parseResult.data
 
           const timestamp = Date.now()
           const messageId = generateMessageId(from, to, timestamp)
@@ -224,55 +396,90 @@ export function createEmailRouter() {
             },
           }
 
-          // Store in sender's sent folder
-          const senderMailbox = getOrCreateMailbox(address)
+          // Check quota
+          const senderMailbox = await getOrCreateMailbox(address)
           const emailSize = calculateEmailSize(email)
 
           if (
-            senderMailbox.quotaUsedBytes + emailSize >
-            senderMailbox.quotaLimitBytes
+            senderMailbox.quota_used_bytes + emailSize >
+            senderMailbox.quota_limit_bytes
           ) {
             set.status = 507
             return { error: 'Mailbox quota exceeded' }
           }
 
-          senderMailbox.emails.set(messageId, email)
-          senderMailbox.mailbox.sent.unshift({
-            messageId,
-            from,
-            to: to.join(', '),
-            subject,
-            snippet: email.snippet,
-            sentAt: timestamp,
-            receivedAt: timestamp,
-            flags: email.flags,
-          })
-          senderMailbox.quotaUsedBytes += emailSize
+          const client = await getCQLClient()
+
+          // Store in sender's sent folder
+          await client.exec(
+            `INSERT INTO email_messages (
+              message_id, owner_address, folder, from_addr, to_addr, subject, body_text, body_html,
+              snippet, cc, bcc, reply_to, sent_at, received_at,
+              flag_read, flag_starred, flag_important, flag_answered, flag_forwarded, flag_deleted, flag_spam
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, 0, 0, 0, 0, 0)`,
+            [
+              `${messageId}-sent`,
+              address.toLowerCase(),
+              'sent',
+              from,
+              to.join(', '),
+              subject,
+              bodyText,
+              bodyHtml ?? null,
+              email.snippet,
+              cc ? JSON.stringify(cc) : null,
+              bcc ? JSON.stringify(bcc) : null,
+              replyTo ?? null,
+              timestamp,
+              timestamp,
+            ],
+            CQL_DATABASE_ID,
+          )
+
+          // Update sender quota
+          await client.exec(
+            'UPDATE email_mailboxes SET quota_used_bytes = quota_used_bytes + ? WHERE address = ?',
+            [emailSize, address.toLowerCase()],
+            CQL_DATABASE_ID,
+          )
 
           // Deliver to recipients (if they have mailboxes on this system)
           for (const recipient of to) {
-            // Extract address from email format (e.g., "0xabc...@jeju.mail" -> "0xabc...")
             const recipientAddress = recipient.split('@')[0]
             if (recipientAddress.startsWith('0x')) {
-              const recipientMailbox = getOrCreateMailbox(recipientAddress)
-              const recipientEmail: Email = {
-                ...email,
-                flags: {
-                  ...email.flags,
-                  read: false, // Unread for recipient
-                },
-              }
-              recipientMailbox.emails.set(messageId, recipientEmail)
-              recipientMailbox.mailbox.inbox.unshift({
-                messageId,
-                from,
-                to: to.join(', '),
-                subject,
-                snippet: email.snippet,
-                receivedAt: timestamp,
-                flags: recipientEmail.flags,
-              })
-              recipientMailbox.quotaUsedBytes += emailSize
+              const _recipientMailbox =
+                await getOrCreateMailbox(recipientAddress)
+
+              await client.exec(
+                `INSERT INTO email_messages (
+                  message_id, owner_address, folder, from_addr, to_addr, subject, body_text, body_html,
+                  snippet, cc, bcc, reply_to, sent_at, received_at,
+                  flag_read, flag_starred, flag_important, flag_answered, flag_forwarded, flag_deleted, flag_spam
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0)`,
+                [
+                  `${messageId}-inbox-${recipientAddress.toLowerCase()}`,
+                  recipientAddress.toLowerCase(),
+                  'inbox',
+                  from,
+                  to.join(', '),
+                  subject,
+                  bodyText,
+                  bodyHtml ?? null,
+                  email.snippet,
+                  cc ? JSON.stringify(cc) : null,
+                  bcc ? JSON.stringify(bcc) : null,
+                  replyTo ?? null,
+                  timestamp,
+                  timestamp,
+                ],
+                CQL_DATABASE_ID,
+              )
+
+              await client.exec(
+                'UPDATE email_mailboxes SET quota_used_bytes = quota_used_bytes + ? WHERE address = ?',
+                [emailSize, recipientAddress.toLowerCase()],
+                CQL_DATABASE_ID,
+              )
             }
           }
 
@@ -297,38 +504,48 @@ export function createEmailRouter() {
       )
 
       // Get single email
-      .get('/message/:messageId', ({ params, headers, set }) => {
+      .get('/message/:messageId', async ({ params, headers, set }) => {
         const address = headers['x-wallet-address']
         if (!address) {
           set.status = 401
           return { error: 'Wallet address required' }
         }
 
-        const userMailbox = getOrCreateMailbox(address)
-        const email = userMailbox.emails.get(params.messageId)
+        const client = await getCQLClient()
+        const result = await client.query<EmailRow>(
+          'SELECT * FROM email_messages WHERE message_id = ? AND owner_address = ?',
+          [params.messageId, address.toLowerCase()],
+          CQL_DATABASE_ID,
+        )
 
-        if (!email) {
+        if (!result.rows[0]) {
           set.status = 404
           return { error: 'Message not found' }
         }
 
-        return email
+        return rowToEmail(result.rows[0])
       })
 
       // Mark email as read/unread
       .patch(
         '/message/:messageId/flags',
-        ({ params, body, headers, set }) => {
+        async ({ params, body, headers, set }) => {
           const address = headers['x-wallet-address']
           if (!address) {
             set.status = 401
             return { error: 'Wallet address required' }
           }
 
-          const userMailbox = getOrCreateMailbox(address)
-          const email = userMailbox.emails.get(params.messageId)
+          const client = await getCQLClient()
 
-          if (!email) {
+          // Check if message exists
+          const existing = await client.query<EmailRow>(
+            'SELECT message_id FROM email_messages WHERE message_id = ? AND owner_address = ?',
+            [params.messageId, address.toLowerCase()],
+            CQL_DATABASE_ID,
+          )
+
+          if (!existing.rows[0]) {
             set.status = 404
             return { error: 'Message not found' }
           }
@@ -338,22 +555,50 @@ export function createEmailRouter() {
             body,
             'Update flags request',
           )
-          Object.assign(email.flags, flags)
 
-          // Update in index as well
-          const updateIndex = (entries: EmailIndexEntry[]) => {
-            const entry = entries.find((e) => e.messageId === params.messageId)
-            if (entry) Object.assign(entry.flags, flags)
+          // Build update query
+          const updates: string[] = []
+          const values: (number | string)[] = []
+
+          if (flags.read !== undefined) {
+            updates.push('flag_read = ?')
+            values.push(flags.read ? 1 : 0)
+          }
+          if (flags.starred !== undefined) {
+            updates.push('flag_starred = ?')
+            values.push(flags.starred ? 1 : 0)
+          }
+          if (flags.important !== undefined) {
+            updates.push('flag_important = ?')
+            values.push(flags.important ? 1 : 0)
+          }
+          if (flags.answered !== undefined) {
+            updates.push('flag_answered = ?')
+            values.push(flags.answered ? 1 : 0)
+          }
+          if (flags.forwarded !== undefined) {
+            updates.push('flag_forwarded = ?')
+            values.push(flags.forwarded ? 1 : 0)
+          }
+          if (flags.deleted !== undefined) {
+            updates.push('flag_deleted = ?')
+            values.push(flags.deleted ? 1 : 0)
+          }
+          if (flags.spam !== undefined) {
+            updates.push('flag_spam = ?')
+            values.push(flags.spam ? 1 : 0)
           }
 
-          updateIndex(userMailbox.mailbox.inbox)
-          updateIndex(userMailbox.mailbox.sent)
-          updateIndex(userMailbox.mailbox.drafts)
-          updateIndex(userMailbox.mailbox.trash)
-          updateIndex(userMailbox.mailbox.spam)
-          updateIndex(userMailbox.mailbox.archive)
+          if (updates.length > 0) {
+            values.push(params.messageId, address.toLowerCase())
+            await client.exec(
+              `UPDATE email_messages SET ${updates.join(', ')} WHERE message_id = ? AND owner_address = ?`,
+              values,
+              CQL_DATABASE_ID,
+            )
+          }
 
-          return { success: true, flags: email.flags }
+          return { success: true, flags }
         },
         {
           body: t.Object({
@@ -375,17 +620,23 @@ export function createEmailRouter() {
       // Move email to folder
       .post(
         '/message/:messageId/move',
-        ({ params, body, headers, set }) => {
+        async ({ params, body, headers, set }) => {
           const address = headers['x-wallet-address']
           if (!address) {
             set.status = 401
             return { error: 'Wallet address required' }
           }
 
-          const userMailbox = getOrCreateMailbox(address)
-          const email = userMailbox.emails.get(params.messageId)
+          const client = await getCQLClient()
 
-          if (!email) {
+          // Check if message exists
+          const existing = await client.query<EmailRow>(
+            'SELECT message_id FROM email_messages WHERE message_id = ? AND owner_address = ?',
+            [params.messageId, address.toLowerCase()],
+            CQL_DATABASE_ID,
+          )
+
+          if (!existing.rows[0]) {
             set.status = 404
             return { error: 'Message not found' }
           }
@@ -396,54 +647,11 @@ export function createEmailRouter() {
             'Move email request',
           )
 
-          // Remove from all folders
-          const removeFromFolder = (entries: EmailIndexEntry[]) => {
-            const idx = entries.findIndex(
-              (e) => e.messageId === params.messageId,
-            )
-            if (idx >= 0) entries.splice(idx, 1)
-          }
-
-          removeFromFolder(userMailbox.mailbox.inbox)
-          removeFromFolder(userMailbox.mailbox.sent)
-          removeFromFolder(userMailbox.mailbox.drafts)
-          removeFromFolder(userMailbox.mailbox.trash)
-          removeFromFolder(userMailbox.mailbox.spam)
-          removeFromFolder(userMailbox.mailbox.archive)
-          for (const f of Object.values(userMailbox.mailbox.folders)) {
-            removeFromFolder(f)
-          }
-
-          // Add to target folder
-          const entry: EmailIndexEntry = {
-            messageId: email.messageId,
-            from: email.from,
-            to: email.to,
-            subject: email.subject,
-            snippet: email.snippet,
-            receivedAt: email.receivedAt,
-            sentAt: email.sentAt,
-            flags: email.flags,
-          }
-
-          const standardFolders = [
-            'inbox',
-            'sent',
-            'drafts',
-            'trash',
-            'spam',
-            'archive',
-          ] as const
-          type StandardFolder = (typeof standardFolders)[number]
-
-          if (standardFolders.includes(folder as StandardFolder)) {
-            userMailbox.mailbox[folder as StandardFolder].unshift(entry)
-          } else {
-            if (!userMailbox.mailbox.folders[folder]) {
-              userMailbox.mailbox.folders[folder] = []
-            }
-            userMailbox.mailbox.folders[folder].unshift(entry)
-          }
+          await client.exec(
+            'UPDATE email_messages SET folder = ? WHERE message_id = ? AND owner_address = ?',
+            [folder, params.messageId, address.toLowerCase()],
+            CQL_DATABASE_ID,
+          )
 
           return { success: true, folder }
         },
@@ -455,40 +663,42 @@ export function createEmailRouter() {
       )
 
       // Delete email permanently
-      .delete('/message/:messageId', ({ params, headers, set }) => {
+      .delete('/message/:messageId', async ({ params, headers, set }) => {
         const address = headers['x-wallet-address']
         if (!address) {
           set.status = 401
           return { error: 'Wallet address required' }
         }
 
-        const userMailbox = getOrCreateMailbox(address)
-        const email = userMailbox.emails.get(params.messageId)
+        const client = await getCQLClient()
 
-        if (!email) {
+        // Get email for size calculation
+        const existing = await client.query<EmailRow>(
+          'SELECT * FROM email_messages WHERE message_id = ? AND owner_address = ?',
+          [params.messageId, address.toLowerCase()],
+          CQL_DATABASE_ID,
+        )
+
+        if (!existing.rows[0]) {
           set.status = 404
           return { error: 'Message not found' }
         }
 
-        const emailSize = calculateEmailSize(email)
-        userMailbox.quotaUsedBytes -= emailSize
-        userMailbox.emails.delete(params.messageId)
+        const emailSize = calculateEmailSize(rowToEmail(existing.rows[0]))
 
-        // Remove from all folders
-        const removeFromFolder = (entries: EmailIndexEntry[]) => {
-          const idx = entries.findIndex((e) => e.messageId === params.messageId)
-          if (idx >= 0) entries.splice(idx, 1)
-        }
+        // Delete message
+        await client.exec(
+          'DELETE FROM email_messages WHERE message_id = ? AND owner_address = ?',
+          [params.messageId, address.toLowerCase()],
+          CQL_DATABASE_ID,
+        )
 
-        removeFromFolder(userMailbox.mailbox.inbox)
-        removeFromFolder(userMailbox.mailbox.sent)
-        removeFromFolder(userMailbox.mailbox.drafts)
-        removeFromFolder(userMailbox.mailbox.trash)
-        removeFromFolder(userMailbox.mailbox.spam)
-        removeFromFolder(userMailbox.mailbox.archive)
-        for (const f of Object.values(userMailbox.mailbox.folders)) {
-          removeFromFolder(f)
-        }
+        // Update quota
+        await client.exec(
+          'UPDATE email_mailboxes SET quota_used_bytes = MAX(0, quota_used_bytes - ?) WHERE address = ?',
+          [emailSize, address.toLowerCase()],
+          CQL_DATABASE_ID,
+        )
 
         return { success: true, deleted: params.messageId }
       })

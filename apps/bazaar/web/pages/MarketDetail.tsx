@@ -2,10 +2,78 @@
  * Market Detail Page
  */
 
+import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { formatUnits } from 'viem'
+import {
+  fetchPredictionMarkets,
+  type PredictionMarket,
+} from '../../lib/data-client'
+import { LoadingSpinner } from '../components/LoadingSpinner'
 
 export default function MarketDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const [selectedOutcome, setSelectedOutcome] = useState<'yes' | 'no' | null>(
+    null,
+  )
+  const [amount, setAmount] = useState('')
+
+  // Fetch all markets and find the one matching our ID
+  const {
+    data: market,
+    isLoading,
+    error,
+  } = useQuery<PredictionMarket | undefined>({
+    queryKey: ['prediction-market', id],
+    queryFn: async () => {
+      const markets = await fetchPredictionMarkets({ limit: 100 })
+      return markets.find((m) => m.id === id)
+    },
+    enabled: Boolean(id),
+    refetchInterval: 15000,
+    staleTime: 10000,
+  })
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center py-20">
+        <LoadingSpinner size="lg" />
+      </div>
+    )
+  }
+
+  if (error || !market) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <Link
+          to="/markets"
+          className="text-sm mb-4 inline-block"
+          style={{ color: 'var(--text-secondary)' }}
+        >
+          ← Back to Markets
+        </Link>
+        <div className="card p-6 border-red-500/30 bg-red-500/10">
+          <p className="font-semibold mb-1 text-red-400">
+            {error ? 'Failed to load market' : 'Market not found'}
+          </p>
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+            {error ? String(error) : `Market ID: ${id}`}
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  const yesPercent = Math.round(market.yesPrice * 100)
+  const noPercent = Math.round(market.noPrice * 100)
+
+  function formatVolume(volume: bigint): string {
+    const n = Number(formatUnits(volume, 18))
+    if (n >= 1e6) return `$${(n / 1e6).toFixed(2)}M`
+    if (n >= 1e3) return `$${(n / 1e3).toFixed(2)}K`
+    return `$${n.toFixed(2)}`
+  }
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -19,65 +87,158 @@ export default function MarketDetailPage() {
 
       <div className="card p-6">
         <div className="mb-6">
-          <span className="badge badge-info mb-2">Live</span>
+          <span
+            className={`badge mb-2 ${market.resolved ? 'badge-secondary' : 'badge-info'}`}
+          >
+            {market.resolved ? 'Ended' : 'Live'}
+          </span>
           <h1
             className="text-2xl font-bold mb-2"
             style={{ color: 'var(--text-primary)' }}
           >
-            Market #{id}
+            {market.question}
           </h1>
-          <p style={{ color: 'var(--text-secondary)' }}>
-            Will this prediction come true?
-          </p>
+          <div
+            className="flex gap-4 text-sm"
+            style={{ color: 'var(--text-tertiary)' }}
+          >
+            <span>Volume: {formatVolume(market.totalVolume)}</span>
+            <span>Liquidity: {formatVolume(market.liquidity)}</span>
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          <button
-            type="button"
-            className="card p-4 text-center border-green-500/30 hover:bg-green-500/10"
+        {market.resolved ? (
+          <div
+            className="card p-4 text-center mb-6"
+            style={{ backgroundColor: 'var(--bg-secondary)' }}
           >
-            <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
-              Yes
-            </p>
-            <p className="text-2xl font-bold text-green-400">65%</p>
-            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-              $0.65
-            </p>
-          </button>
-          <button
-            type="button"
-            className="card p-4 text-center border-red-500/30 hover:bg-red-500/10"
-          >
-            <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
-              No
-            </p>
-            <p className="text-2xl font-bold text-red-400">35%</p>
-            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-              $0.35
-            </p>
-          </button>
-        </div>
-
-        <div className="space-y-4">
-          <div>
-            <label
-              htmlFor="amount-input"
-              className="text-sm block mb-1.5"
+            <p
+              className="text-sm mb-1"
               style={{ color: 'var(--text-tertiary)' }}
             >
-              Amount (USDC)
-            </label>
-            <input
-              id="amount-input"
-              type="number"
-              placeholder="10"
-              className="input"
-            />
+              Resolved Outcome
+            </p>
+            <p
+              className={`text-2xl font-bold ${market.outcome ? 'text-green-400' : 'text-red-400'}`}
+            >
+              {market.outcome ? 'YES' : 'NO'}
+            </p>
           </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <button
+                type="button"
+                onClick={() => setSelectedOutcome('yes')}
+                className={`card p-4 text-center transition-all ${
+                  selectedOutcome === 'yes'
+                    ? 'border-green-500 bg-green-500/10'
+                    : 'border-green-500/30 hover:bg-green-500/10'
+                }`}
+              >
+                <p
+                  className="text-sm"
+                  style={{ color: 'var(--text-tertiary)' }}
+                >
+                  Yes
+                </p>
+                <p className="text-2xl font-bold text-green-400">
+                  {yesPercent}%
+                </p>
+                <p
+                  className="text-xs"
+                  style={{ color: 'var(--text-tertiary)' }}
+                >
+                  ${market.yesPrice.toFixed(2)}
+                </p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedOutcome('no')}
+                className={`card p-4 text-center transition-all ${
+                  selectedOutcome === 'no'
+                    ? 'border-red-500 bg-red-500/10'
+                    : 'border-red-500/30 hover:bg-red-500/10'
+                }`}
+              >
+                <p
+                  className="text-sm"
+                  style={{ color: 'var(--text-tertiary)' }}
+                >
+                  No
+                </p>
+                <p className="text-2xl font-bold text-red-400">{noPercent}%</p>
+                <p
+                  className="text-xs"
+                  style={{ color: 'var(--text-tertiary)' }}
+                >
+                  ${market.noPrice.toFixed(2)}
+                </p>
+              </button>
+            </div>
 
-          <button type="button" className="btn-primary w-full py-3">
-            Place Bet
-          </button>
+            <div className="space-y-4">
+              <div>
+                <label
+                  htmlFor="amount-input"
+                  className="text-sm block mb-1.5"
+                  style={{ color: 'var(--text-tertiary)' }}
+                >
+                  Amount (USDC)
+                </label>
+                <input
+                  id="amount-input"
+                  type="number"
+                  placeholder="10"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className="input"
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+
+              <button
+                type="button"
+                className="btn-primary w-full py-3"
+                disabled={!selectedOutcome || !amount || Number(amount) <= 0}
+              >
+                {selectedOutcome
+                  ? `Buy ${selectedOutcome.toUpperCase()} for $${amount || '0'}`
+                  : 'Select an outcome'}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="card p-4 mt-4">
+        <h3
+          className="text-sm font-semibold mb-2"
+          style={{ color: 'var(--text-primary)' }}
+        >
+          Market Details
+        </h3>
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          <div style={{ color: 'var(--text-tertiary)' }}>Market ID</div>
+          <div
+            className="font-mono text-xs truncate"
+            style={{ color: 'var(--text-secondary)' }}
+          >
+            {market.id}
+          </div>
+          <div style={{ color: 'var(--text-tertiary)' }}>Created</div>
+          <div style={{ color: 'var(--text-secondary)' }}>
+            {market.createdAt.toLocaleDateString()}
+          </div>
+          {market.resolutionTime && (
+            <>
+              <div style={{ color: 'var(--text-tertiary)' }}>Resolution</div>
+              <div style={{ color: 'var(--text-secondary)' }}>
+                {market.resolutionTime.toLocaleDateString()}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

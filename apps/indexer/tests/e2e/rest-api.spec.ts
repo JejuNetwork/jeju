@@ -1,5 +1,5 @@
 /**
- * Network Indexer - REST API E2E Tests
+ * Indexer - REST API E2E Tests
  *
  * Comprehensive tests for all REST API endpoints:
  * - Health and info endpoints
@@ -33,7 +33,7 @@ test.describe('Health & Info Endpoints', () => {
 
     expect(response.ok()).toBeTruthy()
     const data = await response.json()
-    expect(data.name).toBe('Network Indexer REST API')
+    expect(data.name).toBe('Indexer REST API')
     expect(data.version).toBe('1.0.0')
     expect(data.endpoints).toBeDefined()
     expect(data.endpoints.health).toBe('/health')

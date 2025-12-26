@@ -4,12 +4,12 @@
  * Security vulnerability submission and bounty management
  */
 
+import { expectValid } from '@jejunetwork/types'
 import { Elysia, t } from 'elysia'
 import {
   BountySeveritySchema,
   type BountySubmissionDraft,
   BountySubmissionStatusSchema,
-  expectValid,
   toAddress,
   ValidationResultSchema,
   VulnerabilityTypeSchema,

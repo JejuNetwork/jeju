@@ -4,7 +4,6 @@
 
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CharacterCard } from '../components/CharacterCard'
 import { LoadingSpinner } from '../components/LoadingSpinner'
 import { useCharacter, useCharacters, useRegisterAgent } from '../hooks'
 
@@ -29,7 +28,7 @@ export default function CreateAgentPage() {
         description: selectedCharacter.description,
         system: selectedCharacter.system,
         bio: selectedCharacter.bio,
-        messageExamples: [], // Simplified for creation
+        messageExamples: [],
         topics: selectedCharacter.topics,
         adjectives: selectedCharacter.adjectives,
         style: selectedCharacter.style,
@@ -106,11 +105,30 @@ export default function CreateAgentPage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {characters?.map((character) => (
-              <CharacterCard
+              <button
                 key={character.id}
-                character={character}
-                onSelect={setSelectedCharacterId}
-              />
+                type="button"
+                onClick={() => setSelectedCharacterId(character.id)}
+                className="card p-4 text-left transition-all hover:ring-2 hover:ring-crucible-primary"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="text-2xl">🤖</div>
+                  <div className="flex-1 min-w-0">
+                    <p
+                      className="font-bold truncate"
+                      style={{ color: 'var(--text-primary)' }}
+                    >
+                      {character.name}
+                    </p>
+                    <p
+                      className="text-sm line-clamp-2"
+                      style={{ color: 'var(--text-tertiary)' }}
+                    >
+                      {character.description}
+                    </p>
+                  </div>
+                </div>
+              </button>
             ))}
           </div>
         )}

@@ -45,8 +45,8 @@ export function createContainerRouter() {
     new Elysia({ prefix: '/containers' })
       // Health & Status
 
-      .get('/health', () => {
-        const stats = getSystemStats()
+      .get('/health', async () => {
+        const stats = await getSystemStats()
         return {
           status: 'healthy',
           service: 'container-execution',
@@ -57,8 +57,8 @@ export function createContainerRouter() {
         }
       })
 
-      .get('/stats', () => {
-        return getSystemStats()
+      .get('/stats', async () => {
+        return await getSystemStats()
       })
 
       // Container Execution
@@ -221,8 +221,8 @@ export function createContainerRouter() {
         return stats
       })
 
-      .get('/cache/deduplication', () => {
-        const analysis = analyzeDeduplication()
+      .get('/cache/deduplication', async () => {
+        const analysis = await analyzeDeduplication()
         return {
           ...analysis,
           savedBytes: analysis.savedBytes,

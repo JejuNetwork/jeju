@@ -72,20 +72,18 @@ export {
 // Fixtures
 // ============================================================================
 
-// Dappwright wallet fixtures
-export * from './fixtures/wallet'
-
 // React Query test utilities
 export {
   createQueryWrapper,
   createTestQueryClient,
-  createTestQueryClientWithOptions,
   invalidateAndWait,
   QueryClient,
   QueryClientProvider,
   TestQueryProvider,
   waitForQueriesToSettle,
 } from './fixtures/react-query'
+// Dappwright wallet fixtures
+export * from './fixtures/wallet'
 
 // ============================================================================
 // Helpers
@@ -119,10 +117,10 @@ export {
   ensureLoggedIn,
   ensureLoggedOut,
   getDisplayedWalletAddress,
+  isAuthenticated as isOAuth3Authenticated,
   loginWithWallet,
   logout,
   waitForAuth,
-  isAuthenticated as isOAuth3Authenticated,
 } from './helpers/oauth3-auth'
 
 // On-chain verification helpers
@@ -142,10 +140,9 @@ export {
   TEST_FORM_DATA,
   TEST_NUMBERS,
   TIMEOUTS,
+  type TimeoutName,
   TRADING_TEST_DATA,
   VIEWPORTS,
-  type Timeout,
-  type TimeoutName,
   type Viewport,
   type ViewportName,
 } from './helpers/test-data'
@@ -160,7 +157,8 @@ export {
   createAppConfig,
   createPlaywrightConfig,
 } from './playwright.config.base'
-
+// Schemas - Zod validation for external data
+export * from './schemas'
 // Synpress config
 export {
   createSmokeTestConfig,
@@ -173,9 +171,6 @@ export {
   type WalletSetupOptions,
   type WalletSetupResult,
 } from './synpress.config.base'
-
-// Schemas - Zod validation for external data
-export * from './schemas'
 
 // ============================================================================
 // Shared Utilities & Constants
@@ -204,3 +199,18 @@ export {
   waitForRpc,
   waitForService,
 } from './utils'
+
+// ============================================================================
+// Full App Crawler - Comprehensive E2E Coverage
+// ============================================================================
+
+export {
+  createAppCrawler,
+  generateCrawlReport,
+  runFullAppCrawl,
+  type CrawlConfig,
+  type CrawlError,
+  type CrawlResult,
+  type CoverageSummary,
+  type PageState,
+} from '../e2e/full-app-crawler'

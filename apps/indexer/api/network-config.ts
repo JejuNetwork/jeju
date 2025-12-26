@@ -129,13 +129,21 @@ export function loadNetworkConfig(network?: NetworkType): NetworkConfig {
     tokenRegistry: safeGetContract('payments', 'tokenRegistry', net),
     paymasterFactory: safeGetContract('payments', 'paymasterFactory', net),
     liquidityPaymaster: safeGetContract('eil', 'liquidityPaymaster', net),
-    multiTokenPaymaster: safeGetContract('payments', 'multiTokenPaymaster', net),
+    multiTokenPaymaster: safeGetContract(
+      'payments',
+      'multiTokenPaymaster',
+      net,
+    ),
 
     // Registry contracts
     identityRegistry: safeGetContract('registry', 'identity', net),
     reputationRegistry: safeGetContract('registry', 'reputation', net),
     validationRegistry: safeGetContract('registry', 'validation', net),
-    registryGovernance: safeGetContract('governance', 'registryGovernance', net),
+    registryGovernance: safeGetContract(
+      'governance',
+      'registryGovernance',
+      net,
+    ),
 
     // Liquidity/DeFi contracts
     liquidityVault: safeGetContract('liquidity', 'liquidityVault', net),
@@ -145,13 +153,21 @@ export function loadNetworkConfig(network?: NetworkType): NetworkConfig {
 
     // Node staking contracts
     nodeStakingManager: safeGetContract('nodeStaking', 'manager', net),
-    nodePerformanceOracle: safeGetContract('nodeStaking', 'performanceOracle', net),
+    nodePerformanceOracle: safeGetContract(
+      'nodeStaking',
+      'performanceOracle',
+      net,
+    ),
     autoSlasher: null, // Not in central config yet
     multiOracleConsensus: null, // Not in central config yet
 
     // Moderation contracts
     banManager: safeGetContract('moderation', 'banManager', net),
-    reputationLabelManager: safeGetContract('moderation', 'reputationLabelManager', net),
+    reputationLabelManager: safeGetContract(
+      'moderation',
+      'reputationLabelManager',
+      net,
+    ),
     reportingSystem: safeGetContract('moderation', 'reportingSystem', net),
 
     // Compute contracts

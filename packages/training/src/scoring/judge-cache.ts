@@ -11,7 +11,7 @@
  * @packageDocumentation
  */
 
-import { createHash } from 'node:crypto'
+import { bytesToHex, hash256 } from '@jejunetwork/shared'
 import {
   ARCHETYPE_RUBRICS_VERSION,
   getArchetypeRubricHash,
@@ -50,7 +50,7 @@ export class LLMJudgeCache {
     archetype: string,
   ): string {
     const content = `${trajectoryId}:${stepsJson}:${archetype}:${ARCHETYPE_RUBRICS_VERSION}`
-    return createHash('sha256').update(content).digest('hex').substring(0, 32)
+    return bytesToHex(hash256(content)).substring(0, 32)
   }
 
   /**

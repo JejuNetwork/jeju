@@ -1,68 +1,75 @@
+/**
+ * Autocrat Application Entry Point
+ *
+ * AI-powered DAO management platform.
+ */
+
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { StrictMode, useState } from 'react'
+import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
-import { WagmiProvider } from 'wagmi'
+import { WagmiProvider, createConfig, http } from 'wagmi'
+import { base, baseSepolia, mainnet, sepolia } from 'wagmi/chains'
 import { Layout } from './components/Layout'
-import { wagmiConfig } from './config/wagmi'
+import AgentEditPage from './pages/AgentEdit'
+import CreateDAOPage from './pages/CreateDAO'
+import DAODetailPage from './pages/DAODetail'
+import DAOListPage from './pages/DAOList'
+import ProposalPage from './pages/Proposal'
 import './app/globals.css'
 
-import AdminPage from './pages/Admin'
-import AuthCallbackPage from './pages/AuthCallback'
-import BugBountyPage from './pages/BugBounty'
-import BugBountyDetailPage from './pages/BugBountyDetail'
-import CEOPage from './pages/CEO'
-import CreatePage from './pages/Create'
-// Pages
-import DashboardPage from './pages/Dashboard'
-import ModerationPage from './pages/Moderation'
-import ProposalDetailPage from './pages/ProposalDetail'
-import ProposalsPage from './pages/Proposals'
+// Wagmi Configuration
+const config = createConfig({
+  chains: [mainnet, sepolia, base, baseSepolia],
+  transports: {
+    [mainnet.id]: http(),
+    [sepolia.id]: http(),
+    [base.id]: http(),
+    [baseSepolia.id]: http(),
+  },
+})
+
+// React Query Client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60_000,
+      retry: 2,
+    },
+  },
+})
 
 function App() {
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            refetchOnWindowFocus: false,
-            retry: 1,
-            staleTime: 5000,
-          },
-        },
-      }),
-  )
-
   return (
-    <StrictMode>
-      <WagmiProvider config={wagmiConfig}>
-        <QueryClientProvider client={queryClient}>
-          <BrowserRouter>
-            <Routes>
-              <Route element={<Layout />}>
-                <Route path="/" element={<DashboardPage />} />
-                <Route path="/proposals" element={<ProposalsPage />} />
-                <Route path="/proposals/:id" element={<ProposalDetailPage />} />
-                <Route path="/create" element={<CreatePage />} />
-                <Route path="/ceo" element={<CEOPage />} />
-                <Route path="/moderation" element={<ModerationPage />} />
-                <Route path="/bug-bounty" element={<BugBountyPage />} />
-                <Route
-                  path="/bug-bounty/:id"
-                  element={<BugBountyDetailPage />}
-                />
-                <Route path="/admin" element={<AdminPage />} />
-                <Route path="/auth/callback" element={<AuthCallbackPage />} />
-              </Route>
-            </Routes>
-          </BrowserRouter>
-        </QueryClientProvider>
-      </WagmiProvider>
-    </StrictMode>
+    <WagmiProvider config={config}>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <Routes>
+            {/* Create DAO has its own layout */}
+            <Route path="/create" element={<CreateDAOPage />} />
+
+            {/* Main layout routes */}
+            <Route element={<Layout />}>
+              <Route path="/" element={<DAOListPage />} />
+              <Route path="/dao/:daoId" element={<DAODetailPage />} />
+              <Route path="/dao/:daoId/agent/:agentId" element={<AgentEditPage />} />
+              <Route path="/dao/:daoId/proposal/:proposalId" element={<ProposalPage />} />
+              <Route path="/my-daos" element={<DAOListPage />} />
+            </Route>
+          </Routes>
+        </BrowserRouter>
+      </QueryClientProvider>
+    </WagmiProvider>
   )
 }
 
-const root = document.getElementById('root')
-if (root) {
-  createRoot(root).render(<App />)
+const rootElement = document.getElementById('root')
+if (!rootElement) {
+  throw new Error('Root element not found')
 }
+
+createRoot(rootElement).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+)

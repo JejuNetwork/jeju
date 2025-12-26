@@ -18,6 +18,7 @@ async function existsSyncSafe(path: string): Promise<boolean> {
     return false
   }
 }
+
 import type { Hex } from 'viem'
 import { keccak256, toBytes } from 'viem'
 import type {

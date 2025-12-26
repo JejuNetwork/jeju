@@ -5,15 +5,16 @@
  * Provides type-safe access to casts, profiles, reactions, and links.
  */
 
+import { getFarcasterHubUrl } from '@jejunetwork/config'
 import {
-  FarcasterClient,
+  type CastFilter,
   type FarcasterCast,
+  FarcasterClient,
+  type FarcasterLink,
   type FarcasterProfile,
   type FarcasterReaction,
-  type FarcasterLink,
-  type PaginatedResponse,
-  type CastFilter,
   HubError,
+  type PaginatedResponse,
 } from '@jejunetwork/messaging'
 import { createLogger } from '@jejunetwork/shared'
 import type { Address, Hex } from 'viem'
@@ -21,7 +22,7 @@ import type { Address, Hex } from 'viem'
 const log = createLogger('hub-service')
 
 // Use Pinata hub as default - more reliable than nemes
-const HUB_URL = process.env.FARCASTER_HUB_URL ?? 'https://hub.pinata.cloud'
+const HUB_URL = getFarcasterHubUrl()
 const FACTORY_CHANNEL_URL = `https://warpcast.com/~/channel/${process.env.FACTORY_CHANNEL_ID ?? 'factory'}`
 
 /** Hub client singleton */
@@ -65,7 +66,10 @@ export interface EnrichedCast {
 }
 
 /** Profile cache to avoid repeated lookups */
-const profileCache = new Map<number, { profile: FarcasterProfile; cachedAt: number }>()
+const profileCache = new Map<
+  number,
+  { profile: FarcasterProfile; cachedAt: number }
+>()
 const PROFILE_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
 async function getCachedProfile(fid: number): Promise<FarcasterProfile | null> {
@@ -75,7 +79,7 @@ async function getCachedProfile(fid: number): Promise<FarcasterProfile | null> {
   }
 
   const hub = getHubClient()
-  
+
   try {
     const profile = await hub.getProfile(fid)
     profileCache.set(fid, { profile, cachedAt: Date.now() })
@@ -94,14 +98,18 @@ async function getCachedProfile(fid: number): Promise<FarcasterProfile | null> {
 /**
  * Get a user's Farcaster profile by FID
  */
-export async function getProfile(fid: number): Promise<FarcasterProfile | null> {
+export async function getProfile(
+  fid: number,
+): Promise<FarcasterProfile | null> {
   return getCachedProfile(fid)
 }
 
 /**
  * Get a user's Farcaster profile by username
  */
-export async function getProfileByUsername(username: string): Promise<FarcasterProfile | null> {
+export async function getProfileByUsername(
+  username: string,
+): Promise<FarcasterProfile | null> {
   const hub = getHubClient()
   return hub.getProfileByUsername(username)
 }
@@ -109,7 +117,9 @@ export async function getProfileByUsername(username: string): Promise<FarcasterP
 /**
  * Get a user's Farcaster profile by verified Ethereum address
  */
-export async function getProfileByAddress(address: Address): Promise<FarcasterProfile | null> {
+export async function getProfileByAddress(
+  address: Address,
+): Promise<FarcasterProfile | null> {
   const hub = getHubClient()
   return hub.getProfileByVerifiedAddress(address)
 }
@@ -128,7 +138,10 @@ export async function getCastsByFid(
 /**
  * Get a specific cast by FID and hash
  */
-export async function getCast(fid: number, hash: Hex): Promise<FarcasterCast | null> {
+export async function getCast(
+  fid: number,
+  hash: Hex,
+): Promise<FarcasterCast | null> {
   const hub = getHubClient()
   return hub.getCast(fid, hash)
 }
@@ -136,7 +149,9 @@ export async function getCast(fid: number, hash: Hex): Promise<FarcasterCast | n
 /**
  * Get casts from the Factory channel
  */
-export async function getFactoryFeed(options?: CastFilter): Promise<PaginatedResponse<FarcasterCast>> {
+export async function getFactoryFeed(
+  options?: CastFilter,
+): Promise<PaginatedResponse<FarcasterCast>> {
   const hub = getHubClient()
   return hub.getCastsByChannel(FACTORY_CHANNEL_URL, options)
 }
@@ -155,7 +170,9 @@ export async function getChannelFeed(
 /**
  * Get reactions by a user
  */
-export async function getReactionsByFid(fid: number): Promise<PaginatedResponse<FarcasterReaction>> {
+export async function getReactionsByFid(
+  fid: number,
+): Promise<PaginatedResponse<FarcasterReaction>> {
   const hub = getHubClient()
   return hub.getReactionsByFid(fid)
 }
@@ -163,7 +180,9 @@ export async function getReactionsByFid(fid: number): Promise<PaginatedResponse<
 /**
  * Get users that a user is following
  */
-export async function getFollowingByFid(fid: number): Promise<PaginatedResponse<FarcasterLink>> {
+export async function getFollowingByFid(
+  fid: number,
+): Promise<PaginatedResponse<FarcasterLink>> {
   const hub = getHubClient()
   return hub.getLinksByFid(fid)
 }
@@ -171,7 +190,9 @@ export async function getFollowingByFid(fid: number): Promise<PaginatedResponse<
 /**
  * Get followers of a user
  */
-export async function getFollowersByFid(fid: number): Promise<PaginatedResponse<FarcasterLink>> {
+export async function getFollowersByFid(
+  fid: number,
+): Promise<PaginatedResponse<FarcasterLink>> {
   const hub = getHubClient()
   return hub.getLinksByTargetFid(fid)
 }
@@ -179,7 +200,9 @@ export async function getFollowersByFid(fid: number): Promise<PaginatedResponse<
 /**
  * Enrich casts with author profile data
  */
-export async function enrichCasts(casts: FarcasterCast[]): Promise<EnrichedCast[]> {
+export async function enrichCasts(
+  casts: FarcasterCast[],
+): Promise<EnrichedCast[]> {
   // Get unique FIDs
   const fids = [...new Set(casts.map((c) => c.fid))]
 

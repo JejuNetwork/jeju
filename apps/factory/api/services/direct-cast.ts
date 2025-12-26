@@ -5,22 +5,22 @@
  * Uses X25519 + AES-GCM for end-to-end encryption.
  */
 
+import { getFarcasterHubUrl } from '@jejunetwork/config'
 import {
-  DirectCastClient,
   createDirectCastClient,
-  DEFAULT_HUBS,
-  type DirectCast,
-  type DirectCastConversation,
   type DCClientState,
+  type DirectCast,
+  type DirectCastClient,
+  type DirectCastConversation,
 } from '@jejunetwork/messaging'
 import { createLogger } from '@jejunetwork/shared'
 import type { Hex } from 'viem'
-import { getSignerPrivateKey, getActiveSigner } from './signer'
 import type { FarcasterSignerRow } from '../db/client'
+import { getActiveSigner, getSignerPrivateKey } from './signer'
 
 const log = createLogger('dc-service')
 
-const HUB_URL = process.env.FARCASTER_HUB_URL ?? DEFAULT_HUBS.mainnet
+const HUB_URL = getFarcasterHubUrl()
 const DC_RELAY_URL = process.env.DC_RELAY_URL ?? 'http://localhost:3300'
 
 /**
@@ -31,7 +31,9 @@ const clientCache = new Map<number, DirectCastClient>()
 /**
  * Get or create a Direct Cast client for a user
  */
-async function getOrCreateClient(signer: FarcasterSignerRow): Promise<DirectCastClient> {
+async function getOrCreateClient(
+  signer: FarcasterSignerRow,
+): Promise<DirectCastClient> {
   const cached = clientCache.get(signer.fid)
   if (cached) {
     return cached
@@ -56,7 +58,9 @@ async function getOrCreateClient(signer: FarcasterSignerRow): Promise<DirectCast
 /**
  * Get DC client for a user address
  */
-export async function getClientForAddress(address: string): Promise<DirectCastClient | null> {
+export async function getClientForAddress(
+  address: string,
+): Promise<DirectCastClient | null> {
   const signer = getActiveSigner(address as `0x${string}`)
   if (!signer || signer.key_state !== 'active') {
     return null
@@ -79,7 +83,9 @@ export async function sendDirectMessage(
 ): Promise<DirectCast> {
   const client = await getClientForAddress(address)
   if (!client) {
-    throw new Error('No active signer found. Please connect your Farcaster account.')
+    throw new Error(
+      'No active signer found. Please connect your Farcaster account.',
+    )
   }
 
   // Map simple embeds to DirectCastEmbed format
@@ -99,7 +105,9 @@ export async function sendDirectMessage(
 /**
  * Get all conversations for a user
  */
-export async function getConversations(address: string): Promise<DirectCastConversation[]> {
+export async function getConversations(
+  address: string,
+): Promise<DirectCastConversation[]> {
   const client = await getClientForAddress(address)
   if (!client) {
     return []
@@ -192,7 +200,9 @@ export async function setConversationMuted(
 /**
  * Get client state (connection status, unread count, etc.)
  */
-export async function getClientState(address: string): Promise<DCClientState | null> {
+export async function getClientState(
+  address: string,
+): Promise<DCClientState | null> {
   const client = await getClientForAddress(address)
   if (!client) {
     return null

@@ -36,6 +36,7 @@
     "payments"
   ],
   "dependencies": {
+    "@jejunetwork/db": "workspace:*",
     "@jejunetwork/shared": "workspace:*",
     "@jejunetwork/types": "workspace:*",
     "uuid": "^13.0.0"

@@ -1,5 +1,5 @@
-import { randomBytes } from 'node:crypto'
 import * as nodeHttp from 'node:http'
+import { randomHex } from '@jejunetwork/shared'
 import { expectAddress, expectHex } from '@jejunetwork/types'
 import { LRUCache } from 'lru-cache'
 import { Counter, Gauge, Histogram, Registry } from 'prom-client'
@@ -1060,7 +1060,7 @@ export class EdgeCoordinator {
   }
 
   private generateMessageId(): string {
-    return randomBytes(16).toString('hex')
+    return randomHex(16).slice(2)
   }
 }
 

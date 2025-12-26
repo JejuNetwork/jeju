@@ -2,17 +2,49 @@
  * OAuth3 State Service - Database-backed storage for sessions, clients, and auth codes
  */
 
-import type { AuthProvider } from '@jejunetwork/auth'
 import { type CQLClient, getCQL } from '@jejunetwork/db'
-import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 import type { Address, Hex } from 'viem'
-import type { AuthSession, RegisteredClient } from '../../lib/types'
+import type {
+  AuthProvider,
+  AuthSession,
+  RegisteredClient,
+} from '../../lib/types'
 
 const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? 'oauth3'
 const isDev = process.env.NODE_ENV !== 'production'
 
+// Simple in-memory cache for OAuth3 (doesn't need DWS cache service)
+interface SimpleCacheClient {
+  get(key: string): Promise<string | null>
+  set(key: string, value: string, ttlSeconds?: number): Promise<void>
+  delete(key: string): Promise<void>
+}
+
+const memoryCache = new Map<string, { value: string; expiresAt: number }>()
+
+function createSimpleCacheClient(): SimpleCacheClient {
+  return {
+    async get(key: string): Promise<string | null> {
+      const entry = memoryCache.get(key)
+      if (!entry) return null
+      if (entry.expiresAt > 0 && Date.now() > entry.expiresAt) {
+        memoryCache.delete(key)
+        return null
+      }
+      return entry.value
+    },
+    async set(key: string, value: string, ttlSeconds?: number): Promise<void> {
+      const expiresAt = ttlSeconds ? Date.now() + ttlSeconds * 1000 : 0
+      memoryCache.set(key, { value, expiresAt })
+    },
+    async delete(key: string): Promise<void> {
+      memoryCache.delete(key)
+    },
+  }
+}
+
 let cqlClient: CQLClient | null = null
-let cacheClient: CacheClient | null = null
+let cacheClient: SimpleCacheClient | null = null
 let initialized = false
 let usingInMemoryFallback = false
 
@@ -86,9 +118,9 @@ async function getCQLClient(): Promise<CQLClient | null> {
   return cqlClient
 }
 
-function getCache(): CacheClient {
+function getCache(): SimpleCacheClient {
   if (!cacheClient) {
-    cacheClient = getCacheClient('oauth3')
+    cacheClient = createSimpleCacheClient()
   }
   return cacheClient
 }

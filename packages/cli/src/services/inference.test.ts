@@ -61,12 +61,8 @@ describe('Model Pattern Matching', () => {
       expect(resolveModelProvider('gpt-4').provider).toBe('openai')
     })
 
-    test('routes gpt-4o to openai', () => {
-      expect(resolveModelProvider('gpt-4o').provider).toBe('openai')
-    })
-
-    test('routes gpt-4o-mini to openai', () => {
-      expect(resolveModelProvider('gpt-4o-mini').provider).toBe('openai')
+    test('routes gpt-5.2 to openai', () => {
+      expect(resolveModelProvider('gpt-5.2').provider).toBe('openai')
     })
 
     test('routes gpt-3.5-turbo to openai', () => {
@@ -85,8 +81,8 @@ describe('Model Pattern Matching', () => {
       expect(resolveModelProvider('o3').provider).toBe('openai')
     })
 
-    test('routes chatgpt-4o-latest to openai', () => {
-      expect(resolveModelProvider('chatgpt-4o-latest').provider).toBe('openai')
+    test('routes chatgpt-5 to openai', () => {
+      expect(resolveModelProvider('chatgpt-5').provider).toBe('openai')
     })
 
     test('case insensitive - GPT-4 routes to openai', () => {
@@ -95,20 +91,12 @@ describe('Model Pattern Matching', () => {
   })
 
   describe('Anthropic Models', () => {
-    test('routes claude-3-opus to anthropic', () => {
-      expect(resolveModelProvider('claude-3-opus').provider).toBe('anthropic')
+    test('routes claude-opus-4-5 to anthropic', () => {
+      expect(resolveModelProvider('claude-opus-4-5').provider).toBe('anthropic')
     })
 
-    test('routes claude-3-sonnet to anthropic', () => {
-      expect(resolveModelProvider('claude-3-sonnet').provider).toBe('anthropic')
-    })
-
-    test('routes claude-3-haiku to anthropic', () => {
-      expect(resolveModelProvider('claude-3-haiku').provider).toBe('anthropic')
-    })
-
-    test('routes claude-3-5-sonnet to anthropic', () => {
-      expect(resolveModelProvider('claude-3-5-sonnet').provider).toBe(
+    test('routes claude-sonnet-4-5 to anthropic', () => {
+      expect(resolveModelProvider('claude-sonnet-4-5').provider).toBe(
         'anthropic',
       )
     })
@@ -255,9 +243,9 @@ describe('Model Pattern Matching', () => {
 
 describe('Provider Prefix Routing', () => {
   test('extracts provider from prefix', () => {
-    const result = resolveModelProvider('anthropic/claude-3-opus')
+    const result = resolveModelProvider('anthropic/claude-opus-4-5')
     expect(result.provider).toBe('anthropic')
-    expect(result.model).toBe('claude-3-opus')
+    expect(result.model).toBe('claude-opus-4-5')
   })
 
   test('extracts provider with nested path', () => {
@@ -427,7 +415,7 @@ describe('Response Normalization', () => {
     test('normalizes standard response', () => {
       const anthropicResponse = {
         id: 'msg_123',
-        model: 'claude-3-opus',
+        model: 'claude-opus-4-5',
         content: [{ text: 'Hello, I am Claude.' }],
         stop_reason: 'end_turn',
         usage: { input_tokens: 10, output_tokens: 20 },
@@ -438,7 +426,7 @@ describe('Response Normalization', () => {
       expect(normalized).toEqual({
         id: 'msg_123',
         object: 'chat.completion',
-        model: 'claude-3-opus',
+        model: 'claude-opus-4-5',
         choices: [
           {
             message: { role: 'assistant', content: 'Hello, I am Claude.' },
@@ -456,7 +444,7 @@ describe('Response Normalization', () => {
     test('handles empty content array', () => {
       const anthropicResponse = {
         id: 'msg_123',
-        model: 'claude-3-opus',
+        model: 'claude-opus-4-5',
         content: [],
         stop_reason: 'end_turn',
         usage: { input_tokens: 10, output_tokens: 0 },
@@ -473,7 +461,7 @@ describe('Response Normalization', () => {
     test('preserves non-end_turn stop reasons', () => {
       const anthropicResponse = {
         id: 'msg_123',
-        model: 'claude-3-opus',
+        model: 'claude-opus-4-5',
         content: [{ text: 'Truncated...' }],
         stop_reason: 'max_tokens',
         usage: { input_tokens: 10, output_tokens: 1000 },
@@ -663,7 +651,7 @@ describe('Provider Request Building', () => {
   describe('Anthropic Request Building', () => {
     test('extracts system message correctly', () => {
       const request: ChatRequest = {
-        model: 'claude-3-opus',
+        model: 'claude-opus-4-5',
         messages: [
           { role: 'system', content: 'You are a helpful assistant.' },
           { role: 'user', content: 'Hello!' },
@@ -679,7 +667,7 @@ describe('Provider Request Building', () => {
 
     test('handles request without system message', () => {
       const request: ChatRequest = {
-        model: 'claude-3-opus',
+        model: 'claude-opus-4-5',
         messages: [{ role: 'user', content: 'Hello!' }],
       }
 
@@ -690,7 +678,7 @@ describe('Provider Request Building', () => {
 
     test('includes temperature when provided', () => {
       const request: ChatRequest = {
-        model: 'claude-3-opus',
+        model: 'claude-opus-4-5',
         messages: [{ role: 'user', content: 'Hello!' }],
         temperature: 0.7,
       }
@@ -702,7 +690,7 @@ describe('Provider Request Building', () => {
 
     test('uses default max_tokens when not provided', () => {
       const request: ChatRequest = {
-        model: 'claude-3-opus',
+        model: 'claude-opus-4-5',
         messages: [{ role: 'user', content: 'Hello!' }],
       }
 

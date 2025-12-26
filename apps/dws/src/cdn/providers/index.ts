@@ -256,7 +256,10 @@ export async function discoverProviders(
   const rawData: unknown = await response.json()
   const result = ProvidersResponseSchema.safeParse(rawData)
   if (!result.success) {
-    console.warn('[CDN Providers] Invalid provider response:', result.error.message)
+    console.warn(
+      '[CDN Providers] Invalid provider response:',
+      result.error.message,
+    )
     return []
   }
   return result.data.providers as DeployedCDNProvider[]

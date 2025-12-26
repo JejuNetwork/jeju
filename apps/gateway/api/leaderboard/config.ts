@@ -78,7 +78,7 @@ export const LEADERBOARD_STORAGE = {
 
 export const LEADERBOARD_LLM = {
   openRouterApiKey: process.env.OPENROUTER_API_KEY,
-  model: process.env.LEADERBOARD_LLM_MODEL || 'anthropic/claude-3-haiku',
+  model: process.env.LEADERBOARD_LLM_MODEL || 'anthropic/claude-sonnet-4-5',
 } as const
 
 export const LEADERBOARD_CONFIG = {

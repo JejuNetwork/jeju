@@ -15,7 +15,7 @@
  * - Range request support
  */
 
-import { createHash, createHmac } from 'node:crypto'
+import { createHash, createHmac } from '@jejunetwork/shared'
 import type {
   FetchOptions,
   OriginConfig,
@@ -417,7 +417,7 @@ export class OriginFetcher {
       'AWS4-HMAC-SHA256',
       amzDate,
       credentialScope,
-      createHash('sha256').update(canonicalRequest).digest('hex'),
+      createHash('sha256').update(canonicalRequest).digestHex(),
     ].join('\n')
 
     const signingKey = this.getSignatureKey(
@@ -428,7 +428,7 @@ export class OriginFetcher {
     )
     const signature = createHmac('sha256', signingKey)
       .update(stringToSign)
-      .digest('hex')
+      .digestHex()
 
     const authorization = `AWS4-HMAC-SHA256 Credential=${accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`
 
@@ -444,7 +444,7 @@ export class OriginFetcher {
     dateStamp: string,
     region: string,
     service: string,
-  ): Buffer {
+  ): Uint8Array {
     const kDate = createHmac('sha256', `AWS4${key}`).update(dateStamp).digest()
     const kRegion = createHmac('sha256', kDate).update(region).digest()
     const kService = createHmac('sha256', kRegion).update(service).digest()

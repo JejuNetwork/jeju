@@ -10,7 +10,7 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import * as crypto from 'node:crypto'
+import { bytesToHex, hash160, hash256, randomBytes } from '@jejunetwork/shared'
 
 // CRC16 Implementation (Redis Cluster Compatible)
 
@@ -51,9 +51,9 @@ describe('CRC16 - Property-Based Tests', () => {
   test('slot always in valid range [0, 16384)', () => {
     // Test with many random keys
     for (let i = 0; i < 1000; i++) {
-      const randomKey = crypto
-        .randomBytes(Math.floor(Math.random() * 100) + 1)
-        .toString('hex')
+      const randomKey = bytesToHex(
+        randomBytes(Math.floor(Math.random() * 100) + 1),
+      )
       const slot = calculateSlot(randomKey)
 
       expect(slot).toBeGreaterThanOrEqual(0)
@@ -67,7 +67,7 @@ describe('CRC16 - Property-Based Tests', () => {
       'session:abc-def-ghi',
       '{hash_tag}:key:value',
       'a'.repeat(1000),
-      crypto.randomBytes(50).toString('hex'),
+      bytesToHex(randomBytes(50)),
     ]
 
     for (const key of testKeys) {
@@ -102,7 +102,7 @@ describe('CRC16 - Property-Based Tests', () => {
     const numKeys = 10000
 
     for (let i = 0; i < numKeys; i++) {
-      const key = `key:${i}:${crypto.randomBytes(8).toString('hex')}`
+      const key = `key:${i}:${bytesToHex(randomBytes(8))}`
       const slot = calculateSlot(key)
       slotCounts.set(slot, (slotCounts.get(slot) || 0) + 1)
     }
@@ -557,7 +557,7 @@ function verifyContentHash(data: Buffer, expectedHash: string): boolean {
   // SHA256 with 0x prefix (case insensitive)
   const lowerHash = expectedHash.toLowerCase()
   if (lowerHash.startsWith('0x') && lowerHash.length === 66) {
-    const hash = crypto.createHash('sha256').update(data).digest('hex')
+    const hash = bytesToHex(hash256(new Uint8Array(data)))
     return `0x${hash}` === lowerHash
   }
 
@@ -574,7 +574,7 @@ function verifyContentHash(data: Buffer, expectedHash: string): boolean {
 
   // BitTorrent infohash (SHA1)
   if (/^[a-f0-9]{40}$/i.test(expectedHash)) {
-    const hash = crypto.createHash('sha1').update(data).digest('hex')
+    const hash = bytesToHex(hash160(new Uint8Array(data)))
     return hash.toLowerCase() === expectedHash.toLowerCase()
   }
 
@@ -584,7 +584,7 @@ function verifyContentHash(data: Buffer, expectedHash: string): boolean {
 describe('Content Hash Verification', () => {
   test('verifies SHA256 hash correctly', () => {
     const data = Buffer.from('Hello, World!')
-    const hash = crypto.createHash('sha256').update(data).digest('hex')
+    const hash = bytesToHex(hash256(new Uint8Array(data)))
 
     expect(verifyContentHash(data, `0x${hash}`)).toBe(true)
     // Uppercase hash with lowercase 0x prefix
@@ -600,7 +600,7 @@ describe('Content Hash Verification', () => {
 
   test('verifies SHA1 infohash correctly', () => {
     const data = Buffer.from('BitTorrent content')
-    const hash = crypto.createHash('sha1').update(data).digest('hex')
+    const hash = bytesToHex(hash160(new Uint8Array(data)))
 
     expect(verifyContentHash(data, hash)).toBe(true)
     expect(verifyContentHash(data, hash.toUpperCase())).toBe(true)

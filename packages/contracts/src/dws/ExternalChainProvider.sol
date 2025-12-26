@@ -40,7 +40,8 @@ contract ExternalChainProvider is Ownable, Pausable, ReentrancyGuard {
         Arbitrum,
         Optimism,
         Base,
-        Custom
+        Custom,
+        Ethereum   // EVM L1 for Chainlink, MEV
     }
 
     enum NodeType {
@@ -217,6 +218,101 @@ contract ExternalChainProvider is Ownable, Pausable, ReentrancyGuard {
             minCpuCores: 8,
             basePricePerHour: 0.1 ether,
             teeRequired: false
+        });
+
+        // Initialize EVM Archive Node Requirements
+        // Required for Chainlink price feeds and MEV bots
+        
+        // Ethereum (reth archive)
+        chainRequirements[ChainType.Ethereum][NetworkMode.Devnet] = ChainRequirements({
+            minMemoryGb: 8,
+            minStorageGb: 50,
+            minCpuCores: 4,
+            basePricePerHour: 0.01 ether,
+            teeRequired: false
+        });
+        chainRequirements[ChainType.Ethereum][NetworkMode.Testnet] = ChainRequirements({
+            minMemoryGb: 32,
+            minStorageGb: 500,
+            minCpuCores: 8,
+            basePricePerHour: 0.2 ether,
+            teeRequired: false
+        });
+        chainRequirements[ChainType.Ethereum][NetworkMode.Mainnet] = ChainRequirements({
+            minMemoryGb: 64,
+            minStorageGb: 2500,
+            minCpuCores: 16,
+            basePricePerHour: 0.5 ether,
+            teeRequired: true
+        });
+
+        // Arbitrum (nitro archive)
+        chainRequirements[ChainType.Arbitrum][NetworkMode.Devnet] = ChainRequirements({
+            minMemoryGb: 8,
+            minStorageGb: 50,
+            minCpuCores: 4,
+            basePricePerHour: 0.01 ether,
+            teeRequired: false
+        });
+        chainRequirements[ChainType.Arbitrum][NetworkMode.Testnet] = ChainRequirements({
+            minMemoryGb: 32,
+            minStorageGb: 300,
+            minCpuCores: 8,
+            basePricePerHour: 0.15 ether,
+            teeRequired: false
+        });
+        chainRequirements[ChainType.Arbitrum][NetworkMode.Mainnet] = ChainRequirements({
+            minMemoryGb: 64,
+            minStorageGb: 1000,
+            minCpuCores: 16,
+            basePricePerHour: 0.3 ether,
+            teeRequired: true
+        });
+
+        // Optimism (op-reth archive)
+        chainRequirements[ChainType.Optimism][NetworkMode.Devnet] = ChainRequirements({
+            minMemoryGb: 8,
+            minStorageGb: 50,
+            minCpuCores: 4,
+            basePricePerHour: 0.01 ether,
+            teeRequired: false
+        });
+        chainRequirements[ChainType.Optimism][NetworkMode.Testnet] = ChainRequirements({
+            minMemoryGb: 32,
+            minStorageGb: 300,
+            minCpuCores: 8,
+            basePricePerHour: 0.12 ether,
+            teeRequired: false
+        });
+        chainRequirements[ChainType.Optimism][NetworkMode.Mainnet] = ChainRequirements({
+            minMemoryGb: 64,
+            minStorageGb: 800,
+            minCpuCores: 16,
+            basePricePerHour: 0.25 ether,
+            teeRequired: true
+        });
+
+        // Base (op-reth archive)
+        chainRequirements[ChainType.Base][NetworkMode.Devnet] = ChainRequirements({
+            minMemoryGb: 8,
+            minStorageGb: 50,
+            minCpuCores: 4,
+            basePricePerHour: 0.01 ether,
+            teeRequired: false
+        });
+        chainRequirements[ChainType.Base][NetworkMode.Testnet] = ChainRequirements({
+            minMemoryGb: 32,
+            minStorageGb: 300,
+            minCpuCores: 8,
+            basePricePerHour: 0.12 ether,
+            teeRequired: false
+        });
+        chainRequirements[ChainType.Base][NetworkMode.Mainnet] = ChainRequirements({
+            minMemoryGb: 64,
+            minStorageGb: 600,
+            minCpuCores: 16,
+            basePricePerHour: 0.2 ether,
+            teeRequired: true
         });
     }
 

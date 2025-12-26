@@ -21,6 +21,7 @@
     "@jejunetwork/mcp": "workspace:*",
     "@jejunetwork/shared": "workspace:*",
     "@jejunetwork/types": "workspace:*",
+    "agent0-sdk": "^0.31.0",
     "tiktoken": "^1.0.22",
     "viem": "2.43.3",
     "zod": "4.2.1"

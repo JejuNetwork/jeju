@@ -187,10 +187,51 @@ class CapacitorStorageAdapter implements StorageAdapter {
   }
 }
 
+/**
+ * Memory storage adapter for Node.js/test environments
+ */
+class MemoryStorageAdapter implements StorageAdapter {
+  private data = new Map<string, string>()
+
+  async get(key: string): Promise<string | null> {
+    return this.data.get(key) ?? null
+  }
+
+  async set(key: string, value: string): Promise<void> {
+    this.data.set(key, value)
+  }
+
+  async remove(key: string): Promise<void> {
+    this.data.delete(key)
+  }
+
+  async clear(): Promise<void> {
+    this.data.clear()
+  }
+
+  async keys(): Promise<string[]> {
+    return [...this.data.keys()]
+  }
+}
+
 let storageInstance: StorageAdapter | null = null
+
+function isNodeEnvironment(): boolean {
+  return (
+    typeof window === 'undefined' &&
+    typeof globalThis.process !== 'undefined' &&
+    globalThis.process.versions?.node !== undefined
+  )
+}
 
 export function getStorage(): StorageAdapter {
   if (storageInstance) return storageInstance
+
+  // Use memory storage in Node.js/test environment
+  if (isNodeEnvironment()) {
+    storageInstance = new MemoryStorageAdapter()
+    return storageInstance
+  }
 
   const platform = getPlatformInfo()
 
@@ -209,6 +250,13 @@ export function getStorage(): StorageAdapter {
   }
 
   return storageInstance
+}
+
+/**
+ * Reset storage instance (useful for tests)
+ */
+export function resetStorage(): void {
+  storageInstance = null
 }
 
 export const storage = {

@@ -85,9 +85,18 @@ if (!(await build())) {
 }
 console.log('Build complete.')
 
-// Read index.html and inject the built script
+// Read index.html and inject the built script + CSS
 const indexHtml = await Bun.file(join(rootDir, 'index.html')).text()
-const transformedHtml = indexHtml.replace('/web/main.tsx', '/dist/web/main.js')
+
+// Find the CSS file in dist/web (has hash in filename)
+const distDir = join(rootDir, 'dist/web')
+const distFiles = await Array.fromAsync(new Bun.Glob('*.css').scan(distDir))
+const cssFile = distFiles[0]
+
+// Transform HTML to use built assets
+let transformedHtml = indexHtml
+  .replace('/web/main.tsx', '/dist/web/main.js')
+  .replace('/web/styles/index.css', cssFile ? `/dist/web/${cssFile}` : '/web/styles/index.css')
 
 const REST_PORT = Number(process.env.REST_PORT) || 4352
 

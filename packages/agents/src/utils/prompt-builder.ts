@@ -20,11 +20,9 @@ const MODEL_LIMITS = {
   'Qwen/Qwen2.5-72B-Instruct': 32768,
   'meta-llama/Llama-3.1-8B-Instruct': 128000,
   'meta-llama/Llama-3.1-70B-Instruct': 128000,
-  'gpt-4o': 128000,
-  'gpt-4o-mini': 128000,
-  'gpt-4-turbo': 128000,
-  'claude-3-5-sonnet': 200000,
-  'claude-3-opus': 200000,
+  'gpt-5.2': 128000,
+  'claude-opus-4-5': 200000,
+  'claude-sonnet-4-5': 200000,
   default: 32768,
 } as const satisfies Record<string, number>
 

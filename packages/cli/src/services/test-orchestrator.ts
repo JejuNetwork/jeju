@@ -243,6 +243,11 @@ export class TestOrchestrator {
       NODE_ENV: 'test',
       CI: process.env.CI || '',
       CQL_URL: getCQLBlockProducerUrl(),
+      // Set infra availability flags for test skip conditions
+      INFRA_READY: this.setupComplete ? 'true' : 'false',
+      CQL_AVAILABLE: 'true', // CQL is always started by orchestrator
+      ANVIL_AVAILABLE: this.localnetOrchestrator ? 'true' : 'false',
+      DOCKER_AVAILABLE: this.dockerOrchestrator ? 'true' : 'false',
     }
 
     Object.assign(env, this.infrastructureService.getEnvVars())

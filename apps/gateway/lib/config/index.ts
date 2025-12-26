@@ -5,7 +5,6 @@
  */
 
 import {
-  CORE_PORTS,
   getChainId,
   getContractsConfig,
   getCurrentNetwork,
@@ -28,92 +27,146 @@ export const WS_URL = getWsUrl(NETWORK)
 // Service URLs from config
 const services = getServicesConfig(NETWORK)
 
-export const OAUTH3_AGENT_URL = services.oauth3?.api || getDefaultOAuth3Url()
-export const INDEXER_URL = services.indexer?.graphql || getDefaultIndexerUrl()
-export const INDEXER_REST_URL =
-  services.indexer?.rest || getDefaultIndexerRestUrl()
-export const INDEXER_A2A_URL =
-  services.gateway?.a2a || getDefaultIndexerA2AUrl()
-export const INDEXER_MCP_URL =
-  services.gateway?.mcp || getDefaultIndexerMCPUrl()
-export const RPC_GATEWAY_URL = services.rpcGateway || getDefaultRpcGatewayUrl()
-export const IPFS_API_URL = services.storage?.api || getDefaultIpfsApiUrl()
-export const IPFS_GATEWAY_URL =
-  services.storage?.ipfsGateway || getDefaultIpfsGatewayUrl()
-export const OIF_AGGREGATOR_URL =
-  services.oif?.aggregator || getDefaultOifAggregatorUrl()
-export const LEADERBOARD_API_URL =
-  services.leaderboard?.api || getDefaultLeaderboardUrl()
-export const EXPLORER_URL = services.explorer || getDefaultExplorerUrl()
+function requireServiceUrl(url: string | undefined, name: string): string {
+  if (!url) throw new Error(`${name} URL not configured for network ${NETWORK}`)
+  return url
+}
+
+export const OAUTH3_AGENT_URL = requireServiceUrl(
+  services.oauth3?.api,
+  'OAuth3',
+)
+export const INDEXER_URL = requireServiceUrl(
+  services.indexer?.graphql,
+  'Indexer GraphQL',
+)
+export const INDEXER_REST_URL = requireServiceUrl(
+  services.indexer?.rest,
+  'Indexer REST',
+)
+export const INDEXER_A2A_URL = requireServiceUrl(
+  services.gateway?.a2a,
+  'Indexer A2A',
+)
+export const INDEXER_MCP_URL = requireServiceUrl(
+  services.gateway?.mcp,
+  'Indexer MCP',
+)
+export const RPC_GATEWAY_URL = requireServiceUrl(
+  services.rpcGateway,
+  'RPC Gateway',
+)
+export const IPFS_API_URL = requireServiceUrl(services.storage?.api, 'IPFS API')
+export const IPFS_GATEWAY_URL = requireServiceUrl(
+  services.storage?.ipfsGateway,
+  'IPFS Gateway',
+)
+export const OIF_AGGREGATOR_URL = requireServiceUrl(
+  services.oif?.aggregator,
+  'OIF Aggregator',
+)
+export const LEADERBOARD_API_URL = requireServiceUrl(
+  services.leaderboard?.api,
+  'Leaderboard',
+)
+export const EXPLORER_URL = requireServiceUrl(services.explorer, 'Explorer')
 
 // Contract addresses from config
 const contracts = getContractsConfig(NETWORK)
 
-/** Helper to get address or zero address */
-function addr(value: string | undefined): Address {
-  return (value as Address) || ZERO_ADDRESS
+/** Helper to get address - throws if not configured */
+function addr(value: string | undefined, name: string): Address {
+  if (!value) throw new Error(`Contract address not configured: ${name}`)
+  return getAddress(value)
 }
 
 export const CONTRACTS = {
   // Tokens
-  jeju: addr(contracts.tokens?.jeju),
-  usdc: addr(contracts.tokens?.usdc),
+  jeju: addr(contracts.tokens?.jeju, 'tokens.jeju'),
+  usdc: addr(contracts.tokens?.usdc, 'tokens.usdc'),
   weth: getAddress('0x4200000000000000000000000000000000000006'),
 
   // Registry
-  identityRegistry: addr(contracts.registry?.identity),
-  tokenRegistry: addr(contracts.registry?.token),
-  reputationRegistry: addr(contracts.registry?.reputation),
-  validationRegistry: addr(contracts.registry?.validation),
+  identityRegistry: addr(contracts.registry?.identity, 'registry.identity'),
+  tokenRegistry: addr(contracts.registry?.token, 'registry.token'),
+  reputationRegistry: addr(
+    contracts.registry?.reputation,
+    'registry.reputation',
+  ),
+  validationRegistry: addr(
+    contracts.registry?.validation,
+    'registry.validation',
+  ),
 
   // Moderation
-  banManager: addr(contracts.moderation?.banManager),
-  moderationMarketplace: addr(contracts.moderation?.moderationMarketplace),
-  reportingSystem: addr(contracts.moderation?.reportingSystem),
-  reputationLabelManager: addr(contracts.moderation?.reputationLabelManager),
-  registryGovernance: addr(contracts.governance?.registryGovernance),
+  banManager: addr(contracts.moderation?.banManager, 'moderation.banManager'),
+  reportingSystem: addr(
+    contracts.moderation?.reportingSystem,
+    'moderation.reportingSystem',
+  ),
+  reputationLabelManager: addr(
+    contracts.moderation?.reputationLabelManager,
+    'moderation.reputationLabelManager',
+  ),
+  registryGovernance: addr(
+    contracts.governance?.registryGovernance,
+    'governance.registryGovernance',
+  ),
 
   // Bazaar (Prediction Markets)
-  predictionMarket: addr(contracts.bazaar?.predictionMarket),
+  predictionMarket: addr(
+    contracts.bazaar?.predictionMarket,
+    'bazaar.predictionMarket',
+  ),
 
   // Node Staking
-  nodeStakingManager: addr(contracts.nodeStaking?.manager),
-  nodePerformanceOracle: addr(contracts.nodeStaking?.performanceOracle),
-  rpcStaking: addr(contracts.rpc?.staking),
+  nodeStakingManager: addr(
+    contracts.nodeStaking?.manager,
+    'nodeStaking.manager',
+  ),
+  nodePerformanceOracle: addr(
+    contracts.nodeStaking?.performanceOracle,
+    'nodeStaking.performanceOracle',
+  ),
+  rpcStaking: addr(contracts.rpc?.staking, 'rpc.staking'),
 
   // JNS
-  jnsRegistry: addr(contracts.jns?.registry),
-  jnsResolver: addr(contracts.jns?.resolver),
-  jnsRegistrar: addr(contracts.jns?.registrar),
-  jnsReverseRegistrar: addr(contracts.jns?.reverseRegistrar),
+  jnsRegistry: addr(contracts.jns?.registry, 'jns.registry'),
+  jnsResolver: addr(contracts.jns?.resolver, 'jns.resolver'),
+  jnsRegistrar: addr(contracts.jns?.registrar, 'jns.registrar'),
+  jnsReverseRegistrar: addr(
+    contracts.jns?.reverseRegistrar,
+    'jns.reverseRegistrar',
+  ),
 
   // Payments
-  paymasterFactory: addr(contracts.payments?.paymasterFactory),
-  priceOracle: addr(contracts.payments?.priceOracle),
+  paymasterFactory: addr(
+    contracts.payments?.paymasterFactory,
+    'payments.paymasterFactory',
+  ),
+  priceOracle: addr(contracts.payments?.priceOracle, 'payments.priceOracle'),
   entryPoint: getAddress('0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789'),
-  x402Facilitator: addr(contracts.payments?.x402Facilitator),
-
-  // DeFi (Uniswap v4)
-  poolManager: addr(contracts.defi?.poolManager),
-  swapRouter: addr(contracts.defi?.swapRouter),
-  positionManager: addr(contracts.defi?.positionManager),
-  quoterV4: addr(contracts.defi?.quoterV4),
-  stateView: addr(contracts.defi?.stateView),
+  x402Facilitator: addr(
+    contracts.payments?.x402Facilitator,
+    'payments.x402Facilitator',
+  ),
 
   // Compute
-  computeRegistry: addr(contracts.compute?.registry),
-  ledgerManager: addr(contracts.compute?.ledgerManager),
-  inferenceServing: addr(contracts.compute?.inferenceServing),
-  computeStaking: addr(contracts.compute?.staking),
-
-  // Governance
-  governor: addr(contracts.governance?.governor),
-  futarchyGovernor: addr(contracts.governance?.futarchyGovernor),
+  computeRegistry: addr(contracts.compute?.registry, 'compute.registry'),
+  ledgerManager: addr(
+    contracts.compute?.ledgerManager,
+    'compute.ledgerManager',
+  ),
+  inferenceServing: addr(
+    contracts.compute?.inferenceServing,
+    'compute.inferenceServing',
+  ),
+  computeStaking: addr(contracts.compute?.staking, 'compute.staking'),
 
   // OIF
-  solverRegistry: addr(contracts.oif?.solverRegistry),
+  solverRegistry: addr(contracts.oif?.solverRegistry, 'oif.solverRegistry'),
   inputSettler: {
-    jeju: addr(contracts.oif?.inputSettler),
+    jeju: addr(contracts.oif?.inputSettler, 'oif.inputSettler'),
     ethereum: ZERO_ADDRESS,
     sepolia: ZERO_ADDRESS,
     arbitrum: ZERO_ADDRESS,
@@ -121,87 +174,20 @@ export const CONTRACTS = {
   },
 
   // EIL
-  crossChainPaymaster: addr(contracts.eil?.crossChainPaymaster),
+  crossChainPaymaster: addr(
+    contracts.eil?.crossChainPaymaster,
+    'eil.crossChainPaymaster',
+  ),
 
   // GitHub Reputation
-  githubReputationProvider: addr(contracts.registry?.githubReputationProvider),
+  githubReputationProvider: addr(
+    contracts.registry?.githubReputationProvider,
+    'registry.githubReputationProvider',
+  ),
 
   // Oracle Network
-  oracleNetworkConnector: addr(contracts.oracle?.oracleNetworkConnector),
+  oracleNetworkConnector: addr(
+    contracts.oracle?.oracleNetworkConnector,
+    'oracle.oracleNetworkConnector',
+  ),
 } as const
-
-// WalletConnect project ID - placeholder for production
-export const WALLETCONNECT_PROJECT_ID = 'YOUR_PROJECT_ID'
-
-// Default URL helpers for localnet fallbacks
-function getDefaultOAuth3Url(): string {
-  if (NETWORK === 'mainnet') return 'https://auth.jejunetwork.org'
-  if (NETWORK === 'testnet') return 'https://testnet-auth.jejunetwork.org'
-  return `http://127.0.0.1:${CORE_PORTS.OAUTH3_API.DEFAULT}`
-}
-
-function getDefaultIndexerUrl(): string {
-  if (NETWORK === 'mainnet') return 'https://indexer.jejunetwork.org/graphql'
-  if (NETWORK === 'testnet')
-    return 'https://testnet-indexer.jejunetwork.org/graphql'
-  return `http://127.0.0.1:${CORE_PORTS.INDEXER_GRAPHQL.DEFAULT}/graphql`
-}
-
-function getDefaultIndexerRestUrl(): string {
-  if (NETWORK === 'mainnet') return 'https://indexer.jejunetwork.org/api'
-  if (NETWORK === 'testnet')
-    return 'https://testnet-indexer.jejunetwork.org/api'
-  return `http://127.0.0.1:${CORE_PORTS.INDEXER_REST.DEFAULT}/api`
-}
-
-function getDefaultIndexerA2AUrl(): string {
-  if (NETWORK === 'mainnet') return 'https://indexer.jejunetwork.org/a2a'
-  if (NETWORK === 'testnet')
-    return 'https://testnet-indexer.jejunetwork.org/a2a'
-  return `http://127.0.0.1:${CORE_PORTS.INDEXER_A2A.DEFAULT}/api/a2a`
-}
-
-function getDefaultIndexerMCPUrl(): string {
-  if (NETWORK === 'mainnet') return 'https://indexer.jejunetwork.org/mcp'
-  if (NETWORK === 'testnet')
-    return 'https://testnet-indexer.jejunetwork.org/mcp'
-  return `http://127.0.0.1:${CORE_PORTS.INDEXER_MCP.DEFAULT}`
-}
-
-function getDefaultRpcGatewayUrl(): string {
-  if (NETWORK === 'mainnet') return 'https://rpc-gateway.jejunetwork.org'
-  if (NETWORK === 'testnet')
-    return 'https://testnet-rpc-gateway.jejunetwork.org'
-  return `http://127.0.0.1:${CORE_PORTS.RPC_GATEWAY.DEFAULT}`
-}
-
-function getDefaultIpfsApiUrl(): string {
-  if (NETWORK === 'mainnet') return 'https://storage.jejunetwork.org'
-  if (NETWORK === 'testnet') return 'https://testnet-storage.jejunetwork.org'
-  return `http://127.0.0.1:${CORE_PORTS.IPFS.DEFAULT}`
-}
-
-function getDefaultIpfsGatewayUrl(): string {
-  if (NETWORK === 'mainnet') return 'https://ipfs.jejunetwork.org'
-  if (NETWORK === 'testnet') return 'https://testnet-ipfs.jejunetwork.org'
-  return `http://127.0.0.1:${CORE_PORTS.IPFS.DEFAULT}`
-}
-
-function getDefaultOifAggregatorUrl(): string {
-  if (NETWORK === 'mainnet') return 'https://oif.jejunetwork.org/api'
-  if (NETWORK === 'testnet') return 'https://testnet-oif.jejunetwork.org/api'
-  return `http://127.0.0.1:${CORE_PORTS.OIF_AGGREGATOR.DEFAULT}/api`
-}
-
-function getDefaultLeaderboardUrl(): string {
-  if (NETWORK === 'mainnet' || NETWORK === 'testnet') {
-    return 'https://leaderboard.jejunetwork.org'
-  }
-  return `http://127.0.0.1:${CORE_PORTS.LEADERBOARD_API.DEFAULT}`
-}
-
-function getDefaultExplorerUrl(): string {
-  if (NETWORK === 'mainnet') return 'https://explorer.jejunetwork.org'
-  if (NETWORK === 'testnet') return 'https://testnet-explorer.jejunetwork.org'
-  return `http://127.0.0.1:${CORE_PORTS.EXPLORER.DEFAULT}`
-}

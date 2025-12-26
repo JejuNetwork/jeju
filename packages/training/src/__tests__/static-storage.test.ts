@@ -10,21 +10,18 @@
  * - Concurrent operations
  */
 
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  test,
-} from 'bun:test'
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { gunzipSync, gzipSync } from 'node:zlib'
-import type { LLMCallLogRecord, TrajectoryRecord } from '../recording/trajectory-recorder'
+import type {
+  LLMCallLogRecord,
+  TrajectoryRecord,
+} from '../recording/trajectory-recorder'
 import {
   createStaticTrajectoryStorage,
   downloadTrajectoryBatch,
   getStaticTrajectoryStorage,
-  shutdownAllStaticStorage,
   StaticTrajectoryStorage,
+  shutdownAllStaticStorage,
   type TrajectoryBatchReference,
 } from '../storage/static-storage'
 
@@ -52,7 +49,7 @@ function createTestTrajectoryRecord(
       {
         stepId: 'step-1',
         stepNumber: 0,
-        timestamp: now,
+        timestamp: nowMs,
         environmentState: {
           timestamp: nowMs,
           agentBalance: 1000,
@@ -61,18 +58,18 @@ function createTestTrajectoryRecord(
           openPositions: 2,
         },
         action: {
+          timestamp: nowMs,
           actionType: 'buy',
           parameters: { symbol: 'ETH', amount: 1 },
           success: true,
           error: undefined,
         },
         reward: 0.5,
-        cumulativeReward: 0.5,
       },
       {
         stepId: 'step-2',
         stepNumber: 1,
-        timestamp: new Date(nowMs + 30000),
+        timestamp: nowMs + 30000,
         environmentState: {
           timestamp: nowMs + 30000,
           agentBalance: 1100,
@@ -81,13 +78,13 @@ function createTestTrajectoryRecord(
           openPositions: 1,
         },
         action: {
+          timestamp: nowMs + 30000,
           actionType: 'sell',
           parameters: { symbol: 'ETH', amount: 1 },
           success: true,
           error: undefined,
         },
         reward: 0.25,
-        cumulativeReward: 0.75,
       },
     ],
     rewardComponents: {
@@ -137,14 +134,21 @@ function createTestLLMCallLog(
 }
 
 // Mock fetch for DWS upload
-let mockFetchResponses: Array<{ ok: boolean; status: number; body: Record<string, unknown> | string }> = []
+let mockFetchResponses: Array<{
+  ok: boolean
+  status: number
+  body: Record<string, unknown> | string
+}> = []
 let fetchCalls: Array<{ url: string; options: RequestInit }> = []
 
 const originalFetch = globalThis.fetch
 function setupMockFetch() {
   fetchCalls = []
   // @ts-expect-error - mock fetch doesn't need preconnect
-  globalThis.fetch = async (url: string | URL | Request, options?: RequestInit) => {
+  globalThis.fetch = async (
+    url: string | URL | Request,
+    options?: RequestInit,
+  ) => {
     const urlString = url.toString()
     fetchCalls.push({ url: urlString, options: options ?? {} })
 
@@ -165,9 +169,10 @@ function setupMockFetch() {
         if (mockResponse.body instanceof ArrayBuffer) {
           return mockResponse.body
         }
-        const text = typeof mockResponse.body === 'string'
-          ? mockResponse.body
-          : JSON.stringify(mockResponse.body)
+        const text =
+          typeof mockResponse.body === 'string'
+            ? mockResponse.body
+            : JSON.stringify(mockResponse.body)
         return new TextEncoder().encode(text).buffer
       },
     } as Response
@@ -266,8 +271,9 @@ describe('StaticTrajectoryStorage', () => {
       // Should have auto-flushed
       expect(storage.getBufferStats().count).toBe(0)
       expect(flushedBatch).not.toBeNull()
-      expect(flushedBatch!.trajectoryCount).toBe(2)
-      expect(flushedBatch!.storageCid).toBe('QmTest123')
+      const batch = flushedBatch!
+      expect(batch.trajectoryCount).toBe(2)
+      expect(batch.storageCid).toBe('QmTest123')
     })
 
     test('associates LLM calls with trajectories', async () => {
@@ -279,7 +285,7 @@ describe('StaticTrajectoryStorage', () => {
 
       const storage = new StaticTrajectoryStorage({
         appName: 'llm-test',
-        maxBufferSize: 1,
+        maxBufferSize: 10,
       })
 
       const trajectory = createTestTrajectoryRecord()
@@ -296,7 +302,7 @@ describe('StaticTrajectoryStorage', () => {
 
       // Verify the uploaded content includes LLM calls
       const uploadCall = fetchCalls[0]!
-      expect(uploadCall.url).toContain('/api/v1/upload')
+      expect(uploadCall.url).toContain('/storage/upload')
     })
 
     test('handles empty buffer flush gracefully', async () => {
@@ -338,7 +344,10 @@ describe('StaticTrajectoryStorage', () => {
       let uploadedData: Buffer | null = null
       const origFetch = globalThis.fetch
       // @ts-expect-error - mock fetch doesn't need preconnect
-      globalThis.fetch = async (_url: string | URL | Request, options?: RequestInit) => {
+      globalThis.fetch = async (
+        _url: string | URL | Request,
+        options?: RequestInit,
+      ) => {
         const body = options?.body as FormData
         if (body instanceof FormData) {
           const file = body.get('file') as Blob
@@ -355,10 +364,12 @@ describe('StaticTrajectoryStorage', () => {
 
       const storage = new StaticTrajectoryStorage({
         appName: 'jsonl-test',
-        maxBufferSize: 1,
+        maxBufferSize: 10,
       })
 
-      const trajectory = createTestTrajectoryRecord({ archetype: 'test-archetype' })
+      const trajectory = createTestTrajectoryRecord({
+        archetype: 'test-archetype',
+      })
       await storage.saveTrajectory(trajectory)
       await storage.flush()
 
@@ -391,7 +402,10 @@ describe('StaticTrajectoryStorage', () => {
 
       const origFetch = globalThis.fetch
       // @ts-expect-error - mock fetch doesn't need preconnect
-      globalThis.fetch = async (_url: string | URL | Request, options?: RequestInit) => {
+      globalThis.fetch = async (
+        _url: string | URL | Request,
+        options?: RequestInit,
+      ) => {
         const body = options?.body as FormData
         if (body instanceof FormData) {
           const file = body.get('file') as Blob
@@ -440,7 +454,7 @@ describe('StaticTrajectoryStorage', () => {
 
       const storage = new StaticTrajectoryStorage({
         appName: 'retry-test',
-        maxBufferSize: 1,
+        maxBufferSize: 10,
       })
 
       await storage.saveTrajectory(createTestTrajectoryRecord())
@@ -469,7 +483,7 @@ describe('StaticTrajectoryStorage', () => {
 
       const storage = new StaticTrajectoryStorage({
         appName: 'retry-5xx-test',
-        maxBufferSize: 1,
+        maxBufferSize: 10,
       })
 
       await storage.saveTrajectory(createTestTrajectoryRecord())
@@ -493,7 +507,7 @@ describe('StaticTrajectoryStorage', () => {
 
       const storage = new StaticTrajectoryStorage({
         appName: 'retry-429-test',
-        maxBufferSize: 1,
+        maxBufferSize: 10,
       })
 
       await storage.saveTrajectory(createTestTrajectoryRecord())
@@ -510,7 +524,7 @@ describe('StaticTrajectoryStorage', () => {
 
       const storage = new StaticTrajectoryStorage({
         appName: 'retry-fail-test',
-        maxBufferSize: 1,
+        maxBufferSize: 10,
       })
 
       await storage.saveTrajectory(createTestTrajectoryRecord())
@@ -527,7 +541,7 @@ describe('StaticTrajectoryStorage', () => {
 
       const storage = new StaticTrajectoryStorage({
         appName: 'no-retry-4xx-test',
-        maxBufferSize: 1,
+        maxBufferSize: 10,
       })
 
       await storage.saveTrajectory(createTestTrajectoryRecord())
@@ -554,7 +568,7 @@ describe('StaticTrajectoryStorage', () => {
 
       const storage = new StaticTrajectoryStorage({
         appName: 'network-error-test',
-        maxBufferSize: 1,
+        maxBufferSize: 10,
       })
 
       await storage.saveTrajectory(createTestTrajectoryRecord())
@@ -577,7 +591,7 @@ describe('StaticTrajectoryStorage', () => {
 
       const storage = new StaticTrajectoryStorage({
         appName: 'no-steps-test',
-        maxBufferSize: 1,
+        maxBufferSize: 10,
       })
 
       const traj = createTestTrajectoryRecord({ steps: [] })
@@ -596,12 +610,18 @@ describe('StaticTrajectoryStorage', () => {
 
       const storage = new StaticTrajectoryStorage({
         appName: 'mixed-archetype-test',
-        maxBufferSize: 3,
+        maxBufferSize: 10,
       })
 
-      await storage.saveTrajectory(createTestTrajectoryRecord({ archetype: 'trader' }))
-      await storage.saveTrajectory(createTestTrajectoryRecord({ archetype: 'degen' }))
-      await storage.saveTrajectory(createTestTrajectoryRecord({ archetype: 'researcher' }))
+      await storage.saveTrajectory(
+        createTestTrajectoryRecord({ archetype: 'trader' }),
+      )
+      await storage.saveTrajectory(
+        createTestTrajectoryRecord({ archetype: 'degen' }),
+      )
+      await storage.saveTrajectory(
+        createTestTrajectoryRecord({ archetype: 'researcher' }),
+      )
 
       const batch = await storage.flush()
 
@@ -619,10 +639,12 @@ describe('StaticTrajectoryStorage', () => {
 
       const storage = new StaticTrajectoryStorage({
         appName: 'null-archetype-test',
-        maxBufferSize: 1,
+        maxBufferSize: 10,
       })
 
-      await storage.saveTrajectory(createTestTrajectoryRecord({ archetype: null }))
+      await storage.saveTrajectory(
+        createTestTrajectoryRecord({ archetype: null }),
+      )
       const batch = await storage.flush()
 
       expect(batch?.archetype).toBeNull()
@@ -637,29 +659,30 @@ describe('StaticTrajectoryStorage', () => {
 
       const storage = new StaticTrajectoryStorage({
         appName: 'large-traj-test',
-        maxBufferSize: 1,
+        maxBufferSize: 10,
       })
 
       // Create trajectory with many steps
+      const baseTime = Date.now()
       const steps = Array.from({ length: 100 }, (_, i) => ({
         stepId: `step-${i}`,
         stepNumber: i,
-        timestamp: new Date(),
+        timestamp: baseTime + i * 1000,
         environmentState: {
-          timestamp: Date.now(),
+          timestamp: baseTime + i * 1000,
           agentBalance: 1000 + i,
           agentPoints: i,
           agentPnL: i * 10,
           openPositions: i % 5,
         },
         action: {
+          timestamp: baseTime + i * 1000,
           actionType: i % 2 === 0 ? 'buy' : 'sell',
           parameters: { amount: i },
           success: true,
-          error: null,
+          error: undefined,
         },
         reward: Math.random(),
-        cumulativeReward: i * 0.1,
       }))
 
       await storage.saveTrajectory(createTestTrajectoryRecord({ steps }))
@@ -677,12 +700,14 @@ describe('StaticTrajectoryStorage', () => {
 
       const storage = new StaticTrajectoryStorage({
         appName: 'invalid-response-test',
-        maxBufferSize: 1,
+        maxBufferSize: 10,
       })
 
       await storage.saveTrajectory(createTestTrajectoryRecord())
 
-      await expect(storage.flush()).rejects.toThrow('Invalid DWS upload response')
+      await expect(storage.flush()).rejects.toThrow(
+        'Invalid DWS upload response',
+      )
     })
   })
 
@@ -696,7 +721,7 @@ describe('StaticTrajectoryStorage', () => {
 
       const storage = new StaticTrajectoryStorage({
         appName: 'totals-test',
-        maxBufferSize: 3,
+        maxBufferSize: 10,
       })
 
       const traj1 = createTestTrajectoryRecord({ totalReward: 0.5 })
@@ -724,7 +749,7 @@ describe('StaticTrajectoryStorage', () => {
 
       const storage = new StaticTrajectoryStorage({
         appName: 'time-window-test',
-        maxBufferSize: 3,
+        maxBufferSize: 10,
       })
 
       const now = Date.now()
@@ -773,7 +798,9 @@ describe('StaticTrajectoryStorage', () => {
     })
 
     test('shutdown is idempotent with empty buffer', async () => {
-      const storage = new StaticTrajectoryStorage({ appName: 'shutdown-empty-test' })
+      const storage = new StaticTrajectoryStorage({
+        appName: 'shutdown-empty-test',
+      })
 
       await storage.shutdown()
       await storage.shutdown() // Should not throw
@@ -799,31 +826,37 @@ describe('downloadTrajectoryBatch', () => {
     const compressed = gzipSync(Buffer.from(jsonlContent))
 
     // @ts-expect-error - mock fetch doesn't need preconnect
-    globalThis.fetch = async () => ({
-      ok: true,
-      status: 200,
-      arrayBuffer: async () => compressed.buffer.slice(
-        compressed.byteOffset,
-        compressed.byteOffset + compressed.byteLength,
-      ),
-    }) as Response
+    globalThis.fetch = async () =>
+      ({
+        ok: true,
+        status: 200,
+        arrayBuffer: async () =>
+          compressed.buffer.slice(
+            compressed.byteOffset,
+            compressed.byteOffset + compressed.byteLength,
+          ),
+      }) as Response
 
-    const result = await downloadTrajectoryBatch('QmTestCid', 'http://test-endpoint')
+    const result = await downloadTrajectoryBatch(
+      'QmTestCid',
+      'http://test-endpoint',
+    )
 
     expect(result.header.batchId).toBe('test-batch')
     expect(result.header.appName).toBe('test')
     expect(result.trajectories).toHaveLength(1)
-    expect(result.trajectories[0]!.trajectoryId).toBe('traj-1')
+    expect(result.trajectories[0]?.trajectoryId).toBe('traj-1')
     expect(result.llmCalls).toHaveLength(1)
-    expect(result.llmCalls[0]!.trajectoryId).toBe('traj-1')
+    expect(result.llmCalls[0]?.trajectoryId).toBe('traj-1')
   })
 
   test('throws on download failure', async () => {
     // @ts-expect-error - mock fetch doesn't need preconnect
-    globalThis.fetch = async () => ({
-      ok: false,
-      status: 404,
-    }) as Response
+    globalThis.fetch = async () =>
+      ({
+        ok: false,
+        status: 404,
+      }) as Response
 
     await expect(
       downloadTrajectoryBatch('QmNotFound', 'http://test-endpoint'),
@@ -835,14 +868,16 @@ describe('downloadTrajectoryBatch', () => {
     const compressed = gzipSync(Buffer.from(jsonlContent))
 
     // @ts-expect-error - mock fetch doesn't need preconnect
-    globalThis.fetch = async () => ({
-      ok: true,
-      status: 200,
-      arrayBuffer: async () => compressed.buffer.slice(
-        compressed.byteOffset,
-        compressed.byteOffset + compressed.byteLength,
-      ),
-    }) as Response
+    globalThis.fetch = async () =>
+      ({
+        ok: true,
+        status: 200,
+        arrayBuffer: async () =>
+          compressed.buffer.slice(
+            compressed.byteOffset,
+            compressed.byteOffset + compressed.byteLength,
+          ),
+      }) as Response
 
     await expect(
       downloadTrajectoryBatch('QmNoHeader', 'http://test-endpoint'),

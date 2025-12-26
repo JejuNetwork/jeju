@@ -3,8 +3,8 @@
  * Manages packages with on-chain registry integration
  */
 
-import { createHash } from 'node:crypto'
 import { getDWSUrl } from '@jejunetwork/config'
+import { bytesToHex, hash512 } from '@jejunetwork/shared'
 import { expectJson } from '@jejunetwork/types'
 import {
   type Address,
@@ -626,8 +626,8 @@ export class PkgRegistryManager {
     }
 
     // Calculate integrity hash (SHA-512)
-    const integrityHash = createHash('sha512').update(tarball).digest('hex')
-    const integrityBytes32 = `0x${integrityHash.slice(0, 64)}` as Hex
+    const integrityHash = bytesToHex(hash512(new Uint8Array(tarball)))
+    const integrityBytes32 = `0x${integrityHash.slice(2, 66)}` as Hex
 
     // Store manifest
     let manifestResult: { cid: string; url: string }

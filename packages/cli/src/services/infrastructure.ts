@@ -31,39 +31,17 @@ export interface InfrastructureStatus {
 const CQL_PORT = INFRA_PORTS.CQL.get()
 const CQL_DATA_DIR = '.data/cql'
 
-// NOTE: IPFS is now provisioned through DWS on-chain (see dws-local-provisioner.ts)
-// It's listed here for health checking only, not for startup
+// DWS provides cache and DA services via /cache and /da endpoints
+const DWS_PORT = CORE_PORTS.DWS_API.get()
+
+// Docker services - IPFS is started via Docker, cache/DA are provided by DWS
 const DOCKER_SERVICES = {
   ipfs: {
     port: CORE_PORTS.IPFS_API.DEFAULT,
     healthPath: '/api/v0/id',
     name: 'IPFS',
-    container: 'jeju-dws-ipfs', // DWS-provisioned container name
+    container: 'jeju-ipfs',
     required: true,
-    native: false,
-    dwsProvisioned: true, // Don't start via Docker compose
-  },
-  cache: {
-    port: 4115,
-    healthPath: '/health',
-    name: 'Cache Service',
-    container: 'jeju-cache',
-    required: true,
-    native: true,
-    nativePort: 4115,
-    nativePath: 'apps/storage/cache-service',
-    dwsProvisioned: false,
-  },
-  da: {
-    port: 4010,
-    healthPath: '/health',
-    name: 'DA Server',
-    container: 'jeju-da',
-    required: true,
-    native: true,
-    nativePort: 4010,
-    nativePath: 'apps/storage/da-server',
-    dwsProvisioned: false,
   },
   farcaster: {
     port: 2281,
@@ -71,16 +49,12 @@ const DOCKER_SERVICES = {
     name: 'Farcaster Hub',
     container: 'jeju-farcaster-hub',
     required: false,
-    native: false,
-    dwsProvisioned: false,
   },
 } as const
 
 const LOCALNET_PORT = DEFAULT_PORTS.l2Rpc
 
 let cqlProcess: ResultPromise | null = null
-let cacheProcess: ResultPromise | null = null
-let daProcess: ResultPromise | null = null
 
 export class InfrastructureService {
   private rootDir: string
@@ -114,29 +88,61 @@ export class InfrastructureService {
       return false
     }
 
+    // Ensure data directory exists
+    const dataDir = join(this.rootDir, CQL_DATA_DIR)
+    const { mkdirSync } = await import('node:fs')
+    mkdirSync(dataDir, { recursive: true })
+
     cqlProcess = execa('bun', ['run', 'server'], {
       cwd: dbPath,
       env: {
         ...process.env,
         PORT: String(CQL_PORT),
         CQL_PORT: String(CQL_PORT),
-        CQL_DATA_DIR: join(this.rootDir, CQL_DATA_DIR),
+        CQL_DATA_DIR: dataDir,
       },
       stdio: 'pipe',
       detached: true,
     })
 
+    // Capture errors for debugging
+    let startupError = ''
+    cqlProcess.stderr?.on('data', (data: Buffer) => {
+      startupError += data.toString()
+    })
+
+    cqlProcess.on('error', (err) => {
+      logger.error(`CQL process error: ${err.message}`)
+    })
+
+    cqlProcess.on('exit', (code) => {
+      if (code !== 0 && code !== null) {
+        logger.error(`CQL exited with code ${code}`)
+        if (startupError) {
+          logger.debug(`CQL stderr: ${startupError.slice(0, 500)}`)
+        }
+      }
+    })
+
     cqlProcess.unref()
 
-    for (let i = 0; i < 30; i++) {
+    // Wait up to 30 seconds for CQL to start (60 * 500ms)
+    for (let i = 0; i < 60; i++) {
       await this.sleep(500)
       if (await this.isCQLRunning()) {
         logger.success(`CQL running on port ${CQL_PORT}`)
         return true
       }
+      // Log progress every 5 seconds
+      if (i > 0 && i % 10 === 0) {
+        logger.info(`  Still waiting for CQL... (${i / 2}s)`)
+      }
     }
 
-    logger.error('CQL failed to start within 15 seconds')
+    logger.error('CQL failed to start within 30 seconds')
+    if (startupError) {
+      logger.error(`CQL error output: ${startupError.slice(0, 500)}`)
+    }
     return false
   }
 
@@ -149,129 +155,28 @@ export class InfrastructureService {
     await execa('pkill', ['-f', 'packages/db.*server'], { reject: false })
   }
 
+  // Cache and DA services are now provided by DWS at /cache and /da endpoints
   async isCacheServiceRunning(): Promise<boolean> {
     try {
       const response = await fetch(
-        `http://127.0.0.1:${DOCKER_SERVICES.cache.nativePort}/health`,
-        {
-          signal: AbortSignal.timeout(2000),
-        },
+        `http://127.0.0.1:${DWS_PORT}/cache/health`,
+        { signal: AbortSignal.timeout(2000) },
       )
       return response.ok
     } catch {
       return false
     }
-  }
-
-  async startCacheService(): Promise<boolean> {
-    if (await this.isCacheServiceRunning()) {
-      logger.success('Cache service already running')
-      return true
-    }
-
-    logger.step('Starting Cache Service (native)...')
-
-    const servicePath = join(this.rootDir, DOCKER_SERVICES.cache.nativePath)
-    if (!existsSync(servicePath)) {
-      logger.error(`Cache service not found at ${servicePath}`)
-      return false
-    }
-
-    cacheProcess = execa('bun', ['run', 'index.ts'], {
-      cwd: servicePath,
-      env: {
-        ...process.env,
-        CACHE_SERVICE_PORT: String(DOCKER_SERVICES.cache.nativePort),
-      },
-      stdio: 'pipe',
-      detached: true,
-    })
-
-    cacheProcess.unref()
-
-    for (let i = 0; i < 30; i++) {
-      await this.sleep(500)
-      if (await this.isCacheServiceRunning()) {
-        logger.success(
-          `Cache service running on port ${DOCKER_SERVICES.cache.nativePort}`,
-        )
-        return true
-      }
-    }
-
-    logger.error('Cache service failed to start within 15 seconds')
-    return false
   }
 
   async isDAServerRunning(): Promise<boolean> {
     try {
-      const response = await fetch(
-        `http://127.0.0.1:${DOCKER_SERVICES.da.nativePort}/health`,
-        {
-          signal: AbortSignal.timeout(2000),
-        },
-      )
+      const response = await fetch(`http://127.0.0.1:${DWS_PORT}/da/health`, {
+        signal: AbortSignal.timeout(2000),
+      })
       return response.ok
     } catch {
       return false
     }
-  }
-
-  async startDAServer(): Promise<boolean> {
-    if (await this.isDAServerRunning()) {
-      logger.success('DA Server already running')
-      return true
-    }
-
-    logger.step('Starting DA Server (native)...')
-
-    const servicePath = join(this.rootDir, DOCKER_SERVICES.da.nativePath)
-    if (!existsSync(servicePath)) {
-      logger.error(`DA Server not found at ${servicePath}`)
-      return false
-    }
-
-    daProcess = execa('bun', ['run', 'index.ts'], {
-      cwd: servicePath,
-      env: {
-        ...process.env,
-        PORT: String(DOCKER_SERVICES.da.nativePort),
-        VAULT_ENCRYPTION_SECRET: 'localnet_dev_only_secret_key_32chars',
-      },
-      stdio: 'pipe',
-      detached: true,
-    })
-
-    daProcess.unref()
-
-    for (let i = 0; i < 30; i++) {
-      await this.sleep(500)
-      if (await this.isDAServerRunning()) {
-        logger.success(
-          `DA Server running on port ${DOCKER_SERVICES.da.nativePort}`,
-        )
-        return true
-      }
-    }
-
-    logger.error('DA Server failed to start within 15 seconds')
-    return false
-  }
-
-  async stopNativeServices(): Promise<void> {
-    if (cacheProcess) {
-      cacheProcess.kill('SIGTERM')
-      cacheProcess = null
-    }
-    if (daProcess) {
-      daProcess.kill('SIGTERM')
-      daProcess = null
-    }
-    // Also kill any orphaned processes
-    await execa('pkill', ['-f', 'apps/storage/cache-service'], {
-      reject: false,
-    })
-    await execa('pkill', ['-f', 'apps/storage/da-server'], { reject: false })
   }
 
   async isDockerRunning(): Promise<boolean> {
@@ -400,64 +305,79 @@ export class InfrastructureService {
   }
 
   async startDockerServices(): Promise<boolean> {
-    logger.step('Starting services...')
+    logger.step('Starting Docker services...')
 
-    // Start native services (cache, DA)
-    const cacheStarted = await this.startCacheService()
-    const daStarted = await this.startDAServer()
-
-    if (!cacheStarted || !daStarted) {
-      logger.error('Native services failed to start')
+    // Start IPFS via Docker (cache and DA are provided by DWS)
+    const composePath = join(
+      this.rootDir,
+      'packages/deployment/docker/localnet.compose.yaml',
+    )
+    if (!existsSync(composePath)) {
+      logger.error(
+        'localnet.compose.yaml not found in packages/deployment/docker/',
+      )
       return false
     }
 
-    // Note: IPFS is provisioned through DWS on-chain (dws-local-provisioner.ts)
-    // We just wait for it to be healthy here
+    try {
+      await execa(
+        'docker',
+        ['compose', '-f', composePath, 'up', '-d', 'ipfs'],
+        {
+          cwd: this.rootDir,
+          stdio: 'pipe',
+        },
+      )
 
-    logger.info('  Waiting for services to be healthy...')
-    const requiredServices = Object.entries(DOCKER_SERVICES)
-      .filter(([_, config]) => config.required)
-      .map(([key]) => key)
+      logger.info('  Waiting for services to be healthy...')
+      const requiredServices = Object.entries(DOCKER_SERVICES)
+        .filter(([_, config]) => config.required)
+        .map(([key]) => key)
 
-    for (let attempt = 0; attempt < 60; attempt++) {
-      const services = await this.checkDockerServices()
-      const requiredHealthy = services
-        .filter((s) =>
-          requiredServices.some(
-            (key) =>
-              DOCKER_SERVICES[key as keyof typeof DOCKER_SERVICES].name ===
-              s.name,
-          ),
-        )
-        .every((s) => s.healthy)
-
-      if (requiredHealthy) {
-        for (const service of services.filter((s) => s.healthy)) {
-          logger.success(`  ${service.name} ready`)
-        }
-        return true
-      }
-
-      await this.sleep(1000)
-
-      if (attempt % 10 === 9) {
-        const unhealthy = services
-          .filter(
-            (s) =>
-              !s.healthy &&
-              requiredServices.some(
-                (key) =>
-                  DOCKER_SERVICES[key as keyof typeof DOCKER_SERVICES]
-                    .name === s.name,
-              ),
+      for (let attempt = 0; attempt < 60; attempt++) {
+        const services = await this.checkDockerServices()
+        const requiredHealthy = services
+          .filter((s) =>
+            requiredServices.some(
+              (key) =>
+                DOCKER_SERVICES[key as keyof typeof DOCKER_SERVICES].name ===
+                s.name,
+            ),
           )
-          .map((s) => s.name)
-        logger.info(`  Still waiting for: ${unhealthy.join(', ')}`)
-      }
-    }
+          .every((s) => s.healthy)
 
-    logger.error('Services did not become healthy within 60 seconds')
-    return false
+        if (requiredHealthy) {
+          for (const service of services.filter((s) => s.healthy)) {
+            logger.success(`  ${service.name} ready`)
+          }
+          return true
+        }
+
+        await this.sleep(1000)
+
+        if (attempt % 10 === 9) {
+          const unhealthy = services
+            .filter(
+              (s) =>
+                !s.healthy &&
+                requiredServices.some(
+                  (key) =>
+                    DOCKER_SERVICES[key as keyof typeof DOCKER_SERVICES]
+                      .name === s.name,
+                ),
+            )
+            .map((s) => s.name)
+          logger.info(`  Still waiting for: ${unhealthy.join(', ')}`)
+        }
+      }
+
+      logger.error('Services did not become healthy within 60 seconds')
+      return false
+    } catch (error) {
+      logger.error('Failed to start Docker services')
+      logger.debug(String(error))
+      return false
+    }
   }
 
   async stopServices(): Promise<void> {
@@ -465,9 +385,6 @@ export class InfrastructureService {
 
     await this.stopCQL()
     logger.success('CQL stopped')
-
-    await this.stopNativeServices()
-    logger.success('Native services stopped')
 
     const composePath = join(
       this.rootDir,
@@ -568,91 +485,111 @@ export class InfrastructureService {
 
   /**
    * Ensure all infrastructure is running
-   * Auto-starts what's missing
+   * Auto-starts what's missing - parallelized for speed
    */
   async ensureRunning(): Promise<boolean> {
     logger.header('INFRASTRUCTURE')
+    logger.info('Starting infrastructure in parallel...\n')
 
-    // Step 1: Start CQL first - it's the core database for all apps
-    logger.subheader('CQL (CovenantSQL)')
+    // Check what's already running in parallel
+    const [cqlRunning, dockerInstalled, dockerRunning, localnetRunning] =
+      await Promise.all([
+        this.isCQLRunning(),
+        this.isDockerInstalled(),
+        this.isDockerRunning(),
+        this.isLocalnetRunning(),
+      ])
 
-    if (!(await this.isCQLRunning())) {
-      const started = await this.startCQL()
-      if (!started) {
-        return false
-      }
-    } else {
-      logger.success(`CQL running on port ${CQL_PORT}`)
-    }
-
-    // Step 2: Check/start Docker
-    logger.subheader('Docker')
-
-    if (!(await this.isDockerInstalled())) {
+    // Fail fast if Docker isn't installed
+    if (!dockerInstalled) {
       logger.error('Docker is not installed')
       logger.info('  Install: https://docs.docker.com/get-docker/')
       return false
     }
 
-    if (!(await this.isDockerRunning())) {
-      const started = await this.startDocker()
-      if (!started) {
-        return false
-      }
+    // Start independent services in parallel
+    const startTasks: Promise<{ name: string; success: boolean }>[] = []
+
+    // CQL can start independently
+    if (!cqlRunning) {
+      startTasks.push(
+        this.startCQL().then((success) => ({ name: 'CQL', success })),
+      )
     } else {
-      logger.success('Docker running')
+      logger.success(`CQL already running on port ${CQL_PORT}`)
     }
 
-    // Step 3: Check/start Docker services (excludes CQL)
-    logger.subheader('Docker Services')
+    // Docker + services need to be sequential, but can run parallel to CQL
+    const dockerTask = async (): Promise<{ name: string; success: boolean }> => {
+      // Start Docker if not running
+      if (!dockerRunning) {
+        const started = await this.startDocker()
+        if (!started) {
+          return { name: 'Docker', success: false }
+        }
+      } else {
+        logger.success('Docker already running')
+      }
 
-    let dockerServices = await this.checkDockerServices()
-    const requiredNames: string[] = Object.entries(DOCKER_SERVICES)
-      .filter(([_, config]) => config.required)
-      .map(([_, config]) => config.name)
-    const unhealthyRequired = dockerServices.filter(
-      (s) => !s.healthy && requiredNames.includes(s.name),
-    )
-
-    if (unhealthyRequired.length > 0) {
-      logger.info(
-        `Starting: ${unhealthyRequired.map((s) => s.name).join(', ')}`,
+      // Now start Docker services
+      let dockerServices = await this.checkDockerServices()
+      const requiredNames: string[] = Object.entries(DOCKER_SERVICES)
+        .filter(([_, config]) => config.required)
+        .map(([_, config]) => config.name)
+      const unhealthyRequired = dockerServices.filter(
+        (s) => !s.healthy && requiredNames.includes(s.name),
       )
-      const started = await this.startDockerServices()
-      if (!started) {
-        return false
+
+      if (unhealthyRequired.length > 0) {
+        logger.info(
+          `Starting Docker services: ${unhealthyRequired.map((s) => s.name).join(', ')}`,
+        )
+        const started = await this.startDockerServices()
+        if (!started) {
+          return { name: 'Docker Services', success: false }
+        }
+        dockerServices = await this.checkDockerServices()
+      } else {
+        for (const service of dockerServices) {
+          if (service.healthy) {
+            logger.success(`${service.name} healthy`)
+          }
+        }
       }
-      dockerServices = await this.checkDockerServices()
-    } else {
-      for (const service of dockerServices) {
-        logger.success(`${service.name} healthy`)
+
+      // Verify required Docker services are healthy
+      const stillUnhealthy = dockerServices.filter(
+        (s) => !s.healthy && requiredNames.includes(s.name),
+      )
+      if (stillUnhealthy.length > 0) {
+        logger.error(
+          `Services not healthy: ${stillUnhealthy.map((s) => s.name).join(', ')}`,
+        )
+        return { name: 'Docker Services', success: false }
       }
+
+      return { name: 'Docker', success: true }
     }
 
-    // Verify required Docker services are healthy (optional services like Farcaster Hub can be unhealthy)
-    const requiredServiceNames: string[] = Object.entries(DOCKER_SERVICES)
-      .filter(([_, config]) => config.required)
-      .map(([_, config]) => config.name)
-    const stillUnhealthy = dockerServices.filter(
-      (s) => !s.healthy && requiredServiceNames.includes(s.name),
-    )
-    if (stillUnhealthy.length > 0) {
-      logger.error(
-        `Services not healthy: ${stillUnhealthy.map((s) => s.name).join(', ')}`,
+    startTasks.push(dockerTask())
+
+    // Localnet can start in parallel with everything else
+    if (!localnetRunning) {
+      startTasks.push(
+        this.startLocalnet().then((success) => ({ name: 'Localnet', success })),
       )
+    } else {
+      logger.success(`Localnet already running on port ${LOCALNET_PORT}`)
+    }
+
+    // Wait for all parallel tasks to complete
+    const results = await Promise.all(startTasks)
+
+    // Check all results
+    const failures = results.filter((r) => !r.success)
+    if (failures.length > 0) {
+      logger.error(`Failed to start: ${failures.map((f) => f.name).join(', ')}`)
       return false
-    }
-
-    // Step 4: Check/start localnet
-    logger.subheader('Localnet')
-
-    if (!(await this.isLocalnetRunning())) {
-      const started = await this.startLocalnet()
-      if (!started) {
-        return false
-      }
-    } else {
-      logger.success(`Localnet running on port ${LOCALNET_PORT}`)
     }
 
     logger.newline()
@@ -717,8 +654,10 @@ export class InfrastructureService {
       CQL_URL: getCQLBlockProducerUrl(),
       CQL_BLOCK_PRODUCER_ENDPOINT: getCQLBlockProducerUrl(),
       IPFS_API_URL: `http://127.0.0.1:${CORE_PORTS.IPFS_API.DEFAULT}`,
-      DA_URL: 'http://127.0.0.1:4010',
-      CACHE_URL: 'http://127.0.0.1:4115',
+      // Cache and DA are now provided by DWS
+      DA_URL: `http://127.0.0.1:${DWS_PORT}/da`,
+      CACHE_URL: `http://127.0.0.1:${DWS_PORT}/cache`,
+      DWS_URL: `http://127.0.0.1:${DWS_PORT}`,
       FARCASTER_HUB_URL: getFarcasterHubUrl(),
       CHAIN_ID: '31337',
     }

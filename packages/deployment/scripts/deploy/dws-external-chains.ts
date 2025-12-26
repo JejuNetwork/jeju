@@ -2,31 +2,23 @@
 /**
  * DWS External Chain Provisioning
  *
- * Provisions external blockchain nodes (Solana, Bitcoin, etc.) via DWS.
- * ALL environments use on-chain provisioning - localnet uses local Docker as the compute backend.
+ * Provisions archive nodes for all external blockchains via DWS.
+ * Deploys all EVM chains and Solana by default.
  *
- * Flow (same for all environments):
- * 1. Provider registers on-chain → DWSProviderRegistry / ExternalChainProvider
- * 2. Consumer requests node → ExternalChainProvider.provisionNode()
- * 3. DWS node deploys infrastructure → Docker (local) or Cloud (testnet/mainnet)
- * 4. Provider reports endpoint → ExternalChainProvider.reportNodeReady()
- * 5. Consumer discovers endpoint from chain
- *
- * The only difference between environments is the compute backend:
- * - Localnet: Docker on localhost
- * - Testnet: DWS nodes with optional TEE
- * - Mainnet: DWS nodes with required TEE
+ * Deployment Modes (based on NETWORK env):
+ * - localnet: Anvil forks mainnet (real Chainlink feeds) - for production mode locally
+ * - testnet:  DWS-provisioned reth/nitro nodes, TEE optional
+ * - mainnet:  DWS-provisioned full archive nodes, TEE required
  *
  * Usage:
- *   NETWORK=localnet bun run scripts/deploy/dws-external-chains.ts --chain solana
- *   NETWORK=testnet bun run scripts/deploy/dws-external-chains.ts --chain solana
- *   NETWORK=mainnet bun run scripts/deploy/dws-external-chains.ts --chain solana --tee
+ *   NETWORK=localnet bun run scripts/deploy/dws-external-chains.ts
+ *   NETWORK=testnet bun run scripts/deploy/dws-external-chains.ts
+ *   NETWORK=mainnet bun run scripts/deploy/dws-external-chains.ts
  */
 
 import { execSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { parseArgs } from 'node:util'
 import {
   type Address,
   createPublicClient,
@@ -46,7 +38,9 @@ const ROOT = join(import.meta.dir, '../../../..')
 const CONTRACTS_DIR = join(ROOT, 'packages/contracts')
 const DEPLOYMENTS_DIR = join(CONTRACTS_DIR, 'deployments')
 
-// Chain types matching the contract enum
+// All chains to deploy - always deploy everything
+const ALL_CHAINS = ['ethereum', 'arbitrum', 'optimism', 'base', 'solana']
+
 enum ChainType {
   Solana = 0,
   Bitcoin = 1,
@@ -61,6 +55,7 @@ enum ChainType {
   Optimism = 10,
   Base = 11,
   Custom = 12,
+  Ethereum = 13,
 }
 
 enum NodeType {
@@ -91,9 +86,13 @@ interface ChainConfig {
   dockerImage: string
   ports: { rpc: number; ws: number }
   additionalParams: string[]
+  evmChainId?: number
+  forkUrl?: string
+  rpcPort?: number
+  wsPort?: number
 }
 
-// Chain-specific configurations - same structure for all environments
+// Chain configurations for all modes
 const CHAIN_CONFIGS: Record<string, Record<NetworkMode, ChainConfig>> = {
   solana: {
     [NetworkMode.Devnet]: {
@@ -136,173 +135,217 @@ const CHAIN_CONFIGS: Record<string, Record<NetworkMode, ChainConfig>> = {
       additionalParams: ['--entrypoint', 'mainnet-beta.solana.com:8001'],
     },
   },
-  bitcoin: {
+
+  ethereum: {
     [NetworkMode.Devnet]: {
-      chainType: ChainType.Bitcoin,
-      nodeType: NodeType.RPC,
-      version: '27.0',
-      teeRequired: false,
-      teeType: '',
-      minMemoryGb: 4,
-      minStorageGb: 10,
-      minCpuCores: 2,
-      dockerImage: 'bitcoin/bitcoin:27.0',
-      ports: { rpc: 18443, ws: 18444 },
-      additionalParams: ['-regtest'],
-    },
-    [NetworkMode.Testnet]: {
-      chainType: ChainType.Bitcoin,
-      nodeType: NodeType.RPC,
-      version: '27.0',
+      chainType: ChainType.Ethereum,
+      nodeType: NodeType.Archive,
+      version: 'v1.1.5',
       teeRequired: false,
       teeType: '',
       minMemoryGb: 8,
       minStorageGb: 50,
       minCpuCores: 4,
-      dockerImage: 'bitcoin/bitcoin:27.0',
-      ports: { rpc: 18332, ws: 18333 },
-      additionalParams: ['-testnet'],
-    },
-    [NetworkMode.Mainnet]: {
-      chainType: ChainType.Bitcoin,
-      nodeType: NodeType.RPC,
-      version: '27.0',
-      teeRequired: false,
-      teeType: '',
-      minMemoryGb: 16,
-      minStorageGb: 1000,
-      minCpuCores: 8,
-      dockerImage: 'bitcoin/bitcoin:27.0',
-      ports: { rpc: 8332, ws: 8333 },
+      dockerImage: 'ghcr.io/foundry-rs/foundry:latest',
+      ports: { rpc: 8545, ws: 8546 },
       additionalParams: [],
-    },
-  },
-  postgres: {
-    [NetworkMode.Devnet]: {
-      chainType: ChainType.Custom,
-      nodeType: NodeType.RPC,
-      version: '16',
-      teeRequired: false,
-      teeType: '',
-      minMemoryGb: 1,
-      minStorageGb: 10,
-      minCpuCores: 1,
-      dockerImage: 'postgres:16-alpine',
-      ports: { rpc: 5432, ws: 0 },
-      additionalParams: [],
+      evmChainId: 1,
+      forkUrl: 'https://1rpc.io/eth',
+      rpcPort: 8545,
+      wsPort: 8546,
     },
     [NetworkMode.Testnet]: {
-      chainType: ChainType.Custom,
-      nodeType: NodeType.RPC,
-      version: '16',
-      teeRequired: false,
-      teeType: '',
-      minMemoryGb: 4,
-      minStorageGb: 100,
-      minCpuCores: 2,
-      dockerImage: 'postgres:16-alpine',
-      ports: { rpc: 5432, ws: 0 },
-      additionalParams: [],
-    },
-    [NetworkMode.Mainnet]: {
-      chainType: ChainType.Custom,
-      nodeType: NodeType.RPC,
-      version: '16',
-      teeRequired: false,
-      teeType: '',
-      minMemoryGb: 16,
-      minStorageGb: 500,
-      minCpuCores: 4,
-      dockerImage: 'postgres:16-alpine',
-      ports: { rpc: 5432, ws: 0 },
-      additionalParams: [],
-    },
-  },
-  redis: {
-    [NetworkMode.Devnet]: {
-      chainType: ChainType.Custom,
-      nodeType: NodeType.RPC,
-      version: '7',
-      teeRequired: false,
-      teeType: '',
-      minMemoryGb: 1,
-      minStorageGb: 1,
-      minCpuCores: 1,
-      dockerImage: 'redis:7-alpine',
-      ports: { rpc: 6379, ws: 0 },
-      additionalParams: [],
-    },
-    [NetworkMode.Testnet]: {
-      chainType: ChainType.Custom,
-      nodeType: NodeType.RPC,
-      version: '7',
-      teeRequired: false,
-      teeType: '',
-      minMemoryGb: 4,
-      minStorageGb: 10,
-      minCpuCores: 2,
-      dockerImage: 'redis:7-alpine',
-      ports: { rpc: 6379, ws: 0 },
-      additionalParams: [],
-    },
-    [NetworkMode.Mainnet]: {
-      chainType: ChainType.Custom,
-      nodeType: NodeType.RPC,
-      version: '7',
-      teeRequired: false,
-      teeType: '',
-      minMemoryGb: 16,
-      minStorageGb: 50,
-      minCpuCores: 4,
-      dockerImage: 'redis:7-alpine',
-      ports: { rpc: 6379, ws: 0 },
-      additionalParams: [],
-    },
-  },
-  ipfs: {
-    [NetworkMode.Devnet]: {
-      chainType: ChainType.Custom,
-      nodeType: NodeType.RPC,
-      version: '0.29',
-      teeRequired: false,
-      teeType: '',
-      minMemoryGb: 2,
-      minStorageGb: 50,
-      minCpuCores: 2,
-      dockerImage: 'ipfs/kubo:v0.29.0',
-      ports: { rpc: 5001, ws: 8080 },
-      additionalParams: [],
-    },
-    [NetworkMode.Testnet]: {
-      chainType: ChainType.Custom,
-      nodeType: NodeType.RPC,
-      version: '0.29',
-      teeRequired: false,
-      teeType: '',
-      minMemoryGb: 8,
-      minStorageGb: 500,
-      minCpuCores: 4,
-      dockerImage: 'ipfs/kubo:v0.29.0',
-      ports: { rpc: 5001, ws: 8080 },
-      additionalParams: [],
-    },
-    [NetworkMode.Mainnet]: {
-      chainType: ChainType.Custom,
-      nodeType: NodeType.RPC,
-      version: '0.29',
+      chainType: ChainType.Ethereum,
+      nodeType: NodeType.Archive,
+      version: 'v1.1.5',
       teeRequired: false,
       teeType: '',
       minMemoryGb: 32,
-      minStorageGb: 2000,
+      minStorageGb: 500,
       minCpuCores: 8,
-      dockerImage: 'ipfs/kubo:v0.29.0',
-      ports: { rpc: 5001, ws: 8080 },
+      dockerImage: 'ghcr.io/paradigmxyz/reth:v1.1.5',
+      ports: { rpc: 8545, ws: 8546 },
+      additionalParams: ['--chain', 'mainnet', '--http', '--http.api', 'all', '--ws', '--ws.api', 'all'],
+      evmChainId: 1,
+      rpcPort: 8545,
+      wsPort: 8546,
+    },
+    [NetworkMode.Mainnet]: {
+      chainType: ChainType.Ethereum,
+      nodeType: NodeType.Archive,
+      version: 'v1.1.5',
+      teeRequired: true,
+      teeType: 'intel_tdx',
+      minMemoryGb: 64,
+      minStorageGb: 2500,
+      minCpuCores: 16,
+      dockerImage: 'ghcr.io/paradigmxyz/reth:v1.1.5',
+      ports: { rpc: 8545, ws: 8546 },
+      additionalParams: ['--chain', 'mainnet', '--http', '--http.api', 'all', '--ws', '--ws.api', 'all', '--full'],
+      evmChainId: 1,
+      rpcPort: 8545,
+      wsPort: 8546,
+    },
+  },
+
+  arbitrum: {
+    [NetworkMode.Devnet]: {
+      chainType: ChainType.Arbitrum,
+      nodeType: NodeType.Archive,
+      version: 'v3.2.1',
+      teeRequired: false,
+      teeType: '',
+      minMemoryGb: 8,
+      minStorageGb: 50,
+      minCpuCores: 4,
+      dockerImage: 'ghcr.io/foundry-rs/foundry:latest',
+      ports: { rpc: 8547, ws: 8548 },
       additionalParams: [],
+      evmChainId: 42161,
+      forkUrl: 'https://arb1.arbitrum.io/rpc',
+      rpcPort: 8547,
+      wsPort: 8548,
+    },
+    [NetworkMode.Testnet]: {
+      chainType: ChainType.Arbitrum,
+      nodeType: NodeType.Archive,
+      version: 'v3.2.1',
+      teeRequired: false,
+      teeType: '',
+      minMemoryGb: 32,
+      minStorageGb: 300,
+      minCpuCores: 8,
+      dockerImage: 'offchainlabs/nitro-node:v3.2.1-d1c5a49',
+      ports: { rpc: 8547, ws: 8548 },
+      additionalParams: ['--chain.id=42161', '--http.api=net,web3,eth,arb,debug', '--http.vhosts=*', '--http.addr=0.0.0.0'],
+      evmChainId: 42161,
+      rpcPort: 8547,
+      wsPort: 8548,
+    },
+    [NetworkMode.Mainnet]: {
+      chainType: ChainType.Arbitrum,
+      nodeType: NodeType.Archive,
+      version: 'v3.2.1',
+      teeRequired: true,
+      teeType: 'intel_tdx',
+      minMemoryGb: 64,
+      minStorageGb: 1000,
+      minCpuCores: 16,
+      dockerImage: 'offchainlabs/nitro-node:v3.2.1-d1c5a49',
+      ports: { rpc: 8547, ws: 8548 },
+      additionalParams: ['--chain.id=42161', '--http.api=net,web3,eth,arb,debug', '--http.vhosts=*', '--http.addr=0.0.0.0', '--execution.caching.archive'],
+      evmChainId: 42161,
+      rpcPort: 8547,
+      wsPort: 8548,
+    },
+  },
+
+  optimism: {
+    [NetworkMode.Devnet]: {
+      chainType: ChainType.Optimism,
+      nodeType: NodeType.Archive,
+      version: 'v1.9.4',
+      teeRequired: false,
+      teeType: '',
+      minMemoryGb: 8,
+      minStorageGb: 50,
+      minCpuCores: 4,
+      dockerImage: 'ghcr.io/foundry-rs/foundry:latest',
+      ports: { rpc: 8549, ws: 8550 },
+      additionalParams: [],
+      evmChainId: 10,
+      forkUrl: 'https://mainnet.optimism.io',
+      rpcPort: 8549,
+      wsPort: 8550,
+    },
+    [NetworkMode.Testnet]: {
+      chainType: ChainType.Optimism,
+      nodeType: NodeType.Archive,
+      version: 'v1.9.4',
+      teeRequired: false,
+      teeType: '',
+      minMemoryGb: 32,
+      minStorageGb: 300,
+      minCpuCores: 8,
+      dockerImage: 'ghcr.io/paradigmxyz/op-reth:v1.1.5',
+      ports: { rpc: 8549, ws: 8550 },
+      additionalParams: ['--chain', 'optimism', '--http', '--http.api', 'all', '--ws', '--ws.api', 'all'],
+      evmChainId: 10,
+      rpcPort: 8549,
+      wsPort: 8550,
+    },
+    [NetworkMode.Mainnet]: {
+      chainType: ChainType.Optimism,
+      nodeType: NodeType.Archive,
+      version: 'v1.9.4',
+      teeRequired: true,
+      teeType: 'intel_tdx',
+      minMemoryGb: 64,
+      minStorageGb: 800,
+      minCpuCores: 16,
+      dockerImage: 'ghcr.io/paradigmxyz/op-reth:v1.1.5',
+      ports: { rpc: 8549, ws: 8550 },
+      additionalParams: ['--chain', 'optimism', '--http', '--http.api', 'all', '--ws', '--ws.api', 'all', '--full'],
+      evmChainId: 10,
+      rpcPort: 8549,
+      wsPort: 8550,
+    },
+  },
+
+  base: {
+    [NetworkMode.Devnet]: {
+      chainType: ChainType.Base,
+      nodeType: NodeType.Archive,
+      version: 'v1.9.4',
+      teeRequired: false,
+      teeType: '',
+      minMemoryGb: 8,
+      minStorageGb: 50,
+      minCpuCores: 4,
+      dockerImage: 'ghcr.io/foundry-rs/foundry:latest',
+      ports: { rpc: 8551, ws: 8552 },
+      additionalParams: [],
+      evmChainId: 8453,
+      forkUrl: 'https://mainnet.base.org',
+      rpcPort: 8551,
+      wsPort: 8552,
+    },
+    [NetworkMode.Testnet]: {
+      chainType: ChainType.Base,
+      nodeType: NodeType.Archive,
+      version: 'v1.9.4',
+      teeRequired: false,
+      teeType: '',
+      minMemoryGb: 32,
+      minStorageGb: 300,
+      minCpuCores: 8,
+      dockerImage: 'ghcr.io/paradigmxyz/op-reth:v1.1.5',
+      ports: { rpc: 8551, ws: 8552 },
+      additionalParams: ['--chain', 'base', '--http', '--http.api', 'all', '--ws', '--ws.api', 'all'],
+      evmChainId: 8453,
+      rpcPort: 8551,
+      wsPort: 8552,
+    },
+    [NetworkMode.Mainnet]: {
+      chainType: ChainType.Base,
+      nodeType: NodeType.Archive,
+      version: 'v1.9.4',
+      teeRequired: true,
+      teeType: 'intel_tdx',
+      minMemoryGb: 64,
+      minStorageGb: 600,
+      minCpuCores: 16,
+      dockerImage: 'ghcr.io/paradigmxyz/op-reth:v1.1.5',
+      ports: { rpc: 8551, ws: 8552 },
+      additionalParams: ['--chain', 'base', '--http', '--http.api', 'all', '--ws', '--ws.api', 'all', '--full'],
+      evmChainId: 8453,
+      rpcPort: 8551,
+      wsPort: 8552,
     },
   },
 }
 
-// Contract ABIs
+// Contract ABI for on-chain provisioning
 const EXTERNAL_CHAIN_PROVIDER_ABI = [
   {
     name: 'registerProvider',
@@ -352,37 +395,6 @@ const EXTERNAL_CHAIN_PROVIDER_ABI = [
     ],
     outputs: [],
     stateMutability: 'nonpayable',
-  },
-  {
-    name: 'heartbeat',
-    type: 'function',
-    inputs: [],
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    name: 'getNode',
-    type: 'function',
-    inputs: [{ name: 'nodeId', type: 'bytes32' }],
-    outputs: [
-      {
-        name: '',
-        type: 'tuple',
-        components: [
-          { name: 'nodeId', type: 'bytes32' },
-          { name: 'providerId', type: 'bytes32' },
-          { name: 'consumer', type: 'address' },
-          { name: 'rpcEndpoint', type: 'string' },
-          { name: 'wsEndpoint', type: 'string' },
-          { name: 'provisionedAt', type: 'uint256' },
-          { name: 'expiresAt', type: 'uint256' },
-          { name: 'pricePerHour', type: 'uint256' },
-          { name: 'totalPaid', type: 'uint256' },
-          { name: 'status', type: 'uint8' },
-        ],
-      },
-    ],
-    stateMutability: 'view',
   },
   {
     name: 'providerIds',
@@ -441,93 +453,115 @@ function getChainConfig(network: NetworkType) {
 
 /**
  * Deploy local Docker container and return endpoints
- * This is the compute backend for localnet
+ * Used for localnet "production mode" - forks mainnet for real data
  */
-async function deployLocalDockerNode(
+async function deployLocalNode(
   chain: string,
   config: ChainConfig,
   nodeId: string,
 ): Promise<{ rpc: string; ws: string }> {
-  const containerName = `jeju-dws-${chain}-${nodeId.slice(0, 8)}`
+  const containerName = `jeju-${chain}-${nodeId.slice(0, 8)}`
 
-  // Stop if already running
+  // Check if already running
   try {
-    execSync(`docker stop ${containerName} && docker rm ${containerName}`, { stdio: 'pipe' })
+    const running = execSync(`docker ps -q -f name=${containerName}`, {
+      encoding: 'utf-8',
+    }).trim()
+    if (running) {
+      console.log(`    Already running`)
+      const rpcPort = config.rpcPort ?? config.ports.rpc
+      const wsPort = config.wsPort ?? config.ports.ws
+      return {
+        rpc: `http://localhost:${rpcPort}`,
+        ws: wsPort ? `ws://localhost:${wsPort}` : '',
+      }
+    }
   } catch {
-    // Container not running
+    // Not running
   }
 
-  console.log(`   Starting Docker container: ${containerName}`)
-
-  let dockerCmd: string
-
-  switch (chain) {
-    case 'solana':
-      dockerCmd = `docker run -d --name ${containerName} \
-        -p ${config.ports.rpc}:8899 -p ${config.ports.ws}:8900 \
-        ${config.dockerImage} \
-        solana-test-validator \
-        --bind-address 0.0.0.0 \
-        --rpc-port 8899 \
-        --ledger /data/ledger \
-        --reset \
-        --quiet`
-      break
-
-    case 'bitcoin':
-      dockerCmd = `docker run -d --name ${containerName} \
-        -p ${config.ports.rpc}:18443 -p ${config.ports.ws}:18444 \
-        ${config.dockerImage} \
-        -regtest \
-        -server \
-        -rpcuser=jeju \
-        -rpcpassword=jejudev \
-        -rpcallowip=0.0.0.0/0 \
-        -rpcbind=0.0.0.0`
-      break
-
-    case 'postgres':
-      dockerCmd = `docker run -d --name ${containerName} \
-        -p ${config.ports.rpc}:5432 \
-        -e POSTGRES_USER=jeju \
-        -e POSTGRES_PASSWORD=jejudev \
-        -e POSTGRES_DB=jeju \
-        ${config.dockerImage}`
-      break
-
-    case 'redis':
-      dockerCmd = `docker run -d --name ${containerName} \
-        -p ${config.ports.rpc}:6379 \
-        ${config.dockerImage}`
-      break
-
-    case 'ipfs':
-      dockerCmd = `docker run -d --name ${containerName} \
-        -p ${config.ports.rpc}:5001 -p ${config.ports.ws}:8080 \
-        ${config.dockerImage}`
-      break
-
-    default:
-      throw new Error(`Unsupported chain for local Docker: ${chain}`)
+  // Remove stopped container if exists
+  try {
+    const existing = execSync(`docker ps -aq -f name=${containerName}`, {
+      encoding: 'utf-8',
+    }).trim()
+    if (existing) {
+      console.log(`    Removing stopped container...`)
+      execSync(`docker rm -f ${containerName}`, { stdio: 'pipe' })
+    }
+  } catch {
+    // No existing container
   }
 
-  execSync(dockerCmd, { stdio: 'pipe' })
+  // Start container based on chain type
+  if (chain === 'solana') {
+    console.log('    Starting Solana test validator...')
+    // Detect ARM architecture and add --no-bpf-jit flag for compatibility
+    const arch = process.arch
+    const isArm = arch === 'arm64' || arch === 'arm'
+    const bpfFlag = isArm ? '--no-bpf-jit' : ''
 
-  // Wait for container to be ready
-  console.log('   Waiting for container to be ready...')
-  await Bun.sleep(3000)
+    execSync(
+      `docker run -d --name ${containerName} \
+      --platform linux/amd64 \
+      -p 8899:8899 -p 8900:8900 -p 9900:9900 \
+      ${config.dockerImage} \
+      solana-test-validator \
+      --bind-address 0.0.0.0 \
+      --rpc-port 8899 \
+      --faucet-port 9900 \
+      --ledger /data/ledger \
+      ${bpfFlag} \
+      --reset \
+      --quiet`,
+      { stdio: 'pipe' },
+    )
+    await Bun.sleep(8000) // Give time for startup
+  } else if (config.evmChainId && config.forkUrl) {
+    const rpcPort = config.rpcPort ?? 8545
+    console.log(`    Starting Anvil fork (${config.forkUrl})...`)
 
-  // Get actual host port (in case of port mapping changes)
-  const rpcEndpoint =
-    chain === 'postgres'
-      ? `postgresql://jeju:jejudev@localhost:${config.ports.rpc}/jeju`
-      : chain === 'redis'
-        ? `redis://localhost:${config.ports.rpc}`
-        : `http://localhost:${config.ports.rpc}`
+    execSync(
+      `docker run -d --name ${containerName} \
+      -p ${rpcPort}:8545 \
+      --entrypoint anvil \
+      ${config.dockerImage} \
+      --fork-url ${config.forkUrl} \
+      --chain-id ${config.evmChainId} \
+      --host 0.0.0.0 \
+      --port 8545 \
+      --block-time 2`,
+      { stdio: 'pipe' },
+    )
+    await Bun.sleep(10000) // Give time for fork to sync
 
-  const wsEndpoint = config.ports.ws > 0 ? `ws://localhost:${config.ports.ws}` : ''
+    // Verify fork is working
+    try {
+      const response = await fetch(`http://localhost:${rpcPort}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'eth_blockNumber',
+          params: [],
+          id: 1,
+        }),
+      })
+      const result = (await response.json()) as { result?: string }
+      const blockNumber = parseInt(result.result ?? '0', 16)
+      console.log(`    Block: ${blockNumber}, Chain ID: ${config.evmChainId}`)
+    } catch (err) {
+      console.log(`    Warning: Could not verify fork - ${err}`)
+    }
+  }
 
-  return { rpc: rpcEndpoint, ws: wsEndpoint }
+  const rpcPort = config.rpcPort ?? config.ports.rpc
+  const wsPort = config.wsPort ?? config.ports.ws
+
+  return {
+    rpc: `http://localhost:${rpcPort}`,
+    ws: wsPort ? `ws://localhost:${wsPort}` : '',
+  }
 }
 
 /**
@@ -572,6 +606,9 @@ async function waitForDwsDeployment(
   throw new Error(`Node deployment timed out after ${maxWaitMs / 1000}s`)
 }
 
+/**
+ * Provision via on-chain contracts (testnet/mainnet)
+ */
 async function provisionViaOnChain(
   chain: string,
   network: NetworkType,
@@ -586,60 +623,19 @@ async function provisionViaOnChain(
 
   console.log(`\n📦 Provisioning ${chain} via on-chain (${network})...`)
 
-  // Get private key - use default Anvil key for localnet
-  const privateKey =
-    network === 'localnet'
-      ? '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' // Anvil default
-      : process.env.DEPLOYER_PRIVATE_KEY
-
+  const privateKey = process.env.DEPLOYER_PRIVATE_KEY
   if (!privateKey) {
     throw new Error('DEPLOYER_PRIVATE_KEY required for testnet/mainnet')
   }
 
-  // Load or deploy contract addresses
+  // Load contract addresses
   const addressesPath = join(DEPLOYMENTS_DIR, `${network}-dws.json`)
-  let externalChainProviderAddress: Address
-
-  if (existsSync(addressesPath)) {
-    const addresses = JSON.parse(readFileSync(addressesPath, 'utf-8'))
-    externalChainProviderAddress = addresses.externalChainProvider as Address
-  } else if (network === 'localnet') {
-    // Deploy contracts to local Anvil
-    console.log('   Deploying ExternalChainProvider to local Anvil...')
-    const deployResult = execSync(
-      `cd ${CONTRACTS_DIR} && forge create src/dws/ExternalChainProvider.sol:ExternalChainProvider \
-        --rpc-url http://localhost:8545 \
-        --private-key ${privateKey} \
-        --constructor-args 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 \
-        --json`,
-      { encoding: 'utf-8' },
-    )
-    const deployData = JSON.parse(deployResult)
-    externalChainProviderAddress = deployData.deployedTo as Address
-    console.log(`   Deployed ExternalChainProvider: ${externalChainProviderAddress}`)
-
-    // Set low min stake for localnet (1 ETH instead of 5000)
-    console.log('   Setting minProviderStake to 1 ETH for localnet...')
-    execSync(
-      `cd ${CONTRACTS_DIR} && cast send ${externalChainProviderAddress} \
-        "setMinProviderStake(uint256)" 1000000000000000000 \
-        --rpc-url http://localhost:8545 \
-        --private-key ${privateKey}`,
-      { encoding: 'utf-8' },
-    )
-
-    // Save for future use
-    if (!existsSync(DEPLOYMENTS_DIR)) {
-      mkdirSync(DEPLOYMENTS_DIR, { recursive: true })
-    }
-    writeFileSync(
-      addressesPath,
-      JSON.stringify({ externalChainProvider: externalChainProviderAddress }, null, 2),
-    )
-    console.log(`   ✅ Configured ExternalChainProvider for localnet`)
-  } else {
+  if (!existsSync(addressesPath)) {
     throw new Error(`DWS contracts not deployed. Run contract deployment first.`)
   }
+
+  const addresses = JSON.parse(readFileSync(addressesPath, 'utf-8'))
+  const externalChainProviderAddress = addresses.externalChainProvider as Address
 
   // Setup clients
   const chainConfig = getChainConfig(network)
@@ -661,9 +657,7 @@ async function provisionViaOnChain(
   console.log(`   Deployer: ${account.address}`)
   console.log(`   Balance: ${formatEther(balance)} ETH`)
 
-  // Step 1: Check if already registered as provider
-  console.log('\n   Step 1: Checking provider registration...')
-
+  // Check if already registered as provider
   let providerId: Hex
   try {
     providerId = await publicClient.readContract({
@@ -673,21 +667,18 @@ async function provisionViaOnChain(
       args: [account.address],
     })
 
-    if (providerId === '0x0000000000000000000000000000000000000000000000000000000000000000') {
+    if (providerId === '0x' + '0'.repeat(64)) {
       throw new Error('Not registered')
     }
     console.log(`   Already registered as provider: ${providerId.slice(0, 18)}...`)
   } catch {
-    // Not registered, register now
+    // Register as provider
     console.log('   Registering as provider...')
 
     const teeAttestation = useTee
       ? keccak256(toBytes(`tee-attestation-${account.address}-${Date.now()}`))
       : ('0x' + '0'.repeat(64))
 
-    // Provider stake (1 ETH for localnet after setMinProviderStake, 5000 for prod)
-    const stakeAmount = network === 'localnet' ? '1' : '5000'
-    
     const registerHash = await walletClient.writeContract({
       address: externalChainProviderAddress,
       abi: EXTERNAL_CHAIN_PROVIDER_ABI,
@@ -699,7 +690,7 @@ async function provisionViaOnChain(
         providerEndpoint,
         teeAttestation as Hex,
       ],
-      value: parseEther(stakeAmount),
+      value: parseEther('5000'), // Production stake
     })
 
     await publicClient.waitForTransactionReceipt({ hash: registerHash })
@@ -712,14 +703,12 @@ async function provisionViaOnChain(
     console.log(`   ✅ Registered as provider: ${providerId.slice(0, 18)}...`)
   }
 
-  // Step 2: Provision node on-chain
-  console.log('\n   Step 2: Provisioning node on-chain...')
+  // Provision node on-chain
+  console.log('   Provisioning node on-chain...')
 
-  // Calculate duration and payment
-  // Devnet: 0.01 ETH/hour, Testnet: 0.1 ETH/hour, Mainnet: 0.5 ETH/hour
-  const durationHours = 24 * 7 // 1 week
-  const hourlyRate = network === 'localnet' ? 0.01 : network === 'testnet' ? 0.1 : 0.5
-  const totalPayment = String(durationHours * hourlyRate + 0.1) // Add buffer for gas
+  const durationHours = 24 * 30 // 30 days
+  const hourlyRate = network === 'testnet' ? 0.1 : 0.5
+  const totalPayment = String(durationHours * hourlyRate + 1)
 
   const provisionHash = await walletClient.writeContract({
     address: externalChainProviderAddress,
@@ -749,34 +738,16 @@ async function provisionViaOnChain(
   )
   console.log(`   ✅ Node provisioned on-chain: ${nodeId.slice(0, 18)}...`)
 
-  // Step 3: Deploy actual infrastructure
-  console.log('\n   Step 3: Deploying infrastructure...')
+  // Wait for DWS to deploy the node
+  const endpoints = await waitForDwsDeployment(providerEndpoint, nodeId)
 
-  let endpoints: { rpc: string; ws: string }
-
-  if (network === 'localnet') {
-    // Deploy to local Docker - requires Docker daemon
-    try {
-      execSync('docker info', { stdio: 'pipe' })
-    } catch {
-      throw new Error('Docker daemon not running. Start Docker Desktop or run "dockerd" to enable localnet provisioning.')
-    }
-    endpoints = await deployLocalDockerNode(chain, config, nodeId)
-  } else {
-    // Wait for DWS nodes to deploy
-    endpoints = await waitForDwsDeployment(providerEndpoint, nodeId)
-  }
-
-  // Step 4: Report node as ready on-chain
-  console.log('\n   Step 4: Reporting node ready on-chain...')
-
+  // Report node ready
   const reportHash = await walletClient.writeContract({
     address: externalChainProviderAddress,
     abi: EXTERNAL_CHAIN_PROVIDER_ABI,
     functionName: 'reportNodeReady',
     args: [nodeId, endpoints.rpc, endpoints.ws],
   })
-
   await publicClient.waitForTransactionReceipt({ hash: reportHash })
   console.log('   ✅ Node reported as ready on-chain')
 
@@ -792,90 +763,108 @@ async function provisionViaOnChain(
 }
 
 async function main() {
-  const { values } = parseArgs({
-    options: {
-      chain: { type: 'string', short: 'c', default: 'solana' },
-      tee: { type: 'boolean', default: false },
-      'provider-endpoint': { type: 'string', default: '' },
-      help: { type: 'boolean', short: 'h' },
-    },
-  })
-
-  if (values.help) {
-    console.log(`
-DWS External Chain/Service Provisioning
-
-Usage:
-  NETWORK=localnet bun run scripts/deploy/dws-external-chains.ts --chain solana
-  NETWORK=testnet bun run scripts/deploy/dws-external-chains.ts --chain solana
-  NETWORK=mainnet bun run scripts/deploy/dws-external-chains.ts --chain solana --tee
-
-Options:
-  -c, --chain <chain>           Service to provision:
-                                  Chains: solana, bitcoin
-                                  Services: postgres, redis, ipfs
-  --tee                         Require TEE (auto-enabled for mainnet)
-  --provider-endpoint <url>     DWS provider endpoint
-  -h, --help                    Show this help
-
-All environments use on-chain provisioning:
-  - Localnet: Contracts on Anvil, Docker containers for compute
-  - Testnet:  Contracts on Base Sepolia, DWS nodes for compute
-  - Mainnet:  Contracts on Base, DWS nodes with TEE for compute
-`)
-    process.exit(0)
-  }
-
   const network = getRequiredNetwork()
-  const chain = values.chain ?? 'solana'
-  const useTee = values.tee ?? network === 'mainnet'
+  const useTee = network === 'mainnet'
+  const networkMode = getNetworkMode(network)
 
-  // Default provider endpoints
-  const defaultEndpoints: Record<NetworkType, string> = {
+  // DWS endpoints
+  const dwsEndpoints: Record<NetworkType, string> = {
     localnet: 'http://localhost:4030',
     testnet: 'https://dws.testnet.jejunetwork.org',
     mainnet: 'https://dws.jejunetwork.org',
   }
-  const providerEndpoint = values['provider-endpoint'] || defaultEndpoints[network]
 
   console.log(`
 ╔══════════════════════════════════════════════════════════════╗
-║       DWS ON-CHAIN PROVISIONING                              ║
+║       DWS EXTERNAL CHAIN PROVISIONING                        ║
 ╠══════════════════════════════════════════════════════════════╣
-║  Network:   ${network.padEnd(48)}║
-║  Chain:     ${chain.padEnd(48)}║
-║  TEE:       ${useTee ? 'Required'.padEnd(48) : 'Optional'.padEnd(48)}║
-║  Endpoint:  ${providerEndpoint.slice(0, 48).padEnd(48)}║
+║  Network: ${network.padEnd(50)}║
+║  Chains:  ${ALL_CHAINS.join(', ').padEnd(50)}║
+║  TEE:     ${useTee ? 'Required'.padEnd(50) : 'Optional'.padEnd(50)}║
 ╚══════════════════════════════════════════════════════════════╝
 `)
 
-  const result = await provisionViaOnChain(chain, network, useTee, providerEndpoint)
-
-  // Save result
-  const outputDir = join(DEPLOYMENTS_DIR, 'provisioned')
+  const results: DeploymentResult[] = []
+  const outputDir = join(DEPLOYMENTS_DIR, 'external-chains')
   if (!existsSync(outputDir)) {
     mkdirSync(outputDir, { recursive: true })
   }
 
-  const outputFile = join(outputDir, `${network}-${chain}.json`)
-  writeFileSync(outputFile, JSON.stringify(result, null, 2))
+  console.log('Deploying nodes:')
+
+  for (const chain of ALL_CHAINS) {
+    console.log(`\n  ${chain.toUpperCase()}:`)
+
+    const config = CHAIN_CONFIGS[chain]?.[networkMode]
+    if (!config) {
+      console.log(`    Skipped (no config)`)
+      continue
+    }
+
+    let result: DeploymentResult
+
+    if (network === 'localnet') {
+      // Local mode - Docker containers with mainnet forks
+      const nodeId = keccak256(toBytes(`local-${chain}-${Date.now()}`))
+      const endpoints = await deployLocalNode(chain, config, nodeId)
+
+      result = {
+        network,
+        chain,
+        providerId: 'local',
+        nodeId,
+        endpoints,
+        tee: false,
+        deployedAt: new Date().toISOString(),
+      }
+
+      console.log(`    RPC: ${endpoints.rpc}`)
+    } else {
+      // Testnet/Mainnet - DWS on-chain provisioning
+      result = await provisionViaOnChain(chain, network, useTee, dwsEndpoints[network])
+    }
+
+    results.push(result)
+
+    const outputFile = join(outputDir, `${network}-${chain}.json`)
+    writeFileSync(outputFile, JSON.stringify(result, null, 2))
+  }
+
+  // Save combined results
+  const combinedFile = join(outputDir, `${network}-all.json`)
+  writeFileSync(
+    combinedFile,
+    JSON.stringify(
+      {
+        network,
+        deployedAt: new Date().toISOString(),
+        chains: Object.fromEntries(results.map((r) => [r.chain, r])),
+      },
+      null,
+      2,
+    ),
+  )
 
   console.log(`
 ╔══════════════════════════════════════════════════════════════╗
-║                    PROVISIONING COMPLETE                     ║
-╠══════════════════════════════════════════════════════════════╣
-║  Chain:     ${chain.padEnd(48)}║
-║  Node ID:   ${result.nodeId.slice(0, 48).padEnd(48)}║
-║  RPC:       ${result.endpoints.rpc.slice(0, 48).padEnd(48)}║
-║  WS:        ${(result.endpoints.ws || 'N/A').slice(0, 48).padEnd(48)}║
-║  TEE:       ${(result.tee ? 'Enabled' : 'Disabled').padEnd(48)}║
-╠══════════════════════════════════════════════════════════════╣
-║  Saved to: ${outputFile.slice(-48).padEnd(48)}║
+║                    DEPLOYMENT COMPLETE                       ║
+╠══════════════════════════════════════════════════════════════╣`)
+
+  for (const result of results) {
+    if (result.endpoints.rpc) {
+      console.log(`║  ${result.chain.padEnd(10)} ${result.endpoints.rpc.slice(0, 46).padEnd(46)}║`)
+    } else {
+      console.log(`║  ${result.chain.padEnd(10)} pending DWS provisioning`.padEnd(58) + '║')
+    }
+  }
+
+  console.log(`╠══════════════════════════════════════════════════════════════╣
+║  Results: ${combinedFile.slice(-48).padEnd(48)}║
 ╚══════════════════════════════════════════════════════════════╝
 `)
 }
 
 main().catch((error) => {
-  console.error('❌ Provisioning failed:', error.message)
+  console.error('Deployment failed:', error.message)
   process.exit(1)
 })

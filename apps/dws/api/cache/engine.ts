@@ -1,14 +1,8 @@
 /**
- * Cache Engine
- *
- * Core in-memory cache with:
- * - LRU eviction
- * - TTL expiration
- * - Namespace isolation
- * - Memory limits
- * - Redis-compatible data structures (strings, hashes, lists, sets)
+ * In-memory cache engine with LRU eviction, TTL, and namespace isolation
  */
 
+import { z } from 'zod'
 import {
   type CacheConfig,
   CacheError,
@@ -28,9 +22,6 @@ import {
   type StreamEntry,
   StreamEntrySchema,
 } from './types'
-import { z } from 'zod'
-
-// Internal storage types
 
 interface StorageEntry {
   data: Uint8Array
@@ -48,8 +39,6 @@ interface NamespaceData {
   misses: number
 }
 
-// LRU Node for eviction tracking
-
 interface LRUNode {
   key: string
   namespace: string
@@ -57,46 +46,32 @@ interface LRUNode {
   next: LRUNode | null
 }
 
-/**
- * High-performance cache engine with namespace isolation
- */
 export class CacheEngine {
   private namespaces: Map<string, NamespaceData> = new Map()
   private config: CacheConfig
   private listeners: Set<CacheEventListener> = new Set()
-
-  // LRU tracking
   private lruHead: LRUNode | null = null
   private lruTail: LRUNode | null = null
   private lruNodes: Map<string, LRUNode> = new Map()
-
-  // Global stats
   private totalHits = 0
   private totalMisses = 0
   private totalEvictions = 0
   private totalExpiredKeys = 0
   private startTime = Date.now()
-
-  // TTL cleanup interval
   private cleanupInterval: ReturnType<typeof setInterval> | null = null
 
   constructor(config: Partial<CacheConfig> = {}) {
     this.config = {
       maxMemoryMb: config.maxMemoryMb ?? 256,
       defaultTtlSeconds: config.defaultTtlSeconds ?? 3600,
-      maxTtlSeconds: config.maxTtlSeconds ?? 86400 * 30, // 30 days
-      evictionPolicy: 'lru', // Only LRU is implemented
+      maxTtlSeconds: config.maxTtlSeconds ?? 86400 * 30,
+      evictionPolicy: 'lru',
       teeProvider: config.teeProvider,
       teeEndpoint: config.teeEndpoint,
     }
-
-    // Start TTL cleanup every 10 seconds
     this.cleanupInterval = setInterval(() => this.cleanupExpired(), 10000)
   }
 
-  /**
-   * Stop the cache engine
-   */
   stop(): void {
     if (this.cleanupInterval) {
       clearInterval(this.cleanupInterval)
@@ -125,7 +100,6 @@ export class CacheEngine {
     const ns = this.getOrCreateNamespace(namespace)
     const existing = ns.entries.get(key)
 
-    // Handle NX (not exists) and XX (exists) flags
     if (options.nx && existing) return false
     if (options.xx && !existing) return false
 
@@ -949,7 +923,9 @@ export class CacheEngine {
   }
 
   private decodeSet(data: Uint8Array): Set<string> {
-    return new Set(z.array(z.string()).parse(JSON.parse(this.decodeString(data))))
+    return new Set(
+      z.array(z.string()).parse(JSON.parse(this.decodeString(data))),
+    )
   }
 
   private encodeZSet(zset: SortedSetMember[]): Uint8Array {
@@ -957,7 +933,9 @@ export class CacheEngine {
   }
 
   private decodeZSet(data: Uint8Array): SortedSetMember[] {
-    return z.array(SortedSetMemberSchema).parse(JSON.parse(this.decodeString(data)))
+    return z
+      .array(SortedSetMemberSchema)
+      .parse(JSON.parse(this.decodeString(data)))
   }
 
   private encodeStream(stream: StreamEntry[]): Uint8Array {

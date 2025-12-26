@@ -247,7 +247,13 @@ async function registerParty(
     address: mpcRegistryAddress,
     abi: MPC_REGISTRY_ABI,
     functionName: 'registerParty',
-    args: [agentId, endpoint, 'intel_tdx', toBytes(attestation), stakeAmount],
+    args: [
+      agentId,
+      endpoint,
+      'intel_tdx',
+      toHex(toBytes(attestation)) as `0x${string}`,
+      stakeAmount,
+    ],
   })
 
   await publicClient.waitForTransactionReceipt({ hash: registerTx })
@@ -413,7 +419,11 @@ async function registerClusterKey(
     address: mpcRegistryAddress,
     abi: MPC_REGISTRY_ABI,
     functionName: 'setClusterPublicKey',
-    args: [clusterId, toBytes(groupPublicKey), groupAddress],
+    args: [
+      clusterId,
+      toHex(toBytes(groupPublicKey)) as `0x${string}`,
+      groupAddress,
+    ],
   })
 
   await publicClient.waitForTransactionReceipt({ hash: setKeyTx })
@@ -560,12 +570,12 @@ async function main() {
 
   for (let i = 0; i < partyCount; i++) {
     const agentId = await registerParty(
-      privateKey,
+      privateKey!,
       networkConfig.rpcUrl,
       networkConfig.chain,
-      identityRegistryAddress,
-      mpcRegistryAddress,
-      stakeTokenAddress,
+      identityRegistryAddress!,
+      mpcRegistryAddress!,
+      stakeTokenAddress!,
       i + 1,
       partyEndpoints[i],
       stakeAmount,
@@ -575,10 +585,10 @@ async function main() {
 
   // Create cluster
   const clusterId = await createCluster(
-    privateKey,
+    privateKey!,
     networkConfig.rpcUrl,
     networkConfig.chain,
-    mpcRegistryAddress,
+    mpcRegistryAddress!,
     partyAgentIds,
     threshold,
   )
@@ -605,10 +615,10 @@ async function main() {
     groupAddress = result.groupAddress
 
     await registerClusterKey(
-      privateKey,
+      privateKey!,
       networkConfig.rpcUrl,
       networkConfig.chain,
-      mpcRegistryAddress,
+      mpcRegistryAddress!,
       clusterId,
       groupPublicKey,
       groupAddress,
@@ -617,10 +627,10 @@ async function main() {
     // Authorize default services
     const serviceAgentIds = [1n, 2n, 3n, 4n]
     await authorizeServices(
-      privateKey,
+      privateKey!,
       networkConfig.rpcUrl,
       networkConfig.chain,
-      mpcRegistryAddress,
+      mpcRegistryAddress!,
       serviceAgentIds,
     )
   }

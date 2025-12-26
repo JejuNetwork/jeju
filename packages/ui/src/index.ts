@@ -51,3 +51,15 @@ export {
   useTokenRegistry,
 } from './hooks/useTokenRegistryContract'
 export { type AsyncState, requireClient, useAsyncState } from './hooks/utils'
+
+// Decentralized wallet module (no WalletConnect dependency)
+export {
+  type ChainConfig,
+  type CreateWagmiConfigOptions,
+  createDecentralizedWagmiConfig,
+  ETHEREUM_MAINNET,
+  JEJU_CHAINS,
+  useWallet,
+  WalletButton,
+  type WalletButtonProps,
+} from './wallet'

@@ -524,7 +524,8 @@ export function createContainersModule(
       : keccak256(toHex(params.manifestUri))
 
     // Use provided size or estimate from layers (default 10MB per layer as rough estimate)
-    const size = params.sizeBytes ?? BigInt(params.layers.length * 10 * 1024 * 1024)
+    const size =
+      params.sizeBytes ?? BigInt(params.layers.length * 10 * 1024 * 1024)
 
     const data = encodeFunctionData({
       abi: CONTAINER_REGISTRY_ABI,

@@ -11,7 +11,7 @@
 
 import type { NetworkType } from '@jejunetwork/types'
 import { type Address, encodeFunctionData, type Hex, parseEther } from 'viem'
-import { requireContract, safeGetContract, getServicesConfig } from '../config'
+import { requireContract, safeGetContract } from '../config'
 import { parseIdFromLogs } from '../shared/api'
 import type { JejuWallet } from '../wallet'
 
@@ -191,6 +191,10 @@ export interface BridgeModule {
   getHyperlaneMessageStatus(messageId: Hex): Promise<boolean>
 
   // ZK Bridge
+  submitZKProof(
+    proofData: Hex,
+    publicInputs: Hex[],
+  ): Promise<{ txHash: Hex; proofId: Hex }>
   verifyZKBridgeTransfer(transferId: Hex): Promise<boolean>
 
   // Utilities
@@ -569,8 +573,8 @@ export function createBridgeModule(
         abi: L1_STANDARD_BRIDGE_ABI,
         functionName: 'depositERC20To',
         args: [
-          params.token,
-          params.token, // L2 token assumed same as L1 for standard bridges
+          params.l1Token,
+          params.l2Token,
           params.recipient,
           params.amount,
           Number(params.gasLimit ?? 200000n),
@@ -649,7 +653,8 @@ export function createBridgeModule(
           {
             version: proof.outputRootProof.version,
             stateRoot: proof.outputRootProof.stateRoot,
-            messagePasserStorageRoot: proof.outputRootProof.messagePasserStorageRoot,
+            messagePasserStorageRoot:
+              proof.outputRootProof.messagePasserStorageRoot,
             latestBlockhash: proof.outputRootProof.latestBlockhash,
           },
           proof.withdrawalProof,
@@ -710,7 +715,7 @@ export function createBridgeModule(
         args: [withdrawalId],
       })
 
-      const proven = provenData[0] !== ('0x' + '0'.repeat(64))
+      const proven = provenData[0] !== `0x${'0'.repeat(64)}`
 
       // Check if finalized
       const finalized = await wallet.publicClient.readContract({

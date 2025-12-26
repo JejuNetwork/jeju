@@ -1,9 +1,49 @@
-import { getChainConfig } from '@jejunetwork/config'
-import { getDefaultConfig } from '@rainbow-me/rainbowkit'
-import type { Chain } from 'wagmi/chains'
-import { mainnet } from 'wagmi/chains'
+/**
+ * Decentralized wagmi configuration
+ *
+ * Uses only injected wallets (MetaMask, etc.) without WalletConnect or other
+ * centralized dependencies. No project IDs or external services required.
+ */
 
-function detectNetwork(): 'localnet' | 'testnet' | 'mainnet' {
+import {
+  type ChainConfig,
+  createDecentralizedWagmiConfig,
+} from '@jejunetwork/ui'
+
+// Network configurations
+const NETWORK_CONFIGS: Record<string, ChainConfig> = {
+  localnet: {
+    id: 31337,
+    name: 'Jeju Localnet',
+    rpcUrl: 'http://127.0.0.1:6546',
+    testnet: true,
+  },
+  testnet: {
+    id: 8004,
+    name: 'Jeju Testnet',
+    rpcUrl: 'https://testnet-rpc.jejunetwork.io',
+    blockExplorers: {
+      default: {
+        name: 'Explorer',
+        url: 'https://testnet-explorer.jejunetwork.io',
+      },
+    },
+    testnet: true,
+  },
+  mainnet: {
+    id: 8004,
+    name: 'Jeju Network',
+    rpcUrl: 'https://rpc.jejunetwork.io',
+    blockExplorers: {
+      default: { name: 'Explorer', url: 'https://explorer.jejunetwork.io' },
+    },
+    testnet: false,
+  },
+}
+
+type NetworkType = keyof typeof NETWORK_CONFIGS
+
+function detectNetwork(): NetworkType {
   if (typeof window === 'undefined') return 'localnet'
   const hostname = window.location.hostname
   if (hostname.includes('testnet') || hostname.includes('sepolia'))
@@ -17,47 +57,15 @@ function detectNetwork(): 'localnet' | 'testnet' | 'mainnet' {
 }
 
 const network = detectNetwork()
-const chainConfig = getChainConfig(network)
+const chainConfig = NETWORK_CONFIGS[network]
 
-const currentChain: Chain = {
-  id: chainConfig.chainId,
-  name: chainConfig.name,
-  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-  rpcUrls: {
-    default: { http: [chainConfig.rpcUrl] },
-  },
-  blockExplorers: chainConfig.explorerUrl
-    ? {
-        default: { name: 'Explorer', url: chainConfig.explorerUrl },
-      }
-    : undefined,
-  testnet: network !== 'mainnet',
-}
-
-// Include mainnet for ENS resolution in RainbowKit
-export const chains: [Chain, ...Chain[]] = [currentChain, mainnet]
-
-const projectId = (() => {
-  if (
-    typeof window !== 'undefined' &&
-    window.location.hostname !== 'localhost' &&
-    !window.location.hostname.includes('local.')
-  ) {
-    console.warn(
-      'WalletConnect: Using placeholder ID. Set WALLETCONNECT_PROJECT_ID for production.',
-    )
-  }
-  return 'development-placeholder-id'
-})()
-
-export const wagmiConfig = getDefaultConfig({
+// Create decentralized config - no WalletConnect, no external dependencies
+export const wagmiConfig = createDecentralizedWagmiConfig({
+  chains: [chainConfig],
   appName: 'Factory',
-  projectId,
-  chains,
-  ssr: false,
-}) as ReturnType<typeof getDefaultConfig>
+})
 
-export const CHAIN_ID = chainConfig.chainId
+export const CHAIN_ID = chainConfig.id
 export const RPC_URL = chainConfig.rpcUrl
 
 export function getChainId(): number {

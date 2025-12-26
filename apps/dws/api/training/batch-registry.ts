@@ -1,15 +1,15 @@
 /**
  * Trajectory Batch Registry
- * 
- * Receives batch registration from apps (Crucible, Babylon) and stores
+ *
+ * Receives batch registration from apps and stores
  * references in the database for later processing.
  */
 
 import { logger } from '@jejunetwork/shared'
 import {
-  type TrajectoryBatchReference,
-  TrainingDbPersistence,
   type TrainingDbClient,
+  TrainingDbPersistence,
+  type TrajectoryBatchReference,
 } from '@jejunetwork/training'
 import { Elysia, t } from 'elysia'
 
@@ -28,7 +28,9 @@ export function initBatchRegistry(dbClient: TrainingDbClient): void {
 /**
  * Register a new trajectory batch
  */
-export async function registerBatch(batch: TrajectoryBatchReference): Promise<void> {
+export async function registerBatch(
+  batch: TrajectoryBatchReference,
+): Promise<void> {
   if (!dbPersistence) {
     logger.warn('[BatchRegistry] No database client, queuing batch', {
       batchId: batch.batchId,

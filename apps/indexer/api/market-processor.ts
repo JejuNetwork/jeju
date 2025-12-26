@@ -10,7 +10,7 @@ import {
   MarketTrade,
   OracleGame,
   PredictionMarket,
-} from './model'
+} from '../src/model'
 import type { ProcessorContext } from './processor'
 import { createAccountFactory } from './utils/entities'
 import { decodeEventArgs } from './utils/hex'

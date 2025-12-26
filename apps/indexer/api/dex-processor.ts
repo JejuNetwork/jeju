@@ -13,7 +13,7 @@ import {
   Swap,
   Token,
   TokenCandle,
-} from './model'
+} from '../src/model'
 import type { ProcessorContext } from './processor'
 import {
   type BlockHeader,

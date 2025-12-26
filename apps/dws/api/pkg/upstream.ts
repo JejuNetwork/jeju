@@ -1,8 +1,11 @@
 /**
  * Package Upstream Proxy (JejuPkg)
  * Caches and proxies packages from npmjs.org (for upstream compatibility)
+ * Uses CQL for persistent package and tarball records
  */
 
+import { getCQLMinerUrl, getCQLUrl } from '@jejunetwork/config'
+import { getCQL, resetCQL } from '@jejunetwork/db'
 import { z } from 'zod'
 import type { BackendManager } from '../storage/backends'
 import type {
@@ -15,6 +18,101 @@ import type {
   UpstreamRegistryConfig,
   UpstreamSyncResult,
 } from './types'
+
+const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? 'dws'
+
+// CQL Client singleton
+let cqlClient: ReturnType<typeof getCQL> | null = null
+
+async function getCQLClient() {
+  if (!cqlClient) {
+    resetCQL()
+    const blockProducerEndpoint = getCQLUrl()
+    const minerEndpoint = getCQLMinerUrl()
+
+    cqlClient = getCQL({
+      blockProducerEndpoint,
+      minerEndpoint,
+      databaseId: CQL_DATABASE_ID,
+      timeout: 30000,
+      debug: process.env.NODE_ENV !== 'production',
+    })
+
+    await ensureTablesExist()
+  }
+  return cqlClient
+}
+
+async function ensureTablesExist(): Promise<void> {
+  if (!cqlClient) return
+
+  const tables = [
+    `CREATE TABLE IF NOT EXISTS pkg_packages (
+      name TEXT PRIMARY KEY,
+      scope TEXT,
+      manifest_cid TEXT NOT NULL,
+      latest_version TEXT NOT NULL,
+      versions TEXT NOT NULL,
+      owner TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      download_count INTEGER NOT NULL DEFAULT 0,
+      storage_backend TEXT NOT NULL,
+      verified INTEGER NOT NULL DEFAULT 0
+    )`,
+    `CREATE TABLE IF NOT EXISTS pkg_tarballs (
+      package_version TEXT PRIMARY KEY,
+      package_name TEXT NOT NULL,
+      version TEXT NOT NULL,
+      cid TEXT NOT NULL,
+      size INTEGER NOT NULL,
+      shasum TEXT NOT NULL,
+      integrity TEXT NOT NULL,
+      backend TEXT NOT NULL,
+      uploaded_at INTEGER NOT NULL
+    )`,
+  ]
+
+  const indexes = [
+    'CREATE INDEX IF NOT EXISTS idx_pkg_packages_scope ON pkg_packages(scope)',
+    'CREATE INDEX IF NOT EXISTS idx_pkg_tarballs_name ON pkg_tarballs(package_name)',
+  ]
+
+  for (const ddl of tables) {
+    await cqlClient.exec(ddl, [], CQL_DATABASE_ID)
+  }
+
+  for (const idx of indexes) {
+    await cqlClient.exec(idx, [], CQL_DATABASE_ID)
+  }
+}
+
+// Row types
+interface PackageRow {
+  name: string
+  scope: string | null
+  manifest_cid: string
+  latest_version: string
+  versions: string
+  owner: string
+  created_at: number
+  updated_at: number
+  download_count: number
+  storage_backend: string
+  verified: number
+}
+
+interface TarballRow {
+  package_version: string
+  package_name: string
+  version: string
+  cid: string
+  size: number
+  shasum: string
+  integrity: string
+  backend: string
+  uploaded_at: number
+}
 
 // Schema for validating upstream npm package metadata
 const PkgPackageMetadataSchema = z
@@ -43,14 +141,10 @@ export class UpstreamProxy {
   private upstreamConfig: UpstreamRegistryConfig
   private cacheConfig: CacheConfig
 
-  // In-memory caches
+  // In-memory caches (ephemeral TTL caches only - records are persisted in CQL)
   private metadataCache: Map<string, CacheEntry<PkgPackageMetadata>> = new Map()
   private tarballCache: Map<string, CacheEntry<{ cid: string; size: number }>> =
     new Map()
-
-  // Persistent records (backed by storage)
-  private packageRecords: Map<string, PackageRecord> = new Map()
-  private tarballRecords: Map<string, TarballRecord> = new Map()
 
   constructor(config: UpstreamProxyConfig) {
     this.backend = config.backend
@@ -76,7 +170,7 @@ export class UpstreamProxy {
     }
 
     // Check persistent storage
-    const record = this.packageRecords.get(packageName)
+    const record = await this.getPackageRecord(packageName)
     if (record) {
       const result = await this.backend.download(record.manifestCid)
       if (result) {
@@ -132,7 +226,7 @@ export class UpstreamProxy {
     }
 
     // Check tarball records
-    const record = this.tarballRecords.get(key)
+    const record = await this.getTarballRecord(packageName, version)
     if (record) {
       const result = await this.backend.download(record.cid)
       if (result) {
@@ -241,35 +335,51 @@ export class UpstreamProxy {
   /**
    * Check if a package is cached
    */
-  isCached(packageName: string): boolean {
-    return (
-      this.packageRecords.has(packageName) ||
-      this.metadataCache.has(packageName)
-    )
+  async isCached(packageName: string): Promise<boolean> {
+    const record = await this.getPackageRecord(packageName)
+    return record !== null || this.metadataCache.has(packageName)
   }
 
   /**
    * Check if a specific version is cached
    */
-  isVersionCached(packageName: string, version: string): boolean {
+  async isVersionCached(
+    packageName: string,
+    version: string,
+  ): Promise<boolean> {
     const key = `${packageName}@${version}`
-    return this.tarballRecords.has(key) || this.tarballCache.has(key)
+    const record = await this.getTarballRecord(packageName, version)
+    return record !== null || this.tarballCache.has(key)
   }
 
   /**
    * Get cache statistics
    */
-  getCacheStats(): {
+  async getCacheStats(): Promise<{
     metadataCacheSize: number
     tarballCacheSize: number
     packageRecordsCount: number
     tarballRecordsCount: number
-  } {
+  }> {
+    const client = await getCQLClient()
+
+    const pkgCount = await client.query<{ count: number }>(
+      'SELECT COUNT(*) as count FROM pkg_packages',
+      [],
+      CQL_DATABASE_ID,
+    )
+
+    const tarballCount = await client.query<{ count: number }>(
+      'SELECT COUNT(*) as count FROM pkg_tarballs',
+      [],
+      CQL_DATABASE_ID,
+    )
+
     return {
       metadataCacheSize: this.metadataCache.size,
       tarballCacheSize: this.tarballCache.size,
-      packageRecordsCount: this.packageRecords.size,
-      tarballRecordsCount: this.tarballRecords.size,
+      packageRecordsCount: pkgCount.rows[0]?.count ?? 0,
+      tarballRecordsCount: tarballCount.rows[0]?.count ?? 0,
     }
   }
 
@@ -310,6 +420,109 @@ export class UpstreamProxy {
       }
     }
   }
+
+  // CQL Operations
+
+  private async getPackageRecord(name: string): Promise<PackageRecord | null> {
+    const client = await getCQLClient()
+    const result = await client.query<PackageRow>(
+      'SELECT * FROM pkg_packages WHERE name = ?',
+      [name],
+      CQL_DATABASE_ID,
+    )
+
+    const row = result.rows[0]
+    if (!row) return null
+
+    return {
+      name: row.name,
+      scope: row.scope ?? undefined,
+      manifestCid: row.manifest_cid,
+      latestVersion: row.latest_version,
+      versions: JSON.parse(row.versions) as string[],
+      owner: row.owner as `0x${string}`,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      downloadCount: row.download_count,
+      storageBackend: row.storage_backend as 'local' | 'ipfs' | 'arweave',
+      verified: row.verified === 1,
+    }
+  }
+
+  private async savePackageRecord(record: PackageRecord): Promise<void> {
+    const client = await getCQLClient()
+    await client.exec(
+      `INSERT INTO pkg_packages (name, scope, manifest_cid, latest_version, versions, owner, created_at, updated_at, download_count, storage_backend, verified)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(name) DO UPDATE SET
+       manifest_cid = excluded.manifest_cid, latest_version = excluded.latest_version, versions = excluded.versions, updated_at = excluded.updated_at`,
+      [
+        record.name,
+        record.scope ?? null,
+        record.manifestCid,
+        record.latestVersion,
+        JSON.stringify(record.versions),
+        record.owner,
+        record.createdAt,
+        record.updatedAt,
+        record.downloadCount,
+        record.storageBackend,
+        record.verified ? 1 : 0,
+      ],
+      CQL_DATABASE_ID,
+    )
+  }
+
+  private async getTarballRecord(
+    packageName: string,
+    version: string,
+  ): Promise<TarballRecord | null> {
+    const client = await getCQLClient()
+    const key = `${packageName}@${version}`
+    const result = await client.query<TarballRow>(
+      'SELECT * FROM pkg_tarballs WHERE package_version = ?',
+      [key],
+      CQL_DATABASE_ID,
+    )
+
+    const row = result.rows[0]
+    if (!row) return null
+
+    return {
+      packageName: row.package_name,
+      version: row.version,
+      cid: row.cid,
+      size: row.size,
+      shasum: row.shasum,
+      integrity: row.integrity,
+      backend: row.backend as 'local' | 'ipfs' | 'arweave',
+      uploadedAt: row.uploaded_at,
+    }
+  }
+
+  private async saveTarballRecord(record: TarballRecord): Promise<void> {
+    const client = await getCQLClient()
+    const key = `${record.packageName}@${record.version}`
+    await client.exec(
+      `INSERT INTO pkg_tarballs (package_version, package_name, version, cid, size, shasum, integrity, backend, uploaded_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(package_version) DO UPDATE SET
+       cid = excluded.cid, size = excluded.size, uploaded_at = excluded.uploaded_at`,
+      [
+        key,
+        record.packageName,
+        record.version,
+        record.cid,
+        record.size,
+        record.shasum,
+        record.integrity,
+        record.backend,
+        record.uploadedAt,
+      ],
+      CQL_DATABASE_ID,
+    )
+  }
+
   private async fetchFromUpstream(
     packageName: string,
   ): Promise<PkgPackageMetadata | null> {
@@ -419,7 +632,7 @@ export class UpstreamProxy {
       verified: true,
     }
 
-    this.packageRecords.set(packageName, record)
+    await this.savePackageRecord(record)
 
     // Update in-memory cache
     this.setInCache(packageName, metadata)
@@ -450,7 +663,7 @@ export class UpstreamProxy {
       uploadedAt: Date.now(),
     }
 
-    this.tarballRecords.set(key, record)
+    await this.saveTarballRecord(record)
 
     // Update in-memory cache
     this.tarballCache.set(key, {
@@ -531,23 +744,62 @@ export class UpstreamProxy {
       return 0
     })
   }
-  exportRecords(): { packages: PackageRecord[]; tarballs: TarballRecord[] } {
-    return {
-      packages: Array.from(this.packageRecords.values()),
-      tarballs: Array.from(this.tarballRecords.values()),
-    }
-  }
 
-  importRecords(data: {
+  async exportRecords(): Promise<{
     packages: PackageRecord[]
     tarballs: TarballRecord[]
-  }): void {
+  }> {
+    const client = await getCQLClient()
+
+    const pkgResult = await client.query<PackageRow>(
+      'SELECT * FROM pkg_packages',
+      [],
+      CQL_DATABASE_ID,
+    )
+
+    const tarballResult = await client.query<TarballRow>(
+      'SELECT * FROM pkg_tarballs',
+      [],
+      CQL_DATABASE_ID,
+    )
+
+    const packages: PackageRecord[] = pkgResult.rows.map((row) => ({
+      name: row.name,
+      scope: row.scope ?? undefined,
+      manifestCid: row.manifest_cid,
+      latestVersion: row.latest_version,
+      versions: JSON.parse(row.versions) as string[],
+      owner: row.owner as `0x${string}`,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      downloadCount: row.download_count,
+      storageBackend: row.storage_backend as 'local' | 'ipfs' | 'arweave',
+      verified: row.verified === 1,
+    }))
+
+    const tarballs: TarballRecord[] = tarballResult.rows.map((row) => ({
+      packageName: row.package_name,
+      version: row.version,
+      cid: row.cid,
+      size: row.size,
+      shasum: row.shasum,
+      integrity: row.integrity,
+      backend: row.backend as 'local' | 'ipfs' | 'arweave',
+      uploadedAt: row.uploaded_at,
+    }))
+
+    return { packages, tarballs }
+  }
+
+  async importRecords(data: {
+    packages: PackageRecord[]
+    tarballs: TarballRecord[]
+  }): Promise<void> {
     for (const pkg of data.packages) {
-      this.packageRecords.set(pkg.name, pkg)
+      await this.savePackageRecord(pkg)
     }
     for (const tarball of data.tarballs) {
-      const key = `${tarball.packageName}@${tarball.version}`
-      this.tarballRecords.set(key, tarball)
+      await this.saveTarballRecord(tarball)
     }
   }
 }

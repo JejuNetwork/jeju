@@ -17,7 +17,7 @@ import {
   RegisteredAgent,
   type RegistryStake,
   TagUpdate,
-} from './model'
+} from '../src/model'
 import type { ProcessorContext } from './processor'
 import { createAccountFactory, relationId } from './utils/entities'
 import { decodeEventArgs } from './utils/hex'

@@ -5,6 +5,10 @@
  * CEOs, and governance while sharing the same infrastructure.
  */
 
+import {
+  getCouncilElizaOauth3App,
+  getCouncilJejuOauth3App,
+} from '@jejunetwork/config'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import { type Address, type Hex, isAddress, keccak256, toBytes } from 'viem'
 import type {
@@ -92,7 +96,7 @@ function getDefaultCouncils(): Record<CouncilType, Partial<CouncilDeployment>> {
         name: 'Jeju CEO',
         address: loadCouncilAddress('jeju', 'CEO'),
         modelProvider: 'anthropic',
-        modelId: 'claude-sonnet-4-20250514',
+        modelId: 'claude-opus-4-5',
         systemPrompt: `You are the AI CEO of Jeju Network, a decentralized L2 blockchain.
 Your role is to make strategic decisions for the network's growth and governance.
 Consider technical feasibility, community benefit, and economic sustainability.`,
@@ -148,7 +152,7 @@ Consider technical feasibility, community benefit, and economic sustainability.`
         name: 'Eliza CEO',
         address: loadCouncilAddress('eliza', 'CEO'),
         modelProvider: 'anthropic',
-        modelId: 'claude-sonnet-4-20250514',
+        modelId: 'claude-opus-4-5',
         systemPrompt: `You are the AI CEO of ElizaOS, the AI agent framework on Jeju Network.
 Your role is to guide the development of AI agents and ensure responsible AI deployment.
 Prioritize safety, capability advancement, and developer experience.`,

@@ -15,7 +15,6 @@
 import {
   getCacheApiKey,
   getCacheNamespace,
-  getDwsCacheEndpoint,
   getDWSCacheUrl,
 } from '@jejunetwork/config'
 import { z } from 'zod'
@@ -841,11 +840,15 @@ export function createCacheService(config: CacheConfig): CacheService {
 }
 
 export function getCacheServiceFromEnv(): CacheService {
+  const endpoint = getDWSCacheUrl()
+  const namespace = getCacheNamespace()
+  const apiKey = getCacheApiKey()
 
   return createCacheService({
     endpoint,
     defaultTTL: 300000,
     namespace,
+    apiKey,
   })
 }
 

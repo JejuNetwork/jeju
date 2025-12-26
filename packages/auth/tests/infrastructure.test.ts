@@ -5,6 +5,7 @@
  */
 
 import { beforeEach, describe, expect, it } from 'bun:test'
+import { ZERO_ADDRESS } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import { keccak256, toBytes } from 'viem'
 import { labelhash, namehash } from '../src/infrastructure/abis.js'
@@ -21,7 +22,6 @@ import {
   getNetworkType,
   MIN_STAKE,
 } from '../src/infrastructure/config.js'
-import { ZERO_ADDRESS } from '@jejunetwork/types'
 import {
   createDecentralizedDiscovery,
   type OAuth3DecentralizedDiscovery,

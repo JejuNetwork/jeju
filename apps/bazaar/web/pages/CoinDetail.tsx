@@ -1,8 +1,13 @@
 /**
  * Coin Detail Page
+ *
+ * Shows token details with integrated Farcaster channel feed.
  */
 
 import { Link, useParams } from 'react-router-dom'
+import type { Address } from 'viem'
+import { ChannelFeed } from '../components/ChannelFeed'
+import { getCoinChannel } from '../hooks/useMessaging'
 
 export default function CoinDetailPage() {
   const { chainId, address } = useParams<{ chainId: string; address: string }>()
@@ -15,8 +20,12 @@ export default function CoinDetailPage() {
     )
   }
 
+  const chainIdNum = parseInt(chainId, 10)
+  const tokenName = 'Token' // This would come from contract/indexer
+  const channel = getCoinChannel(chainIdNum, address as Address, tokenName)
+
   return (
-    <div>
+    <div className="max-w-4xl mx-auto">
       <Link
         to="/coins"
         className="text-sm mb-4 inline-block"
@@ -35,7 +44,7 @@ export default function CoinDetailPage() {
               className="text-2xl font-bold"
               style={{ color: 'var(--text-primary)' }}
             >
-              Token
+              {tokenName}
             </h1>
             <p
               className="text-sm font-mono"
@@ -108,6 +117,9 @@ export default function CoinDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Farcaster Channel Feed */}
+      <ChannelFeed channel={channel} />
     </div>
   )
 }

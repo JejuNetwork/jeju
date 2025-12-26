@@ -7,6 +7,7 @@ import {
   Droplets,
   Image,
   type LucideIcon,
+  Mail,
   Menu,
   MessageSquare,
   RefreshCw,
@@ -21,6 +22,7 @@ import { useCallback, useState } from 'react'
 import { ApprovalsView } from './components/approvals'
 import { ChatInterface } from './components/chat'
 import { LaunchpadView } from './components/launchpad'
+import { MessagesView } from './components/messages'
 import { NamesView } from './components/names'
 import { NFTGallery } from './components/nft'
 import { PerpsView } from './components/perps'
@@ -38,6 +40,7 @@ const networkName = getNetworkName()
 
 type ViewMode =
   | 'chat'
+  | 'messages'
   | 'portfolio'
   | 'nfts'
   | 'approvals'
@@ -55,6 +58,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { id: 'chat', label: 'Chat', icon: MessageSquare },
+  { id: 'messages', label: 'Messages', icon: Mail },
   { id: 'portfolio', label: 'Portfolio', icon: Wallet },
   { id: 'pools', label: 'Pools', icon: Droplets },
   { id: 'perps', label: 'Perps', icon: Activity },
@@ -100,6 +104,12 @@ function App() {
     switch (viewMode) {
       case 'chat':
         return <ChatInterface onActionCompleted={handleActionCompleted} />
+      case 'messages':
+        return address ? (
+          <MessagesView address={address} />
+        ) : (
+          <ConnectPrompt message="Connect your wallet to access messaging" />
+        )
       case 'portfolio':
         return (
           <PortfolioView

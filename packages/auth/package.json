@@ -11,6 +11,16 @@
       "bun": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./providers": {
+      "bun": "./src/providers/social.ts",
+      "types": "./dist/providers/social.d.ts",
+      "import": "./dist/providers/social.js"
+    },
+    "./types": {
+      "bun": "./src/types.ts",
+      "types": "./dist/types.d.ts",
+      "import": "./dist/types.js"
     }
   },
   "files": ["dist", "README.md", "LICENSE"],

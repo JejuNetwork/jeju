@@ -1,6 +1,6 @@
 /* Factory Global Styles */
-/* NOTE: @apply directives removed for Bun dev server compatibility */
-/* Use Tailwind utility classes directly in JSX instead */
+/* Development: Uses Tailwind CDN (index.html) */
+/* Production: Uses compiled CSS via scripts/build-css.ts */
 
 :root {
   --factory-gradient: linear-gradient(135deg, #18181b 0%, #1e1e24 50%, #18181b 100%);

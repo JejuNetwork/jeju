@@ -6,6 +6,11 @@
  * that just need to sign messages without managing MPC discovery.
  */
 
+import {
+  getCurrentNetwork,
+  getKmsServiceUrl,
+  isProductionEnv,
+} from '@jejunetwork/config'
 import type { JsonValue } from '@jejunetwork/shared'
 import type { Address, Hex } from 'viem'
 import { isAddress, keccak256, toHex } from 'viem'
@@ -36,7 +41,10 @@ const SignResponseSchema = z.object({
 
 const KeyGenResponseSchema = z.object({
   keyId: z.string(),
-  publicKey: z.string().regex(/^0x[a-fA-F0-9]+$/).optional(),
+  publicKey: z
+    .string()
+    .regex(/^0x[a-fA-F0-9]+$/)
+    .optional(),
 })
 
 // ============================================================================
@@ -69,7 +77,9 @@ export class ThresholdSigner {
 
   constructor(userId: string, config: ThresholdSignerConfig) {
     if (!isAddress(userId)) {
-      throw new Error(`Invalid userId format: ${userId}. Must be a hex address.`)
+      throw new Error(
+        `Invalid userId format: ${userId}. Must be a hex address.`,
+      )
     }
     this.userId = userId
     this.config = config
@@ -115,7 +125,9 @@ export class ThresholdSigner {
    */
   async signMessage(message: string): Promise<ThresholdSignResult> {
     if (!this.initialized || !this.keyId) {
-      throw new Error('ThresholdSigner not initialized. Call initialize() first.')
+      throw new Error(
+        'ThresholdSigner not initialized. Call initialize() first.',
+      )
     }
 
     const endpoint = this.config.endpoints[0]
@@ -151,7 +163,9 @@ export class ThresholdSigner {
   /**
    * Sign typed data (EIP-712) via DWS KMS
    */
-  async signTypedData(typedData: Record<string, JsonValue>): Promise<ThresholdSignResult> {
+  async signTypedData(
+    typedData: Record<string, JsonValue>,
+  ): Promise<ThresholdSignResult> {
     const message = JSON.stringify(typedData)
     return this.signMessage(message)
   }
@@ -189,9 +203,9 @@ export function createThresholdSigner(
   userId: string,
   config?: Partial<ThresholdSignerConfig>,
 ): ThresholdSigner {
-  const endpoint = process.env.JEJU_KMS_SERVICE_URL ?? 'http://localhost:4200'
-  const networkId = process.env.JEJU_NETWORK ?? 'localnet'
-  const devMode = process.env.NODE_ENV !== 'production'
+  const endpoint = getKmsServiceUrl()
+  const networkId = getCurrentNetwork()
+  const devMode = !isProductionEnv()
 
   const fullConfig: ThresholdSignerConfig = {
     endpoints: [endpoint],

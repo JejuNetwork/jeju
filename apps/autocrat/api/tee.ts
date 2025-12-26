@@ -10,8 +10,13 @@
  * In production, requires hardware TEE (Intel TDX or AMD SEV).
  */
 
-import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'
 import { getCurrentNetwork, getDWSComputeUrl } from '@jejunetwork/config'
+import {
+  bytesToHex,
+  decryptAesGcm,
+  encryptAesGcm,
+  fromHex,
+} from '@jejunetwork/shared'
 import { keccak256, stringToHex } from 'viem'
 import { z } from 'zod'
 import type { TEEAttestation } from '../lib'
@@ -102,7 +107,7 @@ function getTEEPlatform(): TEEPlatform {
   }
 }
 
-function getDerivedKey(): Buffer {
+function getDerivedKey(): Uint8Array {
   const secret = process.env.TEE_ENCRYPTION_SECRET
   if (!secret) {
     const network = getCurrentNetwork()
@@ -112,36 +117,38 @@ function getDerivedKey(): Buffer {
     // Dev/test mode - use derived key
     const devSecret = `council-${network}-key`
     const hash = keccak256(stringToHex(devSecret))
-    return Buffer.from(hash.slice(2, 66), 'hex')
+    return fromHex(hash.slice(0, 66))
   }
   const hash = keccak256(stringToHex(secret))
-  return Buffer.from(hash.slice(2, 66), 'hex')
+  return fromHex(hash.slice(0, 66))
 }
 
-function encrypt(data: string): {
+async function encrypt(data: string): Promise<{
   ciphertext: string
   iv: string
   tag: string
-} {
+}> {
   const key = getDerivedKey()
-  const iv = randomBytes(12)
-  const cipher = createCipheriv('aes-256-gcm', key, iv)
-  let encrypted = cipher.update(data, 'utf8', 'hex')
-  encrypted += cipher.final('hex')
+  const dataBytes = new TextEncoder().encode(data)
+  const { ciphertext, iv, tag } = await encryptAesGcm(dataBytes, key)
   return {
-    ciphertext: encrypted,
-    iv: iv.toString('hex'),
-    tag: cipher.getAuthTag().toString('hex'),
+    ciphertext: bytesToHex(ciphertext),
+    iv: bytesToHex(iv),
+    tag: bytesToHex(tag),
   }
 }
 
-function decrypt(ciphertext: string, iv: string, tag: string): string {
+async function decrypt(
+  ciphertext: string,
+  iv: string,
+  tag: string,
+): Promise<string> {
   const key = getDerivedKey()
-  const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(iv, 'hex'))
-  decipher.setAuthTag(Buffer.from(tag, 'hex'))
-  let decrypted = decipher.update(ciphertext, 'hex', 'utf8')
-  decrypted += decipher.final('utf8')
-  return decrypted
+  const ciphertextBytes = fromHex(`0x${ciphertext}`)
+  const ivBytes = fromHex(`0x${iv}`)
+  const tagBytes = fromHex(`0x${tag}`)
+  const decrypted = await decryptAesGcm(ciphertextBytes, key, ivBytes, tagBytes)
+  return new TextDecoder().decode(decrypted)
 }
 
 function analyzeVotes(votes: TEEDecisionContext['autocratVotes']): {
@@ -217,7 +224,7 @@ async function callDStack(
     timestamp: Date.now(),
     platform: data.attestation.platform,
   })
-  const encrypted = encrypt(internalData)
+  const encrypted = await encrypt(internalData)
   const encryptedReasoning = JSON.stringify(encrypted)
 
   return {
@@ -238,7 +245,9 @@ async function callDStack(
   }
 }
 
-function makeLocalDecision(context: TEEDecisionContext): TEEDecisionResult {
+async function makeLocalDecision(
+  context: TEEDecisionContext,
+): Promise<TEEDecisionResult> {
   const { approved, reasoning, confidence, alignment, recommendations } =
     makeDecision(context)
 
@@ -248,7 +257,7 @@ function makeLocalDecision(context: TEEDecisionContext): TEEDecisionResult {
     timestamp: Date.now(),
     mode: 'local',
   })
-  const encrypted = encrypt(internalData)
+  const encrypted = await encrypt(internalData)
   const encryptedReasoning = JSON.stringify(encrypted)
 
   return {
@@ -293,7 +302,9 @@ export async function makeTEEDecision(
   const platform = getTEEPlatform()
 
   const result: TEEDecisionResult =
-    mode === 'dstack' ? await callDStack(context) : makeLocalDecision(context)
+    mode === 'dstack'
+      ? await callDStack(context)
+      : await makeLocalDecision(context)
 
   // Apply encryption layer via KMS
   const decisionData: DecisionData = {
@@ -317,12 +328,12 @@ export async function makeTEEDecision(
   return result
 }
 
-export function decryptReasoning(
+export async function decryptReasoning(
   encryptedReasoning: string,
-): Record<string, unknown> {
+): Promise<Record<string, unknown>> {
   const rawParsed = JSON.parse(encryptedReasoning)
   const { ciphertext, iv, tag } = EncryptedCipherSchema.parse(rawParsed)
-  const decrypted = JSON.parse(decrypt(ciphertext, iv, tag))
+  const decrypted = JSON.parse(await decrypt(ciphertext, iv, tag))
   return z.record(z.string(), z.unknown()).parse(decrypted)
 }
 

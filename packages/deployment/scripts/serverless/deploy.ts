@@ -19,7 +19,6 @@
  *   bun run scripts/serverless/deploy.ts --verify       # Only run verification
  */
 
-import { createHash } from 'node:crypto'
 import {
   existsSync,
   mkdirSync,
@@ -29,6 +28,7 @@ import {
 } from 'node:fs'
 import { extname, join, relative } from 'node:path'
 import { parseArgs } from 'node:util'
+import { bytesToHex, hash256 } from '@jejunetwork/shared'
 import {
   type Address,
   createPublicClient,
@@ -361,7 +361,7 @@ class ServerlessDeployer {
       const content = readFileSync(file)
       const ext = extname(file)
       const mimeType = MIME_TYPES[ext] ?? 'application/octet-stream'
-      const hash = createHash('sha256').update(content).digest('hex')
+      const hash = bytesToHex(hash256(new Uint8Array(content)))
       const size = content.length
       totalSize += size
 

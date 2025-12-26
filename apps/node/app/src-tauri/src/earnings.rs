@@ -36,6 +36,7 @@ pub struct EarningsTracker {
     stats: EarningsStats,
 }
 
+#[allow(dead_code)]
 impl EarningsTracker {
     pub fn new() -> Self {
         Self {

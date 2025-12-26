@@ -8,7 +8,7 @@
  * Usage: SIGNER_PRIVATE_KEY=0x... SIGNER_API_KEY=... bun run signer-service.ts
  */
 
-import { createHash, randomBytes } from 'node:crypto'
+import { bytesToHex, hash256, randomHex } from '@jejunetwork/shared'
 import { Elysia } from 'elysia'
 import { privateKeyToAccount } from 'viem/accounts'
 import {
@@ -59,7 +59,7 @@ class ThresholdSignerService {
   ) {
     this.account = privateKeyToAccount(privateKey as `0x${string}`)
     this.app = new Elysia()
-    this.apiKeyHash = createHash('sha256').update(apiKey).digest('hex')
+    this.apiKeyHash = bytesToHex(hash256(apiKey))
     this.allowedOrigins = new Set(allowedOrigins)
     this.setupRoutes()
     this.cleanupInterval = setInterval(() => this.cleanup(), 30_000)
@@ -83,9 +83,7 @@ class ThresholdSignerService {
   private checkAuth(authHeader: string | undefined): boolean {
     if (!authHeader) return false
     return (
-      createHash('sha256')
-        .update(authHeader.replace('Bearer ', ''))
-        .digest('hex') === this.apiKeyHash
+      bytesToHex(hash256(authHeader.replace('Bearer ', ''))) === this.apiKeyHash
     )
   }
 
@@ -260,7 +258,7 @@ export class SignatureCollector {
   ) {
     const signatures = selfSig ? [selfSig.signature] : []
     const signers = selfSig ? [selfSig.signer] : []
-    const requestId = `${randomBytes(16).toString('hex')}-${Date.now()}`
+    const requestId = `${randomHex(16).slice(2)}-${Date.now()}`
 
     const results = await Promise.all(
       Array.from(this.peerUrls.entries())

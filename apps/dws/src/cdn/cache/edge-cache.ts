@@ -10,7 +10,7 @@
  * - Stale-while-revalidate support
  */
 
-import { createHash } from 'node:crypto'
+import { createHash } from '@jejunetwork/shared'
 import type { CacheRule, CacheStatus, CacheTTLConfig } from '@jejunetwork/types'
 import { DEFAULT_CACHE_RULES, DEFAULT_TTL_CONFIG } from '@jejunetwork/types'
 import { LRUCache } from 'lru-cache'
@@ -534,7 +534,7 @@ export class EdgeCache {
    * Hash content for content-addressing
    */
   private hashContent(data: Buffer): string {
-    return createHash('sha256').update(data).digest('hex')
+    return createHash('sha256').update(data).digestHex()
   }
 
   /**

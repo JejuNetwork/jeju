@@ -18,7 +18,7 @@ import {
   RegisteredAgent,
   StorageProvider,
   StorageTier,
-} from './model'
+} from '../src/model'
 import type { ProcessorContext } from './processor'
 import { createAccountFactory } from './utils/entities'
 import { decodeLogData, isEventInSet } from './utils/hex'

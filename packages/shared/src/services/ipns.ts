@@ -16,8 +16,8 @@
  */
 
 import { getIpfsApiUrlEnv } from '@jejunetwork/config'
-import { createHash } from 'node:crypto'
 import { z } from 'zod'
+import { bytesToHex, hash256 } from '../crypto/universal'
 
 // IPFS API response schemas
 const IPFSKeySchema = z.object({
@@ -233,8 +233,8 @@ export function getIPNSKeyName(
 export function encodeIPNSContenthash(ipnsId: string): `0x${string}` {
   // IPNS contenthash format: 0xe5 + <peer-id>
   // For simplicity, we'll use a hash of the IPNS ID
-  const hash = createHash('sha256').update(ipnsId).digest()
-  return `0xe5${hash.toString('hex').slice(0, 64)}` as `0x${string}`
+  const hash = hash256(ipnsId)
+  return `0xe5${bytesToHex(hash).slice(0, 64)}` as `0x${string}`
 }
 
 /**

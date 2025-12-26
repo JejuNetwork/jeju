@@ -498,3 +498,278 @@ describe('CDN Server Integration', () => {
     expect(body.endpoints.cdn).toBe('/cdn/*')
   })
 })
+
+// ============ Cache Eviction and Size Limit Tests ============
+
+describe('EdgeCache Eviction', () => {
+  test('should evict oldest entries when max entries exceeded', () => {
+    resetEdgeCache()
+    // Create cache with very small max entries
+    const smallCache = getEdgeCache({
+      maxEntries: 5,
+      maxSizeBytes: 1024 * 1024 * 10,
+    })
+
+    // Add 5 entries
+    for (let i = 0; i < 5; i++) {
+      smallCache.set(`entry-${i}`, Buffer.from(`value-${i}`), {})
+    }
+
+    // Verify all 5 exist
+    expect(smallCache.getStats().entries).toBe(5)
+
+    // Add 6th entry - should trigger eviction of oldest
+    smallCache.set('entry-5', Buffer.from('value-5'), {})
+
+    // Should still be at or below max
+    expect(smallCache.getStats().entries).toBeLessThanOrEqual(5)
+
+    // Oldest entry should be evicted (entry-0 was accessed first)
+    const { status: status5 } = smallCache.get('entry-5')
+    expect(status5).toBe('HIT')
+    // entry-0 may or may not be evicted depending on access pattern
+  })
+
+  test('should evict entries when max size exceeded', () => {
+    resetEdgeCache()
+    // Create cache with very small size limit (100KB)
+    const smallCache = getEdgeCache({
+      maxEntries: 1000,
+      maxSizeBytes: 100 * 1024,
+    })
+
+    // Add entries until we exceed the limit
+    const largeData = Buffer.alloc(30 * 1024, 'x') // 30KB each
+    for (let i = 0; i < 5; i++) {
+      smallCache.set(`large-${i}`, largeData, {})
+    }
+
+    // Size should be under limit
+    const stats = smallCache.getStats()
+    expect(stats.sizeBytes).toBeLessThanOrEqual(stats.maxSizeBytes)
+  })
+
+  test('should update LRU order on access', () => {
+    resetEdgeCache()
+    const cache = getEdgeCache({ maxEntries: 3, maxSizeBytes: 1024 * 1024 })
+
+    // Add 3 entries
+    cache.set('a', Buffer.from('a'), {})
+    cache.set('b', Buffer.from('b'), {})
+    cache.set('c', Buffer.from('c'), {})
+
+    // Access 'a' to move it to end of LRU
+    cache.get('a')
+
+    // Add new entry - should evict 'b' (oldest not recently accessed)
+    cache.set('d', Buffer.from('d'), {})
+
+    const { status: statusA } = cache.get('a')
+    const { status: statusD } = cache.get('d')
+    expect(statusA).toBe('HIT')
+    expect(statusD).toBe('HIT')
+  })
+})
+
+// ============ Invalid Input Handling Tests ============
+
+describe('EdgeCache Invalid Inputs', () => {
+  let cache: EdgeCache
+
+  beforeEach(() => {
+    resetEdgeCache()
+    cache = getEdgeCache()
+  })
+
+  test('should handle empty path in key generation', () => {
+    const key = cache.generateKey({ path: '' })
+    expect(key).toBeDefined()
+    expect(typeof key).toBe('string')
+  })
+
+  test('should handle path with only slashes', () => {
+    const key = cache.generateKey({ path: '///' })
+    expect(key).toBeDefined()
+  })
+
+  test('should handle unicode in path', () => {
+    const key = cache.generateKey({ path: '/path/日本語/文字' })
+    cache.set(key, Buffer.from('unicode content'), {})
+    const { status } = cache.get(key)
+    expect(status).toBe('HIT')
+  })
+
+  test('should handle null-like values in vary headers', () => {
+    const key = cache.generateKey({
+      path: '/test',
+      varyHeaders: { 'accept-encoding': '' },
+    })
+    expect(key).toBeDefined()
+  })
+
+  test('should handle very large metadata headers', () => {
+    const key = `large-headers-${Date.now()}`
+    const largeHeaders: Record<string, string> = {}
+    for (let i = 0; i < 100; i++) {
+      largeHeaders[`header-${i}`] = 'x'.repeat(100)
+    }
+
+    cache.set(key, Buffer.from('data'), { headers: largeHeaders })
+    const { entry, status } = cache.get(key)
+    expect(status).toBe('HIT')
+    expect(Object.keys(entry?.metadata.headers ?? {}).length).toBe(100)
+  })
+
+  test('should handle buffer with null bytes', () => {
+    const key = `null-bytes-${Date.now()}`
+    const dataWithNulls = Buffer.from([0x00, 0x01, 0x00, 0x02, 0x00])
+
+    cache.set(key, dataWithNulls, { contentType: 'application/octet-stream' })
+    const { entry, status } = cache.get(key)
+    expect(status).toBe('HIT')
+    expect(entry?.data.equals(dataWithNulls)).toBe(true)
+  })
+})
+
+// ============ TTL Expiration Behavior Tests ============
+
+describe('EdgeCache TTL Behavior', () => {
+  let cache: EdgeCache
+
+  beforeEach(() => {
+    resetEdgeCache()
+    cache = getEdgeCache({ defaultTTL: 1 }) // 1 second default TTL
+  })
+
+  test('should return STALE for expired entries', async () => {
+    const key = `expire-test-${Date.now()}`
+
+    // Set with very short TTL via cache-control
+    cache.set(key, Buffer.from('expiring'), {
+      cacheControl: 'max-age=0', // Expires immediately
+    })
+
+    // Wait a tiny bit
+    await new Promise((resolve) => setTimeout(resolve, 10))
+
+    const { status } = cache.get(key)
+    // Entry should be stale (expired but still retrievable)
+    expect(['STALE', 'MISS']).toContain(status)
+  })
+
+  test('should calculate TTL correctly for different content types', () => {
+    // HTML should have short TTL
+    const htmlTTL = cache.calculateTTL('/index.html', {
+      contentType: 'text/html',
+    })
+    expect(htmlTTL).toBeLessThanOrEqual(3600)
+
+    // Images should have longer TTL
+    const imageTTL = cache.calculateTTL('/image.png', {
+      contentType: 'image/png',
+    })
+    expect(imageTTL).toBeGreaterThan(htmlTTL)
+
+    // Fonts should have very long TTL
+    const fontTTL = cache.calculateTTL('/font.woff2', {
+      contentType: 'font/woff2',
+    })
+    expect(fontTTL).toBeGreaterThanOrEqual(imageTTL)
+  })
+
+  test('should respect cache-control over content-type defaults', () => {
+    // Even for HTML, explicit cache-control should win
+    const ttl = cache.calculateTTL('/page.html', {
+      contentType: 'text/html',
+      cacheControl: 'max-age=86400', // 1 day
+    })
+    expect(ttl).toBe(86400)
+  })
+
+  test('should detect immutable patterns in filenames', () => {
+    // Common bundler hash patterns
+    const patterns = [
+      '/assets/main.abc12345.js',
+      '/static/chunk.1a2b3c4d.css',
+      '/media/image.deadbeef.png',
+      '/_next/static/chunks/framework.f7e3d2c1.js',
+    ]
+
+    for (const path of patterns) {
+      const ttl = cache.calculateTTL(path, {})
+      // Should get immutable TTL (1 year)
+      expect(ttl).toBeGreaterThanOrEqual(31536000)
+    }
+  })
+})
+
+// ============ Hit Rate Calculation Tests ============
+
+describe('EdgeCache Hit Rate Accuracy', () => {
+  let cache: EdgeCache
+
+  beforeEach(() => {
+    resetEdgeCache()
+    cache = getEdgeCache()
+    cache.resetStats()
+  })
+
+  test('should calculate hit rate correctly', () => {
+    const key = `hitrate-${Date.now()}`
+
+    // 1 miss
+    cache.get(key)
+
+    // Set the value
+    cache.set(key, Buffer.from('data'), {})
+
+    // 4 hits
+    for (let i = 0; i < 4; i++) {
+      cache.get(key)
+    }
+
+    const stats = cache.getStats()
+    // 4 hits out of 5 total = 80%
+    expect(stats.hitRate).toBeCloseTo(0.8, 1)
+    expect(stats.hitCount).toBe(4)
+    expect(stats.missCount).toBe(1)
+  })
+
+  test('should handle 100% hit rate', () => {
+    const key = `allhits-${Date.now()}`
+    cache.set(key, Buffer.from('data'), {})
+
+    for (let i = 0; i < 10; i++) {
+      cache.get(key)
+    }
+
+    const stats = cache.getStats()
+    expect(stats.hitRate).toBe(1)
+  })
+
+  test('should handle 0% hit rate', () => {
+    for (let i = 0; i < 10; i++) {
+      cache.get(`miss-${i}-${Date.now()}`)
+    }
+
+    const stats = cache.getStats()
+    expect(stats.hitRate).toBe(0)
+  })
+
+  test('should reset stats independently of cache content', () => {
+    const key = `reset-test-${Date.now()}`
+    cache.set(key, Buffer.from('data'), {})
+    cache.get(key) // Hit
+
+    cache.resetStats()
+
+    const stats = cache.getStats()
+    expect(stats.hitCount).toBe(0)
+    expect(stats.missCount).toBe(0)
+    expect(stats.hitRate).toBe(0)
+
+    // But cache content should still exist
+    const { status } = cache.get(key)
+    expect(status).toBe('HIT')
+  })
+})

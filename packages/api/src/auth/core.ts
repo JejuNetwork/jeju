@@ -1,4 +1,4 @@
-import { timingSafeEqual } from 'node:crypto'
+import { constantTimeEqual } from '@jejunetwork/shared'
 import type { Address, Hex } from 'viem'
 import { verifyMessage } from 'viem'
 import { z } from 'zod'
@@ -63,10 +63,11 @@ export function constantTimeCompare(a: string, b: string): boolean {
     return false
   }
 
-  const bufA = Buffer.from(aNorm, 'utf8')
-  const bufB = Buffer.from(bNorm, 'utf8')
+  const encoder = new TextEncoder()
+  const bufA = encoder.encode(aNorm)
+  const bufB = encoder.encode(bNorm)
 
-  return timingSafeEqual(bufA, bufB)
+  return constantTimeEqual(bufA, bufB)
 }
 
 export function extractAuthHeaders(

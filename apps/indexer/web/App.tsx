@@ -139,13 +139,13 @@ export default function App() {
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="2"
-                aria-label="Network Indexer Logo"
+                aria-label="Indexer Logo"
               >
-                <title>Network Indexer Logo</title>
+                <title>Indexer Logo</title>
                 <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
               </svg>
             </div>
-            <span>Network Indexer</span>
+            <span>Indexer</span>
           </div>
         </div>
         <div className="header-right">
@@ -530,7 +530,7 @@ export default function App() {
               </div>
               <div className="graphql-info">
                 <p>
-                  The Network Indexer provides a powerful GraphQL API for
+                  The Indexer provides a powerful GraphQL API for
                   querying blockchain data.
                 </p>
 
@@ -611,7 +611,7 @@ export default function App() {
 
       <footer className="footer">
         <div className="footer-content">
-          <span>Network Indexer v1.0.0</span>
+          <span>Indexer v1.0.0</span>
           <span className="separator">•</span>
           <a href={GRAPHQL_URL} target="_blank" rel="noopener noreferrer">
             GraphQL

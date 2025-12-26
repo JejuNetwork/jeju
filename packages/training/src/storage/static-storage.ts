@@ -17,6 +17,7 @@ import type {
 import { DWSUploadResponseSchema, TrajectoryBatchHeaderSchema } from './types'
 
 export interface StaticStorageConfig {
+  /** Application name (crucible, factory, dws) */
   appName: string
   maxBufferSize: number
   maxBufferAgeMs: number
@@ -469,10 +470,13 @@ export class StaticTrajectoryStorage implements TrajectoryStorage {
 
       let response: Response
       try {
-        response = await fetch(`${this.config.storageEndpoint}/storage/upload`, {
-          method: 'POST',
-          body: formData,
-        })
+        response = await fetch(
+          `${this.config.storageEndpoint}/storage/upload`,
+          {
+            method: 'POST',
+            body: formData,
+          },
+        )
       } catch (fetchError) {
         // Network error - retry with backoff
         if (attempt < maxRetries) {

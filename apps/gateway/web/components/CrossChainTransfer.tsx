@@ -3,7 +3,7 @@ import {
   formatTokenUsd as formatUSD,
   parseTokenAmount,
 } from '@jejunetwork/shared'
-import { ConnectButton } from '@rainbow-me/rainbowkit'
+import { WalletButton } from '@jejunetwork/ui'
 import { useEffect, useMemo, useState } from 'react'
 import type { Address } from 'viem'
 import { useAccount } from 'wagmi'
@@ -110,7 +110,58 @@ export default function CrossChainTransfer() {
         >
           Cross-Chain Transfer
         </h2>
-        <p style={{ color: 'var(--text-muted)' }}>EIL not configured</p>
+        <div
+          style={{
+            padding: '2rem',
+            background: 'var(--surface-hover)',
+            borderRadius: '12px',
+            textAlign: 'center',
+          }}
+        >
+          <div
+            style={{
+              width: '64px',
+              height: '64px',
+              margin: '0 auto 1rem',
+              borderRadius: '50%',
+              background:
+                'linear-gradient(135deg, var(--info-soft) 0%, var(--primary-soft) 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <span style={{ fontSize: '2rem' }}>⚡</span>
+          </div>
+          <h3
+            style={{
+              fontSize: '1.125rem',
+              fontWeight: 600,
+              marginBottom: '0.5rem',
+            }}
+          >
+            EIL Contracts Not Deployed
+          </h3>
+          <p
+            style={{
+              color: 'var(--text-secondary)',
+              fontSize: '0.875rem',
+              marginBottom: '1rem',
+            }}
+          >
+            Cross-chain transfers require EIL (Elastic Intent Liquidity)
+            contracts to be deployed on your network.
+          </p>
+          <p
+            style={{
+              color: 'var(--text-muted)',
+              fontSize: '0.8125rem',
+              fontFamily: 'monospace',
+            }}
+          >
+            Deploy with: bun run scripts/deploy-eil.ts
+          </p>
+        </div>
       </div>
     )
   }
@@ -363,7 +414,7 @@ export default function CrossChainTransfer() {
               >
                 Connect your wallet to transfer
               </p>
-              <ConnectButton />
+              <WalletButton />
             </div>
           )}
         </form>

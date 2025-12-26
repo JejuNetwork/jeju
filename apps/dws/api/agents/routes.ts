@@ -97,7 +97,7 @@ export function createAgentRouter() {
       )
 
       // List agents
-      .get('/', ({ request, query }) => {
+      .get('/', async ({ request, query }) => {
         const ownerHeader = request.headers.get('x-jeju-address')
         const owner =
           ownerHeader && isAddress(ownerHeader) ? ownerHeader : undefined
@@ -106,7 +106,7 @@ export function createAgentRouter() {
         // Validate status if provided
         const status = isAgentStatus(statusQuery) ? statusQuery : undefined
 
-        const agents = registry.listAgents({
+        const agents = await registry.listAgents({
           owner,
           status,
         })
@@ -124,15 +124,15 @@ export function createAgentRouter() {
       })
 
       // Get agent details
-      .get('/:id', ({ params, set }) => {
-        const agent = registry.getAgent(params.id)
+      .get('/:id', async ({ params, set }) => {
+        const agent = await registry.getAgent(params.id)
         if (!agent) {
           set.status = 404
           return { error: 'Agent not found' }
         }
 
         const instances = getExecutor().getAgentInstances(agent.id)
-        const stats = registry.getAgentStats(agent.id)
+        const stats = await registry.getAgentStats(agent.id)
 
         return {
           ...agent,
@@ -286,7 +286,7 @@ export function createAgentRouter() {
           return { error: 'Missing or invalid x-jeju-address header' }
         }
 
-        const agent = registry.getAgent(params.id)
+        const agent = await registry.getAgent(params.id)
         if (!agent) {
           set.status = 404
           return { error: 'Agent not found' }
@@ -308,7 +308,7 @@ export function createAgentRouter() {
           return { error: 'Missing or invalid x-jeju-address header' }
         }
 
-        const agent = registry.getAgent(params.id)
+        const agent = await registry.getAgent(params.id)
         if (!agent) {
           set.status = 404
           return { error: 'Agent not found' }
@@ -330,7 +330,7 @@ export function createAgentRouter() {
           return { error: 'Missing or invalid x-jeju-address header' }
         }
 
-        const agent = registry.getAgent(params.id)
+        const agent = await registry.getAgent(params.id)
         if (!agent) {
           set.status = 404
           return { error: 'Agent not found' }
@@ -353,8 +353,8 @@ export function createAgentRouter() {
       // Cron Triggers
 
       // List cron triggers
-      .get('/:id/cron', ({ params }) => {
-        const triggers = registry.getCronTriggers(params.id)
+      .get('/:id/cron', async ({ params }) => {
+        const triggers = await registry.getCronTriggers(params.id)
         return { triggers }
       })
 
@@ -368,7 +368,7 @@ export function createAgentRouter() {
             return { error: 'Missing or invalid x-jeju-address header' }
           }
 
-          const agent = registry.getAgent(params.id)
+          const agent = await registry.getAgent(params.id)
           if (!agent) {
             set.status = 404
             return { error: 'Agent not found' }
@@ -428,8 +428,8 @@ export function createAgentRouter() {
 
       // Stats
 
-      .get('/:id/stats', ({ params, set }) => {
-        const stats = registry.getAgentStats(params.id)
+      .get('/:id/stats', async ({ params, set }) => {
+        const stats = await registry.getAgentStats(params.id)
         if (!stats) {
           set.status = 404
           return { error: 'Agent not found' }

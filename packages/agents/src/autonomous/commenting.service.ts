@@ -70,7 +70,9 @@ export class AutonomousCommentingService {
   /**
    * Get agent configuration for commenting
    */
-  private async getAgentConfig(agentId: string): Promise<AgentCommentingConfig> {
+  private async getAgentConfig(
+    agentId: string,
+  ): Promise<AgentCommentingConfig> {
     logger.debug(`Getting commenting config for agent ${agentId}`)
 
     // In production, fetch from database
@@ -94,7 +96,9 @@ export class AutonomousCommentingService {
   /**
    * Get recent posts that agent can comment on
    */
-  private async getUncommentedPosts(agentId: string): Promise<CommentablePost[]> {
+  private async getUncommentedPosts(
+    agentId: string,
+  ): Promise<CommentablePost[]> {
     logger.debug(`Getting uncommented posts for agent ${agentId}`)
 
     const commentedIds = await this.getCommentedPostIds(agentId)
@@ -215,7 +219,7 @@ Only respond with the JSON object, no other text.`
 
       if (!result.success) {
         logger.warn(`Invalid comment decision from LLM`, {
-          errors: result.error.errors,
+          errors: JSON.stringify(result.error.issues),
         })
         return {
           shouldComment: false,
@@ -225,8 +229,8 @@ Only respond with the JSON object, no other text.`
 
       logger.info(`Agent ${agentId} comment decision`, {
         shouldComment: result.data.shouldComment,
-        postId: result.data.postId,
-        contentLength: result.data.content?.length,
+        postId: result.data.postId ?? null,
+        contentLength: result.data.content?.length ?? 0,
       })
 
       return result.data
@@ -254,7 +258,9 @@ Only respond with the JSON object, no other text.`
     const decision = await this.decideComment(agentId, {}, runtime)
 
     if (!decision.shouldComment || !decision.postId || !decision.content) {
-      logger.info(`Agent ${agentId} decided not to comment: ${decision.reasoning}`)
+      logger.info(
+        `Agent ${agentId} decided not to comment: ${decision.reasoning}`,
+      )
       return null
     }
 
@@ -265,7 +271,9 @@ Only respond with the JSON object, no other text.`
     )
 
     if (!result.success) {
-      logger.warn(`Failed to create comment for agent ${agentId}: ${result.error}`)
+      logger.warn(
+        `Failed to create comment for agent ${agentId}: ${result.error}`,
+      )
       return null
     }
 
@@ -296,7 +304,9 @@ Only respond with the JSON object, no other text.`
       const hasReplied = false
 
       if (hasReplied) {
-        logger.info(`Agent ${agentId} already replied to comment ${parentCommentId}`)
+        logger.info(
+          `Agent ${agentId} already replied to comment ${parentCommentId}`,
+        )
         return { success: false, error: 'Already replied to this comment' }
       }
     } else {

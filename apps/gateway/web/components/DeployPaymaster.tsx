@@ -1,4 +1,4 @@
-import { ConnectButton } from '@rainbow-me/rainbowkit'
+import { WalletButton } from '@jejunetwork/ui'
 import { useState } from 'react'
 import { useAccount } from 'wagmi'
 import {
@@ -236,7 +236,7 @@ export default function DeployPaymaster({
               >
                 Connect your wallet to deploy
               </p>
-              <ConnectButton />
+              <WalletButton />
             </div>
           )}
         </form>

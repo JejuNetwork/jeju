@@ -8,6 +8,7 @@ import type {
   SupportedChainId,
 } from '@jejunetwork/types'
 import {
+  AddressSchema,
   IntentInputSchema,
   IntentOutputSchema,
   isSupportedChainId,
@@ -22,7 +23,7 @@ import { CachedIntentSchema, CachedSolverSchema } from '../../lib/validation'
 const IntentInputsSchema = z.array(IntentInputSchema)
 const IntentOutputsSchema = z.array(IntentOutputSchema)
 const SupportedChainsSchema = z.array(SupportedChainIdSchema)
-const SupportedTokensSchema = z.array(z.string())
+const SupportedTokensSchema = z.record(z.string(), z.array(AddressSchema))
 
 const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? 'gateway'
 
@@ -322,8 +323,12 @@ function rowToSolver(row: SolverRow): Solver {
     address,
     name: row.name,
     endpoint: row.endpoint ?? '',
-    supportedChains: SupportedChainsSchema.parse(JSON.parse(row.supported_chains)),
-    supportedTokens: SupportedTokensSchema.parse(JSON.parse(row.supported_tokens)),
+    supportedChains: SupportedChainsSchema.parse(
+      JSON.parse(row.supported_chains),
+    ),
+    supportedTokens: SupportedTokensSchema.parse(
+      JSON.parse(row.supported_tokens),
+    ),
     liquidity: [],
     reputation: row.reputation,
     totalFills: row.total_fills,

@@ -105,7 +105,10 @@ export class DWSClient {
       signal: AbortSignal.timeout(options.timeout ?? this.timeout),
     }
 
-    if (options.body && (options.method === 'POST' || options.method === 'PUT')) {
+    if (
+      options.body &&
+      (options.method === 'POST' || options.method === 'PUT')
+    ) {
       fetchOptions.body = JSON.stringify(options.body)
     }
 
@@ -115,7 +118,7 @@ export class DWSClient {
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       if (attempt > 0) {
         // Exponential backoff
-        await new Promise((resolve) => setTimeout(resolve, Math.pow(2, attempt) * 100))
+        await new Promise((resolve) => setTimeout(resolve, 2 ** attempt * 100))
       }
 
       const response = await fetch(url, fetchOptions)
@@ -148,7 +151,11 @@ export class DWSClient {
       }
 
       // Don't retry on client errors (4xx) except rate limits (429)
-      if (response.status >= 400 && response.status < 500 && response.status !== 429) {
+      if (
+        response.status >= 400 &&
+        response.status < 500 &&
+        response.status !== 429
+      ) {
         break
       }
     }
@@ -211,7 +218,9 @@ export class DWSClient {
   /**
    * Check provider health
    */
-  async checkProviderHealth(providerId: string): Promise<DWSResponse<{ healthy: boolean; latencyMs: number }>> {
+  async checkProviderHealth(
+    providerId: string,
+  ): Promise<DWSResponse<{ healthy: boolean; latencyMs: number }>> {
     return this.request({
       providerId: 'dws',
       endpoint: `/providers/${providerId}/health`,

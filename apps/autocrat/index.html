@@ -44,15 +44,16 @@
   </script>
   <link rel="stylesheet" href="./web/app/globals.css">
   <script>
+    // Process shim for browser compatibility with Node.js libraries
+    if (typeof process === 'undefined') {
+      window.process = { env: { NODE_ENV: 'development' }, browser: true };
+    }
+    // Theme initialization
     (function() {
-      try {
-        const savedTheme = localStorage.getItem('autocrat-theme');
-        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        if (savedTheme ? savedTheme === 'dark' : prefersDark) {
-          document.documentElement.classList.add('dark');
-        }
-      } catch (e) {
-        console.warn('Failed to initialize theme:', e);
+      var savedTheme = localStorage.getItem('autocrat-theme');
+      var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (savedTheme ? savedTheme === 'dark' : prefersDark) {
+        document.documentElement.classList.add('dark');
       }
     })();
   </script>
