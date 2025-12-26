@@ -16,7 +16,7 @@
 
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
-import { getRpcUrl } from '@jejunetwork/config'
+import { getContract, getRpcUrl } from '@jejunetwork/config'
 import { type Subprocess, spawn } from 'bun'
 import { JEJU_APPS, type JejuAppName } from '../api/workers/app-sdk'
 import { getRegionConfig } from '../api/workers/tee/regions'
@@ -327,18 +327,23 @@ async function main(): Promise<void> {
     contracts: {
       identityRegistry:
         process.env.IDENTITY_REGISTRY_ADDRESS ??
+        getContract('registry', 'identity', 'localnet') ??
         '0x0000000000000000000000000000000000000000',
       serviceRegistry:
         process.env.SERVICE_REGISTRY_ADDRESS ??
+        getContract('registry', 'service', 'localnet') ??
         '0x0000000000000000000000000000000000000000',
       agentVault:
         process.env.AGENT_VAULT_ADDRESS ??
+        getContract('agents', 'agentVault', 'localnet') ??
         '0x0000000000000000000000000000000000000000',
       roomRegistry:
         process.env.ROOM_REGISTRY_ADDRESS ??
+        getContract('agents', 'roomRegistry', 'localnet') ??
         '0x0000000000000000000000000000000000000000',
       triggerRegistry:
         process.env.TRIGGER_REGISTRY_ADDRESS ??
+        getContract('agents', 'triggerRegistry', 'localnet') ??
         '0x0000000000000000000000000000000000000000',
     },
   }

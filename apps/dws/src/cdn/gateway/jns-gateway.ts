@@ -11,7 +11,7 @@
  */
 
 import { cors } from '@elysiajs/cors'
-import { getRpcUrl } from '@jejunetwork/config'
+import { getRpcUrl, isProductionEnv } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import {
   type Address,
@@ -117,7 +117,7 @@ export class JNSGateway {
   private setupRoutes(): void {
     // SECURITY: Configure CORS based on environment
     const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',').filter(Boolean)
-    const isProduction = process.env.NODE_ENV === 'production'
+    const isProduction = isProductionEnv()
 
     this.app.use(
       cors({

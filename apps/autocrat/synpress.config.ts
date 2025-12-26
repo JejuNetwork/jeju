@@ -7,7 +7,7 @@ import {
   createSynpressConfig,
   createWalletSetup,
   PASSWORD,
-} from '@jejunetwork/tests'
+} from '@jejunetwork/tests/playwright-only'
 
 const AUTOCRAT_PORT = CORE_PORTS.AUTOCRAT_WEB.get()
 const BASE_URL = `http://localhost:${AUTOCRAT_PORT}`

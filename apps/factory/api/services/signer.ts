@@ -5,7 +5,8 @@
  * Handles key generation, encryption, storage, and on-chain registration.
  */
 
-import { DEFAULT_HUBS, FarcasterPoster } from '@jejunetwork/messaging'
+import { getFarcasterHubUrl } from '@jejunetwork/config'
+import { FarcasterPoster } from '@jejunetwork/messaging'
 import { createLogger } from '@jejunetwork/shared'
 import { ed25519 } from '@noble/curves/ed25519'
 import { hkdf } from '@noble/hashes/hkdf'
@@ -23,7 +24,7 @@ import {
 
 const log = createLogger('signer-service')
 
-const HUB_URL = process.env.FARCASTER_HUB_URL ?? DEFAULT_HUBS.mainnet
+const HUB_URL = getFarcasterHubUrl()
 const ENCRYPTION_KEY = process.env.SIGNER_ENCRYPTION_KEY
 
 if (!ENCRYPTION_KEY) {

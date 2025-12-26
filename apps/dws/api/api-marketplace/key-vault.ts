@@ -6,6 +6,7 @@
  * All state is persisted to CQL for serverless compatibility.
  */
 
+import { isProductionEnv, isTestMode } from '@jejunetwork/config'
 import { type CQLClient, getCQL } from '@jejunetwork/db'
 import { decryptAesGcm, encryptAesGcm, hash256 } from '@jejunetwork/shared'
 import type { Address } from 'viem'
@@ -109,8 +110,8 @@ let warnedAboutMissingSecret = false
  */
 function deriveKey(keyId: string): Uint8Array {
   const serverSecret = process.env.VAULT_ENCRYPTION_SECRET
-  const isProduction = process.env.NODE_ENV === 'production'
-  const isTest = process.env.NODE_ENV === 'test'
+  const isProduction = isProductionEnv()
+  const isTest = isTestMode()
 
   if (!serverSecret) {
     if (isProduction) {
@@ -493,7 +494,7 @@ async function generateAttestation(keyId: string): Promise<string> {
   }
 
   // Development mode - log warning
-  if (process.env.NODE_ENV === 'production') {
+  if (isProductionEnv()) {
     console.warn(
       '[KeyVault] TEE attestation endpoint not configured - using local attestation',
     )

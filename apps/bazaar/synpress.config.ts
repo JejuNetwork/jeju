@@ -1,5 +1,5 @@
 import { CORE_PORTS } from '@jejunetwork/config'
-import { createSynpressConfig, createWalletSetup } from '@jejunetwork/tests'
+import { createSynpressConfig, createWalletSetup } from '@jejunetwork/tests/playwright-only'
 
 const BAZAAR_PORT = CORE_PORTS.BAZAAR.get()
 

@@ -5,10 +5,10 @@
  * Uses X25519 + AES-GCM for end-to-end encryption.
  */
 
+import { getFarcasterHubUrl } from '@jejunetwork/config'
 import {
   createDirectCastClient,
   type DCClientState,
-  DEFAULT_HUBS,
   type DirectCast,
   type DirectCastClient,
   type DirectCastConversation,
@@ -20,7 +20,7 @@ import { getActiveSigner, getSignerPrivateKey } from './signer'
 
 const log = createLogger('dc-service')
 
-const HUB_URL = process.env.FARCASTER_HUB_URL ?? DEFAULT_HUBS.mainnet
+const HUB_URL = getFarcasterHubUrl()
 const DC_RELAY_URL = process.env.DC_RELAY_URL ?? 'http://localhost:3300'
 
 /**

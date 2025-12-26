@@ -238,11 +238,22 @@ function hexToBytes(hex: Hex): Uint8Array {
 }
 
 /**
- * Derive address from public key (simplified)
+ * Derive a deterministic identifier from an Ed25519 public key.
+ *
+ * IMPORTANT: This creates a pseudo-address by hashing the Ed25519 public key.
+ * It is NOT the same as the Ethereum address of the wallet that owns this key.
+ *
+ * For XMTP, the actual Ethereum address should be provided during key creation
+ * or import. This function is only used as a fallback to create a consistent
+ * identifier when the address is not available.
+ *
+ * @param publicKey - Ed25519 public key as hex
+ * @returns Deterministic address-format identifier (last 20 bytes of keccak256 hash)
  */
 export function deriveAddressFromPublicKey(publicKey: Hex): Address {
-  // For Ed25519, we use a simplified derivation
-  // In production, would handle this properly per XMTP spec
+  // Create deterministic identifier from Ed25519 public key
+  // Note: This is NOT an Ethereum address derivation (wrong curve)
+  // It's a fallback identifier when the real address is unknown
   const hash = keccak256(publicKey)
   return `0x${hash.slice(-40)}` as Address
 }
