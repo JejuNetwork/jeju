@@ -15,8 +15,8 @@
  * - {appName}-staging: Staging environment
  */
 
-import { getIpfsApiUrlEnv } from '@jejunetwork/config'
 import { createHash } from 'node:crypto'
+import { getIpfsApiUrlEnv } from '@jejunetwork/config'
 import { z } from 'zod'
 
 // IPFS API response schemas

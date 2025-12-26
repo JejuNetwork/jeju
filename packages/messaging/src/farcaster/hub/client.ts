@@ -66,7 +66,7 @@ function parseCastMessage(msg: ParsedCastMessage): FarcasterCast {
     timestamp: msg.data.timestamp,
     parentHash: msg.data.castAddBody.parentCastId?.hash as Hex | undefined,
     parentFid: msg.data.castAddBody.parentCastId?.fid,
-    parentUrl: msg.data.castAddBody.parentUrl,
+    parentUrl: msg.data.castAddBody.parentUrl ?? undefined,
     embeds: msg.data.castAddBody.embeds.map((e) => ({
       url: e.url,
       castId: e.castId

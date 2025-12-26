@@ -300,7 +300,9 @@ export class CDNClient {
 
     // Upload each file to storage
     const storageUrl =
-      process.env.DWS_STORAGE_URL || getServiceUrl('storage', 'api') || `${getDWSUrl()}/storage`
+      process.env.DWS_STORAGE_URL ||
+      getServiceUrl('storage', 'api') ||
+      `${getDWSUrl()}/storage`
 
     for (const file of files) {
       totalBytes += file.size

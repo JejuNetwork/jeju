@@ -36,7 +36,10 @@ const SignResponseSchema = z.object({
 
 const KeyGenResponseSchema = z.object({
   keyId: z.string(),
-  publicKey: z.string().regex(/^0x[a-fA-F0-9]+$/).optional(),
+  publicKey: z
+    .string()
+    .regex(/^0x[a-fA-F0-9]+$/)
+    .optional(),
 })
 
 // ============================================================================
@@ -69,7 +72,9 @@ export class ThresholdSigner {
 
   constructor(userId: string, config: ThresholdSignerConfig) {
     if (!isAddress(userId)) {
-      throw new Error(`Invalid userId format: ${userId}. Must be a hex address.`)
+      throw new Error(
+        `Invalid userId format: ${userId}. Must be a hex address.`,
+      )
     }
     this.userId = userId
     this.config = config
@@ -115,7 +120,9 @@ export class ThresholdSigner {
    */
   async signMessage(message: string): Promise<ThresholdSignResult> {
     if (!this.initialized || !this.keyId) {
-      throw new Error('ThresholdSigner not initialized. Call initialize() first.')
+      throw new Error(
+        'ThresholdSigner not initialized. Call initialize() first.',
+      )
     }
 
     const endpoint = this.config.endpoints[0]
@@ -151,7 +158,9 @@ export class ThresholdSigner {
   /**
    * Sign typed data (EIP-712) via DWS KMS
    */
-  async signTypedData(typedData: Record<string, JsonValue>): Promise<ThresholdSignResult> {
+  async signTypedData(
+    typedData: Record<string, JsonValue>,
+  ): Promise<ThresholdSignResult> {
     const message = JSON.stringify(typedData)
     return this.signMessage(message)
   }

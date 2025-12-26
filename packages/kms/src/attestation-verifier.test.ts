@@ -4,11 +4,11 @@
  * Tests verification of TEE attestations for SGX, Nitro, and local modes.
  */
 
-import { describe, test, expect, beforeEach } from 'bun:test'
-import { keccak256, toBytes, toHex } from 'viem'
+import { beforeEach, describe, expect, test } from 'bun:test'
 import type { Hex } from 'viem'
+import { keccak256, toBytes, toHex } from 'viem'
 import {
-  AttestationVerifier,
+  type AttestationVerifier,
   createAttestationVerifier,
   type TrustedMeasurement,
 } from './attestation-verifier'
@@ -161,7 +161,7 @@ describe('AttestationVerifier', () => {
 
     test('rejects quote that is too short', async () => {
       const attestation: TEEAttestation = {
-        quote: ('0x' + '00'.repeat(100)) as Hex, // Too short for SGX
+        quote: `0x${'00'.repeat(100)}` as Hex, // Too short for SGX
         measurement: keccak256(toBytes('measurement')) as Hex,
         timestamp: Date.now(),
         verified: false,
@@ -203,7 +203,7 @@ describe('AttestationVerifier', () => {
         measurement: keccak256(toBytes('measurement')) as Hex,
         timestamp: Date.now(),
         verified: true,
-        verifierSignature: ('0x' + '11'.repeat(65)) as Hex,
+        verifierSignature: `0x${'11'.repeat(65)}` as Hex,
       }
 
       const result = await verifier.verify(attestation)
@@ -224,7 +224,7 @@ describe('AttestationVerifier', () => {
         measurement: keccak256(toBytes('measurement')) as Hex,
         timestamp: Date.now(),
         verified: true,
-        verifierSignature: ('0x' + '22'.repeat(65)) as Hex,
+        verifierSignature: `0x${'22'.repeat(65)}` as Hex,
       }
 
       const result = await verifier.verify(attestation)
@@ -246,7 +246,7 @@ describe('AttestationVerifier', () => {
 
     test('rejects attestation that is too short', async () => {
       const attestation: TEEAttestation = {
-        quote: ('0x' + '00'.repeat(50)) as Hex, // Too short for Nitro
+        quote: `0x${'00'.repeat(50)}` as Hex, // Too short for Nitro
         measurement: keccak256(toBytes('measurement')) as Hex,
         timestamp: Date.now(),
         verified: false,
@@ -268,7 +268,7 @@ describe('AttestationVerifier', () => {
         measurement: keccak256(toBytes('measurement')) as Hex,
         timestamp: Date.now(),
         verified: true,
-        verifierSignature: ('0x' + '33'.repeat(65)) as Hex,
+        verifierSignature: `0x${'33'.repeat(65)}` as Hex,
       }
 
       const result = await verifier.verify(attestation)
@@ -332,7 +332,7 @@ describe('AttestationVerifier', () => {
         measurement: untrustedMeasurement,
         timestamp: Date.now(),
         verified: true,
-        verifierSignature: ('0x' + '11'.repeat(65)) as Hex,
+        verifierSignature: `0x${'11'.repeat(65)}` as Hex,
       }
 
       const result = await verifier.verify(attestation)
@@ -366,7 +366,7 @@ describe('AttestationVerifier', () => {
         measurement,
         timestamp: now,
         verified: true,
-        verifierSignature: ('0x' + '11'.repeat(65)) as Hex,
+        verifierSignature: `0x${'11'.repeat(65)}` as Hex,
       }
 
       const result = await verifier.verify(attestation)
@@ -400,7 +400,7 @@ describe('AttestationVerifier', () => {
         measurement,
         timestamp: now,
         verified: true,
-        verifierSignature: ('0x' + '11'.repeat(65)) as Hex,
+        verifierSignature: `0x${'11'.repeat(65)}` as Hex,
       }
 
       const result = await verifier.verify(attestation)
@@ -533,4 +533,3 @@ describe('AttestationVerifier', () => {
     })
   })
 })
-

@@ -1,17 +1,24 @@
 /**
  * CDN Routes
- * Includes JNS gateway for serving decentralized apps
+ * Includes:
+ * - JNS gateway for serving decentralized apps
+ * - Local CDN for serving all Jeju app frontends in devnet
+ * - IPFS content serving
+ * - Cache management
  */
 
 import { Elysia, t } from 'elysia'
 import type { Address } from 'viem'
 import { type EdgeCache, getEdgeCache, getOriginFetcher } from '../../cdn'
+import { getAppRegistry, initializeAppRegistry } from '../../../src/cdn/app-registry'
+import { getLocalCDNServer, initializeLocalCDN } from '../../../src/cdn/local-server'
 import {
   JNSGateway,
   type JNSGatewayConfig,
 } from '../../cdn/gateway/jns-gateway'
 
 let jnsGateway: JNSGateway | null = null
+let localCDNInitialized = false
 
 function getJNSGateway(): JNSGateway | null {
   if (jnsGateway) return jnsGateway
@@ -58,10 +65,30 @@ const cache: EdgeCache = getEdgeCache({
 })
 const fetcher = getOriginFetcher()
 
+async function ensureLocalCDNInitialized(): Promise<void> {
+  if (localCDNInitialized) return
+
+  const isDevnet = process.env.NODE_ENV !== 'production' || process.env.DEVNET === 'true'
+  if (isDevnet) {
+    const appsDir = process.env.JEJU_APPS_DIR ?? process.cwd().replace('/apps/dws', '/apps')
+    await initializeLocalCDN({ appsDir, cacheEnabled: true })
+    console.log(`[CDN] Local CDN initialized for devnet (apps: ${appsDir})`)
+  }
+  localCDNInitialized = true
+}
+
 export function createCDNRouter() {
+  // Initialize local CDN on router creation
+  ensureLocalCDNInitialized().catch((e) => {
+    console.warn(`[CDN] Local CDN initialization failed: ${e instanceof Error ? e.message : 'Unknown error'}`)
+  })
+
   return new Elysia({ prefix: '/cdn' })
     .get('/health', () => {
       const stats = cache.getStats()
+      const registry = getAppRegistry()
+      const apps = registry.getEnabledApps()
+
       return {
         status: 'healthy' as const,
         service: 'dws-cdn',
@@ -70,6 +97,10 @@ export function createCDNRouter() {
           sizeBytes: stats.sizeBytes,
           maxSizeBytes: stats.maxSizeBytes,
           hitRate: stats.hitRate,
+        },
+        apps: {
+          registered: apps.length,
+          names: apps.map((a) => a.name),
         },
       }
     })
@@ -198,4 +229,108 @@ export function createCDNRouter() {
       },
       { body: t.Object({ urls: t.Array(t.String(), { minItems: 1 }) }) },
     )
+
+    // === Jeju App Frontend Routes (Local Devnet) ===
+
+    .get('/apps', () => {
+      const registry = getAppRegistry()
+      const apps = registry.getEnabledApps().map((app) => ({
+        name: app.name,
+        displayName: app.displayName,
+        jnsName: app.jnsName,
+        port: app.port,
+        spa: app.spa,
+        staticDir: app.staticDir,
+        cid: app.cid,
+        routes: {
+          frontend: `/cdn/apps/${app.name}/`,
+          proxy: `http://localhost:${app.port}`,
+        },
+      }))
+
+      return {
+        mode: process.env.NODE_ENV === 'production' ? 'production' : 'devnet',
+        apps,
+        count: apps.length,
+      }
+    })
+
+    .get('/apps/:appName', async ({ params, set }) => {
+      const { appName } = params
+      const registry = getAppRegistry()
+      const app = registry.getApp(appName)
+
+      if (!app) {
+        set.status = 404
+        return { error: `App not found: ${appName}` }
+      }
+
+      return {
+        name: app.name,
+        displayName: app.displayName,
+        jnsName: app.jnsName,
+        port: app.port,
+        spa: app.spa,
+        staticDir: app.staticDir,
+        absoluteDir: app.absoluteDir,
+        cid: app.cid,
+        cacheRules: app.cacheRules,
+        routes: {
+          index: `/cdn/apps/${app.name}/`,
+          assets: `/cdn/apps/${app.name}/assets/`,
+        },
+      }
+    })
+
+    .get('/apps/:appName/*', async ({ params, request, set }) => {
+      const { appName } = params
+      const localCDN = getLocalCDNServer()
+
+      // Construct request for local CDN
+      const url = new URL(request.url)
+      const appPath = url.pathname.replace(`/cdn/apps/${appName}`, '') || '/'
+      const cdnRequest = new Request(`http://localhost/apps/${appName}${appPath}`)
+
+      const response = await localCDN.handleRequest(cdnRequest)
+
+      // Copy response headers
+      const headers = new Headers(response.headers)
+      set.status = response.status
+
+      if (response.status === 200) {
+        const body = await response.arrayBuffer()
+        return new Response(body, { headers })
+      }
+
+      return response.json()
+    })
+
+    // Serve app by JNS name (e.g., /cdn/jns-app/dws.jeju/)
+    .get('/jns-app/:jnsName/*', async ({ params, request, set }) => {
+      const { jnsName } = params
+      const registry = getAppRegistry()
+      const apps = registry.getEnabledApps()
+      const app = apps.find((a) => a.jnsName === jnsName || a.jnsName === `${jnsName}.jeju`)
+
+      if (!app) {
+        set.status = 404
+        return { error: `App not found for JNS name: ${jnsName}` }
+      }
+
+      const localCDN = getLocalCDNServer()
+      const url = new URL(request.url)
+      const appPath = url.pathname.replace(`/cdn/jns-app/${jnsName}`, '') || '/'
+      const cdnRequest = new Request(`http://localhost/apps/${app.name}${appPath}`)
+
+      const response = await localCDN.handleRequest(cdnRequest)
+      const headers = new Headers(response.headers)
+      set.status = response.status
+
+      if (response.status === 200) {
+        const body = await response.arrayBuffer()
+        return new Response(body, { headers })
+      }
+
+      return response.json()
+    })
 }

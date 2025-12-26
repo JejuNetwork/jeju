@@ -1019,7 +1019,7 @@ class CompleteBootstrapper {
       )
 
       // Register OAuth3 app names (dws.apps.jeju, etc.)
-      const oauth3Apps = ['dws', 'bazaar', 'example', 'gateway', 'auth']
+      const oauth3Apps = ['dws', 'bazaar', 'example', 'gateway', 'auth', 'babylon', 'factory', 'wallet', 'crucible', 'autocrat']
       for (const appName of oauth3Apps) {
         const appLabel = execSync(`cast keccak "${appName}"`, {
           encoding: 'utf-8',

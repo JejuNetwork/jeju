@@ -52,7 +52,7 @@ function createTestTrajectoryRecord(
       {
         stepId: 'step-1',
         stepNumber: 0,
-        timestamp: now,
+        timestamp: nowMs,
         environmentState: {
           timestamp: nowMs,
           agentBalance: 1000,
@@ -61,18 +61,18 @@ function createTestTrajectoryRecord(
           openPositions: 2,
         },
         action: {
+          timestamp: nowMs,
           actionType: 'buy',
           parameters: { symbol: 'ETH', amount: 1 },
           success: true,
           error: undefined,
         },
         reward: 0.5,
-        cumulativeReward: 0.5,
       },
       {
         stepId: 'step-2',
         stepNumber: 1,
-        timestamp: new Date(nowMs + 30000),
+        timestamp: nowMs + 30000,
         environmentState: {
           timestamp: nowMs + 30000,
           agentBalance: 1100,
@@ -81,13 +81,13 @@ function createTestTrajectoryRecord(
           openPositions: 1,
         },
         action: {
+          timestamp: nowMs + 30000,
           actionType: 'sell',
           parameters: { symbol: 'ETH', amount: 1 },
           success: true,
           error: undefined,
         },
         reward: 0.25,
-        cumulativeReward: 0.75,
       },
     ],
     rewardComponents: {
@@ -279,7 +279,7 @@ describe('StaticTrajectoryStorage', () => {
 
       const storage = new StaticTrajectoryStorage({
         appName: 'llm-test',
-        maxBufferSize: 1,
+        maxBufferSize: 10,
       })
 
       const trajectory = createTestTrajectoryRecord()
@@ -296,7 +296,7 @@ describe('StaticTrajectoryStorage', () => {
 
       // Verify the uploaded content includes LLM calls
       const uploadCall = fetchCalls[0]!
-      expect(uploadCall.url).toContain('/api/v1/upload')
+      expect(uploadCall.url).toContain('/storage/upload')
     })
 
     test('handles empty buffer flush gracefully', async () => {
@@ -355,7 +355,7 @@ describe('StaticTrajectoryStorage', () => {
 
       const storage = new StaticTrajectoryStorage({
         appName: 'jsonl-test',
-        maxBufferSize: 1,
+        maxBufferSize: 10,
       })
 
       const trajectory = createTestTrajectoryRecord({ archetype: 'test-archetype' })
@@ -440,7 +440,7 @@ describe('StaticTrajectoryStorage', () => {
 
       const storage = new StaticTrajectoryStorage({
         appName: 'retry-test',
-        maxBufferSize: 1,
+        maxBufferSize: 10,
       })
 
       await storage.saveTrajectory(createTestTrajectoryRecord())
@@ -469,7 +469,7 @@ describe('StaticTrajectoryStorage', () => {
 
       const storage = new StaticTrajectoryStorage({
         appName: 'retry-5xx-test',
-        maxBufferSize: 1,
+        maxBufferSize: 10,
       })
 
       await storage.saveTrajectory(createTestTrajectoryRecord())
@@ -493,7 +493,7 @@ describe('StaticTrajectoryStorage', () => {
 
       const storage = new StaticTrajectoryStorage({
         appName: 'retry-429-test',
-        maxBufferSize: 1,
+        maxBufferSize: 10,
       })
 
       await storage.saveTrajectory(createTestTrajectoryRecord())
@@ -510,7 +510,7 @@ describe('StaticTrajectoryStorage', () => {
 
       const storage = new StaticTrajectoryStorage({
         appName: 'retry-fail-test',
-        maxBufferSize: 1,
+        maxBufferSize: 10,
       })
 
       await storage.saveTrajectory(createTestTrajectoryRecord())
@@ -527,7 +527,7 @@ describe('StaticTrajectoryStorage', () => {
 
       const storage = new StaticTrajectoryStorage({
         appName: 'no-retry-4xx-test',
-        maxBufferSize: 1,
+        maxBufferSize: 10,
       })
 
       await storage.saveTrajectory(createTestTrajectoryRecord())
@@ -554,7 +554,7 @@ describe('StaticTrajectoryStorage', () => {
 
       const storage = new StaticTrajectoryStorage({
         appName: 'network-error-test',
-        maxBufferSize: 1,
+        maxBufferSize: 10,
       })
 
       await storage.saveTrajectory(createTestTrajectoryRecord())
@@ -577,7 +577,7 @@ describe('StaticTrajectoryStorage', () => {
 
       const storage = new StaticTrajectoryStorage({
         appName: 'no-steps-test',
-        maxBufferSize: 1,
+        maxBufferSize: 10,
       })
 
       const traj = createTestTrajectoryRecord({ steps: [] })
@@ -596,7 +596,7 @@ describe('StaticTrajectoryStorage', () => {
 
       const storage = new StaticTrajectoryStorage({
         appName: 'mixed-archetype-test',
-        maxBufferSize: 3,
+        maxBufferSize: 10,
       })
 
       await storage.saveTrajectory(createTestTrajectoryRecord({ archetype: 'trader' }))
@@ -619,7 +619,7 @@ describe('StaticTrajectoryStorage', () => {
 
       const storage = new StaticTrajectoryStorage({
         appName: 'null-archetype-test',
-        maxBufferSize: 1,
+        maxBufferSize: 10,
       })
 
       await storage.saveTrajectory(createTestTrajectoryRecord({ archetype: null }))
@@ -637,29 +637,30 @@ describe('StaticTrajectoryStorage', () => {
 
       const storage = new StaticTrajectoryStorage({
         appName: 'large-traj-test',
-        maxBufferSize: 1,
+        maxBufferSize: 10,
       })
 
       // Create trajectory with many steps
+      const baseTime = Date.now()
       const steps = Array.from({ length: 100 }, (_, i) => ({
         stepId: `step-${i}`,
         stepNumber: i,
-        timestamp: new Date(),
+        timestamp: baseTime + i * 1000,
         environmentState: {
-          timestamp: Date.now(),
+          timestamp: baseTime + i * 1000,
           agentBalance: 1000 + i,
           agentPoints: i,
           agentPnL: i * 10,
           openPositions: i % 5,
         },
         action: {
+          timestamp: baseTime + i * 1000,
           actionType: i % 2 === 0 ? 'buy' : 'sell',
           parameters: { amount: i },
           success: true,
-          error: null,
+          error: undefined,
         },
         reward: Math.random(),
-        cumulativeReward: i * 0.1,
       }))
 
       await storage.saveTrajectory(createTestTrajectoryRecord({ steps }))
@@ -677,7 +678,7 @@ describe('StaticTrajectoryStorage', () => {
 
       const storage = new StaticTrajectoryStorage({
         appName: 'invalid-response-test',
-        maxBufferSize: 1,
+        maxBufferSize: 10,
       })
 
       await storage.saveTrajectory(createTestTrajectoryRecord())
@@ -696,7 +697,7 @@ describe('StaticTrajectoryStorage', () => {
 
       const storage = new StaticTrajectoryStorage({
         appName: 'totals-test',
-        maxBufferSize: 3,
+        maxBufferSize: 10,
       })
 
       const traj1 = createTestTrajectoryRecord({ totalReward: 0.5 })
@@ -724,7 +725,7 @@ describe('StaticTrajectoryStorage', () => {
 
       const storage = new StaticTrajectoryStorage({
         appName: 'time-window-test',
-        maxBufferSize: 3,
+        maxBufferSize: 10,
       })
 
       const now = Date.now()

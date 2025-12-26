@@ -463,17 +463,19 @@ export class CrossChainIdentityManager {
         args: [intentId],
       })
 
-    const rawStatus =
-      INTENT_STATUS[statusCode as keyof typeof INTENT_STATUS] ?? 'pending'
-    
+    const rawStatus = (INTENT_STATUS[statusCode as keyof typeof INTENT_STATUS] ??
+      'pending') as (typeof INTENT_STATUS)[keyof typeof INTENT_STATUS]
+
     // Map 'expired' to 'failed' since our return type doesn't include 'expired'
-    const status = rawStatus === 'expired' ? 'failed' : rawStatus
+    const status: 'pending' | 'solving' | 'executed' | 'failed' =
+      rawStatus === 'expired' ? 'failed' : rawStatus
 
     if (status === 'executed' && executedAt > 0n) {
       return {
         status: 'executed',
         executionTx: executionTx as Hex,
         solution: {
+          solverId: solver as Address,
           intentId,
           executionData: executionTx as Hex,
           gasUsed: 0n,
@@ -482,10 +484,7 @@ export class CrossChainIdentityManager {
       }
     }
 
-    // Map the raw status to our expected union type
-    const finalStatus = status === 'expired' ? 'failed' : status
-
-    return { status: finalStatus }
+    return { status }
   }
 
   getIdentityState(identityId: Hex): CrossChainIdentityState | undefined {

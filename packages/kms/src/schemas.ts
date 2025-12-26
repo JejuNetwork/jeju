@@ -294,7 +294,6 @@ export const mpcCoordinatorConfigSchema = z
   })
   .strict()
 
-
 // DA API response schemas
 export const daSecretsListResponseSchema = z.object({
   secrets: z.array(

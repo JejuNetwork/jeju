@@ -2,10 +2,7 @@
  * Storage SDK - Handles agent state persistence on IPFS with DWS cache layer.
  */
 
-import {
-  type CacheClient,
-  getCacheClient,
-} from '@jejunetwork/shared'
+import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 import type { AgentCharacter, AgentState, RoomState } from '../../lib/types'
 import {
   AgentCharacterSchema,

@@ -22,7 +22,8 @@ export const CHAIN_ID = getChainId(NETWORK)
 export const RPC_URL = getRpcUrl(NETWORK)
 
 // External services - from config, empty means use relative URLs (same origin)
-export const AUTOCRAT_API_URL = getServiceUrl('compute', 'nodeApi', NETWORK) || ''
+export const AUTOCRAT_API_URL =
+  getServiceUrl('compute', 'nodeApi', NETWORK) || ''
 export const OAUTH3_AGENT_URL = getOAuth3Url(NETWORK)
 
 // Contract addresses
@@ -32,4 +33,6 @@ export const AUTOCRAT_ADDRESS =
 
 // WalletConnect - disabled by default in development
 export const WALLETCONNECT_PROJECT_ID =
-  NETWORK === 'localnet' ? '' : (process.env.PUBLIC_WALLETCONNECT_PROJECT_ID ?? '')
+  NETWORK === 'localnet'
+    ? ''
+    : (process.env.PUBLIC_WALLETCONNECT_PROJECT_ID ?? '')

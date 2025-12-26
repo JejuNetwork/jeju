@@ -5,8 +5,13 @@ import type { Address } from 'viem'
 import { cidResponseSchema, parseJsonResponse } from '../../lib/schemas'
 
 const STORAGE_ENDPOINT =
-  process.env.STORAGE_API_ENDPOINT || getServiceUrl('storage', 'api') || 'http://localhost:4010'
-const IPFS_GATEWAY = process.env.IPFS_GATEWAY || getServiceUrl('storage', 'ipfsGateway') || 'http://localhost:4180'
+  process.env.STORAGE_API_ENDPOINT ||
+  getServiceUrl('storage', 'api') ||
+  'http://localhost:4010'
+const IPFS_GATEWAY =
+  process.env.IPFS_GATEWAY ||
+  getServiceUrl('storage', 'ipfsGateway') ||
+  'http://localhost:4180'
 const STORAGE_TIMEOUT = 30000
 
 interface StorageService {

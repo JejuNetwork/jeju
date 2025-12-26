@@ -8,15 +8,14 @@ import {
   createTask as dbCreateTask,
   listProjects as dbListProjects,
   updateTask as dbUpdateTask,
-  getProject,
-  getProjectTasks,
-  getProjectChannel,
-  setProjectChannel,
   deleteProjectChannel,
+  getProject,
+  getProjectChannel,
+  getProjectTasks,
   type ProjectRow,
+  setProjectChannel,
   type TaskRow,
 } from '../db/client'
-import * as farcasterService from '../services/farcaster'
 import {
   CreateProjectBodySchema,
   CreateTaskBodySchema,
@@ -24,6 +23,7 @@ import {
   ProjectsQuerySchema,
   UpdateTaskBodySchema,
 } from '../schemas'
+import * as farcasterService from '../services/farcaster'
 import { requireAuth } from '../validation/access-control'
 
 export type { Project, ProjectTask }
@@ -247,7 +247,9 @@ export const projectsRoutes = new Elysia({ prefix: '/api/projects' })
         },
       }
     },
-    { detail: { tags: ['projects'], summary: 'Get project Farcaster channel' } },
+    {
+      detail: { tags: ['projects'], summary: 'Get project Farcaster channel' },
+    },
   )
   .post(
     '/:projectId/channel',
@@ -295,7 +297,9 @@ export const projectsRoutes = new Elysia({ prefix: '/api/projects' })
         },
       }
     },
-    { detail: { tags: ['projects'], summary: 'Set project Farcaster channel' } },
+    {
+      detail: { tags: ['projects'], summary: 'Set project Farcaster channel' },
+    },
   )
   .delete(
     '/:projectId/channel',
@@ -331,7 +335,12 @@ export const projectsRoutes = new Elysia({ prefix: '/api/projects' })
       deleteProjectChannel(params.projectId)
       return { success: true }
     },
-    { detail: { tags: ['projects'], summary: 'Remove project Farcaster channel' } },
+    {
+      detail: {
+        tags: ['projects'],
+        summary: 'Remove project Farcaster channel',
+      },
+    },
   )
   .get(
     '/:projectId/feed',

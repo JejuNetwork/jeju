@@ -38,16 +38,16 @@ pub struct TransactionResult {
 /// Wallet manager handles both embedded and external wallets
 pub struct WalletManager {
     signer: Option<PrivateKeySigner>,
-    chain_id: u64,
-    rpc_url: String,
+    _chain_id: u64,
+    _rpc_url: String,
 }
 
 impl WalletManager {
     pub fn new(rpc_url: &str, chain_id: u64) -> Self {
         Self {
             signer: None,
-            chain_id,
-            rpc_url: rpc_url.to_string(),
+            _chain_id: chain_id,
+            _rpc_url: rpc_url.to_string(),
         }
     }
 
@@ -131,6 +131,7 @@ impl WalletManager {
     }
 
     /// Load encrypted wallet
+    #[allow(dead_code)]
     pub fn load_wallet(
         &mut self,
         encrypted_key: &str,
@@ -151,11 +152,13 @@ impl WalletManager {
     }
 
     /// Get wallet address
+    #[allow(dead_code)]
     pub fn address(&self) -> Option<String> {
         self.signer.as_ref().map(|s| format!("{:?}", s.address()))
     }
 
     /// Get balances
+    #[allow(dead_code)]
     pub async fn get_balance(&self) -> Result<BalanceInfo, String> {
         // TODO: Use alloy provider to fetch balance
         // For now return placeholder
@@ -168,6 +171,7 @@ impl WalletManager {
     }
 
     /// Sign a message
+    #[allow(dead_code)]
     pub async fn sign_message(&self, message: &str) -> Result<String, String> {
         let signer = self.signer.as_ref().ok_or("Wallet not initialized")?;
 
@@ -180,6 +184,7 @@ impl WalletManager {
     }
 
     /// Send a transaction
+    #[allow(dead_code)]
     pub async fn send_transaction(
         &self,
         to: &str,

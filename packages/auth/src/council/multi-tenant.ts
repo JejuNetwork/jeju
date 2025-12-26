@@ -5,6 +5,10 @@
  * CEOs, and governance while sharing the same infrastructure.
  */
 
+import {
+  getCouncilElizaOauth3App,
+  getCouncilJejuOauth3App,
+} from '@jejunetwork/config'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import { type Address, type Hex, isAddress, keccak256, toBytes } from 'viem'
 import type {

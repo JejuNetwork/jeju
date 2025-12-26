@@ -274,7 +274,10 @@ export class XMTPMessageRouter {
     )
 
     for (let i = 0; i < count && i < sorted.length; i++) {
-      this.pendingMessages.delete(sorted[i][0])
+      const entry = sorted[i]
+      if (entry) {
+        this.pendingMessages.delete(entry[0])
+      }
     }
   }
 

@@ -22,7 +22,9 @@ pub struct WireGuardConfig {
     pub private_key: String,
     pub peer_pubkey: String,
     pub endpoint: String,
+    #[allow(dead_code)]
     pub allowed_ips: Vec<String>,
+    #[allow(dead_code)]
     pub dns: Vec<String>,
     pub keepalive: u16,
 }
@@ -190,6 +192,7 @@ impl WireGuardTunnel {
     }
 
     /// Get tunnel state
+    #[allow(dead_code)]
     pub async fn get_state(&self) -> TunnelState {
         *self.state.lock()
     }
@@ -214,6 +217,7 @@ impl WireGuardTunnel {
     }
 
     /// Record bytes transferred (for external tracking)
+    #[allow(dead_code)]
     pub async fn record_transfer(&self, bytes_up: u64, bytes_down: u64) {
         self.bytes_up.fetch_add(bytes_up, Ordering::Relaxed);
         self.bytes_down.fetch_add(bytes_down, Ordering::Relaxed);
@@ -422,12 +426,14 @@ pub fn generate_keypair() -> (String, String) {
 }
 
 /// Generate just a private key
+#[allow(dead_code)]
 pub fn generate_private_key() -> String {
     let (private_key, _) = generate_keypair();
     private_key
 }
 
 /// Derive public key from private key
+#[allow(dead_code)]
 pub fn derive_public_key(private_key: &str) -> Result<String, VPNError> {
     use base64::Engine;
 
@@ -448,6 +454,7 @@ mod platform {
     use std::io::{Read, Write};
     use std::sync::Arc;
     use tokio::sync::Mutex;
+    use tun::Device;
 
     pub struct TunDevice {
         pub name: String,
@@ -524,6 +531,7 @@ mod platform {
     use std::io::{Read, Write};
     use std::sync::Arc;
     use tokio::sync::Mutex;
+    use tun::Device;
 
     pub struct TunDevice {
         pub name: String,
@@ -702,7 +710,7 @@ mod platform {
 }
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
-use platform::{create_tun_interface, read_from_tun, write_to_tun, TunDevice};
+use platform::{create_tun_interface, read_from_tun, write_to_tun};
 
 #[cfg(target_os = "windows")]
 use platform::TunDevice;

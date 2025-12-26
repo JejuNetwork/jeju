@@ -36,6 +36,7 @@ pub struct UpdateConfigRequest {
     pub notifications_enabled: Option<bool>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NetworkOption {
     pub id: String,

@@ -215,7 +215,7 @@ Only respond with the JSON object, no other text.`
 
       if (!result.success) {
         logger.warn(`Invalid comment decision from LLM`, {
-          errors: result.error.errors,
+          errors: JSON.stringify(result.error.issues),
         })
         return {
           shouldComment: false,
@@ -225,8 +225,8 @@ Only respond with the JSON object, no other text.`
 
       logger.info(`Agent ${agentId} comment decision`, {
         shouldComment: result.data.shouldComment,
-        postId: result.data.postId,
-        contentLength: result.data.content?.length,
+        postId: result.data.postId ?? null,
+        contentLength: result.data.content?.length ?? 0,
       })
 
       return result.data

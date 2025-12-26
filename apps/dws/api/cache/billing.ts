@@ -124,13 +124,15 @@ export interface CachePaymentConfig {
   rpcUrl?: string
 }
 
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address
+
 const DEFAULT_PAYMENT_CONFIG: CachePaymentConfig = {
-  paymentRecipient: '0x0000000000000000000000000000000000000000' as Address,
+  paymentRecipient: ZERO_ADDRESS,
   networkId: 420690,
-  assetAddress: '0x0000000000000000000000000000000000000000' as Address,
+  assetAddress: ZERO_ADDRESS,
   platformFeeBps: 500,
   baseUrl: 'https://cache.dws.jeju.network',
-  trustPaymentProofs: true,
+  trustPaymentProofs: false, // Production default: require on-chain verification
 }
 
 export interface PaymentRequirement {
@@ -161,11 +163,6 @@ export interface PaymentProof {
   timestamp: number
 }
 
-/**
- * Cache Billing Manager
- *
- * Handles all billing operations for cache instances
- */
 export class CacheBillingManager {
   private config: CachePaymentConfig
   private subscriptions: Map<string, CacheSubscription> = new Map()
@@ -179,33 +176,41 @@ export class CacheBillingManager {
     this.config = { ...DEFAULT_PAYMENT_CONFIG, ...config }
   }
 
-  /**
-   * Initialize billing manager with CQL persistence
-   * Falls back to in-memory storage if CQL is not available
-   */
   async initialize(): Promise<void> {
     if (this.initialized) return
 
-    // Try to initialize CQL, but don't fail if not available
+    // Validate production config
+    if (!this.config.trustPaymentProofs) {
+      if (this.config.paymentRecipient === ZERO_ADDRESS) {
+        throw new Error(
+          '[Cache Billing] FATAL: paymentRecipient is zero address but trustPaymentProofs=false. ' +
+            'Configure a valid payment recipient or set trustPaymentProofs=true for development.',
+        )
+      }
+      if (!this.config.rpcUrl) {
+        throw new Error(
+          '[Cache Billing] FATAL: rpcUrl required when trustPaymentProofs=false. ' +
+            'Configure rpcUrl for on-chain verification or set trustPaymentProofs=true for development.',
+        )
+      }
+    } else if (this.config.paymentRecipient === ZERO_ADDRESS) {
+      console.warn(
+        '[Cache Billing] WARNING: Using zero address as payment recipient with trustPaymentProofs=true. ' +
+          'This is only safe for development/testing.',
+      )
+    }
+
     try {
       this.cqlClient = getCQL()
       await this.ensureTables()
       await this.loadFromCQL()
-      console.log('[Cache Billing] Initialized with CQL persistence')
     } catch (_err) {
-      // CQL not available - use in-memory storage only
       this.cqlClient = null
-      console.log(
-        '[Cache Billing] Initialized with in-memory storage (CQL not available)',
-      )
     }
 
     this.initialized = true
   }
 
-  /**
-   * Create billing tables
-   */
   private async ensureTables(): Promise<void> {
     if (!this.cqlClient) return
 
@@ -278,13 +283,8 @@ export class CacheBillingManager {
         payment_id TEXT
       )
     `)
-
-    console.log('[Cache Billing] CQL tables ensured')
   }
 
-  /**
-   * Load subscriptions and payments from CQL
-   */
   private async loadFromCQL(): Promise<void> {
     if (!this.cqlClient) return
 
@@ -322,15 +322,8 @@ export class CacheBillingManager {
         cancelledAt: row.cancelled_at ?? undefined,
       })
     }
-
-    console.log(
-      `[Cache Billing] Loaded ${this.subscriptions.size} subscriptions`,
-    )
   }
 
-  /**
-   * Create a 402 Payment Required response
-   */
   createPaymentRequirement(
     plan: CacheRentalPlan,
     billingMode: BillingMode,
@@ -366,9 +359,6 @@ export class CacheBillingManager {
     }
   }
 
-  /**
-   * Parse payment proof from request headers
-   */
   parsePaymentProof(headers: Record<string, string>): PaymentProof | null {
     const proofHeader = headers['x-payment-proof'] || headers['X-Payment-Proof']
     if (!proofHeader) return null
@@ -395,13 +385,7 @@ export class CacheBillingManager {
     }
   }
 
-  /**
-   * Verify a payment proof
-   *
-   * IMPORTANT: When trustPaymentProofs is true (default for dev), payment proofs
-   * are trusted without on-chain verification. For production, set trustPaymentProofs
-   * to false and provide an rpcUrl for proper verification.
-   */
+  /** When trustPaymentProofs=true, proofs are trusted without chain verification */
   async verifyPayment(
     proof: PaymentProof,
     expectedAmount: bigint,
@@ -432,16 +416,10 @@ export class CacheBillingManager {
       }
     }
 
-    // If trustPaymentProofs is enabled (dev mode), skip on-chain verification
     if (this.config.trustPaymentProofs) {
-      console.warn(
-        '[Cache Billing] WARNING: Payment proof trusted without on-chain verification. ' +
-          'Set trustPaymentProofs=false and provide rpcUrl for production.',
-      )
       return { valid: true }
     }
 
-    // On-chain verification required but no RPC URL
     if (!this.config.rpcUrl) {
       return {
         valid: false,
@@ -449,21 +427,9 @@ export class CacheBillingManager {
       }
     }
 
-    // Verify on-chain via RPC
-    // This verifies:
-    // 1. Transaction exists and is confirmed
-    // 2. Transfer event was emitted with correct amount/recipient
-    const verified = await this.verifyOnChain(proof)
-    if (!verified.valid) {
-      return verified
-    }
-
-    return { valid: true }
+    return this.verifyOnChain(proof)
   }
 
-  /**
-   * Verify payment on-chain via RPC
-   */
   private async verifyOnChain(
     proof: PaymentProof,
   ): Promise<{ valid: boolean; error?: string }> {
@@ -488,20 +454,21 @@ export class CacheBillingManager {
     }
 
     const result = (await response.json()) as {
-      result: { status: string; logs: Array<{ topics: string[]; data: string }> } | null
+      result: {
+        status: string
+        logs: Array<{ topics: string[]; data: string }>
+      } | null
     }
 
     if (!result.result) {
       return { valid: false, error: 'Transaction not found or not confirmed' }
     }
 
-    // Check transaction succeeded (status 0x1)
     if (result.result.status !== '0x1') {
       return { valid: false, error: 'Transaction failed' }
     }
 
-    // For ERC-20 transfers, verify Transfer event
-    // Topic0 for Transfer(address,address,uint256) = 0xddf252ad...
+    // ERC-20 Transfer event topic
     const TRANSFER_TOPIC =
       '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
 
@@ -509,15 +476,15 @@ export class CacheBillingManager {
       (log) => log.topics[0] === TRANSFER_TOPIC,
     )
 
+    // No Transfer event = ETH transfer, accept if tx succeeded
     if (transferLogs.length === 0) {
-      // Could be ETH transfer - check value
-      // For now, accept if tx succeeded
-      console.log('[Cache Billing] No Transfer event found, accepting tx success')
       return { valid: true }
     }
 
-    // Verify recipient (topic[2] is 'to' address, padded to 32 bytes)
-    const expectedRecipient = this.config.paymentRecipient.toLowerCase().slice(2).padStart(64, '0')
+    const expectedRecipient = this.config.paymentRecipient
+      .toLowerCase()
+      .slice(2)
+      .padStart(64, '0')
     const hasCorrectRecipient = transferLogs.some(
       (log) => log.topics[2]?.slice(2).toLowerCase() === expectedRecipient,
     )
@@ -529,9 +496,6 @@ export class CacheBillingManager {
     return { valid: true }
   }
 
-  /**
-   * Create a subscription for an instance
-   */
   async createSubscription(
     instanceId: string,
     owner: Address,
@@ -544,7 +508,6 @@ export class CacheBillingManager {
         ? plan.pricePerMonth
         : plan.pricePerHour
 
-    // Verify payment
     const verification = await this.verifyPayment(proof, expectedAmount)
     if (!verification.valid) {
       throw new Error(`Payment verification failed: ${verification.error}`)
@@ -553,18 +516,18 @@ export class CacheBillingManager {
     const now = Date.now()
     const periodMs =
       billingMode === BillingMode.MONTHLY
-        ? 30 * 24 * 60 * 60 * 1000 // 30 days
-        : 60 * 60 * 1000 // 1 hour
+        ? 30 * 24 * 60 * 60 * 1000
+        : 60 * 60 * 1000
 
-    const subscriptionId = keccak256(
-      toBytes(`subscription:${instanceId}:${now}`),
-    ).slice(0, 18)
+    const subscriptionId = keccak256(toBytes(`sub:${instanceId}:${now}`)).slice(
+      0,
+      18,
+    )
+    const paymentId = keccak256(toBytes(`pay:${proof.txHash}:${now}`)).slice(
+      0,
+      18,
+    )
 
-    const paymentId = keccak256(
-      toBytes(`payment:${proof.txHash}:${now}`),
-    ).slice(0, 18)
-
-    // Create payment record
     const payment: CachePayment = {
       id: paymentId,
       instanceId,
@@ -582,7 +545,6 @@ export class CacheBillingManager {
 
     this.payments.set(paymentId, payment)
 
-    // Create subscription
     const subscription: CacheSubscription = {
       id: subscriptionId,
       instanceId,
@@ -599,21 +561,11 @@ export class CacheBillingManager {
     }
 
     this.subscriptions.set(subscriptionId, subscription)
-
-    // Persist to CQL
     await this.persistSubscription(subscription)
     await this.persistPayment(payment)
-
-    console.log(
-      `[Cache Billing] Created subscription ${subscriptionId} for instance ${instanceId}`,
-    )
-
     return subscription
   }
 
-  /**
-   * Process a renewal payment
-   */
   async processRenewal(
     subscriptionId: string,
     proof: PaymentProof,
@@ -633,7 +585,6 @@ export class CacheBillingManager {
         ? plan.pricePerMonth
         : plan.pricePerHour
 
-    // Verify payment
     const verification = await this.verifyPayment(proof, expectedAmount)
     if (!verification.valid) {
       throw new Error(`Payment verification failed: ${verification.error}`)
@@ -645,11 +596,11 @@ export class CacheBillingManager {
         ? 30 * 24 * 60 * 60 * 1000
         : 60 * 60 * 1000
 
-    const paymentId = keccak256(
-      toBytes(`payment:${proof.txHash}:${now}`),
-    ).slice(0, 18)
+    const paymentId = keccak256(toBytes(`pay:${proof.txHash}:${now}`)).slice(
+      0,
+      18,
+    )
 
-    // Create payment record
     const payment: CachePayment = {
       id: paymentId,
       instanceId: subscription.instanceId,
@@ -666,27 +617,17 @@ export class CacheBillingManager {
     }
 
     this.payments.set(paymentId, payment)
-
-    // Update subscription
     subscription.currentPeriodStart = subscription.currentPeriodEnd
     subscription.currentPeriodEnd = subscription.currentPeriodEnd + periodMs
     subscription.nextBillingDate = subscription.currentPeriodEnd
     subscription.lastPaymentId = paymentId
     subscription.totalPaid = subscription.totalPaid + proof.amount
     subscription.status = SubscriptionStatus.ACTIVE
-
-    // Persist
     await this.persistSubscription(subscription)
     await this.persistPayment(payment)
-
-    console.log(`[Cache Billing] Renewed subscription ${subscriptionId}`)
-
     return subscription
   }
 
-  /**
-   * Cancel a subscription
-   */
   async cancelSubscription(
     subscriptionId: string,
     owner: Address,
@@ -702,17 +643,10 @@ export class CacheBillingManager {
 
     subscription.status = SubscriptionStatus.CANCELLED
     subscription.cancelledAt = Date.now()
-
     await this.persistSubscription(subscription)
-
-    console.log(`[Cache Billing] Cancelled subscription ${subscriptionId}`)
-
     return subscription
   }
 
-  /**
-   * Get subscription for an instance
-   */
   getSubscription(instanceId: string): CacheSubscription | undefined {
     for (const sub of this.subscriptions.values()) {
       if (
@@ -725,9 +659,6 @@ export class CacheBillingManager {
     return undefined
   }
 
-  /**
-   * Check if instance has active billing
-   */
   hasActiveBilling(instanceId: string): boolean {
     const sub = this.getSubscription(instanceId)
     if (!sub) return false
@@ -738,9 +669,6 @@ export class CacheBillingManager {
     )
   }
 
-  /**
-   * Record usage metrics for an instance
-   */
   async recordUsage(
     instanceId: string,
     metrics: Omit<UsageMetrics, 'instanceId'>,
@@ -754,7 +682,6 @@ export class CacheBillingManager {
     existing.push(fullMetrics)
     this.usageMetrics.set(instanceId, existing)
 
-    // Persist to CQL
     if (this.cqlClient) {
       const id = keccak256(
         toBytes(`usage:${instanceId}:${metrics.periodStart}`),
@@ -783,9 +710,6 @@ export class CacheBillingManager {
     }
   }
 
-  /**
-   * Generate an invoice for an instance
-   */
   async generateInvoice(
     instance: CacheInstance,
     plan: CacheRentalPlan,
@@ -793,10 +717,7 @@ export class CacheBillingManager {
     periodEnd: number,
   ): Promise<BillingInvoice> {
     const subscription = this.getSubscription(instance.id)
-    // Default to hourly billing for instances without subscription (pay-as-you-go)
     const billingMode = subscription?.billingMode ?? BillingMode.HOURLY
-
-    // Calculate line items
     const lineItems: InvoiceLineItem[] = []
 
     if (billingMode === BillingMode.MONTHLY) {
@@ -816,19 +737,17 @@ export class CacheBillingManager {
       })
     }
 
-    // Get usage metrics for metered billing
     const metrics = this.usageMetrics.get(instance.id) || []
     const periodMetrics = metrics.filter(
       (m) => m.periodStart >= periodStart && m.periodEnd <= periodEnd,
     )
 
-    // Add metered charges if applicable
     if (periodMetrics.length > 0 && billingMode === BillingMode.METERED) {
       const totalOps = periodMetrics.reduce(
         (sum, m) => sum + m.operations.total,
         0,
       )
-      const opCost = 1000000000n // 0.000000001 ETH per operation
+      const opCost = 1000000000n
       lineItems.push({
         description: 'Operations (metered)',
         quantity: totalOps,
@@ -842,7 +761,7 @@ export class CacheBillingManager {
     const total = subtotal + platformFee
 
     const invoiceId = keccak256(
-      toBytes(`invoice:${instance.id}:${periodStart}`),
+      toBytes(`inv:${instance.id}:${periodStart}`),
     ).slice(0, 18)
 
     const invoice: BillingInvoice = {
@@ -861,7 +780,6 @@ export class CacheBillingManager {
 
     this.invoices.set(invoiceId, invoice)
 
-    // Persist to CQL
     if (this.cqlClient) {
       await this.cqlClient.exec(
         `INSERT INTO cache_invoices
@@ -889,16 +807,9 @@ export class CacheBillingManager {
       )
     }
 
-    console.log(
-      `[Cache Billing] Generated invoice ${invoiceId} for ${instance.id}`,
-    )
-
     return invoice
   }
 
-  /**
-   * Get payment history for an owner
-   */
   getPaymentHistory(owner: Address): CachePayment[] {
     const payments: CachePayment[] = []
     for (const payment of this.payments.values()) {
@@ -909,9 +820,6 @@ export class CacheBillingManager {
     return payments.sort((a, b) => b.createdAt - a.createdAt)
   }
 
-  /**
-   * Get invoices for an owner
-   */
   getInvoices(owner: Address): BillingInvoice[] {
     const invoices: BillingInvoice[] = []
     for (const invoice of this.invoices.values()) {
@@ -922,9 +830,6 @@ export class CacheBillingManager {
     return invoices.sort((a, b) => b.createdAt - a.createdAt)
   }
 
-  /**
-   * Get billing statistics
-   */
   getBillingStats(): {
     totalSubscriptions: number
     activeSubscriptions: number
@@ -951,38 +856,24 @@ export class CacheBillingManager {
     }
   }
 
-  /**
-   * Check for expired subscriptions and update status
-   */
   async processExpiredSubscriptions(): Promise<number> {
     const now = Date.now()
+    const gracePeriod = 24 * 60 * 60 * 1000
     let expired = 0
 
     for (const subscription of this.subscriptions.values()) {
       if (
         subscription.status === SubscriptionStatus.ACTIVE &&
-        subscription.currentPeriodEnd < now
+        subscription.currentPeriodEnd + gracePeriod < now
       ) {
-        // Grace period of 24 hours before marking as past_due
-        const gracePeriod = 24 * 60 * 60 * 1000
-        if (subscription.currentPeriodEnd + gracePeriod < now) {
-          subscription.status = SubscriptionStatus.PAST_DUE
-          await this.persistSubscription(subscription)
-          expired++
-        }
+        subscription.status = SubscriptionStatus.PAST_DUE
+        await this.persistSubscription(subscription)
+        expired++
       }
     }
-
-    if (expired > 0) {
-      console.log(`[Cache Billing] Marked ${expired} subscriptions as past_due`)
-    }
-
     return expired
   }
 
-  /**
-   * Persist subscription to CQL
-   */
   private async persistSubscription(sub: CacheSubscription): Promise<void> {
     if (!this.cqlClient) return
 
@@ -1009,9 +900,6 @@ export class CacheBillingManager {
     )
   }
 
-  /**
-   * Persist payment to CQL
-   */
   private async persistPayment(payment: CachePayment): Promise<void> {
     if (!this.cqlClient) return
 
@@ -1037,21 +925,13 @@ export class CacheBillingManager {
     )
   }
 
-  /**
-   * Stop the billing manager
-   */
   stop(): void {
     this.initialized = false
-    console.log('[Cache Billing] Stopped')
   }
 }
 
-// Singleton instance
 let billingManager: CacheBillingManager | null = null
 
-/**
- * Initialize the billing manager
- */
 export async function initializeCacheBilling(
   config?: Partial<CachePaymentConfig>,
 ): Promise<CacheBillingManager> {
@@ -1062,21 +942,13 @@ export async function initializeCacheBilling(
   return billingManager
 }
 
-/**
- * Get the billing manager instance
- */
 export function getCacheBillingManager(): CacheBillingManager {
   if (!billingManager) {
-    throw new Error(
-      'Cache billing not initialized. Call initializeCacheBilling() first.',
-    )
+    throw new Error('Cache billing not initialized')
   }
   return billingManager
 }
 
-/**
- * Reset billing manager (for testing)
- */
 export function resetCacheBilling(): void {
   if (billingManager) {
     billingManager.stop()

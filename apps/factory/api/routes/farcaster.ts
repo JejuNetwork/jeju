@@ -7,9 +7,9 @@
 
 import { Elysia, t } from 'elysia'
 import type { Address, Hex } from 'viem'
-import * as signerService from '../services/signer'
+import { deleteFidLink, getFidLink } from '../db/client'
 import * as farcasterService from '../services/farcaster'
-import { getFidLink, deleteFidLink } from '../db/client'
+import * as signerService from '../services/signer'
 
 const LinkFidBodySchema = t.Object({
   fid: t.Number({ minimum: 1 }),
@@ -328,7 +328,8 @@ export const farcasterRoutes = new Elysia({ prefix: '/api/farcaster' })
         return {
           error: {
             code: 'ACTIVATION_FAILED',
-            message: 'Failed to activate signer. Ensure it matches a pending signer.',
+            message:
+              'Failed to activate signer. Ensure it matches a pending signer.',
           },
         }
       }
@@ -506,7 +507,8 @@ export const farcasterRoutes = new Elysia({ prefix: '/api/farcaster' })
       detail: {
         tags: ['farcaster'],
         summary: 'Quick connect',
-        description: 'Quick connect flow - link FID and create signer in one call',
+        description:
+          'Quick connect flow - link FID and create signer in one call',
       },
     },
   )

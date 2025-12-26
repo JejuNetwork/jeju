@@ -73,7 +73,8 @@ export class CDNCoordinator {
 
     const privateKey = process.env.PRIVATE_KEY
     if (!privateKey) throw new Error('PRIVATE_KEY required')
-    if (!privateKey.startsWith('0x')) throw new Error('PRIVATE_KEY must start with 0x')
+    if (!privateKey.startsWith('0x'))
+      throw new Error('PRIVATE_KEY must start with 0x')
     this.account = privateKeyToAccount(privateKey as `0x${string}`)
     this.chain = inferChainFromRpcUrl(config.rpcUrl)
     this.registryAddress = config.registryAddress

@@ -62,6 +62,17 @@ export class AgentRuntimeFactory {
     // Use dynamic import to avoid circular dependency issues
     const { AgentRuntime } = await import('@elizaos/core')
 
+    // Configure API key in character settings
+    const existingSecrets =
+      (enhancedCharacter.settings?.secrets as Record<string, string>) ?? {}
+    enhancedCharacter.settings = {
+      ...(enhancedCharacter.settings ?? {}),
+      secrets: {
+        ...existingSecrets,
+        OPENAI_API_KEY: getJejuApiKey(),
+      },
+    }
+
     const runtime = new AgentRuntime({
       agentId: agent.id as `${string}-${string}-${string}-${string}-${string}`,
       character: enhancedCharacter,
@@ -106,6 +117,17 @@ export class AgentRuntimeFactory {
       : this.enhanceCharacter(character, options)
 
     const { AgentRuntime } = await import('@elizaos/core')
+
+    // Configure API key in character settings
+    const existingSecretsTemplate =
+      (enhancedCharacter.settings?.secrets as Record<string, string>) ?? {}
+    enhancedCharacter.settings = {
+      ...(enhancedCharacter.settings ?? {}),
+      secrets: {
+        ...existingSecretsTemplate,
+        OPENAI_API_KEY: getJejuApiKey(),
+      },
+    }
 
     const runtime = new AgentRuntime({
       agentId: agentId as `${string}-${string}-${string}-${string}-${string}`,
@@ -213,6 +235,7 @@ Always act in accordance with your goals and directives while respecting risk li
       plugins: [...(character.plugins ?? []), ...pluginNames],
     }
   }
+
 
   /**
    * Create a minimal runtime for testing

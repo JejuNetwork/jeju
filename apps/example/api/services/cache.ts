@@ -6,8 +6,7 @@
 
 import { getDWSUrl } from '@jejunetwork/config'
 
-const DWS_CACHE_ENDPOINT =
-  process.env.DWS_CACHE_URL || `${getDWSUrl()}/cache`
+const DWS_CACHE_ENDPOINT = process.env.DWS_CACHE_URL || `${getDWSUrl()}/cache`
 const CACHE_NAMESPACE = process.env.CACHE_NAMESPACE || 'example'
 const CACHE_TIMEOUT = 5000
 

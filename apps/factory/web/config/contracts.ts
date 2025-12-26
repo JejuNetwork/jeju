@@ -66,24 +66,30 @@ const CONTRACTS = {
 
 type NetworkType = 'localnet' | 'testnet' | 'mainnet'
 
+const DWS_URLS = {
+  localnet: 'http://dws.local.jejunetwork.org',
+  testnet: 'https://dws.testnet.jejunetwork.org',
+  mainnet: 'https://dws.jejunetwork.org',
+} as const
+
 export function getDwsUrl(): string {
   if (typeof window === 'undefined') {
-    return getConfigDWSUrl()
+    return DWS_URLS.localnet
   }
   const hostname = window.location.hostname
   if (hostname.includes('local.')) {
-    return 'http://dws.local.jejunetwork.org'
+    return DWS_URLS.localnet
   }
   if (hostname.includes('testnet')) {
-    return 'https://dws.testnet.jejunetwork.org'
+    return DWS_URLS.testnet
   }
   if (
     hostname === 'factory.jejunetwork.org' ||
     hostname === 'factory.jeju.network'
   ) {
-    return 'https://dws.jejunetwork.org'
+    return DWS_URLS.mainnet
   }
-  return getConfigDWSUrl()
+  return DWS_URLS.localnet
 }
 
 function getNetwork(): NetworkType {

@@ -7,3 +7,6 @@
 export * from './schemas'
 export * from './shared'
 export * from './types'
+
+// Re-export validation utilities from types package
+export { expectValid } from '@jejunetwork/types'

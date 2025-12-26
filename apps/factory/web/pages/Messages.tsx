@@ -6,41 +6,43 @@
  */
 
 import {
-  MessageSquare,
-  Send,
-  Loader2,
-  Search,
-  MoreVertical,
-  Check,
-  CheckCheck,
   Archive,
   BellOff,
-  RefreshCw,
+  Check,
+  CheckCheck,
+  Loader2,
   Lock,
+  MessageSquare,
+  MoreVertical,
+  RefreshCw,
+  Search,
+  Send,
 } from 'lucide-react'
-import { useState, useRef, useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAccount } from 'wagmi'
 import { FarcasterConnect } from '../components/farcaster'
 import { useFarcasterStatus } from '../hooks/useFarcaster'
 import {
-  useConversations,
-  useMessages,
-  useMessagingStatus,
-  useSendMessage,
-  useMarkAsRead,
-  useSearchUsers,
-  useMuteConversation,
-  useArchiveConversation,
-  useReconnect,
   type Conversation,
   type Message,
+  useArchiveConversation,
+  useConversations,
+  useMarkAsRead,
+  useMessages,
+  useMessagingStatus,
+  useMuteConversation,
+  useReconnect,
+  useSearchUsers,
+  useSendMessage,
 } from '../hooks/useMessages'
 
 export function MessagesPage() {
   const { isConnected: walletConnected } = useAccount()
-  const { data: farcasterStatus, isLoading: statusLoading } = useFarcasterStatus()
+  const { data: farcasterStatus, isLoading: statusLoading } =
+    useFarcasterStatus()
   const { data: messagingStatus } = useMessagingStatus()
-  const { data: conversationsData, isLoading: conversationsLoading } = useConversations()
+  const { data: conversationsData, isLoading: conversationsLoading } =
+    useConversations()
   const reconnect = useReconnect()
 
   const [selectedFid, setSelectedFid] = useState<number | null>(null)
@@ -110,7 +112,9 @@ export function MessagesPage() {
               onClick={() => reconnect.mutate()}
               disabled={reconnect.isPending}
             >
-              <RefreshCw className={`w-4 h-4 ${reconnect.isPending ? 'animate-spin' : ''}`} />
+              <RefreshCw
+                className={`w-4 h-4 ${reconnect.isPending ? 'animate-spin' : ''}`}
+              />
             </button>
           )}
         </div>
@@ -221,7 +225,9 @@ function ConversationItem({
       })
     }
     if (days < 7) {
-      return new Date(timestamp).toLocaleDateString('en-US', { weekday: 'short' })
+      return new Date(timestamp).toLocaleDateString('en-US', {
+        weekday: 'short',
+      })
     }
     return new Date(timestamp).toLocaleDateString('en-US', {
       month: 'short',
@@ -562,13 +568,12 @@ function MessageBubble({ message }: { message: Message }) {
           >
             {formatTime(message.timestamp)}
           </span>
-          {message.isFromMe && (
-            message.isRead ? (
+          {message.isFromMe &&
+            (message.isRead ? (
               <CheckCheck className="w-3 h-3 text-white/60" />
             ) : (
               <Check className="w-3 h-3 text-white/60" />
-            )
-          )}
+            ))}
         </div>
       </div>
     </div>

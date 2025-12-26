@@ -11,8 +11,8 @@ import {
   getContract,
   getCurrentNetwork,
   getRpcUrl,
-  getServiceUrl,
   getServicesConfig,
+  getServiceUrl,
 } from '@jejunetwork/config'
 import type { JsonObject } from '@jejunetwork/types'
 import { isHexString, isValidAddress } from '@jejunetwork/types'

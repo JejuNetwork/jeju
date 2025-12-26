@@ -48,6 +48,7 @@ const SharePnLPage = lazy(() => import('./pages/SharePnL'))
 const ShareReferralPage = lazy(() => import('./pages/ShareReferral'))
 const TrendingTagPage = lazy(() => import('./pages/TrendingTag'))
 const TrendingGroupPage = lazy(() => import('./pages/TrendingGroup'))
+const FeedPage = lazy(() => import('./pages/Feed'))
 const AuthCallbackPage = lazy(() => import('./pages/AuthCallback'))
 const NotFoundPage = lazy(() => import('./pages/NotFound'))
 
@@ -185,6 +186,7 @@ export function App() {
               <Route path="/trending" element={<TrendingTagPage />} />
               <Route path="/trending/:tag" element={<TrendingTagPage />} />
               <Route path="/trending/group" element={<TrendingGroupPage />} />
+              <Route path="/feed" element={<FeedPage />} />
               <Route path="/auth/callback" element={<AuthCallbackPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>

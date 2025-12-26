@@ -7,8 +7,9 @@
  * @module @jejunetwork/shared/storage
  */
 
+import { promises as fs } from 'node:fs'
+import * as path from 'node:path'
 import {
-  getCurrentNetwork,
   getJejuStorageApiKey,
   getJejuStorageEndpoint,
   getJejuStorageProviderType,
@@ -16,8 +17,6 @@ import {
   isProduction,
   isTestnet,
 } from '@jejunetwork/config'
-import { promises as fs } from 'node:fs'
-import * as path from 'node:path'
 import { logger } from '../logger'
 
 export interface JejuStorageConfig {

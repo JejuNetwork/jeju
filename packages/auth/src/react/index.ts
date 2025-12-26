@@ -20,6 +20,13 @@ export {
   type UseCredentialsReturn,
   useCredentials,
 } from './hooks/useCredentials'
+// Convenience hooks
+export {
+  type LinkedAccount,
+  type UseJejuAuthReturn,
+  useJejuAuth,
+} from './hooks/useJejuAuth'
+export { type UseJejuWalletReturn, useJejuWallet } from './hooks/useJejuWallet'
 export {
   type UseLoginOptions,
   type UseLoginReturn,
@@ -31,19 +38,12 @@ export {
   useMFA,
 } from './hooks/useMFA'
 export { type UseSessionReturn, useSession } from './hooks/useSession'
+// Alias for convenience
 export {
   type OAuth3ContextValue,
   OAuth3Provider,
+  OAuth3Provider as JejuAuthProvider,
   type OAuth3ProviderProps,
   useOAuth3,
   useOAuth3Client,
 } from './provider'
-// Convenience hooks
-export {
-  type LinkedAccount,
-  type UseJejuAuthReturn,
-  useJejuAuth,
-} from './hooks/useJejuAuth'
-export { type UseJejuWalletReturn, useJejuWallet } from './hooks/useJejuWallet'
-// Alias for convenience
-export { OAuth3Provider as JejuAuthProvider } from './provider'

@@ -6,38 +6,55 @@
  */
 
 import {
-  MessageSquare,
-  Loader2,
-  RefreshCw,
-  TrendingUp,
   Hash,
-  User,
+  Loader2,
+  MessageSquare,
+  RefreshCw,
   Settings,
+  TrendingUp,
+  User,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useAccount } from 'wagmi'
-import { CastCard, CastComposer, FarcasterConnect } from '../components/farcaster'
 import {
+  CastCard,
+  CastComposer,
+  FarcasterConnect,
+} from '../components/farcaster'
+import {
+  type Cast,
+  useFarcasterStatus,
   useFeed,
   useTrendingFeed,
-  useFarcasterStatus,
-  type Cast,
 } from '../hooks/useFarcaster'
 
 type FeedType = 'factory' | 'trending' | 'user'
 
 export function FeedPage() {
   const { isConnected: walletConnected } = useAccount()
-  const { data: farcasterStatus, isLoading: statusLoading } = useFarcasterStatus()
+  const { data: farcasterStatus, isLoading: statusLoading } =
+    useFarcasterStatus()
   const [feedType, setFeedType] = useState<FeedType>('factory')
   const [replyingTo, setReplyingTo] = useState<Cast | null>(null)
   const [showConnect, setShowConnect] = useState(false)
 
-  const { data: factoryFeed, isLoading: factoryLoading, refetch: refetchFactory } = useFeed({
+  const {
+    data: factoryFeed,
+    isLoading: factoryLoading,
+    refetch: refetchFactory,
+  } = useFeed({
     channel: 'factory',
   })
-  const { data: trendingFeed, isLoading: trendingLoading, refetch: refetchTrending } = useTrendingFeed()
-  const { data: userFeed, isLoading: userLoading, refetch: refetchUser } = useFeed({
+  const {
+    data: trendingFeed,
+    isLoading: trendingLoading,
+    refetch: refetchTrending,
+  } = useTrendingFeed()
+  const {
+    data: userFeed,
+    isLoading: userLoading,
+    refetch: refetchUser,
+  } = useFeed({
     feedType: 'user',
     fid: farcasterStatus?.fid ?? undefined,
   })
@@ -74,7 +91,10 @@ export function FeedPage() {
   }
 
   // Show connect modal
-  if (showConnect || (!farcasterStatus?.connected && walletConnected && !statusLoading)) {
+  if (
+    showConnect ||
+    (!farcasterStatus?.connected && walletConnected && !statusLoading)
+  ) {
     return (
       <div className="min-h-screen p-8">
         <div className="flex items-center justify-between mb-8">
@@ -99,9 +119,7 @@ export function FeedPage() {
         </div>
 
         <div className="max-w-lg mx-auto">
-          <FarcasterConnect
-            onComplete={() => setShowConnect(false)}
-          />
+          <FarcasterConnect onComplete={() => setShowConnect(false)} />
         </div>
       </div>
     )
@@ -129,7 +147,9 @@ export function FeedPage() {
             onClick={handleRefresh}
             disabled={isLoading}
           >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw
+              className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`}
+            />
           </button>
 
           {/* User status */}
@@ -234,7 +254,7 @@ export function FeedPage() {
             <div className="card p-12 flex items-center justify-center">
               <Loader2 className="w-8 h-8 animate-spin text-accent-500" />
             </div>
-          ) : currentFeed?.casts.length === 0 ? (
+          ) : !currentFeed?.casts?.length ? (
             <div className="card p-12 text-center">
               <MessageSquare className="w-12 h-12 mx-auto mb-4 text-factory-600" />
               <h3 className="text-lg font-medium text-factory-300 mb-2">
@@ -279,7 +299,8 @@ export function FeedPage() {
                 </div>
               </div>
               <p className="text-sm text-factory-400">
-                Developer coordination on Jeju. Share bounties, packages, and project updates.
+                Developer coordination on Jeju. Share bounties, packages, and
+                project updates.
               </p>
             </div>
           )}
@@ -310,9 +331,12 @@ export function FeedPage() {
           {/* Connection status */}
           {!farcasterStatus?.connected && walletConnected && (
             <div className="card p-4 mt-4">
-              <h3 className="font-medium text-factory-200 mb-2">Join the conversation</h3>
+              <h3 className="font-medium text-factory-200 mb-2">
+                Join the conversation
+              </h3>
               <p className="text-sm text-factory-400 mb-3">
-                Connect your Farcaster account to post and interact with the community.
+                Connect your Farcaster account to post and interact with the
+                community.
               </p>
               <button
                 type="button"

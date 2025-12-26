@@ -6,6 +6,7 @@ import {
   Droplet,
   Factory,
   type LucideProps,
+  MessageSquare,
   Radio,
   Server,
   Shield,
@@ -31,11 +32,13 @@ const ServerIcon = Server as ComponentType<LucideProps>
 const BarChart3Icon = BarChart3 as ComponentType<LucideProps>
 const TagIcon = Tag as ComponentType<LucideProps>
 const ShieldIcon = Shield as ComponentType<LucideProps>
+const MessageSquareIcon = MessageSquare as ComponentType<LucideProps>
 
 import AddLiquidity from './AddLiquidity'
 import CrossChainTransfer from './CrossChainTransfer'
 import DeployPaymaster from './DeployPaymaster'
 import EILStats from './EILStats'
+import FarcasterFeed from './FarcasterFeed'
 import FaucetTab from './FaucetTab'
 import { IntentsTab } from './intents'
 import JNSTab from './JNSTab'
@@ -63,9 +66,11 @@ type TabId =
   | 'faucet'
   | 'oracle'
   | 'risk'
+  | 'updates'
 
 const TABS: { id: TabId; icon: ComponentType<LucideProps>; label: string }[] = [
   { id: 'registry', icon: BookIcon, label: 'Bazaar' },
+  { id: 'updates', icon: MessageSquareIcon, label: 'Updates' },
   { id: 'faucet', icon: DropletIconComp, label: 'Faucet' },
   { id: 'transfer', icon: ZapIcon, label: 'Transfer' },
   { id: 'intents', icon: ActivityIcon, label: 'Intents' },
@@ -144,6 +149,7 @@ export default function Dashboard() {
           {activeTab === 'faucet' && <FaucetTab />}
           {activeTab === 'oracle' && <OracleTab />}
           {activeTab === 'risk' && <RiskAllocationDashboard />}
+          {activeTab === 'updates' && <FarcasterFeed />}
         </div>
       </div>
     </div>

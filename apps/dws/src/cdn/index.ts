@@ -5,6 +5,7 @@
  * - Deployed infrastructure (CloudFront, Cloudflare via terraform/vendor)
  * - Decentralized edge nodes run by operators
  * - JNS gateway (like eth.link for ENS)
+ * - Local devnet serving for all Jeju apps
  *
  * Architecture:
  * - apps/dws/src/cdn: Core edge node and gateway code (no vendor-specific code)
@@ -18,6 +19,7 @@
  * - Cache invalidation and warmup
  * - Usage-based billing with settlements
  * - Integration with ERC-8004 identity
+ * - App registry for unified frontend serving
  */
 
 // Cache
@@ -26,24 +28,10 @@ export * from './cache'
 export * from './providers'
 // Types
 export * from './types'
-
-// Routing
-// Note: Routing coordinator has external dependencies
-// export * from './routing';
-
-// Gateway (JNS resolution like eth.link)
-// Note: Gateway has external dependencies
-// export * from './gateway';
-
 // SDK
 export * from './sdk'
 
-// Edge Node Entry Points - has external dependencies on packages/deployment/scripts/shared
-// export { EdgeNodeServer } from './edge/server';
-// export { startEdgeNode } from './edge';
-
-// Coordinator Entry Point - has external dependencies on packages/deployment/scripts/shared
-// export { CDNCoordinator, startCoordinator } from './routing/coordinator';
-
-// JNS Gateway Entry Point - has external dependencies on packages/deployment/scripts/shared
-// export { JNSGateway, startJNSGateway } from './gateway/jns-gateway';
+// App Registry - discovers and manages Jeju app frontends
+export * from './app-registry'
+// Local CDN Server - serves static assets for devnet
+export * from './local-server'

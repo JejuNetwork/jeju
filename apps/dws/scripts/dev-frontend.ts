@@ -89,7 +89,7 @@ const EXTERNALS = [
   'pino',
   'pino-pretty',
   'croner',
-  'opossum',
+  'cockatiel',
   'ws',
   'generic-pool',
   'c-kzg',

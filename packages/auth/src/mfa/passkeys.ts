@@ -672,7 +672,11 @@ export class PasskeyManager {
     let y: Uint8Array | null = null
     let offset = 1 // Skip map header
 
-    const mapSize = coseKey[0] & 0x1f // Lower 5 bits of map header
+    const firstByte = coseKey[0]
+    if (firstByte === undefined) {
+      throw new Error('Empty COSE key')
+    }
+    const mapSize = firstByte & 0x1f // Lower 5 bits of map header
 
     for (let item = 0; item < mapSize; item++) {
       if (offset >= coseKey.length - 1) break
@@ -680,6 +684,8 @@ export class PasskeyManager {
       // Parse label
       let label: number
       const labelByte = coseKey[offset]
+
+      if (labelByte === undefined) break
 
       if ((labelByte & 0xe0) === 0x00) {
         // Positive integer (0-23)
@@ -699,6 +705,8 @@ export class PasskeyManager {
       if (label === -2 || label === -3) {
         // x or y coordinate (should be byte string of 32 bytes)
         const valueByte = coseKey[offset]
+        if (valueByte === undefined) break
+
         if ((valueByte & 0xe0) === 0x40) {
           // Byte string with length in lower 5 bits
           const byteLen = valueByte & 0x1f
@@ -716,7 +724,9 @@ export class PasskeyManager {
           }
         } else if (valueByte === 0x58) {
           // Byte string with 1-byte length
-          const byteLen = coseKey[offset + 1]
+          const byteLenValue = coseKey[offset + 1]
+          if (byteLenValue === undefined) break
+          const byteLen = byteLenValue
           offset += 2
 
           if (offset + byteLen > coseKey.length) break
@@ -758,8 +768,11 @@ export class PasskeyManager {
   private skipCborValue(data: Uint8Array, offset: number): number {
     if (offset >= data.length) return offset
 
-    const majorType = data[offset] >> 5
-    const additionalInfo = data[offset] & 0x1f
+    const firstByte = data[offset]
+    if (firstByte === undefined) return offset
+
+    const majorType = firstByte >> 5
+    const additionalInfo = firstByte & 0x1f
 
     offset++
 
@@ -768,16 +781,30 @@ export class PasskeyManager {
     if (additionalInfo < 24) {
       length = additionalInfo
     } else if (additionalInfo === 24) {
-      length = data[offset++]
+      const nextByte = data[offset++]
+      length = nextByte ?? 0
     } else if (additionalInfo === 25) {
-      length = (data[offset] << 8) | data[offset + 1]
+      const byte0 = data[offset]
+      const byte1 = data[offset + 1]
+      if (byte0 === undefined || byte1 === undefined) {
+        throw new Error('Malformed CBOR: insufficient data for 2-byte length')
+      }
+      length = (byte0 << 8) | byte1
       offset += 2
     } else if (additionalInfo === 26) {
-      length =
-        (data[offset] << 24) |
-        (data[offset + 1] << 16) |
-        (data[offset + 2] << 8) |
-        data[offset + 3]
+      const byte0 = data[offset]
+      const byte1 = data[offset + 1]
+      const byte2 = data[offset + 2]
+      const byte3 = data[offset + 3]
+      if (
+        byte0 === undefined ||
+        byte1 === undefined ||
+        byte2 === undefined ||
+        byte3 === undefined
+      ) {
+        throw new Error('Malformed CBOR: insufficient data for 4-byte length')
+      }
+      length = (byte0 << 24) | (byte1 << 16) | (byte2 << 8) | byte3
       offset += 4
     }
 

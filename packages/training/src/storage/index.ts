@@ -7,13 +7,18 @@
  * - Static file storage for trajectory batches
  */
 
+export { type TrainingDbClient, TrainingDbPersistence } from './db-persistence'
+export {
+  ALL_TRAINING_SCHEMAS,
+  DATASET_REFERENCE_SCHEMA,
+  TRAJECTORY_BATCH_SCHEMA,
+} from './db-schema'
 export {
   EncryptedTrajectoryStorage,
   type EncryptionProvider,
   getEncryptedTrajectoryStorage,
   resetEncryptedTrajectoryStorage,
 } from './encrypted-storage'
-
 export {
   createStaticTrajectoryStorage,
   downloadTrajectoryBatch,
@@ -23,21 +28,18 @@ export {
   shutdownAllStaticStorage,
   type TrajectoryBatchReference,
 } from './static-storage'
-
 export {
   getStorage,
   getStorageProvider,
   StorageUtil,
   shouldUseStorage,
 } from './storage-util'
-
 export {
   isCIDResponse,
   isEncryptedPayload,
   isIPFSUploadResult,
   isJsonRecord,
 } from './type-guards'
-
 export type {
   AccessCondition,
   AccessControlPolicy,
@@ -54,6 +56,3 @@ export type {
   StorageOptions,
   TrajectoryBatch,
 } from './types'
-
-export { TrainingDbPersistence, type TrainingDbClient } from './db-persistence'
-export { ALL_TRAINING_SCHEMAS, DATASET_REFERENCE_SCHEMA, TRAJECTORY_BATCH_SCHEMA } from './db-schema'

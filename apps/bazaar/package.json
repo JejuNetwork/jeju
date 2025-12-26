@@ -17,6 +17,7 @@
     "@elysiajs/cors": "^1.4.0",
     "@jejunetwork/config": "workspace:*",
     "@jejunetwork/contracts": "workspace:*",
+    "@jejunetwork/messaging": "workspace:*",
     "@jejunetwork/db": "workspace:*",
     "@jejunetwork/auth": "workspace:*",
     "@jejunetwork/sdk": "workspace:*",

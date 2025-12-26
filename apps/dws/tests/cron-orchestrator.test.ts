@@ -2,23 +2,19 @@
  * TrainingCronOrchestrator Tests
  */
 
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  test,
-} from 'bun:test'
-import {
+  type AppCronTrigger,
   getTrainingCronOrchestrator,
   resetTrainingCronOrchestrator,
   TrainingCronOrchestrator,
-  type AppCronTrigger,
 } from '../api/training/cron-orchestrator'
 
 // Test Fixtures
 
-function createTestTrigger(overrides: Partial<AppCronTrigger> = {}): AppCronTrigger {
+function createTestTrigger(
+  overrides: Partial<AppCronTrigger> = {},
+): AppCronTrigger {
   return {
     triggerId: `trigger-${Math.random().toString(36).slice(2)}`,
     appName: 'test-app',
@@ -38,16 +34,23 @@ let mockFetchResponses: Array<{
   body: Record<string, unknown> | string
   delay?: number
 }> = []
-let fetchCalls: Array<{ url: string; method: string; headers: Record<string, string> }> = []
+let fetchCalls: Array<{
+  url: string
+  method: string
+  headers: Record<string, string>
+}> = []
 
 const originalFetch = globalThis.fetch
 function setupMockFetch() {
   fetchCalls = []
-  globalThis.fetch = async (url: string | URL | Request, options?: RequestInit) => {
+  globalThis.fetch = async (
+    url: string | URL | Request,
+    options?: RequestInit,
+  ) => {
     const urlString = url.toString()
     const method = options?.method ?? 'GET'
-    const headers = options?.headers as Record<string, string> ?? {}
-    
+    const headers = (options?.headers as Record<string, string>) ?? {}
+
     fetchCalls.push({ url: urlString, method, headers })
 
     const mockResponse = mockFetchResponses.shift()
@@ -137,7 +140,12 @@ describe('TrainingCronOrchestrator', () => {
         {
           cron: [
             { name: 'job1', schedule: '*/1 * * * *', endpoint: '/api/job1' },
-            { name: 'job2', schedule: '*/2 * * * *', endpoint: '/api/job2', timeout: 10000 },
+            {
+              name: 'job2',
+              schedule: '*/2 * * * *',
+              endpoint: '/api/job2',
+              timeout: 10000,
+            },
           ],
         },
         'http://localhost:3000',
@@ -148,7 +156,9 @@ describe('TrainingCronOrchestrator', () => {
       expect(triggers).toHaveLength(2)
 
       const job1Status = orchestrator.getTriggerStatus('test-app-job1')
-      expect(job1Status?.trigger.endpoint).toBe('http://localhost:3000/api/job1')
+      expect(job1Status?.trigger.endpoint).toBe(
+        'http://localhost:3000/api/job1',
+      )
       expect(job1Status?.trigger.authToken).toBe('secret-token')
 
       const job2Status = orchestrator.getTriggerStatus('test-app-job2')
@@ -207,11 +217,12 @@ describe('TrainingCronOrchestrator', () => {
     test('handles JSON parse error gracefully', async () => {
       // Response is ok but body isn't valid JSON
       const origFetch = globalThis.fetch
-      globalThis.fetch = async () => ({
-        ok: true,
-        status: 200,
-        text: async () => 'not valid json {',
-      }) as Response
+      globalThis.fetch = async () =>
+        ({
+          ok: true,
+          status: 200,
+          text: async () => 'not valid json {',
+        }) as Response
 
       const trigger = createTestTrigger()
       const result = await orchestrator.executeTrigger(trigger)
@@ -224,11 +235,12 @@ describe('TrainingCronOrchestrator', () => {
 
     test('handles empty response body', async () => {
       const origFetch = globalThis.fetch
-      globalThis.fetch = async () => ({
-        ok: true,
-        status: 200,
-        text: async () => '',
-      }) as Response
+      globalThis.fetch = async () =>
+        ({
+          ok: true,
+          status: 200,
+          text: async () => '',
+        }) as Response
 
       const trigger = createTestTrigger()
       const result = await orchestrator.executeTrigger(trigger)
@@ -258,11 +270,18 @@ describe('TrainingCronOrchestrator', () => {
     test('handles timeout via AbortController', async () => {
       // Create a fetch that hangs longer than timeout
       const origFetch = globalThis.fetch
-      globalThis.fetch = async (url: string | URL | Request, options?: RequestInit) => {
+      globalThis.fetch = async (
+        _url: string | URL | Request,
+        options?: RequestInit,
+      ) => {
         const signal = options?.signal
         return new Promise((resolve, reject) => {
           const timeout = setTimeout(() => {
-            resolve({ ok: true, status: 200, text: async () => '{}' } as Response)
+            resolve({
+              ok: true,
+              status: 200,
+              text: async () => '{}',
+            } as Response)
           }, 10000)
 
           signal?.addEventListener('abort', () => {
@@ -323,8 +342,8 @@ describe('TrainingCronOrchestrator', () => {
       const info = orchestrator.getPendingBatchesInfo()
       expect(info.count).toBe(2)
       expect(info.totalTrajectories).toBe(30)
-      expect(info.byApp['app1']).toBe(1)
-      expect(info.byApp['app2']).toBe(1)
+      expect(info.byApp.app1).toBe(1)
+      expect(info.byApp.app2).toBe(1)
     })
 
     test('addPendingBatch manually adds batch', () => {
@@ -413,11 +432,17 @@ describe('TrainingCronOrchestrator', () => {
       mockFetchResponses.push({ ok: true, status: 200, body: {} })
       mockFetchResponses.push({ ok: true, status: 200, body: {} })
 
-      await orchestrator.executeTrigger(createTestTrigger({ cronName: 'first' }))
+      await orchestrator.executeTrigger(
+        createTestTrigger({ cronName: 'first' }),
+      )
       await new Promise((r) => setTimeout(r, 10))
-      await orchestrator.executeTrigger(createTestTrigger({ cronName: 'second' }))
+      await orchestrator.executeTrigger(
+        createTestTrigger({ cronName: 'second' }),
+      )
       await new Promise((r) => setTimeout(r, 10))
-      await orchestrator.executeTrigger(createTestTrigger({ cronName: 'third' }))
+      await orchestrator.executeTrigger(
+        createTestTrigger({ cronName: 'third' }),
+      )
 
       const history = orchestrator.getExecutionHistory()
       expect(history[0].cronName).toBe('third')
@@ -428,7 +453,10 @@ describe('TrainingCronOrchestrator', () => {
 
   describe('Enable/Disable Triggers', () => {
     test('disabling trigger stops its cron', () => {
-      const trigger = createTestTrigger({ triggerId: 'disable-me', enabled: true })
+      const trigger = createTestTrigger({
+        triggerId: 'disable-me',
+        enabled: true,
+      })
       orchestrator.registerTrigger(trigger)
 
       let status = orchestrator.getTriggerStatus('disable-me')
@@ -441,7 +469,10 @@ describe('TrainingCronOrchestrator', () => {
     })
 
     test('enabling trigger starts its cron', () => {
-      const trigger = createTestTrigger({ triggerId: 'enable-me', enabled: false })
+      const trigger = createTestTrigger({
+        triggerId: 'enable-me',
+        enabled: false,
+      })
       orchestrator.registerTrigger(trigger)
 
       let status = orchestrator.getTriggerStatus('enable-me')
@@ -479,7 +510,10 @@ describe('TrainingCronOrchestrator', () => {
     })
 
     test('returns null next run for disabled trigger', () => {
-      const trigger = createTestTrigger({ triggerId: 'disabled', enabled: false })
+      const trigger = createTestTrigger({
+        triggerId: 'disabled',
+        enabled: false,
+      })
       orchestrator.registerTrigger(trigger)
 
       const status = orchestrator.getTriggerStatus('disabled')
@@ -487,7 +521,11 @@ describe('TrainingCronOrchestrator', () => {
     })
 
     test('includes last execution in status', async () => {
-      mockFetchResponses.push({ ok: true, status: 200, body: { result: 'test' } })
+      mockFetchResponses.push({
+        ok: true,
+        status: 200,
+        body: { result: 'test' },
+      })
 
       const trigger = createTestTrigger({ triggerId: 'with-history' })
       orchestrator.registerTrigger(trigger)
@@ -501,9 +539,15 @@ describe('TrainingCronOrchestrator', () => {
 
   describe('Start/Stop', () => {
     test('start enables all triggers', () => {
-      orchestrator.registerTrigger(createTestTrigger({ triggerId: 't1', enabled: true }))
-      orchestrator.registerTrigger(createTestTrigger({ triggerId: 't2', enabled: true }))
-      orchestrator.registerTrigger(createTestTrigger({ triggerId: 't3', enabled: false }))
+      orchestrator.registerTrigger(
+        createTestTrigger({ triggerId: 't1', enabled: true }),
+      )
+      orchestrator.registerTrigger(
+        createTestTrigger({ triggerId: 't2', enabled: true }),
+      )
+      orchestrator.registerTrigger(
+        createTestTrigger({ triggerId: 't3', enabled: false }),
+      )
 
       orchestrator.start()
 
@@ -515,8 +559,12 @@ describe('TrainingCronOrchestrator', () => {
     })
 
     test('stop clears all cron instances', () => {
-      orchestrator.registerTrigger(createTestTrigger({ triggerId: 't1', enabled: true }))
-      orchestrator.registerTrigger(createTestTrigger({ triggerId: 't2', enabled: true }))
+      orchestrator.registerTrigger(
+        createTestTrigger({ triggerId: 't1', enabled: true }),
+      )
+      orchestrator.registerTrigger(
+        createTestTrigger({ triggerId: 't2', enabled: true }),
+      )
 
       orchestrator.start()
       expect(orchestrator.getTriggerStatus('t1')?.nextRun).not.toBeNull()
@@ -555,8 +603,12 @@ describe('TrainingCronOrchestrator', () => {
 
   describe('List Triggers', () => {
     test('returns all registered triggers with next run', () => {
-      orchestrator.registerTrigger(createTestTrigger({ triggerId: 't1', enabled: true }))
-      orchestrator.registerTrigger(createTestTrigger({ triggerId: 't2', enabled: false }))
+      orchestrator.registerTrigger(
+        createTestTrigger({ triggerId: 't1', enabled: true }),
+      )
+      orchestrator.registerTrigger(
+        createTestTrigger({ triggerId: 't2', enabled: false }),
+      )
       orchestrator.start()
 
       const list = orchestrator.listTriggers()
