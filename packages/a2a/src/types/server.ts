@@ -222,26 +222,47 @@ export interface AgentRegistryEntry {
 }
 
 /**
- * Registry client interface
- * Supports both simple registry operations and blockchain-based registry
- * Named IRegistryClient to distinguish from the RegistryClient class
+ * Discovery filter parameters for agent search
  */
-export interface IRegistryClient {
-  // Simple registry operations
-  register(agentId: string, data: Record<string, JsonValue>): Promise<void>
-  unregister(agentId: string): Promise<void>
+export interface AgentDiscoveryFilters {
+  strategies?: string[]
+  minReputation?: number
+  markets?: string[]
+}
+
+/**
+ * Core read-only registry operations
+ * All registry implementations must support these
+ */
+export interface IRegistryReader {
   getAgents(): Promise<AgentRegistryEntry[]>
   getAgent(agentId: string): Promise<AgentRegistryEntry | null>
-
-  // Blockchain-based registry operations (optional)
-  discoverAgents?(filters?: {
-    strategies?: string[]
-    minReputation?: number
-    markets?: string[]
-  }): Promise<AgentProfile[]>
-  getAgentProfile?(tokenId: number): Promise<AgentProfile | null>
-  verifyAgent?(address: string, tokenId: number): Promise<boolean>
 }
+
+/**
+ * Registry write operations
+ * Only supported by writable registries (not blockchain-based)
+ */
+export interface IRegistryWriter {
+  register(agentId: string, data: Record<string, JsonValue>): Promise<void>
+  unregister(agentId: string): Promise<void>
+}
+
+/**
+ * Blockchain-specific registry operations
+ * Extended capabilities for on-chain agent discovery
+ */
+export interface IBlockchainRegistry extends IRegistryReader {
+  discoverAgents(filters?: AgentDiscoveryFilters): Promise<AgentProfile[]>
+  getAgentProfile(tokenId: number): Promise<AgentProfile | null>
+  verifyAgent(address: string, tokenId: number): Promise<boolean>
+}
+
+/**
+ * Full registry client interface (for backwards compatibility)
+ * Use IRegistryReader or IBlockchainRegistry directly when possible
+ */
+export type IRegistryClient = IRegistryReader & Partial<IBlockchainRegistry>
 
 /**
  * Payment request result - re-exported from common for interface use

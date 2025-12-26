@@ -12,6 +12,7 @@ import {
   type ExecutorCommand,
   type ExecutorResult,
 } from '@jejunetwork/a2a'
+import { getAgentsConfig, getCurrentNetwork } from '@jejunetwork/config'
 import { logger } from '@jejunetwork/shared'
 import type { JsonValue } from '@jejunetwork/types'
 import { agentDiscoveryService } from '../agent0/discovery'
@@ -111,8 +112,12 @@ export class AutonomousA2AService {
   > = new Map()
 
   constructor() {
+    // Get agents API base URL from config
+    const network = getCurrentNetwork()
+    const agentsConfig = getAgentsConfig(network)
+    
     this.cardGenerator = new AgentCardGenerator({
-      baseUrl: process.env.JEJU_API_URL ?? 'https://api.jeju.network',
+      baseUrl: agentsConfig.api,
       organization: 'Jeju Network',
       organizationUrl: 'https://jeju.network',
     })

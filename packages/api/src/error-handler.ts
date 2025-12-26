@@ -68,6 +68,20 @@ export class InternalError extends APIError {
   }
 }
 
+export class UnauthorizedError extends APIError {
+  constructor(message: string = 'Unauthorized') {
+    super(message, 401, 'UNAUTHORIZED')
+    this.name = 'UnauthorizedError'
+  }
+}
+
+export class ForbiddenError extends APIError {
+  constructor(message: string = 'Forbidden') {
+    super(message, 403, 'FORBIDDEN')
+    this.name = 'ForbiddenError'
+  }
+}
+
 export interface ErrorResponse {
   error: string
   code: string
@@ -152,6 +166,11 @@ export function expectDefined<T>(
   return value
 }
 
+/**
+ * Validate unknown external data against a Zod schema.
+ * The unknown type is intentional - this function exists to validate data
+ * from external sources (API requests, JSON parsing) where the type is not known.
+ */
 export function expectValid<T>(
   schema: z.ZodType<T>,
   data: unknown,

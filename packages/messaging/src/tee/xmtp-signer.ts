@@ -178,12 +178,18 @@ export async function createTEEXMTPSigner(
 
 /**
  * Import signer from backup
+ * @param keyManager - TEE key manager instance
+ * @param encryptedBackup - JSON string of encrypted backup
+ * @param password - Password to decrypt backup
+ * @param newKeyId - Optional new key ID (defaults to timestamp-based)
+ * @param address - Optional address to associate with key (derived from public key if not provided)
  */
 export async function importTEEXMTPSigner(
   keyManager: TEEXMTPKeyManager,
   encryptedBackup: string,
   password: string,
   newKeyId?: string,
+  address?: Address,
 ): Promise<TEEXMTPSigner> {
   // Validate backup string length to prevent DoS
   if (encryptedBackup.length > 1024 * 1024) {
@@ -202,11 +208,24 @@ export async function importTEEXMTPSigner(
 
   const keyId = newKeyId ?? `imported-${Date.now()}`
 
+  // If no address provided, we'll need to derive one after import
+  // First import with a temporary address, then update
+  const tempAddress: Address =
+    address ?? '0x0000000000000000000000000000000000000000'
+
   const identityKey = await keyManager.importFromBackup(
     validatedBackup,
     password,
     keyId,
+    tempAddress,
   )
+
+  // If address was not provided, derive it from the imported public key
+  if (!address) {
+    const derivedAddress = deriveAddressFromPublicKey(identityKey.publicKey)
+    // Update the identity key with derived address
+    identityKey.address = derivedAddress
+  }
 
   return new TEEXMTPSigner(keyManager, identityKey)
 }

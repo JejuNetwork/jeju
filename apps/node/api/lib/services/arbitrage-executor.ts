@@ -1,3 +1,4 @@
+import { getExternalRpc } from '@jejunetwork/config'
 import { expectHex } from '@jejunetwork/types'
 import {
   type Address,
@@ -1546,10 +1547,10 @@ export function createArbitrageExecutor(
     evmPrivateKey,
     solanaPrivateKey,
     evmRpcUrls: config.evmRpcUrls || {
-      1: process.env.RPC_URL_1 || 'https://eth.llamarpc.com',
-      42161: process.env.RPC_URL_42161 || 'https://arb1.arbitrum.io/rpc',
-      10: process.env.RPC_URL_10 || 'https://mainnet.optimism.io',
-      8453: process.env.RPC_URL_8453 || 'https://mainnet.base.org',
+      1: process.env.RPC_URL_1 || getExternalRpc('ethereum'),
+      42161: process.env.RPC_URL_42161 || getExternalRpc('arbitrum'),
+      10: process.env.RPC_URL_10 || getExternalRpc('optimism'),
+      8453: process.env.RPC_URL_8453 || getExternalRpc('base'),
     },
     solanaRpcUrl: config.solanaRpcUrl ?? process.env.SOLANA_RPC_URL,
     zkBridgeEndpoint: config.zkBridgeEndpoint ?? process.env.ZK_BRIDGE_ENDPOINT,

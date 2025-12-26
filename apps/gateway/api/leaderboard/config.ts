@@ -1,4 +1,4 @@
-import { getCQLUrl } from '@jejunetwork/config'
+import { getCQLUrl, getDWSUrl } from '@jejunetwork/config'
 import { CHAIN_ID, CONTRACTS, NETWORK } from '../../lib/config'
 import { CHAIN_IDS } from '../../lib/config/networks'
 
@@ -72,7 +72,7 @@ export const LEADERBOARD_GITHUB = {
 } as const
 
 export const LEADERBOARD_STORAGE = {
-  dwsApiUrl: process.env.DWS_API_URL || 'http://localhost:4030',
+  dwsApiUrl: process.env.DWS_API_URL || getDWSUrl(),
   dataDir: process.env.LEADERBOARD_DATA_DIR || './data/leaderboard',
 } as const
 

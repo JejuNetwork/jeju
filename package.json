@@ -7,9 +7,7 @@
     "packages/*",
     "apps/*",
     "apps/storage/*",
-    "vendor/*",
-    "vendor/babylon/packages/*",
-    "vendor/babylon/apps/*"
+    "vendor/*"
   ],
   "overrides": {
     "three": "0.180.0",

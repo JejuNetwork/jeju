@@ -17,6 +17,8 @@
  * - Total: ~4 million IDs per second per worker
  */
 
+import { getWorkerId } from '@jejunetwork/config'
+
 // Custom epoch: January 1, 2024 00:00:00 UTC
 const EPOCH = 1704067200000n // BigInt for precision
 
@@ -186,10 +188,7 @@ let instance: SnowflakeGenerator | null = null
  */
 function getGenerator(): SnowflakeGenerator {
   if (!instance) {
-    const workerId = process.env.WORKER_ID
-      ? Number.parseInt(process.env.WORKER_ID, 10)
-      : 0
-    instance = new SnowflakeGenerator(workerId)
+    instance = new SnowflakeGenerator(getWorkerId() ?? 0)
   }
   return instance
 }

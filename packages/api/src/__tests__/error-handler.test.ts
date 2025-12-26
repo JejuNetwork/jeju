@@ -7,12 +7,14 @@ import {
   createElysiaErrorHandler,
   expectDefined,
   expectValid,
+  ForbiddenError,
   getStatusCode,
   InternalError,
   NotFoundError,
   ServiceUnavailableError,
   sanitizeErrorMessage,
   toErrorResponse,
+  UnauthorizedError,
   ValidationError,
 } from '../error-handler'
 
@@ -106,6 +108,36 @@ describe('Error Handler', () => {
     test('accepts custom message', () => {
       const error = new InternalError('Custom error')
       expect(error.message).toBe('Custom error')
+    })
+  })
+
+  describe('UnauthorizedError', () => {
+    test('creates 401 error with default message', () => {
+      const error = new UnauthorizedError()
+
+      expect(error.statusCode).toBe(401)
+      expect(error.message).toBe('Unauthorized')
+      expect(error.code).toBe('UNAUTHORIZED')
+    })
+
+    test('accepts custom message', () => {
+      const error = new UnauthorizedError('Invalid token')
+      expect(error.message).toBe('Invalid token')
+    })
+  })
+
+  describe('ForbiddenError', () => {
+    test('creates 403 error with default message', () => {
+      const error = new ForbiddenError()
+
+      expect(error.statusCode).toBe(403)
+      expect(error.message).toBe('Forbidden')
+      expect(error.code).toBe('FORBIDDEN')
+    })
+
+    test('accepts custom message', () => {
+      const error = new ForbiddenError('Access denied')
+      expect(error.message).toBe('Access denied')
     })
   })
 

@@ -5,9 +5,16 @@
  * CEOs, and governance while sharing the same infrastructure.
  */
 
+<<<<<<< HEAD
 import { getEnv } from '@jejunetwork/shared'
+=======
+import {
+  getCouncilElizaOauth3App,
+  getCouncilJejuOauth3App,
+} from '@jejunetwork/config'
+>>>>>>> cd08d238c04fc8f92037e4eb995e7cddc3863234
 import { ZERO_ADDRESS } from '@jejunetwork/types'
-import { type Address, type Hex, keccak256, toBytes } from 'viem'
+import { type Address, type Hex, isAddress, keccak256, toBytes } from 'viem'
 import type {
   AuthProvider,
   CouncilConfig,
@@ -21,9 +28,9 @@ import type {
  */
 function loadCouncilAddress(councilType: CouncilType, role: string): Address {
   const envKey = `COUNCIL_${councilType.toUpperCase()}_${role.toUpperCase()}_ADDRESS`
-  const value = getEnv(envKey)
-  if (!value || value === '') return ZERO_ADDRESS
-  return value as Address
+  const value = process.env[envKey]
+  if (!value || value === '' || !isAddress(value)) return ZERO_ADDRESS
+  return value
 }
 
 /**
@@ -86,7 +93,7 @@ function getDefaultCouncils(): Record<CouncilType, Partial<CouncilDeployment>> {
           loadCouncilAddress('jeju', 'COMMUNITY_AGENT'),
           loadCouncilAddress('jeju', 'SECURITY_AGENT'),
         ].filter((a) => a !== ZERO_ADDRESS),
-        oauth3App: (getEnv('COUNCIL_JEJU_OAUTH3_APP') ?? '0x') as Hex,
+        oauth3App: getCouncilJejuOauth3App() as Hex,
         jnsName: 'council.jeju',
       },
       ceo: {
@@ -142,7 +149,7 @@ Consider technical feasibility, community benefit, and economic sustainability.`
           loadCouncilAddress('eliza', 'INTEGRATION_AGENT'),
           loadCouncilAddress('eliza', 'RESEARCH_AGENT'),
         ].filter((a) => a !== ZERO_ADDRESS),
-        oauth3App: (getEnv('COUNCIL_ELIZA_OAUTH3_APP') ?? '0x') as Hex,
+        oauth3App: getCouncilElizaOauth3App() as Hex,
         jnsName: 'council.eliza.jeju',
       },
       ceo: {

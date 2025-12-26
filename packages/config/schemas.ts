@@ -330,6 +330,25 @@ export const ServicesNetworkConfigSchema = z.object({
       proxy: UrlString,
     })
     .optional(),
+  training: z
+    .object({
+      api: UrlString,
+      atropos: UrlString,
+      psyche: UrlString.optional(),
+    })
+    .optional(),
+  ipfs: z
+    .object({
+      api: UrlString,
+      gateway: UrlString,
+    })
+    .optional(),
+  agents: z
+    .object({
+      api: UrlString,
+      agent0: UrlString.optional(),
+    })
+    .optional(),
   externalRpcs: z.record(z.string().min(1), UrlString).optional(),
   external: z
     .object({

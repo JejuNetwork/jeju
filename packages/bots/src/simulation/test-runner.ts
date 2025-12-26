@@ -1,6 +1,11 @@
 /** Bot testing pipeline. */
 
-import { getExternalRpc } from '@jejunetwork/config'
+import {
+  getAlchemyApiKey,
+  getExternalRpc,
+  getHeliusApiKey,
+  getTestPrivateKey,
+} from '@jejunetwork/config'
 import type { Token } from '../types'
 import { type BacktestConfig, Backtester } from './backtester'
 import { type FlashLoanTestConfig, runFlashLoanTests } from './flashloan-tests'
@@ -608,9 +613,9 @@ async function main() {
   const args = process.argv.slice(2)
 
   const config: TestPipelineConfig = {
-    // Data sources from env
-    alchemyApiKey: process.env.ALCHEMY_API_KEY,
-    heliusApiKey: process.env.HELIUS_API_KEY,
+    // Data sources from config
+    alchemyApiKey: getAlchemyApiKey(),
+    heliusApiKey: getHeliusApiKey(),
 
     // Default: run all tests
     runBacktest: true,
@@ -626,7 +631,7 @@ async function main() {
     // Chain
     chainId: 1,
     rpcUrl: getExternalRpc('ethereum'),
-    testPrivateKey: process.env.TEST_PRIVATE_KEY,
+    testPrivateKey: getTestPrivateKey(),
   }
 
   // Parse CLI args

@@ -144,13 +144,6 @@ export interface CircuitBreakerConfig {
 
 export type CircuitState = 'closed' | 'open' | 'half-open'
 
-export interface CircuitBreakerState {
-  state: CircuitState
-  failures: number
-  lastFailure: number
-  halfOpenAttempts: number
-}
-
 export interface ConnectionPoolConfig {
   maxConnections: number
   minConnections: number

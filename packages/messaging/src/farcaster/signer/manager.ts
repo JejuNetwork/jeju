@@ -5,13 +5,25 @@
  * Signers are delegated from the custody wallet and registered on-chain.
  */
 
-import { createLogger } from '@jejunetwork/shared'
+import {
+  createLogger,
+  decryptAesGcm,
+  deriveKeyScrypt,
+  encryptAesGcm,
+  randomBytes as sharedRandomBytes,
+} from '@jejunetwork/shared'
 import { randomBytes } from '@noble/ciphers/webcrypto'
 import { ed25519 } from '@noble/curves/ed25519'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils'
 import type { Hex } from 'viem'
 
 const log = createLogger('signer-manager')
+
+// Scrypt parameters for file encryption key derivation
+const SCRYPT_N = 16384
+const SCRYPT_R = 8
+const SCRYPT_P = 1
+const SCRYPT_KEYLEN = 32
 export type SignerStatus = 'pending' | 'active' | 'revoked'
 
 export interface SignerInfo {
@@ -38,8 +50,10 @@ export interface SignerInfo {
 export interface SignerManagerConfig {
   /** Storage backend: 'memory' | 'file' | 'kms' */
   storage?: 'memory' | 'file'
-  /** File path for file storage */
+  /** File path for file storage (required if storage is 'file') */
   storagePath?: string
+  /** Encryption password for file storage (required if storage is 'file') */
+  encryptionPassword?: string
 }
 
 interface StoredSigner {
@@ -49,9 +63,23 @@ interface StoredSigner {
 export class FarcasterSignerManager {
   private signers: Map<string, StoredSigner> = new Map()
   private readonly storage: 'memory' | 'file'
+  private readonly storagePath?: string
+  private readonly encryptionPassword?: string
 
   constructor(config?: SignerManagerConfig) {
     this.storage = config?.storage ?? 'memory'
+    this.storagePath = config?.storagePath
+    this.encryptionPassword = config?.encryptionPassword
+
+    // Validate file storage configuration
+    if (this.storage === 'file') {
+      if (!this.storagePath) {
+        throw new Error('storagePath is required for file storage')
+      }
+      if (!this.encryptionPassword) {
+        throw new Error('encryptionPassword is required for file storage')
+      }
+    }
   }
 
   /**
@@ -283,8 +311,56 @@ export class FarcasterSignerManager {
       return // No persistence needed
     }
 
-    // File-based persistence would go here
-    // In production, use encrypted storage
+    if (!this.storagePath || !this.encryptionPassword) {
+      throw new Error('File storage not properly configured')
+    }
+
+    // Serialize signers to JSON
+    const signersData: Array<{
+      info: SignerInfo
+      privateKey: string // hex-encoded
+    }> = []
+
+    for (const [, stored] of this.signers) {
+      signersData.push({
+        info: stored.info,
+        privateKey: bytesToHex(stored.privateKey),
+      })
+    }
+
+    const plaintext = new TextEncoder().encode(JSON.stringify(signersData))
+
+    // Generate salt for key derivation
+    const salt = sharedRandomBytes(32)
+
+    // Derive encryption key from password
+    const encryptionKey = await deriveKeyScrypt(this.encryptionPassword, salt, {
+      N: SCRYPT_N,
+      r: SCRYPT_R,
+      p: SCRYPT_P,
+      dkLen: SCRYPT_KEYLEN,
+    })
+
+    // Encrypt the data
+    const { ciphertext, iv, tag } = await encryptAesGcm(plaintext, encryptionKey)
+
+    // Combine: salt (32) + iv (12) + tag (16) + ciphertext
+    const combined = new Uint8Array(
+      salt.length + iv.length + tag.length + ciphertext.length,
+    )
+    let offset = 0
+    combined.set(salt, offset)
+    offset += salt.length
+    combined.set(iv, offset)
+    offset += iv.length
+    combined.set(tag, offset)
+    offset += tag.length
+    combined.set(ciphertext, offset)
+
+    // Write to file
+    await Bun.write(this.storagePath, combined)
+
+    log.debug('Persisted signers to file', { path: this.storagePath })
   }
 
   async load(): Promise<void> {
@@ -292,6 +368,50 @@ export class FarcasterSignerManager {
       return // Nothing to load
     }
 
-    // File-based loading would go here
+    if (!this.storagePath || !this.encryptionPassword) {
+      throw new Error('File storage not properly configured')
+    }
+
+    const file = Bun.file(this.storagePath)
+    if (!(await file.exists())) {
+      log.debug('No existing signer file found', { path: this.storagePath })
+      return
+    }
+
+    const combined = new Uint8Array(await file.arrayBuffer())
+
+    // Parse: salt (32) + iv (12) + tag (16) + ciphertext
+    const salt = combined.subarray(0, 32)
+    const iv = combined.subarray(32, 44)
+    const tag = combined.subarray(44, 60)
+    const ciphertext = combined.subarray(60)
+
+    // Derive decryption key from password
+    const decryptionKey = await deriveKeyScrypt(this.encryptionPassword, salt, {
+      N: SCRYPT_N,
+      r: SCRYPT_R,
+      p: SCRYPT_P,
+      dkLen: SCRYPT_KEYLEN,
+    })
+
+    // Decrypt the data
+    const plaintext = await decryptAesGcm(ciphertext, decryptionKey, iv, tag)
+    const signersData: Array<{
+      info: SignerInfo
+      privateKey: string
+    }> = JSON.parse(new TextDecoder().decode(plaintext))
+
+    // Load signers into memory
+    for (const data of signersData) {
+      this.signers.set(data.info.keyId, {
+        info: data.info,
+        privateKey: hexToBytes(data.privateKey),
+      })
+    }
+
+    log.info('Loaded signers from file', {
+      path: this.storagePath,
+      count: this.signers.size,
+    })
   }
 }

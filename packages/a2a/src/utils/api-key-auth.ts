@@ -4,6 +4,7 @@
  * Generic utilities for API key validation (framework-agnostic)
  */
 
+import { getEnv } from '@jejunetwork/shared'
 import { logger } from './logger'
 
 export const A2A_API_KEY_HEADER = 'x-a2a-api-key'
@@ -124,8 +125,6 @@ export function validateApiKey(
 
   return { authenticated: true }
 }
-
-import { getEnv } from '@jejunetwork/shared'
 
 /**
  * Get the required API key from environment

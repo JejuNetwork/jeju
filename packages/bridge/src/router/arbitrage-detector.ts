@@ -85,7 +85,7 @@ const SOLANA_TOKENS: Record<string, string> = {
   WETH: '7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs',
 }
 
-import { toError } from '@jejunetwork/types'
+import { getOneInchApiKey } from '@jejunetwork/config'
 import { createPublicClient, http } from 'viem'
 import { arbitrum, base, mainnet, optimism } from 'viem/chains'
 import { createLogger } from '../utils/logger.js'
@@ -110,9 +110,7 @@ const RETRY_CONFIG = {
 /**
  * Check if error is retryable (network errors, 5xx, rate limits)
  */
-function isRetryableError(
-  error: Error | TypeError | string | Record<string, unknown>,
-): boolean {
+function isRetryableError(error: unknown): boolean {
   if (error instanceof TypeError) {
     return true // Network errors
   }
@@ -168,7 +166,7 @@ async function fetchWithRetry(
       lastError = error as Error
 
       if (
-        !isRetryableError(lastError) ||
+        !isRetryableError(error) ||
         attempt === RETRY_CONFIG.maxAttempts - 1
       ) {
         throw error
@@ -190,6 +188,9 @@ async function fetchWithRetry(
 
   throw lastError ?? new Error('API request failed after retries')
 }
+
+// ============ Arbitrage Detector ============
+
 export class ArbitrageDetector {
   private opportunities: Map<string, ArbOpportunity> = new Map()
   private minProfitBps: number
@@ -279,7 +280,7 @@ export class ArbitrageDetector {
 
         // Calculate profit after bridge costs
         const bridgeCost = this.getBridgeCost('solana', chainId)
-        const grossProfit = (priceDiff.diffBps / 10000) * 10000 // Assume $10k trade
+        const grossProfit = (Number(priceDiff.diffBps) / 10000) * 10000 // Assume $10k trade
         const netProfit = grossProfit - bridgeCost
 
         if (netProfit <= 0) continue
@@ -487,7 +488,7 @@ export class ArbitrageDetector {
     } catch (error) {
       log.warn('Failed to get Jupiter price', {
         token,
-        error: toError(error).message,
+        error: (error as Error).message,
       })
       return null
     }
@@ -524,7 +525,7 @@ export class ArbitrageDetector {
     }
 
     try {
-      const apiKey = process.env.ONEINCH_API_KEY
+      const apiKey = getOneInchApiKey()
       if (!apiKey) {
         // Use Uniswap V3 quoter directly when 1inch API key not configured
         return this.getUniswapQuote(token, chainId, tokenAddress, usdcAddress)
@@ -683,7 +684,7 @@ export class ArbitrageDetector {
     } catch (error) {
       log.warn('Failed to get Hyperliquid price', {
         pair,
-        error: toError(error).message,
+        error: (error as Error).message,
       })
       return null
     }

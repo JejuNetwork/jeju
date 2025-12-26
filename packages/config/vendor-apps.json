@@ -3,15 +3,6 @@
   "description": "Optional vendor apps that can be cloned into vendor/. Private repos will be skipped for open source users.",
   "apps": [
     {
-      "name": "babylon",
-      "url": "git@github.com:elizaos/babylon.git",
-      "path": "vendor/babylon",
-      "description": "Babylon game engine integration",
-      "private": true,
-      "optional": true,
-      "branch": "jeju"
-    },
-    {
       "name": "eliza",
       "url": "git@github.com:elizaos/eliza.git",
       "path": "vendor/eliza",

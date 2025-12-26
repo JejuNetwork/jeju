@@ -8,6 +8,19 @@
  * - Email verification status tracking
  */
 
+import {
+  getMailgunApiKey,
+  getMailgunDomain,
+  getResendApiKey,
+  getSendgridApiKey,
+  getSmtpHost,
+  getSmtpPassword,
+  getSmtpPort,
+  getSmtpRelayUrl,
+  getSmtpUser,
+  isDevMode,
+  isTestMode,
+} from '@jejunetwork/config'
 import { type Hex, keccak256, toBytes, toHex } from 'viem'
 import { generateOTP } from '../validation.js'
 
@@ -587,22 +600,17 @@ export class EmailProvider {
     subject: string,
     html: string,
   ): Promise<void> {
-    if (
-      this.config.devMode ||
-      process.env.NODE_ENV === 'development' ||
-      process.env.NODE_ENV === 'test'
-    ) {
+    if (this.config.devMode || isDevMode() || isTestMode()) {
       // In dev mode, log the email instead of sending
       console.log(`[EmailProvider] Would send email to ${to}: ${subject}`)
       return
     }
 
     const smtpConfig = {
-      host: this.config.smtpHost ?? process.env.SMTP_HOST,
-      port:
-        this.config.smtpPort ?? parseInt(process.env.SMTP_PORT ?? '587', 10),
-      user: this.config.smtpUser ?? process.env.SMTP_USER,
-      password: this.config.smtpPassword ?? process.env.SMTP_PASSWORD,
+      host: this.config.smtpHost ?? getSmtpHost(),
+      port: this.config.smtpPort ?? getSmtpPort(),
+      user: this.config.smtpUser ?? getSmtpUser(),
+      password: this.config.smtpPassword ?? getSmtpPassword(),
     }
 
     if (!smtpConfig.host || !smtpConfig.user || !smtpConfig.password) {
@@ -668,7 +676,7 @@ export class EmailProvider {
     html: string,
     _message: string,
   ): Promise<void> {
-    const apiKey = this.config.smtpPassword ?? process.env.SENDGRID_API_KEY
+    const apiKey = this.config.smtpPassword ?? getSendgridApiKey()
     if (!apiKey) {
       throw new Error('SendGrid API key not configured')
     }
@@ -701,8 +709,8 @@ export class EmailProvider {
     subject: string,
     html: string,
   ): Promise<void> {
-    const apiKey = this.config.smtpPassword ?? process.env.MAILGUN_API_KEY
-    const domain = this.config.smtpHost ?? process.env.MAILGUN_DOMAIN
+    const apiKey = this.config.smtpPassword ?? getMailgunApiKey()
+    const domain = this.config.smtpHost ?? getMailgunDomain()
 
     if (!apiKey || !domain) {
       throw new Error('Mailgun API key or domain not configured')
@@ -740,7 +748,7 @@ export class EmailProvider {
     subject: string,
     html: string,
   ): Promise<void> {
-    const apiKey = this.config.smtpPassword ?? process.env.RESEND_API_KEY
+    const apiKey = this.config.smtpPassword ?? getResendApiKey()
     if (!apiKey) {
       throw new Error('Resend API key not configured')
     }
@@ -779,7 +787,7 @@ export class EmailProvider {
   ): Promise<void> {
     // For generic SMTP, use a webhook-based relay service or direct SMTP
     // This is a fallback - recommend using SendGrid, Mailgun, or Resend instead
-    const relayUrl = process.env.SMTP_RELAY_URL
+    const relayUrl = getSmtpRelayUrl()
 
     if (relayUrl) {
       // Use HTTP relay endpoint

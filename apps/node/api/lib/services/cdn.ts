@@ -1,3 +1,4 @@
+import { getRpcUrl } from '@jejunetwork/config'
 import type { CDNRegion } from '@jejunetwork/types'
 import { expectAddress, expectHex, toBigInt } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
@@ -348,7 +349,7 @@ export class CDNService {
         PRIVATE_KEY: privateKey,
         CDN_REGISTRY_ADDRESS: this.client.addresses.cdnRegistry,
         CDN_BILLING_ADDRESS: this.client.addresses.cdnBilling,
-        RPC_URL: process.env.RPC_URL ?? 'http://localhost:6546',
+        RPC_URL: process.env.RPC_URL ?? getRpcUrl(),
       },
       stdio: ['inherit', 'inherit', 'inherit'],
     })

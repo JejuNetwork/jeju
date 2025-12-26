@@ -7,6 +7,7 @@
  * Usage: bun run packages/db/src/mock-cql-server.ts
  */
 
+import { getCqlDataDir, getCqlPort } from '@jejunetwork/config'
 import { Database } from 'bun:sqlite'
 import { cors } from '@elysiajs/cors'
 import { Elysia } from 'elysia'
@@ -15,8 +16,8 @@ import { parsePort, sanitizeRows } from './utils.js'
 
 const DEFAULT_PORT = 4661
 const DEFAULT_DATA_DIR = '.cql-data'
-const PORT = parsePort(process.env.CQL_PORT, DEFAULT_PORT)
-const DATA_DIR = process.env.CQL_DATA_DIR ?? DEFAULT_DATA_DIR
+const PORT = parsePort(getCqlPort().toString(), DEFAULT_PORT)
+const DATA_DIR = getCqlDataDir() || DEFAULT_DATA_DIR
 
 // Request validation schema
 const CQLRequestSchema = z

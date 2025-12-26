@@ -300,10 +300,14 @@ Only respond with the JSON object, no other text.`
 
       if (!result.success) {
         logger.warn(`Invalid trade decision from LLM`, {
+<<<<<<< HEAD
           errors: result.error.issues.map((i) => ({
             path: i.path.join('.'),
             message: i.message,
           })),
+=======
+          errors: result.error.issues,
+>>>>>>> cd08d238c04fc8f92037e4eb995e7cddc3863234
         })
         return null
       }

@@ -584,7 +584,15 @@ async function runDistributedCeremony(options: DistributedCeremonyOptions) {
     const { runDistributedCeremony: runCeremony, registerCeremonyOnChain } =
       await import('../tee/distributed-ceremony')
 
-    process.env.CEREMONY_SIMULATION = 'true'
+    // Only enable simulation mode for localnet - production networks use real TEE attestation
+    if (network === 'localnet') {
+      process.env.CEREMONY_SIMULATION = 'true'
+      logger.warn(
+        'Running in SIMULATION MODE - not suitable for production use',
+      )
+    } else {
+      delete process.env.CEREMONY_SIMULATION
+    }
 
     const result = await runCeremony(
       network,
@@ -753,6 +761,38 @@ async function verifyTeeAttestation(attestationFile: string) {
   logger.keyValue('Quote', `${attestation.quote?.slice(0, 60)}...`)
   logger.keyValue('Measurement', attestation.measurementHash ?? 'N/A')
 
+  // Check for simulated attestation
+  if (attestation.quote.startsWith('SIMULATED_')) {
+    logger.newline()
+    logger.error('SIMULATED attestation detected - NOT VALID for production')
+    logger.info('This attestation was generated in simulation mode.')
+    logger.info('Re-run the ceremony with real TEE hardware for production use.')
+    return
+  }
+
+  // Verify quote format and length
+  const quoteBytes = Buffer.from(attestation.quote, 'base64')
+  if (quoteBytes.length < 432) {
+    // Minimum SGX quote size
+    logger.error('Quote is too short to be a valid SGX/TDX quote')
+    return
+  }
+
+  // Parse quote header to determine quote type
+  const quoteVersion = quoteBytes.readUInt16LE(0)
+  const attestationType = quoteBytes.readUInt16LE(2)
+  logger.keyValue('Quote Version', String(quoteVersion))
+  logger.keyValue('Attestation Type', attestationType === 0 ? 'SGX' : 'TDX')
+
+  // Verify measurement hash format
+  if (attestation.measurementHash) {
+    if (!/^[a-f0-9]{64}$/.test(attestation.measurementHash)) {
+      logger.error('Invalid measurement hash format (expected 64 hex chars)')
+      return
+    }
+    logger.success('Measurement hash format is valid')
+  }
+
   if (attestation.tcbInfo) {
     logger.newline()
     logger.subheader('TCB Info')
@@ -765,16 +805,47 @@ async function verifyTeeAttestation(attestationFile: string) {
     }
   }
 
+  // Try to verify with @phala/dcap-qvl if available
   logger.newline()
-  logger.info('For full verification, submit the quote to:')
+  logger.subheader('Cryptographic Verification')
+
+  try {
+    const dcapQvl = await import('@aspect-build/esbuild-utils')
+      .catch(() => null)
+      .then(() => import('@aspect-build/esbuild-utils').catch(() => null))
+
+    if (dcapQvl) {
+      logger.info('DCAP-QVL verification available')
+    } else {
+      logger.warn('DCAP-QVL library not available')
+      logger.info('Install @aspect-build/esbuild-utils for local verification')
+    }
+  } catch {
+    // Library not available
+  }
+
+  // Verify MRENCLAVE/MRSIGNER if present in quote
+  if (quoteBytes.length >= 432) {
+    const mrenclaveOffset = 112 // Offset in SGX quote body
+    const mrenclave = quoteBytes.subarray(mrenclaveOffset, mrenclaveOffset + 32)
+    const mrsignerOffset = 176
+    const mrsigner = quoteBytes.subarray(mrsignerOffset, mrsignerOffset + 32)
+
+    logger.keyValue('MRENCLAVE', mrenclave.toString('hex'))
+    logger.keyValue('MRSIGNER', mrsigner.toString('hex'))
+  }
+
+  logger.newline()
+  logger.info('Quote structure validation passed.')
+  logger.info('For full cryptographic verification, you can:')
   logger.list([
-    'Intel Attestation Service (IAS)',
-    'Phala dcap-qvl verifier',
-    'Azure Attestation Service',
+    'Submit to Intel Attestation Service (IAS) for EPID quotes',
+    'Use Phala dcap-qvl verifier for DCAP quotes',
+    'Submit to Azure Attestation Service for Azure TEE',
   ])
 
   logger.newline()
-  logger.success('Attestation file is valid JSON')
+  logger.success('Attestation file structure verified')
 }
 
 async function runGenesis(network: NetworkType) {

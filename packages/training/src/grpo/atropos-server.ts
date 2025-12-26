@@ -6,6 +6,7 @@
  * with Psyche integration for decentralized model training.
  */
 
+import { getAtroposPort } from '@jejunetwork/config'
 import { cors } from '@elysiajs/cors'
 import { expectValid } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
@@ -639,6 +640,5 @@ export async function startAtroposServer(port = 8000): Promise<void> {
 }
 
 if (import.meta.main) {
-  const port = parseInt(process.env.ATROPOS_PORT ?? '8000', 10)
-  startAtroposServer(port)
+  startAtroposServer(getAtroposPort())
 }

@@ -3,6 +3,7 @@
  * Routes worker invocations across distributed nodes
  */
 
+import { getDWSUrl } from '@jejunetwork/config'
 import { expectValid } from '@jejunetwork/types'
 import type { WorkerdExecutor } from './executor'
 import type { WorkerNode, WorkerRegistration, WorkerRegistry } from './registry'
@@ -30,7 +31,7 @@ export interface RouterConfig {
 }
 
 export const DEFAULT_ROUTER_CONFIG: RouterConfig = {
-  localEndpoint: 'http://localhost:4030',
+  localEndpoint: getDWSUrl(),
   geoRouting: true,
   region: 'global',
   maxRetries: 2,

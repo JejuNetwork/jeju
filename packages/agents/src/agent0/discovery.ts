@@ -7,6 +7,7 @@
  * @packageDocumentation
  */
 
+import { isAgent0Enabled } from '@jejunetwork/config'
 import { logger } from '@jejunetwork/shared'
 import { agentRegistry } from '../services/agent-registry.service'
 import { type AgentRegistration, AgentStatus } from '../types/agent-registry'
@@ -135,7 +136,7 @@ export class AgentDiscoveryService {
     results.push(...filteredLocal.map((r) => this.mapLocalToDiscovered(r)))
 
     // Search Agent0 network if enabled
-    if (filter.includeExternal && process.env.AGENT0_ENABLED === 'true') {
+    if (filter.includeExternal && isAgent0Enabled()) {
       const agent0Client = getAgent0Client()
 
       if (agent0Client.isAvailable()) {
@@ -190,7 +191,7 @@ export class AgentDiscoveryService {
     if (agentId.startsWith('agent0-')) {
       const tokenId = Number.parseInt(agentId.replace('agent0-', ''), 10)
 
-      if (process.env.AGENT0_ENABLED === 'true') {
+      if (isAgent0Enabled()) {
         const agent0Client = getAgent0Client()
         if (agent0Client.isAvailable()) {
           try {

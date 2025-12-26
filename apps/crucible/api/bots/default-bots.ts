@@ -4,7 +4,7 @@
  * Pre-configured MEV/arbitrage bots that initialize automatically.
  */
 
-import { getRpcUrl } from '@jejunetwork/config'
+import { getExternalRpc, getRpcUrl } from '@jejunetwork/config'
 import type { Address } from 'viem'
 import type { TradingBotChain, TradingBotStrategy } from '../../lib/types'
 
@@ -28,12 +28,21 @@ export interface TradingBotOptions {
   contractAddresses?: Record<string, Address>
 }
 
-// Default chain configurations
+// Helper to safely get external RPC with fallback
+function safeGetExternalRpc(chain: string, fallback: string): string {
+  try {
+    return getExternalRpc(chain)
+  } catch {
+    return fallback
+  }
+}
+
+// Default chain configurations - uses centralized config
 export const DEFAULT_CHAINS: Record<string, TradingBotChain> = {
   mainnet: {
     chainId: 1,
     name: 'Ethereum',
-    rpcUrl: process.env.ETH_RPC_URL ?? 'https://eth.llamarpc.com',
+    rpcUrl: safeGetExternalRpc('ethereum', 'https://eth.llamarpc.com'),
     blockTime: 12000,
     isL2: false,
     nativeSymbol: 'ETH',
@@ -42,7 +51,7 @@ export const DEFAULT_CHAINS: Record<string, TradingBotChain> = {
   arbitrum: {
     chainId: 42161,
     name: 'Arbitrum One',
-    rpcUrl: process.env.ARBITRUM_RPC_URL ?? 'https://arb1.arbitrum.io/rpc',
+    rpcUrl: safeGetExternalRpc('arbitrum', 'https://arb1.arbitrum.io/rpc'),
     blockTime: 250,
     isL2: true,
     nativeSymbol: 'ETH',
@@ -51,7 +60,7 @@ export const DEFAULT_CHAINS: Record<string, TradingBotChain> = {
   optimism: {
     chainId: 10,
     name: 'Optimism',
-    rpcUrl: process.env.OPTIMISM_RPC_URL ?? 'https://mainnet.optimism.io',
+    rpcUrl: safeGetExternalRpc('optimism', 'https://mainnet.optimism.io'),
     blockTime: 2000,
     isL2: true,
     nativeSymbol: 'ETH',
@@ -60,7 +69,7 @@ export const DEFAULT_CHAINS: Record<string, TradingBotChain> = {
   base: {
     chainId: 8453,
     name: 'Base',
-    rpcUrl: process.env.BASE_RPC_URL ?? 'https://mainnet.base.org',
+    rpcUrl: safeGetExternalRpc('base', 'https://mainnet.base.org'),
     blockTime: 2000,
     isL2: true,
     nativeSymbol: 'ETH',
@@ -69,7 +78,7 @@ export const DEFAULT_CHAINS: Record<string, TradingBotChain> = {
   bsc: {
     chainId: 56,
     name: 'BNB Smart Chain',
-    rpcUrl: process.env.BSC_RPC_URL ?? 'https://bsc-dataseed.binance.org',
+    rpcUrl: safeGetExternalRpc('bsc', 'https://bsc-dataseed.binance.org'),
     blockTime: 3000,
     isL2: false,
     nativeSymbol: 'BNB',
@@ -87,8 +96,7 @@ export const DEFAULT_CHAINS: Record<string, TradingBotChain> = {
   jejuTestnet: {
     chainId: 420690,
     name: 'Testnet',
-    rpcUrl:
-      process.env.JEJU_TESTNET_RPC_URL ?? 'https://testnet-rpc.jejunetwork.org',
+    rpcUrl: getRpcUrl('testnet'),
     blockTime: 200,
     isL2: true,
     nativeSymbol: 'ETH',
@@ -97,7 +105,7 @@ export const DEFAULT_CHAINS: Record<string, TradingBotChain> = {
   sepolia: {
     chainId: 11155111,
     name: 'Sepolia',
-    rpcUrl: process.env.SEPOLIA_RPC_URL ?? 'https://rpc.sepolia.org',
+    rpcUrl: safeGetExternalRpc('sepolia', 'https://rpc.sepolia.org'),
     blockTime: 12000,
     isL2: false,
     nativeSymbol: 'ETH',
@@ -106,7 +114,7 @@ export const DEFAULT_CHAINS: Record<string, TradingBotChain> = {
   baseSepolia: {
     chainId: 84532,
     name: 'Base Sepolia',
-    rpcUrl: process.env.BASE_SEPOLIA_RPC_URL ?? 'https://sepolia.base.org',
+    rpcUrl: safeGetExternalRpc('baseSepolia', 'https://sepolia.base.org'),
     blockTime: 2000,
     isL2: true,
     nativeSymbol: 'ETH',
@@ -115,9 +123,10 @@ export const DEFAULT_CHAINS: Record<string, TradingBotChain> = {
   arbitrumSepolia: {
     chainId: 421614,
     name: 'Arbitrum Sepolia',
-    rpcUrl:
-      process.env.ARBITRUM_SEPOLIA_RPC_URL ??
+    rpcUrl: safeGetExternalRpc(
+      'arbitrumSepolia',
       'https://sepolia-rollup.arbitrum.io/rpc',
+    ),
     blockTime: 250,
     isL2: true,
     nativeSymbol: 'ETH',
@@ -126,7 +135,7 @@ export const DEFAULT_CHAINS: Record<string, TradingBotChain> = {
   localnet: {
     chainId: 31337,
     name: 'Localnet',
-    rpcUrl: 'http://localhost:6546',
+    rpcUrl: getRpcUrl('localnet'),
     blockTime: 1000,
     isL2: false,
     nativeSymbol: 'ETH',

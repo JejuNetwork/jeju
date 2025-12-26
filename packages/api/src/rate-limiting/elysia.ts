@@ -12,6 +12,10 @@ import {
   RateLimitTiers,
 } from './types.js'
 
+interface AuthUserContext {
+  authUser?: { permissions?: string[] }
+}
+
 export interface RateLimitPluginConfig extends RateLimiterConfig {
   /** Function to extract user identifier from context */
   getUserId?: (ctx: Context) => string | undefined
@@ -68,7 +72,6 @@ export function rateLimitPlugin(config: RateLimitPluginConfig) {
       const tier = config.getTier?.(ctx as Context) ?? config.defaultTier
       const result = await limiter.check(key, tier)
 
-      // Update context - RateLimitContext is added by derive above
       const rateLimitCtx = ctx as Context & RateLimitContext
       rateLimitCtx.rateLimit = result
       rateLimitCtx.rateLimitKey = key
@@ -118,20 +121,16 @@ export function tieredRateLimit(options?: {
     skipPaths: options?.skipPaths ?? ['/health', '/', '/docs'],
     includeHeaders: options?.includeHeaders ?? true,
     getTier: (ctx) => {
-      // Check for authUser in context (set by auth plugin)
-      interface AuthUserContext {
-        authUser?: { permissions?: string[] }
-      }
       const authContext = ctx as Context & AuthUserContext
-      const permissions = authContext.authUser?.permissions ?? []
+      const permissions = authContext.authUser?.permissions
 
-      if (permissions.includes('unlimited')) {
+      if (permissions?.includes('unlimited')) {
         return RateLimitTiers.UNLIMITED
       }
-      if (permissions.includes('premium')) {
+      if (permissions?.includes('premium')) {
         return RateLimitTiers.PREMIUM
       }
-      if (permissions.includes('basic')) {
+      if (permissions?.includes('basic')) {
         return RateLimitTiers.BASIC
       }
 
