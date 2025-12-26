@@ -83,7 +83,7 @@ export class StorageUtil {
       headers.Authorization = `Bearer ${this.apiKey}`
     }
 
-    const response = await fetch(`${this.endpoint}/api/v1/upload`, {
+    const response = await fetch(`${this.endpoint}/storage/upload`, {
       method: 'POST',
       headers,
       body: formData,
@@ -225,7 +225,7 @@ export class StorageUtil {
       headers.Authorization = `Bearer ${this.apiKey}`
     }
 
-    const response = await fetch(`${this.endpoint}/api/v1/get/${cid}`, {
+    const response = await fetch(`${this.endpoint}/storage/download/${cid}`, {
       headers,
     })
 

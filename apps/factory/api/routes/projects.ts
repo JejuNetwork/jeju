@@ -10,9 +10,13 @@ import {
   updateTask as dbUpdateTask,
   getProject,
   getProjectTasks,
+  getProjectChannel,
+  setProjectChannel,
+  deleteProjectChannel,
   type ProjectRow,
   type TaskRow,
 } from '../db/client'
+import * as farcasterService from '../services/farcaster'
 import {
   CreateProjectBodySchema,
   CreateTaskBodySchema,
@@ -212,4 +216,173 @@ export const projectsRoutes = new Elysia({ prefix: '/api/projects' })
       return transformTask(row)
     },
     { detail: { tags: ['projects'], summary: 'Update task' } },
+  )
+  // ============================================================================
+  // PROJECT FARCASTER CHANNEL
+  // ============================================================================
+  .get(
+    '/:projectId/channel',
+    async ({ params, set }) => {
+      const project = getProject(params.projectId)
+      if (!project) {
+        set.status = 404
+        return {
+          error: {
+            code: 'NOT_FOUND',
+            message: `Project ${params.projectId} not found`,
+          },
+        }
+      }
+
+      const channel = getProjectChannel(params.projectId)
+      if (!channel) {
+        return { channel: null }
+      }
+
+      return {
+        channel: {
+          id: channel.channel_id,
+          url: channel.channel_url,
+          createdAt: channel.created_at,
+        },
+      }
+    },
+    { detail: { tags: ['projects'], summary: 'Get project Farcaster channel' } },
+  )
+  .post(
+    '/:projectId/channel',
+    async ({ params, body, headers, set }) => {
+      const authResult = await requireAuth(headers)
+      if (!authResult.success) {
+        set.status = 401
+        return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
+      }
+
+      const project = getProject(params.projectId)
+      if (!project) {
+        set.status = 404
+        return {
+          error: {
+            code: 'NOT_FOUND',
+            message: `Project ${params.projectId} not found`,
+          },
+        }
+      }
+
+      // Check ownership
+      if (project.owner.toLowerCase() !== authResult.address.toLowerCase()) {
+        set.status = 403
+        return {
+          error: {
+            code: 'FORBIDDEN',
+            message: 'Only project owner can set channel',
+          },
+        }
+      }
+
+      const { channelId } = body as { channelId: string }
+      const channelUrl = `https://warpcast.com/~/channel/${channelId}`
+
+      const channel = setProjectChannel(params.projectId, channelId, channelUrl)
+
+      set.status = 201
+      return {
+        success: true,
+        channel: {
+          id: channel.channel_id,
+          url: channel.channel_url,
+          createdAt: channel.created_at,
+        },
+      }
+    },
+    { detail: { tags: ['projects'], summary: 'Set project Farcaster channel' } },
+  )
+  .delete(
+    '/:projectId/channel',
+    async ({ params, headers, set }) => {
+      const authResult = await requireAuth(headers)
+      if (!authResult.success) {
+        set.status = 401
+        return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
+      }
+
+      const project = getProject(params.projectId)
+      if (!project) {
+        set.status = 404
+        return {
+          error: {
+            code: 'NOT_FOUND',
+            message: `Project ${params.projectId} not found`,
+          },
+        }
+      }
+
+      // Check ownership
+      if (project.owner.toLowerCase() !== authResult.address.toLowerCase()) {
+        set.status = 403
+        return {
+          error: {
+            code: 'FORBIDDEN',
+            message: 'Only project owner can remove channel',
+          },
+        }
+      }
+
+      deleteProjectChannel(params.projectId)
+      return { success: true }
+    },
+    { detail: { tags: ['projects'], summary: 'Remove project Farcaster channel' } },
+  )
+  .get(
+    '/:projectId/feed',
+    async ({ params, query, headers, set }) => {
+      const project = getProject(params.projectId)
+      if (!project) {
+        set.status = 404
+        return {
+          error: {
+            code: 'NOT_FOUND',
+            message: `Project ${params.projectId} not found`,
+          },
+        }
+      }
+
+      const channel = getProjectChannel(params.projectId)
+      if (!channel) {
+        return {
+          casts: [],
+          message: 'No Farcaster channel configured for this project',
+        }
+      }
+
+      // Get viewer FID if connected
+      const authHeader = headers.authorization
+      let viewerFid: number | undefined
+      if (authHeader?.startsWith('Bearer ')) {
+        const address = authHeader.slice(7) as Address
+        const link = farcasterService.getLinkedFid(address)
+        if (link) {
+          viewerFid = link.fid
+        }
+      }
+
+      const limit = query.limit ? parseInt(query.limit as string, 10) : 20
+      const cursor = query.cursor as string | undefined
+
+      const feed = await farcasterService.getChannelFeed(channel.channel_id, {
+        limit,
+        cursor,
+        viewerFid,
+      })
+
+      return {
+        casts: feed.casts,
+        cursor: feed.cursor,
+        channel: {
+          id: channel.channel_id,
+          url: channel.channel_url,
+        },
+      }
+    },
+    { detail: { tags: ['projects'], summary: 'Get project Farcaster feed' } },
   )

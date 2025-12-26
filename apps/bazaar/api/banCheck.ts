@@ -26,35 +26,6 @@ export interface BanCheckResult {
   canAppeal?: boolean
 }
 
-export interface QuorumStatus {
-  reached: boolean
-  currentCount: bigint
-  requiredCount: bigint
-}
-
-export const ReputationTier = {
-  UNTRUSTED: 0,
-  LOW: 1,
-  MEDIUM: 2,
-  HIGH: 3,
-  TRUSTED: 4,
-} as const
-export type ReputationTier =
-  (typeof ReputationTier)[keyof typeof ReputationTier]
-
-export interface ModeratorReputation {
-  successfulBans: bigint
-  unsuccessfulBans: bigint
-  totalSlashedFrom: bigint
-  totalSlashedOthers: bigint
-  reputationScore: bigint
-  lastReportTimestamp: bigint
-  reportCooldownUntil: bigint
-  tier: ReputationTier
-  netPnL: bigint
-  winRate: number
-}
-
 const isZero = (addr: string) =>
   addr === '0x0000000000000000000000000000000000000000'
 
@@ -183,77 +154,6 @@ export async function isTradeAllowed(userAddress: Address): Promise<boolean> {
   return result.allowed
 }
 
-export async function checkCanReport(userAddress: Address): Promise<boolean> {
-  const profile = await moderationAPI.getModeratorProfile(userAddress)
-  return profile?.canReport ?? false
-}
-
-export async function getUserStake(userAddress: Address): Promise<{
-  amount: bigint
-  stakedAt: bigint
-  isStaked: boolean
-} | null> {
-  const profile = await moderationAPI.getModeratorProfile(userAddress)
-  if (!profile) return null
-  return {
-    amount: BigInt(profile.stakeAmount),
-    stakedAt: BigInt(profile.stakedSince),
-    isStaked: profile.isStaked,
-  }
-}
-
-export async function getModeratorReputation(
-  userAddress: Address,
-): Promise<ModeratorReputation | null> {
-  const profile = await moderationAPI.getModeratorProfile(userAddress)
-  if (!profile) return null
-
-  // Map tier string to enum
-  const tierMap: Record<string, ReputationTier> = {
-    UNTRUSTED: ReputationTier.UNTRUSTED,
-    LOW: ReputationTier.LOW,
-    MEDIUM: ReputationTier.MEDIUM,
-    HIGH: ReputationTier.HIGH,
-    TRUSTED: ReputationTier.TRUSTED,
-  }
-  const tier = tierMap[profile.tier.toUpperCase()] ?? ReputationTier.UNTRUSTED
-
-  return {
-    successfulBans: BigInt(profile.successfulBans),
-    unsuccessfulBans: BigInt(profile.unsuccessfulBans),
-    totalSlashedFrom: BigInt(profile.totalLost),
-    totalSlashedOthers: BigInt(profile.totalEarned),
-    reputationScore: BigInt(profile.reputationScore),
-    lastReportTimestamp: 0n, // Not available in shared type
-    reportCooldownUntil: 0n, // Not available in shared type
-    tier,
-    netPnL: BigInt(profile.netPnL),
-    winRate: profile.winRate,
-  }
-}
-
-export async function getRequiredStakeForReporter(
-  userAddress: Address,
-): Promise<bigint | null> {
-  const profile = await moderationAPI.getModeratorProfile(userAddress)
-  if (!profile) return null
-  return BigInt(profile.requiredStake)
-}
-
-export async function getQuorumRequired(
-  userAddress: Address,
-): Promise<bigint | null> {
-  const profile = await moderationAPI.getModeratorProfile(userAddress)
-  if (!profile) return null
-  return BigInt(profile.quorumRequired)
-}
-
-export async function checkQuorumStatus(
-  _targetAddress: Address,
-): Promise<QuorumStatus | null> {
-  return null
-}
-
 export async function checkTransferAllowed(
   userAddress: Address,
 ): Promise<boolean> {
@@ -296,33 +196,3 @@ export async function checkTradeAllowed(
 }
 
 export const getBanTypeLabel = sharedGetBanTypeLabel
-
-export function getReputationTierLabel(tier: ReputationTier): string {
-  const labels = ['Untrusted', 'Low', 'Medium', 'High', 'Trusted']
-  return labels[tier] ?? 'Unknown'
-}
-
-export function getReputationTierColor(tier: ReputationTier): string {
-  const colors = [
-    'text-red-600 bg-red-50',
-    'text-orange-600 bg-orange-50',
-    'text-yellow-600 bg-yellow-50',
-    'text-blue-600 bg-blue-50',
-    'text-green-600 bg-green-50',
-  ]
-  return colors[tier] ?? 'text-gray-600 bg-gray-50'
-}
-
-export function formatPnL(pnl: bigint): string {
-  const eth = Number(pnl) / 1e18
-  const sign = eth >= 0 ? '+' : ''
-  return `${sign}${eth.toFixed(4)} ETH`
-}
-
-export function clearBanCache(userAddress?: Address): void {
-  if (userAddress) {
-    banCache.delete(userAddress.toLowerCase())
-  } else {
-    banCache.clear()
-  }
-}

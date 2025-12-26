@@ -1,7 +1,7 @@
 {
   "name": "@jejunetwork/autocrat",
   "version": "1.0.0",
-  "description": "AI Council DAO - Autonomous governance with AI CEO, council agents, and reputation-weighted proposals",
+  "description": "Autonomous governance engine",
   "main": "api/server.ts",
   "type": "module",
   "scripts": {

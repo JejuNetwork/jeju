@@ -15,6 +15,7 @@ import { FeedPage } from './pages/Feed'
 import { GitPage } from './pages/Git'
 import { HomePage } from './pages/Home'
 import { JobsPage } from './pages/Jobs'
+import { MessagesPage } from './pages/Messages'
 import { ModelsPage } from './pages/Models'
 import { PackagesPage } from './pages/Packages'
 import { ProjectsPage } from './pages/Projects'
@@ -47,6 +48,7 @@ export function App() {
                 <Route path="/ci/*" element={<CIPage />} />
                 <Route path="/agents/*" element={<AgentsPage />} />
                 <Route path="/feed/*" element={<FeedPage />} />
+                <Route path="/messages/*" element={<MessagesPage />} />
               </Routes>
             </Layout>
           </BrowserRouter>

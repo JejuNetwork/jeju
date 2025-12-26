@@ -381,6 +381,6 @@ describe('EventEmitter interface', () => {
 
     emitter.emit(testEvent)
     expect(received).not.toBeNull()
-    expect(received?.type).toBe('test')
+    expect(received!.type).toBe('test')
   })
 })

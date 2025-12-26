@@ -38,3 +38,12 @@ export {
   useOAuth3,
   useOAuth3Client,
 } from './provider'
+// Convenience hooks
+export {
+  type LinkedAccount,
+  type UseJejuAuthReturn,
+  useJejuAuth,
+} from './hooks/useJejuAuth'
+export { type UseJejuWalletReturn, useJejuWallet } from './hooks/useJejuWallet'
+// Alias for convenience
+export { OAuth3Provider as JejuAuthProvider } from './provider'

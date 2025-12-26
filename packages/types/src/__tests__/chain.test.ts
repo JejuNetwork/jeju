@@ -33,8 +33,7 @@ import {
   type TransactionLog,
 } from '../chain'
 
-const TEST_ADDRESS = '0x1234567890123456789012345678901234567890'
-const _ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
+const TEST_ADDRESS = '0x1234567890123456789012345678901234567890' as const
 
 describe('NetworkSchema', () => {
   const validNetworks: NetworkType[] = ['localnet', 'testnet', 'mainnet']

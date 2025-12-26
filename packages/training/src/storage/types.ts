@@ -167,3 +167,28 @@ export interface SecretPolicy {
 export interface CIDResponse {
   cid: string
 }
+
+/**
+ * Reference to a scored dataset in permanent storage
+ */
+export interface DatasetReference {
+  datasetId: string
+  appName: string
+  archetype: string
+  sourceBatchCids: string[]
+  permanentCid: string
+  storageProvider: 'arweave'
+  trajectoryCount: number
+  totalSteps: number
+  averageScore: number
+  scoreDistribution: {
+    min: number
+    max: number
+    median: number
+    stdDev: number
+  }
+  createdAt: Date
+  processedAt: Date
+  rulerModelId: string
+  rulerVersion: string
+}

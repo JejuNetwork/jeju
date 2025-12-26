@@ -224,6 +224,131 @@ export class AutonomousAgentRunner {
     return this.storage.flush()
   }
 
+  /**
+   * Execute a single tick for all enabled agents.
+   * Used by cron to trigger immediate execution.
+   */
+  async executeAllAgentsTick(): Promise<{
+    executed: number
+    succeeded: number
+    failed: number
+    results: Array<{
+      agentId: string
+      success: boolean
+      reward: number
+      error: string | null
+      latencyMs: number
+    }>
+  }> {
+    const results: Array<{
+      agentId: string
+      success: boolean
+      reward: number
+      error: string | null
+      latencyMs: number
+    }> = []
+
+    for (const [agentId, agent] of this.agents) {
+      if (!agent.config.enabled) continue
+
+      const startTime = Date.now()
+
+      // Initialize runtime if needed
+      if (!agent.runtime) {
+        await this.initializeAgentRuntime(agent)
+      }
+
+      // Execute tick
+      try {
+        const result = await this.executeSingleAgentTick(agent)
+        results.push({
+          agentId,
+          success: true,
+          reward: result.reward,
+          error: null,
+          latencyMs: Date.now() - startTime,
+        })
+      } catch (err) {
+        results.push({
+          agentId,
+          success: false,
+          reward: 0,
+          error: err instanceof Error ? err.message : String(err),
+          latencyMs: Date.now() - startTime,
+        })
+      }
+    }
+
+    return {
+      executed: results.length,
+      succeeded: results.filter((r) => r.success).length,
+      failed: results.filter((r) => !r.success).length,
+      results,
+    }
+  }
+
+  /**
+   * Execute a tick for a single agent (extracted for reuse)
+   */
+  private async executeSingleAgentTick(
+    agent: RegisteredAgent,
+  ): Promise<{ reward: number }> {
+    const agentId = agent.config.agentId
+    agent.lastTick = Date.now()
+    agent.tickCount++
+
+    // Start trajectory recording for this tick
+    const shouldRecord =
+      this.config.enableTrajectoryRecording &&
+      (agent.config.recordTrajectories ?? true)
+
+    if (shouldRecord) {
+      agent.currentTrajectoryId = await this.trajectoryRecorder.startTrajectory({
+        agentId,
+        archetype: agent.config.archetype,
+        scenarioId: `autonomous-tick-${agent.tickCount}`,
+      })
+    }
+
+    let tickSuccess = false
+    let tickError: string | null = null
+    let totalReward = 0
+
+    try {
+      const result = await this.executeAgentTick(agent)
+      tickSuccess = true
+      totalReward = result.reward
+      agent.errorCount = 0
+      agent.backoffMs = 0
+      agent.lastError = null
+    } catch (err) {
+      agent.errorCount++
+      tickError = err instanceof Error ? err.message : String(err)
+      agent.lastError = tickError
+      agent.backoffMs = Math.min(
+        BASE_BACKOFF_MS * 2 ** agent.errorCount,
+        MAX_BACKOFF_MS,
+      )
+      throw err // Re-throw for caller to handle
+    } finally {
+      // End trajectory recording
+      if (agent.currentTrajectoryId) {
+        await this.trajectoryRecorder.endTrajectory(agent.currentTrajectoryId, {
+          finalPnL: totalReward,
+          gameKnowledge: {
+            actualOutcomes: {
+              tickSuccess,
+              ...(tickError && { error: tickError }),
+            },
+          },
+        })
+        agent.currentTrajectoryId = null
+      }
+    }
+
+    return { reward: totalReward }
+  }
+
   private async initializeAgentRuntime(agent: RegisteredAgent): Promise<void> {
     if (agent.runtime) return
 
@@ -350,12 +475,20 @@ export class AutonomousAgentRunner {
 
     // Start trajectory step with environment state
     if (trajectoryId) {
+      const recentSuccesses = agent.recentActivity.filter((a) => a.success).length
+      const successRate = agent.recentActivity.length > 0
+        ? recentSuccesses / agent.recentActivity.length
+        : 0
+
+      // Crucible uses passthrough fields for semantic naming (not trading data)
       const envState: EnvironmentState = {
         timestamp: Date.now(),
-        agentBalance: 0, // Could track wallet balance
-        agentPoints: 0,
-        agentPnL: 0,
-        openPositions: 0,
+        tickCount: agent.tickCount,
+        successfulActions: recentSuccesses,
+        successRatePercent: Math.round(successRate * 100),
+        recentActivityCount: agent.recentActivity.length,
+        errorCount: agent.errorCount,
+        archetype: agent.config.archetype,
       }
       this.trajectoryRecorder.startStep(trajectoryId, envState)
     }
@@ -380,14 +513,26 @@ export class AutonomousAgentRunner {
 
     // Log LLM call to trajectory
     if (trajectoryId) {
+      // Get model name from character preferences or use default
+      const modelPrefs = config.character.modelPreferences
+      const network = getCurrentNetwork()
+      const modelName =
+        network === 'mainnet'
+          ? (modelPrefs?.large ?? 'llama-3.3-70b-versatile')
+          : (modelPrefs?.small ?? 'llama-3.1-8b-instant')
+
+      // DWS default inference parameters
+      const temperature = 0.7
+      const maxTokens = 1024
+
       const llmCall: LLMCall = {
         timestamp: llmCallStart,
-        model: 'dws-inference',
+        model: `dws/${modelName}`,
         systemPrompt: this.buildSystemPrompt(config),
         userPrompt: tickPrompt,
         response: response.text,
-        temperature: 0.7,
-        maxTokens: 1024,
+        temperature,
+        maxTokens,
         latencyMs: llmCallLatency,
         purpose: 'action',
         actionType: response.action ?? 'respond',

@@ -24,6 +24,7 @@
   "dependencies": {
     "@jejunetwork/config": "workspace:*",
     "@jejunetwork/shared": "workspace:*",
+    "@jejunetwork/token": "workspace:*",
     "@jejunetwork/types": "workspace:*",
     "@noble/curves": "^1.8.0",
     "@noble/hashes": "^1.7.1",

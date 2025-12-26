@@ -41,9 +41,6 @@ export function getCORSHeaders(
   }
 }
 
-// Default CORS headers for static responses (development-friendly but secure)
-export const CORS_HEADERS = getCORSHeaders()
-
 export const MCP_SERVER_INFO = {
   name: 'jeju-bazaar',
   version: '1.0.0',

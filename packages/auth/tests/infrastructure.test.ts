@@ -20,8 +20,8 @@ import {
   getContracts,
   getNetworkType,
   MIN_STAKE,
-  ZERO_ADDRESS,
 } from '../src/infrastructure/config.js'
+import { ZERO_ADDRESS } from '@jejunetwork/types'
 import {
   createDecentralizedDiscovery,
   type OAuth3DecentralizedDiscovery,

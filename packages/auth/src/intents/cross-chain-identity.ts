@@ -5,7 +5,8 @@
  * using the Open Intents Framework (OIF) for intent-based execution.
  */
 
-import { getEnv, getExternalRpc, getRpcUrl } from '@jejunetwork/config'
+import { getExternalRpc, getRpcUrl } from '@jejunetwork/config'
+import { getEnv } from '@jejunetwork/shared'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import {
   type Address,
@@ -454,18 +455,22 @@ export class CrossChainIdentityManager {
         args: [intentId],
       })
 
-    const status =
+    const rawStatus =
       INTENT_STATUS[statusCode as keyof typeof INTENT_STATUS] ?? 'pending'
+    
+    // Map 'expired' to 'failed' since our return type doesn't include 'expired'
+    const status = rawStatus === 'expired' ? 'failed' : rawStatus
 
     if (status === 'executed' && executedAt > 0n) {
       return {
         status: 'executed',
         executionTx: executionTx as Hex,
         solution: {
-          solver,
-          executedAt: Number(executedAt),
+          solverId: solver,
+          intentId,
+          executionData: executionTx as Hex,
           gasUsed: 0n,
-          txHash: executionTx as Hex,
+          timestamp: Number(executedAt),
         },
       }
     }

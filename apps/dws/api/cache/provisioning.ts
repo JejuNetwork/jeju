@@ -675,8 +675,9 @@ export class CacheProvisioningManager {
 
   private async ensureTablesExist(): Promise<void> {
     if (!this.cqlClient) {
-      console.warn(
-        '[Cache Provisioning] CQL client not initialized, skipping table creation',
+      // Not an error - CQL is optional for local development
+      console.log(
+        '[Cache Provisioning] CQL client not available - running in memory-only mode',
       )
       return
     }
@@ -732,8 +733,9 @@ export class CacheProvisioningManager {
 
   private async loadFromCQL(): Promise<void> {
     if (!this.cqlClient) {
-      console.warn(
-        '[Cache Provisioning] CQL client not initialized, skipping data load',
+      // CQL is optional - nothing to load in memory-only mode
+      console.log(
+        '[Cache Provisioning] CQL unavailable - starting with empty state',
       )
       return
     }
@@ -744,6 +746,9 @@ export class CacheProvisioningManager {
       ['running'],
       CQL_DATABASE_ID,
     )
+
+    // Collect TEE initialization promises to await later
+    const teeInitPromises: Promise<void>[] = []
 
     for (const row of instancesResult.rows) {
       const instance: CacheInstance = {
@@ -773,23 +778,25 @@ export class CacheProvisioningManager {
           encryptionEnabled: true,
           nodeId: instance.id,
         })
-        // Initialize in background - don't block loading
-        teeProvider
-          .initialize()
-          .then((attestation) => {
-            instance.teeAttestation = attestation
-            console.log(
-              `[Cache Provisioning] TEE provider reinitialized for ${instance.id}`,
-            )
-          })
-          .catch((err) => {
-            console.error(
-              `[Cache Provisioning] Failed to reinitialize TEE provider for ${instance.id}:`,
-              err,
-            )
-            instance.status = CacheInstanceStatus.ERROR
-          })
         this.teeProviders.set(instance.id, teeProvider)
+        // Collect for parallel initialization
+        teeInitPromises.push(
+          teeProvider
+            .initialize()
+            .then((attestation) => {
+              instance.teeAttestation = attestation
+              console.log(
+                `[Cache Provisioning] TEE provider reinitialized for ${instance.id}`,
+              )
+            })
+            .catch((err) => {
+              console.error(
+                `[Cache Provisioning] Failed to reinitialize TEE provider for ${instance.id}:`,
+                err,
+              )
+              instance.status = CacheInstanceStatus.ERROR
+            }),
+        )
       } else {
         // Standard/Premium instances use regular engine
         const engine = new CacheEngine({
@@ -799,6 +806,14 @@ export class CacheProvisioningManager {
         })
         this.engines.set(instance.id, engine)
       }
+    }
+
+    // Wait for all TEE providers to initialize
+    if (teeInitPromises.length > 0) {
+      console.log(
+        `[Cache Provisioning] Waiting for ${teeInitPromises.length} TEE providers to initialize...`,
+      )
+      await Promise.all(teeInitPromises)
     }
 
     // Load nodes
@@ -833,8 +848,9 @@ export class CacheProvisioningManager {
 
   private async saveInstanceToCQL(instance: CacheInstance): Promise<void> {
     if (!this.cqlClient) {
-      console.warn(
-        `[Cache Provisioning] CQL unavailable, instance ${instance.id} not persisted`,
+      // CQL is optional - log at debug level
+      console.log(
+        `[Cache Provisioning] CQL unavailable, instance ${instance.id} in memory only`,
       )
       return
     }
@@ -868,8 +884,9 @@ export class CacheProvisioningManager {
 
   private async deleteInstanceFromCQL(instanceId: string): Promise<void> {
     if (!this.cqlClient) {
-      console.warn(
-        `[Cache Provisioning] CQL unavailable, instance ${instanceId} deletion not persisted`,
+      // CQL is optional - log at debug level
+      console.log(
+        `[Cache Provisioning] CQL unavailable, instance ${instanceId} deletion in memory only`,
       )
       return
     }
@@ -883,8 +900,9 @@ export class CacheProvisioningManager {
 
   private async saveNodeToCQL(node: CacheNode): Promise<void> {
     if (!this.cqlClient) {
-      console.warn(
-        `[Cache Provisioning] CQL unavailable, node ${node.nodeId} not persisted`,
+      // CQL is optional - log at debug level
+      console.log(
+        `[Cache Provisioning] CQL unavailable, node ${node.nodeId} in memory only`,
       )
       return
     }

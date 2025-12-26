@@ -366,9 +366,12 @@ export {
 export {
   type AccessCondition,
   type AccessControlPolicy,
+  ALL_TRAINING_SCHEMAS,
   type AuthSignature,
   type CIDResponse,
   createStaticTrajectoryStorage,
+  type DatasetReference,
+  DATASET_REFERENCE_SCHEMA,
   downloadTrajectoryBatch,
   type EncryptedPayload,
   type EncryptedTrajectory,
@@ -394,8 +397,11 @@ export {
   StorageUtil,
   shouldUseStorage,
   shutdownAllStaticStorage,
+  TRAJECTORY_BATCH_SCHEMA,
   type TrajectoryBatch,
   type TrajectoryBatchReference,
+  type TrainingDbClient,
+  TrainingDbPersistence,
 } from './storage'
 
 // TEE training workers

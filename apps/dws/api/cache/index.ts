@@ -33,6 +33,7 @@ export {
   type PaymentProof,
   type PaymentRequirement,
   PaymentStatus,
+  parseBillingMode,
   resetCacheBilling,
   SubscriptionStatus,
   type UsageMetrics,

@@ -836,6 +836,7 @@ const DEFAULT_SOLANA_TOKENS: SolanaTokenConfig[] = [
 
 export class SolanaArbitrage {
   private config: SolanaArbConfig
+  private tokenMap: Map<string, SolanaTokenConfig>
 
   constructor(config: Partial<SolanaArbConfig> = {}) {
     const tokens = config.monitoredTokens ?? DEFAULT_SOLANA_TOKENS

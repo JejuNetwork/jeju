@@ -8,6 +8,16 @@
  * - Audit logging
  *
  * Supports: Phala, Intel TDX, AMD SEV, dstack, LOCAL (simulator)
+ *
+ * ⚠️ SECURITY WARNING ⚠️
+ * LOCAL and DSTACK modes use SIMULATED encryption (base64 encoding).
+ * This is NOT cryptographically secure and is ONLY for testing/development.
+ * For production deployments with sensitive data, you MUST use a real TEE
+ * provider (Phala, TDX, or SEV) with proper encryption.
+ *
+ * To check if running in simulated mode:
+ *   provider.isSimulated() // returns true if LOCAL mode
+ *   provider.getAttestation()?.simulated // returns true if attestation is simulated
  */
 
 import { HexSchema } from '@jejunetwork/types'
@@ -488,6 +498,9 @@ export class TEECacheProvider {
 
   /**
    * Remove from set
+   *
+   * Note: With encryption enabled, we must decrypt all members and compare
+   * because encryption is non-deterministic (different nonce each time).
    */
   async srem(
     namespace: string,
@@ -497,8 +510,23 @@ export class TEECacheProvider {
     this.requireInit()
 
     if (this.config.encryptionEnabled) {
-      const encrypted = await Promise.all(members.map((m) => this.encrypt(m)))
-      return this.engine.srem(namespace, key, ...encrypted)
+      // Get all encrypted members
+      const allEncrypted = this.engine.smembers(namespace, key)
+      if (allEncrypted.length === 0) return 0
+
+      // Decrypt all and find which ones to remove
+      const membersToRemove = new Set(members)
+      const encryptedToRemove: string[] = []
+
+      for (const encrypted of allEncrypted) {
+        const decrypted = await this.decrypt(encrypted)
+        if (membersToRemove.has(decrypted)) {
+          encryptedToRemove.push(encrypted)
+        }
+      }
+
+      if (encryptedToRemove.length === 0) return 0
+      return this.engine.srem(namespace, key, ...encryptedToRemove)
     }
 
     return this.engine.srem(namespace, key, ...members)
@@ -521,6 +549,9 @@ export class TEECacheProvider {
 
   /**
    * Check set membership
+   *
+   * Note: With encryption enabled, we must decrypt all members and compare
+   * because encryption is non-deterministic (different nonce each time).
    */
   async sismember(
     namespace: string,
@@ -530,8 +561,16 @@ export class TEECacheProvider {
     this.requireInit()
 
     if (this.config.encryptionEnabled) {
-      const encrypted = await this.encrypt(member)
-      return this.engine.sismember(namespace, key, encrypted)
+      // Get all encrypted members
+      const allEncrypted = this.engine.smembers(namespace, key)
+      if (allEncrypted.length === 0) return false
+
+      // Decrypt each and check for match
+      for (const encrypted of allEncrypted) {
+        const decrypted = await this.decrypt(encrypted)
+        if (decrypted === member) return true
+      }
+      return false
     }
 
     return this.engine.sismember(namespace, key, member)
@@ -816,15 +855,19 @@ export class TEECacheProvider {
 
   /**
    * Encrypt a value
+   *
+   * ⚠️ In LOCAL/dstack mode, this uses base64 encoding, NOT real encryption.
+   * This provides NO security and is ONLY for testing/development.
    */
   private async encrypt(plaintext: string): Promise<string> {
-    // LOCAL/dstack mode - use simple XOR simulation (NOT secure, for testing only)
+    // LOCAL/dstack mode - SIMULATED encryption (NOT secure)
     if (
       this.config.provider === CacheTEEProvider.LOCAL ||
       this.config.provider === CacheTEEProvider.DSTACK
     ) {
-      // In simulation mode, we just base64 encode to simulate encryption
-      // Real implementation would use actual AES-GCM
+      // WARNING: This is NOT cryptographically secure
+      // It's base64 encoding, which provides NO confidentiality
+      // For production, use a real TEE provider (Phala, TDX, SEV)
       const encoded = Buffer.from(plaintext).toString('base64')
       const entry: EncryptedEntry = {
         ciphertext: encoded,

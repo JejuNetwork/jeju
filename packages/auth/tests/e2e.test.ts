@@ -20,10 +20,10 @@ import {
   VerifiableCredentialVerifier,
 } from '../src/credentials/verifiable-credentials.js'
 import {
-  ChainId,
   CrossChainIdentityManager,
   computeIntentHash,
 } from '../src/intents/cross-chain-identity.js'
+import { ChainId } from '../src/types.js'
 import type {
   AuthProvider,
   OAuth3Identity,

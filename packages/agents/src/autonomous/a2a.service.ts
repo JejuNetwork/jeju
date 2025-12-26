@@ -152,7 +152,15 @@ export class AutonomousA2AService {
       id: agentId,
       name,
       description,
-      skills: skills.map((s) => ({ id: s, name: s })),
+      skills: skills.map((s) => ({
+        id: s,
+        name: s,
+        description: s,
+        tags: [],
+        examples: [],
+        inputModes: ['text'],
+        outputModes: ['text'],
+      })),
     })
   }
 

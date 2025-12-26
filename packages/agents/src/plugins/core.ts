@@ -29,9 +29,9 @@ const tradeAction: Action = {
   description: 'Execute a trade on prediction markets or perpetual futures',
   examples: [
     [
-      { user: 'user', content: { text: 'Buy $50 of YES on market abc123' } },
+      { name: 'user', content: { text: 'Buy $50 of YES on market abc123' } },
       {
-        user: 'assistant',
+        name: 'assistant',
         content: { text: 'Executing trade: BUY YES $50 on market abc123' },
       },
     ],
@@ -97,11 +97,11 @@ const a2aMessageAction: Action = {
   examples: [
     [
       {
-        user: 'user',
+        name: 'user',
         content: { text: 'Ask agent-xyz for their market analysis' },
       },
       {
-        user: 'assistant',
+        name: 'assistant',
         content: { text: 'Sending A2A message to agent-xyz' },
       },
     ],
@@ -129,7 +129,7 @@ const a2aMessageAction: Action = {
 
     // Extract target agent ID from message
     const agentMatch = text.match(/agent[- ]?(\w+)/i)
-    if (!agentMatch) {
+    if (!agentMatch?.[1]) {
       return {
         success: false,
         error: 'Could not identify target agent',
@@ -148,7 +148,9 @@ const a2aMessageAction: Action = {
 
     return {
       success: response.success,
-      data: response.response,
+      data: response.response
+        ? (response.response as unknown as Record<string, unknown>)
+        : undefined,
       error: response.error,
     }
   },
@@ -163,11 +165,11 @@ const discoverAgentsAction: Action = {
   examples: [
     [
       {
-        user: 'user',
+        name: 'user',
         content: { text: 'Find agents that can analyze prediction markets' },
       },
       {
-        user: 'assistant',
+        name: 'assistant',
         content: {
           text: 'Discovering agents with market analysis capabilities...',
         },
@@ -218,11 +220,13 @@ const discoverAgentsAction: Action = {
  * Portfolio provider - Provides current portfolio state to the agent
  */
 const portfolioProvider: Provider = {
+  name: 'portfolio',
   get: async (runtime, _message, _state) => {
     const agentId = runtime.agentId
     const portfolio = await autonomousTradingService.getPortfolio(agentId)
 
-    return `Current Portfolio:
+    return {
+      text: `Current Portfolio:
 - Balance: $${portfolio.balance.toFixed(2)}
 - P&L: $${portfolio.pnl.toFixed(2)}
 - Open Positions: ${portfolio.positions.length}
@@ -231,7 +235,8 @@ ${portfolio.positions
     (p) =>
       `  - ${p.ticker ?? p.marketId}: ${p.side} ${p.amount} @ $${p.entryPrice.toFixed(4)}`,
   )
-  .join('\n')}`
+  .join('\n')}`,
+    }
   },
 }
 
@@ -239,6 +244,7 @@ ${portfolio.positions
  * Market data provider - Provides current market information
  */
 const marketDataProvider: Provider = {
+  name: 'marketData',
   get: async (_runtime, _message, _state) => {
     const { predictions, perps } =
       await autonomousTradingService.getAvailableMarkets()
@@ -259,7 +265,7 @@ const marketDataProvider: Provider = {
       }
     }
 
-    return marketInfo
+    return { text: marketInfo }
   },
 }
 
@@ -296,22 +302,22 @@ const riskEvaluator: Evaluator = {
     // Check if agent has sufficient balance
     if (portfolio.balance < 10) {
       return {
-        pass: false,
-        reason: 'Insufficient balance for trading',
+        success: false,
+        text: 'Insufficient balance for trading',
       }
     }
 
     // Check position concentration
     if (portfolio.positions.length >= 10) {
       return {
-        pass: false,
-        reason: 'Too many open positions, consider closing some first',
+        success: false,
+        text: 'Too many open positions, consider closing some first',
       }
     }
 
     return {
-      pass: true,
-      reason: 'Risk check passed',
+      success: true,
+      text: 'Risk check passed',
     }
   },
 }

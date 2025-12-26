@@ -14,6 +14,7 @@ import { ciRoutes } from './routes/ci'
 import { containersRoutes } from './routes/containers'
 import { datasetsRoutes } from './routes/datasets'
 import { discussionsRoutes } from './routes/discussions'
+import { farcasterRoutes } from './routes/farcaster'
 import { feedRoutes } from './routes/feed'
 import { gitRoutes } from './routes/git'
 import { healthRoutes } from './routes/health'
@@ -21,6 +22,7 @@ import { issuesRoutes } from './routes/issues'
 import { jobsRoutes } from './routes/jobs'
 import { leaderboardRoutes } from './routes/leaderboard'
 import { mcpRoutes } from './routes/mcp'
+import { messagesRoutes } from './routes/messages'
 import { modelsRoutes } from './routes/models'
 import { packageSettingsRoutes } from './routes/package-settings'
 import { packagesRoutes } from './routes/packages'
@@ -100,7 +102,9 @@ function createApp() {
     .use(projectsRoutes)
     .use(ciRoutes)
     .use(agentsRoutes)
+    .use(farcasterRoutes)
     .use(feedRoutes)
+    .use(messagesRoutes)
     .use(discussionsRoutes)
     .use(issuesRoutes)
     .use(pullsRoutes)

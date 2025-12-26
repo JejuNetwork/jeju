@@ -315,7 +315,7 @@ export function createDWSClient(config: DWSClientConfig): DWSClient {
 /**
  * Default DWS client using environment/centralized config
  */
-export function getDefaultDWSClient(): DWSClient {
+function getDefaultDWSClient(): DWSClient {
   const baseUrl = getDWSEndpoint()
   const ipfsGateway = process.env.IPFS_GATEWAY ?? `${baseUrl}/storage`
   return new DWSClient({ baseUrl, ipfsGateway })
@@ -350,18 +350,4 @@ export async function checkDWSInferenceAvailable(): Promise<{
   error: string | null
 }> {
   return getSharedDWSClient().checkInferenceAvailable()
-}
-
-/**
- * Run chat completion on DWS
- */
-export async function dwsChatCompletion(
-  messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
-  options?: {
-    model?: string
-    temperature?: number
-    maxTokens?: number
-  },
-) {
-  return getSharedDWSClient().chatCompletion(messages, options)
 }

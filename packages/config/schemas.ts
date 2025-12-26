@@ -280,6 +280,7 @@ export const ServicesNetworkConfigSchema = z.object({
   }),
   dws: z.object({
     api: UrlString,
+    cache: UrlString,
     compute: UrlString,
     inference: UrlString.optional(),
     gateway: UrlString.optional(),

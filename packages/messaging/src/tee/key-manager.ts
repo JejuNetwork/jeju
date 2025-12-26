@@ -78,11 +78,11 @@ export class TEEXMTPKeyManager {
     this.config = config
 
     if (config.mockMode) {
-      console.warn(
-        '[TEE] WARNING: Running in MOCK MODE - keys are stored in-memory, NOT in real TEE hardware.',
+      log.warn(
+        'Running in MOCK MODE - keys are stored in-memory, NOT in real TEE hardware',
       )
-      console.warn(
-        '[TEE] Set mockMode: false in production to use actual TEE infrastructure.',
+      log.warn(
+        'Set mockMode: false in production to use actual TEE infrastructure',
       )
     } else {
       // In production mode, we require actual TEE integration

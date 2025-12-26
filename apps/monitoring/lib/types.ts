@@ -2,6 +2,16 @@
 
 import { z } from 'zod'
 
+// =====================================================================
+// FETCH UTILITIES
+// =====================================================================
+
+export interface SafeFetchResponse {
+  ok: boolean
+  status: number
+  json: () => Promise<Record<string, unknown>>
+}
+
 export const GrafanaTargetSchema = z.object({
   expr: z.string().optional(),
   rawSql: z.string().optional(),

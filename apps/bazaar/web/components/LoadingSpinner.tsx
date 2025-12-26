@@ -17,12 +17,3 @@ export function LoadingSpinner({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
     </div>
   )
 }
-
-export function LoadingSkeleton({ className }: { className?: string }) {
-  return (
-    <div
-      className={`animate-pulse rounded ${className}`}
-      style={{ backgroundColor: 'var(--bg-tertiary)' }}
-    />
-  )
-}

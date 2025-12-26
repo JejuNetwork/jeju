@@ -1,36 +1,9 @@
 import { hasArrayProperty } from '@jejunetwork/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { Job, JobSalary, JobStats } from '../../lib/types'
 import { api, extractDataSafe } from '../lib/client'
 
-export interface JobSalary {
-  min: number
-  max: number
-  currency: string
-  period?: 'hour' | 'day' | 'week' | 'month' | 'year'
-}
-
-export interface Job {
-  id: string
-  title: string
-  company: string
-  companyLogo?: string
-  type: 'full-time' | 'part-time' | 'contract' | 'bounty'
-  remote: boolean
-  location: string
-  salary?: JobSalary
-  skills: string[]
-  description: string
-  createdAt: number
-  updatedAt: number
-  applications: number
-}
-
-export interface JobStats {
-  totalJobs: number
-  openJobs: number
-  remoteJobs: number
-  averageSalary: number
-}
+export type { Job, JobSalary, JobStats }
 
 // Browser-only hook - API is same origin
 const API_BASE = ''

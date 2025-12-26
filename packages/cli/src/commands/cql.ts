@@ -527,7 +527,7 @@ async function checkMiner(
   return { id, running, endpoint: running ? endpoint : undefined }
 }
 
-function _getRpcUrl(network: string): string {
+function getRpcUrl(network: string): string {
   switch (network) {
     case 'localnet':
       return 'http://localhost:6546'

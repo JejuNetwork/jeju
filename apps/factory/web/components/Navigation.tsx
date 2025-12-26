@@ -11,6 +11,7 @@ import {
   HelpCircle,
   Home,
   LayoutDashboard,
+  Mail,
   MessageSquare,
   Package,
   Play,
@@ -26,6 +27,7 @@ import { Link, useLocation } from 'react-router-dom'
 const navigation = [
   { name: 'Home', href: '/', icon: Home },
   { name: 'Feed', href: '/feed', icon: MessageSquare },
+  { name: 'Messages', href: '/messages', icon: Mail },
   {
     name: 'Work',
     icon: Briefcase,

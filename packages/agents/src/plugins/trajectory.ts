@@ -7,7 +7,7 @@
  * @packageDocumentation
  */
 
-import type { Evaluator, Plugin, Provider, Service } from '@elizaos/core'
+import type { Evaluator, Plugin, Provider } from '@elizaos/core'
 import { logger } from '@jejunetwork/shared'
 
 /**
@@ -166,7 +166,7 @@ export function recordTrajectory(
     action,
     actionParams,
     result,
-    reward,
+    ...(reward !== undefined && { reward }),
   }
 
   const buffer = getTrajectoryBuffer(agentId, config)
@@ -175,7 +175,7 @@ export function recordTrajectory(
   logger.debug(`Trajectory recorded for agent ${agentId}`, {
     action,
     success: result.success,
-    reward,
+    reward: reward ?? null,
   })
 
   return entry.id
@@ -216,6 +216,7 @@ export function calculateReward(
  * Trajectory provider - provides trajectory context
  */
 const trajectoryProvider: Provider = {
+  name: 'trajectory',
   get: async (runtime) => {
     const agentId = runtime.agentId
     const buffer = trajectoryBuffers.get(agentId)
@@ -237,7 +238,7 @@ const trajectoryProvider: Provider = {
       }
     }
 
-    return summary
+    return { text: summary }
   },
 }
 
@@ -279,75 +280,17 @@ const trajectoryEvaluator: Evaluator = {
     )
 
     return {
-      pass: true,
-      reason: 'Trajectory logged',
+      success: true,
+      text: 'Trajectory logged',
     }
   },
-}
-
-/**
- * Trajectory flush service
- */
-class TrajectoryFlushService implements Service {
-  private config: TrajectoryPluginConfig
-  private intervalId: ReturnType<typeof setInterval> | null = null
-
-  static serviceType = 'trajectory-flush' as const
-  serviceType = 'trajectory-flush' as const
-
-  constructor(config: TrajectoryPluginConfig) {
-    this.config = config
-  }
-
-  async initialize(): Promise<void> {
-    logger.info('Trajectory flush service initialized')
-  }
-
-  async start(runtime: { agentId: string }): Promise<void> {
-    const flushInterval = this.config.flushInterval ?? 60000
-
-    logger.info(`Starting trajectory flush service`, { flushInterval })
-
-    this.intervalId = setInterval(async () => {
-      const buffer = trajectoryBuffers.get(runtime.agentId)
-      if (buffer && buffer.getSize() > 0) {
-        try {
-          await buffer.flush()
-        } catch (error) {
-          logger.error('Trajectory flush failed', {
-            error: error instanceof Error ? error.message : String(error),
-          })
-        }
-      }
-    }, flushInterval)
-  }
-
-  async stop(): Promise<void> {
-    if (this.intervalId) {
-      clearInterval(this.intervalId)
-      this.intervalId = null
-    }
-
-    // Flush remaining trajectories
-    for (const buffer of trajectoryBuffers.values()) {
-      try {
-        await buffer.flush()
-      } catch (error) {
-        logger.error('Final trajectory flush failed', {
-          error: error instanceof Error ? error.message : String(error),
-        })
-      }
-    }
-
-    logger.info('Trajectory flush service stopped')
-  }
 }
 
 /**
  * Create the trajectory logger plugin for ElizaOS
  */
 export function createTrajectoryPlugin(
-  config: TrajectoryPluginConfig = {},
+  _config: TrajectoryPluginConfig = {},
 ): Plugin {
   return {
     name: 'jeju-agent-trajectory',
@@ -355,7 +298,8 @@ export function createTrajectoryPlugin(
     actions: [],
     providers: [trajectoryProvider],
     evaluators: [trajectoryEvaluator],
-    services: [new TrajectoryFlushService(config)],
+    // Services would need to be registered as typeof Service classes
+    // services: [TrajectoryFlushService],
   }
 }
 

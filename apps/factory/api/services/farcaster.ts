@@ -1,11 +1,35 @@
-/** Farcaster Client */
+/**
+ * Farcaster Service
+ *
+ * Unified Farcaster service combining:
+ * - Neynar API for rich feed data (reactions, replies, etc.)
+ * - Hub client for direct operations
+ * - Local cache for user reactions
+ */
 
+import { type PostedCast } from '@jejunetwork/messaging'
+import type { Hex, Address } from 'viem'
 import { z } from 'zod'
+import {
+  getFidLink,
+  createFidLink,
+  createCastReaction,
+  deleteCastReaction,
+  getUserReactionsForCasts,
+  type FidLinkRow,
+} from '../db/client'
+import * as hubService from './hub'
+import { getActiveSignerWithPoster, hasActiveSigner } from './signer'
 
-const FACTORY_CHANNEL_ID = process.env.FACTORY_CHANNEL_ID || 'factory'
-const NEYNAR_API_URL = process.env.NEYNAR_API_URL || 'https://api.neynar.com/v2'
+const FACTORY_CHANNEL_ID = process.env.FACTORY_CHANNEL_ID ?? 'factory'
+const NEYNAR_API_URL = process.env.NEYNAR_API_URL ?? 'https://api.neynar.com/v2'
+const NEYNAR_API_KEY = process.env.NEYNAR_API_KEY ?? ''
 
-const neynarUserSchema = z.object({
+// ============================================================================
+// NEYNAR SCHEMAS
+// ============================================================================
+
+const NeynarUserSchema = z.object({
   fid: z.number(),
   username: z.string(),
   display_name: z.string(),
@@ -28,17 +52,19 @@ const neynarUserSchema = z.object({
     .optional(),
 })
 
-const neynarCastSchema = z.object({
+const NeynarCastSchema = z.object({
   hash: z.string(),
   thread_hash: z.string(),
-  author: neynarUserSchema,
+  author: NeynarUserSchema,
   text: z.string(),
   timestamp: z.string(),
-  embeds: z.array(z.object({ url: z.string() })).optional(),
+  embeds: z.array(z.object({ url: z.string().optional() })).optional(),
   reactions: z
     .object({
-      likes: z.number().optional(),
-      recasts: z.number().optional(),
+      likes_count: z.number().optional(),
+      recasts_count: z.number().optional(),
+      likes: z.array(z.object({ fid: z.number() })).optional(),
+      recasts: z.array(z.object({ fid: z.number() })).optional(),
     })
     .optional(),
   replies: z
@@ -49,10 +75,23 @@ const neynarCastSchema = z.object({
   channel: z
     .object({
       id: z.string(),
+      name: z.string().optional(),
+      image_url: z.string().optional(),
     })
     .nullable()
     .optional(),
+  parent_hash: z.string().nullable().optional(),
+  parent_author: z.object({ fid: z.number().nullable() }).nullable().optional(),
 })
+
+const NeynarFeedResponseSchema = z.object({
+  casts: z.array(NeynarCastSchema),
+  next: z.object({ cursor: z.string().optional() }).optional(),
+})
+
+// ============================================================================
+// TYPES
+// ============================================================================
 
 export interface FarcasterUser {
   fid: number
@@ -71,126 +110,586 @@ export interface Cast {
   author: FarcasterUser
   text: string
   timestamp: number
-  embeds: { url: string }[]
+  embeds: Array<{ url?: string }>
   reactions: {
     likes: number
     recasts: number
+    viewerLiked: boolean
+    viewerRecasted: boolean
   }
   replies: number
-  channel: string | null
+  channel: {
+    id: string
+    name?: string
+    imageUrl?: string
+  } | null
+  parentHash: string | null
+  parentFid: number | null
 }
 
-class FarcasterClient {
-  private apiKey: string | null
+export interface FeedResponse {
+  casts: Cast[]
+  cursor?: string
+}
 
-  constructor(apiKey?: string) {
-    this.apiKey = apiKey || process.env.NEYNAR_API_KEY || null
+// ============================================================================
+// HELPERS
+// ============================================================================
+
+function getNeynarHeaders(): Record<string, string> | null {
+  if (!NEYNAR_API_KEY) {
+    return null
   }
-
-  private headers() {
-    if (!this.apiKey) {
-      return null
-    }
-    return {
-      api_key: this.apiKey,
-      'Content-Type': 'application/json',
-    }
+  return {
+    api_key: NEYNAR_API_KEY,
+    'Content-Type': 'application/json',
   }
+}
 
-  async getChannelFeed(
-    channelId: string = FACTORY_CHANNEL_ID,
-    options: {
-      limit?: number
-      cursor?: string
-    } = {},
-  ): Promise<{ casts: Cast[]; cursor?: string }> {
-    const headers = this.headers()
-
-    if (!headers) {
-      return { casts: [] }
-    }
-
-    const params = new URLSearchParams()
-    params.set('channel_id', channelId)
-    if (options.limit) params.set('limit', String(options.limit))
-    if (options.cursor) params.set('cursor', options.cursor)
-
-    const response = await fetch(
-      `${NEYNAR_API_URL}/farcaster/feed/channel?${params}`,
-      {
-        headers,
-      },
-    )
-
-    if (!response.ok) throw new Error('Failed to fetch channel feed')
-    const data = await response.json()
-
-    return {
-      casts: data.casts.map(this.transformCast.bind(this)),
-      cursor: data.next?.cursor,
-    }
+function transformNeynarUser(rawUser: z.infer<typeof NeynarUserSchema>): FarcasterUser {
+  return {
+    fid: rawUser.fid,
+    username: rawUser.username,
+    displayName: rawUser.display_name,
+    pfpUrl: rawUser.pfp_url,
+    bio: rawUser.profile?.bio?.text ?? '',
+    followerCount: rawUser.follower_count ?? 0,
+    followingCount: rawUser.following_count ?? 0,
+    verifiedAddresses: rawUser.verified_addresses?.eth_addresses ?? [],
   }
+}
 
-  async publishCast(
-    signerUuid: string,
-    text: string,
-    options: {
-      channelId?: string
-      parentHash?: string
-      embeds?: { url: string }[]
-    } = {},
-  ): Promise<Cast> {
-    const headers = this.headers()
-    if (!headers) throw new Error('Neynar API key not configured')
+function transformNeynarCast(
+  rawCast: z.infer<typeof NeynarCastSchema>,
+  viewerFid?: number,
+): Cast {
+  const viewerLiked = viewerFid
+    ? rawCast.reactions?.likes?.some((l) => l.fid === viewerFid) ?? false
+    : false
+  const viewerRecasted = viewerFid
+    ? rawCast.reactions?.recasts?.some((r) => r.fid === viewerFid) ?? false
+    : false
 
-    const response = await fetch(`${NEYNAR_API_URL}/farcaster/cast`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        signer_uuid: signerUuid,
-        text,
-        channel_id: options.channelId || FACTORY_CHANNEL_ID,
-        parent: options.parentHash,
-        embeds: options.embeds,
-      }),
+  return {
+    hash: rawCast.hash,
+    threadHash: rawCast.thread_hash,
+    author: transformNeynarUser(rawCast.author),
+    text: rawCast.text,
+    timestamp: new Date(rawCast.timestamp).getTime(),
+    embeds: rawCast.embeds?.map((e) => ({ url: e.url })) ?? [],
+    reactions: {
+      likes: rawCast.reactions?.likes_count ?? 0,
+      recasts: rawCast.reactions?.recasts_count ?? 0,
+      viewerLiked,
+      viewerRecasted,
+    },
+    replies: rawCast.replies?.count ?? 0,
+    channel: rawCast.channel
+      ? {
+          id: rawCast.channel.id,
+          name: rawCast.channel.name,
+          imageUrl: rawCast.channel.image_url,
+        }
+      : null,
+    parentHash: rawCast.parent_hash ?? null,
+    parentFid: rawCast.parent_author?.fid ?? null,
+  }
+}
+
+// ============================================================================
+// FEED OPERATIONS
+// ============================================================================
+
+/**
+ * Get channel feed from Neynar (preferred for rich data)
+ */
+export async function getChannelFeed(
+  channelId: string = FACTORY_CHANNEL_ID,
+  options: {
+    limit?: number
+    cursor?: string
+    viewerFid?: number
+  } = {},
+): Promise<FeedResponse> {
+  const headers = getNeynarHeaders()
+
+  // Fall back to hub if Neynar not configured
+  if (!headers) {
+    const channelUrl = `https://warpcast.com/~/channel/${channelId}`
+    const hubFeed = await hubService.getChannelFeed(channelUrl, {
+      pageSize: options.limit ?? 20,
+      pageToken: options.cursor,
     })
 
-    if (!response.ok) throw new Error('Failed to publish cast')
-    const data = await response.json()
-    return this.transformCast(data.cast)
-  }
-
-  private transformCast(rawCast: unknown): Cast {
-    const cast = neynarCastSchema.parse(rawCast)
+    const enriched = await hubService.enrichCasts(hubFeed.messages)
     return {
-      hash: cast.hash,
-      threadHash: cast.thread_hash,
-      author: this.transformUser(cast.author),
-      text: cast.text,
-      timestamp: new Date(cast.timestamp).getTime(),
-      embeds: cast.embeds ?? [],
-      reactions: {
-        likes: cast.reactions?.likes ?? 0,
-        recasts: cast.reactions?.recasts ?? 0,
-      },
-      replies: cast.replies?.count ?? 0,
-      channel: cast.channel?.id ?? null,
+      casts: enriched.map((c) => ({
+        hash: c.hash,
+        threadHash: c.hash,
+        author: {
+          fid: c.author.fid,
+          username: c.author.username,
+          displayName: c.author.displayName,
+          pfpUrl: c.author.pfpUrl,
+          bio: c.author.bio,
+          followerCount: 0,
+          followingCount: 0,
+          verifiedAddresses: [],
+        },
+        text: c.text,
+        timestamp: c.timestamp,
+        embeds: c.embeds.map((e) => ({ url: e.url })),
+        reactions: {
+          likes: c.reactions.likes,
+          recasts: c.reactions.recasts,
+          viewerLiked: false,
+          viewerRecasted: false,
+        },
+        replies: c.replies,
+        channel: { id: channelId },
+        parentHash: c.parentHash ?? null,
+        parentFid: c.parentFid ?? null,
+      })),
+      cursor: hubFeed.nextPageToken,
     }
   }
 
-  private transformUser(rawUser: unknown): FarcasterUser {
-    const user = neynarUserSchema.parse(rawUser)
-    return {
-      fid: user.fid,
-      username: user.username,
-      displayName: user.display_name,
-      pfpUrl: user.pfp_url,
-      bio: user.profile?.bio?.text ?? '',
-      followerCount: user.follower_count ?? 0,
-      followingCount: user.following_count ?? 0,
-      verifiedAddresses: user.verified_addresses?.eth_addresses ?? [],
-    }
+  const params = new URLSearchParams()
+  params.set('channel_id', channelId)
+  if (options.limit) params.set('limit', String(options.limit))
+  if (options.cursor) params.set('cursor', options.cursor)
+  if (options.viewerFid) params.set('viewer_fid', String(options.viewerFid))
+
+  const response = await fetch(
+    `${NEYNAR_API_URL}/farcaster/feed/channel?${params}`,
+    { headers },
+  )
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch channel feed: ${response.status}`)
+  }
+
+  const data: unknown = await response.json()
+  const parsed = NeynarFeedResponseSchema.parse(data)
+
+  return {
+    casts: parsed.casts.map((c) => transformNeynarCast(c, options.viewerFid)),
+    cursor: parsed.next?.cursor,
   }
 }
 
-export const farcasterClient = new FarcasterClient()
+/**
+ * Get user's cast feed
+ */
+export async function getUserFeed(
+  fid: number,
+  options: {
+    limit?: number
+    cursor?: string
+    viewerFid?: number
+  } = {},
+): Promise<FeedResponse> {
+  const headers = getNeynarHeaders()
+
+  if (!headers) {
+    const hubFeed = await hubService.getCastsByFid(fid, {
+      pageSize: options.limit ?? 20,
+      pageToken: options.cursor,
+    })
+
+    const enriched = await hubService.enrichCasts(hubFeed.messages)
+    return {
+      casts: enriched.map((c) => ({
+        hash: c.hash,
+        threadHash: c.hash,
+        author: {
+          fid: c.author.fid,
+          username: c.author.username,
+          displayName: c.author.displayName,
+          pfpUrl: c.author.pfpUrl,
+          bio: c.author.bio,
+          followerCount: 0,
+          followingCount: 0,
+          verifiedAddresses: [],
+        },
+        text: c.text,
+        timestamp: c.timestamp,
+        embeds: c.embeds.map((e) => ({ url: e.url })),
+        reactions: {
+          likes: c.reactions.likes,
+          recasts: c.reactions.recasts,
+          viewerLiked: false,
+          viewerRecasted: false,
+        },
+        replies: c.replies,
+        channel: null,
+        parentHash: c.parentHash ?? null,
+        parentFid: c.parentFid ?? null,
+      })),
+      cursor: hubFeed.nextPageToken,
+    }
+  }
+
+  const params = new URLSearchParams()
+  params.set('fid', String(fid))
+  params.set('feed_type', 'filter')
+  params.set('filter_type', 'fids')
+  params.set('fids', String(fid))
+  if (options.limit) params.set('limit', String(options.limit))
+  if (options.cursor) params.set('cursor', options.cursor)
+  if (options.viewerFid) params.set('viewer_fid', String(options.viewerFid))
+
+  const response = await fetch(`${NEYNAR_API_URL}/farcaster/feed?${params}`, {
+    headers,
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch user feed: ${response.status}`)
+  }
+
+  const data: unknown = await response.json()
+  const parsed = NeynarFeedResponseSchema.parse(data)
+
+  return {
+    casts: parsed.casts.map((c) => transformNeynarCast(c, options.viewerFid)),
+    cursor: parsed.next?.cursor,
+  }
+}
+
+/**
+ * Get trending feed
+ */
+export async function getTrendingFeed(
+  options: {
+    limit?: number
+    cursor?: string
+    viewerFid?: number
+  } = {},
+): Promise<FeedResponse> {
+  const headers = getNeynarHeaders()
+  if (!headers) {
+    return { casts: [] }
+  }
+
+  const params = new URLSearchParams()
+  if (options.limit) params.set('limit', String(options.limit))
+  if (options.cursor) params.set('cursor', options.cursor)
+  if (options.viewerFid) params.set('viewer_fid', String(options.viewerFid))
+
+  const response = await fetch(
+    `${NEYNAR_API_URL}/farcaster/feed/trending?${params}`,
+    { headers },
+  )
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch trending feed: ${response.status}`)
+  }
+
+  const data: unknown = await response.json()
+  const parsed = NeynarFeedResponseSchema.parse(data)
+
+  return {
+    casts: parsed.casts.map((c) => transformNeynarCast(c, options.viewerFid)),
+    cursor: parsed.next?.cursor,
+  }
+}
+
+// ============================================================================
+// CAST OPERATIONS
+// ============================================================================
+
+/**
+ * Publish a cast (requires active signer)
+ */
+export async function publishCast(
+  address: Address,
+  text: string,
+  options: {
+    channelId?: string
+    parentHash?: Hex
+    parentFid?: number
+    embeds?: string[]
+  } = {},
+): Promise<PostedCast> {
+  const signerData = getActiveSignerWithPoster(address)
+  if (!signerData) {
+    throw new Error('No active signer found. Please connect your Farcaster account.')
+  }
+
+  const { poster } = signerData
+  const channelUrl = options.channelId
+    ? `https://warpcast.com/~/channel/${options.channelId}`
+    : undefined
+
+  if (options.parentHash && options.parentFid) {
+    return poster.reply(text, { fid: options.parentFid, hash: options.parentHash }, {
+      channelUrl,
+      embeds: options.embeds,
+    })
+  }
+
+  return poster.cast(text, {
+    channelUrl,
+    embeds: options.embeds,
+  })
+}
+
+/**
+ * Delete a cast
+ */
+export async function deleteCast(address: Address, castHash: Hex): Promise<void> {
+  const signerData = getActiveSignerWithPoster(address)
+  if (!signerData) {
+    throw new Error('No active signer found')
+  }
+
+  await signerData.poster.deleteCast(castHash)
+}
+
+/**
+ * Like a cast
+ */
+export async function likeCast(
+  address: Address,
+  target: { fid: number; hash: Hex },
+): Promise<void> {
+  const signerData = getActiveSignerWithPoster(address)
+  if (!signerData) {
+    throw new Error('No active signer found')
+  }
+
+  await signerData.poster.like(target)
+
+  // Cache locally
+  createCastReaction({
+    address,
+    castHash: target.hash,
+    castFid: target.fid,
+    reactionType: 'like',
+  })
+}
+
+/**
+ * Unlike a cast
+ */
+export async function unlikeCast(
+  address: Address,
+  target: { fid: number; hash: Hex },
+): Promise<void> {
+  const signerData = getActiveSignerWithPoster(address)
+  if (!signerData) {
+    throw new Error('No active signer found')
+  }
+
+  await signerData.poster.unlike(target)
+
+  // Remove from cache
+  deleteCastReaction(address, target.hash, 'like')
+}
+
+/**
+ * Recast a cast
+ */
+export async function recastCast(
+  address: Address,
+  target: { fid: number; hash: Hex },
+): Promise<void> {
+  const signerData = getActiveSignerWithPoster(address)
+  if (!signerData) {
+    throw new Error('No active signer found')
+  }
+
+  await signerData.poster.recast(target)
+
+  // Cache locally
+  createCastReaction({
+    address,
+    castHash: target.hash,
+    castFid: target.fid,
+    reactionType: 'recast',
+  })
+}
+
+/**
+ * Remove recast
+ */
+export async function unrecastCast(
+  address: Address,
+  target: { fid: number; hash: Hex },
+): Promise<void> {
+  const signerData = getActiveSignerWithPoster(address)
+  if (!signerData) {
+    throw new Error('No active signer found')
+  }
+
+  await signerData.poster.unrecast(target)
+
+  // Remove from cache
+  deleteCastReaction(address, target.hash, 'recast')
+}
+
+// ============================================================================
+// FOLLOW OPERATIONS
+// ============================================================================
+
+/**
+ * Follow a user
+ */
+export async function followUser(address: Address, targetFid: number): Promise<void> {
+  const signerData = getActiveSignerWithPoster(address)
+  if (!signerData) {
+    throw new Error('No active signer found')
+  }
+
+  await signerData.poster.follow(targetFid)
+}
+
+/**
+ * Unfollow a user
+ */
+export async function unfollowUser(address: Address, targetFid: number): Promise<void> {
+  const signerData = getActiveSignerWithPoster(address)
+  if (!signerData) {
+    throw new Error('No active signer found')
+  }
+
+  await signerData.poster.unfollow(targetFid)
+}
+
+// ============================================================================
+// USER OPERATIONS
+// ============================================================================
+
+/** Transform hub profile to FarcasterUser */
+function transformProfile(profile: {
+  fid: number
+  username: string
+  displayName: string
+  pfpUrl: string
+  bio: string
+  followerCount: number
+  followingCount: number
+  verifiedAddresses: string[]
+}): FarcasterUser {
+  return {
+    fid: profile.fid,
+    username: profile.username,
+    displayName: profile.displayName,
+    pfpUrl: profile.pfpUrl,
+    bio: profile.bio,
+    followerCount: profile.followerCount,
+    followingCount: profile.followingCount,
+    verifiedAddresses: profile.verifiedAddresses,
+  }
+}
+
+/** Get user profile by FID */
+export async function getUser(fid: number): Promise<FarcasterUser | null> {
+  const profile = await hubService.getProfile(fid)
+  return profile ? transformProfile(profile) : null
+}
+
+/** Get user profile by username */
+export async function getUserByUsername(username: string): Promise<FarcasterUser | null> {
+  const profile = await hubService.getProfileByUsername(username)
+  return profile ? transformProfile(profile) : null
+}
+
+/** Get user profile by verified address */
+export async function getUserByAddress(address: Address): Promise<FarcasterUser | null> {
+  const profile = await hubService.getProfileByAddress(address)
+  return profile ? transformProfile(profile) : null
+}
+
+/**
+ * Link wallet address to FID (store locally after verification)
+ */
+export async function linkAddressToFid(
+  address: Address,
+  fid: number,
+): Promise<FidLinkRow> {
+  // Verify the address is actually verified for this FID
+  const profile = await hubService.getProfile(fid)
+  if (!profile) {
+    throw new Error(`FID ${fid} not found`)
+  }
+
+  const isVerified = profile.verifiedAddresses.some(
+    (a) => a.toLowerCase() === address.toLowerCase(),
+  )
+
+  if (!isVerified) {
+    throw new Error(`Address ${address} is not verified for FID ${fid}`)
+  }
+
+  return createFidLink({
+    address,
+    fid,
+    username: profile.username,
+    displayName: profile.displayName,
+    pfpUrl: profile.pfpUrl,
+    bio: profile.bio,
+  })
+}
+
+/**
+ * Get linked FID for an address
+ */
+export function getLinkedFid(address: Address): FidLinkRow | null {
+  return getFidLink(address)
+}
+
+/**
+ * Check if user has Farcaster connected
+ */
+export function isFarcasterConnected(address: Address): boolean {
+  return hasActiveSigner(address) && getFidLink(address) !== null
+}
+
+// ============================================================================
+// UTILITY
+// ============================================================================
+
+/**
+ * Get viewer reactions for a list of casts
+ */
+export function getViewerReactions(
+  address: Address,
+  castHashes: string[],
+): Map<string, { liked: boolean; recasted: boolean }> {
+  const reactions = getUserReactionsForCasts(address, castHashes)
+  const result = new Map<string, { liked: boolean; recasted: boolean }>()
+
+  // Initialize all casts
+  for (const hash of castHashes) {
+    result.set(hash, { liked: false, recasted: false })
+  }
+
+  // Set actual reactions
+  for (const reaction of reactions) {
+    const current = result.get(reaction.cast_hash)
+    if (current) {
+      if (reaction.reaction_type === 'like') {
+        current.liked = true
+      } else if (reaction.reaction_type === 'recast') {
+        current.recasted = true
+      }
+    }
+  }
+
+  return result
+}
+
+/**
+ * Check if Neynar API is configured
+ */
+export function isNeynarConfigured(): boolean {
+  return !!NEYNAR_API_KEY
+}
+
+/**
+ * Get Factory channel ID
+ */
+export function getFactoryChannelId(): string {
+  return FACTORY_CHANNEL_ID
+}

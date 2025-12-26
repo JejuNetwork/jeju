@@ -48,7 +48,7 @@ import {
 } from '../compute'
 
 const TEST_ADDRESS = '0x1234567890123456789012345678901234567890'
-const TEST_HASH = `0x${'a'.repeat(64)}`
+const TEST_HASH = `0x${'a'.repeat(64)}` as `0x${string}`
 
 describe('RunStatusSchema', () => {
   const validStatuses: RunStatus[] = [

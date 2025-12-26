@@ -5,6 +5,7 @@
  * Supports namespacing, TTL, batch operations, and TEE-backed instances.
  */
 
+import { getDWSCacheUrl } from '@jejunetwork/config'
 import type { Address } from 'viem'
 import { z } from 'zod'
 
@@ -409,13 +410,14 @@ export function getCacheClient(namespace: string): CacheClient {
   const existing = cacheClients.get(namespace)
   if (existing) return existing
 
-  const endpoint = process.env.CACHE_SERVICE_URL ?? 'http://localhost:4015'
+  // Get cache URL from config (defaults based on network)
+  const endpoint = getDWSCacheUrl()
 
   const client = new DecentralizedCacheClient({
     endpoint,
     namespace,
-    defaultTtl: parseInt(process.env.CACHE_DEFAULT_TTL ?? '3600', 10),
-    timeout: parseInt(process.env.CACHE_TIMEOUT ?? '5000', 10),
+    defaultTtl: 3600,
+    timeout: 5000,
   })
 
   cacheClients.set(namespace, client)
@@ -431,7 +433,8 @@ let rentalClient: CacheRentalClient | null = null
 export function getCacheRentalClient(): CacheRentalClient {
   if (rentalClient) return rentalClient
 
-  const endpoint = process.env.CACHE_SERVICE_URL ?? 'http://localhost:4015'
+  // Get cache URL from config (defaults based on network)
+  const endpoint = getDWSCacheUrl()
   rentalClient = new CacheRentalClient(endpoint)
   return rentalClient
 }

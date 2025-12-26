@@ -14,6 +14,7 @@ import type {
   ContractCondition,
   RoleCondition,
   StakeCondition,
+  TimestampCondition,
 } from './types.js'
 
 // Chain registry
@@ -86,7 +87,7 @@ export class OnChainVerifier {
     const client = createPublicClient({
       chain: chainConfig,
       transport: http(rpcUrl),
-    })
+    }) as PublicClient
 
     this.clients.set(chain, client)
     return client
@@ -361,12 +362,13 @@ export class OnChainVerifier {
       return p
     })
 
-    const returnValue = await client.readContract({
+    // Use type assertion for dynamic ABI - viem strict typing doesn't support runtime-constructed ABIs
+    const returnValue = (await client.readContract({
       address: condition.contractAddress,
       abi: methodAbi,
       functionName: condition.method,
-      args,
-    })
+      args: args as never,
+    })) as boolean
 
     // Evaluate return value test
     const success = this.compareString(
@@ -439,6 +441,32 @@ export class OnChainVerifier {
   }
 
   /**
+   * Verify a timestamp condition against current time
+   */
+  async verifyTimestamp(
+    condition: TimestampCondition,
+  ): Promise<VerificationResult> {
+    const cacheKey = this.getCacheKey('timestamp', condition.value.toString())
+    const cached = this.getCached(cacheKey)
+    if (cached) return cached
+
+    const currentTimestamp = BigInt(Math.floor(Date.now() / 1000))
+    const success = this.compareValues(
+      currentTimestamp,
+      condition.comparator,
+      BigInt(condition.value),
+    )
+
+    const result: VerificationResult = {
+      success,
+      value: currentTimestamp,
+    }
+
+    this.setCache(cacheKey, result)
+    return result
+  }
+
+  /**
    * Unified access condition verification
    */
   async verifyAccessCondition(
@@ -447,7 +475,8 @@ export class OnChainVerifier {
       | StakeCondition
       | RoleCondition
       | AgentCondition
-      | ContractCondition,
+      | ContractCondition
+      | TimestampCondition,
     userAddress: Address,
   ): Promise<boolean> {
     try {
@@ -468,6 +497,9 @@ export class OnChainVerifier {
           break
         case 'contract':
           result = await this.verifyContract(condition, userAddress)
+          break
+        case 'timestamp':
+          result = await this.verifyTimestamp(condition)
           break
         default:
           return false

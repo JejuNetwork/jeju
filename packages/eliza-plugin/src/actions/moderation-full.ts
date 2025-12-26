@@ -628,8 +628,8 @@ export const getLabelsAction: Action = {
 
     const list = labels
       .map(
-        (l) =>
-          `- ${l.label}: ${l.score} (${l.revoked ? 'REVOKED' : 'active'}) - ${l.reason}`,
+        (label: { label: string; score: bigint; revoked: boolean; reason: string }) =>
+          `- ${label.label}: ${label.score} (${label.revoked ? 'REVOKED' : 'active'}) - ${label.reason}`,
       )
       .join('\n')
 

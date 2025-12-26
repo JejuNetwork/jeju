@@ -108,9 +108,9 @@ export function recordExperience(
     input,
     output,
     outcome,
-    reward: options.reward,
-    feedback: options.feedback,
-    metadata: options.metadata,
+    ...(options.reward !== undefined && { reward: options.reward }),
+    ...(options.feedback && { feedback: options.feedback }),
+    ...(options.metadata && { metadata: options.metadata }),
   }
 
   const buffer = getBuffer(agentId, options.batchSize ?? 100)
@@ -119,7 +119,7 @@ export function recordExperience(
   logger.debug(`Experience recorded for agent ${agentId}`, {
     action,
     outcome,
-    reward: options.reward,
+    reward: options.reward ?? null,
   })
 }
 
@@ -165,20 +165,23 @@ export async function flushExperiences(
  * Experience summary provider - provides agent's learning context
  */
 const experienceSummaryProvider: Provider = {
+  name: 'experienceSummary',
   get: async (runtime) => {
     const agentId = runtime.agentId
     const buffer = experienceBuffers.get(agentId)
     const pendingCount = buffer?.getSize() ?? 0
 
     // In a full implementation, this would fetch from database
-    return `Experience Summary:
+    return {
+      text: `Experience Summary:
 - Pending experiences to process: ${pendingCount}
 - Learning mode: Active
 - Feedback integration: Enabled
 
 Recent patterns:
 - Most successful actions: Trading analysis, Social engagement
-- Areas for improvement: Response timing, Risk assessment`
+- Areas for improvement: Response timing, Risk assessment`,
+    }
   },
 }
 
@@ -249,8 +252,8 @@ const feedbackEvaluator: Evaluator = {
     logger.info(`Feedback recorded for agent ${agentId}: ${sentiment}`)
 
     return {
-      pass: true,
-      reason: `Feedback recorded: ${sentiment}`,
+      success: true,
+      text: `Feedback recorded: ${sentiment}`,
     }
   },
 }
@@ -264,15 +267,13 @@ const learningProgressEvaluator: Evaluator = {
   similes: ['progress', 'learning', 'improvement'],
   examples: [],
   validate: async () => false, // Only runs on explicit trigger
-  handler: async (runtime) => {
-    const _agentId = runtime.agentId
-
+  handler: async (_runtime) => {
     // In a full implementation, this would analyze experience history
     // and compute learning metrics
 
     return {
-      pass: true,
-      reason: 'Learning progress tracked',
+      success: true,
+      text: 'Learning progress tracked',
       data: {
         learningRate: 0.7,
         adaptationScore: 0.8,

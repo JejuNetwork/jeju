@@ -1,12 +1,8 @@
 /**
  * Training Cron Orchestrator
  *
- * Manages scheduled training-related cron jobs for Jeju apps:
- * - Crucible: Agent ticks, trajectory collection, blue/red team operations
- * - Babylon: Agent ticks, trajectory collection, game simulation
- * - DWS: Batch processing, RULER scoring, dataset creation
- *
- * Triggers are defined in app manifests and executed via HTTP endpoints.
+ * Manages scheduled cron jobs for Jeju apps. Triggers defined in app
+ * manifests are executed via HTTP endpoints.
  */
 
 import { logger } from '@jejunetwork/shared'
@@ -17,31 +13,17 @@ import {
   type TrajectoryBatchProcessor,
 } from './batch-processor'
 
-/**
- * App cron trigger configuration
- */
 export interface AppCronTrigger {
-  /** Unique trigger ID */
   triggerId: string
-  /** App name (crucible, babylon) */
   appName: string
-  /** Cron name from app manifest */
   cronName: string
-  /** Cron schedule (e.g., every 5 minutes) */
   schedule: string
-  /** API endpoint to call */
   endpoint: string
-  /** Timeout in milliseconds */
   timeoutMs: number
-  /** Whether trigger is enabled */
   enabled: boolean
-  /** Auth token for the endpoint */
   authToken?: string
 }
 
-/**
- * Cron execution result
- */
 interface CronExecutionResult {
   triggerId: string
   appName: string
@@ -53,24 +35,18 @@ interface CronExecutionResult {
   executedAt: Date
 }
 
-/**
- * Pending trajectory batch for processing
- */
 interface PendingBatch {
   appName: string
   batchCid: string
   trajectoryCount: number
   addedAt: Date
 }
+const MAX_HISTORY_SIZE = 100
 
-/**
- * Training cron orchestrator
- */
 export class TrainingCronOrchestrator {
   private triggers = new Map<string, AppCronTrigger>()
   private cronInstances = new Map<string, Cron>()
   private executionHistory: CronExecutionResult[] = []
-  private maxHistorySize = 100
   private pendingBatches: PendingBatch[] = []
   private batchProcessor: TrajectoryBatchProcessor
   private onDatasetCreated?: (dataset: DatasetReference) => Promise<void>
@@ -159,8 +135,17 @@ export class TrainingCronOrchestrator {
     const cronInstance = new Cron(trigger.schedule, async () => {
       await this.executeTrigger(trigger)
     })
-
     this.cronInstances.set(trigger.triggerId, cronInstance)
+  }
+
+  /**
+   * Add result to history with size limit
+   */
+  private addToHistory(result: CronExecutionResult): void {
+    this.executionHistory.push(result)
+    if (this.executionHistory.length > MAX_HISTORY_SIZE) {
+      this.executionHistory.shift()
+    }
   }
 
   /**
@@ -193,25 +178,70 @@ export class TrainingCronOrchestrator {
       headers.Authorization = `Bearer ${trigger.authToken}`
     }
 
-    const response = await fetch(trigger.endpoint, {
-      method: 'POST',
-      headers,
-      signal: controller.signal,
-    })
+    let response: Response
+    try {
+      response = await fetch(trigger.endpoint, {
+        method: 'POST',
+        headers,
+        signal: controller.signal,
+      })
+    } catch (fetchError) {
+      clearTimeout(timeoutId)
+      result.durationMs = Date.now() - startTime
+
+      // Handle abort (timeout) or network errors
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        result.error = `Timeout after ${trigger.timeoutMs}ms`
+      } else {
+        result.error = `Network error: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`
+      }
+
+      logger.error('[CronOrchestrator] Trigger fetch failed', {
+        triggerId: trigger.triggerId,
+        error: result.error,
+      })
+
+      this.addToHistory(result)
+      return result
+    }
 
     clearTimeout(timeoutId)
-
     result.durationMs = Date.now() - startTime
 
     if (!response.ok) {
-      result.error = `HTTP ${response.status}: ${await response.text()}`
+      let errorText: string
+      try {
+        errorText = await response.text()
+      } catch {
+        errorText = 'Failed to read error response'
+      }
+      result.error = `HTTP ${response.status}: ${errorText}`
       logger.error('[CronOrchestrator] Trigger failed', {
         triggerId: trigger.triggerId,
         error: result.error,
       })
     } else {
       result.success = true
-      result.response = (await response.json()) as Record<string, unknown>
+
+      // Parse JSON response with error handling
+      try {
+        const responseText = await response.text()
+        if (responseText.trim()) {
+          result.response = JSON.parse(responseText) as Record<string, unknown>
+        } else {
+          result.response = {}
+        }
+      } catch (parseError) {
+        // JSON parse failed - log but don't fail the trigger
+        logger.warn('[CronOrchestrator] Failed to parse response JSON', {
+          triggerId: trigger.triggerId,
+          error:
+            parseError instanceof Error
+              ? parseError.message
+              : String(parseError),
+        })
+        result.response = { _parseError: true }
+      }
 
       // Check for trajectory batch in response
       if (result.response.storageCid && result.response.trajectoryCount) {
@@ -230,12 +260,7 @@ export class TrainingCronOrchestrator {
       })
     }
 
-    // Add to history
-    this.executionHistory.push(result)
-    if (this.executionHistory.length > this.maxHistorySize) {
-      this.executionHistory.shift()
-    }
-
+    this.addToHistory(result)
     return result
   }
 

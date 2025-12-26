@@ -25,7 +25,7 @@ export const API_BASE =
 
 // Query Keys for React Query
 
-export const queryKeys = {
+const queryKeys = {
   faucet: {
     all: ['faucet'] as const,
     info: () => [...queryKeys.faucet.all, 'info'] as const,

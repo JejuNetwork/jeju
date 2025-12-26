@@ -4,8 +4,6 @@
  */
 
 import {
-  APP_TOKEN_PREFERENCE_ABI,
-  type AppPreference,
   CROSS_CHAIN_PAYMASTER_ABI,
   type CrossChainSwapParams,
   SUPPORTED_CHAINS,
@@ -16,40 +14,14 @@ import {
   expect,
   expectPositive,
   parseOptionalAddress,
-  validateOrNull,
 } from '@jejunetwork/types'
 import { useCallback, useEffect, useState } from 'react'
 import { type Address, parseEther } from 'viem'
 import {
   useAccount,
-  useReadContract,
   useWaitForTransactionReceipt,
   useWriteContract,
 } from 'wagmi'
-import { z } from 'zod'
-
-// Zod schema for AppPreference contract return data
-const AppPreferenceDataSchema = z.tuple([
-  AddressSchema, // appAddress
-  AddressSchema, // preferredToken
-  z.string(), // tokenSymbol
-  z.number(), // tokenDecimals
-  z.boolean(), // allowFallback
-  z.bigint(), // minBalance
-  z.boolean(), // isActive
-  AddressSchema, // registrant
-  z.bigint(), // registrationTime
-])
-
-// Zod schema for getBestPaymentTokenForApp return data
-const BestPaymentTokenResultSchema = z.tuple([
-  AddressSchema, // bestToken
-  z.bigint(), // tokenCost
-  z.string(), // reason
-])
-
-// Zod schema for fallback tokens array
-const FallbackTokensSchema = z.array(AddressSchema)
 
 // Chain info type based on SUPPORTED_CHAINS elements
 export type ChainInfo = (typeof SUPPORTED_CHAINS)[number]
@@ -275,95 +247,4 @@ export function useSwapFeeEstimate(
   }, [sourceChainId, destinationChainId, amount])
 
   return estimate
-}
-
-export function useAppPreference(
-  preferenceAddress: Address | undefined,
-  appAddress: Address | undefined,
-) {
-  const { data: preferenceData } = useReadContract({
-    address: preferenceAddress,
-    abi: APP_TOKEN_PREFERENCE_ABI,
-    functionName: 'getAppPreference',
-    args: appAddress ? [appAddress] : undefined,
-  })
-
-  const { data: fallbackTokens } = useReadContract({
-    address: preferenceAddress,
-    abi: APP_TOKEN_PREFERENCE_ABI,
-    functionName: 'getAppFallbackTokens',
-    args: appAddress ? [appAddress] : undefined,
-  })
-
-  // Validate preferenceData with Zod schema
-  const validatedData = validateOrNull(AppPreferenceDataSchema, preferenceData)
-  const preference: AppPreference | null = validatedData
-    ? {
-        appAddress: validatedData[0],
-        preferredToken: validatedData[1],
-        tokenSymbol: validatedData[2],
-        tokenDecimals: validatedData[3],
-        allowFallback: validatedData[4],
-        minBalance: validatedData[5],
-        isActive: validatedData[6],
-        registrant: validatedData[7],
-        registrationTime: validatedData[8],
-      }
-    : null
-
-  // Validate fallback tokens with Zod
-  const validFallbackTokens: Address[] =
-    validateOrNull(FallbackTokensSchema, fallbackTokens) ?? []
-
-  return {
-    preference,
-    fallbackTokens: validFallbackTokens,
-  }
-}
-
-export function useBestGasToken(
-  paymasterAddress: Address | undefined,
-  appAddress: Address | undefined,
-  user: Address | undefined,
-  gasCostETH: bigint,
-  userTokens: Address[],
-  userBalances: bigint[],
-) {
-  const { data: result } = useReadContract({
-    address: paymasterAddress,
-    abi: CROSS_CHAIN_PAYMASTER_ABI,
-    functionName: 'getBestPaymentTokenForApp',
-    args:
-      appAddress && user
-        ? [appAddress, user, gasCostETH, userTokens, userBalances]
-        : undefined,
-  })
-
-  // Validate result with Zod schema
-  const validatedResult = validateOrNull(BestPaymentTokenResultSchema, result)
-
-  return {
-    bestToken: validatedResult?.[0],
-    tokenCost: validatedResult?.[1],
-    reason: validatedResult?.[2],
-  }
-}
-
-export function useTokenSupport(
-  paymasterAddress: Address | undefined,
-  tokenAddress: Address | undefined,
-) {
-  const { data: isSupported } = useReadContract({
-    address: paymasterAddress,
-    abi: CROSS_CHAIN_PAYMASTER_ABI,
-    functionName: 'supportedTokens',
-    args: tokenAddress ? [tokenAddress] : undefined,
-  })
-
-  // Contract returns boolean directly, validate with Zod
-  const validated = z.boolean().safeParse(isSupported)
-
-  return {
-    isSupported: validated.success ? validated.data : undefined,
-  }
 }

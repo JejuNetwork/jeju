@@ -1,7 +1,11 @@
 /**
- * Storage SDK - Handles agent state persistence on IPFS.
+ * Storage SDK - Handles agent state persistence on IPFS with DWS cache layer.
  */
 
+import {
+  type CacheClient,
+  getCacheClient,
+} from '@jejunetwork/shared'
 import type { AgentCharacter, AgentState, RoomState } from '../../lib/types'
 import {
   AgentCharacterSchema,
@@ -18,18 +22,47 @@ export interface StorageConfig {
   ipfsGateway: string
   logger?: Logger
   maxContentSize?: number // Max content size in bytes (default: 10MB)
+  /** Enable DWS cache layer for faster reads (default: true) */
+  enableCache?: boolean
+  /** Cache TTL in seconds (default: 3600) */
+  cacheTtl?: number
 }
 
 // Default maximum content size: 10MB
 const DEFAULT_MAX_CONTENT_SIZE = 10 * 1024 * 1024
+const DEFAULT_CACHE_TTL = 3600
 
 export class CrucibleStorage {
   private config: StorageConfig
   private log: Logger
+  private cache: CacheClient | null = null
 
   constructor(config: StorageConfig) {
     this.config = config
     this.log = config.logger ?? createLogger('Storage')
+
+    // Initialize DWS cache if enabled (default: true)
+    if (config.enableCache !== false) {
+      this.cache = getCacheClient('crucible')
+      this.log.info('DWS cache layer enabled for storage')
+    }
+  }
+
+  private async cacheGet(key: string): Promise<string | null> {
+    if (!this.cache) return null
+    const value = await this.cache.get(key).catch(() => null)
+    if (value) {
+      this.log.debug('Cache hit', { key })
+    }
+    return value
+  }
+
+  private async cacheSet(key: string, value: string): Promise<void> {
+    if (!this.cache) return
+    const ttl = this.config.cacheTtl ?? DEFAULT_CACHE_TTL
+    await this.cache.set(key, value, ttl).catch((err) => {
+      this.log.warn('Cache set failed', { key, error: String(err) })
+    })
   }
 
   async storeCharacter(character: AgentCharacter): Promise<string> {
@@ -53,8 +86,21 @@ export class CrucibleStorage {
     expect(cid, 'CID is required')
     expectTrue(cid.length > 0, 'CID cannot be empty')
     this.log.debug('Loading character', { cid })
+
+    // Check cache first
+    const cacheKey = `character:${cid}`
+    const cached = await this.cacheGet(cacheKey)
+    if (cached) {
+      const parsed = JSON.parse(cached)
+      return AgentCharacterSchema.parse(parsed)
+    }
+
     const content = await this.fetch(cid)
     expect(content, 'Character content is required')
+
+    // Cache for future requests
+    await this.cacheSet(cacheKey, content)
+
     const parsed = JSON.parse(content)
     return AgentCharacterSchema.parse(parsed)
   }
@@ -79,8 +125,23 @@ export class CrucibleStorage {
     expect(cid, 'CID is required')
     expectTrue(cid.length > 0, 'CID cannot be empty')
     this.log.debug('Loading agent state', { cid })
+
+    // Check cache first
+    const cacheKey = `agent-state:${cid}`
+    const cached = await this.cacheGet(cacheKey)
+    if (cached) {
+      const parsed = JSON.parse(cached)
+      const state = AgentStateSchema.parse(parsed)
+      if (!state.agentId) throw new Error('Agent state missing agentId')
+      return state as AgentState
+    }
+
     const content = await this.fetch(cid)
     expect(content, 'State content is required')
+
+    // Cache for future requests
+    await this.cacheSet(cacheKey, content)
+
     const parsed = JSON.parse(content)
     const state = AgentStateSchema.parse(parsed)
     if (!state.agentId) throw new Error('Agent state missing agentId')
@@ -141,8 +202,22 @@ export class CrucibleStorage {
     expect(cid, 'CID is required')
     expectTrue(cid.length > 0, 'CID cannot be empty')
     this.log.debug('Loading room state', { cid })
+
+    // Check cache first
+    const cacheKey = `room-state:${cid}`
+    const cached = await this.cacheGet(cacheKey)
+    if (cached) {
+      const parsed = JSON.parse(cached)
+      const state = RoomStateSchema.parse(parsed)
+      return state as RoomState
+    }
+
     const content = await this.fetch(cid)
     expect(content, 'Room state content is required')
+
+    // Cache for future requests
+    await this.cacheSet(cacheKey, content)
+
     const parsed = JSON.parse(content)
     const state = RoomStateSchema.parse(parsed)
     // Schema validates structure, result is compatible with RoomState

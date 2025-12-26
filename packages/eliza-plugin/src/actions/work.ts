@@ -542,8 +542,8 @@ export const getTasksAction: Action = {
 
     const list = formatNumberedList(
       tasks,
-      (t) =>
-        `${t.title} - ${t.reward} wei - ${statusNames[t.status]} - ${t.assignee ?? 'Unassigned'}`,
+      (task: { title: string; reward: bigint; status: number; assignee: string | null }) =>
+        `${task.title} - ${task.reward} wei - ${statusNames[task.status]} - ${task.assignee ?? 'Unassigned'}`,
     )
 
     callback?.({ text: `Tasks:\n${list}` })
@@ -632,8 +632,8 @@ export const listGuardiansAction: Action = {
 
     const list = formatNumberedList(
       guardians,
-      (g) =>
-        `${g.name} - ${g.stake} wei stake - ${g.reviewCount} reviews (${g.approvalRate}% approval)`,
+      (guardian: { name: string; stake: bigint; reviewCount: bigint; approvalRate: number }) =>
+        `${guardian.name} - ${guardian.stake} wei stake - ${guardian.reviewCount} reviews (${guardian.approvalRate}% approval)`,
     )
 
     callback?.({ text: `Active Guardians:\n${list}` })

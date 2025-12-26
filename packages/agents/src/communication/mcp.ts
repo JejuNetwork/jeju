@@ -1,13 +1,11 @@
 /**
  * MCP Protocol Communication
  *
- * Model Context Protocol integration for agent capabilities using @jejunetwork/mcp.
+ * Model Context Protocol client for agent capabilities.
  *
  * @packageDocumentation
  */
 
-import type { MCPTool as MCPToolDef, MCPToolDefinition } from '@jejunetwork/mcp'
-import { MCPServer } from '@jejunetwork/mcp'
 import { logger } from '@jejunetwork/shared'
 
 /**
@@ -93,10 +91,13 @@ export class MCPCommunicationClient {
       return []
     }
 
-    const response = await this.sendRequest<{ tools: MCPToolDef[] }>(
-      'tools/list',
-      {},
-    )
+    const response = await this.sendRequest<{
+      tools: Array<{
+        name: string
+        description?: string
+        inputSchema: Record<string, unknown>
+      }>
+    }>('tools/list', {})
 
     if (!response?.tools) {
       return []
@@ -105,7 +106,7 @@ export class MCPCommunicationClient {
     const tools = response.tools.map((tool) => ({
       name: tool.name,
       description: tool.description ?? '',
-      inputSchema: tool.inputSchema as Record<string, unknown>,
+      inputSchema: tool.inputSchema,
     }))
 
     // Cache tools
@@ -123,7 +124,7 @@ export class MCPCommunicationClient {
     name: string,
     args: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
-    logger.debug(`Calling MCP tool: ${name}`, { args })
+    logger.debug(`Calling MCP tool: ${name}`, { toolArgs: JSON.stringify(args) })
 
     if (!this.serverEndpoint) {
       throw new Error('MCP server endpoint not configured')
@@ -293,22 +294,4 @@ export function createMCPClient(
   config: MCPClientConfig = {},
 ): MCPCommunicationClient {
   return new MCPCommunicationClient(config)
-}
-
-/**
- * Create an MCP server for an agent to expose tools
- */
-export function createAgentMCPServer(
-  agentId: string,
-  tools: MCPToolDefinition[] = [],
-): MCPServer {
-  const server = new MCPServer({
-    name: `jeju-agent-${agentId}`,
-    version: '1.0.0',
-    title: `Jeju Agent ${agentId}`,
-  })
-
-  server.registerTools(tools)
-
-  return server
 }

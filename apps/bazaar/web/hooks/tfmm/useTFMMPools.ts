@@ -1,11 +1,6 @@
-import { useCallback, useState } from 'react'
+import { useState } from 'react'
 import { type Address, formatUnits } from 'viem'
-import {
-  useAccount,
-  useReadContract,
-  useWaitForTransactionReceipt,
-  useWriteContract,
-} from 'wagmi'
+import { useAccount, useReadContract } from 'wagmi'
 
 // TFMM Pool ABI (subset for UI)
 const TFMM_POOL_ABI = [
@@ -199,73 +194,7 @@ export function useTFMMUserBalance(poolAddress: Address | null) {
   }
 }
 
-export function useTFMMAddLiquidity(poolAddress: Address | null) {
-  const { writeContract, data: hash, isPending, error } = useWriteContract()
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
-    hash,
-  })
-
-  const addLiquidity = useCallback(
-    async (amounts: bigint[], minLpOut: bigint) => {
-      if (!poolAddress) return
-
-      writeContract({
-        address: poolAddress,
-        abi: TFMM_POOL_ABI,
-        functionName: 'addLiquidity',
-        args: [amounts, minLpOut],
-      })
-    },
-    [poolAddress, writeContract],
-  )
-
-  return {
-    addLiquidity,
-    isLoading: isPending || isConfirming,
-    isSuccess,
-    error,
-    hash,
-  }
-}
-
-export function useTFMMRemoveLiquidity(poolAddress: Address | null) {
-  const { writeContract, data: hash, isPending, error } = useWriteContract()
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
-    hash,
-  })
-
-  const removeLiquidity = useCallback(
-    async (lpAmount: bigint, minAmountsOut: bigint[]) => {
-      if (!poolAddress) return
-
-      writeContract({
-        address: poolAddress,
-        abi: TFMM_POOL_ABI,
-        functionName: 'removeLiquidity',
-        args: [lpAmount, minAmountsOut],
-      })
-    },
-    [poolAddress, writeContract],
-  )
-
-  return {
-    removeLiquidity,
-    isLoading: isPending || isConfirming,
-    isSuccess,
-    error,
-    hash,
-  }
-}
-
 export function formatWeight(weight: bigint): string {
   // Weights are in 18 decimals, display as percentage
   return `${(Number(formatUnits(weight, 18)) * 100).toFixed(1)}%`
-}
-
-export function formatTVL(balances: bigint[], prices: bigint[]): string {
-  let total = 0n
-  for (let i = 0; i < balances.length; i++) {
-    total += (balances[i] * prices[i]) / BigInt(1e8)
-  }
-  return `$${Number(formatUnits(total, 18)).toLocaleString()}`
 }

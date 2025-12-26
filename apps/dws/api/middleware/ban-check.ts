@@ -4,11 +4,7 @@
  */
 
 import { getCurrentNetwork } from '@jejunetwork/config'
-import {
-  type BanCheckConfig,
-  BanChecker,
-  type BanCheckResult,
-} from '@jejunetwork/shared'
+import { type BanCheckConfig, BanChecker } from '@jejunetwork/shared'
 import { Elysia } from 'elysia'
 import type { Address } from 'viem'
 import { z } from 'zod'
@@ -127,21 +123,4 @@ export function banCheckMiddleware() {
       return undefined
     },
   )
-}
-
-/**
- * Check ban status directly
- */
-export async function checkBan(
-  address: Address,
-): Promise<BanCheckResult | null> {
-  if (!checker) return null
-  return checker.checkBan(address)
-}
-
-/**
- * Clear ban cache
- */
-export function clearBanCache(address?: Address): void {
-  checker?.clearCache(address)
 }

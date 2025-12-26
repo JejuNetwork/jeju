@@ -5,7 +5,7 @@
  * CEOs, and governance while sharing the same infrastructure.
  */
 
-import { getEnv } from '@jejunetwork/config'
+import { getEnv } from '@jejunetwork/shared'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import { type Address, type Hex, keccak256, toBytes } from 'viem'
 import type {

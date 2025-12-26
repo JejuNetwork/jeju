@@ -1,0 +1,56 @@
+groups:
+  - name: training-pipeline
+    rules:
+      - alert: TrajectoryUploadFailures
+        expr: rate(trajectory_upload_failures_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: High trajectory upload failure rate
+          description: "{{ $labels.app }} has >10% trajectory upload failures over 5min"
+
+      - alert: TrajectoryBufferBacklog
+        expr: trajectory_buffer_size > 500
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Large trajectory buffer backlog
+          description: "{{ $labels.app }} has {{ $value }} trajectories buffered for >10min"
+
+      - alert: CronTriggerFailures
+        expr: rate(cron_trigger_failures_total[15m]) > 0.5
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: Cron trigger repeated failures
+          description: "{{ $labels.trigger_id }} failing repeatedly"
+
+      - alert: RulerScoringErrors
+        expr: rate(ruler_scoring_errors_total[30m]) > 0.05
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: RULER scoring errors
+          description: "Archetype {{ $labels.archetype }} scoring has >5% error rate"
+
+      - alert: DatasetUploadStalled
+        expr: time() - dataset_last_upload_timestamp > 86400
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: No datasets uploaded in 24h
+          description: "{{ $labels.app }} hasn't uploaded a dataset in >24 hours"
+
+      - alert: TrainingPipelineDown
+        expr: up{job="training-cron-orchestrator"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: Training pipeline unreachable
+          description: "Training cron orchestrator is down"

@@ -9,7 +9,6 @@
 
 import { Elysia, t } from 'elysia'
 import type { Address } from 'viem'
-import type { BillingMode } from './billing'
 import { CacheEngine } from './engine'
 import {
   getCacheProvisioningManager,
@@ -25,6 +24,23 @@ import {
 
 // Shared engine for standard tier (multi-tenant)
 let sharedEngine: CacheEngine | null = null
+
+/**
+ * Extract and validate owner address from headers
+ */
+function getOwnerFromHeaders(
+  headers: Record<string, string | undefined>,
+): Address {
+  const ownerHeader = headers['x-owner-address']
+  if (
+    !ownerHeader ||
+    typeof ownerHeader !== 'string' ||
+    ownerHeader.length !== 42
+  ) {
+    throw new CacheError(CacheErrorCode.UNAUTHORIZED, 'Owner address required')
+  }
+  return ownerHeader as Address
+}
 
 export function getSharedEngine(): CacheEngine {
   if (!sharedEngine) {
@@ -1001,15 +1017,9 @@ export function createCacheRoutes() {
         '/instances/:id',
         async ({ params, headers }) => {
           const manager = getCacheProvisioningManager()
-
-          const owner = headers['x-owner-address'] as Address
-          if (!owner) {
-            throw new CacheError(
-              CacheErrorCode.UNAUTHORIZED,
-              'Owner address required',
-            )
-          }
-
+          const owner = getOwnerFromHeaders(
+            headers as Record<string, string | undefined>,
+          )
           const success = await manager.deleteInstance(params.id, owner)
           return { success }
         },
@@ -1100,17 +1110,17 @@ export function createCacheRoutes() {
       .post(
         '/billing/subscribe',
         async ({ body, headers, set }) => {
-          const { getCacheBillingManager } = await import('./billing')
+          const { getCacheBillingManager, parseBillingMode } = await import(
+            './billing'
+          )
           const billing = getCacheBillingManager()
           const manager = getCacheProvisioningManager()
+          const owner = getOwnerFromHeaders(
+            headers as Record<string, string | undefined>,
+          )
 
-          const owner = headers['x-owner-address'] as Address
-          if (!owner) {
-            throw new CacheError(
-              CacheErrorCode.UNAUTHORIZED,
-              'Owner address required',
-            )
-          }
+          // Validate billing mode
+          const billingMode = parseBillingMode(body.billingMode)
 
           // Parse payment proof from headers
           const proof = billing.parsePaymentProof(
@@ -1128,7 +1138,7 @@ export function createCacheRoutes() {
 
             const requirement = billing.createPaymentRequirement(
               plan,
-              body.billingMode as BillingMode,
+              billingMode,
               body.instanceId,
             )
             set.status = 402
@@ -1148,7 +1158,7 @@ export function createCacheRoutes() {
             body.instanceId,
             owner,
             plan,
-            body.billingMode as BillingMode,
+            billingMode,
             proof,
           )
 
@@ -1169,51 +1179,24 @@ export function createCacheRoutes() {
           const { getCacheBillingManager } = await import('./billing')
           const billing = getCacheBillingManager()
           const manager = getCacheProvisioningManager()
-
-          const owner = headers['x-owner-address'] as Address
-          if (!owner) {
-            throw new CacheError(
-              CacheErrorCode.UNAUTHORIZED,
-              'Owner address required',
-            )
-          }
-
-          const proof = billing.parsePaymentProof(
-            headers as Record<string, string>,
+          const owner = getOwnerFromHeaders(
+            headers as Record<string, string | undefined>,
           )
-          if (!proof) {
-            // Get subscription to determine required amount
-            const subscription = billing.getSubscription(body.instanceId)
-            if (!subscription) {
-              throw new CacheError(
-                CacheErrorCode.INVALID_OPERATION,
-                'No active subscription',
-              )
-            }
 
-            const plan = manager.getPlan(subscription.planId)
-            if (!plan) {
-              throw new CacheError(
-                CacheErrorCode.INVALID_OPERATION,
-                'Plan not found',
-              )
-            }
-
-            const requirement = billing.createPaymentRequirement(
-              plan,
-              subscription.billingMode,
-              body.instanceId,
-            )
-            set.status = 402
-            set.headers['X-Payment-Required'] = 'true'
-            return requirement
-          }
-
+          // Get subscription to determine required amount and validate ownership
           const subscription = billing.getSubscription(body.instanceId)
           if (!subscription) {
             throw new CacheError(
               CacheErrorCode.INVALID_OPERATION,
               'No active subscription',
+            )
+          }
+
+          // Validate ownership
+          if (subscription.owner !== owner) {
+            throw new CacheError(
+              CacheErrorCode.UNAUTHORIZED,
+              'Not subscription owner',
             )
           }
 
@@ -1223,6 +1206,20 @@ export function createCacheRoutes() {
               CacheErrorCode.INVALID_OPERATION,
               'Plan not found',
             )
+          }
+
+          const proof = billing.parsePaymentProof(
+            headers as Record<string, string>,
+          )
+          if (!proof) {
+            const requirement = billing.createPaymentRequirement(
+              plan,
+              subscription.billingMode,
+              body.instanceId,
+            )
+            set.status = 402
+            set.headers['X-Payment-Required'] = 'true'
+            return requirement
           }
 
           const renewed = await billing.processRenewal(
@@ -1245,14 +1242,9 @@ export function createCacheRoutes() {
         async ({ body, headers }) => {
           const { getCacheBillingManager } = await import('./billing')
           const billing = getCacheBillingManager()
-
-          const owner = headers['x-owner-address'] as Address
-          if (!owner) {
-            throw new CacheError(
-              CacheErrorCode.UNAUTHORIZED,
-              'Owner address required',
-            )
-          }
+          const owner = getOwnerFromHeaders(
+            headers as Record<string, string | undefined>,
+          )
 
           const subscription = billing.getSubscription(body.instanceId)
           if (!subscription) {
@@ -1295,15 +1287,9 @@ export function createCacheRoutes() {
       .get('/billing/payments', async ({ headers }) => {
         const { getCacheBillingManager } = await import('./billing')
         const billing = getCacheBillingManager()
-
-        const owner = headers['x-owner-address'] as Address
-        if (!owner) {
-          throw new CacheError(
-            CacheErrorCode.UNAUTHORIZED,
-            'Owner address required',
-          )
-        }
-
+        const owner = getOwnerFromHeaders(
+          headers as Record<string, string | undefined>,
+        )
         const payments = billing.getPaymentHistory(owner)
 
         return {
@@ -1317,15 +1303,9 @@ export function createCacheRoutes() {
       .get('/billing/invoices', async ({ headers }) => {
         const { getCacheBillingManager } = await import('./billing')
         const billing = getCacheBillingManager()
-
-        const owner = headers['x-owner-address'] as Address
-        if (!owner) {
-          throw new CacheError(
-            CacheErrorCode.UNAUTHORIZED,
-            'Owner address required',
-          )
-        }
-
+        const owner = getOwnerFromHeaders(
+          headers as Record<string, string | undefined>,
+        )
         const invoices = billing.getInvoices(owner)
 
         return {

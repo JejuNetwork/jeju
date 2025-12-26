@@ -9,9 +9,10 @@
  * @packageDocumentation
  */
 
-import { getKMS, getMPCCoordinator } from '@jejunetwork/kms'
+import { getMPCCoordinator } from '@jejunetwork/kms'
 import { logger } from '@jejunetwork/shared'
-import { type Address, privateKeyToAddress } from 'viem'
+import type { Address } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
 import { getAgent0Client } from '../agent0/client'
 import { agentRegistry } from '../services/agent-registry.service'
 import { AgentStatus } from '../types/agent-registry'
@@ -67,7 +68,9 @@ export class AgentIdentityService {
     // Provision wallet unless skipped or existing key provided
     if (!options.skipWalletProvisioning) {
       if (options.existingPrivateKey) {
-        identity.walletAddress = privateKeyToAddress(options.existingPrivateKey)
+        identity.walletAddress = privateKeyToAccount(
+          options.existingPrivateKey,
+        ).address
         logger.info(`Using existing wallet: ${identity.walletAddress}`)
       } else {
         const walletAddress = await this.provisionWallet(agentId)
@@ -111,8 +114,8 @@ export class AgentIdentityService {
 
     logger.info(`Agent identity setup complete`, {
       agentId,
-      walletAddress: identity.walletAddress,
-      agent0TokenId: identity.agent0TokenId,
+      walletAddress: identity.walletAddress ?? null,
+      agent0TokenId: identity.agent0TokenId ?? null,
     })
 
     return identity
@@ -151,28 +154,25 @@ export class AgentIdentityService {
     logger.info(`Provisioning MPC wallet for ${agentId}`)
 
     const mpcCoordinator = getMPCCoordinator()
-    const kms = getKMS()
+
+    // Get active parties for key generation
+    const activeParties = mpcCoordinator.getActiveParties()
+    if (activeParties.length < 3) {
+      throw new Error('Insufficient active MPC parties for key generation')
+    }
 
     // Generate distributed key using MPC
+    const partyIds = activeParties.slice(0, 3).map((p) => p.id)
     const keyGenResult = await mpcCoordinator.generateKey({
       keyId: `agent-${agentId}`,
       threshold: 2,
-      totalShares: 3,
+      totalParties: 3,
+      partyIds,
       curve: 'secp256k1',
     })
 
     // Derive address from public key
-    const walletAddress = keyGenResult.publicKey
-
-    // Store key metadata in KMS (not the actual key shares)
-    await kms.storeKeyMetadata({
-      keyId: keyGenResult.keyId,
-      publicKey: keyGenResult.publicKey,
-      threshold: 2,
-      totalShares: 3,
-      createdAt: new Date(),
-      agentId,
-    })
+    const walletAddress = keyGenResult.address
 
     logger.info(`Wallet provisioned: ${walletAddress}`)
     return walletAddress
@@ -310,12 +310,12 @@ export class AgentIdentityService {
       return false
     }
 
-    // Verify signature using KMS
-    const kms = getKMS()
-    const isValid = await kms.verifySignature({
+    // Verify signature using viem's verifyMessage
+    const { verifyMessage } = await import('viem')
+    const isValid = await verifyMessage({
+      address: identity.walletAddress as `0x${string}`,
       message,
-      signature,
-      publicKey: identity.walletAddress,
+      signature: signature as `0x${string}`,
     })
 
     return isValid

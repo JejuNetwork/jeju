@@ -1,7 +1,24 @@
-/** @jejunetwork/tests - Shared E2E test utilities */
+/**
+ * @jejunetwork/tests - Shared E2E Test Utilities
+ *
+ * Comprehensive testing infrastructure for Jeju Network apps including:
+ * - Wallet testing (Synpress/MetaMask + Dappwright)
+ * - OAuth3 authentication helpers
+ * - React Query test utilities
+ * - Navigation and page helpers
+ * - On-chain verification
+ * - Test data constants (viewports, timeouts, selectors)
+ *
+ * @module @jejunetwork/tests
+ */
 
-// Import expect from @playwright/test directly for Playwright tests or from bun:test for Bun tests
+// ============================================================================
+// Core Playwright/Bun Exports
+// ============================================================================
+
+// Import expect from @playwright/test directly for Playwright tests
 export { expect } from '@playwright/test'
+
 // Bun test infrastructure
 export {
   getStatus as getBunStatus,
@@ -9,10 +26,32 @@ export {
   setup as bunSetup,
   teardown as bunTeardown,
 } from './bun-global-setup'
+
 export * from './constants'
+
+// ============================================================================
+// Infrastructure & Setup
+// ============================================================================
+
 // Dev startup
 export { cleanup as devCleanup, ensureInfra } from './dev-startup'
-// Synpress
+
+// Global setup
+export { default as globalSetup, setupTestEnvironment } from './global-setup'
+
+// Test infrastructure
+export { LockManager, withTestLock } from './lock-manager'
+
+// Preflight checks
+export { quickHealthCheck, runPreflightChecks, waitForChain } from './preflight'
+
+// App warmup
+export { discoverAppsForWarmup, quickWarmup, warmupApps } from './warmup'
+
+// ============================================================================
+// Synpress Wallet Testing (MetaMask)
+// ============================================================================
+
 export {
   approveTransaction,
   basicSetup,
@@ -28,25 +67,101 @@ export {
   verifyDisconnected,
   walletPassword,
 } from './fixtures/synpress-wallet'
-// Helpers
+
+// ============================================================================
+// Fixtures
+// ============================================================================
+
+// Dappwright wallet fixtures
 export * from './fixtures/wallet'
-export { default as globalSetup, setupTestEnvironment } from './global-setup'
+
+// React Query test utilities
+export {
+  createQueryWrapper,
+  createTestQueryClient,
+  createTestQueryClientWithOptions,
+  invalidateAndWait,
+  QueryClient,
+  QueryClientProvider,
+  TestQueryProvider,
+  waitForQueriesToSettle,
+} from './fixtures/react-query'
+
+// ============================================================================
+// Helpers
+// ============================================================================
+
+// Contract interaction helpers
 export * from './helpers/contracts'
+
+// Error detection utilities
 export * from './helpers/error-detection'
-export * from './helpers/navigation'
+
+// Navigation and page helpers
+export {
+  cooldownBetweenTests,
+  getCurrentRoute,
+  hideNextDevOverlay,
+  isAtRoute,
+  navigateTo,
+  navigateToLiquidity,
+  navigateToMarket,
+  navigateToPortfolio,
+  navigateToRoute,
+  navigateToSwap,
+  waitForPageLoad,
+  waitForRoute,
+  waitForServerHealthy,
+} from './helpers/navigation'
+
+// OAuth3 authentication helpers
+export {
+  ensureLoggedIn,
+  ensureLoggedOut,
+  getDisplayedWalletAddress,
+  loginWithWallet,
+  logout,
+  waitForAuth,
+  isAuthenticated as isOAuth3Authenticated,
+} from './helpers/oauth3-auth'
+
+// On-chain verification helpers
 export * from './helpers/on-chain'
+
+// Screenshot utilities
 export * from './helpers/screenshots'
-// Test infrastructure
-export { LockManager, withTestLock } from './lock-manager'
+
+// Test data constants
+export {
+  BASE_SELECTORS,
+  generateTestEmail,
+  generateTestId,
+  generateTestUsername,
+  HTTP_STATUS,
+  sleep,
+  TEST_FORM_DATA,
+  TEST_NUMBERS,
+  TIMEOUTS,
+  TRADING_TEST_DATA,
+  VIEWPORTS,
+  type Timeout,
+  type TimeoutName,
+  type Viewport,
+  type ViewportName,
+} from './helpers/test-data'
+
+// ============================================================================
+// Configuration
+// ============================================================================
+
 // Playwright config
 export {
   type AppConfigOptions,
   createAppConfig,
   createPlaywrightConfig,
 } from './playwright.config.base'
-export { quickHealthCheck, runPreflightChecks, waitForChain } from './preflight'
-// Schemas - Zod validation for external data
-export * from './schemas'
+
+// Synpress config
 export {
   createSmokeTestConfig,
   createSynpressConfig,
@@ -58,27 +173,34 @@ export {
   type WalletSetupOptions,
   type WalletSetupResult,
 } from './synpress.config.base'
-// Shared utilities
+
+// Schemas - Zod validation for external data
+export * from './schemas'
+
+// ============================================================================
+// Shared Utilities & Constants
+// ============================================================================
+
 export {
   checkContractsDeployed,
   checkRpcHealth,
   checkServiceHealth,
-  // Utilities
   findJejuWorkspaceRoot,
   getChainId,
   getRpcUrl,
   getTestEnv,
   isRpcAvailable,
   isServiceAvailable,
+  // Chain constants (canonical source)
   JEJU_CHAIN,
   JEJU_CHAIN_ID,
   JEJU_RPC_URL,
+  // Wallet constants (canonical source)
   PASSWORD,
-  // Constants (canonical source)
   SEED_PHRASE,
   TEST_ACCOUNTS,
   TEST_WALLET_ADDRESS,
+  // Wait utilities
   waitForRpc,
   waitForService,
 } from './utils'
-export { discoverAppsForWarmup, quickWarmup, warmupApps } from './warmup'

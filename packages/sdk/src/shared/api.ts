@@ -31,7 +31,7 @@ export async function waitForTxAndParseLog<T>(
       if (decoded.eventName === eventName) {
         return {
           receipt,
-          result: extractFn(decoded.args as Record<string, unknown>),
+          result: extractFn(decoded.args as unknown as Record<string, unknown>),
         }
       }
     } catch {
@@ -88,7 +88,7 @@ export async function parseAddressFromLogs(
   for (const log of receipt.logs) {
     if (log.topics[0] === eventTopic) {
       // Address is typically indexed (in topics[1]) or first in data
-      if (log.topics.length > 1) {
+      if (log.topics.length > 1 && log.topics[1]) {
         // Extract address from 32-byte topic (last 20 bytes)
         return `0x${log.topics[1].slice(-40)}` as Address
       }

@@ -2,7 +2,7 @@
  * Base API Hook
  */
 
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { API_URL } from '../config'
 
 interface ApiOptions {
@@ -66,5 +66,3 @@ export function useInfo() {
     queryFn: () => apiFetch<InfoResponse>('/info'),
   })
 }
-
-export { apiFetch, useQueryClient }

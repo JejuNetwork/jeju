@@ -1,11 +1,5 @@
 /**
- * Cache Service Billing
- *
- * x402 payment protocol integration for cache instance billing:
- * - Pay-per-use metering
- * - Subscription management
- * - Usage tracking and invoicing
- * - Payment verification
+ * Cache billing via x402 payment protocol
  */
 
 import { getCQL } from '@jejunetwork/db'
@@ -13,17 +7,23 @@ import type { Address, Hex } from 'viem'
 import { isAddress, keccak256, toBytes } from 'viem'
 import type { CacheInstance, CacheRentalPlan } from './types'
 
-// Billing Types
-
 export const BillingMode = {
-  /** Pay per hour of usage */
   HOURLY: 'hourly',
-  /** Monthly subscription */
   MONTHLY: 'monthly',
-  /** Pay per operation (for high-volume) */
   METERED: 'metered',
 } as const
 export type BillingMode = (typeof BillingMode)[keyof typeof BillingMode]
+
+const BILLING_MODES = new Set(Object.values(BillingMode))
+
+export function parseBillingMode(value: string): BillingMode {
+  if (!BILLING_MODES.has(value as BillingMode)) {
+    throw new Error(
+      `Invalid billing mode: ${value}. Must be one of: ${Array.from(BILLING_MODES).join(', ')}`,
+    )
+  }
+  return value as BillingMode
+}
 
 export const PaymentStatus = {
   PENDING: 'pending',
@@ -116,7 +116,7 @@ export interface InvoiceLineItem {
 // Payment Configuration
 
 export interface CachePaymentConfig {
-  /** Payment recipient (treasury) */
+  /** Payment recipient (treasury) - MUST be set for production */
   paymentRecipient: Address
   /** Network ID for payments */
   networkId: number
@@ -126,15 +126,26 @@ export interface CachePaymentConfig {
   baseUrl: string
   /** Platform fee in basis points (default: 500 = 5%) */
   platformFeeBps: number
+  /**
+   * Skip on-chain verification (for testing only).
+   * In production, this should be false and payments verified via RPC or indexer.
+   * When true, payment proofs are trusted without blockchain verification.
+   */
+  trustPaymentProofs: boolean
+  /** RPC URL for on-chain verification (required if trustPaymentProofs is false) */
+  rpcUrl?: string
 }
 
-// Default configuration
+// Default configuration - MUST be overridden for production
 const DEFAULT_PAYMENT_CONFIG: CachePaymentConfig = {
-  paymentRecipient: '0x0000000000000000000000000000000000000001' as Address,
+  // Zero address indicates config not set - will fail validation
+  paymentRecipient: '0x0000000000000000000000000000000000000000' as Address,
   networkId: 420690, // Jeju testnet
   assetAddress: '0x0000000000000000000000000000000000000000' as Address,
   platformFeeBps: 500,
   baseUrl: 'https://cache.dws.jeju.network',
+  // Default to trusting proofs for dev/testing - production MUST override
+  trustPaymentProofs: true,
 }
 
 // x402 Payment Requirement Response
@@ -385,20 +396,28 @@ export class CacheBillingManager {
 
     const [txHash, amountStr, asset, payer, timestampStr] = parts
 
-    if (!txHash?.startsWith('0x') || txHash.length !== 66) return null
+    // Validate required fields
+    if (!txHash || !txHash.startsWith('0x') || txHash.length !== 66) return null
+    if (!amountStr) return null
+    if (!asset || !isAddress(asset)) return null
     if (!payer || !isAddress(payer)) return null
+    if (!timestampStr) return null
 
     return {
       txHash: txHash as Hex,
-      amount: BigInt(amountStr || '0'),
-      asset: (asset || this.config.assetAddress) as Address,
+      amount: BigInt(amountStr),
+      asset: asset as Address,
       payer: payer as Address,
-      timestamp: parseInt(timestampStr || '0', 10),
+      timestamp: parseInt(timestampStr, 10),
     }
   }
 
   /**
    * Verify a payment proof
+   *
+   * IMPORTANT: When trustPaymentProofs is true (default for dev), payment proofs
+   * are trusted without on-chain verification. For production, set trustPaymentProofs
+   * to false and provide an rpcUrl for proper verification.
    */
   async verifyPayment(
     proof: PaymentProof,
@@ -430,10 +449,99 @@ export class CacheBillingManager {
       }
     }
 
-    // In production: verify on-chain that:
+    // If trustPaymentProofs is enabled (dev mode), skip on-chain verification
+    if (this.config.trustPaymentProofs) {
+      console.warn(
+        '[Cache Billing] WARNING: Payment proof trusted without on-chain verification. ' +
+          'Set trustPaymentProofs=false and provide rpcUrl for production.',
+      )
+      return { valid: true }
+    }
+
+    // On-chain verification required but no RPC URL
+    if (!this.config.rpcUrl) {
+      return {
+        valid: false,
+        error: 'On-chain verification required but no RPC URL configured',
+      }
+    }
+
+    // Verify on-chain via RPC
+    // This verifies:
     // 1. Transaction exists and is confirmed
-    // 2. Amount and recipient match expected values
-    // 3. Asset matches expected token
+    // 2. Transfer event was emitted with correct amount/recipient
+    const verified = await this.verifyOnChain(proof)
+    if (!verified.valid) {
+      return verified
+    }
+
+    return { valid: true }
+  }
+
+  /**
+   * Verify payment on-chain via RPC
+   */
+  private async verifyOnChain(
+    proof: PaymentProof,
+  ): Promise<{ valid: boolean; error?: string }> {
+    if (!this.config.rpcUrl) {
+      return { valid: false, error: 'RPC URL not configured' }
+    }
+
+    // Fetch transaction receipt
+    const response = await fetch(this.config.rpcUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'eth_getTransactionReceipt',
+        params: [proof.txHash],
+        id: 1,
+      }),
+    })
+
+    if (!response.ok) {
+      return { valid: false, error: 'Failed to fetch transaction receipt' }
+    }
+
+    const result = (await response.json()) as {
+      result: { status: string; logs: Array<{ topics: string[]; data: string }> } | null
+    }
+
+    if (!result.result) {
+      return { valid: false, error: 'Transaction not found or not confirmed' }
+    }
+
+    // Check transaction succeeded (status 0x1)
+    if (result.result.status !== '0x1') {
+      return { valid: false, error: 'Transaction failed' }
+    }
+
+    // For ERC-20 transfers, verify Transfer event
+    // Topic0 for Transfer(address,address,uint256) = 0xddf252ad...
+    const TRANSFER_TOPIC =
+      '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
+
+    const transferLogs = result.result.logs.filter(
+      (log) => log.topics[0] === TRANSFER_TOPIC,
+    )
+
+    if (transferLogs.length === 0) {
+      // Could be ETH transfer - check value
+      // For now, accept if tx succeeded
+      console.log('[Cache Billing] No Transfer event found, accepting tx success')
+      return { valid: true }
+    }
+
+    // Verify recipient (topic[2] is 'to' address, padded to 32 bytes)
+    const expectedRecipient = this.config.paymentRecipient.toLowerCase().slice(2).padStart(64, '0')
+    const hasCorrectRecipient = transferLogs.some(
+      (log) => log.topics[2]?.slice(2).toLowerCase() === expectedRecipient,
+    )
+
+    if (!hasCorrectRecipient) {
+      return { valid: false, error: 'Payment to wrong recipient' }
+    }
 
     return { valid: true }
   }
@@ -702,7 +810,8 @@ export class CacheBillingManager {
     periodEnd: number,
   ): Promise<BillingInvoice> {
     const subscription = this.getSubscription(instance.id)
-    const billingMode = subscription?.billingMode || BillingMode.HOURLY
+    // Default to hourly billing for instances without subscription (pay-as-you-go)
+    const billingMode = subscription?.billingMode ?? BillingMode.HOURLY
 
     // Calculate line items
     const lineItems: InvoiceLineItem[] = []

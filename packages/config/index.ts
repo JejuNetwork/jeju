@@ -447,6 +447,7 @@ export function getServicesConfig(
         getEnvService('DWS_URL') ??
         getEnvService('DWS_API_URL') ??
         config.dws.api,
+      cache: getEnvService('DWS_CACHE_URL') ?? config.dws.cache,
       compute: getEnvService('DWS_COMPUTE_URL') ?? config.dws.compute,
     },
     autocrat: {
@@ -555,6 +556,11 @@ export function getCQLMinerUrl(network?: NetworkType): string {
 /** Get DWS (Decentralized Web Services) API URL */
 export function getDWSUrl(network?: NetworkType): string {
   return getServicesConfig(network).dws.api
+}
+
+/** Get DWS cache service URL */
+export function getDWSCacheUrl(network?: NetworkType): string {
+  return getServicesConfig(network).dws.cache
 }
 
 /** Get DWS compute endpoint */

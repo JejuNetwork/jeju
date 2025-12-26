@@ -43,6 +43,7 @@ export type {
   AccessControlPolicy,
   AuthSignature,
   CIDResponse,
+  DatasetReference,
   EncryptedPayload,
   EncryptedTrajectory,
   IPFSUploadResult,
@@ -53,3 +54,6 @@ export type {
   StorageOptions,
   TrajectoryBatch,
 } from './types'
+
+export { TrainingDbPersistence, type TrainingDbClient } from './db-persistence'
+export { ALL_TRAINING_SCHEMAS, DATASET_REFERENCE_SCHEMA, TRAJECTORY_BATCH_SCHEMA } from './db-schema'

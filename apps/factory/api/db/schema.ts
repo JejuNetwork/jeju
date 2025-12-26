@@ -427,6 +427,58 @@ CREATE TABLE IF NOT EXISTS pr_sequences (
   repo TEXT PRIMARY KEY,
   next_number INTEGER NOT NULL DEFAULT 1
 );
+
+-- Farcaster FID links (wallet address to FID mapping)
+CREATE TABLE IF NOT EXISTS fid_links (
+  address TEXT PRIMARY KEY,
+  fid INTEGER NOT NULL,
+  username TEXT,
+  display_name TEXT,
+  pfp_url TEXT,
+  bio TEXT,
+  verified_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
+  updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000)
+);
+CREATE INDEX IF NOT EXISTS idx_fid_links_fid ON fid_links(fid);
+
+-- Farcaster signers (encrypted signer keys for users)
+CREATE TABLE IF NOT EXISTS farcaster_signers (
+  id TEXT PRIMARY KEY,
+  address TEXT NOT NULL,
+  fid INTEGER NOT NULL,
+  signer_public_key TEXT NOT NULL,
+  encrypted_private_key TEXT NOT NULL,
+  encryption_iv TEXT NOT NULL,
+  key_state TEXT NOT NULL DEFAULT 'pending' CHECK(key_state IN ('pending', 'active', 'revoked')),
+  deadline INTEGER,
+  signature TEXT,
+  created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
+  updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000)
+);
+CREATE INDEX IF NOT EXISTS idx_farcaster_signers_address ON farcaster_signers(address);
+CREATE INDEX IF NOT EXISTS idx_farcaster_signers_fid ON farcaster_signers(fid);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_farcaster_signers_pubkey ON farcaster_signers(signer_public_key);
+
+-- Project Farcaster channels
+CREATE TABLE IF NOT EXISTS project_channels (
+  project_id TEXT PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
+  channel_id TEXT NOT NULL,
+  channel_url TEXT NOT NULL,
+  created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000)
+);
+CREATE INDEX IF NOT EXISTS idx_project_channels_channel ON project_channels(channel_id);
+
+-- Cast reactions (local cache for user reactions)
+CREATE TABLE IF NOT EXISTS cast_reactions (
+  id TEXT PRIMARY KEY,
+  address TEXT NOT NULL,
+  cast_hash TEXT NOT NULL,
+  cast_fid INTEGER NOT NULL,
+  reaction_type TEXT NOT NULL CHECK(reaction_type IN ('like', 'recast')),
+  created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_cast_reactions_unique ON cast_reactions(address, cast_hash, reaction_type);
+CREATE INDEX IF NOT EXISTS idx_cast_reactions_cast ON cast_reactions(cast_hash);
 `
 
 export default FACTORY_SCHEMA

@@ -15,6 +15,7 @@ import {
   PrometheusAlertsResponseSchema,
   PrometheusQueryResultSchema,
   PrometheusTargetsResponseSchema,
+  type SafeFetchResponse,
   type SkillResult,
 } from '../lib/types'
 
@@ -44,12 +45,6 @@ const corsConfig = {
   credentials: true,
   allowedHeaders: ['Content-Type', 'Authorization'],
   methods: ['GET', 'POST', 'OPTIONS'],
-}
-
-interface SafeFetchResponse {
-  ok: boolean
-  status: number
-  json: () => Promise<Record<string, unknown>>
 }
 
 async function safeFetch(url: string): Promise<SafeFetchResponse | null> {

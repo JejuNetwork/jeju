@@ -110,6 +110,19 @@ export interface CrossChainNFTParams {
   destChainId: bigint
 }
 
+export interface OutputRootProof {
+  version: Hex
+  stateRoot: Hex
+  messagePasserStorageRoot: Hex
+  latestBlockhash: Hex
+}
+
+export interface WithdrawalProof {
+  l2OutputIndex: bigint
+  outputRootProof: OutputRootProof
+  withdrawalProof: Hex[]
+}
+
 export interface BridgeModule {
   // Token Bridging (L1 -> L2)
   depositETH(
@@ -123,7 +136,7 @@ export interface BridgeModule {
   initiateWithdrawal(
     params: WithdrawParams,
   ): Promise<{ txHash: Hex; withdrawalId: Hex }>
-  proveWithdrawal(withdrawalId: Hex, proof: Hex): Promise<Hex>
+  proveWithdrawal(withdrawalId: Hex, proof: WithdrawalProof): Promise<Hex>
   finalizeWithdrawal(withdrawalId: Hex): Promise<Hex>
   getWithdrawal(withdrawalId: Hex): Promise<BridgeWithdrawal | null>
   getMyWithdrawals(): Promise<BridgeWithdrawal[]>
@@ -156,7 +169,7 @@ export interface BridgeModule {
   getHyperlaneMessageStatus(messageId: Hex): Promise<boolean>
 
   // ZK Bridge
-  submitZKProof(proofData: Hex, publicInputs: Hex[]): Promise<Hex>
+  submitZKProof(proofData: Hex, publicInputs: Hex[]): Promise<{ txHash: Hex; proofId: Hex }>
   verifyZKBridgeTransfer(transferId: Hex): Promise<boolean>
 
   // Utilities
@@ -535,11 +548,11 @@ export function createBridgeModule(
         abi: L1_STANDARD_BRIDGE_ABI,
         functionName: 'depositERC20To',
         args: [
-          params.l1Token,
-          params.l2Token,
+          params.token,
+          params.token, // L2 token assumed same as L1 for standard bridges
           params.recipient,
           params.amount,
-          params.gasLimit ?? 200000,
+          Number(params.gasLimit ?? 200000n),
           '0x' as Hex,
         ],
       })
@@ -571,7 +584,7 @@ export function createBridgeModule(
       const data = encodeFunctionData({
         abi: L2_TO_L1_MESSAGE_PASSER_ABI,
         functionName: 'initiateWithdrawal',
-        args: [params.recipient, params.gasLimit ?? 100000n, '0x' as Hex],
+        args: [params.recipient, 100000n, '0x' as Hex],
       })
 
       const txHash = await wallet.sendTransaction({

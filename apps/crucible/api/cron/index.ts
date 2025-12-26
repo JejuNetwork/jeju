@@ -1,26 +1,38 @@
 /**
- * Crucible Cron Routes
- *
- * Handles scheduled cron jobs for:
- * - Agent ticks: Execute autonomous agent actions with trajectory recording
- * - Trajectory flushing: Batch flush trajectories to DWS storage
- * - Health checks: System status monitoring
+ * Crucible Cron Routes - Agent ticks, trajectory flushing, health checks
  */
 
 import {
   getStaticTrajectoryStorage,
+  TrainingDbPersistence,
   type TrajectoryBatchReference,
 } from '@jejunetwork/training'
 import { Elysia } from 'elysia'
-import {
-  type AutonomousAgentRunner,
-  createAgentRunner,
-  type ExtendedAgentConfig,
-} from '../autonomous'
+import { type AutonomousAgentRunner, createAgentRunner } from '../autonomous'
 import { loadBlueTeamCharacters, loadRedTeamCharacters } from '../characters'
 import { createLogger } from '../sdk/logger'
 
 const log = createLogger('CronRoutes')
+
+// Database persistence for trajectory batches (lazy initialized)
+let dbPersistence: TrainingDbPersistence | null = null
+
+async function getDbPersistence(): Promise<TrainingDbPersistence | null> {
+  if (dbPersistence) return dbPersistence
+  
+  // Try to get database client from environment
+  const dbEndpoint = process.env.CQL_ENDPOINT
+  if (!dbEndpoint) {
+    log.warn('CQL_ENDPOINT not set - trajectory batches will not be persisted to database')
+    return null
+  }
+  
+  // Import dynamically to avoid circular deps
+  const { CQLClient } = await import('@jejunetwork/db')
+  const client = new CQLClient({ blockProducerEndpoint: dbEndpoint })
+  dbPersistence = new TrainingDbPersistence(client)
+  return dbPersistence
+}
 
 // Initialize static storage for Crucible trajectories
 const crucibleTrajectoryStorage = getStaticTrajectoryStorage('crucible', {
@@ -34,6 +46,12 @@ const crucibleTrajectoryStorage = getStaticTrajectoryStorage('crucible', {
       trajectoryCount: batch.trajectoryCount,
       compressedSize: batch.compressedSizeBytes,
     })
+    
+    // Persist to database for discovery
+    const persistence = await getDbPersistence()
+    if (persistence) {
+      await persistence.saveBatchReference(batch)
+    }
   },
 })
 
@@ -61,56 +79,46 @@ async function getAgentRunner(): Promise<AutonomousAgentRunner> {
     },
   })
 
-  // Register blue team agents
+  // Shared capabilities for all agents
+  const baseCapabilities = {
+    canChat: true,
+    canPropose: true,
+    canVote: true,
+    canDelegate: true,
+    canStake: true,
+    canBridge: false,
+    a2a: true,
+    compute: true,
+  }
+
+  // Register blue team agents (defensive)
   const blueTeamCharacters = await loadBlueTeamCharacters()
   for (const character of blueTeamCharacters) {
-    const agentConfig: ExtendedAgentConfig = {
+    await agentRunner.registerAgent({
       agentId: `blue-${character.name.toLowerCase().replace(/\s+/g, '-')}`,
       character,
       tickIntervalMs: 120000,
-      capabilities: {
-        canTrade: false,
-        canChat: true,
-        canPropose: true,
-        canVote: true,
-        canDelegate: true,
-        canStake: true,
-        canBridge: false,
-        a2a: true,
-        compute: true,
-      },
+      capabilities: { ...baseCapabilities, canTrade: false },
       maxActionsPerTick: 3,
       enabled: true,
       archetype: 'blue-team',
       recordTrajectories: true,
-    }
-    await agentRunner.registerAgent(agentConfig)
+    })
   }
 
-  // Register red team agents
+  // Register red team agents (adversarial)
   const redTeamCharacters = await loadRedTeamCharacters()
   for (const character of redTeamCharacters) {
-    const agentConfig: ExtendedAgentConfig = {
+    await agentRunner.registerAgent({
       agentId: `red-${character.name.toLowerCase().replace(/\s+/g, '-')}`,
       character,
       tickIntervalMs: 120000,
-      capabilities: {
-        canTrade: true, // Red team can test trading vulnerabilities
-        canChat: true,
-        canPropose: true,
-        canVote: true,
-        canDelegate: true,
-        canStake: true,
-        canBridge: false,
-        a2a: true,
-        compute: true,
-      },
-      maxActionsPerTick: 5, // Red team gets more actions for testing
+      capabilities: { ...baseCapabilities, canTrade: true },
+      maxActionsPerTick: 5,
       enabled: true,
       archetype: 'red-team',
       recordTrajectories: true,
-    }
-    await agentRunner.registerAgent(agentConfig)
+    })
   }
 
   await agentRunner.start()
@@ -123,12 +131,21 @@ async function getAgentRunner(): Promise<AutonomousAgentRunner> {
   return agentRunner
 }
 
+// Track whether we've warned about missing CRON_SECRET
+let warnedAboutMissingSecret = false
+
 /**
  * Cron authentication header check
  */
 function verifyCronAuth(headers: Record<string, string | undefined>): boolean {
   const cronSecret = process.env.CRON_SECRET
-  if (!cronSecret) return true // Allow in development
+  if (!cronSecret) {
+    if (!warnedAboutMissingSecret) {
+      log.warn('CRON_SECRET not set - cron endpoints are unprotected. Set CRON_SECRET in production.')
+      warnedAboutMissingSecret = true
+    }
+    return true // Allow in development
+  }
 
   const authHeader = headers.authorization
   return authHeader === `Bearer ${cronSecret}`
@@ -158,34 +175,37 @@ export const cronRoutes = new Elysia({ prefix: '/api/cron' })
       log.info('Agent tick cron job started', { timestamp })
 
       const runner = await getAgentRunner()
-      const status = runner.getStatus()
 
-      // The runner executes ticks automatically via intervals,
-      // but this endpoint ensures it's running and returns status
-      if (!status.running) {
+      // Ensure runner is started
+      if (!runner.getStatus().running) {
         await runner.start()
       }
+
+      // Execute ticks for all agents immediately
+      const tickResults = await runner.executeAllAgentsTick()
 
       const trajStats = runner.getTrajectoryStats()
       const duration = Date.now() - startTime
 
       log.info('Agent tick cron job completed', {
-        agentCount: status.agentCount,
-        running: status.running,
+        executed: tickResults.executed,
+        succeeded: tickResults.succeeded,
+        failed: tickResults.failed,
         trajectoryBuffer: trajStats.bufferCount,
-        activeTrajectories: trajStats.activeTrajectories,
         durationMs: duration,
       })
 
       return {
-        success: true,
-        agentCount: status.agentCount,
-        running: status.running,
-        agents: status.agents.map((a) => ({
-          id: a.id,
-          character: a.character,
-          lastTick: a.lastTick,
-          tickCount: a.tickCount,
+        success: tickResults.failed === 0,
+        executed: tickResults.executed,
+        succeeded: tickResults.succeeded,
+        failed: tickResults.failed,
+        results: tickResults.results.map((r) => ({
+          agentId: r.agentId,
+          success: r.success,
+          reward: r.reward,
+          latencyMs: r.latencyMs,
+          error: r.error,
         })),
         trajectoryStats: {
           bufferCount: trajStats.bufferCount,

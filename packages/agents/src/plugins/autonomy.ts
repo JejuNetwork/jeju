@@ -7,16 +7,8 @@
  * @packageDocumentation
  */
 
-import type {
-  Action,
-  Evaluator,
-  Plugin,
-  Provider,
-  Service,
-} from '@elizaos/core'
-import { logger } from '@jejunetwork/shared'
+import type { Action, Evaluator, Plugin, Provider } from '@elizaos/core'
 import { autonomousCommentingService } from '../autonomous/commenting.service'
-import { createAutonomousCoordinator } from '../autonomous/coordinator'
 import { autonomousDMService } from '../autonomous/dm.service'
 import { autonomousPlanningCoordinator } from '../autonomous/planning.service'
 import { autonomousPostingService } from '../autonomous/posting.service'
@@ -51,11 +43,11 @@ const createPostAction: Action = {
   examples: [
     [
       {
-        user: 'system',
+        name: 'system',
         content: { text: 'Create a post about market conditions' },
       },
       {
-        user: 'assistant',
+        name: 'assistant',
         content: { text: 'Creating post about current market analysis...' },
       },
     ],
@@ -103,11 +95,11 @@ const commentAction: Action = {
   examples: [
     [
       {
-        user: 'system',
+        name: 'system',
         content: { text: 'Comment on the trending market post' },
       },
       {
-        user: 'assistant',
+        name: 'assistant',
         content: { text: 'Adding a comment to the market discussion...' },
       },
     ],
@@ -155,10 +147,10 @@ const sendDMAction: Action = {
   examples: [
     [
       {
-        user: 'system',
+        name: 'system',
         content: { text: 'Send a DM to user-123 about their trade' },
       },
-      { user: 'assistant', content: { text: 'Sending direct message...' } },
+      { name: 'assistant', content: { text: 'Sending direct message...' } },
     ],
   ],
   similes: ['dm', 'message', 'direct message'],
@@ -183,7 +175,7 @@ const sendDMAction: Action = {
     // Extract chat ID from message
     const chatMatch =
       text.match(/chat[- ]?(\w+)/i) ?? text.match(/user[- ]?(\w+)/i)
-    if (!chatMatch) {
+    if (!chatMatch?.[1]) {
       return {
         success: false,
         error: 'Could not identify target chat/user',
@@ -215,9 +207,9 @@ const planAction: Action = {
   description: 'Generate and execute a multi-step action plan',
   examples: [
     [
-      { user: 'system', content: { text: 'Plan my next actions' } },
+      { name: 'system', content: { text: 'Plan my next actions' } },
       {
-        user: 'assistant',
+        name: 'assistant',
         content: {
           text: 'Generating action plan based on goals and context...',
         },
@@ -268,15 +260,18 @@ const planAction: Action = {
  * Goals provider - Provides current goals and progress
  */
 const goalsProvider: Provider = {
+  name: 'goals',
   get: async (_runtime, _message, _state) => {
     // In a full implementation, this would fetch goals from database
-    return `Current Goals:
+    return {
+      text: `Current Goals:
 - No active goals configured
 
 Available Actions:
 - Trading: Analyze markets and execute trades
 - Social: Create posts and engage with content
-- Messaging: Respond to DMs and group chats`
+- Messaging: Respond to DMs and group chats`,
+    }
   },
 }
 
@@ -284,6 +279,7 @@ Available Actions:
  * Activity provider - Provides recent activity summary
  */
 const activityProvider: Provider = {
+  name: 'activity',
   get: async (runtime, _message, _state) => {
     const agentId = runtime.agentId
     const portfolio = await autonomousTradingService.getPortfolio(agentId)
@@ -308,7 +304,7 @@ const activityProvider: Provider = {
       activity += '- No recent posts\n'
     }
 
-    return activity
+    return { text: activity }
   },
 }
 
@@ -335,8 +331,8 @@ const autonomyEvaluator: Evaluator = {
     const canAct = Object.values(constraints).every((c) => c)
 
     return {
-      pass: canAct,
-      reason: canAct
+      success: canAct,
+      text: canAct
         ? 'Agent is within operational constraints'
         : `Agent constrained: ${Object.entries(constraints)
             .filter(([, v]) => !v)
@@ -347,86 +343,29 @@ const autonomyEvaluator: Evaluator = {
 }
 
 /**
- * Autonomous tick service
- */
-class AutonomousTickService implements Service {
-  private coordinator = createAutonomousCoordinator()
-  private config: AutonomyPluginConfig
-  private intervalId: ReturnType<typeof setInterval> | null = null
-
-  static serviceType = 'autonomous-tick' as const
-  serviceType = 'autonomous-tick' as const
-
-  constructor(config: AutonomyPluginConfig) {
-    this.config = config
-  }
-
-  async initialize(): Promise<void> {
-    logger.info('Autonomous tick service initialized')
-  }
-
-  async start(runtime: { agentId: string }): Promise<void> {
-    const tickInterval = this.config.tickInterval ?? 60000
-
-    logger.info(
-      `Starting autonomous tick service for agent ${runtime.agentId}`,
-      {
-        tickInterval,
-      },
-    )
-
-    // Configure coordinator
-    this.coordinator.setConfig({
-      autonomousTrading: this.config.enableTrading,
-      autonomousPosting: this.config.enablePosting,
-      autonomousCommenting: this.config.enableCommenting,
-      autonomousDMs: this.config.enableDMs,
-      autonomousGroupChats: this.config.enableGroupChats,
-      maxActionsPerTick: this.config.maxActionsPerTick,
-    })
-
-    // Start tick loop
-    await this.coordinator.start({ id: runtime.agentId })
-  }
-
-  async stop(): Promise<void> {
-    await this.coordinator.stop()
-    if (this.intervalId) {
-      clearInterval(this.intervalId)
-      this.intervalId = null
-    }
-    logger.info('Autonomous tick service stopped')
-  }
-}
-
-/**
  * Create the autonomy plugin for ElizaOS
  */
 export function createAutonomyPlugin(
-  config: AutonomyPluginConfig = {},
+  _config: AutonomyPluginConfig = {},
 ): Plugin {
   const actions: Action[] = [planAction]
   const providers: Provider[] = [goalsProvider, activityProvider]
   const evaluators: Evaluator[] = [autonomyEvaluator]
-  const services: Service[] = []
 
   // Add posting action if enabled
-  if (config.enablePosting !== false) {
+  if (_config.enablePosting !== false) {
     actions.push(createPostAction)
   }
 
   // Add commenting action if enabled
-  if (config.enableCommenting !== false) {
+  if (_config.enableCommenting !== false) {
     actions.push(commentAction)
   }
 
   // Add DM action if enabled
-  if (config.enableDMs !== false) {
+  if (_config.enableDMs !== false) {
     actions.push(sendDMAction)
   }
-
-  // Add autonomous tick service
-  services.push(new AutonomousTickService(config))
 
   return {
     name: 'jeju-agent-autonomy',
@@ -434,7 +373,8 @@ export function createAutonomyPlugin(
     actions,
     providers,
     evaluators,
-    services,
+    // Services would need to be registered as typeof Service classes, not instances
+    // services: [AutonomousTickService],
   }
 }
 

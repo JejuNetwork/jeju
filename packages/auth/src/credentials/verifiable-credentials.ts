@@ -293,7 +293,6 @@ export interface VerifierConfig {
 
 export class VerifiableCredentialVerifier {
   private trustedIssuers: Set<string>
-  private chainId: number
   private rpcUrl: string | null
   private credentialRegistryAddress: Address | null
 
@@ -302,12 +301,10 @@ export class VerifiableCredentialVerifier {
     trustedIssuers?: string[],
   ) {
     if (typeof chainIdOrConfig === 'number') {
-      this.chainId = chainIdOrConfig
       this.rpcUrl = null
       this.credentialRegistryAddress = null
       this.trustedIssuers = new Set(trustedIssuers ?? [])
     } else {
-      this.chainId = chainIdOrConfig.chainId
       this.rpcUrl = chainIdOrConfig.rpcUrl ?? null
       this.credentialRegistryAddress =
         chainIdOrConfig.credentialRegistryAddress ?? null

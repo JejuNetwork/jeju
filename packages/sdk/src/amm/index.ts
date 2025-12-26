@@ -977,10 +977,9 @@ export function createAMMModule(
         hash: txHash,
       })
       // TokenId is typically in topics[1], liquidity in data
-      const tokenId =
-        receipt.logs.length > 0 && receipt.logs[0].topics.length > 1
-          ? BigInt(receipt.logs[0].topics[1])
-          : 0n
+      const firstLog = receipt.logs[0]
+      const topic1 = firstLog?.topics[1]
+      const tokenId = topic1 ? BigInt(topic1) : 0n
       const liquidity =
         receipt.logs.length > 0 && receipt.logs[0].data.length >= 66
           ? BigInt(`0x${receipt.logs[0].data.slice(2, 66)}`)
@@ -1177,7 +1176,7 @@ export function createAMMModule(
           }),
         ])
 
-      const [sqrtPriceX96, tick] = slot0 as [bigint, number]
+      const [sqrtPriceX96, tick] = slot0 as unknown as [bigint, number]
 
       return {
         poolAddress,

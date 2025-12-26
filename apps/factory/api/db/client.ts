@@ -2322,3 +2322,318 @@ export function revokePackageToken(id: string): boolean {
   const result = db.run('DELETE FROM package_tokens WHERE id = ?', [id])
   return result.changes > 0
 }
+
+// ============================================================================
+// FARCASTER MESSAGING
+// ============================================================================
+
+// FID Links
+const FidLinkRowSchema = z.object({
+  address: z.string(),
+  fid: z.number(),
+  username: z.string().nullable(),
+  display_name: z.string().nullable(),
+  pfp_url: z.string().nullable(),
+  bio: z.string().nullable(),
+  verified_at: z.number(),
+  updated_at: z.number(),
+})
+export type FidLinkRow = z.infer<typeof FidLinkRowSchema>
+
+export function getFidLink(address: string): FidLinkRow | null {
+  const db = getDB()
+  const row = db
+    .query<FidLinkRow, [string]>(
+      'SELECT * FROM fid_links WHERE address = ?',
+    )
+    .get(address.toLowerCase())
+  return row ? FidLinkRowSchema.parse(row) : null
+}
+
+export function getFidLinkByFid(fid: number): FidLinkRow | null {
+  const db = getDB()
+  const row = db
+    .query<FidLinkRow, [number]>(
+      'SELECT * FROM fid_links WHERE fid = ?',
+    )
+    .get(fid)
+  return row ? FidLinkRowSchema.parse(row) : null
+}
+
+export function createFidLink(link: {
+  address: string
+  fid: number
+  username?: string
+  displayName?: string
+  pfpUrl?: string
+  bio?: string
+}): FidLinkRow {
+  const db = getDB()
+  const now = Date.now()
+
+  db.run(
+    `INSERT INTO fid_links (address, fid, username, display_name, pfp_url, bio, verified_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(address) DO UPDATE SET
+       fid = excluded.fid,
+       username = excluded.username,
+       display_name = excluded.display_name,
+       pfp_url = excluded.pfp_url,
+       bio = excluded.bio,
+       updated_at = excluded.updated_at`,
+    [
+      link.address.toLowerCase(),
+      link.fid,
+      link.username ?? null,
+      link.displayName ?? null,
+      link.pfpUrl ?? null,
+      link.bio ?? null,
+      now,
+      now,
+    ],
+  )
+
+  const created = getFidLink(link.address)
+  if (!created) throw new Error(`Failed to create FID link for ${link.address}`)
+  return created
+}
+
+export function deleteFidLink(address: string): boolean {
+  const db = getDB()
+  const result = db.run('DELETE FROM fid_links WHERE address = ?', [address.toLowerCase()])
+  return result.changes > 0
+}
+
+// Farcaster Signers
+const FarcasterSignerRowSchema = z.object({
+  id: z.string(),
+  address: z.string(),
+  fid: z.number(),
+  signer_public_key: z.string(),
+  encrypted_private_key: z.string(),
+  encryption_iv: z.string(),
+  key_state: z.enum(['pending', 'active', 'revoked']),
+  deadline: z.number().nullable(),
+  signature: z.string().nullable(),
+  created_at: z.number(),
+  updated_at: z.number(),
+})
+export type FarcasterSignerRow = z.infer<typeof FarcasterSignerRowSchema>
+
+export function getFarcasterSigner(address: string): FarcasterSignerRow | null {
+  const db = getDB()
+  const row = db
+    .query<FarcasterSignerRow, [string]>(
+      "SELECT * FROM farcaster_signers WHERE address = ? AND key_state = 'active' ORDER BY created_at DESC LIMIT 1",
+    )
+    .get(address.toLowerCase())
+  return row ? FarcasterSignerRowSchema.parse(row) : null
+}
+
+export function getFarcasterSignerByPublicKey(publicKey: string): FarcasterSignerRow | null {
+  const db = getDB()
+  const row = db
+    .query<FarcasterSignerRow, [string]>(
+      'SELECT * FROM farcaster_signers WHERE signer_public_key = ?',
+    )
+    .get(publicKey)
+  return row ? FarcasterSignerRowSchema.parse(row) : null
+}
+
+export function listFarcasterSigners(address: string): FarcasterSignerRow[] {
+  const db = getDB()
+  const rows = db
+    .query<FarcasterSignerRow, [string]>(
+      'SELECT * FROM farcaster_signers WHERE address = ? ORDER BY created_at DESC',
+    )
+    .all(address.toLowerCase())
+  return rows.map((row) => FarcasterSignerRowSchema.parse(row))
+}
+
+export function createFarcasterSigner(signer: {
+  address: string
+  fid: number
+  signerPublicKey: string
+  encryptedPrivateKey: string
+  encryptionIv: string
+  deadline?: number
+  signature?: string
+}): FarcasterSignerRow {
+  const db = getDB()
+  const id = generateId('signer')
+  const now = Date.now()
+
+  db.run(
+    `INSERT INTO farcaster_signers (id, address, fid, signer_public_key, encrypted_private_key, encryption_iv, key_state, deadline, signature, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?)`,
+    [
+      id,
+      signer.address.toLowerCase(),
+      signer.fid,
+      signer.signerPublicKey,
+      signer.encryptedPrivateKey,
+      signer.encryptionIv,
+      signer.deadline ?? null,
+      signer.signature ?? null,
+      now,
+      now,
+    ],
+  )
+
+  const row = db
+    .query<FarcasterSignerRow, [string]>(
+      'SELECT * FROM farcaster_signers WHERE id = ?',
+    )
+    .get(id)
+  return FarcasterSignerRowSchema.parse(row)
+}
+
+export function updateSignerState(
+  id: string,
+  state: 'pending' | 'active' | 'revoked',
+): boolean {
+  const db = getDB()
+  const result = db.run(
+    'UPDATE farcaster_signers SET key_state = ?, updated_at = ? WHERE id = ?',
+    [state, Date.now(), id],
+  )
+  return result.changes > 0
+}
+
+export function activateSigner(publicKey: string, signature: string): boolean {
+  const db = getDB()
+  const result = db.run(
+    "UPDATE farcaster_signers SET key_state = 'active', signature = ?, updated_at = ? WHERE signer_public_key = ?",
+    [signature, Date.now(), publicKey],
+  )
+  return result.changes > 0
+}
+
+// Project Channels
+const ProjectChannelRowSchema = z.object({
+  project_id: z.string(),
+  channel_id: z.string(),
+  channel_url: z.string(),
+  created_at: z.number(),
+})
+export type ProjectChannelRow = z.infer<typeof ProjectChannelRowSchema>
+
+export function getProjectChannel(projectId: string): ProjectChannelRow | null {
+  const db = getDB()
+  const row = db
+    .query<ProjectChannelRow, [string]>(
+      'SELECT * FROM project_channels WHERE project_id = ?',
+    )
+    .get(projectId)
+  return row ? ProjectChannelRowSchema.parse(row) : null
+}
+
+export function setProjectChannel(
+  projectId: string,
+  channelId: string,
+  channelUrl: string,
+): ProjectChannelRow {
+  const db = getDB()
+  const now = Date.now()
+
+  db.run(
+    `INSERT INTO project_channels (project_id, channel_id, channel_url, created_at)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT(project_id) DO UPDATE SET
+       channel_id = excluded.channel_id,
+       channel_url = excluded.channel_url`,
+    [projectId, channelId, channelUrl, now],
+  )
+
+  const created = getProjectChannel(projectId)
+  if (!created) throw new Error(`Failed to set channel for project ${projectId}`)
+  return created
+}
+
+export function deleteProjectChannel(projectId: string): boolean {
+  const db = getDB()
+  const result = db.run('DELETE FROM project_channels WHERE project_id = ?', [projectId])
+  return result.changes > 0
+}
+
+// Cast Reactions (local cache)
+const CastReactionRowSchema = z.object({
+  id: z.string(),
+  address: z.string(),
+  cast_hash: z.string(),
+  cast_fid: z.number(),
+  reaction_type: z.enum(['like', 'recast']),
+  created_at: z.number(),
+})
+export type CastReactionRow = z.infer<typeof CastReactionRowSchema>
+
+export function getCastReaction(
+  address: string,
+  castHash: string,
+  reactionType: 'like' | 'recast',
+): CastReactionRow | null {
+  const db = getDB()
+  const row = db
+    .query<CastReactionRow, [string, string, string]>(
+      'SELECT * FROM cast_reactions WHERE address = ? AND cast_hash = ? AND reaction_type = ?',
+    )
+    .get(address.toLowerCase(), castHash, reactionType)
+  return row ? CastReactionRowSchema.parse(row) : null
+}
+
+export function getUserReactionsForCasts(
+  address: string,
+  castHashes: string[],
+): CastReactionRow[] {
+  if (castHashes.length === 0) return []
+  const db = getDB()
+  const placeholders = castHashes.map(() => '?').join(', ')
+  const rows = db
+    .query<CastReactionRow, string[]>(
+      `SELECT * FROM cast_reactions WHERE address = ? AND cast_hash IN (${placeholders})`,
+    )
+    .all(address.toLowerCase(), ...castHashes)
+  return rows.map((row) => CastReactionRowSchema.parse(row))
+}
+
+export function createCastReaction(reaction: {
+  address: string
+  castHash: string
+  castFid: number
+  reactionType: 'like' | 'recast'
+}): CastReactionRow {
+  const db = getDB()
+  const id = generateId('reaction')
+  const now = Date.now()
+
+  db.run(
+    `INSERT INTO cast_reactions (id, address, cast_hash, cast_fid, reaction_type, created_at)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(address, cast_hash, reaction_type) DO NOTHING`,
+    [
+      id,
+      reaction.address.toLowerCase(),
+      reaction.castHash,
+      reaction.castFid,
+      reaction.reactionType,
+      now,
+    ],
+  )
+
+  const row = getCastReaction(reaction.address, reaction.castHash, reaction.reactionType)
+  if (!row) throw new Error('Failed to create cast reaction')
+  return row
+}
+
+export function deleteCastReaction(
+  address: string,
+  castHash: string,
+  reactionType: 'like' | 'recast',
+): boolean {
+  const db = getDB()
+  const result = db.run(
+    'DELETE FROM cast_reactions WHERE address = ? AND cast_hash = ? AND reaction_type = ?',
+    [address.toLowerCase(), castHash, reactionType],
+  )
+  return result.changes > 0
+}

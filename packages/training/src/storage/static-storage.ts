@@ -1,19 +1,8 @@
 /**
  * Static Storage for Trajectories
  *
- * Efficient batch storage for agent trajectories using:
- * - In-memory buffering with time/count triggers
- * - JSONL format for streaming and append-only writes
- * - Gzip compression for efficient storage (10-20x reduction)
- * - DWS IPFS upload for decentralized storage
- * - Database references for discovery
- *
- * Storage Flow:
- * 1. Trajectories buffer in memory
- * 2. When threshold reached (count or time), flush to JSONL.gz
- * 3. Upload compressed file to DWS/IPFS
- * 4. Return CID for database reference
- * 5. Optionally process with RULER scoring → permanent storage
+ * Buffers trajectories in memory, flushes as JSONL.gz to DWS/IPFS when
+ * buffer size or age threshold is reached. Returns CID for DB reference.
  */
 
 import { gzipSync } from 'node:zlib'
@@ -25,27 +14,15 @@ import type {
   TrajectoryStorage,
 } from '../recording/trajectory-recorder'
 
-/**
- * Configuration for static storage
- */
 export interface StaticStorageConfig {
-  /** Application name (crucible, babylon) */
   appName: string
-  /** Maximum trajectories before auto-flush */
   maxBufferSize: number
-  /** Maximum time (ms) before auto-flush */
   maxBufferAgeMs: number
-  /** DWS storage endpoint */
   storageEndpoint: string
-  /** Whether to use permanent (Arweave) or temporary (IPFS) storage */
   usePermanentStorage: boolean
-  /** Callback when batch is flushed (for DB updates) */
   onBatchFlushed?: (batch: TrajectoryBatchReference) => Promise<void>
 }
 
-/**
- * Reference to a stored trajectory batch
- */
 export interface TrajectoryBatchReference {
   batchId: string
   appName: string
@@ -398,54 +375,101 @@ export class StaticTrajectoryStorage implements TrajectoryStorage {
     data: Buffer,
     filename: string,
   ): Promise<{ cid: string; provider: 'ipfs' | 'arweave' }> {
-    const formData = new FormData()
-    // Convert Buffer to Uint8Array for Blob compatibility
-    formData.append('file', new Blob([new Uint8Array(data)]), filename)
-    formData.append(
-      'provider',
-      this.config.usePermanentStorage ? 'arweave' : 'ipfs',
-    )
-    formData.append('replication', '3')
-    formData.append(
-      'metadata',
-      JSON.stringify({
-        type: 'trajectory-batch',
-        appName: this.config.appName,
-        contentType: 'application/gzip',
-      }),
-    )
+    const maxRetries = 3
+    const baseDelayMs = 1000
 
-    const response = await fetch(
-      `${this.config.storageEndpoint}/api/v1/upload`,
-      {
-        method: 'POST',
-        body: formData,
-      },
-    )
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      const formData = new FormData()
+      formData.append('file', new Blob([new Uint8Array(data)]), filename)
+      formData.append(
+        'provider',
+        this.config.usePermanentStorage ? 'arweave' : 'ipfs',
+      )
+      formData.append('replication', '3')
+      formData.append(
+        'metadata',
+        JSON.stringify({
+          type: 'trajectory-batch',
+          appName: this.config.appName,
+          contentType: 'application/gzip',
+        }),
+      )
 
-    if (!response.ok) {
-      const text = await response.text()
-      throw new Error(`DWS upload failed: ${response.status} - ${text}`)
+      let response: Response
+      try {
+        response = await fetch(`${this.config.storageEndpoint}/storage/upload`, {
+          method: 'POST',
+          body: formData,
+        })
+      } catch (fetchError) {
+        // Network error - retry with backoff
+        if (attempt < maxRetries) {
+          const delay = baseDelayMs * 2 ** (attempt - 1)
+          logger.warn('[StaticStorage] Upload fetch failed, retrying', {
+            attempt,
+            maxRetries,
+            delayMs: delay,
+            error:
+              fetchError instanceof Error
+                ? fetchError.message
+                : String(fetchError),
+          })
+          await new Promise((resolve) => setTimeout(resolve, delay))
+          continue
+        }
+        throw new Error(
+          `DWS upload failed after ${maxRetries} attempts: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`,
+        )
+      }
+
+      if (!response.ok) {
+        const text = await response.text()
+        // Retry on 5xx errors or rate limiting
+        if (
+          (response.status >= 500 || response.status === 429) &&
+          attempt < maxRetries
+        ) {
+          const delay = baseDelayMs * 2 ** (attempt - 1)
+          logger.warn('[StaticStorage] Upload failed with retryable error', {
+            attempt,
+            maxRetries,
+            status: response.status,
+            delayMs: delay,
+          })
+          await new Promise((resolve) => setTimeout(resolve, delay))
+          continue
+        }
+        throw new Error(`DWS upload failed: ${response.status} - ${text}`)
+      }
+
+      const result: unknown = await response.json()
+
+      // Validate response shape
+      if (
+        typeof result !== 'object' ||
+        result === null ||
+        !('cid' in result) ||
+        typeof result.cid !== 'string'
+      ) {
+        throw new Error('Invalid DWS upload response: missing cid')
+      }
+
+      const provider = this.config.usePermanentStorage ? 'arweave' : 'ipfs'
+
+      logger.debug('[StaticStorage] Upload succeeded', {
+        cid: result.cid,
+        provider,
+        attempt,
+      })
+
+      return {
+        cid: result.cid,
+        provider,
+      }
     }
 
-    const result: unknown = await response.json()
-
-    // Validate response shape
-    if (
-      typeof result !== 'object' ||
-      result === null ||
-      !('cid' in result) ||
-      typeof result.cid !== 'string'
-    ) {
-      throw new Error('Invalid DWS upload response: missing cid')
-    }
-
-    const provider = this.config.usePermanentStorage ? 'arweave' : 'ipfs'
-
-    return {
-      cid: result.cid,
-      provider,
-    }
+    // Should never reach here, but TypeScript needs this
+    throw new Error(`DWS upload failed after ${maxRetries} attempts`)
   }
 }
 
@@ -466,10 +490,9 @@ export async function downloadTrajectoryBatch(
   llmCalls: LLMCallJSONLRecord[]
 }> {
   const { gunzipSync } = await import('node:zlib')
-
   const endpoint = storageEndpoint ?? getServiceUrl('storage')
 
-  const response = await fetch(`${endpoint}/api/v1/get/${cid}`)
+  const response = await fetch(`${endpoint}/storage/download/${cid}`)
   if (!response.ok) {
     throw new Error(`Failed to download batch: ${response.status}`)
   }

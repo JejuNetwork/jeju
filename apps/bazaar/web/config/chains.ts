@@ -2,7 +2,7 @@ import { defineChain } from 'viem'
 import { CHAIN_ID, EXPLORER_URL, NETWORK, NETWORK_NAME, RPC_URL } from './index'
 
 export const JEJU_CHAIN_ID = CHAIN_ID
-export const JEJU_RPC_URL = RPC_URL
+const JEJU_RPC_URL = RPC_URL
 
 function getChainName(): string {
   switch (NETWORK) {

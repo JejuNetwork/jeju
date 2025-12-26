@@ -35,6 +35,14 @@ export {
 } from './sign.js'
 
 export {
+  createThresholdSigner,
+  DEFAULT_THRESHOLD_SIGNER_CONFIG,
+  ThresholdSigner,
+  type ThresholdSignerConfig,
+  type ThresholdSignResult,
+} from './threshold-signer.js'
+
+export {
   decodeToken,
   issueToken,
   issueTokenWithWallet,

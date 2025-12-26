@@ -15,6 +15,8 @@
   },
   "dependencies": {
     "@elizaos/core": "1.7.0",
+    "@jejunetwork/kms": "workspace:*",
+    "@jejunetwork/mcp": "workspace:*",
     "@jejunetwork/shared": "workspace:*",
     "@jejunetwork/types": "workspace:*",
     "tiktoken": "^1.0.22",

@@ -62,12 +62,8 @@ export class AgentRuntimeFactory {
     const { AgentRuntime } = await import('@elizaos/core')
 
     const runtime = new AgentRuntime({
-      agentId: agent.id,
+      agentId: agent.id as `${string}-${string}-${string}-${string}-${string}`,
       character: enhancedCharacter,
-      token: process.env.JEJU_API_KEY ?? '',
-      modelProvider: 'openai', // Will be overridden by Jeju provider
-      evaluationModel:
-        options.modelOverride ?? this.getModelForTier(agent.modelTier),
     })
 
     logger.info('Runtime created successfully', { agentId: agent.id })
@@ -93,7 +89,6 @@ export class AgentRuntimeFactory {
       name: template.name,
       bio: [template.bio],
       system: template.system,
-      lore: [],
       adjectives: template.personality.split(',').map((a) => a.trim()),
       topics: [],
       style: {
@@ -112,11 +107,8 @@ export class AgentRuntimeFactory {
     const { AgentRuntime } = await import('@elizaos/core')
 
     const runtime = new AgentRuntime({
-      agentId,
+      agentId: agentId as `${string}-${string}-${string}-${string}-${string}`,
       character: enhancedCharacter,
-      token: process.env.JEJU_API_KEY ?? '',
-      modelProvider: 'openai',
-      evaluationModel: options.modelOverride ?? 'Qwen/Qwen2.5-3B-Instruct',
     })
 
     logger.info('Runtime created from template', {
@@ -135,7 +127,6 @@ export class AgentRuntimeFactory {
       name: agent.name,
       bio: agent.description ? [agent.description] : [],
       system: agent.character.system ?? '',
-      lore: agent.character.lore ?? [],
       adjectives: agent.character.adjectives ?? [],
       topics: agent.character.topics ?? [],
       style: agent.character.style ?? {
@@ -211,26 +202,14 @@ Your capabilities include:
 
 Always act in accordance with your goals and directives while respecting risk limits.`
 
+    // Note: Character.plugins is for plugin names (string[]), not Plugin objects
+    // The actual Plugin objects are passed to the runtime separately via options.plugins
+    const pluginNames = plugins.map((p) => p.name)
+
     return {
       ...character,
       system: enhancedSystem,
-      plugins: [...(character.plugins ?? []), ...plugins],
-    }
-  }
-
-  /**
-   * Get model name for tier
-   */
-  private getModelForTier(tier: 'lite' | 'standard' | 'pro'): string {
-    switch (tier) {
-      case 'lite':
-        return 'Qwen/Qwen2.5-3B-Instruct'
-      case 'standard':
-        return 'Qwen/Qwen2.5-7B-Instruct'
-      case 'pro':
-        return 'meta-llama/Llama-3.1-70B-Instruct'
-      default:
-        return 'Qwen/Qwen2.5-3B-Instruct'
+      plugins: [...(character.plugins ?? []), ...pluginNames],
     }
   }
 
@@ -241,19 +220,16 @@ Always act in accordance with your goals and directives while respecting risk li
     const { AgentRuntime } = await import('@elizaos/core')
 
     return new AgentRuntime({
-      agentId,
+      agentId: agentId as `${string}-${string}-${string}-${string}-${string}`,
       character: {
         name: 'Test Agent',
         bio: ['A test agent'],
         system: 'You are a test agent.',
-        lore: [],
         adjectives: [],
         topics: [],
         style: { all: [], chat: [], post: [] },
         plugins: [],
       },
-      token: 'test-token',
-      modelProvider: 'openai',
     })
   }
 }

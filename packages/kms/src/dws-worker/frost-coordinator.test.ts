@@ -196,7 +196,7 @@ describe('FROSTCoordinator', () => {
   describe('signature aggregation', () => {
     test('aggregates signature shares', () => {
       const messageHash = keccak256(toBytes('aggregate test'))
-      const groupPublicKey = `0x${'01'.repeat(33)}` // Dummy pubkey
+      const groupPublicKey = `0x${'01'.repeat(33)}` as const // Dummy pubkey
 
       const commitments = [
         {
@@ -231,7 +231,7 @@ describe('FROSTCoordinator', () => {
 
     test('handles single share (degenerate case)', () => {
       const messageHash = keccak256(toBytes('single'))
-      const groupPublicKey = `0x${'01'.repeat(33)}`
+      const groupPublicKey = `0x${'01'.repeat(33)}` as const
 
       const result = FROSTCoordinator.aggregateSignatures(
         messageHash,

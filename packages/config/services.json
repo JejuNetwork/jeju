@@ -54,6 +54,7 @@
     },
     "dws": {
       "api": "http://127.0.0.1:4030",
+      "cache": "http://127.0.0.1:4030",
       "compute": "http://127.0.0.1:4030/compute",
       "inference": "http://127.0.0.1:4031",
       "gateway": "http://127.0.0.1:4032",
@@ -161,6 +162,7 @@
     },
     "dws": {
       "api": "https://dws.testnet.jejunetwork.org",
+      "cache": "https://dws.testnet.jejunetwork.org",
       "compute": "https://dws.testnet.jejunetwork.org/compute",
       "inference": "https://dws.testnet.jejunetwork.org/inference",
       "gateway": "https://dws.testnet.jejunetwork.org/gateway",
@@ -270,6 +272,7 @@
     },
     "dws": {
       "api": "https://dws.jejunetwork.org",
+      "cache": "https://dws.jejunetwork.org",
       "compute": "https://dws.jejunetwork.org/compute",
       "inference": "https://dws.jejunetwork.org/inference",
       "gateway": "https://dws.jejunetwork.org/gateway",

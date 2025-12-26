@@ -188,7 +188,10 @@ Only respond with the JSON object, no additional text or markdown.`
       const result = schema.safeParse(parsed)
       if (!result.success) {
         logger.error(`Response does not match schema`, {
-          errors: result.error.errors,
+          errors: result.error.issues.map((i) => ({
+            path: i.path.join('.'),
+            message: i.message,
+          })),
           content: response.content.slice(0, 200),
         })
         throw new Error(

@@ -12,6 +12,7 @@
  * - TEE-backed secure cache tier
  */
 
+import { getDWSCacheUrl } from '@jejunetwork/config'
 import { z } from 'zod'
 
 /** JSON-compatible value type for cache storage */
@@ -835,19 +836,14 @@ export function createCacheService(config: CacheConfig): CacheService {
 }
 
 export function getCacheServiceFromEnv(): CacheService {
-  const endpoint =
-    process.env.DWS_CACHE_ENDPOINT ??
-    process.env.COMPUTE_CACHE_ENDPOINT ??
-    'http://localhost:4015'
-
-  const namespace = process.env.CACHE_NAMESPACE ?? 'default'
-  const apiKey = process.env.CACHE_API_KEY
+  // Get cache URL from config (defaults based on network)
+  const endpoint = getDWSCacheUrl()
+  const namespace = 'default'
 
   return createCacheService({
     endpoint,
     defaultTTL: 300000,
     namespace,
-    apiKey,
   })
 }
 

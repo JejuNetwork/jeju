@@ -65,18 +65,6 @@ const HYPERLANE_WARP_ROUTES: Record<number, Address> = {
   8453: '0x0000000000000000000000000000000000000000',
 }
 
-/**
- * CCIP Router addresses from Chainlink
- * @see https://docs.chain.link/ccip/supported-networks
- */
-const _CCIP_ROUTERS: Record<number, Address> = {
-  1: '0x80226fc0Ee2b096224EeAc085Bb9a8cba1146f7D', // Ethereum
-  42161: '0x141fa059441E0ca23ce184B6A78bafD2A517DdE8', // Arbitrum
-  8453: '0x881e3A65B4d4a04dD529061dd0071cf975F58bCD', // Base
-  10: '0x3206695CaE29952f4b0c22a169725a865bc8Ce0f', // Optimism
-  43114: '0xF4c7E640EdA248ef95972845a62bdC74237805dB', // Avalanche
-}
-
 export const SUPPORTED_CHAINS: Record<string, ChainInfo> = {
   // Ethereum L1
   'eip155:1': {

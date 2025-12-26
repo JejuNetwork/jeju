@@ -1,6 +1,7 @@
 /** Jobs Routes */
 
 import { Elysia } from 'elysia'
+import type { Job, JobSalary } from '../../lib/types'
 import {
   createJob as dbCreateJob,
   getJobStats as dbGetJobStats,
@@ -11,28 +12,7 @@ import {
 import { CreateJobBodySchema, expectValid, JobsQuerySchema } from '../schemas'
 import { requireAuth } from '../validation/access-control'
 
-export interface JobSalary {
-  min: number
-  max: number
-  currency: string
-  period?: 'hour' | 'day' | 'week' | 'month' | 'year'
-}
-
-export interface Job {
-  id: string
-  title: string
-  company: string
-  companyLogo?: string
-  type: 'full-time' | 'part-time' | 'contract' | 'bounty'
-  remote: boolean
-  location: string
-  salary?: JobSalary
-  skills: string[]
-  description: string
-  createdAt: number
-  updatedAt: number
-  applications: number
-}
+export type { Job, JobSalary }
 
 function transformJob(row: JobRow): Job {
   return {

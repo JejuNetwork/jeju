@@ -300,7 +300,10 @@ Only respond with the JSON object, no other text.`
 
       if (!result.success) {
         logger.warn(`Invalid trade decision from LLM`, {
-          errors: result.error.errors,
+          errors: result.error.issues.map((i) => ({
+            path: i.path.join('.'),
+            message: i.message,
+          })),
         })
         return null
       }
@@ -440,7 +443,7 @@ Only respond with the JSON object, no other text.`
 
     logger.info(`Trade executed for agent ${agentId}`, {
       action: decision.action,
-      side: decision.side,
+      side: decision.side ?? null,
       amount: decision.amount,
       marketId: decision.marketId,
       reasoning: decision.reasoning,

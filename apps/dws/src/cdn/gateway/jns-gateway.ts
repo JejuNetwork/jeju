@@ -45,10 +45,7 @@ export interface JNSGatewayConfig {
   domain: string // e.g., "jejunetwork.org"
 }
 
-interface ContentHash {
-  protocol: 'ipfs' | 'ipns' | 'arweave' | 'http' | 'https'
-  hash: string
-}
+import type { ContentHash } from '../../../lib/types'
 
 // ============================================================================
 // ABI

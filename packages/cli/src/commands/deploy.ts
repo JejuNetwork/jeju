@@ -1597,6 +1597,122 @@ deployCommand
     })
   })
 
+deployCommand
+  .command('dws-services')
+  .description('Deploy decentralized services to DWS (OAuth3, KMS, Messaging)')
+  .option(
+    '--network <network>',
+    'Network: localnet | testnet | mainnet',
+    'localnet',
+  )
+  .option('-s, --service <name>', 'Deploy only a specific service')
+  .option('-d, --dryRun', 'Simulate without making changes', false)
+  .option('--skipWait', 'Skip waiting for deployments', false)
+  .action(
+    async (options: {
+      network: string
+      service?: string
+      dryRun?: boolean
+      skipWait?: boolean
+    }) => {
+      const rootDir = findMonorepoRoot()
+      const scriptPath = join(
+        rootDir,
+        'packages/deployment/scripts/deploy/deploy-dws-services.ts',
+      )
+
+      if (!existsSync(scriptPath)) {
+        logger.error('DWS services deploy script not found')
+        return
+      }
+
+      const isDryRun = options.dryRun === true
+
+      logger.header('DWS SERVICES DEPLOYMENT')
+      logger.keyValue('Network', options.network)
+      if (options.service) {
+        logger.keyValue('Service', options.service)
+      }
+      if (isDryRun) {
+        logger.keyValue('Mode', 'Dry Run')
+      }
+      logger.newline()
+
+      const args: string[] = ['--network', options.network]
+      if (options.service) args.push('--service', options.service)
+      if (isDryRun) args.push('--dry-run')
+      if (options.skipWait === true) args.push('--skip-wait')
+
+      await execa('bun', ['run', scriptPath, ...args], {
+        cwd: rootDir,
+        stdio: 'inherit',
+      })
+    },
+  )
+
+deployCommand
+  .command('mpc-parties')
+  .description('Deploy MPC party nodes for threshold signing')
+  .option(
+    '-n, --network <network>',
+    'Network: localnet | testnet | mainnet',
+    'localnet',
+  )
+  .option('-p, --parties <count>', 'Number of party nodes', '3')
+  .option('-t, --threshold <k>', 'Signing threshold', '2')
+  .option('--stakeAmount <wei>', 'Stake per party in wei')
+  .option('-d, --dryRun', 'Simulate without making changes', false)
+  .option('--skipDkg', 'Skip distributed key generation', false)
+  .action(
+    async (options: {
+      network: string
+      parties: string
+      threshold: string
+      stakeAmount?: string
+      dryRun?: boolean
+      skipDkg?: boolean
+    }) => {
+      const rootDir = findMonorepoRoot()
+      const scriptPath = join(
+        rootDir,
+        'packages/deployment/scripts/deploy/deploy-mpc-parties.ts',
+      )
+
+      if (!existsSync(scriptPath)) {
+        logger.error('MPC parties deploy script not found')
+        return
+      }
+
+      const isDryRun = options.dryRun === true
+
+      logger.header('MPC PARTIES DEPLOYMENT')
+      logger.keyValue('Network', options.network)
+      logger.keyValue('Parties', options.parties)
+      logger.keyValue('Threshold', options.threshold)
+      if (isDryRun) {
+        logger.keyValue('Mode', 'Dry Run')
+      }
+      logger.newline()
+
+      const args: string[] = [
+        '--network',
+        options.network,
+        '--parties',
+        options.parties,
+        '--threshold',
+        options.threshold,
+      ]
+      if (options.stakeAmount) args.push('--stake-amount', options.stakeAmount)
+      if (isDryRun) args.push('--dry-run')
+      if (options.skipDkg === true) args.push('--skip-dkg')
+
+      await execa('bun', ['run', scriptPath, ...args], {
+        cwd: rootDir,
+        stdio: 'inherit',
+      })
+    },
+  )
+
 async function runDeployScript(
   scriptName: string,
   network: string,

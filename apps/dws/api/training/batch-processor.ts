@@ -1,15 +1,8 @@
 /**
  * DWS Trajectory Batch Processor
  *
- * Processes trajectory batches from temporary IPFS storage:
- * 1. Downloads and decompresses JSONL.gz batches
- * 2. Groups trajectories by archetype
- * 3. Scores using RULER (offline LLM-as-judge)
- * 4. Uploads scored datasets to permanent storage (Arweave)
- * 5. Creates database references for discovery
- *
- * This is the core of the batch training pipeline:
- * Raw Trajectories (IPFS) → RULER Scoring → Datasets (Arweave) → Training
+ * Downloads JSONL.gz batches from IPFS, groups by archetype,
+ * scores with RULER, and uploads to Arweave for permanent storage.
  */
 
 import { gunzipSync, gzipSync } from 'node:zlib'
@@ -23,28 +16,60 @@ import {
   ArchetypeScoringService,
   downloadTrajectoryBatch,
 } from '@jejunetwork/training'
+import { z } from 'zod'
 
 /**
- * Batch processing configuration
+ * Zod schema for raw trajectory data validation
  */
+const RawTrajectorySchema = z.object({
+  trajectoryId: z.string(),
+  agentId: z.string(),
+  archetype: z.string().nullable().optional(),
+  scenarioId: z.string().optional(),
+  totalReward: z.number(),
+  steps: z.array(
+    z.object({
+      stepNumber: z.number(),
+      timestamp: z.number(),
+      action: z
+        .object({
+          timestamp: z.number(),
+          actionType: z.string(),
+          parameters: z.record(z.unknown()).optional(),
+          success: z.boolean(),
+        })
+        .nullable()
+        .optional(),
+      reward: z.number().optional(),
+    }),
+  ),
+})
+
+/**
+ * Zod schema for LLM call data validation
+ */
+const LLMCallSchema = z.object({
+  stepId: z.string().optional(),
+  model: z.string(),
+  systemPrompt: z.string(),
+  userPrompt: z.string(),
+  response: z.string(),
+  temperature: z.number(),
+  maxTokens: z.number(),
+})
+
+type ValidatedTrajectory = z.infer<typeof RawTrajectorySchema>
+type ValidatedLLMCall = z.infer<typeof LLMCallSchema>
+
 export interface BatchProcessorConfig {
-  /** DWS storage endpoint */
   storageEndpoint: string
-  /** DWS inference endpoint */
   inferenceEndpoint: string
-  /** Model ID for RULER scoring */
   rulerModelId: string
-  /** Maximum trajectories to process per batch */
   maxTrajectoriesPerBatch: number
-  /** Minimum trajectories needed for RULER comparison */
   minTrajectoriesForRuler: number
-  /** Database reference callback */
   onDatasetCreated?: (dataset: DatasetReference) => Promise<void>
 }
 
-/**
- * Reference to a scored dataset in permanent storage
- */
 export interface DatasetReference {
   datasetId: string
   appName: string
@@ -299,17 +324,60 @@ export class TrajectoryBatchProcessor {
       trajectoryCount: trajectories.length,
     })
 
-    // Convert to scoring records
-    const scoringRecords: ScoringTrajectoryRecord[] = trajectories.map((t) => ({
-      trajectoryId: t.raw.trajectoryId as string,
-      agentId: t.raw.agentId as string,
-      stepsJson: JSON.stringify(t.raw.steps),
-      archetype,
-      scenarioId: t.raw.scenarioId as string | undefined,
-      finalPnL: t.raw.totalReward as number | undefined,
-      episodeLength: (t.raw.steps as unknown[]).length,
-      totalReward: t.raw.totalReward as number,
-    }))
+    // Validate and filter trajectories
+    const validatedTrajectories: Array<{
+      data: ValidatedTrajectory
+      llmCalls: ValidatedLLMCall[]
+      sourceCid: string
+    }> = []
+
+    for (const t of trajectories) {
+      const trajResult = RawTrajectorySchema.safeParse(t.raw)
+      if (!trajResult.success) {
+        logger.warn('[BatchProcessor] Invalid trajectory data, skipping', {
+          trajectoryId: t.raw.trajectoryId,
+          error: trajResult.error.message,
+        })
+        continue
+      }
+
+      // Validate LLM calls
+      const validLlmCalls: ValidatedLLMCall[] = []
+      for (const call of t.llmCalls) {
+        const callResult = LLMCallSchema.safeParse(call)
+        if (callResult.success) {
+          validLlmCalls.push(callResult.data)
+        }
+      }
+
+      validatedTrajectories.push({
+        data: trajResult.data,
+        llmCalls: validLlmCalls,
+        sourceCid: t.sourceCid,
+      })
+    }
+
+    if (validatedTrajectories.length === 0) {
+      logger.warn('[BatchProcessor] No valid trajectories after validation', {
+        archetype,
+        originalCount: trajectories.length,
+      })
+      return null
+    }
+
+    // Convert to scoring records using validated data
+    const scoringRecords: ScoringTrajectoryRecord[] = validatedTrajectories.map(
+      (t) => ({
+        trajectoryId: t.data.trajectoryId,
+        agentId: t.data.agentId,
+        stepsJson: JSON.stringify(t.data.steps),
+        archetype,
+        scenarioId: t.data.scenarioId,
+        finalPnL: t.data.totalReward,
+        episodeLength: t.data.steps.length,
+        totalReward: t.data.totalReward,
+      }),
+    )
 
     // Score using RULER
     let scores: ArchetypeScore[]
@@ -336,38 +404,27 @@ export class TrajectoryBatchProcessor {
       return null
     }
 
-    // Build scored trajectories
+    // Build scored trajectories using validated data
     const scoredTrajectories: ScoredTrajectory[] = []
     const scoreMap = new Map(scores.map((s) => [s.trajectoryId, s]))
 
-    for (const traj of trajectories) {
-      const score = scoreMap.get(traj.raw.trajectoryId as string)
+    for (const vt of validatedTrajectories) {
+      const score = scoreMap.get(vt.data.trajectoryId)
       if (!score) continue
 
-      const steps = (
-        traj.raw.steps as Array<{
-          stepNumber: number
-          timestamp: number
-          action?: {
-            actionType: string
-            parameters?: Record<string, unknown>
-            success: boolean
-          } | null
-          reward?: number
-        }>
-      ).map((step) => {
-        const stepLlmCalls = traj.llmCalls
+      const steps = vt.data.steps.map((step) => {
+        const stepLlmCalls = vt.llmCalls
           .filter(
             (c) =>
-              c.stepId === `${traj.raw.trajectoryId}-step-${step.stepNumber}`,
+              c.stepId === `${vt.data.trajectoryId}-step-${step.stepNumber}`,
           )
           .map((c) => ({
-            model: c.model as string,
-            systemPrompt: c.systemPrompt as string,
-            userPrompt: c.userPrompt as string,
-            response: c.response as string,
-            temperature: c.temperature as number,
-            maxTokens: c.maxTokens as number,
+            model: c.model,
+            systemPrompt: c.systemPrompt,
+            userPrompt: c.userPrompt,
+            response: c.response,
+            temperature: c.temperature,
+            maxTokens: c.maxTokens,
           }))
 
         return {
@@ -383,16 +440,16 @@ export class TrajectoryBatchProcessor {
       const totalActions = steps.filter((s) => s.action).length
 
       scoredTrajectories.push({
-        trajectoryId: traj.raw.trajectoryId as string,
-        agentId: traj.raw.agentId as string,
+        trajectoryId: vt.data.trajectoryId,
+        agentId: vt.data.agentId,
         archetype,
         score: score.score,
         reasoning: score.reasoning,
         steps,
         metrics: {
-          totalReward: traj.raw.totalReward as number,
+          totalReward: vt.data.totalReward,
           episodeLength: steps.length,
-          finalPnL: traj.raw.totalReward as number | undefined,
+          finalPnL: vt.data.totalReward,
           actionSuccessRate:
             totalActions > 0 ? successfulActions / totalActions : 0,
         },
@@ -540,7 +597,7 @@ export async function downloadScoredDataset(
   const defaultEndpoint = getServicesConfig().storage.api
   const endpoint = storageEndpoint ?? defaultEndpoint
 
-  const response = await fetch(`${endpoint}/api/v1/get/${cid}`)
+  const response = await fetch(`${endpoint}/storage/download/${cid}`)
   if (!response.ok) {
     throw new Error(`Failed to download dataset: ${response.status}`)
   }

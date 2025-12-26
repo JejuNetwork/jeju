@@ -180,14 +180,23 @@ export class AgentWalletService {
 
     const mpcCoordinator = getMPCCoordinator()
 
-    // Sign using MPC threshold signing
-    const signResult = await mpcCoordinator.sign({
+    // Request MPC signature session
+    const messageHex =
+      `0x${Buffer.from(message).toString('hex')}` as `0x${string}`
+    const { keccak256 } = await import('viem')
+    const messageHash = keccak256(messageHex)
+    const session = await mpcCoordinator.requestSignature({
       keyId: `agent-${agentId}`,
-      message: Buffer.from(message).toString('hex'),
-      signers: [], // Coordinator will select signers
+      message: messageHex,
+      messageHash,
+      requester: identity.walletAddress as `0x${string}`,
     })
 
-    return signResult.signature
+    // Note: In production, this would coordinate with MPC parties to complete signing
+    // For now, throw if session couldn't complete immediately
+    throw new Error(
+      `MPC signing session ${session.sessionId} created but requires party coordination`,
+    )
   }
 
   /**
@@ -222,14 +231,19 @@ export class AgentWalletService {
 
     const mpcCoordinator = getMPCCoordinator()
 
-    // Sign the hash using MPC
-    const signResult = await mpcCoordinator.sign({
+    // Request MPC signature session for typed data
+    // For typed data, we use the hash as both message and messageHash
+    const session = await mpcCoordinator.requestSignature({
       keyId: `agent-${agentId}`,
-      message: hash.slice(2), // Remove 0x prefix
-      signers: [],
+      message: hash,
+      messageHash: hash,
+      requester: identity.walletAddress as `0x${string}`,
     })
 
-    return signResult.signature
+    // Note: In production, this would coordinate with MPC parties to complete signing
+    throw new Error(
+      `MPC signing session ${session.sessionId} created but requires party coordination`,
+    )
   }
 
   /**
@@ -286,37 +300,21 @@ export class AgentWalletService {
     const txHash = keccak256(serialized)
 
     const mpcCoordinator = getMPCCoordinator()
-    const signResult = await mpcCoordinator.sign({
+
+    // Request MPC signature session for transaction
+    const session = await mpcCoordinator.requestSignature({
       keyId: `agent-${agentId}`,
-      message: txHash.slice(2),
-      signers: [],
+      messageHash: txHash,
+      requester: identity.walletAddress as `0x${string}`,
     })
 
-    // Append signature to transaction
-    const signedTx = serializeTransaction(tx, {
-      r: `0x${signResult.signature.slice(0, 64)}` as Hex,
-      s: `0x${signResult.signature.slice(64, 128)}` as Hex,
-      v: BigInt(parseInt(signResult.signature.slice(128, 130), 16)),
-    })
-
-    // Broadcast transaction
-    const hash = await client.request({
-      method: 'eth_sendRawTransaction',
-      params: [signedTx],
-    })
-
-    logger.info(`Transaction sent: ${hash}`)
-
-    // Wait for receipt
-    const receipt = await client.waitForTransactionReceipt({
-      hash: hash as Hex,
-    })
-
-    return {
-      hash: receipt.transactionHash,
-      success: receipt.status === 'success',
-      gasUsed: receipt.gasUsed,
-    }
+    // Note: In production, this would coordinate with MPC parties to complete signing
+    // For now, throw as placeholder - full MPC signing requires party coordination
+    // TODO: Implement full MPC signing flow
+    void session
+    throw new Error(
+      `MPC transaction signing not yet implemented - requires party coordination`,
+    )
   }
 
   /**

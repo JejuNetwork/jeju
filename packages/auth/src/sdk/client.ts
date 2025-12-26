@@ -55,6 +55,25 @@ import {
   validateResponse,
 } from '../validation.js'
 
+/**
+ * OAuth provider client IDs configuration
+ */
+export interface OAuthProvidersConfig {
+  twitter?: string
+  discord?: string
+  google?: string
+  github?: string
+  apple?: string
+}
+
+/**
+ * Farcaster provider configuration
+ */
+export interface FarcasterProviderConfig {
+  neynarApiKey?: string
+  hubUrl?: string
+}
+
 export interface OAuth3Config {
   /** App ID (hex) or JNS name (e.g., 'myapp.oauth3.jeju') */
   appId: Hex | string
@@ -72,6 +91,14 @@ export interface OAuth3Config {
   storageEndpoint?: string
   /** Enable fully decentralized mode */
   decentralized?: boolean
+  /** Network: mainnet, testnet, or localnet */
+  network?: 'mainnet' | 'testnet' | 'localnet'
+  /** MPC endpoints for threshold signing */
+  mpcEndpoints?: string[]
+  /** OAuth provider client IDs */
+  oauth?: OAuthProvidersConfig
+  /** Farcaster provider configuration */
+  farcaster?: FarcasterProviderConfig
 }
 
 export interface LoginOptions {
@@ -1162,4 +1189,47 @@ declare global {
   interface Window {
     ethereum?: EIP1193Provider
   }
+}
+
+// =============================================================================
+// Singleton OAuth3 Client Factory
+// =============================================================================
+
+// Singleton OAuth3 client instance
+let oauth3ClientInstance: OAuth3Client | null = null
+let oauth3ConfigUsed: OAuth3Config | null = null
+
+/**
+ * Get a singleton OAuth3 client.
+ * Uses lazy initialization - client is created on first call.
+ *
+ * @param config Required config for first call, optional for subsequent calls
+ * @returns Configured OAuth3Client instance
+ */
+export function getOAuth3Client(config?: OAuth3Config): OAuth3Client {
+  if (!oauth3ClientInstance) {
+    if (!config) {
+      throw new Error(
+        'getOAuth3Client: config is required on first call to initialize the client',
+      )
+    }
+    oauth3ConfigUsed = config
+    oauth3ClientInstance = createOAuth3Client(config)
+  }
+  return oauth3ClientInstance
+}
+
+/**
+ * Reset the OAuth3 client singleton (for testing)
+ */
+export function resetOAuth3Client(): void {
+  oauth3ClientInstance = null
+  oauth3ConfigUsed = null
+}
+
+/**
+ * Get the config used for the singleton OAuth3 client
+ */
+export function getOAuth3Config(): OAuth3Config | null {
+  return oauth3ConfigUsed
 }
