@@ -2,6 +2,7 @@
  * CI Secrets Store - MPC-backed secrets for CI/CD
  */
 
+import { isProductionEnv } from '@jejunetwork/config'
 import { getMPCCoordinator } from '@jejunetwork/kms'
 import { decryptAesGcm, encryptAesGcm, hash256 } from '@jejunetwork/shared'
 import type { Address, Hex } from 'viem'
@@ -41,7 +42,7 @@ export class CISecretsStore {
    */
   private deriveKey(secretId: string): Uint8Array {
     const serverSecret = process.env.CI_ENCRYPTION_SECRET
-    const isProduction = process.env.NODE_ENV === 'production'
+    const isProduction = isProductionEnv()
 
     if (!serverSecret) {
       if (isProduction) {

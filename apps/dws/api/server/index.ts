@@ -17,6 +17,8 @@ import {
   getCQLBlockProducerUrl,
   getCurrentNetwork,
   getRpcUrl,
+  isProductionEnv,
+  isTestMode,
 } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import type { Address, Hex } from 'viem'
@@ -117,7 +119,7 @@ interface RateLimitEntry {
 
 const rateLimitStore = new Map<string, RateLimitEntry>()
 const RATE_LIMIT_WINDOW_MS = 60 * 1000
-const RATE_LIMIT_MAX = process.env.NODE_ENV === 'test' ? 100000 : 1000
+const RATE_LIMIT_MAX = isTestMode() ? 100000 : 1000
 const SKIP_RATE_LIMIT_PATHS = ['/health', '/.well-known/']
 
 function rateLimiter() {
@@ -234,7 +236,7 @@ const app = new Elysia()
 const backendManager = createBackendManager()
 
 // Environment validation - require addresses in production
-const isProduction = process.env.NODE_ENV === 'production'
+const isProduction = isProductionEnv()
 const NETWORK = getCurrentNetwork()
 const ZERO_ADDR = '0x0000000000000000000000000000000000000000' as Address
 

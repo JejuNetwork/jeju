@@ -1,3 +1,4 @@
+import { getIpfsApiUrlEnv } from '@jejunetwork/config'
 import { expectJson } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import { keccak256, toBytes } from 'viem'
@@ -72,7 +73,7 @@ class DWSStorageAdapter implements StorageBackend {
 
   async delete(cid: string): Promise<void> {
     this.deletedCids.add(cid)
-    const ipfsApiUrl = process.env.IPFS_API_URL ?? 'http://localhost:5001'
+    const ipfsApiUrl = getIpfsApiUrlEnv()
     const response = await fetch(`${ipfsApiUrl}/api/v0/pin/rm?arg=${cid}`, {
       method: 'POST',
     }).catch((e: Error) => {

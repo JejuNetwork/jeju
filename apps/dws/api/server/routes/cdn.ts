@@ -7,6 +7,7 @@
  * - Cache management
  */
 
+import { getContract, getRpcUrl, getServiceUrl } from '@jejunetwork/config'
 import { Elysia, t } from 'elysia'
 import type { Address } from 'viem'
 import { getAppRegistry } from '../../../src/cdn/app-registry'
@@ -26,8 +27,8 @@ let localCDNInitialized = false
 function getJNSGateway(): JNSGateway | null {
   if (jnsGateway) return jnsGateway
 
-  const jnsRegistry = process.env.JNS_REGISTRY_ADDRESS
-  const jnsResolver = process.env.JNS_RESOLVER_ADDRESS
+  const jnsRegistry = process.env.JNS_REGISTRY_ADDRESS || getContract('naming', 'jnsRegistry')
+  const jnsResolver = process.env.JNS_RESOLVER_ADDRESS || getContract('naming', 'jnsResolver')
 
   if (
     !jnsRegistry ||
@@ -38,17 +39,14 @@ function getJNSGateway(): JNSGateway | null {
     return null
   }
 
-  const rpcUrl = process.env.RPC_URL
-  if (!rpcUrl) {
-    throw new Error('RPC_URL environment variable is required for JNS gateway')
-  }
+  const rpcUrl = process.env.RPC_URL || getRpcUrl()
 
   const config: JNSGatewayConfig = {
     port: 0,
     rpcUrl,
     jnsRegistryAddress: jnsRegistry as Address,
     jnsResolverAddress: jnsResolver as Address,
-    ipfsGateway: process.env.IPFS_GATEWAY_URL ?? 'https://ipfs.io',
+    ipfsGateway: process.env.IPFS_GATEWAY_URL ?? getServiceUrl('storage', 'ipfsGateway') ?? 'https://ipfs.io',
     arweaveGateway: process.env.ARWEAVE_GATEWAY_URL ?? 'https://arweave.net',
     domain: process.env.JNS_DOMAIN ?? 'jejunetwork.org',
   }

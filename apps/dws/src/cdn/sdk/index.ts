@@ -27,7 +27,7 @@
 
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { join, relative } from 'node:path'
-import { getDWSUrl, getRpcUrl, getServiceUrl } from '@jejunetwork/config'
+import { getDWSUrl, getIpfsGatewayEnv, getRpcUrl, getStorageApiEndpoint } from '@jejunetwork/config'
 import { bytesToHex, hash256 } from '@jejunetwork/shared'
 import type {
   CacheConfig,
@@ -300,10 +300,7 @@ export class CDNClient {
     const uploadedCids: string[] = []
 
     // Upload each file to storage
-    const storageUrl =
-      process.env.DWS_STORAGE_URL ||
-      getServiceUrl('storage', 'api') ||
-      `${getDWSUrl()}/storage`
+    const storageUrl = getStorageApiEndpoint()
 
     for (const file of files) {
       totalBytes += file.size
@@ -664,10 +661,10 @@ export function createCDNClientFromEnv(): CDNClient {
 
   return new CDNClient({
     privateKey,
-    rpcUrl: process.env.RPC_URL ?? getRpcUrl(),
+    rpcUrl: getRpcUrl(),
     registryAddress: process.env.CDN_REGISTRY_ADDRESS as Address | undefined,
     billingAddress: process.env.CDN_BILLING_ADDRESS as Address | undefined,
     coordinatorUrl: process.env.CDN_COORDINATOR_URL,
-    ipfsGateway: process.env.IPFS_GATEWAY_URL,
+    ipfsGateway: getIpfsGatewayEnv(),
   })
 }

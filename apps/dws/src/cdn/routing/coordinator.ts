@@ -3,7 +3,7 @@
  */
 
 import { cors } from '@elysiajs/cors'
-import { getRpcUrl } from '@jejunetwork/config'
+import { getRpcUrl, isProductionEnv } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import {
   type Address,
@@ -96,7 +96,7 @@ export class CDNCoordinator {
 
   private setupRoutes(): void {
     const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',').filter(Boolean)
-    const isProduction = process.env.NODE_ENV === 'production'
+    const isProduction = isProductionEnv()
 
     this.elysiaApp.use(
       cors({
@@ -410,7 +410,7 @@ export async function startCoordinator(): Promise<CDNCoordinator> {
       '0x0000000000000000000000000000000000000000') as Address,
     billingAddress: (process.env.CDN_BILLING_ADDRESS ??
       '0x0000000000000000000000000000000000000000') as Address,
-    rpcUrl: process.env.RPC_URL ?? getRpcUrl(),
+    rpcUrl: getRpcUrl(),
     healthCheckInterval: parseInt(
       process.env.CDN_HEALTH_CHECK_INTERVAL ?? '60000',
       10,

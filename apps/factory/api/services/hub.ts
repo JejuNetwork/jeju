@@ -5,6 +5,7 @@
  * Provides type-safe access to casts, profiles, reactions, and links.
  */
 
+import { getFarcasterHubUrl } from '@jejunetwork/config'
 import {
   type CastFilter,
   type FarcasterCast,
@@ -21,7 +22,7 @@ import type { Address, Hex } from 'viem'
 const log = createLogger('hub-service')
 
 // Use Pinata hub as default - more reliable than nemes
-const HUB_URL = process.env.FARCASTER_HUB_URL ?? 'https://hub.pinata.cloud'
+const HUB_URL = getFarcasterHubUrl()
 const FACTORY_CHANNEL_URL = `https://warpcast.com/~/channel/${process.env.FACTORY_CHANNEL_ID ?? 'factory'}`
 
 /** Hub client singleton */

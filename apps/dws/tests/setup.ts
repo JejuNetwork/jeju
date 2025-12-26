@@ -18,6 +18,7 @@ import {
   getCQLBlockProducerUrl,
   getL2RpcUrl,
 } from '@jejunetwork/config'
+import { app } from '../api/server'
 
 // Configuration from environment (set by jeju test orchestrator)
 const CQL_URL = getCQLBlockProducerUrl()
@@ -260,6 +261,36 @@ export function getTestEnv(): {
 
 // Export URLs for direct usage
 export { CQL_URL, RPC_URL, DWS_URL, INFERENCE_URL }
+
+/**
+ * Helper function to make requests to the DWS app.
+ * Uses app.handle() for in-process testing (Elysia 1.x compatible)
+ * or fetch() for E2E mode when DWS is running externally.
+ */
+export async function dwsRequest(
+  path: string,
+  options: RequestInit = {},
+): Promise<Response> {
+  const isE2EMode = process.env.E2E_MODE === 'true'
+  const baseUrl = isE2EMode ? (process.env.DWS_URL ?? DWS_URL) : 'http://localhost'
+  const url = `${baseUrl}${path}`
+
+  const request = new Request(url, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  })
+
+  if (isE2EMode) {
+    return fetch(request)
+  }
+  return app.handle(request)
+}
+
+// Re-export app for tests that need direct access
+export { app }
 
 // Auto-setup when file is imported in test context
 if (process.env.BUN_TEST === 'true') {

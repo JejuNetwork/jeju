@@ -6,7 +6,7 @@
  */
 
 // Direct JSON import - browser safe
-import brandingJsonRaw from './branding.json'
+import brandingJsonRaw from './branding.json' with { type: 'json' }
 import {
   type BrandingConfig,
   BrandingConfigSchema,

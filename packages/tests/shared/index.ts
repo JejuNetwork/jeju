@@ -199,3 +199,18 @@ export {
   waitForRpc,
   waitForService,
 } from './utils'
+
+// ============================================================================
+// Full App Crawler - Comprehensive E2E Coverage
+// ============================================================================
+
+export {
+  createAppCrawler,
+  generateCrawlReport,
+  runFullAppCrawl,
+  type CrawlConfig,
+  type CrawlError,
+  type CrawlResult,
+  type CoverageSummary,
+  type PageState,
+} from '../e2e/full-app-crawler'

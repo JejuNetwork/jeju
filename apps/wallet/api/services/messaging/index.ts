@@ -1,3 +1,4 @@
+import { getFarcasterHubUrl, getRpcUrl } from '@jejunetwork/config'
 import {
   createDirectCastClient,
   createMessagingClient,
@@ -141,7 +142,7 @@ export const DEFAULT_PREFERENCES: MessagingPreferences = {
   blockedFids: [],
 }
 
-const HUB_URL = process.env.FARCASTER_HUB_URL ?? 'https://hub.pinata.cloud'
+const HUB_URL = getFarcasterHubUrl()
 const RELAY_URL = process.env.XMTP_RELAY_URL
 
 function extractEmbeds(
@@ -232,7 +233,7 @@ class WalletMessagingService {
 
     const config: MessagingClientConfig = {
       address: this.address,
-      rpcUrl: process.env.RPC_URL ?? 'https://rpc.jejunetwork.org',
+      rpcUrl: process.env.RPC_URL ?? getRpcUrl(),
       relayUrl: RELAY_URL,
     }
 
