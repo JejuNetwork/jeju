@@ -6,6 +6,7 @@
  */
 
 import { logger } from '@elizaos/core'
+import { getCqlDatabaseId } from '@jejunetwork/config'
 import { type CQLClient, getCQL } from '@jejunetwork/db'
 
 /**
@@ -208,7 +209,7 @@ export async function runCQLMigrations(
   databaseId?: string,
 ): Promise<void> {
   const cql = client ?? getCQL()
-  const dbId = databaseId ?? process.env.CQL_DATABASE_ID ?? 'eliza'
+  const dbId = databaseId ?? getCqlDatabaseId() ?? 'eliza'
 
   logger.info(
     { src: 'cql-migrations', databaseId: dbId },
@@ -270,7 +271,7 @@ export async function checkMigrationStatus(
   databaseId?: string,
 ): Promise<boolean> {
   const cql = client ?? getCQL()
-  const dbId = databaseId ?? process.env.CQL_DATABASE_ID ?? 'eliza'
+  const dbId = databaseId ?? getCqlDatabaseId() ?? 'eliza'
 
   const result = await cql.query<{ name: string }>(
     "SELECT name FROM sqlite_master WHERE type='table' AND name='agents'",

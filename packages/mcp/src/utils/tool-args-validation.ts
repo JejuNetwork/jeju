@@ -2,24 +2,12 @@
  * Zod-based tool argument validation utilities for MCP.
  */
 
-import { JsonValueSchema } from '@jejunetwork/types'
 import { toJSONSchema, type ZodObject, type ZodRawShape, type z } from 'zod'
 import type {
   MCPTool,
   MCPToolInputSchemaProperty,
   StringRecord,
 } from '../types/mcp'
-
-export { JsonValueSchema }
-
-/**
- * JSON Schema output from Zod's toJSONSchema
- */
-interface ZodJSONSchemaOutput {
-  type?: string
-  properties?: StringRecord<MCPToolInputSchemaProperty>
-  required?: string[]
-}
 
 /**
  * Convert Zod schema to MCP-compatible inputSchema using Zod's toJSONSchema
@@ -30,12 +18,30 @@ interface ZodJSONSchemaOutput {
 export function zodSchemaToMCPSchema(
   schema: ZodObject<ZodRawShape>,
 ): MCPTool['inputSchema'] {
-  const jsonSchema = toJSONSchema(schema) as ZodJSONSchemaOutput
+  const jsonSchema = toJSONSchema(schema)
+
+  // Validate the expected schema structure
+  if (
+    typeof jsonSchema !== 'object' ||
+    jsonSchema === null ||
+    !('type' in jsonSchema) ||
+    jsonSchema.type !== 'object' ||
+    !('properties' in jsonSchema) ||
+    typeof jsonSchema.properties !== 'object'
+  ) {
+    throw new Error('Invalid JSON schema output from Zod')
+  }
+
+  const properties = jsonSchema.properties as StringRecord<MCPToolInputSchemaProperty>
+  const required =
+    'required' in jsonSchema && Array.isArray(jsonSchema.required)
+      ? (jsonSchema.required as string[])
+      : undefined
 
   return {
     type: 'object',
-    properties: jsonSchema.properties ?? {},
-    required: jsonSchema.required,
+    properties,
+    required,
   }
 }
 

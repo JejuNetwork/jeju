@@ -13,6 +13,7 @@ import type { Address, Hex } from 'viem'
 import { encodeFunctionData } from 'viem'
 import { z } from 'zod'
 import { getContractAddresses } from '../config'
+import { parseIdFromLogs } from '../shared/api'
 import type { JejuWallet } from '../wallet'
 
 // Contract return type schemas
@@ -598,8 +599,14 @@ export function createModelsModule(
         }),
       })
 
-      // Parse modelId from logs in production
-      const modelId = `0x${'0'.repeat(64)}` as Hex
+      // Parse modelId from ModelCreated event
+      const modelId = await parseIdFromLogs(
+        wallet.publicClient,
+        txHash,
+        'ModelCreated(bytes32,string,string,address)',
+        'modelId',
+      )
+
       return { txHash, modelId }
     },
 
@@ -625,7 +632,14 @@ export function createModelsModule(
         }),
       })
 
-      const versionId = `0x${'0'.repeat(64)}` as Hex
+      // Parse versionId from VersionPublished event
+      const versionId = await parseIdFromLogs(
+        wallet.publicClient,
+        txHash,
+        'VersionPublished(bytes32,bytes32,string)',
+        'versionId',
+      )
+
       return { txHash, versionId }
     },
 
@@ -713,7 +727,14 @@ export function createModelsModule(
         }),
       })
 
-      const endpointId = `0x${'0'.repeat(64)}` as Hex
+      // Parse endpointId from EndpointCreated event
+      const endpointId = await parseIdFromLogs(
+        wallet.publicClient,
+        txHash,
+        'EndpointCreated(bytes32,bytes32,address,string)',
+        'endpointId',
+      )
+
       return { txHash, endpointId }
     },
 

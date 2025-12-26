@@ -60,7 +60,6 @@ interface ContentResolution {
 // Local worker endpoint mappings for vendor apps during development
 // Maps app name to local backend URL
 const LOCAL_WORKER_ENDPOINTS: Record<string, string> = {
-  babylon: 'http://localhost:5009',
   factory: 'http://localhost:4040',
   bazaar: 'http://localhost:4050',
   gateway: 'http://localhost:4060',

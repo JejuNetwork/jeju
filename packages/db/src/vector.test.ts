@@ -10,6 +10,7 @@ import {
   deserializeInt8Vector,
   generateCreateVectorTableSQL,
   generateVectorInsertSQL,
+  generateVectorSearchSQL,
   l1Distance,
   l2Distance,
   normalizeVector,
@@ -228,6 +229,87 @@ describe('SQL Generation', () => {
       )
     })
   })
+
+  describe('generateVectorSearchSQL', () => {
+    it('should generate basic KNN search query', () => {
+      const sql = generateVectorSearchSQL({
+        tableName: 'embeddings',
+        k: 10,
+      })
+      expect(sql).toContain('SELECT v.rowid, v.distance')
+      expect(sql).toContain('FROM embeddings AS e')
+      expect(sql).toContain('WHERE e.embedding MATCH ?')
+      expect(sql).toContain('AND k = 10')
+      expect(sql).toContain('ORDER BY distance')
+    })
+
+    it('should include metadata columns when requested', () => {
+      const sql = generateVectorSearchSQL(
+        {
+          tableName: 'embeddings',
+          k: 5,
+          includeMetadata: true,
+        },
+        ['title', 'created_at'],
+      )
+      expect(sql).toContain('e.title')
+      expect(sql).toContain('e.created_at')
+    })
+
+    it('should include metadata filter', () => {
+      const sql = generateVectorSearchSQL({
+        tableName: 'embeddings',
+        k: 10,
+        metadataFilter: 'status = ?',
+      })
+      expect(sql).toContain('AND status = ?')
+    })
+
+    it('should reject invalid k values', () => {
+      expect(() =>
+        generateVectorSearchSQL({
+          tableName: 'embeddings',
+          k: 0,
+        }),
+      ).toThrow('Invalid k value: 0')
+
+      expect(() =>
+        generateVectorSearchSQL({
+          tableName: 'embeddings',
+          k: -5,
+        }),
+      ).toThrow('Invalid k value: -5')
+
+      expect(() =>
+        generateVectorSearchSQL({
+          tableName: 'embeddings',
+          k: 10001,
+        }),
+      ).toThrow('Invalid k value: 10001')
+    })
+
+    it('should reject invalid table name', () => {
+      expect(() =>
+        generateVectorSearchSQL({
+          tableName: 'bad;table',
+          k: 10,
+        }),
+      ).toThrow('Invalid SQL table name')
+    })
+
+    it('should reject invalid metadata column names', () => {
+      expect(() =>
+        generateVectorSearchSQL(
+          {
+            tableName: 'embeddings',
+            k: 10,
+            includeMetadata: true,
+          },
+          ['valid', 'bad column'],
+        ),
+      ).toThrow('Invalid SQL column name')
+    })
+  })
 })
 
 describe('Vector Math', () => {
@@ -386,6 +468,81 @@ describe('Validation', () => {
       expect(() => validateVectorValues([1, -Infinity, 3])).toThrow(
         'Invalid vector value at index 1: -Infinity',
       )
+    })
+  })
+})
+
+describe('Edge Cases and Error Handling', () => {
+  describe('deserializeBitVector validation', () => {
+    it('should throw for undersized blob', () => {
+      const smallBlob = new Uint8Array([0x01]) // 1 byte = 8 bits max
+      expect(() => deserializeBitVector(smallBlob, 16)).toThrow(
+        'Bit vector blob too small: got 1 bytes, need 2 for 16 dimensions',
+      )
+    })
+
+    it('should work with correctly sized blob', () => {
+      const blob = new Uint8Array([0xff, 0x00]) // 2 bytes for 16 bits
+      const result = deserializeBitVector(blob, 16)
+      expect(result.length).toBe(16)
+      expect(result.slice(0, 8)).toEqual([1, 1, 1, 1, 1, 1, 1, 1])
+      expect(result.slice(8, 16)).toEqual([0, 0, 0, 0, 0, 0, 0, 0])
+    })
+  })
+
+  describe('distance function dimension validation', () => {
+    it('l2Distance should throw for mismatched dimensions', () => {
+      expect(() => l2Distance([1, 2, 3], [1, 2])).toThrow(
+        'Vector dimension mismatch: 3 vs 2',
+      )
+    })
+
+    it('cosineDistance should throw for mismatched dimensions', () => {
+      expect(() => cosineDistance([1, 2], [1, 2, 3])).toThrow(
+        'Vector dimension mismatch: 2 vs 3',
+      )
+    })
+
+    it('l1Distance should throw for mismatched dimensions', () => {
+      expect(() => l1Distance([1], [1, 2, 3, 4])).toThrow(
+        'Vector dimension mismatch: 1 vs 4',
+      )
+    })
+  })
+
+  describe('SQL injection prevention', () => {
+    it('generateCreateVectorTableSQL should reject invalid table name', () => {
+      expect(() =>
+        generateCreateVectorTableSQL({
+          tableName: 'users; DROP TABLE users--',
+          dimensions: 384,
+        }),
+      ).toThrow('Invalid SQL table name')
+    })
+
+    it('generateCreateVectorTableSQL should reject invalid metadata column', () => {
+      expect(() =>
+        generateCreateVectorTableSQL({
+          tableName: 'embeddings',
+          dimensions: 384,
+          metadataColumns: [
+            { name: 'valid', type: 'TEXT' },
+            { name: 'bad;column', type: 'TEXT' },
+          ],
+        }),
+      ).toThrow('Invalid SQL column name')
+    })
+
+    it('generateVectorInsertSQL should reject invalid table name', () => {
+      expect(() => generateVectorInsertSQL('DROP TABLE users', false)).toThrow(
+        'Invalid SQL table name',
+      )
+    })
+
+    it('generateVectorInsertSQL should reject invalid column name', () => {
+      expect(() =>
+        generateVectorInsertSQL('embeddings', false, ['valid', 'in valid']),
+      ).toThrow('Invalid SQL column name')
     })
   })
 })

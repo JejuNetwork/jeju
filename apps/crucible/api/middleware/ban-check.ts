@@ -3,7 +3,11 @@
  * Uses @jejunetwork/shared for ban checking
  */
 
-import { getCurrentNetwork } from '@jejunetwork/config'
+import {
+  getContract,
+  getCurrentNetwork,
+  getRpcUrl,
+} from '@jejunetwork/config'
 import { type BanCheckConfig, BanChecker } from '@jejunetwork/shared'
 import type { Address } from 'viem'
 import { z } from 'zod'
@@ -18,14 +22,19 @@ const AddressBodySchema = z
   })
   .passthrough() // Allow other fields but only validate address-related ones
 
-// Get config from environment
-const BAN_MANAGER_ADDRESS = process.env.BAN_MANAGER_ADDRESS as
-  | Address
-  | undefined
-const MODERATION_MARKETPLACE_ADDRESS = process.env
-  .MODERATION_MARKETPLACE_ADDRESS as Address | undefined
-const RPC_URL = process.env.RPC_URL || 'http://localhost:6545'
+// Get config from centralized config
 const NETWORK = getCurrentNetwork()
+const BAN_MANAGER_ADDRESS = getContract(
+  'moderation',
+  'banManager',
+  NETWORK,
+) as Address | undefined
+const MODERATION_MARKETPLACE_ADDRESS = getContract(
+  'moderation',
+  'moderationMarketplace',
+  NETWORK,
+) as Address | undefined
+const RPC_URL = getRpcUrl(NETWORK)
 
 // Skip paths that don't need ban checking
 const SKIP_PATHS = ['/health', '/info', '/metrics', '/.well-known']

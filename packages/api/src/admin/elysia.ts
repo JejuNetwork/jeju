@@ -30,7 +30,6 @@ export function adminPlugin(config: AdminPluginConfig) {
 
   return new Elysia({ name: 'admin' })
     .derive((ctx): AdminContext => {
-      // Auth plugin adds address to context
       const authCtx = ctx as Context & AuthDerivedContext
       const address = authCtx.address
       if (!address) {
@@ -53,15 +52,13 @@ export function adminPlugin(config: AdminPluginConfig) {
     })
     .onBeforeHandle((ctx) => {
       const { path, set } = ctx
-      // AdminContext is added by derive above
       const adminCtx = ctx as Context & AdminContext
-      const isAdmin = adminCtx.isAdmin
 
       if (skipRoutes.has(path)) {
         return undefined
       }
 
-      if (!isAdmin) {
+      if (!adminCtx.isAdmin) {
         set.status = 403
         return {
           error: 'Admin access required',

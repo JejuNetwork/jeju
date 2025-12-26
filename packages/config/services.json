@@ -95,6 +95,19 @@
       "vpn": "http://127.0.0.1:4082",
       "proxy": "http://127.0.0.1:4083"
     },
+    "training": {
+      "api": "http://127.0.0.1:8001",
+      "atropos": "http://127.0.0.1:8000",
+      "psyche": "http://127.0.0.1:8002"
+    },
+    "ipfs": {
+      "api": "http://127.0.0.1:5001",
+      "gateway": "http://127.0.0.1:8080"
+    },
+    "agents": {
+      "api": "http://127.0.0.1:4060",
+      "agent0": "http://127.0.0.1:4061"
+    },
     "externalRpcs": {
       "ethereum": "http://127.0.0.1:6545",
       "base": "http://127.0.0.1:6545",
@@ -203,6 +216,19 @@
       "cdn": "https://cdn.testnet.jejunetwork.org",
       "vpn": "https://vpn.testnet.jejunetwork.org",
       "proxy": "https://proxy.testnet.jejunetwork.org"
+    },
+    "training": {
+      "api": "https://training.testnet.jejunetwork.org",
+      "atropos": "https://atropos.testnet.jejunetwork.org",
+      "psyche": "https://psyche.testnet.jejunetwork.org"
+    },
+    "ipfs": {
+      "api": "https://ipfs-api.testnet.jejunetwork.org",
+      "gateway": "https://ipfs.testnet.jejunetwork.org"
+    },
+    "agents": {
+      "api": "https://agents.testnet.jejunetwork.org",
+      "agent0": "https://agent0.testnet.jejunetwork.org"
     },
     "externalRpcs": {
       "ethSepolia": "https://ethereum-sepolia-rpc.publicnode.com",
@@ -313,6 +339,19 @@
       "cdn": "https://cdn.jejunetwork.org",
       "vpn": "https://vpn.jejunetwork.org",
       "proxy": "https://proxy.jejunetwork.org"
+    },
+    "training": {
+      "api": "https://training.jejunetwork.org",
+      "atropos": "https://atropos.jejunetwork.org",
+      "psyche": "https://psyche.jejunetwork.org"
+    },
+    "ipfs": {
+      "api": "https://ipfs-api.jejunetwork.org",
+      "gateway": "https://ipfs.jejunetwork.org"
+    },
+    "agents": {
+      "api": "https://agents.jejunetwork.org",
+      "agent0": "https://agent0.jejunetwork.org"
     },
     "externalRpcs": {
       "ethereum": "https://eth.llamarpc.com",

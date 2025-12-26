@@ -1,4 +1,8 @@
-import { getCurrentNetwork } from '@jejunetwork/config'
+import {
+  getExternalRpc,
+  getCurrentNetwork,
+  getRpcUrl as getConfigRpcUrl,
+} from '@jejunetwork/config'
 import { SolverAgent } from './agent'
 import { LiquidityManager } from './liquidity'
 import { EventMonitor } from './monitor'
@@ -27,19 +31,20 @@ function getRpcUrl(chainId: number): string {
   const baseUrl = process.env[`RPC_URL_${chainId}`] || process.env.RPC_URL
   if (baseUrl) return baseUrl
 
-  const defaults: Record<number, string> = {
-    1: 'https://eth.llamarpc.com',
-    8453: 'https://mainnet.base.org',
-    42161: 'https://arb1.arbitrum.io/rpc',
-    10: 'https://mainnet.optimism.io',
-    11155111: 'https://rpc.sepolia.org',
-    84532: 'https://sepolia.base.org',
-    421614: 'https://sepolia-rollup.arbitrum.io/rpc',
-    11155420: 'https://sepolia.optimism.io',
-    420690: 'http://localhost:6546',
-    420691: 'https://rpc.jejunetwork.org',
+  // Use centralized config for RPC URLs
+  const chainToConfig: Record<number, string> = {
+    1: getExternalRpc('ethereum'),
+    8453: getExternalRpc('base'),
+    42161: getExternalRpc('arbitrum'),
+    10: getExternalRpc('optimism'),
+    11155111: getExternalRpc('sepolia'),
+    84532: getExternalRpc('base-sepolia'),
+    421614: getExternalRpc('arbitrum-sepolia'),
+    11155420: getExternalRpc('optimism-sepolia'),
+    420690: getConfigRpcUrl('localnet'),
+    420691: getConfigRpcUrl('mainnet'),
   }
-  return defaults[chainId] || 'http://localhost:6546'
+  return chainToConfig[chainId] || getConfigRpcUrl('localnet')
 }
 
 const CHAINS = (

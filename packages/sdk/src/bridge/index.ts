@@ -11,7 +11,7 @@
 
 import type { NetworkType } from '@jejunetwork/types'
 import { type Address, encodeFunctionData, type Hex, parseEther } from 'viem'
-import { requireContract, safeGetContract } from '../config'
+import { requireContract, safeGetContract, getServicesConfig } from '../config'
 import { parseIdFromLogs } from '../shared/api'
 import type { JejuWallet } from '../wallet'
 
@@ -90,10 +90,30 @@ export interface DepositParams {
   gasLimit?: bigint
 }
 
+export interface DepositERC20Params {
+  l1Token: Address
+  l2Token: Address
+  amount: bigint
+  recipient: Address
+  gasLimit?: number
+}
+
 export interface WithdrawParams {
   token: Address
   amount: bigint
   recipient: Address
+  gasLimit?: bigint
+}
+
+export interface WithdrawalProof {
+  l2OutputIndex: bigint
+  outputRootProof: {
+    version: Hex
+    stateRoot: Hex
+    messagePasserStorageRoot: Hex
+    latestBlockhash: Hex
+  }
+  withdrawalProof: Hex[]
 }
 
 export interface SendMessageParams {
@@ -128,7 +148,9 @@ export interface BridgeModule {
   depositETH(
     params: Omit<DepositParams, 'token'>,
   ): Promise<{ txHash: Hex; depositId: Hex }>
-  depositERC20(params: DepositParams): Promise<{ txHash: Hex; depositId: Hex }>
+  depositERC20(
+    params: DepositERC20Params,
+  ): Promise<{ txHash: Hex; depositId: Hex }>
   getDeposit(depositId: Hex): Promise<BridgeDeposit | null>
   getMyDeposits(): Promise<BridgeDeposit[]>
 
@@ -169,7 +191,14 @@ export interface BridgeModule {
   getHyperlaneMessageStatus(messageId: Hex): Promise<boolean>
 
   // ZK Bridge
+<<<<<<< HEAD
   submitZKProof(proofData: Hex, publicInputs: Hex[]): Promise<{ txHash: Hex; proofId: Hex }>
+=======
+  submitZKProof(
+    proofData: Hex,
+    publicInputs: Hex[],
+  ): Promise<{ txHash: Hex; proofId: Hex }>
+>>>>>>> cd08d238c04fc8f92037e4eb995e7cddc3863234
   verifyZKBridgeTransfer(transferId: Hex): Promise<boolean>
 
   // Utilities
@@ -628,8 +657,7 @@ export function createBridgeModule(
           {
             version: proof.outputRootProof.version,
             stateRoot: proof.outputRootProof.stateRoot,
-            messagePasserStorageRoot:
-              proof.outputRootProof.messagePasserStorageRoot,
+            messagePasserStorageRoot: proof.outputRootProof.messagePasserStorageRoot,
             latestBlockhash: proof.outputRootProof.latestBlockhash,
           },
           proof.withdrawalProof,
@@ -690,7 +718,7 @@ export function createBridgeModule(
         args: [withdrawalId],
       })
 
-      const proven = provenData[0] !== `0x${'0'.repeat(64)}`
+      const proven = provenData[0] !== ('0x' + '0'.repeat(64))
 
       // Check if finalized
       const finalized = await wallet.publicClient.readContract({

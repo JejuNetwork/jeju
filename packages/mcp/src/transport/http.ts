@@ -40,12 +40,13 @@ export class HTTPTransport {
    * Start the HTTP server
    */
   start(): void {
-    const apiKeyHeader = this.config.apiKeyHeader ?? 'x-api-key'
+    const apiKeyHeader = this.config.apiKeyHeader || 'x-api-key'
     const corsOrigin = this.config.corsOrigin
+    const hostname = this.config.host || 'localhost'
 
     this.bunServer = Bun.serve({
       port: this.config.port,
-      hostname: this.config.host ?? 'localhost',
+      hostname,
 
       fetch: async (request: Request): Promise<Response> => {
         // Handle CORS preflight
@@ -63,7 +64,7 @@ export class HTTPTransport {
 
         // Check content type
         const contentType = request.headers.get('content-type')
-        if (!contentType?.includes('application/json')) {
+        if (!contentType || !contentType.includes('application/json')) {
           return new Response(
             JSON.stringify({ error: 'Content-Type must be application/json' }),
             {
@@ -74,13 +75,13 @@ export class HTTPTransport {
         }
 
         // Extract API key from headers
-        const apiKey =
-          request.headers.get(apiKeyHeader) ??
-          this.extractBearerToken(request.headers.get('authorization'))
+        const headerApiKey = request.headers.get(apiKeyHeader)
+        const bearerToken = this.extractBearerToken(
+          request.headers.get('authorization'),
+        )
+        const apiKey = headerApiKey || bearerToken || undefined
 
-        const authContext: MCPAuthContext = {
-          apiKey: apiKey ?? undefined,
-        }
+        const authContext: MCPAuthContext = { apiKey }
 
         // Parse request body
         const body = await request.json()
@@ -94,10 +95,6 @@ export class HTTPTransport {
         })
       },
     })
-
-    console.log(
-      `MCP server listening on ${this.config.host ?? 'localhost'}:${this.config.port}`,
-    )
   }
 
   /**
@@ -114,7 +111,8 @@ export class HTTPTransport {
    * Get the server URL
    */
   getUrl(): string {
-    return `http://${this.config.host ?? 'localhost'}:${this.config.port}`
+    const host = this.config.host || 'localhost'
+    return `http://${host}:${this.config.port}`
   }
 
   /**
@@ -151,7 +149,8 @@ export class HTTPTransport {
   private extractBearerToken(header: string | null): string | null {
     if (!header) return null
     const match = header.match(/^Bearer\s+(.+)$/i)
-    return match?.[1] ?? null
+    if (!match) return null
+    return match[1]
   }
 }
 

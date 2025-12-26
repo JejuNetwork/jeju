@@ -11,6 +11,7 @@ import {
   CORE_PORTS,
   getCoreAppUrl,
   getCQLBlockProducerUrl,
+  getRpcUrl,
 } from '@jejunetwork/config'
 import { createBazaarApp } from '../api/worker'
 
@@ -146,7 +147,7 @@ async function startApiServer(): Promise<void> {
     TEE_MODE: 'simulated',
     TEE_PLATFORM: 'local',
     TEE_REGION: 'local',
-    RPC_URL: 'http://localhost:6545',
+    RPC_URL: getRpcUrl('localnet'),
     DWS_URL: DWS_URL,
     GATEWAY_URL: getCoreAppUrl('NODE_EXPLORER_API'),
     INDEXER_URL: getCoreAppUrl('INDEXER_API'),

@@ -254,7 +254,7 @@ export async function validateWalletSignatureFromHeaders(
   return validateWalletSignature(
     validated.data['x-jeju-address'],
     validated.data['x-jeju-timestamp'],
-    validated.data['x-jeju-signature'] as Hex,
+    validated.data['x-jeju-signature'],
     config,
   )
 }
@@ -341,50 +341,26 @@ export async function authenticate(
   for (const method of priority) {
     switch (method) {
       case AuthMethod.OAUTH3: {
-        if (!config.oauth3) continue
-        if (!headers['x-oauth3-session']) continue
+        if (!config.oauth3 || !headers['x-oauth3-session']) continue
 
         const result = await validateOAuth3FromHeaders(headers, config.oauth3)
         if (result.valid && result.user) {
-          return {
-            authenticated: true,
-            user: result.user,
-            method: AuthMethod.OAUTH3,
-          }
+          return { authenticated: true, user: result.user, method }
         }
-        if (headers['x-oauth3-session']) {
-          return {
-            authenticated: false,
-            error: result.error,
-            method: AuthMethod.OAUTH3,
-          }
-        }
-        break
+        return { authenticated: false, error: result.error, method }
       }
 
       case AuthMethod.WALLET_SIGNATURE: {
-        if (!config.walletSignature) continue
-        if (!headers['x-jeju-address']) continue
+        if (!config.walletSignature || !headers['x-jeju-address']) continue
 
         const result = await validateWalletSignatureFromHeaders(
           headers,
           config.walletSignature,
         )
         if (result.valid && result.user) {
-          return {
-            authenticated: true,
-            user: result.user,
-            method: AuthMethod.WALLET_SIGNATURE,
-          }
+          return { authenticated: true, user: result.user, method }
         }
-        if (headers['x-jeju-address']) {
-          return {
-            authenticated: false,
-            error: result.error,
-            method: AuthMethod.WALLET_SIGNATURE,
-          }
-        }
-        break
+        return { authenticated: false, error: result.error, method }
       }
 
       case AuthMethod.API_KEY: {
@@ -394,20 +370,9 @@ export async function authenticate(
 
         const result = validateAPIKeyFromHeaders(headers, config.apiKey)
         if (result.valid && result.user) {
-          return {
-            authenticated: true,
-            user: result.user,
-            method: AuthMethod.API_KEY,
-          }
+          return { authenticated: true, user: result.user, method }
         }
-        if (hasApiKey) {
-          return {
-            authenticated: false,
-            error: result.error,
-            method: AuthMethod.API_KEY,
-          }
-        }
-        break
+        return { authenticated: false, error: result.error, method }
       }
     }
   }

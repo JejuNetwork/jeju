@@ -17,7 +17,10 @@ import type {
   MCPResource,
   MCPTool,
   MCPToolDefinition,
+  PromptsGetResult,
+  PromptsListResult,
   ResourcesListResult,
+  ResourcesReadResult,
   StringRecord,
   ToolCallResult,
   ToolsListResult,
@@ -204,6 +207,20 @@ export class MCPRequestHandler {
    */
   getTools(): MCPTool[] {
     return Array.from(this.tools.values()).map((t) => t.tool)
+  }
+
+  /**
+   * Get a specific tool by name
+   */
+  getTool(name: string): MCPToolDefinition | undefined {
+    return this.tools.get(name)
+  }
+
+  /**
+   * Check if a tool is registered
+   */
+  hasTool(name: string): boolean {
+    return this.tools.has(name)
   }
 
   /**
@@ -460,20 +477,17 @@ export class MCPRequestHandler {
       )
     }
 
-    const content = await resourceDef.handler(uri, agent)
+    const text = await resourceDef.handler(uri, agent)
+    const mimeType = resourceDef.resource.mimeType || 'text/plain'
+
+    const result: ResourcesReadResult = {
+      contents: [{ uri, mimeType, text }],
+    }
 
     return {
       jsonrpc: '2.0',
       id: request.id,
-      result: {
-        contents: [
-          {
-            uri,
-            mimeType: resourceDef.resource.mimeType ?? 'text/plain',
-            text: content,
-          },
-        ],
-      },
+      result,
     }
   }
 
@@ -482,10 +496,11 @@ export class MCPRequestHandler {
    */
   private handlePromptsList(request: ValidatedJsonRpcRequest): JsonRpcResponse {
     const prompts = this.getPrompts()
+    const result: PromptsListResult = { prompts }
     return {
       jsonrpc: '2.0',
       id: request.id,
-      result: { prompts },
+      result,
     }
   }
 
@@ -514,7 +529,7 @@ export class MCPRequestHandler {
       )
     }
 
-    const { name, arguments: args } = parseResult.data
+    const { name, arguments: promptArgs } = parseResult.data
     const promptDef = this.prompts.get(name)
 
     if (!promptDef) {
@@ -525,20 +540,23 @@ export class MCPRequestHandler {
       )
     }
 
-    const content = await promptDef.handler(args ?? {}, agent)
+    const handlerArgs = promptArgs || {}
+    const text = await promptDef.handler(handlerArgs, agent)
+
+    const result: PromptsGetResult = {
+      description: promptDef.prompt.description,
+      messages: [
+        {
+          role: 'user',
+          content: { type: 'text', text },
+        },
+      ],
+    }
 
     return {
       jsonrpc: '2.0',
       id: request.id,
-      result: {
-        description: promptDef.prompt.description,
-        messages: [
-          {
-            role: 'user',
-            content: { type: 'text', text: content },
-          },
-        ],
-      },
+      result,
     }
   }
 

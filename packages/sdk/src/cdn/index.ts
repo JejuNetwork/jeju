@@ -11,6 +11,7 @@
 import type { NetworkType } from '@jejunetwork/types'
 import { type Address, encodeFunctionData, type Hex, parseEther } from 'viem'
 import { requireContract } from '../config'
+import { parseIdFromLogs } from '../shared/api'
 import type { JejuWallet } from '../wallet'
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -139,6 +140,7 @@ export interface CDNModule {
 // ═══════════════════════════════════════════════════════════════════════════
 
 const CDN_REGISTRY_ABI = [
+  // Provider functions
   {
     name: 'registerProvider',
     type: 'function',
@@ -151,6 +153,56 @@ const CDN_REGISTRY_ABI = [
     outputs: [],
   },
   {
+    name: 'getProvider',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'provider', type: 'address' }],
+    outputs: [
+      {
+        type: 'tuple',
+        components: [
+          { name: 'providerAddress', type: 'address' },
+          { name: 'name', type: 'string' },
+          { name: 'endpoint', type: 'string' },
+          { name: 'providerType', type: 'uint8' },
+          { name: 'stake', type: 'uint256' },
+          { name: 'agentId', type: 'uint256' },
+          { name: 'isActive', type: 'bool' },
+          { name: 'registeredAt', type: 'uint256' },
+        ],
+      },
+    ],
+  },
+  {
+    name: 'getProviderCount',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ type: 'uint256' }],
+  },
+  {
+    name: 'getProviderAtIndex',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'index', type: 'uint256' }],
+    outputs: [{ type: 'address' }],
+  },
+  {
+    name: 'updateProviderEndpoint',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'endpoint', type: 'string' }],
+    outputs: [],
+  },
+  {
+    name: 'deactivateProvider',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [],
+    outputs: [],
+  },
+  // Node functions
+  {
     name: 'registerEdgeNode',
     type: 'function',
     stateMutability: 'payable',
@@ -160,6 +212,75 @@ const CDN_REGISTRY_ABI = [
     ],
     outputs: [{ type: 'bytes32' }],
   },
+  {
+    name: 'getNode',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'nodeId', type: 'bytes32' }],
+    outputs: [
+      {
+        type: 'tuple',
+        components: [
+          { name: 'nodeId', type: 'bytes32' },
+          { name: 'operator', type: 'address' },
+          { name: 'endpoint', type: 'string' },
+          { name: 'region', type: 'uint8' },
+          { name: 'stakedAmount', type: 'uint256' },
+          { name: 'registeredAt', type: 'uint256' },
+          { name: 'lastHeartbeat', type: 'uint256' },
+          { name: 'isActive', type: 'bool' },
+          { name: 'requestsServed', type: 'uint256' },
+          { name: 'bandwidthServed', type: 'uint256' },
+        ],
+      },
+    ],
+  },
+  {
+    name: 'getNodeCount',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ type: 'uint256' }],
+  },
+  {
+    name: 'getNodeAtIndex',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'index', type: 'uint256' }],
+    outputs: [{ type: 'bytes32' }],
+  },
+  {
+    name: 'getNodesByRegion',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'region', type: 'uint8' }],
+    outputs: [{ type: 'bytes32[]' }],
+  },
+  {
+    name: 'updateNodeEndpoint',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'nodeId', type: 'bytes32' },
+      { name: 'endpoint', type: 'string' },
+    ],
+    outputs: [],
+  },
+  {
+    name: 'deactivateNode',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'nodeId', type: 'bytes32' }],
+    outputs: [],
+  },
+  {
+    name: 'heartbeat',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'nodeId', type: 'bytes32' }],
+    outputs: [],
+  },
+  // Site functions
   {
     name: 'createSite',
     type: 'function',
@@ -172,6 +293,55 @@ const CDN_REGISTRY_ABI = [
     ],
     outputs: [{ type: 'bytes32' }],
   },
+  {
+    name: 'getSite',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'siteId', type: 'bytes32' }],
+    outputs: [
+      {
+        type: 'tuple',
+        components: [
+          { name: 'siteId', type: 'bytes32' },
+          { name: 'owner', type: 'address' },
+          { name: 'origin', type: 'string' },
+          { name: 'domains', type: 'string[]' },
+          { name: 'isActive', type: 'bool' },
+          { name: 'createdAt', type: 'uint256' },
+          { name: 'cacheTTL', type: 'uint256' },
+          { name: 'enableCompression', type: 'bool' },
+        ],
+      },
+    ],
+  },
+  {
+    name: 'getSitesByOwner',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'owner', type: 'address' }],
+    outputs: [{ type: 'bytes32[]' }],
+  },
+  {
+    name: 'updateSite',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'siteId', type: 'bytes32' },
+      { name: 'origin', type: 'string' },
+      { name: 'domains', type: 'string[]' },
+      { name: 'cacheTTL', type: 'uint256' },
+      { name: 'enableCompression', type: 'bool' },
+    ],
+    outputs: [],
+  },
+  {
+    name: 'deleteSite',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'siteId', type: 'bytes32' }],
+    outputs: [],
+  },
+  // Cache functions
   {
     name: 'invalidateCache',
     type: 'function',
@@ -189,13 +359,30 @@ const CDN_REGISTRY_ABI = [
     inputs: [{ name: 'siteId', type: 'bytes32' }],
     outputs: [],
   },
+  // Metrics functions
   {
-    name: 'heartbeat',
+    name: 'getNodeMetrics',
     type: 'function',
-    stateMutability: 'nonpayable',
+    stateMutability: 'view',
     inputs: [{ name: 'nodeId', type: 'bytes32' }],
-    outputs: [],
+    outputs: [
+      { name: 'requestsServed', type: 'uint256' },
+      { name: 'bandwidthServed', type: 'uint256' },
+    ],
   },
+  {
+    name: 'getSiteMetrics',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'siteId', type: 'bytes32' }],
+    outputs: [
+      { name: 'requests', type: 'uint256' },
+      { name: 'bandwidth', type: 'uint256' },
+      { name: 'cacheHits', type: 'uint256' },
+      { name: 'cacheMisses', type: 'uint256' },
+    ],
+  },
+  // Constants
   {
     name: 'minNodeStake',
     type: 'function',
@@ -235,21 +422,65 @@ export function createCDNModule(
       })
     },
 
-    async getProvider(_address) {
-      // Would read from contract
-      return null
+    async getProvider(address) {
+      const result = await wallet.publicClient.readContract({
+        address: cdnRegistryAddress,
+        abi: CDN_REGISTRY_ABI,
+        functionName: 'getProvider',
+        args: [address],
+      })
+
+      if (
+        result.providerAddress === '0x0000000000000000000000000000000000000000'
+      ) {
+        return null
+      }
+
+      return result as CDNProvider
     },
 
     async listProviders() {
-      return []
+      const count = await wallet.publicClient.readContract({
+        address: cdnRegistryAddress,
+        abi: CDN_REGISTRY_ABI,
+        functionName: 'getProviderCount',
+        args: [],
+      })
+
+      const providers: CDNProvider[] = []
+      for (let i = 0n; i < count; i++) {
+        const providerAddr = await wallet.publicClient.readContract({
+          address: cdnRegistryAddress,
+          abi: CDN_REGISTRY_ABI,
+          functionName: 'getProviderAtIndex',
+          args: [i],
+        })
+
+        const provider = await this.getProvider(providerAddr)
+        if (provider) {
+          providers.push(provider)
+        }
+      }
+
+      return providers
     },
 
-    async updateProviderEndpoint(_endpoint) {
-      throw new Error('Not implemented')
+    async updateProviderEndpoint(endpoint) {
+      const data = encodeFunctionData({
+        abi: CDN_REGISTRY_ABI,
+        functionName: 'updateProviderEndpoint',
+        args: [endpoint],
+      })
+      return wallet.sendTransaction({ to: cdnRegistryAddress, data })
     },
 
     async deactivateProvider() {
-      throw new Error('Not implemented')
+      const data = encodeFunctionData({
+        abi: CDN_REGISTRY_ABI,
+        functionName: 'deactivateProvider',
+        args: [],
+      })
+      return wallet.sendTransaction({ to: cdnRegistryAddress, data })
     },
 
     async registerNode(params) {
@@ -265,23 +496,86 @@ export function createCDNModule(
         value: params.stake,
       })
 
-      return { nodeId: `0x${'0'.repeat(64)}` as Hex, txHash }
+      // Parse nodeId from EdgeNodeRegistered event
+      const nodeId = await parseIdFromLogs(
+        wallet.publicClient,
+        txHash,
+        'EdgeNodeRegistered(bytes32,address,string,uint8)',
+        'nodeId',
+      )
+
+      return { nodeId, txHash }
     },
 
-    async getNode(_nodeId) {
-      return null
+    async getNode(nodeId) {
+      const result = await wallet.publicClient.readContract({
+        address: cdnRegistryAddress,
+        abi: CDN_REGISTRY_ABI,
+        functionName: 'getNode',
+        args: [nodeId],
+      })
+
+      if (
+        result.operator === '0x0000000000000000000000000000000000000000'
+      ) {
+        return null
+      }
+
+      return result as EdgeNode
     },
 
     async listNodes() {
-      return []
+      const count = await wallet.publicClient.readContract({
+        address: cdnRegistryAddress,
+        abi: CDN_REGISTRY_ABI,
+        functionName: 'getNodeCount',
+        args: [],
+      })
+
+      const nodes: EdgeNode[] = []
+      for (let i = 0n; i < count; i++) {
+        const nodeId = await wallet.publicClient.readContract({
+          address: cdnRegistryAddress,
+          abi: CDN_REGISTRY_ABI,
+          functionName: 'getNodeAtIndex',
+          args: [i],
+        })
+
+        const node = await this.getNode(nodeId)
+        if (node) {
+          nodes.push(node)
+        }
+      }
+
+      return nodes
     },
 
-    async listNodesByRegion(_region) {
-      return []
+    async listNodesByRegion(region) {
+      const nodeIds = await wallet.publicClient.readContract({
+        address: cdnRegistryAddress,
+        abi: CDN_REGISTRY_ABI,
+        functionName: 'getNodesByRegion',
+        args: [region],
+      })
+
+      const nodes: EdgeNode[] = []
+      for (const nodeId of nodeIds) {
+        const node = await this.getNode(nodeId)
+        if (node) {
+          nodes.push(node)
+        }
+      }
+
+      return nodes
     },
 
-    async updateNodeEndpoint(_nodeId, _endpoint) {
-      throw new Error('Not implemented')
+    async updateNodeEndpoint(nodeId, endpoint) {
+      const data = encodeFunctionData({
+        abi: CDN_REGISTRY_ABI,
+        functionName: 'updateNodeEndpoint',
+        args: [nodeId, endpoint],
+      })
+      return wallet.sendTransaction({ to: cdnRegistryAddress, data })
     },
 
     async heartbeat(nodeId) {
@@ -293,8 +587,13 @@ export function createCDNModule(
       return wallet.sendTransaction({ to: cdnRegistryAddress, data })
     },
 
-    async deactivateNode(_nodeId) {
-      throw new Error('Not implemented')
+    async deactivateNode(nodeId) {
+      const data = encodeFunctionData({
+        abi: CDN_REGISTRY_ABI,
+        functionName: 'deactivateNode',
+        args: [nodeId],
+      })
+      return wallet.sendTransaction({ to: cdnRegistryAddress, data })
     },
 
     async createSite(params) {
@@ -314,23 +613,79 @@ export function createCDNModule(
         data,
       })
 
-      return { siteId: `0x${'0'.repeat(64)}` as Hex, txHash }
+      // Parse siteId from SiteCreated event
+      const siteId = await parseIdFromLogs(
+        wallet.publicClient,
+        txHash,
+        'SiteCreated(bytes32,address,string)',
+        'siteId',
+      )
+
+      return { siteId, txHash }
     },
 
-    async getSite(_siteId) {
-      return null
+    async getSite(siteId) {
+      const result = await wallet.publicClient.readContract({
+        address: cdnRegistryAddress,
+        abi: CDN_REGISTRY_ABI,
+        functionName: 'getSite',
+        args: [siteId],
+      })
+
+      if (result.owner === '0x0000000000000000000000000000000000000000') {
+        return null
+      }
+
+      return result as Site
     },
 
     async listMySites() {
-      return []
+      const siteIds = await wallet.publicClient.readContract({
+        address: cdnRegistryAddress,
+        abi: CDN_REGISTRY_ABI,
+        functionName: 'getSitesByOwner',
+        args: [wallet.address],
+      })
+
+      const sites: Site[] = []
+      for (const siteId of siteIds) {
+        const site = await this.getSite(siteId)
+        if (site) {
+          sites.push(site)
+        }
+      }
+
+      return sites
     },
 
-    async updateSite(_siteId, _updates) {
-      throw new Error('Not implemented')
+    async updateSite(siteId, updates) {
+      // Get current site to merge with updates
+      const currentSite = await this.getSite(siteId)
+      if (!currentSite) {
+        throw new Error(`Site ${siteId} not found`)
+      }
+
+      const data = encodeFunctionData({
+        abi: CDN_REGISTRY_ABI,
+        functionName: 'updateSite',
+        args: [
+          siteId,
+          updates.origin ?? currentSite.origin,
+          updates.domains ?? currentSite.domains,
+          updates.cacheTTL ?? currentSite.cacheTTL,
+          updates.enableCompression ?? currentSite.enableCompression,
+        ],
+      })
+      return wallet.sendTransaction({ to: cdnRegistryAddress, data })
     },
 
-    async deleteSite(_siteId) {
-      throw new Error('Not implemented')
+    async deleteSite(siteId) {
+      const data = encodeFunctionData({
+        abi: CDN_REGISTRY_ABI,
+        functionName: 'deleteSite',
+        args: [siteId],
+      })
+      return wallet.sendTransaction({ to: cdnRegistryAddress, data })
     },
 
     async invalidateCache(siteId, paths) {
@@ -351,12 +706,37 @@ export function createCDNModule(
       return wallet.sendTransaction({ to: cdnRegistryAddress, data })
     },
 
-    async getNodeMetrics(_nodeId) {
-      return { requestsServed: 0n, bandwidthServed: 0n }
+    async getNodeMetrics(nodeId) {
+      const result = await wallet.publicClient.readContract({
+        address: cdnRegistryAddress,
+        abi: CDN_REGISTRY_ABI,
+        functionName: 'getNodeMetrics',
+        args: [nodeId],
+      })
+
+      return {
+        requestsServed: result[0],
+        bandwidthServed: result[1],
+      }
     },
 
-    async getSiteMetrics(_siteId) {
-      return { requests: 0n, bandwidth: 0n, cacheHitRate: 0 }
+    async getSiteMetrics(siteId) {
+      const result = await wallet.publicClient.readContract({
+        address: cdnRegistryAddress,
+        abi: CDN_REGISTRY_ABI,
+        functionName: 'getSiteMetrics',
+        args: [siteId],
+      })
+
+      const totalRequests = result[2] + result[3] // cacheHits + cacheMisses
+      const cacheHitRate =
+        totalRequests > 0n ? Number(result[2]) / Number(totalRequests) : 0
+
+      return {
+        requests: result[0],
+        bandwidth: result[1],
+        cacheHitRate,
+      }
     },
   }
 }

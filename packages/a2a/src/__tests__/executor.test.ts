@@ -231,6 +231,115 @@ describe('BaseAgentExecutor', () => {
       const firstEvent = eventBus.events[0]
       expect(firstEvent.kind).toBe('status-update')
     })
+
+    it('should generate consistent contextId when not provided', async () => {
+      const context: RequestContext = {
+        taskId: 'task-123',
+        contextId: undefined,
+        task: undefined,
+        userMessage: {
+          kind: 'message',
+          role: 'user',
+          messageId: 'msg-1',
+          parts: [{ kind: 'text', text: 'Test' }],
+        },
+      }
+
+      await executor.execute(context, eventBus)
+
+      // Get contextId from all events
+      const contextIds = eventBus.events
+        .filter((e): e is { contextId: string } => 'contextId' in e)
+        .map((e) => e.contextId)
+
+      // All events should have the same contextId
+      const uniqueContextIds = [...new Set(contextIds)]
+      expect(uniqueContextIds).toHaveLength(1)
+      expect(uniqueContextIds[0]).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+      )
+    })
+
+    it('should handle primitive result values', async () => {
+      executor.operationResult = 42
+
+      const context: RequestContext = {
+        taskId: 'task-123',
+        contextId: 'ctx-456',
+        task: undefined,
+        userMessage: {
+          kind: 'message',
+          role: 'user',
+          messageId: 'msg-1',
+          parts: [{ kind: 'text', text: 'Get number' }],
+        },
+      }
+
+      await executor.execute(context, eventBus)
+
+      const artifactEvent = eventBus.events.find(
+        (e): e is ArtifactUpdateEvent => e.kind === 'artifact-update',
+      )
+
+      if (!artifactEvent) {
+        throw new Error('Expected artifact-update event to be published')
+      }
+      expect(artifactEvent.artifact.parts[0].data).toEqual({ value: 42 })
+    })
+
+    it('should handle null result values', async () => {
+      executor.operationResult = null
+
+      const context: RequestContext = {
+        taskId: 'task-123',
+        contextId: 'ctx-456',
+        task: undefined,
+        userMessage: {
+          kind: 'message',
+          role: 'user',
+          messageId: 'msg-1',
+          parts: [{ kind: 'text', text: 'Get null' }],
+        },
+      }
+
+      await executor.execute(context, eventBus)
+
+      const artifactEvent = eventBus.events.find(
+        (e): e is ArtifactUpdateEvent => e.kind === 'artifact-update',
+      )
+
+      if (!artifactEvent) {
+        throw new Error('Expected artifact-update event to be published')
+      }
+      expect(artifactEvent.artifact.parts[0].data).toEqual({ value: null })
+    })
+
+    it('should handle array result values', async () => {
+      executor.operationResult = [1, 2, 3]
+
+      const context: RequestContext = {
+        taskId: 'task-123',
+        contextId: 'ctx-456',
+        task: undefined,
+        userMessage: {
+          kind: 'message',
+          role: 'user',
+          messageId: 'msg-1',
+          parts: [{ kind: 'text', text: 'Get array' }],
+        },
+      }
+
+      await executor.execute(context, eventBus)
+
+      const artifactEvent = eventBus.events.find(
+        (e): e is ArtifactUpdateEvent => e.kind === 'artifact-update',
+      )
+
+      if (!artifactEvent) {
+        throw new Error('Expected artifact-update event to be published')
+      }
+      expect(artifactEvent.artifact.parts[0].data).toEqual({ value: [1, 2, 3] })
+    })
   })
 
   describe('cancelTask', () => {

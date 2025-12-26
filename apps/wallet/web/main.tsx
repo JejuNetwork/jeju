@@ -1,3 +1,4 @@
+import { getRpcUrl } from '@jejunetwork/config'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
@@ -45,7 +46,7 @@ const config = createConfig({
     [arbitrum.id]: http(`${NETWORK_RPC}/arbitrum`),
     [optimism.id]: http(`${NETWORK_RPC}/optimism`),
     [bsc.id]: http(`${NETWORK_RPC}/bsc`),
-    [networkLocalnet.id]: http('http://localhost:6546'),
+    [networkLocalnet.id]: http(getRpcUrl('localnet')),
     [jejuTestnet.id]: http(urls.rpc.testnet),
   },
 })

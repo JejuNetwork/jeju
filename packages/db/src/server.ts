@@ -5,6 +5,12 @@
  * Production uses the full CovenantSQL network, but this allows offline dev.
  */
 
+import {
+  getCqlDataDir,
+  getCqlPort,
+  getLogLevel,
+  isProductionEnv,
+} from '@jejunetwork/config'
 import { Database as SqliteDatabase } from 'bun:sqlite'
 import { existsSync, mkdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -25,17 +31,16 @@ const CreateRentalBodySchema = z.object({
 
 const log = pino({
   name: 'cql-server',
-  level: process.env.LOG_LEVEL ?? 'info',
-  transport:
-    process.env.NODE_ENV !== 'production'
-      ? { target: 'pino-pretty', options: { colorize: true } }
-      : undefined,
+  level: getLogLevel(),
+  transport: !isProductionEnv()
+    ? { target: 'pino-pretty', options: { colorize: true } }
+    : undefined,
 })
 
 // Configuration
 
-const PORT = Number(process.env.PORT ?? process.env.CQL_PORT ?? 4400)
-const DATA_DIR = process.env.CQL_DATA_DIR ?? './.data/cql'
+const PORT = getCqlPort()
+const DATA_DIR = getCqlDataDir()
 
 // Database Management
 

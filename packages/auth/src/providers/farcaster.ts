@@ -14,7 +14,11 @@
  * Falls back to public hub if config not available.
  */
 
-import { getFarcasterApiUrl, getFarcasterHubUrl } from '@jejunetwork/config'
+import {
+  getFarcasterApiUrl,
+  getFarcasterHubUrl,
+  getNeynarApiKey,
+} from '@jejunetwork/config'
 import { type Address, type Hex, keccak256, toBytes, toHex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { z } from 'zod'
@@ -41,7 +45,7 @@ import {
 // Config-first URLs with fallbacks
 const FARCASTER_HUB_URL = getFarcasterHubUrl()
 const FARCASTER_API_URL = getFarcasterApiUrl()
-const NEYNAR_API_KEY = process.env.NEYNAR_API_KEY ?? ''
+const NEYNAR_API_KEY = getNeynarApiKey()
 
 export interface FarcasterSession {
   fid: number

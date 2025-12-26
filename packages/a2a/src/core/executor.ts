@@ -68,19 +68,21 @@ export abstract class BaseAgentExecutor implements AgentExecutor {
     requestContext: RequestContext,
     eventBus: ExecutionEventBus,
   ): Promise<void> {
-    const { taskId, contextId, task } = requestContext
+    const { taskId, task, userMessage } = requestContext
+    // Compute contextId once to ensure consistency across all events
+    const contextId = requestContext.contextId || uuidv4()
 
     // Create initial task if needed
     if (!task) {
       const initialTask: Task = {
         kind: 'task',
         id: taskId,
-        contextId: contextId || uuidv4(),
+        contextId,
         status: {
           state: 'submitted',
           timestamp: new Date().toISOString(),
         },
-        history: [requestContext.userMessage],
+        history: [userMessage],
       }
       eventBus.publish(initialTask)
     }
@@ -89,7 +91,7 @@ export abstract class BaseAgentExecutor implements AgentExecutor {
     const workingUpdate: TaskStatusUpdateEvent = {
       kind: 'status-update',
       taskId,
-      contextId: contextId || uuidv4(),
+      contextId,
       status: {
         state: 'working',
         timestamp: new Date().toISOString(),
@@ -99,7 +101,7 @@ export abstract class BaseAgentExecutor implements AgentExecutor {
     eventBus.publish(workingUpdate)
 
     // Parse and execute
-    const command = this.parseCommand(requestContext.userMessage)
+    const command = this.parseCommand(userMessage)
     const result = await this.executeOperation(command, requestContext)
 
     // Create artifact with result - ensure result is a valid JsonValue record
@@ -111,7 +113,7 @@ export abstract class BaseAgentExecutor implements AgentExecutor {
     const artifactUpdate: TaskArtifactUpdateEvent = {
       kind: 'artifact-update',
       taskId,
-      contextId: contextId || uuidv4(),
+      contextId,
       artifact: {
         artifactId: uuidv4(),
         name: 'result.json',
@@ -129,7 +131,7 @@ export abstract class BaseAgentExecutor implements AgentExecutor {
     const completedUpdate: TaskStatusUpdateEvent = {
       kind: 'status-update',
       taskId,
-      contextId: contextId || uuidv4(),
+      contextId,
       status: {
         state: 'completed',
         timestamp: new Date().toISOString(),

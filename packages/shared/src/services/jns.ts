@@ -4,6 +4,7 @@
  * Provides decentralized naming for dApps.
  */
 
+import { getGatewayApiEndpoint } from '@jejunetwork/config'
 import { expectValid } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import { z } from 'zod'
@@ -201,7 +202,7 @@ export function createJNSService(config: JNSConfig): JNSService {
 }
 
 export function getJNSServiceFromEnv(): JNSService {
-  const gatewayEndpoint = process.env.GATEWAY_API
+  const gatewayEndpoint = getGatewayApiEndpoint()
   if (!gatewayEndpoint) {
     throw new Error('GATEWAY_API environment variable is required')
   }

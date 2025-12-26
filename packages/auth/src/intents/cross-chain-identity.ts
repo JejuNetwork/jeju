@@ -6,7 +6,10 @@
  */
 
 import { getExternalRpc, getRpcUrl } from '@jejunetwork/config'
+<<<<<<< HEAD
 import { getEnv } from '@jejunetwork/shared'
+=======
+>>>>>>> cd08d238c04fc8f92037e4eb995e7cddc3863234
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import {
   type Address,
@@ -21,6 +24,17 @@ import {
 } from 'viem'
 import { ChainId, type IntentSolution, type OAuth3Session } from '../types.js'
 
+/**
+ * Get address from environment, validating format
+ */
+function getEnvAddress(key: string): Address {
+  const value = process.env[key]
+  if (!value || value === '') return ZERO_ADDRESS
+  // Validate address format
+  if (!/^0x[0-9a-fA-F]{40}$/.test(value)) return ZERO_ADDRESS
+  return value as Address
+}
+
 // Environment-based contract addresses (deployed per chain)
 const getChainContracts = (
   chainId: ChainId,
@@ -31,11 +45,9 @@ const getChainContracts = (
 } => {
   const prefix = `CHAIN_${chainId}_`
   return {
-    identityRegistry:
-      (getEnv(`${prefix}IDENTITY_REGISTRY`) as Address) ?? ZERO_ADDRESS,
-    accountFactory:
-      (getEnv(`${prefix}ACCOUNT_FACTORY`) as Address) ?? ZERO_ADDRESS,
-    intentRouter: (getEnv(`${prefix}INTENT_ROUTER`) as Address) ?? ZERO_ADDRESS,
+    identityRegistry: getEnvAddress(`${prefix}IDENTITY_REGISTRY`),
+    accountFactory: getEnvAddress(`${prefix}ACCOUNT_FACTORY`),
+    intentRouter: getEnvAddress(`${prefix}INTENT_ROUTER`),
   }
 }
 
@@ -466,7 +478,11 @@ export class CrossChainIdentityManager {
         status: 'executed',
         executionTx: executionTx as Hex,
         solution: {
+<<<<<<< HEAD
           solverId: solver,
+=======
+          solverId: solver as Address,
+>>>>>>> cd08d238c04fc8f92037e4eb995e7cddc3863234
           intentId,
           executionData: executionTx as Hex,
           gasUsed: 0n,
@@ -475,7 +491,10 @@ export class CrossChainIdentityManager {
       }
     }
 
-    return { status }
+    // Map the raw status to our expected union type
+    const finalStatus = status === 'expired' ? 'failed' : status
+
+    return { status: finalStatus }
   }
 
   getIdentityState(identityId: Hex): CrossChainIdentityState | undefined {

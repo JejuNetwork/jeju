@@ -294,27 +294,6 @@ export const mpcCoordinatorConfigSchema = z
   })
   .strict()
 
-// TEE API response schemas for external endpoint validation
-export const teeConnectResponseSchema = z.object({
-  attestation: z
-    .object({
-      quote: hexSchema,
-      measurement: hexSchema,
-      timestamp: z.number().int(),
-      verified: z.boolean(),
-    })
-    .optional(),
-  enclaveKey: z.string().optional(),
-})
-
-export const teeKeyGenResponseSchema = z.object({
-  publicKey: z.string().min(1),
-  address: z.string().min(1),
-})
-
-export const teeSignResponseSchema = z.object({
-  signature: z.string().min(1),
-})
 
 // DA API response schemas
 export const daSecretsListResponseSchema = z.object({

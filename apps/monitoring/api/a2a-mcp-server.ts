@@ -1,7 +1,7 @@
 /** A2A and MCP server for monitoring and alerting. */
 
 import { cors } from '@elysiajs/cors'
-import { getNetworkName, getWebsiteUrl } from '@jejunetwork/config'
+import { getNetworkName, getRpcUrl, getWebsiteUrl } from '@jejunetwork/config'
 import { isRecord } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import { z } from 'zod'
@@ -27,7 +27,7 @@ const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',') ?? [
 ]
 
 const PROMETHEUS_URL = process.env.PROMETHEUS_URL ?? 'http://localhost:9090'
-const RPC_URL = process.env.RPC_URL ?? 'http://localhost:6546'
+const RPC_URL = process.env.RPC_URL ?? getRpcUrl()
 
 if (!isDevelopment && !process.env.PROMETHEUS_URL) {
   throw new Error('PROMETHEUS_URL is required in production')

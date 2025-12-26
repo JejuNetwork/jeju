@@ -1,9 +1,10 @@
 /** Crucible Service */
 
+import { getServiceUrl } from '@jejunetwork/config'
 import { z } from 'zod'
 import { AddressSchema } from '../schemas'
 
-const CRUCIBLE_API = process.env.CRUCIBLE_URL || 'http://localhost:4020'
+const CRUCIBLE_API = process.env.CRUCIBLE_URL || getServiceUrl('compute', 'nodeApi') || 'http://localhost:4020'
 
 const AgentSchema = z.object({
   agentId: z.union([z.bigint(), z.string()]).transform((v) => BigInt(v)),

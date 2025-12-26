@@ -7,6 +7,7 @@
  */
 
 import type { Character, IAgentRuntime, Plugin } from '@elizaos/core'
+import { getJejuApiKey } from '@jejunetwork/config'
 import { logger } from '@jejunetwork/shared'
 import { createAutonomyPlugin } from '../plugins/autonomy'
 import { createCorePlugin } from '../plugins/core'
@@ -64,6 +65,13 @@ export class AgentRuntimeFactory {
     const runtime = new AgentRuntime({
       agentId: agent.id as `${string}-${string}-${string}-${string}-${string}`,
       character: enhancedCharacter,
+<<<<<<< HEAD
+=======
+      token: getJejuApiKey(),
+      modelProvider: 'openai', // Will be overridden by Jeju provider
+      evaluationModel:
+        options.modelOverride ?? this.getModelForTier(agent.modelTier),
+>>>>>>> cd08d238c04fc8f92037e4eb995e7cddc3863234
     })
 
     logger.info('Runtime created successfully', { agentId: agent.id })
@@ -109,6 +117,12 @@ export class AgentRuntimeFactory {
     const runtime = new AgentRuntime({
       agentId: agentId as `${string}-${string}-${string}-${string}-${string}`,
       character: enhancedCharacter,
+<<<<<<< HEAD
+=======
+      token: getJejuApiKey(),
+      modelProvider: 'openai',
+      evaluationModel: options.modelOverride ?? 'Qwen/Qwen2.5-3B-Instruct',
+>>>>>>> cd08d238c04fc8f92037e4eb995e7cddc3863234
     })
 
     logger.info('Runtime created from template', {

@@ -12,9 +12,9 @@ import {
 } from './keys'
 
 describe('Key Management', () => {
-  test('getDevKeys returns 5 development accounts', () => {
+  test('getDevKeys returns 8 development accounts', () => {
     const keys = getDevKeys()
-    expect(keys.length).toBe(5)
+    expect(keys.length).toBe(8)
     expect(keys[0].address).toBe('0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266')
   })
 

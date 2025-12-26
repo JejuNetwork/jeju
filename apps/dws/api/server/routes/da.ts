@@ -8,6 +8,7 @@
  * - Metrics and monitoring
  */
 
+import { getDWSUrl } from '@jejunetwork/config'
 import { expectValid } from '@jejunetwork/types'
 import { Elysia, t } from 'elysia'
 import type { Address, Hex } from 'viem'
@@ -59,7 +60,7 @@ export function initializeDA(ctx: DARouterContext): void {
   if (ctx.operatorPrivateKey) {
     localOperator = createDAOperator({
       privateKey: ctx.operatorPrivateKey,
-      endpoint: ctx.operatorEndpoint ?? 'http://localhost:4030',
+      endpoint: ctx.operatorEndpoint ?? getDWSUrl(),
       capacityGB: ctx.operatorCapacityGB ?? 100,
       region: ctx.operatorRegion ?? 'default',
     })

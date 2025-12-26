@@ -3,6 +3,7 @@
  * Register .jeju names, resolve addresses, reverse lookup
  */
 
+import { getRpcUrl } from '@jejunetwork/config'
 import {
   type Address,
   createPublicClient,
@@ -177,7 +178,7 @@ export class JNSService {
     if (cached) {
       return cached
     }
-    const rpcUrl = getNetworkRpcUrl(this.chainId) ?? 'http://localhost:6546'
+    const rpcUrl = getNetworkRpcUrl(this.chainId) ?? getRpcUrl()
     const client = createPublicClient({ transport: http(rpcUrl) })
     this.clientCache.set(this.chainId, client)
     return client

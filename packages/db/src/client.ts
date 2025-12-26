@@ -5,7 +5,16 @@
  * No env vars required - just set JEJU_NETWORK=localnet|testnet|mainnet.
  */
 
-import { getCQLMinerUrl, getCQLUrl } from '@jejunetwork/config'
+import {
+  getCqlDatabaseId,
+  getCqlPrivateKey,
+  getCqlTimeout,
+  getCQLMinerUrl,
+  getCQLUrl,
+  getLogLevel,
+  isCqlDebug,
+  isProductionEnv,
+} from '@jejunetwork/config'
 import { createPool, type Pool } from 'generic-pool'
 import pino from 'pino'
 import type { Address, Hex } from 'viem'
@@ -34,7 +43,11 @@ import type {
   VectorSearchRequest,
   VectorSearchResult,
 } from './types.js'
-import { parseTimeout } from './utils.js'
+import {
+  parseTimeout,
+  validateSQLIdentifier,
+  validateSQLIdentifiers,
+} from './utils.js'
 import {
   generateCreateVectorTableSQL,
   generateVectorInsertSQL,
@@ -191,11 +204,10 @@ const CQLConfigSchema = z
 
 const log = pino({
   name: 'cql',
-  level: process.env.LOG_LEVEL ?? 'info',
-  transport:
-    process.env.NODE_ENV !== 'production'
-      ? { target: 'pino-pretty', options: { colorize: true } }
-      : undefined,
+  level: getLogLevel(),
+  transport: !isProductionEnv()
+    ? { target: 'pino-pretty', options: { colorize: true } }
+    : undefined,
 })
 
 // Native Circuit Breaker implementation
@@ -825,6 +837,17 @@ export class CQLClient {
       includeMetadata,
     } = request
 
+    // Validate inputs to prevent SQL injection
+    validateSQLIdentifier(tableName, 'table')
+    if (metadataColumns.length > 0) {
+      validateSQLIdentifiers(metadataColumns, 'column')
+    }
+    if (!Number.isInteger(k) || k <= 0 || k > 10000) {
+      throw new Error(
+        `Invalid k value: ${k}, must be positive integer <= 10000`,
+      )
+    }
+
     validateVectorValues(vector)
 
     const blob = serializeVector(vector, 'float32')
@@ -853,6 +876,7 @@ WHERE embedding MATCH ?
     }
 
     if (metadataFilter) {
+      // Note: metadataFilter is caller-constructed SQL - callers must use parameters
       sql += `\n  AND ${metadataFilter}`
     }
 
@@ -881,6 +905,16 @@ WHERE embedding MATCH ?
     rowids: number[],
     dbId?: string,
   ): Promise<ExecResult> {
+    validateSQLIdentifier(tableName, 'table')
+    if (rowids.length === 0) {
+      // No-op: nothing to delete
+      return {
+        rowsAffected: 0,
+        txHash: '0x' as Hex,
+        blockHeight: 0,
+        gasUsed: 0n,
+      }
+    }
     const placeholders = rowids.map(() => '?').join(', ')
     const sql = `DELETE FROM ${tableName} WHERE rowid IN (${placeholders})`
     return this.exec(sql, rowids, dbId)
@@ -890,12 +924,17 @@ WHERE embedding MATCH ?
    * Get vector count in a vec0 table
    */
   async getVectorCount(tableName: string, dbId?: string): Promise<number> {
+    validateSQLIdentifier(tableName, 'table')
     const result = await this.query<{ count: number }>(
       `SELECT COUNT(*) as count FROM ${tableName}`,
       undefined,
       dbId,
     )
-    return result.rows[0]?.count ?? 0
+    const count = result.rows[0]?.count
+    if (typeof count !== 'number') {
+      throw new Error('Unexpected COUNT(*) result structure')
+    }
+    return count
   }
 
   /**
@@ -943,12 +982,11 @@ export function getCQL(config?: Partial<CQLConfig>): CQLClient {
       blockProducerEndpoint,
       minerEndpoint,
       privateKey:
-        config?.privateKey ?? (process.env.CQL_PRIVATE_KEY as Hex | undefined),
-      databaseId: config?.databaseId ?? process.env.CQL_DATABASE_ID,
+        config?.privateKey ?? (getCqlPrivateKey() as Hex | undefined),
+      databaseId: config?.databaseId ?? getCqlDatabaseId(),
       timeout:
-        config?.timeout ??
-        parseTimeout(process.env.CQL_TIMEOUT, DEFAULT_TIMEOUT),
-      debug: config?.debug ?? process.env.CQL_DEBUG === 'true',
+        config?.timeout ?? parseTimeout(getCqlTimeout(), DEFAULT_TIMEOUT),
+      debug: config?.debug ?? isCqlDebug(),
     }
 
     const validated = CQLConfigSchema.parse(resolvedConfig)

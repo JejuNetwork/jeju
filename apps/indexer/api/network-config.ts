@@ -4,7 +4,7 @@
 
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { getCurrentNetwork } from '@jejunetwork/config'
+import { getCurrentNetwork, getRpcUrl } from '@jejunetwork/config'
 import { type NetworkType, validateOrNull } from '@jejunetwork/types'
 import { z } from 'zod'
 
@@ -78,9 +78,9 @@ const CHAIN_IDS: Record<NetworkType, number> = {
 }
 
 const DEFAULT_RPC: Record<NetworkType, string> = {
-  localnet: 'http://localhost:6546',
-  testnet: 'https://testnet-rpc.jejunetwork.org',
-  mainnet: 'https://rpc.jejunetwork.org',
+  localnet: getRpcUrl('localnet'),
+  testnet: getRpcUrl('testnet'),
+  mainnet: getRpcUrl('mainnet'),
 }
 
 /** Loose schema for deployment JSON files - ensures it's a valid JSON object */

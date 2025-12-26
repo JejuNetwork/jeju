@@ -13,6 +13,7 @@ import type { NetworkType } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import { encodeFunctionData, parseEther } from 'viem'
 import { getContractAddresses } from '../config'
+import { parseAddressFromLogs } from '../shared/api'
 import type { JejuWallet } from '../wallet'
 
 // Types
@@ -453,8 +454,15 @@ export function createLaunchpadModule(
       value: parseEther('0.01'), // Creation fee
     })
 
-    // Return hash - token address would be retrieved from event
-    return { hash, token: '0x' as Address }
+    // Parse token address from TokenCreated event
+    // Event signature: TokenCreated(address indexed token, address indexed creator, string name, string symbol)
+    const token = await parseAddressFromLogs(
+      wallet.publicClient,
+      hash,
+      'TokenCreated(address,address,string,string)',
+    )
+
+    return { hash, token }
   }
 
   async function createPresale(params: PresaleParams): Promise<Hex> {

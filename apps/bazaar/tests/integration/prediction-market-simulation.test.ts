@@ -7,13 +7,14 @@
  */
 
 import { beforeAll, describe, expect, test } from 'bun:test'
+import { getChainId, getRpcUrl } from '@jejunetwork/config'
 import { rawDeployments } from '@jejunetwork/contracts'
 import { type Address, createPublicClient, http, type PublicClient } from 'viem'
 
-// CONFIGURATION
+// CONFIGURATION - from centralized config
 
-const RPC_URL = process.env.L2_RPC_URL || 'http://localhost:6546'
-const CHAIN_ID = 420691 // network localnet chain ID
+const RPC_URL = getRpcUrl('localnet')
+const CHAIN_ID = getChainId('localnet')
 
 const localnet = {
   id: CHAIN_ID,

@@ -11,6 +11,7 @@ import {
   type Hex,
 } from 'viem'
 import { getServicesConfig, safeGetContract } from '../config'
+import { parseAddressFromLogs } from '../shared/api'
 import {
   PoolInfoResponseSchema,
   PositionsResponseSchema,
@@ -522,22 +523,15 @@ export function createDefiModule(
       data,
     })
 
-    // Get the created token address from the transaction receipt
-    const receipt = await wallet.publicClient.waitForTransactionReceipt({
-      hash: txHash,
-    })
+    // Parse token address from TokenCreated event
+    // Event signature: TokenCreated(address indexed token, string name, string symbol, uint256 totalSupply)
+    const tokenAddress = await parseAddressFromLogs(
+      wallet.publicClient,
+      txHash,
+      'TokenCreated(address,string,string,uint256)',
+    )
 
-    // Find the TokenCreated event log
-    // TODO: Replace with actual TokenCreated event topic hash
-    const TOKEN_CREATED_TOPIC = '0x...' // This is a placeholder - needs actual topic
-    const log = receipt.logs.find((l) => l.topics[0] === TOKEN_CREATED_TOPIC)
-    if (!log) {
-      throw new Error(
-        `TokenCreated event not found in transaction ${txHash}. Check if token factory emits the expected event.`,
-      )
-    }
-
-    return { tokenAddress: log.address, txHash }
+    return { tokenAddress, txHash }
   }
 
   return {

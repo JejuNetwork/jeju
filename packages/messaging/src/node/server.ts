@@ -6,6 +6,12 @@
  * for fast access.
  */
 
+import {
+  getAllowedOrigins,
+  getIpfsUrlEnv,
+  getNodeId,
+  getPortEnv,
+} from '@jejunetwork/config'
 import { cors } from '@elysiajs/cors'
 import { createLogger } from '@jejunetwork/shared'
 import { sha256 } from '@noble/hashes/sha256'
@@ -330,7 +336,7 @@ export function createRelayServer(config: NodeConfig) {
   })
 
   // CORS - restrict to known origins in production
-  const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') ?? ['*']
+  const allowedOrigins = getAllowedOrigins()
 
   const app = new Elysia()
     .use(
@@ -780,11 +786,11 @@ export function startRelayServer(config: NodeConfig): void {
 }
 
 if (import.meta.main) {
-  const portEnv = process.env.PORT
-  const nodeIdEnv = process.env.NODE_ID
-  const ipfsUrl = process.env.IPFS_URL
+  const port = getPortEnv()
+  const nodeIdEnv = getNodeId()
+  const ipfsUrl = getIpfsUrlEnv()
 
-  if (!portEnv) {
+  if (!port) {
     throw new Error('PORT environment variable is required')
   }
 
@@ -792,9 +798,8 @@ if (import.meta.main) {
     throw new Error('NODE_ID environment variable is required')
   }
 
-  const port = parseInt(portEnv, 10)
   if (Number.isNaN(port) || port <= 0 || port > 65535) {
-    throw new Error(`Invalid PORT value: ${portEnv}`)
+    throw new Error(`Invalid PORT value: ${port}`)
   }
 
   startRelayServer({

@@ -1,5 +1,9 @@
 /**
  * Cross-Chain Arbitrage Strategy
+ *
+ * Monitors prices across multiple EVM chains and Solana,
+ * identifying cross-chain arbitrage opportunities.
+ * Supports DWS for decentralized API access.
  */
 
 import { EventEmitter } from '@jejunetwork/shared'
@@ -15,6 +19,7 @@ import {
   parseAbi,
   parseUnits,
 } from 'viem'
+import { type DWSClient, getDWSClient } from '../dws'
 import { TOKEN_SYMBOLS } from '../oracles'
 import { JupiterQuoteResponseSchema } from '../schemas'
 import type { CrossChainArbOpportunity } from '../types'
@@ -783,6 +788,10 @@ export interface SolanaArbConfig {
   ethPriceUsd: number
   solPriceUsd: number
   monitoredTokens: SolanaTokenConfig[]
+  /** Use DWS for Jupiter API access */
+  useDWS?: boolean
+  /** DWS client instance (uses shared instance if not provided) */
+  dwsClient?: DWSClient | null
 }
 
 interface SolanaTokenConfig {
@@ -837,6 +846,11 @@ const DEFAULT_SOLANA_TOKENS: SolanaTokenConfig[] = [
 export class SolanaArbitrage {
   private config: SolanaArbConfig
   private tokenMap: Map<string, SolanaTokenConfig>
+<<<<<<< HEAD
+=======
+  private useDWS: boolean
+  private dwsClient: DWSClient | null
+>>>>>>> cd08d238c04fc8f92037e4eb995e7cddc3863234
 
   constructor(config: Partial<SolanaArbConfig> = {}) {
     const tokens = config.monitoredTokens ?? DEFAULT_SOLANA_TOKENS
@@ -848,8 +862,12 @@ export class SolanaArbitrage {
       ethPriceUsd: config.ethPriceUsd ?? 3500,
       solPriceUsd: config.solPriceUsd ?? 150,
       monitoredTokens: tokens,
+      useDWS: config.useDWS ?? false,
+      dwsClient: config.dwsClient ?? null,
     }
     this.tokenMap = new Map(tokens.map((t) => [t.mint, t]))
+    this.useDWS = config.useDWS ?? false
+    this.dwsClient = config.dwsClient ?? null
   }
 
   async getRaydiumQuote(
@@ -874,25 +892,71 @@ export class SolanaArbitrage {
     amount: bigint,
     dexFilter?: string,
   ): Promise<bigint> {
-    const JUPITER_API = 'https://quote-api.jup.ag/v6'
+    const inputMintStr = inputMint.toBase58()
+    const outputMintStr = outputMint.toBase58()
 
-    let url = `${JUPITER_API}/quote?inputMint=${inputMint.toBase58()}&outputMint=${outputMint.toBase58()}&amount=${amount.toString()}&slippageBps=50`
+    const queryParams: Record<string, string> = {
+      inputMint: inputMintStr,
+      outputMint: outputMintStr,
+      amount: amount.toString(),
+      slippageBps: '50',
+    }
 
-    // Filter to specific DEX if requested
     if (dexFilter) {
-      url += `&onlyDirectRoutes=true&dexes=${dexFilter}`
+      queryParams.onlyDirectRoutes = 'true'
+      queryParams.dexes = dexFilter
     }
 
-    const response = await fetch(url)
-    if (!response.ok) {
-      throw new Error(`Jupiter API error: ${response.statusText}`)
+    let data: { outAmount: string }
+
+    if (this.useDWS) {
+      // Use DWS for decentralized API access
+      const client = this.dwsClient ?? getDWSClient()
+      const response = await client.request<{
+        inputMint: string
+        inAmount: string
+        outputMint: string
+        outAmount: string
+        otherAmountThreshold: string
+        swapMode: string
+        slippageBps: number
+        priceImpactPct: string
+        routePlan: unknown[]
+        contextSlot: number
+        timeTaken: number
+      }>({
+        providerId: 'jupiter',
+        endpoint: '/quote',
+        method: 'GET',
+        queryParams,
+      })
+
+      data = expectValid(
+        JupiterQuoteResponseSchema,
+        response.data,
+        `Jupiter quote ${inputMintStr} -> ${outputMintStr}`,
+      )
+    } else {
+      // Direct API access
+      const JUPITER_API = 'https://quote-api.jup.ag/v6'
+      let url = `${JUPITER_API}/quote?inputMint=${inputMintStr}&outputMint=${outputMintStr}&amount=${amount.toString()}&slippageBps=50`
+
+      if (dexFilter) {
+        url += `&onlyDirectRoutes=true&dexes=${dexFilter}`
+      }
+
+      const response = await fetch(url)
+      if (!response.ok) {
+        throw new Error(`Jupiter API error: ${response.statusText}`)
+      }
+
+      data = expectValid(
+        JupiterQuoteResponseSchema,
+        await response.json(),
+        `Jupiter quote ${inputMintStr} -> ${outputMintStr}`,
+      )
     }
 
-    const data = expectValid(
-      JupiterQuoteResponseSchema,
-      await response.json(),
-      `Jupiter quote ${inputMint.toBase58()} -> ${outputMint.toBase58()}`,
-    )
     return BigInt(data.outAmount)
   }
 
@@ -904,17 +968,42 @@ export class SolanaArbitrage {
     outputMint: string,
     amount: bigint,
   ): Promise<SolanaQuote[]> {
-    const JUPITER_API = 'https://quote-api.jup.ag/v6'
     const dexes = ['Raydium', 'Orca', 'Meteora', 'Phoenix', 'Lifinity']
     const quotes: SolanaQuote[] = []
 
     for (const dex of dexes) {
-      const url = `${JUPITER_API}/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amount.toString()}&slippageBps=50&onlyDirectRoutes=true&dexes=${dex}`
+      const queryParams: Record<string, string> = {
+        inputMint,
+        outputMint,
+        amount: amount.toString(),
+        slippageBps: '50',
+        onlyDirectRoutes: 'true',
+        dexes: dex,
+      }
 
-      const response = await fetch(url)
-      if (!response.ok) continue
+      let responseData: unknown
 
-      const parsed = JupiterQuoteResponseSchema.safeParse(await response.json())
+      if (this.useDWS) {
+        // Use DWS for decentralized API access
+        const client = this.dwsClient ?? getDWSClient()
+        const response = await client.request<unknown>({
+          providerId: 'jupiter',
+          endpoint: '/quote',
+          method: 'GET',
+          queryParams,
+        })
+        responseData = response.data
+      } else {
+        // Direct API access
+        const JUPITER_API = 'https://quote-api.jup.ag/v6'
+        const url = `${JUPITER_API}/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amount.toString()}&slippageBps=50&onlyDirectRoutes=true&dexes=${dex}`
+
+        const response = await fetch(url)
+        if (!response.ok) continue
+        responseData = await response.json()
+      }
+
+      const parsed = JupiterQuoteResponseSchema.safeParse(responseData)
       if (!parsed.success) continue
 
       quotes.push({

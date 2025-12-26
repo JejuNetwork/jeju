@@ -3,9 +3,10 @@
  */
 
 import type { NetworkType } from '@jejunetwork/types'
-import { type Address, encodeFunctionData, type Hex } from 'viem'
+import { type Address, encodeFunctionData, type Hex, keccak256, toHex } from 'viem'
 import { z } from 'zod'
 import { getServicesConfig, requireContract } from '../config'
+import { parseIdFromLogs } from '../shared/api'
 import {
   AgentInfoSchema,
   BanInfoSchema,
@@ -186,8 +187,17 @@ export function createIdentityModule(
 
     const txHash = await wallet.sendTransaction({ to: identityAddress, data })
 
-    // Get the agent ID from the transaction receipt (simplified - would parse from logs)
-    const agentId = 1n
+    // Parse agentId from AgentRegistered event
+    // Event signature: AgentRegistered(uint256 indexed agentId, address indexed owner, string name)
+    const agentIdHex = await parseIdFromLogs(
+      wallet.publicClient,
+      txHash,
+      'AgentRegistered(uint256,address,string)',
+      'agentId',
+    )
+    
+    // Convert bytes32 hex to bigint
+    const agentId = BigInt(agentIdHex)
 
     return { agentId, txHash }
   }
@@ -268,7 +278,7 @@ export function createIdentityModule(
     if (score < 1 || score > 5) throw new Error('Score must be between 1 and 5')
 
     const commentHash = comment
-      ? (`0x${Buffer.from(comment).toString('hex').slice(0, 64).padEnd(64, '0')}` as Hex)
+      ? keccak256(toHex(comment))
       : ('0x0000000000000000000000000000000000000000000000000000000000000000' as Hex)
 
     const data = encodeFunctionData({
@@ -283,10 +293,9 @@ export function createIdentityModule(
   async function report(params: ReportParams): Promise<Hex> {
     const typeMap = { spam: 0, scam: 1, abuse: 2, illegal: 3, other: 4 }
 
-    const descHash =
-      `0x${Buffer.from(params.description).toString('hex').slice(0, 64).padEnd(64, '0')}` as Hex
+    const descHash = keccak256(toHex(params.description))
     const evidenceHash = params.evidence
-      ? (`0x${Buffer.from(params.evidence).toString('hex').slice(0, 64).padEnd(64, '0')}` as Hex)
+      ? keccak256(toHex(params.evidence))
       : ('0x0000000000000000000000000000000000000000000000000000000000000000' as Hex)
 
     const data = encodeFunctionData({

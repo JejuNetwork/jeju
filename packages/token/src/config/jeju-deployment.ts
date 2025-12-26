@@ -6,7 +6,11 @@
  * as the home chain, with synthetic copies on other EVM chains and Solana.
  */
 
-import { getRpcUrl } from '@jejunetwork/config'
+import {
+  getJejuMainnetHyperlaneIgp,
+  getJejuMainnetHyperlaneMailbox,
+  getRpcUrl,
+} from '@jejunetwork/config'
 import type { ChainConfig } from '../types'
 import {
   arbitrum,
@@ -121,8 +125,8 @@ export const JEJU_MAINNET_CONFIG = {
     rpcUrl: getRpcUrl('mainnet'),
     blockExplorerUrl: 'https://explorer.jejunetwork.org',
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-    hyperlaneMailbox: process.env.JEJU_MAINNET_HYPERLANE_MAILBOX ?? '',
-    hyperlaneIgp: process.env.JEJU_MAINNET_HYPERLANE_IGP ?? '',
+    hyperlaneMailbox: getJejuMainnetHyperlaneMailbox(),
+    hyperlaneIgp: getJejuMainnetHyperlaneIgp(),
     isHomeChain: true,
     avgBlockTime: 2,
   },

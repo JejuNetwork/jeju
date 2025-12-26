@@ -15,6 +15,7 @@
  * - {appName}-staging: Staging environment
  */
 
+import { getIpfsApiUrlEnv } from '@jejunetwork/config'
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
 
@@ -379,7 +380,7 @@ export class PreviewDeploymentManager {
  * Create IPNS client with default configuration
  */
 export function createIPNSClient(): IPNSClient {
-  const apiUrl = process.env.IPFS_API_URL ?? 'http://localhost:5001'
+  const apiUrl = getIpfsApiUrlEnv()
   return new IPNSClient(apiUrl)
 }
 
@@ -387,6 +388,6 @@ export function createIPNSClient(): IPNSClient {
  * Create preview deployment manager with default configuration
  */
 export function createPreviewManager(): PreviewDeploymentManager {
-  const apiUrl = process.env.IPFS_API_URL ?? 'http://localhost:5001'
+  const apiUrl = getIpfsApiUrlEnv()
   return new PreviewDeploymentManager(apiUrl)
 }

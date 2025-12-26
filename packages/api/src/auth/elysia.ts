@@ -119,11 +119,9 @@ export function authPlugin(config: AuthPluginConfig) {
 
   return new Elysia({ name: 'auth' })
     .derive(authDerive)
-    .onBeforeHandle(async (ctx) => {
-      const { path, request, set } = ctx
-      // AuthContext is added by derive above
+    .onBeforeHandle((ctx) => {
+      const { path, set } = ctx
       const authCtx = ctx as Context & AuthContext
-      const isAuthenticated = authCtx.isAuthenticated
 
       if (skipRoutes.has(path)) {
         return undefined
@@ -133,24 +131,15 @@ export function authPlugin(config: AuthPluginConfig) {
         return undefined
       }
 
-      if (isAuthenticated) {
+      if (authCtx.isAuthenticated) {
         return undefined
       }
 
-      const headers = extractAuthHeaders(
-        Object.fromEntries(request.headers.entries()),
-      )
-      const result = await authenticate(headers, config)
-
-      if (!result.authenticated) {
-        set.status = 401
-        return {
-          error: result.error ?? 'Authentication required',
-          code: AuthErrorCode.MISSING_CREDENTIALS,
-        }
+      set.status = 401
+      return {
+        error: 'Authentication required',
+        code: AuthErrorCode.MISSING_CREDENTIALS,
       }
-
-      return undefined
     })
 }
 
