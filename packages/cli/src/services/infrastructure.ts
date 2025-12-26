@@ -31,14 +31,17 @@ export interface InfrastructureStatus {
 const CQL_PORT = INFRA_PORTS.CQL.get()
 const CQL_DATA_DIR = '.data/cql'
 
+// NOTE: IPFS is now provisioned through DWS on-chain (see dws-local-provisioner.ts)
+// It's listed here for health checking only, not for startup
 const DOCKER_SERVICES = {
   ipfs: {
     port: CORE_PORTS.IPFS_API.DEFAULT,
     healthPath: '/api/v0/id',
     name: 'IPFS',
-    container: 'jeju-ipfs',
+    container: 'jeju-dws-ipfs', // DWS-provisioned container name
     required: true,
     native: false,
+    dwsProvisioned: true, // Don't start via Docker compose
   },
   cache: {
     port: 4115,
@@ -49,6 +52,7 @@ const DOCKER_SERVICES = {
     native: true,
     nativePort: 4115,
     nativePath: 'apps/storage/cache-service',
+    dwsProvisioned: false,
   },
   da: {
     port: 4010,
@@ -59,6 +63,7 @@ const DOCKER_SERVICES = {
     native: true,
     nativePort: 4010,
     nativePath: 'apps/storage/da-server',
+    dwsProvisioned: false,
   },
   farcaster: {
     port: 2281,
@@ -67,6 +72,7 @@ const DOCKER_SERVICES = {
     container: 'jeju-farcaster-hub',
     required: false,
     native: false,
+    dwsProvisioned: false,
   },
 } as const
 
@@ -396,7 +402,7 @@ export class InfrastructureService {
   async startDockerServices(): Promise<boolean> {
     logger.step('Starting services...')
 
-    // Start native services first (cache, DA)
+    // Start native services (cache, DA)
     const cacheStarted = await this.startCacheService()
     const daStarted = await this.startDAServer()
 
@@ -405,77 +411,53 @@ export class InfrastructureService {
       return false
     }
 
-    // Start IPFS via Docker
-    const composePath = join(
-      this.rootDir,
-      'packages/deployment/docker/localnet.compose.yaml',
-    )
-    if (!existsSync(composePath)) {
-      logger.error(
-        'localnet.compose.yaml not found in packages/deployment/docker/',
-      )
-      return false
-    }
+    // Note: IPFS is provisioned through DWS on-chain (dws-local-provisioner.ts)
+    // We just wait for it to be healthy here
 
-    try {
-      await execa(
-        'docker',
-        ['compose', '-f', composePath, 'up', '-d', 'ipfs'],
-        {
-          cwd: this.rootDir,
-          stdio: 'pipe',
-        },
-      )
+    logger.info('  Waiting for services to be healthy...')
+    const requiredServices = Object.entries(DOCKER_SERVICES)
+      .filter(([_, config]) => config.required)
+      .map(([key]) => key)
 
-      logger.info('  Waiting for services to be healthy...')
-      const requiredServices = Object.entries(DOCKER_SERVICES)
-        .filter(([_, config]) => config.required)
-        .map(([key]) => key)
+    for (let attempt = 0; attempt < 60; attempt++) {
+      const services = await this.checkDockerServices()
+      const requiredHealthy = services
+        .filter((s) =>
+          requiredServices.some(
+            (key) =>
+              DOCKER_SERVICES[key as keyof typeof DOCKER_SERVICES].name ===
+              s.name,
+          ),
+        )
+        .every((s) => s.healthy)
 
-      for (let attempt = 0; attempt < 60; attempt++) {
-        const services = await this.checkDockerServices()
-        const requiredHealthy = services
-          .filter((s) =>
-            requiredServices.some(
-              (key) =>
-                DOCKER_SERVICES[key as keyof typeof DOCKER_SERVICES].name ===
-                s.name,
-            ),
-          )
-          .every((s) => s.healthy)
-
-        if (requiredHealthy) {
-          for (const service of services.filter((s) => s.healthy)) {
-            logger.success(`  ${service.name} ready`)
-          }
-          return true
+      if (requiredHealthy) {
+        for (const service of services.filter((s) => s.healthy)) {
+          logger.success(`  ${service.name} ready`)
         }
-
-        await this.sleep(1000)
-
-        if (attempt % 10 === 9) {
-          const unhealthy = services
-            .filter(
-              (s) =>
-                !s.healthy &&
-                requiredServices.some(
-                  (key) =>
-                    DOCKER_SERVICES[key as keyof typeof DOCKER_SERVICES]
-                      .name === s.name,
-                ),
-            )
-            .map((s) => s.name)
-          logger.info(`  Still waiting for: ${unhealthy.join(', ')}`)
-        }
+        return true
       }
 
-      logger.error('Services did not become healthy within 60 seconds')
-      return false
-    } catch (error) {
-      logger.error('Failed to start Docker services')
-      logger.debug(String(error))
-      return false
+      await this.sleep(1000)
+
+      if (attempt % 10 === 9) {
+        const unhealthy = services
+          .filter(
+            (s) =>
+              !s.healthy &&
+              requiredServices.some(
+                (key) =>
+                  DOCKER_SERVICES[key as keyof typeof DOCKER_SERVICES]
+                    .name === s.name,
+              ),
+          )
+          .map((s) => s.name)
+        logger.info(`  Still waiting for: ${unhealthy.join(', ')}`)
+      }
     }
+
+    logger.error('Services did not become healthy within 60 seconds')
+    return false
   }
 
   async stopServices(): Promise<void> {
