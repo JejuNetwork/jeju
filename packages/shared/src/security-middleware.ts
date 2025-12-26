@@ -15,6 +15,7 @@
  *   const app = new Elysia().use(securityMiddleware());
  */
 
+import { isProductionEnv } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 
 export interface SecurityConfig {
@@ -144,7 +145,7 @@ function buildCSPHeader(directives: CSPDirectives): string {
 
 const DEFAULT_CONFIG: SecurityConfig = {
   csp: true,
-  hsts: process.env.NODE_ENV === 'production',
+  hsts: isProductionEnv(),
   hstsMaxAge: 31536000, // 1 year
   frameGuard: true,
   noSniff: true,

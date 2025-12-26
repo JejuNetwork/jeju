@@ -10,7 +10,15 @@
  * - Messages can be sent cross-chain via relay nodes
  */
 
-import { getExternalRpc, getRpcUrl } from '@jejunetwork/config'
+import {
+  getExternalRpc,
+  getJejuBridgeAddressEnv,
+  getJejuKeyRegistryAddress,
+  getRelayNodeUrl,
+  getRpcUrl,
+  getSourceBridgeAddress,
+  getSourceChainRpcUrl,
+} from '@jejunetwork/config'
 import { logger } from '@jejunetwork/shared'
 import type { Address, Hex } from 'viem'
 import { z } from 'zod'
@@ -157,26 +165,23 @@ export class CrossChainBridgeClient {
       jejuRpcUrl: config.jejuRpcUrl ?? getRpcUrl(),
       sourceChainRpcUrl:
         config.sourceChainRpcUrl ??
-        process.env.SOURCE_CHAIN_RPC_URL ??
+        getSourceChainRpcUrl() ??
         (sourceChain === MessagingChain.BASE
           ? getExternalRpc('base')
           : getExternalRpc('optimism')),
       jejuBridgeAddress:
         config.jejuBridgeAddress ??
-        (process.env.JEJU_BRIDGE_ADDRESS as Address | undefined) ??
+        (getJejuBridgeAddressEnv() as Address | undefined) ??
         zeroAddress,
       sourceBridgeAddress:
         config.sourceBridgeAddress ??
-        (process.env.SOURCE_BRIDGE_ADDRESS as Address | undefined) ??
+        (getSourceBridgeAddress() as Address | undefined) ??
         zeroAddress,
       jejuKeyRegistryAddress:
         config.jejuKeyRegistryAddress ??
-        (process.env.JEJU_KEY_REGISTRY_ADDRESS as Address | undefined) ??
+        (getJejuKeyRegistryAddress() as Address | undefined) ??
         zeroAddress,
-      relayNodeUrl:
-        config.relayNodeUrl ??
-        process.env.RELAY_NODE_URL ??
-        'http://localhost:3400',
+      relayNodeUrl: config.relayNodeUrl ?? getRelayNodeUrl(),
       sourceChain,
     }
   }

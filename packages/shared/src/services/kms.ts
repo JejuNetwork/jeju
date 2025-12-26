@@ -4,6 +4,7 @@
  * Provides encryption/decryption via the network KMS with MPC.
  */
 
+import { getKmsEndpoint, isProductionEnv } from '@jejunetwork/config'
 import { expectValid } from '@jejunetwork/types'
 import { type Address, hashMessage, recoverAddress } from 'viem'
 import { z } from 'zod'
@@ -53,7 +54,7 @@ class KMSServiceImpl implements KMSServiceClient {
     const validated = KMSConfigSchema.parse(config)
     this.endpoint = validated.endpoint
     // Determine if we're in production - insecure fallbacks are disabled in production
-    this.isProduction = process.env.NODE_ENV === 'production'
+    this.isProduction = isProductionEnv()
   }
 
   async encrypt(
@@ -235,7 +236,7 @@ export function createKMSService(config: KMSConfig): KMSServiceClient {
 }
 
 export function getKMSServiceFromEnv(): KMSServiceClient {
-  const endpoint = process.env.KMS_ENDPOINT
+  const endpoint = getKmsEndpoint()
   if (!endpoint) {
     throw new Error('KMS_ENDPOINT environment variable is required')
   }

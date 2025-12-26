@@ -4,6 +4,11 @@
  * Provides decentralized file storage via the Storage Marketplace.
  */
 
+import {
+  getIpfsGatewayEnv,
+  getStorageApiEndpoint,
+  isProductionEnv,
+} from '@jejunetwork/config'
 import { expectValid } from '@jejunetwork/types'
 import type { Address } from 'viem'
 import { z } from 'zod'
@@ -160,7 +165,7 @@ class StorageServiceImpl implements StorageService {
 
     // Without schema, return as-is but warn in development
     // Caller is responsible for type safety
-    if (process.env.NODE_ENV !== 'production') {
+    if (!isProductionEnv()) {
       console.warn(
         `[Storage] Retrieving JSON from CID ${cid} without schema validation - consider providing a Zod schema for security`,
       )
@@ -279,8 +284,8 @@ export function createStorageService(config: StorageConfig): StorageService {
 }
 
 export function getStorageServiceFromEnv(): StorageService {
-  const apiEndpoint = process.env.STORAGE_API_ENDPOINT
-  const gatewayEndpoint = process.env.IPFS_GATEWAY
+  const apiEndpoint = getStorageApiEndpoint()
+  const gatewayEndpoint = getIpfsGatewayEnv()
   if (!apiEndpoint) {
     throw new Error('STORAGE_API_ENDPOINT environment variable is required')
   }

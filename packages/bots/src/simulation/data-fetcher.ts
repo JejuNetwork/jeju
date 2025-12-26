@@ -1,8 +1,12 @@
 /**
  * Historical Data Fetcher
+ *
+ * Fetches price data from CoinGecko and other sources.
+ * Supports routing through DWS for decentralized API access.
  */
 
 import { expectValid } from '@jejunetwork/types'
+import { type DWSClient, getDWSClient } from '../dws'
 import { CoinGeckoMarketChartSchema } from '../schemas'
 import type { Token } from '../types'
 import type { PriceDataPoint } from './backtester'
@@ -35,9 +39,26 @@ const COINGECKO_IDS: Record<string, string> = {
   LINK: 'chainlink',
 }
 
+export interface HistoricalDataFetcherConfig {
+  /** Use DWS for API access (decentralized, rate-limit protected) */
+  useDWS?: boolean
+  /** DWS client instance (uses shared instance if not provided) */
+  dwsClient?: DWSClient
+  /** Direct CoinGecko API URL (fallback if DWS not available) */
+  baseUrl?: string
+}
+
 export class HistoricalDataFetcher {
-  private baseUrl = 'https://api.coingecko.com/api/v3'
+  private baseUrl: string
   private cache: Map<string, PriceDataPoint[]> = new Map()
+  private useDWS: boolean
+  private dwsClient: DWSClient | null
+
+  constructor(config: HistoricalDataFetcherConfig = {}) {
+    this.baseUrl = config.baseUrl ?? 'https://api.coingecko.com/api/v3'
+    this.useDWS = config.useDWS ?? false
+    this.dwsClient = config.dwsClient ?? null
+  }
 
   async fetchPrices(
     tokens: Token[],
@@ -90,19 +111,45 @@ export class HistoricalDataFetcher {
     const fromTimestamp = Math.floor(startDate.getTime() / 1000)
     const toTimestamp = Math.floor(endDate.getTime() / 1000)
 
-    const url = `${this.baseUrl}/coins/${geckoId}/market_chart/range?vs_currency=usd&from=${fromTimestamp}&to=${toTimestamp}`
+    let data: { prices: [number, number][] }
 
-    const response = await fetch(url)
+    if (this.useDWS) {
+      // Use DWS for decentralized API access
+      const client = this.dwsClient ?? getDWSClient()
+      const response = await client.request<{
+        prices: [number, number][]
+        market_caps: [number, number][]
+        total_volumes: [number, number][]
+      }>({
+        providerId: 'coingecko',
+        endpoint: `/coins/${geckoId}/market_chart/range`,
+        queryParams: {
+          vs_currency: 'usd',
+          from: fromTimestamp.toString(),
+          to: toTimestamp.toString(),
+        },
+      })
 
-    if (!response.ok) {
-      throw new Error(`CoinGecko API error: ${response.status}`)
+      data = expectValid(
+        CoinGeckoMarketChartSchema,
+        response.data,
+        `CoinGecko price data for ${geckoId}`,
+      )
+    } else {
+      // Direct API access
+      const url = `${this.baseUrl}/coins/${geckoId}/market_chart/range?vs_currency=usd&from=${fromTimestamp}&to=${toTimestamp}`
+      const response = await fetch(url)
+
+      if (!response.ok) {
+        throw new Error(`CoinGecko API error: ${response.status}`)
+      }
+
+      data = expectValid(
+        CoinGeckoMarketChartSchema,
+        await response.json(),
+        `CoinGecko price data for ${geckoId}`,
+      )
     }
-
-    const data = expectValid(
-      CoinGeckoMarketChartSchema,
-      await response.json(),
-      `CoinGecko price data for ${geckoId}`,
-    )
 
     const priceMap = new Map<number, number>()
     for (const [timestamp, price] of data.prices) {

@@ -34,7 +34,7 @@ import * as warmPool from './warm-pool'
 const CONTAINER_REGISTRY_ADDRESS = process.env.CONTAINER_REGISTRY_ADDRESS as
   | Address
   | undefined
-const RPC_URL = process.env.RPC_URL || 'http://localhost:6546'
+const RPC_URL = process.env.RPC_URL || getRpcUrl()
 
 // Container Registry ABI (minimal)
 const CONTAINER_REGISTRY_ABI = [

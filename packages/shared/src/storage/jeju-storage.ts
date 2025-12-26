@@ -7,6 +7,15 @@
  * @module @jejunetwork/shared/storage
  */
 
+import {
+  getCurrentNetwork,
+  getJejuStorageApiKey,
+  getJejuStorageEndpoint,
+  getJejuStorageProviderType,
+  getJejuStorageReplication,
+  isProduction,
+  isTestnet,
+} from '@jejunetwork/config'
 import { promises as fs } from 'node:fs'
 import * as path from 'node:path'
 import { logger } from '../logger'
@@ -297,11 +306,7 @@ let storageClient: JejuStorageClient | null = null
  * Check if Jeju storage is available/configured
  */
 export function isJejuStorageAvailable(): boolean {
-  return !!(
-    process.env.JEJU_STORAGE_ENDPOINT ||
-    process.env.JEJU_NETWORK === 'mainnet' ||
-    process.env.JEJU_NETWORK === 'testnet'
-  )
+  return !!(getJejuStorageEndpoint() || isProduction() || isTestnet())
 }
 
 /**
@@ -314,19 +319,17 @@ export function getJejuStorageClient(): JejuStorageClient {
     )
   }
   if (!storageClient) {
+    const endpoint =
+      getJejuStorageEndpoint() ??
+      (isProduction()
+        ? 'https://storage.jeju.io'
+        : 'https://storage.testnet.jeju.io')
+
     storageClient = new JejuStorageClient({
-      endpoint:
-        process.env.JEJU_STORAGE_ENDPOINT ??
-        (process.env.JEJU_NETWORK === 'mainnet'
-          ? 'https://storage.jeju.io'
-          : 'https://storage.testnet.jeju.io'),
-      apiKey: process.env.JEJU_STORAGE_API_KEY,
-      defaultProvider:
-        (process.env.JEJU_STORAGE_PROVIDER as 'ipfs' | 'arweave') ?? 'ipfs',
-      replicationFactor: parseInt(
-        process.env.JEJU_STORAGE_REPLICATION ?? '3',
-        10,
-      ),
+      endpoint,
+      apiKey: getJejuStorageApiKey(),
+      defaultProvider: getJejuStorageProviderType(),
+      replicationFactor: parseInt(getJejuStorageReplication(), 10),
     })
   }
   return storageClient

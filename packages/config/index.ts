@@ -1553,11 +1553,107 @@ export function getAtroposPort(): number {
 
 // Shared/Infrastructure Configuration
 
+/** Get DWS API URL */
+export function getDwsApiUrl(): string {
+  return process.env.DWS_API_URL ?? 'https://dws.jejunetwork.io'
+}
+
+/** Get DWS API key (secret - env var only) */
+export function getDwsApiKey(): string | undefined {
+  return process.env.DWS_API_KEY
+}
+
+/** Get DWS gateway URL */
+export function getDwsGatewayUrl(): string {
+  return process.env.DWS_GATEWAY_URL ?? 'http://localhost:3000/api/marketplace'
+}
+
 /** Get DWS cache endpoint */
 export function getDwsCacheEndpoint(): string | undefined {
   return (
     process.env.DWS_CACHE_ENDPOINT ?? process.env.COMPUTE_CACHE_ENDPOINT
   )
+}
+
+// Bot/Simulation API Keys
+
+/** Get Alchemy API key (secret - env var only) */
+export function getAlchemyApiKey(): string | undefined {
+  return process.env.ALCHEMY_API_KEY
+}
+
+/** Get Helius API key (secret - env var only) */
+export function getHeliusApiKey(): string | undefined {
+  return process.env.HELIUS_API_KEY
+}
+
+/** Get DefiLlama API key (secret - env var only) */
+export function getDefiLlamaApiKey(): string | undefined {
+  return process.env.DEFILLAMA_API_KEY
+}
+
+/** Get Codex API key (secret - env var only) */
+export function getCodexApiKey(): string | undefined {
+  return process.env.CODEX_API_KEY
+}
+
+/** Get CoinGecko API key (secret - env var only) */
+export function getCoinGeckoApiKey(): string | undefined {
+  return process.env.COINGECKO_API_KEY
+}
+
+/** Get test private key (secret - env var only) */
+export function getTestPrivateKey(): string | undefined {
+  return process.env.TEST_PRIVATE_KEY
+}
+
+// Messaging Configuration
+
+/** Get allowed origins for CORS */
+export function getAllowedOrigins(): string[] {
+  const origins = process.env.ALLOWED_ORIGINS
+  return origins ? origins.split(',') : ['*']
+}
+
+/** Get node ID */
+export function getNodeId(): string | undefined {
+  return process.env.NODE_ID
+}
+
+/** Get IPFS URL */
+export function getIpfsUrlEnv(): string | undefined {
+  return process.env.IPFS_URL
+}
+
+/** Get port */
+export function getPortEnv(): number | undefined {
+  const port = process.env.PORT
+  return port ? parseInt(port, 10) : undefined
+}
+
+/** Get source chain RPC URL */
+export function getSourceChainRpcUrl(): string | undefined {
+  return process.env.SOURCE_CHAIN_RPC_URL
+}
+
+/** Get Jeju bridge address */
+export function getJejuBridgeAddressEnv(): string | undefined {
+  return process.env.JEJU_BRIDGE_ADDRESS
+}
+
+/** Get source bridge address */
+export function getSourceBridgeAddress(): string | undefined {
+  return process.env.SOURCE_BRIDGE_ADDRESS
+}
+
+/** Get Jeju key registry address */
+export function getJejuKeyRegistryAddress(): string | undefined {
+  return process.env.JEJU_KEY_REGISTRY_ADDRESS
+}
+
+/** Get relay node URL */
+export function getRelayNodeUrl(): string {
+  return process.env.RELAY_NODE_URL ?? 'http://localhost:3400'
 }
 
 /** Get cache namespace */
@@ -1801,6 +1897,18 @@ export function getIpfsGatewayUrlEnv(): string | undefined {
 /** Get public API URL */
 export function getPublicApiUrl(): string | undefined {
   return process.env.PUBLIC_API_URL
+}
+
+// Council Configuration
+
+/** Get Jeju Council OAuth3 app address */
+export function getCouncilJejuOauth3App(): string {
+  return process.env.COUNCIL_JEJU_OAUTH3_APP ?? '0x'
+}
+
+/** Get Eliza Council OAuth3 app address */
+export function getCouncilElizaOauth3App(): string {
+  return process.env.COUNCIL_ELIZA_OAUTH3_APP ?? '0x'
 }
 
 // Branding Config

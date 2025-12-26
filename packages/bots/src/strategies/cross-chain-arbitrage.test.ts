@@ -123,6 +123,8 @@ describe('SolanaArbitrage', () => {
             swapMode: 'ExactIn',
             slippageBps: 50,
             routePlan: [],
+            contextSlot: 123456,
+            timeTaken: 100,
           }),
       } as Response
     })
@@ -188,6 +190,8 @@ describe('SolanaArbitrage', () => {
             swapMode: 'ExactIn',
             slippageBps: 50,
             routePlan: [],
+            contextSlot: 123456,
+            timeTaken: 100,
           }),
       } as Response
     })
@@ -220,6 +224,8 @@ describe('SolanaArbitrage', () => {
           swapMode: 'ExactIn',
           slippageBps: 50,
           routePlan: [],
+          contextSlot: 123456,
+          timeTaken: 100,
         }),
     } as Response)
 

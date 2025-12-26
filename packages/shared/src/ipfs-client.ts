@@ -3,6 +3,7 @@
  * Wraps the storage service for common IPFS use cases
  */
 
+import { isProductionEnv } from '@jejunetwork/config'
 import { expectValid } from '@jejunetwork/types'
 import type { z } from 'zod'
 import { IPFSPinCountResponseSchema, IPFSUploadResponseSchema } from './schemas'
@@ -147,7 +148,7 @@ export async function retrieveJSONFromIPFS<T>(
 
   // Without schema, return as-is but log a warning in development
   // Caller is responsible for type safety
-  if (process.env.NODE_ENV !== 'production') {
+  if (!isProductionEnv()) {
     console.warn(
       `[IPFS] Retrieving JSON from CID ${cid} without schema validation - consider providing a Zod schema for security`,
     )

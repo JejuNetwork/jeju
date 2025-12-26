@@ -5,10 +5,12 @@
  * - Health checks and latency tracking
  * - Automatic failover on errors
  * - Load balancing based on latency
+ * - Optional DWS integration for decentralized RPC access
  */
 
 import { type Chain, createPublicClient, http, type PublicClient } from 'viem'
 import { arbitrum, base, bsc, mainnet, optimism } from 'viem/chains'
+import { type DWSClient, getDWSClient } from '../dws'
 
 interface RPCEndpoint {
   url: string
@@ -17,6 +19,7 @@ interface RPCEndpoint {
   lastCheck: number
   failures: number
   isHealthy: boolean
+  isDWS?: boolean
 }
 
 interface ChainRPCConfig {
@@ -24,6 +27,17 @@ interface ChainRPCConfig {
   endpoints: RPCEndpoint[]
   activeIndex: number
   client: PublicClient
+}
+
+export interface RPCManagerConfig {
+  /** Custom RPC endpoints per chain */
+  customEndpoints?: Record<number, string[]>
+  /** Use DWS for RPC access */
+  useDWS?: boolean
+  /** DWS client instance (uses shared instance if not provided) */
+  dwsClient?: DWSClient
+  /** Prefer DWS over custom endpoints when both are available */
+  preferDWS?: boolean
 }
 
 const CHAINS: Record<number, Chain> = {
@@ -65,9 +79,16 @@ const DEFAULT_ENDPOINTS: Record<number, string[]> = {
 export class RPCManager {
   private configs: Map<number, ChainRPCConfig> = new Map()
   private healthCheckInterval: ReturnType<typeof setInterval> | null = null
+  private useDWS: boolean
+  private dwsClient: DWSClient | null
+  private preferDWS: boolean
 
-  constructor(customEndpoints?: Record<number, string[]>) {
-    const endpoints = { ...DEFAULT_ENDPOINTS, ...customEndpoints }
+  constructor(config: RPCManagerConfig = {}) {
+    this.useDWS = config.useDWS ?? false
+    this.dwsClient = config.dwsClient ?? null
+    this.preferDWS = config.preferDWS ?? false
+
+    const endpoints = { ...DEFAULT_ENDPOINTS, ...config.customEndpoints }
 
     for (const [chainIdStr, urls] of Object.entries(endpoints)) {
       const chainId = Number(chainIdStr)
@@ -81,11 +102,36 @@ export class RPCManager {
         lastCheck: 0,
         failures: 0,
         isHealthy: true,
+        isDWS: false,
       }))
 
+      // Add DWS endpoint if enabled
+      if (this.useDWS) {
+        const client = this.dwsClient ?? getDWSClient()
+        const dwsUrl = client.getRpcUrl(chainId)
+
+        const dwsEndpoint: RPCEndpoint = {
+          url: dwsUrl,
+          latencyMs: 500, // Optimistic initial estimate for DWS
+          successRate: 1,
+          lastCheck: 0,
+          failures: 0,
+          isHealthy: true,
+          isDWS: true,
+        }
+
+        // Add DWS endpoint at the beginning or end based on preference
+        if (this.preferDWS) {
+          rpcEndpoints.unshift(dwsEndpoint)
+        } else {
+          rpcEndpoints.push(dwsEndpoint)
+        }
+      }
+
+      const activeUrl = rpcEndpoints[0].url
       const client = createPublicClient({
         chain,
-        transport: http(rpcEndpoints[0].url),
+        transport: http(activeUrl),
       })
 
       this.configs.set(chainId, {
@@ -241,8 +287,9 @@ export class RPCManager {
   }
 }
 
-export function createRPCManager(
-  endpoints?: Record<number, string[]>,
-): RPCManager {
-  return new RPCManager(endpoints)
+/**
+ * Create an RPC manager with optional DWS integration
+ */
+export function createRPCManager(config?: RPCManagerConfig): RPCManager {
+  return new RPCManager(config)
 }

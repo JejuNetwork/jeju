@@ -2,6 +2,10 @@
  * IPFS Storage Integration for OAuth3
  */
 
+import {
+  getIpfsApiEndpointEnv,
+  getIpfsGatewayEnv,
+} from '@jejunetwork/config'
 import type { StorageTier } from '@jejunetwork/shared'
 import { type Address, type Hex, toBytes, toHex } from 'viem'
 import type {
@@ -70,13 +74,9 @@ export class OAuth3StorageService {
 
   constructor(config: StorageConfig = {}) {
     this.ipfsApi =
-      config.ipfsApiEndpoint ||
-      process.env.IPFS_API_ENDPOINT ||
-      DEFAULT_IPFS_API
+      config.ipfsApiEndpoint || getIpfsApiEndpointEnv() || DEFAULT_IPFS_API
     this.ipfsGateway =
-      config.ipfsGatewayEndpoint ||
-      process.env.IPFS_GATEWAY ||
-      DEFAULT_IPFS_GATEWAY
+      config.ipfsGatewayEndpoint || getIpfsGatewayEnv() || DEFAULT_IPFS_GATEWAY
     this.encryptionKey = config.encryptionKey
       ? toBytes(config.encryptionKey)
       : null
