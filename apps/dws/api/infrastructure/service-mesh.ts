@@ -784,7 +784,7 @@ const RegisterServiceBody = t.Object({
 })
 
 export function createServiceMeshRouter(mesh: ServiceMesh) {
-  return new Elysia({ prefix: '' })
+  return new Elysia({ prefix: '/mesh' })
     .get('/health', () => ({ status: 'healthy', services: services.size }))
     .get('/ca', () => ({ cert: mesh.getCACertificate() }))
     .post(

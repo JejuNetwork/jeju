@@ -71,15 +71,15 @@ import { isValidAddress, ZERO_ADDRESS, CHAIN_IDS } from '@jejunetwork/contracts'
 
 | Export | Description |
 |--------|-------------|
-| `JejuTokenAbi` | JEJU native token with ban enforcement |
-| `BanManagerAbi` | Moderation ban management |
-| `ModerationMarketplaceAbi` | Stake-based moderation |
-| `ERC20Abi` | Standard ERC20 token |
-| `IdentityRegistryAbi` | ERC-8004 agent registry |
-| `BazaarAbi` | NFT marketplace |
-| `InputSettlerAbi` | OIF intent creation |
-| `OutputSettlerAbi` | OIF solver fills |
-| `MultiTokenPaymasterAbi` | Gas payment in multiple tokens |
+| `networkTokenAbi` | JEJU native token with ban enforcement |
+| `banManagerAbi` | Moderation ban management |
+| `moderationMarketplaceAbi` | Stake-based moderation |
+| `erc20Abi` | Standard ERC20 token |
+| `identityRegistryAbi` | ERC-8004 agent registry |
+| `bazaarAbi` | NFT marketplace |
+| `inputSettlerAbi` | OIF intent creation |
+| `outputSettlerAbi` | OIF solver fills |
+| `multiTokenPaymasterAbi` | Gas payment in multiple tokens |
 
 ## Deployment
 

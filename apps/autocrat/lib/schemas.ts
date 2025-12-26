@@ -13,9 +13,6 @@ import {
   HexSchema,
 } from '@jejunetwork/types'
 
-// Re-export validation utilities from @jejunetwork/types
-export { expectValid }
-
 import { z } from 'zod'
 import {
   BountySeverity,

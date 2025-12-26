@@ -358,9 +358,11 @@ export class StaticTrajectoryStorage implements TrajectoryStorage {
     )
 
     // Determine primary archetype (most common, or null if mixed)
-    const archetypeArray = Array.from(archetypes)
+    const archetypeArray = Array.from(archetypes).filter(
+      (a): a is string => a !== null && a !== undefined,
+    )
     const primaryArchetype =
-      archetypeArray.length === 1 ? archetypeArray[0] : null
+      archetypeArray.length === 1 ? (archetypeArray[0] ?? null) : null
 
     const batchRef: TrajectoryBatchReference = {
       batchId,
@@ -397,7 +399,8 @@ export class StaticTrajectoryStorage implements TrajectoryStorage {
     filename: string,
   ): Promise<{ cid: string; provider: 'ipfs' | 'arweave' }> {
     const formData = new FormData()
-    formData.append('file', new Blob([data]), filename)
+    // Convert Buffer to Uint8Array for Blob compatibility
+    formData.append('file', new Blob([new Uint8Array(data)]), filename)
     formData.append(
       'provider',
       this.config.usePermanentStorage ? 'arweave' : 'ipfs',
@@ -501,10 +504,10 @@ export async function downloadTrajectoryBatch(
       }
     } else if (record._type === 'trajectory') {
       const { _type: _, ...rest } = record
-      trajectories.push(rest as TrajectoryJSONLRecord)
+      trajectories.push(rest as unknown as TrajectoryJSONLRecord)
     } else if (record._type === 'llm_call') {
       const { _type: _, ...rest } = record
-      llmCalls.push(rest as LLMCallJSONLRecord)
+      llmCalls.push(rest as unknown as LLMCallJSONLRecord)
     }
   }
 

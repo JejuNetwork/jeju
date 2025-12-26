@@ -13,7 +13,12 @@ import { bytesToHex } from '@noble/hashes/utils'
 import { Elysia } from 'elysia'
 import type { Address } from 'viem'
 
-const log = createLogger('relay-server')
+<<<<<<< HEAD
+=======
+
+const _log = createLogger('relay-server')
+
+>>>>>>> 2704e741a281cde8e0d87a38cb2417ed24b61d02
 
 import {
   IPFSAddResponseSchema,
@@ -26,6 +31,12 @@ import {
   CQLMessageStorage,
   type StoredMessage as CQLStoredMessage,
 } from '../storage/cql-storage'
+
+<<<<<<< HEAD
+
+const log = createLogger('relay-server')
+=======
+>>>>>>> 2704e741a281cde8e0d87a38cb2417ed24b61d02
 
 interface StoredMessage {
   envelope: MessageEnvelope
