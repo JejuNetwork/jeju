@@ -144,7 +144,10 @@ function ConnectorForm({ connector, onChange, onRemove }: ConnectorFormProps) {
               </label>
               <input
                 type="text"
-                value={(connector.config as FarcasterConnectorConfig).channelUrl ?? ''}
+                value={
+                  (connector.config as FarcasterConnectorConfig).channelUrl ??
+                  ''
+                }
                 onChange={(e) =>
                   onChange({
                     ...connector,
@@ -179,7 +182,8 @@ function ConnectorForm({ connector, onChange, onRemove }: ConnectorFormProps) {
               <input
                 type="checkbox"
                 checked={
-                  (connector.config as FarcasterConnectorConfig).autoPost ?? false
+                  (connector.config as FarcasterConnectorConfig).autoPost ??
+                  false
                 }
                 onChange={(e) =>
                   onChange({
@@ -195,8 +199,8 @@ function ConnectorForm({ connector, onChange, onRemove }: ConnectorFormProps) {
               <input
                 type="checkbox"
                 checked={
-                  (connector.config as FarcasterConnectorConfig).monitorMentions ??
-                  false
+                  (connector.config as FarcasterConnectorConfig)
+                    .monitorMentions ?? false
                 }
                 onChange={(e) =>
                   onChange({
@@ -215,8 +219,8 @@ function ConnectorForm({ connector, onChange, onRemove }: ConnectorFormProps) {
               <input
                 type="checkbox"
                 checked={
-                  (connector.config as FarcasterConnectorConfig).postDecisions ??
-                  false
+                  (connector.config as FarcasterConnectorConfig)
+                    .postDecisions ?? false
                 }
                 onChange={(e) =>
                   onChange({
@@ -415,7 +419,9 @@ export default function AgentEditPage() {
         navigate(`/dao/${daoId}?tab=agents`)
       },
       onError: (err) => {
-        setSaveError(err instanceof Error ? err.message : 'Failed to save agent')
+        setSaveError(
+          err instanceof Error ? err.message : 'Failed to save agent',
+        )
       },
     })
   }
@@ -538,7 +544,9 @@ export default function AgentEditPage() {
             Failed to load agent
           </h2>
           <p className="text-slate-500 mb-4">
-            {error instanceof Error ? error.message : 'An unknown error occurred'}
+            {error instanceof Error
+              ? error.message
+              : 'An unknown error occurred'}
           </p>
           <div className="flex gap-3 justify-center">
             <button
@@ -608,7 +616,9 @@ export default function AgentEditPage() {
                   )}
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold text-white">{agent.persona.name}</h1>
+                  <h1 className="text-xl font-bold text-white">
+                    {agent.persona.name}
+                  </h1>
                   <p className="text-sm text-slate-500">
                     {isCEO ? 'CEO' : BOARD_ROLE_PRESETS[agent.role].name}
                   </p>
@@ -648,7 +658,11 @@ export default function AgentEditPage() {
       {/* Content */}
       <div className="container mx-auto px-4 py-8 max-w-3xl space-y-6">
         {/* Persona Section */}
-        <Section title="Persona" description="Identity and personality" icon={Brain}>
+        <Section
+          title="Persona"
+          description="Identity and personality"
+          icon={Brain}
+        >
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
@@ -793,7 +807,11 @@ export default function AgentEditPage() {
         </Section>
 
         {/* AI Model Section */}
-        <Section title="AI Model" description="Model and decision settings" icon={Bot}>
+        <Section
+          title="AI Model"
+          description="Model and decision settings"
+          icon={Bot}
+        >
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
@@ -881,7 +899,11 @@ export default function AgentEditPage() {
         </Section>
 
         {/* Values Section */}
-        <Section title="Values & Alignment" description="Core values and principles" icon={Heart}>
+        <Section
+          title="Values & Alignment"
+          description="Core values and principles"
+          icon={Heart}
+        >
           <div className="space-y-2">
             {values.map((value, index) => (
               <div key={index} className="flex gap-2">
@@ -915,7 +937,11 @@ export default function AgentEditPage() {
         </Section>
 
         {/* Connectors Section */}
-        <Section title="Connectors" description="External integrations" icon={Zap}>
+        <Section
+          title="Connectors"
+          description="External integrations"
+          icon={Zap}
+        >
           <div className="space-y-4">
             {connectors.length > 0 && (
               <div className="space-y-3">
@@ -1062,10 +1088,12 @@ export default function AgentEditPage() {
             <div className="flex items-start gap-3">
               <AlertTriangle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
               <div>
-                <h4 className="font-medium text-red-300">Remove Board Member</h4>
+                <h4 className="font-medium text-red-300">
+                  Remove Board Member
+                </h4>
                 <p className="text-sm text-red-200/70 mt-1">
-                  Removing a board member will delete all their voting history and
-                  configuration. This action requires CEO approval.
+                  Removing a board member will delete all their voting history
+                  and configuration. This action requires CEO approval.
                 </p>
                 <button
                   type="button"
@@ -1078,7 +1106,6 @@ export default function AgentEditPage() {
           </div>
         )}
       </div>
-
     </div>
   )
 }

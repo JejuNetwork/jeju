@@ -11,6 +11,9 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
+
+// Skip when infrastructure isn't ready - these tests start their own server
+const SKIP = process.env.INFRA_READY !== 'true' || process.env.SKIP_INTEGRATION === 'true'
 import type { Address } from 'viem'
 
 // Test configuration
@@ -40,41 +43,42 @@ async function waitForServer(maxWaitMs = 30000): Promise<boolean> {
   return false
 }
 
-// Server Lifecycle
+// Skip all tests if infrastructure not ready
+describe.skipIf(SKIP)('Inference E2E Tests', () => {
+  // Server Lifecycle
+  beforeAll(async () => {
+    // Start the DWS server
+    console.log('[E2E] Starting DWS server on port', DWS_PORT)
 
-beforeAll(async () => {
-  // Start the DWS server
-  console.log('[E2E] Starting DWS server on port', DWS_PORT)
+    serverProcess = Bun.spawn(['bun', 'run', 'api/server/index.ts'], {
+      cwd: new URL('../../', import.meta.url).pathname,
+      env: {
+        ...process.env,
+        PORT: String(DWS_PORT),
+        NODE_ENV: 'test',
+      },
+      stdout: 'inherit',
+      stderr: 'inherit',
+    })
 
-  serverProcess = Bun.spawn(['bun', 'run', 'api/server/index.ts'], {
-    cwd: new URL('../../', import.meta.url).pathname,
-    env: {
-      ...process.env,
-      PORT: String(DWS_PORT),
-      NODE_ENV: 'test',
-    },
-    stdout: 'inherit',
-    stderr: 'inherit',
+    serverReady = await waitForServer()
+    if (!serverReady) {
+      console.error('[E2E] Server failed to start')
+    } else {
+      console.log('[E2E] Server ready')
+    }
   })
 
-  serverReady = await waitForServer()
-  if (!serverReady) {
-    console.error('[E2E] Server failed to start')
-  } else {
-    console.log('[E2E] Server ready')
-  }
-})
+  afterAll(() => {
+    if (serverProcess) {
+      console.log('[E2E] Stopping server')
+      serverProcess.kill()
+    }
+  })
 
-afterAll(() => {
-  if (serverProcess) {
-    console.log('[E2E] Stopping server')
-    serverProcess.kill()
-  }
-})
+  // Health & Discovery Tests
 
-// Health & Discovery Tests
-
-describe('Server Health', () => {
+  describe('Server Health', () => {
   test('should respond to health check', async () => {
     if (!serverReady) {
       console.log('[E2E] Skipping - server not ready')
@@ -482,3 +486,4 @@ describe('E2E Test Summary', () => {
     console.log('========================\n')
   })
 })
+}) // End of Inference E2E Tests

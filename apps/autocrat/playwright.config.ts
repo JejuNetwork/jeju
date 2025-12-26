@@ -8,8 +8,7 @@
 import { CORE_PORTS } from '@jejunetwork/config'
 import { defineConfig, devices } from '@playwright/test'
 
-const AUTOCRAT_PORT = CORE_PORTS.AUTOCRAT_WEB.get()
-const BASE_URL = `http://localhost:${AUTOCRAT_PORT}`
+const BASE_URL = `http://localhost:${CORE_PORTS.AUTOCRAT_WEB.get()}`
 
 export default defineConfig({
   testDir: './tests/e2e',

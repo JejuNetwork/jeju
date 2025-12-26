@@ -48,11 +48,11 @@ function getAutocratMCP(): string {
 }
 
 function getCEOA2A(): string {
-  return `${getCoreAppUrl('AUTOCRAT_CEO')}/a2a`
+  return `${getCoreAppUrl('AUTOCRAT_AGENT')}/a2a`
 }
 
 function getCEOMCP(): string {
-  return `${getCoreAppUrl('AUTOCRAT_CEO')}/mcp`
+  return `${getCoreAppUrl('AUTOCRAT_AGENT')}/mcp`
 }
 
 // Service registry for A2A discovery - resolved dynamically

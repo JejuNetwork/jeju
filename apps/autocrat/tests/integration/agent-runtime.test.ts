@@ -34,7 +34,9 @@ beforeAll(async () => {
       console.log('✅ DWS compute verified')
     }
   } catch (err) {
-    console.log('⚠️  DWS health OK but inference failed - some tests will be skipped')
+    console.log(
+      '⚠️  DWS health OK but inference failed - some tests will be skipped',
+    )
     console.log(`   Error: ${err instanceof Error ? err.message : 'Unknown'}`)
     dwsComputeWorking = false
   }

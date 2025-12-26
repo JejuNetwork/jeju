@@ -334,9 +334,7 @@ describe('Single DAO Fetching', () => {
       }),
     )
 
-    const response = await fetch(
-      `${API_BASE}/dao/${encodeURIComponent(daoId)}`,
-    )
+    const response = await fetch(`${API_BASE}/dao/${encodeURIComponent(daoId)}`)
     const data = await response.json()
 
     expect(fetchMock).toHaveBeenCalledWith(`${API_BASE}/dao/jeju-network`)
@@ -421,8 +419,7 @@ describe('DAO Creation', () => {
     fetchMock.mockImplementation(() =>
       Promise.resolve({
         ok: true,
-        json: () =>
-          Promise.resolve({ ...MOCK_DAO_DETAIL, daoId: 'new-dao' }),
+        json: () => Promise.resolve({ ...MOCK_DAO_DETAIL, daoId: 'new-dao' }),
       }),
     )
 
@@ -494,8 +491,7 @@ describe('DAO Update', () => {
     fetchMock.mockImplementation(() =>
       Promise.resolve({
         ok: true,
-        json: () =>
-          Promise.resolve({ ...MOCK_DAO_DETAIL, ...updates }),
+        json: () => Promise.resolve({ ...MOCK_DAO_DETAIL, ...updates }),
       }),
     )
 
@@ -604,14 +600,11 @@ describe('Agent Operations', () => {
       }),
     )
 
-    const response = await fetch(
-      `${API_BASE}/dao/jeju-network/agents/ceo-1`,
-      {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates),
-      },
-    )
+    const response = await fetch(`${API_BASE}/dao/jeju-network/agents/ceo-1`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    })
 
     expect(response.ok).toBe(true)
     const data = await response.json()
@@ -641,17 +634,13 @@ describe('Agent Operations', () => {
       Promise.resolve({
         ok: false,
         status: 400,
-        json: () =>
-          Promise.resolve({ message: 'Cannot delete CEO agent' }),
+        json: () => Promise.resolve({ message: 'Cannot delete CEO agent' }),
       }),
     )
 
-    const response = await fetch(
-      `${API_BASE}/dao/jeju-network/agents/ceo-1`,
-      {
-        method: 'DELETE',
-      },
-    )
+    const response = await fetch(`${API_BASE}/dao/jeju-network/agents/ceo-1`, {
+      method: 'DELETE',
+    })
 
     expect(response.ok).toBe(false)
     const error = await response.json()
@@ -758,8 +747,7 @@ describe('Proposal Operations', () => {
       Promise.resolve({
         ok: false,
         status: 400,
-        json: () =>
-          Promise.resolve({ message: 'Title is required' }),
+        json: () => Promise.resolve({ message: 'Title is required' }),
       }),
     )
 
@@ -838,8 +826,7 @@ describe('Edge Cases and Boundary Conditions', () => {
       Promise.resolve({
         ok: false,
         status: 400,
-        json: () =>
-          Promise.resolve({ message: 'Name exceeds maximum length' }),
+        json: () => Promise.resolve({ message: 'Name exceeds maximum length' }),
       }),
     )
 
@@ -858,8 +845,7 @@ describe('Edge Cases and Boundary Conditions', () => {
     fetchMock.mockImplementation(() =>
       Promise.resolve({
         ok: true,
-        json: () =>
-          Promise.resolve({ ...MOCK_DAO_DETAIL, name: unicodeName }),
+        json: () => Promise.resolve({ ...MOCK_DAO_DETAIL, name: unicodeName }),
       }),
     )
 

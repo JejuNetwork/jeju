@@ -16,9 +16,7 @@ interface NavLink {
   icon: typeof Building2
 }
 
-const NAV_LINKS: NavLink[] = [
-  { to: '/', label: 'DAOs', icon: Building2 },
-]
+const NAV_LINKS: NavLink[] = [{ to: '/', label: 'DAOs', icon: Building2 }]
 
 export function Header() {
   const location = useLocation()

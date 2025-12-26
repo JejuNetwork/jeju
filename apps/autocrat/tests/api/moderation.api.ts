@@ -2,9 +2,10 @@
  * Moderation Tests - Web-of-Trust moderation system
  */
 
+import { CORE_PORTS } from '@jejunetwork/config'
 import { expect, test } from '@playwright/test'
 
-const AUTOCRAT_URL = 'http://localhost:8010'
+const AUTOCRAT_URL = `http://localhost:${CORE_PORTS.AUTOCRAT_API.get()}`
 
 test.describe('Moderation API', () => {
   const testProposalId = `0xtest${Date.now().toString(16)}`

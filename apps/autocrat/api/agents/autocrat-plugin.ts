@@ -121,13 +121,13 @@ const discoverServicesAction: Action = {
       { name: 'Autocrat A2A', url: getA2AEndpoint(), type: 'a2a' },
       {
         name: 'CEO A2A',
-        url: `${getCoreAppUrl('AUTOCRAT_CEO')}/a2a`,
+        url: `${getCoreAppUrl('AUTOCRAT_AGENT')}/a2a`,
         type: 'a2a',
       },
       { name: 'Autocrat MCP', url: getMCPEndpoint(), type: 'mcp' },
       {
         name: 'CEO MCP',
-        url: `${getCoreAppUrl('AUTOCRAT_CEO')}/mcp`,
+        url: `${getCoreAppUrl('AUTOCRAT_AGENT')}/mcp`,
         type: 'mcp',
       },
     ]

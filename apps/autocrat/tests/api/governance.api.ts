@@ -2,9 +2,10 @@
  * Governance Tests - ERC8004 agent registry and futarchy
  */
 
+import { CORE_PORTS } from '@jejunetwork/config'
 import { expect, test } from '@playwright/test'
 
-const AUTOCRAT_URL = 'http://localhost:8010'
+const AUTOCRAT_URL = `http://localhost:${CORE_PORTS.AUTOCRAT_API.get()}`
 
 test.describe('ERC-8004 Agent Registry API', () => {
   test('get total agents count', async ({ request }) => {
@@ -25,8 +26,8 @@ test.describe('ERC-8004 Agent Registry API', () => {
         data: {
           name: 'Test Council Agent',
           role: 'TREASURY',
-          a2aEndpoint: 'http://localhost:8010/a2a',
-          mcpEndpoint: 'http://localhost:8010/mcp',
+          a2aEndpoint: `${AUTOCRAT_URL}/a2a`,
+          mcpEndpoint: `${AUTOCRAT_URL}/mcp`,
         },
       },
     )

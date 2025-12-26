@@ -747,13 +747,15 @@ export class AutocratBlockchain {
     return hash
   }
 
-  async getTreasuryBalances(treasuryAddress: string): Promise<Array<{
-    token: string
-    symbol: string
-    balance: string
-    usdValue: string
-    change24h: number
-  }>> {
+  async getTreasuryBalances(treasuryAddress: string): Promise<
+    Array<{
+      token: string
+      symbol: string
+      balance: string
+      usdValue: string
+      change24h: number
+    }>
+  > {
     const balance = await this.client.getBalance({
       address: treasuryAddress as `0x${string}`,
     })
@@ -761,25 +763,32 @@ export class AutocratBlockchain {
     // Fetch ETH price from config or use reasonable default
     const ethPrice = this.config.ethPriceUsd ?? 3500
 
-    return [{
-      token: 'Ethereum',
-      symbol: 'ETH',
-      balance: formatEther(balance),
-      usdValue: (Number(formatEther(balance)) * ethPrice).toFixed(2),
-      change24h: 0,
-    }]
+    return [
+      {
+        token: 'Ethereum',
+        symbol: 'ETH',
+        balance: formatEther(balance),
+        usdValue: (Number(formatEther(balance)) * ethPrice).toFixed(2),
+        change24h: 0,
+      },
+    ]
   }
 
-  async getTreasuryTransactions(treasuryAddress: string, limit: number): Promise<Array<{
-    id: string
-    type: 'inflow' | 'outflow'
-    description: string
-    amount: string
-    token: string
-    timestamp: number
-    txHash: string
-    proposalId?: string
-  }>> {
+  async getTreasuryTransactions(
+    treasuryAddress: string,
+    limit: number,
+  ): Promise<
+    Array<{
+      id: string
+      type: 'inflow' | 'outflow'
+      description: string
+      amount: string
+      token: string
+      timestamp: number
+      txHash: string
+      proposalId?: string
+    }>
+  > {
     // Query indexer API for treasury transactions
     const indexerUrl = this.config.indexerUrl
     if (!indexerUrl) {
@@ -796,15 +805,29 @@ export class AutocratBlockchain {
     const data = await response.json()
     const txs = data.transactions ?? []
 
-    return txs.map((tx: { hash: string; from: string; to: string; value: string; timestamp: number }) => ({
-      id: tx.hash,
-      type: tx.to?.toLowerCase() === treasuryAddress.toLowerCase() ? 'inflow' : 'outflow',
-      description: tx.to?.toLowerCase() === treasuryAddress.toLowerCase() ? 'Deposit' : 'Withdrawal',
-      amount: formatEther(BigInt(tx.value || '0')),
-      token: 'ETH',
-      timestamp: tx.timestamp * 1000,
-      txHash: tx.hash,
-    }))
+    return txs.map(
+      (tx: {
+        hash: string
+        from: string
+        to: string
+        value: string
+        timestamp: number
+      }) => ({
+        id: tx.hash,
+        type:
+          tx.to?.toLowerCase() === treasuryAddress.toLowerCase()
+            ? 'inflow'
+            : 'outflow',
+        description:
+          tx.to?.toLowerCase() === treasuryAddress.toLowerCase()
+            ? 'Deposit'
+            : 'Withdrawal',
+        amount: formatEther(BigInt(tx.value || '0')),
+        token: 'ETH',
+        timestamp: tx.timestamp * 1000,
+        txHash: tx.hash,
+      }),
+    )
   }
 }
 

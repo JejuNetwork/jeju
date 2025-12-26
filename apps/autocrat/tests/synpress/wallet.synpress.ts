@@ -8,6 +8,7 @@
  * - Sign messages (SIWE)
  */
 
+import { CORE_PORTS } from '@jejunetwork/config'
 import {
   basicSetup,
   connectAndVerify,
@@ -19,7 +20,7 @@ import {
 import { expect } from '@playwright/test'
 import { MetaMask } from '@synthetixio/synpress/playwright'
 
-const AUTOCRAT_URL = process.env.BASE_URL || 'http://localhost:3010'
+const AUTOCRAT_URL = `http://localhost:${CORE_PORTS.AUTOCRAT_WEB.get()}`
 
 test.describe('Wallet Connection', () => {
   test('can connect wallet from header', async ({

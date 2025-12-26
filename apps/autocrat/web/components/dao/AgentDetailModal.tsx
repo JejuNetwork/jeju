@@ -23,11 +23,7 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import type {
-  AgentConnector,
-  ConnectorType,
-  DAOAgent,
-} from '../../types/dao'
+import type { AgentConnector, ConnectorType, DAOAgent } from '../../types/dao'
 
 interface AgentDetailModalProps {
   agent: DAOAgent
@@ -85,17 +81,24 @@ function ConnectorCard({ connector }: { connector: AgentConnector }) {
       {connector.type === 'farcaster' && 'channelUrl' in connector.config && (
         <div className="space-y-1 text-xs text-slate-400">
           <p>
-            Channel: <span className="text-slate-300">{connector.config.channelUrl}</span>
+            Channel:{' '}
+            <span className="text-slate-300">
+              {connector.config.channelUrl}
+            </span>
           </p>
           <p>
             FID: <span className="text-slate-300">{connector.config.fid}</span>
           </p>
           <div className="flex flex-wrap gap-2 mt-2">
             {connector.config.autoPost && (
-              <span className="px-2 py-0.5 bg-slate-700 rounded">Auto-post</span>
+              <span className="px-2 py-0.5 bg-slate-700 rounded">
+                Auto-post
+              </span>
             )}
             {connector.config.monitorMentions && (
-              <span className="px-2 py-0.5 bg-slate-700 rounded">Monitor mentions</span>
+              <span className="px-2 py-0.5 bg-slate-700 rounded">
+                Monitor mentions
+              </span>
             )}
           </div>
         </div>
@@ -104,11 +107,14 @@ function ConnectorCard({ connector }: { connector: AgentConnector }) {
       {connector.type === 'github' && 'repoUrl' in connector.config && (
         <div className="space-y-1 text-xs text-slate-400">
           <p>
-            Repo: <span className="text-slate-300">{connector.config.repoUrl}</span>
+            Repo:{' '}
+            <span className="text-slate-300">{connector.config.repoUrl}</span>
           </p>
           <div className="flex flex-wrap gap-2 mt-2">
             {connector.config.autoReviewPRs && (
-              <span className="px-2 py-0.5 bg-slate-700 rounded">Auto-review PRs</span>
+              <span className="px-2 py-0.5 bg-slate-700 rounded">
+                Auto-review PRs
+              </span>
             )}
             {connector.config.webhookEnabled && (
               <span className="px-2 py-0.5 bg-slate-700 rounded">Webhook</span>
@@ -124,7 +130,11 @@ function Section({
   title,
   icon: Icon,
   children,
-}: { title: string; icon: typeof Brain; children: React.ReactNode }) {
+}: {
+  title: string
+  icon: typeof Brain
+  children: React.ReactNode
+}) {
   return (
     <div className="mb-6">
       <h3 className="flex items-center gap-2 text-sm font-medium text-slate-400 uppercase tracking-wider mb-3">
@@ -280,8 +290,12 @@ export function AgentDetailModal({ agent, onClose }: AgentDetailModalProps) {
             <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h4 className="font-medium text-slate-200">{agent.modelName}</h4>
-                  <p className="text-sm text-slate-500">{agent.modelProvider}</p>
+                  <h4 className="font-medium text-slate-200">
+                    {agent.modelName}
+                  </h4>
+                  <p className="text-sm text-slate-500">
+                    {agent.modelProvider}
+                  </p>
                 </div>
                 <span className="px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded-lg text-sm">
                   Active
@@ -333,7 +347,9 @@ export function AgentDetailModal({ agent, onClose }: AgentDetailModalProps) {
             <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4 space-y-4">
               {agent.context.customInstructions && (
                 <div>
-                  <p className="text-xs text-slate-500 mb-1">Custom Instructions</p>
+                  <p className="text-xs text-slate-500 mb-1">
+                    Custom Instructions
+                  </p>
                   <p className="text-sm text-slate-300 bg-slate-700/50 rounded-lg p-3">
                     {agent.context.customInstructions}
                   </p>
@@ -341,7 +357,9 @@ export function AgentDetailModal({ agent, onClose }: AgentDetailModalProps) {
               )}
               {agent.context.linkedRepos.length > 0 && (
                 <div>
-                  <p className="text-xs text-slate-500 mb-2">Linked Repositories</p>
+                  <p className="text-xs text-slate-500 mb-2">
+                    Linked Repositories
+                  </p>
                   <div className="flex flex-wrap gap-2">
                     {agent.context.linkedRepos.map((repo) => (
                       <a

@@ -13,9 +13,10 @@
  * - Edge cases and boundary conditions
  */
 
+import { CORE_PORTS } from '@jejunetwork/config'
 import { expect, test } from '@playwright/test'
 
-const AUTOCRAT_URL = process.env.BASE_URL || 'http://localhost:8010'
+const AUTOCRAT_URL = `http://localhost:${CORE_PORTS.AUTOCRAT_API.get()}`
 const API_BASE = `${AUTOCRAT_URL}/api/v1`
 
 // Test data
@@ -121,9 +122,7 @@ test.describe('DAO List Endpoints', () => {
   })
 
   test('GET /dao/list supports pagination', async ({ request }) => {
-    const response = await request.get(
-      `${API_BASE}/dao/list?limit=5&offset=0`,
-    )
+    const response = await request.get(`${API_BASE}/dao/list?limit=5&offset=0`)
 
     expect(response.ok()).toBeTruthy()
     const data = await response.json()
@@ -132,14 +131,12 @@ test.describe('DAO List Endpoints', () => {
   })
 
   test('GET /dao/list supports status filter', async ({ request }) => {
-    const response = await request.get(
-      `${API_BASE}/dao/list?status=active`,
-    )
+    const response = await request.get(`${API_BASE}/dao/list?status=active`)
 
     expect(response.ok()).toBeTruthy()
     const data = await response.json()
     expect(Array.isArray(data.daos)).toBe(true)
-    
+
     // All returned DAOs should be active
     for (const dao of data.daos) {
       expect(dao.status).toBe('active')
@@ -147,21 +144,17 @@ test.describe('DAO List Endpoints', () => {
   })
 
   test('GET /dao/list supports search filter', async ({ request }) => {
-    const response = await request.get(
-      `${API_BASE}/dao/list?search=network`,
-    )
+    const response = await request.get(`${API_BASE}/dao/list?search=network`)
 
     expect(response.ok()).toBeTruthy()
     const data = await response.json()
     expect(Array.isArray(data.daos)).toBe(true)
-    
+
     // Results should contain search term in name, displayName, or description
   })
 
   test('GET /dao/list handles invalid status', async ({ request }) => {
-    const response = await request.get(
-      `${API_BASE}/dao/list?status=invalid`,
-    )
+    const response = await request.get(`${API_BASE}/dao/list?status=invalid`)
 
     // Should either return empty array or error
     const data = await response.json()
@@ -193,7 +186,7 @@ test.describe('DAO List Endpoints', () => {
     expect(response.ok()).toBeTruthy()
     const data = await response.json()
     expect(Array.isArray(data.daos)).toBe(true)
-    
+
     for (const dao of data.daos) {
       expect(dao.status).toBe('active')
     }
@@ -220,9 +213,7 @@ test.describe('Single DAO Endpoints', () => {
   })
 
   test('GET /dao/:id returns 404 for non-existent DAO', async ({ request }) => {
-    const response = await request.get(
-      `${API_BASE}/dao/nonexistent-dao-12345`,
-    )
+    const response = await request.get(`${API_BASE}/dao/nonexistent-dao-12345`)
 
     expect(response.status()).toBe(404)
     const data = await response.json()
@@ -383,7 +374,7 @@ test.describe('Agent Endpoints within DAO', () => {
       const daoId = listData.daos[0].daoId
 
       const response = await request.get(`${API_BASE}/dao/${daoId}/agents`)
-      
+
       if (response.ok()) {
         const data = await response.json()
         expect(Array.isArray(data) || Array.isArray(data.agents)).toBe(true)
@@ -428,7 +419,9 @@ test.describe('Agent Endpoints within DAO', () => {
     if (!response.ok()) {
       const data = await response.json()
       expect(
-        response.status() === 400 || response.status() === 403 || response.status() === 404,
+        response.status() === 400 ||
+          response.status() === 403 ||
+          response.status() === 404,
       ).toBe(true)
     }
   })
@@ -442,9 +435,7 @@ test.describe('Governance Parameter Endpoints', () => {
     if (listData.daos?.length > 0) {
       const daoId = listData.daos[0].daoId
 
-      const response = await request.get(
-        `${API_BASE}/dao/${daoId}/governance`,
-      )
+      const response = await request.get(`${API_BASE}/dao/${daoId}/governance`)
 
       if (response.ok()) {
         const data = await response.json()
@@ -526,15 +517,11 @@ test.describe('Proposal Endpoints within DAO', () => {
     if (listData.daos?.length > 0) {
       const daoId = listData.daos[0].daoId
 
-      const response = await request.get(
-        `${API_BASE}/dao/${daoId}/proposals`,
-      )
+      const response = await request.get(`${API_BASE}/dao/${daoId}/proposals`)
 
       if (response.ok()) {
         const data = await response.json()
-        expect(
-          Array.isArray(data) || Array.isArray(data.proposals),
-        ).toBe(true)
+        expect(Array.isArray(data) || Array.isArray(data.proposals)).toBe(true)
       }
     }
   })
@@ -572,17 +559,14 @@ test.describe('Proposal Endpoints within DAO', () => {
   test('POST /dao/:id/proposals requires authentication', async ({
     request,
   }) => {
-    const response = await request.post(
-      `${API_BASE}/dao/test-dao/proposals`,
-      {
-        data: {
-          title: 'Test Proposal',
-          summary: 'A test proposal',
-          description: 'Full description',
-          proposalType: 'general',
-        },
+    const response = await request.post(`${API_BASE}/dao/test-dao/proposals`, {
+      data: {
+        title: 'Test Proposal',
+        summary: 'A test proposal',
+        description: 'Full description',
+        proposalType: 'general',
       },
-    )
+    })
 
     if (!response.ok()) {
       expect([401, 403, 404].includes(response.status())).toBe(true)
@@ -592,15 +576,12 @@ test.describe('Proposal Endpoints within DAO', () => {
   test('POST /dao/:id/proposals validates required fields', async ({
     request,
   }) => {
-    const response = await request.post(
-      `${API_BASE}/dao/test-dao/proposals`,
-      {
-        data: {
-          // Missing title, summary
-          description: 'Only description',
-        },
+    const response = await request.post(`${API_BASE}/dao/test-dao/proposals`, {
+      data: {
+        // Missing title, summary
+        description: 'Only description',
       },
-    )
+    })
 
     if (!response.ok()) {
       const data = await response.json()

@@ -4,9 +4,10 @@
  * Comprehensive tests covering all pages, buttons, forms, and user flows.
  */
 
+import { CORE_PORTS } from '@jejunetwork/config'
 import { test, expect } from '@playwright/test'
 
-const BASE_URL = process.env.AUTOCRAT_URL || 'http://localhost:3010'
+const BASE_URL = `http://localhost:${CORE_PORTS.AUTOCRAT_WEB.get()}`
 
 test.describe('Autocrat - Full Coverage', () => {
   test.beforeEach(async ({ page }) => {
@@ -29,7 +30,9 @@ test.describe('Autocrat - Full Coverage', () => {
   })
 
   test('should have proper meta tags', async ({ page }) => {
-    const viewport = await page.locator('meta[name="viewport"]').getAttribute('content')
+    const viewport = await page
+      .locator('meta[name="viewport"]')
+      .getAttribute('content')
     expect(viewport).toBeTruthy()
   })
 
@@ -56,24 +59,23 @@ test.describe('Autocrat - Full Coverage', () => {
 })
 
 test.describe('Autocrat - Navigation', () => {
+  test('should navigate to Home', async ({ page }) => {
+    await page.goto(`${BASE_URL}/`)
+    await page.waitForLoadState('domcontentloaded')
+    await expect(page.locator('body')).toBeVisible()
+  })
 
-    test('should navigate to Home', async ({ page }) => {
-      await page.goto(`${BASE_URL}/`)
-      await page.waitForLoadState('domcontentloaded')
-      await expect(page.locator('body')).toBeVisible()
-    })
+  test('should navigate to Proposals', async ({ page }) => {
+    await page.goto(`${BASE_URL}/proposals`)
+    await page.waitForLoadState('domcontentloaded')
+    await expect(page.locator('body')).toBeVisible()
+  })
 
-    test('should navigate to Proposals', async ({ page }) => {
-      await page.goto(`${BASE_URL}/proposals`)
-      await page.waitForLoadState('domcontentloaded')
-      await expect(page.locator('body')).toBeVisible()
-    })
-
-    test('should navigate to Voting', async ({ page }) => {
-      await page.goto(`${BASE_URL}/voting`)
-      await page.waitForLoadState('domcontentloaded')
-      await expect(page.locator('body')).toBeVisible()
-    })
+  test('should navigate to Voting', async ({ page }) => {
+    await page.goto(`${BASE_URL}/voting`)
+    await page.waitForLoadState('domcontentloaded')
+    await expect(page.locator('body')).toBeVisible()
+  })
 
   test('should navigate via links', async ({ page }) => {
     await page.goto(BASE_URL)
@@ -124,7 +126,9 @@ test.describe('Autocrat - Form Interactions', () => {
     await page.goto(BASE_URL)
     await page.waitForLoadState('networkidle')
 
-    const inputs = await page.locator('input:visible:not([type="hidden"])').all()
+    const inputs = await page
+      .locator('input:visible:not([type="hidden"])')
+      .all()
 
     for (const input of inputs.slice(0, 5)) {
       const type = await input.getAttribute('type')
@@ -148,8 +152,11 @@ test.describe('Autocrat - Error States', () => {
   test('should handle 404 pages', async ({ page }) => {
     await page.goto(`${BASE_URL}/nonexistent-page-12345`)
 
-    const is404 = page.url().includes('nonexistent') || await page.locator('text=/404|not found/i').isVisible()
-    const redirectedHome = page.url() === BASE_URL || page.url() === `${BASE_URL}/`
+    const is404 =
+      page.url().includes('nonexistent') ||
+      (await page.locator('text=/404|not found/i').isVisible())
+    const redirectedHome =
+      page.url() === BASE_URL || page.url() === `${BASE_URL}/`
 
     expect(is404 || redirectedHome).toBe(true)
   })

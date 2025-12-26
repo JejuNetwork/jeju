@@ -109,7 +109,12 @@ interface AgentFormProps {
   onRemove?: () => void
 }
 
-function AgentForm({ agent, onChange, isCEO = false, onRemove }: AgentFormProps) {
+function AgentForm({
+  agent,
+  onChange,
+  isCEO = false,
+  onRemove,
+}: AgentFormProps) {
   const [expanded, setExpanded] = useState(true)
   const preset = BOARD_ROLE_PRESETS[agent.role]
 
@@ -248,7 +253,9 @@ function AgentForm({ agent, onChange, isCEO = false, onRemove }: AgentFormProps)
               type="text"
               value={agent.persona.name}
               onChange={(e) => updatePersona({ name: e.target.value })}
-              placeholder={isCEO ? 'e.g., Eliza, Atlas' : `e.g., ${preset.name}`}
+              placeholder={
+                isCEO ? 'e.g., Eliza, Atlas' : `e.g., ${preset.name}`
+              }
               className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-violet-500"
             />
           </div>
@@ -420,7 +427,10 @@ function AgentForm({ agent, onChange, isCEO = false, onRemove }: AgentFormProps)
                 step="5"
                 value={agent.weight}
                 onChange={(e) =>
-                  onChange({ ...agent, weight: Number.parseInt(e.target.value) })
+                  onChange({
+                    ...agent,
+                    weight: Number.parseInt(e.target.value),
+                  })
                 }
                 className="w-full"
               />
@@ -539,7 +549,10 @@ export default function CreateDAOPage() {
       case 'ceo':
         return ceo.persona.name.trim().length >= 2
       case 'board':
-        return board.length >= 3 && board.every((b) => b.persona.name.trim().length >= 2)
+        return (
+          board.length >= 3 &&
+          board.every((b) => b.persona.name.trim().length >= 2)
+        )
       case 'governance':
         return true
       case 'review':
@@ -617,9 +630,7 @@ export default function CreateDAOPage() {
         {step === 'basics' && (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-white mb-2">
-                DAO Basics
-              </h2>
+              <h2 className="text-2xl font-bold text-white mb-2">DAO Basics</h2>
               <p className="text-slate-400">
                 Set up the fundamental identity of your DAO.
               </p>
@@ -633,7 +644,9 @@ export default function CreateDAOPage() {
                 type="text"
                 value={name}
                 onChange={(e) =>
-                  setName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))
+                  setName(
+                    e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'),
+                  )
                 }
                 placeholder="my-dao"
                 className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-violet-500"
@@ -736,8 +749,8 @@ export default function CreateDAOPage() {
                 Configure CEO
               </h2>
               <p className="text-slate-400">
-                The CEO is the final decision maker for your DAO. Configure their
-                personality, values, and decision-making style.
+                The CEO is the final decision maker for your DAO. Configure
+                their personality, values, and decision-making style.
               </p>
             </div>
 
@@ -765,7 +778,9 @@ export default function CreateDAOPage() {
                   agent={agent}
                   onChange={(a) => updateBoardMember(index, a)}
                   onRemove={
-                    board.length > 3 ? () => removeBoardMember(index) : undefined
+                    board.length > 3
+                      ? () => removeBoardMember(index)
+                      : undefined
                   }
                 />
               ))}
@@ -956,11 +971,8 @@ export default function CreateDAOPage() {
                       {ceo.persona.name}
                     </p>
                     <p className="text-xs text-slate-500">
-                      {
-                        MODEL_OPTIONS.find((m) => m.id === ceo.modelId)
-                          ?.name
-                      }{' '}
-                      • {ceo.decisionStyle}
+                      {MODEL_OPTIONS.find((m) => m.id === ceo.modelId)?.name} •{' '}
+                      {ceo.decisionStyle}
                     </p>
                   </div>
                 </div>

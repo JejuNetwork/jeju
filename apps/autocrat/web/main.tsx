@@ -52,8 +52,14 @@ function App() {
             <Route element={<Layout />}>
               <Route path="/" element={<DAOListPage />} />
               <Route path="/dao/:daoId" element={<DAODetailPage />} />
-              <Route path="/dao/:daoId/agent/:agentId" element={<AgentEditPage />} />
-              <Route path="/dao/:daoId/proposal/:proposalId" element={<ProposalPage />} />
+              <Route
+                path="/dao/:daoId/agent/:agentId"
+                element={<AgentEditPage />}
+              />
+              <Route
+                path="/dao/:daoId/proposal/:proposalId"
+                element={<ProposalPage />}
+              />
               <Route path="/my-daos" element={<DAOListPage />} />
             </Route>
           </Routes>

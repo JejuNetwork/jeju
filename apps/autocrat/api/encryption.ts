@@ -510,7 +510,10 @@ export async function canDecrypt(
   return status === 7
 }
 
-export function getEncryptionStatus(): { provider: string; connected: boolean } {
+export function getEncryptionStatus(): {
+  provider: string
+  connected: boolean
+} {
   return { provider: 'jeju-kms', connected: isInitialized() }
 }
 

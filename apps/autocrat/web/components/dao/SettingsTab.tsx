@@ -28,7 +28,11 @@ function Section({
   title,
   description,
   children,
-}: { title: string; description?: string; children: React.ReactNode }) {
+}: {
+  title: string
+  description?: string
+  children: React.ReactNode
+}) {
   return (
     <div className="mb-8">
       <div className="mb-4">
@@ -46,7 +50,11 @@ function InfoRow({
   label,
   value,
   copyable = false,
-}: { label: string; value: string; copyable?: boolean }) {
+}: {
+  label: string
+  value: string
+  copyable?: boolean
+}) {
   const [copied, setCopied] = useState(false)
 
   const handleCopy = () => {
@@ -60,7 +68,9 @@ function InfoRow({
       <span className="text-sm text-slate-400">{label}</span>
       <div className="flex items-center gap-2">
         <span className="text-sm text-slate-200 font-mono">
-          {value.length > 20 ? `${value.slice(0, 8)}...${value.slice(-6)}` : value}
+          {value.length > 20
+            ? `${value.slice(0, 8)}...${value.slice(-6)}`
+            : value}
         </span>
         {copyable && (
           <button
@@ -82,7 +92,9 @@ function InfoRow({
 
 export function SettingsTab({ dao }: SettingsTabProps) {
   const [visibility, setVisibility] = useState<DAOVisibility>(dao.visibility)
-  const [farcasterChannel, setFarcasterChannel] = useState(dao.farcasterChannel ?? '')
+  const [farcasterChannel, setFarcasterChannel] = useState(
+    dao.farcasterChannel ?? '',
+  )
   const [websiteUrl, setWebsiteUrl] = useState(dao.websiteUrl ?? '')
   const [discordUrl, setDiscordUrl] = useState(dao.discordUrl ?? '')
   const [twitterHandle, setTwitterHandle] = useState(dao.twitterHandle ?? '')
@@ -112,7 +124,9 @@ export function SettingsTab({ dao }: SettingsTabProps) {
       },
       {
         onError: (err) => {
-          setSaveError(err instanceof Error ? err.message : 'Failed to save settings')
+          setSaveError(
+            err instanceof Error ? err.message : 'Failed to save settings',
+          )
         },
       },
     )
@@ -154,8 +168,8 @@ export function SettingsTab({ dao }: SettingsTabProps) {
             <div>
               <h4 className="font-medium text-amber-300">Network DAO</h4>
               <p className="text-sm text-amber-200/70 mt-1">
-                This is a network-level DAO with special permissions. Changes here
-                may affect the entire Jeju Network. Proceed with caution.
+                This is a network-level DAO with special permissions. Changes
+                here may affect the entire Jeju Network. Proceed with caution.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {dao.networkPermissions.canModerateNetwork && (
@@ -180,7 +194,10 @@ export function SettingsTab({ dao }: SettingsTabProps) {
       )}
 
       {/* Contract Addresses */}
-      <Section title="Contract Addresses" description="On-chain contract addresses for this DAO">
+      <Section
+        title="Contract Addresses"
+        description="On-chain contract addresses for this DAO"
+      >
         <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-4">
           <InfoRow label="Treasury" value={dao.treasury} copyable />
           <InfoRow label="Council" value={dao.council} copyable />
@@ -190,7 +207,10 @@ export function SettingsTab({ dao }: SettingsTabProps) {
       </Section>
 
       {/* Visibility */}
-      <Section title="Visibility" description="Control who can discover and view this DAO">
+      <Section
+        title="Visibility"
+        description="Control who can discover and view this DAO"
+      >
         <div className="grid gap-3">
           {visibilityOptions.map((option) => {
             const Icon = option.icon
@@ -206,14 +226,22 @@ export function SettingsTab({ dao }: SettingsTabProps) {
                     : 'bg-slate-900/50 border-slate-700 hover:border-slate-600'
                 }`}
               >
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isSelected ? 'bg-violet-500/20' : 'bg-slate-800'}`}>
-                  <Icon className={`w-5 h-5 ${isSelected ? 'text-violet-400' : 'text-slate-400'}`} />
+                <div
+                  className={`w-10 h-10 rounded-lg flex items-center justify-center ${isSelected ? 'bg-violet-500/20' : 'bg-slate-800'}`}
+                >
+                  <Icon
+                    className={`w-5 h-5 ${isSelected ? 'text-violet-400' : 'text-slate-400'}`}
+                  />
                 </div>
                 <div className="flex-1">
-                  <p className={`font-medium ${isSelected ? 'text-violet-300' : 'text-slate-200'}`}>
+                  <p
+                    className={`font-medium ${isSelected ? 'text-violet-300' : 'text-slate-200'}`}
+                  >
                     {option.label}
                   </p>
-                  <p className="text-sm text-slate-500 mt-0.5">{option.description}</p>
+                  <p className="text-sm text-slate-500 mt-0.5">
+                    {option.description}
+                  </p>
                 </div>
                 {isSelected && (
                   <div className="w-5 h-5 rounded-full bg-violet-500 flex items-center justify-center">
@@ -227,59 +255,98 @@ export function SettingsTab({ dao }: SettingsTabProps) {
       </Section>
 
       {/* Governance Parameters */}
-      <Section title="Governance Parameters" description="Settings that control how proposals are evaluated and approved">
+      <Section
+        title="Governance Parameters"
+        description="Settings that control how proposals are evaluated and approved"
+      >
         <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-5 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs text-slate-500 mb-1">Min Quality Score</label>
-              <p className="text-lg font-semibold text-slate-200">{dao.governanceParams.minQualityScore}</p>
-            </div>
-            <div>
-              <label className="block text-xs text-slate-500 mb-1">Min Board Approvals</label>
-              <p className="text-lg font-semibold text-slate-200">{dao.governanceParams.minBoardApprovals}</p>
-            </div>
-            <div>
-              <label className="block text-xs text-slate-500 mb-1">Voting Period</label>
+              <label className="block text-xs text-slate-500 mb-1">
+                Min Quality Score
+              </label>
               <p className="text-lg font-semibold text-slate-200">
-                {Math.floor(dao.governanceParams.councilVotingPeriod / 86400)} days
+                {dao.governanceParams.minQualityScore}
               </p>
             </div>
             <div>
-              <label className="block text-xs text-slate-500 mb-1">Grace Period</label>
+              <label className="block text-xs text-slate-500 mb-1">
+                Min Board Approvals
+              </label>
+              <p className="text-lg font-semibold text-slate-200">
+                {dao.governanceParams.minBoardApprovals}
+              </p>
+            </div>
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">
+                Voting Period
+              </label>
+              <p className="text-lg font-semibold text-slate-200">
+                {Math.floor(dao.governanceParams.councilVotingPeriod / 86400)}{' '}
+                days
+              </p>
+            </div>
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">
+                Grace Period
+              </label>
               <p className="text-lg font-semibold text-slate-200">
                 {Math.floor(dao.governanceParams.gracePeriod / 86400)} days
               </p>
             </div>
             <div>
-              <label className="block text-xs text-slate-500 mb-1">Min Proposal Stake</label>
-              <p className="text-lg font-semibold text-slate-200">{dao.governanceParams.minProposalStake} ETH</p>
+              <label className="block text-xs text-slate-500 mb-1">
+                Min Proposal Stake
+              </label>
+              <p className="text-lg font-semibold text-slate-200">
+                {dao.governanceParams.minProposalStake} ETH
+              </p>
             </div>
             <div>
-              <label className="block text-xs text-slate-500 mb-1">Quorum</label>
-              <p className="text-lg font-semibold text-slate-200">{dao.governanceParams.quorumBps / 100}%</p>
+              <label className="block text-xs text-slate-500 mb-1">
+                Quorum
+              </label>
+              <p className="text-lg font-semibold text-slate-200">
+                {dao.governanceParams.quorumBps / 100}%
+              </p>
             </div>
           </div>
 
           <div className="pt-4 border-t border-slate-700 flex flex-wrap gap-3">
-            <span className={`px-3 py-1.5 rounded-lg text-sm ${dao.governanceParams.ceoVetoEnabled ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-400'}`}>
-              CEO Veto: {dao.governanceParams.ceoVetoEnabled ? 'Enabled' : 'Disabled'}
+            <span
+              className={`px-3 py-1.5 rounded-lg text-sm ${dao.governanceParams.ceoVetoEnabled ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-400'}`}
+            >
+              CEO Veto:{' '}
+              {dao.governanceParams.ceoVetoEnabled ? 'Enabled' : 'Disabled'}
             </span>
-            <span className={`px-3 py-1.5 rounded-lg text-sm ${dao.governanceParams.communityVetoEnabled ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-400'}`}>
-              Community Veto: {dao.governanceParams.communityVetoEnabled ? 'Enabled' : 'Disabled'} ({dao.governanceParams.vetoThreshold}%)
+            <span
+              className={`px-3 py-1.5 rounded-lg text-sm ${dao.governanceParams.communityVetoEnabled ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-400'}`}
+            >
+              Community Veto:{' '}
+              {dao.governanceParams.communityVetoEnabled
+                ? 'Enabled'
+                : 'Disabled'}{' '}
+              ({dao.governanceParams.vetoThreshold}%)
             </span>
           </div>
 
           <div className="pt-4 border-t border-slate-700">
             <div className="flex items-start gap-2 text-sm text-slate-500">
               <Info className="w-4 h-4 shrink-0 mt-0.5" />
-              <p>Governance parameters can only be changed through an approved parameter_change proposal.</p>
+              <p>
+                Governance parameters can only be changed through an approved
+                parameter_change proposal.
+              </p>
             </div>
           </div>
         </div>
       </Section>
 
       {/* External Links / Integrations */}
-      <Section title="External Integrations" description="Connect your DAO to external platforms and services">
+      <Section
+        title="External Integrations"
+        description="Connect your DAO to external platforms and services"
+      >
         <div className="space-y-4">
           {/* Farcaster */}
           <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-4">
@@ -289,7 +356,9 @@ export function SettingsTab({ dao }: SettingsTabProps) {
               </div>
               <div>
                 <p className="font-medium text-slate-200">Farcaster Channel</p>
-                <p className="text-xs text-slate-500">Link to your Farcaster channel for announcements</p>
+                <p className="text-xs text-slate-500">
+                  Link to your Farcaster channel for announcements
+                </p>
               </div>
             </div>
             <input
@@ -329,7 +398,9 @@ export function SettingsTab({ dao }: SettingsTabProps) {
               </div>
               <div>
                 <p className="font-medium text-slate-200">Discord</p>
-                <p className="text-xs text-slate-500">Discord server invite link</p>
+                <p className="text-xs text-slate-500">
+                  Discord server invite link
+                </p>
               </div>
             </div>
             <input
@@ -368,7 +439,9 @@ export function SettingsTab({ dao }: SettingsTabProps) {
                 <GitBranch className="w-5 h-5 text-slate-400" />
               </div>
               <div>
-                <p className="font-medium text-slate-200">GitHub Organization</p>
+                <p className="font-medium text-slate-200">
+                  GitHub Organization
+                </p>
                 <p className="text-xs text-slate-500">GitHub org name</p>
               </div>
             </div>
