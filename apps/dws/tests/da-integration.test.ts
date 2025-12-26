@@ -9,7 +9,7 @@
 import { describe, expect, it } from 'bun:test'
 import type { Address, Hex } from 'viem'
 import { keccak256, toBytes, toHex } from 'viem'
-import { app, dwsRequest } from './setup'
+import { dwsRequest } from './setup'
 import { SKIP } from './infra-check'
 
 // Skip if infrastructure not available

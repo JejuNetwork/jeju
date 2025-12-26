@@ -15,7 +15,7 @@ import {
   registerNode,
   unregisterNode,
 } from '../api/compute/inference-node'
-import { app } from '../api/server/index'
+import { getApp } from './setup'
 
 // Test response types
 interface ChatRequestBody {
@@ -58,7 +58,16 @@ const HAS_ANY_PROVIDER =
   !!process.env.TOGETHER_API_KEY ||
   !!process.env.OPENROUTER_API_KEY
 
-describe('Inference E2E', () => {
+// Skip all inference tests if infrastructure isn't ready
+const SKIP = process.env.INFRA_READY !== 'true'
+
+// Helper to make requests (lazy loads app)
+async function inferRequest(url: string, init?: RequestInit): Promise<Response> {
+  const app = await getApp()
+  return app.fetch(new Request(url, init))
+}
+
+describe.skipIf(SKIP)('Inference E2E', () => {
   // Set up mock inference node for tests without real providers
   beforeAll(async () => {
     // Clear any existing nodes
@@ -158,9 +167,7 @@ describe('Inference E2E', () => {
   // Skip provider tests if no providers are configured
   describe.skipIf(!HAS_ANY_PROVIDER)('Provider Configuration', () => {
     test('should list configured providers', async () => {
-      const res = await app.fetch(
-        new Request('http://localhost/api/providers?configured=true'),
-      )
+      const res = await inferRequest('http://localhost/api/providers?configured=true')
       expect(res.status).toBe(200)
 
       const data = (await res.json()) as ProvidersResponse
@@ -173,7 +180,7 @@ describe('Inference E2E', () => {
     })
 
     test('should list available models', async () => {
-      const res = await app.fetch(new Request('http://localhost/api/v1/models'))
+      const res = await inferRequest('http://localhost/api/v1/models')
       expect(res.status).toBe(200)
 
       const data = (await res.json()) as ModelsResponse
@@ -185,18 +192,17 @@ describe('Inference E2E', () => {
   describe('Groq Inference', () => {
     test.skipIf(!HAS_GROQ)('should complete chat with Llama', async () => {
       const start = Date.now()
-      const res = await app.fetch(
-        new Request('http://localhost/compute/chat/completions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: 'llama-3.3-70b-versatile',
-            messages: [
-              {
-                role: 'user',
-                content: 'What is 2+2? Reply with just the number.',
-              },
-            ],
+      const res = await inferRequest('http://localhost/compute/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          messages: [
+            {
+              role: 'user',
+              content: 'What is 2+2? Reply with just the number.',
+            },
+          ],
             max_tokens: 10,
           }),
         }),
@@ -220,18 +226,17 @@ describe('Inference E2E', () => {
       'should complete chat with GPT-4o-mini',
       async () => {
         const start = Date.now()
-        const res = await app.fetch(
-          new Request('http://localhost/compute/chat/completions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              model: 'gpt-5.2',
-              messages: [
-                {
-                  role: 'user',
-                  content: 'What is 3+3? Reply with just the number.',
-                },
-              ],
+        const res = await inferRequest('http://localhost/compute/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'gpt-5.2',
+            messages: [
+              {
+                role: 'user',
+                content: 'What is 3+3? Reply with just the number.',
+              },
+            ],
               max_tokens: 10,
             }),
           }),
@@ -251,16 +256,14 @@ describe('Inference E2E', () => {
     )
 
     test.skipIf(!HAS_OPENAI)('should generate embeddings', async () => {
-      const res = await app.fetch(
-        new Request('http://localhost/compute/embeddings', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            input: 'Hello DWS',
-            model: 'text-embedding-3-small',
-          }),
+      const res = await inferRequest('http://localhost/compute/embeddings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          input: 'Hello DWS',
+          model: 'text-embedding-3-small',
         }),
-      )
+      })
 
       expect(res.status).toBe(200)
 
@@ -279,18 +282,17 @@ describe('Inference E2E', () => {
       'should complete chat with Claude',
       async () => {
         const start = Date.now()
-        const res = await app.fetch(
-          new Request('http://localhost/compute/chat/completions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              model: 'claude-sonnet-4-5',
-              messages: [
-                {
-                  role: 'user',
-                  content: 'What is 4+4? Reply with just the number.',
-                },
-              ],
+        const res = await inferRequest('http://localhost/compute/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'claude-sonnet-4-5',
+            messages: [
+              {
+                role: 'user',
+                content: 'What is 4+4? Reply with just the number.',
+              },
+            ],
               max_tokens: 10,
             }),
           }),
@@ -312,19 +314,17 @@ describe('Inference E2E', () => {
 
   describe('Convenience Endpoints', () => {
     test.skipIf(!HAS_GROQ)('should work via /api/v1/inference', async () => {
-      const res = await app.fetch(
-        new Request('http://localhost/api/v1/inference', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: 'llama-3.3-70b-versatile',
-            messages: [
-              { role: 'user', content: 'What is 5+5? Just the number.' },
-            ],
-            maxTokens: 10,
-          }),
+      const res = await inferRequest('http://localhost/api/v1/inference', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          messages: [
+            { role: 'user', content: 'What is 5+5? Just the number.' },
+          ],
+          maxTokens: 10,
         }),
-      )
+      })
 
       expect(res.status).toBe(200)
 

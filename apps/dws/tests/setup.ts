@@ -18,7 +18,16 @@ import {
   getCQLBlockProducerUrl,
   getL2RpcUrl,
 } from '@jejunetwork/config'
-import { app } from '../api/server'
+
+// Lazy-loaded app to prevent initialization when tests are skipped
+let _app: Awaited<typeof import('../api/server')>['app'] | null = null
+async function getApp() {
+  if (!_app) {
+    const mod = await import('../api/server')
+    _app = mod.app
+  }
+  return _app
+}
 
 // Configuration from environment (set by jeju test orchestrator)
 const CQL_URL = getCQLBlockProducerUrl()
@@ -286,11 +295,12 @@ export async function dwsRequest(
   if (isE2EMode) {
     return fetch(request)
   }
+  const app = await getApp()
   return app.handle(request)
 }
 
-// Re-export app for tests that need direct access
-export { app }
+// Get app instance for tests that need direct access (lazy-loaded)
+export { getApp }
 
 // Auto-setup when file is imported in test context
 if (process.env.BUN_TEST === 'true') {

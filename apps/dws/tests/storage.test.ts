@@ -21,7 +21,7 @@ import {
   setDefaultTimeout,
   test,
 } from 'bun:test'
-import { app, dwsRequest } from './setup'
+import { dwsRequest } from './setup'
 import {
   type BackendManager,
   createBackendManager,

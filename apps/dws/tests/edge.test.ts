@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import { app, dwsRequest } from './setup'
+import { dwsRequest } from './setup'
 import { SKIP } from './infra-check'
 
 // Test response types

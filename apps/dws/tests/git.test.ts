@@ -10,7 +10,7 @@
 import { beforeEach, describe, expect, setDefaultTimeout, test } from 'bun:test'
 import { GitObjectStore } from '../api/git/object-store'
 import { PackfileReader, PackfileWriter } from '../api/git/pack'
-import { app, dwsRequest } from './setup'
+import { dwsRequest } from './setup'
 import {
   type BackendManager,
   createBackendManager,
