@@ -399,7 +399,7 @@ export async function startCoordinator(): Promise<CDNCoordinator> {
       '0x0000000000000000000000000000000000000000') as Address,
     billingAddress: (process.env.CDN_BILLING_ADDRESS ??
       '0x0000000000000000000000000000000000000000') as Address,
-    rpcUrl: process.env.RPC_URL ?? getRpcUrl(),
+    rpcUrl: getRpcUrl(),
     healthCheckInterval: parseInt(
       process.env.CDN_HEALTH_CHECK_INTERVAL ?? '60000',
       10,

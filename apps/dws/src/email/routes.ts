@@ -1,3 +1,4 @@
+import { getRpcUrl } from '@jejunetwork/config'
 import { expectValid } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import {
@@ -174,7 +175,7 @@ async function getAuthenticatedUser(request: Request): Promise<{
     }
   }
 
-  const rpcUrl = process.env.JEJU_RPC_URL ?? 'http://localhost:6545'
+  const rpcUrl = getRpcUrl()
   const registryAddress = process.env.EMAIL_REGISTRY_ADDRESS as
     | Address
     | undefined

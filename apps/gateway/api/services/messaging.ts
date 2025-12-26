@@ -1,3 +1,4 @@
+import { getFarcasterHubUrl } from '@jejunetwork/config'
 import {
   type FarcasterCast,
   FarcasterClient,
@@ -5,7 +6,7 @@ import {
 } from '@jejunetwork/messaging'
 import type { Address } from 'viem'
 
-const HUB_URL = process.env.FARCASTER_HUB_URL ?? 'https://hub.pinata.cloud'
+const HUB_URL = getFarcasterHubUrl()
 const GATEWAY_CHANNEL = 'gateway'
 const GATEWAY_CHANNEL_URL = `https://warpcast.com/~/channel/${GATEWAY_CHANNEL}`
 

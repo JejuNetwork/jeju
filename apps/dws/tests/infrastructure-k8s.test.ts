@@ -12,7 +12,7 @@
 
 import { afterAll, describe, expect, setDefaultTimeout, test } from 'bun:test'
 import type { Address } from 'viem'
-import { app } from '../api/server'
+import { app, dwsRequest } from './setup'
 
 setDefaultTimeout(60000)
 
@@ -91,7 +91,7 @@ describe('Helm Provider', () => {
   let deploymentId: string
 
   test('helm health check returns healthy', async () => {
-    const res = await app.request('/helm/health')
+    const res = await dwsRequest('/helm/health')
     expect(res.status).toBe(200)
 
     const body = (await res.json()) as StatusResponse
@@ -99,7 +99,7 @@ describe('Helm Provider', () => {
   })
 
   test('list deployments returns array', async () => {
-    const res = await app.request('/helm/deployments', {
+    const res = await dwsRequest('/helm/deployments', {
       headers: { 'x-jeju-address': TEST_ADDRESS },
     })
     expect(res.status).toBe(200)
@@ -118,7 +118,7 @@ describe('Helm Provider', () => {
       },
     ]
 
-    const res = await app.request('/helm/apply', {
+    const res = await dwsRequest('/helm/apply', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -168,7 +168,7 @@ describe('Helm Provider', () => {
       },
     ]
 
-    const res = await app.request('/helm/apply', {
+    const res = await dwsRequest('/helm/apply', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -201,7 +201,7 @@ describe('Helm Provider', () => {
       },
     ]
 
-    const res = await app.request('/helm/apply', {
+    const res = await dwsRequest('/helm/apply', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -222,7 +222,7 @@ describe('Helm Provider', () => {
   test('get deployment by id', async () => {
     if (!deploymentId) return
 
-    const res = await app.request(`/helm/deployments/${deploymentId}`, {
+    const res = await dwsRequest(`/helm/deployments/${deploymentId}`, {
       headers: { 'x-jeju-address': TEST_ADDRESS },
     })
     expect(res.status).toBe(200)
@@ -234,7 +234,7 @@ describe('Helm Provider', () => {
   test('delete deployment', async () => {
     if (!deploymentId) return
 
-    const res = await app.request(`/helm/deployments/${deploymentId}`, {
+    const res = await dwsRequest(`/helm/deployments/${deploymentId}`, {
       method: 'DELETE',
       headers: { 'x-jeju-address': TEST_ADDRESS },
     })
@@ -292,7 +292,7 @@ describe('Helm Provider', () => {
       },
     ]
 
-    const res = await app.request('/helm/apply', {
+    const res = await dwsRequest('/helm/apply', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -320,7 +320,7 @@ describe('Terraform Provider', () => {
   let containerId: string
 
   test('terraform provider schema returns valid schema', async () => {
-    const res = await app.request('/terraform/v1/schema')
+    const res = await dwsRequest('/terraform/v1/schema')
     expect(res.status).toBe(200)
 
     const body = (await res.json()) as TerraformSchemaResponse
@@ -333,7 +333,7 @@ describe('Terraform Provider', () => {
   })
 
   test('create worker resource via Terraform API', async () => {
-    const res = await app.request('/terraform/v1/resources/dws_worker', {
+    const res = await dwsRequest('/terraform/v1/resources/dws_worker', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -366,7 +366,7 @@ describe('Terraform Provider', () => {
   test('read worker resource', async () => {
     if (!workerId) return
 
-    const res = await app.request(
+    const res = await dwsRequest(
       `/terraform/v1/resources/dws_worker/${workerId}`,
       {
         headers: { 'x-jeju-address': TEST_ADDRESS },
@@ -382,7 +382,7 @@ describe('Terraform Provider', () => {
   test('update worker resource', async () => {
     if (!workerId) return
 
-    const res = await app.request(
+    const res = await dwsRequest(
       `/terraform/v1/resources/dws_worker/${workerId}`,
       {
         method: 'PUT',
@@ -405,7 +405,7 @@ describe('Terraform Provider', () => {
   })
 
   test('create container resource', async () => {
-    const res = await app.request('/terraform/v1/resources/dws_container', {
+    const res = await dwsRequest('/terraform/v1/resources/dws_container', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -430,7 +430,7 @@ describe('Terraform Provider', () => {
   test('read container resource', async () => {
     if (!containerId) return
 
-    const res = await app.request(
+    const res = await dwsRequest(
       `/terraform/v1/resources/dws_container/${containerId}`,
       {
         headers: { 'x-jeju-address': TEST_ADDRESS },
@@ -443,7 +443,7 @@ describe('Terraform Provider', () => {
   })
 
   test('list nodes data source', async () => {
-    const res = await app.request(
+    const res = await dwsRequest(
       '/terraform/v1/data/dws_nodes?capability=compute',
       {
         headers: { 'x-jeju-address': TEST_ADDRESS },
@@ -458,7 +458,7 @@ describe('Terraform Provider', () => {
   test('delete worker resource', async () => {
     if (!workerId) return
 
-    const res = await app.request(
+    const res = await dwsRequest(
       `/terraform/v1/resources/dws_worker/${workerId}`,
       {
         method: 'DELETE',
@@ -471,7 +471,7 @@ describe('Terraform Provider', () => {
   test('delete container resource', async () => {
     if (!containerId) return
 
-    const res = await app.request(
+    const res = await dwsRequest(
       `/terraform/v1/resources/dws_container/${containerId}`,
       {
         method: 'DELETE',
@@ -482,7 +482,7 @@ describe('Terraform Provider', () => {
   })
 
   test('terraform plan simulation', async () => {
-    const res = await app.request('/terraform/v1/plan', {
+    const res = await dwsRequest('/terraform/v1/plan', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -515,7 +515,7 @@ describe('K3s Provider', () => {
   const skipClusterTests = process.env.K3S_TEST !== 'true'
 
   test('k3s health check', async () => {
-    const res = await app.request('/k3s/health')
+    const res = await dwsRequest('/k3s/health')
     expect(res.status).toBe(200)
 
     const body = (await res.json()) as StatusResponse
@@ -523,7 +523,7 @@ describe('K3s Provider', () => {
   })
 
   test('list clusters returns array', async () => {
-    const res = await app.request('/k3s/clusters', {
+    const res = await dwsRequest('/k3s/clusters', {
       headers: { 'x-jeju-address': TEST_ADDRESS },
     })
     expect(res.status).toBe(200)
@@ -533,7 +533,7 @@ describe('K3s Provider', () => {
   })
 
   test('check available providers', async () => {
-    const res = await app.request('/k3s/providers')
+    const res = await dwsRequest('/k3s/providers')
     expect(res.status).toBe(200)
 
     const body = (await res.json()) as ProvidersListResponse
@@ -542,7 +542,7 @@ describe('K3s Provider', () => {
   })
 
   test.skipIf(skipClusterTests)('create k3d cluster', async () => {
-    const res = await app.request('/k3s/clusters', {
+    const res = await dwsRequest('/k3s/clusters', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -579,7 +579,7 @@ describe('K3s Provider', () => {
       },
     }
 
-    const res = await app.request('/k3s/clusters/dws-test-cluster/apply', {
+    const res = await dwsRequest('/k3s/clusters/dws-test-cluster/apply', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -592,7 +592,7 @@ describe('K3s Provider', () => {
   })
 
   test.skipIf(skipClusterTests)('install helm chart to cluster', async () => {
-    const res = await app.request('/k3s/clusters/dws-test-cluster/helm', {
+    const res = await dwsRequest('/k3s/clusters/dws-test-cluster/helm', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -610,7 +610,7 @@ describe('K3s Provider', () => {
   })
 
   test.skipIf(skipClusterTests)('delete cluster', async () => {
-    const res = await app.request('/k3s/clusters/dws-test-cluster', {
+    const res = await dwsRequest('/k3s/clusters/dws-test-cluster', {
       method: 'DELETE',
       headers: { 'x-jeju-address': TEST_ADDRESS },
     })
@@ -623,7 +623,7 @@ describe('K3s Provider', () => {
 
 describe('Service Mesh', () => {
   test('mesh health check', async () => {
-    const res = await app.request('/mesh/health')
+    const res = await dwsRequest('/mesh/health')
     expect(res.status).toBe(200)
 
     const body = (await res.json()) as ServiceMeshResponse
@@ -631,7 +631,7 @@ describe('Service Mesh', () => {
   })
 
   test('register service backend', async () => {
-    const res = await app.request('/mesh/services', {
+    const res = await dwsRequest('/mesh/services', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -650,7 +650,7 @@ describe('Service Mesh', () => {
   })
 
   test('get service backends', async () => {
-    const res = await app.request('/mesh/services/default/test-api', {
+    const res = await dwsRequest('/mesh/services/default/test-api', {
       headers: { 'x-jeju-address': TEST_ADDRESS },
     })
     // May be 404 if service wasn't registered yet
@@ -658,7 +658,7 @@ describe('Service Mesh', () => {
   })
 
   test('create access policy', async () => {
-    const res = await app.request('/mesh/policies/access', {
+    const res = await dwsRequest('/mesh/policies/access', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -677,7 +677,7 @@ describe('Service Mesh', () => {
   })
 
   test('list policies', async () => {
-    const res = await app.request('/mesh/policies/access', {
+    const res = await dwsRequest('/mesh/policies/access', {
       headers: { 'x-jeju-address': TEST_ADDRESS },
     })
     expect(res.status).toBe(200)
@@ -687,7 +687,7 @@ describe('Service Mesh', () => {
   })
 
   test('mesh metrics available', async () => {
-    const res = await app.request('/mesh/metrics', {
+    const res = await dwsRequest('/mesh/metrics', {
       headers: { 'x-jeju-address': TEST_ADDRESS },
     })
     expect([200, 404]).toContain(res.status)
@@ -698,12 +698,12 @@ describe('Service Mesh', () => {
 
 describe('Ingress Controller', () => {
   test('ingress health check', async () => {
-    const res = await app.request('/ingress/health')
+    const res = await dwsRequest('/ingress/health')
     expect(res.status).toBe(200)
   })
 
   test('create ingress rule for worker', async () => {
-    const res = await app.request('/ingress/rules', {
+    const res = await dwsRequest('/ingress/rules', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -730,7 +730,7 @@ describe('Ingress Controller', () => {
   })
 
   test('create ingress rule for service', async () => {
-    const res = await app.request('/ingress/rules', {
+    const res = await dwsRequest('/ingress/rules', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -759,7 +759,7 @@ describe('Ingress Controller', () => {
   })
 
   test('list ingress rules', async () => {
-    const res = await app.request('/ingress/rules', {
+    const res = await dwsRequest('/ingress/rules', {
       headers: { 'x-jeju-address': TEST_ADDRESS },
     })
     expect(res.status).toBe(200)
@@ -769,7 +769,7 @@ describe('Ingress Controller', () => {
   })
 
   test('delete ingress rule', async () => {
-    const res = await app.request('/ingress/rules/api-ingress', {
+    const res = await dwsRequest('/ingress/rules/api-ingress', {
       method: 'DELETE',
       headers: { 'x-jeju-address': TEST_ADDRESS },
     })
@@ -782,7 +782,7 @@ describe('Ingress Controller', () => {
 describe('E2E Deployment Flow', () => {
   test('full deployment flow: Terraform -> Helm -> Ingress', async () => {
     // Step 1: Create infrastructure with Terraform
-    const tfWorkerRes = await app.request(
+    const tfWorkerRes = await dwsRequest(
       '/terraform/v1/resources/dws_worker',
       {
         method: 'POST',
@@ -803,7 +803,7 @@ describe('E2E Deployment Flow', () => {
     const tfWorker = (await tfWorkerRes.json()) as TerraformResourceResponse
 
     // Step 2: Deploy services with Helm
-    const helmRes = await app.request('/helm/apply', {
+    const helmRes = await dwsRequest('/helm/apply', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -828,7 +828,7 @@ describe('E2E Deployment Flow', () => {
     expect(helmRes.status).toBe(200)
 
     // Step 3: Create ingress to expose the service
-    const ingressRes = await app.request('/ingress/rules', {
+    const ingressRes = await dwsRequest('/ingress/rules', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -853,11 +853,11 @@ describe('E2E Deployment Flow', () => {
     expect(ingressRes.status).toBe(200)
 
     // Step 4: Cleanup
-    await app.request(`/terraform/v1/resources/dws_worker/${tfWorker.id}`, {
+    await dwsRequest(`/terraform/v1/resources/dws_worker/${tfWorker.id}`, {
       method: 'DELETE',
       headers: { 'x-jeju-address': TEST_ADDRESS },
     })
-    await app.request('/ingress/rules/e2e-flow-ingress', {
+    await dwsRequest('/ingress/rules/e2e-flow-ingress', {
       method: 'DELETE',
       headers: { 'x-jeju-address': TEST_ADDRESS },
     })

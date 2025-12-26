@@ -349,11 +349,17 @@ export class XMTPMessageRouter {
   }
 
   /**
-   * Group addresses by region (based on prior routing data)
+   * Group addresses by region for optimal routing.
+   *
+   * Currently routes all addresses to the 'default' region, which causes
+   * selectBestNode() to pick the lowest-latency healthy node. This is
+   * reasonable for most use cases.
+   *
+   * Future enhancement: Track recipient location preferences based on
+   * which relay nodes they connect from, and route to their nearest region.
    */
   private groupByRegion(addresses: Address[]): Map<string, Address[]> {
-    // In production, look up region preferences per address
-    // For now, group all in default region
+    // Route all to default region - selectBestNode picks optimal node
     const result = new Map<string, Address[]>()
     result.set('default', addresses)
     return result

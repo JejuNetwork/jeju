@@ -26,13 +26,14 @@
  * ```
  */
 
-import localnetChainRaw from './chain/localnet.json'
-import mainnetChainRaw from './chain/mainnet.json'
-import testnetChainRaw from './chain/testnet.json'
+// JSON imports with type assertions for Node ESM compatibility (Playwright)
+import localnetChainRaw from './chain/localnet.json' with { type: 'json' }
+import mainnetChainRaw from './chain/mainnet.json' with { type: 'json' }
+import testnetChainRaw from './chain/testnet.json' with { type: 'json' }
 // Direct JSON imports for browser compatibility (bundlers inline these)
-import contractsJsonRaw from './contracts.json'
-import eilJsonRaw from './eil.json'
-import federationJsonRaw from './federation.json'
+import contractsJsonRaw from './contracts.json' with { type: 'json' }
+import eilJsonRaw from './eil.json' with { type: 'json' }
+import federationJsonRaw from './federation.json' with { type: 'json' }
 import {
   type ChainConfig,
   ChainConfigSchema,
@@ -54,8 +55,8 @@ import {
   type VendorAppConfig,
   VendorAppsConfigSchema,
 } from './schemas'
-import servicesJsonRaw from './services.json'
-import vendorAppsJsonRaw from './vendor-apps.json'
+import servicesJsonRaw from './services.json' with { type: 'json' }
+import vendorAppsJsonRaw from './vendor-apps.json' with { type: 'json' }
 
 export * from './dev-proxy'
 // Network utilities

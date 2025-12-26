@@ -4,10 +4,10 @@
  * Uses the DWS serverless cache service for distributed caching.
  */
 
-import { getDWSUrl } from '@jejunetwork/config'
+import { getCacheNamespace, getDwsCacheEndpoint, getDWSUrl } from '@jejunetwork/config'
 
-const DWS_CACHE_ENDPOINT = process.env.DWS_CACHE_URL || `${getDWSUrl()}/cache`
-const CACHE_NAMESPACE = process.env.CACHE_NAMESPACE || 'example'
+const DWS_CACHE_ENDPOINT = getDwsCacheEndpoint() ?? `${getDWSUrl()}/cache`
+const CACHE_NAMESPACE = getCacheNamespace()
 const CACHE_TIMEOUT = 5000
 
 type CacheValue =

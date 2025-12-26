@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import { app } from '../api/server'
+import { app, dwsRequest } from './setup'
 
 // Test response types
 interface EdgeNode {
@@ -78,7 +78,7 @@ describe('Edge Coordination', () => {
 
   describe('Health', () => {
     test('health endpoint returns stats', async () => {
-      const response = await app.request('/edge/health')
+      const response = await dwsRequest('/edge/health')
       expect(response.ok).toBe(true)
 
       const data = (await response.json()) as EdgeHealthResponse
@@ -92,7 +92,7 @@ describe('Edge Coordination', () => {
 
   describe('Node Registration', () => {
     test('register wallet edge node', async () => {
-      const response = await app.request('/edge/register', {
+      const response = await dwsRequest('/edge/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -120,7 +120,7 @@ describe('Edge Coordination', () => {
     })
 
     test('register full node', async () => {
-      const response = await app.request('/edge/register', {
+      const response = await dwsRequest('/edge/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -147,7 +147,7 @@ describe('Edge Coordination', () => {
 
   describe('Node Management', () => {
     test('list all nodes', async () => {
-      const response = await app.request('/edge/nodes')
+      const response = await dwsRequest('/edge/nodes')
       expect(response.ok).toBe(true)
 
       const data = (await response.json()) as NodesListResponse
@@ -156,7 +156,7 @@ describe('Edge Coordination', () => {
     })
 
     test('list nodes by region', async () => {
-      const response = await app.request('/edge/nodes?region=us-west')
+      const response = await dwsRequest('/edge/nodes?region=us-west')
       expect(response.ok).toBe(true)
 
       const data = (await response.json()) as NodesRegionResponse
@@ -166,7 +166,7 @@ describe('Edge Coordination', () => {
     })
 
     test('list nodes by type', async () => {
-      const response = await app.request('/edge/nodes?type=wallet-edge')
+      const response = await dwsRequest('/edge/nodes?type=wallet-edge')
       expect(response.ok).toBe(true)
 
       const data = (await response.json()) as NodesTypeResponse
@@ -176,7 +176,7 @@ describe('Edge Coordination', () => {
     })
 
     test('get node details', async () => {
-      const response = await app.request(`/edge/nodes/${testNodeId}`)
+      const response = await dwsRequest(`/edge/nodes/${testNodeId}`)
       expect(response.ok).toBe(true)
 
       const data = (await response.json()) as NodeDetailsResponse
@@ -188,7 +188,7 @@ describe('Edge Coordination', () => {
 
   describe('Cache Management', () => {
     test('request content caching', async () => {
-      const response = await app.request('/edge/cache', {
+      const response = await dwsRequest('/edge/cache', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -206,7 +206,7 @@ describe('Edge Coordination', () => {
     })
 
     test('check cache status', async () => {
-      const response = await app.request('/edge/cache/QmTestContent123')
+      const response = await dwsRequest('/edge/cache/QmTestContent123')
       expect(response.ok).toBe(true)
 
       const data = (await response.json()) as CidResponse
@@ -216,7 +216,7 @@ describe('Edge Coordination', () => {
 
   describe('Content Routing', () => {
     test('get route for content', async () => {
-      const response = await app.request('/edge/route/QmTestContent123', {
+      const response = await dwsRequest('/edge/route/QmTestContent123', {
         headers: { 'x-jeju-region': 'us-west' },
       })
 
@@ -231,7 +231,7 @@ describe('Edge Coordination', () => {
 
   describe('Earnings', () => {
     test('get node earnings', async () => {
-      const response = await app.request(`/edge/earnings/${testNodeId}`)
+      const response = await dwsRequest(`/edge/earnings/${testNodeId}`)
       expect(response.ok).toBe(true)
 
       const data = (await response.json()) as NodeEarnings
@@ -242,7 +242,7 @@ describe('Edge Coordination', () => {
 
     test('earnings for non-existent node returns 404', async () => {
       // Use a valid UUID format that doesn't exist
-      const response = await app.request(
+      const response = await dwsRequest(
         '/edge/earnings/00000000-0000-0000-0000-000000000000',
       )
       expect(response.status).toBe(404)
@@ -251,7 +251,7 @@ describe('Edge Coordination', () => {
 
   describe('Node Cleanup', () => {
     test('unregister node', async () => {
-      const response = await app.request(`/edge/nodes/${testNodeId}`, {
+      const response = await dwsRequest(`/edge/nodes/${testNodeId}`, {
         method: 'DELETE',
       })
       expect(response.ok).toBe(true)
@@ -261,7 +261,7 @@ describe('Edge Coordination', () => {
     })
 
     test('get deleted node returns 404', async () => {
-      const response = await app.request(`/edge/nodes/${testNodeId}`)
+      const response = await dwsRequest(`/edge/nodes/${testNodeId}`)
       expect(response.status).toBe(404)
     })
   })

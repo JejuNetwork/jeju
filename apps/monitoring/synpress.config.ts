@@ -6,7 +6,7 @@ import {
   createSynpressConfig,
   createWalletSetup,
   PASSWORD,
-} from '@jejunetwork/tests'
+} from '@jejunetwork/tests/playwright-only'
 
 const MONITORING_PORT = parseInt(process.env.PORT || '9091', 10)
 

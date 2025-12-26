@@ -10,7 +10,7 @@
  * - Account abstraction features
  */
 
-import { createSynpressConfig, PASSWORD, SEED_PHRASE } from '@jejunetwork/tests'
+import { createSynpressConfig, PASSWORD, SEED_PHRASE } from '@jejunetwork/tests/playwright-only'
 
 const WALLET_PORT = parseInt(process.env.WALLET_PORT || '4015', 10)
 
