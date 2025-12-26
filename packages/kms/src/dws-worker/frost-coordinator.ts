@@ -104,7 +104,7 @@ export interface KeyGenResult {
   groupAddress: Address
 }
 
-export interface SigningNonce {
+interface SigningNonce {
   d: bigint
   e: bigint
   D: Hex // Commitment for d

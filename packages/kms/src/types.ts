@@ -233,19 +233,19 @@ export interface KMSConfig {
 }
 
 // Provider status types for getStatus() return values
-export interface EncryptionProviderStatus {
+interface EncryptionProviderStatus {
   connected: boolean
   keyCount: number
   sessionCount: number
 }
 
-export interface TEEProviderStatus {
+interface TEEProviderStatus {
   connected: boolean
   mode: 'remote' | 'local'
   attestation?: TEEAttestation
 }
 
-export interface MPCProviderStatus {
+interface MPCProviderStatus {
   connected: boolean
   threshold: number
   totalParties: number

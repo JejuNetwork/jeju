@@ -6,6 +6,8 @@
  * error codes, and operational flags for consistent error handling.
  */
 
+import { isDevMode } from '@jejunetwork/config'
+
 /**
  * Base error class for all Jeju errors
  *
@@ -42,7 +44,7 @@ export abstract class JejuError extends Error {
       statusCode: this.statusCode,
       timestamp: this.timestamp,
       context: this.context,
-      ...(process.env.NODE_ENV === 'development' && { stack: this.stack }),
+      ...(isDevMode() && { stack: this.stack }),
     }
   }
 }
@@ -132,10 +134,7 @@ export class DatabaseError extends JejuError {
     super(message, 'DATABASE_ERROR', 500, true, {
       operation,
       originalError: originalError?.message,
-      originalStack:
-        process.env.NODE_ENV === 'development'
-          ? originalError?.stack
-          : undefined,
+      originalStack: isDevMode() ? originalError?.stack : undefined,
     })
   }
 }

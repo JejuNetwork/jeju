@@ -229,6 +229,87 @@ describe('SQL Generation', () => {
       )
     })
   })
+
+  describe('generateVectorSearchSQL', () => {
+    it('should generate basic KNN search query', () => {
+      const sql = generateVectorSearchSQL({
+        tableName: 'embeddings',
+        k: 10,
+      })
+      expect(sql).toContain('SELECT v.rowid, v.distance')
+      expect(sql).toContain('FROM embeddings AS e')
+      expect(sql).toContain('WHERE e.embedding MATCH ?')
+      expect(sql).toContain('AND k = 10')
+      expect(sql).toContain('ORDER BY distance')
+    })
+
+    it('should include metadata columns when requested', () => {
+      const sql = generateVectorSearchSQL(
+        {
+          tableName: 'embeddings',
+          k: 5,
+          includeMetadata: true,
+        },
+        ['title', 'created_at'],
+      )
+      expect(sql).toContain('e.title')
+      expect(sql).toContain('e.created_at')
+    })
+
+    it('should include metadata filter', () => {
+      const sql = generateVectorSearchSQL({
+        tableName: 'embeddings',
+        k: 10,
+        metadataFilter: 'status = ?',
+      })
+      expect(sql).toContain('AND status = ?')
+    })
+
+    it('should reject invalid k values', () => {
+      expect(() =>
+        generateVectorSearchSQL({
+          tableName: 'embeddings',
+          k: 0,
+        }),
+      ).toThrow('Invalid k value: 0')
+
+      expect(() =>
+        generateVectorSearchSQL({
+          tableName: 'embeddings',
+          k: -5,
+        }),
+      ).toThrow('Invalid k value: -5')
+
+      expect(() =>
+        generateVectorSearchSQL({
+          tableName: 'embeddings',
+          k: 10001,
+        }),
+      ).toThrow('Invalid k value: 10001')
+    })
+
+    it('should reject invalid table name', () => {
+      expect(() =>
+        generateVectorSearchSQL({
+          tableName: 'bad;table',
+          k: 10,
+        }),
+      ).toThrow('Invalid SQL table name')
+    })
+
+    it('should reject invalid metadata column names', () => {
+      expect(() =>
+        generateVectorSearchSQL(
+          {
+            tableName: 'embeddings',
+            k: 10,
+            includeMetadata: true,
+          },
+          ['valid', 'bad column'],
+        ),
+      ).toThrow('Invalid SQL column name')
+    })
+  })
 })
 
 describe('Vector Math', () => {
@@ -444,15 +525,18 @@ describe('Edge Cases and Error Handling', () => {
         generateCreateVectorTableSQL({
           tableName: 'embeddings',
           dimensions: 384,
-          metadataColumns: [{ name: 'valid', type: 'TEXT' }, { name: 'bad;column', type: 'TEXT' }],
+          metadataColumns: [
+            { name: 'valid', type: 'TEXT' },
+            { name: 'bad;column', type: 'TEXT' },
+          ],
         }),
       ).toThrow('Invalid SQL column name')
     })
 
     it('generateVectorInsertSQL should reject invalid table name', () => {
-      expect(() =>
-        generateVectorInsertSQL('DROP TABLE users', false),
-      ).toThrow('Invalid SQL table name')
+      expect(() => generateVectorInsertSQL('DROP TABLE users', false)).toThrow(
+        'Invalid SQL table name',
+      )
     })
 
     it('generateVectorInsertSQL should reject invalid column name', () => {

@@ -2,7 +2,6 @@
  * HTTP client for TEE endpoint communication.
  */
 
-import { getEnv } from '@jejunetwork/shared'
 import type { Address, Hex } from 'viem'
 import type {
   AccessControlPolicy,
@@ -12,14 +11,14 @@ import type {
 } from './types.js'
 
 /**
- * TEE API response types
+ * TEE API response types (internal use only)
  */
-export interface TEEConnectResponse {
+interface TEEConnectResponse {
   attestation?: TEEAttestation
   enclaveKey?: Hex
 }
 
-export interface TEEKeyGenRequest {
+interface TEEKeyGenRequest {
   keyId: string
   owner: Address
   keyType: KeyType
@@ -27,17 +26,17 @@ export interface TEEKeyGenRequest {
   policy: AccessControlPolicy
 }
 
-export interface TEEKeyGenResponse {
+interface TEEKeyGenResponse {
   publicKey: Hex
   address: Address
 }
 
-export interface TEESignRequest {
+interface TEESignRequest {
   message: string | Uint8Array
   hashAlgorithm?: 'keccak256' | 'sha256' | 'none'
 }
 
-export interface TEESignResponse {
+interface TEESignResponse {
   signature: Hex
 }
 
@@ -113,20 +112,4 @@ export class TEEClient {
   getEndpoint(): string {
     return this.endpoint
   }
-}
-
-let teeClient: TEEClient | undefined
-
-export function getTEEClient(endpoint?: string): TEEClient | undefined {
-  const teeEndpoint = endpoint ?? getEnv('TEE_ENDPOINT')
-  if (!teeEndpoint) return undefined
-
-  if (!teeClient || teeClient.getEndpoint() !== teeEndpoint) {
-    teeClient = new TEEClient(teeEndpoint)
-  }
-  return teeClient
-}
-
-export function resetTEEClient(): void {
-  teeClient = undefined
 }

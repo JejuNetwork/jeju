@@ -19,7 +19,7 @@ type LogValue =
   | Record<string, LogPrimitive>
 
 /** Structured log data - strongly typed instead of Record<string, unknown> */
-export type LogData = Record<string, LogValue>
+type LogData = Record<string, LogValue>
 
 const isProduction = getEnv('NODE_ENV') === 'production'
 const logLevel = (getEnv('LOG_LEVEL')?.toLowerCase() as LogLevel) ?? 'info'

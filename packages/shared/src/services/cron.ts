@@ -5,6 +5,7 @@
  * Local execution uses croner for timing, remote service for coordination.
  */
 
+import { getCronEndpoint } from '@jejunetwork/config'
 import { Cron } from 'croner'
 import type { Address } from 'viem'
 import { z } from 'zod'
@@ -357,7 +358,7 @@ export function createCronService(config: CronConfig): CronService {
 }
 
 export function getCronServiceFromEnv(): CronService {
-  const endpoint = process.env.CRON_ENDPOINT
+  const endpoint = getCronEndpoint()
   if (!endpoint) {
     throw new Error('CRON_ENDPOINT environment variable is required')
   }

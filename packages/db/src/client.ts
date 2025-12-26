@@ -5,7 +5,16 @@
  * No env vars required - just set JEJU_NETWORK=localnet|testnet|mainnet.
  */
 
-import { getCQLMinerUrl, getCQLUrl } from '@jejunetwork/config'
+import {
+  getCqlDatabaseId,
+  getCqlPrivateKey,
+  getCqlTimeout,
+  getCQLMinerUrl,
+  getCQLUrl,
+  getLogLevel,
+  isCqlDebug,
+  isProductionEnv,
+} from '@jejunetwork/config'
 import { createPool, type Pool } from 'generic-pool'
 import pino from 'pino'
 import type { Address, Hex } from 'viem'
@@ -195,11 +204,10 @@ const CQLConfigSchema = z
 
 const log = pino({
   name: 'cql',
-  level: process.env.LOG_LEVEL ?? 'info',
-  transport:
-    process.env.NODE_ENV !== 'production'
-      ? { target: 'pino-pretty', options: { colorize: true } }
-      : undefined,
+  level: getLogLevel(),
+  transport: !isProductionEnv()
+    ? { target: 'pino-pretty', options: { colorize: true } }
+    : undefined,
 })
 
 // Native Circuit Breaker implementation
@@ -974,12 +982,11 @@ export function getCQL(config?: Partial<CQLConfig>): CQLClient {
       blockProducerEndpoint,
       minerEndpoint,
       privateKey:
-        config?.privateKey ?? (process.env.CQL_PRIVATE_KEY as Hex | undefined),
-      databaseId: config?.databaseId ?? process.env.CQL_DATABASE_ID,
+        config?.privateKey ?? (getCqlPrivateKey() as Hex | undefined),
+      databaseId: config?.databaseId ?? getCqlDatabaseId(),
       timeout:
-        config?.timeout ??
-        parseTimeout(process.env.CQL_TIMEOUT, DEFAULT_TIMEOUT),
-      debug: config?.debug ?? process.env.CQL_DEBUG === 'true',
+        config?.timeout ?? parseTimeout(getCqlTimeout(), DEFAULT_TIMEOUT),
+      debug: config?.debug ?? isCqlDebug(),
     }
 
     const validated = CQLConfigSchema.parse(resolvedConfig)

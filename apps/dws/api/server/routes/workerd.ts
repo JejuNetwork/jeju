@@ -3,7 +3,7 @@
  * V8 isolate-based serverless worker deployment and invocation
  */
 
-import { getCurrentNetwork } from '@jejunetwork/config'
+import { getCurrentNetwork, getRpcUrl } from '@jejunetwork/config'
 import {
   expectJson,
   expectValid,
@@ -814,7 +814,7 @@ const NETWORK_DEFAULTS: Record<
   }
 > = {
   localnet: {
-    rpcUrl: 'http://localhost:6546',
+    rpcUrl: getRpcUrl('localnet'),
     // Default to zero address - decentralized mode disabled unless contract is deployed
     identityRegistry: (process.env.IDENTITY_REGISTRY_ADDRESS ||
       '0x0000000000000000000000000000000000000000') as Address,

@@ -18,6 +18,7 @@
  * - Calls MPC parties for all signing operations
  */
 
+import { getFarcasterHubUrl, isDevMode } from '@jejunetwork/config'
 import { createMPCClient } from '@jejunetwork/kms'
 import { Elysia } from 'elysia'
 import type { Address, Hex } from 'viem'
@@ -36,6 +37,257 @@ const AuthCallbackBodySchema = z.object({
   code: z.string(),
   state: z.string(),
 })
+
+// OAuth token response schema
+const OAuthTokenResponseSchema = z.object({
+  access_token: z.string(),
+  token_type: z.string(),
+  expires_in: z.number().optional(),
+  refresh_token: z.string().optional(),
+  scope: z.string().optional(),
+  id_token: z.string().optional(),
+})
+
+// Provider user info types
+interface OAuthUserInfo {
+  id: string
+  email?: string
+  name?: string
+  avatar?: string
+}
+
+// OAuth client credentials from environment
+const getOAuthCredentials = (
+  provider: string,
+): { clientId: string; clientSecret: string } => {
+  const prefix = provider.toUpperCase()
+  const clientId = process.env[`${prefix}_CLIENT_ID`]
+  const clientSecret = process.env[`${prefix}_CLIENT_SECRET`]
+
+  if (!clientId || !clientSecret) {
+    throw new Error(`Missing OAuth credentials for ${provider}`)
+  }
+
+  return { clientId, clientSecret }
+}
+
+// Token endpoints per provider
+const TOKEN_ENDPOINTS: Record<string, string> = {
+  google: 'https://oauth2.googleapis.com/token',
+  github: 'https://github.com/login/oauth/access_token',
+  discord: 'https://discord.com/api/oauth2/token',
+  twitter: 'https://api.twitter.com/2/oauth2/token',
+  apple: 'https://appleid.apple.com/auth/token',
+}
+
+// User info endpoints per provider
+const USER_INFO_ENDPOINTS: Record<string, string> = {
+  google: 'https://www.googleapis.com/oauth2/v2/userinfo',
+  github: 'https://api.github.com/user',
+  discord: 'https://discord.com/api/users/@me',
+  twitter: 'https://api.twitter.com/2/users/me',
+}
+
+// Exchange authorization code for tokens
+async function exchangeCodeForTokens(
+  provider: string,
+  code: string,
+  redirectUri: string,
+  codeVerifier?: string,
+): Promise<z.infer<typeof OAuthTokenResponseSchema>> {
+  const { clientId, clientSecret } = getOAuthCredentials(provider)
+  const tokenEndpoint = TOKEN_ENDPOINTS[provider]
+
+  if (!tokenEndpoint) {
+    throw new Error(`Unknown OAuth provider: ${provider}`)
+  }
+
+  const params = new URLSearchParams({
+    grant_type: 'authorization_code',
+    code,
+    redirect_uri: redirectUri,
+    client_id: clientId,
+    client_secret: clientSecret,
+  })
+
+  // Add PKCE code verifier if provided
+  if (codeVerifier) {
+    params.set('code_verifier', codeVerifier)
+  }
+
+  const response = await fetch(tokenEndpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Accept: 'application/json',
+    },
+    body: params.toString(),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`Token exchange failed: ${response.status} - ${errorText}`)
+  }
+
+  const data = await response.json()
+  return OAuthTokenResponseSchema.parse(data)
+}
+
+// Farcaster Hub API URL (config-first)
+const FARCASTER_HUB_URL = getFarcasterHubUrl()
+
+// Verify Farcaster Ed25519 signature
+async function verifyFarcasterSignature(
+  _fid: number,
+  message: string,
+  signature: Hex,
+  signerPubKey: Hex,
+): Promise<boolean> {
+  // Remove 0x prefix for Ed25519 verification
+  const sigBytes = hexToBytes(signature)
+  const pubKeyBytes = hexToBytes(signerPubKey)
+  const messageBytes = new TextEncoder().encode(message)
+
+  // Copy to new ArrayBuffer to ensure compatibility with subtle crypto
+  const pubKeyBuffer = new ArrayBuffer(pubKeyBytes.length)
+  new Uint8Array(pubKeyBuffer).set(pubKeyBytes)
+
+  const sigBuffer = new ArrayBuffer(sigBytes.length)
+  new Uint8Array(sigBuffer).set(sigBytes)
+
+  // Import the Ed25519 public key
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    pubKeyBuffer,
+    { name: 'Ed25519' },
+    false,
+    ['verify'],
+  )
+
+  // Verify the signature
+  const isValid = await crypto.subtle.verify(
+    'Ed25519',
+    cryptoKey,
+    sigBuffer,
+    messageBytes,
+  )
+
+  return isValid
+}
+
+// Verify that a signer is authorized for a FID via Farcaster hub
+async function verifyFarcasterSigner(
+  fid: number,
+  signerPubKey: Hex,
+): Promise<boolean> {
+  // Query Farcaster hub for signer keys associated with this FID
+  const response = await fetch(
+    `${FARCASTER_HUB_URL}/signersByFid?fid=${fid}`,
+    {
+      headers: { Accept: 'application/json' },
+    },
+  )
+
+  if (!response.ok) {
+    // If hub is unavailable, log warning but don't block auth
+    // in development. In production, this should be strict.
+    if (isDevMode()) {
+      console.warn(`Farcaster hub unavailable: ${response.status}`)
+      return true // Allow in dev mode
+    }
+    return false
+  }
+
+  const data = await response.json()
+
+  // Check if the signer is in the list of authorized signers
+  const signers = data.messages ?? []
+  const normalizedSignerKey = signerPubKey.toLowerCase()
+
+  for (const msg of signers) {
+    const signerKey = msg.data?.signerAddBody?.signer
+    if (signerKey) {
+      // Convert to hex and compare
+      const signerHex = `0x${Buffer.from(signerKey, 'base64').toString('hex')}`
+      if (signerHex.toLowerCase() === normalizedSignerKey) {
+        return true
+      }
+    }
+  }
+
+  return false
+}
+
+// Helper to convert hex string to bytes
+function hexToBytes(hex: Hex): Uint8Array {
+  const hexStr = hex.startsWith('0x') ? hex.slice(2) : hex
+  const bytes = new Uint8Array(hexStr.length / 2)
+  for (let i = 0; i < bytes.length; i++) {
+    bytes[i] = parseInt(hexStr.slice(i * 2, i * 2 + 2), 16)
+  }
+  return bytes
+}
+
+// Fetch user info from provider
+async function fetchUserInfo(
+  provider: string,
+  accessToken: string,
+): Promise<OAuthUserInfo> {
+  const userInfoEndpoint = USER_INFO_ENDPOINTS[provider]
+
+  if (!userInfoEndpoint) {
+    // Apple doesn't have a userinfo endpoint - info comes from ID token
+    throw new Error(`User info endpoint not available for ${provider}`)
+  }
+
+  const response = await fetch(userInfoEndpoint, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: 'application/json',
+    },
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch user info: ${response.status}`)
+  }
+
+  const data = await response.json()
+
+  // Normalize user info across providers
+  switch (provider) {
+    case 'google':
+      return {
+        id: data.id,
+        email: data.email,
+        name: data.name,
+        avatar: data.picture,
+      }
+    case 'github':
+      return {
+        id: String(data.id),
+        email: data.email,
+        name: data.name ?? data.login,
+        avatar: data.avatar_url,
+      }
+    case 'discord':
+      return {
+        id: data.id,
+        email: data.email,
+        name: data.global_name ?? data.username,
+        avatar: data.avatar
+          ? `https://cdn.discordapp.com/avatars/${data.id}/${data.avatar}.png`
+          : undefined,
+      }
+    case 'twitter':
+      return {
+        id: data.data.id,
+        name: data.data.name,
+        avatar: data.data.profile_image_url,
+      }
+    default:
+      throw new Error(`Unknown provider: ${provider}`)
+  }
+}
 
 const WalletAuthBodySchema = z.object({
   address: z.string().transform((s) => s as Address),
@@ -228,11 +480,22 @@ export function createOAuth3Worker(config: OAuth3WorkerConfig) {
           throw new Error('Auth request expired')
         }
 
-        // Exchange code for tokens (provider-specific)
-        // In real implementation, call provider's token endpoint
+        // Exchange authorization code for tokens
+        const tokens = await exchangeCodeForTokens(
+          pending.provider,
+          params.code,
+          pending.redirectUri,
+          pending.codeVerifier,
+        )
 
-        // Create session
-        const userId = `${pending.provider}:${crypto.randomUUID()}`
+        // Fetch user info from provider
+        const userInfo = await fetchUserInfo(
+          pending.provider,
+          tokens.access_token,
+        )
+
+        // Create session with real user ID from provider
+        const userId = `${pending.provider}:${userInfo.id}`
         const keyId = await getOrCreateUserKey(userId)
 
         const session: OAuth3Session = {
@@ -244,7 +507,11 @@ export function createOAuth3Worker(config: OAuth3WorkerConfig) {
           expiresAt: Date.now() + sessionDuration,
           lastActivity: Date.now(),
           mfaVerified: false,
-          metadata: {},
+          metadata: {
+            name: userInfo.name ?? '',
+            email: userInfo.email ?? '',
+            avatar: userInfo.avatar ?? '',
+          },
         }
 
         sessions.set(session.sessionId, session)
@@ -255,6 +522,12 @@ export function createOAuth3Worker(config: OAuth3WorkerConfig) {
           userId: session.userId,
           provider: session.provider,
           expiresAt: session.expiresAt,
+          userInfo: {
+            id: userInfo.id,
+            name: userInfo.name,
+            email: userInfo.email,
+            avatar: userInfo.avatar,
+          },
         }
       })
 
@@ -306,8 +579,28 @@ export function createOAuth3Worker(config: OAuth3WorkerConfig) {
       .post('/auth/farcaster', async ({ body }) => {
         const params = FarcasterAuthBodySchema.parse(body)
 
-        // Verify Farcaster signature
-        // In real implementation, verify against Farcaster hub
+        // Verify Farcaster signature using the signer key
+        // The signer must be registered for this FID on the Farcaster hub
+        const isValidSignature = await verifyFarcasterSignature(
+          params.fid,
+          params.message,
+          params.signature,
+          params.signer,
+        )
+
+        if (!isValidSignature) {
+          throw new Error('Invalid Farcaster signature')
+        }
+
+        // Verify signer is authorized for this FID via Farcaster hub
+        const isAuthorizedSigner = await verifyFarcasterSigner(
+          params.fid,
+          params.signer,
+        )
+
+        if (!isAuthorizedSigner) {
+          throw new Error('Signer not authorized for this FID')
+        }
 
         const userId = `farcaster:${params.fid}`
         const keyId = await getOrCreateUserKey(userId)
@@ -321,7 +614,7 @@ export function createOAuth3Worker(config: OAuth3WorkerConfig) {
           expiresAt: Date.now() + sessionDuration,
           lastActivity: Date.now(),
           mfaVerified: false,
-          metadata: { fid: String(params.fid) },
+          metadata: { fid: String(params.fid), signer: params.signer },
         }
 
         sessions.set(session.sessionId, session)

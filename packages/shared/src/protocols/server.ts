@@ -9,6 +9,7 @@
  * Supports both server mode (Bun.serve) and serverless mode (export fetch handler).
  */
 
+import { isProductionEnv } from '@jejunetwork/config'
 import { cors } from '@elysiajs/cors'
 import { Elysia } from 'elysia'
 import type { Address } from 'viem'
@@ -218,10 +219,9 @@ export function createServer(config: ServerConfig) {
   }
 
   // Determine allowed origins
-  const isProduction = process.env.NODE_ENV === 'production'
   const allowedOrigins =
     config.security?.allowedOrigins ??
-    (isProduction ? [] : DEFAULT_ALLOWED_ORIGINS)
+    (isProductionEnv() ? [] : DEFAULT_ALLOWED_ORIGINS)
 
   const app = new Elysia()
     // Security middleware (headers, rate limiting)
