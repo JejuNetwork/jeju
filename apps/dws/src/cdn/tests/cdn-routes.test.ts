@@ -48,8 +48,8 @@ async function setupTestApps(): Promise<void> {
         enabled: true,
         staticDir: 'dist',
         cacheRules: [
-          { pattern: '/assets/**', ttl: 31536000, immutable: true },
-          { pattern: '/**/*.js', ttl: 86400 },
+          { pattern: '/assets/**', ttl: 31536000, strategy: 'immutable' },
+          { pattern: '/**/*.js', ttl: 86400, strategy: 'static' },
         ],
       },
     },

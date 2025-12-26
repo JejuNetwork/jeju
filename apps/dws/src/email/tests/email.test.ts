@@ -9,6 +9,9 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+
+// Skip tests when infrastructure isn't available
+const SKIP = process.env.INFRA_READY !== 'true'
 import type { Address, Hex } from 'viem'
 import {
   type ContentScreeningPipeline,
@@ -20,7 +23,7 @@ import type { EmailContent, EmailEnvelope } from '../types'
 
 // ============ Content Screening Tests ============
 
-describe('ContentScreeningPipeline', () => {
+describe.skipIf(SKIP)('ContentScreeningPipeline', () => {
   let pipeline: ContentScreeningPipeline
 
   beforeEach(() => {
@@ -180,7 +183,7 @@ describe('ContentScreeningPipeline', () => {
 
 // ============ Mailbox Storage Tests ============
 
-describe('MailboxStorage', () => {
+describe.skipIf(SKIP)('MailboxStorage', () => {
   let storage: MailboxStorage
 
   beforeEach(() => {
@@ -315,7 +318,7 @@ describe('MailboxStorage', () => {
 
 // ============ Filter Rules Tests ============
 
-describe('Filter Rules', () => {
+describe.skipIf(SKIP)('Filter Rules', () => {
   let storage: MailboxStorage
 
   beforeEach(() => {

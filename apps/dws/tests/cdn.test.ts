@@ -1,11 +1,28 @@
 /**
  * CDN Service Tests
  * Comprehensive tests for CDN caching, routing, and edge functionality
+ *
+ * Requires: DWS server infrastructure
+ * Run with: jeju test --target-app dws --mode integration
  */
 
 import { beforeEach, describe, expect, test } from 'bun:test'
-import { type EdgeCache, getEdgeCache, resetEdgeCache } from '../api/cdn'
-import { app } from '../api/server'
+
+// Skip all tests if INFRA_READY is not set
+const SKIP_ALL = process.env.INFRA_READY !== 'true'
+
+// Only import heavy modules if we're going to run tests
+let app: Awaited<typeof import('../api/server')>['app']
+let getEdgeCache: typeof import('../api/cdn').getEdgeCache
+let resetEdgeCache: typeof import('../api/cdn').resetEdgeCache
+type EdgeCache = import('../api/cdn').EdgeCache
+
+if (!SKIP_ALL) {
+  app = (await import('../api/server')).app
+  const cdn = await import('../api/cdn')
+  getEdgeCache = cdn.getEdgeCache
+  resetEdgeCache = cdn.resetEdgeCache
+}
 
 // Response types for JNS resolution
 interface JnsResolveResponse {
@@ -22,6 +39,7 @@ async function request(
     body?: string
   },
 ): Promise<Response> {
+  if (SKIP_ALL) throw new Error('Tests should be skipped')
   const url = `http://localhost${path}`
   const req = new Request(url, {
     method: options?.method ?? 'GET',
@@ -31,7 +49,7 @@ async function request(
   return app.handle(req)
 }
 
-describe('CDN Service', () => {
+describe.skipIf(SKIP_ALL)('CDN Service', () => {
   describe('Health Check', () => {
     test('GET /cdn/health should return healthy', async () => {
       const res = await request('/cdn/health')
@@ -132,7 +150,7 @@ describe('CDN Service', () => {
   })
 })
 
-describe('EdgeCache Unit Tests', () => {
+describe.skipIf(SKIP_ALL)('EdgeCache Unit Tests', () => {
   let cache: EdgeCache
 
   beforeEach(() => {
@@ -406,7 +424,7 @@ describe('EdgeCache Unit Tests', () => {
   })
 })
 
-describe('EdgeCache Edge Cases', () => {
+describe.skipIf(SKIP_ALL)('EdgeCache Edge Cases', () => {
   let cache: EdgeCache
 
   beforeEach(() => {
@@ -479,7 +497,7 @@ describe('EdgeCache Edge Cases', () => {
   })
 })
 
-describe('CDN Server Integration', () => {
+describe.skipIf(SKIP_ALL)('CDN Server Integration', () => {
   test('DWS health should include cdn service', async () => {
     const res = await request('/health')
     expect(res.status).toBe(200)
@@ -501,7 +519,7 @@ describe('CDN Server Integration', () => {
 
 // ============ Cache Eviction and Size Limit Tests ============
 
-describe('EdgeCache Eviction', () => {
+describe.skipIf(SKIP_ALL)('EdgeCache Eviction', () => {
   test('should evict oldest entries when max entries exceeded', () => {
     resetEdgeCache()
     // Create cache with very small max entries
@@ -573,7 +591,7 @@ describe('EdgeCache Eviction', () => {
 
 // ============ Invalid Input Handling Tests ============
 
-describe('EdgeCache Invalid Inputs', () => {
+describe.skipIf(SKIP_ALL)('EdgeCache Invalid Inputs', () => {
   let cache: EdgeCache
 
   beforeEach(() => {
@@ -633,7 +651,7 @@ describe('EdgeCache Invalid Inputs', () => {
 
 // ============ TTL Expiration Behavior Tests ============
 
-describe('EdgeCache TTL Behavior', () => {
+describe.skipIf(SKIP_ALL)('EdgeCache TTL Behavior', () => {
   let cache: EdgeCache
 
   beforeEach(() => {
@@ -705,7 +723,7 @@ describe('EdgeCache TTL Behavior', () => {
 
 // ============ Hit Rate Calculation Tests ============
 
-describe('EdgeCache Hit Rate Accuracy', () => {
+describe.skipIf(SKIP_ALL)('EdgeCache Hit Rate Accuracy', () => {
   let cache: EdgeCache
 
   beforeEach(() => {

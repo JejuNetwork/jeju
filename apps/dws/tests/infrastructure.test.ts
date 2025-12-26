@@ -14,7 +14,7 @@
 import { afterAll, describe, expect, setDefaultTimeout, test } from 'bun:test'
 import { getCurrentNetwork } from '@jejunetwork/config'
 import type { Address } from 'viem'
-import { app, dwsRequest } from './setup'
+import { dwsRequest } from './setup'
 import { SKIP } from './infra-check'
 
 // Skip all if no infrastructure
