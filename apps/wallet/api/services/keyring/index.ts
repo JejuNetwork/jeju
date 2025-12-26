@@ -76,9 +76,9 @@ interface SmartWalletAccount extends Account {
 
 // HD Paths
 const HD_PATHS = {
-  ethereum: "m/44'/60'/0'/0",
-  ledgerLive: "m/44'/60'",
-  ledgerLegacy: "m/44'/60'/0'",
+  ethereum: "m/44'/60'/0'/0", // Standard BIP44
+  ledgerLive: "m/44'/60'", // Ledger Live per-account derivation
+  mew: "m/44'/60'/0'", // MyEtherWallet style
 } as const
 
 class KeyringService {

@@ -279,7 +279,7 @@ const IdParams = t.Object({ id: t.String() })
 
 export function createTerraformProviderRouter() {
   return (
-    new Elysia({ prefix: '' })
+    new Elysia({ prefix: '/terraform' })
       .get('/v1/schema', () => {
         const schema: TerraformSchema = {
           version: 1,

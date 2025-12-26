@@ -16,9 +16,15 @@ const { expect } = test
 const RPC_URL = getRpcUrl('localnet')
 const CHAIN_ID = getChainId('localnet')
 const TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
+<<<<<<< HEAD
+const PREDIMARKET_ADDRESS = getContract(
+  'moderation',
+  'predimarket',
+=======
 const PREDICTION_MARKET_ADDRESS = getContract(
   'bazaar',
   'predictionMarket',
+>>>>>>> 2704e741a281cde8e0d87a38cb2417ed24b61d02
   'localnet',
 ) as `0x${string}` | undefined
 
@@ -319,12 +325,21 @@ test.describe('Trade Execution', () => {
     await metamask.connectToDapp()
     await expect(page.getByText(/0xf39F/i)).toBeVisible({ timeout: 15000 })
 
+<<<<<<< HEAD
+    const predimarketAddress = PREDIMARKET_ADDRESS
+    if (
+      !predimarketAddress ||
+      predimarketAddress === '0x0000000000000000000000000000000000000000'
+    ) {
+      console.log('Skipping: Predimarket not deployed')
+=======
     const predictionMarketAddress = PREDICTION_MARKET_ADDRESS
     if (
       !predictionMarketAddress ||
       predictionMarketAddress === '0x0000000000000000000000000000000000000000'
     ) {
       console.log('Skipping: PredictionMarket not deployed')
+>>>>>>> 2704e741a281cde8e0d87a38cb2417ed24b61d02
       return
     }
 

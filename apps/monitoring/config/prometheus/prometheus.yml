@@ -119,6 +119,14 @@ scrape_configs:
           component: 'xlp'
     metrics_path: '/monitoring/metrics/prometheus'
 
+  # DWS Cache Service (API on port 4030)
+  - job_name: 'dws-cache'
+    static_configs:
+      - targets: ['host.docker.internal:4030']
+        labels:
+          component: 'cache'
+    metrics_path: '/cache/metrics'
+
   # Prometheus self-monitoring
   - job_name: 'prometheus'
     static_configs:

@@ -284,9 +284,19 @@ app
   .get('/health', async () => {
     const backends = backendManager.listBackends()
     const backendHealth = await backendManager.healthCheck()
-    const nodeCount = await decentralized.discovery.getNodeCount()
+    // These may fail if contracts aren't deployed (dev mode)
+    let nodeCount = 0
+    let frontendCid: string | null = null
+    if (
+      decentralizedConfig.identityRegistryAddress !==
+      '0x0000000000000000000000000000000000000000'
+    ) {
+      nodeCount = await decentralized.discovery.getNodeCount().catch(() => 0)
+      frontendCid = await decentralized.frontend
+        .getFrontendCid()
+        .catch(() => null)
+    }
     const peerCount = p2pCoordinator?.getPeers().length ?? 0
-    const frontendCid = await decentralized.frontend.getFrontendCid()
 
     const health: ServiceHealth = {
       status: 'healthy',

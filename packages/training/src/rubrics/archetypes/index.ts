@@ -11,6 +11,7 @@ import { createHash } from 'node:crypto'
 import type { JudgeRubric } from '../index'
 import { registerOrUpdateRubric } from '../index'
 import { ASS_KISSER_PRIORITY_METRICS, ASS_KISSER_RUBRIC } from './ass-kisser'
+import { BLUE_TEAM_PRIORITY_METRICS, BLUE_TEAM_RUBRIC } from './blue-team'
 import { DEGEN_PRIORITY_METRICS, DEGEN_RUBRIC } from './degen'
 import {
   GOODY_TWOSHOES_PRIORITY_METRICS,
@@ -26,6 +27,7 @@ import {
   PERPS_TRADER_PRIORITY_METRICS,
   PERPS_TRADER_RUBRIC,
 } from './perps-trader'
+import { RED_TEAM_PRIORITY_METRICS, RED_TEAM_RUBRIC } from './red-team'
 import { RESEARCHER_PRIORITY_METRICS, RESEARCHER_RUBRIC } from './researcher'
 import { SCAMMER_PRIORITY_METRICS, SCAMMER_RUBRIC } from './scammer'
 import {
@@ -86,6 +88,9 @@ export const ARCHETYPE_RUBRICS: Record<string, string> = {
   'super-predictor': SUPER_PREDICTOR_RUBRIC,
   infosec: INFOSEC_RUBRIC,
   liar: LIAR_RUBRIC,
+  // Crucible security archetypes
+  'blue-team': BLUE_TEAM_RUBRIC,
+  'red-team': RED_TEAM_RUBRIC,
   // Aliases (no hyphens)
   socialbutterfly: SOCIAL_BUTTERFLY_RUBRIC,
   goodytwoshoes: GOODY_TWOSHOES_RUBRIC,
@@ -93,6 +98,8 @@ export const ARCHETYPE_RUBRICS: Record<string, string> = {
   perpstrader: PERPS_TRADER_RUBRIC,
   superpredictor: SUPER_PREDICTOR_RUBRIC,
   informationtrader: INFORMATION_TRADER_RUBRIC,
+  blueteam: BLUE_TEAM_RUBRIC,
+  redteam: RED_TEAM_RUBRIC,
 }
 
 /**
@@ -111,6 +118,9 @@ export const ARCHETYPE_PRIORITY_METRICS: Record<string, string[]> = {
   'super-predictor': SUPER_PREDICTOR_PRIORITY_METRICS,
   infosec: INFOSEC_PRIORITY_METRICS,
   liar: LIAR_PRIORITY_METRICS,
+  // Crucible security archetypes
+  'blue-team': BLUE_TEAM_PRIORITY_METRICS,
+  'red-team': RED_TEAM_PRIORITY_METRICS,
 }
 
 /**
@@ -156,6 +166,9 @@ export function getAvailableArchetypes(): string[] {
     'super-predictor',
     'infosec',
     'liar',
+    // Crucible security archetypes
+    'blue-team',
+    'red-team',
   ]
 }
 
@@ -212,6 +225,8 @@ export function registerArchetypeRubrics(): void {
 export {
   ASS_KISSER_PRIORITY_METRICS,
   ASS_KISSER_RUBRIC,
+  BLUE_TEAM_PRIORITY_METRICS,
+  BLUE_TEAM_RUBRIC,
   DEGEN_PRIORITY_METRICS,
   DEGEN_RUBRIC,
   GOODY_TWOSHOES_PRIORITY_METRICS,
@@ -224,6 +239,8 @@ export {
   LIAR_RUBRIC,
   PERPS_TRADER_PRIORITY_METRICS,
   PERPS_TRADER_RUBRIC,
+  RED_TEAM_PRIORITY_METRICS,
+  RED_TEAM_RUBRIC,
   RESEARCHER_PRIORITY_METRICS,
   RESEARCHER_RUBRIC,
   SCAMMER_PRIORITY_METRICS,

@@ -91,8 +91,6 @@ export class TEECacheProvider {
       defaultTtlSeconds: 3600,
       maxTtlSeconds: 86400 * 30,
       evictionPolicy: 'lru',
-      persistenceEnabled: false,
-      replicationFactor: 1,
       teeProvider: config.provider,
       teeEndpoint: config.endpoint,
     })

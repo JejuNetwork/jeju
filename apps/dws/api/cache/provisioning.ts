@@ -6,8 +6,7 @@
  * - Resource allocation
  * - Node assignment
  * - Health monitoring
- *
- * TODO: Billing integration with x402 payment protocol
+ * - x402 billing integration (see billing.ts)
  */
 
 import { getCQL } from '@jejunetwork/db'

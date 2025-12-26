@@ -11,6 +11,14 @@
  */
 
 import type { Address } from 'viem'
+
+<<<<<<< HEAD
+
+const _log = createLogger('xmtp-router')
+
+=======
+>>>>>>> 2704e741a281cde8e0d87a38cb2417ed24b61d02
+
 import type { RouteConfig, RouteResult, XMTPEnvelope } from './types'
 
 export interface RelayNode {

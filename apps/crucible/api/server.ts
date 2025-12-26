@@ -12,6 +12,7 @@ import {
   getCurrentNetwork,
   getRpcUrl,
   getServiceUrl,
+  getServicesConfig,
 } from '@jejunetwork/config'
 import type { JsonObject } from '@jejunetwork/types'
 import { isHexString, isValidAddress } from '@jejunetwork/types'
@@ -30,6 +31,7 @@ import { BotInitializer } from './bots/initializer'
 import type { TradingBot } from './bots/trading-bot'
 import { characters, getCharacter, listCharacters } from './characters'
 import { checkDWSHealth } from './client/dws'
+import { cronRoutes } from './cron'
 import { banCheckMiddleware } from './middleware/ban-check'
 import {
   AddMemoryRequestSchema,
@@ -227,20 +229,19 @@ const config: CrucibleConfig = {
         ? process.env.AUTOCRAT_TREASURY_ADDRESS
         : undefined,
   },
-  services: {
-    computeMarketplace: getRequiredEnv(
-      'COMPUTE_MARKETPLACE_URL',
-      LOCALNET_DEFAULTS.computeMarketplace,
-    ),
-    storageApi: getRequiredEnv('STORAGE_API_URL', LOCALNET_DEFAULTS.storageApi),
-    ipfsGateway: getRequiredEnv('IPFS_GATEWAY', LOCALNET_DEFAULTS.ipfsGateway),
-    indexerGraphql: getRequiredEnv(
-      'INDEXER_GRAPHQL_URL',
-      LOCALNET_DEFAULTS.indexerGraphql,
-    ),
-    cqlEndpoint: process.env.CQL_ENDPOINT,
-    dexCacheUrl: process.env.DEX_CACHE_URL,
-  },
+  services: (() => {
+    const servicesConfig = getServicesConfig()
+    return {
+      computeMarketplace:
+        process.env.COMPUTE_MARKETPLACE_URL ??
+        servicesConfig.compute.marketplace,
+      storageApi: servicesConfig.storage.api,
+      ipfsGateway: servicesConfig.storage.ipfsGateway,
+      indexerGraphql: servicesConfig.indexer.graphql,
+      cqlEndpoint: process.env.CQL_ENDPOINT ?? servicesConfig.cql.blockProducer,
+      dexCacheUrl: process.env.DEX_CACHE_URL,
+    }
+  })(),
   network: getNetwork(),
 }
 
@@ -1163,6 +1164,9 @@ app.delete('/api/v1/autonomous/agents/:agentId', ({ params, set }) => {
   autonomousRunner.unregisterAgent(agentId)
   return { success: true }
 })
+
+// Cron routes (for DWS scheduled triggers)
+app.use(cronRoutes)
 
 // Search
 app.get('/api/v1/search/agents', async ({ query, set }) => {
