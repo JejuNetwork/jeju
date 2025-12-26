@@ -6,6 +6,11 @@
  * that just need to sign messages without managing MPC discovery.
  */
 
+import {
+  getCurrentNetwork,
+  getKmsServiceUrl,
+  isProductionEnv,
+} from '@jejunetwork/config'
 import type { JsonValue } from '@jejunetwork/shared'
 import type { Address, Hex } from 'viem'
 import { isAddress, keccak256, toHex } from 'viem'
@@ -189,9 +194,9 @@ export function createThresholdSigner(
   userId: string,
   config?: Partial<ThresholdSignerConfig>,
 ): ThresholdSigner {
-  const endpoint = process.env.JEJU_KMS_SERVICE_URL ?? 'http://localhost:4200'
-  const networkId = process.env.JEJU_NETWORK ?? 'localnet'
-  const devMode = process.env.NODE_ENV !== 'production'
+  const endpoint = getKmsServiceUrl()
+  const networkId = getCurrentNetwork()
+  const devMode = !isProductionEnv()
 
   const fullConfig: ThresholdSignerConfig = {
     endpoints: [endpoint],

@@ -252,20 +252,20 @@ describe('BotInitializer', () => {
     test('should get all bots', async () => {
       const bots = await initializer.initializeDefaultBots()
       const allBots = initializer.getAllBots()
-      expect(allBots.length).toBe(bots.size)
+      expect(allBots.size).toBe(bots.size)
     })
 
     test('should stop all bots', async () => {
       await initializer.initializeDefaultBots()
       await initializer.stopAll()
-      expect(initializer.getAllBots().length).toBe(0)
+      expect(initializer.getAllBots().size).toBe(0)
     })
 
     test('should handle stop errors gracefully', async () => {
       await initializer.initializeDefaultBots()
       // Should not throw even if some bots fail to stop
       await initializer.stopAll()
-      expect(initializer.getAllBots().length).toBe(0)
+      expect(initializer.getAllBots().size).toBe(0)
     })
   })
 

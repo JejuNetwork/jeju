@@ -11,6 +11,7 @@ import {
   createHash,
   randomBytes,
 } from 'node:crypto'
+import { isProductionEnv, isTestMode } from '@jejunetwork/config'
 import type { Address } from 'viem'
 import { z } from 'zod'
 import { PROVIDERS_BY_ID } from './providers'
@@ -60,8 +61,8 @@ let warnedAboutMissingSecret = false
  */
 function deriveKey(keyId: string): Buffer {
   const serverSecret = process.env.VAULT_ENCRYPTION_SECRET
-  const isProduction = process.env.NODE_ENV === 'production'
-  const isTest = process.env.NODE_ENV === 'test'
+  const isProduction = isProductionEnv()
+  const isTest = isTestMode()
 
   if (!serverSecret) {
     if (isProduction) {
@@ -346,7 +347,7 @@ async function generateAttestation(keyId: string): Promise<string> {
   }
 
   // Development mode - log warning
-  if (process.env.NODE_ENV === 'production') {
+  if (isProductionEnv()) {
     console.warn(
       '[KeyVault] TEE attestation endpoint not configured - using local attestation',
     )

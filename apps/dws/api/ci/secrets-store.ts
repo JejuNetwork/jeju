@@ -8,6 +8,7 @@ import {
   createHash,
   randomBytes,
 } from 'node:crypto'
+import { isProductionEnv } from '@jejunetwork/config'
 import { getMPCCoordinator } from '@jejunetwork/kms'
 import type { Address, Hex } from 'viem'
 import type {
@@ -46,7 +47,7 @@ export class CISecretsStore {
    */
   private deriveKey(secretId: string): Buffer {
     const serverSecret = process.env.CI_ENCRYPTION_SECRET
-    const isProduction = process.env.NODE_ENV === 'production'
+    const isProduction = isProductionEnv()
 
     if (!serverSecret) {
       if (isProduction) {

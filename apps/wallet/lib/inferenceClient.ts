@@ -8,6 +8,7 @@
  * - Supports TEE for private inference
  */
 
+import { getRpcUrl } from '@jejunetwork/config'
 import { type ChatMessage, expectValid } from '@jejunetwork/types'
 import type { Address } from 'viem'
 import { z } from 'zod'
@@ -134,7 +135,7 @@ class InferenceClient {
   constructor(config?: Partial<InferenceConfig>) {
     this.config = {
       gatewayUrl: config?.gatewayUrl ?? DEFAULT_GATEWAY,
-      rpcUrl: config?.rpcUrl ?? 'https://rpc.jejunetwork.org',
+      rpcUrl: config?.rpcUrl ?? getRpcUrl(),
       walletAddress: config?.walletAddress,
       preferredModel: config?.preferredModel ?? DEFAULT_MODEL,
       requireTEE: config?.requireTEE ?? false,

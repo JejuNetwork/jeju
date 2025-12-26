@@ -1880,6 +1880,11 @@ export function getKmsEndpoint(): string | undefined {
   return process.env.KMS_ENDPOINT
 }
 
+/** Get KMS service URL */
+export function getKmsServiceUrl(): string {
+  return process.env.JEJU_KMS_SERVICE_URL ?? 'http://localhost:4200'
+}
+
 /** Get cron endpoint */
 export function getCronEndpoint(): string | undefined {
   return process.env.CRON_ENDPOINT

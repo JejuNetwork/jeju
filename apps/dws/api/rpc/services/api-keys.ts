@@ -11,6 +11,7 @@ import {
   createHash,
   randomBytes,
 } from 'node:crypto'
+import { isProductionEnv, isTestMode } from '@jejunetwork/config'
 import type { ApiKeyRecord, RateTier } from '@jejunetwork/types'
 import type { Address } from 'viem'
 import { apiKeyState } from '../../state.js'
@@ -42,9 +43,8 @@ function hashKey(key: string): string {
  */
 function deriveEncryptionKey(): Buffer {
   const secret = process.env.API_KEY_ENCRYPTION_SECRET
-  const isProduction = process.env.NODE_ENV === 'production'
-  const isTest =
-    process.env.NODE_ENV === 'test' || process.env.BUN_TEST === 'true'
+  const isProduction = isProductionEnv()
+  const isTest = isTestMode() || process.env.BUN_TEST === 'true'
 
   if (!secret) {
     if (isProduction) {

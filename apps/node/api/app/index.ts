@@ -5,7 +5,7 @@ import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { createInterface } from 'node:readline'
 import { parseArgs } from 'node:util'
-import { getCurrentNetwork } from '@jejunetwork/config'
+import { getChainId, getCurrentNetwork, getRpcUrl } from '@jejunetwork/config'
 import { expectAddress, expectHex } from '@jejunetwork/types'
 import chalk from 'chalk'
 import { formatEther } from 'viem'
@@ -71,8 +71,8 @@ export type CliAppConfig = z.infer<typeof CliAppConfigSchema>
 const DEFAULT_CONFIG: CliAppConfig = {
   version: '1.0.0',
   network: 'testnet',
-  rpcUrl: 'https://testnet-rpc.jejunetwork.org',
-  chainId: 420691,
+  rpcUrl: getRpcUrl('testnet'),
+  chainId: getChainId('testnet'),
   privateKey: '',
   walletAddress: '',
   services: {
@@ -315,12 +315,7 @@ async function cmdSetup(): Promise<void> {
     )
   }
   config.network = networkInput
-  config.rpcUrl =
-    config.network === 'mainnet'
-      ? 'https://rpc.jejunetwork.org'
-      : config.network === 'testnet'
-        ? 'https://testnet-rpc.jejunetwork.org'
-        : 'http://localhost:6545'
+  config.rpcUrl = getRpcUrl(config.network)
   config.chainId =
     config.network === 'mainnet'
       ? 420690
@@ -749,14 +744,8 @@ ${chalk.bold('Quick Start:')}
     }
     const config = loadConfig()
     config.network = values.network
-    config.rpcUrl =
-      config.network === 'mainnet'
-        ? 'https://rpc.jejunetwork.org'
-        : config.network === 'testnet'
-          ? 'https://testnet-rpc.jejunetwork.org'
-          : 'http://localhost:6545'
-    config.chainId =
-      config.network === 'mainnet'
+    config.rpcUrl = getRpcUrl(config.network)
+    config.chainId = getChainId(config.network)
         ? 420690
         : config.network === 'testnet'
           ? 420691

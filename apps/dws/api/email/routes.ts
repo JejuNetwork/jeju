@@ -7,9 +7,10 @@
  */
 
 import { createHash } from 'node:crypto'
+import { isProductionEnv } from '@jejunetwork/config'
 
 // Warn about in-memory storage at module load
-if (process.env.NODE_ENV === 'production') {
+if (isProductionEnv()) {
   console.warn(
     '[Email Routes] WARNING: Running in production with in-memory storage. Emails will be lost on restart.',
   )
