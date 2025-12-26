@@ -1,5 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { getContract } from '@jejunetwork/config'
 import {
   getLocalnetChain,
   getMainnetChain,
@@ -18,80 +17,49 @@ import {
   type WalletClient,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { z } from 'zod'
 
-const DeploymentAddressesSchema = z.record(z.string(), z.string())
-
-function loadAddressesFromDeployment(
-  network: 'testnet' | 'mainnet',
-): ContractAddresses | null {
-  const deploymentPath = join(
-    process.cwd(),
-    'packages',
-    'contracts',
-    'deployments',
-    network,
-    'addresses.json',
-  )
-  if (!existsSync(deploymentPath)) {
-    return null
-  }
-  const data = DeploymentAddressesSchema.parse(
-    JSON.parse(readFileSync(deploymentPath, 'utf-8')),
-  )
-
-  const getAddress = (pascalKey: string, camelKey: string): Address => {
-    const value = data[pascalKey] ?? data[camelKey]
-    if (!value) {
-      throw new Error(
-        `Missing contract address for ${pascalKey} in ${network} deployment`,
-      )
+/** Safely get contract address from config, with env var override */
+function safeGetAddress(
+  category: string,
+  name: string,
+  network: 'localnet' | 'testnet' | 'mainnet',
+  envKey?: string,
+): Address {
+  // Check env var first if provided
+  if (envKey) {
+    const envValue = process.env[envKey]
+    if (envValue) {
+      return expectAddress(envValue, `${name} from ${envKey}`)
     }
-    return expectAddress(value, `${pascalKey} in ${network} deployment`)
   }
 
-  const getOptionalAddress = (pascalKey: string, camelKey: string): Address => {
-    const value = data[pascalKey] ?? data[camelKey]
-    if (!value) {
-      return ZERO_ADDRESS
+  // Try config package
+  try {
+    const addr = getContract(category as 'registry', name, network)
+    if (addr) {
+      return expectAddress(addr, `${category}.${name}`)
     }
-    return expectAddress(value, `${pascalKey} in ${network} deployment`)
+  } catch {
+    // Contract not configured
   }
 
-  return {
-    identityRegistry: getAddress('IdentityRegistry', 'identityRegistry'),
-    nodeStakingManager: getAddress('NodeStakingManager', 'nodeStakingManager'),
-    computeRegistry: getOptionalAddress('ComputeRegistry', 'computeRegistry'),
-    computeStaking: getOptionalAddress('ComputeStaking', 'computeStaking'),
-    inferenceServing: getOptionalAddress(
-      'InferenceServing',
-      'inferenceServing',
-    ),
-    triggerRegistry: getOptionalAddress('TriggerRegistry', 'triggerRegistry'),
-    storageMarket: getOptionalAddress('StorageMarket', 'storageMarket'),
-    contentRegistry: getOptionalAddress('ContentRegistry', 'contentRegistry'),
-    oracleStakingManager: getOptionalAddress(
-      'OracleStakingManager',
-      'oracleStakingManager',
-    ),
-    feedRegistry: getOptionalAddress('FeedRegistry', 'feedRegistry'),
-    reportVerifier: getOptionalAddress('ReportVerifier', 'reportVerifier'),
-    proxyRegistry: getOptionalAddress('ProxyRegistry', 'proxyRegistry'),
-    sequencerRegistry: getOptionalAddress(
-      'SequencerRegistry',
-      'sequencerRegistry',
-    ),
-    liquidityAggregator: getOptionalAddress(
-      'LiquidityAggregator',
-      'liquidityAggregator',
-    ),
-    solverRegistry: getOptionalAddress('SolverRegistry', 'solverRegistry'),
-    feeDistributor: getOptionalAddress('FeeDistributor', 'feeDistributor'),
-    banManager: getOptionalAddress('BanManager', 'banManager'),
-    cdnRegistry: getOptionalAddress('CDNRegistry', 'cdnRegistry'),
-    cdnBilling: getOptionalAddress('CDNBilling', 'cdnBilling'),
-    vpnRegistry: getOptionalAddress('VPNRegistry', 'vpnRegistry'),
+  return ZERO_ADDRESS
+}
+
+/** Get required address - throws if not found */
+function getRequiredAddress(
+  category: string,
+  name: string,
+  network: 'localnet' | 'testnet' | 'mainnet',
+  envKey: string,
+): Address {
+  const addr = safeGetAddress(category, name, network, envKey)
+  if (addr === ZERO_ADDRESS) {
+    throw new Error(
+      `Missing ${name} address: set ${envKey} environment variable or add to contracts.json`,
+    )
   }
+  return addr
 }
 
 export const jejuMainnet: Chain = getMainnetChain()
@@ -157,58 +125,46 @@ export function getContractAddresses(chainId: number): ContractAddresses {
     return LOCALNET_ADDRESSES
   }
 
-  if (chainId === 420691) {
-    const fromDeployment = loadAddressesFromDeployment('testnet')
-    if (fromDeployment) {
-      return fromDeployment
-    }
-
-    const getEnvAddress = (envKey: string, name: string): Address => {
-      const value = process.env[envKey]
-      if (!value) {
-        throw new Error(
-          `Missing ${name} address: set ${envKey} environment variable or deploy contracts`,
-        )
-      }
-      return expectAddress(value, `${name} from ${envKey}`)
-    }
-
-    const getOptionalEnvAddress = (envKey: string): Address => {
-      const value = process.env[envKey]
-      if (!value) {
-        return ZERO_ADDRESS
-      }
-      return expectAddress(value, `address from ${envKey}`)
-    }
-
-    return {
-      identityRegistry: getEnvAddress('IDENTITY_REGISTRY', 'IdentityRegistry'),
-      nodeStakingManager: getEnvAddress(
-        'NODE_STAKING_MANAGER',
-        'NodeStakingManager',
-      ),
-      computeRegistry: getOptionalEnvAddress('COMPUTE_REGISTRY'),
-      computeStaking: getOptionalEnvAddress('COMPUTE_STAKING'),
-      inferenceServing: getOptionalEnvAddress('INFERENCE_SERVING'),
-      triggerRegistry: getOptionalEnvAddress('TRIGGER_REGISTRY'),
-      storageMarket: getOptionalEnvAddress('STORAGE_MARKET'),
-      contentRegistry: getOptionalEnvAddress('CONTENT_REGISTRY'),
-      oracleStakingManager: getOptionalEnvAddress('ORACLE_STAKING_MANAGER'),
-      feedRegistry: getOptionalEnvAddress('FEED_REGISTRY'),
-      reportVerifier: getOptionalEnvAddress('REPORT_VERIFIER'),
-      proxyRegistry: getOptionalEnvAddress('PROXY_REGISTRY'),
-      sequencerRegistry: getOptionalEnvAddress('SEQUENCER_REGISTRY'),
-      liquidityAggregator: getOptionalEnvAddress('LIQUIDITY_AGGREGATOR'),
-      solverRegistry: getOptionalEnvAddress('SOLVER_REGISTRY'),
-      feeDistributor: getOptionalEnvAddress('FEE_DISTRIBUTOR'),
-      banManager: ZERO_ADDRESS,
-      cdnRegistry: ZERO_ADDRESS,
-      cdnBilling: ZERO_ADDRESS,
-      vpnRegistry: getOptionalEnvAddress('VPN_REGISTRY'),
-    }
+  // Determine network from chain ID
+  const network =
+    chainId === 420691 ? 'mainnet' : chainId === 420690 ? 'testnet' : null
+  if (!network) {
+    throw new Error(`Unknown chain ID: ${chainId}`)
   }
 
-  throw new Error(`Unknown chain ID: ${chainId}`)
+  // Use config package with env var fallbacks
+  return {
+    identityRegistry: getRequiredAddress(
+      'registry',
+      'identity',
+      network,
+      'IDENTITY_REGISTRY',
+    ),
+    nodeStakingManager: getRequiredAddress(
+      'nodeStaking',
+      'manager',
+      network,
+      'NODE_STAKING_MANAGER',
+    ),
+    computeRegistry: safeGetAddress('compute', 'registry', network, 'COMPUTE_REGISTRY'),
+    computeStaking: safeGetAddress('compute', 'staking', network, 'COMPUTE_STAKING'),
+    inferenceServing: safeGetAddress('compute', 'inferenceServing', network, 'INFERENCE_SERVING'),
+    triggerRegistry: safeGetAddress('compute', 'triggerRegistry', network, 'TRIGGER_REGISTRY'),
+    storageMarket: safeGetAddress('storage', 'market', network, 'STORAGE_MARKET'),
+    contentRegistry: safeGetAddress('storage', 'contentRegistry', network, 'CONTENT_REGISTRY'),
+    oracleStakingManager: safeGetAddress('oracle', 'stakingManager', network, 'ORACLE_STAKING_MANAGER'),
+    feedRegistry: safeGetAddress('oracle', 'feedRegistry', network, 'FEED_REGISTRY'),
+    reportVerifier: safeGetAddress('oracle', 'reportVerifier', network, 'REPORT_VERIFIER'),
+    proxyRegistry: safeGetAddress('registry', 'proxy', network, 'PROXY_REGISTRY'),
+    sequencerRegistry: safeGetAddress('registry', 'sequencer', network, 'SEQUENCER_REGISTRY'),
+    liquidityAggregator: safeGetAddress('liquidity', 'aggregator', network, 'LIQUIDITY_AGGREGATOR'),
+    solverRegistry: safeGetAddress('oif', 'solverRegistry', network, 'SOLVER_REGISTRY'),
+    feeDistributor: safeGetAddress('fees', 'feeDistributor', network, 'FEE_DISTRIBUTOR'),
+    banManager: safeGetAddress('moderation', 'banManager', network, 'BAN_MANAGER'),
+    cdnRegistry: safeGetAddress('cdn', 'registry', network, 'CDN_REGISTRY'),
+    cdnBilling: safeGetAddress('cdn', 'billing', network, 'CDN_BILLING'),
+    vpnRegistry: safeGetAddress('vpn', 'registry', network, 'VPN_REGISTRY'),
+  }
 }
 
 export function getChain(chainId: number): Chain {

@@ -29,9 +29,14 @@ export async function waitForTxAndParseLog<T>(
         topics: log.topics,
       })
       if (decoded.eventName === eventName) {
+        // Event args can be array (positional) or object (named)
+        // Convert to record for consistent handling
+        const args: Record<string, unknown> = Array.isArray(decoded.args)
+          ? decoded.args.reduce((acc, val, idx) => ({ ...acc, [idx]: val }), {})
+          : (decoded.args ?? {})
         return {
           receipt,
-          result: extractFn(decoded.args as unknown as Record<string, unknown>),
+          result: extractFn(args),
         }
       }
     } catch {

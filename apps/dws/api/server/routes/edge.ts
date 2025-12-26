@@ -7,6 +7,7 @@
 import { expectValid } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import type { Address } from 'viem'
+import { z } from 'zod'
 import {
   edgeCacheRequestSchema,
   edgeNodeParamsSchema,
@@ -15,6 +16,48 @@ import {
   edgeRouteParamsSchema,
   regionHeaderSchema,
 } from '../../shared'
+
+// WebSocket message schemas
+const EdgeCapabilitiesSchema = z.object({
+  proxy: z.boolean().optional(),
+  torrent: z.boolean().optional(),
+  cdn: z.boolean().optional(),
+  rpc: z.boolean().optional(),
+  storage: z.boolean().optional(),
+  maxCacheBytes: z.number().optional(),
+  maxBandwidthMbps: z.number().optional(),
+})
+
+const EdgeStatsSchema = z.object({
+  uptime: z.number().optional(),
+  bytesServed: z.number().optional(),
+  requestsServed: z.number().optional(),
+  peersConnected: z.number().optional(),
+  torrentsSeeding: z.number().optional(),
+})
+
+const EdgeWebSocketMessageSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('register'),
+    nodeType: z.enum(['wallet-edge', 'full-node', 'cdn-node']).optional(),
+    platform: z.string().optional(),
+    operator: z.string().optional(),
+    endpoint: z.string().optional(),
+    capabilities: EdgeCapabilitiesSchema.optional(),
+    region: z.string().optional(),
+  }),
+  z.object({
+    type: z.literal('stats'),
+    stats: EdgeStatsSchema.optional(),
+  }),
+  z.object({
+    type: z.literal('heartbeat'),
+  }),
+  z.object({
+    type: z.literal('cache_complete'),
+    cid: z.string(),
+  }),
+])
 
 // Types
 
@@ -396,7 +439,12 @@ export function handleEdgeWebSocket(
 
   return {
     onMessage(data: string) {
-      const message = JSON.parse(data)
+      const parseResult = EdgeWebSocketMessageSchema.safeParse(JSON.parse(data))
+      if (!parseResult.success) {
+        console.warn('[EdgeCoordinator] Invalid WS message:', parseResult.error)
+        return
+      }
+      const message = parseResult.data
 
       switch (message.type) {
         case 'register': {
@@ -405,16 +453,16 @@ export function handleEdgeWebSocket(
             id: currentNodeId,
             nodeType: message.nodeType ?? 'wallet-edge',
             platform: message.platform ?? 'unknown',
-            operator: message.operator,
+            operator: message.operator as Address | undefined,
             endpoint: message.endpoint,
-            capabilities: message.capabilities ?? {
-              proxy: false,
-              torrent: false,
-              cdn: true,
-              rpc: false,
-              storage: false,
-              maxCacheBytes: 0,
-              maxBandwidthMbps: 0,
+            capabilities: {
+              proxy: message.capabilities?.proxy ?? false,
+              torrent: message.capabilities?.torrent ?? false,
+              cdn: message.capabilities?.cdn ?? true,
+              rpc: message.capabilities?.rpc ?? false,
+              storage: message.capabilities?.storage ?? false,
+              maxCacheBytes: message.capabilities?.maxCacheBytes ?? 0,
+              maxBandwidthMbps: message.capabilities?.maxBandwidthMbps ?? 0,
             },
             region: message.region ?? 'global',
             status: 'online',

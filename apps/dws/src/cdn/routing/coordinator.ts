@@ -123,16 +123,20 @@ export class CDNCoordinator {
         ? b.nodeId
         : `0x${b.nodeId.padStart(64, '0')}`
 
-      const onChainNode = (await this.publicClient.readContract({
+      const onChainNode = await this.publicClient.readContract({
         address: this.registryAddress,
         abi: CDN_REGISTRY_ABI,
         functionName: 'getEdgeNode',
         args: [nodeIdBytes as `0x${string}`],
-      })) as { operator: Address }
+      })
+
+      // Result is a tuple: [nodeId, operator, endpoint, region, providerType, status, stake, registeredAt, lastSeen, agentId]
+      const nodeData = onChainNode as readonly [string, Address, string, number, number, number, bigint, bigint, bigint, bigint]
+      const operator = nodeData[1]
 
       if (
         !onChainNode ||
-        onChainNode.operator === '0x0000000000000000000000000000000000000000'
+        operator === '0x0000000000000000000000000000000000000000'
       ) {
         return { success: false, error: 'Node not registered on-chain' }
       }

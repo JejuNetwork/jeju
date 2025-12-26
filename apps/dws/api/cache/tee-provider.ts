@@ -72,12 +72,13 @@ export interface TEECacheProviderConfig {
 
 // Encrypted cache entry wrapper
 
-interface EncryptedEntry {
-  ciphertext: string
-  nonce: string
-  tag: string
-  keyId: string
-}
+const EncryptedEntrySchema = z.object({
+  ciphertext: z.string(),
+  nonce: z.string(),
+  tag: z.string(),
+  keyId: z.string(),
+})
+type EncryptedEntry = z.infer<typeof EncryptedEntrySchema>
 
 /**
  * TEE-backed cache provider
@@ -920,18 +921,18 @@ export class TEECacheProvider {
    * Decrypt a value
    */
   private async decrypt(encrypted: string): Promise<string> {
-    let entry: EncryptedEntry
-    try {
-      entry = JSON.parse(encrypted) as EncryptedEntry
-    } catch {
-      // Not encrypted, return as-is
+    const parseResult = EncryptedEntrySchema.safeParse(
+      (() => {
+        try { return JSON.parse(encrypted) }
+        catch { return null }
+      })()
+    )
+    
+    // Not encrypted or invalid format, return as-is
+    if (!parseResult.success) {
       return encrypted
     }
-
-    // Validate it's an encrypted entry
-    if (!entry.ciphertext || !entry.nonce || !entry.tag) {
-      return encrypted
-    }
+    const entry = parseResult.data
 
     // LOCAL/dstack mode - decode from base64
     if (

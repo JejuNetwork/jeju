@@ -1,6 +1,7 @@
 /** Containers Routes */
 
 import { Elysia } from 'elysia'
+import { z } from 'zod'
 import {
   type ContainerInstanceRow,
   type ContainerRow,
@@ -16,6 +17,9 @@ import {
   CreateContainerInstanceBodySchema,
   expectValid,
 } from '../schemas'
+
+// Schema for container labels
+const LabelsRecordSchema = z.record(z.string(), z.string())
 import { requireAuth } from '../validation/access-control'
 
 export interface ContainerImage {
@@ -54,7 +58,7 @@ function transformContainer(row: ContainerRow): ContainerImage {
     size: row.size,
     platform: row.platform,
     labels: row.labels
-      ? (JSON.parse(row.labels) as Record<string, string>)
+      ? LabelsRecordSchema.parse(JSON.parse(row.labels))
       : undefined,
     downloads: row.downloads,
     createdAt: row.created_at,

@@ -1,10 +1,13 @@
 /**
  * Shared contract loading for solver components
+ * Uses @jejunetwork/config for contract addresses (serverless-compatible)
  */
-import { existsSync, readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
-import { isNativeToken, validateOrNull } from '@jejunetwork/types'
-import { z } from 'zod'
+import {
+  getChainId,
+  getContract,
+  getExternalContract,
+} from '@jejunetwork/config'
+import { isNativeToken } from '@jejunetwork/types'
 
 export { isNativeToken }
 
@@ -107,63 +110,56 @@ export const ERC20_APPROVE_ABI = [
   },
 ] as const
 
-type OifContracts = {
-  inputSettler?: string
-  outputSettler?: string
-  oracle?: string
-  solverRegistry?: string
+type OifContractKey = 'inputSettler' | 'outputSettler' | 'oracle' | 'solverRegistry'
+
+/** Chain ID to external chain name mapping */
+const CHAIN_ID_TO_NAME: Record<number, string> = {
+  11155111: 'sepolia',
+  84532: 'base-sepolia',
+  421614: 'arbitrumSepolia',
+  11155420: 'optimismSepolia',
+  97: 'bscTestnet',
+  56: 'bsc',
+  1: 'ethereum',
+  8453: 'base',
+  42161: 'arbitrum',
+  10: 'optimism',
 }
-type OifContractKey = keyof OifContracts
 
-const OifContractsSchema = z.object({
-  inputSettler: z.string().optional(),
-  outputSettler: z.string().optional(),
-  oracle: z.string().optional(),
-  solverRegistry: z.string().optional(),
-})
-
-const DeploymentChainEntrySchema = z.object({
-  chainId: z.number(),
-  status: z.string(),
-  contracts: OifContractsSchema.optional(),
-})
-
-const DeploymentJsonSchema = z.object({
-  chains: z.record(z.string(), DeploymentChainEntrySchema).optional(),
-})
-
-// Load once, cache forever
-const deploymentCache: Record<number, OifContracts> = (() => {
-  const out: Record<number, OifContracts> = {}
-  const paths = [
-    '../../packages/contracts/deployments/oif-testnet.json',
-    '../../packages/contracts/deployments/oif-mainnet.json',
-    'packages/contracts/deployments/oif-testnet.json',
-    'packages/contracts/deployments/oif-mainnet.json',
-  ]
-
-  for (const p of paths) {
-    const path = resolve(process.cwd(), p)
-    if (!existsSync(path)) continue
-    const data = validateOrNull(
-      DeploymentJsonSchema,
-      JSON.parse(readFileSync(path, 'utf-8')),
-    )
-    if (!data) continue
-    const chains = data.chains ?? {}
-    for (const c of Object.values(chains)) {
-      if (c.status === 'deployed' && c.contracts) out[c.chainId] = c.contracts
-    }
+/** Get OIF contract address for a given chain ID */
+function getOifAddress(chainId: number, key: OifContractKey): `0x${string}` | undefined {
+  // Check if it's a Jeju network (localnet, testnet, mainnet)
+  const jejuChainId = getChainId()
+  if (chainId === jejuChainId) {
+    const configKey = key === 'oracle' ? 'oracleAdapter' : key
+    const addr = getContract('oif', configKey)
+    return addr ? (addr as `0x${string}`) : undefined
   }
-  return out
-})()
+
+  // Check external chains
+  const chainName = CHAIN_ID_TO_NAME[chainId]
+  if (!chainName) return undefined
+
+  const configKey = key === 'oracle' ? 'oracleAdapter' : key
+  const addr = getExternalContract(chainName, 'oif', configKey)
+  return addr ? (addr as `0x${string}`) : undefined
+}
 
 function extractAddresses(key: OifContractKey): Record<number, `0x${string}`> {
   const out: Record<number, `0x${string}`> = {}
-  for (const [chainId, contracts] of Object.entries(deploymentCache)) {
-    const addr = contracts[key]
-    if (addr) out[Number(chainId)] = addr as `0x${string}`
+
+  // Add Jeju network addresses
+  const jejuChainId = getChainId()
+  const jejuAddr = getOifAddress(jejuChainId, key)
+  if (jejuAddr) out[jejuChainId] = jejuAddr
+
+  // Add external chain addresses
+  for (const [chainIdStr, chainName] of Object.entries(CHAIN_ID_TO_NAME)) {
+    const chainId = Number(chainIdStr)
+    const addr = getOifAddress(chainId, key)
+    if (addr) out[chainId] = addr
   }
+
   return out
 }
 

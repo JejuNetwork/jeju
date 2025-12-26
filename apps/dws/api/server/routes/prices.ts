@@ -63,7 +63,7 @@ const EthPriceSchema = z.object({
   timestamp: z.number(),
 })
 
-const SubscriptionMessageSchema = z.object({
+export const SubscriptionMessageSchema = z.object({
   type: z.enum(['subscribe', 'unsubscribe']),
   tokens: z
     .array(z.object({ chainId: z.number(), address: z.string() }))

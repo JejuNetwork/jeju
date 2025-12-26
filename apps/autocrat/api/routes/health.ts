@@ -80,12 +80,12 @@ export const healthRoutes = new Elysia()
       },
     }
   })
-  .get('/metrics', () => {
+  .get('/metrics', async () => {
     const mem = process.memoryUsage()
     const uptime = (Date.now() - metricsData.startTime) / 1000
     const orchestrator = getOrchestrator()
     const orch = orchestrator?.getStatus()
-    const activeFlags = getModerationSystem().getActiveFlags().length
+    const activeFlags = (await getModerationSystem().getActiveFlags()).length
     const lines = [
       '# HELP council_requests_total Total HTTP requests',
       '# TYPE council_requests_total counter',

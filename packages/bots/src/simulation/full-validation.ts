@@ -10,8 +10,11 @@
  * - MEV competition simulation
  * - Slippage and market impact modeling
  * - HTML report generation with charts
+ *
+ * NOTE: This runs in Node.js/Bun only (uses filesystem for report saving)
  */
 
+import { writeFileSync } from 'node:fs'
 import type { BacktestResult, PortfolioSnapshot, Token } from '../types'
 import { type BacktestConfig, Backtester } from './backtester'
 import { HistoricalDataFetcher } from './data-fetcher'
@@ -285,7 +288,8 @@ export class FullValidationRunner {
 
       const reportPath =
         this.config.htmlReportPath ?? './validation-report.html'
-      HTMLReportGenerator.save(html, reportPath)
+      writeFileSync(reportPath, html)
+      console.log(`Report saved to: ${reportPath}`)
     }
 
     return result

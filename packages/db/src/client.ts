@@ -296,11 +296,11 @@ const circuitBreaker = {
   },
 }
 
-async function request<T>(
+async function request<S extends z.ZodTypeAny>(
   url: string,
-  schema: z.ZodType<T>,
+  schema: S,
   options?: RequestInit,
-): Promise<T> {
+): Promise<z.output<S>> {
   const response = await circuitBreaker.fire(async () => {
     const res = await fetch(url, options)
     if (!res.ok) throw new Error(`Request failed: ${res.status}`)

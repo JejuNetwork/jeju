@@ -8,11 +8,13 @@
 import { gzipSync } from 'node:zlib'
 import { getServiceUrl } from '@jejunetwork/config'
 import { generateSnowflakeId, logger } from '@jejunetwork/shared'
+import { z } from 'zod'
 import type {
   LLMCallLogRecord,
   TrajectoryRecord,
   TrajectoryStorage,
 } from '../recording/trajectory-recorder'
+import { DWSUploadResponseSchema, TrajectoryBatchHeaderSchema } from './types'
 
 export interface StaticStorageConfig {
   appName: string
@@ -43,7 +45,7 @@ export interface TrajectoryBatchReference {
 /**
  * JSONL record format for trajectory storage
  */
-interface TrajectoryJSONLRecord {
+export interface TrajectoryJSONLRecord {
   id: string
   trajectoryId: string
   agentId: string
@@ -64,7 +66,7 @@ interface TrajectoryJSONLRecord {
 /**
  * LLM call JSONL record format
  */
-interface LLMCallJSONLRecord {
+export interface LLMCallJSONLRecord {
   id: string
   trajectoryId: string
   stepId: string
@@ -83,6 +85,76 @@ interface LLMCallJSONLRecord {
   maxTokens: number
   metadata: Record<string, string | undefined>
 }
+
+// ============================================================================
+// Zod Schemas for JSONL Record Validation
+// ============================================================================
+
+const MessageSchema = z.object({
+  role: z.string(),
+  content: z.string(),
+})
+
+export const LLMCallJSONLRecordSchema = z.object({
+  id: z.string(),
+  trajectoryId: z.string(),
+  stepId: z.string(),
+  callId: z.string(),
+  timestamp: z.string(),
+  latencyMs: z.number().nullable(),
+  model: z.string(),
+  purpose: z.string(),
+  actionType: z.string().nullable(),
+  systemPrompt: z.string(),
+  userPrompt: z.string(),
+  messages: z.array(MessageSchema),
+  response: z.string(),
+  reasoning: z.string().nullable(),
+  temperature: z.number(),
+  maxTokens: z.number(),
+  metadata: z.record(z.string(), z.string().optional()),
+})
+
+const StepSchema = z.object({
+  stepId: z.string().optional(),
+  stepNumber: z.number().int().nonnegative(),
+  timestamp: z.number(),
+  environmentState: z.record(z.string(), z.unknown()).optional(),
+  observation: z.record(z.string(), z.unknown()).optional(),
+  action: z.record(z.string(), z.unknown()).nullable().optional(),
+  reward: z.number().optional(),
+  done: z.boolean().optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+})
+
+const RewardComponentSchema = z.object({
+  name: z.string(),
+  value: z.number(),
+  weight: z.number().optional(),
+})
+
+// Schema for validation only - parsed results are cast to the interface type
+const TrajectoryJSONLRecordSchemaInternal = z.object({
+  id: z.string(),
+  trajectoryId: z.string(),
+  agentId: z.string(),
+  archetype: z.string().nullable(),
+  appName: z.string(),
+  startTime: z.string(),
+  endTime: z.string(),
+  durationMs: z.number(),
+  windowId: z.string(),
+  scenarioId: z.string(),
+  steps: z.array(StepSchema),
+  rewardComponents: z.array(RewardComponentSchema),
+  metrics: z.record(z.string(), z.number()),
+  metadata: z.record(z.string(), z.unknown()),
+  totalReward: z.number(),
+})
+
+const BaseRecordSchema = z.object({
+  _type: z.enum(['header', 'trajectory', 'llm_call']),
+})
 
 /**
  * Buffered trajectory waiting to be flushed
@@ -442,17 +514,8 @@ export class StaticTrajectoryStorage implements TrajectoryStorage {
         throw new Error(`DWS upload failed: ${response.status} - ${text}`)
       }
 
-      const result: unknown = await response.json()
-
-      // Validate response shape
-      if (
-        typeof result !== 'object' ||
-        result === null ||
-        !('cid' in result) ||
-        typeof result.cid !== 'string'
-      ) {
-        throw new Error('Invalid DWS upload response: missing cid')
-      }
+      const responseData: unknown = await response.json()
+      const result = DWSUploadResponseSchema.parse(responseData)
 
       const provider = this.config.usePermanentStorage ? 'arweave' : 'ipfs'
 
@@ -503,34 +566,47 @@ export async function downloadTrajectoryBatch(
 
   const lines = jsonlContent.split('\n').filter((line) => line.trim())
 
-  let header: {
-    batchId: string
-    appName: string
-    trajectoryCount: number
-    timestamp: string
-  } | null = null
+  let header: z.infer<typeof TrajectoryBatchHeaderSchema> | null = null
   const trajectories: TrajectoryJSONLRecord[] = []
   const llmCalls: LLMCallJSONLRecord[] = []
 
   for (const line of lines) {
-    const record = JSON.parse(line) as { _type: string } & Record<
-      string,
-      unknown
-    >
+    const parsed: unknown = JSON.parse(line)
+    const baseResult = BaseRecordSchema.safeParse(parsed)
+    if (!baseResult.success) {
+      logger.warn('[StaticStorage] Invalid JSONL record, skipping', {
+        error: baseResult.error.message,
+      })
+      continue
+    }
 
-    if (record._type === 'header') {
-      header = {
-        batchId: record.batchId as string,
-        appName: record.appName as string,
-        trajectoryCount: record.trajectoryCount as number,
-        timestamp: record.timestamp as string,
+    const recordType = baseResult.data._type
+
+    if (recordType === 'header') {
+      const headerResult = TrajectoryBatchHeaderSchema.safeParse(parsed)
+      if (headerResult.success) {
+        header = headerResult.data
       }
-    } else if (record._type === 'trajectory') {
-      const { _type: _, ...rest } = record
-      trajectories.push(rest as unknown as TrajectoryJSONLRecord)
-    } else if (record._type === 'llm_call') {
-      const { _type: _, ...rest } = record
-      llmCalls.push(rest as unknown as LLMCallJSONLRecord)
+    } else if (recordType === 'trajectory') {
+      const trajResult = TrajectoryJSONLRecordSchemaInternal.safeParse(parsed)
+      if (trajResult.success) {
+        // The schema validates the structure, but TrajectoryRecord['steps'] has specific types
+        // that the generic Zod schema can't express. We validate the shape and cast.
+        trajectories.push(trajResult.data as unknown as TrajectoryJSONLRecord)
+      } else {
+        logger.warn('[StaticStorage] Invalid trajectory record', {
+          error: trajResult.error.message,
+        })
+      }
+    } else if (recordType === 'llm_call') {
+      const llmResult = LLMCallJSONLRecordSchema.safeParse(parsed)
+      if (llmResult.success) {
+        llmCalls.push(llmResult.data)
+      } else {
+        logger.warn('[StaticStorage] Invalid LLM call record', {
+          error: llmResult.error.message,
+        })
+      }
     }
   }
 
@@ -538,7 +614,16 @@ export async function downloadTrajectoryBatch(
     throw new Error('Invalid batch: missing header')
   }
 
-  return { header, trajectories, llmCalls }
+  return {
+    header: {
+      batchId: header.batchId,
+      appName: header.appName,
+      trajectoryCount: header.trajectoryCount,
+      timestamp: header.timestamp,
+    },
+    trajectories,
+    llmCalls,
+  }
 }
 
 /**

@@ -11,7 +11,6 @@
  * Content is NEVER stored if flagged as CSAM.
  */
 
-import { readFile, writeFile } from 'node:fs/promises'
 import { getDWSComputeUrl } from '@jejunetwork/config'
 import type { Address, Hex } from 'viem'
 import { z } from 'zod'
@@ -42,6 +41,17 @@ const ContentScoresSchema = z.object({
   csam: z.number().min(0).max(1).default(0),
   malware: z.number().min(0).max(1).default(0),
   harassment: z.number().min(0).max(1).default(0),
+})
+
+// Schema for OpenAI-style chat completion response
+const ChatCompletionResponseSchema = z.object({
+  choices: z.array(
+    z.object({
+      message: z.object({
+        content: z.string(),
+      }),
+    }),
+  ),
 })
 
 // Schema for account review AI response
@@ -77,8 +87,6 @@ const AccountReviewSchema = z.object({
   confidence: z.number().min(0).max(1),
   timestamp: z.number(),
 })
-
-const ModerationQueueSchema = z.array(AccountReviewSchema)
 
 // ============ Configuration ============
 
@@ -323,11 +331,14 @@ Return ONLY valid JSON: {"spam": 0.0, "scam": 0.0, "csam": 0.0, "malware": 0.0, 
       throw new Error(`AI classification failed: ${response.status}`)
     }
 
-    const data = (await response.json()) as {
-      choices: Array<{ message: { content: string } }>
+    const rawData: unknown = await response.json()
+    const data = ChatCompletionResponseSchema.parse(rawData)
+    const firstChoice = data.choices[0]
+    if (!firstChoice) {
+      throw new Error('No choices in AI response')
     }
 
-    const content_response = data.choices[0]?.message?.content ?? ''
+    const content_response = firstChoice.message.content
 
     const jsonMatch = content_response.match(/\{[\s\S]*\}/)
     if (!jsonMatch) {
@@ -469,22 +480,23 @@ Return ONLY valid JSON:
       })
 
       if (response.ok) {
-        const data = (await response.json()) as {
-          choices: Array<{ message: { content: string } }>
-        }
+        const rawData: unknown = await response.json()
+        const dataResult = ChatCompletionResponseSchema.safeParse(rawData)
 
-        const content = data.choices[0]?.message?.content ?? ''
-        const jsonMatch = content.match(/\{[\s\S]*\}/)
+        if (dataResult.success) {
+          const firstChoice = dataResult.data.choices[0]
+          const content = firstChoice?.message.content ?? ''
+          const jsonMatch = content.match(/\{[\s\S]*\}/)
 
-        if (jsonMatch) {
-          const parseResult = AccountReviewResponseSchema.safeParse(
-            JSON.parse(jsonMatch[0]),
-          )
-          if (parseResult.success) {
-            assessment = parseResult.data.assessment
-            reasoning = parseResult.data.reasoning
-            confidence = parseResult.data.confidence
-            recommendation = parseResult.data.recommendation
+          if (jsonMatch) {
+            const parsed: unknown = JSON.parse(jsonMatch[0])
+            const parseResult = AccountReviewResponseSchema.safeParse(parsed)
+            if (parseResult.success) {
+              assessment = parseResult.data.assessment
+              reasoning = parseResult.data.reasoning
+              confidence = parseResult.data.confidence
+              recommendation = parseResult.data.recommendation
+            }
           }
         }
       }
@@ -583,35 +595,60 @@ Return ONLY valid JSON:
     }
   }
 
+  /** In-memory moderation review queue (for retry when endpoint unavailable) */
+  private moderationQueue: AccountReview[] = []
+
   /**
-   * Queue review locally when moderation endpoint is unavailable
+   * Queue review in-memory when moderation endpoint is unavailable
+   * In production, this would be backed by a persistent queue (Redis, SQS, etc.)
    */
   private async queueModerationReview(review: AccountReview): Promise<void> {
-    // Store to local queue for later processing
-    const queueFile =
-      process.env.MODERATION_QUEUE_FILE ?? '/tmp/email-moderation-queue.json'
+    this.moderationQueue.push(review)
+    console.log(
+      `[ContentScreening] Review queued in-memory. Queue size: ${this.moderationQueue.length}`,
+    )
 
-    try {
-      let queue: AccountReview[] = []
+    // Log for observability - in production this would go to a monitoring system
+    console.warn(
+      `[ContentScreening] Moderation review pending for ${review.account}: ${review.recommendation}`,
+    )
+  }
 
+  /**
+   * Get pending moderation reviews (for retry processing)
+   */
+  getPendingModerationReviews(): AccountReview[] {
+    return [...this.moderationQueue]
+  }
+
+  /**
+   * Clear a review from the queue after successful submission
+   */
+  clearModerationReview(account: string): void {
+    this.moderationQueue = this.moderationQueue.filter(
+      (r) => r.account !== account,
+    )
+  }
+
+  /**
+   * Retry submitting pending reviews to moderation system
+   */
+  async retryPendingReviews(): Promise<{ submitted: number; failed: number }> {
+    const pending = [...this.moderationQueue]
+    let submitted = 0
+    let failed = 0
+
+    for (const review of pending) {
       try {
-        const existing = await readFile(queueFile, 'utf-8')
-        const parseResult = ModerationQueueSchema.safeParse(
-          JSON.parse(existing),
-        )
-        if (parseResult.success) {
-          queue = parseResult.data as AccountReview[]
-        }
+        await this.submitToModerationSystem(review)
+        this.clearModerationReview(review.account)
+        submitted++
       } catch {
-        // File doesn't exist yet
+        failed++
       }
-
-      queue.push(review)
-      await writeFile(queueFile, JSON.stringify(queue, null, 2))
-      console.log(`[ContentScreening] Review queued locally: ${queueFile}`)
-    } catch (error) {
-      console.error('[ContentScreening] Failed to queue review:', error)
     }
+
+    return { submitted, failed }
   }
 
   /**

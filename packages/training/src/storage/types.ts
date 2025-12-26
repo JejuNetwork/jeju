@@ -5,6 +5,59 @@
  */
 
 import type { Address } from 'viem'
+import { z } from 'zod'
+import { isAddress } from 'viem'
+
+const AddressSchema = z.custom<Address>(
+  (val): val is Address => typeof val === 'string' && isAddress(val),
+  'Invalid Ethereum address',
+)
+
+// ============================================================================
+// Zod Schemas for Storage Types
+// ============================================================================
+
+export const CIDResponseSchema = z.object({
+  cid: z.string().min(1),
+})
+
+export const AccessConditionSchema = z.object({
+  type: z.enum(['role', 'contract', 'timestamp']),
+  chainId: z.string(),
+  address: AddressSchema.optional(),
+  role: z.string().optional(),
+  timestamp: z.number().optional(),
+})
+
+export const EncryptedPayloadSchema = z.object({
+  ciphertext: z.string(),
+  dataHash: z.string(),
+  accessControlConditions: z.array(AccessConditionSchema),
+  accessControlConditionType: z.string(),
+  encryptedSymmetricKey: z.string(),
+  chain: z.string().optional(),
+})
+
+export const IPFSUploadResultSchema = z.object({
+  cid: z.string().min(1),
+  url: z.string(),
+  size: z.number().int().nonnegative(),
+  provider: z.enum(['ipfs', 'arweave']),
+})
+
+export const DWSUploadResponseSchema = z.object({
+  cid: z.string().min(1),
+})
+
+export const TrajectoryBatchHeaderSchema = z.object({
+  _type: z.literal('header'),
+  batchId: z.string().min(1),
+  appName: z.string().min(1),
+  trajectoryCount: z.number().int().positive(),
+  timestamp: z.string(),
+})
+
+export const StringArraySchema = z.array(z.string())
 
 /**
  * Encrypted trajectory metadata

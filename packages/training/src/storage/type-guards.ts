@@ -1,5 +1,7 @@
 /**
  * Type Guards for Storage
+ *
+ * Uses Zod schemas for validation - type guards are thin wrappers for compatibility.
  */
 
 import type {
@@ -7,6 +9,12 @@ import type {
   CIDResponse,
   EncryptedPayload,
   IPFSUploadResult,
+} from './types'
+import {
+  AccessConditionSchema,
+  CIDResponseSchema,
+  EncryptedPayloadSchema,
+  IPFSUploadResultSchema,
 } from './types'
 
 /**
@@ -27,43 +35,28 @@ export function isString(value: unknown): value is string {
  * Check if value is a CID response
  */
 export function isCIDResponse(value: unknown): value is CIDResponse {
-  return isObject(value) && isString(value.cid)
+  return CIDResponseSchema.safeParse(value).success
 }
 
 /**
  * Check if value is an access condition
  */
 export function isAccessCondition(value: unknown): value is AccessCondition {
-  if (!isObject(value)) return false
-  const type = value.type
-  return type === 'role' || type === 'contract' || type === 'timestamp'
+  return AccessConditionSchema.safeParse(value).success
 }
 
 /**
  * Check if value is an encrypted payload
  */
 export function isEncryptedPayload(value: unknown): value is EncryptedPayload {
-  if (!isObject(value)) return false
-  return (
-    isString(value.ciphertext) &&
-    isString(value.dataHash) &&
-    Array.isArray(value.accessControlConditions) &&
-    isString(value.accessControlConditionType) &&
-    isString(value.encryptedSymmetricKey)
-  )
+  return EncryptedPayloadSchema.safeParse(value).success
 }
 
 /**
  * Check if value is an IPFS upload result
  */
 export function isIPFSUploadResult(value: unknown): value is IPFSUploadResult {
-  if (!isObject(value)) return false
-  return (
-    isString(value.cid) &&
-    isString(value.url) &&
-    typeof value.size === 'number' &&
-    (value.provider === 'ipfs' || value.provider === 'arweave')
-  )
+  return IPFSUploadResultSchema.safeParse(value).success
 }
 
 /**
@@ -71,4 +64,32 @@ export function isIPFSUploadResult(value: unknown): value is IPFSUploadResult {
  */
 export function isJsonRecord(value: unknown): value is Record<string, unknown> {
   return isObject(value)
+}
+
+/**
+ * Validate CID response and return typed data, or throw
+ */
+export function validateCIDResponse(value: unknown): CIDResponse {
+  return CIDResponseSchema.parse(value)
+}
+
+/**
+ * Validate encrypted payload and return typed data, or throw
+ */
+export function validateEncryptedPayload(value: unknown): EncryptedPayload {
+  const parsed = EncryptedPayloadSchema.parse(value)
+  return {
+    ciphertext: parsed.ciphertext,
+    dataHash: parsed.dataHash,
+    accessControlConditions: parsed.accessControlConditions.map((c) => ({
+      type: c.type,
+      chainId: c.chainId,
+      address: c.address,
+      role: c.role,
+      timestamp: c.timestamp,
+    })),
+    accessControlConditionType: parsed.accessControlConditionType,
+    encryptedSymmetricKey: parsed.encryptedSymmetricKey,
+    chain: parsed.chain,
+  }
 }

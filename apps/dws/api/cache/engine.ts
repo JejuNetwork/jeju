@@ -22,9 +22,13 @@ import {
   type CacheSetOptions,
   type CacheStats,
   type HashEntry,
+  HashEntrySchema,
   type SortedSetMember,
+  SortedSetMemberSchema,
   type StreamEntry,
+  StreamEntrySchema,
 } from './types'
+import { z } from 'zod'
 
 // Internal storage types
 
@@ -929,7 +933,7 @@ export class CacheEngine {
   }
 
   private decodeHash(data: Uint8Array): HashEntry {
-    return JSON.parse(this.decodeString(data)) as HashEntry
+    return HashEntrySchema.parse(JSON.parse(this.decodeString(data)))
   }
 
   private encodeList(list: string[]): Uint8Array {
@@ -937,7 +941,7 @@ export class CacheEngine {
   }
 
   private decodeList(data: Uint8Array): string[] {
-    return JSON.parse(this.decodeString(data)) as string[]
+    return z.array(z.string()).parse(JSON.parse(this.decodeString(data)))
   }
 
   private encodeSet(set: Set<string>): Uint8Array {
@@ -945,7 +949,7 @@ export class CacheEngine {
   }
 
   private decodeSet(data: Uint8Array): Set<string> {
-    return new Set(JSON.parse(this.decodeString(data)) as string[])
+    return new Set(z.array(z.string()).parse(JSON.parse(this.decodeString(data))))
   }
 
   private encodeZSet(zset: SortedSetMember[]): Uint8Array {
@@ -953,7 +957,7 @@ export class CacheEngine {
   }
 
   private decodeZSet(data: Uint8Array): SortedSetMember[] {
-    return JSON.parse(this.decodeString(data)) as SortedSetMember[]
+    return z.array(SortedSetMemberSchema).parse(JSON.parse(this.decodeString(data)))
   }
 
   private encodeStream(stream: StreamEntry[]): Uint8Array {
@@ -961,7 +965,7 @@ export class CacheEngine {
   }
 
   private decodeStream(data: Uint8Array): StreamEntry[] {
-    return JSON.parse(this.decodeString(data)) as StreamEntry[]
+    return z.array(StreamEntrySchema).parse(JSON.parse(this.decodeString(data)))
   }
 
   private createEntry(

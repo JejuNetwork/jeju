@@ -13,6 +13,8 @@ import {
   BountyIdParamSchema,
   CreateBountyBodySchema,
   expectValid,
+  MilestonesSchema,
+  SkillsSchema,
 } from '../schemas'
 import { requireAuth } from '../validation/access-control'
 
@@ -48,11 +50,11 @@ function transformBounty(row: BountyRow): Bounty {
     reward: row.reward,
     currency: row.currency,
     status: row.status,
-    skills: JSON.parse(row.skills) as string[],
+    skills: SkillsSchema.parse(JSON.parse(row.skills)),
     creator: row.creator as Address,
     deadline: row.deadline,
     milestones: row.milestones
-      ? (JSON.parse(row.milestones) as Milestone[])
+      ? MilestonesSchema.parse(JSON.parse(row.milestones))
       : undefined,
     submissions: row.submissions,
     createdAt: row.created_at,
