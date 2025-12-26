@@ -50,7 +50,7 @@ test.describe('Homepage', () => {
               page.getByRole('link', { name: /Predict/i }).first(),
             ).toBeVisible()
             await expect(
-              page.getByRole('link', { name: /NFTs/i }).first(),
+              page.getByRole('link', { name: /Items/i }).first(),
             ).toBeVisible()
           },
         },
@@ -72,7 +72,7 @@ test.describe('Homepage', () => {
     await expect(page.getByRole('link', { name: /^Swap$/i })).toBeVisible()
     await expect(page.getByRole('link', { name: /^Pools$/i })).toBeVisible()
     await expect(page.getByRole('link', { name: /^Predict$/i })).toBeVisible()
-    await expect(page.getByRole('link', { name: /^NFTs$/i })).toBeVisible()
+    await expect(page.getByRole('link', { name: /^Items$/i })).toBeVisible()
   })
 
   test('shows connect wallet button when disconnected', async ({ page }) => {

@@ -1,6 +1,5 @@
 import { createTypedWriteContract } from '@jejunetwork/contracts'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
-import type { TokenInfo } from '@jejunetwork/ui'
 import { useCallback, useMemo } from 'react'
 import type { Address } from 'viem'
 import {
@@ -11,6 +10,13 @@ import {
 import { CONTRACTS } from '../../lib/config'
 import { TOKEN_REGISTRY_ABI } from '../lib/constants'
 
+export interface TokenInfo {
+  address: Address
+  symbol: string
+  name: string
+  decimals: number
+}
+
 /** Token info returned from gateway's getTokenInfo contract call */
 export interface GatewayTokenInfo {
   token: Address
@@ -20,8 +26,6 @@ export interface GatewayTokenInfo {
   priceOracle: Address
   enabled: boolean
 }
-
-export type { TokenInfo }
 
 // Built-in token definitions using shared ZERO_ADDRESS
 const KNOWN_TOKENS: ReadonlyMap<Lowercase<Address>, TokenInfo> = new Map([

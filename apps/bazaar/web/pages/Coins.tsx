@@ -1,12 +1,20 @@
 /**
  * Coins Page
+ *
+ * Browse and trade ERC-20 tokens on the network
  */
 
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { formatUnits } from 'viem'
-import { fetchTokensWithMarketData, type Token } from '../../lib/data-client'
+import {
+  fetchTokensWithMarketData,
+  checkIndexerHealth,
+  type Token,
+} from '../../lib/data-client'
+import { CONTRACTS, RPC_URL } from '../../config'
+import { createPublicClient, erc20Abi, http, type Address } from 'viem'
 import { LoadingSpinner } from '../components/LoadingSpinner'
 import { JEJU_CHAIN_ID } from '../config/chains'
 
@@ -78,11 +86,81 @@ function TokenCard({ token }: { token: Token }) {
   )
 }
 
+// Fetch default tokens directly from RPC when indexer is down
+async function fetchDefaultTokens(): Promise<Token[]> {
+  const tokens: Token[] = []
+
+  // Use RPC proxy in browser to avoid CORS
+  const rpcUrl = typeof window !== 'undefined' ? '/api/rpc' : RPC_URL
+  const client = createPublicClient({ transport: http(rpcUrl) })
+
+  // Known localnet tokens
+  const knownTokens: Array<{ address: Address; verified: boolean }> = [
+    { address: CONTRACTS.jeju, verified: true },
+  ]
+
+  for (const { address, verified } of knownTokens) {
+    // Skip zero addresses
+    if (!address || address === '0x0000000000000000000000000000000000000000') {
+      continue
+    }
+
+    try {
+      // Fetch basic ERC-20 info directly from RPC
+      const [name, symbol, decimals, totalSupply] = await Promise.all([
+        client.readContract({
+          address,
+          abi: erc20Abi,
+          functionName: 'name',
+        }),
+        client.readContract({
+          address,
+          abi: erc20Abi,
+          functionName: 'symbol',
+        }),
+        client.readContract({
+          address,
+          abi: erc20Abi,
+          functionName: 'decimals',
+        }),
+        client.readContract({
+          address,
+          abi: erc20Abi,
+          functionName: 'totalSupply',
+        }),
+      ])
+
+      tokens.push({
+        address,
+        chainId: JEJU_CHAIN_ID,
+        name: name as string,
+        symbol: symbol as string,
+        decimals: decimals as number,
+        totalSupply: totalSupply as bigint,
+        creator: '0x0000000000000000000000000000000000000000',
+        createdAt: new Date(),
+        verified,
+      })
+    } catch {
+      // Token doesn't exist or contract error - skip
+    }
+  }
+
+  return tokens
+}
+
 export default function CoinsPage() {
   const [filter, setFilter] = useState<'all' | 'verified' | 'new'>('all')
   const [orderBy, setOrderBy] = useState<'volume' | 'recent' | 'holders'>(
     'recent',
   )
+
+  // Check if indexer is healthy
+  const { data: indexerUp } = useQuery({
+    queryKey: ['indexer-health'],
+    queryFn: checkIndexerHealth,
+    staleTime: 30000,
+  })
 
   const {
     data: tokens,
@@ -90,13 +168,24 @@ export default function CoinsPage() {
     error,
     refetch,
   } = useQuery({
-    queryKey: ['tokens', filter, orderBy],
-    queryFn: () =>
-      fetchTokensWithMarketData({
-        limit: 50,
-        verified: filter === 'verified' ? true : undefined,
-        orderBy,
-      }),
+    queryKey: ['tokens', filter, orderBy, indexerUp],
+    queryFn: async () => {
+      // If indexer is up, try to use it
+      if (indexerUp) {
+        try {
+          const result = await fetchTokensWithMarketData({
+            limit: 50,
+            verified: filter === 'verified' ? true : undefined,
+            orderBy,
+          })
+          if (result.length > 0) return result
+        } catch {
+          // Indexer error, fall through to default tokens
+        }
+      }
+      // Fetch default tokens directly from RPC
+      return fetchDefaultTokens()
+    },
     refetchInterval: 15000,
     staleTime: 10000,
   })
@@ -132,6 +221,26 @@ export default function CoinsPage() {
           Create Token
         </Link>
       </div>
+
+      {/* Indexer Status Warning */}
+      {!indexerUp && (
+        <div
+          className="card p-4 mb-6 border-yellow-500/30"
+          style={{ backgroundColor: 'rgba(234, 179, 8, 0.1)' }}
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-xl">⚠️</span>
+            <div>
+              <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                Limited Data Available
+              </p>
+              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                The indexer is offline. Showing deployed tokens only.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
         <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide">

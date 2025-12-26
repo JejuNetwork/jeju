@@ -67,14 +67,12 @@ const CHAINS: [number, Chain, string][] = [
 
 const FILL_GAS = 150_000n
 const PRICE_STALE_MS = 5 * 60 * 1000
-const PRICE_EMERGENCY_STALE_MS = 60 * 60 * 1000 // 1 hour - use cached price if all APIs fail
-const FALLBACK_ETH_PRICE_USD = 3500 // Emergency fallback if no price available
 const COINGECKO_RATE_LIMIT_BACKOFF_MS = 60_000 // Wait 1 min after 429
 
 export class StrategyEngine {
   private config: StrategyConfig
   private clients = new Map<number, PublicClient>()
-  private ethPriceUsd = FALLBACK_ETH_PRICE_USD // Start with fallback
+  private ethPriceUsd: number | null = null
   private priceUpdatedAt = 0
   private lastCoinGecko429At = 0
 
@@ -105,11 +103,8 @@ export class StrategyEngine {
         address: CHAINLINK_ETH_USD[1],
         abi: AGGREGATOR_ABI,
         functionName: 'latestRoundData',
-      }).catch((err: Error): null => {
-        console.warn(`[strategy] Chainlink price feed failed: ${err.message}`)
-        return null
       })
-      if (result && result[1] > 0n) {
+      if (result[1] > 0n) {
         this.ethPriceUsd = Number(result[1]) / 1e8
         this.priceUpdatedAt = Date.now()
         return
@@ -119,7 +114,7 @@ export class StrategyEngine {
     // Skip CoinGecko if we were rate-limited recently
     const now = Date.now()
     if (now - this.lastCoinGecko429At < COINGECKO_RATE_LIMIT_BACKOFF_MS) {
-      return // Use cached price
+      return
     }
 
     const res = await fetch(
@@ -127,27 +122,20 @@ export class StrategyEngine {
       {
         signal: AbortSignal.timeout(5000),
       },
-    ).catch((err: Error): Response | null => {
-      console.warn(`[strategy] CoinGecko API failed: ${err.message}`)
-      return null
-    })
+    )
 
-    if (res?.ok) {
+    if (res.ok) {
       const rawData: unknown = await res.json()
-      const parsed = CoinGeckoResponseSchema.safeParse(rawData)
-      if (parsed.success) {
-        this.ethPriceUsd = parsed.data.ethereum.usd
-        this.priceUpdatedAt = now
-      } else {
-        console.warn('[strategy] CoinGecko response validation failed')
-      }
-    } else if (res?.status === 429) {
+      const parsed = CoinGeckoResponseSchema.parse(rawData)
+      this.ethPriceUsd = parsed.ethereum.usd
+      this.priceUpdatedAt = now
+    } else if (res.status === 429) {
       this.lastCoinGecko429At = now
       console.warn(
         `[strategy] CoinGecko rate limited, backing off for ${COINGECKO_RATE_LIMIT_BACKOFF_MS / 1000}s`,
       )
-    } else if (res) {
-      console.warn(`[strategy] CoinGecko returned ${res.status}`)
+    } else {
+      throw new Error(`CoinGecko returned ${res.status}`)
     }
   }
 
@@ -155,14 +143,13 @@ export class StrategyEngine {
     if (this.isPriceStale()) {
       console.warn('[Strategy] ETH price stale, refreshing')
       await this.refreshPrices()
-      // Only reject if price is emergency stale (>1 hour old)
-      // Use cached price for normal staleness during API outages
-      if (this.isPriceEmergencyStale()) {
-        return {
-          profitable: false,
-          expectedProfitBps: 0,
-          reason: 'Price feed unavailable (>1h stale)',
-        }
+    }
+
+    if (this.ethPriceUsd === null) {
+      return {
+        profitable: false,
+        expectedProfitBps: 0,
+        reason: 'Price feed unavailable',
       }
     }
 
@@ -217,19 +204,14 @@ export class StrategyEngine {
   }
 
   getEthPrice(): number {
+    if (this.ethPriceUsd === null) {
+      throw new Error('ETH price not available')
+    }
     return this.ethPriceUsd
   }
 
   isPriceStale(): boolean {
-    const age = Date.now() - this.priceUpdatedAt
-    // If we have never successfully fetched a price, consider it stale
-    if (this.priceUpdatedAt === 0) return true
-    // Normal staleness check
-    return age > PRICE_STALE_MS
-  }
-
-  isPriceEmergencyStale(): boolean {
-    // Even cached prices become unusable after 1 hour
-    return Date.now() - this.priceUpdatedAt > PRICE_EMERGENCY_STALE_MS
+    if (this.ethPriceUsd === null) return true
+    return Date.now() - this.priceUpdatedAt > PRICE_STALE_MS
   }
 }

@@ -1,11 +1,17 @@
+/**
+ * Autocrat Layout Component
+ *
+ * Main layout wrapper with header for the application.
+ */
+
 import { Outlet } from 'react-router-dom'
 import { Header } from './Header'
 
 export function Layout() {
   return (
-    <div className="min-h-screen min-h-dvh flex flex-col">
+    <div className="min-h-screen bg-slate-950">
       <Header />
-      <main className="flex-1 container mx-auto px-3 sm:px-4 pt-16 sm:pt-18 pb-6 sm:pb-8">
+      <main>
         <Outlet />
       </main>
     </div>

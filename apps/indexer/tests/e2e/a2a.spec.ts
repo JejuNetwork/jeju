@@ -1,5 +1,5 @@
 /**
- * Network Indexer - A2A API E2E Tests
+ * Indexer - A2A API E2E Tests
  *
  * Tests for the Agent-to-Agent API endpoints:
  * - Agent card endpoint
@@ -23,7 +23,7 @@ test.describe('A2A Agent Card', () => {
     expect(response.headers()['content-type']).toContain('application/json')
 
     const agentCard = await response.json()
-    expect(agentCard.name).toBe('Network Indexer')
+    expect(agentCard.name).toBe('Indexer')
     expect(agentCard.protocolVersion).toBe('0.3.0')
   })
 
@@ -295,7 +295,7 @@ test.describe('Static File Serving', () => {
     expect(response.headers()['content-type']).toContain('text/html')
 
     const html = await response.text()
-    expect(html).toContain('Network Indexer')
+    expect(html).toContain('Indexer')
     expect(html).toContain('GraphQL Explorer')
   })
 

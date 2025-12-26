@@ -1,6 +1,7 @@
 /**
  * Prediction Detail Page
- * Converted from Next.js to React Router
+ *
+ * Shows prediction market details with integrated Farcaster channel feed.
  */
 
 import { useMutation, useQuery } from '@tanstack/react-query'
@@ -17,7 +18,9 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useAccount } from 'wagmi'
 import { AuthButton } from '../components/auth/AuthButton'
+import { ChannelFeed } from '../components/ChannelFeed'
 import { LoadingSpinner } from '../components/LoadingSpinner'
+import { getPredictionChannel } from '../hooks/useMessaging'
 
 interface PredictionMarket {
   id: number | string
@@ -46,14 +49,14 @@ export default function PredictionDetailPage() {
   } = useQuery({
     queryKey: ['predictionMarket', marketId],
     queryFn: async (): Promise<PredictionMarket | null> => {
-      const response = await fetch(`/api/markets/predictions`)
+      const response = await fetch('/api/markets/predictions')
       const data = await response.json()
       const foundMarket = data.questions?.find(
         (q: PredictionMarket) => q.id.toString() === marketId,
       )
-      return foundMarket || null
+      return foundMarket ?? null
     },
-    enabled: !!marketId,
+    enabled: Boolean(marketId),
   })
 
   const buyMutation = useMutation({
@@ -153,6 +156,7 @@ export default function PredictionDetailPage() {
 
   if (!market) return null
 
+  const channel = getPredictionChannel(marketId, market.text)
   const yesShares = market.yesShares ?? 100
   const noShares = market.noShares ?? 100
   const totalShares = yesShares + noShares
@@ -163,7 +167,7 @@ export default function PredictionDetailPage() {
   const amountNum = Number.parseFloat(amount)
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-6xl mx-auto">
       <button
         type="button"
         onClick={() => {
@@ -260,7 +264,8 @@ export default function PredictionDetailPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Trade Panel */}
         <div className="card p-6">
           <h2
             className="text-lg font-bold mb-4"
@@ -371,21 +376,27 @@ export default function PredictionDetailPage() {
           )}
         </div>
 
-        <div className="card p-6">
-          <h2
-            className="text-lg font-bold mb-4"
-            style={{ color: 'var(--text-primary)' }}
-          >
-            How it works
-          </h2>
-          <p className="mb-4" style={{ color: 'var(--text-secondary)' }}>
-            Buy YES shares if you think this will happen, NO shares if you think
-            it won't.
-          </p>
-          <p style={{ color: 'var(--text-secondary)' }}>
-            If you're right, you'll receive $1 per share. The current price
-            reflects the market's probability.
-          </p>
+        {/* Info + Discussion */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className="card p-6">
+            <h2
+              className="text-lg font-bold mb-4"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              How it works
+            </h2>
+            <p className="mb-4" style={{ color: 'var(--text-secondary)' }}>
+              Buy YES shares if you think this will happen, NO shares if you
+              think it won't.
+            </p>
+            <p style={{ color: 'var(--text-secondary)' }}>
+              If you're right, you'll receive $1 per share. The current price
+              reflects the market's probability.
+            </p>
+          </div>
+
+          {/* Farcaster Channel Feed */}
+          <ChannelFeed channel={channel} />
         </div>
       </div>
     </div>

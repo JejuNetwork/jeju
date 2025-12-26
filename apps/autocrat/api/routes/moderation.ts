@@ -68,7 +68,9 @@ export const moderationRoutes = new Elysia({ prefix: '/api/v1/moderation' })
   .get(
     '/score/:proposalId',
     async ({ params }) => {
-      const score = await moderation.getProposalModerationScore(params.proposalId)
+      const score = await moderation.getProposalModerationScore(
+        params.proposalId,
+      )
       return score
     },
     {
@@ -115,7 +117,9 @@ export const moderationRoutes = new Elysia({ prefix: '/api/v1/moderation' })
   .get(
     '/moderator/:address',
     async ({ params }) => {
-      const stats = await moderation.getModeratorStats(toAddress(params.address))
+      const stats = await moderation.getModeratorStats(
+        toAddress(params.address),
+      )
       return stats
     },
     {

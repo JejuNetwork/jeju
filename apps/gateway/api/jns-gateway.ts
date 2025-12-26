@@ -246,9 +246,35 @@ export class JNSGateway {
       }
     })
 
+    // Helper to handle host-based JNS routing
+    const handleHostBasedRouting = async (
+      request: Request,
+      set: { status?: number | string; headers: Record<string, string | number> },
+    ): Promise<Response | string | object | null> => {
+      const host = request.headers.get('host') ?? ''
+      // Match various JNS patterns:
+      // - name.jeju.network, name.jeju.io, name.jeju.local
+      // - name.local.jejunetwork.org (local development)
+      // - name.jejunetwork.org (production)
+      const jnsMatch =
+        host.match(/^([a-z0-9-]+)\.jeju\.(network|io|local)/) ||
+        host.match(/^([a-z0-9-]+)\.local\.jejunetwork\.org/) ||
+        host.match(/^([a-z0-9-]+)\.jejunetwork\.org/)
+      if (jnsMatch?.[1]) {
+        const name = `${jnsMatch[1]}.jeju`
+        const url = new URL(request.url)
+        const path = url.pathname === '/' ? '/index.html' : url.pathname
+        return this.serveJNSContent(name, path, set, request)
+      }
+      return null
+    }
+
     this.app.get('/:name/*', async ({ params, request, set }) => {
       const name = params.name
+      // If the name doesn't look like a JNS name (name.jeju), try host-based routing
       if (!/^[a-z0-9-]+\.jeju$/.test(name)) {
+        const hostResult = await handleHostBasedRouting(request, set)
+        if (hostResult !== null) return hostResult
         set.status = 404
         return { error: 'Invalid JNS name' }
       }
@@ -258,15 +284,8 @@ export class JNSGateway {
     })
 
     this.app.get('*', async ({ request, set }) => {
-      const host = request.headers.get('host') ?? ''
-      const jnsMatch = host.match(/^([a-z0-9-]+)\.jeju\.(network|io|local)/)
-      if (jnsMatch?.[1]) {
-        const name = `${jnsMatch[1]}.jeju`
-        const url = new URL(request.url)
-        const path = url.pathname === '/' ? '/index.html' : url.pathname
-        return this.serveJNSContent(name, path, set, request)
-      }
-
+      const hostResult = await handleHostBasedRouting(request, set)
+      if (hostResult !== null) return hostResult
       return 'JNS Gateway - Use *.jejunetwork.org for name resolution'
     })
   }

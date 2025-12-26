@@ -12,18 +12,6 @@ export async function getHealth() {
   return api.health.get()
 }
 
-export async function getFaucetInfo() {
-  return api.faucet.getInfo()
-}
-
-export async function getFaucetStatus(address: Address) {
-  return api.faucet.getStatus(address)
-}
-
-export async function claimFaucet(address: Address) {
-  return api.faucet.claim(address)
-}
-
 export async function getTFMMPools() {
   return api.tfmm.getPools()
 }

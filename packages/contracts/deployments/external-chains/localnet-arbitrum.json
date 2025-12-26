@@ -1,0 +1,11 @@
+{
+  "network": "localnet",
+  "chain": "arbitrum",
+  "mode": "local",
+  "endpoints": {
+    "rpc": "http://localhost:8547",
+    "ws": "ws://localhost:8548"
+  },
+  "tee": false,
+  "deployedAt": "2025-12-26T19:38:50.788Z"
+}

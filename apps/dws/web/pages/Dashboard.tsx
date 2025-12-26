@@ -1,4 +1,4 @@
-import { ConnectButton } from '@rainbow-me/rainbowkit'
+import { WalletButton } from '@jejunetwork/ui'
 import {
   Activity,
   AlertCircle,
@@ -33,22 +33,25 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ viewMode }: DashboardProps) {
-  const { isConnected } = useAccount()
+  const { isConnected, address } = useAccount()
   const { isBanned, banRecord } = useBanStatus()
   const { data: health, isLoading: healthLoading } = useHealth()
-  const { data: containersData } = useContainers()
-  const { data: workersData } = useWorkers()
-  const { data: jobsData } = useJobs()
+  const { data: containersData, isLoading: containersLoading } = useContainers()
+  const { data: workersData, isLoading: workersLoading } = useWorkers()
+  const { data: jobsData, isLoading: jobsLoading } = useJobs()
   const { data: nodesData } = useComputeNodes()
-  const { data: account } = useUserAccount()
+  const { data: account, isLoading: accountLoading } = useUserAccount()
 
-  if (!isConnected) {
+  // Show loading state while initial data loads
+  const isDataLoading = containersLoading || workersLoading || jobsLoading || accountLoading
+
+  if (!isConnected || !address) {
     return (
       <div className="empty-state" style={{ paddingTop: '4rem' }}>
         <Box size={64} />
         <h3>Welcome to DWS Console</h3>
         <p>Connect your wallet to access Decentralized Web Services</p>
-        <ConnectButton />
+        <WalletButton />
       </div>
     )
   }
@@ -90,14 +93,25 @@ export default function Dashboard({ viewMode }: DashboardProps) {
     )
   }
 
-  const runningContainers =
-    containersData?.executions.filter((e) => e.status === 'running').length ?? 0
-  const activeWorkers =
-    workersData?.functions.filter((f) => f.status === 'active').length ?? 0
-  const runningJobs =
-    jobsData?.jobs.filter((j) => j.status === 'running').length ?? 0
-  const onlineNodes =
-    nodesData?.nodes.filter((n) => n.status === 'online').length ?? 0
+  if (isDataLoading) {
+    return (
+      <div className="empty-state" style={{ paddingTop: '4rem' }}>
+        <div className="spinner" style={{ width: 48, height: 48 }} />
+        <p>Loading dashboard...</p>
+      </div>
+    )
+  }
+
+  // Data is now loaded - extract arrays (defaults handle any edge cases)
+  const executions = containersData?.executions ?? []
+  const workerFunctions = workersData?.functions ?? []
+  const jobsList = jobsData?.jobs ?? []
+  const nodesList = nodesData?.nodes ?? []
+
+  const runningContainers = executions.filter((e) => e.status === 'running').length
+  const activeWorkers = workerFunctions.filter((f) => f.status === 'active').length
+  const runningJobs = jobsList.filter((j) => j.status === 'running').length
+  const onlineNodes = nodesList.filter((n) => n.status === 'online').length
 
   return (
     <div>
@@ -379,8 +393,13 @@ function RecentActivity() {
     timestamp: number
   }> = []
 
+  // Extract arrays with defaults
+  const executions = containersData?.executions ?? []
+  const functions = workersData?.functions ?? []
+  const jobs = jobsData?.jobs ?? []
+
   // Add containers
-  containersData?.executions.forEach((c) => {
+  for (const c of executions) {
     const imageParts = c.image.split('/')
     const lastPart = imageParts[imageParts.length - 1]
     const namePart = lastPart.split(':')[0]
@@ -392,10 +411,10 @@ function RecentActivity() {
       status: c.status,
       timestamp: c.startedAt ?? c.submittedAt,
     })
-  })
+  }
 
   // Add workers
-  workersData?.functions.forEach((w) => {
+  for (const w of functions) {
     activities.push({
       id: w.id,
       type: 'worker',
@@ -403,11 +422,11 @@ function RecentActivity() {
       status: w.status,
       timestamp: w.updatedAt,
     })
-  })
+  }
 
   // Add jobs
-  jobsData?.jobs.forEach((j) => {
-    if (j.startedAt === null) return // Skip jobs that haven't started
+  for (const j of jobs) {
+    if (j.startedAt === null) continue // Skip jobs that haven't started
     activities.push({
       id: j.jobId,
       type: 'job',
@@ -415,7 +434,7 @@ function RecentActivity() {
       status: j.status,
       timestamp: j.startedAt,
     })
-  })
+  }
 
   // Sort by timestamp descending and take top 8
   const recentActivities = activities
@@ -550,17 +569,11 @@ interface ProviderDashboardProps {
 }
 
 function ProviderDashboard({ onlineNodes, nodesData }: ProviderDashboardProps) {
-  const totalCpu =
-    nodesData?.nodes.reduce((sum, n) => sum + n.resources.totalCpu, 0) ?? 0
-  const availableCpu =
-    nodesData?.nodes.reduce((sum, n) => sum + n.resources.availableCpu, 0) ?? 0
-  const totalMemory =
-    nodesData?.nodes.reduce((sum, n) => sum + n.resources.totalMemoryMb, 0) ?? 0
-  const availableMemory =
-    nodesData?.nodes.reduce(
-      (sum, n) => sum + n.resources.availableMemoryMb,
-      0,
-    ) ?? 0
+  const nodes = nodesData?.nodes ?? []
+  const totalCpu = nodes.reduce((sum, n) => sum + n.resources.totalCpu, 0)
+  const availableCpu = nodes.reduce((sum, n) => sum + n.resources.availableCpu, 0)
+  const totalMemory = nodes.reduce((sum, n) => sum + n.resources.totalMemoryMb, 0)
+  const availableMemory = nodes.reduce((sum, n) => sum + n.resources.availableMemoryMb, 0)
 
   return (
     <>

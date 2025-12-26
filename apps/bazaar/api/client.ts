@@ -7,14 +7,6 @@
 import { getCoreAppUrl } from '@jejunetwork/config'
 import type { Address } from 'viem'
 import type { z } from 'zod'
-import {
-  type FaucetClaimResult,
-  FaucetClaimResultSchema,
-  type FaucetInfo,
-  FaucetInfoSchema,
-  type FaucetStatus,
-  FaucetStatusSchema,
-} from './faucet'
 
 // API Base URL
 
@@ -26,12 +18,6 @@ export const API_BASE =
 // Query Keys for React Query
 
 const queryKeys = {
-  faucet: {
-    all: ['faucet'] as const,
-    info: () => [...queryKeys.faucet.all, 'info'] as const,
-    status: (address: string) =>
-      [...queryKeys.faucet.all, 'status', address] as const,
-  },
   tfmm: {
     all: ['tfmm'] as const,
     pools: () => [...queryKeys.tfmm.all, 'pools'] as const,
@@ -94,9 +80,6 @@ const queryKeys = {
     code: (userId: string) => ['referral', 'code', userId] as const,
   },
 } as const
-
-// Response Types - import from faucet.ts to avoid duplication
-export type { FaucetClaimResult, FaucetInfo, FaucetStatus } from './faucet'
 
 // Import HealthResponse from lib/client.ts to avoid duplication
 import type { HealthResponse } from '../lib/client'
@@ -212,27 +195,6 @@ export const api = {
     async get(): Promise<HealthResponse> {
       const response = await fetch(`${API_BASE}/health`)
       return handleResponse(response)
-    },
-  },
-
-  faucet: {
-    async getInfo(): Promise<FaucetInfo> {
-      const response = await fetch(`${API_BASE}/api/faucet/info`)
-      return handleResponse(response, FaucetInfoSchema)
-    },
-
-    async getStatus(address: Address): Promise<FaucetStatus> {
-      const response = await fetch(`${API_BASE}/api/faucet/status/${address}`)
-      return handleResponse(response, FaucetStatusSchema)
-    },
-
-    async claim(address: Address): Promise<FaucetClaimResult> {
-      const response = await fetch(`${API_BASE}/api/faucet/claim`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address }),
-      })
-      return handleResponse(response, FaucetClaimResultSchema)
     },
   },
 

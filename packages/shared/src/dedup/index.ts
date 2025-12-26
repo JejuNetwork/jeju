@@ -7,7 +7,7 @@
  * @module @jejunetwork/shared/dedup
  */
 
-import crypto from 'node:crypto'
+import { bytesToHex, hash256 } from '../crypto/universal'
 import { logger } from '../logger'
 
 interface DuplicateRecord {
@@ -55,7 +55,7 @@ export interface DuplicateCheckResult {
  */
 function hashContent(content: string): string {
   const normalized = content.trim().toLowerCase().replace(/\s+/g, ' ')
-  return crypto.createHash('sha256').update(normalized).digest('hex')
+  return bytesToHex(hash256(normalized))
 }
 
 /**

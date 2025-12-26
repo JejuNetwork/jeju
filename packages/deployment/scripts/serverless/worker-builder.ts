@@ -7,10 +7,10 @@
  * @see https://elysiajs.com/integrations/cloudflare-worker
  */
 
-import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, relative } from 'node:path'
 import { getCurrentNetwork } from '@jejunetwork/config'
+import { bytesToHex, hash256 } from '@jejunetwork/shared'
 import { z } from 'zod'
 import type { ServerlessWorkerConfig, WorkerBuildOutput } from './types'
 
@@ -74,7 +74,7 @@ export class WorkerBuilder {
 
     // Calculate content hash
     const workerContent = readFileSync(workerPath)
-    const contentHash = createHash('sha256').update(workerContent).digest('hex')
+    const contentHash = bytesToHex(hash256(new Uint8Array(workerContent)))
 
     // Get bundle size
     const stats = Bun.file(workerPath)

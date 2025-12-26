@@ -14,7 +14,7 @@ import {
   ComputeStats,
   InferenceRequest as InferenceRequestEntity,
   InferenceStatus,
-} from './model'
+} from '../src/model'
 import type { ProcessorContext } from './processor'
 import { createAccountFactory } from './utils/entities'
 import { decodeLogData, isEventInSet } from './utils/hex'

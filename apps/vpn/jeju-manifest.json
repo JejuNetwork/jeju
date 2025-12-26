@@ -21,7 +21,7 @@
   "dependencies": ["contracts", "config", "dws"],
   "optional": false,
   "enabled": true,
-  "autoStart": false,
+  "autoStart": true,
   "tags": ["vpn", "wireguard", "socks5", "privacy", "decentralized", "infrastructure"],
   "jns": {
     "name": "vpn.jeju",

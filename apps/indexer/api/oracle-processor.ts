@@ -16,7 +16,7 @@ import {
   OracleOperator,
   OracleReport,
   OracleSubscription,
-} from './model'
+} from '../src/model'
 import type { ProcessorContext } from './processor'
 import { createAccountFactory } from './utils/entities'
 import { decodeEventArgs, isEventInSet } from './utils/hex'

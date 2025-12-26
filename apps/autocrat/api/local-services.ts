@@ -44,40 +44,18 @@ function getDWSEndpoint(): string {
   return getDWSComputeUrl()
 }
 
-// Bounded in-memory caches for performance (CQL is source of truth)
-const CACHE_MAX = 1000
-const evict = <K, V>(m: Map<K, V>) => {
-  if (m.size >= CACHE_MAX) {
-    const first = m.keys().next().value
-    if (first !== undefined) m.delete(first)
-  }
-}
-const storageCache = new Map<string, StoredObject>()
-const researchCache = new Map<
-  string,
-  { report: string; model: string; completedAt: number }
->()
+// CQL is the source of truth - no in-memory caching for serverless compatibility
 
 export async function initStorage(): Promise<void> {
   await initializeState()
 }
 
 export async function store(data: StoredObject): Promise<string> {
-  const hash = await storageState.store(data)
-  evict(storageCache)
-  storageCache.set(hash, data)
-  return hash
+  return storageState.store(data)
 }
 
 export async function retrieve(hash: string): Promise<StoredObject | null> {
-  const cached = storageCache.get(hash)
-  if (cached) return cached
-  const data = await storageState.retrieve(hash)
-  if (data) {
-    evict(storageCache)
-    storageCache.set(hash, data)
-  }
-  return data
+  return storageState.retrieve(hash)
 }
 
 async function checkDWSCompute(): Promise<boolean> {
@@ -196,16 +174,21 @@ Be specific and actionable.`
 
   const report = await dwsGenerate(prompt, system)
   const result = { report, model: 'dws-compute', completedAt: Date.now() }
-  evict(researchCache)
-  researchCache.set(proposalId, result)
   await store({ type: 'research', proposalId, ...result })
   return result
 }
 
-export function getResearch(
+export async function getResearch(
   proposalId: string,
-): { report: string; model: string; completedAt: number } | null {
-  return researchCache.get(proposalId) ?? null
+): Promise<{ report: string; model: string; completedAt: number } | null> {
+  // Query research from CQL via stored objects
+  const stored = await storageState.findByType('research', proposalId)
+  if (!stored || stored.type !== 'research') return null
+  return {
+    report: stored.report,
+    model: stored.model,
+    completedAt: stored.completedAt,
+  }
 }
 
 // Proposal content index for duplicate detection - persisted to CQL

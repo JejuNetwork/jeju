@@ -21,9 +21,6 @@ const SwapPage = lazy(() => import('./pages/Swap'))
 const PoolsPage = lazy(() => import('./pages/Pools'))
 const PerpsPage = lazy(() => import('./pages/Perps'))
 const PerpsDetailPage = lazy(() => import('./pages/PerpsDetail'))
-const ChartsPage = lazy(() => import('./pages/Charts'))
-const ChartDetailPage = lazy(() => import('./pages/ChartDetail'))
-const IntelPage = lazy(() => import('./pages/Intel'))
 const CoinsPage = lazy(() => import('./pages/Coins'))
 const CoinDetailPage = lazy(() => import('./pages/CoinDetail'))
 const CoinCreatePage = lazy(() => import('./pages/CoinCreate'))
@@ -31,12 +28,12 @@ const CoinLaunchPage = lazy(() => import('./pages/CoinLaunch'))
 const JejuICOPage = lazy(() => import('./pages/JejuICO'))
 const JejuWhitepaperPage = lazy(() => import('./pages/JejuWhitepaper'))
 const MarketsPage = lazy(() => import('./pages/Markets'))
+const MarketCreatePage = lazy(() => import('./pages/MarketCreate'))
 const MarketDetailPage = lazy(() => import('./pages/MarketDetail'))
 const PredictionDetailPage = lazy(() => import('./pages/PredictionDetail'))
 const ItemsPage = lazy(() => import('./pages/Items'))
 const ItemDetailPage = lazy(() => import('./pages/ItemDetail'))
 const ItemMintPage = lazy(() => import('./pages/ItemMint'))
-const FaucetPage = lazy(() => import('./pages/Faucet'))
 const NamesPage = lazy(() => import('./pages/Names'))
 const LiquidityPage = lazy(() => import('./pages/Liquidity'))
 const TFMMPage = lazy(() => import('./pages/TFMM'))
@@ -139,9 +136,6 @@ export function App() {
               <Route path="/swap" element={<SwapPage />} />
               <Route path="/pools" element={<PoolsPage />} />
               <Route path="/perps" element={<PerpsPage />} />
-              <Route path="/charts" element={<ChartsPage />} />
-              <Route path="/charts/:address" element={<ChartDetailPage />} />
-              <Route path="/intel" element={<IntelPage />} />
               <Route path="/coins" element={<CoinsPage />} />
               <Route path="/coins/create" element={<CoinCreatePage />} />
               <Route path="/coins/launch" element={<CoinLaunchPage />} />
@@ -155,6 +149,7 @@ export function App() {
                 element={<CoinDetailPage />}
               />
               <Route path="/markets" element={<MarketsPage />} />
+              <Route path="/markets/create" element={<MarketCreatePage />} />
               <Route path="/markets/:id" element={<MarketDetailPage />} />
               <Route path="/markets/perps" element={<PerpsPage />} />
               <Route
@@ -169,7 +164,6 @@ export function App() {
               <Route path="/items" element={<ItemsPage />} />
               <Route path="/items/mint" element={<ItemMintPage />} />
               <Route path="/items/:id" element={<ItemDetailPage />} />
-              <Route path="/faucet" element={<FaucetPage />} />
               <Route path="/names" element={<NamesPage />} />
               <Route path="/liquidity" element={<LiquidityPage />} />
               <Route path="/tfmm" element={<TFMMPage />} />

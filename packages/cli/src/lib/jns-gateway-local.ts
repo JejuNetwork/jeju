@@ -58,12 +58,24 @@ interface ContentResolution {
 }
 
 // Local worker endpoint mappings for vendor apps during development
-// Maps app name to local backend URL
+// Maps app name to local backend URL (must match CORE_PORTS from @jejunetwork/config)
 const LOCAL_WORKER_ENDPOINTS: Record<string, string> = {
-  factory: 'http://localhost:4040',
-  bazaar: 'http://localhost:4050',
+  factory: 'http://localhost:4009',
+  bazaar: 'http://localhost:4007', // BAZAAR_API port
   gateway: 'http://localhost:4060',
   dws: 'http://localhost:4030',
+  oauth3: 'http://localhost:4200',
+  auth: 'http://localhost:4200', // alias for oauth3
+  monitoring: 'http://localhost:9091', // A2A server port from jeju-manifest.json
+  wallet: 'http://localhost:4015', // Wallet main port
+  vpn: 'http://localhost:4021', // VPN API port
+  node: 'http://localhost:1420', // Node main port (from manifest)
+}
+
+// App name aliases - maps subdomain to actual app folder name
+// Used when JNS name differs from app folder name
+const APP_ALIASES: Record<string, string> = {
+  auth: 'oauth3', // auth.local.jejunetwork.org -> oauth3 app
 }
 
 export class LocalJNSGateway {
@@ -103,8 +115,8 @@ export class LocalJNSGateway {
           return resolution
         })
 
-        // Serve content directly
-        .get('/*', async ({ request, set }) => {
+        // Serve content directly - use 'all' to handle any HTTP method (GET, POST, etc.)
+        .all('/*', async ({ request, set }) => {
           const url = new URL(request.url)
           const host = request.headers.get('host') ?? ''
 
@@ -116,8 +128,10 @@ export class LocalJNSGateway {
             return { error: 'Not a JNS domain' }
           }
 
-          const appName = match[1]
-          const name = `${appName}.jeju`
+          const subdomainName = match[1]
+          // Resolve alias if one exists (e.g., auth -> oauth3)
+          const appName = APP_ALIASES[subdomainName] ?? subdomainName
+          const name = `${subdomainName}.jeju`
           const resolution = await this.resolve(name)
 
           // Check for API requests that should be routed to backend
@@ -126,10 +140,13 @@ export class LocalJNSGateway {
             url.pathname.startsWith('/health') ||
             url.pathname.startsWith('/a2a') ||
             url.pathname.startsWith('/mcp') ||
-            url.pathname.startsWith('/ws')
+            url.pathname.startsWith('/ws') ||
+            url.pathname.startsWith('/.well-known/')
           ) {
             // For local development, use local worker endpoint if available
-            const localEndpoint = this.getLocalWorkerEndpoint(appName)
+            const localEndpoint =
+              this.getLocalWorkerEndpoint(subdomainName) ??
+              this.getLocalWorkerEndpoint(appName)
             if (localEndpoint) {
               return this.proxyToWorker(localEndpoint, request)
             }
@@ -153,15 +170,16 @@ export class LocalJNSGateway {
             )
           }
 
-          if (resolution.ipfsCid) {
-            // Serve from IPFS
-            return this.serveFromIPFS(resolution.ipfsCid, url.pathname)
-          }
-
-          // Fallback: serve from local app build directory (for dev)
+          // In dev mode, prefer local files over IPFS to enable hot reload
+          // This ensures the latest local build is served, not stale IPFS content
           const localResponse = await this.serveFromLocal(appName, url.pathname)
           if (localResponse) {
             return localResponse
+          }
+
+          // Fallback to IPFS if local files not found
+          if (resolution.ipfsCid) {
+            return this.serveFromIPFS(resolution.ipfsCid, url.pathname)
           }
 
           set.status = 404
@@ -370,10 +388,12 @@ export class LocalJNSGateway {
     )
 
     // For SPA support: if path not found and not a file with extension, try index.html
+    let servedAsIndex = false
     if (!response.ok && !requestPath.includes('.')) {
       response = await fetch(`${ipfsApiUrl}/api/v0/cat?arg=${cid}/index.html`, {
         method: 'POST',
       })
+      servedAsIndex = response.ok
     }
 
     if (!response.ok) {
@@ -381,7 +401,10 @@ export class LocalJNSGateway {
     }
 
     const content = await response.arrayBuffer()
-    const contentType = this.guessContentType(requestPath)
+    // Use correct content type for SPA routes served as index.html
+    const contentType = servedAsIndex
+      ? 'text/html; charset=utf-8'
+      : this.guessContentType(requestPath)
 
     return new Response(content, {
       headers: {

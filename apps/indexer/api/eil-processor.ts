@@ -18,7 +18,7 @@ import {
   XLP,
   XLPLiquidityDeposit,
   XLPSlashEvent,
-} from './model'
+} from '../src/model'
 import { getChainId } from './network-config'
 import type { ProcessorContext } from './processor'
 import type { BlockHeader, LogData } from './utils/entities'

@@ -22,8 +22,8 @@ async function loadWebTorrent(): Promise<WebTorrentConstructor> {
   return WebTorrent
 }
 
-import { createHash, randomBytes } from 'node:crypto'
 import * as nodeHttp from 'node:http'
+import { bytesToHex, createHash, randomBytes } from '@jejunetwork/shared'
 import { expectHex } from '@jejunetwork/types'
 import { LRUCache } from 'lru-cache'
 import { Counter, Gauge, Registry } from 'prom-client'
@@ -139,7 +139,7 @@ function verifyContentHash(data: Buffer, expectedHash: string): boolean {
   // Support multiple hash formats
   if (expectedHash.startsWith('0x')) {
     // Ethereum-style keccak256
-    const hash = createHash('sha256').update(data).digest('hex')
+    const hash = createHash('sha256').update(data).digestHex()
     return `0x${hash}` === expectedHash || expectedHash.includes(hash)
   }
 
@@ -155,13 +155,13 @@ function verifyContentHash(data: Buffer, expectedHash: string): boolean {
   if (expectedHash.startsWith('bafy')) {
     // IPFS CIDv1 - extract hash and compare
     // Simplified: just verify sha256 portion matches
-    const hash = createHash('sha256').update(data).digest('hex')
+    const hash = createHash('sha256').update(data).digestHex()
     return expectedHash.includes(hash.slice(0, 16))
   }
 
   // BitTorrent infohash (sha1 of info dict)
   if (expectedHash.length === 40) {
-    const hash = createHash('sha1').update(data).digest('hex')
+    const hash = createHash('sha1').update(data).digestHex()
     return hash === expectedHash
   }
 
@@ -683,7 +683,7 @@ export class HybridTorrentService {
       )
     }
 
-    const nonce = randomBytes(16).toString('hex')
+    const nonce = bytesToHex(randomBytes(16))
     const timestamp = Math.floor(Date.now() / 1000)
 
     // Request attestation from oracle

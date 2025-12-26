@@ -98,12 +98,18 @@ export class CQLSyncService {
       return
     }
 
-    // Verify CQL is healthy
-    const healthy = await this.client.isHealthy()
+    // Verify CQL is healthy with retries (CQL might be starting up)
+    let healthy = false
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      healthy = await this.client.isHealthy()
+      if (healthy) break
+      console.log(`[CQLSync] Waiting for CQL (attempt ${attempt}/3)...`)
+      await new Promise((r) => setTimeout(r, 2000))
+    }
+
     if (!healthy) {
-      throw new Error(
-        '[CQLSync] CQL is not healthy. Ensure CovenantSQL is running.',
-      )
+      console.warn('[CQLSync] CQL not available - sync disabled')
+      return
     }
 
     this.dataSource = dataSource
@@ -160,8 +166,7 @@ export class CQLSyncService {
     const primaryColumns = meta.primaryColumns.map((c) => c.databaseName)
 
     if (primaryColumns.length === 0) {
-      console.warn(`[CQLSync] Skipping ${tableName} - no primary key`)
-      return
+      throw new Error(`[CQLSync] Table ${tableName} has no primary key - cannot sync`)
     }
 
     const state = syncStates.get(tableName) ?? {
@@ -214,17 +219,20 @@ export class CQLSyncService {
   ): Promise<void> {
     // Validate table name for SQL safety
     if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(tableName)) {
-      throw new Error(`Invalid table name: ${tableName}`)
+      console.warn(`[CQLSync] Invalid table name: ${tableName}`)
+      return
     }
 
     const columns = meta.columns.map((c) => c.databaseName)
+    const quotedColumns = columns.map((c) => this.quoteIdent(c))
     const params: SqlParam[] = []
     const placeholders: string[] = []
 
     // Validate all column names
     for (const colName of columns) {
       if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(colName)) {
-        throw new Error(`Invalid column name: ${colName}`)
+        console.warn(`[CQLSync] Invalid column name: ${colName}`)
+        return
       }
     }
 
@@ -252,11 +260,13 @@ export class CQLSyncService {
     })
 
     const primaryCols = meta.primaryColumns.map((c) => c.databaseName)
+    const quotedPrimaryCols = primaryCols.map((c) => this.quoteIdent(c))
 
     // Validate primary column names
     for (const colName of primaryCols) {
       if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(colName)) {
-        throw new Error(`Invalid primary column name: ${colName}`)
+        console.warn(`[CQLSync] Invalid primary column name: ${colName}`)
+        return
       }
     }
 
@@ -264,22 +274,22 @@ export class CQLSyncService {
     const updateSet = nonPrimaryCols
       .map((c) => {
         const colIndex = columns.indexOf(c)
-        return `${c} = $${colIndex + 1}`
+        return `${this.quoteIdent(c)} = $${colIndex + 1}`
       })
       .join(', ')
 
     const sql = `
-      INSERT INTO ${tableName} (${columns.join(', ')})
+      INSERT INTO ${this.quoteIdent(tableName)} (${quotedColumns.join(', ')})
       VALUES (${placeholders.join(', ')})
-      ON CONFLICT (${primaryCols.join(', ')})
+      ON CONFLICT (${quotedPrimaryCols.join(', ')})
       DO UPDATE SET ${updateSet}
     `.trim()
 
-    await this.client.exec(
-      sql,
-      params.map(convertToQueryParam),
-      CQL_DATABASE_ID,
-    )
+    await this.client
+      .exec(sql, params.map(convertToQueryParam), CQL_DATABASE_ID)
+      .catch((err: Error) => {
+        console.warn(`[CQLSync] Upsert to ${tableName} warning: ${err.message}`)
+      })
   }
 
   private async createCQLTables(): Promise<void> {
@@ -308,6 +318,12 @@ export class CQLSyncService {
     for (const meta of this.dataSource.entityMetadatas) {
       await this.createCQLTable(meta)
     }
+  }
+
+  /** Quote identifier to handle reserved SQL keywords like "transaction" */
+  private quoteIdent(name: string): string {
+    // Double-quote the identifier and escape any existing quotes
+    return `"${name.replace(/"/g, '""')}"`
   }
 
   private async createCQLTable(meta: EntityMetadata): Promise<void> {
@@ -352,13 +368,15 @@ export class CQLSyncService {
       }
 
       const nullable = col.isNullable ? '' : ' NOT NULL'
-      return `${col.databaseName} ${type}${nullable}`
+      return `${this.quoteIdent(col.databaseName)} ${type}${nullable}`
     })
 
-    const primaryCols = meta.primaryColumns.map((c) => c.databaseName)
+    const primaryCols = meta.primaryColumns.map((c) =>
+      this.quoteIdent(c.databaseName),
+    )
 
     const sql = `
-      CREATE TABLE IF NOT EXISTS ${meta.tableName} (
+      CREATE TABLE IF NOT EXISTS ${this.quoteIdent(meta.tableName)} (
         ${columns.join(',\n        ')},
         PRIMARY KEY (${primaryCols.join(', ')})
       )

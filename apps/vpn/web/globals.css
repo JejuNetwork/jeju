@@ -173,24 +173,56 @@ code, .font-mono {
 
 /* Button styles */
 .btn-primary {
-  @apply bg-gradient-to-r from-[#00ff88] to-[#00cc6a] text-black font-semibold px-6 py-3 rounded-xl;
-  @apply hover:opacity-90 transition-all duration-200;
-  @apply active:scale-95;
+  background: linear-gradient(to right, #00ff88, #00cc6a);
+  color: black;
+  font-weight: 600;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.75rem;
+  transition: all 0.2s;
+}
+.btn-primary:hover {
+  opacity: 0.9;
+}
+.btn-primary:active {
+  transform: scale(0.95);
 }
 
 .btn-secondary {
-  @apply bg-[#1a1a25] border border-[#2a2a35] text-white font-medium px-6 py-3 rounded-xl;
-  @apply hover:bg-[#22222d] hover:border-[#3a3a45] transition-all duration-200;
-  @apply active:scale-95;
+  background: #1a1a25;
+  border: 1px solid #2a2a35;
+  color: white;
+  font-weight: 500;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.75rem;
+  transition: all 0.2s;
+}
+.btn-secondary:hover {
+  background: #22222d;
+  border-color: #3a3a45;
+}
+.btn-secondary:active {
+  transform: scale(0.95);
 }
 
 /* Card styles */
 .card {
-  @apply bg-[#12121a] border border-[#2a2a35] rounded-2xl p-4;
+  background: #12121a;
+  border: 1px solid #2a2a35;
+  border-radius: 1rem;
+  padding: 1rem;
 }
 
 .card-hover {
-  @apply card hover:border-[#3a3a45] hover:bg-[#14141c] transition-all duration-200 cursor-pointer;
+  background: #12121a;
+  border: 1px solid #2a2a35;
+  border-radius: 1rem;
+  padding: 1rem;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+.card-hover:hover {
+  border-color: #3a3a45;
+  background: #14141c;
 }
 
 /* Mobile-specific styles */
@@ -244,7 +276,7 @@ code, .font-mono {
 /* Responsive adjustments */
 @media (max-width: 400px) {
   .card {
-    @apply p-3;
+    padding: 0.75rem;
   }
 
   header {

@@ -88,6 +88,13 @@ interface BootstrapResult {
     storageManager?: string
     workerRegistry?: string
     cdnRegistry?: string
+    // OAuth3 (Decentralized Auth)
+    oauth3TeeVerifier?: string
+    oauth3IdentityRegistry?: string
+    oauth3AppRegistry?: string
+    // Bazaar Marketplace
+    nftMarketplace?: string
+    simpleCollectible?: string
   }
   pools: {
     'USDC-ETH'?: string
@@ -296,6 +303,38 @@ class CompleteBootstrapper {
     result.contracts.storageManager = dws.storageManager
     result.contracts.workerRegistry = dws.workerRegistry
     result.contracts.cdnRegistry = dws.cdnRegistry
+    console.log('')
+
+    // Step 5.11.5: Deploy OAuth3 (Decentralized Auth)
+    console.log('🔐 STEP 5.11.5: Deploying OAuth3 (Decentralized Auth)')
+    console.log('-'.repeat(70))
+    const oauth3 = await this.deployOAuth3(result.contracts)
+    result.contracts.oauth3TeeVerifier = oauth3.teeVerifier
+    result.contracts.oauth3IdentityRegistry = oauth3.identityRegistry
+    result.contracts.oauth3AppRegistry = oauth3.appRegistry
+    console.log('')
+
+    // Step 5.12: Deploy NFT Marketplace
+    console.log('🏪 STEP 5.12: Deploying NFT Marketplace')
+    console.log('-'.repeat(70))
+    result.contracts.nftMarketplace = await this.deployNFTMarketplace(
+      result.contracts,
+    )
+    console.log('')
+
+    // Step 5.13: Deploy Simple Collectible
+    console.log('🖼️  STEP 5.13: Deploying Simple Collectible Contract')
+    console.log('-'.repeat(70))
+    result.contracts.simpleCollectible = await this.deploySimpleCollectible()
+    console.log('')
+
+    // Step 5.14: Seed NFT Marketplace with sample collection
+    console.log('🎨 STEP 5.14: Seeding NFT Marketplace')
+    console.log('-'.repeat(70))
+    await this.seedNFTMarketplace(
+      result.contracts.simpleCollectible,
+      result.contracts.nftMarketplace,
+    )
     console.log('')
 
     // Step 6: Authorize Services
@@ -638,7 +677,7 @@ class CompleteBootstrapper {
 
       console.log('  ✅ Node staking system deployed')
       return { manager, performanceOracle }
-    } catch (error) {
+    } catch {
       const errorMsg = error instanceof Error ? error.message : String(error)
       console.log(
         '  ⚠️  Node staking deployment skipped (contracts may not exist)',
@@ -715,7 +754,7 @@ class CompleteBootstrapper {
       console.log('     ✨ Faucet enabled (10,000 JEJU per claim)')
 
       return jeju
-    } catch (error) {
+    } catch {
       const errorMsg = error instanceof Error ? error.message : String(error)
       console.log('  ⚠️  JEJU token deployment failed')
       console.log('     Error:', errorMsg)
@@ -809,7 +848,7 @@ class CompleteBootstrapper {
         multiServiceStakeManager,
         liquidityVault,
       }
-    } catch (error) {
+    } catch {
       const errorMsg = error instanceof Error ? error.message : String(error)
       console.log(
         '  ⚠️  Liquidity system deployment skipped (contracts may not exist)',
@@ -858,7 +897,7 @@ class CompleteBootstrapper {
       console.log('  ✅ Security Bounty Registry deployed')
       console.log('     ✨ Bug bounty program ready for submissions')
       return securityBountyRegistry
-    } catch (error) {
+    } catch {
       const errorMsg = error instanceof Error ? error.message : String(error)
       console.log('  ⚠️  Security Bounty Registry deployment skipped')
       console.log('     Error:', errorMsg)
@@ -914,7 +953,7 @@ class CompleteBootstrapper {
         inferenceServing,
         computeStaking,
       }
-    } catch (error) {
+    } catch {
       const errorMsg = error instanceof Error ? error.message : String(error)
       console.log(
         '  ⚠️  Compute marketplace deployment skipped (contracts may not exist)',
@@ -1018,8 +1057,9 @@ class CompleteBootstrapper {
         '.apps.jeju resolver set',
       )
 
-      // Register OAuth3 app names (dws.apps.jeju, etc.)
-      const oauth3Apps = ['dws', 'bazaar', 'example', 'gateway', 'auth']
+      // Register OAuth3 app names dynamically from manifests
+      const oauth3Apps = this.discoverOAuth3Apps()
+      console.log(`  📋 Discovered ${oauth3Apps.length} apps with JNS names`)
       for (const appName of oauth3Apps) {
         const appLabel = execSync(`cast keccak "${appName}"`, {
           encoding: 'utf-8',
@@ -1084,7 +1124,7 @@ class CompleteBootstrapper {
         workerRegistry,
         cdnRegistry,
       }
-    } catch (error) {
+    } catch {
       const errorMsg = error instanceof Error ? error.message : String(error)
       console.log('  ⚠️  DWS deployment skipped (contracts may not exist)')
       console.log('     Error:', errorMsg)
@@ -1094,6 +1134,393 @@ class CompleteBootstrapper {
         storageManager: '0x0000000000000000000000000000000000000000',
         workerRegistry: '0x0000000000000000000000000000000000000000',
         cdnRegistry: '0x0000000000000000000000000000000000000000',
+      }
+    }
+  }
+
+  /**
+   * Deploy OAuth3 contracts for decentralized authentication
+   * - OAuth3TEEVerifier: Verifies TEE attestations
+   * - OAuth3IdentityRegistry: Links providers to identities
+   * - OAuth3AppRegistry: Registers OAuth3 applications
+   */
+  private async deployOAuth3(
+    _contracts: Partial<BootstrapResult['contracts']>,
+  ): Promise<{
+    teeVerifier: string
+    identityRegistry: string
+    appRegistry: string
+  }> {
+    try {
+      // Deploy OAuth3TEEVerifier first (with zero address for identityRegistry initially)
+      const teeVerifier = this.deployContractFromPackages(
+        'src/oauth3/OAuth3TEEVerifier.sol:OAuth3TEEVerifier',
+        ['0x0000000000000000000000000000000000000000'],
+        'OAuth3TEEVerifier',
+      )
+
+      // Deploy OAuth3IdentityRegistry (with teeVerifier, zero for accountFactory)
+      const identityRegistry = this.deployContractFromPackages(
+        'src/oauth3/OAuth3IdentityRegistry.sol:OAuth3IdentityRegistry',
+        [teeVerifier, '0x0000000000000000000000000000000000000000'],
+        'OAuth3IdentityRegistry',
+      )
+
+      // Deploy OAuth3AppRegistry (with identityRegistry and teeVerifier)
+      const appRegistry = this.deployContractFromPackages(
+        'src/oauth3/OAuth3AppRegistry.sol:OAuth3AppRegistry',
+        [identityRegistry, teeVerifier],
+        'OAuth3AppRegistry',
+      )
+
+      // Update TEEVerifier to set the identityRegistry
+      this.sendTx(
+        teeVerifier,
+        'setIdentityRegistry(address)',
+        [identityRegistry],
+        'OAuth3TEEVerifier identityRegistry set',
+      )
+
+      // Register discovered apps in the AppRegistry
+      const oauth3Apps = this.discoverOAuth3Apps()
+      console.log(`  📋 Registering ${oauth3Apps.length} OAuth3 apps`)
+      for (const appName of oauth3Apps) {
+        // Register each app with default config
+        // Args: name, description, council, config tuple
+        // Config tuple: (redirectUris, allowedProviders, requireTEEAttestation, sessionDuration, maxSessionsPerUser)
+        const configTuple = `(["http://localhost:3000/auth/callback","http://localhost:5173/auth/callback"],[0,1,2,3,4,5,6],false,86400,10)`
+        this.sendTx(
+          appRegistry,
+          'registerApp(string,string,address,(string[],uint8[],bool,uint256,uint256))',
+          [
+            `"${appName}"`,
+            `"OAuth3 app for ${appName}"`,
+            this.deployerAddress,
+            configTuple,
+          ],
+          `${appName} app registered`,
+        )
+      }
+
+      console.log('  ✅ OAuth3 deployed')
+      console.log('     ✨ TEEVerifier, IdentityRegistry, AppRegistry ready')
+      return {
+        teeVerifier,
+        identityRegistry,
+        appRegistry,
+      }
+    } catch {
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      console.log('  ⚠️  OAuth3 deployment skipped (contracts may not exist)')
+      console.log('     Error:', errorMsg)
+      return {
+        teeVerifier: '0x0000000000000000000000000000000000000000',
+        identityRegistry: '0x0000000000000000000000000000000000000000',
+        appRegistry: '0x0000000000000000000000000000000000000000',
+      }
+    }
+  }
+
+  private async deployNFTMarketplace(
+    contracts: Partial<BootstrapResult['contracts']>,
+  ): Promise<string> {
+    try {
+      // Marketplace constructor: (initialOwner, gameGold, usdc, feeRecipient)
+      const marketplace = this.deployContractFromPackages(
+        'src/marketplace/Marketplace.sol:Marketplace',
+        [
+          this.deployerAddress, // initialOwner
+          contracts.jeju || '0x0000000000000000000000000000000000000000', // gameGold (HG)
+          contracts.usdc || '0x0000000000000000000000000000000000000000', // usdc
+          this.deployerAddress, // feeRecipient
+        ],
+        'NFT Marketplace',
+      )
+
+      // Set Identity Registry if available
+      if (contracts.identityRegistry) {
+        this.sendTx(
+          marketplace,
+          'setIdentityRegistry(address)',
+          [contracts.identityRegistry],
+          'Identity Registry linked',
+        )
+      }
+
+      // Set Ban Manager if available
+      if (contracts.banManager) {
+        this.sendTx(
+          marketplace,
+          'setBanManager(address)',
+          [contracts.banManager],
+          'Ban Manager linked',
+        )
+      }
+
+      // Save deployment to bazaar-marketplace file
+      this.saveBazaarMarketplaceDeployment(marketplace, contracts)
+
+      console.log('  ✅ NFT Marketplace deployed')
+      console.log('     ✨ List, buy, and sell ERC721/ERC1155/ERC20 tokens')
+      return marketplace
+    } catch {
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      console.log('  ⚠️  NFT Marketplace deployment skipped')
+      console.log('     Error:', errorMsg)
+      return '0x0000000000000000000000000000000000000000'
+    }
+  }
+
+  private saveBazaarMarketplaceDeployment(
+    marketplace: string,
+    contracts: Partial<BootstrapResult['contracts']>,
+  ): void {
+    const deploymentsDir = join(process.cwd(), 'packages/contracts/deployments')
+    if (!existsSync(deploymentsDir)) {
+      mkdirSync(deploymentsDir, { recursive: true })
+    }
+
+    const deployment = {
+      marketplace,
+      at: marketplace,
+      goldToken: contracts.jeju || '',
+      usdcToken: contracts.usdc || '',
+      Owner: this.deployerAddress,
+      Recipient: this.deployerAddress,
+      chainId: 31337,
+      network: 'localnet',
+      deployedAt: new Date().toISOString(),
+    }
+
+    writeFileSync(
+      join(deploymentsDir, 'bazaar-marketplace-31337.json'),
+      JSON.stringify(deployment, null, 2),
+    )
+    console.log('  📁 Saved to bazaar-marketplace-31337.json')
+  }
+
+  private async deploySimpleCollectible(): Promise<string> {
+    try {
+      // SimpleCollectible constructor: (name, symbol, owner, mintFee, feeRecipient, maxSupply, maxPerAddress)
+      const collectible = this.deployContractFromPackages(
+        'src/nfts/SimpleCollectible.sol:SimpleCollectible',
+        [
+          'Jeju Collectibles', // name
+          'JEJU-NFT', // symbol
+          this.deployerAddress, // owner
+          '0', // mintFee (free minting for localnet)
+          this.deployerAddress, // feeRecipient
+          '0', // maxSupply (unlimited)
+          '0', // maxPerAddress (unlimited)
+        ],
+        'Simple Collectible',
+      )
+
+      // Save deployment info
+      this.saveSimpleCollectibleDeployment(collectible)
+
+      console.log('  ✅ SimpleCollectible deployed')
+      console.log('     ✨ Free minting of ERC721 collectibles')
+      return collectible
+    } catch {
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      console.log('  ⚠️  SimpleCollectible deployment skipped')
+      console.log('     Error:', errorMsg)
+      return '0x0000000000000000000000000000000000000000'
+    }
+  }
+
+  private saveSimpleCollectibleDeployment(collectible: string): void {
+    const deploymentsDir = join(process.cwd(), 'packages/contracts/deployments')
+    if (!existsSync(deploymentsDir)) {
+      mkdirSync(deploymentsDir, { recursive: true })
+    }
+
+    const deployment = {
+      simpleCollectible: collectible,
+      at: collectible,
+      name: 'Jeju Collectibles',
+      symbol: 'JEJU-NFT',
+      Owner: this.deployerAddress,
+      chainId: 31337,
+      network: 'localnet',
+      deployedAt: new Date().toISOString(),
+    }
+
+    writeFileSync(
+      join(deploymentsDir, 'simple-collectible-31337.json'),
+      JSON.stringify(deployment, null, 2),
+    )
+    console.log('  📁 Saved to simple-collectible-31337.json')
+  }
+
+  private async seedNFTMarketplace(
+    collectible: string | undefined,
+    marketplace: string | undefined,
+  ): Promise<void> {
+    if (
+      !collectible ||
+      collectible === '0x0000000000000000000000000000000000000000'
+    ) {
+      console.log('  ⚠️  No collectible contract, skipping seed')
+      return
+    }
+
+    // Sample collectibles with different themes
+    const sampleItems = [
+      {
+        name: 'Cosmic Voyager',
+        description:
+          'A digital artwork depicting an astronaut exploring distant galaxies.',
+        image: 'https://picsum.photos/seed/cosmic/400/400',
+        attributes: [
+          { trait_type: 'Rarity', value: 'Legendary' },
+          { trait_type: 'Theme', value: 'Space' },
+        ],
+      },
+      {
+        name: 'Neon Dreams',
+        description:
+          'Vibrant cityscape bathed in neon lights, cyberpunk aesthetics.',
+        image: 'https://picsum.photos/seed/neon/400/400',
+        attributes: [
+          { trait_type: 'Rarity', value: 'Epic' },
+          { trait_type: 'Theme', value: 'Cyberpunk' },
+        ],
+      },
+      {
+        name: 'Ocean Spirit',
+        description: 'Mystical underwater scene with bioluminescent creatures.',
+        image: 'https://picsum.photos/seed/ocean/400/400',
+        attributes: [
+          { trait_type: 'Rarity', value: 'Rare' },
+          { trait_type: 'Theme', value: 'Nature' },
+        ],
+      },
+      {
+        name: 'Digital Phoenix',
+        description: 'A majestic phoenix rising from digital flames.',
+        image: 'https://picsum.photos/seed/phoenix/400/400',
+        attributes: [
+          { trait_type: 'Rarity', value: 'Epic' },
+          { trait_type: 'Theme', value: 'Fantasy' },
+        ],
+      },
+      {
+        name: 'Quantum Cat',
+        description:
+          'A playful cat existing in multiple quantum states simultaneously.',
+        image: 'https://picsum.photos/seed/quantumcat/400/400',
+        attributes: [
+          { trait_type: 'Rarity', value: 'Uncommon' },
+          { trait_type: 'Theme', value: 'Science' },
+        ],
+      },
+      {
+        name: 'Crystal Garden',
+        description: 'Ethereal garden made entirely of luminescent crystals.',
+        image: 'https://picsum.photos/seed/crystal/400/400',
+        attributes: [
+          { trait_type: 'Rarity', value: 'Rare' },
+          { trait_type: 'Theme', value: 'Fantasy' },
+        ],
+      },
+      {
+        name: 'Retro Arcade',
+        description:
+          'Nostalgic pixel art tribute to classic arcade gaming era.',
+        image: 'https://picsum.photos/seed/arcade/400/400',
+        attributes: [
+          { trait_type: 'Rarity', value: 'Common' },
+          { trait_type: 'Theme', value: 'Gaming' },
+        ],
+      },
+      {
+        name: 'Northern Lights',
+        description:
+          'Breathtaking aurora borealis dancing across the night sky.',
+        image: 'https://picsum.photos/seed/aurora/400/400',
+        attributes: [
+          { trait_type: 'Rarity', value: 'Rare' },
+          { trait_type: 'Theme', value: 'Nature' },
+        ],
+      },
+    ]
+
+    console.log(`  Minting ${sampleItems.length} sample collectibles...`)
+
+    for (let i = 0; i < sampleItems.length; i++) {
+      const item = sampleItems[i]
+      // Create metadata JSON and encode as data URI
+      const metadata = {
+        name: item.name,
+        description: item.description,
+        image: item.image,
+        attributes: item.attributes,
+      }
+      const metadataJson = JSON.stringify(metadata)
+      const base64 = Buffer.from(metadataJson).toString('base64')
+      const tokenURI = `data:application/json;base64,${base64}`
+
+      try {
+        this.sendTx(
+          collectible,
+          'mint(string)',
+          [tokenURI],
+          `  Minted #${i + 1}: ${item.name}`,
+        )
+      } catch {
+        console.log(`  ⚠️  Failed to mint ${item.name}`)
+      }
+    }
+
+    console.log('  ✅ Sample collection minted')
+
+    // List some items on marketplace if available
+    if (
+      marketplace &&
+      marketplace !== '0x0000000000000000000000000000000000000000'
+    ) {
+      console.log('  Listing some items on marketplace...')
+
+      // Approve marketplace for all tokens
+      try {
+        this.sendTx(
+          collectible,
+          'setApprovalForAll(address,bool)',
+          [marketplace, 'true'],
+          '  Approved marketplace',
+        )
+
+        // List first 3 items for sale with different prices
+        const listings = [
+          { tokenId: '1', price: '100000000000000000' }, // 0.1 ETH
+          { tokenId: '2', price: '250000000000000000' }, // 0.25 ETH
+          { tokenId: '3', price: '500000000000000000' }, // 0.5 ETH
+        ]
+
+        for (const listing of listings) {
+          // createListing(assetType, assetContract, tokenId, amount, currency, customCurrencyAddress, price, duration)
+          // assetType: 0 = ERC721, currency: 0 = ETH
+          this.sendTx(
+            marketplace,
+            'createListing(uint8,address,uint256,uint256,uint8,address,uint256,uint256)',
+            [
+              '0', // ERC721
+              collectible,
+              listing.tokenId,
+              '1', // amount
+              '0', // ETH
+              '0x0000000000000000000000000000000000000000', // no custom currency
+              listing.price,
+              '604800', // 7 days
+            ],
+            `  Listed #${listing.tokenId} for ${parseInt(listing.price) / 1e18} ETH`,
+          )
+        }
+        console.log('  ✅ Sample listings created')
+      } catch {
+        console.log('  ⚠️  Failed to create listings')
       }
     }
   }
@@ -1327,7 +1754,7 @@ class CompleteBootstrapper {
       console.log(`  💾 Saved to: ${v4DeploymentPath}`)
 
       return result
-    } catch (error) {
+    } catch {
       const errorMsg = error instanceof Error ? error.message : String(error)
       console.log('  ⚠️  V4 Periphery deployment failed (continuing anyway)')
       console.log('     Error:', errorMsg)
@@ -1410,6 +1837,90 @@ class CompleteBootstrapper {
     return execSync(`cast wallet address ${privateKey}`, {
       encoding: 'utf-8',
     }).trim()
+  }
+
+  /**
+   * Discover OAuth3 app names from jeju-manifest.json files
+   * Reads from apps/ and vendor/ directories to find all apps with JNS names
+   */
+  private discoverOAuth3Apps(): string[] {
+    const apps = new Set<string>()
+
+    // Core apps that should always be registered (fallback)
+    const coreApps = ['dws', 'auth', 'gateway']
+    for (const app of coreApps) {
+      apps.add(app)
+    }
+
+    // Search apps/ directory
+    const appsDir = join(process.cwd(), 'apps')
+    if (existsSync(appsDir)) {
+      const appFolders = execSync(`ls -d ${appsDir}/*/`, {
+        encoding: 'utf-8',
+      })
+        .trim()
+        .split('\n')
+        .filter(Boolean)
+
+      for (const folder of appFolders) {
+        const manifestPath = join(folder.trim(), 'jeju-manifest.json')
+        if (existsSync(manifestPath)) {
+          try {
+            const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'))
+            if (manifest.jns?.name) {
+              // Extract app name from JNS name (e.g., "gateway.jeju" -> "gateway")
+              const jnsName = manifest.jns.name
+                .replace(/\.jeju$/, '')
+                .replace(/\.apps\.jeju$/, '')
+              if (jnsName && !jnsName.includes('.')) {
+                apps.add(jnsName)
+              }
+            }
+          } catch {
+            // Skip invalid manifests
+          }
+        }
+      }
+    }
+
+    // Search vendor/ directory
+    const vendorDir = join(process.cwd(), 'vendor')
+    if (existsSync(vendorDir)) {
+      try {
+        const vendorOutput = execSync(
+          `find ${vendorDir} -name "jeju-manifest.json" -type f 2>/dev/null || true`,
+          {
+            encoding: 'utf-8',
+          },
+        ).trim()
+
+        if (vendorOutput) {
+          for (const manifestPath of vendorOutput.split('\n').filter(Boolean)) {
+            try {
+              const manifest = JSON.parse(
+                readFileSync(manifestPath.trim(), 'utf-8'),
+              )
+              if (manifest.jns?.name) {
+                const jnsName = manifest.jns.name
+                  .replace(/\.jeju$/, '')
+                  .replace(/\.apps\.jeju$/, '')
+                if (jnsName && !jnsName.includes('.')) {
+                  apps.add(jnsName)
+                }
+              }
+            } catch {
+              // Skip invalid manifests
+            }
+          }
+        }
+      } catch {
+        // Vendor directory may not exist
+      }
+    }
+
+    const result = Array.from(apps).sort()
+    console.log(`     Apps: ${result.join(', ')}`)
+    return result
   }
 
   private saveConfiguration(result: BootstrapResult): void {

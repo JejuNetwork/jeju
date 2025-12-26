@@ -2,7 +2,7 @@
  * Shared constants and utilities for Council
  */
 
-import { expectValid, ZERO_ADDRESS } from '@jejunetwork/types'
+import { expectValid } from '@jejunetwork/types'
 import { type Address, type Hex, isAddress, isHex } from 'viem'
 import { z } from 'zod'
 import { extractLLMContent, LLMCompletionResponseSchema } from './schemas'
@@ -20,12 +20,9 @@ export function toHex(value: string): Hex {
 
 /**
  * Type-safe address conversion with validation.
- * Returns ZERO_ADDRESS for null/undefined, throws for invalid addresses.
+ * Throws for invalid or missing addresses.
  */
-export function toAddress(value: string | undefined): Address {
-  if (!value || value === ZERO_ADDRESS) {
-    return ZERO_ADDRESS
-  }
+export function toAddress(value: string): Address {
   if (!isAddress(value)) {
     throw new Error(`Invalid address: ${value}`)
   }
@@ -101,15 +98,11 @@ export function rowAddress(row: Record<string, unknown>, key: string): Address {
 /**
  * Parse JSON from LLM response that may include markdown code fences
  */
-export function parseJson<T>(response: string): T | null {
+export function parseJson<T>(response: string): T {
   const cleaned = response.replace(/```json\s*/gi, '').replace(/```\s*/g, '')
   const match = cleaned.match(/\{[\s\S]*\}/)
-  if (!match) return null
-  try {
-    return JSON.parse(match[0])
-  } catch {
-    return null
-  }
+  if (!match) throw new Error('No JSON object found in response')
+  return JSON.parse(match[0]) as T
 }
 
 export const COUNCIL_ABI = [
@@ -171,17 +164,31 @@ export const AUTOCRAT_ROLES = [
   'SECURITY',
 ] as const
 
-export function getProposalStatus(index: number): string {
-  return PROPOSAL_STATUS[index] ?? 'UNKNOWN'
+export function getProposalStatus(
+  index: number,
+): (typeof PROPOSAL_STATUS)[number] {
+  const status = PROPOSAL_STATUS[index]
+  if (!status) throw new Error(`Invalid proposal status index: ${index}`)
+  return status
 }
-export function getProposalType(index: number): string {
-  return PROPOSAL_TYPES[index] ?? 'UNKNOWN'
+export function getProposalType(
+  index: number,
+): (typeof PROPOSAL_TYPES)[number] {
+  const type = PROPOSAL_TYPES[index]
+  if (!type) throw new Error(`Invalid proposal type index: ${index}`)
+  return type
 }
-export function getVoteType(index: number): string {
-  return VOTE_TYPES[index] ?? 'UNKNOWN'
+export function getVoteType(index: number): (typeof VOTE_TYPES)[number] {
+  const type = VOTE_TYPES[index]
+  if (!type) throw new Error(`Invalid vote type index: ${index}`)
+  return type
 }
-export function getAutocratRole(index: number): string {
-  return AUTOCRAT_ROLES[index] ?? 'UNKNOWN'
+export function getAutocratRole(
+  index: number,
+): (typeof AUTOCRAT_ROLES)[number] {
+  const role = AUTOCRAT_ROLES[index]
+  if (!role) throw new Error(`Invalid autocrat role index: ${index}`)
+  return role
 }
 
 export interface ProposalFromContract {
@@ -410,7 +417,7 @@ Return ONLY valid JSON:
       ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-opus-4-5',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.3,
       max_tokens: 500,

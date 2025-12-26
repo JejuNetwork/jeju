@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import { bytesToHex, hash256 } from '@jejunetwork/shared'
 import { z } from 'zod'
 
 // Version Schema
@@ -370,15 +371,13 @@ describe('Update Strategy', () => {
 
 describe('Checksum Verification', () => {
   function verifyChecksum(data: Uint8Array, expected: string): boolean {
-    const crypto = require('node:crypto')
-    const hash = crypto.createHash('sha256').update(data).digest('hex')
+    const hash = bytesToHex(hash256(data))
     return hash === expected
   }
 
   test('verifies correct checksum', () => {
     const data = new TextEncoder().encode('test data')
-    const crypto = require('node:crypto')
-    const hash = crypto.createHash('sha256').update(data).digest('hex')
+    const hash = bytesToHex(hash256(data))
 
     expect(verifyChecksum(data, hash)).toBe(true)
   })

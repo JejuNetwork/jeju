@@ -4,23 +4,23 @@
  * Onboarding flow for connecting Farcaster to Factory.
  */
 
-import { useState, useEffect } from 'react'
 import {
-  Loader2,
+  AlertCircle,
   CheckCircle2,
   ExternalLink,
-  AlertCircle,
-  User,
   Key,
+  Loader2,
+  User,
   Wallet,
 } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { useAccount, useSignMessage } from 'wagmi'
 import {
-  useFarcasterStatus,
-  useOnboardingStatus,
-  useLookupFid,
-  useQuickConnect,
   useActivateSigner,
+  useFarcasterStatus,
+  useLookupFid,
+  useOnboardingStatus,
+  useQuickConnect,
 } from '../../hooks/useFarcaster'
 
 interface FarcasterConnectProps {
@@ -28,17 +28,24 @@ interface FarcasterConnectProps {
   compact?: boolean
 }
 
-export function FarcasterConnect({ onComplete, compact }: FarcasterConnectProps) {
+export function FarcasterConnect({
+  onComplete,
+  compact,
+}: FarcasterConnectProps) {
   const { address, isConnected: walletConnected } = useAccount()
   const { signMessageAsync } = useSignMessage()
-  const { data: farcasterStatus, isLoading: statusLoading } = useFarcasterStatus()
-  const { data: onboarding, isLoading: onboardingLoading } = useOnboardingStatus()
+  const { data: farcasterStatus, isLoading: statusLoading } =
+    useFarcasterStatus()
+  const { data: onboarding, isLoading: onboardingLoading } =
+    useOnboardingStatus()
   const { data: lookup, isLoading: lookupLoading } = useLookupFid(address)
 
   const quickConnect = useQuickConnect()
   const activateSigner = useActivateSigner()
 
-  const [step, setStep] = useState<'lookup' | 'connect' | 'sign' | 'done'>('lookup')
+  const [step, setStep] = useState<'lookup' | 'connect' | 'sign' | 'done'>(
+    'lookup',
+  )
   const [error, setError] = useState<string | null>(null)
   const [pendingSignature, setPendingSignature] = useState<{
     message: string
@@ -49,7 +56,10 @@ export function FarcasterConnect({ onComplete, compact }: FarcasterConnectProps)
   useEffect(() => {
     if (farcasterStatus?.connected) {
       setStep('done')
-    } else if (onboarding?.steps.linkFid.complete && !onboarding?.steps.activateSigner.complete) {
+    } else if (
+      onboarding?.steps.linkFid.complete &&
+      !onboarding?.steps.activateSigner.complete
+    ) {
       setStep('sign')
     } else if (lookup?.found) {
       setStep('connect')
@@ -86,7 +96,9 @@ export function FarcasterConnect({ onComplete, compact }: FarcasterConnectProps)
     if (!pendingSignature) return
 
     setError(null)
-    const signature = await signMessageAsync({ message: pendingSignature.message })
+    const signature = await signMessageAsync({
+      message: pendingSignature.message,
+    })
 
     await activateSigner.mutateAsync({
       signerPublicKey: pendingSignature.publicKey,
@@ -135,7 +147,9 @@ export function FarcasterConnect({ onComplete, compact }: FarcasterConnectProps)
             <p className="text-factory-400">@{farcasterStatus.username}</p>
             <div className="flex items-center gap-2 mt-2">
               <CheckCircle2 className="w-4 h-4 text-green-400" />
-              <span className="text-sm text-green-400">Connected to Farcaster</span>
+              <span className="text-sm text-green-400">
+                Connected to Farcaster
+              </span>
             </div>
           </div>
         </div>
@@ -220,8 +234,12 @@ export function FarcasterConnect({ onComplete, compact }: FarcasterConnectProps)
                   <p className="font-medium text-factory-100">
                     {lookup.user?.displayName || lookup.user?.username}
                   </p>
-                  <p className="text-factory-400 text-sm">@{lookup.user?.username}</p>
-                  <p className="text-factory-500 text-xs mt-1">FID: {lookup.fid}</p>
+                  <p className="text-factory-400 text-sm">
+                    @{lookup.user?.username}
+                  </p>
+                  <p className="text-factory-500 text-xs mt-1">
+                    FID: {lookup.fid}
+                  </p>
                 </div>
               </div>
               <p className="text-factory-400 text-sm mb-4">
@@ -254,7 +272,8 @@ export function FarcasterConnect({ onComplete, compact }: FarcasterConnectProps)
                 <ExternalLink className="w-4 h-4 ml-2" />
               </a>
               <p className="text-factory-500 text-xs mt-4">
-                After creating an account, verify this address in Warpcast settings
+                After creating an account, verify this address in Warpcast
+                settings
               </p>
             </>
           )}
@@ -269,8 +288,8 @@ export function FarcasterConnect({ onComplete, compact }: FarcasterConnectProps)
             Create Signing Key
           </h3>
           <p className="text-factory-400 text-sm mb-6">
-            Factory needs a signing key to post on your behalf. This key is stored
-            securely and can be revoked at any time.
+            Factory needs a signing key to post on your behalf. This key is
+            stored securely and can be revoked at any time.
           </p>
           <button
             type="button"

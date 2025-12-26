@@ -5,6 +5,7 @@
  * Different from BackupCodesManager which handles MFA recovery codes.
  */
 
+import { isProductionEnv } from '@jejunetwork/config'
 import { type Hex, toBytes, toHex } from 'viem'
 import { z } from 'zod'
 
@@ -62,8 +63,7 @@ export class KeyBackupManager {
     this.options = { ...DEFAULT_OPTIONS, ...options }
 
     // Production security check
-    const isProduction = process.env.NODE_ENV === 'production'
-    if (isProduction && this.options.iterations < MIN_PRODUCTION_ITERATIONS) {
+    if (isProductionEnv() && this.options.iterations < MIN_PRODUCTION_ITERATIONS) {
       throw new Error(
         `PBKDF2 iterations too low for production: ${this.options.iterations}. ` +
           `Minimum required: ${MIN_PRODUCTION_ITERATIONS}`,
@@ -215,6 +215,8 @@ export class KeyBackupManager {
   }
 }
 
-export function createKeyBackupManager(options?: BackupOptions): KeyBackupManager {
+export function createKeyBackupManager(
+  options?: BackupOptions,
+): KeyBackupManager {
   return new KeyBackupManager(options)
 }

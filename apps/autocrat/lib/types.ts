@@ -788,11 +788,15 @@ export interface AutocratConfig {
   agents?: DAOAgents
   parameters?: GovernanceParams
   ceoPersona?: CEOPersona
+  ceoModelId?: string
   fundingConfig?: FundingConfig
   cloudEndpoint?: string
   computeEndpoint?: string
   storageEndpoint?: string
   teaEndpoint?: string
+  indexerUrl?: string
+  ethPriceUsd?: number
+  proposalBond?: bigint
 }
 
 export interface CouncilConfig {
@@ -802,6 +806,7 @@ export interface CouncilConfig {
   agents: DAOAgents
   parameters: GovernanceParams
   ceoPersona: CEOPersona
+  ceoModelId?: string // Model ID for the AI CEO (e.g., 'claude-opus-4-5')
   fundingConfig: FundingConfig
   cloudEndpoint: string
   computeEndpoint: string

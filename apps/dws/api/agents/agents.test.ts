@@ -2,9 +2,11 @@
  * Agent System Tests
  *
  * Tests the full agent lifecycle: registration, deployment, invocation, and termination.
+ * Requires CQL to be running - all tests use real infrastructure.
  */
 
-import { describe, expect, test } from 'bun:test'
+import { beforeAll, describe, expect, test } from 'bun:test'
+import { getCQLUrl } from '@jejunetwork/config'
 import type { Address } from 'viem'
 import * as registry from './registry'
 import type {
@@ -30,11 +32,17 @@ const TEST_CHARACTER: AgentCharacter = {
   },
 }
 
-// Registry Tests (No CQL - In-Memory Only)
+// Initialize registry before tests
+beforeAll(async () => {
+  await registry.initRegistry({
+    cqlUrl: getCQLUrl(),
+    databaseId: process.env.CQL_DATABASE_ID ?? 'dws-test',
+  })
+})
 
-describe('Agent Registry (In-Memory)', () => {
-  // Note: These tests run without CQL, so they test the in-memory functionality
+// Registry Tests (CQL-backed)
 
+describe('Agent Registry (CQL)', () => {
   test('should register agent', async () => {
     const request: RegisterAgentRequest = {
       character: TEST_CHARACTER,
@@ -46,8 +54,6 @@ describe('Agent Registry (In-Memory)', () => {
       },
     }
 
-    // Since CQL isn't running, this will store in memory only
-    // We need to mock the CQL calls
     const agent = await registry.registerAgent(TEST_OWNER, request)
 
     expect(agent).toBeDefined()
@@ -63,7 +69,7 @@ describe('Agent Registry (In-Memory)', () => {
     }
 
     const created = await registry.registerAgent(TEST_OWNER, request)
-    const retrieved = registry.getAgent(created.id)
+    const retrieved = await registry.getAgent(created.id)
 
     expect(retrieved).toBeDefined()
     expect(retrieved?.id).toBe(created.id)
@@ -81,7 +87,7 @@ describe('Agent Registry (In-Memory)', () => {
     await registry.registerAgent(TEST_OWNER, request1)
     await registry.registerAgent(TEST_OWNER, request2)
 
-    const agents = registry.getAgentsByOwner(TEST_OWNER)
+    const agents = await registry.getAgentsByOwner(TEST_OWNER)
     const names = agents.map((a) => a.character.name)
 
     expect(names).toContain('ListTest1')
@@ -97,7 +103,7 @@ describe('Agent Registry (In-Memory)', () => {
     expect(agent.status).toBe('pending')
 
     await registry.updateAgentStatus(agent.id, 'active')
-    const updated = registry.getAgent(agent.id)
+    const updated = await registry.getAgent(agent.id)
     expect(updated?.status).toBe('active')
   })
 
@@ -161,23 +167,29 @@ describe('Agent Registry (In-Memory)', () => {
     await registry.addCronTrigger(agent.id, '0 * * * *', 'think')
     await registry.addCronTrigger(agent.id, '0 0 * * *', 'post')
 
-    const triggers = registry.getCronTriggers(agent.id)
+    const triggers = await registry.getCronTriggers(agent.id)
     expect(triggers.length).toBe(2)
   })
 
-  test('should record invocation metrics', () => {
-    const agentId = 'test-metrics-agent'
+  test('should record invocation metrics', async () => {
+    const request: RegisterAgentRequest = {
+      character: { ...TEST_CHARACTER, name: 'MetricsTest' },
+    }
 
-    registry.recordInvocation(agentId, 100)
-    registry.recordInvocation(agentId, 200)
-    registry.recordInvocation(agentId, 150)
+    const agent = await registry.registerAgent(TEST_OWNER, request)
 
-    // Stats would be available if agent exists
-    // For now just verify no errors
+    await registry.recordInvocation(agent.id, 100)
+    await registry.recordInvocation(agent.id, 200)
+    await registry.recordInvocation(agent.id, 150)
+
+    const stats = await registry.getAgentStats(agent.id)
+    expect(stats).toBeDefined()
+    expect(stats?.totalInvocations).toBe(3)
+    expect(stats?.avgLatencyMs).toBe(150)
   })
 
-  test('should get registry stats', () => {
-    const stats = registry.getRegistryStats()
+  test('should get registry stats', async () => {
+    const stats = await registry.getRegistryStats()
 
     expect(stats.totalAgents).toBeGreaterThanOrEqual(0)
     expect(typeof stats.activeAgents).toBe('number')
@@ -275,7 +287,7 @@ describe('Warm Pool Logic', () => {
     expect(agent.runtime.cronSchedule).toBe('*/10 * * * *')
 
     // Cron trigger should be created automatically
-    const triggers = registry.getCronTriggers(agent.id)
+    const triggers = await registry.getCronTriggers(agent.id)
     expect(triggers.length).toBeGreaterThanOrEqual(1)
   })
 })

@@ -5,8 +5,15 @@
  * Used by EncryptionProvider and SecretVault for policy enforcement.
  */
 
-import type { Address, Hex } from 'viem'
-import { createPublicClient, erc20Abi, http, keccak256, parseAbi, toBytes } from 'viem'
+import type { Address, Hex, PublicClient } from 'viem'
+import {
+  createPublicClient,
+  erc20Abi,
+  http,
+  keccak256,
+  parseAbi,
+  toBytes,
+} from 'viem'
 import { base, baseSepolia, mainnet } from 'viem/chains'
 import type {
   AgentCondition,
@@ -364,6 +371,8 @@ export class OnChainVerifier {
       return p
     })
 
+    // Use type assertion for dynamic ABI - viem strict typing doesn't support runtime-constructed ABIs
+    const returnValue = (await client.readContract({
       address: condition.contractAddress,
       abi: methodAbi,
       functionName: condition.method,

@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from 'node:crypto'
+import { bytesToHex, hash256, randomBytes } from '@jejunetwork/shared'
 import type { RateTier } from '@jejunetwork/types'
 import { LRUCache } from 'lru-cache'
 import type { Address } from 'viem'
@@ -28,11 +28,17 @@ const localKeyCache = new LRUCache<string, string>({
 })
 
 function generateKey(): string {
-  return `jrpc_${randomBytes(24).toString('base64url')}`
+  const bytes = randomBytes(24)
+  // Convert to base64url
+  const base64 = btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '')
+  return `jrpc_${base64}`
 }
 
 function hashKey(key: string): string {
-  return createHash('sha256').update(key).digest('hex')
+  return bytesToHex(hash256(key))
 }
 
 export async function createApiKey(
@@ -40,7 +46,7 @@ export async function createApiKey(
   name: string,
   tier: RateTier = 'FREE',
 ): Promise<{ key: string; record: ApiKeyRecord }> {
-  const id = randomBytes(16).toString('hex')
+  const id = bytesToHex(randomBytes(16))
   const key = generateKey()
   const keyHash = hashKey(key)
 

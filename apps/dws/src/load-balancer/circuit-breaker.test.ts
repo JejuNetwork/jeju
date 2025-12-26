@@ -1,5 +1,5 @@
-import { describe, expect, it, beforeEach } from 'bun:test'
-import { CircuitBreaker, BrokenCircuitError } from './circuit-breaker'
+import { beforeEach, describe, expect, it } from 'bun:test'
+import { BrokenCircuitError, CircuitBreaker } from './circuit-breaker'
 
 describe('CircuitBreaker', () => {
   let breaker: CircuitBreaker
@@ -28,8 +28,8 @@ describe('CircuitBreaker', () => {
     await breaker.execute('b', async () => 'ok')
 
     const stats = breaker.getStats()
-    expect(stats['a'].state).toBe('closed')
-    expect(stats['b'].state).toBe('closed')
+    expect(stats.a.state).toBe('closed')
+    expect(stats.b.state).toBe('closed')
   })
 
   it('opens after consecutive failures', async () => {
@@ -61,10 +61,10 @@ describe('CircuitBreaker', () => {
 
   it('resets state', async () => {
     await breaker.execute('test', async () => 'ok')
-    expect(breaker.getStats()['test']).toBeDefined()
+    expect(breaker.getStats().test).toBeDefined()
 
     breaker.reset('test')
-    expect(breaker.getStats()['test']).toBeUndefined()
+    expect(breaker.getStats().test).toBeUndefined()
   })
 
   it('transitions to half-open after timeout', async () => {

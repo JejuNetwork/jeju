@@ -5,10 +5,10 @@
 
 import {
   createHash,
-  createSign,
-  createVerify,
-  generateKeyPairSync,
-} from 'node:crypto'
+  generateRSAKeyPair,
+  signRSA,
+  verifyRSA,
+} from '@jejunetwork/shared'
 import { validateOrNull } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import type { GitRepoManager } from './repo-manager'
@@ -61,22 +61,32 @@ export class FederationManager {
   private remoteActors: Map<string, RemoteActor> = new Map()
   private outboxQueue: ActivityPubActivity[] = []
 
-  constructor(config: FederationManagerConfig) {
+  private constructor(
+    config: FederationManagerConfig,
+    privateKeyPem: string,
+    publicKeyPem: string,
+  ) {
     this.config = config
+    this.privateKeyPem = privateKeyPem
+    this.publicKeyPem = publicKeyPem
+  }
 
-    // Generate or use provided keys
+  static async create(
+    config: FederationManagerConfig,
+  ): Promise<FederationManager> {
+    let privateKeyPem: string
+    let publicKeyPem: string
+
     if (config.privateKeyPem && config.publicKeyPem) {
-      this.privateKeyPem = config.privateKeyPem
-      this.publicKeyPem = config.publicKeyPem
+      privateKeyPem = config.privateKeyPem
+      publicKeyPem = config.publicKeyPem
     } else {
-      const { privateKey, publicKey } = generateKeyPairSync('rsa', {
-        modulusLength: 2048,
-        publicKeyEncoding: { type: 'spki', format: 'pem' },
-        privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
-      })
-      this.privateKeyPem = privateKey
-      this.publicKeyPem = publicKey
+      const keyPair = await generateRSAKeyPair(2048)
+      privateKeyPem = keyPair.privateKeyPem
+      publicKeyPem = keyPair.publicKeyPem
     }
+
+    return new FederationManager(config, privateKeyPem, publicKeyPem)
   }
   /**
    * Generate NodeInfo response
@@ -519,7 +529,7 @@ export class FederationManager {
     const date = new Date().toUTCString()
 
     // Create HTTP signature
-    const signature = this.signRequest('POST', inbox, date, body)
+    const signature = await this.signRequest('POST', inbox, date, body)
 
     const response = await fetch(inbox, {
       method: 'POST',
@@ -568,17 +578,18 @@ export class FederationManager {
     this.remoteActors.set(actorUrl, remoteActor)
     return remoteActor
   }
-  private signRequest(
+  private async signRequest(
     method: string,
     url: string,
     date: string,
     body: string,
-  ): string {
+  ): Promise<string> {
     const parsedUrl = new URL(url)
     const host = parsedUrl.host
     const path = parsedUrl.pathname
 
-    const digest = `SHA-256=${createHash('sha256').update(body).digest('base64')}`
+    const bodyHash = createHash('sha256').update(body).digest()
+    const digest = `SHA-256=${btoa(String.fromCharCode(...bodyHash))}`
 
     const signingString = [
       `(request-target): ${method.toLowerCase()} ${path}`,
@@ -587,9 +598,9 @@ export class FederationManager {
       `digest: ${digest}`,
     ].join('\n')
 
-    const sign = createSign('RSA-SHA256')
-    sign.update(signingString)
-    const signature = sign.sign(this.privateKeyPem, 'base64')
+    const signingData = new TextEncoder().encode(signingString)
+    const signatureBytes = await signRSA(signingData, this.privateKeyPem)
+    const signature = btoa(String.fromCharCode(...signatureBytes))
 
     const keyId = `${this.config.instanceUrl}/actor#main-key`
 
@@ -599,13 +610,13 @@ export class FederationManager {
   /**
    * Verify incoming HTTP signature
    */
-  verifySignature(
+  async verifySignature(
     headers: Record<string, string>,
     method: string,
     path: string,
     body: string,
     publicKeyPem: string,
-  ): boolean {
+  ): Promise<boolean> {
     const signatureHeader = headers.signature
     if (!signatureHeader) return false
 
@@ -623,7 +634,8 @@ export class FederationManager {
       if (header === '(request-target)') {
         signingLines.push(`(request-target): ${method.toLowerCase()} ${path}`)
       } else if (header === 'digest') {
-        const digest = `SHA-256=${createHash('sha256').update(body).digest('base64')}`
+        const bodyHash = createHash('sha256').update(body).digest()
+        const digest = `SHA-256=${btoa(String.fromCharCode(...bodyHash))}`
         signingLines.push(`digest: ${digest}`)
       } else {
         signingLines.push(`${header}: ${headers[header]}`)
@@ -631,10 +643,12 @@ export class FederationManager {
     }
 
     const signingString = signingLines.join('\n')
-    const verify = createVerify('RSA-SHA256')
-    verify.update(signingString)
+    const signingData = new TextEncoder().encode(signingString)
+    const signatureBytes = Uint8Array.from(atob(parts.signature), (c) =>
+      c.charCodeAt(0),
+    )
 
-    return verify.verify(publicKeyPem, parts.signature, 'base64')
+    return verifyRSA(signingData, signatureBytes, publicKeyPem)
   }
   getStats(): { followers: number; following: number; activities: number } {
     let totalFollowers = 0

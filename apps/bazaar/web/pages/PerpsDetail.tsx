@@ -1,6 +1,7 @@
 /**
  * Perps Detail Page
- * Converted from Next.js to React Router
+ *
+ * Shows perpetual market details with integrated Farcaster channel feed.
  */
 
 import { useQuery } from '@tanstack/react-query'
@@ -16,7 +17,9 @@ import { toast } from 'sonner'
 import { useAccount } from 'wagmi'
 import { z } from 'zod'
 import { AuthButton } from '../components/auth/AuthButton'
+import { ChannelFeed } from '../components/ChannelFeed'
 import { LoadingSpinner } from '../components/LoadingSpinner'
+import { getPerpChannel } from '../hooks/useMessaging'
 
 const PerpMarketSchema = z.object({
   ticker: z.string(),
@@ -52,7 +55,7 @@ export default function PerpsDetailPage() {
       const json: unknown = await response.json()
       return PerpMarketSchema.parse(json)
     },
-    enabled: !!ticker,
+    enabled: Boolean(ticker),
   })
 
   const from = searchParams.get('from')
@@ -73,6 +76,8 @@ export default function PerpsDetailPage() {
   if (!ticker) {
     return null
   }
+
+  const channel = getPerpChannel(ticker)
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -131,7 +136,7 @@ export default function PerpsDetailPage() {
   const isHighRisk = leverage > 50 || baseMargin > 1000
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-6xl mx-auto">
       <button
         type="button"
         onClick={() => {
@@ -238,7 +243,8 @@ export default function PerpsDetailPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Trade Panel */}
         <div className="card p-6">
           <h2
             className="text-lg font-bold mb-4"
@@ -397,18 +403,24 @@ export default function PerpsDetailPage() {
           )}
         </div>
 
-        <div className="card p-6">
-          <h2
-            className="text-lg font-bold mb-4"
-            style={{ color: 'var(--text-primary)' }}
-          >
-            Market Info
-          </h2>
-          <p style={{ color: 'var(--text-secondary)' }}>
-            {market.fundingRate.rate >= 0
-              ? 'Long positions pay shorts every 8 hours'
-              : 'Short positions pay longs every 8 hours'}
-          </p>
+        {/* Market Info + Discussion */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className="card p-6">
+            <h2
+              className="text-lg font-bold mb-4"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              Market Info
+            </h2>
+            <p style={{ color: 'var(--text-secondary)' }}>
+              {market.fundingRate.rate >= 0
+                ? 'Long positions pay shorts every 8 hours'
+                : 'Short positions pay longs every 8 hours'}
+            </p>
+          </div>
+
+          {/* Farcaster Channel Feed */}
+          <ChannelFeed channel={channel} />
         </div>
       </div>
     </div>

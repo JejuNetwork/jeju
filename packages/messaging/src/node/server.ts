@@ -6,13 +6,13 @@
  * for fast access.
  */
 
+import { cors } from '@elysiajs/cors'
 import {
   getAllowedOrigins,
   getIpfsUrlEnv,
   getNodeId,
   getPortEnv,
 } from '@jejunetwork/config'
-import { cors } from '@elysiajs/cors'
 import { createLogger } from '@jejunetwork/shared'
 import { sha256 } from '@noble/hashes/sha256'
 import { bytesToHex } from '@noble/hashes/utils'

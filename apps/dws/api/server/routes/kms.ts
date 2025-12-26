@@ -5,8 +5,8 @@
  * Uses real FROST threshold signing from @jejunetwork/kms
  */
 
-import crypto from 'node:crypto'
 import { FROSTCoordinator } from '@jejunetwork/kms'
+import { decryptAesGcm, encryptAesGcm, randomUUID } from '@jejunetwork/shared'
 import { expectValid } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import type { Address, Hex } from 'viem'
@@ -119,7 +119,7 @@ export function createKMSRouter() {
           return { error: 'Threshold cannot exceed total parties' }
         }
 
-        const keyId = crypto.randomUUID()
+        const keyId = randomUUID()
 
         // Create FROST coordinator for this key - real threshold signing
         const coordinator = new FROSTCoordinator(keyId, threshold, totalParties)
@@ -310,25 +310,27 @@ export function createKMSRouter() {
 
         // AES-256-GCM encryption (development mode - key stored in memory)
         // Generate or derive encryption key
-        const keyId = validBody.keyId ?? crypto.randomUUID()
-        const derivedKey = Buffer.from(
-          keccak256(toBytes(keyId)).slice(2),
-          'hex',
+        const keyId = validBody.keyId ?? randomUUID()
+        const derivedKey = new Uint8Array(
+          Buffer.from(keccak256(toBytes(keyId)).slice(2), 'hex'),
         )
 
         // Encrypt with AES-256-GCM
-        const iv = crypto.randomBytes(12)
-        const cipher = crypto.createCipheriv('aes-256-gcm', derivedKey, iv)
-        const encrypted = Buffer.concat([
-          cipher.update(validBody.data, 'utf8'),
-          cipher.final(),
-        ])
-        const authTag = cipher.getAuthTag()
+        const plaintext = new TextEncoder().encode(validBody.data)
+        const {
+          ciphertext: encrypted,
+          iv,
+          tag: authTag,
+        } = await encryptAesGcm(plaintext, derivedKey)
 
         // Format: iv (12) + authTag (16) + ciphertext, base64 encoded
-        const ciphertext = Buffer.concat([iv, authTag, encrypted]).toString(
-          'base64',
+        const combined = new Uint8Array(
+          iv.length + authTag.length + encrypted.length,
         )
+        combined.set(iv, 0)
+        combined.set(authTag, iv.length)
+        combined.set(encrypted, iv.length + authTag.length)
+        const ciphertext = btoa(String.fromCharCode(...combined))
 
         return {
           encrypted: ciphertext,
@@ -348,22 +350,25 @@ export function createKMSRouter() {
         const mpcEnabled = !!process.env.MPC_COORDINATOR_URL
 
         // Decrypt with AES-256-GCM (development mode)
-        const data = Buffer.from(validBody.encrypted, 'base64')
+        const data = new Uint8Array(
+          atob(validBody.encrypted)
+            .split('')
+            .map((c) => c.charCodeAt(0)),
+        )
         const iv = data.subarray(0, 12)
         const authTag = data.subarray(12, 28)
         const ciphertext = data.subarray(28)
 
-        const derivedKey = Buffer.from(
-          keccak256(toBytes(validBody.keyId)).slice(2),
-          'hex',
+        const derivedKey = new Uint8Array(
+          Buffer.from(keccak256(toBytes(validBody.keyId)).slice(2), 'hex'),
         )
-        const decipher = crypto.createDecipheriv('aes-256-gcm', derivedKey, iv)
-        decipher.setAuthTag(authTag)
-
-        const decrypted = Buffer.concat([
-          decipher.update(ciphertext),
-          decipher.final(),
-        ]).toString('utf8')
+        const decryptedBytes = await decryptAesGcm(
+          ciphertext,
+          derivedKey,
+          iv,
+          authTag,
+        )
+        const decrypted = new TextDecoder().decode(decryptedBytes)
 
         return {
           decrypted,
@@ -388,20 +393,25 @@ export function createKMSRouter() {
           'Create secret request',
         )
 
-        const id = crypto.randomUUID()
+        const id = randomUUID()
 
         // Encrypt the value with AES-256-GCM
-        const derivedKey = Buffer.from(keccak256(toBytes(id)).slice(2), 'hex')
-        const iv = crypto.randomBytes(12)
-        const cipher = crypto.createCipheriv('aes-256-gcm', derivedKey, iv)
-        const encrypted = Buffer.concat([
-          cipher.update(validBody.value, 'utf8'),
-          cipher.final(),
-        ])
-        const authTag = cipher.getAuthTag()
-        const encryptedValue = Buffer.concat([iv, authTag, encrypted]).toString(
-          'base64',
+        const derivedKey = new Uint8Array(
+          Buffer.from(keccak256(toBytes(id)).slice(2), 'hex'),
         )
+        const plaintext = new TextEncoder().encode(validBody.value)
+        const {
+          ciphertext: encrypted,
+          iv,
+          tag: authTag,
+        } = await encryptAesGcm(plaintext, derivedKey)
+        const combined = new Uint8Array(
+          iv.length + authTag.length + encrypted.length,
+        )
+        combined.set(iv, 0)
+        combined.set(authTag, iv.length)
+        combined.set(encrypted, iv.length + authTag.length)
+        const encryptedValue = btoa(String.fromCharCode(...combined))
 
         const secret: Secret = {
           id,
@@ -495,22 +505,25 @@ export function createKMSRouter() {
         }
 
         // Decrypt the value with AES-256-GCM
-        const data = Buffer.from(secret.encryptedValue, 'base64')
+        const data = new Uint8Array(
+          atob(secret.encryptedValue)
+            .split('')
+            .map((c) => c.charCodeAt(0)),
+        )
         const iv = data.subarray(0, 12)
         const authTag = data.subarray(12, 28)
         const ciphertext = data.subarray(28)
 
-        const derivedKey = Buffer.from(
-          keccak256(toBytes(secret.id)).slice(2),
-          'hex',
+        const derivedKey = new Uint8Array(
+          Buffer.from(keccak256(toBytes(secret.id)).slice(2), 'hex'),
         )
-        const decipher = crypto.createDecipheriv('aes-256-gcm', derivedKey, iv)
-        decipher.setAuthTag(authTag)
-
-        const decrypted = Buffer.concat([
-          decipher.update(ciphertext),
-          decipher.final(),
-        ]).toString('utf8')
+        const decryptedBytes = await decryptAesGcm(
+          ciphertext,
+          derivedKey,
+          iv,
+          authTag,
+        )
+        const decrypted = new TextDecoder().decode(decryptedBytes)
 
         return {
           id: secret.id,

@@ -8,12 +8,9 @@ const features = [
   { href: '/swap', icon: '🔄', title: 'Swap' },
   { href: '/pools', icon: '💧', title: 'Pools' },
   { href: '/perps', icon: '📈', title: 'Perps' },
-  { href: '/charts', icon: '📊', title: 'Charts' },
-  { href: '/intel', icon: '🔮', title: 'Intel' },
   { href: '/coins', icon: '🪙', title: 'Coins' },
-  { href: '/markets', icon: '🎯', title: 'Predict' },
-  { href: '/items', icon: '🖼️', title: 'NFTs' },
-  { href: '/faucet', icon: '🚰', title: 'Faucet' },
+  { href: '/markets', icon: '🎯', title: 'Predictions' },
+  { href: '/items', icon: '🖼️', title: 'Items' },
 ]
 
 export default function HomePage() {

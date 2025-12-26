@@ -23,7 +23,6 @@ import {
   DWSInvokeResponseSchema,
   DWSWorkerDeployResponseSchema,
   DWSWorkerdHealthResponseSchema,
-  FaucetInfoResponseSchema,
 } from '../../schemas/api'
 
 // Worker response body schemas for testing
@@ -163,20 +162,6 @@ describe('Standalone API Server', () => {
     expect(data.status).toBe('ok')
     expect(data.service).toBe('bazaar-api')
     expect(data.teeMode).toBe('simulated')
-  })
-
-  test('faucet info endpoint works', async () => {
-    const response = await fetch(`http://localhost:${API_PORT}/api/faucet/info`)
-    expect(response.ok).toBe(true)
-
-    const rawJson: unknown = await response.json()
-    const parsed = FaucetInfoResponseSchema.safeParse(rawJson)
-    expect(parsed.success).toBe(true)
-    if (!parsed.success) return
-
-    const data = parsed.data
-    expect(data).toHaveProperty('name')
-    expect(data).toHaveProperty('chainId')
   })
 
   test('A2A endpoint responds', async () => {

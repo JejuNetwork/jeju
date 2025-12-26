@@ -6,7 +6,6 @@ export { BanType }
 
 export const MODERATION_CONTRACTS = {
   BanManager: CONTRACTS.banManager,
-  ModerationMarketplace: CONTRACTS.moderationMarketplace,
   ReputationLabelManager: CONTRACTS.reputationLabelManager,
   ReportingSystem: CONTRACTS.reportingSystem,
   RegistryGovernance: CONTRACTS.registryGovernance,

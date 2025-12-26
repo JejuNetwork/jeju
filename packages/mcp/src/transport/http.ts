@@ -150,7 +150,7 @@ export class HTTPTransport {
     if (!header) return null
     const match = header.match(/^Bearer\s+(.+)$/i)
     if (!match) return null
-    return match[1]
+    return match[1] ?? null
   }
 }
 

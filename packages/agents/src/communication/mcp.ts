@@ -124,7 +124,9 @@ export class MCPCommunicationClient {
     name: string,
     args: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
-    logger.debug(`Calling MCP tool: ${name}`, { toolArgs: JSON.stringify(args) })
+    logger.debug(`Calling MCP tool: ${name}`, {
+      toolArgs: JSON.stringify(args),
+    })
 
     if (!this.serverEndpoint) {
       throw new Error('MCP server endpoint not configured')

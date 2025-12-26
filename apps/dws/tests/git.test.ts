@@ -1,24 +1,27 @@
 /**
  * Git Hosting Integration Tests
  *
+ * Requires: IPFS for object storage
+ *
  * Run with: bun test tests/git.test.ts
- * Or via: bun run test:integration
+ * Or via: jeju test --target-app dws --mode integration
  */
 
 import { beforeEach, describe, expect, setDefaultTimeout, test } from 'bun:test'
 import { GitObjectStore } from '../api/git/object-store'
 import { PackfileReader, PackfileWriter } from '../api/git/pack'
-import { app } from '../api/server'
+import { app, dwsRequest } from './setup'
 import {
   type BackendManager,
   createBackendManager,
 } from '../api/storage/backends'
+import { SKIP as INFRA_SKIP } from './infra-check'
 
 setDefaultTimeout(10000)
 
 const TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
-// Only skip if explicitly requested, not by default in CI
-const SKIP = process.env.SKIP_INTEGRATION === 'true'
+// Skip if IPFS not available or explicitly requested
+const SKIP = process.env.SKIP_INTEGRATION === 'true' || INFRA_SKIP.IPFS
 
 describe.skipIf(SKIP)('GitObjectStore', () => {
   let store: GitObjectStore
@@ -664,7 +667,7 @@ describe.skipIf(SKIP)('Packfile', () => {
 describe.skipIf(SKIP)('Git HTTP API', () => {
   describe('Health', () => {
     test('GET /git/health should return healthy', async () => {
-      const res = await app.request('/git/health')
+      const res = await dwsRequest('/git/health')
       expect(res.status).toBe(200)
 
       const body = await res.json()
@@ -674,7 +677,7 @@ describe.skipIf(SKIP)('Git HTTP API', () => {
 
   describe('Repository List', () => {
     test('GET /git/repos should return repository list or error gracefully', async () => {
-      const res = await app.request('/git/repos')
+      const res = await dwsRequest('/git/repos')
       expect([200, 500]).toContain(res.status)
 
       if (res.status === 200) {
@@ -685,14 +688,14 @@ describe.skipIf(SKIP)('Git HTTP API', () => {
     })
 
     test('GET /git/repos with pagination should work', async () => {
-      const res = await app.request('/git/repos?offset=0&limit=5')
+      const res = await dwsRequest('/git/repos?offset=0&limit=5')
       expect([200, 500]).toContain(res.status)
     })
   })
 
   describe('Repository Creation', () => {
     test('POST /git/repos without auth should fail', async () => {
-      const res = await app.request('/git/repos', {
+      const res = await dwsRequest('/git/repos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: 'test-repo' }),
@@ -702,7 +705,7 @@ describe.skipIf(SKIP)('Git HTTP API', () => {
     })
 
     test('POST /git/repos without name should return 400', async () => {
-      const res = await app.request('/git/repos', {
+      const res = await dwsRequest('/git/repos', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -717,7 +720,7 @@ describe.skipIf(SKIP)('Git HTTP API', () => {
 
   describe('Repository Details', () => {
     test('GET /git/repos/:owner/:name for non-existent repo should return 404 or 500', async () => {
-      const res = await app.request(
+      const res = await dwsRequest(
         '/git/repos/0x0000000000000000000000000000000000000000/nonexistent',
       )
       expect([404, 500]).toContain(res.status)
@@ -726,7 +729,7 @@ describe.skipIf(SKIP)('Git HTTP API', () => {
 
   describe('User Repositories', () => {
     test('GET /git/users/:address/repos should return user repos', async () => {
-      const res = await app.request(`/git/users/${TEST_ADDRESS}/repos`)
+      const res = await dwsRequest(`/git/users/${TEST_ADDRESS}/repos`)
       expect([200, 500]).toContain(res.status)
 
       if (res.status === 200) {
@@ -739,7 +742,7 @@ describe.skipIf(SKIP)('Git HTTP API', () => {
 
 describe.skipIf(SKIP)('DWS Server Integration', () => {
   test('GET /health should include git service', async () => {
-    const res = await app.request('/health')
+    const res = await dwsRequest('/health')
     expect(res.status).toBe(200)
 
     const body = await res.json()
@@ -748,7 +751,7 @@ describe.skipIf(SKIP)('DWS Server Integration', () => {
   })
 
   test('GET / should list git endpoint', async () => {
-    const res = await app.request('/')
+    const res = await dwsRequest('/')
     expect(res.status).toBe(200)
 
     const body = await res.json()

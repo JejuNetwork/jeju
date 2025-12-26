@@ -13,14 +13,8 @@
  * - High uptime SLA
  */
 
-import {
-  type Address,
-  encodeFunctionData,
-  type Hex,
-  keccak256,
-  toBytes,
-} from 'viem'
-import type { NodeClient } from '../contracts'
+import { type Hex, keccak256, toBytes } from 'viem'
+import { getChain, type NodeClient } from '../contracts'
 
 // Contract ABIs - minimal interfaces for sequencer operations
 const SEQUENCER_REGISTRY_ABI = [
@@ -180,7 +174,9 @@ export function createSequencerService(
     }
 
     if (!client.walletClient) {
-      throw new Error('[Sequencer] Wallet client required for sequencer operations')
+      throw new Error(
+        '[Sequencer] Wallet client required for sequencer operations',
+      )
     }
 
     console.log('[Sequencer] Starting sequencer service...')
@@ -206,7 +202,9 @@ export function createSequencerService(
     state.isSequencing = true
 
     console.log('[Sequencer] Sequencer service started')
-    console.log(`[Sequencer] Note: Batch submission and proposals are handled by op-node`)
+    console.log(
+      `[Sequencer] Note: Batch submission and proposals are handled by op-node`,
+    )
     console.log(`[Sequencer] This service manages registration and staking`)
   }
 
@@ -225,7 +223,10 @@ export function createSequencerService(
     return status.registered
   }
 
-  async function getSequencerStatus(): Promise<{ registered: boolean; stake: bigint }> {
+  async function getSequencerStatus(): Promise<{
+    registered: boolean
+    stake: bigint
+  }> {
     if (!client.walletClient?.account) {
       return { registered: false, stake: 0n }
     }
@@ -285,6 +286,8 @@ export function createSequencerService(
     console.log('[Sequencer] Registering as sequencer...')
 
     const hash = await client.walletClient.writeContract({
+      chain: getChain(client.chainId),
+      account: client.walletClient.account,
       address: sequencerRegistry,
       abi: SEQUENCER_REGISTRY_ABI,
       functionName: 'register',
@@ -292,19 +295,23 @@ export function createSequencerService(
       value: state.stake,
     })
 
-    const receipt = await client.publicClient.waitForTransactionReceipt({ hash })
+    const receipt = await client.publicClient.waitForTransactionReceipt({
+      hash,
+    })
     console.log(`[Sequencer] Registered in tx: ${receipt.transactionHash}`)
 
     // Derive sequencer ID from registration
     state.sequencerId = keccak256(
-      toBytes(`${client.walletClient.account.address}${fullConfig.endpoint}${receipt.blockNumber}`),
+      toBytes(
+        `${client.walletClient.account.address}${fullConfig.endpoint}${receipt.blockNumber}`,
+      ),
     )
 
     return receipt.transactionHash
   }
 
   async function deregisterSequencer(): Promise<Hex> {
-    if (!client.walletClient) {
+    if (!client.walletClient?.account) {
       throw new Error('Wallet client required')
     }
 
@@ -318,13 +325,17 @@ export function createSequencerService(
     await stop()
 
     const hash = await client.walletClient.writeContract({
+      chain: getChain(client.chainId),
+      account: client.walletClient.account,
       address: sequencerRegistry,
       abi: SEQUENCER_REGISTRY_ABI,
       functionName: 'deregister',
       args: [state.sequencerId],
     })
 
-    const receipt = await client.publicClient.waitForTransactionReceipt({ hash })
+    const receipt = await client.publicClient.waitForTransactionReceipt({
+      hash,
+    })
     console.log(`[Sequencer] Deregistered in tx: ${receipt.transactionHash}`)
 
     return receipt.transactionHash

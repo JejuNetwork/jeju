@@ -4,9 +4,9 @@
  * React hooks for Direct Cast (encrypted DM) functionality.
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAccount } from 'wagmi'
-import { apiFetch, apiPost, API_BASE, getHeaders } from '../lib/api'
+import { API_BASE, apiFetch, apiPost, getHeaders } from '../lib/api'
 
 // ============================================================================
 // TYPES
@@ -83,7 +83,8 @@ export function useConversations() {
 
   return useQuery({
     queryKey: ['messages', 'conversations', address],
-    queryFn: () => apiFetch<{ conversations: Conversation[] }>('/api/messages', { address }),
+    queryFn: () =>
+      apiFetch<{ conversations: Conversation[] }>('/api/messages', { address }),
     enabled: !!address,
     staleTime: 30_000,
   })
@@ -146,7 +147,9 @@ export function useSendMessage() {
       replyTo?: string
     }) => apiPost('/api/messages', params, address),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['messages', 'messages', variables.recipientFid] })
+      queryClient.invalidateQueries({
+        queryKey: ['messages', 'messages', variables.recipientFid],
+      })
       queryClient.invalidateQueries({ queryKey: ['messages', 'conversations'] })
       queryClient.invalidateQueries({ queryKey: ['messages', 'status'] })
     },
@@ -165,7 +168,9 @@ export function useMarkAsRead() {
     mutationFn: (recipientFid: number) =>
       apiPost(`/api/messages/conversation/${recipientFid}/read`, {}, address),
     onSuccess: (_, recipientFid) => {
-      queryClient.invalidateQueries({ queryKey: ['messages', 'conversation', recipientFid] })
+      queryClient.invalidateQueries({
+        queryKey: ['messages', 'conversation', recipientFid],
+      })
       queryClient.invalidateQueries({ queryKey: ['messages', 'conversations'] })
       queryClient.invalidateQueries({ queryKey: ['messages', 'status'] })
     },
@@ -178,8 +183,15 @@ export function useArchiveConversation() {
 
   return useMutation({
     mutationFn: (recipientFid: number) =>
-      apiPost(`/api/messages/conversation/${recipientFid}/archive`, {}, address),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['messages', 'conversations'] }),
+      apiPost(
+        `/api/messages/conversation/${recipientFid}/archive`,
+        {},
+        address,
+      ),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: ['messages', 'conversations'],
+      }),
   })
 }
 
@@ -189,9 +201,15 @@ export function useMuteConversation() {
 
   return useMutation({
     mutationFn: (params: { recipientFid: number; muted: boolean }) =>
-      apiPost(`/api/messages/conversation/${params.recipientFid}/mute`, { muted: params.muted }, address),
+      apiPost(
+        `/api/messages/conversation/${params.recipientFid}/mute`,
+        { muted: params.muted },
+        address,
+      ),
     onSuccess: (_, { recipientFid }) => {
-      queryClient.invalidateQueries({ queryKey: ['messages', 'conversation', recipientFid] })
+      queryClient.invalidateQueries({
+        queryKey: ['messages', 'conversation', recipientFid],
+      })
       queryClient.invalidateQueries({ queryKey: ['messages', 'conversations'] })
     },
   })
@@ -246,7 +264,11 @@ export function usePublishEncryptionKey() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: () => apiPost('/api/messages/encryption-key/publish', {}, address),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['messages', 'encryption-key'] }),
+    mutationFn: () =>
+      apiPost('/api/messages/encryption-key/publish', {}, address),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: ['messages', 'encryption-key'],
+      }),
   })
 }

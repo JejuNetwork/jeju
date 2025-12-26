@@ -734,6 +734,35 @@ export const storageState = {
     }
     return null
   },
+
+  async findByType(
+    objectType: string,
+    proposalId?: string,
+  ): Promise<StoredObject | null> {
+    const client = await getCQLClient()
+    let query = 'SELECT content FROM storage_objects WHERE object_type = ?'
+    const params: QueryParam[] = [objectType]
+
+    if (proposalId) {
+      // Add ordering to get most recent
+      query += ' ORDER BY created_at DESC LIMIT 100'
+    }
+
+    const result = await client.query<Pick<StorageObjectRow, 'content'>>(
+      query,
+      params,
+      CQL_DATABASE_ID,
+    )
+
+    // Filter by proposalId in application code since CQL doesn't support JSON queries
+    for (const row of result.rows) {
+      const obj = StoredObjectSchema.parse(JSON.parse(row.content))
+      if ('proposalId' in obj && obj.proposalId === proposalId) {
+        return obj
+      }
+    }
+    return null
+  },
 }
 
 // Initialize state system

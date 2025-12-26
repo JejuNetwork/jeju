@@ -1,21 +1,19 @@
 /**
  * API client utilities for browser
- *
- * Uses PUBLIC_ env for API URL with sensible fallback.
  */
 
 import type { Address } from 'viem'
 import type { z } from 'zod'
 
-/** Get env var from import.meta.env (browser) */
-function getEnv(key: string): string | undefined {
+function requireEnv(key: string): string {
   if (typeof import.meta?.env === 'object') {
-    return import.meta.env[key] as string | undefined
+    const value = import.meta.env[key] as string | undefined
+    if (value) return value
   }
-  return undefined
+  throw new Error(`Required environment variable ${key} is not set`)
 }
 
-export const API_BASE = getEnv('PUBLIC_API_URL') || '/api'
+export const API_BASE = requireEnv('PUBLIC_API_URL')
 
 export class ApiError extends Error {
   constructor(
@@ -77,26 +75,6 @@ export interface HealthResponse {
   network?: string
 }
 
-export interface FaucetInfo {
-  name: string
-  chainId: number
-  maxClaimAmount: string
-  cooldownSeconds: number
-}
-
-export interface FaucetStatus {
-  canClaim: boolean
-  lastClaim: number
-  cooldownRemaining: number
-}
-
-export interface FaucetClaimResult {
-  success: boolean
-  txHash?: string
-  amount?: string
-  error?: string
-}
-
 export interface TFMMPool {
   address: Address
   tokens: Address[]
@@ -146,12 +124,6 @@ export interface BazaarClient {
     get(): Promise<HealthResponse>
   }
 
-  faucet: {
-    getInfo(): Promise<FaucetInfo>
-    getStatus(address: Address): Promise<FaucetStatus>
-    claim(address: Address): Promise<FaucetClaimResult>
-  }
-
   tfmm: {
     getPools(): Promise<TFMMPoolsResponse>
     getPool(address: Address): Promise<TFMMPool>
@@ -187,14 +159,6 @@ export const api: BazaarClient = {
 
   health: {
     get: () => get<HealthResponse>('/health'),
-  },
-
-  faucet: {
-    getInfo: () => get<FaucetInfo>('/faucet/info'),
-    getStatus: (address: Address) =>
-      get<FaucetStatus>(`/faucet/status/${address}`),
-    claim: (address: Address) =>
-      post<FaucetClaimResult>('/faucet/claim', { address }),
   },
 
   tfmm: {
@@ -237,11 +201,6 @@ export const api: BazaarClient = {
 
 export const queryKeys = {
   health: () => ['health'] as const,
-
-  faucet: {
-    info: () => ['faucet', 'info'] as const,
-    status: (address: string) => ['faucet', 'status', address] as const,
-  },
 
   tfmm: {
     pools: () => ['tfmm', 'pools'] as const,

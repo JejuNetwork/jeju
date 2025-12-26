@@ -9,7 +9,6 @@ use std::time::Instant;
 use tokio::sync::RwLock;
 
 pub struct XlpService {
-    rpc_url: String,
     running: Arc<AtomicBool>,
     start_time: Arc<RwLock<Option<Instant>>>,
     transfers_facilitated: Arc<AtomicU64>,
@@ -20,9 +19,8 @@ pub struct XlpService {
 }
 
 impl XlpService {
-    pub fn new(rpc_url: &str) -> Self {
+    pub fn new(_rpc_url: &str) -> Self {
         Self {
-            rpc_url: rpc_url.to_string(),
             running: Arc::new(AtomicBool::new(false)),
             start_time: Arc::new(RwLock::new(None)),
             transfers_facilitated: Arc::new(AtomicU64::new(0)),

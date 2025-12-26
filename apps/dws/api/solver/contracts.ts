@@ -110,7 +110,11 @@ export const ERC20_APPROVE_ABI = [
   },
 ] as const
 
-type OifContractKey = 'inputSettler' | 'outputSettler' | 'oracle' | 'solverRegistry'
+type OifContractKey =
+  | 'inputSettler'
+  | 'outputSettler'
+  | 'oracle'
+  | 'solverRegistry'
 
 /** Chain ID to external chain name mapping */
 const CHAIN_ID_TO_NAME: Record<number, string> = {
@@ -127,22 +131,33 @@ const CHAIN_ID_TO_NAME: Record<number, string> = {
 }
 
 /** Get OIF contract address for a given chain ID */
-function getOifAddress(chainId: number, key: OifContractKey): `0x${string}` | undefined {
+function getOifAddress(
+  chainId: number,
+  key: OifContractKey,
+): `0x${string}` | undefined {
   // Check if it's a Jeju network (localnet, testnet, mainnet)
   const jejuChainId = getChainId()
   if (chainId === jejuChainId) {
     const configKey = key === 'oracle' ? 'oracleAdapter' : key
-    const addr = getContract('oif', configKey)
-    return addr ? (addr as `0x${string}`) : undefined
+    try {
+      const addr = getContract('oif', configKey)
+      return addr ? (addr as `0x${string}`) : undefined
+    } catch {
+      return undefined
+    }
   }
 
-  // Check external chains
+  // Check external chains - silently return undefined for unconfigured chains
   const chainName = CHAIN_ID_TO_NAME[chainId]
   if (!chainName) return undefined
 
   const configKey = key === 'oracle' ? 'oracleAdapter' : key
-  const addr = getExternalContract(chainName, 'oif', configKey)
-  return addr ? (addr as `0x${string}`) : undefined
+  try {
+    const addr = getExternalContract(chainName, 'oif', configKey)
+    return addr ? (addr as `0x${string}`) : undefined
+  } catch {
+    return undefined
+  }
 }
 
 function extractAddresses(key: OifContractKey): Record<number, `0x${string}`> {
@@ -154,7 +169,7 @@ function extractAddresses(key: OifContractKey): Record<number, `0x${string}`> {
   if (jejuAddr) out[jejuChainId] = jejuAddr
 
   // Add external chain addresses
-  for (const [chainIdStr, chainName] of Object.entries(CHAIN_ID_TO_NAME)) {
+  for (const [chainIdStr, _chainName] of Object.entries(CHAIN_ID_TO_NAME)) {
     const chainId = Number(chainIdStr)
     const addr = getOifAddress(chainId, key)
     if (addr) out[chainId] = addr

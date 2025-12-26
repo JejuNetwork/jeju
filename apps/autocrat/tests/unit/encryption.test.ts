@@ -300,7 +300,7 @@ describe('Encryption Module', () => {
           { role: 'TREASURY', vote: 'APPROVE', reasoning: 'Financially sound' },
           { role: 'CODE', vote: 'APPROVE', reasoning: 'Code looks good' },
         ],
-        model: 'gpt-4',
+        model: 'gpt-5.2',
         timestamp: Date.now(),
       }
 
@@ -539,7 +539,7 @@ describe('Encryption Module', () => {
           reasoning: `Reasoning for role ${i}: ${'X'.repeat(200)}`,
         })),
         researchSummary: 'B'.repeat(5000),
-        model: 'gpt-4-turbo',
+        model: 'gpt-5.2',
         timestamp: Date.now(),
       }
 

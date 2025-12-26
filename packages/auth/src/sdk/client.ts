@@ -277,7 +277,7 @@ export class OAuth3Client {
   }
 
   /**
-   * Get the current TEE agent URL (from config or discovered node)
+   * Get the current TEE agent URL (from config, discovered node, or MPC endpoints)
    */
   private getTeeAgentUrl(): string {
     if (this.config.teeAgentUrl) {
@@ -286,8 +286,12 @@ export class OAuth3Client {
     if (this.currentNode) {
       return this.currentNode.endpoint
     }
+    // Fall back to first MPC endpoint if available
+    if (this.config.mpcEndpoints?.length) {
+      return this.config.mpcEndpoints[0]
+    }
     throw new Error(
-      'No TEE agent URL configured. Call initialize() first or provide teeAgentUrl in config.',
+      'No TEE agent URL configured. Provide teeAgentUrl or mpcEndpoints in config, or ensure decentralized discovery succeeds.',
     )
   }
 
@@ -320,9 +324,19 @@ export class OAuth3Client {
   async login(options: LoginOptions): Promise<OAuth3Session> {
     this.emit('login', { provider: options.provider, status: 'started' })
 
-    // If decentralized mode and not initialized, do auto-initialization
-    if (this.discovery && !this.currentNode) {
+    // If decentralized mode and not initialized, try auto-initialization
+    // If discovery fails (missing contracts, unregistered app), fall back to centralized mode
+    if (this.discovery && !this.currentNode && !this.config.teeAgentUrl) {
+      try {
       await this.initialize()
+      } catch (err) {
+        console.debug(
+          '[OAuth3] Decentralized discovery failed, falling back to centralized mode:',
+          err instanceof Error ? err.message : String(err),
+        )
+        // Disable discovery to prevent retry
+        this.discovery = null
+      }
     }
 
     let session: OAuth3Session

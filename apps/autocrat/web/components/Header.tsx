@@ -1,171 +1,172 @@
-import { Activity, Menu, Moon, Sun, X } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
-import { fetchHealth } from '../config/api'
-import { AuthButton } from './auth/AuthButton'
+/**
+ * Autocrat Header Component
+ *
+ * Navigation header with DAO-centric navigation.
+ */
 
-interface HealthStatus {
-  status: string
-  version?: string
-  uptime?: number
+import { Building2, Menu, Plus, User, Wallet, X } from 'lucide-react'
+import { useState } from 'react'
+import { Link, useLocation } from 'react-router-dom'
+import { useAccount, useConnect, useDisconnect } from 'wagmi'
+import { injected } from 'wagmi/connectors'
+
+interface NavLink {
+  to: string
+  label: string
+  icon: typeof Building2
 }
+
+const NAV_LINKS: NavLink[] = [
+  { to: '/', label: 'DAOs', icon: Building2 },
+]
 
 export function Header() {
   const location = useLocation()
-  const pathname = location.pathname
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [isDark, setIsDark] = useState(false)
-  const [health, setHealth] = useState<HealthStatus | null>(null)
+  const { address, isConnected } = useAccount()
+  const { connect, isPending } = useConnect()
+  const { disconnect } = useDisconnect()
 
-  const checkHealth = useCallback(async () => {
-    const data = await fetchHealth().catch(() => null)
-    setHealth(data as HealthStatus | null)
-  }, [])
-
-  useEffect(() => {
-    setIsDark(document.documentElement.classList.contains('dark'))
-    checkHealth()
-    // Check health every 30 seconds
-    const interval = setInterval(checkHealth, 30000)
-    return () => clearInterval(interval)
-  }, [checkHealth])
-
-  // Close menu on route change
-  useEffect(() => {
-    setMobileMenuOpen(false)
-  }, [])
-
-  const toggleTheme = () => {
-    const newTheme = !isDark
-    setIsDark(newTheme)
-    document.documentElement.classList.toggle('dark', newTheme)
-    localStorage.setItem('autocrat-theme', newTheme ? 'dark' : 'light')
+  const handleConnect = () => {
+    connect({ connector: injected() })
   }
 
-  const navLinks = [
-    { href: '/', label: 'Dashboard' },
-    { href: '/proposals', label: 'Proposals' },
-    { href: '/create', label: 'Create' },
-    { href: '/ceo', label: 'CEO' },
-    { href: '/moderation', label: 'Moderation' },
-    { href: '/bug-bounty', label: 'Bounty' },
-  ]
+  const formatAddress = (addr: string) => {
+    return `${addr.slice(0, 6)}...${addr.slice(-4)}`
+  }
 
   return (
-    <header
-      className="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl border-b"
-      style={{
-        background: 'rgba(var(--bg-primary-rgb, 248, 250, 252), 0.95)',
-        borderColor: 'var(--border)',
-      }}
-    >
-      <div className="container mx-auto px-3 sm:px-4">
+    <header className="sticky top-0 z-50 bg-slate-950/95 backdrop-blur-xl border-b border-slate-800">
+      <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-14">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 shrink-0">
-            <span className="text-xl">🏛️</span>
-            <span className="font-semibold hidden xs:inline">Autocrat</span>
+          <Link to="/" className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-600 to-indigo-700 flex items-center justify-center">
+              <Building2 className="w-4 h-4 text-white" />
+            </div>
+            <span className="font-bold text-lg text-white hidden sm:block">
+              Autocrat
+            </span>
           </Link>
 
-          {/* Desktop Nav */}
+          {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-1">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                to={link.href}
-                className={`px-3 py-1.5 rounded text-sm transition-colors ${
-                  pathname === link.href ? 'bg-gray-100 dark:bg-gray-800' : ''
-                }`}
-                style={{
-                  color:
-                    pathname === link.href
-                      ? 'var(--color-primary)'
-                      : 'var(--text-secondary)',
-                }}
-              >
-                {link.label}
-              </Link>
-            ))}
+            {NAV_LINKS.map((link) => {
+              const Icon = link.icon
+              const isActive = location.pathname === link.to
+              return (
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-violet-500/20 text-violet-300'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {link.label}
+                </Link>
+              )
+            })}
           </nav>
 
-          {/* Right Actions */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            {/* Health Status Indicator */}
-            <div
-              className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs"
-              title={health ? `API: ${health.status}` : 'Checking status...'}
+          {/* Right Section */}
+          <div className="flex items-center gap-3">
+            {/* Create DAO Button */}
+            <Link
+              to="/create"
+              className="hidden sm:inline-flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-sm font-medium transition-colors"
             >
-              <Activity
-                size={14}
-                className={
-                  health?.status === 'ok'
-                    ? 'text-green-500'
-                    : health
-                      ? 'text-yellow-500'
-                      : 'text-gray-400'
-                }
-              />
-              <span
-                className={`w-1.5 h-1.5 rounded-full ${
-                  health?.status === 'ok'
-                    ? 'bg-green-500'
-                    : health
-                      ? 'bg-yellow-500'
-                      : 'bg-gray-400'
-                }`}
-              />
-            </div>
+              <Plus className="w-4 h-4" />
+              Create DAO
+            </Link>
 
-            <button
-              type="button"
-              onClick={toggleTheme}
-              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-              aria-label="Toggle theme"
-            >
-              {isDark ? <Sun size={18} /> : <Moon size={18} />}
-            </button>
-
-            <AuthButton />
+            {/* Wallet Connection */}
+            {isConnected ? (
+              <div className="flex items-center gap-2">
+                <Link
+                  to="/my-daos"
+                  className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-slate-200 transition-colors"
+                  title="My DAOs"
+                >
+                  <User className="w-5 h-5" />
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => disconnect()}
+                  className="flex items-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-sm text-slate-300 transition-colors"
+                >
+                  <Wallet className="w-4 h-4" />
+                  <span className="hidden sm:inline">
+                    {formatAddress(address ?? '')}
+                  </span>
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={handleConnect}
+                disabled={isPending}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-sm text-slate-300 transition-colors"
+              >
+                <Wallet className="w-4 h-4" />
+                <span className="hidden sm:inline">
+                  {isPending ? 'Connecting...' : 'Connect'}
+                </span>
+              </button>
+            )}
 
             {/* Mobile Menu Toggle */}
             <button
               type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-              aria-label="Toggle menu"
-              aria-expanded={mobileMenuOpen}
+              className="md:hidden p-2 hover:bg-slate-800 rounded-lg text-slate-400"
             >
-              {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+              {mobileMenuOpen ? (
+                <X className="w-5 h-5" />
+              ) : (
+                <Menu className="w-5 h-5" />
+              )}
             </button>
           </div>
         </div>
-
-        {/* Mobile Nav */}
-        {mobileMenuOpen && (
-          <nav
-            className="md:hidden py-2 border-t animate-in slide-in-from-top-2 duration-200"
-            style={{ borderColor: 'var(--border)' }}
-          >
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                to={link.href}
-                className={`block px-3 py-3 rounded-lg text-sm font-medium transition-colors ${
-                  pathname === link.href ? 'bg-gray-100 dark:bg-gray-800' : ''
-                }`}
-                style={{
-                  color:
-                    pathname === link.href
-                      ? 'var(--color-primary)'
-                      : 'var(--text-primary)',
-                }}
-              >
-                {link.label}
-              </Link>
-            ))}
-          </nav>
-        )}
       </div>
+
+      {/* Mobile Menu */}
+      {mobileMenuOpen && (
+        <div className="md:hidden border-t border-slate-800 bg-slate-900">
+          <nav className="container mx-auto px-4 py-4 space-y-1">
+            {NAV_LINKS.map((link) => {
+              const Icon = link.icon
+              const isActive = location.pathname === link.to
+              return (
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-violet-500/20 text-violet-300'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                  }`}
+                >
+                  <Icon className="w-5 h-5" />
+                  {link.label}
+                </Link>
+              )
+            })}
+            <Link
+              to="/create"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium bg-violet-600 text-white"
+            >
+              <Plus className="w-5 h-5" />
+              Create DAO
+            </Link>
+          </nav>
+        </div>
+      )}
     </header>
   )
 }

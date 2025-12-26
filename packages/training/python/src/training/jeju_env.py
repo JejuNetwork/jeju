@@ -69,7 +69,7 @@ class JejuEnvConfig(BaseEnvConfig):
 
     # RLAIF Judge settings (Legacy - kept for config compatibility)
     judge_model: str = Field(
-        default="gpt-4o-mini",
+        default="gpt-5.2",
         description="Model to use for LLM judge scoring (Deprecated by Deterministic Judge)",
     )
     judge_temperature: float = Field(default=0.3, description="Temperature for judge model")

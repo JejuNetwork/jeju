@@ -9,7 +9,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
-import { createHash, randomBytes } from 'node:crypto'
+import { bytesToHex, createHash, randomBytes } from '@jejunetwork/shared'
 import {
   decryptCeremonyKeys,
   runTeeCeremony,
@@ -33,7 +33,7 @@ describe('TEE Genesis Ceremony', () => {
     test('generates valid ceremony result for testnet', async () => {
       const passwordHash = createHash('sha256')
         .update('TestPassword123!')
-        .digest('hex')
+        .digestHex()
 
       const result = await runTeeCeremony('testnet', passwordHash)
 
@@ -48,7 +48,7 @@ describe('TEE Genesis Ceremony', () => {
     test('generates valid ceremony result for mainnet', async () => {
       const passwordHash = createHash('sha256')
         .update('TestPassword123!')
-        .digest('hex')
+        .digestHex()
 
       const result = await runTeeCeremony('mainnet', passwordHash)
 
@@ -58,7 +58,7 @@ describe('TEE Genesis Ceremony', () => {
     test('generates all required operator addresses', async () => {
       const passwordHash = createHash('sha256')
         .update('TestPassword123!')
-        .digest('hex')
+        .digestHex()
 
       const result = await runTeeCeremony('testnet', passwordHash)
 
@@ -81,7 +81,7 @@ describe('TEE Genesis Ceremony', () => {
     test('produces valid genesis config', async () => {
       const passwordHash = createHash('sha256')
         .update('TestPassword123!')
-        .digest('hex')
+        .digestHex()
 
       const result = await runTeeCeremony('testnet', passwordHash)
 
@@ -114,7 +114,7 @@ describe('TEE Genesis Ceremony', () => {
     test('produces simulated attestation', async () => {
       const passwordHash = createHash('sha256')
         .update('TestPassword123!')
-        .digest('hex')
+        .digestHex()
 
       const result = await runTeeCeremony('testnet', passwordHash)
 
@@ -128,7 +128,7 @@ describe('TEE Genesis Ceremony', () => {
   describe('Encryption/Decryption Round-Trip', () => {
     test('encrypts and decrypts keys correctly', async () => {
       const password = 'SecureTestPassword123!@#$'
-      const passwordHash = createHash('sha256').update(password).digest('hex')
+      const passwordHash = createHash('sha256').update(password).digestHex()
 
       const result = await runTeeCeremony('testnet', passwordHash)
 
@@ -162,7 +162,7 @@ describe('TEE Genesis Ceremony', () => {
 
     test('decrypted addresses match public addresses', async () => {
       const password = 'SecureTestPassword123!@#$'
-      const passwordHash = createHash('sha256').update(password).digest('hex')
+      const passwordHash = createHash('sha256').update(password).digestHex()
 
       const result = await runTeeCeremony('testnet', passwordHash)
       const decryptedKeys = await decryptCeremonyKeys(
@@ -187,7 +187,7 @@ describe('TEE Genesis Ceremony', () => {
 
     test('decryption fails with wrong password', async () => {
       const password = 'SecureTestPassword123!@#$'
-      const passwordHash = createHash('sha256').update(password).digest('hex')
+      const passwordHash = createHash('sha256').update(password).digestHex()
 
       const result = await runTeeCeremony('testnet', passwordHash)
 
@@ -199,7 +199,7 @@ describe('TEE Genesis Ceremony', () => {
 
     test('decryption fails with corrupted data', async () => {
       const password = 'SecureTestPassword123!@#$'
-      const passwordHash = createHash('sha256').update(password).digest('hex')
+      const passwordHash = createHash('sha256').update(password).digestHex()
 
       const result = await runTeeCeremony('testnet', passwordHash)
 
@@ -214,10 +214,10 @@ describe('TEE Genesis Ceremony', () => {
     test('different passwords produce different encrypted outputs', async () => {
       const password1Hash = createHash('sha256')
         .update('Password1!')
-        .digest('hex')
+        .digestHex()
       const password2Hash = createHash('sha256')
         .update('Password2!')
-        .digest('hex')
+        .digestHex()
 
       const result1 = await runTeeCeremony('testnet', password1Hash)
       const result2 = await runTeeCeremony('testnet', password2Hash)
@@ -231,7 +231,7 @@ describe('TEE Genesis Ceremony', () => {
     test('rejects simulated attestation', async () => {
       const passwordHash = createHash('sha256')
         .update('TestPassword123!')
-        .digest('hex')
+        .digestHex()
       const result = await runTeeCeremony('testnet', passwordHash)
 
       const verification = await verifyAttestation(result)
@@ -248,7 +248,7 @@ describe('TEE Genesis Ceremony', () => {
           quote: 'short', // Too short
           eventLog: '[]',
           tcbInfo: {},
-          measurementHash: createHash('sha256').update('test').digest('hex'),
+          measurementHash: createHash('sha256').update('test').digestHex(),
         },
         encryptedKeys: '',
         publicAddresses: {},
@@ -264,7 +264,7 @@ describe('TEE Genesis Ceremony', () => {
     test('rejects mismatched measurement hash', async () => {
       const passwordHash = createHash('sha256')
         .update('TestPassword123!')
-        .digest('hex')
+        .digestHex()
       const result = await runTeeCeremony('testnet', passwordHash)
 
       // Modify addresses but keep old measurement hash
@@ -272,7 +272,7 @@ describe('TEE Genesis Ceremony', () => {
         ...result,
         attestation: {
           ...result.attestation,
-          quote: `VALID_QUOTE_${randomBytes(100).toString('hex')}`,
+          quote: `VALID_QUOTE_${bytesToHex(randomBytes(100))}`,
         },
         publicAddresses: {
           ...result.publicAddresses,
@@ -306,13 +306,13 @@ describe('TEE Genesis Ceremony', () => {
             addresses,
           }),
         )
-        .digest('hex')
+        .digestHex()
 
       const result: TeeCeremonyResult = {
         network: 'testnet',
         timestamp,
         attestation: {
-          quote: `VALID_QUOTE_${randomBytes(100).toString('hex')}`, // Long enough
+          quote: `VALID_QUOTE_${bytesToHex(randomBytes(100))}`, // Long enough
           eventLog: '[]',
           tcbInfo: {},
           measurementHash,
@@ -332,7 +332,7 @@ describe('TEE Genesis Ceremony', () => {
     test('private keys are cleared from ceremony result', async () => {
       const passwordHash = createHash('sha256')
         .update('TestPassword123!')
-        .digest('hex')
+        .digestHex()
 
       // We can't directly test memory clearing, but we can verify the
       // result doesn't contain plaintext private keys
@@ -364,7 +364,7 @@ describe('TEE Genesis Ceremony', () => {
     test('encrypted keys bundle has correct structure', async () => {
       const passwordHash = createHash('sha256')
         .update('TestPassword123!')
-        .digest('hex')
+        .digestHex()
 
       const result = await runTeeCeremony('testnet', passwordHash)
 
@@ -394,7 +394,7 @@ describe('TEE Genesis Ceremony', () => {
     test('each ceremony produces unique salt and IV', async () => {
       const passwordHash = createHash('sha256')
         .update('TestPassword123!')
-        .digest('hex')
+        .digestHex()
 
       const results = await Promise.all([
         runTeeCeremony('testnet', passwordHash),
@@ -418,7 +418,7 @@ describe('TEE Genesis Ceremony', () => {
   describe('Derivation Path Uniqueness', () => {
     test('each operator has unique derivation path', async () => {
       const password = 'TestPassword123!'
-      const passwordHash = createHash('sha256').update(password).digest('hex')
+      const passwordHash = createHash('sha256').update(password).digestHex()
 
       const result = await runTeeCeremony('testnet', passwordHash)
       const keys = await decryptCeremonyKeys(result.encryptedKeys, password)
@@ -431,7 +431,7 @@ describe('TEE Genesis Ceremony', () => {
 
     test('derivation paths include network', async () => {
       const password = 'TestPassword123!'
-      const passwordHash = createHash('sha256').update(password).digest('hex')
+      const passwordHash = createHash('sha256').update(password).digestHex()
 
       const testnetResult = await runTeeCeremony('testnet', passwordHash)
       const mainnetResult = await runTeeCeremony('mainnet', passwordHash)

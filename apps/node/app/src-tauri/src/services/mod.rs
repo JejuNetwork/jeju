@@ -22,7 +22,6 @@ pub use xlp::XlpService;
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use tokio::sync::mpsc;
 
 use crate::config::{NodeConfig, ServiceConfig};
 use crate::hardware::{HardwareInfo, ServiceRequirements};
@@ -43,20 +42,6 @@ pub enum ServiceId {
 }
 
 impl ServiceId {
-    pub fn all() -> Vec<ServiceId> {
-        vec![
-            ServiceId::Compute,
-            ServiceId::Storage,
-            ServiceId::Oracle,
-            ServiceId::Proxy,
-            ServiceId::Cron,
-            ServiceId::Rpc,
-            ServiceId::Xlp,
-            ServiceId::Solver,
-            ServiceId::Sequencer,
-        ]
-    }
-
     pub fn as_str(&self) -> &'static str {
         match self {
             ServiceId::Compute => "compute",
@@ -116,6 +101,7 @@ pub struct ServiceState {
 }
 
 /// Service trait
+#[allow(dead_code)]
 #[async_trait::async_trait]
 pub trait Service: Send + Sync {
     fn id(&self) -> ServiceId;
@@ -131,14 +117,12 @@ pub trait Service: Send + Sync {
 /// Service manager coordinates all services
 pub struct ServiceManager {
     services: HashMap<ServiceId, Box<dyn Service>>,
-    shutdown_tx: Option<mpsc::Sender<()>>,
 }
 
 impl ServiceManager {
     pub fn new() -> Self {
         Self {
             services: HashMap::new(),
-            shutdown_tx: None,
         }
     }
 
@@ -229,14 +213,6 @@ impl ServiceManager {
             statuses.insert(id.as_str().to_string(), service.status().await);
         }
         statuses
-    }
-
-    pub async fn shutdown_all(&mut self) {
-        for (id, service) in &mut self.services {
-            if let Err(e) = service.stop().await {
-                tracing::error!("Failed to stop service {:?}: {}", id, e);
-            }
-        }
     }
 }
 

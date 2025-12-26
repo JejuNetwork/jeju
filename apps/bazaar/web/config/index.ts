@@ -78,3 +78,26 @@ export const CONTRACTS = {
 // WalletConnect Project ID - placeholder for local dev
 export const WALLETCONNECT_PROJECT_ID =
   NETWORK === 'localnet' ? '' : 'YOUR_PROJECT_ID'
+
+// Direct exports for prediction market contracts (with env var fallback for local dev)
+export const PREDICTION_MARKET_ADDRESS: Address =
+  (process.env.PREDICTION_MARKET_ADDRESS as Address) ||
+  CONTRACTS.predictionMarket ||
+  ZERO_ADDRESS
+
+export const PREDICTION_ORACLE_ADDRESS: Address =
+  (process.env.PREDICTION_ORACLE_ADDRESS as Address) || ZERO_ADDRESS
+
+// Direct exports for perpetual market contracts (with env var fallback for local dev)
+export const PERPETUAL_MARKET_ADDRESS: Address =
+  (process.env.PERPETUAL_MARKET_ADDRESS as Address) ||
+  CONTRACTS.perpetualMarket ||
+  ZERO_ADDRESS
+
+export const MARGIN_MANAGER_ADDRESS: Address =
+  (process.env.MARGIN_MANAGER_ADDRESS as Address) ||
+  CONTRACTS.marginManager ||
+  ZERO_ADDRESS
+
+// Re-export RPC URL getter for data clients
+export const getL2RpcUrl = () => RPC_URL

@@ -7,6 +7,7 @@
  * Fully permissionless - uses Network RPC infrastructure, no external API keys.
  */
 
+import { getRpcGatewayUrl } from '@jejunetwork/config'
 import { expectJson } from '@jejunetwork/types'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import React from 'react'
@@ -21,7 +22,7 @@ import { expectSchema } from '../../lib/validation'
 import type { EIP1193Param } from '../types'
 
 // Network RPC - open API, no keys required
-const JEJU_RPC = 'https://rpc.jejunetwork.org'
+const JEJU_RPC = getRpcGatewayUrl()
 
 // Wagmi config for extension - fully permissionless
 const config = createConfig({

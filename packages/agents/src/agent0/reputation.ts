@@ -1,19 +1,12 @@
 /**
- * Reputation Bridge
- *
- * Aggregates reputation from ERC-8004 on-chain data and Agent0 network feedback
- * to provide comprehensive reputation scores.
- *
- * @packageDocumentation
+ * Reputation Bridge - aggregates local + Agent0 reputation data
  */
 
 import { isAgent0Enabled } from '@jejunetwork/config'
 import { logger } from '@jejunetwork/shared'
+import { agentRegistry } from '../services/agent-registry.service'
 import { getAgent0Client } from './client'
 
-/**
- * Reputation data structure
- */
 export interface ReputationData {
   totalBets: number
   winningBets: number
@@ -22,251 +15,180 @@ export interface ReputationData {
   totalVolume: string
   profitLoss: number
   isBanned: boolean
-  sources?: {
-    local: number
-    agent0: number
-  }
+  sources?: { local: number; agent0: number }
 }
 
-/**
- * Reputation summary from Agent0
- */
 export interface Agent0ReputationSummary {
   count: number
   averageScore: number
 }
 
-/**
- * Reputation Bridge
- *
- * Aggregates reputation from multiple sources for comprehensive scoring.
- */
+export interface LocalReputationProvider {
+  getStats(tokenId: number): Promise<{
+    totalBets: number
+    winningBets: number
+    totalVolume: string
+    profitLoss: number
+  }>
+  isBanned(tokenId: number): Promise<boolean>
+}
+
+let localProvider: LocalReputationProvider | null = null
+
+export function setLocalReputationProvider(
+  provider: LocalReputationProvider,
+): void {
+  localProvider = provider
+}
+
+const DEFAULT_REP: ReputationData = {
+  totalBets: 0,
+  winningBets: 0,
+  accuracyScore: 0,
+  trustScore: 0,
+  totalVolume: '0',
+  profitLoss: 0,
+  isBanned: false,
+}
+
+/** Parse volume string to BigInt, returning 0n for invalid values */
+export function safeBigInt(value: string | undefined | null): bigint {
+  if (!value) return 0n
+  const cleaned = value.trim()
+  if (!/^-?\d+$/.test(cleaned)) return 0n
+  return BigInt(cleaned)
+}
+
 export class ReputationBridge {
-  /**
-   * Get aggregated reputation from both local and Agent0 sources
-   */
   async getAggregatedReputation(tokenId: number): Promise<ReputationData> {
     const [local, agent0] = await Promise.all([
       this.getLocalReputation(tokenId),
       this.getAgent0Reputation(tokenId),
     ])
 
+    const noBets = local.totalBets === 0 && agent0.totalBets === 0
+    const localOnly = agent0.totalBets === 0
+    const agent0Only = local.totalBets === 0
+
     return {
       totalBets: local.totalBets + agent0.totalBets,
       winningBets: local.winningBets + agent0.winningBets,
-      accuracyScore: this.calculateWeightedAccuracy(local, agent0),
-      trustScore: this.calculateTrustScore(local, agent0),
-      totalVolume: this.sumVolumes(local.totalVolume, agent0.totalVolume),
+      accuracyScore: noBets
+        ? 0
+        : localOnly
+          ? local.accuracyScore
+          : agent0Only
+            ? agent0.accuracyScore
+            : local.accuracyScore * 0.6 + agent0.accuracyScore * 0.4,
+      trustScore: noBets
+        ? 0
+        : localOnly
+          ? local.trustScore
+          : agent0Only
+            ? agent0.trustScore
+            : Math.max(local.trustScore, agent0.trustScore),
+      totalVolume: (
+        safeBigInt(local.totalVolume) + safeBigInt(agent0.totalVolume)
+      ).toString(),
       profitLoss: local.profitLoss + agent0.profitLoss,
       isBanned: local.isBanned || agent0.isBanned,
-      sources: {
-        local: local.trustScore,
-        agent0: agent0.trustScore,
-      },
+      sources: { local: local.trustScore, agent0: agent0.trustScore },
     }
   }
 
-  /**
-   * Get Agent0 reputation summary with optional tag filtering
-   */
   async getAgent0ReputationSummary(
     agentId: string,
     tag1?: string,
     tag2?: string,
   ): Promise<Agent0ReputationSummary> {
-    if (!isAgent0Enabled()) {
-      return { count: 0, averageScore: 0 }
-    }
-
-    const agent0Client = getAgent0Client()
-
-    if (agent0Client.isAvailable()) {
-      try {
-        return await agent0Client.getReputationSummary(agentId, tag1, tag2)
-      } catch (error) {
-        logger.warn('Failed to get Agent0 reputation summary', {
-          agentId,
-          error: error instanceof Error ? error.message : String(error),
-        })
-      }
-    }
-
-    return { count: 0, averageScore: 0 }
+    if (!isAgent0Enabled()) return { count: 0, averageScore: 0 }
+    const client = getAgent0Client()
+    if (!client.isAvailable()) return { count: 0, averageScore: 0 }
+    return client.getReputationSummary(agentId, tag1, tag2)
   }
 
-  /**
-   * Get local reputation (from on-chain or database)
-   */
-  private async getLocalReputation(_tokenId: number): Promise<ReputationData> {
-    // In a full implementation, this would query:
-    // 1. ERC-8004 registry on-chain
-    // 2. Local database for trading stats
+  private async getLocalReputation(tokenId: number): Promise<ReputationData> {
+    const agents = await agentRegistry.discoverAgents({})
+    const agent = agents.find((a) => a.onChainData?.tokenId === tokenId)
 
-    return this.getDefaultReputation()
-  }
+    const onChainScore = agent?.onChainData?.reputationScore ?? 0
+    const trustLevel = agent?.trustLevel ?? 0
 
-  /**
-   * Get reputation from Agent0 network
-   */
-  private async getAgent0Reputation(tokenId: number): Promise<ReputationData> {
-    if (!isAgent0Enabled()) {
-      return this.getDefaultReputation()
-    }
-
-    const agent0Client = getAgent0Client()
-
-    if (agent0Client.isAvailable()) {
-      try {
-        const chainId = agent0Client.getChainId()
-        const agentId = `${chainId}:${tokenId}`
-        const summary = await agent0Client.getReputationSummary(agentId)
-
-        return {
-          totalBets: summary.count,
-          winningBets: 0,
-          accuracyScore: summary.averageScore / 100,
-          trustScore: summary.averageScore / 100,
-          totalVolume: '0',
-          profitLoss: 0,
-          isBanned: false,
-        }
-      } catch (error) {
-        logger.warn('Failed to get Agent0 reputation', {
-          tokenId,
-          error: error instanceof Error ? error.message : String(error),
-        })
-      }
-    }
-
-    return this.getDefaultReputation()
-  }
-
-  /**
-   * Calculate weighted accuracy score
-   * Local data weighted 60%, Agent0 data weighted 40%
-   */
-  private calculateWeightedAccuracy(
-    local: ReputationData,
-    agent0: ReputationData,
-  ): number {
-    const localWeight = 0.6
-    const agent0Weight = 0.4
-
-    // If one source has no data, use the other
-    if (local.totalBets === 0 && agent0.totalBets === 0) {
-      return 0
-    }
-
-    if (local.totalBets === 0) {
-      return agent0.accuracyScore
-    }
-
-    if (agent0.totalBets === 0) {
-      return local.accuracyScore
-    }
-
-    // Weighted average
-    return (
-      local.accuracyScore * localWeight + agent0.accuracyScore * agent0Weight
-    )
-  }
-
-  /**
-   * Calculate trust score
-   * Takes maximum of both sources (more conservative)
-   */
-  private calculateTrustScore(
-    local: ReputationData,
-    agent0: ReputationData,
-  ): number {
-    if (local.totalBets === 0 && agent0.totalBets === 0) {
-      return 0
-    }
-
-    if (local.totalBets === 0) {
-      return agent0.trustScore
-    }
-
-    if (agent0.totalBets === 0) {
-      return local.trustScore
-    }
-
-    // Take maximum
-    return Math.max(local.trustScore, agent0.trustScore)
-  }
-
-  /**
-   * Sum two volume strings (wei amounts)
-   */
-  private sumVolumes(volume1: string, volume2: string): string {
-    const v1 = BigInt(volume1 ?? '0')
-    const v2 = BigInt(volume2 ?? '0')
-    return (v1 + v2).toString()
-  }
-
-  /**
-   * Get default reputation data
-   */
-  private getDefaultReputation(): ReputationData {
-    return {
+    let stats = {
       totalBets: 0,
       winningBets: 0,
-      accuracyScore: 0,
-      trustScore: 0,
       totalVolume: '0',
       profitLoss: 0,
-      isBanned: false,
+    }
+    let isBanned = false
+
+    if (localProvider) {
+      ;[stats, isBanned] = await Promise.all([
+        localProvider.getStats(tokenId),
+        localProvider.isBanned(tokenId),
+      ])
+    }
+
+    return {
+      totalBets: stats.totalBets,
+      winningBets: stats.winningBets,
+      accuracyScore:
+        stats.totalBets > 0 ? stats.winningBets / stats.totalBets : 0,
+      trustScore: onChainScore > 0 ? onChainScore / 100 : trustLevel * 0.25,
+      totalVolume: stats.totalVolume,
+      profitLoss: stats.profitLoss,
+      isBanned,
     }
   }
 
-  /**
-   * Sync local reputation to Agent0 network
-   */
+  private async getAgent0Reputation(tokenId: number): Promise<ReputationData> {
+    if (!isAgent0Enabled()) return { ...DEFAULT_REP }
+    const client = getAgent0Client()
+    if (!client.isAvailable()) return { ...DEFAULT_REP }
+
+    const agentId = `${client.getChainId()}:${tokenId}`
+    const summary = await client.getReputationSummary(agentId)
+    const profile = await client.getAgentProfile(tokenId)
+
+    const score = summary.averageScore / 100
+    return {
+      totalBets: summary.count,
+      winningBets: Math.round(summary.count * score),
+      accuracyScore: score,
+      trustScore: score,
+      totalVolume: '0',
+      profitLoss: 0,
+      isBanned: profile?.active === false,
+    }
+  }
+
   async syncReputationToAgent0(tokenId: number): Promise<void> {
-    if (!isAgent0Enabled()) {
+    if (!isAgent0Enabled()) return
+
+    const local = await this.getLocalReputation(tokenId)
+    if (local.totalBets === 0) {
+      logger.debug('No local activity, skipping sync', { tokenId })
       return
     }
 
-    logger.info(`Syncing reputation for token ${tokenId} to Agent0 network`)
-
-    const localRep = await this.getLocalReputation(tokenId)
-
-    if (localRep.totalBets === 0) {
-      logger.debug(`No local activity for token ${tokenId}, skipping sync`)
+    const client = getAgent0Client()
+    if (!client.isAvailable()) {
+      logger.warn('Agent0 unavailable for sync')
       return
     }
 
-    const agent0Client = getAgent0Client()
-
-    if (!agent0Client.isAvailable()) {
-      logger.warn('Agent0 client not available for reputation sync')
-      return
-    }
-
-    // Convert accuracy score to rating (-5 to +5)
-    const rating = Math.round((localRep.accuracyScore - 0.5) * 10)
-    const clampedRating = Math.max(-5, Math.min(5, rating))
-
-    const comment = `Local reputation sync: ${localRep.totalBets} bets, ${localRep.winningBets} wins, ${(localRep.accuracyScore * 100).toFixed(1)}% accuracy`
-
-    try {
-      await agent0Client.submitFeedback({
-        targetAgentId: tokenId,
-        rating: clampedRating,
-        comment,
-        tags: ['reputation-sync'],
-      })
-
-      logger.info(`Synced reputation for token ${tokenId} to Agent0 network`)
-    } catch (error) {
-      logger.error('Failed to sync reputation to Agent0', {
-        tokenId,
-        error: error instanceof Error ? error.message : String(error),
-      })
-      throw error
-    }
+    const rating = Math.max(
+      -5,
+      Math.min(5, Math.round((local.accuracyScore - 0.5) * 10)),
+    )
+    await client.submitFeedback({
+      targetAgentId: tokenId,
+      rating,
+      comment: `Sync: ${local.totalBets} bets, ${local.winningBets} wins, ${(local.accuracyScore * 100).toFixed(1)}%`,
+      tags: ['reputation-sync'],
+    })
+    logger.info('Synced reputation to Agent0', { tokenId })
   }
 }
 
-/** Singleton instance */
 export const reputationBridge = new ReputationBridge()

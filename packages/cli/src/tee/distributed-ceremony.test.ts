@@ -10,7 +10,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
-import { createHash } from 'node:crypto'
+import { bytesToHex, hash256 } from '@jejunetwork/shared'
 import {
   requestThresholdSignature,
   runDistributedCeremony,
@@ -402,8 +402,8 @@ describe('DKG Protocol Security', () => {
 
   test('aggregated commitment is deterministic for same shares', async () => {
     // Create mock shares with known commitments to verify hash computation
-    const commitment1 = createHash('sha256').update('commitment1').digest('hex')
-    const commitment2 = createHash('sha256').update('commitment2').digest('hex')
+    const commitment1 = bytesToHex(hash256('commitment1'))
+    const commitment2 = bytesToHex(hash256('commitment2'))
 
     // Verify commitments are valid hex (aggregated commitment = hash(commitment1:commitment2))
     expect(commitment1).toHaveLength(64)

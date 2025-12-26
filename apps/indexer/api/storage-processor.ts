@@ -14,7 +14,7 @@ import {
   StorageProvider,
   StorageProviderType,
   StorageTier,
-} from './model'
+} from '../src/model'
 import type { ProcessorContext } from './processor'
 import { createAccountFactory } from './utils/entities'
 import { decodeLog, isEventInSet } from './utils/hex'

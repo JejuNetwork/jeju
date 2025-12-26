@@ -26,6 +26,7 @@ import {
 
 // Schema for token permissions
 const PermissionsSchema = z.array(z.string())
+
 import { requireAuth } from '../validation/access-control'
 
 export interface PackageMaintainer {

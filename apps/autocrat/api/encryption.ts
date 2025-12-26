@@ -139,40 +139,48 @@ export interface AuthSig {
   address: string
 }
 
-// Environment configuration (with network-aware fallbacks)
-const getCouncilAddress = () => {
-  try {
-    return getContract('governance', 'council')
-  } catch {
-    return '0x0000000000000000000000000000000000000000'
+// Lazy configuration getters to avoid initialization errors in tests
+let _councilAddress: string | null = null
+let _chainId: string | null = null
+let _encryptionKey: string | null = null
+
+function getCouncilAddress(): string {
+  if (!_councilAddress) {
+    _councilAddress = getContract('governance', 'council')
   }
+  return _councilAddress
 }
-const COUNCIL_ADDRESS = getCouncilAddress()
-const CHAIN_ID = String(getChainId())
+
+function getChainIdString(): string {
+  if (!_chainId) {
+    _chainId = String(getChainId())
+  }
+  return _chainId
+}
 
 function getDAUrl(): string {
   return getServiceUrl('storage', 'api')
 }
 
-// Encryption key from environment - MUST be set in production
 function getEncryptionKey(): string {
-  const key = process.env.TEE_ENCRYPTION_SECRET
-  if (key) return key
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('TEE_ENCRYPTION_SECRET required in production')
+  if (!_encryptionKey) {
+    const key = process.env.TEE_ENCRYPTION_SECRET
+    if (!key) {
+      throw new Error('TEE_ENCRYPTION_SECRET environment variable is required')
+    }
+    _encryptionKey = key
   }
-  return 'council-local-dev'
+  return _encryptionKey
 }
-const ENCRYPTION_KEY = getEncryptionKey()
 
-let initialized = false
+function isInitialized(): boolean {
+  return _encryptionKey !== null
+}
 
-/**
- * Initialize encryption system
- */
-async function initEncryption(): Promise<void> {
-  if (initialized) return
-  initialized = true
+function reset(): void {
+  _councilAddress = null
+  _chainId = null
+  _encryptionKey = null
 }
 
 /**
@@ -190,9 +198,9 @@ function createAccessConditions(
   return [
     // Condition 1: Proposal is completed
     {
-      contractAddress: COUNCIL_ADDRESS,
+      contractAddress: getCouncilAddress(),
       standardContractType: 'Custom',
-      chain: CHAIN_ID,
+      chain: getChainIdString(),
       method: 'proposals',
       parameters: [proposalId],
       returnValueTest: {
@@ -205,7 +213,7 @@ function createAccessConditions(
     {
       contractAddress: '',
       standardContractType: 'timestamp',
-      chain: CHAIN_ID,
+      chain: getChainIdString(),
       method: 'eth_getBlockByNumber',
       parameters: ['latest'],
       returnValueTest: {
@@ -221,7 +229,7 @@ function createAccessConditions(
  */
 async function deriveKey(policyHash: string): Promise<CryptoKey> {
   const keyMaterial = new TextEncoder().encode(
-    `${ENCRYPTION_KEY}:${policyHash}`,
+    `${getEncryptionKey()}:${policyHash}`,
   )
   const hashBuffer = await crypto.subtle.digest('SHA-256', keyMaterial)
 
@@ -293,8 +301,6 @@ async function decrypt(
 export async function encryptDecision(
   decision: DecisionData,
 ): Promise<EncryptedData> {
-  await initEncryption()
-
   const dataToEncrypt = JSON.stringify(decision)
   const encryptedAt = Math.floor(Date.now() / 1000)
   const accessControlConditions = createAccessConditions(
@@ -312,7 +318,7 @@ export async function encryptDecision(
     ciphertext: JSON.stringify({ ciphertext, iv, tag, version: 1 }),
     dataToEncryptHash,
     accessControlConditions,
-    chain: CHAIN_ID,
+    chain: getChainIdString(),
     encryptedAt,
   }
 }
@@ -324,8 +330,6 @@ export async function decryptDecision(
   encryptedData: EncryptedData,
   _authSig?: AuthSig,
 ): Promise<DecryptionResult> {
-  await initEncryption()
-
   const policyHash = keccak256(
     stringToHex(JSON.stringify(encryptedData.accessControlConditions)),
   )
@@ -366,14 +370,14 @@ export async function backupToDA(
         conditions: [
           {
             type: 'timestamp',
-            chain: CHAIN_ID,
+            chain: getChainIdString(),
             comparator: '>=',
             value: encryptedData.encryptedAt + 30 * 24 * 60 * 60,
           },
         ],
         operator: 'or',
       },
-      owner: COUNCIL_ADDRESS,
+      owner: getCouncilAddress(),
       metadata: { type: 'ceo_decision', proposalId },
     }),
   })
@@ -389,28 +393,29 @@ export async function backupToDA(
 
 /**
  * Retrieve encrypted decision from DA layer by proposalId
+ * @throws Error if DA search or retrieval fails
  */
 export async function retrieveFromDA(
   proposalId: string,
-): Promise<EncryptedData | null> {
+): Promise<EncryptedData | undefined> {
   const searchResponse = await fetch(`${getDAUrl()}/api/v1/encrypted/search`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       metadata: { type: 'ceo_decision', proposalId },
-      accessor: COUNCIL_ADDRESS,
+      accessor: getCouncilAddress(),
     }),
   })
 
   if (!searchResponse.ok) {
-    return null
+    throw new Error(`DA search failed: ${searchResponse.status}`)
   }
 
   const rawSearchResult = await searchResponse.json()
   const searchResult = DASearchResultSchema.parse(rawSearchResult)
 
   if (searchResult.results.length === 0) {
-    return null
+    return undefined
   }
 
   const latest = searchResult.results.sort(
@@ -424,13 +429,13 @@ export async function retrieveFromDA(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         keyId: latest.keyId,
-        accessor: COUNCIL_ADDRESS,
+        accessor: getCouncilAddress(),
       }),
     },
   )
 
   if (!retrieveResponse.ok) {
-    return null
+    throw new Error(`DA retrieval failed: ${retrieveResponse.status}`)
   }
 
   const rawRetrieveResult = await retrieveResponse.json()
@@ -484,18 +489,18 @@ export async function canDecrypt(
   })
 
   if (!response.ok) {
-    return false
+    throw new Error(`RPC call failed: ${response.status}`)
   }
 
   const rawResult = await response.json()
-  const parseResult = RPCResultSchema.safeParse(rawResult)
-  if (!parseResult.success) {
-    return false
-  }
-  const result = parseResult.data
+  const result = RPCResultSchema.parse(rawResult)
 
-  if (result.error || !result.result || result.result === '0x') {
-    return false
+  if (result.error) {
+    throw new Error(`RPC error: ${result.error.message}`)
+  }
+
+  if (!result.result || result.result === '0x') {
+    throw new Error('Empty RPC result for proposal status')
   }
 
   const statusOffset = 8 * 64 + 2
@@ -505,22 +510,10 @@ export async function canDecrypt(
   return status === 7
 }
 
-/**
- * Get encryption status
- */
-export function getEncryptionStatus(): {
-  provider: string
-  connected: boolean
-} {
-  return {
-    provider: 'jeju-kms',
-    connected: initialized,
-  }
+export function getEncryptionStatus(): { provider: string; connected: boolean } {
+  return { provider: 'jeju-kms', connected: isInitialized() }
 }
 
-/**
- * Disconnect encryption (reset state)
- */
 export async function disconnect(): Promise<void> {
-  initialized = false
+  reset()
 }

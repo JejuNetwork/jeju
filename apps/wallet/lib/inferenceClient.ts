@@ -8,6 +8,7 @@
  * - Supports TEE for private inference
  */
 
+import { getRpcUrl } from '@jejunetwork/config'
 import { type ChatMessage, expectValid } from '@jejunetwork/types'
 import type { Address } from 'viem'
 import { z } from 'zod'
@@ -18,16 +19,8 @@ import {
 import { API_URLS, fetchApi } from './eden'
 import { expectJson } from './validation'
 
-/** Generate UUID with fallback for browsers that don't support crypto.randomUUID */
 function generateUUID(): string {
-  if (
-    typeof crypto !== 'undefined' &&
-    typeof crypto.randomUUID === 'function'
-  ) {
-    return generateUUID()
-  }
-  // Fallback: generate a UUID-like string
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 11)}-${Math.random().toString(36).slice(2, 11)}`
+  return crypto.randomUUID()
 }
 
 export interface ChatRequest {
@@ -99,9 +92,6 @@ export interface AvailableModel {
   active: boolean
 }
 
-const DEFAULT_GATEWAY = API_URLS.compute
-const DEFAULT_MODEL = 'jeju/llama-3.1-70b'
-
 const SYSTEM_PROMPT = `You are Network Wallet, an advanced AI assistant for decentralized finance.
 
 Your core mission is to help users manage their crypto assets seamlessly across multiple chains.
@@ -131,16 +121,21 @@ class InferenceClient {
   private lastModelFetch = 0
   private modelCacheTTL = 5 * 60 * 1000 // 5 minutes
 
-  constructor(config?: Partial<InferenceConfig>) {
+  constructor(config: InferenceConfig) {
+    if (!config.gatewayUrl)
+      throw new Error('gatewayUrl is required in InferenceConfig')
+    if (!config.preferredModel)
+      throw new Error('preferredModel is required in InferenceConfig')
+
     this.config = {
-      gatewayUrl: config?.gatewayUrl ?? DEFAULT_GATEWAY,
-      rpcUrl: config?.rpcUrl ?? 'https://rpc.jejunetwork.org',
-      walletAddress: config?.walletAddress,
-      preferredModel: config?.preferredModel ?? DEFAULT_MODEL,
-      requireTEE: config?.requireTEE ?? false,
-      maxRetries: config?.maxRetries ?? 3,
-      timeoutMs: config?.timeoutMs ?? 30000,
-      retryDelayMs: config?.retryDelayMs ?? 1000,
+      gatewayUrl: config.gatewayUrl,
+      rpcUrl: config.rpcUrl ?? getRpcUrl(),
+      walletAddress: config.walletAddress,
+      preferredModel: config.preferredModel,
+      requireTEE: config.requireTEE ?? false,
+      maxRetries: config.maxRetries ?? 3,
+      timeoutMs: config.timeoutMs ?? 30000,
+      retryDelayMs: config.retryDelayMs ?? 1000,
     }
 
     // Initialize with system prompt
@@ -459,6 +454,38 @@ class InferenceClient {
   }
 }
 
-export const inferenceClient = new InferenceClient()
+export function createInferenceClient(
+  config: InferenceConfig,
+): InferenceClient {
+  return new InferenceClient(config)
+}
+
+// Lazy-initialized singleton using API_URLS
+let _inferenceClient: InferenceClient | undefined
+
+export function getInferenceClient(): InferenceClient {
+  if (!_inferenceClient) {
+    _inferenceClient = new InferenceClient({
+      gatewayUrl: API_URLS.compute,
+      preferredModel: 'jeju/llama-3.1-70b',
+    })
+  }
+  return _inferenceClient
+}
+
+// Legacy export for backwards compatibility - uses lazy singleton
+export const inferenceClient = {
+  setWalletAddress: (address: Address) =>
+    getInferenceClient().setWalletAddress(address),
+  getModels: (forceRefresh?: boolean) =>
+    getInferenceClient().getModels(forceRefresh),
+  chat: (request: ChatRequest) => getInferenceClient().chat(request),
+  chatStream: (request: ChatRequest) =>
+    getInferenceClient().chatStream(request),
+  clearHistory: () => getInferenceClient().clearHistory(),
+  getHistory: () => getInferenceClient().getHistory(),
+  configure: (config: Partial<InferenceConfig>) =>
+    getInferenceClient().configure(config),
+}
 
 export { InferenceClient }

@@ -391,6 +391,7 @@ export const DEFAULT_PORTS = {
   oracle: 4301,
   jns: 4302,
   ipfs: CONFIG_CORE_PORTS.IPFS_API.DEFAULT,
+  dws: CONFIG_CORE_PORTS.DWS_API.DEFAULT,
 } as const
 
 export const CHAIN_CONFIG = {

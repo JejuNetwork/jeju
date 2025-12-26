@@ -1,4 +1,4 @@
-import { ConnectButton } from '@rainbow-me/rainbowkit'
+import { WalletButton } from '@jejunetwork/ui'
 import { useQuery } from '@tanstack/react-query'
 import { CheckCircle, Clock, type LucideProps, XCircle } from 'lucide-react'
 import { type ComponentType, useMemo, useState } from 'react'
@@ -230,19 +230,97 @@ export default function XLPDashboard() {
   if (!crossChainPaymaster || !l1StakeManager) {
     return (
       <div className="card">
-        <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem' }}>
-          XLP Dashboard
+        <h2
+          style={{
+            fontSize: '1.25rem',
+            marginBottom: '1.5rem',
+            fontWeight: 700,
+          }}
+        >
+          Liquidity Dashboard
         </h2>
         <div
           style={{
-            padding: '1rem',
-            background: 'var(--warning-soft)',
-            borderRadius: '8px',
+            padding: '2.5rem',
+            background:
+              'linear-gradient(135deg, var(--surface-hover) 0%, var(--surface) 100%)',
+            borderRadius: '16px',
+            textAlign: 'center',
+            border: '1px solid var(--border)',
           }}
         >
-          <p style={{ color: 'var(--warning)', margin: 0 }}>
-            EIL contracts not configured. Please deploy EIL first.
+          <div
+            style={{
+              width: '80px',
+              height: '80px',
+              margin: '0 auto 1.5rem',
+              borderRadius: '50%',
+              background:
+                'linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(99, 102, 241, 0.2) 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <span style={{ fontSize: '2.5rem' }}>💧</span>
+          </div>
+          <h3
+            style={{
+              fontSize: '1.25rem',
+              fontWeight: 700,
+              marginBottom: '0.75rem',
+              color: 'var(--text-primary)',
+            }}
+          >
+            EIL Contracts Not Deployed
+          </h3>
+          <p
+            style={{
+              color: 'var(--text-secondary)',
+              fontSize: '0.9375rem',
+              marginBottom: '1.5rem',
+              maxWidth: '400px',
+              margin: '0 auto 1.5rem',
+              lineHeight: 1.6,
+            }}
+          >
+            The XLP (Cross-Chain Liquidity Provider) system requires EIL
+            contracts. Deploy them to start providing liquidity and earning
+            fees.
           </p>
+          <div
+            style={{
+              display: 'inline-flex',
+              flexDirection: 'column',
+              gap: '0.75rem',
+              padding: '1rem 1.5rem',
+              background: 'var(--surface)',
+              borderRadius: '12px',
+              border: '1px solid var(--border)',
+            }}
+          >
+            <span
+              style={{
+                fontSize: '0.75rem',
+                color: 'var(--text-muted)',
+                fontWeight: 500,
+              }}
+            >
+              Deploy contracts with:
+            </span>
+            <code
+              style={{
+                fontSize: '0.8125rem',
+                fontFamily: 'monospace',
+                color: 'var(--primary)',
+                background: 'var(--primary-soft)',
+                padding: '0.5rem 1rem',
+                borderRadius: '6px',
+              }}
+            >
+              bun run scripts/deploy-eil.ts
+            </code>
+          </div>
         </div>
       </div>
     )
@@ -537,7 +615,7 @@ export default function XLPDashboard() {
               >
                 Connect your wallet to manage liquidity
               </p>
-              <ConnectButton />
+              <WalletButton />
             </div>
           ))}
 
@@ -830,7 +908,7 @@ export default function XLPDashboard() {
               >
                 Minimum 1 ETH stake • 8-day unbonding period
               </p>
-              <ConnectButton />
+              <WalletButton />
             </div>
           ))}
 

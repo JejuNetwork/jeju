@@ -12,7 +12,7 @@ const inferenceProviders: APIProvider[] = [
   {
     id: 'openai',
     name: 'OpenAI',
-    description: 'GPT-4o, o1, o3, DALL-E, Whisper, Embeddings',
+    description: 'GPT-5.2, DALL-E, Whisper, Embeddings',
     baseUrl: 'https://api.openai.com/v1',
     authType: 'bearer',
     authConfig: { headerName: 'Authorization', prefix: 'Bearer ' },
@@ -34,7 +34,7 @@ const inferenceProviders: APIProvider[] = [
   {
     id: 'anthropic',
     name: 'Anthropic',
-    description: 'Claude 3.5, Claude 3 Opus/Sonnet/Haiku',
+    description: 'Claude 4.5 Opus, Claude 4.5 Sonnet',
     baseUrl: 'https://api.anthropic.com/v1',
     authType: 'header',
     authConfig: { headerName: 'x-api-key' },
@@ -238,9 +238,8 @@ const cloudProviders: APIProvider[] = [
     envVar: 'AWS_BEDROCK_ACCESS_KEY_ID',
     defaultPricePerRequest: 100000000000000n,
     knownEndpoints: [
-      '/model/anthropic.claude-3-5-sonnet-20241022-v2:0/invoke',
-      '/model/anthropic.claude-3-opus-20240229-v1:0/invoke',
-      '/model/anthropic.claude-3-haiku-20240307-v1:0/invoke',
+      '/model/anthropic.claude-opus-4-5-v1:0/invoke',
+      '/model/anthropic.claude-sonnet-4-5-v1:0/invoke',
       '/model/meta.llama3-2-90b-instruct-v1:0/invoke',
       '/model/meta.llama3-2-11b-instruct-v1:0/invoke',
       '/model/mistral.mistral-large-2407-v1:0/invoke',
@@ -262,7 +261,7 @@ const cloudProviders: APIProvider[] = [
     knownEndpoints: [
       '/projects/{project}/locations/{location}/publishers/google/models/gemini-1.5-pro:generateContent',
       '/projects/{project}/locations/{location}/publishers/google/models/gemini-1.5-flash:generateContent',
-      '/projects/{project}/locations/{location}/publishers/anthropic/models/claude-3-5-sonnet:rawPredict',
+      '/projects/{project}/locations/{location}/publishers/anthropic/models/claude-opus-4-5:rawPredict',
       '/projects/{project}/locations/{location}/publishers/meta/models/llama-3.2-90b-instruct-maas:rawPredict',
     ],
     supportsStreaming: true,

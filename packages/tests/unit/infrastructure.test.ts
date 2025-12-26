@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from 'bun:test'
-import * as crypto from 'node:crypto'
+import { bytesToHex, hash160, hash256 } from '@jejunetwork/shared'
 import { z } from 'zod'
 
 // Query Classification Tests
@@ -217,7 +217,7 @@ describe('Configuration Schemas', () => {
 describe('Content Hash Verification', () => {
   function verifyContentHash(data: Buffer, expectedHash: string): boolean {
     if (expectedHash.startsWith('0x')) {
-      const hash = crypto.createHash('sha256').update(data).digest('hex')
+      const hash = bytesToHex(hash256(new Uint8Array(data)))
       return `0x${hash}` === expectedHash || expectedHash.includes(hash)
     }
 
@@ -233,7 +233,7 @@ describe('Content Hash Verification', () => {
 
     // BitTorrent infohash (sha1)
     if (expectedHash.length === 40) {
-      const hash = crypto.createHash('sha1').update(data).digest('hex')
+      const hash = bytesToHex(hash160(new Uint8Array(data)))
       return hash === expectedHash
     }
 
@@ -242,7 +242,7 @@ describe('Content Hash Verification', () => {
 
   it('should verify SHA256 hash with 0x prefix', () => {
     const data = Buffer.from('Hello, World!')
-    const hash = crypto.createHash('sha256').update(data).digest('hex')
+    const hash = bytesToHex(hash256(new Uint8Array(data)))
 
     expect(verifyContentHash(data, `0x${hash}`)).toBe(true)
   })
@@ -256,7 +256,7 @@ describe('Content Hash Verification', () => {
 
   it('should verify SHA1 infohash', () => {
     const data = Buffer.from('BitTorrent content')
-    const hash = crypto.createHash('sha1').update(data).digest('hex')
+    const hash = bytesToHex(hash160(new Uint8Array(data)))
 
     expect(verifyContentHash(data, hash)).toBe(true)
   })

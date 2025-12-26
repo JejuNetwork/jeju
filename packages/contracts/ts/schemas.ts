@@ -57,6 +57,17 @@ export type BazaarMarketplaceDeployment = z.infer<
   typeof BazaarMarketplaceDeploymentSchema
 >
 
+export const SimpleCollectibleDeploymentSchema = z.object({
+  at: AddressSchema.optional(),
+  simpleCollectible: AddressSchema.optional(),
+  name: z.string().optional(),
+  symbol: z.string().optional(),
+  Owner: AddressSchema.optional(),
+})
+export type SimpleCollectibleDeployment = z.infer<
+  typeof SimpleCollectibleDeploymentSchema
+>
+
 export const ERC20FactoryDeploymentSchema = z.object({
   at: AddressSchema.optional(),
   factory: AddressSchema.optional(),

@@ -1,0 +1,32 @@
+{
+  "predictionOracle": "0x0C8542AB89c1C60D711B00F309f7EF63b5D9d6eb",
+  "predictionMarket": "0x33f4f8bf90d8AA3d19fF812B50e79c15Df0d0b03",
+  "markets": [
+    {
+      "sessionId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+      "question": "Will Bitcoin hit $150,000 by end of 2025?",
+      "liquidity": "1000000000000000000000"
+    },
+    {
+      "sessionId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+      "question": "Will Ethereum 3.0 launch in Q1 2026?",
+      "liquidity": "1000000000000000000000"
+    },
+    {
+      "sessionId": "0x0000000000000000000000000000000000000000000000000000000000000003",
+      "question": "Will a major AI lab release AGI by 2027?",
+      "liquidity": "500000000000000000000"
+    },
+    {
+      "sessionId": "0x0000000000000000000000000000000000000000000000000000000000000004",
+      "question": "Will the US Federal Reserve cut rates in January 2026?",
+      "liquidity": "1000000000000000000000"
+    },
+    {
+      "sessionId": "0x0000000000000000000000000000000000000000000000000000000000000005",
+      "question": "Will Jeju Network reach 10,000 daily active users?",
+      "liquidity": "2000000000000000000000"
+    }
+  ],
+  "deployedAt": "2025-12-26T05:11:56.228Z"
+}

@@ -1,7 +1,7 @@
 /** Local development proxy with Caddy */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { CORE_PORTS, INFRA_PORTS } from '@jejunetwork/config'
+import { INFRA_PORTS } from '@jejunetwork/config'
 import { $ } from 'bun'
 import { discoverAllApps } from './discover-apps'
 
@@ -13,15 +13,6 @@ const PID_FILE = `${CADDY_DIR}/caddy.pid`
 // Hosts file block markers
 const HOSTS_BLOCK_START = '# JEJU LOCAL DEV START'
 const HOSTS_BLOCK_END = '# JEJU LOCAL DEV END'
-
-/**
- * Slugify a display name to match how dev.ts generates URLs
- * "Gateway" -> "gateway"
- * "Autocrat" -> "autocrat"
- */
-function slugifyDisplayName(displayName: string): string {
-  return displayName.toLowerCase().replace(/\s+/g, '-')
-}
 
 /**
  * Get the primary port for an app from its manifest
@@ -42,39 +33,39 @@ function getPrimaryPort(
 
 /**
  * Build service mappings from discovered apps and infrastructure ports
- * Uses slugified display names to match how URLs are generated in dev.ts
+ * Uses app folder names (short names) for URLs
  */
 function buildServicesFromApps(): Record<string, number> {
   const services: Record<string, number> = {}
 
-  // Add infrastructure services (these use short names)
+  // Add infrastructure services
   services.rpc = INFRA_PORTS.L2_RPC.get()
   services.ws = INFRA_PORTS.L2_WS.get()
 
-  // Discover apps and use their slugified display names
+  // Discover apps and use their folder names (not displayName slugs)
   const apps = discoverAllApps()
   for (const app of apps) {
+    // Skip oauth3 - we handle it specially below
+    if (app.name === 'oauth3') continue
+
     const port = getPrimaryPort(app.manifest.ports)
     if (port) {
-      const displayName = app.manifest.displayName || app.name
-      const slug = slugifyDisplayName(displayName)
-      services[slug] = port
-
-      if (app.name !== slug) {
-        services[app.name] = port
-      }
+      services[app.name] = port
     }
   }
 
-  // Add any core services that might not have manifests
-  if (!services.ipfs) services.ipfs = CORE_PORTS.IPFS.get()
-  if (!services.compute) services.compute = CORE_PORTS.COMPUTE.get()
-
-  // DWS services - git and pkg are DWS endpoints, all on port 4030
+  // DWS services - git and pkg are DWS endpoints
   const dwsPort = 4030
   services.dws = dwsPort
   services.git = dwsPort
   services.pkg = dwsPort
+
+  // OAuth3 authentication:
+  // - auth.local → authentication gateway API (port 4200)
+  // - oauth3.local → authentication gateway API (port 4200) - also serves frontend
+  // Note: The API server on 4200 serves both API endpoints and frontend HTML
+  services.auth = 4200
+  services.oauth3 = 4200
 
   return services
 }
@@ -366,14 +357,16 @@ function formatUrl(subdomain: string, domain: string, port: number): string {
 
 // Services that should bypass JNS and route directly to their ports
 // These are infrastructure services, not deployable apps
+// Services that route directly to their backend (not via JNS Gateway)
 const DIRECT_ROUTE_SERVICES = new Set([
-  'rpc',
-  'ws',
-  'ipfs',
-  'compute',
-  'indexer',
+  'rpc', // L2 RPC endpoint
+  'ws', // L2 WebSocket endpoint
+  'indexer', // Indexer serves its own frontend
   'git', // JejuGit - routes to DWS
   'pkg', // JejuPkg - routes to DWS
+  'auth', // OAuth3 authentication gateway API
+  'oauth3', // OAuth3 lander/frontend page
+  'vpn', // VPN app - serves its own frontend in dev
   // Note: 'dws' is NOT here - it has a frontend served via JNS Gateway
 ])
 
@@ -383,6 +376,7 @@ const HYBRID_SERVICES: Record<string, { port: number; apiPaths: string[] }> = {
   dws: {
     port: 4030,
     apiPaths: [
+      '/health',
       '/storage/*',
       '/compute/*',
       '/cdn/*',
@@ -391,6 +385,7 @@ const HYBRID_SERVICES: Record<string, { port: number; apiPaths: string[] }> = {
       '/ci/*',
       '/oauth3/*',
       '/api/*',
+      '/api-marketplace/*',
       '/a2a/*',
       '/mcp/*',
       '/s3/*',
@@ -410,6 +405,27 @@ const HYBRID_SERVICES: Record<string, { port: number; apiPaths: string[] }> = {
       '/ingress/*',
       '/mesh/*',
       '/containers/*',
+      '/deploy/*',
+      '/indexer/*',
+      '/faucet/*',
+      '/cache/*',
+      '/email/*',
+      '/lb/*',
+      '/node/*',
+      '/prices/*',
+      '/moderation/*',
+      '/.well-known/*',
+    ],
+  },
+  babylon: {
+    port: 5009,
+    apiPaths: [
+      '/api/*',
+      '/health',
+      '/.well-known/*',
+      '/a2a/*',
+      '/mcp/*',
+      '/ws/*',
     ],
   },
 }
@@ -500,16 +516,22 @@ export function generateCaddyfile(config: ProxyConfig = {}): string {
       entries.push(`    rewrite * ${basePath}{uri}`)
       entries.push(`    reverse_proxy localhost:${dwsPort}`)
     } else if (HYBRID_SERVICES[service]) {
-      // Hybrid services: API paths to backend, everything else to JNS Gateway
+      // Hybrid services: route to backend, with optional JNS Gateway fallback
       const hybrid = HYBRID_SERVICES[service]
-      for (const apiPath of hybrid.apiPaths) {
-        entries.push(`    handle ${apiPath} {`)
-        entries.push(`        reverse_proxy localhost:${hybrid.port}`)
+      // DWS serves its own frontend - route everything to DWS
+      if (service === 'dws') {
+        entries.push(`    reverse_proxy localhost:${hybrid.port}`)
+      } else {
+        // Other hybrid services: API paths to backend, fallback to JNS Gateway
+        for (const apiPath of hybrid.apiPaths) {
+          entries.push(`    handle ${apiPath} {`)
+          entries.push(`        reverse_proxy localhost:${hybrid.port}`)
+          entries.push(`    }`)
+        }
+        entries.push(`    handle {`)
+        entries.push(`        reverse_proxy localhost:${jnsGatewayPort}`)
         entries.push(`    }`)
       }
-      entries.push(`    handle {`)
-      entries.push(`        reverse_proxy localhost:${jnsGatewayPort}`)
-      entries.push(`    }`)
     } else if (DIRECT_ROUTE_SERVICES.has(service)) {
       // Infrastructure services route directly to their ports
       entries.push(`    reverse_proxy localhost:${port}`)
@@ -628,40 +650,35 @@ async function removePortForwarding(): Promise<void> {
 }
 
 /**
- * Check if port forwarding is already set up
+ * Check if port forwarding is already set up by testing if port 80 is accessible
+ * This is more reliable than checking pf rules which requires sudo
  */
 export async function isPortForwardingActive(): Promise<boolean> {
-  const platform = process.platform
+  // Actually test if port 80 responds - this works regardless of sudo credentials
+  // Since Caddy is already running on 8080 when this is called, if port 80
+  // connects successfully, it means port forwarding is working
+  const net = await import('node:net')
 
-  if (platform === 'darwin') {
-    // Check if pf has our rules loaded
-    const result = await $`sudo -n pfctl -sr 2>/dev/null`.nothrow().quiet()
-    if (result.exitCode === 0) {
-      const rules = result.stdout.toString()
-      return rules.includes('port 80') && rules.includes('port 8080')
-    }
-    return false
-  } else if (platform === 'linux') {
-    const result = await $`sudo -n iptables -t nat -L OUTPUT -n 2>/dev/null`
-      .nothrow()
-      .quiet()
-    if (result.exitCode === 0) {
-      const rules = result.stdout.toString()
-      return rules.includes('80') && rules.includes('8080')
-    }
-    return false
-  } else if (platform === 'win32') {
-    const result = await $`netsh interface portproxy show v4tov4`
-      .nothrow()
-      .quiet()
-    if (result.exitCode === 0) {
-      const output = result.stdout.toString()
-      return output.includes('80') && output.includes('8080')
-    }
-    return false
-  }
+  return new Promise((resolve) => {
+    const socket = new net.Socket()
+    const timeout = setTimeout(() => {
+      socket.destroy()
+      resolve(false)
+    }, 500)
 
-  return false
+    socket.on('connect', () => {
+      clearTimeout(timeout)
+      socket.destroy()
+      resolve(true)
+    })
+
+    socket.on('error', () => {
+      clearTimeout(timeout)
+      resolve(false)
+    })
+
+    socket.connect(80, '127.0.0.1')
+  })
 }
 
 /**

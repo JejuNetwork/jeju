@@ -1,19 +1,19 @@
 /** Key management utilities with AES-256-GCM encryption */
 
 import {
-  createCipheriv,
-  createDecipheriv,
-  randomBytes,
-  scrypt,
-} from 'node:crypto'
-import {
   chmodSync,
   existsSync,
   mkdirSync,
   readFileSync,
   writeFileSync,
 } from 'node:fs'
-import { promisify } from 'node:util'
+import {
+  bytesToHex,
+  decryptAesGcm,
+  deriveKeyScrypt,
+  encryptAesGcm,
+  randomBytes,
+} from '@jejunetwork/shared'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import { z } from 'zod'
 import {
@@ -47,10 +47,6 @@ const DeployerKeySchema = z.object({
   privateKey: z.string().regex(/^0x[a-fA-F0-9]{64}$/),
   role: z.string().max(200).optional(),
 })
-
-const scryptAsync = promisify(scrypt)
-
-const KEY_LENGTH = 32
 
 export interface OperatorKeySet {
   sequencer: KeyConfig
@@ -151,30 +147,33 @@ export function generateOperatorKeys(): OperatorKeySet {
 /**
  * Encrypt a KeySet using AES-256-GCM with scrypt key derivation
  *
- * Format: salt (32) + iv (16) + authTag (16) + encrypted
+ * Format: salt (32) + iv (12) + authTag (16) + encrypted
  */
 export async function encryptKeySet(
   keySet: KeySet,
   password: string,
 ): Promise<Buffer> {
   const salt = randomBytes(32)
-  const iv = randomBytes(16)
 
   // Derive key using scrypt (memory-hard function)
-  const key = (await scryptAsync(password, salt, KEY_LENGTH)) as Buffer
+  const key = await deriveKeyScrypt(password, salt, {
+    N: 16384,
+    r: 8,
+    p: 1,
+    dkLen: 32,
+  })
 
-  const cipher = createCipheriv('aes-256-gcm', key, iv)
-  const data = JSON.stringify(keySet)
+  const data = new TextEncoder().encode(JSON.stringify(keySet))
+  const { ciphertext, iv, tag } = await encryptAesGcm(data, key)
 
-  const encrypted = Buffer.concat([cipher.update(data, 'utf8'), cipher.final()])
+  // Format: salt (32) + iv (12) + authTag (16) + encrypted
+  const result = new Uint8Array(32 + 12 + 16 + ciphertext.length)
+  result.set(salt, 0)
+  result.set(iv, 32)
+  result.set(tag, 44)
+  result.set(ciphertext, 60)
 
-  const authTag = cipher.getAuthTag()
-
-  // Clear sensitive data from memory
-  key.fill(0)
-
-  // Format: salt (32) + iv (16) + authTag (16) + encrypted
-  return Buffer.concat([salt, iv, authTag, encrypted])
+  return Buffer.from(result)
 }
 
 /**
@@ -184,23 +183,24 @@ export async function decryptKeySet(
   encrypted: Buffer,
   password: string,
 ): Promise<KeySet> {
-  const salt = encrypted.subarray(0, 32)
-  const iv = encrypted.subarray(32, 48)
-  const authTag = encrypted.subarray(48, 64)
-  const data = encrypted.subarray(64)
+  const encryptedBytes = new Uint8Array(encrypted)
+  const salt = encryptedBytes.slice(0, 32)
+  const iv = encryptedBytes.slice(32, 44)
+  const authTag = encryptedBytes.slice(44, 60)
+  const data = encryptedBytes.slice(60)
 
-  const key = (await scryptAsync(password, salt, KEY_LENGTH)) as Buffer
+  const key = await deriveKeyScrypt(password, salt, {
+    N: 16384,
+    r: 8,
+    p: 1,
+    dkLen: 32,
+  })
 
-  const decipher = createDecipheriv('aes-256-gcm', key, iv)
-  decipher.setAuthTag(authTag)
-
-  const decrypted = Buffer.concat([decipher.update(data), decipher.final()])
-
-  // Clear key from memory
-  key.fill(0)
+  const decrypted = await decryptAesGcm(data, key, iv, authTag)
+  const decryptedText = new TextDecoder().decode(decrypted)
 
   // SECURITY: Validate decrypted data against schema to prevent insecure deserialization
-  const rawData = JSON.parse(decrypted.toString('utf8'))
+  const rawData = JSON.parse(decryptedText) as unknown
   const result = KeySetSchema.safeParse(rawData)
   if (!result.success) {
     throw new Error(
@@ -365,7 +365,7 @@ export function printFundingRequirements(
 }
 
 export function generateEntropyString(): string {
-  return randomBytes(32).toString('hex')
+  return bytesToHex(randomBytes(32))
 }
 
 export function validatePassword(password: string): {

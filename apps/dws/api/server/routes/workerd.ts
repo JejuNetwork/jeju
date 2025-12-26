@@ -3,7 +3,7 @@
  * V8 isolate-based serverless worker deployment and invocation
  */
 
-import { getCurrentNetwork, getRpcUrl } from '@jejunetwork/config'
+import { getContract, getCurrentNetwork, getRpcUrl } from '@jejunetwork/config'
 import {
   expectJson,
   expectValid,
@@ -203,11 +203,18 @@ export function createWorkerdRouter(options: WorkerdRouterOptions) {
             codeBuffer = Buffer.from(await codeFile.arrayBuffer())
           }
         } else {
-          const jsonBody = expectValid(
-            DeployWorkerJsonBodySchema,
-            body,
-            'Deploy worker body',
-          )
+          const parseResult = DeployWorkerJsonBodySchema.safeParse(body)
+          if (!parseResult.success) {
+            set.status = 400
+            return {
+              error: 'Validation failed',
+              details: parseResult.error.issues.map((e) => ({
+                path: e.path.join('.'),
+                message: e.message,
+              })),
+            }
+          }
+          const jsonBody = parseResult.data
           name = jsonBody.name
           memoryMb = jsonBody.memoryMb ?? 128
           timeoutMs = jsonBody.timeoutMs ?? 30000
@@ -805,6 +812,19 @@ function getChainForNetwork(network: NetworkType) {
 
 // Default contract addresses per network
 // Note: For localnet, contracts are deployed fresh on each chain restart
+// Safely get contract with fallback to zero address
+function safeGetContract(
+  category: string,
+  name: string,
+  network: string,
+): string {
+  try {
+    return getContract(category, name, network)
+  } catch {
+    return '0x0000000000000000000000000000000000000000'
+  }
+}
+
 // The identityRegistry address should come from config or env vars
 const NETWORK_DEFAULTS: Record<
   NetworkType,
@@ -815,19 +835,18 @@ const NETWORK_DEFAULTS: Record<
 > = {
   localnet: {
     rpcUrl: getRpcUrl('localnet'),
-    // Default to zero address - decentralized mode disabled unless contract is deployed
     identityRegistry: (process.env.IDENTITY_REGISTRY_ADDRESS ||
-      '0x0000000000000000000000000000000000000000') as Address,
+      safeGetContract('registry', 'identity', 'localnet')) as Address,
   },
   testnet: {
-    rpcUrl: process.env.BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org',
+    rpcUrl: getRpcUrl('testnet'),
     identityRegistry: (process.env.TESTNET_IDENTITY_REGISTRY_ADDRESS ||
-      '0x0000000000000000000000000000000000000000') as Address,
+      safeGetContract('registry', 'identity', 'testnet')) as Address,
   },
   mainnet: {
-    rpcUrl: process.env.BASE_RPC_URL || 'https://mainnet.base.org',
+    rpcUrl: getRpcUrl('mainnet'),
     identityRegistry: (process.env.MAINNET_IDENTITY_REGISTRY_ADDRESS ||
-      '0x0000000000000000000000000000000000000000') as Address,
+      safeGetContract('registry', 'identity', 'mainnet')) as Address,
   },
 }
 

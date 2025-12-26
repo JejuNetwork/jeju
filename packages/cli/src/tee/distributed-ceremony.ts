@@ -1,6 +1,6 @@
 /** Distributed TEE genesis ceremony with threshold cryptography */
 
-import { createHash, randomBytes } from 'node:crypto'
+import { bytesToHex, hash256, randomBytes } from '@jejunetwork/shared'
 import { keccak256, stringToBytes } from 'viem'
 
 export interface TeeProvider {
@@ -330,9 +330,7 @@ async function getTeeAttestation(
       provider: provider.name,
       timestamp: new Date().toISOString(),
     })
-    const measurementHash = createHash('sha256')
-      .update(measurementData)
-      .digest('hex')
+    const measurementHash = bytesToHex(hash256(measurementData))
 
     let quote: { quote: string; event_log: string }
 
@@ -362,18 +360,16 @@ function simulateTeeAttestation(
   provider: TeeProvider,
   ceremonyId: string,
 ): TeeAttestation {
-  const measurementHash = createHash('sha256')
-    .update(ceremonyId + provider.name)
-    .digest('hex')
+  const measurementHash = bytesToHex(hash256(ceremonyId + provider.name))
 
   return {
     provider: provider.name,
-    quote: `SIM_${provider.type.toUpperCase()}_QUOTE_${randomBytes(32).toString('hex')}`,
+    quote: `SIM_${provider.type.toUpperCase()}_QUOTE_${bytesToHex(randomBytes(32))}`,
     eventLog: JSON.stringify([{ event: 'ceremony_start', data: ceremonyId }]),
     measurementHash,
     timestamp: new Date().toISOString(),
     appId: `app_${provider.name}`,
-    instanceId: `instance_${randomBytes(8).toString('hex')}`,
+    instanceId: `instance_${bytesToHex(randomBytes(8))}`,
   }
 }
 
@@ -410,19 +406,19 @@ async function executeDkgRound1(
 ): Promise<DkgRound1> {
   const commitments: string[] = []
   for (let i = 0; i < threshold; i++) {
-    const commitment = createHash('sha256')
-      .update(
-        `${ceremonyId}:${role}:${participantId}:coeff:${i}:${randomBytes(32).toString('hex')}`,
-      )
-      .digest('hex')
+    const commitment = bytesToHex(
+      hash256(
+        `${ceremonyId}:${role}:${participantId}:coeff:${i}:${bytesToHex(randomBytes(32))}`,
+      ),
+    )
     commitments.push(commitment)
   }
 
-  const proofOfKnowledge = createHash('sha256')
-    .update(
+  const proofOfKnowledge = bytesToHex(
+    hash256(
       `pok:${ceremonyId}:${role}:${participantId}:${commitments.join(':')}`,
-    )
-    .digest('hex')
+    ),
+  )
 
   return {
     participantId,
@@ -446,11 +442,11 @@ async function executeDkgRound2(
 
   for (let i = 0; i < round1Results.length; i++) {
     if (i !== participantId) {
-      const share = createHash('sha256')
-        .update(
-          `${ceremonyId}:${role}:share:${participantId}:${i}:${randomBytes(32).toString('hex')}`,
-        )
-        .digest('hex')
+      const share = bytesToHex(
+        hash256(
+          `${ceremonyId}:${role}:share:${participantId}:${i}:${bytesToHex(randomBytes(32))}`,
+        ),
+      )
       encryptedShares.set(i, `encrypted:${share}`)
     }
   }
@@ -469,15 +465,15 @@ async function completeDkg(
   _round2Results: DkgRound2[],
   ceremonyId: string,
 ): Promise<DkgResult> {
-  const publicKey = createHash('sha256')
-    .update(round1Results.map((r) => r.commitments[0]).join(':'))
-    .digest('hex')
+  const publicKey = bytesToHex(
+    hash256(round1Results.map((r) => r.commitments[0]).join(':')),
+  )
 
   const secretShare = `tee-sealed:${provider.name}:${role}:${participantId}`
 
-  const verificationShare = createHash('sha256')
-    .update(`${ceremonyId}:${role}:verify:${participantId}:${publicKey}`)
-    .digest('hex')
+  const verificationShare = bytesToHex(
+    hash256(`${ceremonyId}:${role}:verify:${participantId}:${publicKey}`),
+  )
 
   return {
     participantId,
@@ -489,12 +485,12 @@ async function completeDkg(
 
 function aggregatePublicKeys(results: DkgResult[]): string {
   const combined = results.map((r) => r.publicKey).join(':')
-  return `0x${createHash('sha256').update(combined).digest('hex').slice(0, 64)}`
+  return `0x${bytesToHex(hash256(combined)).slice(0, 64)}`
 }
 
 function generateAggregatedCommitment(shares: KeyShare[]): string {
   const commitments = shares.map((s) => s.commitment).join(':')
-  return createHash('sha256').update(commitments).digest('hex')
+  return bytesToHex(hash256(commitments))
 }
 
 function generateThresholdProof(shares: KeyShare[], threshold: number): string {
@@ -503,7 +499,7 @@ function generateThresholdProof(shares: KeyShare[], threshold: number): string {
     total: shares.length,
     shareCommitments: shares.map((s) => s.commitment),
   })
-  return createHash('sha256').update(proofData).digest('hex')
+  return bytesToHex(hash256(proofData))
 }
 
 function deriveAddressFromPublicKey(publicKey: string): string {
@@ -513,7 +509,7 @@ function deriveAddressFromPublicKey(publicKey: string): string {
 
 function generateCeremonyId(): string {
   const timestamp = Date.now().toString(36)
-  const random = randomBytes(8).toString('hex')
+  const random = bytesToHex(randomBytes(8))
   return `jeju-ceremony-${timestamp}-${random}`
 }
 
@@ -567,9 +563,9 @@ export async function requestThresholdSignature(
   }
 
   const signature = aggregateSignatureShares(shares)
-  const aggregationProof = createHash('sha256')
-    .update(shares.map((s) => s.share).join(':'))
-    .digest('hex')
+  const aggregationProof = bytesToHex(
+    hash256(shares.map((s) => s.share).join(':')),
+  )
 
   console.log('  ✓ Signature aggregated\n')
 
@@ -586,15 +582,13 @@ async function getTeeSignatureShare(
 ): Promise<ThresholdSignatureShare> {
   const attestation = await getTeeAttestation(provider, request.ceremonyId)
 
-  const shareData = createHash('sha256')
-    .update(
+  const shareData = bytesToHex(
+    hash256(
       `${request.ceremonyId}:${request.role}:${request.message}:${provider.name}`,
-    )
-    .digest('hex')
+    ),
+  )
 
-  const proof = createHash('sha256')
-    .update(`proof:${shareData}:${attestation.quote}`)
-    .digest('hex')
+  const proof = bytesToHex(hash256(`proof:${shareData}:${attestation.quote}`))
 
   return {
     provider: provider.name,
@@ -606,7 +600,7 @@ async function getTeeSignatureShare(
 
 function aggregateSignatureShares(shares: ThresholdSignatureShare[]): string {
   const combined = shares.map((s) => s.share).join(':')
-  return `0x${createHash('sha256').update(combined).digest('hex')}`
+  return `0x${bytesToHex(hash256(combined))}`
 }
 
 export const CEREMONY_REGISTRY_ABI = [
@@ -625,10 +619,5 @@ export async function registerCeremonyOnChain(
   console.log(`  Registry: ${registryAddress}`)
   console.log(`  RPC: ${rpcUrl}`)
 
-  return (
-    '0x' +
-    createHash('sha256')
-      .update(result.ceremonyId + registryAddress)
-      .digest('hex')
-  )
+  return `0x${bytesToHex(hash256(result.ceremonyId + registryAddress))}`
 }

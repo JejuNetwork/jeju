@@ -1,7 +1,6 @@
-import { ConnectButton } from '@rainbow-me/rainbowkit'
+import { WalletButton } from '@jejunetwork/ui'
 import {
   Activity,
-  BarChart3,
   Book,
   Droplet,
   Factory,
@@ -10,7 +9,6 @@ import {
   Server,
   Shield,
   Sparkles,
-  Tag,
   Waves,
   Zap,
 } from 'lucide-react'
@@ -28,18 +26,13 @@ const ActivityIcon = Activity as ComponentType<LucideProps>
 const RadioIcon = Radio as ComponentType<LucideProps>
 const WavesIcon = Waves as ComponentType<LucideProps>
 const ServerIcon = Server as ComponentType<LucideProps>
-const BarChart3Icon = BarChart3 as ComponentType<LucideProps>
-const TagIcon = Tag as ComponentType<LucideProps>
 const ShieldIcon = Shield as ComponentType<LucideProps>
 
-import AddLiquidity from './AddLiquidity'
 import CrossChainTransfer from './CrossChainTransfer'
 import DeployPaymaster from './DeployPaymaster'
 import EILStats from './EILStats'
 import FaucetTab from './FaucetTab'
 import { IntentsTab } from './intents'
-import JNSTab from './JNSTab'
-import LPDashboard from './LPDashboard'
 import MultiTokenBalanceDisplay from './MultiTokenBalanceDisplay'
 import NodeStakingTab from './NodeStakingTab'
 import { OracleTab } from './oracle'
@@ -52,32 +45,26 @@ import XLPDashboard from './XLPDashboard'
 type TabId =
   | 'tokens'
   | 'deploy'
-  | 'liquidity'
-  | 'earnings'
   | 'transfer'
   | 'xlp'
   | 'nodes'
   | 'registry'
   | 'intents'
-  | 'names'
   | 'faucet'
   | 'oracle'
   | 'risk'
 
 const TABS: { id: TabId; icon: ComponentType<LucideProps>; label: string }[] = [
-  { id: 'registry', icon: BookIcon, label: 'Bazaar' },
+  { id: 'registry', icon: BookIcon, label: 'Registry' },
   { id: 'faucet', icon: DropletIconComp, label: 'Faucet' },
   { id: 'transfer', icon: ZapIcon, label: 'Transfer' },
   { id: 'intents', icon: ActivityIcon, label: 'Intents' },
   { id: 'oracle', icon: RadioIcon, label: 'Oracle' },
-  { id: 'xlp', icon: WavesIcon, label: 'XLP' },
+  { id: 'xlp', icon: WavesIcon, label: 'Liquidity' },
   { id: 'risk', icon: ShieldIcon, label: 'Risk Pools' },
   { id: 'tokens', icon: FactoryIcon, label: 'Tokens' },
   { id: 'deploy', icon: FactoryIcon, label: 'Deploy' },
-  { id: 'liquidity', icon: DropletIconComp, label: 'Liquidity' },
-  { id: 'earnings', icon: BarChart3Icon, label: 'Earnings' },
   { id: 'nodes', icon: ServerIcon, label: 'Nodes' },
-  { id: 'names', icon: TagIcon, label: 'Names' },
 ]
 
 export default function Dashboard() {
@@ -90,15 +77,11 @@ export default function Dashboard() {
         <div className="container header-content">
           <div className="header-brand">
             <SparklesIcon size={24} />
-            Agent Bazaar
+            Gateway
           </div>
           <div className="header-actions">
             <ThemeToggle />
-            <ConnectButton
-              showBalance={false}
-              chainStatus="icon"
-              accountStatus="avatar"
-            />
+            <WalletButton />
           </div>
         </div>
       </header>
@@ -135,12 +118,9 @@ export default function Dashboard() {
           )}
           {activeTab === 'xlp' && <XLPDashboard />}
           {activeTab === 'deploy' && <DeployPaymaster />}
-          {activeTab === 'liquidity' && <AddLiquidity />}
-          {activeTab === 'earnings' && <LPDashboard />}
           {activeTab === 'nodes' && <NodeStakingTab />}
           {activeTab === 'registry' && <RegistryTab />}
           {activeTab === 'intents' && <IntentsTab />}
-          {activeTab === 'names' && <JNSTab />}
           {activeTab === 'faucet' && <FaucetTab />}
           {activeTab === 'oracle' && <OracleTab />}
           {activeTab === 'risk' && <RiskAllocationDashboard />}

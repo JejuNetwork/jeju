@@ -148,7 +148,7 @@ export const testCommand = new Command('test')
 
     // Fail fast on invalid app selection (before any setup)
     if (options.targetApp) {
-      const apps = discoverApps(rootDir)
+      const apps = discoverApps(rootDir, true)
       const exists = apps.some(
         (a) =>
           (a._folderName ?? a.slug ?? a.name) === options.targetApp ||
@@ -310,10 +310,14 @@ testCommand
     console.log('  smoke         Quick health checks')
 
     logger.subheader('Apps')
-    const apps = discoverApps(rootDir)
+    const apps = discoverApps(rootDir, true)
     for (const app of apps) {
       const folderName = app._folderName ?? app.slug ?? app.name
-      const manifest = loadManifest(join(rootDir, 'apps', folderName))
+      const appPath =
+        app.type === 'vendor'
+          ? join(rootDir, 'vendor', folderName)
+          : join(rootDir, 'apps', folderName)
+      const manifest = loadManifest(appPath)
       const testing = manifest?.testing as ManifestTesting | undefined
       const hasTests = !!(testing?.unit || testing?.e2e || testing?.integration)
       console.log(
@@ -360,7 +364,7 @@ testCommand
       testEnv = { ...testOrchestrator.getEnvVars(), NODE_ENV: 'test' }
     }
 
-    const apps = discoverApps(rootDir)
+    const apps = discoverApps(rootDir, true)
 
     for (const app of apps) {
       // Use folder name for file system lookup (falls back to manifest name if not set)
@@ -654,6 +658,114 @@ testCommand
       process.exit(1)
     }
     logger.success('All Crucible tests passed')
+  })
+
+testCommand
+  .command('full-coverage')
+  .description(
+    'Run comprehensive E2E tests across all apps - tests every page, button, and user action',
+  )
+  .option('-a, --app <app>', 'Test specific app only')
+  .option('--headless', 'Run in headless mode (default for CI)')
+  .option('--headed', 'Run with visible browser')
+  .option('--parallel', 'Run app tests in parallel')
+  .option('--skip-infra', 'Skip infrastructure setup (assume running)')
+  .option('--keep-apps', 'Keep apps running after tests')
+  .option('-v, --verbose', 'Verbose output')
+  .action(async (options) => {
+    const rootDir = findMonorepoRoot()
+    logger.header('JEJU FULL E2E COVERAGE')
+
+    const args = ['run', 'packages/tests/scripts/run-all-e2e.ts']
+
+    if (options.app) {
+      args.push('--app', options.app)
+    }
+    if (options.headless) {
+      args.push('--headless')
+    }
+    if (options.headed) {
+      args.push('--headed')
+    }
+    if (options.parallel) {
+      args.push('--parallel')
+    }
+    if (options.skipInfra) {
+      args.push('--skip-infra')
+    }
+    if (options.keepApps) {
+      args.push('--keep-apps')
+    }
+    if (options.verbose) {
+      args.push('--verbose')
+    }
+
+    try {
+      await execa('bun', args, {
+        cwd: rootDir,
+        stdio: 'inherit',
+      })
+    } catch (error) {
+      const err = error as ExecaError
+      logger.error(`Full coverage tests failed: ${err.message}`)
+      process.exit(1)
+    }
+  })
+
+testCommand
+  .command('crawl')
+  .description('Crawl a single app to discover and test all pages and interactions')
+  .requiredOption('-a, --app <app>', 'App to crawl')
+  .option('--max-pages <n>', 'Maximum pages to crawl', '50')
+  .option('--verbose', 'Verbose output')
+  .action(async (options) => {
+    const rootDir = findMonorepoRoot()
+    logger.header(`CRAWLING ${options.app.toUpperCase()}`)
+
+    // Find app and get its port
+    const apps = discoverApps(rootDir, true)
+    const app = apps.find(
+      (a) =>
+        (a._folderName ?? a.slug ?? a.name) === options.app || a.name === options.app,
+    )
+
+    if (!app) {
+      logger.error(`App not found: ${options.app}`)
+      process.exit(1)
+    }
+
+    const port = app.ports?.main ?? 3000
+    const baseUrl = `http://localhost:${port}`
+
+    logger.info(`Base URL: ${baseUrl}`)
+    logger.info(`Max pages: ${options.maxPages}`)
+
+    // Run playwright test with the crawler
+    try {
+      await execa(
+        'bunx',
+        [
+          'playwright',
+          'test',
+          'packages/tests/e2e/all-apps-e2e.spec.ts',
+          '--grep',
+          options.app,
+          '--reporter=list',
+        ],
+        {
+          cwd: rootDir,
+          stdio: 'inherit',
+          env: {
+            ...process.env,
+            VERBOSE: options.verbose ? 'true' : '',
+          },
+        },
+      )
+    } catch (error) {
+      const err = error as ExecaError
+      logger.error(`Crawl failed: ${err.message}`)
+      process.exit(1)
+    }
   })
 
 // Test runners
@@ -1560,7 +1672,7 @@ async function setupE2EInfra(
 
   if (options.app && typeof options.app === 'string') {
     const appName = options.app
-    const apps = discoverApps(rootDir)
+    const apps = discoverApps(rootDir, true)
     const appManifest = apps.find(
       (a) =>
         (a._folderName ?? a.slug ?? a.name) === appName || a.name === appName,
@@ -1568,7 +1680,10 @@ async function setupE2EInfra(
 
     if (appManifest) {
       const folderName = appManifest._folderName ?? appManifest.slug ?? appName
-      const appDir = join(rootDir, 'apps', folderName)
+      const appDir =
+        appManifest.type === 'vendor'
+          ? join(rootDir, 'vendor', folderName)
+          : join(rootDir, 'apps', folderName)
       const devCommand = appManifest.commands?.dev
       const mainPort = appManifest.ports?.main
 

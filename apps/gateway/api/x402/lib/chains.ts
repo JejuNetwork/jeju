@@ -20,9 +20,13 @@ function getAddressEnvOrConfig(
   const envValue = process.env[envKey]
   if (envValue) return parseEnvAddress(envValue, defaultValue)
 
-  // 2. Try config getter
-  const configValue = configGetter()
-  if (configValue) return parseEnvAddress(configValue, defaultValue)
+  // 2. Try config getter (may throw if contract not configured)
+  try {
+    const configValue = configGetter()
+    if (configValue) return parseEnvAddress(configValue, defaultValue)
+  } catch {
+    // Contract not configured, return default
+  }
 
   // 3. Return default
   return defaultValue
@@ -38,7 +42,11 @@ function getEnvRpcUrl(envKey: string, defaultUrl: string): string {
 }
 
 /** Safe getter that returns empty string if external contract doesn't exist */
-function safeGetExternalContract(chain: string, category: 'payments' | 'tokens', name: string): string {
+function safeGetExternalContract(
+  chain: string,
+  category: 'payments' | 'tokens',
+  name: string,
+): string {
   try {
     return getExternalContract(chain, category, name)
   } catch {
@@ -58,9 +66,8 @@ export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
       () => getContract('tokens', 'usdc', 'mainnet'),
       parseEnvAddress('0x0165878A594ca255338adfa4d48449f69242Eb8F'),
     ),
-    facilitator: getAddressEnvOrConfig(
-      'X402_FACILITATOR_ADDRESS',
-      () => getContract('payments', 'x402Facilitator', 'mainnet'),
+    facilitator: getAddressEnvOrConfig('X402_FACILITATOR_ADDRESS', () =>
+      getContract('payments', 'x402Facilitator', 'mainnet'),
     ),
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   },
@@ -75,9 +82,8 @@ export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
       () => getContract('tokens', 'usdc', 'testnet'),
       parseEnvAddress('0x953F6516E5d2864cE7f13186B45dE418EA665EB2'),
     ),
-    facilitator: getAddressEnvOrConfig(
-      'X402_TESTNET_FACILITATOR_ADDRESS',
-      () => getContract('payments', 'x402Facilitator', 'testnet'),
+    facilitator: getAddressEnvOrConfig('X402_TESTNET_FACILITATOR_ADDRESS', () =>
+      getContract('payments', 'x402Facilitator', 'testnet'),
     ),
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   },
@@ -85,7 +91,10 @@ export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
     chainId: 84532,
     name: 'Base Sepolia',
     network: 'base-sepolia',
-    rpcUrl: getEnvRpcUrl('BASE_SEPOLIA_RPC_URL', getExternalRpc('base-sepolia')),
+    rpcUrl: getEnvRpcUrl(
+      'BASE_SEPOLIA_RPC_URL',
+      getExternalRpc('base-sepolia'),
+    ),
     blockExplorer: 'https://sepolia.basescan.org',
     usdc: getAddressEnvOrConfig(
       'BASE_SEPOLIA_USDC_ADDRESS',
@@ -94,7 +103,8 @@ export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
     ),
     facilitator: getAddressEnvOrConfig(
       'X402_BASE_SEPOLIA_FACILITATOR_ADDRESS',
-      () => safeGetExternalContract('base-sepolia', 'payments', 'x402Facilitator'),
+      () =>
+        safeGetExternalContract('base-sepolia', 'payments', 'x402Facilitator'),
     ),
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   },
@@ -109,9 +119,8 @@ export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
       () => safeGetExternalContract('base', 'tokens', 'usdc'),
       parseEnvAddress('0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'),
     ),
-    facilitator: getAddressEnvOrConfig(
-      'X402_BASE_FACILITATOR_ADDRESS',
-      () => safeGetExternalContract('base', 'payments', 'x402Facilitator'),
+    facilitator: getAddressEnvOrConfig('X402_BASE_FACILITATOR_ADDRESS', () =>
+      safeGetExternalContract('base', 'payments', 'x402Facilitator'),
     ),
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   },
@@ -126,9 +135,8 @@ export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
       () => safeGetExternalContract('sepolia', 'tokens', 'usdc'),
       parseEnvAddress('0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238'),
     ),
-    facilitator: getAddressEnvOrConfig(
-      'X402_SEPOLIA_FACILITATOR_ADDRESS',
-      () => safeGetExternalContract('sepolia', 'payments', 'x402Facilitator'),
+    facilitator: getAddressEnvOrConfig('X402_SEPOLIA_FACILITATOR_ADDRESS', () =>
+      safeGetExternalContract('sepolia', 'payments', 'x402Facilitator'),
     ),
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   },
@@ -153,7 +161,10 @@ export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
     chainId: 421614,
     name: 'Arbitrum Sepolia',
     network: 'arbitrum-sepolia',
-    rpcUrl: getEnvRpcUrl('ARBITRUM_SEPOLIA_RPC_URL', getExternalRpc('arbitrumSepolia')),
+    rpcUrl: getEnvRpcUrl(
+      'ARBITRUM_SEPOLIA_RPC_URL',
+      getExternalRpc('arbitrumSepolia'),
+    ),
     blockExplorer: 'https://sepolia.arbiscan.io',
     usdc: getAddressEnvOrConfig(
       'ARBITRUM_SEPOLIA_USDC_ADDRESS',
@@ -162,7 +173,12 @@ export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
     ),
     facilitator: getAddressEnvOrConfig(
       'X402_ARBITRUM_SEPOLIA_FACILITATOR_ADDRESS',
-      () => safeGetExternalContract('arbitrumSepolia', 'payments', 'x402Facilitator'),
+      () =>
+        safeGetExternalContract(
+          'arbitrumSepolia',
+          'payments',
+          'x402Facilitator',
+        ),
     ),
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   },
@@ -187,7 +203,10 @@ export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
     chainId: 11155420,
     name: 'Optimism Sepolia',
     network: 'optimism-sepolia',
-    rpcUrl: getEnvRpcUrl('OPTIMISM_SEPOLIA_RPC_URL', getExternalRpc('optimismSepolia')),
+    rpcUrl: getEnvRpcUrl(
+      'OPTIMISM_SEPOLIA_RPC_URL',
+      getExternalRpc('optimismSepolia'),
+    ),
     blockExplorer: 'https://sepolia-optimism.etherscan.io',
     usdc: getAddressEnvOrConfig(
       'OPTIMISM_SEPOLIA_USDC_ADDRESS',
@@ -196,7 +215,12 @@ export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
     ),
     facilitator: getAddressEnvOrConfig(
       'X402_OPTIMISM_SEPOLIA_FACILITATOR_ADDRESS',
-      () => safeGetExternalContract('optimismSepolia', 'payments', 'x402Facilitator'),
+      () =>
+        safeGetExternalContract(
+          'optimismSepolia',
+          'payments',
+          'x402Facilitator',
+        ),
     ),
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   },
@@ -230,7 +254,8 @@ export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
     ), // USDT on BSC testnet
     facilitator: getAddressEnvOrConfig(
       'X402_BSC_TESTNET_FACILITATOR_ADDRESS',
-      () => safeGetExternalContract('bscTestnet', 'payments', 'x402Facilitator'),
+      () =>
+        safeGetExternalContract('bscTestnet', 'payments', 'x402Facilitator'),
     ),
     nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
   },
@@ -245,9 +270,8 @@ export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
       () => safeGetExternalContract('bsc', 'tokens', 'usdc'),
       parseEnvAddress('0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d'),
     ),
-    facilitator: getAddressEnvOrConfig(
-      'X402_BSC_FACILITATOR_ADDRESS',
-      () => safeGetExternalContract('bsc', 'payments', 'x402Facilitator'),
+    facilitator: getAddressEnvOrConfig('X402_BSC_FACILITATOR_ADDRESS', () =>
+      safeGetExternalContract('bsc', 'payments', 'x402Facilitator'),
     ),
     nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
   },

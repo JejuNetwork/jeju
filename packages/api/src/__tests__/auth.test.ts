@@ -346,7 +346,9 @@ describe('Auth Core', () => {
       if (!result.valid || !result.user) {
         throw new Error('Expected valid result')
       }
-      expect(result.user.address).toBe('0x1234567890123456789012345678901234567890')
+      expect(result.user.address).toBe(
+        '0x1234567890123456789012345678901234567890',
+      )
     })
 
     test('validates API key from Bearer authorization header', () => {
@@ -357,7 +359,9 @@ describe('Auth Core', () => {
       if (!result.valid || !result.user) {
         throw new Error('Expected valid result')
       }
-      expect(result.user.address).toBe('0x1234567890123456789012345678901234567890')
+      expect(result.user.address).toBe(
+        '0x1234567890123456789012345678901234567890',
+      )
     })
 
     test('prefers x-api-key over authorization header', () => {

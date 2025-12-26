@@ -1,5 +1,4 @@
-import { describe, expect, it, beforeEach, vi, afterEach } from 'vitest'
-import type { Address } from 'viem'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { SolanaArbitrage } from './cross-chain-arbitrage'
 
 describe('SolanaArbitrage', () => {
@@ -14,9 +13,9 @@ describe('SolanaArbitrage', () => {
   })
 
   it('should initialize with default config', () => {
-    expect(solArb['config'].rpcUrl).toBe('https://api.mainnet-beta.solana.com')
-    expect(solArb['config'].commitment).toBe('confirmed')
-    expect(solArb['config'].minProfitBps).toBe(30)
+    expect(solArb.config.rpcUrl).toBe('https://api.mainnet-beta.solana.com')
+    expect(solArb.config.commitment).toBe('confirmed')
+    expect(solArb.config.minProfitBps).toBe(30)
   })
 
   it('should initialize with custom config', () => {
@@ -27,13 +26,13 @@ describe('SolanaArbitrage', () => {
       solPriceUsd: 200,
     })
 
-    expect(customSolArb['config'].rpcUrl).toBe('https://custom-rpc.com')
-    expect(customSolArb['config'].minProfitBps).toBe(50)
-    expect(customSolArb['config'].solPriceUsd).toBe(200)
+    expect(customSolArb.config.rpcUrl).toBe('https://custom-rpc.com')
+    expect(customSolArb.config.minProfitBps).toBe(50)
+    expect(customSolArb.config.solPriceUsd).toBe(200)
   })
 
   it('should have default monitored tokens', () => {
-    const tokens = solArb['config'].monitoredTokens
+    const tokens = solArb.config.monitoredTokens
     expect(tokens.length).toBeGreaterThan(0)
 
     // Should include SOL and USDC
@@ -44,8 +43,8 @@ describe('SolanaArbitrage', () => {
   it('should update prices correctly', () => {
     solArb.updatePrices(180, 4000)
 
-    expect(solArb['config'].solPriceUsd).toBe(180)
-    expect(solArb['config'].ethPriceUsd).toBe(4000)
+    expect(solArb.config.solPriceUsd).toBe(180)
+    expect(solArb.config.ethPriceUsd).toBe(4000)
   })
 
   it('should call Jupiter API for quotes', async () => {
@@ -76,7 +75,7 @@ describe('SolanaArbitrage', () => {
       toBase58: () => 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
     }
 
-    const getJupiterQuote = solArb['getJupiterQuote'].bind(solArb)
+    const getJupiterQuote = solArb.getJupiterQuote.bind(solArb)
     const quote = await getJupiterQuote(
       mockPublicKey as Parameters<typeof getJupiterQuote>[0],
       mockPublicKey2 as Parameters<typeof getJupiterQuote>[1],
@@ -93,7 +92,7 @@ describe('SolanaArbitrage', () => {
       statusText: 'Bad Request',
     } as Response)
 
-    const getMultiDexQuotes = solArb['getMultiDexQuotes'].bind(solArb)
+    const getMultiDexQuotes = solArb.getMultiDexQuotes.bind(solArb)
     const quotes = await getMultiDexQuotes(
       'So11111111111111111111111111111111111111112',
       'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
@@ -186,7 +185,7 @@ describe('SolanaArbitrage', () => {
             inAmount: baseAmount.toString(),
             outAmount,
             priceImpactPct: '0.01',
-            otherAmountThreshold: String(BigInt(outAmount) * 99n / 100n),
+            otherAmountThreshold: String((BigInt(outAmount) * 99n) / 100n),
             swapMode: 'ExactIn',
             slippageBps: 50,
             routePlan: [],
@@ -233,7 +232,7 @@ describe('SolanaArbitrage', () => {
     // Should filter out unprofitable opportunities
     expect(
       opportunities.every(
-        (o) => o.expectedProfitBps >= solArb['config'].minProfitBps,
+        (o) => o.expectedProfitBps >= solArb.config.minProfitBps,
       ),
     ).toBe(true)
   })

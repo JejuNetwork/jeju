@@ -9,7 +9,7 @@
  */
 
 import type { NetworkType } from '@jejunetwork/types'
-import { type Address, encodeFunctionData, type Hex, keccak256 } from 'viem'
+import { type Address, encodeFunctionData, type Hex } from 'viem'
 import { requireContract } from '../config'
 import { parseIdFromLogs } from '../shared/api'
 import type { JejuWallet } from '../wallet'

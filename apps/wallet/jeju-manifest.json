@@ -21,7 +21,7 @@
   "dependencies": ["contracts", "config", "dws"],
   "optional": false,
   "enabled": true,
-  "autoStart": false,
+  "autoStart": true,
   "tags": ["wallet", "cross-chain", "eil", "oif", "account-abstraction", "erc-4337", "bridgeless", "multi-chain", "tauri", "capacitor", "solana"],
   "jns": {
     "name": "wallet.jeju",

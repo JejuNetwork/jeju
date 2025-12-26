@@ -30,11 +30,11 @@ import {
   getNetworkName,
   getRpcUrl,
 } from '@jejunetwork/config'
+import { expectValid } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
-import type { CouncilConfig } from '../lib'
 import {
   CasualProposalCategorySchema,
-  expectValid,
+  type CouncilConfig,
   ProposalTypeSchema,
 } from '../lib'
 import { createAutocratA2AServer } from './a2a-server'
@@ -226,6 +226,8 @@ function getConfig(): CouncilConfig {
       communicationTone: 'professional',
       specialties: ['governance', 'strategy'],
     },
+    // Default CEO model - can be overridden by DAO creator or governance vote
+    ceoModelId: process.env.CEO_MODEL_ID ?? 'claude-opus-4-5',
     fundingConfig: {
       minStake: BigInt('1000000000000000'),
       maxStake: BigInt('100000000000000000000'),

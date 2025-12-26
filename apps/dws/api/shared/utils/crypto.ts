@@ -3,7 +3,11 @@
  * Provides constant-time operations and safe BigInt handling
  */
 
-import { createHash, timingSafeEqual } from 'node:crypto'
+import {
+  bytesToHex,
+  hash256,
+  constantTimeEqual as universalConstantTimeEqual,
+} from '@jejunetwork/shared'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import { isAddress, isHex } from 'viem'
@@ -81,16 +85,18 @@ export function zeroBytes(length: number): Hex {
  */
 export function constantTimeEquals(a: string, b: string): boolean {
   // If lengths differ, still do a comparison to maintain constant time
-  // but we'll use the shorter length and add the difference
   const maxLen = Math.max(a.length, b.length)
-  const bufA = Buffer.alloc(maxLen)
-  const bufB = Buffer.alloc(maxLen)
+  const encoder = new TextEncoder()
+  const bufA = new Uint8Array(maxLen)
+  const bufB = new Uint8Array(maxLen)
 
-  Buffer.from(a).copy(bufA)
-  Buffer.from(b).copy(bufB)
+  const encodedA = encoder.encode(a)
+  const encodedB = encoder.encode(b)
+  bufA.set(encodedA)
+  bufB.set(encodedB)
 
-  // timingSafeEqual requires same length buffers
-  const equal = timingSafeEqual(bufA, bufB)
+  // Use universal constant time comparison
+  const equal = universalConstantTimeEqual(bufA, bufB)
 
   // Also check lengths match (do this after to maintain constant time)
   return equal && a.length === b.length
@@ -99,18 +105,21 @@ export function constantTimeEquals(a: string, b: string): boolean {
 /**
  * Constant-time buffer comparison
  */
-export function constantTimeBufferEquals(a: Buffer, b: Buffer): boolean {
+export function constantTimeBufferEquals(
+  a: Uint8Array,
+  b: Uint8Array,
+): boolean {
   if (a.length !== b.length) {
     // Still do comparison to maintain constant time
     const maxLen = Math.max(a.length, b.length)
-    const bufA = Buffer.alloc(maxLen)
-    const bufB = Buffer.alloc(maxLen)
-    a.copy(bufA)
-    b.copy(bufB)
-    timingSafeEqual(bufA, bufB) // Run comparison to maintain timing
+    const bufA = new Uint8Array(maxLen)
+    const bufB = new Uint8Array(maxLen)
+    bufA.set(a)
+    bufB.set(b)
+    universalConstantTimeEqual(bufA, bufB) // Run comparison to maintain timing
     return false
   }
-  return timingSafeEqual(a, b)
+  return universalConstantTimeEqual(a, b)
 }
 
 /**
@@ -197,15 +206,15 @@ export function safeParseBigInt(value: string): bigint {
 /**
  * Create a SHA256 hash of input
  */
-export function sha256(data: string | Buffer): Buffer {
-  return createHash('sha256').update(data).digest()
+export function sha256(data: string | Uint8Array): Uint8Array {
+  return hash256(data)
 }
 
 /**
  * Create a SHA256 hash as hex string
  */
-export function sha256Hex(data: string | Buffer): string {
-  return sha256(data).toString('hex')
+export function sha256Hex(data: string | Uint8Array): string {
+  return bytesToHex(sha256(data))
 }
 
 /**

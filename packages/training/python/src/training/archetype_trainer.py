@@ -52,7 +52,7 @@ class ArchetypeTrainingConfig:
     save_per_archetype: bool = True
 
     # Judge settings
-    judge_model: str = "gpt-4o-mini"
+    judge_model: str = "gpt-5.2"
 
     # Logging
     log_to_file: bool = True

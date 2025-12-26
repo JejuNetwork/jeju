@@ -1,9 +1,9 @@
 /** System utilities for dependency checking */
 
-import { randomBytes } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { arch, homedir, platform } from 'node:os'
 import { join, resolve } from 'node:path'
+import { randomHex } from '@jejunetwork/shared'
 import { execa } from 'execa'
 import which from 'which'
 import { z } from 'zod'
@@ -231,7 +231,7 @@ export async function installKurtosis(): Promise<boolean> {
       const url = `https://github.com/kurtosis-tech/kurtosis-cli-release-artifacts/releases/download/${version}/${tarball}`
 
       // Use cryptographically secure temp path to prevent race conditions
-      const tmpPath = `/tmp/kurtosis-${randomBytes(16).toString('hex')}.tar.gz`
+      const tmpPath = `/tmp/kurtosis-${randomHex(16).slice(2)}.tar.gz`
       await execa('curl', ['-fsSL', url, '-o', tmpPath], { timeout: 60000 })
 
       // Extract only the kurtosis binary to prevent writing arbitrary files

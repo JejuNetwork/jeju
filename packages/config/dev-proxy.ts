@@ -100,6 +100,18 @@ export const DEV_PROXY_TARGETS: Record<string, DevProxyTarget> = {
     backendPort: CORE_PORTS.NODE_API.DEFAULT,
     apiPrefix: '/api',
   },
+  vpn: {
+    url: `http://localhost:${CORE_PORTS.VPN_WEB.DEFAULT}`,
+    port: CORE_PORTS.VPN_WEB.DEFAULT,
+    hasBackend: true,
+    backendPort: CORE_PORTS.VPN_API.DEFAULT,
+    apiPrefix: '/api',
+  },
+  wallet: {
+    url: `http://localhost:${CORE_PORTS.WALLET.DEFAULT}`,
+    port: CORE_PORTS.WALLET.DEFAULT,
+    hasBackend: false,
+  },
 }
 
 /**

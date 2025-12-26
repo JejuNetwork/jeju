@@ -181,12 +181,9 @@ async function verifyFarcasterSigner(
   signerPubKey: Hex,
 ): Promise<boolean> {
   // Query Farcaster hub for signer keys associated with this FID
-  const response = await fetch(
-    `${FARCASTER_HUB_URL}/signersByFid?fid=${fid}`,
-    {
-      headers: { Accept: 'application/json' },
-    },
-  )
+  const response = await fetch(`${FARCASTER_HUB_URL}/signersByFid?fid=${fid}`, {
+    headers: { Accept: 'application/json' },
+  })
 
   if (!response.ok) {
     // If hub is unavailable, log warning but don't block auth

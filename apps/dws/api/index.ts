@@ -2,6 +2,26 @@
  * DWS - Decentralized Web Services
  */
 
+// External Chain Nodes
+export {
+  getExternalRPCNodeService,
+  initializeExternalRPCNodes,
+  type ChainType,
+  type ExternalChainNode,
+} from './external-chains'
+// Bot Deployment
+export {
+  getBotDeploymentService,
+  initializeBotDeployment,
+  type BotType,
+  type BotInstance,
+} from './bots'
+// Infrastructure Seed
+export {
+  seedInfrastructure,
+  getSeedStatus,
+  isSeedComplete,
+} from './infrastructure/seed'
 // Git
 export * from './git'
 // Oracle Node

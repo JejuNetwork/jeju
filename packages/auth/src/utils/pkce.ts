@@ -141,13 +141,3 @@ export async function generateAndStorePKCE(
   storePKCEParams(params, key)
   return params
 }
-
-/**
- * @deprecated Use individual functions instead: storePKCEParams, retrievePKCEParams, validatePKCEState, generateAndStorePKCE
- */
-export const PKCEUtils = {
-  store: storePKCEParams,
-  retrieve: retrievePKCEParams,
-  validateState: validatePKCEState,
-  generateAndStore: generateAndStorePKCE,
-}

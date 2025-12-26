@@ -61,13 +61,14 @@ const browserPlugin: BunPlugin = {
     }))
 
     // Resolve workspace packages to their source files to ensure proper bundling
-    build.onResolve({ filter: /^@jejunetwork\/oauth3$/ }, () => ({
+    // @jejunetwork/auth package
+    build.onResolve({ filter: /^@jejunetwork\/auth$/ }, () => ({
       path: resolve('../../packages/auth/src/index.ts'),
     }))
-    build.onResolve({ filter: /^@jejunetwork\/oauth3\/react$/ }, () => ({
+    build.onResolve({ filter: /^@jejunetwork\/auth\/react$/ }, () => ({
       path: resolve('../../packages/auth/src/react/index.ts'),
     }))
-    build.onResolve({ filter: /^@jejunetwork\/oauth3\/(.*)$/ }, (args) => {
+    build.onResolve({ filter: /^@jejunetwork\/auth\/(.*)$/ }, (args) => {
       const subpath = args.path.replace('@jejunetwork/auth/', '')
       return { path: resolve(`../../packages/auth/src/${subpath}.ts`) }
     })
@@ -79,6 +80,18 @@ const browserPlugin: BunPlugin = {
     }))
     build.onResolve({ filter: /^@jejunetwork\/types$/ }, () => ({
       path: resolve('../../packages/types/src/index.ts'),
+    }))
+    build.onResolve({ filter: /^@jejunetwork\/sdk$/ }, () => ({
+      path: resolve('../../packages/sdk/src/index.ts'),
+    }))
+    build.onResolve({ filter: /^@jejunetwork\/ui$/ }, () => ({
+      path: resolve('../../packages/ui/src/index.ts'),
+    }))
+    build.onResolve({ filter: /^@jejunetwork\/config$/ }, () => ({
+      path: resolve('../../packages/config/index.ts'),
+    }))
+    build.onResolve({ filter: /^@jejunetwork\/token$/ }, () => ({
+      path: resolve('../../packages/token/src/index.ts'),
     }))
   },
 }
@@ -204,7 +217,7 @@ async function buildFrontend(): Promise<void> {
   <meta name="theme-color" content="#0D0B14" media="(prefers-color-scheme: dark)">
   <meta name="theme-color" content="#FFFBF7" media="(prefers-color-scheme: light)">
   <title>Bazaar - Agent Marketplace on the Network</title>
-  <meta name="description" content="The fun, light-hearted marketplace for tokens, NFTs, prediction markets, and more.">
+  <meta name="description" content="The fun, light-hearted marketplace for tokens, collectibles, prediction markets, and more.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">

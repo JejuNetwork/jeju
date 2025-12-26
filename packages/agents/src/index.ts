@@ -179,23 +179,49 @@ export {
 // AGENT0 INTEGRATION
 // =============================================================================
 
+export type {
+  Agent0AgentProfile,
+  Agent0AgentUpdateParams,
+  Agent0ClientConfig,
+  Agent0ContractAddresses,
+  Agent0Endpoint,
+  Agent0Feedback,
+  Agent0FeedbackParams,
+  Agent0FeedbackSearchParams,
+  Agent0Network,
+  Agent0RegistrationParams,
+  Agent0RegistrationResult,
+  Agent0ReputationSummary,
+  Agent0SearchFilters,
+  Agent0SearchOptions,
+  Agent0SearchResponse,
+  Agent0SearchResult,
+  Agent0SearchResultMeta,
+  Agent0TransferResult,
+  AgentProfile as Agent0AgentProfileType,
+  AgentReputation,
+  AggregatedReputation,
+  DiscoveredAgent,
+  DiscoveryFilter,
+  DiscoveryFilters,
+  DiscoveryResponse,
+  IAgent0Client,
+  IAgent0FeedbackService,
+  IAgentDiscoveryService,
+  IReputationBridge,
+  ReputationData,
+} from './agent0'
 export {
   Agent0Client,
-  createAgent0Client,
-} from './agent0/client'
-
-export {
   AgentDiscoveryService,
   agentDiscoveryService,
-  type DiscoveredAgent,
-  type DiscoveryFilter,
-} from './agent0/discovery'
-
-export {
+  createAgent0Client,
+  getAgent0Client,
   ReputationBridge,
-  type ReputationData,
   reputationBridge,
-} from './agent0/reputation'
+  resetAgent0Client,
+  setContractAddressesProvider,
+} from './agent0'
 
 // =============================================================================
 // PLUGINS

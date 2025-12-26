@@ -1,6 +1,8 @@
 /**
  * Direct Infrastructure Tests
  * Tests infrastructure modules using Elysia
+ *
+ * Requires: K8s cluster (k3s/k3d), Helm, Terraform
  */
 
 import { describe, expect, test } from 'bun:test'
@@ -14,6 +16,10 @@ import {
   getIngressController,
   getServiceMesh,
 } from '../api/infrastructure'
+import { SKIP } from './infra-check'
+
+// Skip all K8s tests if no K8s cluster available
+const skipAll = SKIP.NO_K8S
 
 const TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
 
@@ -102,7 +108,7 @@ async function request(path: string, options?: RequestInit) {
   return app.handle(new Request(`http://localhost${path}`, options))
 }
 
-describe('K3s Provider Direct', () => {
+describe.skipIf(skipAll)('K3s Provider Direct', () => {
   test('health check', async () => {
     const res = await request('/k3s/health')
     expect(res.status).toBe(200)
@@ -126,7 +132,7 @@ describe('K3s Provider Direct', () => {
   })
 })
 
-describe('Helm Provider Direct', () => {
+describe.skipIf(skipAll)('Helm Provider Direct', () => {
   test('health check', async () => {
     const res = await request('/helm/health')
     expect(res.status).toBe(200)
@@ -213,7 +219,7 @@ describe('Helm Provider Direct', () => {
   })
 })
 
-describe('Terraform Provider Direct', () => {
+describe.skipIf(skipAll)('Terraform Provider Direct', () => {
   test('get schema', async () => {
     const res = await request('/terraform/v1/schema')
     expect(res.status).toBe(200)
@@ -271,7 +277,7 @@ describe('Terraform Provider Direct', () => {
   })
 })
 
-describe('Ingress Controller Direct', () => {
+describe.skipIf(skipAll)('Ingress Controller Direct', () => {
   test('health check', async () => {
     const res = await request('/ingress/health')
     expect(res.status).toBe(200)
@@ -320,7 +326,7 @@ describe('Ingress Controller Direct', () => {
   })
 })
 
-describe('Service Mesh Direct', () => {
+describe.skipIf(skipAll)('Service Mesh Direct', () => {
   test('health check', async () => {
     const res = await request('/mesh/health')
     expect(res.status).toBe(200)

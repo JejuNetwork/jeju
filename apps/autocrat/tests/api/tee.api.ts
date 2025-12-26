@@ -174,7 +174,7 @@ test.describe('Hardware TEE Flow (Mocked)', () => {
   test('mock server responds to inference requests', async ({ request }) => {
     const response = await request.post(`${MOCK_URL}/api/v1/inference`, {
       data: {
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-opus-4-5',
         messages: [{ role: 'user', content: 'Test prompt' }],
       },
     })

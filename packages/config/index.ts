@@ -26,13 +26,14 @@
  * ```
  */
 
-import localnetChainRaw from './chain/localnet.json'
-import mainnetChainRaw from './chain/mainnet.json'
-import testnetChainRaw from './chain/testnet.json'
+// JSON imports with type assertions for Node ESM compatibility (Playwright)
+import localnetChainRaw from './chain/localnet.json' with { type: 'json' }
+import mainnetChainRaw from './chain/mainnet.json' with { type: 'json' }
+import testnetChainRaw from './chain/testnet.json' with { type: 'json' }
 // Direct JSON imports for browser compatibility (bundlers inline these)
-import contractsJsonRaw from './contracts.json'
-import eilJsonRaw from './eil.json'
-import federationJsonRaw from './federation.json'
+import contractsJsonRaw from './contracts.json' with { type: 'json' }
+import eilJsonRaw from './eil.json' with { type: 'json' }
+import federationJsonRaw from './federation.json' with { type: 'json' }
 import {
   type ChainConfig,
   ChainConfigSchema,
@@ -54,8 +55,8 @@ import {
   type VendorAppConfig,
   VendorAppsConfigSchema,
 } from './schemas'
-import servicesJsonRaw from './services.json'
-import vendorAppsJsonRaw from './vendor-apps.json'
+import servicesJsonRaw from './services.json' with { type: 'json' }
+import vendorAppsJsonRaw from './vendor-apps.json' with { type: 'json' }
 
 export * from './dev-proxy'
 // Network utilities
@@ -225,6 +226,22 @@ export function getContract(
     )
   }
   return address
+}
+
+/**
+ * Try to get contract address, returns empty string if not found
+ * Useful for optional contracts that may not be deployed
+ */
+function tryGetContract(
+  category: ContractCategoryName,
+  name: string,
+  network?: NetworkType,
+): string {
+  try {
+    return getContract(category, name, network)
+  } catch {
+    return ''
+  }
 }
 
 /** Get constant contract address (EntryPoint, L2Messenger, etc.) */
@@ -402,6 +419,8 @@ export function getServicesConfig(
         getEnvService('INDEXER_GRAPHQL_URL') ??
         config.indexer.graphql,
       websocket: getEnvService('INDEXER_WS_URL') ?? config.indexer.websocket,
+      rest: getEnvService('INDEXER_REST_URL') ?? config.indexer.rest,
+      dws: getEnvService('INDEXER_DWS_URL') ?? config.indexer.dws,
     },
     gateway: {
       ui: getEnvService('GATEWAY_URL') ?? config.gateway.ui,
@@ -475,8 +494,7 @@ export function getServicesConfig(
             getEnvService('TRAINING_ENDPOINT') ??
             getEnvService('TRAINING_API_URL') ??
             config.training.api,
-          atropos:
-            getEnvService('ATROPOS_URL') ?? config.training.atropos,
+          atropos: getEnvService('ATROPOS_URL') ?? config.training.atropos,
           psyche: getEnvService('PSYCHE_URL') ?? config.training.psyche,
         }
       : undefined,
@@ -867,6 +885,16 @@ export function getFrontendContracts(network?: NetworkType) {
     jnsResolver: getContract('jns', 'resolver', net),
     jnsRegistrar: getContract('jns', 'registrar', net),
     jnsReverseRegistrar: getContract('jns', 'reverseRegistrar', net),
+
+    // OAuth3
+    oauth3TeeVerifier: tryGetContract('oauth3', 'teeVerifier', net),
+    oauth3IdentityRegistry: tryGetContract('oauth3', 'identityRegistry', net),
+    oauth3AppRegistry: tryGetContract('oauth3', 'appRegistry', net),
+
+    // DWS (Decentralized Web Services)
+    dwsStorageManager: tryGetContract('dws', 'storageManager', net),
+    dwsWorkerRegistry: tryGetContract('dws', 'workerRegistry', net),
+    cdnRegistry: tryGetContract('cdn', 'registry', net),
 
     // Payments
     paymasterFactory: getContract('payments', 'paymasterFactory', net),
@@ -1576,9 +1604,7 @@ export function getDwsGatewayUrl(): string {
 
 /** Get DWS cache endpoint */
 export function getDwsCacheEndpoint(): string | undefined {
-  return (
-    process.env.DWS_CACHE_ENDPOINT ?? process.env.COMPUTE_CACHE_ENDPOINT
-  )
+  return process.env.DWS_CACHE_ENDPOINT ?? process.env.COMPUTE_CACHE_ENDPOINT
 }
 
 // Bot/Simulation API Keys
@@ -1880,6 +1906,11 @@ export function getKmsEndpoint(): string | undefined {
   return process.env.KMS_ENDPOINT
 }
 
+/** Get KMS service URL */
+export function getKmsServiceUrl(): string {
+  return process.env.JEJU_KMS_SERVICE_URL ?? 'http://localhost:4200'
+}
+
 /** Get cron endpoint */
 export function getCronEndpoint(): string | undefined {
   return process.env.CRON_ENDPOINT
@@ -1893,6 +1924,60 @@ export function getStorageApiEndpoint(): string | undefined {
 /** Get JNS resolver address */
 export function getJnsResolverAddressEnv(): string | undefined {
   return process.env.JNS_RESOLVER_ADDRESS
+}
+
+// ==================== OAuth3 Functions ====================
+
+/** Get OAuth3 TEE Verifier address */
+export function getOAuth3TeeVerifierAddress(network?: NetworkType): string {
+  return (
+    process.env.OAUTH3_TEE_VERIFIER_ADDRESS ??
+    tryGetContract('oauth3', 'teeVerifier', network)
+  )
+}
+
+/** Get OAuth3 Identity Registry address */
+export function getOAuth3IdentityRegistryAddress(
+  network?: NetworkType,
+): string {
+  return (
+    process.env.OAUTH3_IDENTITY_REGISTRY_ADDRESS ??
+    tryGetContract('oauth3', 'identityRegistry', network)
+  )
+}
+
+/** Get OAuth3 App Registry address */
+export function getOAuth3AppRegistryAddress(network?: NetworkType): string {
+  return (
+    process.env.OAUTH3_APP_REGISTRY_ADDRESS ??
+    tryGetContract('oauth3', 'appRegistry', network)
+  )
+}
+
+// ==================== DWS Functions ====================
+
+/** Get DWS Storage Manager address */
+export function getDWSStorageManagerAddress(network?: NetworkType): string {
+  return (
+    process.env.DWS_STORAGE_MANAGER_ADDRESS ??
+    tryGetContract('dws', 'storageManager', network)
+  )
+}
+
+/** Get DWS Worker Registry address */
+export function getDWSWorkerRegistryAddress(network?: NetworkType): string {
+  return (
+    process.env.DWS_WORKER_REGISTRY_ADDRESS ??
+    tryGetContract('dws', 'workerRegistry', network)
+  )
+}
+
+/** Get CDN Registry address */
+export function getCDNRegistryAddress(network?: NetworkType): string {
+  return (
+    process.env.CDN_REGISTRY_ADDRESS ??
+    tryGetContract('cdn', 'registry', network)
+  )
 }
 
 /** Get IPFS gateway URL (for versioning) */

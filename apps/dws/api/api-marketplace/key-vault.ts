@@ -3,51 +3,101 @@
  *
  * Secure key storage using TEE with MPC threshold encryption.
  * Keys never leave the enclave - only injected into outbound requests.
+ * All state is persisted to CQL for serverless compatibility.
  */
 
-import {
-  createCipheriv,
-  createDecipheriv,
-  createHash,
-  randomBytes,
-} from 'node:crypto'
+import { isProductionEnv, isTestMode } from '@jejunetwork/config'
+import { type CQLClient, getCQL } from '@jejunetwork/db'
+import { decryptAesGcm, encryptAesGcm, hash256 } from '@jejunetwork/shared'
 import type { Address } from 'viem'
 import { z } from 'zod'
 import { PROVIDERS_BY_ID } from './providers'
 import type { VaultDecryptRequest, VaultKey } from './types'
 
-// In-Memory Vault (simulates TEE enclave storage)
+// CQL-backed storage - no in-memory state for serverless compatibility
 
-const vault = new Map<string, VaultKey>()
-const MAX_ACCESS_LOG_ENTRIES = 10000
-const accessLog: Array<{
-  keyId: string
-  requester: Address
-  requestId: string
+const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? 'dws'
+
+let cqlClient: CQLClient | null = null
+let tablesInitialized = false
+
+async function getCQLClient(): Promise<CQLClient> {
+  if (!cqlClient) {
+    cqlClient = getCQL({
+      databaseId: CQL_DATABASE_ID,
+      timeout: 30000,
+      debug: process.env.NODE_ENV !== 'production',
+    })
+
+    const healthy = await cqlClient.isHealthy()
+    if (!healthy) {
+      throw new Error('[Key Vault] CovenantSQL is required for vault storage')
+    }
+
+    await ensureTablesExist()
+  }
+  return cqlClient
+}
+
+async function ensureTablesExist(): Promise<void> {
+  if (tablesInitialized) return
+
+  const client = cqlClient
+  if (!client) return
+
+  const tables = [
+    `CREATE TABLE IF NOT EXISTS vault_keys (
+      id TEXT PRIMARY KEY,
+      provider_id TEXT NOT NULL,
+      owner TEXT NOT NULL,
+      encrypted_key TEXT NOT NULL,
+      attestation TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS vault_access_log (
+      id TEXT PRIMARY KEY,
+      key_id TEXT NOT NULL,
+      requester TEXT NOT NULL,
+      request_id TEXT NOT NULL,
+      timestamp INTEGER NOT NULL,
+      success INTEGER NOT NULL
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_vault_owner ON vault_keys(owner)`,
+    `CREATE INDEX IF NOT EXISTS idx_access_log_key ON vault_access_log(key_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_access_log_requester ON vault_access_log(requester)`,
+    `CREATE INDEX IF NOT EXISTS idx_access_log_timestamp ON vault_access_log(timestamp)`,
+  ]
+
+  for (const ddl of tables) {
+    await client.exec(ddl, [], CQL_DATABASE_ID)
+  }
+
+  tablesInitialized = true
+}
+
+// Row types for CQL queries
+interface VaultKeyRow {
+  id: string
+  provider_id: string
+  owner: string
+  encrypted_key: string
+  attestation: string
+  created_at: number
+}
+
+interface AccessLogRow {
+  id: string
+  key_id: string
+  requester: string
+  request_id: string
   timestamp: number
-  success: boolean
-}> = []
-
-// System keys loaded from environment
-const systemKeys = new Map<string, string>()
+  success: number
+}
 
 /** Response from TEE attestation endpoint */
 const AttestationResponseSchema = z.object({
   attestation: z.string(),
 })
-
-type AttestationResponse = z.infer<typeof AttestationResponseSchema>
-
-// Start cleanup interval for old access log entries (older than 24 hours)
-const ACCESS_LOG_CLEANUP_INTERVAL_MS = 60 * 60 * 1000 // 1 hour
-const ACCESS_LOG_MAX_AGE_MS = 24 * 60 * 60 * 1000 // 24 hours
-setInterval(() => {
-  const cutoff = Date.now() - ACCESS_LOG_MAX_AGE_MS
-  // Remove entries older than 24 hours, keeping at least the most recent MAX_ACCESS_LOG_ENTRIES
-  while (accessLog.length > 0 && accessLog[0].timestamp < cutoff) {
-    accessLog.shift()
-  }
-}, ACCESS_LOG_CLEANUP_INTERVAL_MS)
 
 // Encryption Helpers (AES-256-GCM)
 
@@ -58,10 +108,10 @@ let warnedAboutMissingSecret = false
  * Derive encryption key from server secret + keyId
  * SECURITY: VAULT_ENCRYPTION_SECRET MUST be set in production
  */
-function deriveKey(keyId: string): Buffer {
+function deriveKey(keyId: string): Uint8Array {
   const serverSecret = process.env.VAULT_ENCRYPTION_SECRET
-  const isProduction = process.env.NODE_ENV === 'production'
-  const isTest = process.env.NODE_ENV === 'test'
+  const isProduction = isProductionEnv()
+  const isTest = isTestMode()
 
   if (!serverSecret) {
     if (isProduction) {
@@ -76,44 +126,44 @@ function deriveKey(keyId: string): Buffer {
       )
     }
     // Development-only fallback - keys are ephemeral and insecure
-    return createHash('sha256')
-      .update(`DEV_ONLY_INSECURE_KEY:${keyId}`)
-      .digest()
+    return hash256(`DEV_ONLY_INSECURE_KEY:${keyId}`)
   }
-  return createHash('sha256').update(`${serverSecret}:${keyId}`).digest()
+  return hash256(`${serverSecret}:${keyId}`)
 }
 
 /**
  * Encrypt an API key with AES-256-GCM
  */
-function encryptApiKey(apiKey: string, keyId: string): string {
+async function encryptApiKey(apiKey: string, keyId: string): Promise<string> {
   const key = deriveKey(keyId)
-  const iv = randomBytes(12)
-  const cipher = createCipheriv('aes-256-gcm', key, iv)
-  const encrypted = Buffer.concat([
-    cipher.update(apiKey, 'utf8'),
-    cipher.final(),
-  ])
-  const authTag = cipher.getAuthTag()
-  // Format: iv (12) + authTag (16) + ciphertext, base64 encoded
-  return Buffer.concat([iv, authTag, encrypted]).toString('base64')
+  const apiKeyBytes = new TextEncoder().encode(apiKey)
+  const { ciphertext, iv, tag } = await encryptAesGcm(apiKeyBytes, key)
+  // Format: iv (12) + tag (16) + ciphertext, base64 encoded
+  const combined = new Uint8Array(iv.length + tag.length + ciphertext.length)
+  combined.set(iv, 0)
+  combined.set(tag, 12)
+  combined.set(ciphertext, 28)
+  return btoa(String.fromCharCode(...combined))
 }
 
 /**
  * Decrypt an API key with AES-256-GCM
  */
-function decryptApiKey(encryptedKey: string, keyId: string): string {
+async function decryptApiKey(
+  encryptedKey: string,
+  keyId: string,
+): Promise<string> {
   const key = deriveKey(keyId)
-  const data = Buffer.from(encryptedKey, 'base64')
+  const binaryStr = atob(encryptedKey)
+  const data = new Uint8Array(binaryStr.length)
+  for (let i = 0; i < binaryStr.length; i++) {
+    data[i] = binaryStr.charCodeAt(i)
+  }
   const iv = data.subarray(0, 12)
-  const authTag = data.subarray(12, 28)
+  const tag = data.subarray(12, 28)
   const ciphertext = data.subarray(28)
-  const decipher = createDecipheriv('aes-256-gcm', key, iv)
-  decipher.setAuthTag(authTag)
-  return Buffer.concat([
-    decipher.update(ciphertext),
-    decipher.final(),
-  ]).toString('utf8')
+  const decrypted = await decryptAesGcm(ciphertext, key, iv, tag)
+  return new TextDecoder().decode(decrypted)
 }
 
 // Key Storage
@@ -130,7 +180,7 @@ export async function storeKey(
   const id = crypto.randomUUID()
 
   // Encrypt the API key with AES-256-GCM
-  const encryptedKey = encryptApiKey(apiKey, id)
+  const encryptedKey = await encryptApiKey(apiKey, id)
 
   const vaultKey: VaultKey = {
     id,
@@ -141,48 +191,101 @@ export async function storeKey(
     createdAt: Date.now(),
   }
 
-  vault.set(id, vaultKey)
+  // Store in CQL
+  const client = await getCQLClient()
+  const attestationValue = vaultKey.attestation ?? ''
+  await client.exec(
+    `INSERT INTO vault_keys (id, provider_id, owner, encrypted_key, attestation, created_at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [
+      vaultKey.id,
+      vaultKey.providerId,
+      vaultKey.owner.toLowerCase(),
+      vaultKey.encryptedKey,
+      attestationValue,
+      vaultKey.createdAt,
+    ],
+    CQL_DATABASE_ID,
+  )
+
   return vaultKey
 }
 
 /**
  * Get a vault key metadata (without decrypting)
  */
-export function getKeyMetadata(
+export async function getKeyMetadata(
   id: string,
-): Omit<VaultKey, 'encryptedKey'> | undefined {
-  const key = vault.get(id)
-  if (!key) return undefined
+): Promise<Omit<VaultKey, 'encryptedKey'> | undefined> {
+  const client = await getCQLClient()
+  const result = await client.query<VaultKeyRow>(
+    'SELECT id, provider_id, owner, attestation, created_at FROM vault_keys WHERE id = ?',
+    [id],
+    CQL_DATABASE_ID,
+  )
 
-  const { encryptedKey: _, ...metadata } = key
-  return metadata
+  const row = result.rows[0]
+  if (!row) return undefined
+
+  return {
+    id: row.id,
+    providerId: row.provider_id,
+    owner: row.owner as Address,
+    attestation: row.attestation,
+    createdAt: row.created_at,
+  }
 }
 
 /**
  * Delete a key from the vault
  */
-export function deleteKey(id: string, requester: Address): boolean {
-  const key = vault.get(id)
-  if (!key) return false
+export async function deleteKey(
+  id: string,
+  requester: Address,
+): Promise<boolean> {
+  const client = await getCQLClient()
+  const result = await client.query<VaultKeyRow>(
+    'SELECT owner FROM vault_keys WHERE id = ?',
+    [id],
+    CQL_DATABASE_ID,
+  )
+
+  const row = result.rows[0]
+  if (!row) return false
 
   // Only owner can delete
-  if (key.owner.toLowerCase() !== requester.toLowerCase()) {
+  if (row.owner.toLowerCase() !== requester.toLowerCase()) {
     return false
   }
 
-  vault.delete(id)
+  await client.exec(
+    'DELETE FROM vault_keys WHERE id = ?',
+    [id],
+    CQL_DATABASE_ID,
+  )
   return true
 }
 
 /**
  * Get keys owned by an address
  */
-export function getKeysByOwner(
+export async function getKeysByOwner(
   owner: Address,
-): Array<Omit<VaultKey, 'encryptedKey'>> {
-  return Array.from(vault.values())
-    .filter((k) => k.owner.toLowerCase() === owner.toLowerCase())
-    .map(({ encryptedKey: _, ...metadata }) => metadata)
+): Promise<Array<Omit<VaultKey, 'encryptedKey'>>> {
+  const client = await getCQLClient()
+  const result = await client.query<VaultKeyRow>(
+    'SELECT id, provider_id, owner, attestation, created_at FROM vault_keys WHERE owner = ?',
+    [owner.toLowerCase()],
+    CQL_DATABASE_ID,
+  )
+
+  return result.rows.map((row) => ({
+    id: row.id,
+    providerId: row.provider_id,
+    owner: row.owner as Address,
+    attestation: row.attestation,
+    createdAt: row.created_at,
+  }))
 }
 
 // Key Decryption (Only in TEE context)
@@ -192,9 +295,9 @@ export function getKeysByOwner(
  * This function simulates TEE-secured decryption.
  * The decrypted key is NEVER returned - only used internally for request injection.
  */
-export function decryptKeyForRequest(
+export async function decryptKeyForRequest(
   request: VaultDecryptRequest,
-): string | null {
+): Promise<string | null> {
   // Check for system keys first
   const systemKeyId = request.keyId
   if (systemKeyId.startsWith('system:')) {
@@ -203,7 +306,7 @@ export function decryptKeyForRequest(
     if (provider) {
       const envKey = process.env[provider.envVar]
       if (envKey) {
-        logAccess(
+        await logAccess(
           request.keyId,
           request.requester,
           request.requestContext.requestId,
@@ -212,7 +315,7 @@ export function decryptKeyForRequest(
         return envKey
       }
     }
-    logAccess(
+    await logAccess(
       request.keyId,
       request.requester,
       request.requestContext.requestId,
@@ -221,10 +324,17 @@ export function decryptKeyForRequest(
     return null
   }
 
-  // User-stored keys
-  const vaultKey = vault.get(request.keyId)
+  // User-stored keys from CQL
+  const client = await getCQLClient()
+  const result = await client.query<VaultKeyRow>(
+    'SELECT * FROM vault_keys WHERE id = ?',
+    [request.keyId],
+    CQL_DATABASE_ID,
+  )
+
+  const vaultKey = result.rows[0]
   if (!vaultKey) {
-    logAccess(
+    await logAccess(
       request.keyId,
       request.requester,
       request.requestContext.requestId,
@@ -234,9 +344,9 @@ export function decryptKeyForRequest(
   }
 
   // Decrypt the API key with AES-256-GCM
-  const decrypted = decryptApiKey(vaultKey.encryptedKey, vaultKey.id)
+  const decrypted = await decryptApiKey(vaultKey.encrypted_key, vaultKey.id)
 
-  logAccess(
+  await logAccess(
     request.keyId,
     request.requester,
     request.requestContext.requestId,
@@ -250,15 +360,16 @@ export function decryptKeyForRequest(
 /**
  * Load system keys from environment
  * Called at startup to pre-load configured API keys
+ * System keys are read directly from env vars, not stored in CQL
  */
 export function loadSystemKeys(): void {
-  for (const [providerId, provider] of PROVIDERS_BY_ID) {
-    const envKey = process.env[provider.envVar]
-    if (envKey) {
-      systemKeys.set(providerId, envKey)
+  let count = 0
+  for (const [_providerId, provider] of PROVIDERS_BY_ID) {
+    if (process.env[provider.envVar]) {
+      count++
     }
   }
-  console.log(`[Key Vault] Loaded ${systemKeys.size} system keys`)
+  console.log(`[Key Vault] Found ${count} system keys in environment`)
 }
 
 /**
@@ -271,40 +382,77 @@ export function hasSystemKey(providerId: string): boolean {
 
 // Audit Logging
 
-function logAccess(
+interface AccessLogEntry {
+  keyId: string
+  requester: Address
+  requestId: string
+  timestamp: number
+  success: boolean
+}
+
+async function logAccess(
   keyId: string,
   requester: Address,
   requestId: string,
   success: boolean,
-): void {
-  accessLog.push({
-    keyId,
-    requester,
-    requestId,
-    timestamp: Date.now(),
-    success,
-  })
-
-  // Keep last MAX_ACCESS_LOG_ENTRIES entries to prevent memory exhaustion
-  if (accessLog.length > MAX_ACCESS_LOG_ENTRIES) {
-    accessLog.splice(0, accessLog.length - MAX_ACCESS_LOG_ENTRIES)
-  }
+): Promise<void> {
+  const client = await getCQLClient()
+  const id = crypto.randomUUID()
+  await client.exec(
+    `INSERT INTO vault_access_log (id, key_id, requester, request_id, timestamp, success)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [
+      id,
+      keyId,
+      requester.toLowerCase(),
+      requestId,
+      Date.now(),
+      success ? 1 : 0,
+    ],
+    CQL_DATABASE_ID,
+  )
 }
 
 /**
  * Get access log for a key
  */
-export function getAccessLog(keyId: string): typeof accessLog {
-  return accessLog.filter((l) => l.keyId === keyId)
+export async function getAccessLog(keyId: string): Promise<AccessLogEntry[]> {
+  const client = await getCQLClient()
+  const result = await client.query<AccessLogRow>(
+    'SELECT * FROM vault_access_log WHERE key_id = ? ORDER BY timestamp DESC LIMIT 1000',
+    [keyId],
+    CQL_DATABASE_ID,
+  )
+
+  return result.rows.map((row) => ({
+    keyId: row.key_id,
+    requester: row.requester as Address,
+    requestId: row.request_id,
+    timestamp: row.timestamp,
+    success: row.success === 1,
+  }))
 }
 
 /**
  * Get access log for a requester
  */
-export function getAccessLogByRequester(requester: Address): typeof accessLog {
-  return accessLog.filter(
-    (l) => l.requester.toLowerCase() === requester.toLowerCase(),
+export async function getAccessLogByRequester(
+  requester: Address,
+): Promise<AccessLogEntry[]> {
+  const client = await getCQLClient()
+  const result = await client.query<AccessLogRow>(
+    'SELECT * FROM vault_access_log WHERE requester = ? ORDER BY timestamp DESC LIMIT 1000',
+    [requester.toLowerCase()],
+    CQL_DATABASE_ID,
   )
+
+  return result.rows.map((row) => ({
+    keyId: row.key_id,
+    requester: row.requester as Address,
+    requestId: row.request_id,
+    timestamp: row.timestamp,
+    success: row.success === 1,
+  }))
 }
 
 // TEE Attestation
@@ -346,7 +494,7 @@ async function generateAttestation(keyId: string): Promise<string> {
   }
 
   // Development mode - log warning
-  if (process.env.NODE_ENV === 'production') {
+  if (isProductionEnv()) {
     console.warn(
       '[KeyVault] TEE attestation endpoint not configured - using local attestation',
     )
@@ -358,7 +506,7 @@ async function generateAttestation(keyId: string): Promise<string> {
     enclave: process.env.TEE_ENCLAVE_ID ?? 'development',
     version: '1.0.0',
   }
-  return Buffer.from(JSON.stringify(attestationData)).toString('base64')
+  return btoa(JSON.stringify(attestationData))
 }
 
 // Schema for TEE attestation data
@@ -376,7 +524,7 @@ export function verifyAttestation(attestation: string): {
   timestamp?: number
 } {
   try {
-    const decoded = Buffer.from(attestation, 'base64').toString('utf-8')
+    const decoded = atob(attestation)
     const parsed = AttestationDataSchema.parse(JSON.parse(decoded))
     return {
       valid: true,
@@ -398,7 +546,14 @@ export async function rotateKey(
   owner: Address,
   newApiKey: string,
 ): Promise<VaultKey | null> {
-  const oldKey = vault.get(oldKeyId)
+  const client = await getCQLClient()
+  const result = await client.query<VaultKeyRow>(
+    'SELECT * FROM vault_keys WHERE id = ?',
+    [oldKeyId],
+    CQL_DATABASE_ID,
+  )
+
+  const oldKey = result.rows[0]
   if (!oldKey) return null
 
   // Verify ownership
@@ -407,10 +562,14 @@ export async function rotateKey(
   }
 
   // Store new key
-  const newKey = await storeKey(oldKey.providerId, owner, newApiKey)
+  const newKey = await storeKey(oldKey.provider_id, owner, newApiKey)
 
   // Delete old key
-  vault.delete(oldKeyId)
+  await client.exec(
+    'DELETE FROM vault_keys WHERE id = ?',
+    [oldKeyId],
+    CQL_DATABASE_ID,
+  )
 
   return newKey
 }
@@ -425,15 +584,43 @@ export interface VaultStats {
   recentAccesses: number // Last hour
 }
 
-export function getVaultStats(): VaultStats {
+export async function getVaultStats(): Promise<VaultStats> {
+  const client = await getCQLClient()
   const hourAgo = Date.now() - 3600000
-  const recentAccesses = accessLog.filter((l) => l.timestamp > hourAgo).length
+
+  const [keysResult, accessResult, recentResult] = await Promise.all([
+    client.query<{ count: number }>(
+      'SELECT COUNT(*) as count FROM vault_keys',
+      [],
+      CQL_DATABASE_ID,
+    ),
+    client.query<{ count: number }>(
+      'SELECT COUNT(*) as count FROM vault_access_log',
+      [],
+      CQL_DATABASE_ID,
+    ),
+    client.query<{ count: number }>(
+      'SELECT COUNT(*) as count FROM vault_access_log WHERE timestamp > ?',
+      [hourAgo],
+      CQL_DATABASE_ID,
+    ),
+  ])
+
+  // Count system keys from environment
+  let systemKeyCount = 0
+  for (const [_providerId, provider] of PROVIDERS_BY_ID) {
+    if (process.env[provider.envVar]) {
+      systemKeyCount++
+    }
+  }
+
+  const userKeys = keysResult.rows[0]?.count ?? 0
 
   return {
-    totalKeys: vault.size + systemKeys.size,
-    totalSystemKeys: systemKeys.size,
-    totalUserKeys: vault.size,
-    totalAccesses: accessLog.length,
-    recentAccesses,
+    totalKeys: userKeys + systemKeyCount,
+    totalSystemKeys: systemKeyCount,
+    totalUserKeys: userKeys,
+    totalAccesses: accessResult.rows[0]?.count ?? 0,
+    recentAccesses: recentResult.rows[0]?.count ?? 0,
   }
 }

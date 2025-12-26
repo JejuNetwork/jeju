@@ -6,11 +6,16 @@
  */
 
 import { z } from 'zod'
-import automation from './automation.json'
-import feeds from './feeds.json'
-import nodes from './nodes.json'
-import staking from './staking.json'
-import vrf from './vrf.json'
+// @ts-expect-error TypeScript 5.3+ supports import attributes
+import automation from './automation.json' with { type: 'json' }
+// @ts-expect-error TypeScript 5.3+ supports import attributes
+import feeds from './feeds.json' with { type: 'json' }
+// @ts-expect-error TypeScript 5.3+ supports import attributes
+import nodes from './nodes.json' with { type: 'json' }
+// @ts-expect-error TypeScript 5.3+ supports import attributes
+import staking from './staking.json' with { type: 'json' }
+// @ts-expect-error TypeScript 5.3+ supports import attributes
+import vrf from './vrf.json' with { type: 'json' }
 
 export { feeds, staking, vrf, automation, nodes }
 

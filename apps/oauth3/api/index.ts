@@ -77,7 +77,7 @@ async function createApp() {
       service: 'auth',
       timestamp: Date.now(),
     }))
-    .get('/', () => ({
+    .get('/api', () => ({
       name: 'Jeju Auth Gateway',
       version: '1.0.0',
       description: 'OAuth3 authentication gateway for Jeju Network',
@@ -90,6 +90,66 @@ async function createApp() {
       },
       docs: 'https://docs.jejunetwork.org/auth',
     }))
+    // Serve static frontend files
+    .get('/', async () => {
+      const file = Bun.file('./web/index.html')
+      if (await file.exists()) {
+        return new Response(file, {
+          headers: { 'Content-Type': 'text/html; charset=utf-8' },
+        })
+      }
+      // Fallback: try dist/web
+      const distFile = Bun.file('./dist/web/index.html')
+      if (await distFile.exists()) {
+        return new Response(distFile, {
+          headers: { 'Content-Type': 'text/html; charset=utf-8' },
+        })
+      }
+      return new Response('OAuth3 Authentication Gateway', {
+        headers: { 'Content-Type': 'text/plain' },
+      })
+    })
+    .get('/app.js', async () => {
+      // Try source first for dev
+      const srcFile = Bun.file('./web/app.ts')
+      if (await srcFile.exists()) {
+        // Build on the fly for dev
+        const result = await Bun.build({
+          entrypoints: ['./web/app.ts'],
+          target: 'browser',
+          minify: false,
+        })
+        if (result.outputs[0]) {
+          const text = await result.outputs[0].text()
+          return new Response(text, {
+            headers: {
+              'Content-Type': 'application/javascript; charset=utf-8',
+            },
+          })
+        }
+      }
+      // Try built file
+      const distFile = Bun.file('./dist/web/app.js')
+      if (await distFile.exists()) {
+        return new Response(distFile, {
+          headers: { 'Content-Type': 'application/javascript; charset=utf-8' },
+        })
+      }
+      return new Response('// app not found', { status: 404 })
+    })
+    // Callback route for OAuth flows
+    .get('/callback', async () => {
+      const file = Bun.file('./web/index.html')
+      if (await file.exists()) {
+        return new Response(file, {
+          headers: { 'Content-Type': 'text/html; charset=utf-8' },
+        })
+      }
+      const distFile = Bun.file('./dist/web/index.html')
+      return new Response(distFile, {
+        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      })
+    })
     .use(await createOAuthRouter(config))
     .use(createWalletRouter(config))
     .use(createFarcasterRouter(config))

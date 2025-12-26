@@ -1,7 +1,7 @@
 import {
-  getExternalRpc,
-  getCurrentNetwork,
   getRpcUrl as getConfigRpcUrl,
+  getCurrentNetwork,
+  getExternalRpc,
 } from '@jejunetwork/config'
 import { SolverAgent } from './agent'
 import { LiquidityManager } from './liquidity'
@@ -32,26 +32,41 @@ function getRpcUrl(chainId: number): string {
   if (baseUrl) return baseUrl
 
   // Use centralized config for RPC URLs
-  const chainToConfig: Record<number, string> = {
-    1: getExternalRpc('ethereum'),
-    8453: getExternalRpc('base'),
-    42161: getExternalRpc('arbitrum'),
-    10: getExternalRpc('optimism'),
-    11155111: getExternalRpc('sepolia'),
-    84532: getExternalRpc('base-sepolia'),
-    421614: getExternalRpc('arbitrum-sepolia'),
-    11155420: getExternalRpc('optimism-sepolia'),
-    420690: getConfigRpcUrl('localnet'),
-    420691: getConfigRpcUrl('mainnet'),
+  // Build config dynamically, skipping unconfigured chains
+  const safeGetRpc = (fn: () => string): string | undefined => {
+    try {
+      return fn()
+    } catch {
+      return undefined
+    }
   }
-  return chainToConfig[chainId] || getConfigRpcUrl('localnet')
+
+  const chainToConfig: Record<number, string | undefined> = {
+    1: safeGetRpc(() => getExternalRpc('ethereum')),
+    8453: safeGetRpc(() => getExternalRpc('base')),
+    42161: safeGetRpc(() => getExternalRpc('arbitrum')),
+    10: safeGetRpc(() => getExternalRpc('optimism')),
+    11155111: safeGetRpc(() => getExternalRpc('sepolia')),
+    84532: safeGetRpc(() => getExternalRpc('base-sepolia')),
+    421614: safeGetRpc(() => getExternalRpc('arbitrum-sepolia')),
+    11155420: safeGetRpc(() => getExternalRpc('optimism-sepolia')),
+    420690: safeGetRpc(() => getConfigRpcUrl('localnet')),
+    420691: safeGetRpc(() => getConfigRpcUrl('mainnet')),
+  }
+  return chainToConfig[chainId] ?? getConfigRpcUrl('localnet')
 }
 
 const CHAINS = (
   IS_TESTNET
     ? [11155111, 84532, 421614, 11155420, 420690]
     : [1, 8453, 42161, 10, 420691]
-).map((id) => ({ chainId: id, name: getChainName(id), rpcUrl: getRpcUrl(id) }))
+)
+  .map((id) => {
+    const rpcUrl = getRpcUrl(id)
+    if (!rpcUrl) return null
+    return { chainId: id, name: getChainName(id), rpcUrl }
+  })
+  .filter((c): c is { chainId: number; name: string; rpcUrl: string } => c !== null)
 
 const CONFIG = {
   chains: CHAINS,
@@ -86,7 +101,10 @@ async function main() {
   })
 }
 
-main().catch(console.error)
+// Start solver in background - don't block module import
+if (process.env.ENABLE_OIF_SOLVER === 'true') {
+  main().catch(console.error)
+}
 
 export { SolverAgent, LiquidityManager, EventMonitor, StrategyEngine }
 export * from './contracts'

@@ -12,6 +12,7 @@
  */
 
 import { getDWSComputeUrl } from '@jejunetwork/config'
+import { type CQLClient, getCQL } from '@jejunetwork/db'
 import type { Address, Hex } from 'viem'
 import { z } from 'zod'
 import {
@@ -31,6 +32,106 @@ import type {
   ScreeningResult,
   ViolationSummary,
 } from './types'
+
+// ============ CQL Database Setup ============
+
+const EMAIL_SCREENING_DATABASE_ID = 'dws-email-screening'
+let cqlClient: CQLClient | null = null
+
+async function getCQLClient(): Promise<CQLClient> {
+  if (!cqlClient) {
+    cqlClient = getCQL()
+    await ensureScreeningTables()
+  }
+  return cqlClient
+}
+
+async function ensureScreeningTables(): Promise<void> {
+  if (!cqlClient) return
+
+  const createAccountFlagsTable = `
+    CREATE TABLE IF NOT EXISTS email_account_flags (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      address TEXT NOT NULL,
+      flag_type TEXT NOT NULL,
+      confidence REAL NOT NULL,
+      details TEXT NOT NULL,
+      evidence_hash TEXT,
+      created_at INTEGER NOT NULL
+    )
+  `
+  const createAccountFlagsIndex = `
+    CREATE INDEX IF NOT EXISTS idx_account_flags_address ON email_account_flags(address)
+  `
+
+  const createAccountStatsTable = `
+    CREATE TABLE IF NOT EXISTS email_account_stats (
+      address TEXT PRIMARY KEY,
+      email_count INTEGER NOT NULL DEFAULT 0,
+      updated_at INTEGER NOT NULL
+    )
+  `
+
+  const createModerationQueueTable = `
+    CREATE TABLE IF NOT EXISTS email_moderation_queue (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      account TEXT NOT NULL,
+      email_address TEXT NOT NULL,
+      review_reason TEXT NOT NULL,
+      content_analysis TEXT NOT NULL,
+      recommendation TEXT NOT NULL,
+      confidence REAL NOT NULL,
+      created_at INTEGER NOT NULL,
+      processed INTEGER NOT NULL DEFAULT 0
+    )
+  `
+  const createModerationQueueIndex = `
+    CREATE INDEX IF NOT EXISTS idx_moderation_queue_processed ON email_moderation_queue(processed, created_at)
+  `
+
+  await cqlClient.exec(createAccountFlagsTable, [], EMAIL_SCREENING_DATABASE_ID)
+  await cqlClient.exec(createAccountFlagsIndex, [], EMAIL_SCREENING_DATABASE_ID)
+  await cqlClient.exec(createAccountStatsTable, [], EMAIL_SCREENING_DATABASE_ID)
+  await cqlClient.exec(
+    createModerationQueueTable,
+    [],
+    EMAIL_SCREENING_DATABASE_ID,
+  )
+  await cqlClient.exec(
+    createModerationQueueIndex,
+    [],
+    EMAIL_SCREENING_DATABASE_ID,
+  )
+}
+
+// CQL row types
+interface AccountFlagRow {
+  id: number
+  address: string
+  flag_type: string
+  confidence: number
+  details: string
+  evidence_hash: string | null
+  created_at: number
+}
+
+interface AccountStatsRow {
+  address: string
+  email_count: number
+  updated_at: number
+}
+
+interface ModerationQueueRow {
+  id: number
+  account: string
+  email_address: string
+  review_reason: string
+  content_analysis: string
+  recommendation: string
+  confidence: number
+  created_at: number
+  processed: number
+}
 
 // ============ Zod Schemas for JSON Parsing ============
 
@@ -65,8 +166,8 @@ const AccountReviewResponseSchema = z.object({
 // Schema for hash list response - can be array or newline-separated
 const HashListSchema = z.array(z.string())
 
-// Schema for moderation queue (array of AccountReview)
-const AccountReviewSchema = z.object({
+// Schema for moderation queue validation (can be used for external API responses)
+const _AccountReviewSchema = z.object({
   account: z.string(),
   emailAddress: z.string(),
   reviewReason: z.string(),
@@ -78,15 +179,19 @@ const AccountReviewSchema = z.object({
       z.object({
         type: z.string(),
         count: z.number(),
-        severity: z.number(),
+        severity: z.enum(['low', 'medium', 'high', 'critical']),
+        description: z.string(),
       }),
     ),
     overallAssessment: z.string(),
+    llmReasoning: z.string(),
   }),
   recommendation: z.enum(['allow', 'warn', 'suspend', 'ban']),
   confidence: z.number().min(0).max(1),
   timestamp: z.number(),
 })
+// Export type for external use
+export type AccountReviewData = z.infer<typeof _AccountReviewSchema>
 
 // ============ Configuration ============
 
@@ -133,8 +238,6 @@ const malwareHashList = new Set<string>()
 
 export class ContentScreeningPipeline {
   private config: ContentScreeningConfig
-  private accountFlags: Map<Address, ContentFlag[]> = new Map()
-  private accountEmailCounts: Map<Address, number> = new Map()
 
   constructor(config: Partial<ContentScreeningConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config }
@@ -225,17 +328,16 @@ export class ContentScreeningPipeline {
       })
     }
 
-    // Track flags for account
-    this.trackAccountFlag(senderAddress, flags)
-    const emailCount = (this.accountEmailCounts.get(senderAddress) ?? 0) + 1
-    this.accountEmailCounts.set(senderAddress, emailCount)
+    // Track flags for account (CQL-backed)
+    await this.trackAccountFlag(senderAddress, flags)
+    await this.incrementAccountEmailCount(senderAddress)
 
     // Determine action
-    const action = this.determineAction(flags, scores, senderAddress)
+    const action = await this.determineAction(flags, scores, senderAddress)
     const reviewRequired =
       action === 'review' || flags.some((f) => f.type === 'csam')
 
-    if (this.shouldTriggerAccountReview(senderAddress)) {
+    if (await this.shouldTriggerAccountReview(senderAddress)) {
       await this.performAccountReview(senderAddress)
     }
 
@@ -360,43 +462,105 @@ Return ONLY valid JSON: {"spam": 0.0, "scam": 0.0, "csam": 0.0, "malware": 0.0, 
   }
 
   /**
-   * Track flags for an account
+   * Track flags for an account (CQL-backed)
    */
-  private trackAccountFlag(address: Address, flags: ContentFlag[]): void {
-    const existing = this.accountFlags.get(address) ?? []
-    this.accountFlags.set(address, [...existing, ...flags])
+  private async trackAccountFlag(
+    address: Address,
+    flags: ContentFlag[],
+  ): Promise<void> {
+    if (flags.length === 0) return
+
+    const client = await getCQLClient()
+    const now = Date.now()
+    const normalizedAddress = address.toLowerCase()
+
+    for (const flag of flags) {
+      await client.exec(
+        `INSERT INTO email_account_flags (address, flag_type, confidence, details, evidence_hash, created_at)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [
+          normalizedAddress,
+          flag.type,
+          flag.confidence,
+          flag.details,
+          flag.evidenceHash ?? null,
+          now,
+        ],
+        EMAIL_SCREENING_DATABASE_ID,
+      )
+    }
   }
 
   /**
-   * Check if account review is needed
+   * Increment account email count (CQL-backed)
    */
-  private shouldTriggerAccountReview(address: Address): boolean {
-    const flags = this.accountFlags.get(address) ?? []
-    const emailCount = this.accountEmailCounts.get(address) ?? 0
+  private async incrementAccountEmailCount(address: Address): Promise<void> {
+    const client = await getCQLClient()
+    const normalizedAddress = address.toLowerCase()
+    const now = Date.now()
+
+    await client.exec(
+      `INSERT INTO email_account_stats (address, email_count, updated_at)
+       VALUES (?, 1, ?)
+       ON CONFLICT(address) DO UPDATE SET
+         email_count = email_count + 1,
+         updated_at = ?`,
+      [normalizedAddress, now, now],
+      EMAIL_SCREENING_DATABASE_ID,
+    )
+  }
+
+  /**
+   * Check if account review is needed (CQL-backed)
+   */
+  private async shouldTriggerAccountReview(address: Address): Promise<boolean> {
+    const client = await getCQLClient()
+    const normalizedAddress = address.toLowerCase()
+
+    // Get email count
+    const statsResult = await client.query<
+      Pick<AccountStatsRow, 'email_count'>
+    >(
+      `SELECT email_count FROM email_account_stats WHERE address = ?`,
+      [normalizedAddress],
+      EMAIL_SCREENING_DATABASE_ID,
+    )
+    const emailCount = statsResult.rows[0]?.email_count ?? 0
 
     if (emailCount < this.config.minEmailsForReview) {
       return false
     }
 
+    // Get flags for this account
+    const flagsResult = await client.query<
+      Pick<AccountFlagRow, 'flag_type' | 'evidence_hash'>
+    >(
+      `SELECT flag_type, evidence_hash FROM email_account_flags WHERE address = ?`,
+      [normalizedAddress],
+      EMAIL_SCREENING_DATABASE_ID,
+    )
+
     // Check for multiple CSAM flags
-    const csamFlags = flags.filter((f) => f.type === 'csam')
+    const csamFlags = flagsResult.rows.filter((f) => f.flag_type === 'csam')
     if (csamFlags.length >= 3) {
       return true
     }
 
     // Check flagged percentage
-    const flaggedCount = new Set(flags.map((f) => f.evidenceHash)).size
-    const flaggedPercentage = flaggedCount / emailCount
+    const uniqueHashes = new Set(
+      flagsResult.rows.map((f) => f.evidence_hash).filter(Boolean),
+    )
+    const flaggedPercentage = uniqueHashes.size / emailCount
 
     return flaggedPercentage > this.config.flaggedPercentageThreshold
   }
 
   /**
-   * Perform full account review with LLM and submit to moderation system
+   * Perform full account review with LLM and submit to moderation system (CQL-backed)
    */
   async performAccountReview(address: Address): Promise<AccountReview> {
-    const flags = this.accountFlags.get(address) ?? []
-    const emailCount = this.accountEmailCounts.get(address) ?? 0
+    const flags = await this.getAccountFlags(address)
+    const emailCount = await this.getAccountEmailCount(address)
 
     // Categorize violations
     const violationCounts: Record<ContentFlagType, number> = {
@@ -465,7 +629,7 @@ Return ONLY valid JSON:
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'claude-3-5-sonnet-20241022', // Use best model for critical decisions
+          model: 'claude-opus-4-5', // Use best model for critical decisions
           messages: [
             {
               role: 'system',
@@ -595,53 +759,87 @@ Return ONLY valid JSON:
     }
   }
 
-  /** In-memory moderation review queue (for retry when endpoint unavailable) */
-  private moderationQueue: AccountReview[] = []
-
   /**
-   * Queue review in-memory when moderation endpoint is unavailable
-   * In production, this would be backed by a persistent queue (Redis, SQS, etc.)
+   * Queue review in CQL when moderation endpoint is unavailable
    */
   private async queueModerationReview(review: AccountReview): Promise<void> {
-    this.moderationQueue.push(review)
-    console.log(
-      `[ContentScreening] Review queued in-memory. Queue size: ${this.moderationQueue.length}`,
+    const client = await getCQLClient()
+    const now = Date.now()
+
+    await client.exec(
+      `INSERT INTO email_moderation_queue (account, email_address, review_reason, content_analysis, recommendation, confidence, created_at, processed)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 0)`,
+      [
+        review.account,
+        review.emailAddress,
+        review.reviewReason,
+        JSON.stringify(review.contentAnalysis),
+        review.recommendation,
+        review.confidence,
+        now,
+      ],
+      EMAIL_SCREENING_DATABASE_ID,
     )
 
-    // Log for observability - in production this would go to a monitoring system
+    console.log(`[ContentScreening] Review queued in CQL for ${review.account}`)
     console.warn(
       `[ContentScreening] Moderation review pending for ${review.account}: ${review.recommendation}`,
     )
   }
 
   /**
-   * Get pending moderation reviews (for retry processing)
+   * Get pending moderation reviews from CQL (for retry processing)
    */
-  getPendingModerationReviews(): AccountReview[] {
-    return [...this.moderationQueue]
+  async getPendingModerationReviews(): Promise<AccountReview[]> {
+    const client = await getCQLClient()
+
+    const result = await client.query<ModerationQueueRow>(
+      `SELECT * FROM email_moderation_queue WHERE processed = 0 ORDER BY created_at ASC`,
+      [],
+      EMAIL_SCREENING_DATABASE_ID,
+    )
+
+    return result.rows.map((row) => ({
+      account: row.account as Address,
+      emailAddress: row.email_address,
+      reviewReason: row.review_reason,
+      contentAnalysis: JSON.parse(row.content_analysis),
+      recommendation: row.recommendation as
+        | 'allow'
+        | 'warn'
+        | 'suspend'
+        | 'ban',
+      confidence: row.confidence,
+      timestamp: row.created_at,
+    }))
   }
 
   /**
-   * Clear a review from the queue after successful submission
+   * Clear a review from the queue after successful submission (CQL-backed)
    */
-  clearModerationReview(account: string): void {
-    this.moderationQueue = this.moderationQueue.filter(
-      (r) => r.account !== account,
+  async clearModerationReview(account: string): Promise<void> {
+    const client = await getCQLClient()
+    const normalizedAccount = account.toLowerCase()
+
+    await client.exec(
+      `UPDATE email_moderation_queue SET processed = 1 WHERE account = ? AND processed = 0`,
+      [normalizedAccount],
+      EMAIL_SCREENING_DATABASE_ID,
     )
   }
 
   /**
-   * Retry submitting pending reviews to moderation system
+   * Retry submitting pending reviews to moderation system (CQL-backed)
    */
   async retryPendingReviews(): Promise<{ submitted: number; failed: number }> {
-    const pending = [...this.moderationQueue]
+    const pending = await this.getPendingModerationReviews()
     let submitted = 0
     let failed = 0
 
     for (const review of pending) {
       try {
         await this.submitToModerationSystem(review)
-        this.clearModerationReview(review.account)
+        await this.clearModerationReview(review.account)
         submitted++
       } catch {
         failed++
@@ -652,13 +850,13 @@ Return ONLY valid JSON:
   }
 
   /**
-   * Determine screening action based on flags and scores
+   * Determine screening action based on flags and scores (CQL-backed)
    */
-  private determineAction(
+  private async determineAction(
     flags: ContentFlag[],
     scores: ContentScores,
     address: Address,
-  ): ScreeningAction {
+  ): Promise<ScreeningAction> {
     // CSAM = immediate block and ban
     if (flags.some((f) => f.type === 'csam' && f.confidence > 0.5)) {
       return 'block_and_ban'
@@ -684,8 +882,8 @@ Return ONLY valid JSON:
       return 'review'
     }
 
-    // Check account history
-    const accountFlags = this.accountFlags.get(address) ?? []
+    // Check account history (CQL-backed)
+    const accountFlags = await this.getAccountFlags(address)
     if (accountFlags.length > 5) {
       return 'review'
     }
@@ -728,6 +926,7 @@ Return ONLY valid JSON:
     flags: ContentFlag[],
     action: ScreeningAction,
     reviewRequired: boolean,
+    _processingTimeMs?: number,
   ): ScreeningResult {
     return {
       messageId,
@@ -885,25 +1084,60 @@ Return ONLY valid JSON:
   // ============ Account Management ============
 
   /**
-   * Clear flags for an account (after moderation resolution)
+   * Clear flags for an account (after moderation resolution) (CQL-backed)
    */
-  clearAccountFlags(address: Address): void {
-    this.accountFlags.delete(address)
-    this.accountEmailCounts.delete(address)
+  async clearAccountFlags(address: Address): Promise<void> {
+    const client = await getCQLClient()
+    const normalizedAddress = address.toLowerCase()
+
+    await client.exec(
+      `DELETE FROM email_account_flags WHERE address = ?`,
+      [normalizedAddress],
+      EMAIL_SCREENING_DATABASE_ID,
+    )
+
+    await client.exec(
+      `DELETE FROM email_account_stats WHERE address = ?`,
+      [normalizedAddress],
+      EMAIL_SCREENING_DATABASE_ID,
+    )
   }
 
   /**
-   * Get account flags for review
+   * Get account flags for review (CQL-backed)
    */
-  getAccountFlags(address: Address): ContentFlag[] {
-    return this.accountFlags.get(address) ?? []
+  async getAccountFlags(address: Address): Promise<ContentFlag[]> {
+    const client = await getCQLClient()
+    const normalizedAddress = address.toLowerCase()
+
+    const result = await client.query<AccountFlagRow>(
+      `SELECT * FROM email_account_flags WHERE address = ? ORDER BY created_at DESC`,
+      [normalizedAddress],
+      EMAIL_SCREENING_DATABASE_ID,
+    )
+
+    return result.rows.map((row) => ({
+      type: row.flag_type as ContentFlagType,
+      confidence: row.confidence,
+      details: row.details,
+      evidenceHash: row.evidence_hash as Hex | undefined,
+    }))
   }
 
   /**
-   * Get account email count
+   * Get account email count (CQL-backed)
    */
-  getAccountEmailCount(address: Address): number {
-    return this.accountEmailCounts.get(address) ?? 0
+  async getAccountEmailCount(address: Address): Promise<number> {
+    const client = await getCQLClient()
+    const normalizedAddress = address.toLowerCase()
+
+    const result = await client.query<Pick<AccountStatsRow, 'email_count'>>(
+      `SELECT email_count FROM email_account_stats WHERE address = ?`,
+      [normalizedAddress],
+      EMAIL_SCREENING_DATABASE_ID,
+    )
+
+    return result.rows[0]?.email_count ?? 0
   }
 }
 

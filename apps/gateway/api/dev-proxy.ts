@@ -43,6 +43,7 @@ const STATIC_DEV_PROXIES: Record<string, number> = {
   node: 4080,
   indexer: 4350,
   auth: 4060,
+  babylon: 5008,
 }
 
 /** JNS Resolver ABI for text records */

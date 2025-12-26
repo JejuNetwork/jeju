@@ -17,11 +17,13 @@ interface Message {
 interface ChatInterfaceProps {
   characterId: string
   characterName: string
+  roomId?: string
 }
 
 export function ChatInterface({
   characterId,
   characterName,
+  roomId,
 }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -54,7 +56,7 @@ export function ChatInterface({
       characterId,
       text: userMessage.content,
       userId: 'web-user',
-      roomId: 'web-chat',
+      roomId: roomId ?? 'web-chat',
     })
 
     const agentMessage: Message = {

@@ -8,9 +8,9 @@
  */
 
 import { execSync } from 'node:child_process'
-import { createHash } from 'node:crypto'
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { extname, join, relative } from 'node:path'
+import { bytesToHex, hash256 } from '@jejunetwork/shared'
 import type { Hex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { CIDUploadResponseSchema, expectValid } from '../../schemas'
@@ -223,7 +223,7 @@ class FrontendUploader {
       const content = readFileSync(file)
       const ext = extname(file)
       const mimeType = MIME_TYPES[ext] || 'application/octet-stream'
-      const hash = createHash('sha256').update(content).digest('hex')
+      const hash = bytesToHex(hash256(new Uint8Array(content)))
       const size = content.length
       totalSize += size
 

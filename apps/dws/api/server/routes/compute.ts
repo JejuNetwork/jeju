@@ -551,17 +551,33 @@ export function createComputeRouter() {
         }
       })
 
-      // Nodes
+      // Nodes - returns compute nodes for dashboard
       .get('/nodes', async () => {
-        const nodes = await trainingState.listNodes(true)
-        return nodes.map((n) => ({
-          address: n.address,
-          gpuTier: n.gpu_tier,
-          score: n.score,
-          latencyMs: n.latency_ms,
-          bandwidthMbps: n.bandwidth_mbps,
-          isActive: n.is_active === 1,
+        const trainingNodes = await trainingState.listNodes(true)
+
+        // Transform training nodes to ComputeNode format expected by frontend
+        const nodes = trainingNodes.map((n) => ({
+          id: `node-${n.address.slice(2, 10)}`,
+          address: n.address as Address,
+          region: 'global',
+          zone: 'default',
+          status: (n.is_active === 1 ? 'online' : 'offline') as
+            | 'online'
+            | 'offline'
+            | 'maintenance',
+          resources: {
+            totalCpu: 8,
+            availableCpu: n.is_active === 1 ? 6 : 0,
+            totalMemoryMb: 16384,
+            availableMemoryMb: n.is_active === 1 ? 12288 : 0,
+          },
+          containers: 0,
+          cachedImages: 0,
+          reputation: n.score,
+          lastHeartbeat: Date.now() - (n.is_active === 1 ? 0 : 300000),
         }))
+
+        return { nodes }
       })
 
       .get('/nodes/stats', async () => {

@@ -19,14 +19,16 @@ let dbPersistence: TrainingDbPersistence | null = null
 
 async function getDbPersistence(): Promise<TrainingDbPersistence | null> {
   if (dbPersistence) return dbPersistence
-  
+
   // Try to get database client from environment
   const dbEndpoint = process.env.CQL_ENDPOINT
   if (!dbEndpoint) {
-    log.warn('CQL_ENDPOINT not set - trajectory batches will not be persisted to database')
+    log.warn(
+      'CQL_ENDPOINT not set - trajectory batches will not be persisted to database',
+    )
     return null
   }
-  
+
   // Import dynamically to avoid circular deps
   const { CQLClient } = await import('@jejunetwork/db')
   const client = new CQLClient({ blockProducerEndpoint: dbEndpoint })
@@ -46,7 +48,7 @@ const crucibleTrajectoryStorage = getStaticTrajectoryStorage('crucible', {
       trajectoryCount: batch.trajectoryCount,
       compressedSize: batch.compressedSizeBytes,
     })
-    
+
     // Persist to database for discovery
     const persistence = await getDbPersistence()
     if (persistence) {
@@ -141,7 +143,9 @@ function verifyCronAuth(headers: Record<string, string | undefined>): boolean {
   const cronSecret = process.env.CRON_SECRET
   if (!cronSecret) {
     if (!warnedAboutMissingSecret) {
-      log.warn('CRON_SECRET not set - cron endpoints are unprotected. Set CRON_SECRET in production.')
+      log.warn(
+        'CRON_SECRET not set - cron endpoints are unprotected. Set CRON_SECRET in production.',
+      )
       warnedAboutMissingSecret = true
     }
     return true // Allow in development

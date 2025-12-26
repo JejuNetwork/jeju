@@ -5,7 +5,7 @@
   "description": "Gateway - Protocol Infrastructure Hub for bridge, LP, nodes, oracles, and more",
   "main": "api/a2a-server.ts",
   "scripts": {
-    "dev": "concurrently \"bun dev-server.ts\" \"bun api/a2a-server.ts\" \"bun api/rpc-server.ts\" \"bun api/x402-server.ts\" \"bun api/leaderboard-server.ts\"",
+    "dev": "concurrently \"bun dev-server.ts\" \"bun api/server.ts\" \"bun api/rpc-server.ts\" \"bun api/x402-server.ts\"",
     "build": "bun build.web.ts",
     "start": "bun api/a2a-server.ts",
     "test": "bun test tests/ && bunx playwright test tests/synpress/",
@@ -15,6 +15,7 @@
     "@elysiajs/cors": "^1.4.0",
     "@jejunetwork/auth": "workspace:*",
     "@jejunetwork/config": "workspace:*",
+    "@jejunetwork/messaging": "workspace:*",
     "@jejunetwork/contracts": "workspace:*",
     "@jejunetwork/db": "workspace:*",
     "@jejunetwork/kms": "workspace:*",
