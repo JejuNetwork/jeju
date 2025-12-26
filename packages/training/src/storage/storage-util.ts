@@ -10,7 +10,12 @@
 
 import { promises as fs } from 'node:fs'
 import * as path from 'node:path'
-import { getCurrentNetwork, getServiceUrl } from '@jejunetwork/config'
+import {
+  getCurrentNetwork,
+  getJejuStorageApiKey,
+  getServiceUrl,
+  getStorageProvider as getStorageProviderConfig,
+} from '@jejunetwork/config'
 import { logger } from '@jejunetwork/shared'
 import { isIPFSUploadResult } from './type-guards'
 import type { IPFSUploadResult, ModelMetadata, StorageOptions } from './types'
@@ -19,7 +24,7 @@ import type { IPFSUploadResult, ModelMetadata, StorageOptions } from './types'
  * Storage provider configuration
  * Use STORAGE_PROVIDER env to choose: 'ipfs' | 'huggingface' | 'auto'
  */
-const STORAGE_PROVIDER = process.env.STORAGE_PROVIDER || 'auto'
+const STORAGE_PROVIDER = getStorageProviderConfig()
 
 /**
  * Jeju Storage endpoint based on network
@@ -56,7 +61,7 @@ export class StorageUtil {
 
   constructor() {
     this.endpoint = getJejuStorageEndpoint()
-    this.apiKey = process.env.JEJU_STORAGE_API_KEY
+    this.apiKey = getJejuStorageApiKey()
   }
 
   /**

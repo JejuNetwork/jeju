@@ -3,6 +3,7 @@
  * Open/close positions, manage margin, view PnL
  */
 
+import { getRpcUrl } from '@jejunetwork/config'
 import { asTuple } from '@jejunetwork/types'
 import {
   type Address,
@@ -293,7 +294,7 @@ export class PerpsService {
     if (cached) {
       return cached
     }
-    const rpcUrl = getNetworkRpcUrl(this.chainId) ?? 'http://localhost:6546'
+    const rpcUrl = getNetworkRpcUrl(this.chainId) ?? getRpcUrl()
     const client = createPublicClient({ transport: http(rpcUrl) })
     this.clientCache.set(this.chainId, client)
     return client

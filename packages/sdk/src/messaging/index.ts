@@ -10,6 +10,7 @@
 import type { NetworkType } from '@jejunetwork/types'
 import { type Address, encodeFunctionData, type Hex, parseEther } from 'viem'
 import { requireContract } from '../config'
+import { parseIdFromLogs } from '../shared/api'
 import type { JejuWallet } from '../wallet'
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -139,6 +140,27 @@ const MESSAGE_NODE_REGISTRY_ABI = [
       { name: 'avgLatencyMs', type: 'uint256' },
       { name: 'lastUpdated', type: 'uint256' },
     ],
+  },
+  {
+    name: 'getOperatorNodeIds',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'operator', type: 'address' }],
+    outputs: [{ type: 'bytes32[]' }],
+  },
+  {
+    name: 'getActiveNodeIds',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ type: 'bytes32[]' }],
+  },
+  {
+    name: 'getNodeIdsByRegion',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'region', type: 'string' }],
+    outputs: [{ type: 'bytes32[]' }],
   },
   {
     name: 'operatorNodes',
@@ -343,26 +365,65 @@ export function createMessagingModule(
         value: params.stake,
       })
 
-      const nodeId =
-        `0x${Buffer.from(params.endpoint).toString('hex').padEnd(64, '0')}` as Hex
+      // Parse nodeId from NodeRegistered event
+      const nodeId = await parseIdFromLogs(
+        wallet.publicClient,
+        txHash,
+        'NodeRegistered(bytes32,address,string,string)',
+        'nodeId',
+      )
+
       return { nodeId, txHash }
     },
 
     getNode: readNode,
 
     async getMyNodes() {
-      // Would enumerate operatorNodes mapping
-      return []
+      const nodeIds = await wallet.publicClient.readContract({
+        address: nodeRegistryAddress,
+        abi: MESSAGE_NODE_REGISTRY_ABI,
+        functionName: 'getOperatorNodeIds',
+        args: [wallet.address],
+      })
+
+      const nodes: MessageNode[] = []
+      for (const nodeId of nodeIds) {
+        const node = await readNode(nodeId)
+        if (node) nodes.push(node)
+      }
+      return nodes
     },
 
     async listActiveNodes() {
-      // Would enumerate activeNodeIds array
-      return []
+      const nodeIds = await wallet.publicClient.readContract({
+        address: nodeRegistryAddress,
+        abi: MESSAGE_NODE_REGISTRY_ABI,
+        functionName: 'getActiveNodeIds',
+        args: [],
+      })
+
+      const nodes: MessageNode[] = []
+      for (const nodeId of nodeIds) {
+        const node = await readNode(nodeId)
+        if (node) nodes.push(node)
+      }
+      return nodes
     },
 
-    async listNodesByRegion(_region) {
-      // Would enumerate nodesByRegion mapping
-      return []
+    async listNodesByRegion(region) {
+      const nodeIds = await wallet.publicClient.readContract({
+        address: nodeRegistryAddress,
+        abi: MESSAGE_NODE_REGISTRY_ABI,
+        functionName: 'getNodeIdsByRegion',
+        args: [region],
+      })
+
+      const nodes: MessageNode[] = []
+      for (const nodeId of nodeIds) {
+        const node = await readNode(nodeId)
+        if (node) nodes.push(node)
+      }
+      return nodes
     },
 
     async updateEndpoint(nodeId, endpoint) {
@@ -431,9 +492,27 @@ export function createMessagingModule(
       }
     },
 
-    async getBestNodes(_count = 10) {
-      // Would sort by performance metrics
-      return []
+    async getBestNodes(count = 10) {
+      // Get all active nodes and sort by performance
+      const activeNodes = await this.listActiveNodes()
+
+      // Get performance data for each node
+      const nodesWithPerformance = await Promise.all(
+        activeNodes.map(async (node) => {
+          const perf = await this.getNodePerformance(node.nodeId)
+          return { node, perf }
+        }),
+      )
+
+      // Sort by composite score (uptime * delivery rate)
+      nodesWithPerformance.sort((a, b) => {
+        if (!a.perf || !b.perf) return 0
+        const scoreA = a.perf.uptimeScore * a.perf.deliveryRate
+        const scoreB = b.perf.uptimeScore * b.perf.deliveryRate
+        return scoreB - scoreA
+      })
+
+      return nodesWithPerformance.slice(0, count).map((n) => n.node)
     },
 
     async registerKey(params) {

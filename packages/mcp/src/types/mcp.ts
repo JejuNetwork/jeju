@@ -204,16 +204,16 @@ export interface TextContent {
 }
 
 /**
- * Image content for tool results
+ * Image content for tool results (data is base64 encoded)
  */
 export interface ImageContent {
   type: 'image'
-  data: string // base64
+  data: string
   mimeType: string
 }
 
 /**
- * Resource content for tool results
+ * Resource content for tool results (blob is base64 encoded)
  */
 export interface ResourceContent {
   type: 'resource'
@@ -223,7 +223,7 @@ export interface ResourceContent {
     title?: string
     mimeType?: string
     text?: string
-    blob?: string // base64
+    blob?: string
   }
 }
 
@@ -334,11 +334,11 @@ export interface AuthenticatedAgent {
 }
 
 /**
- * Authentication context (handled via headers)
+ * Authentication context from request headers
  */
 export interface MCPAuthContext {
   apiKey?: string
-  userId?: string // Set after authentication
+  userId?: string
 }
 
 /**

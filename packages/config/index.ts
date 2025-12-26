@@ -468,6 +468,38 @@ export function getServicesConfig(
       api: getEnvService('FACTORY_API_URL') ?? config.factory.api,
       mcp: getEnvService('FACTORY_MCP_URL') ?? config.factory.mcp,
     },
+    training: config.training
+      ? {
+          api:
+            getEnvService('TRAINING_ENDPOINT') ??
+            getEnvService('TRAINING_API_URL') ??
+            config.training.api,
+          atropos:
+            getEnvService('ATROPOS_URL') ?? config.training.atropos,
+          psyche: getEnvService('PSYCHE_URL') ?? config.training.psyche,
+        }
+      : undefined,
+    ipfs: config.ipfs
+      ? {
+          api:
+            getEnvService('IPFS_API_URL') ??
+            getEnvService('IPFS_API_ENDPOINT') ??
+            config.ipfs.api,
+          gateway:
+            getEnvService('IPFS_GATEWAY') ??
+            getEnvService('IPFS_GATEWAY_URL') ??
+            config.ipfs.gateway,
+        }
+      : undefined,
+    agents: config.agents
+      ? {
+          api: getEnvService('AGENTS_API_URL') ?? config.agents.api,
+          agent0:
+            getEnvService('AGENT0_API_URL') ??
+            getEnvService('JEJU_API_URL') ??
+            config.agents.agent0,
+        }
+      : undefined,
   }
 }
 
@@ -668,19 +700,30 @@ export interface TeeConfig {
 /** Get TEE configuration for current network */
 export function getTeeConfig(network?: NetworkType): TeeConfig {
   const config = getServicesConfig(network)
-  const tee = config.tee ?? { mode: 'simulated', platform: 'local' }
+  const net = network ?? getCurrentNetwork()
+
+  if (!config.tee) {
+    throw new Error(
+      `TEE config not configured for ${net}. Set TEE_MODE/TEE_PLATFORM env vars or add tee config to services.json`,
+    )
+  }
+
+  const tee = config.tee
 
   // Allow env overrides
-  const mode =
-    (process.env.TEE_MODE as TeeMode | undefined) ?? tee.mode ?? 'simulated'
+  const mode = (process.env.TEE_MODE as TeeMode | undefined) ?? tee.mode
   const platform =
-    (process.env.TEE_PLATFORM as TeePlatform | undefined) ??
-    tee.platform ??
-    'local'
-  const region = process.env.TEE_REGION ?? tee.region ?? 'local'
+    (process.env.TEE_PLATFORM as TeePlatform | undefined) ?? tee.platform
+  const region = process.env.TEE_REGION ?? tee.region
   const endpoint = process.env.TEE_ENDPOINT ?? tee.endpoint
 
-  return { mode, platform, region, endpoint }
+  if (!mode || !platform) {
+    throw new Error(
+      `TEE mode and platform required for ${net}. Configure tee.mode and tee.platform in services.json`,
+    )
+  }
+
+  return { mode, platform, region: region ?? 'local', endpoint }
 }
 
 /** Get TEE mode - simulated, phala, gcp, or aws */
@@ -1016,6 +1059,748 @@ export function getFederationConfig(): FederationFullConfig {
 /** Get federation discovery endpoints */
 export function getFederationDiscoveryEndpoints(): string[] {
   return loadFederationConfig().discovery.endpoints
+}
+
+// Training Configuration
+
+/** Training service configuration */
+export interface TrainingConfig {
+  api: string
+  atropos: string
+  psyche?: string
+}
+
+/** Get training service configuration */
+export function getTrainingConfig(network?: NetworkType): TrainingConfig {
+  const config = getServicesConfig(network)
+  if (!config.training) {
+    throw new Error(
+      `Training services not configured for ${network ?? getCurrentNetwork()}. Add training section to services.json`,
+    )
+  }
+  return config.training
+}
+
+/** Get training API endpoint */
+export function getTrainingApiUrl(network?: NetworkType): string {
+  return getTrainingConfig(network).api
+}
+
+/** Get Atropos (GRPO trainer) URL */
+export function getAtroposUrl(network?: NetworkType): string {
+  return getTrainingConfig(network).atropos
+}
+
+/** Get Psyche coordinator URL */
+export function getPsycheUrl(network?: NetworkType): string | undefined {
+  return getTrainingConfig(network).psyche
+}
+
+// IPFS Configuration
+
+/** IPFS service configuration */
+export interface IpfsConfig {
+  api: string
+  gateway: string
+}
+
+/** Get IPFS configuration */
+export function getIpfsConfig(network?: NetworkType): IpfsConfig {
+  const config = getServicesConfig(network)
+  if (!config.ipfs) {
+    // Fall back to storage config for backwards compatibility
+    return {
+      api: config.storage.api,
+      gateway: config.storage.ipfsGateway,
+    }
+  }
+  return config.ipfs
+}
+
+/** Get IPFS API URL */
+export function getIpfsApiUrl(network?: NetworkType): string {
+  return getIpfsConfig(network).api
+}
+
+/** Get IPFS gateway URL */
+export function getIpfsGatewayUrl(network?: NetworkType): string {
+  return getIpfsConfig(network).gateway
+}
+
+// Agents Configuration
+
+/** Agents service configuration */
+export interface AgentsConfig {
+  api: string
+  agent0?: string
+}
+
+/** Get agents configuration */
+export function getAgentsConfig(network?: NetworkType): AgentsConfig {
+  const config = getServicesConfig(network)
+  if (!config.agents) {
+    throw new Error(
+      `Agents services not configured for ${network ?? getCurrentNetwork()}. Add agents section to services.json`,
+    )
+  }
+  return config.agents
+}
+
+/** Get agents API URL */
+export function getAgentsApiUrl(network?: NetworkType): string {
+  return getAgentsConfig(network).api
+}
+
+/** Get Agent0 API URL */
+export function getAgent0ApiUrl(network?: NetworkType): string | undefined {
+  return getAgentsConfig(network).agent0
+}
+
+// Agent0 Environment Configuration
+
+/** Check if Agent0 is enabled */
+export function isAgent0Enabled(): boolean {
+  return process.env.AGENT0_ENABLED === 'true'
+}
+
+/** Get Agent0 private key (secret - env var only) */
+export function getAgent0PrivateKey(): string | undefined {
+  return process.env.AGENT0_PRIVATE_KEY
+}
+
+/** Get Agent0 IPFS provider */
+export function getAgent0IpfsProvider(): 'node' | 'filecoinPin' | 'pinata' {
+  const ipfsEnv = process.env.AGENT0_IPFS_PROVIDER ?? 'node'
+  if (ipfsEnv === 'node' || ipfsEnv === 'filecoinPin' || ipfsEnv === 'pinata') {
+    return ipfsEnv
+  }
+  return 'node'
+}
+
+/** Get Pinata JWT (secret - env var only) */
+export function getPinataJwt(): string | undefined {
+  return process.env.PINATA_JWT
+}
+
+/** Get Filecoin private key (secret - env var only) */
+export function getFilecoinPrivateKey(): string | undefined {
+  return process.env.FILECOIN_PRIVATE_KEY
+}
+
+/** Get Agent0 subgraph URL */
+export function getAgent0SubgraphUrl(): string | undefined {
+  return process.env.AGENT0_SUBGRAPH_URL
+}
+
+/** Get Jeju API key (secret - env var only) */
+export function getJejuApiKey(): string {
+  return process.env.JEJU_API_KEY ?? ''
+}
+
+/** Get Jeju Compute API URL override */
+export function getJejuComputeApiUrl(): string | undefined {
+  return process.env.JEJU_COMPUTE_API_URL
+}
+
+/** Get Jeju user address */
+export function getJejuUserAddress(): string | undefined {
+  return process.env.JEJU_USER_ADDRESS
+}
+
+/** Get agent wallet address */
+export function getAgentWalletAddress(): string | undefined {
+  return process.env.AGENT_WALLET_ADDRESS
+}
+
+// Feature Flags
+
+/** Check if dev mode is enabled */
+export function isDevMode(): boolean {
+  return (
+    process.env.DEV_MODE === 'true' ||
+    process.env.NODE_ENV === 'development' ||
+    process.env.JEJU_DEV === 'true'
+  )
+}
+
+/** Check if this is a deploy preview */
+export function isDeployPreview(): boolean {
+  return process.env.DEPLOY_PREVIEW === 'true'
+}
+
+/** Check if this is a staging deploy */
+export function isDeployStaging(): boolean {
+  return process.env.DEPLOY_STAGING === 'true'
+}
+
+/** Check if test mode */
+export function isTestMode(): boolean {
+  return process.env.NODE_ENV === 'test'
+}
+
+// Bridge Configuration
+
+/** Get XLP private key (secret - env var only) */
+export function getXlpPrivateKey(): string | undefined {
+  return process.env.XLP_PRIVATE_KEY
+}
+
+/** Get 1inch API key (secret - env var only) */
+export function getOneInchApiKey(): string | undefined {
+  return process.env.ONEINCH_API_KEY
+}
+
+/** Get GCP project */
+export function getGcpProject(): string | undefined {
+  return process.env.GCP_PROJECT
+}
+
+/** Get GCP zone */
+export function getGcpZone(): string {
+  return process.env.GCP_ZONE ?? 'us-central1-a'
+}
+
+/** Check if GCP confidential simulate mode */
+export function isGcpConfidentialSimulate(): boolean {
+  return process.env.GCP_CONFIDENTIAL_SIMULATE === 'true'
+}
+
+/** Get home directory */
+export function getHomeDir(): string {
+  return process.env.HOME ?? ''
+}
+
+/** Get relayer port */
+export function getRelayerPort(): number {
+  return parseInt(process.env.RELAYER_PORT ?? '8081', 10)
+}
+
+/** Get EVM chain ID */
+export function getEvmChainId(): number {
+  return parseInt(process.env.EVM_CHAIN_ID ?? '31337', 10)
+}
+
+/** Get SP1 prover URL */
+export function getSp1ProverUrl(): string | undefined {
+  return process.env.SP1_PROVER_URL
+}
+
+/** Get Succinct API key (secret - env var only) */
+export function getSuccinctApiKey(): string | undefined {
+  return process.env.SUCCINCT_API_KEY
+}
+
+/** Get Phala endpoint */
+export function getPhalaEndpoint(): string | undefined {
+  return process.env.PHALA_ENDPOINT
+}
+
+/** Get Phala API key (secret - env var only) */
+export function getPhalaApiKey(): string | undefined {
+  return process.env.PHALA_API_KEY
+}
+
+/** Check if AWS Nitro simulate mode */
+export function isAwsNitroSimulate(): boolean {
+  return process.env.AWS_NITRO_SIMULATE === 'true'
+}
+
+/** Get AWS Enclave ID */
+export function getAwsEnclaveId(): string | undefined {
+  return process.env.AWS_ENCLAVE_ID
+}
+
+/** Get AWS region */
+export function getAwsRegion(): string {
+  return process.env.AWS_REGION ?? 'us-east-1'
+}
+
+/** Check if real proofs required */
+export function isRequireRealProofs(): boolean {
+  return process.env.REQUIRE_REAL_PROOFS === 'true'
+}
+
+/** Check if real TEE required */
+export function isRequireRealTee(): boolean {
+  return process.env.REQUIRE_REAL_TEE === 'true'
+}
+
+/** Get beacon URL */
+export function getBeaconUrl(): string | undefined {
+  return process.env.BEACON_URL
+}
+
+/** Get beacon RPC URL */
+export function getBeaconRpcUrl(): string {
+  return process.env.BEACON_RPC_URL ?? 'http://localhost:5052'
+}
+
+/** Get execution RPC URL */
+export function getExecutionRpcUrl(): string {
+  return process.env.EXECUTION_RPC_URL ?? 'http://localhost:6545'
+}
+
+/** Get relayer endpoint */
+export function getRelayerEndpoint(): string {
+  return process.env.RELAYER_ENDPOINT ?? 'http://localhost:8081'
+}
+
+/** Get Solana RPC URL */
+export function getSolanaRpcUrl(): string | undefined {
+  return process.env.SOLANA_RPC
+}
+
+/** Get Solana keypair path */
+export function getSolanaKeypairPath(): string {
+  return process.env.SOLANA_KEYPAIR ?? '~/.config/solana/id.json'
+}
+
+/** Get bridge-related addresses */
+export function getBaseBridgeAddress(): string | undefined {
+  return process.env.BASE_BRIDGE_ADDRESS
+}
+
+export function getBaseLightClientAddress(): string | undefined {
+  return process.env.BASE_LIGHT_CLIENT_ADDRESS
+}
+
+export function getBridgeProgramId(): string | undefined {
+  return process.env.BRIDGE_PROGRAM_ID
+}
+
+export function getEvmLightClientProgramId(): string | undefined {
+  return process.env.EVM_LIGHT_CLIENT_PROGRAM_ID
+}
+
+export function getEthBridgeAddress(): string | undefined {
+  return process.env.ETH_BRIDGE_ADDRESS
+}
+
+export function getEthLightClientAddress(): string | undefined {
+  return process.env.ETH_LIGHT_CLIENT_ADDRESS
+}
+
+/** Get Base RPC URL */
+export function getBaseRpcUrl(): string {
+  return process.env.BASE_RPC ?? 'https://mainnet.base.org'
+}
+
+/** Get ETH RPC URL */
+export function getEthRpcUrl(): string | undefined {
+  return process.env.ETH_RPC
+}
+
+/** Get private key (secret - env var only) */
+export function getPrivateKey(): string | undefined {
+  return process.env.PRIVATE_KEY
+}
+
+// Training Configuration
+
+/** Get storage provider */
+export function getStorageProvider(): string {
+  return process.env.STORAGE_PROVIDER ?? 'auto'
+}
+
+/** Get Jeju storage API key (secret - env var only) */
+export function getJejuStorageApiKey(): string | undefined {
+  return process.env.JEJU_STORAGE_API_KEY
+}
+
+/** Get worker code hash */
+export function getWorkerCodeHash(): string {
+  return (
+    process.env.WORKER_CODE_HASH ??
+    '0x0000000000000000000000000000000000000000000000000000000000000000'
+  )
+}
+
+/** Get training orchestrator address */
+export function getTrainingOrchestratorAddress(): string {
+  return (
+    process.env.TRAINING_ORCHESTRATOR_ADDRESS ??
+    '0x0000000000000000000000000000000000000000'
+  )
+}
+
+/** Get model registry address */
+export function getModelRegistryAddress(): string {
+  return (
+    process.env.MODEL_REGISTRY_ADDRESS ??
+    '0x0000000000000000000000000000000000000000'
+  )
+}
+
+/** Get AI CEO address */
+export function getAiCeoAddress(): string {
+  return (
+    process.env.AI_CEO_ADDRESS ?? '0x0000000000000000000000000000000000000000'
+  )
+}
+
+/** Get TEE registry address */
+export function getTeeRegistryAddress(): string {
+  return (
+    process.env.TEE_REGISTRY_ADDRESS ??
+    '0x0000000000000000000000000000000000000000'
+  )
+}
+
+/** Get minimum TEE stake in USD */
+export function getMinTeeStakeUsd(): number {
+  return parseFloat(process.env.MIN_TEE_STAKE_USD ?? '1000')
+}
+
+/** Check if MPC encryption is enabled */
+export function isUseMpcEncryption(): boolean {
+  return process.env.USE_MPC_ENCRYPTION === 'true'
+}
+
+/** Get MPC threshold */
+export function getMpcThreshold(): number {
+  return parseInt(process.env.MPC_THRESHOLD ?? '3', 10)
+}
+
+/** Get MPC parties count */
+export function getMpcParties(): number {
+  return parseInt(process.env.MPC_PARTIES ?? '5', 10)
+}
+
+/** Get EVM private key (secret - env var only) */
+export function getEvmPrivateKey(): string | undefined {
+  return process.env.EVM_PRIVATE_KEY
+}
+
+/** Get bridge address */
+export function getBridgeAddress(): string | undefined {
+  return process.env.BRIDGE_ADDRESS
+}
+
+/** Get LLM judge URL */
+export function getLlmJudgeUrl(): string | undefined {
+  return process.env.LLM_JUDGE_URL
+}
+
+/** Get LLM judge model */
+export function getLlmJudgeModel(): string | undefined {
+  return process.env.LLM_JUDGE_MODEL
+}
+
+/** Get HuggingFace token (secret - env var only) */
+export function getHuggingFaceToken(): string | undefined {
+  return process.env.HUGGING_FACE_TOKEN ?? process.env.HF_TOKEN
+}
+
+/** Get Psyche coordinator program ID */
+export function getPsycheCoordinatorProgramId(): string | undefined {
+  return process.env.PSYCHE_COORDINATOR_PROGRAM_ID
+}
+
+/** Get Psyche mining pool program ID */
+export function getPsycheMiningPoolProgramId(): string | undefined {
+  return process.env.PSYCHE_MINING_POOL_PROGRAM_ID
+}
+
+/** Get fundamental dataset URL */
+export function getFundamentalDatasetUrl(): string | undefined {
+  return process.env.FUNDAMENTAL_DATASET_URL
+}
+
+/** Get deployer address */
+export function getDeployerAddress(): string | undefined {
+  return process.env.DEPLOYER_ADDRESS
+}
+
+/** Get training endpoint */
+export function getTrainingEndpoint(): string {
+  return process.env.TRAINING_ENDPOINT ?? 'http://localhost:8001/train_step'
+}
+
+/** Get model name */
+export function getModelName(): string {
+  return process.env.MODEL_NAME ?? 'Qwen/Qwen2.5-1.5B-Instruct'
+}
+
+/** Get training steps */
+export function getTrainingSteps(): number {
+  return parseInt(process.env.TRAINING_STEPS ?? '20', 10)
+}
+
+/** Get vLLM restart interval */
+export function getVllmRestartInterval(): number {
+  return parseInt(process.env.VLLM_RESTART_INTERVAL ?? '3', 10)
+}
+
+/** Get run project */
+export function getRunProject(): string | undefined {
+  return process.env.RUN_PROJECT
+}
+
+/** Get run group */
+export function getRunGroup(): string | undefined {
+  return process.env.RUN_GROUP
+}
+
+/** Get Atropos URL */
+export function getAtroposLocalUrl(): string {
+  return process.env.ATROPOS_URL ?? 'http://localhost:8000'
+}
+
+/** Get Atropos port */
+export function getAtroposPort(): number {
+  return parseInt(process.env.ATROPOS_PORT ?? '8000', 10)
+}
+
+// Shared/Infrastructure Configuration
+
+/** Get DWS cache endpoint */
+export function getDwsCacheEndpoint(): string | undefined {
+  return (
+    process.env.DWS_CACHE_ENDPOINT ?? process.env.COMPUTE_CACHE_ENDPOINT
+  )
+}
+
+/** Get cache namespace */
+export function getCacheNamespace(): string {
+  return process.env.CACHE_NAMESPACE ?? 'default'
+}
+
+/** Get cache API key (secret - env var only) */
+export function getCacheApiKey(): string | undefined {
+  return process.env.CACHE_API_KEY
+}
+
+/** Get paymaster factory address */
+export function getPaymasterFactoryAddress(): string {
+  return (
+    process.env.PAYMASTER_FACTORY_ADDRESS ??
+    '0x0000000000000000000000000000000000000000'
+  )
+}
+
+/** Get minimum paymaster stake in ETH */
+export function getMinPaymasterStake(): string {
+  return process.env.MIN_PAYMASTER_STAKE ?? '1.0'
+}
+
+/** Get Jeju storage endpoint */
+export function getJejuStorageEndpoint(): string | undefined {
+  return process.env.JEJU_STORAGE_ENDPOINT
+}
+
+/** Get Jeju storage provider */
+export function getJejuStorageProviderType(): 'ipfs' | 'arweave' {
+  return (process.env.JEJU_STORAGE_PROVIDER as 'ipfs' | 'arweave') ?? 'ipfs'
+}
+
+/** Get Jeju storage replication */
+export function getJejuStorageReplication(): string {
+  return process.env.JEJU_STORAGE_REPLICATION ?? '3'
+}
+
+/** Get HSM provider */
+export function getHsmProvider(): string {
+  return process.env.HSM_PROVIDER ?? 'local-dev'
+}
+
+/** Get HSM endpoint */
+export function getHsmEndpoint(): string {
+  return process.env.HSM_ENDPOINT ?? 'http://localhost:8080'
+}
+
+/** Get HSM API key (secret - env var only) */
+export function getHsmApiKey(): string | undefined {
+  return process.env.HSM_API_KEY
+}
+
+/** Get HSM username (secret - env var only) */
+export function getHsmUsername(): string | undefined {
+  return process.env.HSM_USERNAME
+}
+
+/** Get HSM password (secret - env var only) */
+export function getHsmPassword(): string | undefined {
+  return process.env.HSM_PASSWORD
+}
+
+/** Check if HSM audit logging is enabled */
+export function isHsmAuditLoggingEnabled(): boolean {
+  return process.env.HSM_AUDIT_LOGGING !== 'false'
+}
+
+/** Get worker ID */
+export function getWorkerId(): number | undefined {
+  const workerId = process.env.WORKER_ID
+  return workerId ? parseInt(workerId, 10) : undefined
+}
+
+/** Get gateway API endpoint */
+export function getGatewayApiEndpoint(): string | undefined {
+  return process.env.GATEWAY_API
+}
+
+// Database Configuration
+
+/** Get log level */
+export function getLogLevel(): string {
+  return process.env.LOG_LEVEL ?? 'info'
+}
+
+/** Get CQL private key (secret - env var only) */
+export function getCqlPrivateKey(): string | undefined {
+  return process.env.CQL_PRIVATE_KEY
+}
+
+/** Get CQL database ID */
+export function getCqlDatabaseId(): string | undefined {
+  return process.env.CQL_DATABASE_ID
+}
+
+/** Get CQL timeout */
+export function getCqlTimeout(): string | undefined {
+  return process.env.CQL_TIMEOUT
+}
+
+/** Check if CQL debug is enabled */
+export function isCqlDebug(): boolean {
+  return process.env.CQL_DEBUG === 'true'
+}
+
+/** Get CQL port */
+export function getCqlPort(): number {
+  return parseInt(process.env.CQL_PORT ?? process.env.PORT ?? '4400', 10)
+}
+
+/** Get CQL data directory */
+export function getCqlDataDir(): string {
+  return process.env.CQL_DATA_DIR ?? './.data/cql'
+}
+
+// Auth Configuration
+
+/** Get SMTP host */
+export function getSmtpHost(): string | undefined {
+  return process.env.SMTP_HOST
+}
+
+/** Get SMTP port */
+export function getSmtpPort(): number {
+  return parseInt(process.env.SMTP_PORT ?? '587', 10)
+}
+
+/** Get SMTP user (secret - env var only) */
+export function getSmtpUser(): string | undefined {
+  return process.env.SMTP_USER
+}
+
+/** Get SMTP password (secret - env var only) */
+export function getSmtpPassword(): string | undefined {
+  return process.env.SMTP_PASSWORD
+}
+
+/** Get SendGrid API key (secret - env var only) */
+export function getSendgridApiKey(): string | undefined {
+  return process.env.SENDGRID_API_KEY
+}
+
+/** Get Mailgun API key (secret - env var only) */
+export function getMailgunApiKey(): string | undefined {
+  return process.env.MAILGUN_API_KEY
+}
+
+/** Get Mailgun domain */
+export function getMailgunDomain(): string | undefined {
+  return process.env.MAILGUN_DOMAIN
+}
+
+/** Get Resend API key (secret - env var only) */
+export function getResendApiKey(): string | undefined {
+  return process.env.RESEND_API_KEY
+}
+
+/** Get SMTP relay URL */
+export function getSmtpRelayUrl(): string | undefined {
+  return process.env.SMTP_RELAY_URL
+}
+
+/** Get Twilio account SID (secret - env var only) */
+export function getTwilioAccountSid(): string | undefined {
+  return process.env.TWILIO_ACCOUNT_SID
+}
+
+/** Get Twilio auth token (secret - env var only) */
+export function getTwilioAuthToken(): string | undefined {
+  return process.env.TWILIO_AUTH_TOKEN
+}
+
+/** Get Twilio phone number */
+export function getTwilioPhoneNumber(): string | undefined {
+  return process.env.TWILIO_PHONE_NUMBER
+}
+
+/** Get AWS access key ID (secret - env var only) */
+export function getAwsAccessKeyId(): string | undefined {
+  return process.env.AWS_ACCESS_KEY_ID
+}
+
+/** Get AWS secret access key (secret - env var only) */
+export function getAwsSecretAccessKey(): string | undefined {
+  return process.env.AWS_SECRET_ACCESS_KEY
+}
+
+/** Get AWS SNS sender ID */
+export function getAwsSnsSenderId(): string {
+  return process.env.AWS_SNS_SENDER_ID ?? 'Jeju'
+}
+
+/** Get IPFS API endpoint */
+export function getIpfsApiEndpointEnv(): string | undefined {
+  return process.env.IPFS_API_ENDPOINT
+}
+
+/** Get IPFS gateway */
+export function getIpfsGatewayEnv(): string | undefined {
+  return process.env.IPFS_GATEWAY
+}
+
+/** Get Neynar API key (secret - env var only) */
+export function getNeynarApiKey(): string {
+  return process.env.NEYNAR_API_KEY ?? ''
+}
+
+/** Get IPFS API URL (for IPNS) */
+export function getIpfsApiUrlEnv(): string {
+  return process.env.IPFS_API_URL ?? 'http://localhost:5001'
+}
+
+/** Get KMS endpoint */
+export function getKmsEndpoint(): string | undefined {
+  return process.env.KMS_ENDPOINT
+}
+
+/** Get cron endpoint */
+export function getCronEndpoint(): string | undefined {
+  return process.env.CRON_ENDPOINT
+}
+
+/** Get storage API endpoint */
+export function getStorageApiEndpoint(): string | undefined {
+  return process.env.STORAGE_API_ENDPOINT
+}
+
+/** Get JNS resolver address */
+export function getJnsResolverAddressEnv(): string | undefined {
+  return process.env.JNS_RESOLVER_ADDRESS
+}
+
+/** Get IPFS gateway URL (for versioning) */
+export function getIpfsGatewayUrlEnv(): string | undefined {
+  return process.env.IPFS_GATEWAY_URL
+}
+
+/** Get public API URL */
+export function getPublicApiUrl(): string | undefined {
+  return process.env.PUBLIC_API_URL
 }
 
 // Branding Config

@@ -363,11 +363,16 @@ export class TEEXMTPKeyManager {
 
   /**
    * Import key from encrypted backup
+   * @param encryptedBackup - The encrypted backup data
+   * @param password - Password to decrypt the backup
+   * @param newKeyId - New key ID for the imported key
+   * @param address - The Ethereum address associated with this key (from original backup)
    */
   async importFromBackup(
     encryptedBackup: EncryptedBackup,
     password: string,
     newKeyId: string,
+    address: Address,
   ): Promise<TEEIdentityKey> {
     const { ciphertext, metadata } = encryptedBackup
 
@@ -419,7 +424,7 @@ export class TEEXMTPKeyManager {
 
     const identityKey: TEEIdentityKey = {
       keyId: newKeyId,
-      address: '0x0000000000000000000000000000000000000000' as Address, // Would derive from key
+      address,
       publicKey: toHex(publicKey),
       createdAt: Date.now(),
     }

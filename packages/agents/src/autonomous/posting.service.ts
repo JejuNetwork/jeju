@@ -9,6 +9,8 @@
 
 import type { IAgentRuntime } from '@elizaos/core'
 import { logger } from '@jejunetwork/shared'
+import { z } from 'zod'
+import { llmInferenceService } from '../llm/inference'
 
 /**
  * Post decision
@@ -44,11 +46,21 @@ export interface RecentPost {
  * Agent posting configuration
  */
 interface AgentPostingConfig {
-  systemPrompt?: string
-  personality?: string
+  systemPrompt: string
+  personality: string
   recentPosts: RecentPost[]
   lifetimePnL: number
 }
+
+/**
+ * Post decision schema for LLM output
+ */
+const PostDecisionSchema = z.object({
+  shouldPost: z.boolean(),
+  content: z.string().optional(),
+  topic: z.string().optional(),
+  reasoning: z.string(),
+})
 
 /**
  * Format relative time for recent posts
@@ -77,10 +89,10 @@ export class AutonomousPostingService {
   private async getAgentConfig(agentId: string): Promise<AgentPostingConfig> {
     logger.debug(`Getting posting config for agent ${agentId}`)
 
-    // In a full implementation, this would fetch from database
+    // In production, fetch from database
     return {
       systemPrompt: 'You are an AI agent on Jeju Network.',
-      personality: 'engaging and insightful',
+      personality: 'engaging, insightful, and helpful',
       recentPosts: [],
       lifetimePnL: 0,
     }
@@ -89,13 +101,10 @@ export class AutonomousPostingService {
   /**
    * Get recent posts for context
    */
-  async getRecentPosts(
-    agentId: string,
-    limit: number = 5,
-  ): Promise<RecentPost[]> {
+  async getRecentPosts(agentId: string, limit: number = 5): Promise<RecentPost[]> {
     logger.debug(`Getting recent posts for agent ${agentId}, limit: ${limit}`)
 
-    // In a full implementation, this would query the database
+    // In production, fetch from database
     return []
   }
 
@@ -111,11 +120,7 @@ export class AutonomousPostingService {
     // Check for repeated openings
     const firstWords = content.split(' ').slice(0, 3).join(' ').toLowerCase()
     for (const post of recentPosts) {
-      const postFirstWords = post.content
-        .split(' ')
-        .slice(0, 3)
-        .join(' ')
-        .toLowerCase()
+      const postFirstWords = post.content.split(' ').slice(0, 3).join(' ').toLowerCase()
       if (firstWords === postFirstWords) {
         issues.push('Repeated opening from recent post')
         break
@@ -130,6 +135,8 @@ export class AutonomousPostingService {
       /^Given @\w+'s recent/i,
       /^Considering @\w+'s/i,
       /and I'm considering/i,
+      /^I'm excited to/i,
+      /^Just wanted to share/i,
     ]
 
     for (const pattern of bannedPatterns) {
@@ -139,11 +146,64 @@ export class AutonomousPostingService {
       }
     }
 
+    // Check minimum length
+    if (content.length < 20) {
+      issues.push('Content too short')
+    }
+
+    // Check maximum length
+    if (content.length > 500) {
+      issues.push('Content too long')
+    }
+
     return issues
   }
 
   /**
-   * Decide whether to post and what to post
+   * Build posting prompt for LLM
+   */
+  private buildPostingPrompt(config: AgentPostingConfig): string {
+    let prompt = `You are a ${config.personality} AI agent on Jeju Network.
+
+Your task is to create an engaging social post that:
+- Is authentic to your personality
+- Provides value to readers
+- Is NOT repetitive with your recent posts
+- Does NOT start with overused phrases like "Just wanted to share", "I'm excited to", etc.
+- Is between 50-280 characters
+
+`
+
+    if (config.recentPosts.length > 0) {
+      prompt += 'Your recent posts (AVOID similar openings or topics):\n'
+      for (const post of config.recentPosts.slice(0, 5)) {
+        prompt += `- "${post.content.slice(0, 100)}..." (${getTimeAgo(post.createdAt)})\n`
+      }
+      prompt += '\n'
+    }
+
+    if (config.lifetimePnL !== 0) {
+      const pnlStr = config.lifetimePnL > 0 ? `+$${config.lifetimePnL.toFixed(2)}` : `-$${Math.abs(config.lifetimePnL).toFixed(2)}`
+      prompt += `Your trading P&L: ${pnlStr}\n\n`
+    }
+
+    prompt += `Topic ideas: market insights, trading tips, community engagement, predictions, observations
+
+Respond with a JSON object:
+{
+  "shouldPost": true/false,
+  "content": "your post content if shouldPost is true",
+  "topic": "the topic of your post",
+  "reasoning": "why you chose this content or why you chose not to post"
+}
+
+Only respond with the JSON object, no other text.`
+
+    return prompt
+  }
+
+  /**
+   * Decide whether to post and what to post using LLM
    */
   async decidePost(
     agentId: string,
@@ -155,25 +215,88 @@ export class AutonomousPostingService {
     const config = await this.getAgentConfig(agentId)
     config.recentPosts = await this.getRecentPosts(agentId)
 
-    // Use config for future implementation
-    void config
-
-    // If no runtime provided, we can't make LLM calls
-    if (!runtime) {
-      logger.warn(
-        `No runtime provided for agent ${agentId}, cannot generate post`,
-      )
+    // Check if LLM service is available
+    if (!llmInferenceService.isAvailable()) {
+      logger.warn(`LLM service not available for agent ${agentId}`)
       return {
         shouldPost: false,
-        reasoning: 'No runtime available for LLM generation',
+        reasoning: 'LLM service not available',
       }
     }
 
-    // In a full implementation, this would call the LLM
-    logger.info(`Agent ${agentId} decided not to post (no LLM call made)`)
-    return {
-      shouldPost: false,
-      reasoning: 'LLM generation not implemented',
+    // Build prompt
+    const prompt = this.buildPostingPrompt(config)
+    const systemPrompt = runtime?.character?.system ?? config.systemPrompt
+
+    try {
+      // Call LLM
+      const response = await llmInferenceService.inference({
+        model: 'Qwen/Qwen2.5-3B-Instruct',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.8, // Higher temperature for creative content
+        maxTokens: 300,
+      })
+
+      // Parse response
+      let jsonStr = response.content.trim()
+      if (jsonStr.startsWith('```json')) {
+        jsonStr = jsonStr.slice(7)
+      }
+      if (jsonStr.startsWith('```')) {
+        jsonStr = jsonStr.slice(3)
+      }
+      if (jsonStr.endsWith('```')) {
+        jsonStr = jsonStr.slice(0, -3)
+      }
+      jsonStr = jsonStr.trim()
+
+      const parsed = JSON.parse(jsonStr) as unknown
+      const result = PostDecisionSchema.safeParse(parsed)
+
+      if (!result.success) {
+        logger.warn(`Invalid post decision from LLM`, {
+          errors: result.error.errors,
+        })
+        return {
+          shouldPost: false,
+          reasoning: 'Failed to parse LLM response',
+        }
+      }
+
+      const decision = result.data
+
+      // Validate content diversity if posting
+      if (decision.shouldPost && decision.content) {
+        const issues = this.validateContentDiversity(decision.content, config.recentPosts)
+        if (issues.length > 0) {
+          logger.info(`Post rejected for diversity issues: ${issues.join(', ')}`)
+          return {
+            shouldPost: false,
+            content: decision.content,
+            reasoning: `Content rejected: ${issues[0]}`,
+          }
+        }
+      }
+
+      logger.info(`Agent ${agentId} post decision`, {
+        shouldPost: decision.shouldPost,
+        topic: decision.topic,
+        contentLength: decision.content?.length,
+      })
+
+      return decision
+    } catch (error) {
+      logger.error(`Failed to get post decision from LLM`, {
+        agentId,
+        error: error instanceof Error ? error.message : String(error),
+      })
+      return {
+        shouldPost: false,
+        reasoning: `LLM error: ${error instanceof Error ? error.message : 'Unknown'}`,
+      }
     }
   }
 
@@ -217,23 +340,20 @@ export class AutonomousPostingService {
 
     // Validate diversity
     const recentPosts = await this.getRecentPosts(agentId)
-    const diversityIssues = this.validateContentDiversity(
-      cleanContent,
-      recentPosts,
-    )
+    const diversityIssues = this.validateContentDiversity(cleanContent, recentPosts)
 
     if (diversityIssues.length > 0) {
-      logger.warn(
-        `Post rejected for diversity issues: ${diversityIssues.join(', ')}`,
-      )
+      logger.warn(`Post rejected for diversity issues: ${diversityIssues.join(', ')}`)
       return {
         success: false,
         error: `Content rejected: ${diversityIssues[0]}`,
       }
     }
 
-    // In a full implementation, this would insert into database
-    // and handle tagging
+    // In production, this would:
+    // 1. Insert into database
+    // 2. Handle tagging/mentions
+    // 3. Trigger notifications
     const postId = `post-${Date.now()}`
 
     logger.info(`Post created: ${postId}`)

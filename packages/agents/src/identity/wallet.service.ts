@@ -8,6 +8,7 @@
  * @packageDocumentation
  */
 
+import { getCurrentNetwork, getL1RpcUrl } from '@jejunetwork/config'
 import { getMPCCoordinator } from '@jejunetwork/kms'
 import { logger } from '@jejunetwork/shared'
 import {
@@ -103,10 +104,10 @@ const ERC20_ABI = [
 ] as const
 
 /**
- * Get chain from environment
+ * Get chain from config
  */
 function getChain() {
-  const network = process.env.JEJU_NETWORK ?? 'testnet'
+  const network = getCurrentNetwork()
   return network === 'mainnet' ? mainnet : sepolia
 }
 
@@ -115,7 +116,7 @@ function getChain() {
  */
 function getPublicClient() {
   const chain = getChain()
-  const rpcUrl = process.env.RPC_URL ?? chain.rpcUrls.default.http[0]
+  const rpcUrl = getL1RpcUrl()
 
   return createPublicClient({
     chain,

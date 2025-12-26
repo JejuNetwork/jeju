@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 /** Heartbeat service - sends regular heartbeats to node explorer. */
 
+import { getRpcUrl } from '@jejunetwork/config'
 import { type Chain, createPublicClient, http, isHex } from 'viem'
 
 function inferChainFromRpcUrl(rpcUrl: string): Chain {
@@ -76,7 +77,7 @@ const validatedPrivateKey = parsePrivateKey(OPERATOR_PRIVATE_KEY)
 
 const NODE_EXPLORER_API =
   process.env.NODE_EXPLORER_API ?? 'https://nodes.jejunetwork.org/api'
-const RPC_URL = process.env.RPC_URL ?? 'http://localhost:6546'
+const RPC_URL = process.env.RPC_URL ?? getRpcUrl()
 const HEARTBEAT_INTERVAL = process.env.HEARTBEAT_INTERVAL
 const INTERVAL = HEARTBEAT_INTERVAL ? parseInt(HEARTBEAT_INTERVAL, 10) : 300000
 

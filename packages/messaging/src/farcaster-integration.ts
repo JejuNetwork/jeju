@@ -299,17 +299,32 @@ export class UnifiedMessagingService {
       conversationId,
       options,
     )
-    // Note: Decryption would happen here with the client's keys
-    return stored.map((msg) => ({
-      id: msg.id,
-      conversationId: msg.conversationId,
-      sender: msg.sender,
-      recipient: msg.recipient,
-      content: '[encrypted]', // Would decrypt here with keyPair
-      timestamp: msg.timestamp,
-      messageType: 'wallet' as const,
-      deliveryStatus: msg.deliveryStatus,
-    }))
+
+    // Decrypt messages using the messaging client's keys
+    return stored.map((msg) => {
+      let content: string
+      try {
+        content = this.messagingClient.decryptContent(
+          msg.encryptedContent,
+          msg.ephemeralPublicKey,
+          msg.nonce,
+        )
+      } catch {
+        // If decryption fails (e.g., message for different recipient), mark as unreadable
+        content = '[unable to decrypt]'
+      }
+
+      return {
+        id: msg.id,
+        conversationId: msg.conversationId,
+        sender: msg.sender,
+        recipient: msg.recipient,
+        content,
+        timestamp: msg.timestamp,
+        messageType: 'wallet' as const,
+        deliveryStatus: msg.deliveryStatus,
+      }
+    })
   }
 
   private getWalletConversationId(recipient: Address): string {

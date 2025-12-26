@@ -151,6 +151,32 @@ function listFaucets(): void {
   logger.info('Usage: jeju faucet [address] --chain <chain>')
 }
 
+async function checkSolanaBalance(address: string, rpcUrl: string): Promise<number> {
+  const response = await fetch(rpcUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'getBalance',
+      params: [address],
+    }),
+    signal: AbortSignal.timeout(10000),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Solana RPC error: ${response.status}`)
+  }
+
+  const data = await response.json() as { result?: { value: number }; error?: { message: string } }
+  if (data.error) {
+    throw new Error(data.error.message)
+  }
+
+  // Balance is in lamports (1 SOL = 1e9 lamports)
+  return (data.result?.value ?? 0) / 1e9
+}
+
 async function checkBalance(
   chainName: ChainName,
   address: string,
@@ -158,7 +184,18 @@ async function checkBalance(
   const chain = CHAINS[chainName]
 
   if (chainName === 'solana') {
-    logger.info('For Solana balance, run: solana balance --url devnet')
+    const solBalance = await checkSolanaBalance(address, chain.rpc)
+    logger.table([
+      {
+        label: `${chain.name} Balance`,
+        value: `${solBalance.toFixed(4)} ${chain.native}`,
+        status: solBalance >= 0.5 ? 'ok' : 'warn',
+      },
+    ])
+
+    if (solBalance < 0.5) {
+      logger.warn('Low balance. Request funds from faucet.')
+    }
     return
   }
 
@@ -185,13 +222,58 @@ async function checkBalance(
   }
 }
 
+async function requestSolanaAirdrop(address: string, lamports: number, rpcUrl: string): Promise<string> {
+  const response = await fetch(rpcUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'requestAirdrop',
+      params: [address, lamports],
+    }),
+    signal: AbortSignal.timeout(30000),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Solana RPC error: ${response.status}`)
+  }
+
+  const data = await response.json() as { result?: string; error?: { message: string } }
+  if (data.error) {
+    throw new Error(data.error.message)
+  }
+
+  return data.result ?? ''
+}
+
 async function selfFund(
   chainName: ChainName,
   targetAddress: string,
   amountEth: string,
 ): Promise<void> {
   if (chainName === 'solana') {
-    logger.error('Self-funding not supported for Solana. Use: solana transfer')
+    const chain = CHAINS.solana
+    const amountSol = parseFloat(amountEth)
+    
+    // Solana devnet limits airdrops to 2 SOL
+    if (amountSol > 2) {
+      logger.warn('Solana devnet limits airdrops to 2 SOL. Requesting 2 SOL.')
+    }
+    
+    const lamports = Math.min(amountSol, 2) * 1e9
+    
+    logger.step(`Requesting ${Math.min(amountSol, 2)} SOL airdrop to ${targetAddress.slice(0, 10)}...`)
+    
+    const signature = await requestSolanaAirdrop(targetAddress, lamports, chain.rpc)
+    
+    if (signature) {
+      logger.success(`Airdrop requested. Signature: ${signature.slice(0, 20)}...`)
+      logger.info(`Explorer: ${chain.explorer}/tx/${signature}`)
+    } else {
+      logger.error('Airdrop request failed. The devnet faucet may be rate-limited.')
+      logger.info('Try again later or use: https://faucet.solana.com')
+    }
     return
   }
 
@@ -260,19 +342,5 @@ async function selfFund(
   }
 }
 
-export const faucetDeployCommand = new Command('deploy')
-  .description('Deploy a Faucet contract')
-  .option('-c, --chain <chain>', 'Chain to deploy to', 'jeju')
-  .option('--eth-amount <wei>', 'ETH drip amount in wei', '100000000000000000') // 0.1 ETH
-  .option('--cooldown <seconds>', 'Cooldown in seconds', '86400') // 24 hours
-  .action(async (_options) => {
-    logger.header('DEPLOY FAUCET')
-    logger.info('Use: bun run scripts/deploy/faucet.ts --network testnet')
-    logger.newline()
-    logger.info('Or deploy manually with Foundry:')
-    logger.info(
-      '  forge create src/tokens/Faucet.sol:Faucet --constructor-args $OWNER',
-    )
-  })
-
-faucetCommand.addCommand(faucetDeployCommand)
+// Faucet contract deployment is handled via the main deploy command
+// Use: jeju deploy faucet --network testnet

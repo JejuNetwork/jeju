@@ -35,7 +35,7 @@ export interface StorageConfig {
 export interface StoredSession {
   sessionId: Hex
   cid: string
-  encryptedData: Hex
+  identityId: Hex
   expiresAt: number
   createdAt: number
 }
@@ -65,8 +65,8 @@ export class OAuth3StorageService {
   private ipfsGateway: string
   private encryptionKey: Uint8Array | null
   private defaultTier: StorageTier
-  private sessionCache = new Map<Hex, string>()
-  private credentialCache = new Map<string, string>()
+  private sessionIndex = new Map<Hex, StoredSession>()
+  private credentialIndex = new Map<string, StoredCredential>()
 
   constructor(config: StorageConfig = {}) {
     this.ipfsApi =
@@ -96,24 +96,27 @@ export class OAuth3StorageService {
       `session-${session.sessionId}.enc`,
       { tier: 'hot' },
     )
-    this.sessionCache.set(session.sessionId, result.cid)
 
-    return {
+    const storedSession: StoredSession = {
       sessionId: session.sessionId,
       cid: result.cid,
-      encryptedData: toHex(encryptedData),
+      identityId: session.identityId,
       expiresAt: session.expiresAt,
       createdAt: Date.now(),
     }
+
+    this.sessionIndex.set(session.sessionId, storedSession)
+
+    return storedSession
   }
 
   async retrieveSession(sessionId: Hex): Promise<OAuth3Session | null> {
-    const cid = this.sessionCache.get(sessionId)
-    if (!cid) return null
+    const stored = this.sessionIndex.get(sessionId)
+    if (!stored) return null
 
-    const data = await this.retrieve(cid)
+    const data = await this.retrieve(stored.cid)
     if (!data) {
-      this.sessionCache.delete(sessionId)
+      this.sessionIndex.delete(sessionId)
       return null
     }
 
@@ -138,32 +141,36 @@ export class OAuth3StorageService {
       OAuth3SessionSchema,
       'encrypted session',
     )
-    this.sessionCache.set(session.sessionId, cid)
+
+    // Update index with retrieved session
+    this.sessionIndex.set(session.sessionId, {
+      sessionId: session.sessionId,
+      cid,
+      identityId: session.identityId,
+      expiresAt: session.expiresAt,
+      createdAt: Date.now(),
+    })
+
     return session.expiresAt < Date.now() ? null : session
   }
 
   async deleteSession(sessionId: Hex): Promise<void> {
-    const cid = this.sessionCache.get(sessionId)
-    if (cid) {
-      await this.unpin(cid)
-      this.sessionCache.delete(sessionId)
+    const stored = this.sessionIndex.get(sessionId)
+    if (stored) {
+      await this.unpin(stored.cid)
+      this.sessionIndex.delete(sessionId)
     }
   }
 
   async listSessionsForIdentity(identityId: Hex): Promise<StoredSession[]> {
     const results: StoredSession[] = []
-    for (const [sessionId, cid] of this.sessionCache.entries()) {
-      const session = await this.retrieveSession(sessionId)
-      if (session?.identityId === identityId) {
-        results.push({
-          sessionId,
-          cid,
-          encryptedData: '0x' as Hex,
-          expiresAt: session.expiresAt,
-          createdAt: 0,
-        })
+
+    for (const stored of this.sessionIndex.values()) {
+      if (stored.identityId === identityId && stored.expiresAt > Date.now()) {
+        results.push(stored)
       }
     }
+
     return results
   }
 
@@ -175,9 +182,8 @@ export class OAuth3StorageService {
       `credential-${credential.id}.json`,
       { tier: 'permanent' },
     )
-    this.credentialCache.set(credential.id, result.cid)
 
-    return {
+    const storedCredential: StoredCredential = {
       credentialId: credential.id,
       cid: result.cid,
       subjectDid: credential.credentialSubject.id,
@@ -186,15 +192,24 @@ export class OAuth3StorageService {
       issuedAt: new Date(credential.issuanceDate).getTime(),
       expiresAt: new Date(credential.expirationDate).getTime(),
     }
+
+    this.credentialIndex.set(credential.id, storedCredential)
+
+    return storedCredential
   }
 
   async retrieveCredential(
     credentialId: string,
   ): Promise<VerifiableCredential | null> {
-    const cid = this.credentialCache.get(credentialId)
-    if (!cid) return null
-    const data = await this.retrieve(cid)
-    if (!data) return null
+    const stored = this.credentialIndex.get(credentialId)
+    if (!stored) return null
+
+    const data = await this.retrieve(stored.cid)
+    if (!data) {
+      this.credentialIndex.delete(credentialId)
+      return null
+    }
+
     const result = VerifiableCredentialSchema.safeParse(
       JSON.parse(new TextDecoder().decode(data)),
     )
@@ -210,8 +225,20 @@ export class OAuth3StorageService {
       JSON.parse(new TextDecoder().decode(data)),
     )
     if (!result.success) return null
+
     const credential = result.data
-    this.credentialCache.set(credential.id, cid)
+
+    // Update index with retrieved credential
+    this.credentialIndex.set(credential.id, {
+      credentialId: credential.id,
+      cid,
+      subjectDid: credential.credentialSubject.id,
+      issuerDid: credential.issuer.id,
+      type: credential.type,
+      issuedAt: new Date(credential.issuanceDate).getTime(),
+      expiresAt: new Date(credential.expirationDate).getTime(),
+    })
+
     return credential
   }
 
@@ -219,20 +246,13 @@ export class OAuth3StorageService {
     subjectDid: string,
   ): Promise<StoredCredential[]> {
     const results: StoredCredential[] = []
-    for (const [id, cid] of this.credentialCache.entries()) {
-      const cred = await this.retrieveCredential(id)
-      if (cred?.credentialSubject.id === subjectDid) {
-        results.push({
-          credentialId: id,
-          cid,
-          subjectDid,
-          issuerDid: cred.issuer.id,
-          type: cred.type,
-          issuedAt: new Date(cred.issuanceDate).getTime(),
-          expiresAt: new Date(cred.expirationDate).getTime(),
-        })
+
+    for (const stored of this.credentialIndex.values()) {
+      if (stored.subjectDid === subjectDid) {
+        results.push(stored)
       }
     }
+
     return results
   }
 
@@ -391,8 +411,8 @@ export class OAuth3StorageService {
   }
 
   async saveSessionIndex(): Promise<string> {
-    const sessions = Array.from(this.sessionCache.entries()).map(
-      ([sessionId, cid]) => ({ sessionId, cid }),
+    const sessions = Array.from(this.sessionIndex.entries()).map(
+      ([sessionId, stored]) => ({ sessionId, cid: stored.cid }),
     )
     const result = await this.upload(
       new TextEncoder().encode(
@@ -412,14 +432,25 @@ export class OAuth3StorageService {
       SessionIndexSchema,
       'session index',
     )
-    index.sessions.forEach((e) => {
-      this.sessionCache.set(e.sessionId, e.cid)
-    })
+    // Load just the CID mappings - full data loaded on demand
+    for (const e of index.sessions) {
+      const existing = this.sessionIndex.get(e.sessionId as Hex)
+      if (!existing) {
+        // Create placeholder StoredSession with minimal data
+        this.sessionIndex.set(e.sessionId as Hex, {
+          sessionId: e.sessionId as Hex,
+          cid: e.cid,
+          identityId: '0x' as Hex,
+          expiresAt: 0,
+          createdAt: 0,
+        })
+      }
+    }
   }
 
   async saveCredentialIndex(): Promise<string> {
-    const credentials = Array.from(this.credentialCache.entries()).map(
-      ([credentialId, cid]) => ({ credentialId, cid }),
+    const credentials = Array.from(this.credentialIndex.entries()).map(
+      ([credentialId, stored]) => ({ credentialId, cid: stored.cid }),
     )
     const result = await this.upload(
       new TextEncoder().encode(
@@ -439,9 +470,22 @@ export class OAuth3StorageService {
       CredentialIndexSchema,
       'credential index',
     )
-    index.credentials.forEach((e) => {
-      this.credentialCache.set(e.credentialId, e.cid)
-    })
+    // Load just the CID mappings - full data loaded on demand
+    for (const e of index.credentials) {
+      const existing = this.credentialIndex.get(e.credentialId)
+      if (!existing) {
+        // Create placeholder StoredCredential with minimal data
+        this.credentialIndex.set(e.credentialId, {
+          credentialId: e.credentialId,
+          cid: e.cid,
+          subjectDid: '',
+          issuerDid: '',
+          type: [],
+          issuedAt: 0,
+          expiresAt: 0,
+        })
+      }
+    }
   }
 
   async isHealthy(): Promise<boolean> {

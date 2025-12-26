@@ -61,9 +61,7 @@
     "jejuLaunchpad": "6q2T4SEeE2U4XsFNa5piNy6Vzv2qvdZXmAHhQH7BYVJd"
   },
   "trustedEmitters": {
-    "solana": {
-      "agentRegistry": "0x0000000000000000000000000000000000000000000000000000000000000000",
-      "comment": "Set to actual Solana program derived emitter after deployment"
-    }
+    "_note": "Emitters are derived from program addresses after deployment",
+    "solana": {}
   }
 }

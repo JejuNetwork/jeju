@@ -977,9 +977,10 @@ export function createAMMModule(
         hash: txHash,
       })
       // TokenId is typically in topics[1], liquidity in data
+      const firstLog = receipt.logs[0]
       const tokenId =
-        receipt.logs.length > 0 && receipt.logs[0].topics.length > 1
-          ? BigInt(receipt.logs[0].topics[1])
+        firstLog && firstLog.topics.length > 1 && firstLog.topics[1]
+          ? BigInt(firstLog.topics[1])
           : 0n
       const liquidity =
         receipt.logs.length > 0 && receipt.logs[0].data.length >= 66

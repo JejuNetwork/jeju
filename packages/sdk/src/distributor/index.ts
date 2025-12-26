@@ -9,8 +9,9 @@
  */
 
 import type { NetworkType } from '@jejunetwork/types'
-import { type Address, encodeFunctionData, type Hex } from 'viem'
+import { type Address, encodeFunctionData, type Hex, keccak256 } from 'viem'
 import { requireContract } from '../config'
+import { parseIdFromLogs } from '../shared/api'
 import type { JejuWallet } from '../wallet'
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -78,7 +79,12 @@ export interface DistributorModule {
   listActiveAirdrops(): Promise<Airdrop[]>
   claimAirdrop(airdropId: Hex, amount: bigint, merkleProof: Hex[]): Promise<Hex>
   hasClaimed(airdropId: Hex, address?: Address): Promise<boolean>
-  getClaimableAmount(airdropId: Hex, address?: Address): Promise<bigint>
+  getClaimableAmount(
+    airdropId: Hex,
+    amount: bigint,
+    merkleProof: Hex[],
+    address?: Address,
+  ): Promise<bigint>
 
   // Vesting
   createVesting(
@@ -164,6 +170,18 @@ const AIRDROP_MANAGER_ABI = [
     stateMutability: 'view',
     inputs: [],
     outputs: [{ type: 'bytes32[]' }],
+  },
+  {
+    name: 'getClaimableAmount',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'airdropId', type: 'bytes32' },
+      { name: 'account', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+      { name: 'merkleProof', type: 'bytes32[]' },
+    ],
+    outputs: [{ type: 'uint256' }],
   },
 ] as const
 
@@ -438,9 +456,25 @@ export function createDistributorModule(
       })
     },
 
-    async getClaimableAmount(_airdropId, _address) {
-      // Would verify merkle proof and return amount
-      return 0n
+    async getClaimableAmount(airdropId, amount, merkleProof, address) {
+      // Verify merkle proof and return claimable amount
+      // If already claimed, returns 0
+      const hasClaimed = await wallet.publicClient.readContract({
+        address: airdropManagerAddress,
+        abi: AIRDROP_MANAGER_ABI,
+        functionName: 'hasClaimed',
+        args: [airdropId, address ?? wallet.address],
+      })
+
+      if (hasClaimed) return 0n
+
+      // Verify the proof is valid by checking against the contract
+      return wallet.publicClient.readContract({
+        address: airdropManagerAddress,
+        abi: AIRDROP_MANAGER_ABI,
+        functionName: 'getClaimableAmount',
+        args: [airdropId, address ?? wallet.address, amount, merkleProof],
+      })
     },
 
     // Vesting
@@ -467,7 +501,15 @@ export function createDistributorModule(
         data,
       })
 
-      return { scheduleId: `0x${'0'.repeat(64)}` as Hex, txHash }
+      // Parse scheduleId from VestingScheduleCreated event
+      const scheduleId = await parseIdFromLogs(
+        wallet.publicClient,
+        txHash,
+        'VestingScheduleCreated(bytes32,address,address,uint256)',
+        'scheduleId',
+      )
+
+      return { scheduleId, txHash }
     },
 
     getVestingSchedule: readVestingSchedule,

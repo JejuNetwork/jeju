@@ -3,6 +3,7 @@
  * Supports both serverless (ephemeral) and dedicated (persistent) modes
  */
 
+import { getRpcUrl } from '@jejunetwork/config'
 import { expectValid } from '@jejunetwork/types'
 import type { Address, PublicClient } from 'viem'
 import { createPublicClient, http } from 'viem'

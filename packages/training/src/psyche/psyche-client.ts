@@ -3,6 +3,10 @@
  */
 
 import {
+  getPsycheCoordinatorProgramId,
+  getPsycheMiningPoolProgramId,
+} from '@jejunetwork/config'
+import {
   Connection,
   Keypair,
   PublicKey,
@@ -21,10 +25,10 @@ let _miningPoolProgramId: PublicKey | null = null
 
 function getCoordinatorProgramId(): PublicKey {
   if (!_coordinatorProgramId) {
-    const programId = process.env.PSYCHE_COORDINATOR_PROGRAM_ID
+    const programId = getPsycheCoordinatorProgramId()
     if (!programId) {
       throw new Error(
-        'getCoordinatorProgramId() env var required to use Psyche integration',
+        'PSYCHE_COORDINATOR_PROGRAM_ID env var required to use Psyche integration',
       )
     }
     _coordinatorProgramId = new PublicKey(programId)
@@ -34,10 +38,10 @@ function getCoordinatorProgramId(): PublicKey {
 
 function getMiningPoolProgramId(): PublicKey {
   if (!_miningPoolProgramId) {
-    const programId = process.env.PSYCHE_MINING_POOL_PROGRAM_ID
+    const programId = getPsycheMiningPoolProgramId()
     if (!programId) {
       throw new Error(
-        'getMiningPoolProgramId() env var required to use Psyche integration',
+        'PSYCHE_MINING_POOL_PROGRAM_ID env var required to use Psyche integration',
       )
     }
     _miningPoolProgramId = new PublicKey(programId)

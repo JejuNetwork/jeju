@@ -7,6 +7,7 @@
  * @packageDocumentation
  */
 
+import { isAgent0Enabled } from '@jejunetwork/config'
 import { logger } from '@jejunetwork/shared'
 import { getAgent0Client } from './client'
 
@@ -73,7 +74,7 @@ export class ReputationBridge {
     tag1?: string,
     tag2?: string,
   ): Promise<Agent0ReputationSummary> {
-    if (process.env.AGENT0_ENABLED !== 'true') {
+    if (!isAgent0Enabled()) {
       return { count: 0, averageScore: 0 }
     }
 
@@ -108,7 +109,7 @@ export class ReputationBridge {
    * Get reputation from Agent0 network
    */
   private async getAgent0Reputation(tokenId: number): Promise<ReputationData> {
-    if (process.env.AGENT0_ENABLED !== 'true') {
+    if (!isAgent0Enabled()) {
       return this.getDefaultReputation()
     }
 
@@ -222,7 +223,7 @@ export class ReputationBridge {
    * Sync local reputation to Agent0 network
    */
   async syncReputationToAgent0(tokenId: number): Promise<void> {
-    if (process.env.AGENT0_ENABLED !== 'true') {
+    if (!isAgent0Enabled()) {
       return
     }
 

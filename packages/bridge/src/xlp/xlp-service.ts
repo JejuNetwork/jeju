@@ -14,7 +14,7 @@
  * - Minimize idle capital
  */
 
-import { getExternalRpc } from '@jejunetwork/config'
+import { getExternalRpc, getXlpPrivateKey } from '@jejunetwork/config'
 import { EventEmitter } from '@jejunetwork/shared'
 import {
   type Address,
@@ -770,7 +770,7 @@ export class XLPService extends EventEmitter {
 
 export function createXLPService(config: Partial<XLPConfig>): XLPService {
   // SECURITY: Private key is required - no fallbacks to invalid values
-  const privateKey = config.privateKey ?? process.env.XLP_PRIVATE_KEY
+  const privateKey = config.privateKey ?? getXlpPrivateKey()
   if (!privateKey) {
     throw new Error(
       'XLP_PRIVATE_KEY is required. Set it via config.privateKey or XLP_PRIVATE_KEY environment variable. ' +
@@ -781,10 +781,10 @@ export function createXLPService(config: Partial<XLPConfig>): XLPService {
   const fullConfig: XLPConfig = {
     privateKey: privateKey as Hex,
     rpcUrls: config.rpcUrls ?? {
-      1: process.env.RPC_URL_1 ?? getExternalRpc('ethereum'),
-      42161: process.env.RPC_URL_42161 ?? getExternalRpc('arbitrum'),
-      10: process.env.RPC_URL_10 ?? getExternalRpc('optimism'),
-      8453: process.env.RPC_URL_8453 ?? getExternalRpc('base'),
+      1: getExternalRpc('ethereum'),
+      42161: getExternalRpc('arbitrum'),
+      10: getExternalRpc('optimism'),
+      8453: getExternalRpc('base'),
     },
     xlpPoolAddresses: config.xlpPoolAddresses ?? {},
     supportedTokens: config.supportedTokens ?? ['USDC', 'USDT', 'WETH'],

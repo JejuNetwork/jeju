@@ -6,7 +6,13 @@
  * @packageDocumentation
  */
 
-import { getCurrentNetwork, getServiceUrl } from '@jejunetwork/config'
+import {
+  getAgentWalletAddress,
+  getCurrentNetwork,
+  getJejuComputeApiUrl,
+  getJejuUserAddress,
+  getServiceUrl,
+} from '@jejunetwork/config'
 import { logger } from '@jejunetwork/shared'
 import {
   type ChatMessage,
@@ -142,7 +148,7 @@ const MODEL_ALIASES: Record<string, string[]> = {
  */
 function getGatewayUrl(): string {
   // Check for custom URL override first
-  const customUrl = process.env.JEJU_COMPUTE_API_URL
+  const customUrl = getJejuComputeApiUrl()
   if (customUrl) return customUrl
 
   // Use config service URL
@@ -180,8 +186,7 @@ export class LLMInferenceService {
    * Get user address for billing
    */
   private getUserAddress(): Address {
-    const address =
-      process.env.JEJU_USER_ADDRESS ?? process.env.AGENT_WALLET_ADDRESS
+    const address = getJejuUserAddress() ?? getAgentWalletAddress()
     if (address && isValidAddress(address)) {
       return address
     }

@@ -4,6 +4,11 @@
  */
 
 import { existsSync } from 'node:fs'
+import {
+  getAwsEnclaveId,
+  getPhalaEndpoint,
+  isTestMode,
+} from '@jejunetwork/config'
 import type { Hex } from 'viem'
 import { keccak256, toBytes } from 'viem'
 import type {
@@ -131,7 +136,7 @@ export class TEEManager {
 
   private async detectEnvironment(): Promise<TEEEnvironment> {
     // Fast path for test environment - skip slow network detection
-    if (process.env.NODE_ENV === 'test') {
+    if (isTestMode()) {
       return {
         provider: 'mock',
         inTEE: false,
@@ -146,7 +151,7 @@ export class TEEManager {
     const gcpEnv = await this.detectGCP()
     if (gcpEnv.inTEE) return gcpEnv
 
-    if (process.env.PHALA_ENDPOINT) {
+    if (getPhalaEndpoint()) {
       return {
         provider: 'phala',
         inTEE: false,
@@ -184,10 +189,11 @@ export class TEEManager {
         env.details.platform = 'aws'
 
         // Check for NSM device (static import - always needed for TEE detection)
-        if (existsSync('/dev/nsm') || process.env.AWS_ENCLAVE_ID) {
+        const enclaveId = getAwsEnclaveId()
+        if (existsSync('/dev/nsm') || enclaveId) {
           env.inTEE = true
           env.capabilities = ['attestation', 'key_gen', 'persistent']
-          env.details.enclaveId = process.env.AWS_ENCLAVE_ID
+          env.details.enclaveId = enclaveId
         }
 
         const regionResp = await fetch(
@@ -341,7 +347,7 @@ class PhalaProviderAdapter implements ITEEProvider {
   }
 
   async isAvailable(): Promise<boolean> {
-    return Boolean(this.config.endpoint ?? process.env.PHALA_ENDPOINT)
+    return Boolean(this.config.endpoint ?? getPhalaEndpoint())
   }
 
   async requestAttestation(

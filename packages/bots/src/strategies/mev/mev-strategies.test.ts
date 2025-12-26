@@ -46,9 +46,21 @@ describe('AtomicLiquidator', () => {
         chainId: 1,
         minProfitUsd: 50,
         maxGasPrice: 100000000000n,
-        flashLoanFee: 9,
-        protocols: ['aave', 'compound'],
-        subgraphUrl: 'https://api.thegraph.com/subgraphs/name/test',
+        flashLoanProvider: 'aave',
+        liquidatorContract: '0x1234567890123456789012345678901234567890' as Address,
+        protocols: [
+          {
+            name: 'Aave V3',
+            poolAddress: '0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2' as Address,
+            type: 'aave',
+            subgraphName: 'aave-v3-ethereum',
+          },
+        ],
+        subgraphUrls: {
+          'aave-v3-ethereum': 'https://api.thegraph.com/subgraphs/name/aave/protocol-v3',
+        },
+        ethPriceUsd: 3000,
+        checkIntervalMs: 10000,
       },
       mockPublicClient,
       mockWalletClient,
@@ -68,46 +80,16 @@ describe('AtomicLiquidator', () => {
       json: () =>
         Promise.resolve({
           data: {
-            accounts: [],
+            users: [],
           },
         }),
     })
 
     await liquidator.start()
-    expect(liquidator.running).toBe(true)
+    expect(liquidator['running']).toBe(true)
 
     liquidator.stop()
-    expect(liquidator.running).toBe(false)
-  })
-
-  it('should calculate liquidation profit correctly', () => {
-    const position = {
-      id: '0x123',
-      user: '0xuser' as Address,
-      protocol: 'aave' as const,
-      collateral: 10000n * 10n ** 18n, // 10000 tokens
-      debt: 8000n * 10n ** 18n, // 8000 tokens
-      healthFactor: 0.95,
-      collateralToken: '0xweth' as Address,
-      debtToken: '0xusdc' as Address,
-      liquidationThreshold: 0.8,
-    }
-
-    // Access private method via bracket notation for testing
-    const calculator = liquidator as unknown as {
-      calculateProfit: (position: typeof position) => {
-        profitUsd: number
-        repayAmount: bigint
-        expectedSeizure: bigint
-      }
-    }
-
-    // Should return expected structure
-    const result = calculator.calculateProfit(position)
-    expect(result).toBeDefined()
-    expect(typeof result.profitUsd).toBe('number')
-    expect(typeof result.repayAmount).toBe('bigint')
-    expect(typeof result.expectedSeizure).toBe('bigint')
+    expect(liquidator['running']).toBe(false)
   })
 
   it('should emit events on liquidation attempts', () => {
@@ -132,11 +114,11 @@ describe('BackrunStrategy', () => {
     backrun = new BackrunStrategy(
       {
         chainId: 1,
-        minProfitBps: 10,
+        minProfitUsd: 10,
         maxGasPrice: 100000000000n,
-        pools: ['0xpool1', '0xpool2'] as Address[],
+        targetPools: ['0xpool1', '0xpool2'] as Address[],
         flashbotsRpc: 'https://protect.flashbots.net',
-        authKey: '0xauthkey' as Address,
+        ethPriceUsd: 3000,
       },
       mockPublicClient,
       mockWalletClient,
@@ -145,22 +127,18 @@ describe('BackrunStrategy', () => {
 
   it('should initialize with correct config', () => {
     const stats = backrun.getStats()
-    expect(stats.bundlesSubmitted).toBe(0)
-    expect(stats.bundlesIncluded).toBe(0)
+    expect(stats.attempts).toBe(0)
+    expect(stats.successes).toBe(0)
     expect(stats.totalProfit).toBe(0n)
+    expect(stats.totalGas).toBe(0n)
   })
 
   it('should start and stop correctly', async () => {
     await backrun.start()
-    expect(backrun.running).toBe(true)
+    expect(backrun['running']).toBe(true)
 
     backrun.stop()
-    expect(backrun.running).toBe(false)
-  })
-
-  it('should detect large swap transactions', () => {
-    const isLargeSwap = backrun.isLargeSwap
-    expect(typeof isLargeSwap).toBe('function')
+    expect(backrun['running']).toBe(false)
   })
 
   it('should emit events on backrun attempts', () => {
@@ -175,11 +153,11 @@ describe('BackrunStrategy', () => {
     expect(eventHandler).toHaveBeenCalledTimes(1)
   })
 
-  it('should track pool prices correctly', () => {
+  it('should track recent trades', () => {
     // Access internal state
-    const prices = backrun.poolPrices
-    expect(prices).toBeDefined()
-    expect(prices instanceof Map).toBe(true)
+    const trades = backrun['recentTrades']
+    expect(trades).toBeDefined()
+    expect(Array.isArray(trades)).toBe(true)
   })
 })
 
@@ -217,10 +195,10 @@ describe('JITLiquidityStrategy', () => {
 
   it('should start and stop correctly', async () => {
     await jit.start()
-    expect(jit.running).toBe(true)
+    expect(jit['running']).toBe(true)
 
     jit.stop()
-    expect(jit.running).toBe(false)
+    expect(jit['running']).toBe(false)
   })
 
   it('should reject swaps when not running', async () => {
@@ -271,7 +249,7 @@ describe('JITLiquidityStrategy', () => {
     }
 
     // Access private method
-    const analyzeOpp = jit.analyzeOpportunity.bind(jit)
+    const analyzeOpp = jit['analyzeOpportunity'].bind(jit)
     const result = await analyzeOpp(swap)
 
     expect(result).toBeDefined()
@@ -332,10 +310,10 @@ describe('OracleArbStrategy', () => {
       .mockResolvedValueOnce(8) // decimals
 
     await oracleArb.start()
-    expect(oracleArb.running).toBe(true)
+    expect(oracleArb['running']).toBe(true)
 
     oracleArb.stop()
-    expect(oracleArb.running).toBe(false)
+    expect(oracleArb['running']).toBe(false)
   })
 
   it('should track oracle prices correctly', async () => {
@@ -346,7 +324,7 @@ describe('OracleArbStrategy', () => {
 
     await oracleArb.start()
 
-    const prices = oracleArb.lastPrices
+    const prices = oracleArb['lastPrices']
     expect(prices).toBeDefined()
     expect(prices instanceof Map).toBe(true)
     expect(prices.size).toBe(1)
@@ -366,10 +344,13 @@ describe('OracleArbStrategy', () => {
     await oracleArb.start()
 
     // Access private method
-    const findOpp = oracleArb.findOpportunity.bind(oracleArb)
+    const findOpp = oracleArb['findOpportunity'].bind(oracleArb)
 
     // Mock getAmountsOut for finding opportunity
-    mockReadContract.mockResolvedValueOnce([10n ** 17n, 200n * 10n ** 6n])
+    mockReadContract.mockResolvedValueOnce([
+      10n ** 17n,
+      200n * 10n ** 6n,
+    ])
 
     const update = {
       oracle: oracleConfig.oracleAddresses[0],
@@ -410,8 +391,8 @@ describe('OracleArbStrategy', () => {
     await oracleArb.start()
 
     // Manually set stats for testing
-    oracleArb.executionStats.attempts = 10
-    oracleArb.executionStats.successes = 3
+    oracleArb['executionStats'].attempts = 10
+    oracleArb['executionStats'].successes = 3
 
     const stats = oracleArb.getStats()
     expect(stats.successRate).toBe(0.3)
@@ -425,9 +406,12 @@ describe('MEV Strategy Integration', () => {
         chainId: 1,
         minProfitUsd: 50,
         maxGasPrice: 100000000000n,
-        flashLoanFee: 9,
-        protocols: ['aave'],
-        subgraphUrl: 'https://api.thegraph.com/subgraphs/name/test',
+        flashLoanProvider: 'aave',
+        liquidatorContract: '0x1234' as Address,
+        protocols: [],
+        subgraphUrls: {},
+        ethPriceUsd: 3000,
+        checkIntervalMs: 10000,
       },
       mockPublicClient,
       mockWalletClient,
@@ -436,11 +420,11 @@ describe('MEV Strategy Integration', () => {
     const backrun = new BackrunStrategy(
       {
         chainId: 1,
-        minProfitBps: 10,
+        minProfitUsd: 10,
         maxGasPrice: 100000000000n,
-        pools: ['0xpool'] as Address[],
+        targetPools: ['0xpool'] as Address[],
         flashbotsRpc: 'https://protect.flashbots.net',
-        authKey: '0xauthkey' as Address,
+        ethPriceUsd: 3000,
       },
       mockPublicClient,
       mockWalletClient,

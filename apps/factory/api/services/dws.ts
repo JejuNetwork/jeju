@@ -1,6 +1,6 @@
 /** DWS Client */
 
-import { getCoreAppUrl } from '@jejunetwork/config'
+import { getCoreAppUrl, getRpcUrl } from '@jejunetwork/config'
 import { identityRegistryAbi } from '@jejunetwork/contracts'
 import { isValidAddress } from '@jejunetwork/types'
 import { type Address, createPublicClient, http } from 'viem'
@@ -67,8 +67,7 @@ class DWSClient {
     rpcUrl?: string
     identityRegistryAddress?: Address
   }): Promise<void> {
-    const rpcUrl =
-      config?.rpcUrl ?? process.env.RPC_URL ?? 'http://localhost:6546'
+    const rpcUrl = config?.rpcUrl ?? process.env.RPC_URL ?? getRpcUrl()
     this.registryAddress = getRegistryAddress(config?.identityRegistryAddress)
 
     this.publicClient = createPublicClient({

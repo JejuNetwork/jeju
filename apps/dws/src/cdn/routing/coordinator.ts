@@ -3,6 +3,7 @@
  */
 
 import { cors } from '@elysiajs/cors'
+import { getRpcUrl } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import {
   type Address,
@@ -72,6 +73,7 @@ export class CDNCoordinator {
 
     const privateKey = process.env.PRIVATE_KEY
     if (!privateKey) throw new Error('PRIVATE_KEY required')
+    if (!privateKey.startsWith('0x')) throw new Error('PRIVATE_KEY must start with 0x')
     this.account = privateKeyToAccount(privateKey as `0x${string}`)
     this.chain = inferChainFromRpcUrl(config.rpcUrl)
     this.registryAddress = config.registryAddress
@@ -392,7 +394,7 @@ export async function startCoordinator(): Promise<CDNCoordinator> {
       '0x0000000000000000000000000000000000000000') as Address,
     billingAddress: (process.env.CDN_BILLING_ADDRESS ??
       '0x0000000000000000000000000000000000000000') as Address,
-    rpcUrl: process.env.RPC_URL ?? 'http://localhost:6546',
+    rpcUrl: process.env.RPC_URL ?? getRpcUrl(),
     healthCheckInterval: parseInt(
       process.env.CDN_HEALTH_CHECK_INTERVAL ?? '60000',
       10,

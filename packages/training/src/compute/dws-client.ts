@@ -2,7 +2,15 @@
  * DWS distributed training client.
  */
 
-import { getDWSUrl, getExternalRpc, getRpcUrl } from '@jejunetwork/config'
+import {
+  getBridgeAddress,
+  getDWSUrl,
+  getEvmPrivateKey,
+  getExternalRpc,
+  getLlmJudgeModel,
+  getLlmJudgeUrl,
+  getRpcUrl,
+} from '@jejunetwork/config'
 import { expectValid } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import {
@@ -429,10 +437,10 @@ export function getDefaultDWSConfig(): DWSClientConfig {
     dwsApiUrl: getDWSUrl(),
     solanaRpcUrl: getExternalRpc('solana'),
     evmRpcUrl: getRpcUrl(),
-    evmPrivateKey: process.env.EVM_PRIVATE_KEY as Hex | undefined,
-    bridgeAddress: process.env.BRIDGE_ADDRESS as Address | undefined,
-    llmJudgeUrl: process.env.LLM_JUDGE_URL,
-    llmJudgeModel: process.env.LLM_JUDGE_MODEL,
+    evmPrivateKey: getEvmPrivateKey() as Hex | undefined,
+    bridgeAddress: getBridgeAddress() as Address | undefined,
+    llmJudgeUrl: getLlmJudgeUrl(),
+    llmJudgeModel: getLlmJudgeModel(),
     pollingIntervalMs: 5000,
   }
 }

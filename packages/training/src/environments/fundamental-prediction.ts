@@ -2,6 +2,10 @@
  * Fundamental prediction environment for financial metric training.
  */
 
+import {
+  getFundamentalDatasetUrl,
+  getHuggingFaceToken,
+} from '@jejunetwork/config'
 import { HfInference } from '@huggingface/inference'
 import { type ChatMessage, expectValid } from '@jejunetwork/types'
 import { z } from 'zod'
@@ -104,7 +108,7 @@ async function loadDataset(): Promise<{
   train: DatasetItem[]
   test: DatasetItem[]
 }> {
-  const datasetUrl = process.env.FUNDAMENTAL_DATASET_URL
+  const datasetUrl = getFundamentalDatasetUrl()
 
   if (datasetUrl) {
     const response = await fetch(datasetUrl)
@@ -348,7 +352,7 @@ export class FundamentalPredictionEnv {
       `[FundamentalPrediction] Loaded dataset with ${this.train.length} training and ${this.test.length} test examples`,
     )
 
-    const hfToken = process.env.HF_TOKEN
+    const hfToken = getHuggingFaceToken()
     if (hfToken) {
       this.hf = new HfInference(hfToken)
       this._hfInitialized = true

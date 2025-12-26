@@ -10,7 +10,14 @@
  */
 
 import { cors } from '@elysiajs/cors'
-import { getCQLBlockProducerUrl } from '@jejunetwork/config'
+import {
+  type ContractCategoryName,
+  CORE_PORTS,
+  getContract,
+  getCQLBlockProducerUrl,
+  getCurrentNetwork,
+  getRpcUrl,
+} from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import type { Address, Hex } from 'viem'
 import { createAgentRouter, initExecutor, initRegistry } from '../agents'
@@ -85,8 +92,8 @@ import { createVPNRouter } from './routes/vpn'
 import { createDefaultWorkerdRouter } from './routes/workerd'
 import { createWorkersRouter } from './routes/workers'
 
-// Server port - defined early for use in config
-const PORT = parseInt(process.env.DWS_PORT || process.env.PORT || '4030', 10)
+// Server port - from centralized config (env override via CORE_PORTS)
+const PORT = CORE_PORTS.DWS_API.get()
 
 // Rate limiter store
 // NOTE: This is an in-memory rate limiter suitable for single-instance deployments.
@@ -216,33 +223,24 @@ const backendManager = createBackendManager()
 
 // Environment validation - require addresses in production
 const isProduction = process.env.NODE_ENV === 'production'
-// Localnet defaults - contracts are deployed fresh on each chain restart
-// Zero addresses disable features until proper deployment
-const LOCALNET_DEFAULTS = {
-  rpcUrl: 'http://localhost:6546',
-  repoRegistry: '0x0000000000000000000000000000000000000000',
-  packageRegistry: '0x0000000000000000000000000000000000000000',
-  triggerRegistry: '0x0000000000000000000000000000000000000000',
-  identityRegistry: '0x0000000000000000000000000000000000000000',
-}
+const NETWORK = getCurrentNetwork()
+const ZERO_ADDR = '0x0000000000000000000000000000000000000000' as Address
 
-function getEnvOrDefault(key: string, defaultValue: string): string {
-  const value = process.env[key]
-  if (!value && isProduction) {
-    throw new Error(
-      `Required environment variable ${key} is not set in production`,
-    )
+// Get contract address with fallback to zero address
+function getContractOrZero(category: ContractCategoryName, name: string): Address {
+  try {
+    const addr = getContract(category, name, NETWORK)
+    return (addr || ZERO_ADDR) as Address
+  } catch {
+    // Contract not configured - return zero address
+    return ZERO_ADDR
   }
-  return value || defaultValue
 }
 
-// Git configuration
+// Git configuration - uses centralized config
 const gitConfig = {
-  rpcUrl: getEnvOrDefault('RPC_URL', LOCALNET_DEFAULTS.rpcUrl),
-  repoRegistryAddress: getEnvOrDefault(
-    'REPO_REGISTRY_ADDRESS',
-    LOCALNET_DEFAULTS.repoRegistry,
-  ) as Address,
+  rpcUrl: getRpcUrl(NETWORK),
+  repoRegistryAddress: getContractOrZero('registry', 'repo'),
   privateKey: process.env.DWS_PRIVATE_KEY as Hex | undefined,
 }
 
@@ -250,11 +248,8 @@ const repoManager = new GitRepoManager(gitConfig, backendManager)
 
 // Package registry configuration (JejuPkg)
 const pkgConfig = {
-  rpcUrl: getEnvOrDefault('RPC_URL', LOCALNET_DEFAULTS.rpcUrl),
-  packageRegistryAddress: getEnvOrDefault(
-    'PACKAGE_REGISTRY_ADDRESS',
-    LOCALNET_DEFAULTS.packageRegistry,
-  ) as Address,
+  rpcUrl: getRpcUrl(NETWORK),
+  packageRegistryAddress: getContractOrZero('registry', 'package'),
   privateKey: process.env.DWS_PRIVATE_KEY as Hex | undefined,
 }
 
@@ -262,11 +257,8 @@ const registryManager = new PkgRegistryManager(pkgConfig, backendManager)
 
 // CI configuration
 const ciConfig = {
-  rpcUrl: getEnvOrDefault('RPC_URL', LOCALNET_DEFAULTS.rpcUrl),
-  triggerRegistryAddress: getEnvOrDefault(
-    'TRIGGER_REGISTRY_ADDRESS',
-    LOCALNET_DEFAULTS.triggerRegistry,
-  ) as Address,
+  rpcUrl: getRpcUrl(NETWORK),
+  triggerRegistryAddress: getContractOrZero('registry', 'trigger'),
   privateKey: process.env.DWS_PRIVATE_KEY as Hex | undefined,
 }
 
@@ -275,11 +267,8 @@ const workflowEngine = new WorkflowEngine(ciConfig, backendManager, repoManager)
 // Decentralized services configuration
 // Uses ERC-8004 IdentityRegistry for node discovery (same registry as agents)
 const decentralizedConfig = {
-  rpcUrl: getEnvOrDefault('RPC_URL', LOCALNET_DEFAULTS.rpcUrl),
-  identityRegistryAddress: getEnvOrDefault(
-    'IDENTITY_REGISTRY_ADDRESS',
-    LOCALNET_DEFAULTS.identityRegistry,
-  ) as Address,
+  rpcUrl: getRpcUrl(NETWORK),
+  identityRegistryAddress: getContractOrZero('registry', 'identity'),
   frontendCid: process.env.DWS_FRONTEND_CID,
 }
 
@@ -467,8 +456,9 @@ const daConfig = {
     process.env.DA_OPERATOR_CAPACITY_GB || '100',
     10,
   ),
-  daContractAddress: process.env.DA_CONTRACT_ADDRESS as Address | undefined,
-  rpcUrl: getEnvOrDefault('RPC_URL', LOCALNET_DEFAULTS.rpcUrl),
+  // DA contract address - not yet in centralized config
+  daContractAddress: (process.env.DA_CONTRACT_ADDRESS || ZERO_ADDR) as Address,
+  rpcUrl: getRpcUrl(NETWORK),
 }
 
 // Continue mounting routes on app
@@ -698,6 +688,7 @@ workerdExecutor
   .initialize()
   .then(() => {
     initExecutor(workerdExecutor, {
+      // Local service URLs - deployment-specific configuration
       inferenceUrl:
         process.env.DWS_INFERENCE_URL ?? 'http://127.0.0.1:4030/compute',
       kmsUrl: process.env.DWS_KMS_URL ?? 'http://127.0.0.1:4030/kms',

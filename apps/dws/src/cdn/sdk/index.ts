@@ -28,6 +28,7 @@
 import { createHash } from 'node:crypto'
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { join, relative } from 'node:path'
+import { getRpcUrl } from '@jejunetwork/config'
 import type {
   CacheConfig,
   CDNRegion,
@@ -132,6 +133,9 @@ export class CDNClient {
   private ipfsGateway: string
 
   constructor(config: CDNClientConfig) {
+    if (!config.privateKey.startsWith('0x')) {
+      throw new Error('privateKey must be a hex string starting with 0x')
+    }
     this.account = privateKeyToAccount(config.privateKey as `0x${string}`)
 
     this.publicClient = createPublicClient({
@@ -655,7 +659,7 @@ export function createCDNClientFromEnv(): CDNClient {
 
   return new CDNClient({
     privateKey,
-    rpcUrl: process.env.RPC_URL ?? 'http://localhost:6546',
+    rpcUrl: process.env.RPC_URL ?? getRpcUrl(),
     registryAddress: process.env.CDN_REGISTRY_ADDRESS as Address | undefined,
     billingAddress: process.env.CDN_BILLING_ADDRESS as Address | undefined,
     coordinatorUrl: process.env.CDN_COORDINATOR_URL,

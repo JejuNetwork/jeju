@@ -105,14 +105,11 @@ export function createToolHandler<
   name: string,
   description: string,
   schema: TSchema,
-  handler: (
-    args: ZodInfer<TSchema>,
-    agent: AuthenticatedAgent,
-  ) => Promise<TResult>,
+  handler: ToolHandler<ZodInfer<TSchema>, TResult>,
 ): MCPToolDefinition<ZodInfer<TSchema>, TResult> {
   return {
     tool: createToolFromSchema(name, description, schema),
-    handler: handler as ToolHandler<ZodInfer<TSchema>, TResult>,
+    handler,
     validator: createValidator(schema),
   }
 }

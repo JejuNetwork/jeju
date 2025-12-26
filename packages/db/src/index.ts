@@ -106,6 +106,15 @@ export type {
   RentalInfo,
   RentalPlan,
   RevokeRequest,
+  VectorBatchInsertRequest,
+  VectorDistanceMetric,
+  VectorIndexConfig,
+  VectorIndexInfo,
+  VectorInsertRequest,
+  VectorMetadataColumn,
+  VectorSearchRequest,
+  VectorSearchResult,
+  VectorType,
 } from './types.js'
 export {
   parseBoolean,
