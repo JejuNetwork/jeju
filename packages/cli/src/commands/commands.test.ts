@@ -468,3 +468,103 @@ describe('bots command', () => {
     expect(stdout).toContain('bot')
   })
 })
+
+describe('fork command', () => {
+  test('--help shows fork options', async () => {
+    const { stdout, exitCode } = await runCLI(['fork', '--help'])
+    expect(exitCode).toBe(0)
+    expect(stdout).toContain('fork')
+  })
+})
+
+describe('circular command', () => {
+  test('--help shows circular dependency options', async () => {
+    const { stdout, exitCode } = await runCLI(['circular', '--help'])
+    expect(exitCode).toBe(0)
+    expect(stdout).toContain('circular')
+  })
+
+  test('check subcommand exists', async () => {
+    const { stdout, exitCode } = await runCLI(['circular', 'check', '--help'])
+    expect(exitCode).toBe(0)
+    expect(stdout).toContain('Check')
+  })
+})
+
+describe('cleanup command', () => {
+  test('--help shows cleanup options', async () => {
+    const { stdout, exitCode } = await runCLI(['cleanup', '--help'])
+    expect(exitCode).toBe(0)
+    expect(stdout).toContain('cleanup')
+  })
+})
+
+describe('service command', () => {
+  test('--help shows service management options', async () => {
+    const { stdout, exitCode } = await runCLI(['service', '--help'])
+    expect(exitCode).toBe(0)
+    expect(stdout).toContain('service')
+  })
+
+  test('list subcommand exists', async () => {
+    const { stdout, exitCode } = await runCLI(['service', 'list', '--help'])
+    expect(exitCode).toBe(0)
+    expect(stdout).toContain('running')
+  })
+})
+
+describe('setup command', () => {
+  test('--help shows setup options', async () => {
+    const { stdout, exitCode } = await runCLI(['setup', '--help'])
+    expect(exitCode).toBe(0)
+    expect(stdout).toContain('setup')
+  })
+})
+
+describe('seed command', () => {
+  test('--help shows seed options', async () => {
+    const { stdout, exitCode } = await runCLI(['seed', '--help'])
+    expect(exitCode).toBe(0)
+    expect(stdout).toContain('seed')
+  })
+
+  test('oauth3 subcommand exists', async () => {
+    const { stdout, exitCode } = await runCLI(['seed', 'oauth3', '--help'])
+    expect(exitCode).toBe(0)
+    expect(stdout).toContain('OAuth3')
+  })
+})
+
+describe('cql command', () => {
+  test('--help shows CovenantSQL options', async () => {
+    const { stdout, exitCode } = await runCLI(['cql', '--help'])
+    expect(exitCode).toBe(0)
+    expect(stdout).toContain('CovenantSQL')
+  })
+
+  test('start subcommand has mode option', async () => {
+    const { stdout, exitCode } = await runCLI(['cql', 'start', '--help'])
+    expect(exitCode).toBe(0)
+    expect(stdout).toContain('--mode')
+  })
+
+  test('status subcommand exists', async () => {
+    const { stdout, exitCode } = await runCLI(['cql', 'status', '--help'])
+    expect(exitCode).toBe(0)
+    expect(stdout).toContain('status')
+  })
+})
+
+describe('vendor command', () => {
+  test('--help shows vendor options', async () => {
+    const { stdout, exitCode } = await runCLI(['vendor', '--help'])
+    expect(exitCode).toBe(0)
+    expect(stdout).toContain('vendor')
+  })
+
+  test('init subcommand exists', async () => {
+    const { stdout, exitCode } = await runCLI(['vendor', 'init', '--help'])
+    expect(exitCode).toBe(0)
+    expect(stdout).toContain('manifest')
+  })
+})

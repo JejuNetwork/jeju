@@ -7,6 +7,15 @@
  * For production: Configure AWS CloudHSM, Azure KeyVault, HashiCorp Vault, or YubiHSM.
  */
 
+import {
+  getAwsRegion,
+  getHsmApiKey,
+  getHsmEndpoint,
+  getHsmPassword,
+  getHsmProvider,
+  getHsmUsername,
+  isHsmAuditLoggingEnabled,
+} from '@jejunetwork/config'
 import { expectValid } from '@jejunetwork/types'
 import {
   type Address,
@@ -516,15 +525,15 @@ let globalClient: HSMClient | null = null
 export function getHSMClient(config?: Partial<HSMConfig>): HSMClient {
   if (globalClient) return globalClient
   globalClient = new HSMClient({
-    provider: (process.env.HSM_PROVIDER as HSMProvider) ?? 'local-dev',
-    endpoint: process.env.HSM_ENDPOINT ?? 'http://localhost:8080',
+    provider: getHsmProvider() as HSMProvider,
+    endpoint: getHsmEndpoint(),
     credentials: {
-      apiKey: process.env.HSM_API_KEY,
-      username: process.env.HSM_USERNAME,
-      password: process.env.HSM_PASSWORD,
-      region: process.env.AWS_REGION,
+      apiKey: getHsmApiKey(),
+      username: getHsmUsername(),
+      password: getHsmPassword(),
+      region: getAwsRegion(),
     },
-    auditLogging: process.env.HSM_AUDIT_LOGGING !== 'false',
+    auditLogging: isHsmAuditLoggingEnabled(),
     ...config,
   })
   return globalClient

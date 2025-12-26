@@ -1,17 +1,19 @@
 /**
- * Circuit Breaker
- * Prevents cascade failures by temporarily stopping requests to failing services
- *
- * Uses opossum library for battle-tested circuit breaker implementation
+ * Circuit Breaker using cockatiel
+ * https://github.com/connor4312/cockatiel
  */
 
-/// <reference path="./opossum.d.ts" />
-import CircuitBreakerLib from 'opossum'
-import type {
-  CircuitBreakerConfig,
-  CircuitBreakerState,
-  CircuitState,
-} from './types'
+import {
+  BrokenCircuitError,
+  CircuitBreakerPolicy,
+  CircuitState as CockatielState,
+  ConsecutiveBreaker,
+  circuitBreaker,
+  handleAll,
+} from 'cockatiel'
+import type { CircuitBreakerConfig, CircuitState } from './types'
+
+export { BrokenCircuitError }
 
 export const DEFAULT_CIRCUIT_CONFIG: CircuitBreakerConfig = {
   failureThreshold: 5,
@@ -19,173 +21,95 @@ export const DEFAULT_CIRCUIT_CONFIG: CircuitBreakerConfig = {
   halfOpenRequests: 3,
 }
 
-// Map to track circuit breaker instances per key
-const breakers = new Map<string, CircuitBreakerLib<unknown[], unknown>>()
-const breakerStates = new Map<string, CircuitBreakerState>()
+function mapState(state: CockatielState): CircuitState {
+  switch (state) {
+    case CockatielState.Closed:
+      return 'closed'
+    case CockatielState.Open:
+    case CockatielState.Isolated:
+      return 'open'
+    case CockatielState.HalfOpen:
+      return 'half-open'
+    default: {
+      const _exhaustive: never = state
+      throw new Error(`Unknown circuit state: ${_exhaustive}`)
+    }
+  }
+}
+
+interface BreakerEntry {
+  policy: CircuitBreakerPolicy
+  failures: number
+  lastFailure: number
+}
 
 export class CircuitBreaker {
-  private config: CircuitBreakerConfig
+  private readonly config: CircuitBreakerConfig
+  private readonly breakers = new Map<string, BreakerEntry>()
 
   constructor(config: Partial<CircuitBreakerConfig> = {}) {
     this.config = { ...DEFAULT_CIRCUIT_CONFIG, ...config }
   }
 
-  private getBreaker<T>(
-    key: string,
-    fn: () => Promise<T>,
-  ): CircuitBreakerLib<[], T> {
-    if (!breakers.has(key)) {
-      const breaker = new CircuitBreakerLib(fn, {
-        timeout: 30000,
-        errorThresholdPercentage: (this.config.failureThreshold / 10) * 100,
-        resetTimeout: this.config.resetTimeout,
-        volumeThreshold: this.config.failureThreshold,
-      }) as CircuitBreakerLib<[], T>
+  private getOrCreate(key: string): BreakerEntry {
+    let entry = this.breakers.get(key)
+    if (entry) return entry
 
-      // Initialize state tracking
-      breakerStates.set(key, {
-        state: 'closed',
-        failures: 0,
-        lastFailure: 0,
-        halfOpenAttempts: 0,
-      })
+    const policy = circuitBreaker(handleAll, {
+      halfOpenAfter: this.config.resetTimeout,
+      breaker: new ConsecutiveBreaker(this.config.failureThreshold),
+    })
 
-      // Set up event listeners to track state
-      breaker.on('open', () => {
-        const state = breakerStates.get(key)
-        if (state) {
-          state.state = 'open'
-          state.lastFailure = Date.now()
-          console.log(`[CircuitBreaker] ${key}: closed -> open`)
-        }
-      })
+    entry = { policy, failures: 0, lastFailure: 0 }
 
-      breaker.on('halfOpen', () => {
-        const state = breakerStates.get(key)
-        if (state) {
-          state.state = 'half-open'
-          state.halfOpenAttempts = 0
-          console.log(`[CircuitBreaker] ${key}: open -> half-open`)
-        }
-      })
+    policy.onFailure(() => {
+      const e = this.breakers.get(key)
+      if (e) {
+        e.failures++
+        e.lastFailure = Date.now()
+      }
+    })
 
-      breaker.on('close', () => {
-        const state = breakerStates.get(key)
-        if (state) {
-          state.state = 'closed'
-          state.failures = 0
-          state.halfOpenAttempts = 0
-          console.log(`[CircuitBreaker] ${key}: half-open -> closed`)
-        }
-      })
+    policy.onSuccess(() => {
+      const e = this.breakers.get(key)
+      if (e) e.failures = Math.max(0, e.failures - 1)
+    })
 
-      breaker.on('failure', () => {
-        const state = breakerStates.get(key)
-        if (state) {
-          state.failures++
-          state.lastFailure = Date.now()
-        }
-      })
+    this.breakers.set(key, entry)
+    return entry
+  }
 
-      breaker.on('success', () => {
-        const state = breakerStates.get(key)
-        if (state) {
-          state.failures = Math.max(0, state.failures - 1)
-        }
-      })
-
-      breakers.set(key, breaker as CircuitBreakerLib<unknown[], unknown>)
-    }
-    return breakers.get(key) as CircuitBreakerLib<[], T>
+  getState(key: string): CircuitState {
+    const entry = this.breakers.get(key)
+    if (!entry) return 'closed'
+    return mapState(entry.policy.state)
   }
 
   canExecute(key: string): boolean {
-    const state = breakerStates.get(key)
-    if (!state) return true
-
-    switch (state.state) {
-      case 'closed':
-        return true
-      case 'open':
-        // Check if we should transition to half-open
-        if (Date.now() - state.lastFailure >= this.config.resetTimeout) {
-          return true
-        }
-        return false
-      case 'half-open':
-        return state.halfOpenAttempts < this.config.halfOpenRequests
-    }
+    return this.getState(key) !== 'open'
   }
 
   async execute<T>(key: string, fn: () => Promise<T>): Promise<T> {
-    if (!this.canExecute(key)) {
-      throw new CircuitOpenError(key)
-    }
-
-    const state = breakerStates.get(key)
-    if (state?.state === 'half-open') {
-      state.halfOpenAttempts++
-    }
-
-    const breaker = this.getBreaker(key, fn)
-    return breaker.fire()
-  }
-
-  recordSuccess(key: string): void {
-    const state = breakerStates.get(key)
-    if (!state) return
-
-    if (state.state === 'half-open') {
-      state.state = 'closed'
-      state.failures = 0
-      state.halfOpenAttempts = 0
-    } else if (state.state === 'closed') {
-      state.failures = Math.max(0, state.failures - 1)
-    }
-  }
-
-  recordFailure(key: string): void {
-    const state = breakerStates.get(key)
-    if (!state) return
-
-    state.failures++
-    state.lastFailure = Date.now()
-
-    if (state.state === 'half-open') {
-      state.state = 'open'
-    } else if (
-      state.state === 'closed' &&
-      state.failures >= this.config.failureThreshold
-    ) {
-      state.state = 'open'
-    }
-  }
-
-  getCircuitState(key: string): CircuitState {
-    return breakerStates.get(key)?.state ?? 'closed'
+    const { policy } = this.getOrCreate(key)
+    return policy.execute(fn)
   }
 
   reset(key: string): void {
-    const breaker = breakers.get(key)
-    if (breaker) {
-      breaker.close()
-    }
-    breakers.delete(key)
-    breakerStates.delete(key)
+    this.breakers.delete(key)
+  }
+
+  resetAll(): void {
+    this.breakers.clear()
   }
 
   getStats(): Record<string, { state: CircuitState; failures: number }> {
     const stats: Record<string, { state: CircuitState; failures: number }> = {}
-    for (const [key, state] of breakerStates) {
-      stats[key] = { state: state.state, failures: state.failures }
+    for (const [key, entry] of this.breakers) {
+      stats[key] = {
+        state: mapState(entry.policy.state),
+        failures: entry.failures,
+      }
     }
     return stats
-  }
-}
-
-export class CircuitOpenError extends Error {
-  constructor(public key: string) {
-    super(`Circuit breaker open for: ${key}`)
-    this.name = 'CircuitOpenError'
   }
 }

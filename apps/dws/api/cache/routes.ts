@@ -1351,7 +1351,7 @@ export async function createCacheService() {
   await initializeCacheBilling()
 
   const app = new Elysia()
-    // Root-level endpoints for Babylon compatibility
+    // Health check endpoint
     .get('/health', async () => {
       const engine = getSharedEngine()
       const stats = engine.getStats()
@@ -1361,7 +1361,7 @@ export async function createCacheService() {
         timestamp: Date.now(),
       }
     })
-    // Stats endpoint in Babylon-compatible format
+    // Stats endpoint
     .get('/stats', async () => {
       const sharedStats = getSharedEngine().getStats()
       return {

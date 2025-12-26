@@ -7,7 +7,13 @@
  */
 
 import { cors } from '@elysiajs/cors'
-import { getCurrentNetwork, getServicesConfig } from '@jejunetwork/config'
+import {
+  getContract,
+  getCurrentNetwork,
+  getRpcUrl,
+  getServiceUrl,
+  getServicesConfig,
+} from '@jejunetwork/config'
 import type { JsonObject } from '@jejunetwork/types'
 import { isHexString, isValidAddress } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
@@ -156,18 +162,28 @@ function getNetwork(): 'localnet' | 'testnet' | 'mainnet' {
   return network
 }
 
-// Localnet default addresses (from localnet contract deployments)
+// Localnet default addresses (from centralized config)
 const LOCALNET_DEFAULTS = {
-  rpcUrl: 'http://localhost:6546',
-  agentVault: '0x0000000000000000000000000000000000000000',
-  roomRegistry: '0x0000000000000000000000000000000000000000',
-  triggerRegistry: '0x0000000000000000000000000000000000000000',
-  identityRegistry: '0x5FC8d32690cc91D4c39d9d3abcBD16989F875707',
-  serviceRegistry: '0x0000000000000000000000000000000000000000',
-  computeMarketplace: 'http://localhost:4015',
-  storageApi: 'http://localhost:4030/storage',
-  ipfsGateway: 'http://localhost:5001',
-  indexerGraphql: 'http://localhost:4350/graphql',
+  rpcUrl: getRpcUrl('localnet'),
+  agentVault:
+    (getContract('agents', 'vault', 'localnet') as `0x${string}`) ||
+    '0x0000000000000000000000000000000000000000',
+  roomRegistry:
+    (getContract('agents', 'roomRegistry', 'localnet') as `0x${string}`) ||
+    '0x0000000000000000000000000000000000000000',
+  triggerRegistry:
+    (getContract('agents', 'triggerRegistry', 'localnet') as `0x${string}`) ||
+    '0x0000000000000000000000000000000000000000',
+  identityRegistry:
+    (getContract('registry', 'identity', 'localnet') as `0x${string}`) ||
+    '0x0000000000000000000000000000000000000000',
+  serviceRegistry:
+    (getContract('registry', 'service', 'localnet') as `0x${string}`) ||
+    '0x0000000000000000000000000000000000000000',
+  computeMarketplace: getServiceUrl('compute', 'marketplace', 'localnet'),
+  storageApi: getServiceUrl('storage', 'api', 'localnet'),
+  ipfsGateway: getServiceUrl('storage', 'ipfsGateway', 'localnet'),
+  indexerGraphql: getServiceUrl('indexer', 'graphql', 'localnet'),
 } as const satisfies {
   rpcUrl: string
   agentVault: `0x${string}`

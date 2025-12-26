@@ -113,7 +113,7 @@ export function useOnboardingStatus() {
 export function useLookupFid(lookupAddress?: string) {
   return useQuery({
     queryKey: ['farcaster', 'lookup', lookupAddress],
-    queryFn: () => apiFetch(`/api/farcaster/lookup/${lookupAddress}`),
+    queryFn: () => apiFetch<LookupFidResult>(`/api/farcaster/lookup/${lookupAddress}`),
     enabled: !!lookupAddress,
     staleTime: 60_000,
   })

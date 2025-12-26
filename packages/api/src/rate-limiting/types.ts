@@ -10,8 +10,6 @@ export interface RateLimitTier {
   maxRequests: number
   /** Time window in milliseconds */
   windowMs: number
-  /** Optional burst allowance */
-  burstLimit?: number
 }
 
 /**
@@ -70,7 +68,6 @@ export interface RateLimiterConfig {
 export interface RateLimitEntry {
   count: number
   resetAt: number
-  burstUsed?: number
 }
 
 /**

@@ -3,10 +3,14 @@
  * Blockchain integration for agent identity and reputation
  */
 
-import type { JsonValue } from '@jejunetwork/types'
 import { createPublicClient, http, type PublicClient } from 'viem'
 import type { AgentProfile, AgentReputation } from '../types/a2a'
 import { AgentCapabilitiesSchema } from '../types/common'
+import type {
+  AgentDiscoveryFilters,
+  AgentRegistryEntry,
+  IBlockchainRegistry,
+} from '../types/server'
 
 /**
  * Minimal ABI for Identity Registry contract
@@ -90,7 +94,7 @@ export interface RegistryConfig {
   reputationSystemAddress: string
 }
 
-export class RegistryClient {
+export class RegistryClient implements IBlockchainRegistry {
   private readonly client: PublicClient
   private readonly identityRegistryAddress: `0x${string}`
   private readonly reputationSystemAddress: `0x${string}`
@@ -176,11 +180,7 @@ export class RegistryClient {
   /**
    * Discover agents by filters
    */
-  async discoverAgents(filters?: {
-    strategies?: string[]
-    minReputation?: number
-    markets?: string[]
-  }): Promise<AgentProfile[]> {
+  async discoverAgents(filters?: AgentDiscoveryFilters): Promise<AgentProfile[]> {
     let tokenIds: readonly bigint[]
 
     if (filters?.minReputation) {
@@ -319,33 +319,9 @@ export class RegistryClient {
   }
 
   /**
-   * Register agent (read-only - throws error)
-   */
-  async register(
-    _agentId: string,
-    _data: Record<string, JsonValue>,
-  ): Promise<void> {
-    throw new Error(
-      'RegistryClient is read-only. Use a write-enabled client for registration',
-    )
-  }
-
-  /**
-   * Unregister agent (read-only - throws error)
-   */
-  async unregister(_agentId: string): Promise<void> {
-    throw new Error(
-      'RegistryClient is read-only. Use a write-enabled client for unregistration',
-    )
-  }
-
-  /**
    * Transform AgentProfile to registry entry format
    */
-  private toRegistryEntry(profile: AgentProfile): {
-    agentId: string
-    [key: string]: JsonValue
-  } {
+  private toRegistryEntry(profile: AgentProfile): AgentRegistryEntry {
     return {
       agentId: String(profile.tokenId),
       tokenId: profile.tokenId,
@@ -377,9 +353,7 @@ export class RegistryClient {
   /**
    * Get all agents
    */
-  async getAgents(): Promise<
-    Array<{ agentId: string; [key: string]: JsonValue }>
-  > {
+  async getAgents(): Promise<AgentRegistryEntry[]> {
     const profiles = await this.discoverAgents()
     return profiles.map((profile) => this.toRegistryEntry(profile))
   }
@@ -387,9 +361,7 @@ export class RegistryClient {
   /**
    * Get agent by ID
    */
-  async getAgent(
-    agentId: string,
-  ): Promise<{ agentId: string; [key: string]: JsonValue } | null> {
+  async getAgent(agentId: string): Promise<AgentRegistryEntry | null> {
     const tokenId = Number.parseInt(agentId, 10)
     if (Number.isNaN(tokenId)) {
       return null

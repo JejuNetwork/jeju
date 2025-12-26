@@ -14,6 +14,11 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import {
+  getSuccinctApiKey,
+  isProduction,
+  isRequireRealProofs,
+} from '@jejunetwork/config'
 import { spawn } from 'bun'
 import type { Groth16Proof, Hash32, SP1Proof } from '../types/index.js'
 import { toHash32 } from '../types/index.js'
@@ -526,10 +531,8 @@ export class SP1Client {
     startTime: number,
   ): Promise<ProofResult> {
     // Production guard: mock proofs are not allowed in production
-    const isProduction = process.env.NODE_ENV === 'production'
-    const requireRealProof = process.env.REQUIRE_REAL_PROOFS === 'true'
-
-    if (isProduction || requireRealProof) {
+    // Note: isProduction and isRequireRealProofs are imported at top of file
+    if (isProduction() || isRequireRealProofs()) {
       return {
         id,
         type: request.type,
@@ -679,15 +682,16 @@ export function createSP1Client(config?: Partial<SP1Config>): SP1Client {
 
   // These defaults are intentional for local development convenience
   const useMock = config?.useMock ?? !existsSync(programsDir)
+  const succinctApiKey = config?.succinctApiKey ?? getSuccinctApiKey()
   const useSuccinctNetwork =
-    config?.useSuccinctNetwork ?? Boolean(process.env.SUCCINCT_API_KEY)
+    config?.useSuccinctNetwork ?? Boolean(succinctApiKey)
 
   return new SP1Client({
     programsDir,
     useMock,
     timeoutMs: config?.timeoutMs ?? 600000,
     useSuccinctNetwork,
-    succinctApiKey: config?.succinctApiKey ?? process.env.SUCCINCT_API_KEY,
+    succinctApiKey,
     workers: config?.workers ?? 2,
   })
 }

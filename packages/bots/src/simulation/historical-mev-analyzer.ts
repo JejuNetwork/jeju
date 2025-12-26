@@ -8,6 +8,7 @@
  * - On-chain DEX events
  */
 
+import { getAlchemyApiKey, getHeliusApiKey } from '@jejunetwork/config'
 import {
   type Chain,
   createPublicClient,
@@ -548,8 +549,8 @@ export class RealOpportunityFetcher {
   private alchemyKey?: string
 
   constructor(options: { heliusKey?: string; alchemyKey?: string } = {}) {
-    this.heliusKey = options.heliusKey ?? process.env.HELIUS_API_KEY
-    this.alchemyKey = options.alchemyKey ?? process.env.ALCHEMY_API_KEY
+    this.heliusKey = options.heliusKey ?? getHeliusApiKey()
+    this.alchemyKey = options.alchemyKey ?? getAlchemyApiKey()
   }
 
   /**

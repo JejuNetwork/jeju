@@ -376,13 +376,29 @@ export class PasskeyManager {
       return { success: false, error: 'Challenge mismatch' }
     }
 
-    // Verify signature (simplified - in production use proper COSE verification)
+    // Verify cryptographic signature
     const authenticatorData = new Uint8Array(
       response.response.authenticatorData,
     )
+    const clientDataJSON = new Uint8Array(response.response.clientDataJSON)
+    const signature = new Uint8Array(response.response.signature)
+
+    // Verify signature: sign(authenticatorData || sha256(clientDataJSON))
+    const isValidSignature = await this.verifySignature(
+      credential.publicKey,
+      authenticatorData,
+      clientDataJSON,
+      signature,
+    )
+
+    if (!isValidSignature) {
+      return { success: false, error: 'Invalid signature' }
+    }
+
+    // Check sign count to detect cloned credentials
     const signCount = this.getSignCount(authenticatorData)
 
-    if (signCount <= credential.counter) {
+    if (signCount !== 0 && signCount <= credential.counter) {
       throw new Error(`Possible credential clone detected for ${response.id}`)
     }
 
@@ -433,6 +449,149 @@ export class PasskeyManager {
 
     credential.deviceName = deviceName
     return true
+  }
+
+  /**
+   * Verify WebAuthn signature using the stored public key
+   * The signed data is: authenticatorData || sha256(clientDataJSON)
+   */
+  private async verifySignature(
+    publicKey: Uint8Array,
+    authenticatorData: Uint8Array,
+    clientDataJSON: Uint8Array,
+    signature: Uint8Array,
+  ): Promise<boolean> {
+    // Copy to new ArrayBuffer to ensure compatibility with subtle crypto
+    const clientDataBuffer = new ArrayBuffer(clientDataJSON.length)
+    new Uint8Array(clientDataBuffer).set(clientDataJSON)
+
+    // Hash the clientDataJSON
+    const clientDataHash = await crypto.subtle.digest('SHA-256', clientDataBuffer)
+
+    // Concatenate authenticatorData || clientDataHash
+    const signedData = new Uint8Array(
+      authenticatorData.length + clientDataHash.byteLength,
+    )
+    signedData.set(authenticatorData, 0)
+    signedData.set(new Uint8Array(clientDataHash), authenticatorData.length)
+
+    // Import the public key for verification
+    // The public key is stored as 65-byte uncompressed EC point: 0x04 || x || y
+    if (publicKey.length !== 65 || publicKey[0] !== 0x04) {
+      return false // Invalid public key format
+    }
+
+    // Convert DER signature to raw format if needed
+    // WebAuthn signatures are typically in ASN.1/DER format for ECDSA
+    const rawSignature = this.derToRaw(signature)
+    if (!rawSignature) {
+      return false
+    }
+
+    // Copy public key to new ArrayBuffer for crypto compatibility
+    const publicKeyBuffer = new ArrayBuffer(publicKey.length)
+    new Uint8Array(publicKeyBuffer).set(publicKey)
+
+    const cryptoKey = await crypto.subtle.importKey(
+      'raw',
+      publicKeyBuffer,
+      { name: 'ECDSA', namedCurve: 'P-256' },
+      false,
+      ['verify'],
+    )
+
+    // Copy signature and signed data to new ArrayBuffers
+    const rawSigBuffer = new ArrayBuffer(rawSignature.length)
+    new Uint8Array(rawSigBuffer).set(rawSignature)
+
+    const signedDataBuffer = new ArrayBuffer(signedData.length)
+    new Uint8Array(signedDataBuffer).set(signedData)
+
+    const isValid = await crypto.subtle.verify(
+      { name: 'ECDSA', hash: 'SHA-256' },
+      cryptoKey,
+      rawSigBuffer,
+      signedDataBuffer,
+    )
+
+    return isValid
+  }
+
+  /**
+   * Convert DER-encoded ECDSA signature to raw format (r || s)
+   * DER format: 0x30 <len> 0x02 <r-len> <r> 0x02 <s-len> <s>
+   * Raw format: r (32 bytes) || s (32 bytes)
+   */
+  private derToRaw(derSig: Uint8Array): Uint8Array | null {
+    // Check for DER SEQUENCE tag
+    if (derSig[0] !== 0x30) {
+      // Might already be raw format (64 bytes)
+      if (derSig.length === 64) {
+        // Copy to fresh Uint8Array to avoid buffer issues
+        const copy = new Uint8Array(64)
+        copy.set(derSig)
+        return copy
+      }
+      return null
+    }
+
+    let offset = 2 // Skip SEQUENCE tag and length
+
+    // Parse r
+    if (derSig[offset] !== 0x02) return null // INTEGER tag for r
+    offset++
+    const rLen = derSig[offset]
+    if (rLen === undefined) return null
+    offset++
+    const rSlice = derSig.slice(offset, offset + rLen)
+    offset += rLen
+
+    // Parse s
+    if (derSig[offset] !== 0x02) return null // INTEGER tag for s
+    offset++
+    const sLen = derSig[offset]
+    if (sLen === undefined) return null
+    offset++
+    const sSlice = derSig.slice(offset, offset + sLen)
+
+    // Remove leading zeros and pad to 32 bytes
+    const r = this.normalizeInteger(rSlice, 32)
+    const s = this.normalizeInteger(sSlice, 32)
+
+    // Concatenate r || s
+    const rawSig = new Uint8Array(64)
+    rawSig.set(r, 0)
+    rawSig.set(s, 32)
+
+    return rawSig
+  }
+
+  /**
+   * Normalize an integer to a fixed size (remove leading zeros or pad)
+   */
+  private normalizeInteger(bytes: Uint8Array, targetLen: number): Uint8Array {
+    // Remove leading zeros
+    let start = 0
+    while (start < bytes.length - 1 && bytes[start] === 0) {
+      start++
+    }
+
+    const result = new Uint8Array(targetLen)
+
+    if (bytes.length - start >= targetLen) {
+      // Truncate if too long (shouldn't happen for valid signatures)
+      for (let i = 0; i < targetLen; i++) {
+        result[i] = bytes[bytes.length - targetLen + i] ?? 0
+      }
+    } else {
+      // Pad with leading zeros
+      const sourceLen = bytes.length - start
+      for (let i = 0; i < sourceLen; i++) {
+        result[targetLen - sourceLen + i] = bytes[start + i] ?? 0
+      }
+    }
+
+    return result
   }
 
   /**

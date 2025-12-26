@@ -21,6 +21,14 @@
  */
 
 import {
+  getIpfsApiUrlEnv,
+  getIpfsGatewayUrlEnv,
+  getJnsResolverAddressEnv,
+  isDeployPreview,
+  isDeployStaging,
+  isDevMode,
+} from '@jejunetwork/config'
+import {
   readContract,
   writeContract as typedWriteContract,
 } from '@jejunetwork/contracts'
@@ -143,20 +151,16 @@ export class ContentVersioningService {
   detectMode(): DeploymentMode {
     if (this.config.forceMode) return this.config.forceMode
 
-    // Check environment variables
-    if (
-      process.env.DEV_MODE === 'true' ||
-      process.env.NODE_ENV === 'development' ||
-      process.env.JEJU_DEV === 'true'
-    ) {
+    // Check environment variables via config
+    if (isDevMode()) {
       return 'development'
     }
 
-    if (process.env.DEPLOY_PREVIEW === 'true') {
+    if (isDeployPreview()) {
       return 'preview'
     }
 
-    if (process.env.DEPLOY_STAGING === 'true') {
+    if (isDeployStaging()) {
       return 'staging'
     }
 
@@ -458,16 +462,11 @@ export function createContentVersioningService(
       jnsName: `${appName}.jeju`,
       jnsResolver:
         options.jnsResolver ??
-        (process.env.JNS_RESOLVER_ADDRESS as Address) ??
+        (getJnsResolverAddressEnv() as Address) ??
         '0x0',
-      ipfsApiUrl:
-        options.ipfsApiUrl ??
-        process.env.IPFS_API_URL ??
-        'http://localhost:5001',
+      ipfsApiUrl: options.ipfsApiUrl ?? getIpfsApiUrlEnv(),
       ipfsGatewayUrl:
-        options.ipfsGatewayUrl ??
-        process.env.IPFS_GATEWAY_URL ??
-        'http://localhost:4180',
+        options.ipfsGatewayUrl ?? getIpfsGatewayUrlEnv() ?? 'http://localhost:4180',
     },
     options.publicClient,
     options.walletClient,
@@ -478,28 +477,20 @@ export function createContentVersioningService(
  * Quick check if dev mode is enabled
  */
 export function isDevModeActive(): boolean {
-  return (
-    process.env.DEV_MODE === 'true' ||
-    process.env.NODE_ENV === 'development' ||
-    process.env.JEJU_DEV === 'true'
-  )
+  return isDevMode()
 }
 
 /**
  * Get the current deployment mode from environment
  */
 export function getCurrentDeploymentMode(): DeploymentMode {
-  if (
-    process.env.DEV_MODE === 'true' ||
-    process.env.NODE_ENV === 'development' ||
-    process.env.JEJU_DEV === 'true'
-  ) {
+  if (isDevMode()) {
     return 'development'
   }
-  if (process.env.DEPLOY_PREVIEW === 'true') {
+  if (isDeployPreview()) {
     return 'preview'
   }
-  if (process.env.DEPLOY_STAGING === 'true') {
+  if (isDeployStaging()) {
     return 'staging'
   }
   return 'production'

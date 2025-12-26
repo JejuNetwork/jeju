@@ -48,11 +48,19 @@ export class FarcasterSignerService {
 
   /**
    * Create a new signer and get approval link
+   *
+   * @param params.fid - User's Farcaster ID
+   * @param params.appName - Name of the app creating the signer
+   * @param params.appFid - Optional app FID for signed key request flow
+   * @param params.signedKeyRequestSignature - Required if appFid is provided. EIP-712 signature from the app's wallet.
+   * @param params.deadline - Optional deadline for signed key request (defaults to 24h from now)
    */
   async createSigner(params: {
     fid: number
     appName: string
     appFid?: number
+    signedKeyRequestSignature?: Hex
+    deadline?: number
   }): Promise<CreateSignerResult> {
     // Create signer
     const signer = await this.manager.createSigner({
@@ -66,13 +74,20 @@ export class FarcasterSignerService {
     let transaction: { to: Address; data: Hex } | undefined
 
     if (params.appFid) {
-      // Generate signed key request link
-      const deadline = generateDeadline(24)
+      // Signed key request flow requires a signature from the app's wallet
+      if (!params.signedKeyRequestSignature) {
+        throw new Error(
+          'signedKeyRequestSignature is required when using appFid. ' +
+            'Sign the key request payload using EIP-712 with your app wallet.',
+        )
+      }
+
+      const deadline = params.deadline ?? generateDeadline(24)
 
       approvalLink = this.registration.generateWarpcastApprovalLink({
         publicKey: signer.publicKey,
         deadline,
-        signature: '0x' as Hex, // Would need wallet signature in real implementation
+        signature: params.signedKeyRequestSignature,
         requestFid: params.appFid,
       })
 
@@ -81,7 +96,7 @@ export class FarcasterSignerService {
         publicKey: signer.publicKey,
       })
     } else {
-      // Simple approval link
+      // Simple approval link - user signs in Warpcast
       approvalLink = this.registration.generateSimpleApprovalLink(
         signer.publicKey,
       )

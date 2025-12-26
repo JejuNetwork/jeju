@@ -139,10 +139,12 @@ describe('TEE Key Manager', () => {
       backup,
       password,
       'imported-key',
+      address, // Pass original address for proper restoration
     )
 
     expect(imported.keyId).toBe('imported-key')
     expect(imported.publicKey).toBe(identityKey.publicKey)
+    expect(imported.address).toBe(address)
   })
 
   test('verifies attestation', async () => {

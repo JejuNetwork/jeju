@@ -17,6 +17,7 @@
  */
 
 import { type IAgentRuntime, logger, type Plugin } from '@elizaos/core'
+import { getCqlDatabaseId } from '@jejunetwork/config'
 import { getCQL } from '@jejunetwork/db'
 import { CQLDatabaseAdapter } from './adapter'
 import { checkMigrationStatus, runCQLMigrations } from './migrations'
@@ -25,7 +26,7 @@ import { checkMigrationStatus, runCQLMigrations } from './migrations'
  * Create a CQL database adapter for the given agent
  */
 function createCQLAdapter(agentId: string): CQLDatabaseAdapter {
-  const databaseId = process.env.CQL_DATABASE_ID ?? 'eliza'
+  const databaseId = getCqlDatabaseId() ?? 'eliza'
   return new CQLDatabaseAdapter(
     agentId as `${string}-${string}-${string}-${string}-${string}`,
     {
@@ -92,7 +93,7 @@ export const cqlDatabasePlugin: Plugin = {
     }
 
     // Check and run migrations
-    const databaseId = process.env.CQL_DATABASE_ID ?? 'eliza'
+    const databaseId = getCqlDatabaseId() ?? 'eliza'
     const migrated = await checkMigrationStatus(cql, databaseId)
     if (!migrated) {
       logger.info({ src: 'plugin:cql' }, 'Running CQL schema migrations...')

@@ -10,6 +10,7 @@ import { exec } from 'node:child_process'
 import { promises as fs } from 'node:fs'
 import * as path from 'node:path'
 import { promisify } from 'node:util'
+import { getHuggingFaceToken as getHuggingFaceTokenConfig } from '@jejunetwork/config'
 
 /**
  * Get HuggingFace token from environment variables
@@ -20,7 +21,7 @@ import { promisify } from 'node:util'
  * @returns Token string or undefined if not set
  */
 export function getHuggingFaceToken(): string | undefined {
-  return process.env.HUGGING_FACE_TOKEN || process.env.HF_TOKEN
+  return getHuggingFaceTokenConfig()
 }
 
 /**

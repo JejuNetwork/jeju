@@ -42,7 +42,8 @@ export function createApiKeyValidator(
 ): ApiKeyValidator {
   return async (apiKey: string): Promise<ApiKeyValidationResult | null> => {
     const result = config.keys.get(apiKey)
-    return result ?? null
+    if (!result) return null
+    return result
   }
 }
 
@@ -63,14 +64,3 @@ export function createHashBasedApiKeyValidator(
   }
 }
 
-/**
- * Create a database-backed API key validator
- *
- * @param validateFn - Function that validates API key against database
- * @returns API key validator function
- */
-export function createDatabaseApiKeyValidator(
-  validateFn: (apiKey: string) => Promise<ApiKeyValidationResult | null>,
-): ApiKeyValidator {
-  return validateFn
-}

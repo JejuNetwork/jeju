@@ -15,10 +15,13 @@
 
 import {
   getChainId,
+  getModelRegistryAddress,
   getServicesConfig,
   getTeeConfig,
   getTeeEndpoint,
   getTeeMode,
+  getTrainingOrchestratorAddress,
+  getWorkerCodeHash,
   isProductionEnv,
 } from '@jejunetwork/config'
 import { logger } from '@jejunetwork/shared'
@@ -849,13 +852,10 @@ export function createTrainingWorker(
   const defaultConfig: WorkerConfig = {
     type,
     workerId: `${type.toLowerCase()}-${Date.now()}`,
-    codeHash: (process.env.WORKER_CODE_HASH ??
-      '0x0000000000000000000000000000000000000000000000000000000000000000') as Hex,
+    codeHash: getWorkerCodeHash() as Hex,
     chainId: String(getChainId()),
-    trainingOrchestratorAddress: (process.env.TRAINING_ORCHESTRATOR_ADDRESS ??
-      '0x0000000000000000000000000000000000000000') as Address,
-    modelRegistryAddress: (process.env.MODEL_REGISTRY_ADDRESS ??
-      '0x0000000000000000000000000000000000000000') as Address,
+    trainingOrchestratorAddress: getTrainingOrchestratorAddress() as Address,
+    modelRegistryAddress: getModelRegistryAddress() as Address,
     storageEndpoint: getServicesConfig().storage.api,
     teeProvider,
     requireAttestation: config?.requireAttestation ?? isProduction,

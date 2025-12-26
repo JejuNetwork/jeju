@@ -742,6 +742,35 @@ export class MessagingClient {
   }
 
   /**
+   * Decrypt content from a stored message
+   * @param encryptedContent - Serialized encrypted content (hex ciphertext)
+   * @param ephemeralPublicKey - Hex-encoded ephemeral public key
+   * @param nonce - Hex-encoded nonce
+   * @returns Decrypted content as string
+   */
+  decryptContent(
+    encryptedContent: string,
+    ephemeralPublicKey: string,
+    nonce: string,
+  ): string {
+    if (!this.keyPair) {
+      throw new MessagingError(
+        'Client not initialized',
+        ErrorCodes.NO_KEY_BUNDLE,
+      )
+    }
+
+    const encrypted = deserializeEncryptedMessage({
+      ciphertext: encryptedContent,
+      ephemeralPublicKey,
+      nonce,
+    })
+
+    const decrypted = decryptMessage(encrypted, this.keyPair.privateKey)
+    return new TextDecoder().decode(decrypted)
+  }
+
+  /**
    * Check if connected
    */
   isConnected(): boolean {

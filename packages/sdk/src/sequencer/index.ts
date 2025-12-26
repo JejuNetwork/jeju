@@ -11,6 +11,7 @@
 import type { NetworkType } from '@jejunetwork/types'
 import { type Address, encodeFunctionData, type Hex, parseEther } from 'viem'
 import { requireContract } from '../config'
+import { parseIdFromLogs } from '../shared/api'
 import type { JejuWallet } from '../wallet'
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -312,6 +313,37 @@ const FORCED_INCLUSION_ABI = [
   },
 ] as const
 
+const SLASHING_ABI = [
+  {
+    name: 'reportMissedBlock',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'sequencer', type: 'address' },
+      { name: 'blockNumber', type: 'uint256' },
+      { name: 'proof', type: 'bytes' },
+    ],
+    outputs: [],
+  },
+  {
+    name: 'getSlashingHistory',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'sequencer', type: 'address' }],
+    outputs: [
+      {
+        type: 'tuple[]',
+        components: [
+          { name: 'blockNumber', type: 'uint256' },
+          { name: 'amount', type: 'uint256' },
+          { name: 'reason', type: 'string' },
+          { name: 'timestamp', type: 'uint256' },
+        ],
+      },
+    ],
+  },
+] as const
+
 // ═══════════════════════════════════════════════════════════════════════════
 //                          IMPLEMENTATION
 // ═══════════════════════════════════════════════════════════════════════════
@@ -328,6 +360,11 @@ export function createSequencerModule(
   const forcedInclusionAddress = requireContract(
     'sequencer',
     'ForcedInclusion',
+    network,
+  )
+  const slashingAddress = requireContract(
+    'sequencer',
+    'SlashingContract',
     network,
   )
 
@@ -498,7 +535,15 @@ export function createSequencerModule(
         value: params.value ?? 0n,
       })
 
-      return { txHash, requestId: txHash as Hex }
+      // Parse requestId from ForcedInclusionRequested event
+      const requestId = await parseIdFromLogs(
+        wallet.publicClient,
+        txHash,
+        'ForcedInclusionRequested(bytes32,address,address,uint256)',
+        'requestId',
+      )
+
+      return { txHash, requestId }
     },
 
     async getForcedInclusionRequest(requestId) {
@@ -565,12 +610,34 @@ export function createSequencerModule(
       })
     },
 
-    async reportMissedBlock(_sequencer, _blockNumber) {
-      throw new Error('Not implemented - requires authorized reporter')
+    async reportMissedBlock(sequencer, blockNumber) {
+      // Note: This requires the caller to be an authorized reporter
+      // Proof would be generated from the L1 chain to prove the block was missed
+      const data = encodeFunctionData({
+        abi: SLASHING_ABI,
+        functionName: 'reportMissedBlock',
+        args: [sequencer, blockNumber, '0x' as Hex], // Proof would be required in production
+      })
+
+      return wallet.sendTransaction({
+        to: slashingAddress,
+        data,
+      })
     },
 
-    async getSlashingHistory(_sequencer) {
-      return []
+    async getSlashingHistory(sequencer) {
+      const result = await wallet.publicClient.readContract({
+        address: slashingAddress,
+        abi: SLASHING_ABI,
+        functionName: 'getSlashingHistory',
+        args: [sequencer],
+      })
+
+      return result.map((entry) => ({
+        blockNumber: entry.blockNumber,
+        amount: entry.amount,
+        reason: entry.reason,
+      }))
     },
   }
 }

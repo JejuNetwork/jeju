@@ -3,6 +3,11 @@
  * Handles NFT bridging between EVM chains and Solana
  */
 
+import {
+  getSp1ProverUrl,
+  getSuccinctApiKey,
+  isProduction,
+} from '@jejunetwork/config'
 import { EventEmitter } from '@jejunetwork/shared'
 import {
   Connection,
@@ -760,9 +765,8 @@ export class NFTBridgeService extends EventEmitter {
     recipient: Address,
   ): Promise<Hex> {
     // Use SP1 prover for ZK proof generation
-    const proverUrl = process.env.SP1_PROVER_URL
-    const apiKey = process.env.SUCCINCT_API_KEY
-    const isProduction = process.env.NODE_ENV === 'production'
+    const proverUrl = getSp1ProverUrl()
+    const apiKey = getSuccinctApiKey()
 
     if (proverUrl || apiKey) {
       // Conditional dynamic import: only load SP1 prover if configured

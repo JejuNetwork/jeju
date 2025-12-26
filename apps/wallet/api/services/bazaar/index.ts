@@ -3,6 +3,7 @@
  * List, buy, sell NFTs with multi-currency support
  */
 
+import { getRpcUrl } from '@jejunetwork/config'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import {
   type Address,
@@ -198,7 +199,7 @@ export class BazaarService {
     if (cached) {
       return cached
     }
-    const rpcUrl = getNetworkRpcUrl(this.chainId) ?? 'http://localhost:6546'
+    const rpcUrl = getNetworkRpcUrl(this.chainId) ?? getRpcUrl()
     const client = createPublicClient({ transport: http(rpcUrl) })
     this.clientCache.set(this.chainId, client)
     return client

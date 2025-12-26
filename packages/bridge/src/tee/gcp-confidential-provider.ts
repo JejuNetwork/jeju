@@ -14,6 +14,11 @@
  * - Attestation service enabled
  */
 
+import {
+  getGcpProject,
+  getGcpZone,
+  isGcpConfidentialSimulate,
+} from '@jejunetwork/config'
 import { keccak256, toBytes } from 'viem'
 import { z } from 'zod'
 import type { TEEAttestation } from '../types/index.js'
@@ -77,9 +82,7 @@ export class GCPConfidentialProvider implements ITEEProvider {
     if (!this.initialized) {
       await this.initialize()
     }
-    return (
-      this.inConfidentialVM || process.env.GCP_CONFIDENTIAL_SIMULATE === 'true'
-    )
+    return this.inConfidentialVM || isGcpConfidentialSimulate()
   }
 
   async requestAttestation(
@@ -434,7 +437,7 @@ export class GCPConfidentialProvider implements ITEEProvider {
 export function createGCPConfidentialProvider(
   config?: Partial<GCPConfidentialConfig>,
 ): GCPConfidentialProvider {
-  const project = config?.project ?? process.env.GCP_PROJECT
+  const project = config?.project ?? getGcpProject()
   if (!project) {
     throw new Error(
       'GCP_PROJECT is required - set via config or environment variable',
@@ -443,7 +446,7 @@ export function createGCPConfidentialProvider(
 
   return new GCPConfidentialProvider({
     project,
-    zone: config?.zone ?? process.env.GCP_ZONE ?? 'us-central1-a',
+    zone: config?.zone ?? getGcpZone(),
     ...config,
   })
 }

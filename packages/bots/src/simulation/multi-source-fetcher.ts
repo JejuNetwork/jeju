@@ -15,6 +15,13 @@
  * - Stress test scenario data (2020 COVID, 2022 Terra/FTX)
  */
 
+import {
+  getAlchemyApiKey,
+  getCodexApiKey,
+  getCoinGeckoApiKey,
+  getDefiLlamaApiKey,
+  getHeliusApiKey,
+} from '@jejunetwork/config'
 import { z } from 'zod'
 import type { Token } from '../types'
 
@@ -302,11 +309,11 @@ export class MultiSourceFetcher {
 
   constructor(config: DataSourceConfig = {}) {
     this.config = {
-      defiLlamaApiKey: config.defiLlamaApiKey ?? process.env.DEFILLAMA_API_KEY,
-      heliusApiKey: config.heliusApiKey ?? process.env.HELIUS_API_KEY,
-      alchemyApiKey: config.alchemyApiKey ?? process.env.ALCHEMY_API_KEY,
-      codexApiKey: config.codexApiKey ?? process.env.CODEX_API_KEY,
-      coingeckoApiKey: config.coingeckoApiKey ?? process.env.COINGECKO_API_KEY,
+      defiLlamaApiKey: config.defiLlamaApiKey ?? getDefiLlamaApiKey(),
+      heliusApiKey: config.heliusApiKey ?? getHeliusApiKey(),
+      alchemyApiKey: config.alchemyApiKey ?? getAlchemyApiKey(),
+      codexApiKey: config.codexApiKey ?? getCodexApiKey(),
+      coingeckoApiKey: config.coingeckoApiKey ?? getCoinGeckoApiKey(),
     }
   }
   /**

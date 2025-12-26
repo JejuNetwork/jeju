@@ -3,6 +3,7 @@
  * Defines supported chains for RPC gateway functionality
  */
 
+import { getRpcUrl } from '@jejunetwork/config'
 import {
   arbitrum,
   arbitrumSepolia,
@@ -20,7 +21,7 @@ const jejuLocalnet: Chain = {
   id: 420690,
   name: 'Jeju Localnet',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-  rpcUrls: { default: { http: ['http://localhost:6546'] } },
+  rpcUrls: { default: { http: [getRpcUrl('localnet')] } },
   testnet: true,
 }
 
@@ -28,7 +29,7 @@ const jeju: Chain = {
   id: 420691,
   name: 'Jeju',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-  rpcUrls: { default: { http: ['https://rpc.jejunetwork.org'] } },
+  rpcUrls: { default: { http: [getRpcUrl('mainnet')] } },
   blockExplorers: {
     default: { name: 'Jeju Explorer', url: 'https://explorer.jejunetwork.org' },
   },

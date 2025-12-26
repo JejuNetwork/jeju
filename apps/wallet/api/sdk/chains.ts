@@ -3,6 +3,7 @@
  * Supports Ethereum L1, major L2s, and prepares for Solana
  */
 
+import { getRpcUrl } from '@jejunetwork/config'
 import type { Address } from 'viem'
 import { getBrandingRpcUrl, getNetworkName } from '../../web/config/branding'
 import type { ChainConfig, SolanaConfig } from './types'
@@ -160,11 +161,11 @@ export const chains: Record<number, ChainConfig> = {
     network: 'localnet',
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
     rpcUrls: {
-      default: { http: ['http://localhost:6546'] },
-      jeju: { http: ['http://localhost:6546'] },
+      default: { http: [getRpcUrl('localnet')] },
+      jeju: { http: [getRpcUrl('localnet')] },
     },
     blockExplorers: {
-      default: { name: 'Local', url: 'http://localhost:6546' },
+      default: { name: 'Local', url: 'http://localhost:4000' },
     },
     testnet: true,
     eilSupported: true,

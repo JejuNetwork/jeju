@@ -2,6 +2,11 @@
  * TEE Batching - aggregates transfers for efficient ZK proving
  */
 
+import {
+  getPhalaEndpoint,
+  isProduction,
+  isRequireRealTee,
+} from '@jejunetwork/config'
 import type {
   CrossChainTransfer,
   Hash32,
@@ -281,12 +286,8 @@ export class TEEBatcher {
   }
 
   private async generateAttestation(): Promise<TEEAttestation> {
-    // Check environment mode
-    const isProduction = process.env.NODE_ENV === 'production'
-    const requireRealTEE = process.env.REQUIRE_REAL_TEE === 'true'
-
     // Check if Phala is available
-    const phalaEndpoint = process.env.PHALA_ENDPOINT
+    const phalaEndpoint = getPhalaEndpoint()
 
     if (phalaEndpoint) {
       // Use real Phala TEE attestation
@@ -304,7 +305,7 @@ export class TEEBatcher {
     }
 
     // Production mode without TEE configured is a critical error
-    if (isProduction || requireRealTEE) {
+    if (isProduction() || isRequireRealTee()) {
       throw new Error(
         '[TEE] CRITICAL: Production requires real TEE attestation. ' +
           'Configure PHALA_ENDPOINT, AWS_ENCLAVE_ID, or run in a GCP Confidential VM. ' +

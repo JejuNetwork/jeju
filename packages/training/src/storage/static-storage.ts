@@ -15,6 +15,10 @@ import type {
 } from '../recording/trajectory-recorder'
 
 export interface StaticStorageConfig {
+<<<<<<< HEAD
+=======
+  /** Application name (crucible, factory, dws) */
+>>>>>>> cd08d238c04fc8f92037e4eb995e7cddc3863234
   appName: string
   maxBufferSize: number
   maxBufferAgeMs: number

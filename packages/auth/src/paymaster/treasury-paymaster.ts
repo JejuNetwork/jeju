@@ -8,12 +8,19 @@
 import {
   type Address,
   type Chain,
+  concat,
   createPublicClient,
   createWalletClient,
+  encodeAbiParameters,
   type Hex,
   http,
+  keccak256,
+  pad,
+  parseAbiParameters,
+  toBytes,
+  toHex,
 } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
+import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts'
 import { base, baseSepolia, foundry, mainnet, sepolia } from 'viem/chains'
 import type { DID } from '../did/index.js'
 import type {
@@ -156,6 +163,7 @@ export class TreasuryPaymaster {
 
   /**
    * Create paymaster data for a sponsored operation
+   * Generates ERC-4337 compliant paymaster signature
    */
   async createPaymasterData(
     userId: DID,
@@ -172,9 +180,17 @@ export class TreasuryPaymaster {
       decision.validUntil ?? Math.floor(Date.now() / 1000) + 3600
     const validAfter = Math.floor(Date.now() / 1000)
 
+    // Generate paymaster signature per ERC-4337 spec
+    const paymasterDataBytes = await this.generatePaymasterSignature(
+      account,
+      userOp,
+      validUntil,
+      validAfter,
+    )
+
     const paymasterData: PaymasterData = {
       paymaster: account.address,
-      paymasterData: EMPTY_HEX,
+      paymasterData: paymasterDataBytes,
       validUntil,
       validAfter,
     }
@@ -187,6 +203,73 @@ export class TreasuryPaymaster {
       paymasterData,
       gasLimit: decision.maxGas,
     }
+  }
+
+  /**
+   * Generate ERC-4337 paymaster signature
+   * Format: validUntil (6 bytes) || validAfter (6 bytes) || signature (65 bytes)
+   */
+  private async generatePaymasterSignature(
+    account: PrivateKeyAccount,
+    userOp: UserOperation,
+    validUntil: number,
+    validAfter: number,
+  ): Promise<Hex> {
+    // Pack validity times into 6 bytes each (48 bits)
+    const validUntilBytes = pad(toHex(validUntil), { size: 6 })
+    const validAfterBytes = pad(toHex(validAfter), { size: 6 })
+
+    // Create the hash to sign
+    // This is the UserOperation hash with paymaster validation data
+    const userOpHash = this.hashUserOp(userOp)
+
+    // Create paymaster hash: keccak256(userOpHash || validUntil || validAfter)
+    const paymasterHash = keccak256(
+      encodeAbiParameters(
+        parseAbiParameters('bytes32, uint48, uint48'),
+        [userOpHash, validUntil, validAfter],
+      ),
+    )
+
+    // Sign the paymaster hash
+    const signature = await account.signMessage({
+      message: { raw: toBytes(paymasterHash) },
+    })
+
+    // Pack: validUntil (6 bytes) || validAfter (6 bytes) || signature (65 bytes)
+    return concat([validUntilBytes, validAfterBytes, signature])
+  }
+
+  /**
+   * Hash a UserOperation for signing
+   * Per ERC-4337 spec
+   */
+  private hashUserOp(userOp: UserOperation): Hex {
+    const packed = encodeAbiParameters(
+      parseAbiParameters(
+        'address, uint256, bytes32, bytes32, uint256, uint256, uint256, uint256, uint256, bytes32',
+      ),
+      [
+        userOp.sender,
+        userOp.nonce,
+        keccak256(userOp.initCode),
+        keccak256(userOp.callData),
+        userOp.callGasLimit,
+        userOp.verificationGasLimit,
+        userOp.preVerificationGas,
+        userOp.maxFeePerGas,
+        userOp.maxPriorityFeePerGas,
+        // paymasterAndData hash excludes signature (we're generating it)
+        keccak256('0x'),
+      ],
+    )
+
+    return keccak256(
+      encodeAbiParameters(
+        parseAbiParameters('bytes32, address, uint256'),
+        [keccak256(packed), this.treasuryAddress, BigInt(this.chainId)],
+      ),
+    )
   }
 
   /**

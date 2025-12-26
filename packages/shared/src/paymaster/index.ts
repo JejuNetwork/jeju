@@ -5,7 +5,12 @@
  * Supports multi-token gas payments via PaymasterFactory.
  */
 
-import { getChainId, getRpcUrl } from '@jejunetwork/config'
+import {
+  getChainId,
+  getMinPaymasterStake,
+  getPaymasterFactoryAddress,
+  getRpcUrl,
+} from '@jejunetwork/config'
 import { readContract } from '@jejunetwork/contracts'
 import {
   type Address,
@@ -61,9 +66,8 @@ const ERC20_ABI = parseAbi([
 ])
 
 const DEFAULT_CONFIG: PaymasterConfig = {
-  factoryAddress: (process.env.PAYMASTER_FACTORY_ADDRESS ||
-    '0x0000000000000000000000000000000000000000') as Address,
-  minStakedEth: parseEther(process.env.MIN_PAYMASTER_STAKE || '1.0'),
+  factoryAddress: getPaymasterFactoryAddress() as Address,
+  minStakedEth: parseEther(getMinPaymasterStake()),
   rpcUrl: getRpcUrl(),
   chainId: getChainId(),
 }

@@ -12,6 +12,7 @@
  */
 
 import { readFile, writeFile } from 'node:fs/promises'
+import { getDWSComputeUrl } from '@jejunetwork/config'
 import type { Address, Hex } from 'viem'
 import { z } from 'zod'
 import {
@@ -103,7 +104,7 @@ interface ContentScreeningConfig {
 
 const DEFAULT_CONFIG: ContentScreeningConfig = {
   enabled: true,
-  aiModelEndpoint: 'http://localhost:4030/compute/chat/completions',
+  aiModelEndpoint: `${getDWSComputeUrl()}/chat/completions`,
   spamThreshold: 0.9,
   scamThreshold: 0.85,
   csamThreshold: 0.01,

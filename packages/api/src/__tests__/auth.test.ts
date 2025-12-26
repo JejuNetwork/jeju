@@ -10,6 +10,7 @@ import {
   parseWalletAuthMessage,
   requireAuth,
   validateAPIKey,
+  validateAPIKeyFromHeaders,
   validateOAuth3FromHeaders,
   validateOAuth3Session,
   validateWalletSignature,
@@ -146,8 +147,6 @@ describe('validateOAuth3FromHeaders', () => {
 
   const validSessionId =
     '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890'
-  const validIdentityId =
-    '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
 
   const originalFetch = globalThis.fetch
 
@@ -158,7 +157,8 @@ describe('validateOAuth3FromHeaders', () => {
   test('validates valid header', async () => {
     const mockSession = {
       sessionId: validSessionId,
-      identityId: validIdentityId,
+      identityId:
+        '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
       smartAccount: '0x1234567890123456789012345678901234567890',
       expiresAt: Date.now() + 3600000,
     }
@@ -321,6 +321,68 @@ describe('Auth Core', () => {
 
       expect(result.valid).toBe(false)
       expect(result.error).toBe('API key expired')
+    })
+  })
+
+  describe('validateAPIKeyFromHeaders', () => {
+    const config: APIKeyConfig = {
+      keys: new Map([
+        [
+          'valid-key-123',
+          {
+            address: '0x1234567890123456789012345678901234567890' as Address,
+            permissions: ['read', 'write'],
+            rateLimitTier: 'premium',
+          },
+        ],
+      ]),
+    }
+
+    test('validates API key from x-api-key header', () => {
+      const headers = { 'x-api-key': 'valid-key-123' }
+      const result = validateAPIKeyFromHeaders(headers, config)
+
+      expect(result.valid).toBe(true)
+      if (!result.valid || !result.user) {
+        throw new Error('Expected valid result')
+      }
+      expect(result.user.address).toBe('0x1234567890123456789012345678901234567890')
+    })
+
+    test('validates API key from Bearer authorization header', () => {
+      const headers = { authorization: 'Bearer valid-key-123' }
+      const result = validateAPIKeyFromHeaders(headers, config)
+
+      expect(result.valid).toBe(true)
+      if (!result.valid || !result.user) {
+        throw new Error('Expected valid result')
+      }
+      expect(result.user.address).toBe('0x1234567890123456789012345678901234567890')
+    })
+
+    test('prefers x-api-key over authorization header', () => {
+      const headers = {
+        'x-api-key': 'valid-key-123',
+        authorization: 'Bearer invalid-key',
+      }
+      const result = validateAPIKeyFromHeaders(headers, config)
+
+      expect(result.valid).toBe(true)
+    })
+
+    test('rejects missing API key', () => {
+      const result = validateAPIKeyFromHeaders({}, config)
+
+      expect(result.valid).toBe(false)
+      expect(result.error).toContain('Missing')
+    })
+
+    test('rejects invalid Bearer format', () => {
+      const headers = { authorization: 'Basic invalid' }
+      const result = validateAPIKeyFromHeaders(headers, config)
+
+      expect(result.valid).toBe(false)
+      expect(result.error).toContain('Missing')
     })
   })
 

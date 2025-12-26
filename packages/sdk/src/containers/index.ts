@@ -84,6 +84,10 @@ export interface PublishImageParams {
   layers: string[]
   architectures?: string[]
   buildInfo?: string
+  /** Optional manifest content for proper hash calculation. If not provided, hash is derived from URI. */
+  manifestContent?: string
+  /** Optional total image size in bytes. If not provided, size is estimated from layer count. */
+  sizeBytes?: bigint
 }
 
 export interface SignImageParams {
@@ -514,11 +518,13 @@ export function createContainersModule(
   }
 
   async function publishImage(params: PublishImageParams): Promise<Hex> {
-    // Calculate manifest hash from URI (simplified - in practice would hash actual content)
-    const manifestHash = keccak256(toHex(params.manifestUri))
+    // Calculate manifest hash from content if provided, otherwise from URI
+    const manifestHash = params.manifestContent
+      ? keccak256(toHex(params.manifestContent))
+      : keccak256(toHex(params.manifestUri))
 
-    // Calculate size from layers (simplified)
-    const size = BigInt(params.layers.length * 1024 * 1024)
+    // Use provided size or estimate from layers (default 10MB per layer as rough estimate)
+    const size = params.sizeBytes ?? BigInt(params.layers.length * 10 * 1024 * 1024)
 
     const data = encodeFunctionData({
       abi: CONTAINER_REGISTRY_ABI,

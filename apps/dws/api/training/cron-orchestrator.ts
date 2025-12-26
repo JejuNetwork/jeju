@@ -1,10 +1,19 @@
 /**
  * Training Cron Orchestrator
  *
+<<<<<<< HEAD
  * Manages scheduled cron jobs for Jeju apps. Triggers defined in app
  * manifests are executed via HTTP endpoints.
+=======
+ * Manages scheduled training-related cron jobs for Jeju apps:
+ * - Crucible: Agent ticks, trajectory collection, blue/red team operations
+ * - DWS: Batch processing, RULER scoring, dataset creation
+ *
+ * Triggers are defined in app manifests and executed via HTTP endpoints.
+>>>>>>> cd08d238c04fc8f92037e4eb995e7cddc3863234
  */
 
+import { getDWSUrl, getServiceUrl } from '@jejunetwork/config'
 import { logger } from '@jejunetwork/shared'
 import { Cron } from 'croner'
 import {
@@ -15,6 +24,10 @@ import {
 
 export interface AppCronTrigger {
   triggerId: string
+<<<<<<< HEAD
+=======
+  /** App name (crucible, dws) */
+>>>>>>> cd08d238c04fc8f92037e4eb995e7cddc3863234
   appName: string
   cronName: string
   schedule: string
@@ -483,9 +496,8 @@ export async function initializeTrainingOrchestrator(
   const orchestrator = getTrainingCronOrchestrator()
 
   // Service URLs from environment
-  const crucibleUrl = process.env.CRUCIBLE_API_URL ?? 'http://localhost:4021'
-  const babylonUrl = process.env.BABYLON_API_URL ?? 'http://localhost:3000'
-  const dwsUrl = process.env.DWS_API_URL ?? 'http://localhost:4015'
+  const crucibleUrl = process.env.CRUCIBLE_API_URL ?? getServiceUrl('compute', 'nodeApi') ?? 'http://localhost:4021'
+  const dwsUrl = process.env.DWS_API_URL ?? getDWSUrl()
 
   // Register Crucible triggers
   orchestrator.registerFromManifest(
@@ -507,35 +519,6 @@ export async function initializeTrainingOrchestrator(
       ],
     },
     crucibleUrl,
-    cronSecret,
-  )
-
-  // Register Babylon triggers
-  orchestrator.registerFromManifest(
-    'babylon',
-    {
-      cron: [
-        {
-          name: 'agent-tick',
-          schedule: '*/2 * * * *', // Every 2 minutes
-          endpoint: '/api/cron/agent-tick',
-          timeout: 45000,
-        },
-        {
-          name: 'flush-trajectories',
-          schedule: '*/10 * * * *', // Every 10 minutes
-          endpoint: '/api/cron/flush-trajectories',
-          timeout: 30000,
-        },
-        {
-          name: 'training-check',
-          schedule: '0 */6 * * *', // Every 6 hours
-          endpoint: '/api/cron/training-check',
-          timeout: 60000,
-        },
-      ],
-    },
-    babylonUrl,
     cronSecret,
   )
 

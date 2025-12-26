@@ -252,7 +252,6 @@ async function deployAppsOnchain(
       env: {
         ...process.env,
         PORT: String(apiPort),
-        BABYLON_API_PORT: String(apiPort),
         JEJU_RPC_URL: rpcUrl,
         JEJU_DWS_ENDPOINT: 'http://localhost:4030',
         JEJU_NETWORK: 'localnet',

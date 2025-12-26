@@ -75,12 +75,14 @@ export {
   type ErrorResponse,
   expectDefined,
   expectValid,
+  ForbiddenError,
   getStatusCode,
   InternalError,
   NotFoundError,
   ServiceUnavailableError,
   sanitizeErrorMessage,
   toErrorResponse,
+  UnauthorizedError,
   ValidationError,
 } from './error-handler.js'
 export {

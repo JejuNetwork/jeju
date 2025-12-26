@@ -161,19 +161,6 @@ describe('RegistryClient', () => {
     })
   })
 
-  describe('register (read-only)', () => {
-    it('should throw error as client is read-only', async () => {
-      await expect(
-        client.register('agent-1', { name: 'Test' }),
-      ).rejects.toThrow('read-only')
-    })
-  })
-
-  describe('unregister (read-only)', () => {
-    it('should throw error as client is read-only', async () => {
-      await expect(client.unregister('agent-1')).rejects.toThrow('read-only')
-    })
-  })
 
   describe('discoverAgents', () => {
     it('should filter agents by minReputation', async () => {

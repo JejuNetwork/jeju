@@ -468,7 +468,12 @@ export class EncryptionProvider implements KMSProvider {
   }
 
   private async verifyOnChainCondition(
-    condition: AccessCondition,
+    condition:
+      | BalanceCondition
+      | StakeCondition
+      | RoleCondition
+      | AgentCondition
+      | ContractCondition,
     address: Address,
   ): Promise<boolean> {
     const rpcUrl = getEnv('KMS_RPC_URL')

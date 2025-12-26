@@ -7,6 +7,17 @@
  * - Phone number validation
  */
 
+import {
+  getAwsAccessKeyId,
+  getAwsRegion,
+  getAwsSecretAccessKey,
+  getAwsSnsSenderId,
+  getTwilioAccountSid,
+  getTwilioAuthToken,
+  getTwilioPhoneNumber,
+  isDevMode,
+  isTestMode,
+} from '@jejunetwork/config'
 import { keccak256, toBytes } from 'viem'
 import {
   generateOTP,
@@ -401,11 +412,7 @@ export class PhoneProvider {
     }
 
     // Dev mode or test environment - log to console
-    if (
-      this.config.devMode ||
-      process.env.NODE_ENV === 'development' ||
-      process.env.NODE_ENV === 'test'
-    ) {
+    if (this.config.devMode || isDevMode() || isTestMode()) {
       console.log(`[Phone Provider] Sending SMS to ${phone}:`)
       console.log(`  Message: ${message}`)
       return
@@ -424,12 +431,9 @@ export class PhoneProvider {
   }
 
   private async sendViaTwilio(phone: string, message: string): Promise<void> {
-    const accountSid =
-      this.config.twilioAccountSid ?? process.env.TWILIO_ACCOUNT_SID
-    const authToken =
-      this.config.twilioAuthToken ?? process.env.TWILIO_AUTH_TOKEN
-    const fromPhone =
-      this.config.twilioPhoneNumber ?? process.env.TWILIO_PHONE_NUMBER
+    const accountSid = this.config.twilioAccountSid ?? getTwilioAccountSid()
+    const authToken = this.config.twilioAuthToken ?? getTwilioAuthToken()
+    const fromPhone = this.config.twilioPhoneNumber ?? getTwilioPhoneNumber()
 
     if (!accountSid || !authToken || !fromPhone) {
       throw new Error(
@@ -466,14 +470,11 @@ export class PhoneProvider {
   }
 
   private async sendViaAwsSns(phone: string, message: string): Promise<void> {
-    const region =
-      this.config.awsRegion ?? process.env.AWS_REGION ?? 'us-east-1'
-    const accessKeyId =
-      this.config.awsAccessKeyId ?? process.env.AWS_ACCESS_KEY_ID
+    const region = this.config.awsRegion ?? getAwsRegion()
+    const accessKeyId = this.config.awsAccessKeyId ?? getAwsAccessKeyId()
     const secretAccessKey =
-      this.config.awsSecretAccessKey ?? process.env.AWS_SECRET_ACCESS_KEY
-    const senderId =
-      this.config.awsSenderId ?? process.env.AWS_SNS_SENDER_ID ?? 'Jeju'
+      this.config.awsSecretAccessKey ?? getAwsSecretAccessKey()
+    const senderId = this.config.awsSenderId ?? getAwsSnsSenderId()
 
     if (!accessKeyId || !secretAccessKey) {
       throw new Error(
